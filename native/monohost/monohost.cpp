@@ -69,7 +69,7 @@ static int RunChild() {
     }
     ResumeThread(pi.hThread);
     DWORD rc = 2;
-    if (WaitForSingleObject(pi.hProcess, GetEnvironmentVariableA("MONOHOST_JIT", NULL, 0) ? 900000 : 120000) == WAIT_TIMEOUT) {  // fail fast: init takes seconds
+    if (WaitForSingleObject(pi.hProcess, GetEnvironmentVariableA("MONOHOST_JIT", NULL, 0) || GetEnvironmentVariableA("MONOHOST_EQFAST", NULL, 0) ? 900000 : 120000) == WAIT_TIMEOUT) {  // fail fast: init takes seconds
         printf("child timed out after 120 s\n");
         TerminateProcess(pi.hProcess, 4);
     }
@@ -1014,7 +1014,8 @@ namespace mt {
 #pragma warning(disable : 4505)  // ts3native helpers the M5 code does not call here
 static DWORD g_mainTid;
 struct Ts3nCounters { LONG mtMode, mtReady, mtSimTid, mtSimRegistered, mtThreads, mtPushCalls, mtCtxFails, mtStacksPushed;
-    LONG sbLowHdr, sbVtGiveUp; };  // satb.cpp (#352 Satb struct this, counters v185)
+    LONG sbLowHdr, sbVtGiveUp;  // satb.cpp (#352 Satb struct this, counters v185)
+    LONG r2cOn, r2cDrainMs, r2cCloses, r2cIdle, r2cDrainReq, r2cDrained, r2cAborted, r2cSatb, r2cWaitUs, r2cWaitMaxUs, r2cLate, r2cGateAborts, r2cHeld, r2cReopens; };  // autraces.cpp R2c drain (counters v187)
 static Ts3nCounters ts3native_counters;
 static DWORD* g_curState = (DWORD*)(uintptr_t)0x011F4170;  // ts3native's current-state pointer, repointed by MtInstallP4
 static void Log(const char* fmt, ...) {
@@ -1065,6 +1066,12 @@ struct MfCtr { LONG mfReady, mfRuns, mfWhole, mfInner; };
 static MfCtr g_mfCtr;
 #define MF_CTR g_mfCtr
 #include "../ts3native/mintfuse.cpp"
+// [EqualsFast] (docs/258 option C): the plan code, run against EA's own InternalEquals by the MONOHOST_EQFAST corpus
+struct EqCtr { LONG eqOn, eqMode, eqHits, eqPlans, eqRejects, eqFtNull, eqFtType, eqFtKind, eqFtNew, eqFtBusy, eqFtFull, eqRejGeneric, eqRejKind, eqRejMany; };
+static EqCtr g_eqCtr;
+#define EQ_CTR g_eqCtr
+#define EQ_NO_INSTALL
+#include "../ts3native/equalsfast.cpp"
 static void* g_ilpNext;  // [IlPatch] (ilpatch.cpp) is not in the host: satb.cpp keeps its own cold site 0
 static void (*g_ilpColdEnter)(int site, DWORD arg0);
 #include "../ts3native/autshadow.cpp"
@@ -1918,7 +1925,82 @@ static void McBench() {
 #include "monohost-jit.cpp"  // docs/207 P0 method compiler (MONOHOST_JIT)
 static int M5PassBar() { return g_jitMode == 3 ? 4 : 10; }  // verify snapshots every call of a listed method: 15x fewer passes with Math.Min listed, same overlap
 
+// ---- docs/258 option C, MONOHOST_EQFAST=1: [EqualsFast] exactness corpus. HostTest.EqCorpusRun (EqCorpus.cs) boxes values of
+// every value type it can build from the game's assemblies and hands each pair to EqIc.Check = EqCheckIc: EA's InternalEquals
+// 0xE7A590 (no detour in the host), then the [EqualsFast] hook twice (the first call may learn the class through EA's field walk,
+// the second answers from its plan). A different answer, or a plan answer where EA boxed a field, is a mismatch.
+static LONG g_eqPairs, g_eqHitPairs, g_eqBad, g_eqEnumHits;
+static bool g_eqTrace;  // MONOHOST_EQTRACE=1: one line per pair before EA's call (finds a hang)
+static int __cdecl EqCheckIc(const u8* a, const u8* b) {
+    if (g_eqTrace) {
+        const u8* k = **(const u8* const* const*)a;
+        Log("eq pair %s.%s\n", *(const char* const*)(k + 0x38), *(const char* const*)(k + 0x34));
+    }
+    void* f0 = (void*)1;
+    const bool r0 = ((mt::EqFn)(uintptr_t)mt::EQ_ICALL)(a, b, &f0);
+    g_eqPairs++;
+    bool hit = false;
+    for (int rep = 0; rep < 2; rep++) {
+        void* f1 = (void*)1;
+        const LONG h0 = mt::g_eqCtr.eqHits;
+        const bool r1 = mt::EqHook(a, b, &f1);
+        hit = mt::g_eqCtr.eqHits != h0;
+        if (r1 != r0 || (hit && (f1 != NULL || f0 != NULL))) {
+            if (g_eqBad++ < 20) {
+                const u8* k = **(const u8* const* const*)a;
+                Log("EQ MISMATCH %s.%s call %d: EA %d (fields %p), fast %d (fields %p, plan answer %d)\n", *(const char* const*)(k + 0x38),
+                    *(const char* const*)(k + 0x34), rep + 1, r0, f0, r1, f1, hit);
+            }
+            return -1;
+        }
+    }
+    if (hit) {
+        g_eqHitPairs++;
+        if ((**(const u8* const* const*)a)[0x14] & 0x10) g_eqEnumHits++;  // klass+0x14 bit 4 = enumtype [inferred, mono-glue-map 0xE6B700]
+    }
+    return hit ? 1 : 0;
+}
+static bool EqQuickRun() {
+    char v[4] = "";
+    if (!GetEnvironmentVariableA("MONOHOST_EQFAST", v, sizeof(v)) || v[0] != '1') return false;
+    ((AddInternalCall)0xE82550)("MonoHostTest.EqIc::Check", (const void*)EqCheckIc);
+    g_eqTrace = GetEnvironmentVariableA("MONOHOST_EQTRACE", v, sizeof(v)) && v[0] == '1';
+    int st = -1;
+    void* img = LoadImageByName("MonoHostTest.dll");
+    if (img) ((AsmLoadFromFull)0xE68290)(img, "MonoHostTest.dll", &st, 0);
+    g_testK = Cls(img, "MonoHostTest", "HostTest");
+    mt::g_eqOrig = (mt::EqFn)(uintptr_t)mt::EQ_ICALL;
+    mt::g_eqCtr.eqMode = 1;
+    int seed = 12345, w0 = 0, w1 = 1, w2 = 2, w3 = 3;
+    void* a0[1] = {&w0}; void* a1[1] = {&w1}; void* a2[1] = {&w2}; void* a3[1] = {&w3};
+    const int nAsm = I32(T("EqCorpusInfo", 1, a3));
+    int n = 0;
+    for (int asmI = -1; asmI < nAsm; asmI++) {  // -1: the generic instances; then one game / BCL assembly per call
+        const DWORD t0 = GetTickCount();
+        void* args[2] = {&seed, &asmI};
+        const int got = I32(T("EqCorpusRun", 2, args));
+        n += got > 0 ? got : 0;
+        Log("eqfast corpus: assembly %d: %d pairs, %lu ms (total %ld checked, %ld plan answers, %ld mismatches)\n", asmI, got,
+            GetTickCount() - t0, g_eqPairs, g_eqHitPairs, g_eqBad);
+    }
+    int w4 = 4;
+    void* a4[1] = {&w4};
+    const int types = I32(T("EqCorpusInfo", 1, a0)), skipped = I32(T("EqCorpusInfo", 1, a1)), managedBad = I32(T("EqCorpusInfo", 1, a2));
+    const int ptrSkipped = I32(T("EqCorpusInfo", 1, a4));
+    const mt::EqCtr& k = mt::g_eqCtr;
+    Log("eqfast corpus: %d value types (%d skipped, %d with pointer fields left out), %d pairs from managed, %ld checked, %ld answered from a plan (%ld enum pairs), "
+        "%ld mismatches; plans %ld, not eligible %ld (not VALUETYPE %ld, field kind %ld, > 8 fields %ld); fall-through new %ld, "
+        "not eligible %ld, other vtable %ld, null %ld, busy %ld, full %ld\n", types, skipped, ptrSkipped, n, g_eqPairs, g_eqHitPairs, g_eqEnumHits,
+        g_eqBad, k.eqPlans, k.eqRejects, k.eqRejGeneric, k.eqRejKind, k.eqRejMany, k.eqFtNew, k.eqFtKind, k.eqFtType, k.eqFtNull,
+        k.eqFtBusy, k.eqFtFull);
+    Check("EQ-corpus-exact", n > 0 && g_eqBad == 0 && managedBad == 0, "%ld pairs, %ld mismatches (managed %d)", g_eqPairs, g_eqBad, managedBad);
+    Check("EQ-corpus-hits", g_eqHitPairs > 0 && g_eqEnumHits > 0 && k.eqPlans > 0 && k.eqRejects > 0,
+          "%ld plan answers (%ld enum), %ld plans, %ld not eligible", g_eqHitPairs, g_eqEnumHits, k.eqPlans, k.eqRejects);
+    return true;
+}
+
 static int SelfTest(void* domain) {
+    if (EqQuickRun()) return g_fail;
     if (JitQuickRun()) return 0;
     int rc = M13(domain);
     MintDump("m13");  // docs/139: the .cctor sweep = EA script code; the rest is HostTest code

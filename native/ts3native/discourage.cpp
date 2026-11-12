@@ -286,7 +286,8 @@ static bool UsfSuperseded(const DiscRec& r, u8* world) {
 }
 
 // Owner thread: applies every record in order. force = wait for a running job; else only when no job runs.
-static void DiscDrain(bool force) {
+// site (DS_*, docs/247 §13.4 C): the drain point, for the per-site wait counters v192 (dsN / dsUs / dsYield)
+static void DiscDrain(bool force, int site) {
     Ts3nCounters& k = ts3native_counters;
     if (!g_discCount || g_discDraining || GetCurrentThreadId() != g_async.owner) return;
     if (!force && g_async.state == A_RUNNING) return;
@@ -308,7 +309,13 @@ static void DiscDrain(bool force) {
     InterlockedExchangeAdd(&k.discDrainWaitUs, waited);
     HaNote(0x06000000, waited, HA_JOB);
     if (jobRan) RjnWait(0x06000000, waited, jobH);
-    if (jobRan) InterlockedIncrement(&k.discForced);
+    if (jobRan) {
+        InterlockedIncrement(&k.discForced);
+        const int ds = site >= 0 && site < DS_N ? site : DS_OTHER;
+        InterlockedIncrement(&k.dsN[ds]);
+        InterlockedExchangeAdd(&k.dsUs[ds], waited);
+        if (CanYield()) InterlockedIncrement(&k.dsYield[ds]);  // the task sat at its root: a managed caller could have slept
+    }
     const DWORD now = GetTickCount();
     while (g_discCount) {  // records added by an event handler meanwhile go to the tail and are applied too
         DiscRec r = g_disc[g_discHead];
@@ -335,9 +342,9 @@ static void DiscDrain(bool force) {
 static bool DiscPending() { return g_discCount != 0; }  // records still deferred (docs/134 §2.6 order check)
 
 // A drain point that is not a D1/D2 call: apply when no job runs, or when the oldest record is too old.
-static void DiscPoll() {
+static void DiscPoll(int site) {
     if (!g_discCount) return;
-    DiscDrain(GetTickCount() - g_disc[g_discHead].t >= kDiscMaxAgeMs);
+    DiscDrain(GetTickCount() - g_disc[g_discHead].t >= kDiscMaxAgeMs, site);
 }
 
 // RemovalFirst (docs/89 §18, [Discourage] RemovalFirst=1, 0 = off; no counter fields, the hotfix keeps the layout; log line
@@ -394,7 +401,7 @@ static int DiscDrainForPlan() {
     const bool ran = g_async.state == A_RUNNING;
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
-    DiscDrain(true);
+    DiscDrain(true, DS_PLAN);
     const LONG us = UsSince(t0);
     InterlockedIncrement(&k.sdDrains);
     InterlockedExchangeAdd(&k.sdRecs, n);
@@ -501,14 +508,14 @@ static u8 __fastcall DiscAddHook(void* world, void* edx, void* obj, void* points
     const int n = v && v[0] ? (int)((v[1] - v[0]) / 16) : 0;
     if (t_snapRun || !DiscWorldOk(world) || !obj || n < 3) return g_discAddOrig(world, edx, obj, points, high, allow, placement);  // early outs
     if (DiscDefer(true, obj, v[0], n, high, allow, placement)) return 1;
-    DiscDrain(true);  // older records first (no job runs, or the queue is full)
+    DiscDrain(true, DS_ADD);  // older records first (no job runs, or the queue is full)
     return g_discAddOrig(world, edx, obj, points, high, allow, placement);
 }
 
 static u8 __fastcall DiscRemoveHook(void* world, void* edx, void* obj) {
     if (t_snapRun || !DiscWorldOk(world) || !obj) return g_discRemoveOrig(world, edx, obj);  // early outs, P4 clone run
     if (DiscDefer(false, obj, NULL, 0, 0, 0, 0)) return 1;
-    DiscDrain(true);
+    DiscDrain(true, DS_REMOVE);
     return g_discRemoveOrig(world, edx, obj);
 }
 
@@ -548,7 +555,7 @@ static void __fastcall UsfHook(u8* world, void* edx, u8* obj, DWORD enable, DWOR
         for (int i = 0; i < g_discCount && !add; i++) add = g_disc[(g_discHead + i) % kDiscCap].add;
         // Remove and U records are managed-free (docs/84 §7.1, docs/89 §1), so they may be applied here; an Add may fire
         // World_FireEvent 0x11 and waits for an IC point: then this call runs out of order (counted)
-        if (!add) DiscDrain(true);
+        if (!add) DiscDrain(true, DS_USF);
         InterlockedIncrement(add ? &k.usfFullPass : &k.usfFullDrain);
         return g_usfOrig(world, edx, obj, enable, 1, arg);
     }
@@ -615,7 +622,7 @@ static void Fp2Hook(int kind, u8* world, u8* obj) {
     if (g_discCount == kDiscCap) {  // as design U: drain unless an Add (World_FireEvent 0x11) is queued
         bool add = false;
         for (int i = 0; i < g_discCount && !add; i++) add = g_disc[(g_discHead + i) % kDiscCap].add;
-        if (!add) DiscDrain(true);
+        if (!add) DiscDrain(true, DS_FP2);
         InterlockedIncrement(add ? &k.fp2FullPass : &k.fp2Forced);
         return Fp2Call(kind, world, obj);
     }
@@ -646,7 +653,8 @@ static void __fastcall UolHook(u8* world, void*, u8* obj) { Fp2Hook(2, world, ob
 static const DWORD UOF_FN = 0x00833680, UOF_SITE1 = 0x009462D4, UOF_SITE2 = 0x0094630A;
 typedef void(__fastcall* UofFn)(void* world, void* edx, void* obj);
 static UofFn g_uof = (UofFn)(uintptr_t)UOF_FN;
-static void UolFlushFor(u8* world, const u8* obj) {
+// site (docs/247 §13.4 C, counters v192 lrs*): 0 = the call at UOF_SITE1, 1 = UOF_SITE2 (event 9's 0x946160)
+static void UolFlushFor(u8* world, const u8* obj, int site) {
     Ts3nCounters& k = ts3native_counters;
     const DWORD me = GetCurrentThreadId();
     if (!obj || !g_discCount || g_discDraining || me != g_async.owner || t_snapRun || (void*)(world + 0x918) != g_rgLock || !DiscWorldOk(world)) return;
@@ -663,13 +671,19 @@ static void UolFlushFor(u8* world, const u8* obj) {
     if (g_inInvoke || k.rgOwnerTid == (LONG)me) { InterlockedIncrement(&k.fp2lrOrderMiss); return; }
     if (add) InterlockedIncrement(&k.fp2lrOrderMiss);
     InterlockedIncrement(&g_rgOffSimOpen);  // no job starts until the flush is done
+    const LONG us0 = k.fp2lrFlushUs;  // sim thread only adds to it
     RtWaitJob(&k.fp2lrFlushUs, 0x02000000 | 0x40);
+    const LONG waited = k.fp2lrFlushUs - us0;
+    InterlockedIncrement(&k.lrsN[site]);
+    InterlockedExchangeAdd(&k.lrsUs[site], waited);
+    if (CanYield()) InterlockedIncrement(&k.lrsYieldN), InterlockedExchangeAdd(&k.lrsYieldUs, waited);
     DiscApplyFor(idLo, idHi, n0, false);
     RgOffSimDrop();
     InterlockedIncrement(&k.fp2lrFlush);
 }
 static void __fastcall UofSite(u8* world, void*, u8* obj) {
-    if (ts3native_counters.fp2lrMode == 1) UolFlushFor(world, obj);
+    // our call replaced EA's `call 0x833680` at UOF_SITE1 / UOF_SITE2, so the return address names the site
+    if (ts3native_counters.fp2lrMode == 1) UolFlushFor(world, obj, (DWORD)(uintptr_t)_ReturnAddress() == UOF_SITE2 + 5 ? 1 : 0);
     g_uof(world, NULL, obj);
 }
 
@@ -678,7 +692,7 @@ static bool Fp2FlushFor(const u8* obj) {
     const DWORD me = GetCurrentThreadId();
     if (!obj || !g_discCount || g_discDraining || me != g_async.owner || ts3native_counters.rgOwnerTid == (LONG)me) return false;
     if (DiscLastOf(*(const DWORD*)(obj + 8), *(const DWORD*)(obj + 0xC)) < 0) return false;
-    DiscDrain(true);
+    DiscDrain(true, DS_FP2READ);
     InterlockedIncrement(&ts3native_counters.fp2Forced);
     return true;
 }
@@ -710,7 +724,7 @@ static int PfRemoveDefer(u8* world, u8* obj, DWORD flag) {
     if (g_discCount == kDiscCap) {  // as design U: drain unless an Add (World_FireEvent 0x11) is queued, then the call now
         bool add = false;
         for (int i = 0; i < g_discCount && !add; i++) add = g_disc[(g_discHead + i) % kDiscCap].add;
-        if (!add) DiscDrain(true);
+        if (!add) DiscDrain(true, DS_PF);
         else InterlockedIncrement(&k.pfFullPass);
         return -1;
     }
@@ -895,7 +909,7 @@ static void FpgCensus(int loadNo) {
     u8* world = *g_fpgWorldSlot;
     if (!DiscWorldOk(world)) { Log("ghost census: world load #%d skipped, no routing world", loadNo); return; }
     void* lock = world + 0x918;
-    DiscDrain(true);
+    DiscDrain(true, DS_FPGCENSUS);
     InterlockedIncrement(&g_rgOffSimOpen);  // no job starts during the pass
     if (g_async.state == A_RUNNING && GetCurrentThreadId() != g_async.owner) {
         RgOffSimDrop();
@@ -978,11 +992,11 @@ static u8 FpgOp(int op, DWORD v) {
         case 24: g_fpgId[1] = v; return 1;
         case 25:
             if (!DiscWorldOk(world)) return 0;
-            DiscDrain(true);
+            DiscDrain(true, DS_FPGOP);
             return FpgMapHas(world, g_fpgId[0], g_fpgId[1]);
         case 26: {
             if (!DiscWorldOk(world)) return 0;
-            DiscDrain(true);
+            DiscDrain(true, DS_FPGOP);
             InterlockedIncrement(&g_rgOffSimOpen);
             WaitAsyncDone(SW_DISC);
             static const DWORD kInfinite = 0xFFFFFFFF;

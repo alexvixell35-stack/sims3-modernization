@@ -310,8 +310,16 @@ static void Fix(u8* rel, const u8* target) { *(int*)rel = (int)(target - (rel + 
 struct JitMeth;
 struct JitEnt { DWORD ip; u8* native; DWORD orig; JitMeth* m; };
 static_assert(sizeof(JitEnt) == 16 && offsetof(JitEnt, native) == 4 && offsetof(JitEnt, orig) == 8, "JitEnter reads these offsets");
-static const DWORD JIT_TAB_N = 1 << 15;  // JitEnter's mask
-static const int JIT_METH_N = 2048, JIT_POS_N = 24576, JIT_MAX_POS = 4000, JIT_MAX_WORDS = 16384, JIT_CODE_BYTES = 2 << 20;
+// R1 (docs/537 §20.0): the table and the positions doubled with the code region ([MonoJit] CodeKB): at ~21 positions a body
+// the old 24576 positions held ~1170 bodies, about what a 2 MB region held, so a larger region alone would stop at "position table full"
+static const DWORD JIT_TAB_N = 1 << 16;  // JitEnter's mask
+static const int JIT_METH_N = 2048, JIT_POS_N = 49152, JIT_MAX_POS = 4000, JIT_MAX_WORDS = 16384;
+static size_t g_jitCodeBytes = 2 << 20;  // [MonoJit] CodeKB (JitCodeBytes); the selftest keeps 2 MB
+static const int JIT_REF_REASONS = 16, JIT_REF_NAMES = 32;  // R1: refusal reasons tracked, names logged per reason
+struct JitRefWhy { const char* why; LONG n; };
+static JitRefWhy g_jitRefWhy[JIT_REF_REASONS];  // under g_jitCs
+static int g_jitRefWhyN;
+static LONG g_jitRefSave = -1, g_jitRefLogged;  // JitTick: saveCount and jitRefused at the last summary
 struct JitMeth { u8* rm; unsigned short* code; int words; int pos0, posN; char name[96]; int nativeOps, exitOps, bytes; u8* native0; bool verifyOk, dead; DWORD tick; };
 struct JitFix { u8* rel; int targetW; bool abs; };  // abs: a switch table slot takes the label itself
 // posReal: an EA instruction start (dispatch can land there), not a superop's inner position
@@ -1156,7 +1164,10 @@ static const char* JitCompile(u8* rm) {
     // bound: 256 bytes per position, as the host's pool check (a lazy site in both bodies: 768); a switch's table is 2 bytes
     // per mint word it takes
     const size_t need = ((g_jitLazy ? 768 : 256) + (g_jcn ? 256 : 0)) * (size_t)n + 2 * (size_t)words + 512;  // count mode: an inc per position and exit, bail counters
-    if ((size_t)(g_jitCodeEnd - (g_jitCode + g_jitCodeUsed)) < need) return "code region full";
+    if ((size_t)(g_jitCodeEnd - (g_jitCode + g_jitCodeUsed)) < need) {
+        ts3native_counters.jitFullN++, ts3native_counters.jitFullBytes += (LONG)need;  // R1: what a larger region would have to hold
+        return "code region full";
+    }
     u8* const start = g_jitCode + g_jitCodeUsed;
     JitProt(start, need, PAGE_READWRITE);  // from the end of the last method on: no finished code lives here (its last page flips below)
     u8** const label = g_js->label;
@@ -1647,7 +1658,7 @@ static __declspec(naked) void JitEnter() {
     __asm {
         mov eax, edi
         shr eax, 1
-        and eax, 0x7FFF            // JIT_TAB_N - 1
+        and eax, 0xFFFF            // JIT_TAB_N - 1
         shl eax, 4
         add eax, g_jitTab
     probe:
@@ -2388,6 +2399,24 @@ static const char* JitOne(BYTE* rm, void* ctx, char* name, int nameN, char* note
     if (why && g_jcn) g_jcn->siteN = s0, g_jcn->bailN = b0;  // count mode: a refused method leaves no rows
     return why;
 }
+// R1 (docs/537 §20.0): a reason's slot in g_jitRefWhy (== g_jitRefWhyN: not there yet); under g_jitCs
+static int JitRefSlot(const char* why) {
+    int r = 0;
+    while (r < g_jitRefWhyN && strcmp(g_jitRefWhy[r].why, why)) r++;
+    return r;
+}
+// one line: every reason with its count, the region and the "code region full" bound; under g_jitCs
+static void JitRefSummary(const char* when) {
+    char line[1024];
+    int n = _snprintf_s(line, _TRUNCATE, "jit: refusals by reason (%s):", when);
+    for (int r = 0; r < g_jitRefWhyN && n > 0; r++) {
+        const int k = _snprintf_s(line + n, sizeof(line) - n, _TRUNCATE, "%s %s %ld", r ? "," : "", g_jitRefWhy[r].why, g_jitRefWhy[r].n);
+        n = k < 0 ? -1 : n + k;
+    }
+    const Ts3nCounters& C = ts3native_counters;
+    Log("%s%s; code region %lu of %ld KB, %d methods, %ld refused \"code region full\" asking %ld KB", line, g_jitRefWhyN ? "" : " none",
+        (unsigned long)(g_jitCodeUsed >> 10), C.jitRegionKB, g_jitMethN, C.jitFullN, C.jitFullBytes >> 10);
+}
 static void __cdecl JitPostPass(BYTE* rm, void* ctx) {
     if (g_jitDead) return;
     char name[256] = "?", note[64] = "";
@@ -2398,15 +2427,20 @@ static void __cdecl JitPostPass(BYTE* rm, void* ctx) {
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         g_jitDead = true;
         ts3native_counters.jitFaults++;
-        JitProt(g_jitCode, JIT_CODE_BYTES, PAGE_EXECUTE_READ);
+        JitProt(g_jitCode, g_jitCodeBytes, PAGE_EXECUTE_READ);
         Log("jit: fault 0x%08lX while compiling %s: no more compiles this session", GetExceptionCode(), name);
     }
-    LeaveCriticalSection(&g_jitCs);
-    if (why) {
+    if (why) {  // R1: own cap per reason (they shared the compile lines' 256 and lost: docs/537 §20.0)
         ts3native_counters.jitRefused++;
-        if (g_jitLogN++ < 256) Log("jit: %s refused: %s%s", name, why, note);
+        const int r = JitRefSlot(why);
+        if (r == g_jitRefWhyN && r < JIT_REF_REASONS) g_jitRefWhy[g_jitRefWhyN++].why = why;  // reasons are literals: the pointer lives
+        const LONG k = r < g_jitRefWhyN ? ++g_jitRefWhy[r].n : 0;  // 0: a 17th reason, counted in jitRefused only
+        if (k && k <= JIT_REF_NAMES) Log("jit: %s refused: %s%s (#%ld of this reason)", name, why, note, k);
+        else if (k == JIT_REF_NAMES + 1) Log("jit: refused: more than %d \"%s\", names not logged from here on (counts: jitRefused, the per-reason summary)", JIT_REF_NAMES, why);
     }
+    LeaveCriticalSection(&g_jitCs);
 }
+static size_t JitCodeBytes(int kb) { return (size_t)(kb < 1024 ? 1024 : kb > 16384 ? 16384 : kb) << 10; }  // [MonoJit] CodeKB, 1-16 MB
 // End of every Simulate iteration (sim thread): names the sim thread, applies jitSwitch
 static void __cdecl JitTick() {
     if (!g_jitSimTid) {
@@ -2414,6 +2448,13 @@ static void __cdecl JitTick() {
         g_jitSimTid = GetCurrentThreadId();
         LeaveCriticalSection(&g_jitCs);
         Log("jit: sim thread %lu, %d methods compiled before the first tick", g_jitSimTid, g_jitMethN);
+    }
+    if (ts3native_counters.saveCount != g_jitRefSave) {  // R1: the per-reason summary at the first tick and after a save, when it moved
+        const bool first = g_jitRefSave < 0;
+        g_jitRefSave = ts3native_counters.saveCount;
+        EnterCriticalSection(&g_jitCs);
+        if (first || ts3native_counters.jitRefused != g_jitRefLogged) JitRefSummary(first ? "first tick" : "save"), g_jitRefLogged = ts3native_counters.jitRefused;
+        LeaveCriticalSection(&g_jitCs);
     }
     const bool on = ts3native_counters.jitSwitch != 0;
     if (on != g_jitPatched) JitSetPatched(on);
@@ -2457,7 +2498,7 @@ static bool JitAlloc() {
     const size_t tab = sizeof(JitEnt) * (JIT_TAB_N + 4096), meth = sizeof(JitMeth) * JIT_METH_N, pos = 2 * sizeof(unsigned short) * JIT_POS_N;
     const size_t cells = sizeof(JitLazyCell) * JIT_CELL_N, guards = sizeof(JitGuardSite) * JIT_GUARD_N;
     const size_t data = (tab + meth + pos + cells + guards + sizeof(JitScratch) + 0xFFF) & ~(size_t)0xFFF;
-    u8* p = (u8*)VirtualAlloc(NULL, data + JIT_CODE_BYTES, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    u8* p = (u8*)VirtualAlloc(NULL, data + g_jitCodeBytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (!p) return false;
     g_jitTab = (JitEnt*)p;
     g_jitMeth = (JitMeth*)(p + tab);
@@ -2466,7 +2507,7 @@ static bool JitAlloc() {
     g_jitLazyCell = (JitLazyCell*)(p + tab + meth + pos);
     g_jitGuard = (JitGuardSite*)(p + tab + meth + pos + cells);
     g_js = (JitScratch*)(p + tab + meth + pos + cells + guards);
-    g_jitCode = p + data, g_jitCodeEnd = g_jitCode + JIT_CODE_BYTES, g_jitCodeUsed = 0;
+    g_jitCode = p + data, g_jitCodeEnd = g_jitCode + g_jitCodeBytes, g_jitCodeUsed = 0;
     return true;
 }
 static_assert(JIT_POS_N <= (int)(JIT_TAB_N * 3 / 4), "the ip table stays under 3/4 full");
@@ -2504,7 +2545,7 @@ static void JitCaptureOn(const wchar_t* ini) {
     Log("OK   mono jit capture (docs/537 §17, §19): sampled at JitEnter%s%s", g_jitLazy ? ", lazy bodies" : "", g_jitInline ? ", inlined sites" : "");
 }
 
-// ts3native.ini [MonoJit] Enabled=1, Mode=1 compiled | 2 verify, VerifyEvery=<n>, Groups=<mask>, List=<names>, Direct=1 lazy frames,
+// ts3native.ini [MonoJit] Enabled=1, Mode=1 compiled | 2 verify, VerifyEvery=<n>, CodeKB=<KB> the code region (R1, default 4096), Groups=<mask>, List=<names>, Direct=1 lazy frames,
 // DirectLeaf=1 leaves only, Trap=1 the reader trap (TrapEvery=<n>), Inline=1|2 tiny callees at compiled call sites, Wide=1 the S5 templates and methods with clauses, Capture=1 argument samples to CaptureFile=<path> (docs/537 §17; CaptureFirst, CaptureReservoir, CaptureDepth, CaptureObjs, CaptureBytes, CaptureObjMax, CaptureBudgetUs, CaptureMaxMb). true = installed (keep the log). After every other code
 // patch, before [AutShadow] (docs/527 §4.1), and only on the Steam 1.67 exe.
 static bool ApplyMonoJit(const wchar_t* ini) {
@@ -2528,7 +2569,9 @@ static bool ApplyMonoJit(const wchar_t* ini) {
     if ((g_jitVtOps = GetPrivateProfileIntW(L"MonoJit", L"VtOps", 0, ini) != 0)) g_jitGroups |= 1024;  // docs/537 §20 B1
     const int templates = JitTemplates((unsigned)g_jitGroups);
     if (!templates) { Log("SKIP mono jit: no template matches EA's opcode names"); return false; }
-    if (!JitAlloc()) { Log("SKIP mono jit: no address space for the region"); return false; }
+    g_jitCodeBytes = JitCodeBytes(GetPrivateProfileIntW(L"MonoJit", L"CodeKB", 4096, ini));  // R1, docs/537 §20.0
+    C.jitRegionKB = (LONG)(g_jitCodeBytes >> 10);
+    if (!JitAlloc()) { Log("SKIP mono jit: no address space for the region (%ld KB)", C.jitRegionKB); return false; }
     if (mode == 2) g_jitV = (JitV*)VirtualAlloc(NULL, sizeof(JitV) * JIT_VD, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (mode == 2 && !g_jitV) { Log("SKIP mono jit: no memory for the verifier"); return false; }
     InitializeCriticalSection(&g_jitCs);
@@ -2569,6 +2612,6 @@ static bool ApplyMonoJit(const wchar_t* ini) {
     C.jitSwitch = 1;
     C.jitOn = mode;
     g_ilpPost = JitPostPass;
-    Log("OK   mono jit (docs/527): Mode=%d, %d templates (Groups=%d), %d list rows%s, VerifyEvery=%lu, code region %d KB, Direct=%ld (docs/537), Trap=%d, VtOps=%d, CallExit=%d, NewVt=%d, Count=%d, FastCopy=%d, Ldsflda=%d", mode, templates, g_jitGroups, g_jitRowN, g_jitUserN ? " narrowed by List=" : "", g_jitEvery, JIT_CODE_BYTES >> 10, C.jitDirect, g_jitTrap ? 1 : 0, g_jitVtOps ? 1 : 0, g_jitCallExit ? 1 : 0, g_jitNewVt ? 1 : 0, g_jcn ? 1 : 0, g_jitFastCopy ? 1 : 0, g_jitLdsflda ? 1 : 0);
+    Log("OK   mono jit (docs/527): Mode=%d, %d templates (Groups=%d), %d list rows%s, VerifyEvery=%lu, code region %lu KB (CodeKB), Direct=%ld (docs/537), Trap=%d, VtOps=%d, CallExit=%d, NewVt=%d, Count=%d, FastCopy=%d, Ldsflda=%d", mode, templates, g_jitGroups, g_jitRowN, g_jitUserN ? " narrowed by List=" : "", g_jitEvery, (unsigned long)(g_jitCodeBytes >> 10), C.jitDirect, g_jitTrap ? 1 : 0, g_jitVtOps ? 1 : 0, g_jitCallExit ? 1 : 0, g_jitNewVt ? 1 : 0, g_jcn ? 1 : 0, g_jitFastCopy ? 1 : 0, g_jitLdsflda ? 1 : 0);
     return true;
 }

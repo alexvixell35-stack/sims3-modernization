@@ -51,6 +51,7 @@ Less stutter, mostly by skipping work nobody can see:
 - **More free address space.** Threads the game starts itself reserve 512 KB of stack instead of 1 MB, which gave back about 45 MB in old-save runs.
 - **Less memory held by old outfit textures (`[CasTrim] Mode=3`).** Right after each save, outfit textures the game's own save left out are let go, never ones your household or selected Sim needs. Your saves do not change.
 - **Fewer crashes on loading screens (EA bug, `[MonoSigGuard]`).** When a loading screen stayed up longer than 2 seconds (travel, world load), the game could read one value past the end of a small block of memory and crash; the plugin now checks first, with the same result the game always gave.
+- **The Steam launcher no longer stays running after you close it (`[LauncherFix]`).** `Sims3LauncherW.exe` kept one CPU core busy after its window closed, waiting forever for an upload of `Sims3Logs.xml` to EA's telemetry service, which no longer answers. In the launcher only, the plugin skips that upload; the game itself is not changed.
 - **Crash detector for saves and travel (`[CasTrim] Detect=1`).** Checks the game's outfit list at each save and only writes to `ts3native.log`. If the game crashes during a save or while travelling, please send `ts3native.log`.
 
 Everything else in `ts3native.ini` is **off**: experiments still being tested. Leave them off unless you want to help test, and keep backups.

@@ -95,7 +95,7 @@ static void TestUserDiag() {
             }
             UdTextMsg(0, kUdTextHi | 2 << 16);
         };
-        assert(UdHitchLine("boatreplan: 9 ms") && UdHitchLine("owreset: x") && UdHitchLine("alarmtime: x") && UdHitchLine("lotpass: x") && !UdHitchLine("ufplan: x") && !UdHitchLine("play: x"));
+        assert(UdHitchLine("boatreplan: 9 ms") && UdHitchLine("gangway: 4 ms, Exit") && !UdHitchLine("gangways: x") && UdHitchLine("owreset: x") && UdHitchLine("alarmtime: x") && UdHitchLine("lotpass: x") && !UdHitchLine("ufplan: x") && !UdHitchLine("play: x"));
         const LONG lines = g_udTxtLines;
         g_udTxtLines = 400;
         send("play: past the cap");

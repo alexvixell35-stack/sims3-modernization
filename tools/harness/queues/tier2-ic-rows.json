@@ -294,7 +294,7 @@
     },
     {
       "id": "ip-t2e-houseboat-dry",
-      "note": "Dry compare of the E rows (#7 GetTilesWithFloorFeatures, #15 FindPondRepresentativePositions, #16 GetLotLocationAtFloor, #21 WorldToHouseboat, plus the houseboat row HouseboatToWorld with Tier2HouseboatRow=1 and the autofflot lot pick), Baseline-IP-Spring, 10 min: PASS = 0 crashes, no freeze; the log shows Tier2IcNew=15 Tier2HouseboatRow=1; autoff_t2ic_mis == 0 and autoff_t2ic_exc == 0 (gate: 0 mismatches over slots 0-19), autoff_t2ic_eq > 0; autshadow A1-A3 still 0 and autoff_t2_a2 == 0. Lot pick: autoff_lot_exc == 0; read autoff_lot_* for dry mismatches (houseboat lots of the active household abort, docs/208 §9.2). Any mismatch: off-t2ic records (slot 15-19 = IcG5, docs/data/tier2-enablers-handoff.md) in autshadow.jsonl, triage before the next job.",
+      "note": "Dry compare of the E rows (#7 GetTilesWithFloorFeatures, #15 FindPondRepresentativePositions, #16 GetLotLocationAtFloor, #21 WorldToHouseboat, plus the houseboat row HouseboatToWorld with Tier2HouseboatRow=1 and the autofflot lot pick), Baseline-IP-Spring, 10 min: PASS = 0 crashes, no freeze; the log shows Tier2IcNew=15 Tier2HouseboatRow=1; autoff_t2ic_mis == 0 and autoff_t2ic_exc == 0 (gate: 0 mismatches over slots 0-19), autoff_t2ic_eq > 0; autshadow A1-A3 still 0 and autoff_t2_a2 == 0. Lot pick: autoff_lot_exc == 0; autoff_lot_a0 >= 1 (gate, docs/208 §9.5: the active household's houseboat answer is taken on the sim thread at the cut, so IP picks no longer abort on Dregg's Atlantis; needs a pair whose ts3fixes carries that build, the tier2mask1108 package predates it); read autoff_lot_* for dry mismatches. Any mismatch: off-t2ic records (slot 15-19 = IcG5, docs/data/tier2-enablers-handoff.md) in autshadow.jsonl, triage before the next job.",
       "asi": "game-copy/ts3native.asi.tier2mask1108",
       "fixesPackage": "game-copy/ts3fixes.package.tier2mask1108",
       "pinReason": "tier2mask1108 pair (asi + fixes + agent): E1 write mask + E2 ulong[] rows (docs/data/tier2-enablers-handoff.md); queue.ts refuses the job until the pair files exist",
@@ -342,7 +342,7 @@
           "minutes": 10,
           "seed": 12345,
           "fixesOn": "autshadow,autofft2,autofft2ic,autofflot",
-          "fixesRequire": "autoff_t2ic_items>=1,autoff_t2ic_eq>=1,autoff_t2ic_mis<1,autoff_t2ic_exc<1,autoff_t2_a2<1,autoff_t2_exc<1",
+          "fixesRequire": "autoff_t2ic_items>=1,autoff_t2ic_eq>=1,autoff_t2ic_mis<1,autoff_t2ic_exc<1,autoff_t2_a2<1,autoff_t2_exc<1,autoff_lot_exc<1,autoff_lot_a0>=1",
           "repros": [
             "tier2-ic-rows-dry"
           ]

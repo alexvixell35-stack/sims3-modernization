@@ -9,7 +9,8 @@
 // Output: docs/data/jit-hot.csv (one row per sampled method) and a summary with the coverage at each threshold.
 //   node tools/jit-hot.ts [--count <monohost.exe.log>] [--threshold 1.0] [--csv docs/data/jit-hot.csv] [--write]
 //   node tools/jit-hot.ts --emit-native <dir with the EA dlls> [--csv docs/data/jit-hot.csv] [--out native/ts3native/monojit-list.h]: the
-//      [MonoJit] built-in list, the compile rows of the csv with size and SHA-256 of every overload's IL body (docs/527 §4.2)
+//      [MonoJit] built-in list, the compile rows of the csv with size and SHA-256 of every overload's IL body (docs/527 §4.2); overloads
+//      whose signature is in docs/data/binder-bodies.csv (EA native bodies, never run as mint in game) are left out (docs/537 §20.2 C2c)
 //   node tools/jit-hot.ts --coverage <monohost.exe.log> [--list native/ts3native/monojit-list.h]: docs/data/jit-call-edges.csv, the edges a [MonoJit] Direct build
 //      takes lazily with that list (callee's lazy body from the log's jitlazy rows, a count run with MONOHOST_JITLAZY=1)
 //   node tools/jit-hot.ts --game-count <ts3native.log> [--out <host-style.log>]: the last complete `jitcount: begin` .. `end` block of a
@@ -180,12 +181,15 @@ export function ilCode(b: Buffer, p: number): Buffer {
 }
 export type NativeRow = { key: string; size: number; sha: string };
 const ilRow = (key: string, il: Buffer): NativeRow => ({ key, size: il.length, sha: createHash('sha256').update(il).digest('hex') });
-// every overload of frame "ns.Class.Method" (Class.Method = key) with an IL body
-export function rowsOf(a: Asm, frame: string, key: string): NativeRow[] {
+// docs/537 §20.2 C2c: managed signatures EA binds to a native body (docs/data/binder-bodies.csv): the interpreter calls that body
+// at RuntimeMethod+0x24, so a compiled mint of these overloads never runs in game (I-475-4)
+export const binderSigs = (csv: string) => new Set(csv.split(/\r?\n/).slice(1).filter(l => l.trim()).map(l => csvFields(l)[4]));
+// every overload of frame "ns.Class.Method" (Class.Method = key) with an IL body, minus the binder-bound ones (`bound`, by signature)
+export function rowsOf(a: Asm, frame: string, key: string, bound: Set<string> = new Set()): NativeRow[] {
   const dot = key.indexOf('.'), cls = key.slice(0, dot), name = key.slice(dot + 1), ns = frame.slice(0, -key.length - 1);
   const out: NativeRow[] = [];
   for (const t of a.types) if (t.name === cls && t.ns === ns)  // a nested type's frame has no namespace, so "Enumerator" is several types
-    for (const m of t.methods) if (m.name === name && m.rva) out.push(ilRow(key, ilCode(a.buf, rva(a, m.rva))));
+    for (const m of t.methods) if (m.name === name && m.rva && !bound.has(m.id)) out.push(ilRow(key, ilCode(a.buf, rva(a, m.rva))));
   return out.filter((r, i) => out.findIndex(x => x.sha === r.sha) === i);
 }
 export function nativeHeader(rows: NativeRow[], csv: string): string {
@@ -257,6 +261,11 @@ function selfCheck() {
   ok(h.includes('{"A.B", 1, {0x4b, 0xf5, ') && h.includes('kJitRowN'), 'native row: the SHA-256 of the IL');
   const fake = { sections: [{ va: 0x1000, size: 16, raw: 0 }], buf: tiny, types: [{ name: 'C', ns: 'N', methods: [{ name: 'M', rva: 0x1001 }, { name: 'M', rva: 0 }, { name: 'X', rva: 0x1001 }] }] } as unknown as Asm;
   ok(rowsOf(fake, 'N.C.M', 'C.M').length === 1 && rowsOf(fake, 'O.C.M', 'C.M').length === 0, 'overloads with a body, in the namespace of the frame');
+  const two = { ...fake, buf: Buffer.from([0x0A, 7, 8, 0x06, 9]), types: [{ name: 'C', ns: 'N', methods: [{ name: 'M', rva: 0x1000, id: 'N.C::M(int)' }, { name: 'M', rva: 0x1000, id: 'N.C::M(long)' }, { name: 'M', rva: 0x1003, id: 'N.C::M(byte)' }] }] } as unknown as Asm;
+  const bs = binderSigs('index,address,adapter,hash,managed_signature,class\n8,0xD9B500,0xD9B540,03235aef,"N.C::M(long)",reader\n9,0x1,0x2,0a,"N.C::M(byte)",reader\n');
+  ok(bs.size === 2 && bs.has('N.C::M(long)') && !bs.has('N.C::M(int)'), 'binder signatures from the csv (quoted, commas inside)');
+  ok(rowsOf(two, 'N.C.M', 'C.M').length === 2 && rowsOf(two, 'N.C.M', 'C.M', bs).length === 1, 'C2c: a bound-only body is left out, a body shared with an unbound overload stays');
+  ok(rowsOf(two, 'N.C.M', 'C.M', new Set(['N.C::M(int)', 'N.C::M(long)', 'N.C::M(byte)'])).length === 0, 'C2c: every overload bound = no row');
   const ed = edgeRows('h\nN.A,N.B,call,100,0,yes,6,1,0,no,no,no,direct,x,y\nN.A,N.C,callvirt,50,0,yes,6,1,0,no,no,no,class guard,x,y\nN.Z,N.B,call,7,0,yes,6,1,0,no,no,no,direct,x,y\nN.A,N.D,call,3,0,yes,6,1,0,no,no,no,direct,x,y\n');
   const cv = coverage(ed, new Set(['A', 'B', 'C', 'D']), lazyRows('jitlazy leaf N.B\njitlazy chain N.C\njitlazy chain N.D\njitlazy leaf N.D\n'));
   ok(cv.total === 160 && cv.leaf.length === 1 && cv.leaf[0].calls === 100 && cv.chain.length === 2, 'coverage: leaf direct, chain and guard, an unlisted caller left out, chain wins over a leaf instantiation');
@@ -297,17 +306,24 @@ if (process.argv[1] && /jit-hot\.ts$/.test(process.argv[1])) {
     const dir = arg('--emit-native')!, csv = arg('--csv') ?? 'docs/data/jit-hot.csv', out = arg('--out') ?? 'native/ts3native/monojit-list.h';
     const hot = readFileSync(resolve(ROOT, csv), 'utf8').split(/\r?\n/).slice(1).filter(l => l.trim()).map(csvFields).filter(f => f[13].startsWith('compile'));
     const asms = new Map<string, Asm>(), rows: NativeRow[] = [];
+    const bound = binderSigs(readFileSync(resolve(ROOT, 'docs/data/binder-bodies.csv'), 'utf8'));
+    let methods = 0, dropped = 0;
     for (const f of hot) {
-      const r = f[8].split('+').flatMap(name => {  // an Enumerator frame merges assemblies
+      const of = (b?: Set<string>) => f[8].split('+').flatMap(name => {  // an Enumerator frame merges assemblies
         if (!asms.has(name)) asms.set(name, loadStandalone(join(dir, name + '.dll'), name));
-        return rowsOf(asms.get(name)!, f[2], f[1]);
+        return rowsOf(asms.get(name)!, f[2], f[1], b);
       });
-      if (!r.length) throw new Error(`no IL body for ${f[2]} in ${f[8]}`);
+      const all = of(), r = of(bound);
+      if (!all.length) throw new Error(`no IL body for ${f[2]} in ${f[8]}`);
+      dropped += all.length - r.length;
+      if (all.length > r.length) console.log(`${f[1].padEnd(60)} binder: native body, ${all.length - r.length} of ${all.length} bodies left out (docs/537 §20.2)`);
+      if (!r.length) continue;
+      methods++;
       rows.push(...r);
       console.log(`${f[1].padEnd(60)} ${r.length} overload(s), IL ${r.map(x => x.size).join(' ')}`);
     }
     writeFileSync(resolve(ROOT, out), nativeHeader(rows, csv));
-    console.log(`wrote ${out}: ${hot.length} methods, ${rows.length} bodies`);
+    console.log(`wrote ${out}: ${methods} methods, ${rows.length} bodies (${dropped} binder-bound bodies left out)`);
   } else {
     const threshold = +(arg('--threshold') ?? 1);
     const rows = ranking(readFileSync(resolve(ROOT, 'docs/data/compile-candidates.csv'), 'utf8'));

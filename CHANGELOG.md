@@ -31,6 +31,16 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 - **Routing fallback could mix up two Sims' plans** (PR #306, by Dalexlol): while one Sim's plan was paused, its result could be applied to another Sim's plan. Each plan now keeps its own result. Not tested in game yet.
 
+### Test features in plugin 0.36.248 (all off by default, not tested in game yet)
+
+- **Faster equality checks for enums and small number-only structs (`[EqualsFast] Enabled=1`, test feature, off, plugin 0.36.248).** Every time a script compares two enum values or two small structs, the game walks the type's fields and takes a global Mono lock it shares with the background threads, several times per compare. With this switch the plugin remembers, once per type, where the number fields are, and compares those bytes with no walk and no lock. Only types made purely of 32/64-bit integers use it; everything else (floats, text, references, generics) still goes through the game's own code. Gives the same answer as the game on all 61159 test pairs from the game's own types (docs/258 §7); speed not measured yet.
+- **Script compiler: bigger code region and a refusal log (`[MonoJit] CodeKB`, only with `[MonoJit] Enabled=1`, which stays off).** The compiled-code area grows from 2 MB to 4 MB (it was full in every test run), refused methods are logged per reason, and 12 methods the game already runs as native code are no longer compiled.
+- **Faster type lookups in the game's own code (`[Binder] TypeHandleDirect=1`, off).** The game's `Type.GetTypeFromHandle` reads the handle directly instead of a round trip into the script engine; the same result for every handle in the self-test.
+- **Background scoring stops cleanly when you leave a world (`[AutShadow] Races` bit 2, off).** On travel, world load or quit, a background scoring job still running gets up to `DrainMs` (250 ms) to finish, else its result is dropped.
+- **Unseen townies wait instead of planning while another route search holds the lock (`[GoalValidRO] UnseenDefer=1`, off).** Only for Sims you don't play and can't see; your household, the selected Sim and any Sim of unknown scope always plan as normal. After `UnseenDeferMaxMs` (2 s) the plan runs as in the base game.
+- **Route hitch diagnostics (counters and log lines only, `[RouteAsync] FbApplyLog=1` for the per-lot log).** Times the game's pending lot updates before a route, counts refused replans by reason and the waits for the route worker by site.
+- **Boat diagnostics in ts3fixes (`boatgetoutdiag`, off; boat "no refusal" split, report only) and the household houseboat answer for the background lot check (`autofflot`, off).**
+
 ## v0.2.10 (2026-11-07)
 
 Hotfix on top of v0.2.9, Steam and the EA app 1.69.47. The stove and fridge bug below was ours, and this fix is Blastorix's (Discord): he reported it and his test logs found the cause.

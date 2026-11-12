@@ -104,3 +104,63 @@ Build **C**, off by default, with its own counters: calls, hits, misses by reaso
 If 1 fails on a class kind, drop that kind from the cache. If 2 shows hit rate < 50%, fall back to B for the field walks that remain.
 
 Ledger: docs/51 §474.
+
+## 7. Option C built, NOT RUN (2026-11-12, ts3native 0.36.246, branch `feature/valuetype-equals-fast`)
+
+No game run yet. Gate 1 (host exactness) passed. Gates 2 and 3 are prepared in `tools/harness/queues/equalsfast-1112.json`.
+
+**What was built** (`native/ts3native/equalsfast.cpp`, ini `[EqualsFast] Enabled=0`, off in code and in the repo ini):
+
+- Detour on `0xE7A590`, 6 prologue bytes byte-checked (`55 8B EC 83 EC 10`). Listed in docs/68 next to `[IcLockCheck]`. `--ab equalsfast` flips `eqMode` (+0x5F94).
+- **Plan building.**
+  - Trigger: the first call for a class goes to vanilla. A plan is built after that call returns.
+  - Field walk: the game's own `0xE70180` walk, under the game's lock, with vanilla's skip rules (statics; special-name `_Deleted`).
+  - Eligible classes: byval_arg type VALUETYPE (0x11), only I4/U4/I8/U8 instance fields, at most 8 of them. Int-backed enums are `value__` only.
+  - Everything else is cached as "not eligible" and always goes to vanilla. That covers R4/R8 (NaN, -0), short ints, bool, char, string, refs, nested structs, I/U, and generic instances (0x15).
+- **Publication.** Each plan is written to a private pool slot, then published with one `InterlockedCompareExchangePointer`. Plans are immutable after that. The pool holds 4096 plans; the open-address table has 8192 slots with a probe window of 16.
+- **Hit path.** No lock: vtable compare, dword compares of the planned ranges, `*fields = NULL`.
+- **Fall-through to vanilla:** null `that`, different vtables, not eligible, switch off, pool full.
+- **Thread that holds the loader lock** (`OwningThread` = this thread): it gets the vanilla answer and builds no plan, because class setup may be in flight (§4). Option A is not used.
+- Plans assume MonoClass memory is never freed (a `shortcut:` comment in the code).
+
+**Counters, v186 at 0x5F90-0x5FCF** (docs/registry.md; 0x5F80-0x5F8F is held for v185 `sb*`):
+
+| Group | Counters |
+|---|---|
+| State | `eqOn`, `eqMode` |
+| Results | `eqHits`, `eqPlans`, `eqRejects` |
+| Fall-through | `eqFtNull`, `eqFtType`, `eqFtKind`, `eqFtNew`, `eqFtBusy`, `eqFtFull` |
+| Reject reasons | `eqRejGeneric`, `eqRejKind`, `eqRejMany` |
+| Spare | `eqSpare[2]` |
+
+The game log names the first 48 classes it saw: either `equals fast: plan ...` or `... stays on EA's walk: <reason>`.
+
+**Checks [measured on the host, no game]:**
+
+- **Native selftest** (`equalsfast-test.h`) passed. It runs a C model of vanilla's switch over fake MonoClass layouts and covers:
+  - an enum, an I8+U4 struct, mixed R4 with -0 and NaN, U1, generic 0x15, and 9 fields
+  - `_Deleted` against another special name
+  - null `that`, different vtables, the switch off, a busy loader lock, and a full pool
+  - 20000 random pairs, and 4 threads × 64 classes racing to build and publish
+  - the ini on and off
+- **Monohost exactness corpus** (`MONOHOST_EQFAST=1`, `native/monohost/EqCorpus.cs`): passed with 0 mismatches.
+  - Scope: the game's own Mono runs every value type in mscorlib, System, System.Xml and the 7 script assemblies, plus 3 KeyValuePair generic instances.
+  - Inputs: 6 values per type (equal, unequal, -0/NaN for floats, enum values), all pairs, and a cross-type pair.
+  - Comparison: vanilla `0xE7A590` first, then the hook, twice (the first call builds the plan, the second answers from it).
+  - Mismatch rule: a different answer, or a hit that leaves `*fields` non-NULL.
+
+  `PASS EQ-corpus-exact 61159 pairs, 0 mismatches` and `PASS EQ-corpus-hits 46872 plan answers (44247 enum), 2232 plans, 548 not eligible`. The full summary line:
+
+  `2777 value types (0 skipped, 4 with pointer fields left out), 61159 pairs ..., 0 mismatches; plans 2232, not eligible 548 (not VALUETYPE 15, field kind 532, > 8 fields 1)`
+
+  Structs with pointer fields are left out of the corpus because vanilla boxes PTR fields and that path hangs in the host (seen on `SimpleCollator+Context`). Such structs are not eligible for a plan anyway (field kind).
+- **Other host checks:**
+  - The monohost selftest (40 passed) and the `jit-replay --fixture` run (differ 0) still pass.
+  - `hook-sites.ts --check`, `native-switches.ts --self-check`, `fix-repro-check.ts` (EXEMPT: exact speedup), and `queue.ts --self-check` plus `--dry-run` of the queue file all pass.
+
+**Next (gates 2 and 3):** `node tools/harness/queue.ts tools/harness/queues/equalsfast-1112.json` (about 55 min). Build ts3native and ts3fixes first.
+
+- **`bp-iclock-eqfast-ab`** is a count job: `[IcLockCheck]` on, AutShadow at the repo default.
+  - Off arms answer the §3 contention question.
+  - On arms give the hit rate. If it is below 50%, fall back to B.
+- **`bp-eqfast-ab` and `ip-eqfast-ab`** are the timing pair: in-load ABBA of `--ab equalsfast`, 1.5-min slices, 4 per arm. Read them with `hitch-ab.ts` and `arm-ms.ts`. ON by default only with a consistent 3-5 ms/s gain.

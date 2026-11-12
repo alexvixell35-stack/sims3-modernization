@@ -659,7 +659,7 @@ static void UdWorldLoad() {  // sim thread, from the ts3fixes "world:" line
 static const LONG kUdHitchLines = 6000;
 static const LONG kUdUfPlanLines = 30000;  // ufplan: disk guard (~3 MB); ts3fixes sends at most 120 a minute (UnseenFallback.cs)
 static bool UdHitchLine(const char* s) {
-    return !strncmp(s, "boatreplan:", 11) || !strncmp(s, "owreset:", 8) || !strncmp(s, "alarmtime:", 10) || !strncmp(s, "lotpass:", 8);
+    return !strncmp(s, "boatreplan:", 11) || !strncmp(s, "gangway:", 8) || !strncmp(s, "owreset:", 8) || !strncmp(s, "alarmtime:", 10) || !strncmp(s, "lotpass:", 8);
 }
 static const DWORD kUdTextHi = 0x87000000;  // 0x86000000 exact = the stuck-check PROBE mark (docs/163 §10)
 static int g_udTxtN;

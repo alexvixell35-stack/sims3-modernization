@@ -279,7 +279,7 @@ static void __cdecl AsJobHook(int phase, void* method) {
         if (g_asFpuSet) SetX87(g_asSimCw), _mm_setcsr(g_asSimCsr);
         InterlockedExchange(&g_asHeld, g_asPub);  // AsWorkerBegin without clearing stop: the sim may have set it already
         // the world moved between cut and start; with Satb act the worker reads the cut through the log, so a move is fine
-        if (g_asRunEpoch != g_asEpoch && !(g_satbMode == SATB_ACT && g_satbLive)) InterlockedExchange(&g_asStop, 1);
+        if ((g_asRunEpoch != g_asEpoch && !(g_satbMode == SATB_ACT && g_satbLive)) || g_arGate) InterlockedExchange(&g_asStop, 1);  // R2c: gate closed
         g_asRngUnitW = -1, g_asRngLiveW = false;
         InterlockedExchange(&g_asJobIn, 1);
         QueryPerformanceCounter(&g_asJob0);
@@ -296,6 +296,14 @@ static void __cdecl AsJobHook(int phase, void* method) {
 }
 
 static bool __cdecl AsSatbBusy() { return g_mtBusy != 0; }
+// races R2c (autraces.cpp ArDrain), sim thread at a going-away world event: our job is inside the worker; tell it to stop and
+// drop its result (an overrun's kept part too: the world it scored is going away)
+static bool AsDrainBusy() { return g_asRun != AS_RUN_IDLE && g_mtBusy != 0; }
+static bool AsDrainStop() {
+    InterlockedExchange(&g_asStop, 1);
+    g_asLast = AS_LAST_EPOCH;
+    return g_satbMode == SATB_ACT && g_satbLive;
+}
 static bool AsWorkerIdle() { return g_mtWorker && ts3native_mtprobe.workerState == 2 && !g_mtBusy; }
 
 // return of MonoScriptHost_Simulate (sim thread): finish a run whose job ended, else cut for a posted request
@@ -313,6 +321,7 @@ static void __cdecl AsSimLeave() {
             }
             return;
         }
+        ArJobLeft();  // races R2c: an aborted drain's job is out
         LONG st = g_asLast;
         if (g_satbMode == SATB_ACT && g_satbLive) {
             SatbEnd();  // worker idle: accounting, roots off
@@ -326,6 +335,7 @@ static void __cdecl AsSimLeave() {
         return;
     }
     if (g_asRun != AS_RUN_IDLE || !g_asReqId) return;
+    if (g_arGate) { ts3native_counters.r2cHeld++; AsFinish(AS_LAST_EPOCH); return; }  // races R2c: no world to cut
     AsRootOnce();
     const LONG pl0 = g_asPreLearnRows, t10 = g_asReqLotT1;
     AsCut();
@@ -500,7 +510,7 @@ static void __cdecl AsIcAbort(int reason) { if (AsIcIsWorker()) AsManagedAbort(r
 // the abort word and the stop flag belong to the worker's run: on any other thread they read as clear
 static int __cdecl AsIcAborted() { return AsIcIsWorker() ? AsAborted() : -1; }
 static void __cdecl AsIcResetAbort() { if (AsIcIsWorker()) AsResetAbort(); }
-static int __cdecl AsIcStopped() { return AsIcIsWorker() && g_asStop != 0; }
+static int __cdecl AsIcStopped() { return AsIcIsWorker() && (g_asStop != 0 || g_arGate != 0); }
 // P6 actor gate (Config(35) == 1): ts3fixes says per request whether its actor is household, selected or unknown (1) or
 // not (0); worker only, a sim-thread call is a no-op (load warm-up)
 static void __cdecl AsIcActorScope(int hh) { if (AsIcIsWorker()) InterlockedExchange(&g_asActorHh, hh ? 1 : 0); }

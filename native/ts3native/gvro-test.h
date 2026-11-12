@@ -33,7 +33,7 @@ static void TestGoalValidRO() {
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, gvReady) == 0x47DC && offsetof(Ts3nCounters, gvMode) == 0x47E0 &&
                       offsetof(Ts3nCounters, gvShadow) == 0x47E4 && offsetof(Ts3nCounters, gvFb) == 0x47FC &&
-                      offsetof(Ts3nCounters, gvShadowEmpty) == 0x4820 && sizeof(Ts3nCounters) == 6116 * 4,
+                      offsetof(Ts3nCounters, gvShadowEmpty) == 0x4820 && sizeof(Ts3nCounters) == 6294 * 4,
                   "counters v118 layout after v117 (docs/registry.md)");
     assert(k.version == 912);
     assert(kGvSite.site == 0x0075A647 && kGvSite.target == 0x0082EDB0);
@@ -203,4 +203,190 @@ static void TestGvAttr() {
     k.gvaMode = 0, k.gvMode = gvM, k.gvShadow = gvS;
     g_w918Us = w0;
     g_gvOrig = savedOrig, g_async = savedAsync;
+}
+
+// --- docs/250 §13.3 / §12.3 (counters v189): gvaNoLater* (no routing-lock acquire after the plan's last validator fallback)
+// and gvaWhyWaitUs (the waits by the SyncIc reason in force)
+static void TestGvAttrNoLater() {
+    using namespace gvt;
+    Ts3nCounters& k = ts3native_counters;
+    static_assert(offsetof(Ts3nCounters, sbVtGiveUp) == 0x5F80 && offsetof(Ts3nCounters, gvuMode) == 0x6018 &&
+                      offsetof(Ts3nCounters, gvuMaxMs) == 0x601C && offsetof(Ts3nCounters, gvuAsks) == 0x6020 &&
+                      offsetof(Ts3nCounters, gvuN) == 0x6024 && offsetof(Ts3nCounters, gvuNo) == 0x6028 &&
+                      offsetof(Ts3nCounters, gvuKind) == 0x6038 && offsetof(Ts3nCounters, gvaPlansN) == 0x6048 &&
+                      offsetof(Ts3nCounters, gvaNoLaterN) == 0x604C && offsetof(Ts3nCounters, gvaNoLaterUs) == 0x6050 &&
+                      offsetof(Ts3nCounters, gvaWhyWaitUs) == 0x6054 && offsetof(Ts3nCounters, gvuSpare) == 0x60A4 &&
+                      sizeof(Ts3nCounters) == 6294 * 4 && GVA_WHY_NONE == 19 &&
+                      sizeof(kRfbName) / sizeof(kRfbName[0]) == GVA_WHY_NONE,
+                  "counters v189 layout after v188 (docs/registry.md)");
+    k.gvaPlansN = k.gvaNoLaterN = k.gvaNoLaterUs = 0;
+    memset(k.gvaWhyWaitUs, 0, sizeof(k.gvaWhyWaitUs));
+    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+    const GvFn savedOrig = g_gvOrig;
+    const AsyncSlot savedAsync = g_async;
+    const LONG gvM = k.gvMode, gvS = k.gvShadow, gvA = k.gvaMode, why0 = g_gvaWhy;
+    g_gvOrig = Orig;
+    static u8 world[0x980];
+    __declspec(align(16)) float pt[13] = {1.0f, 0.0f, 2.0f};
+    DWORD vec[4] = {0, 0, 0, 0xFED2FC};
+    k.gvMode = k.gvShadow = 0, k.gvaMode = 1;
+    g_async.owner = GetCurrentThreadId(), g_async.state = A_RUNNING;
+    origFill = 0;
+    // plan 1, under SyncIc reason NoYield: two validator waits, then no later acquire -> a no-later plan with both waits
+    assert(GvaSrcMsg(3 | 2 << 8) == 1 && !g_gvaWatch && g_gvaPlanUs == 0);
+    g_gvaWhy = RFB_NOYIELD;
+    GvStub(world, NULL, pt, 0.1f, vec, 0, 0);
+    GvStub(world, NULL, pt, 0.1f, vec, 0, 0);
+    assert(g_gvaWatch && g_gvaOpen && g_gvaTakes0 == g_gvaTakes);
+    const LONG planUs = g_gvaPlanUs;
+    GvaPlanEnd();
+    assert(k.gvaPlansN == 1 && k.gvaNoLaterN == 1 && k.gvaNoLaterUs == planUs && !g_gvaWatch && g_gvaPlanUs == 0 &&
+           k.gvaWhyWaitUs[RFB_NOYIELD] == planUs);
+    // plan 2, not under SyncIc: a later routing-lock acquire on the owner thread (gather, gate 10, PlanLocked; what
+    // LockAcquireHook adds while g_gvaWatch is set): a plan, not a no-later one
+    assert(GvaSrcMsg(3) == 1);
+    g_gvaWhy = GVA_WHY_NONE;
+    GvStub(world, NULL, pt, 0.1f, vec, 0, 0);
+    g_gvaTakes++;
+    GvaPlanEnd();
+    assert(k.gvaPlansN == 2 && k.gvaNoLaterN == 1 && k.gvaNoLaterUs == planUs && k.gvaWhyWaitUs[RFB_NOYIELD] == planUs);
+    // a plan with no fallback: not counted
+    assert(GvaSrcMsg(3) == 1);
+    GvaPlanEnd();
+    assert(k.gvaPlansN == 2 && !g_gvaWatch);
+    // an out-of-range reason books as "none"
+    assert(GvaSrcMsg(3) == 1);
+    const LONG none0 = k.gvaWhyWaitUs[GVA_WHY_NONE];
+    g_gvaWhy = 77;
+    GvStub(world, NULL, pt, 0.1f, vec, 0, 0);
+    assert(k.gvaWhyWaitUs[GVA_WHY_NONE] >= none0 && g_gvaOpen);
+    GvaPlanEnd();
+    printf("GoalValidRO Attr no-later / why (gvattr, counters v189): a plan with no routing-lock acquire after its last "
+           "fallback books its validator waits as no-later, one with a later acquire only as a plan, none without a fallback; "
+           "waits split by the SyncIc reason (19 = not under SyncIc, also for a bad reason)\n");
+    k.gvMode = gvM, k.gvShadow = gvS, k.gvaMode = gvA, g_gvaWhy = why0;
+    g_gvOrig = savedOrig, g_async = savedAsync;
+}
+
+// --- docs/250 §7.3 B2 [GoalValidRO] UnseenDefer (switch gvunseen, counters v189): DEFER? from ts3fixes' marked sync plans
+namespace gvut {
+static u8 g_route[0x200];
+static u8* __fastcall Route(const void*, void*, DWORD handle) { return handle == 0x25000011 ? g_route : NULL; }
+static DWORD g_now;
+static DWORD WINAPI Now() { return g_now; }
+static void Unseen(DWORD h) { g_ufH = h, g_ufCutH = 0, g_kdScopeH = h, g_kdScope = 2; }  // MARKed, scope op 11 (unseen)
+}  // namespace gvut
+static void TestGvUnseen() {
+    using namespace gvut;
+    Ts3nCounters& k = ts3native_counters;
+    const AsyncSlot savedAsync = g_async;
+    const DWORD ufH0 = g_ufH, cutH0 = g_ufCutH, kdH0 = g_kdScopeH;
+    const LONG kd0 = g_kdScope, ufMode0 = k.ufMode, ufReady0 = k.ufReady;
+    const OrRouteFn route0 = g_orRoute;
+    u8* const* const rmSlot0 = g_orRmSlot;
+    static u8* rmPtr = (u8*)1;  // any non-null table: the fake lookup ignores it
+    g_orRmSlot = &rmPtr, g_orRoute = Route, g_gvuNow = Now;
+    k.gvuMode = 0, k.gvuMaxMs = 2000, k.gvuAsks = k.gvuN = 0;
+    memset(k.gvuNo, 0, sizeof(k.gvuNo));
+    memset(k.gvuKind, 0, sizeof(k.gvuKind));
+    memset(g_gvu, 0, sizeof(g_gvu));
+    const DWORD me = GetCurrentThreadId(), hU = 0x25000001, hJob = 0x25000099;
+    k.ufMode = 1, k.ufReady = 15;
+    g_async.owner = me, g_async.state = A_RUNNING, g_async.lock = (void*)0x1918, g_async.handle = hJob;
+    g_now = 1000;
+    // the switch off: nothing counted, nothing touched
+    Unseen(hU);
+    assert(GvuMsg(hU, 0) == 0 && k.gvuAsks == 0 && g_ufH == hU && !g_ufCutH);
+    k.gvuMode = 1;
+    // unseen + a job of another route holds +0x918 (lock held): deferred; the mark used up, CUT? answers 1 once
+    assert(GvuMsg(hU, 0) == 1 && k.gvuN == 1 && k.gvuKind[0] == 1 && k.gvuAsks == 1 && !g_ufH && g_ufCutH == hU);
+    assert(UfMsg(hU, 2) == 1 && UfMsg(hU, 2) == 0);
+    // household / selected: never marked by ts3fixes, scope op 10 -> 1: not deferred, the plan runs as today
+    g_ufH = 0, g_kdScopeH = hU, g_kdScope = 1;
+    assert(GvuMsg(hU, 0) == 0 && k.gvuNo[GVU_SCOPE] == 1 && k.gvuN == 1);
+    // unknown scope (no scope message) even with a mark: household rules
+    g_ufH = hU, g_kdScopeH = 0, g_kdScope = 0;
+    assert(GvuMsg(hU, 0) == 0 && k.gvuNo[GVU_SCOPE] == 2 && g_ufH == hU);
+    // a seen NPC (scope 3, no mark): not deferred
+    g_ufH = 0, g_kdScopeH = hU, g_kdScope = 3;
+    assert(GvuMsg(hU, 0) == 0 && k.gvuNo[GVU_SCOPE] == 3);
+    // the mark or the scope of another route: not deferred
+    Unseen(hU), g_ufH = 0x25000002;
+    assert(GvuMsg(hU, 0) == 0 && k.gvuNo[GVU_SCOPE] == 4);
+    Unseen(hU), g_kdScopeH = 0x25000002;
+    assert(GvuMsg(hU, 0) == 0 && k.gvuNo[GVU_SCOPE] == 5);
+    // a bad kind, no handle
+    Unseen(hU);
+    assert(GvuMsg(hU, 4) == 0 && GvuMsg(0, 0) == 0 && k.gvuNo[GVU_SCOPE] == 7);
+    // the unseen fallback off: nothing would answer the plan
+    k.ufMode = 0;
+    assert(GvuMsg(hU, 0) == 0 && k.gvuNo[GVU_NOFB] == 1 && g_ufH == hU);
+    k.ufMode = 1;
+    // lock free: no job, the job is this route's own, another thread, no lock: the plan runs (no wait to save)
+    g_async.state = A_IDLE;
+    assert(GvuMsg(hU, 0) == 0 && k.gvuNo[GVU_FREE] == 1 && g_ufH == hU && !g_ufCutH);
+    g_async.state = A_RUNNING, g_async.handle = hU;
+    assert(GvuMsg(hU, 0) == 0 && k.gvuNo[GVU_FREE] == 2);
+    g_async.handle = hJob, g_async.owner = me + 1;
+    assert(GvuMsg(hU, 0) == 0 && k.gvuNo[GVU_FREE] == 3);
+    g_async.owner = me, g_async.lock = NULL;
+    assert(GvuMsg(hU, 0) == 0 && k.gvuNo[GVU_FREE] == 4);
+    g_async.lock = (void*)0x1918;
+    // the four plan ICs: each kind deferred and counted; Replan bumps the IC's own replan count (route+0x1F4) once
+    const DWORD hR = 0x25000011;
+    *(DWORD*)(g_route + 0x1F4) = 7;
+    Unseen(hR);
+    assert(GvuMsg(hR, 1) == 1 && k.gvuKind[1] == 1 && *(DWORD*)(g_route + 0x1F4) == 8);
+    Unseen(hR);
+    assert(GvuMsg(hR, 2) == 1 && k.gvuKind[2] == 1 && *(DWORD*)(g_route + 0x1F4) == 8);
+    Unseen(hR);
+    assert(GvuMsg(hR, 3) == 1 && k.gvuKind[3] == 1 && *(DWORD*)(g_route + 0x1F4) == 8);
+    // timeout: a streak of 2000 ms, then the plan runs as vanilla (not deferred, the mark stays for its sync IC)
+    memset(g_gvu, 0, sizeof(g_gvu));
+    g_now = 5000;
+    Unseen(hU);
+    assert(GvuMsg(hU, 0) == 1);
+    g_now = 6500;
+    Unseen(hU);
+    assert(GvuMsg(hU, 0) == 1);  // 1.5 s into the streak
+    g_now = 7000;
+    Unseen(hU);
+    assert(GvuMsg(hU, 0) == 0 && k.gvuNo[GVU_STREAK] == 1 && g_ufH == hU && !g_ufCutH);
+    // the next ask starts a new streak (one vanilla plan between streaks)
+    Unseen(hU);
+    assert(GvuMsg(hU, 0) == 1);
+    // a streak whose last deferral is gvuMaxMs old is a new streak
+    g_now = 7100;
+    Unseen(hU);
+    assert(GvuMsg(hU, 0) == 1);
+    g_now = 7100 + 2500;
+    Unseen(hU);
+    assert(GvuMsg(hU, 0) == 1);
+    // a harness-written gvuMaxMs of 0 is clamped at use to 100 ms
+    k.gvuMaxMs = 0;
+    g_now += 50;
+    Unseen(hU);
+    assert(GvuMsg(hU, 0) == 1);
+    g_now += 60;
+    Unseen(hU);
+    assert(GvuMsg(hU, 0) == 0 && k.gvuNo[GVU_STREAK] == 2);
+    k.gvuMaxMs = 2000;
+    // 33 routes in 32 slots: the stalest slot is reused
+    for (DWORD i = 0; i < GVU_SLOTS + 1; i++) {
+        g_now += 1;
+        Unseen(0x25001000 + i);
+        assert(GvuMsg(0x25001000 + i, 0) == 1);
+    }
+    bool found = false;
+    for (int i = 0; i < GVU_SLOTS; i++) found |= g_gvu[i].h == 0x25001000 + GVU_SLOTS;
+    assert(found);
+    printf("GoalValidRO UnseenDefer (gvunseen, counters v189): off counts nothing; an unseen marked plan of each plan IC is "
+           "deferred while another job holds +0x918 (CUT? 1, Replan's count bumped); household, selected, unknown and seen-NPC "
+           "scopes, the fallback off, a free lock / own job / other thread: not deferred; a streak past UnseenDeferMaxMs runs "
+           "as vanilla, then a new streak; 33 routes in 32 slots\n");
+    k.gvuMode = 0, k.ufMode = ufMode0, k.ufReady = ufReady0;
+    g_async = savedAsync, g_ufH = ufH0, g_ufCutH = cutH0, g_kdScopeH = kdH0, g_kdScope = kd0;
+    g_orRoute = route0, g_orRmSlot = rmSlot0, g_gvuNow = GetTickCount;
+    memset(g_gvu, 0, sizeof(g_gvu));
+    g_gvuLines = 0;
 }

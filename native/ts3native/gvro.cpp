@@ -122,27 +122,48 @@ static DWORD GvShadow(u8* world, void* edx, const float* pt, float r, DWORD* vec
 // The design's native caller pairs are not logged: the static caller list (docs/250 §9 step 0) has two sites, both under 0x75BE60.
 static LONG g_gvaSrc, g_gvaScope, g_gvaMark;
 static bool g_gvaOpen;
+// docs/250 §13.3 (v189): the corrected B1 gate. gvaLaterTakeUs reads waits for later jobs (the first wait absorbs the job), so
+// per plan: g_gvaPlanUs = its validator waits, and g_gvaTakes (LockAcquireHook: owner thread, routing lock, while g_gvaWatch)
+// counts acquires after its last fallback, waited or not. None by the plan's end (op 12) = gvaNoLaterN / gvaNoLaterUs.
+// §12.3 gvaWhyWaitUs: the same waits by the SyncIc reason of the plan (g_gvaWhy, ts3native.cpp SyncIc).
+static LONG g_gvaPlanUs, g_gvaTakes0;
 static u8 GvaSrcMsg(DWORD lo) {  // UserDiag op 35: lo 0xFFFF = is gvattr on; else class | scope << 8, before the plan
     if (lo == 0xFFFF) return ts3native_counters.gvaMode == 1;
     g_gvaSrc = (LONG)(lo & 0xFF) < 6 ? (LONG)(lo & 0xFF) : 0;
     g_gvaScope = (LONG)(lo >> 8 & 0xFF) < 3 ? (LONG)(lo >> 8 & 0xFF) : 0;
-    g_gvaOpen = false;
+    g_gvaOpen = g_gvaWatch = false;
+    g_gvaPlanUs = 0;
     return 1;
 }
 static void GvaPlanEnd() {  // UserDiag op 12: the plan is over
     Ts3nCounters& k = ts3native_counters;
-    if (g_gvaOpen) InterlockedExchangeAdd(&k.gvaLaterTakeUs, g_w918Us - g_gvaMark);
-    g_gvaOpen = false;
+    if (g_gvaOpen) {
+        InterlockedExchangeAdd(&k.gvaLaterTakeUs, g_w918Us - g_gvaMark);
+        InterlockedIncrement(&k.gvaPlansN);
+        if (g_gvaTakes == g_gvaTakes0) {
+            InterlockedIncrement(&k.gvaNoLaterN);
+            InterlockedExchangeAdd(&k.gvaNoLaterUs, g_gvaPlanUs);
+        }
+    }
+    g_gvaOpen = g_gvaWatch = false;
+    g_gvaPlanUs = 0;
     g_gvaSrc = g_gvaScope = 0;
     static DWORD last;
     const DWORD now = GetTickCount();
     if (k.gvaMode == 1 && now - last >= 10000) {
         last = now;
         Log("gvattr: n none %ld wd %ld sc %ld own %ld fgn %ld chk %ld; wait ms %ld %ld %ld %ld %ld %ld; scope ms hh %ld npc %ld unseen %ld; "
-            "later ms %ld; at start %ld", k.gvaSrcN[0], k.gvaSrcN[1], k.gvaSrcN[2], k.gvaSrcN[3], k.gvaSrcN[4], k.gvaSrcN[5],
-            k.gvaSrcWaitUs[0] / 1000, k.gvaSrcWaitUs[1] / 1000, k.gvaSrcWaitUs[2] / 1000, k.gvaSrcWaitUs[3] / 1000,
-            k.gvaSrcWaitUs[4] / 1000, k.gvaSrcWaitUs[5] / 1000, k.gvaScopeWaitUs[0] / 1000, k.gvaScopeWaitUs[1] / 1000,
-            k.gvaScopeWaitUs[2] / 1000, k.gvaLaterTakeUs / 1000, k.gvaAtStart);
+            "later ms %ld; at start %ld; no later take %ld of %ld plans, %ld ms", k.gvaSrcN[0], k.gvaSrcN[1], k.gvaSrcN[2],
+            k.gvaSrcN[3], k.gvaSrcN[4], k.gvaSrcN[5], k.gvaSrcWaitUs[0] / 1000, k.gvaSrcWaitUs[1] / 1000,
+            k.gvaSrcWaitUs[2] / 1000, k.gvaSrcWaitUs[3] / 1000, k.gvaSrcWaitUs[4] / 1000, k.gvaSrcWaitUs[5] / 1000,
+            k.gvaScopeWaitUs[0] / 1000, k.gvaScopeWaitUs[1] / 1000, k.gvaScopeWaitUs[2] / 1000, k.gvaLaterTakeUs / 1000,
+            k.gvaAtStart, k.gvaNoLaterN, k.gvaPlansN, k.gvaNoLaterUs / 1000);
+        char why[400];
+        int n = 0;
+        for (int i = 0; i <= GVA_WHY_NONE; i++)  // only the reasons that waited a millisecond or more
+            if (k.gvaWhyWaitUs[i] >= 1000 && n < (int)sizeof(why) - 32)
+                n += sprintf_s(why + n, sizeof(why) - n, " %s %ld", i < GVA_WHY_NONE ? kRfbName[i] : "none", k.gvaWhyWaitUs[i] / 1000);
+        Log("gvattr: wait ms by sync reason:%s", n ? why : " -");
     }
 }
 // the game's 0x82EDB0, timed by class and scope when gvattr is on and a job runs (the call is then the wait)
@@ -155,7 +176,10 @@ static DWORD GvaOrig(u8* world, void* edx, const float* pt, float r, DWORD* vec,
     const LONG us = UsSince(t0);
     InterlockedExchangeAdd(&k.gvaSrcWaitUs[g_gvaSrc], us);
     InterlockedExchangeAdd(&k.gvaScopeWaitUs[g_gvaScope], us);
-    g_gvaOpen = true;
+    InterlockedExchangeAdd(&k.gvaWhyWaitUs[g_gvaWhy >= 0 && g_gvaWhy <= GVA_WHY_NONE ? g_gvaWhy : GVA_WHY_NONE], us);
+    g_gvaOpen = g_gvaWatch = true;
+    g_gvaPlanUs += us;
+    g_gvaTakes0 = g_gvaTakes;  // its own acquire is counted; later takes of this plan count from here
     g_gvaMark = g_w918Us;  // the validator's own wait is in; later waits of this plan count from here
     return a;
 }
@@ -210,6 +234,10 @@ static const CallSite kGvSite = {GV_SITE, GV_TARGET, (void*)GvStub};
 // [GoalValidRO] Enabled=1: needs [RouteGate] Enforce=1 with the async path and the S2 writer set (QL, W1-W6, tripwires)
 static void InstallGoalValidRO(const wchar_t* ini) {
     Ts3nCounters& k = ts3native_counters;
+    // docs/250 §7.3 B2 (unseenfb.cpp GvuMsg): no hook of its own, so independent of Enabled; runtime gvunseen / gvunseenms
+    k.gvuMode = Clamp(GetPrivateProfileIntW(L"GoalValidRO", L"UnseenDefer", 0, ini), 0, 1);
+    k.gvuMaxMs = Clamp(GetPrivateProfileIntW(L"GoalValidRO", L"UnseenDeferMaxMs", 2000, ini), 100, 10000);
+    Log("goal validation: UnseenDefer=%ld UnseenDeferMaxMs=%ld", k.gvuMode, k.gvuMaxMs);
     if (!GetPrivateProfileIntW(L"GoalValidRO", L"Enabled", 0, ini)) { Log("goal validation RO off (Enabled=0)"); return; }
     if (!k.rgEnforce || !k.asyncReady) { Log("SKIP goal validation RO: needs [RouteGate] Enforce=1 with the async path"); return; }
     if (!InstallSrWriters()) { Log("SKIP goal validation RO: the S2 writer set (W1-W6, W4, tripwires) is not all in place"); return; }

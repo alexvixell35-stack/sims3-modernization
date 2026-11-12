@@ -1,0 +1,164 @@
+{
+  "note": "binder-typehandle (docs/537 §20.3 / §20.6 E1, prepared 2026-11-12, NOT RUN): sampler A/B of [Binder] TypeHandleDirect per world on the r1e1-1112 pair, release ini (releaseDefaults), 10 min arms (profile-run-length), managed + simstack samplers on (no noSamplers), [HitchAttr] on for the ms/s buckets, [MonoJit] off (release). The patch is applied at DllMain only (no runtime switch, so no in-load --ab): one load per arm, cross-run pairs, order off/on, on/off, off/on (BP, IP, SV) against drift. Pass per job: no crash, scriptErrorsMax 0, on arms the OK line 'OK   binder type handle direct' and tdOn 1, off arms no OK line. Read: node tools/compile-candidates.ts --run <w>=probe-out/profile/binder-typehandle-<date>-<w>-td-<arm>-managed.jsonl per arm: RuntimeTypeHandle.get_Value self ms/s (off ~7.4, I-475-2; on: gone, no depth-1 samples), Type.GetTypeFromHandle self ms/s, and the Mono / script bucket of the stutter profiler (pass rule of I-475-2: Mono bucket down >= 4 ms/s on each world). Also compare script errors and hitch p99 per pair. Before running: park native/ts3native/out/ts3native.asi of this branch as game-copy/ts3native.asi.r1e1-1112 (builds.json row). 60 timing minutes: queue.ts adds no smoke job; bp-td-on is the first load with the patch, read its OK line before the rest. Run: node tools/harness/queue.ts tools/harness/queues/binder-typehandle.json",
+  "jobs": [
+    {
+      "id": "bp-td-off",
+      "note": "BP 10 min, release ini, [Binder] TypeHandleDirect=0, managed + simstack samplers on (measurement arm). Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.r1e1-1112",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "r1e1-1112 pair: feature/monojit-r1-c2c-e1, ts3native 0.36.245 (master 0.36.240 + docs/537 §20 R1, C2c, E1 [Binder] TypeHandleDirect; counters v188, version field 912), parked from native/ts3native/out; ts3fixes = the Sat 11-14 release package rc1111e (no ts3fixes change on this branch)",
+      "releaseDefaults": true,
+      "noiseCheck": true,
+      "minCounters": 912,
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "Binder.TypeHandleDirect": 0,
+        "HitchAttr.Enabled": 1
+      },
+      "logForbid": {
+        "OK   binder type handle direct": 0
+      },
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 25
+    },
+    {
+      "id": "bp-td-on",
+      "note": "BP 10 min, release ini, [Binder] TypeHandleDirect=1, managed + simstack samplers on (measurement arm). Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.r1e1-1112",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "r1e1-1112 pair: feature/monojit-r1-c2c-e1, ts3native 0.36.245 (master 0.36.240 + docs/537 §20 R1, C2c, E1 [Binder] TypeHandleDirect; counters v188, version field 912), parked from native/ts3native/out; ts3fixes = the Sat 11-14 release package rc1111e (no ts3fixes change on this branch)",
+      "releaseDefaults": true,
+      "noiseCheck": true,
+      "minCounters": 912,
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "Binder.TypeHandleDirect": 1,
+        "HitchAttr.Enabled": 1
+      },
+      "logRequire": {
+        "OK   binder type handle direct": 1
+      },
+      "nativeRequire": "tdOn>=1",
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 25
+    },
+    {
+      "id": "ip-td-on",
+      "note": "IP 10 min, release ini, [Binder] TypeHandleDirect=1, managed + simstack samplers on (measurement arm). Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.r1e1-1112",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "r1e1-1112 pair: feature/monojit-r1-c2c-e1, ts3native 0.36.245 (master 0.36.240 + docs/537 §20 R1, C2c, E1 [Binder] TypeHandleDirect; counters v188, version field 912), parked from native/ts3native/out; ts3fixes = the Sat 11-14 release package rc1111e (no ts3fixes change on this branch)",
+      "releaseDefaults": true,
+      "noiseCheck": true,
+      "minCounters": 912,
+      "save": "Baseline-IP-Spring",
+      "ini": {
+        "Binder.TypeHandleDirect": 1,
+        "HitchAttr.Enabled": 1
+      },
+      "logRequire": {
+        "OK   binder type handle direct": 1
+      },
+      "nativeRequire": "tdOn>=1",
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 25
+    },
+    {
+      "id": "ip-td-off",
+      "note": "IP 10 min, release ini, [Binder] TypeHandleDirect=0, managed + simstack samplers on (measurement arm). Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.r1e1-1112",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "r1e1-1112 pair: feature/monojit-r1-c2c-e1, ts3native 0.36.245 (master 0.36.240 + docs/537 §20 R1, C2c, E1 [Binder] TypeHandleDirect; counters v188, version field 912), parked from native/ts3native/out; ts3fixes = the Sat 11-14 release package rc1111e (no ts3fixes change on this branch)",
+      "releaseDefaults": true,
+      "noiseCheck": true,
+      "minCounters": 912,
+      "save": "Baseline-IP-Spring",
+      "ini": {
+        "Binder.TypeHandleDirect": 0,
+        "HitchAttr.Enabled": 1
+      },
+      "logForbid": {
+        "OK   binder type handle direct": 0
+      },
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 25
+    },
+    {
+      "id": "sv-td-off",
+      "note": "SV 10 min, release ini, [Binder] TypeHandleDirect=0, managed + simstack samplers on (measurement arm). Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.r1e1-1112",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "r1e1-1112 pair: feature/monojit-r1-c2c-e1, ts3native 0.36.245 (master 0.36.240 + docs/537 §20 R1, C2c, E1 [Binder] TypeHandleDirect; counters v188, version field 912), parked from native/ts3native/out; ts3fixes = the Sat 11-14 release package rc1111e (no ts3fixes change on this branch)",
+      "releaseDefaults": true,
+      "noiseCheck": true,
+      "minCounters": 912,
+      "save": "Baseline-SV-Spring",
+      "ini": {
+        "Binder.TypeHandleDirect": 0,
+        "HitchAttr.Enabled": 1
+      },
+      "logForbid": {
+        "OK   binder type handle direct": 0
+      },
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 25
+    },
+    {
+      "id": "sv-td-on",
+      "note": "SV 10 min, release ini, [Binder] TypeHandleDirect=1, managed + simstack samplers on (measurement arm). Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.r1e1-1112",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "r1e1-1112 pair: feature/monojit-r1-c2c-e1, ts3native 0.36.245 (master 0.36.240 + docs/537 §20 R1, C2c, E1 [Binder] TypeHandleDirect; counters v188, version field 912), parked from native/ts3native/out; ts3fixes = the Sat 11-14 release package rc1111e (no ts3fixes change on this branch)",
+      "releaseDefaults": true,
+      "noiseCheck": true,
+      "minCounters": 912,
+      "save": "Baseline-SV-Spring",
+      "ini": {
+        "Binder.TypeHandleDirect": 1,
+        "HitchAttr.Enabled": 1
+      },
+      "logRequire": {
+        "OK   binder type handle direct": 1
+      },
+      "nativeRequire": "tdOn>=1",
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 25
+    }
+  ]
+}

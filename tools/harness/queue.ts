@@ -956,6 +956,8 @@ export const ACTIVITY: { what: string; on: string[]; counters: string[]; fix?: s
   // Verify runs (docs/236): 0 mismatches with 0 calls is no verification
   { what: '[WaterJps] Verify', on: ['WaterJps.Enabled', 'WaterJps.Verify'], counters: ['waterJpsCallsK', 'waterJpsCellsK'] },
   { what: '[LotSinCos] Verify', on: ['LotSinCos.Enabled', 'LotSinCos.Verify'], counters: ['lscCallsK', 'lscHitsK'] },
+  // docs/258 option C: plan answers or first-call learning; with --ab equalsfast the on arms carry it
+  { what: '[EqualsFast]', on: ['EqualsFast.Enabled'], counters: ['eqHits', 'eqFtNew'] },
   { what: 'ts3fixes overwatchchain', on: [], fix: 'overwatchchain', when: '3am', counters: ['owchain_alarms', 'owspread_types_run'], standDown: /^overwatchspread: .*\boff\b/ },
   { what: 'ts3fixes stuckcheckasync', on: [], fix: 'stuckcheckasync', when: '3am', counters: ['stuckcheckasync_queued', 'stuckcheckasync_run'] },
   { what: 'ts3fixes errortrapspread', on: [], fix: 'errortrapspread', when: 'load', counters: ['etspread_passes'], standDown: /^errortrapspread: .*\boff\b/ },
@@ -1021,6 +1023,9 @@ export function fixActivity(p0: any, p1: any, t0: any, t1: any, cfg: { fixesOn?:
 // A/B switch's own counters, so mono-cost-report printed no lines for it)
 // autoff* switch on: the agent's autoff_* counters (slots 763-776 autoff_t2_*/autoff_lot_*) and the autoff_reasons list (72-95 lot) are recorded too
 // (2026-11-08: ip-offranks-verify triage could not split A4/A5 because they were not saved)
+// script jobs (run.script, e.g. verify-shortcut.ts --on a,b) have no profile: their --on switches are the report prefixes, report
+// only (no fixesOn, so no new self-check fails). 2026-11-12, docs/247 §12.11: release-verify script rows carried no unseenboat_ms list
+export const scriptFixesCfg = (s?: string[]) => { const i = s ? s.indexOf('--on') : -1; return i >= 0 && s![i + 1] ? { fixesReport: s![i + 1] } : undefined; };
 export const jobFixesCfg = (p: any) => {
   const fixesOn = [p?.fixesOn, ...(p?.repros ?? []).map((r: any) => r?.fixesOn)].filter(Boolean).join(',') || undefined;
   return { fixesOn, fixesOff: p?.fixesOff, report: [p?.fixesReport, fixesOn, p?.ab, /autoff/.test(`${fixesOn} ${p?.ab}`) ? 'autoff_' : ''].filter(Boolean).join(',') || undefined };
@@ -1468,6 +1473,14 @@ if (values['self-check']) {
   assert.deepEqual(jobFixesCfg({ fixesOn: 'a', fixesOff: 'c', repros: [{ id: 'r1', fixesOn: 'b' }, 'r2'] }), { fixesOn: 'a,b', fixesOff: 'c', report: 'a,b' });
   assert.deepEqual(jobFixesCfg({ fixesOn: 'autlive', fixesReport: 'g8_', ab: 'autunseen' }), { fixesOn: 'autlive', fixesOff: undefined, report: 'g8_,autlive,autunseen' });
   assert.equal(jobFixesCfg({ fixesOn: 'autofflot' }).report, 'autofflot,autoff_');
+  { // script rows (release-verify ip-ubrel-verify: verify-shortcut.ts --on ...) keep the unseenboat_ms list, report only
+    const sc = jobFixesCfg(scriptFixesCfg(['verify-shortcut.ts', '--name', 'unseenboat', '--on', 'unseenboat,unseenboatstart,boatreplanlog', '--tries', '5']));
+    assert.deepEqual(sc, { fixesOn: undefined, fixesOff: undefined, report: 'unseenboat,unseenboatstart,boatreplanlog' });
+    assert.deepEqual(fixActivity(null, { unseenboat_ms: ['trip: short | 3 replans, 900 ms'] }, night[0], night[1], sc).lists, { unseenboat_ms: ['trip: short | 3 replans, 900 ms'] });
+    assert.equal(scriptFixesCfg(['travel-trip.ts', '--to', 'france']), undefined);
+    assert.equal(scriptFixesCfg(['x.ts', '--on']), undefined);
+    assert.equal(scriptFixesCfg(undefined), undefined);
+  }
   const afR = fixActivity(null, { autoff_lot_a4: 7, autoff_reasons: [0, 3] }, night[0], night[1], jobFixesCfg({ fixesOn: 'autofflot' }));
   assert.deepEqual([afR.counters, afR.lists], [{ autoff_lot_a4: { before: null, after: 7 } }, { autoff_reasons: [0, 3] }]);
   assert.deepEqual(callsiteLogs({ nativeLog: 'm', repros: [{ nativeLog: 'a' }, {}, { nativeLog: 'm' }] }), ['a', 'm']);
@@ -3040,7 +3053,7 @@ for (const [n, j] of jobs.entries()) {
       for (const f of fails) { row.verdict.push(`FAIL: our mods present: ${f}`); row.selfCheckFail ||= f; }
       if (!fails.length) row.verdict.push(`PASS: clean baseline: ${row.ourMods.proof}`);
     } else if (fx0) {
-      const fx1 = await fixRead(), fa = fixActivity(fx0.p, fx1.p, fx0.t, fx1.t, jobFixesCfg(j.run.profile));
+      const fx1 = await fixRead(), fa = fixActivity(fx0.p, fx1.p, fx0.t, fx1.t, jobFixesCfg(j.run.profile ?? scriptFixesCfg(j.run.script)));
       row.fixActivity = { simStart: fx0.t?.clock, simMinutes: Number(fx1.t?.minutes_total) - Number(fx0.t?.minutes_total), counters: fa.counters, lists: fa.lists, notes: fa.notes };
       // 0->0 counters stay in the row only (a fixesReport prefix can match ~30 gates)
       const cs = Object.entries(fa.counters).filter(([, v]) => v.after || v.before).map(([k, v]) => `${k} ${v.before ?? '?'}->${v.after}`).join(', ');

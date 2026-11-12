@@ -1,0 +1,126 @@
+{
+  "note": "jit-region (docs/537 §20.6 R1, prepared 2026-11-12, NOT RUN): [MonoJit] CodeKB smoke on the r1e1-1112 pair, the c3g bundle-on switch set (Mode=2 verify, Direct=1 DirectLeaf=0 Inline=2 Wide=1 VtOps CallExit NewVt FastCopy Ldsflda), Count=0, BP 5 min each (smoke length: it checks that the region size reads back and the refusal log works, not timing). Order: bp-jit-region-4096 (stops the queue on FAIL), then bp-jit-region-2048 (the old size, for the contrast). Pass per job: no crash, 0 'jit verify MISMATCH', scriptErrorsMax 0, >= 1 'jit: compiled', the OK line reading 'code region <KB> KB (CodeKB)', the first-tick line 'jit: refusals by reason (first tick)', jitRegionKB = CodeKB, jitMismatch 0, jitFaults 0. Read (not gates): jitCodeKB, jitMethods, jitFullN, jitFullBytes from -native.json and the 'refusals by reason' lines; 4096 should end with jitFullN 0 and jitCodeKB < 4096, 2048 with jitFullN > 0 and jitCodeKB >= 2033 (I-475-1). Then rerun the C0 count arms of jit-exits.json on this pair with CodeKB=4096 to see jitMethods differ by world. Before running: park native/ts3native/out/ts3native.asi of this branch as game-copy/ts3native.asi.r1e1-1112 (builds.json row). Run: node tools/harness/queue.ts tools/harness/queues/jit-region.json --no-smoke",
+  "jobs": [
+    {
+      "id": "bp-jit-region-4096",
+      "note": "BP 5 min, c3g bundle on, CodeKB=4096 (the new default). Stops the queue on FAIL. Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.r1e1-1112",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "r1e1-1112 pair: feature/monojit-r1-c2c-e1, ts3native 0.36.245 (master 0.36.240 + docs/537 §20 R1 CodeKB / refusal log, C2c list without binder rows, E1 [Binder] TypeHandleDirect off by default; counters v188, version field 912), parked from native/ts3native/out; ts3fixes = the Sat 11-14 release package rc1111e (no ts3fixes change on this branch)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*code region 4096 KB \\(CodeKB\\)": 1,
+        "^jit: refusals by reason \\(first tick\\)": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.CodeKB": 4096
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 20,
+      "nativeRequire": "jitRegionKB>=4096,jitMismatch<=0,jitFaults<=0",
+      "stopQueueOnFail": true
+    },
+    {
+      "id": "bp-jit-region-2048",
+      "note": "BP 5 min, c3g bundle on, CodeKB=2048 (the old fixed size). Pass: see the queue note.",
+      "asi": "game-copy/ts3native.asi.r1e1-1112",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "r1e1-1112 pair: feature/monojit-r1-c2c-e1, ts3native 0.36.245 (master 0.36.240 + docs/537 §20 R1 CodeKB / refusal log, C2c list without binder rows, E1 [Binder] TypeHandleDirect off by default; counters v188, version field 912), parked from native/ts3native/out; ts3fixes = the Sat 11-14 release package rc1111e (no ts3fixes change on this branch)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*code region 2048 KB \\(CodeKB\\)": 1,
+        "^jit: refusals by reason \\(first tick\\)": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.CodeKB": 2048
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 20,
+      "nativeRequire": "jitRegionKB>=2048,jitMismatch<=0,jitFaults<=0"
+    }
+  ]
+}

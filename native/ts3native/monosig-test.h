@@ -39,7 +39,7 @@ static __declspec(naked) void __cdecl MstRun(const void* /*sig*/, DWORD /*ret*/,
 }
 
 static void TestMonoSigGuard() {
-    static_assert(offsetof(Ts3nCounters, msgOn) == 0x5F70 && offsetof(Ts3nCounters, msgSpare) == 0x5F7C && sizeof(Ts3nCounters) == 6116 * 4,
+    static_assert(offsetof(Ts3nCounters, msgOn) == 0x5F70 && offsetof(Ts3nCounters, msgSpare) == 0x5F7C && sizeof(Ts3nCounters) == 6294 * 4,
                   "counters v184 layout after v183 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const DWORD t0[3] = {g_msgCont, g_msgFail, g_msgGetType};

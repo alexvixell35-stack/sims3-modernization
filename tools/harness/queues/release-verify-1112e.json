@@ -5,8 +5,8 @@
     {
       "id": "bp-s3ss-release-travel-1112e",
       "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of release-verify-1110-r3 bp-s3ss-release-travel-r3 on pair rc1111] [est 40 min] Release-config float-5 check (Rodney 2026-11-09, release blocker): Baseline-BP travel to France and back x8 with the rc1110c release ini as is (no detectors, no MemDiag) and S3SS 1.6.3 as installed (default, streamingSettings on). PASS = [S3SSCompat] guard on for S3SS 1.6.3, >= 1 stale maintained write corrected, 8 trips, no crash (float-5 or any other).",
-      "asi": "game-copy/ts3native.asi.rc1111d",
-      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
       "releaseDefaults": true,
       "save": "Baseline-BP",
       "noiseCheck": false,
@@ -23,11 +23,11 @@
         ]
       },
       "timeoutMin": 60,
-      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
       "logRequire": {
         "^s3ss compat: stale write guard on \\(S3SS 1\\.6\\.3": 1,
         "^s3ss compat: stale maintained write 0x[0-9A-F]{8} -> ": 1,
-        "^ts3native 0.36.240 ": 1
+        "^ts3native 0.36.247 ": 1
       },
       "logForbid": {
         "^FAIL\\b": 0,
@@ -71,13 +71,13 @@
             "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
           ]
         },
-        "^ts3native 0.36.240 ": {
+        "^ts3native 0.36.247 ": {
           "match": [
-            "ts3native 0.36.240 2026-11-11 14:30:00"
+            "ts3native 0.36.247 2026-11-12 19:30:00"
           ],
           "noMatch": [
-            "ts3native 0.36.239 2026-11-10 14:30:00",
-            "ts3native 0.36.2400 2026-11-11 14:30:00"
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
           ]
         }
       },
@@ -86,7 +86,7 @@
     {
       "id": "bp-rel-matrix-1112e",
       "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of release-validate bp-rel-matrix on pair rc1111] [est 40 min] Release check part b (tools/release-check.ts): BP save matrix, save-matrix.ts --fixes shipped (release mode: save fixes as the release ini sets them), default cases (control, identical, per-fix, overwrite, back-to-back, unpaused, build-mode, reload print). Pass: every case PASS, 0 crashes, ts3native 0.36.240 version line.",
-      "asi": "game-copy/ts3native.asi.rc1111d",
+      "asi": "game-copy/ts3native.asi.rc1111g",
       "save": "Baseline-BP-Spring",
       "run": {
         "script": [
@@ -100,23 +100,23 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 60,
-      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
       "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
-      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
       "releaseDefaults": true,
       "noiseCheck": false,
       "logRequire": {
-        "^ts3native 0.36.240 ": 1,
+        "^ts3native 0.36.247 ": 1,
         "^ts3fixes: settings on: (.*, )?kBookHand(, |$)": 1
       },
       "regexCases": {
-        "^ts3native 0.36.240 ": {
+        "^ts3native 0.36.247 ": {
           "match": [
-            "ts3native 0.36.240 2026-11-11 14:30:00"
+            "ts3native 0.36.247 2026-11-12 19:30:00"
           ],
           "noMatch": [
-            "ts3native 0.36.239 2026-11-10 14:30:00",
-            "ts3native 0.36.2400 2026-11-11 14:30:00"
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
           ]
         },
         "^ts3fixes: settings on: (.*, )?kBookHand(, |$)": {
@@ -133,13 +133,13 @@
       }
     },
     {
-      "asi": "game-copy/ts3native.asi.rc1111d",
+      "asi": "game-copy/ts3native.asi.rc1111g",
       "releaseDefaults": true,
       "minCounters": 912,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
       "ini": {
         "RouteAsync.ForeignKinds": 4,
         "RouteAsync.ForeignKindsMode": 1,
@@ -162,31 +162,31 @@
         }
       },
       "timeoutMin": 25,
-      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
       "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
       "logRequire": {
-        "^ts3native 0.36.240 ": 1
+        "^ts3native 0.36.247 ": 1
       },
       "regexCases": {
-        "^ts3native 0.36.240 ": {
+        "^ts3native 0.36.247 ": {
           "match": [
-            "ts3native 0.36.240 2026-11-11 14:30:00"
+            "ts3native 0.36.247 2026-11-12 19:30:00"
           ],
           "noMatch": [
-            "ts3native 0.36.239 2026-11-10 14:30:00",
-            "ts3native 0.36.2400 2026-11-11 14:30:00"
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
           ]
         }
       }
     },
     {
-      "asi": "game-copy/ts3native.asi.rc1111d",
+      "asi": "game-copy/ts3native.asi.rc1111g",
       "releaseDefaults": true,
       "minCounters": 912,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
       "ini": {
         "RouteAsync.ForeignKinds": 4,
         "RouteAsync.ForeignKindsMode": 1,
@@ -208,31 +208,31 @@
         }
       },
       "timeoutMin": 25,
-      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
       "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
       "logRequire": {
-        "^ts3native 0.36.240 ": 1
+        "^ts3native 0.36.247 ": 1
       },
       "regexCases": {
-        "^ts3native 0.36.240 ": {
+        "^ts3native 0.36.247 ": {
           "match": [
-            "ts3native 0.36.240 2026-11-11 14:30:00"
+            "ts3native 0.36.247 2026-11-12 19:30:00"
           ],
           "noMatch": [
-            "ts3native 0.36.239 2026-11-10 14:30:00",
-            "ts3native 0.36.2400 2026-11-11 14:30:00"
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
           ]
         }
       }
     },
     {
-      "asi": "game-copy/ts3native.asi.rc1111d",
+      "asi": "game-copy/ts3native.asi.rc1111g",
       "releaseDefaults": true,
       "minCounters": 912,
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
       "ini": {
         "RouteAsync.ForeignKinds": 4,
         "RouteAsync.ForeignKindsMode": 1,
@@ -258,26 +258,26 @@
         ]
       },
       "timeoutMin": 35,
-      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
       "logRequire": {
-        "^ts3native 0.36.240 ": 1
+        "^ts3native 0.36.247 ": 1
       },
       "regexCases": {
-        "^ts3native 0.36.240 ": {
+        "^ts3native 0.36.247 ": {
           "match": [
-            "ts3native 0.36.240 2026-11-11 14:30:00"
+            "ts3native 0.36.247 2026-11-12 19:30:00"
           ],
           "noMatch": [
-            "ts3native 0.36.239 2026-11-10 14:30:00",
-            "ts3native 0.36.2400 2026-11-11 14:30:00"
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
           ]
         }
       },
       "fixesPackage": "game-copy/ts3fixes.package.rc1111e"
     },
     {
-      "asi": "game-copy/ts3native.asi.rc1111d",
-      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
       "releaseDefaults": true,
       "ini": {
         "HitchAttr.Enabled": 1,
@@ -286,7 +286,7 @@
       "logRequire": {
         "route async A10: .*WatchdogKind2=1": 1,
         "watchdog idle verdict: Wogan Hemlock (A1|sync) False": 1,
-        "^ts3native 0.36.240 ": 1
+        "^ts3native 0.36.247 ": 1
       },
       "logForbid": {
         "^FAIL\\b": 0,
@@ -314,7 +314,7 @@
         }
       },
       "timeoutMin": 20,
-      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
       "regexCases": {
         "^FAIL\\b": {
           "match": [
@@ -364,13 +364,13 @@
             "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 False @307.56,1495.18 on Community Lot"
           ]
         },
-        "^ts3native 0.36.240 ": {
+        "^ts3native 0.36.247 ": {
           "match": [
-            "ts3native 0.36.240 2026-11-11 14:30:00"
+            "ts3native 0.36.247 2026-11-12 19:30:00"
           ],
           "noMatch": [
-            "ts3native 0.36.239 2026-11-10 14:30:00",
-            "ts3native 0.36.2400 2026-11-11 14:30:00"
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
           ]
         }
       },
@@ -381,8 +381,8 @@
       ]
     },
     {
-      "asi": "game-copy/ts3native.asi.rc1111d",
-      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
       "releaseDefaults": true,
       "ini": {
         "HitchAttr.Enabled": 1,
@@ -390,7 +390,7 @@
       },
       "logRequire": {
         "route async A10: .*WatchdogKind2=1": 1,
-        "^ts3native 0.36.240 ": 1
+        "^ts3native 0.36.247 ": 1
       },
       "logForbid": {
         "^FAIL\\b": 0,
@@ -415,7 +415,7 @@
         }
       },
       "timeoutMin": 27,
-      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
       "regexCases": {
         "^FAIL\\b": {
           "match": [
@@ -445,13 +445,13 @@
             "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4"
           ]
         },
-        "^ts3native 0.36.240 ": {
+        "^ts3native 0.36.247 ": {
           "match": [
-            "ts3native 0.36.240 2026-11-11 14:30:00"
+            "ts3native 0.36.247 2026-11-12 19:30:00"
           ],
           "noMatch": [
-            "ts3native 0.36.239 2026-11-10 14:30:00",
-            "ts3native 0.36.2400 2026-11-11 14:30:00"
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
           ]
         }
       },
@@ -499,7 +499,7 @@
       "logRequire": {
         "A10 foreign START.*scope unseen": 1,
         "route async A10: .*WatchdogKind2=1": 1,
-        "^ts3native 0.36.240 ": 1
+        "^ts3native 0.36.247 ": 1
       },
       "logForbid": {
         "^FAIL\\b": 0,
@@ -509,9 +509,9 @@
       },
       "nativeRequire": "kdScopeN>=1,watchdogs<=0,arStartedPlanFromPoint>=1,wdJobN>=1,arWdPass>=1",
       "timeoutMin": 45,
-      "asi": "game-copy/ts3native.asi.rc1111d",
-      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
-      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
       "regexCases": {
         "A10 foreign START.*scope unseen": {
           "match": [
@@ -565,13 +565,13 @@
             "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4"
           ]
         },
-        "^ts3native 0.36.240 ": {
+        "^ts3native 0.36.247 ": {
           "match": [
-            "ts3native 0.36.240 2026-11-11 14:30:00"
+            "ts3native 0.36.247 2026-11-12 19:30:00"
           ],
           "noMatch": [
-            "ts3native 0.36.239 2026-11-10 14:30:00",
-            "ts3native 0.36.2400 2026-11-11 14:30:00"
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
           ]
         }
       },
@@ -580,7 +580,7 @@
     {
       "id": "bp-lptrim-memtravel-x3-1112e",
       "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of lptrim-fix-1110 bp-lptrim-on-memtravel-x3 on pair rc1111] [est 30 min] Trim=1 arm (SettleSec 15, KeepCores 16), docs/541, Dalexlol PR #313. Baseline-BP, 3 trips to France and back with mem marks (7 world loads). Fix of bp-lptrim-memtravel-x3 (FAIL 11-09: the dwell in a world was 45-54 s on loads #3, #4, #6, shorter than SettleSec 60, and a world quit cancels the pending trim by design (lptrim.cpp:174), so only loads #1, #2, #5 trimmed, 3 < 4). SettleSec 15 fits every dwell (min 45 s; the last world lives about 25 s). Pass: travel PASS, a trim after at least 6 of the 7 world loads, no skip, no FAIL / crash, no new script errors. Gain evidence: big= (largest free block) and free= on each 'diag: mem ... load' line and the gc-after marks; compare with bp-lptrim-off-memtravel-x3 (same trips, Trim=0): node tools/mem-report.ts report --log <job ts3native.log>. Run with --no-smoke.",
-      "asi": "game-copy/ts3native.asi.rc1111d",
+      "asi": "game-copy/ts3native.asi.rc1111g",
       "save": "Baseline-BP",
       "noiseCheck": false,
       "ini": {
@@ -599,7 +599,7 @@
         "^diag: memsus #\\d+ mark ev=away ": 3,
         "^lptrim: on \\(docs/541\\)": 1,
         "^lptrim: #\\d+ world load #\\d+ ": 6,
-        "^ts3native 0.36.240 ": 1
+        "^ts3native 0.36.247 ": 1
       },
       "logForbid": {
         "^FAIL\\b": 0,
@@ -621,8 +621,8 @@
         ]
       },
       "timeoutMin": 60,
-      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
-      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
       "regexCases": {
         "^diag: mem #\\d+ load ev=(travel,)?world-switch ": {
           "match": [
@@ -751,13 +751,13 @@
             "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22, slots 34185 free 34103 (99.8%), completely free 259: freed 243 (8.20 MiB), kept 16; locked 4.85 ms"
           ]
         },
-        "^ts3native 0.36.240 ": {
+        "^ts3native 0.36.247 ": {
           "match": [
-            "ts3native 0.36.240 2026-11-11 14:30:00"
+            "ts3native 0.36.247 2026-11-12 19:30:00"
           ],
           "noMatch": [
-            "ts3native 0.36.239 2026-11-10 14:30:00",
-            "ts3native 0.36.2400 2026-11-11 14:30:00"
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
           ]
         }
       },
@@ -766,8 +766,8 @@
     {
       "id": "bookcarry-crowd-check-1112e",
       "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of release-verify-1110 bookcarry-crowd-check on pair rc1111] [est 20 min] Rerun of sf1108-book-carry-check (FAIL x3 at game hour 3: Tiara's queued read never ran) with the crowd form of repro book-carry-check (docs/515 §3): per arm up to 20 non-household Sims read at bookshelves on their own home lots (max 2 per shelf), all reads cancelled once one holds the book. Pass: the repro's crowd expect steps pass (off: >=1 crowd drop left with its driver held; on: every drop ended, driver released), bookcarry_ended>=1, 0 new script errors, no crash; report N of M Sims dropped from the expect lines. Correctness only, no timing.",
-      "asi": "game-copy/ts3native.asi.rc1111d",
-      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
       "save": "Baseline-BP",
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -784,20 +784,20 @@
         "-disablestoryprogression"
       ],
       "timeoutMin": 20,
-      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
       "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
       "logRequire": {
-        "^ts3native 0.36.240 ": 1,
+        "^ts3native 0.36.247 ": 1,
         "^ts3fixes: settings on: (.*, )?kBookHand(, |$)": 1
       },
       "regexCases": {
-        "^ts3native 0.36.240 ": {
+        "^ts3native 0.36.247 ": {
           "match": [
-            "ts3native 0.36.240 2026-11-11 14:30:00"
+            "ts3native 0.36.247 2026-11-12 19:30:00"
           ],
           "noMatch": [
-            "ts3native 0.36.239 2026-11-10 14:30:00",
-            "ts3native 0.36.2400 2026-11-11 14:30:00"
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
           ]
         },
         "^ts3fixes: settings on: (.*, )?kBookHand(, |$)": {
@@ -816,8 +816,8 @@
     {
       "id": "bp-outfitwait-dead-1112e",
       "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of release-verify-1110-r2 bp-outfitwait-dead-r2 on pair rc1111] [est 15 min] #40: a stale outfit wait whose Sim is destroyed ends (ResetException) and frees the task. Pass: repro outfit-wait-dead-check passes, log line 'outfit wait ended: its Sim is destroyed', 0 script errors. Own load: the repro destroys a non-household Sim, nothing shares it. Version line now required (old pin 0.36.219).",
-      "asi": "game-copy/ts3native.asi.rc1111d",
-      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
       "save": "Baseline-BP",
       "noiseCheck": false,
       "gameArgs": [
@@ -829,7 +829,7 @@
         "UserDiag.Enabled": 1
       },
       "logRequire": {
-        "^ts3native 0.36.240 ": 1
+        "^ts3native 0.36.247 ": 1
       },
       "run": {
         "profile": {
@@ -840,15 +840,15 @@
         }
       },
       "timeoutMin": 20,
-      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
       "regexCases": {
-        "^ts3native 0.36.240 ": {
+        "^ts3native 0.36.247 ": {
           "match": [
-            "ts3native 0.36.240 2026-11-11 14:30:00"
+            "ts3native 0.36.247 2026-11-12 19:30:00"
           ],
           "noMatch": [
-            "ts3native 0.36.239 2026-11-10 14:30:00",
-            "ts3native 0.36.2400 2026-11-11 14:30:00"
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
           ]
         }
       },
@@ -857,14 +857,14 @@
     {
       "id": "bp-dfguard-release-1112e",
       "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of release-verify-1110-r6 bp-dfguard-release-r6 on pair rc1111] [est 30 min] ~15 min: release ini, dancefloorlistguard on (fixesOn read-back), dancefloorlistdiag on through the repro. Pass (correctness): repro steps pass, dancefloorguard_calls >= 3, >= 3 \"dancefloor list: call #\" lines, 0 new script errors: a DanceFloor \"Collection was modified\" script error now FAILs (no scriptErrorsReport exemption). Findings for docs/253 §6, not failures: dancefloorguard_changes, dancefloordiag_throws / _mismatch / _freed and every \"dancefloor list: GUARD|THROW|MISMATCH\" line. Runs after bp-dancediag-stress, last of the forced repros, so the dancediag repro follow-up (bugfix/dancediag-stall) can land first.",
-      "asi": "game-copy/ts3native.asi.rc1111d",
-      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
       "save": "Baseline-BP",
       "noiseCheck": false,
       "scriptErrorsMax": 0,
       "logRequire": {
         "^ts3fixes: dancefloor list: call #\\d+ ": 3,
-        "^ts3native 0.36.240 ": 1
+        "^ts3native 0.36.247 ": 1
       },
       "logForbid": {
         "^ts3fixes: dancefloor list: diag off": 0,
@@ -895,7 +895,7 @@
         }
       ],
       "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
-      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
       "regexCases": {
         "^ts3fixes: dancefloor list: call #\\d+ ": {
           "match": [
@@ -936,13 +936,13 @@
             "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
           ]
         },
-        "^ts3native 0.36.240 ": {
+        "^ts3native 0.36.247 ": {
           "match": [
-            "ts3native 0.36.240 2026-11-11 14:30:00"
+            "ts3native 0.36.247 2026-11-12 19:30:00"
           ],
           "noMatch": [
-            "ts3native 0.36.239 2026-11-10 14:30:00",
-            "ts3native 0.36.2400 2026-11-11 14:30:00"
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
           ]
         }
       }

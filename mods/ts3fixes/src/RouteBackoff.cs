@@ -131,7 +131,7 @@ namespace Ts3Fixes
                 if (!started)
                 {
                     StepAside();
-                    r = PlanOrig();
+                    if (!GvuDefer(0, out r)) r = PlanOrig();
                 }
                 else
                 {
@@ -328,7 +328,7 @@ namespace Ts3Fixes
             {
                 DoorMirror.SyncRoute(this, Vector3.Invalid);
                 bool pre = false;
-                if (!AsyncKindStart(1, Vector3.Origin, ref pre)) return ReplanOrig();
+                if (!AsyncKindStart(1, Vector3.Origin, ref pre)) { RoutePlanResult d; return GvuDefer(1, out d) ? d : ReplanOrig(); }
                 try
                 {
                     AsyncWait();
@@ -354,7 +354,7 @@ namespace Ts3Fixes
             {
                 DoorMirror.SyncRoute(this, startPosition);
                 bool pre = false;
-                if (!AsyncKindStart(2, startPosition, ref pre)) return PlanFromPointOrig(startPosition);
+                if (!AsyncKindStart(2, startPosition, ref pre)) { RoutePlanResult d; return GvuDefer(2, out d) ? d : PlanFromPointOrig(startPosition); }
                 try
                 {
                     AsyncWait();
@@ -381,7 +381,7 @@ namespace Ts3Fixes
                 UbCountReplan();  // docs/248
                 DoorMirror.SyncRoute(this, fromPt);
                 bool pre = false;
-                if (!AsyncKindStart(3, fromPt, ref pre)) return ReplanFromPointOrig(fromPt);
+                if (!AsyncKindStart(3, fromPt, ref pre)) { RoutePlanResult d; return GvuDefer(3, out d) ? d : ReplanFromPointOrig(fromPt); }
                 try
                 {
                     AsyncWait();

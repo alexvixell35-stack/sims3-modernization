@@ -5,6 +5,8 @@ globals it reads and writes, which locks it takes, and the race set against the 
                                       [--depth 5] [--cache DIR] [--csv docs/data/mono-glue-closure.csv]
                                       [--races docs/data/mono-glue-races.csv] [--summary FILE]
     python tools/mono-glue-closure.py --self-check
+    python tools/mono-glue-closure.py --remitigate [--races FILE]   fill empty mitigations of an existing races csv from
+        HANDOFF (docs/data/races-handoff.md), no exe needed: keeps the committed race set when a fresh index drifts
 
 Static only (capstone 5 over a copy of the Steam exe, no Ghidra project needed). Steps:
 1. Whole-exe index (cached in --cache as a pickle): per function, direct calls and tail jumps, indirect sites with a
@@ -813,6 +815,34 @@ def mono_callback_roots(idx, names):
     return {t: (names.get(t, "0x%X" % t), "b:mono->EA (%d Mono callers)" % len(c)) for t, c in out.items()}
 
 
+# docs/data/races-handoff.md: mitigation of the 85 rows the address rules leave open, by group (R1-R4, R2a classes).
+# Status in brackets: "built, not run" = native code behind [AutShadow] Races (default 0), no game run yet; "rule" = a
+# design rule with no code; "static" = closed by a read of the bytes. Applied only where mitigation() finds nothing.
+_R1 = "R1 pre-warm at world event 7 + guard witness, worker aborts while a guard is clear (Races bit 0, ledger §467) [built, not run]"
+_R2 = "R2 load-time word, read-only after load: R2b witness at every cut (Races bit 1) + R2c worker drain at world events 2/3/4/5/8, gate until 7 (Races bit 2) [built, not run]"
+_R2W = "R2 world-scope word replaced at load/travel: R2c worker drain at world events 2/3/4/5/8, gate until 7 (Races bit 2) + R2b witness (bit 1) [built, not run]"
+_R3 = "R3 Boehm/script-host init word: M5 P3 GC lock and docs/120 rules (I-131-4) + R2b witness (Races bit 1) [built, not run]"
+HANDOFF = {}
+for _a in list(range(0x11EE54C, 0x11EE58C, 4)) + list(range(0x11D7508, 0x11D751C, 4)) + list(range(0x11DA048, 0x11DA05C, 4))         + [0x123437C, 0x1234380, 0x11DC168, 0x11DC16C, 0x11DC170, 0x11DC174, 0x11DC178, 0x11DC17C, 0x11DC180, 0x11DC184,
+           0x11C7984, 0x11E96C0, 0x11E96C1, 0x11ECEEC, 0x11ECEED]:
+    HANDOFF[_a] = _R1
+HANDOFF[0x11C7E54] = "R1 same-value write (0x4F4F40 stores 0 over 0): benign, no pre-warm (ledger §467) [static]"
+for _a in (0x11CB864, 0x11E9158, 0x11E9114, 0x11E8FA8, 0x11AF670, 0x11E8FC4, 0x11E90FC, 0x11C78D8, 0x11CDD00, 0x11CDD10,
+           0x11CE2D0, 0x11D4BBC, 0x11D4BC0, 0x11D4BC8, 0x11ECF08, 0x11E8FC0, 0x11E90F8, 0x11E9290, 0x11E92A8, 0x11E94F8,
+           0x11EB490, 0x11EBAE0):
+    HANDOFF[_a] = _R2
+for _a in (0x11ECBC4, 0x11ED034, 0x11CF490, 0x11D9128, 0x11DC350, 0x11D4068, 0x11D8888, 0x11D9848):
+    HANDOFF[_a] = _R2W
+HANDOFF[0x11D3E28] = "R2 owner not identified (swap-setter 0x72F1D0): R2b witness as load class + R2c drain (Races bits 1, 2); static owner still open [built, not run]"
+HANDOFF[0x11D6A78] = "R2 runtime: callback table written only by the writing IC IC_World_RegisterCallbackDelegateImpl on the sim thread; worker reads only; R2b witness logs late registration [built, not run]"
+HANDOFF[0x11ED780] = "R2 runtime: user-tool manager pointer set/cleared by script IC and dtor on the sim thread; R2b witness logs changes + R2c drain [built, not run]"
+for _a in (0x114CA08, 0x114CA0C, 0x11CB928):
+    HANDOFF[_a] = "R2 runtime-lazy: first fill by 0x4F98E0 (done byte 0x11CC928, never called by us): R1 guard witness, worker aborts while clear (Races bit 0) [built, not run]"
+HANDOFF[0x11EE140] = "sim thread only: per-tick SSE scratch (0xD69A30, real race); IC_World_HasFloorFeaturesWorldPosImpl is an AO_CUT row filled at the cut, never pass-through; R2b witness logs it [rule]"
+for _a in (0x11EE528, 0x11EE514, 0x11EE520, 0x11DC18C, 0x114C908, 0x11CC964):
+    HANDOFF[_a] = _R3
+HANDOFF[0x11CB920] = "R4 lazy GetACP() code page, same value from every thread: benign, no pin (R4a, ledger §461) [static]"
+
 HOT_ROOTS = {0xD70A10, 0xD70A30, 0xD70A60, 0xD70A80, 0xD71860, 0xD71900, 0xD71A20, 0xD71B70, 0xD71800, 0xD70870,
              0xEA36F0, 0xEA30F0, 0xEA40B0, 0xEA3FE0, 0xEA3140}  # eglib heap, frame arena, interface offsets, managed allocs
 WARM_C = {0xE5A600, 0xE59FD0, 0xE52B60, 0xEA1090, 0xEA1400, 0xE52D70, 0xE53E80, 0xEA2870}
@@ -902,10 +932,14 @@ def main():
     ap.add_argument("--summary", default=None)
     ap.add_argument("--sites", default=None, help="also write one row per indirect site (docs/133: docs/data/mono-glue-sites.csv)")
     ap.add_argument("--self-check", action="store_true")
+    ap.add_argument("--remitigate", action="store_true", help="only fill empty mitigations of --races from HANDOFF")
     ap.add_argument("--no-typing", action="store_true", help="no caller-side receiver typing (compare with docs/131 v1)")
     a = ap.parse_args()
     if a.self_check:
         return self_check()
+    if a.remitigate:
+        print("remitigated %d rows, %d still open" % remitigate(a.races))
+        return 0
     pe = PE(a.exe)
     cache = os.path.join(a.cache, "mono-glue-index-v2.pkl") if a.cache else None
     if cache and os.path.exists(cache):
@@ -1107,7 +1141,7 @@ def main():
             return "frame arena: P3 lock + ArenaFix (docs/120 §9.1-9.2)"
         if all(MONO_LO <= fn < MONO_HI for fn in wacc):
             return "Mono runtime: docs/120 §3.3 rules (warm-up, no GCHandle/reflection)"
-        return ""
+        return HANDOFF.get(k, "") if not isinstance(k, tuple) else ""
 
     races = []
     for k in set(gacc):
@@ -1169,6 +1203,25 @@ def main():
     print(text)
     if a.summary:
         open(a.summary, "w", encoding="utf-8").write(text + "\n")
+
+
+def remitigate(path):
+    """docs/data/races-handoff.md: fill the empty mitigation cells of a races csv from HANDOFF (by plain global); returns
+    (filled, still open)"""
+    with open(path, newline="", encoding="utf-8") as fh:
+        rd = csv.DictReader(fh)
+        fields, rows = rd.fieldnames, list(rd)
+    n = 0
+    for r in rows:
+        g = r["global"]
+        if not r["mitigation"] and g.startswith("0x") and HANDOFF.get(int(g, 16)):
+            r["mitigation"], n = HANDOFF[int(g, 16)], n + 1
+    rows.sort(key=lambda r: (bool(r["mitigation"]), -int(r["score"] or 0), r["global"]))
+    with open(path, "w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=fields)
+        w.writeheader()
+        w.writerows(rows)
+    return n, sum(1 for r in rows if not r["mitigation"])
 
 
 def carry_columns(path, races):
@@ -1255,6 +1308,16 @@ def self_check():
         assert carry_columns(fp, rs) == ["global", "kind", "r2a_class"]
         assert rs[0]["r2a_class"] == "load" and rs[1]["r2a_class"] == "" and rs[0]["kind"] == "new", rs
         assert carry_columns(os.path.join(td, "none.csv"), [{"global": "0x10"}]) == ["global"]
+        with open(fp, "w", newline="", encoding="utf-8") as fh:
+            fh.write("global,mitigation,score,r2a_class\n0x11EE140,,5,runtime\n0x99,,9,\n[0x11ECBC4]->+0x1B4,,1,\n0x11D4BC8,Boehm,7,load\n")
+        assert remitigate(fp) == (1, 2)
+        with open(fp, newline="", encoding="utf-8") as fh:
+            rr = list(csv.DictReader(fh))
+        assert [r["global"] for r in rr] == ["0x99", "[0x11ECBC4]->+0x1B4", "0x11D4BC8", "0x11EE140"], rr
+        assert rr[3]["mitigation"].startswith("sim thread only") and rr[3]["r2a_class"] == "runtime" and rr[2]["mitigation"] == "Boehm"
+    # races handoff: 41 R1 rows plus 0x11DC17C (not in the v2 csv), 37 R2 (0x11EE140 tagged "sim thread only"), 6 R3, 1 R4
+    by = collections.Counter(v.split(" ")[0] for v in HANDOFF.values())
+    assert by == {"R1": 42, "R2": 36, "R3": 6, "R4": 1, "sim": 1} and HANDOFF[0x11EE140].startswith("sim thread only"), by
     print("mono-glue-closure self-check ok")
 
 

@@ -1407,6 +1407,7 @@ static int AsWorkerAnswer(DWORD idx, DWORD* args, AsRet* r) {
     const int fp = kind == 'f' || kind == 'd';
     r->lo = kind == 's' ? args[0] : 0, r->hi = 0, r->f = 0;
     const AsDesc* d = g_asDescOf[idx];
+    if (g_arGate) { InterlockedIncrement(&ts3native_counters.r2cGateAborts); AsAbort(AS_AB_STOP, idx); return fp; }  // races R2c
     if (g_asStop) { AsAbort(AS_AB_STOP, idx); return fp; }
     if (g_arR1Bad && (g_arOn & 1)) { InterlockedIncrement(&k.r1Aborts); AsAbort(AS_AB_OTHER, idx); return fp; }  // races R1b
     if (!d) { AsAbort(g_asNoDesc[idx], idx); return fp; }  // never the body: H12 route ICs would answer for handle 0

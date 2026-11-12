@@ -36,6 +36,7 @@ namespace Ts3Fixes
             {
                 Sim s = (Sim)(object)this;
                 Posture cur = s.Posture;
+                if (sBgo.N != 0) BgoNote(s, cur, value);  // boatgetoutdiag (BoatGetOutDiag.cs): one compare while no GetOut is watched
                 if (!UnseenFallbackCore.IsPop(cur, cur != null ? cur.PreviousPosture : null, value) || !ShortcutOn("posturepopcycle") || !value.Compatible(cur))
                 {
                     SetOrig(value);

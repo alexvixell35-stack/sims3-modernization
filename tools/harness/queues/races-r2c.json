@@ -1,0 +1,254 @@
+{
+  "note": "races-r2c: docs/data/races-handoff.md R2c (worker drain at world events 2/3/4/5/8, gate until 7) with R1b and R2b/R3a on: ts3native [AutShadow] Races=7 (default 0), DrainMs=250, Mode R. One load, travel to France (profile.travel, --stay), then the return home inside the window (repro scen-travel: travel_home), so three world event 7s and two world quits. Correctness only, no timing (run with --no-smoke). NOT RUN (built 2026-11-12, Rodney: tests skipped); needs the races-r2c-1112 pair in game-copy (asi built from the branch commit, ts3fixes from the same commit). Gate: 0 crashes, autshadow A1-A3 0, 3 R1 pre-warm lines with 0 still clear, 3 witness baselines, 3 gate opens and 2 gate closes at world event 3, no UNEXPECTED, no FAIL autshadow races. Run: node tools/harness/queue.ts tools/harness/queues/races-r2c.json --no-smoke",
+  "jobs": [
+    {
+      "id": "bp-races-r2c-trip",
+      "note": "Mode R round trip: load Baseline-BP-Spring, travel to France, 10 min window with the return home (scen-travel) inside it. PASS = queue gate. Read (data, not gate): the R2c lines per world event: idle (no line), OK ... drained in N us, or WARN ... abort; after a WARN the line the aborted worker job left the worker must follow; native counters v187 r2c* at 0x5FD0 (/native raw dump; agent.js has no names past v180): r2cDrainReq = r2cDrained + r2cAborted, r2cLate = r2cAborted unless the job was still inside at exit, r2cSatb > 0 only in the Satb job, r2cHeld = requests dropped while closed.",
+      "asi": "game-copy/ts3native.asi.races-r2c-1112",
+      "fixesPackage": "game-copy/ts3fixes.package.races-r2c-1112",
+      "pinReason": "races-r2c-1112 pair (builds.json): ts3native 0.36.244 (feature/races-r2c: [AutShadow] Races R1b + R2b/R3a + R2c worker drain, all default off) + ts3fixes built from the same branch (ts3fixes unchanged vs integrate/mono-routing-1112)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Races": 7,
+        "AutShadow.DrainMs": 250
+      },
+      "logRequire": {
+        "^autonomy shadow: Races=7 .*DrainMs=250": 1,
+        "^OK   autshadow races R1 pre-warm: .* 0 still clear": 3,
+        "^autshadow races R2 witness: baseline of 43 rows": 3,
+        "^autshadow races R2c: world event 7 opens the worker gate": 3,
+        "^autshadow races R2c: world event 3 closes the worker gate": 2
+      },
+      "logForbid": {
+        "races R2 witness: UNEXPECTED": 0,
+        "^FAIL autshadow races": 0
+      },
+      "regexCases": {
+        "^autonomy shadow: Races=7 .*DrainMs=250": {
+          "match": [
+            "autonomy shadow: Races=7 (bit 0 R1 pre-warm at world event 7 + worker abort while a guard is clear, bit 1 R2/R3 witness of 43 rows, bit 2 R2c worker drain at world events 2/3/4/5/8, DrainMs=250; docs/data/races-handoff.md)"
+          ],
+          "noMatch": [
+            "autonomy shadow: Races=3 (bit 0 R1 pre-warm at world event 7 + worker abort while a guard is clear, bit 1 R2/R3 witness of 43 rows; docs/data/races-handoff.md)"
+          ]
+        },
+        "^OK   autshadow races R1 pre-warm: .* 0 still clear": {
+          "match": [
+            "OK   autshadow races R1 pre-warm: 0 getters called, 0 converter kinds filled, guards 0x7FFF, 0 still clear"
+          ],
+          "noMatch": [
+            "PART autshadow races R1 pre-warm: 0 getters called, 2 converter kinds filled, guards 0x7FFF, 1 still clear: EAText handler fill 0x114CA08/0C, 0x11CB928 (0x4F98E0, witness only); "
+          ]
+        },
+        "^autshadow races R2 witness: baseline of 43 rows": {
+          "match": [
+            "autshadow races R2 witness: baseline of 43 rows"
+          ],
+          "noMatch": [
+            "autshadow races R2 witness: runtime 0x011EE140 (runtime (per-tick scratch)) hash 0x1234 -> 0x5678 at cut 3"
+          ]
+        },
+        "^autshadow races R2c: world event 7 opens the worker gate": {
+          "match": [
+            "autshadow races R2c: world event 7 opens the worker gate"
+          ],
+          "noMatch": [
+            "autshadow races R2c: world event 3 closes the worker gate"
+          ]
+        },
+        "^autshadow races R2c: world event 3 closes the worker gate": {
+          "match": [
+            "autshadow races R2c: world event 3 closes the worker gate"
+          ],
+          "noMatch": [
+            "autshadow races R2c: world event 5 closes the worker gate",
+            "autshadow races R2c: world event 7 opens the worker gate"
+          ]
+        },
+        "races R2 witness: UNEXPECTED": {
+          "match": [
+            "autshadow races R2 witness: UNEXPECTED 0x011ECBC4 (load-world) value 0x0A000000 -> 0x0B000000 at cut 12"
+          ],
+          "noMatch": [
+            "autshadow races R2 witness: runtime 0x011D6A78 (runtime (callback table)) hash 0x1 -> 0x2 at cut 4"
+          ]
+        },
+        "^FAIL autshadow races": {
+          "match": [
+            "FAIL autshadow races R1: FindClass Vector2 faulted, Races bit 0 off"
+          ],
+          "noMatch": [
+            "WARN autshadow races R2c: world event 3, worker job still inside after 250 ms: abort (stop flag set, every answer of it refused, result dropped)",
+            "OK   autshadow races R2c: world event 5, worker job drained in 812 us"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "travel": "france",
+          "fixesOn": "autshadow",
+          "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+          "repro": "scen-travel"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    },
+    {
+      "id": "bp-races-r2c-trip-satb",
+      "note": "Same round trip with [AutShadow] Satb=2 (act: the worker runs concurrently with the next tick and was never stopped at a world change before R2c; the case R2c closes). PASS = queue gate. Read (data, not gate): the R2c lines per world event: idle (no line), OK ... drained in N us, or WARN ... abort; after a WARN the line the aborted worker job left the worker must follow; native counters v187 r2c* at 0x5FD0 (/native raw dump; agent.js has no names past v180): r2cDrainReq = r2cDrained + r2cAborted, r2cLate = r2cAborted unless the job was still inside at exit, r2cSatb > 0 only in the Satb job, r2cHeld = requests dropped while closed.",
+      "asi": "game-copy/ts3native.asi.races-r2c-1112",
+      "fixesPackage": "game-copy/ts3fixes.package.races-r2c-1112",
+      "pinReason": "races-r2c-1112 pair (builds.json): ts3native 0.36.244 (feature/races-r2c: [AutShadow] Races R1b + R2b/R3a + R2c worker drain, all default off) + ts3fixes built from the same branch (ts3fixes unchanged vs integrate/mono-routing-1112)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Races": 7,
+        "AutShadow.DrainMs": 250,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "^autonomy shadow: Races=7 .*DrainMs=250": 1,
+        "^OK   autshadow races R1 pre-warm: .* 0 still clear": 3,
+        "^autshadow races R2 witness: baseline of 43 rows": 3,
+        "^autshadow races R2c: world event 7 opens the worker gate": 3,
+        "^autshadow races R2c: world event 3 closes the worker gate": 2
+      },
+      "logForbid": {
+        "races R2 witness: UNEXPECTED": 0,
+        "^FAIL autshadow races": 0
+      },
+      "regexCases": {
+        "^autonomy shadow: Races=7 .*DrainMs=250": {
+          "match": [
+            "autonomy shadow: Races=7 (bit 0 R1 pre-warm at world event 7 + worker abort while a guard is clear, bit 1 R2/R3 witness of 43 rows, bit 2 R2c worker drain at world events 2/3/4/5/8, DrainMs=250; docs/data/races-handoff.md)"
+          ],
+          "noMatch": [
+            "autonomy shadow: Races=3 (bit 0 R1 pre-warm at world event 7 + worker abort while a guard is clear, bit 1 R2/R3 witness of 43 rows; docs/data/races-handoff.md)"
+          ]
+        },
+        "^OK   autshadow races R1 pre-warm: .* 0 still clear": {
+          "match": [
+            "OK   autshadow races R1 pre-warm: 0 getters called, 0 converter kinds filled, guards 0x7FFF, 0 still clear"
+          ],
+          "noMatch": [
+            "PART autshadow races R1 pre-warm: 0 getters called, 2 converter kinds filled, guards 0x7FFF, 1 still clear: EAText handler fill 0x114CA08/0C, 0x11CB928 (0x4F98E0, witness only); "
+          ]
+        },
+        "^autshadow races R2 witness: baseline of 43 rows": {
+          "match": [
+            "autshadow races R2 witness: baseline of 43 rows"
+          ],
+          "noMatch": [
+            "autshadow races R2 witness: runtime 0x011EE140 (runtime (per-tick scratch)) hash 0x1234 -> 0x5678 at cut 3"
+          ]
+        },
+        "^autshadow races R2c: world event 7 opens the worker gate": {
+          "match": [
+            "autshadow races R2c: world event 7 opens the worker gate"
+          ],
+          "noMatch": [
+            "autshadow races R2c: world event 3 closes the worker gate"
+          ]
+        },
+        "^autshadow races R2c: world event 3 closes the worker gate": {
+          "match": [
+            "autshadow races R2c: world event 3 closes the worker gate"
+          ],
+          "noMatch": [
+            "autshadow races R2c: world event 5 closes the worker gate",
+            "autshadow races R2c: world event 7 opens the worker gate"
+          ]
+        },
+        "races R2 witness: UNEXPECTED": {
+          "match": [
+            "autshadow races R2 witness: UNEXPECTED 0x011ECBC4 (load-world) value 0x0A000000 -> 0x0B000000 at cut 12"
+          ],
+          "noMatch": [
+            "autshadow races R2 witness: runtime 0x011D6A78 (runtime (callback table)) hash 0x1 -> 0x2 at cut 4"
+          ]
+        },
+        "^FAIL autshadow races": {
+          "match": [
+            "FAIL autshadow races R1: FindClass Vector2 faulted, Races bit 0 off"
+          ],
+          "noMatch": [
+            "WARN autshadow races R2c: world event 3, worker job still inside after 250 ms: abort (stop flag set, every answer of it refused, result dropped)",
+            "OK   autshadow races R2c: world event 5, worker job drained in 812 us"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "travel": "france",
+          "fixesOn": "autshadow",
+          "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+          "repro": "scen-travel"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45
+    }
+  ]
+}

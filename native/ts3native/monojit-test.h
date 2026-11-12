@@ -1275,6 +1275,26 @@ static void TestMonoJit() {
     assert(C.jitRefused == refused && g_jitMethN == compiled + 1 && p1[0] == JIT_OP && g_jitObjectClass == objectClass);
     JitPostPass(mP.rm, &domain);  // a repeat transform: compiled once
     assert(C.jitRefused == refused && g_jitMethN == compiled + 1);
+    {  // R1 (docs/537 §20.0): each reason counted in its own slot; a full code region counts the body and its bound, past the name cap too
+        const auto nOf = [](const char* w) { const int s = JitRefSlot(w); return s < g_jitRefWhyN ? g_jitRefWhy[s].n : 0L; };
+        assert(nOf("no readable IL body") >= 1 && nOf("the IL hash is not a known one") >= 1 && nOf("MonoPatcher ForceJIT is on") >= 1 &&
+               nOf("another thread") >= 1 && nOf("exception clauses") >= 1 && JitRefSlot("not a reason") == g_jitRefWhyN);
+        static unsigned short pF[] = {JT_LDC2, JT_RET};
+        static JtMeth mFull;
+        JtInit(mFull, pF, 2);
+        const size_t used0 = g_jitCodeUsed;
+        const LONG fullN0 = C.jitFullN, fullB0 = C.jitFullBytes, fullR0 = nOf("code region full");
+        g_jitCodeUsed = g_jitCodeBytes - 64;
+        for (int i = 0; i < JIT_REF_NAMES + 3; i++) JitPostPass(mFull.rm, &domain);
+        refused += JIT_REF_NAMES + 3;
+        assert(C.jitRefused == refused && g_jitMethN == compiled + 1 && pF[0] == JT_LDC2);
+        assert(C.jitFullN == fullN0 + JIT_REF_NAMES + 3 && C.jitFullBytes - fullB0 >= (JIT_REF_NAMES + 3) * 512 && nOf("code region full") == fullR0 + JIT_REF_NAMES + 3);
+        g_jitCodeUsed = used0;
+        JitPostPass(mFull.rm, &domain);  // room again: compiled
+        assert(C.jitRefused == refused && g_jitMethN == compiled + 2 && pF[0] == JIT_OP);
+        assert(JitCodeBytes(0) == 1024u << 10 && JitCodeBytes(4096) == 4096u << 10 && JitCodeBytes(1 << 20) == 16384u << 10);
+        JitRefSummary("selftest");
+    }
     g_jitUserN = 1, g_jitUser[0] = "Other.Thing";  // List= narrows
     assert(!JitListed("Ns.Cls.Meth") && JitListed("Ns.Other.Thing") == false);
     g_jitUser[0] = "Cls.Meth";

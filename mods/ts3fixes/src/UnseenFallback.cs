@@ -781,6 +781,22 @@ namespace Ts3Fixes
             const ulong kUfBits = 0x8300000000000000UL;
             bool UfSend(uint code) { return GetOption2((Sims3.SimIFace.Route.RouteOption2)(kUfBits | code)); }
 
+            // docs/250 §7.3 B2 (ts3native [GoalValidRO] UnseenDefer, runtime gvunseen, default off): right before the sync original
+            // of a marked plan (any of the four plan ICs, after a refused START), DEFER? = optLo 3 | kind << 8. ts3native answers 1
+            // only for this route's unseen MARK with an unseen scope message, the unseen fallback on, another route job holding
+            // +0x918 and the route's deferral streak under UnseenDeferMaxMs; it then answers CUT? 1, so UfPlanBody's cut recovery
+            // runs. The plan is answered without the IC, as the planner's own "Failed, no blocker" (type 2, what UfLockGate's
+            // timed-out lock gives) through FailFast. Asked only inside UfPlanBody's marked plan (sGvuRoute): household, selected
+            // and unknown-scope Sims are never marked. The game and older ts3native answer false.
+            static RouteBackoffHook sGvuRoute;
+            bool GvuDefer(int kind, out RoutePlanResult r)
+            {
+                r = default(RoutePlanResult);
+                if (!ReferenceEquals(sGvuRoute, this) || !UfSend(3u | (uint)kind << 8)) return false;
+                r = FailFast((RoutePlanResultType)2);
+                return true;
+            }
+
             RoutePlanResult UfInner(int kind, Vector3 p)
             {
                 switch (kind)
@@ -890,8 +906,9 @@ namespace Ts3Fixes
                 // Sim's route failure: the same (Sim, task) hide owprobeplans uses for EA's stuck-check probes (OverwatchProbe.cs)
                 ulong task = Simulator.CurrentTask.Value;
                 sOwProbe.Enter(id, task);
+                sGvuRoute = this;  // docs/250 §7.3 B2: this marked plan's sync branch may ask DEFER? (GvuDefer)
                 try { r = UfInner(kind, p); }
-                finally { cut = UfSend(2); sOwProbe.Exit(id, task); }
+                finally { sGvuRoute = null; cut = UfSend(2); sOwProbe.Exit(id, task); }
                 int ms = unchecked(System.Environment.TickCount - t0);
                 if (ms > c[312]) c[312] = ms;
                 if (!cut || r.mType == RoutePlanResultType.Succeeded) return true;

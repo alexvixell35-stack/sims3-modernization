@@ -17946,6 +17946,166 @@
     ]
   },
   {
+    "id": "ip-gvunseen-defer-loop",
+    "bug": "An unseen townie's sync plan waits on +0x918 for the rest of another route's job: at the validator 0x75A64C, then the gather, gate 10 and Route_PlanLocked (docs/250 §1, §11.2); the unseen fallback bounds only the last (UfLockGate)",
+    "fix": "ts3native [GoalValidRO] UnseenDefer (native switch gvunseen, docs/250 §7.3 B2): a marked unseen sync plan of any plan IC is not run while another job holds +0x918; ts3fixes answers it failed (FailFast, no IC call) and the unseen fallback's cut recovery runs; a route's deferral streak is capped at UnseenDeferMaxMs (2 s), then the plan runs as vanilla",
+    "save": "Baseline-IP",
+    "note": "UNVERIFIED (static + selftest only, 2026-11-12): never run. Built like unseenfb-far-crowd-loop: 30 spawned townies go to the farthest lot (unseen there: > 80 m from the household and the camera, off screen). Each firing the household walks to the farthest lot (its own-task async jobs hold +0x918) while the townies are sent home: their own-task STARTs meet the running job and are refused (M1Retry=0 in the job ini), so their plans are the sync plans B2 defers. unseenfbplan and unseenfb are on in both arms (the MARK and the recovery); only gvunseen flips. Household Sims are never marked, so their plans are never asked (gvuAsks counts marked plans only).",
+    "expect": "no crash, no tripwire line; on arms: gvuN >= 1 per firing, gvunseen: lines with 'deferred', gvuKind[0] (Plan) and, with replans, gvuKind[1-3]; gvuNo[2] (lock free) grows in both phases; the household's Go Here arrives in both arms (its plans are never asked: no gvunseen line names a household route); unseen townies with a deferred plan get the cut recovery (the 1.5 s no-retry window; unseenfbteleport off), none stuck at the end of the loop budget; off arms: gvuAsks 0, today's waits. Read: the sum of keyed sim waits per arm (hitch-ab.ts --scenario, rtLock total and mwKey*), gvaScopeWaitUs[2] (unseen) down in on arms, gvaScopeWaitUs[0] (household) the same",
+    "steps": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "gvattr": 1
+        },
+        "waitS": 1,
+        "note": "Part 0 attribution on for the whole run (scope split of the validator waits)"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 90,
+        "note": "away from the household and the camera"
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "gvunseen": "$on",
+            "unseenfb": 1
+          },
+          "waitS": 1,
+          "note": "arm: B2 on/off; the unseen fallback on in both"
+        },
+        {
+          "cmd": "patches",
+          "setup": true,
+          "args": {
+            "unseenfbplan": true
+          },
+          "waitS": 1,
+          "note": "MARK on in both arms (unseenfbteleport stays off: verified by its own shortcut job; the recovery here is the no-retry window)"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "to": "far",
+            "household": true
+          },
+          "waitS": 2,
+          "note": "start: household Go Here to the farthest lot, its async jobs hold +0x918"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "target": "home"
+          },
+          "waitS": 20,
+          "note": "fire: unseen townies plan home while the household jobs run",
+          "waitUntil": {
+            "quiet": 4000
+          },
+          "minS": 6,
+          "maxS": 20,
+          "count": {
+            "result": "sent"
+          }
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "target": "home",
+            "household": true
+          },
+          "waitS": 40,
+          "note": "household home (fixed)"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "to": "far"
+          },
+          "waitS": 40,
+          "note": "townies back to the far lot"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 10,
+        "minFirings": 10
+      },
+      "maxMinutes": 20
+    },
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "gvunseen": 0,
+          "gvattr": 0
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenfbplan": false
+        }
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 20
+      }
+    ],
+    "switches": [
+      "gvunseen",
+      "unseenfbplan",
+      "unseenfb",
+      "gvattr"
+    ]
+  },
+  {
     "id": "ip-locktaker-defer-loop",
     "bug": "IP/SV 1-2 s freezes from +0x918 lock takers on the sim thread while async route jobs run: steering 0x85FE10 (docs/175), avoidance 0x846D21, gate 0, UpdateSimFootprint 0x833593 / 0x8334CC, route-to-object 0x83156D, gate-12 F-G placement 0x631F40 (docs/174), foreign ReplanFromPosition sync plans (docs/176). One taker removed hands its wait to the next (docs/152 conservation).",
     "fix": "Static triage 2026-10-23 (docs/TESTING.md §6): only [Discourage] DeferFootprint + DeferFootprint2 flipped per firing (top suspect for the on-arm failing Replan loops after boat exits); SteerRO, AvoidRO, Gate0RO, RouteToObjRO, PlacementRO, ForeignKinds on in both arms. Base: combined lock-taker arm: native_set steerro, avoidro, gate0ro, deferfootprint, deferfootprint2, routetoobjro, placementro, a10foreign flipped together per firing (ini enables each piece); docs/175 + docs/174 + docs/176",

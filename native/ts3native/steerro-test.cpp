@@ -2466,6 +2466,19 @@ int main(int argc, char** argv) {
     // P4 part B (p4clone.cpp, 0.29.0): ApplyPendingUpdates and FlushDeferred are thiscall with no stack argument (both end in
     // a plain ret); the three display level writers carry the prologues P4InstallDl checks; the Los option test
     assert(Matches((const void*)(uintptr_t)0x0082C420, (const u8*)"\x57\x8B\xF9\x8B\x87\x5C\x09\x00\x00", 9));  // push edi; mov edi,ecx; mov eax,[edi+0x95C]
+    {  // docs/247 §13.1 L: FbApplySplit (ts3native.cpp) writes this body out, so every step it copies must still be here
+        assert(Matches((const void*)(uintptr_t)0x0082C429, (const u8*)"\x80\xB8\x0E\x01\x00\x00\x00", 7));  // cmp byte [eax+0x10E],0
+        assert(Matches((const void*)(uintptr_t)0x0082C432, (const u8*)"\x8B\x8F\x64\x09\x00\x00\x53\x56\x6A\x00", 10));  // ecx=[edi+0x964]; push 0
+        assert(callsTo(0x0082C43C, 0x00C68960) && Matches((const void*)(uintptr_t)0x00C68985, (const u8*)"\xC2\x04\x00", 3));
+        assert(Matches((const void*)(uintptr_t)0x0082C441, (const u8*)"\x8B\x30\x8B\x58\x04", 5));  // esi = begin, ebx = end (read once)
+        assert(Matches((const void*)(uintptr_t)0x0082C450, (const u8*)"\x8B\x06\x85\xC0\x74\x21", 6));  // NULL lot skipped
+        assert(Matches((const void*)(uintptr_t)0x0082C456, (const u8*)"\x8B\x50\x48\x8B\x40\x4C\x8B\x8F\x5C\x09\x00\x00", 12));  // [lot+0x48], [lot+0x4C], P re-read
+        assert(callsTo(0x0082C464, 0x00631A60) && Matches((const void*)(uintptr_t)0x00631A79, (const u8*)"\xC2\x08\x00", 3) &&
+               Matches((const void*)(uintptr_t)0x00631A90, (const u8*)"\xC2\x08\x00", 3));
+        assert(Matches((const void*)(uintptr_t)0x0082C46D, (const u8*)"\x8B\x0E\x51\x8B\xCF", 5) && callsTo(0x0082C472, 0x0082B590));
+        assert(Matches((const void*)(uintptr_t)0x0082C47E, (const u8*)"\x8B\x97\x5C\x09\x00\x00\x5E\xC6\x82\x0E\x01\x00\x00\x00\x5B", 15));  // P+0x10E = 0
+        printf("FbApplySplit: the 0x82C420 walk it copies matches\n");
+    }
     assert(Matches((const void*)(uintptr_t)0x00666A40, (const u8*)"\x55\x8B\xEC\x83\xE4\xF8", 6));
     for (int i = 0; i < 3; i++) assert(Matches((const void*)(uintptr_t)kP4Dl[i].at, kP4Dl[i].pro, kP4Dl[i].len));
     assert(callsTo(0x0075AB9C, 0x0081C880) && Matches((const void*)(uintptr_t)0x0075AB95, (const u8*)"\x68\x00\x00\x00\x02", 5));  // push 0x2000000

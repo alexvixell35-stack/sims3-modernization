@@ -43,7 +43,8 @@ namespace Ts3Fixes
         static readonly System.Collections.Generic.Dictionary<ulong, string> sUbLastWhy = new System.Collections.Generic.Dictionary<ulong, string>();
         static readonly UbReasonMs sUbMs = new UbReasonMs();
         // docs/247 §12.9 (boatreplanlog only, log text): which UbTrip exit left the Sim with no refusal record after the Remove, so the
-        // boatreplan: lines can split the "no refusal" row: "goal invalid or < 40 m", "nested plan", "same lot", "one land area"
+        // boatreplan: lines can split the "no refusal" row; since §12.10 the same strings as the sUbLastWhy entries (UbTripWhy):
+        // "trip: no goal", "trip: short", "trip: nested", "trip: same lot", "trip: one land area", "trip: placed houseboat|goal"
         static readonly System.Collections.Generic.Dictionary<ulong, string> sUbCleared = new System.Collections.Generic.Dictionary<ulong, string>();
         static void UbClearedBy(ulong sim, string exit)
         {
@@ -56,10 +57,19 @@ namespace Ts3Fixes
             string e;
             return sUbCleared.TryGetValue(sim, out e) ? e : "-";
         }
+        // docs/247 §12.10: a UbTrip exit that refuses nothing still owns the trip's boat replans (report only: UbBookReplan is the
+        // only reader of sUbLastWhy), and the boatreplan: cleared text gets the same string
+        static void UbTripWhy(ulong sim, string why)
+        {
+            if (sUbLastWhy.Count >= 512) sUbLastWhy.Clear();
+            sUbLastWhy[sim] = why;
+            UbClearedBy(sim, why);
+        }
         static void UbBookReplan(ulong sim, uint ms)
         {
             string why;
             sUbLastWhy.TryGetValue(sim, out why);
+            if (why == null) { int[] c = PatchCounters(); c[948]++; c[949] += (int)ms; }  // still no entry: never reached UbTrip, or the 512 clear
             sUbMs.Add(why, ms);
             AppDomain.CurrentDomain.SetData("ts3fixes.unseenboat.ms", sUbMs.Lines());
         }
@@ -95,8 +105,9 @@ namespace Ts3Fixes
                 UbClearedBy(sim.ObjectId.Value, null);
                 int[] c = PatchCounters();
                 Vector3 dest = GetApproximateOriginalDestination(), start = sim.Position;
-                if (dest == Vector3.Origin || dest == Vector3.Invalid || !UbCore.FarEnough((dest - start).Length())) { UbClearedBy(sim.ObjectId.Value, "goal invalid or < 40 m"); return; }
-                if (sUfPlanDepth.Depth(Simulator.CurrentTask.Value) > 1) { UbClearedBy(sim.ObjectId.Value, "nested plan"); return; }
+                if (dest == Vector3.Origin || dest == Vector3.Invalid) { UbTripWhy(sim.ObjectId.Value, "trip: no goal"); return; }
+                if (!UbCore.FarEnough((dest - start).Length())) { UbTripWhy(sim.ObjectId.Value, "trip: short"); return; }
+                if (sUfPlanDepth.Depth(Simulator.CurrentTask.Value) > 1) { UbTripWhy(sim.ObjectId.Value, "trip: nested"); return; }
                 Lot goal = LotManager.GetLotAtPoint(dest), from = sim.LotCurrent;
                 int trip, colours = 0;
                 string caller = null;
@@ -111,7 +122,7 @@ namespace Ts3Fixes
                     if (trip == UbCore.kExact)
                     {
                         if (colours == 0) { c[849]++; UbSample(sim, "colours unknown, start " + (UfColourA(start, sim.LotCurrent) ? "known" : "unknown"), goal, dest, start, colours, caller); }
-                        else UbClearedBy(sim.ObjectId.Value, same ? "same lot" : "one land area");  // one colour: planned by boat inside one land area
+                        else UbTripWhy(sim.ObjectId.Value, same ? "trip: same lot" : "trip: one land area");  // one colour: planned by boat inside one land area
                         return;
                     }
                     c[845]++;
@@ -291,6 +302,7 @@ namespace Ts3Fixes
                     sUrPlaced[sim.ObjectId.Value] = true;  // §3.9.7 (D): checked when it is seen and plans again
                 }
                 c[839]++;
+                if (!leave) UbTripWhy(sim.ObjectId.Value, trip == UbCore.kHouseboat ? "trip: placed houseboat" : "trip: placed goal");  // the replans after our placement (EnterHouseboatThroughGangway) get their own row
                 if (leave)
                 {
                     c[851]++;

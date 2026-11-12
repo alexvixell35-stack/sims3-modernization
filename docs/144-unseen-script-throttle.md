@@ -168,6 +168,21 @@ Seen again: runs that pass with the owed time (`aoSnap`); switch off: owed time 
 
 **Queue** `tools/harness/queues/unseen-anim-objects.json` (not run; Sims exact in every job, `UnseenAnim.Mode=0`): smoke (switch read-back, `aoFrozen` > 0, histogram > 0), `bp-uao-snapback` (repro unseen-snapback, Objects on the whole run), `bp-uao-stuck-on`, 4 in-load A/Bs (BP/IP, both orders, `--ab unseenobj`, ObjStats in both arms). Verdict from the counters per arm: `aaUs_2` and `aaPassUs`, not it/s.
 
+**Histogram read, 2026-11-02 runs (static read 2026-11-12, ledger §480): park.** Source: the second run, build 105f23ab, `probe-out/queue/unseen-anim-objects-2026-11-02.jsonl`, counter deltas. The first run's rows carry no `ao*` counters. Rates assume the 600 s profile window [inferred]. Sampled counts and us are x16; the sampled kinds sum to `aaN_2` within 0.1%.
+
+| per s (x16) | BP asks | BP ms/s | IP asks | IP ms/s |
+|---|---|---|---|---|
+| unseen plain (`aoKindN_4_1`, `aoKindUs_4`) | 952 | 0.48 | 1,821 | 0.43 |
+| unseen SACS (`aoKindN_3_1`, `aoKindUs_3`) | 9,127 | 2.86 | 6,995 | 1.99 |
+| queue-note sum (plain + SACS) | 10,079 | 3.34 | 8,816 | 2.42 |
+
+- (a) The stop rule is written two ways. The queue note counts plain + SACS, and that passes in both worlds. This section counts plain only, and that fails in both worlds (under 1 ms/s; BP is under 1,000 asks/s too). The plain-only reading is the right one, because the rule holds every SACS actor (`AoHoldWhy` returns `AOH_SACS`), so the SACS share cannot be gained. Upper bound of the rule at ObjEvery=4: 3/4 of the plain cost, so ≤0.36 ms/s BP and ≤0.32 ms/s IP. That is before the agent-within-8 m and near-visible holds, and `aoKindUs_4` also includes seen asks (12% of kind-4 asks in BP). That is far below the 3-5 ms/s ON bar [measured counts, gain inferred].
+- (b) SACS is 71% (BP) and 67% (IP) of unseen non-Sim asks [measured]. That is not ~100%, so the hold works as built, but it blocks most of the cost.
+- (c) The vtable buckets do not split types. One owner vtable holds 99.2% (BP) and 100% (IP) of the asks (`aoBktN_0`), and the freeze found no second vtable. I-419-5 is refuted: a split needs a resource or OBJD key.
+- Kind 1 (`aoKindN_1_*` > 0 in both worlds) backs I-419-2.
+
+**Verdict: park; no smoke and no 4 A/Bs.** The gain the rule can reach is under 0.4 ms/s (throttles park rule). **Reopen only** for the SACS share (2-2.9 ms/s). That needs a hold narrowed to drivers whose bound actors include a Sim, with objects-only drivers skippable. The driver layout is verified (I-419-1: actor slots at +0x10 / +0x14, bound object id at holder +0x10 / +0x14). First step: split `aoKindN_3_*` in the histogram into "a driver binds a Sim" and "objects only" (ObjStats only, no behaviour change; about 45 min build plus 2 hist jobs of about 12 min). Build the rule only if the objects-only share is ≥ 1 ms/s.
+
 **Before enabling by default:** the histogram must show (a) the unseen plain share (`aoKindN_4_1` x16, `aoKindUs_4`) is worth it (stop under ~1,000 asks/s or ~1 ms/s), (b) the SACS share is not ~100% (else I-419-1's hold blocks everything, or the vector means something else), (c) the vtable buckets separate types (I-419-5), and the correctness and stuck jobs pass.
 
 ## 4. As built (ts3fixes, offline)

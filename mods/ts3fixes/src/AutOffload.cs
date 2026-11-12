@@ -61,7 +61,7 @@ namespace Ts3Fixes
         const long kDryTicks = 240;      // a worker answer older than this (Simulator ticks since the request) is not dry-checked or applied
         const long kBcApplyTicks = 15;   // bcast apply: kBcMargin covers about this many ticks of walking [inferred, I-404-4]
         const int cEnv = 448, cBc = 457, cEnvAp = 481, cBcAp = 486, cTick = 534, cT2 = 763, cLot = 769, cIc = 878;
-        const int kT2Max = 16, kLotSims = 32;
+        const int kT2Max = 16, kLotSims = 32, kLotHb = 4;
         const long kLotDryTicks = 15;    // autoffdry: a pick older than this is not compared with the game's call
 
         // docs/206 §15 (autofftick): one Mode R item that reads the sim clock (SimClock.CurrentTicks = Simulator / SimClock
@@ -102,6 +102,10 @@ namespace Ts3Fixes
             public Vector3 Target; public float Hours; public Lot Active, World; public int N; public Household H;
             public readonly List<Lot> Base = new List<Lot>();
             public readonly Lot[] SimLot = new Lot[kLotSims]; public readonly bool[] Inside = new bool[kLotSims], Upper = new bool[kLotSims];
+            // docs/208 §9.5: the household's own houseboats, answered on the sim thread at the cut (LotBoatFill); HbCut false = none taken
+            public int HbN; public bool HbCut;
+            public readonly Lot[] HbLot = new Lot[kLotHb]; public readonly bool[] HbOk = new bool[kLotHb];
+            public readonly Vector3[] HbPos = new Vector3[kLotHb]; public readonly float[] HbPad = new float[kLotHb];
         }
         sealed class LotRes { public bool Done, Exc, Used; public int Abort = -1, Best; public Lot Pick, Focus; public long Tick; }
         static readonly LotReq sLotReq = new LotReq();
@@ -264,7 +268,8 @@ namespace Ts3Fixes
             IActor sel = PlumbBob.SelectedActor;
             Household h = sel != null ? sel.Household : null;
             if (h == null) return false;
-            q.H = h;  // houseboat row: the household's own lots stay refused (docs/208 §9.2)
+            q.H = h;  // houseboat row: the household's own lots stay refused (docs/208 §9.2) unless answered at the cut (§9.5)
+            q.HbCut = false;
             Sim active = Sim.ActiveActor;
             Lot home = active != null ? active.LotHome : null;
             q.Base.Clear();
@@ -353,6 +358,7 @@ namespace Ts3Fixes
             if (!sOffPosted) return;
             if (!worker)
             {
+                if (sLotPosted) { try { LotBoatFill(sLotReq); } catch (Exception) { sLotReq.HbCut = false; } }  // before the noref return: the worker needs it either way
                 if (ShortcutOn("autoffnoref")) return;  // timing runs: no sim-side copy of the work at the cut
                 sOffRefRan = true;
             }
@@ -886,9 +892,15 @@ namespace Ts3Fixes
                 Lot l = list[i];
                 if (l == null) continue;
                 // household-owned houseboat: the worker never asks the houseboat row for it (household rule, docs/208 §9.2)
-                if (l.Household != null && l.Household == q.H && l.IsHouseboatLot() && OnWorker()) { AutShadowNative.Abort(kReasonModType); return; }
+                // docs/208 §9.5: unless the sim thread took that lot's answer at the cut; then the worker reads only the answer
+                int hb = -1;
+                if (l.Household != null && l.Household == q.H && l.IsHouseboatLot() && OnWorker())
+                {
+                    hb = LotBoatAt(q, l);
+                    if (hb < 0) { AutShadowNative.Abort(kReasonModType); return; }
+                }
                 float d;
-                int cell = LotCellOf(l, q.Target, out d);
+                int cell = LotCellOf(l, q.Target, out d, q, hb);
                 int step = AutOffloadCore.LotPickStep(cell, d, l.IsHouseboatLot(), ref best);
                 if (step != 0) pick = l;
                 if (step == 2) focus = l;
@@ -904,20 +916,16 @@ namespace Ts3Fixes
         }
 
         // the game's quadrant and distance of a camera target to a lot (AutOffloadCore has the game-free part). -1: no corners.
-        static int LotCellOf(Lot l, Vector3 t, out float dist)
+        // hb >= 0: q's cut answer for that household houseboat (LotBoatFill), so the worker never calls the row or reads the boat
+        static int LotCellOf(Lot l, Vector3 t, out float dist, LotReq q, int hb)
         {
             dist = 0f;
             Corners c = l.Corners;
             if (c == null) return -1;
             float pad = 0f;
             Vector3 boat;
-            if (l.IsHouseboatLot() && Sims3.SimIFace.World.GetHouseboatDisplayToWorldPosition(l.LotId, t, out boat))
-            {
-                t = boat;
-                pad = 10f;
-                Houseboat h = l.GetHouseboat();
-                if (h != null && h.LotCurrent.IsDivingLot) pad = 0f;
-            }
+            if (hb >= 0) { if (q.HbOk[hb]) { t = q.HbPos[hb]; pad = q.HbPad[hb]; } }
+            else if (l.IsHouseboatLot() && LotBoatAnswer(l, t, out boat, out pad)) t = boat;
             Matrix44 m = l.WorldToLotTransform;
             Vector3 o = c[Corner.Origin], e = c[Corner.Extent];
             Vector3 lo = m * new Vector3(o.x, 0f, o.z), hi = m * new Vector3(e.x, 0f, e.z), lt = m * new Vector3(t.x, 0f, t.z);
@@ -925,6 +933,42 @@ namespace Ts3Fixes
             dist = AutOffloadCore.LotCellDist(cell, Math.Abs(lt.x - lo.x), Math.Abs(lt.z - lo.z), Math.Abs(lt.x - hi.x), Math.Abs(lt.z - hi.z),
                 LotCornerSq(t, c[Corner.YAxis]), LotCornerSq(t, c[Corner.Extent]), LotCornerSq(t, c[Corner.Origin]), LotCornerSq(t, c[Corner.XAxis]));
             return cell;
+        }
+
+        // the game's houseboat display position and pad for a houseboat lot (Camera.GetClosestVisibleLot's own two reads)
+        static bool LotBoatAnswer(Lot l, Vector3 t, out Vector3 boat, out float pad)
+        {
+            pad = 0f;
+            if (!Sims3.SimIFace.World.GetHouseboatDisplayToWorldPosition(l.LotId, t, out boat)) return false;
+            pad = 10f;
+            Houseboat h = l.GetHouseboat();
+            if (h != null && h.LotCurrent.IsDivingLot) pad = 0f;
+            return true;
+        }
+
+        // docs/208 §9.5, sim thread at the cut: the household's own houseboats get the answer the game's own
+        // GetClosestVisibleLot would compute for the request's target at this instant. Read only: the game makes the same
+        // call itself, so no household object changes; the worker then reads these values instead of the boat.
+        static void LotBoatFill(LotReq q)
+        {
+            q.HbCut = false; q.HbN = 0;
+            if (q.H == null) return;
+            foreach (Lot l in LotManager.AllLots)
+            {
+                if (l == null || l.Household != q.H || !l.IsHouseboatLot()) continue;
+                if (q.HbN >= kLotHb) break;  // the rest stay unanswered: the worker aborts on them as before
+                int i = q.HbN++;
+                q.HbLot[i] = l;
+                q.HbOk[i] = LotBoatAnswer(l, q.Target, out q.HbPos[i], out q.HbPad[i]);
+            }
+            q.HbCut = true;
+        }
+
+        static int LotBoatAt(LotReq q, Lot l)
+        {
+            if (!q.HbCut) return -1;
+            for (int i = 0; i < q.HbN; i++) if (q.HbLot[i] == l) return i;
+            return -1;
         }
 
         static float LotCornerSq(Vector3 t, Vector3 corner) { return (new Vector2(corner.x, corner.z) - new Vector2(t.x, t.z)).LengthSqr(); }

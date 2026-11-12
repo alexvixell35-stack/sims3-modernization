@@ -570,3 +570,213 @@ Rows `probe-out/queue/wildflower-save-2026-11-06.jsonl`, reports in `probe-out/2
 **Next lever (not built, test package only).** One `sUbLastWhy` entry per silent exit (`trip: same lot`, `trip: one component`, `trip: short`, `trip: nested`), no behaviour change; then one `ip-uboat-verify` (20 min, `hitch-fix-verify.json`, with `unseenboat` and `boatreplanlog` on). If `trip: one component` holds most of the 14.1 s, that is EA picking a boat on a land-connected trip, which the shortcut leaves exact by design; a change there would be a new design question for Rodney, not a fix.
 
 **`hbstart1` household check [verified in the logs for the logged moves; inferred for the rest from code].** Queue `verify-shortcut-houseboat-2026-11-07` (5 jobs, IP, active household Dregg: Cara and Edward Dregg). `ip-ubstart-repro`: `unseenboatstart_shortcuts` 11, `left_dirty` 0, 8 sampled `houseboat start: placed, Docked` rows (Akoni Kahale, Lincoln Porter, Rubisel Ichtaca), none a Dregg; one `start:household lot` refusal (Raylen Richardson, a visitor on Atlantis): the household-lot rule refuses any Sim on that lot, not only members. No `=>`/`->` move line in any of the 5 job logs names a Dregg. Code: `UbGate` refuses `UfWhy != 0`, and `UfWhyBody` returns `kHousehold` for `IsSelectable` or the active household; `UfDriverlessWhy` counts no-Sim and ownable vehicles as household. The sample list was full (240) and the verify-b rows carry no list, so unlogged moves rest on that code. The `ufplan: ... why 3 cut Edward Dregg` lines in these logs are the shared-field print bug PR #306 fixed (`UnseenFallback.cs` `UfLast`), not a cut of a household plan. `hbstart1` runs had `boatreplanlog` off, so `unseenboat_ms` cannot be re-read there.
+
+### 12.10 `no refusal` split: what the `cleared` log text already shows, and the entries to build (2026-11-12, static, ledger §482)
+
+**Already on master (598a4741, 11-08):** with `boatreplanlog` on, every `boatreplan:` line ends `cleared <exit|->`, naming the `UbTrip` exit that left no refusal (`sUbCleared`, log text only). `sUbLastWhy`, and with it the `unseenboat_ms` table, is unchanged.
+
+**Read of the runs that carry it [measured, `probe-out/queue/release-verify-111*-ip-*-ts3native.log`; no line was cut]:**
+
+| run | `cleared -` | `goal invalid or < 40 m` | `one land area` | `same lot` |
+|---|---|---|---|---|
+| `ip-natural-combined-1111` (11-11 15:44) | 433, 61.5 s | 160, 29.1 s | 5, 0.7 s | 4, 0.6 s |
+| `ip-natural-combined-1112e` | 311, 58.3 s | 108, 24.4 s | 2, 0.5 s | 2, 0.1 s |
+| `ip-ubrel-verify-1111` / `-1112e` | 32, 5.3 s / 31, 5.3 s | 11, 1.9 s / 8, 1.7 s | 0 | 0 |
+
+- `one land area` and `same lot` (EA picking a boat inside one land component) are ≤ 1.2 s per run. §12.9's design question does not arise [measured].
+- `goal invalid or < 40 m` is 28% of the natural runs' boat replan ms. 85% of those replans are long (≥ 200 m; 135 of 160 and 91 of 108), across 45 Sims each. A trip whose own goal was under 40 m does not boat 200 m. So either `GetApproximateOriginalDestination()` was Origin/Invalid at `PlanBackoff`, or a later short leg plan of the same Sim (walk to the dock, gangway) wiped the trip's refusal. The two exits share one text, so the split is unknown [inferred].
+- `cleared -` (no exit recorded) mixes three cases: a refusal on record, a gate that passed, and no `UbTrip` since. The log cannot tell them apart. That is what the entries below are for.
+- Gap: the release-verify rows carry no `unseenboat_ms` list (`fixActivity.lists` is empty for these jobs), so the table itself could not be read here.
+
+**Build (ts3fixes `UnseenBoat.cs`, about 15 lines, report-only: `sUbLastWhy` is read only by `UbBookReplan` [verified grep], so no Sim's behaviour changes):**
+1. One entry per silent exit, written over the cleared entry with the same 512 cap as `UbSample`: `trip: no goal` (dest Origin/Invalid), `trip: short` (< 40 m), `trip: nested`, `trip: same lot`, `trip: one land area`. The existing `UbClearedBy` call sites get the same strings, so the log text splits `no goal` from `short` too.
+2. `trip: placed houseboat` / `trip: placed goal` at `UbGo`'s non-leave success (`c[839]`). That puts the `EnterHouseboatThroughGangway` replans after our placement under their own row.
+3. Two counters (reserve `fixes` slots at build): replans and ms booked with no entry (`UbBookReplan`, `why == null`). The remaining `no refusal` is then only Sims that never reached `UbTrip` (its early returns, or the 512-entry clear), and the gate below can read it.
+4. Not in this step: keeping the outer trip's refusal through a short or nested leg (moving the `Remove` below those checks). Build it only if step 1 shows `trip: short` holding the long replans; it changes attribution, not behaviour.
+
+**Check `ip-uboat-verify`** (`hitch-fix-verify.json`, IP 20 min, repin to the new pair; `fixesOn: unseenboat,boatreplanlog`):
+- Keep `unseenboat_shortcuts>=5`.
+- Add `unseenboat_norefusal_ms<2000`. The old data had 1.2 s per 20 min for Sims never sampled.
+- Add `logRequire` `"boatreplan: .*cleared (no goal|short|nested plan|same lot|one land area)": 1`, so the split must show.
+- Read the `trip: *` rows of `unseenboat_ms` (the job's `fixesReport` `unseenboat` already brings the list). If `trip: short` holds most of the former 24-29 s, build step 4. If `trip: no goal` holds it, the next lever is the goal read at `PlanBackoff` (the trips are unseen and long, the shortcut's own target).
+- About 30 min to build, plus one 20-min IP job. No timing.
+
+### 12.11 `no refusal` split built (2026-11-12, NOT RUN; design §12.10 on `analysis/route-misc-1112`)
+
+**Built (ts3fixes `UnseenBoat.cs`, report only).** `UbTripWhy` writes one `sUbLastWhy` entry per silent `UbTrip` exit, with the same 512 cap as `UbSample`. It also gives the `boatreplan:` `cleared` text the same string. The old shared exit `goal invalid or < 40 m` is now split in two:
+- `trip: no goal`: dest Origin/Invalid.
+- `trip: short`: < 40 m.
+
+The other entries:
+- `trip: nested`.
+- `trip: same lot` / `trip: one land area`: EA picked a boat inside one land area.
+- `trip: placed houseboat` / `trip: placed goal`: `UbGo`'s non-leave success (`c[839]`), so the replans after our placement get their own row. Leaves keep their `placed, <status>` sample.
+
+`UbBookReplan` is the only reader of `sUbLastWhy` [verified grep], so no Sim's behaviour changes. Step 4 (keeping the outer trip's refusal through a short or nested leg) is not built.
+
+- **Counters 948-949** (`fixes-948`; agent `unseenboat_norefusal_n`, `unseenboat_norefusal_ms`): replans, and their ms, still booked with no entry. That is now only Sims that never reached `UbTrip`, or the 512 clear.
+- **Check** `ip-uboat-verify` (`hitch-fix-verify.json`): gates `unseenboat_shortcuts>=5,unseenboat_norefusal_ms<2000`. It also needs one `logRequire` line, `boatreplan: .*cleared trip: (no goal|short|nested|same lot|one land area)`, which has `regexCases`: it must match the real 11-12 line format with `trip: short` / `trip: no goal`, and must not match the old `goal invalid or < 40 m` text, `trip: placed goal` or `-`. The regex differs from §12.10's draft because the cleared text now carries the `trip: ` strings. The job is still pinned to hitchfix1, so it needs a repin to a pair that carries this build.
+- **Harness gap fixed** (`queue.ts`): script jobs (`run.script`, such as release-verify's `verify-shortcut.ts --on unseenboat,...`) had no profile, so `fixActivity` got no report prefixes and their rows had no `unseenboat_ms` list. `scriptFixesCfg` now passes the script's `--on` switches as report prefixes. This is report only: no `fixesOn`, so no new self-check fails. The self-check covers it.
+
+## 13. Route hitch follow-ups of docs/23 §21 (2026-11-12, static, existing runs only, ledger §483)
+
+No game run, no build. Data: every `probe-out/profile/*-hitches.jsonl` (1,720 runs, 426 IP), the gate 2 runs (`golive-unseen-gate2-*`, 11 IP and 15 BP runs of 18 min with 120 s slices), the release-ini night runs `night-1110` / `night-1111` (17 IP jobs, 14,700 s, `[RouteAsync] ForeignKinds=4`), `correctness-1109` and their `*-native.json` counters. `from` / `to` as in §2: the run is the time **between** the two sleep points.
+
+### 13.1 The IP ~1.3 s `CarryUtils.Request` -> `AsyncWait` run: not a job wait
+
+**Shape [measured].** 53 runs of 1,150-1,410 ms whose `to` is `RouteBackoffHook.AsyncWait` and whose `from` is the SACS wait `EventQueue.GetNextEvent`; the 15 with the newer 6-frame field all resumed in `StateMachineClient.RequestState < CarryUtils.Request`. 50 of 53 are IP. In the same 15 the iteration has `route` 0, `rtLock` <= 1.4, `rtJob` 0, `rtPlanWait` 0, GC <= 5 ms, `script` 0.1-0.3: the whole time is the one Sim task run in the `threaded` stage. The same `CarryUtils.Request` -> `AsyncWait` pair is usually cheap: 301 runs < 100 ms, 5 at 100-299, 3 at 300-999, 15 >= 1 s. Bimodal, so a one-off cost, not a per-call one.
+
+**No job is waited on [measured, verified code].** `to` = `AsyncWait` is where the task slept after the START, not where the time went (§2). `rtJob` / `rtLock` stay 0, and ts3native's own wait log (`SwNote`, a line per sim wait >= 300 ms at runplan / rtwait / disc / collect / drop) has no line near 1.2 s: `night-1111 ip-wdasync-ab` `swMaxUs` 311 ms with one line. So the docs/23 §21 premise "name the route job it waits on" has no answer: there is no job wait to bound.
+
+**What runs there [verified code, cause inferred].** Between the resume and the sleep the task returns from the carry animation, reaches `Route.PlanToSlot`, our `PlanHook` -> `UfPlan` -> `PlanBackoffBody`, and sends START. `AsyncStart` -> `RtM1Allows`: with the routing world's pending flag `[[world+0x95C]+0x10E]` set (world state 3) and `fbMode 1` it calls `FbApplyPending`, which runs EA's `RoutingWorld_ApplyPendingUpdates 0x82C420` **on the sim thread**, untimed (docs/134 §2.2: "the sim thread pays the update work it would have paid inside the sync plan"). That call walks every lot with a pending update (`ApplyLotUpdate 0x82B590`) and can reach `RoomGraph_FirstUse 0x63D2F0` -> `LotGraph_Build 0x63CB90`, the lazy first build of a lot's routing graph (docs/150 §2, docs/112). The hitch stage table has no bucket for it: it is not a `Route_*` IC entry, not a lock wait, not a job wait.
+
+**Why that is the cause [measured split by date, inferred link].**
+
+| IP runs | minutes | sync `Route_Plan` iterations of 1.0-1.5 s (`route` >= 1,000, no task wait) | `AsyncWait` runs of 1.15-1.41 s |
+|---|---|---|---|
+| 2026-10-15 .. 10-22 (before `FallbackAsync` M1Pending shipped, docs/134 §2.2, 0.36.7 of 10-21) | ~990 | 14 (1,002-1,519 ms) | 0 |
+| 2026-10-23 .. 11-12 | ~4,740 | 6 (A/B arms of 10-24..10-27 and one 11-05 run; ini not checked) | 51 |
+
+The same size of stall moved from inside the sync plan (`Route_PlanLocked` applies the pending updates before its search, counted as `route`) to inside START (counted as script) when M1Pending went through `FbApplyPending`. Rate: about 1 per 70 min (before) and 1 per 93 min (after) of IP play (minutes = profile length of every IP run). Which lot, how many lots and whether `LotGraph_Build` is the 1.2 s are not logged. The tie to `CarryUtils.Request` would then be the first plan on a lot after a carry interaction changed that lot (a pick-up or put-down marks the lot pending) [inferred].
+
+**Not ours in origin, ours in placement.** EA's sync plan paid it (before 10-23). Our M1Pending path moved it out of `route` into an untimed script slot. Gate 2: in both arms (off 1,254 / 1,262, on 1,319 ms), as §21 says.
+
+**Fix options.**
+
+| option | what | behaviour change | effort | gain |
+|---|---|---|---|---|
+| L (do first) | time `FbApplyPending` (us, max, count >= 100 ms), one log line >= 100 ms with lots applied and `LotGraph_Build` us inside it; `HaNote` key `0x07000000` so `hitches.jsonl` names it | none | ~30 min build + one IP natural run long enough for ~2 sightings (~3 h, or 3 x 1 h) | names the lot and the builder |
+| W | warm the lazy lot graph builds on the load screen (`OnWorldLoadFinished`, as GhostSweep does) | none for routes: the same data built earlier [inferred]; costs RAM and address space for lot graphs of lots never visited (flag: no Error 12 gain) | ~1-2 h + load-time and memory check | removes the >= 1 s IP stall if L shows a first build |
+| S | split the apply: one pending lot per tick, START parked (`J_PEND`, as M1Retry) until the flag clears | a plan starts a few ticks later; the plan sees the same world (all pending lots applied before it runs) | ~2 h + correctness run | only helps if L shows many lots in one apply, not one big lot |
+| J | let the worker apply it inside the job | H6 M1 forbids: pending updates write shared world state the sim thread reads lock-free (docs/101 H12) | needs a design | - |
+
+No option changes which route a Sim gets, so no household exemption is needed beyond what M1Retry already has; S delays household plans by ticks like any async plan.
+
+**Gain.** ~0.2 ms/s on IP (1.25 s per ~90 min); the value is the worst case: it is the only >= 1 s iteration in the 12 gate 2 IP arms. **Recommendation:** build L now (test package only, no behaviour change); decide W vs S on its first line.
+
+### 13.2 Load-time `ufLong` warm-up: small, in the warm-up slice, job time flat
+
+`ufLong` (ts3native `unseenfb.cpp`) counts marked unseen plans **or jobs** that ran >= the `UfUs` setting (300 ms); most marks run as worker jobs, so a long one costs the sim thread only if something waits on it.
+
+**Per 120 s slice, 11 IP gate 2 runs (`speed1` left out: it runs at another game speed) [measured, `*-ab-native.jsonl`, `hitches.jsonl`]:**
+
+| slice | 0 (warm-up, 1-120 s) | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | mean 1-8 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `ufLong` | **35** | 19 | 29 | 11 | 28 | 22 | 23 | 19 | 22 | 21.6 |
+| `ufJobs` | 8,850 | 9,215 | 8,671 | 7,808 | 7,076 | 7,928 | 7,313 | 7,877 | 8,024 | 7,989 |
+| worker job time `asyncUs`, s | 318 | 336 | 345 | 322 | 297 | 302 | 298 | 335 | 363 | 325 |
+| iterations >= 300 ms | 37 | 27 | 27 | 45 | 27 | 18 | 23 | 26 | 28 | 27.6 |
+| of them `rtLock` >= 40% of wall | 22 | 11 | 11 | 24 | 12 | 7 | 4 | 13 | 14 | 12.0 |
+
+- **The burst is real but small.** `ufLong` in the first 2 min is 1.6x the later rate (Poisson tail 0.005): +13 over 11 runs, ~1.2 extra long marked plans per load. BP has almost none (4 in 15 warm-up slices).
+- **The sim thread barely sees it.** Worker job time is flat in slice 0. Frame iterations >= 300 ms and the lock-wait class are high in slice 0, but slice 3 is as high (45, 24): the spread across slices is wider than Poisson and slice 0 sits inside it.
+- **It is outside every gate 2 number.** `gate2-report.ts` skips the warm-up slice (`sl.warmup`) for R5 and the A/B sums, and `hitch-ab.ts` drops the first minute (docs/161 §6). It cannot explain the R5 per-pair fails (§21's first item).
+
+**Why early [inferred].** The counters far above their later rate in slice 0 are routing's lazy first-use structures: `rgJob_connectedRooms` 11x, `rgUnlocked_connectedRooms` 9x (room connectivity lookups), `fgCalls` 3x, `rgUnlocked_lotTableContains` 2.8x, `fbPendApplied` 1.5x. Room graphs and lot graphs are built on first use (`RoomGraph_FirstUse 0x63D2F0`, `LotGraph_Build 0x63CB90`, docs/150), the first plans after a load build them, and a build inside a job is a phase with no cut check, so a cut plan overruns `UfUs`. Not a cold route cache: `[RouteCache]` is off in these runs (`cacheMode` 0, 0 hits) [measured]. Not the first cuts: `ufJobCut` 356 in slice 0 against a 342 mean.
+
+**Spread or skip: not worth its own fix.**
+
+| option | what | change | effort |
+|---|---|---|---|
+| none | leave it: ~1.2 long worker jobs per load, outside the measured windows | - | - |
+| W (shared with §13.1) | warm lot and room graphs on the load screen | none for routes; RAM and address space for every lot's graph (flag: no Error 12 gain) | ~1-2 h, only if §13.1's log L shows first-use builds |
+| D | hold unseen-only plans' marks for the first ~60 s after load | unseen NPC trips start later; household untouched | ~30 min; would only move the builds later |
+
+**Recommendation:** close the §21 item as measured, not material; fold any action into W after §13.1's log L.
+
+### 13.3 Sync `ReplanFromPosition` 300-400 ms: what is left after `ForeignKinds=4`
+
+The §21 item was read on `credit3` (11-08), before the release ini turned on `[RouteAsync] ForeignKinds=4 ForeignKindsMode=1 KdA10ForeignMs=1000` (Rodney 11-09). Iterations with a `Route_ReplanFromPosition` entry, grouped by where the leading task resumed [measured, `hitches.jsonl` iterations >= 50 ms only, so ms/s is a floor]:
+
+| resumed at (`from`) | `credit3` IP, 4,320 s, ForeignKinds off: ms/s | >= 300 ms per h | `night-1110/1111` IP, 14,700 s, ForeignKinds on: ms/s | >= 300 ms per h |
+|---|---|---|---|---|
+| `FadeIn` < `GetInBoatRouteAction` (get-in boat replan) | 36.7 | 44.2 | 10.4 | 8.1 |
+| `AsyncWait` (houseboat gangway fixups, leg-end replans) | 9.3 | 10.0 | 8.8 | 13.5 |
+| other (`GetNextEvent`, `PerformRoute`, `FadeOut`) | 2.3 | 1.6 | 1.9 | 3.0 |
+
+Counters, the 17 night IP jobs [measured, `*-native.json`]: sync `ReplanFromPosition` 11,441 plans, 234.7 s = **16.0 ms/s**, mean 21 ms; foreign kind-3 STARTs seen 6,746, started 4,962 (74%), job time 599 s off the sim thread.
+
+**Call paths [verified decompiled, stacks measured].**
+
+1. **Get-in boat.** `GetInBoatRouteAction.PerformAction` sets `Route.Follower = boat.Proxy` and returns `ContinueAndPopPathAndReplan`; `RoutingComponent.DoRoute` calls `Route.ReplanFromPoint(RoutingParent.PositionOnFloor)` (§3.3). Follower is not the task's Sim, so ts3fixes sends the **foreign** kind-3 START (`AsyncKindStart`). With `ForeignKinds=4` that is async: `correctness-1109 ip-foreign-natural-on` had 433 of 434 `boatreplan:` lines async. Left sync: the 26% of foreign kind-3 STARTs ts3native refuses; the reason is not split by kind in the counters, and the night runs had `boatreplanlog` off.
+2. **Houseboat gangway fixup.** `Route.Plan` (or a replan) -> native IC -> `Route.PostPlanCallback` -> `SimRoutingComponent.PostPlanRouteCallback` -> `CheckAndUpdateForHouseboats` -> `ExitHouseboatThroughGangway` / `EnterHouseboatThroughGangway` -> `r.ReplanFromPoint(gangway or jig slot)`, then `InsertRouteSubPathsAtIndex(0, gangway leg)`, `ResetCurrentPath`, `RegisterCallback`. It runs **inside the native IC's callback**, so `CheckYieldingContext(false)` is false: ts3fixes sends no START (own or foreign), and ts3native could not let it sleep anyway (a yield there aborts the game, interp.c:3595). Managed samples of all IP runs: 1,354 of 8,152 `Route_ReplanFromPosition` samples (17%) sit under this callback, 1,176 in `ExitHouseboatThroughGangway`; the rest under `DoRoute` [measured]. The plan before the callback is then mostly wasted: the callback re-plans from the slot to the goal and puts the gangway leg in front [inferred from the decompiled tail; what `ReplanFromPoint` keeps of the old paths is native and not read].
+3. **Own-task replans.** A `ReplanFromPoint` whose follower is the task's own Sim sends the **own** kind-3 START, and the release ini has `Kinds=0`, so ts3native refuses it as `NoStart` (`GetOptionHook`, `g_arOwnKinds`) [verified code]. Every `sync plan ... IC ReplanFromPosition` line in the night logs says `NoStart` (44 lines, 8 >= 300 ms; the log is rate-limited). Paths 2 and 3 both log `NoStart`; the lines do not separate them.
+
+**Can they go through RouteAsync / ForeignKinds?**
+
+| path | async now? | how it could | blocker |
+|---|---|---|---|
+| 1 get-in boat | yes, 74% of STARTs | split the 26% refusals by reason first | unknown reasons (Active, M1, QueueFull, LOS, Running) |
+| 2 gangway fixup | no: inside the PostPlan callback, no yield possible | **deferred tail**: hook `Exit/EnterHouseboatThroughGangway`; inside a callback under our yieldable `Plan` hook, record the call and return; after the original `Plan` returns to `PlanBackoffBody` (task root, may sleep), run the same tail (`AddObjectToIgnoreForRoute`, `ReplanFromPoint` through the A10 own/foreign START, sub-path insert, reset, `RegisterCallback`, `Fixup*Route`) with `Houseboat.sHouseboatStackDepth` held as EA holds it | order: other `PostPlanCallback` work (stations, stroller, mod subscribers) would run before the gangway replan instead of after; defer only when the route has no subway / hover-train / stroller option and `PostPlanCallback` has only EA's subscriber, else stay sync |
+| 3 own replans | no (`Kinds=0`) | `Kinds` bit 4 (own `ReplanFromPosition`), ini only | rejected before for moved waits (HANDOFF 11-08 night rank 5); not re-measured on the current build |
+
+**Household and selected Sims.** The deferred tail and `Kinds` 4 give the same route as vanilla (same calls, same order on the route object; A10 jobs plan the same request, docs/176 route signatures equal), the Sim only starts its walk a few ticks later, as every async plan today. If Rodney wants it narrower, gate the tail on `UfWhy` unseen (household, selected and unknown-scope Sims keep the sync callback). The unseen-only shortcut route (docs/248 `unseenboatstart`, 13 shortcuts of 276 candidates in one night job) stays a docs/248 question.
+
+**Estimates.**
+
+| fix | ms/s IP | >= 300 ms per h | effort | tag |
+|---|---|---|---|---|
+| R1: refusal split for foreign kind 3 (`afRefused[kind][reason]`) + `boatreplanlog` in one natural IP job | 0 (logging) | - | ~20 min + 20 min run | - |
+| R2: `Kinds=4` re-test, IP ABBA on the current build | up to the own-task share of 16.0 | part of 13.5 | ini only, ~1 h of runs | inferred |
+| R3: deferred gangway tail (all Sims, exact) | up to ~8.8 (the `AsyncWait` row), 17% of sync samples historically | up to 13.5 | ~2-3 h build + selftest, IP houseboat repro + correctness ~30 min | cause verified, gain inferred |
+
+**Recommendation:** R1 now; R2 as an ini-only A/B between timing jobs; R3 next if R1/R2 leave the gangway row on top.
+
+### 13.4 JobYield for the DiscDrain / LostRemovalFix waits (HANDOFF 11-08 night rank 4, "33 ms/s")
+
+**What waits [verified, `discourage.cpp`].** Both are the sim thread waiting for the running worker route job, so that it can take `+0x918` and apply deferred discourage footprints (docs/84 §2.4, docs/89 §16):
+- **DiscDrain(force)** (`HitchAttr` key `0x06000000`, counters `discDrainWaitUs`, `discForced`, sim-wait site `disc`). `WaitAsyncDone(SW_DISC)`, then `+0x918`. Forced by `DiscPoll` when the oldest record is >= 250 ms old (`kDiscMaxAgeMs`; `DiscPoll` runs at the `GetOptionHook` START, READY and CANCEL points) and by ~12 other call sites in the D1/D2 hooks, readers and world / save events (queue full, a remove before an add, a reader that needs fresh footprints).
+- **LostRemovalFix flush** (`UolFlushFor`, key `0x02000040`, `fp2lrFlushUs`, site `rtwait`). Runs before EA's event-9 footprint re-insert `0x833680` (called only from `0x946160`) when a removal of the same object is still queued, so vanilla's remove-then-insert order holds. EA's call takes `+0x918` right after, so the job wait is not new, only earlier.
+
+The existing `JobYield` (docs/183, `JobYield=0`) does not reach either: its `JOBBUSY` question is asked only by `RouteBackoff.cs` `StepAside` before a plan.
+
+**How often, how big [measured, counters; release-ini runs, `JobYield` off].**
+
+| run set | s | DiscDrain ms/s | forced | avg ms | LR flush ms/s | flushes | avg ms | disc waits yieldable |
+|---|---|---|---|---|---|---|---|---|
+| IP nights 11-10 / 11-11 (17 jobs) | 14,700 | 20.9 | 12,073 | 25.5 | 10.4 | 5,805 | 26.4 | 91.5% |
+| gate2 credit3 IP (4) | 4,320 | 14.9 | 2,998 | 21.4 | 8.6 | 1,811 | 20.6 | 90.2% |
+| correctness-1109 IP (7) | 4,980 | 9.6 | 2,213 | 21.6 | 7.4 | 1,510 | 24.5 | - |
+
+The handoff's 33 ms/s is the night pair (31.3). Every disc wait is a forced drain (`swN_2` = `discForced`). "Yieldable" is `CanYield()` at the wait: the task sits at its root interpreter state, so a managed caller could have slept, not that this site can.
+
+**Where in hitch frames [measured].** The night runs had `HitchAttr` off, so frame attribution uses credit3 + correctness-1109 IP (11 jobs, 9,300 s, `hitches.jsonl` `rtMaxKey`, run ended at the top task's sleep point). Key totals in hitch frames: `0x06000000` 83.4 s (**9.0 ms/s**), `0x02000040` 55.2 s (**5.9 ms/s**), the top two keys of all `rtJob` time.
+
+| key | run ends in | n | ms/s | >= 300 ms | max ms | yield possible? |
+|---|---|---|---|---|---|---|
+| LR flush | `Lot.Simulate` | 470 | 3.7 | 1 | 400 | no: inside EA native event 9 |
+| DiscDrain | `RouteBackoffHook.AsyncWait < PlanBackoffBody` | 302 | 2.0 | 5 | 550 | **yes**: our START / READY point |
+| DiscDrain | `OnAboutToStartFollowingRoute < PreRoute` | 554 | 2.0 | 2 | 443 | no: native IC call |
+| DiscDrain | `FadeOut < GetInBoatRouteAction.PerformAction` | 263 | 1.9 | 0 | 290 | no: native IC call |
+| DiscDrain | `EventQueue.GetNextEvent` | 277 | 1.2 | 5 | 445 | no: state machine |
+| LR flush | `EventQueue.GetNextEvent` | 102 | 0.65 | 1 | 366 | no |
+| LR flush | `OnAboutToStartFollowingRoute` | 127 | 0.58 | 0 | 212 | no |
+| DiscDrain | `FollowRouteAction.PerformRoute` | 142 | 0.55 | 0 | 247 | no |
+| LR flush | `RouteBackoffHook.AsyncWait` | 40 | 0.17 | 0 | 253 | yes |
+
+**Is a yield safe?**
+- **At READY [inferred, I-483-7].** READY answers 0 while the caller's own job is queued or running, drain or not, so skipping the forced drain there does not change that caller's result. The records stay queued; a non-forced `DiscPoll` applies them at the first point with no job running, and `RemovalFirst` already parks non-unseen STARTs while removals are queued, so the next plan still sees every footprint.
+- **At START [inferred, I-483-7].** A forced drain at START precedes the new job. Parking the START (the existing `J_PEND` / `FbRetry` path, the caller sleeps a tick) instead of waiting keeps the plan's input the same; the Sim starts its walk a tick or two later. **Household and selected Sims, and unknown scope (`UfWhy` not unseen), keep the wait**: parking only for unseen Sims.
+- **Native IC sites [verified, code shape].** D1/D2 hooks, `UofSite` and the readers run inside an EA native call with no managed frame to return to; the hook must finish the original call. A yield there needs a managed `StepAside` before each EA caller (`FadeOut`, `PreRoute`, `GetNextEvent`): many callers, not proposed.
+- **Moved waits [inferred, I-483-8].** A skipped drain still has to run before the next job; when the next drain point also finds a job running, the wait moves there (memory rule "moved waits"). Only a per-site split shows how much J1 removes.
+
+**Fix options.**
+
+| option | what | ms/s IP | >= 300 ms | household | effort | tag |
+|---|---|---|---|---|---|---|
+| C: per-site drain counters | `discForcedBy[site]` + wait us per caller (DiscPoll START / READY / CANCEL, D1, D2, reader, world, save) and LR flush by event-9 site, one natural IP job | 0 (logging) | - | no change | ~20-30 min + 15 min job | - |
+| J1: no forced drain at READY; START parks instead of waiting (unseen only) | `DiscPoll` takes the point; READY skips force while the caller's job runs; START with a forced drain and `UfWhy` unseen returns via `J_PEND` | ~2 (hitch-frame share of the `AsyncWait` row), up to the START / READY share of 20.9 (C answers) | 5 of the 12 DiscDrain >= 300 ms | household / selected / unknown keep the wait | ~1 h build + selftest, IP correctness ~15 min, ABBA ~1 h | inferred |
+| J2: deferred re-insert record for LR flush | instead of waiting, queue the event-9 insert as a disc record after the queued remove ("redo the insert", the `UolFlushFor` shortcut note); household / selected STARTs park while such a record is queued (as `RemovalFirst`) | up to 10.4 (all LR flush), hitch frames 5.9 | 2 | parked, same footprints | ~2-3 h build + selftest + IP correctness | inferred (I-483-9) |
+
+**Gain.** Realistic first step J1: ~2 ms/s in hitch frames and up to ~5 of the ~14 >= 300 ms waits (5.4 per h IP). The ceiling of a full yield of every yieldable disc wait is ~19 ms/s (91.5% of 20.9), but only the START / READY part can yield without new managed hooks. J2 reaches the LR flush's 7-10 ms/s and needs the most care (a late insert is a missing footprint for any plan in between; a save already forces a full drain, `rtsites.cpp` `RT_SAVE`).
+
+**Recommendation:** C first (logging only, decides J1's size). Build J1 if C shows START / READY >= ~5 ms/s of `discDrainWaitUs`; otherwise go to J2. Leave `JobYield` (docs/183) as it is: it covers plan waits, not these.
+
+### 13.5 Built, NOT RUN (branch `feature/route-hitch-logs-1112`, ts3native 0.36.245, 2026-11-12)
+
+Diagnostics only: no switch changes what the game does; builds and self-checks only, no game run.
+
+- **L (§13.1).** `FbApplyPending` is timed on every call (counters v190: `fbApN`, `fbApUs`, `fbApMaxUs`, `fbApLong` >= 100 ms) and reports its time to `[HitchAttr]` as key `0x07000000` (class job), so `hitches.jsonl` `rtMaxKey` and `hitch-attr-report.ts` name it ("pending lot updates at START"). `[RouteAsync] FbApplyLog=1` (default 0) runs EA's `ApplyPendingUpdates 0x82C420` walk written out (`FbApplySplit`: same calls in the same order, steerro-test byte-checks every copied step) with a clock per lot: `fbApLots` lots applied, `fbApLotMaxUs` the slowest single `ApplyLotUpdate 0x82B590` (the lazy `LotGraph_Build` runs inside it), and per apply >= 100 ms one line `fbapply: <ms> ms, lots <n> applied <k>, slowest lot <hi>:<lo> <ms> ms (...), at START|READY`. Run: one IP natural run with `FbApplyLog=1`; a slowest lot near the whole time = W (warm on the load screen), many lots = S (split the apply).
+- **R1 (§13.3).** Every A10 `ReplanFromPosition` (kind 3) START that gets no job is counted by own / foreign and reason (counters v191 `arRf3[2][21]`, `agent.js` `arRf3_<row>_<reason>`): the RFB_* code its refusal recorded (`NoYield` 1, `M1*` 2-7, `Running` 8, `QueueFull` 9, `Active` 16, `Los` 17, `Foreign` 18 = ForeignKinds / afMode off, ...), 19 = an own START refused because kind 3 is not in `[RouteAsync] Kinds` (release `Kinds=0`, the `NoStart` lines of path 3), 20 = no reason recorded. Always on (one increment per refused kind-3 START). ts3fixes `boatreplanlog` (test package, `kHitchCauseHooks`) now also logs the gangway fixups (path 2): a `ReplanFromPoint` with a Sim follower called from `SimRoutingComponent.Exit/EnterHouseboatThroughGangway` (stack walk of up to 8 frames, only with the switch on) writes `gangway: <ms> ms, Exit|Enter, sync|async <result>, sim <name> uf=<why>, class unseen|household|seen, route <m> paths <n>, lot <id>, from <pos>`; counters 950 lines, 951 / 952 ms unseen / not unseen (`ts3agent` `gangway_lines`, `gangway_unseen_ms`, `gangway_other_ms`); `hitch-cause-report.ts` tallies them by Exit/Enter, mode and class. Run: one natural IP job with `boatreplanlog` on.
+- **C (§13.4).** Every forced `DiscDrain` that met a running job is counted by drain point (counters v192 `dsN` / `dsUs` / `dsYield`, index = `DS_*`): our `GetOptionHook` points START (1), A10-channel START (2, kinds 1-3 and the foreign kind 0), READY (3), CANCEL (4); `PlanDrain` (5); inside EA native calls: D1 add (6) / remove (7), Usf (8), Fp2 (9), the Fp2 reader flush (10), private footprint remove (11), GhostSweep census (12), GhostTest ops (13); world close (14), save (15). `dsYield` = of them with the task at its root interpreter state (`CanYield`, what §13.4 called "yieldable"). LostRemovalFix flushes are split by EA's event-9 call site (`lrsN` / `lrsUs` [0] `0x9462D4`, [1] `0x94630A`, from `UofSite`'s return address) plus `lrsYieldN` / `lrsYieldUs`. Always on: the counters sit in the wait paths that already time the wait. Read: J1's size = `dsUs[1..4]` against `discDrainWaitUs`; build J1 if START / READY >= ~5 ms/s, else J2.
+- **R2 (§13.3), prepared, not run.** `tools/harness/queues/kinds4-ab-1112.json`: ini-only `[RouteAsync] Kinds=4` vs the release `Kinds=0` on Isla Paradiso, ABBA + BAAB across loads (Kinds is read at startup), 8 x 10 min seeded natural play, release ini + package on both arms, this branch's asi (copy `native/ts3native/out-rh/ts3native.asi` to `game-copy/ts3native.asi.rh1112` first). 80 timing minutes, so queue.ts runs the declared 5-min smoke (on arm) first: version line, `route async A10: Kinds=4` read back, `arStartedReplanFromPosition>=1`, `arRf3_0_19<=0`, and the v190 / v192 counters present. Every off job requires `arRf3_0_19>=1` (the Kinds refusals it removes), every on job `arStartedReplanFromPosition>=1`, `arMismatch` / `arOrphan` 0. Read: `arm-ms.ts` / `hitch-ab.ts` over the set, `arSyncUsReplanFromPosition` per arm, and the moved-wait check (`dsUs_*`, `swMaxUs` must not rise in the on arm). Run between timing jobs, ~2.5 h.

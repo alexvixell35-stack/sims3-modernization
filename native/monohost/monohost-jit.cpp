@@ -2439,6 +2439,8 @@ static void JitCorpusWorkerPass() {
     }
     g_jitVerifyOn = vOn;
     Log("jit corpus worker: %d cases, %d differ; skipped: %d escaping, %d compiled differs; other-thread entries %ld\n", wn, wbad, wesc, wskip, g_jitOtherTid - ot0);
+    // the summary alone went unnoticed for days (the JitCorpusGates cases returned int.MinValue on the worker): a differ fails the selftest
+    Check("M5-jit-corpus-worker", wbad == 0 && wn > 0, "%d of %d corpus cases on the worker, %d differ", wn, n, wbad);
 }
 
 // B1: compile methods that cannot run offline (Sims3Gameplay accessors) so jit-dump.txt shows their mint code and P0's

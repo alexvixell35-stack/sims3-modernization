@@ -141,7 +141,7 @@ static bool RtM1Allows(void** lock, int* whyOut) {
     return true;
 }
 
-static void DiscDrain(bool force);  // discourage.cpp
+static void DiscDrain(bool force, int site);  // discourage.cpp (default site in ts3native.cpp)
 static void DiscOnDestroy(DWORD idLo, DWORD idHi, bool canWait);
 static DWORD CeDestroyObj(DWORD idLo, DWORD idHi);  // discourage.cpp: docs/186 §8 our-events ring
 static bool P5cPark(DWORD idLo, DWORD idHi);  // p5c.cpp: a destroy in a FreeLock window parks one reference and runs
@@ -270,7 +270,7 @@ static int __cdecl RtEnter(int i, DWORD* slot) {
             break;
         case RT_CLOSING:
             if (!enforce) break;
-            DiscDrain(true);  // deferred discourage footprints belong to this world: apply them before it goes
+            DiscDrain(true, DS_WORLD);  // deferred discourage footprints belong to this world: apply them before it goes
             InterlockedExchange(&k.rtClosing, 1);
             InterlockedIncrement(&k.vfRtClosingDrains);
             RtWaitJob(&k.vfRtDrainWaitUs, 0x02000000 | RT_CLOSING);
@@ -278,7 +278,7 @@ static int __cdecl RtEnter(int i, DWORD* slot) {
     }
     // #6: refuse START and hold queued jobs until the call returns, then wait for a running job
     if (enforce && !worker && (s.kind == RT_SAVE || s.kind == RT_BRD || s.kind == RT_LOTSAVE)) {
-        if (s.kind == RT_SAVE) DiscDrain(true);  // the save must see every deferred discourage footprint
+        if (s.kind == RT_SAVE) DiscDrain(true, DS_SAVE);  // the save must see every deferred discourage footprint
         InterlockedIncrement(&k.rtBusy);
         InterlockedIncrement(&g_rgOffSimOpen);
         if (!RgPush(t, slot, 1, RG_REL_BUSY | RG_REL_OFFSIM)) { InterlockedDecrement(&k.rtBusy); RgOffSimDrop(); }

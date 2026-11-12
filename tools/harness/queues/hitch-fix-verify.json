@@ -17,7 +17,7 @@
         "HitchAttr.Enabled": 1,
         "RouteAsync.LogFallbackMs": 20
       },
-      "note": "Natural IP 20 min, unseenboat on, boatreplanlog on for unseenboat_ms: UbCore.Follows through *Orig, swim test, VisitLot. Pass: no crash, unseenboat_shortcuts>=5; then verify-shortcut.ts --name unseenboat. Read rj_route (was 544 of 572), unseenboat_ms, boatreplan: class unseen share. No timing read.",
+      "note": "Natural IP 20 min, unseenboat on, boatreplanlog on for unseenboat_ms: UbCore.Follows through *Orig, swim test, VisitLot. Pass: no crash, unseenboat_shortcuts>=5; then verify-shortcut.ts --name unseenboat. Read rj_route (was 544 of 572), unseenboat_ms, boatreplan: class unseen share. No timing read. docs/247 §12.11 (2026-11-12): gates unseenboat_norefusal_ms<2000 (replans booked with no sUbLastWhy entry) and a boatreplan: line cleared by one of the silent trip exits; read the trip: * rows of unseenboat_ms (trip: short holding most of the old 24-29 s = build step 4; trip: no goal = the goal read at PlanBackoff). Needs a repin to a pair whose ts3fixes + ts3agent carry the §12.11 build: hitchfix1 predates it (no unseenboat_norefusal_ms counter, old cleared text).",
       "noiseCheck": false,
       "earlyGates": [
         {
@@ -35,7 +35,23 @@
           "fixesReport": "unseenboat,boatreplan_,hitchcause_",
           "minutes": 20,
           "fixesOn": "unseenboat,boatreplanlog",
-          "fixesRequire": "unseenboat_shortcuts>=5"
+          "fixesRequire": "unseenboat_shortcuts>=5,unseenboat_norefusal_ms<2000"
+        }
+      },
+      "logRequire": {
+        "boatreplan: .*cleared trip: (no goal|short|nested|same lot|one land area)": 1
+      },
+      "regexCases": {
+        "boatreplan: .*cleared trip: (no goal|short|nested|same lot|one land area)": {
+          "match": [
+            "ts3fixes: boatreplan: 154 ms, async Succeeded, caller Sims3.Gameplay.ObjectComponents.RoutingComponent.DoRoute, prev GetInBoatRouteAction, sim Masao Hamada uf=7, BoatSpeedFishingBoat seen=0, class unseen, job could why Kinds=0, ufskip follower=boat,kind=3, townieUnseen=0 goalUnseen=1, dist 438.2, route 699.1 paths 15, lot 8F3005353628460 goalLot 8F3005343EB3F60, 808.0,24.6,645.5 to 862.9,51.7,1079.4, cleared trip: short",
+            "ts3fixes: boatreplan: 154 ms, async Succeeded, caller Sims3.Gameplay.ObjectComponents.RoutingComponent.DoRoute, prev GetInBoatRouteAction, sim Masao Hamada uf=7, BoatSpeedFishingBoat seen=0, class unseen, job could why Kinds=0, ufskip follower=boat,kind=3, townieUnseen=0 goalUnseen=1, dist 438.2, route 699.1 paths 15, lot 8F3005353628460 goalLot 8F3005343EB3F60, 808.0,24.6,645.5 to 862.9,51.7,1079.4, cleared trip: no goal"
+          ],
+          "noMatch": [
+            "ts3fixes: boatreplan: 154 ms, async Succeeded, caller Sims3.Gameplay.ObjectComponents.RoutingComponent.DoRoute, prev GetInBoatRouteAction, sim Masao Hamada uf=7, BoatSpeedFishingBoat seen=0, class unseen, job could why Kinds=0, ufskip follower=boat,kind=3, townieUnseen=0 goalUnseen=1, dist 438.2, route 699.1 paths 15, lot 8F3005353628460 goalLot 8F3005343EB3F60, 808.0,24.6,645.5 to 862.9,51.7,1079.4, cleared goal invalid or < 40 m",
+            "ts3fixes: boatreplan: 154 ms, async Succeeded, caller Sims3.Gameplay.ObjectComponents.RoutingComponent.DoRoute, prev GetInBoatRouteAction, sim Masao Hamada uf=7, BoatSpeedFishingBoat seen=0, class unseen, job could why Kinds=0, ufskip follower=boat,kind=3, townieUnseen=0 goalUnseen=1, dist 438.2, route 699.1 paths 15, lot 8F3005353628460 goalLot 8F3005343EB3F60, 808.0,24.6,645.5 to 862.9,51.7,1079.4, cleared trip: placed goal",
+            "ts3fixes: boatreplan: 154 ms, async Succeeded, caller Sims3.Gameplay.ObjectComponents.RoutingComponent.DoRoute, prev GetInBoatRouteAction, sim Masao Hamada uf=7, BoatSpeedFishingBoat seen=0, class unseen, job could why Kinds=0, ufskip follower=boat,kind=3, townieUnseen=0 goalUnseen=1, dist 438.2, route 699.1 paths 15, lot 8F3005353628460 goalLot 8F3005343EB3F60, 808.0,24.6,645.5 to 862.9,51.7,1079.4, cleared -"
+          ]
         }
       },
       "timeoutMin": 40

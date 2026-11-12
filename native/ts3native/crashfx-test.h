@@ -12,7 +12,7 @@ static void TestCrashForensics() {
                       offsetof(Ts3nCounters, cfDumps) == 0x4790,
                   "counters v114 layout after v113 (docs/registry.md)");
     static_assert(offsetof(Ts3nCounters, cdReady) == 0x4794 && offsetof(Ts3nCounters, cdBad) == 0x4798 &&
-                      offsetof(Ts3nCounters, ceRecs) == 0x47A8 && sizeof(Ts3nCounters) == 6116 * 4,
+                      offsetof(Ts3nCounters, ceRecs) == 0x47A8 && sizeof(Ts3nCounters) == 6294 * 4,
                   "counters v115 layout after v114 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
@@ -429,7 +429,7 @@ static __declspec(naked) void OrtCallRes() {  // as 0x6FA2DB: edi = the object, 
 
 static void TestCrashForensicsObjRes() {
     static_assert(offsetof(Ts3nCounters, mhReady) == 0x47C4 && offsetof(Ts3nCounters, mhFxQueued) == 0x47D8 &&
-                      sizeof(Ts3nCounters) == 6116 * 4, "counters v117 layout after v116 (docs/registry.md)");
+                      sizeof(Ts3nCounters) == 6294 * 4, "counters v117 layout after v116 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const DWORD savedMain = g_mainTid;
     g_mainTid = GetCurrentThreadId();

@@ -194,6 +194,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kVacListenerNull = false;     // opt-in until verified: RestoreState(null) starts the listener fresh (EaVacation.cs, issue #97 row 6)
         [Tunable] public static bool kVacImportFix = false;        // opt-in until verified: travel opportunity import refreshes stale Sim ids, no instant fail without a time limit (EaVacation.cs, issue #97 row 7)
         [Tunable] public static bool kMenuMaven = false;           // opt-in: the Menu Maven challenge and the Culinary Librarian wish need every recipe of this install that a Sim can learn, counted live (MenuMaven.cs, docs/501)
+        [Tunable] public static bool kBoatGetOutDiag = false;     // diagnostics only, off: logs who replaces a boat Sim's posture during Boat.GetOut's fade (BoatGetOutDiag.cs, docs/257 §7)
         [Tunable] public static bool kBoatParkGone = true;        // EA bug fix, on (shipped without repro: Rodney 11-11, static review): BoatOwnable.Park on a destroyed boat returns instead of throwing (BoatParkGone.cs, docs/257)
         [Tunable] public static bool kVehParkReserve = false;     // opt-in until measured: parking-space / mooring-post reservations to a destroyed vehicle or an NPC car now in an inventory cleared at EA's pick and hourly (VehicleLeaks.cs, docs/544 S1)
         [Tunable] public static bool kVehGetInLeak = false;       // opt-in until measured: a get-in that throws or ends early no longer leaves its taxi or NPC car in the street (VehicleLeaks.cs, docs/544 S2)
