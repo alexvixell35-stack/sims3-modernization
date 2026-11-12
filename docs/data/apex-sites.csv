@@ -336,6 +336,7 @@ address,apex_name,apex_source,class,verdict
 0xC7F8B7,LotPassNullBind,framework/game_addresses.cpp,,
 0xC845C0,,features/frame_profiler.cpp,,
 0xC8504C,ChunkRenderCall,features/terrain_chunk_relight.cpp+framework/game_addresses.cpp+patches/night_terrain_relight_patch.cpp,,
+0xD70FB2,DelegateSigFix,features/delegate_sig_fix.cpp,C1,Apex 3.1.1 (always on; pattern scan) retargets the call 0xD70FB6 in the delegate check 0xD70F90; ours [MonoSigGuard] (release on) writes jmp over 0xD70FB2-0xD70FBA in DllMain first so the pattern no longer matches and Apex logs not found: off; same fix either way (docs/259)
 0xD819A0,,features/frame_profiler.cpp,,
 0xD819AA,,features/frame_profiler.cpp,C0,Apex profiler only (developer mode); ours [GC] SqrtHeapLimit call retarget for GC timing (off; docs/199)
 0xE4A050,,features/frame_profiler.cpp,C0,Apex profiler only (developer mode); ours MonoThread M5 detour (off)

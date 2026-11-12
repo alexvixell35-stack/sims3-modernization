@@ -1,6 +1,6 @@
 # Release checklist
 
-How a release goes out. Current: **v0.1.4** (background routing on by default), published 2026-10-20 (PR #55, tag v0.1.4).
+How a release goes out. Current: **v0.2.11** (Steam only; asi/ini rc1111d + ts3fixes rc1111e, tag on public branch `release/v0.2.11`), 2026-11-12; details docs/release-notes/v0.2.11-dev.md. The sections below are older releases' records.
 
 ## v0.1.4 release build
 
