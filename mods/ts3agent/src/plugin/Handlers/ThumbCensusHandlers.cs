@@ -18,6 +18,7 @@ namespace Ts3Agent
         static void RegisterThumbCensus()
         {
             Dispatcher.Register("thumb_census", ThumbCensus);
+            Dispatcher.Register("thumb_outfits", ThumbOutfits);  // repro trigger, ThumbOutfitsHandlers.cs (not read only)
         }
 
         // Steam 1.67 [verified: disassembly + Ghidra, 11-11]: UI/ThumbnailManager singleton pointer, its service vtable, the
@@ -38,6 +39,14 @@ namespace Ts3Agent
         static bool sDqSeen;
         static int sDqMgr, sDqBegin, sDqEnd, sDqBreaks, sDqLen;
         static int sBlk, sBlkChanges, sMaxLodInuse;
+
+        // the Steam 1.67 exe: the manager's Update slot, or ([ThumbStall] Action 3 hooks that slot) the manager's own vtable
+        static bool Steam167()
+        {
+            if (Rd(kTmVtable + 0x1C) == kTmUpdate) return true;
+            int mgr = Rd(kTmPtr);
+            return mgr != 0 && (mgr & 3) == 0 && Rd(mgr) == kTmVtable;
+        }
         static long sBlkSince;
         static long sTmDone, sTmQueued;
 
@@ -307,7 +316,7 @@ namespace Ts3Agent
             // +0x28 entries. Plain reads of the manager's own words; not part of "deep".
             try
             {
-                int rm = Rd(kTmVtable + 0x1C) == kTmUpdate ? Rd(0x011C78D8) : 0;
+                int rm = Steam167() ? Rd(0x011C78D8) : 0;
                 if (rm != 0 && (Rd(rm) == 0x00FFE250 || Rd(rm) == 0x00FB2DA0))
                 {
                     int cb = Rd(rm + 0xA0), ce = Rd(rm + 0xA4);
@@ -327,7 +336,7 @@ namespace Ts3Agent
             // SimBuilder outfit build inserts new part compositors (0x5EECD0) and nothing erases them in play.
             try
             {
-                int svc = Rd(kTmVtable + 0x1C) == kTmUpdate ? Rd(0x011CE6A0) : 0;
+                int svc = Steam167() ? Rd(0x011CE6A0) : 0;
                 if (svc != 0 && (svc & 3) == 0) r["cas_registry_n"] = Rd(svc + 0x110);
                 // The same object is the CAS SimService (vtable 0xFE514C), which builds Sim LODs (thumbstall.cpp "Why the
                 // provider refuses"): lod_inuse = cached LODs held outside the cache (+0x4C, recounted every update),
