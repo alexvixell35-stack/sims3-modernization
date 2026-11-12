@@ -136,6 +136,8 @@ sim_route_to,ReproHandlers,Live,Go Here,natural,active household Sim,handler,liv
 route_replan,ReproHandlers,Live,none (forced replan),stress,,handler,live
 sim_portal_trip,ReproHandlers,Live,taking a portal / sewer hole (Supernatural / ITF),natural,a portal on the lot,handler,live
 thumbnails,ReproHandlers,Any,none (thumbnail cache churn),stress,,handler,none
+thumb_census,ThumbCensusHandlers,Any,none (read-only census of the Sim thumbnail queue and pack-up waits),harness,,handler,none
+thumb_outfits,ThumbOutfitsHandlers,Live,none (portraits of townies' unworn outfits; no player equivalent),stress,,handler,live
 outfit_change,ReproHandlers,Live,Change Into... (one Sim at a time),stress,up to 6 Sims at once without the spin,handler + R-VOL-1,live
 pet_guard,ReproHandlers,Any,none (harness guard),harness,,handler,live
 wildflower_drain,ReproHandlers,Live,none (probe),harness,,handler,live
