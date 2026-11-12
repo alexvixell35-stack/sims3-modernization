@@ -38,6 +38,13 @@
 //                  4 = fallback "min LOD 0": set the blocking model's minimum LOD byte (handle +0x22) to 0; still blocked a
 //                      second TimeoutMs later = abort as 1. Predicted by the reading below to change nothing.
 //                  3 and 4 log "thumbstall: fallback #n start / rendered / aborted / other" lines with the counts.
+//   PickMs=0       Action 3 only: start the pick after this many ms blocked instead of TimeoutMs (0 = TimeoutMs; at most
+//                  TimeoutMs). The abort still comes TimeoutMs after the pick. A portrait of an unworn outfit always loses
+//                  the camera pick, so waiting the full TimeoutMs first only delays it (2026-11-12 runs: rendered a median
+//                  1.4 s after the pick, p90 2.2 s, after 3 s of waiting).
+//   KeepBuilding=0 Action 3 only: at the abort point, a fallback whose LOD job is the one being built right now (SimService
+//                  +0x68) gets another TimeoutMs instead, up to this many times (0..10). Both aborts of the 2026-11-12 runs
+//                  (all20 / all27, Apex loaded) had their job taken and building when cut at 3 s.
 //
 // Where the LOD waits (2026-11-12, static, TS3W 1.67) [verified disassembly; th13 refuted the ActiveLODLimit reading: in
 // use 12-54, never over]: the model handle's LOD provider (+0x3C) is the interface at +0x28 of a CAS SimService outfit
@@ -65,6 +72,9 @@ static const u8 kTsAbort[11] = {0xB0, 0x01, 0x5F, 0x5E, 0x5B, 0x8B, 0xE5, 0x5D, 
 static const u8 kTsGo[5] = {0x80, 0x7C, 0x24, 0x17, 0x00};                                          // at TS_GO
 static DWORD g_tsTimeoutMs = 10000;
 static int g_tsAction = 1;
+static DWORD g_tsPickMs;        // Action 3: blocked time before the pick (0 = TimeoutMs)
+static int g_tsKeep;            // Action 3: extensions while the job is being built (0 = off)
+static DWORD(WINAPI* g_tsNow)() = GetTickCount;  // selftest: a fake clock
 static const u8* g_tsReq;       // the request being timed (only the front request is ever stepped)
 static DWORD g_tsStamp;         // its creation stamp (+0x23C): tells a new request in the same deque slot apart
 static DWORD g_tsSince;         // tick of its first blocked step
@@ -151,8 +161,19 @@ static const u8* g_tsFbReq;        // the request under a fallback (0 = none) an
 static DWORD g_tsFbStamp, g_tsFbSince;
 static u8* g_tsFbBlk;
 static char g_tsFbKey[40];
-static LONG g_tsFbN, g_tsFbRendered, g_tsFbAborted, g_tsFbOther;
+static LONG g_tsFbN, g_tsFbRendered, g_tsFbAborted, g_tsFbOther, g_tsFbKeptAll;
+static int g_tsFbKept;             // this fallback: KeepBuilding extensions used
 static bool g_tsPickPatched, g_tsTmHooked;
+
+// KeepBuilding: is the SimService's current job (+0x68, the one being built) a job of this object?
+static bool TsBuilding(LONG obj) {
+    __try {
+        const u8* const svc = *(const u8* const*)(uintptr_t)g_tsSvcAt;
+        if (!obj || !svc || *(const DWORD*)svc != TS_SVC_VT) return false;
+        const u8* const cur = *(const u8* const*)(svc + 0x68);
+        return cur && *(const LONG*)(cur + 0x18) == obj;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
 
 typedef u8*(__fastcall* TsPickFn)(u8* svc);
 static TsPickFn g_tsPickOrig = (TsPickFn)(uintptr_t)TS_PICK;  // selftest: its own
@@ -192,15 +213,15 @@ static void TsFbEnd(int how, DWORD state, bool blkLive) {
     if (blkLive) TsLodIdx(g_tsFbBlk, idx, sizeof(idx));
     else strcpy_s(idx, "n/a (request gone)");
     Log("thumbstall: fallback #%ld %s after %lu ms (state %02lX): key %s; lod %s; its job %s %d "
-        "(fallback_rendered %ld, fallback_aborted %ld, fallback_other %ld)",
-        g_tsFbN, how == 0 ? "rendered" : how == 1 ? "aborted" : "other", GetTickCount() - g_tsFbSince, state, g_tsFbKey, idx,
+        "(fallback_rendered %ld, fallback_aborted %ld, fallback_other %ld) kept %d",
+        g_tsFbN, how == 0 ? "rendered" : how == 1 ? "aborted" : "other", g_tsNow() - g_tsFbSince, state, g_tsFbKey, idx,
         g_tsFbPicked >= 0 ? "taken first from ready place" : "not taken, ready place", g_tsFbPicked,
-        g_tsFbRendered, g_tsFbAborted, g_tsFbOther);
+        g_tsFbRendered, g_tsFbAborted, g_tsFbOther, g_tsFbKept);
     g_tsFbReq = 0;
 }
 static void TsFbStart(const u8* req, DWORD stamp, u8* blk, DWORD now) {
     TsFbEnd(2, 0, false);  // a fallback still open for another request
-    g_tsFbReq = req, g_tsFbStamp = stamp, g_tsFbSince = now, g_tsFbBlk = blk, g_tsFbPicked = -1;
+    g_tsFbReq = req, g_tsFbStamp = stamp, g_tsFbSince = now, g_tsFbBlk = blk, g_tsFbPicked = -1, g_tsFbKept = 0;
     g_tsFbN++;
     TsWords(g_tsFbKey, sizeof(g_tsFbKey), (const DWORD*)(req + 0x110), 4);
     char before[64], after[64];
@@ -277,20 +298,28 @@ static void TsDump(const u8* req, const u8* blk) {
 
 // Called from the stub on the main thread, once per blocked step of state 0x11. Returns 0 keep waiting, 1 abort, 2 render.
 static int __cdecl TsBlocked(const u8* req) {
-    const DWORD now = GetTickCount();
+    const DWORD now = g_tsNow();
     int act = 0;
     __try {
         const DWORD stamp = *(const DWORD*)(req + 0x23C);
         if (req != g_tsReq || stamp != g_tsStamp) { g_tsReq = req, g_tsStamp = stamp, g_tsSince = now; return 0; }
-        if (now - g_tsSince < g_tsTimeoutMs) return 0;
+        // Actions 3 and 4: the first timeout starts the fallback, a second one for the same request aborts it
+        const bool fbSecond = g_tsAction >= 3 && g_tsFbReq == req && g_tsFbStamp == stamp;
+        if (now - g_tsSince < (g_tsAction == 3 && !fbSecond && g_tsPickMs ? g_tsPickMs : g_tsTimeoutMs)) return 0;
+        if (fbSecond && g_tsAction == 3 && g_tsFbKept < g_tsKeep && TsBuilding(g_tsPickObj)) {
+            g_tsFbKept++, g_tsSince = now;
+            const LONG k = InterlockedIncrement(&g_tsFbKeptAll);
+            if (k <= 200 || (k & 63) == 0)
+                Log("thumbstall: fallback #%ld kept %d of %d: its LOD job is the one being built, %lu ms after the pick", g_tsFbN,
+                    g_tsFbKept, g_tsKeep, now - g_tsFbSince);
+            return 0;
+        }
         const u8* const blk = *(const u8* const*)(req + 0x244);
         const u8* const* m = *(const u8* const* const*)(req + 0xA8);
         const u8* const* const mEnd = *(const u8* const* const*)(req + 0xAC);
         bool own = false;
         const size_t models = m && mEnd >= m ? (size_t)(mEnd - m) : 0;
         for (size_t i = 0; i < models && i < 64; i++) own = own || m[i] == blk;
-        // Actions 3 and 4: the first timeout starts the fallback, a second one for the same request aborts it
-        const bool fbSecond = g_tsAction >= 3 && g_tsFbReq == req && g_tsFbStamp == stamp;
         act = g_tsAction >= 3 ? (fbSecond ? 1 : 0) : g_tsAction == 2 ? (own ? 1 : 2) : g_tsAction;
         const LONG n = InterlockedIncrement(&g_tsHits);
         if (act == 1) InterlockedIncrement(&g_tsAborts);
@@ -391,6 +420,9 @@ static void ApplyThumbStall(const wchar_t* ini) {
     const int t = GetPrivateProfileIntW(L"ThumbStall", L"TimeoutMs", 10000, ini), a = GetPrivateProfileIntW(L"ThumbStall", L"Action", 1, ini);
     g_tsTimeoutMs = (DWORD)(t < 1000 ? 1000 : t > 600000 ? 600000 : t);
     g_tsAction = a < 0 ? 0 : a > 4 ? 4 : a;
+    const int pm = GetPrivateProfileIntW(L"ThumbStall", L"PickMs", 0, ini), kb = GetPrivateProfileIntW(L"ThumbStall", L"KeepBuilding", 0, ini);
+    g_tsPickMs = pm <= 0 ? 0 : (DWORD)pm < g_tsTimeoutMs ? (DWORD)pm : g_tsTimeoutMs;
+    g_tsKeep = kb < 0 ? 0 : kb > 10 ? 10 : kb;
     u8* const site = (u8*)(uintptr_t)TS_SITE;
     if (!Matches(site, kTsOrig, sizeof(kTsOrig)) || !Matches((u8*)(uintptr_t)TS_KEEP, kTsKeep, sizeof(kTsKeep)) ||
         !Matches((u8*)(uintptr_t)TS_ABORT, kTsAbort, sizeof(kTsAbort)) || !Matches((u8*)(uintptr_t)TS_GO, kTsGo, sizeof(kTsGo))) {
@@ -408,7 +440,8 @@ static void ApplyThumbStall(const wchar_t* ini) {
     g_tsInstalled = true;
     Log("OK   thumb stall (EXPERIMENT, [ThumbStall]): state 0x11 of the Sim thumbnail queue, timeout %lu ms, action %d "
         "(0 log, 1 abort the request, 2 render when the blocker is not its own model, 3 build its LOD job first "
-        "then abort, 4 min LOD 0 then abort)", g_tsTimeoutMs, g_tsAction);
+        "then abort, 4 min LOD 0 then abort); action 3: pick after %lu ms, keep a building job up to %d more timeouts",
+        g_tsTimeoutMs, g_tsAction, g_tsPickMs ? g_tsPickMs : g_tsTimeoutMs, g_tsKeep);
 }
 
 // ---- [ThumbCallers] (2026-11-12): who asks for thumbnails. Log only, off by default. ----

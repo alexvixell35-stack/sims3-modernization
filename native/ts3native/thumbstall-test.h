@@ -2,6 +2,8 @@
 // A fake SimService for TsLodRead and the ready-job pick, and the fallback's start and end on a fake manager.
 static u8* g_tsTestPickRet;
 static u8* __fastcall TsTestPickOrig(u8*) { return g_tsTestPickRet; }
+static DWORD g_tsTestNow;
+static DWORD WINAPI TsTestNow() { return g_tsTestNow; }
 static void TestThumbLod() {
     static u8 svc[0x80], nodes[4][0x198];
     static u8* svcp = svc;
@@ -47,7 +49,7 @@ static void TestThumbLod() {
     InterlockedExchange(&g_tsPickObj, 0);
 
     // start and end: a fake manager whose front request is still in 0x11, then moves on
-    static u8 mgr[0x120], req[0x248], blk[0x260];
+    static u8 mgr[0x120], req[0x248], blk[0x2A0];
     *(u8**)(mgr + 0x100) = req, *(u8**)(mgr + 0x110) = req + 0x248;
     *(DWORD*)(req + 0x23C) = 77, *(DWORD*)(req + 0x108) = 0x11;
     *(long*)(blk + 0x210 + 0x14) = -1, *(long*)(blk + 0x210 + 0x18) = 0, blk[0x210 + 0x22] = 1, blk[0x210 + 0x23] = 0xFF;
@@ -83,6 +85,53 @@ static void TestThumbLod() {
     assert(blk[0x210 + 0x22] == 0 && !g_tsPickObj);
     TsFbEnd(1, 0x11, true);
     assert(!g_tsFbReq && g_tsFbAborted == a0 + 1);
+
+    // TsBlocked, Action 3 with PickMs 300 and KeepBuilding 2 on a fake clock: the pick after 300 ms, the abort TimeoutMs
+    // after it, held off twice while the SimService's current job (+0x68) is this object's
+    DWORD(WINAPI* const savedNow)() = g_tsNow;
+    const DWORD savedTo = g_tsTimeoutMs, savedPm = g_tsPickMs;
+    const int savedKeep = g_tsKeep;
+    g_tsNow = &TsTestNow, g_tsAction = 3, g_tsTimeoutMs = 3000, g_tsPickMs = 300, g_tsKeep = 2;
+    g_tsReq = 0, g_tsFbReq = 0;
+    InterlockedExchange(&g_tsPickObj, 0);
+    *(u8**)(req + 0x244) = blk, *(DWORD*)(req + 0x23C) = 90, *(DWORD*)(req + 0x108) = 0x11;
+    *(long*)(blk + 0x210 + 0x14) = -1;
+    *(LONG*)(nodes[0] + 0x18) = 0x4300;  // the job being built is the portrait's
+    *(u8**)(svc + 0x68) = nodes[0];
+    const LONG a1 = g_tsFbAborted;
+    g_tsTestNow = 1000;
+    assert(TsBlocked(req) == 0 && g_tsReq == req && !g_tsFbReq);
+    g_tsTestNow = 1299;
+    assert(TsBlocked(req) == 0 && !g_tsFbReq);
+    g_tsTestNow = 1300;
+    assert(TsBlocked(req) == 0 && g_tsFbReq == req && g_tsPickObj == 0x4300);  // the pick
+    g_tsTestNow = 4299;
+    assert(TsBlocked(req) == 0 && g_tsFbKept == 0);
+    g_tsTestNow = 4300;
+    assert(TsBlocked(req) == 0 && g_tsFbKept == 1 && g_tsFbReq == req);  // building: kept
+    g_tsTestNow = 7300;
+    assert(TsBlocked(req) == 0 && g_tsFbKept == 2);
+    g_tsTestNow = 10300;
+    assert(TsBlocked(req) == 1 && !g_tsFbReq && !g_tsPickObj && g_tsFbAborted == a1 + 1);  // kept twice: abort
+    // another object's job being built: no keep, the abort TimeoutMs after the pick
+    *(DWORD*)(req + 0x23C) = 91, *(LONG*)(nodes[0] + 0x18) = 0x9900;
+    g_tsTestNow = 20000;
+    assert(TsBlocked(req) == 0);
+    g_tsTestNow = 20300;
+    assert(TsBlocked(req) == 0 && g_tsFbReq == req);
+    g_tsTestNow = 23300;
+    assert(TsBlocked(req) == 1 && g_tsFbAborted == a1 + 2 && g_tsFbKept == 0);
+    // PickMs 0: the pick at TimeoutMs, as before
+    g_tsPickMs = 0, *(DWORD*)(req + 0x23C) = 92;
+    g_tsTestNow = 30000;
+    assert(TsBlocked(req) == 0);
+    g_tsTestNow = 30300;
+    assert(TsBlocked(req) == 0 && !g_tsFbReq);
+    g_tsTestNow = 33000;
+    assert(TsBlocked(req) == 0 && g_tsFbReq == req);
+    TsFbEnd(2, 0, false);
+    *(u8**)(svc + 0x68) = 0, g_tsReq = 0;
+    g_tsNow = savedNow, g_tsTimeoutMs = savedTo, g_tsPickMs = savedPm, g_tsKeep = savedKeep;
     g_tsAction = savedAction;
     g_tsSvcAt = savedAt;
     g_tsPickOrig = savedPick;
