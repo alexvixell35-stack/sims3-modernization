@@ -1,0 +1,810 @@
+{
+ "note": "jit-bundle-verify-1113 (PREPARED, NOT RUN; correctness first for the night chain): the whole JIT bundle in one build (game-copy/ts3native.asi.jitbundle-1113, branch feature/jit-bundle-1113: MaxMethods 4096 + CodeKB 8192, E1 [Binder] TypeHandleDirect, C2c list, Direct=1 DirectLeaf=0, ClauseLazy, Wide, BoundCall mask 3, [MonoFast] CallPath=1; RetTeardown, VtOps, CallExit stay 0; [MintFuse] Sub=1 with the fewest-dispatch matcher, rules of mintfuse-sub-on-1113 folded in). 3 jobs: bp/ip/sv-jb-verify (Mode=2 verify with Count=1 in the same load; the former separate bp/ip/sv-jb-count jobs, Mode=1 Count=1, are merged in, and jit-table-4096 is dropped: its rules (MaxMethods 4096 / CodeKB 8192 read back, no 2048 fallback, jitMethods vs cap, jitTableFull, jitFullN) are covered here). Correctness only: no noise check, no timing claims, samplers stay at the light default. The first job stops the queue on FAIL; the chain starts the timing queue only if this queue has no FAIL or VOID. Ini set taken from the task brief (checked against docs/handoff/jit-bundle-1113.md on 2026-11-13). Per docs/handoff/jit-bundle-1113.md (checked 2026-11-13): Inline=2 is ON; NewVt=0, FastCopy=0, Ldsflda=0 (not host-gated in this bundle), Wide=1 set explicitly (no Wide line in the shipped ini). Rules: ON counters read back with @name (startup values), jitMismatch/jitFaults/mcMismatch/clFaults delta 0, @clKillWhy and @rtdKillWhy 0 (drop the rtd rule if the build has no RetTeardown counters), OK line shows every switch, no \"fell back to 2048 methods\", no jit verify/fault line. Run: node tools/harness/queue.ts tools/harness/queues/jit-bundle-verify-1113.json --no-smoke (or the chain, probe-out/queue/chain-jit-bundle-1113.sh). ~3 x 14.5 min = ~44 min (BP jobs took 14.4 min in the 11-13 BoundCall runs). Then: node tools/harness/run-verdict.ts jit-bundle-verify-1113.",
+ "jobs": [
+  {
+   "id": "bp-jb-verify",
+   "asi": "game-copy/ts3native.asi.jitbundle-1113",
+   "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+   "pinReason": "jitbundle-1113 pair (builds.json, branch feature/jit-bundle-1113): same asi and ts3fixes package (release package rc1111e) in every arm, only the ini differs (JIT bundle ON set vs shipped defaults, JIT off); a ts3native rebuild between jobs would void the pair",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-BP-Spring",
+   "note": "BP 10 min, JIT bundle ON set with [MonoJit] Mode=2 (one call in 16 per method re-run in EA's interpreter and compared) together with Count=1 (calls per compiled method and exit census for the gain model, read with node tools/jit-hot.ts --game-count <job ts3native.log>; Count and Mode are independent ini keys, read at init, and jit-table-4096 / boundcall.json already ran Mode=2 + Count=1). Pass: no crash, script errors 0, jitMismatch / jitFaults / mcMismatch / clFaults 0, clKillWhy 0, every switch read back (jitRegionKB 8192, jitMethCap 4096, jitDirect 2, bcOn 3, clOn 1, tdOn 1, cpOn >= 1), compiled methods >= 1000, a 'jitcount: end' report line, jitLazyCalls >= 1000. Count=1 bodies are ~2.5 KB, so 4096 methods may not fit 8192 KB: a full region is a finding. Read: jitMethods vs jitMethCap, jitTableFull, jitFullN, jitFullBytes, jitCodeKB, jitCalls (a full table or region is a finding, not a FAIL), largest free block before / after (the job row's mem line). First job: a FAIL stops the queue.",
+   "logRequire": {
+    "^jit: compiled ": 1,
+    "^jit: refusals by reason \\(first tick\\)": 1,
+    "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": 1,
+    "OK   mono jit .*Direct=2 \\(docs/537\\)": 1,
+    "OK   mono jit .*BoundCall=0x3(?!\\w)": 1,
+    "OK   mono jit .*ClauseLazy=1(?!\\w)": 1,
+    "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=\\d, FastCopy=0, Ldsflda=0": 1,
+    "^jit: clause lazy body .*Array\\.Copy": 1,
+    "^OK   mintfuse: ": 1,
+    "OK   mono jit \\(docs/527\\): Mode=2, ": 1,
+    "^jitcount: end ": 1,
+    "OK   mono jit .*Count=1, ": 1
+   },
+   "logForbid": {
+    "jit verify MISMATCH": 0,
+    "^FAIL mono jit clause lazy": 0,
+    "fell back to 2048 methods": 0,
+    "jit verify: .* off for the session": 0,
+    "jit: fault": 0,
+    "jit: BoundCall: mask 0x": 0,
+    "SKIP mintfuse": 0
+   },
+   "scriptErrorsMax": 0,
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 1,
+    "MonoJit.Mode": 2,
+    "MonoJit.VerifyEvery": 16,
+    "MonoJit.CodeKB": 8192,
+    "MonoJit.MaxMethods": 4096,
+    "MonoJit.Direct": 1,
+    "MonoJit.DirectLeaf": 0,
+    "MonoJit.Inline": 2,
+    "MonoJit.Wide": 1,
+    "MonoJit.VtOps": 0,
+    "MonoJit.CallExit": 0,
+    "MonoJit.NewVt":0,
+    "MonoJit.FastCopy":0,
+    "MonoJit.Ldsflda":0,
+    "MonoJit.Count": 1,
+    "MonoJit.BoundCall": 1,
+    "MonoJit.BoundCallMask": 3,
+    "MonoJit.ClauseLazy": 1,
+    "MonoJit.RetTeardown": 0,
+    "Binder.TypeHandleDirect": 1,
+    "MonoFast.CallPath": 1,
+    "MintFuse.Sub": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+    }
+   },
+   "timeoutMin": 30,
+   "nativeRequire": "@jitOn>=1,@jitDirect==2,@jitRegionKB==8192,@jitMethCap==4096,@jitMethods>=1000,@bcOn==3,@bcFills>=1,@clOn>=1,@clBodies>=1,@tdOn>=1,@cpOn>=1,@mfReady>=1,@mfRuns>=100000,@mfInner>=20000,@mfWhole>=1,@clKillWhy<=0,@rtdKillWhy<=0,jitMismatch<=0,jitFaults<=0,mcMismatch<=0,clFaults<=0,clVerRuns>=1,jitLazyCalls>=1000",
+   "noiseCheck": false,
+   "stopQueueOnFail": true,
+   "earlyGates": [
+    {
+     "afterSec": 240,
+     "counter": "bcHits",
+     "op": ">",
+     "value": 0,
+     "why": "no bound call from compiled code in an ON arm: BoundCall did not install or the comparer sites never filled"
+    },
+    {
+     "afterSec": 240,
+     "counter": "jitCalls",
+     "op": ">",
+     "value": 0,
+     "why": "no call into compiled code in an ON arm: the JIT did not install or compiled nothing"
+    }
+   ],
+   "regexCases": {
+    "^jit: compiled ": {
+     "match": [
+      "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+     ],
+     "noMatch": [
+      "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+     ]
+    },
+    "^jit: refusals by reason \\(first tick\\)": {
+     "match": [
+      "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+     ],
+     "noMatch": [
+      "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+     ]
+    },
+    "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3",
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ]
+    },
+    "OK   mono jit .*Direct=2 \\(docs/537\\)": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3",
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1"
+     ]
+    },
+    "OK   mono jit .*BoundCall=0x3(?!\\w)": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, BoundCall=0x0",
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x30",
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ]
+    },
+    "OK   mono jit .*ClauseLazy=1(?!\\w)": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=0",
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ]
+    },
+    "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=\\d, FastCopy=0, Ldsflda=0": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ]
+    },
+    "^jit: clause lazy body .*Array\\.Copy": {
+     "match": [
+      "jit: clause lazy body System.Array.Copy: 68 of 199 positions in clauses, 408 words, kind 0 try 205+15 handler 220+65, kind 0 try 317+15 handler 332+65"
+     ],
+     "noMatch": [
+      "jit: compiled System.Array.Copy: 199 positions, 150 native, 49 exits, 9000 bytes",
+      "jit: clause lazy body DesireCurve.GetYFromX: 3 of 40 positions in clauses, 60 words"
+     ]
+    },
+    "^OK   mintfuse: ": {
+     "match": [
+      "OK   mintfuse: superops also fused inside runs (matcher call 0x00E5C8CA)"
+     ],
+     "noMatch": [
+      "SKIP mintfuse: 0x00E5C8CA is not `call 0x00D89930` (Steam 1.67 only, or another hook owns it)",
+      "[mt] OK   mintfuse: superops also fused inside runs (matcher call 0x00E5C8CA)"
+     ]
+    },
+    "OK   mono jit \\(docs/527\\): Mode=2, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ]
+    },
+    "jit verify MISMATCH": {
+     "match": [
+      "jit verify MISMATCH Dictionary`2.GetSlot word 3"
+     ],
+     "noMatch": [
+      "jit verify ok 2048 mismatch 0"
+     ]
+    },
+    "^FAIL mono jit clause lazy": {
+     "match": [
+      "FAIL mono jit clause lazy: fault 0xC0000005 at eip 1A2B3C4D: ClauseLazy off for the session, 1 method(s) back to the interpreter"
+     ],
+     "noMatch": [
+      "FAIL cas trim: fault in the map walk (cursor 3): off for the session",
+      "jit: clause lazy body System.Array.Copy: 68 of 199 positions in clauses, 408 words"
+     ]
+    },
+    "fell back to 2048 methods": {
+     "match": [
+      "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+      "jit: System.Collections.Generic.List`1.get_Capacity refused: method table full (#1 of this reason)"
+     ]
+    },
+    "jit verify: .* off for the session": {
+     "match": [
+      "jit verify: System.Single.IsNaN off for the session (its ret at word 5, 1 mismatches so far)"
+     ],
+     "noMatch": [
+      "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+     ]
+    },
+    "jit: fault": {
+     "match": [
+      "jit: fault 0xC0000005 while compiling System.Single.IsNaN: no more compiles this session"
+     ],
+     "noMatch": [
+      "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body",
+      "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+     ]
+    },
+    "jit: BoundCall: mask 0x": {
+     "match": [
+      "jit: BoundCall: mask 0x3 asked, 0x1 in force (a row's EA bytes differ, or no such row)"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, BoundCall=0x3"
+     ]
+    },
+    "SKIP mintfuse": {
+     "match": [
+      "SKIP mintfuse: 0x00E5C8CA is not `call 0x00D89930` (Steam 1.67 only, or another hook owns it)"
+     ],
+     "noMatch": [
+      "OK   mintfuse: superops also fused inside runs (matcher call 0x00E5C8CA)"
+     ]
+    },
+    "^jitcount: end ": {
+     "match": [
+      "jitcount: end interval #1, 1 lines, 0 left out (cap 6000)"
+     ],
+     "noMatch": [
+      "jitcount: begin interval #1, 1 methods"
+     ]
+    },
+    "OK   mono jit .*Count=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1",
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-jb-verify",
+   "asi": "game-copy/ts3native.asi.jitbundle-1113",
+   "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+   "pinReason": "jitbundle-1113 pair (builds.json, branch feature/jit-bundle-1113): same asi and ts3fixes package (release package rc1111e) in every arm, only the ini differs (JIT bundle ON set vs shipped defaults, JIT off); a ts3native rebuild between jobs would void the pair",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-IP-Spring",
+   "note": "IP 10 min, JIT bundle ON set with [MonoJit] Mode=2 (one call in 16 per method re-run in EA's interpreter and compared) together with Count=1 (calls per compiled method and exit census for the gain model, read with node tools/jit-hot.ts --game-count <job ts3native.log>; Count and Mode are independent ini keys, read at init, and jit-table-4096 / boundcall.json already ran Mode=2 + Count=1). Pass: no crash, script errors 0, jitMismatch / jitFaults / mcMismatch / clFaults 0, clKillWhy 0, every switch read back (jitRegionKB 8192, jitMethCap 4096, jitDirect 2, bcOn 3, clOn 1, tdOn 1, cpOn >= 1), compiled methods >= 1000, a 'jitcount: end' report line, jitLazyCalls >= 1000. Count=1 bodies are ~2.5 KB, so 4096 methods may not fit 8192 KB: a full region is a finding. Read: jitMethods vs jitMethCap, jitTableFull, jitFullN, jitFullBytes, jitCodeKB, jitCalls (a full table or region is a finding, not a FAIL), largest free block before / after (the job row's mem line). ",
+   "logRequire": {
+    "^jit: compiled ": 1,
+    "^jit: refusals by reason \\(first tick\\)": 1,
+    "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": 1,
+    "OK   mono jit .*Direct=2 \\(docs/537\\)": 1,
+    "OK   mono jit .*BoundCall=0x3(?!\\w)": 1,
+    "OK   mono jit .*ClauseLazy=1(?!\\w)": 1,
+    "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=\\d, FastCopy=0, Ldsflda=0": 1,
+    "^jit: clause lazy body .*Array\\.Copy": 1,
+    "^OK   mintfuse: ": 1,
+    "OK   mono jit \\(docs/527\\): Mode=2, ": 1,
+    "^jitcount: end ": 1,
+    "OK   mono jit .*Count=1, ": 1
+   },
+   "logForbid": {
+    "jit verify MISMATCH": 0,
+    "^FAIL mono jit clause lazy": 0,
+    "fell back to 2048 methods": 0,
+    "jit verify: .* off for the session": 0,
+    "jit: fault": 0,
+    "jit: BoundCall: mask 0x": 0,
+    "SKIP mintfuse": 0
+   },
+   "scriptErrorsMax": 0,
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 1,
+    "MonoJit.Mode": 2,
+    "MonoJit.VerifyEvery": 16,
+    "MonoJit.CodeKB": 8192,
+    "MonoJit.MaxMethods": 4096,
+    "MonoJit.Direct": 1,
+    "MonoJit.DirectLeaf": 0,
+    "MonoJit.Inline": 2,
+    "MonoJit.Wide": 1,
+    "MonoJit.VtOps": 0,
+    "MonoJit.CallExit": 0,
+    "MonoJit.NewVt":0,
+    "MonoJit.FastCopy":0,
+    "MonoJit.Ldsflda":0,
+    "MonoJit.Count": 1,
+    "MonoJit.BoundCall": 1,
+    "MonoJit.BoundCallMask": 3,
+    "MonoJit.ClauseLazy": 1,
+    "MonoJit.RetTeardown": 0,
+    "Binder.TypeHandleDirect": 1,
+    "MonoFast.CallPath": 1,
+    "MintFuse.Sub": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+    }
+   },
+   "timeoutMin": 30,
+   "nativeRequire": "@jitOn>=1,@jitDirect==2,@jitRegionKB==8192,@jitMethCap==4096,@jitMethods>=1000,@bcOn==3,@bcFills>=1,@clOn>=1,@clBodies>=1,@tdOn>=1,@cpOn>=1,@mfReady>=1,@mfRuns>=100000,@mfInner>=20000,@mfWhole>=1,@clKillWhy<=0,@rtdKillWhy<=0,jitMismatch<=0,jitFaults<=0,mcMismatch<=0,clFaults<=0,clVerRuns>=1,jitLazyCalls>=1000",
+   "noiseCheck": false,
+   "earlyGates": [
+    {
+     "afterSec": 240,
+     "counter": "bcHits",
+     "op": ">",
+     "value": 0,
+     "why": "no bound call from compiled code in an ON arm: BoundCall did not install or the comparer sites never filled"
+    },
+    {
+     "afterSec": 240,
+     "counter": "jitCalls",
+     "op": ">",
+     "value": 0,
+     "why": "no call into compiled code in an ON arm: the JIT did not install or compiled nothing"
+    }
+   ],
+   "regexCases": {
+    "^jit: compiled ": {
+     "match": [
+      "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+     ],
+     "noMatch": [
+      "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+     ]
+    },
+    "^jit: refusals by reason \\(first tick\\)": {
+     "match": [
+      "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+     ],
+     "noMatch": [
+      "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+     ]
+    },
+    "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3",
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ]
+    },
+    "OK   mono jit .*Direct=2 \\(docs/537\\)": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3",
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1"
+     ]
+    },
+    "OK   mono jit .*BoundCall=0x3(?!\\w)": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, BoundCall=0x0",
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x30",
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ]
+    },
+    "OK   mono jit .*ClauseLazy=1(?!\\w)": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=0",
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ]
+    },
+    "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=\\d, FastCopy=0, Ldsflda=0": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ]
+    },
+    "^jit: clause lazy body .*Array\\.Copy": {
+     "match": [
+      "jit: clause lazy body System.Array.Copy: 68 of 199 positions in clauses, 408 words, kind 0 try 205+15 handler 220+65, kind 0 try 317+15 handler 332+65"
+     ],
+     "noMatch": [
+      "jit: compiled System.Array.Copy: 199 positions, 150 native, 49 exits, 9000 bytes",
+      "jit: clause lazy body DesireCurve.GetYFromX: 3 of 40 positions in clauses, 60 words"
+     ]
+    },
+    "^OK   mintfuse: ": {
+     "match": [
+      "OK   mintfuse: superops also fused inside runs (matcher call 0x00E5C8CA)"
+     ],
+     "noMatch": [
+      "SKIP mintfuse: 0x00E5C8CA is not `call 0x00D89930` (Steam 1.67 only, or another hook owns it)",
+      "[mt] OK   mintfuse: superops also fused inside runs (matcher call 0x00E5C8CA)"
+     ]
+    },
+    "OK   mono jit \\(docs/527\\): Mode=2, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ]
+    },
+    "jit verify MISMATCH": {
+     "match": [
+      "jit verify MISMATCH Dictionary`2.GetSlot word 3"
+     ],
+     "noMatch": [
+      "jit verify ok 2048 mismatch 0"
+     ]
+    },
+    "^FAIL mono jit clause lazy": {
+     "match": [
+      "FAIL mono jit clause lazy: fault 0xC0000005 at eip 1A2B3C4D: ClauseLazy off for the session, 1 method(s) back to the interpreter"
+     ],
+     "noMatch": [
+      "FAIL cas trim: fault in the map walk (cursor 3): off for the session",
+      "jit: clause lazy body System.Array.Copy: 68 of 199 positions in clauses, 408 words"
+     ]
+    },
+    "fell back to 2048 methods": {
+     "match": [
+      "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+      "jit: System.Collections.Generic.List`1.get_Capacity refused: method table full (#1 of this reason)"
+     ]
+    },
+    "jit verify: .* off for the session": {
+     "match": [
+      "jit verify: System.Single.IsNaN off for the session (its ret at word 5, 1 mismatches so far)"
+     ],
+     "noMatch": [
+      "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+     ]
+    },
+    "jit: fault": {
+     "match": [
+      "jit: fault 0xC0000005 while compiling System.Single.IsNaN: no more compiles this session"
+     ],
+     "noMatch": [
+      "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body",
+      "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+     ]
+    },
+    "jit: BoundCall: mask 0x": {
+     "match": [
+      "jit: BoundCall: mask 0x3 asked, 0x1 in force (a row's EA bytes differ, or no such row)"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, BoundCall=0x3"
+     ]
+    },
+    "SKIP mintfuse": {
+     "match": [
+      "SKIP mintfuse: 0x00E5C8CA is not `call 0x00D89930` (Steam 1.67 only, or another hook owns it)"
+     ],
+     "noMatch": [
+      "OK   mintfuse: superops also fused inside runs (matcher call 0x00E5C8CA)"
+     ]
+    },
+    "^jitcount: end ": {
+     "match": [
+      "jitcount: end interval #1, 1 lines, 0 left out (cap 6000)"
+     ],
+     "noMatch": [
+      "jitcount: begin interval #1, 1 methods"
+     ]
+    },
+    "OK   mono jit .*Count=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1",
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sv-jb-verify",
+   "asi": "game-copy/ts3native.asi.jitbundle-1113",
+   "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+   "pinReason": "jitbundle-1113 pair (builds.json, branch feature/jit-bundle-1113): same asi and ts3fixes package (release package rc1111e) in every arm, only the ini differs (JIT bundle ON set vs shipped defaults, JIT off); a ts3native rebuild between jobs would void the pair",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "note": "SV 10 min, JIT bundle ON set with [MonoJit] Mode=2 (one call in 16 per method re-run in EA's interpreter and compared) together with Count=1 (calls per compiled method and exit census for the gain model, read with node tools/jit-hot.ts --game-count <job ts3native.log>; Count and Mode are independent ini keys, read at init, and jit-table-4096 / boundcall.json already ran Mode=2 + Count=1). Pass: no crash, script errors 0, jitMismatch / jitFaults / mcMismatch / clFaults 0, clKillWhy 0, every switch read back (jitRegionKB 8192, jitMethCap 4096, jitDirect 2, bcOn 3, clOn 1, tdOn 1, cpOn >= 1), compiled methods >= 1000, a 'jitcount: end' report line, jitLazyCalls >= 1000. Count=1 bodies are ~2.5 KB, so 4096 methods may not fit 8192 KB: a full region is a finding. Read: jitMethods vs jitMethCap, jitTableFull, jitFullN, jitFullBytes, jitCodeKB, jitCalls (a full table or region is a finding, not a FAIL), largest free block before / after (the job row's mem line). ",
+   "logRequire": {
+    "^jit: compiled ": 1,
+    "^jit: refusals by reason \\(first tick\\)": 1,
+    "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": 1,
+    "OK   mono jit .*Direct=2 \\(docs/537\\)": 1,
+    "OK   mono jit .*BoundCall=0x3(?!\\w)": 1,
+    "OK   mono jit .*ClauseLazy=1(?!\\w)": 1,
+    "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=\\d, FastCopy=0, Ldsflda=0": 1,
+    "^jit: clause lazy body .*Array\\.Copy": 1,
+    "^OK   mintfuse: ": 1,
+    "OK   mono jit \\(docs/527\\): Mode=2, ": 1,
+    "^jitcount: end ": 1,
+    "OK   mono jit .*Count=1, ": 1
+   },
+   "logForbid": {
+    "jit verify MISMATCH": 0,
+    "^FAIL mono jit clause lazy": 0,
+    "fell back to 2048 methods": 0,
+    "jit verify: .* off for the session": 0,
+    "jit: fault": 0,
+    "jit: BoundCall: mask 0x": 0,
+    "SKIP mintfuse": 0
+   },
+   "scriptErrorsMax": 0,
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 1,
+    "MonoJit.Mode": 2,
+    "MonoJit.VerifyEvery": 16,
+    "MonoJit.CodeKB": 8192,
+    "MonoJit.MaxMethods": 4096,
+    "MonoJit.Direct": 1,
+    "MonoJit.DirectLeaf": 0,
+    "MonoJit.Inline": 2,
+    "MonoJit.Wide": 1,
+    "MonoJit.VtOps": 0,
+    "MonoJit.CallExit": 0,
+    "MonoJit.NewVt":0,
+    "MonoJit.FastCopy":0,
+    "MonoJit.Ldsflda":0,
+    "MonoJit.Count": 1,
+    "MonoJit.BoundCall": 1,
+    "MonoJit.BoundCallMask": 3,
+    "MonoJit.ClauseLazy": 1,
+    "MonoJit.RetTeardown": 0,
+    "Binder.TypeHandleDirect": 1,
+    "MonoFast.CallPath": 1,
+    "MintFuse.Sub": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+    }
+   },
+   "timeoutMin": 30,
+   "nativeRequire": "@jitOn>=1,@jitDirect==2,@jitRegionKB==8192,@jitMethCap==4096,@jitMethods>=1000,@bcOn==3,@bcFills>=1,@clOn>=1,@clBodies>=1,@tdOn>=1,@cpOn>=1,@mfReady>=1,@mfRuns>=100000,@mfInner>=20000,@mfWhole>=1,@clKillWhy<=0,@rtdKillWhy<=0,jitMismatch<=0,jitFaults<=0,mcMismatch<=0,clFaults<=0,clVerRuns>=1,jitLazyCalls>=1000",
+   "noiseCheck": false,
+   "earlyGates": [
+    {
+     "afterSec": 240,
+     "counter": "bcHits",
+     "op": ">",
+     "value": 0,
+     "why": "no bound call from compiled code in an ON arm: BoundCall did not install or the comparer sites never filled"
+    },
+    {
+     "afterSec": 240,
+     "counter": "jitCalls",
+     "op": ">",
+     "value": 0,
+     "why": "no call into compiled code in an ON arm: the JIT did not install or compiled nothing"
+    }
+   ],
+   "regexCases": {
+    "^jit: compiled ": {
+     "match": [
+      "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+     ],
+     "noMatch": [
+      "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+     ]
+    },
+    "^jit: refusals by reason \\(first tick\\)": {
+     "match": [
+      "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+     ],
+     "noMatch": [
+      "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+     ]
+    },
+    "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3",
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ]
+    },
+    "OK   mono jit .*Direct=2 \\(docs/537\\)": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3",
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1"
+     ]
+    },
+    "OK   mono jit .*BoundCall=0x3(?!\\w)": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, BoundCall=0x0",
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x30",
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ]
+    },
+    "OK   mono jit .*ClauseLazy=1(?!\\w)": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=0",
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ]
+    },
+    "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=\\d, FastCopy=0, Ldsflda=0": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ]
+    },
+    "^jit: clause lazy body .*Array\\.Copy": {
+     "match": [
+      "jit: clause lazy body System.Array.Copy: 68 of 199 positions in clauses, 408 words, kind 0 try 205+15 handler 220+65, kind 0 try 317+15 handler 332+65"
+     ],
+     "noMatch": [
+      "jit: compiled System.Array.Copy: 199 positions, 150 native, 49 exits, 9000 bytes",
+      "jit: clause lazy body DesireCurve.GetYFromX: 3 of 40 positions in clauses, 60 words"
+     ]
+    },
+    "^OK   mintfuse: ": {
+     "match": [
+      "OK   mintfuse: superops also fused inside runs (matcher call 0x00E5C8CA)"
+     ],
+     "noMatch": [
+      "SKIP mintfuse: 0x00E5C8CA is not `call 0x00D89930` (Steam 1.67 only, or another hook owns it)",
+      "[mt] OK   mintfuse: superops also fused inside runs (matcher call 0x00E5C8CA)"
+     ]
+    },
+    "OK   mono jit \\(docs/527\\): Mode=2, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ]
+    },
+    "jit verify MISMATCH": {
+     "match": [
+      "jit verify MISMATCH Dictionary`2.GetSlot word 3"
+     ],
+     "noMatch": [
+      "jit verify ok 2048 mismatch 0"
+     ]
+    },
+    "^FAIL mono jit clause lazy": {
+     "match": [
+      "FAIL mono jit clause lazy: fault 0xC0000005 at eip 1A2B3C4D: ClauseLazy off for the session, 1 method(s) back to the interpreter"
+     ],
+     "noMatch": [
+      "FAIL cas trim: fault in the map walk (cursor 3): off for the session",
+      "jit: clause lazy body System.Array.Copy: 68 of 199 positions in clauses, 408 words"
+     ]
+    },
+    "fell back to 2048 methods": {
+     "match": [
+      "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+      "jit: System.Collections.Generic.List`1.get_Capacity refused: method table full (#1 of this reason)"
+     ]
+    },
+    "jit verify: .* off for the session": {
+     "match": [
+      "jit verify: System.Single.IsNaN off for the session (its ret at word 5, 1 mismatches so far)"
+     ],
+     "noMatch": [
+      "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+     ]
+    },
+    "jit: fault": {
+     "match": [
+      "jit: fault 0xC0000005 while compiling System.Single.IsNaN: no more compiles this session"
+     ],
+     "noMatch": [
+      "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body",
+      "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+     ]
+    },
+    "jit: BoundCall: mask 0x": {
+     "match": [
+      "jit: BoundCall: mask 0x3 asked, 0x1 in force (a row's EA bytes differ, or no such row)"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=1, BoundCall=0x3"
+     ]
+    },
+    "SKIP mintfuse": {
+     "match": [
+      "SKIP mintfuse: 0x00E5C8CA is not `call 0x00D89930` (Steam 1.67 only, or another hook owns it)"
+     ],
+     "noMatch": [
+      "OK   mintfuse: superops also fused inside runs (matcher call 0x00E5C8CA)"
+     ]
+    },
+    "^jitcount: end ": {
+     "match": [
+      "jitcount: end interval #1, 1 lines, 0 left out (cap 6000)"
+     ],
+     "noMatch": [
+      "jitcount: begin interval #1, 1 methods"
+     ]
+    },
+    "OK   mono jit .*Count=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1",
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0, ClauseLazy=1"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+      "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
+     ]
+    }
+   }
+  }
+ ]
+}

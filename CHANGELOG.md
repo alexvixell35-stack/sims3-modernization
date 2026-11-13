@@ -7,6 +7,8 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 ### Fixed (built, not in v0.2.12)
 
 - **Moods match the moodlets again (EA bug, `mooddrift` and `moodpending`, on; by Dalexlol, PR #368).** Some moodlets (being scared again, a missed appointment, a prank and others) changed a Sim's mood without the game keeping track, so the Sim stayed happier or sadder than its moodlets said until the save was reloaded. Waking up Well Rested in a bed, and Conquered the Bull, counted their mood twice. The mood now always equals the sum of the moodlets, as after a reload. Not in the v0.2.12 `ts3fixes.package`.
+- **Less memory left behind by menus, wishes and townies (29 EA leak fixes and guards, on; by Dalexlol, PRs #337, #353, #357, #365, #366, #368).** Buy, Build, Create a Sim, the map view and the HUD stop leaving windows, icons and handlers registered for the session; listeners of removed Sims and dropped wish trees are taken off; hourly passes clean stale townie route callbacks and wish keys (never your household's). Nothing is written into saves. Not in the v0.2.12 `ts3fixes.package`.
+- **Portraits no longer stall the game's portrait queue (`[ThumbStall] Enabled=1`; by Dalexlol, #371) and travel warms the shared caches before townies' background scoring starts (`[AutShadow] Races=7`).** Next release ini; needs plugin 0.36.248 or later.
 
 ### Test features in plugin 0.36.248 (all off by default, not tested in game yet)
 

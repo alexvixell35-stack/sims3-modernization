@@ -3,6 +3,8 @@
 //   node tools/harness/arm-ms.ts <tag or tag prefix> [...]   per job (its runs pooled) and over every run given: mean ms/s per arm of
 //     script, route, animPose, locomotion and their sum, then on - off. Job = tag without the date and a -rerun suffix
 //     (throttle-ms-2026-11-02-bp-thr-bundle -> throttle-ms-bp-thr-bundle).
+//   node tools/harness/arm-ms.ts <tag> --json                  pooled sum ms/s per job group: {job:{runs,off,on,diff,pct}}
+//   node tools/harness/arm-ms.ts <tag> --gate-on-slower bp,ip  one line 'GATE run: ...' if ON is slower than OFF (or unknown) in any listed world, else 'GATE skip: ...'
 //   node tools/harness/arm-ms.ts --self-check
 // Arm of each seconds row: the slice / arm columns profile-world.ts adds to <tag>-<secs>-seconds.csv after an --ab run (arm 1 on,
 // 0 off, -1 not counted: warm-up slice, 15 s after each switch, a short last slice), else hitch-ab.ts rowArms over <tag>-ab.json
@@ -63,10 +65,41 @@ function loadRun(tag: string) {
 
 export const jobOf = (tag: string) => tag.replace(/-\d{4}-\d{2}-\d{2}-/, '-').replace(/-rerun(-\d+)?$/, '');
 const f1 = (x: number) => x.toFixed(1);
-export function table(runs: { tag: string; arms: Record<string, Acc> }[]): string[] {
-  const groups = new Map<string, typeof runs>();
+// separate-load ABBA (jobs <name>-off-1, -on-1, -on-2, -off-2): no in-load slices, so a job is one 'all' arm; the jobs of a pair are also
+// pooled as <name>, each with the arm from its job name, which gives the on - off row
+export const abbaOf = (tag: string) => jobOf(tag).match(/^(.*)-(off|on)-\d+$/);
+type RunArms = { tag: string; arms: Record<string, Acc> };
+function groupRuns(runs: RunArms[]) {
+  const groups = new Map<string, RunArms[]>();
   for (const r of runs) groups.set(jobOf(r.tag), [...(groups.get(jobOf(r.tag)) ?? []), r]);
+  for (const r of runs) { const m = abbaOf(r.tag); if (m && r.arms.all) groups.set(m[1], [...(groups.get(m[1]) ?? []), { tag: r.tag, arms: { [m[2]]: r.arms.all } }]); }
   if (groups.size > 1) groups.set('all runs given', runs);
+  return groups;
+}
+// --json: per job group the pooled sum ms/s of each arm and on - off (null when an arm is missing)
+export function sumsJson(runs: RunArms[]) {
+  const out: Record<string, { runs: number; off: number | null; on: number | null; diff: number | null; pct: number | null }> = {};
+  for (const [job, rs] of groupRuns(runs)) {
+    const p: Record<string, Acc> = {};
+    for (const r of rs) for (const [a, x] of Object.entries(r.arms)) { const q = p[a] ??= acc(); q.secs += x.secs; for (const c of MS_COLS) q.ms[c] += x.ms[c]; }
+    const sum = (a: string) => p[a]?.secs ? MS_COLS.reduce((t, c) => t + p[a].ms[c] / p[a].secs, 0) : null;
+    const off = sum('off'), on = sum('on'), diff = off !== null && on !== null ? on - off : null;
+    out[job] = { runs: rs.length, off, on, diff, pct: diff !== null && off ? 100 * diff / off : null };
+  }
+  return out;
+}
+// boundcall gate: true (run it) unless every listed world's pooled group (job name ends -<world>-<suffix>) reads on - off <= 0; a world
+// without a row, or without both arms, is inconclusive and counts as run
+export function onSlowerOrUnknown(j: ReturnType<typeof sumsJson>, worlds: string[]): { run: boolean; why: string } {
+  const why: string[] = []; let run = false;
+  for (const w of worlds) {
+    const k = Object.keys(j).find(n => new RegExp(`-${w}-[a-z0-9]+-abba$`).test(n)), d = k ? j[k].diff : null;
+    if (d === null || d === undefined) { run = true; why.push(`${w} inconclusive`); } else { if (d > 0) run = true; why.push(`${w} on-off ${d >= 0 ? '+' : ''}${d.toFixed(1)} ms/s`); }
+  }
+  return { run, why: why.join(', ') };
+}
+export function table(runs: RunArms[]): string[] {
+  const groups = groupRuns(runs);
   const out = [`| Job | runs | arm | s | ${MS_COLS.join(' ms/s | ')} ms/s | sum ms/s | ${STAGE_COLS.join(' ms/s | ')} ms/s | threaded ms/iter |`, `|${'---|'.repeat(7 + MS_COLS.length + STAGE_COLS.length)}`];
   for (const [job, rs] of groups) {
     const pooled: Record<string, Acc> = {};
@@ -109,6 +142,16 @@ function selfCheck() {
   const t = table([{ tag: 'q-2026-11-02-a', arms: fromCols }, { tag: 'q-2026-11-03-a', arms: fromCols }, { tag: 'q-2026-11-02-b', arms: fromCols }]);
   assert.ok(t.some(l => l.startsWith('| q-a | | on - off | | -2.0 | -2.0 | -2.0 | -2.0 | -8.0 (-50%) | -2.0 | -2.0 | -0.2 |')), t.join('\n'));
   assert.ok(t.some(l => l.startsWith('| all runs given | 3 | off | 630 |')), t.join('\n'));
+  const ab = table(['x-2026-11-13-bp-a-off-1', 'x-2026-11-13-bp-a-on-1', 'x-2026-11-13-bp-a-on-2-rerun'].map(tag => ({ tag, arms: { all: fromCols.off } })));
+  assert.ok(ab.some(l => l.startsWith('| x-bp-a | | on - off | | +0.0 |')), ab.join('\n'));
+  assert.ok(ab.some(l => /^\| x-bp-a \| 3 \| on \|/.test(l)), 'pair pooled over its 3 jobs');
+  assert.equal(abbaOf('x-2026-11-13-bp-a-office'), null);
+  const js = sumsJson(['x-2026-11-13-bp-jb-abba-off-1', 'x-2026-11-13-bp-jb-abba-on-1'].map(tag => ({ tag, arms: { all: tag.includes('-on-') ? fromCols.on : fromCols.off } })));
+  assert.equal(js['x-bp-jb-abba'].diff, -8); assert.equal(js['x-bp-jb-abba'].pct, -50);
+  assert.deepEqual(onSlowerOrUnknown(js, ['bp']), { run: false, why: 'bp on-off -8.0 ms/s' });
+  assert.equal(onSlowerOrUnknown(js, ['bp', 'ip']).run, true, 'ip has no row: inconclusive');
+  assert.equal(onSlowerOrUnknown({ 'x-ip-jb-abba': { runs: 2, off: 1, on: 2, diff: 1, pct: 100 } }, ['ip']).run, true, 'slower');
+  assert.equal(onSlowerOrUnknown({}, ['bp']).run, true, 'empty');
   console.log('arm-ms self-check ok');
 }
 
@@ -116,8 +159,15 @@ if (resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   if (args.includes('--self-check')) selfCheck();
   else {
-    const tags = expandTags(args);
-    if (!tags.length) { console.error('usage: node tools/harness/arm-ms.ts <tag or tag prefix> [...] | --self-check (no runs match)'); process.exit(1); }
-    console.log(table(tags.map(tag => ({ tag, arms: loadRun(tag) }))).join('\n'));
+    const json = args.includes('--json'), gi = args.indexOf('--gate-on-slower'), gate = gi >= 0 ? args[gi + 1]?.split(',') : undefined;
+    if (gi >= 0 && !gate) { console.error('--gate-on-slower needs a world list, e.g. bp,ip'); process.exit(1); }
+    const tags = expandTags(args.filter((a, k) => !a.startsWith('--') && !(gi >= 0 && k === gi + 1)));
+    // gate with no runs yet: inconclusive, which runs the gated queue
+    if (!tags.length && gate) { console.log('GATE run: no runs match, inconclusive'); process.exit(0); }
+    if (!tags.length) { console.error('usage: node tools/harness/arm-ms.ts <tag or tag prefix> [...] [--json | --gate-on-slower bp,ip] | --self-check (no runs match)'); process.exit(1); }
+    const runs = tags.map(tag => ({ tag, arms: loadRun(tag) }));
+    if (gate) { const g = onSlowerOrUnknown(sumsJson(runs), gate); console.log(`GATE ${g.run ? 'run' : 'skip'}: ${g.why}`); }
+    else if (json) console.log(JSON.stringify(sumsJson(runs), null, 1));
+    else console.log(table(runs).join('\n'));
   }
 }

@@ -1,0 +1,121 @@
+{
+ "note": "relini-1113-verify (prepared 2026-11-13, NOT RUN): one travel correctness job for the next release ini (Races=7 + ThumbStall, Rodney OK 11-13). Not timing. Est ~20 min. node tools/harness/queue.ts tools/harness/queues/relini-1113-verify.json --no-smoke",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-relini-1113-travel",
+   "note": "[est 18 min] CORRECTNESS of the next release ini (docs/release-notes/v0.2.13-dev.md): rc1111g ini + [AutShadow] Races=7 + [ThumbStall] Enabled=1 on asi master1112b (0.36.248; rc1111g 0.36.247 lacks Races bits 0/1 and ThumbStall), release ts3fixes rel0211b, travel to France and back (scen-travel). Gate as bp-m1112b-r2c-trip: Races=7 read back, R1 pre-warm 0 still clear, R2c gate opens/closes, no UNEXPECTED witness, no FAIL autshadow races / thumbstall, autshadow A1-A3 0, no crash, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.master1112b",
+   "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+   "pinReason": "asi game-copy/ts3native.asi.master1112b (0.36.248, sha256 1017eee08f92, builds.json) + ini game-copy/ts3native.ini.rc1111g (v0.2.12 release ini) with only Races=7 and ThumbStall.Enabled=1 changed via ini + ts3fixes game-copy/ts3fixes.package.rel0211b (v0.2.12 package)",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 912,
+   "ini": {
+    "AutShadow.Races": 7,
+    "AutShadow.DrainMs": 250,
+    "ThumbStall.Enabled": 1,
+    "ThumbStall.TimeoutMs": 10000,
+    "ThumbStall.Action": 1
+   },
+   "logRequire": {
+    "^autonomy shadow: Races=7 .*DrainMs=250": 1,
+    "^OK   autshadow races R1 pre-warm: .* 0 still clear": 1,
+    "^autshadow races R2c: world event 7 opens the worker gate": 2,
+    "^OK   thumb stall ": 1,
+    "^ts3native 0.36.248 ": 1
+   },
+   "logForbid": {
+    "races R2 witness: UNEXPECTED": 0,
+    "^FAIL autshadow races": 0,
+    "^FAIL thumbstall": 0
+   },
+   "regexCases": {
+    "^autonomy shadow: Races=7 .*DrainMs=250": {
+     "match": [
+      "autonomy shadow: Races=7 (bit 0 R1 pre-warm at world event 7 + worker abort while a guard is clear, bit 1 R2/R3 witness of 43 rows, bit 2 R2c worker drain at world events 2/3/4/5/8, DrainMs=250; docs/data/races-handoff.md)"
+     ],
+     "noMatch": [
+      "autonomy shadow: Races=3 (bit 0 R1 pre-warm at world event 7 + worker abort while a guard is clear, bit 1 R2/R3 witness of 43 rows; docs/data/races-handoff.md)"
+     ]
+    },
+    "^OK   autshadow races R1 pre-warm: .* 0 still clear": {
+     "match": [
+      "OK   autshadow races R1 pre-warm: 0 getters called, 0 converter kinds filled, guards 0x7FFF, 0 still clear"
+     ],
+     "noMatch": [
+      "PART autshadow races R1 pre-warm: 0 getters called, 2 converter kinds filled, guards 0x7FFF, 1 still clear: EAText handler fill 0x114CA08/0C, 0x11CB928 (0x4F98E0, witness only); "
+     ]
+    },
+    "^autshadow races R2c: world event 7 opens the worker gate": {
+     "match": [
+      "autshadow races R2c: world event 7 opens the worker gate"
+     ],
+     "noMatch": [
+      "autshadow races R2c: world event 3 closes the worker gate"
+     ]
+    },
+    "races R2 witness: UNEXPECTED": {
+     "match": [
+      "autshadow races R2 witness: UNEXPECTED 0x011ECBC4 (load-world) value 0x0A000000 -> 0x0B000000 at cut 12"
+     ],
+     "noMatch": [
+      "autshadow races R2 witness: runtime 0x011D6A78 (runtime (callback table)) hash 0x1 -> 0x2 at cut 4"
+     ]
+    },
+    "^FAIL autshadow races": {
+     "match": [
+      "FAIL autshadow races R1: FindClass Vector2 faulted, Races bit 0 off"
+     ],
+     "noMatch": [
+      "WARN autshadow races R2c: world event 3, worker job still inside after 250 ms: abort (stop flag set, every answer of it refused, result dropped)",
+      "OK   autshadow races R2c: world event 5, worker job drained in 812 us"
+     ]
+    },
+    "^FAIL thumbstall": {
+     "match": [
+      "FAIL thumbstall: provider slot moved"
+     ],
+     "noMatch": [
+      "thumbstall: fallback #1 start (timeout): request 0x1234"
+     ]
+    },
+    "^OK   thumb stall ": {
+     "match": [
+      "OK   thumb stall (EXPERIMENT, [ThumbStall]): state 0x11 of the Sim thumbnail queue, timeout 10000 ms, action 1 (0 log, 1 abort the request)"
+     ],
+     "noMatch": [
+      "thumbstall: #1 abort after 10000 ms: request 7D8248E8 type=025ED6F4",
+      "FAIL thumbstall: cannot hook the queue"
+     ]
+    },
+    "^ts3native 0.36.248 ": {
+     "match": [
+      "ts3native 0.36.248 2026-11-12 21:05:10"
+     ],
+     "noMatch": [
+      "ts3native 0.36.247 2026-11-12 20:36:39",
+      "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+      "ts3native 0.36.2480 2026-11-12 21:05:10"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "travel": "france",
+     "fixesOn": "autshadow",
+     "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+     "repro": "scen-travel"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 40,
+   "noiseCheck": false,
+   "iniBase": "game-copy/ts3native.ini.rc1111g",
+   "scriptErrorsMax": 0
+  }
+ ]
+}

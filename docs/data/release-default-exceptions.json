@@ -1,0 +1,4 @@
+{
+  "_comment": "Keys ON in the previous release but deliberately not ON in master defaults (tools/release-defaults-check.ts). Each needs a reason. ini keys are Section.Key, tuning keys kName.",
+  "exceptions": []
+}

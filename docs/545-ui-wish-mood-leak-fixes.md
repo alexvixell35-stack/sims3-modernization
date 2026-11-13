@@ -1,8 +1,16 @@
 # 545. UI, wish, mood and relationship leak fixes (ts3fixes, 2026-11-11)
 
 Static RE plus live trigger runs, 2026-11-11 (SteamOS/Wine, Isla Paradiso fresh world, test saves `ts3phase-*` only).
-**Status: every switch here is built and off by default, except `mooddrift` and `moodpending`: ON by default since
-2026-11-12 (Rodney's decision: EA mood target bug, the off/on runs below are green with 0 errors).** Each was run in game with the fix off, then on, in the same session
+**Status: `mooddrift` and `moodpending` ON by default since 2026-11-12 (Rodney's decision: EA mood target bug, the off/on
+runs below are green with 0 errors). Since 2026-11-13 (Rodney OK, after `bp-m1112b-leaks-offon` PASS on master1112b:
+no crash, 0 script errors, every switch read back per 2-min slice) also ON: `casrowleak`, `compositorleak`,
+`compositorghost`, `buyiconleak`, `buycellrecycle`, `buyclearrecycle`, `buygridsweep`, `sellcursorleak`, `filtergridleak`,
+`caspuckevents`, `casfiltergrid`, `famcursorleak`, `casexitsweep`, `seasonlistener`, `dnpdisposelistener`,
+`dreamrootorphan`, `blogorphan`, `genealogycycle`, `uncleguard`, `seasondup`, `dnpupdateguard` (and the #337/#353/#357/
+#365/#366 imports, PLAN.md). Still off: `relremovesafe`, `spouseunlink`, `attractionalarm` (they change saved data:
+relationship tables, spouse links, persisted alarms; AGENTS.md "save data stays opt-in"), `familyinvghost` (disproven,
+§1).** No switch turned on here writes anything into a save (UI objects, listeners, session caches, exact guards), so
+none needs a load-time cleanup. Each was run in game with the fix off, then on, in the same session
 (`phasesoak3.sh` phases, `leak_census` after each phase). Every change acts only on UI objects, on wish/listener
 bookkeeping, or on data that is already wrong; household Sims are never moved, skipped or throttled.
 

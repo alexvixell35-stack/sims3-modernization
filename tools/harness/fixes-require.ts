@@ -18,7 +18,8 @@ export function parseRequire(s: string): { name: string; op: string; value: numb
 // /native fields set only at DllMain/install (or a switch read back once): after - before is always 0, so a delta rule on them
 // always FAILs (tdOn, jitRegionKB, bcFills on 2026-11-13; rwMode is a read-back switch). nativeRequire must write them as @name.
 // *Ready fields already keep their after value in flatDelta.
-export const STARTUP_COUNTERS = ['tdOn', 'jitRegionKB', 'bcFills', 'rwMode'];
+// + jitMethCap, jitDirect, bcOn, clOn, cpOn (2026-11-13 jit-bundle queues: read back once at startup)
+export const STARTUP_COUNTERS = ['tdOn', 'jitRegionKB', 'bcFills', 'rwMode', 'jitMethCap', 'jitDirect', 'bcOn', 'clOn', 'cpOn', 'mfReady'];
 export function startupDeltaLint(s: string): string[] {
   return parseRequire(s).filter(r => STARTUP_COUNTERS.includes(r.name)).map(r =>
     `nativeRequire "${r.name}${r.op}${r.value}": ${r.name} is set at startup, its after - before is always 0; write @${r.name}${r.op}${r.value}`);
@@ -109,6 +110,7 @@ if (import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/').replace(
   assert.equal(startupDeltaLint('tdOn>=1,bcHits>=1,@jitRegionKB>=4096').length, 1);
   assert.match(startupDeltaLint('bcFills>=1')[0], /write @bcFills>=1/);
   assert.deepEqual(startupDeltaLint('@tdOn>=1,@rwMode<=0,jitFaults<=0'), []);
+  assert.equal(startupDeltaLint('jitMethCap>=4096,bcOn==3,clOn>=1,cpOn>=1,jitDirect==2,@bcOn==3,clKillWhy<=0').length, 5);
   // native_mark / native_check: delta since the named mark only (the 2026-10-26 sv-ufc-buildbuy C4 tries were live mode)
   const seq = [{ ufcTry_3: 5, w: 1 }, { ufcTry_3: 5, w: 3 }, { ufcTry_3: 6, w: 3 }];
   let at = 0;

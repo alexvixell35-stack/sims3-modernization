@@ -3,7 +3,7 @@
 //        clone the public repo into a temp dir, new branch, replace the tree with `git archive <ref>` of this repo, apply
 //        tools/public-strip.json (held-back files and hooks), scrub personal names, check-docs-code, secret scan of the staged diff, commit; with --yes: push, PR, watch checks,
 //        squash-merge with --admin
-//   node tools/publish-public.ts release v0.1.6 --native-version 0.36.40 --message-file <f> [--yes]
+//   node tools/publish-public.ts release v0.1.6 --native-version 0.36.40 --prev-ini <prev ts3native.ini> --prev-package <prev ts3fixes.package> --message-file <f> [--yes]
 //        sync, then (with --yes) tag the merge commit, watch the tag's build.yml run, download the draft's ts3native zip and
 //        verify it (asi version string, ini sha256 = the tested ini, enabled sections), check and attach the ts3fixes
 //        package (four shortcuts True, release-features tunables), publish the draft as latest
@@ -29,6 +29,7 @@ import { parseArgs } from 'node:util';
 import assert from 'node:assert/strict';
 import { unzip, zip } from './mts-zip.ts';
 import { FEATURES, status } from './release-features.ts';
+import { check as checkReleaseDefaults } from './release-defaults-check.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
 // built from pieces so this file survives its own scrub
@@ -157,7 +158,7 @@ export function pickTagRun(runs: TagRun[], sha: string, pushedAtMs: number): num
 // --- runner ---
 
 type Opts = { yes: boolean; repo: string; remote: string; src: string; ref: string; branch: string; message: string;
-  authorName: string; authorEmail: string; tag?: string; nativeVersion?: string; ini: string; pkg: string; quiet?: boolean };
+  authorName: string; authorEmail: string; tag?: string; nativeVersion?: string; ini: string; pkg: string; prevIni?: string; prevPkg?: string; quiet?: boolean };
 
 // Every child gets a timeout and no prompts (a credential helper waiting for input hung the queue-end sync 3x on 2026-11-09).
 // Network git/gh: 120 s, local git/tar: 30 s, node check scripts: 600 s. Auth for git over https comes from the env token as an
@@ -282,6 +283,11 @@ export function publish(o: Opts): { clone: string; commit: string } {
     const bad = verifyPackage(readFileSync(o.pkg), readFileSync(join(clone, 'native/ts3native/ts3native.ini'), 'latin1'), readFileSync(join(clone, 'tools/setup/build-fixes.ts'), 'latin1'));
     if (bad.length) throw new Error(`package: ${bad.join('; ')}`);
     log(`   ok, sha256 ${sha256(readFileSync(o.pkg))}`);
+    step('release defaults: everything ON in the previous release is ON in master (tools/release-defaults-check.ts)');
+    if (!o.prevIni || !o.prevPkg) throw new Error('release needs --prev-ini and --prev-package: the previous release ts3native.ini and ts3fixes.package');
+    const dropped = checkReleaseDefaults(o.prevIni, o.prevPkg, clone);
+    if (dropped.length) throw new Error('ON in the previous release, not in master defaults (flip, or list in docs/data/release-default-exceptions.json): ' + dropped.join('; '));
+    log('   ok');
   }
   const R = ['--repo', o.repo];
   remote(`push ${o.branch}`, () => git(clone, 'push', '-q', '-u', 'origin', o.branch), '');
@@ -471,6 +477,7 @@ if (import.meta.filename === resolve(process.argv[1] ?? '')) {
     branch: { type: 'string' }, message: { type: 'string' }, 'message-file': { type: 'string' },
     'if-behind': { type: 'boolean' }, 'min-gap-min': { type: 'string', default: '60' },
     'author-name': { type: 'string' }, 'author-email': { type: 'string' }, 'native-version': { type: 'string' },
+    'prev-ini': { type: 'string' }, 'prev-package': { type: 'string' },
     ini: { type: 'string', default: join(ROOT, 'native/ts3native/out/ts3native.ini') }, package: { type: 'string', default: join(ROOT, 'build/ts3fixes.package') },
   } });
   try {
@@ -492,7 +499,7 @@ if (import.meta.filename === resolve(process.argv[1] ?? '')) {
       const tag = p[0] === 'release' ? p[1] : undefined;
       const r = publish({ yes: !!a.yes, repo: a.repo!, remote: a.remote ?? `https://github.com/${a.repo}.git`, src: ROOT, ref: a.ref!,
         branch: a.branch ?? (tag ? `release/${tag}` : `sync/${new Date().toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-')}`), message, authorName, authorEmail,
-        tag, nativeVersion: a['native-version'], ini: a.ini!, pkg: a.package! });
+        tag, nativeVersion: a['native-version'], ini: a.ini!, pkg: a.package!, prevIni: a['prev-ini'], prevPkg: a['prev-package'] });
       console.log(a.yes ? 'done' : `dry run done; the clone stays for review: ${r.clone}`);
       if (a.yes) {
         rmSync(resolve(r.clone, '..'), { recursive: true, force: true });
