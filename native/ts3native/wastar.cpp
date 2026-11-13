@@ -45,6 +45,18 @@
 // game's own no-split path for short segments. Only that one value changes path: NaN keeps the game's way (the loop's
 // compares are false for NaN and it leaves at once). xmm0-7 are kept around the log call (the 0x64D275 path reads them).
 // One "ea fix: HeightsInfLoop" line for each of the first 8 segments. Not fixed: where the infinite endpoint comes from.
+//
+// [EaCrashFixes] BridgeHeightNaN (next version, docs/67 §37, counters v917 bhnHits): the source of that endpoint. Three height
+// queries ask the bridge under a point when their "consider bridges" byte is set: 0xC6A250 (World_GetHeightAt, the script's
+// World.GetTerrainHeight(x, z, true) through 0x786200, and post pass 16), 0xC6A540 (Terrain_GetHeight) and 0xC61200. Each
+// finds the bridge with 0xB793F0, takes its height with 0xB745A0 (st0), stores it as the answer and keeps the terrain height
+// (0xC2A570) only when the terrain is higher (`fcomi`; false for NaN, +inf and huge values). On Isla Paradiso (2026-11-13,
+// x 835..885, z 840..849) one bridge answers NaN or +-inf at 7 of 21 points, and the 2026-11-12 dump had 2.26e34 there, while
+// the same points without bridges read 20-36 m. Fix: the 7 bytes after each `call 0xB745A0` (`mov ecx,[reg+54h]; fstp
+// [esp+N]`) become a jump to a stub. A finite bridge height of magnitude 1e6 or less runs the two moved instructions (the
+// game's answer, unchanged). Any other value is popped and the query goes on at its own "no bridge here" path (the target of
+// its `je` after 0xB793F0, same esp), which ends in the terrain height. One "ea fix: BridgeHeightNaN" line for each of the
+// first 8 hits. Not fixed: why the bridge's curve (0xB73F60 inside 0xB745A0) gives such values.
 
 static const DWORD WA_SITE = 0x00676627, WA_BACK = 0x0067662E, WA_SKIP = 0x0067673F;
 static const u8 kWaSite[7] = {0x8B, 0x54, 0x24, 0x1C, 0x0F, 0xB7, 0xC8};  // mov edx,[esp+1Ch]; movzx ecx,ax
@@ -339,5 +351,131 @@ static bool ApplyHeightsInfLoop(const wchar_t* ini) {
         return false;
     }
     Log("OK   ea fix: HeightsInfLoop (docs/67 §36): path segments of infinite length skip the heights pass's halving loop (0x%08X)", HI_SITE);
+    return true;  // keep the log open for the hit lines
+}
+
+// --- [EaCrashFixes] BridgeHeightNaN ---
+// Site i = the 7 bytes after `call 0xB745A0` (the bridge height, st0) in 0xC61200, World_GetHeightAt 0xC6A250 and
+// Terrain_GetHeight 0xC6A540. back = the next instruction; skip = the query's own path for "no bridge here", the target of its
+// je after 0xB793F0 (0xC61318, 0xC6A448, 0xC6A6E2), where esp is the same (0xB793F0 is ret 1Ch, 0xB745A0 ret 0Ch).
+static const DWORD BH_CALL = 0x00B745A0;
+static const DWORD BH_SITE[3] = {0x00C6133B, 0x00C6A46B, 0x00C6A709};
+static const DWORD BH_BACK[3] = {0x00C61342, 0x00C6A472, 0x00C6A710};
+static const DWORD BH_SKIP[3] = {0x00C6137B, 0x00C6A4B3, 0x00C6A772};
+static const u8 kBhSite[3][7] = {
+    {0x8B, 0x4E, 0x54, 0xD9, 0x5C, 0x24, 0x14},  // mov ecx,[esi+54h]; fstp dword ptr [esp+14h]
+    {0x8B, 0x4B, 0x54, 0xD9, 0x5C, 0x24, 0x14},  // mov ecx,[ebx+54h]; fstp dword ptr [esp+14h]
+    {0x8B, 0x4E, 0x54, 0xD9, 0x5C, 0x24, 0x20},  // mov ecx,[esi+54h]; fstp dword ptr [esp+20h]
+};
+static DWORD g_bhBack[3], g_bhSkip[3];
+static volatile LONG g_bhLogged;
+
+// site = 0..2; bits = the bridge height as a float; xz = the query's x, z arguments.
+static void __stdcall BhHit(DWORD site, DWORD bits, const float* xz) {
+    InterlockedIncrement(&ts3native_counters.bhnHits);
+    const LONG n = InterlockedIncrement(&g_bhLogged);
+    if (n > 8) return;
+    static const char* const kFn[3] = {"0xC61200", "World_GetHeightAt 0xC6A250", "Terrain_GetHeight 0xC6A540"};
+    float h;
+    memcpy(&h, &bits, 4);
+    Log("ea fix: BridgeHeightNaN: the bridge height at (%g, %g) is 0x%08lX (%g); %s used the terrain height instead (hit %ld, "
+        "docs/67 §37)", xz[0], xz[1], bits, h, kFn[site], n);
+}
+
+// Flags for `ja`: above when st0 (the bridge height) is not finite or its magnitude is above 1e6 (bits 0x49742400; with the
+// sign cleared, float bits order like magnitudes, and NaN and +-inf sit above every finite value). st0 is kept.
+static __declspec(naked) void BhTest() {
+    __asm {
+        push eax
+        sub esp, 4
+        fst dword ptr [esp]
+        mov eax, [esp]
+        and eax, 0x7FFFFFFF
+        cmp eax, 0x49742400
+        lea esp, [esp + 4]
+        pop eax
+        ret
+    }
+}
+
+// The stubs' bad path: [esp+4] = site. Pops st0 (the x87 stack is then as on the game's no-bridge path), counts and logs.
+// General registers are kept; xmm0-7 are not needed (the site follows a call, and every skip target writes them before use).
+// x, z come from the query's frame: all three keep it in ebp (x [ebp+8], z [ebp+0Ch]).
+static __declspec(naked) void BhDrop() {
+    __asm {
+        sub esp, 4
+        fstp dword ptr [esp]
+        pushad
+        lea eax, [ebp + 8]
+        push eax                   // xz
+        push dword ptr [esp + 36]  // bits (the fstp slot)
+        push dword ptr [esp + 48]  // site
+        call BhHit
+        popad
+        lea esp, [esp + 4]
+        ret 4
+    }
+}
+
+static __declspec(naked) void BhStub0() {  // 0xC61200
+    __asm {
+        call BhTest
+        ja bad
+        mov ecx, [esi + 0x54]
+        fstp dword ptr [esp + 0x14]
+        jmp dword ptr [g_bhBack]
+    bad:
+        push 0
+        call BhDrop
+        jmp dword ptr [g_bhSkip]
+    }
+}
+static __declspec(naked) void BhStub1() {  // World_GetHeightAt 0xC6A250
+    __asm {
+        call BhTest
+        ja bad
+        mov ecx, [ebx + 0x54]
+        fstp dword ptr [esp + 0x14]
+        jmp dword ptr [g_bhBack + 4]
+    bad:
+        push 1
+        call BhDrop
+        jmp dword ptr [g_bhSkip + 4]
+    }
+}
+static __declspec(naked) void BhStub2() {  // Terrain_GetHeight 0xC6A540
+    __asm {
+        call BhTest
+        ja bad
+        mov ecx, [esi + 0x54]
+        fstp dword ptr [esp + 0x20]
+        jmp dword ptr [g_bhBack + 8]
+    bad:
+        push 2
+        call BhDrop
+        jmp dword ptr [g_bhSkip + 8]
+    }
+}
+static void (*const kBhStub[3])() = {BhStub0, BhStub1, BhStub2};
+
+// The 7 bytes at `at` (right after a call to 0xB745A0) become jmp kBhStub[i] + 2 int3 (never run: the stub jumps past them).
+static bool BhPatch(u8* at, int i) {
+    if (at[-5] != 0xE8 || (DWORD)((uintptr_t)at + *(const LONG*)(at - 4)) != BH_CALL || !Matches(at, kBhSite[i], 7)) return false;
+    u8 b[7] = {0xE9, 0, 0, 0, 0, 0xCC, 0xCC};
+    *(LONG*)(b + 1) = (LONG)((uintptr_t)kBhStub[i] - ((uintptr_t)at + 5));
+    return Write(at, b, sizeof(b));
+}
+
+static bool ApplyBridgeHeightNaN(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"EaCrashFixes", L"BridgeHeightNaN", 0, ini)) return false;
+    memcpy(g_bhBack, BH_BACK, sizeof(g_bhBack)), memcpy(g_bhSkip, BH_SKIP, sizeof(g_bhSkip));
+    int n = 0;
+    for (int i = 0; i < 3; i++) {  // each query is patched on its own
+        if (BhPatch((u8*)(uintptr_t)BH_SITE[i], i)) n++;
+        else Log("SKIP ea fix: BridgeHeightNaN: bytes at 0x%08X differ (another mod or a probe build owns them): that query not patched", BH_SITE[i]);
+    }
+    if (!n) return false;
+    Log("OK   ea fix: BridgeHeightNaN (docs/67 §37): bridge heights that are not finite or above 1e6 in magnitude are ignored "
+        "(%d of 3 height queries: 0x%08X, 0x%08X, 0x%08X)", n, BH_SITE[0], BH_SITE[1], BH_SITE[2]);
     return true;  // keep the log open for the hit lines
 }

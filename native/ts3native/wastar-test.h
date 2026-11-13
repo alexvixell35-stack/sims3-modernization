@@ -77,6 +77,43 @@ static void HiRunStub(float c, float l2) {
     }
 }
 
+// BridgeHeightNaN: the stub runs with st0 = the bridge height, esi = ebx = a fake query object (the terrain grid at +54h),
+// ebp = a fake query frame (x, z at +8 / +0Ch); its exits are the recorders. g_bhSlot = the site's [esp+14h] and [esp+20h]
+// after the stub (the moved fstp writes one of them), g_bhSw = the x87 status word before the fld and after the stub.
+static DWORD g_bhSlot[2];
+static WORD g_bhSw[2];
+static __declspec(naked) void __cdecl BhRun(void (* /*stub*/)(), DWORD /*bits*/, const void* /*obj*/, const void* /*frame*/) {
+    __asm {
+        push ebx
+        push esi
+        push edi
+        push ebp
+        mov esi, [esp + 28]
+        mov ebx, esi
+        mov edi, 0x33333333
+        mov eax, [esp + 20]
+        fnstsw word ptr g_bhSw
+        fld dword ptr [esp + 24]
+        mov ebp, [esp + 32]
+        sub esp, 0x40
+        mov dword ptr [esp + 0x10], 0x5A5A5A5A
+        mov dword ptr [esp + 0x1C], 0x5A5A5A5A
+        mov ecx, 0x22222222
+        call eax
+        mov eax, [esp + 0x10]
+        mov g_bhSlot[0], eax
+        mov eax, [esp + 0x1C]
+        mov g_bhSlot[4], eax
+        fnstsw word ptr g_bhSw[2]
+        add esp, 0x40
+        pop ebp
+        pop edi
+        pop esi
+        pop ebx
+        ret
+    }
+}
+
 // The stub's esp is the frame below this call's return address: fields at [esp + off - 4] here are at [sp + off] there.
 static void WaRunStub(const u8* r, DWORD chunk, DWORD wp, const u8* rec, const WORD* cur) {
     memset(g_waOut, 0, sizeof(g_waOut));
@@ -110,7 +147,7 @@ static void WaRunStub(const u8* r, DWORD chunk, DWORD wp, const u8* rec, const W
 static void TestWorldAStarRefs() {
     static_assert(offsetof(Ts3nCounters, mdOn) == 0x5520 && offsetof(Ts3nCounters, waOn) == 0x5570 &&
                       offsetof(Ts3nCounters, waSkip) == 0x5574 && offsetof(Ts3nCounters, pfSkip) == 0x5584 &&
-                      sizeof(Ts3nCounters) == 6314 * 4,
+                      sizeof(Ts3nCounters) == 6315 * 4,
                   "counters v146 layout after v145 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
 
@@ -233,8 +270,53 @@ static void TestWorldAStarRefs() {
     assert(g_waOut[0] == 2 && g_waOut[3] == 0x5A5A5A5A && g_waOut[4] == 0x11111111 && g_waOut[6] == 0x33333333);
     assert(g_hiHits == hh0 + 1 && g_hiX[0] == inf && g_hiX[1] == 0.5f);
     g_hiBack = HI_BACK, g_hiSkip = HI_SKIP, g_hiHits = hh0;
+    // BridgeHeightNaN: each site after a call to 0xB745A0 becomes jmp kBhStub[i] + 2 int3; foreign bytes or another call refused
+    static_assert(offsetof(Ts3nCounters, bhnHits) == 0x62A8 && sizeof(Ts3nCounters) == 6315 * 4,
+                  "counters v917 layout after v194 (docs/registry.md)");
+    for (int i = 0; i < 3; i++) {
+        alignas(4) static u8 bh[12];
+        bh[0] = 0xE8, *(LONG*)(bh + 1) = (LONG)(BH_CALL - ((DWORD)(uintptr_t)bh + 5)), memcpy(bh + 5, kBhSite[i], 7);
+        bh[11] ^= 0x7C;  // another stack slot: refused
+        assert(!BhPatch(bh + 5, i) && bh[5] == 0x8B);
+        bh[11] ^= 0x7C, bh[1] ^= 1;  // a call to another function: refused
+        assert(!BhPatch(bh + 5, i) && bh[5] == 0x8B);
+        bh[1] ^= 1;
+        assert(BhPatch(bh + 5, i) && bh[5] == 0xE9 && bh[10] == 0xCC && bh[11] == 0xCC &&
+               (uintptr_t)bh + 10 + *(LONG*)(bh + 6) == (uintptr_t)kBhStub[i]);
+        assert(!BhPatch(bh + 5, i));
+    }
+    // the decision, run through the real stubs: a sane bridge height is the game's answer (the moved fstp, ecx = the terrain
+    // grid); NaN, +-inf, 2.26389e34 and anything above 1e6 in magnitude take the query's no-bridge path, popped and counted
+    for (int i = 0; i < 3; i++) g_bhBack[i] = (DWORD)(uintptr_t)&WaTestBack, g_bhSkip[i] = (DWORD)(uintptr_t)&WaTestSkip;
+    const LONG bh0 = k.bhnHits, bl0 = g_bhLogged;
+    static DWORD bhObj[0x20], bhFrame[4];
+    bhObj[0x54 / 4] = 0x44444444;
+    bhFrame[2] = 0x44534000, bhFrame[3] = 0x44544000;  // x 845, z 849 (a point that failed on Isla Paradiso)
+    static const DWORD kSane[] = {0x420ECCCD /* 35.7 */, 0xC2C80000 /* -100 */, 0, 0x80000000, 1, 0x49742400 /* 1e6 */, 0xC9742400};
+    static const DWORD kBad[] = {0x7FC00000 /* NaN */, 0xFFC00000, 0x7F800000 /* +inf */, 0xFF800000 /* -inf */,
+                                 0x788B85D4 /* 2.26389e34, the dump's y */, 0xF88B85D4, 0x49742401 /* just above 1e6 */};
+    for (int i = 0; i < 3; i++) {
+        for (DWORD h : kSane) {
+            memset(g_waOut, 0, sizeof(g_waOut));
+            BhRun(kBhStub[i], h, bhObj, bhFrame);
+            assert(g_waOut[0] == 1 && g_waOut[2] == 0x44444444 && g_waOut[4] == (DWORD)(uintptr_t)bhObj &&
+                   g_waOut[5] == (DWORD)(uintptr_t)bhObj && g_waOut[6] == 0x33333333);
+            assert(g_bhSlot[i == 2] == h && g_bhSlot[i != 2] == 0x5A5A5A5A && (g_bhSw[0] & 0x3800) == (g_bhSw[1] & 0x3800));
+        }
+        for (DWORD h : kBad) {
+            memset(g_waOut, 0, sizeof(g_waOut));
+            BhRun(kBhStub[i], h, bhObj, bhFrame);
+            assert(g_waOut[0] == 2 && g_waOut[4] == (DWORD)(uintptr_t)bhObj && g_waOut[5] == (DWORD)(uintptr_t)bhObj &&
+                   g_waOut[6] == 0x33333333);
+            assert(g_bhSlot[0] == 0x5A5A5A5A && g_bhSlot[1] == 0x5A5A5A5A && (g_bhSw[0] & 0x3800) == (g_bhSw[1] & 0x3800));
+        }
+    }
+    assert(k.bhnHits == bh0 + 3 * (LONG)(sizeof(kBad) / sizeof(kBad[0])));
+    memset(g_bhBack, 0, sizeof(g_bhBack)), memset(g_bhSkip, 0, sizeof(g_bhSkip));
+    k.bhnHits = bh0, g_bhLogged = bl0;
     printf("WorldAStarRefs: patch bytes, in-range pairs kept (moved instructions run), chunk outside the map / waypoint past "
            "the chunk count / unreadable record skipped to the closed path; PortalFlagRefs: patch bytes, portal ids and lot "
            "neighbours outside R skip the blocked-flag write; HeightsInfLoop: patch bytes, only an infinite segment skips "
-           "the halving loop, registers kept: ok\n");
+           "the halving loop, registers kept; BridgeHeightNaN: patch bytes, sane bridge heights kept, NaN / +-inf / 2.26e34 / "
+           "above 1e6 take the no-bridge path, x87 balanced, registers kept: ok\n");
 }
