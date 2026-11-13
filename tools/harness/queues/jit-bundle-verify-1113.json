@@ -78,7 +78,7 @@
     "profile": {
      "seed": 12345,
      "minutes": 10,
-     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,errortrapspread"
     }
    },
    "timeoutMin": 30,
@@ -337,7 +337,7 @@
     "profile": {
      "seed": 12345,
      "minutes": 10,
-     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,errortrapspread"
     }
    },
    "timeoutMin": 30,
@@ -595,7 +595,7 @@
     "profile": {
      "seed": 12345,
      "minutes": 10,
-     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,errortrapspread"
     }
    },
    "timeoutMin": 30,
