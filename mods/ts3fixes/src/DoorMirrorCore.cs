@@ -15,8 +15,11 @@ namespace Ts3Fixes
         public const uint kLockMax = 6;     // CommonDoor.tLock: Nobody 0, SelectedActor 1, SelectedHousehold 2, Anybody 3, Pets 4, OwnerList 5, VIPRoom 6
         public const uint kSelectedHousehold = 2;
         // Kind bits: Door (the only class the Sim handler asks, docs/103 §1), IBarnDoor, GateDouble, IElectronicGate,
-        // GameObject.CanLargeAnimalUse, DoorSingleGender (its own rule, tier P, docs/105 §3 row 4b).
-        public const int kIsDoor = 1, kBarnDoor = 2, kGateDouble = 4, kElectronicGate = 8, kLargeAnimalUse = 16, kSingleGender = 32;
+        // GameObject.CanLargeAnimalUse, DoorSingleGender (its own rule, tier P, docs/105 §3 row 4b), and the door's type
+        // overrides CommonDoor.IsAllowedThrough(int, int, Sim) ([DoorFast] rule a needs CommonDoor's own, docs/548).
+        // v920 ([DoorFast] rule d): IsAllowedThrough declared on DoorSingleGender, and its mGender Male / Female.
+        public const int kIsDoor = 1, kBarnDoor = 2, kGateDouble = 4, kElectronicGate = 8, kLargeAnimalUse = 16, kSingleGender = 32,
+            kOverridden = 64, kGenderOwn = 128, kDoorMale = 256, kDoorFemale = 512;
 
         public ulong ObjectId;              // the portal owner id: the key of the native portal answer (docs/105 §2)
         public uint LockType;               // mLockType
@@ -106,14 +109,65 @@ namespace Ts3Fixes
     // Route.GetOption2 call per message, RouteOption2 bits 63 + 58 set, the code in bits 48-55 and a 32-bit value in
     // bits 0-31 (native sees optHi = 0x84000000 | code << 16, optLo = value). Answer true = accepted. Without
     // ts3native the game answers false for every message, so Query reports "no channel" and nothing is pushed.
+    // [DoorFast] (ts3native doorfast.cpp, docs/548): what the native predictor needs besides the door records, read at push time
+    // only (never per ask). RuleB: the lot's portal owners of a type with no rule of its own in Sim.OnPortalPathPlan; Flags: lot
+    // flags below. A null LotInfo pushes no extras: the lot then gets no prediction natively (flag kOneHandler missing).
+    // Coverage (v919, docs/548): Typed / TypedKind = portal owners that are neither a door nor rule b, by kind (kTypes kinds, the
+    // order of ts3native's dfType; kinds from kTypePlain on have no rule of their own in Sim.OnPortalPathPlan); Hidden = the lot's
+    // hidden room ids (null = unreadable). Sent only to a ts3native that knows the coverage codes (DoorChannel.Coverage); to an
+    // older one a lot with hidden rooms goes as kHiddenRooms, as before.
+    public sealed class LotInfo
+    {
+        public const uint kOneHandler = 1, kHiddenRooms = 2;  // only EA's Sim.OnPortalPathPlan listens; hidden rooms unknown (older ts3native: or present)
+        public const uint kApartment = 4, kResort = 8;  // v920: Lot.HasVirtualResidentialSlots (rule c), CommercialLotSubType kEP10_Resort (rule d)
+        public const uint kTypes = 10, kTypePlain = 6;
+        public ulong[] RuleB = new ulong[0];
+        public uint Flags;
+        public ulong[] Typed = new ulong[0];
+        public uint[] TypedKind = new uint[0];
+        public int[] Hidden = new int[0];
+    }
+
     public static class DoorChannel
     {
         public const int kLotLo = 1, kLotHi = 2, kObjLo = 3, kObjHi = 4, kKind = 5, kLock = 6, kOwnerLo = 7, kOwnerHi = 8,
             kHhLo = 9, kHhHi = 10, kOneWay = 11, kRoomA = 12, kRoomB = 13, kListLo = 14, kListHi = 15, kEpoch = 16, kEnd = 17,
-            kInvLo = 18, kInvHi = 19, kInvAll = 20, kQueryLo = 21, kQueryHi = 22;
+            kInvLo = 18, kInvHi = 19, kInvAll = 20, kQueryLo = 21, kQueryHi = 22,
+            kRuleBLo = 23, kRuleBHi = 24, kLotFlags = 25, kActorLo = 26, kActorHi = 27, kActorFlags = 28,  // [DoorFast] extras
+            kCaps = 29, kMissNext = 30, kMissBit = 31, kTypedKind = 32, kTypedLo = 33, kTypedHi = 34, kHidden = 35;  // coverage (v919)
+        // actor flags ([DoorFast], pushed at each route START): human (not pet, horse or stray), not a tomb mummy, no Proprietor
+        // role, household scope (a Sim the player controls or one that cannot be classified: always asked natively); not a Sim
+        // (coverage: the router object is no Sim, EA's handler sees a null Actor; household scope unless the running task's Sim is
+        // outside it); v920 (rules c-f): ToddlerOrBelow, IsVisuallyPregnant, avoids ladders (Elder or a Ladder.kTraitsThatAvoidLadders
+        // trait), Gender Male / Female (the same bits as DoorRecord.kDoorMale / kDoorFemale)
+        public const uint kActHuman = 1, kActNotMummy = 2, kActNoProprietor = 4, kActHousehold = 8, kActNotSim = 16, kActToddler = 32,
+            kActPregnant = 64, kActAvoidLadder = 128, kActMale = 256, kActFemale = 512;
         public const ulong kBits = 0x8400000000000000UL;
 
+        // Set when ts3native refused an extras message (a build without the [DoorFast] codes, or no ts3native): from then on
+        // lots are pushed as before, without extras, and no actors are sent.
+        public static bool NoExtras;
+
+        // Coverage codes known to ts3native: -1 not asked yet, 0 no (an older build refuses kCaps), 1 yes. Asked once (a session
+        // keeps its ts3native); tests reset it.
+        public static int Caps = -1;
+        public static bool Coverage(Sender s)
+        {
+            if (Caps < 0) Caps = !NoExtras && s(Option(kCaps, 0)) ? 1 : 0;
+            return Caps == 1;
+        }
+
+        // The next lot ts3native's door asks found no valid table for (coverage), 0 = none; its id comes one bit per message
+        public static ulong NextMissed(Sender s)
+        {
+            if (NoExtras || !Coverage(s) || !s(Option(kMissNext, 0))) return 0;
+            ulong id = 0;
+            for (int b = 0; b < 64; b++) if (s(Option(kMissBit, (uint)b))) id |= 1UL << b;
+            return id;
+        }
+
         public delegate bool Sender(ulong option); // one GetOption2 call with this RouteOption2 value
+        public delegate LotInfo LotInfoReader(ulong lotId); // null = unknown: no extras for the lot
 
         public static ulong Option(int code, uint value) { return kBits | (ulong)(uint)code << 48 | value; }
 
@@ -131,6 +185,16 @@ namespace Ts3Fixes
         // count, which ts3native checks before it marks the lot valid. False at the first refused message (lot stays invalid).
         public static bool Push(ulong lot, DoorRecord[] doors, uint epoch, Sender s)
         {
+            bool extrasRefused;
+            return Push(lot, doors, epoch, null, s, out extrasRefused);
+        }
+
+        // info (may be null) goes after the doors: its rule-b ids, with coverage its typed owners and hidden room ids, then the lot
+        // flags. extrasRefused = the first extras message was refused (an older ts3native: Sync pushes again without them).
+        public static bool Push(ulong lot, DoorRecord[] doors, uint epoch, LotInfo info, Sender s, out bool extrasRefused)
+        {
+            extrasRefused = false;
+            bool cov = info != null && Coverage(s);  // asked before the lot opens
             if (!Pair(s, kLotLo, lot) || !s(Option(kEpoch, epoch))) return false; // epoch once per lot, so an empty lot has one too
             foreach (DoorRecord d in doors)
             {
@@ -139,7 +203,43 @@ namespace Ts3Fixes
                     || !s(Option(kRoomA, (uint)d.RoomA)) || !s(Option(kRoomB, (uint)d.RoomB))) return false;
                 foreach (ulong id in d.OwnerList) if (!Pair(s, kListLo, id)) return false;
             }
+            if (info != null)
+            {
+                bool first = true;
+                foreach (ulong id in info.RuleB)
+                {
+                    if (!s(Option(kRuleBLo, (uint)id))) { extrasRefused = first; return false; }
+                    first = false;
+                    if (!s(Option(kRuleBHi, (uint)(id >> 32)))) return false;
+                }
+                uint flags = info.Flags;
+                if (info.Hidden == null || (!cov && info.Hidden.Length > 0)) flags |= LotInfo.kHiddenRooms;
+                if (cov)
+                {
+                    uint kind = uint.MaxValue;
+                    for (int i = 0; i < info.Typed.Length; i++)
+                    {
+                        if (info.TypedKind[i] != kind)  // the kind is sticky natively: sent once per run of one kind
+                        {
+                            kind = info.TypedKind[i];
+                            if (!s(Option(kTypedKind, kind))) return false;
+                        }
+                        if (!Pair(s, kTypedLo, info.Typed[i])) return false;
+                    }
+                    if (info.Hidden != null) foreach (int h in info.Hidden) if (!s(Option(kHidden, (uint)h))) return false;
+                }
+                if (!s(Option(kLotFlags, flags))) { extrasRefused = first; return false; }
+            }
             return s(Option(kEnd, (uint)doors.Length));
+        }
+
+        // [DoorFast] one route actor's flags (kAct*); false when refused (then NoExtras: no more actors are sent)
+        public static bool Actor(ulong actorId, uint flags, Sender s)
+        {
+            if (NoExtras || actorId == 0) return false;
+            if (Pair(s, kActorLo, actorId) && s(Option(kActorFlags, flags))) return true;
+            NoExtras = true;
+            return false;
         }
 
         public static bool Invalidate(ulong lot, Sender s) { return Pair(s, kInvLo, lot); }
@@ -150,14 +250,24 @@ namespace Ts3Fixes
         // cached records too (ts3native also invalidates on what our table never hears: world epochs, the door lock
         // event, build/buy exit) and push a fresh read. A refused read pushes nothing, so the lot stays invalid there.
         // Returns -1 no channel, 1 already valid, 0 nothing pushed, 2 pushed.
-        public static int Sync(ulong lot, DoorMirrorTable table, DoorMirrorTable.LotReader read, Sender s)
+        public static int Sync(ulong lot, DoorMirrorTable table, DoorMirrorTable.LotReader read, Sender s) { return Sync(lot, table, read, null, s); }
+
+        // info: the [DoorFast] extras of the lot (null reader, NoExtras, a null answer or a throw: none)
+        public static int Sync(ulong lot, DoorMirrorTable table, DoorMirrorTable.LotReader read, LotInfoReader info, Sender s)
         {
             int q = Query(lot, s);
             if (q != 0) return q;
             table.Invalidate(lot);
             uint epoch;
             DoorRecord[] d = table.Get(lot, read, out epoch);
-            return d != null && Push(lot, d, epoch, s) ? 2 : 0;
+            if (d == null) return 0;
+            LotInfo li = null;
+            if (info != null && !NoExtras) { try { li = info(lot); } catch (Exception) { li = null; } }
+            bool extrasRefused;
+            if (Push(lot, d, epoch, li, s, out extrasRefused)) return 2;
+            if (!extrasRefused) return 0;
+            NoExtras = true; // an older ts3native: the doors alone, as before
+            return Push(lot, d, epoch, null, s, out extrasRefused) ? 2 : 0;
         }
     }
 }

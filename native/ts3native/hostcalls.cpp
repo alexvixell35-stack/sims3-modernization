@@ -170,13 +170,19 @@ static void HcCross(const DWORD* key, DWORD ans, LONGLONG now) {
 // slot = the call's return slot: slot[1..9] = the arguments. 0 = pass through to the next, 1 = return g_hcDoorAns
 static int __cdecl HcDoorEnter(DWORD* slot) {
     Ts3nCounters& k = ts3native_counters;
-    const LONG mode = k.dmMode, split = g_hcOn, xm = k.dmxMode;
-    if (!mode && !split && !xm) return 0;
+    const LONG mode = k.dmMode, split = g_hcOn, xm = k.dmxMode, df = k.dfMode;
+    if (!mode && !split && !xm && !df) return 0;
     if (t_snapRun) { if (mode) InterlockedIncrement(&k.dmFb[3]); return 0; }
     if (!t_hcJob || GetCurrentThreadId() != g_workerTid) { if (mode) InterlockedIncrement(&k.dmFb[0]); return 0; }
     if (g_invJob) { if (mode) InterlockedIncrement(&k.dmFb[1]); return 0; }  // a plan the sim sent back inside a managed call
     DWORD key[9];
     P4DoorKey(slot + 1, key);
+    // [DoorFast] (doorfast.cpp, docs/548) first: a prediction it answers needs no memo; one it asks is compared below
+    DfPred dfp = {};
+    if (df && DfEnter(key, &dfp)) {
+        g_hcDoorAns = dfp.ans;
+        return 1;
+    }
     if (xm != g_dmxLast) {  // a flip (either way): nothing filled under the other mode is used
         memset(g_dmx, 0, sizeof(g_dmx));
         g_dmxLast = xm;
@@ -217,6 +223,7 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
     t_hcDoor = 0;
     const LONGLONG now = HcNow();
     const LONG us = HcUs(now - t0);
+    DfCompare(key, dfp, r);
     if (split) InterlockedExchangeAdd(&k.hcDoorWaitUs, us);
     if (hit) {
         if (split) {
@@ -303,7 +310,8 @@ static bool ApplyHostCalls(const wchar_t* ini) {
     if (memo < 0 || memo > 2) { Log("SKIP door memo: DoorMemo=%ld is not 0, 1 or 2", memo); memo = 0; }
     LONG memoX = (LONG)GetPrivateProfileIntW(L"RouteSnap", L"DoorMemoX", -1, ini);  // present (even 0) = stub in, runtime switch
     if (memoX > 2) { Log("SKIP door memo x: DoorMemoX=%ld is not 0, 1 or 2", memoX); memoX = -1; }
-    if (!split && !memo && memoX < 0) { Log("host-call split and door memo off"); return false; }
+    const LONG dfMode = DfIniMode(ini);  // [DoorFast] (doorfast.cpp, docs/548) shares the stub
+    if (!split && !memo && memoX < 0 && !dfMode) { Log("host-call split, door memo and door fast off"); return false; }
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     static const char* kHow[4] = {"", "behind P4's stub", "in [ProbeValues]' slot", "on the call's rel32"};
     const LONG how = HcInstallDoor(P4_DOOR_AT, P4_DOOR_TARGET);
@@ -327,6 +335,7 @@ static bool ApplyHostCalls(const wchar_t* ini) {
         k.dmMode = memo;
         Log("OK   door memo: DoorMemo=%ld (%s), worker jobs only (switch dmMode +0x408C)", memo, memo == 1 ? "answer repeats from the job's memo" : "shadow: ask and compare");
     }
+    DfStart(ini, dfMode, how != 0);
     if (split) {
         g_hcOn = 1;
         k.hcReady |= 1;

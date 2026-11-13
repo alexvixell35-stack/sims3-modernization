@@ -1719,7 +1719,12 @@ rpc.exports = {
         // 6 add, 7 remove, 8 Usf, 9 Fp2, 10 Fp2 reader, 11 private fp, 12 census, 13 GhostTest, 14 world, 15 save) and LostRemovalFix flushes by event-9 site
         ...n('dsN', 16), ...n('dsUs', 16), ...n('dsYield', 16), ...n('lrsN', 2), ...n('lrsUs', 2), 'lrsYieldN', 'lrsYieldUs', ...n('dsSpare', 2),
         // v193 (0x6258) held for [Crash2Diag]; v194 (0x6278, docs/537 §22): [MonoJit] BoundCall, bcCallee_<kJitBound row>
-        'c2On', 'c2Clears', 'c2ClearBad', 'c2Frees', 'c2FreeLinked', 'c2Destroys', 'c2LinesDropped', 'c2Spare', 'bcOn', 'bcFills', 'bcHits', 'bcExc', 'bcNotAllowed', 'bcVtThis', ...n('bcCallee', 4), ...n('bcSpare', 2)); // v174 [GoalValidRO] Attr gva* (0x5E4C), v175 [SteerRO] Retry srr* (0x5E94, docs/250 §7.0, §8), v178 mb* (0x5EE8), v913 [LotPool] Trim lp* (0x5EF8, docs/541), v179 watchdog-check job time wd* (0x5F18, docs/250 §7.1), v180 outfit save string check os* (0x5F28, docs/539 §15); // v172 [Discourage] LostRemovalFix, GhostSweep (docs/89 §16, §17); v171 [CasTrim] Mode 3 / 4 (docs/539); older 912 builds read past their block: names missing there mean nothing
+        'c2On', 'c2Clears', 'c2ClearBad', 'c2Frees', 'c2FreeLinked', 'c2Destroys', 'c2LinesDropped', 'c2Spare', 'bcOn', 'bcFills', 'bcHits', 'bcExc', 'bcNotAllowed', 'bcVtThis', ...n('bcCallee', 4), ...n('bcSpare', 2),
+        'resv62A8', 'dfMode', 'dfAnswer', 'dfAsks', 'dfPredA', 'dfPredB', 'dfMatch', 'dfMisA', 'dfMisB', ...n('dfNo', 9), 'dfAnswered', 'dfSent',  // 0x62A8 held for v917 (bridge branch); v916 [DoorFast] df* (0x62AC, docs/548)
+        'dfHouse', 'dfSelf', 'dfActors', 'dfFail', 'dfDoorLocked',
+        'dfMissRec', 'dfMissHand', ...n('dfLotNo', 4), ...n('dfActNo', 2), 'dfActEvict', ...n('dfInvAll', 3), ...n('dfNo2', 2), ...n('dfType', 10),  // v919 [DoorFast] coverage (0x630C, docs/548 §6)
+        ...n('dfGuessOk', 2), ...n('dfGuessBad', 2), ...n('dfHidN', 2),
+        'dfPredC', 'dfPredD', 'dfPredE', 'dfPredF', 'dfPredG', 'dfMisC', 'dfMisD', 'dfMisE', 'dfMisF', 'dfMisG'); // v920 [DoorFast] rules c-g (0x6384, docs/548 §7); // v174 [GoalValidRO] Attr gva* (0x5E4C), v175 [SteerRO] Retry srr* (0x5E94, docs/250 §7.0, §8), v178 mb* (0x5EE8), v913 [LotPool] Trim lp* (0x5EF8, docs/541), v179 watchdog-check job time wd* (0x5F18, docs/250 §7.1), v180 outfit save string check os* (0x5F28, docs/539 §15); // v172 [Discourage] LostRemovalFix, GhostSweep (docs/89 §16, §17); v171 [CasTrim] Mode 3 / 4 (docs/539); older 912 builds read past their block: names missing there mean nothing
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key

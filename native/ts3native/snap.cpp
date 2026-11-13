@@ -709,6 +709,7 @@ static int StlClassify(const SnSite& s, const DWORD* slot, unsigned __int64* key
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) { *key = 0; return SLW_NOKEY; }
 }
+static void SpDoorInvalidateAll(int src);
 // from SnEnter (routesnap.cpp), every thread, before P1's own counting returns
 static void SpNote(int i, const DWORD* slot) {
     if (!g_spOn) return;
@@ -754,9 +755,11 @@ static void SpNote(int i, const DWORD* slot) {
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) { g_spD.flags |= SPD_LOTS | SPD_GRID | SPD_TILES; ts3native_counters.spFaults++; }
     SpUnlockD();
+    // docs/548: a world epoch or lot event ends every door table now, not at the next cut (a cut is skipped while a job runs,
+    // and [DoorFast] answers from the tables during jobs)
+    if (i == SN_WEV && (slot[2] == 5 || slot[2] == 7 || slot[2] == 9 || (slot[2] >= 0x0A && slot[2] <= 0x10))) SpDoorInvalidateAll(0);
 }
 
-static void SpDoorInvalidateAll();
 // from SnIcEnter: portal and lock-status ICs (E9-E11, E24, portal handle destroy) re-image every lot; build/buy exit and
 // the door lock event invalidate the door mirror
 static volatile LONG g_spKeysDirty = 1;  // a lock-key IC ran (slots 0-3) or a new epoch: P4 re-copies the lock-key sets at its next cut
@@ -766,7 +769,8 @@ static void SpIcNote(int i) {
     if (i <= 3) g_spKeysDirty = 1;
     if (!g_spOn) return;
     if (i >= 4 && i <= 16) { SpLockD(); g_spD.flags |= SPD_LOTS; SpUnlockD(); }  // what that costs is the strategy's choice
-    if (i == 22) SpDoorInvalidateAll();
+    // 22 = RouteManager_OnExitBuildBuy, 24 = World_DoorLockStateChangedImpl (docs/548: the lock event was not handled before)
+    if (i == 22 || i == 24) SpDoorInvalidateAll(1);
 }
 
 static SpImg* SpKeep(SpImg* fresh, SpImg* old) { return fresh ? fresh : SpImgRef(old); }  // a fault keeps the old image
@@ -1033,7 +1037,7 @@ static bool SpCut(const u8* world, bool read = false) {
     if (d.flags & (SPD_G | SPD_EPOCH)) SpKeysClear();  // a G build drops the game's records too (docs/100 §12.1)
     SpUnlockD();
     if (world != g_spWorld) { d.flags |= SPD_EPOCH; g_spWorld = world; }
-    if (d.flags & SPD_EPOCH) { g_spEpoch++; k.spEpochs++; SpDoorInvalidateAll(); g_spKeysDirty = 1; }
+    if (d.flags & SPD_EPOCH) { g_spEpoch++; k.spEpochs++; SpDoorInvalidateAll(0); g_spKeysDirty = 1; }
     const u8* p = (const u8*)(uintptr_t)SpD(world + 0x95C);
     if (p && p[0x10E]) k.spPendingAtCut++;
     SpVer* v = SpBuildVersion(world, g_spCur, d, false);
@@ -1122,12 +1126,41 @@ static void SpStart() {
 // ts3fixes pushes each lot's DoorMirror.GetLotDoors(lot) answer over GetOption2 (SpDoorMsg); a null answer is not pushed
 // (the lot stays invalid). Native invalidations (world epoch, lot events, build/buy exit) are seen by ts3fixes through
 // SDM_Q (valid?) before it pushes. Rule I-105-32: a portal owner id with no record in a valid lot is unknown (guard path).
+// [DoorFast] (doorfast.cpp, docs/548) adds per lot the rule-b portal owner ids (b) and lot flags (SDLF_*), and a small table of
+// route actors (SpActor); the route worker reads all of it during a job, so every write takes g_spDoorLock exclusive and the
+// worker's reader takes it shared (SpGrow reallocates).
+// [DoorFast] coverage (v919): typed portal owners (kind = DoorMirror.cs TypedKinds order, kSpTypes of them; kinds from kSpTypePlain
+// on have no rule of their own in Sim.OnPortalPathPlan) and the lot's hidden-room ids (Lot.mSavedData.mHiddenRooms)
 struct SpDoor { u64 obj, owner, household; DWORD kind, lock, oneWay, roomA, roomB, listOff, listN; };
-struct SpDoorLot { u64 key; LONG valid, epoch; DWORD mEpoch; int n, cap, nIds, capIds; SpDoor* d; u64* ids; };
+struct SpTyped { u64 id; DWORD kind; };
+struct SpDoorLot { u64 key; LONG valid, epoch; DWORD mEpoch; int n, cap, nIds, capIds; SpDoor* d; u64* ids; int nB, capB; u64* b; DWORD flags;
+                   int nT, capT; SpTyped* t; int nH, capH; int* h; };
+static const DWORD kSpTypes = 10, kSpTypePlain = 6;
+// lot flags: only EA's Sim.OnPortalPathPlan listens; hidden rooms unknown (ts3fixes could not read the list; before v919 ts3fixes
+// also set it for a lot with hidden rooms, and sent no list: either way no door is predicted)
+// v920 (rules c, d): Lot.HasVirtualResidentialSlots (apartment elevators), CommercialLotSubType kEP10_Resort
+enum { SDLF_ONE_HANDLER = 1, SDLF_HIDDEN_ROOMS = 2, SDLF_APARTMENT = 4, SDLF_RESORT = 8 };
+// actor flags (ts3fixes, per route START): human (not pet, horse or stray), not a tomb mummy, no Proprietor role, household scope;
+// not a Sim (v919: the router object is no Sim, so EA's handler sees a null Actor; household scope unless the running task's Sim
+// is outside it); v920 (rules c-f): ToddlerOrBelow, IsVisuallyPregnant, avoids ladders (Elder or a Ladder.kTraitsThatAvoidLadders
+// trait: Ladder.DiscourageSimFromUsing), Gender male / female (SimDescription.Gender)
+enum { SDA_HUMAN = 1, SDA_NOT_MUMMY = 2, SDA_NO_PROPRIETOR = 4, SDA_HOUSEHOLD = 8, SDA_NOT_SIM = 16, SDA_TODDLER = 32, SDA_PREGNANT = 64,
+       SDA_AVOID_LADDER = 128, SDA_MALE = 256, SDA_FEMALE = 512 };
+struct SpActor { u64 id; DWORD flags, tick; };
+static const int kSpActors = 256;
+static SpActor g_spActors[kSpActors];
+static DWORD g_dfActorMs = 10000;   // [DoorFast] ActorMs: an actor record's life
+// [DoorFast] coverage: lots asked about with no valid table (transit lots: a START pushes only its start and goal lots), handed
+// to ts3fixes over the channel (SDM_MISS_*) at most every kSpMissHandMs per lot, dropped after kSpMissKeepMs without an ask
+struct SpMiss { u64 id; DWORD seen, handed; };
+static const int kSpMiss = 16;
+static const DWORD kSpMissHandMs = 5000, kSpMissKeepMs = 60000;
+static SpMiss g_spMiss[kSpMiss];
+static SRWLOCK g_spDoorLock = SRWLOCK_INIT;  // leaf lock: nothing is called while it is held
 static const int kSpDoorLots = 512;
 static SpDoorLot g_spDoorLots[kSpDoorLots];
 static int g_spDoorN;
-static struct { DWORD lotLo, objLo, ownLo, hhLo, idLo, mEpoch; SpDoorLot* open; SpDoor cur; bool haveDoor; } g_spDm;  // sim only
+static struct { DWORD lotLo, objLo, ownLo, hhLo, idLo, mEpoch, bLo, actLo, tLo, tKind; u64 act, miss; SpDoorLot* open; SpDoor cur; bool haveDoor, haveAct; } g_spDm;  // sim only
 
 static SpDoorLot* SpDoorLotFor(u64 key, bool add) {
     for (int i = 0; i < g_spDoorN; i++) if (g_spDoorLots[i].key == key) return &g_spDoorLots[i];
@@ -1137,8 +1170,48 @@ static SpDoorLot* SpDoorLotFor(u64 key, bool add) {
     l->key = key;
     return l;
 }
-static void SpDoorInvalidateAll() {
+// src (dfInvAll): 0 world event or epoch, 1 build/buy exit or door lock IC, 2 channel code 20. Actor flags do not depend on lot
+// or door state, so only a world change (0) drops the actor records too (v919; before, every invalidate-all did).
+static void SpDoorInvalidateAllLocked(int src) {
     for (int i = 0; i < g_spDoorN; i++) if (g_spDoorLots[i].valid) { g_spDoorLots[i].valid = 0; ts3native_counters.spDoor[3]++; }
+    ts3native_counters.dfInvAll[src]++;
+    if (!src) memset(g_spActors, 0, sizeof(g_spActors));
+}
+static void SpDoorInvalidateAll(int src) {
+    AcquireSRWLockExclusive(&g_spDoorLock);
+    SpDoorInvalidateAllLocked(src);
+    ReleaseSRWLockExclusive(&g_spDoorLock);
+}
+// the actor's record pushed within maxAge ms of now, else NULL, *old = 1 when a record is there but older (lock held)
+static const SpActor* SpActorFind(u64 id, DWORD now, DWORD maxAge, int* old = NULL) {
+    for (int i = 0; i < kSpActors; i++)
+        if (g_spActors[i].id == id && id) {
+            if (now - g_spActors[i].tick <= maxAge) return &g_spActors[i];
+            if (old) *old = 1;
+            return NULL;
+        }
+    return NULL;
+}
+static DWORD SpAge(u64 id, DWORD now, DWORD t) { return id ? now - t : 0xFFFFFFFF; }  // an empty slot is the oldest
+// [DoorFast] coverage: an ask found no valid table for lot `id` (worker, lock not held)
+static void SpMissNote(u64 id, DWORD now) {
+    AcquireSRWLockExclusive(&g_spDoorLock);
+    int v = 0, m = -1;
+    for (int i = 0; i < kSpMiss && m < 0; i++) {
+        if (g_spMiss[i].id == id) m = i;
+        else if (SpAge(g_spMiss[i].id, now, g_spMiss[i].seen) > SpAge(g_spMiss[v].id, now, g_spMiss[v].seen)) v = i;
+    }
+    if (m < 0) {  // new: replaces the empty or least recently asked entry, can be handed at once
+        m = v;
+        g_spMiss[m].id = id, g_spMiss[m].handed = now - kSpMissHandMs;
+        ts3native_counters.dfMissRec++;
+    }
+    g_spMiss[m].seen = now;
+    ReleaseSRWLockExclusive(&g_spDoorLock);
+}
+static bool SpRoomHidden(const SpDoorLot* l, DWORD room) {  // EA passes the room as a short widened to int (LotManager.PortalLockedCallback)
+    for (int i = 0; i < l->nH; i++) if (l->h[i] == (int)(short)(WORD)room) return true;
+    return false;
 }
 static bool SpGrow(void** p, int* cap, int need, int elem) {
     if (need <= *cap) return true;
@@ -1159,7 +1232,14 @@ static inline const SpDoor* SpDoorFind(u64 lot, u64 obj) {
 
 enum { SDM_LOT_LO = 1, SDM_LOT_HI, SDM_OBJ_LO, SDM_OBJ_HI, SDM_KIND, SDM_LOCK, SDM_OWNER_LO, SDM_OWNER_HI, SDM_HH_LO, SDM_HH_HI,
        SDM_ONEWAY, SDM_ROOM_A, SDM_ROOM_B, SDM_LIST_LO, SDM_LIST_HI, SDM_EPOCH, SDM_END, SDM_INV_LO, SDM_INV_HI, SDM_INV_ALL,
-       SDM_Q_LO, SDM_Q_HI };
+       SDM_Q_LO, SDM_Q_HI,
+       // [DoorFast] (docs/548): rule-b portal owner id lo / hi and the lot flags (inside an open lot, after its doors), then an
+       // actor: object id lo / hi, flags (no lot needed); a record keeps its flags for [DoorFast] ActorMs
+       SDM_B_LO, SDM_B_HI, SDM_LOT_FLAGS, SDM_ACT_LO, SDM_ACT_HI, SDM_ACT_FLAGS,
+       // [DoorFast] coverage (v919): CAPS answers 1 (these codes are known: an older build refuses them); MISS_NEXT stages the next
+       // missed lot (1) or none (0), MISS_BIT lo = 0..63 answers that bit of its id; inside an open lot, after its doors: T_KIND
+       // (sticky kind for the T ids that follow), T_LO / T_HI a typed portal owner id, HIDDEN one hidden room id
+       SDM_CAPS, SDM_MISS_NEXT, SDM_MISS_BIT, SDM_T_KIND, SDM_T_LO, SDM_T_HI, SDM_HIDDEN };
 static const DWORD kSpDoorHi = 0x84000000, kSpDoorMaskHi = 0xFF000000;  // RouteOption bits 63 + 58, code in bits 48-55
 static u8 SpDoorErr() { ts3native_counters.spDoor[4]++; g_spDm.open = NULL; g_spDm.haveDoor = false; return 0; }
 static bool SpDoorFlush() {  // the door being described goes into the open lot
@@ -1172,7 +1252,14 @@ static bool SpDoorFlush() {  // the door being described goes into the open lot
     return true;
 }
 // GetOption2 with optHi = kSpDoorHi | code << 16, optLo = the value; 1 = accepted (SDM_Q_HI: 1 = valid). Sim thread.
+static u8 SpDoorMsgLocked(DWORD lo, DWORD hi);
 static u8 SpDoorMsg(DWORD lo, DWORD hi) {
+    AcquireSRWLockExclusive(&g_spDoorLock);
+    const u8 r = SpDoorMsgLocked(lo, hi);
+    ReleaseSRWLockExclusive(&g_spDoorLock);
+    return r;
+}
+static u8 SpDoorMsgLocked(DWORD lo, DWORD hi) {
     Ts3nCounters& k = ts3native_counters;
     k.spDoor[0]++;
     const DWORD code = (hi >> 16) & 0xFF;
@@ -1181,8 +1268,8 @@ static u8 SpDoorMsg(DWORD lo, DWORD hi) {
         case SDM_LOT_HI: {
             SpDoorLot* l = SpDoorLotFor(((u64)lo << 32) | g_spDm.lotLo, true);
             if (!l) return SpDoorErr();
-            l->n = 0, l->nIds = 0, l->valid = 0, l->mEpoch = 0;
-            g_spDm.open = l, g_spDm.haveDoor = false;
+            l->n = 0, l->nIds = 0, l->valid = 0, l->mEpoch = 0, l->nB = 0, l->flags = 0, l->nT = 0, l->nH = 0;
+            g_spDm.open = l, g_spDm.haveDoor = false, g_spDm.tKind = kSpTypes;
             return 1;
         }
         case SDM_INV_HI: {
@@ -1190,10 +1277,50 @@ static u8 SpDoorMsg(DWORD lo, DWORD hi) {
             if (l && l->valid) { l->valid = 0; k.spDoor[3]++; }
             return 1;
         }
-        case SDM_INV_ALL: SpDoorInvalidateAll(); return 1;
+        case SDM_INV_ALL: SpDoorInvalidateAllLocked(2); return 1;
+        case SDM_CAPS: return 1;
+        case SDM_MISS_NEXT: {  // the first missed lot still asked about, not covered since, not handed in the last kSpMissHandMs
+            const DWORD now = GetTickCount();
+            g_spDm.miss = 0;
+            for (int i = 0; i < kSpMiss && !g_spDm.miss; i++) {
+                SpMiss& m = g_spMiss[i];
+                if (!m.id) continue;
+                const SpDoorLot* l = SpDoorLotFor(m.id, false);
+                if (now - m.seen > kSpMissKeepMs || (l && l->valid && l->epoch == g_spEpoch)) { m.id = 0; continue; }
+                if (now - m.handed < kSpMissHandMs) continue;
+                m.handed = now, g_spDm.miss = m.id;
+                k.dfMissHand++;
+            }
+            return g_spDm.miss != 0;
+        }
+        case SDM_MISS_BIT: return lo < 64 ? (u8)((g_spDm.miss >> lo) & 1) : SpDoorErr();
         case SDM_Q_HI: {
             const SpDoorLot* l = SpDoorLotFor(((u64)lo << 32) | g_spDm.lotLo, false);
             return l && l->valid && l->epoch == g_spEpoch ? 1 : 0;
+        }
+        case SDM_ACT_LO: g_spDm.actLo = lo; g_spDm.haveAct = false; return 1;
+        case SDM_ACT_HI:
+            g_spDm.act = ((u64)lo << 32) | g_spDm.actLo;
+            g_spDm.haveAct = g_spDm.act != 0;
+            if (!g_spDm.haveAct) return SpDoorErr();
+            return 1;
+        case SDM_ACT_FLAGS: {  // the actor's record: replaced in place, else the empty or least recently pushed slot
+            if (!g_spDm.haveAct) return SpDoorErr();
+            g_spDm.haveAct = false;
+            const DWORD now = GetTickCount();
+            SpActor* a = NULL;
+            int v = 0;
+            for (int i = 0; i < kSpActors && !a; i++) {
+                if (g_spActors[i].id == g_spDm.act) a = &g_spActors[i];
+                else if (SpAge(g_spActors[i].id, now, g_spActors[i].tick) > SpAge(g_spActors[v].id, now, g_spActors[v].tick)) v = i;
+            }
+            if (!a) {
+                a = &g_spActors[v];
+                if (a->id && now - a->tick <= g_dfActorMs) k.dfActEvict++;
+            }
+            a->id = g_spDm.act, a->flags = lo, a->tick = now;
+            k.dfActors++;
+            return 1;
         }
         default: break;
     }
@@ -1202,6 +1329,22 @@ static u8 SpDoorMsg(DWORD lo, DWORD hi) {
     SpDoor& c = g_spDm.cur;
     switch (code) {
         case SDM_OBJ_LO: if (!SpDoorFlush()) return SpDoorErr(); g_spDm.objLo = lo; return 1;
+        case SDM_B_LO: if (!SpDoorFlush()) return SpDoorErr(); g_spDm.bLo = lo; return 1;  // lot-level: the door being described ends
+        case SDM_B_HI:
+            if (!SpGrow((void**)&l->b, &l->capB, l->nB + 1, sizeof(u64))) return SpDoorErr();
+            l->b[l->nB++] = ((u64)lo << 32) | g_spDm.bLo;
+            return 1;
+        case SDM_LOT_FLAGS: if (!SpDoorFlush()) return SpDoorErr(); l->flags = lo; return 1;
+        case SDM_T_KIND: if (!SpDoorFlush() || lo >= kSpTypes) return SpDoorErr(); g_spDm.tKind = lo; return 1;
+        case SDM_T_LO: if (!SpDoorFlush()) return SpDoorErr(); g_spDm.tLo = lo; return 1;
+        case SDM_T_HI:
+            if (g_spDm.tKind >= kSpTypes || !SpGrow((void**)&l->t, &l->capT, l->nT + 1, sizeof(SpTyped))) return SpDoorErr();
+            l->t[l->nT].id = ((u64)lo << 32) | g_spDm.tLo, l->t[l->nT++].kind = g_spDm.tKind;
+            return 1;
+        case SDM_HIDDEN:
+            if (!SpDoorFlush() || !SpGrow((void**)&l->h, &l->capH, l->nH + 1, sizeof(int))) return SpDoorErr();
+            l->h[l->nH++] = (int)lo;
+            return 1;
         case SDM_OBJ_HI:
             memset(&c, 0, sizeof(c));
             c.obj = ((u64)lo << 32) | g_spDm.objLo;

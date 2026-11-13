@@ -16,7 +16,7 @@ static u8* UafTChunk(u8* mem, DWORD user, bool inUse = true) {  // a chunk at me
 }
 
 static void TestUafCheck() {
-    static_assert(offsetof(Ts3nCounters, uafHeld) == 0x5F58 && offsetof(Ts3nCounters, uafArms) == 0x5F6C && sizeof(Ts3nCounters) == 6314 * 4,
+    static_assert(offsetof(Ts3nCounters, uafHeld) == 0x5F58 && offsetof(Ts3nCounters, uafArms) == 0x5F6C && sizeof(Ts3nCounters) == 6379 * 4,
                   "counters v183 layout after v182 (docs/registry.md)");
     Ts3nCounters& z = ts3native_counters;
     const LONG held0 = z.uafHeld, freed0 = z.uafFreed, hit0 = z.uafHit, f50 = z.uafF5, pass0 = z.uafPass;

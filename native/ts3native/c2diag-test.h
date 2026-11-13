@@ -13,7 +13,7 @@ static __declspec(naked) void C2tLandFlags() {                                  
 static __declspec(naked) void C2tLandCdecl() { __asm { mov eax, [esp + 4] } __asm { mov g_c2tArg, eax } __asm { ret } }
 
 static void TestCrash2Diag() {
-    static_assert(offsetof(Ts3nCounters, c2On) == 0x6258 && offsetof(Ts3nCounters, c2Spare) == 0x6274 && sizeof(Ts3nCounters) == 6314 * 4,
+    static_assert(offsetof(Ts3nCounters, c2On) == 0x6258 && offsetof(Ts3nCounters, c2Spare) == 0x6274 && sizeof(Ts3nCounters) == 6379 * 4,
                   "counters v193 layout (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     void* const t0[4] = {g_c2ClearT, g_c2DDtorT, g_c2DDtorSaT, g_c2DestroyT};

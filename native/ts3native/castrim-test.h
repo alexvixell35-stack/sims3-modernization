@@ -32,7 +32,7 @@ static void CtsKids(DWORD o) {  // B and the new one name C (its node's key) as 
 
 static void TestCasTrim() {
     static_assert(offsetof(Ts3nCounters, ctMode) == 0x5CF0 && offsetof(Ts3nCounters, ctOtherThread) == 0x5D14 &&
-                      sizeof(Ts3nCounters) == 6314 * 4,
+                      sizeof(Ts3nCounters) == 6379 * 4,
                   "counters v912 layout after v908 and the held block (docs/registry.md)");
     Ts3nCounters& z = ts3native_counters;
     const CtEraseFn erase0 = g_ctErase;
@@ -252,7 +252,7 @@ __declspec(naked) static void __fastcall CswFbEnter(DWORD) {  // a frame with th
 }
 
 static void TestCasTrimSweep() {
-    static_assert(offsetof(Ts3nCounters, ctSaves) == 0x5D80 && offsetof(Ts3nCounters, ctBlendKB) == 0x5DE4 && sizeof(Ts3nCounters) == 6314 * 4,
+    static_assert(offsetof(Ts3nCounters, ctSaves) == 0x5D80 && offsetof(Ts3nCounters, ctBlendKB) == 0x5DE4 && sizeof(Ts3nCounters) == 6379 * 4,
                   "counters v171 layout (docs/registry.md)");
     Ts3nCounters& z = ts3native_counters;
     const CtEraseFn erase0 = g_ctErase;
@@ -565,7 +565,7 @@ static void __fastcall CtsRelEa(DWORD* vec, void*, DWORD* b, DWORD* e) {  // EA'
     for (DWORD i = 0; i < g_ctsRelN && i < 16; i++) g_ctsRelSeen[i] = b[i];
 }
 static void TestCasTrimCells() {
-    static_assert(offsetof(Ts3nCounters, ctCellSeen) == 0x5EC0 && offsetof(Ts3nCounters, ctCellSkip) == 0x5EC4 && sizeof(Ts3nCounters) == 6314 * 4,
+    static_assert(offsetof(Ts3nCounters, ctCellSeen) == 0x5EC0 && offsetof(Ts3nCounters, ctCellSkip) == 0x5EC4 && sizeof(Ts3nCounters) == 6379 * 4,
                   "counters v176 layout after the gap held for v174-v175 (docs/registry.md)");
     assert(RhRanges());
     Ts3nCounters& z = ts3native_counters;
@@ -668,7 +668,7 @@ static void __fastcall CtsMbEa(u8* mb, void*) {  // EA's 0x5D82A0: the cells it 
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
 }
 static void TestCasTrimMb() {
-    static_assert(offsetof(Ts3nCounters, mbCalls) == 0x5EE8 && offsetof(Ts3nCounters, mbSkip) == 0x5EF4 && sizeof(Ts3nCounters) == 6314 * 4,
+    static_assert(offsetof(Ts3nCounters, mbCalls) == 0x5EE8 && offsetof(Ts3nCounters, mbSkip) == 0x5EF4 && sizeof(Ts3nCounters) == 6379 * 4,
                   "counters v178 layout after v177 (docs/registry.md)");
     assert(RhRanges());
     Ts3nCounters& z = ts3native_counters;
@@ -757,7 +757,7 @@ static void __fastcall CtsOsEa(void* outfit, void*, DWORD* vec, DWORD a2, DWORD 
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
 }
 static void TestCasTrimOs() {
-    static_assert(offsetof(Ts3nCounters, osCalls) == 0x5F28 && offsetof(Ts3nCounters, osFix) == 0x5F34 && sizeof(Ts3nCounters) == 6314 * 4,
+    static_assert(offsetof(Ts3nCounters, osCalls) == 0x5F28 && offsetof(Ts3nCounters, osFix) == 0x5F34 && sizeof(Ts3nCounters) == 6379 * 4,
                   "counters v180 layout after the v913 + v179 gap (docs/registry.md)");
     assert(RhRanges());
     Ts3nCounters& z = ts3native_counters;
@@ -841,7 +841,7 @@ static DWORD WINAPI CtsTrapWriter(LPVOID) {
     return 0;
 }
 static void TestCasTrimTrap() {
-    static_assert(offsetof(Ts3nCounters, trArms) == 0x5F38 && offsetof(Ts3nCounters, trGone) == 0x5F44 && sizeof(Ts3nCounters) == 6314 * 4,
+    static_assert(offsetof(Ts3nCounters, trArms) == 0x5F38 && offsetof(Ts3nCounters, trGone) == 0x5F44 && sizeof(Ts3nCounters) == 6379 * 4,
                   "counters v181 layout after v180 (docs/registry.md)");
     assert(RhRanges());
     Ts3nCounters& z = ts3native_counters;
@@ -904,7 +904,7 @@ static u8* g_ctsRlAddNode;
 static void __fastcall CtsRlRem(u8*, void*, u8*) { g_ctsRlRem++; }
 static void __fastcall CtsRlAdd(u8*, void*, u8*, u8* node) { g_ctsRlAdd++, g_ctsRlAddNode = node; }
 static void TestCasTrimRealm() {
-    static_assert(offsetof(Ts3nCounters, rlCalls) == 0x5F48 && offsetof(Ts3nCounters, rlSkip) == 0x5F54 && sizeof(Ts3nCounters) == 6314 * 4,
+    static_assert(offsetof(Ts3nCounters, rlCalls) == 0x5F48 && offsetof(Ts3nCounters, rlSkip) == 0x5F54 && sizeof(Ts3nCounters) == 6379 * 4,
                   "counters v182 layout after v181 (docs/registry.md)");
     assert(RhRanges());
     Ts3nCounters& z = ts3native_counters;

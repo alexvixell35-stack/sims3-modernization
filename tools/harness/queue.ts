@@ -771,6 +771,7 @@ const COUNTERS: Record<string, RegExp> = {
   WaterJps: /^waterJps\w*$/, SaveFlush: /^flush\w*$/, SaveCompress: /^compress\w*$/, HeightCache: /^height\w*$/, GcThreadCheck: /^gc\w*$/,
   LotStream: /^(ls[A-Z]\w*|lot[A-Z]\w*|pump[A-Z]\w*|sync[A-Z]\w*|objScene\w*)$/, Verify: /^vf\w*$/, UnseenCost: /^uc[A-Z]\w*$/,
   UnseenAnim: /^(aa[A-Z]\w*|ao[A-Z]\w*)$/, UnseenRootMotion: /^rm[A-Z]\w*$/, UnseenTable: /^utb[A-Z]\w*$/,
+  DoorFast: /^df[A-Z]\w*$/,  // docs/548, v916
 };
 // a COUNTERS section the job turns on (<Sec>.Enabled non-zero) whose fields never reached the row: FAIL, so a no-data run
 // (2026-11-02: bp/ip-uao-hist, UnseenAnim had no entry here) can't PASS again

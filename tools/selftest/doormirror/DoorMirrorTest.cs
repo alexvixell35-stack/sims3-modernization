@@ -185,11 +185,21 @@ static class DoorMirrorTest
     sealed class PortDecoder
     {
         public sealed class Door { public ulong Obj, Owner, Household; public uint Kind, Lock, OneWay, RoomA, RoomB; public List<ulong> Ids = new List<ulong>(); }
-        public sealed class Lot { public bool Valid; public uint Epoch, MEpoch; public List<Door> Doors = new List<Door>(); }
+        public sealed class Lot
+        {
+            public bool Valid; public uint Epoch, MEpoch, Flags; public List<Door> Doors = new List<Door>(); public List<ulong> RuleB = new List<ulong>();
+            public List<ulong> Typed = new List<ulong>(); public List<uint> TypedKind = new List<uint>(); public List<int> Hidden = new List<int>();  // coverage
+        }
         public readonly Dictionary<ulong, Lot> Lots = new Dictionary<ulong, Lot>();
+        public readonly Dictionary<ulong, uint> Actors = new Dictionary<ulong, uint>();  // [DoorFast] actor flags by object id
+        public readonly Queue<ulong> Missed = new Queue<ulong>();  // coverage: lots MISS_NEXT hands out, in order (native: the ring)
         public uint NativeEpoch;
         public int Calls, Errors, Ends, Invalidations;
-        uint mLotLo, mObjLo, mOwnLo, mHhLo, mIdLo, mEpoch;
+        public bool Old;   // a ts3native without the [DoorFast] codes 23-28: every one of them is a protocol error
+        public bool Dfp1;  // a ts3native with codes 23-28 but without the coverage codes 29-35 (v916 only)
+        uint mLotLo, mObjLo, mOwnLo, mHhLo, mIdLo, mEpoch, mBLo, mActLo, mTLo, mTKind = 10;
+        ulong mAct, mMiss;
+        bool mHaveAct;
         Lot mOpen;
         Door mCur;
 
@@ -202,6 +212,7 @@ static class DoorMirrorTest
         }
         public bool Msg(uint code, uint v) { return Decode(v, 0x84000000 | code << 16); }
 
+        // invalidate-all (channel code 20, the door lock / build-buy ICs): the actors stay; only a world change drops them (v919)
         public void InvalidateAll() { foreach (Lot l in Lots.Values) if (l.Valid) { l.Valid = false; Invalidations++; } }
         public Lot Find(ulong key) { Lot l; Lots.TryGetValue(key, out l); return l; }
         public Door FindDoor(ulong lot, ulong obj)
@@ -219,6 +230,8 @@ static class DoorMirrorTest
         {
             uint code = (hi >> 16) & 0xFF;
             ulong key = (ulong)lo << 32 | mLotLo;
+            if (Old && code > 22) return Err();
+            if (Dfp1 && code > 28) return Err();
             switch (code)
             {
                 case 1: case 18: case 21: mLotLo = lo; return true;
@@ -226,18 +239,32 @@ static class DoorMirrorTest
                 {
                     Lot l = Find(key);
                     if (l == null) Lots[key] = l = new Lot();
-                    l.Doors.Clear(); l.Valid = false; l.MEpoch = 0;
+                    l.Doors.Clear(); l.Valid = false; l.MEpoch = 0; l.RuleB.Clear(); l.Flags = 0;
+                    l.Typed.Clear(); l.TypedKind.Clear(); l.Hidden.Clear(); mTKind = 10;
                     mOpen = l; mCur = null;
                     return true;
                 }
+                case 29: return true;
+                case 30: mMiss = Missed.Count > 0 ? Missed.Dequeue() : 0; return mMiss != 0;
+                case 31: if (lo >= 64) return Err(); return (mMiss >> (int)lo & 1) != 0;
                 case 19: { Lot l = Find(key); if (l != null && l.Valid) { l.Valid = false; Invalidations++; } return true; }
                 case 20: InvalidateAll(); return true;
                 case 22: { Lot l = Find(key); return l != null && l.Valid && l.Epoch == NativeEpoch; }
+                case 26: mActLo = lo; mHaveAct = false; return true;
+                case 27: mAct = (ulong)lo << 32 | mActLo; mHaveAct = mAct != 0; if (!mHaveAct) return Err(); return true;
+                case 28: if (!mHaveAct) return Err(); mHaveAct = false; Actors[mAct] = lo; return true;
             }
             if (mOpen == null) return Err();
             switch (code)
             {
                 case 3: Flush(); mObjLo = lo; return true;
+                case 23: Flush(); mBLo = lo; return true;
+                case 24: mOpen.RuleB.Add((ulong)lo << 32 | mBLo); return true;
+                case 25: Flush(); mOpen.Flags = lo; return true;
+                case 32: Flush(); if (lo >= 10) return Err(); mTKind = lo; return true;
+                case 33: Flush(); mTLo = lo; return true;
+                case 34: if (mTKind >= 10) return Err(); mOpen.Typed.Add((ulong)lo << 32 | mTLo); mOpen.TypedKind.Add(mTKind); return true;
+                case 35: Flush(); mOpen.Hidden.Add((int)lo); return true;
                 case 4: mCur = new Door(); mCur.Obj = (ulong)lo << 32 | mObjLo; return true;
                 case 16: mEpoch = lo; return true;
                 case 17:
@@ -296,6 +323,35 @@ static class DoorMirrorTest
         Check(!n.Msg(22, 3) && n.Invalidations >= 1, "vec: invalidated");
         Check(n.Send(0x8400000000000000UL | (ulong)20 << 48), "vec: through the hook (invalidate all)");
         Check(!n.Send(0x0400000000000000UL | (ulong)20 << 48), "vec: without bit 63 not ours");
+        // [DoorFast] extras (docs/548): the second half of snap.cpp's "door channel" test, message for message
+        Check(n.Msg(1, 0x123) && n.Msg(2, 3) && n.Msg(3, 0xA1) && n.Msg(4, 0) && n.Msg(5, 1), "vec: open with a door");
+        Check(n.Msg(23, 0xB1) && n.Msg(24, 0) && !n.Msg(5, 1), "vec: a rule-b id ends the door");
+        Check(n.Msg(1, 0x123) && n.Msg(2, 3) && n.Msg(3, 0xA1) && n.Msg(4, 0) && n.Msg(6, 3), "vec: reopen");
+        Check(n.Msg(23, 0xB1) && n.Msg(24, 0) && n.Msg(23, 0xB2) && n.Msg(24, 1) && n.Msg(25, 3) && n.Msg(17, 1), "vec: extras, end");
+        PortDecoder.Lot xl = n.Find(lot);
+        Check(xl.Valid && xl.Doors.Count == 1 && xl.Doors[0].Lock == 3 && xl.RuleB.Count == 2 && xl.RuleB[0] == 0xB1 && xl.RuleB[1] == 0x1000000B2UL && xl.Flags == 3, "vec: extras decoded");
+        Check(!n.Msg(23, 0xB3) && !n.Msg(25, 1), "vec: extras outside BEGIN .. END");
+        Check(!n.Msg(28, 7) && n.Msg(26, 0) && !n.Msg(27, 0), "vec: actor without id, id 0");
+        Check(n.Msg(26, 0x51) && n.Msg(27, 2) && n.Msg(28, 7) && n.Msg(26, 0x51) && n.Msg(27, 2) && n.Msg(28, 15), "vec: actor twice");
+        Check(n.Actors.Count == 1 && n.Actors[0x200000051UL] == 15, "vec: second push replaced the record");
+        Check(n.Msg(1, 0x123) && n.Msg(2, 3) && n.Msg(17, 0) && n.Find(lot).RuleB.Count == 0 && n.Find(lot).Flags == 0, "vec: reopen clears the extras");
+        Check(n.Msg(20, 0) && n.Actors.Count == 1, "vec: invalidate all keeps the actors (v919)");
+        // coverage (v919): the third part of snap.cpp's "door channel" test
+        int e1 = n.Errors;
+        Check(n.Msg(29, 0) && !n.Msg(30, 0) && !n.Msg(31, 5) && !n.Msg(31, 64), "vec: caps, empty missed-lot ring");
+        Check(n.Msg(1, 0x123) && n.Msg(2, 3) && n.Msg(3, 0xA1) && n.Msg(4, 0) && n.Msg(5, 1), "vec: open with a door (coverage)");
+        Check(n.Msg(32, 0) && n.Msg(33, 0xD0) && n.Msg(34, 0) && n.Msg(33, 0xD1) && n.Msg(34, 1), "vec: typed kind 0");
+        Check(n.Msg(32, 9) && n.Msg(33, 0xD9) && n.Msg(34, 0) && n.Msg(35, 3) && n.Msg(35, 0xFFFF8FFF), "vec: typed kind 9, hidden rooms");
+        Check(n.Msg(25, 1) && n.Msg(17, 1), "vec: coverage, flags, end");
+        PortDecoder.Lot cl = n.Find(lot);
+        Check(cl.Valid && cl.Doors.Count == 1 && cl.Typed.Count == 3 && cl.Typed[0] == 0xD0 && cl.TypedKind[0] == 0 && cl.Typed[1] == 0x1000000D1UL
+              && cl.TypedKind[1] == 0, "vec: typed decoded");
+        Check(cl.Typed[2] == 0xD9 && cl.TypedKind[2] == 9 && cl.Hidden.Count == 2 && cl.Hidden[0] == 3 && cl.Hidden[1] == -28673 && cl.Flags == 1
+              && n.Errors == e1 + 1, "vec: hidden decoded");
+        Check(n.Msg(1, 0x123) && n.Msg(2, 3) && !n.Msg(34, 0), "vec: typed id before a kind");
+        Check(n.Msg(1, 0x123) && n.Msg(2, 3) && !n.Msg(32, 10), "vec: kind past the last");
+        Check(!n.Msg(32, 0) && !n.Msg(35, 1) && n.Errors == e1 + 5, "vec: coverage outside BEGIN .. END");
+        Check(n.Msg(1, 0x123) && n.Msg(2, 3) && n.Msg(17, 0) && n.Find(lot).Typed.Count == 0 && n.Find(lot).Hidden.Count == 0, "vec: reopen clears the coverage");
     }
 
     static bool Same(DoorRecord a, PortDecoder.Door d)
@@ -314,6 +370,7 @@ static class DoorMirrorTest
     {
         Check(DoorChannel.Option(17, 0xDEADBEEF) == 0x84110000DEADBEEFUL && (uint)(DoorChannel.Option(22, 1) >> 32) == (0x84000000u | 22u << 16), "option bits");
         Random rnd = new Random(94);
+        DoorChannel.Caps = -1;
         for (int run = 0; run < 200; run++)
         {
             PortDecoder n = new PortDecoder();
@@ -329,10 +386,34 @@ static class DoorMirrorTest
                                            new int[] { rnd.Next(), -rnd.Next(1, 100) }, rnd.Next(64));
             }
             uint epoch = (uint)rnd.Next();
-            Check(DoorChannel.Push(lot, doors, epoch, n.Send) && n.Errors == 0, "run " + run + ": push accepted");
+            LotInfo info = run % 3 == 0 ? null : new LotInfo();  // every third push without [DoorFast] extras
+            if (info != null)
+            {
+                info.RuleB = new ulong[rnd.Next(0, 4)];
+                for (int j = 0; j < info.RuleB.Length; j++) info.RuleB[j] = R64(rnd);
+                info.Flags = (uint)rnd.Next(2);
+                // coverage: typed owners in runs of one kind or mixed, hidden room ids (negative ones too), sometimes unreadable
+                int nt = rnd.Next(0, 5);
+                info.Typed = new ulong[nt];
+                info.TypedKind = new uint[nt];
+                for (int j = 0; j < nt; j++) { info.Typed[j] = R64(rnd); info.TypedKind[j] = (uint)rnd.Next(10); }
+                info.Hidden = run % 5 == 1 ? null : new int[rnd.Next(0, 3)];
+                for (int j = 0; info.Hidden != null && j < info.Hidden.Length; j++) info.Hidden[j] = rnd.Next(-40000, 40000);
+            }
+            bool xr;
+            Check(DoorChannel.Push(lot, doors, epoch, info, n.Send, out xr) && !xr && n.Errors == 0, "run " + run + ": push accepted");
             PortDecoder.Lot l = n.Find(lot);
             Check(l != null && l.Valid && l.MEpoch == epoch && l.Doors.Count == doors.Length && DoorChannel.Query(lot, n.Send) == 1, "run " + run + ": lot valid");
             for (int i = 0; l != null && i < doors.Length && i < l.Doors.Count; i++) Check(Same(doors[i], l.Doors[i]), "run " + run + ": door " + i + " round trip");
+            uint wantFlags = info == null ? 0 : info.Flags | (info.Hidden == null ? LotInfo.kHiddenRooms : 0);  // unreadable list: the lot bit
+            bool sameB = l != null && l.RuleB.Count == (info != null ? info.RuleB.Length : 0) && l.Flags == wantFlags;
+            for (int j = 0; sameB && info != null && j < info.RuleB.Length; j++) sameB = l.RuleB[j] == info.RuleB[j];
+            Check(sameB, "run " + run + ": extras round trip");
+            bool sameT = l != null && l.Typed.Count == (info != null ? info.Typed.Length : 0)
+                         && l.Hidden.Count == (info != null && info.Hidden != null ? info.Hidden.Length : 0);
+            for (int j = 0; sameT && info != null && j < info.Typed.Length; j++) sameT = l.Typed[j] == info.Typed[j] && l.TypedKind[j] == info.TypedKind[j];
+            for (int j = 0; sameT && info != null && info.Hidden != null && j < info.Hidden.Length; j++) sameT = l.Hidden[j] == info.Hidden[j];
+            Check(sameT, "run " + run + ": coverage round trip");
             Check(DoorChannel.Invalidate(lot, n.Send) && DoorChannel.Query(lot, n.Send) == 0, "run " + run + ": invalidate");
         }
 
@@ -361,6 +442,93 @@ static class DoorMirrorTest
         Check(DoorChannel.Invalidate(7, p.Send) && DoorChannel.Sync(7, t, read, p.Send) == 2, "managed Invalidate over the channel: next START pushes");
         Check(DoorChannel.InvalidateAll(p.Send) && DoorChannel.Query(7, p.Send) == 0, "managed InvalidateAll over the channel");
         Check(p.Errors == 0, "adapter: no protocol errors");
+
+        // [DoorFast] extras: read only when the lot is pushed, sent after its doors; an older ts3native refuses them, and Sync then
+        // pushes the doors alone and stops sending extras and actors (NoExtras)
+        DoorChannel.NoExtras = false;
+        LotInfo li = new LotInfo(); li.RuleB = new ulong[] { 0xB1, 0x1000000B2UL }; li.Flags = LotInfo.kOneHandler;
+        int infoCalls = 0;
+        DoorChannel.LotInfoReader ri = delegate(ulong lotId) { infoCalls++; return li; };
+        PortDecoder x = new PortDecoder();
+        x.NativeEpoch = 3;
+        Check(DoorChannel.Sync(7, t, read, ri, x.Send) == 2 && infoCalls == 1 && x.FindDoor(7, 0x201) != null, "extras: pushed with the doors");
+        Check(x.Find(7).RuleB.Count == 2 && x.Find(7).RuleB[1] == 0x1000000B2UL && x.Find(7).Flags == LotInfo.kOneHandler, "extras: decoded");
+        Check(DoorChannel.Sync(7, t, read, ri, x.Send) == 1 && infoCalls == 1, "extras: a valid lot is not read again");
+        Check(DoorChannel.Actor(0x51, DoorChannel.kActHuman | DoorChannel.kActNotMummy, x.Send) && x.Actors[0x51] == 3, "actor pushed");
+        Check(!DoorChannel.Actor(0, 1, x.Send) && !DoorChannel.NoExtras, "actor id 0: not sent, not a refusal");
+        x.InvalidateAll();
+        Check(DoorChannel.Sync(7, t, read, delegate(ulong lotId) { return null; }, x.Send) == 2 && x.Find(7).RuleB.Count == 0 && x.Find(7).Flags == 0,
+              "unreadable lot info: doors without extras (no prediction natively)");
+        x.InvalidateAll();
+        Check(DoorChannel.Sync(7, t, read, delegate(ulong lotId) { throw new InvalidOperationException("fake"); }, x.Send) == 2 && x.Find(7).Flags == 0,
+              "throwing lot info: doors without extras");
+        Check(x.Errors == 0 && !DoorChannel.NoExtras, "extras: no protocol errors");
+        PortDecoder old = new PortDecoder();
+        old.Old = true;
+        old.NativeEpoch = 1;
+        DoorChannel.Caps = -1;  // another ts3native: asked again
+        Check(DoorChannel.Sync(7, t, read, ri, old.Send) == 2 && DoorChannel.NoExtras && old.Find(7).Valid && old.FindDoor(7, 0x201) != null,
+              "older ts3native: extras refused, the doors pushed again without them");
+        old.InvalidateAll();
+        int ic = infoCalls;
+        Check(DoorChannel.Sync(7, t, read, ri, old.Send) == 2 && infoCalls == ic && !DoorChannel.Actor(0x51, 1, old.Send), "NoExtras: no lot info read, no actors");
+        DoorChannel.NoExtras = false;
+        Check(!DoorChannel.Actor(0x51, 1, old.Send) && DoorChannel.NoExtras, "older ts3native refuses an actor: NoExtras");
+        DoorChannel.NoExtras = false;
+        LotInfo flagsOnly = new LotInfo();
+        flagsOnly.Flags = LotInfo.kHiddenRooms;
+        bool refused;
+        Check(!DoorChannel.Push(9, new DoorRecord[0], 1, flagsOnly, old.Send, out refused) && refused, "no rule-b ids: the lot flags are the first extras message");
+        DoorChannel.NoExtras = false;
+
+        // coverage (v919): a v916 ts3native refuses CAPS once; lots then go as before (rule b, flags, a lot with hidden rooms as the
+        // lot bit), no typed ids, no missed lots asked
+        LotInfo cov = new LotInfo();
+        cov.RuleB = new ulong[] { 0xB1 };
+        cov.Flags = LotInfo.kOneHandler;
+        cov.Typed = new ulong[] { 0xD0, 0xD1, 0xD6 };
+        cov.TypedKind = new uint[] { 0, 0, 6 };
+        cov.Hidden = new int[] { 5, -28673 };
+        PortDecoder v916 = new PortDecoder();
+        v916.Dfp1 = true;
+        v916.NativeEpoch = 2;
+        v916.Missed.Enqueue(0x300000125UL);
+        DoorChannel.Caps = -1;
+        Check(DoorChannel.Push(7, new DoorRecord[0], 1, cov, v916.Send, out refused) && !refused && DoorChannel.Caps == 0 && v916.Errors == 1,
+              "v916 ts3native: CAPS refused once, the lot pushed");
+        PortDecoder.Lot vl = v916.Find(7);
+        Check(vl.Valid && vl.RuleB.Count == 1 && vl.Flags == (LotInfo.kOneHandler | LotInfo.kHiddenRooms) && vl.Typed.Count == 0 && vl.Hidden.Count == 0,
+              "v916 ts3native: hidden rooms as the lot bit, no typed ids");
+        int vc = v916.Calls;
+        Check(DoorChannel.NextMissed(v916.Send) == 0 && v916.Calls == vc && v916.Errors == 1, "v916 ts3native: no missed lots asked");
+        cov.Hidden = new int[0];
+        Check(DoorChannel.Push(7, new DoorRecord[0], 1, cov, v916.Send, out refused) && v916.Find(7).Flags == LotInfo.kOneHandler, "v916: no hidden rooms, no bit");
+        // a coverage ts3native: typed ids with their kinds (one kind message per run), hidden ids, the bit only for an unreadable list
+        PortDecoder c = new PortDecoder();
+        c.NativeEpoch = 2;
+        DoorChannel.Caps = -1;
+        cov.Hidden = new int[] { 5, -28673 };
+        int c0 = c.Calls;
+        Check(DoorChannel.Push(7, new DoorRecord[0], 1, cov, c.Send, out refused) && DoorChannel.Caps == 1 && c.Errors == 0, "coverage: pushed");
+        // CAPS, lot lo / hi, epoch, B lo / hi, kind 0, 2 x (T lo / hi), kind 6, T lo / hi, 2 hidden, flags, END
+        Check(c.Calls - c0 == 1 + 3 + 2 + 1 + 4 + 1 + 2 + 2 + 2, "coverage: one kind message per run of one kind, " + (c.Calls - c0) + " calls");
+        PortDecoder.Lot ll = c.Find(7);
+        Check(ll.Valid && ll.Flags == LotInfo.kOneHandler && ll.Typed.Count == 3 && ll.Typed[2] == 0xD6 && ll.TypedKind[1] == 0 && ll.TypedKind[2] == 6
+              && ll.Hidden.Count == 2 && ll.Hidden[1] == -28673, "coverage: decoded");
+        cov.Hidden = null;
+        Check(DoorChannel.Push(7, new DoorRecord[0], 1, cov, c.Send, out refused) && c.Find(7).Flags == (LotInfo.kOneHandler | LotInfo.kHiddenRooms)
+              && c.Find(7).Hidden.Count == 0, "coverage: unreadable hidden list: the lot bit (unknown)");
+        // missed lots: one bit per message, in hand-out order, then none
+        c.Missed.Enqueue(0x300000125UL);
+        c.Missed.Enqueue(0xFFFFFFFF00000001UL);
+        Check(DoorChannel.NextMissed(c.Send) == 0x300000125UL && DoorChannel.NextMissed(c.Send) == 0xFFFFFFFF00000001UL && DoorChannel.NextMissed(c.Send) == 0,
+              "coverage: missed lots handed out");
+        DoorChannel.NoExtras = true;
+        c.Missed.Enqueue(0x125UL);
+        Check(DoorChannel.NextMissed(c.Send) == 0 && c.Missed.Count == 1, "NoExtras: no missed lots asked");
+        Check(c.Errors == 0, "coverage: no protocol errors");
+        DoorChannel.NoExtras = false;
+        DoorChannel.Caps = -1;
     }
 
     static int Main()
