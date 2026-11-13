@@ -23,16 +23,22 @@ Claim marks as in CLAUDE.md: **[verified]** read in the code, **[measured]** see
 
 Order: 1 and 2 first (cheap census, most likely to show a large single cost), then 4 and 8, then the rest.
 
-## 2. Related finding: slow world saves on the test machine
+## 2. Related finding: a save takes ~2 min while the display is off (test machine)
 
 [measured, Steam Deck under Wine, Isla Paradiso test world, ts3native 0.36.240 and 0.36.247] The game's own world
 save step (ts3native save log phase "write: world save (lots, script state)") took **122-158 s** in every logged save
-since 2026-11-11 (13 run logs), and **8.7 s** once, in a save made 2 minutes after load. The same world and the same
-memory picture: 43-58 MB free address space, 15 MB largest free block. The GC count did not change during a 122 s
-save, so it is not GC thrashing [measured]. No route job was running and no ts3native gate was held [measured].
-So the save time grows with play time, not with the release (v0.2.12 is not slower than 0.36.240).
+of the unattended test runs since 2026-11-11 (13 run logs, about 123 s in the latest ones, nearly constant), and
+**6-8.5 s** with the display on: 22 saves in phase-20261113-1944 (whole save 6.5-9 s), the screen woken with
+`kscreen-doctor --dpms on` and idle blanking held off with `kde-inhibit --power --screenSaver`. The unattended runs had
+the laptop panel blanked by the desktop's idle timer (DPMS off after 5 min). Ruled out on the slow saves: ts3fixes (the
+same 123 s without it, phase-20261113-1923), GC (no collection during a 122 s save), route jobs and ts3native gates
+(none open) [measured].
 
-This may explain the v0.2.12 known issue "save stays at Saving... after editing windows or doors" (a save that takes
-minutes looks stuck) [inferred, not reproduced: the door-edit test could not place doors, the test lot has no free
-4 x 4 area]. Next: save right after load vs after idling 5 and 10 min in one session; the same without ts3fixes
-(running 2026-11-13); then sample what the sim thread does during the slow save.
+So the slow saves were a display-off effect of the test setup, not a game or release slowdown. The nearly constant
+~2 minutes looks like a timeout inside the game's world save while nothing is presented [inferred; which wait is not
+known]. Whether a player hits it (save, then the monitor sleeps or the game is minimised) is not tested; it could be
+one reading of the v0.2.12 known issue "save stays at Saving..." [inferred]. The door-edit repro itself did not run:
+the test lot has no free 4 x 4 area for the agent's building.
+
+For harness runs: save timings and anything that waits on rendering need the display on (see above); the leak and
+listener counts of docs/545 do not depend on it.
