@@ -4,7 +4,7 @@ This part is added to every release. It lists **everything that is switched on**
 
 **You don't need to change any settings.** Both files come set up. The setting names at the end of this page are only for testers and developers.
 
-**Works with:** The Sims 3 from **Steam** (patch 1.67) or from the **EA app** (patch 1.69.47), Windows 10 or 11. Any mix of expansion and stuff packs. Each edition has its own `ts3native` download (see [EA app version](#ea-app-version-16947)); `ts3fixes.package` is the same for both. **v0.2.11 is Steam only:** it has no EA app build yet, so EA app players keep v0.2.10 (both its files). Other versions (Origin, disc, other patches) are **not** supported: the plugin checks the game file and switches itself off, so nothing breaks, it just does nothing.
+**Works with:** The Sims 3 from **Steam** (patch 1.67) or from the **EA app** (patch 1.69.47), Windows 10 or 11. Any mix of expansion and stuff packs. Each edition has its own `ts3native` download (see [EA app version](#ea-app-version-16947)); `ts3fixes.package` is the same for both. Other versions (Origin, disc, other patches) are **not** supported: the plugin checks the game file and switches itself off, so nothing breaks, it just does nothing.
 
 ## What's switched on
 
@@ -93,7 +93,7 @@ The steps above are the same, with these differences:
 
 - **Take the EA zip:** `ts3native-ea169-<version>.zip`. Its files have the same names as the Steam ones, `ts3native.asi` and `ts3native.ini`, but they are built for the EA game. `ts3fixes.package` is the same file for both editions.
 - **Game folder:** `C:\Program Files\EA Games\The Sims 3\Game\Bin` by default. Windows asks for administrator permission to copy files there; allow it.
-- **ASI loader:** the same `wininet.dll` step as above. DXVK (32-bit `d3d9.dll`) works too; our EA tests used DXVK 3.1.1.
+- **ASI loader:** the same `wininet.dll` step as above. DXVK (32-bit `d3d9.dll`) still works (legacy); our EA tests used DXVK 3.1.1. The recommended renderer is Apex Radiance's RTX Remix bridge.
 - **Start the game from the EA app**, not by double-clicking `TS3.exe`. The EA app starts the game's launcher, and the launcher's Play button writes which packs to load. In Task Manager the game shows up as `Sims3Launcher.exe` or `TS3.exe`.
 - **Only the base game loads?** The game loads only the packs listed in `Documents\Electronic Arts\The Sims 3\LoadOption.ini` (`selectedflags` under `[productoption]`), and only the EA launcher writes that list. If your expansions are missing, close the game and start it once through the EA app: the launcher rewrites the file. This is the game's own behaviour, not caused by our files.
 - **Check it works:** `Game\Bin\ts3native.log` has the line `host build: EA app 1.69.47`.
@@ -148,7 +148,7 @@ If you use NRaas Overwatch and notice a half-second freeze about once per game d
 
 Tiny UI Fix is not supported yet in this release: with it installed, the Mono speed-up (AutShadow) may switch itself off. The game still works; you just don't get that speed-up.
 
-Tested together with DXVK, Sims 3 Settings Setter, NRaas (ErrorTrap, Overwatch), the Smooth Patch and the Sims 3 Performance Patch. If something looks wrong, remove our files first and see if it goes away, then [open an issue](https://github.com/rodneypantonial/sims3-modernization/issues) with what you saw.
+Tested together with Apex Radiance and its RTX Remix bridge (the recommended setup), DXVK (legacy, smoke test only), Sims 3 Settings Setter, NRaas (ErrorTrap, Overwatch), the Smooth Patch and the Sims 3 Performance Patch. If something looks wrong, remove our files first and see if it goes away, then [open an issue](https://github.com/rodneypantonial/sims3-modernization/issues) with what you saw.
 
 ## Help port to the EA app version
 

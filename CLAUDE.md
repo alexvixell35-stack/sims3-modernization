@@ -9,7 +9,7 @@ Make The Sims 3 run well on modern hardware: fewer crashes (Error 12, crash on s
 - Game exe: `<Steam library>\steamapps\common\The Sims 3\Game\Bin\TS3W.exe`
 
 ## Hard constraints
-- **TS3W.exe is 32-bit.** With Large Address Aware it gets 4 GB of address space at most, no matter how much RAM is installed. We cannot raise that without a 64-bit rebuild; we can only waste less of it (smaller stacks, leaner caches and allocators, textures moved out of process via DXVK). Extra RAM still helps through the Windows file cache.
+- **TS3W.exe is 32-bit.** With Large Address Aware it gets 4 GB of address space at most, no matter how much RAM is installed. We cannot raise that without a 64-bit rebuild; we can only waste less of it (smaller stacks, leaner caches and allocators, rendering and textures moved out of process via the RTX Remix bridge). Extra RAM still helps through the Windows file cache.
 - The simulation (Mono script VM, interaction scheduler, pathfinding) is mostly single-threaded. Gains come from making the main thread cheaper per tick and moving side work to other cores, not from parallelizing the sim outright. Long-term goal: move all work that can safely leave the sim thread to other cores; offload changes are accepted with no gain or up to ~2% loss if stable (PLAN.md Goal, docs/23 #17).
 - Always keep `TS3W.exe.orig` and back up `Documents\Electronic Arts\The Sims 3\` before testing a patch.
 - **Household Sims stay untouched.** Changes may only affect Sims the player does not control; household Sims never count as unseen, even off screen. Every deadline, cap, skip, throttle, teleport, fake or relaxed path needs an explicit household and selected-Sim exemption in code; a Sim of unknown scope counts as household. Results for controlled Sims must equal vanilla: proven-exact speedups and EA bug fixes stay, and crash guards keep a long hard ceiling.
@@ -18,7 +18,7 @@ Make The Sims 3 run well on modern hardware: fewer crashes (Error 12, crash on s
 - **Static analysis:** REA, Reverse Engineer Anything (https://github.com/morluto/rea), an MCP server and CLI that wraps Ghidra/IDA plus static .NET analysis. Use it with Ghidra on copies of TS3W.exe and the Mono script DLLs. It has no Windows runtime tracing.
 - **Live profiling and debugging:** x64dbg (x32dbg for this 32-bit exe) or Frida.
 - **DLL hook reference:** Sims 3 Settings Setter (https://github.com/sims3fiend/Sims3SettingsSetter), an ASI plugin with assembly patches for stacks, WorldCache, mimalloc, GC throttling, tick limiting and lot streaming. Study it before writing our own hooks and avoid duplicating what it already does.
-- Baseline stack: DXVK x32 `d3d9.dll` (has a built-in TS3W profile) + S3SS, optionally the Sims 3 Performance Patch (Nexus mod 235).
+- Baseline stack (since 2026-11-13): Apex Radiance with its RTX Remix bridge (64-bit renderer out of process; Apex owns its install) + S3SS, optionally the Sims 3 Performance Patch (Nexus mod 235). Plain DXVK x32 `d3d9.dll` is legacy: one smoke run per release ("works with DXVK"), no travel or stress arms, a DXVK-only failure is a known issue, not a release blocker. Older measurements (README numbers, docs/05) were taken on the DXVK baseline.
 
 ## Status
 See `PLAN.md` ("Where things stand" and "Next tasks"): it is the source of truth after a context reset. Priority: in-game stutter.

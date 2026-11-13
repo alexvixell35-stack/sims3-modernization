@@ -21,12 +21,13 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ## v0.2.11 (2026-11-12)
 
-Less work on the game's main thread, fewer crashes and fewer game errors. **Steam only:** this release has no EA app build yet; EA app players stay on v0.2.10 (both its files).
+Less work on the game's main thread, fewer crashes and fewer game errors. Steam and the EA app 1.69.47.
 
 ### Download
 
 - `ts3native-v0.2.11.zip` (Steam 1.67): `ts3native.asi` and `ts3native.ini`; replace both.
 - `ts3fixes.package`: new in this release; replace the old one. Use it together with this `ts3native`.
+- `ts3native-ea169-v0.2.11.zip` (EA app 1.69.47, `TS3.exe`): `ts3native.asi` and `ts3native.ini`; replace both. Use the same `ts3fixes.package` as Steam (sha256 starts `a563cf8f`).
 - The log shows `ts3native 0.36.240`.
 
 ### Changed
@@ -62,7 +63,7 @@ Less work on the game's main thread, fewer crashes and fewer game errors. **Stea
 - **A rare crash on the second thread that scores townies' actions (issue #352).** Seen once in about 6 hours of a contributor's test runs: an access violation in the background thread that scores what townies do next. Workaround if it hits you: in `ts3native.ini`, under `[AutShadow]`, change `Satb=2` to `Satb=0` (this also gives up part of the speed-up from the first item under "Changed"). The fix is built and comes in the next release after game testing.
 - **One freeze seen once.** In one test run the game clock stopped for over a minute and the test harness closed the game. It did not happen again in about 13 later runs. If your game freezes, please send your `ts3native.log`.
 - **Apex Radiance 3.1.1:** one crash in lot lighting was seen in testing with a newer test build (not this release); likely on Apex's side, reported to them.
-- **EA app:** no build of this release yet; keep v0.2.10.
+- **EA app:** `[LauncherFix]` is not needed on the EA app: its launcher has no such wait. `[AutShadow]` keeps 17 definitions on the main thread on the EA app: 11 EA 1.69 script methods differ from the checked builds, so a safety guard keeps them there. `[ImageGuard]` is off, as in v0.2.10.
 
 ### Tested
 
@@ -72,6 +73,7 @@ All on this exact `ts3native.asi`, `ts3native.ini` and `ts3fixes.package`, on St
 - Native self-test of this build: passed.
 - Speed: the night timing runs for this build were not valid (other programs used too much CPU), so this release has no new overall speed numbers against v0.2.10; the numbers above come from each change's own test runs.
 - **Apex Radiance 3.1.1:** checked by reading both mods side by side: no conflict. Apex 3.1.1 fixes the same loading-screen bug as ours; ours is installed first and Apex then turns its own copy off, so the game behaves as with ours alone. In the game with Apex 3.1.1 (with DXVK and with the RTX Remix bridge): 4 of 4 test runs passed, including three trips each.
+- **EA app 1.69.47** (same `ts3native.asi` and `ts3native.ini` as the zip): alone (play and save checks, three travel checks), with S3SS 1.6.3 (smoke, travel), with Apex Radiance 3.1.1 and DXVK, with Apex, S3SS and DXVK, and with Apex and the RTX Remix bridge (`client.targetProcess = TS3.exe` in both `bridge.conf`): all passed, no crash. The Apex and DXVK loads are smoke and travel only. Native self-checks: 33 of 33 on-sections and 73 of 73 `ts3fixes` switches on. No timing numbers for the EA app.
 
 ## v0.2.10 (2026-11-07)
 
