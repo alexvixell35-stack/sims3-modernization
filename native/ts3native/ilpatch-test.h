@@ -16,7 +16,7 @@ static int g_ilpTestPost; static DWORD g_ilpTestPostAfter;
 static void __cdecl IlpTestPost(BYTE*, void*) { g_ilpTestPost++; g_ilpTestPostAfter = g_ilpTestSeen.calls; }
 
 static void TestIlPatch() {
-    static_assert(offsetof(Ts3nCounters, ilpOn) == 0x5C14 && offsetof(Ts3nCounters, ilpFaults) == 0x5C30 && sizeof(Ts3nCounters) == 6314 * 4,
+    static_assert(offsetof(Ts3nCounters, ilpOn) == 0x5C14 && offsetof(Ts3nCounters, ilpFaults) == 0x5C30 && sizeof(Ts3nCounters) == 6323 * 4,
                   "counters v907 layout after v906 (docs/registry.md)");
     assert(IlpShaInit());
     BYTE sha[32];

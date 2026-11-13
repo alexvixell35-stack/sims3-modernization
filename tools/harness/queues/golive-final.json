@@ -33,7 +33,7 @@
         "why": "0 compared pairs (A0-A3): Dry / Mode R run void"
       }
     ],
-    "note": "Smoke (4 min BP, Satb=2, Dry=1): PASS = 0 crashes; logRequire read-back of the go-live line (TopN 10 Bands 3 Margin 0 MaxWait 3 VerifyEvery 50 Dry=1) and \"autshadow satb: Satb=2 -> mode 2\"; -native.json alOn 3, al eligible > 0, posted > 0, dry > 0, drySimMis 0; ts3fixes applied log \"AutShadow: go-live Mode 3 (dry)\", a \"tuned: kAutLive on: ... patched\" line and no \"go-live off\". A FAIL stops the queue (queue.ts measurement smoke).",
+    "note": "Smoke (6 min BP (was 4: the 300 s A0-A3 gate never ran and the queue failed to parse), Satb=2, Dry=1): PASS = 0 crashes; logRequire read-back of the go-live line (TopN 10 Bands 3 Margin 0 MaxWait 3 VerifyEvery 50 Dry=1) and \"autshadow satb: Satb=2 -> mode 2\"; -native.json alOn 3, al eligible > 0, posted > 0, dry > 0, drySimMis 0; ts3fixes applied log \"AutShadow: go-live Mode 3 (dry)\", a \"tuned: kAutLive on: ... patched\" line and no \"go-live off\". A FAIL stops the queue (queue.ts measurement smoke).",
     "asi": "game-copy/ts3native.asi.golive-final",
     "fixesPackage": "game-copy/ts3fixes.package.golive-final",
     "save": "Baseline-BP-Spring",
@@ -85,7 +85,7 @@
     "run": {
       "profile": {
         "seed": 12345,
-        "minutes": 4,
+        "minutes": 6,
         "fixesOn": "autshadow,autlive",
         "noSamplers": true,
         "fixesReport": "g8_"

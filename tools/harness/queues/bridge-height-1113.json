@@ -1,0 +1,129 @@
+{
+  "note": "bridge-height-1113 (prepared 2026-11-13, NOT RUN): Dalexlol PR #394 [EaCrashFixes] HeightsInfLoop + BridgeHeightNaN (docs/67 §36/§37), repro ip-bridge-height-load. Correctness only, not timing. Est ~25 min. node tools/harness/queue.ts tools/harness/queues/bridge-height-1113.json --no-smoke. Already reproduced by the contributor (docs/data/results/2026-11-13-bridge-height-nan.md); this run only checks our machine. Off arm: a freeze (hang guard) = triggered here; no freeze and no hits = N/A (our Isla Paradiso world lacks his community bridge), not FAIL. On arm: judged by side effects (no crash, no hang, no new stuck Sims) plus hits where the bridge exists.",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "ip-bridgeh-off",
+      "note": "[est 12 min] off arm: both switches 0. Expect a world-load or play freeze only where the bad bridge exists; otherwise N/A.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "pinReason": "asi game-copy/ts3native.asi.imp1113 (0.36.253, sha256 cdb1ffa3a567, builds.json), repo ini with the two switches set per arm",
+      "save": "Baseline-IP",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "ini": {
+        "EaCrashFixes.HeightsInfLoop": 0,
+        "EaCrashFixes.BridgeHeightNaN": 0
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.253 ": 1
+      },
+      "logForbid": {
+        "^OK   ea fix: BridgeHeightNaN [(]": 0,
+        "^OK   ea fix: HeightsInfLoop [(]": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.253 ": {
+          "match": [
+            "ts3native 0.36.253 2026-11-13 12:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.250 2026-11-13 12:00:00"
+          ]
+        },
+        "^OK   ea fix: BridgeHeightNaN [(]": {
+          "match": [
+            "OK   ea fix: BridgeHeightNaN (docs/67 §37): bridge heights that are not finite or above 1e6 in magnitude are ignored (3 of 3 height queries: 0x00C6133B, 0x00C6A46B, 0x00C6A709)"
+          ],
+          "noMatch": [
+            "SKIP ea fix: BridgeHeightNaN: bytes at 0x00C6133B differ (another mod or a probe build owns them): that query not patched"
+          ]
+        },
+        "^OK   ea fix: HeightsInfLoop [(]": {
+          "match": [
+            "OK   ea fix: HeightsInfLoop (docs/67 §36): path segments of infinite length skip the heights pass's halving loop (0x0064CEBA)"
+          ],
+          "noMatch": [
+            "ea fix: HeightsInfLoop: a path segment of infinite length was not split by the heights pass (segment 1, from (874.2, 2.26e+34, 856.1) to (883.9, 35.7, 858.3); the game would halve it forever, docs/67 §36)"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 777,
+          "noSamplers": true,
+          "repro": "ip-bridge-height-load"
+        }
+      },
+      "timeoutMin": 20
+    },
+    {
+      "id": "ip-bridgeh-on",
+      "note": "[est 12 min] on arm: both switches 1 (the shipped ini). Pass: no freeze, no crash; \"ea fix: BridgeHeightNaN: the bridge height at\" lines where the bridge exists (none = N/A for the trigger, side effects still judged).",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "pinReason": "asi game-copy/ts3native.asi.imp1113 (0.36.253, sha256 cdb1ffa3a567, builds.json), repo ini with the two switches set per arm",
+      "save": "Baseline-IP",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "ini": {
+        "EaCrashFixes.HeightsInfLoop": 1,
+        "EaCrashFixes.BridgeHeightNaN": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.253 ": 1,
+        "^OK   ea fix: BridgeHeightNaN [(]": 1,
+        "^OK   ea fix: HeightsInfLoop [(]": 1
+      },
+      "logForbid": {
+        "^SKIP ea fix: (BridgeHeightNaN|HeightsInfLoop)": 0
+      },
+      "regexCases": {
+        "^SKIP ea fix: (BridgeHeightNaN|HeightsInfLoop)": {
+          "match": [
+            "SKIP ea fix: BridgeHeightNaN: bytes at 0x00C6133B differ (another mod or a probe build owns them): that query not patched"
+          ],
+          "noMatch": [
+            "OK   ea fix: BridgeHeightNaN (docs/67 §37): bridge heights that are not finite or above 1e6 in magnitude are ignored (3 of 3 height queries: 0x00C6133B, 0x00C6A46B, 0x00C6A709)"
+          ]
+        },
+        "^ts3native 0\\.36\\.253 ": {
+          "match": [
+            "ts3native 0.36.253 2026-11-13 12:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.250 2026-11-13 12:00:00"
+          ]
+        },
+        "^OK   ea fix: BridgeHeightNaN [(]": {
+          "match": [
+            "OK   ea fix: BridgeHeightNaN (docs/67 §37): bridge heights that are not finite or above 1e6 in magnitude are ignored (3 of 3 height queries: 0x00C6133B, 0x00C6A46B, 0x00C6A709)"
+          ],
+          "noMatch": [
+            "SKIP ea fix: BridgeHeightNaN: bytes at 0x00C6133B differ (another mod or a probe build owns them): that query not patched"
+          ]
+        },
+        "^OK   ea fix: HeightsInfLoop [(]": {
+          "match": [
+            "OK   ea fix: HeightsInfLoop (docs/67 §36): path segments of infinite length skip the heights pass's halving loop (0x0064CEBA)"
+          ],
+          "noMatch": [
+            "ea fix: HeightsInfLoop: a path segment of infinite length was not split by the heights pass (segment 1, from (874.2, 2.26e+34, 856.1) to (883.9, 35.7, 858.3); the game would halve it forever, docs/67 §36)"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 777,
+          "noSamplers": true,
+          "repro": "ip-bridge-height-load"
+        }
+      },
+      "timeoutMin": 20
+    }
+  ]
+}

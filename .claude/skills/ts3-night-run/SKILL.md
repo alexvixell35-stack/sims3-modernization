@@ -13,3 +13,7 @@ node tools/harness/night-run.ts --queue-list a.json,b.json --resume  # every unf
 Rules: timing queues only when the machine is quiet (Rodney says when he uses it); Spotify is stopped only on night runs (`TS3_NIGHT=1`, set by night-run.ts) or with `queue.ts --close-spotify`, daytime runs leave his apps alone; other apps close only with `--close` on Rodney's go (needs lock or idle). Correctness tests may run in the daytime when they unblock work. Check progress with the ts3-status skill.
 
 Main session: run this and decide only; hand log reads, triage and fixes to a sub-agent (AGENTS.md, "Main agent orchestrates").
+
+## Watching the run
+
+Watch the chain or queue log with `node tools/harness/watch.ts <log> --match "<verdict re>" --until "<end re>" --timeout 1800` in a Monitor, never `tail -F` (a Monitor timeout leaves `tail.exe` running on Windows). Exit 2 = timeout: re-arm. `node tools/harness/track.ts clean` kills leftover orphan `tail` watchers.

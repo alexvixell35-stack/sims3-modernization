@@ -21,9 +21,15 @@ namespace Ts3Fixes
     // (household or not) changes, so no household exemption; household Sims are flagged in the line.
     // Counters [945] watched GetOuts, [946] replacements in the window, [947] stale throws (NRE out of a watched GetOut).
     // At most kBgoLines lines per session in ts3native.log.
+    // boatgetoutguard (docs/257 §9, EA bug fix, tuning kBoatGetOutGuard, off until the boat-getout-stress queue): the same hook
+    // notes the entry SittingInBoat. A NullReferenceException out of GetOut while the Sim's posture is no longer that
+    // SittingInBoat (the stale read in GetOutIntoWater) is swallowed for a known NPC: EA's finally has already released the
+    // seat and the boat, and the Sim is reset (Sim.SetObjectToReset, the end state of EA's own reset path SittingInBoat.OnReset
+    // and of GetOut's own no-spot fallback). Household, selected and unknown-scope Sims keep EA's error (household rule).
+    // The diag's stale line is written first. Counters [953] swallowed, [954] kept by the household rule.
     public static partial class Fixes
     {
-        const int cBgo = 945, kBgoLines = 20, kBgoFrames = 12;
+        const int cBgo = 945, cBgoGuard = 953, kBgoLines = 20, kBgoFrames = 12;
         static readonly BgoTable sBgo = new BgoTable();
         static int sBgoLines, sBgoSeq;
 
@@ -31,10 +37,12 @@ namespace Ts3Fixes
         {
             public void GetOutHook(Sim a, Vector3 getOutOntoLandVector, bool bOnReset, bool tryWaterFirst, Houseboat houseboat, Vector3 specificWaterPosition, bool fadeIn, bool ifItMakesSenseSwitchToMermaidTail)
             {
-                int at = ShortcutOn("boatgetoutdiag") ? BgoPush(a, (Boat)(object)this, tryWaterFirst, houseboat != null) : -1;
-                if (at < 0) { GetOutOrig(a, getOutOntoLandVector, bOnReset, tryWaterFirst, houseboat, specificWaterPosition, fadeIn, ifItMakesSenseSwitchToMermaidTail); return; }
+                Boat boat = (Boat)(object)this;
+                int at = ShortcutOn("boatgetoutdiag") ? BgoPush(a, boat, tryWaterFirst, houseboat != null) : -1;
+                Posture entry = ShortcutOn("boatgetoutguard") ? BgoEntry(a, boat) : null;
+                if (at < 0 && entry == null) { GetOutOrig(a, getOutOntoLandVector, bOnReset, tryWaterFirst, houseboat, specificWaterPosition, fadeIn, ifItMakesSenseSwitchToMermaidTail); return; }
                 try { GetOutOrig(a, getOutOntoLandVector, bOnReset, tryWaterFirst, houseboat, specificWaterPosition, fadeIn, ifItMakesSenseSwitchToMermaidTail); }
-                catch (NullReferenceException) { BgoStale(at); throw; }
+                catch (NullReferenceException) { if (at >= 0) BgoStale(at); if (!BgoGuard(a, entry)) throw; }
                 finally { sBgo.Pop(at); }
             }
             public void GetOutOrig(Sim a, Vector3 getOutOntoLandVector, bool bOnReset, bool tryWaterFirst, Houseboat houseboat, Vector3 specificWaterPosition, bool fadeIn, bool ifItMakesSenseSwitchToMermaidTail) { } // receives Boat.GetOut's original header
@@ -97,6 +105,37 @@ namespace Ts3Fixes
                     + (sBgo.Replaced[at] ? (sBgo.Id[at] > 0 ? "replaced #" + sBgo.Id[at] : "a replacement (line cap)") : "no replacement seen (posture changed without set_Posture?)"));
             }
             catch (Exception) { }
+        }
+
+        // the SittingInBoat of this boat at entry, else null (EA returns at once: no fade, nothing to guard)
+        static Posture BgoEntry(Sim a, Boat boat)
+        {
+            try { SittingInBoat sib = a != null ? a.Posture as SittingInBoat : null; return sib != null && sib.Container == boat ? sib : null; }
+            catch (Exception) { return null; }
+        }
+
+        // true = swallow the NullReferenceException. Never throws (an error here keeps EA's).
+        static bool BgoGuard(Sim a, Posture entry)
+        {
+            try
+            {
+                Posture now = a.Posture;
+                bool npc = BgoNpc(a);
+                int d = BgoTable.GuardDecide(entry != null, now != entry, npc);
+                if (d == BgoTable.kGuardRethrow) return false;
+                PatchCounters()[d == BgoTable.kGuardSwallow ? cBgoGuard : cBgoGuard + 1]++;
+                if (d == BgoTable.kGuardSwallow) a.SetObjectToReset();  // EA's end state: GetOut's own fallback and SittingInBoat.OnReset do the same
+                if (sBgoLines < kBgoLines) BgoLine(BgoTable.GuardLine(a.FullName, a.ObjectId.Value, now != null ? now.GetType().Name : "null", npc));
+                return d == BgoTable.kGuardSwallow;
+            }
+            catch (Exception) { return false; }
+        }
+
+        // household rule: false for selectable, selected, active-household and household-less (unknown scope) Sims
+        static bool BgoNpc(Sim s)
+        {
+            try { return s != null && !s.IsSelectable && s != PlumbBob.SelectedActor && s.Household != null && s.Household != Household.ActiveHousehold; }
+            catch (Exception) { return false; }
         }
 
         static string BgoScope(Sim s)

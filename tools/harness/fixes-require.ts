@@ -4,14 +4,24 @@
 //   node tools/harness/fixes-require.ts    self-check
 import assert from 'node:assert/strict';
 
-export const RULE = /^([A-Za-z0-9_.]+)(>=|<=|==|>|<)(-?\d+)$/;
+// "@name" reads the /native after value instead of after - before (nativeRequire): for values set once at install/startup
+export const RULE = /^(@?[A-Za-z0-9_.]+)(>=|<=|==|>|<)(-?\d+)$/;
 
 export function parseRequire(s: string): { name: string; op: string; value: number }[] {
   return s.split(',').map(r => {
     const m = RULE.exec(r.trim());
-    if (!m) throw new Error(`fixes-require: "${r}" is not name<op>number (ops >= <= == > <)`);
+    if (!m) throw new Error(`fixes-require: "${r}" is not name<op>number (ops >= <= == > <; @name = the after value)`);
     return { name: m[1], op: m[2], value: Number(m[3]) };
   });
+}
+
+// /native fields set only at DllMain/install (or a switch read back once): after - before is always 0, so a delta rule on them
+// always FAILs (tdOn, jitRegionKB, bcFills on 2026-11-13; rwMode is a read-back switch). nativeRequire must write them as @name.
+// *Ready fields already keep their after value in flatDelta.
+export const STARTUP_COUNTERS = ['tdOn', 'jitRegionKB', 'bcFills', 'rwMode'];
+export function startupDeltaLint(s: string): string[] {
+  return parseRequire(s).filter(r => STARTUP_COUNTERS.includes(r.name)).map(r =>
+    `nativeRequire "${r.name}${r.op}${r.value}": ${r.name} is set at startup, its after - before is always 0; write @${r.name}${r.op}${r.value}`);
 }
 
 // Failed rules as text; [] = all hold. A counter missing from the answer fails (old agent or wrong name).
@@ -47,10 +57,13 @@ export function stepTally(steps: { cmd: string; r: { ok?: boolean; result?: unkn
 }
 
 // nativeRequire: every numeric /native field's after - before (arrays as name.i), checked with the rules above;
-// `*Ready` fields are load-time install flags/masks, so they keep their after value (a delta is always 0: 3 FAILs 2026-10-23)
+// `*Ready` fields are load-time install flags/masks, so they keep their after value (a delta is always 0: 3 FAILs 2026-10-23);
+// every numeric field is also given as `@name` (`@name.i`) with its after value, for @ rules
 export function flatDelta(a: any, b: any): Record<string, number> {
   const out: Record<string, number> = {};
   for (const [k, v] of Object.entries(b ?? {})) {
+    if (typeof v === 'number') out[`@${k}`] = v;
+    else if (Array.isArray(v)) v.forEach((x, i) => { if (typeof x === 'number') out[`@${k}.${i}`] = x; });
     if (typeof v === 'number' && typeof a?.[k] === 'number') out[k] = /Ready$/.test(k) ? v : v - a[k];
     else if (Array.isArray(v) && Array.isArray(a?.[k])) v.forEach((x, i) => { if (typeof x === 'number' && typeof a[k][i] === 'number') out[`${k}.${i}`] = x - a[k][i]; });
   }
@@ -83,7 +96,19 @@ if (import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/').replace(
   assert.deepEqual(checkRequire('v.queued>=1', tally), []);
   assert.deepEqual(checkRequire('v.queued>=2,w.queued>=1', tally), ['v.queued=1 (want >=2)', 'w.queued missing']);
   assert.deepEqual(checkRequire('v.queued>=1', stepTally([{ cmd: 'v', r: { ok: true, result: { queued: false } } }])), ['v.queued=0 (want >=1)']);
-  assert.deepEqual(flatDelta({ a: 1, p: [1, 2], s: 'x', fgReady: 1 }, { a: 4, p: [1, 7], s: 'y', fgReady: 1 }), { a: 3, 'p.0': 0, 'p.1': 5, fgReady: 1 });
+  assert.deepEqual(flatDelta({ a: 1, p: [1, 2], s: 'x', fgReady: 1 }, { a: 4, p: [1, 7], s: 'y', fgReady: 1 }),
+    { a: 3, '@a': 4, 'p.0': 0, 'p.1': 5, '@p.0': 1, '@p.1': 7, fgReady: 1, '@fgReady': 1 });
+  // @ rules on startup values (2026-11-13 binder-typehandle: tdOn before 1, after 1, so the delta rule FAILed every on arm)
+  const td = flatDelta({ tdOn: 1, bcFills: 4, bcHits: 10 }, { tdOn: 1, bcFills: 4, bcHits: 900 });
+  assert.deepEqual(checkRequire('tdOn>=1', td), ['tdOn=0 (want >=1)']);
+  assert.deepEqual(checkRequire('@tdOn>=1,@bcFills>=1,bcHits>=1', td), []);
+  assert.deepEqual(checkRequire('@jitRegionKB>=4096', td), ['@jitRegionKB missing']);
+  assert.deepEqual(parseRequire('@x.1>=2'), [{ name: '@x.1', op: '>=', value: 2 }]);
+  assert.throws(() => parseRequire('@@x>=1'), /not name<op>number/);
+  assert.throws(() => parseRequire('x@>=1'), /not name<op>number/);
+  assert.equal(startupDeltaLint('tdOn>=1,bcHits>=1,@jitRegionKB>=4096').length, 1);
+  assert.match(startupDeltaLint('bcFills>=1')[0], /write @bcFills>=1/);
+  assert.deepEqual(startupDeltaLint('@tdOn>=1,@rwMode<=0,jitFaults<=0'), []);
   // native_mark / native_check: delta since the named mark only (the 2026-10-26 sv-ufc-buildbuy C4 tries were live mode)
   const seq = [{ ufcTry_3: 5, w: 1 }, { ufcTry_3: 5, w: 3 }, { ufcTry_3: 6, w: 3 }];
   let at = 0;

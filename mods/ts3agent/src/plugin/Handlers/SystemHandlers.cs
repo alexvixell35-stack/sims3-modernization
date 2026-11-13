@@ -22,6 +22,7 @@ namespace Ts3Agent
             RegisterOutfitStress(); // OutfitStressHandlers.cs
             RegisterThumbCensus(); // ThumbCensusHandlers.cs
             RegisterBoatGone(); // BoatGoneHandlers.cs
+            RegisterBoatGetOutStress(); // BoatGetOutStressHandlers.cs
         }
 
         static object Ping(Args a)

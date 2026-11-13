@@ -61,7 +61,8 @@
 // (verify-verdicts.ts reads it with the profile files to fill docs/51). With ini Verify.Enabled the dump after the load also
 // zeroes the [Verify] maxima (/native?vfresetmax=1, read first), so `after` - `before` and the after maxima cover play only
 // (the dump says maxReset: true).
-// nativeRequire: "name>=n,..." over the /native after - before of the job (arrays as name.i, e.g. sypPlans.1 = failed sync plans);
+// nativeRequire: "name>=n,..." over the /native after - before of the job (arrays as name.i, e.g. sypPlans.1 = failed sync plans;
+// "@name>=n" reads the after value: required for values set at startup, fixes-require.ts STARTUP_COUNTERS, refused as deltas);
 // logRequire: { "<regex>": min lines } over the job's ts3native.log copy. Either failing turns the row FAIL (repro event checks, docs/169).
 // logForbid: { "<regex>": max lines } over the same copy (0 = the line must not appear, e.g. a replay audit MISMATCH); more turns the row FAIL.
 // regexCases: { "<regex>": { match: [line, ...], noMatch: [line, ...] } } (AGENTS.md: every regex tested against real lines): when
@@ -225,7 +226,7 @@ import { EA_PACKAGE_LOCK } from '../dump-locks.ts';
 import { clickLines, dumpHungGame, GUARD_MS, logTail, type ModeSnap, modeExit, modeSnap, noSafeButton, PKG_ABBA, pkgAbba } from './game-alive.ts';
 import { BIN, EA_LAUNCHER, EA_URI, GAME_EXE, gameRunning, isSteamGame, killLeftovers, LAUNCH, logUntrackedGame, MACHINE, machineTag, seenPids } from './game-exe.ts';
 import { checkCfg as checkFailFast, describe as describeFailFast, routingGuard, type FailFast } from './routing-failfast.ts';
-import { checkRequire, flatDelta, parseRequire } from './fixes-require.ts';
+import { checkRequire, flatDelta, parseRequire, startupDeltaLint } from './fixes-require.ts';
 import { parseHitchTasks } from './hitch-tasks.ts';
 import { parseRule } from './frame-lead.ts';
 import { abFixesClash } from './native-switches.ts';
@@ -452,7 +453,7 @@ export function parseQueue(json: unknown): Job[] {
     if (fridaAttach(j) && (j.callSites || Number(j.ini?.['ProbeSnap.CallSites']))) throw new Error(`${at}: ProbeSnap.CallSites with a second Frida agent (${fridaAttach(j)}): int3 traps + agent attach crashed the game (docs/67 §7); set run.profile.noProf (and drop the side probe) or callSites false`);
     if (j.timeoutMin !== undefined && !(j.timeoutMin > 0)) throw new Error(`${at}: timeoutMin must be > 0`);
     if (j.minCounters !== undefined && !(Number.isInteger(j.minCounters) && j.minCounters > 0)) throw new Error(`${at}: minCounters must be a positive integer (a counters version)`);
-    if (j.nativeRequire !== undefined) parseRequire(j.nativeRequire);
+    if (j.nativeRequire !== undefined) { const lint = startupDeltaLint(j.nativeRequire); if (lint.length) throw new Error(`${at}: ${lint.join('; ')}`); }
     if (j.logRequire !== undefined) for (const [re, n] of Object.entries(j.logRequire)) { new RegExp(re); if (!(Number.isInteger(n) && n > 0)) throw new Error(`${at}: logRequire "${re}" must map to a positive integer`); }
     if (j.logForbid !== undefined) for (const [re, n] of Object.entries(j.logForbid)) { new RegExp(re); if (!(Number.isInteger(n) && n >= 0)) throw new Error(`${at}: logForbid "${re}" must map to an integer >= 0`); }
     if (j.regexCases !== undefined) checkRegexCases(j.regexCases, [...Object.keys(j.logRequire ?? {}), ...Object.keys(j.logForbid ?? {})], at);
@@ -1386,8 +1387,12 @@ if (values['self-check']) {
   assert.throws(() => parseQueue([{ id: 'v', asi: 'x', save: 'S', minCounters: 19.5, run: { soak: { minutes: 1 } } }]), /minCounters/);
   assert.throws(() => parseQueue([{ id: 'v', asi: 'x', save: 'S', minCounters: '20', run: { soak: { minutes: 1 } } }]), /minCounters/);
   // nativeRequire / logRequire (docs/169 route repro checks)
-  assert.deepEqual(flatDelta({ a: 1, p: [1, 2], s: 'x' }, { a: 4, p: [1, 7], s: 'y' }), { a: 3, 'p.0': 0, 'p.1': 5 });
-  assert.deepEqual(flatDelta({ fgReady: 1, gsReady: 255 }, { fgReady: 1, gsReady: 255 }), { fgReady: 1, gsReady: 255 }); // load-time flags
+  assert.deepEqual(flatDelta({ a: 1, p: [1, 2], s: 'x' }, { a: 4, p: [1, 7], s: 'y' }), { a: 3, '@a': 4, 'p.0': 0, 'p.1': 5, '@p.0': 1, '@p.1': 7 });
+  assert.deepEqual(flatDelta({ fgReady: 1, gsReady: 255 }, { fgReady: 1, gsReady: 255 }), { fgReady: 1, gsReady: 255, '@fgReady': 1, '@gsReady': 255 }); // load-time flags
+  // startup values need @name: a delta rule on one is refused at parse (--dry-run too)
+  assert.throws(() => parseQueue([{ id: 'v', asi: 'x', save: 'S', nativeRequire: 'tdOn>=1', run: { soak: { minutes: 1 } } }]), /write @tdOn>=1/);
+  assert.doesNotThrow(() => parseQueue([{ id: 'v', asi: 'x', save: 'S', nativeRequire: '@tdOn>=1,jitFaults<=0', run: { soak: { minutes: 1 } } }]));
+  assert.deepEqual(checkRequire('@jitRegionKB>=4096,jitFaults<=0', flatDelta({ jitRegionKB: 4096, jitFaults: 0 }, { jitRegionKB: 4096, jitFaults: 0 })), []);
   assert.deepEqual(checkRequire('sypPlans.1>=5,a==3', flatDelta({ a: 1, sypPlans: [0, 0] }, { a: 4, sypPlans: [9, 5] })), []);
   assert.deepEqual(logFails('route async: sync plan 50 ms, IC Plan, reason NoStart\nx\nroute async: sync plan 9 ms, IC Plan, reason QueueFull', { 'reason NoStart': 1, 'reason QueueFull': 2 }), ['log /reason QueueFull/ 1 lines (want >= 2)']);
   assert.throws(() => parseQueue([{ id: 'v', asi: 'x', save: 'S', logRequire: { x: 0 }, run: { soak: { minutes: 1 } } }]), /logRequire/);

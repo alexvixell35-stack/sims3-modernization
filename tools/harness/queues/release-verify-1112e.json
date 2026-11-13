@@ -290,14 +290,13 @@
       },
       "logForbid": {
         "^FAIL\\b": 0,
-        "watchdogasync shadow mismatch:": 0,
-        "watchdog idle verdict: Wogan Hemlock (A1|sync) True @": 0
+        "watchdogasync shadow mismatch:": 0
       },
       "gameArgs": [
         "-disablestoryprogression"
       ],
       "id": "bp-wdasync-stuck-repro-1112e",
-      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of wdasync-fix3-1110 bp-wdasync-stuck-repro-wdfix3 on pair rc1111] [est 18 min] [retry of wdasync-fix3-1110 bp-wdasync-stuck-repro-wdfix3, which FAILed in setup: \"no unroutable spot in 40 samples\"; repro bp-idle-unroutable sim_strand now samples tries 400 (repros.json); pass criteria unchanged] PASS rule (wdfix3): watchdog_idle_unroutable>=1 AND a \"watchdog idle verdict: Wogan Hemlock (A1|sync) False\" line (his own spot judged unroutable, not any Sim) AND no non-stale True verdict for him; unseenfbteleport off for this job so \"unseenfb route goal\" cannot move him first. docs/250 §7.1 correctness (3): repro bp-idle-unroutable (Wogan Hemlock stranded on an unroutable diner spot, unseen, ultra speed) with watchdogasync + watchdogasyncshadow on: the watchdog must still catch him (watchdog_idle_unroutable >= 1, the repro's expect line). watchdogasync_* shows whether his check went through A1 (only when a job held +0x918 at that moment).",
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of wdasync-fix3-1110 bp-wdasync-stuck-repro-wdfix3 on pair rc1111] [est 18 min] [retry of wdasync-fix3-1110 bp-wdasync-stuck-repro-wdfix3, which FAILed in setup: \"no unroutable spot in 40 samples\"; repro bp-idle-unroutable sim_strand now samples tries 400 (repros.json); pass criteria unchanged] PASS rule (wdfix3): watchdog_idle_unroutable>=1 AND a \"watchdog idle verdict: Wogan Hemlock (A1|sync) False\" line (his own spot judged unroutable, not any Sim) (the no-True-verdict forbid was dropped 2026-11-13 as in release-verify-1111: True verdicts are normal at load and after the fix moves him); unseenfbteleport off for this job so \"unseenfb route goal\" cannot move him first. docs/250 §7.1 correctness (3): repro bp-idle-unroutable (Wogan Hemlock stranded on an unroutable diner spot, unseen, ultra speed) with watchdogasync + watchdogasyncshadow on: the watchdog must still catch him (watchdog_idle_unroutable >= 1, the repro's expect line). watchdogasync_* shows whether his check went through A1 (only when a job held +0x918 at that moment).",
       "save": "Baseline-BP",
       "noiseCheck": false,
       "scriptErrorsMax": 0,
@@ -353,15 +352,6 @@
             "ts3fixes: watchdog idle verdict: Lenny Shutter A1 False @1335.48,1856.96 on Cliff Cottage - 1br, 2 ba",
             "ts3fixes: watchdog idle verdict: Wogan Hemlock cache True @307.56,1495.18 on Community Lot",
             "ts3fixes: watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
-          ]
-        },
-        "watchdog idle verdict: Wogan Hemlock (A1|sync) True @": {
-          "match": [
-            "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 True @307.56,1495.18 on Community Lot"
-          ],
-          "noMatch": [
-            "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 True stale @307.56,1495.18 on Community Lot",
-            "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 False @307.56,1495.18 on Community Lot"
           ]
         },
         "^ts3native 0.36.247 ": {

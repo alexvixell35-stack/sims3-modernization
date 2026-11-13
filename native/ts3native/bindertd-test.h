@@ -38,7 +38,7 @@ static TdFrameFn TdFrame(u8* p, const u8* window, bool ea) {
 }
 
 static void TestBinderTypeHandle() {
-    static_assert(offsetof(Ts3nCounters, jitFullN) == 0x6008 && offsetof(Ts3nCounters, tdOn) == 0x6014 && sizeof(Ts3nCounters) == 6314 * 4,
+    static_assert(offsetof(Ts3nCounters, jitFullN) == 0x6008 && offsetof(Ts3nCounters, tdOn) == 0x6014 && sizeof(Ts3nCounters) == 6323 * 4,
                   "counters v188 layout after the v185-v187 gap (docs/registry.md)");
     u8* x = (u8*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     assert(x);

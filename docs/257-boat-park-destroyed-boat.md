@@ -92,3 +92,47 @@ Forced repro `ip-boat-gone` (repros.json), queue `tools/harness/queues/boatparkg
 - Lines in ts3native.log (`DiagLine`, at most 20 per session): `boatgetout replaced #<n>: <Sim> 0x<id> npc|household SittingInBoat-><new> during GetOut of <boat> (+<ticks> ticks, <sim time>, water <b>, houseboat <b>) by nested|foreign task <type>; ours: <frames|none>; last move: <...>`, then `boatgetout stack #<n>: ...`, and on the throw `boatgetout stale: <Sim> NRE in GetOut after replaced #<n>|no replacement seen`.
 - Counters 945-947 (agent `boatgetoutdiag_watched`, `_replaced`, `_stale`). Self-check `tools/selftest/boatgetoutdiag` covers push/pop, own end, foreign, nested and overflow.
 - Run: turn it on in natural IP correctness jobs (`fixesOn: boatgetoutdiag`) and read every `boatgetout stale:` line as in §7.
+
+## 9. `boatgetoutguard`: the fix, and a forced stress repro (2026-11-13, built, NOT RUN; ledger §485)
+
+Rodney 11-13: build the guard now, so it ships next to the diag. The writer is still unknown, but the end state does not depend on it. Repro: "do it over and over with many boats".
+
+**Fix point: the 8-argument `Boat.GetOut`.** The diag already hooks it (`BoatGetOutDiagHook`, `EaFixes.cs`). Every overload ends there, including `GetOutOfBoat.Run`'s three calls, `GetOut(Sim[])`, `GetOutEveryoneOntoHouseboat` and the reset path. `GetOutOfBoat.Run` would be narrower than the whole GetOut, but it misses the route-end callers. A pre-check cannot work either: the posture changes inside GetOut's own `FadeOut` yield, and a method swap cannot run code between the fade and `GetOutIntoWater`. So the hook works at the throw:
+- At entry, with the switch on, it notes the Sim's `SittingInBoat` when that posture belongs to this boat. In any other case EA returns before the fade, so there is nothing to guard.
+- It catches `NullReferenceException` only. The diag's `boatgetout stale:` line is written first. Then `BgoTable.GuardDecide(watched, stale, npc)` (`BoatGetOutDiagCore.cs`) decides: **swallow** only when the posture is no longer the entry `SittingInBoat` and the Sim is a known NPC. Every other case rethrows (`throw;`), so EA's error and its ScriptError stay.
+
+**End state chosen: EA's reset end state [verified decompile, outcome inferred].**
+- *What has run when the NRE leaves GetOut [verified decompile].* `GetOutIntoWater` throws at its first posture read. That read comes after it creates its place-in-water jig, so nothing else has been changed yet. GetOut's `finally` runs anyway: `ReleaseSim` (the seat), `Release` when `ShouldRelease()` (the boat), the Sailin / Seasick buffs and their alarm, and the items in hand. The vanilla throw runs the same cleanup.
+- *What the writer has done.* On the suspected path, a reset of the boat runs `DoRootReset` on the resetting task. It resets the objects parented to the boat and the Sims using it, so `Sim.DoReset` -> `SittingInBoat.OnReset` -> `GetOut(bOnReset: true)` runs: UnParent, AddToWorld, ReleaseSim, PopPosture -> Standing. `OnReset` then calls `mSim.SetObjectToReset()`, which only queues the native reset (`Proxy.SetObjectToReset`) [verified decompile; that the cascade reaches the seated Sim is inferred from `ResetParentingHierarchy` / `mActorsUsingMe`].
+- *Guard action.* `a.SetObjectToReset()`. EA uses the same call in GetOut when no get-out spot exists (GetOut's own fallback), and SittingInBoat.OnReset makes it too. So the guard adds no new state: the Sim is reset (standing at a safe spot, visible), the seat and boat are already released, and `GetOutOfBoat.Run` returns normally. Vanilla also ends with the Sim reset after the script error (the queued reset, plus the error ending the task) [inferred]. The difference is the ScriptError and an interaction that ends without a throw. A second reset request while one is queued is idempotent [inferred].
+- Not fixed: the jig `GetOutIntoWater` created before the throw stays out of world (EA leaks it on the throw too).
+
+**Household rule.** `BgoNpc`: known household, not the active household, not selectable, not the selected Sim. A Sim with no household counts as unknown scope, so as household. Household, selected and unknown-scope Sims rethrow (EA behaviour, script error kept), counted in [954] with a `household` line.
+
+**Counters** (registry `fixes-953`): [953] `boatgetoutguard_hit` (swallowed, Sim reset), [954] `boatgetoutguard_skipped_household`. Diag counters 945-947 are unchanged; with both switches on, `_stale` (947) = hit + household.
+
+**Line** (ts3native.log via `DiagLine`; it shares the diag's 20-line budget): `boatgetout guard: <Sim> 0x<id> npc|household SittingInBoat-><posture> after the fade: NRE swallowed, Sim reset (EA reset end state)` or `...: EA error kept (household rule)`.
+
+**Switch.** Tuning `kBoatGetOutGuard = false`, switch `boatgetoutguard` (ts3agent default-off list, counters in the agent's patch report). README tunable row added.
+
+**Load-time cleanup: none needed.** The guard acts only after the Sim's posture has already left `SittingInBoat`. It then queues a full Sim reset, which clears the parenting and resets the posture. It never leaves a Sim in a boat posture, a seat reserved or a boat held, and it writes nothing to the save. So there is no damage of ours to clean up at load.
+
+**Selftest.** `tools/selftest/boatgetoutdiag` adds GuardDecide's 5 cases. `run.ts` also tests the queue's three `boatgetout guard` regexes against the real format string, printed by `GuardLine` (each regex matches its own scope's line, not the other one, and not a stale line). The other queue regexes have `regexCases` from the format strings.
+
+**Repro `ip-boat-getout-stress`** (repros.json; agent `boat_getout_stress`, `BoatGetOutStressHandlers.cs`):
+- *Setup.* Up to 10 NPCs (household rule as above, teen or older, with a home lot) plus the active Sim are teleported to the nearest shore of the active Sim with `SetupSimsAt` (cancel, teleport, motives, autonomy off). Each gets its own `BoatSpeedBoat` on the water in front of it (owner lot = its home, so EA's Board Boat test passes).
+- *Loop, each tick.* Board Boat when not aboard, Get Out Into Water when aboard, both player-directed. In the GetOut fade window (still `SittingInBoat` of its boat, `RoutingParent` already null, current interaction `GetOutOfBoat`), every 2nd NPC window gets a writer forced from the agent's own task. With `mix` the writers rotate: `boatreset` (boat.SetObjectToReset, EA's suspected OnReset path), `simreset` and `standing` (Posture = Standing). The household Sim is forced once, with `standing` (deterministic), so arm B shows its EA error.
+- *Stop.* At the first hit (`auto`: with the guard off, the first stale NRE [947]; with it on, the first guard hit [953] plus the household's kept error [954]) or after 60 windows. A `boat_getout_stress: stop (...)` line names the last forced writer and Sim; the diag lines name the writer task.
+- *Result check.* `{result, require}` fails unless a writer was forced in a window and either (guard off) stale >= 1, or (guard on) hit >= 1, stale == hit + household, and household >= 1 once the household Sim was forced.
+
+**Queue `tools/harness/queues/boat-getout-stress.json` (NOT RUN; run after the timing queues).**
+- *Pair.* asi `ts3native.asi.master1112b` (0.36.248) + ini `ts3native.ini.master1112b` + `game-copy/ts3fixes.package.boatgetoutguard` (builds.json).
+- *Arm A* `ip-bgo-stress-guard-off`: diag on, guard off. Expects the NRE (scriptErrorsReport `Boat:GetOutIntoWater`), `boatgetoutdiag_stale>=1`, `boatgetout replaced` + npc `stale` lines, and no guard line.
+- *Arm B* `ip-bgo-stress-guard-on`: both on. Expects `boatgetoutguard_hit>=1`, `_skipped_household>=1`, the npc + household guard lines, and only the household Sim's GetOutIntoWater error.
+- *Precondition.* The ts3agent with `boat_getout_stress` is built by `cycle.ts` from the checkout, so merge the branch first (or run from its worktree).
+
+**Unverified.**
+- Whether any forced writer reproduces the NRE in game, and which. `boatreset` depends on the reset cascade reaching the seated Sim. `simreset` may kill the Sim's task before it wakes. `standing` is the deterministic fallback, not EA's path.
+- Whether `FindGoodLocationNearby` puts a speedboat on the water at the shore spot. If it does not, the boat is counted in `boats_failed`.
+- Whether Board Boat from the water works in a loop.
+- The vanilla end state after the error.

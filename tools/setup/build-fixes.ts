@@ -106,7 +106,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kIdlePlanMemo value="False" />
     <kStuckCheckNear value="False" />
     <kFailRepeat value="False" />
-    <kJobYield value="False" />
+    <kJobYield value="True" />
     <kDriverTaskAsync value="False" />
     <kWatchdogAsync value="False" />
     <kStuckCheckOwn value="False" />
@@ -203,6 +203,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kMenuMaven value="False" />
     <kDanceFloorListGuard value="True" />
     <kBoatGetOutDiag value="False" />
+    <kBoatGetOutGuard value="False" />
     <kBoatParkGone value="True" />
     <kVehParkReserve value="False" />
     <kVehGetInLeak value="False" />

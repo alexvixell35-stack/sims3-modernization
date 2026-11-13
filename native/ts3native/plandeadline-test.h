@@ -255,7 +255,7 @@ static void TestPlanDeadline() {
     static_assert(offsetof(Ts3nCounters, pdMode) == 0x4244 && offsetof(Ts3nCounters, pdSessions) == 0x4254 &&
                       offsetof(Ts3nCounters, pdLines) == 0x427C && offsetof(Ts3nCounters, fmMode) == 0x4280 &&
                       offsetof(Ts3nCounters, fmInval) == 0x4298 && offsetof(Ts3nCounters, fmServedUs) == 0x42C4 &&
-                      sizeof(Ts3nCounters) == 6314 * 4,
+                      sizeof(Ts3nCounters) == 6323 * 4,
                   "counters v99 layout after v98 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
@@ -380,7 +380,7 @@ static void TestPlanDeadline() {
     //     exempt even as NoStart, once; nested in an open session it cannot be: a cut there counts pdCutSc
     {
         static_assert(offsetof(Ts3nCounters, pdExemptSc) == 0x52C0 && offsetof(Ts3nCounters, pdCutSc) == 0x52C4 &&
-                          offsetof(Ts3nCounters, pdSpare) == 0x52C8 && sizeof(Ts3nCounters) == 6314 * 4,
+                          offsetof(Ts3nCounters, pdSpare) == 0x52C8 && sizeof(Ts3nCounters) == 6323 * 4,
                       "counters v135 layout after v134 (docs/registry.md)");
         g_icPlanOrig = [](u8* o, DWORD) -> u8* {
             assert(t_pdNoCut && !PdPlanBegin() && !t_pd.open && !g_pdTid);
@@ -576,6 +576,23 @@ static void TestPlanDeadline() {
         assert(KdJobBegin(&j) == 250000);  // reset by the success
         KdJobEnd(&j, false, 1000, 0, 0);
         assert(k.kdAfterOk == 1);  // nothing pending
+        {  // docs/197 §7 KdUnseenForeignCap: foreign (Plan, A10) of an unseen follower at level 2 = doubled, not uncut; own kinds unchanged
+            KdRow* row = KdFind(11, true);
+            row->level = 2, row->cutTick = GetTickCount();
+            AsyncJob uf = {}, ua = {}, uo = {};
+            uf.fb = 1, uf.uf = 1, uf.kdId = 11;
+            ua.af = 1, ua.kind = 3, ua.uf = 1, ua.kdId = 11;
+            uo.uf = 1, uo.kdId = 11;
+            g_kdUfCap = false;
+            assert(KdJobBegin(&uf) == 0 && t_kdUncut && KdJobBegin(&ua) == 0 && t_kdUncut);
+            g_kdUfCap = true;
+            assert(KdJobBegin(&uf) == 400000 && !t_kdUncut && KdJobBegin(&ua) == 400000 && !t_kdUncut);
+            assert(KdJobBegin(&uo) == 0 && t_kdUncut);  // own plan: its backoff still ends uncut
+            row->cutTick = GetTickCount() - kKdWinMs - 1;
+            assert(KdJobBegin(&uf) == 200000);  // window over: level ignored, as before
+            g_kdUfCap = false;
+            memset(row, 0, sizeof(*row));
+        }
         // a cut that still succeeded; late time past the deadline
         KdJobBegin(&j);
         KdJobEnd(&j, true, 300000, g_qpf.QuadPart * 3, g_qpf.QuadPart * 2);

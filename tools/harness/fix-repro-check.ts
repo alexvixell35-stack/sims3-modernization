@@ -27,7 +27,6 @@ const DEADSIM = 'opt-in, Dalexlol leak stress (#40, al342-al358)';
 export const EXEMPT: Record<string, string> = {
   boundcall: 'exact speedup, no hitch to repro (docs/537 §22): the same EA String bodies run, judged by the native selftest, the monohost corpus + c3g replays (MONOHOST_JITBIND=1 MONOHOST_JITBOUNDCALL=3, 0 differ) and boundcall.json (BP/IP correctness, --ab boundcall timing)',
   equalsfast: 'exact speedup, no hitch to repro (docs/258 option C): judged by the native selftest and the monohost exactness corpus (MONOHOST_EQFAST=1, 0 mismatches) and the BP/IP --ab equalsfast timing pair (queues/equalsfast-1112.json)',
-  boatgetoutdiag: 'diagnostic only, off (docs/257 §8): the GetOutIntoWater NRE is natural (about one per few IP hours), no forced repro exists; turned on in natural IP correctness jobs',
   buyiconleak: '2026-11-11 leak fixes (docs/545 §1): off/on in one session by ts3agent phase runs (switch on mid-session via patches, leak_census counters before/after); no harness queue repro yet',
   casrowleak: '2026-11-11 leak fixes (docs/545 §1): off/on in one session by ts3agent phase runs (switch on mid-session via patches, leak_census counters before/after); no harness queue repro yet',
   compositorleak: '2026-11-11 leak fixes (docs/545 §1): off/on in one session by ts3agent phase runs (switch on mid-session via patches, leak_census counters before/after); no harness queue repro yet',

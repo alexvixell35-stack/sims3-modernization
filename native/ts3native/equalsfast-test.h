@@ -108,7 +108,7 @@ static DWORD WINAPI EqtWorker(void* p) {
 
 static void TestEqualsFast() {
     static_assert(offsetof(Ts3nCounters, sbVtGiveUp) == 0x5F80 && offsetof(Ts3nCounters, eqOn) == 0x5F90 && offsetof(Ts3nCounters, eqMode) == 0x5F94 &&
-                      offsetof(Ts3nCounters, eqRejMany) == 0x5FC4 && offsetof(Ts3nCounters, eqSpare) == 0x5FC8 && sizeof(Ts3nCounters) == 6314 * 4,
+                      offsetof(Ts3nCounters, eqRejMany) == 0x5FC4 && offsetof(Ts3nCounters, eqSpare) == 0x5FC8 && sizeof(Ts3nCounters) == 6323 * 4,
                   "counters v186 layout after v185 (docs/registry.md)");
     static_assert(sizeof(kEqPrologue) == 6, "push ebp; mov ebp,esp; sub esp,10h");
     Ts3nCounters& k = ts3native_counters;

@@ -342,6 +342,7 @@ namespace Ts3Fixes
         // [2080] overwatchdeadsim (DeadSimHolders.cs): NRaas Overwatch stuck-check entries removed whose last interaction's Sim object is gone.
         // [934-935] dreamnodedeadsim / overwatchdeadsim (DeadSimHolders.cs): listeners / entries kept by the household rule (owner household, selected or unknown scope).
         // [945-947] boatgetoutdiag (BoatGetOutDiag.cs, docs/257 §7): Boat.GetOut calls watched / SittingInBoat replaced by another task during the fade / NullReferenceException out of a watched GetOut (rethrown).
+        // [953-954] boatgetoutguard (BoatGetOutDiag.cs, docs/257 §9): stale-posture NullReferenceExceptions out of Boat.GetOut swallowed for NPCs (Sim reset) / kept by the household rule (household, selected or unknown scope; EA's error stays).
         // [937] boatparkgone (BoatParkGone.cs, docs/257): BoatOwnable.Park calls skipped because the boat was already destroyed (no RoutingComponent; EA would throw).
         // [936] outfitwaitsaved (OutfitWaitSaved.cs): saved makeover tasks kept by the household rule.
         // [2081] errortrapctl (ErrorTrapSims.cs): NRaas ErrorTrap dereference controllers' item lists dropped after the world-load scan (they kept the whole graph until the next load).
@@ -656,6 +657,7 @@ namespace Ts3Fixes
                 case "menumaven": return Instantiator.kMenuMaven;
                 case "dancefloorlistdiag": return false;  // diagnostics only (DanceFloorDiag.cs, docs/253 §7)
                 case "boatgetoutdiag": return Instantiator.kBoatGetOutDiag;  // diagnostics only, off (BoatGetOutDiag.cs, docs/257 §7)
+                case "boatgetoutguard": return Instantiator.kBoatGetOutGuard;  // EA bug fix, off until the boat-getout-stress queue (BoatGetOutDiag.cs, docs/257 §9)
                 case "boatparkgone": return Instantiator.kBoatParkGone;  // EA bug fix, on by default (BoatParkGone.cs, docs/257)
                 case "dancefloorlistguard": return Instantiator.kDanceFloorListGuard;  // EA bug fix, ON in release (Rodney 2026-11-09; DanceFloorDiag.cs, docs/253 §12)
                 case "compactionfail": return false;  // test only (Compaction.cs, docs/204 §6): the reload throws after the screen is up

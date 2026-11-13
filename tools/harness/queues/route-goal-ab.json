@@ -7,7 +7,7 @@
       "asi": "game-copy/ts3native.asi.0334",
       "save": "Baseline-IP-Spring",
       "minCounters": 102,
-      "nativeRequire": ",pgN_3>=1,ggDup>=1,ggArgMismatch<=0,g0wWatchdog<=0",
+      "nativeRequire": "pgN_3>=1,ggDup>=1,ggArgMismatch<=0,g0wWatchdog<=0",
       "logRequire": {
         "OK   goal gen D1": 1,
         "OK   route phases goal split": 1
@@ -60,7 +60,7 @@
       "asi": "game-copy/ts3native.asi.0334",
       "save": "Baseline-IP-Spring",
       "minCounters": 102,
-      "nativeRequire": ",hxReady>=7,ggSkipped>=1,hxHeld>=1,ggArgMismatch<=0,hxStale<=0,g0wWatchdog<=0",
+      "nativeRequire": "hxReady>=7,ggSkipped>=1,hxHeld>=1,ggArgMismatch<=0,hxStale<=0,g0wWatchdog<=0",
       "logRequire": {
         "OK   goal gen D1": 1,
         "OK   H2 IC window": 1

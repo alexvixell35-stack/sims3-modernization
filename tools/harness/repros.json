@@ -66125,5 +66125,97 @@
     "switches": [
       "autt2callpet"
     ]
+  },
+  {
+    "id": "ip-boat-getout-stress",
+    "bug": "docs/257 §7-§9: EA Boat.GetOut checks the SittingInBoat posture, clears RoutingParent, yields in FadeOut, then GetOutIntoWater reads (a.Posture as SittingInBoat).SeatSlot unchecked: NullReferenceException at GetOutIntoWater+0x1d when another task replaced the posture during the fade (33 natural sightings, all NPCs, mostly Isla Paradiso)",
+    "fix": "ts3fixes boatgetoutguard (BoatGetOutDiag.cs, docs/257 §9): the NRE out of GetOut with a stale posture is swallowed for a known NPC and the Sim is reset (EA reset end state); household / selected / unknown scope keep EA's error",
+    "save": "Baseline-IP",
+    "note": "Stress, forced (Rodney 11-13: repro by doing it over and over with many boats). boat_getout_stress picks up to 10 NPCs (known non-active household, teen or older, home lot) + the active Sim, teleports them to the nearest shore of the active Sim (setup_sims rules: cancel, teleport, motives, autonomy off), gives each its own BoatSpeedBoat on the water (owner lot = its home), forces Board Boat and Get Out Into Water (player-directed) in a loop, and in the GetOut fade window (still SittingInBoat, RoutingParent null) forces a posture writer on every NPC window (mix rotates: posture = Standing, boat reset = EA SittingInBoat.OnReset path, Sim reset) and once on the household Sim (standing). Stops at the first hit (auto: guard off = first stale NRE once every writer was forced on an NPC, counter 947; guard on = first guard hit 953 + household kept 954) or 60 windows. boatgetoutdiag on in both arms logs the writer (boatgetout replaced/stale lines) before the guard acts.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "boatgetoutdiag": true
+        },
+        "waitS": 1,
+        "note": "diag on in both arms: writer line + stale counter"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "boat_getout_stress",
+        "args": {
+          "start": true,
+          "sims": 10,
+          "household": true,
+          "iterations": 60,
+          "every": 1,
+          "writer": "mix",
+          "stopOn": "auto"
+        },
+        "waitS": 20,
+        "note": "Board Boat first: the Sims swim / walk a few metres to their boats"
+      },
+      {
+        "cmd": "boat_getout_stress",
+        "args": {
+          "result": true
+        },
+        "waitS": 240,
+        "note": "progress row (no require yet)"
+      },
+      {
+        "cmd": "boat_getout_stress",
+        "args": {
+          "result": true
+        },
+        "waitS": 240,
+        "note": "progress row"
+      },
+      {
+        "cmd": "boat_getout_stress",
+        "args": {
+          "result": true,
+          "require": true,
+          "stop": true
+        },
+        "note": "FAILS unless forced in a fade window and (guard off) >= 1 stale NRE, or (guard on) guard hit >= 1, stale == hit + household, household kept >= 1 when the household Sim was forced"
+      }
+    ],
+    "expect": "OFF (boatgetoutguard off): >= 1 Boat:GetOutIntoWater NullReferenceException script error, boatgetoutdiag_stale >= 1, a \"boatgetout replaced\" line naming the writer; ON: boatgetoutguard_hit >= 1, every NPC NRE swallowed (stale == hit + household), boatgetoutguard_skipped_household >= 1 with exactly the household Sim's GetOutIntoWater script error; no crash",
+    "cleanup": [
+      {
+        "cmd": "boat_getout_stress",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "ip-bridge-height-load",
+    "bug": "docs/67 §36/§37 (#384, Dalexlol PR #394): an Isla Paradiso bridge answers NaN, +-inf or 2.26e34 from 0xB745A0; the height queries keep it, post pass 16 halves an infinite segment forever and the game freezes (world load or play; footstep lot search on a NaN point)",
+    "fix": "[EaCrashFixes] HeightsInfLoop + BridgeHeightNaN (ini only, no runtime switch: one job per arm). Contributor repro (his harness, docs/data/results/2026-11-13-bridge-height-nan.md): IP seed 777, off = world-load freeze, on = nh2 / sm1 / in1 pass with 8 BridgeHeightNaN hits each",
+    "save": "Baseline-IP",
+    "note": "World load + 5 min seeded play is the trigger; no steps. His install used a community IslaParadiso.world (Phantom99's, adds the bad bridge). A job with no \"ea fix: BridgeHeightNaN\" line and no freeze in the off arm = our world lacks that bridge: N/A (not triggered), judge the on arm by side effects only (no crash, no hang guard, no new stuck Sims).",
+    "steps": [],
+    "watch": {
+      "kind": "stuck",
+      "sims": [],
+      "minutes": 5
+    },
+    "expect": "off: world load or play freezes (hang guard 'world load: nothing moved' or a stall) where the bad bridge exists; on: no freeze, \"ea fix: BridgeHeightNaN\" lines (and maybe \"ea fix: HeightsInfLoop\"), bhnHits > 0"
   }
 ]

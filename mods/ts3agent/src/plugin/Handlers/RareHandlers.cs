@@ -155,6 +155,7 @@ namespace Ts3Agent
             foreach (Sim s in SpawnedInWorld())
             {
                 Vector3 p = s.Position;
+                if (p.x == 0f && p.y == 0f && p.z == 0f) continue;  // exactly (0,0,0): unplaced or resetting Sim, no world position (release-verify-1113g false positive)
                 if ((p - cam).Length() < 100f || (p - tgt).Length() < 100f || World.IsObjectOnScreen(s)) continue;  // seen: not this check's case
                 object parent = s.Parent;
                 Sim horse = parent as Sim;

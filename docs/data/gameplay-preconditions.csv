@@ -252,6 +252,7 @@ story_days,StoryHandlers,Live,none: EA story progression days on demand (mode an
 story_burst,StoryHandlers,Live,none: EA story action step repeated without the daily cap and category cooldowns,stress,townies only: active household skipped (issue #40 leak stress),handler,live
 story_burst_state,StoryHandlers,Any,none (read),harness,,handler,none
 boat_gone_watch,BoatGoneHandlers,Live,"none: destroys a non-household NPC's generated boat as NRaas Overwatch CleanupVehicles does (docs/257 repro trigger)",stress,a non-household NPC driving its generated boat; never household / selected / household-less Sims,handler,live
+boat_getout_stress,BoatGetOutStressHandlers,Live,"none: NPCs + the active Sim teleported to a shore, own boats, Board Boat / Get Out Into Water forced in a loop; a posture writer (boat reset, Sim reset, Standing) forced in the GetOut fade window (docs/257 §9 repro)",stress,"NPCs of a known non-active household, teen or older, with a home lot; the active Sim on purpose (household rule check)",handler,live
 leak_census,LeakCensusHandlers,Live,none (read),harness,,handler,live
 townie_trips,TownieTripsHandlers,Live,Go Here / visit a community lot (one Sim at a time),stress,"NPC townies only: household, selectable, role, service and unknown-scope Sims skipped",handler,live
 vehicle_census,VehicleCensusHandlers,Live,none (read),harness,,handler,live

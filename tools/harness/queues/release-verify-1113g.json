@@ -1,0 +1,941 @@
+{
+  "note": "release-verify-1113g (2026-11-13): copy of release-verify-1112e (already re-pinned to rc1111g by 997e00c2) for release candidate rc1111g WITHOUT Apex: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2a191) + ini game-copy/ts3native.ini.rc1111g (91b007e72c3f) + ts3fixes.package.rc1111e (a563cf8fcf05); no ApexRadiance / RTX Remix install in any job. Job ids renamed -1112e to -1113g. [source note] release-verify-1112e (2026-11-12, Sat 11-14 release): copy of release-verify-1111 on the final pair rc1111d asi/ini + ts3fixes.package.rc1111e (rc1111c + kBookHand ON only, Rodney 11-12 after bookhand-fix-1112: ON seen +14 fixed +14, 0 script errors). Same 12 correctness jobs and pass rules; ids -1112e; bp-rel-matrix-1112e and bookcarry-crowd-check-1112e also require kBookHand in the ts3fixes \"settings on\" read-back. Harness fixes after 1111: the queue.ts/profile-world.ts ones are on master and apply by themselves; the HANDOFF-2026-11-11 wdasync-stuck fixes (requireStanding, drop logForbid True line) are NOT on master and NOT applied here. node tools/harness/queue.ts tools/harness/queues/release-verify-1112e.json > probe-out/release-verify-1112e-run.log 2>&1",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-s3ss-release-travel-1113g",
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of release-verify-1110-r3 bp-s3ss-release-travel-r3 on pair rc1111] [est 40 min] Release-config float-5 check (Rodney 2026-11-09, release blocker): Baseline-BP travel to France and back x8 with the rc1110c release ini as is (no detectors, no MemDiag) and S3SS 1.6.3 as installed (default, streamingSettings on). PASS = [S3SSCompat] guard on for S3SS 1.6.3, >= 1 stale maintained write corrected, 8 trips, no crash (float-5 or any other).",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "script": [
+          "save-matrix.ts",
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "8"
+        ]
+      },
+      "timeoutMin": 60,
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "logRequire": {
+        "^s3ss compat: stale write guard on \\(S3SS 1\\.6\\.3": 1,
+        "^s3ss compat: stale maintained write 0x[0-9A-F]{8} -> ": 1,
+        "^ts3native 0.36.247 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "regexCases": {
+        "^s3ss compat: stale write guard on \\(S3SS 1\\.6\\.3": {
+          "match": [
+            "s3ss compat: stale write guard on (S3SS 1.6.3 sha 69ce87ee, known-buggy): SafeReassert call S3SS+0x28CDB retargeted; stale 4-byte heap target -> live WorldManager+0xEC"
+          ],
+          "noMatch": [
+            "s3ss compat: stale write guard stands aside (S3SS 1a2b3c4d not in the known-buggy list)",
+            "s3ss compat: stale write guard off ([S3SSCompat] StaleWriteGuard=0)"
+          ]
+        },
+        "^s3ss compat: stale maintained write 0x[0-9A-F]{8} -> ": {
+          "match": [
+            "s3ss compat: stale maintained write 0x40AC7F7C -> 0x3A1B20EC (value 0x40A00000, size 4); WorldManager 0x3A1B2000; world load #4; stale 1 (redirected 1, skipped 0), calls 9"
+          ],
+          "noMatch": [
+            "s3ss compat: stale write guard on (S3SS 1.6.3 sha 69ce87ee, known-buggy): SafeReassert call S3SS+0x28CDB retargeted"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.236 2026-11-10 01:30:00",
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "^ts3native 0.36.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-12 19:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e"
+    },
+    {
+      "id": "bp-rel-matrix-1113g",
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of release-validate bp-rel-matrix on pair rc1111] [est 40 min] Release check part b (tools/release-check.ts): BP save matrix, save-matrix.ts --fixes shipped (release mode: save fixes as the release ini sets them), default cases (control, identical, per-fix, overwrite, back-to-back, unpaused, build-mode, reload print). Pass: every case PASS, 0 crashes, ts3native 0.36.240 version line.",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "script": [
+          "save-matrix.ts",
+          "--fixes",
+          "shipped"
+        ]
+      },
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 60,
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "logRequire": {
+        "^ts3native 0.36.247 ": 1,
+        "^ts3fixes: settings on: (.*, )?kBookHand(, |$)": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-12 19:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
+          ]
+        },
+        "^ts3fixes: settings on: (.*, )?kBookHand(, |$)": {
+          "match": [
+            "ts3fixes: settings on: kMetricSkillMissing, kFireworksFizzle, kBookHand, kPetPoolOrphan",
+            "ts3fixes: settings on: kDatingProfile, kBookHand"
+          ],
+          "noMatch": [
+            "ts3fixes: settings on: kFireworksFizzle, kBookHandDiag, kPetPoolOrphan",
+            "ts3fixes: settings on: kBookCarry, kAgeUpAbort",
+            "ts3fixes: test switches (override the settings): bookhand=on"
+          ]
+        }
+      }
+    },
+    {
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "releaseDefaults": true,
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "ini": {
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "HitchAttr.Enabled": 1,
+        "RouteAsync.LogFallbackMs": 20
+      },
+      "id": "ip-ubrel-boat-repro-1113g",
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of release-verify-1109 ip-ubrel-boat-repro on pair rc1111] [est 20 min] (b) Forced repro ip-unseen-boat-loop (unseenboat_shortcuts>=1 from repros.json, unseen_water_watch: none stranded), unseenboatstart on too as in release.",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesReport": "unseenboat,boatreplan_",
+          "minutes": 12,
+          "fixesOn": "unseenboatstart",
+          "repro": "ip-unseen-boat-loop"
+        }
+      },
+      "timeoutMin": 25,
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "logRequire": {
+        "^ts3native 0.36.247 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-12 19:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "releaseDefaults": true,
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "ini": {
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "HitchAttr.Enabled": 1,
+        "RouteAsync.LogFallbackMs": 20
+      },
+      "id": "ip-ubrel-hbstart-repro-1113g",
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of release-verify-1110 ip-ubrel-hbstart-repro on pair rc1111] [est 20 min] (c) Forced repro ip-houseboat-leave-loop (residents home, then every townie on a houseboat leaves): judged on left_dirty 0, houseboat_leave {check}, houseboats moved none, 0 stuck; the shortcut count is reported (11 on 11-07), not a floor.",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesReport": "unseenboat,boatreplan_",
+          "minutes": 12,
+          "repro": "ip-houseboat-leave-loop"
+        }
+      },
+      "timeoutMin": 25,
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "logRequire": {
+        "^ts3native 0.36.247 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-12 19:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "releaseDefaults": true,
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "ini": {
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "HitchAttr.Enabled": 1,
+        "RouteAsync.LogFallbackMs": 20
+      },
+      "id": "ip-ubrel-verify-1113g",
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of release-verify-1110-r3 ip-ubrel-verify-r3 on pair rc1111] [est 25 min] (a) Natural IP, release config (both switches on): verify-shortcut.ts --name unseenboat, 5 tries, 20 min; FAIL on a stuck teleported Sim or left_dirty. hitch-fix-verify (hitchfix1) had 67 shortcuts in 20 min.",
+      "run": {
+        "script": [
+          "verify-shortcut.ts",
+          "--name",
+          "unseenboat",
+          "--on",
+          "unseenboat,unseenboatstart,boatreplanlog",
+          "--tries",
+          "5",
+          "--minutes",
+          "20"
+        ]
+      },
+      "timeoutMin": 35,
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "logRequire": {
+        "^ts3native 0.36.247 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-12 19:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e"
+    },
+    {
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "releaseDefaults": true,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1
+      },
+      "logRequire": {
+        "route async A10: .*WatchdogKind2=1": 1,
+        "watchdog idle verdict: Wogan Hemlock (A1|sync) False": 1,
+        "^ts3native 0.36.247 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "watchdogasync shadow mismatch:": 0
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "id": "bp-wdasync-stuck-repro-1113g",
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of wdasync-fix3-1110 bp-wdasync-stuck-repro-wdfix3 on pair rc1111] [est 18 min] [retry of wdasync-fix3-1110 bp-wdasync-stuck-repro-wdfix3, which FAILed in setup: \"no unroutable spot in 40 samples\"; repro bp-idle-unroutable sim_strand now samples tries 400 (repros.json); pass criteria unchanged] PASS rule (wdfix3): watchdog_idle_unroutable>=1 AND a \"watchdog idle verdict: Wogan Hemlock (A1|sync) False\" line (his own spot judged unroutable, not any Sim) (the no-True-verdict forbid was dropped 2026-11-13 as in release-verify-1111: True verdicts are normal at load and after the fix moves him); unseenfbteleport off for this job so \"unseenfb route goal\" cannot move him first. docs/250 §7.1 correctness (3): repro bp-idle-unroutable (Wogan Hemlock stranded on an unroutable diner spot, unseen, ultra speed) with watchdogasync + watchdogasyncshadow on: the watchdog must still catch him (watchdog_idle_unroutable >= 1, the repro's expect line). watchdogasync_* shows whether his check went through A1 (only when a job held +0x918 at that moment).",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "bp-idle-unroutable",
+          "fixesOn": "watchdogasync,watchdogasyncshadow,watchdoglockskip",
+          "fixesReport": "watchdogasync_,watchdog_,wd",
+          "fixesRequire": "watchdog_idle_unroutable>=1,watchdogasync_shadow_mismatch<1,watchdogasync_started>=1,wdLockSkip>=0",
+          "fixesOff": "unseenfbteleport"
+        }
+      },
+      "timeoutMin": 20,
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "regexCases": {
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "watchdogasync shadow mismatch:": {
+          "match": [
+            "watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+          ],
+          "noMatch": [
+            "watchdogasync shadow: checks 12, mismatches 0"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0",
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4"
+          ]
+        },
+        "watchdog idle verdict: Wogan Hemlock (A1|sync) False": {
+          "match": [
+            "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 False @307.55999755859375,1495.1800537109375 on Community Lot",
+            "ts3fixes: watchdog idle verdict: Wogan Hemlock sync False stale @307.56,1495.18 on Community Lot"
+          ],
+          "noMatch": [
+            "ts3fixes: watchdog idle verdict: Lenny Shutter A1 False @1335.48,1856.96 on Cliff Cottage - 1br, 2 ba",
+            "ts3fixes: watchdog idle verdict: Wogan Hemlock cache True @307.56,1495.18 on Community Lot",
+            "ts3fixes: watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+          ]
+        },
+        "^ts3native 0.36.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-12 19:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "nativeRequire": "arStartedPlanFromPoint>=1,wdJobN>=1,arWdPass>=0",
+      "scriptErrorsReport": [
+        "CarrySystem:PutDownOnSurface[\\s\\S]*ServingContainer\\+PutAwayLeftovers:Run"
+      ]
+    },
+    {
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "releaseDefaults": true,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1
+      },
+      "logRequire": {
+        "route async A10: .*WatchdogKind2=1": 1,
+        "^ts3native 0.36.247 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "watchdogasync shadow mismatch:": 0
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "id": "bp-wdasync-shadow-1113g",
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of wdasync-fix3-1110 bp-wdasync-shadow-wdfix3 on pair rc1111] [est 22 min] docs/250 §7.1 correctness (2): the same on BP (15 min, shadow on).",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "watchdogasync,watchdogasyncshadow,watchdoglockskip",
+          "fixesReport": "watchdogasync_,watchdog_,wd",
+          "fixesRequire": "watchdogasync_shadow_mismatch<1,watchdogasync_shadow_runs>=1,watchdogasync_started>=1,wdLockSkip>=0"
+        }
+      },
+      "timeoutMin": 27,
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "regexCases": {
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "watchdogasync shadow mismatch:": {
+          "match": [
+            "watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+          ],
+          "noMatch": [
+            "watchdogasync shadow: checks 12, mismatches 0"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0",
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4"
+          ]
+        },
+        "^ts3native 0.36.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-12 19:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "nativeRequire": "arStartedPlanFromPoint>=1,wdJobN>=1,arWdPass>=0",
+      "scriptErrorsReport": [
+        "CarrySystem:PutDownOnSurface[\\s\\S]*ServingContainer\\+PutAwayLeftovers:Run"
+      ]
+    },
+    {
+      "id": "ip-natural-combined-1113g",
+      "save": "Baseline-IP",
+      "noiseCheck": false,
+      "releaseDefaults": true,
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteAsync.LogFallbackMs": 20
+      },
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of wdasync-fix2-1110 ip-natural-combined-wdfix2 on pair rc1111] [est 38 min] Correctness, one Baseline-IP natural load replacing ip-ubrel-hbstart-verify (unseenboat-release), ip-wdasync-shadow (wdasync-verify) and ip-foreignscope-natural (foreignscope-verify); all three were Baseline-IP natural, release config. Pass = all of: (a) unseenboatstart ((c) Natural houseboat starts on Baseline-IP (15 tries in 28 min on 11-07): --soft-tries runs the full 30 min and reports the count; FAIL only on stuck teleported, left_dirty or a dead game.) verify-shortcut.ts --soft-tries 30 min; (b) watchdog A1 shadow (docs/250 §7.1 correctness (1): IP natural play 15 min, watchdogasync + watchdogasyncshadow on. Pass: fixesRequire (0 mismatches, shadow ran, A1 started), 0 new script errors, no crash; read watchdogasync_stale and watchdog_* (against the ABBA off arms), and grep the run log for \"watchdog .* -> watchdog reset\": no active-household or selectable Sim. Correctness, not timing (the shadow re-check waits on +0x918 like today).) rules kept: --require watchdogasync_shadow_mismatch<1, _shadow_runs>=1, _started>=1, logForbid \"watchdogasync shadow mismatch:\", 0 script errors; (c) foreign scope (Correctness, IP natural play 10 min, pair foreignscope-1109 (ts3native 0.36.222 + ts3fixes from bugfix/foreign-job-scope). Copy of correctness-1109 ip-foreign-natural-on-1 (ForeignKinds=4 Mode=1 KdA10ForeignMs=1000). Pass: A10 foreign long jobs of NPC-only boat riders now log scope unseen (logRequire), no household-or-seen or unknown scope cut (logForbid on the kind-deadline summary), no watchdog. Then read: grep \"A10 foreign START\" lines by scope (gangway / boat stacks should be unseen, the rest seen-npc or household-or-seen) and node tools/harness/kd-arm-cuts.ts <ts3native.log>.) rules kept: logRequire \"A10 foreign START.*scope unseen\" >= 1, logForbid unknown-scope cuts, nativeRequire kdScopeN>=1, watchdogs<=0. Why sharing is safe: the shadow re-checks each A1 verdict sync on the same Sim, so which routes run does not change its mismatch rule; foreign scope is a per-START label; unseenboat/unseenboatstart remove some boat replans, so (c) can see fewer boat riders: if (c) alone fails with scope unseen 0 while unseenboat_shortcuts is high, rerun ip-foreignscope-natural from foreignscope-verify.json (git history) on master1109c, not a fix FAIL. Config change vs the old foreign-scope job: release ini (Mono stack, AutShadow Unseen=1 on) instead of its pre-autunseen pins; ForeignKinds 4 / Mode 1 / KdA10ForeignMs 1000 and LogFallbackMs 20 kept (long-job lines carry the scope).",
+      "run": {
+        "script": [
+          "verify-shortcut.ts",
+          "--name",
+          "unseenboatstart",
+          "--on",
+          "unseenboat,unseenboatstart,boatreplanlog,watchdogasync,watchdogasyncshadow,watchdoglockskip",
+          "--tries",
+          "15",
+          "--minutes",
+          "30",
+          "--soft-tries",
+          "--require",
+          "watchdogasync_shadow_mismatch<1,watchdogasync_shadow_runs>=1,watchdogasync_started>=1"
+        ]
+      },
+      "logRequire": {
+        "A10 foreign START.*scope unseen": 1,
+        "route async A10: .*WatchdogKind2=1": 1,
+        "^ts3native 0.36.247 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "watchdogasync shadow mismatch:": 0,
+        "cuts by scope unknown [1-9]": 0,
+        "cuts by scope unknown \\d+ seen [1-9]": 0
+      },
+      "nativeRequire": "kdScopeN>=1,watchdogs<=0,arStartedPlanFromPoint>=1,wdJobN>=1,arWdPass>=1",
+      "timeoutMin": 45,
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "regexCases": {
+        "A10 foreign START.*scope unseen": {
+          "match": [
+            "route async: long job 249 ms, A10 foreign START, IC kind 3, route 25A37C23, arm -, scope unseen, at 342546203 ms"
+          ],
+          "noMatch": [
+            "route async: long job 249 ms, A10 foreign START, IC kind 3, route 25A37C23, arm -, scope household, at 342546203 ms"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "watchdogasync shadow mismatch:": {
+          "match": [
+            "watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+          ],
+          "noMatch": [
+            "watchdogasync shadow: checks 12, mismatches 0"
+          ]
+        },
+        "cuts by scope unknown [1-9]": {
+          "match": [
+            "cuts by scope unknown 2 seen 0 unseen 5 npc 0; npc ceiling 2000 ms cuts 0; camera recheck"
+          ],
+          "noMatch": [
+            "cuts by scope unknown 0 seen 0 unseen 0 npc 0; npc ceiling 2000 ms cuts 0; camera recheck"
+          ]
+        },
+        "cuts by scope unknown \\d+ seen [1-9]": {
+          "match": [
+            "cuts by scope unknown 0 seen 3 unseen 5 npc 0; npc ceiling 2000 ms cuts 0; camera recheck"
+          ],
+          "noMatch": [
+            "cuts by scope unknown 0 seen 0 unseen 0 npc 0; npc ceiling 2000 ms cuts 0; camera recheck"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0",
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4"
+          ]
+        },
+        "^ts3native 0.36.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-12 19:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e"
+    },
+    {
+      "id": "bp-lptrim-memtravel-x3-1113g",
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of lptrim-fix-1110 bp-lptrim-on-memtravel-x3 on pair rc1111] [est 30 min] Trim=1 arm (SettleSec 15, KeepCores 16), docs/541, Dalexlol PR #313. Baseline-BP, 3 trips to France and back with mem marks (7 world loads). Fix of bp-lptrim-memtravel-x3 (FAIL 11-09: the dwell in a world was 45-54 s on loads #3, #4, #6, shorter than SettleSec 60, and a world quit cancels the pending trim by design (lptrim.cpp:174), so only loads #1, #2, #5 trimmed, 3 < 4). SettleSec 15 fits every dwell (min 45 s; the last world lives about 25 s). Pass: travel PASS, a trim after at least 6 of the 7 world loads, no skip, no FAIL / crash, no new script errors. Gain evidence: big= (largest free block) and free= on each 'diag: mem ... load' line and the gc-after marks; compare with bp-lptrim-off-memtravel-x3 (same trips, Trim=0): node tools/mem-report.ts report --log <job ts3native.log>. Run with --no-smoke.",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1
+      },
+      "logRequire": {
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": 6,
+        "^diag: mem #\\d+ save-start ev=travel-save ": 3,
+        "^diag: mem #\\d+ mark ev=base ": 1,
+        "^diag: mem #\\d+ mark ev=away ": 3,
+        "^diag: mem #\\d+ mark ev=home ": 3,
+        "^diag: mem #\\d+ mark ev=gc-before ": 4,
+        "^diag: mem #\\d+ mark ev=gc-after ": 4,
+        "^diag: memsus #\\d+ mark ev=gc-after ": 4,
+        "^diag: memsus #\\d+ mark ev=away ": 3,
+        "^lptrim: on \\(docs/541\\)": 1,
+        "^lptrim: #\\d+ world load #\\d+ ": 6,
+        "^ts3native 0.36.247 ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0,
+        "^lptrim: skipped": 0
+      },
+      "run": {
+        "script": [
+          "save-matrix.ts",
+          "--travel",
+          "--cases",
+          "travel",
+          "--to",
+          "france",
+          "--trips",
+          "3",
+          "--mem-marks"
+        ]
+      },
+      "timeoutMin": 60,
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "regexCases": {
+        "^diag: mem #\\d+ load ev=(travel,)?world-switch ": {
+          "match": [
+            "diag: mem #9 load ev=travel,world-switch priv=1651 wPriv=1599 wCom=2252 free=1566 big=1501? img=431? map=246 t=162",
+            "diag: mem #3 load ev=world-switch priv=1651 wPriv=1599 t=90"
+          ],
+          "noMatch": [
+            "diag: mem #1 load priv=1594 wPriv=1543 wCom=2167 free=1613 big=1509? img=428? map=220 stkRes=100 t=231"
+          ]
+        },
+        "^diag: mem #\\d+ save-start ev=travel-save ": {
+          "match": [
+            "diag: mem #3 save-start ev=travel-save va 2900 MB"
+          ],
+          "noMatch": [
+            "diag: mem #3 save-end ev=travel-save va 2900 MB"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=base ": {
+          "match": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ],
+          "noMatch": [
+            "diag: mem #1 load priv=1594 wPriv=1543 wCom=2167 free=1613 big=1509? img=428? map=220 stkRes=100 t=231"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=away ": {
+          "match": [
+            "diag: mem #10 mark ev=away priv=1670 wPriv=1618 wCom=2223 free=1612 big=1501? t=178"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=home ": {
+          "match": [
+            "diag: mem #16 mark ev=home priv=1690 wPriv=1638 wCom=2287 free=1563 big=1497? t=262"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=gc-before ": {
+          "match": [
+            "diag: mem #4 mark ev=gc-before priv=1777 wPriv=1702 wCom=2340 free=1500 big=1374? t=357"
+          ],
+          "noMatch": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ]
+        },
+        "^diag: mem #\\d+ mark ev=gc-after ": {
+          "match": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ],
+          "noMatch": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ]
+        },
+        "^diag: memsus #\\d+ mark ev=gc-after ": {
+          "match": [
+            "diag: memsus #5 mark ev=gc-after cc=176? ccIcon=4? ppc=2? gcCnt=471 rdMs=0.56 lag=47 t=358"
+          ],
+          "noMatch": [
+            "diag: mem #5 mark ev=gc-after priv=1776 wPriv=1702 wCom=2339 free=1501 big=1374? t=358"
+          ]
+        },
+        "^diag: memsus #\\d+ mark ev=away ": {
+          "match": [
+            "diag: memsus #10 mark ev=away cc=76? ccIcon=0? ppc=2? gcCnt=390 rdMs=0.35 lag=31 t=178"
+          ],
+          "noMatch": [
+            "diag: mem #10 mark ev=away priv=1670 wPriv=1618 wCom=2223 free=1612 big=1501? t=178"
+          ]
+        },
+        "^lptrim: on \\(docs/541\\)": {
+          "match": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
+          ],
+          "noMatch": [
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22, slots 34185 free 34103 (99.8%), completely free 259: freed 243 (8.20 MiB), kept 16; locked 4.85 ms"
+          ]
+        },
+        "^lptrim: #\\d+ world load #\\d+ ": {
+          "match": [
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22, slots 34185 free 34103 (99.8%), completely free 259: freed 243 (8.20 MiB), kept 16; locked 4.85 ms",
+            "lptrim: #3 world load #5 world=Bridgeport.world cores 367 -> 60, slots 47343 free 46974 (99.2%), completely free 323: freed 307 (10.36 MiB), kept 16; locked 10.90 ms"
+          ],
+          "noMatch": [
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores",
+            "diag: mem #9 load ev=travel,world-switch priv=1672 wPriv=1626 wCom=2136 free=1702 big=1606? img=397? map=145 stkRes=99.5 stkCom=10.7?"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "^diag: mem(sus)? .*=[-\\d.]+! ": {
+          "match": [
+            "diag: mem #4 mark ev=build-before priv=1749 wPriv=1686 wCom=2231 free=1590 big=1467? img=463? map=106! stkRes=112 t=142"
+          ],
+          "noMatch": [
+            "diag: mem #4 mark ev=base priv=1702 wPriv=1650 wCom=2215 free=1617 big=1430? img=428? map=161 stkRes=100 stkCom=10.4? miRes=64.0 miCom=5.9 t=121"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.236 2026-11-10 01:30:00",
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "^lptrim: skipped": {
+          "match": [
+            "lptrim: skipped (world load #2), pool not read world=-: core list unreadable; nothing changed"
+          ],
+          "noMatch": [
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22, slots 34185 free 34103 (99.8%), completely free 259: freed 243 (8.20 MiB), kept 16; locked 4.85 ms"
+          ]
+        },
+        "^ts3native 0.36.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-12 19:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e"
+    },
+    {
+      "id": "bookcarry-crowd-check-1113g",
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of release-verify-1110 bookcarry-crowd-check on pair rc1111] [est 20 min] Rerun of sf1108-book-carry-check (FAIL x3 at game hour 3: Tiara's queued read never ran) with the crowd form of repro book-carry-check (docs/515 §3): per arm up to 20 non-household Sims read at bookshelves on their own home lots (max 2 per shelf), all reads cancelled once one holds the book. Pass: the repro's crowd expect steps pass (off: >=1 crowd drop left with its driver held; on: every drop ended, driver released), bookcarry_ended>=1, 0 new script errors, no crash; report N of M Sims dropped from the expect lines. Correctness only, no timing.",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-carry-check",
+          "fixesRequire": "bookcarry_ended>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "logRequire": {
+        "^ts3native 0.36.247 ": 1,
+        "^ts3fixes: settings on: (.*, )?kBookHand(, |$)": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-12 19:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
+          ]
+        },
+        "^ts3fixes: settings on: (.*, )?kBookHand(, |$)": {
+          "match": [
+            "ts3fixes: settings on: kMetricSkillMissing, kFireworksFizzle, kBookHand, kPetPoolOrphan",
+            "ts3fixes: settings on: kDatingProfile, kBookHand"
+          ],
+          "noMatch": [
+            "ts3fixes: settings on: kFireworksFizzle, kBookHandDiag, kPetPoolOrphan",
+            "ts3fixes: settings on: kBookCarry, kAgeUpAbort",
+            "ts3fixes: test switches (override the settings): bookhand=on"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-outfitwait-dead-1113g",
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of release-verify-1110-r2 bp-outfitwait-dead-r2 on pair rc1111] [est 15 min] #40: a stale outfit wait whose Sim is destroyed ends (ResetException) and frees the task. Pass: repro outfit-wait-dead-check passes, log line 'outfit wait ended: its Sim is destroyed', 0 script errors. Own load: the repro destroys a non-household Sim, nothing shares it. Version line now required (old pin 0.36.219).",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "UserDiag.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0.36.247 ": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "outfit-wait-dead-check"
+        }
+      },
+      "timeoutMin": 20,
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "regexCases": {
+        "^ts3native 0.36.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-12 19:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e"
+    },
+    {
+      "id": "bp-dfguard-release-1113g",
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of release-verify-1110-r6 bp-dfguard-release-r6 on pair rc1111] [est 30 min] ~15 min: release ini, dancefloorlistguard on (fixesOn read-back), dancefloorlistdiag on through the repro. Pass (correctness): repro steps pass, dancefloorguard_calls >= 3, >= 3 \"dancefloor list: call #\" lines, 0 new script errors: a DanceFloor \"Collection was modified\" script error now FAILs (no scriptErrorsReport exemption). Findings for docs/253 §6, not failures: dancefloorguard_changes, dancefloordiag_throws / _mismatch / _freed and every \"dancefloor list: GUARD|THROW|MISMATCH\" line. Runs after bp-dancediag-stress, last of the forced repros, so the dancediag repro follow-up (bugfix/dancediag-stall) can land first.",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "pinReason": "[re-pinned 2026-11-12 to release pair rc1111g: asi game-copy/ts3native.asi.rc1111g (0.36.247, sha256 432ab1b2 = rc1111f 0.36.241 + races R2c) + ini game-copy/ts3native.ini.rc1111g (91b007e7 = rc1111f ini + [AutShadow] Races=4, DrainMs=250) + ts3fixes game-copy/ts3fixes.package.rc1111e] pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111g (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111g (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f, tuning 0373884c = rc1111c with ONLY kBookHand True: same Ts3Fixes.dll bytes, source 454cfb69; re-pinned 2026-11-12 from rc1111c 2187507e, Rodney: bookhand ON for Sat 11-14) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3fixes: dancefloor list: call #\\d+ ": 3,
+        "^ts3native 0.36.247 ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: dancefloor list: diag off": 0,
+        "^FAIL\\b": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "dance-together-floor",
+          "fixesOn": "dancefloorlistguard",
+          "fixesRequire": "dancefloorguard_calls>=3"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 45,
+      "earlyGates": [
+        {
+          "afterSec": 600,
+          "counter": "fixes:dancefloorguard_calls",
+          "op": ">=",
+          "value": 1,
+          "why": "no guarded FindAndRouteOntoADanceFloorWithFollower call 10 min in: the pair never reached the lot, DanceTogetherA was refused, or the hook / switch is not in"
+        }
+      ],
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "regexCases": {
+        "^ts3fixes: dancefloor list: call #\\d+ ": {
+          "match": [
+            "ts3fixes: dancefloor list: call #4 floors 0 ver 1 steps 0 result null gc 297->297 0 ms actor Alexy Fresco (household no) follower Matilda Smart (household no) lot Banzai Lounge object StereoCommunity",
+            "ts3fixes: dancefloor list: call #3 floors 1 ver 2 steps 1 result floor DanceFloor3x3#D20F50 gc 296->298 2469 ms actor Matty Crewe (household no) follower William Fangmann (household no) lot Waylon's Haunt object StereoCommunity"
+          ],
+          "noMatch": [
+            "ts3fixes: dancefloor list: diag off, EA member missing (near True, route False, enumerator fields True)",
+            "ts3fixes: play: ui tasks 0 -> 1 by OneShotFunctionTask..ctor < ToMainMenuState.OnEnterNotInWorld < EventHandler.Invoke < World.OnEnterNotInWorld"
+          ]
+        },
+        "^ts3fixes: dancefloor list: diag off": {
+          "match": [
+            "ts3fixes: dancefloor list: diag off, EA member missing (near True, route False, enumerator fields True)"
+          ],
+          "noMatch": [
+            "ts3fixes: dancefloor list: call #4 floors 0 ver 1 steps 0 result null gc 297->297 0 ms actor Alexy Fresco (household no) follower Matilda Smart (household no) lot Banzai Lounge object StereoCommunity",
+            "ts3fixes: dancefloor list: call #3 floors 1 ver 2 steps 1 result floor DanceFloor3x3#D20F50 gc 296->298 2469 ms actor Matty Crewe (household no) follower William Fangmann (household no) lot Waylon's Haunt object StereoCommunity"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "cas trim: write trap selftest ok; lines in C:\\Users\\<user>\\AppData\\Local\\Temp\\ts3native-castrim-trap-selftest.log"
+          ],
+          "noMatch": [
+            "ts3native 0.36.237 2026-11-09 21:00:00",
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
+          ]
+        },
+        "^ts3native 0.36.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-12 19:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.241 2026-11-12 18:30:00",
+            "ts3native 0.36.2470 2026-11-12 19:30:00"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,12 +1,12 @@
 {
-  "note": "jit-region (docs/537 §20.6 R1, prepared 2026-11-12, NOT RUN): [MonoJit] CodeKB smoke on the r1e1-1112 pair, the c3g bundle-on switch set (Mode=2 verify, Direct=1 DirectLeaf=0 Inline=2 Wide=1 VtOps CallExit NewVt FastCopy Ldsflda), Count=0, BP 5 min each (smoke length: it checks that the region size reads back and the refusal log works, not timing). Order: bp-jit-region-4096 (stops the queue on FAIL), then bp-jit-region-2048 (the old size, for the contrast). Pass per job: no crash, 0 'jit verify MISMATCH', scriptErrorsMax 0, >= 1 'jit: compiled', the OK line reading 'code region <KB> KB (CodeKB)', the first-tick line 'jit: refusals by reason (first tick)', jitRegionKB = CodeKB, jitMismatch 0, jitFaults 0. Read (not gates): jitCodeKB, jitMethods, jitFullN, jitFullBytes from -native.json and the 'refusals by reason' lines; 4096 should end with jitFullN 0 and jitCodeKB < 4096, 2048 with jitFullN > 0 and jitCodeKB >= 2033 (I-475-1). Then rerun the C0 count arms of jit-exits.json on this pair with CodeKB=4096 to see jitMethods differ by world. Before running: park native/ts3native/out/ts3native.asi of this branch as game-copy/ts3native.asi.r1e1-1112 (builds.json row). Run: node tools/harness/queue.ts tools/harness/queues/jit-region.json --no-smoke",
+  "note": "[repinned 2026-11-13 to master1112b (ts3native 0.36.248, sha256 1017eee08f92); r1e1-1112 was never parked] jit-region (docs/537 §20.6 R1, prepared 2026-11-12, NOT RUN): [MonoJit] CodeKB smoke on the r1e1-1112 pair, the c3g bundle-on switch set (Mode=2 verify, Direct=1 DirectLeaf=0 Inline=2 Wide=1 VtOps CallExit NewVt FastCopy Ldsflda), Count=0, BP 5 min each (smoke length: it checks that the region size reads back and the refusal log works, not timing). Order: bp-jit-region-4096 (stops the queue on FAIL), then bp-jit-region-2048 (the old size, for the contrast). Pass per job: no crash, 0 'jit verify MISMATCH', scriptErrorsMax 0, >= 1 'jit: compiled', the OK line reading 'code region <KB> KB (CodeKB)', the first-tick line 'jit: refusals by reason (first tick)', jitRegionKB = CodeKB, jitMismatch 0, jitFaults 0. Read (not gates): jitCodeKB, jitMethods, jitFullN, jitFullBytes from -native.json and the 'refusals by reason' lines; 4096 should end with jitFullN 0 and jitCodeKB < 4096, 2048 with jitFullN > 0 and jitCodeKB >= 2033 (I-475-1). Then rerun the C0 count arms of jit-exits.json on this pair with CodeKB=4096 to see jitMethods differ by world. Before running: park native/ts3native/out/ts3native.asi of this branch as game-copy/ts3native.asi.r1e1-1112 (builds.json row). Run: node tools/harness/queue.ts tools/harness/queues/jit-region.json --no-smoke 2026-11-13: jitRegionKB dropped from nativeRequire (after-before delta of a startup value is 0; the OK line + -native.json after carry it) and stuckcheckasync dropped from fixesOn (release tuning keeps it on; the 3 AM self check is a false positive in 5-min jobs with easpreadlots, master1112b-verify bp-m1112b-jit triage). 2026-11-13: 5 -> 10 min per job: with Mode=2 verify a 5-min BP job covers ~936 sim min (03:00 at 907), so the overwatchchain 3 AM self check (release tuning) voids it (bp-m1112b-jit rerun).",
   "jobs": [
     {
       "id": "bp-jit-region-4096",
       "note": "BP 5 min, c3g bundle on, CodeKB=4096 (the new default). Stops the queue on FAIL. Pass: see the queue note.",
-      "asi": "game-copy/ts3native.asi.r1e1-1112",
+      "asi": "game-copy/ts3native.asi.master1112b",
       "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
-      "pinReason": "r1e1-1112 pair: feature/monojit-r1-c2c-e1, ts3native 0.36.245 (master 0.36.240 + docs/537 §20 R1 CodeKB / refusal log, C2c list without binder rows, E1 [Binder] TypeHandleDirect off by default; counters v188, version field 912), parked from native/ts3native/out; ts3fixes = the Sat 11-14 release package rc1111e (no ts3fixes change on this branch)",
+      "pinReason": "master1112b pair (repinned 2026-11-13 from r1e1-1112, which was never parked): asi game-copy/ts3native.asi.master1112b = ts3native 0.36.248, sha256 1017eee08f92, master 7b4dcb66 (everything merged 2026-11-12), registered in docs/data/builds.json; fixesPackage stays ts3fixes.package.rc1111e (the Sat 11-14 release package; no ts3fixes change in the R1/E1 work) so the arms differ from the release only in ts3native",
       "minCounters": 912,
       "gameArgs": [
         "-disablestoryprogression"
@@ -18,7 +18,8 @@
       "logRequire": {
         "^jit: compiled ": 1,
         "OK   mono jit .*code region 4096 KB \\(CodeKB\\)": 1,
-        "^jit: refusals by reason \\(first tick\\)": 1
+        "^jit: refusals by reason \\(first tick\\)": 1,
+        "^ts3native 0\\.36\\.248 ": 1
       },
       "scriptErrorsMax": 0,
       "ini": {
@@ -54,20 +55,65 @@
       "run": {
         "profile": {
           "seed": 12345,
-          "minutes": 5,
-          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,errortrapspread"
         }
       },
-      "timeoutMin": 20,
-      "nativeRequire": "jitRegionKB>=4096,jitMismatch<=0,jitFaults<=0",
-      "stopQueueOnFail": true
+      "timeoutMin": 25,
+      "nativeRequire": "@jitRegionKB>=4096,jitMismatch<=0,jitFaults<=0",
+      "stopQueueOnFail": true,
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled Sims3.Gameplay.Autonomy.AutonomySearch:Run: 120 positions, 98 native, 4 exits, 2048 bytes"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): no template 12",
+            "prior log: jit: compiled X: 1 positions"
+          ]
+        },
+        "OK   mono jit .*code region 4096 KB \\(CodeKB\\)": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 40 templates (Groups=3), 12 list rows, VerifyEvery=1, code region 4096 KB (CodeKB), Direct=1 (docs/537), Trap=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 40 templates (Groups=3), 12 list rows, VerifyEvery=1, code region 2048 KB (CodeKB), Direct=1 (docs/537), Trap=0"
+          ]
+        },
+        "^jit: refusals by reason \\(first tick\\)": {
+          "match": [
+            "jit: refusals by reason (first tick): code region full 0, no template 12"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (world load): no template 12"
+          ]
+        },
+        "^ts3native 0\\.36\\.248 ": {
+          "match": [
+            "ts3native 0.36.248 2026-11-13 21:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.245 2026-11-12 10:00:00",
+            "prior log: ts3native 0.36.248 2026-11-12 12:00:00",
+            "ts3native 0.36.2480 2026-11-13 21:00:00"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH Sims3.Gameplay.Actors.Sim:get_IsSelectable: eax at +12 (exit)"
+          ],
+          "noMatch": [
+            "jit verify ok: 40 methods"
+          ]
+        }
+      }
     },
     {
       "id": "bp-jit-region-2048",
       "note": "BP 5 min, c3g bundle on, CodeKB=2048 (the old fixed size). Pass: see the queue note.",
-      "asi": "game-copy/ts3native.asi.r1e1-1112",
+      "asi": "game-copy/ts3native.asi.master1112b",
       "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
-      "pinReason": "r1e1-1112 pair: feature/monojit-r1-c2c-e1, ts3native 0.36.245 (master 0.36.240 + docs/537 §20 R1 CodeKB / refusal log, C2c list without binder rows, E1 [Binder] TypeHandleDirect off by default; counters v188, version field 912), parked from native/ts3native/out; ts3fixes = the Sat 11-14 release package rc1111e (no ts3fixes change on this branch)",
+      "pinReason": "master1112b pair (repinned 2026-11-13 from r1e1-1112, which was never parked): asi game-copy/ts3native.asi.master1112b = ts3native 0.36.248, sha256 1017eee08f92, master 7b4dcb66 (everything merged 2026-11-12), registered in docs/data/builds.json; fixesPackage stays ts3fixes.package.rc1111e (the Sat 11-14 release package; no ts3fixes change in the R1/E1 work) so the arms differ from the release only in ts3native",
       "minCounters": 912,
       "gameArgs": [
         "-disablestoryprogression"
@@ -79,7 +125,8 @@
       "logRequire": {
         "^jit: compiled ": 1,
         "OK   mono jit .*code region 2048 KB \\(CodeKB\\)": 1,
-        "^jit: refusals by reason \\(first tick\\)": 1
+        "^jit: refusals by reason \\(first tick\\)": 1,
+        "^ts3native 0\\.36\\.248 ": 1
       },
       "scriptErrorsMax": 0,
       "ini": {
@@ -115,12 +162,57 @@
       "run": {
         "profile": {
           "seed": 12345,
-          "minutes": 5,
-          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,errortrapspread"
         }
       },
-      "timeoutMin": 20,
-      "nativeRequire": "jitRegionKB>=2048,jitMismatch<=0,jitFaults<=0"
+      "timeoutMin": 25,
+      "nativeRequire": "@jitRegionKB==2048,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled Sims3.Gameplay.Autonomy.AutonomySearch:Run: 120 positions, 98 native, 4 exits, 2048 bytes"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): no template 12",
+            "prior log: jit: compiled X: 1 positions"
+          ]
+        },
+        "OK   mono jit .*code region 2048 KB \\(CodeKB\\)": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 40 templates (Groups=3), 12 list rows, VerifyEvery=1, code region 2048 KB (CodeKB), Direct=1 (docs/537), Trap=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 40 templates (Groups=3), 12 list rows, VerifyEvery=1, code region 4096 KB (CodeKB), Direct=1 (docs/537), Trap=0"
+          ]
+        },
+        "^jit: refusals by reason \\(first tick\\)": {
+          "match": [
+            "jit: refusals by reason (first tick): code region full 0, no template 12"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (world load): no template 12"
+          ]
+        },
+        "^ts3native 0\\.36\\.248 ": {
+          "match": [
+            "ts3native 0.36.248 2026-11-13 21:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.245 2026-11-12 10:00:00",
+            "prior log: ts3native 0.36.248 2026-11-12 12:00:00",
+            "ts3native 0.36.2480 2026-11-13 21:00:00"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH Sims3.Gameplay.Actors.Sim:get_IsSelectable: eax at +12 (exit)"
+          ],
+          "noMatch": [
+            "jit verify ok: 40 methods"
+          ]
+        }
+      }
     }
   ]
 }

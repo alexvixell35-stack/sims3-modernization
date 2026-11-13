@@ -16,6 +16,14 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 - **Unseen townies wait instead of planning while another route search holds the lock (`[GoalValidRO] UnseenDefer=1`, off).** Only for Sims you don't play and can't see; your household, the selected Sim and any Sim of unknown scope always plan as normal. After `UnseenDeferMaxMs` (2 s) the plan runs as in the base game.
 - **Route hitch diagnostics (counters and log lines only, `[RouteAsync] FbApplyLog=1` for the per-lot log).** Times the game's pending lot updates before a route, counts refused replans by reason and the waits for the route worker by site.
 - **Boat diagnostics in ts3fixes (`boatgetoutdiag`, off; boat "no refusal" split, report only) and the household houseboat answer for the background lot check (`autofflot`, off).**
+- **Boat get-out script error guard (`boatgetoutguard`, ts3fixes, off).** A Sim you do not play that something resets while it fades out of a boat no longer hits a script error in `Boat.GetOutIntoWater`; it is reset instead, as the game itself does. Your household keeps the game's behaviour.
+
+### Switched on in plugin 0.36.253 (built, not in v0.2.12)
+
+- **Isla Paradiso no longer freezes on a broken bridge height (EA bug, `[EaCrashFixes]` `HeightsInfLoop` and `BridgeHeightNaN`, on; by Dalexlol, PR #394, #384).** One bridge in Isla Paradiso (seen with a community world file that adds it) reports a height that is not a number. The game kept it, a route over it got an endless path segment, and the game froze, sometimes during the world load. The terrain height is used there now; normal bridge heights are unchanged.
+- **Fewer long routing freezes on busy worlds (`[RouteAsync]` `JobYield` with `kJobYield`, on; by Dalexlol, PR #397).** A route plan that would wait for a background route search now lets the game run on for a few ticks instead of freezing it. Isla Paradiso: hitches of 300 ms or more about halved (0.53x), 1 s or more 0.41x; Bridgeport and Sunset Valley no worse. Routes of your own Sims give the same result.
+- **Background route searches for Sims you can't see always stay time-limited (`[RouteAsync]` `KdUnseenForeignCap`, on; by Dalexlol, PR #378).** A townie retrying a spot it cannot reach could make the background search run uncut again and again, holding up the game for up to 21 s on Isla Paradiso. Those searches keep a time limit now (27 such freezes in a repeat run went to 0). Sims you play or see are not affected.
+- **Sims 3 Settings Setter 1.6.3 camera fix also on for a second copy of 1.6.3 (`[S3SSCompat]`; by Dalexlol, PR #398).** A 1.6.3 file that differs from the release download only in its timestamps is now recognised, so the stale camera-write guard installs there too.
 
 ## v0.2.12 (2026-11-13)
 

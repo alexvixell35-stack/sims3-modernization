@@ -1,7 +1,7 @@
 using System;
 using Ts3Fixes;
 
-// Offline self-check of BgoTable (boatgetoutdiag, docs/257 §7).
+// Offline self-check of BgoTable (boatgetoutdiag, docs/257 §7) and the boatgetoutguard decision (§9).
 static class BoatGetOutDiagTest
 {
     static int sFails;
@@ -37,6 +37,16 @@ static class BoatGetOutDiagTest
 
         for (int i = 0; i < BgoTable.kMax; i++) Check(t.Push(new object(), sit, 1) >= 0, "fill " + i);
         Check(t.Push(sim, sit, 1) == -1 && t.Overflow == 1 && t.N == BgoTable.kMax, "full: -1, overflow counted, N unchanged");
+        // boatgetoutguard decision (docs/257 §9): only a stale NPC is swallowed
+        Check(BgoTable.GuardDecide(false, true, true) == BgoTable.kGuardRethrow, "guard off / Sim not in this boat at entry: EA's error");
+        Check(BgoTable.GuardDecide(true, false, true) == BgoTable.kGuardRethrow, "posture still the entry SittingInBoat: another NRE, EA's error");
+        Check(BgoTable.GuardDecide(true, true, true) == BgoTable.kGuardSwallow, "stale NPC: swallowed");
+        Check(BgoTable.GuardDecide(true, true, false) == BgoTable.kGuardHousehold, "stale household / selected / unknown scope: kept");
+        Check(BgoTable.GuardDecide(false, false, false) == BgoTable.kGuardRethrow, "household, not stale: EA's error");
+        // the log lines (run.ts tests the queue regexes against these)
+        Console.WriteLine("LINE " + BgoTable.GuardLine("Mylee Arias", 0x1a2bUL, "StandingPosture", true));
+        Console.WriteLine("LINE " + BgoTable.GuardLine("Lala Dregg", 0x3cUL, "StandingPosture", false));
+        Check(BgoTable.GuardLine("A B", 0xffUL, "null", true).StartsWith("boatgetout guard: A B 0xff npc SittingInBoat->null after the fade"), "npc line format");
         Console.WriteLine(sFails == 0 ? "boatgetoutdiag selftest: ok" : "boatgetoutdiag selftest: " + sFails + " FAIL");
         if (sFails != 0) Environment.Exit(1);
     }

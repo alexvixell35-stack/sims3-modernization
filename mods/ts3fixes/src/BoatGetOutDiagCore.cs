@@ -53,5 +53,21 @@ namespace Ts3Fixes
             if (n > 1) return kNested;
             return Task[at] == task ? kOwnEnd : kForeign;
         }
+
+        // boatgetoutguard (BoatGetOutDiag.cs, docs/257 §9): what to do with a NullReferenceException out of Boat.GetOut.
+        // watched = the Sim sat in this boat at entry (the guard is on); stale = its posture is no longer that SittingInBoat;
+        // npc = a known non-household Sim. Only a stale NPC is swallowed; household, selected and unknown scope keep EA's error.
+        public const int kGuardRethrow = 0, kGuardSwallow = 1, kGuardHousehold = 2;
+        public static int GuardDecide(bool watched, bool stale, bool npc)
+        {
+            if (!watched || !stale) return kGuardRethrow;
+            return npc ? kGuardSwallow : kGuardHousehold;
+        }
+
+        public static string GuardLine(string sim, ulong id, string now, bool npc)
+        {
+            return "boatgetout guard: " + sim + " 0x" + id.ToString("x") + (npc ? " npc" : " household") + " SittingInBoat->" + now
+                + (npc ? " after the fade: NRE swallowed, Sim reset (EA reset end state)" : " after the fade: EA error kept (household rule)");
+        }
     }
 }
