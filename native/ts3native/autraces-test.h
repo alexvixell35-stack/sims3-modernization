@@ -90,7 +90,7 @@ static DWORD WINAPI ArTestLeave(void* ms) {
     return 0;
 }
 static void TestAutRacesR2c() {
-    static_assert(offsetof(Ts3nCounters, r2cOn) == 0x5FD0 && offsetof(Ts3nCounters, r2cReopens) == 0x6004 && sizeof(Ts3nCounters) == 0x6258,
+    static_assert(offsetof(Ts3nCounters, r2cOn) == 0x5FD0 && offsetof(Ts3nCounters, r2cReopens) == 0x6004 && sizeof(Ts3nCounters) == 0x62A8,
                   "counters v187 layout (docs/registry.md)");
     static Ts3nCounters save;
     save = ts3native_counters;

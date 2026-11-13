@@ -81,7 +81,7 @@ static void WaRunStub(const u8* r, DWORD chunk, DWORD wp, const u8* rec, const W
 static void TestWorldAStarRefs() {
     static_assert(offsetof(Ts3nCounters, mdOn) == 0x5520 && offsetof(Ts3nCounters, waOn) == 0x5570 &&
                       offsetof(Ts3nCounters, waSkip) == 0x5574 && offsetof(Ts3nCounters, pfSkip) == 0x5584 &&
-                      sizeof(Ts3nCounters) == 6294 * 4,
+                      sizeof(Ts3nCounters) == 6314 * 4,
                   "counters v146 layout after v145 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
 

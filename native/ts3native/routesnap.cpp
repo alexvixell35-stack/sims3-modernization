@@ -452,6 +452,7 @@ static void SnObjRegister() {
 }
 
 static void AsWorldEvent(DWORD id);  // autshadow.cpp ([AutShadow] change tracking, a consumer only)
+static void C2WorldEvent(DWORD id);  // c2diag.cpp ([Crash2Diag] world phase, docs/259 §9)
 static void AsEpochBump();
 static void SpNote(int i, const DWORD* slot);  // snap.cpp (P3 dirty marks)
 static void SpIcNote(int i);
@@ -588,6 +589,7 @@ static void __cdecl SnEnter(int i, DWORD* slot) {
         InterlockedIncrement(&k.snWev[id < 95 ? id : 95]);
         if (cls != 0) { InterlockedIncrement(&k.snWevOffSim); return; }
         AsWorldEvent(id);
+        C2WorldEvent(id);
         if (id == 7) { SnSeqNote(&k.snSeqEv7, "world event 7", s.at, tid); SnObjRegister(); }
         SnPush(t, slot, SRC_WEV, id < 255 ? id : 255);
         return;

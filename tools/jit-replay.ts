@@ -8,7 +8,7 @@
 //   node tools/jit-replay.ts --run <replay file> [--list <names>] [--mode on|verify] [--lazy]   run monohost, report
 //   node tools/jit-replay.ts --capture-corpus <out.jitcap> [--lazy] [--inline 1|2]   the game's capture code on the host: the corpus under capture,
 //       for a round trip without the game; --lazy / --inline also sample lazy bodies and inlined sites (docs/537 §19)
-//   --run also takes --switches VtOps=1,CallExit=0,NewVt=1 (Wide, Lazy, Inline=<0|1|2>, FastCopy, Ldsflda, ClauseLazy, DirectLeaf too): sets those host env switches for the run
+//   --run also takes --switches VtOps=1,CallExit=0,NewVt=1 (Wide, Lazy, Inline=<0|1|2>, FastCopy, Ldsflda, ClauseLazy, DirectLeaf, Bind, BoundCall=<mask> too): sets those host env switches for the run
 //       (MONOHOST_JITVTOPS ...), the rest comes from the environment; the set is printed in the summary line
 //   node tools/jit-replay.ts --run <replay> --switches <set> --bisect   rerun halves of the ON switches until the failing one is named
 //       (fail = differ, faulted, STOPPED or per-call MISMATCH); two halves that pass alone but fail together are reported as a joint set
@@ -281,7 +281,7 @@ function printReport(r: ReturnType<typeof report>) {
 }
 
 // ---- --switches / --bisect / --coverage ----
-const SWITCH_ENV: Record<string, string> = { VtOps: 'MONOHOST_JITVTOPS', CallExit: 'MONOHOST_JITCALLEXIT', NewVt: 'MONOHOST_JITNEWVT', Wide: 'MONOHOST_JITWIDE', Lazy: 'MONOHOST_JITLAZY', Inline: 'MONOHOST_JITINLINE', FastCopy: 'MONOHOST_JITFASTCOPY', Ldsflda: 'MONOHOST_JITLDSFLDA', ClauseLazy: 'MONOHOST_JITCLAUSELAZY', DirectLeaf: 'MONOHOST_JITDIRECTLEAF' };
+const SWITCH_ENV: Record<string, string> = { VtOps: 'MONOHOST_JITVTOPS', CallExit: 'MONOHOST_JITCALLEXIT', NewVt: 'MONOHOST_JITNEWVT', Wide: 'MONOHOST_JITWIDE', Lazy: 'MONOHOST_JITLAZY', Inline: 'MONOHOST_JITINLINE', FastCopy: 'MONOHOST_JITFASTCOPY', Ldsflda: 'MONOHOST_JITLDSFLDA', ClauseLazy: 'MONOHOST_JITCLAUSELAZY', DirectLeaf: 'MONOHOST_JITDIRECTLEAF', Bind: 'MONOHOST_JITBIND', BoundCall: 'MONOHOST_JITBOUNDCALL' };
 export type Switches = [string, string][];  // name, value
 export function parseSwitches(t: string): Switches {
   return t.split(',').filter(x => x.trim()).map(x => {

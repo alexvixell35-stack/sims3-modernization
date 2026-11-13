@@ -557,3 +557,91 @@ A first build behind `[MonoJit] StrKeys` (default 0) did three things: the two `
 - **A2 (why callees materialize frames so often, per method)**: the game count has no per-callee mat column; the host shows the comparer callees materializing only at depth-slot bails. A per-callee count needs a count build that names the callee class per guard bail. The same build would confirm I-476-1 (callee + native-body flag per bail) and name the `GetPrev` comparer. One game count run, no timing.
 
 Truncation (§20.0) affects this ranking as follows. Ranks 2-11 come from bodies that did compile, so they are counted. A hot caller past the 841-body cap is missing entirely. Once the region is sized (R1), the census has to be read again before the next call-exit piece.
+
+## 22. BoundCall: call EA's native String bodies from compiled code (2026-11-13, branch `feature/monojit-boundcall`, ts3native 0.36.250, ledger §484; built + host gates, NOT RUN in game)
+
+§21.2 left 74% of the "no lazy body" bails (20.9 M of 28.27 M per BP run) at the string comparer's two guarded sites, whose targets are EA native bodies. `[MonoJit] BoundCall=1` (default 0) lets such a site call the bound body itself, the way EA's interpreter does, and run on compiled instead of exiting. Code: `native/ts3native/monojit-bound.h` (shared with monohost), `monojit.cpp` (`JitGuardFill`, `EmitLazyCall`, `ApplyMonoJit`).
+
+### 22.1 EA's path for a bound body [verified: disassembly, Steam 1.67]
+
+- `ves_exec` call path `0xE56287`-`0xE563ED`: push a frame record, depth + 1, fill the callee's MonoInvocation (+0 parent = the current one `[ebp-8]`, +4 RuntimeMethod, +8 return slot = the caller's eval top, +0xC `this`, +0x14 args = top - 8 x params, +0x1C ip / +0x20 exception / +0x24 clause = 0), ThreadContext+8 = the new frame, transform if needed, arena bump; then `cmp [rm+0x24], 0; jne 0xE5925F`.
+- `0xE5925F` calls `0xE525C0(frame, ctx)`. A set `[frame+0x20]` takes the exception path; else `0xE543C7`, the common return: the slot's 8 bytes go to the caller's new top (the receiver's slot), and ret.void copies nothing.
+- `0xE525C0` is cdecl `(frame, ctx)`: it saves ctx+0x10 (jmp_buf*) and ctx+0xC (env frame), runs `_setjmp3` (`0xF7EE92`), sets ctx+0x10 = its jmp_buf and ctx+0xC = frame, calls `[[frame+4]+0x24](frame, ctx)`, then puts both back. A native raise longjmps to that setjmp and leaves the exception in frame+0x20, so `0xE525C0` always returns normally.
+- The binder (`0xD9A7B0`, run at RuntimeMethod creation `0xE52108` and at transform `0xE645FF`) writes +0x24 invoker, +0x28 body and +0x2C one-shot init from the registration map (key = FNV over name + signature via `mono_method_signature` `0xE85040`).
+
+### 22.2 Calling convention, `this`, exceptions, GC [verified unless marked]
+
+- **Frame.** `JitBoundCall(rm, top, self, ebp)` builds the 0x28-byte MonoInvocation on its own C stack with the words above, sets ctx+8 to it, calls `0xE525C0` (or whatever detour sits on it), and puts the caller's ctx+8 back. It writes no frame record, no depth and no arena: the two listed bodies read none of them (their invokers read frame +4/+8/+0xC/+0x14/+0x20 only).
+- **`this`.** For the two rows it is the string reference (`rm+0x44` 0x200 set, 0x400 clear). A bound target with the value-type flag 0x400 is refused at fill (`bcVtThis`): its `this` would be struct data in the caller's vt area, and docs/206 §17 shows EA bodies with such a `this` (DateAndTime) read it through a copy we do not make. The guard's earlier checks (receiver not null, has a vtable, not the remoting proxy, not a boxed value type, class = the cache's class) all run before this path, so a null receiver still exits.
+- **Exceptions.** A body that leaves `[frame+0x20]` set (for example `GetHashCode` on a null `this` via `0xE770E0`) makes `JitBoundCall` return 0: the site takes its normal exit at the callvirt with nothing of the caller's written, and EA's interpreter runs the call again and raises as vanilla. That double run is only allowed because both bodies are pure readers (no write, allocation or managed call once `this` is not null, docs/220 class `reader`). The guard rules out null receivers, so in practice this path is for the setjmp-raised case and has run 0 times in the host.
+- **SEH / setjmp.** Calling `0xE525C0` itself keeps EA's setjmp around the body, so a raise inside it cannot unwind through our compiled frame [verified: `0xE525C0`]. Compiled code itself has no SEH frame of its own here.
+- **GC [inferred].** EA's Mono uses Boehm with conservative stack scanning, so the MonoInvocation on the C stack, the receiver in `ecx` / the eval stack and the arguments stay roots during the call. Neither body allocates, so no collection can start inside them anyway.
+- **ForceJIT.** The site rechecks MonoPatcher's ForceJIT byte (`0xE5637D`) and exits when it is set, as the lazy path does.
+
+### 22.3 Satb and the worker rule
+
+`[AutShadow]` detours `0xE525C0` (`SatbBindCall`, `satb.cpp` ~1553-1640). Calling `g_jitBoundEntry` = `0xE525C0` goes through that detour exactly as EA's interpreter would, so a worker-side Satb run and a sim-side run behave as before; the sim side with a body Satb does not know just calls the next hop [verified: source]. Compiled code only runs on the sim thread (`JitEnter`), so the game never reaches this path from a worker; the host's worker corpus pass (below) runs it on another thread anyway and stays at 0 differ.
+
+Household / selected / unknown-scope Sim rules do not apply: these are pure `String` reads with results equal to EA's (the same EA body runs), with no Sim in scope.
+
+### 22.4 Callees: allowed and excluded
+
+| Callee | EA invoker / body | Verdict | Why |
+|---|---|---|---|
+| `String.GetHashCode()` | `0xDBFBF0` / `0xDBFAE0` | **allowed** (row 0) | hash loop h = h*31 + c over the chars; reads `[0x11EF7BC]` (OffsetToStringData's icall `0x927420` = `mov eax, 8; ret`); 4-byte result; null `this` = NRE in +0x20 without a longjmp [verified] |
+| `String.Equals(string)` | `0xDDD900` / `0xDDD880` (+ `0xDA4200`) | **allowed** (row 1) | calls Equals(string,string)'s bound body `0xDA4200` directly when `[[0x11F06E0]+0x28] != 0` (lengths, then chars; reads only its arguments), else the n2m `0xD8A8E0` [verified] |
+| `String.Equals(object)` | `0xDAA650` | excluded | calls `mono_runtime_invoke`: a managed call inside, not a pure reader |
+| `Equals(string,string)`, `op_Equality` | `0xDA4310` / `0xDA4200` | excluded | static: no guard site (only callvirt / con.callvirt sites have guards) |
+| bound bodies with a value-type `this` (DateAndTime, others in `binder-bodies.csv`) | - | excluded | `this` is struct data (22.2) |
+| any other bound body | - | excluded until listed | each row needs its own byte check, purity proof and corpus cases; it counts as `bcNotAllowed` |
+
+Each row carries the FNV-1a of its invoker + body (+ the extra callee) bytes: `0x958D9EA6` (0x28 + 0x104 bytes) and `0x8B23206C` (0x2E + 0x78 + 0x10A bytes). A row whose bytes differ stays off, and `[MonoJit] BoundCallMask` (bit per row, default 3) turns rows off for a per-callee A/B. MonoJit as a whole is Steam 1.67 only.
+
+### 22.5 Estimated gain [inferred, I-484-1]
+
+The C0 count runs (§21.1; intervals #3 - #2 over 300 s) give comparer guard bails of ~16.0k/s on BP (Equals 2.67 M + GetHashCode 2.12 M per run), ~18.9k/s on IP and ~13.9k/s on SV, and every one of them also materializes the comparer's lazy frame (jitmat 6.76 M / 9.32 M). BoundCall removes, per call, the exit, the frame write, EA's dispatch and record push, and the return re-entry into compiled code; the body's own work stays. At ~45-125 ns saved per call that is **~0.7-2.0 ms/s per world** (SV low end, IP high end). Upper bound ~2.6 ms/s: the comparer's sampled self time on BP (GetHashCode 2.00 + Equals 0.57 ms/s), which includes the exits but also work that stays. The census is a lower bound while the code region was full (§20.0), so a hot caller past the cap could add more. Measured by the in-load A/B below.
+
+### 22.6 Design
+
+- **Fill.** `JitGuardFill` on an IC miss: a transformed target with `rm+0x24 != 0` and `this` gets `bound = JitBoundOf(rm)` (row + 1, or 0 for value-type `this` / off the list), with `entry` left NULL as before.
+- **Site.** With BoundCall installed, the guard's "no lazy body" jump goes to a new block: `bound == 0` -> exit (why 6, as before); `bcOn == 0` (runtime off) -> exit; ForceJIT -> exit (why 7); else `push ebp; push ecx (this); push esi (top); push [site.rm]; call JitBoundCall`; eax 0 (exception) -> exit (why 6); else `esi = eax` and continue after the call. No new count reason: the old exits keep their reasons.
+- **Switch.** `[MonoJit] BoundCall=1` (default 0; needs `Direct=1`, `DirectLeaf=0`, since guards only exist then), `BoundCallMask=3`. Installed at `ApplyMonoJit`; `bcOn` (0x6278) is also a runtime switch (`--ab boundcall`, `tools/harness/native-switches.ts`): 0 sends every bound site back to its exit.
+- **Counters v194** (0x6278-0x62A7, 12 int32): `bcOn`, `bcFills`, `bcHits`, `bcExc`, `bcNotAllowed`, `bcVtThis`, `bcCallee[4]` (hits per row), `bcSpare[2]`. 0x6258-0x6277 (v193) is held for `[Crash2Diag]` on another branch.
+- **Count build folded in (I-476-1, A2).** With `Count=1`, each guard bail with why 6 also records its target (`JcnGuardBail`, 4 targets per site), and the report adds `jitcallee <caller> <ip> <op> <lazy|normal> <target> native=<0|1> bound=<row|0> nolazy=<n>` lines. One count run therefore names the remaining native callees per site, the `GetPrev` comparer, and which callees materialize frames.
+- **StrKeys stays out (I-476-2).** BoundCall does not turn `String` methods into compiled keys (they stay native-body keys), so the `StrKeys` shapes (OffsetToStringData inline, native leave) still have no sites. Not re-added.
+
+### 22.7 Host (monohost)
+
+- **Stand-in binder** `MONOHOST_JITBIND=1`: the host runs no registration table (docs/119 §9.4), so `JitBindStandIn` binds `System.String.GetHashCode()` and `System.String.Equals(string)` right after their transform by name + signature (`0xE85040`: param count, type byte 0x0E, not byref) to the same EA invokers and bodies, and does the one-shot inits (`[0x11EF7BC] = 0x927420`; `[0x11F06E0]` = a block whose +0x28 = `0xDA4200`). `MONOHOST_JITBOUNDCALL=<mask>` installs BoundCall. `tools/jit-replay.ts --switches` takes `Bind=1,BoundCall=3`.
+- **Corpus case** (`tools/jit-corpus.ts`, 263 cases): `EqualityComparer<string>.Default` GetHashCode / Equals, `string.GetHashCode`, `Equals(string)`, `Equals(object)`, `==` over null, empty, 1-3 chars, equal strings with different references, non-ASCII (`été`, CJK, a surrogate pair), an embedded NUL and a 257-char string, plus a `Dictionary<string,int>` on that comparer.
+- **Results (final build)** with `MONOHOST_JIT=verify MONOHOST_JITLAZY=1 VtOps CallExit NewVt Inline=2 Wide`, `JITBIND=1`:
+
+| Arm | Corpus (main) | Worker pass | Per-call verify | Bound calls |
+|---|---|---|---|---|
+| BoundCall=3 | 263 cases, 0 differ, 0 unstable | 209 cases, 0 differ | ok 61,468, MISMATCH 0 | 27,782 (GetHashCode 18,315, Equals 9,467), exceptions 0, off list 0, vt this 0; 6 guard sites bound |
+| BoundCall=3 + Count=1 | 263 / 0 differ | 209 / 0 differ | MISMATCH 0 | same |
+| BoundCall=0 | 263 / 0 differ | 209 / 0 differ | MISMATCH 0 | 0 |
+
+SELFTEST 41/41 in every arm. The c3g game-capture replays (`node tools/jit-replay.ts --run probe-out/jit-capture-<w>-c3g.txt --lazy --switches VtOps=1,CallExit=1,NewVt=1,Inline=2,Wide=1,Bind=1,BoundCall=3`):
+
+| World | Inputs ran | Differ / unstable / faulted | Per-call verify | Bound calls |
+|---|---|---|---|---|
+| BP | 4,307 of 4,466 | 0 / 0 / 0 | ok 1,080,046, MISMATCH 0 | 1,047 (GetHashCode 626, Equals 421), exceptions 0 |
+| IP | 4,235 of 4,374 | 0 / 0 / 0 | ok 1,049,936, MISMATCH 0 | 910 (599, 311), exceptions 0 |
+| SV | 4,275 of 4,416 | 0 / 0 / 0 | ok 1,084,301, MISMATCH 0 | 1,008 (636, 372), exceptions 0 |
+
+The same three with `BoundCall=0` (stand-in binder only): BP 4,307 / IP 4,235 / SV 4,275 ran, 0 differ, 0 faulted, MISMATCH 0 (identical counts to the BoundCall=3 runs).
+
+- **Native selftest** (`TestMonoJitBoundCall`): frame words, result in the receiver's slot, ctx+8 put back, exception -> exit with the slot unchanged, ForceJIT, runtime off then on, off-list and value-type refusals, a BoundCall=0 compile, counter offsets. It caught a real bug before any run: the first emitter pushed the arguments in the wrong order (ecx, ebp swapped).
+
+### 22.8 Game port and checks
+
+ts3native 0.36.250 (crash2diag took 0.36.249 on master first; the v193 slots 0x6258-0x6277 are its c2* counters). Checks: native selftest ok, `hook-sites --check` ok (no new patch site: BoundCall calls `0xE525C0` and only reads bytes), `patch-bytes-check` 3144 expectations, mismatch 0, `selftest-all` 227 PASS / 0 FAIL, `native-switches --self-check` ok.
+
+Pair `boundcall-1113`: `game-copy/ts3native.asi.boundcall-1113` + the release package `ts3fixes.package.rc1111e`. Queue `tools/harness/queues/boundcall.json` (prepared, NOT RUN): `bp-boundcall-smoke` (5 min, `--ab boundcall` 1-min slices, stops the queue on FAIL), `bp`/`ip-boundcall-correct` (10 min, Mode=2 verify, CodeKB=4096, BoundCall=1, Count=1; gates script errors 0, OK line `BoundCall=0x3`, `bcHits>=1000`, `bcFills>=1`, `jitMismatch` / `jitFaults` 0, a `jitcount: end` line), `bp`/`ip-boundcall-ab` (10 min in-load A/B, 2-min slices, Mode=1, Count=0). Run: `node tools/harness/queue.ts tools/harness/queues/boundcall.json`.
+
+### 22.9 Open
+
+- I-484-1: the gain (A/B above).
+- I-484-2: the count run's `jitcallee` lines name the remaining native callees (expected: none of the two rows at the comparer sites) and the `GetPrev` comparer class.
+- I-484-3: the host stand-in binder matches the game's binder for these two rows (same invoker, body and inits). The correctness jobs check it in game (bound calls > 0, script errors 0, verify MISMATCH 0).

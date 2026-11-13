@@ -370,7 +370,10 @@ struct JitLazyCell { const u8* rm; u8* entry; };  // callee -> its lazy body (NU
 // rm NULL (asked again at the next call), one with no lazy body leaves entry NULL (bails until the cache changes or the
 // target compiles: the publish step refills). unbox (CallExit): 4 when the cache's class is a value type and the target takes a
 // value-type this, as EA's callvirt passes box + 4 then (0xE54B2C-0xE54B41 [verified]); the site adds it to the receiver.
-struct JitGuardSite { const u8* rm; u8* entry; DWORD w38, w3E, wLoc, w3C, wVt; const DWORD* cls; DWORD unbox; };
+// bound ([MonoJit] BoundCall, docs/537 §22): kJitBound row + 1 when the target is an allowed EA native body (entry stays NULL).
+// tRm / tNoLazy (Count=1): the targets this site bailed "no lazy body" on, and how often (the jitcallee lines).
+struct JitGuardSite { const u8* rm; u8* entry; DWORD w38, w3E, wLoc, w3C, wVt; const DWORD* cls; DWORD unbox; int bound; const u8* tRm[4]; LONG tNoLazy[4]; };
+#include "monojit-bound.h"  // [MonoJit] BoundCall: the allow list, JitBoundCall, JitBoundEmit (shared with monohost)
 static const int JIT_CELL_N = 2048, JIT_GUARD_N = 1024;
 static JitLazyCell* g_jitLazyCell;   // carved from the region
 static JitGuardSite* g_jitGuard;
@@ -382,12 +385,13 @@ static JitLazyCell* JitLazyCellFor(const u8* rm) {
     return &g_jitLazyCell[g_jitLazyCellN++];
 }
 static void __cdecl JitGuardFill(JitGuardSite* s, const u8* rm) {
-    s->rm = NULL, s->entry = NULL;
+    s->rm = NULL, s->entry = NULL, s->bound = 0;
     if (!rm) return;
     const DWORD fl = *(const DWORD*)(rm + 0x44);
     if (!(fl & 0x100)) return;
     s->rm = rm;
-    if (!(fl & 0x200) || *(const DWORD*)(rm + 0x24)) return;  // no this, or an EA native body
+    if (*(const DWORD*)(rm + 0x24)) { if (fl & 0x200) s->bound = JitBoundOf(rm); return; }  // an EA native body: BoundCall's list or a bail
+    if (!(fl & 0x200)) return;  // no this
     JitLazyCell* cell = JitLazyCellFor(rm);
     if (!cell || !cell->entry) return;
     s->w38 = *(const unsigned short*)(rm + 0x38), s->w3E = *(const unsigned short*)(rm + 0x3E);
@@ -415,7 +419,7 @@ static const int JCN_SITES = 32768, JCN_BAILS = 8192, JCN_MATS = 4096, JCN_LINES
 static const char* const kJcnBail[12] = {"null this", "null *this", "null vtable", "remoting", "boxed vt", "cache class", "no lazy body",
                                          "ForceJIT", "depth slot", "no MonoInvocation", "no arena chunk", "arena full"};
 struct JcnSite { int meth; unsigned short op; bool slow; volatile LONG n; const unsigned short* ip; };
-struct JcnBail { const u8* callerRm; const unsigned short* ip; unsigned short op; bool lazy, guard; volatile LONG r[12]; };
+struct JcnBail { const u8* callerRm; const unsigned short* ip; unsigned short op; bool lazy, guard; volatile LONG r[12]; JitGuardSite* gs; };
 struct JcnMat { const u8* rm; DWORD ip; unsigned short op; LONG n; };
 struct JcnTabs {
     JcnSite site[JCN_SITES]; JcnBail bail[JCN_BAILS]; JcnMat mat[JCN_MATS];
@@ -435,13 +439,22 @@ static void JcnExitSite(Em& e, const unsigned short* ip, DWORD op) {
     s.meth = t->meth, s.op = (unsigned short)op, s.slow = t->slow, s.n = 0, s.ip = ip;
     e.incAbs(&s.n);
 }
-static JcnBail* JcnBailSite(const u8* callerRm, const unsigned short* ip, DWORD op, bool lazy, bool guard) {
+static JcnBail* JcnBailSite(const u8* callerRm, const unsigned short* ip, DWORD op, bool lazy, JitGuardSite* gs) {
     JcnTabs* t = g_jcn;
     if (!t || t->bailN >= JCN_BAILS) return NULL;
     JcnBail& b = t->bail[t->bailN++];
     memset(&b, 0, sizeof(b));
-    b.callerRm = callerRm, b.ip = ip, b.op = (unsigned short)op, b.lazy = lazy, b.guard = guard;
+    b.callerRm = callerRm, b.ip = ip, b.op = (unsigned short)op, b.lazy = lazy, b.guard = gs != NULL, b.gs = gs;
     return &b;
+}
+// count mode, a guard's "no lazy body" bail (docs/537 §22, I-476-1): which target it bailed on (eax = the cache's target; 0 after
+// a bound call's exception = the site's target). Four targets a site; a fifth counts on the last row.
+static void __cdecl JcnGuardBail(JitGuardSite* s, const u8* target) {
+    if (!target) target = s->rm;
+    int i = 0;
+    while (i < 3 && s->tRm[i] && s->tRm[i] != target) i++;
+    if (!s->tRm[i]) s->tRm[i] = target;
+    s->tNoLazy[i]++;
 }
 static void JcnMatHit(const u8* rm, DWORD ip, DWORD op) {  // JitLazyMatC: the innermost callee and its exit ip
     JcnTabs* t = g_jcn;
@@ -472,6 +485,21 @@ static int JcnReportTo(const char* why, JcnOut out) {
         sprintf_s(line, "jitbail %s %d %X %s %s%s", JitMethodName(S.callerRm, cn, sizeof(cn)), (int)(S.ip - *(const unsigned short* const*)S.callerRm),
                   S.op, S.lazy ? "lazy" : "normal", S.guard ? "guard" : "direct", rs);
         put();
+    }
+    // "jitcallee <caller> <ip> <op> <lazy|normal> <target> native=<0|1> bound=<row|0> nolazy=<n>": the targets of each guard's
+    // "no lazy body" bails, native = EA bound body (RuntimeMethod+0x24), bound = BoundCall row + 1 of the site's current target
+    for (int i = 0; i < t->bailN; i++) {
+        const JcnBail& S = t->bail[i];
+        if (!S.gs) continue;
+        for (int k = 0; k < 4; k++) {
+            if (!S.gs->tNoLazy[k]) continue;
+            const u8* r = S.gs->tRm[k];
+            char tn[128];
+            sprintf_s(line, "jitcallee %s %d %X %s %s native=%d bound=%d nolazy=%ld", JitMethodName(S.callerRm, cn, sizeof(cn)),
+                      (int)(S.ip - *(const unsigned short* const*)S.callerRm), S.op, S.lazy ? "lazy" : "normal", r ? JitMethodName(r, tn, sizeof(tn)) : "(none)",
+                      r && *(const DWORD*)(r + 0x24) ? 1 : 0, r == S.gs->rm ? S.gs->bound : 0, S.gs->tNoLazy[k]);
+            put();
+        }
     }
     // "jitnew <meth> <word> <exits> <vt> <class flags +0x14> <ctor>", vt = EA's value-type test 0xE52160 (as the host's line)
     for (int s = 0; s < t->siteN; s++) {
@@ -768,6 +796,7 @@ static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* ca
     u8* bail[16];
     u8 why[16];  // count mode: the bail reason per jump (kJcnBail)
     int nb = 0;
+    u8* nolazy = NULL;  // BoundCall: the guard's "no lazy body" jump
     if (guard) {  // receiver not null, with a vtable, not the remoting class, not a value type, of the cache's class; target = the cache's
         e.op(0x8B, ECX, ESI, thisOff); e.rr(0x85, ECX, ECX); why[nb] = 0, bail[nb++] = e.jcc(0x84);
         if (op == 0xED) { e.op(0x8B, ECX, ECX, 0); e.rr(0x85, ECX, ECX); why[nb] = 1, bail[nb++] = e.jcc(0x84); }  // this = *ptr
@@ -781,7 +810,9 @@ static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* ca
         e.b(0xE8); e.d((DWORD)(uintptr_t)JitGuardFill - ((DWORD)(uintptr_t)e.p + 4));
         e.b(0x83); e.b(0xC4); e.b(8); e.b(0x61);                                                // add esp, 8; popad
         Fix(same, e.p);
-        e.b(0x83); e.b(0x3D); e.d((DWORD)(uintptr_t)&gs->entry); e.b(0); why[nb] = 6, bail[nb++] = e.jcc(0x84);  // no lazy body (yet)
+        e.b(0x83); e.b(0x3D); e.d((DWORD)(uintptr_t)&gs->entry); e.b(0);
+        if (g_jitBoundMask) nolazy = e.jcc(0x84);                  // no lazy body: BoundCall's path below (docs/537 §22)
+        else why[nb] = 6, bail[nb++] = e.jcc(0x84);              // no lazy body (yet)
         if (g_jitCallExit && op == 0xEC) { e.b(0x03); e.b(0x0D); e.d((DWORD)(uintptr_t)&gs->unbox); }  // add ecx, [site.unbox]: this = box + 4
     } else {
         e.b(0x83); e.b(0x3D); e.d((DWORD)(uintptr_t)&cell->entry); e.b(0); why[nb] = 6, bail[nb++] = e.jcc(0x84);  // no lazy body (yet)
@@ -868,14 +899,25 @@ static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* ca
         e.op(0x89, EAX, ESI, 4); e.addEsi(8);
     }
     u8* skip = e.jmp();
-    if (JcnBail* st = g_jcn ? JcnBailSite(callerRm, ip, op, lazy, guard) : NULL) {  // count mode: one counter per bail reason, then the common exit
+    u8* bound = NULL;
+    if (nolazy) JitBoundEmit(e, gs, nolazy, (DWORD)(uintptr_t)g_jitForceJit, bail, why, nb, &bound);
+    if (JcnBail* st = g_jcn ? JcnBailSite(callerRm, ip, op, lazy, gs) : NULL) {  // count mode: one counter per bail reason, then the common exit
         u8* toExit[16];
-        for (int i = 0; i < nb; i++) { Fix(bail[i], e.p); e.incAbs(&st->r[why[i]]); toExit[i] = e.jmp(); }
+        for (int i = 0; i < nb; i++) {
+            Fix(bail[i], e.p);
+            e.incAbs(&st->r[why[i]]);
+            if (gs && why[i] == 6) {  // the target it bailed on: push eax; push site; call JcnGuardBail; add esp, 8
+                e.b(0x50 + EAX); e.b(0x68); e.d((DWORD)(uintptr_t)gs);
+                e.b(0xE8); e.d((DWORD)(uintptr_t)JcnGuardBail - ((DWORD)(uintptr_t)e.p + 4)); e.b(0x83); e.b(0xC4); e.b(8);
+            }
+            toExit[i] = e.jmp();
+        }
         for (int i = 0; i < nb; i++) Fix(toExit[i], e.p);
     } else
         for (int i = 0; i < nb; i++) Fix(bail[i], e.p);
     EmitExit(e, ip, op, false);
     Fix(skip, e.p);
+    if (bound) Fix(bound, e.p);
     ts3native_counters.jitLazySites++;
     if (guard) ts3native_counters.jitGuardSites++;
     return true;
@@ -2593,6 +2635,12 @@ static bool ApplyMonoJit(const wchar_t* ini) {
     g_jitPureIcalls = g_jitCallExit && JitPureIcallsOk();
     if (g_jitCallExit && !g_jitPureIcalls) Log("jit: CallExit: the Array icall bytes differ, pure icalls stay EA calls");
     g_jitNewVt = GetPrivateProfileIntW(L"MonoJit", L"NewVt", 0, ini) != 0;  // docs/537 §20 B2b (needs Direct=1)
+    g_jitBc = (JitBoundStats*)&C.bcOn;  // docs/537 §22: BoundCall=1 (needs Direct=1, DirectLeaf=0 for guards), BoundCallMask = kJitBound rows
+    if (GetPrivateProfileIntW(L"MonoJit", L"BoundCall", 0, ini)) {
+        const unsigned want = (unsigned)GetPrivateProfileIntW(L"MonoJit", L"BoundCallMask", (1 << JIT_BOUND_N) - 1, ini);
+        const unsigned on = JitBoundInit(want);
+        if (on != want) Log("jit: BoundCall: mask 0x%X asked, 0x%X in force (a row's EA bytes differ, or no such row)", want, on);
+    }
     if (GetPrivateProfileIntW(L"MonoJit", L"Count", 0, ini) && !JcnOn()) Log("jit: Count: no memory for the tables (%u KB), count mode off", (unsigned)(sizeof(JcnTabs) >> 10));
     const bool fcWant = GetPrivateProfileIntW(L"MonoJit", L"FastCopy", 0, ini) != 0;  // docs/537 §20 C3
     g_jitFastCopy = fcWant && JitFastCopyOk();
@@ -2612,6 +2660,6 @@ static bool ApplyMonoJit(const wchar_t* ini) {
     C.jitSwitch = 1;
     C.jitOn = mode;
     g_ilpPost = JitPostPass;
-    Log("OK   mono jit (docs/527): Mode=%d, %d templates (Groups=%d), %d list rows%s, VerifyEvery=%lu, code region %lu KB (CodeKB), Direct=%ld (docs/537), Trap=%d, VtOps=%d, CallExit=%d, NewVt=%d, Count=%d, FastCopy=%d, Ldsflda=%d", mode, templates, g_jitGroups, g_jitRowN, g_jitUserN ? " narrowed by List=" : "", g_jitEvery, (unsigned long)(g_jitCodeBytes >> 10), C.jitDirect, g_jitTrap ? 1 : 0, g_jitVtOps ? 1 : 0, g_jitCallExit ? 1 : 0, g_jitNewVt ? 1 : 0, g_jcn ? 1 : 0, g_jitFastCopy ? 1 : 0, g_jitLdsflda ? 1 : 0);
+    Log("OK   mono jit (docs/527): Mode=%d, %d templates (Groups=%d), %d list rows%s, VerifyEvery=%lu, code region %lu KB (CodeKB), Direct=%ld (docs/537), Trap=%d, VtOps=%d, CallExit=%d, NewVt=%d, Count=%d, FastCopy=%d, Ldsflda=%d, BoundCall=0x%lX", mode, templates, g_jitGroups, g_jitRowN, g_jitUserN ? " narrowed by List=" : "", g_jitEvery, (unsigned long)(g_jitCodeBytes >> 10), C.jitDirect, g_jitTrap ? 1 : 0, g_jitVtOps ? 1 : 0, g_jitCallExit ? 1 : 0, g_jitNewVt ? 1 : 0, g_jcn ? 1 : 0, g_jitFastCopy ? 1 : 0, g_jitLdsflda ? 1 : 0, (unsigned long)C.bcOn);
     return true;
 }

@@ -982,7 +982,7 @@ namespace MonoHostTest
 
     public static class JitCorpus
     {
-        public const int Count = 241;
+        public const int Count = 242;
         static readonly int[] I4 = { 0, 1, -1, 2, -2, 3, 7, -7, 16, 31, 32, 33, 0x7FFF, 0x8000, 0xFFFF, 0x10000, 0x3FFFFFFF, 0x40000000, int.MaxValue, int.MinValue, int.MinValue + 1, int.MaxValue - 1 };
         static readonly long[] I8 = { 0L, 1L, -1L, 2L, -2L, 7L, 0x7FFFFFFFL, 0x80000000L, -0x80000000L, 0xFFFFFFFFL, 0x100000000L, long.MaxValue, long.MinValue, long.MinValue + 1, -3037000500L, 3037000500L };
         static readonly int[] SH = { 0, 1, 7, 15, 16, 31, 32, 33, 63, 64, 65, -1, int.MinValue };
@@ -2091,7 +2091,22 @@ namespace MonoHostTest
             Dictionary<string, int> d = new Dictionary<string, int>(); try { h = M(h, NullKey(d)); } catch (Exception e) { h = X(h, e); } int v; try { h = M(h, d.TryGetValue(null, out v)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 137: // List<int> / List<object> (growth, indexer bounds, enumerator, modification)
+                case 137: // String comparer: EqualityComparer<string>.Default GetHashCode/Equals, string.GetHashCode/Equals(string) (null, empty, non-ASCII, odd/even lengths, same reference)
+                {
+            string[] ss = new string[] { null, "", "a", "ab", "abc", "k1", "k" + 1, "\u00e9t\u00e9", "\u65e5\u672c\u8a9e", "\ud83d\ude00", new string('x', 257), "A", "a\0b" };
+            EqualityComparer<string> c = EqualityComparer<string>.Default;
+            for (int i = 0; i < ss.Length; i++)
+            {
+                h = M(h, c.GetHashCode(ss[i])); try { h = M(h, ss[i].GetHashCode()); } catch (Exception e) { h = X(h, e); } try { h = M(h, ss[i].Length); } catch (Exception e) { h = X(h, e); }
+                for (int j = 0; j < ss.Length; j++) { h = M(h, c.Equals(ss[i], ss[j])); h = M(h, ss[i] == ss[j]); if (ss[i] != null) h = M(h, ss[i].Equals(ss[j])); }
+                if (ss[i] != null) { h = M(h, ss[i].Equals(ss[i])); h = M(h, ss[i].Equals((object)ss[i])); h = M(h, ss[i].Equals((object)i)); }
+            }
+            Dictionary<string, int> d = new Dictionary<string, int>(c);
+            for (int i = 1; i < ss.Length; i++) d[ss[i]] = i;
+            for (int i = 0; i < 200; i++) { int v; h = M(h, d.TryGetValue("k" + (i % 7), out v) ? v : -1); h = M(h, d.ContainsKey(ss[1 + i % (ss.Length - 1)])); }
+                    return h;
+                }
+                case 138: // List<int> / List<object> (growth, indexer bounds, enumerator, modification)
                 {
             for (int n = 0; n < 40; n++)
             {
@@ -2104,7 +2119,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 138: // List growth: size, version, capacity, elements (int, ulong, ObjectGuid, string, object)
+                case 139: // List growth: size, version, capacity, elements (int, ulong, ObjectGuid, string, object)
                 {
             h = ListGrowth(h, new int[] { 1, -2, 3 });
             h = ListGrowth(h, new ulong[] { 1UL, 0x100000001UL, ulong.MaxValue });
@@ -2113,19 +2128,19 @@ namespace MonoHostTest
             h = ListGrowth(h, new object[] { null, "s", 5 });
                     return h;
                 }
-                case 139: // List growth into dead cells
+                case 140: // List growth into dead cells
                 {
             for (int r = 0; r < 40; r++) h = ListGrowDead(h, r);
                     return h;
                 }
-                case 140: // Kept set flood (old graph in a local, new array in the heap)
+                case 141: // Kept set flood (old graph in a local, new array in the heap)
                 {
             if (JitK.FloodA == null) { JitK.FloodA = new object[3000]; JitK.FloodB = new object[3000]; for (int i = 0; i < 3000; i++) { JitK.FloodA[i] = new object[2]; JitK.FloodB[i] = new object[2]; } }
             JitKO k = new JitKO(); k.next = k;
             for (int i = 0; i < 64; i++) { h = M(h, JitK.KeepFlood(k, i)); h = M(h, k.objs.Length); h = M(h, k.objs[0] == k ? 1 : 0); }
                     return h;
                 }
-                case 141: // Array.Resize / Array.IndexOf (null, negative size, missing, null elements)
+                case 142: // Array.Resize / Array.IndexOf (null, negative size, missing, null elements)
                 {
             int[] sz = new int[] { -1, 0, 1, 2, 5, 64, 65 };
             for (int s = 0; s < sz.Length; s++)
@@ -2137,7 +2152,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 142: // Enum.Equals / Enum.GetHashCode (underlying types, other enum types, null)
+                case 143: // Enum.Equals / Enum.GetHashCode (underlying types, other enum types, null)
                 {
             object[] es = new object[] { DayOfWeek.Monday, DayOfWeek.Sunday, (JitE8)1, (JitE8)255, (JitE64)(-1L), (JitE64)long.MaxValue, (JitEU64)ulong.MaxValue, 1, null };
             for (int i = 0; i < es.Length; i++)
@@ -2147,13 +2162,13 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 143: // Type.GetTypeFromHandle / RuntimeTypeHandle
+                case 144: // Type.GetTypeFromHandle / RuntimeTypeHandle
                 {
             Type[] ts = new Type[] { typeof(int), typeof(List<int>), typeof(Dictionary<string, JitKO>), typeof(JitPt[]), typeof(JitKO2) };
             for (int i = 0; i < ts.Length; i++) { h = M(h, ts[i].Name.GetHashCode()); h = M(h, ts[i] == typeof(int)); h = M(h, Type.GetTypeFromHandle(ts[i].TypeHandle) == ts[i]); }
                     return h;
                 }
-                case 144: // UInt64 / Int32 GetHashCode + Equals, EqualityComparer default / IEquatable
+                case 145: // UInt64 / Int32 GetHashCode + Equals, EqualityComparer default / IEquatable
                 {
             for (int i = 0; i < I8.Length; i++)
             {
@@ -2165,13 +2180,13 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 145: // ObjectGuid == / != (0, max, near values)
+                case 146: // ObjectGuid == / != (0, max, near values)
                 {
             ulong[] g = new ulong[] { 0, 1, 977, ulong.MaxValue, ulong.MaxValue - 1, 0x100000000UL };
             for (int i = 0; i < g.Length; i++) for (int j = 0; j < g.Length; j++) { h = M(h, new ObjectGuid(g[i]) == new ObjectGuid(g[j])); h = M(h, new ObjectGuid(g[i]) != new ObjectGuid(g[j])); }
                     return h;
                 }
-                case 146: // CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags (bit patterns)
+                case 147: // CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags (bit patterns)
                 {
             for (int b = 0; b < 32; b++) for (int k = 0; k < 4; k++)
             {
@@ -2180,7 +2195,7 @@ namespace MonoHostTest
             }
                     return h;
                 }
-                case 147: // Single.IsNaN / Math.Max / Math.Min (NaN payloads, -0, inf)
+                case 148: // Single.IsNaN / Math.Max / Math.Min (NaN payloads, -0, inf)
                 {
             for (int i = 0; i < R4.Length; i++) h = M(h, float.IsNaN(R4[i]));
             for (int i = 0; i < R8.Length; i++) for (int j = 0; j < R8.Length; j++) { h = M(h, Math.Max(R8[i], R8[j])); h = M(h, Math.Min(R8[i], R8[j])); }
@@ -2189,469 +2204,469 @@ namespace MonoHostTest
             for (int i = 0; i < I8.Length; i++) for (int j = 0; j < I8.Length; j++) { h = M(h, Math.Max(I8[i], I8[j])); h = M(h, Math.Min(I8[i], I8[j])); }
                     return h;
                 }
-                case 148: // JitK.CatchOnly, no exception (leave out of a try)
+                case 149: // JitK.CatchOnly, no exception (leave out of a try)
                 {
             try { h = M(h, JitK.CatchOnly(5)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 149: // JitK.CatchOnly, DivideByZeroException caught
+                case 150: // JitK.CatchOnly, DivideByZeroException caught
                 {
             try { h = M(h, JitK.CatchOnly(0)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 150: // JitK.FinallyOnly (leave through a finally, endfinally)
+                case 151: // JitK.FinallyOnly (leave through a finally, endfinally)
                 {
             try { h = M(h, JitK.FinallyOnly(5)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 151: // JitK.TryCatch, no exception (try, finally)
+                case 152: // JitK.TryCatch, no exception (try, finally)
                 {
             try { h = M(h, JitK.TryCatch(5)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.TryCatch(int.MaxValue)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 152: // JitK.TryCatch, ArgumentException thrown and caught
+                case 153: // JitK.TryCatch, ArgumentException thrown and caught
                 {
             try { h = M(h, JitK.TryCatch(-1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.TryCatch(int.MinValue)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 153: // JitK.TryCatch, DivideByZeroException from div.i4 caught
+                case 154: // JitK.TryCatch, DivideByZeroException from div.i4 caught
                 {
             try { h = M(h, JitK.TryCatch(0)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 154: // JitK.Nested, no overflow (return through finally)
+                case 155: // JitK.Nested, no overflow (return through finally)
                 {
             try { h = M(h, JitK.Nested(3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.Nested(-46340)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 155: // JitK.Nested, OverflowException through finally into catch
+                case 156: // JitK.Nested, OverflowException through finally into catch
                 {
             try { h = M(h, JitK.Nested(46341)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitK.Nested(int.MinValue)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 156: // JitKL.CallStatic (lazy calls: static leaves, init locals)
+                case 157: // JitKL.CallStatic (lazy calls: static leaves, init locals)
                 {
             try { h = M(h, JitKL.CallStatic(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 157: // JitKL.CallLong (lazy call, 8-byte return)
+                case 158: // JitKL.CallLong (lazy call, 8-byte return)
                 {
             try { h = M(h, JitKL.CallLong(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 158: // JitKL.CallInst (lazy callvirt, non-virtual instance leaf; null receiver)
+                case 159: // JitKL.CallInst (lazy callvirt, non-virtual instance leaf; null receiver)
                 {
             JitKL p = new JitKL(); p.v = 7; try { h = M(h, JitKL.CallInst(p, 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CallInst(null, 3)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 159: // JitKL.CallInstLong (lazy callvirt, 8-byte return)
+                case 160: // JitKL.CallInstLong (lazy callvirt, 8-byte return)
                 {
             JitKL p = new JitKL(); p.w = 0x123456789L; try { h = M(h, JitKL.CallInstLong(p, 40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 160: // JitKL.CallVoid (void leaf with stfld; null: exception in the callee)
+                case 161: // JitKL.CallVoid (void leaf with stfld; null: exception in the callee)
                 {
             JitKL p = new JitKL(); try { h = M(h, JitKL.CallVoid(p, 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CallVoid(null, 3)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 161: // JitKL.CallArr (bounds and null exceptions in a lazy callee)
+                case 162: // JitKL.CallArr (bounds and null exceptions in a lazy callee)
                 {
             int[] a = new int[] { 4, 5, 6 }; try { h = M(h, JitKL.CallArr(a, 1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CallArr(a, 3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CallArr(a, -1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CallArr(null, 0)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 162: // JitKL.CallDeref (NullReferenceException in a lazy callee)
+                case 163: // JitKL.CallDeref (NullReferenceException in a lazy callee)
                 {
             JitKL p = new JitKL(), q = new JitKL(); q.v = 1; try { h = M(h, JitKL.CallDeref(p, p)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CallDeref(p, q)); } catch (Exception e) { h = X(h, e); } q.next = p; try { h = M(h, JitKL.CallDeref(p, q)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 163: // JitKL.CatchInCaller (lazy callee throws, the compiled caller catches)
+                case 164: // JitKL.CatchInCaller (lazy callee throws, the compiled caller catches)
                 {
             JitKL p = new JitKL(), q = new JitKL(); q.v = 1; try { h = M(h, JitKL.CatchInCaller(p, q)); } catch (Exception e) { h = X(h, e); } q.next = q; try { h = M(h, JitKL.CatchInCaller(p, q)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 164: // JitKL.Deep (lazy call at depth 30 / 70 / 130)
+                case 165: // JitKL.Deep (lazy call at depth 30 / 70 / 130)
                 {
             try { h = M(h, JitKL.Deep(30, 4)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.Deep(70, 12)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.Deep(130, -2)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 165: // JitKL.CallStruct (lazy call, value-type this)
+                case 166: // JitKL.CallStruct (lazy call, value-type this)
                 {
             try { h = M(h, JitKL.CallStruct(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 166: // JitKL.CallChain (lazy chain: a lazy body with two lazy calls, and a chain of three)
+                case 167: // JitKL.CallChain (lazy chain: a lazy body with two lazy calls, and a chain of three)
                 {
             try { h = M(h, JitKL.CallChain(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 167: // JitKL.CallChainInst (chain through a non-virtual callvirt; null receiver: NullReferenceException in the middle frame)
+                case 168: // JitKL.CallChainInst (chain through a non-virtual callvirt; null receiver: NullReferenceException in the middle frame)
                 {
             JitKL p = new JitKL(); p.v = 5; try { h = M(h, JitKL.CallChainInst(p, 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CallChainInst(null, 3)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 168: // JitKL.CallChainArr (IndexOutOfRangeException two lazy frames down; CatchChain catches it in the compiled caller)
+                case 169: // JitKL.CallChainArr (IndexOutOfRangeException two lazy frames down; CatchChain catches it in the compiled caller)
                 {
             int[] a = new int[] { 4, 5, 6 }; try { h = M(h, JitKL.CallChainArr(a, 1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CallChainArr(a, 5)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CatchChain(a, 7)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.CatchChain(a, 0)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 169: // JitKL.DeepChain (lazy chain under recursion at depth 30 / 70)
+                case 170: // JitKL.DeepChain (lazy chain under recursion at depth 30 / 70)
                 {
             try { h = M(h, JitKL.DeepChain(30, 4)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKL.DeepChain(70, -9)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 170: // JitKV.CallVirt (class-guarded callvirt: base class, derived class, null receiver)
+                case 171: // JitKV.CallVirt (class-guarded callvirt: base class, derived class, null receiver)
                 {
             try { h = M(h, JitKV.CallVirt(new JitKV(), 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKV.CallVirt(new JitKV2(), 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKV.CallVirt(null, 3)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 171: // JitKV.CallVirtPoly (two classes at one site: every call misses the cache and takes the normal exit)
+                case 172: // JitKV.CallVirtPoly (two classes at one site: every call misses the cache and takes the normal exit)
                 {
             JitKV[] a = new JitKV[] { new JitKV(), new JitKV2() }; try { h = M(h, JitKV.CallVirtPoly(a, 40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 172: // JitKV.CallVirtThrow (DivideByZeroException in a class-guarded lazy callee)
+                case 173: // JitKV.CallVirtThrow (DivideByZeroException in a class-guarded lazy callee)
                 {
             try { h = M(h, JitKV.CallVirt(new JitKV3(), 6)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 173: // JitKV.CallVirtChain (a guarded lazy callee makes a guarded lazy call; null inner receiver)
+                case 174: // JitKV.CallVirtChain (a guarded lazy callee makes a guarded lazy call; null inner receiver)
                 {
             try { h = M(h, JitKV.CallVirtChain(new JitKV2(), new JitKV(), 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKV.CallVirtChain(new JitKV(), null, 3)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 174: // JitKL.CallCon (con.call: a constrained call on a value type in a generic method)
+                case 175: // JitKL.CallCon (con.call: a constrained call on a value type in a generic method)
                 {
             try { h = M(h, JitKL.CallCon(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 175: // JitKT.Locals (ldloc.vt / stloc.vt / ldarg.vt / starg.vt / stinarg.vt on a 12-byte struct)
+                case 176: // JitKT.Locals (ldloc.vt / stloc.vt / ldarg.vt / starg.vt / stinarg.vt on a 12-byte struct)
                 {
             try { h = M(h, JitKT.Locals(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 176: // JitKT.Result (vtresult after a struct-returning call, a call on the temp)
+                case 177: // JitKT.Result (vtresult after a struct-returning call, a call on the temp)
                 {
             try { h = M(h, JitKT.Result(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 177: // JitKT.Dup / Big (dup.vt of a chained assignment; a 20-byte struct through the same moves)
+                case 178: // JitKT.Dup / Big (dup.vt of a chained assignment; a 20-byte struct through the same moves)
                 {
             try { h = M(h, JitKT.Dup(40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKT.Big(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 178: // JitKTF.Fields / Statics / Null (ldfld.vt and ldsfld.vt into the vt stack; stfld.vt exits; a null receiver exits to the interpreter, which throws)
+                case 179: // JitKTF.Fields / Statics / Null (ldfld.vt and ldsfld.vt into the vt stack; stfld.vt exits; a null receiver exits to the interpreter, which throws)
                 {
             JitKTF o = new JitKTF(); o.F = new JitTPt(1, 2, 3); o.G.E = 5; try { h = M(h, JitKTF.Fields(o, 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKTF.Statics(40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKTF.Null(o)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKTF.Null(null)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 179: // JitKX.FinallyMid (a finally in a lazy middle frame runs during the unwind; the compiled caller catches)
+                case 180: // JitKX.FinallyMid (a finally in a lazy middle frame runs during the unwind; the compiled caller catches)
                 {
             try { h = M(h, JitKX.FinallyMid(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.FinallyMid(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.FinallyMid(3)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 180: // JitKX.CatchMid (a catch in a lazy middle frame, then a return into the compiled caller; the other exception passes through)
+                case 181: // JitKX.CatchMid (a catch in a lazy middle frame, then a return into the compiled caller; the other exception passes through)
                 {
             try { h = M(h, JitKX.CatchMid(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.CatchMid(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.CatchMid(5)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 181: // JitKX.Rethrow / ThrowInFinally (rethrow out of a catch; a throw inside a finally replaces the exception)
+                case 182: // JitKX.Rethrow / ThrowInFinally (rethrow out of a catch; a throw inside a finally replaces the exception)
                 {
             try { h = M(h, JitKX.Rethrow(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.Rethrow(2)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.ThrowInFinally(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.ThrowInFinally(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.ThrowInFinally(4)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 182: // JitKX.TraceNames / DeepCatch (the method name of every stack-trace frame through lazy frames, depth 1 and 25)
+                case 183: // JitKX.TraceNames / DeepCatch (the method name of every stack-trace frame through lazy frames, depth 1 and 25)
                 {
             try { h = M(h, JitKX.TraceNames(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.TraceNames(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.DeepCatch(25)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 183: // JitKX.EnvTrace (a StackTrace walk from a lazy callee: the method name of every frame)
+                case 184: // JitKX.EnvTrace (a StackTrace walk from a lazy callee: the method name of every frame)
                 {
             try { h = M(h, JitKX.EnvTrace(3)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 184: // JitKX.Escape (an exception from a lazy callee reaches the driver through the compiled caller)
+                case 185: // JitKX.Escape (an exception from a lazy callee reaches the driver through the compiled caller)
                 {
             try { h = M(h, JitKX.Escape(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.Escape(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKX.Escape(2)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 185: // JitKCV.Eq / Hash / Null (con.callvirt on a class: this = *ptr, then the guarded callvirt; a class flip refills the guard; a null behind the pointer exits, EA throws)
+                case 186: // JitKCV.Eq / Hash / Null (con.callvirt on a class: this = *ptr, then the guarded callvirt; a class flip refills the guard; a null behind the pointer exits, EA throws)
                 {
             try { h = M(h, JitKCV.Eq(40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKCV.Hash(40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKCV.Null(1)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 186: // JitKI.Init / Gen / NullField (initobj: locals, ldflda and ldelema targets, inline and memset sizes, default(T); a null receiver exits)
+                case 187: // JitKI.Init / Gen / NullField (initobj: locals, ldflda and ldelema targets, inline and memset sizes, default(T); a null receiver exits)
                 {
             try { h = M(h, JitKI.Init(40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKI.Gen(40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKI.NullField(new JitKI())); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKI.NullField(null)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 187: // JitKI.Is / IsGen / Eq (isinst: null, class depths, interfaces, arrays, remoting, generic T, the isinst superops of Equals)
+                case 188: // JitKI.Is / IsGen / Eq (isinst: null, class depths, interfaces, arrays, remoting, generic T, the isinst superops of Equals)
                 {
             try { h = M(h, JitKI.Is(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKI.Is(2)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKI.IsGen(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKI.Eq(60)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 188: // JitKI.Shr (shr.un.i8 at shifts past the width, negative shifts, UInt64.GetHashCode)
+                case 189: // JitKI.Shr (shr.un.i8 at shifts past the width, negative shifts, UInt64.GetHashCode)
                 {
             try { h = M(h, JitKI.Shr(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 189: // JitKI.Types / Enums (direct internal_from_handle and Enum.get_value, boxed enums of three widths)
+                case 190: // JitKI.Types / Enums (direct internal_from_handle and Enum.get_value, boxed enums of three widths)
                 {
             try { h = M(h, JitKI.Types(40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKI.Enums(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 190: // JitKIN.Run (docs/537 §9: tiny getters inlined, a null at each base, a value-type this, a hiding method, r4 and r8 forms refused)
+                case 191: // JitKIN.Run (docs/537 §9: tiny getters inlined, a null at each base, a value-type this, a hiding method, r4 and r8 forms refused)
                 {
             try { h = M(h, JitKIN.Run(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 191: // JitKI.Wide (docs/537 §10: float arithmetic, ldind and stind through refs, ldstr, ldtoken)
+                case 192: // JitKI.Wide (docs/537 §10: float arithmetic, ldind and stind through refs, ldstr, ldtoken)
                 {
             try { h = M(h, JitKI.Wide(64)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 192: // JitKI.CastS, CastI (castclass: null, match, mismatch throws)
+                case 193: // JitKI.CastS, CastI (castclass: null, match, mismatch throws)
                 {
             try { h = M(h, JitKI.CastS(null)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKI.CastS("a")); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKI.CastS(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKI.CastI(null)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKI.CastI("a")); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 193: // JitKI.Cold (docs/537 §8: VerifyState's cold throw block through a lazy MoveNext, the frame written at the exit)
+                case 194: // JitKI.Cold (docs/537 §8: VerifyState's cold throw block through a lazy MoveNext, the frame written at the exit)
                 {
             try { h = M(h, JitKI.Cold(24)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 194: // JitKI.Vec (Vector3 constructors from three floats, a Vector3, a Vector2)
+                case 195: // JitKI.Vec (Vector3 constructors from three floats, a Vector3, a Vector2)
                 {
             try { h = M(h, JitKI.Vec(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 195: // Acc GameObject.GetComponent
+                case 196: // Acc GameObject.GetComponent
                 {
             for (int i = 0; i < 4; i++) try { h = M(h, JitAcc.GetComponentCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 196: // Acc InteractionObjectPair.Equals
+                case 197: // Acc InteractionObjectPair.Equals
                 {
             for (int i = 0; i < 7; i++) try { h = M(h, JitAcc.IopEqualsCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 197: // Acc GameObject.GetObject
+                case 198: // Acc GameObject.GetObject
                 {
             for (int i = 0; i < 3; i++) try { h = M(h, JitAcc.GetObjectCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 198: // Acc SimClock.ElapsedTimeInMinutes
+                case 199: // Acc SimClock.ElapsedTimeInMinutes
                 {
             for (int i = 0; i < 35; i++) try { h = M(h, JitAcc.ElapsedMinutesCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 199: // Acc GameObject.get_Parent
+                case 200: // Acc GameObject.get_Parent
                 {
             for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.ParentCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 200: // Acc ScriptObject.get_ObjectId
+                case 201: // Acc ScriptObject.get_ObjectId
                 {
             for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.ObjectIdCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 201: // Acc GameObject.get_LotCurrent
+                case 202: // Acc GameObject.get_LotCurrent
                 {
             for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.LotCurrentCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 202: // Acc Household.Members.GetActorsOfType
+                case 203: // Acc Household.Members.GetActorsOfType
                 {
             for (int i = 0; i < 5; i++) try { h = M(h, JitAcc.ActorsOfTypeCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 203: // Acc RoutingComponent.get_IsRouting
+                case 204: // Acc RoutingComponent.get_IsRouting
                 {
             for (int i = 0; i < 4; i++) try { h = M(h, JitAcc.IsRoutingCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 204: // Acc Lot.get_CommercialLotSubType
+                case 205: // Acc Lot.get_CommercialLotSubType
                 {
             for (int i = 0; i < 6; i++) try { h = M(h, JitAcc.LotSubTypeCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 205: // Acc ListSorted`1.GetEnumerator
+                case 206: // Acc ListSorted`1.GetEnumerator
                 {
             for (int i = 0; i < 4; i++) try { h = M(h, JitAcc.ListSortedCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 206: // Acc DesireCurve.GetYFromX
+                case 207: // Acc DesireCurve.GetYFromX
                 {
             for (int i = 0; i < 12; i++) try { h = M(h, JitAcc.DesireCurveCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 207: // Acc Sim.get_SimDescription
+                case 208: // Acc Sim.get_SimDescription
                 {
             for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.SimDescriptionCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 208: // Acc Lot.get_ShouldSimulate
+                case 209: // Acc Lot.get_ShouldSimulate
                 {
             for (int i = 0; i < 4; i++) try { h = M(h, JitAcc.ShouldSimulateCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 209: // Acc SimDescription.get_Age
+                case 210: // Acc SimDescription.get_Age
                 {
             for (int i = 0; i < 5; i++) try { h = M(h, JitAcc.AgeCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 210: // Acc Corners.get_Item
+                case 211: // Acc Corners.get_Item
                 {
             for (int i = 0; i < 5; i++) try { h = M(h, JitAcc.CornersCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 211: // Acc Household.EveryHumanSimDescription
+                case 212: // Acc Household.EveryHumanSimDescription
                 {
             for (int i = 0; i < 2; i++) try { h = M(h, JitAcc.EveryHumanCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 212: // JitKA.Pure (pure Array icalls: szarray, rank 2 and 3, non-zero lower bounds, Rank)
+                case 213: // JitKA.Pure (pure Array icalls: szarray, rank 2 and 3, non-zero lower bounds, Rank)
                 {
             int[] a1 = new int[5]; int[,] a2 = new int[3, 4]; int[,,] a3 = new int[2, 3, 4]; Array lb = Array.CreateInstance(typeof(int), new int[] { 3, 2 }, new int[] { -2, 5 });
             try { h = M(h, JitKA.Pure(a1, a2, a3, lb, 40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 213: // JitKA.PureBad (GetLength / GetLowerBound: dim past the rank, negative dim, null this; EA throws)
+                case 214: // JitKA.PureBad (GetLength / GetLowerBound: dim past the rank, negative dim, null this; EA throws)
                 {
             int[] a1 = new int[2]; int[,] a2 = new int[2, 3];
             try { h = M(h, JitKA.PureBad(a1, 0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.PureBad(a1, 1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.PureBad(a1, -1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.PureBad(a2, 1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.PureBad(a2, 2)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.PureBad(null, 0)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 214: // JitKA.Boxed (boxed struct receivers: an override (box + 4), ValueType.GetHashCode (the box), an interface call that mutates the box)
+                case 215: // JitKA.Boxed (boxed struct receivers: an override (box + 4), ValueType.GetHashCode (the box), an interface call that mutates the box)
                 {
             try { h = M(h, JitKA.Boxed(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 215: // JitKA.BoxedPoly / BoxedNull (two boxed structs and a class at one interface site, then runs of one class; a null receiver)
+                case 216: // JitKA.BoxedPoly / BoxedNull (two boxed structs and a class at one interface site, then runs of one class; a null receiver)
                 {
             try { h = M(h, JitKA.BoxedPoly(48)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.BoxedNull(null, 1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.BoxedNull(new JitKAC(), 2)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 216: // JitKA.Callee / Always (a newobj exit in a lazy callee, at the entry of every call)
+                case 217: // JitKA.Callee / Always (a newobj exit in a lazy callee, at the entry of every call)
                 {
             try { h = M(h, JitKA.Callee(40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.Always(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 217: // JitKA.Chain5 (a lazy chain five deep, newobj exit at level 5)
+                case 218: // JitKA.Chain5 (a lazy chain five deep, newobj exit at level 5)
                 {
             try { h = M(h, JitKA.Chain5(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 218: // JitKA.Chain5Throw / CatchChain5 (DivideByZeroException at level 5 after a frame write; caught in the compiled caller)
+                case 219: // JitKA.Chain5Throw / CatchChain5 (DivideByZeroException at level 5 after a frame write; caught in the compiled caller)
                 {
             try { h = M(h, JitKA.Chain5Throw(4)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.Chain5Throw(5)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.CatchChain5(8)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.CatchChain5(9)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 219: // JitKA.ThrowAfterMat (the frame is written at the newobj exit, then the callee divides by zero)
+                case 220: // JitKA.ThrowAfterMat (the frame is written at the newobj exit, then the callee divides by zero)
                 {
             try { h = M(h, JitKA.ThrowAfterMat(3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKA.ThrowAfterMat(4)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 220: // JitKB.StFld / StFldNull (B1 stfld.vt of 1-, 7-, 12-, 20-byte structs and one with references; a null receiver exits, EA throws)
+                case 221: // JitKB.StFld / StFldNull (B1 stfld.vt of 1-, 7-, 12-, 20-byte structs and one with references; a null receiver exits, EA throws)
                 {
             JitKB o = new JitKB(); try { h = M(h, JitKB.StFld(o, 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.StFldNull(o, 3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.StFldNull(null, 4)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 221: // JitKB.Elem / ElemLd / ElemSt (B1 ldelem.any.vt / stelem.any.vt; null, -1 and the length exit, EA throws)
+                case 222: // JitKB.Elem / ElemLd / ElemSt (B1 ldelem.any.vt / stelem.any.vt; null, -1 and the length exit, EA throws)
                 {
             JitTPt[] a = new JitTPt[3]; JitBOdd[] d = new JitBOdd[2]; try { h = M(h, JitKB.Elem(40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.ElemLd(a, 2)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.ElemLd(a, 3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.ElemLd(a, -1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.ElemLd(null, 0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.ElemSt(d, 1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.ElemSt(d, 2)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.ElemSt(d, -1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.ElemSt(null, 0)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 222: // JitKB.Refs (B1 ldobj / stobj.vt through ref locals, array elements, heap fields; generic ref T of int, string, enum stay EA's)
+                case 223: // JitKB.Refs (B1 ldobj / stobj.vt through ref locals, array elements, heap fields; generic ref T of int, string, enum stay EA's)
                 {
             try { h = M(h, JitKB.Refs(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 223: // JitKB.Gen / GenBad (B1 generic T[] loads and stores of a struct, int, string, enum; bounds and null exits)
+                case 224: // JitKB.Gen / GenBad (B1 generic T[] loads and stores of a struct, int, string, enum; bounds and null exits)
                 {
             JitTPt[] a = new JitTPt[2]; try { h = M(h, JitKB.Gen(40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.GenBad(a, 1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.GenBad(a, 2)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKB.GenBad(null, 0)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 224: // JitKB.Coll (B1 List of a struct, Dictionary with colliding struct keys and struct values, Dictionary<int, 7-byte struct>, enumerators)
+                case 225: // JitKB.Coll (B1 List of a struct, Dictionary with colliding struct keys and struct values, Dictionary<int, 7-byte struct>, enumerators)
                 {
             try { h = M(h, JitKB.Coll(60)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 225: // JitKN.Sizes (B2b newobj of 1-, 7-, 12-, 20-byte structs and one with references; stored, passed, returned, boxed, in arrays and fields; a ctor with : this())
+                case 226: // JitKN.Sizes (B2b newobj of 1-, 7-, 12-, 20-byte structs and one with references; stored, passed, returned, boxed, in arrays and fields; a ctor with : this())
                 {
             JitKN o = new JitKN(); try { h = M(h, JitKN.Sizes(o, 40)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKN.Sizes(null, 2)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 226: // JitKN.Thr / CatchThr (B2b a ctor that throws ArgumentException or DivideByZeroException; caught outside and in the compiled caller)
+                case 227: // JitKN.Thr / CatchThr (B2b a ctor that throws ArgumentException or DivideByZeroException; caught outside and in the compiled caller)
                 {
             try { h = M(h, JitKN.Thr(5)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKN.Thr(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKN.Thr(-1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKN.CatchThr(4)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKN.CatchThr(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKN.CatchThr(-3)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 227: // JitKN.Chain / ChainThrow (B2b newobj inside ctors four deep under a lazy chain three deep; the innermost ctor divides by zero)
+                case 228: // JitKN.Chain / ChainThrow (B2b newobj inside ctors four deep under a lazy chain three deep; the innermost ctor divides by zero)
                 {
             try { h = M(h, JitKN.Chain(24)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKN.ChainThrow(8)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKN.ChainThrow(9)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 228: // JitKN.Guid (B2b ObjectGuid and an ObjectGuid-like struct via newobj, compared and stored in an array; a Dictionary<ObjectGuid, int> made here gave one verify MISMATCH with NewVt on and off, fresh-object pairing)
+                case 229: // JitKN.Guid (B2b ObjectGuid and an ObjectGuid-like struct via newobj, compared and stored in an array; a Dictionary<ObjectGuid, int> made here gave one verify MISMATCH with NewVt on and off, fresh-object pairing)
                 {
             ObjectGuid[] a = new ObjectGuid[5]; try { h = M(h, JitKN.Guid(a, 40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 229: // JitKN.Coll (B2b foreach over List / Dictionary: Enumerator and KeyValuePair newobj; KeyValuePair of struct key and value)
+                case 230: // JitKN.Coll (B2b foreach over List / Dictionary: Enumerator and KeyValuePair newobj; KeyValuePair of struct key and value)
                 {
             try { h = M(h, JitKN.Coll(30)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 230: // JitKC3.Ints (C3 Array.Copy int[]: FastCopy memmove path, lengths 0 to 16, the 3-arg overload, zero-length copies at the end)
+                case 231: // JitKC3.Ints (C3 Array.Copy int[]: FastCopy memmove path, lengths 0 to 16, the 3-arg overload, zero-length copies at the end)
                 {
             try { h = M(h, JitKC3.Ints(40)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 231: // JitKC3.Overlap (C3 overlapping copies in one int[], byte[], struct[]: forward, backward, same place)
+                case 232: // JitKC3.Overlap (C3 overlapping copies in one int[], byte[], struct[]: forward, backward, same place)
                 {
             try { h = M(h, JitKC3.Overlap(30)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 232: // JitKC3.Kinds (C3 float, double, long, struct-without-references, 12-byte struct and enum arrays)
+                case 233: // JitKC3.Kinds (C3 float, double, long, struct-without-references, 12-byte struct and enum arrays)
                 {
             try { h = M(h, JitKC3.Kinds(30)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 233: // JitKC3.Others (C3 string[], struct-with-references, int to long, enum to int, rank 2: EA's other paths, the site exits)
+                case 234: // JitKC3.Others (C3 string[], struct-with-references, int to long, enum to int, rank 2: EA's other paths, the site exits)
                 {
             int[,] g = new int[2, 3], g2 = new int[2, 3]; try { h = M(h, JitKC3.Others(g, g2, 20)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 234: // JitKC3.Box (C3 object[] of boxed ints to int[], int[] to object[]: EA's unboxing and boxing paths)
+                case 235: // JitKC3.Box (C3 object[] of boxed ints to int[], int[] to object[]: EA's unboxing and boxing paths)
                 {
             object[] o = new object[6], o2 = new object[6]; for (int j = 0; j < 6; j++) o[j] = j * 5; try { h = M(h, JitKC3.Box(o, o2, 12)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 235: // JitKC3.Bad (C3 source / dest bounds, negative index and length, null source / dest, string to int, rank mismatch, null unboxing, empty copies at the end, 3-arg past the length)
+                case 236: // JitKC3.Bad (C3 source / dest bounds, negative index and length, null source / dest, string to int, rank mismatch, null unboxing, empty copies at the end, 3-arg past the length)
                 {
             try { h = M(h, JitKC3.Bad(0)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(2)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(4)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(5)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(6)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(7)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(8)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(9)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKC3.Bad(10)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 236: // JitKLS.Read (LDSFLDA static struct fields read and called through their address; holder classes with a static ctor, the compiled run meets one not initialised yet)
+                case 237: // JitKLS.Read (LDSFLDA static struct fields read and called through their address; holder classes with a static ctor, the compiled run meets one not initialised yet)
                 {
             int r = JitLsRun.R0++; try { h = M(h, JitKLS.Read(r < 3 ? r : 3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKLS.Read(r < 3 ? r : 3)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 237: // JitKLS.Write (LDSFLDA stfld, by-ref int / long / struct args, reference field of a struct static; a fresh holder class per run, values put back)
+                case 238: // JitKLS.Write (LDSFLDA stfld, by-ref int / long / struct args, reference field of a struct static; a fresh holder class per run, values put back)
                 {
             int r = JitLsRun.W0++; int g = r < 3 ? r : 3; try { h = M(h, JitKLS.Write(g, 1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKLS.Write(g, 4)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 238: // JitKLS.Own (LDSFLDA statics of the compiled class, no static ctor)
+                case 239: // JitKLS.Own (LDSFLDA statics of the compiled class, no static ctor)
                 {
             try { h = M(h, JitKLS.Own(20)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 239: // JitKCL.Copies (C5 Array.Copy try / catch: object[] with a string to int[], long[] to int[], object[] to string[], widening, references)
+                case 240: // JitKCL.Copies (C5 Array.Copy try / catch: object[] with a string to int[], long[] to int[], object[] to string[], widening, references)
                 {
             try { h = M(h, JitKCL.Copies(24)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
-                case 240: // JitKCL.User (C5 lazy callees with clauses: catch inside, throw outside a try, rethrow, finally, an uncaught type)
+                case 241: // JitKCL.User (C5 lazy callees with clauses: catch inside, throw outside a try, rethrow, finally, an uncaught type)
                 {
             try { h = M(h, JitKCL.User(30)); } catch (Exception e) { h = X(h, e); }
                     return h;

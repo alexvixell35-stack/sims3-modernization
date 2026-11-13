@@ -1,0 +1,466 @@
+{
+  "note": "boundcall (docs/537 §22, prepared 2026-11-13, NOT RUN): pair boundcall-1113 (ts3native 0.36.250, [MonoJit] BoundCall: guarded comparer sites call EA's native String.GetHashCode() / Equals(string) bodies through 0xE525C0 instead of exiting). Order: (1) bp-boundcall-smoke 5 min, --ab boundcall 1-min slices: both arms in the per-arm split, bcOn read back per slice, bcHits only in on slices; stops the queue on FAIL. (2) bp/ip-boundcall-correct 10 min each (Mode=2 verify + Count=1). (3) bp/ip-boundcall-ab 10 min each, in-load A/B (profile-run-length). Pair parked: game-copy/ts3native.asi.boundcall-1113 (builds.json, sha256 74c64881, 0.36.250). Run: node tools/harness/queue.ts tools/harness/queues/boundcall.json",
+  "jobs": [
+    {
+      "id": "bp-boundcall-smoke",
+      "asi": "game-copy/ts3native.asi.boundcall-1113",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "boundcall-1113 pair (builds.json): feature/monojit-boundcall, ts3native 0.36.250 = master 0.36.249 (crash2diag) + docs/537 §22 [MonoJit] BoundCall (counters v194 0x6278-0x62A7, version field 912), parked from native/ts3native/out; ts3fixes = the release package rc1111e (no ts3fixes change on this branch)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "note": "BP 5 min smoke (measurement check before the A/B jobs): --ab boundcall 1-min slices, Mode=1. Pass: both arms in the per-arm split, bcOn reads back 0 / 1 per slice, bcHits > 0 and growing only in on slices, OK line BoundCall=0x3, no crash, script errors 0. Stops the queue on FAIL.",
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*code region 4096 KB \\(CodeKB\\), Direct=2 .*BoundCall=0x3": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.CodeKB": 4096,
+        "MonoJit.BoundCall": 1,
+        "MonoJit.BoundCallMask": 3
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "boundcall",
+          "slice": 1
+        }
+      },
+      "timeoutMin": 25,
+      "nativeRequire": "bcHits>=1,jitFaults<=0",
+      "earlyGates": [
+        {
+          "afterSec": 180,
+          "counter": "bcHits",
+          "op": ">",
+          "value": 0,
+          "why": "no bound call from compiled code: BoundCall did not install or the comparer sites never filled"
+        }
+      ],
+      "stopQueueOnFail": true,
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): code region full 0"
+          ]
+        },
+        "OK   mono jit .*code region 4096 KB \\(CodeKB\\), Direct=2 .*BoundCall=0x3": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x3"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0",
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 115 list rows, VerifyEvery=16, code region 2048 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x3"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-boundcall-correct",
+      "asi": "game-copy/ts3native.asi.boundcall-1113",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "boundcall-1113 pair (builds.json): feature/monojit-boundcall, ts3native 0.36.250 = master 0.36.249 (crash2diag) + docs/537 §22 [MonoJit] BoundCall (counters v194 0x6278-0x62A7, version field 912), parked from native/ts3native/out; ts3fixes = the release package rc1111e (no ts3fixes change on this branch)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "note": "BP 10 min correctness: c3g bundle on (Mode=2 verify, Direct=1 DirectLeaf=0, CodeKB=4096) + BoundCall=1 mask 3 + Count=1 (jitcallee lines: callee + native flag per guard bail, I-476-1 / GetPrev comparer, I-484-2). Not a timing arm. Pass: no crash, 0 'jit verify MISMATCH', script errors 0, OK line reads CodeKB 4096 + BoundCall=0x3, >= 1 'jit: compiled', a jitcount: end line, bcHits >= 1000, bcFills >= 1, jitMismatch 0, jitFaults 0. Read: bcHits, bcCallee0/1, bcExc, bcNotAllowed, bcVtThis (-native.json), jitcallee lines (node tools/jit-hot.ts --game-count <job ts3native.log> --out <host-style.log>).",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*code region 4096 KB \\(CodeKB\\), Direct=2 .*BoundCall=0x3": 1,
+        "^jitcount: end ": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.CodeKB": 4096,
+        "MonoJit.BoundCall": 1,
+        "MonoJit.BoundCallMask": 3,
+        "MonoJit.Count": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "bcHits>=1000,bcFills>=1,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): code region full 0"
+          ]
+        },
+        "OK   mono jit .*code region 4096 KB \\(CodeKB\\), Direct=2 .*BoundCall=0x3": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x3"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0",
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 115 list rows, VerifyEvery=16, code region 2048 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x3"
+          ]
+        },
+        "^jitcount: end ": {
+          "match": [
+            "jitcount: end interval #1, 1 lines, 0 left out (cap 6000)"
+          ],
+          "noMatch": [
+            "jitcount: begin interval #1, 1 methods"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH Dictionary`2.GetSlot word 3"
+          ],
+          "noMatch": [
+            "jit verify ok 2048 mismatch 0"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-boundcall-correct",
+      "asi": "game-copy/ts3native.asi.boundcall-1113",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "boundcall-1113 pair (builds.json): feature/monojit-boundcall, ts3native 0.36.250 = master 0.36.249 (crash2diag) + docs/537 §22 [MonoJit] BoundCall (counters v194 0x6278-0x62A7, version field 912), parked from native/ts3native/out; ts3fixes = the release package rc1111e (no ts3fixes change on this branch)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-IP-Spring",
+      "note": "IP 10 min correctness: c3g bundle on (Mode=2 verify, Direct=1 DirectLeaf=0, CodeKB=4096) + BoundCall=1 mask 3 + Count=1 (jitcallee lines: callee + native flag per guard bail, I-476-1 / GetPrev comparer, I-484-2). Not a timing arm. Pass: no crash, 0 'jit verify MISMATCH', script errors 0, OK line reads CodeKB 4096 + BoundCall=0x3, >= 1 'jit: compiled', a jitcount: end line, bcHits >= 1000, bcFills >= 1, jitMismatch 0, jitFaults 0. Read: bcHits, bcCallee0/1, bcExc, bcNotAllowed, bcVtThis (-native.json), jitcallee lines (node tools/jit-hot.ts --game-count <job ts3native.log> --out <host-style.log>).",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*code region 4096 KB \\(CodeKB\\), Direct=2 .*BoundCall=0x3": 1,
+        "^jitcount: end ": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.CodeKB": 4096,
+        "MonoJit.BoundCall": 1,
+        "MonoJit.BoundCallMask": 3,
+        "MonoJit.Count": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "bcHits>=1000,bcFills>=1,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): code region full 0"
+          ]
+        },
+        "OK   mono jit .*code region 4096 KB \\(CodeKB\\), Direct=2 .*BoundCall=0x3": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x3"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0",
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 115 list rows, VerifyEvery=16, code region 2048 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x3"
+          ]
+        },
+        "^jitcount: end ": {
+          "match": [
+            "jitcount: end interval #1, 1 lines, 0 left out (cap 6000)"
+          ],
+          "noMatch": [
+            "jitcount: begin interval #1, 1 methods"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH Dictionary`2.GetSlot word 3"
+          ],
+          "noMatch": [
+            "jit verify ok 2048 mismatch 0"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-boundcall-ab",
+      "asi": "game-copy/ts3native.asi.boundcall-1113",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "boundcall-1113 pair (builds.json): feature/monojit-boundcall, ts3native 0.36.250 = master 0.36.249 (crash2diag) + docs/537 §22 [MonoJit] BoundCall (counters v194 0x6278-0x62A7, version field 912), parked from native/ts3native/out; ts3fixes = the release package rc1111e (no ts3fixes change on this branch)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "note": "BP 10 min in-load ms/s A/B: --ab boundcall (bcOn 0x6278 flipped at run time, 2-min slices, off first) on the c3g bundle (Mode=1, no verify, Count=0, CodeKB=4096, Direct=1 DirectLeaf=0). Expected [inferred, docs/537 §22.5]: sim ms/s -0.7..-2.0 in the on slices. Pass: no crash, script errors 0, OK line BoundCall=0x3, bcHits grows only in on slices (early gate bcHits > 0), jitFaults 0. Read: sim ms/s per arm (profile-compare.mjs), hitch counts (hitch-ab.ts).",
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*code region 4096 KB \\(CodeKB\\), Direct=2 .*BoundCall=0x3": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.CodeKB": 4096,
+        "MonoJit.BoundCall": 1,
+        "MonoJit.BoundCallMask": 3
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "boundcall",
+          "slice": 2
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "bcHits>=1,jitFaults<=0",
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "bcHits",
+          "op": ">",
+          "value": 0,
+          "why": "no bound call from compiled code: BoundCall did not install or the comparer sites never filled"
+        }
+      ],
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): code region full 0"
+          ]
+        },
+        "OK   mono jit .*code region 4096 KB \\(CodeKB\\), Direct=2 .*BoundCall=0x3": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x3"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0",
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 115 list rows, VerifyEvery=16, code region 2048 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x3"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-boundcall-ab",
+      "asi": "game-copy/ts3native.asi.boundcall-1113",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "boundcall-1113 pair (builds.json): feature/monojit-boundcall, ts3native 0.36.250 = master 0.36.249 (crash2diag) + docs/537 §22 [MonoJit] BoundCall (counters v194 0x6278-0x62A7, version field 912), parked from native/ts3native/out; ts3fixes = the release package rc1111e (no ts3fixes change on this branch)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-IP-Spring",
+      "note": "IP 10 min in-load ms/s A/B: --ab boundcall (bcOn 0x6278 flipped at run time, 2-min slices, off first) on the c3g bundle (Mode=1, no verify, Count=0, CodeKB=4096, Direct=1 DirectLeaf=0). Expected [inferred, docs/537 §22.5]: sim ms/s -0.7..-2.0 in the on slices. Pass: no crash, script errors 0, OK line BoundCall=0x3, bcHits grows only in on slices (early gate bcHits > 0), jitFaults 0. Read: sim ms/s per arm (profile-compare.mjs), hitch counts (hitch-ab.ts).",
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*code region 4096 KB \\(CodeKB\\), Direct=2 .*BoundCall=0x3": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.CodeKB": 4096,
+        "MonoJit.BoundCall": 1,
+        "MonoJit.BoundCallMask": 3
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "ab": "boundcall",
+          "slice": 2
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "bcHits>=1,jitFaults<=0",
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "bcHits",
+          "op": ">",
+          "value": 0,
+          "why": "no bound call from compiled code: BoundCall did not install or the comparer sites never filled"
+        }
+      ],
+      "regexCases": {
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): code region full 0"
+          ]
+        },
+        "OK   mono jit .*code region 4096 KB \\(CodeKB\\), Direct=2 .*BoundCall=0x3": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x3"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0",
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 115 list rows, VerifyEvery=16, code region 2048 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x3"
+          ]
+        }
+      }
+    }
+  ]
+}

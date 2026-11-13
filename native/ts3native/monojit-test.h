@@ -935,6 +935,123 @@ static void TestMonoJitFastCopy() {
     g_jitFastCopy = false;
 }
 
+// [MonoJit] BoundCall (docs/537 §22): a guarded callvirt whose target has an allowed EA native body calls it through the 0xE525C0
+// entry with EA's frame words and continues compiled; an exception, a body off the list, a value-type this, ForceJIT and
+// BoundCall=0 each leave at the callvirt with nothing of the caller's written
+static DWORD g_jtBf[10], g_jtBfAt, g_jtBfCur, g_jtBfThrow, g_jtBfCalls;
+static void __cdecl JtBoundInv(DWORD frame, DWORD ctx) {  // String.GetHashCode()'s shape: result dword to [frame+8], or an exception
+    memcpy(g_jtBf, (const void*)(uintptr_t)frame, sizeof(g_jtBf));
+    g_jtBfAt = frame;
+    g_jtBfCur = *(const DWORD*)(uintptr_t)(ctx + 8), g_jtBfCalls++;
+    if (g_jtBfThrow) { *(DWORD*)(uintptr_t)(frame + 0x20) = 0x1234; return; }
+    **(DWORD**)(uintptr_t)(frame + 8) = *(const DWORD*)(uintptr_t)(*(const DWORD*)(uintptr_t)(frame + 0xC) + 4) * 31 + 7;
+}
+static void __cdecl JtE525C0(DWORD frame, DWORD ctx) {  // EA's 0xE525C0 without the setjmp: call [[frame+4]+0x24](frame, ctx)
+    ((JitBoundEntryFn)(uintptr_t)*(const DWORD*)(uintptr_t)(*(const DWORD*)(uintptr_t)(frame + 4) + 0x24))(frame, ctx);
+}
+static void TestMonoJitBoundCall() {
+    Ts3nCounters& C = ts3native_counters;
+    {   // count mode's target rows: one row a target, the fifth target onto the last row, 0 = the site's target
+        static JitGuardSite s;
+        const u8* t[5] = {(const u8*)1, (const u8*)2, (const u8*)3, (const u8*)4, (const u8*)5};
+        JcnGuardBail(&s, t[0]), JcnGuardBail(&s, t[0]), JcnGuardBail(&s, t[1]);
+        s.rm = t[1], JcnGuardBail(&s, NULL);
+        JcnGuardBail(&s, t[2]), JcnGuardBail(&s, t[3]), JcnGuardBail(&s, t[4]);
+        assert(s.tRm[0] == t[0] && s.tNoLazy[0] == 2 && s.tRm[1] == t[1] && s.tNoLazy[1] == 2 && s.tRm[3] == t[3] && s.tNoLazy[3] == 2);
+    }
+    g_jitMode = 1, g_jitVerifyOn = 0, g_jitLazy = true, g_jitLeafOnly = false;  // guards need DirectLeaf=0
+    g_jitForceJit = &g_jtForceByte, g_jitProxyClassP = (const void* const*)&g_jtProxy;
+    g_jtLen[0xEC] = 4;
+    g_jitBc = (JitBoundStats*)&C.bcOn;
+    static_assert(offsetof(Ts3nCounters, bcOn) == 0x6278 && offsetof(Ts3nCounters, bcSpare) == 0x62A0 && sizeof(JitBoundStats) == 12 * 4 &&
+                      sizeof(Ts3nCounters) == 6314 * 4, "counters v194 layout after the v193 hold (docs/registry.md)");
+    const JitBoundEntryFn entry0 = g_jitBoundEntry;
+    g_jitBoundEntry = JtE525C0, g_jitBoundInv[0] = (DWORD)(uintptr_t)JtBoundInv, g_jitBoundInv[1] = 0, C.bcOn = 1, g_jitBoundMask = 1;
+    // the cache's class and target: a transformed instance method with an EA native body, no lazy body, one int result
+    static DWORD klass[8], vtable[2], obj[2], str[3], vItems[3];
+    vtable[0] = (DWORD)(uintptr_t)klass, str[0] = (DWORD)(uintptr_t)vtable, str[1] = 5;  // a "string" of length 5
+    static unsigned short t[] = {JT_LDC3, JT_RET};
+    static JtMeth mB, mD;
+    JtInit(mB, t, 2);
+    *(DWORD*)(mB.rm + 0x44) = 0x300, *(DWORD*)(mB.rm + 0x24) = (DWORD)(uintptr_t)JtBoundInv;
+    JtInit(mD, t, 2);
+    *(DWORD*)(mD.rm + 0x44) = 0x300;
+    *(unsigned short*)mD.mm = 0x40;  // virtual
+    vItems[0] = (DWORD)(uintptr_t)klass, vItems[1] = (DWORD)(uintptr_t)mB.rm, vItems[2] = (DWORD)(uintptr_t)mD.rm;
+    static unsigned short k[] = {JT_LDLOC, 0, 0xEC, 0, 0, 2, JT_RET};
+    static JtMeth mK;
+    const int g0 = g_jitGuardN;
+    JtMake(mK, k, 7, 0, vItems);
+    JitGuardSite* const gs = &g_jitGuard[g_jitGuardN - 1];  // the normal body's site
+    assert(g_jitGuardN == g0 + 2);
+    const LONG hits0 = C.bcHits, fills0 = C.bcFills, calls0 = C.jitLazyCalls;
+    JtLazyFrame();
+    g_jtLocals[0] = (DWORD)(uintptr_t)str;
+    JtLazyGo(k);
+    assert(g_jtEax == JT_RET && g_jtArena[0] == 5 * 31 + 7 && g_jtEsi == (DWORD)(uintptr_t)(g_jtArena + 2));  // ran on, result in the receiver's slot
+    assert(C.bcHits == hits0 + 1 && C.bcFills == fills0 + 1 && C.bcCallee[0] >= 1 && C.jitLazyCalls == calls0 && gs->rm == mB.rm && gs->bound == 1 && !gs->entry);
+    // EA's frame words: parent = the current MonoInvocation, rm, return slot = the eval top, this, args = top (no params), the rest 0
+    assert(g_jtBf[0] == (DWORD)(uintptr_t)g_jtInvs[0] && g_jtBf[1] == (DWORD)(uintptr_t)mB.rm && g_jtBf[2] == (DWORD)(uintptr_t)(g_jtArena + 2));
+    assert(g_jtBf[3] == (DWORD)(uintptr_t)str && g_jtBf[5] == g_jtBf[2] && !g_jtBf[4] && !g_jtBf[6] && !g_jtBf[7] && !g_jtBf[8] && !g_jtBf[9]);
+    assert(g_jtBfCur == g_jtBfAt && g_jtBfAt && !*(DWORD*)(g_jtCtx + 8));  // ctx+8 = the frame in the call, put back after
+    // an exception in the frame: the site exits at the callvirt, the receiver still in its slot; EA's call runs it again
+    const LONG exc0 = C.bcExc; const DWORD n0 = g_jtBfCalls;
+    g_jtBfThrow = 1;
+    JtLazyFrame();
+    g_jtLocals[0] = (DWORD)(uintptr_t)str;
+    JtLazyGo(k);
+    assert(g_jtEax == 0xEC && g_jtEdi == (DWORD)(uintptr_t)(k + 2) && g_jtArena[0] == (DWORD)(uintptr_t)str && g_jtEsi == (DWORD)(uintptr_t)(g_jtArena + 2));
+    assert(C.bcExc == exc0 + 1 && C.bcHits == hits0 + 1 && g_jtBfCalls == n0 + 1);
+    g_jtBfThrow = 0;
+    // ForceJIT: no call
+    g_jtForceByte = 0x74;
+    JtLazyFrame();
+    g_jtLocals[0] = (DWORD)(uintptr_t)str;
+    JtLazyGo(k);
+    assert(g_jtEax == 0xEC && g_jtBfCalls == n0 + 1);
+    g_jtForceByte = 0x75;
+    // switched off at run time (--ab boundcall writes bcOn): the filled site exits, then runs bound again once it is back on
+    C.bcOn = 0;
+    JtLazyFrame();
+    g_jtLocals[0] = (DWORD)(uintptr_t)str;
+    JtLazyGo(k);
+    assert(g_jtEax == 0xEC && gs->bound == 1 && g_jtBfCalls == n0 + 1);
+    C.bcOn = 1;
+    JtLazyFrame();
+    g_jtLocals[0] = (DWORD)(uintptr_t)str;
+    JtLazyGo(k);
+    assert(g_jtEax == JT_RET && g_jtArena[0] == 5 * 31 + 7 && g_jtBfCalls == n0 + 2);
+    const DWORD n1 = g_jtBfCalls;
+    // a body off the list, then a value-type this: the fill refuses, the site exits
+    const LONG na0 = C.bcNotAllowed, vt0 = C.bcVtThis;
+    g_jitBoundInv[0] = 0, gs->rm = NULL;
+    JtLazyFrame();
+    g_jtLocals[0] = (DWORD)(uintptr_t)str;
+    JtLazyGo(k);
+    assert(g_jtEax == 0xEC && C.bcNotAllowed == na0 + 1 && !gs->bound && g_jtBfCalls == n1);
+    g_jitBoundInv[0] = (DWORD)(uintptr_t)JtBoundInv, gs->rm = NULL;
+    *(DWORD*)(mB.rm + 0x44) = 0x700;
+    JtLazyFrame();
+    g_jtLocals[0] = (DWORD)(uintptr_t)str;
+    JtLazyGo(k);
+    assert(g_jtEax == 0xEC && C.bcVtThis == vt0 + 1 && !gs->bound && g_jtBfCalls == n1);
+    *(DWORD*)(mB.rm + 0x44) = 0x300;
+    // BoundCall=0 at compile time: the site has no bound path, the allowed target exits as before
+    g_jitBoundMask = 0;
+    static unsigned short k2[] = {JT_LDLOC, 0, 0xEC, 0, 0, 2, JT_RET};
+    static JtMeth mK2;
+    JtMake(mK2, k2, 7, 0, vItems);
+    g_jitBoundMask = 1;
+    JtLazyFrame();
+    g_jtLocals[0] = (DWORD)(uintptr_t)str;
+    JtLazyGo(k2);
+    assert(g_jtEax == 0xEC && g_jtEdi == (DWORD)(uintptr_t)(k2 + 2) && g_jtBfCalls == n1);
+    (void)obj;
+    C.bcOn = 0, g_jitBoundMask = 0, g_jitBoundInv[0] = 0, g_jitBoundEntry = entry0, g_jitBc = &g_jitBcOwn;
+    g_jitLazy = false, g_jitLeafOnly = true, g_jitLazyCellN = 0, g_jitGuardN = 0;
+    g_jitForceJit = (const BYTE*)(uintptr_t)TS3A(0x00E5637D), g_jitProxyClassP = (const void* const*)(uintptr_t)TS3A(0x01220EC0);
+}
+
 static void TestMonoJit() {
     Ts3nCounters& C = ts3native_counters;
     // default: nothing installed without the switch, and the switch alone does nothing on another exe
@@ -1361,6 +1478,7 @@ static void TestMonoJit() {
     TestMonoJitNewVt();
     TestMonoJitCount();
     TestMonoJitFastCopy();
+    TestMonoJitBoundCall();
 
     // the region: code pages are not writable once a method is done
     MEMORY_BASIC_INFORMATION mbi;

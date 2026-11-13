@@ -177,10 +177,12 @@ static void* JitStaticVt(const u8* field) {
     return ((void*(__cdecl*)(void*, const void*))(uintptr_t)0xEA2AD0)(g_jitDomain, *(const void* const*)(field + 0x14));
 }
 
+static bool JitBindStandIn(u8* rm);  // MONOHOST_JITBIND (docs/537 §22), after monojit-bound.h
 static void* __cdecl JitTransformHook(u8* rm, void* ctx) {
     void* exc = ((void*(__cdecl*)(u8*, void*))(void*)g_xformTramp)(rm, ctx);
     if (ctx && !g_jitDomain) { g_jitDomain = *(void**)ctx; Log("jit: domain %p (the transform context's)\n", g_jitDomain); }
     if (exc || !rm || !*(void**)rm) return exc;
+    if (JitBindStandIn(rm)) return exc;  // an EA native body now: nothing to compile
     char name[256];
     JitMethodName(rm, name, sizeof(name));
     if (!JitListed(name)) return exc;
@@ -455,17 +457,49 @@ static JitLazyCell* JitLazyCellFor(const u8* rm) {
 // target compiles: the publish step refills). Counters: lazy calls made from a lazy body and through a guard (count mode).
 // unbox (CallExit): 4 when the cache's class is a value type and the target takes a value-type this, as EA's callvirt passes
 // box + 4 then (0xE54B2C-0xE54B41 [verified]); the site adds it to the receiver.
-struct JitGuardSite { const u8* rm; u8* entry; DWORD w38, w3E, wLoc, w3C, wVt; volatile LONG fills; const DWORD* cls; DWORD unbox; };
+// bound ([MonoJit] BoundCall, docs/537 §22): kJitBound row + 1 when the target is an allowed EA native body (entry stays NULL)
+struct JitGuardSite { const u8* rm; u8* entry; DWORD w38, w3E, wLoc, w3C, wVt; volatile LONG fills; const DWORD* cls; DWORD unbox; int bound; };
+#include "../ts3native/monojit-bound.h"  // MONOHOST_JITBOUNDCALL: the game's allow list, JitBoundCall, JitBoundEmit
+// MONOHOST_JITBIND=1 (docs/537 §22): a stand-in for EA's binder, for the kJitBound rows only. The host never runs EA's registration
+// table (docs/119 §9.4), so String.GetHashCode() / Equals(string) run their IL here; with this on they get the game's native bodies
+// right after their transform, as EA's binder 0xD9A7B0 writes them (+0x24 invoker, +0x28 body). Their one-shot inits (+0x2C) are
+// done here: [0x11EF7BC] = OffsetToStringData's icall 0x927420 (returns 8), [0x11F06E0] = a block whose +0x28 is Equals(string,string)'s
+// bound body 0xDA4200 (it reads only its string arguments), the path the game's Equals(string) body takes. Identity: name, parameter
+// count and the parameter's MonoType (mono_method_signature 0xE85040: count u16 at +4, params at +0x10, type byte +6, byref
+// +4 & 0x40000000 [verified: the binder's key builder 0xD9A71D-0xD9A776]).
+static bool g_jitBind;
+static int g_jitBindN;
+static u8 g_jitBindEqSS[0x48];
+static bool JitBindStandIn(u8* rm) {
+    if (!g_jitBind || *(const DWORD*)(rm + 0x28)) return false;
+    char name[256];
+    JitMethodName(rm, name, sizeof(name));
+    const bool gh = !strcmp(name, "System.String.GetHashCode"), eq = !strcmp(name, "System.String.Equals");
+    if (!gh && !eq) return false;
+    const u8* sig = ((const u8*(__cdecl*)(const void*))(uintptr_t)0xE85040)(*(void* const*)(rm + 8));
+    const int np = sig ? *(const unsigned short*)(sig + 4) : -1;
+    const u8* p0 = np >= 1 ? *(const u8* const*)(sig + 0x10) : NULL;
+    const JitBoundCallee* c = gh && np == 0 ? &kJitBound[0]
+                            : eq && np == 1 && p0 && p0[6] == 0x0E && !(*(const DWORD*)(p0 + 4) & 0x40000000) ? &kJitBound[1] : NULL;
+    if (!c) return false;
+    if (!*(const DWORD*)(uintptr_t)0x11EF7BC) *(DWORD*)(uintptr_t)0x11EF7BC = 0x927420;
+    if (!*(const DWORD*)(uintptr_t)0x11F06E0) *(DWORD*)(g_jitBindEqSS + 0x28) = 0xDA4200, *(DWORD*)(uintptr_t)0x11F06E0 = (DWORD)(uintptr_t)g_jitBindEqSS;
+    *(DWORD*)(rm + 0x24) = c->inv, *(DWORD*)(rm + 0x28) = c->body;
+    g_jitBindN++;
+    Log("jit bind: %s -> EA invoker 0x%08lX, body 0x%08lX (stand-in binder)\n", c->name, c->inv, c->body);
+    return true;
+}
 static JitGuardSite g_jitGuard[4096];
 static int g_jitGuardN, g_jitLazyGuardSites;
 static volatile LONG g_jitLazyChain, g_jitLazyGuard;
 static void __cdecl JitGuardFill(JitGuardSite* s, const u8* rm) {
-    s->rm = NULL, s->entry = NULL, s->fills++;
+    s->rm = NULL, s->entry = NULL, s->bound = 0, s->fills++;
     if (!rm) return;
     const DWORD fl = *(const DWORD*)(rm + 0x44);
     if (!(fl & 0x100)) return;
     s->rm = rm;
-    if (!(fl & 0x200) || *(const DWORD*)(rm + 0x24)) return;
+    if (*(const DWORD*)(rm + 0x24)) { if (fl & 0x200) s->bound = JitBoundOf(rm); return; }  // an EA native body (MONOHOST_JITBIND): BoundCall or a bail
+    if (!(fl & 0x200)) return;
     JitLazyCell* cell = JitLazyCellFor(rm);
     if (!cell || !cell->entry) return;
     s->w38 = *(const unsigned short*)(rm + 0x38), s->w3E = *(const unsigned short*)(rm + 0x3E);
@@ -951,6 +985,7 @@ static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* ca
     u8* bail[16];
     u8 why[16];  // count mode: the bail reason per jump (kLazyBail)
     int nb = 0;
+    u8* nolazy = NULL;  // BoundCall: the guard's "no lazy body" jump
     if (guard) {  // receiver not null, with a vtable, not the remoting class, not a value type, of the cache's class; target = the cache's
         e.op(0x8B, ECX, ESI, thisOff); e.rr(0x85, ECX, ECX); why[nb] = 0, bail[nb++] = e.jcc(0x84);
         if (op == 0xED) { e.op(0x8B, ECX, ECX, 0); e.rr(0x85, ECX, ECX); why[nb] = 1, bail[nb++] = e.jcc(0x84); }  // this = *ptr
@@ -964,7 +999,9 @@ static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* ca
         e.b(0xE8); e.d((DWORD)(uintptr_t)JitGuardFill - ((DWORD)(uintptr_t)e.p + 4));
         e.b(0x83); e.b(0xC4); e.b(8); e.b(0x61);                                                // add esp, 8; popad
         Fix(same, e.p);
-        e.b(0x83); e.b(0x3D); e.d((DWORD)(uintptr_t)&gs->entry); e.b(0); why[nb] = 6, bail[nb++] = e.jcc(0x84);  // no lazy body (yet)
+        e.b(0x83); e.b(0x3D); e.d((DWORD)(uintptr_t)&gs->entry); e.b(0);
+        if (g_jitBoundMask) nolazy = e.jcc(0x84);                  // no lazy body: BoundCall's path below (docs/537 §22)
+        else why[nb] = 6, bail[nb++] = e.jcc(0x84);              // no lazy body (yet)
         if (g_jitCallExit && op == 0xEC) { e.b(0x03); e.b(0x0D); e.d((DWORD)(uintptr_t)&gs->unbox); }  // add ecx, [site.unbox]: this = box + 4
     } else {
         e.b(0x83); e.b(0x3D); e.d((DWORD)(uintptr_t)&cell->entry); e.b(0); why[nb] = 6, bail[nb++] = e.jcc(0x84);  // no lazy body (yet)
@@ -1051,6 +1088,8 @@ static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* ca
         g_jitNewVtSites++;
     }
     u8* skip = e.jmp();
+    u8* bound = NULL;
+    if (nolazy) JitBoundEmit(e, gs, nolazy, 0x00E5637D, bail, why, nb, &bound);
     if (g_jitCountOn && g_jitLazyStatN < 4096) {  // A2 census: one counter per bail reason, then the common exit
         JitLazyStat& st = g_jitLazyStat[g_jitLazyStatN++];
         st.callerRm = callerRm, st.ip = ip, st.op = (unsigned short)op, st.lazy = lazy, st.guard = guard;
@@ -1061,6 +1100,7 @@ static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* ca
         for (int i = 0; i < nb; i++) Fix(bail[i], e.p);
     EmitExit(e, ip, op, false);
     Fix(skip, e.p);
+    if (bound) Fix(bound, e.p);
     g_jitLazySites++;
     if (guard) g_jitLazyGuardSites++;
     return true;
@@ -2258,6 +2298,13 @@ static void JitStats() {
         Log("jit callexit: pure icall sites %ld, guard sites filled with a boxed value-type receiver %d\n", g_jitPure, ub);
     }
     if (g_jitNewVt) Log("jit newvt: newobj value-type sites %d (normal and lazy bodies)\n", g_jitNewVtSites);
+    if (g_jitBoundMask || g_jitBindN) {
+        int bs = 0;
+        for (int i = 0; i < g_jitGuardN; i++) bs += g_jitGuard[i].bound != 0;
+        Log("jit boundcall: mask 0x%lX, stand-in binder rows %d, guard sites on a bound body %d, fills %ld, calls %ld (GetHashCode %ld, Equals %ld), "
+            "exceptions %ld, off the list %ld, value-type this %ld\n", g_jitBc->on, g_jitBindN, bs, g_jitBc->fills, g_jitBc->hits, g_jitBc->callee[0],
+            g_jitBc->callee[1], g_jitBc->exc, g_jitBc->notAllowed, g_jitBc->vtThis);
+    }
     if (g_jitFastCopy) Log("jit fastcopy: sites %ld, inline copies %ld, exits to EA's call %ld\n", g_jitFastCopySites, g_jitFastCopyRuns, g_jitFastCopyExits);
 }
 // B1 exit census (count mode): every exit site that ran, with its method and EA opcode, and calls per compiled method.
@@ -2659,6 +2706,9 @@ static bool InstallJit() {
         g_jitPureIcalls = g_jitCallExit && JitPureIcallsOk();
         if ((g_jitVtOps = GetEnvironmentVariableA("MONOHOST_JITVTOPS", x, sizeof(x)) && x[0] == '1')) c2 |= 1024;
         g_jitNewVt = GetEnvironmentVariableA("MONOHOST_JITNEWVT", x, sizeof(x)) && x[0] == '1';
+        g_jitBind = GetEnvironmentVariableA("MONOHOST_JITBIND", x, sizeof(x)) && x[0] == '1';  // docs/537 §22: the game's String bodies
+        if (GetEnvironmentVariableA("MONOHOST_JITBOUNDCALL", x, sizeof(x)) && atoi(x) > 0)    // docs/537 §22: kJitBound row mask
+            Log("jit boundcall: mask %s asked, 0x%X in force (rows whose EA bytes match)\n", x, JitBoundInit((unsigned)atoi(x)));
         const bool fcWant = GetEnvironmentVariableA("MONOHOST_JITFASTCOPY", x, sizeof(x)) && x[0] == '1';
         g_jitFastCopy = fcWant && JitFastCopyOk();
         if (fcWant && !g_jitFastCopy) Log("jit: FastCopy: EA's Array.FastCopy bytes differ, it stays an EA call\n");

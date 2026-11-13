@@ -690,6 +690,18 @@ function bclCases(): Case[] {
     dict('ObjectGuid', i => `new ObjectGuid((ulong)${i} * 977UL)`, 'ObjectGuid'), dict('JitKey', i => `new JitKey(${i})`, 'colliding struct key'),
     dict('DayOfWeek', i => `(DayOfWeek)(${i} % 9)`, 'enum'),
     { name: 'Dictionary<string,int> null key', body: `Dictionary<string, int> d = new Dictionary<string, int>(); ${T('NullKey(d)')} int v; ${T('d.TryGetValue(null, out v)')}` },
+    // docs/537 §22 BoundCall: the comparer's guarded s.GetHashCode() / s.Equals(t) sites, on EA's native String bodies with MONOHOST_JITBIND=1
+    { name: 'String comparer: EqualityComparer<string>.Default GetHashCode/Equals, string.GetHashCode/Equals(string) (null, empty, non-ASCII, odd/even lengths, same reference)', body: `string[] ss = new string[] { null, "", "a", "ab", "abc", "k1", "k" + 1, "\\u00e9t\\u00e9", "\\u65e5\\u672c\\u8a9e", "\\ud83d\\ude00", new string('x', 257), "A", "a\\0b" };
+            EqualityComparer<string> c = EqualityComparer<string>.Default;
+            for (int i = 0; i < ss.Length; i++)
+            {
+                h = M(h, c.GetHashCode(ss[i])); ${T('ss[i].GetHashCode()')} ${T('ss[i].Length')}
+                for (int j = 0; j < ss.Length; j++) { h = M(h, c.Equals(ss[i], ss[j])); h = M(h, ss[i] == ss[j]); if (ss[i] != null) h = M(h, ss[i].Equals(ss[j])); }
+                if (ss[i] != null) { h = M(h, ss[i].Equals(ss[i])); h = M(h, ss[i].Equals((object)ss[i])); h = M(h, ss[i].Equals((object)i)); }
+            }
+            Dictionary<string, int> d = new Dictionary<string, int>(c);
+            for (int i = 1; i < ss.Length; i++) d[ss[i]] = i;
+            for (int i = 0; i < 200; i++) { int v; h = M(h, d.TryGetValue("k" + (i % 7), out v) ? v : -1); h = M(h, d.ContainsKey(ss[1 + i % (ss.Length - 1)])); }` },
     { name: 'List<int> / List<object> (growth, indexer bounds, enumerator, modification)', body: `for (int n = 0; n < 40; n++)
             {
                 List<int> l = new List<int>(); List<object> lo = new List<object>(n & 3);
