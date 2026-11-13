@@ -2682,6 +2682,16 @@
       "what": "buyiconprobe2",
       "at": "2026-11-11T23:18:27.509Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-546",
+      "kind": "doc",
+      "from": 546,
+      "to": 546,
+      "by": "claude",
+      "what": "sim-cycle waste hypotheses (work repeated without a payoff check)",
+      "at": "2026-11-13T19:33:22.367Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

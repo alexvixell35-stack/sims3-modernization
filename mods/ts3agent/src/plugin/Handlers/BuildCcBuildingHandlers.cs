@@ -451,9 +451,9 @@ namespace Ts3Agent
                 fp = new int[] { Convert.ToInt32(bl[0]), Convert.ToInt32(bl[1]), Convert.ToInt32(bl[2]), Convert.ToInt32(bl[3]) };
             }
             else
-                foreach (int[] wd in new int[][] { new int[] { 16, 12 }, new int[] { 12, 12 }, new int[] { 12, 8 }, new int[] { 8, 8 } })
+                foreach (int[] wd in new int[][] { new int[] { 16, 12 }, new int[] { 12, 12 }, new int[] { 12, 8 }, new int[] { 8, 8 }, new int[] { 8, 6 }, new int[] { 6, 6 }, new int[] { 4, 4 } })
                     if ((fp = FindFootprint(lot, wd[0], wd[1], avoid)) != null) break;
-            if (fp == null) throw new McpException("no free 8 x 8 (or larger) footprint on the home lot for the building: pass building: [lx0, lz0, w, d]");
+            if (fp == null) throw new McpException("no free 4 x 4 (or larger) footprint on the home lot for the building: pass building: [lx0, lz0, w, d]");
             b.x0 = fp[0]; b.z0 = fp[1]; b.W = fp[2]; b.D = fp[3];
             b.rx = Math.Max(1, b.W / room); b.rz = Math.Max(1, b.D / room);
             b.rw = b.W / b.rx; b.rd = b.D / b.rz;
