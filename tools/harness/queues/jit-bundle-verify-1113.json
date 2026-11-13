@@ -1,5 +1,5 @@
 {
- "note": "jit-bundle-verify-1113 (PREPARED, NOT RUN; correctness first for the night chain): the whole JIT bundle in one build (game-copy/ts3native.asi.jitbundle-1113, branch feature/jit-bundle-1113: MaxMethods 4096 + CodeKB 8192, E1 [Binder] TypeHandleDirect, C2c list, Direct=1 DirectLeaf=0, ClauseLazy, Wide, BoundCall mask 3, [MonoFast] CallPath=1; RetTeardown, VtOps, CallExit stay 0; [MintFuse] Sub=1 with the fewest-dispatch matcher, rules of mintfuse-sub-on-1113 folded in). 3 jobs: bp/ip/sv-jb-verify (Mode=2 verify with Count=1 in the same load; the former separate bp/ip/sv-jb-count jobs, Mode=1 Count=1, are merged in, and jit-table-4096 is dropped: its rules (MaxMethods 4096 / CodeKB 8192 read back, no 2048 fallback, jitMethods vs cap, jitTableFull, jitFullN) are covered here). Correctness only: no noise check, no timing claims, samplers stay at the light default. The first job stops the queue on FAIL; the chain starts the timing queue only if this queue has no FAIL or VOID. Ini set taken from the task brief (checked against docs/handoff/jit-bundle-1113.md on 2026-11-13). Per docs/handoff/jit-bundle-1113.md (checked 2026-11-13): Inline=2 is ON; NewVt=0, FastCopy=0, Ldsflda=0 (not host-gated in this bundle), Wide=1 set explicitly (no Wide line in the shipped ini). Rules: ON counters read back with @name (startup values), jitMismatch/jitFaults/mcMismatch/clFaults delta 0, @clKillWhy and @rtdKillWhy 0 (drop the rtd rule if the build has no RetTeardown counters), OK line shows every switch, no \"fell back to 2048 methods\", no jit verify/fault line. Run: node tools/harness/queue.ts tools/harness/queues/jit-bundle-verify-1113.json --no-smoke (or the chain, probe-out/queue/chain-jit-bundle-1113.sh). ~3 x 14.5 min = ~44 min (BP jobs took 14.4 min in the 11-13 BoundCall runs). Then: node tools/harness/run-verdict.ts jit-bundle-verify-1113.",
+ "note": "2026-11-13 after bp-jb-verify FAIL (rule bugs, not JIT): @cpOn is Compaction's counter, CallPath reads back as @mcSwitch; @clBodies, clVerRuns and the Array.Copy clause lazy body line dropped (ClauseLazy builds no lazy body for Array.Copy with CallExit=0, monojit.cpp lazyOk rule; 0 lines in bp-jb-verify); cl*/jitMethCap/rtd* names need the bundle agent.js (tools/probe/agent.js). jit-bundle-verify-1113 (PREPARED, NOT RUN; correctness first for the night chain): the whole JIT bundle in one build (game-copy/ts3native.asi.jitbundle-1113, branch feature/jit-bundle-1113: MaxMethods 4096 + CodeKB 8192, E1 [Binder] TypeHandleDirect, C2c list, Direct=1 DirectLeaf=0, ClauseLazy, Wide, BoundCall mask 3, [MonoFast] CallPath=1; RetTeardown, VtOps, CallExit stay 0; [MintFuse] Sub=1 with the fewest-dispatch matcher, rules of mintfuse-sub-on-1113 folded in). 3 jobs: bp/ip/sv-jb-verify (Mode=2 verify with Count=1 in the same load; the former separate bp/ip/sv-jb-count jobs, Mode=1 Count=1, are merged in, and jit-table-4096 is dropped: its rules (MaxMethods 4096 / CodeKB 8192 read back, no 2048 fallback, jitMethods vs cap, jitTableFull, jitFullN) are covered here). Correctness only: no noise check, no timing claims, samplers stay at the light default. The first job stops the queue on FAIL; the chain starts the timing queue only if this queue has no FAIL or VOID. Ini set taken from the task brief (checked against docs/handoff/jit-bundle-1113.md on 2026-11-13). Per docs/handoff/jit-bundle-1113.md (checked 2026-11-13): Inline=2 is ON; NewVt=0, FastCopy=0, Ldsflda=0 (not host-gated in this bundle), Wide=1 set explicitly (no Wide line in the shipped ini). Rules: ON counters read back with @name (startup values), jitMismatch/jitFaults/mcMismatch/clFaults delta 0, @clKillWhy and @rtdKillWhy 0 (drop the rtd rule if the build has no RetTeardown counters), OK line shows every switch, no \"fell back to 2048 methods\", no jit verify/fault line. Run: node tools/harness/queue.ts tools/harness/queues/jit-bundle-verify-1113.json --no-smoke (or the chain, probe-out/queue/chain-jit-bundle-1113.sh). ~3 x 14.5 min = ~44 min (BP jobs took 14.4 min in the 11-13 BoundCall runs). Then: node tools/harness/run-verdict.ts jit-bundle-verify-1113.",
  "jobs": [
   {
    "id": "bp-jb-verify",
@@ -20,7 +20,6 @@
     "OK   mono jit .*BoundCall=0x3(?!\\w)": 1,
     "OK   mono jit .*ClauseLazy=1(?!\\w)": 1,
     "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=\\d, FastCopy=0, Ldsflda=0": 1,
-    "^jit: clause lazy body .*Array\\.Copy": 1,
     "^OK   mintfuse: ": 1,
     "OK   mono jit \\(docs/527\\): Mode=2, ": 1,
     "^jitcount: end ": 1,
@@ -83,7 +82,7 @@
     }
    },
    "timeoutMin": 30,
-   "nativeRequire": "@jitOn>=1,@jitDirect==2,@jitRegionKB==8192,@jitMethCap==4096,@jitMethods>=1000,@bcOn==3,@bcFills>=1,@clOn>=1,@clBodies>=1,@tdOn>=1,@cpOn>=1,@mfReady>=1,@mfRuns>=100000,@mfInner>=20000,@mfWhole>=1,@clKillWhy<=0,@rtdKillWhy<=0,jitMismatch<=0,jitFaults<=0,mcMismatch<=0,clFaults<=0,clVerRuns>=1,jitLazyCalls>=1000",
+   "nativeRequire": "@jitOn>=1,@jitDirect==2,@jitRegionKB==8192,@jitMethCap==4096,@jitMethods>=1000,@bcOn==3,@bcFills>=1,@clOn>=1,@tdOn>=1,@mcSwitch>=1,@mfReady>=1,@mfRuns>=100000,@mfInner>=20000,@mfWhole>=1,@clKillWhy<=0,@rtdKillWhy<=0,jitMismatch<=0,jitFaults<=0,mcMismatch<=0,clFaults<=0,jitLazyCalls>=1000",
    "noiseCheck": false,
    "stopQueueOnFail": true,
    "earlyGates": [
@@ -163,15 +162,6 @@
      ],
      "noMatch": [
       "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
-     ]
-    },
-    "^jit: clause lazy body .*Array\\.Copy": {
-     "match": [
-      "jit: clause lazy body System.Array.Copy: 68 of 199 positions in clauses, 408 words, kind 0 try 205+15 handler 220+65, kind 0 try 317+15 handler 332+65"
-     ],
-     "noMatch": [
-      "jit: compiled System.Array.Copy: 199 positions, 150 native, 49 exits, 9000 bytes",
-      "jit: clause lazy body DesireCurve.GetYFromX: 3 of 40 positions in clauses, 60 words"
      ]
     },
     "^OK   mintfuse: ": {
@@ -289,7 +279,6 @@
     "OK   mono jit .*BoundCall=0x3(?!\\w)": 1,
     "OK   mono jit .*ClauseLazy=1(?!\\w)": 1,
     "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=\\d, FastCopy=0, Ldsflda=0": 1,
-    "^jit: clause lazy body .*Array\\.Copy": 1,
     "^OK   mintfuse: ": 1,
     "OK   mono jit \\(docs/527\\): Mode=2, ": 1,
     "^jitcount: end ": 1,
@@ -352,7 +341,7 @@
     }
    },
    "timeoutMin": 30,
-   "nativeRequire": "@jitOn>=1,@jitDirect==2,@jitRegionKB==8192,@jitMethCap==4096,@jitMethods>=1000,@bcOn==3,@bcFills>=1,@clOn>=1,@clBodies>=1,@tdOn>=1,@cpOn>=1,@mfReady>=1,@mfRuns>=100000,@mfInner>=20000,@mfWhole>=1,@clKillWhy<=0,@rtdKillWhy<=0,jitMismatch<=0,jitFaults<=0,mcMismatch<=0,clFaults<=0,clVerRuns>=1,jitLazyCalls>=1000",
+   "nativeRequire": "@jitOn>=1,@jitDirect==2,@jitRegionKB==8192,@jitMethCap==4096,@jitMethods>=1000,@bcOn==3,@bcFills>=1,@clOn>=1,@tdOn>=1,@mcSwitch>=1,@mfReady>=1,@mfRuns>=100000,@mfInner>=20000,@mfWhole>=1,@clKillWhy<=0,@rtdKillWhy<=0,jitMismatch<=0,jitFaults<=0,mcMismatch<=0,clFaults<=0,jitLazyCalls>=1000",
    "noiseCheck": false,
    "earlyGates": [
     {
@@ -431,15 +420,6 @@
      ],
      "noMatch": [
       "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
-     ]
-    },
-    "^jit: clause lazy body .*Array\\.Copy": {
-     "match": [
-      "jit: clause lazy body System.Array.Copy: 68 of 199 positions in clauses, 408 words, kind 0 try 205+15 handler 220+65, kind 0 try 317+15 handler 332+65"
-     ],
-     "noMatch": [
-      "jit: compiled System.Array.Copy: 199 positions, 150 native, 49 exits, 9000 bytes",
-      "jit: clause lazy body DesireCurve.GetYFromX: 3 of 40 positions in clauses, 60 words"
      ]
     },
     "^OK   mintfuse: ": {
@@ -557,7 +537,6 @@
     "OK   mono jit .*BoundCall=0x3(?!\\w)": 1,
     "OK   mono jit .*ClauseLazy=1(?!\\w)": 1,
     "OK   mono jit .*VtOps=0, CallExit=0, NewVt=0, Count=\\d, FastCopy=0, Ldsflda=0": 1,
-    "^jit: clause lazy body .*Array\\.Copy": 1,
     "^OK   mintfuse: ": 1,
     "OK   mono jit \\(docs/527\\): Mode=2, ": 1,
     "^jitcount: end ": 1,
@@ -620,7 +599,7 @@
     }
    },
    "timeoutMin": 30,
-   "nativeRequire": "@jitOn>=1,@jitDirect==2,@jitRegionKB==8192,@jitMethCap==4096,@jitMethods>=1000,@bcOn==3,@bcFills>=1,@clOn>=1,@clBodies>=1,@tdOn>=1,@cpOn>=1,@mfReady>=1,@mfRuns>=100000,@mfInner>=20000,@mfWhole>=1,@clKillWhy<=0,@rtdKillWhy<=0,jitMismatch<=0,jitFaults<=0,mcMismatch<=0,clFaults<=0,clVerRuns>=1,jitLazyCalls>=1000",
+   "nativeRequire": "@jitOn>=1,@jitDirect==2,@jitRegionKB==8192,@jitMethCap==4096,@jitMethods>=1000,@bcOn==3,@bcFills>=1,@clOn>=1,@tdOn>=1,@mcSwitch>=1,@mfReady>=1,@mfRuns>=100000,@mfInner>=20000,@mfWhole>=1,@clKillWhy<=0,@rtdKillWhy<=0,jitMismatch<=0,jitFaults<=0,mcMismatch<=0,clFaults<=0,jitLazyCalls>=1000",
    "noiseCheck": false,
    "earlyGates": [
     {
@@ -699,15 +678,6 @@
      ],
      "noMatch": [
       "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3"
-     ]
-    },
-    "^jit: clause lazy body .*Array\\.Copy": {
-     "match": [
-      "jit: clause lazy body System.Array.Copy: 68 of 199 positions in clauses, 408 words, kind 0 try 205+15 handler 220+65, kind 0 try 317+15 handler 332+65"
-     ],
-     "noMatch": [
-      "jit: compiled System.Array.Copy: 199 positions, 150 native, 49 exits, 9000 bytes",
-      "jit: clause lazy body DesireCurve.GetYFromX: 3 of 40 positions in clauses, 60 words"
      ]
     },
     "^OK   mintfuse: ": {

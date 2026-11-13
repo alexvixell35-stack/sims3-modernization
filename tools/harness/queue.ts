@@ -950,7 +950,7 @@ export function asyncIdle(ini: string, c0: any, c1: any): string {
 // that works makes its ticks short, so it drops out of the hitch lines. Judge by these counters.
 // record: counters only (before/after in the row and the verdict line), never a void or a note (docs/163 §10.1: stuck-check
 // outcomes 297-301 for reset parity on every job with stuckcheckown or stuckcheckcap on)
-export const ACTIVITY: { what: string; on: string[]; counters: string[]; fix?: string; when?: '3am' | 'load'; standDown?: RegExp; record?: boolean }[] = [
+export const ACTIVITY: { what: string; on: string[]; counters: string[]; fix?: string; when?: '3am' | 'load'; standDown?: RegExp; record?: boolean; after?: [string, string] }[] = [
   { what: '[RouteGate] Enforce', on: ['RouteGate.Enabled', 'RouteGate.Enforce'], counters: ['rgEntries'] },
   { what: '[Discourage] DeferFootprint', on: ['RouteAsync.Enabled', 'RouteAsync.Mode', 'Discourage.Enabled', 'Discourage.DeferFootprint'], counters: ['usfDeferred'] },
   { what: '[RouteAsync] RefcountGuard', on: ['RouteAsync.Enabled', 'RouteAsync.Mode', 'RouteAsync.RefcountGuard'], counters: ['rcDeferred', 'rcWould'] },
@@ -960,7 +960,10 @@ export const ACTIVITY: { what: string; on: string[]; counters: string[]; fix?: s
   // docs/258 option C: plan answers or first-call learning; with --ab equalsfast the on arms carry it
   { what: '[EqualsFast]', on: ['EqualsFast.Enabled'], counters: ['eqHits', 'eqFtNew'] },
   { what: 'ts3fixes overwatchchain', on: [], fix: 'overwatchchain', when: '3am', counters: ['owchain_alarms', 'owspread_types_run'], standDown: /^overwatchspread: .*\boff\b/ },
-  { what: 'ts3fixes stuckcheckasync', on: [], fix: 'stuckcheckasync', when: '3am', counters: ['stuckcheckasync_queued', 'stuckcheckasync_run'] },
+  // after: [switch, pass counter]: with easpreadlots on, EA's 3 AM venue cleanup arms the stuck checks (RunStuckCheckHelper.Init per Sim,
+  // EaSpread.cs LotCleanupTask) only after its sliced lot pass, which counts easpread_lots_passes when it ends; slow-tick jobs
+  // (MonoJit Mode=2 verify) passed 03:00 by 136-244 sim min with no check queued (bp-m1112b-jit 11-12, bp-jb-verify 11-13)
+  { what: 'ts3fixes stuckcheckasync', on: [], fix: 'stuckcheckasync', when: '3am', counters: ['stuckcheckasync_queued', 'stuckcheckasync_run'], after: ['easpreadlots', 'easpread_lots_passes'] },
   { what: 'ts3fixes errortrapspread', on: [], fix: 'errortrapspread', when: 'load', counters: ['etspread_passes'], standDown: /^errortrapspread: .*\boff\b/ },
   ...['stuckcheckown', 'stuckcheckcap'].map(fix => ({ what: `ts3fixes ${fix} outcomes`, on: [], fix, when: '3am' as const, record: true,
     counters: ['stuckcheckcap_marked', 'stuckcheck_noplan', 'stuckcheck_notstuck', 'stuckcheck_rearmed', 'stuckcheck_reset'] })),
@@ -1014,6 +1017,12 @@ export function fixActivity(p0: any, p1: any, t0: any, t1: any, cfg: { fixesOn?:
     // load: the pass may predate the before read (load, then job), so the session total counts; 3am: this job's rise
     const d = a.counters.reduce((s, k) => s + Number(p1[k]) - (a.when === 'load' ? 0 : Number(p0?.[k] ?? 0)), 0);
     if (d > 0) continue;
+    const gate = a.after && p1[a.after[0]] === true && a.after[1] in p1 ? a.after[1] : '';
+    if (gate) {
+      counters[gate] = { before: p0 && gate in p0 ? Number(p0[gate]) : null, after: Number(p1[gate]) };
+      const up = Number(p1[gate]) - Number(p0?.[gate] ?? 0);
+      if (up <= 0) { notes.push(`${a.what}: not reached (${gate} rose ${up}: the 3 AM venue cleanup had not armed the stuck checks yet)`); continue; }
+    }
     if (eventCovered(a.when!, t0, t1)) fails.push(`self check: ${a.what} on but ${a.counters.join('+')} ${a.when === 'load' ? 'is' : 'rose'} ${d} although sim time ${t0?.clock}+${Math.round(Number(t1?.minutes_total) - Number(t0?.minutes_total))} min covered ${a.when === '3am' ? '03:00' : 'the after-load pass'}: fix idle, run void`);
     else notes.push(`${a.what}: not reached (sim ${t0?.clock ?? '?'} +${Math.round(Number(t1?.minutes_total) - Number(t0?.minutes_total)) || 0} min, no ${a.when === '3am' ? '03:00' : 'after-load pass'})`);
   }
@@ -1470,6 +1479,12 @@ if (values['self-check']) {
   const scOff = { ...sc, stuckcheckown: false };
   assert.equal(Object.keys(fixActivity(scOff, { ...scOff, stuckcheck_reset: 2 }, night[0], night[1], { fixesOn: 'stuckcheckown,stuckcheckcap' }).counters).length, 5);
   assert.deepEqual(fixActivity(fx, fx, night[0], night[1], { fixesOff: 'overwatchchain,stuckcheckasync' }).fails, []); // off for the run: no idle void
+  // easpreadlots: stuckcheckasync idle while the venue cleanup pass had not ended = not reached; ended (or switch off) = judged
+  const ea = { ...fx, easpreadlots: true, easpread_lots_passes: 3 };
+  const eaR = fixActivity(ea, ea, night[0], night[1]);
+  assert.deepEqual([eaR.fails.length, eaR.notes, eaR.counters.easpread_lots_passes], [1, ['ts3fixes stuckcheckasync: not reached (easpread_lots_passes rose 0: the 3 AM venue cleanup had not armed the stuck checks yet)'], { before: 3, after: 3 }]);
+  assert.match(fixActivity(ea, { ...ea, easpread_lots_passes: 4 }, night[0], night[1]).fails.join(), /stuckcheckasync on but .* rose 0/);
+  assert.match(fixActivity(ea, { ...ea, easpreadlots: false }, night[0], night[1]).fails.join(), /stuckcheckasync on but .* rose 0/);
   // fixesReport (docs/202 §3.6.3): prefix-matched numbers before/after, lists as read, switches and other keys skipped
   const uf0 = { unseenfbpre: true, unseenfbpre_rj_samelot: 1 }, uf1 = { ...uf0, unseenfbpre_rj_samelot: 9, unseenfbleave_rj_goalseen: 2, unseenfbpre_callers: ['3 Foo.Run'], unseenenv_x: 1 };
   const ufR = fixActivity(uf0, uf1, night[0], night[1], jobFixesCfg({ fixesOn: 'unseenfbpre', fixesReport: 'unseenfb' }));

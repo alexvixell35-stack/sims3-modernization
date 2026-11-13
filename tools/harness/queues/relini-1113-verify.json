@@ -1,7 +1,70 @@
 {
- "note": "relini-1113-verify (prepared 2026-11-13, NOT RUN): one travel correctness job for the next release ini (Races=7 + ThumbStall, Rodney OK 11-13). Not timing. Est ~20 min. node tools/harness/queue.ts tools/harness/queues/relini-1113-verify.json --no-smoke",
+ "note": "relini-1113-verify (prepared 2026-11-13, NOT RUN): travel correctness job + baseline arm (2026-11-14, after the exceptions FAIL) for the next release ini (Races=7 + ThumbStall, Rodney OK 11-13). Not timing. Est ~20 min. node tools/harness/queue.ts tools/harness/queues/relini-1113-verify.json --no-smoke",
  "stopQueueOnFail": false,
  "jobs": [
+  {
+   "id": "bp-relini-1113-travel-base",
+   "note": "[est 15 min] BASELINE arm for bp-relini-1113-travel (FAIL 2026-11-13: autshadow_exceptions=171): same asi/package/save/travel/seed, released v0.2.12 ini rc1111g UNCHANGED (Races=4, no ThumbStall). The exceptions<1 gate was copied from bp-m1112b-r2c-trip (AutShadow Mode=1) and was never read on the release ini (Mode=3 Unseen=1; release jobs ran without fixesOn autshadow). Same gate here: if this arm also FAILs with a similar exceptions/request rate, the exceptions are the release Mode 3 path, not Races=7/ThumbStall.",
+   "asi": "game-copy/ts3native.asi.master1112b",
+   "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+   "pinReason": "asi game-copy/ts3native.asi.master1112b (0.36.248, sha256 1017eee08f92, builds.json) + ini game-copy/ts3native.ini.rc1111g (v0.2.12 release ini) unchanged (baseline arm) + ts3fixes game-copy/ts3fixes.package.rel0211b (v0.2.12 package)",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 912,
+   "ini": {},
+   "logRequire": {
+    "^ts3native 0.36.248 ": 1
+   },
+   "logForbid": {
+    "races R2 witness: UNEXPECTED": 0,
+    "^FAIL autshadow races": 0
+   },
+   "regexCases": {
+    "races R2 witness: UNEXPECTED": {
+     "match": [
+      "autshadow races R2 witness: UNEXPECTED 0x011ECBC4 (load-world) value 0x0A000000 -> 0x0B000000 at cut 12"
+     ],
+     "noMatch": [
+      "autshadow races R2 witness: runtime 0x011D6A78 (runtime (callback table)) hash 0x1 -> 0x2 at cut 4"
+     ]
+    },
+    "^FAIL autshadow races": {
+     "match": [
+      "FAIL autshadow races R1: FindClass Vector2 faulted, Races bit 0 off"
+     ],
+     "noMatch": [
+      "WARN autshadow races R2c: world event 3, worker job still inside after 250 ms: abort (stop flag set, every answer of it refused, result dropped)",
+      "OK   autshadow races R2c: world event 5, worker job drained in 812 us"
+     ]
+    },
+    "^ts3native 0.36.248 ": {
+     "match": [
+      "ts3native 0.36.248 2026-11-12 21:05:10"
+     ],
+     "noMatch": [
+      "ts3native 0.36.247 2026-11-12 20:36:39",
+      "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+      "ts3native 0.36.2480 2026-11-12 21:05:10"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "travel": "france",
+     "fixesOn": "autshadow",
+     "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+     "repro": "scen-travel"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 40,
+   "noiseCheck": false,
+   "iniBase": "game-copy/ts3native.ini.rc1111g",
+   "scriptErrorsMax": 0
+  },
   {
    "id": "bp-relini-1113-travel",
    "note": "[est 18 min] CORRECTNESS of the next release ini (docs/release-notes/v0.2.13-dev.md): rc1111g ini + [AutShadow] Races=7 + [ThumbStall] Enabled=1 on asi master1112b (0.36.248; rc1111g 0.36.247 lacks Races bits 0/1 and ThumbStall), release ts3fixes rel0211b, travel to France and back (scen-travel). Gate as bp-m1112b-r2c-trip: Races=7 read back, R1 pre-warm 0 still clear, R2c gate opens/closes, no UNEXPECTED witness, no FAIL autshadow races / thumbstall, autshadow A1-A3 0, no crash, 0 script errors.",
