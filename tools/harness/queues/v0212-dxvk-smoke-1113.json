@@ -1,0 +1,56 @@
+{
+  "note": "v0212-dxvk-smoke-1113 (2026-11-13): Steam DXVK smoke of the v0.2.12 candidate pair: rc1111g asi + ini (0.36.247, 432ab1b2 / 91b007e7) + ts3fixes rel0211b (570f8845), with the baseline Bin (plain DXVK x32 d3d9.dll 7672 KB, no Apex, no RTX Remix bridge; Bin put back from probe-out/bin-backup-1113 after apex311-crash2diag-1113). Correctness only, run with --no-smoke --no-publish. PASS = no crash, 0 script errors, the Bin add-ons line shows the DXVK d3d9.dll and no ApexRadiance.asi.",
+  "jobs": [
+    {
+      "id": "bp-v0212-dxvk-smoke-1113",
+      "note": "[est 15 min] BP natural 10 min on rc1111g + rel0211b with plain DXVK in Bin, no Apex, no bridge.",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+      "pinReason": "v0.2.12 candidate pair: rc1111g (asi 0.36.247 432ab1b2, ini 91b007e7) + ts3fixes rel0211b (570f8845); DXVK-only Steam smoke requested 2026-11-13",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": ["-disablestoryprogression"],
+      "run": { "profile": { "minutes": 10, "seed": 12345, "noSamplers": true } },
+      "timeoutMin": 30,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.247 ": 1,
+        "^diag: Bin add-ons: d3d9\\.dll \\d+ KB v\\S+ \\(DXVK\\)": 1,
+        "^ts3fixes: world: \\S+\\.world, lots \\d+": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^diag: Bin add-ons: .*ApexRadiance\\.asi": 0,
+        "RTX Remix": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.247 ": {
+          "match": ["ts3native 0.36.247 2026-11-13 13:00:00"],
+          "noMatch": ["ts3native 0.36.240 2026-11-13 13:00:00", "ts3native 0.36.2470 2026-11-13 13:00:00", "prior log: ts3native 0.36.247 2026-11-13"]
+        },
+        "^diag: Bin add-ons: d3d9\\.dll \\d+ KB v\\S+ \\(DXVK\\)": {
+          "match": ["diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1434 KB, wininet.dll 5291 KB v9.7.4.0"],
+          "noMatch": ["diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB", "diag: Bin add-ons: MonoPatcher.asi 38 KB, ts3native.asi 1434 KB"]
+        },
+        "^ts3fixes: world: \\S+\\.world, lots \\d+": {
+          "match": ["ts3fixes: world: Bridgeport.world, lots 123"],
+          "noMatch": ["ts3fixes: settings on: kGoHomeShortcut"]
+        },
+        "^FAIL\\b": {
+          "match": ["FAIL rctrim: cannot write the service slot"],
+          "noMatch": ["OK   mono sig guard (docs/539)", "SKIP mono sig guard: bytes differ", "FAILED to x"]
+        },
+        "^diag: Bin add-ons: .*ApexRadiance\\.asi": {
+          "match": ["diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK)"],
+          "noMatch": ["diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB"]
+        },
+        "RTX Remix": {
+          "match": ["compat: d3d9: RTX Remix bridge (DXVK in another process)"],
+          "noMatch": ["diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK)"]
+        }
+      }
+    }
+  ]
+}

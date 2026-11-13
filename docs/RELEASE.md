@@ -1,6 +1,6 @@
 # Release checklist
 
-How a release goes out. Current: **v0.2.11** (Steam only; asi/ini rc1111d + ts3fixes rc1111e, tag on public branch `release/v0.2.11`), 2026-11-12; details docs/release-notes/v0.2.11-dev.md. The sections below are older releases' records.
+How a release goes out. Current: **v0.2.12** (Steam asi/ini rc1111g + ts3fixes rel0211b, tag on public branch `release/rc-1111g`; EA app zip added from the EA laptop), 2026-11-13; details docs/release-notes/v0.2.12-dev.md. Before it v0.2.11 (rc1111d + rc1111e, public `release/v0.2.11`, docs/release-notes/v0.2.11-dev.md). The sections below are older releases' records.
 
 ## v0.1.4 release build
 

@@ -4,20 +4,58 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ## Unreleased
 
-### Fixed (built, not in v0.2.11)
+### Fixed (built, not in v0.2.12)
 
-- **Fixed a rare crash on the second thread that scores townies' actions (`[AutShadow] Satb=2`, issue #352, reported by Dalexlol).** When the background thread scored a townie's action that read a game date stored inside another object, it treated the date as an object and crashed reading memory that was not there (seen once in about 6 hours of play). It now leaves such a townie to the main thread, scored exactly as in the unmodded game, and never writes to the shared date. Not tested in game yet; v0.2.11 lists this crash as a known issue.
-- **Moods match the moodlets again (EA bug, `mooddrift` and `moodpending`, on; by Dalexlol, PR #368).** Some moodlets (being scared again, a missed appointment, a prank and others) changed a Sim's mood without the game keeping track, so the Sim stayed happier or sadder than its moodlets said until the save was reloaded. Waking up Well Rested in a bed, and Conquered the Bull, counted their mood twice. The mood now always equals the sum of the moodlets, as after a reload. Not in the v0.2.11 `ts3fixes.package`.
+- **Moods match the moodlets again (EA bug, `mooddrift` and `moodpending`, on; by Dalexlol, PR #368).** Some moodlets (being scared again, a missed appointment, a prank and others) changed a Sim's mood without the game keeping track, so the Sim stayed happier or sadder than its moodlets said until the save was reloaded. Waking up Well Rested in a bed, and Conquered the Bull, counted their mood twice. The mood now always equals the sum of the moodlets, as after a reload. Not in the v0.2.12 `ts3fixes.package`.
 
 ### Test features in plugin 0.36.248 (all off by default, not tested in game yet)
 
 - **Faster equality checks for enums and small number-only structs (`[EqualsFast] Enabled=1`, test feature, off, plugin 0.36.248).** Every time a script compares two enum values or two small structs, the game walks the type's fields and takes a global Mono lock it shares with the background threads, several times per compare. With this switch the plugin remembers, once per type, where the number fields are, and compares those bytes with no walk and no lock. Only types made purely of 32/64-bit integers use it; everything else (floats, text, references, generics) still goes through the game's own code. Gives the same answer as the game on all 61159 test pairs from the game's own types (docs/258 §7); speed not measured yet.
 - **Script compiler: bigger code region and a refusal log (`[MonoJit] CodeKB`, only with `[MonoJit] Enabled=1`, which stays off).** The compiled-code area grows from 2 MB to 4 MB (it was full in every test run), refused methods are logged per reason, and 12 methods the game already runs as native code are no longer compiled.
 - **Faster type lookups in the game's own code (`[Binder] TypeHandleDirect=1`, off).** The game's `Type.GetTypeFromHandle` reads the handle directly instead of a round trip into the script engine; the same result for every handle in the self-test.
-- **Background scoring stops cleanly when you leave a world (`[AutShadow] Races` bit 2, off).** On travel, world load or quit, a background scoring job still running gets up to `DrainMs` (250 ms) to finish, else its result is dropped.
 - **Unseen townies wait instead of planning while another route search holds the lock (`[GoalValidRO] UnseenDefer=1`, off).** Only for Sims you don't play and can't see; your household, the selected Sim and any Sim of unknown scope always plan as normal. After `UnseenDeferMaxMs` (2 s) the plan runs as in the base game.
 - **Route hitch diagnostics (counters and log lines only, `[RouteAsync] FbApplyLog=1` for the per-lot log).** Times the game's pending lot updates before a route, counts refused replans by reason and the waits for the route worker by site.
 - **Boat diagnostics in ts3fixes (`boatgetoutdiag`, off; boat "no refusal" split, report only) and the household houseboat answer for the background lot check (`autofflot`, off).**
+
+## v0.2.12 (2026-11-13)
+
+Fixes the rare crash on the second thread from v0.2.11, and the background thread now stops cleanly when you leave a world. Steam and the EA app 1.69.47.
+
+### Download
+
+- `ts3native-v0.2.12.zip` (Steam 1.67): `ts3native.asi` and `ts3native.ini`; replace both.
+- `ts3fixes.package`: new in this release; replace the old one. Use it together with this `ts3native` (sha256 starts `570f8845`).
+- `ts3native-ea169-v0.2.12.zip` (EA app 1.69.47, `TS3.exe`): `ts3native.asi` and `ts3native.ini`; replace both. Use the same `ts3fixes.package` as Steam. Built and tested on our EA app laptop and added to the release from there (sha256 starts `fe5b0f14`); if it is not listed yet, it follows shortly.
+- The log shows `ts3native 0.36.247`.
+- **Recommended setup:** [Apex Radiance](https://github.com/loinyx/Sims3-ApexRadiance) with its RTX Remix bridge, plus this release. Plain DXVK still works but is legacy: it gets one smoke test per release.
+
+### Changed
+
+- **The background thread stops cleanly when you leave a world.** When you travel, load another world or quit, a townie's action still being scored on the second thread now gets up to a quarter of a second to finish; if it doesn't, its result is thrown away and the game goes on. No background scoring runs again until the next world has finished loading. Before, that work could keep running while the game swapped the world out underneath it. To turn it off, set `Races=0` under `[AutShadow]` in `ts3native.ini`.
+- **EA app: townies you can't see choose on the second thread there too.** On the EA app 1.69.47, v0.2.11 kept 17 kinds of townie actions on the game's main thread, because the EA app's game scripts were not in our list of checked versions. They are now (the same code as Steam's, only built differently), so in our EA test 16 of the 17 moved to the second thread, as on Steam (the last one is changed by a mod in that test setup, and Steam keeps it on the main thread too). Steam is not changed by this.
+
+### Fixed
+
+- **A rare crash on the second thread that scores townies' actions (issue #352, reported by Dalexlol).** When the background thread scored a townie's action that read a game date stored inside another object, it treated the date as an object and crashed reading memory that was not there (seen once in about 6 hours of a contributor's play). It now leaves such a townie to the main thread, scored exactly as in the unmodded game, and never writes to the shared date. v0.2.11 listed this crash as a known issue; if you set `Satb=0` under `[AutShadow]` as a workaround, use the new `ts3native.ini` from this release, which has `Satb=2` again.
+
+### Known issues
+
+- **One freeze seen once.** In one test run for v0.2.11 the game clock stopped for over a minute and the test harness closed the game. It has not happened again in later test runs, including this release's. If your game freezes, please send your `ts3native.log`.
+- **Apex Radiance 3.1.1:** two crashes were seen in testing with an earlier test build. One in lot lighting is likely on Apex's side and reported to them (Apex issue #76). The other, during travel, has not come back in 6 travel runs with crash logging on this release; its cause is still open.
+- **Save stays at "Saving…" after editing windows or doors** (player report, EA app): under investigation, not reproduced yet. If it happens to you, please send your `ts3native.log`.
+- **EA app:** `[LauncherFix]` is not needed on the EA app: its launcher has no such wait. `[ImageGuard]` is off, as in v0.2.10 on the EA app. If you use the RTX Remix bridge, set `client.targetProcess = TS3.exe` in both `bridge.conf` files.
+
+### Tested
+
+All on this exact `ts3native.asi` and `ts3native.ini`, on Steam 1.67:
+
+- 12 game test jobs with the v0.2.11 `ts3fixes.package`, 9 passed and 3 failed in the test, not in the game. Passed: Bridgeport play with S3SS and a trip, the save checks (overwrite, back to back, unpaused, in build mode, counters: 8 of 8), the Isla Paradiso houseboat check, the Isla Paradiso route check for unseen townies, the stuck-Sim check side by side (15 minutes, same answers), three trips with the memory give-back, the book check in a crowd, the outfit check for Sims who are gone, and the dance floor check. Failed: the Isla Paradiso boat check flagged a townie at the map corner (position 0,0) as stranded in the sea, a mistake in the check itself; the stuck-Sim repro tripped a test rule that is out of date (the same setup gap as in v0.2.11); and 32 minutes of natural Isla Paradiso play hit one game error the unmodded game also has (a townie getting out of a boat, `Boat.GetOutIntoWater`, the 33rd time we have seen it). No crash in any job.
+- The new `ts3fixes.package` against the v0.2.11 one, 10 minutes of Bridgeport play each: both passed, the same 683 script methods checked for the second thread.
+- Native self-test of this build: passed.
+- Speed: no new overall speed numbers against v0.2.11; this release changes when background work stops, not how much there is.
+- **Apex Radiance 3.1.1 with the RTX Remix bridge:** 6 travel runs (3 trips each) with crash logging for the travel crash: all clean, the crash logging was armed and caught nothing. That crash (seen in 1 of 4 runs on 2026-11-12) did not come back; its cause is still open. Our compatibility check against Apex 3.1.1 is unchanged (no conflict).
+- **DXVK** (legacy, one smoke test per release): 10 minutes of Bridgeport play with plain DXVK, no Apex: passed, no crash. Apex Radiance with its RTX Remix bridge is the recommended setup.
+- **EA app 1.69.47** (EA zip, same `ts3fixes.package`): alone (Bridgeport play, save, travel), with S3SS 1.6.3 (play and travel), with Apex Radiance 3.1.1 and the RTX Remix bridge (play and travel), and with Apex and DXVK (play): all passed, no crash, nothing turned off. The same fixes switch on as on Steam: 33 of 34 `ts3native` sections (`[LauncherFix]` is not needed on the EA app) and 71 of 75 `ts3fixes` fixes (the 4 NRaas ErrorTrap fixes stand by when ErrorTrap is not installed, as on Steam). 16 of 17 kinds of townie actions run on the second thread.
 
 ## v0.2.11 (2026-11-12)
 

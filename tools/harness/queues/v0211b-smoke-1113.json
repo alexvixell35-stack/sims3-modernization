@@ -1,0 +1,127 @@
+{
+  "note": "v0211b-smoke-1113 (2026-11-13): Steam smoke of the new ts3fixes package game-copy/ts3fixes.package.rel0211b (sha256 570f8845) on the rc1111g native pair (asi 0.36.247 sha256 432ab1b2, ini rc1111g 91b007e7); rel0211b ships with rc1111g in one release (v0.2.12). Correctness only, run with --no-smoke. Two identical BP 10 min jobs, reference arm first: rc1111g + rc1111e (a563cf8f), then rc1111g + rel0211b. No rc1111e run had recorded the AutShadow G-M6 counters, so the reference is run here. PASS for rel0211b = no crash, 0 script errors, G-M6 counters 603 autshadow_gm6_mismatch, 606 autshadow_gm6_owners_skipped and 2025 autshadow_gm6_cha_mismatch the same as the rc1111e arm, the same set of OK/SKIP/FAIL install lines in ts3native.log, and no new FAIL or SKIP.",
+  "jobs": [
+    {
+      "id": "bp-v0211-ref-rc1111e-1113",
+      "note": "[est 15 min] Reference arm: rc1111g native pair + ts3fixes rc1111e, BP natural 10 min; records the AutShadow G-M6 counters (fixesReport) and the install lines for the rel0211b arm.",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "rc1111g release candidate pair (asi 0.36.247 432ab1b2, ini 91b007e7) + ts3fixes rc1111e (a563cf8f): reference arm for the rel0211b package smoke (v0.2.12 = rc1111g + rel0211b)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesReport": "autshadow_gm6,autshadow_content"
+        }
+      },
+      "timeoutMin": 30,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.247 ": 1,
+        "^ts3fixes: world: \\S+\\.world, lots \\d+": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-13 11:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.240 2026-11-13 11:00:00",
+            "ts3native 0.36.2470 2026-11-13 11:00:00",
+            "prior log: ts3native 0.36.247 2026-11-13"
+          ]
+        },
+        "^ts3fixes: world: \\S+\\.world, lots \\d+": {
+          "match": [
+            "ts3fixes: world: Bridgeport.world, lots 123"
+          ],
+          "noMatch": [
+            "ts3fixes: settings on: kGoHomeShortcut"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL rctrim: cannot write the service slot"
+          ],
+          "noMatch": [
+            "OK   mono sig guard (docs/539)",
+            "SKIP mono sig guard: bytes differ",
+            "FAILED to x"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-v0211b-smoke-1113",
+      "note": "[est 15 min] rel0211b arm: as the reference job, ts3fixes rel0211b (570f8845) instead of rc1111e. Pass: no crash, 0 script errors, G-M6 603/606/2025 equal to the reference arm, install line set unchanged, no new FAIL/SKIP (compared after the run).",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+      "pinReason": "rc1111g release candidate pair (asi 0.36.247 432ab1b2, ini 91b007e7) + new ts3fixes package rel0211b (570f8845): v0.2.12 candidate, Steam smoke requested 2026-11-13",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesReport": "autshadow_gm6,autshadow_content"
+        }
+      },
+      "timeoutMin": 30,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.247 ": 1,
+        "^ts3fixes: world: \\S+\\.world, lots \\d+": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-13 11:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.240 2026-11-13 11:00:00",
+            "ts3native 0.36.2470 2026-11-13 11:00:00",
+            "prior log: ts3native 0.36.247 2026-11-13"
+          ]
+        },
+        "^ts3fixes: world: \\S+\\.world, lots \\d+": {
+          "match": [
+            "ts3fixes: world: Bridgeport.world, lots 123"
+          ],
+          "noMatch": [
+            "ts3fixes: settings on: kGoHomeShortcut"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL rctrim: cannot write the service slot"
+          ],
+          "noMatch": [
+            "OK   mono sig guard (docs/539)",
+            "SKIP mono sig guard: bytes differ",
+            "FAILED to x"
+          ]
+        }
+      }
+    }
+  ]
+}
