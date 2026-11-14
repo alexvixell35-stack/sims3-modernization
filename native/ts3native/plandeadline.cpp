@@ -88,7 +88,10 @@ static int g_kdIni;
 // docs/197 §7 [RouteAsync] KdUnseenForeignCap (next version, default 0): a foreign job (no Sim of its own waits on it) of a
 // follower known unseen never runs uncut by the backoff; it keeps the doubled deadline. Uncut, a failing one held +0x918 for
 // up to 21 s (Isla Paradiso, 2026-11-12: 85 such jobs >= 1 s in 7 of 118 logs, all foreign, all unseen).
-static bool g_kdUfCap;
+// 2 = own kinds of an unseen follower too (next version, docs/264 §1 (b)): uncut, failing own Plans ran up to 4.6 s (23 jobs
+// >= 1 s in 11 of 62 test games on 0.36.253+, 2026-11-13/14; 10.5 s with an 11 s locomotion lock wait on a local build); level-2
+// own retries that succeeded took 45 ms median, 525 ms max (49 in 20 games).
+static int g_kdUfCap;
 static volatile LONG g_kdUfCapLines;
 static const DWORD kKdWinMs = 10000, kKdStuckMs = 30000;
 static const int kKdRows = 64;
@@ -240,8 +243,9 @@ static void ReadKindDeadlines(const wchar_t* ini) {
     k.kdCeilUs = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdSeenCeilMs", 10000, ini), 1000, 60000) * 1000;
     k.kdNpcCeilUs = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdSeenNpcCeilMs", 2000, ini), 1000, 60000) * 1000;
     k.kdCamMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdCutCamRecheck", 0, ini), 0, 1);
-    g_kdUfCap = GetPrivateProfileIntW(L"RouteAsync", L"KdUnseenForeignCap", 0, ini) != 0;
-    if (g_kdUfCap) Log("route async: KdUnseenForeignCap=1: foreign jobs of unseen followers keep the doubled deadline at backoff level 2 (docs/197 §7)");
+    g_kdUfCap = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdUnseenForeignCap", 0, ini), 0, 2);
+    if (g_kdUfCap) Log("route async: KdUnseenForeignCap=%d: %s jobs of unseen followers keep the doubled deadline at backoff level 2 (docs/197 §7)",
+                       g_kdUfCap, g_kdUfCap == 2 ? "foreign and own" : "foreign");
     for (int i = 0; i < KD_N; i++) {
         const int ms = GetPrivateProfileIntW(L"RouteAsync", kKdIniKey[i], kKdDefMs[i], ini);
         k.kdUs[i] = ms > 0 ? Clamp(ms, 50, 60000) * 1000 : 0;
@@ -333,7 +337,7 @@ static LONG KdJobBegin(const AsyncJob* j) {
         if (r && GetTickCount() - r->cutTick < kKdWinMs) level = r->level;
         ReleaseSRWLockShared(&g_kdLock);
     }
-    if (level >= 2 && g_kdUfCap && t_kdJobScope == 2 && (kind == KD_FGN || kind == KD_A10F)) {  // KdUnseenForeignCap
+    if (level >= 2 && g_kdUfCap && t_kdJobScope == 2 && (kind == KD_FGN || kind == KD_A10F || g_kdUfCap == 2)) {  // KdUnseenForeignCap
         level = 1;
         if (InterlockedIncrement(&g_kdUfCapLines) <= 20)
             Log("route async: KdUnseenForeignCap: route %08X (%s, follower unseen) keeps %ld ms at backoff level 2 instead of running uncut",

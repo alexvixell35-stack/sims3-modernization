@@ -620,6 +620,18 @@ static void TestPlanDeadline() {
             g_kdUfCap = true;
             assert(KdJobBegin(&uf) == 400000 && !t_kdUncut && KdJobBegin(&ua) == 400000 && !t_kdUncut);
             assert(KdJobBegin(&uo) == 0 && t_kdUncut);  // own plan: its backoff still ends uncut
+            g_kdUfCap = 2;  // own kinds too: the unseen own Plan keeps its doubled 500 ms, the foreign ones as with 1
+            assert(KdJobBegin(&uo) == 500000 && !t_kdUncut && KdJobBegin(&uf) == 400000 && !t_kdUncut);
+            for (LONG sc = 0; sc <= 3; sc += (sc == 1 ? 2 : 1)) {  // unknown, seen, seen NPC: the same answer as with 1
+                AsyncJob so = uo;
+                so.uf = 0, so.kdScope = sc;
+                g_kdUfCap = 1;
+                const LONG was = KdJobBegin(&so);
+                const bool wasUncut = t_kdUncut;
+                g_kdUfCap = 2;
+                assert(KdJobBegin(&so) == was && t_kdUncut == wasUncut);
+            }
+            g_kdUfCap = 1;
             row->cutTick = GetTickCount() - kKdWinMs - 1;
             assert(KdJobBegin(&uf) == 200000);  // window over: level ignored, as before
             g_kdUfCap = false;

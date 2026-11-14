@@ -21,6 +21,10 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 - **Boat diagnostics in ts3fixes (`boatgetoutdiag`, off; boat "no refusal" split, report only) and the household houseboat answer for the background lot check (`autofflot`, off).**
 - **Boat get-out script error guard (`boatgetoutguard`, ts3fixes, off).** A Sim you do not play that something resets while it fades out of a boat no longer hits a script error in `Boat.GetOutIntoWater`; it is reset instead, as the game itself does. Your household keeps the game's behaviour.
 
+### Test features in the next plugin (off by default)
+
+- **Route searches of townies you can't see stay time-limited on their own trips too (`[RouteAsync] KdUnseenForeignCap=2`, opt-in; by Dalexlol).** Value 1 (on) already limits searches made for them by others. With 2, a townie out of view that keeps failing to reach a spot no longer gets an unlimited search that can freeze the game for seconds; in test games those ran up to 4.6 s. Your household, the selected Sim, Sims you can see and Sims of unknown scope are unchanged.
+
 ### Switched on in plugin 0.36.253 (built, not in v0.2.12)
 
 - **Isla Paradiso no longer freezes on a broken bridge height (EA bug, `[EaCrashFixes]` `HeightsInfLoop` and `BridgeHeightNaN`, on; by Dalexlol, PR #394, #384).** One bridge in Isla Paradiso (seen with a community world file that adds it) reports a height that is not a number. The game kept it, a route over it got an endless path segment, and the game froze, sometimes during the world load. The terrain height is used there now; normal bridge heights are unchanged.
