@@ -28,6 +28,20 @@ nearest-lower matches are not used: their coverage has big gaps, so a containing
 2. **Activity release lock.** Measure contention on the `+0xB8` critical section before thinking about it; an atomic
    rewrite changes threading behaviour and is not "same results" by construction.
 
+## EA bugs OpenBarrio keeps on purpose, checked against our exe (2026-11-14)
+OpenBarrio copies EA's behaviour 1:1 and marks each bug it keeps in a comment (~1,000 such comments). The ones that could
+hang, leak or break a device reset, checked on the installed TS3W.exe (call sites found by scanning `.text` for `E8`
+calls; addresses theirs, verdicts ours):
+
+| EA function | Kept bug (their note) | Reachable? |
+|---|---|---|
+| `0x4ED840` path-part compare | with fold != 0, re-compares the same part forever when the parts are equal | **No** [verified]: every call site (`0x4ED931`, `0x4ED954`, `0x4ED974`, and through `0x4ED940`/`0x4ED960` from `0xAAFC61`, `0x7D0A41`) pass fold 0 (`push 0`; `0x7D0A41` pushes `ebx`, zeroed at `0x7D0896` [inferred: no other write on that path seen]) |
+| `0xF20D10` PCM audio ReadRows | spins forever when a block's cursor already equals its size (a `je`-only continue); `bpr` 0 divides by zero | Only on an empty (0-byte) block after a block change, or sub-byte sample formats [inferred]. Candidate guard if a hang ever shows `0xF20D10` on the sim/audio stack |
+| `0x610660` render-target capture | `GetRenderTarget` reference never released when the capture texture's size differs from the target (rejected fast path); a held default-pool surface makes D3D9 `Reset` fail | **Not in normal play** [inferred]: its only caller (pick renderer `0x6DFEC0`) sets target 0 to the pick surface from the same resource just before, so the sizes match |
+| `0x862CC0` audio state Add | a duplicate key takes a 48-byte pool node and never returns it (`0x862910` does not consume duplicates) | Unknown rate. Slow leak candidate: count duplicates with a native counter (MSVC build) before any fix |
+| `0x575CA0` anim FreeNames | names with capacity <= 1 not freed | Not a bug: that is EASTL's shared empty buffer |
+| `0x6E89F0` debug spike object | global `0x11D1870` keeps a freed pointer | Debug-only path [inferred] |
+
 ## Not covered
 OpenBarrio rewrites the native engine only. The Sim-side interaction locks (docs/546 §9: socials, PutDownPet, horse
 mounting) are script (managed) code and are not in their map.

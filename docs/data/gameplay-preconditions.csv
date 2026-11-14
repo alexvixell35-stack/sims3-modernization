@@ -261,3 +261,9 @@ inv_ghost,InvGhostProbe,Live,none: adds two copies of a product to the active fa
 inv_stuff,InventoryStressHandlers,Live,buying and moving items into Sim inventories (stress; select: switches the active Sim like the player's portrait click),stress,,handler,live
 buff_drift,MoodCensus,Live,none: re-adds a moodlet to townies to reproduce EA's re-add mood drift (probe),harness,non-household non-selectable townies only,handler,live
 buff_churn,MoodCensus,Live,none: random moodlet add/remove on townies (stress),stress,non-household non-selectable townies only,handler,live
+alarm_audit,AlarmAuditHandlers,Live,none (read: alarms that cannot fire or were started badly; docs/546 §7),harness,,handler,none
+aut_census,AutCensusHandlers,MainMenu;Live,"none (harness census of autonomy tests; install swaps InteractionObjectPair.TestAndCalculateScore, so a census run keeps townie scoring on the sim thread)",harness,install:true at the main menu (refused once autonomy compiled the method); start/stop/top in the world,handler,none
+object_types,AutCensusHandlers,Live,none (read: game objects by type and in/out of world),harness,,handler,none
+doors,DoorHandlers,Live,none (read: doors and their lock types on a lot),harness,an active household with a home lot or a lot id,handler,none
+hitch_watch,HitchWatchHandlers,Live,none (harness sim task: stamps each tick and records Sim states around hitches; read),harness,start:true inside the world,handler,none
+household_routine,HitchWatchHandlers,Live,pie-menu clicks: one routine action (meal / outfit / shower / social / TV / ...) queued per household Sim and pet that is idle,natural,an active household with a home lot; a Sim with more than one queued interaction is left alone,handler,none
