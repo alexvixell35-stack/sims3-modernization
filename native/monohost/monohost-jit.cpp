@@ -2631,6 +2631,7 @@ static bool JitQuickRun() {
     if (cap && GetEnvironmentVariableA("MONOHOST_JITCORPUS", x, sizeof(x)) && x[0] == '1') JitCorpusRun();
     if (cap) JcFlush(), JcLog();
     JitReplayRun();
+    McLogCounters("replay");  // MONOHOST_MINTCALL=verify: fast vs bail share on game inputs (CallPath=1 counts bails only)
     return true;
 }
 
@@ -2888,7 +2889,8 @@ static bool InstallJit() {
         memcpy(g_atomicOrig, (const void*)(uintptr_t)0xE4BDC0, 5);
         if (g_jitMode == 3 && !JitAtomic(true)) { Log("jit: atomic alloc redirect failed\n"); return false; }
         DWORD ent = (DWORD)(uintptr_t)JitEnter;
-        if (!g_jitTab || !g_jitCode || !mt::Write(table + JIT_OP, &ent, 4)) { Log("jit: setup failed\n"); return false; }
+        // MONOHOST_MINTCALL=verify: behind its verify catch (mt::McVChain), as the game's ApplyMonoJit
+        if (!g_jitTab || !g_jitCode || !(mt::McVChain(table, JIT_OP, MINT_UNIMPL, ent) || mt::Write(table + JIT_OP, &ent, 4))) { Log("jit: setup failed\n"); return false; }
         Log("jit: JIT_OP 0x%X -> JitEnter, %s%s\n", JIT_OP, g_jitExitAll ? "every instruction an exit, " : "", g_jitCountOn ? "counting" : "");
         wchar_t cap[MAX_PATH] = L"";
         if (GetEnvironmentVariableW(L"MONOHOST_JITCAPTURE", cap, MAX_PATH) && !JcInit(cap, 8, 8, 4, 256, 65536, 16384, 1000000, 64u << 20)) Log("jit capture: cannot open the file\n");

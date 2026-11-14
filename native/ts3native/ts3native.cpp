@@ -17,7 +17,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.256-quitstop1"  // quitstop-1114 (bugfix/quit-stop-mono-workers): master 090a2931 + [MonoThread] QuitStop (docs/30 §17): worker stopped and GC hooks back at the Mono shutdown entry 0xE534D0
+#define TS3NATIVE_VERSION "0.36.256-jitbundle2"  // jitbundle2-1114 (bugfix/jit-bundle-ab2-1114): master + [MonoFast] CallPath=2 verify coexists with [MonoJit] (JIT_OP chained behind the verify catch, mintcall.cpp McVChain)
 #endif
 
 typedef unsigned char u8;

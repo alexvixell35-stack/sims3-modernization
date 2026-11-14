@@ -6,6 +6,7 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ### Switched on (built, not in v0.2.12)
 
+- **Faster game scripts: the script compiler (`[MonoJit] Enabled=1`, on; Steam 1.67 only).** The game's busiest script methods run as compiled machine code instead of through the game's script interpreter; anything unusual (exceptions, rare instructions, other mods' changes to the same code) still goes to the game's own code. With it on: `[Binder] TypeHandleDirect=1` (a common type lookup no longer goes through a slow call into scripts) and the script engine's faster calls and fused steps below. In game the compiled code gave the same results as the interpreter (verify run: 0 differences) and no measured slowdown; the gain was measured offline, not timed in game. Set `Enabled=0` under `[MonoJit]` to switch it off.
 - **Slightly faster game scripts (`[MonoFast] CallPath=1`, on).** The plugin handles the script engine's most common steps (calls, virtual calls, returns) in one pass and hands every unusual case to the game's own code. Measured offline: 0.4-2.3 ns saved per simple call, 5-9 ns on call-heavy code, never slower; about 2-3 ms per second of script time on a busy lot (estimate, not timed in game). Your Sims get the same results as before (the game check ran 4/4 exact). It stays off by itself if another mod changes the same game code.
 
 ### Fixed (built, not in v0.2.12)

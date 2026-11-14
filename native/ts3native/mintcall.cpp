@@ -57,6 +57,9 @@ static void __cdecl McVPre(int kind, DWORD* regs);
 // [ebp-0x48] args, [ebp-0x50] this, [ebp-0x54] return slot already written. Mirrors 0xE56287-0xE5642E + 0xE54B44.
 static __declspec(naked) void McPush() {
     __asm {
+#ifdef MC_COUNTFAST
+        inc MC_CTR.mcCall               // monohost only: fast calls + callvirts counted in fast mode too
+#endif
         mov ecx, [ebp - 8]
         mov [edx - 0x130], ecx          // rec[d]: caller MonoInvocation, ip, sp, the two area pointers
         mov [edx - 0x12C], edi
@@ -421,6 +424,9 @@ static __declspec(naked) void McRetVoid() {  // 0x07
 // frame return 0xE543C7-0xE544A4 on the inline path: ecx = callee MonoInvocation, eax = arena chunk
 static __declspec(naked) void McRetTail() {
     __asm {
+#ifdef MC_COUNTFAST
+        inc MC_CTR.mcRet                // monohost only
+#endif
         mov edx, [ebp + 8]
         mov ebx, [edx + 0x140]
         dec ebx
@@ -652,6 +658,14 @@ static bool McOwns(DWORD op, DWORD entry) {
     for (int i = 0; i < 4; i++)
         if (MC_OPS[i] == op && entry == (DWORD)(uintptr_t)kMcMine[i]) return true;
     return false;
+}
+// verify mode and a later owner of one entry (MonoJit's JIT_OP): the entry is McVCatch, so the owner's handler goes into
+// g_mcOrig (the catch's target) instead of the table and the compare still runs at the first dispatch after EA's handler.
+// Without it the JIT refused CallPath=2 (game) or its entry bypassed the catch (monohost: false MISMATCH, fast path off).
+static bool McVChain(const DWORD* table, DWORD op, DWORD stock, DWORD mine) {
+    if (!g_mcVerify || op >= MC_NOP || table[op] != (DWORD)(uintptr_t)McVCatch || (DWORD)(uintptr_t)g_mcOrig[op] != stock) return false;
+    g_mcOrig[op] = (void*)(uintptr_t)mine;
+    return true;
 }
 // mode 1 fast (switch from MC_CTR.mcSwitch), 2 verify (every `every`-th eligible call, any thread, one at a time); returns
 // the installed mode, 0 off, -1 refused. Before Satb (it chains over our 0xEC entry) and after every code patch elsewhere.

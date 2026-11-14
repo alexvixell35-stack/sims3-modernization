@@ -2750,7 +2750,9 @@ static bool ApplyMonoJit(const wchar_t* ini) {
             Log("SKIP mono jit: EA code at 0x%08lX (%lu bytes) is not the stock Steam 1.67 bytes", c.at, c.n);
             return false;
         }
-    if (g_jitTableP[JIT_OP] != JIT_EA_UNIMPLEMENTED) { Log("SKIP mono jit: jump-table entry 0x%03lX is 0x%08lX, not EA's (another owner; [MonoFast] CallPath=2 has them all)", JIT_OP, g_jitTableP[JIT_OP]); return false; }
+    const DWORD ent = (DWORD)(uintptr_t)JitEnter;
+    const bool mcChain = g_jitTableP[JIT_OP] == (DWORD)(uintptr_t)McVCatch;  // [MonoFast] CallPath=2: chain behind its verify catch
+    if (g_jitTableP[JIT_OP] != JIT_EA_UNIMPLEMENTED && !mcChain) { Log("SKIP mono jit: jump-table entry 0x%03lX is 0x%08lX, not EA's (another owner)", JIT_OP, g_jitTableP[JIT_OP]); return false; }
     if (!IlpShaInit()) { Log("SKIP mono jit: SHA-256 (bcrypt.dll) unavailable"); return false; }
     g_jitGroups = GetPrivateProfileIntW(L"MonoJit", L"Groups", 511, ini);
     g_jitWide = GetPrivateProfileIntW(L"MonoJit", L"Wide", 0, ini) != 0;
@@ -2776,8 +2778,7 @@ static bool ApplyMonoJit(const wchar_t* ini) {
     JitReadList(ini);
     if (!IlpHook()) { Log("SKIP mono jit: the transform prologue differs (another owner of 0xE643B0)"); return false; }
     if (!SimLoopAdd(JitTick, "mono jit: jitSwitch and the sim thread")) { Log("SKIP mono jit: no Simulate iteration hook"); return false; }
-    const DWORD ent = (DWORD)(uintptr_t)JitEnter;
-    if (!Write(g_jitTableP + JIT_OP, &ent, 4)) { Log("FAIL mono jit: jump-table entry (err %lu)", GetLastError()); return false; }
+    if (mcChain ? !McVChain(g_jitTableP, JIT_OP, JIT_EA_UNIMPLEMENTED, ent) : !Write(g_jitTableP + JIT_OP, &ent, 4)) { Log("FAIL mono jit: jump-table entry (err %lu)", GetLastError()); return false; }
     if (mode == 2) {
         const int every = GetPrivateProfileIntW(L"MonoJit", L"VerifyEvery", 16, ini);
         g_jitEvery = every > 0 ? (DWORD)every : 1;

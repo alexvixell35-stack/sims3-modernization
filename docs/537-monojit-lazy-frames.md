@@ -483,7 +483,7 @@ All the volume is in Dictionary lookups whose `ves_exec` is fresh. Each runtime 
 | Q4 A3 | keep "no slot fill"; game rate 3.2-4.9k/s | 0.07-0.16 | - | no |
 | 20.0 region | the 2 MB code region is full in every run since 11-08; log refusals, then size | enables the rest | ~30-60 min | yes, before any new list rows |
 
-### 20.6 Built 2026-11-12: R1, C2c, E1 (branch `feature/monojit-r1-c2c-e1`, ts3native 0.36.245, counters v188) — built, NOT RUN
+### 20.6 Built 2026-11-12: R1, C2c, E1 (branch `feature/monojit-r1-c2c-e1`, ts3native 0.36.245, counters v188) — built; run since: jit-region 2026-11-13 2/2 PASS, binder-typehandle 7 PASS / 3 FAIL, jit-bundle-ab2-1114 ON arms; default ON since b0507f79 [verified 2026-11-15: results]
 
 Host and native self-tests only (Rodney: no game runs for this build). Nothing below is measured in game yet.
 
@@ -558,7 +558,7 @@ A first build behind `[MonoJit] StrKeys` (default 0) did three things: the two `
 
 Truncation (§20.0) affects this ranking as follows. Ranks 2-11 come from bodies that did compile, so they are counted. A hot caller past the 841-body cap is missing entirely. Once the region is sized (R1), the census has to be read again before the next call-exit piece.
 
-## 22. BoundCall: call EA's native String bodies from compiled code (2026-11-13, branch `feature/monojit-boundcall`, ts3native 0.36.250, ledger §484; built + host gates, NOT RUN in game)
+## 22. BoundCall: call EA's native String bodies from compiled code (2026-11-13, branch `feature/monojit-boundcall`, ts3native 0.36.250, ledger §484; built + host gates; run since: boundcall, boundcall-abba-1113, jit-bundle-ab2-1114; default ON since b0507f79 [verified 2026-11-15: results])
 
 §21.2 left 74% of the "no lazy body" bails (20.9 M of 28.27 M per BP run) at the string comparer's two guarded sites, whose targets are EA native bodies. `[MonoJit] BoundCall=1` (default 0) lets such a site call the bound body itself, the way EA's interpreter does, and run on compiled instead of exiting. Code: `native/ts3native/monojit-bound.h` (shared with monohost), `monojit.cpp` (`JitGuardFill`, `EmitLazyCall`, `ApplyMonoJit`).
 
@@ -646,7 +646,7 @@ Pair `boundcall-1113`: `game-copy/ts3native.asi.boundcall-1113` + the release pa
 - I-484-2: the count run's `jitcallee` lines name the remaining native callees (expected: none of the two rows at the comparer sites) and the `GetPrev` comparer class.
 - I-484-3: the host stand-in binder matches the game's binder for these two rows (same invoker, body and inits). The correctness jobs check it in game (bound calls > 0, script errors 0, verify MISMATCH 0).
 
-## 24. ClauseLazy back in the game, with guards (2026-11-13, branch `feature/monojit-clauselazy-guards`, ts3native 0.36.252, counters v195; built + host gates, NOT RUN in game)
+## 24. ClauseLazy back in the game, with guards (2026-11-13, branch `feature/monojit-clauselazy-guards`, ts3native 0.36.252, counters v195; built + host gates; run since: jit-bundle-ab-1113, jit-bundle-ab2-1114; default ON since b0507f79 [verified 2026-11-15: results])
 
 Rodney 2026-11-13: "Build it and ship, as long as static analysis shows a gain and no performance penalty." So the C5 game path parked in f25275bb (§20.1, handoff C5) is back, behind the guards below. `[MonoJit] ClauseLazy` stays **0** until the bench gate (§24.4) is in. (§23 is the bail census on `feature/monojit-bailcensus`, not merged yet.)
 
@@ -713,7 +713,7 @@ Counters v195 (0x62A8-0x62C7, registry `native-v195`): `clOn` (1 = in force, 0 a
 - **How to bench one piece:** `docs/data/jit-bench-howto.md`.
 - **Smoke [measured, host, 2026-11-13, core 2 while a game queue ran on 0xFFF0]:** case 14 (trivial compiled call), 2 rounds x 5 reps: interp 14.3 ns (p95 21.9), compiled 13.7 (16.3), compiled + `MONOHOST_JITLAZY=1` 14.7 (17.3, +1.0 vs base). Proves the tool only; no piece is judged here.
 - **Shared guards [verified: source, monojit.cpp]:** a verify mismatch (Mode=2) unpatches that method for the session (`JitKill` + `JitLazyOff`); a fault inside the compiler stops all compiles (`g_jitDead`, `jitFaults`). Not present: a session-wide kill of all compiled code on the first mismatch or runtime fault, and a sampled verify cheap enough for play (Mode=2 is correctness-only). The ClauseLazy branch reserved counters v195 for "session kill switch, fault fallback" (`cl*`); not duplicated here, so one shared mechanism can come from there.
-## 26. T4096: the method table past 2048 (2026-11-13, branch `feature/monojit-table-4096`, ts3native 0.36.254, counters v196) — built, NOT RUN
+## 26. T4096: the method table past 2048 (2026-11-13, branch `feature/monojit-table-4096`, ts3native 0.36.254, counters v196) — built; run only inside the JIT bundle (`MaxMethods=4096`, jit-bundle-ab-1113 / ab2-1114), own queue never ran [verified 2026-11-15: results]
 
 **Why [verified: counters].** In the BoundCall runs of 11-13 (`probe-out/queue/boundcall-2026-11-13-<bp|ip>-boundcall-ab-*-native.json`, `Mode=1`, `CodeKB=4096`) `jitMethods` = 2048 in BP and IP, `jitCodeKB` 3974 / 3971 of 4096, `jitFullN` 0, and the log names more than 32 `method table full` refusals. The `Mode=2 Count=1` jobs of the same run stop earlier on the region: 1622 methods, `jitFullN` 3972 (BP) / 3597 (IP). So at R1's 4096 KB both limits coincide in `Mode=1` (~1.94 KB a body), and raising only the table would buy ~60 bodies. T4096 raises both.
 
@@ -751,7 +751,7 @@ Selftest: the one known `AS-install` FAIL ([AutShadow] lane) in every arm, nothi
 **Lazy-cell search cost (host micro-bench, 2026-11-13, core 0 only; `MONOHOST_JITCELLBENCH=<n>`, `JitStats` line `jit: lazy cells ..., searches, rows walked a search`).** [measured] A hit at a uniform position walks N/2 rows: **247 ns at N=2048, 474 ns at N=4096** (0.23 ns a row, 200000 searches); a miss walks N rows (about 0.5 / 0.95 us) and then inserts. The host corpus (260 cases, lazy, 431 cells) made 1173 searches, 185 rows each. So 4096 cells add ~0.23 us a search over 2048. It matters only above ~430 fills/s (0.1 ms/s at 0.23 us extra) [inferred]. The game rate of `JitGuardFill` calls is NOT measured (no counter; the comparer guard bails of ~16-19k/s are an upper-ish bound for flip-flopping sites, a monomorphic site fills once). Smallest fix if the run shows a cost: `JitLazyCellFor` through a 2^13-entry open-addressing `rm -> cell index` hash carved in `JitAlloc` (the same shape as the host's `JitMethOf` hash); or, smaller, a one-entry last-hit cache. Cheapest decision aid first: a `jitCellScan` counter (searches, rows walked) next to `jitTableFull`, only if the Count=1 jobs show time in `JitGuardFill`.
 
 **Queue.** `tools/harness/queues/jit-table-4096.json`: bp/ip/sv-jit-t4096-verify (Mode=2, 10 min each, first stops the queue), bp/ip/sv-jit-t4096-count (Mode=2 Count=1, 10 min each); ~6 x 14 min = ~85 min game time. Pair `game-copy/ts3native.asi.table4096-1113` (sha256 62a31950..., builds.json). `jitMethCap` / `jitRegionKB` are startup values: `flatDelta` now keeps their after value (they read a delta of 0 before; jit-region.json's `jitRegionKB>=4096` had the same flaw).
-## 27. RetTeardown: a compiled ret runs EA's ret + frame return natively (2026-11-13, branch `feature/monojit-ret-teardown`, ts3native 0.36.255, counters v197; built + host gates, NOT benched, NOT RUN in game)
+## 27. RetTeardown: a compiled ret runs EA's ret + frame return natively (2026-11-13, branch `feature/monojit-ret-teardown`, ts3native 0.36.255, counters v197; built + host gates; host bench no gain, stays off (2709bf70, unmerged branch); never run in game, `RetTeardown=0` in every queue [verified 2026-11-15: git, queues])
 
 Census piece B3 ("ret frame teardown", §21 table, 4.39 ms/s of held-back time). **Target is the remainder over E1 only:** the 4.39 includes `RuntimeTypeHandle.get_Value`'s 2.47 ms/s, which E1 (§20.6, `[Binder] TypeHandleDirect`, on this branch's base) removes outright, so RetTeardown is modelled against **~1.92 ms/s at most**, incremental over E1 [inferred: census split, not measured].
 
@@ -781,3 +781,27 @@ Census piece B3 ("ret frame teardown", §21 table, 4.39 ms/s of held-back time).
 - Verify adds two JitEnter trips per sampled ret (`jitCalls` +2 each); Mode 2 timing is not representative (as for every verify arm).
 - EA's scratch slots (0x18, 0x1C, 0x24, 0x28, 0x34, 0x48, 0x50, 0x54, 0x58 below ebp) are excluded from the compare; they are dead across dispatch per CallPath's proof (docs/139), not re-proved here.
 - Gain unknown: the bail rate in game decides it (a ret to a depth-0 or newobj caller pays the tests and then the old exit). Bench next, then a Mode 2 + Mode 1 game queue.
+
+## 28. jit-bundle-ab2-1114 `bp-jb2-on` crash: crash I/V site, not JIT code (2026-11-14, static triage)
+
+Run: queue `jit-bundle-ab2-1114`, job `bp-jb2-on` (BP, seed 12345, 10 min, bundle ON: MonoJit core + Wide + Inline=2 + BoundCall + MintFuse Sub + TypeHandleDirect + `[MonoFast] CallPath=1`), ts3native 0.36.256-jitbundle2 (branch `bugfix/jit-bundle-ab2-1114`, contains the Satb cold park merge `090a2931`). Died 15:51:34 UTC, ~6.5 min into the profile. The OFF arm `bp-jb2-off` passed. Sources: the job's `ts3native.log` (forensics from line ~11060), EA report `xcpt <pc> 26-11-14 23.51.34.txt`, `game-copy/ts3native.map.jitbundle2-1114`, docs/67 §11 / §26. No minidump.
+
+| | |
+|---|---|
+| Fault | sim thread 34008 (`mono thread: ... tid 34008 (sim)`): AV reading `0xFF37FF91` at `0x84EAC3` `mov eax, [edx+0x10]`; `ecx` `0x3EE1B958` = actor `[element+0x1C]`, `edx` `0xFF37FF81` = its vtable word (garbage: freed and reused block) [verified registers] |
+| Site | the same 11-byte ask as crash I (docs/67 §11, vtable word 0) and crash V (§26, `0x002B002B`): the follower list walker `0x84EA00` calls slot `+0x10` of a `ConformToRouteController`'s raw actor pointer [verified address; actor type per §26.4] |
+| Native frames | `0x957297` (`Locomotion_UpdateAgent 0x957210`) -> `0x956C6C` (agent step `0x956850`) -> `0x95669F` / `0x956684` (`0x9564A0`) -> `0x9559DE` -> `0x84EA00`. Matches crash I's path [verified stack refs vs docs/67 §11.1] |
+| `0x03E...` refs | inside **ts3native.asi** (module `0x03D70000-0x0482E000`), not the JIT code region: `0x03E38A37` = `UnAgentThunk+0x437` (agent update wrapper; `[UnseenThrottle]`/`[UnseenGhost]` off, `[UnseenFallback] FinishWalk=0`: plain pass-through to `0x957210`), `0x03ECA5F8` = `_ts3native_counters` (data), `0x03E445B0` = `__except_handler4` (stale stack word) [verified map]. **No JIT-compiled method on the stack** |
+| Second AV | `0x00008BF1` from `0x004D7001..` while the crash path ran: handler-path noise after the first fault |
+| Not these | SpeedTree rebuild (`0x7B7040` / `0x95CFD0`): different site. Satb `mono_class_init`: the cold-park ring is quiet (last sim entry with domain `0x7FFF0F00` 192 s before, state 0). Quit: the profile was still running |
+
+**Ours?** Both arms run the master ini: `[Discourage] DestroyPark=1` (P5c parked and released objects up to 0.7 s before the fault; the release ring has no object within 0x400 of `ecx`, as expected when the freed block is a separately allocated AnimationComponent, docs/67 §11.3 candidate A) and `[EaCrashFixes] ConformActor=0` (the guard written for exactly this site, docs/67 §26.4). The JIT pieces run managed code only; none touches the locomotion controller list or native actor lifetime [inferred: no JIT frame, no JIT write path to native objects known]. Verdict: **crash I/V family (EA raw actor pointer, possibly widened by DestroyPark's zombie window), not attributed to the JIT bundle** [inferred]. One ON crash vs one OFF pass is no evidence either way for a rare race; by the crash rule it stays ours until a ConformActor-on run shows it gone.
+
+This is the first sighting in our own normal BP play since crash I (2026-10-22): it is the missing "seen in play" for the 2026-11-01 release rule (PLAN.md release rule audit), and the OFF-arm repro the earlier `eafix-offarm` queue never got.
+
+**Next (no build needed, ini only).**
+1. Repro: BP ON arm with `[EaCrashFixes] ConformActor=1`, x3 (same build, same seed). Pass = 3 clean runs, `^OK   ea fix: ConformActor` line, `caSkip[1]`/`caSkip[2]` > 0 is the direct proof the guard fired. Optional control: ON arm with `ConformActor=0`, `DestroyPark=0`, x3 to split the DestroyPark share.
+2. If ConformActor fires and the runs stay clean: `ConformActor=1` default (rare-crash rule: seen + repro + fix works).
+3. JIT bundle verdict unchanged by this crash; if a crash recurs with ConformActor=1, rerun ON with one piece off at a time (CallPath first, then BoundCall), 3 runs each.
+
+Effort: triage ~40 min; repro queue 3-6 live jobs x ~12 min.

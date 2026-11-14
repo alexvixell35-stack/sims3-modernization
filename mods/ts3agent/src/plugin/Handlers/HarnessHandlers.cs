@@ -362,6 +362,10 @@ namespace Ts3Agent
             // Romance prompt (2026-11-11 sp4 ip + sv soaks, active household: "Should we try for a baby?" buttons 'Yes!' / 'Eh... We should wait?'):
             // no safe word, 60 s pause stop at 20 and 26 min. Accepting starts a pregnancy in a household Sim, so only the declining answer.
             new[] { new[] { "try for a baby" }, new[] { "wait" } },
+            // Alien abduction result (2026-11-14 jit-bundle-ab2-1114 sv-jb2-off, 9.2 min: "...left Marty pregnant! Would you like to raise the alien baby or return it
+            // to grow up on its homeworld?" buttons 'raise' / 'send to homeworld'): no safe word, run stopped. Raising adds a new Sim to the household,
+            // sending it away leaves the household as it is, so take send to homeworld.
+            new[] { new[] { "raise the alien baby" }, new[] { "send to homeworld" } },
             new[] { new[] { "mod scripts found" }, new[] { "accept", "ok", "continue" } },
         };
 
