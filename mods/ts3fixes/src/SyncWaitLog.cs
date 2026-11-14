@@ -18,9 +18,14 @@ namespace Ts3Fixes
     // social checks run during the wait and their total time, the actor's interaction.
     public static partial class Fixes
     {
-        class SwStat { public int Checks; public uint CheckUs; }
-        static Dictionary<Sim, SwStat> sSwIn = new Dictionary<Sim, SwStat>();
-        static int sSwLines;
+        class SwStat { public int Checks; public uint CheckUs; public int Call; }
+        // Sims inside a wait, compared by reference (a Sim's hash and equality can change once it is destroyed); entries
+        // left by a task that died mid-wait (DestroyObject on a sleeping task skips finally) are dropped after 2000 calls
+        static List<Sim> sSwSims = new List<Sim>();
+        static List<SwStat> sSwStats = new List<SwStat>();
+        static int sSwLines, sSwCalls, sSwErrors;
+
+        static int SwFind(Sim s) { for (int i = 0; i < sSwSims.Count; i++) if (object.ReferenceEquals(sSwSims[i], s)) return i; return -1; }
 
         static bool ApplySyncWaitLog()
         {
@@ -34,15 +39,27 @@ namespace Ts3Fixes
             public bool WaitHook(Sim targetSim, Sim.SyncLevel desiredSynchLevel, ExitReason exitReasonInterrupt, float giveupTime, SyncLoopCallbackFunction loopCallback, float notifySimMinutes, bool performSocializeWithTest)
             {
                 Sim me = (Sim)(object)this;
-                if (!ShortcutOn("synctime") || sSwIn.ContainsKey(me)) return WaitOrig(targetSim, desiredSynchLevel, exitReasonInterrupt, giveupTime, loopCallback, notifySimMinutes, performSocializeWithTest);
+                if (!ShortcutOn("synctime")) return WaitOrig(targetSim, desiredSynchLevel, exitReasonInterrupt, giveupTime, loopCallback, notifySimMinutes, performSocializeWithTest);
+                int calls = ++sSwCalls;
+                if (calls % 500 == 0) HcLine("syncwait heartbeat: " + calls + " waits, " + sSwLines + " logged, " + sSwSims.Count + " in progress, " + sSwErrors + " errors");
+                for (int i = sSwStats.Count - 1; i >= 0; i--) if (calls - sSwStats[i].Call > 2000) { sSwSims.RemoveAt(i); sSwStats.RemoveAt(i); }
+                if (SwFind(me) >= 0) return WaitOrig(targetSim, desiredSynchLevel, exitReasonInterrupt, giveupTime, loopCallback, notifySimMinutes, performSocializeWithTest);
                 SwStat st = new SwStat();
-                sSwIn[me] = st;
+                st.Call = calls;
+                sSwSims.Add(me); sSwStats.Add(st);
                 long t0 = SimClock.CurrentTicks;
                 bool r = false;
                 try { r = WaitOrig(targetSim, desiredSynchLevel, exitReasonInterrupt, giveupTime, loopCallback, notifySimMinutes, performSocializeWithTest); return r; }
                 finally
                 {
-                    sSwIn.Remove(me);
+                    int at = SwFind(me);
+                    if (at >= 0) { sSwSims.RemoveAt(at); sSwStats.RemoveAt(at); }
+                    try { SwEnd(me, targetSim, desiredSynchLevel, giveupTime, t0, r, st); } catch (Exception) { sSwErrors++; }
+                }
+            }
+            static void SwEnd(Sim me, Sim targetSim, Sim.SyncLevel desiredSynchLevel, float giveupTime, long t0, bool r, SwStat st)
+            {
+                {
                     float min = SimClock.ConvertFromTicks(SimClock.CurrentTicks - t0, TimeUnit.Minutes);
                     if ((min >= 1f || !r) && sSwLines < 3000)
                     {
@@ -57,8 +74,9 @@ namespace Ts3Fixes
 
             public static InteractionTestResult CheckHook(string social, Sim actor, Sim target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback, bool bAllowOnToddlers, bool interactionHasAlreadyStarted)
             {
-                SwStat st;
-                if (actor == null || !sSwIn.TryGetValue(actor, out st)) return CheckOrig(social, actor, target, isAutonomous, ref greyedOutTooltipCallback, bAllowOnToddlers, interactionHasAlreadyStarted);
+                int at = actor != null ? SwFind(actor) : -1;
+                SwStat st = at >= 0 ? sSwStats[at] : null;
+                if (st == null) return CheckOrig(social, actor, target, isAutonomous, ref greyedOutTooltipCallback, bAllowOnToddlers, interactionHasAlreadyStarted);
                 uint t0 = SrcNowUs();
                 InteractionTestResult r = CheckOrig(social, actor, target, isAutonomous, ref greyedOutTooltipCallback, bAllowOnToddlers, interactionHasAlreadyStarted);
                 st.Checks++; st.CheckUs += unchecked(SrcNowUs() - t0);

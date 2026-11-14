@@ -31,24 +31,35 @@ namespace Ts3Fixes
         {
             public bool WaitHook(float waitTime)
             {
+                bool stuck = false, signalled = false;
+                InteractionInstance me = null;
                 try
                 {
-                    if (ShortcutOn("socialfinish"))
+                    me = (InteractionInstance)(object)this;
+                    Sim actor = me.InstanceActor;
+                    SocialInteractionB b = me.LinkedInteractionInstance as SocialInteractionB;
+                    Sim partner = b != null ? b.InstanceActor : null;
+                    stuck = actor != null && partner != null && actor.SynchronizationRole == Sim.SyncRole.Initiator
+                        && partner.InteractionQueue != null && partner.InteractionQueue.IsRunning(b, true) && !partner.HasExitReason();
+                    if (stuck && ShortcutOn("socialfinish"))
                     {
-                        InteractionInstance me = (InteractionInstance)(object)this;
-                        Sim actor = me.InstanceActor;
-                        SocialInteractionB b = me.LinkedInteractionInstance as SocialInteractionB;
-                        Sim partner = b != null ? b.InstanceActor : null;
-                        if (actor != null && partner != null && actor.SynchronizationRole == Sim.SyncRole.Initiator
-                            && partner.InteractionQueue != null && partner.InteractionQueue.IsRunning(b, true) && !partner.HasExitReason())
-                        {
-                            partner.AddExitReason(ExitReason.Finished);
-                            PatchCounters()[2310]++;
-                        }
+                        partner.AddExitReason(ExitReason.Finished);
+                        PatchCounters()[2310]++;
+                        signalled = true;
                     }
                 }
                 catch (Exception) { PatchCounters()[2311]++; }
-                return WaitOrig(waitTime);
+                if (!stuck || !ShortcutOn("synctime")) return WaitOrig(waitTime);
+                // test switch synctime: time this wait (the off/on measure for this fix; SyncWaitLog's own hook is not needed)
+                long t0 = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+                bool r = WaitOrig(waitTime);
+                try
+                {
+                    float min = Sims3.Gameplay.Utilities.SimClock.ConvertFromTicks(Sims3.Gameplay.Utilities.SimClock.CurrentTicks - t0, Sims3.Gameplay.Utilities.TimeUnit.Minutes);
+                    HcLine("socialfinish: " + me.GetType().Name + " " + (signalled ? "signalled" : "would signal") + ", wait " + (r ? "ok" : "failed") + " after " + min.ToString("0.0") + "/" + waitTime.ToString("0") + " min, " + HcSimTime());
+                }
+                catch (Exception) { PatchCounters()[2311]++; }
+                return r;
             }
             public bool WaitOrig(float waitTime) { return false; } // receives the original
         }

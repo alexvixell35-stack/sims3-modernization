@@ -209,3 +209,12 @@ and both Sims stand until the timeout, then both get SynchronizationFailed. The 
 `WaitForSyncComplete` when this Sim is the sync initiator and its linked SocialInteractionB is still running with no exit
 reason: the wait cannot succeed otherwise, and a social that signalled already is untouched. Difference from vanilla:
 those six socials end cleanly for both Sims instead of after a 5 min stand and a sync failure (EA bug fix; every Sim).
+
+**Open: the `synctime` hook goes dark mid-game [measured, cause unknown].** In every run with both `SyncWaitLog`
+(on `Sim.WaitForSynchronizationLevelWithSim`, 7 args) and `SocialFinish` (on `InteractionInstance.WaitForSyncComplete(float)`)
+installed, the wait hook stopped being reached after ~1,000-2,000 calls (phase-20261114-0242, -0312, -0341), while socials
+kept starting (social_round: 6-11 started per round afterwards), the `synctime` switch still read true, and other hooks
+(`alarmtime`, `socialfinish` counters) kept working. phase-20261114-0341 polled every 30 s: hook heartbeat at 2,000 waits
+(03:50:46), then no further call; snapshot GCs before and after did not matter; `[MonoJit]` was off. The run without
+SocialFinish (phase-20261114-0212) logged to the end. Until explained, any hook that must see every call of a hot method
+needs a heartbeat. `socialfinish` therefore times its own waits (under `synctime`) for its off/on run.
