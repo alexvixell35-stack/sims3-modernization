@@ -20,8 +20,9 @@ interface Res { id: string; kind: Kind; from: number; to: number; version?: numb
 interface Used { fixesMax: number; nativeVer: number; nativeEnd: number; cFixesMax: number; cNativeVer: number }
 
 // Contributor ranges (docs/registry.md "Contributor ranges"); maintainer numbers never enter them.
-// fixes: 2000-2199 (full since the PR #368 import, 2026-11-12), then 2200-2399; FIX_BLOCK2 is where the second block starts.
-export const CONTRIB = { doc: [500, 599], ledger: [900, 999], fixes: [2000, 2399], nativeV: 900 } as const;
+// fixes: 2000-2199 (full since the PR #368 import, 2026-11-12), then 2200-2799 (2400-2799 added 2026-11-14, PR #405: 2200-2399
+// was down to ~80 slots); FIX_BLOCK2 is where the second block starts.
+export const CONTRIB = { doc: [500, 599], ledger: [900, 999], fixes: [2000, 2799], nativeV: 900 } as const;
 export const FIX_BLOCK2 = 2200;
 // A contributor slot block never straddles 2199/2200: one that would starts at 2200.
 export const contribFixFrom = (max: number, n: number) => max < FIX_BLOCK2 && max + n >= FIX_BLOCK2 ? FIX_BLOCK2 : max + 1;
@@ -260,9 +261,9 @@ async function selfCheck() {
     ok(mr.some(r => r.kind === 'fixes' && r.from === 285) && mr.some(r => r.kind === 'native' && r.version === 118) && mr.some(r => r.id === 'ledger-323'), 'maintainer reserves skip the contributor ranges (fixes 285, native v118, ledger 323)');
     ok(scanDoc(readFileSync(join(d, 'docs', 'registry.md'), 'utf8')).collisions.length === 0, 'doc has no collisions with contributor rows');
     ok(!existsSync(join(d, 'docs', 'registry.md.lock')), 'lock file removed');
-    // second contributor block: a block that would cross 2199/2200 starts at 2200; 2399 is the end
+    // second contributor block: a block that would cross 2199/2200 starts at 2200; 2799 is the end (2400-2799 added 2026-11-14)
     ok(contribFixFrom(2006, 5) === 2007 && contribFixFrom(2195, 5) === 2200 && contribFixFrom(2195, 4) === 2196 && contribFixFrom(2303, 3) === 2304, 'contributor fixes: blocks stay inside 2000-2199 or start at 2200');
-    ok(CONTRIB.fixes[1] === 2399, 'contributor fixes range ends at 2399');
+    ok(CONTRIB.fixes[1] === 2799, 'contributor fixes range ends at 2799');
   } finally { rmSync(d, { recursive: true, force: true }); }
 }
 

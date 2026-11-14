@@ -405,12 +405,22 @@ namespace Ts3Fixes
         // [872-875] watchdogasync A1 (RouteFixes.cs CheckIdle, RouteBackoff.cs OwnerTaskSlot, docs/250 §7.1): own STARTs sent, started by
         // ts3native, refused before sending (A1 on, Sim eligible, ts3native would not start it), sim ticks the A1 checks took
         // [930-932] watchdogasync: A1 verdicts dropped as stale (H4Core.WdFresh), shadow sync re-checks run, shadow verdicts that differ
+        // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 2799,
+        // docs/registry.md), so a new fix never needs the array resized by hand.
+        const int kCounterSlots = 2800;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2317]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null || c.Length < kCounterSlots)
+            {
+                // a shorter array (left by an older build in this session) is copied into a full-size one
+                int[] full = new int[kCounterSlots];
+                if (c != null) Array.Copy(c, full, c.Length);
+                c = full;
+                AppDomain.CurrentDomain.SetData("ts3fixes.counters", c);
+            }
             return sCountersCache = c;
         }
 
