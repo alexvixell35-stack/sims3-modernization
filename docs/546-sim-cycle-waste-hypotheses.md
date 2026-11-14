@@ -239,3 +239,10 @@ join the larger cap, and the shared cap logs one "capped" line. Test counts that
 RouteFailed exit reason reaches the starter only if its social was already running (otherwise EA cancels it, which did not
 stop it here). Fix `socialreceivefail` (off by default, slots 2312-2313) ends that wait through the vanilla failure call.
 On from load (phase-20261114-0935): counter 2312 = 16 after two social phases, 0 errors.
+
+**Long waits that are travel, not locks [verified, decompiled; durations measured 2026-11-13/14].** Successful waits of
+5+ sim min, grouped: horse dismount (rider waits for the horse's Routed, giveup 1000; n=51, mean 29.0, max 109.5 min):
+`BeingDismounted.Run` puts the dismount spot near the rider's next interaction's target, so the horse rides there first
+and the wait is the ride. `PutDownPet` (pet waits for Started, giveup 45; n=38, mean 7.8, max 18.9): the Sim walks to the
+drop-off point carrying the pet. Receiver waiting for the starter's Routed (n=320, mean 4.8, max 26.9): the starter's
+approach walk. None of these is a fix target; the stand-offs are the failed waits (socialfinish, socialreceivefail).
