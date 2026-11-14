@@ -46,6 +46,7 @@ namespace Ts3Fixes
                         partner.AddExitReason(ExitReason.Finished);
                         PatchCounters()[2310]++;
                         signalled = true;
+                        if (ShortcutOn("synctime")) HcLine("socialfinish: " + me.GetType().Name + " signalling " + partner.FirstName + " (in " + (partner.CurrentInteraction != null ? partner.CurrentInteraction.GetType().Name : "none") + ", sync level " + partner.SynchronizationLevel + ", own " + actor.SynchronizationLevel + "), " + HcSimTime());
                     }
                 }
                 catch (Exception) { PatchCounters()[2311]++; }

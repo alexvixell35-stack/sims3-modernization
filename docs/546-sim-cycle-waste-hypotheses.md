@@ -218,3 +218,9 @@ kept starting (social_round: 6-11 started per round afterwards), the `synctime` 
 (03:50:46), then no further call; snapshot GCs before and after did not matter; `[MonoJit]` was off. The run without
 SocialFinish (phase-20261114-0212) logged to the end. Until explained, any hook that must see every call of a hot method
 needs a heartbeat. `socialfinish` therefore times its own waits (under `synctime`) for its off/on run.
+
+**socialfinish off/on [measured].** Off (phase-20261114-0401, first half): 9 of 9 ShowVideos stood 5.3 min, wait failed.
+On from load (phase-20261114-0430): the partner was found looping in SocialInteractionB at SyncLevel.Committed each time;
+every logged wait ended ok after 0.5 min; counter 2310 = 16 signalled, 2311 = 0 errors, no script errors. Only the first
+4 of the 16 were logged: test lines from this hook and the wait hook stop reaching ts3native.log after ~1,000 waits while
+the `synctime` switch still reads true (polled) and `lotpass` lines from the same `HcLine` keep arriving; open.
