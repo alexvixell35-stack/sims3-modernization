@@ -191,3 +191,7 @@ Each of these needs a plan longer than 30 s, which is above the longest single j
 - **§4.4 Harness.** `tools/harness/lock-wait-line.ts` (self-check on real match and non-match lines) is used by `profile-world.ts`: the "fixed_work failed twice" FAIL names the last route-lock wait line, if there is one.
 
 The §3 repro (agent target `sealed`, `kdownplanus`) stays open, and so do B and C. The handoff's natural SV job is the first check.
+
+## 7. Verdict, queue `kd-uncut-ceiling-1114` (2026-11-14, build da739355, ts3native 0.36.253)
+
+**PASS, fix works, default ON stays** (`KdUncutCeilMs=30000` in the ini; rule: crash/hitch fix seen + repro + fix works = ON). `sv-kduncut-smoke`: start line, switch off/on read back, `kdUncutHit` 0 at the 30 s default. `sv-kd-uncut-ceiling` (ceiling forced to 0.3 s): `kdUncutHit` 8, longest 573,899 us, all 8 scope unseen (0 household, 0 selected), each followed by a normal routefail cut and a successful retry of the same Sim 5-7 s later, no crash, 0 new script errors. Verified: the ceiling fires, logs, and the Sim recovers. Not shown: a 30 s cut on a real freeze (none occurred in 18 min; the 0.3 s repro overlaps the 300 ms kind deadline). Results: `docs/data/results/2026-11-14-queue-kd-uncut-ceiling-1114.md`. Open as before: §3 `sealed` repro, B and C.

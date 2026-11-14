@@ -3,7 +3,7 @@
 The Cooking skill's Menu Maven challenge and the Culinary Librarian lifetime wish both mean "know every recipe". The
 game decides both with one fixed number from its tuning, 28. That number was never raised for the expansions, the store
 or recipe mods. This doc explains the cause and describes the ts3fixes switch `menumaven`, which counts the target from
-the recipes installed in each game. The switch is off by default. Status (2026-11-01): built, self-tested, forced repro
+the recipes installed in each game. The switch is on by default since 2026-11-14 (Dalexlol PR #153 repro PASS, ours 2026-11-01 PASS). Status (2026-11-01): built, self-tested, forced repro
 passed once (§5).
 
 Claim marks: **[verified]** = read in the game's IL by us (`ildasm`; no code reproduced here), in the game's own tuning
@@ -59,7 +59,7 @@ files, or seen live; **[inferred]** = our reading, not yet checked in game.
 
 | switch | tunable | default | counters |
 |---|---|---|---|
-| `menumaven` | `kMenuMaven` | off | 2000 `menumaven_reads` (calls answered by the live rule), 2001 `menumaven_done` (of them true) |
+| `menumaven` | `kMenuMaven` | on (since 2026-11-14) | 2000 `menumaven_reads` (calls answered by the live rule), 2001 `menumaven_done` (of them true) |
 
 ## 4. Checks
 
