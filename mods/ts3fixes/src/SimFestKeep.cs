@@ -23,10 +23,24 @@ namespace Ts3Fixes
     {
         static readonly Type sSfPresent = typeof(ShowStage).GetNestedType("EmceePresentSimFestAward", BindingFlags.Public | BindingFlags.NonPublic);
         static readonly Type sSfWrapUp = typeof(ShowStage).GetNestedType("EmceeAwardCeremonyWrapUp", BindingFlags.Public | BindingFlags.NonPublic);
+        // looked up once at Apply; any missing = not patched
+        static FieldInfo sSfIsMaster, sSfStage, sSfPresentJig, sSfWrapSingleton, sSfWinner, sSfWrapJig;
 
         static void ApplySimFestKeep()
         {
             if (sSfPresent == null || sSfWrapUp == null) { AppliedLog().Add("ShowStage SimFest award classes: not found, simfestkeep skipped"); return; }
+            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            sSfIsMaster = sSfPresent.GetField("IsMaster", inst);
+            sSfStage = sSfPresent.GetField("mShowStage", inst);
+            sSfPresentJig = sSfPresent.GetField("mSocialJig", inst);
+            sSfWrapSingleton = sSfWrapUp.GetField("Singleton", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            sSfWinner = sSfWrapUp.GetField("mWinner", inst);
+            sSfWrapJig = sSfWrapUp.GetField("mSocialJig", inst);
+            if (sSfIsMaster == null || sSfStage == null || sSfPresentJig == null || sSfWrapSingleton == null || sSfWinner == null || sSfWrapJig == null)
+            {
+                AppliedLog().Add("ShowStage SimFest award fields: not found, simfestkeep skipped");
+                return;
+            }
             Patch(sSfPresent, "Run", typeof(SimFestKeepHook), "RunHook", "RunOrig");
         }
 
@@ -46,16 +60,16 @@ namespace Ts3Fixes
             if (!ShortcutOn("simfestkeep")) return;
             try
             {
-                if (!(bool)sSfPresent.GetField("IsMaster").GetValue(present)) return;
+                if (!(bool)sSfIsMaster.GetValue(present)) return;
                 Sim emcee = present.InstanceActor as Sim, winner = present.Target as Sim;
-                ShowStage stage = sSfPresent.GetField("mShowStage").GetValue(present) as ShowStage;
-                if (emcee == null || winner == null || stage == null || emcee.InteractionQueue == null) return;
-                InteractionDefinition wrapDef = (InteractionDefinition)sSfWrapUp.GetField("Singleton", BindingFlags.Public | BindingFlags.Static).GetValue(null);
+                ShowStage stage = sSfStage.GetValue(present) as ShowStage;
+                InteractionDefinition wrapDef = sSfWrapSingleton.GetValue(null) as InteractionDefinition;
+                if (emcee == null || winner == null || stage == null || wrapDef == null || emcee.InteractionQueue == null) return;
                 if (emcee.InteractionQueue.HasInteractionOfType(wrapDef)) return;  // EA queued it on this path
                 // as EA's route-failure branch: CreateInstance(mShowStage, Actor, RequiredNPCBehavior, Actor.IsNPC, false)
                 InteractionInstance wrap = wrapDef.CreateInstance(stage, emcee, new InteractionPriority(InteractionPriorityLevel.RequiredNPCBehavior), emcee.IsNPC, false);
-                sSfWrapUp.GetField("mWinner").SetValue(wrap, winner);
-                sSfWrapUp.GetField("mSocialJig").SetValue(wrap, sSfPresent.GetField("mSocialJig").GetValue(present));
+                sSfWinner.SetValue(wrap, winner);
+                sSfWrapJig.SetValue(wrap, sSfPresentJig.GetValue(present));
                 emcee.InteractionQueue.AddNext(wrap);
                 PatchCounters()[2324]++;
             }

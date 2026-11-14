@@ -364,7 +364,7 @@ namespace Ts3Fixes
                             // per-Sim verdict for correctness jobs (bp-idle-unroutable's PASS needs its Sim's line, not any Sim's counter)
                             if (ShortcutOn("watchdogasyncshadow"))
                                 DiagLine("watchdog idle verdict: " + s.FullName + " " + (route == H4Core.kWdA1 ? "A1" : cached ? "cache" : "sync") + " " + ok.Value + (stale ? " stale" : "")
-                                    + " @" + Math.Round(at.x, 2) + "," + Math.Round(at.z, 2) + (lot != null ? " on " + lot.Name : ""));
+                                    + " @" + Math.Round(at.x, 2) + "," + Math.Round(at.z, 2) + " on " + lot.Name);  // lot: s.LotCurrent, non-null (checked above)
                             if (stale) { }
                             else if (ok.Value) { st.OkAt = now; mStill[s.ObjectId.Value] = st; }
                             else if (Act(s, now, 46, "reset (idle on unroutable spot)")) mStill.Remove(s.ObjectId.Value);

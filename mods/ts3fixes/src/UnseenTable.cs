@@ -44,8 +44,9 @@ namespace Ts3Fixes
         {
             if (sUtbState == 0)
             {
-                sUtbState = ViewerSend(25, 0) ? 1 : -1;
-                sUtbCheck = sUtbState == 1 && ViewerSend(26, 0);
+                bool ready = ViewerSend(25, 0);
+                sUtbState = ready ? 1 : -1;
+                sUtbCheck = ready && ViewerSend(26, 0);
             }
             return sUtbState == 1;
         }

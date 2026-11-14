@@ -38,6 +38,9 @@ namespace Ts3Fixes
         static readonly FieldInfo sSohCategory = typeof(Sim.SwitchOutfitHelper).GetField("mCategory", kInstAll);
         static readonly FieldInfo sSohIndex = typeof(Sim.SwitchOutfitHelper).GetField("mIndex", kInstAll);
         static readonly FieldInfo sSimPending = typeof(Sim).GetField("mPendingOutfitInfo", kInstAll);
+        // Sim.OutfitInfo (the pending field's struct): Category, Index
+        static readonly FieldInfo sOiCategory = sSimPending != null ? sSimPending.FieldType.GetField("Category", kInstAll) : null;
+        static readonly FieldInfo sOiIndex = sSimPending != null ? sSimPending.FieldType.GetField("Index", kInstAll) : null;
         static readonly Type sAlarmOneShot = typeof(AlarmManager).GetNestedType("AlarmOneShot", BindingFlags.Public | BindingFlags.NonPublic);
         static readonly FieldInfo sOneShotTimer = sAlarmOneShot != null ? sAlarmOneShot.GetField("mTimer", kInstAll) : null;
 
@@ -161,10 +164,10 @@ namespace Ts3Fixes
         {
             try
             {
-                if (s == null || sSimPending == null || sSohCategory == null || sSohIndex == null) return "cause unread";
-                object pend = sSimPending.GetValue(s); // Sim.OutfitInfo (a struct): Category, Index
-                OutfitCategories pc = (OutfitCategories)pend.GetType().GetField("Category").GetValue(pend);
-                int pi = (int)pend.GetType().GetField("Index").GetValue(pend);
+                if (s == null || sSimPending == null || sOiCategory == null || sOiIndex == null || sSohCategory == null || sSohIndex == null) return "cause unread";
+                object pend = sSimPending.GetValue(s);
+                OutfitCategories pc = (OutfitCategories)sOiCategory.GetValue(pend);
+                int pi = (int)sOiIndex.GetValue(pend);
                 OutfitCategories hc = (OutfitCategories)sSohCategory.GetValue(h);
                 int hi = (int)sSohIndex.GetValue(h);
                 object act = sSimActiveSoh != null ? sSimActiveSoh.GetValue(s) : null;
@@ -282,8 +285,7 @@ namespace Ts3Fixes
         {
             object pi = sSimPending != null ? sSimPending.GetValue(sim) : null;
             if (pi == null) return "?";
-            FieldInfo c = pi.GetType().GetField("Category", kInstAll | BindingFlags.Public), i = pi.GetType().GetField("Index", kInstAll | BindingFlags.Public);
-            return (c != null ? c.GetValue(pi) : "?") + "/" + (i != null ? i.GetValue(pi) : "?");
+            return (sOiCategory != null ? sOiCategory.GetValue(pi) : "?") + "/" + (sOiIndex != null ? sOiIndex.GetValue(pi) : "?");
         }
 
         static bool sOwReplReady; // the replace check's second swap called back

@@ -65,7 +65,7 @@ namespace Ts3Fixes
                 ArrayList r = CreateOrig(b);
                 if (sCrlDepth > 0 && (r == null || r.Count == 0))
                 {
-                    WindowBase row = (object)this as WindowBase;
+                    WindowBase row = (object)this as WindowBase; // `this` is really a CASClothingRow
                     if (row != null && row.Parent == null) sCrlEmpty = row;
                 }
                 return r;
@@ -82,7 +82,7 @@ namespace Ts3Fixes
                 bool r;
                 try { r = AddOrig(grid, current, itemKey, context); }
                 finally { sCrlDepth--; }
-                WindowBase row = sCrlEmpty;
+                WindowBase row = sCrlEmpty; // set by CrlRowHook while AddOrig ran
                 sCrlEmpty = null;
                 if (row != null && row.Parent == null)
                 {

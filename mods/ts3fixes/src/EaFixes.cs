@@ -267,7 +267,7 @@ namespace Ts3Fixes
 
             public SimDescription FindHook(Lot lot)
             {
-                Service s = (object)this as Service;
+                Service s = (object)this as Service; // `this` is really a Service
                 if (s != null && lot != null && lot.Household != null && sPrefNpc != null && sSvcPool != null && ShortcutOn("preferredservice"))
                 {
                     Dictionary<ulong, SimDescription> d = sPrefNpc.GetValue(s) as Dictionary<ulong, SimDescription>;

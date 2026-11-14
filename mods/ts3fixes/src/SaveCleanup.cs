@@ -77,7 +77,7 @@ namespace Ts3Fixes
         static int TrimLifeEventLists(SimDescription d)
         {
             if (d == null || d.LifeEventManager == null) return 0;
-            return RemoveEmptyLists(LifeEventDict(d.LifeEventManager, "mLifeEvents")) + RemoveEmptyLists(LifeEventDict(d.LifeEventManager, "mActiveNodes"));
+            return RemoveEmptyLists(LifeEventDict(d.LifeEventManager, sLemLifeEvents)) + RemoveEmptyLists(LifeEventDict(d.LifeEventManager, sLemActiveNodes));
         }
 
         // (d) On demand for the test agent too (reflect_call with args [cap]). Per active-household Sim, keeps the newest
@@ -121,7 +121,7 @@ namespace Ts3Fixes
                 ResourceKey key = e.Snapshot;
                 bool isShared;
                 if (shared.TryGetValue(key, out isShared) && isShared) { kept++; continue; }
-                MethodInfo update = e.GetType().GetMethod("UpdateSnapshot"); // LifeEvent is a private nested class
+                MethodInfo update = LifeEventUpdateSnapshot(e);
                 if (update == null) return -1;
                 update.Invoke(e, new object[] { ResourceKey.kInvalidResourceKey });
                 World.DeleteTravelDBResource(key);
@@ -151,7 +151,7 @@ namespace Ts3Fixes
         static void AddSnapshotHolders(SimDescription d, Dictionary<ResourceKey, object> owner, Dictionary<ResourceKey, bool> shared)
         {
             if (d == null || d.LifeEventManager == null) return;
-            System.Collections.IDictionary dict = LifeEventDict(d.LifeEventManager, "mLifeEvents");
+            System.Collections.IDictionary dict = LifeEventDict(d.LifeEventManager, sLemLifeEvents);
             if (dict == null) return;
             foreach (System.Collections.IEnumerable list in dict.Values)
             {
@@ -173,7 +173,7 @@ namespace Ts3Fixes
             foreach (SimDescription d in Household.EverySimDescription())
             {
                 if (d == null || d.LifeEventManager == null) continue;
-                foreach (string field in new string[] { "mLifeEvents", "mActiveNodes" })
+                foreach (FieldInfo field in new FieldInfo[] { sLemLifeEvents, sLemActiveNodes })
                 {
                     System.Collections.IDictionary dict = LifeEventDict(d.LifeEventManager, field);
                     if (dict == null) continue;
@@ -182,7 +182,7 @@ namespace Ts3Fixes
                         lists++;
                         if (list == null) continue;
                         if (list.Count == 0) empty++;
-                        else if (field == "mLifeEvents") events += list.Count;
+                        else if (field == sLemLifeEvents) events += list.Count;
                     }
                 }
             }
@@ -203,11 +203,25 @@ namespace Ts3Fixes
                 + " hh=" + Household.sHouseholdList.Count + " sims=" + Household.EverySimDescription().Count;
         }
 
-        // Private Dictionary<uint, List<T>>; T (LifeEventActiveNode) is a private type, so use the non-generic view.
-        static System.Collections.IDictionary LifeEventDict(LifeEventManager m, string field)
+        // LifeEventManager's private Dictionary<uint, List<T>> fields (T is a private type, so the non-generic view is used);
+        // looked up once, read per Sim. Null = missing: that part of the cleanup does nothing.
+        static readonly FieldInfo sLemLifeEvents = typeof(LifeEventManager).GetField("mLifeEvents", BindingFlags.Instance | BindingFlags.NonPublic);
+        static readonly FieldInfo sLemActiveNodes = typeof(LifeEventManager).GetField("mActiveNodes", BindingFlags.Instance | BindingFlags.NonPublic);
+        static readonly FieldInfo sMiniSimsField = typeof(MiniSimDescription).GetField("sMiniSims", BindingFlags.Static | BindingFlags.NonPublic);
+
+        static System.Collections.IDictionary LifeEventDict(LifeEventManager m, FieldInfo f)
         {
-            FieldInfo f = typeof(LifeEventManager).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic);
             return f != null ? f.GetValue(m) as System.Collections.IDictionary : null;
+        }
+
+        // LifeEvent.UpdateSnapshot (LifeEvent is a private nested class), looked up once per event class.
+        static Type sLeType;
+        static MethodInfo sLeUpdateSnapshot;
+        static MethodInfo LifeEventUpdateSnapshot(object e)
+        {
+            Type t = e.GetType();
+            if (t != sLeType) { sLeUpdateSnapshot = t.GetMethod("UpdateSnapshot"); sLeType = t; }
+            return sLeUpdateSnapshot;
         }
 
         static int RemoveEmptyLists(System.Collections.IDictionary dict)
@@ -264,8 +278,7 @@ namespace Ts3Fixes
 
         static Dictionary<ulong, MiniSimDescription> MiniSims()
         {
-            FieldInfo f = typeof(MiniSimDescription).GetField("sMiniSims", BindingFlags.Static | BindingFlags.NonPublic);
-            return f != null ? f.GetValue(null) as Dictionary<ulong, MiniSimDescription> : null;
+            return sMiniSimsField != null ? sMiniSimsField.GetValue(null) as Dictionary<ulong, MiniSimDescription> : null;
         }
 
         // (a) Pairs the game's own decay would drop for players (Stranger/Acquaintance, other household, not related, no
