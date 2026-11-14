@@ -91,7 +91,7 @@ static __declspec(noinline) void RcTRun(int which, int queries) {  // one frame 
 static void TestRcGuard() {
     static_assert(offsetof(Ts3nCounters, rcMode) == 0x44D4 && offsetof(Ts3nCounters, rcByFn) == 0x44E0 &&
                   offsetof(Ts3nCounters, rcPass) == 0x4510 && offsetof(Ts3nCounters, rcDropped) == 0x4530 &&
-                  offsetof(Ts3nCounters, rcWould) == 0x4544 && sizeof(Ts3nCounters) == 6323 * 4,
+                  offsetof(Ts3nCounters, rcWould) == 0x4544 && sizeof(Ts3nCounters) == 6337 * 4,
                   "counters v104 layout after v103 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset((void*)&k.rcMode, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, rcMode));

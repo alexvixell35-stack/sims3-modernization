@@ -200,7 +200,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kVacExitReturn value="False" />
     <kVacListenerNull value="False" />
     <kVacImportFix value="False" />
-    <kMenuMaven value="False" />
+    <kMenuMaven value="True" />
     <kDanceFloorListGuard value="True" />
     <kBoatGetOutDiag value="False" />
     <kBoatGetOutGuard value="False" />

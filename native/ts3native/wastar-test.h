@@ -147,7 +147,7 @@ static void WaRunStub(const u8* r, DWORD chunk, DWORD wp, const u8* rec, const W
 static void TestWorldAStarRefs() {
     static_assert(offsetof(Ts3nCounters, mdOn) == 0x5520 && offsetof(Ts3nCounters, waOn) == 0x5570 &&
                       offsetof(Ts3nCounters, waSkip) == 0x5574 && offsetof(Ts3nCounters, pfSkip) == 0x5584 &&
-                      sizeof(Ts3nCounters) == 6323 * 4,
+                      sizeof(Ts3nCounters) == 6337 * 4,
                   "counters v146 layout after v145 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
 
@@ -271,7 +271,7 @@ static void TestWorldAStarRefs() {
     assert(g_hiHits == hh0 + 1 && g_hiX[0] == inf && g_hiX[1] == 0.5f);
     g_hiBack = HI_BACK, g_hiSkip = HI_SKIP, g_hiHits = hh0;
     // BridgeHeightNaN: each site after a call to 0xB745A0 becomes jmp kBhStub[i] + 2 int3; foreign bytes or another call refused
-    static_assert(offsetof(Ts3nCounters, bhnHits) == 0x62C8 && sizeof(Ts3nCounters) == 6323 * 4,
+    static_assert(offsetof(Ts3nCounters, bhnHits) == 0x62C8 && sizeof(Ts3nCounters) == 6337 * 4,
                   "counters v918 layout after the v195 placeholder (docs/registry.md)");
     for (int i = 0; i < 3; i++) {
         alignas(4) static u8 bh[12];

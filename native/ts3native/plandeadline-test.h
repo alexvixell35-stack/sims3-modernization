@@ -246,6 +246,38 @@ static void PdtRunWorker(PdtWk& w) {
     CloseHandle(h);
 }
 
+// docs/264 (issue #338) [RouteAsync] KdUncutCeilMs: the ini range, which jobs get the ceiling, and the hit counter / line
+static void TestUncutCeil() {
+    Ts3nCounters& k = ts3native_counters;
+    const LONG mode0 = k.kdUncutMode, ceil0 = k.kdUncutCeilUs, hit0 = k.kdUncutHit, max0 = k.kdUncutMaxUs;
+    // ini: 0 or less = off, else clamped to 5-300 s, in us
+    assert(UcIniUs(0) == 0 && UcIniUs(-1) == 0 && UcIniUs(1000) == 5000000 && UcIniUs(30000) == 30000000 && UcIniUs(999999) == 300000000);
+    // only a job with no deadline gets it; any other deadline stays as it was (smaller or larger)
+    k.kdUncutMode = 1, k.kdUncutCeilUs = 30000000;
+    assert(UcCapUs(0) == 30000000 && UcCapUs(250000) == 250000 && UcCapUs(10000000) == 10000000 && UcCapUs(60000000) == 60000000);
+    k.kdUncutCeilUs = 300000;  // native_set kduncutceilus 300000 (handoff repro): used raw, below the 5 s ini minimum
+    assert(UcCapUs(0) == 300000);
+    k.kdUncutCeilUs = 30000000;
+    k.kdUncutMode = 0;  // switch off (native_set kduncutceil 0): uncut as before
+    assert(UcCapUs(0) == 0);
+    k.kdUncutMode = 1, k.kdUncutCeilUs = 0;  // ini 0
+    assert(UcCapUs(0) == 0);
+    // hit = a capped job that ran under the ceiling; not capped, or a job with its own deadline, is no hit
+    k.kdUncutCeilUs = 30000000, k.kdUncutHit = 0, k.kdUncutMaxUs = 0;
+    AsyncJob j = {};
+    j.handle = 0x25338338, j.kdScope = 1;
+    t_ucJob = true;
+    UcJobEnd(&j, false, 31000000);
+    assert(k.kdUncutHit == 0 && k.kdUncutMaxUs == 0);
+    UcJobEnd(&j, true, 30012000);
+    assert(k.kdUncutHit == 1 && k.kdUncutMaxUs == 30012000);
+    t_ucJob = false;
+    UcJobEnd(&j, true, 40000000);
+    assert(k.kdUncutHit == 1 && k.kdUncutMaxUs == 30012000);
+    k.kdUncutMode = mode0, k.kdUncutCeilUs = ceil0, k.kdUncutHit = hit0, k.kdUncutMaxUs = max0;
+    printf("KdUncutCeilMs (docs/264): counters v198; ini range 0 / 5-300 s, ceiling only for a job with no deadline, switch and 0 off, "
+           "hit counter + max only for a capped ceiling job ok\n");
+}
 static void TestPlanDeadline() {
     static_assert(offsetof(Ts3nCounters, fbjdMode) == 0x440C && offsetof(Ts3nCounters, fbjdCapped) == 0x441C &&
                       offsetof(Ts3nCounters, fbjdLines) == 0x4438 && offsetof(Ts3nCounters, owReady) == 0x443C &&
@@ -255,7 +287,7 @@ static void TestPlanDeadline() {
     static_assert(offsetof(Ts3nCounters, pdMode) == 0x4244 && offsetof(Ts3nCounters, pdSessions) == 0x4254 &&
                       offsetof(Ts3nCounters, pdLines) == 0x427C && offsetof(Ts3nCounters, fmMode) == 0x4280 &&
                       offsetof(Ts3nCounters, fmInval) == 0x4298 && offsetof(Ts3nCounters, fmServedUs) == 0x42C4 &&
-                      sizeof(Ts3nCounters) == 6323 * 4,
+                      sizeof(Ts3nCounters) == 6337 * 4,
                   "counters v99 layout after v98 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
@@ -380,7 +412,7 @@ static void TestPlanDeadline() {
     //     exempt even as NoStart, once; nested in an open session it cannot be: a cut there counts pdCutSc
     {
         static_assert(offsetof(Ts3nCounters, pdExemptSc) == 0x52C0 && offsetof(Ts3nCounters, pdCutSc) == 0x52C4 &&
-                          offsetof(Ts3nCounters, pdSpare) == 0x52C8 && sizeof(Ts3nCounters) == 6323 * 4,
+                          offsetof(Ts3nCounters, pdSpare) == 0x52C8 && sizeof(Ts3nCounters) == 6337 * 4,
                       "counters v135 layout after v134 (docs/registry.md)");
         g_icPlanOrig = [](u8* o, DWORD) -> u8* {
             assert(t_pdNoCut && !PdPlanBegin() && !t_pd.open && !g_pdTid);

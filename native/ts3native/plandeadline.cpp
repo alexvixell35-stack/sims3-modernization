@@ -211,6 +211,28 @@ static bool KdKnownUnseen(DWORD handle) {
     return t_kdJobScope ? t_kdJobScope == 2 : g_kdScopeH == handle && g_kdScope == 2;
 }
 
+// docs/264 (issue #338) [RouteAsync] KdUncutCeilMs: the never-freeze-forever guard. A route job that would run with no deadline
+// at all (KindDeadlines backoff level 2, a stuck-check or watchdog-tagged job, a kind set to 0 ms, KindDeadlines off for an own
+// job) holds +0x918 for as long as it plans, and the sim thread waits for all of it at its next acquire (LockAcquireAsync; JobYield
+// cannot reach those waits). Such a job gets this one long ceiling, every scope, household included: a crash guard (CLAUDE.md),
+// not a cut rule. It ends through the existing deadline exits (world A* cost stubs, cell / water stubs), so its IC runs the
+// game's own failure handling and the job releases +0x918 as any cut job does. A job with any other deadline keeps it.
+// The 5-300 s clamp is the ini (player) range only; UcCapUs uses kdUncutCeilUs as it is, so native_set kduncutceilus can test-lower it
+static LONG UcIniUs(int ms) { return ms <= 0 ? 0 : Clamp(ms, 5000, 300000) * 1000; }
+static LONG UcCapUs(LONG capUs) {
+    const Ts3nCounters& k = ts3native_counters;
+    return capUs || k.kdUncutMode != 1 || k.kdUncutCeilUs <= 0 ? capUs : k.kdUncutCeilUs;
+}
+// worker, after the job (t_ucJob still set): a capped job under the ceiling hit it (it had no other deadline)
+static void UcJobEnd(const AsyncJob* j, bool capped, LONG us) {
+    if (!t_ucJob || !capped) return;
+    Ts3nCounters& k = ts3native_counters;
+    InterlockedIncrement(&k.kdUncutHit);
+    Max(&k.kdUncutMaxUs, us);
+    const LONG c = k.kdUncutCeilUs;
+    Log("[RouteAsync] uncut ceiling hit job=%08lX us=%ld scope=%s, %s START, IC kind %d, kd kind %d: route plan cancelled after %ld.%ld s (KdUncutCeilMs)",
+        j->handle, us, KdScopeTag(j->uf ? 2 : j->kdScope), j->fb ? "foreign" : j->af ? "A10 foreign" : "own", j->kind, t_kdKind - 1, c / 1000000, c / 100000 % 10);
+}
 static void ReadKindDeadlines(const wchar_t* ini) {
     Ts3nCounters& k = ts3native_counters;
     g_kdIni = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KindDeadlines", 0, ini), 0, 1);
@@ -229,6 +251,15 @@ static void ReadKindDeadlines(const wchar_t* ini) {
             "Plan %ld, probe %ld ms", k.kdUs[0] / 1000, k.kdUs[1] / 1000, k.kdUs[2] / 1000, k.kdUs[3] / 1000, k.kdUs[4] / 1000,
             k.kdUs[5] / 1000, k.kdUs[6] / 1000);
     Log("route async: KdExemptSeen=%ld KdSeenCeilMs=%ld KdSeenNpcCeilMs=%ld KdCutCamRecheck=%ld", k.kdExMode, k.kdCeilUs / 1000, k.kdNpcCeilUs / 1000, k.kdCamMode);
+    // docs/264 (issue #338): 0 = off, else 5-300 s; the player-facing setting (ini comment and README say what a player sees)
+    k.kdUncutCeilUs = UcIniUs(GetPrivateProfileIntW(L"RouteAsync", L"KdUncutCeilMs", 30000, ini));
+    k.kdUncutMode = k.kdUncutCeilUs > 0 ? 1 : 0;
+    if (k.kdUncutMode)
+        Log("[RouteAsync] KdUncutCeilMs=%ld: a route plan with no other deadline is cancelled after %ld.%ld s and treated as a failed route "
+            "(route plan cancelled after %ld.%ld s (KdUncutCeilMs))", k.kdUncutCeilUs / 1000, k.kdUncutCeilUs / 1000000, k.kdUncutCeilUs / 100000 % 10,
+            k.kdUncutCeilUs / 1000000, k.kdUncutCeilUs / 100000 % 10);
+    else
+        Log("[RouteAsync] KdUncutCeilMs=0: no ceiling, a route plan with no other deadline runs until it ends (as before docs/264)");
 }
 static void KdInstalled() {  // after PdInstallAt: world A* through the cost stubs, cell A* and water through the entry stubs
     Ts3nCounters& k = ts3native_counters;
@@ -267,7 +298,7 @@ static KdRow* KdFind(u64 id, bool add) {
 // worker, before the job's IC: its deadline in us (0 = uncut), -1 = KindDeadlines off (the old rules apply)
 static LONG KdJobBegin(const AsyncJob* j) {
     Ts3nCounters& k = ts3native_counters;
-    t_kdKind = 0, t_kdUncut = false, t_kdExemptUs = 0, t_kdJobScope = j->uf ? 2 : j->kdScope;
+    t_kdKind = 0, t_kdWhy = UCW_NONE, t_kdUncut = false, t_kdExemptUs = 0, t_kdJobScope = j->uf ? 2 : j->kdScope;
     static LONG noScope;
     static LONG lastExMode = -1;  // the KdExemptSeen switch flipped (native_set / --ab): one line, so a log reads by arm
     if (InterlockedExchange(&lastExMode, k.kdExMode) != k.kdExMode) Log("route async: KdExemptSeen switch now %ld (cuts so far unknown %ld seen %ld unseen %ld, exempt %ld)", k.kdExMode, k.kdCutUnk, k.kdCutSeen, k.kdCutUnseen, k.kdExempt);
@@ -285,10 +316,11 @@ static LONG KdJobBegin(const AsyncJob* j) {
     t_kdKind = kind + 1;
     if (kind != KD_PROBE && j->sc) {  // a stuck-check round without the probe mark: the last one, the only one that resets
         InterlockedIncrement(&k.kdExemptSc);
+        t_kdWhy = j->sc & 0x400 ? UCW_WATCHDOG : UCW_SCLAST;  // docs/264 §1 (a): the watchdog tag lands here too
         return 0;
     }
     LONG us = k.kdUs[kind];
-    if (!us) return 0;
+    if (!us) return t_kdWhy = UCW_KIND0, 0;
     if (KdExempt(j)) {
         InterlockedIncrement(&k.kdExempt);
         t_kdExemptUs = us;
@@ -310,6 +342,7 @@ static LONG KdJobBegin(const AsyncJob* j) {
     if (level >= 2) {
         InterlockedIncrement(&k.kdBackoff[1]);
         t_kdUncut = true;
+        t_kdWhy = UCW_BACKOFF;
         return 0;
     }
     if (level == 1) {
@@ -328,7 +361,7 @@ static void KdJobEnd(const AsyncJob* j, bool capped, LONG us, LONGLONG end, LONG
     const int kind = t_kdKind - 1;
     const bool ok = *(const DWORD*)j->result == 1;  // RoutePlanResult type 1 = succeeded
     if (us >= 300000) InterlockedIncrement(&k.kdLong[kind]);
-    if (capped) {
+    if (capped && !t_ucJob) {  // docs/264: a KdUncutCeilMs hit has its own counter (kdUncutHit)
         InterlockedIncrement(&k.kdCut[kind]);
         InterlockedIncrement(t_kdJobScope == 2 ? &k.kdCutUnseen : t_kdJobScope == 1 ? &k.kdCutSeen : t_kdJobScope == 3 ? &k.kdCutNpc : &k.kdCutUnk);  // per-arm proof of the scope rule (docs/249)
         if (ok) InterlockedIncrement(&k.kdCutOk);

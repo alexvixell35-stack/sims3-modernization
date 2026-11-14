@@ -1,0 +1,63 @@
+{
+  "note": "issue #338 KdUncutCeilMs (docs/264, prepared 2026-11-14, NOT RUN): ts3native.asi.uncutceil-1114 (bugfix/338-uncut-ceiling 43495423, counters v198). Order: (1) sv-kduncut-smoke 5 min natural: start line KdUncutCeilMs=30000, kdUncutMode 1 / kdUncutCeilUs 30000000 in /native, no crash. (2) sv-kd-uncut-ceiling 10 min with the repro sv-kd-uncut-ceiling (ceiling lowered to 0.3 s): kdUncutHit>=1, watchdogs<=0, \"uncut ceiling hit\" lines in the log; also read the lock wait / post-cut tail lines (docs/264 §4) and run lock-wait-line.ts on the log. kdUncutHit 0 = N/A, then the docs/264 §3 forcing repro. Run: node tools/harness/queue.ts tools/harness/queues/kd-uncut-ceiling-1114.json (fixesPackage pinned to the release package rc1111e as in boundcall.json; swap if a newer one is current).",
+  "jobs": [
+    {
+      "id": "sv-kduncut-smoke",
+      "asi": "game-copy/ts3native.asi.uncutceil-1114",
+      "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+      "pinReason": "uncutceil-1114 (builds.json): bugfix/338-uncut-ceiling, ts3native counters v198 (KdUncutCeilMs + issue #338 logging); ts3fixes = current release package rel0211b (v0.2.12, 570f8845; rc1111e + EA 1.69 AutShadow IL hashes only), repinned 2026-11-14 from rc1111e (no ts3fixes change on this branch)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "RouteAsync.KdUncutCeilMs": 30000
+      },
+      "scriptErrorsMax": 0,
+      "note": "SV 5 min natural, ceiling at the default 30 s. Pass: start line KdUncutCeilMs=30000, kdUncutMode 1, kdUncutCeilUs 30000000, native_set kduncutceil 0 then 1 reads back, no crash. kdUncutHit 0 expected.",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5
+        }
+      },
+      "timeoutMin": 20,
+      "nativeRequire": "kdUncutHit<=0",
+      "logRequire": {
+        "\\[RouteAsync\\] KdUncutCeilMs=30000": 1
+      },
+      "stopQueueOnFail": true
+    },
+    {
+      "id": "sv-kd-uncut-ceiling",
+      "asi": "game-copy/ts3native.asi.uncutceil-1114",
+      "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+      "pinReason": "uncutceil-1114 (builds.json): bugfix/338-uncut-ceiling, ts3native counters v198 (KdUncutCeilMs + issue #338 logging); ts3fixes = current release package rel0211b (v0.2.12, 570f8845; rc1111e + EA 1.69 AutShadow IL hashes only), repinned 2026-11-14 from rc1111e (no ts3fixes change on this branch)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "RouteAsync.KdUncutCeilMs": 30000
+      },
+      "scriptErrorsMax": 0,
+      "note": "SV 10 min natural with the repro sv-kd-uncut-ceiling (native_set kduncutceilus 300000). Pass: kdUncutHit>=1, every uncut ceiling hit line us <= ceiling + tail (< 3 s), no busy for N s >= 2 s, no crash, kd-arm-cuts.ts --expect-on-zero green.",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "repro": "sv-kd-uncut-ceiling"
+        }
+      },
+      "timeoutMin": 25,
+      "nativeRequire": "kdUncutHit>=1,watchdogs<=0",
+      "logRequire": {
+        "uncut ceiling hit": 1
+      }
+    }
+  ]
+}

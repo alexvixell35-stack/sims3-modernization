@@ -56,6 +56,11 @@ export function loadAllow(file: string): Set<string> {
   for (const e of j.exceptions) if (!e.key || !e.reason?.trim()) throw new Error(`${file}: every exception needs key and reason`);
   return new Set(j.exceptions.map(e => e.key));
 }
+// Instantiator.cs bool defaults that differ from the shipped tuning XML (behaviour must not change when the tuning is missing)
+export function codeDrift(tuning: Record<string, string>, defaults: Record<string, string>): string[] {
+  return Object.entries(defaults).filter(([k, v]) => (tuning[k] === 'True' || tuning[k] === 'False') && tuning[k] !== v)
+    .map(([k, v]) => `${k}: Instantiator.cs ${v}, build-fixes.ts tuning ${tuning[k]}`);
+}
 // returns the failure lines (empty = ok)
 export function check(prevIni: string, prevPkg: string, root = ROOT): string[] {
   const rd = (f: string) => readFileSync(f).toString('latin1');
@@ -88,6 +93,11 @@ function selfCheck() {
   assert.throws(() => parseTuning('') && check('/nonexistent', '/nonexistent'));
   // the repo itself: its own allow-list parses
   loadAllow(join(ROOT, 'docs/data/release-default-exceptions.json'));
+  assert.deepEqual(codeDrift({ kA: 'True', kB: 'False', kC: '7' }, { kA: 'True', kB: 'True', kD: 'False' }), ['kB: Instantiator.cs True, build-fixes.ts tuning False']);
+  // the repo itself: every Instantiator.cs bool default equals the shipped tuning value
+  const rd = (f: string) => readFileSync(join(ROOT, f), 'utf8');
+  const drift = codeDrift(parseTuning(rd('tools/setup/build-fixes.ts')), parseDefaults(rd('mods/ts3fixes/src/Instantiator.cs')));
+  assert.deepEqual(drift, [], `code defaults differ from the shipped tuning:\n${drift.join('\n')}`);
   console.log('self-check ok');
 }
 

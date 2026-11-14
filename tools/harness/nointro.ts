@@ -31,7 +31,12 @@ export function emptyVp6(): Buffer {
 if (process.argv[1]?.endsWith('nointro.ts')) {
   const stub = emptyVp6();
   console.assert(stub.toString('hex') === '4d5668642000000030365056000100010000000000000000983a0000e8030000', 'stub header layout');
-  if (process.argv.includes('--self-check')) { console.log('nointro self-check ok'); process.exit(0); }
+  // no process.exit here: on Node 24 it can abort with a libuv UV_HANDLE_CLOSING assertion (exit code != 0) after "ok"
+  if (process.argv.includes('--self-check')) console.log('nointro self-check ok');
+  else buildPackage(stub);
+}
+
+function buildPackage(stub: Buffer) {
   const out = join(resolve(import.meta.dirname, '..', '..'), 'build');
   mkdirSync(out, { recursive: true });
   const pkg = writePackage(INTRO_VIDEOS.map(instance => ({ type: TYPE_VIDEO, group: 0, instance, data: stub })));

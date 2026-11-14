@@ -66217,5 +66217,28 @@
       "minutes": 5
     },
     "expect": "off: world load or play freezes (hang guard 'world load: nothing moved' or a stall) where the bad bridge exists; on: no freeze, \"ea fix: BridgeHeightNaN\" lines (and maybe \"ea fix: HeightsInfLoop\"), bhnHits > 0"
+  },
+  {
+    "id": "sv-kd-uncut-ceiling",
+    "bug": "issue #338 / docs/264: a route job with no deadline of its own (watchdog idle check, backoff, last-round, kind 0) can run unbounded and hold the route lock (+0x918) while the sim thread waits",
+    "fix": "native [RouteAsync] KdUncutCeilMs (kduncutceil, 30 s ceiling); the repro lowers it to 0.3 s (kduncutceilus 300000, raw write) so the idle-check jobs of natural play hit it",
+    "save": "Baseline-SV-Spring",
+    "note": "Natural play, no spawned Sims. The watchdog idle check (tag 0x400) fires on its own for idle NPCs: 39 jobs >= 200 ms in 10 min in jit-bundle-verify-1113 SV. Job ini RouteAsync.KdUncutCeilMs=30000 (switch on), this step lowers the ceiling to 0.3 s. kdUncutHit 0 after 10 min = N/A (use the docs/264 §3 forcing repro).",
+    "steps": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "kduncutceil": 1,
+          "kduncutceilus": 300000
+        },
+        "waitS": 1
+      }
+    ],
+    "watch": {
+      "kind": "stuck",
+      "sims": [],
+      "minutes": 10
+    },
+    "expect": "kdUncutHit >= 1; every \"uncut ceiling hit\" line has us <= ceiling + tail (< 3 s); no \"busy for N s\" line >= 2 s; watchdogs 0; no crash; kd-arm-cuts.ts --expect-on-zero green"
   }
 ]
