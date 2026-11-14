@@ -205,6 +205,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBoatGetOutDiag value="False" />
     <kBoatGetOutGuard value="False" />
     <kBoatParkGone value="True" />
+    <kMiniHomeLot value="True" />
     <kVehParkReserve value="False" />
     <kVehGetInLeak value="False" />
     <kVehSeatDestroy value="False" />

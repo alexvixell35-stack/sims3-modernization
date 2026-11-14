@@ -273,6 +273,7 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 948-949 | `UnseenBoat.cs` `UbBookReplan` (`fixes-948`, docs/247 §12.11), `unseenboat` + `boatreplanlog` | built 2026-11-12, NOT RUN: boat replans booked with no `sUbLastWhy` entry (948, agent `unseenboat_norefusal_n`) / their ms (949, `unseenboat_norefusal_ms`) |
 | 950-952 | `HitchCause.cs` (`fixes-950`), `boatreplanlog` | built 2026-11-12 (docs/247 §13.3 R1): houseboat gangway fixup replans inside PostPlanCallback (`gangway:` lines, 950) / their ms with the Sim unseen (951) / not unseen: household, selected, unknown scope or seen (952) |
 | 953-954 | `BoatGetOutDiag.cs` (`fixes-953`, docs/257 §9), `boatgetoutguard` | built 2026-11-13, default off, NOT RUN: stale-posture NREs out of Boat.GetOut swallowed for NPCs, Sim reset (953, agent `boatgetoutguard_hit`) / kept by the household rule (954, `boatgetoutguard_skipped_household`) |
+| 991-993 | `MiniHomeLot.cs` (`fixes-991`, docs/266), `minihomelot` | built 2026-11-14, default ON: 991 minis synced after `Household.SetLot` (`minihomelot_setlot`), 992 stale minis repaired at world load (`minihomelot_load`), 993 same-household pairs the repro check found apart by `HasSameHomeLot` (`minihomelot_apart`) |
 | **955+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
