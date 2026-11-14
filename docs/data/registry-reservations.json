@@ -2753,6 +2753,76 @@
       "what": "combo rabbit hole fixes 2: combojob, comboprotestlot (docs/551)",
       "at": "2026-11-14T16:39:22.378Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2379",
+      "kind": "fixes",
+      "from": 2379,
+      "to": 2383,
+      "by": "claude",
+      "what": "hiddenroomnpc: NPCs trapped in a hidden room moved out (docs/552)",
+      "at": "2026-11-14T18:43:34.470Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-552",
+      "kind": "doc",
+      "from": 552,
+      "to": 552,
+      "by": "claude",
+      "what": "hidden rooms and trapped Sims",
+      "at": "2026-11-14T18:44:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2384",
+      "kind": "fixes",
+      "from": 2384,
+      "to": 2386,
+      "by": "claude",
+      "what": "splashroof: NPC splash runs skip rain puddles on roofs (docs/546 §16)",
+      "at": "2026-11-14T19:41:56.649Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2387",
+      "kind": "fixes",
+      "from": 2387,
+      "to": 2390,
+      "by": "claude",
+      "what": "hiddenroomspawn: NPC fallback placements re-picked out of hidden rooms (docs/552)",
+      "at": "2026-11-14T20:36:15.549Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2391",
+      "kind": "fixes",
+      "from": 2391,
+      "to": 2394,
+      "by": "claude",
+      "what": "aptleave: apartment room-change farewell only for departing NPC visitors (docs/553)",
+      "at": "2026-11-14T20:43:01.361Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-553",
+      "kind": "doc",
+      "from": 553,
+      "to": 553,
+      "by": "claude",
+      "what": "apartment room-change farewell and party guests",
+      "at": "2026-11-14T20:44:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2395",
+      "kind": "fixes",
+      "from": 2395,
+      "to": 2397,
+      "by": "claude",
+      "what": "aptleave deferred party removal + household skips (docs/553)",
+      "at": "2026-11-14T20:59:07.055Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

@@ -99,12 +99,16 @@ namespace Ts3Fixes
             ApplySocialFinish();  // docs/546 §9, off by default
             ApplySocialReceiveFail();  // docs/546 §9, off by default
             ApplyPetFirePlan();  // docs/546 §10, off by default
+            ApplySplashRoof();  // docs/546 §16, off by default (NPCs only)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
             ApplyWeddingArchKeep();  // docs/546 §12, off by default
             ApplyGraduationKeep();  // docs/546 §12, off by default (hsgradkeep, unigradkeep)
             ApplyBoardingRefund();  // docs/546 §12, off by default
+            ApplyHiddenRoomNpc();  // docs/552, off by default (no hook: a sweep alarm started at world load)
+            ApplyHiddenRoomSpawn();  // docs/552, off by default (hiddenroomspawn)
+            ApplyAptLeave();  // docs/553, off by default (NPC visitors only)
             ApplyComboRabbitHole();  // docs/551, off by default (comboprotest, combovenue, combosituation, combojob, comboprotestlot)
             ApplyFilterGridLeak();
             ApplyCasPuckLeak();
@@ -367,6 +371,10 @@ namespace Ts3Fixes
         // [2235-2238] relremovesafe (RelRemoveSafe.cs): Sim removals where EA's relationship removal would throw / one-sided entries for the removed Sim / removals seen / errors.
         // [2290-2292] seasonlistener (SeasonListenerLeak.cs): stale / duplicate Motives season listeners (also off) / removed / errors or skipped.
         // [2287-2289] casfiltergrid (CasExitSweep.cs): CAS filter grids at CASPuck.Unload (also off) / restored / errors.
+        // [2384-2386] splashroof (SplashRoof.cs, docs/546 §16): rain puddles on roofs dropped from NPC splash runs / NPC runs that dropped one / errors.
+        // [2387-2390] hiddenroomspawn (HiddenRoomSpawn.cs, docs/552): reset fallbacks re-picked / corner spots re-picked / created service NPCs moved / errors.
+        // [2391-2397] aptleave (AptLeave.cs, docs/553): apartment room-change calls skipped (not leaving) / run with the switch on / seen (any state) / errors / deferred party removals applied at the real lot exit / deferrals dropped (back in the apartment) / household skips (of 2391).
+        // [2379-2383] hiddenroomnpc (HiddenRoom.cs, docs/552): trapped NPCs moved out (first try) / second tries (sent home) / household Sims seen trapped (log only) / NPCs left after two tries / errors.
         // [2300-2303] casexitsweep (CasExitSweep.cs): detached live entries at CAS exit (also off) / cleaned / skipped parented / errors.
         // [2284-2286] caspuckevents (CasPuckLeak.cs): CASPuck disposed with its dashboard handler attached (also off) / handlers removed / errors.
         // [2293-2295] famcursorleak (CasPuckLeak.cs): family-screen drag cursor windows at Unload (also off) / disposed / errors.
@@ -630,6 +638,7 @@ namespace Ts3Fixes
                 case "socialfinish": return Instantiator.kSocialFinish;
                 case "socialreceivefail": return Instantiator.kSocialReceiveFail;
                 case "petfireplan": return Instantiator.kPetFirePlan;
+                case "splashroof": return Instantiator.kSplashRoof;
                 case "awardkeep": return Instantiator.kAwardKeep;
                 case "ceremonyspot": return Instantiator.kCeremonySpot;
                 case "eventcrowdring": return Instantiator.kEventCrowdRing;
@@ -644,6 +653,9 @@ namespace Ts3Fixes
                 case "combosituation": return Instantiator.kComboSituation;
                 case "combojob": return Instantiator.kComboJob;
                 case "comboprotestlot": return Instantiator.kComboProtestLot;
+                case "hiddenroomnpc": return Instantiator.kHiddenRoomNpc;
+                case "hiddenroomspawn": return Instantiator.kHiddenRoomSpawn;
+                case "aptleave": return Instantiator.kAptLeave;
                 case "filtergridleak": return Instantiator.kFilterGridLeak;
                 case "compositorghost": return Instantiator.kCompositorGhost;
                 case "caspuckevents": return Instantiator.kCasPuckEvents;

@@ -453,3 +453,48 @@ behind VisitCommunityLot).
 
 **Result: no EA bug to fix for household Sims in this run**; no switch added. Analysis script: ad hoc (routefail lines
 grouped by Sim, interaction, result and route id).
+
+## 16. Route failures across the 2026-11-14 runs, ranked (2026-11-14) [measured; causes from decompiled code]
+
+Input: every `phase-20261114-*` run with a ts3native.log (33 runs: Appaloosa Plains, Bridgeport, one Isla Paradiso).
+Household `routefail:` lines carry Sim, goal, position, lot and room; NPC failures exist only as native `routefail job:` /
+`routefail retry:` lines, which name the interaction and target type only in the newest format (Bridgeport
+`phase-20261114-1737`, `-1835`, `-1911`) and carry no Sim name or position. Key: interaction, target type, result,
+blocker, household vs NPC. Already explained and left out: pet fire plans (§10), bathroom privacy and used-slot replans,
+autonomy re-picking a failed target, Scare, Contemplate (§15), hidden apartment rooms (docs/552), combo rabbit holes
+(docs/551), award crowds (docs/548). Analysis script: ad hoc (routefail lines grouped by that key; per-Sim and per-goal
+repeats; distance and level gap between goal and Sim).
+
+| # | Pattern | Count | Who | Cause | Verdict |
+|---:|---|---:|---|---|---|
+| 1 | NPC plans cut by our UnseenFallback deadline and retried (GoHome 218, VisitCommunityLot 185, VisitLot 29, GetMail 29, trash 66, ...) `NoPath` cut | ~650 in 3 runs, ~120 s worker | unseen NPCs | ts3native cut at 220 ms (designed); retries: 734 succeeded, 81 failed | ours, as designed; no change |
+| 2 | Foreign plans with `interaction unknown`, seen NPCs: `NoDestinationSpecified` 539 + `NoPath` 103 + `PortalLocked` 29, up to 49 per Sim | 671, 16 s worker | ~60 NPCs near the household | plans made while ts3fixes marks an own check (`sStuckIn` = EA's `LotManager.RunStuckCheckHelper`, `sInRoutableCheck` = `Sim.IsPointInLotSafelyRoutable`), which send no interaction id [verified, `UnseenFallback.cs` `ownCheck`]: EA's stuck check probing NPCs it finds not safely routable [inferred: the alternating 10/16 results match `AttemptToFindSafeLocation`'s tries] | EA stuck check working; which NPCs and where is not logged (next: give own-check plans a pseudo interaction id, e.g. `StuckCheck` / `SafelyRoutable`) |
+| 3 | Household `PlanFromPoint` sync `NoPath`, goal 1-3 m away on a door tile (x.5 coordinates), one plan each, any interaction | 146 in 3 runs, 550 ms | all 6 household Sims | caller not identified (a FromPoint plan to the next door; the running interaction is unrelated) [inferred] | cheap, no player effect; not pursued |
+| 4 | NPC `GoToVirtualHomeInternal target Lot` `NoDestinationSpecified`, 0 ms, 1-2 per Sim | 134 | ~125 apartment residents | `Sim.GoToVirtualHomeInternal.Run`: route to the NPC door's slots, then the nearest elevator; on any failure the Sim fades out where it stands [verified] | vanilla outcome (fade either way); the door route failing is docs/552 territory (hidden units) |
+| 5 | Household far `PlanFromPoint` sync `DestinationPortalLocked`, goals 120-1000 m away on other lots, interaction unrelated (Indie Girl's 24 in `-1635`) | 67 in 5 runs, 839 ms | the selected Sim (Indie Girl, Apollo, Suzy, Matty, William, Katelyn) | **identified:** `Sim.IsPointInLotSafelyRoutable(lot, pos)` called on `PlumbBob.SelectedActor` by `Service.CreateSim` and the virtual-resident instantiation (NPC apartment door slots) and on `Sim.ActiveActor` by `Service.GetPositionNearLotCorners`: a plan with the selected Sim's route options from a spot on the NPC's apartment lot to that lot's 4 corners and 4 edge midpoints (the logged goal = the first destination, corner 0) [verified code; goal = corner inferred from the call shape]. It fails `PortalLocked` when every corner/edge point lies behind a locked or hidden-room portal for that Sim, so the NPC-door spot is refused and EA falls back (elevator spot, corners, mailbox, `lot.Position`) | EA design (a household Sim's portal rules judge an NPC's spawn spot); no household effect. Handed to docs/552: these refusals feed the fallbacks that can land inside hidden rooms |
+| 6 | Household `AutonomousSplashInPuddle` `NoDestinationSpecified`, async, 3 plans per try | 32 in 6 runs, 1.7 s worker | Matty, Apollo (Bridgeport), the Collins family (Appaloosa Plains) | **EA bug:** rain puddles on a roof. 32/32 goals are exactly 3.0 m above the Sim, often straight over it, while the Sim stands in an indoor room; `IsPuddleValid` checks only "outdoors" and "no object" (no floor test, unlike `PuddleManager`, which needs `HasSolidFloor`); the definition's Test asks only the native "any valid rain puddle", so autonomy offers the splash again after each failure [verified code; roof inferred from positions] | fixed for NPCs: `splashroof` (below); household stays vanilla |
+| 7 | NPC `PutDownChild target Sim` `NoPath`, 6 plans per try (Nearby, Mailbox, 4 lot corners), 5 tries | 47 (one NPC, same moment in `-1737` and `-1835`, same save) | one NPC carrying a child | `ChildUtils.PutDownClass.PutDownChild` [verified]; even the nearby jig fails, so the NPC cannot route at all where it stands [inferred: trapped, possibly a docs/552 hidden room] | not fixed; needs the NPC's position |
+| 8 | NPC bar: `Tend target BarProfessionalLounge` `PortalLocked` (2 bartenders, 8 + 4) and patrons `OrderDrink` / `OrderFood` / `OrderConversation` `NoPath` then `NoDestinationSpecified` (~40, one pair each) | ~55 | Bridgeport lounge and pub staff, patrons | bar or its customer slots behind a portal the NPC may not pass [inferred; no position in the log] | open; drinks may stop at that venue; needs NPC positions |
+
+Smaller: NPC `VisitLot target Lot` `NoDestinationSpecified` 144 (0-1 ms each, cheap); `GoHome` `PortalLocked` 20 (7 NPCs);
+harness `gohere` commands end `route false` mostly by `HigherPriorityNext` (1,842 of 2,600: autonomy took over, not a
+route failure).
+
+**splashroof [built, NOT RUN].** `SplashRoof.cs`, tuning `kSplashRoof` (off), NPC actors only (`IsNpcSim`): while an
+NPC's `AutonomousSplashInPuddle.Run` runs (its task id is held), the hooked `Terrain.SplashInPuddle.IsPuddleValid(Vector3,
+bool, bool)` also refuses a puddle above the ground floor whose tile has no solid floor (either of EA's lookups,
+`GetLotLocation` / `GetLotLocationAtFloor`), so the three tries go to reachable puddles and a lot with only roof puddles
+costs no plan. Household Sims, the selected Sim and unknown scope run EA's Run unchanged; other `IsPuddleValid` callers
+(pie-menu splash, pet puddles, worker threads) pass through. Counters 2384 roof puddles dropped, 2385 NPC runs affected,
+2386 errors. Check `SplashRoofCheck` (`SplashRoofCheck.cs`), independent of where the active Sim stands: `list` counts the
+active lot's rain puddles and roof ones; `run` takes an existing roof puddle (else sets a rain-puddle floor feature on a
+roof tile above an indoor room), places one human NPC directly in the room below, runs EA's puddle choice for it step by
+step (same filter, distance sort and three plans as the Run, inside the hook's `SrBegin`/`SrEnd`), queues EA's interaction
+and prints `verdict: BROKEN|FIXED|NOT A BUG|N/A`; `clear`, `result`. Repro `splash-roof-puddle` (Bridgeport): off `run`
+must read BROKEN (roof puddle tried, `FailedBecauseNoDestinationSpecified`), on `run` FIXED (2384/2385 rise, a reachable
+puddle or none picked). First try (phase run ~19:54, old check) exercised nothing: it needed the Sim under a roof and
+placed the NPC off the lot; the lot had 96 rain puddles.
+
+**Log gap.** Rows 2, 7 and 8 cannot be placed without the NPC's name, position and lot; the native job lines carry only
+the follower id. Next logging step (not built): an NPC variant of the `routefail:` line for repeats only (same Sim and
+interaction failing 3+ times), within the shared 400-line cap.

@@ -67015,5 +67015,669 @@
         }
       }
     ]
+  },
+  {
+    "id": "hidden-room-trap",
+    "bug": "Hidden rooms (docs/552): CommonDoor.IsAllowedThrough closes every door of a world-builder hidden room (Late Night apartment NPC units, World Adventures tomb rooms) to every Sim, so a Sim placed inside cannot leave. EA's Lot.Position fallbacks (Sim.AttemptToPutInSafeLocation, Lot.EntryPoint, Service.GetPositionNearLotCorners) put Sims at the lot centre on the ground floor with no room check, Service.CreateSim keeps a level-0 elevator spot whose room is not public, and EA's stuck check (LotManager.RunStuckCheckHelper) skips the active household's lot and any Sim that moved, so a trapped NPC pacing the room is never reset",
+    "fix": "ts3fixes HiddenRoom.cs: hiddenroomnpc (default off): every 10 sim-minutes an NPC in a hidden room with no allowed portal path outside is moved out by the game's own safe-spot placement or reset (second try: sent home), on the first pass once one of its route plans has failed (else on the second pass in a row); at most two tries per Sim per sim-day; household Sims logged only. Prevention at the placements: hiddenroomspawn (repro hidden-room-spawn). Check: HiddenRoomCheck (HiddenRoomChecks.cs)",
+    "save": "Baseline-BP",
+    "switches": [
+      "hiddenroomnpc"
+    ],
+    "note": "Tests the case the bug lives in: the active household's lot (EA's RunStuckCheckHelper skips it; watchdogidle [47] needs a whole sim-day of stillness for a seen Sim). Without the fix our StuckWatchdog [49] (route plans failing: 10+ failed plans over more than 30 sim-minutes within 1 m, 10-minute passes) resets the NPC 30-40 sim-minutes after its first failed plan (run phase-20261114-2022: 34 sim-min), so both checks run ~20 sim-minutes after their trap at normal speed (about 1 sim-minute per second). Needs an active household on a lot with a floor-0 hidden room (Baseline-BP: Trawler Lodge; trap's N/A line lists such lots). If trap reads N/A, record the job as N/A (not triggered).",
+    "expect": "trap (each arm): '(in the room) hidden=True exit=closed'. off check: 'trapped <NPC> ...: still in room' (BROKEN: nothing moves it before watchdog [49] at 30-40 sim-min). on check: 'trapped <NPC> ...: moved by fix (...) after N sim-min' with N <= 10 plus the reset's own tick (FIXED; 'left (not by hiddenroomnpc ...)' is not a pass), counter 2379 (moves) >= 1, errors 2383 +0, household count 2381 unchanged. 'event out' lines name the mover ('how: hiddenroomnpc: ...' or 'watchdog ...').",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "apt"
+          ]
+        },
+        "note": "facts: apartment / hidden-room lots, floor-0 problem rooms, where EA's placements land, Sims already inside"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "lot active"
+          ]
+        },
+        "note": "the target lot, every floor-0 room"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "about 1 sim-minute per second"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hiddenroomnpc": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "trap active"
+          ]
+        },
+        "note": "one adult non-resident NPC placed directly into the active lot's first hidden room; must read '(in the room) hidden=True exit=closed'",
+        "waitS": 22
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "lot active"
+          ]
+        },
+        "note": "off, ~20 sim-min after the trap: 'still in room'"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hiddenroomnpc": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "trap active"
+          ]
+        },
+        "note": "a fresh trap for the on arm (the off arm's NPC is still inside and is moved too)",
+        "waitS": 22
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "lot active"
+          ]
+        },
+        "note": "on, ~20 sim-min after the trap: 'moved by fix (...) after N sim-min', N <= 10 (+ reset tick); counter 2379 >= 1"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hiddenroomnpc": false
+        },
+        "note": "back to the default"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      }
+    ]
+  },
+  {
+    "id": "hidden-room-spawn",
+    "bug": "EA's unchecked placements (docs/552 §2): when Sim.AttemptToFindSafeLocation finds nothing, Sim.AttemptToPutInSafeLocation puts the Sim at Lot.Position (the lot centre on the ground floor) with no room or route check; Service.GetPositionNearLotCorners falls back to the mailbox and Lot.Position unchecked; Service.CreateSim keeps a level-0 elevator spot whose room it did not accept as public. On Bridgeport apartment lots whose centre lies in a world-builder hidden room (Baseline-BP: Trawler Lodge r16, Founders Keep r28) that lands an NPC in a room it can never leave",
+    "fix": "ts3fixes HiddenRoomSpawn.cs: hiddenroomspawn (default off), NPCs only: a fallback spot in a hidden room or a room the NPC has no allowed way out of is replaced by the lot's entry point (outside the front door) if good, else EA's off-screen service start spot (Service.GetPositionInRandomLot); a created service NPC standing in such a spot is moved to that start spot. Household Sims keep EA's code",
+    "save": "Baseline-BP",
+    "switches": [
+      "hiddenroomspawn"
+    ],
+    "note": "Deterministic and read-only: 'fallback <lot>' computes the reset's last step for a non-resident adult NPC (EA: Lot.Position; fix: HrResetFallback, the hook's own code), calls Service.GetPositionNearLotCorners through the hook, and replays CreateSim's elevator spot. Nobody is moved. 'active' is the household's lot (Baseline-BP: Trawler Lodge, centre in hidden r16); 'hidden' the first other lot with a floor-0 hidden room.",
+    "expect": "off: 'reset: EA r16(H...) ... used r16(H...) -> BROKEN' on Trawler Lodge (and any lot whose centre is in a hidden or closed room). on: the same line ends 'used outside ... -> FIXED'. Lots whose centre is fine read 'OK' both ways. corners: 'OK/FIXED' expected both ways on these lots (EA's corner FGL is checked). counters 2387-2390 +0 (the check computes, it does not move); errors 2390 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hiddenroomspawn": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "fallback active"
+          ]
+        },
+        "note": "off: where EA's fallbacks land on the active lot"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "fallback hidden"
+          ]
+        },
+        "note": "off: the same on another hidden-room lot"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hiddenroomspawn": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "fallback active"
+          ]
+        },
+        "note": "on: the reset line ends FIXED"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "fallback hidden"
+          ]
+        },
+        "note": "on: the same"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hiddenroomspawn": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "splash-roof-puddle",
+    "bug": "Sim+AutonomousSplashInPuddle.Run plans a route to the nearest three rain puddles that Terrain.SplashInPuddle.IsPuddleValid accepts; that test has no floor check (EA's PuddleManager requires World.HasSolidFloor), so rain puddles on the roof over a room are tried and every plan ends FailedBecauseNoDestinationSpecified; the definition's Test (native 'any valid rain puddle') offers the splash again after each failure. Measured: 32 of 32 failed splash plans in the 2026-11-14 runs aimed exactly 3.0 m above an indoor Sim (docs/546 §16)",
+    "fix": "ts3fixes SplashRoof.cs: splashroof (default off), NPC actors only: roof puddles (upper level, no solid floor) are refused inside their splash run, so no plan goes to them; household Sims run EA's code. Check: SplashRoofCheck (SplashRoofCheck.cs)",
+    "save": "Baseline-BP",
+    "note": "Any Bridgeport lot with a building works; the active Sim may stand anywhere on it. 'run' uses an existing roof rain puddle on the active lot, else sets a rain-puddle floor feature on a roof tile above an indoor room, places one human NPC directly in the room below (test shortcut, like HiddenRoomCheck's trap), runs EA's puddle choice for it step by step (same filter, sort and three plans as AutonomousSplashInPuddle.Run) and queues EA's interaction. 'verdict: N/A' when no roof puddle exists or can be added (GetRainPuddles ignores the set feature): record N/A and rerun in rain (Seasons). Second run reuses the puddle; 'clear' removes an added one.",
+    "expect": "off run: a roof puddle among the tries with plan FailedBecauseNoDestinationSpecified, counters 2384/2385 +0, 'verdict: BROKEN'. on run: no roof puddle tried, 2384 +>=1 and 2385 +1, picked a reachable puddle or none, 'verdict: FIXED', errors 2386 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "splashroof": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SplashRoofCheck",
+          "args": [
+            "list"
+          ]
+        },
+        "note": "the lot's rain puddles and how many sit on a roof"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SplashRoofCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: roof puddle, NPC below it, EA's choice and plans; verdict line",
+        "waitS": 20
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "splashroof": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SplashRoofCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: same case with the filter; verdict line",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SplashRoofCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "counters 2384-2386"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SplashRoofCheck",
+          "args": [
+            "clear"
+          ]
+        },
+        "note": "removes an added puddle"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "splashroof": false
+        },
+        "note": "back to the default"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      }
+    ]
+  },
+  {
+    "id": "apartment-leave-farewell",
+    "bug": "Sim.RoomChanged on a lot with virtual residential slots (Late Night apartment) calls VisitSituation.OnSimLeavingLot whenever a Sim walks on the same lot from a room that is not public (the household's unmarked apartment, or a hidden room) into a public one (PublicRoomMarker hallway/lobby), without checking that it is leaving. A visitor who only walks through the hallway gets the farewell ('time to leave' TNS or the party's leaving message) and is removed from the party as left early (liking change, -50 early-departure mood in the party score, no longer a guest), yet keeps visiting; its real departure later shows no farewell (docs/553)",
+    "fix": "ts3fixes AptLeave.cs: aptleave (default off), NPCs only: that room-change call is skipped while the Sim is not leaving (current interaction targets this lot and is not GoHome/GoOutside, no GoHome/GoOutside queued, no visit leave reason, does not live on the lot). GoHome/GoOutside/commute calls are never touched; household Sims run EA's code. Check: ApartmentLeaveCheck (AptLeaveChecks.cs)",
+    "save": "Baseline-BP",
+    "switches": [
+      "aptleave"
+    ],
+    "note": "Active lot = the household's apartment (Baseline-BP: Trawler Lodge, F5900033BA9E8C10). 'visit' places one adult NPC (never household) in the apartment room of a U|P door, greets it, gives it a visit (farewell flag cleared) and queues EA's Go Here to the public room behind the door; 'party' does the same and makes it a guest of a party on the lot ('make': a HouseParty with no invitations, host = selected Sim; 'unparty' ends it). 'status' reads the result. 'home' sends the test NPC home with EA's MakeSimGoHome (real departure: farewell expected both arms). Changes the world: test saves only.",
+    "expect": "off: visit status 'EA farewell ran (off, switch off) farewell-flag False->True' and 'verdict: BROKEN'; party status also 'party-guest True->False' (party=left-early). on: 'SKIPPED (on, Terrain+GoHere on this lot)', flag stays False, party=guest, 'verdict: FIXED', 2391 +>=2. on 'home': status visit=farewell-shown. errors 2394 +0. 'WAIT' = the NPC has not reached the public room: rerun status.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "aptleave": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "list"
+          ]
+        },
+        "note": "rooms P/H/U, U|P doors, parties, NPCs, counters"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "visit"
+          ]
+        },
+        "note": "off: plain visitor walks apartment -> hallway",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "status"
+          ]
+        },
+        "note": "off: BROKEN expected"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "party make"
+          ]
+        },
+        "note": "off: party guest walks apartment -> hallway",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "status"
+          ]
+        },
+        "note": "off: BROKEN, party=left-early"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "aptleave": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "visit"
+          ]
+        },
+        "note": "on: plain visitor",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "status"
+          ]
+        },
+        "note": "on: FIXED expected"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "party"
+          ]
+        },
+        "note": "on: party guest (the party made above)",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "status"
+          ]
+        },
+        "note": "on: FIXED, still a guest"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "home"
+          ]
+        },
+        "note": "on: real departure",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "status"
+          ]
+        },
+        "note": "on: farewell-shown after GoHome (EA's own call, untouched)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "list"
+          ]
+        },
+        "note": "decision lines and counters 2391-2394"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "unparty"
+          ]
+        },
+        "note": "end the party the check made"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "aptleave": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "apartment-leave-party",
+    "bug": "Same as apartment-leave-farewell, at a real party: each guest who walks from the apartment into a public hallway room is told goodbye and removed from the party as left early (-50 mood in HouseParty's score, liking with the host) while it stays; the party can end as 'all guests have left' with everyone still there (docs/553)",
+    "fix": "ts3fixes AptLeave.cs: aptleave (default off), NPCs only (see apartment-leave-farewell)",
+    "save": "Baseline-BP",
+    "switches": [
+      "aptleave"
+    ],
+    "note": "Test save only: the selected Sim (must be at home in the apartment, Trawler Lodge F5900033BA9E8C10) throws a real HouseParty: guests are the 6 best-related Sims of EA's phone invite list (Phone.Call.GetAllValidCalleesForParty), invitations delivered, start now + 2 sim-min. Per guest the tracker counts arrival, apartment->public / public->apartment room changes and room-change farewells run / skipped. 'nudge' sends arrived guests standing in the apartment to the public side of the nearest U|P door. 'partyend' sends the remaining guests home (HostedSituation.MakeGuestGoHome, not early), prints EA's final score (mPartyMood / mNumberOfGuests) and GetPartyOutcome, exits the party. Guests who did not arrive within the ultra-speed wait show arrived=False: raise the wait.",
+    "expect": "off: guests with apt->public >= 1 show 'farewell run 1' and party=left-early '(still here, no longer partying)'; summary left-early >= 1 with EA penalty -50 each; final avg lower. on: same crossings, 'farewell run 0 skipped >= 1', party=guest, summary left-early 0 (unless a guest really left), counters 2391 +>=1. errors 2394 +0. Moods differ between arms, so compare left-early and the penalty, not the outcome alone.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "aptleave": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "list"
+          ]
+        },
+        "note": "rooms, U|P doors, counters"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "throw 6 now"
+          ]
+        },
+        "note": "off: the household throws a house party the phone's way (EA invite list, invitations delivered), starts in 2 sim-min",
+        "waitS": 5
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "partyreport"
+          ]
+        },
+        "note": "off: guests arrived, natural hallway crossings so far"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "nudge"
+          ]
+        },
+        "note": "off: arrived guests in the apartment walk to the hallway (EA Go Here on this lot)",
+        "waitS": 40
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "partyreport"
+          ]
+        },
+        "note": "off: after the hallway walk"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "partyend"
+          ]
+        },
+        "note": "off: remaining guests leave the EA way, final score/outcome, party exited",
+        "waitS": 5
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "aptleave": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "throw 6 now"
+          ]
+        },
+        "note": "on: the household throws a house party the phone's way (EA invite list, invitations delivered), starts in 2 sim-min",
+        "waitS": 5
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "partyreport"
+          ]
+        },
+        "note": "on: guests arrived, natural hallway crossings so far"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "nudge"
+          ]
+        },
+        "note": "on: arrived guests in the apartment walk to the hallway (EA Go Here on this lot)",
+        "waitS": 40
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "partyreport"
+          ]
+        },
+        "note": "on: after the hallway walk"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "partyend"
+          ]
+        },
+        "note": "on: remaining guests leave the EA way, final score/outcome, party exited",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "list"
+          ]
+        },
+        "note": "decision lines and counters 2391-2394"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "partyend"
+          ]
+        },
+        "note": "end a check party left running"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "aptleave": false
+        },
+        "note": "back to the default"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      }
+    ]
   }
 ]

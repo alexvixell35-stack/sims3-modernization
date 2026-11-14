@@ -236,6 +236,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSocialFinish value="False" />
     <kSocialReceiveFail value="False" />
     <kPetFirePlan value="False" />
+    <kSplashRoof value="False" />
     <kAwardKeep value="False" />
     <kCeremonySpot value="False" />
     <kEventCrowdRing value="False" />
@@ -250,6 +251,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kComboSituation value="False" />
     <kComboJob value="False" />
     <kComboProtestLot value="False" />
+    <kHiddenRoomNpc value="False" />
+    <kHiddenRoomSpawn value="False" />
+    <kAptLeave value="False" />
     <kFilterGridLeak value="True" />
     <kCompositorGhost value="True" />
     <kCasPuckEvents value="True" />
