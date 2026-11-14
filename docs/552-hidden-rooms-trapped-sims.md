@@ -207,3 +207,51 @@ Run `hidden-room-trap` (off then on) with the active household living in a Bridg
 once in Bridgeport and record which lots show `centre=(H)` or `svcElevator NOT public`. If `centre=(H)` is common, a
 second fix re-picks the `Lot.Position` fallbacks: built as `hiddenroomspawn` (§10). Run `hidden-room-spawn` and
 `hidden-room-trap` (both off then on).
+
+## 11. ErrorTrap "Destroyed Object Found" doors at Bridgeport load: not the hidden-room code (2026-11-14) [verified by reading + logs; cause open]
+
+**What ErrorTrap does [verified, NRaas source `DereferenceGameObject.Perform` / `DereferenceManager.Perform`].** It destroys
+nothing: one sim-minute after a load its scan finds script objects whose simulator proxy is gone (`HasBeenDestroyed`) but
+which some field still references, clears those references (and resets a live holder object), and writes
+`Destroyed Object Found: <type>`. The ScriptError XML names only the type; the holders appear only with ErrorTrap
+debugging on. So four `DoorSingleColonialContemporary` objects were already destroyed and still held by something.
+
+**When [measured].** `ScriptError_*` with 4x that door in every Bridgeport new-game load from `phase-20261114-1911`
+(19:12:57, ~9 s after live mode, before any phase) through `-2125` (9 of 9); none in `-1635`, `-1737`, `-1835`
+(same world file, new game each time; no save persists between runs).
+
+**What changed between `-1835` (clean) and `-1911` (first) [measured: applied-hook lists in the leak census, settings and
+ini read-backs in ts3native.log].** Not the ini: `[HitchAttr] Holders=1` / `FbApplyLog=1` were already active in `-1835`;
+`[CrashForensics] Light=1` came at ~20:40. The ts3fixes package went from `ts3fixes.bp2` (built with `--on
+kHitchCauseHooks`, test switches `alarmtime`, `owresettime`, `boatreplanlog`) to `ts3fixes.hr` (18:53). The only hook-set
+difference: `hr` adds the `HiddenRoomNpc.HrPass` alarm and drops the 19 HitchCause / synctime-hook patches
+(`Lot.UpdateDoorPrivacy`, `GlobalFunctions.CreateObjectWithOverrides`, `PlaceAtGoodLocation`,
+`ObjectSpawner.TryPlaceSpawnedObjectInWorld`, `Timer.get_YieldRequired`, Overwatch reset tasks, ...). Every Bridgeport
+run before 19:11 had those hooks on; every one after has them off (the release state).
+
+**Hidden-room code ruled out [verified by reading].** With the switches off: `StartHiddenRoomNpc` only clears dictionaries
+and starts an alarm whose `HrPass` returns at the switch test; `HiddenRoomSpawn` hooks run EA's original first thing; the
+check code (`HiddenRoomCheck` apt / who / trap, its 1-minute watcher, `IsAllowedThrough` floods) runs only when the
+harness calls it, after the base snapshot, and is read-only on doors; no ts3fixes file holds a static door reference or
+calls `Destroy` on a door. The first ScriptError came before any check ran in that game.
+
+**Open.** Either vanilla Bridgeport (release state, hooks off) leaves four destroyed doors referenced and the HitchCause
+test hooks hid it (timing of the one-sim-minute scan, or a hooked path), or the ts3agent build changed at the same time.
+**Logging added:** `etderefdiag` (`ErrorTrapDerefDiag.cs`, log only, default on, counters 2415-2416): a read-only hook on
+ErrorTrap's `DereferenceManager.Perform` writes one `etderef:` line per destroyed object (type, id, each holder's type and
+field, and the holder's lot and position). **Next:** one Bridgeport new-game load with `ts3fixes.leak1114.package` (reads
+the holders), then the same load with a `--on kHitchCauseHooks` build of the same source (A/B: hooks vs not).
+
+**Result (in game, `phase-20261114-2151` hooks off and `-2208` kHitchCauseHooks on, `etderef:` lines) [measured].** Same 12
+objects in both runs, so the HitchCause hooks are not the cause, and `-2208` wrote the same ScriptError. All have
+`ObjectId 0` and no live holder (no holder printed a lot / position): four `DoorSingleColonialContemporary` held only by
+their own components (`DoorPortalComponent.OwnerDoor` / `mScriptObject`, `UpgradableComponent`) and `Door[]` arrays;
+`ComboCityhallPoliceMilitary`, `ComboBusinessRestaurant`, `ComboBookstoreDaySpa` held by their own and their pieces'
+`RabbitHoleProxy`; five `MovieSet` held by their own proxy field and `AlarmManager+Timer.ObjectRef` (alarms of a dead
+MovieSet). These are object graphs that never got, or lost, a simulator object at world load: closed among themselves,
+not the live buildings (Bridgeport's live combos and doors are separate objects with ids; the combo checks run on them).
+ErrorTrap clears them: benign, and the same in vanilla. **Why "only since 19:11":** the ScriptError folder keeps only the
+newest ~11 files (by 22:10 the 19:12-19:39 files are gone as well), so the earlier loads' files were rotated out; the
+correlation with the hr packages was an artifact. No ts3fixes change; `etderefdiag` stays (holder lines now also mark
+destroyed holders with their id). Open, minor: the dead `MovieSet` alarms (EA leaves its alarms when the object is
+dropped at load; AlarmManager drops a timer whose object is gone).

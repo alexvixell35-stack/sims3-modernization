@@ -15,11 +15,13 @@ using Sims3.SimIFace;
 namespace Ts3Fixes
 {
     // ApartmentLeaveCheck real-party modes (docs/553 §5; test only, test saves only: the household throws a real party).
-    //   "throw [n] [now]": what the phone's Throw Party does for a house party (Phone.Call.HaveParty, default branch): guests
+    //   "throw [n] [now] [hex lot id|active]": what the phone's Throw Party does for a house party (Phone.Call.HaveParty, default branch): guests
     //     from EA's own invite list (Phone.Call.GetAllValidCalleesForParty with HouseParty.kLTRMinToInvite), the n (default
     //     6) best-related adult or teen humans of other households who do not live on the lot, then
     //     new HouseParty(lot, selected Sim, guests, Everyday, start) (invitations delivered, as the phone does) and the
-    //     kThrewParty PartyEvent. start = now + 1 sim-hour (the phone's earliest), "now" = now + 2 sim-minutes. Starts the
+    //     kThrewParty PartyEvent; at a community lot (not home) the venue is rented first as the phone does
+    //     (RentScheduler.RentLot). Any lot type: home house, apartment, dorm, houseboat, community venue; the selected Sim
+    //     must stand on it. start = now + 1 sim-hour (the phone's earliest), "now" = now + 2 sim-minutes. Starts the
     //     per-guest tracker (AptLeave.cs sAlTrack): arrived, apartment->public and public->apartment room changes,
     //     room-change farewells run / skipped.
     //   "nudge": each arrived guest that stands in an unmarked (U) room is sent through the hallway the way a party walk
@@ -48,13 +50,28 @@ namespace Ts3Fixes
             if (sAlThrown != null) return "throw: a check party is running; run partyend first";
             Sim host = PlumbBob.SelectedActor;
             if (host == null || host.Household == null) return "throw: no selected Sim";
-            Lot lot = host.LotHome;
-            if (lot == null || !lot.HasVirtualResidentialSlots) return "throw: N/A (the selected Sim's home is not an apartment lot)";
-            if (host.LotCurrent != lot) return "throw: the selected Sim must be at home (" + lot.Name + ")";
             int n = 6;
             bool now = false;
-            for (int i = 1; i < w.Length; i++) { int k; if (w[i] == "now") now = true; else if (int.TryParse(w[i], out k)) n = Math.Max(1, Math.Min(12, k)); }
-
+            Lot lot = host.LotHome;
+            for (int i = 1; i < w.Length; i++)
+            {
+                int k;
+                if (w[i] == "now") now = true;
+                else if (w[i] == "active") lot = LotManager.ActiveLot;
+                else if (w[i].Length > 4) lot = AlLot(w[i]);  // hex lot id
+                else if (int.TryParse(w[i], out k)) n = Math.Max(1, Math.Min(12, k));
+            }
+            if (lot == null || lot.IsWorldLot) return "throw: no such lot";
+            if (host.LotCurrent != lot)
+            {
+                // the phone's caller is any household member at the venue: take one who is there (selected Sim first)
+                Sim other = null;
+                foreach (Sim m in host.Household.Sims) if (m != null && !m.HasBeenDestroyed && m.LotCurrent == lot && m.SimDescription.TeenOrAbove) { other = m; break; }
+                if (other == null) return "throw: N/A (no teen-or-older member of the selected household on " + lot.Name + ")";
+                host = other;
+            }
+            bool home = lot == host.LotHome;
+            if (!home && lot.IsResidentialLot) return "throw: N/A (" + lot.Name + " is someone else's residential lot: the phone throws only at home or at a community venue)";
             List<KeyValuePair<float, SimDescription>> cands = new List<KeyValuePair<float, SimDescription>>();
             foreach (var info in Phone.Call.GetAllValidCalleesForParty(host, HouseParty.kLTRMinToInvite, false))
             {
@@ -69,6 +86,14 @@ namespace Ts3Fixes
             if (guests.Count == 0) return "throw: N/A (EA's invite list has no candidate)";
 
             DateAndTime start = SimClock.CurrentTime() + new DateAndTime(SimClock.ConvertToTicks(now ? 2f : 60f, TimeUnit.Minutes));
+            if (!home)
+            {
+                // the phone's off-lot path: rent the venue from (start - Party.HoursToStartRentBeforePartyStart), at least now + 2 min
+                DateAndTime rent = start;
+                rent.Ticks -= SimClock.ConvertToTicks(Party.HoursToStartRentBeforePartyStart, TimeUnit.Hours);
+                if (rent.CompareTo(SimClock.CurrentTime()) < 0) rent = SimClock.Add(SimClock.CurrentTime(), TimeUnit.Minutes, 2f);
+                if (!RentScheduler.Instance.RentLot(lot, host, rent, guests, false)) return "throw: N/A (RentScheduler refused " + lot.Name + ")";
+            }
             HouseParty party = new HouseParty(lot, host, guests, Sims3.SimIFace.CAS.OutfitCategories.Everyday, start);
             EventTracker.SendEvent(new PartyEvent(EventTypeId.kThrewParty, host, host.SimDescription, party));
             sAlThrown = party;
@@ -76,7 +101,7 @@ namespace Ts3Fixes
             sAlTrack = new Dictionary<ulong, AlTrack>();
             foreach (SimDescription d in guests) sAlTrack[d.SimDescriptionId] = new AlTrack { Name = d.FullName };
             StringBuilder sb = new StringBuilder();
-            sb.Append("throw: HouseParty on ").Append(lot.Name).Append(" host ").Append(host.FullName).Append(", starts in ").Append(now ? "2 sim-min" : "1 sim-hour")
+            sb.Append("throw: HouseParty on ").Append(lot.Name).Append(" (").Append(lot.LotId.ToString("X")).Append(home ? ", home" : ", rented venue").Append(", apartment=").Append(lot.HasVirtualResidentialSlots).Append(")").Append(" host ").Append(host.FullName).Append(", starts in ").Append(now ? "2 sim-min" : "1 sim-hour")
               .Append(", invited ").Append(guests.Count).Append(" of ").Append(cands.Count).Append(" candidates:");
             foreach (SimDescription d in guests) sb.Append(' ').Append(d.FullName).Append(';');
             sb.Append('\n').Append(AlCounters());
@@ -147,9 +172,9 @@ namespace Ts3Fixes
                 if (st == "left-early") early++;
                 if (st == "guest" && onLot) stillPartying++;
                 farewells += t.FarewellRun; skipped += t.FarewellSkipped; crossings += t.ToPublic;
-                sb.Append("  ").Append(t.Name).Append(": arrived=").Append(t.Arrived).Append(" now ").Append(onLot ? AlRoom(lot, s.RoomId) : "off lot")
+                sb.Append("  ").Append(t.Name).Append(": arrived=").Append(t.Arrived).Append(t.Arrived ? " first " + t.FirstRoom : "").Append(" now ").Append(onLot ? AlRoom(lot, s.RoomId) : "off lot")
                   .Append(" apt->public ").Append(t.ToPublic).Append(" public->apt ").Append(t.ToApartment)
-                  .Append(" farewell run ").Append(t.FarewellRun).Append(" skipped ").Append(t.FarewellSkipped)
+                  .Append(" farewell run ").Append(t.FarewellRun).Append(" skipped ").Append(t.FarewellSkipped).Append(t.LastRunWhy != null ? " (last run: " + t.LastRunWhy + ")" : "")
                   .Append(" party=").Append(st).Append(onLot && st != "guest" ? " (still here, no longer partying)" : "")
                   .Append(s != null ? " mood " + s.MoodManager.MoodValue : "").Append('\n');
             }

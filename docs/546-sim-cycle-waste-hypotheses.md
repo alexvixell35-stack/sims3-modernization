@@ -498,3 +498,52 @@ placed the NPC off the lot; the lot had 96 rain puddles.
 **Log gap.** Rows 2, 7 and 8 cannot be placed without the NPC's name, position and lot; the native job lines carry only
 the follower id. Next logging step (not built): an NPC variant of the `routefail:` line for repeats only (same Sim and
 interaction failing 3+ times), within the shared 400-line cap.
+
+## 17. Script errors, loops, leaks and hitches across the 2026-11-14 runs (2026-11-14) [measured; causes from decompiled code]
+
+Input: every `phase-20261114-*` run (49 dirs: Bridgeport, Appaloosa Plains, Isla Paradiso, Starlight Shores), their
+`ts3native.log`, `leak-*.json` snapshots, phase / report / autotest files, the eight `auto-*/cycle-1.log`, and the
+NRaas ErrorTrap `ScriptError_*.xml` files of the day. Left out as already explained: route failures (§10, §15, §16),
+combo buildings, hidden rooms, apartment farewell, parties (docs/547-554), harness hitches (docs/247 §14), garbage
+collection, pet routing, the Starlight Shores 20:35 crash (triaged elsewhere; no new evidence here).
+
+| # | Pattern | Count | Who / where | Cause | Verdict |
+|---:|---|---:|---|---|---|
+| 1 | Leak: `ReactionBroadcaster`s of shuffleboards | 0 -> 94 (`-1737`), 0 -> 148 (`-1835`, 79 on one lot), every Bridgeport run with a bar | Bridgeport bars | **EA bug [verified, decompiled]:** `Shuffleboard+Play.TriggerReactions` overwrites `mBroadcaster` / `mPetBroadcaster` without `Dispose`; `Run` calls it after the throw and again at round end, `Cleanup` disposes only the last pair. Broadcasters have `TimeDuration -1`, so each round end leaves a pair that pulses the lot every second for the session, and later players get one stale `BroadcastCallback` per leaked pair (reaction toward a gone thrower; at game over `Quit` + `CanceledByScript`) | fixed: `shuffleboardbcast` |
+| 2 | Leak: `CookingProcess.ObjectClickedOnDestroyed` listeners (`kObjectStateChanged`) | 0 -> 132 (`-1635`), 0 -> 122 (`-1737`), 0 -> 50 (`-1113`, Appaloosa Plains); grows in every world, linear in play time | fridges / stoves of every cooking household | **EA bug [verified, decompiled]:** `AddObjectListeners` hooks the clicked appliance for the cook and again in the private copy constructor of every serving; only `CompletedMakingARecipe` (the original process), an appliance repair / buy-mode move (`ObjectStateChanged`) or delete removes them. An eaten / washed / thrown-away serving leaves its process on the appliance's listener list and `ObjectDisposed` event [owner state inferred; `CookClickCheck list` prints it] | fixed: `cookclicklistener` |
+| 2b | same code: `ObjectDisposed` handler stranded on the appliance | not counted by the census | stoves, grills, microwaves, food synthesizers | **EA bug [verified]:** the Prepare steps (`Pot`, `FryingPan`, `BakingDish`, `FoodTray`, `Microwave`) set `ObjectClickedOn = null` directly, the state-change handler nulls it and returns `Remove` without unhooking, `FutureFoodSynthesizer` re-points it without re-adding: `ClearObjectListeners` can then no longer unhook `ObjectDisposed` from the object it was added to | fixed in `cookclicklistener` (counter 2413) |
+| 3 | NPC birth loop: `HaveBabyHospital` restarted after failed plans | 40 `ufloop:` restarts in one run (`-0212`, the only run with `unseenfbloopdet` on); the same Sim plans all run long in every Appaloosa Plains run | Patricia Bedlington (NPC, Appaloosa Plains, combo hospital) | her plans run 400-930 ms and are cut by our deadlines (11 UnseenFallback + 2 KindDeadlines cuts, 13/13 retries succeed), yet the interaction restarts; EA's `HaveBabyHospital.Cleanup` re-adds `Pregnancy.HaveTheBaby` one sim-minute later whenever `BabyShouldBeBorn` and no newborn exist, and `HaveTheBaby` picks the hospital again whenever it is closer than home: no home-birth fallback after a failed trip [verified, decompiled]. Why the trip fails after a good retry is open (combo `ComboHospitalScienceLab` entry, or our cut) | candidate, not fixed: needs one Appaloosa Plains run with `unseenfbloopdet` + the interaction's exit reason logged |
+| 4 | ErrorTrap correction at load: `Destroyed Object Found: DoorSingleColonialContemporary` x4 | 9 of 9 Bridgeport loads since 19:11 (0 before, same world file) | Bridgeport new game, ~10 s after live mode | not EA script; starts with the first `ts3fixes.hr*` test package (only switch difference vs `-1835`: `kHitchCauseHooks` off); no ts3fixes code destroys doors [read] | benign (docs/552 §11, measured with `etderefdiag`): ObjectId-0 dead graphs (4 doors, 3 combo buildings, 5 MovieSets) closed among themselves, same with hooks on or off; "since 19:11" = the ScriptError folder keeps only ~11 files |
+| 5 | Script exceptions (`ts3fixes: ... Exception`, ErrorTrap stack traces) | 0 in game; 2 agent-side (`SocialTest.AskToChangePortTest` NRE from a harness `reflect_call`; combo check `TargetException`, known) | - | - | nothing new |
+| 6 | Sync waits that time out | ShowVideos 101 (§9 `socialfinish`), social `Committed/Routed failed` (§9 `socialreceivefail`), DanceTogether 9 | NPCs | known §9 | nothing new |
+| 7 | Overwatch nightly resets with `result False` (`home False`) | ~20 Sims in runs with `owresettime` | NPCs, many pets | NRaas Overwatch's 03:00 reset, not EA | not ours to fix; log only |
+| 8 | Game hitches >= 300 ms named as game by `hitchwatch:` | 2 (462, 569 ms, no agent call, no cause named) | Appaloosa Plains | `alarmtime` / `owresettime` were not on in those runs | nothing to act on (docs/247 §14 next run names them) |
+
+Checked and not leaks: `School.RegularWorkDay*` alarms (plateau at enrolment, ~85), `ObjectSpawner.DeleteOldestUntakenObject`
+(steady 60-86), `SingerEventListener` (flat 36), Cake / PizzaBox broadcasters (bounded by the objects).
+
+**shuffleboardbcast [built, NOT RUN].** `ShuffleboardBroadcast.cs`, tuning `kShuffleboardBcast` (off). Hooks
+`Shuffleboard+Play.TriggerReactions` and `Play.Cleanup`: a pair about to be replaced is kept and disposed right after that
+Play instance's own Cleanup, where EA ends the current pair. While the interaction runs both pairs pulse as in EA's code,
+so every reaction during the throw is unchanged for every Sim (household included); only the pulses after Cleanup (the
+leak) go. Counters 2409 pairs replaced (counts with the switch off), 2410 disposed, 2411 errors. Check `ShuffleboardCheck`
+(`ObjectLeakChecks.cs`): `run` makes a Play instance on an idle board with one NPC, runs EA's TriggerReactions twice and
+EA's Cleanup, counts the board's broadcasters: off BROKEN (+2 left), on FIXED (+0, 2410 +2); `clear` disposes the off
+arm's pair. Repro `shuffleboard-broadcast-leak` (any world with an idle shuffleboard; Bridgeport). Natural check: census
+`broadcasters.by_object_type.Shuffleboard` stays near 2 per board in use.
+
+**cookclicklistener [built, NOT RUN].** `CookClickListener.cs`, tuning `kCookClickListener` (off). Hooks
+`CookingProcess.AddObjectListeners` (notes the process and the object it hooked; checks 8 noted entries per call, no
+alarm) and `ClearObjectListeners` (drops the note; unhooks `ObjectDisposed` from the original object when `ObjectClickedOn`
+was nulled or re-pointed). A process whose Owner has been destroyed for 10 sim-minutes gets EA's own
+`ClearObjectListeners`. A dead process's handlers write only its own fields, so the fix is exact for every Sim; servings in
+fridges and inventories are live and keep theirs. Counters 2412 removed, 2413 handlers unhooked, 2414 errors. Check
+`CookClickCheck`: `run` builds one process with EA's constructor (a fridge as clicked object, a new single serving as Owner),
+destroys the serving, runs the fix's check without the wait: off BROKEN (listener still on the fridge), on FIXED (2412 +1);
+`list` splits live listeners by owner state. Repro `cook-click-listener-leak` (any world). Natural check: census
+`events.by_delegate.CookingProcess.ObjectClickedOnDestroyed` flat with the switch on.
+
+Loopholes seen in the same code, not fixed: `HaveTheBaby` reads `mMom.LotHome` without a null check (a homeless NPC mother
+throws); `HaveBabyHospital.InRabbitHole` spins `Sleep(0)` until each newborn's placeholder interaction starts, with no
+bound; `Shuffleboard.Play.BroadcastCallback` on a stale broadcaster can `Quit` a Sim from a later game at game over
+(gone with `shuffleboardbcast`).

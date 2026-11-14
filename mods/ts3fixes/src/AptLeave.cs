@@ -179,7 +179,7 @@ namespace Ts3Fixes
 
         // ---- test-only tracker (ApartmentLeaveCheck "throw"): null unless a check party is being watched ----
 
-        internal class AlTrack { public string Name; public bool Arrived; public int ToPublic, ToApartment, FarewellRun, FarewellSkipped; }
+        internal class AlTrack { public string Name; public bool Arrived; public string FirstRoom, LastRunWhy; public int ToPublic, ToApartment, FarewellRun, FarewellSkipped; }
         internal static Dictionary<ulong, AlTrack> sAlTrack;  // by SimDescriptionId
         internal static Lot sAlTrackLot;
 
@@ -196,6 +196,13 @@ namespace Ts3Fixes
                 AlTrack t = AlTracked(s);
                 Lot lot = s.LotCurrent;
                 if (t == null || lot == null || lot != sAlTrackLot) return;
+                if (!t.Arrived)
+                {
+                    // where it first stood on the party lot: hidden (H) or no allowed way outside (closed, docs/552)
+                    int n;
+                    bool? outside = HrReachesOutside(lot, to, s, out n);
+                    t.FirstRoom = "r" + to + (lot.IsRoomHidden(to) ? "H" : "") + (lot.IsRoomPublic(to) ? "P" : "") + (outside == false ? " closed" : "");
+                }
                 t.Arrived = true;
                 if (previousLot != lot || from == to) return;
                 bool was = lot.IsRoomPublic(from), now = lot.IsRoomPublic(to);
@@ -205,11 +212,11 @@ namespace Ts3Fixes
             catch (Exception) { }
         }
 
-        static void AlTrackFarewell(Sim s, bool skipped)
+        static void AlTrackFarewell(Sim s, bool skipped, string why)
         {
             AlTrack t = AlTracked(s);
             if (t == null) return;
-            if (skipped) t.FarewellSkipped++; else t.FarewellRun++;
+            if (skipped) t.FarewellSkipped++; else { t.FarewellRun++; t.LastRunWhy = why; }
         }
 
         public class AlRoomHook
@@ -254,7 +261,7 @@ namespace Ts3Fixes
                     }
                 }
                 catch (Exception) { c[2394]++; leaving = true; why = "error"; }
-                AlTrackFarewell(leavingSim, !leaving);
+                AlTrackFarewell(leavingSim, !leaving, why);
                 if (!leaving)
                 {
                     c[2391]++;

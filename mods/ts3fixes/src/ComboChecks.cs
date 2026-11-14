@@ -8,9 +8,11 @@ using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.Autonomy;
 using Sims3.Gameplay.Careers;
 using Sims3.Gameplay.Core;
+using Sims3.Gameplay.EventSystem;
 using Sims3.Gameplay.Interfaces;
 using Sims3.Gameplay.Objects.Miscellaneous;
 using Sims3.Gameplay.Objects.RabbitHoles;
+using Sims3.Gameplay.Opportunities;
 using Sims3.Gameplay.Situations;
 using Sims3.Gameplay.UI;
 using Sims3.Gameplay.Utilities;
@@ -40,7 +42,9 @@ namespace Ts3Fixes
     // situation is ended at once and the active Sim's queue cleared), job (EA's job selection for a Firefighter epic
     // rescue whose rabbit hole exists only inside a combo: no job, or a job at the piece on the building's lot), protestlot
     // (the EP9 daily protest's City Hall candidate lot, the organize-protest picker's entries, and the lot a protest created
-    // on that candidate lands on; exited at once). Run it with the five switches off, then on.
+    // on that candidate lands on; exited at once), opp (comboopp: an opportunity listener EA aims at a combo building, for
+    // an event the piece sends, and an interaction-success listener holding the building fed the piece's event; neither
+    // is registered with the event tracker). Run it with the six switches off, then on.
     public static partial class Fixes
     {
         public static object ComboRabbitHoleCheck(string what)
@@ -91,9 +95,10 @@ namespace Ts3Fixes
             sb.Append("situation: ").Append(ComboCheckPart(ComboCheckSituation)).Append('\n');
             sb.Append("job: ").Append(ComboCheckPart(ComboCheckJob)).Append('\n');
             sb.Append("protestlot: ").Append(ComboCheckPart(ComboCheckProtestLot)).Append('\n');
+            sb.Append("opp: ").Append(ComboCheckPart(ComboCheckOpp)).Append('\n');
             int[] c = PatchCounters();
-            sb.Append("counters 2337 2338 2340 2342 2343 2374-2378:");
-            foreach (int i in new int[] { 2337, 2338, 2340, 2342, 2343, 2374, 2375, 2376, 2377, 2378 }) sb.Append(' ').Append(c[i]);
+            sb.Append("counters 2337 2338 2340 2342 2343 2374-2378 2405-2408:");
+            foreach (int i in new int[] { 2337, 2338, 2340, 2342, 2343, 2374, 2375, 2376, 2377, 2378, 2405, 2406, 2407, 2408 }) sb.Append(' ').Append(c[i]);
             return sb.ToString();
         }
 
@@ -295,6 +300,43 @@ namespace Ts3Fixes
             finally { if (lastDay != null) sCkProtestLastDay.SetValue(null, lastDay); }
             bool ok = at != null && at == building && worldEntries == 0 && hallEntries > 0;
             return (ok ? "FIXED" : "BROKEN") + " (protest created on " + LotName(at) + (at == building ? " (the City Hall's)" : "") + "; " + facts + ")";
+        }
+
+        // GetTargetForEvent is private and swapped by comboopp: a delegate runs it like EA's own listener setup.
+        delegate GameObject TargetForEventFn(Opportunity op, Opportunity.OpportunitySharedData.EventInfo eventInfo);
+
+        // comboopp, on the first combo piece and a throwaway opportunity aimed at its building (as SetupHelper aims a
+        // RabbitHole target), for the active Sim: (1) the target EA gives an EventListenerInfo listener for kAteAtRestaurant
+        // (an event a piece's interaction sends with the piece): EA's broken arm is the building, fixed is the piece;
+        // (2) an interaction-success listener whose target list holds the building, fed a kInteractionSuccess event that
+        // carries the piece (ProcessEvent called directly, never registered): EA's broken arm keeps waiting, fixed matches.
+        static string ComboCheckOpp()
+        {
+            Sim actor = Sim.ActiveActor;
+            if (actor == null || actor.OpportunityManager == null) return "N/A (no active Sim)";
+            RabbitHole piece = FirstPiece<RabbitHole>();
+            if (piece == null) return "N/A (no combo piece in this world)";
+            RabbitHole building = piece.RabbitHoleProxy;
+            MethodInfo m = typeof(OpportunityManager).GetMethod("GetTargetForEvent", kInstAll, null, sRhTargetForEventArgs, null);
+            if (m == null) return "N/A (GetTargetForEvent not found)";
+            Opportunity op = new Opportunity(new Opportunity.OpportunitySharedData());
+            op.TargetObject = building;
+            op.TargetData = piece.Guid.ToString();
+            Opportunity.OpportunitySharedData.EventInfo info = new Opportunity.OpportunitySharedData.EventInfo();
+            info.mEventId = EventTypeId.kAteAtRestaurant;
+            TargetForEventFn fn = (TargetForEventFn)Delegate.CreateDelegate(typeof(TargetForEventFn), actor.OpportunityManager, m);
+            GameObject waitFor = fn(op, info);
+            bool listenerOk = waitFor == piece;
+            int matched = 0;
+            ProcessEventDelegate d = delegate(Sims3.Gameplay.EventSystem.Event e) { matched++; return ListenerAction.Keep; };
+            OpportunityInteractionCompleteListener l = new OpportunityInteractionCompleteListener(EventTypeId.kInteractionSuccess, d, actor,
+                new List<IGameObject>(new IGameObject[] { building }), typeof(RabbitHole.TurnInAtRabbitHole.Definition), null);
+            l.ProcessEvent(new Sims3.Gameplay.EventSystem.Event(EventTypeId.kInteractionSuccess, actor, piece));
+            bool successOk = matched == 1;
+            string facts = piece.GetType().Name + " in " + building.GetType().Name + ": listener waits for "
+                + (waitFor == null ? "nothing" : waitFor == building ? "the building" : waitFor == piece ? "the piece" : waitFor.GetType().Name)
+                + ", piece's interaction-success event " + (successOk ? "matched" : "ignored");
+            return (listenerOk && successOk ? "FIXED" : !listenerOk && !successOk ? "BROKEN" : "MIXED") + " (" + facts + ")";
         }
 
         // RoutingSlot_0..3 on the building (o = reads as the world origin, + = a real point), slot counts.

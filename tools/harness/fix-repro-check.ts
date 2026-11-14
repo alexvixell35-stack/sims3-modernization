@@ -100,6 +100,7 @@ export const EXEMPT: Record<string, string> = {
   dnpobjkeys: 'opt-in test, DnP removal table sweep (leak-fixes-1111): mPotentialRemovalNodes destroyed-object keys, one A/B',
   // 2026-11-14 sim-cycle work (docs/546): measured in ts3agent phase soaks, not harness queues
   joyridecostume: 'hitch fix measured by ts3agent aut_census (docs/546 §4): longest GoForJoyride test 618/623 ms off (phase-20261113-2212/-2229), all under ~2 ms on (phase-20261113-2254, 45 tests answered, 0 errors); once per child per save, so no cheap repeatable repro (a fresh child with no ChildImagination outfit is needed each arm)',
+  etderefdiag: 'log only, changes nothing (docs/552 §11): names who holds each destroyed object NRaas ErrorTrap cleans up at load; its etderef: lines are the result of any Bridgeport new-game load',
   alarmkilllog: 'log only, changes nothing (docs/546 §7): names a repeating alarm EA removed after its callback threw; nothing to repro but a throwing alarm, and its line is the result',
   synctime: 'test switch, logging only, hooks only with kHitchCauseHooks (docs/546 §9, SyncWaitLog.cs): the measuring tool of socialfinish / socialreceivefail, not a fix',
   socialfinish: 'measured off/on in ts3agent social phase soaks (docs/546 §9): off 9 of 9 ShowVideos waits stood 5.3 min (phase-20261114-0401), on every logged wait ended after 0.5 min, 2310 = 16 signalled, 0 errors (phase-20261114-0430); no forced repro of one of the six masters yet',

@@ -8,9 +8,12 @@ using Sims3.Gameplay.Autonomy;
 using Sims3.Gameplay.CAS;
 using Sims3.Gameplay.Careers;
 using Sims3.Gameplay.Core;
+using Sims3.Gameplay.EventSystem;
+using Sims3.Gameplay.Interfaces;
 using Sims3.Gameplay.MapTags;
 using Sims3.Gameplay.Objects.Miscellaneous;
 using Sims3.Gameplay.Objects.RabbitHoles;
+using Sims3.Gameplay.Opportunities;
 using Sims3.Gameplay.Situations;
 using Sims3.Gameplay.UI;
 using Sims3.Gameplay.Utilities;
@@ -21,8 +24,9 @@ using Sims3.UI;
 
 namespace Ts3Fixes
 {
-    // Combined rabbit holes (docs/551): comboprotest, combovenue, combosituation, combojob, comboprotestlot (tunings
-    // kComboProtest / kComboVenue / kComboSituation / kComboJob / kComboProtestLot, all off by default), plus the shared
+    // Combined rabbit holes (docs/551): comboprotest, combovenue, combosituation, combojob, comboprotestlot, comboopp
+    // (tunings kComboProtest / kComboVenue / kComboSituation / kComboJob / kComboProtestLot / kComboOpp, all off by
+    // default), plus the shared
     // combo helpers that ceremonyspot (EventRouteRetry.cs) uses.
     // Harness checks: ComboRabbitHoleCheck / ComboFixCheck (ComboChecks.cs).
     //
@@ -77,6 +81,25 @@ namespace Ts3Fixes
     // entry next to the building's. A protest created on the world lot moves to the combo City Hall's lot (only a piece
     // gives the world lot there), and the picker's world-lot entries are dropped.
     //
+    // comboopp (EA bug, verified in code; docs/551 §5): an opportunity whose target is a rabbit hole type gets the BUILDING
+    // as its TargetObject when that rabbit hole is a combo piece (OpportunityManager.SetupHelper returns RabbitHoleProxy), so
+    // its turn-in interaction sits on the building and kVisitedRabbitHole carries the building: those steps work. Every
+    // step that instead waits for the piece's own interaction or event compares the piece with the building and never
+    // matches:
+    //   - listeners made by GetTargetForEvent (EventListenerInfo steps such as kAteAtRestaurant) wait for the building,
+    //     while the piece's interaction sends the event with the piece: the listener now waits for the piece of the
+    //     opportunity's rabbit hole type (kVisitedRabbitHole / ...WithPet / kDeliveredToSim / kWentToWork keep EA's target);
+    //   - kInteractionSuccess steps (Investigator case steps "eat at the restaurant" EP2_Case_CulinaryBackstab3 /
+    //     SuperFruits2, EP3 RestaurantPromotion1, EP9 PhysEd_10 at the Stadium): FindValidTargets accepts only objects of
+    //     the interaction's target type, which the building is not, so EA picks some other (random) target or none; the
+    //     building now stands in for its piece (EA's own tag and effect code then marks the building), and an event the
+    //     piece sends is matched through its building;
+    //   - interaction tests that compare activeOpportunity.TargetObject with their target (School auditions and recitals,
+    //     ScienceLab imaginary-friend potion steps): the interaction never shows at a combo school / science lab; the test
+    //     now runs with the piece as the target when the opportunity's target is the piece's building.
+    // Household Sims are what opportunities are for: the fix lets the step complete exactly as at a stand-alone rabbit
+    // hole and changes nothing else. Opportunities at stand-alone rabbit holes never meet a piece and run EA's code.
+    //
     // Non-combo rabbit holes are untouched by every switch: each path tests RhPiece first and runs EA's code unchanged.
     // No Sim is moved by any of these fixes.
     //
@@ -85,7 +108,10 @@ namespace Ts3Fixes
     // errors (every combo switch). [2335] [2336] [2339] [2341] retired (comboalarm, the venue lot lend and the field-trip lot
     // lend were removed); [2344] reserved. Registry fixes-2374: [2374] jobs created at a combo piece, [2375] job map tags
     // pointed at the building, [2376] job effects moved to the building (combojob); [2377] protests moved from the world
-    // lot to the combo City Hall's lot, [2378] world-lot picker entries dropped (comboprotestlot).
+    // lot to the combo City Hall's lot, [2378] world-lot picker entries dropped (comboprotestlot). Registry fixes-2405
+    // (comboopp): [2405] listener targets moved from the building to its piece, [2406] interaction-success targets where
+    // the building stands in for its piece, [2407] piece events matched through the building, [2408] interaction tests
+    // passed for a piece.
     public static partial class Fixes
     {
         // ---- tuning ----
@@ -108,6 +134,9 @@ namespace Ts3Fixes
         static readonly FieldInfo sRhRescueEffect = typeof(RabbitholeFirefightingJob).GetField("mRabbitholeEffect", kInstAll);
         static readonly FieldInfo sRhGhostEffect = typeof(GhostHunter.GhostHunterJob).GetField("mVisualEffect", kInstAll);
         static readonly FieldInfo sRhJobSpec = typeof(Job).GetField("Specification", kInstAll);  // internal
+        static readonly FieldInfo sRhEventTarget = typeof(Sims3.Gameplay.EventSystem.Event).GetField("mTargetObject", kInstAll);
+        static readonly FieldInfo sRhListenerTargets = typeof(OpportunityInteractionCompleteListener).GetField("mTargets", kInstAll);
+        static readonly Type[] sRhTargetForEventArgs = { typeof(Opportunity), typeof(Opportunity.OpportunitySharedData.EventInfo) };
 
         static void ApplyComboRabbitHole()
         {
@@ -121,6 +150,24 @@ namespace Ts3Fixes
             Patch(typeof(GhostHunter.GhostHunterJob), "CreateRabbitHoleInvestigation", typeof(ComboGhostHook), "CreateHook", "CreateOrig");
             Patch(typeof(ImprovedProtestSituation), "Create", typeof(ComboProtestLotHook), "CreateHook", "CreateOrig");
             Patch(typeof(ImprovedProtestHelperObject), "FindMapTagPickerInfo", typeof(ComboProtestLotHook), "PickerHook", "PickerOrig");
+            ApplyComboOpp();
+        }
+
+        static void ApplyComboOpp()
+        {
+            const BindingFlags all = BindingFlags.Public | BindingFlags.NonPublic;
+            Patch(typeof(OpportunityManager), "GetTargetForEvent", sRhTargetForEventArgs, typeof(ComboOppHook), "TargetHook", "TargetOrig");
+            Patch(typeof(OpportunityManager), "FindValidTargets", typeof(ComboOppHook), "FindHook", "FindOrig");
+            Patch(typeof(OpportunityInteractionCompleteListener), "ProcessEvent", typeof(ComboOppListenerHook), "ProcessHook", "ProcessOrig");
+            Type audition = typeof(SchoolRabbitHole.AttendAudition).GetNestedType("Definition", all);
+            Type recital = RhNestedDefinition(typeof(SchoolRabbitHole), "AttendRecital");
+            Type potionBuy = RhNestedDefinition(typeof(ScienceLab), "PurchaseImaginaryFriendPotion");
+            Type potionMail = RhNestedDefinition(typeof(ScienceLab), "DeliverImaginaryFriendRgm");
+            if (audition == null || recital == null || potionBuy == null || potionMail == null) { AppliedLog().Add("comboopp: a School / ScienceLab Definition type was not found, tests not patched"); return; }
+            Patch(audition, "Test", typeof(ComboOppTestHook), "AuditionHook", "AuditionOrig");
+            Patch(recital, "Test", typeof(ComboOppTestHook), "RecitalHook", "RecitalOrig");
+            Patch(potionBuy, "Test", typeof(ComboOppTestHook), "PotionBuyHook", "PotionBuyOrig");
+            Patch(potionMail, "Test", typeof(ComboOppTestHook), "PotionMailHook", "PotionMailOrig");
         }
 
         // ---- hooks ----
@@ -263,6 +310,172 @@ namespace Ts3Fixes
 
         // A piece of a combo building: its RabbitHoleProxy is another object (the combo). A stand-alone rabbit hole and the
         // combo itself are their own proxy.
+        // comboopp: listeners EA aims at the building (GetTargetForEvent) wait for the piece of the opportunity's rabbit hole
+        // type instead, except the events the building itself carries (turn-in, pet visit, delivery) and kWentToWork.
+        public class ComboOppHook
+        {
+            public GameObject TargetHook(Opportunity op, Opportunity.OpportunitySharedData.EventInfo eventInfo)
+            {
+                GameObject result = TargetOrig(op, eventInfo);
+                try
+                {
+                    RabbitHole piece = RhOppListenerPiece(op, eventInfo, result);
+                    if (piece != null) { PatchCounters()[2405]++; return piece; }
+                }
+                catch (Exception) { PatchCounters()[2343]++; }
+                return result;
+            }
+            public GameObject TargetOrig(Opportunity op, Opportunity.OpportunitySharedData.EventInfo eventInfo) { return null; } // receives OpportunityManager.GetTargetForEvent
+
+            public static void FindHook(Sim actor, Opportunity toAdd, Opportunity.OpportunitySharedData.InteractionCompleteEventInfo intei, int numTimesRequired, List<IGameObject> targets, bool lotsOnly)
+            {
+                try { if (RhOppAddBuilding(toAdd, intei, numTimesRequired, targets)) PatchCounters()[2406]++; }
+                catch (Exception) { PatchCounters()[2343]++; }
+                FindOrig(actor, toAdd, intei, numTimesRequired, targets, lotsOnly);
+            }
+            public static void FindOrig(Sim actor, Opportunity toAdd, Opportunity.OpportunitySharedData.InteractionCompleteEventInfo intei, int numTimesRequired, List<IGameObject> targets, bool lotsOnly) { } // receives OpportunityManager.FindValidTargets
+        }
+
+        // comboopp: an interaction-success event a piece sends counts for the building in the listener's target list.
+        public class ComboOppListenerHook
+        {
+            public ListenerAction ProcessHook(Sims3.Gameplay.EventSystem.Event e)
+            {
+                RabbitHole piece = e == null ? null : e.TargetObject as RabbitHole;
+                if (piece == null || !RhPiece(piece)) return ProcessOrig(e);
+                bool swapped = false;
+                try
+                {
+                    List<IGameObject> targets = sRhListenerTargets == null ? null : sRhListenerTargets.GetValue(this) as List<IGameObject>;
+                    if (targets != null && !targets.Contains(piece) && targets.Contains(piece.RabbitHoleProxy) && sRhEventTarget != null && ShortcutOn("comboopp"))
+                    {
+                        sRhEventTarget.SetValue(e, piece.RabbitHoleProxy);
+                        swapped = true;
+                        PatchCounters()[2407]++;
+                    }
+                }
+                catch (Exception) { PatchCounters()[2343]++; }
+                if (!swapped) return ProcessOrig(e);
+                try { return ProcessOrig(e); }
+                finally { sRhEventTarget.SetValue(e, piece); }
+            }
+            public ListenerAction ProcessOrig(Sims3.Gameplay.EventSystem.Event e) { return ListenerAction.Keep; } // receives OpportunityInteractionCompleteListener.ProcessEvent
+        }
+
+        // comboopp: School audition / recital and ScienceLab potion tests compare the active special opportunity's
+        // TargetObject (the building) with their target (the piece); they run with the piece as the opportunity's target.
+        public class ComboOppTestHook
+        {
+            public bool AuditionHook(Sim a, SchoolRabbitHole target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback)
+            {
+                Opportunity op = RhOppForPiece(a, target);
+                if (op == null) return AuditionOrig(a, target, isAutonomous, ref greyedOutTooltipCallback);
+                op.TargetObject = target;
+                try { return RhOppCount(AuditionOrig(a, target, isAutonomous, ref greyedOutTooltipCallback)); }
+                finally { op.TargetObject = target.RabbitHoleProxy; }
+            }
+            public bool AuditionOrig(Sim a, SchoolRabbitHole target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; } // receives the original
+
+            public bool RecitalHook(Sim a, RabbitHole target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback)
+            {
+                Opportunity op = RhOppForPiece(a, target);
+                if (op == null) return RecitalOrig(a, target, isAutonomous, ref greyedOutTooltipCallback);
+                op.TargetObject = target;
+                try { return RhOppCount(RecitalOrig(a, target, isAutonomous, ref greyedOutTooltipCallback)); }
+                finally { op.TargetObject = target.RabbitHoleProxy; }
+            }
+            public bool RecitalOrig(Sim a, RabbitHole target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; } // receives the original
+
+            public bool PotionBuyHook(Sim a, ScienceLab target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback)
+            {
+                Opportunity op = RhOppForPiece(a, target);
+                if (op == null) return PotionBuyOrig(a, target, isAutonomous, ref greyedOutTooltipCallback);
+                op.TargetObject = target;
+                try { return RhOppCount(PotionBuyOrig(a, target, isAutonomous, ref greyedOutTooltipCallback)); }
+                finally { op.TargetObject = target.RabbitHoleProxy; }
+            }
+            public bool PotionBuyOrig(Sim a, ScienceLab target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; } // receives the original
+
+            public bool PotionMailHook(Sim a, ScienceLab target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback)
+            {
+                Opportunity op = RhOppForPiece(a, target);
+                if (op == null) return PotionMailOrig(a, target, isAutonomous, ref greyedOutTooltipCallback);
+                op.TargetObject = target;
+                try { return RhOppCount(PotionMailOrig(a, target, isAutonomous, ref greyedOutTooltipCallback)); }
+                finally { op.TargetObject = target.RabbitHoleProxy; }
+            }
+            public bool PotionMailOrig(Sim a, ScienceLab target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; } // receives the original
+        }
+
+        // owner+name+Definition (private nested interaction classes), or null.
+        static Type RhNestedDefinition(Type owner, string name)
+        {
+            const BindingFlags all = BindingFlags.Public | BindingFlags.NonPublic;
+            Type inter = owner.GetNestedType(name, all);
+            return inter == null ? null : inter.GetNestedType("Definition", all);
+        }
+
+        static bool RhOppCount(bool passed)
+        {
+            if (passed) PatchCounters()[2408]++;
+            return passed;
+        }
+
+        // The actor's active special opportunity when its target is this piece's building (comboopp on), else null.
+        static Opportunity RhOppForPiece(Sim a, RabbitHole piece)
+        {
+            try
+            {
+                if (a == null || piece == null || !RhPiece(piece) || a.OpportunityManager == null || !ShortcutOn("comboopp")) return null;
+                Opportunity op = a.OpportunityManager.GetActiveOpportunity(OpportunityCategory.Special);
+                return op != null && op.TargetObject == piece.RabbitHoleProxy ? op : null;
+            }
+            catch (Exception) { PatchCounters()[2343]++; return null; }
+        }
+
+        // The piece a GetTargetForEvent listener should wait for: EA's target is the opportunity's building, the event is
+        // one a piece's own interaction sends, and the building holds a piece of a type the opportunity names.
+        static RabbitHole RhOppListenerPiece(Opportunity op, Opportunity.OpportunitySharedData.EventInfo eventInfo, GameObject result)
+        {
+            ComboRabbitHole combo = result as ComboRabbitHole;
+            if (combo == null || op == null || eventInfo == null || result != op.TargetObject) return null;
+            EventTypeId id = eventInfo.mEventId;
+            if (id == EventTypeId.kVisitedRabbitHole || id == EventTypeId.kVisitedRabbitHoleWithPet || id == EventTypeId.kDeliveredToSim || id == EventTypeId.kWentToWork) return null;
+            if (!ShortcutOn("comboopp")) return null;
+            return RhComboPieceOfTypes(combo, op.TargetData);
+        }
+
+        // The building's first piece whose Guid is one of the comma-separated rabbit hole types (an opportunity's TargetData).
+        static RabbitHole RhComboPieceOfTypes(ComboRabbitHole combo, string types)
+        {
+            if (string.IsNullOrEmpty(types)) return null;
+            List<RabbitHoleType> wanted = new List<RabbitHoleType>();
+            foreach (string s in types.Split(','))
+            {
+                RabbitHoleType t;
+                if (ParserFunctions.TryParseEnum<RabbitHoleType>(s.Trim(), out t, RabbitHoleType.None) && t != RabbitHoleType.None) wanted.Add(t);
+            }
+            foreach (RabbitHole piece in combo.ContainedRabbitholes.Keys) if (piece != null && wanted.Contains(piece.Guid)) return piece;
+            return null;
+        }
+
+        // kInteractionSuccess targets: the opportunity's building stands in for its piece when the interaction targets the
+        // piece's type, so EA marks the building and the listener matches the piece through it.
+        static bool RhOppAddBuilding(Opportunity toAdd, Opportunity.OpportunitySharedData.InteractionCompleteEventInfo intei, int numTimesRequired, List<IGameObject> targets)
+        {
+            ComboRabbitHole combo = toAdd == null ? null : toAdd.TargetObject as ComboRabbitHole;
+            if (combo == null || intei == null || intei.mAnyTargetValid || targets == null || targets.Count >= numTimesRequired || targets.Contains(combo)) return false;
+            Type def = intei.mInteractionDefinitionType;
+            if (def == null || Opportunity.OpportunitySharedData.InteractionCompleteEventInfo.IsObjectOfTypeForInteraction(def, combo) || !ShortcutOn("comboopp")) return false;
+            foreach (RabbitHole piece in combo.ContainedRabbitholes.Keys)
+            {
+                if (piece == null || !Opportunity.OpportunitySharedData.InteractionCompleteEventInfo.IsObjectOfTypeForInteraction(def, piece)) continue;
+                targets.Add(combo);
+                return true;
+            }
+            return false;
+        }
+
         static bool RhPiece(RabbitHole rh)
         {
             RabbitHole proxy = rh.RabbitHoleProxy;

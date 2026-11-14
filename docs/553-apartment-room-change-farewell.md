@@ -49,7 +49,8 @@ still there is more than 2 sim-hours past its own scheduled leave time, although
 the Pulse count, not measured]. "It ruins parties" [verified mechanics, not measured].
 
 Household Sims: the farewell part never runs for them (step 2), but step 1 removes a household Sim from an NPC's party in
-another apartment of the same building when it walks into the hallway. aptleave leaves household Sims on EA's code.
+another apartment of the same building when it walks into the hallway (liking with the NPC host down, scored as an early
+leaver). aptleave fixes that exactly (§8).
 
 ## 3. Bug or design
 
@@ -71,7 +72,7 @@ not leaving:
 - it does not live on this lot (residents of other units keep EA's call).
 Otherwise (no interaction, one that targets another lot, leaving interactions) EA's call runs. GoHome / GoOutside /
 commute calls are never touched, so a real departure gets EA's farewell and party bookkeeping, now at the right time.
-Household and unknown-scope Sims always run EA's code. Counters: 2391 skipped, 2392 run with the switch on, 2393 room-change
+Household and unknown-scope Sims: exact rule with a deferred removal (§8). Counters: 2391 skipped, 2392 run with the switch on, 2393 room-change
 calls seen (any switch state), 2394 errors. The last 32 decisions are kept for the check.
 
 ## 5. Check and repro
@@ -105,12 +106,40 @@ Read: `VisitSituation.OnSimLeavingLot`, `Create`, the visit's go-outside reminde
 `GetHostedSituationIAmGuestAtCurrently` / `GetHostedSituationIAmLeaving`, `HouseParty.RemoveGuest` / `Pulse` /
 `GetPartyOutcome`, `Sim.RoomChanged` (greet and visit parts), `Lot.IsRoomPublic` / `FindApartmentDoor`, and the caregiver
 public-room checks in `InteractionQueue` and `CaregiverRoutingMonitor`.
-- Fix candidate, not built: household guests at an NPC's party in another apartment of the same building. Step 1 of §2
-  (`RemoveGuest(left early)`) runs before the selectable return, so a household Sim who steps into the hallway leaves that
-  party early (liking with the NPC host goes down). This is the same bug family as aptleave. It stays out because aptleave's "not
-  leaving" test is a heuristic and the household rule needs an exact fix. Candidate: run the same test for household guests only when
-  the current interaction is player-queued and targets this lot [inferred safe, not proven].
+- Household guests at an NPC's party in another apartment of the same building: now fixed under `aptleave` (§8).
 - No other bug found: the caregiver checks (`targetLot.IsRoomPublic(sim.RoomId) && !targetLot.IsRoomPublic(targetRoom)`
   = "in a public room, heading into the apartment") match their intent; `VisitSituation.Create` refusing visits in public
   rooms and the 30 sim-minute go-outside reminder are consistent with the apartment model. `mbSimAnnouncedLeaving` is
   set for animals too (no notification), which is harmless.
+
+## 8. Household guests: exact fix with a deferred removal (aptleave, 2026-11-14)
+
+EA bug [verified]: `OnSimLeavingLot` runs `RemoveGuest(left early)` before its selectable return, and the apartment
+room-change call does not check that the Sim leaves (§1-§2). Same bug family as the NPC case, so it shares the switch.
+- Household and unknown-scope Sims: the room-change call is skipped unless an interaction in the whole queue (running or
+  queued) is GoHome / GoOutside or targets another lot, or the Sim lives on this lot. Then EA's call runs at once, as before.
+- Every skipped call of a party guest (NPC or household) is **deferred, not dropped**. When that Sim's lot really changes
+  away from the party lot (seen in `Sim.RoomChanged` with a new lot), and it is still a guest of that running party, EA's
+  own `RemoveGuest(sim, left early)` runs at that moment (on a script task, because RemoveGuest can yield). Back in a
+  non-public room of the same lot = it never left: the deferral is dropped.
+- Result: a household Sim gets EA's exact effect (same call, same arguments) when it really leaves, and nothing while it
+  stays. Not covered: a Sim that leaves the world without a lot change keeps its guest entry. EA's GoHome / commutes call
+  `OnSimLeavingLot` themselves, so this does not arise for them.
+- Counters 2395 (deferred removals applied), 2396 (dropped, back in the apartment), 2397 (household skips, part of 2391).
+- Check modes `hhguest` (an NPC who lives in another apartment building hosts a party there; the selected Sim is its guest
+  and walks into the hallway; `status` gives BROKEN off / FIXED on) and `hhexit` (EA VisitLot home: 2395 +1 on).
+- Repro `apartment-leave-household`. `throw` also takes a lot (`throw 6 now <hex lot id>`; a community venue is rented the
+  phone's way) and reports where each guest first stood (`first rN`, H = hidden, closed = no allowed way out, docs/552).
+
+## 9. First in-game runs (2026-11-14, Bridgeport, Trawler Lodge / Founders Peace)
+
+- Party throw (NPC guests): off 6/6 guests left early, 35 hallway calls run, avg mood -5.8; on 2/6 left early, 8 run /
+  4 skipped, avg +25.8 (`phase-20261114-2108`). The 2 on-arm early leavers (1 crossing, call run, then off the lot) fit a real
+  departure: EA's GoHome also removes as "left early". The per-guest line now prints the reason of the last call that ran
+  (`last run: ...`), so the next run shows it.
+- `hhguest` off: BROKEN (guest True->False on the hallway step), as expected. On: the hallway step was **skipped and the guest kept**
+  (decision line "SKIPPED (on, household, nothing off this lot queued) party-guest True->True"). About 19 sim-min later
+  the Sim went back in and then left with GoHome queued, and EA's call ran then: a real departure. The fix held. The check's verdict
+  read the Sim's live state at poll time, after it had gone home, and so said BROKEN/OTHER. `status` now judges the first decision after the walk by
+  what that decision recorded, and lists later decisions separately.
+- `throw` refused when the selected Sim was away: it now uses any teen-or-older member of the household who is on the lot.

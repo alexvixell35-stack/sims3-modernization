@@ -1,8 +1,8 @@
 # 551. Combined rabbit hole bugs (combo buildings)
 
 2026-11-14, static audit of the 1.67 script code (Sims3GameplayObjects, Sims3GameplaySystems; the EP code lives in the same
-two DLLs), fixes built. Switches `comboprotest`, `combovenue`, `combosituation`, `combojob`, `comboprotestlot` (all
-default off, `mods/ts3fixes/src/ComboRabbitHole.cs`, counters 2337-2343 and 2374-2378), harness checks `ComboRabbitHoleCheck` / `ComboFixCheck`
+two DLLs), fixes built. Switches `comboprotest`, `combovenue`, `combosituation`, `combojob`, `comboprotestlot`, `comboopp`
+(all default off, `mods/ts3fixes/src/ComboRabbitHole.cs`, counters 2337-2343, 2374-2378 and 2405-2408), harness checks `ComboRabbitHoleCheck` / `ComboFixCheck`
 (`ComboChecks.cs`), repro `combo-rabbithole-check`. Follows the City Hall ceremony finding (`ceremonyspot`, docs/546 §11).
 
 > **Correction 2026-11-14 (first in-game check, Appaloosa Plains):** a piece's `LotCurrent` is the **world lot**
@@ -72,6 +72,14 @@ detail not traced to the end (order of a query, a timing); **not a bug** = EA al
 | 24 | `MapTagManager` (`list4.Remove(rabbitHole.LotCurrent)`) | removes the world lot (not in `AllLots`), so a combo lot's tag is not replaced by the piece's tag (the piece's own tag sits on an out-of-world object) | pieces with `kReplaceLotMaptag` | likely, cosmetic | not fixed |
 | 25 | `ComboRabbitHole.Dispose` | destroys the pieces but never calls `base.Dispose` (the combo's own door jigs, alarms, reactions) | all, Edit Town delete only | verified, minor | not fixed |
 | 26 | `Teleporter.PreTeleport`, `GetClosestRabbitHoleOfType`, `RabbitHoleFieldTrip` carpool / Test, `PromSituation`, `HaveBabyHospital`, `Hideout` / `MilitaryBase` door code, `CareerEventManager` | use `RabbitHoleProxy` or swap in the combo | - | not a bug | - |
+| 28 | Opportunity steps whose listener EA aims at the building (`OpportunityManager.GetTargetForEvent` returns `TargetObject`, the building) for an event the piece's own interaction sends with the piece (`kAteAtRestaurant`: `CulinaryCareer_Report`) | the step never completes | restaurant combos | verified in code (§5) | `comboopp` |
+| 29 | `kInteractionSuccess` steps (`FindValidTargets`): Investigator case steps "eat at a restaurant / bistro" (`EP2_Case_CulinaryBackstab3`, `EP2_Case_SuperFruits2`), `EP3_Celebrity_RestaurantPromotion1`, `EP9_Academics_PhysEd_10` (Stadium `AttendGame`) | the building is not of the interaction's target type, so EA lists some other (random) object or none; the piece's event is never in the list: the step cannot be done at the building the map shows | restaurant / bistro / stadium combos | verified in code (§5) | `comboopp` |
+| 30 | `SchoolRabbitHole` audition / recital and `ScienceLab` imaginary-friend potion tests (`activeOpportunity.TargetObject != target`) | the target is the piece, the opportunity's target the building: the interaction never shows; EP4 auditions, recitals and both potion steps cannot be done | ComboSchoolStadium, ComboHospitalScienceLab | verified in code (§5) | `comboopp` |
+| 31 | `VisitRabbitHoleSynchronizedWithBase` (`AttendRecital`) follower wait (`follower.RabbitHoleCurrent != Target`) | `RabbitHoleCurrent` is the building, `Target` the piece: followers always count as not arrived; the leader waits the full hour, then drops and cancels them (no recital credit for the family) | ComboSchoolStadium | verified in code | not fixed (private method of a generic class; fix candidate) |
+| 32 | `RabbitHole.GetCaught.ShouldPushOnSim` (`CareerLoc.Owner == target`) | an NPC source Sim whose workplace is a piece of the target building is not seen as "at its workplace": EA pushes `GetCaught` on it during its work day (it walks into the same building; the `RequireSourceInRH` step still completes) | combos, rare | verified in code, minor | not fixed (candidate) |
+| 33 | `OpportunityManager.CheckTargetLotRequirement`, `WorldHasRabbitHoleType` (`lot.GetObjects<RabbitHole>()` with a Guid match) | never matches a combo lot (the pieces are on the world lot); used only by `Lot.VerifyLocationOpportunity` after build / buy on a lot holding a location opportunity, which then cancels it | combos, rare | verified in code, minor | not fixed (candidate) |
+| 34 | `kVisitedRabbitHole` steps at a combo (turn-in): Investigator "go to the police station" steps, `EP7_FortuneTellerCareer_HelpInvestigation_Police`, `CriminalCareer_BigHeist` ("Steal The Golden Llama!", City Hall), `RequireSourceInRH` steps | `SetupHelper` aims the opportunity at `RabbitHoleProxy`; the turn-in interaction is added to the building, sends the building, the listener waits for the building, the source Sim's `RabbitHoleCurrent` is the building: consistent | ComboCityhallPoliceMilitary and all | not a bug in the script code [static trace; not run] | - |
+| 35 | Investigator stakeouts / snooping at a rabbit hole target | the target list holds the building's lot (`TargetObject.LotCurrent`), the lot of the building: consistent | all | not a bug | - |
 | 27 | `Stadium` constructor sets `RabbitHoleProxy = this` | `OnCreation` sets the combo afterwards; on load the persisted field wins | combo stadiums | not a bug [inferred; `ComboRabbitHoleCheck` prints the proxy] | - |
 
 Rows 16-20 and 24 were first written for a null piece lot; they were re-traced with the world lot on 2026-11-14 (box at
@@ -91,6 +99,7 @@ and lot of a broadcaster moved from the world lot to the building and its lot), 
 | `combosituation` | `AutographSessionSituation.Create` (the building instead of the piece), `FieldTripSituation.Create` (ComboStadiumTheatre theatre link, #12) | 2340 autograph, 2342 theatre links |
 | `combojob` | `Occupation.InitializeBaseJobCreationSpec` (after EA: when EA found no rabbit hole, the job type's destination is RabbitHole and no stand-alone rabbit hole of the type is valid, EA's own steps over the pieces in random order with the building's lot: first valid lot, EA's household-job stop, start time; the job keeps the piece as its rabbit hole, as EA's RabbitHoleLot jobs do), `ActiveCareerMapTag.get_Target` (a piece reads as its building), `RabbitholeFirefightingJob.SetupRabbitholeRescue` / `GhostHunter.GhostHunterJob.CreateRabbitHoleInvestigation` (effect moved to the building) | 2374 jobs at a piece, 2375 map tag reads, 2376 effects moved |
 | `comboprotestlot` | `ImprovedProtestSituation.Create` (a world-lot protest moves to the combo City Hall's lot), `ImprovedProtestHelperObject.FindMapTagPickerInfo` (world-lot entries dropped); both only when a City Hall piece exists | 2377 protests moved, 2378 picker entries dropped |
+| `comboopp` | `OpportunityManager.GetTargetForEvent` (#28: the listener waits for the building's piece of the opportunity's rabbit hole type, except `kVisitedRabbitHole`, `kVisitedRabbitHoleWithPet`, `kDeliveredToSim`, `kWentToWork`), `OpportunityManager.FindValidTargets` (#29: the building is listed for a piece of the interaction's target type, so EA's own tag / effect code marks the building), `OpportunityInteractionCompleteListener.ProcessEvent` (#29: a piece's event is matched through its listed building), School `AttendAudition` / `AttendRecital` and ScienceLab `PurchaseImaginaryFriendPotion` / `DeliverImaginaryFriendRgm` `Definition.Test` (#30: run with the piece as the opportunity's target) | 2405 listener targets, 2406 success targets, 2407 events matched, 2408 tests passed |
 | all | | 2343 errors; 2335, 2336, 2339, 2341 retired; 2344 reserved |
 
 Removed 2026-11-14 after the first in-game check: `comboalarm` (hooks on `GameObject.RemoveAlarm` / `GetTimeLeft`; the bug
@@ -133,3 +142,33 @@ ICityHall order: the piece first); alarm "FIXED" with the switch off (the bug is
 (origin), venue threw `TargetException` in both arms (the check invoked a swapped method through `MethodInfo.Invoke`;
 the venue line now uses a delegate and only the remaining broadcaster hook), situation read FIXED off (the old verdict
 tested only for a lot; now it tests where the session is centred).
+
+## 5. Opportunities and the Investigator at a combo building (2026-11-14, static, `comboopp`)
+
+Player report: Investigator (and other) opportunities "bugging because of the police station combo", e.g. "help
+investigation" (`EP7_FortuneTellerCareer_HelpInvestigation_Police`) and "Golden Llama" (`CriminalCareer_BigHeist`, turn-in
+"Steal The Golden Llama!" at City Hall; the name was found in the game's English string table, not in the script code).
+
+How EA aims an opportunity at a rabbit hole [verified in code]: `SetupHelper` (Target `RabbitHole`) picks a rabbit hole
+of the type and returns its `RabbitHoleProxy`, so a combo's piece becomes the BUILDING. The "Workplace" target returns
+`CareerLoc.Owner` (the piece). The turn-in interaction is added to the target, so it is on the building, and it sends
+`kVisitedRabbitHole` with the building; the listener for that event (and `RequireSourceInRH` with the source Sim's
+`RabbitHoleCurrent`, which is the building) waits for the building. So both reported opportunities, every Investigator
+"go to the police station" step and every other turn-in step trace as consistent (#34): no combo bug was found for them
+in the script code. Not run in game: what "bugging" looks like for them is still open (an in-game look at one of them
+at Appaloosa Plains' ComboCityhallPoliceMilitary would settle it; time window and day checks are EA's normal ones).
+
+Shared root cause of the real failures (#28-#31): the opportunity's target is the building, but the piece's OWN
+interactions carry the piece, as `Target` and as the event's target. Every place that compares the two never matches:
+listeners from `GetTargetForEvent` (#28), the interaction-success target list (#29, two Investigator case steps), the
+School / ScienceLab tests (#30) and the recital follower wait (#31). `comboopp` treats a piece and its building as the
+same place at #28-#30 and changes nothing for opportunities at stand-alone rabbit holes (no piece is involved).
+
+Worlds: the Police Station is only a combo piece in Appaloosa Plains [verified in game: ComboCityhallPoliceMilitary].
+Starlight Shores was measured with combos too (coordinator note); which of its rabbit holes are combos is listed by
+`ComboRabbitHoleCheck "combo"`. Other worlds: not in the script code.
+
+Check: the `opp` line of `ComboFixCheck "run"` (first combo piece; a throwaway opportunity aimed at its building, never
+registered): BROKEN off (the `kAteAtRestaurant` listener waits for the building; a listener holding the building ignores
+the piece's interaction-success event), FIXED on (waits for the piece; event matched). The School / ScienceLab tests need
+an active special opportunity and are read through counter 2408 in play.

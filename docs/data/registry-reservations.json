@@ -2823,6 +2823,136 @@
       "what": "aptleave deferred party removal + household skips (docs/553)",
       "at": "2026-11-14T20:59:07.055Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2398",
+      "kind": "fixes",
+      "from": 2398,
+      "to": 2404,
+      "by": "claude",
+      "what": "party fixes: partylisteners, partyoutcome, partymotive (docs/554)",
+      "at": "2026-11-14T21:03:08.500Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-554",
+      "kind": "doc",
+      "from": 554,
+      "to": 554,
+      "by": "claude",
+      "what": "party system audit (all party types and lot types)",
+      "at": "2026-11-14T21:20:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2405",
+      "kind": "fixes",
+      "from": 2405,
+      "to": 2408,
+      "by": "combo-investigator-agent",
+      "what": "ComboRabbitHole.cs comboopp (docs/551)",
+      "at": "2026-11-14T21:06:09.018Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2409",
+      "kind": "fixes",
+      "from": 2409,
+      "to": 2411,
+      "by": "claude",
+      "what": "shuffleboardbcast: Shuffleboard.Play replaced reaction broadcasters disposed at Cleanup (docs/546 §17)",
+      "at": "2026-11-14T21:32:48.071Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2412",
+      "kind": "fixes",
+      "from": 2412,
+      "to": 2414,
+      "by": "claude",
+      "what": "cookclicklistener: CookingProcess clicked-object listeners of destroyed owners removed (docs/546 §17)",
+      "at": "2026-11-14T21:32:48.148Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2415",
+      "kind": "fixes",
+      "from": 2415,
+      "to": 2416,
+      "by": "claude",
+      "what": "etderefdiag: log the holders of destroyed objects ErrorTrap dereferences (docs/552 §11)",
+      "at": "2026-11-14T21:45:44.053Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-555",
+      "kind": "doc",
+      "from": 555,
+      "to": 555,
+      "by": "claude",
+      "what": "EA script logic-bug audit (semgrep rules, VIP room refresh)",
+      "at": "2026-11-14T22:17:49.175Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2417",
+      "kind": "fixes",
+      "from": 2417,
+      "to": 2419,
+      "by": "claude",
+      "what": "viproomrefresh: ResortManager.RefreshVIPRooms removes rooms while iterating (Collection was modified) (docs/555)",
+      "at": "2026-11-14T22:17:49.245Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2420",
+      "kind": "fixes",
+      "from": 2420,
+      "to": 2423,
+      "by": "claude",
+      "what": "courselistener: AcademicCareer course rabbit-hole listeners removed at leave / schedule rebuild, moved with ChangeRabbitHoleTo (docs/555 §4)",
+      "at": "2026-11-14T22:24:56.597Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2424",
+      "kind": "fixes",
+      "from": 2424,
+      "to": 2425,
+      "by": "claude",
+      "what": "observatorymsg: Simulon V stardust-only find shows the found notice (docs/555 §6)",
+      "at": "2026-11-14T22:24:56.684Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2426",
+      "kind": "fixes",
+      "from": 2426,
+      "to": 2427,
+      "by": "claude",
+      "what": "bubblepipeguard: BubbleBar BlowBubbles exits cleanly when the pipe prop is not created (docs/555 §7)",
+      "at": "2026-11-14T22:24:56.772Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-556",
+      "kind": "doc",
+      "from": 556,
+      "to": 556,
+      "by": "claude",
+      "what": "UI/StoreObjects/Metadata static scan (InferSharp, Roslynator) and shared-buff state fixes",
+      "at": "2026-11-14T22:33:19.350Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2428",
+      "kind": "fixes",
+      "from": 2428,
+      "to": 2434,
+      "by": "claude",
+      "what": "buffstate: per-Sim state kept on shared Buff definitions (Downtrodden alarm, Voodoo/Dragon curse listener, High Fertility trait, Hypnotized/Queasy handlers) (docs/556)",
+      "at": "2026-11-14T22:33:19.441Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

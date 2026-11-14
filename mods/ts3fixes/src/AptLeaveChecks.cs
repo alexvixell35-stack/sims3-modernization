@@ -38,7 +38,12 @@ namespace Ts3Fixes
     //       WAIT    not in the P room yet (or no decision recorded yet)
     //   "home": EA's Sim.MakeSimGoHome for the test Sim (a real departure): "status" must then show the farewell flag set
     //     (EA's GoHome call, never touched by the fix) in both arms.
-    //   "unparty": exits the HouseParty "party make" created.
+    //   "unparty": exits the HouseParty "party make" or "hhguest" created.
+    //   "hhguest": household case. An NPC who lives in another apartment building hosts a HouseParty there (made by the
+    //     check, no invitations); the selected Sim becomes its guest, is placed in an unmarked room there and walks into the
+    //     public room behind a U|P door. "status" then: off BROKEN (removed as left early), on FIXED (still a guest).
+    //   "hhexit": that Sim leaves the lot for real (EA's VisitLot to its home lot): on, the deferred EA removal runs at the
+    //     lot change ("status": party=left-early, counter 2395 +1); off, it was already removed in the hallway.
     //   "throw [n] [now]" / "nudge" / "partyreport" / "partyend": a real party thrown the phone's way, per-guest tracking
     //     and EA's party score (AptLeavePartyCheck.cs).
     public static partial class Fixes
@@ -58,6 +63,8 @@ namespace Ts3Fixes
                 if (mode == "status") return AlStatus();
                 if (mode == "home") return AlHome();
                 if (mode == "unparty") return AlUnparty();
+                if (mode == "hhguest") return AlHouseholdGuest();
+                if (mode == "hhexit") return AlHouseholdExit();
                 object real = AlPartyMode(mode, w);  // throw / nudge / partyreport / partyend (AptLeavePartyCheck.cs)
                 if (real != null) return real;
                 Lot lot = AlLot(w.Length > 1 && w[1] != "make" ? w[1] : "active");
@@ -65,7 +72,7 @@ namespace Ts3Fixes
                 if (mode == "list") return AlList(lot);
                 if (mode == "visit") return AlSetup(lot, false, false);
                 if (mode == "party") return AlSetup(lot, true, Array.IndexOf(w, "make") > 0);
-                return "apartment leave check: list|visit|party [make] [hex lot id|active] | status|home|unparty | throw [n] [now]|nudge|partyreport|partyend";
+                return "apartment leave check: list|visit|party [make] [hex lot id|active] | status|home|unparty|hhguest|hhexit | throw [n] [now]|nudge|partyreport|partyend";
             }
             catch (Exception e) { return "apartment leave check: " + e.GetType().Name + ": " + e.Message; }
         }
@@ -136,7 +143,8 @@ namespace Ts3Fixes
         static string AlCounters()
         {
             int[] c = PatchCounters();
-            return "aptleave " + (ShortcutOn("aptleave") ? "on" : "off") + ", counters 2391-2394 (skipped/run-on/seen/errors): " + c[2391] + " " + c[2392] + " " + c[2393] + " " + c[2394];
+            return "aptleave " + (ShortcutOn("aptleave") ? "on" : "off") + ", counters 2391-2397 (skipped/run-on/seen/errors/deferred-applied/deferred-dropped/household-skipped): "
+                + c[2391] + " " + c[2392] + " " + c[2393] + " " + c[2394] + " " + c[2395] + " " + c[2396] + " " + c[2397];
         }
 
         // ---- list ----
@@ -198,24 +206,57 @@ namespace Ts3Fixes
             return GlobalFunctions.FindGoodLocation(s, fgl, out pos, out fwd) ? pos : Vector3.Invalid;
         }
 
+        // A U|P door `s` may pass with a free spot on both sides; false when none.
+        static bool AlPickDoor(Lot lot, Sim s, out AlDoor door, out Vector3 u, out Vector3 p)
+        {
+            door = new AlDoor(); u = Vector3.Invalid; p = Vector3.Invalid;
+            foreach (AlDoor d in AlDoors(lot))
+            {
+                if (d.Door.IsLocked || d.Door.IsAllowedThrough(d.U, d.P, s) != PortalRestriction.None) continue;
+                u = AlSpotIn(s, d.Door.Position, d.U);
+                p = AlSpotIn(s, d.Door.Position, d.P);
+                if (u != Vector3.Invalid && p != Vector3.Invalid) { door = d; return true; }
+            }
+            return false;
+        }
+
+        // Test placement (like HiddenRoomCheck trap): queue cleared, standing, put at `at`.
+        static void AlPlace(Sim s, Vector3 at)
+        {
+            s.InteractionQueue.CancelAllInteractions();
+            if (s.Posture != s.Standing) s.Posture = s.Standing;
+            s.SetPosition(at);
+            s.RemoveFromWorld();
+            s.AddToWorld();
+            s.SimRoutingComponent.ForceUpdateDynamicFootprint();
+        }
+
+        // `s` becomes a fresh guest of `hs` the way HouseParty.TimeToInviteGuests adds one.
+        static void AlMakeGuest(HostedSituation hs, Sim s)
+        {
+            hs.SimsWhoLeftParty.Remove(s);
+            hs.SimsWhoLeftEarly.Remove(s);
+            if (!hs.Guests.Contains(s)) { hs.Guests.Add(s); s.AssignRole(hs); }
+        }
+
+        // EA's Go Here to `p` (target lot = the lot of p), the walk that fires EA's room-change call. Records the test Sim.
+        static bool AlWalk(Sim s, Vector3 p, AlDoor door)
+        {
+            Terrain.GoHere go = Terrain.GoHere.SameLotSingleton.CreateInstance(Terrain.Singleton, s, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true) as Terrain.GoHere;
+            if (go == null) return false;
+            go.SetDestination(p, Terrain.GoHere.DestinationType.OnTerrain);
+            sAlTestSim = s; sAlTestU = door.U; sAlTestP = door.P; sAlTestAt = SimClock.CurrentTicks;
+            return s.InteractionQueue.Add(go);
+        }
+
         static object AlSetup(Lot lot, bool party, bool make)
         {
             if (!lot.HasVirtualResidentialSlots) return "setup: N/A (" + lot.Name + " has no virtual residential slots: not an apartment lot)";
             if (Household.ActiveHousehold == null || lot != Household.ActiveHousehold.LotHome) return "setup: N/A (EA's farewell only runs on the active household's home lot; " + lot.Name + " is not it)";
-            List<AlDoor> doors = AlDoors(lot);
-            if (doors.Count == 0) return "setup: N/A (no unlocked door between an unmarked and a public room on " + lot.Name + ")";
             Sim npc = AlPickNpc(lot);
             if (npc == null) return "setup: no adult human NPC visitor candidate in the world";
-            Vector3 u = Vector3.Invalid, p = Vector3.Invalid;
-            AlDoor door = doors[0];
-            foreach (AlDoor d in doors)
-            {
-                if (d.Door.IsLocked || d.Door.IsAllowedThrough(d.U, d.P, npc) != PortalRestriction.None) continue;
-                u = AlSpotIn(npc, d.Door.Position, d.U);
-                p = AlSpotIn(npc, d.Door.Position, d.P);
-                if (u != Vector3.Invalid && p != Vector3.Invalid) { door = d; break; }
-            }
-            if (u == Vector3.Invalid || p == Vector3.Invalid) return "setup: N/A (no U|P door with a spot on both sides the NPC may pass)";
+            AlDoor door; Vector3 u, p;
+            if (!AlPickDoor(lot, npc, out door, out u, out p)) return "setup: N/A (no U|P door with a spot on both sides the NPC may pass on " + lot.Name + ")";
 
             HostedSituation hs = null;
             if (party)
@@ -231,31 +272,59 @@ namespace Ts3Fixes
                 if (hs == null) return "setup: N/A (no party on " + lot.Name + "; throw one, or run 'party make')";
             }
 
-            // place in the U room (like HiddenRoomCheck trap)
-            npc.InteractionQueue.CancelAllInteractions();
-            if (npc.Posture != npc.Standing) npc.Posture = npc.Standing;
-            npc.SetPosition(u);
-            npc.RemoveFromWorld();
-            npc.AddToWorld();
-            npc.SimRoutingComponent.ForceUpdateDynamicFootprint();
+            AlPlace(npc, u);
             npc.GreetSimOnLot(lot);
             VisitSituation v = VisitSituation.FindVisitSituationInvolvingGuest(npc) ?? VisitSituation.Create(npc, lot);
             if (v != null) v.mbSimAnnouncedLeaving = false;
-            if (hs != null)
-            {
-                hs.SimsWhoLeftParty.Remove(npc);
-                hs.SimsWhoLeftEarly.Remove(npc);
-                if (!hs.Guests.Contains(npc)) { hs.Guests.Add(npc); npc.AssignRole(hs); }
-            }
-            // EA's GoHere to the P room: target lot = this lot
-            Terrain.GoHere go = Terrain.GoHere.SameLotSingleton.CreateInstance(Terrain.Singleton, npc, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true) as Terrain.GoHere;
-            if (go == null) return "setup: could not create GoHere";
-            go.SetDestination(p, Terrain.GoHere.DestinationType.OnTerrain);
-            bool queued = npc.InteractionQueue.Add(go);
-            sAlTestSim = npc; sAlTestU = door.U; sAlTestP = door.P; sAlTestAt = SimClock.CurrentTicks;
+            if (hs != null) AlMakeGuest(hs, npc);
+            bool queued = AlWalk(npc, p, door);
             return "setup: " + npc.FullName + " placed in " + AlRoom(lot, npc.RoomId) + " (wanted r" + door.U + ") on " + lot.Name + ", visit=" + (v != null ? "yes" : "NONE")
                 + (hs != null ? ", guest of " + hs.GetType().Name + (hs == sAlMadeParty ? " (made)" : "") : "") + "; GoHere to r" + door.P + " queued=" + queued
                 + " @" + Math.Round(p.x, 1) + "," + Math.Round(p.z, 1) + "\n  " + AlSimLine(npc) + "\n" + AlCounters();
+        }
+
+        // ---- household guest at an NPC's apartment party ----
+
+        // hhguest: an NPC living in another apartment building hosts a HouseParty there (no invitations, made by the check,
+        // like the agent's throw_party); the selected Sim becomes its guest, is placed in an unmarked room of that building
+        // and walks into the public room behind a U|P door. off: EA removes it as left early; on: kept (2397), deferred.
+        static object AlHouseholdGuest()
+        {
+            Sim me = PlumbBob.SelectedActor;
+            if (me == null) return "hhguest: no selected Sim";
+            if (sAlMadeParty != null) return "hhguest: a check party is running; run unparty first";
+            Sim host = null;
+            Lot lot = null;
+            AlDoor door = new AlDoor(); Vector3 u = Vector3.Invalid, p = Vector3.Invalid;
+            foreach (Sim s in LotManager.Actors)
+            {
+                if (s == null || s.HasBeenDestroyed || !IsNpcSim(s) || !s.IsHuman || s.SimDescription == null || !s.SimDescription.YoungAdultOrAbove) continue;
+                Lot h = s.LotHome;
+                if (h == null || h == me.LotHome || !h.HasVirtualResidentialSlots) continue;
+                if (AlPickDoor(h, me, out door, out u, out p)) { host = s; lot = h; break; }
+            }
+            if (host == null) return "hhguest: N/A (no instantiated NPC who lives in another apartment building with a U|P door the selected Sim may pass)";
+            HouseParty hs = new HouseParty(lot, host, new List<SimDescription>(), Sims3.SimIFace.CAS.OutfitCategories.Everyday, SimClock.CurrentTime(), false);
+            sAlMadeParty = hs;
+            AlPlace(me, u);
+            me.GreetSimOnLot(lot);
+            AlMakeGuest(hs, me);
+            bool queued = AlWalk(me, p, door);
+            return "hhguest: " + me.FullName + " (household) guest of " + host.FullName + "'s HouseParty on " + lot.Name + " (" + lot.LotId.ToString("X") + "), placed in "
+                + AlRoom(lot, me.RoomId) + ", GoHere to r" + door.P + " queued=" + queued + "\n  " + AlSimLine(me) + "\n" + AlCounters();
+        }
+
+        // hhexit: the test Sim leaves that lot for real (EA's VisitLot to its home lot); with aptleave on, the deferred
+        // removal must run when its lot changes (2395 +1, party=left-early in status).
+        static object AlHouseholdExit()
+        {
+            Sim s = sAlTestSim;
+            if (s == null || s.HasBeenDestroyed) return "hhexit: no test Sim";
+            Lot home = s.LotHome;
+            if (home == null || home == s.LotCurrent) return "hhexit: N/A (no other home lot)";
+            InteractionInstance go = VisitLot.Singleton.CreateInstance(home, s, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
+            bool queued = go != null && s.InteractionQueue.Add(go);
+            return "hhexit: VisitLot " + home.Name + " queued=" + queued + " for " + s.FullName + "\n  " + AlSimLine(s) + "\n" + AlCounters();
         }
 
         // ---- status / home / unparty ----
@@ -267,25 +336,30 @@ namespace Ts3Fixes
             StringBuilder sb = new StringBuilder();
             sb.Append("status: ").Append(AlSimLine(s)).Append('\n');
             ulong id = s.SimDescription.SimDescriptionId;
+            // The verdict judges the first decision after the walk was queued (the hallway step under test), by what it
+            // recorded at that moment; later decisions (a real departure, another walk) are only summarised. Reading live
+            // state instead gave OTHER/BROKEN in the 2026-11-14 run where the Sim later went home (EA's own removal).
             int mine = 0;
-            AlEvent last = new AlEvent();
+            AlEvent first = new AlEvent();
+            string later = "";
             foreach (AlEvent e in sAlEvents)
             {
                 if (e.Id != id || e.Ticks < sAlTestAt) continue;
+                if (mine == 0) first = e;
+                else later += (later.Length > 0 ? "; " : "") + (e.Skipped ? "skipped" : "ran") + " (" + e.Why + ")";
                 mine++;
-                last = e;
                 sb.Append(AlEventLine(e)).Append('\n');
             }
             Lot lot = s.LotCurrent;
             bool inP = lot != null && s.RoomId == sAlTestP;
-            bool ann = AlAnnounced(s), guest = AlGuest(s);
-            HostedSituation left = HostedSituation.GetHostedSituationIAmLeaving(s);
-            bool wasGuest = guest || left != null;
+            bool lost = (first.GuestBefore && !first.GuestAfter) || (!first.AnnBefore && first.AnnAfter);
             string verdict;
             if (mine == 0) verdict = inP ? "WAIT (in r" + sAlTestP + " but no room-change farewell decision recorded: hook missing? check fix_applied for Sim.RoomChanged / VisitSituation.OnSimLeavingLot)" : "WAIT (not in r" + sAlTestP + " yet)";
-            else if (!last.Skipped && (ann || (wasGuest && !guest))) verdict = "BROKEN (EA's farewell ran on a hallway walk: farewell flag " + ann + (wasGuest ? ", party guest " + guest : "") + ")";
-            else if (last.Skipped && !ann && (!wasGuest || guest)) verdict = "FIXED (farewell skipped, visit and party guest kept)";
-            else verdict = "OTHER (see the decision lines)";
+            else if (!first.Skipped && lost) verdict = "BROKEN (EA's call ran on the hallway step: farewell flag " + first.AnnBefore + "->" + first.AnnAfter + ", party guest " + first.GuestBefore + "->" + first.GuestAfter + ")";
+            else if (first.Skipped && !lost) verdict = "FIXED (hallway step skipped: " + first.Why + "; farewell flag and party guest kept)";
+            else if (!first.Skipped) verdict = "OTHER (EA's call ran but changed nothing: " + first.Why + ")";
+            else verdict = "OTHER (skipped but state changed: see the decision lines)";
+            if (later.Length > 0) verdict += "; later: " + later + (later.IndexOf("ran (") >= 0 ? " (a later 'ran' with a leaving reason = a real departure: EA's removal then is expected)" : "");
             sb.Append("verdict: ").Append(verdict).Append('\n').Append(AlCounters());
             return sb.ToString();
         }

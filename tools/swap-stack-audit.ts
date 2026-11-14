@@ -41,7 +41,7 @@ const TARGET_VARS: Record<string, string> = {
   'SimFestKeep.cs:sSfPresent': 'ShowStage+EmceePresentSimFestAward', 'JoyrideCostume.cs:jd': 'GoForJoyride+Definition',
   'JoyrideCostume.cs:rd': 'RouteAndGetToCostumeForJoyride+Definition', 'SyncWaitLog.cs:si': 'SocialInteraction',
   'WeddingArchKeep.cs:sWaSlotRoute': 'WeddingArch+RouteToWeddingArchSlot', 'BoardingRefund.cs:sBsCarState': 'BoardingSchoolPickUpSituation+CreateCarAndRoute',
-  'SplashRoof.cs:ia': 'Sim+AutonomousSplashInPuddle',
+  'SplashRoof.cs:ia': 'Sim+AutonomousSplashInPuddle', 'ShuffleboardBroadcast.cs:play': 'Shuffleboard+Play', 'CookClickListener.cs:cp': 'CookingProcess', 'ErrorTrapDerefDiag.cs:dm': 'mod:ErrorTrap', 'SmallEaFixes555.cs:sBbBlow': 'BubbleBar+BlowBubbles',
 };
 // reviewed in docs/242: hooks that may have no stub
 const kNoStub = new Set<string>();
