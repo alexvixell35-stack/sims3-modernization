@@ -14,7 +14,7 @@ using Sims3.Store.Objects;
 
 namespace Ts3Fixes
 {
-    // buffstate (tuning kBuffState, off by default; docs/556). EA bug fixes, exact for a single Sim, every Sim.
+    // buffstate (tuning kBuffState, off by default; docs/557). EA bug fixes, exact for a single Sim, every Sim.
     //
     // A Buff object is shared: BuffManager keeps one per buff guid (BuffDictionary) and every Sim's BuffInstance points
     // at it, so a field on a Buff subclass is one slot for every Sim that has the buff [verified, decompiled]. Six EA buffs

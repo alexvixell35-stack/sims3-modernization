@@ -1,4 +1,4 @@
-// UI subscription leak scan (docs/556). For every C# file of a local decompile, lists handlers added with `+=` to an
+// UI subscription leak scan (docs/557). For every C# file of a local decompile, lists handlers added with `+=` to an
 // event on a long-lived receiver (a model behind Responder.Instance, a field holding a model, a singleton `.Instance`,
 // or a static event on a type) that the same file never removes with `-=` (same event name, same handler name).
 // A UI panel that subscribes a model and is disposed without unsubscribing stays reachable from the model and keeps

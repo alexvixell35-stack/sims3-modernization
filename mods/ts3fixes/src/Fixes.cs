@@ -104,7 +104,8 @@ namespace Ts3Fixes
             ApplyCookClickListener();  // docs/546 §17, off by default (leak; exact for every Sim)
             ApplyVipRoomRefresh();  // docs/555 §3, off by default (EA throw; exact for every Sim)
             ApplySmallFixes555();  // docs/555 §4/§6/§7, off by default (courselistener, observatorymsg, bubblepipeguard; exact for every Sim)
-            ApplyBuffState();  // docs/556, off by default (per-Sim state on shared Buff objects; exact for one Sim, every Sim)
+            ApplyBuffState();  // docs/557, off by default (per-Sim state on shared Buff objects; exact for one Sim, every Sim)
+            ApplyStoreWorldEvents();  // docs/557 §4.2, off by default (leak: dead store-object handlers on static World events)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -382,7 +383,8 @@ namespace Ts3Fixes
         // [2417-2419] viproomrefresh (VipRoomRefresh.cs, docs/555 §3): RefreshVIPRooms calls where EA's foreach would throw (also off) / empty VIP rooms removed over a copy / errors.
         // [2420-2423] courselistener (SmallEaFixes555.cs, docs/555 §4): course listeners removed at leave / schedule rebuild / moved with the course / stale moves seen (also off) / errors.
         // [2424-2425] observatorymsg (SmallEaFixes555.cs, docs/555 §6): Simulon V stardust-only notices corrected (also off) / errors. [2426-2427] bubblepipeguard: failed-pipe exits / errors.
-        // [2428-2434] buffstate (BuffSharedState.cs, docs/556): Downtrodden removals that would leave the Sim's alarm (also off) / Downtrodden alarms removed / curse removals hitting another Sim's listener (also off) / curse listeners fixed / Fertility Treatment traits removed / hypnosis+queasy handlers replaced / errors.
+        // [2428-2434] buffstate (BuffSharedState.cs, docs/557): Downtrodden removals that would leave the Sim's alarm (also off) / Downtrodden alarms removed / curse removals hitting another Sim's listener (also off) / curse listeners fixed / Fertility Treatment traits removed / hypnosis+queasy handlers replaced / errors.
+        // [2435-2437] storeworldevents (StoreWorldEvents.cs, docs/557 §4.2): dead object handlers on World quit / placed-in-lot and ObjectGroupSaving (also off) / removed / errors.
         // [2415-2416] etderefdiag (ErrorTrapDerefDiag.cs, docs/552 §11, log only, on): etderef: lines written / errors.
         // [2412-2414] cookclicklistener (CookClickListener.cs, docs/546 §17): clicked-object listeners of destroyed servings removed / ObjectDisposed handlers unhooked from the original object / errors.
         // [2387-2390] hiddenroomspawn (HiddenRoomSpawn.cs, docs/552): reset fallbacks re-picked / corner spots re-picked / created service NPCs moved / errors.
@@ -661,6 +663,7 @@ namespace Ts3Fixes
                 case "observatorymsg": return Instantiator.kObservatoryMsg;
                 case "bubblepipeguard": return Instantiator.kBubblePipeGuard;
                 case "buffstate": return Instantiator.kBuffState;
+                case "storeworldevents": return Instantiator.kStoreWorldEvents;
                 case "awardkeep": return Instantiator.kAwardKeep;
                 case "ceremonyspot": return Instantiator.kCeremonySpot;
                 case "eventcrowdring": return Instantiator.kEventCrowdRing;

@@ -245,6 +245,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kObservatoryMsg value="False" />
     <kBubblePipeGuard value="False" />
     <kBuffState value="False" />
+    <kStoreWorldEvents value="False" />
     <kAwardKeep value="False" />
     <kCeremonySpot value="False" />
     <kEventCrowdRing value="False" />

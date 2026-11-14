@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run Microsoft InferSharp (MIT, github.com/microsoft/infersharp v1.5) on the game's script assemblies (docs/555, docs/556).
+# Run Microsoft InferSharp (MIT, github.com/microsoft/infersharp v1.5) on the game's script assemblies (docs/555, docs/557).
 # InferSharp translates IL (Mono.Cecil) to Infer's SIL and runs Infer Pulse: interprocedural null dereference, resource
 # leak and thread-safety checks. No decompile needed. Results stay local (game-copy/analysis/infersharp/<name>/).
 #

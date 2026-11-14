@@ -68187,8 +68187,8 @@
   },
   {
     "id": "buff-shared-state",
-    "bug": "EA buff classes keep per-Sim state on the shared Buff object (one per buff guid): BuffDowntrodden.OnRemoval removes the handle of the last Sim that got the buff, so with two Sims downtrodden at once the first keeps its 5-minute AlwaysPersisted PushDowntrodden alarm for good (hidden BeDowntrodden pushed whenever its queue is empty, saved with the game) and the second loses its alarm early; same shape in the Voodoo and Dragon curse listeners, High Fertility's trait cleanup and the Hypnotized / Queasy handlers (docs/556)",
-    "fix": "ts3fixes BuffSharedState.cs: buffstate (default off), docs/556",
+    "bug": "EA buff classes keep per-Sim state on the shared Buff object (one per buff guid): BuffDowntrodden.OnRemoval removes the handle of the last Sim that got the buff, so with two Sims downtrodden at once the first keeps its 5-minute AlwaysPersisted PushDowntrodden alarm for good (hidden BeDowntrodden pushed whenever its queue is empty, saved with the game) and the second loses its alarm early; same shape in the Voodoo and Dragon curse listeners, High Fertility's trait cleanup and the Hypnotized / Queasy handlers (docs/557)",
+    "fix": "ts3fixes BuffSharedState.cs: buffstate (default off), docs/557",
     "save": "any world with two NPC Sims instantiated (not in the active household)",
     "note": "BuffStateCheck (BuffSharedState.cs) 'run' calls BuffDowntrodden's OnAddition for NPC A then B and OnRemoval for A through the patch (not BuffManager.AddElement: the buff's ShouldAdd wants a nightlife venue), counts each Sim's PushDowntrodden alarms in AlarmManager, then always removes B's buff state and any alarm left on A or B. The two NPCs get the walk-of-shame walk style requested and released within the call; no alarm fires in between.",
     "expect": "off: 'verdict: BROKEN' (A alarms left 1, B 0), 2428 +1, 2429 +0. on: 'verdict: FIXED' (A 0, B 1), 2428 +1, 2429 +1, 2434 +0; no script errors.",
@@ -68262,6 +68262,87 @@
         "cmd": "patches",
         "args": {
           "buffstate": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "store-world-events",
+    "bug": "Store objects (DeepFryerVegas, IceCreamMaker, VoodooDoll, ChocolateFountain, WalkerClassic) add instance handlers to the static World.OnObjectPlacedInLotEventHandler / OnWorldQuitEventHandler and LoadSaveManager.ObjectGroupSaving in OnStartup and never remove them: deleted objects and every earlier world's objects stay reachable from SimIFace statics, one more dead handler per object per load (docs/192 #2, docs/557 §4.2)",
+    "fix": "ts3fixes StoreWorldEvents.cs: storeworldevents (default off), docs/557 §4.2",
+    "save": "any world",
+    "note": "StoreWorldEventsCheck 'run' adds DeepFryerVegas.OnPlacedInWorldHandler bound to an uninitialized fryer (never created in the simulator: no proxy, like a deleted fryer) to World.OnObjectPlacedInLotEventHandler as OnStartup does, runs the sweep pass once, reports whether it is still listed, then removes it in both arms. Nothing in the world changes.",
+    "expect": "off: 'verdict: BROKEN' (still in), 2435 +1, 2436 +0. on: 'verdict: FIXED' (removed), 2435 +1, 2436 +1, 2437 +0; no script errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "storeworldevents": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StoreWorldEventsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: the dead handler stays"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StoreWorldEventsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "storeworldevents": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StoreWorldEventsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: swept"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StoreWorldEventsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "storeworldevents": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "storeworldevents": false
         }
       }
     ]
