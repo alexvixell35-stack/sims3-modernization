@@ -964,7 +964,7 @@ static void TestMonoJitBoundCall() {
     g_jtLen[0xEC] = 4;
     g_jitBc = (JitBoundStats*)&C.bcOn;
     static_assert(offsetof(Ts3nCounters, bcOn) == 0x6278 && offsetof(Ts3nCounters, bcSpare) == 0x62A0 && sizeof(JitBoundStats) == 12 * 4 &&
-                      sizeof(Ts3nCounters) == 6323 * 4, "counters v194 layout after the v193 hold (docs/registry.md)");
+                      sizeof(Ts3nCounters) == 6337 * 4, "counters v194 layout after the v193 hold (docs/registry.md)");
     const JitBoundEntryFn entry0 = g_jitBoundEntry;
     g_jitBoundEntry = JtE525C0, g_jitBoundInv[0] = (DWORD)(uintptr_t)JtBoundInv, g_jitBoundInv[1] = 0, C.bcOn = 1, g_jitBoundMask = 1;
     // the cache's class and target: a transformed instance method with an EA native body, no lazy body, one int result

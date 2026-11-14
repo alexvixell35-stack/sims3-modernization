@@ -33,7 +33,7 @@ static void TestGoalValidRO() {
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, gvReady) == 0x47DC && offsetof(Ts3nCounters, gvMode) == 0x47E0 &&
                       offsetof(Ts3nCounters, gvShadow) == 0x47E4 && offsetof(Ts3nCounters, gvFb) == 0x47FC &&
-                      offsetof(Ts3nCounters, gvShadowEmpty) == 0x4820 && sizeof(Ts3nCounters) == 6323 * 4,
+                      offsetof(Ts3nCounters, gvShadowEmpty) == 0x4820 && sizeof(Ts3nCounters) == 6337 * 4,
                   "counters v118 layout after v117 (docs/registry.md)");
     assert(k.version == 912);
     assert(kGvSite.site == 0x0075A647 && kGvSite.target == 0x0082EDB0);
@@ -216,7 +216,7 @@ static void TestGvAttrNoLater() {
                       offsetof(Ts3nCounters, gvuKind) == 0x6038 && offsetof(Ts3nCounters, gvaPlansN) == 0x6048 &&
                       offsetof(Ts3nCounters, gvaNoLaterN) == 0x604C && offsetof(Ts3nCounters, gvaNoLaterUs) == 0x6050 &&
                       offsetof(Ts3nCounters, gvaWhyWaitUs) == 0x6054 && offsetof(Ts3nCounters, gvuSpare) == 0x60A4 &&
-                      sizeof(Ts3nCounters) == 6323 * 4 && GVA_WHY_NONE == 19 &&
+                      sizeof(Ts3nCounters) == 6337 * 4 && GVA_WHY_NONE == 19 &&
                       sizeof(kRfbName) / sizeof(kRfbName[0]) == GVA_WHY_NONE,
                   "counters v189 layout after v188 (docs/registry.md)");
     k.gvaPlansN = k.gvaNoLaterN = k.gvaNoLaterUs = 0;

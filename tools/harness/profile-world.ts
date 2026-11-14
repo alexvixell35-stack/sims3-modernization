@@ -73,6 +73,7 @@ import { spawn } from 'node:child_process';
 import { appendFileSync, closeSync, createWriteStream, existsSync, mkdirSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { classify } from './shadow-compare-report.ts';
+import { lastLockWaitLineInFile } from './lock-wait-line.ts';
 import { parseArgs } from 'node:util';
 import { checkRequire, nativeWindowStep, numericFields, parseRequire, stepTally } from './fixes-require.ts';
 import { checkHitchTasks, parseHitchTasks } from './hitch-tasks.ts';
@@ -495,7 +496,7 @@ const fwLoop = (async () => {
     if (!sl) continue;
     const r = await ag('fixed_work');
     if (!r.ok || typeof r.result?.usPer100 !== 'number') {
-      if (++fails >= 2) { console.log(`${stamp()} FAIL: fixed_work failed twice in a row: ${String(r.error).split('\n')[0].slice(0, 200)} (agent package without the command?)`); await restoreFixes(); process.exit(1); }
+      if (++fails >= 2) { console.log(`${stamp()} FAIL: fixed_work failed twice in a row: ${String(r.error).split('\n')[0].slice(0, 200)} (${((l) => l ? `sim frozen on the route lock, docs/264: ${l.slice(0, 300)}` : 'agent package without the command?')(lastLockWaitLineInFile(NLOG))})`); await restoreFixes(); process.exit(1); }
       continue;
     }
     fails = 0;
