@@ -85,7 +85,7 @@ namespace Ts3Agent
                 Sims3.Gameplay.Core.Lot lot = null;
                 if (hh != null)
                 {
-                    foreach (Sim s in hh.Sims) { if (s != null) l.Add(Snap(s, true)); }
+                    foreach (Sim s in hh.AllActors) { if (s != null) l.Add(Snap(s, true)); }
                     Sim act = Sims3.Gameplay.Actors.Sim.ActiveActor;
                     if (act != null) lot = act.LotCurrent;
                 }
@@ -215,7 +215,7 @@ namespace Ts3Agent
             string only = a.Str("only", "");
             List<object> outl = new List<object>();
             List<Sims3.Gameplay.Abstracts.GameObject> objs = new List<Sims3.Gameplay.Abstracts.GameObject>(hh.LotHome.GetObjects<Sims3.Gameplay.Abstracts.GameObject>());
-            foreach (Sims3.Gameplay.Actors.Sim s in hh.Sims)
+            foreach (Sims3.Gameplay.Actors.Sim s in hh.AllActors)
             {
                 if (s == null || s.SimDescription == null || s.SimDescription.Baby) continue;
                 string[][] list = s.SimDescription.IsHuman ? kRoutine : kPetRoutine;
@@ -244,8 +244,8 @@ namespace Ts3Agent
         {
             List<Sims3.Gameplay.Abstracts.GameObject> targets = new List<Sims3.Gameplay.Abstracts.GameObject>();
             if (act[1] == "self") targets.Add(s);
-            else if (act[1] == "sim") { foreach (Sims3.Gameplay.Actors.Sim o in hh.Sims) if (o != null && o != s && o.LotCurrent == s.LotCurrent && o.SimDescription.IsHuman) targets.Add(o); }
-            else if (act[1] == "pet") { foreach (Sims3.Gameplay.Actors.Sim o in hh.Sims) if (o != null && o != s && o.LotCurrent == s.LotCurrent && !o.SimDescription.IsHuman) targets.Add(o); }
+            else if (act[1] == "sim") { foreach (Sims3.Gameplay.Actors.Sim o in hh.AllActors) if (o != null && o != s && o.LotCurrent == s.LotCurrent && o.SimDescription.IsHuman) targets.Add(o); }
+            else if (act[1] == "pet") { foreach (Sims3.Gameplay.Actors.Sim o in hh.AllActors) if (o != null && o != s && o.LotCurrent == s.LotCurrent && !o.SimDescription.IsHuman) targets.Add(o); }
             else
             {
                 string[] keys = act[1].Split('|');

@@ -160,3 +160,29 @@ repeating with interval <= 0 and due > 1 sim year out.
 switch silently stayed off; unlisted bool names now pass through and are echoed as `unlisted`. The household routine
 skipped every non-human; pets now get their own rotation (eat, play, sleep, wander) and census rows carry `[Dog]`,
 `[Cat]`, `[Horse]`.
+
+## 8. Household pet route failures, Appaloosa Plains (2026-11-14; data for the pet-routing work, no fix here)
+
+phase-20261114-0117, Lionheart household (1 human, 4 pets), 26 min of household routine. ts3native `routefail:` lines for
+household Sims: **296 failed plans, 8.1 s of planning in total**, single failed searches up to 712 ms (each one a frame
+freeze; household Sims, so no deadline cuts them). By interaction and result:
+
+| Interaction | Result | Total | Count | Max |
+|---|---|---|---|---|
+| DrinkFromPond (pet) | NoPathToDestination | 1,782 ms | 9 | 684 ms |
+| LookOutWindow (pet) | NoPathToDestination | 1,245 ms | 8 | 317 ms |
+| SocialInteractionA | DestinationPortalLocked | 1,082 ms | 33 | 331 ms |
+| CatShredNewspaper | NoPathToDestination | 712 ms | 1 | 712 ms |
+| LayDownHere (pet) | DestinationPortalLocked | 620 ms | 2 | 324 ms |
+| RunAround (pet) | NoPath / NoDestinationSpecified | 275 ms + | 34 + 26 | 65 ms |
+| UseLitterBox (kitten) | NoPathToDestination, same 1.6 m route each time | small | 23 | 8 ms |
+
+EA code [verified, decompiled]:
+- `DrinkFromPondAutonomously` (Sim.cs) aims at `World.FindPondRepresentativePositions(lot)[0]`, always the first point; its
+  test checks lot, terrain type and frozen ponds, never reachability. `Terrain.DrinkFromPond.Definition.Test` returns true.
+  An unreachable first point fails the same way at every thirsty moment (`RouteToDrinkLocation`: shoreline search, then
+  `CreateRouteToNaturalWaterBody` + `Plan`).
+- `LitterBox.UseLitterBox.Definition.Test` returns true; `Run` fails at `RouteToSlotListAndCheckInUse`.
+- `CommonDoor.tLock.Pets` gives pets `PortalRestriction.DoorRestriction`; the pet `DestinationPortalLocked` failures point at
+  targets behind such doors. Agent command `doors` (new) lists each door's lock and the rooms it joins.
+- The existing `[RouteAsync] FailMemo` (docs/164 §7) reuses a failure only within 500 ms; these repeats are minutes apart.

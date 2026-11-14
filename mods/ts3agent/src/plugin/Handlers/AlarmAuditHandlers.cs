@@ -12,7 +12,7 @@ namespace Ts3Agent
     //   not_queued:       in mTimers, not in the queue -> never fires, never cleaned up by firing
     //   unregistered:     in the queue, not in mTimers -> fires, cannot be removed by its handle
     //   overdue:          due more than 1 sim hour ago and still queued (Simulate should have popped it)
-    //   duplicate:        same callback method + same target object + same owner registered more than once (re-added
+    //   duplicate:        same callback method + same target object + same owner under more than one handle (re-added
     //                     without removing the old one: the callback runs once per copy)
     //   bad_repeat:       repeating with RepeatLength <= 0
     //   far_future:       due more than 1 sim year ahead
@@ -39,7 +39,7 @@ namespace Ts3Agent
             foreach (string k in kinds) { by[k] = new Dictionary<string, int>(); counts[k] = 0; }
             long now = SimClock.CurrentTime().Ticks;
             long hour = SimClock.ConvertToTicks(1f, TimeUnit.Hours), year = SimClock.ConvertToTicks(1f, TimeUnit.Days) * 28 * 4;
-            int total = 0, queuedTotal = 0;
+            int total = 0, queuedTotal = 0, cleared = 0;
             foreach (AlarmManager m in mgrs)
             {
                 IDictionary timers = LcGet(m, "mTimers") as IDictionary;
@@ -50,6 +50,7 @@ namespace Ts3Agent
                 if (timers != null) foreach (object list in timers.Values)
                 {
                     IEnumerable l = list as IEnumerable; if (l == null) continue;
+                    Dictionary<string, bool> inHandle = new Dictionary<string, bool>();  // a day alarm keeps one timer per weekday under one handle
                     foreach (object t in l)
                     {
                         if (t == null) continue;
@@ -68,6 +69,8 @@ namespace Ts3Agent
                         object data = LcGet(t, "mData"), len = LcGet(t, "RepeatLength");  // Timer.Repeating = mData & 0x80
                         if (data is byte && ((byte)data & 0x80) != 0 && len is float && (float)len <= 0f) { counts["bad_repeat"]++; LcBump(by["bad_repeat"], name); }
                         string key = LcMethod(cb) + "|" + (cb != null && cb.Target != null ? System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(cb.Target).ToString() : "static") + "|" + (owner != null ? System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(owner).ToString() : "null");
+                        if (inHandle.ContainsKey(key)) continue;
+                        inHandle[key] = true;
                         int n; sig.TryGetValue(key, out n); sig[key] = n + 1;
                         if (n >= 1) { counts["duplicate"]++; LcBump(by["duplicate"], name); }
                     }
@@ -75,12 +78,14 @@ namespace Ts3Agent
                 if (queue != null) foreach (object t in queue)
                 {
                     if (t == null || inTable.ContainsKey(t)) continue;
+                    object md = LcGet(t, "mData");
+                    if (md is byte && ((byte)md & 0x20) != 0) { cleared++; continue; }  // Timer.Cleared: RemoveAlarm leaves it queued, Simulate drops it
                     counts["unregistered"]++;
                     LcBump(by["unregistered"], LcMethod(LcGet(t, "CallBack") as Delegate) + " (" + LcTypeName(LcGet(t, "ObjectRef")) + ")");
                 }
             }
             Dictionary<string, object> r = Util.Obj();
-            r["managers"] = mgrs.Count; r["timers"] = total; r["queued"] = queuedTotal;
+            r["managers"] = mgrs.Count; r["timers"] = total; r["queued"] = queuedTotal; r["cleared_in_queue"] = cleared;
             foreach (string k in kinds) { Dictionary<string, object> d = Util.Obj(); d["count"] = counts[k]; d["top"] = LcTop(by[k], top); r[k] = d; }
             return r;
         }

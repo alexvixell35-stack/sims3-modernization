@@ -21,6 +21,7 @@ namespace Ts3Agent
             RegisterAutCensus(); // AutCensusHandlers.cs, docs/546 row 2
             RegisterHitchWatch(); RegisterRoutine(); // HitchWatchHandlers.cs, docs/546 §6
             RegisterAlarmAudit(); // AlarmAuditHandlers.cs, docs/546 row 5
+            RegisterDoors(); // DoorHandlers.cs, docs/546 §8
             RegisterHoldSims(); // HoldSimsHandlers.cs
             RegisterOutfitStress(); // OutfitStressHandlers.cs
             RegisterThumbCensus(); // ThumbCensusHandlers.cs
