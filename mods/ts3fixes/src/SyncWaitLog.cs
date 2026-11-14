@@ -128,7 +128,7 @@ namespace Ts3Fixes
                 int at = SwFind(me);
                 if (at >= 0) { sSwSims.RemoveAt(at); sSwStats.RemoveAt(at); }
                 float min = SimClock.ConvertFromTicks(SimClock.CurrentTicks - st.T0, TimeUnit.Minutes);
-                if (!r && min >= giveupTime) SwCountTimeout(me, target, min);
+                if (!r && min >= giveupTime) SwCountTimeout(me, target, level, min);
                 if ((min < 1f && r) || sSwLines >= 3000) return;
                 sSwLines++;
                 string res = r ? "ok" : (min >= giveupTime ? "timeout" : (me.HasExitReason(ExitReason.SynchronizationFailed) ? "failed" : "exit"));
@@ -139,14 +139,22 @@ namespace Ts3Fixes
         }
 
         // Counters that survive the native log caps (fix_counters in every snapshot): [2314] sync waits that ran to their
-        // giveup time, [2315] their total sim minutes, [2316] of them the socialreceivefail pattern (initiator waiting on a
-        // receiver parked at Started after its ReceiveSocialInteraction failed).
-        static void SwCountTimeout(Sim me, Sim target, float min)
+        // giveup time, [2315] their total sim minutes, [2316] of them the socialreceivefail case (RfClassify Parked: the
+        // fix would have ended it); of the rest with an initiator waiting on a Started partner whose last receive failed,
+        // why the fix did not apply: [2317] not linked to the partner's running SocialInteractionB, [2318] that B's
+        // receive did not fail (the failure was an earlier social), [2319] partner moved on (level, target or Finished).
+        // Classified at the timeout, so a wait the fix ends early is counted in 2312 instead.
+        static void SwCountTimeout(Sim me, Sim target, Sim.SyncLevel level, float min)
         {
             int[] c = PatchCounters();
             c[2314]++; c[2315] += (int)min;
-            if (target != null && me.SynchronizationRole == Sim.SyncRole.Initiator && target.SynchronizationLevel == Sim.SyncLevel.Started
-                && SwStepOf(target).IndexOf("receive<fail") >= 0) c[2316]++;
+            if (target == null) return;
+            RfCase k = RfClassify(me, target, level);
+            if (k == RfCase.Parked) { c[2316]++; return; }
+            if (me.SynchronizationRole != Sim.SyncRole.Initiator || target.SynchronizationLevel != Sim.SyncLevel.Started || SwStepOf(target).IndexOf("receive<fail") < 0) return;
+            if (k == RfCase.NotLinked) c[2317]++;
+            else if (k == RfCase.NotFailed || k == RfCase.NoList) c[2318]++;
+            else if (k == RfCase.PartnerMoved) c[2319]++;
         }
 
         static void SwLogEndedEarly(Sim me, Sim target, Sim.SyncLevel level)

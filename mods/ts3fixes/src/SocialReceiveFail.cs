@@ -104,21 +104,30 @@ namespace Ts3Fixes
             catch (Exception) { PatchCounters()[2313]++; }
         }
 
+        // Why a starter's wait is or is not the parked-receiver case (shared by the fix and the synctime test counters).
+        enum RfCase { Parked, NoList, NotInitiator, NotLinked, NotFailed, PartnerMoved }
+
+        static RfCase RfClassify(Sim me, Sim target, Sim.SyncLevel level)
+        {
+            if (sRfFailed.Count == 0 || target == null || level <= Sim.SyncLevel.Started || level == Sim.SyncLevel.Completed) return RfCase.NoList;
+            if (me.SynchronizationRole != Sim.SyncRole.Initiator) return RfCase.NotInitiator;
+            InteractionInstance a = me.CurrentInteraction;
+            SocialInteractionB b = a != null ? a.LinkedInteractionInstance as SocialInteractionB : null;
+            if (b == null || b.InstanceActor != target || target.CurrentInteraction != b) return RfCase.NotLinked;
+            bool failed = false;
+            for (int i = 0; i < sRfFailed.Count && !failed; i++) failed = object.ReferenceEquals(sRfFailed[i], b);
+            if (!failed) return RfCase.NotFailed;
+            // still parked after its failure: at Started, aimed at me, and not released by a Finished exit reason
+            if (target.SynchronizationLevel != Sim.SyncLevel.Started || target.SynchronizationTarget != me || target.HasExitReason(ExitReason.Finished)) return RfCase.PartnerMoved;
+            return RfCase.Parked;
+        }
+
         // Starter side: true when the wait provably cannot succeed (see the header), after the vanilla failure call.
         static bool RfCannotSync(Sim me, Sim target, Sim.SyncLevel level)
         {
             try
             {
-                if (sRfFailed.Count == 0 || target == null || level <= Sim.SyncLevel.Started || level == Sim.SyncLevel.Completed) return false;
-                if (!ShortcutOn("socialreceivefail") || me.SynchronizationRole != Sim.SyncRole.Initiator) return false;
-                InteractionInstance a = me.CurrentInteraction;
-                SocialInteractionB b = a != null ? a.LinkedInteractionInstance as SocialInteractionB : null;
-                if (b == null || b.InstanceActor != target || target.CurrentInteraction != b) return false;
-                int at = -1;
-                for (int i = 0; i < sRfFailed.Count; i++) if (object.ReferenceEquals(sRfFailed[i], b)) { at = i; break; }
-                if (at < 0) return false;
-                // still parked after its failure: at Started, aimed at me, and not released by a Finished exit reason
-                if (target.SynchronizationLevel != Sim.SyncLevel.Started || target.SynchronizationTarget != me || target.HasExitReason(ExitReason.Finished)) return false;
+                if (sRfFailed.Count == 0 || !ShortcutOn("socialreceivefail") || RfClassify(me, target, level) != RfCase.Parked) return false;
                 me.SynchronizationSleeping = me.SynchronizationLevel >= level;  // as the vanilla wait sets it on entry
                 me.OnWaitForSynchronizationLevelWithSimFailed(target);
                 PatchCounters()[2312]++;
