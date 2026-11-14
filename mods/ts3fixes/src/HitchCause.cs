@@ -75,6 +75,7 @@ namespace Ts3Fixes
             // at the last start position when all fail. Logs each placement >= 10 ms: spawner, attempts, whether one succeeded.
             ok &= Patch(typeof(Sims3.Gameplay.Abstracts.ObjectSpawner), "TryPlaceSpawnedObjectInWorld", new Type[] { typeof(IGameObject).MakeByRefType(), typeof(bool), typeof(FindGoodLocationBooleans) }, typeof(HcSpawnHook), "PlaceHook", "PlaceOrig");
             ok &= Patch(typeof(Sims3.Gameplay.GlobalFunctions), "PlaceAtGoodLocation", new Type[] { typeof(IGameObject), typeof(World.FindGoodLocationParams), typeof(bool) }, typeof(HcSpawnHook), "FglHook", "FglOrig");
+            ok &= ApplySyncWaitLog();  // SyncWaitLog.cs, docs/546 §9
             TunedLog("kHitchCauseHooks", ok, "alarm and lot pass stamps");
             HcApplyOverwatch();
         }

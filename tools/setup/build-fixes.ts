@@ -232,6 +232,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kMoodPending value="True" />
     <kJoyrideCostume value="False" />
     <kAlarmKillLog value="True" />
+    <kSocialFinish value="False" />
     <kFilterGridLeak value="True" />
     <kCompositorGhost value="True" />
     <kCasPuckEvents value="True" />

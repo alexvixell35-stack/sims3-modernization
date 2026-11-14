@@ -186,3 +186,26 @@ EA code [verified, decompiled]:
 - `CommonDoor.tLock.Pets` gives pets `PortalRestriction.DoorRestriction`; the pet `DestinationPortalLocked` failures point at
   targets behind such doors. Agent command `doors` (new) lists each door's lock and the rooms it joins.
 - The existing `[RouteAsync] FailMemo` (docs/164 §7) reuses a failure only within 500 ms; these repeats are minutes apart.
+
+## 9. Interaction locks: Sims waiting for a sync partner (2026-11-14)
+
+Test switch `synctime` (kHitchCauseHooks builds; `SyncWaitLog.cs`) logs every `Sim.WaitForSynchronizationLevelWithSim`
+of >= 1 sim minute or that failed: actor, partner, level, result, minutes, social checks run during the wait, and (from
+build 2026-11-14 02:50) what the partner was doing. EA limits [verified, decompiled]: `StartSync` pre-sync loop up to
+`kNumMinToWaitOnPreSync` 15 min, then sync start up to `kNumMinToWaitOnSyncStart` 30; `WaitForSyncComplete` up to
+`kNumMinToWaitOnSync` (5 in the shipped tuning); `WaitForMasterInteractionToFinish` has no limit; horse mounting passes 1000.
+
+phase-20261114-0212 (Appaloosa Plains, 3 social phases + 1 routine, 169 waits logged): the per-tick
+`CanSocializeWithSyncCheck` is cheap (18 ms over a 45 min wait at most), so the cost is Sims standing locked, not CPU.
+- ShowVideos: 15 of 15 waits for SyncLevel.Completed timed out at 5.1 min (fix `socialfinish` below).
+- Socials timing out after 30 min (Routed) or 45 min (Started): 5; the partner never arrived. Partner state logged next.
+- PutDownPet: the pet waits 8-19 min for the Sim holding it; horse mounting waits up to 61 min (limit 1000).
+
+**Fix `socialfinish` (off by default; counters 2310-2311).** A normal social ends with `Actor.AddExitReason(Finished);
+CopyExitReasonToLinkedInteraction(); WaitForSyncComplete()`. ShowVideos, InkBlotTest, Interview, TriviaChallenge,
+MindMeld and PresentObjectToSim call `WaitForSyncComplete` without the first two (`Interaction.DoLoop` does not copy exit
+reasons), so their `SocialInteractionB` partner keeps looping in `DoLoop(ExitReason.Default)`, never reaches Completed,
+and both Sims stand until the timeout, then both get SynchronizationFailed. The hook gives the partner `Finished` in
+`WaitForSyncComplete` when this Sim is the sync initiator and its linked SocialInteractionB is still running with no exit
+reason: the wait cannot succeed otherwise, and a social that signalled already is untouched. Difference from vanilla:
+those six socials end cleanly for both Sims instead of after a 5 min stand and a sync failure (EA bug fix; every Sim).

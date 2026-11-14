@@ -96,6 +96,7 @@ namespace Ts3Fixes
             ApplyMoodPending();
             ApplyJoyrideCostume();  // docs/546 §4, off by default
             ApplyAlarmKillLog();  // docs/546 row 5, log only
+            ApplySocialFinish();  // docs/546 §9, off by default
             ApplyFilterGridLeak();
             ApplyCasPuckLeak();
             ApplyCasExitSweep();
@@ -408,7 +409,7 @@ namespace Ts3Fixes
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2310]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2312]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -524,7 +525,7 @@ namespace Ts3Fixes
                 // docs/250 §7.1 A1: OFF since rc1110b (2026-11-09) until the wdasync-fix-1110 tests (Instantiator.kWatchdogAsync)
                 case "watchdogasync": return Instantiator.kWatchdogAsync;
                 case "watchdogasyncshadow": return false;  // correctness arm only: re-runs each A1 check sync and counts mismatches
-                case "alarmtime": case "boatreplanlog": case "owresettime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
+                case "alarmtime": case "boatreplanlog": case "owresettime": case "synctime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
                 case "legreplanskip": return Instantiator.kLegReplanSkip;
                 case "bouncerskip": return Instantiator.kBouncerSlotSkip;
                 case "idlememo": return Instantiator.kIdlePlanMemo;
@@ -605,6 +606,7 @@ namespace Ts3Fixes
                 case "moodpending": return Instantiator.kMoodPending;
                 case "joyridecostume": return Instantiator.kJoyrideCostume;
                 case "alarmkilllog": return Instantiator.kAlarmKillLog;
+                case "socialfinish": return Instantiator.kSocialFinish;
                 case "filtergridleak": return Instantiator.kFilterGridLeak;
                 case "compositorghost": return Instantiator.kCompositorGhost;
                 case "caspuckevents": return Instantiator.kCasPuckEvents;
