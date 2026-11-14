@@ -139,15 +139,21 @@ namespace Ts3Fixes
         }
 
         // EA's slot on the building, or, when fix is set and the slot reads as the world origin (the combo model has no such
-        // slot), kRhEntranceOut metres out from the first enter slot on terrain height. True when the entrance was used.
+        // slot), kRhEntranceOut metres out from the first enter slot (away from the building's centre) on terrain height. True when the entrance was used.
         static bool RhSlotOrEntrance(RabbitHole building, Slot slot, bool fix, out Vector3 pos, out Vector3 fwd)
         {
             pos = building.GetPositionOfSlot(slot);
             fwd = building.GetForwardOfSlot(slot);
             if (!fix || Math.Abs(pos.x) + Math.Abs(pos.z) > 1f || building.EnterSlots == null || building.EnterSlots.Count == 0) return false;
-            Slot door = building.EnterSlots[0];
-            fwd = building.GetForwardOfSlot(door);
-            pos = building.GetPositionOfSlot(door) + fwd * kRhEntranceOut;
+            // Outward = from the building's centre through the door. The enter slot's own forward faces the door (a Sim
+            // entering looks at it), so it points into the footprint: a goal there has no path (measured 2026-11-14,
+            // FailedBecauseNoPathToDestination for the protest crowd).
+            Vector3 door = building.GetPositionOfSlot(building.EnterSlots[0]);
+            Vector3 outward = door - building.Position;
+            outward.y = 0f;
+            if (outward.LengthSqr() < 0.01f) outward = -building.GetForwardOfSlot(building.EnterSlots[0]);
+            fwd = outward.Normalize();
+            pos = door + fwd * kRhEntranceOut;
             pos.y = World.GetTerrainHeight(pos.x, pos.z);
             return true;
         }
