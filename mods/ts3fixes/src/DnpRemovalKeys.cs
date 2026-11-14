@@ -53,8 +53,8 @@ namespace Ts3Fixes
                 List<object> deadKeys = new List<object>();
                 foreach (Sim s in new List<Sim>(Sims3.Gameplay.Queries.GetObjects<Sim>()))
                 {
-                    if (s == null || s.IsSelectable || s.Household == null || s.Household == Household.ActiveHousehold) continue;  // townie Sims only; unknown = household
-                    object mgr = s == null ? null : sDrkSimMgr.GetValue(s);
+                    if (IsPlayerSim(s)) continue;  // townie Sims only (PlayerSims.cs: household, selected, unknown skipped)
+                    object mgr = sDrkSimMgr.GetValue(s);
                     IDictionary table = mgr == null ? null : sDrkRemoval.GetValue(mgr) as IDictionary;
                     IList active = mgr == null ? null : sDrkActive.GetValue(mgr) as IList;
                     if (table == null || active == null || table.Count == 0) continue;

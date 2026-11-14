@@ -326,7 +326,7 @@ namespace Ts3Fixes
                     // in the world in a normal outfit with no helper of its own, an active-household one first
                     bool dead = what == "start dead";
                     foreach (Sim c in Sims3.Gameplay.Queries.GetObjects<Sim>())
-                        if (dead && (c.Household == Household.ActiveHousehold || c.IsSelectable)) continue;
+                        if (dead && IsPlayerSim(c)) continue;  // the dead test only on NPCs (PlayerSims.cs)
                         else if (c.InWorld && c.SimDescription != null && sSimActiveSoh.GetValue(c) == null && Array.IndexOf(kinds, c.CurrentOutfitCategory) >= 0
                             && (sim == null || (c.Household == Household.ActiveHousehold && sim.Household != Household.ActiveHousehold))) sim = c;
                     if (sim == null) return "no Sim in the world in a normal outfit without an outfit helper";

@@ -55,10 +55,9 @@ namespace Ts3Fixes
         static List<Sim> LjdAtWork()
         {
             List<Sim> r = new List<Sim>();
-            Household active = Household.ActiveHousehold;
             foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
             {
-                if (s == null || s.HasBeenDestroyed || s.Household == active || s.SimDescription == null || !s.SimDescription.IsValidDescription) continue;
+                if (IsPlayerSim(s) || !s.SimDescription.IsValidDescription) continue;  // NPCs only (PlayerSims.cs)
                 Career c = LjdJob(s.SimDescription);
                 if (c != null && !(c is School) && c.CareerLoc != null && s.CurrentInteraction is WorkInRabbitHole) r.Add(s);
             }
@@ -72,11 +71,10 @@ namespace Ts3Fixes
                 List<Sim> at = LjdAtWork();
                 if (what == "seed" && at.Count < 2)
                 {
-                    Household active = Household.ActiveHousehold;
                     foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
                     {
                         if (sLjdSent >= 3) break;
-                        if (s == null || s.HasBeenDestroyed || s.Household == active || s.SimDescription == null || s.InteractionQueue == null) continue;
+                        if (IsPlayerSim(s) || s.InteractionQueue == null) continue;  // NPCs only (PlayerSims.cs)
                         Career c = LjdJob(s.SimDescription);
                         if (c == null || c is School || c.IsAtWork || c.CareerLoc == null || c.CareerLoc.Owner == null || !c.ShouldBeAtWork()) continue;
                         if (s.InteractionQueue.Add(c.CreateWorkInteractionInstance())) sLjdSent++;

@@ -156,7 +156,7 @@ namespace Ts3Fixes
             foreach (Sim s in all)
             {
                 if (s == null || s == except || s.HasBeenDestroyed) continue;
-                if (HhScope(s)) hh = true;
+                if (IsPlayerSim(s)) hh = true;
                 else if (!VlPooled(s)) other = true;
             }
         }
@@ -325,7 +325,7 @@ namespace Ts3Fixes
             bool hh, other;
             VlWho(v, s, out hh, out other);
             string act;
-            if (HhScope(s) || hh || other) { c[2208]++; act = "kept (household, selected or live Sim with it)"; }
+            if (IsPlayerSim(s) || hh || other) { c[2208]++; act = "kept (household, selected or live Sim with it)"; }
             else if (VlThrowaway(v)) { VlRelease(v); c[2206]++; act = "released"; }
             else if (VlNpcGenerated(v) && !s.HasBeenDestroyed && s.Inventory != null)
             {
@@ -343,7 +343,7 @@ namespace Ts3Fixes
 
         static void VlGiArmedGot(Sim s, Vehicle v)
         {
-            if (!sVlGiArmed || v == null || HhScope(s)) return;
+            if (!sVlGiArmed || v == null || IsPlayerSim(s)) return;
             sVlGiArmed = false;
             AppliedLog().Add("vehgetinleak check: resetting " + s.FullName + " inside the get-in of " + VlName(v));
             Simulator.AddObject(new LoopTask(delegate { try { if (!s.HasBeenDestroyed) s.SetObjectToReset(); } catch (Exception) { } }));
@@ -442,7 +442,7 @@ namespace Ts3Fixes
                 if (!(p is SittingInVehicle) && !(p is SittingInBoat)) return ListenerAction.Keep;
                 Vehicle v = p.Container as Vehicle;
                 if (v == null) return ListenerAction.Keep;
-                bool hh = HhScope(s);  // at the top of Sim.Destroy: not destroyed yet, so this is the Sim's real scope
+                bool hh = IsPlayerSim(s);  // at the top of Sim.Destroy: not destroyed yet, so this is the Sim's real scope
                 string name = s.FullName;
                 Simulator.AddObject(new LoopTask(delegate { try { VlSeatFix(v, s, hh, name); } catch (Exception ex) { VlThrew("vehseatdestroy", ex); } }));
             }

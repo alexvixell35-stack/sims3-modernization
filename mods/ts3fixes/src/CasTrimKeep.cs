@@ -62,7 +62,7 @@ namespace Ts3Fixes
             foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
             {
                 if (s.SimDescription == null) return false;  // a Sim whose outfits cannot be named: unknown scope, no sweep
-                if (s.Household == null || s.IsSelectable) CtKeepSim(s.SimDescription);  // unknown scope counts as household
+                if (IsPlayerSim(s)) CtKeepSim(s.SimDescription);  // household, selected, unknown scope (PlayerSims.cs)
             }
             return true;
         }

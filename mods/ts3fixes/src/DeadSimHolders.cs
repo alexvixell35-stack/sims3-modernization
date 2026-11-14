@@ -153,13 +153,12 @@ namespace Ts3Fixes
             {
                 if (!ShortcutOn("ghostreactdeadsim") || LotManager.Actors == null) return;
                 if (!sGhostOk) { sGhostOk = true; AppliedLog().Add("ghostreactdeadsim: ok"); }
-                // household rule (CLAUDE.md): household ghosts, the selected Sim and unknown scope (HhScope) keep their lists
+                // household rule (CLAUDE.md): household ghosts, the selected Sim and unknown scope (IsPlayerSim) keep their lists
                 if (Household.ActiveHousehold == null) return;
-                IActor sel = PlumbBob.SelectedActor;
                 int[] c = PatchCounters();
                 foreach (Sim s in new List<Sim>(LotManager.Actors))
                 {
-                    if (HhScope(s) || s == sel) continue;
+                    if (IsPlayerSim(s)) continue;
                     List<Sim> l = s.SimsReactedToGhost;
                     if (l == null || l.Count == 0) continue;
                     c[2075] += l.RemoveAll(delegate (Sim x) { return x == null || EtSimGone(x); });
@@ -312,7 +311,7 @@ namespace Ts3Fixes
             }
         }
 
-        // Household rule for a gone Sim object: the scope of its description's live Sim (HhScope, or the selected Sim); with
+        // Household rule for a gone Sim object: the scope of its description's live Sim (IsPlayerSim, or the selected Sim); with
         // no live Sim, its description's household (active = household, none = not household); an owner that cannot be
         // resolved counts as household.
         static bool GoneOwnerHh(Sim s, Household act, IActor sel)
@@ -322,7 +321,7 @@ namespace Ts3Fixes
                 SimDescription d = s.SimDescription;
                 if (d == null) return true;
                 Sim now = d.CreatedSim;
-                if (now != null && now != s) return HhScope(now) || now == sel;
+                if (now != null && now != s) return IsPlayerSim(now);
                 Sim selSim = sel as Sim;
                 // Rodney 2026-11-10: a gone Sim whose description has no household (so no played one) and is not selected is non-household
                 return (d.Household != null && d.Household == act) || (selSim != null && selSim.SimDescription == d);

@@ -67,7 +67,7 @@ namespace Ts3Fixes
             Sim[] occ = v.Occupants;
             if (occ != null)
                 for (int i = 0; i < occ.Length; i++)
-                    if (occ[i] != null && (occ[i].IsSelectable || occ[i].Household == Household.ActiveHousehold)) { hh = true; break; }
+                    if (occ[i] != null && IsPlayerSim(occ[i])) { hh = true; break; }
             if (hh) c[856]++;
             if (sUfDriverlessLogged < kUfDriverlessLogMax)
             {
@@ -88,7 +88,7 @@ namespace Ts3Fixes
                 Sim[] occ = v.Occupants;
                 if (occ != null)
                     for (int i = 0; i < occ.Length; i++)
-                        if (occ[i] != null && (occ[i].IsSelectable || occ[i].Household == Household.ActiveHousehold)) return UnseenFallbackCore.kHousehold;
+                        if (occ[i] != null && IsPlayerSim(occ[i])) return UnseenFallbackCore.kHousehold;
                 return 0;
             }
             catch (Exception) { return UnseenFallbackCore.kHousehold; }
@@ -129,7 +129,7 @@ namespace Ts3Fixes
             sUfWhyViewerOnly = false;
             if (!GameStates.IsLiveState || GameStates.IsTravelling || GameStates.IsWorldShuttingDown) return UnseenFallbackCore.kNotLive;
             if (s == null || s.HasBeenDestroyed || s.SimDescription == null) return UnseenFallbackCore.kGone;
-            if (s.IsSelectable || s.Household == Household.ActiveHousehold) return UnseenFallbackCore.kHousehold;
+            if (IsPlayerSim(s)) return UnseenFallbackCore.kHousehold;  // household rule (PlayerSims.cs)
             if (UfLotSeen(s.LotCurrent)) return UnseenFallbackCore.kActiveLot;
             // docs/227 §6 central table: on screen (bit 1) = kOnScreen, reach or household (bits 2, 3) = kNearViewers; the map
             // view (all seen) and a Sim without a row keep the old tests
@@ -148,7 +148,7 @@ namespace Ts3Fixes
             }
             if (UfHeld(s)) return UnseenFallbackCore.kHeld;
             Sim t = s.CurrentInteraction != null ? s.CurrentInteraction.Target as Sim : null;
-            return t != null && t != s && (t.IsSelectable || t.Household == Household.ActiveHousehold || UfSimSeen(t))
+            return t != null && t != s && (IsPlayerSim(t) || UfSimSeen(t))
                 ? UnseenFallbackCore.kSocialSeen : UnseenFallbackCore.kSeen;
         }
 
@@ -310,7 +310,7 @@ namespace Ts3Fixes
             Vehicle v = s.Parent as Vehicle;
             if (v == null) return false;
             bool aboard = false;
-            try { foreach (Sim o in v.Occupants) if (o != null && (o.IsSelectable || o.Household == Household.ActiveHousehold)) aboard = true; }
+            try { foreach (Sim o in v.Occupants) if (o != null && IsPlayerSim(o)) aboard = true; }
             catch (Exception) { aboard = true; }  // unknown = household
             return UnseenFallbackCore.KdHeldUnseen(true, s.IsInRidingPosture || s.IsInBeingRiddenPosture || UfCarrying(s), aboard);
         }
@@ -724,7 +724,7 @@ namespace Ts3Fixes
                 {
                     Simulator.Sleep(0);
                     why = sim.HasBeenDestroyed || !sim.InWorld ? "gone" : sim.CurrentInteraction != cur || (cur != null && cur.Cancelled) ? "interaction ended"
-                        : sim.HasExitReason() ? "exit reason" : !GameStates.IsLiveState ? "not live" : sim.IsSelectable || sim.Household == Household.ActiveHousehold ? "family started" : null;
+                        : sim.HasExitReason() ? "exit reason" : !GameStates.IsLiveState ? "not live" : IsPlayerSim(sim) ? "family started" : null;
                     if (why != null) return false;
                     if (Sims3.Gameplay.Utilities.SimClock.CurrentTicks < nextCheck) continue;
                     nextCheck = Sims3.Gameplay.Utilities.SimClock.CurrentTicks + step;
@@ -944,7 +944,7 @@ namespace Ts3Fixes
                     Lot home = Household.ActiveHouseholdLot;
                     Vector3 dest = GetApproximateOriginalDestination();
                     lot = home != null && dest != Vector3.Origin && dest != Vector3.Invalid && LotManager.GetLotAtPoint(dest) == home;
-                    target = !lot && h != null && UfHeadHousehold(who, h);
+                    target = !lot && h != null && UfHeadHousehold(who);
                     wanted = !lot && !target && h != null && UfHouseholdWants(who, h);
                     ok = true;
                 }
@@ -961,12 +961,12 @@ namespace Ts3Fixes
             }
 
             // shortcut: the head only, not the rest of the queue (InteractionList is a boxed enumerator); walk it if a missed case shows up
-            static bool UfHeadHousehold(Sim s, Household h)
+            static bool UfHeadHousehold(Sim s)
             {
                 var q = s.InteractionQueue;
                 var i = q != null ? q.GetHeadInteraction() : null;
                 Sim t = i != null ? i.Target as Sim : null;
-                return t != null && t != s && (t.IsSelectable || t.Household == h);
+                return t != null && t != s && IsPlayerSim(t);  // a household, selected or unknown-scope target
             }
 
             // only the household's Sims, not the town; AllActors builds a new list, paid only by plans of Sims already why 0

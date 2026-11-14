@@ -47,8 +47,8 @@ namespace Ts3Fixes
                 int removed = 0, longest = 0;
                 foreach (Sim s in new List<Sim>(Sims3.Gameplay.Queries.GetObjects<Sim>()))
                 {
-                    if (s == null || s.IsSelectable || s.Household == null || s.Household == Household.ActiveHousehold) continue;  // townie Sims only; unknown = household
-                    Delegate head = s == null ? null : sXcbEvent.GetValue(s) as Delegate;
+                    if (IsPlayerSim(s)) continue;  // townie Sims only (PlayerSims.cs: household, selected, unknown skipped)
+                    Delegate head = sXcbEvent.GetValue(s) as Delegate;
                     if (head == null) continue;
                     Delegate[] list = head.GetInvocationList();
                     if (list.Length > longest) longest = list.Length;

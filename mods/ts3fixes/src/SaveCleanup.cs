@@ -283,14 +283,13 @@ namespace Ts3Fixes
         // quiet friend-or-weaker rule (SaveCleanupSpread.cs). Collected first, then removed with the game's RemoveRelationship.
         static int PruneWeakFor(SimDescription a, bool aggressive)
         {
-            Household active = Household.ActiveHousehold;
             Dictionary<SimDescription, Relationship> mine;
-            if (!NpcForCleanup(a, active) || !Relationship.sAllRelationships.TryGetValue(a, out mine) || mine == null) return 0;
+            if (!NpcForCleanup(a) || !Relationship.sAllRelationships.TryGetValue(a, out mine) || mine == null) return 0;
             List<Relationship> drop = new List<Relationship>();
             foreach (KeyValuePair<SimDescription, Relationship> inner in mine)
             {
                 SimDescription b = inner.Key;
-                if (b == null || a.SimDescriptionId >= b.SimDescriptionId || !NpcForCleanup(b, active)) continue; // each pair once
+                if (b == null || a.SimDescriptionId >= b.SimDescriptionId || !NpcForCleanup(b)) continue; // each pair once
                 if (WeakPair(inner.Value, a, b)) drop.Add(inner.Value);
                 else if (aggressive && QuietFriendPair(inner.Value, a, b))
                 {
@@ -314,10 +313,10 @@ namespace Ts3Fixes
             return n;
         }
 
-        static bool NpcForCleanup(SimDescription d, Household active)
+        static bool NpcForCleanup(SimDescription d)
         {
-            if (d == null || !d.IsValidDescription || d.IsDead || d.Household == null || d.Household == active) return false;
-            if (d.CreatedSim != null && d.CreatedSim.IsSelectable) return false;
+            // household rule (PlayerSims.cs): household, selected, household-less and no-active-household descriptions stay
+            if (IsPlayerDesc(d) || !d.IsValidDescription || d.IsDead) return false;
             if (d.Genealogy == null || d.TraitManager == null || d.TraitManager.HasElement(TraitNames.LongDistanceFriend)) return false;
             if (d.IsEnrolledInBoardingSchool() || GameStates.IsIdTravelling(d.SimDescriptionId)) return false;
             return true;

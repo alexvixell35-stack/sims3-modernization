@@ -102,8 +102,9 @@ namespace Ts3Fixes
             "Sims3.Store.Objects.BBallArcade+BBallArcadeBall", "Sims3.Store.Objects.ChocolateFountain+ChocolateFountainSkewer",
             "Sims3.Store.Objects.IceCreamMaker+IceCreamCone", "Sims3.Store.Objects.GardenStation+GardenStationProp" };
         public const int kT2Fire = 6, kT2N = 7;
-        // Household scope of the request's actor, read on the sim thread at the request: null, destroyed, no description,
-        // selectable (household or selected) or in the active household = household. Unknown scope counts as household.
+        // Offline model of the request actor's household scope (selftest only): null, destroyed, no description, selectable
+        // (household or selected) or in the active household = household. The live code calls Fixes.IsPlayerSim (PlayerSims.cs),
+        // which also exempts household-less Sims and every Sim while no Sim is selected (unknown scope counts as household).
         public static bool T2Household(bool actorNull, bool destroyed, bool descNull, bool selectable, bool activeHousehold)
         {
             return actorNull || destroyed || descNull || selectable || activeHousehold;

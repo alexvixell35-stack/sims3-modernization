@@ -58,6 +58,10 @@ Unknown: **ReplanDedupe** (a failed replan repeated within 500 ms gets the old f
 - EA bug fixes (row 36) differ from vanilla for household Sims where vanilla throws, hangs or blocks. Filed as crash guards under `fix-ea-bugs-too`; the new rule could be read as stricter.
 - Row 8 is cosmetic and costs lock waits to fix.
 
+## Code helper (2026-11-14)
+
+The Sim-level part of the rule lives in one place: `Fixes.IsPlayerSim(Sim)` / `IsNpcSim(Sim)` and `IsPlayerDesc(SimDescription)` in `mods/ts3fixes/src/PlayerSims.cs` (replaces `AutShadow.HhScope`). True = exempt: null, destroyed, no description, no household, no selected Sim (no active household), the selected Sim, the active household, selectable, or an exception. Hand-written `s.Household == Household.ActiveHousehold` checks treated household-less Sims, and every Sim while no Sim is selected, as NPCs [verified: `Household.ActiveHousehold` is `PlumbBob.SelectedActor?.Household` in the decompiled game]; new code calls the helper. Deliberate exceptions keep their own code and call the helper for the Sim part (`DeadSimHolders.GoneOwnerHh`, `SaveCleanupSpread.OutsideActive` for dead household-less descriptions).
+
 ## Limits
 
 Static only: how often each cut hits a household Sim is not measured [inferred]. "No pulse over 80 m" for the broadcaster and the `errortrapspread` row are [inferred]. Fix sketches are untested; nothing here was changed in code.

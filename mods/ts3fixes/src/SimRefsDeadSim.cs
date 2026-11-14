@@ -26,7 +26,7 @@ namespace Ts3Fixes
     //   to the description's current Sim, or null when it has none: the value EA leaves for occult townies that are not in
     //   the world (FixUpOccult runs only on instantiation; Vampire's dereferences the Sim, so EA never calls it without one).
     //   The active household is skipped.
-    // Household rule: household Sims, the selected Sim and Sims of unknown scope (HhScope) are skipped in the actor
+    // Household rule: household Sims, the selected Sim and Sims of unknown scope (IsPlayerSim) are skipped in the actor
     // loop; the occult pass skips the active and played households and the selected Sim; with no active household
     // nothing runs.
     // "Gone" is errortrapsims' rule (destroyed, or its description now names another Sim object). Counters: [2084] last
@@ -63,7 +63,7 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 foreach (Sim s in new List<Sim>(LotManager.Actors))
                 {
-                    if (s == null || s.HasBeenDestroyed || HhScope(s) || s == sel) continue;
+                    if (IsPlayerSim(s)) continue;  // null, destroyed, household, selected or unknown
                     Sims3.Gameplay.Socializing.SocialComponent sc = s.SocialComponent;
                     if (sc != null && sc.LastTalkingTo != null && EtSimGone(sc.LastTalkingTo)) { sc.LastTalkingTo = null; c[2084]++; }
                     SimRoutingComponent r = s.SimRoutingComponent;
