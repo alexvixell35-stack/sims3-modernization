@@ -3003,6 +3003,116 @@
       "what": "Bridgeport gameplay loops: pregnancy hospital retry, carried-child put-down, bartender PortalLocked",
       "at": "2026-11-14T23:30:00.000Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-559",
+      "kind": "doc",
+      "from": 559,
+      "to": 559,
+      "by": "claude",
+      "what": "Gameplay logic scan: bowling lane, genie banish, space simulator partner",
+      "at": "2026-11-14T23:05:06.252Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2448",
+      "kind": "fixes",
+      "from": 2448,
+      "to": 2452,
+      "by": "claude",
+      "what": "bowlinglane: bowling start wait honours cancel/ghost bowlers, bounded route-fail retry, join restart for every bowler",
+      "at": "2026-11-14T23:05:06.321Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2453",
+      "kind": "fixes",
+      "from": 2453,
+      "to": 2454,
+      "by": "claude",
+      "what": "geniebanish: Genie Banish picks a lot in range (RandomUtil.GetInt inclusive)",
+      "at": "2026-11-14T23:05:06.396Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2455",
+      "kind": "fixes",
+      "from": 2455,
+      "to": 2457,
+      "by": "claude",
+      "what": "spacesimpartner: Space Simulator ride partner released when the rider bails before the ride",
+      "at": "2026-11-14T23:05:06.474Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2458",
+      "kind": "fixes",
+      "from": 2458,
+      "to": 2460,
+      "by": "claude",
+      "what": "bandjam: sweet move only for a playing jammer (EA's operator flaw lets a leaving jammer hang); jam sound stopped when the last jammer is removed by an instrument reset",
+      "at": "2026-11-14T23:20:32.472Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2461",
+      "kind": "fixes",
+      "from": 2461,
+      "to": 2462,
+      "by": "claude",
+      "what": "statueline: Box of Danger statue line removes the cancelled Sim, not the head",
+      "at": "2026-11-14T23:20:32.551Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2463",
+      "kind": "fixes",
+      "from": 2463,
+      "to": 2464,
+      "by": "claude",
+      "what": "cleanflag: FirePit PutAway / PicnicBasket CleanUp clear BeingCleaned on their already-cleaned exit",
+      "at": "2026-11-14T23:20:32.636Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2465",
+      "kind": "fixes",
+      "from": 2465,
+      "to": 2466,
+      "by": "claude",
+      "what": "birdtvnull: large bird TV reaction skips TVs on with no channel",
+      "at": "2026-11-14T23:20:32.713Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2467",
+      "kind": "fixes",
+      "from": 2467,
+      "to": 2468,
+      "by": "claude",
+      "what": "spacesimrideover: Space Simulator partner kept riding until the rider's ride ends (diag counters + spacesimpartner)",
+      "at": "2026-11-14T23:20:32.792Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2469",
+      "kind": "fixes",
+      "from": 2469,
+      "to": 2476,
+      "by": "agent-558",
+      "what": "birthroute v2: deferred re-haves / lost births re-armed / stale+duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / homeless after-birth fixed / watchdogs / spare (docs/558 §1)",
+      "at": "2026-11-14T23:20:50.021Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2477",
+      "kind": "fixes",
+      "from": 2477,
+      "to": 2478,
+      "by": "claude",
+      "what": "gohomewalk: GoHome walk-style request released (docs/560)",
+      "at": "2026-11-14T23:37:57.173Z",
+      "worktree": "/home/deck/dev/sims3-modernization"
     }
   ]
 }

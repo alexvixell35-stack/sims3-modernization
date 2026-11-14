@@ -246,6 +246,16 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBubblePipeGuard value="False" />
     <kBuffState value="False" />
     <kStoreWorldEvents value="False" />
+    <kBowlingLane value="False" />
+    <kGenieBanish value="False" />
+    <kSpaceSimPartner value="False" />
+    <kBandJam value="False" />
+    <kStatueLine value="False" />
+    <kCleanFlag value="False" />
+    <kBirdTvNull value="False" />
+    <kGoHomeWalk value="False" />
+    <kBirthRoute value="False" />
+    <kPutDownPlace value="False" />
     <kAwardKeep value="False" />
     <kCeremonySpot value="False" />
     <kEventCrowdRing value="False" />

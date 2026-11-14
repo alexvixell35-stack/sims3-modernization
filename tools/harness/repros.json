@@ -68589,5 +68589,938 @@
         }
       }
     ]
+  },
+  {
+    "id": "birth-hospital-retry",
+    "bug": "EA birth flow (docs/558 §1): HaveBabyHospital/HaveBabyHome Cleanup re-call HaveTheBaby every sim-minute after a failed trip without bound (Patricia Bedlington, Stella Striker, 2026-11-14 ufloop lines; the failures were our unseen route cuts); HaveTheBaby ignores a refused queue Add after removing the alarms (lost birth); duplicate/stale re-have calls; homeless NPC mom throws in HaveTheBaby and after a hospital birth; Cleanup NRE on a cleared pregnancy",
+    "fix": "ts3fixes BirthRoute.cs: birthroute (default off), docs/558 §1",
+    "save": "any world (pure check); 'who' lists pregnant Sims",
+    "note": "BirthRouteCheck 'run' asks the pure decisions: the cut decision for throwaway HaveBabyHospital at Pregnancy / Autonomous priority, the NPC re-have wait and birth kind after failed attempts (household and 2-failure controls), the stale/duplicate/normal call actions. Nothing is queued; no world change. 'who' lists pregnant Sims with labour buff, birth interaction and attempts.",
+    "expect": "off: 'verdict: BROKEN' (not kept, wait 1 min, kind 0, all calls EA). on: 'verdict: FIXED' (kept, NPC 3rd re-have waits 15 min, kind 2 = home after 3 failed hospital trips, stale/duplicate dropped, normal = EA + re-arm; household wait 1 and kind 0). 2442 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "birthroute": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthRouteCheck",
+          "args": [
+            "who"
+          ]
+        },
+        "note": "read-only list of the Sims involved"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthRouteCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthRouteCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "birthroute": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthRouteCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthRouteCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "birthroute": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "birthroute": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "putdown-child-loop",
+    "bug": "ChildUtils+PutDownClass.PutDownChild tries seven spots and returns false when every route fails; the parent keeps carrying the child and every transition or toddler action queues the same failing put-down again (NPC Stella Striker carried toddler Sebastian for days, 47 failed PutDownChild plans, 2026-11-14 Bridgeport runs) (docs/558 §2)",
+    "fix": "ts3fixes PutDownPlace.cs: putdownplace (default off), docs/558 §2",
+    "save": "any world (pure check); 'who' lists Sims carrying a child",
+    "note": "PutDownPlaceCheck 'run' asks the bound for an NPC parent's 1st and 2nd route-only failure and a household pair. No Sim is touched.",
+    "expect": "off: 'verdict: BROKEN' (2nd failure stays EA's). on: 'verdict: FIXED' (2nd NPC failure = in place; 1st failure and household pair keep EA's code). 2447 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "putdownplace": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownPlaceCheck",
+          "args": [
+            "who"
+          ]
+        },
+        "note": "read-only list of the Sims involved"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownPlaceCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownPlaceCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "putdownplace": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownPlaceCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownPlaceCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "putdownplace": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "putdownplace": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "bar-staff-portal-locked",
+    "bug": "A bartender's Tend on a BarProfessionalLounge failed 10 times, the last 8 with FailedBecauseDestinationPortalLocked before any search (phase-20261114-1835); the log names neither lot nor door (docs/558 §3)",
+    "fix": "none yet (diagnostics): ts3fixes BarStaffCheck.cs, docs/558 §3",
+    "save": "Bridgeport (any world with bars)",
+    "note": "BarStaffCheck 'scan' lists every bar, its bartender, the room of the bartender spot, whether that room reaches outside for the bartender (the game's IsAllowedThrough per portal) and each closed portal with its lock. Read-only. A 'reach closed' row names the PortalLocked case for a fix.",
+    "expect": "one line per bar; 'reach out' = no door problem; 'reach closed' rows list the blocking doors (lock type, hidden room). No verdict: N/A until a closed row is seen.",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarStaffCheck",
+          "args": [
+            "scan"
+          ]
+        },
+        "waitS": 2,
+        "note": "read-only scan"
+      }
+    ],
+    "cleanup": []
+  },
+  {
+    "id": "bowling-lane-wait",
+    "bug": "BowlingLane+BowlInBowlingLane: Run's start wait (while !ReadyToStart) ignores cancel and waits for listed bowlers that never arrive (AskToJoin keeps the id when its push fails); BowlingLoop retries a failed RouteToBowl forever without ending the turn; EndBowlerTurn restarts only the bowler ending the turn after a join (tests sim, not sim2) (docs/559 §3)",
+    "fix": "ts3fixes GameplayLogic559.cs: bowlinglane (default off), docs/559 §3",
+    "save": "any world (pure check)",
+    "note": "BowlingLaneCheck 'run' calls EA's ReadyToStart (through the hook) on a throwaway uninitialized lane whose list holds the waiting bowler and a ghost id (no Sim), then feeds the route-fail counter 3 failed in-loop routes. The lane is never placed; no Sim is touched.",
+    "expect": "off: 'verdict: BROKEN' (ready=False, ghost kept; no route exit). on: 'verdict: FIXED' (ready=True, ghost dropped; exit on the 3rd failure), 2449 +1, 2452 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bowlinglane": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BowlingLaneCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BowlingLaneCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bowlinglane": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BowlingLaneCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BowlingLaneCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bowlinglane": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bowlinglane": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "genie-banish-pick",
+    "bug": "OccultGenie+RemoveSim.Run picks allCommunityLots[RandomUtil.GetInt(Count)]; GetInt(max) is inclusive, so 1 banish in Count+1 throws ArgumentOutOfRange after the liking hit and the target's queue cancel (docs/559 §4)",
+    "fix": "ts3fixes GameplayLogic559.cs: geniebanish (default off), docs/559 §4",
+    "save": "any world with community lots (pure check)",
+    "note": "GenieBanishCheck 'run' computes the lot index EA's pick and the fixed pick give for NextDouble()=0.9999 over the world's community lots (read only). Nothing is cast.",
+    "expect": "off: 'verdict: BROKEN' (index == lot count). on: 'verdict: FIXED' (index < lot count), 2454 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "geniebanish": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GenieBanishCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GenieBanishCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "geniebanish": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GenieBanishCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GenieBanishCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "geniebanish": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "geniebanish": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "spacesim-partner-wait",
+    "bug": "SpaceSimulator+RideWith.Run pushes DoRideB on the partner and can return before the ride starts (rider cancelled while waiting); DoRideB then waits for RideOver for good once the rider's cancel exit reason is gone (docs/559 §5)",
+    "fix": "ts3fixes GameplayLogic559.cs: spacesimpartner (default off), docs/559 §5",
+    "save": "any world (pure check)",
+    "note": "SpaceSimPartnerCheck 'run' asks the release rule (SsPartnerStranded) about a throwaway uninitialized simulator in the state a cancelled RideWith leaves (rider in, ride not started) and after a ride. Decision only; no queue is touched.",
+    "expect": "off: 'verdict: BROKEN' (stranded partner detected, release skipped). on: 'verdict: FIXED' (release runs; never after a ride), 2457 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spacesimpartner": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpaceSimPartnerCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpaceSimPartnerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spacesimpartner": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpaceSimPartnerCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpaceSimPartnerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spacesimpartner": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spacesimpartner": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "band-jam-sweetmove",
+    "bug": "JamController.SetSweetMove tests (j != null && s != Exited) || s != PlayingSweetMove: a Sweet Move on a leaving jammer (PendingExit) turns it back into SweetMoveRequested and RemoveJammer's wait for Exited never ends; RemoveJammer(BandInstrument) on an instrument reset leaves the jam music playing with no jammer (docs/559 §6)",
+    "fix": "ts3fixes GameplayLogic559b.cs: bandjam (default off), docs/559 §6",
+    "save": "any world (pure check)",
+    "note": "BandJamCheck 'run' calls EA's SetSweetMove (through the hook) on a throwaway JamController (never attached to an instrument) holding one placeholder jammer in PendingExit, then asks the empty-jam sound rule. No sound or Sim is touched.",
+    "expect": "off: 'verdict: BROKEN' (state SweetMoveRequested), 2458 +1. on: 'verdict: FIXED' (state PendingExit), 2458 +1, 2460 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bandjam": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BandJamCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BandJamCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bandjam": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BandJamCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BandJamCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bandjam": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bandjam": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "statue-line-dequeue",
+    "bug": "BoxOfDanger+DoTrick.Cleanup does `if (line.Contains(Actor)) line.Dequeue()` on the static persisted statue line: a performer cancelled while waiting removes the head instead of itself, and its stale entry blocks every later Human Statue trick (docs/559 §7)",
+    "fix": "ts3fixes GameplayLogic559b.cs: statueline (default off), docs/559 §7",
+    "save": "any world (pure check)",
+    "note": "StatueLineCheck 'run' applies EA's Cleanup step (and the fix) to a local copy of the line [other, actor] with placeholder Sims. The real static line is not touched.",
+    "expect": "off: 'verdict: BROKEN' (head removed, cancelled performer kept), 2461 +0. on: 'verdict: FIXED' (performer removed, head kept), 2462 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "statueline": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StatueLineCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StatueLineCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "statueline": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StatueLineCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StatueLineCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "statueline": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "statueline": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "clean-flag-left",
+    "bug": "FirePit+PutAway and PicnicBasket+CleanUp set BeingCleaned and return true on their already-cleaned exit without clearing it: the pit can never be lit/cleaned, a basket served again can never be eaten from or cleaned (docs/559 §8)",
+    "fix": "ts3fixes GameplayLogic559b.cs: cleanflag (default off), docs/559 §8",
+    "save": "any world (pure check)",
+    "note": "CleanFlagCheck 'run' applies the end-of-run rule to a throwaway PicnicBasket (uninitialized, never placed) whose run set the flag and left it set, and to a flag another cleaner set. Nothing in the world changes.",
+    "expect": "off: 'verdict: BROKEN' (flag kept), 2463 +1. on: 'verdict: FIXED' (flag cleared; another cleaner's flag kept), 2463 +1, 2464 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "cleanflag": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CleanFlagCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CleanFlagCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "cleanflag": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CleanFlagCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CleanFlagCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "cleanflag": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "cleanflag": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "bird-tv-null-channel",
+    "bug": "MinorPetBirdLarge.ShouldReactToTv dereferences TV.CurrentChannel for every TV that is on; a TV switched on while broken (or with a channel from a removed pack) has none, so the large bird's idle behaviour throws (docs/559 §9)",
+    "fix": "ts3fixes GameplayLogic559b.cs: birdtvnull (default off), docs/559 §9",
+    "save": "any world (pure check)",
+    "note": "BirdTvNullCheck 'run' evaluates EA's expression and the fixed test on a throwaway TV (uninitialized, never placed) that is on with no channel.",
+    "expect": "off: 'verdict: BROKEN' (NullReferenceException). on: 'verdict: FIXED' (TV skipped), 2465 +1, 2466 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "birdtvnull": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirdTvNullCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirdTvNullCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "birdtvnull": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirdTvNullCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirdTvNullCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "birdtvnull": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "birdtvnull": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "spacesim-ride-over-timing",
+    "bug": "SpaceSimulator+RideWith.Run sets RideOver = true right before DoTimedLoop, so the partner's DoRideB ends at the start of the ride, not at its end (docs/559 §10; verified order, in-game effect to confirm)",
+    "fix": "ts3fixes GameplayLogic559.cs: spacesimpartner (default off), docs/559 §10",
+    "save": "a lot with a free Space Simulator (Late Night / store; place one in buy mode) and two Sims",
+    "note": "IN GAME, on the selected Sim's lot (a free Space Simulator and a second Sim there, e.g. a household member at home). SpaceSimPartnerCheck 'ride' pushes EA's RideWith (Medium) on the selected Sim with the other as partner (EA's ride fee is charged off the owner's lot). A ride lasts kTimeRideLasts sim-minutes; 'result' after it shows 2467 (partner finished at the start) vs 2468 (partner rode to the end). Watch the partner during the off arm: it leaves the ride interaction at the start.",
+    "expect": "off: 2467 +1 (BROKEN: partner gone before the ride ended). on: 2468 +1 (FIXED: partner still riding at the end); no new 2457 errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spacesimpartner": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpaceSimPartnerCheck",
+          "args": [
+            "ride"
+          ]
+        },
+        "waitS": 240,
+        "note": "off: one ride"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpaceSimPartnerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spacesimpartner": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpaceSimPartnerCheck",
+          "args": [
+            "ride"
+          ]
+        },
+        "waitS": 240,
+        "note": "on: one ride"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpaceSimPartnerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spacesimpartner": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spacesimpartner": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "gohome-walkstyle-left",
+    "bug": "GoHome.Run requests its WalkStyle on the Sim (Sim.RequestWalkStyle, a per-Sim count) and never unrequests it: Sims sent home with Run from a busted party keep running while they stay in the world (docs/560 §2)",
+    "fix": "ts3fixes GoHomeHook (Fixes.cs) + RoutingTravel560.cs: gohomewalk (default off), docs/560 §2",
+    "save": "any world, a Sim selected",
+    "note": "GoHomeWalkCheck 'run' makes GoHome's Run request on the selected Sim, then the hook's release step; it takes its own request back in both arms.",
+    "expect": "off: 'verdict: BROKEN' (after = before + 1). on: 'verdict: FIXED' (after = before), 2477 +1, 2478 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "gohomewalk": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GoHomeWalkCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GoHomeWalkCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "gohomewalk": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GoHomeWalkCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GoHomeWalkCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "gohomewalk": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "gohomewalk": false
+        }
+      }
+    ]
   }
 ]
