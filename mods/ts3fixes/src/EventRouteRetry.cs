@@ -77,10 +77,11 @@ namespace Ts3Fixes
     public static partial class Fixes
     {
         // ---- tuning ----
-        const float kRingGap = 2.5f;          // clear metres between the jig's reach and the crowd
+        const float kRingGap = 2.5f;          // clear metres between the jig's reach and the crowd: EA's max arrival push
+                                              // (kPushSimsAwayDistanceMax), since the native picker keeps no goal reservations (docs/548 §6)
         const float kRingDepth = 6f;          // depth of the crowd ring
         const float kRingCone = 135f;         // degrees, centred on the entrance's forward (EA: 45)
-        const float kRingSpacing = 1f;        // metres between crowd Sims (EA: 0.5)
+        const float kRingSpacing = 1f;        // sample density only, does not keep Sims apart (EA: 0.5; docs/548 §6)
         const float kEvrAtSlot = 0.5f;        // a Sim this close to its slot reached it: the failure was not the route
         const float kEvrClearRadius = 0.9f;   // NPCs this close to a goal slot block its end point
         const float kEvrKeepOut = 2.0f;       // a moved NPC lands at least this far from the jig, its slots and the entrance

@@ -238,6 +238,16 @@ namespace Ts3Fixes
         // cannot run inside a synchronous check). lost = nothing queued (EA, switch off), kept = one GraduateInPlace queued
         // (switch on); with none queued the line gives the queue's Test result for a GraduateInPlace like the fix's. The
         // check removes what it queued and its table entry, so the teen is not graduated. N/A without such a teen.
+        static Sim HsGradTeen(IEnumerable<Sim> sims, IDictionary table)
+        {
+            foreach (Sim s in sims)
+            {
+                SimDescription sd = s.SimDescription;
+                if (sd != null && sd.Teen && sd.IsHuman && s.InWorld && !sd.IsEnrolledInBoardingSchool() && (table == null || !table.Contains(sd))) return s;
+            }
+            return null;
+        }
+
         public static object HsGradKeepCheck(string what)
         {
             if (what != "expect lost" && what != "expect kept") return "hsgradkeep <expect lost|expect kept>";
@@ -248,13 +258,11 @@ namespace Ts3Fixes
             Type infoT = typeof(School).GetNestedType("GraduationInformation", BindingFlags.NonPublic);
             if (fTable == null || infoT == null) return "hsgrad check: School graduation table not found";
             IDictionary table = fTable.GetValue(null) as IDictionary;
-            Sim sim = null;
-            foreach (Sim s in hh.Sims)
-            {
-                SimDescription sd = s.SimDescription;
-                if (sd.Teen && sd.IsHuman && s.InWorld && !sd.IsEnrolledInBoardingSchool() && (table == null || !table.Contains(sd))) { sim = s; break; }
-            }
-            if (sim == null) return "N/A: no teen in the active household who could graduate (in the world, not at boarding school, not graduating now)";
+            // a teen of the active household first, else any teen in town (the fix applies to every Sim; the check removes what
+            // it queues and its table entry again, so nobody is graduated)
+            Sim sim = HsGradTeen(hh.Sims, table);
+            if (sim == null) sim = HsGradTeen(Sims3.Gameplay.Queries.GetObjects<Sim>(), table);
+            if (sim == null) return "N/A: no teen in town who could graduate (in the world, not at boarding school, not graduating now)";
             SimDescription d = sim.SimDescription;
             bool made = table == null;
             if (made) { table = (IDictionary)Activator.CreateInstance(fTable.FieldType); fTable.SetValue(null, table); }

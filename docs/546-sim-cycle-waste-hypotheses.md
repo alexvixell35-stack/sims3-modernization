@@ -333,3 +333,54 @@ nothing was queued. Whether real play is affected follows from that result: a re
 needs EA's exact autonomous form or a different queue entry point. Note [inferred from GameplayData]:
 `CollegeGraduation.GraduateInPlace`'s tuning allows only the University world, so EA's home-world fallback
 (`ReturnHomeBehaviorInHomeWorld`) may be refused the same way; `unigradkeep` queues it in the University world.
+
+## 13. Crowd on the honoree's goal: City Hall only (2026-11-14, `eventcrowdring` measured; audit static)
+
+`eventcrowdring` (`EventRouteRetry.cs`, slot 2327, off by default) gathers the City Hall ceremony's NPC crowd on a ring
+clear of the award jig (min radius = jig reach + 2.5 m, depth 6 m, 135° cone, 1 m spacing) instead of EA's 0-6 m around
+the entrance slot that also holds the jig. Measured in game: ceremony GIVEN 6/6 with the ring (22 ring routes), LOST 6/6
+without (`EventCeremonyCheck`, "start n block" forces the crowd onto slot B).
+
+Why the ring has to supply the clearance itself (docs/548 §6, verified in the disassembly): the native radial goal
+validator `0x759B20` rejects only points inside a **standing** Sim's footprint; it sees no planned goal, no reservation
+and no walking Sim, and the honoree's slot goal never goes through it. The 2.5 m gap equals EA's maximum arrival push
+(`kPushSimsAwayDistanceMax`), which is what separates two crowd Sims that picked the same spot.
+
+Same pattern looked for in the other jig events with a gathering crowd (docs/548 §6 table): SimFest award (audience on
+assigned `ShowFloor` watch slots or 0-3 m around a show floor; the jig is on the stage), weddings with and without an
+arch (every guest position is at least `sMinDistanceBetweenAudienceAndCouple` = 4 m from the couple or the arch), high
+school and university graduations (rabbit-hole visits, no jig, no outdoor crowd). **None has the crowd on the honoree's
+goal, so no further switch was added**; the ring helper stays private to City Hall until a second user exists.
+
+## 14. Sync partner already gone: waits that run to their giveup (2026-11-14, static; fix `syncpartnergone`, not run)
+
+Every sync wait loop and whether it notices a partner that is gone [verified, decompiled InteractionInstance / Sim /
+SocialInteraction*]:
+
+| Wait | Giveup | Notices the partner gone? |
+|---|---|---|
+| `StartSync` pre-sync loop | `kNumMinToWaitOnPreSync` 15 | yes: returns false once the linked interaction is neither running nor queued on the partner |
+| `WaitForSynchronizationLevelWithSim` (Started / Routed / Committed): `StartSync` Started, social initiator Routed + Committed (`BeginSocialInteraction`), receiver Routed + Committed (`ReceiveSocialInteraction`) | 30 (`kNumMinToWaitOnSyncStart`, `kSocialSyncGiveupTime`); 5-100 in object interactions; 1000 horse mounting | destroyed or out of world (left the lot): yes, through the per-tick `CanSocializeWithSyncCheck`, but only with `performSocializeWithTest` (every social; not `WaitForSynchronizationLevelWithSimAndIgnoreSocialTest`: ServoBot, BotMakingStation, Grim Reaper, ResortTower). Partner cancelled: yes, its Run copies the exit reason (`CopyExitReasonToLinkedInteraction`). **Partner reset: no.** `Sim.OnReset` kills its interactions without their Run tails and `ClearSynchronizationData` sets target null, level Completed; `IsAtSynchronizationLevelWith` needs target == this Sim, so the wait spins to its giveup |
+| `WaitForSyncComplete` (Completed) | `kNumMinToWaitOnSync` (15 in code, 5 in the shipped tuning) | a reset partner is at Completed, so the wait succeeds; the lock here is the masters that never signal (`socialfinish`, §9) |
+| `WaitForMasterInteractionToFinish` | none | yes: ends when the master is no longer running |
+
+So the spin with the partner gone is a social (or `StartSync`) wait at Started / Routed / Committed whose partner was
+reset (stuck-Sim resets by EA, Overwatch or ErrorTrap, a debug reset), up to 30 sim min, and the no-social-test waits on a
+destroyed partner (up to 100 / 1000). The synctime data of §9 does not separate these from the parked-receiver case
+(the `partner in ... (linked gone)` field of `syncwait:` lines names them; those raw logs are not in the repo), so how
+often they happen in play is not measured yet: after `socialreceivefail`, 2 timeouts were left in 5 social phases.
+
+**Fix `syncpartnergone`** (off by default, `SyncPartnerGone.cs`, slots 2370-2373; carried by the shared wait hook in
+`SocialReceiveFail.cs`). When the caller passed no loop callback, the wait gets one that EA's loop runs every sim minute;
+it returns false, which EA answers with `OnWaitForSynchronizationLevelWithSimFailed` + false (the giveup path's call and
+result), once two looks in a row find the partner gone: destroyed (every Sim: exact), or for a social (the waiter's
+running interaction and its link are SocialInteractions, run by the partner) the partner's SynchronizationTarget is not
+the waiter and the linked interaction is neither running (stack or head), queued nor in a posture transition. A slow
+partner (queued, in transition, routing to the jig) is running or queued, so it never matches. The social case acts
+only for an NPC waiter (`IsNpcSim`): vanilla's result could differ if the partner re-targeted the waiter from a new sync
+before the giveup, which cannot be ruled out; the partner is never touched (it does not target the waiter). Completed
+waits are left alone.
+
+Harness: repro `sync-partner-gone-check` (agent check `SyncPartnerGoneCheck`, `SyncChecks.cs`): two NPCs near the active
+Sim, Chat from one to the other, the partner reset once the two are in sync; times the waiter's stand off (expect ~30
+sim min) then on (expect <= 5, counter 2370 +1), plus a cancel control.
