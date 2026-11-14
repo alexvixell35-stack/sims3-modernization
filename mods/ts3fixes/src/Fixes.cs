@@ -95,6 +95,7 @@ namespace Ts3Fixes
             ApplyBuyCellRecycle();
             ApplyMoodPending();
             ApplyJoyrideCostume();  // docs/546 §4, off by default
+            ApplyAlarmKillLog();  // docs/546 row 5, log only
             ApplyFilterGridLeak();
             ApplyCasPuckLeak();
             ApplyCasExitSweep();
@@ -407,7 +408,7 @@ namespace Ts3Fixes
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2308]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2310]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -603,6 +604,7 @@ namespace Ts3Fixes
                 case "buygridsweep": return Instantiator.kBuyGridSweep;
                 case "moodpending": return Instantiator.kMoodPending;
                 case "joyridecostume": return Instantiator.kJoyrideCostume;
+                case "alarmkilllog": return Instantiator.kAlarmKillLog;
                 case "filtergridleak": return Instantiator.kFilterGridLeak;
                 case "compositorghost": return Instantiator.kCompositorGhost;
                 case "caspuckevents": return Instantiator.kCasPuckEvents;

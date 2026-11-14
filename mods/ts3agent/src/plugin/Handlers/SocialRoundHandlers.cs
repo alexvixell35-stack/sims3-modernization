@@ -38,7 +38,7 @@ namespace Ts3Agent
 
         // social_round {pairs?: 8 (1..40), cats?: "friendly,mean,funny,romantic", query?: "<label part>", enemies?: false,
         // max_dist?: 30, report?: false}: first the outcome of the last round (started = the social's StandardEntry ran, after
-        // the approach; cancelled with EA's ExitReason; waiting = still queued; dropped = left the queue without either), then
+        // the approach, or SocialInteractionA.mSocialStarted; cancelled with EA's ExitReason; waiting = still queued; dropped = left the queue without either), then
         // (not with report) a new round: instantiated townies teen and older, paired with the nearest unpaired townie within
         // max_dist metres; each actor queues a random enabled two-segment social of its pie menu on its partner whose category
         // ("Friendly... / Chat": the first segment without its ellipsis) is in cats and whose label contains query, romantic only
@@ -130,6 +130,18 @@ namespace Ts3Agent
 
         static void Count(Dictionary<string, object> d, string k) { d[k] = (d.ContainsKey(k) ? (int)d[k] : 0) + 1; }
 
+        // SocialInteractionA.Run never calls StandardEntry [verified, decompiled]: a social that ran to the end still has
+        // StandardEntryCalled false. Its own flag mSocialStarted is set once BeginSocialInteraction succeeded (the approach
+        // worked, both Sims are in the social). Before 2026-11-14 such socials were reported as "dropped".
+        static System.Reflection.FieldInfo sSrStarted;
+        static bool SrSocialStarted(InteractionInstance i)
+        {
+            if (!(i is Sims3.Gameplay.Socializing.SocialInteractionA)) return false;
+            if (sSrStarted == null) sSrStarted = typeof(Sims3.Gameplay.Socializing.SocialInteractionA).GetField("mSocialStarted", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            object v = sSrStarted != null ? sSrStarted.GetValue(i) : null;
+            return v is bool && (bool)v;
+        }
+
         static bool InQueue(SocialTrack t)
         {
             if (t.Actor == null || t.Actor.HasBeenDestroyed || t.Actor.InteractionQueue == null) return false;
@@ -143,7 +155,7 @@ namespace Ts3Agent
             Dictionary<string, object> reasons = Util.Obj(), ran = Util.Obj();
             foreach (SocialTrack t in sSocialRound)
             {
-                if (t.Inst.StandardEntryCalled) { started++; Count(ran, t.Label); }
+                if (t.Inst.StandardEntryCalled || SrSocialStarted(t.Inst)) { started++; Count(ran, t.Label); }
                 else if (t.Inst.Cancelled) { cancelled++; Count(reasons, t.Inst.CancelledReason.ToString()); }
                 else if (InQueue(t)) waiting++;
                 else dropped++;

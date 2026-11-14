@@ -105,7 +105,7 @@ namespace Ts3Agent
             static HwSnap Snap(Sim s, bool hh)
             {
                 HwSnap x = new HwSnap();
-                x.Name = s.FirstName; x.Hh = hh;
+                x.Name = s.FirstName + (s.SimDescription != null && !s.SimDescription.IsHuman ? "(" + s.SimDescription.Species + ")" : ""); x.Hh = hh;
                 InteractionInstance cur = s.CurrentInteraction;
                 x.Cur = cur != null ? cur.GetType().Name : null;
                 InteractionInstance tr = s.InteractionQueue != null ? s.InteractionQueue.TransitionInteraction : null;
@@ -195,6 +195,14 @@ namespace Ts3Agent
             new string[] { "toilet", "Toilet", "", "Use" },
             new string[] { "nap", "Bed", "", "Nap|Sleep|Relax" },
             new string[] { "music", "Stereo|Radio", "", "Dance|Turn On|Listen" },
+            new string[] { "pet", "pet", "", "Play|Pet|Brush|Groom|Ride|Feed|Cuddle|Nuzzle" },
+        };
+        // pets (dogs, cats, horses, small pets in the household): their own rotation
+        static readonly string[][] kPetRoutine = {
+            new string[] { "peteat", "Bowl|Trough|PetFood|Feeder", "", "Eat|Drink" },
+            new string[] { "petplay", "sim", "", "Play|Greet|Nuzzle|Lick|Sniff|Jump On|Chase" },
+            new string[] { "petsleep", "PetBed|Bed|Stall|Basket", "", "Sleep|Nap|Relax|Lie" },
+            new string[] { "petwander", "self", "", "Chase Tail|Roll|Dig|Wander|Graze|Hunt|Scratch|Play" },
         };
         static readonly Dictionary<ulong, int> sRoutineNext = new Dictionary<ulong, int>();
 
@@ -209,22 +217,23 @@ namespace Ts3Agent
             List<Sims3.Gameplay.Abstracts.GameObject> objs = new List<Sims3.Gameplay.Abstracts.GameObject>(hh.LotHome.GetObjects<Sims3.Gameplay.Abstracts.GameObject>());
             foreach (Sims3.Gameplay.Actors.Sim s in hh.Sims)
             {
-                if (s == null || s.SimDescription == null || s.SimDescription.Baby || !s.SimDescription.IsHuman) continue;
+                if (s == null || s.SimDescription == null || s.SimDescription.Baby) continue;
+                string[][] list = s.SimDescription.IsHuman ? kRoutine : kPetRoutine;
                 string res = "busy (queue " + s.InteractionQueue.Count + ")";
                 if (s.InteractionQueue.Count <= 1 && s.InteractionQueue.CanPlayerQueue())
                 {
                     int start; sRoutineNext.TryGetValue(s.SimDescription.SimDescriptionId, out start);
                     res = "nothing matched";
-                    for (int k = 0; k < kRoutine.Length; k++)
+                    for (int k = 0; k < list.Length; k++)
                     {
-                        string[] act = kRoutine[(start + k) % kRoutine.Length];
+                        string[] act = list[(start + k) % list.Length];
                         if (only.Length > 0 && act[0] != only) continue;
                         string got = null;
                         try { got = RoutineTry(s, act, objs, hh); } catch (Exception e) { got = null; res = act[0] + ": " + e.Message; }
-                        if (got != null) { res = act[0] + ": " + got; sRoutineNext[s.SimDescription.SimDescriptionId] = (start + k + 1) % kRoutine.Length; break; }
+                        if (got != null) { res = act[0] + ": " + got; sRoutineNext[s.SimDescription.SimDescriptionId] = (start + k + 1) % list.Length; break; }
                     }
                 }
-                outl.Add(s.FirstName + " -> " + res);
+                outl.Add(s.FirstName + (s.SimDescription.IsHuman ? "" : " (" + s.SimDescription.Species + ")") + " -> " + res);
             }
             Dictionary<string, object> r = Util.Obj();
             r["sims"] = outl;
@@ -236,6 +245,7 @@ namespace Ts3Agent
             List<Sims3.Gameplay.Abstracts.GameObject> targets = new List<Sims3.Gameplay.Abstracts.GameObject>();
             if (act[1] == "self") targets.Add(s);
             else if (act[1] == "sim") { foreach (Sims3.Gameplay.Actors.Sim o in hh.Sims) if (o != null && o != s && o.LotCurrent == s.LotCurrent && o.SimDescription.IsHuman) targets.Add(o); }
+            else if (act[1] == "pet") { foreach (Sims3.Gameplay.Actors.Sim o in hh.Sims) if (o != null && o != s && o.LotCurrent == s.LotCurrent && !o.SimDescription.IsHuman) targets.Add(o); }
             else
             {
                 string[] keys = act[1].Split('|');

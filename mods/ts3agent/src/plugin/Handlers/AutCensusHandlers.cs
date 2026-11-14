@@ -122,8 +122,8 @@ namespace Ts3Agent
                     InteractionObjectPair iop = (InteractionObjectPair)(object)this;
                     string def = iop.InteractionDefinition != null ? iop.InteractionDefinition.GetType().FullName : "null";
                     string tgt = iop.Target != null ? iop.Target.GetType().Name : "null";
-                    string key = def + " @ " + tgt;
                     Sims3.Gameplay.Actors.Sim actor = autonomy.Actor;
+                    string key = def + " @ " + tgt + (actor != null && actor.SimDescription != null && !actor.SimDescription.IsHuman ? " [" + actor.SimDescription.Species + "]" : "");
                     bool hh = actor == null || actor.IsSelectable || actor.Household == null || actor.Household == Sims3.Gameplay.CAS.Household.ActiveHousehold;  // unknown scope counts as household
                     AcRow row;
                     lock (sRows)

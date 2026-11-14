@@ -594,6 +594,9 @@ namespace Ts3Agent
                 o["name"] = h.Name;
                 o["id"] = Util.Id(h.HouseholdId);
                 o["members"] = h.NumMembers;
+                int pets = 0;
+                foreach (Sims3.Gameplay.CAS.SimDescription d in h.AllSimDescriptions) if (d != null && !d.IsHuman) pets++;
+                o["pets"] = pets;
                 o["lot"] = h.LotHome.Name;
                 list.Add(o);
             }

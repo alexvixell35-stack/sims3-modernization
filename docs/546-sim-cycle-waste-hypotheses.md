@@ -129,3 +129,34 @@ Suggestion for the maintainer: `firepitchair` on by default.
   the active lot were doing on the tick before and the tick after (interaction, transition, queue, routing, posture).
 - `household_routine`: one round of the everyday actions (meal, outfit change, shower, social, TV, computer, read,
   toilet, nap, music) pushed on the household Sims with an empty queue, rotating, matched on pie-menu labels.
+
+## 7. Alarms: slow callbacks, silent kills, audit (2026-11-14)
+
+Measured with the `alarmtime` test switch (docs/247 §9, test package with `kHitchCauseHooks`), Isla Paradiso, 26 min of
+routine/outfit/social (phase-20261114-0032, hitch_watch on). Slowest world/lot passes and the alarm that took the time:
+
+| Alarm callback | Worst | Notes |
+|---|---|---|
+| `StrayPets.StrayPetHelper` (hourly) | 285 ms | `SendStrayToLot` → `InstantiateOffScreen`: a stray pet's Sim object is created inside the alarm. A townie re-create in the same run took ~12 ms; why a pet costs ~20× is open [inferred: pet rig/outfit load] |
+| `ObjectSpawner.TriggerSpawn` (sea life) | 242 ms | `TryPlaceSpawnedObjectInWorld` tries up to `kMaxSpawnAttempts`+1 = 11 `PlaceAtGoodLocation` searches; with `deleteObjOnFailure` false it places the object at the last start position when all fail [verified, decompiled]. Test hook `spawnplace:` now logs tries/successes per slow placement |
+| `PetAdoption.RefreshCallBack` (midnight) | 111 ms | rebuilds the adoption pool |
+| ts3fixes hourly sweep (`StartErrorTrapSims` alarm, ours) | 32 ms (avg 24) | 17 cleanup passes in one callback; `hourlypass:` now times each (test switch `alarmtime`) |
+
+**Silent kills [verified, decompiled AlarmManager].** When a repeating alarm's callback throws, `Simulate` (and, for
+yielding alarms, `AlarmOneShot.HandleException`) calls `InternalRemoveAlarm(timer, true)`: the alarm is gone for the
+session, with no log or retry. Those are the only two callers that pass `true`, so new log-only switch `alarmkilllog`
+(on; counters 2308-2309) hooks that call and names each killed alarm (method, target, owner, sim time) in the fix_applied
+log. Our own hourly sweep was exposed the same way (one throwing pass stopped all 17): each pass now runs in its own try
+and a throwing pass is logged once and skipped.
+
+**Leaks and bad starts.** leak_census alarms (phase-20261114-0003): 2,939 alarms, 0 with a destroyed owner, 0 with a gone
+callback target. New agent command `alarm_audit` (dumped as alarms-k.json per snap) also checks table/queue mismatch
+(registered but never queued, queued but not registered), overdue, duplicate registration (same method + target + owner),
+repeating with interval <= 0 and due > 1 sim year out.
+
+**Harness fixes found on the way.** `social_round` counted socials as started only on `StandardEntryCalled`, which
+`SocialInteractionA.Run` never sets: completed socials were reported as "dropped" (82 of 96). It now also reads
+`SocialInteractionA.mSocialStarted`. The agent's `patches` command passed only switch names it listed, so a new fix's
+switch silently stayed off; unlisted bool names now pass through and are echoed as `unlisted`. The household routine
+skipped every non-human; pets now get their own rotation (eat, play, sleep, wander) and census rows carry `[Dog]`,
+`[Cat]`, `[Horse]`.

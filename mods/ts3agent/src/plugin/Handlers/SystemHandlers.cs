@@ -20,6 +20,7 @@ namespace Ts3Agent
             RegisterCareerLadder(); // CareerLadderHandlers.cs
             RegisterAutCensus(); // AutCensusHandlers.cs, docs/546 row 2
             RegisterHitchWatch(); RegisterRoutine(); // HitchWatchHandlers.cs, docs/546 §6
+            RegisterAlarmAudit(); // AlarmAuditHandlers.cs, docs/546 row 5
             RegisterHoldSims(); // HoldSimsHandlers.cs
             RegisterOutfitStress(); // OutfitStressHandlers.cs
             RegisterThumbCensus(); // ThumbCensusHandlers.cs
