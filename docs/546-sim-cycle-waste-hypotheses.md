@@ -299,7 +299,7 @@ outcome; none moves a Sim or skips a route, so they apply to every Sim. A player
 | Switch | File | Slots | EA bug [verified in the decompiled code] | Fix | Check |
 |---|---|---|---|---|---|
 | `weddingarchkeep` | `WeddingArchKeep.cs` | 2345-2346 | `WeddingCeremony.RouteToWeddingArch.OnRouteFailed` calls `Parent.Exit()` when either partner's `RouteToWeddingArchSlot` fails, so one partner's route failure ends the wedding (no ring exchange, couple stays engaged; a resort's NPC wedding never happens). The same callback serves a player cancel. EA's wedding without an arch (`CallOut` > `GatherRound` > `ExchangeRings`) is the fallback. | A Run hook marks a route failure (Run false, state still RouteToWeddingArch, Sim not in the arch's use list, no cancel exit reason); for that failure only, OnRouteFailed switches to `CallOut` and cancels the partner's arch walk; the replaced state's later callbacks are ignored. Cancels run EA's code. | `WeddingArchKeepCheck`, repro `wedding-arch-keep-check` |
-| `hsgradkeep` | `GraduationKeep.cs` | 2347-2348 | `School.GraduateInCityHall.Cleanup` queues `GraduateInPlace` only for autonomous instances. EA's force-graduation alarm (14:30) retries every Sim at state None, but once. A user-directed instance (the player's "Graduate" at City Hall, or the household graduates the leading graduate queues with isAutonomous false) that fails after 14:30 leaves the Sim graduating forever: no diploma, no GraduationType. | After EA's Cleanup: not autonomous, not user-cancelled, still graduating, past 14:30, no graduation queued: queue `GraduateInPlace` as EA's autonomous branch does. Before 14:30 EA's alarm retries. | `HsGradKeepCheck`, repro `hs-grad-keep-check` |
+| `hsgradkeep` | `GraduationKeep.cs` | 2347-2348 | `School.GraduateInCityHall.Cleanup` queues `GraduateInPlace` only for autonomous instances. EA's force-graduation alarm (14:30) retries every Sim at state None, but once. A user-directed instance (the player's "Graduate" at City Hall, or the household graduates the leading graduate queues with isAutonomous false) that fails after 14:30 leaves the Sim graduating forever: no diploma, no GraduationType. | After EA's Cleanup: not autonomous, not user-cancelled, still graduating, past 14:30, no graduation queued: queue `GraduateInPlace` as EA's autonomous branch does (same priority, MustRun, not cancellable) but with the failed instance's autonomy (user-directed). Before 14:30 EA's alarm retries. | `HsGradKeepCheck`, repro `hs-grad-keep-check` (first run: the queue refused the fallback, see below) |
 | `unigradkeep` | `GraduationKeep.cs` | 2349-2350 | `Annex.UniversityGraduationCeremony.Cleanup` re-adds the ceremony when `mReaddOnClean` is set, but nothing sets it (dead code). A failed route or a late arrival loses the diploma, IGraduatedFromUniversity and the bonus trait. EA's only fallback runs on returning home (`ReturnHomeBehaviorInHomeWorld`: active household, `LastStudiedDegree` only), so NPC students, and a student who studies another degree first, lose it. | After EA's Cleanup: degree complete, rewards not granted, not user-cancelled: queue `CollegeGraduation.GraduateInPlace` for the ceremony's degree (EA's no-rabbit-hole path). The return-home fallback then finds the rewards granted. | none (needs a University world); exemption in `fix-repro-check.ts` |
 | `bsrefund` | `BoardingRefund.cs` | 2351-2353 | `BoardingSchool.SchedulePickUp` takes the tuition at once. `BoardingSchoolPickUpSituation.CreateCarAndRoute.OnFailure` (car's drive failed, GetInCar refused, driver's wait ended) withdraws the student with no refund; EA refunds only when the student aged out. With no NPC car at all (`Init`), the situation exits and the student stays enrolled at home with no school and no pickup. | Refund `BoardingSchoolData.Cost` when a pickup ends with the student still enrolled in that school; on the no-car exit also withdraw the student as OnFailure does. The aged-out branch (school type already None) is not refunded twice. No notice (no localized string for it). | none (enrolment dialog, NPC car); exemption in `fix-repro-check.ts` |
 
@@ -316,5 +316,20 @@ Checked, not the pattern or not fixed:
   candidates for a later pass, not fixed.
 
 Test: `node tools/harness/queue.ts` with the repros `wedding-arch-keep-check` (needs a second teen-or-older human Sim on
-the active lot; buys a free wedding arch) and `hs-grad-keep-check`. Both checks force the failure path synchronously and
-clean up after themselves (no wedding, no graduation left).
+the active lot; the check places a wedding arch itself when the lot has none, from the buy catalogue, and deletes it at
+the end) and `hs-grad-keep-check` (a teen of the active household, N/A without one). Both checks force the failure path
+synchronously and clean up after themselves (no wedding, no graduation left).
+
+First in-game run 2026-11-14 (Appaloosa Plains): `hs-grad-keep-check` "expect lost" PASS, "expect kept" FAIL with nothing
+queued: the queue refused the fix's `GraduateInPlace` (`InteractionQueue.InsertInteraction` runs `entry.Test()`; with the
+earlier autonomous copy the counter rose with nothing queued, so it failed there too). Cause not found statically
+[open]: `School.GraduateInPlace` has `[DoesntRequireTuning]` and no ITUN in GameplayData (so no age / world / availability
+test) and its definition `Test` returns true; what is left is `InteractionDefinitionUtilities.CommonTests` /
+`SpecialCaseTests` / `SpecialCaseTooltipTests` on the actor. That old check used the active Sim (an adult) with a bare
+table entry. Changes: `hsgradkeep` counts [2347] only when the queue took the instance and otherwise logs
+`gradkeep: the queue refused ... (<InteractionTestResult>)` once per Sim; the check now uses a teen of the active
+household with a table entry as EA's `GraduateSim` and the 14:30 alarm leave it, and prints the queue's Test result when
+nothing was queued. Whether real play is affected follows from that result: a refusal for a real teen means the fix
+needs EA's exact autonomous form or a different queue entry point. Note [inferred from GameplayData]:
+`CollegeGraduation.GraduateInPlace`'s tuning allows only the University world, so EA's home-world fallback
+(`ReturnHomeBehaviorInHomeWorld`) may be refused the same way; `unigradkeep` queues it in the University world.

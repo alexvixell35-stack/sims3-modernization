@@ -105,7 +105,7 @@ namespace Ts3Fixes
             ApplyWeddingArchKeep();  // docs/546 §12, off by default
             ApplyGraduationKeep();  // docs/546 §12, off by default (hsgradkeep, unigradkeep)
             ApplyBoardingRefund();  // docs/546 §12, off by default
-            ApplyComboRabbitHole();  // docs/551, off by default (comboalarm, comboprotest, combovenue, combosituation)
+            ApplyComboRabbitHole();  // docs/551, off by default (comboprotest, combovenue, combosituation)
             ApplyFilterGridLeak();
             ApplyCasPuckLeak();
             ApplyCasExitSweep();
@@ -639,7 +639,6 @@ namespace Ts3Fixes
                 case "hsgradkeep": return Instantiator.kHsGradKeep;
                 case "unigradkeep": return Instantiator.kUniGradKeep;
                 case "bsrefund": return Instantiator.kBsRefund;
-                case "comboalarm": return Instantiator.kComboAlarm;
                 case "comboprotest": return Instantiator.kComboProtest;
                 case "combovenue": return Instantiator.kComboVenue;
                 case "combosituation": return Instantiator.kComboSituation;

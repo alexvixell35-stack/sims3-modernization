@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay;
+using Sims3.Gameplay.Abstracts;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.ActorSystems;
 using Sims3.Gameplay.CAS;
@@ -16,6 +17,7 @@ using Sims3.Gameplay.Objects.RabbitHoles;
 using Sims3.Gameplay.Situations;
 using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
+using Sims3.SimIFace.BuildBuy;
 
 namespace Ts3Fixes
 {
@@ -149,8 +151,8 @@ namespace Ts3Fixes
 
         // ---- weddingarchkeep ----
 
-        // Needs a wedding arch on the active Sim's lot and a second human Sim there. Starts EA's WeddingCeremony for the two
-        // (no guests), marks the active Sim's arch route as failed (what WeddingArchRouteHook records when RouteToSlot fails)
+        // Needs a second human Sim on the active Sim's lot. Uses a wedding arch on that lot, or places one itself next to the
+        // active Sim (WaPlaceArch) and deletes it again at the end. Starts EA's WeddingCeremony for the two (no guests), marks the active Sim's arch route as failed (what WeddingArchRouteHook records when RouteToSlot fails)
         // and runs the RouteToWeddingArch state's OnRouteFailed. lost = the ceremony ended (EA, switch off), kept = it went
         // on in EA's no-arch path (CallOut / GatherRound, switch on). The check ends the ceremony itself before any ring
         // exchange, so nobody gets married.
@@ -160,14 +162,25 @@ namespace Ts3Fixes
             Sim sim = Sim.ActiveActor;
             Lot lot = sim == null ? null : sim.LotCurrent;
             if (lot == null) return "weddingarch check: no active Sim on a lot";
-            WeddingArch arch = null;
-            foreach (WeddingArch a in lot.GetObjects<WeddingArch>()) { arch = a; break; }
-            if (arch == null) return "weddingarch check: no wedding arch on the active Sim's lot";
             Sim partner = null;
             foreach (Sim s in lot.GetSims())
                 if (s != sim && s.SimDescription.IsHuman && s.SimDescription.TeenOrAbove && (partner == null || s.Household == sim.Household)) partner = s;
             if (partner == null) return "weddingarch check: no second human Sim on the lot";
+            WeddingArch arch = null;
+            foreach (WeddingArch a in lot.GetObjects<WeddingArch>()) { arch = a; break; }
+            bool placed = arch == null;
+            if (placed)
+            {
+                string why;
+                arch = WaPlaceArch(sim, lot, out why);
+                if (arch == null) return "weddingarch check: no wedding arch on the active Sim's lot and none placed (" + why + ")";
+            }
+            try { return WaRun(what, sim, partner, lot, arch) + (placed ? ", arch placed by the check and deleted" : ""); }
+            finally { if (placed) arch.Destroy(); }
+        }
 
+        static string WaRun(string what, Sim sim, Sim partner, Lot lot, WeddingArch arch)
+        {
             int before = PatchCounters()[2345];
             WeddingCeremony c = new WeddingCeremony(sim, partner, new List<Sim>(), lot, arch);
             WeddingCeremony.RouteToWeddingArch state = c.Child as WeddingCeremony.RouteToWeddingArch;
@@ -184,31 +197,73 @@ namespace Ts3Fixes
             return (ok ? "PASS " : "FAIL ") + what + ": ceremony " + now + ", partner " + partner.FullName + ", counter 2345 +" + (PatchCounters()[2345] - before);
         }
 
+        // A wedding arch from the buy catalogue (the first product whose instance or catalogue name says wedding arch and
+        // that the game creates as a WeddingArch), placed by the game's own search next to sim and kept only when that spot
+        // is on lot. Null with the reason otherwise.
+        static WeddingArch WaPlaceArch(Sim sim, Lot lot, out string why)
+        {
+            why = "no wedding arch product in the catalogue";
+            foreach (object o in UserToolUtils.GetObjectProductListFiltered(3221225471u, 4026531839u, ulong.MaxValue, ulong.MaxValue, ulong.MaxValue, 0, uint.MaxValue, 0, 0))
+            {
+                BuildBuyProduct p = o as BuildBuyProduct;
+                if (p == null) continue;
+                string inst = (p.ObjectInstanceName ?? "").ToLowerInvariant(), name = (p.CatalogName ?? "").ToLowerInvariant();
+                if (inst.IndexOf("weddingarch") < 0 && name.IndexOf("wedding arch") < 0) continue;
+                GameObject go = null;
+                try { go = GlobalFunctions.CreateObjectOutOfWorld(p.ProductResourceKey) as GameObject; }
+                catch (Exception) { }
+                WeddingArch arch = go as WeddingArch;
+                if (arch == null) { if (go != null) go.Destroy(); continue; }
+                Vector3 pos = sim.Position, fwd = Vector3.UnitZ;
+                if (!GlobalFunctions.FindGoodLocationNearby(arch, ref pos, ref fwd) || LotManager.GetLotAtPoint(pos) != lot)
+                {
+                    arch.Destroy();
+                    why = "no free spot for an arch on the lot";
+                    return null;
+                }
+                arch.SetPosition(pos);
+                arch.SetForward(fwd);
+                arch.AddToWorld();
+                return arch;
+            }
+            return null;
+        }
+
         // ---- hsgradkeep ----
 
-        // Puts the active Sim in EA's graduation table (School.sGraduatingSims, state None, as after the 14:30 alarm), runs
-        // Cleanup on a user-directed GraduateInCityHall that never reached City Hall (where a failed route ends), then the
-        // fix's step once more past the 14:30 gate (EA's alarm cannot run inside a synchronous check). lost = nothing queued
-        // (EA, switch off), kept = one GraduateInPlace queued (switch on). The check removes what it queued and its table
-        // entry, so the Sim is not graduated.
+        // A teen of the active household (in the world, not at boarding school, not already graduating) goes into EA's
+        // graduation table (School.sGraduatingSims) as EA's School.GraduateSim and the 14:30 alarm leave it: a new
+        // GraduationInformation, not valedictorian, state None. Then Cleanup runs on a user-directed GraduateInCityHall that
+        // never reached City Hall (where a failed route ends) and the fix's step once more past the 14:30 gate (EA's alarm
+        // cannot run inside a synchronous check). lost = nothing queued (EA, switch off), kept = one GraduateInPlace queued
+        // (switch on); with none queued the line gives the queue's Test result for a GraduateInPlace like the fix's. The
+        // check removes what it queued and its table entry, so the teen is not graduated. N/A without such a teen.
         public static object HsGradKeepCheck(string what)
         {
             if (what != "expect lost" && what != "expect kept") return "hsgradkeep <expect lost|expect kept>";
-            Sim sim = Sim.ActiveActor;
             CityHall hall = FirstCityHall();
-            if (sim == null || hall == null) return "hsgrad check: no active Sim or no City Hall";
+            Household hh = Household.ActiveHousehold;
+            if (hall == null || hh == null) return "hsgrad check: no City Hall or no active household";
             FieldInfo fTable = typeof(School).GetField("sGraduatingSims", BindingFlags.Static | BindingFlags.NonPublic);
             Type infoT = typeof(School).GetNestedType("GraduationInformation", BindingFlags.NonPublic);
             if (fTable == null || infoT == null) return "hsgrad check: School graduation table not found";
             IDictionary table = fTable.GetValue(null) as IDictionary;
+            Sim sim = null;
+            foreach (Sim s in hh.Sims)
+            {
+                SimDescription sd = s.SimDescription;
+                if (sd.Teen && sd.IsHuman && s.InWorld && !sd.IsEnrolledInBoardingSchool() && (table == null || !table.Contains(sd))) { sim = s; break; }
+            }
+            if (sim == null) return "N/A: no teen in the active household who could graduate (in the world, not at boarding school, not graduating now)";
             SimDescription d = sim.SimDescription;
-            if (table != null && table.Contains(d)) return "FAIL: the active Sim is really graduating; not touched";
             bool made = table == null;
             if (made) { table = (IDictionary)Activator.CreateInstance(fTable.FieldType); fTable.SetValue(null, table); }
             object info = Activator.CreateInstance(infoT, true);
+            infoT.GetField("IsValedictorian").SetValue(info, false);
             infoT.GetField("State").SetValue(info, School.GraduationState.None);
             table.Add(d, info);
             int before = PatchCounters()[2347], queued = 0;
+            string test = null;
             try
             {
                 InteractionInstance gi = School.GraduateInCityHall.Singleton.CreateInstance(hall, sim, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
@@ -217,6 +272,7 @@ namespace Ts3Fixes
                 foreach (InteractionInstance ii in sim.InteractionQueue.InteractionList)
                     if (ii is School.GraduateInPlace) queued++;
                 sim.InteractionQueue.CancelAllInteractionsByType(School.GraduateInPlace.Singleton);
+                if (queued == 0) test = GradTestResult(School.GraduateInPlace.Singleton.CreateInstance(sim, sim, gi.GetPriority(), false, false));
             }
             finally
             {
@@ -224,7 +280,8 @@ namespace Ts3Fixes
                 if (made) fTable.SetValue(null, null);
             }
             bool ok = what == "expect kept" ? queued == 1 : queued == 0;
-            return (ok ? "PASS " : "FAIL ") + what + ": GraduateInPlace queued " + queued + ", counter 2347 +" + (PatchCounters()[2347] - before);
+            return (ok ? "PASS " : "FAIL ") + what + ": " + sim.FullName + ", GraduateInPlace queued " + queued + (test != null ? " (queue Test: " + test + ")" : "")
+                + ", counter 2347 +" + (PatchCounters()[2347] - before);
         }
 
         // ---- petfireplan ----

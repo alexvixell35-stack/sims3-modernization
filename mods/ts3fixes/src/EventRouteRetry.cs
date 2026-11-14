@@ -184,18 +184,21 @@ namespace Ts3Fixes
         // the clear ring (NPCs only). Otherwise, when the anchor moved to the entrance: EA's own goal shape (0-6 m,
         // 45 degrees, 0.5 m) around the entrance instead of the origin; for a ceremony crowd (ceremonyspot) NPCs only, for
         // a protest (comboprotest) every Sim, since only the goal changes and the Sim still walks there.
+        // Why the last EvrCrowdRoute call left the route to EA (harness checks print it).
+        static string sEvrCrowdWhy = "";
+
         static Route EvrCrowdRoute(CityHall hall, Sim s)
         {
             try
             {
                 bool npc = IsNpcSim(s);
                 bool protest = hall.IsProtestActive && ShortcutOn("comboprotest");
-                if (!npc && !protest) return null;
+                if (!npc && !protest) { sEvrCrowdWhy = "player Sim and no protest active"; return null; }
                 Vector3 c, fwd;
                 bool moved;
-                if (!EvrAnchor(hall, protest || ShortcutOn("ceremonyspot"), out c, out fwd, out moved)) return null;
+                if (!EvrAnchor(hall, protest || ShortcutOn("ceremonyspot"), out c, out fwd, out moved)) { sEvrCrowdWhy = "no proxy"; return null; }
                 bool ring = npc && ShortcutOn("eventcrowdring") && hall.IsCelebrationActive && hall.CeremonyAwardInfo != null;
-                if (!ring && !moved) return null;
+                if (!ring && !moved) { sEvrCrowdWhy = "EA's slot is real and no ring wanted"; return null; }
                 if (!moved) c.y = World.GetTerrainHeight(c.x, c.z);
                 RadialRangeDestination d = new RadialRangeDestination();
                 d.mCenterPoint = c;
@@ -219,7 +222,8 @@ namespace Ts3Fixes
                 Route r = s.CreateRoute();
                 r.AddDestination(d);
                 r.Plan();
-                if (!r.PlanResult.Succeeded()) return null;
+                if (!r.PlanResult.Succeeded()) { sEvrCrowdWhy = "plan failed: " + r.PlanResult.mType + " at " + c; return null; }
+                sEvrCrowdWhy = "";
                 PatchCounters()[ring ? 2327 : protest ? 2338 : 2334]++;
                 return r;
             }

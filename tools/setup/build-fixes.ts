@@ -245,7 +245,6 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kHsGradKeep value="False" />
     <kUniGradKeep value="False" />
     <kBsRefund value="False" />
-    <kComboAlarm value="False" />
     <kComboProtest value="False" />
     <kComboVenue value="False" />
     <kComboSituation value="False" />

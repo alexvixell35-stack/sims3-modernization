@@ -2720,7 +2720,7 @@
       "from": 2335,
       "to": 2344,
       "by": "claude",
-      "what": "combo rabbit hole fixes: comboalarm, comboprotest, combovenue, combosituation (docs/551)",
+      "what": "combo rabbit hole fixes: comboprotest, combovenue, combosituation (docs/551; comboalarm removed)",
       "at": "2026-11-14T13:28:56.521Z",
       "worktree": "<repo>"
     },

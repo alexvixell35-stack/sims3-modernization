@@ -66535,28 +66535,9 @@
     "bug": "WeddingCeremony.RouteToWeddingArch.OnRouteFailed ends the whole wedding (Parent.Exit) when one partner's route to the wedding arch fails: no ring exchange, the couple stays engaged, the guests leave (docs/546 §12)",
     "fix": "ts3fixes WeddingArchKeep.cs: weddingarchkeep (default off), docs/546 §12",
     "save": "Baseline-BP",
-    "note": "Buys a wedding arch next to the active Sim (free), then the agent check (WeddingArchKeepCheck, EventChecks.cs) starts EA's WeddingCeremony for the active Sim and a second human Sim on the lot (no guests), marks the active Sim's arch route as failed (what the Run hook records) and runs OnRouteFailed. Off arm: ceremony ended. On arm: ceremony in EA's no-arch path (GatherRound). The check ends the ceremony itself before any ring exchange. Needs a second teen-or-older human Sim on the active lot.",
+    "note": "The agent check (WeddingArchKeepCheck, EventChecks.cs) places a wedding arch next to the active Sim when the lot has none (deleted again at the end), starts EA's WeddingCeremony for the active Sim and a second human Sim on the lot (no guests), marks the active Sim's arch route as failed (what the Run hook records) and runs OnRouteFailed. Off arm: ceremony ended. On arm: ceremony in EA's no-arch path (GatherRound). The check ends the ceremony itself before any ring exchange. Needs a second teen-or-older human Sim on the active lot.",
     "expect": "off: 'PASS expect lost: ceremony ended ..., counter 2345 +0'. on: 'PASS expect kept: ceremony GatherRound (or CallOut) ..., counter 2345 +1'. No 2346 errors.",
     "steps": [
-      {
-        "cmd": "buy_open",
-        "waitS": 15,
-        "note": "Buy mode to place an arch"
-      },
-      {
-        "cmd": "buy_object",
-        "args": {
-          "name": "Wedding Arch",
-          "nth": 0,
-          "free": true
-        },
-        "waitS": 5,
-        "note": "an arch next to the active Sim"
-      },
-      {
-        "cmd": "buy_close",
-        "waitS": 10
-      },
       {
         "cmd": "patches",
         "args": {
@@ -66609,8 +66590,8 @@
     "bug": "A user-directed School.GraduateInCityHall that fails (route to City Hall) after EA's 14:30 force-graduation alarm leaves the Sim graduating forever: GraduateInPlace is only queued for autonomous instances, so no diploma and no GraduationType (docs/546 §12)",
     "fix": "ts3fixes GraduationKeep.cs: hsgradkeep (default off), docs/546 §12",
     "save": "Baseline-BP",
-    "note": "The agent check (HsGradKeepCheck, EventChecks.cs) puts the active Sim in EA's graduation table (state None), runs Cleanup on a user-directed GraduateInCityHall that never reached City Hall, then the fix's step past the 14:30 gate. Off arm: nothing queued. On arm: one GraduateInPlace queued. The check removes the queued GraduateInPlace and its table entry, so nobody graduates. Refuses when the active Sim is really graduating.",
-    "expect": "off: 'PASS expect lost: GraduateInPlace queued 0, counter 2347 +0'. on: 'PASS expect kept: GraduateInPlace queued 1, counter 2347 +1'. No 2348 errors.",
+    "note": "The agent check (HsGradKeepCheck, EventChecks.cs) puts a teen of the active household in EA's graduation table (as GraduateSim and the 14:30 alarm leave it: state None), runs Cleanup on a user-directed GraduateInCityHall that never reached City Hall, then the fix's step past the 14:30 gate. Off arm: nothing queued. On arm: one GraduateInPlace queued. The check removes the queued GraduateInPlace and its table entry, so nobody graduates. N/A without a teen in the active household (in the world, not at boarding school, not graduating). With nothing queued the line gives the queue's InteractionTestResult.",
+    "expect": "off: 'PASS expect lost: <teen>, GraduateInPlace queued 0 (queue Test: Pass), counter 2347 +0'. on: 'PASS expect kept: <teen>, GraduateInPlace queued 1, counter 2347 +1'. No 2348 errors.",
     "steps": [
       {
         "cmd": "patches",
@@ -66847,11 +66828,11 @@
   },
   {
     "id": "combo-rabbithole-check",
-    "bug": "Combined rabbit holes (docs/551): each piece of a combo building is out of the world (Position OutOfWorld, LotCurrent null), so (1) GameObject.RemoveAlarm / GetTimeLeft on a piece never reach the Global alarms it added (a combo stadium stacks one repeating score alarm per game day; protest time reads 0), (2) CityHall.CreateProtest builds its broadcasters on the piece and the protest draws nobody, (3) Theatre / Stadium player concerts and conventions throw on the piece's null lot (Perform Concert lost), (4) AutographSessionSituation / FieldTripSituation take the piece's null lot and exit at once",
-    "fix": "ts3fixes ComboRabbitHole.cs: comboalarm, comboprotest, combovenue, combosituation (all default off), docs/551",
+    "bug": "Combined rabbit holes (docs/551): each piece of a combo building is out of the world (Position OutOfWorld, LotCurrent the world lot), so (1) CityHall.CreateProtest builds its broadcasters on the piece and the protest draws nobody, and the protest goal is the combo model's missing RoutingSlot_0 (the world origin), (2) Theatre.StartShowSoundBroadcaster puts the TheatreMusic broadcaster on the piece, (3) AutographSessionSituation centres the session on the piece, so the autographer never arrives",
+    "fix": "ts3fixes ComboRabbitHole.cs: comboprotest, combovenue, combosituation (all default off), docs/551",
     "save": "Baseline-BP",
-    "note": "Needs a world with a combo building (Appaloosa Plains: ComboCityhallPoliceMilitary; others listed by ComboRabbitHoleCheck). ComboRabbitHoleCheck lists the pieces and their slots first (the [inferred] facts of docs/551). ComboFixCheck then runs one EA path per family on the first matching piece and reads BROKEN / FIXED / N/A; on a world without a combo piece every line reads N/A: record the job as N/A (not triggered).",
-    "expect": "facts: pieces > 0, all out of world with no lot, combo RoutingSlot_0 'o'. off: alarm BROKEN, protest BROKEN (origin the piece, time left 0), venue BROKEN (NullReferenceException), situation BROKEN (lot null). on: all four FIXED; counters 2335, 2337, 2339, 2340 >= 1; errors 2343 +0; no new script errors besides the off arm's NullReferenceExceptions.",
+    "note": "Needs a world with a combo building (Appaloosa Plains: ComboCityhallPoliceMilitary; others listed by ComboRabbitHoleCheck). ComboRabbitHoleCheck lists the pieces and their slots first (the facts of docs/551). ComboFixCheck then runs one EA path per family on the first matching piece and reads BROKEN / FIXED / N/A (venue needs a Theatre piece: N/A in Appaloosa Plains); the lot line is a fact, not a fix. On a world without a combo piece every line reads N/A: record the job as N/A (not triggered).",
+    "expect": "facts: pieces > 0, all at pos OutOfWorld on the world lot (FFFFFFFFFFFFFFFF), combo RoutingSlot_0 'o'. lot: world lot (manager = Global), alarm removed. off: protest BROKEN (origin the piece; EA route: no plan, or it ends off the building's lot), venue BROKEN or N/A, situation BROKEN (session at the piece, world lot). on: protest FIXED (origin the combo; fix route ends outdoors on the building's lot), venue FIXED or N/A, situation FIXED (session at the combo, its lot); counters 2337, 2338, 2340 >= 1; errors 2343 +0.",
     "steps": [
       {
         "cmd": "reflect_call",
@@ -66866,7 +66847,6 @@
       {
         "cmd": "patches",
         "args": {
-          "comboalarm": false,
           "comboprotest": false,
           "combovenue": false,
           "combosituation": false
@@ -66888,7 +66868,6 @@
       {
         "cmd": "patches",
         "args": {
-          "comboalarm": true,
           "comboprotest": true,
           "combovenue": true,
           "combosituation": true
@@ -66910,7 +66889,6 @@
       {
         "cmd": "patches",
         "args": {
-          "comboalarm": false,
           "comboprotest": false,
           "combovenue": false,
           "combosituation": false

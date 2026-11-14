@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay.Academics;
 using Sims3.Gameplay.Actors;
@@ -7,6 +8,7 @@ using Sims3.Gameplay.Careers;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Objects.RabbitHoles;
 using Sims3.Gameplay.Utilities;
+using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
@@ -78,6 +80,31 @@ namespace Ts3Fixes
             return (ii.CancelledReason & ExitReason.UserCanceled) != 0 ? null : a;
         }
 
+        // The game's queue refused the fallback (InteractionQueue.InsertInteraction runs entry.Test()): logged once per Sim
+        // and kind with the definition's InteractionTestResult, so a refusal shows up in the applied log instead of a
+        // counter that claims the diploma was kept.
+        static readonly List<string> sGradRefused = new List<string>();
+        static void GradRefused(string kind, InteractionInstance inPlace)
+        {
+            Sim a = inPlace.InstanceActor;
+            string key = kind + " " + a.SimDescription.SimDescriptionId;
+            if (sGradRefused.Contains(key) || sGradRefused.Count >= 20) return;
+            sGradRefused.Add(key);
+            AppliedLog().Add("gradkeep: the queue refused the " + kind + " GraduateInPlace for " + a.FullName + " (" + GradTestResult(inPlace) + ")");
+        }
+
+        // Why an interaction instance fails the queue's Test: its definition's InteractionTestResult (Pass when it passes).
+        static string GradTestResult(InteractionInstance ii)
+        {
+            try
+            {
+                InteractionInstanceParameters p = ii.GetInteractionParameters();
+                GreyedOutTooltipCallback tip = null;
+                return ii.InteractionDefinition.Test(ref p, ref tip).ToString();
+            }
+            catch (Exception e) { return "test threw " + e.GetType().Name; }
+        }
+
         // ---- hsgradkeep ----
 
         // anyHour: the harness check's way past the 14:30 gate (EA's alarm cannot fire inside a synchronous check)
@@ -91,11 +118,12 @@ namespace Ts3Fixes
                 if (!anyHour && SimClock.HoursPassedOfDay < (float)sHgHoldHour.GetValue(null)) return;  // EA's alarm still retries
                 InteractionQueue q = a.InteractionQueue;
                 if (q.HasInteractionOfType(School.GraduateInCityHall.Singleton) || q.HasInteractionOfType(School.GraduateInPlace.Singleton)) return;
-                // as EA's autonomous branch: GraduateInPlace(Actor, Actor, GetPriority(), autonomous, not cancellable), MustRun
-                InteractionInstance inPlace = School.GraduateInPlace.Singleton.CreateInstance(a, a, gi.GetPriority(), true, false);
+                // as EA's autonomous branch (GraduateInPlace on the actor, the same priority, not cancellable, MustRun), but with
+                // the failed instance's own autonomy: an autonomous copy for a player-directed graduation can fail the queue's Test
+                InteractionInstance inPlace = School.GraduateInPlace.Singleton.CreateInstance(a, a, gi.GetPriority(), gi.Autonomous, false);
                 inPlace.MustRun = true;
-                q.Add(inPlace);
-                PatchCounters()[2347]++;
+                if (q.Add(inPlace)) PatchCounters()[2347]++;
+                else GradRefused("high school", inPlace);
             }
             catch (Exception) { PatchCounters()[2348]++; }
         }
@@ -115,8 +143,8 @@ namespace Ts3Fixes
                 // as EA's CollegeGraduation.GraduateSim without a graduation rabbit hole: High, not autonomous, not cancellable, AddNext
                 InteractionInstance inPlace = CollegeGraduation.GraduateInPlace.Singleton.CreateInstance(a, a, new InteractionPriority(InteractionPriorityLevel.High), false, false);
                 sUgInPlaceDegree.SetValue(inPlace, degree);  // the ceremony's degree, not whatever LastStudiedDegree is by then
-                q.AddNext(inPlace);
-                PatchCounters()[2349]++;
+                if (q.AddNext(inPlace)) PatchCounters()[2349]++;
+                else GradRefused("university", inPlace);
             }
             catch (Exception) { PatchCounters()[2350]++; }
         }
