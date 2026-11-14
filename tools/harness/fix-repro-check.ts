@@ -105,6 +105,8 @@ export const EXEMPT: Record<string, string> = {
   socialfinish: 'measured off/on in ts3agent social phase soaks (docs/546 §9): off 9 of 9 ShowVideos waits stood 5.3 min (phase-20261114-0401), on every logged wait ended after 0.5 min, 2310 = 16 signalled, 0 errors (phase-20261114-0430); no forced repro of one of the six masters yet',
   socialreceivefail: 'measured off/on in ts3agent social phase soaks (docs/546 §9): off 5 initiators on a parked receiver ran to the 30 min giveup (phase-20261114-1011), on 37 waits ended at once, 0 of the parked case left, 0 errors (phase-20261114-1113); the receive failure has no deterministic trigger',
   simfestkeep: 'EA bug fix from the decompiled code (docs/546 §11), not yet run: no harness check exists yet (a SimFest needs a ShowStage, an emcee and a winner pulled from the audience); add a SimFestKeepCheck and a repro before turning it on',
+  unigradkeep: 'EA bug fix from the decompiled code (docs/546 §12), not yet run: needs a University world (Annex), a Sim with a completed degree whose rewards were not granted and the 12:00 ceremony; no check yet, verify in a University save before turning it on',
+  bsrefund: 'EA bug fix from the decompiled code (docs/546 §12), not yet run: the pickup needs an enrolment (modal dialog), a night and an NPC car whose drive fails; no forced trigger yet, verify the refund (2351) in a play run before turning it on',
 };
 
 export const fixesNames = (cs: string) => {

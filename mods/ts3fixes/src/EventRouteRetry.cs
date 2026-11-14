@@ -175,7 +175,7 @@ namespace Ts3Fixes
                 jig.SetForward(fwd);
                 PatchCounters()[2333]++;
             }
-            catch (Exception) { PatchCounters()[2331]++; }
+            catch (Exception e) { EvrError("move spot", e); }
         }
 
         // ---- crowd: eventcrowdring, and the entrance anchor (ceremonyspot for the crowd, comboprotest for protesters) ----
@@ -223,7 +223,13 @@ namespace Ts3Fixes
                 PatchCounters()[ring ? 2327 : protest ? 2338 : 2334]++;
                 return r;
             }
-            catch (Exception) { PatchCounters()[2331]++; return null; }
+            catch (Exception e) { EvrError("crowd route", e); return null; }
+        }
+
+        // Counts an error ([2331]) and keeps the first five in the applied log, with where and what, for the harness to read.
+        static void EvrError(string where, Exception e)
+        {
+            if (++PatchCounters()[2331] <= 5) AppliedLog().Add("eventrouteretry error in " + where + ": " + e.GetType().Name + ": " + e.Message);
         }
 
         // EA's private CityHall tunable (the gathering goal's shape), or its shipped default when it can't be read.
@@ -287,7 +293,7 @@ namespace Ts3Fixes
                 EvrMayorToSlot(me, partner, ga.LinkedInteractionInstance, jig);
                 return rung + 1;
             }
-            catch (Exception) { PatchCounters()[2331]++; return -1; }
+            catch (Exception e) { EvrError("retry rung", e); return -1; }
         }
 
         static bool EvrPartnerWaiting(InteractionInstance me, Sim partner)

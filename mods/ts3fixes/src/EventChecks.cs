@@ -1,21 +1,28 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.ActorSystems;
+using Sims3.Gameplay.CAS;
+using Sims3.Gameplay.Careers;
 using Sims3.Gameplay.Controllers;
 using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Objects;
+using Sims3.Gameplay.Objects.Decorations;
 using Sims3.Gameplay.Objects.RabbitHoles;
+using Sims3.Gameplay.Situations;
+using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
     // Harness checks for the event fixes (test only; called through the agent's reflect_call, never by the game):
-    // AwardKeepCheck (awardkeep), EventCeremonyCheck (eventcrowdring / eventrouteretry / awardkeep), PetFireCheck
-    // (petfireplan). Each acts on the active Sim's world and cleans up what it can after itself.
+    // AwardKeepCheck (awardkeep), EventCeremonyCheck (eventcrowdring / eventrouteretry / awardkeep), WeddingArchKeepCheck
+    // (weddingarchkeep), HsGradKeepCheck (hsgradkeep), PetFireCheck (petfireplan). Each acts on the active Sim's world and
+    // cleans up what it can after itself.
     public static partial class Fixes
     {
         // ---- shared ----
@@ -138,6 +145,86 @@ namespace Ts3Fixes
             }
             sim.InteractionQueue.Add(attend.CreateInstance(hall, sim, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true));
             return "ceremony started: crowd " + crowd.Count + (block ? " placed on slot B" : "") + ", honoree " + sim.FullName + " sent";
+        }
+
+        // ---- weddingarchkeep ----
+
+        // Needs a wedding arch on the active Sim's lot and a second human Sim there. Starts EA's WeddingCeremony for the two
+        // (no guests), marks the active Sim's arch route as failed (what WeddingArchRouteHook records when RouteToSlot fails)
+        // and runs the RouteToWeddingArch state's OnRouteFailed. lost = the ceremony ended (EA, switch off), kept = it went
+        // on in EA's no-arch path (CallOut / GatherRound, switch on). The check ends the ceremony itself before any ring
+        // exchange, so nobody gets married.
+        public static object WeddingArchKeepCheck(string what)
+        {
+            if (what != "expect lost" && what != "expect kept") return "weddingarchkeep <expect lost|expect kept>";
+            Sim sim = Sim.ActiveActor;
+            Lot lot = sim == null ? null : sim.LotCurrent;
+            if (lot == null) return "weddingarch check: no active Sim on a lot";
+            WeddingArch arch = null;
+            foreach (WeddingArch a in lot.GetObjects<WeddingArch>()) { arch = a; break; }
+            if (arch == null) return "weddingarch check: no wedding arch on the active Sim's lot";
+            Sim partner = null;
+            foreach (Sim s in lot.GetSims())
+                if (s != sim && s.SimDescription.IsHuman && s.SimDescription.TeenOrAbove && (partner == null || s.Household == sim.Household)) partner = s;
+            if (partner == null) return "weddingarch check: no second human Sim on the lot";
+
+            int before = PatchCounters()[2345];
+            WeddingCeremony c = new WeddingCeremony(sim, partner, new List<Sim>(), lot, arch);
+            WeddingCeremony.RouteToWeddingArch state = c.Child as WeddingCeremony.RouteToWeddingArch;
+            if (state == null) { c.Exit(); return "FAIL: the ceremony did not start in RouteToWeddingArch"; }
+            sWaFailSim = sim;
+            sWaFailTick = SimClock.CurrentTicks;
+            state.OnRouteFailed(sim, 0f);
+            sWaFailSim = null;
+            bool exited = c.SituationExited;
+            bool kept = !exited && (c.Child is WeddingCeremony.CallOut || c.Child is WeddingCeremony.GatherRound);
+            string now = exited ? "ended" : c.Child == null ? "no state" : c.Child.GetType().Name;
+            if (!exited) c.Exit();
+            bool ok = what == "expect kept" ? kept : exited;
+            return (ok ? "PASS " : "FAIL ") + what + ": ceremony " + now + ", partner " + partner.FullName + ", counter 2345 +" + (PatchCounters()[2345] - before);
+        }
+
+        // ---- hsgradkeep ----
+
+        // Puts the active Sim in EA's graduation table (School.sGraduatingSims, state None, as after the 14:30 alarm), runs
+        // Cleanup on a user-directed GraduateInCityHall that never reached City Hall (where a failed route ends), then the
+        // fix's step once more past the 14:30 gate (EA's alarm cannot run inside a synchronous check). lost = nothing queued
+        // (EA, switch off), kept = one GraduateInPlace queued (switch on). The check removes what it queued and its table
+        // entry, so the Sim is not graduated.
+        public static object HsGradKeepCheck(string what)
+        {
+            if (what != "expect lost" && what != "expect kept") return "hsgradkeep <expect lost|expect kept>";
+            Sim sim = Sim.ActiveActor;
+            CityHall hall = FirstCityHall();
+            if (sim == null || hall == null) return "hsgrad check: no active Sim or no City Hall";
+            FieldInfo fTable = typeof(School).GetField("sGraduatingSims", BindingFlags.Static | BindingFlags.NonPublic);
+            Type infoT = typeof(School).GetNestedType("GraduationInformation", BindingFlags.NonPublic);
+            if (fTable == null || infoT == null) return "hsgrad check: School graduation table not found";
+            IDictionary table = fTable.GetValue(null) as IDictionary;
+            SimDescription d = sim.SimDescription;
+            if (table != null && table.Contains(d)) return "FAIL: the active Sim is really graduating; not touched";
+            bool made = table == null;
+            if (made) { table = (IDictionary)Activator.CreateInstance(fTable.FieldType); fTable.SetValue(null, table); }
+            object info = Activator.CreateInstance(infoT, true);
+            infoT.GetField("State").SetValue(info, School.GraduationState.None);
+            table.Add(d, info);
+            int before = PatchCounters()[2347], queued = 0;
+            try
+            {
+                InteractionInstance gi = School.GraduateInCityHall.Singleton.CreateInstance(hall, sim, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
+                gi.Cleanup();  // EA's Cleanup, then the hook (14:30 gate)
+                HsGradInPlace(gi, true);  // past the gate; a no-op when the hook already queued it
+                foreach (InteractionInstance ii in sim.InteractionQueue.InteractionList)
+                    if (ii is School.GraduateInPlace) queued++;
+                sim.InteractionQueue.CancelAllInteractionsByType(School.GraduateInPlace.Singleton);
+            }
+            finally
+            {
+                table.Remove(d);
+                if (made) fTable.SetValue(null, null);
+            }
+            bool ok = what == "expect kept" ? queued == 1 : queued == 0;
+            return (ok ? "PASS " : "FAIL ") + what + ": GraduateInPlace queued " + queued + ", counter 2347 +" + (PatchCounters()[2347] - before);
         }
 
         // ---- petfireplan ----

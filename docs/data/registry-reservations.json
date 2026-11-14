@@ -2733,6 +2733,16 @@
       "what": "combo rabbit hole bugs",
       "at": "2026-11-14T13:36:43.046Z",
       "worktree": "<repo>"
+    },
+    {
+      "id": "fixes-2345",
+      "kind": "fixes",
+      "from": 2345,
+      "to": 2353,
+      "by": "claude",
+      "what": "event outcome keepers: weddingarchkeep, hsgradkeep, unigradkeep, bsrefund (docs/546 §12)",
+      "at": "2026-11-14T14:17:01.362Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

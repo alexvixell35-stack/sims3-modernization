@@ -240,6 +240,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kEventCrowdRing value="False" />
     <kEventRouteRetry value="False" />
     <kSimFestKeep value="False" />
+    <kWeddingArchKeep value="False" />
+    <kHsGradKeep value="False" />
+    <kUniGradKeep value="False" />
+    <kBsRefund value="False" />
     <kComboAlarm value="False" />
     <kComboProtest value="False" />
     <kComboVenue value="False" />

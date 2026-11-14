@@ -289,3 +289,32 @@ and the crowd vanish and the award (`kSimAcceptedReward`, HeroOfTheCity) is lost
 Hall. The fix runs that same callback when the master cleans up a ceremony that is still open; the success path clears
 `CanAttendAwardCeremony` before Cleanup, so a given award is untouched. Slots 2322-2323; check `AwardKeepCheck`
 (setup, then expect lost / expect kept).
+
+## 12. More events lost to one failed route: wedding, graduations, boarding school (2026-11-14 audit, static)
+
+Follow-up of §11: the same pattern (a route failure ends the whole event, or ends it without the reward) checked in the
+decompiled code. Four real bugs, one switch each, all off by default, built, NOT RUN. Every fix gives EA's own fallback
+outcome; none moves a Sim or skips a route, so they apply to every Sim. A player cancel keeps EA's outcome in all four.
+
+| Switch | File | Slots | EA bug [verified in the decompiled code] | Fix | Check |
+|---|---|---|---|---|---|
+| `weddingarchkeep` | `WeddingArchKeep.cs` | 2345-2346 | `WeddingCeremony.RouteToWeddingArch.OnRouteFailed` calls `Parent.Exit()` when either partner's `RouteToWeddingArchSlot` fails, so one partner's route failure ends the wedding (no ring exchange, couple stays engaged; a resort's NPC wedding never happens). The same callback serves a player cancel. EA's wedding without an arch (`CallOut` > `GatherRound` > `ExchangeRings`) is the fallback. | A Run hook marks a route failure (Run false, state still RouteToWeddingArch, Sim not in the arch's use list, no cancel exit reason); for that failure only, OnRouteFailed switches to `CallOut` and cancels the partner's arch walk; the replaced state's later callbacks are ignored. Cancels run EA's code. | `WeddingArchKeepCheck`, repro `wedding-arch-keep-check` |
+| `hsgradkeep` | `GraduationKeep.cs` | 2347-2348 | `School.GraduateInCityHall.Cleanup` queues `GraduateInPlace` only for autonomous instances. EA's force-graduation alarm (14:30) retries every Sim at state None, but once. A user-directed instance (the player's "Graduate" at City Hall, or the household graduates the leading graduate queues with isAutonomous false) that fails after 14:30 leaves the Sim graduating forever: no diploma, no GraduationType. | After EA's Cleanup: not autonomous, not user-cancelled, still graduating, past 14:30, no graduation queued: queue `GraduateInPlace` as EA's autonomous branch does. Before 14:30 EA's alarm retries. | `HsGradKeepCheck`, repro `hs-grad-keep-check` |
+| `unigradkeep` | `GraduationKeep.cs` | 2349-2350 | `Annex.UniversityGraduationCeremony.Cleanup` re-adds the ceremony when `mReaddOnClean` is set, but nothing sets it (dead code). A failed route or a late arrival loses the diploma, IGraduatedFromUniversity and the bonus trait. EA's only fallback runs on returning home (`ReturnHomeBehaviorInHomeWorld`: active household, `LastStudiedDegree` only), so NPC students, and a student who studies another degree first, lose it. | After EA's Cleanup: degree complete, rewards not granted, not user-cancelled: queue `CollegeGraduation.GraduateInPlace` for the ceremony's degree (EA's no-rabbit-hole path). The return-home fallback then finds the rewards granted. | none (needs a University world); exemption in `fix-repro-check.ts` |
+| `bsrefund` | `BoardingRefund.cs` | 2351-2353 | `BoardingSchool.SchedulePickUp` takes the tuition at once. `BoardingSchoolPickUpSituation.CreateCarAndRoute.OnFailure` (car's drive failed, GetInCar refused, driver's wait ended) withdraws the student with no refund; EA refunds only when the student aged out. With no NPC car at all (`Init`), the situation exits and the student stays enrolled at home with no school and no pickup. | Refund `BoardingSchoolData.Cost` when a pickup ends with the student still enrolled in that school; on the no-car exit also withdraw the student as OnFailure does. The aged-out branch (school type already None) is not refunded twice. No notice (no localized string for it). | none (enrolment dialog, NPC car); exemption in `fix-repro-check.ts` |
+
+Checked, not the pattern or not fixed:
+- Prom (`PromSituation.GoToProm`): a Sim whose route fails only misses prom; the event goes on and the player can send the
+  Sim again until 22:00. Not fixed.
+- High-school graduation, player cancel: EA queues nothing for a user-directed cancel (intended; the player can click
+  City Hall again while still graduating). Kept.
+- Boarding school pickup when the student is not instantiated (`AlarmCallBackPickUp` does nothing): the student stays
+  enrolled at home like the no-car case. Rare (household Sims are instantiated); logged, not fixed.
+- Service situations that end on a route failure (`PizzaDeliverySituation`, `NewspaperDeliverySituation`,
+  `MailCarrierSituation`, `DancerServiceSituation`, `SocialWorkerAdoptionSituation`, `PassportPickupSituation`, ...): each
+  ends only its own visit and charges on arrival or not at all [inferred from a quick read; not traced to the payment];
+  candidates for a later pass, not fixed.
+
+Test: `node tools/harness/queue.ts` with the repros `wedding-arch-keep-check` (needs a second teen-or-older human Sim on
+the active lot; buys a free wedding arch) and `hs-grad-keep-check`. Both checks force the failure path synchronously and
+clean up after themselves (no wedding, no graduation left).

@@ -66317,6 +66317,133 @@
     ]
   },
   {
+    "id": "wedding-arch-keep-check",
+    "bug": "WeddingCeremony.RouteToWeddingArch.OnRouteFailed ends the whole wedding (Parent.Exit) when one partner's route to the wedding arch fails: no ring exchange, the couple stays engaged, the guests leave (docs/546 §12)",
+    "fix": "ts3fixes WeddingArchKeep.cs: weddingarchkeep (default off), docs/546 §12",
+    "save": "Baseline-BP",
+    "note": "Buys a wedding arch next to the active Sim (free), then the agent check (WeddingArchKeepCheck, EventChecks.cs) starts EA's WeddingCeremony for the active Sim and a second human Sim on the lot (no guests), marks the active Sim's arch route as failed (what the Run hook records) and runs OnRouteFailed. Off arm: ceremony ended. On arm: ceremony in EA's no-arch path (GatherRound). The check ends the ceremony itself before any ring exchange. Needs a second teen-or-older human Sim on the active lot.",
+    "expect": "off: 'PASS expect lost: ceremony ended ..., counter 2345 +0'. on: 'PASS expect kept: ceremony GatherRound (or CallOut) ..., counter 2345 +1'. No 2346 errors.",
+    "steps": [
+      {
+        "cmd": "buy_open",
+        "waitS": 15,
+        "note": "Buy mode to place an arch"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "name": "Wedding Arch",
+          "nth": 0,
+          "free": true
+        },
+        "waitS": 5,
+        "note": "an arch next to the active Sim"
+      },
+      {
+        "cmd": "buy_close",
+        "waitS": 10
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weddingarchkeep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeddingArchKeepCheck",
+          "args": [
+            "expect lost"
+          ]
+        },
+        "note": "off: EA ends the wedding",
+        "waitS": 3
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weddingarchkeep": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeddingArchKeepCheck",
+          "args": [
+            "expect kept"
+          ]
+        },
+        "note": "on: the wedding goes on without the arch",
+        "waitS": 3
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weddingarchkeep": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "hs-grad-keep-check",
+    "bug": "A user-directed School.GraduateInCityHall that fails (route to City Hall) after EA's 14:30 force-graduation alarm leaves the Sim graduating forever: GraduateInPlace is only queued for autonomous instances, so no diploma and no GraduationType (docs/546 §12)",
+    "fix": "ts3fixes GraduationKeep.cs: hsgradkeep (default off), docs/546 §12",
+    "save": "Baseline-BP",
+    "note": "The agent check (HsGradKeepCheck, EventChecks.cs) puts the active Sim in EA's graduation table (state None), runs Cleanup on a user-directed GraduateInCityHall that never reached City Hall, then the fix's step past the 14:30 gate. Off arm: nothing queued. On arm: one GraduateInPlace queued. The check removes the queued GraduateInPlace and its table entry, so nobody graduates. Refuses when the active Sim is really graduating.",
+    "expect": "off: 'PASS expect lost: GraduateInPlace queued 0, counter 2347 +0'. on: 'PASS expect kept: GraduateInPlace queued 1, counter 2347 +1'. No 2348 errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hsgradkeep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HsGradKeepCheck",
+          "args": [
+            "expect lost"
+          ]
+        },
+        "note": "off: EA queues nothing for a user-directed graduation"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hsgradkeep": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HsGradKeepCheck",
+          "args": [
+            "expect kept"
+          ]
+        },
+        "note": "on: EA's GraduateInPlace is queued"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hsgradkeep": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
     "id": "event-ceremony-block",
     "bug": "City Hall award ceremony: the NPC crowd gathers on and around the award jig (RouteToGatheringArea centres on RoutingSlot_0, radius 0-6 m); a crowd Sim in Celebrate on the honoree's slot refuses PushSims, the BlockedByPeople replan has no other goal, the honoree throws a route tantrum and GiveAward.Run fails, ending the ceremony (docs/546 §11, docs/548)",
     "fix": "ts3fixes EventRouteRetry.cs: eventcrowdring (prevention) and eventrouteretry (retry ladder), awardkeep (fallback pickup), all default off; docs/546 §11, docs/548",

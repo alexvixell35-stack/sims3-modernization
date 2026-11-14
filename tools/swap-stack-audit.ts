@@ -40,6 +40,7 @@ const TARGET_VARS: Record<string, string> = {
   'HitchCause.cs:sHcTimer': 'AlarmManager+Timer', 'HitchCause.cs:simReset': 'mod:Overwatch', 'HitchCause.cs:inst': 'mod:Overwatch', 'HitchCause.cs:cp': 'mod:Overwatch', 'HitchCause.cs:place': 'mod:Overwatch', 'OverwatchSpread.cs:sOwType': 'mod:Overwatch', 'OverwatchSpread.cs:alarmBase': 'mod:Overwatch', 'OverwatchStuck.cs:simEx': 'mod:Overwatch', 'OverwatchStuck.cs:simTypes': 'mod:Overwatch',
   'SimFestKeep.cs:sSfPresent': 'ShowStage+EmceePresentSimFestAward', 'JoyrideCostume.cs:jd': 'GoForJoyride+Definition',
   'JoyrideCostume.cs:rd': 'RouteAndGetToCostumeForJoyride+Definition', 'SyncWaitLog.cs:si': 'SocialInteraction',
+  'WeddingArchKeep.cs:sWaSlotRoute': 'WeddingArch+RouteToWeddingArchSlot', 'BoardingRefund.cs:sBsCarState': 'BoardingSchoolPickUpSituation+CreateCarAndRoute',
 };
 // reviewed in docs/242: hooks that may have no stub
 const kNoStub = new Set<string>();
