@@ -17,7 +17,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.253"  // dalexlol-prs-1113: 0.36.250 + Dalexlol PRs #398 [S3SSCompat] sha 69abfe62 row, #378 [RouteAsync] KdUnseenForeignCap (ini on), #394 [EaCrashFixes] HeightsInfLoop + BridgeHeightNaN (ini on, counters v918 bhnHits at 0x62C8 after the v195 ClauseLazy placeholder), #397 [RouteAsync] JobYield=1 (ini); 0.36.251 = feature/monojit-bailcensus, 0.36.252 = feature/monojit-clauselazy-guards; 0.36.250 = boundcall-1113: 0.36.249 + docs/537 §22 [MonoJit] BoundCall (default 0; guarded sites call EA bound bodies String.GetHashCode() / Equals(string) through 0xE525C0, counters v194 bc*, Count=1 jitcallee lines); 0.36.249 = crash2diag (docs/259 §9): 0.36.248 + [Crash2Diag] (default off; route destination list lifetime detector, counters v193 c2* at 0x6258; same code as the rc1111g crash-triage build 0.36.247-crashdiag1); 0.36.248 = master1112b: 0.36.243 + every branch below, new switches all default 0 / off, none run in game: monohost worker corpus fix (bugfix/jit-worker-corpus); docs/537 §20.6 R1 [MonoJit] CodeKB + refusal log, C2c game list 127 -> 115, E1 [Binder] TypeHandleDirect (feature/monojit-r1-c2c-e1, was 0.36.245, counters v188); [EqualsFast] (feature/valuetype-equals-fast, was 0.36.246, counters v186); [AutShadow] Races bit 2 R2c drain (feature/races-r2c, was 0.36.244, counters v187); [GoalValidRO] UnseenDefer B2 + gvattr diagnostics (feature/h4-gvunseen, was 0.36.245, counters v189); route-hitch-logs-1112 (was 0.36.245): 0.36.243 + docs/247 §13 route hitch diagnostics, built NOT RUN, all default off or plain counters (L: FbApplyPending timing v190 fbAp*, [RouteAsync] FbApplyLog per-lot split + "fbapply:" line; R1: ReplanFromPosition START refusals by own / foreign and reason v191 arRf3, UserDiag passes ts3fixes "gangway:" lines; C: forced DiscDrain waits and LostRemovalFix flushes by site v192 ds* / lrs*; 0.36.244 is feature/races-r2c); 0.36.243 = master1112: integrate/mono-routing-1112 + satb-struct-this, both had claimed 0.36.242 (0.36.241 = release rc1111f); = 0.36.240 + docs/206 §17 (#352) Satb struct `this` (the same fix as 0.36.241 = release rc1111f, built from release/rc-1111d): a shared value-type `this` in a binder body gives the object up and runs the body on a worker copy (DateAndTime..ctor store closed), SatbObjFields refuses header words below 0x10000 (counters v185 sb*); plus feature/monojit-arraycopy5 host side only (monohost ClauseLazy / DirectLeaf gates; the game ClauseLazy path and its Array.Copy list rows parked, docs/537 §20 Q1; was 0.36.212) + [AutShadow] Tier2SlotRows P5 slot rows (feature/tier2-p5-rows, was 0.36.213) + [AutShadow] Races R1b pre-warm / R2b-R3a witness, autshadow v22 (feature/races-r1-r2b, was 0.36.214) + [GoalValidRO] Attr v174 and [SteerRO] Retry v175 (feature/h4-goalvalid-a1, was 0.36.195); all new switches default 0; 0.36.240 = launcherfix-1110: 0.36.239 + [LauncherFix] (docs/255, launcher host only, Enabled default 1): TSLHost.dll telemetry upload skipped (byte-checked call at +0x34535), so the job no longer busy-waits for Sims3Logs.xml; launcher host logs to ts3native.launcher.log, no work at detach; TS3W path unchanged; 0.36.239 = wdfix2-1110: 0.36.238 + [RouteAsync] WatchdogKind2 (docs/250 §7.1, default 0): PlanFromPoint hooked for the watchdog's A1 check only, own kind-2 STARTs accepted only with the watchdog tag, every other kind-2 call straight to the game (arWdPass, the old arReserved slot), GetOption2 q 9 for ts3fixes; 0.36.238 = rc1110c: 0.36.237 + the sync side of the same hole (docs/197 §7): KdSyncCeilUs gives a sync plan with no scope answer yet the household ceiling (KdSeenCeilMs) instead of its usual caps, KdKnownUnseen returns false with no answer (ReplanDedupe holds footprint repeats); ts3fixes marks (uf) unchanged; 0.36.237 = rc1110b: 0.36.236 + KdExempt household hole (docs/197 §7, docs/249): with KdExemptSeen=1 and no scope answer from ts3fixes yet (session start, older package) an unmarked route is unknown = household = exempt, not cut; 0.36.236 = s3ssguard-1109: 0.36.235 + docs/539 §22 [S3SSCompat] StaleWriteGuard (S3SS 1.6.3 SafeReassert call retargeted: its stale camera-threshold write goes to the live WorldManager+0xEC, not freed heap; stands aside for other S3SS builds); 0.36.235 = float5catch-1109b: 0.36.234 + docs/539 §21 DR own-write safety (WpVeh takes a hit on an address its slot just dropped and rewrites the thread's DRs to the slot table, ts3native-eip hits counted not handed on unless float 5, nested hits counted; bp-float5-catch-1 died of a declined single-step from our UafCheck fill under a rotating Float5Watch DR); 0.36.234 = float5catch-1109: 0.36.233 + docs/539 §21 [Float5Sticky] (DR write watch kept on the first float-5 address all session, save / world load checks, Portal_Save portal vector check), [Float5Watch] (last-OK windows, 250 ms sweep of outfits / SlotComponents, DR watches on the newest records around travel), [UafCheck] TravelHold; 0.36.233 = float5mono-1109b: 0.36.232 + [Float5Free] range rule (a 0x40A00000..0x40A0FFFF pointer is bad only with an unreadable / freed / zero-size chunk header; in-use blocks there pass, docs/539 §19.1), [MonoSigGuard] lines only for param_count 0 (docs/539 §20); 0.36.232 = float5mono-1109: 0.36.231 + [MonoSigGuard] (docs/539 §20, EA bug: 0xD70F90 read params[0] of a zero-parameter delegate signature (SwapLoadScreen) before its param_count check; release ini on); 0.36.231 = float5free-1109: 0.36.230 + [Float5Free] (docs/539 §19, float-5 pointers at EA Free 0x4E5920 sharing [UafCheck]'s detour, SACS Walker deque dtor 0x727E10 check, Guard skips); 0.36.230 = float5slot-1109: 0.36.229 + [SlotGuard] (docs/539 §18, SlotComponent slot arrays at clear / load / clone), [UafCheck] Object blocks (ObjectService free 0x935E1B, ObjectMaxSize, Object id) and foreign-jmp refusal, AsDetourCore NULL trampoline fix (UafCheck without AllocSites crashed at load); 0.36.229 = float5uaf-1109b: 0.36.228 + [UafCheck] free tags (uaftag.h: which of our paths freed a quarantined block), recently-freed ring, float5 near-our-free lookups, P5c released ring 64 -> 4096; 0.36.228 = float5uaf-1109: 0.36.227 + docs/539 §17 [UafCheck] delayed-free quarantine (counters v183 uaf*); 0.36.227 = float5trap-1109: 0.36.226 (master1109c) + docs/539 §16 [CasTrim] WriteTrap (DR write watches on [outfit+0xBC] cells, counters v181 tr*)
+#define TS3NATIVE_VERSION "0.36.256-quitstop1"  // quitstop-1114 (bugfix/quit-stop-mono-workers): master 090a2931 + [MonoThread] QuitStop (docs/30 §17): worker stopped and GC hooks back at the Mono shutdown entry 0xE534D0
 #endif
 
 typedef unsigned char u8;
@@ -2238,7 +2238,7 @@ struct Ts3nCounters {
     LONG pdCutSc;                      // +0x52C4, tripwire: cut sessions (skip / capped > 0) holding such a plan (nested in an open session)
     LONG pdSpare[2];                   // +0x52C8, reserved with native-v135 (4 int32)
     // v136 (0.36.80, docs/198 §4, rctrim.cpp): [ResourceCache] TrimAfterCleanup experiment (off)
-    LONG rtOn;                         // +0x52D0, 1 = service slot hook installed
+    LONG rtOn;                          // +0x52D0, 1 = service slot hook installed
     LONG rtTrims;                      // +0x52D4, shrink-both calls made
     LONG rtFreedKB;                    // +0x52D8, idle cache KB dropped over all trims (both caches)
     LONG rtLastFreedKB;                // +0x52DC, ... by the last trim
@@ -2959,10 +2959,28 @@ struct Ts3nCounters {
     LONG bcVtThis;                         // +0x628C, guard fills refused: bound target with a value-type this
     LONG bcCallee[4];                      // +0x6290, hits by kJitBound row (0 String.GetHashCode(), 1 String.Equals(string))
     LONG bcSpare[2];                       // +0x62A0
-    LONG resV195[8];                       // +0x62A8, v195 reserved for [MonoJit] ClauseLazy guards (feature/monojit-clauselazy-guards): zeros here
+    // v195 (docs/537 §24): [MonoJit] ClauseLazy guards (monojit.cpp)
+    LONG clOn;                             // +0x62A8, 1 = ClauseLazy in force; 0 after the session kill switch (clKillWhy says why)
+    LONG clBodies;                         // +0x62AC, clause lazy bodies published (allow-listed methods only)
+    LONG clNotListed;                      // +0x62B0, clause methods that got no lazy body: not on the allow list or IL bytes differ
+    LONG clKillWhy;                        // +0x62B4, 0 none, 1 verify mismatch after a clause lazy body ran, 2 fault in a clause method's code
+    LONG clFaults;                         // +0x62B8, faults (first-chance, any code) with eip inside a clause method's compiled code
+    volatile LONG clVerRuns;               // +0x62BC, Mode=2 only: clause lazy body entries (the emitted inc; none in Mode=1)
+    LONG clSpare[2];                       // +0x62C0
     // v918 (contributor block, docs/registry.md; docs/67 §37, wastar.cpp): [EaCrashFixes] BridgeHeightNaN (Dalexlol PR #394)
     volatile LONG bhnHits;                 // +0x62C8, bridge heights (0xB745A0) not finite or above 1e6 in magnitude: ignored, terrain used
-    LONG resV196_197[10];                  // +0x62CC, v196 [MonoJit] MaxMethods (2) + v197 RetTeardown (8) reserved on their branches: zeros here
+    // v196 [MonoJit] T4096 method table (monojit.cpp, docs/537 §26)
+    volatile LONG jitTableFull;            // +0x62CC, compiles refused with "method table full"
+    volatile LONG jitMethCap;              // +0x62D0, the method table in force ([MonoJit] MaxMethods, or 2048 after the fallback)
+    // v197 [MonoJit] RetTeardown (monojit-ret.h, docs/537 §27)
+    volatile LONG rtdOn;                    // +0x62D4, 1 = compiled ret / ret.void run the frame return natively; 0 after the kill switch
+    volatile LONG rtdSites;                 // +0x62D8, ret sites emitted as a jump to the block
+    volatile LONG rtdBails;                 // +0x62DC, block entries that took EA's handler (an EA special case, or every ret after the kill)
+    volatile LONG rtdVerified;              // +0x62E0, Mode=2: rets run both ways and equal
+    volatile LONG rtdMismatch;              // +0x62E4, Mode=2: rets that differed (the first one kills the piece)
+    volatile LONG rtdVSkipped;              // +0x62E8, Mode=2: sampled rets not compared (block bailed, snapshot did not fit)
+    volatile LONG rtdFaults;                // +0x62EC, system faults with eip in the block
+    volatile LONG rtdKillWhy;               // +0x62F0, 0 none, 1 verify mismatch, 2 fault
     // v198 (docs/264, issue #338): [RouteAsync] KdUncutCeilMs, the long hard ceiling of a route job that has no other deadline
     volatile LONG kdUncutMode;             // +0x62F4, switch (native_set / --ab kduncutceil): 1 = on (ini KdUncutCeilMs > 0)
     LONG kdUncutCeilUs;                    // +0x62F8, KdUncutCeilMs in us, 0 = no ceiling; native_set kduncutceilus writes it raw (no 5 s clamp: test repros)
@@ -5172,6 +5190,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi);   // userdiag.cpp: ts3fixes text channe
 // q 8 (0.36.191, docs/247 §12.4, ts3fixes watchdoglockskip): a route job runs now and holds world+0x918, so a plan here would
 // wait for it. Plain reads, no lock taken, nothing counted, no managed call served.
 static const DWORD kWouldHi = 0x88000000;
+static int g_rlOn;  // docs/261 §6 L1 [RouteAsync] ReplanLog (default 0): ts3fixes logs own Replan calls; asked once through q 10
 static u8 ArWould(DWORD handle, DWORD q) {
     Ts3nCounters& k = ts3native_counters;
     switch (q) {
@@ -5186,6 +5205,12 @@ static u8 ArWould(DWORD handle, DWORD q) {
         // q 9 (0.36.239, docs/250 §7.1, ts3fixes watchdogasync): an own PlanFromPoint START tagged as the watchdog's check passes
         // the kind gate (kind 2 hooked, and in Kinds or WatchdogKind2); false: A1 is not chosen, the check runs sync
         case 9: return (k.arReady >> 1 & 1) && ((g_arOwnKinds >> 1 & 1) || g_arWdKind2);
+        // docs/261 §6 L1 (ts3fixes replanlog): q 10 = [RouteAsync] ReplanLog on; q 11-13 = the own Replan (kind 1) START's checks
+        // that GetOptionHook / AsyncStartBody run before NoYield, so the log can name every reason a START would meet now
+        case 10: return g_rlOn == 1;
+        case 11: return (g_arOwnKinds & 1) != 0;       // Kinds has Replan (release Kinds=0: refused NoStart first)
+        case 12: return (k.arReady & 1) != 0;          // the Replan IC is hooked (arReady bit 0)
+        case 13: return AsyncLosRoute(handle);         // true = LOS refusal
     }
     return 0;
 }
@@ -5469,6 +5494,8 @@ static int ReadRouteAsync(const wchar_t* ini) {
     Log("route async: FallbackAsync=%ld SyncCapMs=%ld LogFallbackStack=%ld M1Retry=%ld FbJobCapMs=%ld FbApplyLog=%ld", ts3native_counters.fbMode,
         ts3native_counters.fbCapUs / 1000, g_fbStackFrames, ts3native_counters.fbRetryMode, ts3native_counters.fbjcCapUs / 1000,
         ts3native_counters.fbApLog);
+    g_rlOn = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"ReplanLog", 0, ini), 0, 1);  // docs/261 §6 L1, read by ts3fixes (q 10)
+    Log("route async: ReplanLog=%d (docs/261, ts3fixes replanlog lines)", g_rlOn);
     ReadPlanDeadline(ini);  // docs/164 §7 (plandeadline.cpp): PlanDeadlineMs / PlanDeadlineOwnMs / FailMemo
     return Clamp(GetPrivateProfileIntW(L"RouteAsync", L"Mode", 1, ini), 0, 1);
 }

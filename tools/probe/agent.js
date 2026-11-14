@@ -1774,6 +1774,7 @@ rpc.exports = {
       if (mp.readS32() >= 4) mf.push('lockOomReleased'); // v4: +0x88 (docs/120 §10.5, GC_oom_fn wrapper)
       if (mp.readS32() >= 5) mf.push('lazyGate', 'lazyOn', 'lazyOff'); // v5: +0x8C..+0x94 (LazyGate=1, docs/30 §15)
       if (mp.readS32() >= 6) mf.push('simLockWaits', 'simLockWaitUs', 'simLockMaxWaitUs', 'lazyEarlyOff'); // v6: +0x98..+0xA4 (docs/30 §16)
+      if (mp.readS32() >= 7) mf.push('quitReady', 'quitStops', 'quitTimeouts', 'quitWaitUs', 'quitRestored'); // v7: +0xA8..+0xB8 (QuitStop, docs/30 §17)
       r.mtprobe = Object.fromEntries(mf.map((n, i) => [n, mp.add(i * 4).readS32()]));
     }
     // autonomy shadow pilot (docs/122 §13-§14): export ts3native_autshadow (docs/registry.md), null when the asi has none

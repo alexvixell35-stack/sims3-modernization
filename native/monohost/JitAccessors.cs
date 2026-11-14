@@ -4,7 +4,10 @@
 // value or the exception is hashed interpreted twice and compiled once (MONOHOST_JITCORPUS=1, docs/207 §10). C# 2.
 // Compiled against the game's Sims3GameplaySystems.dll and ScriptCore.dll (build.cmd). Hand-written, not generated.
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.Serialization;
+using System.Text.RegularExpressions;
 using System.Reflection;
 using Sims3.Gameplay.Abstracts;
 using Sims3.Gameplay.Actors;
@@ -26,6 +29,18 @@ namespace MonoHostTest
     public class FxCompB : ObjectComponent { public override Type BaseType { get { return typeof(FxCompB); } } }
     public class FxCompC : ObjectComponent { public override Type BaseType { get { return typeof(FxCompC); } } }
     public class FxRouting : RoutingComponent { public override Route CreateRoute() { return null; } }
+    public class FxPortal : PortalComponent
+    {
+        public override PortalObjectType GetPortalObjectType() { return default(PortalObjectType); }
+        protected override bool AddToUseListDuringTraversal { get { return false; } }
+        protected override bool RemoveFromUseListAfterTraversal { get { return false; } }
+        public override uint GetNumLanes() { return 0; }
+        public override Slot[] GetSlotsForLaneIndex(uint lane) { return null; }
+        public override List<Slot> GetStartSlotsForApproachingSim(Sim sim, Vector3 pos, ref bool b) { return null; }
+        public override bool OnPortalStart(Sim sim) { return false; }
+        public override bool CanUseUmbrella { get { return false; } }
+    }
+    public class FxPart : PartComponent { }
 
     // a proxy that answers only its ObjectId; the host never calls the rest
     public class FxProxy : IScriptProxy
@@ -119,6 +134,28 @@ namespace MonoHostTest
                 case 1: return GameObject.GetObject(new ObjectGuid(0x1234UL));
                 default: return GameObject.GetObject(new ObjectGuid(ulong.MaxValue));
             }
+        }
+
+        // jit-piece-bench cases 41-44 (Wide=1 target shapes, docs/537 §10): the game's SimClock.ElapsedTimeInMinutes (ldind.r4, sub.r8, stind.r4),
+        // DesireCurve.GetYFromX (sub / mul / add .r8), GameObject.GetComponent<C> (ldtoken, castclass) built once (get_LotCurrent needs the Slots icall, a host stub: no case)
+        public delegate object BenchGet();
+        public static BenchGet BenchGc;
+        public static DesireCurve BenchCurve;
+        static bool s_benchWide;
+        public static void BenchWideSetup()
+        {
+            if (s_benchWide) return;
+            s_benchWide = true;
+            Type c = typeof(SimClock);
+            SetS(c, "sSimTickCnt", 54000L);
+            SetS(c, "sStartTime", new DateAndTime(1800L));
+            SetS(c, "sTicksAdvanced", 7919L);
+            FxObject o = new FxObject();
+            List<ObjectComponent> list = new List<ObjectComponent>();
+            list.Add(new FxCompA()); list.Add(new FxCompB());
+            Set(o, "mObjComponents", list);
+            BenchGc = (BenchGet)Delegate.CreateDelegate(typeof(BenchGet), o, s_getComponent.MakeGenericMethod(typeof(FxCompB)));
+            BenchCurve = new DesireCurve(new Vector2[] { new Vector2(0f, 0f), new Vector2(1f, 10f), new Vector2(1f, 20f), new Vector2(3f, 0f) });
         }
 
         // 4. SimClock.ElapsedTimeInMinutes(ref float): three statics set, the result and the written lastTime
@@ -268,6 +305,88 @@ namespace MonoHostTest
                 return Household.EveryHumanSimDescription().Count;
             }
             finally { Household.sHouseholdList = saved; }
+        }
+
+        // 18. ScriptObject.get_Proxy: no proxy (null), then a proxy; ScriptProxy.get_ObjectId on a real ScriptProxy
+        public static ulong ProxyCase(int i)
+        {
+            FxObject o = new FxObject();
+            if (i == 1) o.Proxy = new FxProxy(9);
+            return o.Proxy == null ? 0UL : o.Proxy.ObjectId.Value + 1UL;
+        }
+
+        public static ulong ProxyIdCase(int i)
+        {
+            ScriptCore.ScriptProxy p = (ScriptCore.ScriptProxy)Activator.CreateInstance(typeof(ScriptCore.ScriptProxy), true);
+            if (i == 1) p.ObjectId = new ObjectGuid(0x1234UL);
+            return p.ObjectId.Value;
+        }
+
+        // 19. the BaseType override of every listed ObjectComponent subclass (each returns typeof(itself)); the instance comes from
+        // its parameterless constructor, the getter reads no field
+        static readonly string[] kBaseTypeNames = {
+            "ItemComponent", "PortalComponent", "DonatableComponent", "ObjectOwnerComponent",
+            "RoutingComponent", "MaintenanceComponent", "InteractionsDisabledComponent", "BoobyTrapComponent",
+            "CleanableComponent", "PartComponent", "PetSurfaceComponent", "LootComponent",
+            "DoorRouteThroughComponent", "RepairableComponent", "CatHuntingComponent", "TombObjectStaticComponent",
+            "TombObjectDynamicComponent", "SandsOfUnderstandingComponent", "ResortStaffedObjectComponent", "SittableComponent",
+            "HarvestableComponent", "PlantableComponent", "UpgradableComponent", "AdventureComponent",
+            "NameComponent", "AdventureFXComponent", "ScienceComponent", "ComeAndSeeComponent",
+            "SyphonableComponent", "InventoryComponent", "FertilizerComponent", "StairsRouteThroughComponent",
+            "OpportunitySetupObjectComponent", "SculptureComponent", "OverlayComponent", "TreasureComponent",
+            "WorldBuilderDeathComponent" };
+        static Type[] sCompTypes;
+        public static string BaseTypeCase(int i)
+        {
+            if (sCompTypes == null) sCompTypes = typeof(ObjectComponent).Assembly.GetTypes();
+            string name = kBaseTypeNames[i];
+            Type found = null;
+            foreach (Type t in sCompTypes)
+                if (t.Name == name && typeof(ObjectComponent).IsAssignableFrom(t)) { found = t; break; }
+            if (found == null) throw new MissingMemberException(name);
+            // an exception in a fixture would end the whole case (EA's interpreter carries it past the loop's catch): abstract ones get a bare subclass
+            ObjectComponent c = found == typeof(RoutingComponent) ? new FxRouting() : found == typeof(PortalComponent) ? (ObjectComponent)new FxPortal()
+                : found == typeof(PartComponent) ? (ObjectComponent)new FxPart() : (ObjectComponent)Activator.CreateInstance(found, true);
+            return c.BaseType.Name;
+        }
+
+        // 20. the Enumerator constructors no foreach reaches (the BCL builds those through GetEnumerator with a mode):
+        // Hashtable, SortedList, SortedList<,>, MatchCollection, and LinkedList<T>'s serialization constructor
+        const BindingFlags kCtor = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        static object NewNested(Type outer, string nested, params object[] args)
+        {
+            Type t = outer.GetNestedType(nested, BindingFlags.Public | BindingFlags.NonPublic);
+            return Activator.CreateInstance(t, kCtor, null, args, null);
+        }
+        public static int EnumCtorCase(int i)
+        {
+            switch (i)
+            {
+                case 0: { Hashtable h = new Hashtable(); h.Add(1, 2); h.Add(3, 4); return Drain((IEnumerator)NewNested(typeof(Hashtable), "Enumerator", h)); }
+                case 1: { SortedList s = new SortedList(); s.Add(1, 2); s.Add(3, 4); return Drain((IEnumerator)NewNested(typeof(SortedList), "Enumerator", s)); }
+                case 2:
+                {
+                    SortedList<int, int> s = new SortedList<int, int>(); s.Add(1, 2); s.Add(3, 4);
+                    Type t = typeof(SortedList<,>).GetNestedType("Enumerator", BindingFlags.Public | BindingFlags.NonPublic).MakeGenericType(typeof(int), typeof(int));
+                    return Drain((IEnumerator)Activator.CreateInstance(t, kCtor, null, new object[] { s }, null));
+                }
+                case 3: { MatchCollection m = Regex.Matches("a1b22c", "[0-9]+"); return Drain((IEnumerator)NewNested(typeof(MatchCollection), "Enumerator", m)); }
+                default:
+                {
+                    LinkedList<int> l = new LinkedList<int>(); l.AddLast(5); l.AddLast(6);
+                    SerializationInfo si = new SerializationInfo(typeof(LinkedList<int>), new FormatterConverter());
+                    si.AddValue("owner", l, typeof(LinkedList<int>)); si.AddValue("version", 1U); si.AddValue("index", 0);
+                    Type t = typeof(LinkedList<>).GetNestedType("Enumerator", BindingFlags.Public | BindingFlags.NonPublic).MakeGenericType(typeof(int));
+                    object e = Activator.CreateInstance(t, kCtor, null, new object[] { si, new StreamingContext() }, null);
+                    return e.GetType() == t ? 1 : 0;
+                }
+            }
+        }
+        static int Drain(IEnumerator e)
+        {
+            int n = 0;
+            while (e.MoveNext()) n++;
+            return n;
         }
     }
 }

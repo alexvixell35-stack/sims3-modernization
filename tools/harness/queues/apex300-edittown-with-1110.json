@@ -1,0 +1,17 @@
+{
+  "note": "apex300-edittown-with-1110 (2026-11-10): Apex Radiance v3.0.0 report: Edit Town > change household > Play arrow stays gray. WITH arm: game-copy/apex-3.0.0/ApexRadiance.asi (sha256 bf47aa32) copied into Bin by hand before the queue, removed after (queue.ts has no Apex support). Pair = v0.2.10 release (rel0210 asi + ini, ts3fixes 0.2.9 package c373cd87 as shipped in v0.2.10). Repro start-edittown-switch-family. Check after: ts3native.log 'ts3fixes: ' and 'diag: world load #1' lines (ts3fixes text channel alive), play: lines, script errors, crash. node tools/harness/queue.ts tools/harness/queues/apex300-edittown-with-1110.json --no-smoke",
+  "jobs": [
+    {
+      "id": "bp-apex300-edittown-with",
+      "note": "[est 10 min] WITH arm: game-copy/apex-3.0.0/ApexRadiance.asi (sha256 bf47aa32) copied into Bin by hand before the queue, removed after (queue.ts has no Apex support). Pass: repro.ts PASS (Edit Town entered, picker up from Edit Town, UI single task ran, Play on another family reaches live mode with it active), no crash.",
+      "asi": "game-copy/ts3native.asi.rel0210",
+      "iniBase": "game-copy/ts3native.ini.rel0210",
+      "fixesPackage": "game-copy/asi-v029/ts3fixes.package",
+      "pinReason": "published v0.2.10 pair, the build the Apex reporter ran",
+      "save": "Baseline-BP-Spring",
+      "run": { "repro": "start-edittown-switch-family" },
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 20
+    }
+  ]
+}

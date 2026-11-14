@@ -8,6 +8,7 @@
 //     | {profile: {minutes, seed?, repro?, mainstack?}} | {routelock: {minutes, speed?}} | {age: {days, checkpoint, keepAlive?, save?}}, gameArgs?: ["-disablestoryprogression"], defaultIni?: { "Config.SimulatorRandomSeed": n },
 //     s3ppIni?: { "Patches.MonoTypeEHashProbe": 0 }, s3ssToml?: { "patches.LotStreamingOptimizations.enabled": false }, minCounters?: 20, timeoutMin?,
 //     pin?: false | { cpus?: "4-15", priority?: "High", others?: boolean | [names] } }   (also queue-level beside "jobs"; pin.ts)
+//     quitsGame?: true (run.script only, e.g. quit-cycle.ts): the script quits the game and judges that exit; a gone game is not a crash or stall, only its "game died" line or a fresh EA crash report is; its "after" numbers come from $TS3_AFTERRUN_FILE
 // Vanilla mode (docs/236, TS3_VANILLA=1 or queue-level "vanilla": true): the game runs without ts3native and ts3fixes, only the
 // ts3agent package from TS3_AGENT_PACKAGE. vanilla.ts installs the state at the start (unless a stash is already installed, which
 // is then only read back) and restores it at the end; jobs must say asi "none" and use no ini, fixes, counters, log rules, profile,
@@ -276,7 +277,7 @@ function machineField(tag: string): { machineTag?: string } { return tag ? { mac
 type Job = { id: string; note?: string; asi: string; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; run: { repro?: string; saveReload?: string[]; script?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
     profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; crashHunt?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
-  saveMatrix?: { fixes?: 'all' | 'shipped' }; regexCases?: Record<string, { match: string[]; noMatch: string[] }>; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; retryOf?: string; expectHang?: string; shadowCheck?: boolean; skipIfMissing?: boolean; ourMods?: false };
+  saveMatrix?: { fixes?: 'all' | 'shipped' }; regexCases?: Record<string, { match: string[]; noMatch: string[] }>; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; retryOf?: string; expectHang?: string; shadowCheck?: boolean; quitsGame?: boolean; skipIfMissing?: boolean; ourMods?: false };
 
 function checkRegexCases(cases: Record<string, { match?: unknown; noMatch?: unknown }>, res: string[], at: string) {
   for (const re of res) if (!cases[re]) throw new Error(`${at}: regexCases has no case for /${re}/`);
@@ -291,7 +292,7 @@ function checkRegexCases(cases: Record<string, { match?: unknown; noMatch?: unkn
 }
 
 // every top-level job key queue.ts reads (Job type plus the optional extras); anything else is a typo or a profile key at the wrong level
-const JOB_KEYS = new Set(['id', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'regexCases', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'crashHunt', 'reuseSession', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm']);
+const JOB_KEYS = new Set(['id', 'quitsGame', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'regexCases', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'crashHunt', 'reuseSession', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm']);
 // ---- vanilla mode (docs/236): what a job may not ask for without ts3native/ts3fixes, and the checks the row names as N/A
 export const VANILLA_NA = ['asi build check', 'ts3fixes build check', 'ts3native.log version gate', 'ts3native.ini features', 'hook FAIL lines and route hook state', 'counter gate and /native counters', 'ts3fixes activity'];
 // "ourMods": false: a plain profile window or one repro (queue repros run --no-load, so no restart; its steps must not need ts3fixes); anything
@@ -373,6 +374,7 @@ export function parseQueue(json: unknown): Job[] {
     const kinds = Object.keys(j.run ?? {}).filter(k => ['repro', 'matrix', 'soak', 'menuMemory', 'profile', 'routelock', 'worldimage', 'age', 'saveReload', 'script'].includes(k));
     if (kinds.length !== 1 || Object.keys(j.run).length !== 1) throw new Error(`${at}: run needs exactly one of repro, matrix, soak, menuMemory, profile, routelock, worldimage, age, saveReload, script`);
     if (j.run.script !== undefined && !(Array.isArray(j.run.script) && j.run.script.every((x: unknown) => typeof x === 'string') && /^[\w-]+\.ts$/.test(j.run.script[0] ?? ''))) throw new Error(`${at}: run.script must be ["<tools/harness script>.ts", args...]`);
+    if (j.quitsGame !== undefined && (j.quitsGame !== true || !j.run.script || j.reuseSession)) throw new Error(`${at}: quitsGame must be true, with run.script and no reuseSession (the script quits the game)`);
     if (j.run.saveReload !== undefined && !(Array.isArray(j.run.saveReload) && j.run.saveReload.every((x: unknown) => typeof x === 'string'))) throw new Error(`${at}: run.saveReload must be a list of save-reload.ts args`);
     if (j.run.worldimage) {
       const w = j.run.worldimage;
@@ -1989,6 +1991,8 @@ if (values['self-check']) {
       ['Hot Dogs -> #3 cancel (safe default; buttons: #1 a, #3 cancel)', 'Y -> #3 cancel (safe default)']);
     assert.deepEqual(parseQueue([{ id: 's', asi: 'none', save: 'S', run: { script: ['travel-trip.ts', '--to', 'france'] } }])[0].run.script, ['travel-trip.ts', '--to', 'france']);
     assert.throws(() => parseQueue([{ id: 's', asi: 'none', save: 'S', run: { script: ['../x.ts'] } }]), /run.script/);
+    assert.equal(parseQueue([{ id: 'q', asi: 'x', save: 'S', quitsGame: true, run: { script: ['quit-cycle.ts'] } }])[0].quitsGame, true);
+    assert.throws(() => parseQueue([{ id: 'q', asi: 'x', save: 'S', quitsGame: true, run: { soak: { minutes: 1 } } }]), /quitsGame/);
     const vq = JSON.parse(readFileSync(H('queues/vanilla-matrix.json'), 'utf8'));
     assert.equal(vq.vanilla, true);
     for (const j of parseQueue(vq)) {
@@ -2617,7 +2621,8 @@ const startProbe = (j: Job) => {
   const clicksFile = noOurs(j) ? join(OUT, `${queueName}-${date}-${j.id}.clicks.log`) : '';
   if (clicksFile) process.env.TS3_CLICKS_LOG = clicksFile; // children (vanilla-steps.ts accept) read the accept lines from it
   modeGuard = unrequestedModeGuard(0, clicksFile);
-  jobGuard = () => pr.exitCode !== null || pr.signalCode !== null ? `probe server exited (${pr.exitCode ?? pr.signalCode})` : !gameRunning() ? `${GAME_EXE} process gone`
+  // quitsGame: the job's script quits the game and judges that exit itself (quit-cycle.ts); a gone game is not a stall
+  jobGuard = () => j.quitsGame ? '' : pr.exitCode !== null || pr.signalCode !== null ? `probe server exited (${pr.exitCode ?? pr.signalCode})` : !gameRunning() ? `${GAME_EXE} process gone`
     : VANILLA ? vanillaProblems(vanillaSpec()).map(x => `vanilla state changed: ${x}`).join('; ') // a ts3native file or ts3fixes back in Bin/Mods
     : j.ourMods === false ? vanillaProblems(ourModsSpec()).map(x => `ourMods false state changed: ${x}`).join('; ')
     : existsSync(LOG) ? hookFailLine(readFileSync(LOG, 'latin1')) : ''; // a hook refused mid-run (lazy route worker hook) voids the run
@@ -2986,7 +2991,10 @@ for (const [n, j] of jobs.entries()) {
       Object.assign(row, { exitCode: r.code, timedOut: r.timedOut });
       row.verdict = [`${r.code === 0 && final ? 'PASS' : 'FAIL'}: age ${j.run.age.days} days${final ? '' : ', no final save'}: ${summarize(row.checkpoints)}`];
     } else if (args) {
+      const afterFile = j.quitsGame ? join(OUT, `${queueName}-${date}-${j.id}-afterrun.json`) : '';
+      if (afterFile) { rmSync(afterFile, { force: true }); process.env.TS3_AFTERRUN_FILE = afterFile; } // the script's numbers before it quits
       const r = await node(args, logFile, deadline);
+      if (afterFile) { delete process.env.TS3_AFTERRUN_FILE; try { afterRun = JSON.parse(readFileSync(afterFile, 'utf8')); } catch { /* quit before the numbers: c1 stays null */ } }
       if (j.run.profile) { sess!.windows++; row.stuck = stuckOf(profileTag(j)); row.cleanupFailed = /cleanup \S+: ERROR/.test(r.out); } // for the carry-over check
       Object.assign(row, { exitCode: r.code, verdict: silentFail(r.code, r.out, r.timedOut), timedOut: r.timedOut });
       const lost = r.timedOut || stall ? '' : await childLost(basename(args[0], '.ts'), r, closeLost, s => log(`${j.id}: ${s}`));
@@ -3120,7 +3128,8 @@ for (const [n, j] of jobs.entries()) {
   stall = '';
   // a fresh EA crash report also counts (2026-11-04: the game died while a read-back FAIL closed it, so closedByUs was set
   // and the job showed as FAIL; the queue's two-crashes stop then missed it)
-  row.crashed = launched && !closedByUs && !guardClosed && !gameRunning() || row.verdict.some((v: string) => /game died/.test(v)) ||
+  row.crashed = launched && !closedByUs && !guardClosed && !j.quitsGame && !gameRunning() || // quitsGame: gone by design; its script's 'game died' line counts
+    row.verdict.some((v: string) => /game died/.test(v)) ||
     launched && freshCrashReport(t0);
   guardClosed = false;
   if (row.crashed) { row.crash = triage(t0); log(`${j.id}: game crashed\n${row.crash}`); await logUntrackedGame(s => log(`${j.id}: ${s}`)); } // EA only: names game processes this run never saw (docs/236 #20)

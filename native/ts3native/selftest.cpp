@@ -1017,6 +1017,21 @@ static void TestA10() {
             assert(!fstart(kH1, kind, pt) && k.afActive[i] == 1);
             g_arActive = 0;
             assert(!ArWould(kH1, 6) && ArWould(kH1, 5) && ArWould(kH1, 3) && !ArWould(kH1, 0));
+            {  // docs/261 L1: q 10 = ReplanLog, q 11 = Kinds bit 0, q 12 = arReady bit 0, unknown q 14 = 0; no counter moves
+                const LONG act = k.afActive[i];
+                g_rlOn = 0;
+                assert(!ArWould(kH1, 10));
+                g_rlOn = 1;
+                assert(ArWould(kH1, 10));
+                g_rlOn = 0;
+                const int ok0 = g_arOwnKinds;
+                g_arOwnKinds = 0;
+                assert(!ArWould(kH1, 11));
+                g_arOwnKinds = 1;
+                assert(ArWould(kH1, 11));
+                g_arOwnKinds = ok0;
+                assert(ArWould(kH1, 12) == ((k.arReady & 1) != 0) && !ArWould(kH1, 14) && k.afActive[i] == act);
+            }
             FakeTask(kNested, 7);
             assert(!ArWould(kH1, 5));
             assert(!fstart(kH1, kind, pt) && k.afNoYield[i] == 1);

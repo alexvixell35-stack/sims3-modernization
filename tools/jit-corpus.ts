@@ -15,7 +15,7 @@
 //   monohost.exe <repo>\game-copy\monohost\TS3W.exe <repo>\game-copy\assemblies selftest <repo>\game-copy\monohost\hostdata.txt
 // Yields are out of scope: P0 compiles only never-yielding methods, and monohost runs no task scheduler (P1 adds them).
 // Round 8 B6 (docs/207 §9.1): the ACCESSOR cases call the Sims3Gameplay* accessor fixtures of native/monohost/JitAccessors.cs
-// (hand-written; build.cmd compiles it against the game's Sims3GameplaySystems.dll); --env lists those 17 accessors too.
+// (hand-written; build.cmd compiles it against the game's Sims3GameplaySystems.dll); --env lists those accessors too.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -924,6 +924,10 @@ export const ACCESSORS: [string, string, number, string][] = [
   ['SimDescription.get_Age', 'AgeCase', 5, 'SimDescription.get_Age'],
   ['Corners.get_Item', 'CornersCase', 5, 'Corners.get_Item'],
   ['Household.EveryHumanSimDescription', 'EveryHumanCase', 2, 'Household.EveryHumanSimDescription'],
+  ['ScriptObject.get_Proxy', 'ProxyCase', 2, 'ScriptObject.get_Proxy'],
+  ['ScriptProxy.get_ObjectId', 'ProxyIdCase', 2, 'ScriptProxy.get_ObjectId'],
+  ['ObjectComponent subclasses get_BaseType', 'BaseTypeCase', 37, 'ItemComponent.get_BaseType'],
+  ['Enumerator..ctor Hashtable, SortedList, SortedList<,>, MatchCollection, LinkedList', 'EnumCtorCase', 5, 'Enumerator..ctor'],
 ];
 const ACCESSOR_CASES: Case[] = ACCESSORS.map(([name, fn, n]) => ({ name: `Acc ${name}`, body: `for (int i = 0; i < ${n}; i++) ${T(`JitAcc.${fn}(i)`)}` }));
 // ---- docs/537 §20 B3: the value-type field, element and object ops of B1 (MONOHOST_JITVTOPS=1): stfld.vt, ldelem.any.vt,
@@ -1300,6 +1304,68 @@ const C3_CASES: Case[] = [
   { name: 'JitKLS.Own (LDSFLDA statics of the compiled class, no static ctor)', body: T('JitKLS.Own(20)') },
 ];
 const C3_LIST = ['JitKC3.*', 'JitKLS.*'];
+// ---- docs/537 §27 RetTeardown (MONOHOST_JITRETTD=1): every return shape a compiled body's ret / ret.void takes: int, long,
+// double, float, bool, object, null, string, void, a struct (ret.vt: unchanged, the exit), an instance and a virtual method,
+// a ctor (newobj return: the block bails to EA), compiled callers three deep (the caller's next word is a compiled one), deep
+// recursion, and exceptions thrown two and three compiled frames down with no handler in between (the frames unwind, no ret)
+const KRT = `
+    public class JitKRTObj { public int V; public JitKRTObj(int v) { V = v * 3; } public virtual int Get() { return V; } public int Plain(int k) { return V + k; } }
+    public class JitKRTSub : JitKRTObj { public JitKRTSub(int v) : base(v) { V++; } public override int Get() { return V * 2; } }
+    public static class JitKRT
+    {
+        static int I(int a) { return a * 7 - 3; }
+        static long L(int a) { return ((long)a << 33) + a; }
+        static double D(int a) { return a * 0.25 - 1.5; }
+        static float F(int a) { return a * 0.5f + 0.125f; }
+        static bool B(int a) { return (a & 1) != 0; }
+        static object O(int a) { return (a % 3) == 0 ? null : (object)("s" + a); }
+        static string S(int a) { return a < 0 ? null : "x"; }
+        static void V(int[] k, int a) { k[0] = k[0] * 31 + a; }  // no static: verify runs the call twice
+        static JitTPt P(int a) { return new JitTPt(a, a + 1, a + 2); }
+        static int Deep(int n) { return n <= 0 ? 1 : Deep(n - 1) + n; }
+        static int C1(int a) { return C2(a) + 1; }
+        static int C2(int a) { return C3(a) * 2; }
+        static int C3(int a) { return a - 5; }
+        static int Thr(int a) { return 100 / a; }
+        static int Thr2(int a) { return Thr(a) + 1; }
+        static int Thr3(int a) { return Thr2(a - 1) * 3; }
+        public static int Shapes(int n)
+        {
+            int s = 0; int[] k = new int[1];
+            for (int i = -2; i < n; i++)
+            {
+                s = s * 31 + I(i);
+                long l = L(i); s = s * 31 + (int)l + (int)(l >> 32);
+                s = s * 31 + (int)(D(i) * 8.0) + (int)(F(i) * 16f);
+                s = s * 31 + (B(i) ? 1 : 2);
+                object o = O(i); s = s * 31 + (o == null ? 5 : ((string)o).Length);
+                s = s * 31 + (S(i) == null ? 7 : 9);
+                V(k, i); s = s * 31 + k[0];
+                JitTPt p = P(i); s = s * 31 + p.Sum();
+            }
+            return s;
+        }
+        public static int Objects(int n)
+        {
+            int s = 0;
+            for (int i = 0; i < n; i++)
+            {
+                JitKRTObj a = (i & 1) != 0 ? new JitKRTSub(i) : new JitKRTObj(i);
+                s = s * 31 + a.Get() + a.Plain(i);
+            }
+            return s;
+        }
+        public static int Chains(int n) { int s = 0; for (int i = 0; i < n; i++) s = s * 31 + C1(i) + Deep(i % 40); return s; }
+        public static int Throws(int a) { return Thr3(a); }
+        public static int Caught(int n)
+        {
+            int s = 0;
+            for (int i = -2; i < n; i++) { try { s = s * 31 + Thr3(i); } catch (DivideByZeroException) { s = s * 31 + 77; } }
+            return s;
+        }
+    }
+`;
+
 // handoff C5 (ClauseLazy): lazy bodies for methods with clauses. Compiled callers (JitKCL loops) call the 5-arg Array.Copy (two
 // try / catch in its element loops) and our own try / catch / finally methods lazily; exceptions from a protected word, from a
 // lazy callee inside and outside a try, caught, rethrown, through a finally, and the elements copied before Array.Copy throws
@@ -1334,6 +1400,35 @@ const KCL = `
             }
             return s;
         }
+        // docs/537 §24: every edge of the 5-arg and 3-arg Copy. Each Copy sits in a try of the frame that calls it: EA's interpreter
+        // carries an exception thrown in Copy past a catch two frames up (JitKC3.Bad's case escapes after its first throw)
+        static int T5(int s, Array a, int ai, Array b, int bi, int n) { try { Array.Copy(a, ai, b, bi, n); return s * 31 + 1; } catch (Exception e) { return E(s, e); } }
+        static int T3(int s, Array a, Array b, int n) { try { Array.Copy(a, b, n); return s * 31 + 2; } catch (Exception e) { return E(s, e); } }
+        static int H(int s, Array a) { for (int i = 0; i < a.Length; i++) { object v = a.GetValue(i); s = s * 31 + (v == null ? 1 : v is string ? ((string)v).Length + 7 : v.GetHashCode()); } return s; }
+        static int H2(int s, int[,] g) { for (int i = 0; i < g.GetLength(0); i++) for (int j = 0; j < g.GetLength(1); j++) s = s * 31 + g[i, j]; return s; }
+        // g (2 x 3) and g2 come from the case body (a rank-2 array made here gives a verify MISMATCH in both arms, see JitKC3.Others)
+        public static int Edges(int[,] g, int[,] g2, int n)
+        {
+            int s = 0; int[] x = new int[6], y = new int[6]; long[] l = new long[6]; short[] sh = new short[6]; byte[] by = new byte[6];
+            object[] o = new object[6], ob = new object[6]; string[] t = new string[6]; JitC3E[] en = new JitC3E[6]; Exception[] xe = new Exception[6];
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = 0; j < 6; j++) { x[j] = i * 6 + j; l[j] = i * 7 + j; sh[j] = (short)(j - i); by[j] = (byte)(i + j); o[j] = (i + j) % 5 == 4 ? (object)"s" : (object)(i + j); en[j] = (JitC3E)(j % 2); t[j] = j == i % 6 ? null : "t"; }
+                g[i % 2, i % 3] = i;
+                // argument checks: null source / dest, negative length / source index / dest index, source and dest past the end, rank
+                s = T5(s, null, 0, y, 0, 1); s = T5(s, x, 0, null, 0, 1); s = T5(s, x, 0, y, 0, -1 - i); s = T5(s, x, -1 - i, y, 0, 1);
+                s = T5(s, x, 0, y, -1 - i, 1); s = T5(s, x, 3 + i % 3, y, 0, 4); s = T5(s, x, 0, y, 3 + i % 3, 4); s = T5(s, g, 0, y, 0, 2);
+                s = T5(s, x, 6, y, 6, 0); s = T3(s, null, y, 1); s = T3(s, x, null, 1); s = T3(s, x, y, 7); s = T3(s, x, y, i % 7);
+                // element by element (FastCopy says no): boxing, unboxing, widening, enum to int, references, the catch handler's three throw tests
+                s = T5(s, x, 0, ob, i % 3, 3); s = T5(s, ob, 0, y, 0, 6); s = T5(s, o, 0, y, 0, 6); s = T5(s, sh, 0, x, 0, 6); s = T5(s, by, 1, l, 0, 5);
+                s = T5(s, x, 0, l, 1, 5); s = T5(s, en, 0, x, 0, 6); s = T5(s, l, 0, x, 0, 6); s = T5(s, t, 0, ob, 0, 6); s = T5(s, o, 0, t, 0, 6);
+                s = T5(s, ob, 0, t, 0, 6); s = T5(s, t, 0, x, 0, 3); s = T5(s, o, 0, xe, 0, 6); s = T3(s, o, x, 6);
+                // one array, rank 2 (FastCopy refuses bounds): forward (source after dest) and backward (source at or before dest)
+                s = T5(s, g, 1, g, 0, 4); s = T5(s, g, 0, g, 1 + i % 2, 4); s = T5(s, g, 2, g, 2, 3); s = T5(s, g, 0, g2, 0, 4);
+                s = H(H(H(H(H(s, x), y), l), ob), t) * 31 + H2(H2(s, g), g2);
+            }
+            return s;
+        }
         public static int User(int n)
         {
             int s = 0; int[] a = new int[4];
@@ -1350,12 +1445,20 @@ const KCL = `
         }
     }
 `;
+const RT_CASES: Case[] = [
+  { name: 'JitKRT.Shapes (RetTeardown: ret of int, long, double, float, bool, object / null, string, ret.void, ret.vt of a struct)', body: T('JitKRT.Shapes(30)') },
+  { name: 'JitKRT.Objects (RetTeardown: ctors (newobj return: EA), virtual and instance returns, a ctor chained to its base)', body: T('JitKRT.Objects(20)') },
+  { name: 'JitKRT.Chains (RetTeardown: returns into compiled callers three deep, recursion 40 deep)', body: T('JitKRT.Chains(45)') },
+  { name: 'JitKRT.Throws / Caught (RetTeardown: divide by zero three compiled frames down, unwound with no handler, caught outside and in a compiled caller)', body: `${T('JitKRT.Throws(1)')} ${T('JitKRT.Throws(3)')} ${T('JitKRT.Caught(6)')}` },
+];
+const RT_LIST = ['JitKRT.*', 'JitKRTObj.*', 'JitKRTSub.*', 'JitKRTObj..ctor', 'JitKRTSub..ctor'];
 const CL_CASES: Case[] = [
   { name: 'JitKCL.Copies (C5 Array.Copy try / catch: object[] with a string to int[], long[] to int[], object[] to string[], widening, references)', body: T('JitKCL.Copies(24)') },
   { name: 'JitKCL.User (C5 lazy callees with clauses: catch inside, throw outside a try, rethrow, finally, an uncaught type)', body: T('JitKCL.User(30)') },
+  { name: 'JitKCL.Edges (C5 every 5-arg / 3-arg Array.Copy edge: argument throws, boxing, widening, both catch handlers, one rank-2 array both directions)', body: `int[,] g = new int[2, 3], g2 = new int[2, 2]; ${T('JitKCL.Edges(g, g2, 12)')}` },
 ];
 const CL_LIST = ['JitKCL.*'];
-export const cases = (): Case[] => [...kernelCases(), ...STMT_CASES, ...bclCases(), ...CLAUSE_CASES, ...LAZY_CASES, ...ACCESSOR_CASES, ...EXIT_CASES, ...VTOPS_CASES, ...NEWVT_CASES, ...C3_CASES, ...CL_CASES];
+export const cases = (): Case[] => [...kernelCases(), ...STMT_CASES, ...bclCases(), ...CLAUSE_CASES, ...LAZY_CASES, ...ACCESSOR_CASES, ...EXIT_CASES, ...VTOPS_CASES, ...NEWVT_CASES, ...C3_CASES, ...CL_CASES, ...RT_CASES];
 
 // ---- C# ----
 export function generate(): string {
@@ -1383,6 +1486,7 @@ ${KA.replace(/^\n|\n$/g, '')}
 ${KB1.replace(/^\n|\n$/g, '')}
 ${KB2.replace(/^\n|\n$/g, '')}
 ${KC3.replace(/^\n|\n$/g, '')}
+${KRT.replace(/^\n|\n$/g, '')}
 ${KCL.replace(/^\n|\n$/g, '')}
     public struct JitKey : IEquatable<JitKey>
     {
@@ -1530,7 +1634,7 @@ ${cs.map((k, i) => `                case ${i}: // ${k.name}
 export function jitList(src: string): string {
   const m = /kJitList\[\] = \{([\s\S]*?)\};/.exec(src);
   if (!m) throw new Error('kJitList not found in monohost-jit.cpp');
-  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*', 'JitKX.*', 'JitKT.*', 'JitKTF.*', 'JitKCV.*', 'JitKI.*', 'JitKIN.*', 'JitIN.*', 'JitINS.*', 'JitIND.*', 'JitC5A.*', 'JitRKey.*', 'JitRKey2.*', 'JitTPt.*', 'JitTBig.*', ...ACCESSORS.map(a => a[3]), ...KA_LIST, ...VTOPS_LIST, ...C2_LIST, ...NEWVT_LIST, ...C3_LIST, ...CL_LIST).join(',');
+  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*', 'JitKX.*', 'JitKT.*', 'JitKTF.*', 'JitKCV.*', 'JitKI.*', 'JitKIN.*', 'JitIN.*', 'JitINS.*', 'JitIND.*', 'JitC5A.*', 'JitRKey.*', 'JitRKey2.*', 'JitTPt.*', 'JitTBig.*', ...ACCESSORS.map(a => a[3]), ...KA_LIST, ...VTOPS_LIST, ...C2_LIST, ...NEWVT_LIST, ...C3_LIST, ...CL_LIST, ...RT_LIST).join(',');
 }
 
 // ---- report ----
@@ -1598,7 +1702,7 @@ function selfCheck() {
   try { disk = readFileSync(OUT, 'utf8'); } catch { /* missing = stale */ }
   ok(disk.replace(/\r\n/g, '\n') === g.replace(/\r\n/g, '\n'), 'native/monohost/JitCorpus.cs is up to date (node tools/jit-corpus.ts --write)');
   const src = 'static const char* const kJitList[] = {\n    // c\n    "A.B", "C`2.D",\n    "E.F",\n};';
-  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*,JitKX.*,JitKT.*,JitKTF.*,JitKCV.*,JitKI.*,JitKIN.*,JitIN.*,JitINS.*,JitIND.*,JitC5A.*,JitRKey.*,JitRKey2.*,JitTPt.*,JitTBig.*,' + ACCESSORS.map(a => a[3]).join(',') + ',' + [...KA_LIST, ...VTOPS_LIST, ...C2_LIST, ...NEWVT_LIST, ...C3_LIST, ...CL_LIST].join(','), 'kJitList parse');
+  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*,JitKX.*,JitKT.*,JitKTF.*,JitKCV.*,JitKI.*,JitKIN.*,JitIN.*,JitINS.*,JitIND.*,JitC5A.*,JitRKey.*,JitRKey2.*,JitTPt.*,JitTBig.*,' + ACCESSORS.map(a => a[3]).join(',') + ',' + [...KA_LIST, ...VTOPS_LIST, ...C2_LIST, ...NEWVT_LIST, ...C3_LIST, ...CL_LIST, ...RT_LIST].join(','), 'kJitList parse');
   const live = jitList(readFileSync(resolve(ROOT, 'native/monohost/monohost-jit.cpp'), 'utf8'));
   ok(live.split(',').length <= 256 && live.length < 8192, 'compile list fits monohost (g_jitNames[256], g_jitListBuf[8192])');
   ok(new Set(ACCESSORS.map(a => a[1])).size === ACCESSORS.length && ACCESSORS.every(a => /^\w+Case$/.test(a[1]) && a[2] > 0), 'accessor table');

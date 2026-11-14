@@ -284,6 +284,7 @@ namespace Ts3Fixes
                     if (sRflAsync.Count > 64) sRflAsync.Clear(); // a task reset mid-wait never reaches here
                 }
                 if (kind == 3) HcBoatEnd(r, t0, res, async); // boatreplanlog (HitchCause.cs)
+                else if (kind == 1) RlEnd(r, res, async); // replanlog (ReplanLog.cs, docs/261)
                 bool ok = res.mType == RoutePlanResultType.Succeeded;
                 IScriptProxy f = r.Follower;
                 Sim sim = f != null ? f.Target as Sim : null;

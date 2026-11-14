@@ -11,7 +11,7 @@ rank,method,frame,class,worlds,samples,ms_s_mean,il_bytes,assembly,host_list,hos
 "10","GameObject.GetComponent","Sims3.Gameplay.Abstracts.GameObject.GetComponent","N","3","27","4.53","88","Sims3GameplaySystems","accessor","12","45","callvirt","template first: callvirt, 3.8 exits per execution"
 "11","InteractionObjectPair.Equals","Sims3.Gameplay.Autonomy.InteractionObjectPair.Equals","N","3","23","3.70","48","Sims3GameplaySystems","accessor","12","3","callvirt","template first: callvirt, 0.3 exits per execution"
 "12","Dictionary`2.GetSlot","System.Collections.Generic.Dictionary`2.GetSlot","N","3","21","3.53","29","mscorlib","kJitList","104327","115","call","compile"
-"13","Array.Copy","System.Array.Copy","N","3","19","3.07","755","mscorlib","kJitList","54237","81957","call","template first: call, 1.5 exits per execution"
+"13","Array.Copy","System.Array.Copy","N","3","19","3.07","755","mscorlib","kJitList","54237","81957","call","compile (handoff C5: 5-arg Copy lazy body under ClauseLazy=1, needs Wide=1; host count before C3 said 1.5 exits per execution)"
 "14","CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags","Sims3.SimIFace.CAS.CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags","N","3","18","3.00","977","SimIFace","kJitList","24487","9","ldc.i8","compile"
 "15","GameObject.GetObject","Sims3.Gameplay.Abstracts.GameObject.GetObject","N","3","18","3.00","54","Sims3GameplaySystems","accessor","4","5","call","template first: call, 1.3 exits per execution"
 "16","Sim.DoInteraction","Sims3.Gameplay.Actors.Sim.DoInteraction","Y","3","17","2.93","737","Sims3GameplaySystems","","","","","yields: stays interpreted"

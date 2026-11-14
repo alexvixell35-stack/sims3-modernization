@@ -183,6 +183,9 @@ export type NativeRow = { key: string; size: number; sha: string };
 const ilRow = (key: string, il: Buffer): NativeRow => ({ key, size: il.length, sha: createHash('sha256').update(il).digest('hex') });
 // docs/537 §20.2 C2c: managed signatures EA binds to a native body (docs/data/binder-bodies.csv): the interpreter calls that body
 // at RuntimeMethod+0x24, so a compiled mint of these overloads never runs in game (I-475-4)
+// docs/537 §24: overloads left off the list on purpose: the two long Array.Copy overloads (no game caller known, never compiled by
+// the corpus, so their IL edges could not pass the coverage bar; ClauseLazy needs only the int ones)
+export const LEFT_OUT = new Set(['System.Array::Copy(System.Array,long,System.Array,long,long)', 'System.Array::Copy(System.Array,System.Array,long)']);
 export const binderSigs = (csv: string) => new Set(csv.split(/\r?\n/).slice(1).filter(l => l.trim()).map(l => csvFields(l)[4]));
 // every overload of frame "ns.Class.Method" (Class.Method = key) with an IL body, minus the binder-bound ones (`bound`, by signature)
 export function rowsOf(a: Asm, frame: string, key: string, bound: Set<string> = new Set()): NativeRow[] {
@@ -313,7 +316,7 @@ if (process.argv[1] && /jit-hot\.ts$/.test(process.argv[1])) {
         if (!asms.has(name)) asms.set(name, loadStandalone(join(dir, name + '.dll'), name));
         return rowsOf(asms.get(name)!, f[2], f[1], b);
       });
-      const all = of(), r = of(bound);
+      const all = of(LEFT_OUT), r = of(new Set([...bound, ...LEFT_OUT]));
       if (!all.length) throw new Error(`no IL body for ${f[2]} in ${f[8]}`);
       dropped += all.length - r.length;
       if (all.length > r.length) console.log(`${f[1].padEnd(60)} binder: native body, ${all.length - r.length} of ${all.length} bodies left out (docs/537 §20.2)`);

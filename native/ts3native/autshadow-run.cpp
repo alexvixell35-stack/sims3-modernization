@@ -304,6 +304,8 @@ static bool AsDrainStop() {
     g_asLast = AS_LAST_EPOCH;
     return g_satbMode == SATB_ACT && g_satbLive;
 }
+// monothread QuitStop (Mono shutdown entry, sim thread): our job in flight aborts every later answer, result dropped
+static void __cdecl AsQuitDrain() { if (AsDrainBusy()) AsDrainStop(); }
 static bool AsWorkerIdle() { return g_mtWorker && ts3native_mtprobe.workerState == 2 && !g_mtBusy; }
 
 // return of MonoScriptHost_Simulate (sim thread): finish a run whose job ended, else cut for a posted request
@@ -313,6 +315,7 @@ static void __cdecl AsSimLeave() {
     g_asGwNow = g_asFrame;  // go-live watch stamps: events from here on belong to the next frame
     if (g_satbMode == SATB_PROBE && g_satbLive) SatbEnd();  // probe: the span was this tick (from the Simulate entry)
     if (g_asRun == AS_RUN_WAIT) {
+        if (g_mtBusy && g_satbMode == SATB_ACT && g_satbLive) SatbColdLetGo();  // satb.cpp, docs/206 §18: a parked cold call runs now
         if (g_mtBusy) {  // the job (or a skip) has not left the worker yet
             k.waitTicks++;
             if (g_satbLive && g_satbMode == SATB_ACT) {
@@ -541,6 +544,7 @@ static void AsCrashLine() {
     Log("  autshadow search: run %ld, posted req %ld, worker unit obj %d pair %d (thread %s), this cut's native bits 0x%lX; last finished "
         "search req %ld mask 0x%03lX [%s] top definition %s", (LONG)g_asRun, (LONG)g_asReqId, u >> 16, u & 0xFFFF,
         AsIcIsWorker() ? "worker" : "sim", g_asJobBits, g_asMarkReq, g_asMarkMask, names, g_asMarkDef[0] ? g_asMarkDef : "-");
+    SatbCrashLine();  // satb.cpp: the last cold-site entries per side (docs/130 §208 crash diag)
 }
 // docs/127 H11 (worker only; -1 elsewhere, so the sim-thread warm-up is a no-op): def != null arms the next callvirt of site
 // on def (satb.cpp SatbRainSkip), 1 armed, 0 not (no Satb act span: ts3fixes aborts the pair `rain` as before); def null
@@ -898,5 +902,6 @@ static void AsInstallRun(const wchar_t* ini, bool slotStub) {
     g_mtOnEnter = AsSimEnter;
     g_mtOnLeave = AsSimLeaveLoop;
     g_mtJobHook = AsJobHook;
+    g_mtQuitDrain = AsQuitDrain;
     if (ini) SimPumpAdd(AsSimPump, "autshadow cut + worker dispatch (window = frame limiter)");  // game only: patches 0xFD97C8
 }

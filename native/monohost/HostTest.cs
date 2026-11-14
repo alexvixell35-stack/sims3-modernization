@@ -4,6 +4,7 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Sims3.SimIFace;
+using Sims3.Gameplay.Utilities;
 using Ts3Fixes;
 
 namespace MonoHostTest
@@ -94,6 +95,12 @@ namespace MonoHostTest
         static LzBox s_lz = new LzBox();
         public static int JitLz(LzBox o, int n) { int acc = 0; for (int i = 0; i < n; i++) acc += LzClamp(i, 8, 40) + o.Get(i - 32); return acc; }
         public static int JitLzPlain(LzBox o, int n) { int acc = 0; for (int i = 0; i < n; i++) acc += LzClamp(i, 8, 40) + o.Get(i - 32); return acc; }
+        // docs/537 §24 ClauseLazy bench: compiled callers of Array.Copy, 64 copies per call, game-like sizes (int[] 4..64, object[] 8..32);
+        // the 5-arg Copy runs its lazy body only with MONOHOST_JITCLAUSELAZY=2; the 3-arg Copy (compiled) calls the 5-arg on every call
+        static int[][] s_cpI, s_cpI2; static object[][] s_cpO, s_cpO2;
+        public static int JitCp5I(int k) { int acc = 0; for (int i = 0; i < 64; i++) { int j = (k + i) & 15; int[] a = s_cpI[j], b = s_cpI2[j]; Array.Copy(a, 0, b, i & 3, a.Length - 3); acc += b[a.Length - 1]; } return acc; }
+        public static int JitCp5O(int k) { int acc = 0; for (int i = 0; i < 64; i++) { int j = (k + i) & 15; object[] a = s_cpO[j], b = s_cpO2[j]; Array.Copy(a, 1, b, 0, a.Length - 1); if (b[0] == a[1]) acc++; } return acc; }
+        public static int JitCp3M(int k) { int acc = 0; for (int i = 0; i < 64; i++) { int j = (k + i) & 15; if ((i & 1) == 0) { Array.Copy(s_cpI[j], s_cpI2[j], s_cpI[j].Length); acc += s_cpI2[j][0]; } else { Array.Copy(s_cpO[j], s_cpO2[j], s_cpO[j].Length); if (s_cpO2[j][1] != null) acc++; } } return acc; }
         // docs/207 §12.7 (v2): a lazy chain (LzMid makes the two lazy calls of JitLz) and a class-guarded callvirt of a virtual method
         public static int LzMid(LzBox o, int k) { int t = LzClamp(k, 8, 40); if (t > 1000) return t; return t + o.Get(k - 32); }
         public class LzShape { public virtual int Area(int k) { if (k > 0) return k; return -k; } }
@@ -108,11 +115,50 @@ namespace MonoHostTest
         public static int JitLzAlloc(int n) { int acc = 0; for (int i = 0; i < n; i++) acc += LzAlloc(i); return acc; }
         public static int JitLzAllocPlain(int n) { int acc = 0; for (int i = 0; i < n; i++) acc += LzAlloc(i); return acc; }
 
+        // docs/537 §27 RetTeardown bench (cases 45-48): a compiled callee returns into the INTERPRETED JitBench loop, the only place the ret block runs.
+        // 35 getters (4 rets: int, int, long, int), 36 small void methods (4 ret.void), 37 ctor via newobj (1 ret.void: the block bails to EA), 38 mixed (1 ctor + 3 getters)
+        public class RtBox
+        {
+            public int V;
+            public RtBox(int v) { V = v; }
+            public int GetV() { return V; }
+            public int Prop { get { return V + 1; } }
+            public long Wide(int x) { return ((long)V << 2) + x; }
+            public void Set(int x) { V = x; }
+            public void Add(int x) { V += x; }
+        }
+        public static int RtI(int a) { return a * 7 - 3; }
+        public static void RtV(int[] a, int i) { a[i & 15] = i; }
+        static RtBox s_rt = new RtBox(9);
+        static int[] s_rtA = new int[16];
         static System.Collections.Generic.Dictionary<int, Shape> s_map;
         static System.Collections.Generic.Dictionary<ulong, int> s_mapU;
         static System.Collections.Generic.Dictionary<ObjectGuid, int> s_mapG;
         static System.Collections.Generic.List<Shape> s_list;
         static int[] s_arr;
+        // cases 35-40 (VtOps target shapes, docs/data/jit-bench-howto.md): value-type collections as the game builds them
+        static System.Collections.Generic.List<Vector3> s_lv3;
+        static System.Collections.Generic.List<ObjectGuid> s_lgd;
+        static System.Collections.Generic.Dictionary<ulong, Vector3> s_dv3;
+        static System.Collections.Generic.Dictionary<ulong, int> s_mapU2;
+        static void JitSetupVt()
+        {
+            if (s_lv3 != null) return;
+            s_lgd = new System.Collections.Generic.List<ObjectGuid>();
+            s_mapU2 = new System.Collections.Generic.Dictionary<ulong, int>();
+            s_dv3 = new System.Collections.Generic.Dictionary<ulong, Vector3>();
+            System.Collections.Generic.List<Vector3> l = new System.Collections.Generic.List<Vector3>();
+            for (int i = 0; i < 256; i++)
+            {
+                l.Add(new Vector3(i, i * 2 + 1, i * 3 + 2));
+                s_lgd.Add(new ObjectGuid((ulong)i * 977UL));
+                s_mapU2[(ulong)i * 977UL] = i;
+                s_dv3[(ulong)i * 977UL] = new Vector3(i, i + 5, i + 7);
+            }
+            s_lv3 = l;
+        }
+        static string[] s_rA, s_rB; static System.Collections.Generic.Dictionary<string, int> s_dS;  // cases 49-51: 64 game-shaped keys (lowercase identifiers, lengths from the BP capture quantiles) in s_rA, partner s_rB: 40% equal other reference, 20% same reference, 20% differs in the last char, 20% longer by one
+        static string[] s_strA, s_strB;  // case 31: lengths 7..15 as in the game capture (jit-capture-bp-c3g), even i equal, odd i differ in the last char
         static void JitSetup()
         {
             if (s_map != null) return;
@@ -121,6 +167,34 @@ namespace MonoHostTest
             s_mapG = new System.Collections.Generic.Dictionary<ObjectGuid, int>();
             s_list = new System.Collections.Generic.List<Shape>();
             s_arr = new int[64];
+            s_cpI = new int[16][]; s_cpI2 = new int[16][]; s_cpO = new object[16][]; s_cpO2 = new object[16][];
+            for (int j = 0; j < 16; j++)
+            {
+                s_cpI[j] = new int[4 + 4 * j]; s_cpI2[j] = new int[4 + 4 * j]; s_cpO[j] = new object[8 + (j * 8) / 5]; s_cpO2[j] = new object[8 + (j * 8) / 5];
+                for (int q = 0; q < s_cpI[j].Length; q++) s_cpI[j][q] = j * 100 + q;
+                for (int q = 0; q < s_cpO[j].Length; q++) s_cpO[j][q] = (q & 1) == 0 ? (object)("o" + q) : (object)new Sq();
+            }
+            s_strA = new string[16]; s_strB = new string[16];
+            for (int i = 0; i < 16; i++) { s_strA[i] = new string((char)('a' + i), 7 + i % 9) + i; s_strB[i] = new string((char)('a' + i), 7 + i % 9) + ((i & 1) == 0 ? i : i + 100); }
+            {
+                // cases 49-51 data: lengths follow jit-capture-bp-c3g string quantiles (p25 11, median 18, p75 39, p95 67); synthetic letters, 6 shared prefixes
+                int[] lens = { 3, 5, 8, 11, 11, 14, 18, 18, 22, 30, 39, 45, 67, 90, 12, 16 };
+                string[] pre = { "sim", "walk", "trait", "buff", "action", "skill" };
+                s_rA = new string[64]; s_rB = new string[64]; s_dS = new System.Collections.Generic.Dictionary<string, int>();
+                uint seed = 12345;
+                for (int i = 0; i < 64; i++)
+                {
+                    int len = lens[(i * 7 + i / 16) % 16]; if (len < 3) len = 3;
+                    System.Text.StringBuilder sb = new System.Text.StringBuilder(pre[i % 6]);
+                    while (sb.Length < len) { seed = seed * 1103515245 + 12345; sb.Append((char)('a' + (int)((seed >> 16) % 26))); }
+                    string ka = sb.ToString(0, len) + i; string a = ka; s_rA[i] = a; s_dS[a] = i;
+                    int k = i % 5;
+                    if (k == 0 || k == 1) s_rB[i] = new string(a.ToCharArray());
+                    else if (k == 2) s_rB[i] = a;
+                    else if (k == 3) s_rB[i] = a.Substring(0, a.Length - 1) + (a[a.Length - 1] == 'z' ? 'y' : 'z');
+                    else s_rB[i] = a + "x";
+                }
+            }
             for (int i = 0; i < 256; i++)
             {
                 Shape s;
@@ -186,6 +260,36 @@ namespace MonoHostTest
                 case 28: for (int r = 0; r < n; r += 64) acc += JitLzVirtPlain(s_sq, 64); break;
                 case 29: for (int r = 0; r < n; r += 64) acc += JitLzAlloc(64); break;
                 case 30: for (int r = 0; r < n; r += 64) acc += JitLzAllocPlain(64); break;
+                case 52: acc = MintBench(n >> 10); break;  // docs/139 MintBench workload, n/1024 rounds (reported per n-iteration = 1/1024 round)
+                case 31: { System.Collections.Generic.EqualityComparer<string> cmp = System.Collections.Generic.EqualityComparer<string>.Default; for (int r = 0; r < n; r++) { string a = s_strA[r & 15]; acc += cmp.GetHashCode(a) & 255; if (cmp.Equals(a, s_strB[r & 15])) acc += 3; } break; }
+                case 32: for (int r = 0; r < n; r += 64) acc += JitCp5I(r >> 6); break;
+                case 33: for (int r = 0; r < n; r += 64) acc += JitCp5O(r >> 6); break;
+                case 34: for (int r = 0; r < n; r += 64) acc += JitCp3M(r >> 6); break;
+                case 35: JitSetupVt(); for (int r = 0; r < n; r++) { Vector3 p = s_lv3[r & 255]; acc += (int)p.x + (int)p.z; } break;
+                case 36:
+                {
+                    JitSetupVt();
+                    System.Collections.Generic.List<Vector3> l = new System.Collections.Generic.List<Vector3>();
+                    Vector3 p = new Vector3(1f, 2f, 3f);
+                    for (int r = 0; r < n; r++) { if ((r & 127) == 0) l = new System.Collections.Generic.List<Vector3>(); l.Add(p); acc += l.Count; }
+                    break;
+                }
+                case 37: JitSetupVt(); for (int r = 0; r < n; r += 256) foreach (Vector3 p in s_lv3) acc += (int)p.y; break;
+                case 38: JitSetupVt(); for (int r = 0; r < n; r++) { ObjectGuid g = s_lgd[r & 255]; acc += (int)(g.Value & 0xFFFF); } break;
+                case 39: { JitSetupVt(); Vector3 p; for (int r = 0; r < n; r++) if (s_dv3.TryGetValue((ulong)(r & 511) * 977UL, out p)) acc += (int)p.x; break; }
+                case 40: { JitSetupVt(); Vector3 p = new Vector3(4f, 5f, 6f); for (int r = 0; r < n; r++) { s_dv3[(ulong)(r & 255) * 977UL] = p; acc += r & 1; } break; }
+                case 41: JitAcc.BenchWideSetup(); for (int r = 0; r < n; r++) { float last = (float)(r & 7) * 1.5f; acc += (int)SimClock.ElapsedTimeInMinutes(ref last) + (int)last; } break;
+                case 42: JitAcc.BenchWideSetup(); for (int r = 0; r < n; r++) acc += (int)(JitAcc.BenchCurve.GetYFromX((float)(r & 15) * 0.25f) * 100f); break;
+                case 43: JitAcc.BenchWideSetup(); for (int r = 0; r < n; r++) if (JitAcc.BenchGc() != null) acc += 3; break;
+                // case 1 with spread keys: its keys (r & 511) * 0x100000001 all hash to 0 (low ^ high word), so case 1 walks one 256-long chain
+                case 44: JitSetupVt(); { int vv; for (int r = 0; r < n; r++) if (s_mapU2.TryGetValue((ulong)(r & 511) * 977UL, out vv)) acc += vv; break; }
+                case 45: { RtBox o = s_rt; for (int r = 0; r < n; r++) { acc += o.GetV() + o.Prop; acc += (int)o.Wide(r) + RtI(r); } break; }
+                case 46: { RtBox o = s_rt; int[] a = s_rtA; for (int r = 0; r < n; r++) { o.Set(r); o.Add(1); RtV(a, r); o.Add(r & 3); acc += o.V + a[r & 15]; } break; }
+                case 47: for (int r = 0; r < n; r++) { RtBox b = new RtBox(r); acc += b.V; } break;
+                case 48: { RtBox o = s_rt; for (int r = 0; r < n; r++) { RtBox b = new RtBox(r); acc += b.V + o.GetV() + o.Prop + RtI(r); } break; }
+                case 49: for (int r = 0; r < n; r++) { string a = s_rA[r & 63], b = s_rB[r & 63]; if (string.Equals(a, b)) acc += 1; if (a == b) acc += 2; acc += a.GetHashCode() & 255; if (a.Equals(b)) acc += 4; } break;
+                case 50: for (int r = 0; r < n; r++) { int sv; if (s_dS.TryGetValue(s_rB[r & 63], out sv)) acc += sv + 1; } break;
+                case 51: { System.Collections.Generic.EqualityComparer<string> cmp = System.Collections.Generic.EqualityComparer<string>.Default; for (int r = 0; r < n; r++) { string a = s_rA[r & 63]; acc += cmp.GetHashCode(a) & 255; if (cmp.Equals(a, s_rB[r & 63])) acc += 3; } break; }
                 default: return -1;
             }
             return acc;

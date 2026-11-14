@@ -11,7 +11,7 @@
 // driver with yields) against out\MonoHostTest.dll (HostTest.cs) and prints PASS/FAIL lines; exit code = failed checks.
 // It also runs the M2 stubs (docs/119 §12; "m13 <hostdata> m2" for the sweep alone) and the M5 proof (docs/120 §8: the
 // unchanged ts3native [MonoThread] code with a worker; both threads interpreting at once, docs/120 §9).
-// docs/139 (env, selftest mode): MONOHOST_MINT=count|threaded|nocheck, MONOHOST_MINTFUSE=sub, MONOHOST_MINTBENCH=<n>.
+// docs/139 (env, selftest mode): MONOHOST_MINT=count|threaded|nocheck, MONOHOST_MINTFUSE=sub|eatime, MONOHOST_MINTBENCH=<n>.
 // docs/207 §7 (env, selftest mode): MONOHOST_JIT=off|dump|on|verify method compiler prototype (monohost-jit.cpp).
 // Never point it at the installed game: the exe is only mapped, but keep EA files out of git (copy under game-copy/).
 #include <windows.h>
@@ -1065,6 +1065,8 @@ static McCtr g_mcCtr;
 struct MfCtr { LONG mfReady, mfRuns, mfWhole, mfInner; };
 static MfCtr g_mfCtr;
 #define MF_CTR g_mfCtr
+static LONGLONG g_mfTicks;
+#define MF_TICKS g_mfTicks
 #include "../ts3native/mintfuse.cpp"
 // [EqualsFast] (docs/258 option C): the plan code, run against EA's own InternalEquals by the MONOHOST_EQFAST corpus
 struct EqCtr { LONG eqOn, eqMode, eqHits, eqPlans, eqRejects, eqFtNull, eqFtType, eqFtKind, eqFtNew, eqFtBusy, eqFtFull, eqRejGeneric, eqRejKind, eqRejMany; };
@@ -1770,7 +1772,8 @@ static bool InstallMint() {
 static bool InstallSubFuse() {  // docs/139 §4 (native/ts3native/mintfuse.cpp)
     char v[64] = "";
     GetEnvironmentVariableA("MONOHOST_MINTFUSE", v, sizeof(v));
-    return strcmp(v, "sub") || mt::MfInstall();
+    mt::g_mfEaTimed = !strcmp(v, "eatime");  // EA's matcher behind the same shim, timed: the transform-cost base (docs/139 §4.7)
+    return (strcmp(v, "sub") && !mt::g_mfEaTimed) || mt::MfInstall();
 }
 static const char* MintName(DWORD op, char* buf) {
     const char* const* names = (const char* const*)(uintptr_t)0x11949E0;
@@ -1781,6 +1784,7 @@ static const char* MintName(DWORD op, char* buf) {
 // log the top opcodes and pairs of this phase, append every non-zero pair to mint-pairs.csv next to the exe, reset
 static void MintDump(const char* phase) {
     if (mt::g_mfCtr.mfRuns) Log("mint %s: subfuse runs %ld, whole-run fusions %ld, inner fusions %ld\n", phase, mt::g_mfCtr.mfRuns, mt::g_mfCtr.mfWhole, mt::g_mfCtr.mfInner);
+    if (mt::g_mfCtr.mfRuns) { LARGE_INTEGER fq; QueryPerformanceFrequency(&fq); Log("mint %s: subfuse matcher time %.1f us total, %.0f ns per run (cumulative)\n", phase, 1e6 * mt::g_mfTicks / fq.QuadPart, 1e9 * mt::g_mfTicks / fq.QuadPart / mt::g_mfCtr.mfRuns); }
     if (g_mintMode != 1) return;
     unsigned long long tot = 0;
     for (DWORD i = 0; i < MINT_NOP; i++) tot += g_opN[i];
@@ -2115,8 +2119,8 @@ int wmain(int argc, wchar_t** argv) {
         g_m2 = argc > 5 && !wcscmp(argv[5], L"m2");  // m13 with the M2 hand-written stubs (selftest always uses them)
     }
     char logPath[MAX_PATH];
-    GetModuleFileNameA(NULL, logPath, MAX_PATH);
-    strcat_s(logPath, ".log");
+    // MONOHOST_LOG=<path>: this run's log elsewhere, so parallel runs (tools/jit-piece-bench.ts) do not share <exe>.log
+    if (!GetEnvironmentVariableA("MONOHOST_LOG", logPath, MAX_PATH) || !logPath[0]) GetModuleFileNameA(NULL, logPath, MAX_PATH), strcat_s(logPath, ".log");
     fopen_s(&g_log, logPath, "w");
     AddVectoredExceptionHandler(1, Veh);
     SetUnhandledExceptionFilter(Unhandled);

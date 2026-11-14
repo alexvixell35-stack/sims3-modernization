@@ -1,0 +1,182 @@
+'vswhere.exe' is not recognized as an internal or external command,
+operable program or batch file.
+ts3native.cpp
+   Creating library out-monocost3\ts3native.lib and object out-monocost3\ts3native.exp
+selftest.cpp
+   Creating library out-monocost3\selftest.lib and object out-monocost3\selftest.exp
+decompress-test.cpp
+   Creating library out-monocost3\decompress-test.lib and object out-monocost3\decompress-test.exp
+waterjps-test.cpp
+   Creating library out-monocost3\waterjps-test.lib and object out-monocost3\waterjps-test.exp
+savecompress-test.cpp
+   Creating library out-monocost3\savecompress-test.lib and object out-monocost3\savecompress-test.exp
+steerro-test.cpp
+   Creating library out-monocost3\steerro-test.lib and object out-monocost3\steerro-test.exp
+stuckcheckcap PROBE (docs/163 §10): marked own START cut at PlanDeadlineMs on the worker, one START per mark ok
+unseen fallback strict (docs/202 §3.1.1): overrun p99 per path, floor 30, start 80, cut >= setting / 2, pre-search lock-wait fail ok
+unseen fallback (docs/202): MARK -> job under ufUs, one START per mark, CUT? once, sync deadline, job end ok
+H2 IC window: slot swap (other owner left), start held inside the IC, nesting, ret-N leave, drop before a job wait, unwound frame dropped, running at entry, Mode 0, off-sim ok
+refcount guard: level kept to the caller's return, no hits, Mode 0, two queries, off-sim, unlisted caller, unwound frame dropped, drop before a wait, claimed job collected without deadlock
+JobYield (docs/183): counters v109; JOBBUSY off / on / nested / no job, step-aside loop ends with the job; sim job waits at collect / drop, yieldable flag, none counted without a job, >= 300 ms line ok
+alloc cache: 15.8 ns per free+malloc hit, 48.2 ns for lock + bump allocator
+save compress cache: hash 6646 MB/s (0)
+sim loop: loop-back hook ok (3 iterations, 7 callbacks)
+sim pump: post-pump hook ok (3 pump calls, 3 callbacks)
+mono thread M5: P3 2 x 20000 locked alloc/free, 77598 waits, 42 us waited, max 10 us
+mono thread M5: control without the lock: 6096 nodes handed out twice, 0 empty pops, list 1000 of 64
+mono thread M5: I-120-8 longjmp out of a locked hook: stale entries dropped on enter and exit (2), lock free
+mono thread M5: GC_oom_fn wrapper: lock free for another thread inside the OOM call (longjmp and return paths), 4 entries released
+mono thread M5: worker 2 jobs, 11233 us max, 40000 locked calls on the worker
+mono thread arena fix: 2 duplicates dropped at install, 2 in-use chunks skipped, release-all clears +0x13C
+mono thread F1: worker-private call records, nested 2 deep, cleared after each call, overflow refused
+arena guard: double release no longer pools a chunk twice; an in-use pooled chunk is dropped before a grow
+gc roots: container membership, chain checks, frames above top, frame-word mark audit (stamp split), descriptor watch/restore and the fault line on fake structures
+arena tail: pad patches all-or-none, own-chunk tail end-0x40, grants keep 64 B before the descriptor, bump near-end arm, DR watch hit at end/end+4 only, distinct (eip, method) table, EA next-chunk header writers filtered ok
+initobj size: UInt64 12 -> 8, I4/U1/value types/open generics unchanged, chunk-end descriptor kept, call-site patch exact ok
+destroy park (design G standalone): job across deletion, owner-only flush, release order, kept-wait rules, 512 parks, T-G1, save and world close ok
+obstructed RO: clone, 3 read-only answers, fallbacks 4/1/0/2/0/1, shadow 3 runs
+avoid RO: clone A/B, A-site skips 1, hits 1 misses 2 B 1, fallbacks state 3 try 2 cache 2 jobend 1, T-AV 2, shadow 10 runs (mismatch 3 / B 1 / query 1 / order 1, sim scan 1); child footprint whitelist
+slot position RO (SH): interlocked counts, gate pass/drop, hook, fallbacks, shadow, unwind ok
+load profile: window, rows, outermost routing time and skips ok
+snap: K1 203 cuts over 900 writes (3 seeds), audit 0 mismatches and incremental == full at each; negative control found; K2 lazy state not imaged; K5 held version kept its images, references back to 0; lazy Gtiles (built only for a reader, carried == live); lot strategy none: world audit only; door channel ok
+snap cut cost: tile 40 KB hash 36.6 us (copy 0.8), R 1 MB hash 963 us (copy 75), bnm 4096 sort qsort 320 us radix 111, grid 800 rows sort 23 us merge 10 (0)
+bnm share: 4096 entries, unchanged build 177.7 us before, 33.8 us now
+bnm share: 16384 entries, unchanged build 470.2 us before, 105.2 us now
+routesnap P1b: 6 frames, drain, cache fill, 64-key caller table, 12 record kinds with 1-s buckets and suppression, clone-equivalent copy, rebase lot copy ok
+replay AuditHoldRebase: held 2, released by the diff 1 (clone-only +12 named before the rebase), by timeout 1, equal after
+replay totals: ins 2277 rem applied 5302 rebased 730 gc 1618 stale 477 skips 561/1090 audits 11167 ensure 8509 syncs 1351
+snap replay: footprint class 0x2051A4A8 unknown: lots holding it are left out of the clone (rpExclLots)
+snap replay: 1 lot(s) left out of the clone (a footprint the copy refuses; first 0x0000000000000100)
+snap replay: first lot left out: unknown footprint class (lot 0x0000000000000100, footprint 0x0D38D080 class 0x2051A4A8, a 0, b 0)
+snap replay: clone built (4 lots, 124 map entries; 0 child footprints outside their parent's list, 0 FMEs without a Q) in 190 us; asked by replay.cpp:2193
+snap replay: 2 lot(s) left out of the clone (a footprint the copy refuses; first 0x0000000000000103)
+snap replay: first lot left out: unknown footprint class (lot 0x0000000000000103, footprint 0x0D38D080 class 0x2051A4A8, a 0, b 0)
+snap replay: clone built (3 lots, 86 map entries; 0 child footprints outside their parent's list, 0 FMEs without a Q) in 88 us; asked by replay.cpp:2254
+snap replay: 2 lot(s) left out of the clone (a footprint the copy refuses; first 0x0000000000000103)
+snap replay: first lot left out: unknown footprint class (lot 0x0000000000000103, footprint 0x0D38D080 class 0x2051A4A8, a 0, b 0)
+snap replay: clone built (5 lots, 71 map entries; 0 child footprints outside their parent's list, 0 FMEs without a Q) in 83 us; asked by replay.cpp:2254
+snap replay: leaf-only FME with a refused footprint leaves its lot out (cause named); one without a footprint is copied
+snap replay H20b: clone portal references exact (9 per lot copy), raced by 1358760 sim AddRef/Release pairs over rebases and frees; none deleted, all released at teardown
+snap replay: a child outside its parent's list gets its own block (parent pinned); a map FME without a Q is copied
+snap replay: clone built (5 lots, 171 map entries; 0 child footprints outside their parent's list, 0 FMEs without a Q) in 249 us; asked by replay.cpp:2193
+replay 0.35.8: a reused live child address keeps its child table entry (kept 1)
+long replay: clone memory 71 KB after the warm-up, peak 128 KB over 18,000 more steps
+hooked replay: ins 405 rem 1593 stale 64 lots 79 epochs 1 noQ 123 staleSkip 119 rebased 124 diverge 0 mis 0 applied 321/1554 faults 0 noq 0
+snap replay: W3 get-or-create (no STALE for a get); 207 Q-less adds, 168 removes followed by RP_NOQ (375 records), 0 divergences, 0 rebuilds
+snap replay: child footprint class copied in its parent's block; an unknown class leaves its lot out (rpExclLots), refused once per build, audits equal; middle class 0x1020AE8 known
+snap replay:485 cuts over 2400 writes on 4 seeds (random allocation addresses): clone == live at every cut (53779 lot audits, 5882 rebased lots, 6527 syncs, 4 rebuilds after divergence), unrecorded insert found, consumer thread ok, event 7 prebuild + clone ok, memory back to 0
+replay signature mix (0.35.20): 20000 random node mutations, old and new signature agree on every change (10917 changed, 9083 not); 20 hook-less node changes rebased at the next cut, audits equal; 6 lone +0x8F flips refresh the clone byte (0.35.24)
+replay quiet cuts (ReplayQuietMs): 7 reused with a SYNC each, a recorded write and a routing IC force a full cut, a hook-less change rebased at the next full scan (counted late), audits equal
+replay 0.35.23: shells published past a batch in flight and busy pools (full rebases wait); ReplaySigMs keeps unscanned signatures (a hook-less change rebased late, 1 late; a plain mirror set loses it: control); 73 batches applied outside the lock, audits equal
+InsFreeInPlace: off retired 30 (repin scans 30), on freed in place 30 + retired 0 (repin scans 0); audits equal; one repin scan over 74000 clone footprints 249 us
+RecsUnlocked: off 0 unlocked rounds; on 2816 rounds applied 24739 records outside the lock (all 20913 INS / REM); audits equal, same clone footprint count (16)
+replay REM bounds patch (0.35.21): a stale child +0x10 and a drifted level box are patched to live's answer (no rebase); a copy parent with another child-list state is still forced
+replayed-insert check over the earlier replay tests: 0 differences (InsCheck 1, log only)
+P5 covers (0.36.35, docs/157 §4): a lock-key set swapped on an inserted footprint forces its lot and counts as a routing write (same set, not inserted, replay off: nothing; Q-less FME: Q-less refresh); a replayed insert whose child copy answers another rect than live at the record is logged (InsCheck 1) or forces its lot once (InsCheck 2)
+thread cycles: read 381 ns each, a 20 ms busy loop counted 2.29 GHz (cycle-ms/s use 2.3 GHz nominal: 20.0 vs 20.1 wall ms)
+replay long run: 60k steps, 12k cuts: 60 KB at 20k steps, max 119 KB after; largest clone table 1024 slots; fps 375 live / 1024
+replay consumer behind: 1174 cuts deferred (1174 waits logged), at most 1 LOTS batch in the ring, 20 batches; audits equal
+soft pend prune ok
+private pools: 12 site stubs (byte check all-or-none; pops private on the replay op thread (tree) and in a P4 job (all), pushes by address; rpLivePool / plForeign / plOverlap count misuse), map pool, pool-object change = epoch (clone dropped and rebuilt, audits equal), race 2 x 200k ops game vs private pool: 0 corruption (free lists 130 / 520)
+P4 0.33.1: grid records' polygon sets deep-copied (live freed after the cut: copy intact); a broken set refuses the copy
+P6 TakeForeign (docs/189 phase 4): foreign STARTs armed take-only with the switch, clone answer taken, deadline in the clone run, stale -> game plan: ok
+P6EarlyCopy (docs/94 §24.14): own-only copy before the job's hold, the plan runs it (fresh and shared cut, taken); a write after the copy refuses stale and releases; a write before skips the copy; recheck refuses a clone flag; an unplanned IC releases at the job end; FI_OOM on the early clone; off = the plan's acquire
+StaleLot (docs/189 phase 2): ring + per-lot verdict (unread lot clean, read / active lot, world kinds, lot 0, unknown, in-flight, ring overflow, set cap, no set); classifier; read-set note; acting takes an unread-lot write, refuses world / unknown / no set; shadow acts as the global rule; verify per-lot-only equal; tripwire to shadow; off = no verdicts
+StaleLotFp (docs/189 §9): footprint on lot A clean for a lot-B reader, stale for A; footprint in A and B stales both; world-level footprint (lot 0, grid add) stales everyone; W6 refill covered; real grid remove world-level; no planner / bad grid / set cap / tripwire -> global; acting takes covered-only windows with fp keys, refuses without; fp-only verify mismatch -> fpl off
+P6 all own kinds (docs/189 phase 2c): Replan and PlanFromPoint jobs armed and taken only with TakeKindsAll (decided at START); foreign (af) and Kinds-gated not; stale refusal and VerifyEvery per kind; P6 split untouched
+P6 (docs/94 §24): Route.Plan jobs armed and taken only with TakeKinds bit 1 (own STARTs; FallbackAsync foreign and Kinds-gated not); ShareCuts: STARTs behind a running job borrow the pending cut (Route.Plan and ReplanFromPosition), none after a recorded write or with lot updates pending; 3 jobs on one cut all taken, 2 re-acquires; phase split adds up; a write before a borrowed job's plan refuses it (stale)
+P5 / P5b / P5c on the replay clone, one clone life (0.35.9): 70 taken jobs with a new lock-key table each (window lent each time, one table kept); bad clone refused (game plan); no shared cut in Mode=2; a key origin no table has: 8 refusals, then one rebuild, then taken; 0.35.26: copy inside the lent window, a stale job skips acquire and run, its cut hold dropped
+P4 0.35.6 shared cut: a START during a running job shares the pending cut (w0 the cut's), hold kept for both shadows, a dirty release refuses the second
+P4 0.33.1: two cut slots (older hold kept until its shadow ends, dropped shadows move it on, stale holds replaced); soft map resync (lot forced, clone stale, no rebuild, next cut compares M0); 0.35.5: a miss in flight not forced again, 5 fresh misses in a row without a rebuild
+P4 0.34.1 back-to-back jobs: 400 jobs, 400 records, 0 busy drops, 7 parked (7 run later)
+  classes M0-M5: 400 0 0 0 0 0; acquire refusals 0-7: 0 0 0 0 7 0 0 0; refusals:
+P4 0.35.2 queued STARTs: 200 jobs, 165 cuts behind a queued job, 34 tries missed, 2 records, 198 busy drops; 0.35.6 shared cuts 34 (none to share 0, refused dirty 0)
+  queued STARTs classes M0-M5: 1 0 0 0 0 1
+P4 threaded (sim + worker + replay consumer, real +0x918): serial 400 jobs, 400 shadows (57 held); with back-to-back jobs: M0 599, M5 (stale) 146, M1-M3 0 / 0 / 0, no hang
+P4 0.35.21 lazy keep: ApplyLotUpdate / deferral stops name their lot and keep the clone, W6b and W3 name theirs; a keep release rebased the dirty lot and a pinned one (pin cleared), no rebuild, audits equal (156); a write outside the list is found by the audit
+P4 part B: replay clone provider end to end (fake planner on the working copy): M0 unchanged and after recorded writes, M1 for an unrecorded tree insert, M3 for a world byte after the cut; lock-key sets private; W' (I-94-220: P / R / G the copy's, group hash private, kept across acquires, made again for a new live W) and G trees re-made under the copy's anchors (I-94-221); stale cut refused; H20c: pending portal add on a live lot refuses the cut, pending remove on a clone lot refuses the acquire
+P4 part A: T1-T4 by thread (wrap, dead stamp, T3 registers and flags, T1 in the gate trampoline), door record/replay/miss, D2 handshake and arm limit, D5 bits, shadow M0-M5 with a fake clone, fallbacks clone/epoch/cold/unsupported/busy/door-miss/fault ok; D4 lazy build / lot table insert stop the clone run (lazy, discarded, P4 stays on); D5 portal IC family (nr 256) ok; goal tie set (equal priority, d2 within 0.05f of the running best) -> "tie" and M1 goal-tie ok; records in C:\Users\<user>\AppData\Local\Temp\ts3native-p4-selftest-33984.jsonl
+P4 deferral stop: an iterated clone Q's insert / remove stops the clone run (lazy) before the live pending maps; live and non-iterated calls pass
+P4 obstacle sets: live 36 (+0), clone 36 (+0), 48 equal, in-place move found
+P4 door dump record: "doors":{"why":"m2","cloneState":"ok","liveState":"ok","ids":["0x285900362D9533C0","0x6C1100337D22F4D0"],"asksN":1,"unused":1,"asks":[["0x6C11003300BBBB00","0x6C1100337D22F4D0",3,7,0,1,0]],"lots":{"pl...
+P4 door dump: stale clone +0x8F named, ids, unused ask, portals, mirror, cap, box mode, fault state
+P4 lot dump record: "lotdump":{"why":"m2","pt":[1250.48047,1731.79663],"box":[1249.20996,1730.82996,1251.57996,1734.55005],"clone":{"state":"ok","lot":"0x6C1100342B1C14A0","lbox":[49.2099609,30.8299561,51.5799561,34.5500488],"qs":[[-2,-2,66...
+P4 lot dump + obst frame: lot-local footprint listed ('l', the world box misses it), lock key NULL vs set, key origin, only live, box mode, cap, fault state
+P5 (Mode=2): counters v61; ReplanFromPosition answer taken from the clone run (no game plan), its list node for node the answer the shadow compare reads; door ask to the game's chain disarmed (pools handed back); verify records v3 "m2":1, M2 kept the game's answer; fallbacks clone / list / rtBusy / stale cut / nr / lazy / cold / tripwires (3 = off) / fault (off) all planned by the game; runtime switch; M2-1 site change off; M2-3 L2 log only ok
+P5b (ReleaseLock=1, ReleaseGates=1): counters v63; refusals switch / verify / no job / not owner / waiter, recursive hold lent and taken back, gate classes, a gate-0 hit lent and a miss given back; threaded (sim + worker, real +0x918), 40 held / 160 steering-lent / 160 gate-lent jobs (lent 93.4% / 93.4% of job time), sim acquires started during a job body, got inside the job / all (mean wait ms, held -> steering -> gates):
+  steering                 0/13 (6.01)  56/79 (1.76)  151/174 (0.80)
+  gate-12 reads            0/5 (6.02)  0/20 (5.99)  41/46 (0.71)
+  gate-0 hits              0/4 (6.03)  0/28 (5.97)  35/40 (0.95)
+  gate-12 writer families  0/3 (5.99)  0/17 (6.00)  0/35 (5.80)
+  gate-0 misses            0/1 (6.04)  0/12 (5.92)  0/11 (5.52)
+  writers                  0/9 (6.02)  0/29 (5.93)  0/48 (5.63)
+  sim wait per job during job bodies: held 5.26 ms, steering-lent 4.82 ms (gate reads 1.79 ms = 37% of it), gate-lent 4.65 ms (gate reads 0.44 ms, -75%; the rest moves to writer waits); granted while lent: steering 208, gate-12 41, gate-0 hits 36, gate-0 misses given back 10; 35 tries held out, every destroy (26 while lent) and writer waited for the job, frame objects intact, answers equal (320 taken, 40 livelock tripwires answered by the game's plan), door asks under the hold, no hang
+P5c HoldKeyed (docs/189 phase 1): 122 jobs, re-keyed gates (3, 4) in a job 37/43 (mean wait 0.30 ms, FreeLock alone 4.02), gate-0 misses 13/14, kept (F-G, 10) 0/14; 4 gate writes in windows, 20 windows with an admitted gate (4 with a write: refused), retake tripwire 0
+P5c HoldKeyed=2 (docs/189 §10): site 10 admitted 16 times in hgOn=2 jobs, long holds +0
+P5c (FreeLock=1): counters v65; park rules (callback, D-X record, full, not found), flush refused in a job and released after it, T-G1 count low kept; threaded (sim + worker, real +0x918), 30 held / 120 P5b+gates / 120 FreeLock jobs (lent 99.6% / 99.0% of job time), sim calls started during a job body, got the lock (destroys, saves: done) inside the job / all (mean wait ms, held -> P5b -> P5c):
+  steering                       0/9 (6.12)  26/37 (1.96)  28/39 (0.70)
+  gate-12 reads                  0/5 (6.04)  14/17 (1.97)  12/15 (0.43)
+  gate-0 hits                    0/2 (6.06)  7/10 (1.83)  12/18 (0.37)
+  gate-0 misses                  0/0 (0.00)  0/1 (6.05)  0/4 (5.85)
+  gates kept (F-G, 10)           0/0 (0.00)  0/8 (5.50)  0/10 (5.81)
+  gates re-keyed (3, 4)          0/1 (6.03)  0/17 (5.87)  0/10 (4.02)
+  writers                        0/4 (6.12)  0/31 (5.60)  38/53 (0.79)
+  sync plan acquires             0/0 (0.00)  0/3 (5.97)  3/5 (0.04)
+  saves                          0/0 (0.00)  0/4 (6.01)  0/6 (5.77)
+  destroys of the frame's object 0/6 (6.04)  0/25 (5.89)  14/26 (1.17)
+  acquires that no longer wait for the job: held 0%, P5b 38%, P5c 60%; sim wait per job during job bodies 5.47 / 5.31 / 2.24 ms; P5c: 97 windows, 49 taken, refused stale 149 (before the window 144, of them 144 skipped the acquire and run (0.35.26), inside 5; 160 recorded writes in the phase), nr fallbacks 0 (destroys), live plans 149; P5 skew (answer older than the tail) held 21, P5b 71, P5c 0; 31 destroys parked, 10 sync plans on the sim, 1 hand-over then P5c off; no use after free, no hang
+P5 fault injection (docs/157, TS3N_FAULTINJ): threaded, real +0x918 lent: AV in a P5b window (P4 + Mode=2 off, the next job plain A10), AV holding the EA heap lock in a P5c window (released), 3 managed tripwires in P5c windows (each retaken at once, third = Mode=2 off), world close mid-run (epoch), a steering holder 2.3 s (watchdog, answer taken); every job answered, window closed, worker owns +0x918 at the tail, no hang (351486 steering grants in windows)
+P5 pre-lock (0.35.19): a Mode=2 job waits for the replay consumer at its cut and idle before it takes +0x918; bounded; no wait otherwise
+HitchAttr: per-frame sim waits by class and largest key, owner only, off by default: ok
+lock fast path (docs/165 F1): non-918 acquire+release, non-owner: hook 22.3 ns, original 20.0 ns (+2.2 ns per pair); 4 threads on one lock: hook 120.0 ns, original 133.5 ns per pair; with [HitchAttr] Holders=1: 24.7 ns
+lock holders ([HitchAttr] Holders=1): main waited 49 ms on a lock held by the route worker 29432 from 0x1FFDDA54: ok
+UnseenProbe: visible / unseen classifier (ts3fixes reach rule), per-class agent updates, keyed acquires and waits, footprint updates (own detour and behind design U) and car-only plans: ok
+unseen fallback camera queries (docs/202 §2.1): frustum, reach with radius, wide camera, no camera, partial query ok
+unseen fallback sites (docs/202 §3.4): list channel, C1/C2 agent rules, timed take held/skipped, one wait per job, C3 states and C4 placement answer by the running task's Sim, FinishWalk holds (flag, claim, release, seen, list drop, expiry, plain wait) ok
+unseen fallback colour queries (docs/202 §3.5): same / different / ambiguous / none, chunk edge, no R ok
+UnseenThrottle: viewer channel, stagger (each agent 1 call in 4, spread by id), snap-back rules (visible, EA byte, state, linked, viewer, stale table, near goal, portal, path fault, first tick after), skipped call = empty vector: ok
+UnseenThrottle phase 2: rate (1 run in 4, summed step = sum of max(dt, 1/30), cap 0.5 s, visible switch runs the same pass with its debt, snap-back rows, dropped debt), avoidance (turn, 3 m goal, visible, linked), footprint (hold-back, fold, flush when due, disable / other args / visible / nested drop it, gone, other world): ok
+UnseenThrottle diagnostics: replan split (throttled lately / other / no follower), last skipping part and its age, 8-pass window, deferred notices (list, avoidance, rate; not footprint): ok
+autshadow: 19 IC slots, 1823 cuts (max 76 us), 167 entries, 1822 audits, 56 aborts
+autshadow run: 9 requests, 9 cuts for them, 8 reference runs (8 RNG restores), 5 worker runs, 2 overrun, 1 epoch drop
+autshadow ledger: in 3/3/2/1, out 3, dropped 1, ticks 8, sleep(0) 1/1, sleep(1) 3+ 1
+thread stack: observe: CreateThread 1024 KB, _beginthreadex 1024 KB (main thread 1024 KB)
+thread stack: cap 256: CreateThread 256 KB, _beginthreadex 256 KB (main thread 1024 KB)
+crash report ok
+user diag: address-space walk 5678 us over 5039 regions
+user diag: install class, DBPF S3SA count, line packing, Resource.cfg patterns, ts3fixes text channel, save trail + watchdog, address space ok
+mem diag: allocation grouping (stacks, arenas), own-view mapped count + verdict, tags + world events, fake EA heap / GC / ResourceCache reads, line format + marks, self-test on this process (commit, arena, stack, mapping, routesnap heap, leak, OS cross-check) ok
+mem experiments bench: 563558 objects, 4000 classes, 1001018 rejects, census 88.6 / 39.9 / 33.2 ms (1734 VirtualQuery), graph 189.4 ms
+mem experiments: fake Boehm heap block walk, marked bytes, class census (runtime-info check), Cork ratio rank, points-from holders, square-root limit, collect_or_expand grow / forced / observe ok
+allocsites lock-order stress: 1811794 ops on 7 threads + 633 samples in 1.5 s, no hang (busy 0, drops 0, high TLS index 64)
+allocsites cost: EA heap malloc+free pair 4.1 ns unhooked, 16.6 ns hooked 1 in 64 (+12.5), 112.7 ns every block sampled (+108.7); VirtualAlloc reserve+release 64 KB 1.48 us -> 1.87 us (+0.39); ntdll hooks 7
+watchpoint: 2 hits on the test local (write-only DR0, 2 threads), 0 after disarm, 0 thread(s) not set
+watchpoint Lot=: child +0x10 armed at its lot insert (not before the route worker, not other lots / classes, Arms cap), writer probes count all / job / lot and still write; Follow disarms at the child's remove and re-arms the same parent's child; constructor pairs classified: ok
+crash forensics: ring wraparound, block lookup, heap check, erase/clear guards on dummies, trampoline, dump ok
+crash forensics draw: our-events ring, spans, model/resource/effect/binding guards on dummies, dump ok
+crash forensics effect log: add/remove/gather/draw hooks, stale-list draw + dangling walk, off-main removes, slot swap, round-1 guards with EffectLog on, dump ok
+crash forensics model handle log: unload/load/release/node-update hooks, lod-set + drain caller, update table, resource DRAW BAD with the queued node, stale Swarm draw with the drawable queued, dump ok
+apex compat ok
+route job phases: layout, worker-only stubs, owner interposition, self time and drops ok; v92 allocator sites (rows, bytes, size and per-job histograms) ok
+goal gen D1: duplicate ring detected from the loop locals, skipped with ret 0x40, shadow argument and answer compare ok
+route phases goal split (P-G): worker-only frames, validations per job, rest-of-job split and long-rest count ok
+route phases goal step split (P-GS, docs/178 T3): frames only inside a worker job's goal step, per-step split and long-step count; T1 foreign long-job phase line ok
+route phases SyncPlans: layout, sim-only sessions (Route_PlanLocked and IC entry), loop split by caller, lock frame, busy / stale / worker job, line ok
+ForegroundRender: both sleep sites patched and reverted on dummies, foreign bytes left alone: ok
+host-call split + door memo (v96): layout, door stub (rel32, behind P4, [ProbeValues] slot), memo / shadow / fall-through, per-job table and full, cross-job ring, stamps per site, limiter overlap, real proxy round trip ok
+AskLent + DoorMemoX (v126): lent ask served on a second thread (real acquire, no borrow, stale refused), admission, retake without a P5c window / switch off, tripwire mid-ask; memo hit / miss / locked not kept / portal IC, world event, delegate, age invalidation / shadow mismatch / flip clears ok
+TailUnlock ([RouteAsync] TailUnlock=1): counters v89; refusals switch / not the worker / P5b open; threaded (sim + worker, real +0x918, 2 levels): 40 kept and 260 lent jobs (260 windows, 0 refused for a waiter), 20 failing at a pass and 13 taking +0x918 in pass 17 (tripwires 13, retaken first), answers equal, steering acquires granted while a job body ran: kept 0, lent 7034 (6946 started inside one), 2244 tries held out, retake max 140 us, no hang
+cell memo probe: layout, M key fields, repeats per plan, would-hit time, histogram, full list, stub ok
+ReplanDedupe: v90 counters; repeats by band and class, observe check (would/same/diff), served bytes and +0x1F4, refusals (state, static writes, footprints with BlockedByPeople, 18, not quiet, P4, age, start, goal, success, no key, no version) ok
+KindDeadlines (docs/197): counters v134; kinds, last-round exemption, follower backoff doubled / uncut / reset, outcomes after a cut, cut ok, late time, stuck-check marks, probe without backoff, row eviction ok
+PlanDeadline / FailMemo (docs/164 §7): counters v99; cell / water entry stubs (pass outside a session, before the deadline, switch off, other thread; past it the game's no-path exits, stack right), non-IC session + world A* cap through the cost stub, IC sessions by reason (own task exempt), FailMemo observe / serve / not on worker calls ok
+FbJobDeadline / OwnJobWait (docs/178 T1, T4): counters v103; worker slot of the cell / water stubs (cut past the foreign job's deadline on its thread only, switch off and deadline ahead pass), per-job cuts, capAt, late time, >= 300 / 1000 ms jobs; own-job sim waits ok
+Gate0RO ([Gate0RO], counters v91): G-a hits served with no +0x918 wait while the worker holds it, QL shared to the leave, eax compared; G-b / miss / active lot / odd table / pieces off / QL busy / not owner / callback wait as today; shadow compares only; unwind and full frame stack release QL; threaded vs a rehashing W5 writer: 2000 served, 248 QL busy, 3425 rehashes, 0 mismatches
+RouteToObjRO ([RouteToObjRO] Enabled=1): counters v93; 29 hand-derived cases x (Mode 1 job, shadow) equal incl. kind 9's shifted check and 3 fallbacks; shadow skew counted; no-route skip / switch off / +0x918 owner / nesting; threaded (real +0x918 + QL, worker flipping the world): 25636 calls, 115 answered read-only, 25521 by the game's call (between jobs, QL busy or late), 0 torn, 0 unlocked game calls, no write
+PlacementRO ([PlacementRO] Enabled=1): counters v100; switch off / other thread pass; job: clone answers 0/1 with the frame's lot, level, point, radius and record, no game call; no lot / lot id 0 answer 0; fallbacks (deferred, lot miss, shape, tripwire, mode 0, +0x918 owner, job end, QL busy, switch off) call the game; shadow compare + skew
+GoalValidRO ([GoalValidRO] Enabled=1): counters v118; switch off / other thread pass; job: empty answer (al 1, vector untouched) and no-lot answer (al 0) with the frame's point, level, radius and option word, no game call; footprints found, fallbacks (deferred, lot miss, shape, tripwire, dirty lot index, mode, non-empty vector, +0x918 owner, job end, QL busy, switch off) call the game; shadow compare + count and al skews
+IdleCheckRO ([IdleCheckRO] Enabled=1): counters v119; switch off / other thread pass; job: lookup answered from the table read, leaf on A's entry under QL (pass / onward), miss = 0 with no leaf; fallbacks (shape, tripwire, +0x918 owner, job end, QL busy, switch off) call the game; B redo on QL writer / job end / tripwire in the leaf (game lookup + leaf, miss = 0); shadow compare + skew
+MovedWaits: skip records per (switch, job), next wait behind the same job moved (key, ms, delay), job end -> avoided, next-taker keys by job kind and switch, hitch frame v2, off / not sim / no job / other job pass: ok
+P6Waits: arm x outcome x class split, pending ring, slot reuse, owner-only, loop arm ok
+selftest ok
+built out-monocost3\ts3native.asi

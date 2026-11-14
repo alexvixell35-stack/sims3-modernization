@@ -48045,6 +48045,220 @@
     ]
   },
   {
+    "id": "minihomelot-movein-check",
+    "bug": "docs/266: a Sim keeps or gets the wish Move In With <Sim> for a Sim of its own household (player report twopointjj 2026-11-14). EA's check MoveInWithSimCheckFunction uses HasSameHomeLot, which reads the MiniSimDescription home lot; Household.SetLot (a household move) never updates it, so members compare unequal after a move",
+    "fix": "ts3fixes MiniHomeLot.cs: minihomelot (default on), docs/266",
+    "save": "Baseline-BP",
+    "note": "Forced repro on the active household's first married pair (else first two humans teen or older): B's mini home lot is set to another lot (the state after a household move; a mini is created if B has none). Then the moved-in-later path (EA's Household.SetLot) and the world-load repair. The harness does not save; stop puts the mini back.",
+    "expect": "off: after pick and after setlot HasSameHomeLot(B, A) False (EA keeps the wish: kBecomeActive). on: after pick False, after setlot True; after a new pick False, after load True; minihomelot_setlot >= 1, minihomelot_load >= 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "minihomelot": false
+        },
+        "note": "applied log lists Household.SetLot: ok"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniHomeLotCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "off: names A and B, B mini lot -> another lot",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniHomeLotCheck",
+          "args": [
+            "expect apart"
+          ]
+        },
+        "note": "off: the bug: same household, HasSameHomeLot False",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniHomeLotCheck",
+          "args": [
+            "setlot"
+          ]
+        },
+        "note": "off: EA SetLot leaves the mini stale",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniHomeLotCheck",
+          "args": [
+            "expect apart"
+          ]
+        },
+        "note": "off: still apart (EA)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniHomeLotCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "off: mini put back",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "minihomelot": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniHomeLotCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "on: stale mini again",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniHomeLotCheck",
+          "args": [
+            "expect apart"
+          ]
+        },
+        "note": "on: stale until a SetLot or a load",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniHomeLotCheck",
+          "args": [
+            "setlot"
+          ]
+        },
+        "note": "on: hook syncs the members to the household lot",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniHomeLotCheck",
+          "args": [
+            "expect same"
+          ]
+        },
+        "note": "on: HasSameHomeLot True: MoveInWithSim check kThrowAway",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniHomeLotCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "on: mini put back",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniHomeLotCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "on: stale mini for the load path",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniHomeLotCheck",
+          "args": [
+            "load"
+          ]
+        },
+        "note": "on: world-load repair",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniHomeLotCheck",
+          "args": [
+            "expect same"
+          ]
+        },
+        "note": "on: repaired",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniHomeLotCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: lots and visible Move In With wishes for the doc",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniHomeLotCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "on: mini put back",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "counters minihomelot_setlot, minihomelot_load, minihomelot_apart",
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniHomeLotCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "puts the mini back if a step failed",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "minihomelot": true
+        }
+      }
+    ]
+  },
+  {
     "id": "menumaven-all-recipes-check",
     "bug": "docs/501: Cooking.IsMenuMaven (Menu Maven skill challenge and Culinary Librarian lifetime wish, 'know every recipe') compares the known recipe count with the tuned kRecipesLearnedForMenuMaven, 28 in EA's tuning, never raised for expansion, store or custom recipes",
     "fix": "ts3fixes MenuMaven.cs: menumaven (default off), docs/501",

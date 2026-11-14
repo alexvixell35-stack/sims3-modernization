@@ -1,8 +1,8 @@
 // [MintFuse] Sub (docs/139 §4): sub-run fusion. EA's peephole 0xE5C660 hands the matcher 0xD89930 one whole run (no branch
 // target inside, cut before every call/ret/newobj-class op) and fuses only when the WHOLE run equals one of the 22 descriptors
-// at 0x108FCD8. This replacement also fuses descriptors found inside a run: greedy, longest first, left to right. Same
-// encoding (first opcode word replaced, operands and later words in place), so branch targets and fault ips stay as docs/130
-// §9.1. Included by ts3native.cpp and by native/monohost/monohost.cpp (inside namespace mt, MONOHOST_MINTFUSE=sub). The includer
+// at 0x108FCD8. This replacement also fuses descriptors found inside a run: the placement with the fewest dispatches (longer
+// descriptor on a tie). Same encoding (first opcode word replaced, operands and later words in place), so branch targets and
+// fault ips stay as docs/130 §9.1. Included by ts3native.cpp and by native/monohost/monohost.cpp (inside namespace mt, MONOHOST_MINTFUSE=sub). The includer
 // defines MF_CTR, a struct with mfReady, mfRuns, mfWhole, mfInner (ts3native: ts3native_counters v164).
 
 #ifndef MF_CTR
@@ -16,6 +16,7 @@ static const unsigned short MF_SUPER = 0x1AA;
 // win[n]: the run's opcodes without nops; code: the run's first instruction word. A superop goes to *out for a whole-run match
 // (the caller writes it, EA's own case) and straight into the code for an inner one. oplen / desc are parameters for selftest.
 static void MfFuse(const unsigned short* win, int n, unsigned short* out, unsigned short* code, const u8* oplen, const u8* desc) {
+    if (n > 32) return;  // EA's window holds at most 32 (docs/139 §4.1); pos[] and the cost table assume it
     unsigned short* pos[32];
     bool gap[33] = {};  // gap[k]: an instruction not in the window (nop, the only "skip" op) sits right before op k
     unsigned short* p = code;
@@ -29,24 +30,44 @@ static void MfFuse(const unsigned short* win, int n, unsigned short* out, unsign
     }
     if (k < n) return;  // more nops than the guard walks: pos[] is incomplete, leave the run alone
     MF_CTR.mfRuns++;
-    for (int i = 0; i < n;) {
-        int best = 0, bestLen = 1;
+    // fewest dispatches over the run (right to left: cost[i] = dispatches for win[i..n)); equal cost keeps the longer descriptor.
+    // Greedy left to right lost fusions: `brfalse.i4.s, ldloc.i4, add1.i4, stloc.i4` took 0x1AE + 2 ops instead of brfalse + 0x1B2.
+    unsigned char cost[33], pick[32], plen[32];
+    cost[n] = 0;
+    for (int i = n - 1; i >= 0; i--) {
+        cost[i] = (unsigned char)(1 + cost[i + 1]), pick[i] = 0, plen[i] = 1;
         for (int j = 1; j <= MF_DESCS; j++) {
             const u8* e = desc + MF_DESC_SIZE * j;
             const int m = *(const unsigned short*)(e + 4);
-            if (m <= bestLen || m > n - i) continue;
+            if (m < 2 || m > n - i) continue;
             bool ok = !memcmp(e + 6, win + i, 2 * m);
             for (int q = i + 1; ok && q < i + m; q++) ok = !gap[q];
-            if (ok) best = j, bestLen = m;
+            const int c = 1 + cost[i + m];
+            if (ok && (c < cost[i] || (c == cost[i] && m > plen[i]))) cost[i] = (unsigned char)c, pick[i] = (unsigned char)j, plen[i] = (unsigned char)m;
         }
-        if (!best) { i++; continue; }
-        if (i == 0 && bestLen == n) *out = (unsigned short)(MF_SUPER + best), MF_CTR.mfWhole++;
-        else *pos[i] = (unsigned short)(MF_SUPER + best), MF_CTR.mfInner++;
-        i += bestLen;
+    }
+    for (int i = 0; i < n; i += plen[i]) {
+        if (!pick[i]) continue;
+        if (i == 0 && plen[i] == n) *out = (unsigned short)(MF_SUPER + pick[i]), MF_CTR.mfWhole++;
+        else *pos[i] = (unsigned short)(MF_SUPER + pick[i]), MF_CTR.mfInner++;
     }
 }
+#ifdef MF_TICKS
+static bool g_mfEaTimed;
+#endif
 static int __cdecl MfMatch(const unsigned short* win, int n, unsigned short* out, unsigned short* code) {
+#ifdef MF_TICKS  // monohost only: QPC ticks spent in the matcher (transform-time cost, docs/139 §4)
+    LARGE_INTEGER t0, t1; QueryPerformanceCounter(&t0);
+    if (g_mfEaTimed) {  // MONOHOST_MINTFUSE=eatime: EA's own matcher, timed the same way (the base to compare against)
+        const int r = ((int(__cdecl*)(const unsigned short*, int, unsigned short*))(uintptr_t)MF_MATCHER)(win, n, out);
+        QueryPerformanceCounter(&t1); MF_TICKS += t1.QuadPart - t0.QuadPart; MF_CTR.mfRuns++;
+        return r;
+    }
+#endif
     MfFuse(win, n, out, code, (const u8*)(uintptr_t)MF_OPLEN, (const u8*)(uintptr_t)MF_DESC);
+#ifdef MF_TICKS
+    QueryPerformanceCounter(&t1); MF_TICKS += t1.QuadPart - t0.QuadPart;
+#endif
     return 0;  // the caller stores this only when the pass's stats argument is set; its one call 0xE63C2F passes 0 [verified]
 }
 #pragma warning(push)

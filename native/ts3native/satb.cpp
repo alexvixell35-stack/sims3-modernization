@@ -162,10 +162,15 @@ static void SatbSwap(bool in) {
 
 // ---- sim: wait for the worker to leave before a write the log cannot cover (act); probe only counts ----
 static bool(__cdecl* g_satbWorkerBusy)() = NULL;  // part 2: the job is still inside the worker
+// docs/206 §18 cold park: 0 = none, 1 = the worker waits at a cold-site entry (before the EA call runs), 2 = the sim let it go
+static volatile LONG g_satbColdPark;
+static volatile LONG g_satbParkSimSkip;  // sim waits skipped: the worker was parked, outside every runtime call
 static void SatbSimWait(int why) {
     Ts3nAutShadow& k = ts3native_autshadow;
     InterlockedOr(&g_satbStale, why);
     if (g_satbMode != SATB_ACT || !g_satbWTid || !g_satbWorkerBusy || !g_satbWorkerBusy()) return;
+    // a parked worker runs nothing and its object is already given up: waiting would only reach the 100 ms timeout
+    if (g_satbColdPark == 1) { InterlockedIncrement(&g_satbParkSimSkip); return; }
     InterlockedExchange(&g_asStop, 1);  // the driver leaves after its current meta object; worker ICs abort `stop`
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
@@ -314,6 +319,7 @@ static void SatbBegin(DWORD workerTid, LONG jobUs) {
     QueryPerformanceCounter(&t0);
     SatbReset();
     SatbHookGrow();
+    InterlockedExchange(&g_satbColdPark, 0);  // cold park (docs/206 §18): no worker waits before its job starts
     g_satbWTid = workerTid;  // probe too: the worker's own stores and loads are never counted as the sim's
     g_satbWTidL.v = workerTid;
     g_satbGcNo0 = *g_satbGcNo;
@@ -1461,13 +1467,131 @@ static volatile LONG g_satbColdRmN;
 static volatile LONG g_satbColdGiveUps;  // worker cold-path give-ups (all sites), read by the feature mask
 static DWORD g_satbColdRm[16];
 static LONG g_satbColdNamed;
+// docs/206 §18 cold park (crash 2026-11-14 replan-burst-1114: sim AV in mono_class_init 0xE6EEDA on a garbage class; X11):
+// the give-up only flags the object, so the cold EA call (transform, thunk, vtable creation, .cctor, image load) used to run
+// on the worker while the sim ran script code. Now the worker waits at the entry, before the call runs, until the sim reaches
+// AsSimLeave (Simulate returned: no script and no Mono runtime call on the sim [inferred]) and lets it go, then the sim waits
+// there for the job to leave. Not parked: the worker already owns a Mono lock (nested runtime call: the sim could block on that
+// lock, never reach AsSimLeave), or the sim let it go in this job (2). Both waits are capped at 250 ms; a cap hit is today's
+// concurrent run, counted. The object's result is dropped either way (give-up), so only timing changes.
+static const DWORD kSatbMonoLocks[5] = {0x011F43A8, 0x011F4574, 0x011F45A0, 0x011F43E4, 0x011F4130};  // docs/58 §1 [verified]
+static const DWORD* g_satbParkLocks = kSatbMonoLocks;  // loader, type init, ldstr, marshal, RuntimeMethod (selftest swaps)
+static int g_satbParkLockN = 5;
+static DWORD(__cdecl* g_satbDomainGet)() = (DWORD(__cdecl*)())(uintptr_t)0x00E75260;  // mono_domain_get; MonoDomain+0 = its lock
+static const LONG SATB_PARK_US = 250000;
+static volatile LONG g_satbParkN, g_satbParkGo, g_satbParkTmo, g_satbParkNested, g_satbParkSimTmo, g_satbParkSimUs, g_satbParkLogged;
+static bool SatbOwnsMonoLock() {
+    const HANDLE me = (HANDLE)(uintptr_t)GetCurrentThreadId();  // CRITICAL_SECTION.OwningThread holds the owner's thread id
+    __try {
+        for (int i = 0; i < g_satbParkLockN; i++)
+            if (((const volatile CRITICAL_SECTION*)(uintptr_t)g_satbParkLocks[i])->OwningThread == me) return true;
+        const DWORD dom = g_satbDomainGet ? g_satbDomainGet() : 0;
+        return dom >= 0x10000 && ((const volatile CRITICAL_SECTION*)(uintptr_t)dom)->OwningThread == me;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return true; }  // unreadable: do not park (today's behaviour)
+}
+static void SatbParkLog(const char* what, int site, LONG us) {
+    if (InterlockedIncrement(&g_satbParkLogged) <= 32)
+        Log("autshadow satb cold park: %s at site %d after %ld us (parked %ld, let go %ld, worker cap %ld, nested %ld, sim skips %ld, "
+            "sim cap %ld)", what, site, us, (LONG)g_satbParkN, (LONG)g_satbParkGo, (LONG)g_satbParkTmo, (LONG)g_satbParkNested,
+            (LONG)g_satbParkSimSkip, (LONG)g_satbParkSimTmo);
+}
+// worker, act, at a cold-site entry after the give-up
+static void SatbColdPark(int site) {
+    if (g_satbColdPark == 2) return;  // the sim waits at AsSimLeave for this job: it runs nothing meanwhile
+    if (SatbOwnsMonoLock()) { InterlockedIncrement(&g_satbParkNested); return; }
+    InterlockedIncrement(&g_satbParkN);
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    InterlockedExchange(&g_satbColdPark, 1);
+    for (int spin = 0; g_satbColdPark == 1 && SatbUs(t0) < SATB_PARK_US; spin++)
+        if (spin < 64) YieldProcessor(); else Sleep(spin < 1024 ? 0 : 1);
+    if (InterlockedCompareExchange(&g_satbColdPark, 0, 1) == 1) {  // cap: the sim did not come by; run as before
+        InterlockedIncrement(&g_satbParkTmo);
+        SatbParkLog("worker cap, runs concurrently", site, SatbUs(t0));
+    }
+}
+// sim, AsSimLeave, the job still inside the worker: a parked worker may run its cold call now; wait for the job to leave
+static void SatbColdLetGo() {
+    if (InterlockedCompareExchange(&g_satbColdPark, 2, 1) != 1) return;
+    InterlockedIncrement(&g_satbParkGo);
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    bool cap = false;
+    for (int spin = 0; g_satbWorkerBusy && g_satbWorkerBusy(); spin++) {
+        if (SatbUs(t0) > SATB_PARK_US) { cap = true; break; }
+        if (spin < 64) YieldProcessor(); else SwitchToThread();
+    }
+    const LONG us = SatbUs(t0);
+    InterlockedExchangeAdd(&g_satbParkSimUs, us);
+    InterlockedExchange(&g_satbColdPark, 0);  // a later cold entry of a still-running job parks again
+    if (cap) InterlockedIncrement(&g_satbParkSimTmo);
+    SatbParkLog(cap ? "sim cap, job still in the worker" : "let go, job left", -1, us);
+}
 static void __cdecl SatbColdEnter(int site, DWORD arg0) {
     if (!g_satbLive || g_satbMode != SATB_ACT) return;
     if (GetCurrentThreadId() == g_satbWTid) {
         if (site == 0 && arg0 && g_satbColdRmN < 16) g_satbColdRm[g_satbColdRmN] = arg0, g_satbColdRmN++;
         g_satbColdGiveUps++;  // per-search feature mask: a cold give-up in this job
         SatbWGiveUp(0xC000 + site);
+        SatbColdPark(site);
     } else if (site == 2 && g_satbOn) SatbSimWait(SATB_ST_CLASS);
+}
+// diag (docs/130 §208; crash 2026-11-14 replan-burst-1114 sv-rl-abba-off-1-r2: sim AV in mono_class_init 0xE6EEDA reading
+// [class+0xA8]+0xC with class 0x7FFF0F00, stack through vtable creation 0xEA1E30 = site 2 and SatbSimWait): every cold-site
+// entry while Satb acts, one ring per side, with the detoured function's caller, its first stack arg and ebx (site 2: the
+// class, register arg [verified 0xEA2AD1/0xEA1E40]) plus the two class words mono_class_init reads first (+0x14 flags,
+// +0xA8); sim records also hold the wait result. Printed by the crash line (SatbCrashLine); sim anomalies logged. No
+// behaviour change.
+struct SatbColdRec { LONG seq; DWORD site, ret, arg0, ebxv, ok, f14, fa8, busy, wseq, waitUs, tmo; LARGE_INTEGER t; };
+static const LONG SATB_CREC = 16;  // power of two
+static SatbColdRec g_satbCrecW[SATB_CREC], g_satbCrecS[SATB_CREC];
+static volatile LONG g_satbCrecWN, g_satbCrecSN, g_satbCrecLogged;
+static bool SatbPeek(DWORD a, DWORD* out) {
+    if (a < 0x10000) return false;
+    __try { *out = *(const volatile DWORD*)(uintptr_t)a; return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+static void __cdecl SatbColdEnterR(int site, DWORD ret, DWORD arg0, DWORD ebxv) {
+    if (!g_satbLive || g_satbMode != SATB_ACT) return;
+    const bool w = GetCurrentThreadId() == g_satbWTid;
+    if (!w && !g_satbOn) return SatbColdEnter(site, arg0);  // sim outside a span: SatbColdEnter does nothing either
+    SatbColdRec r = {};
+    r.site = (DWORD)site, r.ret = ret, r.arg0 = arg0, r.ebxv = ebxv, r.wseq = (DWORD)g_satbCrecWN;
+    if (site == 2) r.ok = (SatbPeek(ebxv + 0x14, &r.f14) ? 1u : 0u) | (SatbPeek(ebxv + 0xA8, &r.fa8) ? 2u : 0u);
+    r.busy = g_satbWorkerBusy && g_satbWorkerBusy() ? 1u : 0u;
+    const LONG to0 = ts3native_autshadow.satbWaitTimeouts;
+    QueryPerformanceCounter(&r.t);
+    SatbColdEnter(site, arg0);
+    if (!w) r.waitUs = (DWORD)SatbUs(r.t), r.tmo = ts3native_autshadow.satbWaitTimeouts != to0 ? 1u : 0u;
+    r.seq = InterlockedIncrement(w ? &g_satbCrecWN : &g_satbCrecSN);
+    (w ? g_satbCrecW : g_satbCrecS)[(r.seq - 1) & (SATB_CREC - 1)] = r;
+    if (!w && (r.tmo || (site == 2 && (r.ok != 3 || r.fa8 == 0xFFFFFFFFu))) && InterlockedIncrement(&g_satbCrecLogged) <= 32)
+        Log("autshadow satb cold diag: sim site %lu caller %08lX arg %08lX class %08lX readable %lu flags %08lX +A8 %08lX worker "
+            "busy %lu after worker entry %lu, waited %lu us%s", r.site, r.ret, r.arg0, r.ebxv, r.ok, r.f14, r.fa8, r.busy, r.wseq,
+            r.waitUs, r.tmo ? " TIMEOUT" : "");
+}
+static void __cdecl SatbColdIlp(int site, DWORD arg0) { SatbColdEnterR(site, 0, arg0, 0); }  // [IlPatch] owns site 0
+// crash line (AsCrashLine): both rings, newest first
+static void SatbCrashLine() {
+    const LONG wn = g_satbCrecWN, sn = g_satbCrecSN;
+    if (!wn && !sn) return;
+    LARGE_INTEGER now, f;
+    QueryPerformanceCounter(&now), QueryPerformanceFrequency(&f);
+    Log("  satb cold diag: on %ld live %ld worker tid %lu, entries worker %ld sim %ld, wait timeouts %ld (newest first: side seq "
+        "site caller arg ebx readable flags +A8 busy wseq waitUs tmo age-ms)", (LONG)g_satbOn, (LONG)g_satbLive, (DWORD)g_satbWTid,
+        wn, sn, (LONG)ts3native_autshadow.satbWaitTimeouts);
+    Log("  satb cold park: state %ld, parked %ld, let go %ld, worker cap %ld, nested %ld, sim skips %ld, sim cap %ld, sim wait us %ld",
+        (LONG)g_satbColdPark, (LONG)g_satbParkN, (LONG)g_satbParkGo, (LONG)g_satbParkTmo, (LONG)g_satbParkNested,
+        (LONG)g_satbParkSimSkip, (LONG)g_satbParkSimTmo, (LONG)g_satbParkSimUs);
+    for (int s = 0; s < 2; s++) {
+        const SatbColdRec* ring = s ? g_satbCrecS : g_satbCrecW;
+        const LONG n = s ? sn : wn;
+        for (LONG i = n; i > 0 && i > n - 8; i--) {
+            const SatbColdRec& r = ring[(i - 1) & (SATB_CREC - 1)];
+            Log("    %s %ld %lu %08lX %08lX %08lX %lu %08lX %08lX %lu %lu %lu %lu %.1f", s ? "sim" : "worker", r.seq, r.site, r.ret,
+                r.arg0, r.ebxv, r.ok, r.f14, r.fa8, r.busy, r.wseq, r.waitUs, r.tmo,
+                (double)(now.QuadPart - r.t.QuadPart) * 1000.0 / (double)f.QuadPart);
+        }
+    }
 }
 // sim, worker idle (SatbEnd): 'autshadow satb cold transform on the worker: <method>' once per method (warm-up list input).
 // 0xE72010 = mono_method_full_name(method, signature) [verified args, docs/130 G-I1]; its string is not freed (a few per run).
@@ -1484,10 +1608,12 @@ static void SatbColdNameLog() {
     static __declspec(naked) void SatbCold##i() {          \
         __asm { pushad }                                   \
         __asm { pushfd }                                   \
-        __asm { push dword ptr [esp + 40] }                \
+        __asm { push ebx }                                 \
+        __asm { push dword ptr [esp + 44] }                \
+        __asm { push dword ptr [esp + 44] }                \
         __asm { push i }                                   \
-        __asm { call SatbColdEnter }                       \
-        __asm { add esp, 8 }                               \
+        __asm { call SatbColdEnterR }                      \
+        __asm { add esp, 16 }                              \
         __asm { popfd }                                    \
         __asm { popad }                                    \
         __asm { jmp dword ptr [g_satbColdNext + i * 4] }   \
@@ -1502,7 +1628,7 @@ static int SatbInstallCold() {
     int n = 0;
     for (int i = 0; i < 5; i++) {
         if (i == 0 && g_ilpNext) {  // docs/526: [IlPatch] owns the transform entry; its detour calls SatbColdEnter(0, rm) first, as SatbCold0 did
-            if (!g_ilpColdEnter) g_ilpColdEnter = SatbColdEnter, n++;
+            if (!g_ilpColdEnter) g_ilpColdEnter = SatbColdIlp, n++;
             continue;
         }
         if (!g_satbColdNext[i] && (g_satbColdNext[i] = InstallDetour("satb cold path", kSatbCold[i].at, kSatbCold[i].bytes, kSatbCold[i].len,

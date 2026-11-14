@@ -126,6 +126,7 @@ namespace Ts3Fixes
             Patch(typeof(Sims3.Gameplay.Objects.Decorations.DanceFloor), "FindAndRouteOntoADanceFloorWithFollower", typeof(DanceFloorDiagHook), "FindHook", "FindOrig");  // DanceFloorDiag.cs, docs/253
             Patch(typeof(Sims3.Gameplay.Objects.Vehicles.BoatOwnable), "Park", new Type[] { typeof(Lot), typeof(Sim), typeof(bool) }, typeof(BoatParkGoneHook), "ParkHook", "ParkOrig");  // BoatParkGone.cs, docs/254
             Patch(typeof(Sims3.Gameplay.Objects.Vehicles.Boat), "GetOut", new Type[] { typeof(Sim), typeof(Vector3), typeof(bool), typeof(bool), typeof(Sims3.Gameplay.Objects.Island.Houseboat), typeof(Vector3), typeof(bool), typeof(bool) }, typeof(BoatGetOutDiagHook), "GetOutHook", "GetOutOrig");  // BoatGetOutDiag.cs, docs/257 §7
+            Patch(typeof(Household), "SetLot", new Type[] { typeof(Lot) }, typeof(MiniHomeLotHook), "SetLotHook", "SetLotOrig");  // MiniHomeLot.cs, docs/266
             ApplyVehicleLeaks();  // VehicleLeaks.cs, docs/544
         }
 

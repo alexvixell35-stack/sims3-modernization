@@ -476,7 +476,116 @@ static void TestSatbNativeWriters() {
            "low header refused (worker)\n");
 }
 
+// cold-site diag ring (docs/130 §208 crash 2026-11-14): the naked hook passes caller, first stack arg and ebx, then runs the
+// original with every register and the stack as they were; site 2 reads the class words, an unreadable class is flagged
+static DWORD __cdecl TestSatbColdTarget(DWORD a) { return a ^ 0x5A5Au; }
+static DWORD g_tscRetLo, g_tscEbxAfter;
+static __declspec(noinline) DWORD TestSatbColdCall(DWORD arg, DWORD ebxv) {
+    DWORD r, eb;
+    __asm {
+        push ebx
+        mov ebx, ebxv
+        push arg
+        call SatbCold4
+        add esp, 4
+        mov eb, ebx
+        pop ebx
+        mov r, eax
+    }
+    g_tscEbxAfter = eb;
+    return r;
+}
+static void TestSatbColdDiag() {
+    const LONG live0 = g_satbLive, on0 = g_satbOn;
+    const int mode0 = g_satbMode;
+    const DWORD wtid0 = g_satbWTid;
+    void* next0 = g_satbColdNext[4];
+    g_satbLive = 1, g_satbMode = SATB_ACT, g_satbOn = 1, g_satbWTid = 0;  // sim side during a span; no worker, no wait
+    g_satbColdNext[4] = (void*)TestSatbColdTarget;
+    const LONG sn0 = g_satbCrecSN;
+    assert(TestSatbColdCall(0x1234, 0xCAFE0000u) == (0x1234u ^ 0x5A5Au) && g_tscEbxAfter == 0xCAFE0000u);
+    assert(g_satbCrecSN == sn0 + 1);
+    const SatbColdRec& r = g_satbCrecS[(g_satbCrecSN - 1) & (SATB_CREC - 1)];
+    const DWORD fn = (DWORD)(uintptr_t)&TestSatbColdCall;
+    assert(r.site == 4 && r.arg0 == 0x1234 && r.ebxv == 0xCAFE0000u && r.ret > fn && r.ret < fn + 0x100 && r.ok == 0 && !r.tmo);
+    static DWORD cls[0x40];
+    cls[0x14 / 4] = 0x11, cls[0xA8 / 4] = 0xFFFFFFFFu;
+    SatbColdEnterR(2, 0xE643F6, 0x2000, (DWORD)(uintptr_t)cls);  // a class whose +0xA8 is -1: logged as an anomaly
+    const SatbColdRec& c = g_satbCrecS[(g_satbCrecSN - 1) & (SATB_CREC - 1)];
+    assert(c.site == 2 && c.ok == 3 && c.f14 == 0x11 && c.fa8 == 0xFFFFFFFFu && c.arg0 == 0x2000);
+    SatbColdEnterR(2, 0, 0, 0x10);  // null class page: not read
+    assert(g_satbCrecS[(g_satbCrecSN - 1) & (SATB_CREC - 1)].ok == 0);
+    g_satbOn = 0;  // sim outside a span: not recorded
+    const LONG sn1 = g_satbCrecSN;
+    SatbColdEnterR(3, 0, 0, 0);
+    assert(g_satbCrecSN == sn1);
+    SatbCrashLine();
+    g_satbLive = live0, g_satbMode = mode0, g_satbOn = on0, g_satbWTid = wtid0, g_satbColdNext[4] = next0;
+}
+// cold park (docs/206 §18): the worker waits at a cold entry until the sim lets it go; nested (owns a Mono lock) and an
+// already let-go job never wait; the cap releases it; the sim skips its wait for a parked worker
+static volatile LONG g_tspBusy;
+static bool __cdecl TestSatbParkBusy() { return g_tspBusy != 0; }
+static DWORD __cdecl TestSatbParkDomain() { return 0; }
+static DWORD WINAPI TestSatbParkSim(void*) {
+    for (int i = 0; g_satbColdPark != 1 && i < 2000; i++) Sleep(1);
+    SatbColdLetGo();  // the job "left" (busy 0): the wait returns at once
+    return 0;
+}
+static void TestSatbColdPark() {
+    const DWORD* locks0 = g_satbParkLocks;
+    const int lockN0 = g_satbParkLockN, mode0 = g_satbMode;
+    DWORD(__cdecl* dom0)() = g_satbDomainGet;
+    bool(__cdecl* busy0)() = g_satbWorkerBusy;
+    const DWORD wtid0 = g_satbWTid;
+    const LONG stale0 = g_satbStale;
+    static CRITICAL_SECTION cs;
+    InitializeCriticalSection(&cs);
+    static DWORD lockList[1];
+    lockList[0] = (DWORD)(uintptr_t)&cs;
+    g_satbParkLocks = lockList, g_satbParkLockN = 1, g_satbDomainGet = TestSatbParkDomain, g_satbWorkerBusy = TestSatbParkBusy;
+    // nested: the worker owns a Mono lock
+    EnterCriticalSection(&cs);
+    LONG n0 = g_satbParkN, nest0 = g_satbParkNested;
+    SatbColdPark(2);
+    assert(g_satbParkNested == nest0 + 1 && g_satbParkN == n0 && g_satbColdPark == 0);
+    LeaveCriticalSection(&cs);
+    // let go in this job: no wait
+    g_satbColdPark = 2;
+    SatbColdPark(0);
+    assert(g_satbParkN == n0 && g_satbColdPark == 2);
+    g_satbColdPark = 0;
+    SatbColdLetGo();  // nothing parked: no-op
+    assert(g_satbColdPark == 0);
+    // parked, the sim lets it go
+    const LONG go0 = g_satbParkGo, tmo0 = g_satbParkTmo;
+    g_tspBusy = 0;
+    HANDLE h = CreateThread(NULL, 0, TestSatbParkSim, NULL, 0, NULL);
+    assert(h);
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    SatbColdPark(3);
+    assert(SatbUs(t0) < SATB_PARK_US && g_satbParkN == n0 + 1 && g_satbParkGo == go0 + 1 && g_satbParkTmo == tmo0);
+    WaitForSingleObject(h, INFINITE);
+    CloseHandle(h);
+    assert(g_satbColdPark == 0);
+    // the sim's wait for a parked worker is skipped
+    g_satbMode = SATB_ACT, g_satbWTid = GetCurrentThreadId() + 1, g_tspBusy = 1, g_satbColdPark = 1;
+    const LONG skip0 = g_satbParkSimSkip, waits0 = ts3native_autshadow.satbWaits;
+    SatbSimWait(SATB_ST_CLASS);
+    assert(g_satbParkSimSkip == skip0 + 1 && ts3native_autshadow.satbWaits == waits0);
+    // nobody comes by: the cap releases the worker
+    g_satbColdPark = 0;
+    SatbColdPark(1);
+    assert(g_satbParkTmo == tmo0 + 1 && g_satbColdPark == 0);
+    g_tspBusy = 0;
+    DeleteCriticalSection(&cs);
+    g_satbParkLocks = locks0, g_satbParkLockN = lockN0, g_satbDomainGet = dom0, g_satbWorkerBusy = busy0;
+    g_satbMode = mode0, g_satbWTid = wtid0, g_satbStale = stale0;
+}
 static void TestSatbLog() {
+    TestSatbColdDiag();
+    TestSatbColdPark();
     assert(SatbAlloc());
     // single thread: the first write's value is kept, bytes of a partly covered word are merged
     for (int i = 0; i < 4096; i++) g_sbArr[i] = 0x1000 + i;

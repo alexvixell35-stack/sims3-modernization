@@ -662,7 +662,8 @@ static const LONG kUdUfPlanLines = 30000;  // ufplan: disk guard (~3 MB); ts3fix
 // silently cut syncwait/socialfinish/hourlypass lines after ~1,000 sync waits (docs/546 §9, 2026-11-14).
 static bool UdHitchLine(const char* s) {
     static const char* const kPrefixes[] = {"boatreplan:", "gangway:", "owreset:", "alarmtime:", "lotpass:", "syncwait",
-                                            "socialfinish:", "socialreceivefail:", "hourlypass:", "spawnplace:"};
+                                            "socialfinish:", "socialreceivefail:", "hourlypass:", "spawnplace:",
+                                            "replanlog"};  // replanlog: docs/261 L1, ts3fixes caps its own (2000 lines a session)
     for (const char* p : kPrefixes)
         if (!strncmp(s, p, strlen(p))) return true;
     return false;

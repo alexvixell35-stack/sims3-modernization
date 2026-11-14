@@ -414,6 +414,9 @@ static void JitReplayRun() {
     if (g_jitBoundMask)  // docs/537 §22: the replay ends before JitStats, so BoundCall's use shows here
         Log("jit replay boundcall: calls %ld (GetHashCode %ld, Equals %ld), exceptions %ld, off the list %ld, value-type this %ld\n",
             g_jitBc->hits, g_jitBc->callee[0], g_jitBc->callee[1], g_jitBc->exc, g_jitBc->notAllowed, g_jitBc->vtThis);
+    if (g_jitRtOn || g_jrtCtr.rtdKillWhy)  // docs/537 §26, before the summary line tools/jit-replay.ts waits for
+        Log("jit ret teardown: on %ld, sites %ld, bails %ld, verified %ld, MISMATCH %ld, skipped %ld, faults %ld, kill %ld\n", g_jrtCtr.rtdOn, g_jrtCtr.rtdSites,
+            g_jrtCtr.rtdBails, g_jrtCtr.rtdVerified, g_jrtCtr.rtdMismatch, g_jrtCtr.rtdVSkipped, g_jrtCtr.rtdFaults, g_jrtCtr.rtdKillWhy);
     Log("jit replay: %d inputs, %d ran, %d differ, %d unstable, %d skipped, %d faulted%s; per-call verify: ok %ld, MISMATCH %ld, abandoned (exception) %ld\n",
         tot[0], tot[1], tot[3], tot[2], tot[4], tot[6], tot[5] ? ", STOPPED on a fault" : "", g_jvOk - ok0, g_jvMismatch - mm0, g_jvAbandoned - ab0);
 }
