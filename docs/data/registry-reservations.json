@@ -2702,6 +2702,37 @@
       "what": "joyridecostume: no imagination-costume build inside Joyride tests (docs/546 §4)",
       "at": "2026-11-13T22:28:59.873Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "native-v919",
+      "kind": "native",
+      "version": 919,
+      "from": 25348,
+      "to": 25427,
+      "by": "claude",
+      "what": "[AudioStateDup] ad* + [PkgProbe] pp* (docs/549)",
+      "at": "2026-11-14T13:11:06.338Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2335",
+      "kind": "fixes",
+      "from": 2335,
+      "to": 2344,
+      "by": "claude",
+      "what": "combo rabbit hole fixes: comboalarm, comboprotest, combovenue, combosituation (docs/551)",
+      "at": "2026-11-14T13:28:56.521Z",
+      "worktree": "<repo>"
+    },
+    {
+      "id": "doc-551",
+      "kind": "doc",
+      "from": 551,
+      "to": 551,
+      "by": "claude",
+      "what": "combo rabbit hole bugs",
+      "at": "2026-11-14T13:36:43.046Z",
+      "worktree": "<repo>"
     }
   ]
 }
