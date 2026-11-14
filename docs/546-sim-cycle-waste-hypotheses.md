@@ -246,3 +246,9 @@ On from load (phase-20261114-0935): counter 2312 = 16 after two social phases, 0
 and the wait is the ride. `PutDownPet` (pet waits for Started, giveup 45; n=38, mean 7.8, max 18.9): the Sim walks to the
 drop-off point carrying the pet. Receiver waiting for the starter's Routed (n=320, mean 4.8, max 26.9): the starter's
 approach walk. None of these is a fix target; the stand-offs are the failed waits (socialfinish, socialreceivefail).
+
+**socialreceivefail off/on [measured, fix counters].** Off (phase-20261114-1011, 2 social phases): 6 waits ran to their
+giveup, 5 of them initiators on a parked receiver. On from load (phase-20261114-1113, 5 social phases): 37 waits ended at
+once (2312), 2 ran to their giveup, 0 of the parked case and 0 declined for another reason (2316-2319), 0 errors (2313).
+One earlier run (phase-20261114-1101) hung after 5 min with the whole process silent (native route logging stopped too);
+the identical rerun ran its full 45 min, and no EA loop calls a sync wait without sleeping at a level the fix acts on.
