@@ -97,6 +97,7 @@ namespace Ts3Fixes
             ApplyJoyrideCostume();  // docs/546 §4, off by default
             ApplyAlarmKillLog();  // docs/546 row 5, log only
             ApplySocialFinish();  // docs/546 §9, off by default
+            ApplySocialReceiveFail();  // docs/546 §9, off by default
             ApplyFilterGridLeak();
             ApplyCasPuckLeak();
             ApplyCasExitSweep();
@@ -409,7 +410,7 @@ namespace Ts3Fixes
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2312]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null) { c = new int[2314]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
             return sCountersCache = c;
         }
 
@@ -607,6 +608,7 @@ namespace Ts3Fixes
                 case "joyridecostume": return Instantiator.kJoyrideCostume;
                 case "alarmkilllog": return Instantiator.kAlarmKillLog;
                 case "socialfinish": return Instantiator.kSocialFinish;
+                case "socialreceivefail": return Instantiator.kSocialReceiveFail;
                 case "filtergridleak": return Instantiator.kFilterGridLeak;
                 case "compositorghost": return Instantiator.kCompositorGhost;
                 case "caspuckevents": return Instantiator.kCasPuckEvents;
