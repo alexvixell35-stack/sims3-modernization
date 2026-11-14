@@ -98,6 +98,11 @@ namespace Ts3Fixes
             ApplyAlarmKillLog();  // docs/546 row 5, log only
             ApplySocialFinish();  // docs/546 §9, off by default
             ApplySocialReceiveFail();  // docs/546 §9, off by default
+            ApplyPetFirePlan();  // docs/546 §10, off by default
+            ApplyAwardKeep();  // docs/546 §11, off by default
+            ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
+            ApplySimFestKeep();  // docs/546 §11, off by default
+            ApplyComboRabbitHole();  // docs/551, off by default (comboalarm, comboprotest, combovenue, combosituation)
             ApplyFilterGridLeak();
             ApplyCasPuckLeak();
             ApplyCasExitSweep();
@@ -619,6 +624,16 @@ namespace Ts3Fixes
                 case "alarmkilllog": return Instantiator.kAlarmKillLog;
                 case "socialfinish": return Instantiator.kSocialFinish;
                 case "socialreceivefail": return Instantiator.kSocialReceiveFail;
+                case "petfireplan": return Instantiator.kPetFirePlan;
+                case "awardkeep": return Instantiator.kAwardKeep;
+                case "ceremonyspot": return Instantiator.kCeremonySpot;
+                case "eventcrowdring": return Instantiator.kEventCrowdRing;
+                case "eventrouteretry": return Instantiator.kEventRouteRetry;
+                case "simfestkeep": return Instantiator.kSimFestKeep;
+                case "comboalarm": return Instantiator.kComboAlarm;
+                case "comboprotest": return Instantiator.kComboProtest;
+                case "combovenue": return Instantiator.kComboVenue;
+                case "combosituation": return Instantiator.kComboSituation;
                 case "filtergridleak": return Instantiator.kFilterGridLeak;
                 case "compositorghost": return Instantiator.kCompositorGhost;
                 case "caspuckevents": return Instantiator.kCasPuckEvents;
@@ -1067,7 +1082,7 @@ namespace Ts3Fixes
         }
         static bool TownieUnseenBody(Sims3.Gameplay.Actors.Sim sim, List<Sims3.Gameplay.Actors.Sim> followers)
         {
-            if (sim == null || sim.IsSelectable || sim.Household == Household.ActiveHousehold) return false;
+            if (IsPlayerSim(sim)) return false;  // household rule (PlayerSims.cs)
             if (followers != null && followers.Count > 0) return false;
             if (sim.Posture != sim.Standing || sim.IsInRidingPosture || sim.IsInBeingRiddenPosture) return false;
             if (Sims3.Gameplay.Controllers.TombRoomManager.IsObjectInATombRoom(sim)) return false;

@@ -252,3 +252,40 @@ giveup, 5 of them initiators on a parked receiver. On from load (phase-20261114-
 once (2312), 2 ran to their giveup, 0 of the parked case and 0 declined for another reason (2316-2319), 0 errors (2313).
 One earlier run (phase-20261114-1101) hung after 5 min with the whole process silent (native route logging stopped too);
 the identical rerun ran its full 45 min, and no EA loop calls a sync wait without sleeping at a level the fix acts on.
+
+## 10. Repeated route failures, ranked by time (2026-11-14, 19 Appaloosa Plains runs) [measured, routefail lines]
+
+Failed plans only (the log has no line for a plan that succeeds), summed per Sim, interaction and failure:
+
+| Total | Count | Who | Interaction | Failure | Note |
+|---:|---:|---|---|---|---|
+| 96.2 s | 1,231 | household dog/cat (adult) | ReactToFire | DestinationPortalLocked | fix `petfireplan` |
+| 47.8 s + 47.5 s | 411 + 540 | second household pet (adult, child) | ReactToFire | DestinationPortalLocked | fix `petfireplan` |
+| 18.0 s + 9.3 s + 6.6 s | 207 | the same pets | ReactToFire | NoDestinationSpecified | fix `petfireplan` |
+| 15.0 s | 113 | household elder | TakeBath | NoPathToDestination, blocker LitterPile | not fixed: see below |
+| 10.6 s | 56 | household pet | PetFollowSimAround | DestinationPortalLocked | pet routing (other agent) |
+
+**petfireplan [verified in the decompiled code; measured].** `FireSource.ReactToFire.Run` plans a route to the nearest
+fire for every actor (one `PlanToPointRadialRange`, and a second one ignoring the fire when the first fails), but only
+`DoHumanReactions` takes the route; the pet reactions read only the object found. A fire on the household lot in
+phase-20261114-1113 burned 18 sim hours (day 1 17:43 to day 2 11:34) and its broadcaster re-pushed ReactToFire on the
+two pets ~40 times a sim hour, so 1,358 plans failed in that run alone. The fix answers for an animal with the same
+nearest-object choice and no plan (exact; humans unchanged). Slots 2320-2321.
+
+**LitterPile blocks the tub [measured, not fixed].** A pet's litter pile sits on the only approach to a bathtub; the
+elder's autonomy keeps choosing TakeBath and each try fails its plan (up to 68 tries per run, 28-349 ms each). Any change
+would alter a household Sim's choices, so it stays vanilla; the player sees it as "Sim won't bathe" and cleaning the pile
+ends it.
+
+## 11. Events lost to one failed route (2026-11-14, reported in play)
+
+**awardkeep [verified in the decompiled code; harness check].** A career great success (the firefighter's hero award and
+the other City Hall ceremonies) books a ceremony: `CityHall.CreateCelebration` makes the award jig and an NPC mayor,
+and the honoree's `AttendAwardCeremony` pushes a `GiveAward` pair (mayor master, honoree receiver). The master's
+`GiveAward.Cleanup` calls `GreatSuccessCelebrationCleanup` whether or not the award was given. When the honoree's route to
+the jig fails (the route tantrum reported in play), the mayor's route fails, or the pair never syncs, the mayor, the jig
+and the crowd vanish and the award (`kSimAcceptedReward`, HeroOfTheCity) is lost. EA's only fallback,
+`MissedCelebrationCallback` (the ceremony nobody attended), turns the award into a "Collect Service Award" pickup at City
+Hall. The fix runs that same callback when the master cleans up a ceremony that is still open; the success path clears
+`CanAttendAwardCeremony` before Cleanup, so a given award is untouched. Slots 2322-2323; check `AwardKeepCheck`
+(setup, then expect lost / expect kept).

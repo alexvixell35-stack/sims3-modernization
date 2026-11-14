@@ -234,6 +234,16 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kAlarmKillLog value="True" />
     <kSocialFinish value="False" />
     <kSocialReceiveFail value="False" />
+    <kPetFirePlan value="False" />
+    <kAwardKeep value="False" />
+    <kCeremonySpot value="False" />
+    <kEventCrowdRing value="False" />
+    <kEventRouteRetry value="False" />
+    <kSimFestKeep value="False" />
+    <kComboAlarm value="False" />
+    <kComboProtest value="False" />
+    <kComboVenue value="False" />
+    <kComboSituation value="False" />
     <kFilterGridLeak value="True" />
     <kCompositorGhost value="True" />
     <kCasPuckEvents value="True" />
