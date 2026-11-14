@@ -111,6 +111,7 @@ static void JitGatePublish(int n, const int* posW, const unsigned short* posOp, 
 // one body: index, words, clause count, IL size, name, then its IL in hex (the tools key a body by the SHA-256 of that IL, as the game does)
 static void JitGateBody(FILE* f, int m, LONG calls) {
     const u8* rm = g_jitMeth[m].rm;
+    if (!rm) return;  // a MONOHOST_JITFILL row (T4096)
     void* mm = *(void* const*)(rm + 8);
     const u8* hdr = mm ? ((const u8*(__cdecl*)(void*))(uintptr_t)0xE85390)(mm) : NULL;  // mono_method_get_header (docs/527 §4.2)
     const DWORD size = hdr ? *(const DWORD*)hdr : 0;
@@ -133,7 +134,17 @@ static void JitCoverReport() {
     int edges = 0, hit = 0;
     for (int p = 0, m = -1; p < g_covPosN; p++) {
         const CovPos& c = g_covPos[p];
-        if (c.meth != m) { m = c.meth; JitGateBody(f, m, c.n); }
+        if (c.meth != m) {
+            m = c.meth; JitGateBody(f, m, c.n);
+            // H <handler word> <runs>: a clause handler's first position (EA resumes there in the normal body), in clause order
+            const u8* rm = g_jitMeth[m].rm;
+            const DWORD* cl = *(const DWORD* const*)(rm + 0x18);
+            for (int i = 0; cl && i < rm[0x41]; i++) {
+                LONG hn = 0;
+                for (int q = p; q < g_covPosN && g_covPos[q].meth == m; q++) if (g_covPos[q].w == cl[6 * i + 3]) hn = g_covPos[q].n;
+                fprintf(f, "H %lu %ld\n", cl[6 * i + 3], hn);
+            }
+        }
         for (int e = c.e0; e < c.e0 + c.en; e++) {
             fprintf(f, "E %d %d %X %d %ld\n", c.w, g_covPos[g_covEdge[e].to].w, c.op, g_covEdge[e].arm, g_covEdge[e].n);
             edges++, hit += g_covEdge[e].n > 0;

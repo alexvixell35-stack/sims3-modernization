@@ -1,0 +1,1145 @@
+{
+ "note": "satbdiag-stress-1114 (PREPARED, crash hunt, correctness only, no timing): stress repro of the replan-burst-1114 sv-rl-abba-off-1-r2 crash (sim AV in mono_class_init 0xE6EEDA under Satb vtable-creation cold site 2, docs/130 §208; 1 in 9 SV runs, ~9 s into the profile) with the satbdiag-1114 diag build. Config = the crashing off arm (shipped defaults, [AutShadow] Satb=2 set explicitly, JIT off, ReplanLog=1), SV, fresh load per job, 3 min profile (the hit came 9 s in), seed 12345. 16 jobs, stopQueueOnFail: the first crash (or FAIL) stops the queue with the culprit in the job ts3native.log: grep \"satb cold diag\" (crash-line rings: side seq site caller arg ebx readable flags +A8 busy wseq waitUs tmo age-ms) and \"autshadow satb cold diag: sim\" anomaly lines. 16 clean jobs = clears at the cap (P(no hit | 1 in 9) ~15%). No off arms (memory: stress repro until break). Run: node tools/harness/queue.ts tools/harness/queues/satbdiag-stress-1114.json",
+ "stopQueueOnFail": true,
+ "smoke": {
+  "asi": "game-copy/ts3native.asi.satbdiag-1114",
+  "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+  "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+  "minCounters": 912,
+  "gameArgs": [
+   "-disablestoryprogression"
+  ],
+  "save": "Baseline-SV-Spring",
+  "logRequire": {
+   "^ts3native 0.36.256-satbdiag1 ": 1,
+   "^OK   detour satb cold path at 0x00EA1E30": 1
+  },
+  "regexCases": {
+   "^ts3native 0.36.256-satbdiag1 ": {
+    "match": [
+     "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+    ],
+    "noMatch": [
+     "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+    ]
+   },
+   "^OK   detour satb cold path at 0x00EA1E30": {
+    "match": [
+     "OK   detour satb cold path at 0x00EA1E30"
+    ],
+    "noMatch": [
+     "OK   detour satb cold path at 0x00EA3370"
+    ]
+   }
+  },
+  "ini": {
+   "SlotEnabledRO.Enabled": 1,
+   "SlotEnabledRO.Mode": 1,
+   "SlotEnabledRO.Shadow": 0,
+   "UnseenThrottle.Enabled": 1,
+   "UnseenThrottle.List": 1,
+   "RouteAsync.FallbackAsync": 1,
+   "RouteAsync.M1Retry": 1,
+   "RouteAsync.SyncCapMs": 1000,
+   "RouteAsync.FbJobCapMs": 300,
+   "RouteAsync.TailUnlock": 1,
+   "RouteAsync.ReplanDedupe": 1,
+   "RouteAsync.H2": 1,
+   "RouteEarlyOut.Enabled": 1,
+   "RouteEarlyOut.Mode": 2,
+   "RouteEarlyOut.Act": 1,
+   "MonoJit.Enabled": 0,
+   "Binder.TypeHandleDirect": 0,
+   "MonoFast.CallPath": 0,
+   "MintFuse.Sub": 0,
+   "RouteAsync.ReplanLog": 1,
+   "AutShadow.Satb": 2
+  },
+  "timeoutMin": 20,
+  "id": "satbdiag-smoke",
+  "note": "measurement smoke: diag build version and Satb site-2 detour read back, 3 min SV; same config as the stress jobs",
+  "run": {
+   "profile": {
+    "seed": 12345,
+    "minutes": 3,
+    "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+    "noSamplers": true
+   }
+  },
+  "noiseCheck": false
+ },
+ "jobs": [
+  {
+   "asi": "game-copy/ts3native.asi.satbdiag-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+   "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "logRequire": {
+    "^ts3native 0.36.256-satbdiag1 ": 1,
+    "^OK   detour satb cold path at 0x00EA1E30": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-satbdiag1 ": {
+     "match": [
+      "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+     ]
+    },
+    "^OK   detour satb cold path at 0x00EA1E30": {
+     "match": [
+      "OK   detour satb cold path at 0x00EA1E30"
+     ],
+     "noMatch": [
+      "OK   detour satb cold path at 0x00EA3370"
+     ]
+    }
+   },
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 0,
+    "Binder.TypeHandleDirect": 0,
+    "MonoFast.CallPath": 0,
+    "MintFuse.Sub": 0,
+    "RouteAsync.ReplanLog": 1,
+    "AutShadow.Satb": 2
+   },
+   "timeoutMin": 20,
+   "id": "sv-satbdiag-1",
+   "note": "stress 1 of 16: fresh SV load, 3 min profile, Satb=2; pass = no crash",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "noiseCheck": false
+  },
+  {
+   "asi": "game-copy/ts3native.asi.satbdiag-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+   "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "logRequire": {
+    "^ts3native 0.36.256-satbdiag1 ": 1,
+    "^OK   detour satb cold path at 0x00EA1E30": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-satbdiag1 ": {
+     "match": [
+      "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+     ]
+    },
+    "^OK   detour satb cold path at 0x00EA1E30": {
+     "match": [
+      "OK   detour satb cold path at 0x00EA1E30"
+     ],
+     "noMatch": [
+      "OK   detour satb cold path at 0x00EA3370"
+     ]
+    }
+   },
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 0,
+    "Binder.TypeHandleDirect": 0,
+    "MonoFast.CallPath": 0,
+    "MintFuse.Sub": 0,
+    "RouteAsync.ReplanLog": 1,
+    "AutShadow.Satb": 2
+   },
+   "timeoutMin": 20,
+   "id": "sv-satbdiag-2",
+   "note": "stress 2 of 16: fresh SV load, 3 min profile, Satb=2; pass = no crash",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "noiseCheck": false
+  },
+  {
+   "asi": "game-copy/ts3native.asi.satbdiag-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+   "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "logRequire": {
+    "^ts3native 0.36.256-satbdiag1 ": 1,
+    "^OK   detour satb cold path at 0x00EA1E30": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-satbdiag1 ": {
+     "match": [
+      "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+     ]
+    },
+    "^OK   detour satb cold path at 0x00EA1E30": {
+     "match": [
+      "OK   detour satb cold path at 0x00EA1E30"
+     ],
+     "noMatch": [
+      "OK   detour satb cold path at 0x00EA3370"
+     ]
+    }
+   },
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 0,
+    "Binder.TypeHandleDirect": 0,
+    "MonoFast.CallPath": 0,
+    "MintFuse.Sub": 0,
+    "RouteAsync.ReplanLog": 1,
+    "AutShadow.Satb": 2
+   },
+   "timeoutMin": 20,
+   "id": "sv-satbdiag-3",
+   "note": "stress 3 of 16: fresh SV load, 3 min profile, Satb=2; pass = no crash",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "noiseCheck": false
+  },
+  {
+   "asi": "game-copy/ts3native.asi.satbdiag-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+   "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "logRequire": {
+    "^ts3native 0.36.256-satbdiag1 ": 1,
+    "^OK   detour satb cold path at 0x00EA1E30": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-satbdiag1 ": {
+     "match": [
+      "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+     ]
+    },
+    "^OK   detour satb cold path at 0x00EA1E30": {
+     "match": [
+      "OK   detour satb cold path at 0x00EA1E30"
+     ],
+     "noMatch": [
+      "OK   detour satb cold path at 0x00EA3370"
+     ]
+    }
+   },
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 0,
+    "Binder.TypeHandleDirect": 0,
+    "MonoFast.CallPath": 0,
+    "MintFuse.Sub": 0,
+    "RouteAsync.ReplanLog": 1,
+    "AutShadow.Satb": 2
+   },
+   "timeoutMin": 20,
+   "id": "sv-satbdiag-4",
+   "note": "stress 4 of 16: fresh SV load, 3 min profile, Satb=2; pass = no crash",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "noiseCheck": false
+  },
+  {
+   "asi": "game-copy/ts3native.asi.satbdiag-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+   "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "logRequire": {
+    "^ts3native 0.36.256-satbdiag1 ": 1,
+    "^OK   detour satb cold path at 0x00EA1E30": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-satbdiag1 ": {
+     "match": [
+      "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+     ]
+    },
+    "^OK   detour satb cold path at 0x00EA1E30": {
+     "match": [
+      "OK   detour satb cold path at 0x00EA1E30"
+     ],
+     "noMatch": [
+      "OK   detour satb cold path at 0x00EA3370"
+     ]
+    }
+   },
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 0,
+    "Binder.TypeHandleDirect": 0,
+    "MonoFast.CallPath": 0,
+    "MintFuse.Sub": 0,
+    "RouteAsync.ReplanLog": 1,
+    "AutShadow.Satb": 2
+   },
+   "timeoutMin": 20,
+   "id": "sv-satbdiag-5",
+   "note": "stress 5 of 16: fresh SV load, 3 min profile, Satb=2; pass = no crash",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "noiseCheck": false
+  },
+  {
+   "asi": "game-copy/ts3native.asi.satbdiag-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+   "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "logRequire": {
+    "^ts3native 0.36.256-satbdiag1 ": 1,
+    "^OK   detour satb cold path at 0x00EA1E30": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-satbdiag1 ": {
+     "match": [
+      "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+     ]
+    },
+    "^OK   detour satb cold path at 0x00EA1E30": {
+     "match": [
+      "OK   detour satb cold path at 0x00EA1E30"
+     ],
+     "noMatch": [
+      "OK   detour satb cold path at 0x00EA3370"
+     ]
+    }
+   },
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 0,
+    "Binder.TypeHandleDirect": 0,
+    "MonoFast.CallPath": 0,
+    "MintFuse.Sub": 0,
+    "RouteAsync.ReplanLog": 1,
+    "AutShadow.Satb": 2
+   },
+   "timeoutMin": 20,
+   "id": "sv-satbdiag-6",
+   "note": "stress 6 of 16: fresh SV load, 3 min profile, Satb=2; pass = no crash",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "noiseCheck": false
+  },
+  {
+   "asi": "game-copy/ts3native.asi.satbdiag-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+   "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "logRequire": {
+    "^ts3native 0.36.256-satbdiag1 ": 1,
+    "^OK   detour satb cold path at 0x00EA1E30": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-satbdiag1 ": {
+     "match": [
+      "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+     ]
+    },
+    "^OK   detour satb cold path at 0x00EA1E30": {
+     "match": [
+      "OK   detour satb cold path at 0x00EA1E30"
+     ],
+     "noMatch": [
+      "OK   detour satb cold path at 0x00EA3370"
+     ]
+    }
+   },
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 0,
+    "Binder.TypeHandleDirect": 0,
+    "MonoFast.CallPath": 0,
+    "MintFuse.Sub": 0,
+    "RouteAsync.ReplanLog": 1,
+    "AutShadow.Satb": 2
+   },
+   "timeoutMin": 20,
+   "id": "sv-satbdiag-7",
+   "note": "stress 7 of 16: fresh SV load, 3 min profile, Satb=2; pass = no crash",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "noiseCheck": false
+  },
+  {
+   "asi": "game-copy/ts3native.asi.satbdiag-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+   "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "logRequire": {
+    "^ts3native 0.36.256-satbdiag1 ": 1,
+    "^OK   detour satb cold path at 0x00EA1E30": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-satbdiag1 ": {
+     "match": [
+      "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+     ]
+    },
+    "^OK   detour satb cold path at 0x00EA1E30": {
+     "match": [
+      "OK   detour satb cold path at 0x00EA1E30"
+     ],
+     "noMatch": [
+      "OK   detour satb cold path at 0x00EA3370"
+     ]
+    }
+   },
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 0,
+    "Binder.TypeHandleDirect": 0,
+    "MonoFast.CallPath": 0,
+    "MintFuse.Sub": 0,
+    "RouteAsync.ReplanLog": 1,
+    "AutShadow.Satb": 2
+   },
+   "timeoutMin": 20,
+   "id": "sv-satbdiag-8",
+   "note": "stress 8 of 16: fresh SV load, 3 min profile, Satb=2; pass = no crash",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "noiseCheck": false
+  },
+  {
+   "asi": "game-copy/ts3native.asi.satbdiag-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+   "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "logRequire": {
+    "^ts3native 0.36.256-satbdiag1 ": 1,
+    "^OK   detour satb cold path at 0x00EA1E30": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-satbdiag1 ": {
+     "match": [
+      "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+     ]
+    },
+    "^OK   detour satb cold path at 0x00EA1E30": {
+     "match": [
+      "OK   detour satb cold path at 0x00EA1E30"
+     ],
+     "noMatch": [
+      "OK   detour satb cold path at 0x00EA3370"
+     ]
+    }
+   },
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 0,
+    "Binder.TypeHandleDirect": 0,
+    "MonoFast.CallPath": 0,
+    "MintFuse.Sub": 0,
+    "RouteAsync.ReplanLog": 1,
+    "AutShadow.Satb": 2
+   },
+   "timeoutMin": 20,
+   "id": "sv-satbdiag-9",
+   "note": "stress 9 of 16: fresh SV load, 3 min profile, Satb=2; pass = no crash",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "noiseCheck": false
+  },
+  {
+   "asi": "game-copy/ts3native.asi.satbdiag-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+   "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "logRequire": {
+    "^ts3native 0.36.256-satbdiag1 ": 1,
+    "^OK   detour satb cold path at 0x00EA1E30": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-satbdiag1 ": {
+     "match": [
+      "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+     ]
+    },
+    "^OK   detour satb cold path at 0x00EA1E30": {
+     "match": [
+      "OK   detour satb cold path at 0x00EA1E30"
+     ],
+     "noMatch": [
+      "OK   detour satb cold path at 0x00EA3370"
+     ]
+    }
+   },
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 0,
+    "Binder.TypeHandleDirect": 0,
+    "MonoFast.CallPath": 0,
+    "MintFuse.Sub": 0,
+    "RouteAsync.ReplanLog": 1,
+    "AutShadow.Satb": 2
+   },
+   "timeoutMin": 20,
+   "id": "sv-satbdiag-10",
+   "note": "stress 10 of 16: fresh SV load, 3 min profile, Satb=2; pass = no crash",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "noiseCheck": false
+  },
+  {
+   "asi": "game-copy/ts3native.asi.satbdiag-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+   "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "logRequire": {
+    "^ts3native 0.36.256-satbdiag1 ": 1,
+    "^OK   detour satb cold path at 0x00EA1E30": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-satbdiag1 ": {
+     "match": [
+      "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+     ]
+    },
+    "^OK   detour satb cold path at 0x00EA1E30": {
+     "match": [
+      "OK   detour satb cold path at 0x00EA1E30"
+     ],
+     "noMatch": [
+      "OK   detour satb cold path at 0x00EA3370"
+     ]
+    }
+   },
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 0,
+    "Binder.TypeHandleDirect": 0,
+    "MonoFast.CallPath": 0,
+    "MintFuse.Sub": 0,
+    "RouteAsync.ReplanLog": 1,
+    "AutShadow.Satb": 2
+   },
+   "timeoutMin": 20,
+   "id": "sv-satbdiag-11",
+   "note": "stress 11 of 16: fresh SV load, 3 min profile, Satb=2; pass = no crash",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "noiseCheck": false
+  },
+  {
+   "asi": "game-copy/ts3native.asi.satbdiag-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+   "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "logRequire": {
+    "^ts3native 0.36.256-satbdiag1 ": 1,
+    "^OK   detour satb cold path at 0x00EA1E30": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-satbdiag1 ": {
+     "match": [
+      "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+     ]
+    },
+    "^OK   detour satb cold path at 0x00EA1E30": {
+     "match": [
+      "OK   detour satb cold path at 0x00EA1E30"
+     ],
+     "noMatch": [
+      "OK   detour satb cold path at 0x00EA3370"
+     ]
+    }
+   },
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 0,
+    "Binder.TypeHandleDirect": 0,
+    "MonoFast.CallPath": 0,
+    "MintFuse.Sub": 0,
+    "RouteAsync.ReplanLog": 1,
+    "AutShadow.Satb": 2
+   },
+   "timeoutMin": 20,
+   "id": "sv-satbdiag-12",
+   "note": "stress 12 of 16: fresh SV load, 3 min profile, Satb=2; pass = no crash",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "noiseCheck": false
+  },
+  {
+   "asi": "game-copy/ts3native.asi.satbdiag-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+   "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "logRequire": {
+    "^ts3native 0.36.256-satbdiag1 ": 1,
+    "^OK   detour satb cold path at 0x00EA1E30": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-satbdiag1 ": {
+     "match": [
+      "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+     ]
+    },
+    "^OK   detour satb cold path at 0x00EA1E30": {
+     "match": [
+      "OK   detour satb cold path at 0x00EA1E30"
+     ],
+     "noMatch": [
+      "OK   detour satb cold path at 0x00EA3370"
+     ]
+    }
+   },
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 0,
+    "Binder.TypeHandleDirect": 0,
+    "MonoFast.CallPath": 0,
+    "MintFuse.Sub": 0,
+    "RouteAsync.ReplanLog": 1,
+    "AutShadow.Satb": 2
+   },
+   "timeoutMin": 20,
+   "id": "sv-satbdiag-13",
+   "note": "stress 13 of 16: fresh SV load, 3 min profile, Satb=2; pass = no crash",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "noiseCheck": false
+  },
+  {
+   "asi": "game-copy/ts3native.asi.satbdiag-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+   "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "logRequire": {
+    "^ts3native 0.36.256-satbdiag1 ": 1,
+    "^OK   detour satb cold path at 0x00EA1E30": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-satbdiag1 ": {
+     "match": [
+      "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+     ]
+    },
+    "^OK   detour satb cold path at 0x00EA1E30": {
+     "match": [
+      "OK   detour satb cold path at 0x00EA1E30"
+     ],
+     "noMatch": [
+      "OK   detour satb cold path at 0x00EA3370"
+     ]
+    }
+   },
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 0,
+    "Binder.TypeHandleDirect": 0,
+    "MonoFast.CallPath": 0,
+    "MintFuse.Sub": 0,
+    "RouteAsync.ReplanLog": 1,
+    "AutShadow.Satb": 2
+   },
+   "timeoutMin": 20,
+   "id": "sv-satbdiag-14",
+   "note": "stress 14 of 16: fresh SV load, 3 min profile, Satb=2; pass = no crash",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "noiseCheck": false
+  },
+  {
+   "asi": "game-copy/ts3native.asi.satbdiag-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+   "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "logRequire": {
+    "^ts3native 0.36.256-satbdiag1 ": 1,
+    "^OK   detour satb cold path at 0x00EA1E30": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-satbdiag1 ": {
+     "match": [
+      "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+     ]
+    },
+    "^OK   detour satb cold path at 0x00EA1E30": {
+     "match": [
+      "OK   detour satb cold path at 0x00EA1E30"
+     ],
+     "noMatch": [
+      "OK   detour satb cold path at 0x00EA3370"
+     ]
+    }
+   },
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 0,
+    "Binder.TypeHandleDirect": 0,
+    "MonoFast.CallPath": 0,
+    "MintFuse.Sub": 0,
+    "RouteAsync.ReplanLog": 1,
+    "AutShadow.Satb": 2
+   },
+   "timeoutMin": 20,
+   "id": "sv-satbdiag-15",
+   "note": "stress 15 of 16: fresh SV load, 3 min profile, Satb=2; pass = no crash",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "noiseCheck": false
+  },
+  {
+   "asi": "game-copy/ts3native.asi.satbdiag-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.replanlog-1114",
+   "pinReason": "satbdiag-1114 (builds.json, branch feature/satb-cold-diag): asi = replanlog-1114 (0.36.256-replanlog1) + Satb cold-site diag ring only (0.36.256-satbdiag1); package = ts3fixes.package.replanlog-1114 as in the crashing job; a rebuild between jobs would void the repro",
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "save": "Baseline-SV-Spring",
+   "logRequire": {
+    "^ts3native 0.36.256-satbdiag1 ": 1,
+    "^OK   detour satb cold path at 0x00EA1E30": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-satbdiag1 ": {
+     "match": [
+      "ts3native 0.36.256-satbdiag1 2026-11-14 18:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-replanlog1 2026-11-14 14:00:05"
+     ]
+    },
+    "^OK   detour satb cold path at 0x00EA1E30": {
+     "match": [
+      "OK   detour satb cold path at 0x00EA1E30"
+     ],
+     "noMatch": [
+      "OK   detour satb cold path at 0x00EA3370"
+     ]
+    }
+   },
+   "ini": {
+    "SlotEnabledRO.Enabled": 1,
+    "SlotEnabledRO.Mode": 1,
+    "SlotEnabledRO.Shadow": 0,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 1,
+    "RouteAsync.FallbackAsync": 1,
+    "RouteAsync.M1Retry": 1,
+    "RouteAsync.SyncCapMs": 1000,
+    "RouteAsync.FbJobCapMs": 300,
+    "RouteAsync.TailUnlock": 1,
+    "RouteAsync.ReplanDedupe": 1,
+    "RouteAsync.H2": 1,
+    "RouteEarlyOut.Enabled": 1,
+    "RouteEarlyOut.Mode": 2,
+    "RouteEarlyOut.Act": 1,
+    "MonoJit.Enabled": 0,
+    "Binder.TypeHandleDirect": 0,
+    "MonoFast.CallPath": 0,
+    "MintFuse.Sub": 0,
+    "RouteAsync.ReplanLog": 1,
+    "AutShadow.Satb": 2
+   },
+   "timeoutMin": 20,
+   "id": "sv-satbdiag-16",
+   "note": "stress 16 of 16: fresh SV load, 3 min profile, Satb=2; pass = no crash",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+     "noSamplers": true
+    }
+   },
+   "noiseCheck": false
+  }
+ ]
+}

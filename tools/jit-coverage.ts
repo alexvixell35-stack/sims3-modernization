@@ -11,7 +11,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { jitList } from './jit-corpus.ts';
+import { cases, jitList, report } from './jit-corpus.ts';
 import { decodeAll, loadStandalone, rva, type Asm } from './managed-callgraph.ts';
 import { csvFields, ilCode } from './jit-hot.ts';
 
@@ -46,7 +46,7 @@ export function bodyEdges(br: Branch[], handlers: number[]): Edge[] {
     if (b.arms) { e.push({ offset: b.at, side: 'default' }); b.arms.forEach((_, k) => e.push({ offset: b.at, side: `arm${k}` })); }
     else e.push({ offset: b.at, side: 'fall' }, { offset: b.at, side: 'taken' });
   }
-  // shortcut: a handler counts as an edge but monohost does not report handler hits (rm's clause table is not mapped), so a listed body with clauses shows them as misses; no row has clauses today and [MonoJit] refuses such a body without Wide
+  // a handler is hit when its first position runs compiled (monohost's H lines, in clause order: the transform keeps the IL clause order)
   for (const h of handlers) e.push({ offset: h, side: 'clause' });
   return e;
 }
@@ -76,11 +76,12 @@ export function bodies(rows: Row[], dir: string): Map<string, Body> {  // by sha
 
 // ---- host side ----
 export type HostEdge = { from: number; to: number; op: number; arm: number; n: number };
-export type HostBody = { name: string; calls: number; size: number; il: string; edges: HostEdge[] };
+export type HostBody = { name: string; calls: number; size: number; il: string; edges: HostEdge[]; handlers: number[] };
 export function parseCover(text: string): HostBody[] {
   const out: HostBody[] = [];
   for (const l of text.split(/\r?\n/)) {
-    if (l.startsWith('B ')) { const f = l.split(' '); out.push({ name: f.slice(6).join(' '), calls: +f[2], size: +f[5], il: '', edges: [] }); }
+    if (l.startsWith('B ')) { const f = l.split(' '); out.push({ name: f.slice(6).join(' '), calls: +f[2], size: +f[5], il: '', edges: [], handlers: [] }); }
+    else if (l.startsWith('H ')) out[out.length - 1].handlers.push(+l.split(' ')[2]);
     else if (l.startsWith('I ')) out[out.length - 1].il = l.slice(2);
     else if (l.startsWith('E ')) { const f = l.split(' '); out[out.length - 1].edges.push({ from: +f[1], to: +f[2], op: parseInt(f[3], 16), arm: +f[4], n: +f[5] }); }
   }
@@ -168,6 +169,7 @@ export function analyse(rows: Row[], dir: string, hosts: HostBody[]): { res: Res
       const m = mapHits(br, h);
       if (!m) { if (h.calls) unmapped++; continue; }
       for (const [k, n] of m) hits.set(k, (hits.get(k) ?? 0) + n);
+      if (h.handlers.length === b.handlers.length) b.handlers.forEach((o, i) => hits.set(`${o}|clause`, (hits.get(`${o}|clause`) ?? 0) + h.handlers[i]));
     }
     if (calls) hits.set('-1|entry', calls);
     const missing = all.filter(e => !hits.get(`${e.offset}|${e.side}`));
@@ -187,14 +189,14 @@ export function gameCopy(): string {
   if (!existsSync(join(d, 'assemblies'))) throw new Error(`no assemblies in ${d}: pass --game-copy <dir>, the main checkout's game-copy from a worktree`);
   return d;
 }
-// one monohost selftest run with the corpus on; the log and output files land in native/monohost/out
+// one monohost selftest run with the corpus on; the log (unless env.MONOHOST_LOG names one) and output files land in native/monohost/out
 export function runHost(env: Record<string, string>, gc: string, timeoutS: number, corpus = true) {
   const exe = join(OUT, 'monohost.exe');
   if (!existsSync(exe)) throw new Error('no native/monohost/out/monohost.exe: run native/monohost/build.cmd first');
   const r = spawnSync(exe, [join(gc, 'monohost', 'TS3W.exe'), join(gc, 'assemblies'), 'selftest', join(gc, 'monohost', 'hostdata.txt')],
     { env: { ...process.env, MONOHOST_JITCORPUS: '1', MONOHOST_JITCORPUS_WORKER: '0', MONOHOST_DIVGUARD: '1', MONOHOST_MINTCALL: 'fast', MONOHOST_JITLIST: jitList(readFileSync(resolve(ROOT, 'native/monohost/monohost-jit.cpp'), 'utf8')), ...env }, timeout: timeoutS * 1000, stdio: 'ignore' });
   if (r.error) throw r.error;
-  const log = readFileSync(join(OUT, 'monohost.exe.log'), 'latin1');
+  const log = readFileSync(env.MONOHOST_LOG ?? join(OUT, 'monohost.exe.log'), 'latin1');  // MONOHOST_LOG: a per-run log path
   const c = log.match(/jit corpus: (\d+) cases, (\d+) differ, (\d+) unstable.*/);
   if (!c && corpus) throw new Error('no corpus line in monohost.exe.log');
   return { line: c?.[0] ?? '', differ: +(c?.[2] ?? 0), log };
@@ -208,14 +210,14 @@ function selfCheck() {
   ok(br.length === 2 && br[0].at === 1 && br[0].target === 4 && br[1].arms?.join() === '18,19', 'IL branches');
   const e = bodyEdges(br, [9]);
   ok(e.length === 1 + 2 + 3 + 1 && e[3].side === 'default' && e[6].side === 'clause', 'edges');
-  const h: HostBody = { name: 'x', calls: 3, size: il.length, il: il.toString('hex'), edges: [
+  const h: HostBody = { name: 'x', calls: 3, size: il.length, il: il.toString('hex'), handlers: [], edges: [
     { from: 2, to: 4, op: 0xa9, arm: 0, n: 1 }, { from: 2, to: 6, op: 0xa9, arm: 1, n: 2 },
     { from: 9, to: 20, op: 0xe8, arm: 0, n: 0 }, { from: 9, to: 21, op: 0xe8, arm: 2, n: 5 }, { from: 9, to: 22, op: 0xe8, arm: 3, n: 0 }] };
   const m = mapHits(br, h)!;
   ok(m.get('1|fall') === 1 && m.get('1|taken') === 2 && m.get('5|arm0') === 5 && m.get('5|arm1') === 0 && m.get('5|default') === 0, 'mapHits');
   ok(mapHits(br.slice(0, 1), h) === null, 'branch count differs = not mapped');
-  const parsed = parseCover(`B 0 7 11 0 4 A.B C\nI 00ff\nE 1 2 A9 1 3\n`);
-  ok(parsed[0].name === 'A.B C' && parsed[0].calls === 7 && parsed[0].il === '00ff' && parsed[0].edges[0].n === 3, 'parseCover');
+  const parsed = parseCover(`B 0 7 11 0 4 A.B C\nI 00ff\nH 9 4\nE 1 2 A9 1 3\n`);
+  ok(parsed[0].name === 'A.B C' && parsed[0].calls === 7 && parsed[0].il === '00ff' && parsed[0].edges[0].n === 3 && parsed[0].handlers.join() === '4', 'parseCover');
   ok(listRows('{"A.B", 3, {0x0a, 0xFF}},')[0].sha === '0aFF', 'listRows');
   const res = [{ sha: 'aa', missing: [{ offset: 4, side: 'fall' }] }];
   const rs = (o: number, why: string) => [{ method: 'M', sha: 'aa', offset: o, side: 'fall', reason: why }];
@@ -238,9 +240,10 @@ if (import.meta.main) {
     const gc = gameCopy(), files: string[] = [];
     if (process.argv.includes('--run')) {
       for (const [tag, lazy] of [['off', '0'], ['on', '1']]) {
-        const r = runHost({ MONOHOST_JIT: 'verify', MONOHOST_JITCOVER: '1', MONOHOST_JITLAZY: lazy }, gc, 280);
+        const r = runHost({ MONOHOST_JIT: 'verify', MONOHOST_JITCOVER: '1', MONOHOST_JITLAZY: lazy, MONOHOST_JITCLAUSELAZY: lazy === '1' ? '2' : '0' }, gc, 280);  // lazy on: the game's ClauseLazy allow list too (docs/537 §24)
         console.log(`lazy ${tag}: ${r.line}`);
-        if (r.differ) throw new Error('the corpus differs: fix that before reading coverage');
+        const rep = report(r.log, undefined, cases().map(c => c.name));  // a stack-trace-text-only differ (case 110, docs/207 §10) is not a result differ
+        if (r.differ > rep.traceOnly) throw new Error('the corpus differs: fix that before reading coverage');
         const t = readFileSync(join(OUT, 'jit-cover.txt'), 'latin1'), p = join(OUT, `jit-cover-${tag}.txt`);
         writeFileSync(p, t); files.push(p);
       }

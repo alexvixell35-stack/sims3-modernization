@@ -19,7 +19,7 @@ export function parseRequire(s: string): { name: string; op: string; value: numb
 // always FAILs (tdOn, jitRegionKB, bcFills on 2026-11-13; rwMode is a read-back switch). nativeRequire must write them as @name.
 // *Ready fields already keep their after value in flatDelta.
 // + jitMethCap, jitDirect, bcOn, clOn, cpOn (2026-11-13 jit-bundle queues: read back once at startup)
-export const STARTUP_COUNTERS = ['tdOn', 'jitRegionKB', 'bcFills', 'rwMode', 'jitMethCap', 'jitDirect', 'bcOn', 'clOn', 'cpOn', 'mfReady'];
+export const STARTUP_COUNTERS = ['tdOn', 'jitRegionKB', 'bcFills', 'rwMode', 'jitMethCap', 'jitDirect', 'bcOn', 'clOn', 'cpOn', 'mfReady', 'mcSwitch'];
 export function startupDeltaLint(s: string): string[] {
   return parseRequire(s).filter(r => STARTUP_COUNTERS.includes(r.name)).map(r =>
     `nativeRequire "${r.name}${r.op}${r.value}": ${r.name} is set at startup, its after - before is always 0; write @${r.name}${r.op}${r.value}`);

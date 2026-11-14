@@ -8,7 +8,7 @@
 //   node tools/jit-replay.ts --run <replay file> [--list <names>] [--mode on|verify] [--lazy]   run monohost, report
 //   node tools/jit-replay.ts --capture-corpus <out.jitcap> [--lazy] [--inline 1|2]   the game's capture code on the host: the corpus under capture,
 //       for a round trip without the game; --lazy / --inline also sample lazy bodies and inlined sites (docs/537 §19)
-//   --run also takes --switches VtOps=1,CallExit=0,NewVt=1 (Wide, Lazy, Inline=<0|1|2>, FastCopy, Ldsflda, ClauseLazy, DirectLeaf, Bind, BoundCall=<mask> too): sets those host env switches for the run
+//   --run also takes --switches VtOps=1,CallExit=0,NewVt=1 (Wide, Lazy, Inline=<0|1|2>, FastCopy, Ldsflda, ClauseLazy, DirectLeaf, Bind, BoundCall=<mask>, RetTeardown too): sets those host env switches for the run
 //       (MONOHOST_JITVTOPS ...), the rest comes from the environment; the set is printed in the summary line
 //   node tools/jit-replay.ts --run <replay> --switches <set> --bisect   rerun halves of the ON switches until the failing one is named
 //       (fail = differ, faulted, STOPPED or per-call MISMATCH); two halves that pass alone but fail together are reported as a joint set
@@ -235,7 +235,9 @@ async function runHost(replay: string | undefined, env: Record<string, string>, 
   for (const f of ['monohost.exe', 'MonoHostTest.dll']) copyFileSync(join(bin, f), join(dir, f));
   const log = join(dir, 'monohost.exe.log');
   const childEnv = { ...process.env, ...env, ...(replay ? { MONOHOST_JITREPLAY: replay } : {}) };
-  spawn(join(dir, 'monohost.exe'), [join(gc, 'monohost', 'TS3W.exe'), join(gc, 'assemblies'), 'selftest', join(gc, 'monohost', 'hostdata.txt')], { stdio: 'ignore', env: childEnv, cwd: dir, detached: true }).unref();
+  let exited = 0;  // a host that dies without a last log line (2026-11-13: bp replay hung 20 min after the 'jit bind' lines) ends the wait
+  const child = spawn(join(dir, 'monohost.exe'), [join(gc, 'monohost', 'TS3W.exe'), join(gc, 'assemblies'), 'selftest', join(gc, 'monohost', 'hostdata.txt')], { stdio: 'ignore', env: childEnv, cwd: dir, detached: true });
+  child.on('exit', () => { exited = Date.now(); }); child.unref();
   const end = Date.now() + timeoutMs;
   for (;;) {
     await new Promise(r => setTimeout(r, 1000));
@@ -244,6 +246,7 @@ async function runHost(replay: string | undefined, env: Record<string, string>, 
     if (marker.test(t)) return { log: t, path: log };
     if (/SELFTEST|fatal|unhandled/i.test(t.split('\n').slice(-3).join('\n'))) fail(`host ended without a summary, log ${log}`);
     if (Date.now() > end) fail(`no summary in ${timeoutMs / 1000} s, log ${log}`);
+    if (exited && Date.now() - exited > 3000) fail(`host exited without a summary, log ${log}`);
   }
 }
 // one replay over fresh host processes (an interpreter fault leaves old Mono's frame state unusable, so a fresh process continues at the next
@@ -281,7 +284,7 @@ function printReport(r: ReturnType<typeof report>) {
 }
 
 // ---- --switches / --bisect / --coverage ----
-const SWITCH_ENV: Record<string, string> = { VtOps: 'MONOHOST_JITVTOPS', CallExit: 'MONOHOST_JITCALLEXIT', NewVt: 'MONOHOST_JITNEWVT', Wide: 'MONOHOST_JITWIDE', Lazy: 'MONOHOST_JITLAZY', Inline: 'MONOHOST_JITINLINE', FastCopy: 'MONOHOST_JITFASTCOPY', Ldsflda: 'MONOHOST_JITLDSFLDA', ClauseLazy: 'MONOHOST_JITCLAUSELAZY', DirectLeaf: 'MONOHOST_JITDIRECTLEAF', Bind: 'MONOHOST_JITBIND', BoundCall: 'MONOHOST_JITBOUNDCALL' };
+const SWITCH_ENV: Record<string, string> = { VtOps: 'MONOHOST_JITVTOPS', CallExit: 'MONOHOST_JITCALLEXIT', NewVt: 'MONOHOST_JITNEWVT', Wide: 'MONOHOST_JITWIDE', Lazy: 'MONOHOST_JITLAZY', Inline: 'MONOHOST_JITINLINE', FastCopy: 'MONOHOST_JITFASTCOPY', Ldsflda: 'MONOHOST_JITLDSFLDA', ClauseLazy: 'MONOHOST_JITCLAUSELAZY', DirectLeaf: 'MONOHOST_JITDIRECTLEAF', Bind: 'MONOHOST_JITBIND', BoundCall: 'MONOHOST_JITBOUNDCALL', RetTeardown: 'MONOHOST_JITRETTD' };
 export type Switches = [string, string][];  // name, value
 export function parseSwitches(t: string): Switches {
   return t.split(',').filter(x => x.trim()).map(x => {

@@ -1236,6 +1236,8 @@ Status (2026-11-08 ~10:30 UTC): steps 1-4 below done; not merged, not run.
 
 ## C5 ClauseLazy: 5-arg Array.Copy lazy body + host DirectLeaf (2026-11-08, branch `feature/monojit-arraycopy5` from master 91269f04, commit 9cb60639, not merged) [built, host gates run; game not run]
 
+**Reopened 2026-11-13 (docs/537 §24, Rodney: build and ship on a static gain):** the game path is back on `feature/monojit-clauselazy-guards` (ts3native 0.36.252) with an allow list (5-arg Array.Copy only), a session kill switch and a fault watch; `ClauseLazy=0` until the bench (shared bench tool) shows the gain. Queue `tools/harness/queues/jit-clauselazy.json` replaces the `*-jit-ac5-*` jobs.
+
 **Parked 2026-11-12 (docs/537 §20 Q1, #362 C9 no-go stands):** C5 ClauseLazy parked; reopen if calls from compiled code into 5-arg Array.Copy reach >=30k/s after the code-region fix. integrate/mono-routing-1112 keeps the host side (monohost MONOHOST_JITCLAUSELAZY / DIRECTLEAF, corpus cases, verifier fix) and leaves the game emitter, its selftest, `[MonoJit] ClauseLazy` and the Array.Copy list rows out of ts3native.
 
 Pair **arraycopy5-1108**: `game-copy/ts3native.asi.arraycopy5-1108` (ts3native 0.36.212, sha256 a8c1b3aea4fc...) + `game-copy/ts3fixes.package.arraycopy5-1108`

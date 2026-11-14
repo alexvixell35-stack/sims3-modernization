@@ -605,6 +605,10 @@ static void __cdecl McVCheck(DWORD* regs) {
     if (bad) {
         if (!MC_CTR.mcMismatch) MC_CTR.mcFirstBad = v.kind + 1;
         MC_CTR.mcMismatch++;
+        if (MC_CTR.mcSwitch) {  // session kill switch (as MonoJit verify): every call bails to EA's handler from now on
+            MC_CTR.mcSwitch = 0;
+            Log("mintcall verify: fast path off for the session (mismatch %ld)", (long)MC_CTR.mcMismatch);
+        }
     }
     InterlockedExchange(&v.state, 0);
 }

@@ -401,6 +401,8 @@ namespace Ts3Fixes
         // [872-875] watchdogasync A1 (RouteFixes.cs CheckIdle, RouteBackoff.cs OwnerTaskSlot, docs/250 §7.1): own STARTs sent, started by
         // ts3native, refused before sending (A1 on, Sim eligible, ts3native would not start it), sim ticks the A1 checks took
         // [930-932] watchdogasync: A1 verdicts dropped as stale (H4Core.WdFresh), shadow sync re-checks run, shadow verdicts that differ
+        // [969-984] replanlog (ReplanLog.cs, docs/261 §6 L1, ts3native [RouteAsync] ReplanLog=1): own Replans and ms, calls and ms
+        // per scope (household, selected, seenNpc, unseen, unknown), bursts, call lines, lines dropped, would start but Kinds
         static int[] sCountersCache;
         static int[] PatchCounters()
         {

@@ -4,8 +4,13 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ## Unreleased
 
+### Switched on (built, not in v0.2.12)
+
+- **Slightly faster game scripts (`[MonoFast] CallPath=1`, on).** The plugin handles the script engine's most common steps (calls, virtual calls, returns) in one pass and hands every unusual case to the game's own code. Measured offline: 0.4-2.3 ns saved per simple call, 5-9 ns on call-heavy code, never slower; about 2-3 ms per second of script time on a busy lot (estimate, not timed in game). Your Sims get the same results as before (the game check ran 4/4 exact). It stays off by itself if another mod changes the same game code.
+
 ### Fixed (built, not in v0.2.12)
 
+- **Fixed a rare crash in `mono_class_init` with `Satb` on (`[AutShadow] Satb=2`, on).** Very rarely the game crashed in the script engine while the background scorer was loading a class for the first time. The scorer now waits for the game to finish its step first. No change to what Sims do.
 - **Moods match the moodlets again (EA bug, `mooddrift` and `moodpending`, on; by Dalexlol, PR #368).** Some moodlets (being scared again, a missed appointment, a prank and others) changed a Sim's mood without the game keeping track, so the Sim stayed happier or sadder than its moodlets said until the save was reloaded. Waking up Well Rested in a bed, and Conquered the Bull, counted their mood twice. The mood now always equals the sum of the moodlets, as after a reload. Not in the v0.2.12 `ts3fixes.package`.
 - **Less memory left behind by menus, wishes and townies (29 EA leak fixes and guards, on; by Dalexlol, PRs #337, #353, #357, #365, #366, #368).** Buy, Build, Create a Sim, the map view and the HUD stop leaving windows, icons and handlers registered for the session; listeners of removed Sims and dropped wish trees are taken off; hourly passes clean stale townie route callbacks and wish keys (never your household's). Nothing is written into saves. Not in the v0.2.12 `ts3fixes.package`.
 - **"Move In With" wish is no longer offered for a Sim of your own household (EA bug, `minihomelot`, on; docs/266).** A stale home lot on a Sim's mini record made the game think two household members lived apart. The lot is now synced when a household moves and repaired at world load.
@@ -21,6 +26,10 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 - **Route hitch diagnostics (counters and log lines only, `[RouteAsync] FbApplyLog=1` for the per-lot log).** Times the game's pending lot updates before a route, counts refused replans by reason and the waits for the route worker by site.
 - **Boat diagnostics in ts3fixes (`boatgetoutdiag`, off; boat "no refusal" split, report only) and the household houseboat answer for the background lot check (`autofflot`, off).**
 - **Boat get-out script error guard (`boatgetoutguard`, ts3fixes, off).** A Sim you do not play that something resets while it fades out of a boat no longer hits a script error in `Boat.GetOutIntoWater`; it is reset instead, as the game itself does. Your household keeps the game's behaviour.
+
+### Switched on in plugin 0.36.254 (built, not in a release yet)
+
+- **Script code runs a little faster (`[MintFuse] Sub`, on).** The game already merges a few common instruction sequences of its script code into one step, but only when a whole short stretch matches. Now the same merges are also made inside longer stretches, in the way that leaves the fewest steps. In the offline benchmark the script mix runs about 4-7% faster, nothing slower; estimated 2-8 ms per second of game time (estimate, not measured in game). Loading costs about 35 ms more. Steam 1.67 only (the EA app refuses it and keeps the game's own behaviour).
 
 ### Switched on in plugin 0.36.253 (built, not in v0.2.12)
 

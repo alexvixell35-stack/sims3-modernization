@@ -43,7 +43,7 @@ static const char* const kJitList[] = {
     "OpportunitySetupObjectComponent.get_BaseType", "SculptureComponent.get_BaseType", "OverlayComponent.get_BaseType",
     "TreasureComponent.get_BaseType", "WorldBuilderDeathComponent.get_BaseType",
     "HostTest.JitId", "HostTest.JitOut", "HostTest.JitSum", "HostTest.JitInl", "HostTest.JitLz", "HostTest.LzClamp", "LzBox.Get",
-    "HostTest.JitLzChain", "HostTest.LzMid", "HostTest.JitLzVirt", "LzSq.Area", "HostTest.JitLzAlloc", "HostTest.LzAlloc",
+    "HostTest.JitLzChain", "HostTest.LzMid", "HostTest.JitLzVirt", "LzSq.Area", "HostTest.JitLzAlloc", "HostTest.LzAlloc", "HostTest.JitCp5I", "HostTest.JitCp5O", "HostTest.JitCp3M", "RtBox.GetV", "RtBox.get_Prop", "RtBox.Wide", "RtBox.Set", "RtBox.Add", "RtBox..ctor", "HostTest.RtI", "HostTest.RtV",
 };
 static char g_jitListBuf[8192];
 static const char* g_jitNames[256];
@@ -133,6 +133,9 @@ static bool g_jitLdsflda;
 // handoff C5, off by default. MONOHOST_JITCLAUSELAZY=1 ([MonoJit] ClauseLazy): a method with clauses (the 5-arg Array.Copy's two
 // try / catch) gets a lazy body too; every position inside a try or handler region is an exit there (JitClauseMark)
 static bool g_jitClauseLazy;
+// MONOHOST_JITCLAUSELAZY=2: the game's allow list (docs/537 §24): only System.Array.Copy with 2 clauses in 408 mint words (the 5-arg
+// overload, IL 501 bytes; the game also checks the IL sha256). 1 = every clause method (the 11-08 gates).
+static bool g_jitClauseList;
 // MONOHOST_JITDIRECTLEAF=1: the game's [MonoJit] DirectLeaf=1 rule (default 0 here, as the host ran so far): only leaves get a lazy
 // body (a call site drops it, CallExit or not), lazy bodies make no lazy calls, no guarded callvirt site
 static bool g_jitLeafOnly;
@@ -366,10 +369,23 @@ struct Em {
     }
 };
 static void Fix(u8* rel, const u8* target) { *(int*)rel = (int)(target - (rel + 4)); }
+// docs/537 §27 [MonoJit] RetTeardown (MONOHOST_JITRETTD=1): the game's code (monojit-ret.h), the game's rt* counters
+struct JrtCtr { volatile LONG rtdOn, rtdSites, rtdBails, rtdVerified, rtdMismatch, rtdVSkipped, rtdFaults, rtdKillWhy; };
+static JrtCtr g_jrtCtr;
+#define JRT_CTR g_jrtCtr
+#define JRT_TABLE MINT_TABLE
+#define JRT_UNIMPL MINT_UNIMPL
+#define JRT_NL "\n"
+#include "../ts3native/monojit-ret.h"
 
 // ---- compiled method table: ip -> native (open addressing, 16-byte entries) ----
 struct JitEnt { DWORD ip; u8* native; DWORD orig; u8* rm; };
-static const DWORD JIT_TAB_N = 1 << 16;
+// T4096 (docs/537 §26): mirrors the game's [MonoJit] MaxMethods (MONOHOST_JITMAXMETHODS, 512-4096, default 4096) and its 2^17
+// ip table; MONOHOST_JITFILL=<n> takes n rows (24 positions each, at addresses no mint word has) before anything compiles,
+// so the corpus's methods land past row n in a crowded ip table.
+static const DWORD JIT_TAB_N = 1 << 17;
+static int g_jitMethCap = 4096, g_jitFillN;
+static volatile LONG g_jitTableFull;  // compiles refused with "method table full"
 static JitEnt* g_jitTab;  // JIT_TAB_N entries + a 4096-entry overflow tail (no wrap in the probe loop)
 static int g_jitEntN;
 static u8* g_jitCode;     // native code pool (PAGE_EXECUTE_READWRITE in the host; the game would flip RW -> RX)
@@ -379,6 +395,14 @@ struct JitMeth { u8* rm; unsigned short* code; int words; int pos0, posN; char n
                  volatile LONG verified, mismatches, skipped, inner; };
 static JitMeth g_jitMeth[4096];
 static int g_jitMethN;
+static const DWORD JIT_METH_IX = 8192;  // rm -> row + 1 (open addressing, under half full at 4096 rows)
+static unsigned short g_jitMethIx[JIT_METH_IX];
+static DWORD JitMethSlot(const u8* rm) { return ((DWORD)(uintptr_t)rm * 2654435761u >> 19) & (JIT_METH_IX - 1); }
+static void JitMethIndex(int m) {
+    DWORD i = JitMethSlot(g_jitMeth[m].rm);
+    while (g_jitMethIx[i]) i = (i + 1) & (JIT_METH_IX - 1);
+    g_jitMethIx[i] = (unsigned short)(m + 1);
+}
 static unsigned short* g_jitPos;  // positions of all compiled methods (word pointers), [pos0, posN) per method
 static unsigned short* g_jitOrigW;
 static int g_jitPosN;
@@ -405,6 +429,30 @@ static JitEnt* JitAdd(DWORD ip) {
     g_jitTab[i].ip = ip;
     g_jitEntN++;
     return &g_jitTab[i];
+}
+// T4096: n rows of 21 positions each (R1's measured ratio) on a buffer no mint word lives in: their ip entries crowd the table
+// and the next compile gets row n, as in a game past 2048 methods; JitEnter never meets these ips
+static void JitFill(int n) {
+    // a position every 3rd word of a 64-word body (spacing inferred, not measured): back-to-back positions build one long
+    // probe cluster that no game table has (the first try did, and its jitbench cases ran far slower than without the fill)
+    const int per = 21, stride = 3, words = 64;
+    n = n < 0 ? 0 : n > g_jitMethCap ? g_jitMethCap : n;
+    unsigned short* buf = (unsigned short*)VirtualAlloc(NULL, (size_t)n * words * 2 + 2, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    for (int m = 0; buf && m < n; m++) {
+        JitMeth& M = g_jitMeth[g_jitMethN];
+        memset(&M, 0, sizeof(M));
+        M.code = buf + m * words, M.words = words, M.pos0 = g_jitPosN;
+        strcpy_s(M.name, "(fill)");
+        for (int k = 0; k < per * stride; k += stride) {
+            JitEnt* en = JitAdd((DWORD)(uintptr_t)(M.code + k));
+            if (!en) { Log("jit: fill stopped at row %d: ip table full\n", m); return; }
+            en->native = NULL, en->orig = 0, en->rm = NULL;
+            g_jitPos[g_jitPosN] = (unsigned short)k, g_jitOrigW[g_jitPosN++] = 0;
+        }
+        M.posN = g_jitPosN;
+        g_jitMethN++, g_jitFillN++;
+    }
+    Log("jit: fill: %d rows, %d ip entries before the first compile\n", g_jitFillN, g_jitEntN);
 }
 
 static void JitVerifyEnterStub();
@@ -444,8 +492,11 @@ struct JitLazyCell { const u8* rm; u8* entry; };  // callee -> its lazy body (NU
 static JitLazyCell g_jitLazyCell[8192];
 static int g_jitLazyCellN, g_jitLazyBodies, g_jitLazySites;
 static volatile LONG g_jitLazyCalls, g_jitLazyMats;
+static LONGLONG g_jitCellSearches, g_jitCellScanned;  // searches and rows walked (JitStats); MONOHOST_JITCELLBENCH times the scan
 static JitLazyCell* JitLazyCellFor(const u8* rm) {
-    for (int i = 0; i < g_jitLazyCellN; i++) if (g_jitLazyCell[i].rm == rm) return &g_jitLazyCell[i];
+    g_jitCellSearches++;
+    for (int i = 0; i < g_jitLazyCellN; i++) if (g_jitLazyCell[i].rm == rm) { g_jitCellScanned += i + 1; return &g_jitLazyCell[i]; }
+    g_jitCellScanned += g_jitLazyCellN;
     if (g_jitLazyCellN >= 8192) return NULL;
     g_jitLazyCell[g_jitLazyCellN].rm = rm;
     return &g_jitLazyCell[g_jitLazyCellN++];
@@ -547,6 +598,7 @@ static void EmitExit(Em& e, const unsigned short* ip, DWORD op, bool ret) {
     }
     e.b(0xBF); e.d((DWORD)(uintptr_t)ip);   // mov edi, ip
     if (ret && g_jitMode == 3) { e.jmpTo((const void*)JitVerifyExitStub); return; }
+    if (ret && (op == 6 || op == 7) && g_jitRtOn && !g_jitRtDead) { e.jmpTo(g_jitRtEntry[op - 6]); g_jrtCtr.rtdSites++; return; }  // RetTeardown
     e.op(0x89, EDI, EBP, -4);                // mov [ebp-4], edi
     e.movRI(EAX, op);
     e.rr(0x8B, EAX, EDX);                    // mov edx, eax (rr: r/m operand first, reg operand second)
@@ -1158,7 +1210,8 @@ static void JitPreTransform(u8* rm, void* ctx) {
 static unsigned short JitWord(unsigned short orig) { return orig == 0x9C ? orig : (unsigned short)JIT_OP; }
 // compile one method: returns false (and leaves the code alone) if anything does not fit
 static void JitCompiled(u8* rm) {
-    if (!g_jitTab || g_jitMethN >= 4096) return;
+    if (!g_jitTab) return;
+    if (g_jitMethN >= g_jitMethCap) { if (!g_jitTableFull++) Log("jit: method table full (%d)\n", g_jitMethCap); return; }
     g_jitSiteRm = rm;
     unsigned short* code = *(unsigned short**)rm;
     int words = *(unsigned short*)(rm + 0x3A);
@@ -1193,7 +1246,9 @@ static void JitCompiled(u8* rm) {
     // 2. emit. With lazy frames, a method whose every position is native, ret / ret.void or a call this compiler makes
     // lazily (v2: its lazy body makes lazy calls; a target with no lazy body at run time means JitLazyMat, then EA's call)
     // first gets its lazy body, then the normal one; label[] and fix[] end as the normal body's.
-    bool lazyOk = g_jitLazy && !g_jitExitAll && (!rm[0x41] || g_jitClauseLazy);
+    char clName[256];
+    const bool clauseOk = g_jitClauseLazy && (!g_jitClauseList || (rm[0x41] == 2 && words == 408 && !strcmp(JitMethodName(rm, clName, sizeof(clName)), "System.Array.Copy")));
+    bool lazyOk = g_jitLazy && !g_jitExitAll && (!rm[0x41] || clauseOk);
     static bool posCold[4096], posProt[4096];
     if (lazyOk) JitMarkCold(n, posOp, posCold), lazyOk = JitClauseMark(rm, n, posW, words, posProt);
     for (int k = 0; k < n && lazyOk; k++) {
@@ -1654,7 +1709,7 @@ static void JitCompiled(u8* rm) {
     }
     M.posN = g_jitPosN;
     JitGatePublish(n, posW, posOp, wordToPos, code, label, benchStub, words);
-    g_jitMethN++;
+    JitMethIndex(g_jitMethN++);
     g_jitCodeUsed += M.bytes + 1;
     g_jitCodeUsed = (g_jitCodeUsed + 15) & ~(size_t)15;
     if (g_jitPatched) for (int k = M.pos0; k < M.posN; k++) code[g_jitPos[k]] = JitWord(g_jitOrigW[k]);
@@ -1700,7 +1755,7 @@ static __declspec(naked) void JitEnter() {
     __asm {
         mov eax, edi
         shr eax, 1
-        and eax, 0xFFFF            // JIT_TAB_N - 1
+        and eax, 0x1FFFF           // JIT_TAB_N - 1
         shl eax, 4
         add eax, g_jitTab
     probe:
@@ -1995,8 +2050,14 @@ static void* JitOrig(JitRegs* r, DWORD ip, DWORD op) {
     *(DWORD*)(uintptr_t)(r->ebp - 4) = ip;
     return (void*)(uintptr_t)((const DWORD*)(uintptr_t)MINT_TABLE)[op];  // the live entry, as EmitExit
 }
-static JitMeth* JitMethOf(const u8* rm) {
-    for (int i = 0; i < g_jitMethN; i++) if (g_jitMeth[i].rm == rm) return &g_jitMeth[i];
+using mt::McScratch;
+using mt::MC_EA;
+using mt::McOwns;
+#define JRT_PART2
+#include "../ts3native/monojit-ret.h"
+static JitMeth* JitMethOf(const u8* rm) {  // T4096: through g_jitMethIx (verify mode calls this per call; a scan of 4096 rows was too slow)
+    for (DWORD i = JitMethSlot(rm); g_jitMethIx[i]; i = (i + 1) & (JIT_METH_IX - 1))
+        if (g_jitMeth[g_jitMethIx[i] - 1].rm == rm) return &g_jitMeth[g_jitMethIx[i] - 1];
     return NULL;
 }
 
@@ -2075,6 +2136,7 @@ static __declspec(naked) void JitLazyMat() {  // edi = exit ip, eax = opcode; [e
     }
 }
 static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
+    if (g_jrtV.state && r->edi == (DWORD)(uintptr_t)g_jitRtTrapW) return JitRtTrap(r);  // RetTeardown verify (docs/537 §27)
     if (!e) e = JitFind(r->edi);
     if (g_jitVerifyOn == 2) {  // count mode
         g_jitEnterN++;
@@ -2098,7 +2160,12 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
     int outer = 0;
     for (DWORD k = 0; k < depth; k++) if (g_jitV[k].active && g_jitV[k].ebp == r->ebp) outer = g_jitV[k].phase;
     if (fromExit) {  // a compiled ret
-        if (!mine || v.phase != 1) return JitOrig(r, r->edi, e->orig);
+        if (!mine || v.phase != 1) {
+            bool busy = g_jitVerifyOn != 1;  // RetTeardown verify only with the verify path on, outside every verified call of this activation
+            for (DWORD k = 0; k < JIT_VD; k++) busy |= g_jitV[k].active && g_jitV[k].ebp == r->ebp;
+            if (void* blk = JitRtBegin(r, e->orig, busy)) return blk;
+            return JitOrig(r, r->edi, e->orig);
+        }
         v.rn = JitRetBytes(r, e->orig, (const unsigned short*)(uintptr_t)r->edi, v.r1);
         v.s0->Take(*v.s1);
         JitKeepPass(*v.nw, *v.s0, *v.s1, v.r1, v.rn, v.calleeRegion);  // copies of what the compiled pass allocated, before the restore
@@ -2252,7 +2319,7 @@ static bool JitAtomic(bool on) {
     return on ? Jmp(0xE4BDC0, (const void*)(uintptr_t)0xE4BE30) : mt::Write((void*)(uintptr_t)0xE4BDC0, g_atomicOrig, 5);
 }
 
-static const int JIT_CASES = 31;
+static const int JIT_CASES = 53;
 static const char* const kJitCase[JIT_CASES] = {
     "Dictionary<int,Shape>.TryGetValue", "Dictionary<ulong,int>.TryGetValue", "Dictionary<ObjectGuid,int>.TryGetValue",
     "List foreach (per element)", "List get_Item + Count", "List.Add (+GrowIfNeeded)", "boxed Enum.Equals + GetHashCode",
@@ -2262,7 +2329,13 @@ static const char* const kJitCase[JIT_CASES] = {
     "JitSumPlain 64 (interpreted twin)", "empty loop", "JitInl 64 (compiled, tiny callees)", "JitInlPlain 64 (interpreted twin)",
     "JitLz 64 (compiled, direct calls to leaves)", "JitLzPlain 64 (interpreted twin)",
     "JitLzChain 64 (compiled, lazy chain)", "JitLzChainPlain 64 (interpreted twin)", "JitLzVirt 64 (compiled, class-guarded callvirt)",
-    "JitLzVirtPlain 64 (interpreted twin)", "JitLzAlloc 64 (compiled, callee exits at newobj)", "JitLzAllocPlain 64 (interpreted twin)"};
+    "JitLzVirtPlain 64 (interpreted twin)", "JitLzAlloc 64 (compiled, callee exits at newobj)", "JitLzAllocPlain 64 (interpreted twin)", "string comparer GetHashCode + Equals (2 calls)",
+    "Array.Copy 5-arg int[] 4-64 (64 copies)", "Array.Copy 5-arg object[] 8-32 (64 copies)", "Array.Copy 3-arg int[] / object[] (64 copies)",
+    "List<Vector3> get_Item (ldelem.any.vt)", "List<Vector3>.Add (stelem.any.vt)", "List<Vector3> foreach (per element)", "List<ObjectGuid> get_Item",
+    "Dictionary<ulong,Vector3>.TryGetValue", "Dictionary<ulong,Vector3> set_Item", "SimClock.ElapsedTimeInMinutes (float)", "DesireCurve.GetYFromX (r8 math)",
+    "GameObject.GetComponent<C> (ldtoken, castclass)", "Dictionary<ulong,int>.TryGetValue, spread keys",
+    "RetTd getters (4 rets: int, int, long, int)", "RetTd void methods (4 rets.void)", "RetTd ctor newobj (1 ret.void, bails)", "RetTd mixed (1 ctor + 3 getters)",
+    "string direct: static Equals, ==, GetHashCode, Equals(string) (4 calls, game-shaped keys)", "Dictionary<string,int>.TryGetValue (game-shaped keys, 60% hit)", "string comparer GetHashCode + Equals (2 calls, game-shaped keys)", "MintBench (docs/139 mix, per 1/1024 round)"};
 static int JitCase(int c, int n) {
     void* a[2] = {&c, &n};
     return I32(T("JitBench", 2, a));
@@ -2281,8 +2354,24 @@ static void JitStats() {
     Log("jit: %d methods compiled (%d instantiations incl. generics), %d native ops, %d exits, code %d bytes (%.1f KB, pool use %.1f KB), "
         "table %d entries (%u KB), shadow %d words\n", g_jitMethN, g_jitMethN, nat, ex, bytes, bytes / 1024.0, g_jitCodeUsed / 1024.0,
         g_jitEntN, (unsigned)(sizeof(JitEnt) * (JIT_TAB_N + 4096) / 1024), g_jitPosN);
+    Log("jit: lazy cells %d, %lld searches, %.1f rows walked a search\n", g_jitLazyCellN, g_jitCellSearches, g_jitCellSearches ? (double)g_jitCellScanned / g_jitCellSearches : 0.0);
+    { char cbv[16]; if (GetEnvironmentVariableA("MONOHOST_JITCELLBENCH", cbv, sizeof cbv)) { const char* cb = cbv;  // docs/537 §26 open (2): ns a JitLazyCellFor scan with N cells (dummy rm, no entry), hit at the middle / miss
+        int n = atoi(cb) > 8191 ? 8191 : atoi(cb); LARGE_INTEGER f, a, b; QueryPerformanceFrequency(&f);
+        JitLazyCell* save = (JitLazyCell*)malloc(sizeof g_jitLazyCell); memcpy(save, g_jitLazyCell, sizeof g_jitLazyCell); int saveN = g_jitLazyCellN;
+        for (int i = 0; i < n; i++) g_jitLazyCell[i].rm = (const u8*)(uintptr_t)(0x10000000 + i * 64), g_jitLazyCell[i].entry = NULL;
+        g_jitLazyCellN = n; const int R = 200000; volatile void* sink = NULL; LONGLONG s0 = g_jitCellSearches, c0 = g_jitCellScanned;
+        QueryPerformanceCounter(&a); for (int r = 0; r < R; r++) sink = JitLazyCellFor((const u8*)(uintptr_t)(0x10000000 + ((r * 2654435761u) % (unsigned)n) * 64)); QueryPerformanceCounter(&b);
+        double hit = (double)(b.QuadPart - a.QuadPart) * 1e9 / f.QuadPart / R; LONGLONG w = g_jitCellScanned - c0;
+        g_jitLazyCellN = n; g_jitCellSearches = s0, g_jitCellScanned = c0; (void)sink;
+        Log("jit: cell scan bench N=%d: hit (uniform target) %.0f ns a search (%.1f rows walked), full miss walks %d rows\n", n, hit, (double)w / R, n);
+        memcpy(g_jitLazyCell, save, sizeof g_jitLazyCell); g_jitLazyCellN = saveN; free(save);
+    } }
+    Log("jit: method table %d of %d (MONOHOST_JITMAXMETHODS), %d fill rows, %ld refused \"method table full\"\n", g_jitMethN, g_jitMethCap, g_jitFillN, g_jitTableFull);
     Log("jit: satb barrier: %ld compiled heap stores logged in spans, %ld worker entries sent back to the interpreter\n", g_jitSatbStores, g_jitSatbBails);
     Log("jit verify: free cells left out %ld\n", g_jvFreeCells);
+    if (g_jitRtOn || g_jrtCtr.rtdKillWhy)
+        Log("jit ret teardown: on %ld, sites %ld, bails %ld, verified %ld, MISMATCH %ld, skipped %ld, faults %ld, kill %ld\n", g_jrtCtr.rtdOn, g_jrtCtr.rtdSites,
+            g_jrtCtr.rtdBails, g_jrtCtr.rtdVerified, g_jrtCtr.rtdMismatch, g_jrtCtr.rtdVSkipped, g_jrtCtr.rtdFaults, g_jrtCtr.rtdKillWhy);
     if (g_jitInline) Log("jit: inlined call sites %ld, sites refused by the inliner %ld, fast paths run %ld (count mode)\n", g_jitInlined, g_jitInlineNo, g_jitInlineHits);
     if (g_jitLazy) {
         int gf = 0;
@@ -2594,34 +2683,64 @@ static void JitBenchRun() {
         JitCountReport();
         return;
     }
-    SetThreadAffinityMask(GetCurrentThread(), 1 << 2);
+    // MONOHOST_JITCORE (default 2): the pinned core; pick one the game's affinity leaves free when a game runs (tools/jit-piece-bench.ts)
+    char rv[16] = "", cv2[8] = "", cs[256] = "";
+    const int core = GetEnvironmentVariableA("MONOHOST_JITCORE", cv2, sizeof(cv2)) ? atoi(cv2) : 2;
+    SetThreadAffinityMask(GetCurrentThread(), (DWORD_PTR)1 << core);
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
-    char rv[16] = "";
     GetEnvironmentVariableA("MONOHOST_JITREPS", rv, sizeof(rv));
-    const int reps = rv[0] ? atoi(rv) : 7;
+    const int reps = rv[0] ? (atoi(rv) < 1 ? 1 : atoi(rv) > 64 ? 64 : atoi(rv)) : 7;
+    // MONOHOST_JITCASES=14,15 (comma list): time only these cases (+ the empty loop 20) and skip MintBench; empty = all
+    bool want[JIT_CASES];
+    const bool pick = GetEnvironmentVariableA("MONOHOST_JITCASES", cs, sizeof(cs)) && cs[0];
+    for (int c = 0; c < JIT_CASES; c++) want[c] = !pick || c == 20;
+    for (char* p = cs; pick && *p;) { const int c = atoi(p); if (c >= 0 && c < JIT_CASES) want[c] = true; while (*p && *p != ',') p++; if (*p) p++; }
     double off[JIT_CASES], on[JIT_CASES];
+    static double sOffT[JIT_CASES][64], sOnT[JIT_CASES][64];  // every rep, for the median / p95 lines
+    static long sRtBails[JIT_CASES], sRtIters[JIT_CASES];     // RetTeardown: block bails and iterations of the timed compiled runs, per case (docs/537 §27)
     for (int c = 0; c < JIT_CASES; c++) {
+        if (!want[c]) continue;
         const int n = 200000;
         double bOff = 1e9, bOn = 1e9;
         int sOff = 0, sOn = 0;
-        for (int r = 0; r < reps; r++) {
-            JitSetPatched(false);
-            double t = JitTime(c, n, &sOff);
-            if (t < bOff) bOff = t;
-            JitSetPatched(true);
-            t = JitTime(c, n, &sOn);
-            if (t < bOn) bOn = t;
+        for (int r = 0; r < reps; r++) {  // arm order swapped each rep, as jit-bench's passes
+            for (int a = 0; a < 2; a++) {
+                const bool compiled = (a ^ (r & 1)) == 1;
+                JitSetPatched(compiled);
+                const long b0 = g_jrtCtr.rtdBails;
+                const double t = JitTime(c, n, compiled ? &sOn : &sOff);
+                if (compiled) sRtBails[c] += g_jrtCtr.rtdBails - b0, sRtIters[c] += n;
+                (compiled ? sOnT : sOffT)[c][r] = t;
+                if (compiled) { if (t < bOn) bOn = t; } else if (t < bOff) bOff = t;
+            }
         }
         off[c] = bOff, on[c] = bOn;
+        Log("jitbench case %d sums off %d on %d\n", c, sOff, sOn);  // the bench tool prints both values per case and arm
         if (sOff != sOn) Log("jitbench case %d CHECKSUM DIFFERS: off %d on %d\n", c, sOff, sOn);
+        Log("jitbench sums case %d interp %d compiled %d\n", c, sOff, sOn);  // the values, not only equal / differs (tools/jit-piece-bench.ts compares them across arms)
     }
+    JitSetPatched(true);
     const double loop = (off[20] + on[20]) / 2;
     // the empty loop's cost per iteration; a case whose loop steps by 64 or 256 (HostTest.JitBench) pays it that many times less
-    static const int kStep[JIT_CASES] = {1, 1, 1, 256, 1, 1, 1, 1, 1, 1, 1, 1, 256, 1, 1, 1, 1, 1, 64, 64, 1, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64};
-    Log("jitbench (best of %d, n = 200000, pinned; ns per iteration, loop overhead %.1f ns / the case's step subtracted):\n", reps, loop);
+    static const int kStep[JIT_CASES] = {1, 1, 1, 256, 1, 1, 1, 1, 1, 1, 1, 1, 256, 1, 1, 1, 1, 1, 64, 64, 1, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 1, 64, 64, 64, 1, 1, 256, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    Log("jitbench (best of %d, n = 200000, pinned core %d; ns per iteration, loop overhead %.1f ns / the case's step subtracted):\n", reps, core, loop);
     for (int c = 0; c < JIT_CASES; c++)
-        if (c != 20) Log("jitbench case %2d %-40s interp %7.1f ns  compiled %7.1f ns  speedup %.2fx  saved %6.1f ns\n", c, kJitCase[c], off[c] - loop / kStep[c],
+        if (c != 20 && want[c]) Log("jitbench case %2d %-40s interp %7.1f ns  compiled %7.1f ns  speedup %.2fx  saved %6.1f ns\n", c, kJitCase[c], off[c] - loop / kStep[c],
             on[c] - loop / kStep[c], (off[c] - loop / kStep[c]) / (on[c] - loop / kStep[c]), off[c] - on[c]);
+    if (g_jitRtOn)  // bails per iteration of each timed case: a case whose rets mostly bail measures the wrong thing
+        for (int c = 0; c < JIT_CASES; c++)
+            if (c != 20 && want[c]) Log("jitbench rettd case %d bails %ld iters %ld sites %ld\n", c, sRtBails[c], sRtIters[c], g_jrtCtr.rtdSites);
+    // raw reps per case and arm (loop overhead not subtracted; the tool takes it off with case 20's median): tools/jit-piece-bench.ts
+    for (int c = 0; c < JIT_CASES; c++) {
+        if (!want[c]) continue;
+        char line[64 * 2 * 12 + 64];
+        for (int a = 0; a < 2; a++) {
+            int k = sprintf_s(line, sizeof(line), "jitbench reps case %d step %d %s", c, kStep[c], a ? "compiled" : "interp");
+            for (int r = 0; r < reps; r++) k += sprintf_s(line + k, sizeof(line) - k, " %.2f", (a ? sOnT : sOffT)[c][r]);
+            Log("%s\n", line);
+        }
+    }
+    if (pick) return;
     // whole MintBench (docs/139), JIT off vs on, interleaved
     int n = 3000, s0 = 0, s1 = 0;
     void* args[1] = {&n};
@@ -2713,9 +2832,10 @@ static bool InstallJit() {
         g_jitFastCopy = fcWant && JitFastCopyOk();
         if (fcWant && !g_jitFastCopy) Log("jit: FastCopy: EA's Array.FastCopy bytes differ, it stays an EA call\n");
         g_jitLdsflda = GetEnvironmentVariableA("MONOHOST_JITLDSFLDA", x, sizeof(x)) && x[0] == '1';
-        g_jitClauseLazy = GetEnvironmentVariableA("MONOHOST_JITCLAUSELAZY", x, sizeof(x)) && x[0] == '1';
+        g_jitClauseLazy = GetEnvironmentVariableA("MONOHOST_JITCLAUSELAZY", x, sizeof(x)) && (x[0] == '1' || x[0] == '2');
+        g_jitClauseList = g_jitClauseLazy && x[0] == '2';
         g_jitLeafOnly = GetEnvironmentVariableA("MONOHOST_JITDIRECTLEAF", x, sizeof(x)) && x[0] == '1';
-        Log("jit: switches FastCopy=%d Ldsflda=%d ClauseLazy=%d DirectLeaf=%d\n", g_jitFastCopy ? 1 : 0, g_jitLdsflda ? 1 : 0, g_jitClauseLazy ? 1 : 0, g_jitLeafOnly ? 1 : 0);
+        Log("jit: switches FastCopy=%d Ldsflda=%d ClauseLazy=%d DirectLeaf=%d\n", g_jitFastCopy ? 1 : 0, g_jitLdsflda ? 1 : 0, g_jitClauseLazy ? (g_jitClauseList ? 2 : 1) : 0, g_jitLeafOnly ? 1 : 0);
         if (g_jitCallExit && !g_jitPureIcalls) Log("jit: CallExit: the Array icall bytes differ, pure icalls stay EA calls\n");
         for (auto& t : kJitTmpl) {
             const unsigned g = t.kind >= K_FARITH ? 512 : t.kind == K_LDFLDA || !strcmp(t.name, "ldfld.r4") || !strcmp(t.name, "ldfld.r8") || !strcmp(t.name, "stfld.r4") || !strcmp(t.name, "stfld.r8") ? 1
@@ -2731,9 +2851,19 @@ static bool InstallJit() {
                 if (!strcmp(names[op], t.name)) { g_opInfo[op] = {t.kind, t.width, t.x}; break; }
         }
         g_jitTab = (JitEnt*)VirtualAlloc(NULL, sizeof(JitEnt) * (JIT_TAB_N + 4096), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-        g_jitCode = (u8*)VirtualAlloc(NULL, 4 << 20, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-        g_jitCodeEnd = g_jitCode + (4 << 20);
+        g_jitCode = (u8*)VirtualAlloc(NULL, 8 << 20, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);  // the game's CodeKB default (T4096)
+        g_jitCodeEnd = g_jitCode + (8 << 20);
+        if (GetEnvironmentVariableA("MONOHOST_JITMAXMETHODS", x, sizeof(x))) g_jitMethCap = atoi(x) < 512 ? 512 : atoi(x) > 4096 ? 4096 : atoi(x);
+        if (g_jitCode && GetEnvironmentVariableA("MONOHOST_JITRETTD", x, sizeof(x)) && x[0] == '1') {  // docs/537 §27: before any compile
+            g_jitRtEvery = GetEnvironmentVariableA("MONOHOST_JITRETTD_EVERY", x, sizeof(x)) && atoi(x) > 0 ? (DWORD)atoi(x) : 1;
+            JitEnt* trap = g_jitMode == 3 && g_jitTab ? JitAdd((DWORD)(uintptr_t)g_jitRtTrapW) : NULL;  // the verify catch word
+            if (trap) trap->native = NULL, trap->orig = 0, trap->rm = NULL;
+            g_jitRtOn = (g_jitMode != 3 || trap) && JitRtInstall(g_jitCode, 4096);
+            if (g_jitRtOn) g_jitCodeUsed = 4096;
+            Log("jit: RetTeardown %s (verify every %lu)\n", g_jitRtOn ? "on" : "NOT installed", g_jitRtEvery);
+        }
         g_jitPos = (unsigned short*)malloc(400000 * 2), g_jitOrigW = (unsigned short*)malloc(400000 * 2);
+        if (GetEnvironmentVariableA("MONOHOST_JITFILL", x, sizeof(x))) JitFill(atoi(x));
         g_jitPatched = true;
         g_jitExitAll = GetEnvironmentVariableA("MONOHOST_JITEXITALL", x, sizeof(x)) && x[0] == '1';
         g_jitCountOn = GetEnvironmentVariableA("MONOHOST_JITCOUNT", x, sizeof(x)) && x[0] == '1';
@@ -2768,6 +2898,12 @@ static bool InstallJit() {
         for (char* t = strtok_s(g_jitListBuf, ",", &ctx); t && g_jitNameN < 256; t = strtok_s(NULL, ",", &ctx)) g_jitNames[g_jitNameN++] = t;
     } else
         for (const char* n : kJitList) g_jitNames[g_jitNameN++] = n;
+    // MONOHOST_JITLISTADD=<comma list>: extra names after the default list (jit-piece-bench cases of methods the host list lacks)
+    static char addBuf[2048];
+    if (GetEnvironmentVariableA("MONOHOST_JITLISTADD", addBuf, sizeof(addBuf))) {
+        char* ctx = NULL;
+        for (char* t = strtok_s(addBuf, ",", &ctx); t && g_jitNameN < 256; t = strtok_s(NULL, ",", &ctx)) g_jitNames[g_jitNameN++] = t;
+    }
     char path[MAX_PATH];
     GetModuleFileNameA(NULL, path, MAX_PATH);
     strcpy_s(strrchr(path, '\\') + 1, 64, "jit-dump.txt");
