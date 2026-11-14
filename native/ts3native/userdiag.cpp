@@ -682,10 +682,10 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
         case 6: return PlAnswer();  // played.cpp: store ready / household played (docs/14 section 8.6)
         case 7: return CpOp(lo);    // compaction.cpp: [Compaction] verdict and steps (docs/204)
         case 8: return (u8)g_asLiveUnseen;  // autshadow-run.cpp: [AutShadow] Unseen=1 (docs/222); no icalls when [AutShadow] is off
-        case 10: case 11: KdScopeSet(lo, ((hi >> 16) & 0xFF) == 10 ? 1 : 2); return 1;  // docs/197 §7: UfWhy of route lo, before its START or sync plan
+        case 10: case 11: KdScopeSet(lo, ((hi >> 16) & 0xFF) == 10 ? 1 : 2, hi & 0xFFFF); return 1;  // docs/197 §7: UfWhy of route lo, before its START or sync plan; hi 0-15: its routefail interaction id (docs/226)
         case 12: KdScopeClear(lo); GvaPlanEnd(); return 1;  // docs/197 §7: route lo's plan is over (docs/250 §7.0: gvattr's plan end)
         case 35: return GvaSrcMsg(lo);  // docs/250 §7.0 (gvro.cpp): the next plan's source class and scope, or "gvattr on?"
-        case 13: KdScopeSet(lo, 3); return 1;  // docs/197 §7: a seen NPC (KdSeenNpcCeilMs); an old package never sends it
+        case 13: KdScopeSet(lo, 3, hi & 0xFFFF); return 1;  // docs/197 §7: a seen NPC (KdSeenNpcCeilMs); an old package never sends it
         case 14: case 15: case 16: case 17: case 18: case 19: return CtOp((hi >> 16) & 0xFF, lo);
         case 20: case 21: case 22: case 23: case 24: case 25: case 26: case 27: case 28: case 29:
 #ifdef TS3N_RFTEST
@@ -716,6 +716,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
                 g_udTxtN = 0;
                 return 1;
             }
+            if (!strncmp(g_udTxt, "rfia: ", 6)) { g_udTxtN = 0; RfIaName(g_udTxt); return 1; }  // docs/226: a routefail interaction name, not logged
             if (!strncmp(g_udTxt, "routefail", 9) || !strncmp(g_udTxt, "gohere", 6)) {  // docs/197 §7: own cap (disk guard only), the job's fields appended
                 static LONG s_rfLines;
                 char job[320];

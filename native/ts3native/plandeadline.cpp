@@ -111,9 +111,10 @@ static bool KdExempt(const AsyncJob* j) {
 }
 static LONG KdCeilUs(LONG scope) { return scope == 3 ? ts3native_counters.kdNpcCeilUs : ts3native_counters.kdCeilUs; }
 static DWORD g_kdScopeH;
-static LONG g_kdScope;
-// sim thread (UdTextMsg): this route's scope, good for its next START only
-static void KdScopeSet(DWORD handle, LONG scope) { g_kdScopeH = handle, g_kdScope = scope, ts3native_counters.kdScopeN++; }
+static LONG g_kdScope, g_kdScopeIa;
+// sim thread (UdTextMsg): this route's scope, good for its next START only; ia = the routefail interaction id sent with it (RfIaName)
+static void KdScopeSet(DWORD handle, LONG scope, LONG ia) { g_kdScopeH = handle, g_kdScope = scope, g_kdScopeIa = ia, ts3native_counters.kdScopeN++; }
+static LONG RfIaPeek(DWORD handle) { return handle && g_kdScopeH == handle ? g_kdScopeIa : 0; }  // START, before KdScopeTake
 static LONG KdScopeTake(DWORD handle) {
     const LONG s = handle && g_kdScopeH == handle ? g_kdScope : 0;
     g_kdScopeH = 0;
@@ -415,7 +416,7 @@ static u64 RfGoal(DWORD handle) {
 // Not marked unseen = never dropped; unseen 30 a minute. Worker writes under g_rfLock, sim thread reads; off the job's +0x918.
 struct RfRec {
     DWORD h, seq;
-    LONG us, planUs, hostUs, capAtUs, tailUs, capUs, wouldUs, nodes, plans, res, kdKind, uf, scope, cutMask;
+    LONG us, planUs, hostUs, capAtUs, tailUs, capUs, wouldUs, nodes, plans, res, kdKind, uf, scope, cutMask, ia;
     const char* why;  // the cut's owner, NULL = uncut
     u64 follower;
 };
@@ -423,6 +424,23 @@ static const int kRfN = 64;
 static RfRec g_rfJobs[kRfN];
 static LONG g_rfNext;
 static SRWLOCK g_rfLock = SRWLOCK_INIT;
+// Interaction names for the job lines (docs/226 Logging): ts3fixes sends "rfia: N <Interaction> target <Type>" once per
+// pair (RouteFailLog.cs RflIaId, the same text its own routefail lines carry), then N with each plan's scope op (hi bits 0-15).
+// 0 = no answer (old package, not a Sim's plan, our own check, table full). Sim thread writes, worker reads, both under g_rfLock.
+static const int kRfIaN = 1024, kRfIaLen = 48;
+static char g_rfIa[kRfIaN][kRfIaLen];
+static void RfIaName(const char* line) {  // "rfia: N text"
+    char* end;
+    const unsigned long n = strtoul(line + 6, &end, 10);
+    if (n == 0 || n >= (unsigned long)kRfIaN || *end != ' ') return;
+    AcquireSRWLockExclusive(&g_rfLock);
+    strncpy_s(g_rfIa[n], end + 1, _TRUNCATE);
+    ReleaseSRWLockExclusive(&g_rfLock);
+}
+// ", <Interaction> target <Type>" for a job line; caller holds g_rfLock (any mode)
+static void RfIaText(LONG ia, char* b, size_t n) {
+    _snprintf_s(b, n, _TRUNCATE, ", %s", ia > 0 && ia < kRfIaN && g_rfIa[ia][0] ? g_rfIa[ia] : "interaction unknown");
+}
 static void RfText(const RfRec& r, char* b, size_t n) {
     char dl[48];
     if (r.why) sprintf_s(dl, "cut (%s, mask %ld)", r.why, r.cutMask);
@@ -469,8 +487,11 @@ static void RfJobNote(const AsyncJob* j, bool capped, LONG us, const JobSplit& s
     r.capUs = capUs, r.wouldUs = t_kdExemptUs, r.nodes = t_jobNodes, r.plans = t_jobPlans, r.res = *(const LONG*)j->result;
     r.kdKind = t_kdKind, r.uf = j->uf, r.scope = j->kdScope, r.cutMask = cutMask, r.follower = j->kdId;
     r.why = !capped ? NULL : t_kdExemptUs ? "KdSeenCeilMs" : j->uf ? "UnseenFallback" : t_kdKind ? "KindDeadlines" : j->probe ? "PlanDeadlineMs" : "FbJobCapMs";
+    r.ia = j->rfIa;
+    char ia[kRfIaLen + 4];
     AcquireSRWLockExclusive(&g_rfLock);
     g_rfJobs[g_rfNext++ % kRfN] = r;
+    RfIaText(r.ia, ia, sizeof(ia));
     ReleaseSRWLockExclusive(&g_rfLock);
     const bool unseen = r.uf || r.scope == 2;
     char t[320];
@@ -487,10 +508,10 @@ static void RfJobNote(const AsyncJob* j, bool capped, LONG us, const JobSplit& s
             if (KdNpcLineOk()) Log("KD NPC CEILING CUT: route %08lX sim %016I64X kind %s, %ld ms%s", r.h, r.follower, r.kdKind ? kKdName[r.kdKind - 1] : "off", us / 1000, t);
         } else Log("KD CEILING CUT: route %08lX%s", r.h, t);
     }
-    if ((r.res != 1 || capped) && RfLineOk(unseen)) Log("routefail job: route %08lX%s", r.h, t);
+    if ((r.res != 1 || capped) && RfLineOk(unseen)) Log("routefail job: route %08lX%s%s", r.h, ia, t);
     if (t_rfRetry.on) {
         t_rfRetry.on = false;
-        if (RfLineOk(unseen)) Log("routefail retry: route %08lX after cut route %08lX %lu ms ago, request %s, backoff level %ld, %s%s", r.h, t_rfRetry.cutH,
+        if (RfLineOk(unseen)) Log("routefail retry: route %08lX%s, after cut route %08lX %lu ms ago, request %s, backoff level %ld, %s%s", r.h, ia, t_rfRetry.cutH,
                                   t_rfRetry.agoMs, t_rfRetry.same ? "same" : "changed", t_rfRetry.level, r.res == 1 ? "succeeded" : "failed", t);
     }
     if (t_kdCamNote) KdCamNoteLog(r.h, t);

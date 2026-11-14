@@ -758,6 +758,24 @@ static void TestPlanDeadline() {
         assert(!rf[0]);
         RfAppend("routefail: x, route 25ABCDE0", rf, sizeof(rf));
         assert(!rf[0]);
+        // docs/226: the job's interaction, by the id ts3fixes sent with the scope; the RfAppend tail does not repeat it
+        RfIaName("rfia: 5 ReactToFire target FireSource");
+        RfIaName("rfia: 1024 Too far");  // past the table: ignored
+        RfIaName("rfia: x Bad");
+        KdScopeSet(0x25000009, 3, 5);
+        assert(RfIaPeek(0x25000008) == 0 && RfIaPeek(0x25000009) == 5 && KdScopeTake(0x25000009) == 3 && RfIaPeek(0x25000009) == 0);
+        char ia[kRfIaLen + 4];
+        RfIaText(5, ia, sizeof(ia));
+        assert(!strcmp(ia, ", ReactToFire target FireSource"));
+        RfIaText(6, ia, sizeof(ia));
+        assert(!strcmp(ia, ", interaction unknown"));
+        RfIaText(1024, ia, sizeof(ia));
+        assert(!strcmp(ia, ", interaction unknown"));
+        e.rfIa = 5;
+        RfJobNote(&e, false, 300000, sp, 0, 0);
+        RfAppend("routefail: x, Plan async No, route 25ABCDEF", rf, sizeof(rf));
+        assert(rf[0] && !strstr(rf, "ReactToFire"));
+        g_rfIa[5][0] = 0, e.rfIa = 0;
         t_kdKind = 1, t_kdExemptUs = 250000;
         RfJobNote(&e, true, 12000000, sp, 10000000, 1);
         assert(k.kdCeilCut == 1);

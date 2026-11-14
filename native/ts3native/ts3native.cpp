@@ -3521,6 +3521,7 @@ struct AsyncJob {
     LONG ufCut;       // docs/202: that job was cut (worker, before J_DONE); IcCollect hands it to the CUT? answer
     LONG kdScope;     // docs/197 §7: 0 unknown, 1 seen household side, 2 unseen (UfWhy 0), 3 seen NPC, from ts3fixes right before START
     u64 rfGoal;       // docs/197 §7: hash of the route's destinations at START (routefail retry: same request?)
+    LONG rfIa;        // docs/226: routefail interaction id from ts3fixes' scope op (RfIaName), 0 = unknown
 };
 // docs/134: 32 slots; with [RouteAsync] FallbackAsync off only the first kJobsBase are handed out (QueueFull as before)
 static const int kJobs = 32, kJobsBase = 8;
@@ -4084,8 +4085,9 @@ static LONG KdJobBegin(const AsyncJob* j);                          // plandeadl
 static void KdJobEnd(const AsyncJob* j, bool capped, LONG us, LONGLONG end, LONGLONG dl);
 static u64 KdFollower(DWORD handle);  // sim thread, at START
 static u64 RfGoal(DWORD handle);      // sim thread, at START: destinations hash for routefail retry
+static LONG RfIaPeek(DWORD handle);   // sim thread, at START: the routefail interaction id ts3fixes sent with the scope (docs/226)
 static LONG KdScopeTake(DWORD handle);
-static void KdScopeSet(DWORD handle, LONG scope);
+static void KdScopeSet(DWORD handle, LONG scope, LONG ia = 0);
 static void RfJobNote(const AsyncJob* j, bool capped, LONG us, const JobSplit& s, LONG capUs, int cutMask);
 static void KdStuckMark(DWORD handle);
 static LONG ScProbeUs();              // the stuck-check probe's deadline: KindDeadlines' probe kind, else PlanDeadlineMs
@@ -5050,6 +5052,7 @@ static u8 AsyncStartBody(DWORD handle, int kind, const float* pt, bool foreign) 
     j->sc = sc;
     j->kdId = k.kdMode == 1 ? KdFollower(handle) : 0;  // docs/197: the backoff key, read here on the sim thread
     j->rfGoal = j->kdId ? RfGoal(handle) : 0;
+    j->rfIa = RfIaPeek(handle);  // before KdScopeTake: the same answer
     j->kdScope = KdScopeTake(handle);
     j->uf = UfTake(handle) ? 1 : 0;  // docs/202: the MARK is used up by the job it marks (a refused START leaves it to the sync IC)
     j->ufCut = 0;
