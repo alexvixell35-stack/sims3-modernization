@@ -248,6 +248,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kComboProtest value="False" />
     <kComboVenue value="False" />
     <kComboSituation value="False" />
+    <kComboJob value="False" />
+    <kComboProtestLot value="False" />
     <kFilterGridLeak value="True" />
     <kCompositorGhost value="True" />
     <kCasPuckEvents value="True" />

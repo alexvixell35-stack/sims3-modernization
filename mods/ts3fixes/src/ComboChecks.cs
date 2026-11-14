@@ -6,12 +6,17 @@ using Sims3.Gameplay;
 using Sims3.Gameplay.Abstracts;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.Autonomy;
+using Sims3.Gameplay.Careers;
 using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Interfaces;
+using Sims3.Gameplay.Objects.Miscellaneous;
 using Sims3.Gameplay.Objects.RabbitHoles;
 using Sims3.Gameplay.Situations;
+using Sims3.Gameplay.UI;
 using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
+using Sims3.SimIFace.Enums;
+using Sims3.UI;
 using Sims3.SimIFace.RouteDestinations;
 
 namespace Ts3Fixes
@@ -21,8 +26,8 @@ namespace Ts3Fixes
     // rabbit hole: type, Guid, proxy type, InWorld, Position, LotCurrent, whether RoutingSlot_0..3 read as the world origin
     // on the proxy, and the proxy's routing / enter / exit slot counts. Then the order Queries.GetObjects returns ICityHall
     // and IFieldTrippable objects in (EA code that takes the first one gets a piece when a piece comes first). These are
-    // the facts docs/551 marks [inferred]: a piece is out of the world with Position OutOfWorld and LotCurrent null, and a
-    // combo model lacks RoutingSlot_0.
+    // the facts docs/551 rests on: a piece is out of the world (Position OutOfWorld) on the world lot, and a combo model
+    // lacks RoutingSlot_0.
     //
     // ComboFixCheck("run") then exercises one EA path per switch on the first matching piece, as the game would call it,
     // and reads the outcome (BROKEN = EA's behaviour, FIXED = the switch's, N/A = no such piece or it is busy):
@@ -32,7 +37,10 @@ namespace Ts3Fixes
     // its lot and whether it is outdoors; the route is planned only, never walked; ProtestOverCallback ends the protest),
     // venue (StartShowSoundBroadcaster on an idle Theatre piece: the TheatreMusic broadcaster's origin; ended again),
     // situation (AutographSessionSituation.Create for the active Sim at a piece: the session's rabbit hole and lot; the
-    // situation is ended at once and the active Sim's queue cleared). Run it with the three switches off, then on.
+    // situation is ended at once and the active Sim's queue cleared), job (EA's job selection for a Firefighter epic
+    // rescue whose rabbit hole exists only inside a combo: no job, or a job at the piece on the building's lot), protestlot
+    // (the EP9 daily protest's City Hall candidate lot, the organize-protest picker's entries, and the lot a protest created
+    // on that candidate lands on; exited at once). Run it with the five switches off, then on.
     public static partial class Fixes
     {
         public static object ComboRabbitHoleCheck(string what)
@@ -81,16 +89,12 @@ namespace Ts3Fixes
             sb.Append("protest: ").Append(ComboCheckPart(ComboCheckProtest)).Append('\n');
             sb.Append("venue: ").Append(ComboCheckPart(ComboCheckVenue)).Append('\n');
             sb.Append("situation: ").Append(ComboCheckPart(ComboCheckSituation)).Append('\n');
+            sb.Append("job: ").Append(ComboCheckPart(ComboCheckJob)).Append('\n');
+            sb.Append("protestlot: ").Append(ComboCheckPart(ComboCheckProtestLot)).Append('\n');
             int[] c = PatchCounters();
-            sb.Append("counters 2337 2338 2340 2342 2343:");
-            foreach (int i in new int[] { 2337, 2338, 2340, 2342, 2343 }) sb.Append(' ').Append(c[i]);
+            sb.Append("counters 2337 2338 2340 2342 2343 2374-2378:");
+            foreach (int i in new int[] { 2337, 2338, 2340, 2342, 2343, 2374, 2375, 2376, 2377, 2378 }) sb.Append(' ').Append(c[i]);
             return sb.ToString();
-        }
-
-        static T FirstPiece<T>() where T : RabbitHole
-        {
-            foreach (T rh in Sims3.Gameplay.Queries.GetObjects<T>()) if (RhPiece(rh)) return rh;
-            return null;
         }
 
         static string LotName(Lot lot)
@@ -221,6 +225,76 @@ namespace Ts3Fixes
             bool ok = at != null && at.Position != Vector3.OutOfWorld && lot != null && lot == piece.RabbitHoleProxy.LotCurrent;
             string where = at == null ? "none" : at == piece ? "the piece" : at.GetType().Name;
             return (ok ? "FIXED" : "BROKEN") + " (session at " + where + (at == null ? "" : " " + CheckPos(at.Position)) + ", lot " + LotName(lot) + ")";
+        }
+
+        // InitializeBaseJobCreationSpec is protected and swapped by combojob: a delegate runs it like EA's own callers.
+        delegate bool InitSpecFn(ref JobCreationSpec spec, JobId jobId, JobStaticData data, bool enableValidationOnJob);
+
+        // combojob: EA's job selection for a Firefighter epic rescue whose rabbit hole type exists only as combo pieces
+        // (EpicHospitalRescue / EpicScienceRescue / EpicCriminalRescue), run on the career's static occupation with
+        // validation off (no weekday or household test; nothing is created, the spec is dropped). EA's broken arm: no job
+        // (the piece's world lot fails IsJobValidForCreation). Fixed: a spec at the piece on the building's lot.
+        static string ComboCheckJob()
+        {
+            Occupation occ = CareerManager.GetStaticOccupation(OccupationNames.Firefighter);
+            if (occ == null) return "N/A (no Firefighter career: Ambitions)";
+            MethodInfo m = typeof(Occupation).GetMethod("InitializeBaseJobCreationSpec", kInstAll, null, sRhInitSpecArgs, null);
+            if (m == null) return "N/A (InitializeBaseJobCreationSpec not found)";
+            InitSpecFn init = (InitSpecFn)Delegate.CreateDelegate(typeof(InitSpecFn), occ, m);
+            foreach (JobId id in new JobId[] { JobId.EpicHospitalRescue, JobId.EpicScienceRescue, JobId.EpicCriminalRescue })
+            {
+                JobStaticData data = Occupation.GetJobStaticData(OccupationNames.Firefighter, id);
+                if (data == null) continue;
+                int pieces = 0, standAlone = 0;
+                foreach (RabbitHole rh in RabbitHole.GetRabbitHolesOfType(data.RabbitHoleType)) if (RhPiece(rh)) pieces++; else standAlone++;
+                if (pieces == 0 || standAlone > 0) continue;
+                JobCreationSpec spec = null;
+                bool made = init(ref spec, id, data, false);
+                RabbitHole at = made && spec != null ? spec.mRabbitHole : null;
+                string what = id + " (" + data.RabbitHoleType + " only in a combo)";
+                if (at == null) return "BROKEN (" + what + ": no job, EA skipped the piece)";
+                bool ok = RhPiece(at) && spec.mLot != null && spec.mLot == at.RabbitHoleProxy.LotCurrent;
+                return (ok ? "FIXED" : "BROKEN") + " (" + what + ": job at " + at.GetType().Name + (RhPiece(at) ? " piece" : "") + ", lot " + LotName(spec.mLot) + ")";
+            }
+            return "N/A (no rescue type that exists only inside a combo here: needs ComboHospitalScienceLab or ComboCriminalTheater without a stand-alone one)";
+        }
+
+        static readonly FieldInfo sCkProtestLastDay = typeof(ImprovedProtestSituation).GetField("mLastDayHadProtest", BindingFlags.Static | BindingFlags.NonPublic);
+
+        // comboprotestlot: (1) the candidate lot EA's daily NPC protest takes from the first ICityHall, (2) the organize-protest
+        // picker's entries, (3) ImprovedProtestSituation.Create on that candidate for an NPC organizer, 24 h ahead, exited at
+        // once (EA's last-protest day is restored). EA's broken arm: the protest sits on the world lot and the picker has a
+        // world-lot entry. Fixed: the protest is on the combo City Hall's lot and the picker has no world-lot entry.
+        static string ComboCheckProtestLot()
+        {
+            CityHall hall = FirstPiece<CityHall>();
+            if (hall == null) return "N/A (no City Hall piece: needs ComboCityhallPoliceMilitary)";
+            if (!GameUtils.IsInstalled(ProductVersion.EP9)) return "N/A (University Life not installed)";
+            ICityHall[] halls = Sims3.Gameplay.Queries.GetObjects<ICityHall>();
+            Lot candidate = halls.Length == 0 ? null : halls[0].LotCurrent;
+            Lot building = hall.RabbitHoleProxy.LotCurrent;
+            int worldEntries = 0, hallEntries = 0;
+            foreach (IMapTagPickerInfo i in ImprovedProtestHelperObject.FindMapTagPickerInfo())
+            {
+                MapTagPickerLotInfo li = i as MapTagPickerLotInfo;
+                if (li == null || li.Lot == null) continue;
+                if (li.Lot.IsWorldLot) worldEntries++;
+                else if (li.Lot == building) hallEntries++;
+            }
+            Sim organizer = null;
+            foreach (Sim s in LotManager.Actors)
+                if (IsNpcSim(s) && s.SimDescription.YoungAdultOrAbove && !s.SimDescription.IsServicePerson) { organizer = s; break; }
+            string facts = "daily candidate lot " + LotName(candidate) + ", picker entries world lot " + worldEntries + " / City Hall " + hallEntries;
+            if (organizer == null || candidate == null) return "N/A (no NPC organizer or no ICityHall; " + facts + ")";
+            if (ImprovedProtestSituation.FindProtest(candidate) != null || ImprovedProtestSituation.FindProtest(building) != null) return "N/A (a protest is planned there; " + facts + ")";
+            object lastDay = sCkProtestLastDay == null ? null : sCkProtestLastDay.GetValue(null);
+            DateAndTime start = SimClock.Add(SimClock.CurrentTime(), TimeUnit.Hours, 24f);
+            ImprovedProtestSituation p = ImprovedProtestSituation.Create(organizer, candidate, start, 0, ImprovedProtestSituationType.StandardProtest, ImprovedProtestCauses.AgainstAtoms);
+            Lot at = p == null ? null : p.Lot;
+            try { if (p != null) p.Exit(); }
+            finally { if (lastDay != null) sCkProtestLastDay.SetValue(null, lastDay); }
+            bool ok = at != null && at == building && worldEntries == 0 && hallEntries > 0;
+            return (ok ? "FIXED" : "BROKEN") + " (protest created on " + LotName(at) + (at == building ? " (the City Hall's)" : "") + "; " + facts + ")";
         }
 
         // RoutingSlot_0..3 on the building (o = reads as the world origin, + = a real point), slot counts.

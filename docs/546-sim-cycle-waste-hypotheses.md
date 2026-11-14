@@ -277,6 +277,12 @@ elder's autonomy keeps choosing TakeBath and each try fails its plan (up to 68 t
 would alter a household Sim's choices, so it stays vanilla; the player sees it as "Sim won't bathe" and cleaning the pile
 ends it.
 
+**Log gap closed (2026-11-14, logging only).** This ranking used household `routefail:` lines; NPC failures exist only as
+ts3native `routefail job:` / `routefail retry:` lines, which did not name the interaction or its target. They now do, right
+after the route (`routefail job: route 25ABCDEF, ReactToFire target FireSource, job seq ...`), and every ts3fixes routefail
+variant shares the same `<interaction> target <type>` text, so NPC failures rank by cause the same way. Format and transport:
+docs/226 "Logging".
+
 ## 11. Events lost to one failed route (2026-11-14, reported in play)
 
 **awardkeep [verified in the decompiled code; harness check].** A career great success (the firefighter's hero award and
@@ -377,3 +383,73 @@ wrong: it missed CleanupInteraction.
 `syncpartnergone` (ended such a wait through EA's own failure call) was built and removed the same day, since EA already
 ends these waits; slots 2370-2373 retired. Do not rebuild it. The 30-45 min social timeouts of §9 are the parked-receiver
 case (`socialreceivefail`) and the partner's approach walk, not a gone partner.
+
+## 15. Household route failures and route cost, Bridgeport (2026-11-14, phase-20261114-1635) [measured; causes from decompiled code]
+
+Run: Bridgeport, one 6-Sim household at home, 5 phases x 8 min (socials, routine, camera, party, idle), ts3fixes with
+`kHitchCauseHooks` and `synctime`, autshadow/autlive/autunseen on by ini. The routefail lines use the older format (the
+Sim's running interaction, no target). 275 household `routefail:` lines, 6.4 s of failed plans: 1.96 s sync (sim thread:
+132 `Replan`, 88 `PlanFromPoint`), 4.45 s async (worker; 55 `Plan`).
+
+| # | Pattern | Count | Sims | Cause | Sim-thread ms |
+|---:|---|---:|---|---|---:|
+| 1 | Replan bursts at a bathroom door, `DestinationPortalLocked` (BrushTeeth 27 in 2 routes, Matty Watch 14 + no interaction 14 in one route each, SocialInteractionA 13 in one route, Kirby TakeShower 1) | 69 | Apollo, Matty, Indie, Kirby | someone else is in the bathroom: EA privacy; Sim stands at the door and replans once per wait cycle | 783 |
+| 2 | Replan bursts at a used slot, `NoDestinationSpecified` (Fridge_EatLeftovers 12 in 2 routes, Clean 5 + 4 + 2, WashDishes 4 + 2 + 1, BrushTeeth 2) | 37 | Katelyn, William, Apollo, Kirby, Indie, Matty | another Sim stands on the target's slots [inferred]; same wait loop | 178 |
+| 3 | Scare, `NoDestinationSpecified` / `NoPath` (15 replans in one route, 6 async plans, 9 one-off `PlanFromPoint`s) | 30 | Kirby, Katelyn | the 1-2.5 m, 70° cone behind the target (target's room only) has no free point in a small bathroom; EA then falls back to `RouteToDynamicObjectRadius`, whose loop replans | 249 (+435 worker) |
+| 4 | Far goals 120-330 m away, `DestinationPortalLocked`, `PlanFromPoint` sync, 10 goals, minutes apart, while sleeping, reading, mopping | 24 | Indie Girl only | caller not identified (not ts3fixes or ts3agent: neither calls a FromPoint plan); the goal room on another lot is locked | 356 |
+| 5 | MopPuddle / TakeBath, async, goal in the tub room (room 15) | 9 | Indie, William | privacy as in row 1 | worker 1,144 |
+| 6 | Contemplate, async, `NoDestinationSpecified`, goal = own position | 7 | Kirby | `Terrain.Contemplate.Run` plans 0.3-1 m around the point but limits it to a random nearby object's room, and tries objects until one room fits | worker 277 |
+
+**Row 1-2 mechanism [verified, decompiled].** `PrivacySituation` (toilet, shower, bath) adds `OnPortalPathPlan` on the
+lot and locks the room's portals for every other Sim whose interaction is autonomous (or below `Privacy` priority); the
+run's door dump shows all 13 home doors on lock `Anybody`, so the lock comes from this callback, not from a door setting
+[inferred, the room numbers match: goals in rooms 10 and 15, the Sims at the room-10 door 499.5,1550.5]. A Sim already on
+its way meets the change as an obstacle: `ObstacleEncounteredRouteInterruptAction` runs a StandAndWait
+(`kDefaultStandAndWaitDuration` 50) and calls `mInterruptedPath.Replan()` on every cycle while the plan fails (check
+frequency 1), so one wait gives 13-14 `Replan` lines (each burst here ran its full length and failed [inferred from 13-14 lines per route]). This is EA's
+"wait at the door" behaviour; a skipped replan could miss the moment the bathroom frees, so nothing to change for
+household Sims.
+
+**Does autonomy re-pick the blocked target? [verified, decompiled]** Yes (Apollo BrushTeeth again ~3 min after the first
+wait, same sink), but EA has no memory for that: `SimRoutingComponent.DoRoute` only adds `ExitReason.RouteFailed`; autonomy reads
+failed routes only as the debug counter `NumRouteFailsPerHour`; nothing records the target. So it is vanilla, not a
+forgotten memory, and not ours: autlive/autunseen replace the search with an exact one (docs/124, docs/222), and no
+ts3fixes code makes a FromPoint plan. `PortalLocked` is not excluded from any memory because none exists. Not a fix candidate under the household
+rule. (Pets differ: §8.)
+
+**Row 4** is the only open one: 24 cheap plans in 43 min. The newer routefail format names the target type; the next
+Bridgeport run says which interaction plans it.
+
+**Row 6** is wasteful (each object whose room does not fit costs a plan) but a fix would change the random object draws
+and, near a doorway, which room is accepted, so it is not exact for household Sims. NPC-only use is not worth 277 worker ms.
+
+**Route cost per phase** (minute counter lines; household failed sync plans from routefail lines):
+
+| Phase | Sim waits on route jobs: runplan (n / ms) | rtwait + disc + drop ms | household failed sync plans ms | long jobs (n / worker s) |
+|---|---|---:|---:|---|
+| socials | 686 / 7,633 | 1,793 | 126 | 135 / 36.0 |
+| routine | 795 / 8,913 | 2,713 | 132 | 134 / 34.4 |
+| camera | 764 / 10,045 | 2,765 | 611 | 148 / 38.0 |
+| party | 781 / 10,069 | 3,360 | 212 | 147 / 36.4 |
+| idle | 755 / 9,508 | 3,710 | 784 | 131 / 32.1 |
+
+Phase edges come from phase.txt mapped onto the log's ms clock (anchored at the last line, +-20 s). Longest single
+sim-thread wait of the whole run: 187 ms. Failed household plans are 1-8% of the sim thread's route-wait time; the rest
+are plans that succeed.
+
+**The 734 `route async: long job` lines are not sim-thread stalls [verified, counters].** All are worker jobs (729 own
+START, 33 foreign, 0 capped; 344 at 200-250 ms, 385 at 250-500 ms, 4 at 500-1000 ms, one 1,199 ms own household job
+before the phases). The sim thread waits for a job only at the counted sites above. Of the 493 jobs >= 200 ms with a
+split, 128 of 133 s are `host` (the worker waiting for the sim thread to run the job's managed calls) and 18 s are A*.
+So these jobs are slow because of the sim-thread round trips (portal and plan callbacks such as `OnPortalPathPlan`),
+not path search [inferred: `host` does not split call time from queue wait]. 479 unseen NPC jobs were cut by the
+UnseenFallback deadline (104 s worker) and retried, as designed.
+
+**Sync waits.** 170 `syncwait` lines, 24 household: one failure (Apollo BeScared, partner Katelyn's Scare route failed,
+row 3), no household timeout. The 8 `socialfinish: ShowVideos would signal, wait failed after 5.3/5 min` are NPC
+ShowVideos waits, the known §9 case; `socialfinish` was off in this run. Other NPC timeouts: Lala -> Tiara Routed
+30 min (the partner's receive failed: `socialreceivefail`), clubby -> Bubbles Started 45 min (partner's social queued
+behind VisitCommunityLot).
+
+**Result: no EA bug to fix for household Sims in this run**; no switch added. Analysis script: ad hoc (routefail lines
+grouped by Sim, interaction, result and route id).

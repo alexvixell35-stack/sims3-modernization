@@ -2743,6 +2743,16 @@
       "what": "event outcome keepers: weddingarchkeep, hsgradkeep, unigradkeep, bsrefund (docs/546 §12)",
       "at": "2026-11-14T14:17:01.362Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2374",
+      "kind": "fixes",
+      "from": 2374,
+      "to": 2378,
+      "by": "claude",
+      "what": "combo rabbit hole fixes 2: combojob, comboprotestlot (docs/551)",
+      "at": "2026-11-14T16:39:22.378Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

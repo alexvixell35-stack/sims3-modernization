@@ -66828,11 +66828,11 @@
   },
   {
     "id": "combo-rabbithole-check",
-    "bug": "Combined rabbit holes (docs/551): each piece of a combo building is out of the world (Position OutOfWorld, LotCurrent the world lot), so (1) CityHall.CreateProtest builds its broadcasters on the piece and the protest draws nobody, and the protest goal is the combo model's missing RoutingSlot_0 (the world origin), (2) Theatre.StartShowSoundBroadcaster puts the TheatreMusic broadcaster on the piece, (3) AutographSessionSituation centres the session on the piece, so the autographer never arrives",
-    "fix": "ts3fixes ComboRabbitHole.cs: comboprotest, combovenue, combosituation (all default off), docs/551",
+    "bug": "Combined rabbit holes (docs/551): each piece of a combo building is out of the world (Position OutOfWorld, LotCurrent the world lot), so (1) CityHall.CreateProtest builds its broadcasters on the piece and the protest draws nobody, and the protest goal is the combo model's missing RoutingSlot_0 (the world origin), (2) Theatre.StartShowSoundBroadcaster puts the TheatreMusic broadcaster on the piece, (3) AutographSessionSituation centres the session on the piece, so the autographer never arrives, (4) Occupation.InitializeBaseJobCreationSpec tests a RabbitHole-destination job's rabbit hole by its own lot (the world lot for a piece), so jobs whose rabbit hole exists only in a combo (Firefighter epic rescues, Medical / Film rabbit-hole jobs) are never offered, (5) EP9's daily NPC protest takes the first ICityHall's lot (the piece's world lot) and the organize-protest picker lists the world lot",
+    "fix": "ts3fixes ComboRabbitHole.cs: comboprotest, combovenue, combosituation, combojob, comboprotestlot (all default off), docs/551",
     "save": "Baseline-BP",
-    "note": "Needs a world with a combo building (Appaloosa Plains: ComboCityhallPoliceMilitary; others listed by ComboRabbitHoleCheck). ComboRabbitHoleCheck lists the pieces and their slots first (the facts of docs/551). ComboFixCheck then runs one EA path per family on the first matching piece and reads BROKEN / FIXED / N/A (venue needs a Theatre piece: N/A in Appaloosa Plains); the lot line is a fact, not a fix. On a world without a combo piece every line reads N/A: record the job as N/A (not triggered).",
-    "expect": "facts: pieces > 0, all at pos OutOfWorld on the world lot (FFFFFFFFFFFFFFFF), combo RoutingSlot_0 'o'. lot: world lot (manager = Global), alarm removed. off: protest BROKEN (origin the piece; EA route: no plan, or it ends off the building's lot), venue BROKEN or N/A, situation BROKEN (session at the piece, world lot). on: protest FIXED (origin the combo; fix route ends outdoors on the building's lot), venue FIXED or N/A, situation FIXED (session at the combo, its lot); counters 2337, 2338, 2340 >= 1; errors 2343 +0.",
+    "note": "Needs a world with a combo building (Appaloosa Plains: ComboCityhallPoliceMilitary, ComboHospitalScienceLab, ComboSchoolStadium, ComboBusinessRestaurant, ComboDinerGrocery, ComboBookstoreDaySpa; others listed by ComboRabbitHoleCheck). ComboRabbitHoleCheck lists the pieces and their slots first (the facts of docs/551). ComboFixCheck then runs one EA path per family on the first matching piece and reads BROKEN / FIXED / N/A (venue needs a Theatre piece: N/A in Appaloosa Plains; job needs Ambitions and a Hospital / ScienceLab / Hideout that exists only inside a combo; protestlot needs University Life and a combo City Hall); the lot line is a fact, not a fix. On a world without a combo piece every line reads N/A: record the job as N/A (not triggered).",
+    "expect": "facts: pieces > 0, all at pos OutOfWorld on the world lot (FFFFFFFFFFFFFFFF), combo RoutingSlot_0 'o'. lot: world lot (manager = Global), alarm removed. off: protest BROKEN (origin the piece; EA route: no plan, or it ends off the building's lot), venue BROKEN or N/A, situation BROKEN (session at the piece, world lot), job BROKEN (no job, EA skipped the piece), protestlot BROKEN (protest created on the world lot, picker world lot >= 1). on: protest FIXED (origin the combo; fix route ends outdoors on the building's lot), venue FIXED or N/A, situation FIXED (session at the combo, its lot), job FIXED (job at the piece, lot the building's), protestlot FIXED (protest on the City Hall's lot, picker world lot 0); counters 2337, 2338, 2340, 2374, 2377, 2378 >= 1; errors 2343 +0.",
     "steps": [
       {
         "cmd": "reflect_call",
@@ -66849,7 +66849,9 @@
         "args": {
           "comboprotest": false,
           "combovenue": false,
-          "combosituation": false
+          "combosituation": false,
+          "combojob": false,
+          "comboprotestlot": false
         },
         "note": "off first",
         "waitS": 1
@@ -66870,7 +66872,9 @@
         "args": {
           "comboprotest": true,
           "combovenue": true,
-          "combosituation": true
+          "combosituation": true,
+          "combojob": true,
+          "comboprotestlot": true
         },
         "note": "on",
         "waitS": 1
@@ -66891,7 +66895,9 @@
         "args": {
           "comboprotest": false,
           "combovenue": false,
-          "combosituation": false
+          "combosituation": false,
+          "combojob": false,
+          "comboprotestlot": false
         },
         "note": "back to the default"
       }

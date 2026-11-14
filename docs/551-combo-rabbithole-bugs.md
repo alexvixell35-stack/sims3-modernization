@@ -1,8 +1,8 @@
 # 551. Combined rabbit hole bugs (combo buildings)
 
 2026-11-14, static audit of the 1.67 script code (Sims3GameplayObjects, Sims3GameplaySystems; the EP code lives in the same
-two DLLs), fixes built. Switches `comboprotest`, `combovenue`, `combosituation` (all default off,
-`mods/ts3fixes/src/ComboRabbitHole.cs`, counters 2337-2343), harness checks `ComboRabbitHoleCheck` / `ComboFixCheck`
+two DLLs), fixes built. Switches `comboprotest`, `combovenue`, `combosituation`, `combojob`, `comboprotestlot` (all
+default off, `mods/ts3fixes/src/ComboRabbitHole.cs`, counters 2337-2343 and 2374-2378), harness checks `ComboRabbitHoleCheck` / `ComboFixCheck`
 (`ComboChecks.cs`), repro `combo-rabbithole-check`. Follows the City Hall ceremony finding (`ceremonyspot`, docs/546 §11).
 
 > **Correction 2026-11-14 (first in-game check, Appaloosa Plains):** a piece's `LotCurrent` is the **world lot**
@@ -12,6 +12,12 @@ two DLLs), fixes built. Switches `comboprotest`, `combovenue`, `combosituation` 
 > venue calls (#6, #7, #9) do not throw, the field trip (#11) does not exit. `comboalarm` and the lot lends of `combovenue`
 > / `combosituation` were removed (counters 2335, 2336, 2339, 2341 retired). Bugs that rest on the piece's OutOfWorld
 > position stay (#2, #3, #8, #10).
+
+> **Re-trace 2026-11-14 (leftovers #16-#25 with the world lot):** #19 is real and the biggest one (jobs never offered,
+> fixed: `combojob`, which also covers the OutOfWorld uses of #21 that such a job then meets); #17 and #18 are real with
+> the measured query order (piece first) and now on the world lot (fixed: `comboprotestlot`); #16 stays (the graduate is
+> placed for the world lot's entry point, the ceremony works); #20, #22, #23, #24, #25 and the cosmetic #6, #7, #9 stay
+> not fixed (rare, Edit Town only, autonomy weight or cosmetic). None vanished the way `comboalarm` did.
 
 ## 1. How a combo building works
 
@@ -55,34 +61,36 @@ detail not traced to the end (order of a query, a timing); **not a bug** = EA al
 | 13 | `ComboCityhallPoliceMilitary.CreateCelebration` / `RewardAvailable` / `AddRewardPickup` / `ShowInProgress` stubs | callers (`RewardsManager`, `MapTagManager`) go through `GetRabbitHolesOfType(CityHall)`, which returns the CityHall piece | ComboCityhallPoliceMilitary | not a bug [inferred: the combo's Guid is not CityHall; `ComboRabbitHoleCheck` prints it] | - |
 | 14 | `CityHall.Celebrate` (`Target.LotCurrent` wait) | Target is the combo (the celebration broadcaster sits on the proxy; `GetCityHall` maps the combo to its piece) | ComboCityhallPoliceMilitary | not a bug | - |
 | 15 | `CityHall.WatchFireworkShow` (`Target.Position`) | piece Position is OutOfWorld | future world only (`ScheduleFireworkShow` tests `IsFutureWorld`) | not a bug in practice [inferred: Oasis Landing's City Hall is not a combo] | - |
-| 16 | `School` graduation (`Queries.GetObjects<ICityHall>()[0]`) | when the piece comes first, a graduate with no Sim is instantiated on `null` lot = a random lot (`GetPositionInRandomLot`), then walks; the ceremony itself works | ComboCityhallPoliceMilitary | likely, minor | not fixed (no lost event); `ComboRabbitHoleCheck` prints the query order |
-| 17 | `ImprovedProtestSituation` daily random protest (`objects[0].LotCurrent`) | a piece first adds a null lot to the candidates; picking it creates the protest on no lot (exceptions swallowed): that day's protest is lost | ComboCityhallPoliceMilitary (EP9) | likely | not fixed (needs the query order; low impact) |
-| 18 | `ImprovedProtestHelperObject.FindMapTagPickerInfo` | adds a picker entry for the piece's null lot next to the combo's real one | ComboCityhallPoliceMilitary (EP9) | likely | not fixed (UI behaviour of a null-lot entry not traced) |
-| 19 | `Occupation.TryCreateJobCreationSpec`, RabbitHole destination | uses `item?.LotCurrent` (null for a piece) while the RabbitHoleLot branch and `RemoveRabbitHolesThatCantHaveJobs` use the proxy's lot; `IsJobValidForCreation(null)` is false and the loop stops: such jobs are never offered at a combo piece | hospital / science lab / hideout pieces | verified | not fixed on purpose: those jobs would then hit #21's OutOfWorld uses |
-| 20 | `Occupation.ValidateJobConsistencyWithLotType` (Edit Town) | `job.RabbitHole.LotCurrent != lot` is always true for a piece: a RabbitHoleLot job at a combo is cancelled when its lot is edited in Edit Town | all | verified, minor | not fixed |
-| 21 | `FirefighterEmergencySituation` (turn to face), `RabbitholeFirefightingJob` and `GhostHunter` (VFX at `RabbitHole.Position`) | OutOfWorld for a piece: no fire / ghost cloud effect, the firefighter turns toward nowhere | hospital / science lab / hideout pieces (RabbitHoleLot jobs) | likely, cosmetic | not fixed |
+| 16 | `School` graduation (`Queries.GetObjects<ICityHall>()[0]`) | the piece comes first [verified in game, Appaloosa Plains]: a graduate with no Sim is instantiated for the world lot (`GetPositionInRandomLot(world lot)`: a road spot near the world lot's `EntryPoint`, not near the City Hall), then walks; `GraduateInCityHall` targets the piece and routes to the building; the ceremony itself works | ComboCityhallPoliceMilitary | verified in code, minor (an NPC graduate may arrive late) | not fixed (no lost event) |
+| 17 | `ImprovedProtestSituation.ScheduleTodaysProtest` (`objects[0].LotCurrent`) | the piece comes first, so the daily NPC protest's City Hall candidate is the world lot: the City Hall never hosts the daily protest, and the days that pick the candidate hold it on the world lot (not at any building; TNS names the world lot) | ComboCityhallPoliceMilitary (EP9) | verified (code + measured query order) | `comboprotestlot`: `ImprovedProtestSituation.Create` moves a world-lot protest to the combo City Hall's lot (only a City Hall piece puts the world lot there) |
+| 18 | `ImprovedProtestHelperObject.FindMapTagPickerInfo` (megaphone / podium organize-protest picker) | loops every `ICityHall`: the piece adds a world-lot entry next to the combo's real one (the combo is an `ICityHall` too); picking it plans the protest on the world lot | ComboCityhallPoliceMilitary (EP9) | verified in code (how the map shows a world-lot entry not traced) | `comboprotestlot`: world-lot entries dropped |
+| 19 | `Occupation.InitializeBaseJobCreationSpec`, RabbitHole destination | tests `IsJobValidForCreation(item?.LotCurrent)` = the world lot for a piece (false), while the RabbitHoleLot branch and `RemoveRabbitHolesThatCantHaveJobs` use the proxy's lot: a piece is skipped. A job type whose rabbit hole exists only inside combos is never offered: Firefighter `EpicHospitalRescue` / `EpicScienceRescue` / `EpicCriminalRescue`, Medical `SpecificMedicalRabbitholeJob1-3` (ScienceLab, CityHall, Hideout), Film `PickUpFoodForShoot` (Restaurant) and `ResearchCompetingFilm` (Theatre) [job data: EA's jobs XML]. "Any" jobs still go to stand-alone rabbit holes or the combo itself | Hospital / ScienceLab / CityHall / Hideout / Restaurant / Theatre pieces (Appaloosa Plains: Hospital, ScienceLab, CityHall, both restaurants) | verified | `combojob`: when EA found none and no stand-alone of the type is valid, EA's selection over the pieces with the building's lot |
+| 20 | `Occupation.ValidateJobConsistencyWithLotType` (`EditTownModel.ChangeLotType` only) | `job.RabbitHole.LotCurrent != lot` is always true for a piece: a RabbitHole / RabbitHoleLot job at a combo is cancelled when that lot's type is changed in Edit Town | all | verified, minor (lot type change while holding such a job) | not fixed |
+| 21 | `FirefighterEmergencySituation` (victims turn to `RabbitHole.Position`), `RabbitholeFirefightingJob.SetupRabbitholeRescue` and `GhostHunterJob.CreateRabbitHoleInvestigation` (effect at `RabbitHole.Position`), `ActiveCareerMapTag.Target` (the piece) | for a job at a piece (only through #19's fix, or Film's RabbitHoleLot audition): no rescue / ghost-cloud effect at the building, map tag on an out-of-world object [inferred: no map position], panicking victims turn toward nowhere | jobs at pieces | verified in code, cosmetic | `combojob`: effects and the map tag moved to the building; the victims' turn stays (cosmetic) |
 | 22 | `ScienceLab` restore-ghost `Cleanup` | ghost placed near `Target.Position` (OutOfWorld) when the interaction ends after the ghost was made but before `AfterExitingRabbitHole` | ComboHospitalScienceLab | likely, rare | not fixed (rare path; a placement fix for a household ghost would be a follow-up) |
-| 23 | `LotManager` teen hangout multiplier (`rabbitHole.LotCurrent == TeenHangout`) | never true for a piece | all | verified, minor (autonomy weight) | not fixed |
-| 24 | `MapTagManager` (`list4.Remove(rabbitHole.LotCurrent)`) | null for a piece, so a lot tag is not replaced by the piece's tag | pieces with `kReplaceLotMaptag` | likely, cosmetic | not fixed |
+| 23 | `LotManager.ScoreTeenHangoutForRabbitHole` (`rabbitHole.LotCurrent == TeenHangout`) | the world lot is never the hangout: teens' x10 autonomy weight for rabbit holes at the hangout misses a combo's pieces | all | verified, minor (autonomy weight) | not fixed |
+| 24 | `MapTagManager` (`list4.Remove(rabbitHole.LotCurrent)`) | removes the world lot (not in `AllLots`), so a combo lot's tag is not replaced by the piece's tag (the piece's own tag sits on an out-of-world object) | pieces with `kReplaceLotMaptag` | likely, cosmetic | not fixed |
 | 25 | `ComboRabbitHole.Dispose` | destroys the pieces but never calls `base.Dispose` (the combo's own door jigs, alarms, reactions) | all, Edit Town delete only | verified, minor | not fixed |
 | 26 | `Teleporter.PreTeleport`, `GetClosestRabbitHoleOfType`, `RabbitHoleFieldTrip` carpool / Test, `PromSituation`, `HaveBabyHospital`, `Hideout` / `MilitaryBase` door code, `CareerEventManager` | use `RabbitHoleProxy` or swap in the combo | - | not a bug | - |
 | 27 | `Stadium` constructor sets `RabbitHoleProxy = this` | `OnCreation` sets the combo afterwards; on load the persisted field wins | combo stadiums | not a bug [inferred; `ComboRabbitHoleCheck` prints the proxy] | - |
 
-Rows 16-20 and 24 were written for a null piece lot. With the world lot (correction above) the piece adds or compares the
-world lot instead of null (#16: the graduate is placed for the world lot, #17/#18: a world-lot candidate / picker entry,
-#19: `IsJobValidForCreation(world lot)`); none is fixed, re-trace before any fix [inferred].
+Rows 16-20 and 24 were first written for a null piece lot; they were re-traced with the world lot on 2026-11-14 (box at
+the top) and the table now states the world-lot behaviour.
 
 ## 3. Fixes (ComboRabbitHole.cs)
 
 Shared helpers: `RhPiece` (a rabbit hole whose proxy is another object), `RhSlotOrEntrance` (EA's slot, or the first enter
 slot 2 m out when the slot reads as the origin; `EventRouteRetry.cs`'s `EvrAnchor` calls it), `RhMoveBroadcaster` (origin
-and lot of a broadcaster moved from the world lot to the building and its lot).
+and lot of a broadcaster moved from the world lot to the building and its lot), `FirstPiece<T>` (the first piece of a type),
+`RhCityHallLot` (the lot of the combo holding a City Hall piece), `RhJobAtPiece` / `RhMoveJobEffect` (`combojob`).
 
 | switch | hooks | counters |
 |---|---|---|
 | `comboprotest` | `CityHall.CreateProtest`; protest branch of the existing `EventCrowdRingHook` (`CityHall.RouteToGatheringArea`) | 2337 broadcasters moved, 2338 protest routes |
 | `combovenue` | `Theatre.StartShowSoundBroadcaster` (TheatreMusic broadcaster moved to the building) | 2337 |
 | `combosituation` | `AutographSessionSituation.Create` (the building instead of the piece), `FieldTripSituation.Create` (ComboStadiumTheatre theatre link, #12) | 2340 autograph, 2342 theatre links |
+| `combojob` | `Occupation.InitializeBaseJobCreationSpec` (after EA: when EA found no rabbit hole, the job type's destination is RabbitHole and no stand-alone rabbit hole of the type is valid, EA's own steps over the pieces in random order with the building's lot: first valid lot, EA's household-job stop, start time; the job keeps the piece as its rabbit hole, as EA's RabbitHoleLot jobs do), `ActiveCareerMapTag.get_Target` (a piece reads as its building), `RabbitholeFirefightingJob.SetupRabbitholeRescue` / `GhostHunter.GhostHunterJob.CreateRabbitHoleInvestigation` (effect moved to the building) | 2374 jobs at a piece, 2375 map tag reads, 2376 effects moved |
+| `comboprotestlot` | `ImprovedProtestSituation.Create` (a world-lot protest moves to the combo City Hall's lot), `ImprovedProtestHelperObject.FindMapTagPickerInfo` (world-lot entries dropped); both only when a City Hall piece exists | 2377 protests moved, 2378 picker entries dropped |
 | all | | 2343 errors; 2335, 2336, 2339, 2341 retired; 2344 reserved |
 
 Removed 2026-11-14 after the first in-game check: `comboalarm` (hooks on `GameObject.RemoveAlarm` / `GetTimeLeft`; the bug
@@ -90,8 +98,10 @@ does not exist, see §1), the `combovenue` lot lend on the six Theatre / Stadium
 lot lend on `FieldTripSituation.Create` (both lent only while the piece had no lot, which never happens; their bugs are
 cosmetic or absent, #6, #7, #11).
 
-Scope: every path tests `RhPiece` (or `IsProtestActive` with a missing slot) first, so stand-alone rabbit holes run EA's
-code unchanged. No Sim is placed or teleported; the protest route change only moves the goal, so household Sims are
+Scope: every path tests `RhPiece` (or `IsProtestActive` with a missing slot, or the world lot with a City Hall piece)
+first, so stand-alone rabbit holes run EA's code unchanged. `combojob` offers the active household's careers jobs EA meant
+to offer (player Sims are not moved; they walk or drive to the building like to any job), and leaves EA's pick alone
+whenever EA found a rabbit hole. No Sim is placed or teleported; the protest route change only moves the goal, so household Sims are
 covered by it the same way as NPCs (they walk). Save safety: a moved broadcaster lives in the building lot's reaction list
 like any other; nothing new is written to the save.
 
@@ -102,8 +112,21 @@ like any other; nothing new is written to the save.
 ComboCityhallPoliceMilitary, no Theatre piece). Lines: `lot` (fact: the piece's lot and its alarm manager), `protest`
 (broadcaster origin, plus the anchor and where the planned gathering route for the active Sim ends: position, distance from
 the building, lot, outdoors; FIXED only when the origin is the building and the spot is outdoors on the building's lot),
-`venue` (TheatreMusic broadcaster origin; N/A without a Theatre piece), `situation` (session rabbit hole and lot). A world
-without a combo piece reads N/A everywhere (record as not triggered).
+`venue` (TheatreMusic broadcaster origin; N/A without a Theatre piece), `situation` (session rabbit hole and lot), `job`
+(EA's selection, on the Firefighter's static occupation with validation off, for the first epic rescue whose rabbit hole
+exists only as combo pieces: BROKEN = no job, FIXED = a job at the piece on the building's lot; N/A without Ambitions or
+without such a type), `protestlot` (the daily protest's City Hall candidate lot, the picker's world-lot / City Hall entries,
+and the lot of a protest `Create` makes on that candidate for an NPC organizer, exited at once with EA's last-protest day
+restored: BROKEN = world lot, FIXED = the City Hall's lot and no world-lot entry; N/A without EP9 or a combo City Hall).
+With the switches off neither new line can read FIXED: EA's code never returns a piece job (the world lot fails
+`IsJobValidForCreation`) and `Create` keeps the lot it is given. A world without a combo piece reads N/A everywhere
+(record as not triggered).
+
+Worlds: Appaloosa Plains [verified in game] has ComboCityhallPoliceMilitary, ComboHospitalScienceLab, ComboSchoolStadium,
+ComboBusinessRestaurant, ComboDinerGrocery, ComboBookstoreDaySpa and a stand-alone Theatre: every line but `venue` can
+run there (`job` uses EpicHospitalRescue, `protestlot` the combo City Hall). `venue` needs ComboStadiumTheatre or
+ComboCriminalTheater (the hideout rescue also needs ComboCriminalTheater); which shipped or store worlds have them is not
+in the script code: `ComboRabbitHoleCheck "combo"` on a world lists its combos.
 
 First run 2026-11-14 (old check): facts as in §1 (13 pieces, all OutOfWorld on the world lot, combos `routingSlot0-3=oooo`;
 ICityHall order: the piece first); alarm "FIXED" with the switch off (the bug is not real), protest BROKEN off / FIXED on
