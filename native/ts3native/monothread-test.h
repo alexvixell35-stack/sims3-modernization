@@ -200,12 +200,15 @@ static DWORD WINAPI MtOtherFrames(void*) {
 
 // worker fakes
 static DWORD g_mtDomIdx, g_mtCtxIdx, g_mtFakeInterpKey;
-static volatile LONG g_mtFakeTrack;
+static volatile LONG g_mtFakeTrack, g_mtFakeDrains;
+static HANDLE g_mtFakeHold;
+static void __cdecl MtFakeQuitDrain() { InterlockedIncrement(&g_mtFakeDrains); }
 static void* __cdecl MtFakeDomainGet() { return (void*)0xD0D0; }
 static void __cdecl MtFakeDomainSet(void* d) { TlsSetValue(g_mtDomIdx, d); }
 static void* __cdecl MtFakeInvoke(void* method, void* obj, void** params, void** exc) {
     if (TlsGetValue(g_mtDomIdx) != (void*)0xD0D0 || GetCurrentThreadId() != g_mtWorkerTid) return NULL;
     if (obj == (void*)1) { *exc = (void*)0xE0; return NULL; }
+    if (obj == (void*)2) { WaitForSingleObject(g_mtFakeHold, 5000); return method; }  // a job that outlasts QuitWaitMs
     MtHammer((int)(uintptr_t)params[0]);  // allocates through the hooked entries while the sim thread does too
     return (void*)((uintptr_t)method + 1);
 }
@@ -219,9 +222,10 @@ static void TestMonoThreadM5() {
     static_assert(offsetof(Ts3nMtProbe, locking) == 0x0C && offsetof(Ts3nMtProbe, p4Ready) == 0x30 &&
                   offsetof(Ts3nMtProbe, seq) == 0x64 && offsetof(Ts3nMtProbe, arenaRelNonEmpty) == 0x6C && offsetof(Ts3nMtProbe, lockStale) == 0x84 &&
                   offsetof(Ts3nMtProbe, lockOomReleased) == 0x88 && offsetof(Ts3nMtProbe, lazyOff) == 0x94 && offsetof(Ts3nMtProbe, simLockWaits) == 0x98 &&
-                  offsetof(Ts3nMtProbe, lazyEarlyOff) == 0xA4 && sizeof(Ts3nMtProbe) == 0xA8,
-                  "ts3native_mtprobe v6 layout (docs/registry.md)");
-    assert(m.version == 6 && m.locking == 0);
+                  offsetof(Ts3nMtProbe, lazyEarlyOff) == 0xA4 && offsetof(Ts3nMtProbe, quitReady) == 0xA8 &&
+                  offsetof(Ts3nMtProbe, quitRestored) == 0xB8 && sizeof(Ts3nMtProbe) == 0xBC,
+                  "ts3native_mtprobe v7 layout (docs/registry.md)");
+    assert(m.version == 7 && m.locking == 0);
     MtLockInit();
     const DWORD me = GetCurrentThreadId();
 
@@ -506,6 +510,48 @@ static void TestMonoThreadM5() {
     MtM5Tick();
     MtWaitFor(&m.workerState, 2);
     assert(m.workerStarts == 3 && m.locking == 1);
+    // v7 QuitStop (docs/30 §17): a job outlasting the wait leaves everything as it was; an idle worker stops, unregisters,
+    // the gate goes off and both GC hooks go back (only while they still hold ours); once per process, no restart after
+    {
+        static u8 qsFin[8];
+        static DWORD qsHook;
+        u8* const finSave = g_mtFinAt;
+        DWORD* const hookSave = g_mtPushHookAt;
+        const MtVoidFn origSave = g_mtOrigPush;
+        const LONG p3Save = m.p3Ready;
+        g_mtFinAt = qsFin, g_mtPushHookAt = &qsHook, g_mtOrigPush = (MtVoidFn)(uintptr_t)0x12345678;
+        assert(MtJmpTo((DWORD)(uintptr_t)qsFin, (const void*)MtInvokeFinalizers, 5));
+        qsHook = (DWORD)(uintptr_t)MtPushOtherRoots;
+        g_mtQuitDrain = MtFakeQuitDrain, g_mtQuitWaitMs = 50;
+        g_mtFakeHold = CreateEventW(NULL, TRUE, FALSE, NULL);
+        assert(MtSubmit((void*)0x40, (void*)2, params));
+        MtWaitFor(&m.workerState, 3);
+        MtQuitStop("selftest busy");
+        assert(m.quitTimeouts == 1 && m.quitStops == 0 && g_mtFakeDrains == 1 && g_mtWorker && m.locking == 1 && m.quitRestored == 0);
+        assert(qsFin[0] == 0xE9 && qsHook == (DWORD)(uintptr_t)MtPushOtherRoots && (m.p3Ready & 2));
+        MtQuitStop("selftest again");  // once per process
+        assert(m.quitTimeouts == 1 && g_mtFakeDrains == 1);
+        SetEvent(g_mtFakeHold);  // the job ends; the stop request already set makes the worker leave
+        MtWaitFor(&m.workerState, 4);
+        MtM5Tick();  // latched: no restart, the stopped thread is collected
+        assert(!g_mtWorker && m.locking == 0 && m.workerStarts == 3);
+        g_mtQuitDone = 0;
+        MtM5Tick();
+        MtWaitFor(&m.workerState, 2);
+        assert(m.workerStarts == 4 && m.locking == 1);
+        MtQuitStop("selftest idle");
+        assert(m.quitStops == 1 && m.quitTimeouts == 1 && g_mtFakeDrains == 1 && !g_mtWorker && m.locking == 0 && m.workerState == 4);
+        assert(g_mtFakeTab[5] == 0 && g_mtFakeTab[8] == 0 && m.quitRestored == 3 && !(m.p3Ready & 2));
+        assert(!memcmp(qsFin, kMtFinInvoke, 5) && qsHook == 0x12345678);
+        MtM5Tick();
+        assert(!g_mtWorker && m.workerStarts == 4);
+        CloseHandle(g_mtFakeHold);
+        g_mtFinAt = finSave, g_mtPushHookAt = hookSave, g_mtOrigPush = origSave, m.p3Ready = p3Save;
+        g_mtQuitDrain = NULL, g_mtQuitWaitMs = 2000, g_mtQuitDone = 0;
+        m.workerStopFails = 0;  // the busy stop's timeout
+        MtM5Tick();
+        MtWaitFor(&m.workerState, 2);
+    }
     k.mtMode = 0;
     MtM5Tick();
     assert(!g_mtWorker && m.locking == 0 && m.workerStopFails == 0);

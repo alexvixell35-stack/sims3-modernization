@@ -64,8 +64,14 @@ struct Ts3nMtProbe {
     LONG simLockWaitUs;      // +0x9C
     LONG simLockMaxWaitUs;   // +0xA0
     LONG lazyEarlyOff;       // +0xA4, LazyEarly=1: gate off at a depth-0 sim entry once the worker is idle (no wait for the next tick)
+    // v7 (QuitStop=1, docs/30 §17): the worker stops at the Mono shutdown entry 0xE534D0, before the domain finalize
+    LONG quitReady;          // +0xA8, 1 = 0xE534D0 detour installed
+    LONG quitStops;          // +0xAC, shutdown entries that found no worker or stopped it (at most 1 per process)
+    LONG quitTimeouts;       // +0xB0, the worker did not leave within QuitWaitMs (left as it was, quit goes on)
+    LONG quitWaitUs;         // +0xB4, the stop's wait
+    LONG quitRestored;       // +0xB8, bit 0 0xE4B3F0 back to EA's code, bit 1 [0x11949CC] back to EA's root push
 };
-extern "C" __declspec(dllexport) Ts3nMtProbe ts3native_mtprobe = {6};
+extern "C" __declspec(dllexport) Ts3nMtProbe ts3native_mtprobe = {7};
 static volatile LONG g_mtStopReq, g_mtBusy;  // worker stop request; a job (or a skip) is inside the worker
 static bool g_mtLazyGate;   // [MonoThread] LazyGate=1 (default off: the gate stays on while a worker exists)
 static bool g_mtLazyEarly;  // [MonoThread] LazyEarly=1 (with LazyGate=1, docs/30 §16)
@@ -685,6 +691,60 @@ static bool MtStopWorker(DWORD waitMs) {
     return true;
 }
 
+// --- QuitStop (docs/30 §17): no worker of ours alive while Mono shuts down ---
+// Host shutdown 0xD80750 -> 0xE534D0 -> Mono cleanup 0xE53470 -> domain finalize 0xE79180 -> 0xE790E0 (run_finalize per
+// object of the domain's finalizable hash), on the sim thread, once per process, after the last Simulate tick [verified call
+// path, quitdiag-1114]; v0.2.12 crash (player twopointjj): run_finalize on a freed object there, with our worker still up.
+// At the 0xE534D0 entry (sim thread, outside every GC and interpreter function): [AutShadow]'s job in flight gets its stop
+// flag (every later answer aborts), the worker stops with a bounded wait (it unregisters from Boehm's table under the lock,
+// then the gate goes off), and only then 0xE4B3F0 and [0x11949CC] go back to the game's (each only if it still holds ours).
+// A worker still inside after QuitWaitMs keeps everything as today (registered, gate on, hooks kept), counted and logged:
+// quit is never held longer than the wait. Once per process; MtM5Tick never restarts the worker afterwards.
+static bool g_mtQuitStop = true;              // [MonoThread] QuitStop (default 1)
+static DWORD g_mtQuitWaitMs = 2000;           // [MonoThread] QuitWaitMs
+static volatile LONG g_mtQuitDone;
+static void(__cdecl* g_mtQuitDrain)();        // autshadow-run.cpp: stop flag for its job in flight
+static u8* g_mtFinAt = (u8*)(uintptr_t)MT_FIN_INVOKE;           // selftest: fakes
+static DWORD* g_mtPushHookAt = (DWORD*)(uintptr_t)MT_PUSH_HOOK;
+static void* g_mtShutT;
+static const DWORD MT_SHUTDOWN = 0x00E534D0;
+static const u8 kMtShutdown[6] = {0x8B, 0x44, 0x24, 0x04, 0x6A, 0x00};  // mov eax,[esp+4]; push 0 [verified bytes, quitdiag]
+
+static void MtQuitStop(const char* where) {
+    Ts3nMtProbe& m = ts3native_mtprobe;
+    if (!g_mtQuitStop || InterlockedExchange(&g_mtQuitDone, 1)) return;
+    const bool had = g_mtWorker != NULL;
+    const LONG jobs = m.workerJobs, busy = g_mtBusy;
+    if (had && busy && g_mtQuitDrain) g_mtQuitDrain();
+    LARGE_INTEGER f, t0, t1;
+    QueryPerformanceFrequency(&f), QueryPerformanceCounter(&t0);
+    const bool stopped = MtStopWorker(g_mtQuitWaitMs);
+    QueryPerformanceCounter(&t1);
+    m.quitWaitUs = (LONG)((t1.QuadPart - t0.QuadPart) * 1000000 / f.QuadPart);
+    if (!stopped) {
+        m.quitTimeouts++;
+        Log("WARN mono thread QuitStop: %s, worker still inside after %lu ms (state %ld, job running %ld): left as it was "
+            "(registered, gate on, hooks kept), quit goes on", where, g_mtQuitWaitMs, m.workerState, busy);
+        return;
+    }
+    m.quitStops++;
+    u8 jmp[5] = {0xE9};
+    *(LONG*)(jmp + 1) = (LONG)((const u8*)(const void*)MtInvokeFinalizers - (g_mtFinAt + 5));
+    if ((m.p3Ready & 2) && !memcmp(g_mtFinAt, jmp, 5) && Write(g_mtFinAt, kMtFinInvoke, 5)) m.p3Ready &= ~2, m.quitRestored |= 1;
+    const DWORD orig = (DWORD)(uintptr_t)g_mtOrigPush;
+    if (orig && *g_mtPushHookAt == (DWORD)(uintptr_t)MtPushOtherRoots && Write(g_mtPushHookAt, &orig, 4)) m.quitRestored |= 2;
+    Log("OK   mono thread QuitStop: %s, worker %s (%ld jobs, job running %ld) in %ld us, gate %ld; finalizer pass 0xE4B3F0 %s, "
+        "root push [0x11949CC] %s", where, had ? "stopped and unregistered" : "none", jobs, busy, m.quitWaitUs, m.locking,
+        (m.quitRestored & 1) ? "back to the game's" : "not ours", (m.quitRestored & 2) ? "back to the game's" : "not ours");
+}
+// 0xE534D0 (cdecl, one argument: the domain), sim thread
+static int __cdecl MtShutdownHook(DWORD dom) {
+    __try { MtQuitStop("mono shutdown enter"); } __except (EXCEPTION_EXECUTE_HANDLER) {
+        Log("FAIL mono thread QuitStop: exception 0x%08lX, shutdown goes on", GetExceptionCode());
+    }
+    return ((int(__cdecl*)(DWORD))g_mtShutT)(dom);
+}
+
 // Sim thread: hand one job to the idle worker. The arguments must stay alive and rooted until seq moves (a managed
 // static or a GC_malloc_uncollectable cell; docs/120 §1.2). Methods must have run once on the sim thread (docs/30 §5 step 6).
 // LazyGate=1: the gate goes on here, before the worker can see the job (SetEvent is a full barrier), so every GC/alloc
@@ -818,7 +878,7 @@ static void MtM5FirstTick() {
 // every Simulate tick (sim thread): start / stop the worker on the mtMode switch
 static void MtM5Tick() {
     Ts3nMtProbe& m = ts3native_mtprobe;
-    const bool want = ts3native_counters.mtMode >= 1 && (m.p3Ready & 3) == 3 && (m.p3Ready & 4) && m.p4Ready == 0xF;
+    const bool want = !g_mtQuitDone && ts3native_counters.mtMode >= 1 && (m.p3Ready & 3) == 3 && (m.p3Ready & 4) && m.p4Ready == 0xF;
     if (want && !g_mtWorker) {
         if (m.workerState >= 0 && m.workerState != 1) MtStartWorker();
     } else if (!want && g_mtWorker) {

@@ -551,7 +551,8 @@ Separate append-only struct of `LONG` for the second Mono thread (M5 build, docs
 | v4 | 0.36.6 (P3 OOM branch, built as 0.36.5) | 0x88 | `lockOomReleased` (P3 shadow entries and lock recursions the out-of-memory thread released in the `GC_oom_fn` wrapper before calling `0xE78610`; taken back if it returns without `longjmp`; `p3Ready` bit 5 = slot wrapped; docs/120 §10.5) |
 | v5 | 0.36.109 (docs/30 §15; read by agent.js) | 0x8C-0x97 | `lazyGate` (+0x8C; 1 = `[MonoThread] LazyGate=1`), `lazyOn` (dispatches that turned the gate on in `MtSubmit`), `lazyOff` (tick boundaries that turned it off with the worker idle) |
 | v6 | 0.36.141 (docs/30 §16; read by agent.js) | 0x98-0xA7 | `simLockWaits` (+0x98; of `lockWaits`, threads other than the worker), `simLockWaitUs`, `simLockMaxWaitUs` (+0xA0), `lazyEarlyOff` (+0xA4; `LazyEarly=1`: gate off at a depth-0 sim entry once the worker is idle) |
-| **v7** | next | 0xA8- | reserve here (the MtProbe job and Verify fields of docs/30 §7: `mtMismatches`, stress list) |
+| v7 | 0.36.256-quitstop1 (docs/30 §17; read by agent.js) | 0xA8-0xBB | `quitReady` (+0xA8; 1 = Mono shutdown entry `0xE534D0` detoured, `[MonoThread] QuitStop=1`), `quitStops` (shutdown entries that found no worker or stopped it), `quitTimeouts` (worker still inside after `QuitWaitMs`: left as it was), `quitWaitUs` (the stop's wait), `quitRestored` (+0xB8; bit 0 `0xE4B3F0` back to the game's code, bit 1 `[0x11949CC]` back to the game's root push) |
+| **v8** | next | 0xBC- | reserve here (the MtProbe job and Verify fields of docs/30 §7: `mtMismatches`, stress list) |
 
 ## ts3native `ts3native_autshadow` export (`Ts3nAutShadow` in `native/ts3native/autshadow.cpp`)
 

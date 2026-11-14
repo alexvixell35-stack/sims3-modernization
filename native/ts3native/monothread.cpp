@@ -236,5 +236,13 @@ static bool ApplyMonoThread(const wchar_t* ini) {
     } else Log("FAIL mono thread: Simulate vtable slot (err %lu); P2 stays, no sim registration", GetLastError());
     Log("OK   mono thread: [0x%08X] 0x%08X -> MtPushOtherRoots, Simulate slot 0x%08X %s (Mode=%ld, GcLock=%d, FrameTls=%d)", MT_PUSH_HOOK,
         (DWORD)(uintptr_t)g_mtOrigPush, MT_SIM_SLOT, (k.mtReady & 2) ? "hooked" : "not hooked", k.mtMode, g_mtWantP3, g_mtWantP4);
+    // QuitStop (docs/30 §17): the worker stops and our GC hooks go back at the Mono shutdown entry
+    g_mtQuitStop = GetPrivateProfileIntW(L"MonoThread", L"QuitStop", 1, ini) != 0;
+    g_mtQuitWaitMs = (DWORD)Clamp(GetPrivateProfileIntW(L"MonoThread", L"QuitWaitMs", 2000, ini), 100, 10000);
+    if (g_mtQuitStop && (g_mtShutT = InstallDetour("Mono shutdown 0xE534D0 (QuitStop)", MT_SHUTDOWN, kMtShutdown, sizeof(kMtShutdown),
+                                                   (void*)&MtShutdownHook, &g_mtShutT)) != NULL)
+        ts3native_mtprobe.quitReady = 1;
+    Log("%smono thread QuitStop=%d: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=%lu",
+        !g_mtQuitStop ? "" : ts3native_mtprobe.quitReady ? "OK   " : "SKIP ", g_mtQuitStop, g_mtQuitWaitMs);
     return true;
 }

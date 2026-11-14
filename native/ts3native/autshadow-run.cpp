@@ -304,6 +304,8 @@ static bool AsDrainStop() {
     g_asLast = AS_LAST_EPOCH;
     return g_satbMode == SATB_ACT && g_satbLive;
 }
+// monothread QuitStop (Mono shutdown entry, sim thread): our job in flight aborts every later answer, result dropped
+static void __cdecl AsQuitDrain() { if (AsDrainBusy()) AsDrainStop(); }
 static bool AsWorkerIdle() { return g_mtWorker && ts3native_mtprobe.workerState == 2 && !g_mtBusy; }
 
 // return of MonoScriptHost_Simulate (sim thread): finish a run whose job ended, else cut for a posted request
@@ -900,5 +902,6 @@ static void AsInstallRun(const wchar_t* ini, bool slotStub) {
     g_mtOnEnter = AsSimEnter;
     g_mtOnLeave = AsSimLeaveLoop;
     g_mtJobHook = AsJobHook;
+    g_mtQuitDrain = AsQuitDrain;
     if (ini) SimPumpAdd(AsSimPump, "autshadow cut + worker dispatch (window = frame limiter)");  // game only: patches 0xFD97C8
 }
