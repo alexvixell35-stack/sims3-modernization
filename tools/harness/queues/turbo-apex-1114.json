@@ -1,0 +1,508 @@
+{
+  "note": "turbo-apex-1114 (docs/263 §4, live arms): Turbo Simulation Engine V3.4 (Turbo.asi 74f971bc, engine rar only; game-copy/turbo-3.4) next to the latest Apex Radiance release + its RTX Remix bridge (resolved at chain start by tools/turbo-compat.ts snapshot: GitHub releases/latest Manual-install zip, sha256 = release digest, into game-copy/apex-<ver>; docs/259 §7 install; 3.2.1 on 11-14) + our v0.2.12 pair, IP world, ~10 min autopilot each. Retail Steam install: Turbo fails its install check, so its optional features are forced off and Turbo.txt is rewritten at each start; always on: HIGH class, timeBeginPeriod(1), working set limits 256 MB/1 GB, dummy d3d9 device + Reset/Present hooks, WndProc subclass, borderless window, Discord pipe (docs/263 §1.2-1.3). Arm 5 writes an all-on Turbo.txt after Turbo rewrote it (the 2 s reload applies it in retail mode, docs/263 §1.1). Bin is NOT changed by queue.ts: run only through probe-out/queue/chain-turbo-apex-1114.sh, which sets each Bin state with tools/turbo-compat.ts (snapshot, state, monitor, collect, restore; restore = hash compare of the whole Bin with the snapshot, Apex Documents folder back). Correctness only, not timing (Turbo present = timing-invalid). node tools/harness/queue.ts tools/harness/queues/turbo-apex-1114.json --only <id> --no-smoke",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "ip-turbo-a1-apex",
+      "note": "[est 15 min] Bin state apex (tools/turbo-compat.ts state, set by chain-turbo-apex-1114.sh before this job). Arm 1 baseline: latest Apex + bridge + ours, no Turbo. Pass: no crash, ScriptErrors 0, no SKIP line, required lines present. The chain's monitor (probe-out/turbo-apex-1114/<arm>/monitor.txt) samples thread base priorities + working set; collect writes summary.txt (Apex log, bridge32/bridge64 logs, Turbo.txt). Correctness only, not timing.",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "v0.2.12 release pair: asi game-copy/ts3native.asi.rc1111g (sha256 432ab1b2 = ts3native.asi.rel0212, 0.36.247) + ini game-copy/ts3native.ini.rc1111g (91b007e7) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f), as apex311-compat-1112",
+      "save": "Baseline-IP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {},
+      "logRequire": {
+        "^ts3native 0\\.36\\.247 ": 1,
+        "^diag: world load #\\d+, uptime": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: loaded modules outside Windows .*\\bApexRadiance\\.asi v\\d+\\.\\d+": 1,
+        "^diag: Bin add-ons: .*\\bwininet\\.dll \\d+ KB v9\\.7\\.4\\.0": 1
+      },
+      "logForbid": {
+        "^SKIP ": 0,
+        "^diag: Bin add-ons: .*\\bTurbo\\.asi \\d+ KB": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-14 05:56:15"
+          ],
+          "noMatch": [
+            "ts3native 0.36.253 2026-11-13 12:00:00"
+          ]
+        },
+        "^diag: world load #\\d+, uptime": {
+          "match": [
+            "diag: world load #1, uptime 1 min, ts3native 0.36.247, mods 163 packages (10 script) 5182 MB"
+          ],
+          "noMatch": [
+            "diag: memory at world load #1: private 1237 MB, committed 1663 MB"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not found at start"
+          ]
+        },
+        "^diag: loaded modules outside Windows .*\\bApexRadiance\\.asi v\\d+\\.\\d+": {
+          "match": [
+            "diag: loaded modules outside Windows (Bin = game folder): d3d9.dll, WININET.dll v9.7.4.0, ApexRadiance.asi v3.1.1.0, MonoPatcher.asi, Sims3Performance.asi, Sims3SettingsSetter.asi, Turbo.asi, ts3native.asi, frida-agent.dll (outside Bin)"
+          ],
+          "noMatch": [
+            "diag: loaded modules outside Windows (Bin = game folder): d3d9.dll v10.0.17763.1, WININET.dll v9.7.4.0, MonoPatcher.asi, Sims3Performance.asi, Sims3SettingsSetter.asi, ts3native.asi, frida-agent.dll (outside Bin)"
+          ]
+        },
+        "^diag: Bin add-ons: .*\\bwininet\\.dll \\d+ KB v9\\.7\\.4\\.0": {
+          "match": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1434 KB, wininet.dll 5291 KB v9.7.4.0"
+          ],
+          "noMatch": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB, MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1440 KB, wininet.dll 1597 KB v7.7.0.0"
+          ]
+        },
+        "^SKIP ": {
+          "match": [
+            "SKIP detour IC_Route_Replan at 0x00765490: prologue differs"
+          ],
+          "noMatch": [
+            "OK   detour Route_PlanLocked at 0x0082C6E0"
+          ]
+        },
+        "^diag: Bin add-ons: .*\\bTurbo\\.asi \\d+ KB": {
+          "match": [
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1434 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB, MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1440 KB, wininet.dll 1597 KB v7.7.0.0"
+          ],
+          "noMatch": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1434 KB, wininet.dll 5291 KB v9.7.4.0"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-turbo-a2-apex-turbo",
+      "note": "[est 15 min] Bin state apex-turbo (tools/turbo-compat.ts state, set by chain-turbo-apex-1114.sh before this job). Arm 2: arm 1 + Turbo.asi, our ASI loader 9.7.4 kept (Turbo's wininet.dll not installed); F7 posted at +6/+7 min (PostMessage, no focus). Pass: no crash, ScriptErrors 0, no SKIP line, required lines present. The chain's monitor (probe-out/turbo-apex-1114/<arm>/monitor.txt) samples thread base priorities + working set; collect writes summary.txt (Apex log, bridge32/bridge64 logs, Turbo.txt). Correctness only, not timing.",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "v0.2.12 release pair: asi game-copy/ts3native.asi.rc1111g (sha256 432ab1b2 = ts3native.asi.rel0212, 0.36.247) + ini game-copy/ts3native.ini.rc1111g (91b007e7) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f), as apex311-compat-1112",
+      "save": "Baseline-IP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {},
+      "logRequire": {
+        "^ts3native 0\\.36\\.247 ": 1,
+        "^diag: world load #\\d+, uptime": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: loaded modules outside Windows .*\\bApexRadiance\\.asi v\\d+\\.\\d+": 1,
+        "^diag: Bin add-ons: .*\\bTurbo\\.asi \\d+ KB": 1,
+        "^diag: loaded modules outside Windows .*\\bTurbo\\.asi\\b": 1,
+        "^diag: Bin add-ons: .*\\bwininet\\.dll \\d+ KB v9\\.7\\.4\\.0": 1
+      },
+      "logForbid": {
+        "^SKIP ": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-14 05:56:15"
+          ],
+          "noMatch": [
+            "ts3native 0.36.253 2026-11-13 12:00:00"
+          ]
+        },
+        "^diag: world load #\\d+, uptime": {
+          "match": [
+            "diag: world load #1, uptime 1 min, ts3native 0.36.247, mods 163 packages (10 script) 5182 MB"
+          ],
+          "noMatch": [
+            "diag: memory at world load #1: private 1237 MB, committed 1663 MB"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not found at start"
+          ]
+        },
+        "^diag: loaded modules outside Windows .*\\bApexRadiance\\.asi v\\d+\\.\\d+": {
+          "match": [
+            "diag: loaded modules outside Windows (Bin = game folder): d3d9.dll, WININET.dll v9.7.4.0, ApexRadiance.asi v3.1.1.0, MonoPatcher.asi, Sims3Performance.asi, Sims3SettingsSetter.asi, Turbo.asi, ts3native.asi, frida-agent.dll (outside Bin)"
+          ],
+          "noMatch": [
+            "diag: loaded modules outside Windows (Bin = game folder): d3d9.dll v10.0.17763.1, WININET.dll v9.7.4.0, MonoPatcher.asi, Sims3Performance.asi, Sims3SettingsSetter.asi, ts3native.asi, frida-agent.dll (outside Bin)"
+          ]
+        },
+        "^diag: Bin add-ons: .*\\bTurbo\\.asi \\d+ KB": {
+          "match": [
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1434 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB, MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1440 KB, wininet.dll 1597 KB v7.7.0.0"
+          ],
+          "noMatch": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1434 KB, wininet.dll 5291 KB v9.7.4.0"
+          ]
+        },
+        "^diag: loaded modules outside Windows .*\\bTurbo\\.asi\\b": {
+          "match": [
+            "diag: loaded modules outside Windows (Bin = game folder): d3d9.dll, WININET.dll v9.7.4.0, ApexRadiance.asi v3.1.1.0, MonoPatcher.asi, Sims3Performance.asi, Sims3SettingsSetter.asi, Turbo.asi, ts3native.asi, frida-agent.dll (outside Bin)"
+          ],
+          "noMatch": [
+            "diag: loaded modules outside Windows (Bin = game folder): d3d9.dll v10.0.17763.1, WININET.dll v9.7.4.0, MonoPatcher.asi, Sims3Performance.asi, Sims3SettingsSetter.asi, ts3native.asi, frida-agent.dll (outside Bin)"
+          ]
+        },
+        "^diag: Bin add-ons: .*\\bwininet\\.dll \\d+ KB v9\\.7\\.4\\.0": {
+          "match": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1434 KB, wininet.dll 5291 KB v9.7.4.0"
+          ],
+          "noMatch": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB, MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1440 KB, wininet.dll 1597 KB v7.7.0.0"
+          ]
+        },
+        "^SKIP ": {
+          "match": [
+            "SKIP detour IC_Route_Replan at 0x00765490: prologue differs"
+          ],
+          "noMatch": [
+            "OK   detour Route_PlanLocked at 0x0082C6E0"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-turbo-a5-apex-turbo-allon",
+      "note": "[est 15 min] Bin state apex-turbo (tools/turbo-compat.ts state, set by chain-turbo-apex-1114.sh before this job). Arm 5: arm 2 + all-on Turbo.txt written live after Turbo rewrote it (Patch=1, ThreadPriorityBoost=1, SmartRamManager=1, ...): Above Normal threads every 30 s and working-set trims are expected in monitor.txt; sim pacing may change (Patch=1). Pass: no crash, ScriptErrors 0, no SKIP line, required lines present. The chain's monitor (probe-out/turbo-apex-1114/<arm>/monitor.txt) samples thread base priorities + working set; collect writes summary.txt (Apex log, bridge32/bridge64 logs, Turbo.txt). Correctness only, not timing.",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "v0.2.12 release pair: asi game-copy/ts3native.asi.rc1111g (sha256 432ab1b2 = ts3native.asi.rel0212, 0.36.247) + ini game-copy/ts3native.ini.rc1111g (91b007e7) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f), as apex311-compat-1112",
+      "save": "Baseline-IP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {},
+      "logRequire": {
+        "^ts3native 0\\.36\\.247 ": 1,
+        "^diag: world load #\\d+, uptime": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: loaded modules outside Windows .*\\bApexRadiance\\.asi v\\d+\\.\\d+": 1,
+        "^diag: Bin add-ons: .*\\bTurbo\\.asi \\d+ KB": 1,
+        "^diag: loaded modules outside Windows .*\\bTurbo\\.asi\\b": 1,
+        "^diag: Bin add-ons: .*\\bwininet\\.dll \\d+ KB v9\\.7\\.4\\.0": 1
+      },
+      "logForbid": {
+        "^SKIP ": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-14 05:56:15"
+          ],
+          "noMatch": [
+            "ts3native 0.36.253 2026-11-13 12:00:00"
+          ]
+        },
+        "^diag: world load #\\d+, uptime": {
+          "match": [
+            "diag: world load #1, uptime 1 min, ts3native 0.36.247, mods 163 packages (10 script) 5182 MB"
+          ],
+          "noMatch": [
+            "diag: memory at world load #1: private 1237 MB, committed 1663 MB"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not found at start"
+          ]
+        },
+        "^diag: loaded modules outside Windows .*\\bApexRadiance\\.asi v\\d+\\.\\d+": {
+          "match": [
+            "diag: loaded modules outside Windows (Bin = game folder): d3d9.dll, WININET.dll v9.7.4.0, ApexRadiance.asi v3.1.1.0, MonoPatcher.asi, Sims3Performance.asi, Sims3SettingsSetter.asi, Turbo.asi, ts3native.asi, frida-agent.dll (outside Bin)"
+          ],
+          "noMatch": [
+            "diag: loaded modules outside Windows (Bin = game folder): d3d9.dll v10.0.17763.1, WININET.dll v9.7.4.0, MonoPatcher.asi, Sims3Performance.asi, Sims3SettingsSetter.asi, ts3native.asi, frida-agent.dll (outside Bin)"
+          ]
+        },
+        "^diag: Bin add-ons: .*\\bTurbo\\.asi \\d+ KB": {
+          "match": [
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1434 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB, MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1440 KB, wininet.dll 1597 KB v7.7.0.0"
+          ],
+          "noMatch": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1434 KB, wininet.dll 5291 KB v9.7.4.0"
+          ]
+        },
+        "^diag: loaded modules outside Windows .*\\bTurbo\\.asi\\b": {
+          "match": [
+            "diag: loaded modules outside Windows (Bin = game folder): d3d9.dll, WININET.dll v9.7.4.0, ApexRadiance.asi v3.1.1.0, MonoPatcher.asi, Sims3Performance.asi, Sims3SettingsSetter.asi, Turbo.asi, ts3native.asi, frida-agent.dll (outside Bin)"
+          ],
+          "noMatch": [
+            "diag: loaded modules outside Windows (Bin = game folder): d3d9.dll v10.0.17763.1, WININET.dll v9.7.4.0, MonoPatcher.asi, Sims3Performance.asi, Sims3SettingsSetter.asi, ts3native.asi, frida-agent.dll (outside Bin)"
+          ]
+        },
+        "^diag: Bin add-ons: .*\\bwininet\\.dll \\d+ KB v9\\.7\\.4\\.0": {
+          "match": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1434 KB, wininet.dll 5291 KB v9.7.4.0"
+          ],
+          "noMatch": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB, MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1440 KB, wininet.dll 1597 KB v7.7.0.0"
+          ]
+        },
+        "^SKIP ": {
+          "match": [
+            "SKIP detour IC_Route_Replan at 0x00765490: prologue differs"
+          ],
+          "noMatch": [
+            "OK   detour Route_PlanLocked at 0x0082C6E0"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-turbo-a3-apex-turbo-ual77",
+      "note": "[est 15 min] Bin state apex-turbo-ual77 (tools/turbo-compat.ts state, set by chain-turbo-apex-1114.sh before this job). Arm 3: arm 2 with Turbo's wininet.dll (Ultimate ASI Loader 7.7.0, 29fee0aa) instead of ours (9.7.4). Pass: no crash, ScriptErrors 0, no SKIP line, required lines present. The chain's monitor (probe-out/turbo-apex-1114/<arm>/monitor.txt) samples thread base priorities + working set; collect writes summary.txt (Apex log, bridge32/bridge64 logs, Turbo.txt). Correctness only, not timing.",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "v0.2.12 release pair: asi game-copy/ts3native.asi.rc1111g (sha256 432ab1b2 = ts3native.asi.rel0212, 0.36.247) + ini game-copy/ts3native.ini.rc1111g (91b007e7) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f), as apex311-compat-1112",
+      "save": "Baseline-IP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {},
+      "logRequire": {
+        "^ts3native 0\\.36\\.247 ": 1,
+        "^diag: world load #\\d+, uptime": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: loaded modules outside Windows .*\\bApexRadiance\\.asi v\\d+\\.\\d+": 1,
+        "^diag: Bin add-ons: .*\\bTurbo\\.asi \\d+ KB": 1,
+        "^diag: loaded modules outside Windows .*\\bTurbo\\.asi\\b": 1,
+        "^diag: Bin add-ons: .*\\bwininet\\.dll \\d+ KB v7\\.7\\.0": 1
+      },
+      "logForbid": {
+        "^SKIP ": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-14 05:56:15"
+          ],
+          "noMatch": [
+            "ts3native 0.36.253 2026-11-13 12:00:00"
+          ]
+        },
+        "^diag: world load #\\d+, uptime": {
+          "match": [
+            "diag: world load #1, uptime 1 min, ts3native 0.36.247, mods 163 packages (10 script) 5182 MB"
+          ],
+          "noMatch": [
+            "diag: memory at world load #1: private 1237 MB, committed 1663 MB"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not found at start"
+          ]
+        },
+        "^diag: loaded modules outside Windows .*\\bApexRadiance\\.asi v\\d+\\.\\d+": {
+          "match": [
+            "diag: loaded modules outside Windows (Bin = game folder): d3d9.dll, WININET.dll v9.7.4.0, ApexRadiance.asi v3.1.1.0, MonoPatcher.asi, Sims3Performance.asi, Sims3SettingsSetter.asi, Turbo.asi, ts3native.asi, frida-agent.dll (outside Bin)"
+          ],
+          "noMatch": [
+            "diag: loaded modules outside Windows (Bin = game folder): d3d9.dll v10.0.17763.1, WININET.dll v9.7.4.0, MonoPatcher.asi, Sims3Performance.asi, Sims3SettingsSetter.asi, ts3native.asi, frida-agent.dll (outside Bin)"
+          ]
+        },
+        "^diag: Bin add-ons: .*\\bTurbo\\.asi \\d+ KB": {
+          "match": [
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1434 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB, MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1440 KB, wininet.dll 1597 KB v7.7.0.0"
+          ],
+          "noMatch": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1434 KB, wininet.dll 5291 KB v9.7.4.0"
+          ]
+        },
+        "^diag: loaded modules outside Windows .*\\bTurbo\\.asi\\b": {
+          "match": [
+            "diag: loaded modules outside Windows (Bin = game folder): d3d9.dll, WININET.dll v9.7.4.0, ApexRadiance.asi v3.1.1.0, MonoPatcher.asi, Sims3Performance.asi, Sims3SettingsSetter.asi, Turbo.asi, ts3native.asi, frida-agent.dll (outside Bin)"
+          ],
+          "noMatch": [
+            "diag: loaded modules outside Windows (Bin = game folder): d3d9.dll v10.0.17763.1, WININET.dll v9.7.4.0, MonoPatcher.asi, Sims3Performance.asi, Sims3SettingsSetter.asi, ts3native.asi, frida-agent.dll (outside Bin)"
+          ]
+        },
+        "^diag: Bin add-ons: .*\\bwininet\\.dll \\d+ KB v7\\.7\\.0": {
+          "match": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB, MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1440 KB, wininet.dll 1597 KB v7.7.0.0"
+          ],
+          "noMatch": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1434 KB, wininet.dll 5291 KB v9.7.4.0"
+          ]
+        },
+        "^SKIP ": {
+          "match": [
+            "SKIP detour IC_Route_Replan at 0x00765490: prologue differs"
+          ],
+          "noMatch": [
+            "OK   detour Route_PlanLocked at 0x0082C6E0"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-turbo-a4-turbo-dxvk",
+      "note": "[est 15 min] Bin state turbo (tools/turbo-compat.ts state, set by chain-turbo-apex-1114.sh before this job). Arm 4: ours + Turbo.asi without Apex (DXVK d3d9.dll, our loader 9.7.4). Pass: no crash, ScriptErrors 0, no SKIP line, required lines present. The chain's monitor (probe-out/turbo-apex-1114/<arm>/monitor.txt) samples thread base priorities + working set; collect writes summary.txt (Apex log, bridge32/bridge64 logs, Turbo.txt). Correctness only, not timing.",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "v0.2.12 release pair: asi game-copy/ts3native.asi.rc1111g (sha256 432ab1b2 = ts3native.asi.rel0212, 0.36.247) + ini game-copy/ts3native.ini.rc1111g (91b007e7) + ts3fixes game-copy/ts3fixes.package.rc1111e (a563cf8f), as apex311-compat-1112",
+      "save": "Baseline-IP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": {},
+      "logRequire": {
+        "^ts3native 0\\.36\\.247 ": 1,
+        "^diag: world load #\\d+, uptime": 1,
+        "^diag: Bin add-ons: .*\\bTurbo\\.asi \\d+ KB": 1,
+        "^diag: loaded modules outside Windows .*\\bTurbo\\.asi\\b": 1,
+        "^diag: Bin add-ons: .*\\bwininet\\.dll \\d+ KB v9\\.7\\.4\\.0": 1
+      },
+      "logForbid": {
+        "^SKIP ": 0,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.247 ": {
+          "match": [
+            "ts3native 0.36.247 2026-11-14 05:56:15"
+          ],
+          "noMatch": [
+            "ts3native 0.36.253 2026-11-13 12:00:00"
+          ]
+        },
+        "^diag: world load #\\d+, uptime": {
+          "match": [
+            "diag: world load #1, uptime 1 min, ts3native 0.36.247, mods 163 packages (10 script) 5182 MB"
+          ],
+          "noMatch": [
+            "diag: memory at world load #1: private 1237 MB, committed 1663 MB"
+          ]
+        },
+        "^diag: Bin add-ons: .*\\bTurbo\\.asi \\d+ KB": {
+          "match": [
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1434 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB, MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1440 KB, wininet.dll 1597 KB v7.7.0.0"
+          ],
+          "noMatch": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1434 KB, wininet.dll 5291 KB v9.7.4.0"
+          ]
+        },
+        "^diag: loaded modules outside Windows .*\\bTurbo\\.asi\\b": {
+          "match": [
+            "diag: loaded modules outside Windows (Bin = game folder): d3d9.dll, WININET.dll v9.7.4.0, ApexRadiance.asi v3.1.1.0, MonoPatcher.asi, Sims3Performance.asi, Sims3SettingsSetter.asi, Turbo.asi, ts3native.asi, frida-agent.dll (outside Bin)"
+          ],
+          "noMatch": [
+            "diag: loaded modules outside Windows (Bin = game folder): d3d9.dll v10.0.17763.1, WININET.dll v9.7.4.0, MonoPatcher.asi, Sims3Performance.asi, Sims3SettingsSetter.asi, ts3native.asi, frida-agent.dll (outside Bin)"
+          ]
+        },
+        "^diag: Bin add-ons: .*\\bwininet\\.dll \\d+ KB v9\\.7\\.4\\.0": {
+          "match": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB, wininet.dll 5291 KB v9.7.4.0",
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1434 KB, wininet.dll 5291 KB v9.7.4.0"
+          ],
+          "noMatch": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 1013 KB, MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, Turbo.asi 361 KB, ts3native.asi 1440 KB, wininet.dll 1597 KB v7.7.0.0"
+          ]
+        },
+        "^SKIP ": {
+          "match": [
+            "SKIP detour IC_Route_Replan at 0x00765490: prologue differs"
+          ],
+          "noMatch": [
+            "OK   detour Route_PlanLocked at 0x0082C6E0"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not found at start"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 30
+    }
+  ]
+}
