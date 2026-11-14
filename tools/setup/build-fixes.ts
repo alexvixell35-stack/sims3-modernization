@@ -230,6 +230,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBuyClearRecycle value="True" />
     <kBuyGridSweep value="True" />
     <kMoodPending value="True" />
+    <kJoyrideCostume value="False" />
     <kFilterGridLeak value="True" />
     <kCompositorGhost value="True" />
     <kCasPuckEvents value="True" />

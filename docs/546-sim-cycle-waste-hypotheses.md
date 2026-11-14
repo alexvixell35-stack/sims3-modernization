@@ -84,3 +84,48 @@ Next for this row: an exact early-out instead of a cache. Every earlier check al
 rejection that is cheap and certain (e.g. `VisitCommunityLot` on a residential lot the Sim cannot treat as home) can
 be answered before the generic wrapper without changing any score; and find what makes the meta ad score 0 for the
 56% that pass, which may let the search skip those lots for a whole pass.
+
+## 4. Hitch: imagination costumes built inside an autonomy test (fix `joyridecostume`)
+
+[measured, `aut_census` longest single call, release v0.2.12] `GoForJoyride.Definition @ SofaDesigner`: one call of
+**618 ms** (phase-20261113-2212) and **623 ms** (phase-20261113-2229), household child, in the first minutes after
+load; the row's total was ~1.2 s in every run whatever its call count, i.e. about two such calls per game.
+
+Cause [verified, decompiled]: `GoForJoyride.Definition.Test` and `RouteAndGetToCostumeForJoyride.Definition.Test` call
+`ImaginationHelper.GetSimOutfitForActor`, which builds both imagination costumes (`PopulateImaginationCostumes`, two
+`OutfitUtils.CreateOutfitForSim`) when the child has no `ChildImagination` outfit yet. The costumes are saved, so it
+happens once per child per save (every child, household or not, and every child who ages up or is born later).
+
+Fix (`kJoyrideCostume`, off by default, `JoyrideCostume.cs`): both tests use the costume only to ask "is the child
+wearing it now", which cannot be true without one. The Joyride test returns false when there is no costume (vanilla
+returns false on every path then, unless the build fails: EP4 data missing [inferred, not seen]); the costume-route
+test runs with `GetSimOutfitForActor` answering null instead of building (exact). The builds that remain are where the
+costume is used: `RouteAndGetToCostumeForJoyride.Run` and `BeKingOrQueenForADay.Run` [measured: the 2 builds logged in
+phase-20261113-2319 were in those two interactions].
+
+Result, switch on from load (phase-20261113-2254, 22 min, idle / social / CAS / outfit stress): the Joyride rows are
+no longer among the 25 longest single tests (all under ~2 ms); 45 tests answered without a build; 0 errors, 0 script
+errors. Still to do: the build at the real activity is still a ~0.6 s freeze for each child who plays it the first
+time; moving it to a loading screen for household children is a design choice, not done.
+
+## 5. Leak: fire-pit test chairs, one more per used fire pit per save + load (existing fix `firepitchair`)
+
+[measured, `object_types {"match":"FirePit"}`, same 3 fire pits] Out-of-world `FirePit+FirePitChair` objects:
+release defaults 4 -> 5 -> 8 over two save + reload cycles (phase-20261113-2319); with `firepitchair` on (issue #90,
+`kFirePitChair`, off by default, destroys each pit's test chair before a save) 5 -> **1** after one cycle
+(phase-20261113-2339). The second cycle of that run crashed, from address space, not the fix: both runs fell to a
+1 MB largest free block before the crash point (the off run survived by luck), and the crash was a null + 0xC write
+after repeated "low address space" warnings [measured]. Cause [verified]: `FirePit.mTestChair` is
+`[Persistable(false)]` and never destroyed, while the chair object itself is saved. Also a hitch: creating the test
+chair inside the "create chair and sit" test took up to 255 ms (`aut_census`), once per fire pit per load.
+Suggestion for the maintainer: `firepitchair` on by default.
+
+## 6. Tools added for the hitch and interaction work
+
+- `aut_census` longest single call per row, with who and when (`{"top":25,"sort":"max"}`), and harness dumps
+  `autmax-*.json` (`ACENSUS=1`).
+- `object_types {"match":...}`: objects by type, in world / out of world.
+- `hitch_watch`: a sim-thread tick stamp; every gap >= `min_ms` is kept with what the household Sims and the Sims on
+  the active lot were doing on the tick before and the tick after (interaction, transition, queue, routing, posture).
+- `household_routine`: one round of the everyday actions (meal, outfit change, shower, social, TV, computer, read,
+  toilet, nap, music) pushed on the household Sims with an empty queue, rotating, matched on pie-menu labels.

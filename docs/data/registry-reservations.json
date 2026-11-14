@@ -2692,6 +2692,16 @@
       "what": "sim-cycle waste hypotheses (work repeated without a payoff check)",
       "at": "2026-11-13T19:33:22.367Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2304",
+      "kind": "fixes",
+      "from": 2304,
+      "to": 2307,
+      "by": "claude",
+      "what": "joyridecostume: no imagination-costume build inside Joyride tests (docs/546 §4)",
+      "at": "2026-11-13T22:28:59.873Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }
