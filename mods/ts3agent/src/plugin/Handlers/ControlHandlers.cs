@@ -73,8 +73,10 @@ namespace Ts3Agent
             Simulator.AddObject(new Sims3.Gameplay.OneShotFunctionTask(delegate
             {
                 string result;
+                int span = HwAgent.Begin("async " + label);  // hitch_watch: harness time, not game time (docs/247 §14)
                 try { work(); result = "ok"; }
                 catch (Exception e) { result = "error: " + DescribeError(e); }
+                finally { HwAgent.End(span); }
                 lock (sAsyncLog)
                 {
                     sAsyncLog.Add(SimClock.CurrentTime().ToString() + " " + label + " -> " + result);

@@ -8,27 +8,109 @@ using Sims3.SimIFace;
 
 namespace Ts3Agent
 {
-    // hitch_watch (read only; docs/546 §6): a sim-thread task that stamps every tick with DateTime.UtcNow. A gap of at
-    // least min_ms between two of its ticks is one sim iteration that held the thread (a hitch). For each hitch it keeps
-    // what the household Sims and the Sims on the active lot were doing on the tick before ("before") and on the tick
-    // after ("after"): current interaction, the interaction it waits on for a transition, queue length, routing,
-    // posture. A Sim whose state is the same before and after, mid-interaction, is the likely holder; a Sim that started
-    // something new is what the hitch led into. Native waits (route job lock, steering) are not visible here: pair with
-    // ts3native [HitchAttr] Holders=1 in the same run.
-    //   hitch_watch {"start":true, "min_ms":100}   clears, starts
-    //   hitch_watch {}                             state: ticks, hitches, longest
-    //   hitch_watch {"top":30}                     longest hitches with before/after
+    // hitch_watch (read only; docs/546 §6, docs/247 §14): a sim-thread task that stamps every tick. A gap of at least
+    // min_ms between two of its ticks is one sim iteration that held the thread (a hitch). For each hitch it keeps what
+    // the household Sims and the Sims on the active lot were doing on the tick before ("before") and on the tick after
+    // ("after"): current interaction, the interaction it waits on for a transition, queue length, routing, posture. A Sim
+    // whose state is the same before and after, mid-interaction, is the likely holder; a Sim that started something new is
+    // what the hitch led into. Native waits (route job lock, steering) are not visible here: pair with ts3native
+    // [HitchAttr] Holders=1 in the same run.
+    // Per hitch also (docs/247 §14): wall_ms = System.Environment.TickCount at the end of the gap, the clock of ts3native's
+    // "at N ms" stamps; tick = SimClock.CurrentTicks, the "tick N" of ufplan lines; gc = Mono collections inside the gap;
+    // agent = agent commands and RunAsync work inside the gap with their ms (harness time, not game time: social_round,
+    // mem_gc, leak_census ...). over_200_game / over_500_game leave out hitches that are half or more agent work. Hitches >= log_ms also go to
+    // ts3native.log as one "hitchwatch:" line (at most kHwLogMax a session: they share ts3native's 400-line cap).
+    //   hitch_watch {"start":true, "min_ms":100, "log_ms":300}   clears, starts (log_ms 0 = no log lines)
+    //   hitch_watch {}                                           state: ticks, hitches, longest
+    //   hitch_watch {"top":30}                                   longest hitches with before/after
     //   hitch_watch {"stop":true}
     public static partial class Handlers
     {
-        const string kHwKey = "ts3agent.hitchwatch";
+        const int kHwLogMax = 80;
 
         public class HwSnap { public string Name; public bool Hh; public string Cur, Trans, Posture; public int Queue; public bool Routing; }
-        public class HwHitch { public double Ms; public string When; public List<HwSnap> Before, After; }
+        public class HwHitch { public double Ms; public string When, Agent; public long SimTicks; public int WallMs, Gc, AgentMs; public List<HwSnap> Before, After; }
 
         static void RegisterHitchWatch()
         {
             Dispatcher.Register("hitch_watch", HitchWatch);
+        }
+
+        // Agent time on the sim thread. Mailbox.Poll runs each command inside one sim tick, so a command's span is exact;
+        // RunAsync work can sleep across ticks, so its span covers every gap it was alive in (an upper bound).
+        internal static class HwAgent
+        {
+            struct Span { public string Name; public int T0, T1; }
+            static readonly List<Span> sDone = new List<Span>();             // last 64 finished spans
+            static readonly Dictionary<int, Span> sLive = new Dictionary<int, Span>();  // running RunAsync work by id
+            static int sNextId;
+            static bool sWrapped;
+
+            internal static int Begin(string name)
+            {
+                Span s = new Span(); s.Name = name; s.T0 = System.Environment.TickCount;
+                lock (sLive) { int id = ++sNextId; sLive[id] = s; return id; }
+            }
+
+            internal static void End(int id)
+            {
+                lock (sLive)
+                {
+                    Span s;
+                    if (!sLive.TryGetValue(id, out s)) return;
+                    sLive.Remove(id);
+                    s.T1 = System.Environment.TickCount;
+                    sDone.Add(s);
+                    if (sDone.Count > 64) sDone.RemoveAt(0);
+                }
+            }
+
+            // spans that overlap [t0, t1] (TickCount ms, wrap-safe) as "name ms ..." (null = none); most = the longest overlap
+            internal static string In(int t0, int t1, out int most)
+            {
+                List<string> o = new List<string>();
+                most = 0;
+                lock (sLive)
+                {
+                    foreach (Span s in sDone) Add(o, s.Name, s.T0, s.T1, t0, t1, ref most);
+                    foreach (Span s in sLive.Values)  // a task killed mid-work (world quit) never ends: 10 min at most
+                        if (unchecked(t1 - s.T0) < 600000) Add(o, s.Name, s.T0, t1, t0, t1, ref most);
+                }
+                return o.Count > 0 ? string.Join(", ", o.ToArray()) : null;
+            }
+
+            static void Add(List<string> o, string name, int s0, int s1, int t0, int t1, ref int most)
+            {
+                int a = unchecked(s0 - t0) > 0 ? s0 : t0, b = unchecked(s1 - t1) < 0 ? s1 : t1;
+                int ms = unchecked(b - a);
+                if (ms < 0) return;
+                o.Add(name + " " + ms);
+                if (ms > most) most = ms;
+            }
+
+            internal static void Clear() { lock (sLive) { sLive.Clear(); sDone.Clear(); } }
+
+            // Wraps every registered command once, so each mailbox command is timed (plugin only: the loader's
+            // Dispatcher stays as it is, and a hot-reloaded plugin registers fresh handlers and wraps them again).
+            internal static void WrapAll()
+            {
+                if (sWrapped) return;
+                Dictionary<string, Handler> map = typeof(Dispatcher).GetField("sHandlers",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static).GetValue(null) as Dictionary<string, Handler>;
+                if (map == null) return;
+                foreach (string name in new List<string>(map.Keys)) map[name] = Wrap(name, map[name]);
+                sWrapped = true;
+            }
+
+            static Handler Wrap(string name, Handler h)
+            {
+                return delegate(Args a)
+                {
+                    int id = Begin(name);
+                    try { return h(a); }
+                    finally { End(id); }
+                };
+            }
         }
 
         public class HwTask : Task
@@ -36,16 +118,19 @@ namespace Ts3Agent
             internal static HwTask sCur;
             internal bool Running = true;
             internal long MinTicks = 100 * TimeSpan.TicksPerMillisecond;
+            internal double LogMs = 300;
             internal long TickCount, Last;
             internal double MaxMs;
             internal readonly List<HwHitch> Hitches = new List<HwHitch>();
             List<HwSnap> mPrev;
+            int mLastWall, mLastGc, mLogged;
 
             public override void Simulate()
             {
                 while (Running)
                 {
                     long now = DateTime.UtcNow.Ticks;
+                    int wall = System.Environment.TickCount, gc = GC.CollectionCount(0);
                     List<HwSnap> snap = null;
                     try { snap = Snapshot(); } catch (Exception) { }
                     if (Last != 0)
@@ -53,29 +138,43 @@ namespace Ts3Agent
                         long gap = now - Last;
                         double ms = gap / (double)TimeSpan.TicksPerMillisecond;
                         if (ms > MaxMs) MaxMs = ms;
-                        if (gap >= MinTicks)
-                        {
-                            HwHitch h = new HwHitch();
-                            h.Ms = Math.Round(ms, 1);
-                            try { h.When = Sims3.Gameplay.Utilities.SimClock.CurrentTime().ToString(); } catch (Exception) { h.When = "?"; }
-                            h.Before = mPrev; h.After = snap;
-                            lock (Hitches)
-                            {
-                                Hitches.Add(h);
-                                if (Hitches.Count > 400)  // keep the 300 longest
-                                {
-                                    Hitches.Sort(delegate(HwHitch x, HwHitch y) { return y.Ms.CompareTo(x.Ms); });
-                                    Hitches.RemoveRange(300, Hitches.Count - 300);
-                                }
-                            }
-                        }
+                        if (gap >= MinTicks) Keep(ms, wall, gc, snap);
                     }
                     mPrev = snap;
                     Last = DateTime.UtcNow.Ticks;  // the snapshot itself is not part of the next gap
+                    mLastWall = System.Environment.TickCount;
+                    mLastGc = GC.CollectionCount(0);
                     TickCount++;
                     Simulator.Sleep(0);
                 }
                 Simulator.DestroyObject(ObjectId);
+            }
+
+            void Keep(double ms, int wall, int gc, List<HwSnap> snap)
+            {
+                HwHitch h = new HwHitch();
+                h.Ms = Math.Round(ms, 1);
+                try { h.When = Sims3.Gameplay.Utilities.SimClock.CurrentTime().ToString(); } catch (Exception) { h.When = "?"; }
+                h.SimTicks = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+                h.WallMs = wall;
+                h.Gc = gc - mLastGc;
+                h.Agent = HwAgent.In(mLastWall, wall, out h.AgentMs);
+                h.Before = mPrev; h.After = snap;
+                lock (Hitches)
+                {
+                    Hitches.Add(h);
+                    if (Hitches.Count > 400)  // keep the 300 longest
+                    {
+                        Hitches.Sort(delegate(HwHitch x, HwHitch y) { return y.Ms.CompareTo(x.Ms); });
+                        Hitches.RemoveRange(300, Hitches.Count - 300);
+                    }
+                }
+                if (LogMs > 0 && ms >= LogMs && mLogged < kHwLogMax)
+                {
+                    mLogged++;
+                    DiagLine("hitchwatch: " + Math.Round(ms) + " ms, tick " + h.SimTicks + ", " + h.When + ", gc +" + h.Gc
+                        + ", agent " + (h.Agent ?? "-") + ", at " + (uint)wall + " ms" + (mLogged == kHwLogMax ? " (last line)" : ""));
+                }
             }
 
             static List<HwSnap> Snapshot()
@@ -140,8 +239,11 @@ namespace Ts3Agent
             if (a.Bool("start", false))
             {
                 if (t != null) t.Running = false;
+                HwAgent.Clear();
+                HwAgent.WrapAll();
                 t = new HwTask();
                 t.MinTicks = (long)(a.Long("min_ms", 100) * TimeSpan.TicksPerMillisecond);
+                t.LogMs = a.Long("log_ms", 300);
                 HwTask.sCur = t;
                 Simulator.AddObject(t);
             }
@@ -152,18 +254,26 @@ namespace Ts3Agent
             List<HwHitch> hs;
             lock (t.Hitches) hs = new List<HwHitch>(t.Hitches);
             r["hitches"] = hs.Count;
-            int n200 = 0, n500 = 0;
-            foreach (HwHitch h in hs) { if (h.Ms >= 200) n200++; if (h.Ms >= 500) n500++; }
+            int n200 = 0, n500 = 0, g200 = 0, g500 = 0;
+            foreach (HwHitch h in hs)
+            {
+                bool game = h.AgentMs * 2 < h.Ms;  // agent work under half the gap: counted as game time
+                if (h.Ms >= 200) { n200++; if (game) g200++; }
+                if (h.Ms >= 500) { n500++; if (game) g500++; }
+            }
             r["over_200"] = n200; r["over_500"] = n500;
+            r["over_200_game"] = g200; r["over_500_game"] = g500;  // without hitches that are half or more agent work
             if (a.Has("top"))
             {
                 hs.Sort(delegate(HwHitch x, HwHitch y) { return y.Ms.CompareTo(x.Ms); });
                 List<object> o = new List<object>();
                 for (int i = 0; i < hs.Count && i < (int)a.Long("top", 30); i++)
                 {
+                    HwHitch h = hs[i];
                     Dictionary<string, object> d = Util.Obj();
-                    d["ms"] = hs[i].Ms; d["sim_time"] = hs[i].When;
-                    d["before"] = HwSnapList(hs[i].Before); d["after"] = HwSnapList(hs[i].After);
+                    d["ms"] = h.Ms; d["sim_time"] = h.When; d["tick"] = h.SimTicks; d["wall_ms"] = (uint)h.WallMs; d["gc"] = h.Gc;
+                    if (h.Agent != null) d["agent"] = h.Agent;
+                    d["before"] = HwSnapList(h.Before); d["after"] = HwSnapList(h.After);
                     o.Add(d);
                 }
                 r["top"] = o;
