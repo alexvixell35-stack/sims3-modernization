@@ -97,7 +97,7 @@ namespace Ts3Fixes
             ApplyJoyrideCostume();  // docs/546 §4, off by default
             ApplyAlarmKillLog();  // docs/546 row 5, log only
             ApplySocialFinish();  // docs/546 §9, off by default
-            ApplySocialReceiveFail();  // docs/546 §9, off by default; also carries syncpartnergone (docs/546 §14, off by default, SyncPartnerGone.cs)
+            ApplySocialReceiveFail();  // docs/546 §9, off by default
             ApplyPetFirePlan();  // docs/546 §10, off by default
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
@@ -629,7 +629,6 @@ namespace Ts3Fixes
                 case "alarmkilllog": return Instantiator.kAlarmKillLog;
                 case "socialfinish": return Instantiator.kSocialFinish;
                 case "socialreceivefail": return Instantiator.kSocialReceiveFail;
-                case "syncpartnergone": return Instantiator.kSyncPartnerGone;
                 case "petfireplan": return Instantiator.kPetFirePlan;
                 case "awardkeep": return Instantiator.kAwardKeep;
                 case "ceremonyspot": return Instantiator.kCeremonySpot;

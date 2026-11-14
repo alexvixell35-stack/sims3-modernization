@@ -352,35 +352,28 @@ arch (every guest position is at least `sMinDistanceBetweenAudienceAndCouple` = 
 school and university graduations (rabbit-hole visits, no jig, no outdoor crowd). **None has the crowd on the honoree's
 goal, so no further switch was added**; the ring helper stays private to City Hall until a second user exists.
 
-## 14. Sync partner already gone: waits that run to their giveup (2026-11-14, static; fix `syncpartnergone`, not run)
+## 14. No bug: a sync wait does not spin on a partner that is gone (2026-11-14; `syncpartnergone` built and removed)
 
 Every sync wait loop and whether it notices a partner that is gone [verified, decompiled InteractionInstance / Sim /
-SocialInteraction*]:
+InteractionQueue / SocialInteraction*]:
 
 | Wait | Giveup | Notices the partner gone? |
 |---|---|---|
 | `StartSync` pre-sync loop | `kNumMinToWaitOnPreSync` 15 | yes: returns false once the linked interaction is neither running nor queued on the partner |
-| `WaitForSynchronizationLevelWithSim` (Started / Routed / Committed): `StartSync` Started, social initiator Routed + Committed (`BeginSocialInteraction`), receiver Routed + Committed (`ReceiveSocialInteraction`) | 30 (`kNumMinToWaitOnSyncStart`, `kSocialSyncGiveupTime`); 5-100 in object interactions; 1000 horse mounting | destroyed or out of world (left the lot): yes, through the per-tick `CanSocializeWithSyncCheck`, but only with `performSocializeWithTest` (every social; not `WaitForSynchronizationLevelWithSimAndIgnoreSocialTest`: ServoBot, BotMakingStation, Grim Reaper, ResortTower). Partner cancelled: yes, its Run copies the exit reason (`CopyExitReasonToLinkedInteraction`). **Partner reset: no.** `Sim.OnReset` kills its interactions without their Run tails and `ClearSynchronizationData` sets target null, level Completed; `IsAtSynchronizationLevelWith` needs target == this Sim, so the wait spins to its giveup |
+| `WaitForSynchronizationLevelWithSim` (Started / Routed / Committed) | 30 (`kNumMinToWaitOnSyncStart`, `kSocialSyncGiveupTime`); 5-100 in object interactions; 1000 horse mounting | yes, through the waiter's own interaction (exit reason `Default`): any removal of the partner's linked interaction from its queue runs `InteractionQueue.CleanupInteraction`, which **resets the waiter** (`SetObjectToReset`, when the partner was stopped immediately and the waiter's interaction is running) or cancels it. A reset partner goes through that path: `Sim.DoReset` → `InteractionQueue.OnReset` → `ImmediatelyStopInteraction` on every queued interaction, the running social included. A destroyed or out-of-world partner also fails the per-tick `CanSocializeWithSyncCheck` (social waits) |
 | `WaitForSyncComplete` (Completed) | `kNumMinToWaitOnSync` (15 in code, 5 in the shipped tuning) | a reset partner is at Completed, so the wait succeeds; the lock here is the masters that never signal (`socialfinish`, §9) |
 | `WaitForMasterInteractionToFinish` | none | yes: ends when the master is no longer running |
 
-So the spin with the partner gone is a social (or `StartSync`) wait at Started / Routed / Committed whose partner was
-reset (stuck-Sim resets by EA, Overwatch or ErrorTrap, a debug reset), up to 30 sim min, and the no-social-test waits on a
-destroyed partner (up to 100 / 1000). The synctime data of §9 does not separate these from the parked-receiver case
-(the `partner in ... (linked gone)` field of `syncwait:` lines names them; those raw logs are not in the repo), so how
-often they happen in play is not measured yet: after `socialreceivefail`, 2 timeouts were left in 5 social phases.
+**Measured** (phasesoak "syncgone", Appaloosa Plains, `SyncPartnerGoneCheck "start reset"`): partner reset at Routed
+with the waiter at Started (the waiter routing to the jig): the waiter's social ended 0.3 sim min later, no
+SynchronizationFailed, switch off and on alike (counters 2370-2373 +0). That is the CleanupInteraction path above.
 
-**Fix `syncpartnergone`** (off by default, `SyncPartnerGone.cs`, slots 2370-2373; carried by the shared wait hook in
-`SocialReceiveFail.cs`). When the caller passed no loop callback, the wait gets one that EA's loop runs every sim minute;
-it returns false, which EA answers with `OnWaitForSynchronizationLevelWithSimFailed` + false (the giveup path's call and
-result), once two looks in a row find the partner gone: destroyed (every Sim: exact), or for a social (the waiter's
-running interaction and its link are SocialInteractions, run by the partner) the partner's SynchronizationTarget is not
-the waiter and the linked interaction is neither running (stack or head), queued nor in a posture transition. A slow
-partner (queued, in transition, routing to the jig) is running or queued, so it never matches. The social case acts
-only for an NPC waiter (`IsNpcSim`): vanilla's result could differ if the partner re-targeted the waiter from a new sync
-before the giveup, which cannot be ruled out; the partner is never touched (it does not target the waiter). Completed
-waits are left alone.
+What is left is theoretical: a partner whose linked interaction runs only nested (on the running stack but not in the
+queue list) or as the transition interaction (OnReset runs only `Cleanup` on those, no linked handling), and waits that
+skip both the exit-reason and the social test (`StartSync` with `ignoreExitReasons` and no social test: Grim Reaper
+death sequence only). Neither has been seen. The earlier claim here ("a reset partner spins the wait to 30 min") was
+wrong: it missed CleanupInteraction.
 
-Harness: repro `sync-partner-gone-check` (agent check `SyncPartnerGoneCheck`, `SyncChecks.cs`): two NPCs near the active
-Sim, Chat from one to the other, the partner reset once the two are in sync; times the waiter's stand off (expect ~30
-sim min) then on (expect <= 5, counter 2370 +1), plus a cancel control.
+`syncpartnergone` (ended such a wait through EA's own failure call) was built and removed the same day, since EA already
+ends these waits; slots 2370-2373 retired. Do not rebuild it. The 30-45 min social timeouts of §9 are the parked-receiver
+case (`socialreceivefail`) and the partner's approach walk, not a gone partner.

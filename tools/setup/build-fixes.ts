@@ -235,7 +235,6 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kAlarmKillLog value="True" />
     <kSocialFinish value="False" />
     <kSocialReceiveFail value="False" />
-    <kSyncPartnerGone value="False" />
     <kPetFirePlan value="False" />
     <kAwardKeep value="False" />
     <kCeremonySpot value="False" />

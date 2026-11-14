@@ -28,9 +28,8 @@ namespace Ts3Fixes
     // (socialfinish adds Finished in exactly that wait).
     // Counters: [2312] waits ended early, [2313] errors.
     //
-    // This file also owns the two hooks it shares with the synctime test log (SyncWaitLog.cs) and syncpartnergone
-    // (SyncPartnerGone.cs): a method can be patched once, so the wait hook runs this fix, then hands the wait the
-    // syncpartnergone loop callback, then calls the test log's helpers when synctime is on.
+    // This file also owns the two hooks it shares with the synctime test log (SyncWaitLog.cs): a method can be patched
+    // once, so the wait and receive hooks run the fix first and then call the test log's helpers when synctime is on.
     public static partial class Fixes
     {
         // ---- shared hooks (installed once, by whichever of socialreceivefail / the synctime test log comes first) ----
@@ -54,7 +53,6 @@ namespace Ts3Fixes
             {
                 Sim me = (Sim)(object)this;
                 if (RfCannotSync(me, targetSim, desiredSynchLevel)) { SwLogEndedEarly(me, targetSim, desiredSynchLevel); return false; }
-                loopCallback = SpgCallback(me, targetSim, desiredSynchLevel, loopCallback, ref notifySimMinutes);  // syncpartnergone (SyncPartnerGone.cs)
                 SwStat st = SwBegin(me, targetSim, desiredSynchLevel);  // null unless synctime is on (test)
                 if (st == null) return WaitOrig(targetSim, desiredSynchLevel, exitReasonInterrupt, giveupTime, loopCallback, notifySimMinutes, performSocializeWithTest);
                 bool r = false;
