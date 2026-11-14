@@ -658,8 +658,14 @@ static void UdWorldLoad() {  // sim thread, from the ts3fixes "world:" line
 // docs/247 §11.1: test-only hitch-cause lines (HitchCause.cs, 120 a minute at most) lost to the shared 400: ufplan: and play: use those up.
 static const LONG kUdHitchLines = 6000;
 static const LONG kUdUfPlanLines = 30000;  // ufplan: disk guard (~3 MB); ts3fixes sends at most 120 a minute (UnseenFallback.cs)
+// Test-only hitch and lock lines from ts3fixes (kHitchCauseHooks): their own, larger cap. The shared 400-line cap below
+// silently cut syncwait/socialfinish/hourlypass lines after ~1,000 sync waits (docs/546 §9, 2026-11-14).
 static bool UdHitchLine(const char* s) {
-    return !strncmp(s, "boatreplan:", 11) || !strncmp(s, "gangway:", 8) || !strncmp(s, "owreset:", 8) || !strncmp(s, "alarmtime:", 10) || !strncmp(s, "lotpass:", 8);
+    static const char* const kPrefixes[] = {"boatreplan:", "gangway:", "owreset:", "alarmtime:", "lotpass:", "syncwait",
+                                            "socialfinish:", "socialreceivefail:", "hourlypass:", "spawnplace:"};
+    for (const char* p : kPrefixes)
+        if (!strncmp(s, p, strlen(p))) return true;
+    return false;
 }
 static const DWORD kUdTextHi = 0x87000000;  // 0x86000000 exact = the stuck-check PROBE mark (docs/163 §10)
 static int g_udTxtN;
@@ -732,6 +738,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
                 return 1;
             }
             if (g_udTxtLines++ < 400) Log("ts3fixes: %s", g_udTxt);  // cap: a looping sender cannot fill the disk
+            else if (g_udTxtLines == 401) Log("ts3fixes: other lines capped at 400 (later ones dropped)");
             if (!strncmp(g_udTxt, "world:", 6)) UdWorldLoad(), UafVerifyAll("world load"), F5wEvent("world load", g_udWorlds);  // F5wEvent: docs/539 §21
             else if (!strcmp(g_udTxt, "world quit")) InterlockedIncrement(&g_udQuits), GcCapWindow(false, "world quit"), UafVerifyAll("world quit"), F5wEvent("world quit", g_udQuits);  // gcgrow.cpp: lenient on the load screen
             else if (!strncmp(g_udTxt, "mem: ", 5)) MdMark(g_udTxt + 5);  // [MemDiag] event mark (ts3agent mem_mark)

@@ -224,3 +224,18 @@ On from load (phase-20261114-0430): the partner was found looping in SocialInter
 every logged wait ended ok after 0.5 min; counter 2310 = 16 signalled, 2311 = 0 errors, no script errors. Only the first
 4 of the 16 were logged: test lines from this hook and the wait hook stop reaching ts3native.log after ~1,000 waits while
 the `synctime` switch still reads true (polled) and `lotpass` lines from the same `HcLine` keep arriving; open.
+
+**Test lines going dark: cause found [verified, source].** Not the hooks: `ts3native` (userdiag.cpp) logs at most 400
+generic ts3fixes lines per session, without a notice, and only a fixed prefix list (`alarmtime:`, `lotpass:` ...) has its own
+6,000-line cap. `syncwait`, `socialfinish:`, `hourlypass:` and `spawnplace:` lines shared the 400, so they stopped after the
+first ~1,000 waits while the hooks kept running (live check, phase-20261114-0935: 5,814 waits, 384 lines sent, 138 in the
+log). This also explains the missing fix-on lines of runs 0242/0312/0401. Native fix (needs an MSVC build): those prefixes
+join the larger cap, and the shared cap logs one "capped" line. Test counts that do not depend on the log: fix counters
+2314-2316 (`synctime`).
+
+**socialreceivefail [measured, step log].** The 30-minute starter timeouts with a running partner: the partner's
+`ReceiveSocialInteraction` had already returned false (32.0 min before, phase-20261114-0929). It then parks in
+`WaitForMasterInteractionToFinish` at SyncLevel.Started, which the starter's wait for Routed can never accept; the copied
+RouteFailed exit reason reaches the starter only if its social was already running (otherwise EA cancels it, which did not
+stop it here). Fix `socialreceivefail` (off by default, slots 2312-2313) ends that wait through the vanilla failure call.
+On from load (phase-20261114-0935): counter 2312 = 16 after two social phases, 0 errors.

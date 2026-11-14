@@ -128,6 +128,7 @@ namespace Ts3Fixes
                 int at = SwFind(me);
                 if (at >= 0) { sSwSims.RemoveAt(at); sSwStats.RemoveAt(at); }
                 float min = SimClock.ConvertFromTicks(SimClock.CurrentTicks - st.T0, TimeUnit.Minutes);
+                if (!r && min >= giveupTime) SwCountTimeout(me, target, min);
                 if ((min < 1f && r) || sSwLines >= 3000) return;
                 sSwLines++;
                 string res = r ? "ok" : (min >= giveupTime ? "timeout" : (me.HasExitReason(ExitReason.SynchronizationFailed) ? "failed" : "exit"));
@@ -135,6 +136,17 @@ namespace Ts3Fixes
                     + SwIn(me) + ", partner in " + SwPartner(me, target) + (r ? "" : SwSyncState(me, target)) + ", " + HcSimTime());
             }
             catch (Exception) { sSwErrors++; }
+        }
+
+        // Counters that survive the native log caps (fix_counters in every snapshot): [2314] sync waits that ran to their
+        // giveup time, [2315] their total sim minutes, [2316] of them the socialreceivefail pattern (initiator waiting on a
+        // receiver parked at Started after its ReceiveSocialInteraction failed).
+        static void SwCountTimeout(Sim me, Sim target, float min)
+        {
+            int[] c = PatchCounters();
+            c[2314]++; c[2315] += (int)min;
+            if (target != null && me.SynchronizationRole == Sim.SyncRole.Initiator && target.SynchronizationLevel == Sim.SyncLevel.Started
+                && SwStepOf(target).IndexOf("receive<fail") >= 0) c[2316]++;
         }
 
         static void SwLogEndedEarly(Sim me, Sim target, Sim.SyncLevel level)
