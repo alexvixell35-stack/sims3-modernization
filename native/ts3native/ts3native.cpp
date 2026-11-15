@@ -3013,8 +3013,11 @@ struct Ts3nCounters {
 // the job ended meanwhile. Same calls, same order, same thread (the job's owner); only sooner. Own exported block, so the
 // counters layout (docs/registry.md) is unchanged: polls that drained, calls served past the first, polls answered done by
 // the drain (a frame each, saved), budget ends with the job still running.
-struct ReadyDrainCounters { volatile LONG mode, budgetUs, polls, served, saved, budgetHits; LONG maxUs; };
-extern "C" __declspec(dllexport) ReadyDrainCounters ts3native_readydrain = {0, 2000, 0, 0, 0, 0, 0};
+// Frame guard: the spin is shared per sim-thread frame (approximated as a 33 ms wall window: the owner has no frame counter
+// here) up to frameUs; past it a poll only serves calls already queued (no spin) and frameHits counts the window once. The
+// spin also stops gapUs after the last served call (the job is computing, not calling back: not near its end).
+struct ReadyDrainCounters { volatile LONG mode, budgetUs, polls, served, saved, budgetHits; LONG maxUs; volatile LONG frameUs, gapUs, frameHits, idleStops; };
+extern "C" __declspec(dllexport) ReadyDrainCounters ts3native_readydrain = {0, 2000, 0, 0, 0, 0, 0, 3000, 300, 0, 0};
 extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {912,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -3179,9 +3182,11 @@ static void MaybeLogCounters(ULONGLONG now) {
     if (c.mwReady || c.gvReady || c.ikReady) MwLogCounters();  // docs/178 §9
     if (c.p6wReady) P6wLogCounters();  // docs/189 phase 0
     if (ts3native_readydrain.mode)
-        Log("route ready drain: budget %ld us, polls %ld, calls served past the first %ld, done in the same poll %ld, budget ends %ld, "
-            "max %ld us", ts3native_readydrain.budgetUs, ts3native_readydrain.polls, ts3native_readydrain.served,
-            ts3native_readydrain.saved, ts3native_readydrain.budgetHits, ts3native_readydrain.maxUs);
+        Log("route ready drain: budget %ld us, frame %ld us, gap %ld us, polls %ld, calls served past the first %ld, done in the same "
+            "poll %ld, budget ends %ld, idle stops %ld, frames at the frame budget %ld, max %ld us", ts3native_readydrain.budgetUs,
+            ts3native_readydrain.frameUs, ts3native_readydrain.gapUs, ts3native_readydrain.polls, ts3native_readydrain.served,
+            ts3native_readydrain.saved, ts3native_readydrain.budgetHits, ts3native_readydrain.idleStops, ts3native_readydrain.frameHits,
+            ts3native_readydrain.maxUs);
     if (c.hcReady & 1)  // [RouteJobPhases] HostSplit=1 (hostcalls.cpp): per serve site n / queue ms; serve, return, nested ms
         Log("route host calls: pump918 %ld/%ld pumpOther %ld/%ld ready %ld/%ld asyncDone %ld/%ld jobDone %ld/%ld runPlan %ld/%ld, "
             "queue max %ld ms, serve %ld ms (max %ld), return %ld ms, nested %ld ms", c.hcN[0], c.hcQueueUs[0] / 1000, c.hcN[1],
@@ -5335,29 +5340,39 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
 static bool ReadyDrain(AsyncJob* j) {
     ReadyDrainCounters& d = ts3native_readydrain;
     if (!d.mode || j->state != J_RUNNING || g_async.state != A_RUNNING || g_async.handle != j->handle) return false;
-    InterlockedIncrement(&d.polls);
+    static LARGE_INTEGER s_win;  // owner thread only: start of the current frame window
+    static LONG s_winUs;         // spin time used in it
+    static bool s_winHit;
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
+    if (!s_win.QuadPart || UsSince(s_win) >= 33000) s_win = t0, s_winUs = 0, s_winHit = false;
+    const bool spin = s_winUs < d.frameUs;
+    if (!spin && !s_winHit) s_winHit = true, InterlockedIncrement(&d.frameHits);
+    InterlockedIncrement(&d.polls);
+    LONG lastServeUs = 0;
+    bool result = false;
     for (;;) {
+        bool served = false;
         if (WaitForSingleObject(g_invReady, 0) == WAIT_OBJECT_0) {
             ServeInvoke(HC_READY);
             InterlockedIncrement(&d.served);
+            served = true;
         }
         const LONG st = j->state;
-        if (st == J_DONE || st == J_SKIPPED) {
-            InterlockedIncrement(&d.saved);
-            Max(&d.maxUs, UsSince(t0));
-            return true;
-        }
-        if (st != J_RUNNING) return false;  // dropped or reused meanwhile: the poll answers "not yet", as before
         const LONG us = UsSince(t0);
-        if (us >= d.budgetUs) {
-            InterlockedIncrement(&d.budgetHits);
-            Max(&d.maxUs, us);
-            return false;
-        }
+        if (served) lastServeUs = us;
+        if (st == J_DONE || st == J_SKIPPED) { InterlockedIncrement(&d.saved); result = true; break; }
+        if (st != J_RUNNING) break;      // dropped or reused meanwhile: the poll answers "not yet", as before
+        if (served) continue;            // a call was waiting: look for the next one at once (queued calls, no spin)
+        if (!spin) break;                // frame budget used: queued calls only
+        if (us - lastServeUs >= d.gapUs) { InterlockedIncrement(&d.idleStops); break; }  // computing, not calling back
+        if (us >= d.budgetUs || s_winUs + us >= d.frameUs) { InterlockedIncrement(&d.budgetHits); break; }
         Sleep(0);
     }
+    const LONG used = UsSince(t0);
+    s_winUs += used;
+    Max(&d.maxUs, used);
+    return result;
 }
 
 // Every Lock_Acquire in the game passes through here; only the job owner's waits during a job are changed (INFINITE and
