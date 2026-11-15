@@ -491,7 +491,7 @@ namespace Ts3Fixes
             e.At = now;
             e.Open = true;
             foreach (CommonDoor d in lot.GetObjects<CommonDoor>())
-                if (d == null || UrCore.DoorRefuses(d.LockType != CommonDoor.tLock.Anybody, d is DoorSingleGender, d.OneWayRoomDestinationId != 0)) { e.Open = false; break; }
+                if (d == null || UrCore.DoorRefuses(d.LockType != CommonDoor.tLock.Anybody, d is DoorSingleGender, UfDoorOneWay(d))) { e.Open = false; break; }
             if (sUrLocks.Count >= 256) sUrLocks.Clear();
             sUrLocks[lot.LotId] = e;
             return !e.Open;
@@ -534,11 +534,13 @@ namespace Ts3Fixes
             e.At = now;
             e.Open = true;
             foreach (CommonDoor d in lot.GetObjects<CommonDoor>())
-                if (d == null || d.LockType != CommonDoor.tLock.Anybody || d is DoorSingleGender || d.OneWayRoomDestinationId != 0) { e.Open = false; break; }
+                if (d == null || d.LockType != CommonDoor.tLock.Anybody || d is DoorSingleGender || UfDoorOneWay(d)) { e.Open = false; break; }
             if (sUfDoors.Count >= 256) sUfDoors.Clear();
             sUfDoors[lot.LotId] = e;
             return e.Open;
         }
+        // docs/584 §7: one-way by EA's sentinel under tpdoorrights (UfPreLot and UfLotLocked too), upstream's "!= 0" when off
+        static bool UfDoorOneWay(CommonDoor d) { return UfPreCore.OneWay(d.OneWayRoomDestinationId, ShortcutOn("tpdoorrights")); }
         struct UfDoors { public long At; public bool Open; }
         static readonly System.Collections.Generic.Dictionary<ulong, UfDoors> sUfDoors = new System.Collections.Generic.Dictionary<ulong, UfDoors>();
         static readonly long kUfDoorTicks = Sims3.Gameplay.Utilities.SimClock.ConvertToTicks(1f, Sims3.Gameplay.Utilities.TimeUnit.Hours);
