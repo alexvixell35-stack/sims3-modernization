@@ -158,3 +158,26 @@ Verification:
 - `registry.ts --self-check` and `check-docs-code.ts` pass.
 
 Next: one off/on run of the 22 repros.
+
+## 7. Batch EP2: built (2026-11-15, same branch, NOT RUN)
+
+Source: `EpBatch2Logic.cs` and `EpBatch2Checks.cs`. Slots 1466-1477, inside the same pinned block. Every switch is off by default. The file follows the same pattern as §6: a check, a repro and audit rows for each switch.
+
+| § | Switch | Check | What changes | Evidence |
+|---|---|---|---|---|
+| 7.1 | `consignmentlastday` | `ConsignmentLastDayCheck` | Fixes the Consignment, PotionShop and BotShop registers. A sale on day 5 reads the last price. An item past its lifespan does not roll for a sale, so EA's own return branch mails it home. | Verified in the decompile and against the shipped tuning: lifespan 5, 5 prices in all four tuning resources. Age is incremented before the roll, so a sale on day 5 or 6 indexes past the end of the array. The IndexOutOfRangeException aborts the daily alarm for every owner after that one. |
+| 7.2 | `bartendinghourlypay` | `BartendingHourlyPayCheck` | OnStopBartending pays the hourly wage it adds to the totals, through `SimDescription.ModifyFunds`. | Verified. The shipped bar data has HourlyPay 5-100 on 51 of 53 bar types. Neither the method, its only caller nor any listener calls ModifyFunds; only tips are paid. |
+| 7.3 | `influencefollowerbonus` | `InfluenceFollowerBonusCheck` | The influence skill-gain modifier becomes `followers / (float)divisor`, with the same [-1, 2] clamp. | Verified that the division is integer; the shipped divisor is 500, not the 20,000 in the code default. The intent to scale is inferred from the float clamp and from the double division in the protest-score sibling. docs/583 G1. |
+| 7.4 | `broomarenachoice` | `BroomArenaChoiceCheck` | The broom chosen from the broom's own menu is kept with the interaction and used if it is still usable. | Verified (§14b). Run clears it and AfterRouteRun resets the from-inventory flag. RE: SetMagicBroom wrote the arena's shared broom at push time, which changed the broom of a ride already in progress. |
+
+All four are household-visible.
+
+Not fixed, found by RE:
+- The consignment loop also throws for an item whose object was deleted while consigned (no trigger seen).
+- A bartending shift that ends without StopTending carries its tips into the next session's notice.
+
+**KissingBooth (§11): parked.** `AttendToKissingBooth.Run`'s retry loop is `while (flag2 && num > 0)`, which is inverted:
+- on success it routes to the slot twice more (zero-length re-plans);
+- on failure it never retries.
+
+A fix needs either a copy of Run, which uses the private AttendingKissingBooth posture and five private members, or a hook on `Sim.RouteToSlot`, a hot routing method used everywhere. Re-running Run after a false return is not safe: its other false paths would kick a non-selectable attendant out on the retry. Cost and risk outweigh two extra route plans per attend.

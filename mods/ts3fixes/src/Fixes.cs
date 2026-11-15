@@ -243,6 +243,10 @@ namespace Ts3Fixes
             ApplyGourmetPetRecipe();   // docs/587 EP1 §18
             ApplyChipComponents();   // docs/587 EP1 §19
             ApplyNaniteMerge();   // docs/587 EP1 §20
+            ApplyConsignmentLastDay();   // docs/587 EP2 §7.1
+            ApplyBartendingHourlyPay();   // docs/587 EP2 §7.2
+            ApplyInfluenceFollowerBonus();   // docs/587 EP2 §7.3
+            ApplyBroomArenaChoice();   // docs/587 EP2 §7.4
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -692,6 +696,10 @@ namespace Ts3Fixes
         // [1457-1459] chipcomponentorphan (EpBatch1bLogic.cs, docs/587 EP1 §19): orphans destroyed / left with switch off / errors.
         // [1460-1462] chipanycount (EpBatch1bLogic.cs, docs/587 EP1 §19): over-asks trimmed / over-asks with switch off / errors.
         // [1463-1465] nanitemerge (EpBatch1bLogic.cs, docs/587 EP1 §20): lists merged / left with switch off / errors.
+        // [1466-1468] consignmentlastday (EpBatch2Logic.cs, docs/587 EP2 §7.1): last-day prices or returns / would throw with switch off / errors.
+        // [1469-1471] bartendinghourlypay (EpBatch2Logic.cs, docs/587 EP2 §7.2): wages paid / unpaid with switch off / errors.
+        // [1472-1474] influencefollowerbonus (EpBatch2Logic.cs, docs/587 EP2 §7.3): modifiers scaled / stepped with switch off / errors.
+        // [1475-1477] broomarenachoice (EpBatch2Logic.cs, docs/587 EP2 §7.4): chosen brooms used / dropped with switch off / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -1148,6 +1156,10 @@ namespace Ts3Fixes
                 case "chipcomponentorphan": return Instantiator.kChipComponentOrphan;
                 case "chipanycount": return Instantiator.kChipAnyCount;
                 case "nanitemerge": return Instantiator.kNaniteMerge;
+                case "consignmentlastday": return Instantiator.kConsignmentLastDay;
+                case "bartendinghourlypay": return Instantiator.kBartendingHourlyPay;
+                case "influencefollowerbonus": return Instantiator.kInfluenceFollowerBonus;
+                case "broomarenachoice": return Instantiator.kBroomArenaChoice;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

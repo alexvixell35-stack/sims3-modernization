@@ -418,6 +418,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kChipComponentOrphan value="False" />
     <kChipAnyCount value="False" />
     <kNaniteMerge value="False" />
+    <kConsignmentLastDay value="False" />
+    <kBartendingHourlyPay value="False" />
+    <kInfluenceFollowerBonus value="False" />
+    <kBroomArenaChoice value="False" />
     <kBirthRoute value="True" />
     <kPutDownPlace value="True" />
     <kAwardKeep value="False" />
