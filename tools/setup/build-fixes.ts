@@ -404,6 +404,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kPortAskNoHome value="False" />
     <kLectureBroadcaster value="False" />
     <kResidentSpawnWalk value="False" />
+    <kMidlifeWishSave value="False" />
+    <kInnerBeautyOnce value="False" />
+    <kBetrayedNullSim value="False" />
+    <kTopicTestNull value="False" />
+    <kOppTrackerRelisten value="False" />
     <kBirthRoute value="True" />
     <kPutDownPlace value="True" />
     <kAwardKeep value="False" />

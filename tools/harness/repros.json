@@ -85448,6 +85448,411 @@
     ]
   },
   {
+    "id": "midlifewishsave-check",
+    "bug": "Midlife crisis wish count and update date survive travel export/import (docs/582 B8b §1)",
+    "fix": "ts3fixes Batch582hLogic.cs: midlifewishsave (default off), docs/582 B8b §1",
+    "save": "any world (pure check)",
+    "note": "MidlifeWishSaveCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "midlifewishsave": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MidlifeWishSaveCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MidlifeWishSaveCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "midlifewishsave": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MidlifeWishSaveCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MidlifeWishSaveCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "midlifewishsave": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "midlifewishsave": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "innerbeautyonce-check",
+    "bug": "A mean social is handled once however many Sims have Inner Beauty (docs/582 B8b §2)",
+    "fix": "ts3fixes Batch582hLogic.cs: innerbeautyonce (default off), docs/582 B8b §2",
+    "save": "any world (pure check)",
+    "note": "InnerBeautyOnceCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "innerbeautyonce": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InnerBeautyOnceCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InnerBeautyOnceCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "innerbeautyonce": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InnerBeautyOnceCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InnerBeautyOnceCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "innerbeautyonce": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "innerbeautyonce": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "betrayednullsim-check",
+    "bug": "Betrayal notice and break-up run when the betrayer is not instantiated (docs/582 B8b §3)",
+    "fix": "ts3fixes Batch582hLogic.cs: betrayednullsim (default off), docs/582 B8b §3",
+    "save": "any world (pure check)",
+    "note": "BetrayedNullSimCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "betrayednullsim": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BetrayedNullSimCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BetrayedNullSimCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "betrayednullsim": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BetrayedNullSimCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BetrayedNullSimCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "betrayednullsim": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "betrayednullsim": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "topictestnull-check",
+    "bug": "Conversation topic tests answer instead of throwing for a missing Sim or Athletic skill (docs/582 B8b §4)",
+    "fix": "ts3fixes Batch582hLogic.cs: topictestnull (default off), docs/582 B8b §4",
+    "save": "any world (pure check)",
+    "note": "TopicTestNullCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "topictestnull": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TopicTestNullCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TopicTestNullCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "topictestnull": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TopicTestNullCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TopicTestNullCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "topictestnull": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "topictestnull": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "opptrackerrelisten-check",
+    "bug": "Opportunity completion listener is not registered twice when its target Sim appears (docs/582 B8b §5)",
+    "fix": "ts3fixes Batch582hLogic.cs: opptrackerrelisten (default off), docs/582 B8b §5",
+    "save": "any world (pure check)",
+    "note": "OppTrackerRelistenCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "opptrackerrelisten": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OppTrackerRelistenCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OppTrackerRelistenCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "opptrackerrelisten": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OppTrackerRelistenCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OppTrackerRelistenCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "opptrackerrelisten": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "opptrackerrelisten": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

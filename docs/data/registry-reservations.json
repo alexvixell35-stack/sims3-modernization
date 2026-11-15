@@ -6357,6 +6357,16 @@
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
     {
+      "id": "fixes-1258",
+      "kind": "fixes",
+      "from": 1258,
+      "to": 1272,
+      "by": "claude",
+      "what": "batch 8b (docs/582 B8b): midlifewishsave, innerbeautyonce, betrayednullsim, topictestnull, opptrackerrelisten",
+      "at": "2026-11-15T22:50:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
       "id": "fixes-1400",
       "kind": "fixes",
       "from": 1400,

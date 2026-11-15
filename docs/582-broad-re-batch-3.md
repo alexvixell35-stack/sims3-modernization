@@ -641,3 +641,29 @@ Repros `<switch>-check`: `boatstaleswimmer`, `oppcategoryprotect`, `nocommercial
 ### Batch 8 tests (in game, off then on)
 
 Repros `<switch>-check` for all eight switches, and `dreamcleanup-check` again. Live confirmation: `residentspawnwalk` [1256] with the switch off on CD30 (Apollo Bloom), then the resident at his own door with it on.
+
+## Batch 8b (coverage sweep, docs/586 §4-§5)
+
+2026-11-15. Static only. Code: `Batch582hLogic.cs`, checks `Batch582hChecks.cs`, slots 1258-1272 (below the EP batch range 1400-1499). All switches off by default. simler90 UPDATE242 changes none of these methods; none was hooked before.
+
+| § | Lead | Switch | Slots | Scope | Status |
+|---|---|---|---|---|---|
+| B8b §1 | coverage #2 | `midlifewishsave` | 1258-1260 | **household-visible**: the crisis ending after a trip | verified omission; travel effect inferred |
+| B8b §2 | coverage #4 | `innerbeautyonce` | 1261-1263 | **household-visible**: one notice per mean social | verified |
+| B8b §3 | coverage 2 #3 | `betrayednullsim` | 1264-1266 | **household-visible**: notice and break-up instead of a throw | verified null path; reach inferred low |
+| B8b §4 | coverage 2 #4 | `topictestnull` | 1267-1269 | **household-visible**: topic lists build | verified code; reach inferred |
+| B8b §5 | coverage 2 #5 | `opptrackerrelisten` | 1270-1272 | **household-visible**: completion listener once | verified double add; effect inferred |
+
+**How each fix works** (details in the code comments):
+- **§1.** `MidlifeCrisisManager` export/import skips `mWishesFulfilled` and `mLastUpdatedDate`. Our hooks write them after EA's fields under our own keys and read them back; a stream without them leaves EA's values (vanilla readers ignore unknown keys).
+- **§2.** Each Inner Beauty instance adds an unfiltered listener bound to a handler that acts on the event's actor. Each `Event` (new per send) is now handled once.
+- **§3.** `ShowTNSAndBreakUp` reads `createdSim.IsFemale` when only the victim is selectable. The notice takes the sex from the SimDescription; EA's break-up runs.
+- **§4.** `ActiveTopic.PassesTestFunction` calls test functions with `MethodInfo.Invoke`, which refuses swapped methods in the game's Mono, so nothing is swapped: at world load the five topics' `TestFunction` is re-pointed to wrappers that call EA's method (switch off: unchanged) or answer where EA would throw (switch on).
+- **§5.** `OpportunityTrackerModel.TriggerInteraction` re-adds a completion listener that is already registered (same key; `AddListener` does not dedupe). On exactly EA's path the old registration is removed first.
+
+**Not built: `BuffImminentNemesis.OnSocialization` (coverage #5), needs the user's call.** It gates the instant nemesis on `TargetSim.CanHaveRomanceWith(other)`, the same test as `BuffImminentRomance`.
+- Reading A (copy-paste bug): a nemesis needs no romance eligibility; the spell should fire on any human socialized with, including relatives and teen/adult pairs. Fix: drop the test (keep `IsHuman`).
+- Reading B (intended): EA kept the romance-eligible pool on purpose, as the spell's mirror of Imminent Romance. Then nothing changes.
+- The code alone cannot tell them apart; the buff's description text would.
+
+**Skipped:** coverage #6 (Imaginary Friend copy ctor; inferred, rare), #7 (MoodLamp; no callers), runtime R3 (no stack yet).
