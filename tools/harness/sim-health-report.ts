@@ -4,8 +4,11 @@
 //   node tools/harness/sim-health-report.ts <health.jsonl> [--log ts3native.log] [--stuck-min 120] [--still-min 240] [--json]
 //   node tools/harness/sim-health-report.ts --self-check
 // Prints: Sims locked in a room they cannot leave, stuck Sims (same head interaction > --stuck-min sim minutes, or not
-// moved for > --still-min, sleeping and other long by-design interactions listed too: judge by the name), failure spam
-// (Sim x interaction definition x count), and per group (human, dog, cat, horse, other, each occult, unseen, held) the
+// moved for > --still-min, sleeping and other long by-design interactions listed too: judge by the name), the sample
+// spacing (sim minutes between calls; counters cover since_min, the span since the census's previous call), failure spam
+// (Sim x definition x count, failure exit reasons only), short ends (by design often, lower ranked), ends our own
+// shortcuts caused (ours: unseenfb holds and ts3fixes moves, never spam; censuses before since_min mixed game cancels and
+// short ends into spam and had no ours, labelled), and per group (human, dog, cat, horse, other, each occult, unseen, held) the
 // rates per Sim-hour of route fails, locked-portal fails, failed / game-cancelled / short interactions, unseen holds and
 // shortcut moves, plus from the log: unseen cuts, cut -> retry success, KD NPC ceiling cuts; and the state of non-human
 // Sims after a hold ended (posture / walk style / terrain), so a group whose unseen handling breaks stands out.
@@ -14,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 
 type Row = Record<string, any>;
-type Sample = { sim_minutes: number; sims: Row[] };
+type Sample = { sim_minutes: number; since_min: number | null; sims: Row[] };
 
 export function parseHealth(text: string): Sample[] {
   const out: Sample[] = [];
@@ -24,7 +27,7 @@ export function parseHealth(text: string): Sample[] {
     let j: any;
     try { j = JSON.parse(line.slice(i)); } catch { continue; }
     const r = j && typeof j === 'object' && 'result' in j ? j.result : j;
-    if (r && Array.isArray(r.sims)) out.push({ sim_minutes: Number(r.sim_minutes) || 0, sims: r.sims });
+    if (r && Array.isArray(r.sims)) out.push({ sim_minutes: Number(r.sim_minutes) || 0, since_min: typeof r.since_min === 'number' ? r.since_min : null, sims: r.sims });
   }
   return out;
 }
@@ -57,18 +60,23 @@ export function groupsOf(r: Row, unseen: boolean, held: boolean): string[] {
   return g;
 }
 
-type Acc = { sims: Set<string>; simMin: number; route: number; locked: number; failed: number; gameCancel: number; short: number; ended: number; holds: number; moves: number;
+type Acc = { sims: Set<string>; simMin: number; route: number; locked: number; failed: number; gameCancel: number; short: number; ours: number; ended: number; holds: number; moves: number;
   cuts: number; ufCuts: number; retryOk: number; retryFail: number; kdNpc: number; logSims: number };
-const newAcc = (): Acc => ({ sims: new Set(), simMin: 0, route: 0, locked: 0, failed: 0, gameCancel: 0, short: 0, ended: 0, holds: 0, moves: 0,
+const newAcc = (): Acc => ({ sims: new Set(), simMin: 0, route: 0, locked: 0, failed: 0, gameCancel: 0, short: 0, ours: 0, ended: 0, holds: 0, moves: 0,
   cuts: 0, ufCuts: 0, retryOk: 0, retryFail: 0, kdNpc: 0, logSims: 0 });
 
 export function report(samples: Sample[], log: Map<string, LogTally> | null, stuckMin: number, stillMin: number) {
   const groups = new Map<string, Acc>();
   const acc = (g: string) => { let a = groups.get(g); if (!a) groups.set(g, a = newAcc()); return a; };
-  const locked = new Map<string, string>(), stuck = new Map<string, string>(), spam = new Map<string, number>(), after: string[] = [];
+  const locked = new Map<string, string>(), stuck = new Map<string, string>(), spam = new Map<string, number>(), shortEnds = new Map<string, number>(), ours = new Map<string, number>(), after: string[] = [];
+  const gaps: number[] = [];
+  const legacy = samples.length > 0 && samples.every((s) => s.since_min === null);
   const simGroups = new Map<string, Set<string>>(), names = new Map<string, string>();
   for (let k = 0; k < samples.length; k++) {
-    const s = samples[k], dt = k > 0 ? Math.max(0, s.sim_minutes - samples[k - 1].sim_minutes) : 0;
+    const s = samples[k];
+    // the span this sample's counters cover: the census's own since_min, else (older censuses) the gap to the previous sample
+    const dt = s.since_min !== null ? s.since_min : k > 0 ? Math.max(0, s.sim_minutes - samples[k - 1].sim_minutes) : 0;
+    if (k > 0) gaps.push(Math.max(0, s.sim_minutes - samples[k - 1].sim_minutes));
     for (const r of s.sims) {
       if (r.error || !r.id) continue;
       const id = String(r.id), who = `${r.name} [${r.species}${(r.occults ?? []).length ? ' ' + r.occults.join('+') : ''}, ${r.scope}]`;
@@ -78,14 +86,15 @@ export function report(samples: Sample[], log: Map<string, LogTally> | null, stu
       for (const g of gs) {
         sg.add(g);
         const a = acc(g);
-        a.sims.add(id); if (k > 0) a.simMin += dt;
+        a.sims.add(id); a.simMin += dt;
         a.route += r.route_fails ?? 0; a.locked += r.route_locked ?? 0; a.failed += r.failed ?? 0; a.gameCancel += r.game_cancelled ?? 0;
-        a.short += r.short ?? 0; a.ended += r.ended ?? 0; a.holds += r.holds ?? 0; a.moves += r.moved_new ? 1 : 0;
+        a.short += r.short ?? 0; a.ours += r.ours ?? 0; a.ended += r.ended ?? 0; a.holds += r.holds ?? 0; a.moves += r.moved_new ? 1 : 0;
       }
       if (r.trapped === true) locked.set(id, `${who} room ${r.room} on ${r.lot}${r.hidden_room ? ' (hidden room)' : ''}`);
       if ((r.interaction_min ?? 0) > stuckMin) stuck.set(id, `${who}: ${r.interaction} for ${r.interaction_min} sim-min on ${r.lot}`);
       else if ((r.still_min ?? 0) > stillMin) stuck.set(id, `${who}: not moved for ${r.still_min} sim-min (${r.interaction ?? 'idle'}) on ${r.lot}`);
-      for (const sp of r.spam ?? []) { const key = `${who} x ${sp.definition}`; spam.set(key, (spam.get(key) ?? 0) + sp.count); }
+      const add = (m: Map<string, number>, l: any[] | undefined) => { for (const sp of l ?? []) { const key = `${who} x ${sp.definition}`; m.set(key, (m.get(key) ?? 0) + sp.count); } };
+      add(spam, r.spam); add(shortEnds, r.short_ends); add(ours, r.ours_ends);
       if (r.species !== 'human' || (r.occults ?? []).length) for (const h of r.after_hold ?? []) if (after.length < 60) after.push(`${who}: ${h}`);
     }
   }
@@ -97,24 +106,32 @@ export function report(samples: Sample[], log: Map<string, LogTally> | null, stu
       a.cuts += t.cuts; a.ufCuts += t.ufCuts; a.retryOk += t.retryOk; a.retryFail += t.retryFail; a.kdNpc += t.kdNpc; a.logSims++;
     }
   }
-  return { groups, locked, stuck, spam, after, samples: samples.length };
+  gaps.sort((a, b) => a - b);
+  const spacing = gaps.length ? { min: gaps[0], median: gaps[gaps.length >> 1], max: gaps[gaps.length - 1] } : null;
+  return { groups, locked, stuck, spam, shortEnds, ours, after, samples: samples.length, spacing, legacy };
 }
 
 const per = (n: number, min: number) => (min > 0 ? (n * 60 / min).toFixed(2) : '-');
 const pct = (a: number, b: number) => (a + b > 0 ? `${Math.round(100 * a / (a + b))}%` : '-');
 
 export function render(r: ReturnType<typeof report>): string {
-  const o: string[] = [`sim_health report: ${r.samples} samples`];
+  const h = (m: number) => (m / 60).toFixed(1);
+  const o: string[] = [`sim_health report: ${r.samples} samples` + (r.spacing ? `, ${h(r.spacing.min)} / ${h(r.spacing.median)} / ${h(r.spacing.max)} sim-hours apart (min / median / max)` : '')
+    + (r.legacy ? ' (older census: counters span the whole gap, spam includes game cancels and short ends, no ours)' : '')];
   o.push(`\n== locked in a room (no portal out the Sim may pass): ${r.locked.size}`); for (const v of r.locked.values()) o.push('  ' + v);
   o.push(`\n== stuck (long head interaction or not moving): ${r.stuck.size}`); for (const v of r.stuck.values()) o.push('  ' + v);
   const sp = [...r.spam].sort((a, b) => b[1] - a[1]);
-  o.push(`\n== failure spam (>= 3 failed / game-cancelled / short ends between two calls): ${sp.length}`); for (const [k, n] of sp.slice(0, 40)) o.push(`  ${n}  ${k}`);
-  o.push('\n== per group, per Sim-hour (route fails, locked-portal fails, failed, game-cancelled, short ends, unseen holds, shortcut moves); log: unseen cuts, retry ok after a cut, KD NPC cuts');
-  o.push('  group              sims  simh   route  locked failed cancel short  holds  moves | ufcut  cuts  retry-ok  kdnpc');
+  o.push(`\n== failure spam (>= 3 ends with a failure exit reason between two calls): ${sp.length}`); for (const [k, n] of sp.slice(0, 40)) o.push(`  ${n}  ${k}`);
+  const se = [...r.shortEnds].sort((a, b) => b[1] - a[1]);
+  o.push(`\n== short ends (< 1 sim minute, >= 3 between two calls; often by design: outfit spins, reactions, orders): ${se.length}`); for (const [k, n] of se.slice(0, 20)) o.push(`  ${n}  ${k}`);
+  const ou = [...r.ours].sort((a, b) => b[1] - a[1]);
+  o.push(`\n== ends caused by our shortcuts (ours: unseenfb hold or ts3fixes move during the interaction; not failures): ${ou.length}`); for (const [k, n] of ou.slice(0, 20)) o.push(`  ${n}  ${k}`);
+  o.push('\n== per group, per Sim-hour (route fails, locked-portal fails, failed, game-cancelled, short ends, ours, unseen holds, shortcut moves); log: unseen cuts, retry ok after a cut, KD NPC cuts');
+  o.push('  group              sims  simh   route  locked failed cancel short  ours   holds  moves | ufcut  cuts  retry-ok  kdnpc');
   const rows = [...r.groups].sort((a, b) => b[1].sims.size - a[1].sims.size);
   for (const [g, a] of rows)
     o.push(`  ${g.padEnd(18)} ${String(a.sims.size).padStart(4)} ${(a.simMin / 60).toFixed(0).padStart(5)}  ${per(a.route, a.simMin).padStart(6)} ${per(a.locked, a.simMin).padStart(6)} `
-      + `${per(a.failed, a.simMin).padStart(6)} ${per(a.gameCancel, a.simMin).padStart(6)} ${per(a.short, a.simMin).padStart(5)} ${per(a.holds, a.simMin).padStart(6)} ${per(a.moves, a.simMin).padStart(6)} |`
+      + `${per(a.failed, a.simMin).padStart(6)} ${per(a.gameCancel, a.simMin).padStart(6)} ${per(a.short, a.simMin).padStart(5)} ${per(a.ours, a.simMin).padStart(6)} ${per(a.holds, a.simMin).padStart(6)} ${per(a.moves, a.simMin).padStart(6)} |`
       + ` ${String(a.ufCuts).padStart(5)} ${String(a.cuts).padStart(5)} ${pct(a.retryOk, a.retryFail).padStart(9)} ${String(a.kdNpc).padStart(6)}`);
   o.push(`\n== non-human Sims after an unseen hold (posture / walk style / terrain): ${r.after.length}`); for (const v of r.after) o.push('  ' + v);
   return o.join('\n');
@@ -144,6 +161,14 @@ function selfCheck() {
   ok(dog.simMin === 120 && dog.route === 4 && dog.failed === 2 && dog.ufCuts === 1 && dog.retryOk === 1, 'dog group tallies');
   ok(r.groups.get('(not in census)')?.kdNpc === 1, 'unjoined KD line');
   ok(r.locked.size === 1 && r.spam.size === 1 && r.after.length === 1, 'locked, spam, after-hold');
+  ok(r.legacy && r.spacing?.median === 120 && render(r).includes('older census'), 'legacy census labelled, spacing');
+  // new census: since_min is the counters' span (the first call's reset sample covers 0), short and ours apart from spam
+  const nu = parseHealth([JSON.stringify({ result: { sim_minutes: 0, since_min: 0, sims: [sim('1', {})] } }),
+    JSON.stringify({ result: { sim_minutes: 900, since_min: 120, sims: [sim('1', { short: 4, ours: 2, short_ends: [{ definition: 'SwitchToOutfit', count: 4 }],
+      ours_ends: [{ definition: 'GoHome', count: 2 }] })] } })].join('\n'));
+  const r2 = report(nu, null, 120, 240);
+  ok(r2.groups.get('dog')!.simMin === 120 && r2.spam.size === 0 && r2.shortEnds.size === 1 && r2.ours.size === 1 && !r2.legacy, 'since_min span, short / ours not spam');
+  ok(render(r2).includes('15.0 / 15.0 / 15.0 sim-hours apart'), 'spacing stated');
   ok(render(r).includes('per Sim-hour'), 'render');
   console.log('sim-health-report self-check: ok');
 }
@@ -155,7 +180,8 @@ else {
   const samples = parseHealth(readFileSync(positionals[0], 'utf8'));
   const log = values.log ? parseLog(readFileSync(values.log, 'latin1')) : null;
   const r = report(samples, log, Number(values['stuck-min'] ?? 120), Number(values['still-min'] ?? 240));
-  if (values.json) console.log(JSON.stringify({ samples: r.samples, locked: [...r.locked.values()], stuck: [...r.stuck.values()], spam: Object.fromEntries(r.spam), after: r.after,
+  if (values.json) console.log(JSON.stringify({ samples: r.samples, locked: [...r.locked.values()], stuck: [...r.stuck.values()], spam: Object.fromEntries(r.spam),
+    short_ends: Object.fromEntries(r.shortEnds), ours: Object.fromEntries(r.ours), spacing: r.spacing, legacy: r.legacy, after: r.after,
     groups: Object.fromEntries([...r.groups].map(([g, a]) => [g, { ...a, sims: a.sims.size }])) }, null, 1));
   else console.log(render(r));
 }
