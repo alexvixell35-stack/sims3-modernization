@@ -20,7 +20,8 @@
 //    dmxMode (+0x5014, --ab doormemox); a flip clears the table on the worker's next ask.
 //    Mode 3 = mode 1 (acting, every 8th valid row asked anyway, a mismatch turns it off) with the managed door inputs in the
 //    generation too: ts3fixes' DoorGen.cs (switch doorgen) sends UserDiag op 36 after every lock / owner-list / greeting /
-//    lot portal-handler / household-membership change (lo 0 = bump) and arms it at world load (lo 1). Until armed, mode 3
+//    lot portal-handler / household-membership / fire / IgnoreDoorLocks / occult / role / resort VIP or closing / gender,
+//    age or pregnancy change (lo 0 = bump; DoorGen.cs header lists the hooks) and arms it at world load (lo 1). Until armed, mode 3
 //    memoizes nothing (an old package or the switch off never gets a memo whose inputs are not tracked).
 // The door stub sits in the chain like P4's (docs/68 rule 3): behind P4DoorStub when P4 owns the call (its jump slot
 // g_p4DoorJmp now names ours), else in [ProbeValues]' jump slot, else on the call's own rel32.
