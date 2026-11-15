@@ -181,3 +181,42 @@ Not fixed, found by RE:
 - on failure it never retries.
 
 A fix needs either a copy of Run, which uses the private AttendingKissingBooth posture and five private members, or a hook on `Sim.RouteToSlot`, a hot routing method used everywhere. Re-running Run after a false return is not safe: its other false paths would kick a non-selectable attendant out on the retry. Cost and risk outweigh two extra route plans per attend.
+
+## 8. Tranche 2 and batch EP3: built (2026-11-15, same branch, NOT RUN)
+
+**Tranche 2.** The next 150 ranked EP/SP types from `ep-pack-classify.py` were read by hand, plus 10 rarer inferred leads from tranche 1. EA's `StoryProgression` namespace was skipped (owned by the story-progression work). Every confirmed lead was checked against simler90 UPDATE242 (none of the built ones is fixed there) and against the shipped tuning where a [Tunable] default mattered.
+
+Inferred leads from tranche 1:
+- CONFIRMED: DaycareWorkdaySituation late-parent alarm (built as 8.10); FutureDescendantService size-0 household (parked, below).
+- DROPPED: GeneSplicingExperiment.OnEpicSuccess (EP9 object always exists); TreasureComponent.GetAdventureTreasureInternal (keys validated by the caller and all present in shipped XML); Bird.FinalizeDeath null owner lot (world lot only, no normal-play path); PhilanthropistRecordData listener; AcademicCareer.SetNewProfessor; SoccerGoal; Houseboat autopilot; BuffEmbracingTheFuture (no reachable defect).
+
+**Batch EP3.** Source: `EpBatch3Logic.cs` and `EpBatch3Checks.cs`. Slots 1478-1498 (`fixes-1400`) and 1500-1520 (`fixes-1500`). Every switch is off by default, with a pure check, a repro and audit rows, as in §6.
+
+| § | Switch | Check | What changes | Evidence |
+|---|---|---|---|---|
+| 8.1 | `fortunetellerscamodds` | `FortuneTellerScamOddsCheck` | Scam-artist levels 1-9 get their own array, built with EA's scam interpolation (after EA builds the tables and at world load). | Verified: `CreateReadingChancesArrays` adds one array to both tables, then overwrites it with the mystic values. |
+| 8.2 | `consignmentskillcurve` | `ConsignmentSkillCurveCheck` | `sSkillVsSaleChanceCurve` is rebuilt from EA's own skill arrays in all three registers. | Verified, shipped tuning: the curve is built from the frequency arrays (X 0,3,5), which Curve.Fx extrapolates to -2.25 at skill 10 instead of 1. Sales fall as Consignment skill rises. |
+| 8.3 | `consignmentstockleak` | `ConsignmentStockLeakCheck` | Expired and rotated shop-stock objects are destroyed before EA drops them, if they are still out of the world and in no inventory. | Verified: `RemoveAt` with no Destroy in ItemDictionary and OnMagicHourAlarm. That is 5 potions or bots a day, plus every expiry. |
+| 8.4 | `herbqualityfloor` | `HerbQualityFloorCheck` | A Horrifying herb is not lowered further. | Verified: there is no floor, so quality 0 is read out of range. `IncreaseHerbQuality` already has the matching cap. |
+| 8.5 | `snackbowlslobvfx` | `SnackBowlSlobVfxCheck` | The slob food effect uses `FireOneShotEffect`. | Verified: the effect is created and started, and its handle is dropped. |
+| 8.6 | `worldpondskatetest` | `WorldPondSkateTestCheck` | Skate on a world pond also has to pass the shared skate test for the area EA picked. | Verified: the result of `SharedCanSkateOnObjectTest` is discarded. It refuses Sims in robot form, Sims already skating there, and full areas. |
+| 8.7 | `pingpongopponent` | `PingPongOpponentCheck` | Both opponent lists keep only humans aged Child or older. | Verified: there is no species test and, for the autonomous pick, no age test, so pets, babies and toddlers can be picked. |
+| 8.8 | `mermaiddehydratelook` | `MermaidDehydrateLookCheck` | Cleanup re-enables look-ats once StandardEntry has run. | Verified: Run disables them and nothing in Dehydrate turns them back on. |
+| 8.9 | `meteormagnetorphan` | `MeteorMagnetOrphanCheck` | After Cleanup, a fragment still out of the world and in no inventory is destroyed. | Verified: a cancelled attract never shows the fragment or puts it in an inventory. |
+| 8.10 | `daycarelatealarm` | `DaycareLateAlarmCheck` | The late-pickup alarm is skipped if the child is gone or no longer monitored. Force removals run as EA. | Verified: `HandleRemoval` has no null or key checks. |
+| 8.11 | `boxofmysterywoohoo` | `BoxOfMysteryWooHooCheck` | For the Try for Baby initiator, Run succeeds only if EA's `RunPostWoohoo` ran with this box. | Verified, shipped kBabyMadeChance 50: base Run returns true after a failed StartSync. |
+| 8.12 | `bodysculptorweight` | `BodySculptorWeightCheck` | The Run's own SetBodyShape call gets EA's target weight in place of the mirrored value. Failures and "Original" are unchanged. | Verified: `num5 = 1 + num4` mirrors negative weights around -0.5. Thin makes thin Sims fatter, and Weak/Strong flip them. |
+| 8.13 | `nectarconsignvalue` | `NectarConsignValueCheck` | The value of stocked nectar is rolled over p[2]..p[3]. | Verified, shipped rows: `GetInt(p[2], p[2])` always gives the minimum. |
+| 8.14 | `straygnometns` | `StrayGnomeTnsCheck` | The new disallow type is set on every gnome before EA's Run, and the notice shows once. | Verified: SetAllowStrays shows the notice before the type is set. RE: one copy per gnome. |
+
+All but 8.9 are household-visible. Found by RE and fixed: 8.14's duplicate notices. Found by RE, not fixed: the null checks around ShowTooltip and AppreciateDepreciateDailyUpdate in the register stock code; FruitVeggieStand has the same curve line as 8.2; PotionShop and BotShop have the same nectar line but ship no nectar rows; the autonomous ping-pong pick on an empty list.
+
+Parked, with reasons:
+- FutureDescendantService size-0 households (`ProcessDescendantHouseholds` NRE on dirty names; progenitors not packed back). `Instantiate` and `ProcessDescendantHouseholds` yield. A safe prefix would edit persisted state (`Household.mDirtyNameSimIds`, unpack lists), so it needs its own design and a future-trip test.
+- The following need copies of yielding Run methods with several private members, which is not worth the risk in this batch:
+  - DoggySwimHere.RouteActorToDestination (pick from an empty list);
+  - FragmentedObject.Reconstruct.RunFromInventory (destroys N+1 fragments);
+  - AcademicLabSituation.PushLabSituationInteraction (ignores lot lab objects when the inventory is empty);
+  - AcademicBusinessPlanner.UseBusinessPlanner.Run (writes the shared Definition; can pocket a planner someone else is using).
+- Party chair count (`num == Length` pays only with exactly one chair): which objects count as "chair" is inferred. The OnOver bonus order is unclear.
+- Low or cosmetic: ClubLight Clamp result discarded; DaycareTransportSituation; CounterIsland.PlaceSnackBowl charge order; Dresser.PutOnUniform helper leak; VomitPile.Eat roll; MarineLifeStateWander PostPlanCallback; Fireplace mLitFireFX; PutInInventory null SimOwner.
