@@ -39,10 +39,9 @@ namespace Ts3Fixes
     // [2529] deleted-chaperone / exited-trip calls handled, [2533] errors, [2540] carpool home with no selected Sim / no home handled. Check: FieldTripAdultChecks.cs.
     public static partial class Fixes
     {
-        const BindingFlags kFtaAll = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        static readonly FieldInfo sFtaSchoolLot = typeof(FieldTripSituation).GetField("mSchoolLot", kFtaAll);
-        static readonly FieldInfo sFtaFailed = typeof(FieldTripSituation).GetField("mAdultsThatFailedToShow", kFtaAll);
-        static readonly FieldInfo sFtaCarpool = typeof(FieldTripSituation).GetField("mTriggeredCarpoolHome", kFtaAll);
+        static readonly FieldInfo sFtaSchoolLot = typeof(FieldTripSituation).GetField("mSchoolLot", kInstAll);
+        static readonly FieldInfo sFtaFailed = typeof(FieldTripSituation).GetField("mAdultsThatFailedToShow", kInstAll);
+        static readonly FieldInfo sFtaCarpool = typeof(FieldTripSituation).GetField("mTriggeredCarpoolHome", kInstAll);
 
         static void ApplyFieldTripAdult()
         {

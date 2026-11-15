@@ -38,10 +38,9 @@ namespace Ts3Fixes
 
         static void ApplyShuffleboardBcast()
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             Type play = typeof(Shuffleboard).GetNestedType("Play", BindingFlags.Public | BindingFlags.NonPublic);
-            sSbBcast = play == null ? null : play.GetField("mBroadcaster", inst);
-            sSbPetBcast = play == null ? null : play.GetField("mPetBroadcaster", inst);
+            sSbBcast = play == null ? null : play.GetField("mBroadcaster", kInstAll);
+            sSbPetBcast = play == null ? null : play.GetField("mPetBroadcaster", kInstAll);
             if (sSbBcast == null || sSbPetBcast == null) { AppliedLog().Add("shuffleboardbcast: Shuffleboard+Play members not found, not patched"); return; }
             Patch(play, "TriggerReactions", typeof(SbHook), "TriggerHook", "TriggerOrig");
             Patch(play, "Cleanup", typeof(SbHook), "CleanupHook", "CleanupOrig");

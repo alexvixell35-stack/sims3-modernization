@@ -165,15 +165,14 @@ namespace Ts3Fixes
 
         static void ApplyAutOffload()
         {
-            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
             try
             {
-                fUpdSim = typeof(SimUpdate).GetField("mSim", all);
-                fEnvTime = typeof(SimUpdate).GetField("mTimePassedEnvironment", all);
-                fBcReacting = typeof(ReactionBroadcaster).GetField("mSimsReacting", all);
-                FieldInfo buf = typeof(ReactionBroadcaster).GetField("kBroadcasterRadiusBuffer", all);
-                mDoSimEnv = typeof(SimUpdate).GetMethod("DoSimEnvironmentUpdateInternal", all);
-                mSendObjEnv = typeof(SimUpdate).GetMethod("SendObjectEnvironmentUpdateEvents", all);
+                fUpdSim = typeof(SimUpdate).GetField("mSim", kAnyAll);
+                fEnvTime = typeof(SimUpdate).GetField("mTimePassedEnvironment", kAnyAll);
+                fBcReacting = typeof(ReactionBroadcaster).GetField("mSimsReacting", kAnyAll);
+                FieldInfo buf = typeof(ReactionBroadcaster).GetField("kBroadcasterRadiusBuffer", kAnyAll);
+                mDoSimEnv = typeof(SimUpdate).GetMethod("DoSimEnvironmentUpdateInternal", kAnyAll);
+                mSendObjEnv = typeof(SimUpdate).GetMethod("SendObjectEnvironmentUpdateEvents", kAnyAll);
                 if (fUpdSim == null || fEnvTime == null || fBcReacting == null || buf == null || mDoSimEnv == null || mSendObjEnv == null)
                     throw new MissingMemberException("private member not found");
                 sBcBuffer = (float)buf.GetValue(null);

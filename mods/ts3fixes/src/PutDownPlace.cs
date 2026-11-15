@@ -43,12 +43,11 @@ namespace Ts3Fixes
 
         static void ApplyPutDownPlace()
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
             Type t = typeof(ChildUtils.PutDownClass);
-            sPdActor = t.GetField("Actor", inst);
-            sPdTarget = t.GetField("Target", inst);
-            sPdJig = t.GetField("SocialJig", inst);
-            sPdSocial = t.GetField("mSocialToPushToTarget", inst);
+            sPdActor = t.GetField("Actor", kInstAll);
+            sPdTarget = t.GetField("Target", kInstAll);
+            sPdJig = t.GetField("SocialJig", kInstAll);
+            sPdSocial = t.GetField("mSocialToPushToTarget", kInstAll);
             if (sPdActor == null || sPdTarget == null || sPdJig == null || sPdSocial == null) { AppliedLog().Add("putdownplace: PutDownClass fields not found, not patched"); return; }
             Patch(typeof(ChildUtils.PutDownClass), "PutDownChild", typeof(PdHook), "PutHook", "PutOrig");
         }

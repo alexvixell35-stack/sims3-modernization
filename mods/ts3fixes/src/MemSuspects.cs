@@ -34,8 +34,6 @@ namespace Ts3Fixes
         static readonly Dictionary<string, char> sSusMark = new Dictionary<string, char>();  // key -> 'v' passed, '!' failed
         static int sSusGen;
         static bool sSusSelfTestDone;
-        const BindingFlags kSusStatic = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-        const BindingFlags kSusInst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
         // Called from Instantiator's world-load handler after DiagWorldLoad: with [MemDiag] on, one task per load polls
         // ts3native every 10 ticks (one GetOption2 call) and answers the wanted sample.
@@ -114,7 +112,7 @@ namespace Ts3Fixes
 
         static Dictionary<uint, WindowBase> SusDict()
         {
-            FieldInfo f = typeof(UIManager).GetField("mCustomControlInstanceDict", kSusStatic);
+            FieldInfo f = typeof(UIManager).GetField("mCustomControlInstanceDict", kStaticAll);
             return f == null ? null : f.GetValue(null) as Dictionary<uint, WindowBase>;
         }
 
@@ -134,25 +132,25 @@ namespace Ts3Fixes
             target = null;
             switch (key)
             {
-                case "ppc": return typeof(Sims3.SimIFace.Route).GetField("PostPlanCallback", kSusStatic);
+                case "ppc": return typeof(Sims3.SimIFace.Route).GetField("PostPlanCallback", kStaticAll);
                 case "etRef":
                     {
                         Type t = Type.GetType("ScriptCore.ExceptionTrap, ScriptCore");  // only NRaas ErrorTrap's ScriptCore has it
-                        return t == null ? null : t.GetField("OnLoadReference", kSusStatic);
+                        return t == null ? null : t.GetField("OnLoadReference", kStaticAll);
                     }
                 case "gsc":
                     target = Sims3.UI.Responder.Instance;
-                    return target == null ? null : FieldUp(target.GetType(), "GameStateChanging", kSusInst);
-                case "mapv": return typeof(CameraController).GetField("OnCameraMapViewEnabledCallback", kSusStatic);
-                case "wq": return typeof(World).GetField("sOnWorldQuitEventHandler", kSusStatic);
-                case "wpl": return typeof(World).GetField("sOnObjectPlacedInLotEventHandler", kSusStatic);
+                    return target == null ? null : FieldUp(target.GetType(), "GameStateChanging", kInstAll);
+                case "mapv": return typeof(CameraController).GetField("OnCameraMapViewEnabledCallback", kStaticAll);
+                case "wq": return typeof(World).GetField("sOnWorldQuitEventHandler", kStaticAll);
+                case "wpl": return typeof(World).GetField("sOnObjectPlacedInLotEventHandler", kStaticAll);
                 case "ogs":
                     {
-                        FieldInfo g = typeof(LoadSaveManager).GetField("gLoadSaveManager", kSusStatic);
+                        FieldInfo g = typeof(LoadSaveManager).GetField("gLoadSaveManager", kStaticAll);
                         target = g == null ? null : g.GetValue(null);
-                        return target == null ? null : FieldUp(target.GetType(), "ObjectGroupSaving", kSusInst);
+                        return target == null ? null : FieldUp(target.GetType(), "ObjectGroupSaving", kInstAll);
                     }
-                case "smh": return typeof(Sims3.Gameplay.GameEntryMovingModel).GetField("SplitMergeHouseholdsComplete", kSusStatic);
+                case "smh": return typeof(Sims3.Gameplay.GameEntryMovingModel).GetField("SplitMergeHouseholdsComplete", kStaticAll);
             }
             return null;
         }

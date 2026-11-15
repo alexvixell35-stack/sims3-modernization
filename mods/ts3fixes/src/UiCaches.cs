@@ -36,7 +36,6 @@ namespace Ts3Fixes
 
         static void ApplyUiCaches()
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
             Type panel = typeof(SimDisplay).Assembly.GetType("Sims3.UI.Hud.MotivesPanel");
             Type bar = panel != null ? panel.GetNestedType("MotiveBar", BindingFlags.NonPublic) : null;
             if (bar == null) AppliedLog().Add("MotiveBar: type not found, skipped");
@@ -45,7 +44,7 @@ namespace Ts3Fixes
                 MotiveBarHook.sFields = new FieldInfo[kBarFields.Length];
                 bool fields = true;
                 for (int i = 0; i < kBarFields.Length; i++)
-                    if ((MotiveBarHook.sFields[i] = bar.GetField(kBarFields[i], inst)) == null) fields = false;
+                    if ((MotiveBarHook.sFields[i] = bar.GetField(kBarFields[i], kInstAll)) == null) fields = false;
                 MotiveBarHook.sBgKeys = panel.GetField("sMotiveMoodletBGImageKeys", BindingFlags.Static | BindingFlags.NonPublic);
                 bool arrow = fields && MotiveBarHook.sBgKeys != null && CopyStub(bar, "SetArrowState", typeof(MotiveBarHook), "ArrowOrig");
                 // all or nothing: without the range or teardown hook the cached state could go stale

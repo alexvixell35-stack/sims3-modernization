@@ -58,12 +58,11 @@ namespace Ts3Fixes
 
         static void ApplyBuffState()
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             Type timer = typeof(AlarmManager).GetNestedType("Timer", BindingFlags.NonPublic);
-            sBsAmIndex = typeof(AlarmManager).GetField("mGameObjectIndex", inst);
-            sBsAmTimers = typeof(AlarmManager).GetField("mTimers", inst);
-            sBsTimerCb = timer == null ? null : timer.GetField("CallBack", inst);
-            sBsDownAlarm = typeof(BuffDowntrodden).GetField("mPushDowntroddenAlarm", inst);
+            sBsAmIndex = typeof(AlarmManager).GetField("mGameObjectIndex", kInstAll);
+            sBsAmTimers = typeof(AlarmManager).GetField("mTimers", kInstAll);
+            sBsTimerCb = timer == null ? null : timer.GetField("CallBack", kInstAll);
+            sBsDownAlarm = typeof(BuffDowntrodden).GetField("mPushDowntroddenAlarm", kInstAll);
             if (sBsAmIndex != null && sBsAmTimers != null && sBsTimerCb != null && sBsDownAlarm != null)
             {
                 Patch(typeof(BuffDowntrodden), "OnAddition", typeof(BsDownHook), "AddHook", "AddOrig");
@@ -72,8 +71,8 @@ namespace Ts3Fixes
             else AppliedLog().Add("buffstate: AlarmManager or BuffDowntrodden members not found, Downtrodden not patched");
             Type voodoo = typeof(VoodooDoll).GetNestedType("VoodooCurseBuffStore", BindingFlags.Public | BindingFlags.NonPublic);
             Type dragon = typeof(BabyDragon).GetNestedType("DragonCurseBuffStore", BindingFlags.Public | BindingFlags.NonPublic);
-            sBsVoodooL = voodoo == null ? null : voodoo.GetField("mWokeUpListener", inst);
-            sBsDragonL = dragon == null ? null : dragon.GetField("mWokeUpListener", inst);
+            sBsVoodooL = voodoo == null ? null : voodoo.GetField("mWokeUpListener", kInstAll);
+            sBsDragonL = dragon == null ? null : dragon.GetField("mWokeUpListener", kInstAll);
             if (sBsVoodooL != null)
             {
                 Patch(typeof(VoodooDoll).GetNestedType("VoodooCurseBuffStore", BindingFlags.Public | BindingFlags.NonPublic), "OnAddition", typeof(BsVoodooHook), "AddHook", "AddOrig");
@@ -91,7 +90,7 @@ namespace Ts3Fixes
             Patch(typeof(Hypnotizer).GetNestedType("HypnotizedBuffStore", BindingFlags.Public | BindingFlags.NonPublic), "OnAddition", typeof(BsHypHook), "AddHook", "AddOrig");
             Patch(typeof(Hypnotizer).GetNestedType("HypnotizedBuffStore", BindingFlags.Public | BindingFlags.NonPublic), "OnRemoval", typeof(BsHypHook), "RemoveHook", "RemoveOrig");
             Type queasy = typeof(BabySwing).GetNestedType("QueasyBuffStore", BindingFlags.Public | BindingFlags.NonPublic);
-            sBsQueasyOwner = queasy == null ? null : queasy.GetField("mOwner", inst);
+            sBsQueasyOwner = queasy == null ? null : queasy.GetField("mOwner", kInstAll);
             if (sBsQueasyOwner != null)
             {
                 Patch(typeof(BabySwing).GetNestedType("QueasyBuffStore", BindingFlags.Public | BindingFlags.NonPublic), "OnAddition", typeof(BsQueasyHook), "AddHook", "AddOrig");

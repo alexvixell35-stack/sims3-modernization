@@ -33,11 +33,10 @@ namespace Ts3Fixes
     // Check: GroupTalkStaleChecks.cs.
     public static partial class Fixes
     {
-        const BindingFlags kGtAll = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        static readonly FieldInfo sGtField = typeof(Sim).GetField("mGroupTalk", kGtAll);
+        static readonly FieldInfo sGtField = typeof(Sim).GetField("mGroupTalk", kInstAll);
         static readonly Type sGtType = typeof(Sim).GetNestedType("GroupTalk", BindingFlags.NonPublic);
-        static readonly PropertyInfo sGtMembers = sGtType == null ? null : sGtType.GetProperty("Members", kGtAll);
-        static readonly MethodInfo sGtRemove = sGtType == null ? null : sGtType.GetMethod("RemoveMember", kGtAll, null, new Type[] { typeof(Sim) }, null);
+        static readonly PropertyInfo sGtMembers = sGtType == null ? null : sGtType.GetProperty("Members", kInstAll);
+        static readonly MethodInfo sGtRemove = sGtType == null ? null : sGtType.GetMethod("RemoveMember", kInstAll, null, new Type[] { typeof(Sim) }, null);
 
         static void ApplyGroupTalkStale()
         {

@@ -38,10 +38,9 @@ namespace Ts3Fixes
                 if (!sDrkTried)
                 {
                     sDrkTried = true;
-                    const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-                    FieldInfo r = typeof(DreamsAndPromisesManager).GetField("mPotentialRemovalNodes", inst);
-                    FieldInfo a = typeof(DreamsAndPromisesManager).GetField("mActiveNodes", inst);
-                    FieldInfo m = typeof(Sim).GetField("mDreamsAndPromisesManager", inst);
+                    FieldInfo r = typeof(DreamsAndPromisesManager).GetField("mPotentialRemovalNodes", kInstAll);
+                    FieldInfo a = typeof(DreamsAndPromisesManager).GetField("mActiveNodes", kInstAll);
+                    FieldInfo m = typeof(Sim).GetField("mDreamsAndPromisesManager", kInstAll);
                     bool ok = r != null && a != null && m != null && typeof(IDictionary).IsAssignableFrom(r.FieldType) && typeof(IList).IsAssignableFrom(a.FieldType);
                     sDrkRemoval = ok ? r : null;
                     sDrkActive = ok ? a : null;

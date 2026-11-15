@@ -27,11 +27,10 @@ namespace Ts3Fixes
     // Counters: [2505] end alarms armed, [2506] guest insults set, [2507] errors. Check: WeddingCancelChecks.cs.
     public static partial class Fixes
     {
-        const BindingFlags kWcAll = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-        static readonly FieldInfo sWcJilter = typeof(WeddingCeremony.WeddingCanceled).GetField("mJilter", kWcAll);
-        static readonly FieldInfo sWcAlarm = typeof(WeddingCeremony.WeddingCanceled).GetField("mAlarmHandle", kWcAll);
-        static readonly FieldInfo sWcWait = typeof(WeddingCeremony).GetField("sWaitTimeAfterWeddingCanceled", kWcAll);
-        static readonly MethodInfo sWcEnd = typeof(WeddingCeremony.WeddingCanceled).GetMethod("EndOfCeremony", kWcAll, null, Type.EmptyTypes, null);
+        static readonly FieldInfo sWcJilter = typeof(WeddingCeremony.WeddingCanceled).GetField("mJilter", kAnyAll);
+        static readonly FieldInfo sWcAlarm = typeof(WeddingCeremony.WeddingCanceled).GetField("mAlarmHandle", kAnyAll);
+        static readonly FieldInfo sWcWait = typeof(WeddingCeremony).GetField("sWaitTimeAfterWeddingCanceled", kAnyAll);
+        static readonly MethodInfo sWcEnd = typeof(WeddingCeremony.WeddingCanceled).GetMethod("EndOfCeremony", kAnyAll, null, Type.EmptyTypes, null);
 
         static void ApplyWeddingCancel()
         {

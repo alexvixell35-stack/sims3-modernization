@@ -29,13 +29,12 @@ namespace Ts3Fixes
         static void ApplySimFestKeep()
         {
             if (sSfPresent == null || sSfWrapUp == null) { AppliedLog().Add("ShowStage SimFest award classes: not found, simfestkeep skipped"); return; }
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            sSfIsMaster = sSfPresent.GetField("IsMaster", inst);
-            sSfStage = sSfPresent.GetField("mShowStage", inst);
-            sSfPresentJig = sSfPresent.GetField("mSocialJig", inst);
+            sSfIsMaster = sSfPresent.GetField("IsMaster", kInstAll);
+            sSfStage = sSfPresent.GetField("mShowStage", kInstAll);
+            sSfPresentJig = sSfPresent.GetField("mSocialJig", kInstAll);
             sSfWrapSingleton = sSfWrapUp.GetField("Singleton", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-            sSfWinner = sSfWrapUp.GetField("mWinner", inst);
-            sSfWrapJig = sSfWrapUp.GetField("mSocialJig", inst);
+            sSfWinner = sSfWrapUp.GetField("mWinner", kInstAll);
+            sSfWrapJig = sSfWrapUp.GetField("mSocialJig", kInstAll);
             if (sSfIsMaster == null || sSfStage == null || sSfPresentJig == null || sSfWrapSingleton == null || sSfWinner == null || sSfWrapJig == null)
             {
                 AppliedLog().Add("ShowStage SimFest award fields: not found, simfestkeep skipped");

@@ -33,11 +33,10 @@ namespace Ts3Fixes
                 if (!sCelebTried)
                 {
                     sCelebTried = true;
-                    const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
                     Type t = typeof(CelebrityManager);
-                    sCelebAct = t.GetField("mCelebrityActivityEventListener", inst);
-                    sCelebDis = t.GetField("mDisgracefulActionEventListener", inst);
-                    sCelebUnreg = t.GetMethod("UnregisterCelebrityEvents", inst, null, Type.EmptyTypes, null);
+                    sCelebAct = t.GetField("mCelebrityActivityEventListener", kInstAll);
+                    sCelebDis = t.GetField("mDisgracefulActionEventListener", kInstAll);
+                    sCelebUnreg = t.GetMethod("UnregisterCelebrityEvents", kInstAll, null, Type.EmptyTypes, null);
                     if (sCelebAct == null || sCelebDis == null || sCelebUnreg == null) sCelebUnreg = null;
                     AppliedLog().Add("celebritydeadsim: " + (sCelebUnreg != null ? "ok" : "CelebrityManager differs from the known build, off"));
                 }
@@ -91,11 +90,10 @@ namespace Ts3Fixes
                 if (!sSeasTried)
                 {
                     sSeasTried = true;
-                    const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
                     Type mt = typeof(Sims3.Gameplay.Autonomy.Motives);
-                    FieldInfo f = typeof(EventTracker).GetField("mListeners", inst);
-                    sMotSim = mt.GetField("mSim", inst);
-                    sMotSeasonL = mt.GetField("mSeasonsChangedEventListener", inst);
+                    FieldInfo f = typeof(EventTracker).GetField("mListeners", kInstAll);
+                    sMotSim = mt.GetField("mSim", kInstAll);
+                    sMotSeasonL = mt.GetField("mSeasonsChangedEventListener", kInstAll);
                     sEvtListeners = f != null && sMotSim != null && sMotSeasonL != null && typeof(IDictionary).IsAssignableFrom(f.FieldType) ? f : null;
                     AppliedLog().Add("seasonsdeadsim: " + (sEvtListeners != null ? "ok" : "EventTracker or Motives differs from the known build, off"));
                 }
@@ -188,14 +186,13 @@ namespace Ts3Fixes
             try
             {
                 if (!ShortcutOn("dreamnodedeadsim")) return;
-                const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
                 if (!sDnpTried)
                 {
                     sDnpTried = true;
-                    FieldInfo f = typeof(EventTracker).GetField("mListeners", inst);
+                    FieldInfo f = typeof(EventTracker).GetField("mListeners", kInstAll);
                     sDnpEvt = f != null && typeof(IDictionary).IsAssignableFrom(f.FieldType) ? f : null;
-                    sDnpActive = typeof(Sims3.Gameplay.DreamsAndPromises.DreamsAndPromisesManager).GetField("mActiveNodes", inst);
-                    sSimDnp = typeof(Sim).GetField("mDreamsAndPromisesManager", inst);
+                    sDnpActive = typeof(Sims3.Gameplay.DreamsAndPromises.DreamsAndPromisesManager).GetField("mActiveNodes", kInstAll);
+                    sSimDnp = typeof(Sim).GetField("mDreamsAndPromisesManager", kInstAll);
                     AppliedLog().Add("dreamnodedeadsim: " + (sDnpEvt != null && sDnpActive != null && sSimDnp != null ? "ok" : "EventTracker or DreamsAndPromisesManager differs from the known build, off"));
                 }
                 if (sDnpEvt == null || sDnpActive == null || sSimDnp == null) return;
@@ -271,8 +268,7 @@ namespace Ts3Fixes
                             sd = a.GetType("NRaas.OverwatchSpace.Alarms.StuckCheck+StuckSimData");
                             break;
                         }
-                    const BindingFlags st = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
-                    FieldInfo t1 = sc == null ? null : sc.GetField("sData", st), t2 = sc == null ? null : sc.GetField("sRouteData", st);
+                    FieldInfo t1 = sc == null ? null : sc.GetField("sData", kStaticAll), t2 = sc == null ? null : sc.GetField("sRouteData", kStaticAll);
                     FieldInfo li = sd == null ? null : sd.GetField("mLastInteraction", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                     bool ok = t1 != null && t2 != null && li != null && typeof(IDictionary).IsAssignableFrom(t1.FieldType) && typeof(IDictionary).IsAssignableFrom(t2.FieldType);
                     if (ok) { sOwTables = new FieldInfo[] { t1, t2 }; sOwLastIa = li; }

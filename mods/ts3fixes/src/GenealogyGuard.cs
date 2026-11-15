@@ -45,14 +45,13 @@ namespace Ts3Fixes
 
         static void ApplyGenealogyGuard()
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             Type g = typeof(Genealogy);
-            sGgAnc = g.GetField("mAncestors", inst);
-            sGgParents = g.GetField("mNaturalParents", inst);
-            sGgSiblings = g.GetField("mSiblings", inst);
-            sGgChildren = g.GetField("mChildren", inst);
-            sGgSpouse = g.GetField("mSpouse", inst);
-            sGgPartner = g.GetField("mPartnerType", inst);
+            sGgAnc = g.GetField("mAncestors", kInstAll);
+            sGgParents = g.GetField("mNaturalParents", kInstAll);
+            sGgSiblings = g.GetField("mSiblings", kInstAll);
+            sGgChildren = g.GetField("mChildren", kInstAll);
+            sGgSpouse = g.GetField("mSpouse", kInstAll);
+            sGgPartner = g.GetField("mPartnerType", kInstAll);
             if (sGgAnc == null || sGgParents == null || sGgSiblings == null || sGgChildren == null || sGgSpouse == null || sGgPartner == null)
             {
                 AppliedLog().Add("genealogyguard: fields not found, not patched");

@@ -24,10 +24,9 @@ namespace Ts3Fixes
 
         static void ApplyShellLighting()
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             Type t = typeof(BuildableShell);
-            sShLight = new MethodInfo[] { t.GetMethod("DefaultLighting", inst), t.GetMethod("FewLighting", inst), t.GetMethod("MaxLighting", inst) };
-            sShTuning = t.GetProperty("Tuning", inst);
+            sShLight = new MethodInfo[] { t.GetMethod("DefaultLighting", kInstAll), t.GetMethod("FewLighting", kInstAll), t.GetMethod("MaxLighting", kInstAll) };
+            sShTuning = t.GetProperty("Tuning", kInstAll);
             if (sShLight[0] == null || sShLight[1] == null || sShLight[2] == null || sShTuning == null)
                 AppliedLog().Add("shelllighting: BuildableShell lighting members not found, not patched");
             else Patch(typeof(BuildableShell), "OnStartup", typeof(ShHook), "StartupHook", "StartupOrig");

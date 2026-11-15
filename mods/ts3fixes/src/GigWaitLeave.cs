@@ -24,7 +24,6 @@ namespace Ts3Fixes
     {
         static readonly Type sGwStylist = typeof(Stylist.MakeoverSituation).GetNestedType("WaitAround", BindingFlags.NonPublic | BindingFlags.Public);
         static readonly Type sGwSinger = typeof(SingerCareer.WaitForSingagramSituation).GetNestedType("WaitAround", BindingFlags.NonPublic | BindingFlags.Public);
-        const BindingFlags kGwFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
         static void ApplyGigWaitLeave()
         {
@@ -44,12 +43,12 @@ namespace Ts3Fixes
         static bool GwLeaveIfDue(object state)
         {
             Type t = state.GetType();
-            MethodInfo waited = t.GetMethod("WaitedTooLong", kGwFlags);
-            FieldInfo parentField = t.GetField("Parent", kGwFlags);
+            MethodInfo waited = t.GetMethod("WaitedTooLong", kInstAll);
+            FieldInfo parentField = t.GetField("Parent", kInstAll);
             if (waited == null || parentField == null) return false;
             if (!GwStop(true, (bool)waited.Invoke(state, null))) return false;
             object parent = parentField.GetValue(state);
-            MethodInfo leave = parent == null ? null : parent.GetType().GetMethod("ForceLeaveJob", kGwFlags);
+            MethodInfo leave = parent == null ? null : parent.GetType().GetMethod("ForceLeaveJob", kInstAll);
             if (leave == null) return false;
             leave.Invoke(parent, null);
             return true;

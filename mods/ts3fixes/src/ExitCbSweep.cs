@@ -34,9 +34,8 @@ namespace Ts3Fixes
                 if (!sXcbTried)
                 {
                     sXcbTried = true;
-                    const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-                    FieldInfo e = typeof(Sim).GetField("OnExitReasonsAdded", inst);
-                    FieldInfo r = typeof(ScriptAdaptor).GetField("mRouteAction", inst);
+                    FieldInfo e = typeof(Sim).GetField("OnExitReasonsAdded", kInstAll);
+                    FieldInfo r = typeof(ScriptAdaptor).GetField("mRouteAction", kInstAll);
                     bool ok = e != null && r != null && typeof(Delegate).IsAssignableFrom(e.FieldType);
                     sXcbEvent = ok ? e : null;
                     sXcbRoute = ok ? r : null;

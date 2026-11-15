@@ -23,20 +23,18 @@ namespace Ts3Fixes
 
         static void ApplyFilterGridLeak()
         {
-            const BindingFlags st = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            sFglBuyCtl = typeof(BuyController).GetField("sController", st);
-            sFglBuyFilter = typeof(BuyController).GetField("mCatalogProductFilter", inst);
-            sFglBuildCtl = typeof(BuildController).GetField("sController", st);
-            sFglBuildFilter = typeof(BuildController).GetField("mCatalogProductFilter", inst);
+            sFglBuyCtl = typeof(BuyController).GetField("sController", kStaticAll);
+            sFglBuyFilter = typeof(BuyController).GetField("mCatalogProductFilter", kInstAll);
+            sFglBuildCtl = typeof(BuildController).GetField("sController", kStaticAll);
+            sFglBuildFilter = typeof(BuildController).GetField("mCatalogProductFilter", kInstAll);
             if (sFglBuyCtl != null && sFglBuyFilter != null)
                 Patch(typeof(BuyController), "Unload", Type.EmptyTypes, typeof(FglHook), "BuyUnloadHook", "BuyUnloadOrig");
             else AppliedLog().Add("filtergridleak: BuyController members not found, Buy not patched");
             if (sFglBuildCtl != null && sFglBuildFilter != null)
                 Patch(typeof(BuildController), "Unload", Type.EmptyTypes, typeof(FglHook), "BuildUnloadHook", "BuildUnloadOrig");
             else AppliedLog().Add("filtergridleak: BuildController members not found, Build not patched");
-            sFglBpCtl = typeof(BlueprintController).GetField("sController", st);
-            sFglBpFilter = typeof(BlueprintController).GetField("mCatalogProductFilter", inst);
+            sFglBpCtl = typeof(BlueprintController).GetField("sController", kStaticAll);
+            sFglBpFilter = typeof(BlueprintController).GetField("mCatalogProductFilter", kInstAll);
             if (sFglBpCtl != null && sFglBpFilter != null)
                 Patch(typeof(BlueprintController), "Unload", Type.EmptyTypes, typeof(FglHook), "BpUnloadHook", "BpUnloadOrig");
             else AppliedLog().Add("filtergridleak: BlueprintController members not found, Blueprint not patched");

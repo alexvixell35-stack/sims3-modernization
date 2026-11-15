@@ -71,9 +71,8 @@ namespace Ts3Fixes
         // machine, 0 once Dispose released it. IsValid is no test of that: it asks whether the event queue is valid.
         static long BcHandle(StateMachineClient m)
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-            object d = typeof(StateMachineClient).GetField("mDriver", inst).GetValue(m);
-            return Convert.ToInt64(d.GetType().GetField("mHandle", inst).GetValue(d));
+            object d = typeof(StateMachineClient).GetField("mDriver", kInstAll).GetValue(m);
+            return Convert.ToInt64(d.GetType().GetField("mHandle", kInstAll).GetValue(d));
         }
 
         static Sim BcSim(string name)

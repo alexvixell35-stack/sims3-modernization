@@ -109,17 +109,16 @@ namespace Ts3Fixes
 
         static void ApplyCompositorLeak()
         {
-            const BindingFlags st = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-            sCmlController = typeof(CASCompositorController).GetField("sController", st);
-            sCmlDict = typeof(UIManager).GetField("mCustomControlInstanceDict", st);
-            sCmlDeregister = typeof(UIManager).GetMethod("DeRegisterAllEvents", st, null, new Type[] { typeof(WindowBase) }, null);
+            sCmlController = typeof(CASCompositorController).GetField("sController", kStaticAll);
+            sCmlDict = typeof(UIManager).GetField("mCustomControlInstanceDict", kStaticAll);
+            sCmlDeregister = typeof(UIManager).GetMethod("DeRegisterAllEvents", kStaticAll, null, new Type[] { typeof(WindowBase) }, null);
             if (sCmlController == null || sCmlDict == null || sCmlDeregister == null)
             {
                 AppliedLog().Add("compositorleak: members not found (controller " + (sCmlController != null) + ", dict " + (sCmlDict != null)
                     + ", deregister " + (sCmlDeregister != null) + "), not patched");
                 return;
             }
-            sCmlGui = typeof(UIManager).GetField("gUIMgr", st);
+            sCmlGui = typeof(UIManager).GetField("gUIMgr", kStaticAll);
             MethodInfo bd = typeof(WindowBase).GetMethod("Dispose", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new Type[] { typeof(bool) }, null);
             sCmlBaseDispose = bd != null && bd.DeclaringType == typeof(WindowBase) ? bd : null;
             sCmlWinHandle = typeof(WindowBase).GetField("mWinHandle", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
