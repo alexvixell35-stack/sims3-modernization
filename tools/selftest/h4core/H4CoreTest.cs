@@ -48,6 +48,13 @@ static class H4CoreTest
         Check(!H4Core.WdFresh(true, false, 0f, true, false, true, false), "other lot: dropped");
         Check(!H4Core.WdFresh(true, false, 0f, true, true, false, false), "not standing: dropped");
         Check(!H4Core.WdFresh(true, false, 0f, true, true, true, true), "routing: dropped");
+        // watchdog stillness: an interaction ended in place restarts the record; nothing else changes it
+        Check(H4Core.WdStillSince(100, 50, 200) == 100, "queue emptied before the record: still since 100");
+        Check(H4Core.WdStillSince(100, 150, 200) == 150, "interaction ended in place at 150: restarts there");
+        Check(H4Core.WdStillSince(100, 200, 200) == 200, "ended this pass: restarts now");
+        Check(H4Core.WdStillSince(100, 250, 200) == 100, "stamp in the future: ignored");
+        Check(H4Core.WdStillSince(100, 0, 200) == 100, "never emptied / no autonomy: unchanged (real stuck Sim still counts)");
+        Check(H4Core.WdStillSince(100, 100, 200) == 100, "emptied as the record began: unchanged");
         Console.WriteLine(fails == 0 ? "h4core selftest: ok" : "h4core selftest: " + fails + " failed");
         return fails == 0 ? 0 : 1;
     }

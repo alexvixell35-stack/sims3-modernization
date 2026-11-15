@@ -44,5 +44,13 @@ namespace Ts3Fixes
         {
             return alive && !household && moved <= kWdSameSpot && sameInteraction && sameLot && standing && !routing;
         }
+
+        // Watchdog idle stillness (RouteFixes CheckIdle): the start of a Sim's still record moves to the time its interaction
+        // queue last became empty when that is later (an interaction ended in place since). A stamp in the future (clock
+        // reset, load) or before the record is ignored.
+        public static long WdStillSince(long since, long emptiedAt, long now)
+        {
+            return emptiedAt > since && emptiedAt <= now ? emptiedAt : since;
+        }
     }
 }
