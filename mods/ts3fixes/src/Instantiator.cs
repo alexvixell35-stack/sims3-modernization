@@ -414,6 +414,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kChipComponentOrphan = false;    // chipcomponentorphan (docs/587 EP1 §19): consumed trait chip components destroyed instead of left in the world
         [Tunable] public static bool kChipAnyCount = false;    // chipanycount (docs/587 EP1 §19): "Any" chip component takes only the missing count from medium/large blanks
         [Tunable] public static bool kNaniteMerge = false;    // nanitemerge (docs/587 EP1 §20): future travel merges the collected nanite list (and copies the schematics list)
+        [Tunable] public static bool kConsignmentLastDay = false;    // consignmentlastday (docs/587 EP2 §7.1): consigned items sell on day 5 at the last price and return after it (no IndexOutOfRange in the daily alarm)
+        [Tunable] public static bool kBartendingHourlyPay = false;    // bartendinghourlypay (docs/587 EP2 §7.2): bartending hourly pay that EA announces is paid
+        [Tunable] public static bool kInfluenceFollowerBonus = false;    // influencefollowerbonus (docs/587 EP2 §7.3): influence skill-gain bonus scales with blog followers (float division; intent inferred)
+        [Tunable] public static bool kBroomArenaChoice = false;    // broomarenachoice (docs/587 EP2 §7.4): Ride in Arena from a broom uses that broom (and no longer rewrites a running ride's broom)
         [Tunable] public static bool kFireTrapCount = false;    // firetrapcount (docs/570 §5): firefighter "free N Sims" counts trapped Sims who left the lot or sit in hidden apartment units
         [Tunable] public static bool kFireActiveJob = false;    // fireactivejob (docs/570 §1): the firefighter's current emergency (a static) survives a world quit; afterwards every new emergency is dropped
         [Tunable] public static bool kEatOutsideCount = true;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)
