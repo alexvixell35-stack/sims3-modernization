@@ -231,6 +231,10 @@ namespace Ts3Fixes
             ApplyWeddingListener();   // docs/582 B8 §5
             ApplyPortAskNoHome();   // docs/582 B8 §6
             ApplyLectureBroadcaster();   // docs/582 B8 §7
+            ApplyMidlifeWishSave();   // docs/582 B8b §1
+            ApplyInnerBeautyOnce();   // docs/582 B8b §2
+            ApplyBetrayedNullSim();   // docs/582 B8b §3
+            ApplyOppTrackerRelisten();   // docs/582 B8b §5
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -666,6 +670,11 @@ namespace Ts3Fixes
         // [1249-1251] portasknohome (Batch582gLogic.cs, docs/582 B8 §6): throws avoided / seen with switch off / errors.
         // [1252-1254] lecturebroadcaster (Batch582gLogic.cs, docs/582 B8 §7): earlier broadcasters disposed / repeat lectures with switch off / errors.
         // [1255-1257] residentspawnwalk (ResidentSpawnSlot.cs, docs/582 B8 §8): points accepted by the walk / would accept with switch off / errors.
+        // [1258-1260] midlifewishsave (Batch582hLogic.cs, docs/582 B8b §1): values saved or restored / exports with wishes dropped (switch off) / errors.
+        // [1261-1263] innerbeautyonce (Batch582hLogic.cs, docs/582 B8b §2): duplicate calls skipped / duplicates seen with switch off / errors.
+        // [1264-1266] betrayednullsim (Batch582hLogic.cs, docs/582 B8b §3): notices shown and break-ups done / seen with switch off / errors.
+        // [1267-1269] topictestnull (Batch582hLogic.cs, docs/582 B8b §4): throws avoided / seen with switch off / errors.
+        // [1270-1272] opptrackerrelisten (Batch582hLogic.cs, docs/582 B8b §5): duplicate registrations avoided / seen with switch off / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -1108,6 +1117,11 @@ namespace Ts3Fixes
                 case "portasknohome": return Instantiator.kPortAskNoHome;
                 case "lecturebroadcaster": return Instantiator.kLectureBroadcaster;
                 case "residentspawnwalk": return Instantiator.kResidentSpawnWalk;
+                case "midlifewishsave": return Instantiator.kMidlifeWishSave;
+                case "innerbeautyonce": return Instantiator.kInnerBeautyOnce;
+                case "betrayednullsim": return Instantiator.kBetrayedNullSim;
+                case "topictestnull": return Instantiator.kTopicTestNull;
+                case "opptrackerrelisten": return Instantiator.kOppTrackerRelisten;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

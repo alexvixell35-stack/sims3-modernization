@@ -447,7 +447,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 1233-1248 | reserved (claude, `fixes-1233`) | batch 8 (docs/582 B8): trashpileimport, catgymwatch, badsecretkey, traitlistenerremove, weddinglistener |
 | 1249-1254 | reserved (claude, `fixes-1249`) | batch 8 (docs/582 B8 §6-7): portasknohome, lecturebroadcaster |
 | 1255-1257 | reserved (claude, `fixes-1255`) | batch 8 (docs/582 B8 §8): residentspawnwalk |
-| **1258+** | next free | reserve here  |
+| 1258-1272 | reserved (claude, `fixes-1258`) | batch 8b (docs/582 B8b): midlifewishsave, innerbeautyonce, betrayednullsim, topictestnull, opptrackerrelisten |
+| **1273+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 
