@@ -58,10 +58,11 @@ namespace Ts3Fixes
             if (mode == "all" || mode == "apt") return HrScan(null, mode == "apt", 4, false);
             if (mode == "who") { HrWatchStart(); return HrWho(); }
             if (mode == "sim") return w.Length > 1 ? HrSimInfo(w[1]) : "hidden room check: sim <hex id> (ObjectId or SimDescriptionId, as in 'follower <id>')";
-            if (w.Length < 2) return "hidden room check: all | apt | who | sim <id> | lot|place|trap|fallback <hex id|active|hidden> | place <hex id|active> <n> | trap <hex id|active>";
+            if (w.Length < 2) return "hidden room check: all | apt | who | sim <id> | lot|place|trap|fallback <hex id|active|hidden> | reach <lot> <level> <room|all> [sim hex|active|resident|npc] | place <hex id|active> <n> | trap <hex id|active>";
             Lot lot = HrLot(w[1]);
             if (lot == null) return "hidden room check: no lot " + w[1];
             if (mode == "lot") return HrScan(lot, false, 4, false);
+            if (mode == "reach") return HrReachInfo(lot, w);
             if (mode == "place")
             {
                 int n = 20;
@@ -87,8 +88,86 @@ namespace Ts3Fixes
                 return null;
             }
             ulong id;
+            if (q.StartsWith("0x") || q.StartsWith("0X")) q = q.Substring(2);
             if (!ulong.TryParse(q, System.Globalization.NumberStyles.HexNumber, null, out id)) return null;
             return LotManager.GetLot(id);
+        }
+
+        // Rooms of one level for the single-lot scan (no summary counters; those stay floor 0): tag, portals, size, reach.
+        static string HrLevelRooms(Lot lot, int level, Sim npc, Sim res)
+        {
+            StringBuilder b = new StringBuilder();
+            int[] inside = World.GetInsideRoomsAtLevel(lot.LotId, level, eRoomDefinition.PlacementBlocking) ?? new int[0];
+            foreach (int room in inside)
+            {
+                bool hid = lot.IsRoomHidden(room);
+                int portals = lot.GetObjectsInRoom<IPortalConnectionObject>(room).Count;
+                string rn = HrReach(lot, room, npc), rr = HrReach(lot, room, res);
+                string tag = (hid ? "H" : "") + (portals == 0 ? "S" : "") + (rn == "closed" ? "N" : "") + (rr == "closed" ? "R" : "");
+                b.Append(" r").Append(room).Append('(').Append(tag.Length > 0 ? tag : "ok").Append(" portals=").Append(portals)
+                 .Append(" npc=").Append(rn).Append(" res=").Append(rr).Append(')');
+            }
+            return b.Length > 0 ? b.ToString() : " none";
+        }
+
+        // reach <lot> <level> <room|all> [sim hex|active|resident|npc] (read only): for each room of that level (or one
+        // room), out/closed per probe (the selected Sim, a resident, a non-resident NPC, or one named Sim), and each portal
+        // in the room with the room it leads to and IsAllowedThrough per probe. For the resident spawn-slot lead (docs/582
+        // B5 §8): does an NPC-door slot's room reach outside for anyone.
+        static object HrReachInfo(Lot lot, string[] w)
+        {
+            int level, one = -1;
+            if (w.Length < 4 || !int.TryParse(w[2], out level)) return "hidden room check: reach <lot> <level> <room|all> [sim hex|active|resident|npc]";
+            if (w[3] != "all" && !int.TryParse(w[3], out one)) return "hidden room check: reach: room must be a number or all";
+            List<KeyValuePair<string, Sim>> probes = new List<KeyValuePair<string, Sim>>();
+            string pick = w.Length > 4 ? w[4] : null;
+            if (pick == null || pick == "active") probes.Add(new KeyValuePair<string, Sim>("selected", PlumbBob.SelectedActor));
+            if (pick == null || pick == "resident") probes.Add(new KeyValuePair<string, Sim>("resident", HrProbe(lot, true)));
+            if (pick == null || pick == "npc") probes.Add(new KeyValuePair<string, Sim>("npc", HrProbe(lot, false)));
+            if (pick != null && pick != "active" && pick != "resident" && pick != "npc")
+            {
+                string hex = pick.StartsWith("0x") || pick.StartsWith("0X") ? pick.Substring(2) : pick;
+                ulong id;
+                Sim named = null;
+                if (ulong.TryParse(hex, System.Globalization.NumberStyles.HexNumber, null, out id))
+                    foreach (Sim a in LotManager.Actors)
+                        if (a != null && a.SimDescription != null && (a.ObjectId.Value == id || a.SimDescription.SimDescriptionId == id)) { named = a; break; }
+                if (named == null) return "hidden room check: reach: no Sim " + pick;
+                probes.Add(new KeyValuePair<string, Sim>("sim", named));
+            }
+            StringBuilder sb = new StringBuilder("reach lot ").Append(lot.LotId.ToString("X")).Append(" \"").Append(lot.Name).Append("\" level ").Append(level).Append(" probes");
+            foreach (KeyValuePair<string, Sim> p in probes) sb.Append(' ').Append(p.Key).Append('=').Append(p.Value != null ? p.Value.FullName : "none");
+            sb.Append('\n');
+            int[] inside = World.GetInsideRoomsAtLevel(lot.LotId, level, eRoomDefinition.PlacementBlocking) ?? new int[0];
+            List<int> rooms = new List<int>();
+            foreach (int r in inside) if (one < 0 || r == one) rooms.Add(r);
+            if (one >= 0 && rooms.Count == 0) { sb.Append("  room ").Append(one).Append(" is not an inside room at level ").Append(level).Append(" (checked anyway)\n"); rooms.Add(one); }
+            foreach (int room in rooms)
+            {
+                sb.Append("  r").Append(room).Append(lot.IsRoomHidden(room) ? " hidden" : "").Append(lot.IsRoomPublic(room) ? " public" : "");
+                foreach (KeyValuePair<string, Sim> p in probes) sb.Append(' ').Append(p.Key).Append('=').Append(HrReach(lot, room, p.Value));
+                sb.Append('\n');
+                foreach (IPortalConnectionObject po in lot.GetObjectsInRoom<IPortalConnectionObject>(room))
+                {
+                    int[] to = po is ElevatorInterior ? po.GetRoomConnections() : new int[] { po.GetAdjoiningRoom(room) };
+                    foreach (int r in to)
+                    {
+                        if (r == room) continue;
+                        sb.Append("    ").Append(po.GetType().Name).Append(" -> r").Append(r == 36863 ? "none" : r.ToString());
+                        Door d = po as Door;
+                        if (d != null) sb.Append(" lock=").Append(d.LockType).Append(d.IsNPCDoor ? " npc_door" : "");
+                        if (r != 36863)
+                            foreach (KeyValuePair<string, Sim> p in probes)
+                            {
+                                string v = "?";
+                                if (p.Value != null) { try { v = po.IsAllowedThrough(room, r, p.Value).ToString(); } catch (Exception) { v = "threw"; } }
+                                sb.Append(' ').Append(p.Key).Append('=').Append(v);
+                            }
+                        sb.Append('\n');
+                    }
+                }
+            }
+            return sb.ToString();
         }
 
         // ---- probes ----
@@ -169,6 +248,7 @@ namespace Ts3Fixes
                   .Append(" hh=").Append(lot.Household != null ? lot.Household.Name : "-")
                   .Append(" probes npc=").Append(npc != null ? npc.FullName : "none").Append(" res=").Append(res != null ? res.FullName : "none")
                   .Append(" | floor0:").Append(rooms.Length > 0 ? rooms.ToString() : " none")
+                  .Append(only != null ? " | floor1:" + HrLevelRooms(lot, 1, npc, res) : "")
                   .Append(" | hidden markers other floors ").Append(hiddenUp).Append('\n');
                 sb.Append("  spots:").Append(HrEaSpots(lot, npc, problems, samples, place, ref landings, ref accepted)).Append('\n');
             }

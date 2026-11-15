@@ -375,6 +375,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kResidentSpawnSlot value="False" />
     <kTalkOccupationChance value="False" />
     <kShellDoorSummon value="False" />
+    <kDisposeBase value="False" />
+    <kBoardingSchoolMoney value="False" />
+    <kFreshClothingResume value="False" />
+    <kTwinBellyShape value="False" />
     <kBirthRoute value="False" />
     <kPutDownPlace value="False" />
     <kAwardKeep value="False" />

@@ -4100,7 +4100,7 @@
       "from": 998,
       "to": 1000,
       "by": "claude",
-      "what": "sandwichalarm (SandwichAlarm.cs, docs/580 §16): stale daily sandwich-board alarms removed before EA re-adds / seen with switch off / errors",
+      "what": "sandwichalarm (SandwichAlarm.cs, docs/580 §16): stale daily sandwich-board alarms removed before EA re-adds / seen with switch off / errors; proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T16:24:43.755Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4110,7 +4110,7 @@
       "from": 1001,
       "to": 1001,
       "by": "claude",
-      "what": "sandwichalarm load sweep (SandwichAlarm.cs, docs/580 §16): saved duplicate ResetSandwichBoards alarms removed",
+      "what": "sandwichalarm load sweep (SandwichAlarm.cs, docs/580 §16): saved duplicate ResetSandwichBoards alarms removed; proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T16:27:15.536Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4130,7 +4130,7 @@
       "from": 1006,
       "to": 1008,
       "by": "claude",
-      "what": "vehiclefxhelper (docs/582 §1)",
+      "what": "vehiclefxhelper (docs/582 §1); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T19:28:33.173Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4140,7 +4140,7 @@
       "from": 1009,
       "to": 1011,
       "by": "claude",
-      "what": "prankditchempty (docs/582)",
+      "what": "prankditchempty (docs/582); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T19:34:48.829Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4150,7 +4150,7 @@
       "from": 1012,
       "to": 1015,
       "by": "claude",
-      "what": "serviceassignexit (docs/582)",
+      "what": "serviceassignexit (docs/582); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T19:34:48.914Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4160,7 +4160,7 @@
       "from": 1016,
       "to": 1018,
       "by": "claude",
-      "what": "serviceshowalarm (docs/582)",
+      "what": "serviceshowalarm (docs/582); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T19:34:48.997Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4170,7 +4170,7 @@
       "from": 1022,
       "to": 1024,
       "by": "claude",
-      "what": "maildogchaser (docs/582)",
+      "what": "maildogchaser (docs/582); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T19:34:49.158Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4180,7 +4180,7 @@
       "from": 1025,
       "to": 1027,
       "by": "claude",
-      "what": "lifeguardsurvey (docs/582)",
+      "what": "lifeguardsurvey (docs/582); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T19:34:49.241Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4190,7 +4190,7 @@
       "from": 1028,
       "to": 1030,
       "by": "claude",
-      "what": "moonriselistener (docs/582)",
+      "what": "moonriselistener (docs/582); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T19:34:49.321Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4200,7 +4200,7 @@
       "from": 1031,
       "to": 1034,
       "by": "claude",
-      "what": "holidaylights (docs/582)",
+      "what": "holidaylights (docs/582); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T19:34:49.411Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4210,7 +4210,7 @@
       "from": 1035,
       "to": 1039,
       "by": "claude",
-      "what": "doorlockowner (batch 4)",
+      "what": "doorlockowner (batch 4); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T20:06:23.312Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4220,7 +4220,7 @@
       "from": 1040,
       "to": 1042,
       "by": "claude",
-      "what": "elevatorkitten (batch 4)",
+      "what": "elevatorkitten (batch 4); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T20:06:23.396Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4230,7 +4230,7 @@
       "from": 1043,
       "to": 1045,
       "by": "claude",
-      "what": "elevatorresetriders (batch 4)",
+      "what": "elevatorresetriders (batch 4); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T20:06:23.483Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4240,7 +4240,7 @@
       "from": 1046,
       "to": 1049,
       "by": "claude",
-      "what": "elevatorsavedlog (batch 4)",
+      "what": "elevatorsavedlog (batch 4); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T20:06:23.571Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4250,7 +4250,7 @@
       "from": 1050,
       "to": 1052,
       "by": "claude",
-      "what": "starlightreset (batch 4)",
+      "what": "starlightreset (batch 4); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T20:06:23.655Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4260,7 +4260,7 @@
       "from": 1053,
       "to": 1055,
       "by": "claude",
-      "what": "moondiallistener (batch 4)",
+      "what": "moondiallistener (batch 4); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T20:06:23.740Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4270,7 +4270,7 @@
       "from": 1056,
       "to": 1058,
       "by": "claude",
-      "what": "snublistener (batch 4)",
+      "what": "snublistener (batch 4); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T20:06:23.820Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4280,7 +4280,7 @@
       "from": 1059,
       "to": 1061,
       "by": "claude",
-      "what": "elevatorridertimeout (batch 4 E2)",
+      "what": "elevatorridertimeout (batch 4 E2); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T20:15:10.745Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4290,7 +4290,7 @@
       "from": 1062,
       "to": 1064,
       "by": "claude",
-      "what": "rolenullguard (batch 5, docs/583 lead)",
+      "what": "rolenullguard (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T20:21:06.439Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4310,7 +4310,7 @@
       "from": 1068,
       "to": 1070,
       "by": "claude",
-      "what": "horseranchchallenge (batch 5, docs/583 lead)",
+      "what": "horseranchchallenge (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T20:21:06.795Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4320,7 +4320,7 @@
       "from": 1071,
       "to": 1073,
       "by": "claude",
-      "what": "digsiteemptypick (batch 5, docs/583 lead)",
+      "what": "digsiteemptypick (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T20:21:06.997Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4330,7 +4330,7 @@
       "from": 1074,
       "to": 1076,
       "by": "claude",
-      "what": "oppchainworld (batch 5, docs/583 lead)",
+      "what": "oppchainworld (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T20:21:07.186Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4340,7 +4340,7 @@
       "from": 1077,
       "to": 1079,
       "by": "claude",
-      "what": "teleportcommunitylot (batch 5, docs/583 lead)",
+      "what": "teleportcommunitylot (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T20:21:07.369Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4350,7 +4350,7 @@
       "from": 1080,
       "to": 1082,
       "by": "claude",
-      "what": "photosubjectstars (batch 5, docs/583 lead)",
+      "what": "photosubjectstars (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T20:21:07.568Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -4382,6 +4382,16 @@
       "by": "claude",
       "what": "talkoccupationchance, shelldoorsummon (batch 5 leads 7, 8)",
       "at": "2026-11-15T20:36:37.226Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1093",
+      "kind": "fixes",
+      "from": 1093,
+      "to": 1105,
+      "by": "claude",
+      "what": "batch 6 (Roslyn pass 2: disposebase, boardingschoolmoney, freshclothingresume, twinbellyshape)",
+      "at": "2026-11-15T21:07:12.826Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]

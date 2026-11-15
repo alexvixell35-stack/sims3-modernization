@@ -124,7 +124,7 @@ namespace Ts3Fixes
         static readonly FieldInfo sHwK = typeof(Homework).GetField("kCompletetionRateModifierHomeworkSkill", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         static readonly FieldInfo sHwCopy = typeof(Homework).GetField("kCopyingMultiplier", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         static readonly FieldInfo sHwCopyOld = typeof(Homework).GetField("kCopyingMultiplierOld", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-        static readonly PropertyInfo sHwIsOld = typeof(Homework).GetProperty("IsOld", kInstAll);
+        static readonly FieldInfo sHwIsOld = typeof(Homework).GetField("IsOld", kInstAll);  // a public field, not a property (live 2026-11-15: members found=False)
         static string sHwMissing = "";
 
         static void ApplyHomeworkSkillBonus()
@@ -156,7 +156,7 @@ namespace Ts3Fixes
                     if (used == null || used.SkillLevel <= 0 || used.SkillLevel >= used.MaxSkillLevel) return rate;
                     if (!ShortcutOn("homeworkskillbonus")) { PatchCounters()[1066]++; return rate; }
                     float mult = 1f;
-                    if (isCopying) mult *= (bool)sHwIsOld.GetValue(hw, null) ? (float)sHwCopyOld.GetValue(null) : (float)sHwCopy.GetValue(null);
+                    if (isCopying) mult *= (bool)sHwIsOld.GetValue(hw) ? (float)sHwCopyOld.GetValue(null) : (float)sHwCopy.GetValue(null);
                     if (sim.HasTrait(TraitNames.MultiTasker)) mult *= TraitTuning.MultiTaskerHomeworkTimeMultiplier;
                     float add = HwMissing(true, used.SkillLevel, used.MaxSkillLevel, (float)sHwK.GetValue(null), mult);
                     if (add > 0f) { PatchCounters()[1065]++; return rate + add; }

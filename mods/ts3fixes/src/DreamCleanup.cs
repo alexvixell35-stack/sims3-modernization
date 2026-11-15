@@ -73,10 +73,13 @@ namespace Ts3Fixes
         // the key under which an index list holds this node (the destroyed-object case: EA cannot derive it any more)
         internal static object DcFindKey(IDictionary index, object node)
         {
-            foreach (DictionaryEntry e in index)
+            // IDictionaryEnumerator's Key / Value, not `foreach (DictionaryEntry ...)`: the game's Mono may hand out boxed
+            // KeyValuePairs as Current for a generic Dictionary (the live check returned nothing, 2026-11-15)
+            IDictionaryEnumerator en = index.GetEnumerator();
+            while (en.MoveNext())
             {
-                IList l = e.Value as IList;
-                if (l != null && l.Contains(node)) return e.Key;
+                IList l = en.Value as IList;
+                if (l != null && l.Contains(node)) return en.Key;
             }
             return null;
         }
