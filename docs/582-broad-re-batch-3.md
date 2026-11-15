@@ -545,3 +545,48 @@ Live confirmation:
 - **B6 §2**: [1208] after the world loads; check a need-money call's amount against the tuned range.
 - **B6 §3**: Fresh Clothing time before a swim and after changing back.
 
+
+## Batch 7 (REA tranche 3, docs/584 §6, plus external lead NRaas #42)
+
+2026-11-15. Static only. Code: `Batch582fLogic.cs`, checks: `Batch582fChecks.cs`, slots 1218-1232. All switches are off by default.
+
+**simler90 first.** simler90 changes none of the methods below (`docs/data/mod-method-diff.csv`). It does change `BoatMultipleOccupancy.OnRouteFinished`, but not `OnRouteStarted`.
+
+| § | Lead | Switch | Slots | Scope | Status |
+|---|---|---|---|---|---|
+| B7 §1 | T1 | `boatstaleswimmer` | 1218-1220 | **household-visible**: a boat waits for its swimmers again | verified |
+| B7 §2 | T2 | `oppcategoryprotect` | 1221-1223 | NPC culling only | verified; trigger inferred |
+| - | T3 | already fixed | - | `viproomrefresh` (docs/555 §3) runs EA's loop over a copy | not repeated |
+| B7 §3 | T4a | `nocommercialcar` | 1224-1226 | ambient traffic | verified |
+| B7 §4 | T4b | `scavengernolot` | 1227-1229 | **household-visible**: the accept completes in a world with no community lots | verified |
+| B7 §5 | NRaas #42 | `partylotlistener` | 1230-1232 | **household-visible**: the selected Sim's lot changes reach every other listener again | verified; NRaas fixes the saved state at load |
+
+**How each fix works.**
+- **B7 §1.** `OnRouteStarted` loops over the read-only key view of `mPassengersInTheWater`. When a passenger's Sim is gone, it removes that key and carries on, so the next step throws. As a result, base `OnRouteStarted` and the re-board wait are skipped.
+  - The fix removes those stale keys first, then runs EA's body unchanged.
+  - With the switch off, [1219] counts the routes that would throw. That happens only when the stale key is not the last one.
+- **B7 §2.** `AcceptOpportunity(toAdd, …)` adds FullFromOpportunities protection before its "category taken / no shared data" early return. Nothing removes it on that path, so the NPC is never culled.
+  - On that path the fix skips the whole method. The protection was its only effect there.
+- **B7 §3.** `CarNpcWithNoDriver+LiteDriver.Simulate` picks a random "other commercial lot" with no emptiness test. With none to pick, the throw becomes a script error and the car is destroyed.
+  - With no such lot, the fix runs our copy of EA's loop without the drive step. The car waits EA's random interval until it should drive off, then `DriveOffscreenAndRelease`. Reset and destroy work as in EA.
+- **B7 §4.** `ScavengerOpportunity.OnAdded` spawns items on a random community lot. In a world with none, the pick throws partway through the accept.
+  - In that case only `Opportunity.OnAdded` runs, via a non-virtual base call. EA could spawn nothing there anyway.
+- **B7 §5.** `NpcParty` children `WaitForSelectableGuestToArrive` and `Happening` unsubscribe from `Sim.OnLotChangedEvent` only in `Dispose`. `Situation.Exit` and `SetState` run `CleanUp`, then `Dispose`.
+  - `Happening.CleanUp` dereferences `Parent.Host`. For a party whose host is gone it throws, so `Dispose` never runs and the listener stays. `PostLoad` adds it again after every load.
+  - From then on, each lot change of a selectable Sim throws in that listener, and the throw stops the event's other subscribers (jukebox, DJ booth).
+  - The fix: a listener whose party has no parent or no host unsubscribes itself and returns. Only selectable Sims reach EA's throw, so only they are judged.
+
+**External leads checked, not built.**
+- **B2 "one bad Sim stops all aging".** simler90 changes `AgingManager.DayPassedCallback` and four other aging methods, so this is left to the installed core mod.
+- **B20 "whim-tracker exception on every lot switch".** No whim/dream lot-change subscriber exists in EA's DreamsAndPromises code. The lot-change throw found is NRaas #42, built as B7 §5 above.
+
+**New tool.** `tools/static/reflect-members-check.ts` checks every `typeof(T).GetField/GetProperty/GetMethod("n")` in ts3fixes against the decompiled EA tree. It flags a member asked for as the wrong kind, the homeworkskillbonus `IsOld` mistake.
+- It is local-only and needs `game-copy`.
+- Current tree: 476 lookups checked, 0 wrong.
+- The live failure would have been caught: EA declares `Homework.IsOld` as a field.
+
+### Batch 7 tests (in game, off then on)
+
+Repros `<switch>-check`: `boatstaleswimmer`, `oppcategoryprotect`, `nocommercialcar`, `scavengernolot`, `partylotlistener`. Live confirmation:
+- **B7 §5:** [1231] with the switch off in a save that has had NPC parties.
+- **B7 §1:** [1219] after boat trips with swimmers.

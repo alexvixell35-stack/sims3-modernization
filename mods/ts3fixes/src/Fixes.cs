@@ -219,6 +219,11 @@ namespace Ts3Fixes
             ApplyDisposeBase();   // docs/582 B6 §1
             ApplyFreshClothingResume();   // docs/582 B6 §3
             ApplyTwinBellyShape();   // docs/582 B6 §4
+            ApplyBoatStaleSwimmer();   // docs/582 B7 §1
+            ApplyOppCategoryProtect();   // docs/582 B7 §2
+            ApplyNoCommercialCar();   // docs/582 B7 §3
+            ApplyScavengerNoLot();   // docs/582 B7 §4
+            ApplyPartyLotListener();   // docs/582 B7 §5
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -641,6 +646,11 @@ namespace Ts3Fixes
         // [1208-1210] boardingschoolmoney (Batch582eLogic.cs, docs/582 B6 §2): schools corrected / would change with switch off / errors.
         // [1211-1214] freshclothingresume (Batch582eLogic.cs, docs/582 B6 §3): resumed / skipped worn off / seen with switch off / errors.
         // [1215-1217] twinbellyshape (Batch582eLogic.cs, docs/582 B6 §4): shapes corrected / seen with switch off / errors.
+        // [1218-1220] boatstaleswimmer (Batch582fLogic.cs, docs/582 B7 §1): stale keys removed / would throw with switch off / errors.
+        // [1221-1223] oppcategoryprotect (Batch582fLogic.cs, docs/582 B7 §2): early returns kept unprotected / seen with switch off / errors.
+        // [1224-1226] nocommercialcar (Batch582fLogic.cs, docs/582 B7 §3): cars idled / seen with switch off / errors.
+        // [1227-1229] scavengernolot (Batch582fLogic.cs, docs/582 B7 §4): accepts handled / seen with switch off / errors.
+        // [1230-1232] partylotlistener (Batch582fLogic.cs, docs/582 B7 §5): stale listeners removed / would throw with switch off / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -1070,6 +1080,11 @@ namespace Ts3Fixes
                 case "boardingschoolmoney": return Instantiator.kBoardingSchoolMoney;
                 case "freshclothingresume": return Instantiator.kFreshClothingResume;
                 case "twinbellyshape": return Instantiator.kTwinBellyShape;
+                case "boatstaleswimmer": return Instantiator.kBoatStaleSwimmer;
+                case "oppcategoryprotect": return Instantiator.kOppCategoryProtect;
+                case "nocommercialcar": return Instantiator.kNoCommercialCar;
+                case "scavengernolot": return Instantiator.kScavengerNoLot;
+                case "partylotlistener": return Instantiator.kPartyLotListener;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
