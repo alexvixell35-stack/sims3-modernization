@@ -618,7 +618,7 @@ Repros `<switch>-check`: `boatstaleswimmer`, `oppcategoryprotect`, `nocommercial
 - **B8 §4.** `TraitManager.RemoveElement(ulong)` reads `TraitListener` from a fresh dictionary clone (always null). Fix before EA's method: the Sim's own trait (`GetElement`) has its listener removed, as `Trait.Fixup` does.
 - **B8 §5.** `WeddingParty.CleanUp` never removes the world-wide `kMarriage` listener. Fix after EA's `CleanUp`: the party's still-registered listeners are removed.
 - **B8 §6.** `SocialTest.AskToChangePortTest` calls `IsHouseboatLot()` on a null home lot. Fix: false where EA would throw.
-- **B8 §7.** `Education.BeIntrigueing` makes an unstored broadcaster; the shipped `kGreatLectureBroadcastParams` has `TimeDuration -1` (`tools/static/game-data-check.ts tuning kGreatLectureBroadcastParams`). Fix: one broadcaster per lecturer; a new lecture disposes the previous one, then builds EA's. The kept one has EA's endless duration: a bounded duration (Political uses 30) is a design call for the user.
+- **B8 §7.** `Education.BeIntrigueing` makes an unstored broadcaster; the shipped `kGreatLectureBroadcastParams` has `TimeDuration -1` (`tools/static/game-data-check.ts tuning kGreatLectureBroadcastParams`). Fix: one broadcaster per lecturer; a new lecture disposes the previous one, then builds EA's. The kept one has EA's endless duration (user decision 2026-11-15: keep it, de-dupe only).
 - **B8 §8 (root of the CD30 resident spawn).** EA's `SimDescription.Instantiate(Lot, ResourceKey)` tests the resident's NPC-door slot with `PlumbBob.SelectedActor.IsPointInLotSafelyRoutable`: a plan as the selected Sim from the slot to the lot corners.
   - From room 10 (level 1) that plan rides the elevator. `ElevatorDoors.IsAllowedThrough` asks `CanTravelInElevator` of the plan's Sim: the selected Sim is not on its home lot, not greeted and not an NPC, so only ground-level elevators are open to it (`DoorRestriction`).
   - That is no door lock, so `LockedDoorsDuringPlan` stays empty and `residentspawnslot` never sees it. The resident (an NPC of the lot) may ride any elevator in a public residential room. Live reach on CD30: r10 out for the resident and an NPC, closed for William.
@@ -705,7 +705,7 @@ The user's rule: every EA method we replaced or read for batches 3-8b, and its d
 | § | Switch | Slots | Scope | Status |
 |---|---|---|---|---|
 | B9 §1 | `traitremovenull` | 1273-1275 | **household-visible** | verified (Trait.Fixup -> RemoveElement for a missing-pack or removed-CC trait) |
-| B9 §2 | `homeworkcopyold` | 1276-1278 | **household-visible**: copying old homework is slower | verified; design-direction call |
+| B9 §2 | `homeworkcopyold` | 1276-1278 | **household-visible**: copying old homework is slower | verified; user: "as EA intended" |
 | B9 §3 | `laundrymoodeach` | 1279-1281 | **household-visible** | verified |
 | B9 §4 | `partycleanupnull` | 1282-1284 | **household-visible** (player parties) | verified derefs; root cause of partylotlistener / weddinglistener |
 | B9 §5 | `safelocunhide` | 1285-1287 | **household-visible** (reset placement) | verified code; reach inferred |
@@ -735,4 +735,4 @@ The user's rule: every EA method we replaced or read for batches 3-8b, and its d
 - Werewolf / fairy alarm handles: the alarms belong to the old Sim object and go with it.
 - Elevator StateMachineClient release: EA's pattern everywhere.
 
-**Lecture (lecturebroadcaster), not changed:** EA starts the broadcaster in the social's `peau` (after-update) callback, once the speech animation has ended. Disposing it when the interaction ends would remove it at once. The effect is meant to outlast the speech; the sibling `BeInspirational` is tuned to 30 minutes. This needs the user's call.
+**Lecture (lecturebroadcaster), not changed:** EA starts the broadcaster in the social's `peau` (after-update) callback, once the speech animation has ended, so the effect is meant to outlast the speech. User decision 2026-11-15: keep EA's lingering (never-ending) effect, de-dupe only.

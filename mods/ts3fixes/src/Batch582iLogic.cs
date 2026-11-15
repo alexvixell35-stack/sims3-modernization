@@ -91,7 +91,7 @@ namespace Ts3Fixes
         }
 
         // ---- B9 §2 homeworkcopyold (tuning kHomeworkCopyOld) ---------------------------------------------------------------
-        // [verified, decompiled; a design-direction call] Homework.GetCompletionRate multiplies a copy by kCopyingMultiplier
+        // [verified, decompiled; user 2026-11-15: "as EA intended"] Homework.GetCompletionRate multiplies a copy by kCopyingMultiplier
         // (2) or, for old homework, kCopyingMultiplierOld (1), testing the homework it is called on. CopyHomework.LoopDel
         // calls it on mMyHomework, the copier's own current homework (School.OwnersHomework, never old), so the old rate
         // never applies: copying a stale (old) homework is as fast as copying today's. Fix (switch on): the copy loop's rate

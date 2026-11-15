@@ -283,7 +283,8 @@ namespace Ts3Fixes
         // minutes). After N lectures nearby Sims get N friendly STC/LTR pulses per 20 minutes and the lot's reaction work
         // grows. Political.BeInspirational has the same shape but a tuned duration (30). Fix: one broadcaster per lecturer;
         // a new lecture disposes the previous one, then builds EA's broadcaster with EA's params and callback. The
-        // remaining one keeps EA's tuned (endless) duration: choosing a duration is a design call (docs/582 B8 §7).
+        // remaining one keeps EA's tuned (endless) duration: user decision 2026-11-15, EA's lingering effect stays (the
+        // broadcaster starts after the speech, in the social's after-update callback), de-dupe only.
         // Household-visible: a household lecturer's audience gets one pulse per 20 minutes instead of one per lecture given.
         // Counters: [1252] earlier broadcasters disposed, [1253] repeat lectures with the switch off, [1254] errors.
         static readonly FieldInfo sLbParams = typeof(Education).GetField("kGreatLectureBroadcastParams", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
