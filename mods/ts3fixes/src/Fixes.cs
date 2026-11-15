@@ -566,6 +566,7 @@ namespace Ts3Fixes
         // [2689-2690] resetinusefree (InUseLogic.cs, docs/576 §2): items freed / errors.
         // [2691-2692] putdowninuse (InUseLogic.cs, docs/576 §3): put-downs repaired / errors.
         // [2693-2695] autonomyinuseblock (AutonomyInUseBlock.cs, docs/577 §1): taken objects blocked / seen with switch off / errors.
+        // [2733-2735] buffbufcheck (MotiveBuf.cs, docs/584 §5): UpdateBuffs calls checked / empty delayed list (ilp_buffbuf skips the copy) / Count vs enumeration mismatches (must be 0).
         // [2729-2732] motivebuf (MotiveBuf.cs, docs/584 §5): updates from a pooled list / snapshots checked / check mismatches (must be 0) / fallbacks or errors.
         // [2722-2724] visitcar (UnseenVisitTrip.cs, docs/584 §1): long autonomous NPC visits judged / flips that kept driving / left to EA's flip (household, selected, seen).
         // [2725-2728] visitwalkfinish (UnseenVisitTrip.cs, docs/584 §1): interrupts asked / walks finished at the goal / refused at the callback / errors.
@@ -771,7 +772,8 @@ namespace Ts3Fixes
                 case "watchdogasync": return Instantiator.kWatchdogAsync;
                 case "watchdogasyncshadow": return false;  // correctness arm only: re-runs each A1 check sync and counts mismatches
                 case "motivebuf": return false;  // proven-exact speedup, off until measured: motive updates snapshot into a pooled list (MotiveBuf.cs, docs/584 §5)
-                case "motivebufcheck": return false;  // pure check for motivebuf: each snapshot compared with the game's copy (MotiveBuf.cs)
+                case "motivebufcheck": return false;
+                case "buffbufcheck": return false;  // check for ts3native ilp_buffbuf: UpdateBuffs' delayed-buff list empty and consistent (MotiveBuf.cs, docs/584 §5)  // pure check for motivebuf: each snapshot compared with the game's copy (MotiveBuf.cs)
                 case "visitcar": return false;  // unseen NPC visits keep driving at EA's coin flip (UnseenVisitTrip.cs, docs/584 §1)
                 case "visitwalkfinish": return false;  // unseen NPC still walking to a visit after 60 sim-min finishes at the lot (UnseenVisitTrip.cs, docs/584 §1)
                 case "autlastsearch": return false;  // log only: each Sim's last autonomy search and its result, for the census (AutLive.cs, docs/584 §4)
