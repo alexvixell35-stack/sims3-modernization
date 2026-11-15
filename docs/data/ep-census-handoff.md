@@ -1,6 +1,6 @@
 # EP/SP census: handoff for Dalexlol (2026-11-15)
 
-Rodney is handing the EP/SP census and sweep track to Dalexlol. Read this first, then docs/267 (what our data never covered) and docs/268 (the forced interaction sweep). Tags follow AGENTS.md: [verified] = read in code or counted in data, [inferred] = still to confirm. Times are wall clock. A live job takes about 8-15 min.
+Rodney is handing the EP/SP census, sweep and **EP/SP fix** track to Dalexlol: you own the pack fixes end to end (find, fix, repro, PR); we focus on the Mono lane and review/build/run your PRs. Read this first, then docs/267 (what our data never covered) and docs/268 (the forced interaction sweep). Tags follow AGENTS.md: [verified] = read in code or counted in data, [inferred] = still to confirm. Times are wall clock. A live job takes about 8-15 min.
 
 ## 1. Why
 
@@ -36,10 +36,10 @@ The census answers three questions:
   - Egypt's first attempt hung at load on the EA package-lock deadlock (docs/539 §13.8). The harness retried it on its own, and that is an EA bug, not ours.
   - These first passes were partly hollow: the 2-day trip ended mid-repro, the tomb traps were dormant, and some buys landed in inventory. All of that is fixed on master (5-day trips with an `on_vacation` gate, traps armed through `TombTrap.EnterState`, `must_place` with lot corners, steps that fail the job when they don't run). The rerun is in tonight's chain.
 - **ep-home-packs: BP PASS, SV PASS, IP FAIL** (`spawn_horse failed: no BoxStall in this world`). All eight buys had gone to the family inventory. The repro now buys and places its own stall on the far lot (`must_place`); the IP rerun is in tonight's chain.
-- **First, before the sweeps:** Rodney wants your snapshot/rewind design (rewind notes, 2026-11-14) built first so these long queues run faster and steadier. We start on it now; the sweeps can wait for it or run without it.
+- **First, before the sweeps:** Rodney wants your snapshot/rewind design (rewind notes, 2026-11-14) built first so these long queues run faster and steadier. We build that tooling now; the sweeps can wait for it or run without it.
 - Tonight's rerun results will be in `docs/data/results/2026-11-15-queue-ep-worlds-correctness-1115*.md` and `...-ep-home-packs-1115*.md` after the next public sync.
 
-## 4. Tasks for you (pick what fits your setup)
+## 4. Your tasks (you own these; we do not build them ourselves)
 
 1. **Run the sweeps** on your install, since you have every pack. The order:
    1. `sweep-packs-home-1115`. SP1 is the smoke job and stops the queue if it fails.
@@ -60,7 +60,7 @@ The census answers three questions:
 3. **Triage what the sweep finds.**
    - A stack with our frame (`Ts3Fixes.` / `Ts3Agent.`) is our bug and a FAIL. Send a fix PR.
    - An all-EA stack is listed as a finding (`scriptErrorsReport`, `EA_ONLY_RE`), not a FAIL. Add a fix behind a switch that defaults to off, with a household / selected-Sim / unknown-scope exemption, as AGENTS.md requires.
-4. **Static fix candidates from docs/267 §6, if you want them:**
+4. **Static fixes from docs/267 §6 (yours):**
    - **F1:** `UfTeleport` goal check. Refuse a teleport goal inside a tomb or hidden room (`TombRoomManager.IsPointInATombOrHiddenRoom`).
    - **F2:** `TownieUnseen` ignores Late Night hidden rooms. It needs its own switch and a grep of every caller.
 
