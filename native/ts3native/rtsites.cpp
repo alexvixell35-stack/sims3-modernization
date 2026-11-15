@@ -26,38 +26,38 @@ enum { RT_QREAD, RT_QWRITE, RT_QLEAF, RT_DESTROY, RT_LOTGRID, RT_PENDING, RT_IDX
 struct RtSite { DWORD addr; u8 len; u8 pro[10]; u8 kind; const char* name; };
 static const int RT_N = 25;
 static const RtSite kRtSites[RT_N] = {
-    {0x006583E0, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, RT_QREAD, "Routing_PhysicsRayVertical"},
-    {0x0083B3A0, 5, {0x83, 0xEC, 0x10, 0x53, 0x55}, RT_QREAD, "Routing_PhysicsRangeQuery"},
-    {0x006823E0, 7, {0x53, 0x56, 0x57, 0x8B, 0x7C, 0x24, 0x14}, RT_QWRITE, "Realm_AddShape"},
-    {0x00682080, 6, {0x56, 0x8B, 0xF1, 0x8B, 0x4E, 0x0C}, RT_QWRITE, "Realm_RemoveShape"},
-    {0x006819B0, 6, {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x0C}, RT_QWRITE, "LooseQuadTree_Reinsert"},
-    {0x00681820, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, RT_QLEAF, "quadtree ray leaf"},
-    {0x00681E00, 7, {0x8B, 0x41, 0x08, 0xD9, 0x44, 0x24, 0x08}, RT_QLEAF, "quadtree range leaf"},
-    {0x00939420, 5, {0x83, 0xEC, 0x08, 0x53, 0x56}, RT_DESTROY, "ObjectService_DestroyById"},
-    {0x00C688A0, 6, {0x83, 0xEC, 0x08, 0x56, 0x8B, 0xF1}, RT_LOTGRID, "WorldManager_LotGridLookup"},
-    {0x0082C420, 9, {0x57, 0x8B, 0xF9, 0x8B, 0x87, 0x5C, 0x09, 0x00, 0x00}, RT_PENDING, "RoutingWorld_ApplyPendingUpdates"},
-    {0x00C68680, 6, {0x83, 0xEC, 0x1C, 0x53, 0x55, 0x56}, RT_IDXREBUILD, "WorldManager_RebuildLotIndex"},
-    {0x00AAC110, 6, {0x81, 0xEC, 0x30, 0x04, 0x00, 0x00}, RT_SAVE, "Save_WritePackage"},
-    {0x0078AE40, 7, {0x56, 0x8B, 0x35, 0xC4, 0xCB, 0x1E, 0x01}, RT_BRD, "IC_World_BuildRoutingDataImpl"},  // absolute operand
-    {0x008361B0, 6, {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x0C}, RT_LOTSAVE, "RoutingSystem_SaveLot"},
-    {0x00818EA0, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, RT_DEBUG, "RoutingDebug_FrameUpdate"},
-    {0x00829410, 5, {0x53, 0x56, 0x8B, 0xF1, 0x57}, RT_TEARDOWN, "RoutingWorld_LockedOp_WorldInit"},
-    {0x0082D140, 5, {0x83, 0xEC, 0x0C, 0x53, 0x55}, RT_TEARDOWN, "RoutingWorld_Clear"},
-    {0x008299E0, 10, {0x53, 0x56, 0x8B, 0xF1, 0x8D, 0x9E, 0x18, 0x09, 0x00, 0x00}, RT_TEARDOWN, "RoutingWorld_DestroyPlanners"},
+    {TS3A(0x006583E0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, RT_QREAD, "Routing_PhysicsRayVertical"},
+    {TS3A(0x0083B3A0), 5, {0x83, 0xEC, 0x10, 0x53, 0x55}, RT_QREAD, "Routing_PhysicsRangeQuery"},
+    {TS3A(0x006823E0), 7, {0x53, 0x56, 0x57, 0x8B, 0x7C, 0x24, 0x14}, RT_QWRITE, "Realm_AddShape"},
+    {TS3A(0x00682080), 6, {0x56, 0x8B, 0xF1, 0x8B, 0x4E, 0x0C}, RT_QWRITE, "Realm_RemoveShape"},
+    {TS3A(0x006819B0), 6, {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x0C}, RT_QWRITE, "LooseQuadTree_Reinsert"},
+    {TS3A(0x00681820), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, RT_QLEAF, "quadtree ray leaf"},
+    {TS3A(0x00681E00), 7, {0x8B, 0x41, 0x08, 0xD9, 0x44, 0x24, 0x08}, RT_QLEAF, "quadtree range leaf"},
+    {TS3A(0x00939420), 5, {0x83, 0xEC, 0x08, 0x53, 0x56}, RT_DESTROY, "ObjectService_DestroyById"},
+    {TS3A(0x00C688A0), 6, {0x83, 0xEC, 0x08, 0x56, 0x8B, 0xF1}, RT_LOTGRID, "WorldManager_LotGridLookup"},
+    {TS3A(0x0082C420), 9, {0x57, 0x8B, 0xF9, 0x8B, 0x87, 0x5C, 0x09, 0x00, 0x00}, RT_PENDING, "RoutingWorld_ApplyPendingUpdates"},
+    {TS3A(0x00C68680), 6, {0x83, 0xEC, 0x1C, 0x53, 0x55, 0x56}, RT_IDXREBUILD, "WorldManager_RebuildLotIndex"},
+    {TS3A(0x00AAC110), 6, {0x81, 0xEC, 0x30, 0x04, 0x00, 0x00}, RT_SAVE, "Save_WritePackage"},
+    {TS3A(0x0078AE40), 7, {0x56, 0x8B, 0x35, 0xC4, 0xCB, 0x1E, 0x01}, RT_BRD, "IC_World_BuildRoutingDataImpl"},  // absolute operand
+    {TS3A(0x008361B0), 6, {0x56, 0x57, 0x8B, 0x7C, 0x24, 0x0C}, RT_LOTSAVE, "RoutingSystem_SaveLot"},
+    {TS3A(0x00818EA0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, RT_DEBUG, "RoutingDebug_FrameUpdate"},
+    {TS3A(0x00829410), 5, {0x53, 0x56, 0x8B, 0xF1, 0x57}, RT_TEARDOWN, "RoutingWorld_LockedOp_WorldInit"},
+    {TS3A(0x0082D140), 5, {0x83, 0xEC, 0x0C, 0x53, 0x55}, RT_TEARDOWN, "RoutingWorld_Clear"},
+    {TS3A(0x008299E0), 10, {0x53, 0x56, 0x8B, 0xF1, 0x8D, 0x9E, 0x18, 0x09, 0x00, 0x00}, RT_TEARDOWN, "RoutingWorld_DestroyPlanners"},
     // docs/60 §2.5 (0.11.0): call 0x7692B0 is re-targeted in the trampoline; mov eax,[0x11FF7AC] is absolute
-    {0x00EC1180, 5, {0xE8, 0x2B, 0x81, 0x8A, 0xFF}, RT_CLOSING, "IC_GameUtils_TransitionToLoadWorldImpl"},
-    {0x00EC11B0, 5, {0xA1, 0xAC, 0xF7, 0x1F, 0x01}, RT_CLOSING, "IC_GameUtils_TransitionToNotInWorldImpl"},
+    {TS3A(0x00EC1180), 5, {0xE8, 0x2B, 0x81, 0x8A, 0xFF}, RT_CLOSING, "IC_GameUtils_TransitionToLoadWorldImpl"},
+    {TS3A(0x00EC11B0), 5, {0xA1, 0xAC, 0xF7, 0x1F, 0x01}, RT_CLOSING, "IC_GameUtils_TransitionToNotInWorldImpl"},
     // 0.11.1: worker quadtree consumers outside the two readers above (BP M1 run 2026-10-17: vfRtQtBare 2067, ray leaf
     // from 0x681E83). Realm ray wrapper 0x681E50 (from 0x789DD0 <- route code 0x759560, and from 0x686CC0 / 0x686FD0),
     // segment ray 0x686FD0 (from routing 0x82AEC0), range wrapper 0x682590 (from 0x825015, 0x82A96C, 0x82EC6D). Each reaches
     // no managed, remote, event or Lock_Acquire call on direct calls (depth 6). 0x789DD0 itself does (World_FireEvent via
     // 0xAC0570), so it holds no lock; 0x682610 (filtered range query) takes callbacks and stays on the leaf fallback.
-    {0x00681E50, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, RT_QREAD, "Realm_RayCast"},
-    {0x00686FD0, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, RT_QREAD, "PhysicsWorld_RayCastSegment"},
-    {0x00682590, 7, {0x83, 0xEC, 0x10, 0x8B, 0x54, 0x24, 0x1C}, RT_QREAD, "Realm_RangeQuery"},
+    {TS3A(0x00681E50), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, RT_QREAD, "Realm_RayCast"},
+    {TS3A(0x00686FD0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, RT_QREAD, "PhysicsWorld_RayCastSegment"},
+    {TS3A(0x00682590), 7, {0x83, 0xEC, 0x10, 0x8B, 0x54, 0x24, 0x1C}, RT_QREAD, "Realm_RangeQuery"},
     // 0.11.2 (vfG11CloseBy, docs/81/82): the two per-tick steering +0x918 takers; their caller keys the G11 close
-    {0x0082EDB0, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, RT_STEER, "RoutingWorld_ObstacleQuery"},
-    {0x0082F0B0, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, RT_STEER, "GoalFootprintGather"},
+    {TS3A(0x0082EDB0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, RT_STEER, "RoutingWorld_ObstacleQuery"},
+    {TS3A(0x0082F0B0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, RT_STEER, "GoalFootprintGather"},
     // 0.11.4 probe P0 also framed RouteFollow_EditPath 0x85F5A0 (caller key: locomotion 0x85FEDC vs the plan's own tail
     // 0x85FFC7). Removed in 0.11.5: with that frame game time froze after a save in 2 of 2 runs, and not without it (bisect
     // 2026-10-17). P0 had answered: the tail, not locomotion. Do not frame 0x85F5A0 again before that freeze is understood.
@@ -163,7 +163,7 @@ static int __cdecl RtEnter(int i, DWORD* slot) {
     // lookups / pending updates, which keep acting; they also note the plan's reader bits (D5)
     if (t_snapRun && s.kind != RT_QREAD && s.kind != RT_QLEAF && s.kind != RT_LOTGRID && s.kind != RT_PENDING) return 0;
     if (t_p4Read) t_p4Read |= s.kind == RT_QREAD || s.kind == RT_QLEAF ? P4R_PHYS : s.kind == RT_LOTGRID ? P4R_LOTIDX : 0;
-    if (t_p4Read && s.addr == 0x006583E0) t_p4Read |= P4R_VRAY;  // D5 display level family (docs/94 §17.9 N15)
+    if (t_p4Read && s.addr == TS3A(0x006583E0)) t_p4Read |= P4R_VRAY;  // D5 display level family (docs/94 §17.9 N15)
     const DWORD tid = GetCurrentThreadId();
     const bool worker = RgIsWorker(tid), job = RgJobLive();
     RgThread& t = t_rg;
@@ -258,13 +258,13 @@ static int __cdecl RtEnter(int i, DWORD* slot) {
             if (job) { InterlockedIncrement(&k.vfRtTeardownInJob); note = "world init/teardown during a job"; }
             if (enforce && !job) {  // a new or vanishing world: no async START before a plan has learned its lock
                 g_rgLock = NULL;
-                if (s.addr == 0x00829410) InterlockedExchange(&k.rtClosing, 0);
+                if (s.addr == TS3A(0x00829410)) InterlockedExchange(&k.rtClosing, 0);
             }
             break;
         case RT_STEER:  // outermost only: a nested call keeps the outer caller as the key
             if (!t_steerRet) {
                 const DWORD prev = t_steerRet;
-                t_steerRet = t_avSite ? 0x00846D21 : t_stubKey ? t_stubKey : VfRealRet(slot);  // a stub's own return would key it (0x6F28F468)
+                t_steerRet = t_avSite ? TS3A(0x00846D21) : t_stubKey ? t_stubKey : VfRealRet(slot);  // a stub's own return would key it (0x6F28F468)
                 if (!RgPush(t, slot, 1, RG_REL_STEER, (void*)(uintptr_t)prev)) t_steerRet = prev;
             }
             break;

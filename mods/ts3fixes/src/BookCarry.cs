@@ -251,7 +251,7 @@ namespace Ts3Fixes
                     if (crowd.Count >= max) break;
                     SimDescription sd = s.SimDescription;
                     Lot home = s.LotHome;
-                    if (sd == null || s.HasBeenDestroyed || s.IsSelectable || s.Household == null || s.Household == active || home == null || home == activeLot) continue;
+                    if (IsPlayerSim(s) || home == null || home == activeLot) continue;  // household rule (PlayerSims.cs): sd != null after it
                     if (!sd.IsHuman || !sd.TeenOrAbove || s.Parent != null) continue;
                     Bookshelf shelf = null;
                     foreach (Bookshelf b in home.GetObjects<Bookshelf>())

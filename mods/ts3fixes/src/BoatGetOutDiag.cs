@@ -131,17 +131,10 @@ namespace Ts3Fixes
             catch (Exception) { return false; }
         }
 
-        // household rule: false for selectable, selected, active-household and household-less (unknown scope) Sims
-        static bool BgoNpc(Sim s)
-        {
-            try { return s != null && !s.IsSelectable && s != PlumbBob.SelectedActor && s.Household != null && s.Household != Household.ActiveHousehold; }
-            catch (Exception) { return false; }
-        }
+        // household rule (PlayerSims.cs): false for household, selected and unknown-scope Sims
+        static bool BgoNpc(Sim s) { return IsNpcSim(s); }
 
-        static string BgoScope(Sim s)
-        {
-            return s.IsSelectable || (s.Household != null && s.Household == Household.ActiveHousehold) ? "household" : "npc";
-        }
+        static string BgoScope(Sim s) { return IsPlayerSim(s) ? "household" : "npc"; }
 
         static void BgoLine(string line) { sBgoLines++; DiagLine(line); }
 

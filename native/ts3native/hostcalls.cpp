@@ -317,7 +317,7 @@ static bool ApplyHostCalls(const wchar_t* ini) {
     if (memoX >= 0 && how) {
         const LONG ms = Clamp((LONG)GetPrivateProfileIntW(L"RouteSnap", L"DoorMemoXMs", 250, ini), 1, 5000);
         g_dmxTicks = g_qpf.QuadPart * ms / 1000;
-        if (Readable((const void*)(uintptr_t)0x011D72C4, 4)) g_dmxDelegate = (const DWORD*)(uintptr_t)0x011D72C4;  // docs/104 P1
+        if (Readable((const void*)(uintptr_t)TS3A(0x011D72C4), 4)) g_dmxDelegate = (const DWORD*)(uintptr_t)TS3A(0x011D72C4);  // docs/104 P1
         k.dmxMode = memoX;
         g_dmxLast = memoX;
         Log("OK   door memo x: DoorMemoX=%ld (%s), max age %ld ms, unlocked answers only (switch dmxMode +0x5014, --ab doormemox)",

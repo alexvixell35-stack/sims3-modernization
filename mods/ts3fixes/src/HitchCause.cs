@@ -70,6 +70,12 @@ namespace Ts3Fixes
             // reset task's record (HcRstNow), so any other selection runs straight through. DoSelectActor does not sleep [inferred, decompile]
             ok &= Patch(typeof(PlumbBob), "DoSelectActor", new Type[] { typeof(Sim), typeof(bool) }, typeof(HcTailHook), "SelHook", "SelOrig");
             ok &= Patch(typeof(Sims3.Gameplay.GlobalFunctions), "CreateObjectWithOverrides", new Type[] { typeof(string), typeof(ProductVersion), typeof(Vector3), typeof(int), typeof(Vector3), typeof(System.Collections.Hashtable), typeof(Simulator.ObjectInitParameters) }, typeof(HcInstHook), "CowHook", "CowOrig");
+            // spawner placement (docs/546 row 5): ObjectSpawner.TriggerSpawn took up to 242 ms (SeaLifeSpawner, phase-20261114-0032);
+            // TryPlaceSpawnedObjectInWorld tries up to kMaxSpawnAttempts+1 = 11 PlaceAtGoodLocation searches and places the object
+            // at the last start position when all fail. Logs each placement >= 10 ms: spawner, attempts, whether one succeeded.
+            ok &= Patch(typeof(Sims3.Gameplay.Abstracts.ObjectSpawner), "TryPlaceSpawnedObjectInWorld", new Type[] { typeof(IGameObject).MakeByRefType(), typeof(bool), typeof(FindGoodLocationBooleans) }, typeof(HcSpawnHook), "PlaceHook", "PlaceOrig");
+            ok &= Patch(typeof(Sims3.Gameplay.GlobalFunctions), "PlaceAtGoodLocation", new Type[] { typeof(IGameObject), typeof(World.FindGoodLocationParams), typeof(bool) }, typeof(HcSpawnHook), "FglHook", "FglOrig");
+            ok &= ApplySyncWaitLog();  // SyncWaitLog.cs, docs/546 §9
             TunedLog("kHitchCauseHooks", ok, "alarm and lot pass stamps");
             HcApplyOverwatch();
         }
@@ -540,6 +546,37 @@ namespace Ts3Fixes
         }
 
         // docs/247 §12.4: the reset tail's steps, stamped into the reset task's record; outside a reset they run straight through
+        static int sHcSpTries, sHcSpOk; static bool sHcSpIn;
+        public class HcSpawnHook
+        {
+            public void PlaceHook(ref IGameObject retObj, bool deleteObjOnFailure, FindGoodLocationBooleans booleanConstraints)
+            {
+                if (!ShortcutOn("alarmtime") || sHcSpIn) { PlaceOrig(ref retObj, deleteObjOnFailure, booleanConstraints); return; }
+                sHcSpIn = true; sHcSpTries = 0; sHcSpOk = 0;
+                uint t0 = SrcNowUs();
+                try { PlaceOrig(ref retObj, deleteObjOnFailure, booleanConstraints); }
+                finally
+                {
+                    sHcSpIn = false;
+                    uint us = unchecked(SrcNowUs() - t0);
+                    if (us >= 10000)
+                    {
+                        object sp = this;
+                        HcLine("spawnplace: " + (us / 1000) + " ms, " + sp.GetType().Name + " " + HcName(sp) + ", fgl tries " + sHcSpTries + ", ok " + sHcSpOk
+                            + ", obj " + (retObj != null ? retObj.GetType().Name : "null(deleted)") + ", " + HcSimTime());
+                    }
+                }
+            }
+            public void PlaceOrig(ref IGameObject retObj, bool deleteObjOnFailure, FindGoodLocationBooleans booleanConstraints) { }
+            public static bool FglHook(IGameObject obj, World.FindGoodLocationParams fglParams, bool deleteOnFailure)
+            {
+                bool r = FglOrig(obj, fglParams, deleteOnFailure);
+                if (sHcSpIn) { sHcSpTries++; if (r) sHcSpOk++; }
+                return r;
+            }
+            public static bool FglOrig(IGameObject obj, World.FindGoodLocationParams fglParams, bool deleteOnFailure) { return false; }
+        }
+
         public class HcTailHook
         {
             public static bool SelHook(Sim actor, bool force)

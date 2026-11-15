@@ -94,6 +94,29 @@ namespace Ts3Fixes
             ApplyWishListenerFixes();
             ApplyBuyCellRecycle();
             ApplyMoodPending();
+            ApplyJoyrideCostume();  // docs/546 §4, on
+            ApplyAlarmKillLog();  // docs/546 row 5, log only
+            ApplySocialFinish();  // docs/546 §9, on
+            ApplySocialReceiveFail();  // docs/546 §9, on
+            ApplyPetFirePlan();  // docs/546 §10, off by default
+            ApplySplashRoof();  // docs/546 §16, off by default (NPCs only)
+            ApplyShuffleboardBcast();  // docs/546 §17, off by default (leak; exact for every Sim)
+            ApplyCookClickListener();  // docs/546 §17, off by default (leak; exact for every Sim)
+            ApplyVipRoomRefresh();  // docs/555 §3, off by default (EA throw; exact for every Sim)
+            ApplySmallFixes555();  // docs/555 §4/§6/§7, off by default (courselistener, observatorymsg, bubblepipeguard; exact for every Sim)
+            ApplyBuffState();  // docs/557, off by default (per-Sim state on shared Buff objects; exact for one Sim, every Sim)
+            ApplyStoreWorldEvents();  // docs/557 §4.2, off by default (leak: dead store-object handlers on static World events)
+            ApplyAwardKeep();  // docs/546 §11, off by default
+            ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
+            ApplySimFestKeep();  // docs/546 §11, off by default
+            ApplyWeddingArchKeep();  // docs/546 §12, off by default
+            ApplyGraduationKeep();  // docs/546 §12, off by default (hsgradkeep, unigradkeep)
+            ApplyBoardingRefund();  // docs/546 §12, off by default
+            ApplyHiddenRoomNpc();  // docs/552, off by default (no hook: a sweep alarm started at world load)
+            ApplyHiddenRoomSpawn();  // docs/552, off by default (hiddenroomspawn)
+            ApplyAptLeave();  // docs/553, off by default (household guests: exact, deferred to the real lot exit)
+            ApplyPartyFixes();  // docs/554, off by default (partyoutcome, partymotive)
+            ApplyComboRabbitHole();  // docs/551, off by default (comboprotest, combovenue, combosituation, combojob, comboprotestlot, comboopp)
             ApplyFilterGridLeak();
             ApplyCasPuckLeak();
             ApplyCasExitSweep();
@@ -355,6 +378,19 @@ namespace Ts3Fixes
         // [2235-2238] relremovesafe (RelRemoveSafe.cs): Sim removals where EA's relationship removal would throw / one-sided entries for the removed Sim / removals seen / errors.
         // [2290-2292] seasonlistener (SeasonListenerLeak.cs): stale / duplicate Motives season listeners (also off) / removed / errors or skipped.
         // [2287-2289] casfiltergrid (CasExitSweep.cs): CAS filter grids at CASPuck.Unload (also off) / restored / errors.
+        // [2384-2386] splashroof (SplashRoof.cs, docs/546 §16): rain puddles on roofs dropped from NPC splash runs / NPC runs that dropped one / errors.
+        // [2409-2411] shuffleboardbcast (ShuffleboardBroadcast.cs, docs/546 §17): broadcasters replaced by Shuffleboard+Play.TriggerReactions (also off) / disposed after Cleanup / errors.
+        // [2417-2419] viproomrefresh (VipRoomRefresh.cs, docs/555 §3): RefreshVIPRooms calls where EA's foreach would throw (also off) / empty VIP rooms removed over a copy / errors.
+        // [2420-2423] courselistener (SmallEaFixes555.cs, docs/555 §4): course listeners removed at leave / schedule rebuild / moved with the course / stale moves seen (also off) / errors.
+        // [2424-2425] observatorymsg (SmallEaFixes555.cs, docs/555 §6): Simulon V stardust-only notices corrected (also off) / errors. [2426-2427] bubblepipeguard: failed-pipe exits / errors.
+        // [2428-2434] buffstate (BuffSharedState.cs, docs/557): Downtrodden removals that would leave the Sim's alarm (also off) / Downtrodden alarms removed / curse removals hitting another Sim's listener (also off) / curse listeners fixed / Fertility Treatment traits removed / hypnosis+queasy handlers replaced / errors.
+        // [2435-2437] storeworldevents (StoreWorldEvents.cs, docs/557 §4.2): dead object handlers on World quit / placed-in-lot and ObjectGroupSaving (also off) / removed / errors.
+        // [2415-2416] etderefdiag (ErrorTrapDerefDiag.cs, docs/552 §11, log only, on): etderef: lines written / errors.
+        // [2412-2414] cookclicklistener (CookClickListener.cs, docs/546 §17): clicked-object listeners of destroyed servings removed / ObjectDisposed handlers unhooked from the original object / errors.
+        // [2387-2390] hiddenroomspawn (HiddenRoomSpawn.cs, docs/552): reset fallbacks re-picked / corner spots re-picked / created service NPCs moved / errors.
+        // [2400-2404] party fixes (PartyFixes.cs, docs/554; 2398-2399 unused): partyoutcome lame restored / guest tier changed / errors; partymotive motives removed / errors.
+        // [2391-2397] aptleave (AptLeave.cs, docs/553): apartment room-change calls skipped (not leaving) / run with the switch on / seen (any state) / errors / deferred party removals applied at the real lot exit / deferrals dropped (back in the apartment) / household skips (of 2391).
+        // [2379-2383] hiddenroomnpc (HiddenRoom.cs, docs/552): trapped NPCs moved out (first try) / second tries (sent home) / household Sims seen trapped (log only) / NPCs left after two tries / errors.
         // [2300-2303] casexitsweep (CasExitSweep.cs): detached live entries at CAS exit (also off) / cleaned / skipped parented / errors.
         // [2284-2286] caspuckevents (CasPuckLeak.cs): CASPuck disposed with its dashboard handler attached (also off) / handlers removed / errors.
         // [2293-2295] famcursorleak (CasPuckLeak.cs): family-screen drag cursor windows at Unload (also off) / disposed / errors.
@@ -403,12 +439,22 @@ namespace Ts3Fixes
         // [930-932] watchdogasync: A1 verdicts dropped as stale (H4Core.WdFresh), shadow sync re-checks run, shadow verdicts that differ
         // [969-984] replanlog (ReplanLog.cs, docs/261 §6 L1, ts3native [RouteAsync] ReplanLog=1): own Replans and ms, calls and ms
         // per scope (household, selected, seenNpc, unseen, unknown), bursts, call lines, lines dropped, would start but Kinds
+        // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 2799,
+        // docs/registry.md), so a new fix never needs the array resized by hand.
+        const int kCounterSlots = 2800;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2304]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null || c.Length < kCounterSlots)
+            {
+                // a shorter array (left by an older build in this session) is copied into a full-size one
+                int[] full = new int[kCounterSlots];
+                if (c != null) Array.Copy(c, full, c.Length);
+                c = full;
+                AppDomain.CurrentDomain.SetData("ts3fixes.counters", c);
+            }
             return sCountersCache = c;
         }
 
@@ -524,7 +570,7 @@ namespace Ts3Fixes
                 // docs/250 §7.1 A1: OFF since rc1110b (2026-11-09) until the wdasync-fix-1110 tests (Instantiator.kWatchdogAsync)
                 case "watchdogasync": return Instantiator.kWatchdogAsync;
                 case "watchdogasyncshadow": return false;  // correctness arm only: re-runs each A1 check sync and counts mismatches
-                case "alarmtime": case "boatreplanlog": case "owresettime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
+                case "alarmtime": case "boatreplanlog": case "owresettime": case "synctime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
                 case "legreplanskip": return Instantiator.kLegReplanSkip;
                 case "bouncerskip": return Instantiator.kBouncerSlotSkip;
                 case "idlememo": return Instantiator.kIdlePlanMemo;
@@ -603,6 +649,41 @@ namespace Ts3Fixes
                 case "buyclearrecycle": return Instantiator.kBuyClearRecycle;
                 case "buygridsweep": return Instantiator.kBuyGridSweep;
                 case "moodpending": return Instantiator.kMoodPending;
+                case "joyridecostume": return Instantiator.kJoyrideCostume;
+                case "alarmkilllog": return Instantiator.kAlarmKillLog;
+                case "etderefdiag": return Instantiator.kEtDerefDiag;
+                case "socialfinish": return Instantiator.kSocialFinish;
+                case "socialreceivefail": return Instantiator.kSocialReceiveFail;
+                case "petfireplan": return Instantiator.kPetFirePlan;
+                case "splashroof": return Instantiator.kSplashRoof;
+                case "shuffleboardbcast": return Instantiator.kShuffleboardBcast;
+                case "cookclicklistener": return Instantiator.kCookClickListener;
+                case "viproomrefresh": return Instantiator.kVipRoomRefresh;
+                case "courselistener": return Instantiator.kCourseListener;
+                case "observatorymsg": return Instantiator.kObservatoryMsg;
+                case "bubblepipeguard": return Instantiator.kBubblePipeGuard;
+                case "buffstate": return Instantiator.kBuffState;
+                case "storeworldevents": return Instantiator.kStoreWorldEvents;
+                case "awardkeep": return Instantiator.kAwardKeep;
+                case "ceremonyspot": return Instantiator.kCeremonySpot;
+                case "eventcrowdring": return Instantiator.kEventCrowdRing;
+                case "eventrouteretry": return Instantiator.kEventRouteRetry;
+                case "simfestkeep": return Instantiator.kSimFestKeep;
+                case "weddingarchkeep": return Instantiator.kWeddingArchKeep;
+                case "hsgradkeep": return Instantiator.kHsGradKeep;
+                case "unigradkeep": return Instantiator.kUniGradKeep;
+                case "bsrefund": return Instantiator.kBsRefund;
+                case "comboprotest": return Instantiator.kComboProtest;
+                case "combovenue": return Instantiator.kComboVenue;
+                case "combosituation": return Instantiator.kComboSituation;
+                case "combojob": return Instantiator.kComboJob;
+                case "comboprotestlot": return Instantiator.kComboProtestLot;
+                case "comboopp": return Instantiator.kComboOpp;
+                case "hiddenroomnpc": return Instantiator.kHiddenRoomNpc;
+                case "hiddenroomspawn": return Instantiator.kHiddenRoomSpawn;
+                case "aptleave": return Instantiator.kAptLeave;
+                case "partyoutcome": return Instantiator.kPartyOutcome;
+                case "partymotive": return Instantiator.kPartyMotive;
                 case "filtergridleak": return Instantiator.kFilterGridLeak;
                 case "compositorghost": return Instantiator.kCompositorGhost;
                 case "caspuckevents": return Instantiator.kCasPuckEvents;
@@ -1052,7 +1133,7 @@ namespace Ts3Fixes
         }
         static bool TownieUnseenBody(Sims3.Gameplay.Actors.Sim sim, List<Sims3.Gameplay.Actors.Sim> followers)
         {
-            if (sim == null || sim.IsSelectable || sim.Household == Household.ActiveHousehold) return false;
+            if (IsPlayerSim(sim)) return false;  // household rule (PlayerSims.cs)
             if (followers != null && followers.Count > 0) return false;
             if (sim.Posture != sim.Standing || sim.IsInRidingPosture || sim.IsInBeingRiddenPosture) return false;
             if (Sims3.Gameplay.Controllers.TombRoomManager.IsObjectInATombRoom(sim)) return false;

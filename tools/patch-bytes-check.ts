@@ -2,6 +2,7 @@
 // exe (self-validation: all must match) or another exe build at the addresses tools/exe-addr-map.ts maps them to.
 //
 //   node tools/patch-bytes-check.ts [--other <exe>] [--ref <Steam TS3W.exe>] [--out file.csv] [--all]
+//   node tools/patch-bytes-check.ts --other <exe> --table native/ts3native/ts3bytes-ea169.h   (also: the game's own bytes at every ok/ported site)
 //   node tools/patch-bytes-check.ts --self-check
 //
 // Expectations are read statically from native/ts3native (no build):
@@ -86,10 +87,29 @@ type Ctx = { file: string; pos: number } | undefined;  // where a name is used: 
 type Field = { name: string; arr: boolean; ptr: boolean };
 export type Src = { syms: Map<string, Sym[]>; structs: Map<string, Field[]>; texts: [string, string][]; depths: Map<string, Int32Array> };
 
+// function-like macros whose body is one table row (`#define VFT(name, at, len, slot, ...) {name, at, len, {__VA_ARGS__}, ...}`,
+// verify.cpp kVf): every use is expanded in place on its own line, so the table rule sees plain rows
+function expandRowMacros(t: string): string {
+    for (const m of [...t.matchAll(/^[ \t]*#\s*define\s+(\w+)\(([^)]*)\)[ \t]+(\{[^\n]*\})[ \t]*$/gm)]) {
+        const ps = m[2].split(",").map((s) => s.trim()), defEnd = m.index! + m[0].length, uses: [number, number, string][] = [];
+        for (const u of t.matchAll(new RegExp(`\\b${m[1]}\\s*\\(`, "g"))) {
+            if (u.index! < defEnd) continue;  // the #define itself
+            const args: string[] = [];
+            let p = u.index! + u[0].length;
+            for (;;) { const r = parseInit(t, p); args.push(r.node as string); p = r.end; if (t[p] !== ",") break; p++; }
+            if (t[p] !== ")") continue;
+            const val = (n: string) => n === "__VA_ARGS__" ? args.slice(ps.length - 1).join(", ") : args[ps.indexOf(n)] ?? n;
+            uses.push([u.index!, p + 1, m[3].replace(/\b(\w+)\b/g, (w) => (ps.includes(w) || (w === "__VA_ARGS__" && ps.includes("..."))) ? val(w) : w)]);
+        }
+        for (const [s, e, body] of uses.reverse()) t = t.slice(0, s) + body + t.slice(e);
+    }
+    return t;
+}
+
 export function readSources(files: [string, string][]): Src {
     const syms = new Map<string, Sym[]>(), depths = new Map<string, Int32Array>(), structs = new Map<string, Field[]>(), texts: [string, string][] = [];
     for (const [file, raw] of files) {
-        const t = strip(raw);
+        const t = expandRowMacros(strip(raw));
         texts.push([file, t]);
         const depth = new Int32Array(t.length + 1);
         for (let i = 0, d = 0; i < t.length; i++) { if (t[i] === "{") d++; else if (t[i] === "}") d--; depth[i + 1] = d; }
@@ -294,12 +314,14 @@ function ptrMask(r: Pe, x: Expect): Uint8Array {
     return m;
 }
 
-export function check(r: Pe, o: Pe, exp: Expect[]): Res[] {
+// over: hand-verified Steam -> other addresses (port-run --overrides); a site with one is ported even when bytes differ
+export function check(r: Pe, o: Pe, exp: Expect[], over = new Map<number, number>()): Res[] {
     const same = r === o;
     const sites = [...new Set(exp.flatMap((x) => (x.target !== undefined ? [x.addr, x.target] : [x.addr])))].map((va) => ({ va, label: "", where: "" }));
     const map = new Map<number, { new: number | null; kind: string }>();
     if (same) for (const s of sites) map.set(s.va, { new: s.va, kind: "exact" });
     else for (const x of mapAll(r, o, sites).rows) map.set(x.ref, { new: x.new, kind: x.kind });
+    for (const [a, b] of over) map.set(a, { new: b, kind: "override" });
     return exp.map((x) => {
         let m = map.get(x.addr) ?? { new: null, kind: "missing" };
         if (x.kind === "slot" && m.new === null) {  // data slot: the one aligned dword outside code holding the mapped fn
@@ -321,13 +343,39 @@ export function check(r: Pe, o: Pe, exp: Expect[]): Res[] {
             return res;
         }
         const pm = ptrMask(r, x);
-        res.kind2 = x.bytes.every((b, i) => pm[i] || b === got[i]) ? "ported" : "mismatch";
+        res.kind2 = x.bytes.every((b, i) => pm[i] || b === got[i]) || over.has(x.addr) ? "ported" : "mismatch";
         return res;
     });
 }
 
+// ts3bytes-ea169.h (docs/68 7.3): per ok/ported expectation the other exe's own bytes at its address, which Matches /
+// InstallDetour use under /DTS3A_TABLE instead of the Steam literal. Rows (ea, len, pool offset) sorted by (ea, len).
+export type BytesRow = { len: number; new: number | null; kind2: string; addr: number; where?: string };
+export function bytesTable(rows: BytesRow[], o: Pe, src = "patch-bytes-check"): { header: string; ok: number; ported: number; rows: number } {
+    const by = new Map<string, { ea: number; len: number; steam: number; kind: string }>();
+    for (const x of rows) if ((x.kind2 === "ok" || x.kind2 === "ported") && x.new !== null && x.new - o.base >= 0 && x.new - o.base + x.len <= o.img.length) {
+        const k = `${x.new}:${x.len}`, y = by.get(k);
+        if (!y || (y.kind === "ok" && x.kind2 === "ported")) by.set(k, { ea: x.new, len: x.len, steam: x.addr, kind: x.kind2 });
+    }
+    const list = [...by.values()].sort((a, b) => a.ea - b.ea || a.len - b.len);
+    let off = 0;
+    const meta = list.map((r) => { const m = `    {${hx(r.ea)}, ${r.len}, ${off}},  // steam ${hx(r.steam)} ${r.kind}`; off += r.len; return m; });
+    const pool = list.map((r) => "    " + Array.from(o.img.subarray(r.ea - o.base, r.ea - o.base + r.len), (b) => "0x" + b.toString(16).toUpperCase().padStart(2, "0")).join(", ") + ",");
+    // sites the bytes check could not vouch for (mismatch/unmapped...): no row; the ini generator zeroes the sections of these files (build.yml)
+    const bad = [...new Set(rows.filter((x) => x.kind2 !== "ok" && x.kind2 !== "ported").map((x) => `// bytes-bad: ${x.kind2} ${hx(x.addr)} ${x.where ?? ""}`.trim()))].sort();
+    const header = [`// Generated by tools/patch-bytes-check.ts --table from ${src}: the other build's own bytes at our hook sites (docs/68 7.3). ${list.length} rows.`,
+        "// Used by Matches / InstallDetour under /DTS3A_TABLE (ExpectedAt in ts3native.cpp). Keyed by the EA address and the length.",
+        "#pragma once",
+        "struct ts3bytes_row { unsigned long a, len, off; };",
+        "static const ts3bytes_row ts3bytes_rows[] = {", ...meta, "};",
+        `static const int ts3bytes_count = ${list.length};`,
+        "static const unsigned char ts3bytes_pool[] = {", ...pool, "};", ...bad, ""].join(String.fromCharCode(10));
+    return { header, ok: list.filter((r) => r.kind === "ok").length, ported: list.filter((r) => r.kind === "ported").length, rows: list.length };
+}
+
+// eadiag.cpp is excluded: its addresses are EA 1.69.47 ones (no Steam meaning), so a Steam or port check of them is noise
 export function sourceTexts(): [string, string][] {
-    return readdirSync(SRC).filter((f) => /\.(cpp|h)$/.test(f) && !/test|ilpatch-specs/.test(f)).sort().map((f) => [f, readFileSync(join(SRC, f), "utf8")]);
+    return readdirSync(SRC).filter((f) => /\.(cpp|h)$/.test(f) && !/test|ilpatch-specs/.test(f) && f !== "eadiag.cpp").sort().map((f) => [f, readFileSync(join(SRC, f), "utf8").replace(/\bTS3A\((0x[0-9A-Fa-f]+u?)\)/g, "$1")]);
 }
 
 function report(res: Res[], unresolved: string[], unchecked: number[], patched: number, out: string, all: boolean, what: string) {
@@ -359,6 +407,7 @@ function selfCheck(refPath?: string) {
     put(0x400, [0xa1, 0x00, 0x30, 0x40, 0x00]);                  // mov eax,[0x403000] (.data moves in the other exe)
     put(0x500, [0x8b, 0x41, 0x08]);                              // changed in the other exe
     put(0x600, [0x6a, 0x01]); put(0x700, [0x6a, 0x02]);          // indexed pair
+    put(0x900, [0x31, 0xc0]);                                    // row macro
     const src = readSources([["t.cpp", [
         "struct Site { DWORD addr; u8 expect[8]; size_t len; size_t immOff; };",
         "struct CallSite { DWORD site, target; void* hook; };",
@@ -375,6 +424,9 @@ function selfCheck(refPath?: string) {
         "};",
         "static const CallSite kC[1] = {{0x00401300, FN_A, NULL}};",
         "static const SnIc kSlot[] = {{0x00403010, FN_A, \"x\"}};",
+        "struct VfP { const char* name; DWORD at; u8 len; u8 pro[10]; u8 kind; };",
+        "#define VFT(name, at, len, ...) {name, at, len, {__VA_ARGS__}, 1}",
+        "static const VfP kV[] = {VFT(\"v\", 0x00401900, 2, 0x31, 0xC0), VFT(\"w\", 0, 1, 0x90)};",
         "void Go() {",
         "    void* t = InstallDetour(\"A\", FN_A, kPro, sizeof(kPro), (void*)Hook);",
         "    if (!Matches((const void*)(uintptr_t)AT_LOAD, kLoad, sizeof(kLoad)) || !Matches((void*)(uintptr_t)AT_CHG, kChg, 3)) return;",
@@ -392,6 +444,7 @@ function selfCheck(refPath?: string) {
     ok(at(0x401100).length === 1 && at(0x401100)[0].bytes.length === 6, "InstallDetour prologue");
     ok(at(0x401200)[0]?.bytes.length === 4 && at(0x401300)[0]?.kind === "call" && at(0x403010)[0]?.kind === "slot", "Site / CallSite / slot tables");
     ok(at(0x401800).some((x) => x.bytes.length === 2) && at(0x409999).length === 0, "Matches on a parameter resolves from the caller, not a same-named global");
+    ok(at(0x401900)[0]?.bytes.join() === "49,192", "row macro (VFT) expanded into a table row");
     ok(at(0x401400)[0]?.bytes.length === 5 && at(0x401500)[0]?.bytes.length === 3 && at(0x401600).length === 1 && at(0x401700)[0]?.bytes[1] === 2, "Matches: string bytes, #define, indexed");
     ok(unresolved.length === 1 && /want/.test(unresolved[0]), `one unresolved (local want): ${unresolved.join("; ")}`);
     const data = (shift: number) => { const d = Buffer.alloc(0x200); d.writeUInt32LE(0x401100 + shift, 0x10); return d; };
@@ -411,6 +464,8 @@ function selfCheck(refPath?: string) {
     ok(sl.kind2 === "ported" && sl.new === 0x404010 && sl.mapKind === "by-value", "data slot found by its mapped value");
     ok(patchedSites("## 2. Ours\n| M | A | K | W |\n|---|---|---|---|\n| x | `0x401100`, `0x401234` | detour | a |\n| y | `0x401300` | reads only | b |\n## 3. x\n| z | `0x401999` | detour | c |").join() === [0x401100, 0x401234].join(), "docs/68 §2 patched sites");
     ok(uncheckedSites([0x401100, 0x401103, 0x401234], exp).join() === String(0x401234), "unchecked = not covered");
+    const bt = bytesTable(res.map((x) => ({ len: x.bytes.length, new: x.new, kind2: x.kind2, addr: x.addr, where: x.where })), o);
+    ok(bt.rows > 0 && bt.ported >= 1 && bt.header.includes("// steam 0x00401400 ported") && bt.header.includes("ts3bytes_count = " + bt.rows), "bytes table rows");
     console.log("patch-bytes-check self-check: synthetic ok");
     const real = refPath ?? join(repo, "game-copy", "bin", "TS3W.exe");
     if (!existsSync(real)) { console.log("patch-bytes-check self-check: real exe absent, skipped"); return; }
@@ -421,7 +476,7 @@ function selfCheck(refPath?: string) {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-    const { values: v } = parseArgs({ options: { ref: { type: "string" }, other: { type: "string" }, out: { type: "string" }, all: { type: "boolean" }, "self-check": { type: "boolean" } } });
+    const { values: v } = parseArgs({ options: { ref: { type: "string" }, other: { type: "string" }, out: { type: "string" }, all: { type: "boolean" }, table: { type: "string" }, "self-check": { type: "boolean" } } });
     if (v["self-check"]) selfCheck(v.ref);
     else {
         const refPath = v.ref ?? join(repo, "game-copy", "bin", "TS3W.exe");
@@ -429,6 +484,12 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
         const { exp, unresolved } = extract(readSources(sourceTexts()));
         const patched = patchedSites(readFileSync(join(repo, "docs", "68-hook-conflict-map.md"), "utf8"));
         const out = v.out ?? join(repo, "out", "patch-bytes-check", basename(v.other ?? refPath).replace(/\.\w+$/, "") + ".csv");
-        report(check(r, o, exp), unresolved, uncheckedSites(patched, exp), patched.length, out, !!v.all, v.other ? `${basename(v.other)} vs Steam` : "Steam exe (self-validation)");
+        const res = check(r, o, exp);
+        if (v.table) {
+            const bt = bytesTable(res.map((x) => ({ len: x.bytes.length, new: x.new, kind2: x.kind2, addr: x.addr, where: x.where })), o, basename(v.other ?? refPath));
+            writeFileSync(join(repo, v.table), bt.header);
+            console.log(`bytes table: ${bt.rows} rows (ok ${bt.ok}, ported ${bt.ported}) -> ${v.table}`);
+        }
+        report(res, unresolved, uncheckedSites(patched, exp), patched.length, out, !!v.all, v.other ? `${basename(v.other)} vs Steam` : "Steam exe (self-validation)");
     }
 }

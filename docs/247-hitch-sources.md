@@ -780,3 +780,62 @@ Diagnostics only: no switch changes what the game does; builds and self-checks o
 - **R1 (§13.3).** Every A10 `ReplanFromPosition` (kind 3) START that gets no job is counted by own / foreign and reason (counters v191 `arRf3[2][21]`, `agent.js` `arRf3_<row>_<reason>`): the RFB_* code its refusal recorded (`NoYield` 1, `M1*` 2-7, `Running` 8, `QueueFull` 9, `Active` 16, `Los` 17, `Foreign` 18 = ForeignKinds / afMode off, ...), 19 = an own START refused because kind 3 is not in `[RouteAsync] Kinds` (release `Kinds=0`, the `NoStart` lines of path 3), 20 = no reason recorded. Always on (one increment per refused kind-3 START). ts3fixes `boatreplanlog` (test package, `kHitchCauseHooks`) now also logs the gangway fixups (path 2): a `ReplanFromPoint` with a Sim follower called from `SimRoutingComponent.Exit/EnterHouseboatThroughGangway` (stack walk of up to 8 frames, only with the switch on) writes `gangway: <ms> ms, Exit|Enter, sync|async <result>, sim <name> uf=<why>, class unseen|household|seen, route <m> paths <n>, lot <id>, from <pos>`; counters 950 lines, 951 / 952 ms unseen / not unseen (`ts3agent` `gangway_lines`, `gangway_unseen_ms`, `gangway_other_ms`); `hitch-cause-report.ts` tallies them by Exit/Enter, mode and class. Run: one natural IP job with `boatreplanlog` on.
 - **C (§13.4).** Every forced `DiscDrain` that met a running job is counted by drain point (counters v192 `dsN` / `dsUs` / `dsYield`, index = `DS_*`): our `GetOptionHook` points START (1), A10-channel START (2, kinds 1-3 and the foreign kind 0), READY (3), CANCEL (4); `PlanDrain` (5); inside EA native calls: D1 add (6) / remove (7), Usf (8), Fp2 (9), the Fp2 reader flush (10), private footprint remove (11), GhostSweep census (12), GhostTest ops (13); world close (14), save (15). `dsYield` = of them with the task at its root interpreter state (`CanYield`, what §13.4 called "yieldable"). LostRemovalFix flushes are split by EA's event-9 call site (`lrsN` / `lrsUs` [0] `0x9462D4`, [1] `0x94630A`, from `UofSite`'s return address) plus `lrsYieldN` / `lrsYieldUs`. Always on: the counters sit in the wait paths that already time the wait. Read: J1's size = `dsUs[1..4]` against `discDrainWaitUs`; build J1 if START / READY >= ~5 ms/s, else J2.
 - **R2 (§13.3), prepared, not run.** `tools/harness/queues/kinds4-ab-1112.json`: ini-only `[RouteAsync] Kinds=4` vs the release `Kinds=0` on Isla Paradiso, ABBA + BAAB across loads (Kinds is read at startup), 8 x 10 min seeded natural play, release ini + package on both arms, this branch's asi (copy `native/ts3native/out-rh/ts3native.asi` to `game-copy/ts3native.asi.rh1112` first). 80 timing minutes, so queue.ts runs the declared 5-min smoke (on arm) first: version line, `route async A10: Kinds=4` read back, `arStartedReplanFromPosition>=1`, `arRf3_0_19<=0`, and the v190 / v192 counters present. Every off job requires `arRf3_0_19>=1` (the Kinds refusals it removes), every on job `arStartedReplanFromPosition>=1`, `arMismatch` / `arOrphan` 0. Read: `arm-ms.ts` / `hitch-ab.ts` over the set, `arSyncUsReplanFromPosition` per arm, and the moved-wait check (`dsUs_*`, `swMaxUs` must not rise in the on arm). Run between timing jobs, ~2.5 h.
+
+## 14. Bridgeport phase run `phase-20261114-1737`: the worst hitches are the harness (2026-11-14, static, no game run)
+
+Run: Bridgeport, one 6-Sim household, `phasesoak9.sh` phases socials / routine / camera / party / idle x 8 min, build e85d5277, ts3native 0.36.256-quitstop1, `kHitchCauseHooks` on, test switch `synctime` only. Data: `hw-0..5.json` (agent `hitch_watch`, min 100 ms, top 40 per snapshot), `ts3native.log`. Tool: `node tools/harness/hw-align.ts <run dir>` (new). Tags as above.
+
+### 14.1 How the hitches were placed in the log
+
+- **`hitch_watch` had no wall or tick stamp [verified, `HitchWatchHandlers.cs`].** It kept `DateTime.UtcNow` gaps and only exported `SimClock.CurrentTime().ToString()` (minute resolution).
+- **Alignment was still possible [measured].** `ufplan:` lines carry both `tick N` (`SimClock.CurrentTicks`, 37.5 ticks a sim minute, 54,000 a day [verified decompiled `SimClock`]) and ts3native's `at N ms` (`GetTickCount`, `userdiag.cpp`). A hitch's sim minute -> tick window -> line and wall ms by linear interpolation between ufplan lines; the run spans two sim weeks, so the copy inside the hitch's phase window (between `mem: p-<tag>` marks) wins. At ultra speed a sim minute is ~130 ms of wall time. Limit: ufplan lines are capped at 120 a minute, and many minutes hit the cap, so some windows are seconds wide (the camera 736 ms one).
+- **None of the §9 cause stamps ran [measured].** `kHitchCauseHooks` only installs the hooks; `alarmtime`, `owresettime`, `boatreplanlog` are test switches and were off (the log's `test switches` line lists `synctime=on` only; 0 `alarmtime:` / `lotpass:` / `owreset:` / `boatreplan:` lines). `[HitchAttr]` and `FbApplyLog` were off too. So the game hitches below have a place and a shape, not a named cause.
+
+### 14.2 Result: 46 of the 50 hitches >= 300 ms are the harness
+
+| # | cause | n >= 300 (>= 500) | sum ms | worst | where | tag |
+|---|---|---|---|---|---|---|
+| 1 | **Agent `social_round` handler** (BuildMenu for up to 40 townie pairs, inside one sim tick: `Mailbox.Poll` runs every command synchronously on the sim thread) | 31 (13) | 14,827 | 670 | socials phase only, one per call: 31 calls, 31 hitches, spaced 15.3-16.3 s = `sleep 15` + the call | verified (code + count + period) |
+| 2 | **Snapshot `mem_gc`** (agent forces `GC.Collect()` twice, `snap()` in `phasesoak9.sh`) | 11 (9) | 10,083 | **2,057** | every phase end, in pairs (1,103+865, 784+421, 740+670, 1,629+445, 705+664), all between `mem: gc-before` and `gc-after`; `gcCnt` +3 per snapshot | verified (lines + code) |
+| 3 | Snapshot census calls after `mem: p-<tag>` (`leak_census`, `alarm_audit`, `aut_census`, before the `hitch_watch` read) | 4 (0) | 1,590 | 438 | every phase end | measured (position), which call inferred |
+| 4 | Game: sim-thread stall, camera phase, Sun 9:18 PM | 1 (1) | 736 | 736 | ufplan gap (cap); camera lot jumps running | cause unknown; lot streaming [inferred, unverified] |
+| 5 | Game: sim-thread stall, idle phase, Thu 11:57 PM | 1 (1) | 566 | 566 | 8 async plans of different Sims all end on tick 647898 at 700-807 ms wall; the 729 ms `watchdog check` PlanFromPoint job ended there too | stall measured, cause unknown |
+| 6 | Game: first minute after load, Sun 9:17 AM | 1 (1) | 506 | 506 | `ufplan: kind 2 505 ms why -1` ends on it | warm-up (§13.2 lazy lot/room graphs) [inferred] |
+| 7 | Game: party phase, Wed 12:32 PM | 1 (0) | 395 | 395 | 9 plans end on tick 568219 at 358-521 ms | cause unknown; plan clusters recur near 12:32 and 15:31 sim time on most days [measured], so a daily alarm is likely [inferred] |
+
+Counts from the snapshot counters (`over_200`/`over_500` per phase: base 7/2, socials 37/15, routine 7/1, camera 7/3, party 6/2, idle 7/2; 71/25 in all): after the harness rows, at most **~25 game hitches >= 200 ms and 3 >= 500 ms in 40 min**. 200-300 ms ones are not in the top-40 lists, so they cannot be placed.
+
+- **The brief's "worst hitches" are all harness.** 2,057 (idle end), 1,629 (routine end, not camera), 1,103 / 865 (party end) and 784 (base snapshot, before socials) are the forced GC of `snap()`; the household Sims' `[routing]` states in their `before` lists are coincidence.
+- **Not route-job waits [measured].** The per-minute `route jobs sim waits ... max` is cumulative and ends at **150 ms** for the whole run (118 by socials, 130 camera, 150 idle). No sim-thread wait on a route job reached any hitch >= 300 ms. The `route async: long job` lines (e.g. 729 ms at the idle stall) are worker jobs stretched by the stall: their time is `host`, the worker waiting for sim-thread callbacks (docs/546 §15) [inferred for this job].
+- **No save, no script error at the game hitches** (no `save:` or ScriptError lines in the windows) [measured]. Natural Mono collections: 13-17 per 8-min phase (`gcCnt` between marks); whether any of the 4 game stalls is one is not in this log (the new `gc` field answers it).
+
+### 14.3 Against the known causes (this run's `settings on:` and ini)
+
+| known cause (§) | status here |
+|---|---|
+| Wildflower alarm 923 ms (§11.2) | fix `kWildflowerTask` **on**; not seen |
+| Boat get-in replan (§3, §13.3) | `ForeignKinds=4` **on**; Bridgeport, ~no boats; not seen |
+| Locomotion `+0x918` wait (§10.1) | `[SteerRO]` **on** (mode 1); sim waits max 150 ms |
+| `AsyncWait` goal validation (§11.8) | `[GoalValidRO]` **on**; under 300 ms here |
+| Overwatch reset step (§10.2) | `kOverwatchStuckSlice` on, `owresettime` **off**: not visible |
+| `FbApplyPending` 1.3 s (§13.1) | `FbApplyLog=0`; IP-only so far; not seen |
+| DiscDrain / LR flush (§13.4) | inside the 150 ms max; native `JobYield=0` |
+| `CasTriSort` 184 ms frames (§11.5) | main-thread frames, not what `hitch_watch` measures |
+| Agent `social_round`, snapshot `mem_gc` / census | **new**: harness, not the game |
+
+No existing fix switch that was off would have removed a game hitch of this run: the 4 are unnamed. **No game switch was built**: there is no new game cause with an exact fix.
+
+### 14.4 Built: `hitch_watch` stamps (ts3agent only, NOT RUN)
+
+`HitchWatchHandlers.cs`, `ControlHandlers.cs RunAsync`:
+- Per hitch: `wall_ms` (`Environment.TickCount` at the end of the gap; the same clock as the log's `at N ms` [inferred: Mono's `TickCount` icall is `GetTickCount` on Windows]), `tick` (`SimClock.CurrentTicks`), `gc` (Mono collections inside the gap), `agent` (every mailbox command and `RunAsync` item that overlapped the gap, with its ms; commands are wrapped by reflection over `Dispatcher.sHandlers` at `hitch_watch start`, so the stable loader is unchanged and a hot plugin wraps again; `start` clears old spans, and a `RunAsync` span still open after 10 min (task killed at world quit) no longer tags).
+- `over_200_game` / `over_500_game`: hitches that are less than half agent time.
+- `log_ms` (default 300, 0 = off): one `hitchwatch: <ms> ms, tick <t>, <sim time>, gc +<n>, agent <names|->, at <ms> ms` line in ts3native.log per hitch, at most 80 a session (they share ts3native's 400-line cap of untyped ts3fixes/agent lines; this run used ~330 of it). Native follow-up, not built: add `hitchwatch:` to `UdHitchLine`'s own-cap list in `userdiag.cpp`.
+- `tools/harness/hw-align.ts`: places old (sim time only) and new (`wall_ms`) hitches in the log and tags `agent` / `mem_gc` / `snapshot` / `game`; `--context N` prints the log lines around each; `--self-check` has the real line formats.
+
+### 14.5 Next run (one Bridgeport phase run, no fix arms)
+
+- `EARLYFIX="synctime alarmtime owresettime boatreplanlog"` (the §9 stamps; hooks already in with `kHitchCauseHooks`), `[HitchAttr] Enabled=1 Holders=1`, `[RouteAsync] FbApplyLog=1`. Read with `hitch-cause-report.ts`, `hitch-attr-report.ts`, `hw-align.ts`.
+- New agent package (this build), so `hw-*.json` carry `wall_ms`, `gc`, `agent`. Judge the game by `over_*_game`.
+- In `phasesoak9.sh` `snap()`, read `hitch_watch` before `mem_gc`, or leave it and read `over_*_game`; the socials phase measures `social_round`, not the game (use `pairs` <= 8 or leave socials out when hunting game hitches).
+- "Run with X on" candidates: none indicated by this data. Off/on arms only after a stamp names a game cause.

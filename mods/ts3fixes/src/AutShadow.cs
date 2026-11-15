@@ -925,7 +925,7 @@ namespace Ts3Fixes
             int at = sReqN;
             Request q = sReq = sReqs[at];
             q.Live = L;
-            q.Id = ++sNextId; q.Mode = mode; q.Actor = actor; q.Aut = a; q.C = c; q.Hh = HhScope(actor);
+            q.Id = ++sNextId; q.Mode = mode; q.Actor = actor; q.Aut = a; q.C = c; q.Hh = IsPlayerSim(actor);
             q.SearchType = a.CurrentSearchType; q.Flags = a.GetInteractionFlagsForCurrentSearch(); q.Hours = SimClock.HoursPassedOfDay;
             q.Objs = q.Pairs = 0;
             sRefs[at].Id = sWorks[at].Id = -1;
@@ -1467,13 +1467,6 @@ namespace Ts3Fixes
 
         static bool OnWorker() { return sInWork && AutShadowNative.IsWorker(); }
 
-        // household rule (CLAUDE.md): a Sim the player controls, or one we cannot classify, counts as household
-        static bool HhScope(Sim s)
-        {
-            try { return s == null || s.HasBeenDestroyed || s.SimDescription == null || s.IsSelectable || s.Household == Sims3.Gameplay.CAS.Household.ActiveHousehold; }
-            catch (Exception) { return true; }
-        }
-
         // H11 (docs/127 §4): Autonomy.CalculateScoreForObjectInteraction, with Seasons on, rain or hail, an autonomy search
         // and an outdoor non-Sim target, creates a throwaway InteractionInstance (InteractionInstance.sNextId++, a static
         // write the IC guard cannot see) to ask IsShelteredFromPrecipitation. The worker aborts those pairs before the
@@ -1899,10 +1892,7 @@ namespace Ts3Fixes
             q.T2Hh = true; q.T2InUse = q.T2Fire = false;
             try
             {
-                Sims3.Gameplay.CAS.SimDescription d = actor != null ? actor.SimDescription : null;
-                Sims3.Gameplay.CAS.Household h = d != null ? d.Household : null;
-                q.T2Hh = AutShadowCore.T2Household(actor == null, actor != null && actor.HasBeenDestroyed, d == null,
-                    actor != null && actor.IsSelectable, h != null && h == Sims3.Gameplay.CAS.Household.ActiveHousehold);
+                q.T2Hh = IsPlayerSim(actor);  // household rule (PlayerSims.cs); AutShadowCore.T2Household is its offline model
                 q.T2InUse = sT2InUseHooked && ShortcutOn("autt2inuse");
                 q.T2Fire = sT2FireHooked && ShortcutOn("autt2fire");
                 // a UI model with no Sim state (docs/126 §3 pre-warm): made for any actor's request, as the game's first read would

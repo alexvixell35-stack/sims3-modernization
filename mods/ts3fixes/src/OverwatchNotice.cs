@@ -162,7 +162,7 @@ namespace Ts3Fixes
             foreach (Sim s in new List<Sim>(LotManager.Actors))
             {
                 if (started.Count >= n) break;
-                if (s == null || !s.InWorld || s.IsSelectable || s.SimDescription == null) continue;
+                if (IsPlayerSim(s) || !s.InWorld) continue;  // NPCs only (PlayerSims.cs)
                 sOwnPerform.Invoke(null, new object[] { s, Vector3.Invalid, "Unroutable" });
                 started.Add(s.FullName);
             }

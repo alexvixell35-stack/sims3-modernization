@@ -1,0 +1,120 @@
+# Semgrep rules for logic bugs in decompiled EA script code (docs/555). Our own rules; run on a local decompile only:
+#   ~/.local/share/venvs/ts3/bin/semgrep --config tools/static/ea-script-logic.semgrep.yml --metrics=off --no-git-ignore \
+#     --json -o <scratch>/sg.json game-copy/decompiled/Sims3GameplaySystems game-copy/decompiled/Sims3GameplayObjects
+rules:
+  - id: self-compare
+    languages: [csharp]
+    severity: WARNING
+    message: compares an expression with itself
+    patterns:
+      - pattern-either:
+          - pattern: $X == $X
+          - pattern: $X != $X
+          - pattern: $X && $X
+          - pattern: $X || $X
+          - pattern: $X < $X
+          - pattern: $X > $X
+      - pattern-not: 1 == 1
+  - id: self-assign
+    languages: [csharp]
+    severity: WARNING
+    message: assigns a value to itself
+    pattern: $X = $X;
+  - id: same-cond-else-if
+    languages: [csharp]
+    severity: WARNING
+    message: else-if repeats an earlier condition (dead branch)
+    pattern: |
+      if ($C) $A; else if ($C) $B;
+  - id: same-branches
+    languages: [csharp]
+    severity: INFO
+    message: if and else bodies are identical
+    pattern: |
+      if ($C) $A; else $A;
+  - id: ternary-same
+    languages: [csharp]
+    severity: INFO
+    message: both ternary arms identical
+    pattern: "$C ? $A : $A"
+  - id: null-check-after-deref
+    languages: [csharp]
+    severity: WARNING
+    message: member used before the null check of the same variable
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $V.$M(...);
+              ...
+              if ($V == null) $S;
+          - pattern: |
+              $X = $V.$M;
+              ...
+              if ($V == null) $S;
+      - pattern-not: |
+          $V.$M(...);
+          ...
+          $V = $Y;
+          ...
+          if ($V == null) $S;
+      - pattern-not: |
+          $X = $V.$M;
+          ...
+          $V = $Y;
+          ...
+          if ($V == null) $S;
+  - id: foreach-modify
+    languages: [csharp]
+    severity: WARNING
+    message: collection changed inside foreach over it (Collection was modified)
+    patterns:
+      - pattern-either:
+          - pattern: |
+              foreach ($T $E in $L) { ... $L.Remove(...); ... }
+          - pattern: |
+              foreach ($T $E in $L) { ... $L.Add(...); ... }
+          - pattern: |
+              foreach ($T $E in $L) { ... $L.RemoveAt(...); ... }
+          - pattern: |
+              foreach ($T $E in $L) { ... $L.Clear(); ... }
+      - pattern-not: |
+          foreach ($T $E in $L) { ... $L.Remove(...); ... break; }
+      - pattern-not: |
+          foreach ($T $E in $L) { ... $L.Remove(...); ... return ...; }
+      - pattern-not: |
+          foreach ($T $E in $L) { ... $L.Remove(...); ... return; }
+  - id: broadcaster-overwrite
+    languages: [csharp]
+    severity: WARNING
+    message: ReactionBroadcaster field overwritten without disposing the old one (shuffleboard shape)
+    patterns:
+      - pattern: $F = new ReactionBroadcaster(...);
+      - pattern-not-inside: |
+          if ($F == null) { ... }
+      - pattern-not-inside: |
+          $F.Dispose();
+          ...
+      - pattern-not-inside: |
+          if ($F != null) { ... $F.Dispose(); ... }
+          ...
+  - id: listener-overwrite
+    languages: [csharp]
+    severity: WARNING
+    message: EventListener field overwritten by AddListener without removing the old one
+    patterns:
+      - pattern: $F = EventTracker.AddListener(...);
+      - pattern-not-inside: |
+          if ($F == null) { ... }
+      - pattern-not-inside: |
+          EventTracker.RemoveListener($F);
+          ...
+      - pattern-not-inside: |
+          if ($F != null) { ... }
+          ...
+  - id: float-exact-compare
+    languages: [csharp]
+    severity: INFO
+    message: exact compare of a Vector3 (position) value
+    pattern-either:
+      - pattern: $A.Position == $B.Position
+      - pattern: $A.Position != $B.Position

@@ -88,7 +88,10 @@ static int g_kdIni;
 // docs/197 §7 [RouteAsync] KdUnseenForeignCap (next version, default 0): a foreign job (no Sim of its own waits on it) of a
 // follower known unseen never runs uncut by the backoff; it keeps the doubled deadline. Uncut, a failing one held +0x918 for
 // up to 21 s (Isla Paradiso, 2026-11-12: 85 such jobs >= 1 s in 7 of 118 logs, all foreign, all unseen).
-static bool g_kdUfCap;
+// 2 = own kinds of an unseen follower too (next version, docs/264 §1 (b)): uncut, failing own Plans ran up to 4.6 s (23 jobs
+// >= 1 s in 11 of 62 test games on 0.36.253+, 2026-11-13/14; 10.5 s with an 11 s locomotion lock wait on a local build); level-2
+// own retries that succeeded took 45 ms median, 525 ms max (49 in 20 games).
+static int g_kdUfCap;
 static volatile LONG g_kdUfCapLines;
 static const DWORD kKdWinMs = 10000, kKdStuckMs = 30000;
 static const int kKdRows = 64;
@@ -111,9 +114,10 @@ static bool KdExempt(const AsyncJob* j) {
 }
 static LONG KdCeilUs(LONG scope) { return scope == 3 ? ts3native_counters.kdNpcCeilUs : ts3native_counters.kdCeilUs; }
 static DWORD g_kdScopeH;
-static LONG g_kdScope;
-// sim thread (UdTextMsg): this route's scope, good for its next START only
-static void KdScopeSet(DWORD handle, LONG scope) { g_kdScopeH = handle, g_kdScope = scope, ts3native_counters.kdScopeN++; }
+static LONG g_kdScope, g_kdScopeIa;
+// sim thread (UdTextMsg): this route's scope, good for its next START only; ia = the routefail interaction id sent with it (RfIaName)
+static void KdScopeSet(DWORD handle, LONG scope, LONG ia) { g_kdScopeH = handle, g_kdScope = scope, g_kdScopeIa = ia, ts3native_counters.kdScopeN++; }
+static LONG RfIaPeek(DWORD handle) { return handle && g_kdScopeH == handle ? g_kdScopeIa : 0; }  // START, before KdScopeTake
 static LONG KdScopeTake(DWORD handle) {
     const LONG s = handle && g_kdScopeH == handle ? g_kdScope : 0;
     g_kdScopeH = 0;
@@ -240,8 +244,9 @@ static void ReadKindDeadlines(const wchar_t* ini) {
     k.kdCeilUs = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdSeenCeilMs", 10000, ini), 1000, 60000) * 1000;
     k.kdNpcCeilUs = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdSeenNpcCeilMs", 2000, ini), 1000, 60000) * 1000;
     k.kdCamMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdCutCamRecheck", 0, ini), 0, 1);
-    g_kdUfCap = GetPrivateProfileIntW(L"RouteAsync", L"KdUnseenForeignCap", 0, ini) != 0;
-    if (g_kdUfCap) Log("route async: KdUnseenForeignCap=1: foreign jobs of unseen followers keep the doubled deadline at backoff level 2 (docs/197 §7)");
+    g_kdUfCap = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdUnseenForeignCap", 0, ini), 0, 2);
+    if (g_kdUfCap) Log("route async: KdUnseenForeignCap=%d: %s jobs of unseen followers keep the doubled deadline at backoff level 2 (docs/197 §7)",
+                       g_kdUfCap, g_kdUfCap == 2 ? "foreign and own" : "foreign");
     for (int i = 0; i < KD_N; i++) {
         const int ms = GetPrivateProfileIntW(L"RouteAsync", kKdIniKey[i], kKdDefMs[i], ini);
         k.kdUs[i] = ms > 0 ? Clamp(ms, 50, 60000) * 1000 : 0;
@@ -333,7 +338,7 @@ static LONG KdJobBegin(const AsyncJob* j) {
         if (r && GetTickCount() - r->cutTick < kKdWinMs) level = r->level;
         ReleaseSRWLockShared(&g_kdLock);
     }
-    if (level >= 2 && g_kdUfCap && t_kdJobScope == 2 && (kind == KD_FGN || kind == KD_A10F)) {  // KdUnseenForeignCap
+    if (level >= 2 && g_kdUfCap && t_kdJobScope == 2 && (kind == KD_FGN || kind == KD_A10F || g_kdUfCap == 2)) {  // KdUnseenForeignCap
         level = 1;
         if (InterlockedIncrement(&g_kdUfCapLines) <= 20)
             Log("route async: KdUnseenForeignCap: route %08X (%s, follower unseen) keeps %ld ms at backoff level 2 instead of running uncut",
@@ -415,7 +420,7 @@ static u64 RfGoal(DWORD handle) {
 // Not marked unseen = never dropped; unseen 30 a minute. Worker writes under g_rfLock, sim thread reads; off the job's +0x918.
 struct RfRec {
     DWORD h, seq;
-    LONG us, planUs, hostUs, capAtUs, tailUs, capUs, wouldUs, nodes, plans, res, kdKind, uf, scope, cutMask;
+    LONG us, planUs, hostUs, capAtUs, tailUs, capUs, wouldUs, nodes, plans, res, kdKind, uf, scope, cutMask, ia;
     const char* why;  // the cut's owner, NULL = uncut
     u64 follower;
 };
@@ -423,6 +428,23 @@ static const int kRfN = 64;
 static RfRec g_rfJobs[kRfN];
 static LONG g_rfNext;
 static SRWLOCK g_rfLock = SRWLOCK_INIT;
+// Interaction names for the job lines (docs/226 Logging): ts3fixes sends "rfia: N <Interaction> target <Type>" once per
+// pair (RouteFailLog.cs RflIaId, the same text its own routefail lines carry), then N with each plan's scope op (hi bits 0-15).
+// 0 = no answer (old package, not a Sim's plan, our own check, table full). Sim thread writes, worker reads, both under g_rfLock.
+static const int kRfIaN = 1024, kRfIaLen = 48;
+static char g_rfIa[kRfIaN][kRfIaLen];
+static void RfIaName(const char* line) {  // "rfia: N text"
+    char* end;
+    const unsigned long n = strtoul(line + 6, &end, 10);
+    if (n == 0 || n >= (unsigned long)kRfIaN || *end != ' ') return;
+    AcquireSRWLockExclusive(&g_rfLock);
+    strncpy_s(g_rfIa[n], end + 1, _TRUNCATE);
+    ReleaseSRWLockExclusive(&g_rfLock);
+}
+// ", <Interaction> target <Type>" for a job line; caller holds g_rfLock (any mode)
+static void RfIaText(LONG ia, char* b, size_t n) {
+    _snprintf_s(b, n, _TRUNCATE, ", %s", ia > 0 && ia < kRfIaN && g_rfIa[ia][0] ? g_rfIa[ia] : "interaction unknown");
+}
 static void RfText(const RfRec& r, char* b, size_t n) {
     char dl[48];
     if (r.why) sprintf_s(dl, "cut (%s, mask %ld)", r.why, r.cutMask);
@@ -469,8 +491,11 @@ static void RfJobNote(const AsyncJob* j, bool capped, LONG us, const JobSplit& s
     r.capUs = capUs, r.wouldUs = t_kdExemptUs, r.nodes = t_jobNodes, r.plans = t_jobPlans, r.res = *(const LONG*)j->result;
     r.kdKind = t_kdKind, r.uf = j->uf, r.scope = j->kdScope, r.cutMask = cutMask, r.follower = j->kdId;
     r.why = !capped ? NULL : t_kdExemptUs ? "KdSeenCeilMs" : j->uf ? "UnseenFallback" : t_kdKind ? "KindDeadlines" : j->probe ? "PlanDeadlineMs" : "FbJobCapMs";
+    r.ia = j->rfIa;
+    char ia[kRfIaLen + 4];
     AcquireSRWLockExclusive(&g_rfLock);
     g_rfJobs[g_rfNext++ % kRfN] = r;
+    RfIaText(r.ia, ia, sizeof(ia));
     ReleaseSRWLockExclusive(&g_rfLock);
     const bool unseen = r.uf || r.scope == 2;
     char t[320];
@@ -487,10 +512,10 @@ static void RfJobNote(const AsyncJob* j, bool capped, LONG us, const JobSplit& s
             if (KdNpcLineOk()) Log("KD NPC CEILING CUT: route %08lX sim %016I64X kind %s, %ld ms%s", r.h, r.follower, r.kdKind ? kKdName[r.kdKind - 1] : "off", us / 1000, t);
         } else Log("KD CEILING CUT: route %08lX%s", r.h, t);
     }
-    if ((r.res != 1 || capped) && RfLineOk(unseen)) Log("routefail job: route %08lX%s", r.h, t);
+    if ((r.res != 1 || capped) && RfLineOk(unseen)) Log("routefail job: route %08lX%s%s", r.h, ia, t);
     if (t_rfRetry.on) {
         t_rfRetry.on = false;
-        if (RfLineOk(unseen)) Log("routefail retry: route %08lX after cut route %08lX %lu ms ago, request %s, backoff level %ld, %s%s", r.h, t_rfRetry.cutH,
+        if (RfLineOk(unseen)) Log("routefail retry: route %08lX%s, after cut route %08lX %lu ms ago, request %s, backoff level %ld, %s%s", r.h, ia, t_rfRetry.cutH,
                                   t_rfRetry.agoMs, t_rfRetry.same ? "same" : "changed", t_rfRetry.level, r.res == 1 ? "succeeded" : "failed", t);
     }
     if (t_kdCamNote) KdCamNoteLog(r.h, t);
@@ -799,7 +824,7 @@ static void InstallPlanDeadline() {
     Ts3nCounters& k = ts3native_counters;
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     if (k.pdUs || k.pdOwnUs || g_fbjdIni || g_kdIni || g_ufIni) {
-        PdInstallAt(0x0061E500, 0x00671930);
+        PdInstallAt(TS3A(0x0061E500), TS3A(0x00671930));
         if (g_kdIni) KdInstalled();  // docs/197
         if (g_ufIni) UfInstalled();  // docs/202
         if (g_fbjdIni) {  // docs/178 T1: the worker slot of the same stubs; the deadline is FbJobCapMs's (t_fbDeadline)

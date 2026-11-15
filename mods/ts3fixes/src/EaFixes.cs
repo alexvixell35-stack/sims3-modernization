@@ -188,7 +188,7 @@ namespace Ts3Fixes
                     foreach (SimDescription d in Household.EverySimDescription())
                     {
                         if (d == null || !d.IsValidDescription || d.CreatedSim != null || d.AgingState == null || !d.AgingEnabled || d.Elder) continue;
-                        if (d.Household == null || d.Household == Household.ActiveHousehold || d.Household.IsSpecialHousehold) continue;
+                        if (IsPlayerDesc(d) || d.Household.IsSpecialHousehold) continue;  // townies only (PlayerSims.cs)
                         if (d.GetOutfitCount(OutfitCategories.Everyday) == 0) continue;
                         sAgeUpTarget = d;
                         int before = OutfitTotal(d);
@@ -268,7 +268,7 @@ namespace Ts3Fixes
 
             public SimDescription FindHook(Lot lot)
             {
-                Service s = (object)this as Service;
+                Service s = (object)this as Service; // `this` is really a Service
                 if (s != null && lot != null && lot.Household != null && sPrefNpc != null && sSvcPool != null && ShortcutOn("preferredservice"))
                 {
                     Dictionary<ulong, SimDescription> d = sPrefNpc.GetValue(s) as Dictionary<ulong, SimDescription>;

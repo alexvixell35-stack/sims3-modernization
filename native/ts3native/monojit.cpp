@@ -29,7 +29,16 @@
 #include <tlhelp32.h>  // the reader trap: the other threads
 
 static const DWORD JIT_OP = 0x1A9, JIT_EA_UNIMPLEMENTED = TS3A(0x00E596C2);
+#ifdef TS3A_TABLE
+// EA app 1.69.47: the interpreter range is the same code moved (8fb8e487); the bytes that differ are per build (JIT_B)
+static const DWORD JIT_PE_STAMP = TS3A_HOST_PE, JIT_PE_SIZE = TS3A_HOST_SIZE;  // the exe gate
+#define JIT_EXE_NAME TS3A_HOST_NAME
+#define JIT_B(steam, ea) ea
+#else
 static const DWORD JIT_PE_STAMP = 0x52DEC247, JIT_PE_SIZE = TS3A(0x00E5A000);  // the exe gate: Steam 1.67 (docs/527 §4.1)
+#define JIT_EXE_NAME "Steam 1.67"
+#define JIT_B(steam, ea) steam
+#endif
 // game addresses the selftest points elsewhere
 static DWORD* g_jitTableP = (DWORD*)(uintptr_t)TS3A(0x00E59880);                  // the mint jump table
 static const BYTE* g_jitOpLen = (const BYTE*)(uintptr_t)TS3A(0x01195088);        // instruction length in words, per opcode
@@ -666,10 +675,10 @@ static DWORD JitIcallFn(const unsigned short* ip, const u8* callerRm) {
 // do not allocate, so a lazy body may run them. A null this or a bad dimension exits before any change: EA's call path throws.
 // EA's icall return leaves the result slot's high dword as the word above the arguments ([esi+4], as EmitIcall).
 static const u8 kPureGetLength[] = {0x56, 0x8B, 0x74, 0x24, 0x08, 0x57, 0x8B, 0x7C, 0x24, 0x10, 0x85, 0xFF, 0x7C, 0x0C, 0x8B, 0x06, 0x8B, 0x08, 0x0F, 0xB6,
-    0x51, 0x10, 0x3B, 0xFA, 0x7C, 0x0E, 0xE8, 0xC1, 0xD2, 0xFF, 0xFF, 0x50, 0xE8, 0x0B, 0x79, 0x02, 0x00, 0x83, 0xC4, 0x04, 0x8B, 0x46, 0x04, 0x85,
+    0x51, 0x10, 0x3B, 0xFA, 0x7C, 0x0E, 0xE8, 0xC1, 0xD2, 0xFF, 0xFF, 0x50, 0xE8, JIT_B(0x0B, 0x1B), 0x79, 0x02, 0x00, 0x83, 0xC4, 0x04, 0x8B, 0x46, 0x04, 0x85,
     0xC0, 0x75, 0x06, 0x8B, 0x46, 0x08, 0x5F, 0x5E, 0xC3, 0x8B, 0x04, 0xF8};
 static const u8 kPureGetLower[] = {0x56, 0x8B, 0x74, 0x24, 0x0C, 0x85, 0xF6, 0x57, 0x8B, 0x7C, 0x24, 0x0C, 0x7C, 0x0C, 0x8B, 0x07, 0x8B, 0x08, 0x0F, 0xB6,
-    0x51, 0x10, 0x3B, 0xF2, 0x7C, 0x0E, 0xE8, 0x81, 0xD2, 0xFF, 0xFF, 0x50, 0xE8, 0xCB, 0x78, 0x02, 0x00, 0x83, 0xC4, 0x04, 0x8B, 0x47, 0x04, 0x85,
+    0x51, 0x10, 0x3B, 0xF2, 0x7C, 0x0E, 0xE8, 0x81, 0xD2, 0xFF, 0xFF, 0x50, 0xE8, JIT_B(0xCB, 0xDB), 0x78, 0x02, 0x00, 0x83, 0xC4, 0x04, 0x8B, 0x47, 0x04, 0x85,
     0xC0, 0x75, 0x03, 0x5F, 0x5E, 0xC3, 0x8B, 0x44, 0xF0, 0x04, 0x5F, 0x5E, 0xC3};
 static const u8 kPureGetRank[] = {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x08, 0x8B, 0x11, 0x0F, 0xB6, 0x42, 0x10, 0xC3};
 static bool JitPureIcallsOk() {
@@ -696,7 +705,7 @@ static int JitPureIcall(const unsigned short* ip, DWORD op, const u8* callerRm) 
 // SatbRtFastCopy in the slot) runs as before. No allocation, no frame read, no reference stored; the destination range goes to
 // JitSatbStore first (sim side of a span, as SatbRtFastCopy logs it). Compiled code runs only on the sim thread (JitEnter), so the
 // wrapper's worker-side patch never applies here.
-static const DWORD kFastCopyFnv = 0x555A37B8;  // FNV-1a of EA's 641 bytes 0xE7A070..0xE7A2F0
+static const DWORD kFastCopyFnv = JIT_B(0x555A37B8, 0x0FFE50AD);  // FNV-1a of EA's 641 bytes 0xE7A070..0xE7A2F0 (EA app: 0xE7A0C0, same code, operands moved)
 static bool JitFastCopyOk() {
     const DWORD slot = *(const DWORD*)(uintptr_t)TS3A(0x010B58CC);
     return McFnv((const u8*)(uintptr_t)TS3A(0x00E7A070), 0x281) == kFastCopyFnv && (slot == TS3A(0x00E7A070) || slot == (DWORD)(uintptr_t)SatbRtFastCopy);
@@ -2736,7 +2745,7 @@ static void JitCaptureOn(const wchar_t* ini) {
 
 // ts3native.ini [MonoJit] Enabled=1, Mode=1 compiled | 2 verify, VerifyEvery=<n>, CodeKB=<KB> the code region (R1; default 8192 since T4096), MaxMethods=<n> the method table (T4096, 512-4096, default 4096), Groups=<mask>, List=<names>, Direct=1 lazy frames,
 // DirectLeaf=1 leaves only, Trap=1 the reader trap (TrapEvery=<n>), Inline=1|2 tiny callees at compiled call sites, Wide=1 the S5 templates and methods with clauses, Capture=1 argument samples to CaptureFile=<path> (docs/537 §17; CaptureFirst, CaptureReservoir, CaptureDepth, CaptureObjs, CaptureBytes, CaptureObjMax, CaptureBudgetUs, CaptureMaxMb). true = installed (keep the log). After every other code
-// patch, before [AutShadow] (docs/527 §4.1), and only on the Steam 1.67 exe.
+// patch, before [AutShadow] (docs/527 §4.1), and only on the Steam 1.67 exe (EA build: EA app 1.69.47).
 static bool ApplyMonoJit(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"MonoJit", L"Enabled", 0, ini)) return false;
     Ts3nCounters& C = ts3native_counters;
@@ -2744,10 +2753,10 @@ static bool ApplyMonoJit(const wchar_t* ini) {
     if (mode != 1 && mode != 2) { Log("SKIP mono jit: Mode=%d (1 compiled, 2 verify)", mode); return false; }
     const u8* base = (const u8*)GetModuleHandleW(NULL);
     const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
-    if (nt->FileHeader.TimeDateStamp != JIT_PE_STAMP || nt->OptionalHeader.SizeOfImage != JIT_PE_SIZE) { Log("SKIP mono jit: not the Steam 1.67 exe"); return false; }
+    if (nt->FileHeader.TimeDateStamp != JIT_PE_STAMP || nt->OptionalHeader.SizeOfImage != JIT_PE_SIZE) { Log("SKIP mono jit: not the " JIT_EXE_NAME " exe"); return false; }
     for (const auto& c : kMcCode)  // [GcRootCheck] TailWatch and any other owner of the call path
         if (McFnv((const u8*)(uintptr_t)c.at, c.n) != c.fnv && (!c.fnv2 || McFnv((const u8*)(uintptr_t)c.at, c.n) != c.fnv2)) {
-            Log("SKIP mono jit: EA code at 0x%08lX (%lu bytes) is not the stock Steam 1.67 bytes", c.at, c.n);
+            Log("SKIP mono jit: EA code at 0x%08lX (%lu bytes) is not the stock " JIT_EXE_NAME " bytes", c.at, c.n);
             return false;
         }
     const DWORD ent = (DWORD)(uintptr_t)JitEnter;
@@ -2794,7 +2803,12 @@ static bool ApplyMonoJit(const wchar_t* ini) {
     if (g_jitCallExit && !g_jitPureIcalls) Log("jit: CallExit: the Array icall bytes differ, pure icalls stay EA calls");
     g_jitNewVt = GetPrivateProfileIntW(L"MonoJit", L"NewVt", 0, ini) != 0;  // docs/537 §20 B2b (needs Direct=1)
     g_jitBc = (JitBoundStats*)&C.bcOn;  // docs/537 §22: BoundCall=1 (needs Direct=1, DirectLeaf=0 for guards), BoundCallMask = kJitBound rows
+#ifdef TS3A_TABLE
+    if (GetPrivateProfileIntW(L"MonoJit", L"BoundCall", 0, ini)) Log("SKIP jit BoundCall ([MonoJit] BoundCall, monojit-bound.h rows): no EA 1.69 address, docs/232 §8");
+    if (!ts3a_noaddr && GetPrivateProfileIntW(L"MonoJit", L"BoundCall", 0, ini)) {
+#else
     if (GetPrivateProfileIntW(L"MonoJit", L"BoundCall", 0, ini)) {
+#endif
         const unsigned want = (unsigned)GetPrivateProfileIntW(L"MonoJit", L"BoundCallMask", (1 << JIT_BOUND_N) - 1, ini);
         const unsigned on = JitBoundInit(want);
         if (on != want) Log("jit: BoundCall: mask 0x%X asked, 0x%X in force (a row's EA bytes differ, or no such row)", want, on);

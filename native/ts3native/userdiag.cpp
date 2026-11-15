@@ -658,9 +658,15 @@ static void UdWorldLoad() {  // sim thread, from the ts3fixes "world:" line
 // docs/247 §11.1: test-only hitch-cause lines (HitchCause.cs, 120 a minute at most) lost to the shared 400: ufplan: and play: use those up.
 static const LONG kUdHitchLines = 6000;
 static const LONG kUdUfPlanLines = 30000;  // ufplan: disk guard (~3 MB); ts3fixes sends at most 120 a minute (UnseenFallback.cs)
+// Test-only hitch and lock lines from ts3fixes (kHitchCauseHooks): their own, larger cap. The shared 400-line cap below
+// silently cut syncwait/socialfinish/hourlypass lines after ~1,000 sync waits (docs/546 §9, 2026-11-14).
 static bool UdHitchLine(const char* s) {
-    return !strncmp(s, "boatreplan:", 11) || !strncmp(s, "gangway:", 8) || !strncmp(s, "owreset:", 8) || !strncmp(s, "alarmtime:", 10) || !strncmp(s, "lotpass:", 8) ||
-        !strncmp(s, "replanlog", 9);  // docs/261 L1: ts3fixes caps its own (2000 lines a session)
+    static const char* const kPrefixes[] = {"boatreplan:", "gangway:", "owreset:", "alarmtime:", "lotpass:", "syncwait",
+                                            "socialfinish:", "socialreceivefail:", "hourlypass:", "spawnplace:",
+                                            "replanlog"};  // replanlog: docs/261 L1, ts3fixes caps its own (2000 lines a session)
+    for (const char* p : kPrefixes)
+        if (!strncmp(s, p, strlen(p))) return true;
+    return false;
 }
 static const DWORD kUdTextHi = 0x87000000;  // 0x86000000 exact = the stuck-check PROBE mark (docs/163 §10)
 static int g_udTxtN;
@@ -676,10 +682,10 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
         case 6: return PlAnswer();  // played.cpp: store ready / household played (docs/14 section 8.6)
         case 7: return CpOp(lo);    // compaction.cpp: [Compaction] verdict and steps (docs/204)
         case 8: return (u8)g_asLiveUnseen;  // autshadow-run.cpp: [AutShadow] Unseen=1 (docs/222); no icalls when [AutShadow] is off
-        case 10: case 11: KdScopeSet(lo, ((hi >> 16) & 0xFF) == 10 ? 1 : 2); return 1;  // docs/197 §7: UfWhy of route lo, before its START or sync plan
+        case 10: case 11: KdScopeSet(lo, ((hi >> 16) & 0xFF) == 10 ? 1 : 2, hi & 0xFFFF); return 1;  // docs/197 §7: UfWhy of route lo, before its START or sync plan; hi 0-15: its routefail interaction id (docs/226)
         case 12: KdScopeClear(lo); GvaPlanEnd(); return 1;  // docs/197 §7: route lo's plan is over (docs/250 §7.0: gvattr's plan end)
         case 35: return GvaSrcMsg(lo);  // docs/250 §7.0 (gvro.cpp): the next plan's source class and scope, or "gvattr on?"
-        case 13: KdScopeSet(lo, 3); return 1;  // docs/197 §7: a seen NPC (KdSeenNpcCeilMs); an old package never sends it
+        case 13: KdScopeSet(lo, 3, hi & 0xFFFF); return 1;  // docs/197 §7: a seen NPC (KdSeenNpcCeilMs); an old package never sends it
         case 14: case 15: case 16: case 17: case 18: case 19: return CtOp((hi >> 16) & 0xFF, lo);
         case 20: case 21: case 22: case 23: case 24: case 25: case 26: case 27: case 28: case 29:
 #ifdef TS3N_RFTEST
@@ -710,6 +716,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
                 g_udTxtN = 0;
                 return 1;
             }
+            if (!strncmp(g_udTxt, "rfia: ", 6)) { g_udTxtN = 0; RfIaName(g_udTxt); return 1; }  // docs/226: a routefail interaction name, not logged
             if (!strncmp(g_udTxt, "routefail", 9) || !strncmp(g_udTxt, "gohere", 6)) {  // docs/197 §7: own cap (disk guard only), the job's fields appended
                 static LONG s_rfLines;
                 char job[320];
@@ -733,6 +740,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
                 return 1;
             }
             if (g_udTxtLines++ < 400) Log("ts3fixes: %s", g_udTxt);  // cap: a looping sender cannot fill the disk
+            else if (g_udTxtLines == 401) Log("ts3fixes: other lines capped at 400 (later ones dropped)");
             if (!strncmp(g_udTxt, "world:", 6)) UdWorldLoad(), UafVerifyAll("world load"), F5wEvent("world load", g_udWorlds);  // F5wEvent: docs/539 §21
             else if (!strcmp(g_udTxt, "world quit")) InterlockedIncrement(&g_udQuits), GcCapWindow(false, "world quit"), UafVerifyAll("world quit"), F5wEvent("world quit", g_udQuits);  // gcgrow.cpp: lenient on the load screen
             else if (!strncmp(g_udTxt, "mem: ", 5)) MdMark(g_udTxt + 5);  // [MemDiag] event mark (ts3agent mem_mark)
@@ -859,7 +867,7 @@ static void UdSaveEnd(DWORD r) {
 // Save_WritePackage 0xAAC110 (thiscall) calls the native pre-save listeners 0xAABB80 at 0xAAC2F3, World_Save 0xC6D460 at
 // 0xAAC320, the post-save listeners 0xAABBC0 at 0xAAC34A [verified disassembly 1.67.2: each listener loop is thiscall with
 // one stack argument, ret 4, returns al; a false result ends the write with 0xB / 0xD]. Ours only mark the phases.
-static const DWORD UD_PRE_SITE = 0x00AAC2F3, UD_PRE = 0x00AABB80, UD_POST_SITE = 0x00AAC34A, UD_POST = 0x00AABBC0;
+static const DWORD UD_PRE_SITE = TS3A(0x00AAC2F3), UD_PRE = TS3A(0x00AABB80), UD_POST_SITE = TS3A(0x00AAC34A), UD_POST = TS3A(0x00AABBC0);
 typedef DWORD(__fastcall* UdListenFn)(void* self, void* edx, void* arg);  // ret 4
 static UdListenFn g_udPreOrig = (UdListenFn)(uintptr_t)UD_PRE, g_udPostOrig = (UdListenFn)(uintptr_t)UD_POST;
 static DWORD __fastcall UdPreHook(void* self, void*, void* arg) {
@@ -895,8 +903,18 @@ static bool ApplyUserDiag(const wchar_t* ini) {
     const int cls = UdInstallClass(exe);
     const bool steam = cls == UD_STEAM;
     Log("diag: ts3native " TS3NATIVE_VERSION " (built " __DATE__ "), send this whole file (ts3native.log next to TS3W.exe) with a report");
+#ifdef TS3A_TABLE
+    // EA build: supported = the exe the address table was made for (same PE timestamp + SizeOfImage as the host check)
+    (void)steam;
+    const u8* hb = (const u8*)GetModuleHandleW(NULL);
+    const IMAGE_NT_HEADERS* hn = (const IMAGE_NT_HEADERS*)(hb + ((const IMAGE_DOS_HEADER*)hb)->e_lfanew);
+    const bool host = hn->FileHeader.TimeDateStamp == (DWORD)TS3A_HOST_PE && hn->OptionalHeader.SizeOfImage == (DWORD)TS3A_HOST_SIZE;
+    Log("diag: edition %s, game exe file version %s, install class %s%s", host ? TS3A_HOST_NAME : "unknown", ver[0] ? ver : "?", kUdClass[cls],
+        host ? " - supported" : " - UNSUPPORTED, this ts3native build supports " TS3A_HOST_NAME " only");
+#else
     Log("diag: edition %s, TS3W.exe file version %s, install class %s%s", steam ? "Steam" : "not Steam", ver[0] ? ver : "?", kUdClass[cls],
         steam ? "" : " - UNSUPPORTED, ts3native supports the Steam TS3W.exe only (other exes skip patches whose bytes differ)");
+#endif
     char sys[512];
     // g_crSys = "cpu: ...\r\nram: ...\r\nos: ...\r\nlarge address aware: ...\r\n": one log line each
     char* ctx2 = NULL;

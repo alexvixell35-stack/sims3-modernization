@@ -44,7 +44,7 @@ struct __declspec(align(64)) SatbLine { volatile DWORD v; DWORD pad[15]; };
 static SatbLine g_satbWTidL;              // = g_satbWTid (set together in SatbBegin), read by the load thunks
 static SatbLine g_satbSimLoadsL;          // sim loads through the load thunks (folded into satbLoads when read)
 static DWORD g_satbGcNo0;                 // GC_gc_no at SatbBegin (docs/206 §15, weak handles)
-static volatile const DWORD* g_satbGcNo = (volatile const DWORD*)(uintptr_t)0x011F2F90;  // GC_gc_no (docs/66 §6.1); selftest repoints
+static volatile const DWORD* g_satbGcNo = (volatile const DWORD*)(uintptr_t)TS3A(0x011F2F90);  // GC_gc_no (docs/66 §6.1); selftest repoints
 static void SatbLogTicks();               // below: Simulator/SimClock sSimTickCnt at the cut
 static DWORD g_satbWStaticAt;             // below (SatbWStaticView): worker static copies, reset per span
 static LONG g_satbPageN, g_satbJobWords;  // pages / words first marked in this job
@@ -141,8 +141,8 @@ static void SatbMax(LONG& m, LONG v) { if (v > m) m = v; }
 // ---- jump-table swap (docs/130 §1.2: head 0xE544D5 `jmp [op*4 + 0xE59880]`, 0x1C1 entries, shared by every thread) ----
 // Wrapped entries point at our stubs only while a span is on; outside spans the table is the game's (zero cost).
 static const DWORD SATB_NOP = 0x1C1;
-static volatile DWORD* g_satbTable = (volatile DWORD*)(uintptr_t)0x00E59880;  // selftest / monohost may point elsewhere
-static DWORD g_satbHead = 0x00E544D5;          // dispatch head: a stub that emulated an instruction continues here
+static volatile DWORD* g_satbTable = (volatile DWORD*)(uintptr_t)TS3A(0x00E59880);  // selftest / monohost may point elsewhere
+static DWORD g_satbHead = TS3A(0x00E544D5);          // dispatch head: a stub that emulated an instruction continues here
 static void* g_satbOrig[SATB_NOP];             // the table's entries at install
 static void* g_satbMine[SATB_NOP];             // our stub per wrapped opcode (span on)
 static u8 g_satbKind[SATB_NOP];                // SATB_K_*
@@ -409,7 +409,7 @@ static DWORD SatbVtable(DWORD domain, const u8* klass) {
     return *(const DWORD*)(info + id * 4 + 4);
 }
 typedef DWORD(__cdecl* SatbHashLookupFn)(DWORD hash, const void* key);
-static SatbHashLookupFn g_satbHashLookup = (SatbHashLookupFn)(uintptr_t)0x00E45F00;  // g_hash_table_lookup
+static SatbHashLookupFn g_satbHashLookup = (SatbHashLookupFn)(uintptr_t)TS3A(0x00E45F00);  // g_hash_table_lookup
 // a static field's address: vtable initialised (+0x18 & 2), not a thread/context static (domain +0x88 hash); 0 = none
 static DWORD SatbStaticAddr(const DWORD* r, const u8* field, DWORD vt, bool* threadStatic) {
     *threadStatic = false;
@@ -442,7 +442,7 @@ static int SatbStoreRange(const DWORD* r, DWORD op, DWORD* addr, DWORD* n, DWORD
         *n = op == 0x65 ? SatbD1(r) : SatbTypeSize(*(const u8* const*)f);
         if (op == 0x65) *vtB = SatbAlign8(*n);
         if (!obj) return 0;
-        if (!*n || **(const DWORD* const*)(uintptr_t)obj == *(const DWORD*)(uintptr_t)0x01220EC0) return -1;
+        if (!*n || **(const DWORD* const*)(uintptr_t)obj == *(const DWORD*)(uintptr_t)TS3A(0x01220EC0)) return -1;
         *addr = obj + *(const DWORD*)(f + 8);
         return 1;
     }
@@ -578,16 +578,16 @@ static void SatbPut(DWORD slot, const u8* b, char kind) {
     }
 }
 typedef void(__cdecl* SatbFromDataFn)(const void* type, void* result, const void* data, int pinvoke);
-static SatbFromDataFn g_satbFromData = (SatbFromDataFn)(uintptr_t)0x00E521A0;  // stackval_from_data [verified: 4 args, cdecl]
+static SatbFromDataFn g_satbFromData = (SatbFromDataFn)(uintptr_t)TS3A(0x00E521A0);  // stackval_from_data [verified: 4 args, cdecl]
 typedef int(__cdecl* SatbIsVtFn)(const void* klass);
-static SatbIsVtFn g_satbIsVt = (SatbIsVtFn)(uintptr_t)0x00E52160;              // ldobj's value-type test (reads only)
+static SatbIsVtFn g_satbIsVt = (SatbIsVtFn)(uintptr_t)TS3A(0x00E52160);              // ldobj's value-type test (reads only)
 
 // The callvirt inline cache (data item pair: class, target) is written with two plain stores (0xE54B1D, 0xE54B22): a
 // thread reading it while another writes can pair the new class with the old target [verified, docs/data/satb-handlers.csv].
 // The worker therefore never reads or writes it: its callvirt family runs the tail of the handler from 0xE54ABF here and
 // looks the target up itself (0xE51FC0: ecx = receiver, ebx = RuntimeMethod, eax = target [verified]), then continues at
 // 0xE54B28 (eax = receiver) as a hit would. 3 = continue at 0xE54B28, 4 = null receiver (0xE593DF, as the handler).
-static DWORD g_satbVLookup = 0x00E51FC0;
+static DWORD g_satbVLookup = TS3A(0x00E51FC0);
 static __declspec(naked) DWORD __cdecl SatbVLookup(DWORD /*recv*/, DWORD /*rm*/) {
     __asm {
         push ebx
@@ -661,7 +661,7 @@ static int __cdecl SatbWorkerLoad(DWORD* r) {
         if (!obj) return 0;
         DWORD off = SatbW1(r);
         if (op == 0x4A) {
-            if (**(const DWORD* const*)(uintptr_t)obj == *(const DWORD*)(uintptr_t)0x01220EC0) { SatbWGiveUp(op); return 0; }
+            if (**(const DWORD* const*)(uintptr_t)obj == *(const DWORD*)(uintptr_t)TS3A(0x01220EC0)) { SatbWGiveUp(op); return 0; }
             off = *(const DWORD*)(SatbItem(r, off) + 8);  // the stray first copy of ldrmfld.vt (docs/data/satb-handlers.csv) is skipped
         }
         DWORD& vtsp = SatbVtsp(r);
@@ -675,7 +675,7 @@ static int __cdecl SatbWorkerLoad(DWORD* r) {
     case 0x49: {  // ldrmfld: stackval_from_data(field type, S1, address)
         const DWORD obj = SatbS(r, 1);
         if (!obj) return 0;
-        if (**(const DWORD* const*)(uintptr_t)obj == *(const DWORD*)(uintptr_t)0x01220EC0) { SatbWGiveUp(op); return 0; }
+        if (**(const DWORD* const*)(uintptr_t)obj == *(const DWORD*)(uintptr_t)TS3A(0x01220EC0)) { SatbWGiveUp(op); return 0; }
         const u8* f = SatbItem(r, SatbW1(r));
         const u8* t = *(const u8* const*)f;
         const DWORD n = SatbTypeSize(t);
@@ -816,7 +816,7 @@ static int __cdecl SatbWorkerLoad(DWORD* r) {
         *(DWORD*)(uintptr_t)(ebp - 4) = r[SR_EDI];
         if (op == 0xEE) {  // mono_value_box 0xEA3140(domain, klass, data) copies the value into a new box
             SatbWRead(addr, n, big);
-            *(DWORD*)(uintptr_t)slot = ((DWORD(__cdecl*)(DWORD, const void*, const void*))(uintptr_t)0x00EA3140)(SatbDomain(r), klass, big);
+            *(DWORD*)(uintptr_t)slot = ((DWORD(__cdecl*)(DWORD, const void*, const void*))(uintptr_t)TS3A(0x00EA3140))(SatbDomain(r), klass, big);
         } else if (vt) {
             DWORD& vtsp = SatbVtsp(r);
             const DWORD dst = vtsp;
@@ -957,8 +957,8 @@ static int __cdecl SatbWorkerStore(DWORD* r) {
 }
 
 static DWORD g_satbWRet;                    // SatbWorkerLoad's answer for the stub (worker thread only)
-static DWORD g_satbJoin = 0x00E54B28;       // callvirt after its cache step (eax = receiver) [verified]
-static DWORD g_satbNre = 0x00E593DF;        // callvirt's null-receiver path [verified]
+static DWORD g_satbJoin = TS3A(0x00E54B28);       // callvirt after its cache step (eax = receiver) [verified]
+static DWORD g_satbNre = TS3A(0x00E593DF);        // callvirt's null-receiver path [verified]
 // ---- stubs (naked; entry state of every handler: eax = edx = opcode, edi ip, esi sp; flags dead, ebx/ecx not live
 // [verified]; every path back into a game handler keeps eax and edx) ----
 static __declspec(naked) void SatbStoreStub() {
@@ -1076,7 +1076,7 @@ static void SatbWArenaAdd(DWORD lo, DWORD hi) {
     for (LONG i = 0; i < n; i++)
         if (g_satbWArena[i][0] == lo) { if (hi > g_satbWArena[i][1]) g_satbWArena[i][1] = hi; return; }
     if (n < SATB_WARENA) g_satbWArena[n][0] = lo, g_satbWArena[n][1] = hi, g_satbWArenaN = n + 1;
-    else SatbWGiveUp(0xD71900);
+    else SatbWGiveUp(TS3A(0xD71900));
 }
 static void* __cdecl SatbGrowWrap(DWORD* st, DWORD size) {
     void* r = g_satbGrowNext(st, size);
@@ -1098,7 +1098,7 @@ static void SatbHookGrow() {
 // first (or the worker is stopped first for a writer we cannot size); on the worker the read range is patched from the log
 // after the copy, or the object gives up on a logged word. cdecl, `this` first [verified callee bodies]. ----
 typedef DWORD(__cdecl* SatbEsFn)(const void* klass);
-static SatbEsFn g_satbElemSize = (SatbEsFn)(uintptr_t)0x00E6B690;  // array element size from the array's class
+static SatbEsFn g_satbElemSize = (SatbEsFn)(uintptr_t)TS3A(0x00E6B690);  // array element size from the array's class
 static DWORD SatbEs(DWORD arr) { return arr ? g_satbElemSize(*(const void* const*)(uintptr_t)*(const DWORD*)(uintptr_t)arr) : 0; }  // vtable -> class
 static __forceinline bool SatbSimSide() { return g_satbOn && GetCurrentThreadId() != g_satbWTid; }
 static __forceinline bool SatbWorkerSide() { return g_satbOn && g_satbMode == SATB_ACT && GetCurrentThreadId() == g_satbWTid; }
@@ -1126,10 +1126,10 @@ enum { SRT_CLEAR, SRT_FASTCOPY, SRT_SETVALUE, SRT_GETVALUE, SRT_GETGENERIC, SRT_
        SRT_STRCPY3, SRT_STRCPY4, SRT_COPYTO, SRT_INC, SRT_DEC, SRT_XCHG, SRT_XCHGF, SRT_CMPX, SRT_CMPXF, SRT_ADD, SRT_ADD64, SRT_INC64,
        SRT_DEC64, SRT_XCHG64, SRT_XCHGD, SRT_CMPX64, SRT_CMPXD, SRT_FSET, SRT_FGET, SRT_MCOPY, SRT_MWB, SRT_MW16, SRT_MW32, SRT_MW64,
        SRT_INITARR, SRT_CLONEOBJ, SRT_PTRTOSTRUCT, SRT_PTRTOSTRUCT2, SRT_PROPINFO, SRT_LCID, SRT_INVOKE, SRT_GCTARGET, SRT_N };
-static const DWORD kSatbRtAddr[SRT_N] = {0xE7A040, 0xE7A070, 0xE793D0, 0xE79210, 0xE7A300, 0xEA3800, 0xE81280, 0xE81260,
-    0xEB92F0, 0xEB9320, 0xEB9350, 0xEB9380, 0xEB9040, 0xE66E10, 0xF4F560, 0xEBA1F0, 0xEBA210, 0xEBA2B0, 0xEBA2D0, 0xEBA390,
-    0xEBA3C0, 0xEBA190, 0xEBA1C0, 0xEBA240, 0xEBA280, 0xEBA340, 0xEBA300, 0xE7B320, 0xE7B150, 0xE8DB40, 0xE8DC70, 0xE8DC90,
-    0xE8DC80, 0xE8DCB0, 0xE7A330, 0xE7A400, 0xE99A50, 0xE99B10, 0xE7B4D0, 0xE874B0, 0xE7CDC0, 0xE78FD0};
+static const DWORD kSatbRtAddr[SRT_N] = {TS3A(0xE7A040), TS3A(0xE7A070), TS3A(0xE793D0), TS3A(0xE79210), TS3A(0xE7A300), TS3A(0xEA3800), TS3A(0xE81280), TS3A(0xE81260),
+    TS3A(0xEB92F0), TS3A(0xEB9320), TS3A(0xEB9350), TS3A(0xEB9380), TS3A(0xEB9040), TS3A(0xE66E10), TS3A(0xF4F560), TS3A(0xEBA1F0), TS3A(0xEBA210), TS3A(0xEBA2B0), TS3A(0xEBA2D0), TS3A(0xEBA390),
+    TS3A(0xEBA3C0), TS3A(0xEBA190), TS3A(0xEBA1C0), TS3A(0xEBA240), TS3A(0xEBA280), TS3A(0xEBA340), TS3A(0xEBA300), TS3A(0xE7B320), TS3A(0xE7B150), TS3A(0xE8DB40), TS3A(0xE8DC70), TS3A(0xE8DC90),
+    TS3A(0xE8DC80), TS3A(0xE8DCB0), TS3A(0xE7A330), TS3A(0xE7A400), TS3A(0xE99A50), TS3A(0xE99B10), TS3A(0xE7B4D0), TS3A(0xE874B0), TS3A(0xE7CDC0), TS3A(0xE78FD0)};
 static void* g_satbRt[SRT_N];  // the original function of each wrapper
 #define SATB_RT(i, T) ((T)g_satbRt[i])
 typedef DWORD(__cdecl* SatbRt2)(DWORD, DWORD);
@@ -1156,7 +1156,7 @@ static DWORD __cdecl SatbRtSetValue(DWORD arr, DWORD value, DWORD pos) {
 }
 static DWORD __cdecl SatbRtGetValue(DWORD arr, DWORD pos) {
     const DWORD r = SATB_RT(SRT_GETVALUE, SatbRt2)(arr, pos);
-    if (SatbWorkerSide() && arr) { const DWORD es = SatbEs(arr); if (SatbWAnyLogged(arr + 0x10 + pos * es, es)) SatbWGiveUp(0xE79210); }
+    if (SatbWorkerSide() && arr) { const DWORD es = SatbEs(arr); if (SatbWAnyLogged(arr + 0x10 + pos * es, es)) SatbWGiveUp(TS3A(0xE79210)); }
     return r;
 }
 static DWORD __cdecl SatbRtGetGeneric(DWORD arr, DWORD pos, DWORD out) {
@@ -1278,9 +1278,9 @@ static __declspec(naked) void SatbRtCmpxD() {  // CompareExchange(ref double, do
 // call (0.36.136); an unknown kind or a class whose size is not set yet still waits (satbRtWaits).
 typedef DWORD(__cdecl* SatbPtrFn1)(DWORD);
 typedef DWORD(__cdecl* SatbPtrFn2)(DWORD, DWORD);
-static SatbPtrFn1 g_satbClassOfType = (SatbPtrFn1)(uintptr_t)0x00E70D50;  // mono_class_from_mono_type
-static SatbPtrFn2 g_satbClassVtable = (SatbPtrFn2)(uintptr_t)0x00EA2AD0;  // mono_class_vtable(domain, class): finds or makes it
-static SatbPtrFn1 g_satbIsNullable = (SatbPtrFn1)(uintptr_t)0x00E6AD10;   // mono_class_is_nullable(class) [verified, 0xE7B259]
+static SatbPtrFn1 g_satbClassOfType = (SatbPtrFn1)(uintptr_t)TS3A(0x00E70D50);  // mono_class_from_mono_type
+static SatbPtrFn2 g_satbClassVtable = (SatbPtrFn2)(uintptr_t)TS3A(0x00EA2AD0);  // mono_class_vtable(domain, class): finds or makes it
+static SatbPtrFn1 g_satbIsNullable = (SatbPtrFn1)(uintptr_t)TS3A(0x00E6AD10);   // mono_class_is_nullable(class) [verified, 0xE7B259]
 static DWORD SatbValueSize(DWORD klass) {  // mono_class_value_size without its init call: 0 = layout not set yet
     const u8* k = (const u8*)(uintptr_t)klass;
     return k && (k[0x14] & 4) && *(const DWORD*)(k + 0x54) > 4 ? *(const DWORD*)(k + 0x54) - 4 : 0;
@@ -1355,7 +1355,7 @@ static DWORD __cdecl SatbRtFieldGet(DWORD self, DWORD obj) {
     DWORD old;
     if (at && n == 4 && ref && !(at & 3) && SatbFind(at, &old)) { ts3native_autshadow.satbWRtFix++; return old; }
     if (at && n && val && r && !g_satbIsNullable(g_satbClassOfType(type))) { SatbWPatchCopy(at, n, (u8*)(uintptr_t)(r + 4)); return r; }
-    SatbWGiveUp(0xE7B150);
+    SatbWGiveUp(TS3A(0xE7B150));
     return r;
 }
 // Marshal.copy_from_unmanaged(src, startIndex, dest array, length): writes dest's elements [startIndex, startIndex + length)
@@ -1377,7 +1377,7 @@ static DWORD __cdecl SatbRtCloneObj(DWORD obj) {
     if (SatbWorkerSide() && obj && r) {
         const u8* klass = **(const u8* const* const*)(uintptr_t)obj;
         const DWORD size = klass ? *(const DWORD*)(klass + 0x54) : 0;
-        if (!size || SatbWAnyLogged(obj + 4, size - 4)) SatbWGiveUp(0xE7A400);  // arrays and strings go elsewhere; keep it simple
+        if (!size || SatbWAnyLogged(obj + 4, size - 4)) SatbWGiveUp(TS3A(0xE7A400));  // arrays and strings go elsewhere; keep it simple
     }
     return r;
 }
@@ -1424,7 +1424,7 @@ static DWORD __cdecl SatbRtInvoke(DWORD self, DWORD obj, DWORD params) {
 // where the cut had an object. The worker gives up if a collection ran since the cut (GC_gc_no [0x11F2F90], docs/66 §6.1).
 static DWORD __cdecl SatbRtGcTarget(DWORD handle) {
     const DWORD r = SATB_RT(SRT_GCTARGET, SatbRt1)(handle);
-    if (SatbWorkerSide() && *g_satbGcNo != g_satbGcNo0) SatbWGiveUp(0xE78FD0);
+    if (SatbWorkerSide() && *g_satbGcNo != g_satbGcNo0) SatbWGiveUp(TS3A(0xE78FD0));
     return r;
 }
 static void* const kSatbRtWrap[SRT_N] = {(void*)SatbRtClear, (void*)SatbRtFastCopy, (void*)SatbRtSetValue, (void*)SatbRtGetValue,
@@ -1454,11 +1454,11 @@ static void __cdecl SatbFieldStore(DWORD, DWORD* ptr, DWORD v) {
 // satbWGiveUpOp = 0xC000 + site); on the sim during a span, vtable creation waits for the worker to leave first.
 struct SatbColdSite { DWORD at; u8 len; u8 bytes[8]; };
 static const SatbColdSite kSatbCold[5] = {
-    {0x00E643B0, 6, {0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x78}},              // transform (IL -> mint)
-    {0x00E51400, 6, {0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x14}},              // tramp_create_thunk (thunk hash [0x11F4128])
-    {0x00EA1E30, 5, {0x83, 0xEC, 0x30, 0x56, 0x57}},                    // vtable creation (statics, special-static hash)
-    {0x00EA3370, 8, {0x83, 0xEC, 0x18, 0x53, 0x8B, 0x5C, 0x24, 0x20}},  // class init slow path (a .cctor runs)
-    {0x00D6FCB0, 6, {0x81, 0xEC, 0x24, 0x02, 0x00, 0x00}},              // image load (temp string refcount [0x11CB920])
+    {TS3A(0x00E643B0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x78}},              // transform (IL -> mint)
+    {TS3A(0x00E51400), 6, {0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x14}},              // tramp_create_thunk (thunk hash [0x11F4128])
+    {TS3A(0x00EA1E30), 5, {0x83, 0xEC, 0x30, 0x56, 0x57}},                    // vtable creation (statics, special-static hash)
+    {TS3A(0x00EA3370), 8, {0x83, 0xEC, 0x18, 0x53, 0x8B, 0x5C, 0x24, 0x20}},  // class init slow path (a .cctor runs)
+    {TS3A(0x00D6FCB0), 6, {0x81, 0xEC, 0x24, 0x02, 0x00, 0x00}},              // image load (temp string refcount [0x11CB920])
 };
 static void* g_satbColdNext[5];
 // docs/206 §14: the methods the worker transforms first (site 0: arg0 = RuntimeMethod, +8 = MonoMethod [verified, 0xE643B7])
@@ -1474,10 +1474,10 @@ static LONG g_satbColdNamed;
 // there for the job to leave. Not parked: the worker already owns a Mono lock (nested runtime call: the sim could block on that
 // lock, never reach AsSimLeave), or the sim let it go in this job (2). Both waits are capped at 250 ms; a cap hit is today's
 // concurrent run, counted. The object's result is dropped either way (give-up), so only timing changes.
-static const DWORD kSatbMonoLocks[5] = {0x011F43A8, 0x011F4574, 0x011F45A0, 0x011F43E4, 0x011F4130};  // docs/58 §1 [verified]
+static const DWORD kSatbMonoLocks[5] = {TS3A(0x011F43A8), TS3A(0x011F4574), TS3A(0x011F45A0), TS3A(0x011F43E4), TS3A(0x011F4130)};  // docs/58 §1 [verified]
 static const DWORD* g_satbParkLocks = kSatbMonoLocks;  // loader, type init, ldstr, marshal, RuntimeMethod (selftest swaps)
 static int g_satbParkLockN = 5;
-static DWORD(__cdecl* g_satbDomainGet)() = (DWORD(__cdecl*)())(uintptr_t)0x00E75260;  // mono_domain_get; MonoDomain+0 = its lock
+static DWORD(__cdecl* g_satbDomainGet)() = (DWORD(__cdecl*)())(uintptr_t)TS3A(0x00E75260);  // mono_domain_get; MonoDomain+0 = its lock
 static const LONG SATB_PARK_US = 250000;
 static volatile LONG g_satbParkN, g_satbParkGo, g_satbParkTmo, g_satbParkNested, g_satbParkSimTmo, g_satbParkSimUs, g_satbParkLogged;
 static bool SatbOwnsMonoLock() {
@@ -1497,6 +1497,11 @@ static void SatbParkLog(const char* what, int site, LONG us) {
 }
 // worker, act, at a cold-site entry after the give-up
 static void SatbColdPark(int site) {
+#ifdef TS3A_TABLE
+    // 4 of the 5 Mono locks it checks have no EA row: no park, the cold call runs as before the park (docs/206 §18)
+    static volatile LONG s_said;
+    if (ts3a_noaddr) { if (!InterlockedExchange(&s_said, 1)) Log("SKIP autshadow satb cold park (site %d): no EA 1.69 address, docs/232 §8", site); return; }
+#endif
     if (g_satbColdPark == 2) return;  // the sim waits at AsSimLeave for this job: it runs nothing meanwhile
     if (SatbOwnsMonoLock()) { InterlockedIncrement(&g_satbParkNested); return; }
     InterlockedIncrement(&g_satbParkN);
@@ -1596,7 +1601,7 @@ static void SatbCrashLine() {
 // sim, worker idle (SatbEnd): 'autshadow satb cold transform on the worker: <method>' once per method (warm-up list input).
 // 0xE72010 = mono_method_full_name(method, signature) [verified args, docs/130 G-I1]; its string is not freed (a few per run).
 typedef const char*(__cdecl* SatbNameFn)(DWORD method, int signature);
-static SatbNameFn g_satbMethodName = (SatbNameFn)(uintptr_t)0x00E72010;
+static SatbNameFn g_satbMethodName = (SatbNameFn)(uintptr_t)TS3A(0x00E72010);
 static void SatbColdNameLog() {
     for (; g_satbColdNamed < g_satbColdRmN; g_satbColdNamed++) {
         const DWORD rm = g_satbColdRm[g_satbColdNamed], mm = rm ? *(const DWORD*)(uintptr_t)(rm + 8) : 0;
@@ -1637,7 +1642,7 @@ static int SatbInstallCold() {
     return n;
 }
 
-static DWORD* g_satbRtTable = (DWORD*)(uintptr_t)0x010B5838;  // mono's icall function table (613 entries)
+static DWORD* g_satbRtTable = (DWORD*)(uintptr_t)TS3A(0x010B5838);  // mono's icall function table (613 entries)
 static const int SATB_RT_TABLE_N = 613;
 // before any runtime icall is resolved (DllMain; monohost: before its first managed call). Returns entries swapped.
 static int SatbInstallRt() {
@@ -1650,7 +1655,7 @@ static int SatbInstallRt() {
             if (g_satbRtTable[j] == kSatbRtAddr[i]) g_satbRtTable[j] = (DWORD)(uintptr_t)kSatbRtWrap[i], n++;
     }
     VirtualProtect(g_satbRtTable, SATB_RT_TABLE_N * 4, old, &old);
-    if (InstallDetour("satb field store 0xE69820", 0x00E69820, kSatbFieldStore, 8, (void*)SatbFieldStore)) n++;
+    if (InstallDetour("satb field store 0xE69820", TS3A(0x00E69820), kSatbFieldStore, 8, (void*)SatbFieldStore)) n++;
     return n;
 }
 
@@ -1681,7 +1686,7 @@ static bool SatbWPrivate(DWORD a) {
 // slots), docs/130 §1; RuntimeMethod +0x24 invoker, +0x28 body, docs/119 §9.4]. Bodies by address (+0x24 or +0x28), from the
 // PR's table [theirs; seen counts in ts3native.log confirm the match in game]:
 enum { SB_PQ_ADD, SB_PQ_REMOVEAT, SB_PQ_SETCAP, SB_HT_REHASH, SB_ELAPSED_MIN, SB_ELAPSED_HRS, SB_CURVE_FX, SB_N };
-static const DWORD kSatbBodies[SB_N] = {0xE0D450, 0xE0C640, 0xE0D290, 0xDCA870, 0xE0A6D0, 0xE0A790, 0xE0A950};
+static const DWORD kSatbBodies[SB_N] = {TS3A(0xE0D450), TS3A(0xE0C640), TS3A(0xE0D290), TS3A(0xDCA870), TS3A(0xE0A6D0), TS3A(0xE0A790), TS3A(0xE0A950)};
 static const char* const kSatbBodyNames[SB_N] = {"PriorityQueue.Add", "PriorityQueue.RemoveAt", "PriorityQueue.SetCapacity",
     "Hashtable.Rehash", "SimClock.ElapsedTimeInMinutes(ref float)", "SimClock.ElapsedTimeHours(ref float)", "Curve.Fx"};
 static LONG g_satbBodySeen[SB_N][2], g_satbBodyLogged[SB_N][2];  // [body][sim, worker]: calls in spans; log lines at 1, 10, 100, ...
@@ -1750,7 +1755,7 @@ static void __cdecl SatbBindCall(DWORD frame, DWORD ctx) {
         if (!SatbWPrivate(self)) {
             InterlockedIncrement(&ts3native_counters.sbVtGiveUp);
             g_satbBindGiveUps++;
-            SatbWGiveUp(0xE525C0);
+            SatbWGiveUp(TS3A(0xE525C0));
             DWORD copy[8] = {};
             SatbWRead(self, 8, (u8*)copy);
             *(DWORD*)(uintptr_t)(frame + 0xC) = (DWORD)(uintptr_t)copy;
@@ -1761,7 +1766,7 @@ static void __cdecl SatbBindCall(DWORD frame, DWORD ctx) {
     } else if (self >= 0x10000 && !SatbWPrivate(self)) {
         // row 12 (b): a body reads `this` natively, past the load redirect; any word of it the sim changed since the cut
         const DWORD n = SatbObjFields(self);
-        if (n && n <= 4 * SATB_IC_MAXW && SatbWAnyLogged(self + 4, n)) { g_satbBindGiveUps++; SatbWGiveUp(0xE525C0); }
+        if (n && n <= 4 * SATB_IC_MAXW && SatbWAnyLogged(self + 4, n)) { g_satbBindGiveUps++; SatbWGiveUp(TS3A(0xE525C0)); }
     }
     next(frame, ctx);
 }
@@ -1788,13 +1793,13 @@ static const u8 kSatbStAddr[8] = {0x53, 0x56, 0x57, 0xE8, 0xF8, 0xB5, 0x0E, 0x00
 static const u8 kSatbStGet[8] = {0x53, 0x56, 0x57, 0xE8, 0x88, 0xB5, 0x0E, 0x00};
 static LONG g_satbStaticFix, g_satbStaticN;
 static DWORD SatbStaticAddr(DWORD cf, bool* special) {
-    const DWORD dom = ((SatbFn0)(uintptr_t)0x00E75260)();
-    const DWORD vt = ((SatbFn2)(uintptr_t)0x00EA2AD0)(dom, *(const DWORD*)(uintptr_t)(cf + 0x14));
-    if (!(*(const u8*)(uintptr_t)(vt + 0x18) & 2)) ((SatbPtrFn1)(uintptr_t)0x00EA3370)(vt);
+    const DWORD dom = ((SatbFn0)(uintptr_t)TS3A(0x00E75260))();
+    const DWORD vt = ((SatbFn2)(uintptr_t)TS3A(0x00EA2AD0))(dom, *(const DWORD*)(uintptr_t)(cf + 0x14));
+    if (!(*(const u8*)(uintptr_t)(vt + 0x18) & 2)) ((SatbPtrFn1)(uintptr_t)TS3A(0x00EA3370))(vt);
     const DWORD h = *(const DWORD*)(uintptr_t)(dom + 0x88);
     if (h) {
-        const DWORD r = ((SatbFn2)(uintptr_t)0x00E45F00)(h, cf);
-        if (r) { *special = true; return ((SatbPtrFn1)(uintptr_t)0x00EBAB30)(r); }
+        const DWORD r = ((SatbFn2)(uintptr_t)TS3A(0x00E45F00))(h, cf);
+        if (r) { *special = true; return ((SatbPtrFn1)(uintptr_t)TS3A(0x00EBAB30))(r); }
     }
     *special = false;
     return *(const DWORD*)(uintptr_t)(vt + 0xC) + *(const DWORD*)(uintptr_t)(cf + 8);
@@ -1804,9 +1809,9 @@ static void __cdecl SatbStaticSet(DWORD cf, DWORD val) {
     const DWORD dest = SatbStaticAddr(cf, &sp), type = *(const DWORD*)(uintptr_t)cf;
     if (!sp && g_satbOn) {
         if (SatbSimSide()) { const DWORD n = SatbTypeSize(type); if (n) SatbRtLog(dest, n); else SatbRtUnknown(); }
-        else if (SatbWorkerSide()) { SatbWGiveUp(0xD89BF0); return; }  // a worker store into a shared static: never
+        else if (SatbWorkerSide()) { SatbWGiveUp(TS3A(0xD89BF0)); return; }  // a worker store into a shared static: never
     }
-    ((SatbStvFn)(uintptr_t)0x00E52350)(type, val, dest, 0);
+    ((SatbStvFn)(uintptr_t)TS3A(0x00E52350))(type, val, dest, 0);
 }
 // worker, address-of a static the sim changed since the cut: the caller gets a worker-private copy holding the cut bytes
 // (it reads through the pointer, or writes into the copy, never into the shared static); an unchanged static keeps its own
@@ -1835,7 +1840,7 @@ static void __cdecl SatbStaticAddrOf(DWORD cf, DWORD* out) {
         else if (SatbWorkerSide()) {
             const DWORD v = n ? SatbWStaticView(a, n) : 0;
             if (v) a = v;
-            else SatbWGiveUp(0xD89C60);  // unknown size or the copy buffer full
+            else SatbWGiveUp(TS3A(0xD89C60));  // unknown size or the copy buffer full
         }
     }
     *out = a;
@@ -1848,28 +1853,28 @@ static void __cdecl SatbStaticGet(DWORD cf, DWORD out) {
         const DWORD n = SatbTypeSize(type);
         if (!n || SatbWAnyLogged(src, n)) {
             u8 tmp[64];
-            if (!n || n > sizeof(tmp)) { SatbWGiveUp(0xD89CD0); }
+            if (!n || n > sizeof(tmp)) { SatbWGiveUp(TS3A(0xD89CD0)); }
             else {  // the cut value: live bytes with every logged word put back, converted the way the game does
                 memcpy(tmp, (const void*)(uintptr_t)src, n);
                 SatbWPatchCopy(src, n, tmp);
                 g_satbStaticFix++;
-                ((SatbStvFn)(uintptr_t)0x00E521A0)(type, out, (DWORD)(uintptr_t)tmp, 0);
+                ((SatbStvFn)(uintptr_t)TS3A(0x00E521A0))(type, out, (DWORD)(uintptr_t)tmp, 0);
                 return;
             }
         }
     }
-    ((SatbStvFn)(uintptr_t)0x00E521A0)(type, out, src, 0);
+    ((SatbStvFn)(uintptr_t)TS3A(0x00E521A0))(type, out, src, 0);
 }
 static int SatbInstallNative() {
     int n = 0;
-    if (!g_satbBindNext && (g_satbBindNext = InstallDetour("satb binder bodies 0xE525C0", 0x00E525C0, kSatbBind, sizeof(kSatbBind), (void*)SatbBindCall, &g_satbBindNext)) != NULL) n++;
+    if (!g_satbBindNext && (g_satbBindNext = InstallDetour("satb binder bodies 0xE525C0", TS3A(0x00E525C0), kSatbBind, sizeof(kSatbBind), (void*)SatbBindCall, &g_satbBindNext)) != NULL) n++;
     static bool st;
     if (!st) {
         st = true;
         // replaced whole: the trampolines (a copied relative call) are never used
-        n += InstallDetour("satb static set 0xD89BF0", 0x00D89BF0, kSatbStSet, 8, (void*)SatbStaticSet) != NULL;
-        n += InstallDetour("satb static address 0xD89C60", 0x00D89C60, kSatbStAddr, 8, (void*)SatbStaticAddrOf) != NULL;
-        n += InstallDetour("satb static get 0xD89CD0", 0x00D89CD0, kSatbStGet, 8, (void*)SatbStaticGet) != NULL;
+        n += InstallDetour("satb static set 0xD89BF0", TS3A(0x00D89BF0), kSatbStSet, 8, (void*)SatbStaticSet) != NULL;
+        n += InstallDetour("satb static address 0xD89C60", TS3A(0x00D89C60), kSatbStAddr, 8, (void*)SatbStaticAddrOf) != NULL;
+        n += InstallDetour("satb static get 0xD89CD0", TS3A(0x00D89CD0), kSatbStGet, 8, (void*)SatbStaticGet) != NULL;
     }
     return n;
 }
@@ -1877,37 +1882,37 @@ static int SatbInstallNative() {
 // ---- install: the wrapped jump-table entries must still be the game's handlers (docs/data/satb-handlers.csv) ----
 struct SatbOpRow { WORD op; u8 kind; DWORD handler; WORD base; };
 static const SatbOpRow kSatbOps[] = {
-    {0x59, SATB_K_STORE, 0xE56B06}, {0x5A, SATB_K_STORE, 0xE56B06}, {0x5B, SATB_K_STORE, 0xE56B29}, {0x5C, SATB_K_STORE, 0xE56B29},
-    {0x5D, SATB_K_STORE, 0xE56B4E}, {0x5E, SATB_K_STORE, 0xE56B71}, {0x5F, SATB_K_STORE, 0xE56B9B}, {0x60, SATB_K_STORE, 0xE56BC4},
-    {0x61, SATB_K_STORE, 0xE56BE7}, {0x62, SATB_K_STORE, 0xE56BE7}, {0x63, SATB_K_STORE, 0xE56C0A}, {0x64, SATB_K_STORE, 0xE56C43},
-    {0x65, SATB_K_STORE, 0xE56CA9}, {0x6A, SATB_K_STORE, 0xE56F52}, {0x6B, SATB_K_STORE, 0xE56FEC}, {0x91, SATB_K_STORE, 0xE559BD},
-    {0x92, SATB_K_STORE, 0xE559D3}, {0x93, SATB_K_STORE, 0xE559A7}, {0x94, SATB_K_STORE, 0xE55A01}, {0x95, SATB_K_STORE, 0xE559EB},
-    {0x96, SATB_K_STORE, 0xE55A1D}, {0x97, SATB_K_STORE, 0xE55A39}, {0x98, SATB_K_STORE, 0xE559A7}, {0xF5, SATB_K_STORE, 0xE589F7},
-    {0xFF, SATB_K_STORE, 0xE570C8}, {0x100, SATB_K_STORE, 0xE57089}, {0x101, SATB_K_STORE, 0xE58A17}, {0x102, SATB_K_STORE, 0xE58A49},
-    {0x112, SATB_K_STORE, 0xE575CF}, {0x113, SATB_K_STORE, 0xE574DA}, {0x114, SATB_K_STORE, 0xE574DA}, {0x115, SATB_K_STORE, 0xE574DA},
-    {0x116, SATB_K_STORE, 0xE574DA}, {0x117, SATB_K_STORE, 0xE574DA}, {0x118, SATB_K_STORE, 0xE574DA}, {0x119, SATB_K_STORE, 0xE574DA},
-    {0x11A, SATB_K_STORE, 0xE574DA},
-    {0x3E, SATB_K_LOAD, 0xE566A8}, {0x3F, SATB_K_LOAD, 0xE566C9}, {0x40, SATB_K_LOAD, 0xE566EA}, {0x41, SATB_K_LOAD, 0xE5670B},
-    {0x42, SATB_K_LOAD, 0xE5672C}, {0x43, SATB_K_LOAD, 0xE5674C}, {0x44, SATB_K_LOAD, 0xE56773}, {0x45, SATB_K_LOAD, 0xE56793},
-    {0x46, SATB_K_LOAD, 0xE5672C}, {0x47, SATB_K_LOAD, 0xE5672C}, {0x48, SATB_K_LOAD, 0xE567B3}, {0x49, SATB_K_LOAD, 0xE567DA},
-    {0x4A, SATB_K_LOAD, 0xE56835}, {0x66, SATB_K_LOAD, 0xE56DA1}, {0x67, SATB_K_LOAD, 0xE56E1E}, {0x68, SATB_K_LOAD, 0xE56E66},
-    {0x69, SATB_K_LOAD, 0xE56EAE}, {0x86, SATB_K_LOAD, 0xE558DF}, {0x87, SATB_K_LOAD, 0xE558F3}, {0x88, SATB_K_LOAD, 0xE55907},
-    {0x89, SATB_K_LOAD, 0xE5591B}, {0x8A, SATB_K_LOAD, 0xE5592F}, {0x8B, SATB_K_LOAD, 0xE5592F}, {0x8C, SATB_K_LOAD, 0xE55942},
-    {0x8D, SATB_K_LOAD, 0xE5595B}, {0x8E, SATB_K_LOAD, 0xE5596E}, {0x8F, SATB_K_LOAD, 0xE55981}, {0x90, SATB_K_LOAD, 0xE55994},
-    {0xFE, SATB_K_LOAD, 0xE560CD}, {0x105, SATB_K_LOAD, 0xE573D7}, {0x106, SATB_K_LOAD, 0xE573D7}, {0x107, SATB_K_LOAD, 0xE573D7},
-    {0x108, SATB_K_LOAD, 0xE573D7}, {0x109, SATB_K_LOAD, 0xE573D7}, {0x10A, SATB_K_LOAD, 0xE573D7}, {0x10B, SATB_K_LOAD, 0xE573D7},
-    {0x10C, SATB_K_LOAD, 0xE573D7}, {0x10D, SATB_K_LOAD, 0xE573D7}, {0x10E, SATB_K_LOAD, 0xE573D7}, {0x10F, SATB_K_LOAD, 0xE573D7},
-    {0x111, SATB_K_LOAD, 0xE57382}, {0x196, SATB_K_LOAD, 0xE572CE}, {0x197, SATB_K_LOAD, 0xE57303}, {0xEC, SATB_K_LOAD, 0xE549EB}, {0xED, SATB_K_LOAD, 0xE549EB},
-    {0xEE, SATB_K_LOAD, 0xE549EB},
-    {0x1AB, SATB_K_SUPER, 0xE58A73, 0x24}, {0x1AD, SATB_K_SUPER, 0xE58AC2, 0x24}, {0x1AF, SATB_K_SUPER, 0xE58B18, 0x46},
-    {0x1B0, SATB_K_SUPER, 0xE58B71, 0xA6}, {0x1B3, SATB_K_SUPER, 0xE58BD6, 0x24}, {0x1B4, SATB_K_SUPER, 0xE58C0A, 0x75},
-    {0x1B6, SATB_K_SUPER, 0xE58C72, 0x24}, {0x1B7, SATB_K_SUPER, 0xE58C8F, 0x84}, {0x1BB, SATB_K_SUPER, 0xE58E37, 0x75},
-    {0x1BC, SATB_K_SUPER, 0xE58E98, 0x75}, {0x1BE, SATB_K_SUPER, 0xE58F55, 0x24}, {0x1BF, SATB_K_SUPER, 0xE58FC8, 0x15},
-    {0x1C0, SATB_K_SUPER, 0xE5904D, 0x39},
+    {0x59, SATB_K_STORE, TS3A(0xE56B06)}, {0x5A, SATB_K_STORE, TS3A(0xE56B06)}, {0x5B, SATB_K_STORE, TS3A(0xE56B29)}, {0x5C, SATB_K_STORE, TS3A(0xE56B29)},
+    {0x5D, SATB_K_STORE, TS3A(0xE56B4E)}, {0x5E, SATB_K_STORE, TS3A(0xE56B71)}, {0x5F, SATB_K_STORE, TS3A(0xE56B9B)}, {0x60, SATB_K_STORE, TS3A(0xE56BC4)},
+    {0x61, SATB_K_STORE, TS3A(0xE56BE7)}, {0x62, SATB_K_STORE, TS3A(0xE56BE7)}, {0x63, SATB_K_STORE, TS3A(0xE56C0A)}, {0x64, SATB_K_STORE, TS3A(0xE56C43)},
+    {0x65, SATB_K_STORE, TS3A(0xE56CA9)}, {0x6A, SATB_K_STORE, TS3A(0xE56F52)}, {0x6B, SATB_K_STORE, TS3A(0xE56FEC)}, {0x91, SATB_K_STORE, TS3A(0xE559BD)},
+    {0x92, SATB_K_STORE, TS3A(0xE559D3)}, {0x93, SATB_K_STORE, TS3A(0xE559A7)}, {0x94, SATB_K_STORE, TS3A(0xE55A01)}, {0x95, SATB_K_STORE, TS3A(0xE559EB)},
+    {0x96, SATB_K_STORE, TS3A(0xE55A1D)}, {0x97, SATB_K_STORE, TS3A(0xE55A39)}, {0x98, SATB_K_STORE, TS3A(0xE559A7)}, {0xF5, SATB_K_STORE, TS3A(0xE589F7)},
+    {0xFF, SATB_K_STORE, TS3A(0xE570C8)}, {0x100, SATB_K_STORE, TS3A(0xE57089)}, {0x101, SATB_K_STORE, TS3A(0xE58A17)}, {0x102, SATB_K_STORE, TS3A(0xE58A49)},
+    {0x112, SATB_K_STORE, TS3A(0xE575CF)}, {0x113, SATB_K_STORE, TS3A(0xE574DA)}, {0x114, SATB_K_STORE, TS3A(0xE574DA)}, {0x115, SATB_K_STORE, TS3A(0xE574DA)},
+    {0x116, SATB_K_STORE, TS3A(0xE574DA)}, {0x117, SATB_K_STORE, TS3A(0xE574DA)}, {0x118, SATB_K_STORE, TS3A(0xE574DA)}, {0x119, SATB_K_STORE, TS3A(0xE574DA)},
+    {0x11A, SATB_K_STORE, TS3A(0xE574DA)},
+    {0x3E, SATB_K_LOAD, TS3A(0xE566A8)}, {0x3F, SATB_K_LOAD, TS3A(0xE566C9)}, {0x40, SATB_K_LOAD, TS3A(0xE566EA)}, {0x41, SATB_K_LOAD, TS3A(0xE5670B)},
+    {0x42, SATB_K_LOAD, TS3A(0xE5672C)}, {0x43, SATB_K_LOAD, TS3A(0xE5674C)}, {0x44, SATB_K_LOAD, TS3A(0xE56773)}, {0x45, SATB_K_LOAD, TS3A(0xE56793)},
+    {0x46, SATB_K_LOAD, TS3A(0xE5672C)}, {0x47, SATB_K_LOAD, TS3A(0xE5672C)}, {0x48, SATB_K_LOAD, TS3A(0xE567B3)}, {0x49, SATB_K_LOAD, TS3A(0xE567DA)},
+    {0x4A, SATB_K_LOAD, TS3A(0xE56835)}, {0x66, SATB_K_LOAD, TS3A(0xE56DA1)}, {0x67, SATB_K_LOAD, TS3A(0xE56E1E)}, {0x68, SATB_K_LOAD, TS3A(0xE56E66)},
+    {0x69, SATB_K_LOAD, TS3A(0xE56EAE)}, {0x86, SATB_K_LOAD, TS3A(0xE558DF)}, {0x87, SATB_K_LOAD, TS3A(0xE558F3)}, {0x88, SATB_K_LOAD, TS3A(0xE55907)},
+    {0x89, SATB_K_LOAD, TS3A(0xE5591B)}, {0x8A, SATB_K_LOAD, TS3A(0xE5592F)}, {0x8B, SATB_K_LOAD, TS3A(0xE5592F)}, {0x8C, SATB_K_LOAD, TS3A(0xE55942)},
+    {0x8D, SATB_K_LOAD, TS3A(0xE5595B)}, {0x8E, SATB_K_LOAD, TS3A(0xE5596E)}, {0x8F, SATB_K_LOAD, TS3A(0xE55981)}, {0x90, SATB_K_LOAD, TS3A(0xE55994)},
+    {0xFE, SATB_K_LOAD, TS3A(0xE560CD)}, {0x105, SATB_K_LOAD, TS3A(0xE573D7)}, {0x106, SATB_K_LOAD, TS3A(0xE573D7)}, {0x107, SATB_K_LOAD, TS3A(0xE573D7)},
+    {0x108, SATB_K_LOAD, TS3A(0xE573D7)}, {0x109, SATB_K_LOAD, TS3A(0xE573D7)}, {0x10A, SATB_K_LOAD, TS3A(0xE573D7)}, {0x10B, SATB_K_LOAD, TS3A(0xE573D7)},
+    {0x10C, SATB_K_LOAD, TS3A(0xE573D7)}, {0x10D, SATB_K_LOAD, TS3A(0xE573D7)}, {0x10E, SATB_K_LOAD, TS3A(0xE573D7)}, {0x10F, SATB_K_LOAD, TS3A(0xE573D7)},
+    {0x111, SATB_K_LOAD, TS3A(0xE57382)}, {0x196, SATB_K_LOAD, TS3A(0xE572CE)}, {0x197, SATB_K_LOAD, TS3A(0xE57303)}, {0xEC, SATB_K_LOAD, TS3A(0xE549EB)}, {0xED, SATB_K_LOAD, TS3A(0xE549EB)},
+    {0xEE, SATB_K_LOAD, TS3A(0xE549EB)},
+    {0x1AB, SATB_K_SUPER, TS3A(0xE58A73), 0x24}, {0x1AD, SATB_K_SUPER, TS3A(0xE58AC2), 0x24}, {0x1AF, SATB_K_SUPER, TS3A(0xE58B18), 0x46},
+    {0x1B0, SATB_K_SUPER, TS3A(0xE58B71), 0xA6}, {0x1B3, SATB_K_SUPER, TS3A(0xE58BD6), 0x24}, {0x1B4, SATB_K_SUPER, TS3A(0xE58C0A), 0x75},
+    {0x1B6, SATB_K_SUPER, TS3A(0xE58C72), 0x24}, {0x1B7, SATB_K_SUPER, TS3A(0xE58C8F), 0x84}, {0x1BB, SATB_K_SUPER, TS3A(0xE58E37), 0x75},
+    {0x1BC, SATB_K_SUPER, TS3A(0xE58E98), 0x75}, {0x1BE, SATB_K_SUPER, TS3A(0xE58F55), 0x24}, {0x1BF, SATB_K_SUPER, TS3A(0xE58FC8), 0x15},
+    {0x1C0, SATB_K_SUPER, TS3A(0xE5904D), 0x39},
 };
 static const int SATB_NOPS = (int)(sizeof(kSatbOps) / sizeof(kSatbOps[0]));
 static int g_satbIcMapped, g_satbRtSwapped, g_satbColdN, g_satbNativeN;
-static void __cdecl SatbN2mRefused() { SatbWGiveUp(0xD8A8E0); }  // X03
+static void __cdecl SatbN2mRefused() { SatbWGiveUp(TS3A(0xD8A8E0)); }  // X03
 // [AutShadow] Satb=0/1/2. ini NULL: monohost / selftest set g_satbMode themselves. Returns the mode in force.
 static int SatbInstall(int mode) {
     Ts3nAutShadow& k = ts3native_autshadow;

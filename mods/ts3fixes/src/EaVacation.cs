@@ -112,7 +112,7 @@ namespace Ts3Fixes
         {
             public void DisposeHook()
             {
-                FreeVacationPickupSituation s = (object)this as FreeVacationPickupSituation;
+                FreeVacationPickupSituation s = (object)this as FreeVacationPickupSituation; // `this` is really one
                 if (s != null && !s.ParentSituationIsCancelled && s.Car != null && s.Adults != null && ParentsLeavingTownSituation.sAdultsInventories != null && ShortcutOn("vacexport"))
                     foreach (Sim a in s.Adults.ToArray())
                     {
@@ -160,7 +160,7 @@ namespace Ts3Fixes
         {
             public void StoreHook(Opportunity op)
             {
-                OpportunityHistory h = (object)this as OpportunityHistory;
+                OpportunityHistory h = (object)this as OpportunityHistory; // `this` is really one
                 if (h == null || op == null || !ShortcutOn("vacstoreguard")) { StoreOrig(op); return; }
                 if (h.GetCurrentOpportunity(op.OpportunityCategory) == null)
                 {
@@ -229,7 +229,7 @@ namespace Ts3Fixes
         {
             public void BackHook()
             {
-                ChildSituation<ParentsLeavingTownSituation> c = (object)this as ChildSituation<ParentsLeavingTownSituation>;
+                ChildSituation<ParentsLeavingTownSituation> c = (object)this as ChildSituation<ParentsLeavingTownSituation>; // `this` is really a ParentsAreBack
                 ParentsLeavingTownSituation s = c != null ? c.Parent : null;
                 if (s == null || ParentsLeavingTownSituation.sAdultsInventories == null || !ShortcutOn("vacreturnskip")) { BackOrig(); return; }
                 Household h = VacHousehold(s);
@@ -262,7 +262,7 @@ namespace Ts3Fixes
         {
             public void DeletedHook(Sim participant)
             {
-                ParentsLeavingTownSituation s = (object)this as ParentsLeavingTownSituation;
+                ParentsLeavingTownSituation s = (object)this as ParentsLeavingTownSituation; // `this` is really one
                 if (s == null || participant == null || s.Teens == null || !s.Teens.Contains(participant) || !s.AreParentsOutOfTown() || !ShortcutOn("vacteendelete"))
                 {
                     DeletedOrig(participant);
@@ -277,7 +277,7 @@ namespace Ts3Fixes
 
             public void CleanUpHook()
             {
-                ParentsLeavingTownSituation s = (object)this as ParentsLeavingTownSituation;
+                ParentsLeavingTownSituation s = (object)this as ParentsLeavingTownSituation; // `this` is really one
                 if (s != null && ParentsLeavingTownSituation.sAdultsInventories != null && !s.ParentsAreGettingPickedUp
                     && !sVacQuitting && !GameStates.IsTravelling && ShortcutOn("vacexitreturn"))
                     VacBringBackNow(s);

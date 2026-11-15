@@ -32,10 +32,10 @@ static DWORD g_asN = 64;
 static int g_asTop = 12;
 static const DWORD kAsBig = 64 * 1024;
 // code ranges (the host selftest points them at its own image)
-static DWORD g_asTextLo = 0x00401000, g_asTextHi = 0x00F95000, g_asExeBase = 0x00400000;
-static DWORD g_asWrapLo = 0x004E3D00, g_asWrapHi = 0x004E9000;  // EA allocator wrappers, cores and debug layer
+static DWORD g_asTextLo = TS3A(0x00401000), g_asTextHi = TS3A(0x00F95000), g_asExeBase = 0x00400000;
+static DWORD g_asWrapLo = TS3A(0x004E3D00), g_asWrapHi = TS3A(0x004E9000);  // EA allocator wrappers, cores and debug layer
 static DWORD g_asSelfLo, g_asSelfHi;  // our own image: our hooks' frames are never a site (docs/201 §12.1)
-static DWORD g_asHeapAt[4] = {0x004E69D0, 0x004E6A20, 0x004E6A70, 0x004E5920};  // Malloc, Memalign, Realloc, Free
+static DWORD g_asHeapAt[4] = {TS3A(0x004E69D0), TS3A(0x004E6A20), TS3A(0x004E6A70), TS3A(0x004E5920)};  // Malloc, Memalign, Realloc, Free
 static DWORD g_asSys[3][2];  // ntdll, kernelbase, kernel32: [base, end)
 
 enum { AS_HEAP, AS_VIRT, AS_MAP, AS_KINDS };

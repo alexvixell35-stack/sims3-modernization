@@ -20,7 +20,7 @@
 // Crash dump: XcptLog (ts3native.cpp, [Crash] Log=1, the default) calls CfOnFault for an access violation outside ts3native
 // (eip in TS3W.exe .text, first four only): fault and register addresses checked against the ring, the P5 state, the last 64 ring entries.
 
-static const DWORD kCfEraseAt = 0x005EE1E0, kCfClrAt = 0x007B0A00;
+static const DWORD kCfEraseAt = TS3A(0x005EE1E0), kCfClrAt = TS3A(0x007B0A00);
 static const u8 kCfErasePro[] = {0x8B, 0x54, 0x24, 0x0C, 0x53};        // mov edx,[esp+0Ch] ; push ebx
 static const u8 kCfClrPro[] = {0x83, 0x79, 0x30, 0x00, 0x74, 0x1E};    // cmp dword ptr [ecx+30h],0 ; je 0x7B0A24
 static DWORD g_cfVtLo, g_cfVtHi;     // TS3W.exe .rdata
@@ -94,7 +94,7 @@ static void __fastcall CfClrHook(u8* self, void* edx) {
 // before. Check only, before the game reads: parent vtable not vt_Object (0x1042CA8) or the building base (0x107396C) or
 // unreadable = 0 freed / garbage, refcount < 1 = 1, destroyed bit (+0x28 & 0x400000) = 2 (a child still parented to a destroyed,
 // still allocated object: the zombie window of docs/67 §11.3 A). First 16 lines per kind, then counted; prologue 9 bytes.
-static const DWORD kXgAt = 0x00958560;
+static const DWORD kXgAt = TS3A(0x00958560);
 static const u8 kXgPro[] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0, 0x0F, 0x57, 0xC0};  // push ebp; mov ebp,esp; and esp,-16; xorps xmm0,xmm0
 typedef void*(__fastcall* XgFn)(u8* self, void*, void* out);
 static XgFn g_xgOrig;
@@ -126,7 +126,7 @@ static void* __fastcall XgHook(u8* self, void* edx, void* out) {
         parent = *(const DWORD*)(self + 0x30);
         if (parent) {
             memcpy(w, (const void*)(uintptr_t)parent, sizeof(w));
-            if (w[0] != 0x01042CA8 && w[0] != 0x0107396C) kind = 0;
+            if (w[0] != TS3A(0x01042CA8) && w[0] != TS3A(0x0107396C)) kind = 0;
             else if ((LONG)w[1] < 1) kind = 1;
             else if (w[10] & 0x400000) kind = 2;
         }
@@ -141,7 +141,7 @@ static void* __fastcall XgHook(u8* self, void* edx, void* out) {
 // apply -> 0x82CBF0 -> 0x82C120 -> FindLotByIdTyped 0xC62D40). Check only, before the game reads: vtable outside TS3W.exe .rdata
 // or unreadable. The caller's esi is the parent node (recursive call) or the world manager (root call). 7-byte prologue, no
 // branch into it [verified E8/E9/Jcc scan]. Apex Radiance's ObjectLookupIndex reads this function: a patched prologue = SKIP.
-static const DWORD kStAt = 0x00C5FA60;
+static const DWORD kStAt = TS3A(0x00C5FA60);
 static const u8 kStPro[] = {0x53, 0x55, 0x56, 0x8B, 0x74, 0x24, 0x10};  // push ebx; push ebp; push esi; mov esi,[esp+10h]
 static void* g_stOrig;
 static volatile LONG g_stBad, g_stLogs;
@@ -181,13 +181,13 @@ static void CfOnFault(const EXCEPTION_POINTERS* x) {
     // an illegal instruction anywhere = a wild call into data (Crash M / O: eip in the heap), dumped with the fault at eip
     const DWORD eip = x->ContextRecord->Eip;
     // docs/539 §12.5: EA's outfit inventory 0x5E7690 (the 11-08 travel-save crash at 0x5E772C), Light or not, before the dump cap
-    if (eip == 0x005E772C || eip == 0x005E76DA) CtInvFault(x->ContextRecord);
+    if (eip == TS3A(0x005E772C) || eip == TS3A(0x005E76DA)) CtInvFault(x->ContextRecord);
     // docs/539 §13.5: the 11-08 release-smoke crash; §14: 0xD4B154 / any fault in the callback 0xD4B150 (11-09, from 0x5D82A0)
-    if ((eip >= 0x00D4B150 && eip <= 0x00D4B159) || eip == 0x005AF67E) CtRelFault(x->ContextRecord);
+    if ((eip >= TS3A(0x00D4B150) && eip <= TS3A(0x00D4B159)) || eip == TS3A(0x005AF67E)) CtRelFault(x->ContextRecord);
     // docs/539 §15: the 11-09 outfit save crash faults in MSVCR80's memcpy (0x408C3A / 0x5E621C on the stack), so any AV is searched
     if (x->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) CtOsFault(x->ContextRecord);
     const bool wild = XcptWild(x->ExceptionRecord->ExceptionCode);  // C0000096 too (2026-11-02 drain crash wrote no dump)
-    if (!g_cfOn || (!wild && (eip < 0x00401000 || eip >= 0x00F95000)) || InterlockedIncrement(&g_cfDumpN) > 4) return;
+    if (!g_cfOn || (!wild && (eip < TS3A(0x00401000) || eip >= TS3A(0x00F95000))) || InterlockedIncrement(&g_cfDumpN) > 4) return;
     Ts3nCounters& k = ts3native_counters;
     InterlockedIncrement(&k.cfDumps);
     const EXCEPTION_RECORD* r = x->ExceptionRecord;
@@ -256,8 +256,8 @@ static void CfOnFault(const EXCEPTION_POINTERS* x) {
 // Good path: 2-4 compares and a jmp (no counter, no store). Bad: CdBad logs (first 8 per site) the pointer, the parent object
 // with its vtable and first words, the ring entries that hold either address, and the code addresses on the stack (Apex
 // frames show as ApexRadiance.asi+off); then the game's code runs unchanged and faults as before.
-static DWORD g_cdModelFn = 0x0068EEF0, g_cdResFn = 0x006C93D0, g_cdFxBack = 0x0071D56B, g_cdBindFn = 0x0068E8F0;
-static const DWORD kCdModelCall = 0x006F6B5B, kCdResCall = 0x006FA2DB, kCdFxAt = 0x0071D562, kCdBindCall = 0x0068FDA4;
+static DWORD g_cdModelFn = TS3A(0x0068EEF0), g_cdResFn = TS3A(0x006C93D0), g_cdFxBack = TS3A(0x0071D56B), g_cdBindFn = TS3A(0x0068E8F0);
+static const DWORD kCdModelCall = TS3A(0x006F6B5B), kCdResCall = TS3A(0x006FA2DB), kCdFxAt = TS3A(0x0071D562), kCdBindCall = TS3A(0x0068FDA4);
 static const u8 kCdFxPro[] = {0x8B, 0x47, 0x04, 0x89, 0x86, 0x30, 0x31, 0x00, 0x00};  // mov eax,[edi+4] ; mov [esi+3130h],eax
 static volatile LONG g_cdLogs[4];
 static const char* const kCdSite[4] = {"model part draw 0x6F6250 (call 0x6F6B5B -> 0x68EEF0)",
@@ -267,7 +267,7 @@ static const char* const kCdSite[4] = {"model part draw 0x6F6250 (call 0x6F6B5B 
 
 // "module+0xoff" for a code address (TS3W.exe or any image), false = not executable image memory
 static bool CdCode(DWORD v, char* out, size_t cap) {
-    if (v >= 0x00401000 && v < 0x00F95000) { sprintf_s(out, cap, "0x%08lX", v); return true; }
+    if (v >= TS3A(0x00401000) && v < TS3A(0x00F95000)) { sprintf_s(out, cap, "0x%08lX", v); return true; }
     MEMORY_BASIC_INFORMATION m;
     if (v < 0x10000 || !VirtualQuery((void*)(uintptr_t)v, &m, sizeof(m)) || m.Type != MEM_IMAGE ||
         !(m.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)))
@@ -490,8 +490,8 @@ static void CeDump(const EXCEPTION_POINTERS* x) {
 // lists, then the draw). A remove between a gather and a draw leaves a bucket node pointing at a cleared entry.
 // The hooks swap the four vtable slots (no code bytes; Apex patches none of them), record into a 4096-entry ring and count:
 // removes since the last gather > 0 at a draw = a stale-list draw (first one per gather walks the buckets for dangling nodes).
-static const DWORD kFxSlotAdd = 0x00FFC850, kFxSlotRem = 0x00FFC854, kFxSlotGather = 0x00FFC290, kFxSlotDraw = 0x00FFC260;
-static DWORD g_fxAddFn = 0x0071FD20, g_fxRemFn = 0x0071FF10, g_fxGatherFn = 0x00722190, g_fxDrawFn = 0x0071D660;
+static const DWORD kFxSlotAdd = TS3A(0x00FFC850), kFxSlotRem = TS3A(0x00FFC854), kFxSlotGather = TS3A(0x00FFC290), kFxSlotDraw = TS3A(0x00FFC260);
+static DWORD g_fxAddFn = TS3A(0x0071FD20), g_fxRemFn = TS3A(0x0071FF10), g_fxGatherFn = TS3A(0x00722190), g_fxDrawFn = TS3A(0x0071D660);
 enum FxTag : u8 { FX_NONE, FX_ADD, FX_REM, FX_GATHER, FX_STALE, FX_NTAGS };
 static const char* const kFxTag[FX_NTAGS] = {"?", "add", "remove", "gather", "stale-draw"};
 struct FxEnt {
@@ -525,7 +525,7 @@ static const char* FxThr(DWORD tid) {
     if (g_rtSimTidSlot && Readable(g_rtSimTidSlot, 4) && *g_rtSimTidSlot && tid == *g_rtSimTidSlot) return "sim";
     return g_workerTid && tid == g_workerTid ? "route worker" : "other";
 }
-static bool FxIsCode(DWORD v) { return (v >= 0x00401000 && v < 0x00F95000) || (v >= g_fxApexLo && v < g_fxApexHi); }
+static bool FxIsCode(DWORD v) { return (v >= TS3A(0x00401000) && v < TS3A(0x00F95000)) || (v >= g_fxApexLo && v < g_fxApexHi); }
 // sp = address of our return address: code[0] = the caller, code[1] = the next TS3W / Apex code word above it
 static void FxCodes(const DWORD* sp, DWORD* code) {
     code[0] = sp[0], code[1] = 0;
@@ -749,9 +749,9 @@ static void FxInstall() {
 // full release 0x6DCC93 / 0x6DCD23 / 0x6DCD34 / 0x6DD353 (ring), node update 0x6F7B5D (ring only when +8 changes; a 4096-slot
 // last-update table always). The DRAW BAD of the resource site (§8 site 1) prints the handle, the node's queue state and the
 // newest ring events and node update of that handle.
-static const DWORD kOrUnloadCall = 0x006F734E, kOrLoadCall = 0x006F7331, kOrUpdCall = 0x006F7B5D;
-static const DWORD kOrRelCall[4] = {0x006DCC93, 0x006DCD23, 0x006DCD34, 0x006DD353};
-static DWORD g_orUnloadFn = 0x006DBCE0, g_orLoadFn = 0x006DCD90, g_orRelFn = 0x006DBB50, g_orUpdFn = 0x006DC5B0;
+static const DWORD kOrUnloadCall = TS3A(0x006F734E), kOrLoadCall = TS3A(0x006F7331), kOrUpdCall = TS3A(0x006F7B5D);
+static const DWORD kOrRelCall[4] = {TS3A(0x006DCC93), TS3A(0x006DCD23), TS3A(0x006DCD34), TS3A(0x006DD353)};
+static DWORD g_orUnloadFn = TS3A(0x006DBCE0), g_orLoadFn = TS3A(0x006DCD90), g_orRelFn = TS3A(0x006DBB50), g_orUpdFn = TS3A(0x006DC5B0);
 enum OrTag : u8 { OR_NONE, OR_UNLOAD, OR_LOAD, OR_RELEASE, OR_SET, OR_NTAGS };
 static const char* const kOrTag[OR_NTAGS] = {"?", "lod-unload", "load-request", "release", "lod-set"};
 struct OrEnt {
@@ -918,7 +918,7 @@ static void OrInstall() {
 // the releases at 0x734532 (D slot 8) and 0x734409 (O slot 0xC) take no lock [verified disassembly]. Record only: every release
 // (index, refcount before, database from the caller's esi, D lock held by this thread, thread, caller) into a ring, and a check
 // before Contains reads (bucket array 0 / count 0 / refcount < 1) that logs the index's ring history; then the game's code runs.
-static const DWORD kDiRelAt = 0x0072DB80, kDiHasAt = 0x0072DBD0;
+static const DWORD kDiRelAt = TS3A(0x0072DB80), kDiHasAt = TS3A(0x0072DBD0);
 static const u8 kDiRelPro[] = {0x56, 0x8B, 0xF1, 0x57, 0x8D, 0x46, 0x20};              // push esi; mov esi,ecx; push edi; lea eax,[esi+20h]
 static const u8 kDiHasPro[] = {0x8B, 0x41, 0x08, 0x8B, 0x51, 0x04, 0x83, 0xEC, 0x08};  // mov eax,[ecx+8]; mov edx,[ecx+4]; sub esp,8
 struct DiEnt {
@@ -940,7 +940,7 @@ static DWORD DiDb(DWORD esi, LONG* held) {
     DWORD d = 0;
     __try {
         const DWORD vt = *(const DWORD*)(uintptr_t)esi;
-        d = vt == 0x00FFE078 ? esi : vt == 0x00FFE0D0 ? esi + 8 : 0;
+        d = vt == TS3A(0x00FFE078) ? esi : vt == TS3A(0x00FFE0D0) ? esi + 8 : 0;
         if (d && *(const u8*)(uintptr_t)(d + 0x40 + 0x24))  // EA lock kind byte: nonzero = CRITICAL_SECTION at +0
             *held = (DWORD)(uintptr_t)((const CRITICAL_SECTION*)(uintptr_t)(d + 0x40))->OwningThread == GetCurrentThreadId();
     } __except (EXCEPTION_EXECUTE_HANDLER) { d = 0; }
@@ -1066,8 +1066,8 @@ static CfClrFn CfClrTramp() {
     u8* t = TrampAlloc(32, "crash forensics guard 0x7B0A00");
     if (!t) return NULL;
     memcpy(t, kCfClrPro, 4);                                                  // cmp dword ptr [ecx+30h],0
-    t[4] = 0x0F, t[5] = 0x84, *(LONG*)(t + 6) = (LONG)(0x007B0A24 - ((DWORD)(uintptr_t)t + 10));  // je 0x7B0A24
-    t[10] = 0xE9, *(LONG*)(t + 11) = (LONG)(0x007B0A06 - ((DWORD)(uintptr_t)t + 15));            // jmp 0x7B0A06
+    t[4] = 0x0F, t[5] = 0x84, *(LONG*)(t + 6) = (LONG)(TS3A(0x007B0A24) - ((DWORD)(uintptr_t)t + 10));  // je 0x7B0A24
+    t[10] = 0xE9, *(LONG*)(t + 11) = (LONG)(TS3A(0x007B0A06) - ((DWORD)(uintptr_t)t + 15));            // jmp 0x7B0A06
     return (CfClrFn)t;
 }
 static bool CfJmp(DWORD at, const u8* pro, size_t len, void* hook) {

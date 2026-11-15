@@ -25,22 +25,35 @@
 #error define MC_CTR (the struct holding the mc* counters) before including mintcall.cpp
 #endif
 
-static const DWORD MC_TABLE = 0x00E59880, MC_HEAD = 0x00E544D5, MC_NOP = 0x1C1;
+// inline asm takes no constexpr, so the three addresses it holds are literals per build; the asserts tie them to the table
+#ifdef TS3A_TABLE
+#define MC_ASM_TABLE 0x00E598D0
+#define MC_ASM_REMOTING 0x0127B240
+#define MC_ASM_FORCEJIT 0x00E563CD
+#define MC_FNV(steam, ea) ea
+#else
+#define MC_ASM_TABLE 0x00E59880
+#define MC_ASM_REMOTING 0x01220EC0
+#define MC_ASM_FORCEJIT 0x00E5637D
+#define MC_FNV(steam, ea) steam
+#endif
+static_assert(MC_ASM_TABLE == TS3A(0x00E59880) && MC_ASM_REMOTING == TS3A(0x01220EC0) && MC_ASM_FORCEJIT == TS3A(0x00E5637D), "mintcall asm literals");
+static const DWORD MC_TABLE = TS3A(0x00E59880), MC_HEAD = TS3A(0x00E544D5), MC_NOP = 0x1C1;
 static const DWORD MC_OPS[4] = {0x06, 0x07, 0xEA, 0xEC};
-static const DWORD MC_EA[4] = {0x00E591FF, 0x00E59236, 0x00E5493E, 0x00E549EB};
+static const DWORD MC_EA[4] = {TS3A(0x00E591FF), TS3A(0x00E59236), TS3A(0x00E5493E), TS3A(0x00E549EB)};
 // EA code our handlers model (FNV-1a over the Steam 1.67 bytes): any other hook in them (ArenaTail TailWatch 0xE563B2,
 // monohost MINT=count 0xE54B0B, ...) changes what the stock path does, so the fast path refuses to install.
 // MonoPatcher 0.3.0 (docs/68 §1.3) is accepted: its DllMain patch 0xE59218 `jbe` -> `90 E9` only drops the "ret: more
 // values on stack" print (our ret bails on that case and EA's then returns either way), and its on-demand ForceJIT
 // (0xE5637D `jne` -> `90 90`: transform on every call) is tested per call (byte 0x75 expected): calls go to EA then.
 static const struct { DWORD at, n, fnv, fnv2; } kMcCode[5] = {
-    {0x00E5493E, 0xAD, 0x51DF97BD, 0},           // call / con.call
-    {0x00E549EB, 0x160, 0x65BD44CB, 0},          // callvirt family
-    {0x00E56287, 0x1C2, 0x3D55ED25, 0},          // common push
-    {0x00E591FF, 0x60, 0x41B1FFB3, 0x6B9C5C8D},  // ret / ret.void / ret.vt (2nd: MonoPatcher's 0xE59218 patch)
-    {0x00E543C7, 0x127, 0x86DC9168, 0},          // frame return + dispatch head
+    {TS3A(0x00E5493E), 0xAD, MC_FNV(0x51DF97BD, 0xFF2CE6AE), 0},           // call / con.call
+    {TS3A(0x00E549EB), 0x160, MC_FNV(0x65BD44CB, 0x402BED6F), 0},          // callvirt family
+    {TS3A(0x00E56287), 0x1C2, MC_FNV(0x3D55ED25, 0x6B91BBD0), 0},          // common push
+    {TS3A(0x00E591FF), 0x60, MC_FNV(0x41B1FFB3, 0x62AC1218), MC_FNV(0x6B9C5C8D, 0x5B810F46)},  // ret / ret.void / ret.vt (2nd: MonoPatcher's 0xE59218 patch)
+    {TS3A(0x00E543C7), 0x127, MC_FNV(0x86DC9168, 0x8C91C7A8), 0},          // frame return + dispatch head
 };
-static DWORD g_mcEaRet = 0x00E591FF, g_mcEaRetVoid = 0x00E59236, g_mcEaCall = 0x00E5493E, g_mcEaCallvirt = 0x00E549EB;
+static DWORD g_mcEaRet = TS3A(0x00E591FF), g_mcEaRetVoid = TS3A(0x00E59236), g_mcEaCall = TS3A(0x00E5493E), g_mcEaCallvirt = TS3A(0x00E549EB);
 static DWORD g_mcHead = MC_HEAD;
 static int g_mcVerify;          // verify mode installed (all entries -> McVCatch)
 static void* g_mcOrig[MC_NOP];  // verify: what each entry pointed at (our four handlers for our ops)
@@ -127,7 +140,7 @@ static __declspec(naked) void McPush() {
         movzx edx, ax
         cmp edx, 0x1C0
         ja p_head
-        jmp dword ptr [edx * 4 + 0x00E59880]
+        jmp dword ptr [edx * 4 + MC_ASM_TABLE]
     p_head:
         jmp dword ptr [g_mcHead]
     p_post:
@@ -175,13 +188,13 @@ static __declspec(naked) void McCall() {  // 0xEA
         test eax, eax
         jz c_slow
         mov eax, [eax]
-        cmp eax, dword ptr ds:[0x01220EC0]
+        cmp eax, dword ptr ds:[MC_ASM_REMOTING]
         je c_slow
     c_this:
         mov [ebp - 0x48], ecx           // scratch slots EA's handler writes first on every path
         mov [ebp - 0x50], edx
 #ifndef MC_NOFJ
-        cmp byte ptr ds:[0x00E5637D], 0x75  // MonoPatcher ForceJIT active: EA transforms on every call
+        cmp byte ptr ds:[MC_ASM_FORCEJIT], 0x75  // MonoPatcher ForceJIT active: EA transforms on every call
         jne c_slow
 #endif
         test dword ptr [ebx + 0x44], 0x100  // transformed
@@ -263,7 +276,7 @@ static __declspec(naked) void McCallvirt() {  // 0xEC (con.callvirt / con.boxcal
         jnz v_slow
         mov ebx, [eax + 4]
 #ifndef MC_NOFJ
-        cmp byte ptr ds:[0x00E5637D], 0x75
+        cmp byte ptr ds:[MC_ASM_FORCEJIT], 0x75
         jne v_slow
 #endif
         test dword ptr [ebx + 0x44], 0x100
@@ -471,7 +484,7 @@ static __declspec(naked) void McRetTail() {
         movzx edx, ax
         cmp edx, 0x1C0
         ja t_head
-        jmp dword ptr [edx * 4 + 0x00E59880]
+        jmp dword ptr [edx * 4 + MC_ASM_TABLE]
     t_head:
         jmp dword ptr [g_mcHead]
     t_post:

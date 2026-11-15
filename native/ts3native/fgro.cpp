@@ -18,7 +18,7 @@
 // mode 0) calls the game's 0x631F10 (today's wait). Shadow (no job): the game's call, then the clone, compared.
 // Counters v100 (+0x42C8): fgMode (+0x42CC, --ab placementro), fgShadow (+0x42D0, --ab placementroshadow).
 
-static const DWORD FG_SITE = 0x00635013, FG_TARGET = 0x00631F10;
+static const DWORD FG_SITE = TS3A(0x00635013), FG_TARGET = TS3A(0x00631F10);
 typedef DWORD(__fastcall* FgFn)(u8* p, void* edx, const u8* ctx, const float* pt, float r, void* set, DWORD mode);  // ret 0x14
 static FgFn g_fgOrig = (FgFn)(uintptr_t)FG_TARGET;
 typedef int (*FgQueryFn)(SrCtx* c, const u8* p, DWORD lo, DWORD hi, const SrPt& pt, float r, const u8* rec);

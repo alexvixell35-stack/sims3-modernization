@@ -60,7 +60,7 @@ if (process.argv.includes('--self-check')) {
   assert.equal(onArmViolations(r.arms), 0, 'an unseen townie cut on an on arm is the pass');
   log.push('routefail job: route 4, cut (KindDeadlines, mask 2), kind own Plan deadline 50 ms, follower AA, plan, seen');
   assert.equal(onArmViolations(armCuts(log).arms), 1, 'a household cut on an on arm is a fail');
-  const ceil = (id: string, ms: number, flag: string) => `2026 routefail job: route 5, cut (KdSeenCeilMs, mask 2), kind own Plan deadline ${ms} ms, follower ${id}, plan, ${flag}`;
+  const ceil = (id: string, ms: number, flag: string) => `2026 routefail job: route 5, PetFollowSimAround target Sim, cut (KdSeenCeilMs, mask 2), kind own Plan deadline ${ms} ms, follower ${id}, plan, ${flag}`;
   const on = (...l: string[]) => onArmViolations(armCuts(['gohere start: cmd 1 X follower AA, household H active selected', 'KdExemptSeen switch now 1', ...l]).arms);
   assert.equal(on(ceil('BB', 2000, 'seen npc')), 0, 'a seen NPC cut at its 2 s ceiling is allowed');
   assert.equal(on(ceil('AA', 10000, 'seen')), 0, 'a household runaway at the 10 s ceiling is allowed');

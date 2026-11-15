@@ -15,13 +15,14 @@ namespace Ts3Fixes
     // docs/188 (ts3native [UserDiag]): at every world load a few lines for ts3native.log, so a player's log answers the
     // first triage questions: this mod's version and settings in effect, world size, the script assemblies loaded.
     // Transport: ts3native's text channel, Route.GetOption2 with RouteOption2 bits 63 + 58 + 57 + 56 (top byte 0x87; 0x86 is the stuck-check PROBE mark), op in
-    // bits 48-55 (0 begin, 1 four ASCII bytes in bits 0-31, 2 end). Without ts3native (or with [UserDiag] off) the first
+    // bits 48-55 (0 begin, 1 four ASCII bytes in bits 0-31, 2 end), bits 32-47 free for an op's second value (the scope ops'
+    // routefail interaction id, RouteFailLog.cs RflIaId). Without ts3native (or with [UserDiag] off) the first
     // message is answered false and nothing more is sent. Logging only: reads, never writes game state.
     public static partial class Fixes
     {
         const ulong kDiagBits = 0x8700000000000000UL;
 
-        static bool DiagSend(int op, uint v) { return sYieldProbe.GetOption2((ScriptCore.Route.RouteOption2)(kDiagBits | (ulong)(uint)op << 48 | v)); }
+        static bool DiagSend(int op, uint v, ushort hi = 0) { return sYieldProbe.GetOption2((ScriptCore.Route.RouteOption2)(kDiagBits | (ulong)(uint)op << 48 | (ulong)hi << 32 | v)); }
 
         // One log line (ASCII; anything else becomes '?' on the native side), at most 470 characters.
         static bool DiagLine(string s)

@@ -71,7 +71,7 @@ namespace Ts3Fixes
         }
         static bool SimUnseenBody(Sim s)
         {
-            if (s == null || s.IsSelectable || s.Household == Household.ActiveHousehold) return false;
+            if (IsPlayerSim(s)) return false;  // household rule (PlayerSims.cs): never unseen
             int b = UtbBits(s);  // docs/227 §6 central table
             if (b >= 0) return sUtbCheck ? UtbCompare(UtbUnseen(b), FarFromViewers(s.Position) && !UcOnScreen(s)) : UtbUnseen(b);
             if (!FarFromViewers(s.Position)) return false;

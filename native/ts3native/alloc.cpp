@@ -18,7 +18,7 @@
 // uses too), so realloc, memalign, heap walks and the debug layer see exactly what they would see for a live allocation.
 // No memory is reserved: cached chunks are already-committed heap memory, bounded by ThreadKB per thread and MaxMB in total.
 
-static const DWORD EA_MALLOC = 0x004E69D0, EA_MEMALIGN = 0x004E6A20, EA_FREE = 0x004E5920, EA_SHUTDOWN = 0x004E5CB0;
+static const DWORD EA_MALLOC = TS3A(0x004E69D0), EA_MEMALIGN = TS3A(0x004E6A20), EA_FREE = TS3A(0x004E5920), EA_SHUTDOWN = TS3A(0x004E5CB0);
 // push esi ; push edi ; mov edi,ecx ; mov esi,[edi+4E4h]   (same 10 bytes at Malloc, Memalign and Free)
 static const u8 kEaLockedPrologue[] = {0x56, 0x57, 0x8B, 0xF9, 0x8B, 0xB7, 0xE4, 0x04, 0x00, 0x00};
 // push ebp ; mov ebp,esp ; sub esp,14h

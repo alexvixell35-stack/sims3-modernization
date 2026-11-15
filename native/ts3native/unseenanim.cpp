@@ -25,7 +25,7 @@
 // Non-Sim actors (Objects / ObjStats, counters v150 ao*): see the Objects block below AaHoldWhy.
 typedef void(__fastcall* AaPoseFn)(void* actor, void* edx, float dt);
 typedef void(__fastcall* AaPassFn)(void* list, void* edx, float dt);
-static const DWORD AA_PASS_CALL = 0x00D81C73, AA_PASS = 0x00571B90, AA_POSE_CALL = 0x00571C3C, AA_POSE = 0x00940430;
+static const DWORD AA_PASS_CALL = TS3A(0x00D81C73), AA_PASS = TS3A(0x00571B90), AA_POSE_CALL = TS3A(0x00571C3C), AA_POSE = TS3A(0x00940430);
 static AaPoseFn g_aaPoseOrig = (AaPoseFn)(uintptr_t)AA_POSE;
 static AaPassFn g_aaPassOrig = (AaPassFn)(uintptr_t)AA_PASS;
 enum { AA_VMAX = 64, AA_SLOTS = 4096 };  // 4096: non-Sim actors share the table since Objects (~480 per pass on BP)
@@ -127,7 +127,7 @@ static int AaHoldWhy(bool parented, const float* pos, const AaSlot* s, bool mine
 // only with a Sim at them (I-419-3). A failed or capped walk holds every object.
 // Objects are classed by UnObjClass (table row or the 1 m rule), then once more with an ObjRadiusM sphere on screen (big
 // models whose origin is off screen stay exact).
-static const DWORD* g_aaBitSacs = (const DWORD*)(uintptr_t)0x011E90F0;
+static const DWORD* g_aaBitSacs = (const DWORD*)(uintptr_t)TS3A(0x011E90F0);
 enum { AO_KINDS = 5, AO_BKT = 8, AO_VT = 64, AO_AMAX = 1024, AO_CELLS = 256, AO_WALK = 4096 };
 enum { AOK_NOCLASS, AOK_AGENT, AOK_PARENT, AOK_SACS, AOK_PLAIN };
 enum { AOH_PARENT, AOH_SACS, AOH_AGENT, AOH_NEARVIS, AOH_VIEWER, AOH_SLOT, AOH_CAP, AOH_NOCLASS, AOH_N, AOH_SEEN = AOH_N };
@@ -445,7 +445,7 @@ static void AaDrainFaultDump(const CONTEXT* c) {
     static volatile LONG once;
     DWORD ret = 0, arg = 0;
     __try { ret = *(const DWORD*)(uintptr_t)c->Esp, arg = *(const DWORD*)(uintptr_t)(c->Esp + 4); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
-    if (ret != 0x0059386B && ret != 0x00593880) return;  // 0x593880: the same destroy for a chunk's last message
+    if (ret != TS3A(0x0059386B) && ret != TS3A(0x00593880)) return;  // 0x593880: the same destroy for a chunk's last message
     if (InterlockedIncrement(&once) > 2) return;
     const DWORD msg = arg - 0x10;
     Log("  drain fault: render message destroy in FrameDb_DrainEvents (ret 0x%08lX), message 0x%08lX, manager (ecx) 0x%08lX, "

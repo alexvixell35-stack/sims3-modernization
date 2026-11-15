@@ -45,7 +45,7 @@
 // ghosts (LotLevel_SaveFootprints writes every map entry). One pass over P's footprint map inside the load screen, from the
 // ts3fixes "world:" line (OnWorldLoadFinished, all lots loaded, docs/38), never during play. Failed read = entry kept.
 
-static const DWORD DISC_ADD = 0x00834370, DISC_REMOVE = 0x00834860;
+static const DWORD DISC_ADD = TS3A(0x00834370), DISC_REMOVE = TS3A(0x00834860);
 static const u8 kDiscAddPro[] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0};  // push ebp; mov ebp,esp; and esp,-16
 static const u8 kDiscRemovePro[] = {0x83, 0xEC, 0x14, 0x53, 0x55};     // sub esp,14h; push ebx; push ebp
 typedef u8(__fastcall* DiscAddFn)(void* world, void* edx, void* obj, void* points, int high, int allow, int placement);
@@ -58,28 +58,28 @@ typedef void*(__cdecl* SvcFn)();
 // [verified disassembly 2026-10-17; 0.12.0 declared two arguments and crashed the game: the callee popped 4 bytes too many]
 typedef u8(__fastcall* FindRefFn)(void* svc, void* edx, DWORD idLo, DWORD idHi, void** out);
 typedef void(__fastcall* ReleaseFn)(void** pp, void* edx);                            // releases *pp
-static SvcFn g_objSvc = (SvcFn)(uintptr_t)0x00938B50;
-static FindRefFn g_findRef = (FindRefFn)(uintptr_t)0x009395A0;
-static ReleaseFn g_objRelease = (ReleaseFn)(uintptr_t)0x007460F0;
+static SvcFn g_objSvc = (SvcFn)(uintptr_t)TS3A(0x00938B50);
+static FindRefFn g_findRef = (FindRefFn)(uintptr_t)TS3A(0x009395A0);
+static ReleaseFn g_objRelease = (ReleaseFn)(uintptr_t)TS3A(0x007460F0);
 // D-X: LotRouting_RemoveObjectFootprints 0x635700: thiscall(P = [world+0x95C]; lotLo, lotHi, idLo, idHi), ret 0x10, al = a
 // footprint was removed; lot 0 walks every lot [verified disassembly 0x635700..0x635916, Remove's call 0x834957..0x834964]
 typedef u8(__fastcall* LotRemoveFn)(void* p, void* edx, DWORD lotLo, DWORD lotHi, DWORD idLo, DWORD idHi);
 // lock-key map find 0x82AD60: thiscall(map = world+0x8B8; DWORD out[2], const DWORD* id), ret 8; out[0] = node, or the end
 // sentinel buckets[bucketCount] (map+4, map+8) on a miss [verified disassembly 0x82AD60..0x82ADC5, Remove 0x8348F4..0x834918]
 typedef void(__fastcall* KeyFindFn)(void* map, void* edx, DWORD* out, const DWORD* id);
-static LotRemoveFn g_lotRemove = (LotRemoveFn)(uintptr_t)0x00635700;
-static KeyFindFn g_keyFind = (KeyFindFn)(uintptr_t)0x0082AD60;
+static LotRemoveFn g_lotRemove = (LotRemoveFn)(uintptr_t)TS3A(0x00635700);
+static KeyFindFn g_keyFind = (KeyFindFn)(uintptr_t)TS3A(0x0082AD60);
 // docs/89 §16: UpdateObjectLot's body 0x82C120 thiscall(world; idLo, idHi, lotLo, lotHi), ret 0x10, al = removed; takes no
 // object: the lot it is given, the lock-key map branch, world lot -> 0, portals 0x6399E0 [verified 0x82C120..0x82C1F8,
 // 0x82B450..0x82B57E]. Its 0x82A0C0 call skips a NULL object [verified 0x82A0D8]. The lot: 0x8297C0 cdecl(obj), edx:eax [verified].
 typedef u8(__fastcall* UolCoreFn)(void* world, void* edx, DWORD idLo, DWORD idHi, DWORD lotLo, DWORD lotHi);
 typedef unsigned __int64(__cdecl* ObjLotFn)(const void* obj);
-static UolCoreFn g_uolCore = (UolCoreFn)(uintptr_t)0x0082C120;
-static ObjLotFn g_objLot = (ObjLotFn)(uintptr_t)0x008297C0;
+static UolCoreFn g_uolCore = (UolCoreFn)(uintptr_t)TS3A(0x0082C120);
+static ObjLotFn g_objLot = (ObjLotFn)(uintptr_t)TS3A(0x008297C0);
 
 // design U: thiscall(world; obj, enable, force, arg), ret 0x10 [verified disassembly 0x833560..0x833675]; the early out
 // 0x82A720 thiscall(world; obj), ret 4, al [verified 0x82A720..0x82A778]
-static const DWORD USF_FN = 0x00833560, USF_SHOULD = 0x0082A720;
+static const DWORD USF_FN = TS3A(0x00833560), USF_SHOULD = TS3A(0x0082A720);
 static const u8 kUsfPro[] = {0x83, 0xEC, 0x10, 0x80, 0x7C, 0x24, 0x1C, 0x00};  // sub esp,10h; cmp byte [esp+1Ch],0
 typedef void(__fastcall* UsfFn)(void* world, void* edx, void* obj, DWORD enable, DWORD force, DWORD arg);
 typedef u8(__fastcall* UsfShouldFn)(void* world, void* edx, void* obj);
@@ -89,14 +89,14 @@ static UsfShouldFn g_usfShould = (UsfShouldFn)(uintptr_t)USF_SHOULD;
 // design U phase 2 (docs/89 §12): RoutingWorld_ObjectFootprintFromTool 0x8334A0 and RoutingWorld_UpdateObjectLot 0x82D280,
 // both thiscall(world; obj), ret 4, void (their callers 0x94713D, 0xB585A1, 0x9462C9, 0x946F99 ignore eax) [verified
 // disassembly 0x8334A0..0x833558, 0x82D280..0x82D2CE]
-static const DWORD FT_FN = 0x008334A0, UOL_FN = 0x0082D280;
+static const DWORD FT_FN = TS3A(0x008334A0), UOL_FN = TS3A(0x0082D280);
 static const u8 kFtPro[] = {0x83, 0xEC, 0x10, 0x56, 0x57};                                 // sub esp,10h; push esi; push edi
 static const u8 kUolPro[] = {0x55, 0x56, 0x8B, 0xF1, 0x8D, 0xAE, 0x18, 0x09, 0x00, 0x00};  // push ebp; push esi; mov esi,ecx; lea ebp,[esi+918h]
 typedef void(__fastcall* Fp2Fn)(void* world, void* edx, void* obj);
 static Fp2Fn g_ftOrig, g_uolOrig;
 // the private-footprint ICs' calls, flushed first for an object with records: IC 0x754610 -> RemoveFootprintLocked 0x82A0C0
 // thiscall(world; obj, flag), ret 8, al; IC 0x75DCF0 -> 0x831BA0 thiscall(world; obj, points, flag), ret 0xC, al [verified]
-static const DWORD PFR_SITE = 0x0075465E, PFR_FN = 0x0082A0C0, PFA_SITE = 0x0075DE1A, PFA_FN = 0x00831BA0;
+static const DWORD PFR_SITE = TS3A(0x0075465E), PFR_FN = TS3A(0x0082A0C0), PFA_SITE = TS3A(0x0075DE1A), PFA_FN = TS3A(0x00831BA0);
 typedef u8(__fastcall* PfRemoveFn)(void* world, void* edx, void* obj, DWORD flag);
 typedef u8(__fastcall* PfAddFn)(void* world, void* edx, void* obj, void* points, DWORD flag);
 static PfRemoveFn g_pfRemove = (PfRemoveFn)(uintptr_t)PFR_FN;
@@ -104,7 +104,7 @@ static PfAddFn g_pfAdd = (PfAddFn)(uintptr_t)PFA_FN;
 // docs/89 §14: the private footprint's lot key, 0x7CFA30 cdecl(2, 0x19, idLo, idHi) -> edx:eax, pure shifts and ors [verified
 // 0x7CFA30..0x7CFA6B]; 0x82A0C0 removes it from the object's lot with 0x635700 [verified 0x82A0F6..0x82A133]
 typedef unsigned __int64(__cdecl* PfKeyFn)(int kind, int type, DWORD idLo, DWORD idHi);
-static PfKeyFn g_pfKey = (PfKeyFn)(uintptr_t)0x007CFA30;
+static PfKeyFn g_pfKey = (PfKeyFn)(uintptr_t)TS3A(0x007CFA30);
 
 // flags kept as whole dwords; lock: the world it was made in; obj: the object at defer time (D-X pointer check, no reference)
 // usf: a design U record (high = enable byte, allow = arg); fp2: a phase 2 record (1 FromTool, high = world +0x978 at the
@@ -650,7 +650,7 @@ static void __fastcall UolHook(u8* world, void*, u8* obj) { Fp2Hook(2, world, ob
 // takes +0x918 next anyway, so the job wait is not new. shortcut: with +0x918 held here or inside a job callback there is no
 // flush (fp2lrOrderMiss, expected 0, and for a queued Add of the object, which stays behind), and the late remove takes this
 // insert; make the record redo the insert if it ever counts.
-static const DWORD UOF_FN = 0x00833680, UOF_SITE1 = 0x009462D4, UOF_SITE2 = 0x0094630A;
+static const DWORD UOF_FN = TS3A(0x00833680), UOF_SITE1 = TS3A(0x009462D4), UOF_SITE2 = TS3A(0x0094630A);
 typedef void(__fastcall* UofFn)(void* world, void* edx, void* obj);
 static UofFn g_uof = (UofFn)(uintptr_t)UOF_FN;
 // site (docs/247 §13.4 C, counters v192 lrs*): 0 = the call at UOF_SITE1, 1 = UOF_SITE2 (event 9's 0x946160)
@@ -780,6 +780,19 @@ static void InstallPrivateFpDefer(const wchar_t* ini) {
     Log("OK   private footprint deferral (IC RemovePrivateFootprint 0x75465E -> 0x82A0C0; docs/89 §14)");
 }
 
+#ifdef TS3N_EA_PORT
+// past the detour bytes, inside UpdateObjectLot: a direct call to the target (v0.2.10 EA, 55a098af; EA build + selftest only)
+static bool UolCalls(DWORD fn, DWORD target) {
+    const DWORD from = fn + 0x10, to = fn + 0x50;
+    if (!Readable((const void*)(uintptr_t)from, to - from + 5)) return false;
+    for (DWORD a = from; a < to; a++) {
+        const u8* p = (const u8*)(uintptr_t)a;
+        if (p[0] == 0xE8 && (DWORD)(a + 5 + *(const LONG*)(p + 1)) == target) return true;
+    }
+    return false;
+}
+#endif
+
 static void InstallFootprintDefer2(const wchar_t* ini) {
     Ts3nCounters& k = ts3native_counters;
     const int v = GetPrivateProfileIntW(L"Discourage", L"DeferFootprint2", 0, ini);  // 2 = installed, switch off (order rule only)
@@ -794,6 +807,14 @@ static void InstallFootprintDefer2(const wchar_t* ini) {
     k.fp2Mode = v == 2 ? 0 : 1;
     Log("OK   footprint deferral phase 2 (0x8334A0 FromTool, 0x82D280 UpdateObjectLot; docs/89 §12; mode %ld)", k.fp2Mode);
     if (!GetPrivateProfileIntW(L"Discourage", L"LostRemovalFix", 1, ini)) { Log("lost removal fix off (LostRemovalFix=0)"); return; }
+#ifdef TS3A_TABLE
+    // no byte check covers g_uolCore and g_objLot, so a wrong table row on another build must stop here: UpdateObjectLot calls both
+    // [verified Steam 0x82D2B0, 0x82D2BE]; the Steam asi has no such check (the fold keeps it identical)
+    if (!UolCalls(UOL_FN, (DWORD)(uintptr_t)g_objLot) || !UolCalls(UOL_FN, (DWORD)(uintptr_t)g_uolCore)) {
+        Log("FAIL lost removal fix: UpdateObjectLot at 0x%08X does not call 0x%08X and 0x%08X, fix off", UOL_FN, (DWORD)(uintptr_t)g_objLot, (DWORD)(uintptr_t)g_uolCore);
+        return;
+    }
+#endif
     static const CallSite kUof[] = {{UOF_SITE1, UOF_FN, (void*)UofSite}, {UOF_SITE2, UOF_FN, (void*)UofSite}};
     if (!PatchCalls("0x833680 order sites (docs/89 §16)", kUof, 2)) { Log("FAIL lost removal fix: order sites"); return; }
     k.fp2lrReady = 1;
@@ -810,8 +831,8 @@ static void InstallFootprintDefer2(const wchar_t* ini) {
 // under the id. It decides nothing in count-only mode; whether it is tight is a measurement: count ~0 on a clean save, the made
 // ghost's id on a made ghost. Keys of object shape outside the signature only land in the per-class line. Any failed read keeps
 // the entry.
-static const DWORD kFpgFpClass = 0x00FEB848;
-static u8* const* g_fpgWorldSlot = (u8* const*)(uintptr_t)0x011D9128;  // RoutingWorld_Get 0x836200: at load g_rgLock is not known yet
+static const DWORD kFpgFpClass = TS3A(0x00FEB848);
+static u8* const* g_fpgWorldSlot = (u8* const*)(uintptr_t)TS3A(0x011D9128);  // RoutingWorld_Get 0x836200: at load g_rgLock is not known yet
 struct FpgId { DWORD lo, hi, flags; const void* q; };
 struct FpgClass { DWORD cls; LONG n; };
 static const int kFpgMax = 1024;  // shortcut: more ghosts than this wait for the next load

@@ -17,7 +17,7 @@ namespace Ts3Fixes
     // routefaillog (docs/226, player report: a child's Show Off Badges social fails with "cannot go there"). Logging only, on
     // by default (switch "routefaillog"); lines go to ts3native.log through the [UserDiag] channel (UserDiag.cs DiagLine).
     // One "routefail:" line per failed route plan (Route.Plan / Replan / PlanFromPoint / ReplanFromPoint, RouteBackoff.cs
-    // hooks) of an active-household Sim: Sim, current interaction, kind, whether the plan waited on a ts3native async job,
+    // hooks) of an active-household Sim: Sim, current interaction and its target's type (RflIa), kind, whether the plan waited on a ts3native async job,
     // plan result and blocker, goal, Sim spot, lot and room, ms. No DoRoute hook: that swap was logging only and refused
     // every Sim saved mid-route at load (docs/537).
     // "showoff:" lines: every plan of a Sim whose current interaction is Sim+DoShowOffMove, also on success, and the route
@@ -30,6 +30,10 @@ namespace Ts3Fixes
     // cmd at most, 8 objects within 2 m; end: EA's route-end event). routefail lines of a cmd say "cmd N". Failed plans of every Sim are counted per Sim and
     // per lot, objects added / removed per lot; "routefail summary" lines at world quit and every 15 min with new failures.
     // Off path (autonomous plan, no failure): one flag read.
+    // docs/226 Logging (docs/546 §10 audit: NPC "routefail job:" lines did not name the interaction): every plan's scope op
+    // (UnseenFallback.cs) carries the Sim's interaction pair id (RflIaId: two Type lookups, no allocation once the pair is known);
+    // ts3native keeps it with the job and its "routefail job:" / "routefail retry:" lines print the pair's text, sent once per
+    // pair as "rfia: N text". RflIa is the one formatter: "<Interaction> target <Type>", "none", at most 47 characters.
     public static partial class Fixes
     {
         static readonly string[] kRflKind = { "Plan", "Replan", "PlanFromPoint", "ReplanFromPoint" };
@@ -46,6 +50,10 @@ namespace Ts3Fixes
         const int kRflMaxRows = 512;
         static int sRflCmdSeq, sRflFails, sRflSeen, sRflUnseen, sRflHousehold, sRflTownie, sRflHome, sRflOther, sRflSummaryN, sRflSummaryFails, sRflSummaryAt, sRflBbAt;
         static EventHandler sRflPlaced, sRflGone;
+        const int kRflIaMax = 1023, kRflIaLen = 47;  // ts3native's table: ids 1-1023, 48 bytes each (plandeadline.cpp kRfIaN / kRfIaLen)
+        static readonly Dictionary<Type, int> sRflTypeIds = new Dictionary<Type, int>();  // interaction or target type -> small id
+        static readonly Dictionary<int, int> sRflIaIds = new Dictionary<int, int>();       // interaction type id << 16 | target type id -> pair id
+        static readonly List<string> sRflIaNames = new List<string>(new string[] { null }); // pair id -> text
 
         static void ApplyRouteFailLog()
         {
@@ -178,6 +186,55 @@ namespace Ts3Fixes
             return o != null ? o.GetType().Name : "none";
         }
 
+        // the running interaction and its target's type, the text every routefail / gohere line carries
+        static string RflIaText(Type ia, Type target)
+        {
+            string s = ia == null ? "none" : target == null ? ia.Name : ia.Name + " target " + target.Name;
+            return s.Length > kRflIaLen ? s.Substring(0, kRflIaLen) : s;
+        }
+
+        static string RflIa(InteractionInstance ia)
+        {
+            Type t = ia != null ? ia.GetType() : null, g = ia != null && ia.Target != null ? ia.Target.GetType() : null;
+            int id = RflIaPair(t, g);
+            return id != 0 ? sRflIaNames[id] : RflIaText(t, g);
+        }
+
+        // every plan (scope op): the pair id of sim's interaction, 0 = no Sim, switch off or table full. Registers a new pair with ts3native.
+        static ushort RflIaId(Sim sim)
+        {
+            try
+            {
+                if (sim == null || !ShortcutOn("routefaillog")) return 0;
+                InteractionInstance ia = sim.CurrentInteraction;
+                return (ushort)RflIaPair(ia != null ? ia.GetType() : null, ia != null && ia.Target != null ? ia.Target.GetType() : null);
+            }
+            catch (Exception) { return 0; }
+        }
+
+        static int RflIaPair(Type ia, Type target)
+        {
+            int a = RflTypeId(ia), b = RflTypeId(target), id;
+            if (a < 0 || b < 0) return 0;
+            if (sRflIaIds.TryGetValue(a << 16 | b, out id)) return id;
+            if (sRflIaNames.Count > kRflIaMax) return 0;
+            id = sRflIaNames.Count;
+            string text = RflIaText(ia, target);
+            sRflIaNames.Add(text);
+            sRflIaIds[a << 16 | b] = id;
+            DiagLine("rfia: " + id + " " + text);  // before the id is ever sent; ts3native stores it, never logs it
+            return id;
+        }
+
+        static int RflTypeId(Type t)  // 0 = none, -1 = table full
+        {
+            if (t == null) return 0;
+            int id;
+            if (sRflTypeIds.TryGetValue(t, out id)) return id;
+            if (sRflTypeIds.Count >= 0x7FFF) return -1;
+            return sRflTypeIds[t] = sRflTypeIds.Count + 1;
+        }
+
         static void RflCmdStart(RflCmd c, Sim sim, Vector3 goal)
         {
             InteractionInstance ia = c.Ia.Target as InteractionInstance;
@@ -186,8 +243,8 @@ namespace Ts3Fixes
             int why = UfWhy(sim);
             DiagLine("gohere start: cmd " + c.Id + " " + sim.FullName + " 0x" + sim.SimDescription.SimDescriptionId.ToString("X") + " follower " + sim.ObjectId.Value.ToString("X16")
                 + ", household " + (h != null ? h.Name : "none") + (sim.IsInActiveHousehold ? " active" : "") + (sim == Sim.ActiveActor ? " selected" : ""
-                ) + (sim.IsSelectable ? " selectable" : "") + ", why " + why + (why != 0 ? " seen" : " unseen") + ", interaction " + ia.GetType().Name
-                + (ia.Target != null ? " target " + ia.Target.GetType().Name : "") + ", from " + RflLoc(sim.Position));
+                ) + (sim.IsSelectable ? " selectable" : "") + ", why " + why + (why != 0 ? " seen" : " unseen") + ", interaction " + RflIa(ia)
+                + ", from " + RflLoc(sim.Position));
             var rc = sim.SimRoutingComponent;  // EA's own route-end event (no DoRoute swap, docs/537); -= first, one subscription a Sim
             if (rc != null) { rc.OnRouteActionsFinished -= RflCmdEnd; rc.OnRouteActionsFinished += RflCmdEnd; }
             FieldInfo f = ia.GetType().GetField("Hit", BindingFlags.Public | BindingFlags.Instance);  // InteractionGameObjectHit<,>.Hit: where the player clicked
@@ -322,11 +379,10 @@ namespace Ts3Fixes
             if (!sim.IsInActiveHousehold && (sRflInMinute >= 30 || sRflTotal >= 400)) { c[689]++; return; }
             sRflInMinute++; sRflTotal++;
             c[show ? 688 : 687]++;
-            InteractionInstance ia = sim.CurrentInteraction;
             Vector3 p = sim.Position;
             Lot lot = sim.LotCurrent;
             string line = (show ? "showoff: " : "routefail: ") + sim.FullName + " 0x" + sim.SimDescription.SimDescriptionId.ToString("X")
-                + " " + sim.SimDescription.Age + (sim.IsInActiveHousehold ? " active" : "") + ", " + (ia != null ? ia.GetType().Name : "none") + ", " + what
+                + " " + sim.SimDescription.Age + (sim.IsInActiveHousehold ? " active" : "") + ", " + RflIa(sim.CurrentInteraction) + ", " + what
                 + ", goal " + V(goal) + ", at " + V(p) + ", lot 0x" + (lot != null ? lot.LotId.ToString("X") : "0") + " room " + sim.RoomId
                 + ", " + (unchecked(SrcNowUs() - t0) / 1000) + " ms, " + (UfWhy(sim) != 0 ? "seen" : "unseen")
                 + (cmd != null ? ", cmd " + cmd.Id : "") + (route != 0 ? ", route " + route.ToString("X8") : "");

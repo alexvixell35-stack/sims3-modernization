@@ -20,6 +20,7 @@
 #include <string.h>
 #include <limits.h>
 #include <intrin.h>  // _ReturnAddress (ts3native simloop.cpp SppHook)
+#include "../ts3native/ts3addr.h"  // TS3A() in the ts3native sources included below; no /DTS3A_TABLE here, so the host stays on Steam addresses
 
 typedef unsigned char u8;
 static const DWORD IMG_LO = 0x00400000, IMG_HI = 0x0125A000;  // SizeOfImage 0xE5A000 (Steam 1.67)

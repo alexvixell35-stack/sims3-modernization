@@ -124,19 +124,19 @@ static bool ApexStandsDown(int bits, const char* what, const char* site) {
     return true;
 }
 
-// Apex switch bits that own a [Verify] probe site (docs/148 §6 #4-#6), 0 = none
+// Apex switch bits that own a [Verify] probe site (docs/148 §6 #4-#6), 0 = none; TS3A: kVf[].at is this build's address (docs/260 §4.3)
 static int ApexVerifySite(DWORD at) {
     switch (at) {
-    case 0x00939100: case 0x00939170: case 0x00938D00: case 0x00C60D30: return AXF_OBJECT_INDEX;
-    case 0x004AFFC0: return AXF_RES_LOOKUP;
-    case 0x004B2D00: return AXF_RES_LOOKUP | AXF_FILE_LIST;
-    case 0x004B1AE0: return AXF_FILE_LIST;
-    case 0x00ABFAC0: case 0x00AC1130: case 0x00AC20E0: case 0x00C6C290: case 0x007D2DB0: return AXF_LOT;
+    case TS3A(0x00939100): case TS3A(0x00939170): case TS3A(0x00938D00): case TS3A(0x00C60D30): return AXF_OBJECT_INDEX;
+    case TS3A(0x004AFFC0): return AXF_RES_LOOKUP;
+    case TS3A(0x004B2D00): return AXF_RES_LOOKUP | AXF_FILE_LIST;
+    case TS3A(0x004B1AE0): return AXF_FILE_LIST;
+    case TS3A(0x00ABFAC0): case TS3A(0x00AC1130): case TS3A(0x00AC20E0): case TS3A(0x00C6C290): case TS3A(0x007D2DB0): return AXF_LOT;
     default: return 0;
     }
 }
 
-static bool SaveWriteYieldToApex(DWORD site = 0x00AB12AF);  // savewrite.cpp
+static bool SaveWriteYieldToApex(DWORD site = TS3A(0x00AB12AF));  // savewrite.cpp
 
 // Late check (zzApexRadiance.asi: its DllMain runs after ours). Apex installs its game code after the first Present + 1 s
 // [verified apex_main.cpp], so a site given back before then is seen as the game's. Only the [SaveWrite] timing call at

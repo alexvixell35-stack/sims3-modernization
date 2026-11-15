@@ -6,8 +6,8 @@ address,apex_name,apex_source,class,verdict
 0x4AFFC0,ResFindProvider,features/frame_profiler.cpp+framework/game_addresses.cpp+patches/performance_patches.cpp,C2,ours [Verify] probe (off) vs ResourceLookupCache slot chain; none in release
 0x4B0960,ResDbChanged,framework/game_addresses.cpp+patches/performance_patches.cpp,,
 0x4B1AE0,ResKeyList,features/frame_profiler.cpp+framework/game_addresses.cpp+patches/performance_patches.cpp,C2,ours [Verify] probe (off) vs FileListCache; none in release
-0x4B2D00,ResRegisterDb,framework/game_addresses.cpp+patches/performance_patches.cpp,C2,ours [Verify] probe (off) vs ResourceLookupCache; none in release
-0x4B2EC0,ResSetDbPriority,framework/game_addresses.cpp+patches/performance_patches.cpp,,
+0x4B2D00,ResRegisterDb,framework/game_addresses.cpp+patches/performance_patches.cpp,C2,ours [Verify] probe and [PkgProbe] entry count (both off; entry jmp leaves the slot Apex checks) vs ResourceLookupCache; none in release
+0x4B2EC0,ResSetDbPriority,framework/game_addresses.cpp+patches/performance_patches.cpp,C2,ours [PkgProbe] entry count (off; entry jmp leaves the slot Apex checks) vs Apex slot chain; none in release
 0x4DB850,,features/frame_profiler.cpp,,
 0x4DB8E0,,features/frame_profiler.cpp,,
 0x4E16F0,,features/frame_profiler.cpp,C3,Apex Frame Profiler (developer mode; off) wants this entry; ours Lock_Acquire detour (RouteAsync/RouteGate; release on) is there first: profiler skips the hook; no effect on play

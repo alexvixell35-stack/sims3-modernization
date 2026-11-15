@@ -151,3 +151,45 @@ installed as the Bin pair with the 12:43 pair backed up as `.pre-ea169b` (`c035a
   `SKIP all` run before reading anything into it].
 - Also in this run: the ts3agent `LoadSave` fix (bare name gets `.sims3`, package `3eb7bb6fc994`) checked live: `load_save {"file":"Baseline-SV-Spring","reload":true}`
   answered `{"loading":"Baseline-SV-Spring.sims3"}` and reached `LiveModeState` again in ~40 s. No EA app relaunch followed the clean quit (150 s watch).
+
+## 8. Master fold 2026-11-15 (branch `feature/ea169-fold-1115`, no game run)
+The EA app 1.69.47 port now lives on master, redone from public #391 (`release/rc-1111g-ea169`, v0.2.12 EA) on master 0.36.256:
+infrastructure (ff0d2909, 3e0c7b51, c2da7aa3), `addr-codemod --apply` on master (1,129 literals in 98 files; a second scan: 0 wrap
+rows), the EA blocks (d728ef84) and the EA fixes (d872039d .. c8d8ad2e; the two release-tree CI commits f2501b17 / 8363ecec not taken).
+On top: v0.2.10's `UolCalls` check before the LostRemovalFix patch (discourage.cpp, EA build only; `TestUolCalls` in the selftest) and
+its 7 comment-only rows (0x946160, 0x82B450, 0x82B551, 0x6399E0, 0x6643E0, 0x946F70, 0xACE060) in ts3addr-ea169.h (all 12 rows were
+already in ea169-overrides.csv). The EA log line is `release: <TS3NATIVE_VERSION> EA`, so it never names a stale release.
+
+Steam stays the same code: every EA change sits under `#ifdef TS3A_TABLE` (or `TS3N_EA_PORT`, EA asi + selftest only); #391's two
+shared-code changes in monothread-m5.cpp (trampoline and block copy from the live bytes) and the longer monothread.cpp SKIP text are EA only
+here. **Identity proof [verified]:** (1) the `--apply` build equals, section by section (.text / .rdata / .data / .reloc, link timestamp
+masked) and by .map, a master build with only the `#include "ts3addr.h"` line added: the wraps change no byte; (2) a new include, any
+new file in the include graph, makes cl emit a few constant data items in another order, so the Steam asi is not byte-identical to
+master; the /FA listing of master and of the fold has the same 346,076 _TEXT lines in the same order (labels normalised), and the
+whole listing sorted differs only by two `ORG $+4` alignment pads: same instructions, same data, other data placement. The asi size
+is the same (1,526,784 bytes). The native selftest passes (with `UolCalls`, `ImageGuard`, `SimNoTexture` on dummies).
+
+Master code newer than rc1111g reads 116 TS3W addresses with no EA 1.69 row (the decrypted EA exe is on the EA laptop only). They are
+0 rows in ts3addr-ea169.h (`// unresolved: ... no-ea-1.69-address <file>:<line>`), their features SKIP in the EA asi with a line that
+names the feature and "no EA 1.69 address, docs/232 §8" (early returns behind the runtime flag `ts3a_noaddr`, ts3addr.h, so /W4 sees no
+unreachable code), and tools/ea-ini.ts zeroes them in the EA inis (KEY_ADDRS per key; whole sections for the files only they use;
+tools/ini-sections.json gained [Binder], [Crash2Diag], [EqualsFast], [ThumbStall], [ThumbCallers]). Map them on the EA laptop with
+`node tools/port-run.ts --exe <decrypted exe> --allow-inferred`, then drop the rows' guard, KEY_ADDRS entry and this table's row.
+
+| feature | file | rows | Steam addresses | on EA now |
+|---|---|---|---|---|
+| [AutShadow] Races bits 0-1 (R1b pre-warm, R2b / R3a witness) | autraces.cpp | 56 | 0x4D9AD0 0x7935B0 0x8A79B0 0x9B0530 0xC88D80 0xD79CA0 0x114C908 0x114CA08 0x114CA0C 0x11AF670 0x11C7984 0x11CB928 0x11CC928 0x11CC964 0x11CDD00 0x11CE2D0 0x11CF490 0x11D3E28 0x11D4068 0x11D4BC0 0x11D6A78 0x11D7518 0x11D8888 0x11D9848 0x11DA058 0x11E8FA8 0x11E8FC0 0x11E8FC4 0x11E90F8 0x11E9290 0x11E92A8 0x11E94F8 0x11E96C1 0x11EB490 0x11EBAE0 0x11ECEED 0x11ED780 0x11EE140 0x11EE520 0x11EE528 0x11EE54C 0x11EE550 0x11EE554 0x11EE558 0x11EE55C 0x11EE560 0x11EE564 0x11EE568 0x11EE56C 0x11EE570 0x11EE574 0x11EE578 0x11EE57C 0x11EE580 0x11EE584 0x11EE588 | bits masked to 4 (R2c stays), SKIP line; rc ini Races=4 (EA_SET) |
+| [AutShadow] Satb cold park (docs/206 §18) | satb.cpp | 4 | 0x11F4130 0x11F43E4 0x11F4574 0x11F45A0 | no park (cold call runs as before the park), one SKIP line |
+| [MonoThread] QuitStop (Mono shutdown entry) | monothread-m5.cpp | 1 | 0xE534D0 | QuitStop forced 0, SKIP line; rc ini QuitStop=0 |
+| [MonoJit] BoundCall | monojit-bound.h | 5 | 0xDA4200 0xDBFAE0 0xDBFBF0 0xDDD880 0xDDD900 | BoundCall not installed, SKIP line; rc ini BoundCall=0 |
+| [RouteAsync] FbApplyLog | ts3native.cpp | 2 | 0x631A60 0xC68960 | FbApplyLog forced 0, SKIP line; rc ini (shipped 0) |
+| [ResourceCache] TrimAfterCleanup / TrimEveryMin | rctrim.cpp | 1 | 0xFFE2F0 | both forced 0, SKIP line; rc ini 0 |
+| [EaCrashFixes] HeightsInfLoop | wastar.cpp | 4 | 0x64CEBA 0x64CEC0 0x64CF55 0x64D275 | SKIP line; rc ini HeightsInfLoop=0 |
+| [EaCrashFixes] BridgeHeightNaN | wastar.cpp | 10 | 0xB745A0 0xC6133B 0xC61342 0xC6137B 0xC6A46B 0xC6A472 0xC6A4B3 0xC6A709 0xC6A710 0xC6A772 | SKIP line; rc ini BridgeHeightNaN=0 |
+| [Binder] TypeHandleDirect | bindertd.cpp | 2 | 0xDB0940 0xDB095E | SKIP line; rc ini section zeroed |
+| [Crash2Diag] | c2diag.cpp | 12 | 0x74A830 0x74FC30 0x750400 0x751450 0x756EAE 0x756FB8 0x7646F8 0x1004148 0x10041C8 0x100421C 0x100423C 0x100425C | SKIP line; rc ini section zeroed (shipped 0) |
+| [EqualsFast] | equalsfast.cpp | 2 | 0xE70180 0xE7A590 | SKIP line; rc ini section zeroed (shipped 0) |
+| [ThumbStall] / [ThumbCallers] (5 of them are the inline-asm literals, 0 on EA) | thumbstall.cpp | 17 | 0x44C470 0x5A80A0 0x5A80A9 0x5A9E90 0x5EDB30 0x5F12A3 0xD5A9C8 0xD5A9D2 0xD5A9DD 0xD5AA25 0xD5C830 0xD614E0 0xD61670 0xFE514C 0x1088F48 0x11CEB88 0x11CEB8C | SKIP line each; rc ini both sections zeroed |
+
+Left: EA laptop correctness runs of the folded EA asi (A alone, B + S3SS, E + Apex bridge, as #391), the address mapping above, and a
+Steam smoke of the folded master asi (same code as master by the proof; data placement differs).

@@ -49,96 +49,96 @@ struct SnSite { DWORD at; u8 len; u8 pro[10]; DWORD target; u8 leaf; u8 lot; u8 
 // Steam 1.67 exe, 2026-10-18; rows shared with kQlSites / kPv / kRgSites carry the same bytes). steerro-test re-checks
 // every row on the image.
 static const SnSite kSn[SN_N] = {
-    {0x00665C50, 6, {0x81, 0xEC, 0x80, 0x00, 0x00, 0x00}, 0, SL_W1, 0, 0, "LotQuadTree_ApplyInsert (W1)"},
-    {0x00666750, 5, {0x83, 0xEC, 0x60, 0x53, 0x55}, 0, SL_W2, 0, 0, "LotQuadTree_ApplyRemove (W2)"},
-    {0x0062F8A0, 7, {0x8B, 0x44, 0x24, 0x08, 0x83, 0xEC, 0x14}, 0, SL_W3, 0, 0, "LotRouting_QuadTreeBuild (W3)"},
-    {0x0062E680, 8, {0x83, 0xEC, 0x08, 0x53, 0x8B, 0x5C, 0x24, 0x14}, 0, SL_W5, 0, 0, "LotTable_Insert (W5)"},
-    {0x0080E5B0, 5, {0x53, 0x8B, 0x5C, 0x24, 0x08}, 0, SL_W6, 0, 0, "Footprint_EnsureLevelPolygons (W6a)"},
-    {0x0080E610, 8, {0x51, 0x57, 0x8B, 0xF9, 0x83, 0x7F, 0x38, 0x00}, 0, SL_W6, 0, 0, "Footprint_EnsureAllPolygons (W6b)"},
-    {0x0080E980, 8, {0x83, 0xEC, 0x2C, 0x53, 0x8B, 0x5C, 0x24, 0x34}, 0, SL_W6, 0, 0, "footprint +0x78 rebuild (W6c)"},
-    {0x0080EC30, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_W6, 0, 0, "footprint +0xF0 transform (W6d)"},
-    {0x0080E0B0, 7, {0x56, 0x8B, 0xF1, 0x83, 0x7E, 0x38, 0x00}, 0, SL_W6, 0, 0, "Footprint_InvalidatePolygons (W6e)"},
-    {0x0080F6A0, 5, {0x8B, 0x54, 0x24, 0x08, 0x53}, 0, SL_W6, 0, 0, "Footprint_SetLevelPolygons (W6f)"},
-    {0x0080CB40, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_W6, 0, 0, "footprint +0x100 class 0xFEB848 (W6g)"},
-    {0x00806770, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_W6, 0, 0, "footprint +0x100 class 0xFEB970 (W6g)"},
-    {0x0063CB90, 8, {0x83, 0xEC, 0x5C, 0x53, 0x8B, 0x5C, 0x24, 0x64}, 0, SL_W4, 0, 0, "LotGraph_Build (W4)"},
-    {0x008321F0, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_FPCORE, 0, 0, "RoutingWorld_UpdateObjectFootprintCore"},
-    {0x00831BA0, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_PRIVATE, 0, 0, "RoutingWorld_AddPrivateFootprint"},
-    {0x0082A0C0, 5, {0x83, 0xEC, 0x08, 0x56, 0x57}, 0, SL_FPREMOVE, 0, 0, "RoutingWorld footprint remove 0x82A0C0"},
-    {0x00635700, 7, {0x83, 0xEC, 0x34, 0x8B, 0x44, 0x24, 0x38}, 0, SL_LOTREMOVEFP, 2, 1, "LotRouting_RemoveObjectFootprints"},
-    {0x00829D50, 10, {0x55, 0x56, 0x8B, 0xF1, 0x8D, 0xAE, 0x18, 0x09, 0x00, 0x00}, 0, SL_REMOVELOT, 2, 1, "RoutingWorld_RemoveLot"},
-    {0x0082B590, 5, {0x83, 0xEC, 0x2C, 0x56, 0x57}, 0, SL_APPLYLOT, 1, 1, "RoutingWorld_ApplyLotUpdate"},
-    {0x0082A190, 7, {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0, 0x56}, 0, SL_RESTORE, 1, 1, "RoutingWorld_RestoreLotBlockedBits"},
-    {0x00636BF0, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_GRIDADD, 1, 2, "PathPlanner_AddHangingFootprint"},
-    {0x0062D9F0, 5, {0x83, 0xEC, 0x4C, 0x53, 0x55}, 0, SL_GRIDREMOVE, 2, 1, "footprint grid remove 0x62D9F0"},
-    {0x006733C0, 7, {0x83, 0xEC, 0x14, 0x8B, 0x44, 0x24, 0x30}, 0, SL_HIGHCOST, 0, 0, "WaterGrid_MarkFootprintPolygon"},
-    {0x00670510, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_MARKREMOVE, 0, 0, "water grid mark 0x670510"},
-    {0x0082A098, 5, {}, 0x006734A0, SL_GBUILD, 0, 0, "G build (message path)"},
-    {0x00834A82, 5, {}, 0x006734A0, SL_GBUILD, 0, 0, "G build (BuildWorldRoutingData)"},
-    {0x008352F1, 5, {}, 0x0082A030, SL_GBUILD, 0, 0, "WaterGrid_BuildFromWorld from 0x8352F1"},
-    {0x00835390, 5, {}, 0x0082A030, SL_GBUILD, 0, 0, "WaterGrid_BuildFromWorld from 0x835390"},
-    {0x008358B5, 5, {}, 0x0082A030, SL_GBUILD, 0, 0, "WaterGrid_BuildFromWorld from 0x8358B5"},
-    {0x00C62AC0, 8, {0x83, 0xEC, 0x18, 0x83, 0x7C, 0x24, 0x24, 0x04}, 0, SL_BLEND, 0, 0, "TerrainData_ReloadJob"},
-    {0x0078F2B0, 7, {0x83, 0xEC, 0x44, 0x8B, 0x44, 0x24, 0x4C}, 0, SL_SRC, 0, 0, "World_FireEvent"},
-    {0x00947590, 5, {0x53, 0x8A, 0x5C, 0x24, 0x08}, 0, SL_SRC, 0, 0, "Footprint_SetEnabled"},
+    {TS3A(0x00665C50), 6, {0x81, 0xEC, 0x80, 0x00, 0x00, 0x00}, 0, SL_W1, 0, 0, "LotQuadTree_ApplyInsert (W1)"},
+    {TS3A(0x00666750), 5, {0x83, 0xEC, 0x60, 0x53, 0x55}, 0, SL_W2, 0, 0, "LotQuadTree_ApplyRemove (W2)"},
+    {TS3A(0x0062F8A0), 7, {0x8B, 0x44, 0x24, 0x08, 0x83, 0xEC, 0x14}, 0, SL_W3, 0, 0, "LotRouting_QuadTreeBuild (W3)"},
+    {TS3A(0x0062E680), 8, {0x83, 0xEC, 0x08, 0x53, 0x8B, 0x5C, 0x24, 0x14}, 0, SL_W5, 0, 0, "LotTable_Insert (W5)"},
+    {TS3A(0x0080E5B0), 5, {0x53, 0x8B, 0x5C, 0x24, 0x08}, 0, SL_W6, 0, 0, "Footprint_EnsureLevelPolygons (W6a)"},
+    {TS3A(0x0080E610), 8, {0x51, 0x57, 0x8B, 0xF9, 0x83, 0x7F, 0x38, 0x00}, 0, SL_W6, 0, 0, "Footprint_EnsureAllPolygons (W6b)"},
+    {TS3A(0x0080E980), 8, {0x83, 0xEC, 0x2C, 0x53, 0x8B, 0x5C, 0x24, 0x34}, 0, SL_W6, 0, 0, "footprint +0x78 rebuild (W6c)"},
+    {TS3A(0x0080EC30), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_W6, 0, 0, "footprint +0xF0 transform (W6d)"},
+    {TS3A(0x0080E0B0), 7, {0x56, 0x8B, 0xF1, 0x83, 0x7E, 0x38, 0x00}, 0, SL_W6, 0, 0, "Footprint_InvalidatePolygons (W6e)"},
+    {TS3A(0x0080F6A0), 5, {0x8B, 0x54, 0x24, 0x08, 0x53}, 0, SL_W6, 0, 0, "Footprint_SetLevelPolygons (W6f)"},
+    {TS3A(0x0080CB40), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_W6, 0, 0, "footprint +0x100 class 0xFEB848 (W6g)"},
+    {TS3A(0x00806770), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_W6, 0, 0, "footprint +0x100 class 0xFEB970 (W6g)"},
+    {TS3A(0x0063CB90), 8, {0x83, 0xEC, 0x5C, 0x53, 0x8B, 0x5C, 0x24, 0x64}, 0, SL_W4, 0, 0, "LotGraph_Build (W4)"},
+    {TS3A(0x008321F0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_FPCORE, 0, 0, "RoutingWorld_UpdateObjectFootprintCore"},
+    {TS3A(0x00831BA0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_PRIVATE, 0, 0, "RoutingWorld_AddPrivateFootprint"},
+    {TS3A(0x0082A0C0), 5, {0x83, 0xEC, 0x08, 0x56, 0x57}, 0, SL_FPREMOVE, 0, 0, "RoutingWorld footprint remove 0x82A0C0"},
+    {TS3A(0x00635700), 7, {0x83, 0xEC, 0x34, 0x8B, 0x44, 0x24, 0x38}, 0, SL_LOTREMOVEFP, 2, 1, "LotRouting_RemoveObjectFootprints"},
+    {TS3A(0x00829D50), 10, {0x55, 0x56, 0x8B, 0xF1, 0x8D, 0xAE, 0x18, 0x09, 0x00, 0x00}, 0, SL_REMOVELOT, 2, 1, "RoutingWorld_RemoveLot"},
+    {TS3A(0x0082B590), 5, {0x83, 0xEC, 0x2C, 0x56, 0x57}, 0, SL_APPLYLOT, 1, 1, "RoutingWorld_ApplyLotUpdate"},
+    {TS3A(0x0082A190), 7, {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0, 0x56}, 0, SL_RESTORE, 1, 1, "RoutingWorld_RestoreLotBlockedBits"},
+    {TS3A(0x00636BF0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_GRIDADD, 1, 2, "PathPlanner_AddHangingFootprint"},
+    {TS3A(0x0062D9F0), 5, {0x83, 0xEC, 0x4C, 0x53, 0x55}, 0, SL_GRIDREMOVE, 2, 1, "footprint grid remove 0x62D9F0"},
+    {TS3A(0x006733C0), 7, {0x83, 0xEC, 0x14, 0x8B, 0x44, 0x24, 0x30}, 0, SL_HIGHCOST, 0, 0, "WaterGrid_MarkFootprintPolygon"},
+    {TS3A(0x00670510), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_MARKREMOVE, 0, 0, "water grid mark 0x670510"},
+    {TS3A(0x0082A098), 5, {}, TS3A(0x006734A0), SL_GBUILD, 0, 0, "G build (message path)"},
+    {TS3A(0x00834A82), 5, {}, TS3A(0x006734A0), SL_GBUILD, 0, 0, "G build (BuildWorldRoutingData)"},
+    {TS3A(0x008352F1), 5, {}, TS3A(0x0082A030), SL_GBUILD, 0, 0, "WaterGrid_BuildFromWorld from 0x8352F1"},
+    {TS3A(0x00835390), 5, {}, TS3A(0x0082A030), SL_GBUILD, 0, 0, "WaterGrid_BuildFromWorld from 0x835390"},
+    {TS3A(0x008358B5), 5, {}, TS3A(0x0082A030), SL_GBUILD, 0, 0, "WaterGrid_BuildFromWorld from 0x8358B5"},
+    {TS3A(0x00C62AC0), 8, {0x83, 0xEC, 0x18, 0x83, 0x7C, 0x24, 0x24, 0x04}, 0, SL_BLEND, 0, 0, "TerrainData_ReloadJob"},
+    {TS3A(0x0078F2B0), 7, {0x83, 0xEC, 0x44, 0x8B, 0x44, 0x24, 0x4C}, 0, SL_SRC, 0, 0, "World_FireEvent"},
+    {TS3A(0x00947590), 5, {0x53, 0x8A, 0x5C, 0x24, 0x08}, 0, SL_SRC, 0, 0, "Footprint_SetEnabled"},
     // P1b frames (arg = source); prologues and the call edge checked on the Steam 1.67 exe, no branch into the stolen bytes
-    {0x00B57F20, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_SRC, 0, SRC_PLATFORM, "Lot PlatformManager footprint refresh"},
-    {0x00D442B0, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_SRC, 0, SRC_USERTOOL, "UserToolWorldObject TryDrop"},
-    {0x0095EFF2, 5, {}, 0x00948F30, SL_SRC, 0, SRC_TREEINIT, "FootprintComp_TreeInit from TreeComponent_Create"},
-    {0x00834B80, 6, {0x81, 0xEC, 0x80, 0x00, 0x00, 0x00}, 0, SL_SRC, 0, SRC_TERRAIN, "RoutingWorld_SurfaceAtPoint (lazy terrain)"},
-    {0x00C7BF70, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_SRC, 0, SRC_ROADPLAN, "World_FindPlaceOnRoadOffScreen"},
-    {0x00666A40, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}, 0, SL_SRC, 0, SRC_FLUSH, "LotQuadTree_FlushDeferred"},
+    {TS3A(0x00B57F20), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_SRC, 0, SRC_PLATFORM, "Lot PlatformManager footprint refresh"},
+    {TS3A(0x00D442B0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_SRC, 0, SRC_USERTOOL, "UserToolWorldObject TryDrop"},
+    {TS3A(0x0095EFF2), 5, {}, TS3A(0x00948F30), SL_SRC, 0, SRC_TREEINIT, "FootprintComp_TreeInit from TreeComponent_Create"},
+    {TS3A(0x00834B80), 6, {0x81, 0xEC, 0x80, 0x00, 0x00, 0x00}, 0, SL_SRC, 0, SRC_TERRAIN, "RoutingWorld_SurfaceAtPoint (lazy terrain)"},
+    {TS3A(0x00C7BF70), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, SL_SRC, 0, SRC_ROADPLAN, "World_FindPlaceOnRoadOffScreen"},
+    {TS3A(0x00666A40), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}, 0, SL_SRC, 0, SRC_FLUSH, "LotQuadTree_FlushDeferred"},
 };
 
 // IC binding table {fn, name} slots (tools/internal-calls-map.ts layout; slot = address of fn), expected fn checked first
 struct SnIc { DWORD slot; DWORD fn; const char* name; };
 static const SnIc kSnIcDef[SN_IC_N] = {
-    {0x01160C98, 0x0074B540, "RouteManager_FootprintSetLockKeys"},        // E8
-    {0x01160CA0, 0x0074B5C0, "RouteManager_FootprintAddLockKey"},
-    {0x01160CA8, 0x0074B600, "RouteManager_FootprintRemoveLockKey"},
-    {0x01160CB8, 0x0074B680, "RouteManager_FootprintClearLockKeys"},
-    {0x01160CC8, 0x00757E10, "RouteManager_AddPortal"},                   // E9
-    {0x01160CD8, 0x0074D3F0, "RouteManager_AddPortalLocationVariation"},
-    {0x01160CE0, 0x0074B3B0, "RouteManager_AddDivingBoardPortals"},
-    {0x01160CE8, 0x0074B3E0, "RouteManager_AddWaterSlidePortals"},
-    {0x01160CF0, 0x0074B410, "RouteManager_AddPoolPortals"},
-    {0x01160CF8, 0x0074B410, "RouteManager_AddPlatformPortals"},
-    {0x01160D00, 0x0074B440, "RouteManager_AddStairPortals"},
-    {0x01160D10, 0x0074D6B0, "RouteManager_RemovePortals"},
-    {0x01160D18, 0x00758110, "RouteManager_SetPortalCost"},               // E10
-    {0x01160D20, 0x00758220, "RouteManager_SetPortalAgeGenderFlags"},
-    {0x01160D28, 0x0074B490, "RouteManager_SetPortalLockStatus"},         // E11
-    {0x01160D08, 0x0074B470, "RouteManager_SetOceanPortalOwner"},         // E24
-    {0x01160CD0, 0x0074B380, "RouteManager_DestroyPortalHandle"},         // other routing writers and epochs
-    {0x01160D30, 0x0074B4D0, "RouteManager_MarkRoomForUpdate"},
-    {0x01160C78, 0x0075DB50, "RouteManager_AddDiscourageFootprint"},      // E6
-    {0x01160C80, 0x00754580, "RouteManager_RemoveDiscourageFootprint"},
-    {0x01160C88, 0x0075DCF0, "RouteManager_AddPrivateFootprint"},         // E7
-    {0x01160C90, 0x00754610, "RouteManager_RemovePrivateFootprint"},
-    {0x01160DA8, 0x0074B6B0, "RouteManager_OnExitBuildBuy"},              // E13
-    {0x011623B0, 0x007868A0, "World_LotClusterTreesImpl"},
-    {0x01162BF0, 0x00788310, "World_DoorLockStateChangedImpl"},           // docs/105 door mirror refresh
-    {0x01162670, 0x0078D360, "World_ObjectSetHiddenFlags"},               // E5
-    {0x01162678, 0x0078D3E0, "World_ObjectSetHiddenFlagsWithWorldFootprint"},
-    {0x011626A0, 0x0078D520, "World_ObjectEnableFootprint"},
-    {0x011626B0, 0x0078D5B0, "World_ObjectResetFootprintState"},
-    {0x01162C28, 0x0078AE40, "World_BuildRoutingDataImpl"},               // E19
-    {0x011623B8, 0x007868E0, "World_BulldozeLotImpl"},                    // E15
-    {0x01162D60, 0x00792CA0, "World_CreateHouseboatLotImpl"},
-    {0x01162D68, 0x00788800, "World_DeleteHouseboatLotImpl"},
-    {0x01162258, 0x007897D0, "World_LotSetTerrainHeightImpl"},            // E21
-    {0x01162C88, 0x007883C0, "World_LotSetEntranceByTargetPointImpl"},    // docs/94 §8.4 (2)
-    {0x011608F0, 0x00765160, "Route_Plan"},                               // START (SN_IC_START..)
-    {0x011608E0, 0x00765490, "Route_Replan"},
-    {0x011608F8, 0x00765240, "Route_PlanFromPoint"},
-    {0x011608E8, 0x00765550, "Route_ReplanFromPosition"},
+    {TS3A(0x01160C98), TS3A(0x0074B540), "RouteManager_FootprintSetLockKeys"},        // E8
+    {TS3A(0x01160CA0), TS3A(0x0074B5C0), "RouteManager_FootprintAddLockKey"},
+    {TS3A(0x01160CA8), TS3A(0x0074B600), "RouteManager_FootprintRemoveLockKey"},
+    {TS3A(0x01160CB8), TS3A(0x0074B680), "RouteManager_FootprintClearLockKeys"},
+    {TS3A(0x01160CC8), TS3A(0x00757E10), "RouteManager_AddPortal"},                   // E9
+    {TS3A(0x01160CD8), TS3A(0x0074D3F0), "RouteManager_AddPortalLocationVariation"},
+    {TS3A(0x01160CE0), TS3A(0x0074B3B0), "RouteManager_AddDivingBoardPortals"},
+    {TS3A(0x01160CE8), TS3A(0x0074B3E0), "RouteManager_AddWaterSlidePortals"},
+    {TS3A(0x01160CF0), TS3A(0x0074B410), "RouteManager_AddPoolPortals"},
+    {TS3A(0x01160CF8), TS3A(0x0074B410), "RouteManager_AddPlatformPortals"},
+    {TS3A(0x01160D00), TS3A(0x0074B440), "RouteManager_AddStairPortals"},
+    {TS3A(0x01160D10), TS3A(0x0074D6B0), "RouteManager_RemovePortals"},
+    {TS3A(0x01160D18), TS3A(0x00758110), "RouteManager_SetPortalCost"},               // E10
+    {TS3A(0x01160D20), TS3A(0x00758220), "RouteManager_SetPortalAgeGenderFlags"},
+    {TS3A(0x01160D28), TS3A(0x0074B490), "RouteManager_SetPortalLockStatus"},         // E11
+    {TS3A(0x01160D08), TS3A(0x0074B470), "RouteManager_SetOceanPortalOwner"},         // E24
+    {TS3A(0x01160CD0), TS3A(0x0074B380), "RouteManager_DestroyPortalHandle"},         // other routing writers and epochs
+    {TS3A(0x01160D30), TS3A(0x0074B4D0), "RouteManager_MarkRoomForUpdate"},
+    {TS3A(0x01160C78), TS3A(0x0075DB50), "RouteManager_AddDiscourageFootprint"},      // E6
+    {TS3A(0x01160C80), TS3A(0x00754580), "RouteManager_RemoveDiscourageFootprint"},
+    {TS3A(0x01160C88), TS3A(0x0075DCF0), "RouteManager_AddPrivateFootprint"},         // E7
+    {TS3A(0x01160C90), TS3A(0x00754610), "RouteManager_RemovePrivateFootprint"},
+    {TS3A(0x01160DA8), TS3A(0x0074B6B0), "RouteManager_OnExitBuildBuy"},              // E13
+    {TS3A(0x011623B0), TS3A(0x007868A0), "World_LotClusterTreesImpl"},
+    {TS3A(0x01162BF0), TS3A(0x00788310), "World_DoorLockStateChangedImpl"},           // docs/105 door mirror refresh
+    {TS3A(0x01162670), TS3A(0x0078D360), "World_ObjectSetHiddenFlags"},               // E5
+    {TS3A(0x01162678), TS3A(0x0078D3E0), "World_ObjectSetHiddenFlagsWithWorldFootprint"},
+    {TS3A(0x011626A0), TS3A(0x0078D520), "World_ObjectEnableFootprint"},
+    {TS3A(0x011626B0), TS3A(0x0078D5B0), "World_ObjectResetFootprintState"},
+    {TS3A(0x01162C28), TS3A(0x0078AE40), "World_BuildRoutingDataImpl"},               // E19
+    {TS3A(0x011623B8), TS3A(0x007868E0), "World_BulldozeLotImpl"},                    // E15
+    {TS3A(0x01162D60), TS3A(0x00792CA0), "World_CreateHouseboatLotImpl"},
+    {TS3A(0x01162D68), TS3A(0x00788800), "World_DeleteHouseboatLotImpl"},
+    {TS3A(0x01162258), TS3A(0x007897D0), "World_LotSetTerrainHeightImpl"},            // E21
+    {TS3A(0x01162C88), TS3A(0x007883C0), "World_LotSetEntranceByTargetPointImpl"},    // docs/94 §8.4 (2)
+    {TS3A(0x011608F0), TS3A(0x00765160), "Route_Plan"},                               // START (SN_IC_START..)
+    {TS3A(0x011608E0), TS3A(0x00765490), "Route_Replan"},
+    {TS3A(0x011608F8), TS3A(0x00765240), "Route_PlanFromPoint"},
+    {TS3A(0x011608E8), TS3A(0x00765550), "Route_ReplanFromPosition"},
 };
 static SnIc g_snIc[SN_IC_N];  // kSnIcDef; selftest points slots at its own table
 
 static const DWORD kSnObjIds[SN_OBJ_N] = {4, 6, 9, 0x0A, 0x0B, 0x0E, 0x18, 0x21};
 typedef char(__cdecl* SnObjRegFn)(DWORD id, void* fn, LONG priority);   // ObjectEvents_Register 0x936BC0 (al = registered)
-static SnObjRegFn g_snObjReg = (SnObjRegFn)(uintptr_t)0x00936BC0;
-static DWORD* g_snObjHeads = (DWORD*)(uintptr_t)0x011DC2A8;              // 42 list heads, node {priority, fn, next}
+static SnObjRegFn g_snObjReg = (SnObjRegFn)(uintptr_t)TS3A(0x00936BC0);
+static DWORD* g_snObjHeads = (DWORD*)(uintptr_t)TS3A(0x011DC2A8);              // 42 list heads, node {priority, fn, next}
 
 static void* g_snJmp[SN_N];                 // trampoline (entry) or original callee (call site); NULL = shared or skipped
 static void* volatile g_snIcOrig[SN_IC_N];  // the IC's own fn, our shims jump there
@@ -467,7 +467,7 @@ static const u8* SpWorld();  // snap.cpp: the routing world (RoutingWorld_Get sl
 // with a pending remove of this id are flushed with the game's own LotQuadTree_FlushDeferred 0x666A40, as the game's remove
 // 0x666E30 does whenever the Q is not being iterated; an iterated Q (+0x48 > 0) cannot be flushed and is counted.
 typedef void(__fastcall* SnQFn)(void* q, void* edx);
-static SnQFn g_snFlushDeferred = (SnQFn)(uintptr_t)0x00666A40;
+static SnQFn g_snFlushDeferred = (SnQFn)(uintptr_t)TS3A(0x00666A40);
 static void SnLotRemovePending(DWORD lo, DWORD hi) {
     Ts3nCounters& k = ts3native_counters;
     u8* qs[8];
@@ -504,7 +504,7 @@ static void SnLotRemovePending(DWORD lo, DWORD hi) {
 // deferred while its Q is iterated, still pending at a later lot-0 call for that id), not one only our reordering makes, so
 // it gets an entry detour of its own on every build; with [RouteSnap] the stub above already runs it.
 typedef u8(__fastcall* LrRemoveFn)(void* p, void* edx, DWORD lotLo, DWORD lotHi, DWORD idLo, DWORD idHi);
-static LrRemoveFn g_lrOrig = (LrRemoveFn)(uintptr_t)0x00635700;
+static LrRemoveFn g_lrOrig = (LrRemoveFn)(uintptr_t)TS3A(0x00635700);
 static u8 __fastcall LrGuardHook(void* p, void* edx, DWORD lotLo, DWORD lotHi, DWORD idLo, DWORD idHi) {
     if (!(lotLo | lotHi)) SnLotRemovePending(idLo, idHi);
     return g_lrOrig(p, edx, lotLo, lotHi, idLo, idHi);
@@ -514,7 +514,7 @@ static void InstallLotRemoveGuard(const wchar_t* ini) {
         if (kSn[i].leaf == SL_LOTREMOVEFP && g_snJmp[i]) { Log("lot-0 remove guard: inside the [RouteSnap] stub"); return; }
     if (!GetPrivateProfileIntW(L"LotRemoveGuard", L"Enabled", 1, ini)) { Log("lot-0 remove guard off (Enabled=0)"); return; }
     static const u8 kPro[] = {0x83, 0xEC, 0x34, 0x8B, 0x44, 0x24, 0x38};  // sub esp,34h; mov eax,[esp+38h]
-    InstallDetour("LotRouting_RemoveObjectFootprints (lot-0 guard)", 0x00635700, kPro, sizeof(kPro), (void*)LrGuardHook, &g_lrOrig);
+    InstallDetour("LotRouting_RemoveObjectFootprints (lot-0 guard)", TS3A(0x00635700), kPro, sizeof(kPro), (void*)LrGuardHook, &g_lrOrig);
 }
 static volatile LONG g_snWorldStopLog;
 // slot = the return-address slot at the hooked instruction (a function entry or a call)

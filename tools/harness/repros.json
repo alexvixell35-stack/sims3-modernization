@@ -66454,5 +66454,2140 @@
       "minutes": 10
     },
     "expect": "kdUncutHit >= 1; every \"uncut ceiling hit\" line has us <= ceiling + tail (< 3 s); no \"busy for N s\" line >= 2 s; watchdogs 0; no crash; kd-arm-cuts.ts --expect-on-zero green"
+  },
+  {
+    "id": "award-keep-check",
+    "bug": "A City Hall award ceremony whose GiveAward fails (honoree route tantrum, mayor route fail, no sync) is cleaned up by the master's GiveAward.Cleanup, which destroys the mayor, the jig and CeremonyAwardInfo: the award (HeroOfTheCity, kSimAcceptedReward) is lost for good (reported in play 2026-11-14, docs/546 §11)",
+    "fix": "ts3fixes AwardKeep.cs: awardkeep (default off), docs/546 §11",
+    "save": "Baseline-BP",
+    "note": "The agent check (AwardKeepCheck, EventChecks.cs) opens a ceremony for the active Sim (EA's CreateCelebration + GreatSuccessCelebrationStart), waits for the mayor's one-shot task, then runs Cleanup on a master GiveAward that never gave the award (where every failure path ends). Off arm: no pickup. On arm: EA's MissedCelebrationCallback ran, one 'Collect Service Award' pickup at City Hall (removed again by the check). Both arms: ceremony gone.",
+    "expect": "off: 'PASS expect lost: pickups 0, ceremony gone True, counter 2322 +0'. on: 'PASS expect kept: pickups 1, ceremony gone True, counter 2322 +1'. No 2323 errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "awardkeep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AwardKeepCheck",
+          "args": [
+            "setup"
+          ]
+        },
+        "waitS": 10,
+        "note": "off: open a ceremony; the mayor comes from a one-shot task"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AwardKeepCheck",
+          "args": [
+            "expect lost"
+          ]
+        },
+        "note": "off: EA's Cleanup ends the ceremony, the award is lost"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "awardkeep": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AwardKeepCheck",
+          "args": [
+            "setup"
+          ]
+        },
+        "waitS": 10,
+        "note": "on: open a ceremony again"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AwardKeepCheck",
+          "args": [
+            "expect kept"
+          ]
+        },
+        "note": "on: the award becomes EA's missed-ceremony pickup"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "awardkeep": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "wedding-arch-keep-check",
+    "bug": "WeddingCeremony.RouteToWeddingArch.OnRouteFailed ends the whole wedding (Parent.Exit) when one partner's route to the wedding arch fails: no ring exchange, the couple stays engaged, the guests leave (docs/546 §12)",
+    "fix": "ts3fixes WeddingArchKeep.cs: weddingarchkeep (default off), docs/546 §12",
+    "save": "Baseline-BP",
+    "note": "The agent check (WeddingArchKeepCheck, EventChecks.cs) places a wedding arch next to the active Sim when the lot has none (deleted again at the end), starts EA's WeddingCeremony for the active Sim and a second human Sim on the lot (no guests), marks the active Sim's arch route as failed (what the Run hook records) and runs OnRouteFailed. Off arm: ceremony ended. On arm: ceremony in EA's no-arch path (GatherRound). The check ends the ceremony itself before any ring exchange. Needs a second teen-or-older human Sim on the active lot.",
+    "expect": "off: 'PASS expect lost: ceremony ended ..., counter 2345 +0'. on: 'PASS expect kept: ceremony GatherRound (or CallOut) ..., counter 2345 +1'. No 2346 errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "weddingarchkeep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeddingArchKeepCheck",
+          "args": [
+            "expect lost"
+          ]
+        },
+        "note": "off: EA ends the wedding",
+        "waitS": 3
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weddingarchkeep": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeddingArchKeepCheck",
+          "args": [
+            "expect kept"
+          ]
+        },
+        "note": "on: the wedding goes on without the arch",
+        "waitS": 3
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weddingarchkeep": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "hs-grad-keep-check",
+    "bug": "A user-directed School.GraduateInCityHall that fails (route to City Hall) after EA's 14:30 force-graduation alarm leaves the Sim graduating forever: GraduateInPlace is only queued for autonomous instances, so no diploma and no GraduationType (docs/546 §12)",
+    "fix": "ts3fixes GraduationKeep.cs: hsgradkeep (default off), docs/546 §12",
+    "save": "Baseline-BP",
+    "note": "The agent check (HsGradKeepCheck, EventChecks.cs) puts a teen of the active household in EA's graduation table (as GraduateSim and the 14:30 alarm leave it: state None), runs Cleanup on a user-directed GraduateInCityHall that never reached City Hall, then the fix's step past the 14:30 gate. Off arm: nothing queued. On arm: one GraduateInPlace queued. The check removes the queued GraduateInPlace and its table entry, so nobody graduates. N/A without a teen in the active household (in the world, not at boarding school, not graduating). With nothing queued the line gives the queue's InteractionTestResult.",
+    "expect": "off: 'PASS expect lost: <teen>, GraduateInPlace queued 0 (queue Test: Pass), counter 2347 +0'. on: 'PASS expect kept: <teen>, GraduateInPlace queued 1, counter 2347 +1'. No 2348 errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hsgradkeep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HsGradKeepCheck",
+          "args": [
+            "expect lost"
+          ]
+        },
+        "note": "off: EA queues nothing for a user-directed graduation"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hsgradkeep": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HsGradKeepCheck",
+          "args": [
+            "expect kept"
+          ]
+        },
+        "note": "on: EA's GraduateInPlace is queued"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hsgradkeep": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "event-ceremony-block",
+    "bug": "City Hall award ceremony: the NPC crowd gathers on and around the award jig (RouteToGatheringArea centres on RoutingSlot_0, radius 0-6 m); a crowd Sim in Celebrate on the honoree's slot refuses PushSims, the BlockedByPeople replan has no other goal, the honoree throws a route tantrum and GiveAward.Run fails, ending the ceremony (docs/546 §11, docs/548)",
+    "fix": "ts3fixes EventRouteRetry.cs: eventcrowdring (prevention) and eventrouteretry (retry ladder), awardkeep (fallback pickup), all default off; docs/546 §11, docs/548",
+    "save": "Baseline-BP",
+    "note": "The agent check (EventCeremonyCheck, EventChecks.cs) opens a ceremony for the active Sim, places the 6 nearest NPC teens+ on the jig's slot B (the honoree's goal, 'block': the worst case), pushes EA's Celebrate on them and AttendAwardCeremony on the active Sim; 'result' reads GIVEN / PICKUP / OPEN / LOST and the counters. The honoree travels to City Hall on its own (the walk to the jig is what is tested). Off arm then on arm in one load; waits are a first guess (not run yet): raise them if 'result' still says OPEN.",
+    "expect": "off: ceremony LOST (route tantrum, EA's cleanup), ladders 2326 +0. on (eventrouteretry + awardkeep): ceremony GIVEN, or PICKUP when the ladder ran out; ladders 2326 >= 1 and pushed 2332 or moved 2329 >= 1; errors 2331 and 2323 +0; no script errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "ceremonyspot": false,
+          "eventcrowdring": false,
+          "eventrouteretry": false,
+          "awardkeep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EventCeremonyCheck",
+          "args": [
+            "start 6 block"
+          ]
+        },
+        "waitS": 300,
+        "note": "off: crowd on slot B, honoree sent"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EventCeremonyCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "waitS": 5,
+        "note": "off: expect LOST"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ceremonyspot": true,
+          "eventrouteretry": true,
+          "awardkeep": true
+        },
+        "note": "on: retry ladder + pickup fallback",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EventCeremonyCheck",
+          "args": [
+            "start 6 block"
+          ]
+        },
+        "waitS": 300,
+        "note": "on: crowd on slot B, honoree sent"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EventCeremonyCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: expect GIVEN (or PICKUP), ladder counters up"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ceremonyspot": false,
+          "eventrouteretry": false,
+          "awardkeep": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "event-ceremony-ring",
+    "bug": "City Hall award ceremony: the NPC crowd's gathering goal (RouteToGatheringArea, radius 0-6 m from RoutingSlot_0, 45 degree cone, 0.5 m spacing) puts crowd Sims on and around the award jig's slots, the cause of the honoree's route tantrum (docs/546 §11, docs/548)",
+    "fix": "ts3fixes EventRouteRetry.cs: eventcrowdring (default off), docs/548",
+    "save": "Baseline-BP",
+    "note": "EventCeremonyCheck 'start 6' (no block): a real crowd of the 6 nearest NPC teens+ runs EA's Celebrate, so each plans RouteToGatheringArea. Off arm: EA's goal (the tantrum is not certain, so the off arm is the baseline, not a pass/fail). On arm: the crowd plans the ring clear of the jig. Waits are a first guess (not run yet).",
+    "expect": "off: any result (baseline), ring 2327 +0. on: ring 2327 >= 1 (crowd routes planned on the ring), ceremony GIVEN, errors 2331 +0, no script errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "ceremonyspot": false,
+          "eventcrowdring": false,
+          "eventrouteretry": false,
+          "awardkeep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EventCeremonyCheck",
+          "args": [
+            "start 6"
+          ]
+        },
+        "waitS": 300,
+        "note": "off: EA's crowd goal"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EventCeremonyCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "waitS": 5,
+        "note": "off: baseline"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ceremonyspot": true,
+          "eventcrowdring": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EventCeremonyCheck",
+          "args": [
+            "start 6"
+          ]
+        },
+        "waitS": 300,
+        "note": "on: crowd on the ring"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EventCeremonyCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: expect GIVEN, ring counter up"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ceremonyspot": false,
+          "eventcrowdring": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "combo-rabbithole-check",
+    "bug": "Combined rabbit holes (docs/551): each piece of a combo building is out of the world (Position OutOfWorld, LotCurrent the world lot), so (1) CityHall.CreateProtest builds its broadcasters on the piece and the protest draws nobody, and the protest goal is the combo model's missing RoutingSlot_0 (the world origin), (2) Theatre.StartShowSoundBroadcaster puts the TheatreMusic broadcaster on the piece, (3) AutographSessionSituation centres the session on the piece, so the autographer never arrives, (4) Occupation.InitializeBaseJobCreationSpec tests a RabbitHole-destination job's rabbit hole by its own lot (the world lot for a piece), so jobs whose rabbit hole exists only in a combo (Firefighter epic rescues, Medical / Film rabbit-hole jobs) are never offered, (5) EP9's daily NPC protest takes the first ICityHall's lot (the piece's world lot) and the organize-protest picker lists the world lot, (6) an opportunity aimed at a rabbit hole type gets the combo building as its target while the piece's own interactions and events carry the piece: EventListenerInfo listeners (kAteAtRestaurant), kInteractionSuccess steps (Investigator restaurant case steps, Stadium games) and School audition / recital and ScienceLab potion tests never match",
+    "fix": "ts3fixes ComboRabbitHole.cs: comboprotest, combovenue, combosituation, combojob, comboprotestlot, comboopp (all default off), docs/551",
+    "save": "Baseline-BP",
+    "note": "Needs a world with a combo building (Appaloosa Plains: ComboCityhallPoliceMilitary, ComboHospitalScienceLab, ComboSchoolStadium, ComboBusinessRestaurant, ComboDinerGrocery, ComboBookstoreDaySpa; others listed by ComboRabbitHoleCheck). ComboRabbitHoleCheck lists the pieces and their slots first (the facts of docs/551). ComboFixCheck then runs one EA path per family on the first matching piece and reads BROKEN / FIXED / N/A (venue needs a Theatre piece: N/A in Appaloosa Plains; job needs Ambitions and a Hospital / ScienceLab / Hideout that exists only inside a combo; protestlot needs University Life and a combo City Hall); the lot line is a fact, not a fix. On a world without a combo piece every line reads N/A: record the job as N/A (not triggered).",
+    "expect": "facts: pieces > 0, all at pos OutOfWorld on the world lot (FFFFFFFFFFFFFFFF), combo RoutingSlot_0 'o'. lot: world lot (manager = Global), alarm removed. off: protest BROKEN (origin the piece; EA route: no plan, or it ends off the building's lot), venue BROKEN or N/A, situation BROKEN (session at the piece, world lot), job BROKEN (no job, EA skipped the piece), protestlot BROKEN (protest created on the world lot, picker world lot >= 1), opp BROKEN (listener waits for the building, piece event ignored). on: protest FIXED (origin the combo; fix route ends outdoors on the building's lot), venue FIXED or N/A, situation FIXED (session at the combo, its lot), job FIXED (job at the piece, lot the building's), protestlot FIXED (protest on the City Hall's lot, picker world lot 0), opp FIXED (listener waits for the piece, piece event matched); counters 2337, 2338, 2340, 2374, 2377, 2378, 2405, 2407 >= 1; errors 2343 +0.",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ComboRabbitHoleCheck",
+          "args": [
+            "combo"
+          ]
+        },
+        "note": "facts: pieces, proxy, InWorld, Position, lot, slots"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "comboprotest": false,
+          "combovenue": false,
+          "combosituation": false,
+          "combojob": false,
+          "comboprotestlot": false,
+          "comboopp": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ComboFixCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: EA's behaviour (BROKEN or N/A)",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "comboprotest": true,
+          "combovenue": true,
+          "combosituation": true,
+          "combojob": true,
+          "comboprotestlot": true,
+          "comboopp": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ComboFixCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: FIXED (or N/A)",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "comboprotest": false,
+          "combovenue": false,
+          "combosituation": false,
+          "combojob": false,
+          "comboprotestlot": false,
+          "comboopp": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "pet-fire-plan",
+    "bug": "FireSource.ReactToFire.Run plans a route to the nearest fire for every actor, but only DoHumanReactions uses it: for a pet the one or two route plans (19-112 ms each, often failing) are thrown away; a long fire re-pushes ReactToFire ~40 times a sim hour (1,358 failed plans in phase-20261114-1113, docs/546 §10)",
+    "fix": "ts3fixes PetFirePlan.cs: petfireplan (default off), docs/546 §10",
+    "save": "Baseline-BP-Spring",
+    "note": "The agent check (PetFireCheck, EventChecks.cs) lights one fire 3 m from a household pet on the home lot (the active Sim when no pet is home: then the on arm cannot show the skip, so use a save whose household has a pet at home), 'result' reads counters 2320/2321 and the fires burning, 'stop' puts every fire on the lot out. Route plans per arm: ts3native.log routefail lines naming the pet (ReactToFire). Waits are a first guess (not run yet).",
+    "expect": "off: plans skipped 2320 +0; the pet's ReactToFire routefail lines present. on: 2320 >= 1, errors 2321 +0, no ReactToFire routefail lines for the pet; the pet still reacts (same nearest-fire choice); no script errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petfireplan": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetFireCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "waitS": 60,
+        "note": "off: fire next to a household pet"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetFireCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: 2320 unchanged"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetFireCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "waitS": 10,
+        "note": "off: put the fire out"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petfireplan": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetFireCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "waitS": 60,
+        "note": "on: fire next to a household pet"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetFireCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: 2320 rises"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetFireCheck",
+          "args": [
+            "stop"
+          ]
+        },
+        "note": "on: put the fire out"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petfireplan": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetFireCheck",
+          "args": [
+            "stop"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hidden-room-trap",
+    "bug": "Hidden rooms (docs/552): CommonDoor.IsAllowedThrough closes every door of a world-builder hidden room (Late Night apartment NPC units, World Adventures tomb rooms) to every Sim, so a Sim placed inside cannot leave. EA's Lot.Position fallbacks (Sim.AttemptToPutInSafeLocation, Lot.EntryPoint, Service.GetPositionNearLotCorners) put Sims at the lot centre on the ground floor with no room check, Service.CreateSim keeps a level-0 elevator spot whose room is not public, and EA's stuck check (LotManager.RunStuckCheckHelper) skips the active household's lot and any Sim that moved, so a trapped NPC pacing the room is never reset",
+    "fix": "ts3fixes HiddenRoom.cs: hiddenroomnpc (default off): every 10 sim-minutes an NPC in a hidden room with no allowed portal path outside is moved out by the game's own safe-spot placement or reset (second try: sent home), on the first pass once one of its route plans has failed (else on the second pass in a row); at most two tries per Sim per sim-day; household Sims logged only. Prevention at the placements: hiddenroomspawn (repro hidden-room-spawn). Check: HiddenRoomCheck (HiddenRoomChecks.cs)",
+    "save": "Baseline-BP",
+    "switches": [
+      "hiddenroomnpc"
+    ],
+    "note": "Tests the case the bug lives in: the active household's lot (EA's RunStuckCheckHelper skips it; watchdogidle [47] needs a whole sim-day of stillness for a seen Sim). Without the fix our StuckWatchdog [49] (route plans failing: 10+ failed plans over more than 30 sim-minutes within 1 m, 10-minute passes) resets the NPC 30-40 sim-minutes after its first failed plan (run phase-20261114-2022: 34 sim-min), so both checks run ~20 sim-minutes after their trap at normal speed (about 1 sim-minute per second). Needs an active household on a lot with a floor-0 hidden room (Baseline-BP: Trawler Lodge; trap's N/A line lists such lots). If trap reads N/A, record the job as N/A (not triggered).",
+    "expect": "trap (each arm): '(in the room) hidden=True exit=closed'. off check: 'trapped <NPC> ...: still in room' (BROKEN: nothing moves it before watchdog [49] at 30-40 sim-min). on check: 'trapped <NPC> ...: moved by fix (...) after N sim-min' with N <= 10 plus the reset's own tick (FIXED; 'left (not by hiddenroomnpc ...)' is not a pass), counter 2379 (moves) >= 1, errors 2383 +0, household count 2381 unchanged. 'event out' lines name the mover ('how: hiddenroomnpc: ...' or 'watchdog ...').",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "apt"
+          ]
+        },
+        "note": "facts: apartment / hidden-room lots, floor-0 problem rooms, where EA's placements land, Sims already inside"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "lot active"
+          ]
+        },
+        "note": "the target lot, every floor-0 room"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "about 1 sim-minute per second"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hiddenroomnpc": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "trap active"
+          ]
+        },
+        "note": "one adult non-resident NPC placed directly into the active lot's first hidden room; must read '(in the room) hidden=True exit=closed'",
+        "waitS": 22
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "lot active"
+          ]
+        },
+        "note": "off, ~20 sim-min after the trap: 'still in room'"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hiddenroomnpc": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "trap active"
+          ]
+        },
+        "note": "a fresh trap for the on arm (the off arm's NPC is still inside and is moved too)",
+        "waitS": 22
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "lot active"
+          ]
+        },
+        "note": "on, ~20 sim-min after the trap: 'moved by fix (...) after N sim-min', N <= 10 (+ reset tick); counter 2379 >= 1"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hiddenroomnpc": false
+        },
+        "note": "back to the default"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      }
+    ]
+  },
+  {
+    "id": "hidden-room-spawn",
+    "bug": "EA's unchecked placements (docs/552 §2): when Sim.AttemptToFindSafeLocation finds nothing, Sim.AttemptToPutInSafeLocation puts the Sim at Lot.Position (the lot centre on the ground floor) with no room or route check; Service.GetPositionNearLotCorners falls back to the mailbox and Lot.Position unchecked; Service.CreateSim keeps a level-0 elevator spot whose room it did not accept as public. On Bridgeport apartment lots whose centre lies in a world-builder hidden room (Baseline-BP: Trawler Lodge r16, Founders Keep r28) that lands an NPC in a room it can never leave",
+    "fix": "ts3fixes HiddenRoomSpawn.cs: hiddenroomspawn (default off), NPCs only: a fallback spot in a hidden room or a room the NPC has no allowed way out of is replaced by the lot's entry point (outside the front door) if good, else EA's off-screen service start spot (Service.GetPositionInRandomLot); a created service NPC standing in such a spot is moved to that start spot. Household Sims keep EA's code",
+    "save": "Baseline-BP",
+    "switches": [
+      "hiddenroomspawn"
+    ],
+    "note": "Deterministic and read-only: 'fallback <lot>' computes the reset's last step for a non-resident adult NPC (EA: Lot.Position; fix: HrResetFallback, the hook's own code), calls Service.GetPositionNearLotCorners through the hook, and replays CreateSim's elevator spot. Nobody is moved. 'active' is the household's lot (Baseline-BP: Trawler Lodge, centre in hidden r16); 'hidden' the first other lot with a floor-0 hidden room.",
+    "expect": "off: 'reset: EA r16(H...) ... used r16(H...) -> BROKEN' on Trawler Lodge (and any lot whose centre is in a hidden or closed room). on: the same line ends 'used outside ... -> FIXED'. Lots whose centre is fine read 'OK' both ways. corners: 'OK/FIXED' expected both ways on these lots (EA's corner FGL is checked). counters 2387-2390 +0 (the check computes, it does not move); errors 2390 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hiddenroomspawn": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "fallback active"
+          ]
+        },
+        "note": "off: where EA's fallbacks land on the active lot"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "fallback hidden"
+          ]
+        },
+        "note": "off: the same on another hidden-room lot"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hiddenroomspawn": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "fallback active"
+          ]
+        },
+        "note": "on: the reset line ends FIXED"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "fallback hidden"
+          ]
+        },
+        "note": "on: the same"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hiddenroomspawn": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "splash-roof-puddle",
+    "bug": "Sim+AutonomousSplashInPuddle.Run plans a route to the nearest three rain puddles that Terrain.SplashInPuddle.IsPuddleValid accepts; that test has no floor check (EA's PuddleManager requires World.HasSolidFloor), so rain puddles on the roof over a room are tried and every plan ends FailedBecauseNoDestinationSpecified; the definition's Test (native 'any valid rain puddle') offers the splash again after each failure. Measured: 32 of 32 failed splash plans in the 2026-11-14 runs aimed exactly 3.0 m above an indoor Sim (docs/546 §16)",
+    "fix": "ts3fixes SplashRoof.cs: splashroof (default off), NPC actors only: roof puddles (upper level, no solid floor) are refused inside their splash run, so no plan goes to them; household Sims run EA's code. Check: SplashRoofCheck (SplashRoofCheck.cs)",
+    "save": "Baseline-BP",
+    "note": "Any Bridgeport lot with a building works; the active Sim may stand anywhere on it. 'run' uses an existing roof rain puddle on the active lot, else sets a rain-puddle floor feature on a roof tile above an indoor room, places one human NPC directly in the room below (test shortcut, like HiddenRoomCheck's trap), runs EA's puddle choice for it step by step (same filter, sort and three plans as AutonomousSplashInPuddle.Run) and queues EA's interaction. 'verdict: N/A' when no roof puddle exists or can be added (GetRainPuddles ignores the set feature): record N/A and rerun in rain (Seasons). Second run reuses the puddle; 'clear' removes an added one.",
+    "expect": "off run: a roof puddle among the tries with plan FailedBecauseNoDestinationSpecified, counters 2384/2385 +0, 'verdict: BROKEN'. on run: no roof puddle tried, 2384 +>=1 and 2385 +1, picked a reachable puddle or none, 'verdict: FIXED', errors 2386 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "splashroof": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SplashRoofCheck",
+          "args": [
+            "list"
+          ]
+        },
+        "note": "the lot's rain puddles and how many sit on a roof"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SplashRoofCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: roof puddle, NPC below it, EA's choice and plans; verdict line",
+        "waitS": 20
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "splashroof": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SplashRoofCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: same case with the filter; verdict line",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SplashRoofCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "counters 2384-2386"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SplashRoofCheck",
+          "args": [
+            "clear"
+          ]
+        },
+        "note": "removes an added puddle"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "splashroof": false
+        },
+        "note": "back to the default"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      }
+    ]
+  },
+  {
+    "id": "apartment-leave-farewell",
+    "bug": "Sim.RoomChanged on a lot with virtual residential slots (Late Night apartment) calls VisitSituation.OnSimLeavingLot whenever a Sim walks on the same lot from a room that is not public (the household's unmarked apartment, or a hidden room) into a public one (PublicRoomMarker hallway/lobby), without checking that it is leaving. A visitor who only walks through the hallway gets the farewell ('time to leave' TNS or the party's leaving message) and is removed from the party as left early (liking change, -50 early-departure mood in the party score, no longer a guest), yet keeps visiting; its real departure later shows no farewell (docs/553)",
+    "fix": "ts3fixes AptLeave.cs: aptleave (default off), NPCs only: that room-change call is skipped while the Sim is not leaving (current interaction targets this lot and is not GoHome/GoOutside, no GoHome/GoOutside queued, no visit leave reason, does not live on the lot). GoHome/GoOutside/commute calls are never touched; household Sims run EA's code. Check: ApartmentLeaveCheck (AptLeaveChecks.cs)",
+    "save": "Baseline-BP",
+    "switches": [
+      "aptleave"
+    ],
+    "note": "Active lot = the household's apartment (Baseline-BP: Trawler Lodge, F5900033BA9E8C10). 'visit' places one adult NPC (never household) in the apartment room of a U|P door, greets it, gives it a visit (farewell flag cleared) and queues EA's Go Here to the public room behind the door; 'party' does the same and makes it a guest of a party on the lot ('make': a HouseParty with no invitations, host = selected Sim; 'unparty' ends it). 'status' reads the result. 'home' sends the test NPC home with EA's MakeSimGoHome (real departure: farewell expected both arms). Changes the world: test saves only.",
+    "expect": "off: visit status 'EA farewell ran (off, switch off) farewell-flag False->True' and 'verdict: BROKEN'; party status also 'party-guest True->False' (party=left-early). on: 'SKIPPED (on, Terrain+GoHere on this lot)', flag stays False, party=guest, 'verdict: FIXED', 2391 +>=2. on 'home': status visit=farewell-shown. errors 2394 +0. 'WAIT' = the NPC has not reached the public room: rerun status.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "aptleave": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "list"
+          ]
+        },
+        "note": "rooms P/H/U, U|P doors, parties, NPCs, counters"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "visit"
+          ]
+        },
+        "note": "off: plain visitor walks apartment -> hallway",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "status"
+          ]
+        },
+        "note": "off: BROKEN expected"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "party make"
+          ]
+        },
+        "note": "off: party guest walks apartment -> hallway",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "status"
+          ]
+        },
+        "note": "off: BROKEN, party=left-early"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "aptleave": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "visit"
+          ]
+        },
+        "note": "on: plain visitor",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "status"
+          ]
+        },
+        "note": "on: FIXED expected"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "party"
+          ]
+        },
+        "note": "on: party guest (the party made above)",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "status"
+          ]
+        },
+        "note": "on: FIXED, still a guest"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "home"
+          ]
+        },
+        "note": "on: real departure",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "status"
+          ]
+        },
+        "note": "on: farewell-shown after GoHome (EA's own call, untouched)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "list"
+          ]
+        },
+        "note": "decision lines and counters 2391-2394"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "unparty"
+          ]
+        },
+        "note": "end the party the check made"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "aptleave": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "apartment-leave-party",
+    "bug": "Same as apartment-leave-farewell, at a real party: each guest who walks from the apartment into a public hallway room is told goodbye and removed from the party as left early (-50 mood in HouseParty's score, liking with the host) while it stays; the party can end as 'all guests have left' with everyone still there (docs/553)",
+    "fix": "ts3fixes AptLeave.cs: aptleave (default off), NPCs only (see apartment-leave-farewell)",
+    "save": "Baseline-BP",
+    "switches": [
+      "aptleave"
+    ],
+    "note": "Test save only: the selected Sim (must be at home in the apartment, Trawler Lodge F5900033BA9E8C10) throws a real HouseParty: guests are the 6 best-related Sims of EA's phone invite list (Phone.Call.GetAllValidCalleesForParty), invitations delivered, start now + 2 sim-min. Per guest the tracker counts arrival, apartment->public / public->apartment room changes and room-change farewells run / skipped. 'nudge' sends arrived guests standing in the apartment to the public side of the nearest U|P door. 'partyend' sends the remaining guests home (HostedSituation.MakeGuestGoHome, not early), prints EA's final score (mPartyMood / mNumberOfGuests) and GetPartyOutcome, exits the party. Guests who did not arrive within the ultra-speed wait show arrived=False: raise the wait. Other worlds and lot types: 'throw 6 now <hex lot id>' with the selected Sim standing on that lot (home house, dorm, houseboat, or a community venue rented the phone's way); 'nudge' is N/A off apartment lots; 'first rN' shows where each guest first stood (H hidden, closed = no allowed way out, docs/552).",
+    "expect": "off: guests with apt->public >= 1 show 'farewell run 1' and party=left-early '(still here, no longer partying)'; summary left-early >= 1 with EA penalty -50 each; final avg lower. on: same crossings, 'farewell run 0 skipped >= 1', party=guest, summary left-early 0 (unless a guest really left), counters 2391 +>=1. errors 2394 +0. Moods differ between arms, so compare left-early and the penalty, not the outcome alone.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "aptleave": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "list"
+          ]
+        },
+        "note": "rooms, U|P doors, counters"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "throw 6 now"
+          ]
+        },
+        "note": "off: the household throws a house party the phone's way (EA invite list, invitations delivered), starts in 2 sim-min",
+        "waitS": 5
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "partyreport"
+          ]
+        },
+        "note": "off: guests arrived, natural hallway crossings so far"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "nudge"
+          ]
+        },
+        "note": "off: arrived guests in the apartment walk to the hallway (EA Go Here on this lot)",
+        "waitS": 40
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "partyreport"
+          ]
+        },
+        "note": "off: after the hallway walk"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "partyend"
+          ]
+        },
+        "note": "off: remaining guests leave the EA way, final score/outcome, party exited",
+        "waitS": 5
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "aptleave": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "throw 6 now"
+          ]
+        },
+        "note": "on: the household throws a house party the phone's way (EA invite list, invitations delivered), starts in 2 sim-min",
+        "waitS": 5
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "partyreport"
+          ]
+        },
+        "note": "on: guests arrived, natural hallway crossings so far"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "nudge"
+          ]
+        },
+        "note": "on: arrived guests in the apartment walk to the hallway (EA Go Here on this lot)",
+        "waitS": 40
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "partyreport"
+          ]
+        },
+        "note": "on: after the hallway walk"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "partyend"
+          ]
+        },
+        "note": "on: remaining guests leave the EA way, final score/outcome, party exited",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "list"
+          ]
+        },
+        "note": "decision lines and counters 2391-2394"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "partyend"
+          ]
+        },
+        "note": "end a check party left running"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "aptleave": false
+        },
+        "note": "back to the default"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      }
+    ]
+  },
+  {
+    "id": "apartment-leave-household",
+    "bug": "OnSimLeavingLot runs HostedSituation.RemoveGuest(left early) before its selectable check, so a household Sim who is a guest at an NPC's party in an apartment building and steps from an unmarked room into a public hallway room is dropped from that party as an early leaver (liking with the NPC host down) although it never left (docs/553)",
+    "fix": "ts3fixes AptLeave.cs aptleave (default off): for household Sims the room-change call is skipped unless an interaction in the queue goes off the lot (GoHome/GoOutside/other target lot); the skipped removal is deferred to the real lot change, where EA's own RemoveGuest(left early) runs (2395)",
+    "save": "Baseline-BP",
+    "switches": [
+      "aptleave"
+    ],
+    "note": "Needs an instantiated NPC who lives in another apartment building (load the save, let townies spawn, or spawn_sims). 'hhguest' makes that NPC host a HouseParty on its lot (no invitations), makes the selected Sim its guest, places the selected Sim in an unmarked room there and walks it into the hallway; 'hhexit' sends it home with EA's VisitLot. Changes the world: test saves only. Cleanup ends the party.",
+    "expect": "off: status 'party=left-early', 'EA farewell ran (off...)' , 'verdict: BROKEN'. on: 'SKIPPED (on, household, nothing off this lot queued)', party=guest, 'verdict: FIXED', 2397 +1; after hhexit (on) the Sim is off the lot, 2395 +1 and the decision lines unchanged (EA's RemoveGuest ran at the lot change). errors 2394 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "aptleave": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "hhguest"
+          ]
+        },
+        "note": "off: household guest walks apartment -> hallway at an NPC party",
+        "waitS": 25
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "status"
+          ]
+        },
+        "note": "off: BROKEN"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "unparty"
+          ]
+        },
+        "note": "end the off party",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "aptleave": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "hhguest"
+          ]
+        },
+        "note": "on",
+        "waitS": 25
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "status"
+          ]
+        },
+        "note": "on: FIXED"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "hhexit"
+          ]
+        },
+        "note": "on: really leave the lot",
+        "waitS": 90
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "list"
+          ]
+        },
+        "note": "counters: 2395 +1 (deferred removal applied)"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ApartmentLeaveCheck",
+          "args": [
+            "unparty"
+          ]
+        },
+        "note": "end the check party"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "aptleave": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "party-outcome-motive",
+    "bug": "HouseParty core (docs/554): (1) with University Life installed, GetPartyOutcome never returns a lame party outside a University world (the EP9 lame branch only acts in University worlds and skips the base lame test); (2) GetPartyOutcomeForSim tests Good before Amazing/Killer/Raging (reverse of GetPartyOutcome), so happy guests get the Good leaving message; (3) a guest who leaves before the party ends keeps the 'enjoy party' motive (Happening removes it only for Sims still in Guests)",
+    "fix": "ts3fixes PartyFixes.cs: partyoutcome (Neutral with a score below the base lame threshold -> Bad; per-guest tiers in GetPartyOutcome's order), partymotive (the motive is removed when RemoveGuest runs during Happening). Both default off; EA bug fixes, household hosts/guests included",
+    "save": "Baseline-BP",
+    "switches": [
+      "partyoutcome",
+      "partymotive"
+    ],
+    "note": "Any world, test saves only. Deterministic: 'PartyFixCheck force' makes a HouseParty (no invitations, host = a household member at home), forces EA's counters to one leaver scoring 5 below the base lame threshold and asks GetPartyOutcome; sets the tier thresholds around the host's mood for one call and asks GetPartyOutcomeForSim (tuning restored); then on a script task makes one NPC a guest, enters EA's Happening state, removes the NPC early through EA's RemoveGuest and reads its enjoy-party motive; party exited. 'forceresult' reads the motive part. 'tuning' says whether the bugs are live with this install's tuning (2026-11-14 Bridgeport: lame 10, lameEP9 64, great 65, amazing 90: both live).",
+    "expect": "off: 'force outcome: ... -> kNeutralParty: BROKEN', 'force guest: ... -> kGoodParty: BROKEN', forceresult 'still has it=True: BROKEN'. on: 'kBadParty: FIXED', 'kAmazingParty: FIXED', 'still has it=False: FIXED'; counters 2400 +1, 2401 +1, 2403 +1; errors 2402/2404 +0. N/A lines: no EP9, a University world, or a legendary host. 'NOT TRIGGERED' (fixed answer with no counter move, both arms) = the loaded HouseParty is already correct, e.g. simler90's core mod replaces Sims3GameplaySystems: record the outcome/guest jobs N/A (AGENTS.md).",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "partyoutcome": false,
+          "partymotive": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PartyFixCheck",
+          "args": [
+            "tuning"
+          ]
+        },
+        "note": "thresholds"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PartyFixCheck",
+          "args": [
+            "force"
+          ]
+        },
+        "note": "off: forced outcome, guest tiers; motive part queued",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PartyFixCheck",
+          "args": [
+            "forceresult"
+          ]
+        },
+        "note": "off: motive result"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "partyoutcome": true,
+          "partymotive": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PartyFixCheck",
+          "args": [
+            "force"
+          ]
+        },
+        "note": "on",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PartyFixCheck",
+          "args": [
+            "forceresult"
+          ]
+        },
+        "note": "on: motive result"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "partyoutcome": false,
+          "partymotive": false
+        },
+        "note": "back to the default",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "shuffleboard-broadcast-leak",
+    "bug": "Shuffleboard+Play.TriggerReactions overwrites mBroadcaster / mPetBroadcaster without Dispose; Run calls it after every throw and again at round end, Cleanup disposes only the last pair, so every round end leaks two ReactionBroadcasters that pulse the board's lot every second for the rest of the session (Bridgeport leak census: Shuffleboard broadcasters 0 -> 148 in ~45 min, 79 on one lot; docs/546 §17)",
+    "fix": "ts3fixes ShuffleboardBroadcast.cs: shuffleboardbcast (default off), docs/546 §17",
+    "save": "Bridgeport (new game; any world with an idle shuffleboard)",
+    "note": "ShuffleboardCheck (ObjectLeakChecks.cs) 'run' takes an idle board (no teams, not in use) and one NPC, makes a Play instance (not queued), runs EA's TriggerReactions twice (round end) and EA's Cleanup, and counts the board's broadcasters. 'clear' disposes what the off arm left. Natural check: leak census broadcasters.by_object_type.Shuffleboard stays near 2 x boards in use with the switch on.",
+    "expect": "off: 'verdict: BROKEN', +2 broadcasters left after Cleanup, 2409 +2, 2410 +0. on: 'verdict: FIXED', +0 left, 2410 +2, 2411 +0; no script errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "shuffleboardbcast": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShuffleboardCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 5,
+        "note": "off: EA's path once"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShuffleboardCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShuffleboardCheck",
+          "args": [
+            "clear"
+          ]
+        },
+        "note": "off: dispose the leaked pair"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "shuffleboardbcast": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShuffleboardCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 5,
+        "note": "on: EA's path once"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShuffleboardCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "shuffleboardbcast": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShuffleboardCheck",
+          "args": [
+            "clear"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "cook-click-listener-leak",
+    "bug": "CookingProcess.AddObjectListeners hooks the clicked appliance (kObjectStateChanged listener + ObjectDisposed) for the cook and for every serving copy; nothing removes them when the serving is eaten / washed / thrown away, only an appliance repair, move or delete does, so the fridge or stove keeps one dead process per serving (leak census: CookingProcess.ObjectClickedOnDestroyed 0 -> 132 in ~45 min Bridgeport, 0 -> 50 Appaloosa Plains; docs/546 §17)",
+    "fix": "ts3fixes CookClickListener.cs: cookclicklistener (default off), docs/546 §17",
+    "save": "any world with a fridge (new game is fine)",
+    "note": "CookClickCheck (ObjectLeakChecks.cs) 'run' builds one CookingProcess with EA's constructor (a fridge as the clicked object, a new single serving as Owner) and destroys the serving; 'verify' (5 s later: GameObject.Destroy drops the proxy after the call) runs the fix's check without its 10-minute wait, then calls EA's ClearObjectListeners so nothing is left. 'list' splits the live listeners by owner state. Natural check: leak census events.by_delegate.CookingProcess.ObjectClickedOnDestroyed flat with the switch on.",
+    "expect": "off: 'verdict: BROKEN' (listener after the serving was destroyed True), 2412 +0. on: 'verdict: FIXED' (False), 2412 +1, 2414 +0; no script errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "cookclicklistener": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CookClickCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 5,
+        "note": "off: EA's constructor, serving destroyed"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CookClickCheck",
+          "args": [
+            "verify"
+          ]
+        },
+        "note": "verdict (the serving's proxy is gone by now)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CookClickCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "cookclicklistener": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CookClickCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 5,
+        "note": "on: EA's constructor, serving destroyed"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CookClickCheck",
+          "args": [
+            "verify"
+          ]
+        },
+        "note": "verdict (the serving's proxy is gone by now)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CookClickCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CookClickCheck",
+          "args": [
+            "list"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "cookclicklistener": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "cookclicklistener": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "vip-room-refresh-modified",
+    "bug": "ResortManager.RefreshVIPRooms removes a VIP room whose doors are all gone with VIPRooms.Remove inside its foreach over VIPRooms; the next MoveNext throws 'Collection was modified', later rooms keep stale locks and the caller stops half done (closing a resort no longer sends guests home; docs/555 §3)",
+    "fix": "ts3fixes VipRoomRefresh.cs: viproomrefresh (default off), docs/555 §3",
+    "save": "any world (the check uses a throwaway ResortManager; no resort needed)",
+    "note": "VipRoomCheck (VipRoomRefresh.cs) 'run' makes a ResortManager with its private constructor (no lot, nothing registered), adds two VIP rooms whose only door id names no object and calls EA's RefreshVIPRooms through the patch once. Nothing in the world changes in either arm.",
+    "expect": "off: 'verdict: BROKEN' (InvalidOperationException, rooms left 1 of 2), 2417 +1, 2418 +0. on: 'verdict: FIXED' (exception none, rooms left 0 of 2), 2417 +1, 2418 +2, 2419 +0; no script errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "viproomrefresh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VipRoomCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's loop throws"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VipRoomCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "viproomrefresh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VipRoomCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: copy loop"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VipRoomCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "viproomrefresh": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "viproomrefresh": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "buff-shared-state",
+    "bug": "EA buff classes keep per-Sim state on the shared Buff object (one per buff guid): BuffDowntrodden.OnRemoval removes the handle of the last Sim that got the buff, so with two Sims downtrodden at once the first keeps its 5-minute AlwaysPersisted PushDowntrodden alarm for good (hidden BeDowntrodden pushed whenever its queue is empty, saved with the game) and the second loses its alarm early; same shape in the Voodoo and Dragon curse listeners, High Fertility's trait cleanup and the Hypnotized / Queasy handlers (docs/557)",
+    "fix": "ts3fixes BuffSharedState.cs: buffstate (default off), docs/557",
+    "save": "any world with two NPC Sims instantiated (not in the active household)",
+    "note": "BuffStateCheck (BuffSharedState.cs) 'run' calls BuffDowntrodden's OnAddition for NPC A then B and OnRemoval for A through the patch (not BuffManager.AddElement: the buff's ShouldAdd wants a nightlife venue), counts each Sim's PushDowntrodden alarms in AlarmManager, then always removes B's buff state and any alarm left on A or B. The two NPCs get the walk-of-shame walk style requested and released within the call; no alarm fires in between.",
+    "expect": "off: 'verdict: BROKEN' (A alarms left 1, B 0), 2428 +1, 2429 +0. on: 'verdict: FIXED' (A 0, B 1), 2428 +1, 2429 +1, 2434 +0; no script errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "buffstate": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffStateCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's shared field"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffStateCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "buffstate": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffStateCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: per-Sim alarms"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffStateCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "buffstate": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "buffstate": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "store-world-events",
+    "bug": "Store objects (DeepFryerVegas, IceCreamMaker, VoodooDoll, ChocolateFountain, WalkerClassic) add instance handlers to the static World.OnObjectPlacedInLotEventHandler / OnWorldQuitEventHandler and LoadSaveManager.ObjectGroupSaving in OnStartup and never remove them: deleted objects and every earlier world's objects stay reachable from SimIFace statics, one more dead handler per object per load (docs/192 #2, docs/557 §4.2)",
+    "fix": "ts3fixes StoreWorldEvents.cs: storeworldevents (default off), docs/557 §4.2",
+    "save": "any world",
+    "note": "StoreWorldEventsCheck 'run' adds DeepFryerVegas.OnPlacedInWorldHandler bound to an uninitialized fryer (never created in the simulator: no proxy, like a deleted fryer) to World.OnObjectPlacedInLotEventHandler as OnStartup does, runs the sweep pass once, reports whether it is still listed, then removes it in both arms. Nothing in the world changes.",
+    "expect": "off: 'verdict: BROKEN' (still in), 2435 +1, 2436 +0. on: 'verdict: FIXED' (removed), 2435 +1, 2436 +1, 2437 +0; no script errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "storeworldevents": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StoreWorldEventsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: the dead handler stays"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StoreWorldEventsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "storeworldevents": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StoreWorldEventsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: swept"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StoreWorldEventsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "storeworldevents": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "storeworldevents": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "course-listener-leak",
+    "bug": "AcademicCareer+CourseCreationSpec adds a kEventObjectDisposed listener on each course's rabbit hole and removes it only when it fires: leaving university or rebuilding the schedule leaves every listener (career and Sim pinned for the world session, stale 'course location destroyed' notices), and ChangeRabbitHoleTo (level-up) leaves it on the old building (docs/555 §4)",
+    "fix": "ts3fixes SmallEaFixes555.cs: courselistener (default off), docs/555 §4",
+    "save": "any world with two rabbit holes",
+    "note": "CourseListenerCheck 'run' builds a throwaway course spec (uninitialized, no career) on one world rabbit hole with EA's SetRabbitHoleDisposedEventListener, runs EA's ChangeRabbitHoleTo to a second rabbit hole, then the hooks' drop (ClDropAll) on a throwaway uninitialized career holding it; the listener is removed at the end in both arms. Nothing in the world changes.",
+    "expect": "off: 'verdict: BROKEN' (move BROKEN, leave BROKEN), 2422 +1. on: 'verdict: FIXED', 2420 +1, 2421 +1, 2423 +0; no script errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "courselistener": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CourseListenerCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CourseListenerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "courselistener": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CourseListenerCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CourseListenerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "courselistener": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "courselistener": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "observatory-stardust-msg",
+    "bug": "StellarObservatory+TravelToSimulonV tests dark matter twice (num3 > 0 || num3 > 0) before its summary notice: a stardust-only trip shows 'found nothing' although the stardust is inventoried (docs/555 §6)",
+    "fix": "ts3fixes SmallEaFixes555.cs: observatorymsg (default off), docs/555 §6",
+    "save": "any world (pure check)",
+    "note": "ObservatoryMsgCheck 'run' asks the hook's notice choice (ObsPick) for a stardust-only trip (3, 0) and an empty trip (0, 0). No notice is shown.",
+    "expect": "off: 'verdict: BROKEN' (stardust-only SummaryOfNothingFoundOnSimulonV), 2424 +1. on: 'verdict: FIXED' (SummaryOfEverythingFoundOnSimulonV; empty trip still nothing), 2424 +1, 2425 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "observatorymsg": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObservatoryMsgCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObservatoryMsgCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "observatorymsg": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObservatoryMsgCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObservatoryMsgCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "observatorymsg": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "observatorymsg": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "bubblebar-pipe-null",
+    "bug": "BubbleBar+BlowBubbles.Run uses the pipe prop (SetHiddenFlags) before its null check, so a pipe that was not created throws a NullReferenceException instead of EA's StandardExit/return false (docs/555 §7)",
+    "fix": "ts3fixes SmallEaFixes555.cs: bubblepipeguard (default off), docs/555 §7",
+    "save": "any world (throwaway interaction)",
+    "note": "BubblePipeCheck 'run' asks the guard (BbPipeFailed) about a throwaway uninitialized BlowBubbles in the failed-pipe state (state machine set, pipe null) and before EnterStateMachine (must decline). Never queued; nothing in the world changes.",
+    "expect": "off: 'verdict: BROKEN' (pipe-failure exit False). on: 'verdict: FIXED' (True, NRE before the state machine handled False), 2426 +1, 2427 +0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bubblepipeguard": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BubblePipeCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BubblePipeCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bubblepipeguard": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BubblePipeCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BubblePipeCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bubblepipeguard": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bubblepipeguard": false
+        }
+      }
+    ]
   }
 ]

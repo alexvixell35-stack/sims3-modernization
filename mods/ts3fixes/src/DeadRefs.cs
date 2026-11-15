@@ -885,8 +885,8 @@ namespace Ts3Fixes
             foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
             {
                 SimDescription d = s.SimDescription;
-                if (s.IsSelectable || s.IsPet || s.HasBeenDestroyed || d == null || d == except || !d.IsValidDescription || !d.TeenOrAbove) continue;
-                if (s.Household == active || (home != null && s.LotCurrent == home) || d.AssignedRole != null || d.CreatedByService != null) continue;
+                if (IsPlayerSim(s) || s.IsPet || d == except || !d.IsValidDescription || !d.TeenOrAbove) continue;  // PlayerSims.cs: d != null after it
+                if ((home != null && s.LotCurrent == home) || d.AssignedRole != null || d.CreatedByService != null) continue;
                 return s;
             }
             return null;

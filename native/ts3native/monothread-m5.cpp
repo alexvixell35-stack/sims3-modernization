@@ -76,7 +76,7 @@ static volatile LONG g_mtStopReq, g_mtBusy;  // worker stop request; a job (or a
 static bool g_mtLazyGate;   // [MonoThread] LazyGate=1 (default off: the gate stays on while a worker exists)
 static bool g_mtLazyEarly;  // [MonoThread] LazyEarly=1 (with LazyGate=1, docs/30 §16)
 
-static const DWORD MT_COLLECT_A = 0x00E4A050, MT_COLLECT_B = 0x00E4A0B0;
+static const DWORD MT_COLLECT_A = TS3A(0x00E4A050), MT_COLLECT_B = TS3A(0x00E4A0B0);
 
 struct MtSite {
     DWORD addr;
@@ -85,25 +85,25 @@ struct MtSite {
 };
 // [verified bytes: docs/30 §12.1, docs/57 §7, re-read from the Steam 1.67 exe for this build]
 static const MtSite kMtLockSites[17] = {
-    {0x00E4BE30, 9, {0x8B, 0x44, 0x24, 0x04, 0xB9, 0x00, 0x08, 0x00, 0x00}},  // GC_malloc
-    {0x00E4BDC0, 9, {0x8B, 0x44, 0x24, 0x04, 0xB9, 0x00, 0x08, 0x00, 0x00}},  // GC_malloc_atomic
-    {0x00E4BF90, 6, {0x8B, 0x0D, 0xB4, 0x49, 0x19, 0x01}},                    // GC_malloc_uncollectable
-    {0x00E50DE0, 5, {0xA1, 0xB4, 0x49, 0x19, 0x01}},                          // GC_malloc_explicitly_typed
-    {0x00E4BCE0, 7, {0x83, 0x3D, 0x04, 0x41, 0x1F, 0x01, 0x00}},              // GC_generic_malloc
-    {0x00E4A050, 7, {0x83, 0x3D, 0x94, 0x30, 0x1F, 0x01, 0x00}},              // GC_try_to_collect
-    {0x00E4A0B0, 7, {0x83, 0x3D, 0x94, 0x30, 0x1F, 0x01, 0x00}},              // GC_gcollect
-    {0x00E4E450, 7, {0x83, 0x3D, 0xC0, 0x30, 0x1F, 0x01, 0x00}},              // GC_enable_incremental
-    {0x00E4AAC0, 5, {0x53, 0x8B, 0x5C, 0x24, 0x08}},                          // register disappearing link
-    {0x00E4ABE0, 5, {0xA1, 0x40, 0x48, 0x19, 0x01}},                          // unregister disappearing link
-    {0x00E4AE30, 8, {0x8B, 0x44, 0x24, 0x14, 0x8B, 0x4C, 0x24, 0x10}},        // register finalizer
-    {0x00E4A3F0, 5, {0x8B, 0x44, 0x24, 0x04, 0x50}},                          // GC_apply_to_each_object
-    {0x00E4BEB0, 5, {0x56, 0x8B, 0x74, 0x24, 0x08}},                          // GC_free
-    {0x00D71900, 5, {0x8B, 0x44, 0x24, 0x04, 0x55}},                          // EA frame arena grow
-    {0x00D71A20, 5, {0x8B, 0x44, 0x24, 0x04, 0x56}},                          // EA frame arena pop
-    {0x00D71B70, 5, {0x8B, 0x44, 0x24, 0x04, 0x56}},                          // EA frame arena release all
-    {0x00E4D9F0, 8, {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x4C, 0x24, 0x04}},        // GC_add_roots (last: LockAddRoots=0 leaves it out)
+    {TS3A(0x00E4BE30), 9, {0x8B, 0x44, 0x24, 0x04, 0xB9, 0x00, 0x08, 0x00, 0x00}},  // GC_malloc
+    {TS3A(0x00E4BDC0), 9, {0x8B, 0x44, 0x24, 0x04, 0xB9, 0x00, 0x08, 0x00, 0x00}},  // GC_malloc_atomic
+    {TS3A(0x00E4BF90), 6, {0x8B, 0x0D, 0xB4, 0x49, 0x19, 0x01}},                    // GC_malloc_uncollectable
+    {TS3A(0x00E50DE0), 5, {0xA1, 0xB4, 0x49, 0x19, 0x01}},                          // GC_malloc_explicitly_typed
+    {TS3A(0x00E4BCE0), 7, {0x83, 0x3D, 0x04, 0x41, 0x1F, 0x01, 0x00}},              // GC_generic_malloc
+    {TS3A(0x00E4A050), 7, {0x83, 0x3D, 0x94, 0x30, 0x1F, 0x01, 0x00}},              // GC_try_to_collect
+    {TS3A(0x00E4A0B0), 7, {0x83, 0x3D, 0x94, 0x30, 0x1F, 0x01, 0x00}},              // GC_gcollect
+    {TS3A(0x00E4E450), 7, {0x83, 0x3D, 0xC0, 0x30, 0x1F, 0x01, 0x00}},              // GC_enable_incremental
+    {TS3A(0x00E4AAC0), 5, {0x53, 0x8B, 0x5C, 0x24, 0x08}},                          // register disappearing link
+    {TS3A(0x00E4ABE0), 5, {0xA1, 0x40, 0x48, 0x19, 0x01}},                          // unregister disappearing link
+    {TS3A(0x00E4AE30), 8, {0x8B, 0x44, 0x24, 0x14, 0x8B, 0x4C, 0x24, 0x10}},        // register finalizer
+    {TS3A(0x00E4A3F0), 5, {0x8B, 0x44, 0x24, 0x04, 0x50}},                          // GC_apply_to_each_object
+    {TS3A(0x00E4BEB0), 5, {0x56, 0x8B, 0x74, 0x24, 0x08}},                          // GC_free
+    {TS3A(0x00D71900), 5, {0x8B, 0x44, 0x24, 0x04, 0x55}},                          // EA frame arena grow
+    {TS3A(0x00D71A20), 5, {0x8B, 0x44, 0x24, 0x04, 0x56}},                          // EA frame arena pop
+    {TS3A(0x00D71B70), 5, {0x8B, 0x44, 0x24, 0x04, 0x56}},                          // EA frame arena release all
+    {TS3A(0x00E4D9F0), 8, {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x4C, 0x24, 0x04}},        // GC_add_roots (last: LockAddRoots=0 leaves it out)
 };
-static const DWORD MT_FIN_INVOKE = 0x00E4B3F0, MT_MALLOC_HEAP = 0x00E4EC40;
+static const DWORD MT_FIN_INVOKE = TS3A(0x00E4B3F0), MT_MALLOC_HEAP = TS3A(0x00E4EC40);
 static const u8 kMtFinInvoke[9] = {0x51, 0x53, 0x56, 0x8B, 0x35, 0x3C, 0x30, 0x1F, 0x01};  // push ecx/ebx/esi; mov esi,[0x11F303C]
 static const u8 kMtMallocHeap[4] = {0x83, 0xEC, 0x20, 0x53};                                // sub esp,0x20; push ebx
 
@@ -117,10 +117,10 @@ void MtLockExitThunk();
 static DWORD g_mtWorkerTid;
 static double g_mtUsPerTick;
 // GC_invoke_finalizers state; the selftest points these at fakes
-static DWORD** g_mtFinQueue = (DWORD**)(uintptr_t)0x011F303C;       // ready queue: entry +0 base, +4 next, +8 fn, +0xC data
-static volatile LONG* g_mtFinLimit = (volatile LONG*)(uintptr_t)0x01194848;  // 0 = no per-call limit
-static DWORD* g_mtMemFreed = (DWORD*)(uintptr_t)0x012225D4;
-static DWORD* g_mtFinFreed = (DWORD*)(uintptr_t)0x012225D8;
+static DWORD** g_mtFinQueue = (DWORD**)(uintptr_t)TS3A(0x011F303C);       // ready queue: entry +0 base, +4 next, +8 fn, +0xC data
+static volatile LONG* g_mtFinLimit = (volatile LONG*)(uintptr_t)TS3A(0x01194848);  // 0 = no per-call limit
+static DWORD* g_mtMemFreed = (DWORD*)(uintptr_t)TS3A(0x012225D4);
+static DWORD* g_mtFinFreed = (DWORD*)(uintptr_t)TS3A(0x012225D8);
 
 static void MtLockInit() {
     if (g_mtLockInit) return;
@@ -218,7 +218,7 @@ __declspec(naked) void MtLockExitThunk() {
 // an interpreter context 0xE78610 returns NULL instead and the hooked frames return through their thunks, so the
 // entries are taken back then (a call, not a tail jump). No SEH frame or destructor here: the longjmp crosses this frame.
 typedef void*(__cdecl* MtOomFn)(size_t);
-static const DWORD MT_OOM_SLOT = 0x011949BC, MT_OOM_MONO = 0x00E78610;
+static const DWORD MT_OOM_SLOT = TS3A(0x011949BC), MT_OOM_MONO = TS3A(0x00E78610);
 static MtOomFn g_mtOomOrig;
 static void* __cdecl MtOomWrap(size_t n) {
     DWORD ret[64];
@@ -288,7 +288,11 @@ static int MtInstallLockSites(const MtSite* sites, int n) {
     for (int i = 0; i < n; i++) {
         u8* tramp = mem + i * 112;  // 32 trampoline + 80 stub
         u8* t = (u8*)(uintptr_t)sites[i].addr;
-        memcpy(tramp, sites[i].bytes, sites[i].len);
+#ifdef TS3A_TABLE
+        memcpy(tramp, t, sites[i].len);  // the live bytes (= the checked ones; on EA their globals differ from the Steam literal)
+#else
+        memcpy(tramp, sites[i].bytes, sites[i].len);  // Steam: live = literal (checked); kept so the Steam asi stays identical
+#endif
         tramp[sites[i].len] = 0xE9;
         *(LONG*)(tramp + sites[i].len + 1) = (LONG)((t + sites[i].len) - (tramp + sites[i].len + 5));
         g_mtTramp[i] = tramp;
@@ -363,7 +367,7 @@ static bool MtJmpTo(DWORD at, const void* to, size_t len) {
 // frame exit finds the chain already emptied by the other state (fault at 0xE5444D) [verified in monohost].
 // Fix: clear +0x13C after release-all, drop duplicate chunks from the pool once at install, and before each grow drop
 // pooled chunks that are in use (a pooled chunk has top == data start; every release path resets it [verified bytes]).
-static DWORD** g_mtArenaPool = (DWORD**)(uintptr_t)0x011EE508;  // the selftest points it at a fake pool
+static DWORD** g_mtArenaPool = (DWORD**)(uintptr_t)TS3A(0x011EE508);  // the selftest points it at a fake pool
 static void* g_mtGrowOrig;
 static void* g_mtRelAllOrig;
 static bool g_mtArenaFix = true;
@@ -437,8 +441,8 @@ static bool ApplyArenaGuard(const wchar_t* ini) {
         Log("arena guard: left to [MonoThread] ArenaFix (P3 owns 0xD71900 / 0xD71B70)");
         return false;
     }
-    if ((g_mtGrowOrig = InstallDetour("arena grow (arena guard)", 0x00D71900, kAgGrow, 5, (void*)MtArenaGrow, &g_mtGrowOrig)) != NULL) g_agReady |= 1;
-    if ((g_mtRelAllOrig = InstallDetour("arena release all (arena guard)", 0x00D71B70, kAgRelAll, 5, (void*)MtArenaReleaseAll, &g_mtRelAllOrig)) != NULL) g_agReady |= 2;
+    if ((g_mtGrowOrig = InstallDetour("arena grow (arena guard)", TS3A(0x00D71900), kAgGrow, 5, (void*)MtArenaGrow, &g_mtGrowOrig)) != NULL) g_agReady |= 1;
+    if ((g_mtRelAllOrig = InstallDetour("arena release all (arena guard)", TS3A(0x00D71B70), kAgRelAll, 5, (void*)MtArenaReleaseAll, &g_mtRelAllOrig)) != NULL) g_agReady |= 2;
     Log("%s arena guard: ready 0x%X (bit 0 heal before grow, 1 clear after release-all)", g_agReady == 3 ? "OK  " : "PART", g_agReady);
     return g_agReady != 0;
 }
@@ -479,7 +483,7 @@ static void MtInstallP3(bool addRoots) {
 }
 
 // --- P4: interpreter frame globals to TLS ---
-static const DWORD MT_FRAME_G = 0x011F4170, MT_ARRAY_G = 0x011F416C, MT_FRAME_AT = 0x00E534E0;
+static const DWORD MT_FRAME_G = TS3A(0x011F4170), MT_ARRAY_G = TS3A(0x011F416C), MT_FRAME_AT = TS3A(0x00E534E0);
 struct MtBlock {
     DWORD addr;
     u8 len;
@@ -490,11 +494,11 @@ struct MtBlock {
 // [verified: docs/30 §4 table and §12.4; whole blocks re-read from the exe]. Each instruction that names a global has
 // it as its last 4 bytes; the stub repeats the block with an fs: prefix on those and the TEB slot offset instead.
 static const MtBlock kMtBlocks[3] = {
-    {0x00E53EBD, 37, 9, {5, 6, 1, 3, 3, 6, 2, 6, 5},
+    {TS3A(0x00E53EBD), 37, 9, {5, 6, 1, 3, 3, 6, 2, 6, 5},
      {0xA1, 0x70, 0x41, 0x1F, 0x01, 0x8B, 0x0D, 0x6C, 0x41, 0x1F, 0x01, 0x53, 0x8B, 0x5D, 0x08, 0x89, 0x45, 0xA0, 0x8D,
       0x85, 0x8C, 0xB3, 0xFF, 0xFF, 0x33, 0xD2, 0x89, 0x1D, 0x70, 0x41, 0x1F, 0x01, 0xA3, 0x6C, 0x41, 0x1F, 0x01}},  // entry
-    {0x00E597BA, 11, 2, {5, 6}, {0xA3, 0x70, 0x41, 0x1F, 0x01, 0x89, 0x0D, 0x6C, 0x41, 0x1F, 0x01}},              // exit A
-    {0x00E59866, 12, 2, {6, 6}, {0x89, 0x15, 0x6C, 0x41, 0x1F, 0x01, 0x89, 0x0D, 0x70, 0x41, 0x1F, 0x01}},        // exit B
+    {TS3A(0x00E597BA), 11, 2, {5, 6}, {0xA3, 0x70, 0x41, 0x1F, 0x01, 0x89, 0x0D, 0x6C, 0x41, 0x1F, 0x01}},              // exit A
+    {TS3A(0x00E59866), 12, 2, {6, 6}, {0x89, 0x15, 0x6C, 0x41, 0x1F, 0x01, 0x89, 0x0D, 0x70, 0x41, 0x1F, 0x01}},        // exit B
 };
 static const u8 kMtFrameAt[16] = {0x8B, 0x15, 0x6C, 0x41, 0x1F, 0x01, 0x85, 0xD2, 0x74, 0x4D, 0xA1, 0x70, 0x41, 0x1F, 0x01, 0x85};
 static DWORD g_mtSlotF = TLS_OUT_OF_INDEXES, g_mtSlotA = TLS_OUT_OF_INDEXES;
@@ -502,7 +506,11 @@ static DWORD g_mtSlotF = TLS_OUT_OF_INDEXES, g_mtSlotA = TLS_OUT_OF_INDEXES;
 // Stub for one block at `site` (the block's bytes, here or in a test copy): same instructions, globals -> fs:[0xE10 + 4*slot],
 // then jmp site + len. Returns the end of the stub.
 static u8* MtEmitBlock(u8* p, const MtBlock& b, DWORD site) {
-    const u8* in = b.bytes;
+#ifdef TS3A_TABLE
+    const u8* in = (const u8*)(uintptr_t)site;  // the live block (checked against b.bytes; on EA its globals are the EA ones)
+#else
+    const u8* in = b.bytes;  // Steam: live = b.bytes (checked); kept so the Steam asi stays identical
+#endif
     for (int i = 0; i < b.nIns; i++) {
         const u8 l = b.insLen[i];
         DWORD a;
@@ -600,11 +608,11 @@ static void MtInstallP4() {
 typedef void*(__cdecl* MtInvokeFn)(void* method, void* obj, void** params, void** exc);
 typedef void*(__cdecl* MtDomainGetFn)();
 typedef void(__cdecl* MtDomainSetFn)(void* domain);
-static MtInvokeFn g_mtInvoke = (MtInvokeFn)(uintptr_t)0x00E5A600;         // runtime invoke, called directly (not the slot)
-static MtDomainGetFn g_mtDomainGet = (MtDomainGetFn)(uintptr_t)0x00E75260;  // TlsGetValue([0x11959DC])
-static MtDomainSetFn g_mtDomainSet = (MtDomainSetFn)(uintptr_t)0x00E75270;  // TlsSetValue([0x11959DC], domain)
-static DWORD* g_mtInterpKey = (DWORD*)(uintptr_t)0x011F4160;                // TLS index of the interpreter ThreadContext
-static volatile LONG* g_mtTrackMode = (volatile LONG*)(uintptr_t)0x011DC18C;  // EA memory tracking mode
+static MtInvokeFn g_mtInvoke = (MtInvokeFn)(uintptr_t)TS3A(0x00E5A600);         // runtime invoke, called directly (not the slot)
+static MtDomainGetFn g_mtDomainGet = (MtDomainGetFn)(uintptr_t)TS3A(0x00E75260);  // TlsGetValue([0x11959DC])
+static MtDomainSetFn g_mtDomainSet = (MtDomainSetFn)(uintptr_t)TS3A(0x00E75270);  // TlsSetValue([0x11959DC], domain)
+static DWORD* g_mtInterpKey = (DWORD*)(uintptr_t)TS3A(0x011F4160);                // TLS index of the interpreter ThreadContext
+static volatile LONG* g_mtTrackMode = (volatile LONG*)(uintptr_t)TS3A(0x011DC18C);  // EA memory tracking mode
 struct MtJob { void* method; void* obj; void** params; };
 static MtJob g_mtJob;
 static HANDLE g_mtWorker, g_mtJobEv;
@@ -707,7 +715,7 @@ static void(__cdecl* g_mtQuitDrain)();        // autshadow-run.cpp: stop flag fo
 static u8* g_mtFinAt = (u8*)(uintptr_t)MT_FIN_INVOKE;           // selftest: fakes
 static DWORD* g_mtPushHookAt = (DWORD*)(uintptr_t)MT_PUSH_HOOK;
 static void* g_mtShutT;
-static const DWORD MT_SHUTDOWN = 0x00E534D0;
+static const DWORD MT_SHUTDOWN = TS3A(0x00E534D0);
 static const u8 kMtShutdown[6] = {0x8B, 0x44, 0x24, 0x04, 0x6A, 0x00};  // mov eax,[esp+4]; push 0 [verified bytes, quitdiag]
 
 static void MtQuitStop(const char* where) {
@@ -779,10 +787,10 @@ static void MtLazyOff() {
 typedef void(__cdecl* MtExecFn)(void* rec, void* ctx);
 typedef void*(__cdecl* MtSigFn)(void* method);
 typedef void*(__cdecl* MtUncollFn)(size_t n);
-static MtExecFn g_mtExec = (MtExecFn)(uintptr_t)0x00E53EB0;          // ves_exec_method_with_context
-static MtSigFn g_mtSig = (MtSigFn)(uintptr_t)0x00E85040;             // mono_method_signature
-static MtUncollFn g_mtUncoll = (MtUncollFn)(uintptr_t)0x00E4BF90;    // GC_malloc_uncollectable (P3-locked): records stay roots
-static const DWORD MT_N2M = 0x00D8A8E0;
+static MtExecFn g_mtExec = (MtExecFn)(uintptr_t)TS3A(0x00E53EB0);          // ves_exec_method_with_context
+static MtSigFn g_mtSig = (MtSigFn)(uintptr_t)TS3A(0x00E85040);             // mono_method_signature
+static MtUncollFn g_mtUncoll = (MtUncollFn)(uintptr_t)TS3A(0x00E4BF90);    // GC_malloc_uncollectable (P3-locked): records stay roots
+static const DWORD MT_N2M = TS3A(0x00D8A8E0);
 static const u8 kMtN2m[5] = {0x8B, 0x44, 0x24, 0x18, 0x53};  // mov eax,[esp+0x18]; push ebx
 static DWORD g_mtN2mCont = MT_N2M + 5;
 static u8* g_mtN2mRec[32];  // 0x150 record + its 0x28 frame buffer at +0x30, as the game's nodes

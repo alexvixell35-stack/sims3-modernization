@@ -138,9 +138,9 @@ static void RfVtInit() {
         g_rfFpVt[c][0x70 / 4] = (DWORD)(uintptr_t)RfEnsure;
         g_rfCls[c] = {(DWORD)(uintptr_t)g_rfFpVt[c], c == 1 ? 0x48u : 0x44u, 1, 0};
     }
-    for (int c = 0; c < 3; c++) g_rfFpVt[c][0x7C / 4] = 0x00806FE0;  // id slot as the game's (compared, never called)
+    for (int c = 0; c < 3; c++) g_rfFpVt[c][0x7C / 4] = TS3A(0x00806FE0);  // id slot as the game's (compared, never called)
     g_rfFpVt[3][0] = (DWORD)(uintptr_t)RfLevels1, g_rfFpVt[3][0x70 / 4] = (DWORD)(uintptr_t)RfNoop;  // child class
-    g_rfFpVt[3][0x7C / 4] = 0x006262B0;
+    g_rfFpVt[3][0x7C / 4] = TS3A(0x006262B0);
     g_rfCls[3] = {(DWORD)(uintptr_t)g_rfFpVt[3], 0x28, 0, 1};
     for (int c = 0; c < 4; c++) g_rfFpVt[c][0x2C / 4] = (DWORD)(uintptr_t)RfBounds;
     memcpy(g_rfFpVt[4], g_rfFpVt[0], sizeof(g_rfFpVt[0]));  // a class the copy does not know
@@ -501,7 +501,7 @@ static bool g_rfHooked;
 static char __fastcall RfHookIns(u8* q, void*, u8* fp, DWORD flag) {
     DWORD stk[32] = {};
     DWORD* s = &stk[16];
-    s[-2] = (DWORD)(uintptr_t)q, s[1] = (DWORD)(uintptr_t)fp, s[2] = flag, s[0] = 0x00665CEF;
+    s[-2] = (DWORD)(uintptr_t)q, s[1] = (DWORD)(uintptr_t)fp, s[2] = flag, s[0] = TS3A(0x00665CEF);
     SnEnter(0, s);
     return RfApplyInsert(q, NULL, fp, flag);
 }
@@ -514,7 +514,7 @@ static char __fastcall RfHookRem(u8* q, void*, DWORD lo, DWORD hi) {
 }
 static void RfIns(u8* q, u8* fp, DWORD flag, bool signal) {
     DWORD* s = RfSlot();
-    s[-2] = (DWORD)(uintptr_t)q, s[1] = (DWORD)(uintptr_t)fp, s[2] = flag, s[0] = 0x00665CEF;
+    s[-2] = (DWORD)(uintptr_t)q, s[1] = (DWORD)(uintptr_t)fp, s[2] = flag, s[0] = TS3A(0x00665CEF);
     if (signal && !g_rfHooked) SnEnter(0, s);
     g_rpIns(q, NULL, fp, flag);
 }
@@ -645,7 +645,7 @@ static void RfTeardown() {
     RpTabFree(g_rpKnownQ);
     g_rpHave = false, g_rpOn = 0, g_spOn = 0;
     g_spLot = &kSpLotNone;
-    g_rpIns = (RpInsFn)(uintptr_t)0x00665C50, g_rpRem = (RpRemFn)(uintptr_t)0x00666750;
+    g_rpIns = (RpInsFn)(uintptr_t)TS3A(0x00665C50), g_rpRem = (RpRemFn)(uintptr_t)TS3A(0x00666750);
     g_rpCls = kRpClsGame, g_rpNCls = kRpNClsGame;
 }
 
@@ -684,7 +684,7 @@ static int RfStream(const u8* n, DWORD* out, int at, int cap) {
     const bool heap = n[8] & 1;
     const DWORD cnt = heap ? RpD(n + 0xC) : 1;
     const u8* a = heap ? (const u8*)(uintptr_t)(RpD(n + 8) & ~1u) : n + 8;
-    out[at++] = heap ? cnt : 0xC0FFEE;
+    out[at++] = heap ? cnt : TS3A(0xC0FFEE);
     for (DWORD j = 0; j < cnt && at + 5 < cap; j++) {
         const u8* e = a + j * 12;
         const u8* f = RpP(e);

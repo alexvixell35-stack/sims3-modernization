@@ -38,14 +38,14 @@ static bool g_mdGameVerified = false;  // not const: no constant-condition warni
 static volatile LONG g_mdPass, g_mdFail;  // bit per field: this session's self-test result
 
 // game addresses (the host selftest points them at fakes)
-static const u8* const* g_mdEaHeapSlot = (const u8* const*)(uintptr_t)0x011CB864;  // MemoryMan heap (docs/re/structs.md §9)
-static const u8* const* g_mdRcMgrSlot = (const u8* const*)(uintptr_t)0x011C78D8;   // resource manager (structs.md §10)
-static const DWORD* g_mdGc[3] = {(const DWORD*)(uintptr_t)0x012225A0, (const DWORD*)(uintptr_t)0x012225B4,
-                                 (const DWORD*)(uintptr_t)0x011F2F90};  // GC_heapsize, GC_large_free_bytes, GC_gc_no (docs/66 §6.1)
+static const u8* const* g_mdEaHeapSlot = (const u8* const*)(uintptr_t)TS3A(0x011CB864);  // MemoryMan heap (docs/re/structs.md §9)
+static const u8* const* g_mdRcMgrSlot = (const u8* const*)(uintptr_t)TS3A(0x011C78D8);   // resource manager (structs.md §10)
+static const DWORD* g_mdGc[3] = {(const DWORD*)(uintptr_t)TS3A(0x012225A0), (const DWORD*)(uintptr_t)TS3A(0x012225B4),
+                                 (const DWORD*)(uintptr_t)TS3A(0x011F2F90)};  // GC_heapsize, GC_large_free_bytes, GC_gc_no (docs/66 §6.1)
 
 // GeneralAllocator instances whose cores are summed: MemoryMan [0x11CB864] and the script host's [0x11D4BC8] (docs/130
 // I-130-7: a dedicated heap or the same object; the same object is counted once)
-static const u8* const* g_mdEaCoreSlot[2] = {(const u8* const*)(uintptr_t)0x011CB864, (const u8* const*)(uintptr_t)0x011D4BC8};
+static const u8* const* g_mdEaCoreSlot[2] = {(const u8* const*)(uintptr_t)TS3A(0x011CB864), (const u8* const*)(uintptr_t)TS3A(0x011D4BC8)};
 
 struct MdVals { double v[MD_N]; bool have[MD_N]; };
 
@@ -90,14 +90,14 @@ static bool MdGc(DWORD* out) {
 static bool MdRc(DWORD* out, const u8** cache = NULL) {  // cache: the priority-0 ResourceCache (RcCensus)
     __try {
         const u8* m = *g_mdRcMgrSlot;
-        if (!m || (*(const DWORD*)m != 0xFFE250 && *(const DWORD*)m != 0xFB2DA0)) return false;
+        if (!m || (*(const DWORD*)m != TS3A(0xFFE250) && *(const DWORD*)m != TS3A(0xFB2DA0))) return false;
         const DWORD* b = *(const DWORD* const*)(m + 0xA0);
         const DWORD* e = *(const DWORD* const*)(m + 0xA4);
         bool rc = false;
         out[4] = ~0u;
         for (int i = 0; b + 2 * i < e && i < 16; i++) {
             const u8* c = (const u8*)(uintptr_t)b[2 * i];
-            if (!c || *(const DWORD*)c != 0xFFDD94) continue;
+            if (!c || *(const DWORD*)c != TS3A(0xFFDD94)) continue;
             if (b[2 * i + 1] == 0 && !rc) {
                 out[0] = *(const volatile DWORD*)(c + 0x94), out[1] = *(const volatile DWORD*)(c + 0x98);
                 out[2] = *(const volatile DWORD*)(c + 0x8C), out[3] = *(const volatile DWORD*)(c + 0x28);
@@ -128,7 +128,7 @@ static int g_rcPrevN;
 static volatile LONG g_rcBusy;
 // RcCensusGraph (below): the walk lists the part compositors here
 static bool g_rgOn;
-static DWORD g_rgVt[2] = {0x00FE68D8, 0x00FE68F4};  // TXTC 0x033A1435, 0x0341ACC9; selftest: its own values
+static DWORD g_rgVt[2] = {TS3A(0x00FE68D8), TS3A(0x00FE68F4)};  // TXTC 0x033A1435, 0x0341ACC9; selftest: its own values
 static const DWORD RG_CAP = 1u << 19;
 static DWORD *g_rgObj, g_rgN, g_rgOver;
 // under the lock, no C++ objects (SEH). false = map not readable, or longer than its count (a changing or wrong map)
@@ -299,7 +299,7 @@ static bool RhScannable(const MEMORY_BASIC_INFORMATION& m, const MEMORY_BASIC_IN
 // node key dword +0, RefPtr +4, next +8: 0x5E2B30). Counts objects whose vtable and list name match and whose list links
 // are consistent. Answers: more SimBuilders over time (not freed) or more compositors in the same ones.
 static bool g_rbOn;
-static DWORD g_rbVt = 0x00FE46A0, g_rbName = 0x00FE4668;  // selftest: its own values
+static DWORD g_rbVt = TS3A(0x00FE46A0), g_rbName = TS3A(0x00FE4668);  // selftest: its own values
 struct RbTop { DWORD at, parts, comps; };
 struct RbStats { DWORD n, bad, parts, comps; RbTop top[5]; u64 bytes; };
 static void RbObject(const u8* o, RbStats& st) {  // its own __try: a bad candidate's links must not end the region scan
@@ -441,7 +441,7 @@ static LONG g_rsPrev[3][RS_SLOTS], g_rsPrevNet[RS_SLOTS];
 static DWORD g_rsPrevMs;
 static double g_rsNs, g_rsChainNs;  // our work per counted call and per find chain, measured at install (RsCalibrate)
 typedef LONG(__fastcall* RsFn)(void* self, void* edx);
-static RsFn g_rsAdd = (RsFn)(uintptr_t)0x00731D00, g_rsRel = (RsFn)(uintptr_t)0x00731D40;
+static RsFn g_rsAdd = (RsFn)(uintptr_t)TS3A(0x00731D00), g_rsRel = (RsFn)(uintptr_t)TS3A(0x00731D40);
 // [MemDiag] RcRefTypes (below): the same caller slots split by type (0 = TXTC 0x033A1435 vtable g_rsVt[0], 1 = 0x0341ACC9
 // g_rsVt[1]); ty < 0 = not counted by type (RcRefTypes off). Plus per type: AddRefs that found 0 references (births seen
 // through the vtable) and Releases that took the destroy path (0x731D40 returns 0 only there [verified disassembly]).
@@ -459,7 +459,7 @@ static void RsCount(int kind, DWORD key, int ty = -1) {
     }
     InterlockedIncrement(&g_rsFull);
 }
-static DWORD g_rsVt[2] = {0x00FE68D8, 0x00FE68F4}, g_rsOrig[2] = {0x00723130, 0x005B07A0};  // selftest: its own
+static DWORD g_rsVt[2] = {TS3A(0x00FE68D8), TS3A(0x00FE68F4)}, g_rsOrig[2] = {TS3A(0x00723130), TS3A(0x005B07A0)};  // selftest: its own
 // the type of a hooked object: only the two vtables reach the hooks, so one compare (a null self: the selftest's type 0)
 static int RsType(const void* self) { return g_rqOn ? (self && *(const DWORD*)self == g_rsVt[1]) : -1; }
 // [MemDiag] RcRefCallersSample=N (with RcRefCallers; 0 = off): who keeps the one reference, per object. al221: no compositor cycles; nearly every compositor is a root at 2+ references (the cache's + one outside
@@ -531,8 +531,8 @@ static LONG __fastcall RsRelease(void* self, void* edx) {
 // 0xFFDD94 slot 6 Find 0x7324E0, which AddRefs through 0x731DB0 [verified]). So Find is wrapped too: a find that returns
 // a part compositor records its caller chain (the return address + the next 3 exe .text values up the stack).
 typedef bool(__fastcall* RfFn)(void* self, void* edx, const void* key, void** out);
-static RfFn g_rfFind = (RfFn)(uintptr_t)0x007324E0;
-static DWORD g_rfVt = 0x00FFDD94, g_rfOrig = 0x007324E0;  // selftest: its own
+static RfFn g_rfFind = (RfFn)(uintptr_t)TS3A(0x007324E0);
+static DWORD g_rfVt = TS3A(0x00FFDD94), g_rfOrig = TS3A(0x007324E0);  // selftest: its own
 static const int RF_SLOTS = 512;
 struct RfRow { volatile LONG h, n; DWORD c[4]; };
 static RfRow g_rsFs[RF_SLOTS];
@@ -619,7 +619,7 @@ static int RyByC(const void* a, const void* b) { const DWORD x = ((const RyPat*)
 // 1.67]. eastl layout read here: buckets +0x108, bucket count +0x10C, entries +0x110; node = {ResourceKey 16 bytes,
 // compositor +0x10, next +0x18} (next: the bucket free loop 0x5ED83F [verified]; +0x14 before 2026-11-05 stopped the walk).
 // Read only, without the service's lock: a node freed during the walk can stop it (logged) or miscount one line.
-static DWORD g_rrSvc = 0x011CE6A0, g_rrPrev;  // selftest: its own
+static DWORD g_rrSvc = TS3A(0x011CE6A0), g_rrPrev;  // selftest: its own
 static void RcRegistry(LONG n) {
     DWORD cnt = 0, nb = 0, seen = 0, comp = 0, r1 = 0, r2 = 0, r3 = 0, bad = 0, sampled = 0;
     __try {

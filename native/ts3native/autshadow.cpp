@@ -863,10 +863,10 @@ static void AsMaskRet(const AsDesc& d, DWORD* r) {
 // lookup itself would wait at gate 12 (docs/195): skip. Sim thread (the cut) only.
 typedef u8*(__fastcall* AsLvLotAtFn)(u8* wm, void* edx, float x, float z);   // 0xC68990, ret 8
 typedef u8*(__fastcall* AsLvGipFn)(u8* p, void* edx, DWORD lo, DWORD hi);     // 0x62FB60, ret 8
-static AsLvLotAtFn g_asLvLotAt = (AsLvLotAtFn)(uintptr_t)0x00C68990;
-static AsLvGipFn g_asLvGip = (AsLvGipFn)(uintptr_t)0x0062FB60;
-static u8* const* g_asLvWm = (u8* const*)(uintptr_t)0x011ECBC4;
-static u8* const* g_asLvRw = (u8* const*)(uintptr_t)0x011D9128;
+static AsLvLotAtFn g_asLvLotAt = (AsLvLotAtFn)(uintptr_t)TS3A(0x00C68990);
+static AsLvGipFn g_asLvGip = (AsLvGipFn)(uintptr_t)TS3A(0x0062FB60);
+static u8* const* g_asLvWm = (u8* const*)(uintptr_t)TS3A(0x011ECBC4);
+static u8* const* g_asLvRw = (u8* const*)(uintptr_t)TS3A(0x011D9128);
 static volatile LONG* g_asJobState;  // &g_async.state (ts3native.cpp; A_IDLE = 0); NULL in the host
 static LONG g_asLvFill, g_asLvSkip;  // logged: Mode R's skip count (I-131-8)
 static bool AsLevelGate(const AsDesc& d, const DWORD* a) {
@@ -1142,7 +1142,7 @@ static int g_asTransient;
 // map (+0x1678): those stay unknown, as do ids with no handle [verified disassembly]. [inferred, I-403-2: an id's handle and
 // class do not change while the object lives and the handle outlives event 5; the typed ListAudit rows and Mode R check it]
 static int g_asHostCls;
-static const DWORD* const g_asHostPP = (const DWORD*)(uintptr_t)0x011D4BBC;  // MonoScriptHost* (the getter 0x7692B0 reads it)
+static const DWORD* const g_asHostPP = (const DWORD*)(uintptr_t)TS3A(0x011D4BBC);  // MonoScriptHost* (the getter 0x7692B0 reads it)
 typedef DWORD(__fastcall* AsHostListFn)(void* host, void* edx, DWORD type, const AsU64* ids, DWORD n);  // thiscall, ret 0xC
 // the host's id -> handle maps (0xD726F0): {?, buckets +4, bucket count +8}; node {id lo, id hi, ?, handle +0xC, next +0x10}
 static const u8* AsHostNode(const u8* map, AsU64 id) {
@@ -1572,12 +1572,12 @@ static __declspec(naked) void AsGuardEntry() {
 // [0x11F2D84] (non-atomic ++/--). cdecl, arg 2 = MonoObject** exception out; the body's error exit stores the exception
 // there and returns [verified: 0xDA9F94..0xDAA08A]. Worker: abort `fmt` and leave through the same contract with an
 // exception, never touching the counter.
-static const DWORD AS_FMT_AT = 0x00DA9790;
+static const DWORD AS_FMT_AT = TS3A(0x00DA9790);
 static const u8 kAsFmtPro[6] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8};  // push ebp; mov ebp,esp; and esp,-8
 static void* g_asFmtTramp;
 static void* g_asFmtExc;  // part 2: a preallocated, rooted exception; else one is made on the worker (P3 lock)
 typedef void*(__cdecl* AsNewExcFn)();
-static AsNewExcFn g_asNewExc = (AsNewExcFn)(uintptr_t)0x00E770E0;  // mono_get_exception_null_reference (docs/118 §2)
+static AsNewExcFn g_asNewExc = (AsNewExcFn)(uintptr_t)TS3A(0x00E770E0);  // mono_get_exception_null_reference (docs/118 §2)
 static void __cdecl AsFmtAbort(void** exc) {
     AsAbort(AS_AB_FMT, (DWORD)-1);
     if (exc) *exc = g_asFmtExc ? g_asFmtExc : g_asNewExc();
@@ -1722,10 +1722,10 @@ static bool AsIsActor(AsU64 id) {
 // walk across lots if listPrintUs shows it
 typedef void*(__fastcall* AsFindLotFn)(void* mgr, void* edx, DWORD lo, DWORD hi, DWORD z);
 typedef const u8*(__fastcall* AsCompFn)(const void* obj, void* edx, DWORD bit);
-static void* const* g_asWmPP = (void* const*)(uintptr_t)0x011ECBC4;
-static AsFindLotFn g_asFindLot = (AsFindLotFn)(uintptr_t)0x00C62D40;
-static AsCompFn g_asComp = (AsCompFn)(uintptr_t)0x00935770;
-static const DWORD* g_asCompBit = (const DWORD*)(uintptr_t)0x011ECF08;
+static void* const* g_asWmPP = (void* const*)(uintptr_t)TS3A(0x011ECBC4);
+static AsFindLotFn g_asFindLot = (AsFindLotFn)(uintptr_t)TS3A(0x00C62D40);
+static AsCompFn g_asComp = (AsCompFn)(uintptr_t)TS3A(0x00935770);
+static const DWORD* g_asCompBit = (const DWORD*)(uintptr_t)TS3A(0x011ECF08);
 static const LONG AS_AGE_EVERY = 8;  // CutLean=1: aging and its reindex every 8th cut (unused rows live up to 7 cuts longer)
 static void AsMix(AsU64& h, DWORD v) { h ^= v; h *= 0x100000001B3ull; }
 static void AsMixVec(const u8* owner, AsU64 lot, bool world, AsU64* p) {
@@ -3182,6 +3182,16 @@ static int AsInstallGuards(DWORD* lo, DWORD* hi, DWORD imgLo, DWORD imgHi, DWORD
     for (DWORD* p = lo + 1; p < hi; p++) {
         const DWORD name = *p, fn = p[-1];
         if (name < imgLo || name >= imgHi || !AsIsName((const char*)(uintptr_t)name, imgHi)) continue;
+#ifdef TS3A_TABLE
+        // EA 1.69.47: mono's corlib icall tables (class-start u16s 0x010FF678, class names, method names, functions up to
+        // 0x01100BDC) are not IC slots, but the u16 pair at 0x010FF6BC reads as {0x00ED00CD in .text, "ScriptCore.World::
+        // World_SetObjectHighlightImpl"}; a thunk there broke the class table and mono_icall_init faulted at 0xE824B2 [verified]
+        if ((DWORD)(uintptr_t)(p - 1) >= 0x010FF678 && (DWORD)(uintptr_t)(p - 1) < 0x01100BDC) {
+            k.guardSkipped++;
+            Log("autonomy shadow: 0x%08lX is in mono's icall tables, not an IC slot: left as it is", (DWORD)(uintptr_t)(p - 1));
+            continue;
+        }
+#endif
         const bool chained = AsIsSnShim(fn);
         if (!chained && (fn < textLo || fn >= textHi)) continue;
         const char* s = (const char*)(uintptr_t)name;

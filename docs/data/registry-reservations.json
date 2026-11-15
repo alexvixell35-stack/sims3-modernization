@@ -2682,6 +2682,367 @@
       "what": "buyiconprobe2",
       "at": "2026-11-11T23:18:27.509Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-546",
+      "kind": "doc",
+      "from": 546,
+      "to": 546,
+      "by": "claude",
+      "what": "sim-cycle waste hypotheses (work repeated without a payoff check)",
+      "at": "2026-11-13T19:33:22.367Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2304",
+      "kind": "fixes",
+      "from": 2304,
+      "to": 2307,
+      "by": "claude",
+      "what": "joyridecostume: no imagination-costume build inside Joyride tests (docs/546 §4)",
+      "at": "2026-11-13T22:28:59.873Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "native-v919",
+      "kind": "native",
+      "version": 919,
+      "from": 25348,
+      "to": 25427,
+      "by": "claude",
+      "what": "[AudioStateDup] ad* + [PkgProbe] pp* (docs/549)",
+      "at": "2026-11-14T13:11:06.338Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2335",
+      "kind": "fixes",
+      "from": 2335,
+      "to": 2344,
+      "by": "claude",
+      "what": "combo rabbit hole fixes: comboprotest, combovenue, combosituation (docs/551; comboalarm removed)",
+      "at": "2026-11-14T13:28:56.521Z",
+      "worktree": "<repo>"
+    },
+    {
+      "id": "doc-551",
+      "kind": "doc",
+      "from": 551,
+      "to": 551,
+      "by": "claude",
+      "what": "combo rabbit hole bugs",
+      "at": "2026-11-14T13:36:43.046Z",
+      "worktree": "<repo>"
+    },
+    {
+      "id": "fixes-2345",
+      "kind": "fixes",
+      "from": 2345,
+      "to": 2353,
+      "by": "claude",
+      "what": "event outcome keepers: weddingarchkeep, hsgradkeep, unigradkeep, bsrefund (docs/546 §12)",
+      "at": "2026-11-14T14:17:01.362Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2374",
+      "kind": "fixes",
+      "from": 2374,
+      "to": 2378,
+      "by": "claude",
+      "what": "combo rabbit hole fixes 2: combojob, comboprotestlot (docs/551)",
+      "at": "2026-11-14T16:39:22.378Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2379",
+      "kind": "fixes",
+      "from": 2379,
+      "to": 2383,
+      "by": "claude",
+      "what": "hiddenroomnpc: NPCs trapped in a hidden room moved out (docs/552)",
+      "at": "2026-11-14T18:43:34.470Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-552",
+      "kind": "doc",
+      "from": 552,
+      "to": 552,
+      "by": "claude",
+      "what": "hidden rooms and trapped Sims",
+      "at": "2026-11-14T18:44:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2384",
+      "kind": "fixes",
+      "from": 2384,
+      "to": 2386,
+      "by": "claude",
+      "what": "splashroof: NPC splash runs skip rain puddles on roofs (docs/546 §16)",
+      "at": "2026-11-14T19:41:56.649Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2387",
+      "kind": "fixes",
+      "from": 2387,
+      "to": 2390,
+      "by": "claude",
+      "what": "hiddenroomspawn: NPC fallback placements re-picked out of hidden rooms (docs/552)",
+      "at": "2026-11-14T20:36:15.549Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2391",
+      "kind": "fixes",
+      "from": 2391,
+      "to": 2394,
+      "by": "claude",
+      "what": "aptleave: apartment room-change farewell only for departing NPC visitors (docs/553)",
+      "at": "2026-11-14T20:43:01.361Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-553",
+      "kind": "doc",
+      "from": 553,
+      "to": 553,
+      "by": "claude",
+      "what": "apartment room-change farewell and party guests",
+      "at": "2026-11-14T20:44:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2395",
+      "kind": "fixes",
+      "from": 2395,
+      "to": 2397,
+      "by": "claude",
+      "what": "aptleave deferred party removal + household skips (docs/553)",
+      "at": "2026-11-14T20:59:07.055Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2398",
+      "kind": "fixes",
+      "from": 2398,
+      "to": 2404,
+      "by": "claude",
+      "what": "party fixes: partylisteners, partyoutcome, partymotive (docs/554)",
+      "at": "2026-11-14T21:03:08.500Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-554",
+      "kind": "doc",
+      "from": 554,
+      "to": 554,
+      "by": "claude",
+      "what": "party system audit (all party types and lot types)",
+      "at": "2026-11-14T21:20:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2405",
+      "kind": "fixes",
+      "from": 2405,
+      "to": 2408,
+      "by": "combo-investigator-agent",
+      "what": "ComboRabbitHole.cs comboopp (docs/551)",
+      "at": "2026-11-14T21:06:09.018Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2409",
+      "kind": "fixes",
+      "from": 2409,
+      "to": 2411,
+      "by": "claude",
+      "what": "shuffleboardbcast: Shuffleboard.Play replaced reaction broadcasters disposed at Cleanup (docs/546 §17)",
+      "at": "2026-11-14T21:32:48.071Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2412",
+      "kind": "fixes",
+      "from": 2412,
+      "to": 2414,
+      "by": "claude",
+      "what": "cookclicklistener: CookingProcess clicked-object listeners of destroyed owners removed (docs/546 §17)",
+      "at": "2026-11-14T21:32:48.148Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2415",
+      "kind": "fixes",
+      "from": 2415,
+      "to": 2416,
+      "by": "claude",
+      "what": "etderefdiag: log the holders of destroyed objects ErrorTrap dereferences (docs/552 §11)",
+      "at": "2026-11-14T21:45:44.053Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-555",
+      "kind": "doc",
+      "from": 555,
+      "to": 555,
+      "by": "claude",
+      "what": "EA script logic-bug audit (semgrep rules, VIP room refresh)",
+      "at": "2026-11-14T22:17:49.175Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2417",
+      "kind": "fixes",
+      "from": 2417,
+      "to": 2419,
+      "by": "claude",
+      "what": "viproomrefresh: ResortManager.RefreshVIPRooms removes rooms while iterating (Collection was modified) (docs/555)",
+      "at": "2026-11-14T22:17:49.245Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2420",
+      "kind": "fixes",
+      "from": 2420,
+      "to": 2423,
+      "by": "claude",
+      "what": "courselistener: AcademicCareer course rabbit-hole listeners removed at leave / schedule rebuild, moved with ChangeRabbitHoleTo (docs/555 §4)",
+      "at": "2026-11-14T22:24:56.597Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2424",
+      "kind": "fixes",
+      "from": 2424,
+      "to": 2425,
+      "by": "claude",
+      "what": "observatorymsg: Simulon V stardust-only find shows the found notice (docs/555 §6)",
+      "at": "2026-11-14T22:24:56.684Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2426",
+      "kind": "fixes",
+      "from": 2426,
+      "to": 2427,
+      "by": "claude",
+      "what": "bubblepipeguard: BubbleBar BlowBubbles exits cleanly when the pipe prop is not created (docs/555 §7)",
+      "at": "2026-11-14T22:24:56.772Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-556",
+      "kind": "doc",
+      "from": 556,
+      "to": 556,
+      "by": "claude",
+      "what": "REA dark-function triage (doc written by the REA/exe agent; reservation re-labelled, the static scan moved to doc-557)",
+      "at": "2026-11-14T22:33:19.350Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2428",
+      "kind": "fixes",
+      "from": 2428,
+      "to": 2434,
+      "by": "claude",
+      "what": "buffstate: per-Sim state kept on shared Buff definitions (Downtrodden alarm, Voodoo/Dragon curse listener, High Fertility trait, Hypnotized/Queasy handlers) (docs/557)",
+      "at": "2026-11-14T22:33:19.441Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2435",
+      "kind": "fixes",
+      "from": 2435,
+      "to": 2437,
+      "by": "claude",
+      "what": "storeworldevents: World / LoadSaveManager static-event handlers of destroyed store objects removed (docs/557)",
+      "at": "2026-11-14T22:46:04.518Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-557",
+      "kind": "doc",
+      "from": 557,
+      "to": 557,
+      "by": "claude",
+      "what": "UI/StoreObjects/Metadata static scan (InferSharp, Roslynator, CodeQL); shared-buff state and store world-event fixes",
+      "at": "2026-11-14T22:49:21.938Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2438",
+      "kind": "fixes",
+      "from": 2438,
+      "to": 2442,
+      "by": "claude",
+      "what": "birthroute: birth routes not cut for unseen NPCs; failed hospital births fall back to EA's home birth; homeless mom hospital pick",
+      "at": "2026-11-14T23:01:24.653Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2443",
+      "kind": "fixes",
+      "from": 2443,
+      "to": 2447,
+      "by": "claude",
+      "what": "putdownplace: NPC parent whose put-down search failed twice puts the carried child down in place",
+      "at": "2026-11-14T23:01:24.744Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-558",
+      "kind": "doc",
+      "from": 558,
+      "to": 558,
+      "by": "claude",
+      "what": "Bridgeport gameplay loops: pregnancy hospital retry, carried-child put-down, bartender PortalLocked",
+      "at": "2026-11-14T23:30:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-547",
+      "kind": "doc",
+      "from": 547,
+      "to": 547,
+      "by": "dalexlol-pr405",
+      "what": "OpenBarrio name map",
+      "at": "2026-11-15T00:00:00.000Z",
+      "worktree": "import/dalexlol-prs-1115"
+    },
+    {
+      "id": "doc-548",
+      "kind": "doc",
+      "from": 548,
+      "to": 548,
+      "by": "dalexlol-pr405",
+      "what": "event route failures, native side (PR #405; PR #395 door-fast-path must take a new number)",
+      "at": "2026-11-15T00:00:00.000Z",
+      "worktree": "import/dalexlol-prs-1115"
+    },
+    {
+      "id": "doc-549",
+      "kind": "doc",
+      "from": 549,
+      "to": 549,
+      "by": "dalexlol-pr405",
+      "what": "OpenBarrio issue cross-check",
+      "at": "2026-11-15T00:00:00.000Z",
+      "worktree": "import/dalexlol-prs-1115"
+    },
+    {
+      "id": "doc-550",
+      "kind": "doc",
+      "from": 550,
+      "to": 550,
+      "by": "dalexlol-pr405",
+      "what": "static analysis of OpenBarrio",
+      "at": "2026-11-15T00:00:00.000Z",
+      "worktree": "import/dalexlol-prs-1115"
     }
   ]
 }

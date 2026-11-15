@@ -9,7 +9,7 @@
 // (host stopping) returns through the normal epilogue, where the slot owners' return hooks still fire once.
 // The written bytes 0xD82001-0xD82004 are outside the S3SS window 0xD81FC3-0xD81FE0 (docs/68 §4 #2; 30 bytes after it)
 // and outside every other known plugin site in Simulate (docs/68 §1, #9). Installed at load, before the sim thread runs.
-static const DWORD SLP_SITE = 0x00D81FF6, SLP_LOOP_TOP = 0x00D818C0;
+static const DWORD SLP_SITE = TS3A(0x00D81FF6), SLP_LOOP_TOP = TS3A(0x00D818C0);
 static const u8 kSlpSite[11] = {0x8B, 0x8E, 0x08, 0x0C, 0x00, 0x00, 0x83, 0xF9, 0x01, 0x0F, 0x84};  // mov ecx,[esi+0xC08]; cmp ecx,1; je
 typedef void(__cdecl* SlpFn)();
 static SlpFn g_slpFns[4];
@@ -67,7 +67,7 @@ static bool SimLoopAdd(SlpFn fn, const char* who, u8* site = (u8*)(uintptr_t)SLP
 // no code bytes, nothing in the S3SS window 0xD81FC3-0xD81FE0) and chains to what it held: RunJobs, or [JobQueue]'s stub.
 // Other callers of the slot (main pump, waits) and the sim pump of a non-looping Simulate pass through untouched.
 // Only when main != sim: the pump call is skipped when the host has no sim job record (host+0xAC0 == 0, 0xD81FCB).
-static const DWORD SPP_SLOT = 0x00FD97C8, SPP_RUNJOBS = 0x0059A430, SPP_RET = 0x00D81FDC;
+static const DWORD SPP_SLOT = TS3A(0x00FD97C8), SPP_RUNJOBS = TS3A(0x0059A430), SPP_RET = TS3A(0x00D81FDC);
 typedef DWORD(__fastcall* SppRunFn)(void* jm, void* edx, void* rec, DWORD deadline, DWORD nonblock);
 static SppRunFn g_sppNext;
 static DWORD g_sppRet = SPP_RET;  // selftest: its own call site

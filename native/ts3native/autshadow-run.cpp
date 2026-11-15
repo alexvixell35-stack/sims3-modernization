@@ -47,10 +47,10 @@ static wchar_t g_asJsonlPath[MAX_PATH];
 typedef void(__cdecl* AsAddIcFn)(const char* name, const void* fn);
 typedef void(__cdecl* AsAddRootsFn)(void* lo, void* hi);
 typedef void*(__cdecl* AsGcMallocFn)(size_t n);
-static AsAddIcFn g_asAddIc = (AsAddIcFn)(uintptr_t)0x00E82550;          // mono_add_internal_call
-static AsAddRootsFn g_asAddRoots = (AsAddRootsFn)(uintptr_t)0x00E4D9F0;  // GC_add_roots (P3 site 17)
-static AsGcMallocFn g_asGcMalloc = (AsGcMallocFn)(uintptr_t)0x00E4BE30;  // GC_malloc (P3-locked)
-static u8** g_asHostPtr = (u8**)(uintptr_t)0x011EE514;                  // MonoScriptHost; script RNG at +0xC30 (docs/27 §1.1)
+static AsAddIcFn g_asAddIc = (AsAddIcFn)(uintptr_t)TS3A(0x00E82550);          // mono_add_internal_call
+static AsAddRootsFn g_asAddRoots = (AsAddRootsFn)(uintptr_t)TS3A(0x00E4D9F0);  // GC_add_roots (P3 site 17)
+static AsGcMallocFn g_asGcMalloc = (AsGcMallocFn)(uintptr_t)TS3A(0x00E4BE30);  // GC_malloc (P3-locked)
+static u8** g_asHostPtr = (u8**)(uintptr_t)TS3A(0x011EE514);                  // MonoScriptHost; script RNG at +0xC30 (docs/27 §1.1)
 // MT object: 624 words, read pointer +0x9C0 (absolute, into the words), words left +0x9C4; the LCG follows at +0x15F8
 // [verified: 0x4FA9F0 / 0x4FA8B0 in the disassembly, docs/125 §2.1]
 static const DWORD AS_RNG_OFF = 0xC30, AS_RNG_LEN = 0x9C8;
@@ -62,9 +62,9 @@ static const DWORD AS_RNG_OFF = 0xC30, AS_RNG_LEN = 0x9C8;
 // is the same value on both threads whatever happened in other units (aborts, tooltip draws), and Mode R stays bit-equal.
 typedef void(__fastcall* AsMtInitFn)(void* mt, void* edx, DWORD seed);  // 0x4FA990 thiscall, ret 4 (seed -1 = RDTSC)
 typedef double(__fastcall* AsMtNextFn)(void* mt, void* edx);             // 0x4FAA70 thiscall: [0,1) on x87
-static AsMtInitFn g_asMtInit = (AsMtInitFn)(uintptr_t)0x004FA990;
-static AsMtNextFn g_asMtNext = (AsMtNextFn)(uintptr_t)0x004FAA70;
-static const volatile u8* g_asDetFlag = (const volatile u8*)(uintptr_t)0x011CDBC5;  // `Deterministic`: draws are 0.5 (docs/27 §1.3)
+static AsMtInitFn g_asMtInit = (AsMtInitFn)(uintptr_t)TS3A(0x004FA990);
+static AsMtNextFn g_asMtNext = (AsMtNextFn)(uintptr_t)TS3A(0x004FAA70);
+static const volatile u8* g_asDetFlag = (const volatile u8*)(uintptr_t)TS3A(0x011CDBC5);  // `Deterministic`: draws are 0.5 (docs/27 §1.3)
 static volatile DWORD g_asRngSeedV[2];  // per published version: the cut seed, 0 = none
 static LONG g_asRngUnitW = -1;          // worker: current unit (-1 = none yet in this run)
 static bool g_asRngLiveW;               // worker: g_asRngMtW is seeded for that unit

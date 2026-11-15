@@ -303,7 +303,7 @@ static u8 UfwMsg(int code, DWORD lo);  // unseenfbc.cpp: codes 7-10, the unseen-
 // A point's colour: every coloured waypoint (colour >= 0; type 0xE = -1 never floods) within kUfColR m in its chunk and the 8
 // around it; -2 = none or no R, -3 = several colours (ambiguous: unknown). Codes after 3 (x) and 5 (z): 11 = store as A
 // (1 = one colour), 12 = B has A's colour (1 = same), 13 = B's colour differs from A's (1 = proven different). Unknown = 0. (7-10 = unseenfbc.cpp list codes.)
-static u8* const* g_ufWorldSlot = (u8* const*)(uintptr_t)0x011D9128;  // selftest: a fake slot
+static u8* const* g_ufWorldSlot = (u8* const*)(uintptr_t)TS3A(0x011D9128);  // selftest: a fake slot
 static const float kUfColR = 12.0f;
 static int g_ufColA = -2;
 static bool g_ufColLogged;

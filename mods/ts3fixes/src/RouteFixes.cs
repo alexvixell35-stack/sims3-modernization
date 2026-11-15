@@ -269,7 +269,7 @@ namespace Ts3Fixes
                     if (UfInTransit(s)) continue;  // docs/202 §3.7: a D walk-time hold (unseenfbpre) stands still by design
                     ulong id = s.ObjectId.Value;
                     RouteFails f;
-                    bool household = s.IsSelectable || s.Household == null || s.Household == Household.ActiveHousehold;  // unknown = household (as the A1 gate)
+                    bool household = IsPlayerSim(s);  // household rule (PlayerSims.cs), as the A1 gate
                     if (sRouteFails.TryGetValue(id, out f) && f.Count >= kRouteFailPlans && now - f.First > failSpan && f.First <= now
                         && (s.Position - f.Pos).Length() <= 1f)
                     {
@@ -331,7 +331,7 @@ namespace Ts3Fixes
                         // hold (same Sim state as checked), else the verdict is dropped (watchdogasync_stale) and the next pass checks again.
                         bool a1On = ShortcutOn("watchdogasync"), lockSkip = ShortcutOn("watchdoglockskip");
                         bool held = !cached && lockSkip && HcWould(sYieldProbe, 8);  // q 8: native selftest jobyield-test.h; only lockskip reads it
-                        bool household = s.IsSelectable || s.Household == null || s.Household == Household.ActiveHousehold;  // unknown = household
+                        bool household = IsPlayerSim(s);  // household rule (PlayerSims.cs)
                         bool eligible = !cached && a1On && !household;
                         int route = H4Core.WdRoute(cached, held, a1On, eligible && WdA1Would(), lockSkip, household);
                         if (eligible && route != H4Core.kWdA1) c[874]++;  // watchdogasync_refused
@@ -349,7 +349,7 @@ namespace Ts3Fixes
                         {
                             c[875] += (int)(SimClock.CurrentTicks - t0);  // watchdogasync_ticks (started or not)
                             if (ok.HasValue && ShortcutOn("watchdogasyncshadow")) WdShadow(s, lot, at, ok.Value, c);
-                            bool hh = s.IsSelectable || s.Household == null || s.Household == Household.ActiveHousehold;
+                            bool hh = IsPlayerSim(s);
                             if (ok.HasValue && !H4Core.WdFresh(!s.HasBeenDestroyed && s.InWorld, hh, (s.Position - at).Length(), s.CurrentInteraction == cur0,
                                 s.LotCurrent == lot, s.Posture == s.Standing, s.IsRouting))
                             {
@@ -364,7 +364,7 @@ namespace Ts3Fixes
                             // per-Sim verdict for correctness jobs (bp-idle-unroutable's PASS needs its Sim's line, not any Sim's counter)
                             if (ShortcutOn("watchdogasyncshadow"))
                                 DiagLine("watchdog idle verdict: " + s.FullName + " " + (route == H4Core.kWdA1 ? "A1" : cached ? "cache" : "sync") + " " + ok.Value + (stale ? " stale" : "")
-                                    + " @" + Math.Round(at.x, 2) + "," + Math.Round(at.z, 2) + (lot != null ? " on " + lot.Name : ""));
+                                    + " @" + Math.Round(at.x, 2) + "," + Math.Round(at.z, 2) + " on " + lot.Name);  // lot: s.LotCurrent, non-null (checked above)
                             if (stale) { }
                             else if (ok.Value) { st.OkAt = now; mStill[s.ObjectId.Value] = st; }
                             else if (Act(s, now, 46, "reset (idle on unroutable spot)")) mStill.Remove(s.ObjectId.Value);
