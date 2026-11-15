@@ -434,17 +434,20 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 1168-1170 | reserved (claude, `fixes-1168`) | snublistener (batch 4); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) [moved from 1056-1058: upstream took 994-1056] |
 | 1171-1173 | reserved (claude, `fixes-1171`) | elevatorridertimeout (batch 4 E2); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) [moved from 1059-1061: upstream took 994-1056] |
 | 1174-1176 | reserved (claude, `fixes-1174`) | rolenullguard (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) [moved from 1062-1064: upstream took 994-1056] |
-| 1177-1179 | reserved (claude, `fixes-1177`) | homeworkskillbonus (batch 5, docs/583 lead) [moved from 1065-1067: upstream took 994-1056] |
+| 1177-1179 | reserved (claude, `fixes-1177`) | homeworkskillbonus (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2218 smallfix: off BROKEN / on FIXED) [moved from 1065-1067: upstream took 994-1056] |
 | 1180-1182 | reserved (claude, `fixes-1180`) | horseranchchallenge (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) [moved from 1068-1070: upstream took 994-1056] |
 | 1183-1185 | reserved (claude, `fixes-1183`) | digsiteemptypick (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) [moved from 1071-1073: upstream took 994-1056] |
 | 1186-1188 | reserved (claude, `fixes-1186`) | oppchainworld (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) [moved from 1074-1076: upstream took 994-1056] |
 | 1189-1191 | reserved (claude, `fixes-1189`) | teleportcommunitylot (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) [moved from 1077-1079: upstream took 994-1056] |
 | 1192-1194 | reserved (claude, `fixes-1192`) | photosubjectstars (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) [moved from 1080-1082: upstream took 994-1056] |
-| 1195-1198 | reserved (claude, `fixes-1195`) | residentspawnslot (batch 5b, spawn-slot stand-in) [moved from 1083-1086: upstream took 994-1056] |
-| 1199-1204 | reserved (claude, `fixes-1199`) | talkoccupationchance, shelldoorsummon (batch 5 leads 7, 8) [moved from 1087-1092: upstream took 994-1056] |
-| 1205-1217 | reserved (claude, `fixes-1205`) | batch 6 (Roslyn pass 2: disposebase, boardingschoolmoney, freshclothingresume, twinbellyshape) [moved from 1093-1105: upstream took 994-1056] |
-| 1218-1232 | reserved (claude, `fixes-1218`) | batch 7 (REA tranche 3 + NRaas #42: boatstaleswimmer, oppcategoryprotect, nocommercialcar, scavengernolot, partylotlistener) |
-| **1233+** | next free | reserve here  |
+| 1195-1198 | reserved (claude, `fixes-1195`) | residentspawnslot (batch 5b, spawn-slot stand-in); proven in game 2026-11-15 (phase-20261115-2218 smallfix: off BROKEN / on FIXED) [moved from 1083-1086: upstream took 994-1056] |
+| 1199-1204 | reserved (claude, `fixes-1199`) | talkoccupationchance, shelldoorsummon (batch 5 leads 7, 8); proven in game 2026-11-15 (phase-20261115-2218 smallfix: off BROKEN / on FIXED) [moved from 1087-1092: upstream took 994-1056] |
+| 1205-1217 | reserved (claude, `fixes-1205`) | batch 6 (Roslyn pass 2: disposebase, boardingschoolmoney, freshclothingresume, twinbellyshape); proven in game 2026-11-15 (phase-20261115-2218 smallfix: off BROKEN / on FIXED) [moved from 1093-1105: upstream took 994-1056] |
+| 1218-1232 | reserved (claude, `fixes-1218`) | batch 7 (REA tranche 3 + NRaas #42: boatstaleswimmer, oppcategoryprotect, nocommercialcar, scavengernolot, partylotlistener); proven in game 2026-11-15 (phase-20261115-2218 smallfix: off BROKEN / on FIXED) |
+| 1233-1248 | reserved (claude, `fixes-1233`) | batch 8 (docs/582 B8): trashpileimport, catgymwatch, badsecretkey, traitlistenerremove, weddinglistener |
+| 1249-1254 | reserved (claude, `fixes-1249`) | batch 8 (docs/582 B8 §6-7): portasknohome, lecturebroadcaster |
+| 1255-1257 | reserved (claude, `fixes-1255`) | batch 8 (docs/582 B8 §8): residentspawnwalk |
+| **1258+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 

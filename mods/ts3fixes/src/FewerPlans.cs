@@ -39,8 +39,8 @@ namespace Ts3Fixes
                 try
                 {
                     Sim sim = (Sim)(object)this;
-                    if (RsOwnPlan(sim)) return RsAdjust(sim, RoutableOrig(lot, pos));  // residentspawnslot (docs/582 B5 §8)
-                    return RsAdjust(sim, RoutableCheck(lot, pos));
+                    if (RsOwnPlan(sim)) return RsAdjust(sim, RoutableOrig(lot, pos), lot, pos);  // residentspawnslot (docs/582 B5 §8)
+                    return RsAdjust(sim, RoutableCheck(lot, pos), lot, pos);  // residentspawnwalk too (docs/582 B8 §8)
                 }
                 finally { sInRoutableCheck = was; }
             }
