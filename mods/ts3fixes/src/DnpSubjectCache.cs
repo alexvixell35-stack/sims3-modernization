@@ -49,7 +49,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sDscThrew) { sDscThrew = true; AppliedLog().Add("dnpsubjectcache: pass threw " + e.Message); }
+                PassThrewOnce(ref sDscThrew, "dnpsubjectcache", e);
             }
         }
     }

@@ -95,7 +95,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sCcsThrew) { sCcsThrew = true; AppliedLog().Add("customctlsweep: pass threw " + e.Message); }
+                PassThrewOnce(ref sCcsThrew, "customctlsweep", e);
             }
         }
     }

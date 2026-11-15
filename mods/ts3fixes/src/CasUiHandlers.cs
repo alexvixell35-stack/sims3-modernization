@@ -69,7 +69,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sCasUiThrew) { sCasUiThrew = true; AppliedLog().Add("casuihandlers: pass threw " + e.Message); }
+                PassThrewOnce(ref sCasUiThrew, "casuihandlers", e);
             }
         }
 

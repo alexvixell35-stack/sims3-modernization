@@ -86,7 +86,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sDrkThrew) { sDrkThrew = true; AppliedLog().Add("dnppetkeys/dnpobjkeys: pass threw " + e.Message); }
+                PassThrewOnce(ref sDrkThrew, "dnppetkeys/dnpobjkeys", e);
             }
         }
     }

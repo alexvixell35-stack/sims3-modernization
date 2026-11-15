@@ -61,7 +61,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sTuiThrew) { sTuiThrew = true; AppliedLog().Add("tinyuieventreg: pass threw " + e.Message); }
+                PassThrewOnce(ref sTuiThrew, "tinyuieventreg", e);
             }
         }
     }
