@@ -275,6 +275,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kVisitTooLate value="False" />
     <kSpoonReset value="False" />
     <kHomeworkHelp value="False" />
+    <kGroupTalkStale value="False" />
+    <kConvMerge value="False" />
+    <kPortraitPose value="False" />
+    <kPicnicCamera value="False" />
     <kBirthRoute value="False" />
     <kPutDownPlace value="False" />
     <kAwardKeep value="False" />

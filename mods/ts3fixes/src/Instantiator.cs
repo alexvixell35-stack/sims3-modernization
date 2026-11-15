@@ -275,6 +275,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kAutonomyFailBlock = false;    // autonomyfailblock (docs/565 §3): autonomous action failing on an unreachable posture leaves no failure block (object re-picked)
         [Tunable] public static bool kVisitTooLate = false;    // visittoolate (docs/565 §5): NPC visitors told to leave late at night stand in the yard all night
         [Tunable] public static bool kSpoonReset = false;    // spoonreset (docs/565 §6): spooning Sim kept in the pair (spoon pose, skipped wake checks) after its partner was reset
+        [Tunable] public static bool kGroupTalkStale = false;    // grouptalkstale (docs/566 §1): Sims keep group-talking (relationship, events) with group members who left the lot
+        [Tunable] public static bool kConvMerge = false;    // convmerge (docs/566 §2): merged conversations leave their discourage-route footprint objects in the world
+        [Tunable] public static bool kPortraitPose = false;    // portraitpose (docs/566 §4): portrait subject keeps waiting / posing after the painter failed or was reset
+        [Tunable] public static bool kPicnicCamera = false;    // picniccamera (docs/566 §5): served picnic leaves its map-view callback on the camera (closes placement tools on map view)
         [Tunable] public static bool kHomeworkHelp = false;    // homeworkhelp (docs/565 §7): helper starting Help with Homework after the child finished hits a null jig
         [Tunable] public static bool kShellLighting = false;      // shelllighting (docs/561 §5): a buildable shell shows the lighting of the latest passed lighting time after load (EA keeps Default until the next alarm)
         [Tunable] public static bool kPhotoBoothFunds = false;    // photoboothfunds (docs/561 §2): a Sim that entered a photo booth and then lacked the fee is walked out (EA leaves it faded out inside)

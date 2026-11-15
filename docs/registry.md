@@ -356,6 +356,10 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2536-2537 | reserved (claude, `fixes-2536`) | spoonreset: spoon pair released after partner reset / errors |
 | 2538-2539 | reserved (claude, `fixes-2538`) | homeworkhelp: helper stopped with no jig or child not waiting / errors |
 | 2540 | reserved (claude, `fixes-2540`) | fieldtripadult: carpool home with no selected Sim / homeless selected Sim handled |
+| 2541-2543 | reserved (claude, `fixes-2541`) | grouptalkstale: departed group-talk members dropped / sims moved out of a stale group / errors |
+| 2544-2545 | reserved (claude, `fixes-2544`) | convmerge: merged-away conversation discourage regions cleaned / errors |
+| 2546-2547 | reserved (claude, `fixes-2546`) | portraitpose: portrait subjects released after the painter failed / errors |
+| 2548-2549 | reserved (claude, `fixes-2548`) | picniccamera: picnic Serve map-view callbacks removed / errors |
 | **994+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

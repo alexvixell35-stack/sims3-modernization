@@ -138,6 +138,10 @@ namespace Ts3Fixes
             ApplyVisitTooLate();    // docs/565 §5 (VisitTooLate.cs)
             ApplySpoonReset();    // docs/565 §6 (SpoonReset.cs)
             ApplyHomeworkHelp();    // docs/565 §7 (HomeworkHelp.cs)
+            ApplyGroupTalkStale();    // docs/566 §1 (GroupTalkStale.cs)
+            ApplyConvMerge();    // docs/566 §2 (ConvMerge.cs)
+            ApplyPortraitPose();    // docs/566 §4 (PortraitPose.cs)
+            ApplyPicnicCamera();    // docs/566 §5 (PicnicCamera.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -444,6 +448,10 @@ namespace Ts3Fixes
         // [2536-2537] spoonreset (SpoonReset.cs, docs/565 §6): spoon pairs released after the partner was gone / errors.
         // [2538-2539] homeworkhelp (HomeworkHelp.cs, docs/565 §7): helpers stopped with no jig or no child / errors.
         // [2540] fieldtripadult (docs/565 §2d): carpool home with no selected Sim / no home handled.
+        // [2541-2543] grouptalkstale (GroupTalkStale.cs, docs/566 §1): departed group-talk members dropped / Sims moved out of an old group on re-register / errors.
+        // [2544-2545] convmerge (ConvMerge.cs, docs/566 §2): merged-away conversation discourage regions cleaned / errors.
+        // [2546-2547] portraitpose (PortraitPose.cs, docs/566 §4): portrait subjects' poses cancelled after the painter failed / errors.
+        // [2548-2549] picniccamera (PicnicCamera.cs, docs/566 §5): picnic Serve map-view callbacks removed / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -756,6 +764,10 @@ namespace Ts3Fixes
                 case "visittoolate": return Instantiator.kVisitTooLate;
                 case "spoonreset": return Instantiator.kSpoonReset;
                 case "homeworkhelp": return Instantiator.kHomeworkHelp;
+                case "grouptalkstale": return Instantiator.kGroupTalkStale;
+                case "convmerge": return Instantiator.kConvMerge;
+                case "portraitpose": return Instantiator.kPortraitPose;
+                case "picniccamera": return Instantiator.kPicnicCamera;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

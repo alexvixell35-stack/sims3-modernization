@@ -71223,5 +71223,329 @@
         }
       }
     ]
+  },
+  {
+    "id": "group-talk-stale",
+    "bug": "Sims keep departed Sims (other lot, destroyed) in their group talk: relationship gains, social bumps and Chat events with absent Sims; a re-registering Sim stays a phantom member of its old group (docs/566 §1)",
+    "fix": "ts3fixes GroupTalkStale.cs: grouptalkstale (default off), docs/566 §1",
+    "save": "any world (pure check)",
+    "note": "GroupTalkStaleCheck 'run' evaluates the member-drop decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "grouptalkstale": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GroupTalkStaleCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GroupTalkStaleCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "grouptalkstale": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GroupTalkStaleCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GroupTalkStaleCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "grouptalkstale": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "grouptalkstale": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "conv-merge-region",
+    "bug": "Conversation.Merge drops the two old conversations without cleaning their discourage regions: hidden DynamicSlot objects with discourage footprints stay at old group spots (docs/566 §2)",
+    "fix": "ts3fixes ConvMerge.cs: convmerge (default off), docs/566 §2",
+    "save": "any world (pure check)",
+    "note": "ConvMergeCheck 'run' evaluates the region-clean decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "convmerge": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvMergeCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvMergeCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "convmerge": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvMergeCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvMergeCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "convmerge": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "convmerge": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "portrait-pose-left",
+    "bug": "Paint Portrait failing before the grab (route, UI check) or a painter reset leaves the subject waiting up to 30 sim-minutes per sync step or posing until cancelled (docs/566 §4)",
+    "fix": "ts3fixes PortraitPose.cs: portraitpose (default off), docs/566 §4",
+    "save": "any world (pure check)",
+    "note": "PortraitPoseCheck 'run' evaluates the pose-cancel decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "portraitpose": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PortraitPoseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PortraitPoseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "portraitpose": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PortraitPoseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PortraitPoseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "portraitpose": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "portraitpose": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "picnic-camera-callback",
+    "bug": "PicnicBasket.Serve success path leaves OnMapViewEnabled on CameraController.OnCameraMapViewEnabledCallback: each later map-view toggle closes the open placement tool; the interaction is never freed (docs/566 §5)",
+    "fix": "ts3fixes PicnicCamera.cs: picniccamera (default off), docs/566 §5",
+    "save": "any world (pure check)",
+    "note": "PicnicCameraCheck 'run' evaluates the removal decision with controls; 'result' shows the live handler count (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "picniccamera": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PicnicCameraCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PicnicCameraCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "picniccamera": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PicnicCameraCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PicnicCameraCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "picniccamera": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "picniccamera": false
+        }
+      }
+    ]
   }
 ]

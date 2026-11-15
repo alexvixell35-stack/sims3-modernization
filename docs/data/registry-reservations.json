@@ -3383,6 +3383,56 @@
       "what": "fieldtripadult: carpool home with no selected Sim / homeless selected Sim handled",
       "at": "2026-11-15T02:31:41.949Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2541",
+      "kind": "fixes",
+      "from": 2541,
+      "to": 2543,
+      "by": "claude",
+      "what": "grouptalkstale: departed group-talk members dropped / sims moved out of a stale group / errors",
+      "at": "2026-11-15T02:52:31.531Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2544",
+      "kind": "fixes",
+      "from": 2544,
+      "to": 2545,
+      "by": "claude",
+      "what": "convmerge: merged-away conversation discourage regions cleaned / errors",
+      "at": "2026-11-15T02:52:31.607Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-566",
+      "kind": "doc",
+      "from": 566,
+      "to": 566,
+      "by": "claude",
+      "what": "social and skill-object logic batch (grouptalkstale, convmerge)",
+      "at": "2026-11-15T02:52:31.680Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2546",
+      "kind": "fixes",
+      "from": 2546,
+      "to": 2547,
+      "by": "claude",
+      "what": "portraitpose: portrait subjects released after the painter failed / errors",
+      "at": "2026-11-15T02:57:20.444Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2548",
+      "kind": "fixes",
+      "from": 2548,
+      "to": 2549,
+      "by": "claude",
+      "what": "picniccamera: picnic Serve map-view callbacks removed / errors",
+      "at": "2026-11-15T02:57:20.517Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }
