@@ -25,6 +25,8 @@ namespace Ts3Fixes
     // [2011] of those, waits whose helper's swap callback EA dropped (SwapCbHook below).
     // Whether the native swap needs the Sim in view (docs/224 §5): [2012] stale waits whose Sim was on screen when the wait
     // went stale, [2013] stale waits whose Sim was on screen when the wait ended; the end is logged (first 10 lines).
+    // Household rule (docs/580 §15): a live player Sim (IsPlayerSim: household, selected, selectable, unknown) keeps EA's
+    // per-tick loop past the mark; only NPC and gone-Sim waits are polled. [997] waits kept on EA's loop by the rule.
     public static partial class Fixes
     {
         const float kOutfitWaitStaleMinutes = 60f;
@@ -61,11 +63,17 @@ namespace Ts3Fixes
                 if (idleIfNecessary && !(bool)sSohReady.GetValue(h)) ((Sim)sSohSim.GetValue(h)).LoopIdle();
                 long t0 = SimClock.CurrentTicks, staleAfter = SimClock.ConvertToTicks(kOutfitWaitStaleMinutes, TimeUnit.Minutes);
                 uint minute = (uint)SimClock.ConvertToTicks(1f, TimeUnit.Minutes);
-                bool stale = false;
+                bool stale = false, hhKept = false;
                 while (!(bool)sSohReady.GetValue(h))
                 {
                     long waited = SimClock.CurrentTicks - t0;
-                    uint sleep = OutfitWaitCore.SleepTicks(waited, staleAfter, minute, waited >= staleAfter && ShortcutOn("outfitwaitpoll"));
+                    bool poll = waited >= staleAfter && ShortcutOn("outfitwaitpoll");
+                    if (poll && !OutfitWaitPollable(h))
+                    {
+                        poll = false;
+                        if (!hhKept) { hhKept = true; PatchCounters()[997]++; }
+                    }
+                    uint sleep = OutfitWaitCore.SleepTicks(waited, staleAfter, minute, poll);
                     if (sleep > 1)
                     {
                         if (!stale)
@@ -125,6 +133,17 @@ namespace Ts3Fixes
                 if (sOwLines.Count < 30) sOwLines.Add(line);
             }
             return true;
+        }
+
+        // docs/580 §15: scope check before the minute poll (read at each wake past the mark, so a Sim that joins the household
+        // mid-wait goes back to EA's per-tick loop). A household, selected, selectable or unknown-scope live Sim is exempt;
+        // a gone Sim is not (the issue #40 dead-wait end needs the poll path). [997] waits kept on EA's loop by the rule
+        // (counted once per wait in WaitHook).
+        static bool OutfitWaitPollable(object h)
+        {
+            Sim s = sSohSim.GetValue(h) as Sim;
+            bool live = s != null && !s.HasBeenDestroyed;
+            return OutfitWaitCore.PollAllowed(live, live && IsPlayerSim(s));
         }
 
         static int sOwEndLines;
@@ -306,6 +325,8 @@ namespace Ts3Fixes
         //            an outfit), which resets the pending outfit without the helper: the "cleared" stale cause (docs/224 §5).
         //   "state": what task 2 saw, the helper's flags, whether task 1 still runs (else how its Wait ended), counters [680-682].
         //   "log":   the first 20 stale-wait lines of the session (Sim, aborted flag, waiting task).
+        //   "scope": pure, docs/580 §15: a household Sim's stale wait keeps EA's per-tick loop; an NPC's and a gone Sim's
+        //            are polled once per sim-minute as before (controls), and nothing changes before the 60-minute mark.
         //   "ready": sets mReady, as a late Ready callback would; on, task 1 returns within a sim-minute; off, within a tick.
         //   "stop":  destroys both tasks and aborts the helper (which cancels a pending swap; neither swap is completed).
         //   "start dead": issue #40. As "start" on a Sim outside the active household (never a selectable one); task 2 aborts the
@@ -407,6 +428,20 @@ namespace Ts3Fixes
                 }
                 case "log":
                     return sOwLines.Count + " stale-wait lines: " + string.Join(" | ", sOwLines.ToArray());
+                case "scope": // pure (docs/580 §15): the household rule on the minute poll; nothing in the world is touched
+                {
+                    bool on = ShortcutOn("outfitwaitpoll");
+                    const long stale = 60 * 37; const uint minute = 37;
+                    uint npc = OutfitWaitCore.SleepTicks(stale, stale, minute, on && OutfitWaitCore.PollAllowed(true, false));
+                    uint hh = OutfitWaitCore.SleepTicks(stale, stale, minute, on && OutfitWaitCore.PollAllowed(true, true));
+                    uint gone = OutfitWaitCore.SleepTicks(stale, stale, minute, on && OutfitWaitCore.PollAllowed(false, true));
+                    uint early = OutfitWaitCore.SleepTicks(stale - 1, stale, minute, on && OutfitWaitCore.PollAllowed(true, false));
+                    bool fixedNow = hh == 1u;
+                    bool controls = npc == (on ? minute : 1u) && gone == (on ? minute : 1u) && early == 1u;
+                    return "outfitwaitpoll scope (switch " + (on ? "on" : "off") + "): household Sim past the mark sleeps " + hh + " tick(s) (EA's loop)="
+                        + fixedNow + "; control: NPC sleeps " + npc + ", gone Sim (issue #40) sleeps " + gone + ", NPC before the mark sleeps " + early
+                        + "; controls ok=" + controls + "; household waits kept on EA's loop 997=" + PatchCounters()[997];
+                }
                 case "counts": // no start needed (repro outfit-wait-view-log)
                 {
                     int[] c = PatchCounters();
@@ -425,7 +460,7 @@ namespace Ts3Fixes
                     if (sOwHelper != null) sOwHelper.Abort(); // cancels a swap still pending (the replace check's second one too)
                     sOwHelper = null;
                     return "stopped";
-                default: return "unknown check " + what + " (start, start replace, start clear, start control, start dead, state, dead, log, ready, stop)";
+                default: return "unknown check " + what + " (start, start replace, start clear, start control, start dead, state, dead, log, scope, counts, ready, stop)";
             }
         }
     }

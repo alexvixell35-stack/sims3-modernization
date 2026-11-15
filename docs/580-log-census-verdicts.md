@@ -136,3 +136,136 @@ exclude lots with `ElevatorDoors`, `BuildableShells` or `GetLevelOfOutsideDoor()
 - Leak census: `events.dream_listeners.by_trigger` and `subject_gone_by_trigger`.
 - `Ts3Fixes.Fixes.PetHomeCensus list` in a world with pets, and in Bridgeport for the horse units.
 - Checks: `RouteCauseLogCheck run` (off: BROKEN, on: FIXED), `PuddleReachCheck run` (docs/578 §3).
+
+## §12 Health-census failure spam (phase-20261115-1335, 114 proven fixes on)
+
+`sim-health-report.ts` counts an interaction as "spam" when it fails, is cancelled by the game, or ends "short" (head
+for less than 1 sim-min) 3 or more times between two samples. The 1335 samples are 15 sim-hours apart, not 2. Almost all
+of the rows are short ends. [measured] f/gc/short per window: Fashion Designer 0/0/6, Lily-Bo 1/4/3, Tiara 0/1/2, Joey
+0/1/4, poor Bartender 0/0/3, Ariel 0/0/5 and 0/1/8, Ti Bellino 0/3/1. 1335 is the only run with a health census, so no
+fixes-off comparison exists. Older logs have no lines for these interactions apart from GoToGarden UnseenFallback cuts.
+
+Each interaction [verified, decompiled]:
+- **Sim.SwitchToOutfit** (Ariel Horse, x12): Run always returns true and only spins. It is pushed only by
+  `PushSwitchToOutfitInteraction` (21 EA callers: parties' hosts and guests, careers, school, pools, socials). It is
+  short by design. Which caller targets the horse is not logged. Harmless: a missing category falls back to Everyday.
+  The real problem is the horse stuck on its unit (§11).
+- **LunacyFreakOut** (x3 each): Run calls `PlayReaction(FreakOut, NowOrLater)` and returns at once, so it is always
+  short. It fails only on an exit reason that was already set. `lunacysocials` gives every Lunatic Sim EA's own
+  30-180 min random-social alarm, where vanilla gave only the last one: 3 in 15 h is that rate. Not a regression.
+- **ReactionInteraction** (x3): the reaction animation queued by the freak-outs; short by design.
+- **GoToGarden** (poor Bartender, x6): on the home lot, Run hands off to `MakeSimDoSomethingAfterArrivingAtVenue` and
+  returns. Off the lot, our trip shortcut (default on) places unseen townies, so the interaction is short.
+- **GoHome** (Tiara, Joey, x3): the `gohome` shortcut (default on) places unseen townies at home, so GoHome ends at
+  once. The 2 game-cancels and Tiara's VisitLot result-10 plans are EA.
+- **BarAdvanced.IdleTend** (Ti Bellino, gc 3): the bartender's idle loop is cancelled when an order comes in. By design.
+
+Verdict: none is a failure. The census should not count by-design short interactions: SwitchToOutfit, LunacyFreakOut,
+ReactionInteraction, meta-autonomy hand-offs (GoToGarden), shortcut arrivals (GoHome), and the idle tend loop.
+
+## §13 Live census 1506 (117 switches on)
+
+The data here is `health.jsonl` plus the live log. 1335 and 1506 are the only runs with a health census, both with
+fixes on, so there is no fixes-off arm.
+
+1. **Restaurant trips "ended by our shortcuts"** (AutonomouslyGoForMealInRestaurant 134 ends over 59 Sims, GoHome 94,
+   VisitCommunityLot 60):
+   - [verified, ts3agent SimHealthHandlers] `ours` means a ts3fixes move happened while that head ran. It does not mean
+     we ended it.
+   - [verified, Fixes.cs RabbitHoleHook] The `rabbithole` shortcut places the Sim by the entrance, then runs EA's
+     `RouteNearEntranceAndEnterRabbitHole`. On success EA's Run sets Hunger to max.
+   - [measured] The top Sims ate out 4-5 times in 88.6 sim-hours (about 1.3 a day), which is not a loop. Hunger itself
+     is not in the census.
+2. **Kirby Wise x Sim.Scare** [measured, syncwait lines; verified, BaseScare.Run]:
+   - Scare queues `BeScared` with AddNext. The target keeps running WorkOut, BedSleep, Sleep, BedNap or Watch, with the
+     BeScared still queued, so Kirby's Routed or Committed wait runs to 40 min or fails when the target's state changes.
+     The receiver-side 0.0-min failures follow from the initiator's failure (both exits SynchronizationFailed).
+   - The cause is EA's Test: it rejects a sleeping target, but not one about to sleep or busy in a long activity.
+   - Not changed: both Sims are household, and an early end would differ from vanilla when the target finishes within
+     40 min. `npcbusypartner` covers NPC pairs (Started waits only).
+3. **Long trips**:
+   - Maggie: the visit head sat 139 min at home before the car trip, then about 150 min driving (SittingInVehicle,
+     WorldRoad). `unseenfb` placed her at the route's goal (home, after the visit had turned into Go Home).
+   - Rod: about 150 min walking a 148 m trip on the road.
+   - Bronson's 292-min "Go Home" ended at home. The rows on "Lot ulong.Max" are Sims on the street or road, in transit.
+4. **Idle for hours with an empty queue** [verified, Autonomy.ShouldRunLocalAutonomy]:
+   - Off-screen NPCs (low LOD: not on the active lot, not the active household, not on screen) run no local autonomy,
+     only meta autonomy (trips). Standing idle on their home lot is EA's LOD design.
+   - Alexander French and Brigit Hemlock are tending bars (`BarAdvanced.IdleTend`, TendingPosture, hidden name), which
+     also disables their autonomy (`BarAdvanced` IncrementAutonomyDisabled).
+   - Farrah is in GoToVirtualHome.
+
+## §14 Root of the Scare waits (`scarepriority`, built, off by default)
+
+How the wait happens [verified, decompiled]:
+1. `Sim.BaseScare.Run` (shared by `Scare` and `StaticShock`) creates `BeScared` / `BeShocked` with **its own
+   `GetPriority()`** and calls `Target.InteractionQueue.AddNext`.
+2. `AddInteraction` with ForceNext inserts after a running (locked) head, so the receiver lands at index 1.
+3. `RemoveLowerPriorityInteractions` cancels the target's head only when the newcomer's priority is strictly higher.
+   For an autonomous Scare both are `Autonomous`, so BeScared waits behind WorkOut, BedSleep, Watch or ReadBook.
+4. The scarer routes, then waits in `WaitForSynchronizationLevelWithSim(Target, Routed)` and then `Committed`, each up to
+   `BaseScare.kMaxSyncTime` = 40 sim-min (tunable).
+
+EA's own rule for receivers: `SocialInteraction.CreateSocialB` raises an `Autonomous` priority to
+`NonCriticalNPCBehavior` before pushing the B side. That is why ordinary socials interrupt an autonomous activity and
+Scare does not. BaseScare predates or skips that rule: an EA inconsistency.
+
+[measured, 153 run logs plus the live log] Failed or timed-out `syncwait` with the receiver "linked queued":
+
+| Initiator | Waits | Sim-min | Household initiator | Note |
+|---|---|---|---|---|
+| Scare | 115 | 3423 | 115 | partner busy in WorkOut 42, BedSleep 13, Watch 11, ReadBook 8, DanceSolo 8 |
+| DanceTogetherA | 93 | 4027 | 6 | social path, already raised; partner busy elsewhere (docs/577 §4) |
+| SocialInteractionA | 54 | 1791 | 24 | social path, already raised |
+
+Other `Run`s that push a receiver with the raw `GetPriority()` and then wait (scan of decompiled Run bodies):
+- BeShocked (StaticShock);
+- SimBeLuredToBag;
+- ListenToSerenade;
+- MakeMoveSimB;
+- BeSatOnByPet;
+- BeUntied;
+- GoMakeWish;
+- the B sides of the bed, seated and sauna cuddles, StartDreamWith and three WooHoo variants.
+
+None of these besides Scare shows up in the logs as failed waits.
+
+Proposed root fix (`scarepriority`, off by default):
+- When Scare or StaticShock reaches `SetupJazzGraph` (after its route, before the 40-min waits) and its linked receiver
+  is still queued with `Autonomous` priority, raise the receiver to `NonCriticalNPCBehavior` (`SetPriority`). EA's
+  `InteractionPriorityChangedCallback` then runs `RemoveLowerPriorityInteractions`, which cancels only an autonomous
+  head.
+- This copies EA's own CreateSocialB rule.
+- Player clicks are unchanged:
+  - a player-directed Scare already has UserDirected priority, which beats any autonomous head;
+  - a target busy with something the player ordered (UserDirected) still outranks the raised receiver.
+- Only an autonomous prank on an autonomously busy Sim changes: it now interrupts the activity, as every autonomous
+  social does.
+- Optionally apply the same rule to StaticShock and SimBeLuredToBag.
+
+**Built (2026-11-15):** `scarepriority` (`ScarePriority.cs`, tuning `kScarePriority`, off; counters 994 raised, 995 seen
+with the switch off, 996 errors). It hooks `SetupJazzGraph` of `Sim+Scare`, `Sim+StaticShock` and
+`Sim+ScareWithMegaPhone` (all three run `BaseScare.Run`) and, after EA's body, raises the linked receiver to
+`NonCriticalNPCBehavior` when it is still in the target's queue, not its head, and `Autonomous`. Check
+`ScarePriorityCheck` (repro `scarepriority-check`), controls: a player-ordered head and a MustRun head are kept, an
+already raised or player-directed receiver is unchanged, a receiver no longer queued or already the head is unchanged,
+and an unraised receiver keeps EA's wait. Not tested in game yet. Counter 995 in an off run gives the number of scares
+the switch would change.
+
+## §15 `outfitwaitpoll` household rule (2026-11-15)
+
+`outfitwaitpoll` ships on. Before this change, any wait not ready after 60 sim-minutes was read once per sim-minute,
+household Sims' waits included, so a household Sim's late-ready outfit change could resume up to a sim-minute later
+than in EA's game. That broke the household rule (CLAUDE.md).
+
+Change (`OutfitWait.cs`, `OutfitWaitCore.PollAllowed`): at each wake past the 60-minute mark, a scope check runs before
+the minute delay. A live Sim that `IsPlayerSim` calls the player's (household, selected, selectable, or unknown scope)
+keeps EA's per-tick loop. An NPC's wait is polled as before. A gone Sim's wait is also polled as before, so the issue #40
+dead-wait end still runs. The check is read at every wake, so a Sim that joins the household mid-wait goes back to EA's
+loop. Counter [997] counts waits kept on EA's loop by this rule, once per wait. A household Sim's stale wait is no longer
+marked or logged as stale ([680-682], [2003-2013] now count NPC and gone-Sim waits only).
+
+Checks: `OutfitWaitCheck("scope")` (pure): a household Sim past the mark sleeps 1 tick. Controls: an NPC and a gone Sim
+sleep a sim-minute with the switch on, and nothing changes before the mark. Self-test `tools/selftest/outfitwait` has
+`PollAllowed` cases. Not run in game.
+
