@@ -708,6 +708,8 @@ static bool ApplyVerify(const wchar_t* ini) {
             if (i < 27) ready |= 1 << i; else if (i < 58) ready2 |= 1 << (i - 27); else ready3 |= 1 << (i - 58);
             n++;
             if (kVf[i].at == MT_N2M && g_vfTramp[i]) g_mtVfN2mSlot = &g_vfTramp[i];  // [MonoThread] F1 chains here (docs/120 §9.4)
+            for (int s = 0; s < 17 && g_vfTramp[i]; s++)  // [MonoThread] P3 chains behind gcFree / arenaGrow (MtVfOwner)
+                if (kMtLockSites[s].addr == kVf[i].at) MtVfRegister(kVf[i].at, (void* volatile*)&g_vfTramp[i]);
         }
     }
     if ((memory || (g_vfGroups & VF_COSTS)) && (g_vfPoll = CreateThread(NULL, 64 * 1024, VfPollThread, (void*)(uintptr_t)memory,

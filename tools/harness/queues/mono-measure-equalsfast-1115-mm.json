@@ -1,0 +1,130 @@
+{
+ "note": "mono-measure-equalsfast-1115-mm: copy of mono-measure-equalsfast-1115.json (jobs bp-eqfast-correct,bp-iclock-eqfast-ab only: correctness part), repinned to master-mono-1115 (0.36.264-mono1). PREPARED, NOT RUN (2026-11-15, lane mono-measure). B1: [EqualsFast] option C + L9 SmallEnums (docs/258 §7 gates 2-3, §8) repinned from equalsfast-1112 (0.36.246 branch build, never run) to the current master build master-dalexlol-417-1115 (b9cddf2a, ts3native 0.36.261-lanes1; no native change on master since) + ts3fixes l3-convgone-1115 (master ts3fixes). bp-l9-diag (lane-L9-1115) already ran EqualsFast+SmallEnums PASS for correctness on 0.36.261-lanes1. Order: (1) bp-eqfast-correct BP 10 min correctness (eqOn/eqMode/eqSmall read back, eqHits > 0, 0 script errors); (2) bp-iclock-eqfast-ab COUNT job (not timing) for the docs/258 §3 contention answer and the §6 hit rate (< 50% = fall back to option B); (3) bp-eqfast-ab + ip-eqfast-ab TIMING, NEEDS A QUIET MACHINE: in-load ABBA of --ab equalsfast (eqMode flips plans on/off, SmallEnums stays installed), warm-up slice then off,on,on,off,off,on,on,off 1.5-min slices = 4 per arm, light tools (noSamplers). Read: node tools/harness/arm-ms.ts mono-measure-equalsfast-1115-<date>-{bp,ip}-eqfast-ab and hitch-ab.ts on the same tags; ON by default only with a consistent 3-5 ms/s gain both worlds (est 6-9 ms/s [inferred, docs/258]) and exactness (native selftest + monohost MONOHOST_EQFAST corpus 0 mismatches, already PASS). Household untouched by construction: an exact speedup of ValueType.InternalEquals, same boolean for every caller, no Sim state changed. Est ~14 + 12 + 2 x 16 min + load gaps ~70 min. Start (after chain-reruns-1115 ends): node tools/harness/queue.ts tools/harness/queues/mono-measure-equalsfast-1115.json (the smoke runs first for the timing jobs); correctness only: --only bp-eqfast-correct,bp-iclock-eqfast-ab --no-smoke",
+ "jobs": [
+  {
+   "id": "bp-eqfast-correct",
+   "note": "[est 14 min] CORRECTNESS, BP 10 min natural: [EqualsFast] Enabled=1 SmallEnums=1 for the whole run. Pass: version + OK line, @eqOn/@eqMode read back 1, eqHits and eqPlans rise, eqSmall >= 1 (SmallEnums plans built), no SKIP/FAIL equals fast line, 0 new script errors, no crash. Not timing.",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.master-dalexlol-417-1115, ts3native.ini.master-dalexlol-417-1115, ts3fixes.package.l3-convgone-1115",
+   "minCounters": 186,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 28,
+   "ini": {
+    "EqualsFast.Enabled": 1,
+    "EqualsFast.SmallEnums": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "nativeRequire": "@eqOn>=1,@eqMode>=1,eqHits>=1,eqPlans>=1,@eqSmall>=1",
+   "logRequire": {
+    "^ts3native 0\\.36\\.261-lanes1 ": 1,
+    "^OK   equals fast .*SmallEnums=1": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) .*equals fast": 0
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.261-lanes1 ": {
+     "match": [
+      "ts3native 0.36.261-lanes1 2026-11-15 17:24:21"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.261-lanes1 2026-11-15 17:12:18",
+      "ts3native 0.36.256-jitbundle2 2026-11-14 12:13:00"
+     ]
+    },
+    "^OK   equals fast .*SmallEnums=1": {
+     "match": [
+      "OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, no loader lock (switch eqMode +0x5F94, --ab equalsfast), SmallEnums=1"
+     ],
+     "noMatch": [
+      "OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, no loader lock (switch eqMode +0x5F94, --ab equalsfast), SmallEnums=0"
+     ]
+    },
+    "^(SKIP|FAIL) .*equals fast": {
+     "match": [
+      "SKIP detour ValueType.InternalEquals (equals fast) at 0x00E7A590: prologue differs"
+     ],
+     "noMatch": [
+      "OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, no loader lock (switch eqMode +0x5F94, --ab equalsfast), SmallEnums=1"
+     ]
+    }
+   }
+  },
+  {
+   "id": "bp-iclock-eqfast-ab",
+   "note": "[est 12 min] COUNT job (not timing: [IcLockCheck] replaces the loader lock wrappers). [IcLockCheck] Enabled=1, [AutShadow] master default, [EqualsFast] Enabled=1 SmallEnums=1 flipped per 2-min slice by --ab equalsfast. Read the per-slice native rows: off arms icLockEntersK, icLockContended, icLockWaitUs, icLockMaxWaitUs, icLockOwnerChanges (docs/258 §3: pass icLockContended / (icLockEntersK*1024) < 0.1% and icLockWaitUs < 0.5 ms/s); on arms eqHits, eqFtKind, eqFtNew, eqFtType, eqFtBusy, eqPlans, eqSmall, eqRejects and the drop in icLockEntersK (§6: hit rate < 50% = fall back to option B).",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.master-dalexlol-417-1115, ts3native.ini.master-dalexlol-417-1115, ts3fixes.package.l3-convgone-1115",
+   "minCounters": 186,
+   "save": "Baseline-BP-Spring",
+   "ini": {
+    "IcLockCheck.Enabled": 1,
+    "EqualsFast.Enabled": 1,
+    "EqualsFast.SmallEnums": 1
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.261-lanes1 ": 1,
+    "^OK   equals fast .*SmallEnums=1": 1,
+    "^OK   detour mono_loader_unlock \\(ic lock check\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.261-lanes1 ": {
+     "match": [
+      "ts3native 0.36.261-lanes1 2026-11-15 17:24:21"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.261-lanes1 2026-11-15 17:12:18",
+      "ts3native 0.36.256-jitbundle2 2026-11-14 12:13:00"
+     ]
+    },
+    "^OK   equals fast .*SmallEnums=1": {
+     "match": [
+      "OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, no loader lock (switch eqMode +0x5F94, --ab equalsfast), SmallEnums=1"
+     ],
+     "noMatch": [
+      "OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, no loader lock (switch eqMode +0x5F94, --ab equalsfast), SmallEnums=0"
+     ]
+    },
+    "^OK   detour mono_loader_unlock \\(ic lock check\\)": {
+     "match": [
+      "OK   detour mono_loader_unlock (ic lock check) at 0x00E85030"
+     ],
+     "noMatch": [
+      "OK   detour mono_loader_lock (ic lock check) at 0x00E85020",
+      "SKIP ic lock check: unlock bytes differ"
+     ]
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 10,
+     "slice": 2,
+     "ab": "equalsfast"
+    }
+   },
+   "timeoutMin": 24
+  }
+ ]
+}

@@ -138,6 +138,12 @@ if (import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/').replace(
   assert.equal(mm('^mark: (?!no trapped)', 'mark: Lenny Shutter @1,2 room 26 | counters'), null);
   assert.match(mm('moved [1-9]', 'cleanup: moved 0, left 0 | counters') ?? '', /does not match/);
   assert.equal(mm('left [1-9]', 'cleanup: moved 0, left 1 | counters'), null);
+  assert.match(mm('moved 0, left [1-9]', 'cleanup: moved 0, left 0 | counters 1040-1045: 0 0 0 0 0 0, unseenfbteleport on') ?? '', /does not match/);
+  // who (HrSimsIn line format): an NPC in a closed room passes; household, or no Sim line at all, fails
+  const who = '(^|\\n)sim [^\\n]* npc lot [0-9A-F]+ "[^"\\n]*" room \\d+ level \\d+( hidden)? exit=closed';
+  assert.equal(mm(who, 'sim Lenny Shutter npc lot F59000345CBEAE40 "Founders Keep - 1br, 1ba" room 28 level 0 hidden exit=closed routeFails=0 there 1 s / 0 sim-min doing nothing\ntrapped Lenny Shutter (room 28 on Founders Keep, 1 s / 0 sim-min ago): still in room\nwho: 1 Sims'), null);
+  assert.match(mm(who, 'sim Ann Angelista household lot 6C1100337657B720 "Air Spray" room 3 level 0 hidden exit=closed routeFails=0\nwho: 1 Sims') ?? '', /does not match/);
+  assert.match(mm(who, 'trapped Lenny Shutter (room 28 on Founders Keep, 1 s / 0 sim-min ago): left (not by hiddenroomnpc): now room 27 on Founders Keep, doing nothing\nwho: 0 Sims in hidden/closed rooms') ?? '', /does not match/);
   assert.match(mm('\\nPASS: ', 'goal: lot A\n  entry point outside: teleport ok\nN/A (no closed room on this lot): closed 0') ?? '', /does not match/);
   assert.equal(mm('\\nPASS: ', 'goal: lot F\n  hidden marker r26(H) closed: refused\nPASS: closed 4'), null);
   assert.equal(mm('x', { a: 'x' }), null);  // object answers match against their JSON

@@ -911,7 +911,7 @@ static void TestMonoJitClauseLazy() {
     static JtMeth m0, m1, mF, mP, mE;
     const LONG bodies0 = C.jitLazyBodies;
     static_assert(offsetof(Ts3nCounters, clOn) == 0x62A8 && offsetof(Ts3nCounters, clVerRuns) == 0x62BC && offsetof(Ts3nCounters, clSpare) == 0x62C0 &&
-                      sizeof(Ts3nCounters) == 6409 * 4, "counters v195 layout after v194 (docs/registry.md)");
+                      sizeof(Ts3nCounters) == 6477 * 4, "counters v195 layout after v194 (docs/registry.md)");
     g_jitClauseOk = true;  // JitOne's allow-list answer (tested below)
     g_jitClauseLazy = false;
     assert(make(m0, c0, 4, cl, 1) && C.jitLazyBodies == bodies0);  // ClauseLazy=0: as before
@@ -1260,7 +1260,7 @@ static void TestMonoJitBoundCall() {
     g_jtLen[0xEC] = 4;
     g_jitBc = (JitBoundStats*)&C.bcOn;
     static_assert(offsetof(Ts3nCounters, bcOn) == 0x6278 && offsetof(Ts3nCounters, bcSpare) == 0x62A0 && sizeof(JitBoundStats) == 12 * 4 &&
-                      sizeof(Ts3nCounters) == 6409 * 4, "counters v194 layout after the v193 hold (docs/registry.md)");
+                      sizeof(Ts3nCounters) == 6477 * 4, "counters v194 layout after the v193 hold (docs/registry.md)");
     const JitBoundEntryFn entry0 = g_jitBoundEntry;
     g_jitBoundEntry = JtE525C0, g_jitBoundInv[0] = (DWORD)(uintptr_t)JtBoundInv, g_jitBoundInv[1] = 0, C.bcOn = 1, g_jitBoundMask = 1;
     // the cache's class and target: a transformed instance method with an EA native body, no lazy body, one int result
@@ -1348,6 +1348,140 @@ static void TestMonoJitBoundCall() {
     g_jitForceJit = (const BYTE*)(uintptr_t)TS3A(0x00E5637D), g_jitProxyClassP = (const void* const*)(uintptr_t)TS3A(0x01220EC0);
 }
 
+// [MonoJit] FaultRecover (docs/537 §29): the decoder on hand-made bytes, then a real access violation in a compiled body (the FaultTest
+// hook, call 3) resumed at word 0 in the fake table's handler, and handcrafted contexts for the pass paths
+static void TestMonoJitFaultRecover() {
+    Ts3nCounters& C = ts3native_counters;
+    {   // JitFrClean: loads, compares, forward jumps, scratch registers and counter incs pass; stores, esi / ebx / esp, calls, x87 do not
+        static const u8 ok[] = {0x8B, 0x86, 0xF8, 0xFF, 0xFF, 0xFF, 0x85, 0xC0, 0x0F, 0x84, 0, 0, 0, 0, 0x8B, 0x80, 8, 0, 0, 0,  // mov eax, [esi-8]; test; jz; mov eax, [eax+8]
+                                0x0F, 0xB6, 0x8C, 0x81, 4, 0, 0, 0, 0x3B, 0xC1, 0x74, 2, 0x33, 0xD2, 0xB9, 1, 0, 0, 0, 0x66, 0x81, 0xF9, 2, 0};  // movzx ecx, [ecx+eax*4+4]; cmp; je; xor edx; mov ecx, 1; cmp cx, 2
+        assert(JitFrClean(ok, ok + sizeof(ok)) && !JitFrClean(ok, ok + 3));  // the end inside an instruction
+        static const u8 st[] = {0x89, 0x86, 0xF8, 0xFF, 0xFF, 0xFF}, ad[] = {0x83, 0xC6, 8}, bx[] = {0x8B, 0x9D, 0xF8, 0xFF, 0xFF, 0xFF}, pu[] = {0x50},
+                        ca[] = {0xE8, 0, 0, 0, 0}, fl[] = {0xD9, 0x86, 0, 0, 0, 0}, mv[] = {0xC7, 0xC0, 1, 0, 0, 0};
+        assert(!JitFrClean(st, st + 6) && !JitFrClean(ad, ad + 3) && !JitFrClean(bx, bx + 6) && !JitFrClean(pu, pu + 1) && !JitFrClean(ca, ca + 5) &&
+               !JitFrClean(fl, fl + 6) && !JitFrClean(mv, mv + 6));
+        static DWORD other;
+        u8 inc[6] = {0xFF, 0x05};
+        const DWORD ctr = (DWORD)(uintptr_t)&C.jitExits, oth = (DWORD)(uintptr_t)&other;
+        memcpy(inc + 2, &ctr, 4);
+        assert(JitFrClean(inc, inc + 6));
+        memcpy(inc + 2, &oth, 4);
+        assert(!JitFrClean(inc, inc + 6));  // an inc of anything but a counter is a store
+        static const u8 rep[] = {0xF3, 0xA5}, ld[] = {0x8B, 0x00};
+        assert(JitFrStringOp(rep) && !JitFrStringOp(ld));
+        static u8 buf[16] = {0x90, 0x90, 0x90, 0x90, 0x90, 0xE8, 0, 0, 0, 0, 0x90, 0xFF, 0xD0, 0x90};
+        JitMeth fm = {};
+        fm.native0 = buf;
+        assert(JitFrRetAddr(fm, buf + 10) && JitFrRetAddr(fm, buf + 13) && !JitFrRetAddr(fm, buf + 9) && !JitFrRetAddr(fm, buf + 3));
+    }
+    g_jitMode = 1, g_jitVerifyOn = 0, g_jitLazy = false;
+    assert((g_jitFrVeh = AddVectoredExceptionHandler(1, JitFrVeh)) != NULL);
+    g_jitFrOn = true, g_jitFrTestN = 3, g_jitFrTestRm = NULL, g_jitFrBadN = 0, C.frRecovered = C.frPassed = C.frTestCalls = 0;
+    strcpy_s(g_jitFrTestName, "Cls.Meth");
+    static unsigned short a[] = {JT_LDC2, JT_LDC3, JT_ADD, JT_STLOC, 8, JT_LDLOC, 8, JT_RET};
+    static JtMeth mA;
+    JtCompile(mA, a, 8);
+    JitMeth& m = g_jitMeth[g_jitMethN - 1];
+    assert(g_jitFrTestRm == mA.rm && a[0] == JIT_OP);
+    for (int call = 1; call <= 2; call++) {  // calls 1, 2: the compiled body as usual
+        JtFrame();
+        JtGo(a);
+        assert(g_jtEax == JT_RET && g_jtArena[0] == 5 && C.frTestCalls == call && C.frRecovered == 0);
+    }
+    JtFrame();
+    JtGo(a);  // call 3 reads address 0: the handler resumes in EA's (the fake table's) handler of word 0, the state as at the call
+    assert(g_jtEax == JT_LDC2 && g_jtEdi == (DWORD)(uintptr_t)a && g_jtEbp[-1] == g_jtEdi && g_jtEsi == (DWORD)(uintptr_t)g_jtArena && !g_jtArena[0]);
+    assert(C.frRecovered == 1 && C.frPassed == 0 && C.frTestCalls == 3 && m.dead && a[0] == JT_LDC2 && a[3] == JT_STLOC && JitFrBanned(m.name));
+    JtFrame();
+    JtGo(a);  // the interpreter's from here on
+    assert(g_jtEax == JT_LDC2 && C.frTestCalls == 3);
+    // handcrafted faults in a second body (no hook: one per session)
+    static unsigned short b[] = {JT_LDC2, JT_LDC3, JT_ADD, JT_STLOC, 8, JT_LDLOC, 8, JT_RET};
+    static JtMeth mB;
+    JtCompile(mB, b, 8);
+    JitMeth& mb = g_jitMeth[g_jitMethN - 1];
+    const JitEnt* p5 = JitFind((DWORD)(uintptr_t)(b + 5));
+    assert(p5 && !mb.dead && b[0] == JIT_OP && C.frTestCalls == 3);
+    EXCEPTION_RECORD er = {};
+    CONTEXT cx = {};
+    EXCEPTION_POINTERS xp = {&er, &cx};
+    er.ExceptionCode = EXCEPTION_ACCESS_VIOLATION;
+    cx.Eip = (DWORD)(uintptr_t)g_jitCodeEnd, cx.Esp = (DWORD)(uintptr_t)g_jtArena;  // outside, no return address: untouched
+    assert(JitFrVeh(&xp) == EXCEPTION_CONTINUE_SEARCH && C.frPassed == 0 && !mb.dead);
+    er.ExceptionCode = EXCEPTION_BREAKPOINT, cx.Eip = (DWORD)(uintptr_t)p5->native;  // not a fault kind we take
+    assert(JitFrVeh(&xp) == EXCEPTION_CONTINUE_SEARCH && C.frPassed == 0 && !mb.dead);
+    er.ExceptionCode = EXCEPTION_ACCESS_VIOLATION, g_jitMode = 2;  // Mode=2: passed on, the method off
+    assert(JitFrVeh(&xp) == EXCEPTION_CONTINUE_SEARCH && C.frPassed == 1 && mb.dead && b[0] == JT_LDC2);
+    g_jitMode = 1, mb.dead = false, JitPatchMeth(mb, true);
+    JtFrame();
+    cx.Ebp = (DWORD)(uintptr_t)g_jtEbp;  // at a position's first byte: resumed there
+    assert(JitFrVeh(&xp) == EXCEPTION_CONTINUE_EXECUTION && C.frRecovered == 2 && cx.Edi == (DWORD)(uintptr_t)(b + 5) && cx.Eax == JT_LDLOC && cx.Edx == JT_LDLOC);
+    assert(cx.Eip == (DWORD)(uintptr_t)JitTestStop && g_jtEbp[-1] == cx.Edi && mb.dead && b[5] == JT_LDLOC);
+    // past a store in the same position: passed on (ADD's position stores its sum before the next one starts)
+    mb.dead = false, JitPatchMeth(mb, true);
+    const JitEnt* p2 = JitFind((DWORD)(uintptr_t)(b + 2));
+    const JitEnt* p3 = JitFind((DWORD)(uintptr_t)(b + 3));
+    assert(p2 && p3 && !JitFrClean(p2->native, p3->native));
+    // stack overflow: never resumed
+    cx.Eip = (DWORD)(uintptr_t)p5->native, er.ExceptionCode = EXCEPTION_STACK_OVERFLOW;
+    assert(JitFrVeh(&xp) == EXCEPTION_CONTINUE_SEARCH && C.frPassed == 2 && mb.dead);
+    // a helper the body called (eip outside, a return address into the body near the top of the stack): passed on, the method off
+    static u8 fake[16] = {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0xE8, 0, 0, 0, 0, 0x90};
+    static DWORD stk[4];
+    mb.dead = false, JitPatchMeth(mb, true);
+    u8* w = NULL;
+    for (u8* q = mb.native0 + 6; q < mb.native0 + mb.bytes && !w; q++) if (JitFrRetAddr(mb, q)) w = q;
+    if (w) {  // only a body with a call (or bytes that read like one) has a return address to find
+        stk[1] = (DWORD)(uintptr_t)w;
+        er.ExceptionCode = EXCEPTION_ACCESS_VIOLATION, cx.Eip = (DWORD)(uintptr_t)fake, cx.Esp = (DWORD)(uintptr_t)stk;
+        assert(JitFrVeh(&xp) == EXCEPTION_CONTINUE_SEARCH && C.frPassed == 3 && mb.dead);
+    }
+    // the lazy body: passed on
+    g_jitLazy = true, g_jitLeafOnly = true, g_jitForceJit = &g_jtForceByte, g_jitProxyClassP = (const void* const*)&g_jtProxy;
+    static unsigned short l[] = {JT_LDC3, JT_RET};
+    static JtMeth mL;
+    JtMake(mL, l, 2, 0);
+    const JitLazyCell* lc = JitLazyCellFor(mL.rm);
+    assert(lc && lc->entry);
+    const LONG passed0 = C.frPassed;
+    er.ExceptionCode = EXCEPTION_ACCESS_VIOLATION, cx.Eip = (DWORD)(uintptr_t)lc->entry;
+    assert(JitFrVeh(&xp) == EXCEPTION_CONTINUE_SEARCH && C.frPassed == passed0 + 1 && g_jitMeth[g_jitMethN - 1].dead && !JitLazyCellFor(mL.rm)->entry);
+    printf("monojit: FaultRecover: a real fault resumed at word 0; %ld recovered, %ld passed on%s\n", C.frRecovered, C.frPassed, w ? ", return-address case run" : "");
+    RemoveVectoredExceptionHandler(g_jitFrVeh);
+    g_jitFrVeh = NULL, g_jitFrOn = false, g_jitFrTestN = 0, g_jitFrTestRm = NULL, g_jitFrBadN = 0, g_jitFrLogN = 0, g_jitLazy = false;
+    C.frRecovered = C.frPassed = C.frTestCalls = 0;
+}
+
+// D2 [MonoJit] CellHash (docs/537 §30): the hash index gives the linear scan's answer for every lookup: same cell order,
+// hits, misses that insert, the cap (NULL when full, a hit still found), and a reset to 0 cells mid-run.
+static void TestMonoJitCellHash() {
+    const int cap0 = g_jitCellCap, n0 = g_jitLazyCellN;
+    JitLazyCell* const save = (JitLazyCell*)HeapAlloc(GetProcessHeap(), 0, sizeof(JitLazyCell) * cap0);
+    memcpy(save, g_jitLazyCell, sizeof(JitLazyCell) * cap0);
+    static int ans[2][20000];
+    unsigned seed = 12345;
+    for (int pass = 0; pass < 2; pass++) {
+        if (pass == 1) assert(JitCellHashOn(600) && g_jitCellHashMask == 2047);
+        g_jitCellCap = 600, g_jitLazyCellN = 0, seed = 12345;
+        for (int i = 0; i < 20000; i++) {
+            if (i == 12000) g_jitLazyCellN = 0;  // a reset (the tests' "g_jitLazyCellN = 0")
+            seed = seed * 1103515245u + 12345u;
+            // rm values 16 bytes apart (MonoMethod-like), some colliding in the low hash bits; 700 distinct > the 600 cap
+            const u8* rm = (const u8*)(uintptr_t)(0x10000000u + ((seed >> 8) % 700u) * ((i & 1) ? 16u : 0x4000u));
+            JitLazyCell* c = JitLazyCellFor(rm);
+            ans[pass][i] = c ? (int)(c - g_jitLazyCell) : -1;
+            if (c) assert(c->rm == rm);
+        }
+    }
+    int nulls = 0;
+    for (int i = 0; i < 20000; i++) { assert(ans[0][i] == ans[1][i]); nulls += ans[0][i] < 0; }
+    assert(nulls > 0 && g_jitLazyCellN == 600);  // the cap was reached in both passes
+    HeapFree(GetProcessHeap(), 0, g_jitCellHash), g_jitCellHash = NULL, g_jitCellHashMask = 0;
+    memcpy(g_jitLazyCell, save, sizeof(JitLazyCell) * cap0), HeapFree(GetProcessHeap(), 0, save);
+    g_jitCellCap = cap0, g_jitLazyCellN = n0;
+    printf("monojit: CellHash = linear on 20000 lookups (%d NULL at the cap)\n", nulls);
+}
+
 static void TestMonoJit() {
     Ts3nCounters& C = ts3native_counters;
     // default: nothing installed without the switch, and the switch alone does nothing on another exe
@@ -1374,8 +1508,8 @@ static void TestMonoJit() {
     for (const auto& o : kOps) g_jtNames[o.op] = o.name, g_jtLen[o.op] = (BYTE)o.len;
     g_jitTableP = g_jtTable, g_jitOpNames = g_jtNames, g_jitOpLen = g_jtLen, g_jitMemcpy = (DWORD)(uintptr_t)JtMemcpy;
     g_jitMemset = (DWORD)(uintptr_t)JtMemset, g_jitAullshr = (DWORD)(uintptr_t)JtAullshr, g_jitIfaceOff = (DWORD)(uintptr_t)JtIfaceOff;
-    static DWORD noPending;  // nothing to sweep: the game's GC globals do not exist here
-    g_jvPending = &noPending;
+    static DWORD noPending, gcNo;  // nothing to sweep: the game's GC globals do not exist here
+    g_jvPending = &noPending, g_jvGcNo = &gcNo;
     g_jitAddRoots = JtNoRoots, GcBase = (GcBaseFn)JtHeapBase;
     {   // a free cell: a link into the heap or 0; a live object's word 0 is a vtable outside it
         static DWORD vt;
@@ -1402,7 +1536,7 @@ static void TestMonoJit() {
     assert(JitTemplates(511) == 29);  // Groups bit 256: the nine C5 rows above and two float compares
     assert(g_opInfo[JT_RET].kind == K_RET && g_opInfo[JT_MYSTERY].kind == K_EXIT);
     {  // T4096 (docs/537 §26): MaxMethods clamp, the fallback to 2048 / 4096 KB when the asked region does not fit, and the counters' place
-        static_assert(offsetof(Ts3nCounters, jitTableFull) == 0x62CC && offsetof(Ts3nCounters, jitMethCap) == 0x62D0 && sizeof(Ts3nCounters) == 6409 * 4,
+        static_assert(offsetof(Ts3nCounters, jitTableFull) == 0x62CC && offsetof(Ts3nCounters, jitMethCap) == 0x62D0 && sizeof(Ts3nCounters) == 6477 * 4,
                       "counters v196 layout after the v189-v195 / v918 gap (docs/registry.md)");
         assert(JitMaxMethods(0) == 512 && JitMaxMethods(3000) == 3000 && JitMaxMethods(1 << 20) == JIT_METH_MAX);
         const size_t code0 = g_jitCodeBytes;
@@ -1412,9 +1546,9 @@ static void TestMonoJit() {
         VirtualFree(g_jitTab, 0, MEM_RELEASE);
         g_jitAllocFail = 2;
         assert(!JitAllocOrFallback(JIT_METH_MAX) && g_jitAllocFail == 0);
-        printf("monojit: T4096 address space: R1 %u KB (2048 methods, ip table 2^16, 4096 KB code), now %u KB (%d methods, 8192 KB code), fallback %u KB\n",
+        printf("monojit: T4096 address space: R1 %u KB (2048 methods, ip table 2^16, 4096 KB code), now %u KB (%d methods, ip table 2^18, 16384 KB code), fallback %u KB\n",
                (unsigned)((((sizeof(JitEnt) * (65536 + 4096) + sizeof(JitMeth) * 2048 + 4 * 49152 + sizeof(JitLazyCell) * 2048 + sizeof(JitGuardSite) * 1024 + sizeof(JitScratch) + 0xFFF) & ~(size_t)0xFFF) + (4u << 20)) >> 10),
-               (unsigned)((JitDataBytes(JIT_METH_MAX) + (8u << 20)) >> 10), JIT_METH_MAX, (unsigned)((JitDataBytes(JIT_METH_OLD) + (4u << 20)) >> 10));
+               (unsigned)((JitDataBytes(JIT_METH_MAX) + (16u << 20)) >> 10), JIT_METH_MAX, (unsigned)((JitDataBytes(JIT_METH_OLD) + (4u << 20)) >> 10));
         g_jitCodeBytes = code0;
     }
     assert(JitAlloc() && g_jitMethCap == JIT_METH_MAX && g_jitPosCap == JIT_METH_MAX * JIT_POS_PER && g_jitGuardCap == JIT_METH_MAX / 2);
@@ -1700,6 +1834,24 @@ static void TestMonoJit() {
     JitPostPass(mP.rm, &domain);  // clauses
     assert(C.jitRefused == ++refused && p1[0] == JT_LDC2);
     mP.rm[0x41] = 0;
+    *(DWORD*)(mP.rm + 0x24) = 1;  // an EA native body (PR #334, #295 594a2df): refused, the body stays mint's
+    JitPostPass(mP.rm, &domain);
+    assert(C.jitRefused == ++refused && g_jitMethN == compiled && p1[0] == JT_LDC2);
+    *(DWORD*)(mP.rm + 0x24) = 0;
+    {  // a name longer than the buffer (PR #334, #295 21335fc): cut with "..." (sprintf_s would __fastfail 0xC0000409), never listed
+        static char longNs[301];  // longer than the post-pass's 256-byte name too
+        memset(longNs, 'N', 300);
+        static JtMeth mL;
+        JtInit(mL, p1, 2);
+        *(const char**)(mL.klass + 0x38) = longNs;
+        char nb[96];
+        JitMethodName(mL.rm, nb, sizeof(nb));
+        assert(strlen(nb) == sizeof(nb) - 1 && !strcmp(nb + sizeof(nb) - 4, "...") && !strncmp(nb, "NNNN", 4) && !JitListed(nb));
+        char nb2[256];
+        assert(!strcmp(JitMethodName(mP.rm, nb2, sizeof(nb2)), "Ns.Cls.Meth"));  // a short one is whole
+        JitPostPass(mL.rm, &domain);  // the post-pass's 256-byte name: cut, not listed, silent
+        assert(C.jitRefused == refused && g_jitMethN == compiled && p1[0] == JT_LDC2);
+    }
     JitPostPass(mP.rm, &domain);  // known
     assert(C.jitRefused == refused && g_jitMethN == compiled + 1 && p1[0] == JIT_OP && g_jitObjectClass == objectClass);
     JitPostPass(mP.rm, &domain);  // a repeat transform: compiled once
@@ -1763,10 +1915,13 @@ static void TestMonoJit() {
     JtCompile(mQ, q, 2);
     JitMeth& Q = g_jitMeth[g_jitMethN - 1];
     assert(Q.verifyOk);
+    assert(JtOn(g_jitMethCap));  // [MonoJit] Time: the verified pairs land in Q's row (docs/handoff/jit-paired-timing.md)
+    const JtRow& qt = g_jt[&Q - g_jitMeth];
     g_jtInterp = 2;
     JtFrame();
     JtGo(q, 8);
     assert(C.jitVerified == 1 && !C.jitMismatch && g_jtEax == JT_RET && g_jtEdi == (DWORD)(uintptr_t)(q + 1) && g_jtArena[8] == 2);
+    assert(qt.n == 1 && qt.jit && qt.interp && qt.ent1 >= 1 && qt.ent2 >= 1 && !qt.drop && !g_jtWrap && g_jtOver);
     g_jitEvery = 2;  // sampled: the next call runs compiled only, the one after is verified
     Q.tick = 0;
     JtFrame();
@@ -1780,6 +1935,8 @@ static void TestMonoJit() {
     JtFrame();
     JtGo(q, 8);
     assert(C.jitMismatch == 1 && C.jitVerified == 2 && C.jitFirstBad == (LONG)(&Q - g_jitMeth) + 1 && Q.dead && q[0] == JT_LDC2 && q[1] == JT_RET && g_jtArena[8] == 3);
+    assert(qt.n == 2 && !g_jtWrap);  // the sampled-out call adds nothing, a mismatch adds no pair
+    VirtualFree(g_jt, 0, MEM_RELEASE), g_jt = NULL;  // Time off again: no report from JitTick below
     const LONG calls1 = C.jitCalls;
     JtFrame();
     JtGo(q, 8);
@@ -1803,6 +1960,8 @@ static void TestMonoJit() {
     TestMonoJitBoundCall();
     TestMonoJitClauseLazy();
     TestMonoJitRetTeardown();
+    TestMonoJitFaultRecover();
+    TestMonoJitCellHash();
 
     // the region: code pages are not writable once a method is done
     MEMORY_BASIC_INFORMATION mbi;

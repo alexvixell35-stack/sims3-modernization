@@ -70,8 +70,14 @@ struct Ts3nMtProbe {
     LONG quitTimeouts;       // +0xB0, the worker did not leave within QuitWaitMs (left as it was, quit goes on)
     LONG quitWaitUs;         // +0xB4, the stop's wait
     LONG quitRestored;       // +0xB8, bit 0 0xE4B3F0 back to EA's code, bit 1 [0x11949CC] back to EA's root push
+    // v8 (docs/30 §18, D8 RUN FIRST): how much the worker allocates, to size a worker-private free list; always on with GcLock=1
+    // (one compare per locked worker entry). Counted only at depth 0 (the outermost hooked GC frame), so GC_malloc's own call
+    // into GC_generic_malloc counts once.
+    LONG workerAllocs;       // +0xBC, allocation entries (GC_malloc, _atomic, _uncollectable, _explicitly_typed, GC_generic_malloc) on the worker
+    LONG workerAllocsTyped;  // +0xC0, of those, GC_malloc_explicitly_typed (descriptor in the object: docs/30 §16's hard case)
+    LONG workerAllocMaxJob;  // +0xC4, most allocation entries in one job
 };
-extern "C" __declspec(dllexport) Ts3nMtProbe ts3native_mtprobe = {7};
+extern "C" __declspec(dllexport) Ts3nMtProbe ts3native_mtprobe = {8};
 static volatile LONG g_mtStopReq, g_mtBusy;  // worker stop request; a job (or a skip) is inside the worker
 static bool g_mtLazyGate;   // [MonoThread] LazyGate=1 (default off: the gate stays on while a worker exists)
 static bool g_mtLazyEarly;  // [MonoThread] LazyEarly=1 (with LazyGate=1, docs/30 §16)
@@ -113,6 +119,8 @@ static DWORD g_mtRet[64];   // callers' return addresses, guarded by g_mtLock (o
 static DWORD* g_mtSlot[64]; // each entry's return-slot address (caller's ESP at entry): frames nest, so outer slots are higher
 static LONG g_mtDepth;
 static void* g_mtTramp[17];
+// v8: the five allocation entries of kMtLockSites (0-4; [3] = GC_malloc_explicitly_typed); the selftest points [0] at its fake
+static DWORD g_mtAllocAt[5] = {TS3A(0x00E4BE30), TS3A(0x00E4BDC0), TS3A(0x00E4BF90), TS3A(0x00E50DE0), TS3A(0x00E4BCE0)};
 void MtLockExitThunk();
 static DWORD g_mtWorkerTid;
 static double g_mtUsPerTick;
@@ -177,6 +185,9 @@ static void __cdecl MtLockEnter(DWORD site, DWORD* retSlot) {
     if (g_mtWorkerTid && GetCurrentThreadId() == g_mtWorkerTid) {
         m.lockedWorker++;
         if (site == MT_COLLECT_A || site == MT_COLLECT_B) m.workerCollects++;
+        if (g_mtDepth == 0)
+            for (int i = 0; i < 5; i++)
+                if (site == g_mtAllocAt[i]) { m.workerAllocs++; if (i == 3) m.workerAllocsTyped++; break; }
     }
     if (g_mtDepth >= 64) { m.lockOverflow++; LeaveCriticalSection(&g_mtLock); return; }
     g_mtSlot[g_mtDepth] = retSlot;
@@ -275,11 +286,25 @@ static u8* MtEmitStub(u8* p, DWORD site, void** trampSlot) {
     return p;
 }
 
+// "Shared stub, one owner" (as F1, docs/120 §9.4): [Verify]'s count-only stubs gcFree 0xE4BEB0 and arenaGrow 0xD71900
+// (Threads group) own two P3 sites; they install at load, P3 at the first tick, so P3's prologue check saw their jmp and
+// wrote nothing (lane-L9-1115 bp-l9-f1verify). verify.cpp registers each hooked probe's trampoline slot here; P3 takes
+// that trampoline (original prologue, jmp +len) as its own and points the slot at its stub: Verify counts, then P3 locks.
+static struct { DWORD at; void* volatile* slot; } g_mtVfOwned[8];
+static int g_mtVfOwnedN;
+static void MtVfRegister(DWORD at, void* volatile* slot) {
+    if (g_mtVfOwnedN < 8) g_mtVfOwned[g_mtVfOwnedN].at = at, g_mtVfOwned[g_mtVfOwnedN++].slot = slot;
+}
+static void* volatile* MtVfOwner(DWORD at) {
+    for (int j = 0; j < g_mtVfOwnedN; j++) if (g_mtVfOwned[j].at == at && *g_mtVfOwned[j].slot) return g_mtVfOwned[j].slot;
+    return NULL;
+}
+
 // Checks every site first (all or nothing), then builds trampolines and stubs before writing any jmp, so a site is
-// never live without its trampoline. Returns the number of detours written.
+// never live without its trampoline. Returns the number of detours written (chained ones included).
 static int MtInstallLockSites(const MtSite* sites, int n) {
     for (int i = 0; i < n; i++)
-        if (!Matches((void*)(uintptr_t)sites[i].addr, sites[i].bytes, sites[i].len)) {
+        if (!MtVfOwner(sites[i].addr) && !Matches((void*)(uintptr_t)sites[i].addr, sites[i].bytes, sites[i].len)) {
             Log("SKIP mono thread P3: prologue at 0x%08X differs, nothing written", sites[i].addr);
             return 0;
         }
@@ -288,6 +313,11 @@ static int MtInstallLockSites(const MtSite* sites, int n) {
     for (int i = 0; i < n; i++) {
         u8* tramp = mem + i * 112;  // 32 trampoline + 80 stub
         u8* t = (u8*)(uintptr_t)sites[i].addr;
+        if (void* volatile* vf = MtVfOwner(sites[i].addr)) {  // Verify's trampoline runs the original prologue
+            g_mtTramp[i] = *vf;
+            MtEmitStub(tramp + 32, sites[i].addr, &g_mtTramp[i]);
+            continue;
+        }
 #ifdef TS3A_TABLE
         memcpy(tramp, t, sites[i].len);  // the live bytes (= the checked ones; on EA their globals differ from the Steam literal)
 #else
@@ -302,6 +332,12 @@ static int MtInstallLockSites(const MtSite* sites, int n) {
     int done = 0;
     for (int i = 0; i < n; i++) {
         u8* t = (u8*)(uintptr_t)sites[i].addr;
+        if (void* volatile* vf = MtVfOwner(sites[i].addr)) {
+            InterlockedExchangePointer(vf, (void*)(mem + i * 112 + 32));
+            Log("OK   mono thread P3: 0x%08X chained behind [Verify]'s stub", sites[i].addr);
+            done++;
+            continue;
+        }
         u8 jmp[16];
         memset(jmp, 0x90, sizeof(jmp));
         jmp[0] = 0xE9;
@@ -648,6 +684,7 @@ static DWORD WINAPI MtWorkerMain(void*) {
         LARGE_INTEGER t0, t1;
         if (g_mtJobHook) g_mtJobHook(0, g_mtJob.method);
         QueryPerformanceCounter(&t0);
+        const LONG a0 = m.workerAllocs;  // v8: only the worker writes it, under the lock
         void* exc = NULL;
         void* r = g_mtInvoke(g_mtJob.method, g_mtJob.obj, g_mtJob.params, &exc);
         QueryPerformanceCounter(&t1);
@@ -655,6 +692,7 @@ static DWORD WINAPI MtWorkerMain(void*) {
         const LONG us = (LONG)((t1.QuadPart - t0.QuadPart) * g_mtUsPerTick);
         m.workerJobs++, m.workerRunUs += us;
         if (us > m.workerMaxRunUs) m.workerMaxRunUs = us;
+        if (m.workerAllocs - a0 > m.workerAllocMaxJob) m.workerAllocMaxJob = m.workerAllocs - a0;
         if (exc) m.workerExceptions++, r = NULL;  // counted and dropped, never through the game's script error path
         InterlockedExchange(&m.result, (LONG)(uintptr_t)r);
         m.workerState = 2;

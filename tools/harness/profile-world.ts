@@ -505,7 +505,7 @@ const fwLoop = (async () => {
 })();
 const reproFail = async (why: string) => {
   console.log(`${stamp()} FAIL: ${why}`);
-  for (const c of reproEntry.cleanup ?? []) { const cr = await ag(c.cmd, c.args); console.log(`${stamp()} cleanup ${c.cmd}: ${cr.ok ? 'ok' : 'ERROR ' + cr.error}`); }
+  for (const c of reproEntry.cleanup ?? []) { const cr = c.cmd === 'native_set' ? await nativeSet(c.args) : await ag(c.cmd, c.args); console.log(`${stamp()} cleanup ${c.cmd}: ${cr.ok ? 'ok' : 'ERROR ' + cr.error}`); } // native_set goes to the native port, not the agent
   process.exit(1);
 };
 // the note goes into the log line: worst-hitches.ts labels the step's window by its arm ("fire off #3" -> reflect_call off)

@@ -223,9 +223,10 @@ static void TestMonoThreadM5() {
                   offsetof(Ts3nMtProbe, seq) == 0x64 && offsetof(Ts3nMtProbe, arenaRelNonEmpty) == 0x6C && offsetof(Ts3nMtProbe, lockStale) == 0x84 &&
                   offsetof(Ts3nMtProbe, lockOomReleased) == 0x88 && offsetof(Ts3nMtProbe, lazyOff) == 0x94 && offsetof(Ts3nMtProbe, simLockWaits) == 0x98 &&
                   offsetof(Ts3nMtProbe, lazyEarlyOff) == 0xA4 && offsetof(Ts3nMtProbe, quitReady) == 0xA8 &&
-                  offsetof(Ts3nMtProbe, quitRestored) == 0xB8 && sizeof(Ts3nMtProbe) == 0xBC,
-                  "ts3native_mtprobe v7 layout (docs/registry.md)");
-    assert(m.version == 7 && m.locking == 0);
+                  offsetof(Ts3nMtProbe, quitRestored) == 0xB8 && offsetof(Ts3nMtProbe, workerAllocs) == 0xBC &&
+                  offsetof(Ts3nMtProbe, workerAllocMaxJob) == 0xC4 && sizeof(Ts3nMtProbe) == 0xC8,
+                  "ts3native_mtprobe v8 layout (docs/registry.md)");
+    assert(m.version == 8 && m.locking == 0);
     MtLockInit();
     const DWORD me = GetCurrentThreadId();
 
@@ -244,6 +245,7 @@ static void TestMonoThreadM5() {
     assert(MtInstallLockSites(two, 2) == 0 && code[0] == 0x90);  // one prologue differs: nothing written
     assert(MtInstallLockSites(sites, 7) == 7 && code[0] == 0xE9 && code[16] == 0xE9 && code[32] == 0xE9);
     g_mtHAlloc = (MtAllocFn)(uintptr_t)sites[0].addr;
+    g_mtAllocAt[0] = sites[0].addr;  // v8: the fake alloc counts as an allocation entry
     g_mtHFree = (MtFreeFn)(uintptr_t)sites[1].addr;
     g_mtHGrow = (MtGrowFn)(uintptr_t)sites[2].addr;
     g_mtHJump = (MtJumpFn)(uintptr_t)sites[3].addr;
@@ -448,6 +450,7 @@ static void TestMonoThreadM5() {
     MtWaitFor(&m.seq, 1);
     assert(m.result == 0x41 && m.workerJobs == 1 && g_mtDup == 0 && g_mtNull == 0 && MtListLen() == 64);
     assert(m.lockedWorker >= 40000 && g_mtDepth == 0);
+    assert(m.workerAllocs == 20000 && m.workerAllocMaxJob == 20000 && m.workerAllocsTyped == 0);  // v8: the job's 20000 allocs, the sim's not counted
     MtWaitFor(&g_mtBusy, 0);
     assert(MtSubmit((void*)0x40, (void*)1, params));  // the invoke reports a managed exception
     MtWaitFor(&m.seq, 2);
@@ -612,6 +615,29 @@ static void TestMonoThreadM5() {
             if (g_mtN2mRec[i]) free(*(void**)(g_mtN2mRec[i] + 0x30)), free(g_mtN2mRec[i]), g_mtN2mRec[i] = NULL;
         g_mtExec = e0, g_mtSig = s0, g_mtUncoll = u0;
         printf("mono thread F1: worker-private call records, nested 2 deep, cleared after each call, overflow refused\n");
+    }
+    // P3 behind [Verify] (lane-L9-1115 bp-l9-f1verify): a site whose entry is Verify's `jmp [slot]` (prologue differs)
+    // chains: its bytes stay, the slot points at P3's stub, the stub locks and runs Verify's trampoline (the original)
+    {
+        void* trampSave[17];
+        memcpy(trampSave, g_mtTramp, sizeof(trampSave));
+        void* volatile vslot = MtMakeFake(code + 128, (const void*)MtFakeAlloc);  // Verify's trampoline: prologue, jmp on
+        u8* entry = code + 144;
+        entry[0] = 0xFF, entry[1] = 0x25, *(DWORD*)(entry + 2) = (DWORD)(uintptr_t)&vslot;  // Verify's stub, count left out
+        MtSite own[1] = {{(DWORD)(uintptr_t)entry, 5, {0x90, 0x90, 0x90, 0x90, 0x90}}};
+        assert(MtInstallLockSites(own, 1) == 0);  // not registered: prologue differs, nothing written
+        MtVfRegister(own[0].addr, &vslot);
+        assert(MtInstallLockSites(own, 1) == 1 && entry[0] == 0xFF && entry[1] == 0x25);  // game bytes untouched
+        assert(vslot != (void*)(code + 128) && g_mtTramp[0] == (void*)(code + 128));
+        MtResetList();
+        const LONG lockSave = m.locking, lcVf = m.lockedCalls;
+        m.locking = 1;
+        void* q = ((MtAllocFn)(uintptr_t)entry)(8);
+        assert(q == &g_mtNodes[0] && m.lockedCalls == lcVf + 1 && g_mtDepth == 0);
+        g_mtVfOwnedN = 0, m.locking = lockSave;
+        memcpy(g_mtTramp, trampSave, sizeof(trampSave));
+        MtResetList();
+        printf("mono thread P3: chained behind [Verify]'s stub, game bytes untouched, locked call runs the original\n");
     }
     // F1 behind [Verify] (docs/120 §9.4): with Verify's trampoline slot set, F1 takes the slot and writes no game bytes
     {

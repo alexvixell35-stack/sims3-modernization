@@ -48,7 +48,7 @@ namespace Ts3Fixes
     // docs/208 §9 (audit O7, O13), Mode R only, test switches, off: autofft2 reads the four docs/219 shared tier-2 rows for the
     // actor and up to kT2Max objects of its lot ([AutShadow] Tier2Rows=1); autofflot picks Camera.GetClosestVisibleLot's lot
     // on the worker from the request's inputs (autoffdry: against the game's own pick). No apply.
-    // Counters 448-465, 481-490, 763-776 (docs/registry.md); abort reasons by native reason index in AppDomain
+    // Counters 448-465, 481-490, 763-776, 957-962, 985-987 (docs/registry.md); abort reasons by native reason index in AppDomain
     // ts3fixes.autoffload.reasons (int[96]: env 0-23, bcast 24-47, t2 48-71, lot 72-95; 23 = a mod type on the worker's path).
     public static partial class Fixes
     {
@@ -60,7 +60,9 @@ namespace Ts3Fixes
         const float kBcObjMoveMax = 0.5f;
         const long kDryTicks = 240;      // a worker answer older than this (Simulator ticks since the request) is not dry-checked or applied
         const long kBcApplyTicks = 15;   // bcast apply: kBcMargin covers about this many ticks of walking [inferred, I-404-4]
-        const int cEnv = 448, cBc = 457, cEnvAp = 481, cBcAp = 486, cTick = 534, cT2 = 763, cLot = 769, cIc = 878;
+        const int cEnv = 448, cBc = 457, cEnvAp = 481, cBcAp = 486, cScope = 957, cTick = 534, cT2 = 763, cLot = 769, cIc = 878;
+        const int cEnvLoss = 985;        // docs/208 §11: pick_overdue, asked_expired, never_asked
+        const int cPickScope = 1047;     // docs/208 §12: env Sims, bcast broadcasters left out of the pick by autoffunseen
         const int kT2Max = 16, kLotSims = 32, kLotHb = 4;
         const long kLotDryTicks = 15;    // autoffdry: a pick older than this is not compared with the game's call
 
@@ -206,6 +208,8 @@ namespace Ts3Fixes
             try
             {
                 if (env) PickDueSims();
+                // docs/208 §12: under autoffunseen apply, a broadcaster the scope gate would send to the game's own set is not asked
+                bool bcScoped = bc && ShortcutOn("autoffbcastapply") && ShortcutOn("autoffunseen");
                 for (int k = 0; bc && k < kOffRing && sBcN < kBcMax; k++)
                 {
                     int at = (sOffBcRing - 1 - k + 2 * kOffRing) % kOffRing;
@@ -214,6 +218,7 @@ namespace Ts3Fixes
                     bool dup = false;
                     for (int j = 0; j < sBcN; j++) dup |= sBcReq[j].B == b;
                     if (dup) continue;
+                    if (bcScoped && BcScopeOf(b, sNoBc, b.GetPulseRadius()) != AutOffloadCore.kScopeApply) { c[cPickScope + 1]++; continue; }
                     BcReq q = sBcReq[sBcN++];
                     q.B = b; q.Obj = b.BroadcastingObject; q.R = b.GetPulseRadius();
                     ReactionBroadcasterParams p = b.BroadcasterParams;
@@ -309,6 +314,9 @@ namespace Ts3Fixes
         {
             long now = Simulator.TicksElapsed();
             sEnvGone.Clear();
+            // docs/208 §12: under autoffunseen apply only Sims the scope gate can apply for take a slot (household, seen and
+            // unknown answers were dropped at the update: 396 of 399 pickups in bp-off3u-env 2026-11-14)
+            bool scoped = ShortcutOn("autoffenvapply") && ShortcutOn("autoffunseen");
             foreach (KeyValuePair<Sim, EnvDue> kv in sEnvDue)
             {
                 Sim s = kv.Key;
@@ -317,6 +325,10 @@ namespace Ts3Fixes
                 if (d.Period <= 0 || s.LotCurrent == null) continue;
                 float f = (float)(now - d.Last) / d.Period;
                 if (f < kEnvDueMin) continue;
+                // docs/208 §11: later than its period by more than an answer lives = its updates stopped (low LOD runs none,
+                // docs/144 §1.1); with the largest share it held a top slot for good and its answers aged out unasked
+                if (now - d.Last - d.Period > kDryTicks) { PatchCounters()[cEnvLoss]++; continue; }
+                if (scoped && AutOffloadCore.Scope(SafeUfWhy(s)) != AutOffloadCore.kScopeApply) { PatchCounters()[cPickScope]++; continue; }
                 sEnvN = AutOffloadCore.InsertTop(sEnvPick, sEnvSims, sEnvN, kEnvMax, f, s);
             }
             for (int i = 0; i < sEnvGone.Count; i++) sEnvDue.Remove(sEnvGone[i]);
@@ -536,8 +548,19 @@ namespace Ts3Fixes
         static void KeepEnv(EnvRes w)
         {
             EnvRes d = null;
-            for (int i = 0; i < kEnvReady && d == null; i++) if (sEnvReady[i].S == w.S) d = sEnvReady[i];  // a newer cut replaces it
-            if (d == null) { d = sEnvReady[sEnvReadyAt]; sEnvReadyAt = (sEnvReadyAt + 1) % kEnvReady; }
+            int free = -1;
+            for (int i = 0; i < kEnvReady && d == null; i++)
+            {
+                EnvRes e = sEnvReady[i];
+                if (e.S == w.S) d = e;  // a newer cut replaces it
+                else if (free < 0 && (e.S == null || e.Used || sOffTick - e.Tick > kDryTicks)) free = i;  // as KeepBc: never evict a fresh unused answer first
+            }
+            if (d == null)
+            {
+                if (free >= 0) d = sEnvReady[free];
+                else { d = sEnvReady[sEnvReadyAt]; sEnvReadyAt = (sEnvReadyAt + 1) % kEnvReady; }
+                if (d.S != null && d.Done && !d.Used) PatchCounters()[cEnvLoss + 2]++;  // never asked: every ask marks its answer Used (ReadyEnvFor, EnvHook)
+            }
             d.S = w.S; d.Done = true; d.Used = false; d.Tick = sOffTick;
             d.Pos = w.Pos; d.Neg = w.Neg; d.Flags = w.Flags; d.Num = w.Num; d.Puddle = w.Puddle; d.Burnt = w.Burnt; d.Size = w.Size;
             d.Covered = w.Covered; d.Lot = w.Lot; d.Room = w.Room; d.At = w.At; d.SeqOver = w.SeqOver; d.SeqN = w.SeqN;
@@ -1033,6 +1056,7 @@ namespace Ts3Fixes
         // ---- the game's own call: ready answers (sim thread) ----
 
         static readonly EnvRes sDryEnv = new EnvRes();
+        static readonly BcRes sNoBc = new BcRes();  // no candidates: BcScopeOf's broadcaster-only checks at the pick
 
         static EnvRes ReadyEnvFor(Sim s)
         {
@@ -1040,7 +1064,9 @@ namespace Ts3Fixes
             for (int i = 0; i < kEnvReady; i++)
             {
                 EnvRes a = sEnvReady[i];
-                if (a.S == s && a.Done && !a.Used && now - a.Tick <= kDryTicks) return a;
+                if (a.S != s || !a.Done || a.Used) continue;
+                if (now - a.Tick <= kDryTicks) return a;
+                a.Used = true; PatchCounters()[cEnvLoss + 1]++;  // asked too late: the Sim's update came after the answer aged out
             }
             return null;
         }
@@ -1374,7 +1400,9 @@ namespace Ts3Fixes
                         if (ShortcutOn("autoffenvapply"))
                         {
                             apply = EnvFresh(s, a);
-                            c[apply ? cEnvAp + 1 : cEnvAp + 3]++;
+                            int sc = apply && ShortcutOn("autoffunseen") ? EnvScopeOf(s, a) : AutOffloadCore.kScopeApply;
+                            if (sc != AutOffloadCore.kScopeApply) { c[cScope + sc - 1]++; apply = false; }  // docs/208 §10: the game's own path
+                            else c[apply ? cEnvAp + 1 : cEnvAp + 3]++;
                         }
                     }
                     else if (s != null && ShortcutOn("autoffenvapply")) c[cEnvAp + 2]++;
@@ -1422,6 +1450,8 @@ namespace Ts3Fixes
                     {
                         w.Used = true;
                         if (apply && !BcFresh(b, w)) { c[cBcAp + 3]++; apply = false; }
+                        int sc = apply && ShortcutOn("autoffunseen") ? BcScopeOf(b, w, pulseRadius) : AutOffloadCore.kScopeApply;
+                        if (sc != AutOffloadCore.kScopeApply) { c[cScope + 3 + sc - 1]++; apply = false; }  // docs/208 §10: the game's own set
                         if (apply || dry) mine = BcRebuild(b, w, pulseRadius);  // a stale answer is rebuilt only to be measured
                     }
                     else if (apply) { c[cBcAp + 2]++; apply = false; }
@@ -1470,6 +1500,45 @@ namespace Ts3Fixes
                 return g;
             }
             public Lot LotOrig(Lot homeLot, ref Vector3 cameraTargetAsVec3) { return null; } // receives Camera.GetClosestVisibleLot's original header
+        }
+
+        // docs/208 §10 autoffunseen, env: the actor by the go-live rule (SafeUfWhy 0 = unseen, not household, not selected,
+        // not on the camera lot; unknown = household), and no household or unknown Sim among the other Sims of the stored
+        // scan (their reactions to the actor run in EnvApply).
+        static int EnvScopeOf(Sim s, EnvRes a)
+        {
+            int sc = AutOffloadCore.Scope(SafeUfWhy(s));
+            for (int i = 0; i < a.SeqN && sc == AutOffloadCore.kScopeApply; i++)
+            {
+                Sim o = a.Seq[i] as Sim;
+                if (o != null && o != s) sc = AutOffloadCore.OtherScope(SafeUfWhy(o));
+            }
+            return sc;
+        }
+
+        // docs/208 §10 autoffunseen, bcast: the reactors are what changes, so no active-household Sim on the broadcaster's lot
+        // or within the game's query radius (one that walked in since the cut is not among the worker's candidates), the
+        // broadcaster's lot and query circle unseen (UfLotSeen / UfPosUnseen, the checks inside UfWhy: a seen Sim in range must
+        // get the game's set), a Sim broadcaster and every candidate unseen by SafeUfWhy.
+        static int BcScopeOf(ReactionBroadcaster b, BcRes w, float pulseRadius)
+        {
+            IGameObject o = b.BroadcastingObject;
+            if (o == null) return AutOffloadCore.kScopeUnknown;
+            float rq = pulseRadius + sBcBuffer + kBcFoot;
+            Lot lot = o.LotCurrent;
+            Sims3.Gameplay.CAS.Household h = Sims3.Gameplay.CAS.Household.ActiveHousehold;
+            if (h == null) return AutOffloadCore.kScopeUnknown;
+            foreach (Sim hs in h.AllActors)
+            {
+                if (hs == null) continue;
+                if ((lot != null && !lot.IsWorldLot && hs.LotCurrent == lot) || o.GetDistanceToObject(hs) <= rq) return AutOffloadCore.kScopeHousehold;
+            }
+            Sim os = o as Sim;
+            int sc = os != null ? AutOffloadCore.Scope(SafeUfWhy(os)) : AutOffloadCore.kScopeApply;
+            if (sc == AutOffloadCore.kScopeApply && (UfLotSeen(lot) || !UfPosUnseen(o.Position, rq))) sc = AutOffloadCore.kScopeSeen;
+            for (int i = 0; i < w.N && sc == AutOffloadCore.kScopeApply; i++)
+                if (w.Sims[i] != null && !w.Sims[i].HasBeenDestroyed) sc = AutOffloadCore.Scope(SafeUfWhy(w.Sims[i]));
+            return sc;
         }
 
         // the broadcaster has not moved off its cut position (a broadcaster on a walking Sim moves with it)

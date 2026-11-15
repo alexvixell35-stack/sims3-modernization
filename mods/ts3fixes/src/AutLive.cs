@@ -69,6 +69,8 @@ namespace Ts3Fixes
             // unseen at the post; Cut0/Wait0 = native cut / GC-lock-wait words at the post (own cost per search); SavedPairs =
             // consumed allow-listed ads
             public bool Direct, Snapped, UnseenDry;
+            // docs/124 §17.12 (autliveseen): a seen NPC's search on the exact path while autseengame sends seen actors to the game
+            public bool SeenExact;
             public int Cut0, Wait0, SavedPairs;
             // docs/222 §9 (autunseencmp, Dry): compare on for this search, the actor was seen at a later slice (compare stops),
             // frame of the slice last checked, per object: the direct path would consume it at its B14 call
@@ -305,7 +307,7 @@ namespace Ts3Fixes
             L.ObjIndex.Clear(); L.PairIndex.Clear(); L.OtherId.Clear();
             L.Aut = null; L.Actor = null; L.LotCur = L.LotHome = null; L.Household = L.Role = L.Occ = L.Job = null; L.Career = null;
             L.Ready = L.Ok = L.Abandoned = L.Late = false; L.EvN = 0; L.Objs = L.Pairs = 0;
-            L.Direct = L.Snapped = L.UnseenDry = false; L.SavedPairs = 0;
+            L.Direct = L.Snapped = L.UnseenDry = L.SeenExact = false; L.SavedPairs = 0;
             L.CmpOn = L.CmpSnapped = false;
             LiveActive(L, false);
             L.InUse = false;
@@ -467,9 +469,20 @@ namespace Ts3Fixes
             int why0 = unseenOn ? SafeUfWhy(a.Actor) : -1;
             bool direct = AutLiveCore.Unseen.AtPost(unseenOn, sLiveDry, why0);
             // docs/222 §11.8 V6 test: a seen actor runs the game's own search, no post and no worker wait in the shared manager
-            if (unseenOn && !direct && !sLiveDry && ShortcutOn("autseengame")) { uk[kCSeenGameRun]++; return h.MetaOrig(c); }
-            if (unseenOn && !direct && !sLiveDry) uk[kCUnSeenPost]++;
-            if (!GuardAllow(direct)) return h.MetaOrig(c);
+            // docs/124 §17.12 autliveseen: with autseengame, a proven seen NPC may take the exact path (seenDry: compare only);
+            // household, selectable, not live, gone and unknown scope (-1) always run the game's own search
+            int seenPath = AutLiveCore.Unseen.kSeenExact;
+            if (unseenOn && !direct && !sLiveDry)
+            {
+                seenPath = AutLiveCore.Unseen.SeenPath(ShortcutOn("autseengame"), ShortcutOn("autliveseen"), ShortcutOn("autliveseendry"),
+                    UnseenFallbackCore.SeenNpc(why0));
+                if (seenPath == AutLiveCore.Unseen.kSeenGame) { uk[kCSeenGameRun]++; return h.MetaOrig(c); }
+                if (ShortcutOn("autseengame") && UnseenFallbackCore.HouseholdScope(why0)) { uk[kCSeenHhPost]++; return h.MetaOrig(c); }  // tripwire (must stay 0)
+                uk[kCUnSeenPost]++;
+            }
+            bool seenExact = unseenOn && !direct && !sLiveDry && ShortcutOn("autseengame");
+            bool seenDry = seenExact && seenPath == AutLiveCore.Unseen.kSeenDry;
+            if (!seenDry && !GuardAllow(direct)) return h.MetaOrig(c);
             LiveSearch L = null;
             try
             {
@@ -481,6 +494,9 @@ namespace Ts3Fixes
             double share = 0;  // consumed share of the allow-listed pairs (0 = dropped; live-use record)
             LiveStat(kSPosted);
             L.Direct = direct; L.UnseenDry = sLiveDry && unseenOn && why0 == 0; L.SavedPairs = 0;
+            L.SeenExact = seenExact;
+            if (seenDry) L.Dry = true;  // this search only: the game's B14 runs, the C2 hook records, DryCompare after B13
+            if (seenExact) { uk[kCSeenExactPosted]++; if (seenDry) uk[kCSeenExactDry]++; }
             L.Snapped = sLiveDry && unseenOn && why0 != 0;  // Dry: a seen actor (by-class counters)
             L.Cut0 = AutShadowNative.Config(25); L.Wait0 = AutShadowNative.Config(27);
             if (direct) uk[kCUnPosted]++;
@@ -500,7 +516,13 @@ namespace Ts3Fixes
             uint us = 0;
             sLiveSw.Restart();
             int why;
-            try { why = LiveCheck(L, a); if (why == 0) LiveSelect(L); }
+            try
+            {
+                why = LiveCheck(L, a);
+                // docs/124 §17.12: the household rule again at the resume (household scope or unknown now = the game's B13)
+                if (why == 0 && L.SeenExact && !AutLiveCore.Unseen.SeenKeep(UnseenFallbackCore.HouseholdScope(SafeUfWhy(a.Actor)))) { uk[kCSeenHhResume]++; why = kSDropActor; }
+                if (why == 0) LiveSelect(L);
+            }
             catch (Exception e) { why = kSDropOther; PatchCounters()[121]++; AutNote("go-live check: " + e.Message); }
             us += sLiveSw.GetElapsedTime();
             if (why != 0) { if (L.Direct) uk[kCUnDropped]++; GuardAdd(L, us); LiveDrop(L, why); LiveRelease(L); AutShadowNative.LiveStat(kSApplyUs, (int)us); return h.MetaOrig(c); }
@@ -622,6 +644,11 @@ namespace Ts3Fixes
         }
 
         // ---- per-search feature mask (AutLiveCore.Feat; fixes-575: 575-583 searches, 584-592 mismatches, 593-601 give-ups, per bit) ----
+        // docs/124 §17.12 autliveseen (fixes-1050): seen-NPC searches posted on the exact path, of them dry, dropped at the
+        // resume as household scope, household-scope actors that reached the post (tripwire: must stay 0)
+        const int kCSeenExactPosted = 1050, kCSeenExactDry = 1051, kCSeenHhResume = 1052, kCSeenHhPost = 1053;
+        // fixes-1054: its dry compares that differ from the game's queue: top-10 set, top 1 (up to ties), replay model (must be 0)
+        const int kCSeenDryTop10Mis = 1054, kCSeenDryTop1Mis = 1055, kCSeenDrySimMis = 1056;
         const int kCLodDrop = 998;  // autlivelod (docs/124 §3.1): drops by a LOD flag flip, inside kSDropActor
         const int kCFeatSearches = 575, kCFeatMis = 584, kCFeatDrop = 593, kLiveUseMaxLog = 50;
         static bool sFeatNative;  // ts3native 0.36.148+: Config(33) job bits, SearchMark
@@ -934,6 +961,7 @@ namespace Ts3Fixes
             if (top10) LiveStat(kSDryTop10);
             if (top1) LiveStat(kSDryTop1);
             if (L.UnseenDry) { int[] uk = PatchCounters(); uk[kCUnDryRuns]++; if (top10) uk[kCUnDryTop10]++; if (top1) uk[kCUnDryTop1]++; }
+            if (L.SeenExact) { int[] sk = PatchCounters(); if (!top10) sk[kCSeenDryTop10Mis]++; if (!top1) sk[kCSeenDryTop1Mis]++; if (mis) sk[kCSeenDrySimMis]++; }  // docs/124 §17.12
             else if (L.Snapped) PatchCounters()[kCUnDrySeenRuns]++;
             if (top1 && pred.TopId() != game.TopId()) LiveStat(kSDryTop1Tie);
             if (mis || !(top10 && top1)) AutLiveCore.Feat.Count(PatchCounters(), kCFeatMis, L.Feat);  // once per search

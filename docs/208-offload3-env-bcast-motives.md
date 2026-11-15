@@ -258,3 +258,67 @@ Gates: A0 > 0, A2 = 0, exceptions 0, autonomy A1-A3 still 0. Apply for the lot p
 - **Household rule:** the worker still never asks the row for a household houseboat or reads it; it only reads two values. The sim thread makes the call that `Camera.GetClosestVisibleLot` makes itself on every pick, with the same arguments at the same instant. It reads the boat and writes nothing, so no household object or Sim changes. The reference at the cut computes the same answer live, so the A0/A2 compare checks it.
 - **Gate:** `ip-t2e-houseboat-dry` (`tier2-ic-rows.json`) now requires `autoff_lot_exc<1,autoff_lot_a0>=1`. The job is still pinned to tier2mask1108, which predates this build, so it needs a repin to a pair that carries it.
 - Checks: ts3fixes build, `hook-sites --check`, `selftest-all`. No game run.
+
+## 10. Unseen-only gate on the env and bcast apply: `autoffunseen` (2026-11-13, ts3fixes `AutOffload.cs`, built, NOT RUN)
+
+Piece P1 of `docs/handoff/mono-offthread-next-1113.md`. Before this, `autoffenvapply` / `autoffbcastapply` applied the worker's answer for any Sim, household Sims included (no `UfWhy` on either apply path) [verified: grep before the change]. The go-live rule (docs/222, `autunseen`) is: worker answers only for unseen Sims, exact when seen, household untouched.
+
+**Switch:** `autoffunseen` (ts3fixes, default off in source, `Fixes.cs`; acts only with an apply switch on). With it on, a fresh answer (one that passed `EnvFresh` / `BcFresh`) is applied only when the scope rule passes; otherwise the game's own call runs (`EnvOrig` / `RadiusOrig`), exactly as with the switch off for that update. Not a player tunable (no PLAYERS.md row): P2 decides whether it ships, and then it ships together with the apply switches.
+
+**Scope rule** (same check as `autunseen`: `SafeUfWhy` from `AutLive.cs`, 0 = unseen, not household, not selected, not on the camera lot; selected Sims are `IsSelectable`, so household; -1 (threw), not-live and gone = unknown = the game's path). Code: `AutOffloadCore.Scope` / `OtherScope` (game-free, selftest), `AutOffload.cs` `EnvScopeOf` / `BcScopeOf`, checked live on the sim thread at the game's own call (the resume point), not at the cut: a household Sim filtered at the cut would only show as `apply_none` and hide the exemption.
+
+- **Env** (`EnvScopeOf`): the updating Sim must be `UfWhy 0`, and no other Sim in the stored scan sequence may be household or unknown (`EnvApply` runs that Sim's reaction to the actor, `DoSimEnvironmentUpdateInternal`). Seen non-household other Sims are allowed (design choice: only the actor's own reactions run, the same calls the game makes).
+- **Bcast** (`BcScopeOf`): the reactors are what changes, so: no active-household Sim on the broadcaster's lot (non-world lot) or within the game's query radius (pulse radius + buffer + 1 m; a household Sim that walked in after the cut is not among the candidates); the broadcaster's lot not seen (`UfLotSeen`) and its query circle unseen (`UfPosUnseen`, the position test inside `UfWhy`: a seen non-household Sim in range must get the game's set, it may not be a candidate); a Sim broadcaster and every live candidate `UfWhy 0`. No active household (menus, travel) = unknown.
+- Any exception in the check: the hook's existing catch (`autoff_env_exc` / `autoff_bcast_exc`), game's path.
+
+**Counters** (`fixes-957`, docs/registry.md; agent names): 957-959 env `autoff_env_scope_household` / `_seen` / `_unknown`, 960-962 bcast `autoff_bcast_scope_household` / `_seen` / `_unknown`. A scope skip is counted instead of `applied` (482/487), never with `apply_stale`. Apply share per world = applied / (applied + apply_none + apply_stale + the three scope counters).
+
+**Selftest:** `tools/selftest/autoffload` (31 scope cases): UfWhy 0 applies; household, goal-household, -1, not-live, gone never apply; every seen code (active lot, on screen, near viewers, held, social seen) is seen for the actor and allowed as another Sim in the scan; household / unknown other Sims block; no code other than 0 applies.
+
+**Not covered offline** [inferred, P2 reads it]: that household Sims in range really fire `scope_household` (gate `autoff_*_scope_household > 0` on a world with household Sims near unseen broadcasters), and the bcast seen share (the `UfPosUnseen` circle may refuse much of the bcast work near the camera).
+
+Checks: ts3fixes + ts3agent build, `hook-sites --check`, `selftest-all` (223 PASS). No game run.
+
+## 11. Env answer pickup: overdue Sims held the pick (2026-11-14, ts3fixes `AutOffload.cs`, built offpickup1114, run 2026-11-14 see §12)
+
+**Symptom** (`bp-off3u-smoke`, offload-unseen-apply-1113, 4 min BP): `autoff_env_ready` 1213 answers kept, but only 3 reached a Sim's update (`autoff_env_dry` 3: scope_household 1, scope_seen 1, apply_stale 1), `apply_none` 3741, `applied` 0. The P1 scope gate is not the cause: it only sees answers that were picked up.
+
+**Cause** [inferred from the code, confirm with the §11 counters]: `PickDueSims` (§8.1) ranks Sims by the share of their period passed, with no upper bound. `SimUpdate.Simulate` runs `CalculateSimEnvironmentScore` only for high-LOD Sims within the per-tick limit; a low-LOD Sim runs none (docs/144 §1.1 [verified]). A Sim that drops to low LOD keeps its `sEnvDue` row, its share grows without end, and the 8 most overdue Sims take all 8 slots of every request. Their answers wait in the ready store until they age past `kDryTicks` (240) or are evicted, unasked; the Sims that do update get no answer (`apply_none`). The store's round-robin eviction could also drop a fresh unused answer while used or aged slots were free.
+
+**Fix** (exactness and the scope gate untouched: only which Sims are asked and which store slot is reused change; a Sim without a fresh answer runs the game's own call as before):
+- `PickDueSims`: a Sim later than its period by more than `kDryTicks` is skipped (its answer would age out before its next update).
+- `KeepEnv`: reuses an empty, used or aged slot first (as `KeepBc`), the round-robin slot only when none is free.
+- `ReadyEnvFor`: an unused answer found too old is marked used and counted.
+
+**Counters** (`fixes-985`, docs/registry.md; agent names): 985 `autoff_env_pick_overdue` (Sims skipped at the pick, per request), 986 `autoff_env_asked_expired` (the Sim's update came after its answer aged out), 987 `autoff_env_never_asked` (an answer left the store with no update of its Sim). Pickup share = `autoff_env_dry / autoff_env_ready` (with `autoffdry`); loss = 986 + 987.
+
+**Open** [inferred]: unseen Sims are often low LOD and then have no env update at all, so `autoff_env_applied` under `autoffunseen` may stay small even with a good pickup share; the 10-min env jobs gate it, the smoke and household jobs gate `autoff_env_dry` (docs/data/offload-pickup-handoff.md).
+
+## 12. offpickup1114 run and the pick scope (2026-11-15, ts3fixes `AutOffload.cs`, built `ts3fixes.mono-offload-1115`, NOT RUN)
+
+**Run** (offload-unseen-apply-1113, 2026-11-14 03:20 UTC, build e5bcee9f, `ts3fixes.package.offpickup1114`; result md and rows in worktree `run-offpickup-1114`, `docs/data/results/2026-11-14-queue-offload-unseen-apply-1113.md`) [measured]: the 11-14 00:28 smoke FAIL was the old package (`offunseen1113`). On the fixed package `bp-off3u-smoke`, `-env`, `-bcast`, `-household` PASS; `ip-off3u-env` FAIL (`applied=0`, `scope_household=0`), queue stopped (IP bcast/household and both live jobs not run).
+
+| job (10 min unless noted) | env ready | env dry (pickups) | scope household / seen | applied | pick overdue | bcast ready / dry / applied |
+|---|---|---|---|---|---|---|
+| bp-off3u-smoke (4 min) | 113 | 98 | 59 / 38 | 0 | 1493 | 1364 / 0 / 0 |
+| bp-off3u-env | 1852 | 399 | 153 / 243 | 1 | 19107 | - |
+| bp-off3u-bcast | - | - | - | - | - | 3975 / 7 / 1 (scope household 5) |
+| bp-off3u-household | 834 | 299 | 142 / 154 | 0 | 11067 | 2949 / 82 / 0 (scope household 50, seen 12) |
+| ip-off3u-env | 0 | 0 | 0 / 0 | 0 | 269 | - |
+
+Readings:
+1. **The §11 pickup fix works** [measured]: pickups 3 -> 399 per 10 min BP (22% of ready), `pick_overdue` 19107 confirms the cause, `asked_expired` 38 and `never_asked` 45 are small.
+2. **Pickups are spent on Sims the gate refuses** [measured]: 396 of 399 BP pickups were household (153) or seen (243); 1 applied. `PickDueSims` ranks every Sim with env updates, and the Sims that have them are high LOD, i.e. mostly the household and Sims near the camera. Unseen non-household Sims are mostly low LOD and have no env update to answer (§11 Open, now confirmed).
+3. **IP env: every worker item aborted** [measured]: items 1501, A4 1243 (reasons `pos` 546, `ic` 660, `list` 27, `row` 10), A5 258, A0 0, so nothing was kept. BP: 4923 items, 1852 A0 (38%), same reason mix. Not a scope or pickup problem; which icall rows the IP env scan lacks needs the per-item reason split (the native `abortic` line mixes autonomy and offload items). Not fixed here.
+4. **Bcast pickup is the same shape** [measured]: 3975 ready, 7 picked up in 10 min BP. The batch asks the 16 newest pulsing broadcasters; most do not pulse again within `kBcApplyTicks` (15) / `kDryTicks`.
+
+**Change (this section):** with `autoffunseen` and the matching apply switch on, the pick asks only for what the gate can apply:
+- `PickDueSims`: a Sim whose `AutOffloadCore.Scope(SafeUfWhy)` is not apply (household, selected, seen, unknown) is skipped before ranking; counter 1047 `autoff_env_pick_scoped`.
+- Bcast request loop: a broadcaster that `BcScopeOf` with no candidates refuses (household Sim on its lot or in range, lot or circle seen, Sim broadcaster not unseen, no active household) is not asked; counter 1048 `autoff_bcast_pick_scoped`.
+- The gate at the game's call (§10) stays as it was: the pick filter only saves slots, the household / seen / unknown exemption is still checked live at the resume point. Dry-only runs (no apply switch, or `autoffunseen` off) pick as before.
+
+**Expected** [inferred]: `pick_scoped` large; `scope_household` + `scope_seen` at the update fall to near 0 (only Sims whose scope changed between the cut and their update); `applied` rises only as far as unseen non-household high-LOD Sims exist. If BP `applied` stays < ~20 per 10 min with `pick_scoped` large, env offload under `autoffunseen` has too little work to gain from: park env apply (stop rule < 3 ms/s), keep bcast if its applied share grows.
+
+**Gain ceiling** [inferred]: the 8-14 ms/s estimate (handoff §2) assumed every Sim's env scan; under unseen-only it is bounded by the env scans of unseen non-household high-LOD Sims, which reading 2 says are few. The timing queue only makes sense if the correctness queue shows `applied` in the hundreds.
+
+Queues: `tools/harness/queues/mono-offload-correctness-1115.json` (Mode R dry + apply, unseen only, household / seen untouched counters), `mono-offload-timing-1115.json` (ABBA BP + IP, needs a quiet machine; run only after correctness shows applied in the hundreds).

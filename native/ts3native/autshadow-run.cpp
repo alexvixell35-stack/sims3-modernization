@@ -878,6 +878,13 @@ static void AsInstallRun(const wchar_t* ini, bool slotStub) {
     k.transOn = g_asTransient, k.hcOn = g_asHostCls, k.lwOn = g_asListWalk;
     if (ini) Log("autshadow cut: RunSkip=%d Transient=%d HostCls=%d ListWalk=%d ListWalkCheck=%d (docs/122 §14.21, §14.26)", g_asRunSkip,
                  g_asTransient, g_asHostCls, g_asListWalk, g_asListWalkCheck);
+    // docs/122 §14.29: WorldIndex=1 ListWalk's world part from one world-lot vector walk a cut (WorldIndexCheck=N: every Nth
+    // world part also walked per lot and compared, 0 = never); only with ListWalk=1
+    g_asWorldIndex = ini && g_asListWalk > 0 ? (GetPrivateProfileIntW(L"AutShadow", L"WorldIndex", 0, ini) ? 1 : 0) : 0;
+    g_asWorldIndexCheck = ini ? GetPrivateProfileIntW(L"AutShadow", L"WorldIndexCheck", 8, ini) : 8;
+    if (g_asWorldIndexCheck < 0 || g_asWorldIndexCheck > 100000) g_asWorldIndexCheck = 8;
+    k.wiOn = g_asWorldIndex;
+    if (ini) Log("autshadow cut29: WorldIndex=%d WorldIndexCheck=%d (docs/122 §14.29)", g_asWorldIndex, g_asWorldIndexCheck);
     // docs/122 §14.27 (mono-cost16): SimEvRows=1 a reachable Sim's rows of the SimEvIcs ICs refresh on its object events
     // (SimEvCheck=N: every Nth kept row against the body); TierMoveLot=1 a Sim's move re-classifies it only across a lot or
     // room; ListAuditEvery=N the audit at every Nth dirty cut; GoneDelta=1 a destroy is removed from the stored list answers

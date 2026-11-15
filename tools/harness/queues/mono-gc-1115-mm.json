@@ -1,0 +1,216 @@
+{
+ "note": "mono-gc-1115-mm: copy of mono-gc-1115.json, repinned to master-mono-1115 (0.36.264-mono1). mono-gc-1115 (PREPARED, NOT RUN; correctness + one RUN FIRST measurement, no timing). Build ts3native.asi.mono-gc-1115 (0.36.262-monogc1, branch feature/mono-gc-1115 on master aae8e1d6): PR #334's #295 verifier fixes ported (GC_gc_no abandon in the [MonoJit] Mode=2 verifier, EA native body +0x24 refusal in JitOne and the direct lazy site, _TRUNCATE method names) and mtprobe v8 worker allocation counts (docs/30 §18). No new switch. Household Sims untouched by construction: the JIT changes refuse or abandon (the interpreter runs), the counters only count; no Sim behaviour change. Jobs: (1) bp-gc-c5-release: release defaults ([MonoJit] Mode=1 ON as master); (2) bp-gc-c5-verify: Mode=2 VerifyEvery=16, so the gc0 guard runs; read jitAbandoned as coverage, jitMismatch must stay 0; (3) bp-gc-d8-allocs RUN FIRST for D8: the go-live worker config (MonoThread LazyGate/LazyEarly + AutShadow Mode=3 Satb=2), read mtprobe workerJobs, workerAllocs, workerAllocsTyped, workerAllocMaxJob, simLockWaits/simLockWaitUs/simLockMaxWaitUs from the job's -native.json (docs/30 §18.3 decision rule). Run: node tools/harness/queue.ts tools/harness/queues/mono-gc-1115.json",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-gc-c5-release",
+   "note": "[est 14 min] BP 10 min, release defaults ([MonoJit] ON as master). Pass: no crash, 0 script errors, the build's version line, no MISMATCH, no mono jit FAIL.",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "releaseDefaults": true,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.262-monogc1 ": 1
+   },
+   "logForbid": {
+    "jit verify MISMATCH": 0,
+    "^FAIL mono jit": 0
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.262-monogc1 ": {
+     "match": [
+      "ts3native 0.36.262-monogc1 2026-11-15 21:44:15"
+     ],
+     "noMatch": [
+      "ts3native 0.36.261-lanes1 2026-11-15 09:44:15"
+     ]
+    },
+    "jit verify MISMATCH": {
+     "match": [
+      "jit verify MISMATCH Sims3.Gameplay.Foo.Bar: region 2 (16 bytes, class Sim) at +4 (ldfld)"
+     ],
+     "noMatch": [
+      "jit verify: 120 calls, 0 mismatches"
+     ]
+    },
+    "^FAIL mono jit": {
+     "match": [
+      "FAIL mono jit: jump-table entry (err 5)"
+     ],
+     "noMatch": [
+      "OK   mono jit capture (docs/537 §17, §19): sampled at JitEnter, lazy bodies"
+     ]
+    }
+   },
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.mono-gc-1115, ts3native.ini.mono-gc-1115, ts3fixes.package.l3-convgone-1115"
+  },
+  {
+   "id": "bp-gc-c5-verify",
+   "note": "[est 14 min] BP 10 min, [MonoJit] Mode=2 VerifyEvery=16 (per-call verifier, PR #334 gc0 guard). Pass: no crash, 0 script errors, no MISMATCH, jitMismatch 0, jitVerified > 0; jitAbandoned is coverage (a collection between snapshot and restore).",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "releaseDefaults": true,
+   "ini": {
+    "MonoJit.Enabled": 1,
+    "MonoJit.Mode": 2,
+    "MonoJit.VerifyEvery": 16
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.262-monogc1 ": 1
+   },
+   "logForbid": {
+    "jit verify MISMATCH": 0,
+    "^FAIL mono jit": 0
+   },
+   "earlyGates": [
+    {
+     "afterSec": 420,
+     "counter": "jitVerified",
+     "op": ">=",
+     "value": 1,
+     "why": "the verifier ran no call in 7 min"
+    },
+    {
+     "afterSec": 30,
+     "counter": "jitMismatch",
+     "op": "<=",
+     "value": 0,
+     "why": "a verify mismatch"
+    },
+    {
+     "afterSec": 30,
+     "counter": "jitFaults",
+     "op": "<=",
+     "value": 0,
+     "why": "a fault while compiling ([MonoJit] went off)"
+    }
+   ],
+   "regexCases": {
+    "^ts3native 0\\.36\\.262-monogc1 ": {
+     "match": [
+      "ts3native 0.36.262-monogc1 2026-11-15 21:44:15"
+     ],
+     "noMatch": [
+      "ts3native 0.36.261-lanes1 2026-11-15 09:44:15"
+     ]
+    },
+    "jit verify MISMATCH": {
+     "match": [
+      "jit verify MISMATCH Sims3.Gameplay.Foo.Bar: region 2 (16 bytes, class Sim) at +4 (ldfld)"
+     ],
+     "noMatch": [
+      "jit verify: 120 calls, 0 mismatches"
+     ]
+    },
+    "^FAIL mono jit": {
+     "match": [
+      "FAIL mono jit: jump-table entry (err 5)"
+     ],
+     "noMatch": [
+      "OK   mono jit capture (docs/537 §17, §19): sampled at JitEnter, lazy bodies"
+     ]
+    }
+   },
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.mono-gc-1115, ts3native.ini.mono-gc-1115, ts3fixes.package.l3-convgone-1115"
+  },
+  {
+   "id": "bp-gc-d8-allocs",
+   "note": "[est 14 min] RUN FIRST for D8 (docs/30 §18): BP 10 min with the go-live worker config (as golive-checks-1115 bp-golive-checks, no repro). Read mtprobe v8 workerAllocs / workerAllocsTyped / workerAllocMaxJob per workerJobs and the v6 sim split (simLockWaitUs). Pass: no crash, 0 script errors, the version line; the numbers are the result.",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "ini": {
+    "MonoThread.Enabled": 1,
+    "MonoThread.Mode": 1,
+    "MonoThread.GcLock": 1,
+    "MonoThread.FrameTls": 1,
+    "MonoThread.ArenaFix": 1,
+    "MonoThread.N2mPrivate": 1,
+    "MonoThread.LazyGate": 1,
+    "MonoThread.LazyEarly": 1,
+    "AutShadow.Enabled": 1,
+    "AutShadow.Mode": 3,
+    "AutShadow.Sample": 1,
+    "AutShadow.Audit": 50,
+    "AutShadow.CutLean": 2,
+    "AutShadow.TierMs": 1500,
+    "AutShadow.ListAudit": 1,
+    "AutShadow.TierClassMs": 1000,
+    "AutShadow.RunSkip": 1,
+    "AutShadow.KeepPartial": 1,
+    "AutShadow.TopN": 10,
+    "AutShadow.Bands": 3,
+    "AutShadow.MaxWait": 3,
+    "AutShadow.VerifyEvery": 50,
+    "AutShadow.Dry": 0,
+    "AutShadow.Satb": 2,
+    "AutShadow.TierReqLots": 1,
+    "AutShadow.Unseen": 0
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "autshadow"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.262-monogc1 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.262-monogc1 ": {
+     "match": [
+      "ts3native 0.36.262-monogc1 2026-11-15 21:44:15"
+     ],
+     "noMatch": [
+      "ts3native 0.36.261-lanes1 2026-11-15 09:44:15"
+     ]
+    }
+   },
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.mono-gc-1115, ts3native.ini.mono-gc-1115, ts3fixes.package.l3-convgone-1115"
+  }
+ ]
+}

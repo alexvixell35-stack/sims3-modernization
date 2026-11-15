@@ -259,6 +259,15 @@ static class AutLiveTest
         Check("unseen: classifier error (-1) = exact", !AutLiveCore.Unseen.AtPost(true, false, -1));
         Check("unseen: stays direct while unseen", AutLiveCore.Unseen.Stay(0));
         Check("unseen: first seen answer leaves direct", !AutLiveCore.Unseen.Stay(3) && !AutLiveCore.Unseen.Stay(-1));
+        // docs/124 §17.12 autliveseen: only a proven seen NPC leaves the game's search while autseengame is on
+        Check("seen: autseengame off = exact (old path)", AutLiveCore.Unseen.SeenPath(false, false, false, false) == AutLiveCore.Unseen.kSeenExact);
+        Check("seen: autseengame on, autliveseen off = game", AutLiveCore.Unseen.SeenPath(true, false, false, true) == AutLiveCore.Unseen.kSeenGame
+            && AutLiveCore.Unseen.SeenPath(true, false, true, true) == AutLiveCore.Unseen.kSeenGame);
+        Check("seen: household / unknown scope (seenNpc false) = game", AutLiveCore.Unseen.SeenPath(true, true, false, false) == AutLiveCore.Unseen.kSeenGame
+            && AutLiveCore.Unseen.SeenPath(true, true, true, false) == AutLiveCore.Unseen.kSeenGame);
+        Check("seen: seen NPC = exact", AutLiveCore.Unseen.SeenPath(true, true, false, true) == AutLiveCore.Unseen.kSeenExact);
+        Check("seen: seen NPC, dry = exact dry", AutLiveCore.Unseen.SeenPath(true, true, true, true) == AutLiveCore.Unseen.kSeenDry);
+        Check("seen: household at the resume drops", !AutLiveCore.Unseen.SeenKeep(true) && AutLiveCore.Unseen.SeenKeep(false));
         Check("flip: still unseen waits", AutLiveCore.Unseen.Flip(false, true, false, false, false) == AutLiveCore.Unseen.kFlipWait);
         Check("flip: seen + live Test pass keeps", AutLiveCore.Unseen.Flip(false, true, false, true, true) == AutLiveCore.Unseen.kFlipKeep);
         Check("flip: seen + live Test fail cancels", AutLiveCore.Unseen.Flip(false, true, false, true, false) == AutLiveCore.Unseen.kFlipCancel);

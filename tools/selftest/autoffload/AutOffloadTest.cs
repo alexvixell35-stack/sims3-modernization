@@ -52,10 +52,29 @@ static class AutOffloadTest
         Check("no corners counts as distance 0", AutOffloadCore.LotPickStep(-1, 0f, false, ref best), 1);
     }
 
+    // docs/208 §10 autoffunseen: only an unseen non-household Sim (UfWhy 0) reaches EnvApply / BcRebuild
+    static void ScopeChecks()
+    {
+        Check("unseen applies", AutOffloadCore.Scope(UnseenFallbackCore.kSeen), AutOffloadCore.kScopeApply);
+        Check("household (and selected: IsSelectable) never", AutOffloadCore.Scope(UnseenFallbackCore.kHousehold), AutOffloadCore.kScopeHousehold);
+        Check("goal household never", AutOffloadCore.Scope(UnseenFallbackCore.kGoalHousehold), AutOffloadCore.kScopeHousehold);
+        Check("UfWhy threw = unknown", AutOffloadCore.Scope(-1), AutOffloadCore.kScopeUnknown);
+        Check("not live = unknown", AutOffloadCore.Scope(UnseenFallbackCore.kNotLive), AutOffloadCore.kScopeUnknown);
+        Check("gone = unknown", AutOffloadCore.Scope(UnseenFallbackCore.kGone), AutOffloadCore.kScopeUnknown);
+        int[] seen = { UnseenFallbackCore.kActiveLot, UnseenFallbackCore.kOnScreen, UnseenFallbackCore.kNearViewers, UnseenFallbackCore.kHeld, UnseenFallbackCore.kSocialSeen };
+        foreach (int w in seen) Check("seen code " + w, AutOffloadCore.Scope(w), AutOffloadCore.kScopeSeen);
+        foreach (int w in seen) Check("seen other Sim in the scan is fine " + w, AutOffloadCore.OtherScope(w), AutOffloadCore.kScopeApply);
+        Check("household other Sim in the scan blocks", AutOffloadCore.OtherScope(UnseenFallbackCore.kHousehold), AutOffloadCore.kScopeHousehold);
+        Check("unknown other Sim in the scan blocks", AutOffloadCore.OtherScope(-1), AutOffloadCore.kScopeUnknown);
+        for (int w = -1; w <= 12; w++)  // nothing but UfWhy 0 applies
+            if (w != UnseenFallbackCore.kSeen) Check("only 0 applies, code " + w, AutOffloadCore.Scope(w) == AutOffloadCore.kScopeApply ? 1 : 0, 0);
+    }
+
     static int Main()
     {
         LotChecks();
         IcDiffChecks();
+        ScopeChecks();
         object a = new object(), b = new object(), c = new object();
         object[] w = { a, b, c }, r = { a, b, c }, swapped = { b, a, c }, other = { a, b, a };
         bool[] f = { true, false, true }, fs = { false, true, true }, g = { true, true, true };
@@ -79,7 +98,7 @@ static class AutOffloadTest
         n = AutOffloadCore.InsertTop(k, it, n, 3, 1.2f, e);
         Check("pick count", n, 3);
         Check("pick order", it[0] == e && it[1] == b && it[2] == c && k[0] == 1.2f && k[2] == 0.7f ? 1 : 0, 1);
-        Console.WriteLine(sFail == 0 ? "autoffload selftest: ok (39 cases)" : "autoffload selftest: " + sFail + " failed");
+        Console.WriteLine(sFail == 0 ? "autoffload selftest: ok (39 + 31 scope cases)" : "autoffload selftest: " + sFail + " failed");
         return sFail == 0 ? 0 : 1;
     }
 }

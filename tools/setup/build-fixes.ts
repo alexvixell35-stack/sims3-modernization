@@ -1,6 +1,7 @@
 // Compiles mods/ts3fixes (the player mod with the stutter fixes, docs/04 F8-F12) against the game's own DLLs and packs
 // it into build/ts3fixes.package. Windows-only by nature: it needs the .NET Framework C# compiler (csc.exe, C# 5).
-//   node tools/setup/build-fixes.ts [--on kTuningA,kTuningB=value]   (--on: also a package with those tunings True, or =value)
+//   node tools/setup/build-fixes.ts [--on kTuningA,kTuningB=value] [--tag name]   (--on: also a package with those tunings True, or =value;
+//   --tag: a `<!-- build name -->` comment in the tuning XML, so the package's tuningDigest names this build; the game ignores it)
 // Also builds the TEST-ONLY mod mods/portalplan-test (MonoPatcher [TypePatch] on Lot.OnPortalPathPlan, docs/94 §20 job 17)
 // into build/ts3-portalplan-test.package when MonoPatcher's package is in the installer cache; skipped otherwise.
 import { execFileSync } from 'node:child_process';
@@ -337,6 +338,9 @@ if (missing.length) {
 }
 const outDir = process.env.TS3_BUILD_DIR ?? join(ROOT, 'build');
 mkdirSync(outDir, { recursive: true });
+const tagArg = process.argv.indexOf('--tag'), tag = tagArg > 0 ? process.argv[tagArg + 1] ?? '' : '';
+if (tagArg > 0 && !/^[\w.]+(-[\w.]+)*$/.test(tag)) { console.error(`--tag: '${tag}' must be letters, digits, '.', '_' or single '-'`); process.exit(1); }
+const tagXml = (xml: string) => tag ? xml.replace('<base>', `<base>\n  <!-- build ${tag} -->`) : xml;
 const src = join(ROOT, 'mods', 'ts3fixes', 'src');
 const dll = join(outDir, `${ASSEMBLY}.dll`);
 // EA's Mono never attaches a MonoThread, so any [ThreadStatic] / [ContextStatic] field access faults in
@@ -356,7 +360,7 @@ const compile = (srcDir: string, out: string, extraRefs: string[] = []) => (lint
 compile(src, dll);
 const pkg = writePackage([
   { type: TYPE_S3SA, group: 0, instance: fnv64(ASSEMBLY), data: s3saEncode(readFileSync(dll)) },
-  { type: TYPE_XML, group: 0, instance: fnv64(`${ASSEMBLY}.Instantiator`), data: Buffer.from(TUNING_XML, 'utf8') },
+  { type: TYPE_XML, group: 0, instance: fnv64(`${ASSEMBLY}.Instantiator`), data: Buffer.from(tagXml(TUNING_XML), 'utf8') },
 ]);
 const out = join(outDir, 'ts3fixes.package');
 writeFileSync(out, pkg);
@@ -367,7 +371,7 @@ console.log(`built ${out} (${pkg.length} bytes)`);
 const onArg = process.argv.indexOf('--on');
 if (onArg > 0) {
   const names = (process.argv[onArg + 1] ?? '').split(',').filter(Boolean);
-  let xml = TUNING_XML;
+  let xml = tagXml(TUNING_XML);
   for (const n of names) {
     const [key, value] = n.split('=');
     if (value !== undefined) { // any tuning, e.g. kAutUnseenPacePct=50 or kAutLive=False

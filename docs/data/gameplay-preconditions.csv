@@ -269,7 +269,7 @@ doors,DoorHandlers,Live,none (read: doors and their lock types on a lot),harness
 hitch_watch,HitchWatchHandlers,Live,none (harness sim task: stamps each tick and records Sim states around hitches; read),harness,start:true inside the world,handler,none
 household_routine,HitchWatchHandlers,Live,pie-menu clicks: one routine action (meal / outfit / shower / social / TV / ...) queued per household Sim and pet that is idle,natural,an active household with a home lot; a Sim with more than one queued interaction is left alone,handler,none
 ilp_remote_chat_check,DesignedReproHandlers,Live,none: one forced phone-chat round between two uncontrolled Sims with the target's Everyday outfits hidden for that call (docs/506 B80),cheat,uncontrolled Sims only,handler,live
-ilp_scavenger_check,DesignedReproHandlers,Live,none: scavenger opportunity OnAdded on unattached clones with yielding disabled (docs/506 B87),cheat,,handler,live
+ilp_scavenger_check,DesignedReproHandlers,Live,none: removes loose gems/metals/insect jigs on community lots first; scavenger opportunity OnAdded on unattached clones with yielding disabled (docs/506 B87),cheat,,handler,live
 velvet_bouncer,DesignedReproHandlers,Live,none: puts the club bouncer at the velvet rope and pushes WatchDoor (EA's own calls),stress,night hours; a velvet-rope venue (BP clubs),handler,live
 rel_onesided,DesignedReproHandlers,Live,none (read),harness,,handler,none
 nraas_reset_sims,DesignedReproHandlers,Live,NRaas MasterController-style reset of up to 10 uncontrolled Sims at once,stress,NRaas installed; never household or selected Sims,handler,live

@@ -44,6 +44,7 @@ static const char* const kJitList[] = {
     "TreasureComponent.get_BaseType", "WorldBuilderDeathComponent.get_BaseType",
     "HostTest.JitId", "HostTest.JitOut", "HostTest.JitSum", "HostTest.JitInl", "HostTest.JitLz", "HostTest.LzClamp", "LzBox.Get",
     "HostTest.JitLzChain", "HostTest.LzMid", "HostTest.JitLzVirt", "LzSq.Area", "HostTest.JitLzAlloc", "HostTest.LzAlloc", "HostTest.JitCp5I", "HostTest.JitCp5O", "HostTest.JitCp3M", "RtBox.GetV", "RtBox.get_Prop", "RtBox.Wide", "RtBox.Set", "RtBox.Add", "RtBox..ctor", "HostTest.RtI", "HostTest.RtV",
+    "HostTest.JitVt", "HostTest.JitLs", "JitBV.Dot", "HostTest.JitGFloat", "HostTest.JitGArr", "HostTest.JitGStr", "HostTest.JitGSwitch", "HostTest.JitGVt",
 };
 static char g_jitListBuf[8192];
 static const char* g_jitNames[256];
@@ -57,7 +58,9 @@ static const char* JitMethodName(const u8* rm, char* buf, int n) {  // "ns.Class
     const char* ns = k ? *(const char* const*)(k + 0x38) : NULL;
     const char* cn = k ? *(const char* const*)(k + 0x34) : NULL;
     const char* mn = mm ? *(const char* const*)(mm + 0x18) : NULL;
-    sprintf_s(buf, n, "%s%s%s.%s", ns && *ns ? ns : "", ns && *ns ? "." : "", cn ? cn : "?", mn ? mn : "?");
+    // _TRUNCATE as in ts3native's copy (monojit.cpp JitMethodName): sprintf_s on a long name ends the process (0xC0000409)
+    if (_snprintf_s(buf, n, _TRUNCATE, "%s%s%s.%s", ns && *ns ? ns : "", ns && *ns ? "." : "", cn ? cn : "?", mn ? mn : "?") < 0 && n > 3)
+        memcpy(buf + n - 4, "...", 4);
     return buf;
 }
 static bool JitListed(const char* full) {
@@ -1019,7 +1022,23 @@ static int g_jitMatStatN;
 // lazy call site. Every test EA's call path (and docs/139 McCall) makes runs before any write; any of them, or no lazy
 // body yet, takes the normal exit. In a lazy body (a chain) the depth test adds the frames pending below this one, the
 // block's level is one higher, and the return-slot word is this body's own vt cursor (its frame is not written).
+// MONOHOST_JITTIME=1 (verify mode): the game's [MonoJit] Time, paired timing of the two verify passes (docs/handoff/jit-paired-timing.md)
+#define JT_NL "\n"
+#define JT_CALLS(i) (g_jitMeth[i].verified)  // the host verifies every call: calls = verified-equal pairs
+static void JtSnap(LONG* s) {  // no Wide counter in the host: Wide is not tagged here
+    s[0] = g_jitLazySites, s[1] = g_jitLazyGuardSites, s[2] = g_jitInlined, s[3] = 0, s[4] = g_jrtCtr.rtdSites, s[5] = 0, s[6] = 0, s[7] = g_jitFastCopySites;
+}
+#include "../ts3native/monojit-time.h"
+// MONOHOST_JITNOGUARD=<mask of lazy-site bail reasons> (docs/handoff/jit-paired-timing.md, measurement only, host only): the
+// site's compare + jump for those reasons is not emitted. Meant for the bench cases (non-null, monomorphic, shallow), where no
+// such bail fires; the checksums catch a case where one would have. Only in the bench methods (callers named
+// MonoHostTest.HostTest.Jit*): the selftest and corpus around them hang without the guards. Reasons 5 (class guard), 6 (no lazy
+// body), 11 (arena full) always stay. Never in the game.
+static unsigned g_jitNoGuard, g_jitNgNow;
+static bool JitGuardOn(int why) { return !(g_jitNgNow >> why & 1) || why == 5 || why == 6 || why == 11; }
 static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* callerRm) {
+    char ngName[128];
+    g_jitNgNow = g_jitNoGuard && !strncmp(JitMethodName(callerRm, ngName, sizeof(ngName)), "MonoHostTest.HostTest.Jit", 25) ? g_jitNoGuard : 0;
     const u8* c; bool guard;
     if (!JitLazySite(ip, op, callerRm, &c, &guard)) return false;
     const DWORD fl = *(const DWORD*)(c + 0x44);
@@ -1038,12 +1057,13 @@ static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* ca
     u8 why[16];  // count mode: the bail reason per jump (kLazyBail)
     int nb = 0;
     u8* nolazy = NULL;  // BoundCall: the guard's "no lazy body" jump
+    if (g_jt && g_jitMethN < g_jtCap) e.incAbs(&g_jt[g_jitMethN].guards);  // MONOHOST_JITTIME: one lazy-site guard sequence run
     if (guard) {  // receiver not null, with a vtable, not the remoting class, not a value type, of the cache's class; target = the cache's
-        e.op(0x8B, ECX, ESI, thisOff); e.rr(0x85, ECX, ECX); why[nb] = 0, bail[nb++] = e.jcc(0x84);
-        if (op == 0xED) { e.op(0x8B, ECX, ECX, 0); e.rr(0x85, ECX, ECX); why[nb] = 1, bail[nb++] = e.jcc(0x84); }  // this = *ptr
-        e.op(0x8B, EAX, ECX, 0); e.rr(0x85, EAX, EAX); why[nb] = 2, bail[nb++] = e.jcc(0x84);
-        e.op(0x8B, EAX, EAX, 0); e.b(0x3B); e.b(0x05); e.d(0x01220EC0); why[nb] = 3, bail[nb++] = e.jcc(0x84);
-        if (!g_jitCallExit || op == 0xED) { e.b(0xF6); e.m(0, EAX, 0x14); e.b(8); why[nb] = 4, bail[nb++] = e.jcc(0x85); }  // a boxed value type: CallExit unboxes below
+        e.op(0x8B, ECX, ESI, thisOff); if (JitGuardOn(0)) { e.rr(0x85, ECX, ECX); why[nb] = 0, bail[nb++] = e.jcc(0x84); }
+        if (op == 0xED) { e.op(0x8B, ECX, ECX, 0); if (JitGuardOn(1)) { e.rr(0x85, ECX, ECX); why[nb] = 1, bail[nb++] = e.jcc(0x84); } }  // this = *ptr
+        e.op(0x8B, EAX, ECX, 0); if (JitGuardOn(2)) { e.rr(0x85, EAX, EAX); why[nb] = 2, bail[nb++] = e.jcc(0x84); }
+        e.op(0x8B, EAX, EAX, 0); if (JitGuardOn(3)) { e.b(0x3B); e.b(0x05); e.d(0x01220EC0); why[nb] = 3, bail[nb++] = e.jcc(0x84); }
+        if (!g_jitCallExit || op == 0xED) { if (JitGuardOn(4)) { e.b(0xF6); e.m(0, EAX, 0x14); e.b(8); why[nb] = 4, bail[nb++] = e.jcc(0x85); } }  // a boxed value type: CallExit unboxes below
         e.b(0x3B); e.b(0x05); e.d((DWORD)(uintptr_t)&items[ip[1]]); why[nb] = 5, bail[nb++] = e.jcc(0x85);  // cmp eax, [cache.class]
         e.b(0xA1); e.d((DWORD)(uintptr_t)&items[ip[1] + 1]);                                   // mov eax, [cache.target]
         e.b(0x3B); e.b(0x05); e.d((DWORD)(uintptr_t)&gs->rm); u8* same = e.jcc(0x84);
@@ -1058,16 +1078,16 @@ static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* ca
     } else {
         e.b(0x83); e.b(0x3D); e.d((DWORD)(uintptr_t)&cell->entry); e.b(0); why[nb] = 6, bail[nb++] = e.jcc(0x84);  // no lazy body (yet)
     }
-    e.b(0x80); e.b(0x3D); e.d(0x00E5637D); e.b(0x75); why[nb] = 7, bail[nb++] = e.jcc(0x85);                  // MonoPatcher ForceJIT active
+    if (JitGuardOn(7)) { e.b(0x80); e.b(0x3D); e.d(0x00E5637D); e.b(0x75); why[nb] = 7, bail[nb++] = e.jcc(0x85); }                  // MonoPatcher ForceJIT active
     if (nvt)
         VtLoad(e, ECX);  // this = the vt cursor (EA's 0xE5620C: [ebp-0x50] = [rec+0x20] = cursor); no zero fill, the ctor writes it
     else if (!guard) {
         if (inst && !vtm) {  // EA's remoting check reads this->vtable->klass (null: EA's path faults or throws)
-            e.op(0x8B, ECX, ESI, thisOff); e.rr(0x85, ECX, ECX); why[nb] = 0, bail[nb++] = e.jcc(0x84);
-            if (op == 0xED) { e.op(0x8B, ECX, ECX, 0); e.rr(0x85, ECX, ECX); why[nb] = 1, bail[nb++] = e.jcc(0x84); }  // this = *ptr
-            e.op(0x8B, EAX, ECX, 0); e.rr(0x85, EAX, EAX); why[nb] = 2, bail[nb++] = e.jcc(0x84);
-            e.op(0x8B, EAX, EAX, 0); e.b(0x3B); e.b(0x05); e.d(0x01220EC0); why[nb] = 3, bail[nb++] = e.jcc(0x84);
-            if (op >= 0xEC) { e.b(0xF6); e.m(0, EAX, 0x14); e.b(8); why[nb] = 4, bail[nb++] = e.jcc(0x85); }  // value-type receiver
+            e.op(0x8B, ECX, ESI, thisOff); if (JitGuardOn(0)) { e.rr(0x85, ECX, ECX); why[nb] = 0, bail[nb++] = e.jcc(0x84); }
+            if (op == 0xED) { e.op(0x8B, ECX, ECX, 0); if (JitGuardOn(1)) { e.rr(0x85, ECX, ECX); why[nb] = 1, bail[nb++] = e.jcc(0x84); } }  // this = *ptr
+            e.op(0x8B, EAX, ECX, 0); if (JitGuardOn(2)) { e.rr(0x85, EAX, EAX); why[nb] = 2, bail[nb++] = e.jcc(0x84); }
+            e.op(0x8B, EAX, EAX, 0); if (JitGuardOn(3)) { e.b(0x3B); e.b(0x05); e.d(0x01220EC0); why[nb] = 3, bail[nb++] = e.jcc(0x84); }
+            if (op >= 0xEC) { if (JitGuardOn(4)) { e.b(0xF6); e.m(0, EAX, 0x14); e.b(8); why[nb] = 4, bail[nb++] = e.jcc(0x85); } }  // value-type receiver
         } else if (inst)
             e.op(0x8B, ECX, ESI, thisOff);  // a value-type method: this is a pointer (con.call too)
         else
@@ -1078,10 +1098,10 @@ static bool EmitLazyCall(Em& e, const unsigned short* ip, DWORD op, const u8* ca
     if (lazy) e.opEsp(0x03, EAX, 4 + B_LVL);                      // + the frames pending below this body
     e.b(0x40);                                                    // eax = depth + 1 (+ pending)
     // A3 (docs/537 §20): no slot fill here; once B_LVL was right, this bails 1559 of 15.8 M host lazy calls (a fill made it 21, census unchanged)
-    e.op(0x3B, EAX, EBP, -0x30); why[nb] = 8, bail[nb++] = e.jcc(0x8D);        // the slot must hold a MonoInvocation (JitLazyMat needs it; slots fill in order)
+    if (JitGuardOn(8)) { e.op(0x3B, EAX, EBP, -0x30); why[nb] = 8, bail[nb++] = e.jcc(0x8D); }        // the slot must hold a MonoInvocation (JitLazyMat needs it; slots fill in order)
     e.b(0x69); e.b(0xC0); e.d(0x130);                             // imul eax, eax, 0x130
-    e.b(0x83); e.b(0xBC); e.b(0x05); e.d((DWORD)-0x4C74); e.b(0); why[nb] = 9, bail[nb++] = e.jcc(0x84);  // cmp dword [ebp+eax-0x4C74], 0
-    e.op(0x8B, EDX, EDX, 0x13C); e.rr(0x85, EDX, EDX); why[nb] = 10, bail[nb++] = e.jcc(0x84);              // arena chunk with room
+    if (JitGuardOn(9)) { e.b(0x83); e.b(0xBC); e.b(0x05); e.d((DWORD)-0x4C74); e.b(0); why[nb] = 9, bail[nb++] = e.jcc(0x84); }  // cmp dword [ebp+eax-0x4C74], 0
+    e.op(0x8B, EDX, EDX, 0x13C); if (JitGuardOn(10)) { e.rr(0x85, EDX, EDX); why[nb] = 10, bail[nb++] = e.jcc(0x84); }              // arena chunk with room
     e.op(0x8B, EAX, EDX, 0);
     if (guard) { e.b(0x03); e.b(0x05); e.d((DWORD)(uintptr_t)&gs->w38); } else { e.b(0x05); e.d(w38); }
     e.op(0x3B, EAX, EDX, 4); why[nb] = 11, bail[nb++] = e.jcc(0x87);
@@ -1212,6 +1232,7 @@ static unsigned short JitWord(unsigned short orig) { return orig == 0x9C ? orig 
 static void JitCompiled(u8* rm) {
     if (!g_jitTab) return;
     if (g_jitMethN >= g_jitMethCap) { if (!g_jitTableFull++) Log("jit: method table full (%d)\n", g_jitMethCap); return; }
+    JtTagBegin();
     g_jitSiteRm = rm;
     unsigned short* code = *(unsigned short**)rm;
     int words = *(unsigned short*)(rm + 0x3A);
@@ -1710,6 +1731,7 @@ static void JitCompiled(u8* rm) {
     M.posN = g_jitPosN;
     JitGatePublish(n, posW, posOp, wordToPos, code, label, benchStub, words);
     JitMethIndex(g_jitMethN++);
+    JtTagEnd(g_jitMethN - 1, (rm[0x41] ? 1u << 5 : 0) | (lazyEntry ? 1u << 6 : 0));
     g_jitCodeUsed += M.bytes + 1;
     g_jitCodeUsed = (g_jitCodeUsed + 15) & ~(size_t)15;
     if (g_jitPatched) for (int k = M.pos0; k < M.posN; k++) code[g_jitPos[k]] = JitWord(g_jitOrigW[k]);
@@ -2135,7 +2157,16 @@ static __declspec(naked) void JitLazyMat() {  // edi = exit ip, eax = opcode; [e
         jmp dword ptr [eax * 4 + 0E59880h]  // MINT_TABLE: the live entry, as EmitExit
     }
 }
+static_assert(JIT_VD <= JT_VD, "monojit-time.h keeps one pass record per verified depth");
+static void* JitVerifyStep(JitRegs* r, JitEnt* e, int fromExit);
 static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
+    if (!g_jt || GetCurrentThreadId() != g_jitMainTid) return JitVerifyStep(r, e, fromExit);  // the timing globals are the main thread's
+    g_jtStart = __rdtsc(), g_jtEnt++;
+    void* const to = JitVerifyStep(r, e, fromExit);
+    g_jtOver += __rdtsc() - g_jtStart;  // the verifier's own cycles (from the last pass boundary inside this entry, if any)
+    return to;
+}
+static void* JitVerifyStep(JitRegs* r, JitEnt* e, int fromExit) {
     if (g_jrtV.state && r->edi == (DWORD)(uintptr_t)g_jitRtTrapW) return JitRtTrap(r);  // RetTeardown verify (docs/537 §27)
     if (!e) e = JitFind(r->edi);
     if (g_jitVerifyOn == 2) {  // count mode
@@ -2166,6 +2197,8 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
             if (void* blk = JitRtBegin(r, e->orig, busy)) return blk;
             return JitOrig(r, r->edi, e->orig);
         }
+        if (*(const volatile DWORD*)(uintptr_t)0x11F2F90 != v.gc0) { v.active = false, g_jvAbandoned++; return JitOrig(r, r->edi, e->orig); }  // as ts3native: a collection in pass 1, no restore
+        JtPass1End(depth);
         v.rn = JitRetBytes(r, e->orig, (const unsigned short*)(uintptr_t)r->edi, v.r1);
         v.s0->Take(*v.s1);
         JitKeepPass(*v.nw, *v.s0, *v.s1, v.r1, v.rn, v.calleeRegion);  // copies of what the compiled pass allocated, before the restore
@@ -2173,12 +2206,14 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
         r->esi = v.sp0;
         for (int i = 0; i < 6; i++) *(DWORD*)(uintptr_t)(r->ebp - 0x8 - 4 * i) = v.fr[i];  // interpreter frame words [ebp-8]..[ebp-0x1C] (vt area cursor [ebp-0xC])
         v.phase = 2;
+        JtPass2Start(depth);
         return JitOrig(r, (DWORD)(uintptr_t)code, JitFind((DWORD)(uintptr_t)code)->orig);  // pass 2 from word 0
     }
     if ((DWORD)(uintptr_t)code == r->edi && !(mine && v.phase == 2)) {  // fresh call
         for (DWORD d = depth; d < JIT_VD; d++) if (g_jitV[d].active && g_jitV[d].ebp == r->ebp) g_jitV[d].active = false, g_jvAbandoned++;
         JitMeth* m = JitMethOf(rm);
         g_jvCalls++;
+        if (outer == 1 && g_jt) g_jtNest++;  // MONOHOST_JITTIME: a compiled method entered inside a timed pass 1 (its row overlaps)
         if (outer) { g_jvInner++; if (m) m->inner++; return outer == 2 ? JitOrig(r, r->edi, e->orig) : JitNative(r, e); }
         if (!m || !m->verifyOk) { g_jvUnverified++; if (m) m->skipped++; return JitNative(r, e); }
         v.active = true, v.phase = 1, v.rm = (u8*)rm, v.meth = m, v.sp0 = r->esi, v.ebp = r->ebp;
@@ -2208,6 +2243,7 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
         JitSnapGraph(*v.s0, walk);
         if (v.s0->full) { v.active = false, g_jvLarge++, m->skipped++; return JitNative(r, e); }
         for (int i = 0; i < v.s0->n; i++) memcpy(v.s0->buf + v.s0->r[i].off, v.s0->r[i].at, v.s0->r[i].n);
+        JtPass1Start(depth);
         return JitNative(r, e);
     }
     if (mine && v.phase == 2) {  // interpreted pass of a verified call
@@ -2250,6 +2286,7 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
                     sprintf_s(what, "region %d (%lu bytes, class %.60s)", i, v.s0->r[i].n, cls);
                     JitVLog(v, what, at);
                 }
+            if (!ok && *(const volatile DWORD*)(uintptr_t)0x11F2F90 != v.gc0) { v.active = false, g_jvAbandoned++; return JitOrig(r, r->edi, e->orig); }  // as ts3native: no retry, no mismatch
             if (!ok && !v.retried) {
                 // second chance from the same entry state: a one-time effect of the first compiled pass that the restore
                 // cannot undo (class init, a transform, a lazily filled cache outside the graph) is then in place for both
@@ -2259,8 +2296,10 @@ static void* __cdecl JitVerifySlow(JitRegs* r, JitEnt* e, int fromExit) {
                 r->esi = v.sp0;
                 for (int i = 0; i < 6; i++) *(DWORD*)(uintptr_t)(r->ebp - 0x8 - 4 * i) = v.fr[i];
                 v.phase = 1;
+                JtPass1Start(depth);
                 return JitNative(r, JitFind((DWORD)(uintptr_t)code));
             }
+            if (ok) JtPass2End(depth, (int)(v.meth - g_jitMeth));
             if (ok && v.retried) g_jvRetryOk++;
             (ok ? g_jvOk : g_jvMismatch)++;
             (ok ? v.meth->verified : v.meth->mismatches)++;
@@ -2319,7 +2358,7 @@ static bool JitAtomic(bool on) {
     return on ? Jmp(0xE4BDC0, (const void*)(uintptr_t)0xE4BE30) : mt::Write((void*)(uintptr_t)0xE4BDC0, g_atomicOrig, 5);
 }
 
-static const int JIT_CASES = 53;
+static const int JIT_CASES = 60;
 static const char* const kJitCase[JIT_CASES] = {
     "Dictionary<int,Shape>.TryGetValue", "Dictionary<ulong,int>.TryGetValue", "Dictionary<ObjectGuid,int>.TryGetValue",
     "List foreach (per element)", "List get_Item + Count", "List.Add (+GrowIfNeeded)", "boxed Enum.Equals + GetHashCode",
@@ -2335,7 +2374,9 @@ static const char* const kJitCase[JIT_CASES] = {
     "Dictionary<ulong,Vector3>.TryGetValue", "Dictionary<ulong,Vector3> set_Item", "SimClock.ElapsedTimeInMinutes (float)", "DesireCurve.GetYFromX (r8 math)",
     "GameObject.GetComponent<C> (ldtoken, castclass)", "Dictionary<ulong,int>.TryGetValue, spread keys",
     "RetTd getters (4 rets: int, int, long, int)", "RetTd void methods (4 rets.void)", "RetTd ctor newobj (1 ret.void, bails)", "RetTd mixed (1 ctor + 3 getters)",
-    "string direct: static Equals, ==, GetHashCode, Equals(string) (4 calls, game-shaped keys)", "Dictionary<string,int>.TryGetValue (game-shaped keys, 60% hit)", "string comparer GetHashCode + Equals (2 calls, game-shaped keys)", "MintBench (docs/139 mix, per 1/1024 round)"};
+    "string direct: static Equals, ==, GetHashCode, Equals(string) (4 calls, game-shaped keys)", "Dictionary<string,int>.TryGetValue (game-shaped keys, 60% hit)", "string comparer GetHashCode + Equals (2 calls, game-shaped keys)", "MintBench (docs/139 mix, per 1/1024 round)",
+    "JitVt 64 (compiled, newobj Vector3 + ObjectGuid)", "static struct fields ldsflda + call/ldfld (JitLs, 64 x 3)",
+    "Groups: float+double fields, static fields (64)", "Groups: int/float/object array loads+stores (64)", "Groups: string Length + chars, cknull (64)", "Groups: switch + div.un/rem.un (64)", "Groups: struct moves, initobj, isinst, float compares (64)"};
 static int JitCase(int c, int n) {
     void* a[2] = {&c, &n};
     return I32(T("JitBench", 2, a));
@@ -2664,6 +2705,7 @@ static void JitBenchRun() {
         Log("jit verify checksums: %d of %d cases differ from the interpreter; MintBench(300) %d vs interpreter %d\n", bad, JIT_CASES, mb, mbRef);
     }
     JitStats();
+    JtReport("end");
     if (g_jitMode == 3) {
         Log("jit verify: calls %ld, verified ok %ld, MISMATCH %ld, unverified (clauses / branch to 0) %ld, abandoned (exception) %ld, "
             "alloc-equal words %ld, nested activations unverified %ld, graph too large (compiled only) %ld, calls inside a verified "
@@ -2723,7 +2765,7 @@ static void JitBenchRun() {
     JitSetPatched(true);
     const double loop = (off[20] + on[20]) / 2;
     // the empty loop's cost per iteration; a case whose loop steps by 64 or 256 (HostTest.JitBench) pays it that many times less
-    static const int kStep[JIT_CASES] = {1, 1, 1, 256, 1, 1, 1, 1, 1, 1, 1, 1, 256, 1, 1, 1, 1, 1, 64, 64, 1, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 1, 64, 64, 64, 1, 1, 256, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    static const int kStep[JIT_CASES] = {1, 1, 1, 256, 1, 1, 1, 1, 1, 1, 1, 1, 256, 1, 1, 1, 1, 1, 64, 64, 1, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 1, 64, 64, 64, 1, 1, 256, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 64, 64, 64, 64, 64, 64, 64};
     Log("jitbench (best of %d, n = 200000, pinned core %d; ns per iteration, loop overhead %.1f ns / the case's step subtracted):\n", reps, core, loop);
     for (int c = 0; c < JIT_CASES; c++)
         if (c != 20 && want[c]) Log("jitbench case %2d %-40s interp %7.1f ns  compiled %7.1f ns  speedup %.2fx  saved %6.1f ns\n", c, kJitCase[c], off[c] - loop / kStep[c],
@@ -2805,6 +2847,11 @@ static bool InstallJit() {
     GetEnvironmentVariableA("MONOHOST_JIT", v, sizeof(v));
     g_jitMode = !strcmp(v, "dump") ? 1 : !strcmp(v, "on") ? 2 : !strcmp(v, "verify") ? 3 : 0;
     if (!g_jitMode) return true;
+    char jt[12] = "";
+    if (GetEnvironmentVariableA("MONOHOST_JITNOGUARD", jt, sizeof(jt)) && (g_jitNoGuard = strtoul(jt, NULL, 0)) != 0)
+        Log("jit: NoGuard mask 0x%X (lazy-site bail reasons not emitted, measurement only)\n", g_jitNoGuard & ~0x860u);
+    if (GetEnvironmentVariableA("MONOHOST_JITTIME", jt, sizeof(jt)) && jt[0] == '1')
+        Log("jit: Time=%d (MONOHOST_JITTIME, verify mode only)\n", g_jitMode == 3 && JtOn(4096) ? 1 : 0);  // g_jitMeth[4096]
     char dg[4] = "";
     if (GetEnvironmentVariableA("MONOHOST_DIVGUARD", dg, sizeof(dg)) && dg[0] == '1')
         Log("jit: div guard (MintDivGuard stubs) %s\n", InstallDivGuard() ? "installed" : "NOT installed: table entries differ");

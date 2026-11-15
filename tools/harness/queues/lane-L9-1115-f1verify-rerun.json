@@ -1,0 +1,64 @@
+{
+ "note": "lane-L9-1115 f1verify rerun (PREPARED, NOT RUN; correctness only, no timing). Rerun of lane-L9-1115 bp-l9-f1verify, which FAILed 2026-11-15 ('FAIL mono thread P3: 0 of 17 detours'): [Verify] Threads=1 hooks gcFree 0xE4BEB0 and arenaGrow 0xD71900 at load, two of P3's 17 lock sites, so P3's prologue check at the first tick refused all of them. Fixed build l9-f1verify-fix-1115 (0.36.262-vfchain1): P3 chains behind those two Verify stubs as F1 does at 0xD8A8E0. Household Sims untouched by construction: Verify counts only, P3 locks the GC entries (no Sim behaviour change). Pass: no crash, 0 script errors, P3 OK with both chained lines, F1 chained, no hook FAIL. Run: node tools/harness/queue.ts tools/harness/queues/lane-L9-1115-f1verify-rerun.json",
+ "jobs": [
+  {
+   "id": "bp-l9-f1verify-rerun",
+   "rerunOf": "bp-l9-f1verify",
+   "note": "[est 14 min] BP 10 min, correctness only: [Verify] Enabled=1 Threads=1 next to [MonoThread] (release on, N2mPrivate=1). Pass: no crash, 0 script errors, 'OK   mono thread P3: 17 lock detours' with 2 'chained behind [Verify]' lines (0xE4BEB0, 0xD71900), F1 chained, no P3/F1 SKIP or FAIL. Not a timing run.",
+   "asi": "game-copy/ts3native.asi.l9-f1verify-fix-1115",
+   "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+   "pinReason": "l9-f1verify-fix-1115 (builds.json, 0.36.262-vfchain1, bugfix/l9-f1verify-p3-1115 on master a96b4916): the P3 chain fix; ini and ts3fixes as the failed job (master-lanes-1115 ini, same bytes as the fix build's, + rc1111e); only the ini overrides differ per job",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": ["-disablestoryprogression"],
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "ini": {
+    "Verify.Enabled": 1,
+    "Verify.Threads": 1,
+    "MonoThread.Enabled": 1,
+    "MonoThread.N2mPrivate": 1
+   },
+   "run": {"profile": {"seed": 12345, "minutes": 10, "noSamplers": true}},
+   "logRequire": {
+    "^ts3native 0\\.36\\.262-vfchain1 ": 1,
+    "^OK   mono thread P3: \\d+ lock detours": 1,
+    "^OK   mono thread P3: 0x[0-9A-F]{8} chained behind \\[Verify\\]'s stub": 2,
+    "^OK   mono thread F1: chained behind \\[Verify\\] ": 1
+   },
+   "logForbid": {
+    "^SKIP mono thread (P3|F1)": 0,
+    "^FAIL mono thread P3": 0
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.262-vfchain1 ": {
+     "match": ["ts3native 0.36.262-vfchain1 2026-11-15 09:44:15"],
+     "noMatch": ["ts3native 0.36.261-lanes1 2026-11-15 09:44:15"]
+    },
+    "^OK   mono thread P3: \\d+ lock detours": {
+     "match": ["OK   mono thread P3: 17 lock detours, 0xE4B3F0 replaced, 0xE4EC40 ret, arena fix off (0 pool duplicates dropped), GC_oom_fn wrapped (gate 0 until a worker runs)"],
+     "noMatch": ["OK   mono thread P3: 0x00E4BEB0 chained behind [Verify]'s stub", "FAIL mono thread P3: 0 of 17 detours (gate stays 0)"]
+    },
+    "^OK   mono thread P3: 0x[0-9A-F]{8} chained behind \\[Verify\\]'s stub": {
+     "match": ["OK   mono thread P3: 0x00E4BEB0 chained behind [Verify]'s stub"],
+     "noMatch": ["OK   mono thread P3: 17 lock detours, 0xE4B3F0 replaced, 0xE4EC40 ret, arena fix off (0 pool duplicates dropped), GC_oom_fn wrapped (gate 0 until a worker runs)"]
+    },
+    "^OK   mono thread F1: chained behind \\[Verify\\] ": {
+     "match": ["OK   mono thread F1: chained behind [Verify] nativeToManaged at 0xD8A8E0 -> worker-private call records"],
+     "noMatch": ["SKIP mono thread F1: 0xD8A8E0 differs, nothing written"]
+    },
+    "^SKIP mono thread (P3|F1)": {
+     "match": ["SKIP mono thread P3: prologue at 0x00E4BEB0 differs, nothing written", "SKIP mono thread F1: 0xD8A8E0 differs, nothing written"],
+     "noMatch": ["OK   mono thread F1: chained behind [Verify] nativeToManaged at 0xD8A8E0 -> worker-private call records"]
+    },
+    "^FAIL mono thread P3": {
+     "match": ["FAIL mono thread P3: 0 of 17 detours (gate stays 0)"],
+     "noMatch": ["OK   mono thread P3: 0x00E4BEB0 chained behind [Verify]'s stub"]
+    }
+   }
+  }
+ ]
+}

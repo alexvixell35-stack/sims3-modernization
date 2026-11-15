@@ -69353,7 +69353,7 @@
     "bug": "docs/506 §8 B87: ScavengerOpportunity.OnAdded calls Simulator.Sleep(0) after each spawned item, also where the script may not yield",
     "fix": "ilpatch b87-scavenger-sleep ([IlPatch] ilp_scavengersleep, off by default): OFF arm (EA)",
     "save": "Baseline-BP-Spring",
-    "note": "UNVERIFIED (built 2026-11-15, lane L10, static only): never run. ilp_scavenger_check: a clone of each static scavenger opportunity (attached to no Sim, so no household change) runs OnAdded with Simulator.YieldingDisabled set (one of the two contexts where CheckYieldingContext(false) is false); the first clone that spawns or throws decides; its spawned gems / metals / insects are destroyed again. [inferred] EA's Sleep under YieldingDisabled throws in native: if this arm does not throw, the repro does not reach the bug (report N/A, not a fix result). Error \"N/A: none ... spawned\" = the world holds enough of every item.",
+    "note": "UNVERIFIED (built 2026-11-15, lane L10, static only; rerun1 was N/A): ilp_scavenger_check first removes loose gems, metals and insect jigs on community lots (result: removed), then: a clone of each static scavenger opportunity (attached to no Sim, so no household change) runs OnAdded with Simulator.YieldingDisabled set (one of the two contexts where CheckYieldingContext(false) is false); the first clone that spawns or throws decides; its spawned gems / metals / insects are destroyed again. [inferred] EA's Sleep under YieldingDisabled throws in native: if this arm does not throw, the repro does not reach the bug (report N/A, not a fix result). Error \"N/A: none ... spawned\" = the world holds enough of every item.",
     "steps": [
       {
         "cmd": "ilp_scavenger_check",
@@ -69659,7 +69659,7 @@
     "bug": "issue #338 / docs/264 §3: an unseen follower's own plan at backoff level 2 runs uncut and holds the route lock (+0x918) for >= 1 s while the sim thread waits",
     "fix": "native [RouteAsync] KdUncutCeilMs (kduncutceil); the on arm lowers the ceiling to 0.3 s (kduncutceilus 300000)",
     "save": "Baseline-IP-Spring",
-    "note": "UNVERIFIED (built 2026-11-15, lane L10, static only): never run. docs/264 §3 forcing repro. kdownplanus 1000 (test-lowered own-Plan deadline, 1 ms) cuts the townie's first two plans, so the third runs at backoff 2 (uncut). The goal is \"sealed\": an unroutable spot (enclosed room / fenced corner) on the nearest non-household lot, never swapped for a reachable one, so the A* floods the whole area. Deviation from §3 step 4: go_here (the townie's own task plans: kind own) instead of sim_route_to (the agent's task: foreign, kd-cut-camera-recheck note). The household Sim walks to \"far\" so steering takes +0x918 during plan 3. Household Sims keep their exemption (kdexemptseen, household floor); only kdUs[KD_PLAN] is lowered, put back to 250 ms (kKdDefMs) in cleanup. Off arm with plan 3 < 1 s = N/A (world too small).",
+    "note": "UNVERIFIED (built 2026-11-15, lane L10, static only): never run. docs/264 §3 forcing repro. kdownplanus 1000 (test-lowered own-Plan deadline, 1 ms) cuts the townie's first two plans, so the third runs at backoff 2 (uncut). The goal is \"sealed\": an unroutable spot (enclosed room / fenced corner) on the nearest non-household lot, never swapped for a reachable one, so the A* floods the whole area. Deviation from §3 step 4: go_here (the townie's own task plans: kind own) instead of sim_route_to (the agent's task: foreign, kd-cut-camera-recheck note). The household Sim walks to \"far\" so steering takes +0x918 during plan 3. Household Sims keep their exemption (kdexemptseen, household floor); only kdUs[KD_PLAN] is lowered, put back to 250 ms (kKdDefMs) in cleanup. Off arm with plan 3 < 1 s = N/A (world too small). Needs [RouteAsync] KdUnseenForeignCap <= 1 (job ini override): at 2 (shipped ini since master-merge-1115) the townie own Plan is capped at level 1, kdBackoff_1 stays 0 and the setup check fails (IP 1115b, 2026-11-15).",
     "steps": [],
     "loop": {
       "steps": [
@@ -69807,7 +69807,7 @@
     "bug": "issue #338 / docs/264 §3: an unseen follower's own plan at backoff level 2 runs uncut and holds the route lock (+0x918) for >= 1 s while the sim thread waits",
     "fix": "native [RouteAsync] KdUncutCeilMs (kduncutceil); the on arm lowers the ceiling to 0.3 s (kduncutceilus 300000)",
     "save": "Baseline-BP-Spring",
-    "note": "UNVERIFIED (built 2026-11-15, lane L10, static only): never run. docs/264 §3 forcing repro. kdownplanus 1000 (test-lowered own-Plan deadline, 1 ms) cuts the townie's first two plans, so the third runs at backoff 2 (uncut). The goal is \"sealed\": an unroutable spot (enclosed room / fenced corner) on the nearest non-household lot, never swapped for a reachable one, so the A* floods the whole area. Deviation from §3 step 4: go_here (the townie's own task plans: kind own) instead of sim_route_to (the agent's task: foreign, kd-cut-camera-recheck note). The household Sim walks to \"far\" so steering takes +0x918 during plan 3. Household Sims keep their exemption (kdexemptseen, household floor); only kdUs[KD_PLAN] is lowered, put back to 250 ms (kKdDefMs) in cleanup. Off arm with plan 3 < 1 s = N/A (world too small). BP copy: the flood is smaller, the off arm may stay under 1 s (N/A).",
+    "note": "UNVERIFIED (built 2026-11-15, lane L10, static only): never run. docs/264 §3 forcing repro. kdownplanus 1000 (test-lowered own-Plan deadline, 1 ms) cuts the townie's first two plans, so the third runs at backoff 2 (uncut). The goal is \"sealed\": an unroutable spot (enclosed room / fenced corner) on the nearest non-household lot, never swapped for a reachable one, so the A* floods the whole area. Deviation from §3 step 4: go_here (the townie's own task plans: kind own) instead of sim_route_to (the agent's task: foreign, kd-cut-camera-recheck note). The household Sim walks to \"far\" so steering takes +0x918 during plan 3. Household Sims keep their exemption (kdexemptseen, household floor); only kdUs[KD_PLAN] is lowered, put back to 250 ms (kKdDefMs) in cleanup. Off arm with plan 3 < 1 s = N/A (world too small). BP copy: the flood is smaller, the off arm may stay under 1 s (N/A). Needs [RouteAsync] KdUnseenForeignCap <= 1 (job ini override): at 2 (shipped ini since master-merge-1115) the townie own Plan is capped at level 1, kdBackoff_1 stays 0 and the setup check fails (IP 1115b, 2026-11-15).",
     "steps": [],
     "loop": {
       "steps": [
@@ -71428,7 +71428,7 @@
       "unseenfbteleport"
     ],
     "fixesRequire": "unseentp_clean_moved>=1,unseentp_clean_left>=1",
-    "note": "Calls the goal check and the load cleanup directly (the real cut plan needs a slow plan; the check is the same function UfTeleport calls). Baseline-BP's active lot (Air Spray) has no hidden room (2026-11-15 bp-unseen-tp-goal: trap N/A, mark 'no trapped NPC', clean moved 0, counters 1040-1045 all 0, yet PASS), so trap, mark, clean and lot run on 'hidden', the first non-active lot with a floor-0 hidden room (Founders Keep in Baseline-BP; its own household is not touched: the trapped NPC is a non-resident, never the active household or a selected Sim); goal active stays as the open-lot check. Each step that proves the case has mustMatch (an N/A, 'no trapped NPC' or moved 0 answer FAILs the job) and fixesRequire needs counters 1044 and 1045 to move (1040-1043 count only refusals inside a real UfTeleport, not this direct goal check: all 0 after the goal steps in that run). A sealed room (four walls, no door) built in BP on any community lot is tested with goal <hex lot id>; goal prints N/A on a lot without a closed room. Household Sims: clean never judges them (who lists any household Sim inside, unchanged). Paused throughout: nothing else moves the trapped NPC.",
+    "note": "Calls the goal check and the load cleanup directly (the real cut plan needs a slow plan; the check is the same function UfTeleport calls). Baseline-BP's active lot (Air Spray) has no hidden room (2026-11-15 bp-unseen-tp-goal: trap N/A, mark 'no trapped NPC', clean moved 0, counters 1040-1045 all 0, yet PASS), so trap, mark, clean and lot run on 'hidden', the first non-active lot with a floor-0 hidden room (Founders Keep in Baseline-BP; its own household is not touched: the trapped NPC is a non-resident, never the active household or a selected Sim); goal active stays as the open-lot check. Each step that proves the case has mustMatch (an N/A, 'no trapped NPC' or moved 0 answer FAILs the job) and fixesRequire needs counters 1044 and 1045 to move (1040-1043 count only refusals inside a real UfTeleport, not this direct goal check: all 0 after the goal steps in that run). A sealed room (four walls, no door) built in BP on any community lot is tested with goal <hex lot id>; goal prints N/A on a lot without a closed room. Household Sims: clean never judges them (who lists any household Sim inside, unchanged). Paused throughout: nothing else moves the trapped NPC. 2026-11-15 rerun (bp-unseen-tp-goal-rerun): trap put Lenny Shutter in Founders Keep room 28 (in the room, hidden, exit closed), yet clean 1 s later answered moved 0, left 0 and no step read the NPC in between; 'who' now runs right after trap (no wait) with the cleanup's own filter (HrJudgeable, npc vs household, RoomId, HrReachesOutside), so the job fails at the step that differs and names where the NPC went.",
     "expect": "goal hidden: hidden marker and every (H)/(N) spot \"refused (...)\", at least one open spot \"teleport ok\", last line PASS; no BROKEN (goal active: N/A on a lot without a closed room). trap hidden: \"(in the room) hidden=True exit=closed\". clean before mark: \"left 1\" (or more), moved 0, counter 1045 +1. mark: the trapped NPC. clean after mark: \"moved 1\", counter 1044 +1. lot hidden after: the trapped NPC no longer in the room (\"last move: unseenfb cleanup ...\"). 0 script errors.",
     "steps": [
       {
@@ -71476,8 +71476,18 @@
           ]
         },
         "note": "one adult non-resident NPC (never household, never selected) directly into that lot's hidden room",
-        "mustMatch": "\\(in the room\\) hidden=True exit=closed",
-        "waitS": 1
+        "mustMatch": "\\(in the room\\) hidden=True exit=closed"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "who"
+          ]
+        },
+        "note": "read back right before clean, with clean's own filter (HrJudgeable, IsPlayerSim, RoomId, HrReachesOutside): an NPC line 'npc ... exit=closed' and the trap status 'still in room'; if not, this answer names where the trapped NPC went and what moved it (2026-11-15 rerun: trap ok, clean 1 s later saw 0)",
+        "mustMatch": "(^|\\n)sim [^\\n]* npc lot [0-9A-F]+ \"[^\"\\n]*\" room \\d+ level \\d+( hidden)? exit=closed"
       },
       {
         "cmd": "reflect_call",

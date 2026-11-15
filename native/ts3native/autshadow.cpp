@@ -369,11 +369,21 @@ struct Ts3nAutShadow {
     LONG r2Unexp;         // +0xCBC, changes of rows that must not change after load (must be 0)
     LONG r2Runtime;       // +0xCC0, changes of rows R2a lists as runtime-written (logged)
     LONG r2First;         // +0xCC4, witness row index + 1 of the first unexpected change
+    // v23: ListWalk world part from one per-cut index of the world-lot vector ([AutShadow] WorldIndex, docs/122 §14.29)
+    LONG wiOn;            // +0xCC8, WorldIndex in force (1 on, -1 tripped by a check miss or no memory)
+    LONG wiBuilds;        // +0xCCC, index builds (one world-lot vector walk, at the first lot walk of a cut)
+    LONG wiEntries;       // +0xCD0, entries indexed (sum over builds)
+    LONG wiUs;            // +0xCD4, build time (sum, us)
+    LONG wiLots;          // +0xCD8, lot walks whose world part came from the index
+    LONG wiFall;          // +0xCDC, lot walks that fell back to the full world walk (build fault or index full)
+    LONG wiChecks;        // +0xCE0, WorldIndexCheck: world parts also walked the old way and compared
+    LONG wiMis;           // +0xCE4, of those, different (WorldIndex off for the session, the old walk's ids kept; must be 0)
 };
-extern "C" __declspec(dllexport) Ts3nAutShadow ts3native_autshadow = {22};
+extern "C" __declspec(dllexport) Ts3nAutShadow ts3native_autshadow = {23};
 static_assert(offsetof(Ts3nAutShadow, alOn) == 0xB8C && offsetof(Ts3nAutShadow, al) == 0xBAC, "autshadow v20 layout");
 static_assert(offsetof(Ts3nAutShadow, rainArm) == 0xC8C && offsetof(Ts3nAutShadow, r1On) == 0xC98, "autshadow v21 layout");
-static_assert(offsetof(Ts3nAutShadow, r2First) == 0xCC4 && sizeof(Ts3nAutShadow) == 0xCC8, "autshadow v22 layout");
+static_assert(offsetof(Ts3nAutShadow, r2First) == 0xCC4, "autshadow v22 layout");
+static_assert(offsetof(Ts3nAutShadow, wiOn) == 0xCC8 && sizeof(Ts3nAutShadow) == 0xCE8, "autshadow v23 layout");
 
 enum { AO_OBJ, AO_LIST, AO_CUT, AO_WORLD, AO_MEMO, AO_STUB, AO_ABORT, AO_RNG };  // AO_RNG: per-unit MT streams (docs/125 §2)
 enum { AK_INT, AK_FP, AK_STRUCT, AK_REF, AK_ARRAY };
@@ -1858,6 +1868,97 @@ static int g_asLwN, g_asLwUsed;
 static AsU64 g_asLwId[AS_LW_IDS];
 static DWORD g_asLwRoom[AS_LW_IDS];  // lot part: the component's room, 0xFFFFFFFE = no component (room rows go to the body)
 static AsU64 g_asLwTmp[AS_LW_IDS];
+// WorldIndex=1 (docs/122 §14.29): the world part of every lot walked at a cut comes from one walk of the world-lot vector
+// at that cut (the first lot walk), kept as (component lot, id, room) in vector order; a lot's world part is the entries
+// naming it, in order: the same reads at the same cut as the per-lot walk, so the same ids. mono-cost17 BP: 3.3 lot walks a
+// cut, 101 us, mostly the world part's component call per object [measured]. A fault or a full index sends the cut back
+// to the per-lot walk (wiFall); WorldIndexCheck=N: every Nth world part is also walked the old way (a difference: wiMis,
+// the old ids kept, WorldIndex off for the session).
+// shortcut: each lot scans the whole index (16 bytes an entry, no component call); bucket by lot if wiUs/lwWalkUs shows it
+static int g_asWorldIndex, g_asWorldIndexCheck = 8;
+static const int AS_WI_MAX = 16384;
+struct AsWiE { AsU64 lot; DWORD idLo, idHi, room, pad; };
+static AsWiE* g_asWi;     // allocated at the first use (no memory while off)
+static int g_asWiN = -1;  // entries this cut; -1 = not built this cut, -2 = could not build this cut (the per-lot walk)
+static void AsLwReset() { g_asLwN = g_asLwUsed = 0, g_asWiN = -1; }  // at each cut: lots and the index are walked again
+static bool AsWiBuild(const u8* W) {  // false = fault or full (the caller walks per lot)
+    __try {
+        int n = 0;
+        for (const void* const* b = *(const void* const* const*)(W + 0x14), * const* e = *(const void* const* const*)(W + 0x18); b && b < e; b++) {
+            const u8* o = (const u8*)*b;
+            if (!o) continue;
+            const u8* c = g_asComp(o, NULL, *g_asCompBit);
+            if (!c) continue;
+            if (n >= AS_WI_MAX) return false;
+            AsWiE& x = g_asWi[n++];
+            x.lot = *(const AsU64*)(c + 8), x.idLo = *(const DWORD*)(o + 8), x.idHi = *(const DWORD*)(o + 0xC), x.room = *(const DWORD*)(c + 0x20);
+        }
+        g_asWiN = n;
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+// the world part of w by the per-lot walk (EA's reads per object); false = fault or the id buffer full
+static bool AsLwWorldWalk(const u8* W, AsLwLot& w) {
+    __try {
+        for (const void* const* b = *(const void* const* const*)(W + 0x14), * const* e = *(const void* const* const*)(W + 0x18); b && b < e; b++) {
+            const u8* o = (const u8*)*b;
+            if (!o) continue;
+            const u8* c = g_asComp(o, NULL, *g_asCompBit);
+            if (!c || *(const AsU64*)(c + 8) != w.lot) continue;
+            if (g_asLwUsed >= AS_LW_IDS) return false;
+            g_asLwId[g_asLwUsed] = *(const AsU64*)(o + 8), g_asLwRoom[g_asLwUsed++] = *(const DWORD*)(c + 0x20);
+            w.nWorld++;
+        }
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+// the world part of w: from the index when WorldIndex is on and it could be built this cut, else the per-lot walk
+static bool AsLwWorld(const u8* W, AsLwLot& w) {
+    Ts3nAutShadow& k = ts3native_autshadow;
+    if (g_asWorldIndex > 0 && g_asWiN == -1) {
+        if (!g_asWi) g_asWi = (AsWiE*)HeapAlloc(GetProcessHeap(), 0, sizeof(AsWiE) * AS_WI_MAX);
+        if (!g_asWi) g_asWorldIndex = -1, k.wiOn = -1;
+        else {
+            LARGE_INTEGER a, b;
+            QueryPerformanceCounter(&a);
+            if (!AsWiBuild(W)) g_asWiN = -2;
+            QueryPerformanceCounter(&b);
+            k.wiBuilds++, k.wiUs += (LONG)((b.QuadPart - a.QuadPart) * g_asPrintUsPerTick);
+            if (g_asWiN >= 0) k.wiEntries += g_asWiN;
+        }
+    }
+    if (g_asWorldIndex <= 0 || g_asWiN < 0) {
+        if (g_asWorldIndex > 0) k.wiFall++;
+        return AsLwWorldWalk(W, w);
+    }
+    const int at = g_asLwUsed;
+    for (int i = 0; i < g_asWiN; i++) {
+        const AsWiE& x = g_asWi[i];
+        if (x.lot != w.lot) continue;
+        if (g_asLwUsed >= AS_LW_IDS) return false;
+        g_asLwId[g_asLwUsed] = (AsU64)x.idHi << 32 | x.idLo, g_asLwRoom[g_asLwUsed++] = x.room;
+        w.nWorld++;
+    }
+    k.wiLots++;
+    static unsigned s_wiN;
+    const int n = w.nWorld;
+    if (g_asWorldIndexCheck <= 0 || ++s_wiN % g_asWorldIndexCheck || AS_LW_IDS - g_asLwUsed < n + 64) return true;
+    // the old walk into the space after the index's part; equal = keep the index's part
+    k.wiChecks++;
+    AsLwLot o = w;
+    o.nWorld = 0;
+    const bool ok = AsLwWorldWalk(W, o);
+    bool same = ok && o.nWorld == n;
+    for (int j = 0; same && j < n; j++) same = g_asLwId[at + j] == g_asLwId[at + n + j] && g_asLwRoom[at + j] == g_asLwRoom[at + n + j];
+    if (same) { g_asLwUsed = at + n; return true; }
+    k.wiMis++, g_asWorldIndex = -1, k.wiOn = -1;
+    if (k.wiMis <= 8) Log("autshadow world index miss: lot 0x%08lX%08lX index %d ids, walk %d%s (WorldIndex off)", (DWORD)(w.lot >> 32),
+                          (DWORD)w.lot, n, ok ? o.nWorld : -1, ok ? "" : " (walk failed)");
+    if (!ok) return false;  // the per-lot walk failed: the body answers, as without the index
+    for (int j = 0; j < o.nWorld; j++) g_asLwId[at + j] = g_asLwId[at + n + j], g_asLwRoom[at + j] = g_asLwRoom[at + n + j];
+    w.nWorld = o.nWorld, g_asLwUsed = at + o.nWorld;
+    return true;
+}
 static bool AsLwWalkGame(AsLwLot& w) {
     __try {
         void* mgr = *g_asWmPP;
@@ -1873,16 +1974,7 @@ static bool AsLwWalkGame(AsLwLot& w) {
         }
         const u8* W = *(const u8* const*)((const u8*)mgr + 0xB0);
         if (!W) return true;
-        for (const void* const* b = *(const void* const* const*)(W + 0x14), * const* e = *(const void* const* const*)(W + 0x18); b && b < e; b++) {
-            const u8* o = (const u8*)*b;
-            if (!o) continue;
-            const u8* c = g_asComp(o, NULL, *g_asCompBit);
-            if (!c || *(const AsU64*)(c + 8) != w.lot) continue;
-            if (g_asLwUsed >= AS_LW_IDS) return false;
-            g_asLwId[g_asLwUsed] = *(const AsU64*)(o + 8), g_asLwRoom[g_asLwUsed++] = *(const DWORD*)(c + 0x20);
-            w.nWorld++;
-        }
-        return true;
+        return AsLwWorld(W, w);
     } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
 static bool (*g_asLwWalk)(AsLwLot&) = AsLwWalkGame;  // selftest: a fake world
@@ -2911,7 +3003,7 @@ LONG AsCut() {
     AsOlResolve(newEpoch);  // CutLean=2: touched objects placed, dirty lots (before the tiers: tier-1 lots read the map)
     AsTierCut();  // TierMs: which Sims of the work set wait (t2skip) and which tier-2 Sims are due (t2ref)
     g_asPrintN = 0;
-    g_asLwN = g_asLwUsed = 0;  // ListWalk: lots are walked again at each cut
+    AsLwReset();  // ListWalk: lots (and WorldIndex's world-lot index) are walked again at each cut
     QueryPerformanceCounter(&tp[1]);
     const LONG gen = g_asListGen, refreshed0 = k.refreshed;
     const bool tiers = g_asTierMs > 0;

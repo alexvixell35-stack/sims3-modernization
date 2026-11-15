@@ -1318,11 +1318,12 @@ static void TestAutLedger() {
     Ts3nAutShadow& k = ts3native_autshadow;
     assert(offsetof(Ts3nAutShadow, lgOn) == 0x13C && offsetof(Ts3nAutShadow, lgIn) == 0x158 && offsetof(Ts3nAutShadow, lgSleep) == 0x17C &&
            offsetof(Ts3nAutShadow, lgCls) == 0x1A0 && offsetof(Ts3nAutShadow, lgCall) == 0x260 && offsetof(Ts3nAutShadow, abort2) == 0x760 && offsetof(Ts3nAutShadow, rngPauseDraws) == 0x76C && offsetof(Ts3nAutShadow, abortRoute) == 0x770 &&
-           offsetof(Ts3nAutShadow, overrunIdle) == 0x778 && offsetof(Ts3nAutShadow, windowWaitUs) == 0x780 && k.version == 22 && offsetof(Ts3nAutShadow, satbMode) == 0x9C0 && offsetof(Ts3nAutShadow, satbWGiveUpOp) == 0xA5C &&
+           offsetof(Ts3nAutShadow, overrunIdle) == 0x778 && offsetof(Ts3nAutShadow, windowWaitUs) == 0x780 && k.version == 23 && offsetof(Ts3nAutShadow, satbMode) == 0x9C0 && offsetof(Ts3nAutShadow, satbWGiveUpOp) == 0xA5C &&
            offsetof(Ts3nAutShadow, satbIcLogged) == 0xA60 && offsetof(Ts3nAutShadow, refPassA4) == 0xA84 && offsetof(Ts3nAutShadow, pairT) == 0xA88 && offsetof(Ts3nAutShadow, pairN) == 0xA98 &&
            offsetof(Ts3nAutShadow, transOn) == 0xAA8 && offsetof(Ts3nAutShadow, runNo) == 0xAE4 && offsetof(Ts3nAutShadow, clsGoneSkip) == 0xAF8 &&
            offsetof(Ts3nAutShadow, seOn) == 0xAFC && offsetof(Ts3nAutShadow, tmOn) == 0xB10 && offsetof(Ts3nAutShadow, gdOn) == 0xB20 && offsetof(Ts3nAutShadow, gdOver) == 0xB40 &&
-           offsetof(Ts3nAutShadow, idOn) == 0xB44 && offsetof(Ts3nAutShadow, seLearnOn) == 0xB64 && offsetof(Ts3nAutShadow, gdWhy) == 0xB7C);  // registry v3-v6 (v7, v8: TestAutShadowFull), v15 Satb, v16, v17 mono-cost15, v18 mono-cost16, v19 mono-cost17
+           offsetof(Ts3nAutShadow, idOn) == 0xB44 && offsetof(Ts3nAutShadow, seLearnOn) == 0xB64 && offsetof(Ts3nAutShadow, gdWhy) == 0xB7C &&
+           offsetof(Ts3nAutShadow, r2First) == 0xCC4 && offsetof(Ts3nAutShadow, wiOn) == 0xCC8 && offsetof(Ts3nAutShadow, wiMis) == 0xCE4);  // registry v3-v6 (v7, v8: TestAutShadowFull), v15 Satb, v16, v17 mono-cost15, v18 mono-cost16, v19 mono-cost17
     assert(AsIcConfig(5) == 0 && AsIcConfig(7) == 0 && AsLgWatchOf("ScriptCore.Queries::Query_GetObjects") < 0);  // Ledger=0: inert
     g_asLedger = true;
     const u8* base = (const u8*)GetModuleHandleW(NULL);
@@ -1416,7 +1417,7 @@ static void TestAutShadowFull() {
     Ts3nAutShadow& k = ts3native_autshadow;
     assert(offsetof(Ts3nAutShadow, evicted) == 0x784 && offsetof(Ts3nAutShadow, learnBacklog) == 0x7A4 && offsetof(Ts3nAutShadow, cutLearnUs) == 0x7A8 &&
            offsetof(Ts3nAutShadow, bodyN) == 0x7C0 && offsetof(Ts3nAutShadow, coldSkips) == 0x7E0 && offsetof(Ts3nAutShadow, workCsr) == 0x7F8 &&
-           sizeof(Ts3nAutShadow) == 0xCC8 && offsetof(Ts3nAutShadow, alOn) == 0xB8C && k.version == 22);
+           sizeof(Ts3nAutShadow) == 0xCE8 && offsetof(Ts3nAutShadow, alOn) == 0xB8C && k.version == 23);
     const LONG full0 = k.full, ev0 = k.evicted;
     const int audit0 = g_asAudit;
     g_asAudit = 0;  // the timed cut below is the production cut (Audit=50 adds a bounded 1,024-row slice every 50th)
@@ -2678,6 +2679,8 @@ static DWORD AfLwAnswer(bool get, DWORD type, AsU64 lot, DWORD room, const AsU64
     if (g_afLwLie > 0 && --g_afLwLie == 0) r = get ? (DWORD)(uintptr_t)AfOnLot(type ^ 1, (DWORD)lot, 0, room) : r + 16;
     return r;
 }
+// lots 0x700000001-3 share the fake lot vector (their world parts differ)
+static void* __fastcall AfGFind3(void* mgr, void*, DWORD lo, DWORD hi, DWORD) { return mgr == g_agMgr && hi == 7 && lo >= 1 && lo <= 3 ? &g_agLot[0] : NULL; }
 static void TestAutShadowLwGame() {  // (a) AsLwWalkGame + AsLwIds on fake EA structures
     for (int i = 0; i < 8; i++) g_agObj[i].idLo = 100 + i, g_agObj[i].idHi = 5, g_agObj[i].comp = &g_agComp[i], g_agComp[i].lot = 0;
     const AsU64 L = 0x700000001ull;
@@ -2693,29 +2696,102 @@ static void TestAutShadowLwGame() {  // (a) AsLwWalkGame + AsLwIds on fake EA st
     void* const* wm = g_asWmPP; const AsFindLotFn fl = g_asFindLot; const AsCompFn cf = g_asComp; const DWORD* cb = g_asCompBit;
     g_asWmPP = &g_agMgrP, g_asFindLot = AfGFind, g_asComp = AfGCompFn, g_asCompBit = &g_agBit;
     auto ids = [&](AsU64 lot, DWORD room, const char* want) {  // want: the low id digits after 100, e.g. "0124"
-        g_asLwN = g_asLwUsed = 0;
+        AsLwReset();
         const int n = AsLwIds(lot, room);
         assert(n == (int)strlen(want));
         for (int j = 0; j < n; j++) assert(g_asLwTmp[j] == (0x500000000ull | (100u + (DWORD)(want[j] - '0'))));
     };
-    ids(L, 0xFFFFFFFFu, "012457");  // lot part in order, then the world objects whose component names L
-    ids(L, 3, "02");       // lot part by room; world part: (room == 3) is 0 or 1, never 3
-    ids(L, 1, "4");        // world part: (room == 1) == 1 only for component room 1
-    ids(L, 0, "47");       // world part: (room == 0) == 0 for component rooms != 0
-    ids(0x700000003ull, 0xFFFFFFFFu, "");  // no such lot: no ids (the IC answers 0)
-    g_agObj[1].comp = NULL;  // a lot object with no component: room rows go to the body (EA's walk faults), room -1 does not
-    g_asLwN = g_asLwUsed = 0;
-    assert(AsLwIds(L, 3) == -1);
-    ids(L, 0xFFFFFFFFu, "012457");
-    g_agObj[1].comp = &g_agComp[1];
-    g_agVec[0][1] = NULL;  // a null object in the lot vector: the body (EA's walk faults)
-    g_asLwN = g_asLwUsed = 0;
-    assert(AsLwIds(L, 0xFFFFFFFFu) == -1);
-    g_agVec[0][1] = &g_agObj[1];
+    // the same answers per lot walk (WorldIndex 0), from the index (docs/122 §14.29), and from the index checked at every walk
+    Ts3nAutShadow& k = ts3native_autshadow;
+    const int wi0 = g_asWorldIndex, wic0 = g_asWorldIndexCheck;
+    const LONG mis0 = k.wiMis;
+    for (int arm = 0; arm < 3; arm++) {
+        g_asWorldIndex = arm > 0, g_asWorldIndexCheck = arm == 2 ? 1 : 0;
+        const LONG lots0 = k.wiLots, chk0 = k.wiChecks;
+        ids(L, 0xFFFFFFFFu, "012457");  // lot part in order, then the world objects whose component names L
+        ids(L, 3, "02");       // lot part by room; world part: (room == 3) is 0 or 1, never 3
+        ids(L, 1, "4");        // world part: (room == 1) == 1 only for component room 1
+        ids(L, 0, "47");       // world part: (room == 0) == 0 for component rooms != 0
+        ids(0x700000003ull, 0xFFFFFFFFu, "");  // no such lot: no ids (the IC answers 0)
+        g_agObj[1].comp = NULL;  // a lot object with no component: room rows go to the body (EA's walk faults), room -1 does not
+        AsLwReset();
+        assert(AsLwIds(L, 3) == -1);
+        ids(L, 0xFFFFFFFFu, "012457");
+        g_agObj[1].comp = &g_agComp[1];
+        g_agVec[0][1] = NULL;  // a null object in the lot vector: the body (EA's walk faults)
+        AsLwReset();
+        assert(AsLwIds(L, 0xFFFFFFFFu) == -1);
+        g_agVec[0][1] = &g_agObj[1];
+        g_agVec[1][1] = NULL;  // a null object in the world vector: skipped by both
+        ids(L, 0xFFFFFFFFu, "01247");
+        g_agVec[1][1] = &g_agObj[5];
+        g_agObj[5].comp = NULL;  // a world object with no component: skipped by both
+        ids(L, 0xFFFFFFFFu, "01247");
+        g_agObj[5].comp = &g_agComp[5];
+        assert(arm == 0 ? k.wiLots == lots0 : k.wiLots == lots0 + 8);
+        assert(k.wiChecks == chk0 + (arm == 2 ? 8 : 0) && k.wiMis == mis0);
+    }
+    // a world object whose component faults: the index is not built, the per-lot walk faults too: the body (as without it)
+    g_asWorldIndex = 1, g_asWorldIndexCheck = 0;
+    g_agObj[5].comp = (AfGComp*)(uintptr_t)0x10;
+    LONG fall0 = k.wiFall;
+    AsLwReset();
+    assert(AsLwIds(L, 0xFFFFFFFFu) == -1 && k.wiFall == fall0 + 1);
+    g_agObj[5].comp = &g_agComp[5];
+    // a check that differs (the world changed after the index was built): the walk's ids are kept, WorldIndex off
+    g_asWorldIndexCheck = 1;
+    AsLwReset();
+    assert(AsLwIds(0x700000003ull, 0xFFFFFFFFu) == 0);  // not found: no world part, no index yet
+    {
+        AsLwLot w = {L, g_asLwUsed, 0, 0, false, false};
+        assert(AsLwWalkGame(w) && w.nWorld == 3);  // builds the index (objects 4, 5, 7 on L) and checks it: the same
+        g_agComp[6].lot = L;  // object 6 moves to L after the index was built
+        AsLwLot v = {L, g_asLwUsed, 0, 0, false, false};
+        assert(AsLwWalkGame(v) && v.nWorld == 4 && k.wiMis == mis0 + 1 && g_asWorldIndex == -1 && k.wiOn == -1);
+        assert(g_asLwId[v.at + v.nLot + 2] == (0x500000000ull | 106u));  // the walk's ids: 4, 5, 6, 7 (6 moved in)
+        g_agComp[6].lot = 0x700000002ull;
+    }
+    // 300 random worlds: several lots walked per cut, the index's answer equals the per-lot walk's for every (lot, room)
+    {
+        static AfGObj ro[64];
+        static AfGComp rc[64];
+        static AfGObj* rv[64];
+        AfGObj** const vb = g_agLot[1].b, ** const ve = g_agLot[1].e;
+        unsigned x = 12345;
+        auto rnd = [&](unsigned m) { x = x * 1103515245u + 12345u; return (x >> 16) % m; };
+        g_asFindLot = AfGFind3;
+        for (int t = 0; t < 300; t++) {
+            const int n = (int)rnd(64);
+            for (int i = 0; i < n; i++) {
+                ro[i].idLo = 200 + (DWORD)i, ro[i].idHi = 5, ro[i].comp = rnd(10) ? &rc[i] : NULL;
+                rc[i].lot = 0x700000000ull | (1 + rnd(4)), rc[i].room = rnd(4);
+                rv[i] = rnd(12) ? &ro[i] : NULL;
+            }
+            g_agLot[1].b = rv, g_agLot[1].e = rv + n;
+            AsU64 want[4][5][64];
+            int wn[4][5];
+            for (int arm = 0; arm < 2; arm++) {
+                g_asWorldIndex = arm, g_asWorldIndexCheck = arm ? (int)rnd(3) : 0;
+                AsLwReset();
+                for (DWORD lo = 1; lo <= 3; lo++)
+                    for (DWORD r = 0; r < 5; r++) {
+                        const int m = AsLwIds(0x700000000ull | lo, r == 4 ? 0xFFFFFFFFu : r);
+                        if (!arm) { wn[lo][r] = m; for (int j = 0; j < m; j++) want[lo][r][j] = g_asLwTmp[j]; continue; }
+                        assert(m == wn[lo][r]);
+                        for (int j = 0; j < m; j++) assert(g_asLwTmp[j] == want[lo][r][j]);
+                    }
+            }
+            assert(k.wiMis == mis0 + 1);
+        }
+        g_agLot[1].b = vb, g_agLot[1].e = ve;
+        g_asFindLot = AfGFind;
+    }
+    g_asWorldIndex = 0;
     *(void**)(g_agMgr + 0xB0) = NULL;  // no world lot: the lot part only
     ids(L, 0xFFFFFFFFu, "012");
+    g_asWorldIndex = wi0, g_asWorldIndexCheck = wic0, k.wiOn = wi0;
     g_asWmPP = wm, g_asFindLot = fl, g_asComp = cf, g_asCompBit = cb;
-    g_asLwN = g_asLwUsed = 0;
+    AsLwReset();
 }
 static void TestAutShadowCost15() {
     Ts3nAutShadow& k = ts3native_autshadow;

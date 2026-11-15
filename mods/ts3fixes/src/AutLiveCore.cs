@@ -284,6 +284,19 @@ namespace Ts3Fixes
             public static bool AtPost(bool on, bool dry, int why) { return on && !dry && why == 0; }
             // at the resume and at each later B13 slice: unseen still = stay direct; seen = the exact path from here (snap-back)
             public static bool Stay(int why) { return why == 0; }
+            // docs/124 §17.12 (autliveseen): a seen search's path while autseengame sends seen actors to the game. 0 = the game's
+            // search, 1 = the exact path (the worker's ranking only as band input, every pushed score live), 2 = the exact path
+            // dry (the game's B14, compare only). Only a proven seen NPC (seenNpc: UnseenFallbackCore.SeenNpc; household, selectable,
+            // not live, gone and unknown scope are not) leaves the game's search.
+            public const int kSeenGame = 0, kSeenExact = 1, kSeenDry = 2;
+            public static int SeenPath(bool seenGame, bool on, bool dry, bool seenNpc)
+            {
+                if (!seenGame) return kSeenExact;  // autseengame off: every seen search posts, as before
+                if (!on || !seenNpc) return kSeenGame;
+                return dry ? kSeenDry : kSeenExact;
+            }
+            // at the resume: a seen-exact search whose actor is now household scope (or unknown) is dropped (the game's B13)
+            public static bool SeenKeep(bool householdScope) { return !householdScope; }
 
             // a queued direct pick at a scope check: kFlipWait (still unseen: check again later), kFlipDrop (gone, not in the
             // queue any more, or the running head: vanilla could have started it), kFlipKeep (seen, live Test passed),

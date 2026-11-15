@@ -113,6 +113,25 @@ namespace Ts3Agent
             if (added == null) throw new McpException("ScavengerOpportunity.mObjectsAdded not found");
             Dictionary<string, object> r = Util.Obj();
             int tried = 0;
+            // Force the condition: OnAdded only spawns what the world lacks, so first remove every loose gem / metal / insect
+            // jig lying on a COMMUNITY lot (not the household lot, not inventories, not parented). Test world only, no save.
+            int removed = 0;
+            List<IGameObject> loose = new List<IGameObject>();
+            foreach (IGameObject o in Sims3.Gameplay.Queries.GetObjects<IGem>()) loose.Add(o);
+            foreach (IGameObject o in Sims3.Gameplay.Queries.GetObjects<IMetal>()) loose.Add(o);
+            foreach (IGameObject o in Sims3.Gameplay.Queries.GetObjects<IInsectJig>()) loose.Add(o);
+            foreach (IGameObject o in loose)
+            {
+                try
+                {
+                    Lot l = o.LotCurrent;
+                    if (l == null || !l.IsCommunityLot || o.InInventory || o.Parent != null) continue;
+                    o.Destroy();
+                    removed++;
+                }
+                catch (Exception) { }
+            }
+            r["removed"] = removed;
             foreach (OpportunityNames n in Enum.GetValues(typeof(OpportunityNames)))
             {
                 ScavengerOpportunity proto = OpportunityManager.GetStaticOpportunity(n) as ScavengerOpportunity;
