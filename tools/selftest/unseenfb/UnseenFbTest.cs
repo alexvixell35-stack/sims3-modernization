@@ -46,6 +46,34 @@ static class UnseenFbTest
             Check((UfPreCore.TpGoal(th, og, ol, ro, re) == UfPreCore.kTpOk) == ok, "tp: rule mask " + m);
         }
 
+        // docs/584 §7 tpdoorrights: real door-lock cases (CommonDoor.tLock, EA's one-way sentinel 0x8FFF)
+        const int NW = UfPreCore.kNoOneWayRoom;
+        Check(UfPreCore.TpDoorUpstreamCloses(UfPreCore.kLockAnybody, false, NW), "door: upstream closes an unlocked door (reads the no-one-way sentinel as one-way)");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, false, NW, true, false, false) == UfPreCore.kTpDoorFree, "door: unlocked ordinary door is free");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, false, 7, true, true, true) == UfPreCore.kTpDoorClosed, "door: real one-way room closes, even at home");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedHousehold, false, NW, true, true, true) == UfPreCore.kTpDoorOwn, "door: front door locked to the family passes its resident");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedHousehold, false, NW, false, false, false) == UfPreCore.kTpDoorClosed, "door: front door locked to the family closes for a visitor");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedActor, false, NW, false, true, true) == UfPreCore.kTpDoorHome, "door: sibling's locked bedroom passes on household access at home");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedActor, false, NW, false, false, true) == UfPreCore.kTpDoorClosed, "door: household access counts only on the home lot");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedActor, false, NW, false, true, false) == UfPreCore.kTpDoorClosed, "door: a lock owned outside the household closes");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockOwnerList, false, NW, true, false, false) == UfPreCore.kTpDoorOwn, "door: owner-list door passes a listed Sim");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockNobody, false, NW, true, true, true) == UfPreCore.kTpDoorClosed, "door: locked for everyone closes, residents too");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockPets, false, NW, true, false, false) == UfPreCore.kTpDoorOwn, "door: no-pets door passes a human");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockPets, false, NW, false, true, true) == UfPreCore.kTpDoorClosed, "door: no-pets door closes for a pet, even at home");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockVipRoom, false, NW, false, true, true) == UfPreCore.kTpDoorClosed, "door: VIP room closes without the Sim's own right");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, true, NW, true, false, false) == UfPreCore.kTpDoorOwn, "door: single-gender door passes a Sim of that gender");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, true, NW, false, true, true) == UfPreCore.kTpDoorClosed, "door: single-gender door closes for the other gender, even at home");
+        for (int lk = 0; lk <= 6; lk++)
+            for (int m = 0; m < 32; m++)
+            {
+                bool g = (m & 1) != 0, own = (m & 2) != 0, home = (m & 4) != 0, hh = (m & 8) != 0; int ow = (m & 16) != 0 ? 3 : NW;
+                int v = UfPreCore.TpDoor(lk, g, ow, own, home, hh);
+                // never laxer than the Sim's own rights except on its home lot through a household-owned lock; never opens "nobody" or one-way
+                bool ok = v == UfPreCore.kTpDoorClosed || (v == UfPreCore.kTpDoorFree && lk == UfPreCore.kLockAnybody && !g) || (v == UfPreCore.kTpDoorOwn && own)
+                    || (v == UfPreCore.kTpDoorHome && home && hh && !own);
+                Check(ok && ((lk != UfPreCore.kLockNobody && ow == NW) || v == UfPreCore.kTpDoorClosed), "door: rule mask " + lk + "/" + m);
+            }
+
         // limiter
         UfLimiter u = new UfLimiter();
         object r;

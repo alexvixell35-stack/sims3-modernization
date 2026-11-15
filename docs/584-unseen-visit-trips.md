@@ -151,3 +151,29 @@ The rest are per-tick or rare; measure the GC share first (§6).
 `GC_gc_no`) per hour and live-set growth per hour (gcHeap - gcFree at the `ev=gc-after` samples, least squares; every
 sample as an upper bound when there are fewer than two), per arm and on - off. Run 2043 for reference: 1.5 h, 164 marks
 (108/h), live set 215 -> 298 MB (+49 MB/h). The gc fields are still flagged unvalidated in the log.
+
+## 7. s56 recovery drop: F1's lot test closes every lot with a door (`tpdoorrights`)
+
+s56 (phase-20261115-2218) against 2043: route retry after a cut 92.2% -> 69.1%. 161 of 235 sampled failed retries are
+GoHome plans that fail in 1-2 ms with result 10 (FailedBecauseNoDestinationSpecified, 0 plans) right after an unseen cut
+(2043: 5); GoHome cuts barely moved (275 vs 281), census "unseenfb route goal" placements fell 99 -> 11. The new part of
+s56 is upstream's F1 goal check (`UnseenTeleportGoal.cs`, docs/267, shipped inside `unseenfbteleport`, no switch of its own).
+
+Cause (verified in EA's code, inferred at run time until s57's counters): F1 asks `UfLotOpen`, which closes the lot when any
+`CommonDoor` has `OneWayRoomDestinationId != 0`. EA's "not one-way" value is 0x8FFF (36863): the field initializer and
+`SetLockTypeAndOwner(lock, owner)` both set it, and `CommonDoor.IsAllowedThrough` tests `!= 36863`. So every lot with a door
+counts as closed, every indoor goal is refused (counter 1041, "lot closed"), and only outdoor-ground goals still teleport.
+The refused cut then falls through to EA's own fallbacks (front door slots, mailbox, PlanToLotEx), whose first plan the
+native retry line records as the failed retry. The run's door dump (doors.json) shows nearly all doors "Anybody", so the
+lock test itself is not what closes them. The same `!= 0` test is in `UfLotOpen`'s other caller `UfPreLot` (docs/202 §3.5 D)
+and in `UfLotLocked` (`UrCore.DoorRefuses`); those are older and left as they are here.
+
+`tpdoorrights` (default off; off = upstream's rule unchanged): F1 judges the lot with the teleporting Sim's own door rights
+(`UfPreCore.TpDoor`, pure, self-check in tools/selftest/unseenfb): special lots stay closed as before; a door with no lock and
+no real one-way room is free; "nobody" and a real one-way room close; any other lock passes when EA's
+`IsAllowedThrough(sim)` does; on the Sim's home lot a lock owned by its household (owner or owner list) passes too, so a
+resident going home is not refused by a family member's locked room. The room flood (`HrReachesOutside`) still uses the
+Sim's own rights, so it never lands in a room it cannot leave. Only unseen NPCs reach it (UfTeleport's UfWhy and TownieUnseen).
+Counters 2739 lots opened that upstream closes, 2740 of those only by household access, 2741 lots closed by a door the
+Sim cannot pass. Once a sim-hour, when they moved, ts3native.log gets `ts3fixes: unseen tp goal: ...` with 1040-1045, the
+teleport count (307) and 2739-2741, so s57 can confirm the reason with the switch off and on.
