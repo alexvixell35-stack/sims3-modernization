@@ -36,24 +36,24 @@
 typedef int(__cdecl* GwExpandFn)(DWORD blocks);
 typedef DWORD(__cdecl* GwFn0)();
 typedef DWORD(__cdecl* GwXmlFn)(DWORD lo, DWORD hi, DWORD group, DWORD type);
-static const DWORD GW_EXPAND = 0x00E49C80;
-static const DWORD GW_SITE[2] = {0x00E4A20C, 0x00E4A219};
-static const DWORD GW_TEXT_LO = 0x00401000, GW_TEXT_HI = 0x00F95000;
-static const DWORD GW_XML = 0x0076D290;  // IC_Simulator_LoadXmlAsString(ulong instance, uint group, uint type) -> string
-static const DWORD* const GW_LARGE_FREE = (const DWORD*)(uintptr_t)0x012225B4;  // GC_large_free_bytes
+static const DWORD GW_EXPAND = TS3A(0x00E49C80);
+static const DWORD GW_SITE[2] = {TS3A(0x00E4A20C), TS3A(0x00E4A219)};
+static const DWORD GW_TEXT_LO = TS3A(0x00401000), GW_TEXT_HI = TS3A(0x00F95000);
+static const DWORD GW_XML = TS3A(0x0076D290);  // IC_Simulator_LoadXmlAsString(ulong instance, uint group, uint type) -> string
+static const DWORD* const GW_LARGE_FREE = (const DWORD*)(uintptr_t)TS3A(0x012225B4);  // GC_large_free_bytes
 struct GwBoehm {  // GC_allochblk_nth inputs; the selftest points them at fakes
     const DWORD *useEntire, *dontGc, *requested, *collectAt, *largeAllocd, *maxLargeAllocd, *freeBytes, *finFreedW;
     DWORD* blSpacing;  // written by the streak guard (GwExpand)
     const DWORD *warnSupp, *warnIval;
     GwFn0 shouldCollect, adj, min;
 };
-static GwBoehm g_gwb = {(const DWORD*)(uintptr_t)0x011F2D98, (const DWORD*)(uintptr_t)0x011F30A8,
-                        (const DWORD*)(uintptr_t)0x012225A8, (const DWORD*)(uintptr_t)0x01194818,
-                        (const DWORD*)(uintptr_t)0x012225B8, (const DWORD*)(uintptr_t)0x012225BC,
-                        (const DWORD*)(uintptr_t)0x011F2E98, (const DWORD*)(uintptr_t)0x012225D8,
-                        (DWORD*)(uintptr_t)0x0119482C, (const DWORD*)(uintptr_t)0x011F30C4,
-                        (const DWORD*)(uintptr_t)0x011949B8, (GwFn0)(uintptr_t)0x00E49950,
-                        (GwFn0)(uintptr_t)0x00E49900, (GwFn0)(uintptr_t)0x00E498B0};
+static GwBoehm g_gwb = {(const DWORD*)(uintptr_t)TS3A(0x011F2D98), (const DWORD*)(uintptr_t)TS3A(0x011F30A8),
+                        (const DWORD*)(uintptr_t)TS3A(0x012225A8), (const DWORD*)(uintptr_t)TS3A(0x01194818),
+                        (const DWORD*)(uintptr_t)TS3A(0x012225B8), (const DWORD*)(uintptr_t)TS3A(0x012225BC),
+                        (const DWORD*)(uintptr_t)TS3A(0x011F2E98), (const DWORD*)(uintptr_t)TS3A(0x012225D8),
+                        (DWORD*)(uintptr_t)TS3A(0x0119482C), (const DWORD*)(uintptr_t)TS3A(0x011F30C4),
+                        (const DWORD*)(uintptr_t)TS3A(0x011949B8), (GwFn0)(uintptr_t)TS3A(0x00E49950),
+                        (GwFn0)(uintptr_t)TS3A(0x00E49900), (GwFn0)(uintptr_t)TS3A(0x00E498B0)};
 // push ecx; mov ecx,[esp+14h]; mov edx,[esp+10h]
 static const u8 kGwXmlPro[9] = {0x51, 0x8B, 0x4C, 0x24, 0x14, 0x8B, 0x54, 0x24, 0x10};
 static GwExpandFn g_gwExpand = (GwExpandFn)(uintptr_t)GW_EXPAND;
@@ -126,7 +126,7 @@ static int __cdecl GwExpand(DWORD blocks, DWORD needed, const DWORD* sp) {
         GwWhy(needed, after, GwRead(g_gwLargeFree), w, sizeof(w));
         Log("gc expand streak %s: %lu blocks needed, spacing %lu KB -> 12 KB (stack black-listed blocks %lu, gc_no %lu); %s",
             streakAt == GW_STREAK_PUNT ? "guard" : "test stop", needed, GwRead(g_gwb.blSpacing) >> 10,
-            GwRead((const DWORD*)(uintptr_t)0x0123435C), gcNo, w);
+            GwRead((const DWORD*)(uintptr_t)TS3A(0x0123435C)), gcNo, w);
         *g_gwb.blSpacing = 0x3000;
     }
     if (!r) k.gwFails++;
@@ -202,13 +202,13 @@ static DWORD __cdecl GwXml(DWORD lo, DWORD hi, DWORD group, DWORD type) {
 
 // [GC] BlackListCapKB: GC_promote_black_lists clamps the spacing to 8 MB (cmp eax,0x800000 ; jbe ; mov [spacing],0x800000)
 static const Site kBlCap[] = {
-    {0x00E4A856, {0x3D, 0x00, 0x00, 0x80, 0x00, 0x76, 0x0A}, 7, 1},
-    {0x00E4A85D, {0xC7, 0x05, 0x2C, 0x48, 0x19, 0x01, 0x00, 0x00, 0x80, 0x00}, 10, 6},
+    {TS3A(0x00E4A856), {0x3D, 0x00, 0x00, 0x80, 0x00, 0x76, 0x0A}, 7, 1},
+    {TS3A(0x00E4A85D), {0xC7, 0x05, 0x2C, 0x48, 0x19, 0x01, 0x00, 0x00, 0x80, 0x00}, 10, 6},
 };
 // GC_allochblk_nth punt: push eax (bytes) ; push fmt ; call [GC_current_warn_proc] ; add esp,8 (eax/ecx/edx dead after)
-static const Site kBlPunt[] = {{0x00E49540, {0xFF, 0x15, 0xC0, 0x49, 0x19, 0x01}, 6, 0}};
+static const Site kBlPunt[] = {{TS3A(0x00E49540), {0xFF, 0x15, 0xC0, 0x49, 0x19, 0x01}, 6, 0}};
 typedef void(__cdecl* GwWarnFn)(const char* fmt, DWORD arg);
-static void* const* g_gwWarnProc = (void* const*)(uintptr_t)0x011949C0;  // GC_current_warn_proc (Mono sets it after GC_init)
+static void* const* g_gwWarnProc = (void* const*)(uintptr_t)TS3A(0x011949C0);  // GC_current_warn_proc (Mono sets it after GC_init)
 static LONG g_gwWarnEvery = 5;  // GC_large_alloc_warn_interval before we set it to 1
 static DWORD g_gcT0;                // GetTickCount at init
 static bool g_gcStrict;             // the 8 MB clamp is back (a world is loaded and playing)
@@ -252,8 +252,18 @@ static void GcCapWindow(bool strict, const char* ev) {
     if (!g_gcCapBytes || strict == g_gcStrict) return;
     const DWORD from = strict ? g_gcCapBytes : 0x800000u, to = strict ? 0x800000u : g_gcCapBytes;
     Site s[2] = {kBlCap[0], kBlCap[1]};
+#ifdef TS3A_TABLE
+    // EA: start from this build's own bytes (the spacing global's address differs from the Steam literal), and keep
+    // ExpectedAt from swapping the changed immediate back to the stock 0x800000 (the strict switch always SKIPped on EA)
+    for (Site& x : s) memcpy(x.expect, ExpectedAt((const void*)(uintptr_t)x.addr, x.expect, x.len), x.len);
+    t_expLiteral = true;
+#endif
     memcpy(s[0].expect + 1, &from, 4), memcpy(s[1].expect + 6, &from, 4);
-    if (!PatchImm32(strict ? "GC black-list clamp strict" : "GC black-list clamp lenient", s, 2, to)) return;
+    const bool ok = PatchImm32(strict ? "GC black-list clamp strict" : "GC black-list clamp lenient", s, 2, to);
+#ifdef TS3A_TABLE
+    t_expLiteral = false;
+#endif
+    if (!ok) return;
     g_gcStrict = strict;
     Ts3nCounters& k = ts3native_counters;
     (strict ? k.gcStrictN : k.gcLenientN)++;

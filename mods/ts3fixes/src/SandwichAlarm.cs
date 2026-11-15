@@ -24,8 +24,8 @@ namespace Ts3Fixes
     // RemoveAlarm, as the Start* paths do). The board and the one daily alarm stay EA's. Duplicates already in a save:
     // at world load (switch on) each theatre keeps the ResetSandwichBoards alarm whose handle it holds and its other
     // ResetSandwichBoards alarms are removed (SandwichAlarmWorldLoad; other callbacks and other theatres untouched).
-    // Counters: [998] stale handles removed (on), [999] the same case seen with the switch off, [1000] errors,
-    // [1001] saved duplicates removed at load.
+    // Counters: [1110] stale handles removed (on), [1111] the same case seen with the switch off, [1112] errors,
+    // [1113] saved duplicates removed at load.
     // Check: SandwichAlarmChecks.cs.
     public static partial class Fixes
     {
@@ -93,11 +93,11 @@ namespace Ts3Fixes
                     foreach (int i in drop)
                     {
                         m.RemoveAlarm(keys[i]);
-                        PatchCounters()[1001]++;
+                        PatchCounters()[1113]++;
                     }
                 }
             }
-            catch (Exception) { PatchCounters()[1000]++; }
+            catch (Exception) { PatchCounters()[1112]++; }
         }
 
         public class SaHook
@@ -113,14 +113,14 @@ namespace Ts3Fixes
                     {
                         if (ShortcutOn("sandwichalarm"))
                         {
-                            PatchCounters()[998]++;
+                            PatchCounters()[1110]++;
                             t.RemoveAlarm(h);
                             sSaHandle.SetValue(t, AlarmHandle.kInvalidHandle);
                         }
-                        else PatchCounters()[999]++;
+                        else PatchCounters()[1111]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1000]++; }
+                catch (Exception) { PatchCounters()[1112]++; }
                 ResetOrig();
             }
             public void ResetOrig() { } // receives Theatre.ResetSandwichBoardFromPlayerConcert's original body

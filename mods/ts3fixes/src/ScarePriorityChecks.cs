@@ -14,7 +14,7 @@ namespace Ts3Fixes
         public static object ScarePriorityCheck(string what)
         {
             int[] c = PatchCounters();
-            string counters = "scarepriority: receivers raised 994=" + c[994] + ", seen with switch off 995=" + c[995] + ", errors 996=" + c[996]
+            string counters = "scarepriority: receivers raised 1106=" + c[1106] + ", seen with switch off 1107=" + c[1107] + ", errors 1108=" + c[1108]
                 + "; " + GlMembers(sSpMissing);
             if (what == "result") return counters;
             if (what != "run") return "scarepriority <run|result>";

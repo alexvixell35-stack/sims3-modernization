@@ -32,7 +32,7 @@ struct IlpSpec { const char* id; const wchar_t* key; const char* ns; const char*
 #include "ilpatch-specs.h"  // kIlpOps (ECMA-335 opcodes: code, operand kind), kIlpSpecs, kIlpSpecN
 enum { IK_NONE, IK_I8, IK_U8, IK_U16, IK_I32, IK_I64, IK_F32, IK_F64, IK_BR8, IK_BR32, IK_TOK, IK_SWITCH, IK_BR_ORIG, IK_BR_OURS, IK_BAD = 0xFF };
 static const BYTE kIlpKindSize[12] = {0, 1, 1, 2, 4, 8, 4, 8, 1, 4, 4, 0};
-static const DWORD IL_XFORM = 0x00E643B0, IL_HEADER = 0x00E85390;
+static const DWORD IL_XFORM = TS3A(0x00E643B0), IL_HEADER = TS3A(0x00E85390);
 static const BYTE kIlpXformPro[6] = {0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x78};
 
 typedef void*(__cdecl* IlpXformFn)(BYTE* rm, void* ctx);

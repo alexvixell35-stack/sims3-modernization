@@ -20,7 +20,7 @@
 // for a miss and for a 0 is the same 0x75592B). Shadow (no job): the game's 0x62FB60, then SrEntry, compared.
 // Counters v119 (+0x4824): ikMode (+0x4828, --ab idlecheckro), ikShadow (+0x482C, --ab idlecheckroshadow).
 
-static const DWORD IK_SITE_GIP = 0x007558D7, IK_GIP = 0x0062FB60, IK_SITE_TEST = 0x00755916, IK_TEST = 0x00625140;
+static const DWORD IK_SITE_GIP = TS3A(0x007558D7), IK_GIP = TS3A(0x0062FB60), IK_SITE_TEST = TS3A(0x00755916), IK_TEST = TS3A(0x00625140);
 typedef u8*(__fastcall* IkGipFn)(u8* p, void* edx, DWORD lo, DWORD hi);  // ret 8
 typedef DWORD(__fastcall* IkTestFn)(u8* p, void* edx, const u8* entry, DWORD room, DWORD b, const void* pt, float r);  // ret 0x14
 typedef int (*IkEntryFn)(const u8* p, DWORD lo, DWORD hi, const u8** entry);
@@ -176,7 +176,7 @@ static DWORD __fastcall IkTestStub(u8* p, void* edx, const u8* entry, DWORD room
 // GvRun under QL shared as GvStub does; footprints found or any doubt call the game's 0x82EDB0 (today's wait). Shadow (no
 // job): the game's call, then GvRun, compared (al, footprint count). Counters v903 (+0x5B84): icMode (--ab idlecheckc),
 // icShadow (--ab idlecheckcshadow).
-static const DWORD IC_SITE_OQ = 0x0075598B;
+static const DWORD IC_SITE_OQ = TS3A(0x0075598B);
 static GvFn g_icOrig = (GvFn)(uintptr_t)GV_TARGET;
 static volatile LONG g_icNoted;
 
@@ -192,21 +192,21 @@ static volatile LONG g_icNoted;
 typedef const u8*(__fastcall* IcFindFn)(const void* svc, void* edx, DWORD lo, DWORD hi);
 typedef bool (*IcClassFn)(const u8* obj, int* cls);
 static bool IcClassGame(const u8* obj, int* cls) {  // 0x620D20's call; false = not a verified class function
-    static const DWORD k8[] = {0x0080F840, 0x0080C300, 0x00807090, 0x00807B70, 0x008066C0, 0x006119F0};
+    static const DWORD k8[] = {TS3A(0x0080F840), TS3A(0x0080C300), TS3A(0x00807090), TS3A(0x00807B70), TS3A(0x008066C0), TS3A(0x006119F0)};
     const void* const* vt = *(const void* const* const*)obj;
     if (!vt || !SrIn((DWORD)(uintptr_t)vt[2], k8, 6)) return false;
     *cls = ((SlotClassFn)vt[2])(obj, NULL, NULL, 0);
     return true;
 }
-static IcFindFn g_icFind = (IcFindFn)(uintptr_t)0x00939560;
+static IcFindFn g_icFind = (IcFindFn)(uintptr_t)TS3A(0x00939560);
 static IcClassFn g_icClass = IcClassGame;                    // selftest hands in fakes
-static const DWORD* g_icMask = (const DWORD*)(uintptr_t)0x011E90FC;
+static const DWORD* g_icMask = (const DWORD*)(uintptr_t)TS3A(0x011E90FC);
 static const u8* g_icTestFrame;                               // selftest: the frame (its own return address is not 0x755990)
 static const int IC_LOOP_DOUBT = -1;
 // SiteCLoopJump (C2b, counters v906): the IC's exit for each answer. Each one is lea ecx, [esp+0x38]; call 0x652470 (the
 // vector's release: ReleaseRange, then free if allocated; empty here), mov eax, answer, the pops and ret; none reads a
 // register the loop set [verified disassembly 2026-11-04]. Answer 0 already ends at 0x755A5B the same way.
-static const DWORD kIcExit[4][2] = {{4, 0x00755A12}, {8, 0x00755A82}, {0x10, 0x00755A97}, {0x20, 0x00755A6D}};
+static const DWORD kIcExit[4][2] = {{4, TS3A(0x00755A12)}, {8, TS3A(0x00755A82)}, {0x10, TS3A(0x00755A97)}, {0x20, TS3A(0x00755A6D)}};
 static bool g_icJumpOk;   // the four exits' bytes as verified at install
 static DWORD g_icJumpTo;  // selftest (g_icTestFrame): the exit IcStub would have returned to
 static DWORD IcExit(int a) {
@@ -217,7 +217,7 @@ static DWORD IcExit(int a) {
 static bool IcExitsOk() {  // lea ecx, [esp+0x38]; call 0x652470; then mov eax, answer within the next 12 bytes
     for (const auto& e : kIcExit) {
         const u8* p = (const u8*)(uintptr_t)e[1];
-        if (!Readable(p, 21) || memcmp(p, "\x8D\x4C\x24\x38\xE8", 5) || p + 9 + *(const LONG*)(p + 5) != (const u8*)0x00652470)
+        if (!Readable(p, 21) || memcmp(p, "\x8D\x4C\x24\x38\xE8", 5) || p + 9 + *(const LONG*)(p + 5) != (const u8*)TS3A(0x00652470))
             return false;
         bool mov = false;
         for (int i = 9; i < 17 && !mov; i++) mov = p[i] == 0xB8 && *(const DWORD*)(p + i + 1) == e[0];
@@ -241,36 +241,36 @@ static int IcLoopOne(const u8* obj, const u8* f) {
     if (!sv) return IcDoubt(1, obj);
     int kind;
     switch (sv[3]) {  // interface slot +0xC: sub ecx, 4, then a constant getter
-    case 0x006262F0: kind = 1; break;
-    case 0x0074BB10: kind = 2; break;
-    case 0x00624EC0: kind = 3; break;
-    case 0x00624E10: kind = 4; break;
-    case 0x00624E60: kind = 5; break;
-    case 0x006250A0: kind = 6; break;
-    case 0x00620E00: kind = 7; break;
-    case 0x00624E50: kind = 8; break;
-    case 0x00624E00: kind = 9; break;  // 0xFEBA74 (2026-11-04: all 24 logged doubts of the first shadow)
-    case 0x00620E50: kind = 0xA; break;
-    case 0x00624EB0: kind = 0xB; break;
+    case TS3A(0x006262F0): kind = 1; break;
+    case TS3A(0x0074BB10): kind = 2; break;
+    case TS3A(0x00624EC0): kind = 3; break;
+    case TS3A(0x00624E10): kind = 4; break;
+    case TS3A(0x00624E60): kind = 5; break;
+    case TS3A(0x006250A0): kind = 6; break;
+    case TS3A(0x00620E00): kind = 7; break;
+    case TS3A(0x00624E50): kind = 8; break;
+    case TS3A(0x00624E00): kind = 9; break;  // 0xFEBA74 (2026-11-04: all 24 logged doubts of the first shadow)
+    case TS3A(0x00620E50): kind = 0xA; break;
+    case TS3A(0x00624EB0): kind = 0xB; break;
     default: return IcDoubt(2, obj);
     }
     if (kind == 5) {  // 0x7559B8
         if (!*(const DWORD*)(f + 0x1C)) return 0x20;
-        if (sv[1] != 0x00620E60) return IcDoubt(3, obj);
+        if (sv[1] != TS3A(0x00620E60)) return IcDoubt(3, obj);
         const DWORD lo = *(const DWORD*)(obj + 0x14), hi = *(const DWORD*)(obj + 0x18);
         for (const DWORD *p = *(const DWORD* const*)(f + 0x18), *e = *(const DWORD* const*)(f + 0x34); p != e; p += 2)
             if (p[0] == lo && p[1] == hi) return 0;
         const u8* o = g_icFind(*(const void* const*)(f + 0x4C), NULL, lo, hi);
         return o && (*(const DWORD*)(o + 0x2C) & *g_icMask) ? 4 : 0x20;
     }
-    if (sv[7] == 0x00624F70) return 0;  // the member footprint's +0x1C: false
-    if (sv[7] != 0x00620D20) return IcDoubt(4, obj);
+    if (sv[7] == TS3A(0x00624F70)) return 0;  // the member footprint's +0x1C: false
+    if (sv[7] != TS3A(0x00620D20)) return IcDoubt(4, obj);
     int cls;
     if (!g_icClass(obj, &cls)) return IcDoubt(5, obj);
     if ((DWORD)cls < 2 || cls == 0xD) return 0;
     int t;
-    if (sv[2] == 0x00624ED0) t = *(const signed char*)(obj + 0x35);
-    else if (sv[2] == 0x00620E50) t = 0xA;
+    if (sv[2] == TS3A(0x00624ED0)) t = *(const signed char*)(obj + 0x35);
+    else if (sv[2] == TS3A(0x00620E50)) t = 0xA;
     else return IcDoubt(6, obj);
     return t == 1 ? 0x10 : t == 12 || t == 23 ? 8 : 0;
 }

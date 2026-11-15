@@ -578,7 +578,7 @@ static void AsT2eRefresh(int i, void* body, const DWORD* key, int nKey, AsEnt& e
     g_asDescOf[slot] = d0, g_asOrig[slot] = o0;
 }
 static void TestAutShadowTier2IcE() {
-    assert(AS_NT2E == 10 && AS_NT2IC == 15 + AS_NT2E);  // bits 5-6 E3 (TestAutShadowTier2IcE3), bit 7 P6 (TestAutShadowTier2CountRange), bits 8-9 P5 (TestAutShadowTier2Slots)
+    assert(AS_NT2E == 12 && AS_NT2IC == 15 + AS_NT2E);  // bits 10-11 L8 (TestAutShadowL8), bits 5-6 E3 (TestAutShadowTier2IcE3), bit 7 P6 (TestAutShadowTier2CountRange), bits 8-9 P5 (TestAutShadowTier2Slots)
     const char* nm[5] = {"ScriptCore.World::World_GetTilesWithFloorFeaturesImpl", "ScriptCore.World::World_FindPondRepresentativePositions",
                          "ScriptCore.World::World_GetLotLocationAtFloorImpl", "ScriptCore.World::World_GetWorldToHouseboatDisplayPositionImpl",
                          "ScriptCore.World::World_GetHouseboatDisplayToWorldPositionImpl"};
@@ -751,7 +751,7 @@ static DWORD __cdecl AsT2FakeRouteSlots(DWORD idLo, DWORD) {
 static void TestAutShadowTier2Slots() {
     const AsDesc& s = *AsT2Ic(23);
     const AsDesc& n = *AsT2Ic(24);
-    assert(AsT2Ic(24) == kAsDesc + AS_NDESC - 1);
+    assert(AsT2Ic(24) == kAsDesc + AS_NDESC - 3);  // the two lane L8 rows follow
     assert(!strcmp(s.name, "ScriptCore.Slots::Slots_IsSlotEnabledImpl") && s.owner == AO_CUT && s.kind == AK_INT && s.nArg == 3 &&
            s.sz == 1 && !s.nOut && s.of == AS_OF_HH && AsKindOfName(s.name) == 0);
     assert(!strcmp(n.name, "ScriptCore.Slots::Slots_GetRoutingSlotNamesImpl") && n.kind == AK_ARRAY && n.of == AS_OF_HH && !n.nOut);
@@ -911,6 +911,145 @@ static void TestAutShadowTier2IcE3() {
     g_asLvLotAt = l0, g_asLvGip = gp0, g_asLvWm = w0, g_asLvRw = r0, g_asJobState = j0;
 }
 
+// lane L8 (docs/126 §8 #14, #20, #18 retro; docs/122 §5.1 dump). Fake bodies with the verified cdecl layouts.
+// #14 (pond, lotLo, lotHi, PondInfo*): pond 1 = world path bytes (+0xC..+0x3B, +0x6C..+0x73), pond 2 = lot path (+0x0..+0x73,
+// +0x78..+0x7F), else false and the out untouched; junk in the high bytes of the bool
+static DWORD __cdecl AsL8FakePond(DWORD pond, DWORD lo, DWORD, u8* out) {
+    if (pond == 1 && !lo) { for (int b = 0xC; b < 0x3C; b++) out[b] = (u8)b; for (int b = 0x6C; b < 0x74; b++) out[b] = 0x66; return 0xAB01; }
+    if (pond == 2 && lo) { for (int b = 0; b < 0x74; b++) out[b] = (u8)(b + 1); for (int b = 0x78; b < 0x80; b++) out[b] = 0x77; return 1; }
+    return 0xAB00;
+}
+// #20 (result, lotLo, lotHi): dwords 0-3 zeroed, no lot (lo 0) -> dwords 4-5 untouched, else all 6 written
+static DWORD* __cdecl AsL8FakeLevels(DWORD* r, DWORD lo, DWORD) {
+    r[0] = r[1] = r[2] = r[3] = 0;
+    if (lo) for (int i = 0; i < 6; i++) r[i] = 0x100 * lo + i;
+    return r;
+}
+// #18 (result, lotLo, lotHi, room, def): counts calls
+static DWORD* __cdecl AsL8FakeRoom(DWORD* r, DWORD, DWORD, DWORD room, DWORD) { g_asLvBodyN++; for (int i = 0; i < 6; i++) r[i] = room + i; return r; }
+static int g_asL8LotIdN;
+static u8* __fastcall AsL8FakeLotId(u8* wm, void*, DWORD lo, DWORD hi, DWORD z) {
+    g_asL8LotIdN++;
+    assert(wm == g_asLvFakeWmObj && lo == 0x10 && hi == 0x20 && z == 0);
+    return g_asLvNoLot ? NULL : g_asLvFakeLot;
+}
+static void AsL8Refresh(const AsDesc* d, void* body, const DWORD* key, int nKey, AsEnt& e, DWORD* pool, LONG* poolN) {
+    const int slot = AS_MAXIC - 1;
+    const AsDesc* d0 = g_asDescOf[slot];
+    void* o0 = g_asOrig[slot];
+    g_asDescOf[slot] = d, g_asOrig[slot] = body;
+    memset(&e, 0x5C, sizeof(e));
+    memcpy(e.key, key, nKey * 4);
+    AsRefresh(slot, e, pool, poolN);
+    g_asDescOf[slot] = d0, g_asOrig[slot] = o0;
+}
+static void TestAutShadowL8() {
+    const AsDesc& p = *AsT2Ic(25);
+    const AsDesc& l = *AsT2Ic(26);
+    assert(AS_NT2E == 12 && AS_NT2IC == 27 && AS_NDESC - AS_NT2IC + 26 == AS_NDESC - 1);
+    assert(!strcmp(p.name, "ScriptCore.World::World_GetPondInfo") && p.owner == AO_CUT && p.kind == AK_INT && p.nArg == 4 && p.sz == 1 &&
+           p.nOut == 1 && p.outIdx[0] == 3 && p.outSz[0] == AS_BIG && p.of == (AS_OF_TRUE | AS_OF_BIG) && AsKindOfName(p.name) == 0);
+    assert(!strcmp(l.name, "ScriptCore.World::World_LotGetDisplayLevelInfoImpl") && l.owner == AO_CUT && l.kind == AK_STRUCT && l.nArg == 2 &&
+           l.sz == 24 && !l.nOut && l.of == AS_OF_DIFF && l.outMask == 0xFF && AsKindOfName(l.name) == 's');
+    assert(AS_BIG % 32 == 0 && AS_BIG <= 255);
+    // gate: Tier2IcNew bits 5-6 = E bits 10-11, each its own; every older E bit leaves them off
+    const int e0 = AS_NDESC - AS_NT2E;
+    g_asTier2Rows = g_asTier2IcRows = true, g_asT2eBits = 0x3FF;
+    assert(!AsDescOn(e0 + 10) && !AsDescOn(e0 + 11) && AsDescOn(e0 + 9));
+    g_asT2eBits = 0x400;
+    assert(AsDescOn(e0 + 10) && !AsDescOn(e0 + 11) && !AsDescOn(e0 + 9));
+    g_asT2eBits = 0x800;
+    assert(!AsDescOn(e0 + 10) && AsDescOn(e0 + 11));
+    g_asTier2IcRows = false;
+    assert(!AsDescOn(e0 + 11));
+    g_asTier2Rows = false, g_asT2eBits = 0;
+
+    static DWORD pool[256];
+    LONG poolN = 0;
+    AsEnt e, x;
+    // #14 world path: only the written bytes reach the caller; payload = 32 dwords after-image + 4 dwords mask
+    const DWORD kW[3] = {1, 0, 0};
+    AsL8Refresh(&p, (void*)AsL8FakePond, kW, 3, e, pool, &poolN);
+    assert(e.r[0] == 1 && e.r[1] == 0 && e.payN == AS_BIG / 4 + AS_BIG / 32 && !(e.flags & AE_NOPAY));
+    u8 out[AS_BIG];
+    memset(out, 0xCC, sizeof(out));
+    DWORD a[4] = {1, 0, 0, (DWORD)(uintptr_t)out};
+    assert(AsOutWrite(p, e, pool, a));
+    assert(out[0xB] == 0xCC && out[0xC] == 0xC && out[0x3B] == 0x3B && out[0x3C] == 0xCC && out[0x6C] == 0x66 && out[0x73] == 0x66 && out[0x74] == 0xCC && out[0x7F] == 0xCC);
+    // the same input twice: the same entry (AsSame compares the payload); another after-image: not the same
+    AsL8Refresh(&p, (void*)AsL8FakePond, kW, 3, x, pool, &poolN);
+    assert(AsSame(p, e, pool, x, pool));
+    // #14 lot path: +0x74..+0x77 never written
+    const DWORD kL[3] = {2, 0x10, 0x20};
+    AsL8Refresh(&p, (void*)AsL8FakePond, kL, 3, x, pool, &poolN);
+    assert(!AsSame(p, e, pool, x, pool));
+    memset(out, 0xCC, sizeof(out));
+    assert(AsOutWrite(p, x, pool, a) && out[0] == 1 && out[0x73] == 0x74 && out[0x74] == 0xCC && out[0x77] == 0xCC && out[0x78] == 0x77 && out[0x7F] == 0x77);
+    // false: no payload, out untouched
+    const DWORD kF[3] = {3, 0, 0};
+    AsL8Refresh(&p, (void*)AsL8FakePond, kF, 3, e, pool, &poolN);
+    assert(e.r[0] == 0 && !e.payN);
+    memset(out, 0xCC, sizeof(out));
+    assert(AsOutWrite(p, e, pool, a) && out[0] == 0xCC && out[0x70] == 0xCC);
+    // pool full: no answer
+    LONG full = AS_POOL - 3;
+    AsL8Refresh(&p, (void*)AsL8FakePond, kW, 3, e, pool, &full);
+    assert((e.flags & AE_NOPAY) && full == AS_POOL - 3);
+
+    // #20: lot found -> all 24 B; no lot -> dwords 0-3 zero, the caller's dwords 4-5 kept
+    const DWORD kLot[2] = {3, 0}, kNo[2] = {0, 0};
+    AsL8Refresh(&l, (void*)AsL8FakeLevels, kLot, 2, e, pool, &poolN);
+    assert(e.om == 0xFF);
+    DWORD r[6] = {9, 9, 9, 9, 9, 9};
+    AsStructWrite(l, e, (u8*)r);
+    assert(r[0] == 0x300 && r[3] == 0x303 && r[4] == 0x304 && r[5] == 0x305);
+    AsL8Refresh(&l, (void*)AsL8FakeLevels, kNo, 2, e, pool, &poolN);
+    assert(e.om == 0);
+    for (int i = 0; i < 6; i++) r[i] = 9;
+    AsStructWrite(l, e, (u8*)r);
+    assert(r[0] == 0 && r[3] == 0 && r[4] == 9 && r[5] == 9);
+
+    // #18 retro (AS_OF_LVLID): off -> no gate (no lot lookup); on -> every level of the lot by id; one clear -> no answer
+    const AsDesc* rm = NULL;
+    for (int i = 0; i < AS_NDESC; i++) if (!strcmp(kAsDesc[i].name, "ScriptCore.World::World_GetInformationAboutRoomImpl")) rm = &kAsDesc[i];
+    assert(rm && rm->of == AS_OF_LVLID && rm->kind == AK_STRUCT && rm->nArg == 4 && rm->owner == AO_CUT && !rm->nOut);
+    const AsLvLotIdFn li0 = g_asLvLotId;
+    const AsLvGipFn gp0 = g_asLvGip;
+    u8* const* w0 = g_asLvWm;
+    u8* const* r0 = g_asLvRw;
+    g_asLvFakeWm = g_asLvFakeWmObj, g_asLvFakeRwP = g_asLvFakeRw;
+    g_asLvLotId = AsL8FakeLotId, g_asLvGip = AsLvFakeGip, g_asLvWm = &g_asLvFakeWm, g_asLvRw = &g_asLvFakeRwP;
+    auto put = [](u8* b, int o, LONG v) { memcpy(b + o, &v, 4); };
+    put(g_asLvFakeLot, 0x48, 0x10), put(g_asLvFakeLot, 0x4C, 0x20), put(g_asLvFakeLot, 0x17C, -1), put(g_asLvFakeLot, 0x180, 2);
+    put(g_asLvFakeLot, 0x408, 0), put(g_asLvFakeRw, 0x95C, 0x95C0), g_asLvFakeRw[0x974] = 1, put(g_asLvFakeEnt, 0x40, -1);
+    const DWORD kR[4] = {0x10, 0x20, 5, 0};
+    put(g_asLvFakeEnt, 0x168, 0xB);  // level 1 clear
+    g_asRoomGate = false, g_asLvBodyN = g_asLvGipN = g_asL8LotIdN = 0;
+    AsL8Refresh(rm, (void*)AsL8FakeRoom, kR, 4, e, pool, &poolN);
+    assert(g_asL8LotIdN == 0 && g_asLvBodyN == 1 && !(e.flags & AE_NOPAY) && e.st[0] == 5);
+    g_asRoomGate = true, g_asLvBodyN = 0;
+    AsL8Refresh(rm, (void*)AsL8FakeRoom, kR, 4, e, pool, &poolN);
+    assert(g_asL8LotIdN == 1 && g_asLvGipN == 1 && g_asLvBodyN == 0 && (e.flags & AE_NOPAY));
+    put(g_asLvFakeEnt, 0x168, 0xF);  // levels -1..2 set
+    g_asLvBodyN = 0;
+    AsL8Refresh(rm, (void*)AsL8FakeRoom, kR, 4, e, pool, &poolN);
+    assert(g_asL8LotIdN == 2 && g_asLvBodyN == 1 && !(e.flags & AE_NOPAY) && e.st[4] == 6);
+    g_asLvNoLot = true, g_asLvBodyN = 0;  // no lot: the body never reaches the footprint path -> filled
+    AsL8Refresh(rm, (void*)AsL8FakeRoom, kR, 4, e, pool, &poolN);
+    assert(g_asLvBodyN == 1);
+    g_asLvNoLot = false, g_asRoomGate = false;
+    g_asLvLotId = li0, g_asLvGip = gp0, g_asLvWm = w0, g_asLvRw = r0;
+
+    // dump (DumpOnMismatch): one row line fits the buffer; a short buffer drops the line (-1), never a cut line
+    static AsTab t;
+    t.n = 1, t.used[0] = 1, t.e[0] = e, t.e[0].ic = 0, t.e[0].nKey = 4, t.e[0].payN = 0;
+    char b[1024];
+    const int n = AsDumpRow(b, sizeof(b) - 1, 1, 0, t);
+    assert(n > 0 && n < 1000 && !strncmp(b, "{\"t\":\"row\",\"n\":1,\"i\":0,", 23) && b[n - 1] == '}');
+    assert(AsDumpRow(b, 40, 1, 0, t) == -1);
+    assert(AsIcConfig(37) == 1);
+}
+
 static void TestAutShadowRun() {
     Ts3nAutShadow& k = ts3native_autshadow;
     Ts3nMtProbe& m = ts3native_mtprobe;
@@ -933,7 +1072,7 @@ static void TestAutShadowRun() {
     assert(g_mtOnEnter == AsSimEnter && g_mtOnLeave == AsSimLeaveLoop && g_mtJobHook == AsJobHook && g_asMode == 0 && g_sppN == 0);
     // ICs register at the first Simulate entry; Begin refuses until the methods are set
     AsSimEnter();
-    assert(g_t5Ics == 35 && k.icRegistered == 35 && AsIcConfig(35) == 1 && AsIcVersion() == 11 && AsIcConfig(1) == 4 && AsIcConfig(2) == 20);
+    assert(g_t5Ics == 36 && k.icRegistered == 36 && AsIcConfig(35) == 1 && AsIcConfig(37) == 1 && AsIcVersion() == 11 && AsIcConfig(1) == 4 && AsIcConfig(2) == 20);
     {   // ImageSha (docs/218 §5): a fake MonoImage {.., raw_data +8, raw_data_len +0xC} over "MZ" + 510 zero bytes
         static u8 img[0x200] = { 'M', 'Z' };
         DWORD mi[16] = {}, arr[4 + 8] = {}, small[4 + 8] = {};
@@ -961,7 +1100,7 @@ static void TestAutShadowRun() {
     g_mtInvoke = AfT5Invoke;
     AfT5Request(40);
     AsSimLeave();
-    assert(g_t5Ics == 35 && g_t5Roots == 4 && (k.rooted & 3) == 3 && g_asRefsRooted);
+    assert(g_t5Ics == 36 && g_t5Roots == 4 && (k.rooted & 3) == 3 && g_asRefsRooted);
     assert(k.cutReq == 1 && k.refRuns == 0 && k.noWorker == 1 && g_t5Finish == 1 && g_t5Last == AS_LAST_NOWORKER && g_asRun == AS_RUN_IDLE);
     assert(k.batchReqs == 1 && k.batchCuts == 0 && k.simTicks == 1);
     {  // shared cut (docs/122 §14.18): requests posted before the cut join it, one cut and one finish; a full batch is busy
@@ -1179,11 +1318,12 @@ static void TestAutLedger() {
     Ts3nAutShadow& k = ts3native_autshadow;
     assert(offsetof(Ts3nAutShadow, lgOn) == 0x13C && offsetof(Ts3nAutShadow, lgIn) == 0x158 && offsetof(Ts3nAutShadow, lgSleep) == 0x17C &&
            offsetof(Ts3nAutShadow, lgCls) == 0x1A0 && offsetof(Ts3nAutShadow, lgCall) == 0x260 && offsetof(Ts3nAutShadow, abort2) == 0x760 && offsetof(Ts3nAutShadow, rngPauseDraws) == 0x76C && offsetof(Ts3nAutShadow, abortRoute) == 0x770 &&
-           offsetof(Ts3nAutShadow, overrunIdle) == 0x778 && offsetof(Ts3nAutShadow, windowWaitUs) == 0x780 && k.version == 22 && offsetof(Ts3nAutShadow, satbMode) == 0x9C0 && offsetof(Ts3nAutShadow, satbWGiveUpOp) == 0xA5C &&
+           offsetof(Ts3nAutShadow, overrunIdle) == 0x778 && offsetof(Ts3nAutShadow, windowWaitUs) == 0x780 && k.version == 23 && offsetof(Ts3nAutShadow, satbMode) == 0x9C0 && offsetof(Ts3nAutShadow, satbWGiveUpOp) == 0xA5C &&
            offsetof(Ts3nAutShadow, satbIcLogged) == 0xA60 && offsetof(Ts3nAutShadow, refPassA4) == 0xA84 && offsetof(Ts3nAutShadow, pairT) == 0xA88 && offsetof(Ts3nAutShadow, pairN) == 0xA98 &&
            offsetof(Ts3nAutShadow, transOn) == 0xAA8 && offsetof(Ts3nAutShadow, runNo) == 0xAE4 && offsetof(Ts3nAutShadow, clsGoneSkip) == 0xAF8 &&
            offsetof(Ts3nAutShadow, seOn) == 0xAFC && offsetof(Ts3nAutShadow, tmOn) == 0xB10 && offsetof(Ts3nAutShadow, gdOn) == 0xB20 && offsetof(Ts3nAutShadow, gdOver) == 0xB40 &&
-           offsetof(Ts3nAutShadow, idOn) == 0xB44 && offsetof(Ts3nAutShadow, seLearnOn) == 0xB64 && offsetof(Ts3nAutShadow, gdWhy) == 0xB7C);  // registry v3-v6 (v7, v8: TestAutShadowFull), v15 Satb, v16, v17 mono-cost15, v18 mono-cost16, v19 mono-cost17
+           offsetof(Ts3nAutShadow, idOn) == 0xB44 && offsetof(Ts3nAutShadow, seLearnOn) == 0xB64 && offsetof(Ts3nAutShadow, gdWhy) == 0xB7C &&
+           offsetof(Ts3nAutShadow, r2First) == 0xCC4 && offsetof(Ts3nAutShadow, wiOn) == 0xCC8 && offsetof(Ts3nAutShadow, wiMis) == 0xCE4);  // registry v3-v6 (v7, v8: TestAutShadowFull), v15 Satb, v16, v17 mono-cost15, v18 mono-cost16, v19 mono-cost17
     assert(AsIcConfig(5) == 0 && AsIcConfig(7) == 0 && AsLgWatchOf("ScriptCore.Queries::Query_GetObjects") < 0);  // Ledger=0: inert
     g_asLedger = true;
     const u8* base = (const u8*)GetModuleHandleW(NULL);
@@ -1277,7 +1417,7 @@ static void TestAutShadowFull() {
     Ts3nAutShadow& k = ts3native_autshadow;
     assert(offsetof(Ts3nAutShadow, evicted) == 0x784 && offsetof(Ts3nAutShadow, learnBacklog) == 0x7A4 && offsetof(Ts3nAutShadow, cutLearnUs) == 0x7A8 &&
            offsetof(Ts3nAutShadow, bodyN) == 0x7C0 && offsetof(Ts3nAutShadow, coldSkips) == 0x7E0 && offsetof(Ts3nAutShadow, workCsr) == 0x7F8 &&
-           sizeof(Ts3nAutShadow) == 0xCC8 && offsetof(Ts3nAutShadow, alOn) == 0xB8C && k.version == 22);
+           sizeof(Ts3nAutShadow) == 0xCE8 && offsetof(Ts3nAutShadow, alOn) == 0xB8C && k.version == 23);
     const LONG full0 = k.full, ev0 = k.evicted;
     const int audit0 = g_asAudit;
     g_asAudit = 0;  // the timed cut below is the production cut (Audit=50 adds a bounded 1,024-row slice every 50th)
@@ -2539,6 +2679,8 @@ static DWORD AfLwAnswer(bool get, DWORD type, AsU64 lot, DWORD room, const AsU64
     if (g_afLwLie > 0 && --g_afLwLie == 0) r = get ? (DWORD)(uintptr_t)AfOnLot(type ^ 1, (DWORD)lot, 0, room) : r + 16;
     return r;
 }
+// lots 0x700000001-3 share the fake lot vector (their world parts differ)
+static void* __fastcall AfGFind3(void* mgr, void*, DWORD lo, DWORD hi, DWORD) { return mgr == g_agMgr && hi == 7 && lo >= 1 && lo <= 3 ? &g_agLot[0] : NULL; }
 static void TestAutShadowLwGame() {  // (a) AsLwWalkGame + AsLwIds on fake EA structures
     for (int i = 0; i < 8; i++) g_agObj[i].idLo = 100 + i, g_agObj[i].idHi = 5, g_agObj[i].comp = &g_agComp[i], g_agComp[i].lot = 0;
     const AsU64 L = 0x700000001ull;
@@ -2554,29 +2696,102 @@ static void TestAutShadowLwGame() {  // (a) AsLwWalkGame + AsLwIds on fake EA st
     void* const* wm = g_asWmPP; const AsFindLotFn fl = g_asFindLot; const AsCompFn cf = g_asComp; const DWORD* cb = g_asCompBit;
     g_asWmPP = &g_agMgrP, g_asFindLot = AfGFind, g_asComp = AfGCompFn, g_asCompBit = &g_agBit;
     auto ids = [&](AsU64 lot, DWORD room, const char* want) {  // want: the low id digits after 100, e.g. "0124"
-        g_asLwN = g_asLwUsed = 0;
+        AsLwReset();
         const int n = AsLwIds(lot, room);
         assert(n == (int)strlen(want));
         for (int j = 0; j < n; j++) assert(g_asLwTmp[j] == (0x500000000ull | (100u + (DWORD)(want[j] - '0'))));
     };
-    ids(L, 0xFFFFFFFFu, "012457");  // lot part in order, then the world objects whose component names L
-    ids(L, 3, "02");       // lot part by room; world part: (room == 3) is 0 or 1, never 3
-    ids(L, 1, "4");        // world part: (room == 1) == 1 only for component room 1
-    ids(L, 0, "47");       // world part: (room == 0) == 0 for component rooms != 0
-    ids(0x700000003ull, 0xFFFFFFFFu, "");  // no such lot: no ids (the IC answers 0)
-    g_agObj[1].comp = NULL;  // a lot object with no component: room rows go to the body (EA's walk faults), room -1 does not
-    g_asLwN = g_asLwUsed = 0;
-    assert(AsLwIds(L, 3) == -1);
-    ids(L, 0xFFFFFFFFu, "012457");
-    g_agObj[1].comp = &g_agComp[1];
-    g_agVec[0][1] = NULL;  // a null object in the lot vector: the body (EA's walk faults)
-    g_asLwN = g_asLwUsed = 0;
-    assert(AsLwIds(L, 0xFFFFFFFFu) == -1);
-    g_agVec[0][1] = &g_agObj[1];
+    // the same answers per lot walk (WorldIndex 0), from the index (docs/122 §14.29), and from the index checked at every walk
+    Ts3nAutShadow& k = ts3native_autshadow;
+    const int wi0 = g_asWorldIndex, wic0 = g_asWorldIndexCheck;
+    const LONG mis0 = k.wiMis;
+    for (int arm = 0; arm < 3; arm++) {
+        g_asWorldIndex = arm > 0, g_asWorldIndexCheck = arm == 2 ? 1 : 0;
+        const LONG lots0 = k.wiLots, chk0 = k.wiChecks;
+        ids(L, 0xFFFFFFFFu, "012457");  // lot part in order, then the world objects whose component names L
+        ids(L, 3, "02");       // lot part by room; world part: (room == 3) is 0 or 1, never 3
+        ids(L, 1, "4");        // world part: (room == 1) == 1 only for component room 1
+        ids(L, 0, "47");       // world part: (room == 0) == 0 for component rooms != 0
+        ids(0x700000003ull, 0xFFFFFFFFu, "");  // no such lot: no ids (the IC answers 0)
+        g_agObj[1].comp = NULL;  // a lot object with no component: room rows go to the body (EA's walk faults), room -1 does not
+        AsLwReset();
+        assert(AsLwIds(L, 3) == -1);
+        ids(L, 0xFFFFFFFFu, "012457");
+        g_agObj[1].comp = &g_agComp[1];
+        g_agVec[0][1] = NULL;  // a null object in the lot vector: the body (EA's walk faults)
+        AsLwReset();
+        assert(AsLwIds(L, 0xFFFFFFFFu) == -1);
+        g_agVec[0][1] = &g_agObj[1];
+        g_agVec[1][1] = NULL;  // a null object in the world vector: skipped by both
+        ids(L, 0xFFFFFFFFu, "01247");
+        g_agVec[1][1] = &g_agObj[5];
+        g_agObj[5].comp = NULL;  // a world object with no component: skipped by both
+        ids(L, 0xFFFFFFFFu, "01247");
+        g_agObj[5].comp = &g_agComp[5];
+        assert(arm == 0 ? k.wiLots == lots0 : k.wiLots == lots0 + 8);
+        assert(k.wiChecks == chk0 + (arm == 2 ? 8 : 0) && k.wiMis == mis0);
+    }
+    // a world object whose component faults: the index is not built, the per-lot walk faults too: the body (as without it)
+    g_asWorldIndex = 1, g_asWorldIndexCheck = 0;
+    g_agObj[5].comp = (AfGComp*)(uintptr_t)0x10;
+    LONG fall0 = k.wiFall;
+    AsLwReset();
+    assert(AsLwIds(L, 0xFFFFFFFFu) == -1 && k.wiFall == fall0 + 1);
+    g_agObj[5].comp = &g_agComp[5];
+    // a check that differs (the world changed after the index was built): the walk's ids are kept, WorldIndex off
+    g_asWorldIndexCheck = 1;
+    AsLwReset();
+    assert(AsLwIds(0x700000003ull, 0xFFFFFFFFu) == 0);  // not found: no world part, no index yet
+    {
+        AsLwLot w = {L, g_asLwUsed, 0, 0, false, false};
+        assert(AsLwWalkGame(w) && w.nWorld == 3);  // builds the index (objects 4, 5, 7 on L) and checks it: the same
+        g_agComp[6].lot = L;  // object 6 moves to L after the index was built
+        AsLwLot v = {L, g_asLwUsed, 0, 0, false, false};
+        assert(AsLwWalkGame(v) && v.nWorld == 4 && k.wiMis == mis0 + 1 && g_asWorldIndex == -1 && k.wiOn == -1);
+        assert(g_asLwId[v.at + v.nLot + 2] == (0x500000000ull | 106u));  // the walk's ids: 4, 5, 6, 7 (6 moved in)
+        g_agComp[6].lot = 0x700000002ull;
+    }
+    // 300 random worlds: several lots walked per cut, the index's answer equals the per-lot walk's for every (lot, room)
+    {
+        static AfGObj ro[64];
+        static AfGComp rc[64];
+        static AfGObj* rv[64];
+        AfGObj** const vb = g_agLot[1].b, ** const ve = g_agLot[1].e;
+        unsigned x = 12345;
+        auto rnd = [&](unsigned m) { x = x * 1103515245u + 12345u; return (x >> 16) % m; };
+        g_asFindLot = AfGFind3;
+        for (int t = 0; t < 300; t++) {
+            const int n = (int)rnd(64);
+            for (int i = 0; i < n; i++) {
+                ro[i].idLo = 200 + (DWORD)i, ro[i].idHi = 5, ro[i].comp = rnd(10) ? &rc[i] : NULL;
+                rc[i].lot = 0x700000000ull | (1 + rnd(4)), rc[i].room = rnd(4);
+                rv[i] = rnd(12) ? &ro[i] : NULL;
+            }
+            g_agLot[1].b = rv, g_agLot[1].e = rv + n;
+            AsU64 want[4][5][64];
+            int wn[4][5];
+            for (int arm = 0; arm < 2; arm++) {
+                g_asWorldIndex = arm, g_asWorldIndexCheck = arm ? (int)rnd(3) : 0;
+                AsLwReset();
+                for (DWORD lo = 1; lo <= 3; lo++)
+                    for (DWORD r = 0; r < 5; r++) {
+                        const int m = AsLwIds(0x700000000ull | lo, r == 4 ? 0xFFFFFFFFu : r);
+                        if (!arm) { wn[lo][r] = m; for (int j = 0; j < m; j++) want[lo][r][j] = g_asLwTmp[j]; continue; }
+                        assert(m == wn[lo][r]);
+                        for (int j = 0; j < m; j++) assert(g_asLwTmp[j] == want[lo][r][j]);
+                    }
+            }
+            assert(k.wiMis == mis0 + 1);
+        }
+        g_agLot[1].b = vb, g_agLot[1].e = ve;
+        g_asFindLot = AfGFind;
+    }
+    g_asWorldIndex = 0;
     *(void**)(g_agMgr + 0xB0) = NULL;  // no world lot: the lot part only
     ids(L, 0xFFFFFFFFu, "012");
+    g_asWorldIndex = wi0, g_asWorldIndexCheck = wic0, k.wiOn = wi0;
     g_asWmPP = wm, g_asFindLot = fl, g_asComp = cf, g_asCompBit = cb;
-    g_asLwN = g_asLwUsed = 0;
+    AsLwReset();
 }
 static void TestAutShadowCost15() {
     Ts3nAutShadow& k = ts3native_autshadow;
@@ -3473,4 +3688,5 @@ static void TestAutShadow() {
     TestAutShadowLive();
     TestAutShadowTier2CountRange();
     TestAutShadowTier2Slots();
+    TestAutShadowL8();
 }

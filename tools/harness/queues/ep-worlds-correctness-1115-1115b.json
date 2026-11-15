@@ -1,0 +1,201 @@
+{
+ "note": "ep-worlds-correctness-1115-1115b: copy of ep-worlds-correctness-1115.json repinned 2026-11-15 to the master-merge-1115 set (builds.json, master 5d5a581f, 0.36.261-lanes1: asi + ini + ts3fixes from one build; agent game-copy/ts3agent.package.master-merge-1115 installed to build/ by chain-reruns-1115.sh). ep-worlds-correctness-1115 (PREPARED, NOT RUN, 2026-11-15; docs/267 §5 step 1): one correctness job per destination world (France, China, Egypt, University, Oasis Landing) from Baseline-BP with the release bundle and the docs/267 world repros (repros.json ep-wa-tomb / ep-uni-campus / ep-future-oasis). ~2 h with the trips. Pins: TODO master-lanes-1115.",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "fr-ep-corr-1115",
+   "note": "[est 25 min] CORRECTNESS (docs/267 §5 step 1): Champs Les Sims tombs (traps, statues, sarcophagus mummy), townie routes into and out of a tomb. Baseline-BP, profile.travel france (save-matrix travel case --stay), release bundle (releaseDefaults), 10 min at x3 with repro ep-wa-tomb. Pass: no crash, 0 script errors, switches read back (releaseDefaults), no FAIL line. Household untouched: no automatic gate exists for it; read the kd / uf / UfTeleport lines of ts3native.log and the ts3fixes log for household or selected scope (must be none outside the long hard ceilings) and that the household Sims end where their own actions took them. After: node tools/harness/run-verdict.ts, <tag>-repro.jsonl (which forced steps queued their interaction), jitCodeKB / jitMethods / jit refusals in the native counters (docs/267 §1: the JIT region fills in another order in a destination world).",
+   "asi": "game-copy/ts3native.asi.master-merge-1115",
+   "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+   "pinReason": "repinned 2026-11-15 to the master-merge-1115 set (builds.json, master 5d5a581f, 0.36.261-lanes1: asi + ini + ts3fixes from one build; agent game-copy/ts3agent.package.master-merge-1115 installed to build/ by chain-reruns-1115.sh). Was: master-lanes-1115 (builds.json, master 84ee284f, 0.36.261-lanes1): includes feature/ep-world-runs-1115 (ts3agent with @type: targets, spawn_horse); ts3agent from build/ (game-copy/ts3agent.package.master-lanes-1115 is the same file)",
+   "releaseDefaults": true,
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 50,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "logForbid": {
+    "^FAIL\\b": 0
+   },
+   "regexCases": {
+    "^FAIL\\b": {
+     "match": [
+      "FAIL thumbstall: provider slot moved"
+     ],
+     "noMatch": [
+      "thumbstall: fallback #1 start (timeout): request 0x1234",
+      "route async: FAILED 0 of 12"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "travel": "france",
+     "repro": "ep-wa-tomb"
+    }
+   }
+  },
+  {
+   "id": "cn-ep-corr-1115",
+   "note": "[est 25 min] CORRECTNESS (docs/267 §5 step 1): Shang Simla tombs (traps, statues, sarcophagus), townie tomb routes. Baseline-BP, profile.travel china (save-matrix travel case --stay), release bundle (releaseDefaults), 10 min at x3 with repro ep-wa-tomb. Pass: no crash, 0 script errors, switches read back (releaseDefaults), no FAIL line. Household untouched: no automatic gate exists for it; read the kd / uf / UfTeleport lines of ts3native.log and the ts3fixes log for household or selected scope (must be none outside the long hard ceilings) and that the household Sims end where their own actions took them. After: node tools/harness/run-verdict.ts, <tag>-repro.jsonl (which forced steps queued their interaction), jitCodeKB / jitMethods / jit refusals in the native counters (docs/267 §1: the JIT region fills in another order in a destination world).",
+   "asi": "game-copy/ts3native.asi.master-merge-1115",
+   "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+   "pinReason": "repinned 2026-11-15 to the master-merge-1115 set (builds.json, master 5d5a581f, 0.36.261-lanes1: asi + ini + ts3fixes from one build; agent game-copy/ts3agent.package.master-merge-1115 installed to build/ by chain-reruns-1115.sh). Was: master-lanes-1115 (builds.json, master 84ee284f, 0.36.261-lanes1): includes feature/ep-world-runs-1115 (ts3agent with @type: targets, spawn_horse); ts3agent from build/ (game-copy/ts3agent.package.master-lanes-1115 is the same file)",
+   "releaseDefaults": true,
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 50,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "logForbid": {
+    "^FAIL\\b": 0
+   },
+   "regexCases": {
+    "^FAIL\\b": {
+     "match": [
+      "FAIL thumbstall: provider slot moved"
+     ],
+     "noMatch": [
+      "thumbstall: fallback #1 start (timeout): request 0x1234",
+      "route async: FAILED 0 of 12"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "travel": "china",
+     "repro": "ep-wa-tomb"
+    }
+   }
+  },
+  {
+   "id": "eg-ep-corr-1115",
+   "note": "[est 25 min] CORRECTNESS (docs/267 §5 step 1): Al Simhara tombs (traps, statues, sarcophagus mummy), townie tomb routes. Baseline-BP, profile.travel egypt (save-matrix travel case --stay), release bundle (releaseDefaults), 10 min at x3 with repro ep-wa-tomb. Pass: no crash, 0 script errors, switches read back (releaseDefaults), no FAIL line. Household untouched: no automatic gate exists for it; read the kd / uf / UfTeleport lines of ts3native.log and the ts3fixes log for household or selected scope (must be none outside the long hard ceilings) and that the household Sims end where their own actions took them. After: node tools/harness/run-verdict.ts, <tag>-repro.jsonl (which forced steps queued their interaction), jitCodeKB / jitMethods / jit refusals in the native counters (docs/267 §1: the JIT region fills in another order in a destination world).",
+   "asi": "game-copy/ts3native.asi.master-merge-1115",
+   "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+   "pinReason": "repinned 2026-11-15 to the master-merge-1115 set (builds.json, master 5d5a581f, 0.36.261-lanes1: asi + ini + ts3fixes from one build; agent game-copy/ts3agent.package.master-merge-1115 installed to build/ by chain-reruns-1115.sh). Was: master-lanes-1115 (builds.json, master 84ee284f, 0.36.261-lanes1): includes feature/ep-world-runs-1115 (ts3agent with @type: targets, spawn_horse); ts3agent from build/ (game-copy/ts3agent.package.master-lanes-1115 is the same file)",
+   "releaseDefaults": true,
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 50,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "logForbid": {
+    "^FAIL\\b": 0
+   },
+   "regexCases": {
+    "^FAIL\\b": {
+     "match": [
+      "FAIL thumbstall: provider slot moved"
+     ],
+     "noMatch": [
+      "thumbstall: fallback #1 start (timeout): request 0x1234",
+      "route async: FAILED 0 of 12"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "travel": "egypt",
+     "repro": "ep-wa-tomb"
+    }
+   }
+  },
+  {
+   "id": "uni-ep-corr-1115",
+   "note": "[est 25 min] CORRECTNESS (docs/267 §5 step 1): Sims University campus (whiteboard, keg, attend class, a 10-NPC crowd on one lot). Baseline-BP, profile.travel university (save-matrix travel case --stay), release bundle (releaseDefaults), 10 min at x3 with repro ep-uni-campus. Pass: no crash, 0 script errors, switches read back (releaseDefaults), no FAIL line. Household untouched: no automatic gate exists for it; read the kd / uf / UfTeleport lines of ts3native.log and the ts3fixes log for household or selected scope (must be none outside the long hard ceilings) and that the household Sims end where their own actions took them. After: node tools/harness/run-verdict.ts, <tag>-repro.jsonl (which forced steps queued their interaction), jitCodeKB / jitMethods / jit refusals in the native counters (docs/267 §1: the JIT region fills in another order in a destination world).",
+   "asi": "game-copy/ts3native.asi.master-merge-1115",
+   "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+   "pinReason": "repinned 2026-11-15 to the master-merge-1115 set (builds.json, master 5d5a581f, 0.36.261-lanes1: asi + ini + ts3fixes from one build; agent game-copy/ts3agent.package.master-merge-1115 installed to build/ by chain-reruns-1115.sh). Was: master-lanes-1115 (builds.json, master 84ee284f, 0.36.261-lanes1): includes feature/ep-world-runs-1115 (ts3agent with @type: targets, spawn_horse); ts3agent from build/ (game-copy/ts3agent.package.master-lanes-1115 is the same file)",
+   "releaseDefaults": true,
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 50,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "logForbid": {
+    "^FAIL\\b": 0
+   },
+   "regexCases": {
+    "^FAIL\\b": {
+     "match": [
+      "FAIL thumbstall: provider slot moved"
+     ],
+     "noMatch": [
+      "thumbstall: fallback #1 start (timeout): request 0x1234",
+      "route async: FAILED 0 of 12"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "travel": "university",
+     "repro": "ep-uni-campus"
+    }
+   }
+  },
+  {
+   "id": "fut-ep-corr-1115",
+   "note": "[est 25 min] CORRECTNESS (docs/267 §5 step 1): Oasis Landing (hover-train station, synthesizer, bot station, cross-lot plans, meteor). Baseline-BP, profile.travel future (save-matrix travel case --stay), release bundle (releaseDefaults), 10 min at x3 with repro ep-future-oasis. Pass: no crash, 0 script errors, switches read back (releaseDefaults), no FAIL line. Household untouched: no automatic gate exists for it; read the kd / uf / UfTeleport lines of ts3native.log and the ts3fixes log for household or selected scope (must be none outside the long hard ceilings) and that the household Sims end where their own actions took them. After: node tools/harness/run-verdict.ts, <tag>-repro.jsonl (which forced steps queued their interaction), jitCodeKB / jitMethods / jit refusals in the native counters (docs/267 §1: the JIT region fills in another order in a destination world).",
+   "asi": "game-copy/ts3native.asi.master-merge-1115",
+   "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+   "pinReason": "repinned 2026-11-15 to the master-merge-1115 set (builds.json, master 5d5a581f, 0.36.261-lanes1: asi + ini + ts3fixes from one build; agent game-copy/ts3agent.package.master-merge-1115 installed to build/ by chain-reruns-1115.sh). Was: master-lanes-1115 (builds.json, master 84ee284f, 0.36.261-lanes1): includes feature/ep-world-runs-1115 (ts3agent with @type: targets, spawn_horse); ts3agent from build/ (game-copy/ts3agent.package.master-lanes-1115 is the same file)",
+   "releaseDefaults": true,
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 50,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "logForbid": {
+    "^FAIL\\b": 0
+   },
+   "regexCases": {
+    "^FAIL\\b": {
+     "match": [
+      "FAIL thumbstall: provider slot moved"
+     ],
+     "noMatch": [
+      "thumbstall: fallback #1 start (timeout): request 0x1234",
+      "route async: FAILED 0 of 12"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "travel": "future",
+     "repro": "ep-future-oasis"
+    }
+   }
+  }
+ ]
+}

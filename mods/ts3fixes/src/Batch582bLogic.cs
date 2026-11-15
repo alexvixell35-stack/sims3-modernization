@@ -35,9 +35,9 @@ namespace Ts3Fixes
         // lives there; OwnerList drops non-residents and opens only when that removal emptied it. Nobody, Pets, VIPRoom and
         // a player-chosen empty owner list are never touched. At world load (saved games only): EA's own
         // SetHouseholdCallback is called again for OwnerList doors, and the same check runs once for owners already gone.
-        // Household-visible: a door locked to a gone Sim opens. Counters: [1035] locks fixed at removal / move-in,
-        // [1036] the same seen with the switch off, [1037] saved stale locks fixed at load, [1038] owner-list callbacks
-        // re-registered at load, [1039] errors.
+        // Household-visible: a door locked to a gone Sim opens. Counters: [1147] locks fixed at removal / move-in,
+        // [1148] the same seen with the switch off, [1149] saved stale locks fixed at load, [1150] owner-list callbacks
+        // re-registered at load, [1151] errors.
         static readonly FieldInfo sDlOwnerList = typeof(CommonDoor).GetField("mOwnerList", kInstAll);
         static readonly FieldInfo sDlOneWay = typeof(CommonDoor).GetField("mOneWayDestinationRoomId", kInstAll);
         static readonly MethodInfo sDlCallback = typeof(CommonDoor).GetMethod("SetHouseholdCallback", kInstAll, null, Type.EmptyTypes, null);
@@ -114,10 +114,10 @@ namespace Ts3Fixes
             try
             {
                 if (lot == null) return;
-                if (!ShortcutOn("doorlockowner")) { PatchCounters()[1036] += DlLot(lot, false); return; }
-                PatchCounters()[1035] += DlLot(lot, true);
+                if (!ShortcutOn("doorlockowner")) { PatchCounters()[1148] += DlLot(lot, false); return; }
+                PatchCounters()[1147] += DlLot(lot, true);
             }
-            catch (Exception) { PatchCounters()[1039]++; }
+            catch (Exception) { PatchCounters()[1151]++; }
         }
 
         internal static void DoorLockOwnerWorldLoad()
@@ -131,10 +131,10 @@ namespace Ts3Fixes
                     if (lot == null || lot.IsWorldLot) continue;
                     if (lot.Household != null)
                         foreach (CommonDoor door in lot.GetObjects<CommonDoor>())
-                            if (door.LockType == CommonDoor.tLock.OwnerList) { sDlCallback.Invoke(door, null); c[1038]++; }  // EA's -= then +=: never doubled
-                    c[1037] += DlLot(lot, true);
+                            if (door.LockType == CommonDoor.tLock.OwnerList) { sDlCallback.Invoke(door, null); c[1150]++; }  // EA's -= then +=: never doubled
+                    c[1149] += DlLot(lot, true);
                 }
-                catch (Exception) { c[1039]++; }
+                catch (Exception) { c[1151]++; }
             }
         }
 
@@ -163,7 +163,7 @@ namespace Ts3Fixes
         // exists for them. So a kitten or puppy plans through the elevator, walks to it, fails at the doors, and replans the
         // same route. Fix: the planner gives the doors' answer (DoorRestriction for kittens and puppies), so the route fails
         // at planning, as it does for toddlers. Household-visible only as a faster failure (the ride never happened).
-        // Counters: [1040] kitten/puppy routes refused at planning, [1041] seen with the switch off, [1042] errors.
+        // Counters: [1152] kitten/puppy routes refused at planning, [1153] seen with the switch off, [1154] errors.
         static string sEkMissing = "";
 
         static void ApplyElevatorKitten()
@@ -188,10 +188,10 @@ namespace Ts3Fixes
                 try
                 {
                     if (!(actor.IsKitten || actor.IsPuppy)) return r;
-                    if (!ShortcutOn("elevatorkitten")) { PatchCounters()[1041]++; return r; }
-                    if (EkRefuse(true, true, true)) { PatchCounters()[1040]++; return PortalRestriction.DoorRestriction; }
+                    if (!ShortcutOn("elevatorkitten")) { PatchCounters()[1153]++; return r; }
+                    if (EkRefuse(true, true, true)) { PatchCounters()[1152]++; return PortalRestriction.DoorRestriction; }
                 }
-                catch (Exception) { PatchCounters()[1042]++; }
+                catch (Exception) { PatchCounters()[1154]++; }
                 return r;
             }
             public PortalRestriction AllowedOrig(int srcRoomId, int destRoomId, Sim actor) { return PortalRestriction.None; } // receives the original
@@ -204,7 +204,7 @@ namespace Ts3Fixes
         // elevator resets stands frozen 30 sim-minutes and is then reset ("Late Night elevators freeze Sims"). Fix: the
         // riders that were waiting with a live task get EA's failsafe reset at once, instead of after 30 minutes. Same end
         // state as vanilla, without the frozen half hour; household-visible (it applies to household riders too).
-        // Counters: [1043] waiting riders released at elevator reset, [1044] seen with the switch off, [1045] errors.
+        // Counters: [1155] waiting riders released at elevator reset, [1156] seen with the switch off, [1157] errors.
         static readonly FieldInfo sErAssigned = typeof(ElevatorInterior.ElevatorPortalComponent).GetField("mAssignedSims", kInstAll);
         static FieldInfo sErSleeping, sErTask;
         static string sErMissing = "";
@@ -258,15 +258,15 @@ namespace Ts3Fixes
             {
                 List<Sim> w = null;
                 try { if (sErMissing.Length == 0) w = ErWaiting((ElevatorInterior.ElevatorPortalComponent)(object)this); }
-                catch (Exception) { PatchCounters()[1045]++; }
+                catch (Exception) { PatchCounters()[1157]++; }
                 ResetOrig();
                 if (w == null || w.Count == 0) return;
                 try
                 {
-                    if (!ShortcutOn("elevatorresetriders")) { PatchCounters()[1044] += w.Count; return; }
-                    foreach (Sim s in w) { s.SetObjectToReset(); PatchCounters()[1043]++; }  // EA's failsafe action, now instead of in 30 minutes
+                    if (!ShortcutOn("elevatorresetriders")) { PatchCounters()[1156] += w.Count; return; }
+                    foreach (Sim s in w) { s.SetObjectToReset(); PatchCounters()[1155]++; }  // EA's failsafe action, now instead of in 30 minutes
                 }
-                catch (Exception) { PatchCounters()[1045]++; }
+                catch (Exception) { PatchCounters()[1157]++; }
             }
             public void ResetOrig() { } // receives ElevatorPortalComponent.OnReset's original body
         }
@@ -280,8 +280,8 @@ namespace Ts3Fixes
         // full-elevator timeout, launch by the last sleeper, use list, leave effects, hand-over to the next floor's slot), the
         // only difference being that the failsafe test uses this rider's own start time. EA still gets mFailsafeTime written
         // (no other reader). With the switch off, EA's method runs unchanged. Household-visible: a stuck household rider is
-        // released at its own 30 minutes. Counters: [1059] rides run by the replacement, [1060] failsafe resets (own 30
-        // minutes), [1061] errors before the ride started (EA's method ran instead).
+        // released at its own 30 minutes. Counters: [1171] rides run by the replacement, [1172] failsafe resets (own 30
+        // minutes), [1173] errors before the ride started (EA's method ran instead).
         static FieldInfo sE2DoorOpen, sE2Ready, sE2Required, sE2Failsafe, sE2Slot, sE2GoingUp;
         static MethodInfo sE2Timeout;
         static Slot[] sE2Contain;
@@ -346,7 +346,7 @@ namespace Ts3Fixes
             sE2Failsafe.SetValue(pc, mine);  // EA's shared field, still written
             bool launchedByMe = false;
             sErSleeping.SetValue(entry, true);
-            PatchCounters()[1059]++;
+            PatchCounters()[1171]++;
             while (!E2Bool(sE2Ready, pc))
             {
                 if (E2Bool(sE2Required, pc) && pc.IsElevatorReadyForLaunch())
@@ -366,7 +366,7 @@ namespace Ts3Fixes
                 }
                 if (E2Fire(true, SimClock.ElapsedTime(TimeUnit.Minutes, mine), 0f))
                 {
-                    PatchCounters()[1060]++;
+                    PatchCounters()[1172]++;
                     s.SetObjectToReset();
                     Simulator.Sleep(0u);
                     return false;
@@ -404,7 +404,7 @@ namespace Ts3Fixes
                         entry = d[s.SimDescription];
                     }
                 }
-                catch (Exception) { PatchCounters()[1061]++; entry = null; }
+                catch (Exception) { PatchCounters()[1173]++; entry = null; }
                 if (entry == null) return StartOrig(s);
                 return E2Ride(pc, s, entry);
             }
@@ -416,8 +416,8 @@ namespace Ts3Fixes
         // the load no task is in OnPortalStart for it, and an entry that is not sleeping keeps IsElevatorReadyForLaunch false
         // for every later rider (who then waits for the 30-minute failsafe). This pass changes nothing: at world load it logs
         // each elevator's saved entries by state, so a live run can confirm the state exists before any fix is built.
-        // Counters: [1046] elevators with saved entries, [1047] entries not sleeping (block launch), [1048] entries whose
-        // rider is missing or has no live task, [1049] errors.
+        // Counters: [1158] elevators with saved entries, [1159] entries not sleeping (block launch), [1160] entries whose
+        // rider is missing or has no live task, [1161] errors.
         internal static int[] EsClassify(bool[] sleeping, bool[] liveTask, bool[] riderPresent)
         {
             int[] r = new int[2];
@@ -454,11 +454,11 @@ namespace Ts3Fixes
                             i++;
                         }
                         int[] r = EsClassify(sl, lt, rp);
-                        c[1046]++; c[1047] += r[0]; c[1048] += r[1];
+                        c[1158]++; c[1159] += r[0]; c[1160] += r[1];
                         ShortcutLog("elevatorsavedlog: lot " + lot.LotId + " elevator " + ei.ObjectId + ": saved entries " + d.Count + ", not sleeping " + r[0] + ", rider missing or no live task " + r[1]);
                     }
                 }
-                catch (Exception) { c[1049]++; }
+                catch (Exception) { c[1161]++; }
             }
         }
 
@@ -469,8 +469,8 @@ namespace Ts3Fixes
         // has no other effect (GameObject.DoReset clears the list right after). Fix: while StarLight.DoReset runs,
         // GameObject.AddToUseList skips adding the selected Sim to that light. Everything else in the reset is EA's.
         // SwitchLightInternalStarLight's own add is left as EA has it (it keeps the light "in use" while lit).
-        // Household-visible: the selected Sim is no longer reset. Counters: [1050] selected-Sim resets skipped,
-        // [1051] seen with the switch off, [1052] errors.
+        // Household-visible: the selected Sim is no longer reset. Counters: [1162] selected-Sim resets skipped,
+        // [1163] seen with the switch off, [1164] errors.
         static readonly Type sSlType = typeof(MoonDial).Assembly.GetType("Sims3.Gameplay.Objects.Lighting.StarLight");
         static readonly Type sSlResetInfo = typeof(GameObject).GetNestedType("ResetInformation", BindingFlags.Public | BindingFlags.NonPublic);
         static object sSlResetting;
@@ -514,11 +514,11 @@ namespace Ts3Fixes
                     {
                         if (a == PlumbBob.SelectedActor)
                         {
-                            if (!ShortcutOn("starlightreset")) PatchCounters()[1051]++;
-                            else if (SlSkip(true, true, true)) { PatchCounters()[1050]++; return; }
+                            if (!ShortcutOn("starlightreset")) PatchCounters()[1163]++;
+                            else if (SlSkip(true, true, true)) { PatchCounters()[1162]++; return; }
                         }
                     }
-                    catch (Exception) { PatchCounters()[1052]++; }
+                    catch (Exception) { PatchCounters()[1164]++; }
                 }
                 AddOrig(a);
             }
@@ -530,7 +530,7 @@ namespace Ts3Fixes
         // removes it. A deleted moon dial keeps answering every moon change: it creates a new lunar VisualEffect for a gone
         // object (never disposed), dims a light that no longer exists, and stays reachable through the tracker. Fix at the
         // source: Dispose removes the held listener first (EventTracker.RemoveListener). Not household-visible.
-        // Counters: [1053] listeners removed at Dispose, [1054] seen with the switch off, [1055] errors.
+        // Counters: [1165] listeners removed at Dispose, [1166] seen with the switch off, [1167] errors.
         static readonly FieldInfo sMdlListener = typeof(MoonDial).GetField("mEventLunarCycleEvent", kInstAll);
         static string sMdlMissing = "";
 
@@ -558,11 +558,11 @@ namespace Ts3Fixes
                     EventListener l = sMdlListener.GetValue(m) as EventListener;
                     if (l != null)
                     {
-                        if (!ShortcutOn("moondiallistener")) PatchCounters()[1054]++;
-                        else if (MdlRemove(true, true)) { EventTracker.RemoveListener(l); sMdlListener.SetValue(m, null); PatchCounters()[1053]++; }
+                        if (!ShortcutOn("moondiallistener")) PatchCounters()[1166]++;
+                        else if (MdlRemove(true, true)) { EventTracker.RemoveListener(l); sMdlListener.SetValue(m, null); PatchCounters()[1165]++; }
                     }
                 }
-                catch (Exception) { PatchCounters()[1055]++; }
+                catch (Exception) { PatchCounters()[1167]++; }
                 DisposeOrig();
             }
             public void DisposeOrig() { } // receives MoonDial.Dispose's original body
@@ -575,8 +575,8 @@ namespace Ts3Fixes
         // leaves one listener per instantiation, holding the destroyed Sim, that runs StopSnubbing on the dead Sim at every
         // age-up in town. simler90 changes OnSimAgeTransition's body, not this registration. Fix at the source: at
         // Sim.Destroy, the kSimAgeTransition listeners whose delegate belongs to that Sim's SnubManager are removed.
-        // Not household-visible (the Sim object is gone). Counters: [1056] listeners removed, [1057] seen with the switch
-        // off, [1058] errors.
+        // Not household-visible (the Sim object is gone). Counters: [1168] listeners removed, [1169] seen with the switch
+        // off, [1170] errors.
         static readonly FieldInfo sSnlListeners = typeof(EventTracker).GetField("mListeners", kInstAll);
         static string sSnlMissing = "";
 
@@ -628,12 +628,12 @@ namespace Ts3Fixes
                         List<EventListener> found = SnlFind(m);
                         if (found.Count > 0)
                         {
-                            if (!ShortcutOn("snublistener")) PatchCounters()[1057] += found.Count;
-                            else foreach (EventListener l in found) if (SnlRemove(true, true)) { EventTracker.RemoveListener(l); PatchCounters()[1056]++; }
+                            if (!ShortcutOn("snublistener")) PatchCounters()[1169] += found.Count;
+                            else foreach (EventListener l in found) if (SnlRemove(true, true)) { EventTracker.RemoveListener(l); PatchCounters()[1168]++; }
                         }
                     }
                 }
-                catch (Exception) { PatchCounters()[1058]++; }
+                catch (Exception) { PatchCounters()[1170]++; }
                 DestroyOrig();
             }
             public void DestroyOrig() { } // receives Sim.Destroy's original body

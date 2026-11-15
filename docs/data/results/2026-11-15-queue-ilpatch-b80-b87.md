@@ -1,0 +1,10 @@
+# Queue ilpatch-b80-b87 2026-11-15
+
+Tool: `tools/harness/queue.ts` (docs/TESTING.md). Times UTC (PHT in brackets). Rows: `probe-out/queue/ilpatch-b80-b87-2026-11-15.jsonl`.
+
+## 2026-11-15T05:46 UTC, build a96b4916, jobs bp-ilp-b80-off, bp-ilp-b80-on, bp-ilp-b87-off, bp-ilp-b87-on
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| bp-ilp-b80-off | 05:47 (13:47) | 5.2 | PASS | PASS: profile 3 min, seed 12345 (rng-compare.ts)<br>ts3fixes activity: owchain_alarms 0->1, owspread_types_run 0->20, stuckcheckasync_queued 0->70, stuckcheckasync_run 0->69, etspread_passes 0->1, stuckcheck_noplan 0->62, stuckcheck_notstuck 0->6, stuckcheck_rearmed 0->2 | 0 | 2129.7/1875.2/1629.3 -> 2279.6/1962.9/1402.4 | - | timing: invalid (noise high); build: asi cb82d957f9fa ts3native.asi.master-jitbundle2-1115 ts3native 0.36.256-jitbundle2 (log ok); ts3fixes tuning a3888c256bca ts3fixes.package.master-lanes-1115/ts3fixes.package.master-lanes-1115b (expected build/ts3fixes.package); noise: high (other apps 22.1% of game CPUs); others on game CPUs 22.1%; clock avg/min 4166/4127 MHz; B80 off arm. Pass: the repro step |
+| bp-ilp-b80-on | 05:52 (13:52) | 4.8 | PASS | PASS: profile 3 min, seed 12345 (rng-compare.ts)<br>ts3fixes activity: owchain_alarms 0->1, owspread_types_run 0->20, stuckcheckasync_queued 0->75, stuckcheckasync_run 0->75, etspread_passes 0->1, stuckcheck_noplan 0->62, stuckcheck_notstuck 0->7, stuckcheck_rearmed 0->5, stuckcheck_reset 0->1<br>PASS: repro events fired<br>PASS: no forbidden log lines<br>PASS: 0 new script errors (max 0) | 0 | 2144.8/1892.9/1547.9 -> 2266.1/1953.2/1500.4 | - | timing: invalid (job VOID: runInvalid: noisy machine (others 17.3% of game CPUs); noise high); build: asi cb82d957f9fa ts3native.asi.master-jitbundle2-1115 ts3native 0.36.256-jitbundle2 (log ok); ts3fixes tuning a3888c256bca ts3fixes.package.master-lanes-1115/ts3fixes.package.master-lanes-1115b (expected build/ts3fixes.package); noise: high (other apps 17.1% of game CPUs); others on game CPUs 17.1 |

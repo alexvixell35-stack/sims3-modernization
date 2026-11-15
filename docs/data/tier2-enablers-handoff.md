@@ -15,13 +15,13 @@ Branch `feature/tier2-enablers`. Status file for the agents building the shared-
 | # | IC | Piece | State |
 |---|---|---|---|
 | 7 | `World_GetTilesWithFloorFeaturesImpl` 0x796260 | E2 (`AK_ARRAY`, sz 8, AO_CUT) | built, `Tier2IcNew` bit 0 |
-| 14 | `World_GetPondInfo` 0x78BC70 | E1 | still refused (124 B out, lot path not read) |
+| 14 | `World_GetPondInfo` 0x78BC70 | `AS_OF_BIG` (lane L8) | built 2026-11-15, `Tier2IcNew` bit 5 (128 B out; lot path read) |
 | 15 | `World_FindPondRepresentativePositions` 0x792630 | E1 (`AS_OF_TRUE`, `AS_OF_ARR`, AO_WORLD) | built, `Tier2IcNew` bit 1 |
 | 16 | `World_GetLotLocationAtFloorImpl` 0x7850F0 | E1 (`AS_OF_DIFF`, mask 0xDFF, AO_WORLD) | built, `Tier2IcNew` bit 2 |
 | 21 | `World_GetWorldToHouseboatDisplayPositionImpl` 0x788920 | E1 (`AS_OF_TRUE`, AO_CUT) | built, `Tier2IcNew` bit 3 |
 | - | `World_GetHouseboatDisplayToWorldPositionImpl` 0x788A20 | E1 (`AS_OF_TRUE`, AO_CUT) | built, `Tier2HouseboatRow`; household-owned houseboat lots abort before the call |
 | 2, 4 (+18 retro) | surface types | E3 (`AS_OF_LVL1` / `AS_OF_LVLA`) | built, `Tier2IcNew` bit 4 (#18 retro not done) |
-| 20 | `World_LotGetDisplayLevelInfoImpl` | struct mask | not in this lane |
+| 20 | `World_LotGetDisplayLevelInfoImpl` | `AS_OF_DIFF` struct mask (lane L8) | built 2026-11-15, `Tier2IcNew` bit 6; #18 retro gate built (`Tier2RoomGate`) |
 
 ## Facts (disassembly, Steam 1.67 `TS3W.exe`, capstone)
 

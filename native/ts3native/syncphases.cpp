@@ -20,7 +20,7 @@
 
 enum { SYP_IC, SYP_PLANLOCKED };
 enum { SYP_LOOP_ENTRY, SYP_LOOP_GROUND, SYP_LOOP_PREPASS, SYP_LOOP_OTHER, SYP_LOOPS };
-static DWORD g_sypLoopRet[4] = {0x0065F80E, 0x0065FB9E, 0x0065FDAA, 0x006762B9};  // selftest sets its own
+static DWORD g_sypLoopRet[4] = {TS3A(0x0065F80E), TS3A(0x0065FB9E), TS3A(0x0065FDAA), TS3A(0x006762B9)};  // selftest sets its own
 static const int kSypLoopOf[4] = {SYP_LOOP_ENTRY, SYP_LOOP_GROUND, SYP_LOOP_GROUND, SYP_LOOP_PREPASS};
 static const int kSypScanWords = 256;  // shortcut: a stale copy of a known return address in a hook's frame would misfile one call
 static const char* const kSypPhase[RJP_N] = {"plan", "cell", "post", "insert", "world", "lotleg", "portal", "cand", "lotgraph",

@@ -81,3 +81,35 @@ Tool: `tools/harness/save-matrix.ts` (docs/TESTING.md). Times UTC. Save ms = ts3
 | 03:31:56 | travel | PASS | Matrix-NewDowntownWorld-travel-start-65, Matrix-NewDowntownWorld-travel-away-229, Matrix-NewDowntownWorld-travel-home-220, Matrix-NewDowntownWorld-travel-away-230, Matrix-NewDowntownWorld-travel-home-221, Matrix-NewDowntownWorld-travel-away-231, Matrix-NewDowntownWorld-travel-home-222 | 9843, 18141, 11530, 8798, 11560, 9382, 11764 | skip fixes skipped (not in this build/ini): cachedreflection (PersistedClass.Init: already compiled; PersistedClassDB.GetPersistedClass: already compiled; Persist.GetPersistedTypeCode: already compiled; CachedReflection: not patched, off), footprint (footprint index disabled (Enabled=0)), compress (save compress off (Enabled=0)), flush (save flush off (Enabled=0))<br>info trip route: travel_vacation: queued car on the world lot<br>info vacation cooldown: trips 2+ clear the WentToLocation buff (stress shortcut)<br>info travel saves target:  untouched (travel saves went to the Matrix save) |
 
 1 cases, 1 passed, 0 failed
+
+## 2026-11-13T06:21 UTC NewDowntownWorld, start save null, build 7b7a48cb+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 06:23:02 | travel | PASS | Matrix-NewDowntownWorld-travel-start-72 | 10164 | info trip route: travel_vacation: queued car on the world lot<br>info stay: staying in France (--stay) |
+
+1 cases, 1 passed, 0 failed
+
+## 2026-11-13T17:23 UTC NewDowntownWorld, start save null, build d623fee7+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 17:25:04 | travel | PASS | Matrix-NewDowntownWorld-travel-start-73 | 10404 | info trip route: travel_vacation: queued car on the world lot<br>info stay: staying in France (--stay) |
+
+1 cases, 1 passed, 0 failed
+
+## 2026-11-13T17:56 UTC NewDowntownWorld, start save null, build 0544ff28+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 17:58:11 | travel | PASS | Matrix-NewDowntownWorld-travel-start-74 | 9860 | info trip route: travel_vacation: queued car on the world lot<br>info stay: staying in France (--stay) |
+
+1 cases, 1 passed, 0 failed
+
+## 2026-11-13T18:10 UTC NewDowntownWorld, start save null, build 0544ff28+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 18:11:26 | travel | PASS | Matrix-NewDowntownWorld-travel-start-75 | 10257 | info trip route: travel_vacation: queued car on the world lot<br>info stay: staying in France (--stay) |
+
+1 cases, 1 passed, 0 failed

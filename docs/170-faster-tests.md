@@ -217,7 +217,7 @@ Rodney 2026-10-22: release checks in ~2-2.5 h, not 6.7 h. §4 brought back 3.8 h
 
 `ts3fixes-v014` now maps to `route-nopath-crowd-loop` (30+ failing plans per firing: route failure backoff, watchdog route-fail path). Features with no runtime switch get an `on`-only loop; release-check derives their part c loop the same way and adds the bundle switches as an arm step in part d.
 
-**Not built:** bouncerskip. The bouncer loop runs only on a velvet-rope venue lot open at night; the agent finds lots by name only and no BP club name is in the repo. A lookup of lots holding an `IVelvetRopes`, then `test_env {hour: 22}` and `sim_visit_lot`, would make one. Its `rare` list is empty, so no old job comes back for it. lotremoveguard (unchanged since v0.1.4) keeps `@lifecycle`: the agent has no forced lot-removal path.
+**Built 2026-11-15 (not run):** bouncerskip, repro `bp-bouncerskip-loop` (agent `velvet_bouncer`: night clock, the velvet rope found by object, the bouncer put at the rope in WatchDoor; ABBA, counted by `routesrc_bouncer_at_slot`), queue `l10-repros-1115.json`. Was: The bouncer loop runs only on a velvet-rope venue lot open at night; the agent finds lots by name only and no BP club name is in the repo. A lookup of lots holding an `IVelvetRopes`, then `test_env {hour: 22}` and `sim_visit_lot`, would make one. Its `rare` list is empty, so no old job comes back for it. lotremoveguard (unchanged since v0.1.4) keeps `@lifecycle`: the agent has no forced lot-removal path.
 
 **Load half of the save matrix:** not in `save-write-loop`. A `load_save {reload: true}` inside a profile window is untested (the profiler and the mailbox across a world reload); every job load reads through [Decompress], and part b runs the matrix reload case.
 

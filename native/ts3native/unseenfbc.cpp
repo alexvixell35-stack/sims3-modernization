@@ -41,7 +41,7 @@
 // C3 / C4 Sim that got a fake answer < 1.5 s ago gets a try too (ufcRecover), so the sim never waits SiteWaitMs per agent.
 
 enum { UFC_C1, UFC_C2, UFC_C3, UFC_C4 };
-static const DWORD kUfcKey[4] = {0x0085FE10, 0x00846D21, 0x0083156D, 0x00631F40};  // probe P0 keys of the waits they replace
+static const DWORD kUfcKey[4] = {TS3A(0x0085FE10), TS3A(0x00846D21), TS3A(0x0083156D), TS3A(0x00631F40)};  // probe P0 keys of the waits they replace
 
 // ---- the unseen-Sim list (sim thread only: GetOptionHook) ----
 enum { UFC_MAX = 256 };
@@ -199,8 +199,8 @@ static bool UfcBusy(DWORD tid) {
 }
 
 // ---- the timed take ----
-static LockAcquireFn g_ufcAcq = (LockAcquireFn)(uintptr_t)0x004E16F0;  // through the address: LockAcquireHook (pump, keys)
-static LockReleaseFn g_ufcRel = (LockReleaseFn)(uintptr_t)0x004E17B0;
+static LockAcquireFn g_ufcAcq = (LockAcquireFn)(uintptr_t)TS3A(0x004E16F0);  // through the address: LockAcquireHook (pump, keys)
+static LockReleaseFn g_ufcRel = (LockReleaseFn)(uintptr_t)TS3A(0x004E17B0);
 static DWORD g_ufcSpentH, g_ufcSpentAt;  // the busy job (route handle) that already cost one wait; sim thread only
 static struct { DWORD lo, hi, at, c4At; LONG c4n; } g_ufcRecent[16];  // C3 / C4: Sims answered with a fake (recovery window)
 static const DWORD kUfcRecentMs = 1500;
@@ -295,7 +295,7 @@ static int UfLockGate(void* world) {
     if (ms > 0 && (dl == 0 || dl == INFINITE)) dl = 1;  // GetTickCount wrap: never "try" or "infinite" by accident
     InterlockedIncrement(&k.ufLockWaits);
     const DWORD key0 = t_waitKey;
-    t_waitKey = 0x0082C6E0;  // the wait keeps the planner's acquire as its key
+    t_waitKey = TS3A(0x0082C6E0);  // the wait keeps the planner's acquire as its key
     const LONG r = g_ufcAcq(lock, NULL, &dl);
     t_waitKey = key0;
     if (r > 0) return 1;
@@ -446,7 +446,7 @@ static void __cdecl UfcListHook(void* part, void* path, void* vec, DWORD a3, DWO
 
 // ---- C2: RouteFollow_A at 0x847697 ----
 typedef u64(__cdecl* UfcAvAFn)(u8* path, u8* agent, const float* goal, const void* ign, DWORD n);
-static const DWORD UFC_AV_SITE = 0x00847697, UFC_AV_A = 0x00846B70;
+static const DWORD UFC_AV_SITE = TS3A(0x00847697), UFC_AV_A = TS3A(0x00846B70);
 static UfcAvAFn g_ufcAvA = (UfcAvAFn)(uintptr_t)UFC_AV_A;  // through the address: [AvoidRO]'s A-entry detour if installed
 static u64 UfcAvHeld(u8* path, u8* agent, const float* goal, const void* ign, DWORD n, void* lock) {
     __try { return g_ufcAvA(path, agent, goal, ign, n); } __finally { g_ufcRel(lock, NULL); }

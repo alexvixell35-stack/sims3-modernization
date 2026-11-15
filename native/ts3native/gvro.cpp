@@ -21,7 +21,7 @@
 // game's 0x82EDB0. Shadow (no job): the game's call, then the clone, compared (al and footprint count).
 // Counters v118 (+0x47DC): gvMode (+0x47E0, --ab goalvalidro), gvShadow (+0x47E4, --ab goalvalidroshadow).
 
-static const DWORD GV_SITE = 0x0075A647, GV_TARGET = 0x0082EDB0;
+static const DWORD GV_SITE = TS3A(0x0075A647), GV_TARGET = TS3A(0x0082EDB0);
 typedef DWORD(__fastcall* GvFn)(u8* world, void* edx, const float* pt, float r, DWORD* vec, DWORD mode, DWORD opt);  // ret 0x14
 static GvFn g_gvOrig = (GvFn)(uintptr_t)GV_TARGET;
 typedef int (*GvQueryFn)(SrCtx* c, const u8* p, DWORD lo, DWORD hi, const SrPt& pt, float r, const u8* rec);

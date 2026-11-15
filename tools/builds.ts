@@ -29,7 +29,9 @@ export type FixesBuild = { name: string; kind: 'ts3fixes'; sha256: string; tunin
   tuning: Record<string, boolean | number | string> };
 // IniBuild: a shipped ts3native.ini (sha only; release pairs name it, the queue build check does not read it)
 export type IniBuild = { name: string; kind: 'ini'; sha256: string; created: string; note?: string };
-export type Build = AsiBuild | FixesBuild | IniBuild;
+// AgentBuild: a ts3agent.package test build (sha only; chains install it to build/ and check it by sha)
+export type AgentBuild = { name: string; kind: 'ts3agent'; sha256: string; commit?: string; created: string; note?: string };
+export type Build = AsiBuild | FixesBuild | IniBuild | AgentBuild;
 
 export const sha256 = (b: Buffer | string) => createHash('sha256').update(b).digest('hex');
 export function loadDb(path = DB_PATH): Build[] { return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')).builds : []; }
@@ -190,7 +192,7 @@ if (process.argv[1]?.endsWith('builds.ts')) {
     const want = db.find(b => b.name === opt('expect'));
     if (!want) { console.error(`check: no ${opt('expect')} in the DB`); process.exit(2); }
     const buf = readFileSync(file);
-    const why = want.kind === 'asi'
+    const why = want.kind !== 'ts3fixes'  // asi, ini, ts3agent: the bytes
       ? (sha256(buf) !== want.sha256 ? `sha256 ${sha256(buf).slice(0, 12)} is not ${want.name} (${want.sha256.slice(0, 12)})` : '')
       : fixesCheck(db, buf, { name: want.name }).fails.join('; ');
     console.log(why ? `MISMATCH: ${file}: ${why}` : `OK: ${file} is ${want.name}`);

@@ -11,7 +11,7 @@ namespace Ts3Fixes
         public static object SandwichAlarmCheck(string what)
         {
             int[] c = PatchCounters();
-            string counters = "sandwichalarm: stale handles removed 998=" + c[998] + ", seen with switch off 999=" + c[999] + ", errors 1000=" + c[1000] + ", saved duplicates removed at load 1001=" + c[1001]
+            string counters = "sandwichalarm: stale handles removed 1110=" + c[1110] + ", seen with switch off 1111=" + c[1111] + ", errors 1112=" + c[1112] + ", saved duplicates removed at load 1113=" + c[1113]
                 + "; " + GlMembers(sSaMissing);
             if (what == "result") return counters;
             if (what != "run") return "sandwichalarm <run|result>";

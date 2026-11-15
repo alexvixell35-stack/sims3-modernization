@@ -9,8 +9,8 @@
 // jump to EA's own "no" tail 0xD70FEB (pop edi; xor al,al; pop esi; ret), which vanilla reaches for every param_count != 1 anyway,
 // so only the out-of-bounds read goes. 1: the same three instructions, back at 0xD70FBB (add esp,4).
 // Log=1: "mono sig guard:" lines for param_count 0 only (0.36.233), first 20 a session then every 1000th; counters v184 msg* every time.
-static const DWORD MSG_SITE = 0x00D70FB2, MSG_CONT = 0x00D70FBB, MSG_FAIL = 0x00D70FEB, MSG_GETTYPE = 0x00F4AC60;
-static const DWORD MSG_RET = 0x00D75FD8;  // return address into ScriptHost_InvokeDelegate 0xD75FA0 (its only call)
+static const DWORD MSG_SITE = TS3A(0x00D70FB2), MSG_CONT = TS3A(0x00D70FBB), MSG_FAIL = TS3A(0x00D70FEB), MSG_GETTYPE = TS3A(0x00F4AC60);
+static const DWORD MSG_RET = TS3A(0x00D75FD8);  // return address into ScriptHost_InvokeDelegate 0xD75FA0 (its only call)
 // mov edi,[esi+10h]; push edi; call 0xF4AC60 (written over) | add esp,4; cmp word [esi+4],1; jne 0xD70FEB (checked, kept)
 static const u8 kMsgSite[19] = {0x8B, 0x7E, 0x10, 0x57, 0xE8, 0xA5, 0x9C, 0x1D, 0x00, 0x83, 0xC4, 0x04, 0x66, 0x83, 0x7E, 0x04, 0x01, 0x75, 0x26};
 static DWORD g_msgCont = MSG_CONT, g_msgFail = MSG_FAIL, g_msgGetType = MSG_GETTYPE;  // stub targets (selftest swaps them)

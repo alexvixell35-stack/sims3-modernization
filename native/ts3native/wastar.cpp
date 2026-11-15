@@ -58,7 +58,7 @@
 // its `je` after 0xB793F0, same esp), which ends in the terrain height. One "ea fix: BridgeHeightNaN" line for each of the
 // first 8 hits. Not fixed: why the bridge's curve (0xB73F60 inside 0xB745A0) gives such values.
 
-static const DWORD WA_SITE = 0x00676627, WA_BACK = 0x0067662E, WA_SKIP = 0x0067673F;
+static const DWORD WA_SITE = TS3A(0x00676627), WA_BACK = TS3A(0x0067662E), WA_SKIP = TS3A(0x0067673F);
 static const u8 kWaSite[7] = {0x8B, 0x54, 0x24, 0x1C, 0x0F, 0xB7, 0xC8};  // mov edx,[esp+1Ch]; movzx ecx,ax
 static DWORD g_waBack = WA_BACK, g_waSkip = WA_SKIP;
 static volatile LONG g_waLogged;
@@ -138,8 +138,8 @@ static bool ApplyWorldAStarRefs(const wchar_t* ini) {
 }
 
 // --- [EaCrashFixes] PortalFlagRefs ---
-static const DWORD PF1_SITE = 0x0082A1CF, PF1_BACK = 0x0082A1DA, PF1_SKIP = 0x0082A204;  // writer 1, a lot portal's stored id
-static const DWORD PF2_SITE = 0x0082B6B1, PF2_BACK = 0x0082B6B7, PF2_SKIP = 0x0082B7D5;  // writer 2, a lot waypoint's neighbour
+static const DWORD PF1_SITE = TS3A(0x0082A1CF), PF1_BACK = TS3A(0x0082A1DA), PF1_SKIP = TS3A(0x0082A204);  // writer 1, a lot portal's stored id
+static const DWORD PF2_SITE = TS3A(0x0082B6B1), PF2_BACK = TS3A(0x0082B6B7), PF2_SKIP = TS3A(0x0082B7D5);  // writer 2, a lot waypoint's neighbour
 static const u8 kPf1Site[11] = {0x8B, 0x46, 0x5C, 0x8B, 0xD1, 0x81, 0xE2, 0xFF, 0x3F, 0x00, 0x00};  // mov eax,[esi+5Ch]; mov edx,ecx; and edx,3FFFh
 static const u8 kPf2Site[6] = {0x8B, 0x0C, 0x8A, 0x03, 0x4E, 0x60};  // mov ecx,[edx+ecx*4]; add ecx,[esi+60h]
 static DWORD g_pf1Back = PF1_BACK, g_pf1Skip = PF1_SKIP, g_pf2Back = PF2_BACK, g_pf2Skip = PF2_SKIP;
@@ -222,7 +222,7 @@ static bool PfPatch(u8* at, const u8* want, size_t n, void (*stub)()) {
 }
 
 // --- [EaCrashFixes] LotGridMiss ---
-static const DWORD LG_SITE = 0x0082B608, LG_CLEAR = 0x0082B7F4;
+static const DWORD LG_SITE = TS3A(0x0082B608), LG_CLEAR = TS3A(0x0082B7F4);
 static const u8 kLgSite[6] = {0x0F, 0x84, 0xF9, 0x01, 0x00, 0x00};   // je 0x82B807 (the exit without the clear)
 static const u8 kLgClear[6] = {0x8B, 0x4B, 0x4C, 0x8B, 0x53, 0x48};  // mov ecx,[ebx+4Ch]; mov edx,[ebx+48h] (the lot id)
 static DWORD g_lgClear = LG_CLEAR;
@@ -279,7 +279,7 @@ static bool ApplyPortalFlagRefs(const wchar_t* ini) {
 }
 
 // --- [EaCrashFixes] HeightsInfLoop ---
-static const DWORD HI_SITE = 0x0064CEBA, HI_BACK = 0x0064CEC0, HI_SKIP = 0x0064D275, HI_LOOP = 0x0064CF55;
+static const DWORD HI_SITE = TS3A(0x0064CEBA), HI_BACK = TS3A(0x0064CEC0), HI_SKIP = TS3A(0x0064D275), HI_LOOP = TS3A(0x0064CF55);
 static const u8 kHiSite[6] = {0x0F, 0x87, 0xB5, 0x03, 0x00, 0x00};  // ja 0x64D275
 static const u8 kHiLoop[11] = {0x0F, 0x28, 0xC2, 0x0F, 0x59, 0xC7, 0x0F, 0x28, 0xD0, 0xEB, 0xB0};  // s *= 0.5; jmp 0x64CF10
 static DWORD g_hiBack = HI_BACK, g_hiSkip = HI_SKIP;
@@ -346,6 +346,9 @@ static bool HiPatch(u8* at) {
 
 static bool ApplyHeightsInfLoop(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"EaCrashFixes", L"HeightsInfLoop", 0, ini)) return false;
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP ea fix HeightsInfLoop ([EaCrashFixes] HeightsInfLoop): no EA 1.69 address, docs/232 §8"); return false; }
+#endif
     if (!Matches((u8*)(uintptr_t)HI_LOOP, kHiLoop, sizeof(kHiLoop)) || !HiPatch((u8*)(uintptr_t)HI_SITE)) {
         Log("SKIP ea fix: HeightsInfLoop: bytes at 0x%08X / 0x%08X differ (another mod or a probe build owns them): not installed", HI_SITE, HI_LOOP);
         return false;
@@ -358,10 +361,10 @@ static bool ApplyHeightsInfLoop(const wchar_t* ini) {
 // Site i = the 7 bytes after `call 0xB745A0` (the bridge height, st0) in 0xC61200, World_GetHeightAt 0xC6A250 and
 // Terrain_GetHeight 0xC6A540. back = the next instruction; skip = the query's own path for "no bridge here", the target of its
 // je after 0xB793F0 (0xC61318, 0xC6A448, 0xC6A6E2), where esp is the same (0xB793F0 is ret 1Ch, 0xB745A0 ret 0Ch).
-static const DWORD BH_CALL = 0x00B745A0;
-static const DWORD BH_SITE[3] = {0x00C6133B, 0x00C6A46B, 0x00C6A709};
-static const DWORD BH_BACK[3] = {0x00C61342, 0x00C6A472, 0x00C6A710};
-static const DWORD BH_SKIP[3] = {0x00C6137B, 0x00C6A4B3, 0x00C6A772};
+static const DWORD BH_CALL = TS3A(0x00B745A0);
+static const DWORD BH_SITE[3] = {TS3A(0x00C6133B), TS3A(0x00C6A46B), TS3A(0x00C6A709)};
+static const DWORD BH_BACK[3] = {TS3A(0x00C61342), TS3A(0x00C6A472), TS3A(0x00C6A710)};
+static const DWORD BH_SKIP[3] = {TS3A(0x00C6137B), TS3A(0x00C6A4B3), TS3A(0x00C6A772)};
 static const u8 kBhSite[3][7] = {
     {0x8B, 0x4E, 0x54, 0xD9, 0x5C, 0x24, 0x14},  // mov ecx,[esi+54h]; fstp dword ptr [esp+14h]
     {0x8B, 0x4B, 0x54, 0xD9, 0x5C, 0x24, 0x14},  // mov ecx,[ebx+54h]; fstp dword ptr [esp+14h]
@@ -469,6 +472,9 @@ static bool BhPatch(u8* at, int i) {
 
 static bool ApplyBridgeHeightNaN(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"EaCrashFixes", L"BridgeHeightNaN", 0, ini)) return false;
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP ea fix BridgeHeightNaN ([EaCrashFixes] BridgeHeightNaN): no EA 1.69 address, docs/232 §8"); return false; }
+#endif
     memcpy(g_bhBack, BH_BACK, sizeof(g_bhBack)), memcpy(g_bhSkip, BH_SKIP, sizeof(g_bhSkip));
     int n = 0;
     for (int i = 0; i < 3; i++) {  // each query is patched on its own

@@ -47,7 +47,9 @@ So every section is its own `VirtualAlloc` allocation of exactly its size (the i
 - Free blocks leave the list in `GC_get_first_part` (`0xE4921E`) and `GC_allochblk_nth` (`0xE495CA`); `GC_allochblk 0xE49850` is called from `0xE4BAC0`, `0xE4BAF0` (large objects) and `0xE4E7D5` (`GC_new_hblk`). Those callers write into the block at once (free-list build, clears) [inferred from 6.x source shape, not disassembled per site].
 - Incremental mode: EA's `GC_read_dirty 0xE4EFB0` calls `GetWriteWatch` over every `GC_heap_sects` entry.
 
-### 3.4 Decommit design (not built)
+### 3.4 Decommit design (not built; DROPPED, Rodney 2026-11-15)
+
+**DROPPED (Rodney 2026-11-15, mono lane gc D9):** RAM only. Decommit returns commit charge and private bytes, never address space (the reserved range stays), so it does nothing for Error 12; not built, no switch. Kept below as the record of the design.
 
 1. After a full collection on the sim thread (allocation lock held; `GC_gcollect 0xE4A0B0` return or the `GC_try_to_collect 0xE4A050` path when it completed a cycle), walk the 61 free lists and `VirtualFree(MEM_DECOMMIT)` every free block of >= N pages that has not been decommitted yet; keep a side bitmap per page (no free header bit exists).
 2. Detour the two take sites (`0xE4921E`, `0xE495CA` callers of `GC_remove_from_fl`) or `GC_allochblk_nth` entry: `VirtualAlloc(MEM_COMMIT)` the whole block before it is handed out (a commit on committed pages is a no-op). Coalescing in `GC_freehblk` needs nothing: a mixed block is recommitted whole when taken.

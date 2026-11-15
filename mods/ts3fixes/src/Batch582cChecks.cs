@@ -8,7 +8,7 @@ namespace Ts3Fixes
         // RoleNullGuardCheck run: a target with no role gets "no" before EA's throwing test. Control: a target with a role -> EA's code.
         public static object RoleNullGuardCheck(string what)
         {
-            string counters = B582Counters("rolenullguard", 1062, new[] { "answered no role", "seen with switch off", "errors" }, sRnMissing);
+            string counters = B582Counters("rolenullguard", 1174, new[] { "answered no role", "seen with switch off", "errors" }, sRnMissing);
             if (what == "result") return counters;
             if (what != "run") return "rolenullguard <run|result>";
             bool on = ShortcutOn("rolenullguard");
@@ -19,7 +19,7 @@ namespace Ts3Fixes
         // HomeworkSkillBonusCheck run: level 5 of 10 adds k/2. Controls: level 10 adds nothing (EA right there), level 0 nothing.
         public static object HomeworkSkillBonusCheck(string what)
         {
-            string counters = B582Counters("homeworkskillbonus", 1065, new[] { "rates raised", "seen with switch off", "errors" }, sHwMissing);
+            string counters = B582Counters("homeworkskillbonus", 1177, new[] { "rates raised", "seen with switch off", "errors" }, sHwMissing);
             if (what == "result") return counters;
             if (what != "run") return "homeworkskillbonus <run|result>";
             bool on = ShortcutOn("homeworkskillbonus");
@@ -31,7 +31,7 @@ namespace Ts3Fixes
         // HorseRanchChallengeCheck run: no horse -> hidden. Controls: a horse -> active; EA's other answers untouched.
         public static object HorseRanchChallengeCheck(string what)
         {
-            string counters = B582Counters("horseranchchallenge", 1068, new[] { "answers hidden", "seen with switch off", "errors" }, sHrMissing);
+            string counters = B582Counters("horseranchchallenge", 1180, new[] { "answers hidden", "seen with switch off", "errors" }, sHrMissing);
             if (what == "result") return counters;
             if (what != "run") return "horseranchchallenge <run|result>";
             bool on = ShortcutOn("horseranchchallenge");
@@ -43,7 +43,7 @@ namespace Ts3Fixes
         // DigSiteEmptyPickCheck run: an empty pick keeps the site's treasure. Control: a pick with treasure spends one.
         public static object DigSiteEmptyPickCheck(string what)
         {
-            string counters = B582Counters("digsiteemptypick", 1071, new[] { "empty digs kept the treasure", "seen with switch off", "errors" }, sDsMissing);
+            string counters = B582Counters("digsiteemptypick", 1183, new[] { "empty digs kept the treasure", "seen with switch off", "errors" }, sDsMissing);
             if (what == "result") return counters;
             if (what != "run") return "digsiteemptypick <run|result>";
             bool on = ShortcutOn("digsiteemptypick");
@@ -55,7 +55,7 @@ namespace Ts3Fixes
         // Undefined, EA's other clause true (EA already branches), target world set (EA already right): untouched.
         public static object OppChainWorldCheck(string what)
         {
-            string counters = B582Counters("oppchainworld", 1074, new[] { "world-change branch taken", "seen with switch off", "errors" }, sOcMissing);
+            string counters = B582Counters("oppchainworld", 1186, new[] { "world-change branch taken", "seen with switch off", "errors" }, sOcMissing);
             if (what == "result") return counters;
             if (what != "run") return "oppchainworld <run|result>";
             bool on = ShortcutOn("oppchainworld");
@@ -68,7 +68,7 @@ namespace Ts3Fixes
         // TeleportCommunityLotCheck run: no valid lot -> refused. Controls: lots exist -> EA's true; EA's false unchanged.
         public static object TeleportCommunityLotCheck(string what)
         {
-            string counters = B582Counters("teleportcommunitylot", 1077, new[] { "options hidden", "seen with switch off", "errors" }, sTcMissing);
+            string counters = B582Counters("teleportcommunitylot", 1189, new[] { "options hidden", "seen with switch off", "errors" }, sTcMissing);
             if (what == "result") return counters;
             if (what != "run") return "teleportcommunitylot <run|result>";
             bool on = ShortcutOn("teleportcommunitylot");
@@ -80,7 +80,7 @@ namespace Ts3Fixes
         //   Controls: the maximum subject is 1 either way; a zero maximum gives 0 (EA's guard).
         public static object PhotoSubjectStarsCheck(string what)
         {
-            string counters = B582Counters("photosubjectstars", 1080, new[] { "values corrected", "seen with switch off", "errors" }, sPsMissing);
+            string counters = B582Counters("photosubjectstars", 1192, new[] { "values corrected", "seen with switch off", "errors" }, sPsMissing);
             if (what == "result") return counters;
             if (what != "run") return "photosubjectstars <run|result>";
             bool on = ShortcutOn("photosubjectstars");

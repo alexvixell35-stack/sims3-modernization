@@ -5,68 +5,30 @@
 # Excluded below: measurement, diagnostics, test-only, perf experiments, regressions and fixes not proven yet.
 # One switch per line; `node tools/harness/proven-fixes.ts` checks the file and prints it for EARLYFIX / `ag patches`.
 # Built 2026-11-15 from the 207 default-off switches (Fixes.cs ShortcutOn names -> Instantiator k* = false).
-handsetreset
-flowersinuse
-uselistprune
-chestuselist
-resetinusefree
-putdowninuse
-autonomyinuseblock
-npcbusypartner
-# Built 2026-11-15 from the 215 default-off switches (+8 docs/575-577, soak verdicts BROKEN/FIXED) (Fixes.cs ShortcutOn names -> Instantiator k* = false).
-# +23 2026-11-15: phase-20261115-2043 smallfix.txt, off BROKEN / on FIXED with controls ok (docs/582 batches 3-5, docs/575-577 sandwichalarm).
-
-aptleave
 artsellnoartist
-autonomyfailblock
-bandjam
-birdtvnull
+autonomyinuseblock
 birthdayagers
-birthroute
-bonfirespice
-bowlinglane
-bribeguard
-bubblepipeguard
-buffstate
-burglaridle
-cleanflag
-combojob
-comboopp
-comboprotestlot
-convmerge
-cookclicklistener
-courselistener
+chestuselist
 curfewalarm
-daycarequit
 digsiteemptypick
-djcleanup
 doorlockowner
-eatoutsidecount
 efficientchip
 elevatorkitten
 elevatorresetriders
 elevatorridertimeout
 elevatorsavedlog
 fairyauratimer
-fieldtripadult
 fireactivejob
 firetrapcount
-geniebanish
-ghostspawnargs
+flowersinuse
 gigpullaudience
-gigwaitleave
-gohomewalk
 gotoworkstale
 gradvisitors
-grouptalkstale
+handsetreset
 hauntedumbrella
-hiddenroomnpc
-hiddenroomspawn
 holidaylights
-homeworkhelp
 horseranchchallenge
 horsetraitscore
-hottubwoohoofx
 invitecallreply
 jetpackflyingbuff
 lifeguardsurvey
@@ -75,34 +37,26 @@ lunacysocials
 maildogchaser
 moondiallistener
 moonriselistener
-moveinpartner
 movingflag
+npcbusypartner
 npcseasonalparty
 npcshowstuck
-observatorymsg
 oppchainworld
-oppdeadlisteners
-partymotive
 permazombiemoon
 phonecallrearm
 phonecallschedule
 phonefixup
 phonegive
 phoneloadreset
-photoboothfunds
 photosubjectstars
-picniccamera
 plumbotfacelistener
-portraitpose
 prankditchempty
-privateeyecase
 professorterm
 promcarpool
 promoteshift
 protestlastday
-putdownplace
-reaperflow
-repairtimecache
+putdowninuse
+resetinusefree
 resortweddingalarm
 resumetns
 returnhomealarms
@@ -110,41 +64,28 @@ rolenullguard
 royaltyorphan
 sandscoins
 sandwichalarm
-sculptpose
 seasickpaused
 sentiencename
 serviceassignexit
-serviceleave
 serviceshowalarm
-shelllighting
-shuffleboardbcast
 sneakoutlistener
 snowfightjoinwait
 snublistener
-socialfinish
-socialreceivefail
-spacesimpartner
 splitpartner
-spoonreset
 starlightreset
-statueline
 steadygigmiss
-storeworldevents
 teleportcommunitylot
 tombmusic
-trainboost
 trickortreatalarm
 unitravelflag
-upgradefailalarm
-vampirehuntglow
+uselistprune
 vehiclefxhelper
-viproomrefresh
-visitgreetalarm
-visittoolate
-weddingcancel
 wildherdmother
 wildhorsegender
 woohootywait
+
+# Built 2026-11-15 from the 215 default-off switches (+8 docs/575-577, soak verdicts BROKEN/FIXED) (Fixes.cs ShortcutOn names -> Instantiator k* = false).
+# +23 2026-11-15: phase-20261115-2043 smallfix.txt, off BROKEN / on FIXED with controls ok (docs/582 batches 3-5, docs/575-577 sandwichalarm).
 
 # ---- excluded (default off, not in the set), by reason
 # perf experiments / sim-thread offload and caching (not EA gameplay fixes):
@@ -156,18 +97,18 @@ woohootywait
 # measurement / diagnostics / test aids:
 #   autunseencmp boatgetoutdiag bookhanddiag deadsimcount routesrc wildflowerprobe
 # test-only, registry says test (vehicle leak tests, age-up swap, dead-Sim hollowing, joyride costume):
-#   ageupswap deadsimhollow joyridecostume vehfrankentaxi vehgetinleak vehparkreserve vehprotestcar vehseatdestroy
+#   ageupswap deadsimhollow vehfrankentaxi vehgetinleak vehparkreserve vehprotestcar vehseatdestroy
 # leak / save-data fixes, opt-in until measured (changes save data or not proven in game):
 #   attractionalarm casuihandlers deadrefguards deadrefsweep familyinvghost firepitchair preferredservice relremovesafe
 #   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim spouseunlink
 # gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
-#   awardkeep bouncerskip boatgetoutguard bsrefund convturn eanullguards eventcrowdring eventrouteretry hsgradkeep indoorcap
+#   awardkeep bouncerskip boatgetoutguard bsrefund convturn eanullguards indoorcap
 #   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
-#   vacexitreturn vacexport vacimportfix vaclistenernull vacreturnskip vacstoreguard vacteendelete weddingarchkeep
+#   vacexitreturn vacexport vacimportfix vaclistenernull vacreturnskip vacstoreguard vacteendelete
 # combo pieces: first in-game check only, not marked proven (docs/551):
-#   comboprotest combosituation combovenue
+#   combovenue
 # ceremonyspot: the bug is verified in game, the fix has no recorded off/on verdict:
-#   ceremonyspot
+#   
 # partyoutcome: the registry row proves partymotive only; partyoutcome stays idle beside the core mod (docs/554):
 #   partyoutcome
 # built 2026-11-15, in-game off/on test pending (docs/575-577); move to the set once proven:
@@ -177,3 +118,5 @@ woohootywait
 #   socialreplanlog barorderlog routecauselog
 # built 2026-11-15, in-game off/on test pending (DoorMemoX=3 A/B; ufplansplit is log only); move to the set once proven:
 #   doorgen ufplansplit
+# new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:
+#   permamemo buffremovenoop catnamecache autroommemo autslicetime invcache vaclistenerpad spawncapcount deadrefcooking deadrefconvo takeariskguard

@@ -30,26 +30,26 @@ static u8* ArAt(DWORD a) { return (u8*)(uintptr_t)a + g_arShift; }
 // dword != 0). fn 0 = witness only (no call).
 struct ArPw { DWORD done; u8 size, mask; DWORD fn; const char* what; };
 static const ArPw kArPw[] = {
-    {0x011D7518, 1, 1, 0x007935B0, "static empty string A 0x11D7508-0x11D7518 (+ CRT atexit 0x123437C/80)"},
-    {0x011DA058, 1, 1, 0x008A79B0, "static empty string B 0x11DA048-0x11DA058 (+ CRT atexit)"},
-    {0x011C7984, 4, 0, 0x004D9AD0, "default allocator 0x11C7984 + block 0x11DC168-0x11DC184 (0x931020)"},
-    {0x011E96C1, 1, 0xFF, 0x009B0530, "option byte 0x11E96C0/1"},
-    {0x011ECEED, 1, 0xFF, 0x00C88D80, "option byte 0x11ECEEC/D"},
+    {TS3A(0x011D7518), 1, 1, TS3A(0x007935B0), "static empty string A 0x11D7508-0x11D7518 (+ CRT atexit 0x123437C/80)"},
+    {TS3A(0x011DA058), 1, 1, TS3A(0x008A79B0), "static empty string B 0x11DA048-0x11DA058 (+ CRT atexit)"},
+    {TS3A(0x011C7984), 4, 0, TS3A(0x004D9AD0), "default allocator 0x11C7984 + block 0x11DC168-0x11DC184 (0x931020)"},
+    {TS3A(0x011E96C1), 1, 0xFF, TS3A(0x009B0530), "option byte 0x11E96C0/1"},
+    {TS3A(0x011ECEED), 1, 0xFF, TS3A(0x00C88D80), "option byte 0x11ECEEC/D"},
     // 0x4F98E0's first call also empties the hash map 0x114CA10 (frees its nodes): never called by us, witness only
-    {0x011CC928, 1, 0xFF, 0, "EAText handler fill 0x114CA08/0C, 0x11CB928 (0x4F98E0, witness only)"},
+    {TS3A(0x011CC928), 1, 0xFF, 0, "EAText handler fill 0x114CA08/0C, 0x11CB928 (0x4F98E0, witness only)"},
 };
 static const int AR_NPW = sizeof(kArPw) / sizeof(kArPw[0]);
 // host +0x50 converter 0xD7BD40: function-local class caches, guard dword 0x11EE588 bit i -> cache, ScriptHost_FindClass
 // (host, "Sims3.SimIFace", name) [verified bytes]; we repeat the game's own block: or the bit, then store the class
-static const DWORD AR_CVT_GUARD = 0x011EE588, AR_CVT_ALL = 0x7FFF;
+static const DWORD AR_CVT_GUARD = TS3A(0x011EE588), AR_CVT_ALL = 0x7FFF;
 static const struct { DWORD cache; const char* name; } kArCvt[15] = {
-    {0x011EE584, "Vector2"}, {0x011EE580, "Vector3"}, {0x011EE57C, "Matrix44"}, {0x011EE578, "Rect"},
-    {0x011EE574, "BoundingBox"}, {0x011EE570, "ResourceKey"}, {0x011EE56C, "RoutingSlotInfo"},
-    {0x011EE568, "ContainmentSlotInfo"}, {0x011EE564, "LotCorners"}, {0x011EE560, "LotDisplayLevelInfo"},
-    {0x011EE55C, "PondInfo"}, {0x011EE558, "RoutePlanResult"}, {0x011EE554, "RoomInfo"}, {0x011EE550, "Quaternion"},
-    {0x011EE54C, "ClipInfoNative"}};
+    {TS3A(0x011EE584), "Vector2"}, {TS3A(0x011EE580), "Vector3"}, {TS3A(0x011EE57C), "Matrix44"}, {TS3A(0x011EE578), "Rect"},
+    {TS3A(0x011EE574), "BoundingBox"}, {TS3A(0x011EE570), "ResourceKey"}, {TS3A(0x011EE56C), "RoutingSlotInfo"},
+    {TS3A(0x011EE568), "ContainmentSlotInfo"}, {TS3A(0x011EE564), "LotCorners"}, {TS3A(0x011EE560), "LotDisplayLevelInfo"},
+    {TS3A(0x011EE55C), "PondInfo"}, {TS3A(0x011EE558), "RoutePlanResult"}, {TS3A(0x011EE554), "RoomInfo"}, {TS3A(0x011EE550), "Quaternion"},
+    {TS3A(0x011EE54C), "ClipInfoNative"}};
 typedef void* (__fastcall* ArFindClassFn)(void* host, void* edx, const char* ns, const char* name);  // 0xD79CA0, ret 8
-static ArFindClassFn g_arFindClass = (ArFindClassFn)(uintptr_t)0x00D79CA0;
+static ArFindClassFn g_arFindClass = (ArFindClassFn)(uintptr_t)TS3A(0x00D79CA0);
 typedef DWORD(__cdecl* ArGetFn)();
 static void (*g_arCall)(DWORD fn) = NULL;  // selftest: instead of calling game code
 
@@ -78,7 +78,7 @@ static void ArPreWarm() {
         if (!ArCallGetter(kArPw[i].fn)) { Log("FAIL autshadow races R1: %s faulted, Races bit 0 off", kArPw[i].what); g_arOn &= ~1; break; }
         k.r1Calls++;
     }
-    void* host = *(void**)ArAt(0x011EE514);
+    void* host = *(void**)ArAt(TS3A(0x011EE514));
     for (int i = 0; i < 15 && (g_arOn & 1) && host; i++) {
         const DWORD bit = 1u << i;
         if (*(DWORD*)ArAt(AR_CVT_GUARD) & bit) continue;
@@ -101,21 +101,21 @@ static void ArPreWarm() {
 // R2b + R3a witness rows: address, bytes, may-change flag (R2a runtime classes, P3 counters), r2a class [ledger §467]
 struct ArWit { DWORD a; WORD len; u8 mayChange; const char* cls; };
 static const ArWit kArWit[] = {
-    {0x011D4BC8, 4, 0, "load"}, {0x011CB864, 4, 0, "load"}, {0x011ECBC4, 4, 0, "load-world"}, {0x011E9158, 4, 0, "load"},
-    {0x011ED034, 4, 0, "load-world"}, {0x011E9114, 4, 0, "load"}, {0x0114CA0C, 4, 1, "runtime-lazy"},
-    {0x011ECF08, 4, 0, "load"}, {0x011E8FA8, 4, 0, "load"}, {0x011AF670, 16, 0, "load (CRT constant vector)"},
-    {0x011D4068, 4, 0, "load-world"}, {0x011D8888, 4, 0, "load-world"}, {0x011E8FC4, 4, 0, "load"},
-    {0x011E90FC, 4, 0, "load"}, {0x0114CA08, 4, 1, "runtime-lazy"}, {0x011C78D8, 4, 0, "load"},
-    {0x011CB928, 0x1000, 1, "runtime-lazy (handler table)"}, {0x011CDD00, 4, 0, "load"}, {0x011CDD10, 4, 0, "load"},
-    {0x011CE2D0, 4, 0, "load"}, {0x011CF490, 4, 0, "load-world"}, {0x011D3E28, 4, 0, "unknown"},
-    {0x011D4BBC, 4, 0, "load"}, {0x011D4BC0, 4, 0, "load"}, {0x011D6A78, 0x4C * 36, 1, "runtime (callback table)"},
-    {0x011D9128, 4, 0, "load-world"}, {0x011D9848, 4, 0, "load-world"}, {0x011DC350, 4, 0, "load-world"},
-    {0x011E8FC0, 4, 0, "load"}, {0x011E90F8, 4, 0, "load"}, {0x011E9290, 4, 0, "load"}, {0x011E92A8, 4, 0, "load"},
-    {0x011E94F8, 4, 0, "load"}, {0x011EB490, 4, 0, "load"}, {0x011EBAE0, 4, 0, "load"},
-    {0x011ED780, 4, 1, "runtime (user tool manager)"}, {0x011EE140, 16, 1, "runtime (per-tick scratch)"},
+    {TS3A(0x011D4BC8), 4, 0, "load"}, {TS3A(0x011CB864), 4, 0, "load"}, {TS3A(0x011ECBC4), 4, 0, "load-world"}, {TS3A(0x011E9158), 4, 0, "load"},
+    {TS3A(0x011ED034), 4, 0, "load-world"}, {TS3A(0x011E9114), 4, 0, "load"}, {TS3A(0x0114CA0C), 4, 1, "runtime-lazy"},
+    {TS3A(0x011ECF08), 4, 0, "load"}, {TS3A(0x011E8FA8), 4, 0, "load"}, {TS3A(0x011AF670), 16, 0, "load (CRT constant vector)"},
+    {TS3A(0x011D4068), 4, 0, "load-world"}, {TS3A(0x011D8888), 4, 0, "load-world"}, {TS3A(0x011E8FC4), 4, 0, "load"},
+    {TS3A(0x011E90FC), 4, 0, "load"}, {TS3A(0x0114CA08), 4, 1, "runtime-lazy"}, {TS3A(0x011C78D8), 4, 0, "load"},
+    {TS3A(0x011CB928), 0x1000, 1, "runtime-lazy (handler table)"}, {TS3A(0x011CDD00), 4, 0, "load"}, {TS3A(0x011CDD10), 4, 0, "load"},
+    {TS3A(0x011CE2D0), 4, 0, "load"}, {TS3A(0x011CF490), 4, 0, "load-world"}, {TS3A(0x011D3E28), 4, 0, "unknown"},
+    {TS3A(0x011D4BBC), 4, 0, "load"}, {TS3A(0x011D4BC0), 4, 0, "load"}, {TS3A(0x011D6A78), 0x4C * 36, 1, "runtime (callback table)"},
+    {TS3A(0x011D9128), 4, 0, "load-world"}, {TS3A(0x011D9848), 4, 0, "load-world"}, {TS3A(0x011DC350), 4, 0, "load-world"},
+    {TS3A(0x011E8FC0), 4, 0, "load"}, {TS3A(0x011E90F8), 4, 0, "load"}, {TS3A(0x011E9290), 4, 0, "load"}, {TS3A(0x011E92A8), 4, 0, "load"},
+    {TS3A(0x011E94F8), 4, 0, "load"}, {TS3A(0x011EB490), 4, 0, "load"}, {TS3A(0x011EBAE0), 4, 0, "load"},
+    {TS3A(0x011ED780), 4, 1, "runtime (user tool manager)"}, {TS3A(0x011EE140), 16, 1, "runtime (per-tick scratch)"},
     // R3a: Boehm and script-host init words (P3, docs/120)
-    {0x011EE528, 4, 0, "R3 GC init flag"}, {0x011EE514, 4, 0, "R3 script host"}, {0x011EE520, 4, 1, "R3 heap-size counter"},
-    {0x011DC18C, 4, 0, "R3 tracking mode"}, {0x0114C908, 4, 0, "R3 thread record TLS index"}, {0x011CC964, 4, 0, "R3"},
+    {TS3A(0x011EE528), 4, 0, "R3 GC init flag"}, {TS3A(0x011EE514), 4, 0, "R3 script host"}, {TS3A(0x011EE520), 4, 1, "R3 heap-size counter"},
+    {TS3A(0x011DC18C), 4, 0, "R3 tracking mode"}, {TS3A(0x0114C908), 4, 0, "R3 thread record TLS index"}, {TS3A(0x011CC964), 4, 0, "R3"},
 };
 static const int AR_NWIT = sizeof(kArWit) / sizeof(kArWit[0]);
 static DWORD g_arWitHash[AR_NWIT];
@@ -217,6 +217,11 @@ static void ArCut() {
 
 static void ApplyAutRaces(const wchar_t* ini) {
     g_arOn = GetPrivateProfileIntW(L"AutShadow", L"Races", 0, ini) & 7;
+#ifdef TS3A_TABLE
+    // bits 0 (R1b pre-warm, kArPw) and 1 (R2b/R3a witness, kArWit) read globals with no EA row; bit 2 (R2c gate) is mapped
+    if (g_arOn & 3) Log("SKIP autshadow races bits 0-1 ([AutShadow] Races %d, R1b / R2b / R3a): no EA 1.69 address, docs/232 §8; bit 2 stays", g_arOn);
+    g_arOn &= 4;
+#endif
     g_arDrainMs = max(1, min(5000, (int)GetPrivateProfileIntW(L"AutShadow", L"DrainMs", 250, ini)));
     ts3native_autshadow.r1On = g_arOn, ts3native_autshadow.r2Rows = (g_arOn & 2) ? AR_NWIT : 0;
     ts3native_counters.r2cOn = (g_arOn & 4) ? 1 : 0, ts3native_counters.r2cDrainMs = g_arDrainMs;

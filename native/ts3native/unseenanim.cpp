@@ -25,7 +25,7 @@
 // Non-Sim actors (Objects / ObjStats, counters v150 ao*): see the Objects block below AaHoldWhy.
 typedef void(__fastcall* AaPoseFn)(void* actor, void* edx, float dt);
 typedef void(__fastcall* AaPassFn)(void* list, void* edx, float dt);
-static const DWORD AA_PASS_CALL = 0x00D81C73, AA_PASS = 0x00571B90, AA_POSE_CALL = 0x00571C3C, AA_POSE = 0x00940430;
+static const DWORD AA_PASS_CALL = TS3A(0x00D81C73), AA_PASS = TS3A(0x00571B90), AA_POSE_CALL = TS3A(0x00571C3C), AA_POSE = TS3A(0x00940430);
 static AaPoseFn g_aaPoseOrig = (AaPoseFn)(uintptr_t)AA_POSE;
 static AaPassFn g_aaPassOrig = (AaPassFn)(uintptr_t)AA_PASS;
 enum { AA_VMAX = 64, AA_SLOTS = 4096 };  // 4096: non-Sim actors share the table since Objects (~480 per pass on BP)
@@ -127,7 +127,7 @@ static int AaHoldWhy(bool parented, const float* pos, const AaSlot* s, bool mine
 // only with a Sim at them (I-419-3). A failed or capped walk holds every object.
 // Objects are classed by UnObjClass (table row or the 1 m rule), then once more with an ObjRadiusM sphere on screen (big
 // models whose origin is off screen stay exact).
-static const DWORD* g_aaBitSacs = (const DWORD*)(uintptr_t)0x011E90F0;
+static const DWORD* g_aaBitSacs = (const DWORD*)(uintptr_t)TS3A(0x011E90F0);
 enum { AO_KINDS = 5, AO_BKT = 8, AO_VT = 64, AO_AMAX = 1024, AO_CELLS = 256, AO_WALK = 4096 };
 enum { AOK_NOCLASS, AOK_AGENT, AOK_PARENT, AOK_SACS, AOK_PLAIN };
 enum { AOH_PARENT, AOH_SACS, AOH_AGENT, AOH_NEARVIS, AOH_VIEWER, AOH_SLOT, AOH_CAP, AOH_NOCLASS, AOH_N, AOH_SEEN = AOH_N };
@@ -445,7 +445,7 @@ static void AaDrainFaultDump(const CONTEXT* c) {
     static volatile LONG once;
     DWORD ret = 0, arg = 0;
     __try { ret = *(const DWORD*)(uintptr_t)c->Esp, arg = *(const DWORD*)(uintptr_t)(c->Esp + 4); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
-    if (ret != 0x0059386B && ret != 0x00593880) return;  // 0x593880: the same destroy for a chunk's last message
+    if (ret != TS3A(0x0059386B) && ret != TS3A(0x00593880)) return;  // 0x593880: the same destroy for a chunk's last message
     if (InterlockedIncrement(&once) > 2) return;
     const DWORD msg = arg - 0x10;
     Log("  drain fault: render message destroy in FrameDb_DrainEvents (ret 0x%08lX), message 0x%08lX, manager (ecx) 0x%08lX, "
@@ -457,4 +457,70 @@ static void AaDrainFaultDump(const CONTEXT* c) {
         Log("  aa event -%lu: %s %s actor %08lX owner %08lX%08lX owed %ld us pass %lu", i, e.act < AAE_N ? kAaEv[e.act] : "?",
             e.obj ? "obj" : "sim", (DWORD)(uintptr_t)e.actor, e.hi, e.lo, e.owedUs, e.pass);
     }
+}
+
+// [AnimPhase] (docs/22 §6, docs/23 Next big wins #8 gate G10; counters v201 an*): per-phase timers inside rig pose 0x940430,
+// the gate for the phase split (docs/22 §7). Measurement only: four `call rel32` sites inside 0x940430 go through a timing
+// wrapper that calls EA's callee with the same registers and arguments. Both animation passes reach these sites (0x571B90
+// directly, 0x571AD0 through 0x942C50). Sites [verified disassembly, Steam 1.67, this note]:
+//   0x940569 -> 0x583D00 TrackManager Advance, thiscall(tm; float dt, p, p), `ret 0xC`, eax used (`mov esi,eax`)
+//   0x94059E -> 0x947590 routing notify, thiscall(c; int, int), `ret 8`, eax unused
+//   0x940742 -> 0x5833C0 Evaluate (blend into the pose buffer), thiscall(tm; buf, owner), `ret 8`, eax pushed next
+//   0x94118B -> 0x959670 transform publish, thiscall(c; p), `ret 4`, eax unused
+// None of the callees relies on the caller's 16-byte stack alignment: 0x959670 aligns its own frame (`and esp,-16`),
+// 0x583D00 / 0x5833C0 only `sub esp` [verified prologues]. Advance count vs Evaluate count = the share reaching step 6.
+// shortcut: clip events (0x568710) are not counted; Frida (docs/22 §6) if the split needs them.
+typedef DWORD(__fastcall* AnFn3)(void* self, void* edx, DWORD a, DWORD b, DWORD c);
+typedef DWORD(__fastcall* AnFn2)(void* self, void* edx, DWORD a, DWORD b);
+typedef DWORD(__fastcall* AnFn1)(void* self, void* edx, DWORD a);
+static AnFn3 g_anAdv = (AnFn3)(uintptr_t)TS3A(0x00583D00);
+static AnFn2 g_anNot = (AnFn2)(uintptr_t)TS3A(0x00947590), g_anEval = (AnFn2)(uintptr_t)TS3A(0x005833C0);
+static AnFn1 g_anPub = (AnFn1)(uintptr_t)TS3A(0x00959670);
+static void AnAdd(LONG* c, LARGE_INTEGER t0) {  // c: n, us, maxUs
+    const LONG us = UsSince(t0);
+    InterlockedIncrement(&c[0]);
+    InterlockedExchangeAdd(&c[1], us);
+    Max(&c[2], us);
+}
+static DWORD __fastcall AnAdvHook(void* self, void* edx, DWORD dt, DWORD a, DWORD b) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const DWORD r = g_anAdv(self, edx, dt, a, b);
+    AnAdd(&ts3native_counters.anAdvN, t0);
+    return r;
+}
+static DWORD __fastcall AnNotHook(void* self, void* edx, DWORD a, DWORD b) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const DWORD r = g_anNot(self, edx, a, b);
+    AnAdd(&ts3native_counters.anNotN, t0);
+    return r;
+}
+static DWORD __fastcall AnEvalHook(void* self, void* edx, DWORD a, DWORD b) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const DWORD r = g_anEval(self, edx, a, b);
+    AnAdd(&ts3native_counters.anEvalN, t0);
+    return r;
+}
+static DWORD __fastcall AnPubHook(void* self, void* edx, DWORD a) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const DWORD r = g_anPub(self, edx, a);
+    AnAdd(&ts3native_counters.anPubN, t0);
+    return r;
+}
+
+// [AnimPhase] Enabled=1 (default 0, a test-run timer): all four sites or none
+static bool ApplyAnimPhase(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"AnimPhase", L"Enabled", 0, ini)) return false;
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP anim phase ([AnimPhase]): no EA 1.69 address, docs/232 §8"); return false; }
+#endif
+    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+    const CallSite sites[] = {{TS3A(0x00940569), TS3A(0x00583D00), (void*)AnAdvHook}, {TS3A(0x0094059E), TS3A(0x00947590), (void*)AnNotHook},
+                              {TS3A(0x00940742), TS3A(0x005833C0), (void*)AnEvalHook}, {TS3A(0x0094118B), TS3A(0x00959670), (void*)AnPubHook}};
+    if (!PatchCalls("anim phase timers in rig pose 0x940430 (advance, notify, evaluate, publish)", sites, 4)) return false;
+    ts3native_counters.anReady = 1;
+    return true;
 }

@@ -37,51 +37,51 @@ static const int PV_FIRST_C = PV_GB_MSG;
 // no branch into the stolen bytes (capstone on the Steam 1.67 exe, 2026-10-18; steerro-test re-checks every row on the image).
 struct PvSite { DWORD at; u8 len; u8 pro[8]; DWORD target; const char* name; };
 static const PvSite kPv[PV_N] = {
-    {0x00676260, 8, {0x83, 0xEC, 0x3C, 0x53, 0x8B, 0x5C, 0x24, 0x58}, 0, "WorldAStar_Search"},
-    {0x0063F6E0, 6, {0x81, 0xEC, 0xC0, 0x01, 0x00, 0x00}, 0, "LotPlan_Inner"},
-    {0x00755390, 5, {0x51, 0x8B, 0x44, 0x24, 0x08}, 0, "IC_Route_GetNumInterestPoints"},
-    {0x00C08C30, 6, {0x81, 0xEC, 0xD8, 0x00, 0x00, 0x00}, 0, "partition grid 0xC08C30"},
-    {0x00C094E0, 5, {0x83, 0xEC, 0x20, 0x53, 0x55}, 0, "partition grid 0xC094E0"},
-    {0x00C61FE0, 7, {0x83, 0xB9, 0xB4, 0x01, 0x00, 0x00, 0x00}, 0, "WorldManager_PostWaterGridDirty"},
-    {0x0066FB40, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}, 0, "blockedNodeMap 0x66FB40"},
-    {0x0066F6D0, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}, 0, "blockedNodeMap 0x66F6D0"},
-    {0x006733C0, 7, {0x83, 0xEC, 0x14, 0x8B, 0x44, 0x24, 0x30}, 0, "high-cost polygons 0x6733C0"},
-    {0x0062E680, 8, {0x83, 0xEC, 0x08, 0x53, 0x8B, 0x5C, 0x24, 0x14}, 0, "LotTable_Insert"},
-    {0x0063CB90, 8, {0x83, 0xEC, 0x5C, 0x53, 0x8B, 0x5C, 0x24, 0x64}, 0, "LotGraph_Build"},
-    {0x0063D2F0, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}, 0, "RoomGraph_FirstUse"},
-    {0x0082B590, 5, {0x83, 0xEC, 0x2C, 0x56, 0x57}, 0, "RoutingWorld_ApplyLotUpdate"},
-    {0x00666A40, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}, 0, "LotQuadTree_FlushDeferred"},
-    {0x0080E5B0, 5, {0x53, 0x8B, 0x5C, 0x24, 0x08}, 0, "Footprint_EnsureLevelPolygons"},
-    {0x00670510, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, "water grid mark 0x670510"},
-    {0x00670750, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, "WaterGrid_MarkB"},
-    {0x0082A190, 7, {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0, 0x56}, 0, "RoutingWorld_RestoreLotBlockedBits"},
-    {0x0082A098, 5, {}, 0x006734A0, "G build (message path)"},
-    {0x00834A82, 5, {}, 0x006734A0, "G build (BuildWorldRoutingData)"},
-    {0x008352F1, 5, {}, 0x0082A030, "WaterGrid_BuildFromWorld from 0x8352F1"},
-    {0x00835390, 5, {}, 0x0082A030, "WaterGrid_BuildFromWorld from 0x835390"},
-    {0x008358B5, 5, {}, 0x0082A030, "WaterGrid_BuildFromWorld from 0x8358B5"},
-    {0x00C6BE53, 5, {}, 0x008349C0, "BuildWorldRoutingData from 0xC6BE53"},
-    {0x00C6CD02, 5, {}, 0x008349C0, "BuildWorldRoutingData from 0xC6CD02"},
-    {0x00835A27, 5, {}, 0x008349C0, "BuildWorldRoutingData from 0x835A27"},
-    {0x0082C7AD, 5, {}, 0x0081B2A0, "RoutingJob_Execute"},
-    {0x0081BC65, 5, {}, 0x004FA840, "JobRng_Next (goal tie)"},
-    {0x00821B3D, 5, {}, 0x004E3F90, "interest point alloc"},
-    {0x0063257E, 5, {}, 0x006675B0, "H9 quadtree remove"},
-    {0x00632595, 5, {}, 0x00666C50, "H9 quadtree insert"},
-    {0x00764298, 5, {}, 0x007606E0, "Route_PlanCommon (Plan/Replan)"},
-    {0x007643FB, 5, {}, 0x007606E0, "Route_PlanCommon (point ICs)"},
-    {0x0063F65E, 5, {}, 0x0063EC40, "LotPortalSearch (goal step)"},
-    {0x00641026, 5, {}, 0x0063EC40, "LotPortalSearch (LotSearch_Entry)"},
-    {0x0063E708, 5, {}, 0x00634500, "PortalEdgeCost (lot A*)"},
-    {0x0064F55A, 5, {}, 0x0064F2C0, "Portal_LockState (IsLocked)"},
-    {0x0064F57A, 5, {}, 0x0064F2C0, "Portal_LockState (IsDiscouraged)"},
-    {0x0064F4D3, 5, {}, 0x00791C00, "World_FirePortalLockedQuery"},
-    {0x0075AC22, 5, {}, 0x00789DD0, "World_CanSeeObject (radial goal)"},
-    {0x00789EB5, 5, {}, 0x00AC0570, "Lot_SetDisplayLevel (CanSee 1)"},
-    {0x0078A218, 5, {}, 0x00AC0570, "Lot_SetDisplayLevel (CanSee 2)"},
-    {0x00AC0763, 5, {}, 0x007920A0, "World_FireLotLevelInfoChange (event 68)"},
+    {TS3A(0x00676260), 8, {0x83, 0xEC, 0x3C, 0x53, 0x8B, 0x5C, 0x24, 0x58}, 0, "WorldAStar_Search"},
+    {TS3A(0x0063F6E0), 6, {0x81, 0xEC, 0xC0, 0x01, 0x00, 0x00}, 0, "LotPlan_Inner"},
+    {TS3A(0x00755390), 5, {0x51, 0x8B, 0x44, 0x24, 0x08}, 0, "IC_Route_GetNumInterestPoints"},
+    {TS3A(0x00C08C30), 6, {0x81, 0xEC, 0xD8, 0x00, 0x00, 0x00}, 0, "partition grid 0xC08C30"},
+    {TS3A(0x00C094E0), 5, {0x83, 0xEC, 0x20, 0x53, 0x55}, 0, "partition grid 0xC094E0"},
+    {TS3A(0x00C61FE0), 7, {0x83, 0xB9, 0xB4, 0x01, 0x00, 0x00, 0x00}, 0, "WorldManager_PostWaterGridDirty"},
+    {TS3A(0x0066FB40), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}, 0, "blockedNodeMap 0x66FB40"},
+    {TS3A(0x0066F6D0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}, 0, "blockedNodeMap 0x66F6D0"},
+    {TS3A(0x006733C0), 7, {0x83, 0xEC, 0x14, 0x8B, 0x44, 0x24, 0x30}, 0, "high-cost polygons 0x6733C0"},
+    {TS3A(0x0062E680), 8, {0x83, 0xEC, 0x08, 0x53, 0x8B, 0x5C, 0x24, 0x14}, 0, "LotTable_Insert"},
+    {TS3A(0x0063CB90), 8, {0x83, 0xEC, 0x5C, 0x53, 0x8B, 0x5C, 0x24, 0x64}, 0, "LotGraph_Build"},
+    {TS3A(0x0063D2F0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}, 0, "RoomGraph_FirstUse"},
+    {TS3A(0x0082B590), 5, {0x83, 0xEC, 0x2C, 0x56, 0x57}, 0, "RoutingWorld_ApplyLotUpdate"},
+    {TS3A(0x00666A40), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}, 0, "LotQuadTree_FlushDeferred"},
+    {TS3A(0x0080E5B0), 5, {0x53, 0x8B, 0x5C, 0x24, 0x08}, 0, "Footprint_EnsureLevelPolygons"},
+    {TS3A(0x00670510), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, "water grid mark 0x670510"},
+    {TS3A(0x00670750), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 0, "WaterGrid_MarkB"},
+    {TS3A(0x0082A190), 7, {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0, 0x56}, 0, "RoutingWorld_RestoreLotBlockedBits"},
+    {TS3A(0x0082A098), 5, {}, TS3A(0x006734A0), "G build (message path)"},
+    {TS3A(0x00834A82), 5, {}, TS3A(0x006734A0), "G build (BuildWorldRoutingData)"},
+    {TS3A(0x008352F1), 5, {}, TS3A(0x0082A030), "WaterGrid_BuildFromWorld from 0x8352F1"},
+    {TS3A(0x00835390), 5, {}, TS3A(0x0082A030), "WaterGrid_BuildFromWorld from 0x835390"},
+    {TS3A(0x008358B5), 5, {}, TS3A(0x0082A030), "WaterGrid_BuildFromWorld from 0x8358B5"},
+    {TS3A(0x00C6BE53), 5, {}, TS3A(0x008349C0), "BuildWorldRoutingData from 0xC6BE53"},
+    {TS3A(0x00C6CD02), 5, {}, TS3A(0x008349C0), "BuildWorldRoutingData from 0xC6CD02"},
+    {TS3A(0x00835A27), 5, {}, TS3A(0x008349C0), "BuildWorldRoutingData from 0x835A27"},
+    {TS3A(0x0082C7AD), 5, {}, TS3A(0x0081B2A0), "RoutingJob_Execute"},
+    {TS3A(0x0081BC65), 5, {}, TS3A(0x004FA840), "JobRng_Next (goal tie)"},
+    {TS3A(0x00821B3D), 5, {}, TS3A(0x004E3F90), "interest point alloc"},
+    {TS3A(0x0063257E), 5, {}, TS3A(0x006675B0), "H9 quadtree remove"},
+    {TS3A(0x00632595), 5, {}, TS3A(0x00666C50), "H9 quadtree insert"},
+    {TS3A(0x00764298), 5, {}, TS3A(0x007606E0), "Route_PlanCommon (Plan/Replan)"},
+    {TS3A(0x007643FB), 5, {}, TS3A(0x007606E0), "Route_PlanCommon (point ICs)"},
+    {TS3A(0x0063F65E), 5, {}, TS3A(0x0063EC40), "LotPortalSearch (goal step)"},
+    {TS3A(0x00641026), 5, {}, TS3A(0x0063EC40), "LotPortalSearch (LotSearch_Entry)"},
+    {TS3A(0x0063E708), 5, {}, TS3A(0x00634500), "PortalEdgeCost (lot A*)"},
+    {TS3A(0x0064F55A), 5, {}, TS3A(0x0064F2C0), "Portal_LockState (IsLocked)"},
+    {TS3A(0x0064F57A), 5, {}, TS3A(0x0064F2C0), "Portal_LockState (IsDiscouraged)"},
+    {TS3A(0x0064F4D3), 5, {}, TS3A(0x00791C00), "World_FirePortalLockedQuery"},
+    {TS3A(0x0075AC22), 5, {}, TS3A(0x00789DD0), "World_CanSeeObject (radial goal)"},
+    {TS3A(0x00789EB5), 5, {}, TS3A(0x00AC0570), "Lot_SetDisplayLevel (CanSee 1)"},
+    {TS3A(0x0078A218), 5, {}, TS3A(0x00AC0570), "Lot_SetDisplayLevel (CanSee 2)"},
+    {TS3A(0x00AC0763), 5, {}, TS3A(0x007920A0), "World_FireLotLevelInfoChange (event 68)"},
 };
-static const DWORD PV_INROOM_RET = 0x00632559;  // return of the in-room Portal_IsLocked call 0x632554 (0x632460, H9 path)
+static const DWORD PV_INROOM_RET = TS3A(0x00632559);  // return of the in-room Portal_IsLocked call 0x632554 (0x632460, H9 path)
 
 static void* g_pvJmp[PV_N];         // trampoline (E) or original callee (C)
 static volatile LONG g_pvOn;        // 1 once ApplyProbeValues installed the hooks
@@ -390,9 +390,9 @@ static int PvInstallAt(int id, DWORD at, DWORD target) {
 }
 
 // --- poll thread: load-time and drifting values ---
-static const DWORD* g_pvWorldSlot = (const DWORD*)(uintptr_t)0x011D9128;  // routing world (RoutingWorld_Get 0x836200)
-static const DWORD* g_pvWmSlot = (const DWORD*)(uintptr_t)0x011ECBC4;     // world manager
-static const DWORD kPvGuards[3] = {0x011CF010, 0x011CF02C, 0x011CF030};    // docs/101 §2.2 #12, #14
+static const DWORD* g_pvWorldSlot = (const DWORD*)(uintptr_t)TS3A(0x011D9128);  // routing world (RoutingWorld_Get 0x836200)
+static const DWORD* g_pvWmSlot = (const DWORD*)(uintptr_t)TS3A(0x011ECBC4);     // world manager
+static const DWORD kPvGuards[3] = {TS3A(0x011CF010), TS3A(0x011CF02C), TS3A(0x011CF030)};    // docs/101 §2.2 #12, #14
 static const DWORD PV_NO_VALUE = 0x7FC00000;                              // quiet NaN bits: object missing
 
 static inline void PvFnv(DWORD& h, const u8* p, DWORD n) { for (DWORD i = 0; i < n; i++) { h ^= p[i]; h *= 16777619u; } }

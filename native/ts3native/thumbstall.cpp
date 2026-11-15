@@ -65,7 +65,23 @@
 // the blocking object's ready job first (its wanted LOD if there, else any LOD of that object).
 // Action 4 does not get past it: the pick in 0x6DBDE0 does take index 0 under min 0 when the distance falls in LOD 0's
 // range, but RequestSim raises it to MinSimLOD (1 below SimQuality VeryHigh) and the job is still the same queue.
-static const DWORD TS_SITE = 0x00D5A9C8, TS_KEEP = 0x00D5A9D2, TS_GO = 0x00D5A9DD, TS_ABORT = 0x00D5AA25;
+static const DWORD TS_SITE = TS3A(0x00D5A9C8), TS_KEEP = TS3A(0x00D5A9D2), TS_GO = TS3A(0x00D5A9DD), TS_ABORT = TS3A(0x00D5AA25);
+// inline asm takes no constexpr: its five addresses are literals per build, tied to the table by the static_assert (as mintcall.cpp).
+// EA 1.69: no rows yet (docs/232 §8), so 0 there; ApplyThumbStall / ApplyThumbCallers SKIP on EA and the stubs never run.
+#ifdef TS3A_TABLE
+#define TS_ASM_KEEP 0
+#define TS_ASM_ABORT 0
+#define TS_ASM_GO 0
+#define TC_ASM_CALL 0
+#define TC_ASM_RET 0
+#else
+#define TS_ASM_KEEP 0x00D5A9D2
+#define TS_ASM_ABORT 0x00D5AA25
+#define TS_ASM_GO 0x00D5A9DD
+#define TC_ASM_CALL 0x0044C470
+#define TC_ASM_RET 0x005A80A9
+#endif
+static_assert(TS_ASM_KEEP == TS3A(0x00D5A9D2) && TS_ASM_ABORT == TS3A(0x00D5AA25) && TS_ASM_GO == TS3A(0x00D5A9DD) && TC_ASM_CALL == TS3A(0x0044C470) && TC_ASM_RET == TS3A(0x005A80A9), "thumbstall asm literals");
 static const u8 kTsOrig[10] = {0x8B, 0x54, 0x24, 0x60, 0x89, 0x97, 0x44, 0x02, 0x00, 0x00};
 static const u8 kTsKeep[11] = {0x32, 0xC0, 0x5F, 0x5E, 0x5B, 0x8B, 0xE5, 0x5D, 0xC2, 0x04, 0x00};   // at TS_KEEP
 static const u8 kTsAbort[11] = {0xB0, 0x01, 0x5F, 0x5E, 0x5B, 0x8B, 0xE5, 0x5D, 0xC2, 0x04, 0x00};  // at TS_ABORT
@@ -90,8 +106,8 @@ static void TsWords(char* out, size_t cap, const DWORD* w, int n) {
 
 // ---- The SimService LOD builds (2026-11-12, see "Where the LOD waits" above). Plain reads under __try. ----
 // prov below is the job's provider OBJECT (handle +0x3C minus 0x28), as RequestSim stores it in job +0x18.
-static DWORD g_tsSvcAt = 0x011CE6A0;  // selftest: its own
-static const DWORD TS_SVC_VT = 0x00FE514C;
+static DWORD g_tsSvcAt = TS3A(0x011CE6A0);  // selftest: its own
+static const DWORD TS_SVC_VT = TS3A(0x00FE514C);
 struct TsLod {
     long inuse, limit, cached, minLod;  // [svc+0x4C], +0x40 (ActiveLODLimit), +0x50, +0x30 (MinSimLOD); -1 = no service
     int jobs, ready, current;           // build jobs in the +0x58 list (loading), the +0x60 list (ready), +0x68 set
@@ -148,11 +164,11 @@ static void TsLodLog(const u8* blk) {
 // svc+0x68), is re-pointed at TsPick. TsPick takes the blocking object's ready job when there is one (its wanted LOD if
 // listed, else the first of that object) and unlinks it exactly as 0x5EDB30 unlinks its own choice; otherwise it calls
 // 0x5EDB30. Same thread (main), same list, one job per call as before.
-static const DWORD TS_PICK_AT = 0x005F12A3, TS_PICK = 0x005EDB30;
+static const DWORD TS_PICK_AT = TS3A(0x005F12A3), TS_PICK = TS3A(0x005EDB30);
 static const u8 kTsPickSite[12] = {0x8B, 0xCF, 0xE8, 0x86, 0xC8, 0xFF, 0xFF, 0x85, 0xC0, 0x89, 0x47, 0x68};  // mov ecx,edi; call; test; mov [edi+68h],eax
 // The manager's Update (vtable 0x1088F2C +0x1C = 0xD61670, thiscall, 2 arguments) steps the front request through
 // 0xD5C6D0 -> 0xD59C10. Its slot is swapped so the fallback sees, after each step, whether the request left state 0x11.
-static const DWORD TS_TM_SLOT = 0x01088F48, TS_TM_UPDATE = 0x00D61670;
+static const DWORD TS_TM_SLOT = TS3A(0x01088F48), TS_TM_UPDATE = TS3A(0x00D61670);
 static volatile LONG g_tsPickObj;  // Action 3: the provider object whose ready job goes first (0 = none)
 static volatile LONG g_tsPickLod;  // its wanted LOD, raised to MinSimLOD
 static LONG g_tsPicks;             // jobs TsPick took this way (all fallbacks)
@@ -284,7 +300,7 @@ static void TsDump(const u8* req, const u8* blk) {
         }
         // the CAS texture compositor queue [0x11CEB88] and material compositor [0x11CEB8C] (docs/42 section 3): their first
         // 32 words, so container begin/end pairs can be compared between two stall lines (growing, flat or empty)
-        static const DWORD kGlobals[2] = {0x011CEB88, 0x011CEB8C};
+        static const DWORD kGlobals[2] = {TS3A(0x011CEB88), TS3A(0x011CEB8C)};
         for (int i = 0; i < 2; i++) {
             const DWORD* const g = *(const DWORD* const*)(uintptr_t)kGlobals[i];
             if (!g || !Readable(g, 0x80)) continue;
@@ -352,15 +368,15 @@ static __declspec(naked) void TsStub() {
         je ts_abort
         cmp eax, 2
         je ts_go
-        mov eax, 0D5A9D2h
+        mov eax, TS_ASM_KEEP
         jmp eax
     ts_abort:
         mov dword ptr [edi + 0x108], 0x19
-        mov eax, 0D5AA25h
+        mov eax, TS_ASM_ABORT
         jmp eax
     ts_go:
         mov dword ptr [edi + 0x244], 0
-        mov eax, 0D5A9DDh
+        mov eax, TS_ASM_GO
         jmp eax
     }
 }
@@ -417,6 +433,9 @@ static bool TsInstallFallback() {
 
 static void ApplyThumbStall(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"ThumbStall", L"Enabled", 0, ini)) return;
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP thumb stall ([ThumbStall]): no EA 1.69 address, docs/232 §8"); return; }
+#endif
     const int t = GetPrivateProfileIntW(L"ThumbStall", L"TimeoutMs", 10000, ini), a = GetPrivateProfileIntW(L"ThumbStall", L"Action", 1, ini);
     g_tsTimeoutMs = (DWORD)(t < 1000 ? 1000 : t > 600000 ? 600000 : t);
     g_tsAction = a < 0 ? 0 : a > 4 ? 4 : a;
@@ -457,7 +476,7 @@ static void ApplyThumbStall(const wchar_t* ini) {
 //   thumbcallers: req #i ...      every request: key words (household entry), waited, resource cache MB / entries at that moment
 //   thumbcallers: top ...         every 30 s, the table by count
 // [ThumbCallers] Enabled=0; LogEach=1 (0 = no per-request lines); Builds=1 (0 = portraits only).
-static const DWORD TC_HH = 0x00D614E0, TC_UI = 0x00D5C830;
+static const DWORD TC_HH = TS3A(0x00D614E0), TC_UI = TS3A(0x00D5C830);
 static const u8 kTcHhPro[6] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8};  // push ebp; mov ebp,esp; and esp,-8
 static const u8 kTcUiPro[6] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0};  // push ebp; mov ebp,esp; and esp,-16
 static void* g_tcOrig[4];
@@ -466,7 +485,7 @@ static void* g_tcOrig[4];
 //   0x5A80A0  IC CASUtils_SimBuilderBuildModelImpl (cdecl: +4 builder handle, +8 detail level). Its first 9 bytes are four
 //             pushes and a call, so it gets its own stub (TcStubBuild) instead of a trampoline.
 //   0x5A9E90  IC CASUtils_SetOutfitInGameObjectDelayedImpl (the live outfit swap).
-static const DWORD TC_BUILD = 0x005A80A0, TC_SWAP = 0x005A9E90;
+static const DWORD TC_BUILD = TS3A(0x005A80A0), TC_SWAP = TS3A(0x005A9E90);
 static const u8 kTcBuildPro[9] = {0x53, 0x55, 0x56, 0x57, 0xE8, 0xC7, 0x43, 0xEA, 0xFF};  // push ebx,ebp,esi,edi; call 0x44C470
 static const u8 kTcSwapPro[7] = {0x83, 0xEC, 0x10, 0x8B, 0x44, 0x24, 0x1C};                // sub esp,10h; mov eax,[esp+1Ch]
 static const char* const kTcName[4] = {"household 0xD614E0", "ui 0xD5C830", "buildmodel 0x5A80A0", "outfitswap 0x5A9E90"};
@@ -481,13 +500,13 @@ static DWORD g_tcTopAt;
 static void TcRc(DWORD* held, DWORD* n) {
     *held = *n = 0;
     __try {
-        const u8* const m = *(const u8* const*)(uintptr_t)0x011C78D8;
-        if (!m || (*(const DWORD*)m != 0xFFE250 && *(const DWORD*)m != 0xFB2DA0)) return;
+        const u8* const m = *(const u8* const*)(uintptr_t)TS3A(0x011C78D8);
+        if (!m || (*(const DWORD*)m != TS3A(0xFFE250) && *(const DWORD*)m != TS3A(0xFB2DA0))) return;
         const DWORD* const b = *(const DWORD* const*)(m + 0xA0);
         const DWORD* const e = *(const DWORD* const*)(m + 0xA4);
         for (int i = 0; b + 2 * i < e && i < 16; i++) {
             const u8* const c = (const u8*)(uintptr_t)b[2 * i];
-            if (c && *(const DWORD*)c == 0xFFDD94 && b[2 * i + 1] == 0) { *held = *(const DWORD*)(c + 0x94), *n = *(const DWORD*)(c + 0x28); return; }
+            if (c && *(const DWORD*)c == TS3A(0xFFDD94) && b[2 * i + 1] == 0) { *held = *(const DWORD*)(c + 0x94), *n = *(const DWORD*)(c + 0x28); return; }
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
 }
@@ -528,7 +547,7 @@ static void __cdecl TcSeen(int which, const DWORD* sp) {
     DWORD held = 0, rcN = 0;
     TcRc(&held, &rcN);
     DWORD reg = 0;  // CAS part-compositor registry entries (castrim.cpp: service [0x11CE6A0] +0x110)
-    __try { const u8* const svc = *(const u8* const*)(uintptr_t)0x011CE6A0; if (svc) reg = *(const DWORD*)(svc + 0x110); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    __try { const u8* const svc = *(const u8* const*)(uintptr_t)TS3A(0x011CE6A0); if (svc) reg = *(const DWORD*)(svc + 0x110); } __except (EXCEPTION_EXECUTE_HANDLER) {}
     if (g_tcLogEach && which < 2)
         Log("thumbcallers: req #%d n=%ld total=%ld key %08lX %08lX %08lX %08lX waited=%d rc=%.1f MB rcN=%lu casReg=%lu", at, n, total, key[0], key[1], key[2],
             key[3], (int)waited, held / 1048576.0, rcN, reg);
@@ -585,9 +604,9 @@ static __declspec(naked) void TcStubBuild() {
         push ebp
         push esi
         push edi
-        mov eax, 0044C470h
+        mov eax, TC_ASM_CALL
         call eax
-        push 005A80A9h
+        push TC_ASM_RET
         ret
     }
 }
@@ -608,6 +627,9 @@ static __declspec(naked) void TcStubSwap() {
 
 static void ApplyThumbCallers(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"ThumbCallers", L"Enabled", 0, ini)) return;
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP thumb callers ([ThumbCallers]): no EA 1.69 address, docs/232 §8"); return; }
+#endif
     g_tcLogEach = GetPrivateProfileIntW(L"ThumbCallers", L"LogEach", 1, ini) != 0;
     g_tcTopAt = GetTickCount();
     InstallDetour("ThumbHouseholdSimRequest", TC_HH, kTcHhPro, sizeof(kTcHhPro), (void*)TcStubHh, &g_tcOrig[0]);

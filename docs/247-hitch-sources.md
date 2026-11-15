@@ -601,7 +601,7 @@ Rows `probe-out/queue/wildflower-save-2026-11-06.jsonl`, reports in `probe-out/2
 - Read the `trip: *` rows of `unseenboat_ms` (the job's `fixesReport` `unseenboat` already brings the list). If `trip: short` holds most of the former 24-29 s, build step 4. If `trip: no goal` holds it, the next lever is the goal read at `PlanBackoff` (the trips are unseen and long, the shortcut's own target).
 - About 30 min to build, plus one 20-min IP job. No timing.
 
-### 12.11 `no refusal` split built (2026-11-12, NOT RUN; design §12.10 on `analysis/route-misc-1112`)
+### 12.11 `no refusal` split built (2026-11-12; on master as a4d34519, in master1112b and later packages, never exercised: no `unseenboat_norefusal_*` value in any run to 2026-11-15; design §12.10 on `analysis/route-misc-1112`)
 
 **Built (ts3fixes `UnseenBoat.cs`, report only).** `UbTripWhy` writes one `sUbLastWhy` entry per silent `UbTrip` exit, with the same 512 cap as `UbSample`. It also gives the `boatreplan:` `cleared` text the same string. The old shared exit `goal invalid or < 40 m` is now split in two:
 - `trip: no goal`: dest Origin/Invalid.
@@ -772,7 +772,7 @@ The handoff's 33 ms/s is the night pair (31.3). Every disc wait is a forced drai
 
 **Recommendation:** C first (logging only, decides J1's size). Build J1 if C shows START / READY >= ~5 ms/s of `discDrainWaitUs`; otherwise go to J2. Leave `JobYield` (docs/183) as it is: it covers plan waits, not these.
 
-### 13.5 Built, NOT RUN (branch `feature/route-hitch-logs-1112`, ts3native 0.36.245, 2026-11-12)
+### 13.5 Built (branch `feature/route-hitch-logs-1112`, ts3native 0.36.245, 2026-11-12); merged 0d755408, run in master1112b-verify 2026-11-12 (bundle-td0/td1 BP + IP PASS, `FbApplyLog=1`, fbApN 35-59 a run), not read out; R2 not run [verified 2026-11-15: probe-out/queue/master1112b-verify-2026-11-12-*-native.json]
 
 Diagnostics only: no switch changes what the game does; builds and self-checks only, no game run.
 

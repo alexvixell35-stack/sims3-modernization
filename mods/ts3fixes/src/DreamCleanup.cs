@@ -23,8 +23,8 @@ namespace Ts3Fixes
     // dnpobjkeys hourly sweeps (DnpRemovalKeys.cs) for new state, which then only matter for entries already in a save; (2) after EA's full Update, a node that was sleeping before and is active now is filed
     // as AddActiveNode files it, unless it is already there. Nothing else is touched: no listener, timer, panel list,
     // promise or score; EA decides which wishes exist and when. Household managers included (memory only, approved).
-    // Counters: [1002] nodes unfiled (on), [1003] woken nodes filed (on), [1004] either case seen with the switch off,
-    // [1005] errors. The Update part shares WishListenerFixes' WlMgr hook (one patch per method). Check: DreamCleanupChecks.cs.
+    // Counters: [1114] nodes unfiled (on), [1115] woken nodes filed (on), [1116] either case seen with the switch off,
+    // [1117] errors. The Update part shares WishListenerFixes' WlMgr hook (one patch per method). Check: DreamCleanupChecks.cs.
     public static partial class Fixes
     {
         static readonly FieldInfo sDcRemoval = typeof(DreamsAndPromisesManager).GetField("mPotentialRemovalNodes", kInstAll);
@@ -136,10 +136,10 @@ namespace Ts3Fixes
                     if (index == null) return;
                     object key = isObj ? DcFindKey(index, n) : n.Subject.mSimDescriptionId;
                     if (!DcIndexHas(index, key, n)) return;
-                    if (!ShortcutOn("dreamcleanup")) { PatchCounters()[1004]++; return; }
-                    if (DcIndexRemove(index, key, n)) PatchCounters()[1002]++;
+                    if (!ShortcutOn("dreamcleanup")) { PatchCounters()[1116]++; return; }
+                    if (DcIndexRemove(index, key, n)) PatchCounters()[1114]++;
                 }
-                catch (Exception) { PatchCounters()[1005]++; }
+                catch (Exception) { PatchCounters()[1117]++; }
             }
             public void RemoveOrig(ActiveNodeBase node, bool removeFromPotentialRemovalList) { } // receives DreamsAndPromisesManager.RemoveActiveNode(node, bool)'s original body
         }
@@ -156,7 +156,7 @@ namespace Ts3Fixes
                 foreach (object o in s) r.Add(o);
                 return r;
             }
-            catch (Exception) { PatchCounters()[1005]++; return null; }
+            catch (Exception) { PatchCounters()[1117]++; return null; }
         }
 
         // From WlMgr.UpdateHook after EA's Update: file the nodes that woke.
@@ -177,12 +177,12 @@ namespace Ts3Fixes
                     int kind = DcFileKind(n.NodeInstance.SubjectType, n.Subject.mType);
                     object key = DcKey(n, kind);
                     if (key == null || !DcRefile(true, active.Contains(n), sleeping.Contains(n), kind, DcIndexHas(index, key, n))) continue;
-                    if (!on) { PatchCounters()[1004]++; continue; }
+                    if (!on) { PatchCounters()[1116]++; continue; }
                     DcIndexAdd(index, key, n, listType);
-                    PatchCounters()[1003]++;
+                    PatchCounters()[1115]++;
                 }
             }
-            catch (Exception) { PatchCounters()[1005]++; }
+            catch (Exception) { PatchCounters()[1117]++; }
         }
     }
 }

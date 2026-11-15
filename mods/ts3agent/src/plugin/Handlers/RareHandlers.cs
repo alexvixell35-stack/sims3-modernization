@@ -36,6 +36,7 @@ namespace Ts3Agent
             Dispatcher.Register("mem_gc", MemGc);                // MemHandlers.cs (docs/191 module 2)
             Dispatcher.Register("catalog_loop", CatalogLoop);
             Dispatcher.Register("buy_sell_loop", BuySellLoop);
+            Dispatcher.Register("place_cancel_loop", PlaceCancelLoop);  // MemHandlers.cs (docs/192 #1)
             Dispatcher.Register("bb_cc_cycle", BbCcCycle);       // MemStressHandlers.cs (docs/200)
             Dispatcher.Register("et_lot_cycle", EtLotCycle);
             Dispatcher.Register("build_cc_cycle", BuildCcCycle);  // BuildCcHandlers.cs (docs/200 §6)
@@ -585,7 +586,28 @@ namespace Ts3Agent
                 Lot home = Household.ActiveHouseholdLot;
                 return home != null ? home.GetCenterPosition() : pos;
             }
-            throw new McpException("to must be pond, ocean, far, far2, island or home");
+            if (to == "sealed") return SealedPoint(s);
+            throw new McpException("to must be pond, ocean, far, far2, island, home or sealed");
+        }
+
+        // "sealed" (docs/264 §3, issue #338 forcing repro): a spot nobody can reach, so a plan to it floods the start's whole
+        // area. The first spot failing Sim.IsPointInLotSafelyRoutable (enclosed room, fenced corner; no pool tiles) on the
+        // nearest non-world lot that is not the active household's, as sim_strand samples; found once per lot (UnroutableSpots).
+        // Callers must not pass it through WalkableClick, which would swap it for a reachable spot.
+        static bool IsSealed(Args a) { return a.Has("to") && string.Equals(a.Str("to").Trim(), "sealed", StringComparison.OrdinalIgnoreCase); }
+
+        static Vector3 SealedPoint(Sim s)
+        {
+            List<Lot> lots = new List<Lot>();
+            foreach (Lot l in LotManager.AllLots) if (l != null && !l.IsWorldLot && l != Household.ActiveHouseholdLot) lots.Add(l);
+            Vector3 from = s.Position;
+            lots.Sort(delegate(Lot x, Lot y) { return (x.GetCenterPosition() - from).LengthSqr().CompareTo((y.GetCenterPosition() - from).LengthSqr()); });
+            for (int i = 0; i < lots.Count && i < 8; i++)
+            {
+                List<Vector3> spots = UnroutableSpots(s, lots[i], 60, 1);
+                if (spots.Count > 0) return spots[0];
+            }
+            return Vector3.Invalid;
         }
 
         // "island": the community lot whose straight line from the Sim crosses the most sea (samples every 10 m, at least

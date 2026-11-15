@@ -10,7 +10,7 @@ namespace Ts3Fixes
         // untouched; a player-chosen empty owner list kept; an owner list with only residents kept.
         public static object DoorLockOwnerCheck(string what)
         {
-            string counters = B582Counters("doorlockowner", 1035, new[] { "locks fixed at removal or move-in", "seen with switch off", "saved stale fixed at load", "owner-list callbacks re-registered at load", "errors" }, sDlMissing);
+            string counters = B582Counters("doorlockowner", 1147, new[] { "locks fixed at removal or move-in", "seen with switch off", "saved stale fixed at load", "owner-list callbacks re-registered at load", "errors" }, sDlMissing);
             if (what == "result") return counters;
             if (what != "run") return "doorlockowner <run|result>";
             bool on = ShortcutOn("doorlockowner");
@@ -33,7 +33,7 @@ namespace Ts3Fixes
         //   Controls: other Sims unchanged; an answer that already refuses unchanged.
         public static object ElevatorKittenCheck(string what)
         {
-            string counters = B582Counters("elevatorkitten", 1040, new[] { "kitten/puppy refused at planning", "seen with switch off", "errors" }, sEkMissing);
+            string counters = B582Counters("elevatorkitten", 1152, new[] { "kitten/puppy refused at planning", "seen with switch off", "errors" }, sEkMissing);
             if (what == "result") return counters;
             if (what != "run") return "elevatorkitten <run|result>";
             bool on = ShortcutOn("elevatorkitten");
@@ -47,7 +47,7 @@ namespace Ts3Fixes
         //   Controls: an entry not yet waiting, a waiting entry with no live task (saved entry), a missing Sim: untouched.
         public static object ElevatorResetRidersCheck(string what)
         {
-            string counters = B582Counters("elevatorresetriders", 1043, new[] { "waiting riders released at reset", "seen with switch off", "errors" }, sErMissing);
+            string counters = B582Counters("elevatorresetriders", 1155, new[] { "waiting riders released at reset", "seen with switch off", "errors" }, sErMissing);
             if (what == "result") return counters;
             if (what != "run") return "elevatorresetriders <run|result>";
             bool on = ShortcutOn("elevatorresetriders");
@@ -62,7 +62,7 @@ namespace Ts3Fixes
         public static object ElevatorSavedLogCheck(string what)
         {
             string missing = sErAssigned == null ? "ElevatorPortalComponent.mAssignedSims" : "";
-            string counters = B582Counters("elevatorsavedlog", 1046, new[] { "elevators with saved entries", "entries not sleeping", "rider missing or no live task", "errors" }, missing);
+            string counters = B582Counters("elevatorsavedlog", 1158, new[] { "elevators with saved entries", "entries not sleeping", "rider missing or no live task", "errors" }, missing);
             if (what == "result") return counters;
             if (what != "run") return "elevatorsavedlog <run|result>";
             bool on = ShortcutOn("elevatorsavedlog");
@@ -78,7 +78,7 @@ namespace Ts3Fixes
         //   Controls: another Sim added; an add outside the StarLight's reset (SwitchLight, any other object) kept.
         public static object StarLightResetCheck(string what)
         {
-            string counters = B582Counters("starlightreset", 1050, new[] { "selected-Sim resets skipped", "seen with switch off", "errors" }, sSlMissing);
+            string counters = B582Counters("starlightreset", 1162, new[] { "selected-Sim resets skipped", "seen with switch off", "errors" }, sSlMissing);
             if (what == "result") return counters;
             if (what != "run") return "starlightreset <run|result>";
             bool on = ShortcutOn("starlightreset");
@@ -91,7 +91,7 @@ namespace Ts3Fixes
         // MoonDialListenerCheck run: Dispose removes the held moon listener. Control: none held -> nothing removed.
         public static object MoonDialListenerCheck(string what)
         {
-            string counters = B582Counters("moondiallistener", 1053, new[] { "listeners removed at Dispose", "seen with switch off", "errors" }, sMdlMissing);
+            string counters = B582Counters("moondiallistener", 1165, new[] { "listeners removed at Dispose", "seen with switch off", "errors" }, sMdlMissing);
             if (what == "result") return counters;
             if (what != "run") return "moondiallistener <run|result>";
             bool on = ShortcutOn("moondiallistener");
@@ -103,7 +103,7 @@ namespace Ts3Fixes
         // SnubListenerCheck run: the destroyed Sim's SnubManager listener is removed. Control: other listeners kept.
         public static object SnubListenerCheck(string what)
         {
-            string counters = B582Counters("snublistener", 1056, new[] { "listeners removed at Sim.Destroy", "seen with switch off", "errors" }, sSnlMissing);
+            string counters = B582Counters("snublistener", 1168, new[] { "listeners removed at Sim.Destroy", "seen with switch off", "errors" }, sSnlMissing);
             if (what == "result") return counters;
             if (what != "run") return "snublistener <run|result>";
             bool on = ShortcutOn("snublistener");
@@ -115,7 +115,7 @@ namespace Ts3Fixes
         //   Controls: a lone rider (own = shared) fires at the same time either way; a rider under 30 minutes keeps waiting.
         public static object ElevatorRiderTimeoutCheck(string what)
         {
-            string counters = B582Counters("elevatorridertimeout", 1059, new[] { "rides run by the replacement", "own-30-minute failsafe resets", "errors (EA ran)" }, sE2Missing);
+            string counters = B582Counters("elevatorridertimeout", 1171, new[] { "rides run by the replacement", "own-30-minute failsafe resets", "errors (EA ran)" }, sE2Missing);
             if (what == "result") return counters;
             if (what != "run") return "elevatorridertimeout <run|result>";
             bool on = ShortcutOn("elevatorridertimeout");

@@ -65,7 +65,8 @@ export function timingVerdict(x: { verdict: Verdict; noise?: string | null; inva
   return why.length ? { timing: 'invalid', why: why.join('; ') } : { timing: !x.ab ? 'valid-single' : half ? 'valid-half' : 'valid', why: '' };
 }
 export const timingText = (t: { timing: string; why: string }) => t.timing === 'invalid' ? `invalid (${t.why})` : t.timing;
-const subPass = (rr: any) => ({ ...rr, pass: rr.exitCode === 0 && !(rr.verdict ?? []).some((l: string) => /^FAIL/.test(l)) });
+// docs/236 #21: a window passes only with exit 0, no failed line (queue.ts isFail format, UNKNOWN too), no timeout, and a PASS line of its own
+export const subPass = (rr: any) => { const v: string[] = rr.verdict ?? []; return { ...rr, pass: rr.exitCode === 0 && !rr.timedOut && v.some(l => /^PASS\b/.test(l)) && !v.some(l => /^(FAIL|UNKNOWN): |^[\w.\- ]+: (FAIL|UNKNOWN)\b/.test(l)) }; };
 // a queue row -> its timing verdict (and one per profile.repros window). iniText = the ts3native.ini the job ran with (queue.ts);
 // left out: the repo ini at the row's build plus the row's overrides (hitch-ab.ts toolsOn rule)
 export function rowTiming(row: any, iniText?: string | null, costs: ToolCosts = toolCosts()): Timing & { windows?: Record<string, Timing> } {
@@ -128,6 +129,8 @@ export function verdictTable(file: string, baseline?: string): string {
 }
 
 function selfCheck() {
+  assert.equal(subPass({ exitCode: 0, verdict: ['PASS: a: profile 10 min'] }).pass, true);
+  for (const rr of [{ exitCode: 0, verdict: [] }, { exitCode: 0, verdict: ['PASS: a', 'a: UNKNOWN: no data'] }, { exitCode: 0, timedOut: true, verdict: ['PASS: a'] }, { exitCode: 1, verdict: ['PASS: a'] }]) assert.equal(subPass(rr).pass, false, JSON.stringify(rr));
   assert.equal(classify({ pass: true, verdict: ['PASS: profile 10 min'] }).v, 'PASS');
   assert.deepEqual(classify({ pass: false, na: true, exitCode: 1, verdict: ['N/A: not triggered: x', 'N/A (vanilla): asi build check'] }), { v: 'N/A', why: 'N/A: not triggered: x' });
   assert.equal(classify({ pass: false, exitCode: 1, verdict: ['FAIL: self check: [RouteAsync] on but 0 async route jobs started (invokeHook 0): async off, run void'] }).v, 'VOID');

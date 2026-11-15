@@ -367,6 +367,8 @@ static DWORD g_snKlass[0x18], g_snArrKlass[0x18], g_snObj[8], g_snArr[4 + 8], g_
 static DWORD g_snFloat, g_snTick[2][2], g_snHost[0xC30 / 4];
 static LONG g_snCalls;
 static DWORD g_snSelf, g_snWord0;  // the `this` the body saw and its first word
+static DWORD g_snHostSetArgs;      // row 9 fake setter: ecx + both stack args (callee pops them, like the thiscall setters)
+static void __fastcall SatbTestHostSet(DWORD ecx, DWORD, DWORD a, DWORD b) { g_snHostSetArgs = ecx + a + b; }
 static void __cdecl SatbTestBody(DWORD frame, DWORD) {
     g_snCalls++;
     const DWORD self = *(const DWORD*)(uintptr_t)(frame + 0xC);
@@ -428,6 +430,30 @@ static void TestSatbNativeWriters() {
     g_snRm[9] = 0x1000, g_snFrame[3] = (DWORD)(uintptr_t)g_snObj;  // any other body on an object nobody logged
     SatbBindCall((DWORD)(uintptr_t)g_snFrame, 0);
     assert(g_snCalls == 6 && ts3native_autshadow.satbWGiveUp == give0 && g_snObj[5] == 0x7777);
+    // docs/206 §15 rows 4 / 9 tripwires (SatbTripwire=1): count only, the body runs, no give-up
+    {
+        const char** nm = (const char**)((u8*)g_snKlass + 0x34);
+        const char *nm0 = nm[0], *ns0 = nm[1];
+        const LONG r4 = g_satbRow4, r9 = g_satbRow9[1][1];
+        nm[0] = "StringBuilder", nm[1] = "System.Text";
+        SatbBindCall((DWORD)(uintptr_t)g_snFrame, 0);  // switch off: not counted
+        assert(g_snCalls == 7 && g_satbRow4 == r4);
+        g_satbTripwire = true;
+        SatbBindCall((DWORD)(uintptr_t)g_snFrame, 0);
+        assert(g_snCalls == 8 && g_satbRow4 == r4 + 1 && ts3native_autshadow.satbWGiveUp == give0);
+        nm[1] = "Other";  // another class named StringBuilder: not counted
+        SatbBindCall((DWORD)(uintptr_t)g_snFrame, 0);
+        assert(g_snCalls == 9 && g_satbRow4 == r4 + 1);
+        // row 9: the count stub keeps ecx and the stack args and runs the trampoline (a fake setter here)
+        void* const t0 = g_satbHostSetTramp[1];
+        g_satbHostSetTramp[1] = (void*)SatbTestHostSet;
+        g_snHostSetArgs = 0;
+        typedef void(__fastcall * HsFn)(DWORD ecx, DWORD edx, DWORD a, DWORD b);
+        ((HsFn)(void*)SatbHostSet1)(0xC0DE, 0, 0x11, 0x22);
+        assert(g_snHostSetArgs == 0xC0DE + 0x11 + 0x22 && g_satbRow9[1][1] == r9 + 1);  // on the worker (g_satbWTid = this thread)
+        g_satbHostSetTramp[1] = t0;
+        g_satbTripwire = false, nm[0] = nm0, nm[1] = ns0, g_snCalls = 6;
+    }
     // docs/206 §17 (#352): value-type `this` (RuntimeMethod+0x44 & 0x400) points at struct data whose first word (0x4650)
     // is no vtable. Shared: give up, the body runs on a worker copy with the cut's bytes, the shared struct is never
     // written; worker-private: runs as is, no give-up. Flag clear on such data: SatbObjFields refuses the low header

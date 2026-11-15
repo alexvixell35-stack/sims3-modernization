@@ -237,7 +237,7 @@ Suggestions for Apex:
   state, ObjectLightBridge) against the light removals `RemovalHook` sees: a stored light used after its removal is the
   candidate.
 - For us: nothing to fix. An optional low-cost check for our crash log would be to log the protection of the TS3W
-  `.rdata` pages and a compare of known vtables at crash time. Not built.
+  `.rdata` pages and a compare of known vtables at crash time. Built 2026-11-15 (lane L7, branch `feature/lane-L7-1115`, not run): `[CrashReport] RdataCheck=1` (default 0, needs `Enabled=1`) adds one `rdata check (docs/260 §7):` line to the report and ts3native.log: the writable `.rdata` ranges with their protection, every dword in those pages that differs from the exe file (relocations ignored; first 12 listed with module+offset of the new value), and same/DIFF for the known vtables `0xFF39F8 0xFF30F4 0xFF3118 0xFF3C24 0xFF3CBC 0xFF3CDC 0xFF42F8 0xFF4250` (Steam build only). Read only: VirtualQuery + ReadFile, no protection change (`crashfx.cpp` `CfRdataText`, selftest `TestCfL7`).
 
 Open: the exact caller of step 2 (needs the Apex Developer build with the per-frame vtable compare, or a repro with the
 page left read-only); whether any S3SS or S3PP code path (literal scan only) changes the page protection.

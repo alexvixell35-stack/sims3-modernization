@@ -80,7 +80,12 @@ namespace Ts3Agent
                 return Describe(route.Replan(), (int)a.Long("depth", 1));
             BindingFlags flags = kAny & ~(owner == null ? BindingFlags.Instance : 0);
             Exception last = null;
-            foreach (MethodInfo mi in ownerType.GetMethods(flags))
+            // GetMethods leaves out a base class's private methods (FindMember walks the bases for fields): add them, e.g.
+            // "@type:TombTrap.EnterState" on a FloorTrap, the base's private state change (ep-wa-tomb, 2026-11-15)
+            List<MethodInfo> methods = new List<MethodInfo>(ownerType.GetMethods(flags));
+            for (Type b = ownerType.BaseType; b != null; b = b.BaseType)
+                foreach (MethodInfo bm in b.GetMethods(flags | BindingFlags.DeclaredOnly)) if (bm.IsPrivate) methods.Add(bm);
+            foreach (MethodInfo mi in methods)
             {
                 if (mi.Name != name) continue;
                 ParameterInfo[] ps = mi.GetParameters();
@@ -261,6 +266,10 @@ namespace Ts3Agent
                     ulong oid = ulong.Parse(root.Substring(5), CultureInfo.InvariantCulture);
                     owner = Sims3.Gameplay.Abstracts.GameObject.GetObject(new Sims3.SimIFace.ObjectGuid(oid));
                 }
+                // "@type:<class>": the in-world object of that class (or a subclass) nearest the selected Sim (docs/267 repros)
+                else if (root.StartsWith("@type:")) owner = NearestOfType(root.Substring(6));
+                // "@picked:N": the N-th pick_sims / spawn_horse Sim (Util.FindSimDescription "picked:N")
+                else if (root.StartsWith("@picked:")) owner = Util.FindSim(new Args(new Dictionary<string, object> { { "sim", root.Substring(1) } }), "sim");
                 else
                 {
                     RootResolver r;
