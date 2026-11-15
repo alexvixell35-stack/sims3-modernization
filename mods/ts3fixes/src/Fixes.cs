@@ -151,6 +151,14 @@ namespace Ts3Fixes
             ApplyEatOutsideCount();    // docs/569 §2 (EatOutsideCount.cs)
             ApplyFireActiveJob();    // docs/570 §1 (FireActiveJob.cs)
             ApplyFireTrapCount();    // docs/570 §5 (FireTrapCount.cs)
+            ApplyGenerationsLogic(); // docs/571 §1-4 (GenerationsLogic.cs)
+            ApplySeasonsLogic();     // docs/571 §5-7 (SeasonsLogic.cs)
+            ApplySupernaturalLogic(); // docs/571 §8 (SupernaturalLogic.cs)
+            ApplyShowtimeLogic();    // docs/571 §9-11 (ShowtimeLogic.cs)
+            ApplyUniversityLogic();  // docs/572 §4-5 (UniversityLogic.cs)
+            ApplyIslandParadiseLogic(); // docs/572 §6-7 (IslandParadiseLogic.cs)
+            ApplyFutureLogic();      // docs/572 §9-12 (FutureLogic.cs)
+            ApplyPetsLogic();        // docs/572 §13-15 (PetsLogic.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -471,6 +479,31 @@ namespace Ts3Fixes
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
         // [2570-2572] fireactivejob (FireActiveJob.cs, docs/570 §1): stale ActiveFireFighter.sActiveJob cleared at world quit / dropped at load / errors.
         // [2573-2576] firetrapcount (FireTrapCount.cs, docs/570 §5): trapped-Sim tasks dropped for Sims gone from the lot / hidden apartment trap spots removed / jobs completed by a drop / errors.
+        // [2577-2579] birthdayagers (GenerationsLogic.cs, docs/571 §1): later agers recorded / listeners removed at cleanup / errors.
+        // [2580-2583] sneakoutlistener (GenerationsLogic.cs, docs/571 §2): stale sneak-outs skipped / duplicate return-home listeners removed / left-over sneak listeners removed / errors.
+        // [2584-2585] promcarpool (GenerationsLogic.cs, docs/571 §3): prom carpools removed / errors.
+        // [2586-2587] curfewalarm (GenerationsLogic.cs, docs/571 §4): handles reset at quit / errors.
+        // [2588-2590] trickortreatalarm (SeasonsLogic.cs, docs/571 §5): handles reset at quit / off-holiday runs skipped / errors.
+        // [2591-2592] snowfightjoinwait (SeasonsLogic.cs, docs/571 §6): arenas reset at game end / errors.
+        // [2593-2594] hauntedumbrella (SeasonsLogic.cs, docs/571 §7): answers changed / errors.
+        // [2595-2596] permazombiemoon (SupernaturalLogic.cs, docs/571 §8): listeners re-registered at load / errors.
+        // [2597-2599] steadygigmiss (ShowtimeLogic.cs, docs/571 §9): other Sims' misses ignored / listeners registered at load / errors.
+        // [2600-2601] npcshowstuck (ShowtimeLogic.cs, docs/571 §10): stale flags cleared / errors.
+        // [2602-2603] gigpullaudience (ShowtimeLogic.cs, docs/571 §11): stale pulls skipped / errors.
+        // [2604-2606] lunacysocials (SupernaturalLogic.cs, docs/572 §1): per-Sim alarms scheduled / re-armed at load / errors.
+        // [2607-2608] fairyauratimer (SupernaturalLogic.cs, docs/572 §2): timers restored / errors.
+        // [2609-2611] npcseasonalparty (SeasonsLogic.cs, docs/572 §3): listeners registered at load / NPC parties skipped / errors.
+        // [2612-2613] professorterm (UniversityLogic.cs, docs/572 §4): professors kept / errors.
+        // [2614-2615] protestlastday (UniversityLogic.cs, docs/572 §5): resets at quit / errors.
+        // [2616-2617] seasickpaused (IslandParadiseLogic.cs, docs/572 §6): buffs unpaused or alarms dropped / errors.
+        // [2618-2619] resortweddingalarm (IslandParadiseLogic.cs, docs/572 §7): handles released / errors.
+        // [2622-2623] plumbotfacelistener (FutureLogic.cs, docs/572 §9): other Sims' events ignored / errors.
+        // [2624-2625] efficientchip (FutureLogic.cs, docs/572 §10): modifiers corrected / errors.
+        // [2626-2627] sentiencename (FutureLogic.cs, docs/572 §11): names repaired / errors.
+        // [2628-2629] jetpackflyingbuff (FutureLogic.cs, docs/572 §12): buffs unpaused / errors.
+        // [2630-2631] horsetraitscore (PetsLogic.cs, docs/572 §13): scores computed on the horse / errors.
+        // [2632-2633] wildhorsegender (PetsLogic.cs, docs/572 §14): genders swapped / errors.
+        // [2634-2635] littercap (PetsLogic.cs, docs/572 §15): caps lowered / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -796,6 +829,31 @@ namespace Ts3Fixes
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
                 case "fireactivejob": return Instantiator.kFireActiveJob;
                 case "firetrapcount": return Instantiator.kFireTrapCount;
+                case "birthdayagers": return Instantiator.kBirthdayAgers;
+                case "sneakoutlistener": return Instantiator.kSneakOutListener;
+                case "promcarpool": return Instantiator.kPromCarpool;
+                case "curfewalarm": return Instantiator.kCurfewAlarm;
+                case "trickortreatalarm": return Instantiator.kTrickOrTreatAlarm;
+                case "snowfightjoinwait": return Instantiator.kSnowFightJoinWait;
+                case "hauntedumbrella": return Instantiator.kHauntedUmbrella;
+                case "permazombiemoon": return Instantiator.kPermaZombieMoon;
+                case "steadygigmiss": return Instantiator.kSteadyGigMiss;
+                case "npcshowstuck": return Instantiator.kNpcShowStuck;
+                case "gigpullaudience": return Instantiator.kGigPullAudience;
+                case "lunacysocials": return Instantiator.kLunacySocials;
+                case "fairyauratimer": return Instantiator.kFairyAuraTimer;
+                case "npcseasonalparty": return Instantiator.kNpcSeasonalParty;
+                case "professorterm": return Instantiator.kProfessorTerm;
+                case "protestlastday": return Instantiator.kProtestLastDay;
+                case "seasickpaused": return Instantiator.kSeasickPaused;
+                case "resortweddingalarm": return Instantiator.kResortWeddingAlarm;
+                case "plumbotfacelistener": return Instantiator.kPlumbotFaceListener;
+                case "efficientchip": return Instantiator.kEfficientChip;
+                case "sentiencename": return Instantiator.kSentienceName;
+                case "jetpackflyingbuff": return Instantiator.kJetpackFlyingBuff;
+                case "horsetraitscore": return Instantiator.kHorseTraitScore;
+                case "wildhorsegender": return Instantiator.kWildHorseGender;
+                case "littercap": return Instantiator.kLitterCap;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

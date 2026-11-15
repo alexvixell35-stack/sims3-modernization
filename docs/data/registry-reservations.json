@@ -3563,6 +3563,286 @@
       "what": "firetrapcount: firefighter trapped-Sim tasks follow the victims actually trapped (docs/570 §5)",
       "at": "2026-11-15T10:19:05.822Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2577",
+      "kind": "fixes",
+      "from": 2577,
+      "to": 2579,
+      "by": "claude",
+      "what": "birthdayagers: birthday party records every Sim who ages up (docs/571)",
+      "at": "2026-11-15T11:04:07.576Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2580",
+      "kind": "fixes",
+      "from": 2580,
+      "to": 2583,
+      "by": "claude",
+      "what": "sneakoutlistener: teen sneak-out listeners (docs/571)",
+      "at": "2026-11-15T11:04:07.657Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2584",
+      "kind": "fixes",
+      "from": 2584,
+      "to": 2585,
+      "by": "claude",
+      "what": "promcarpool: prom limo carpool removed at prom cleanup (docs/571)",
+      "at": "2026-11-15T11:04:07.737Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2586",
+      "kind": "fixes",
+      "from": 2586,
+      "to": 2587,
+      "by": "claude",
+      "what": "curfewalarm: curfew police alarm handle reset at quit (docs/571)",
+      "at": "2026-11-15T11:04:07.815Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2588",
+      "kind": "fixes",
+      "from": 2588,
+      "to": 2590,
+      "by": "claude",
+      "what": "trickortreatalarm: NPC trick-or-treat alarm handle / off-holiday firing (docs/571)",
+      "at": "2026-11-15T11:04:07.895Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2591",
+      "kind": "fixes",
+      "from": 2591,
+      "to": 2592,
+      "by": "claude",
+      "what": "snowfightjoinwait: snowball arena join-wait counter reset (docs/571)",
+      "at": "2026-11-15T11:04:07.977Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2593",
+      "kind": "fixes",
+      "from": 2593,
+      "to": 2594,
+      "by": "claude",
+      "what": "hauntedumbrella: haunted house umbrella check (docs/571)",
+      "at": "2026-11-15T11:04:08.057Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2595",
+      "kind": "fixes",
+      "from": 2595,
+      "to": 2596,
+      "by": "claude",
+      "what": "permazombiemoon: PermaZombie new-moon listener after load (docs/571)",
+      "at": "2026-11-15T11:04:08.146Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2597",
+      "kind": "fixes",
+      "from": 2597,
+      "to": 2599,
+      "by": "claude",
+      "what": "steadygigmiss: steady gig misses counted for the right performer (docs/571)",
+      "at": "2026-11-15T11:04:08.223Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2600",
+      "kind": "fixes",
+      "from": 2600,
+      "to": 2601,
+      "by": "claude",
+      "what": "npcshowstuck: NPC show scheduled flag cleared when stale (docs/571)",
+      "at": "2026-11-15T11:04:08.306Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2602",
+      "kind": "fixes",
+      "from": 2602,
+      "to": 2603,
+      "by": "claude",
+      "what": "gigpullaudience: removed gigs do not pull an audience (docs/571)",
+      "at": "2026-11-15T11:04:08.387Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-571",
+      "kind": "doc",
+      "from": 571,
+      "to": 571,
+      "by": "claude",
+      "what": "Seasons/Generations/Supernatural/Showtime logic bugs",
+      "at": "2026-11-15T11:04:08.465Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2604",
+      "kind": "fixes",
+      "from": 2604,
+      "to": 2606,
+      "by": "claude",
+      "what": "lunacysocials: per-Sim lunacy social alarms (docs/572)",
+      "at": "2026-11-15T11:13:35.478Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2607",
+      "kind": "fixes",
+      "from": 2607,
+      "to": 2608,
+      "by": "claude",
+      "what": "fairyauratimer: fairy Creative/Mind aura keeps its timer on load (docs/572)",
+      "at": "2026-11-15T11:13:35.561Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2609",
+      "kind": "fixes",
+      "from": 2609,
+      "to": 2611,
+      "by": "claude",
+      "what": "npcseasonalparty: player party cancels NPC holiday party after a load (docs/572)",
+      "at": "2026-11-15T11:13:35.641Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-572",
+      "kind": "doc",
+      "from": 572,
+      "to": 572,
+      "by": "claude",
+      "what": "University/Island Paradise/Into the Future/Pets logic batch + 571 parked leads",
+      "at": "2026-11-15T11:13:35.724Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2612",
+      "kind": "fixes",
+      "from": 2612,
+      "to": 2613,
+      "by": "claude",
+      "what": "professorterm: professors not fired at term end (docs/572)",
+      "at": "2026-11-15T11:22:01.173Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2614",
+      "kind": "fixes",
+      "from": 2614,
+      "to": 2615,
+      "by": "claude",
+      "what": "protestlastday: protest cooldown static reset at quit (docs/572)",
+      "at": "2026-11-15T11:22:01.261Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2616",
+      "kind": "fixes",
+      "from": 2616,
+      "to": 2617,
+      "by": "claude",
+      "what": "seasickpaused: seasick moodlet unpaused when leaving a houseboat (docs/572)",
+      "at": "2026-11-15T11:22:01.354Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2618",
+      "kind": "fixes",
+      "from": 2618,
+      "to": 2619,
+      "by": "claude",
+      "what": "resortweddingalarm: resort NPC wedding alarm handle released (docs/572)",
+      "at": "2026-11-15T11:22:01.439Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2622",
+      "kind": "fixes",
+      "from": 2622,
+      "to": 2623,
+      "by": "claude",
+      "what": "plumbotfacelistener: plumbot face VFX reacts to its own conversations only (docs/572)",
+      "at": "2026-11-15T11:22:01.614Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2624",
+      "kind": "fixes",
+      "from": 2624,
+      "to": 2625,
+      "by": "claude",
+      "what": "efficientchip: Efficient chip skill-gain bonus kept in sync (docs/572)",
+      "at": "2026-11-15T11:22:01.704Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2626",
+      "kind": "fixes",
+      "from": 2626,
+      "to": 2627,
+      "by": "claude",
+      "what": "sentiencename: Sentience chip removal restores the first name (docs/572)",
+      "at": "2026-11-15T11:22:01.787Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2628",
+      "kind": "fixes",
+      "from": 2628,
+      "to": 2629,
+      "by": "claude",
+      "what": "jetpackflyingbuff: Free Flying buff unpaused when Fly Around ends early (docs/572)",
+      "at": "2026-11-15T11:22:01.877Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2630",
+      "kind": "fixes",
+      "from": 2630,
+      "to": 2631,
+      "by": "claude",
+      "what": "horsetraitscore: horse traits count in equestrian competitions (docs/572)",
+      "at": "2026-11-15T11:22:01.961Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2632",
+      "kind": "fixes",
+      "from": 2632,
+      "to": 2633,
+      "by": "claude",
+      "what": "wildhorsegender: wild horse female share as tuned (docs/572)",
+      "at": "2026-11-15T11:22:02.046Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2634",
+      "kind": "fixes",
+      "from": 2634,
+      "to": 2635,
+      "by": "claude",
+      "what": "littercap: neighbour litter respects the 10-member cap (docs/572)",
+      "at": "2026-11-15T11:22:02.130Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-573",
+      "kind": "doc",
+      "from": 573,
+      "to": 573,
+      "by": "claude",
+      "what": "phone around University Life travel (docs/573)",
+      "at": "2026-11-15T11:36:33.186Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }
