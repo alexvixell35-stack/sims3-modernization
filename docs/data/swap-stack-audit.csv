@@ -339,6 +339,10 @@ SeasonMarkerHook.DisposeHook,SeasonalLotMarker,Dispose,SeasonMarkerCache.cs,Disp
 SeasonMarkerHook.GlobalHook,Sims3.SimIFace.Queries,GetGlobalObjects,SeasonMarkerCache.cs,GlobalOrig,no,no path to a yield in 1 overload(s),SeasonMarkerCache,keep
 SclHook.RegisterHook,t,RegisterDragCursors,SellCursorLeak.cs,RegisterOrig,?,not found in the index: t::RegisterDragCursors,SellCursorLeak,"keep, stub remap (SavedStacks.cs)"
 SclHook.DisposeHook,t,Dispose,SellCursorLeak.cs,DisposeOrig,?,not found in the index: t::Dispose,SellCursorLeak,"keep, stub remap (SavedStacks.cs)"
+SlResetHook.ResetHook,Situation,OnReset,ServiceLeave.cs,ResetOrig,no,no path to a yield in 1 overload(s),ServiceLeave,keep
+SlRepoHook.InitHook,RepomanSituation.Leave,Init,ServiceLeave.cs,InitOrig,yes,RepomanSituation+Leave::Init > Situation::ForceSituationSpecificInteraction > .. 8 .. > StateMachineClient::RequestState,ServiceLeave,"keep, stub remap (SavedStacks.cs)"
+SlRepoThroughHook.InitHook,RepomanSituation.RepoWhileRoutingThrough,Init,ServiceLeave.cs,InitOrig,yes,RepomanSituation+RepoWhileRoutingThrough::Init > Situation::ForceSituationSpecificInteraction > .. 8 .. > StateMachineClient::RequestState,ServiceLeave,"keep, stub remap (SavedStacks.cs)"
+SlRepoTeleportHook.InitHook,RepomanSituation.RepoTeleport,Init,ServiceLeave.cs,InitOrig,yes,RepomanSituation+RepoTeleport::Init > Situation::ForceSituationSpecificInteraction > .. 8 .. > StateMachineClient::RequestState,ServiceLeave,"keep, stub remap (SavedStacks.cs)"
 ShHook.StartupHook,BuildableShell,OnStartup,ShellLighting.cs,StartupOrig,yes,BuildableShell::OnStartup > Shell::SetVisibility > .. 4 .. > StateMachineClient::RequestState,ShellLighting,"keep, stub remap (SavedStacks.cs)"
 SbHook.TriggerHook,Shuffleboard+Play,TriggerReactions,ShuffleboardBroadcast.cs,TriggerOrig,no,no path to a yield in 1 overload(s),ShuffleboardBroadcast,keep
 SbHook.CleanupHook,Shuffleboard+Play,Cleanup,ShuffleboardBroadcast.cs,CleanupOrig,yes,Shuffleboard+Play::Cleanup > InteractionInstance::Cleanup > .. 2 .. > StateMachineClient::RequestState,ShuffleboardBroadcast,"keep, stub remap (SavedStacks.cs)"

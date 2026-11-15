@@ -131,6 +131,7 @@ namespace Ts3Fixes
             ApplyGhostSpawnArgs();    // docs/563 §2 (GhostSpawnArgs.cs)
             ApplyMoveInPartner();    // docs/563 §3 (MoveInPartner.cs)
             ApplyReaperFlow();    // docs/563 §4 (ReaperFlow.cs)
+            ApplyServiceLeave();    // docs/564 §1 (ServiceLeave.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -428,6 +429,8 @@ namespace Ts3Fixes
         // [2508-2509] ghostspawnargs (GhostSpawnArgs.cs, docs/563 §2): angry ghost spawns forwarded / spawns forwarded with another lot.
         // [2510-2512] moveinpartner (MoveInPartner.cs, docs/563 §3): story move-ins swapped to the partner / skipped (no room either way) / errors; [2516] teen move skipped (docs/563 §5).
         // [2513-2515] reaperflow (ReaperFlow.cs, docs/563 §4): reaper soda pushes given a failure path / Challenge Death to Chess hidden with no grave / errors.
+        // [2517-2521] serviceleave (ServiceLeave.cs, docs/564 §1): service timeouts re-armed after a worker reset (wait/leave, work limit) / repo man left with no mailbox / no delay found / errors.
+        // [2522-2523] serviceleave (docs/564 §2): babysitter/butler periodic checks re-armed / repo-man no-op states left.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -733,6 +736,7 @@ namespace Ts3Fixes
                 case "ghostspawnargs": return Instantiator.kGhostSpawnArgs;
                 case "moveinpartner": return Instantiator.kMoveInPartner;
                 case "reaperflow": return Instantiator.kReaperFlow;
+                case "serviceleave": return Instantiator.kServiceLeave;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

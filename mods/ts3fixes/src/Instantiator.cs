@@ -269,6 +269,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kGhostSpawnArgs = false;    // ghostspawnargs (docs/563 §2): Urnstone.GhostSpawn overload drops lot and isAngry (Ghost Hunter angry ghosts)
         [Tunable] public static bool kMoveInPartner = false;    // moveinpartner (docs/563 §3): story move-in with partner over the household cap, teen couples (§5)
         [Tunable] public static bool kReaperFlow = false;    // reaperflow (docs/563 §4): Grim Reaper stuck after a failed vending-machine soda, Challenge Death to Chess with no grave
+        [Tunable] public static bool kServiceLeave = false;    // serviceleave (docs/564 §1): service NPC timeouts lost on a worker reset (never arrive / never leave), repo man with no mailbox
         [Tunable] public static bool kShellLighting = false;      // shelllighting (docs/561 §5): a buildable shell shows the lighting of the latest passed lighting time after load (EA keeps Default until the next alarm)
         [Tunable] public static bool kPhotoBoothFunds = false;    // photoboothfunds (docs/561 §2): a Sim that entered a photo booth and then lacked the fee is walked out (EA leaves it faded out inside)
         [Tunable] public static bool kGoHomeWalk = false;         // gohomewalk (docs/560 §2): GoHome takes back the walk style (Run) it requested, so Sims sent home from a busted party stop running

@@ -334,6 +334,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2510-2512 | `MoveInPartner.cs` (`fixes-2510`, docs/563 §3), `moveinpartner` | built 2026-11-15, default off, NOT RUN: story move-ins swapped to the partner (2510), skipped with no room either way (2511), errors (2512) |
 | 2513-2515 | `ReaperFlow.cs` (`fixes-2513`, docs/563 §4), `reaperflow` | built 2026-11-15, default off, NOT RUN: Grim Reaper soda pushes given EA's completion step as failure path (2513), Challenge Death to Chess hidden with no grave (2514), errors (2515) |
 | 2516 | `MoveInPartner.cs` (`fixes-2516`, docs/563 §5), `moveinpartner` | built 2026-11-15, default off, NOT RUN: story move-ins with a teen (going steady) skipped |
+| 2517-2521 | `ServiceLeave.cs` (`fixes-2517`, docs/564 §1), `serviceleave` | built 2026-11-15, default off, NOT RUN: service NPC wait/leave timeouts re-armed after a worker reset (2517), maid/repairman work-limit timeouts re-armed (2518), repo man left a lot with no mailbox (2519), states with no delay found (2520), errors (2521) |
+| 2522-2523 | `ServiceLeave.cs` (`fixes-2522`, docs/564 §2), `serviceleave` | built 2026-11-15, default off, NOT RUN: babysitter/butler periodic parent checks re-armed after a reset (2522; their leave / hunker-down / arrival timeouts count in 2517/2518), repo man left from a repo state that pushed nothing (2523) |
 | 2486-2488 | reserved (claude, `fixes-2486`) | djcleanup (DJ booth DoPlay/RequestMusic cleanup of another Sim's set), docs/561 §7 |
 | 2489-2490 | reserved (claude, `fixes-2489`) | vampirehuntglow (hunt heat vision left on Sims who left the lot), docs/561 §7 |
 | 2491-2492 | reserved (claude, `fixes-2491`) | hottubwoohoofx (woohoo effect left on after a Sim reset mid-woohoo), docs/561 §7 |
@@ -344,6 +346,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2504 | reserved (claude, `fixes-2504`) | privateeyecase stakeout part (deleted required Sim / no crime candidates), docs/562 §5 |
 | 2505-2512 | reserved (claude, `fixes-2505`) | life-events batch: weddingcancel 2505-2507, ghostspawnargs 2508-2509, moveinpartner 2510-2512 |
 | 2513-2516 | reserved (claude, `fixes-2513`) | reaperflow 2513-2515 (vending fail, chess no grave, errors), moveinpartner teen skip 2516 |
+| 2517-2521 | reserved (claude, `fixes-2517`) | serviceleave 2517-2521 (service Sim timeouts re-armed after a worker reset, repoman with no mailbox) |
+| 2522-2523 | reserved (claude, `fixes-2522`) | serviceleave 2522 babysitter periodic checks re-armed, 2523 repo man no-op states left |
 | **994+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

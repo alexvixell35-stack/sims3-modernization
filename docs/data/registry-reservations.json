@@ -3263,6 +3263,36 @@
       "what": "reaperflow 2513-2515 (vending fail, chess no grave, errors), moveinpartner teen skip 2516",
       "at": "2026-11-15T01:43:01.715Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2517",
+      "kind": "fixes",
+      "from": 2517,
+      "to": 2521,
+      "by": "claude",
+      "what": "serviceleave 2517-2521 (service Sim timeouts re-armed after a worker reset, repoman with no mailbox)",
+      "at": "2026-11-15T01:59:18.356Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-564",
+      "kind": "doc",
+      "from": 564,
+      "to": 564,
+      "by": "claude",
+      "what": "daily-life logic (services, ...)",
+      "at": "2026-11-15T01:59:18.429Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2522",
+      "kind": "fixes",
+      "from": 2522,
+      "to": 2523,
+      "by": "claude",
+      "what": "serviceleave 2522 babysitter periodic checks re-armed, 2523 repo man no-op states left",
+      "at": "2026-11-15T02:03:07.948Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

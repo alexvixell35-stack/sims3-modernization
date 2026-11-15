@@ -268,6 +268,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kGhostSpawnArgs value="False" />
     <kMoveInPartner value="False" />
     <kReaperFlow value="False" />
+    <kServiceLeave value="False" />
     <kBirthRoute value="False" />
     <kPutDownPlace value="False" />
     <kAwardKeep value="False" />

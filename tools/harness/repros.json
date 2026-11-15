@@ -70656,5 +70656,86 @@
         }
       }
     ]
+  },
+  {
+    "id": "service-leave-reset",
+    "bug": "A service NPC reset (stuck reset, any mod) deletes its DeleteOnReset timeouts and no service situation re-arms them: services that never arrive, maids/repairmen who never stop, service Sims standing on the lot for good; the repo man never leaves a lot with no mailbox; babysitters never notice parents leave/return after a reset; the repo man stands for good when a repo state pushes nothing (docs/564 §1-2)",
+    "fix": "ts3fixes ServiceLeave.cs: serviceleave (default off), docs/564 §1-2",
+    "save": "any world (pure check)",
+    "note": "ServiceLeaveCheck 'run' evaluates the re-arm and repo-man decisions with controls and lists the live service situations and their states (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "serviceleave": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ServiceLeaveCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ServiceLeaveCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "serviceleave": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ServiceLeaveCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ServiceLeaveCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "serviceleave": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "serviceleave": false
+        }
+      }
+    ]
   }
 ]
