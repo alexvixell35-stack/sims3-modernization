@@ -329,6 +329,11 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2495-2496 | `OppDeadListeners.cs` (`fixes-2495`, docs/562 §1), `oppdeadlisteners` | built 2026-11-15, default off, NOT RUN: ended opportunities' kSimDied / kSimDescriptionDisposed / kSimInstantiated listeners removed (2495) / errors (2496) |
 | 2497-2498 | `DaycareQuit.cs` (`fixes-2497`, docs/562 §2), `daycarequit` | built 2026-11-15, default off, NOT RUN: daycare child managers cleaned in CleanupDaycareOwner (LeaveJobNow) outside a workday (2497) / errors (2498) |
 | 2499-2504 | `PrivateEyeCase.cs` (`fixes-2499`, docs/562 §5), `privateeyecase` | built 2026-11-15, default off, NOT RUN: LookThroughMail with no case failed / apartment door lookup fallback (2499) / SearchThroughGarbage throw after the case ended caught (2500) / stale SnoopForClues alarms ignored (2501) / BreakIntoHouse door locks restored (2502) / errors (2503) / Stakeout crime setup fixed: deleted required Sim or no candidates (2504) |
+| 2505-2507 | `WeddingCancel.cs` (`fixes-2505`, docs/563 §1), `weddingcancel` | built 2026-11-15, default off, NOT RUN: end alarms armed after the rings-impatience cancel (2505), guest insults set on the jilter/guest relationship (2506), errors (2507) |
+| 2508-2509 | `GhostSpawnArgs.cs` (`fixes-2508`, docs/563 §2), `ghostspawnargs` | built 2026-11-15, default off, NOT RUN: Urnstone.GhostSpawn(bool, Vector3, Lot, bool) spawns forwarded with isAngry (2508) / with the caller's lot only (2509) |
+| 2510-2512 | `MoveInPartner.cs` (`fixes-2510`, docs/563 §3), `moveinpartner` | built 2026-11-15, default off, NOT RUN: story move-ins swapped to the partner (2510), skipped with no room either way (2511), errors (2512) |
+| 2513-2515 | `ReaperFlow.cs` (`fixes-2513`, docs/563 §4), `reaperflow` | built 2026-11-15, default off, NOT RUN: Grim Reaper soda pushes given EA's completion step as failure path (2513), Challenge Death to Chess hidden with no grave (2514), errors (2515) |
+| 2516 | `MoveInPartner.cs` (`fixes-2516`, docs/563 §5), `moveinpartner` | built 2026-11-15, default off, NOT RUN: story move-ins with a teen (going steady) skipped |
 | 2486-2488 | reserved (claude, `fixes-2486`) | djcleanup (DJ booth DoPlay/RequestMusic cleanup of another Sim's set), docs/561 §7 |
 | 2489-2490 | reserved (claude, `fixes-2489`) | vampirehuntglow (hunt heat vision left on Sims who left the lot), docs/561 §7 |
 | 2491-2492 | reserved (claude, `fixes-2491`) | hottubwoohoofx (woohoo effect left on after a Sim reset mid-woohoo), docs/561 §7 |
@@ -337,6 +342,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2497-2498 | reserved (claude, `fixes-2497`) | daycarequit (daycare child managers and listeners left after quitting outside a workday), docs/562 |
 | 2499-2503 | reserved (claude, `fixes-2499`) | privateeyecase (Investigator: mail door, garbage dead case, stale snoop alarm, break-in lock), docs/562 §5 |
 | 2504 | reserved (claude, `fixes-2504`) | privateeyecase stakeout part (deleted required Sim / no crime candidates), docs/562 §5 |
+| 2505-2512 | reserved (claude, `fixes-2505`) | life-events batch: weddingcancel 2505-2507, ghostspawnargs 2508-2509, moveinpartner 2510-2512 |
+| 2513-2516 | reserved (claude, `fixes-2513`) | reaperflow 2513-2515 (vending fail, chess no grave, errors), moveinpartner teen skip 2516 |
 | **994+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

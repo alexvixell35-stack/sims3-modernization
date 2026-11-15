@@ -3233,6 +3233,36 @@
       "what": "privateeyecase stakeout part (deleted required Sim / no crime candidates), docs/562 §5",
       "at": "2026-11-15T01:20:20.785Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2505",
+      "kind": "fixes",
+      "from": 2505,
+      "to": 2512,
+      "by": "claude",
+      "what": "life-events batch: weddingcancel 2505-2507, ghostspawnargs 2508-2509, moveinpartner 2510-2512",
+      "at": "2026-11-15T01:37:21.952Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-563",
+      "kind": "doc",
+      "from": 563,
+      "to": 563,
+      "by": "claude",
+      "what": "life-events logic (weddings, ghosts, story move-in)",
+      "at": "2026-11-15T01:37:22.025Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2513",
+      "kind": "fixes",
+      "from": 2513,
+      "to": 2516,
+      "by": "claude",
+      "what": "reaperflow 2513-2515 (vending fail, chess no grave, errors), moveinpartner teen skip 2516",
+      "at": "2026-11-15T01:43:01.715Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

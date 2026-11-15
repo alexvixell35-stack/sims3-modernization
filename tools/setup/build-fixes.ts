@@ -264,6 +264,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kOppDeadListeners value="False" />
     <kDaycareQuit value="False" />
     <kPrivateEyeCase value="False" />
+    <kWeddingCancel value="False" />
+    <kGhostSpawnArgs value="False" />
+    <kMoveInPartner value="False" />
+    <kReaperFlow value="False" />
     <kBirthRoute value="False" />
     <kPutDownPlace value="False" />
     <kAwardKeep value="False" />

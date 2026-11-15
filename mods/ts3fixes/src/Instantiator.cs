@@ -265,6 +265,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kOppDeadListeners = false;  // oppdeadlisteners (docs/562 §1): an ended Sim-target opportunity's global Sim died / disposed / instantiated listeners are removed
         [Tunable] public static bool kDaycareQuit = false;       // daycarequit (docs/562 §2): quitting daycare outside work hours removes the child managers and their listeners
         [Tunable] public static bool kPrivateEyeCase = false;    // privateeyecase (docs/562 §5): Investigator mail on apartment mailboxes, garbage search after the case ended, stale snoop alarm, break-in door lock
+        [Tunable] public static bool kWeddingCancel = false;    // weddingcancel (docs/563 §1): wedding stuck after the rings-impatience cancel, jilt insult on the wrong relationship
+        [Tunable] public static bool kGhostSpawnArgs = false;    // ghostspawnargs (docs/563 §2): Urnstone.GhostSpawn overload drops lot and isAngry (Ghost Hunter angry ghosts)
+        [Tunable] public static bool kMoveInPartner = false;    // moveinpartner (docs/563 §3): story move-in with partner over the household cap, teen couples (§5)
+        [Tunable] public static bool kReaperFlow = false;    // reaperflow (docs/563 §4): Grim Reaper stuck after a failed vending-machine soda, Challenge Death to Chess with no grave
         [Tunable] public static bool kShellLighting = false;      // shelllighting (docs/561 §5): a buildable shell shows the lighting of the latest passed lighting time after load (EA keeps Default until the next alarm)
         [Tunable] public static bool kPhotoBoothFunds = false;    // photoboothfunds (docs/561 §2): a Sim that entered a photo booth and then lacked the fee is walked out (EA leaves it faded out inside)
         [Tunable] public static bool kGoHomeWalk = false;         // gohomewalk (docs/560 §2): GoHome takes back the walk style (Run) it requested, so Sims sent home from a busted party stop running

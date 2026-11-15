@@ -127,6 +127,10 @@ namespace Ts3Fixes
             ApplyOppDeadListeners();  // docs/562 §1 (OppDeadListeners.cs)
             ApplyDaycareQuit();       // docs/562 §2 (DaycareQuit.cs)
             ApplyPrivateEyeCase();    // docs/562 §5 (PrivateEyeCase.cs)
+            ApplyWeddingCancel();    // docs/563 §1 (WeddingCancel.cs)
+            ApplyGhostSpawnArgs();    // docs/563 §2 (GhostSpawnArgs.cs)
+            ApplyMoveInPartner();    // docs/563 §3 (MoveInPartner.cs)
+            ApplyReaperFlow();    // docs/563 §4 (ReaperFlow.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -420,6 +424,10 @@ namespace Ts3Fixes
         // [2495-2496] oppdeadlisteners (OppDeadListeners.cs, docs/562 §1): ended opportunities' Sim died / disposed / instantiated listeners removed / errors.
         // [2497-2498] daycarequit (DaycareQuit.cs, docs/562 §2): daycare child managers cleaned after a quit outside work hours / errors.
         // [2499-2504] privateeyecase (PrivateEyeCase.cs, docs/562 §5): mail no-case / door fallback / garbage dead-case exits / stale snoop alarms ignored / break-in locks restored / errors / stakeouts fixed.
+        // [2505-2507] weddingcancel (WeddingCancel.cs, docs/563 §1): end alarms armed after the impatience cancel / guest insults set on the jilter relationship / errors.
+        // [2508-2509] ghostspawnargs (GhostSpawnArgs.cs, docs/563 §2): angry ghost spawns forwarded / spawns forwarded with another lot.
+        // [2510-2512] moveinpartner (MoveInPartner.cs, docs/563 §3): story move-ins swapped to the partner / skipped (no room either way) / errors; [2516] teen move skipped (docs/563 §5).
+        // [2513-2515] reaperflow (ReaperFlow.cs, docs/563 §4): reaper soda pushes given a failure path / Challenge Death to Chess hidden with no grave / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -721,6 +729,10 @@ namespace Ts3Fixes
                 case "oppdeadlisteners": return Instantiator.kOppDeadListeners;
                 case "daycarequit": return Instantiator.kDaycareQuit;
                 case "privateeyecase": return Instantiator.kPrivateEyeCase;
+                case "weddingcancel": return Instantiator.kWeddingCancel;
+                case "ghostspawnargs": return Instantiator.kGhostSpawnArgs;
+                case "moveinpartner": return Instantiator.kMoveInPartner;
+                case "reaperflow": return Instantiator.kReaperFlow;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

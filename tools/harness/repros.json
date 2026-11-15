@@ -70332,5 +70332,329 @@
         }
       }
     ]
+  },
+  {
+    "id": "wedding-cancel",
+    "bug": "A wedding whose rings are not exchanged within the hour goes to WeddingCanceled with no jilter, which never arms its end alarm: the ceremony never ends and the couple cannot marry under an arch again; a jilt sets the guests' insult on the wrong relationship (docs/563 §1)",
+    "fix": "ts3fixes WeddingCancel.cs: weddingcancel (default off), docs/563 §1",
+    "save": "any world (pure check)",
+    "note": "WeddingCancelCheck 'run' evaluates the impatience-cancel end alarm and the jilt guest insult, with controls.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "weddingcancel": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeddingCancelCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeddingCancelCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weddingcancel": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeddingCancelCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeddingCancelCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weddingcancel": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "weddingcancel": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "ghost-spawn-args",
+    "bug": "Urnstone.GhostSpawn(bool, Vector3, Lot, bool) drops its lot and isAngry arguments: Ghost Hunter angry ghosts are refused at the ghost cap, get the wrong reaction broadcaster and greet the wrong lot (docs/563 §2)",
+    "fix": "ts3fixes GhostSpawnArgs.cs: ghostspawnargs (default off), docs/563 §2",
+    "save": "any world (pure check)",
+    "note": "GhostSpawnArgsCheck 'run' evaluates an angry spawn and a spawn for another lot, with controls.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "ghostspawnargs": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GhostSpawnArgsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GhostSpawnArgsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ghostspawnargs": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GhostSpawnArgsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GhostSpawnArgsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ghostspawnargs": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "ghostspawnargs": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "movein-partner-cap",
+    "bug": "Story progression MoveInWithPartner picks the mover without the room test and moves an NPC Sim into a partner household that is already full, and moves teens out to their going-steady partner's family (docs/563 §3, §5)",
+    "fix": "ts3fixes MoveInPartner.cs: moveinpartner (default off), docs/563 §3",
+    "save": "any world (pure check)",
+    "note": "MoveInPartnerCheck 'run' evaluates a full partner household (partner can move the other way / cannot), with a control.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "moveinpartner": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MoveInPartnerCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MoveInPartnerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "moveinpartner": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MoveInPartnerCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MoveInPartnerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "moveinpartner": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "moveinpartner": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "reaper-flow",
+    "bug": "The Grim Reaper stays on the lot for good when its vending-machine soda fails (no failure callback), and Challenge Death to Chess is offered with no grave after a match (pie-menu script error, null ghost spawn) (docs/563 §4)",
+    "fix": "ts3fixes ReaperFlow.cs: reaperflow (default off), docs/563 §4",
+    "save": "any world (pure check)",
+    "note": "ReaperFlowCheck 'run' evaluates the soda failure path and the chess offer with no grave, with controls.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "reaperflow": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReaperFlowCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReaperFlowCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reaperflow": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReaperFlowCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReaperFlowCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reaperflow": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "reaperflow": false
+        }
+      }
+    ]
   }
 ]
