@@ -215,6 +215,9 @@ namespace Ts3Fixes
             ApplyResidentSpawnSlot();   // docs/582 B5 §8
             ApplyTalkOccupationChance();   // docs/582 B5 §9
             ApplyShellDoorSummon();   // docs/582 B5 §10
+            ApplyDisposeBase();   // docs/582 B6 §1
+            ApplyFreshClothingResume();   // docs/582 B6 §3
+            ApplyTwinBellyShape();   // docs/582 B6 §4
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -625,6 +628,10 @@ namespace Ts3Fixes
         // [1083-1086] residentspawnslot (ResidentSpawnSlot.cs, docs/582 B5 §8): slots accepted / would accept with switch off / failures kept / errors.
         // [1087-1089] talkoccupationchance (Batch582dLogic.cs, docs/582 B5 §9): menus built / Unemployment through the fixed chance / errors.
         // [1090-1092] shelldoorsummon (Batch582dLogic.cs, docs/582 B5 §10): summons run / teleport refused, exit not queued / errors.
+        // [1093-1095] disposebase (Batch582eLogic.cs, docs/582 B6 §1): base disposes run / seen with switch off / errors.
+        // [1096-1098] boardingschoolmoney (Batch582eLogic.cs, docs/582 B6 §2): schools corrected / would change with switch off / errors.
+        // [1099-1102] freshclothingresume (Batch582eLogic.cs, docs/582 B6 §3): resumed / skipped worn off / seen with switch off / errors.
+        // [1103-1105] twinbellyshape (Batch582eLogic.cs, docs/582 B6 §4): shapes corrected / seen with switch off / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -1039,6 +1046,10 @@ namespace Ts3Fixes
                 case "residentspawnslot": return Instantiator.kResidentSpawnSlot;
                 case "talkoccupationchance": return Instantiator.kTalkOccupationChance;
                 case "shelldoorsummon": return Instantiator.kShellDoorSummon;
+                case "disposebase": return Instantiator.kDisposeBase;
+                case "boardingschoolmoney": return Instantiator.kBoardingSchoolMoney;
+                case "freshclothingresume": return Instantiator.kFreshClothingResume;
+                case "twinbellyshape": return Instantiator.kTwinBellyShape;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

@@ -15,6 +15,17 @@ namespace Ts3Fixes
         //   listener count, panel list and promise slot are identical before and after.
         public static object DreamCleanupCheck(string what)
         {
+            try { return DreamCleanupCheckRun(what); }
+            catch (Exception e)  // never an empty line (live 2026-11-15): name the throw so the run can be read
+            {
+                string at = e.StackTrace ?? "";
+                int nl = at.IndexOf('\n');
+                return "dreamcleanup check: threw " + e.GetType().Name + ": " + e.Message + " at " + (nl > 0 ? at.Substring(0, nl).Trim() : at.Trim()) + "; verdict: ERROR";
+            }
+        }
+
+        static object DreamCleanupCheckRun(string what)
+        {
             int[] c = PatchCounters();
             string counters = "dreamcleanup: unfiled 1002=" + c[1002] + ", woken filed 1003=" + c[1003] + ", seen with switch off 1004=" + c[1004]
                 + ", errors 1005=" + c[1005] + "; " + GlMembers(sDcMissing);

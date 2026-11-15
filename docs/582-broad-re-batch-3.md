@@ -230,6 +230,19 @@ The user's install (and our installer, docs/07 §2.1) runs simler90's Gameplay C
 
 Every batch 3 and batch 4 hook targets a method that simler90 leaves byte-identical to EA's, so no swap stacks on a simler90 replacement (swap-stack audit rows: `docs/data/swap-stack-audit.csv`).
 
+## Live results 2026-11-15 (phase-20261115-2043, smallfix.txt)
+
+**Proven in game: 22 of the switches in this doc**, plus `sandwichalarm` (docs/580 §16). Each switch was run off, then on. It printed off BROKEN and on FIXED, with controls ok and members found. They moved into the proven set of `tools/harness/sets/proven-fixes.txt`, and their registry rows are marked.
+- **Batch 3:** `vehiclefxhelper`, `prankditchempty`, `serviceassignexit`, `serviceshowalarm`, `maildogchaser`, `lifeguardsurvey`, `moonriselistener`, `holidaylights`.
+- **Batch 4:** `doorlockowner`, `elevatorkitten`, `elevatorresetriders`, `elevatorsavedlog`, `starlightreset`, `moondiallistener`, `snublistener`, `elevatorridertimeout`.
+- **Batch 5:** `rolenullguard`, `horseranchchallenge`, `digsiteemptypick`, `oppchainworld`, `teleportcommunitylot`, `photosubjectstars`.
+
+**Two did not pass. Both are fixed and need another run:**
+- **`homeworkskillbonus`**: the result was UNEXPECTED both ways, with "members found=False (missing: Homework.IsOld)". The lookup asked for a property, but `IsOld` is a public field. Because of that, Apply returned early and the hook was never installed: "rates raised" stayed 0. It now uses `GetField`.
+- **`dreamcleanup`** (docs/580 §18): `run` printed nothing, while `result` worked. Two changes:
+  - The check now reports any exception as "threw ...; verdict: ERROR", so it can no longer print an empty line.
+  - `DcFindKey` now reads the index through `IDictionaryEnumerator.Key/Value` instead of `foreach (DictionaryEntry ...)`. The game's Mono may hand out boxed KeyValuePairs for a generic Dictionary; this is the likely cause, still inferred.
+
 ## Batch 4 (REA tranche 2b, docs/584 §5): door locks, elevators, StarLight, listener leaks
 
 2026-11-15. Static only. Code: `Batch582bLogic.cs`, checks: `Batch582bChecks.cs`. The rules are the same as above.
@@ -415,6 +428,7 @@ It changes none of the other methods below (`docs/data/mod-method-diff.csv` and 
 - The resident is then placed at an elevator or a lot corner instead of its own door.
 - phase-20261115-1831: 119 such failed plans attributed to Apollo Bloom (household), all with goal 815.1,29.4,1658.2 (a corner of lot 0xF590003595C3CD30) and 10 locked doors at rooms 10/7 on that lot. None was Apollo's own route.
 - `doors.json` in phase 1831 and 1935 covers only the household's own lot (Trawler Lodge, 14 doors, all Anybody), so the CD30 lock types are not on record. The agent `doors` command now reports, per door, the lock owner, whether that owner still lives there, the owner-list size and gone ids, hidden sides and NPC doors. Run `doors {"lot":"0xF590003595C3CD30"}` to tell which case applies. A lock to a gone owner is `doorlockowner`'s (B4 §1); a lock to the living residents is this one's.
+- Live doors for CD30 ("Founders Peace - Studio", household Shutter): 6 Anybody and 3 Nobody. The three refusing doors are NPC doors to hidden room 7 (rooms 10/7). No owner is gone, so `doorlockowner` does not apply. The resident is refused there too: `Door.CanGoThrough` is false for NPC doors, and `CommonDoor.IsAllowedThrough` refuses hidden rooms before it reads the lock. So `residentspawnslot` keeps EA's failure here ([1085]). EA already skips the hidden-side slots, so the open question is whether corridor room 10 (level 1) reaches outside. The tool to answer it is `HiddenRoomCheck "reach F590003595C3CD30 1 all"`, which prints out/closed per probe (selected, resident, NPC, or a named Sim) and each portal with IsAllowedThrough per probe. `lot` scans now list level-1 rooms too. If room 10 is closed, EA is right: the resident spawns at the ground elevator spot, and the failed plans are only a cost. If room 10 is out, the planner disagrees with the room walk, and a slot-test fix is due. Pending.
 - `SimDescription.Instantiate` is not logged, so the spawn count is not known (each spawn tests every NPC-door slot).
 - `Service.cs:1123` (`GetPositionNearLotCorners`, `Sim.ActiveActor`) tests outdoor corner spots for visitors. A visitor's rights are about the same as anyone's there, so it is left alone. In a resident's spawn (its last fallback) the same re-judging applies.
 - simler90 ships `Service` unchanged at these lines; it does not touch `SimDescription.Instantiate`.
@@ -454,3 +468,80 @@ Live confirmation:
 - **B5 §7**: the journal shows 1-5 stars.
 - **B5 §8**: with Apollo's household selected, the count of `FailedBecauseDestinationPortalLocked` plans at the CD30 corners (off), then [1083] and residents fading in at their doors (on). First run `doors {"lot":"0xF590003595C3CD30"}`.
 - **B5 §9**: the Talk About Occupation menu offers Unemployment about 1 time in count+1.
+
+## Batch 6 (Roslyn pass 2, docs/583 §6, user-approved)
+
+2026-11-15. Static only. Code: `Batch582eLogic.cs`, checks: `Batch582eChecks.cs`. The rules are the same as above.
+
+**simler90 first.** simler90's copies of `Sims3GameplayObjects` and `Sims3GameplaySystems` were decompiled with ilspy for each site. All of them are as EA wrote them:
+- the five `Dispose` bodies (same IL calls);
+- the `BoardingSchoolData` parse;
+- `LaundryManager` (the map is written, never read);
+- `InternalHaveBabyHome.Run` (`1 - BabyIndex / TotalCount`).
+
+| § | Lead | Switch | Slots | Scope | Status |
+|---|---|---|---|---|---|
+| B6 §1 | P1 | `disposebase` | 1093-1095 | **household-visible**: five object types run `GameObject.Dispose` | verified (IL, all five) |
+| B6 §2 | P2 | `boardingschoolmoney` | 1096-1098 | **household-visible** (funds): the boarding-school phone-call amounts come from the tuned ranges | verified |
+| B6 §3 | P3 | `freshclothingresume` | 1099-1102 | **household-visible** (moodlet): Fresh Clothing resumes after a swim or shower | verified code; effect inferred |
+| B6 §4 | P5 | `twinbellyshape` | 1103-1105 | **household-visible** (cosmetic): the belly shrinks per baby with twins and triplets | verified |
+| - | P4 | not built | - | mermaid `AskedToRehydrate` | see below |
+| - | P6 | skipped | - | zombie property recursion | no caller in EA or NRaas |
+
+### B6 §1 disposebase
+
+**The bug [verified, IL].** The `Dispose` overrides of JunkPile, ShoppingRegister, PetBedReward, BubbleColumn and FogMarker never call the base. PetBed and Column do not override `Dispose`, so for all five the skipped base is `GameObject.Dispose`. Skipped with it:
+- purging Sims' queued interactions on the object;
+- removing its alarms and reactions;
+- removing it from the lot's commodity map and the room look-at list;
+- disposing its components;
+- `kEventObjectDisposed`.
+
+**The fix (switch on).** After the override's own cleanup, `GameObject.Dispose` runs, as in every other EA object. Each hook class derives from `GameObject`, so `base.Dispose()` is a non-virtual call to `GameObject.Dispose` from inside the swapped body. There is one class per target because each needs its own stub.
+
+### B6 §2 boardingschoolmoney
+
+**The bug [verified].** `BoardingSchoolData(XmlDbRow)` crosses the two ranges:
+- `NeedMoneyRange` fills RewardMin and NeedMoneyMin;
+- `RewardMoneyRange` then overwrites NeedMoneyMin and fills RewardMax;
+- NeedMoneyMax is never set, so it stays 0.
+
+As a result, the need-money call asks for `GetInt(RewardMoneyRange[0], 0)`, an inverted range that gives 1 up to that minimum. The reward call starts from `NeedMoneyRange[0]`.
+
+**The fix (switch on).** EA parses at startup, before ts3fixes is up. So at world load, the fix re-reads EA's own `BoardingSchool` table and sets each parsed school's four fields from its own range. EA's fallbacks are 100 and 500 in both branches; those become each pair's min and max. Turning the switch on takes effect at the next world load.
+
+### B6 §3 freshclothingresume
+
+**The bug [verified code, effect inferred].** The remaining time is saved in three places, and nothing reads it:
+- `OnClothesChanged` saves the Fresh Clothing buff's remaining time in `mFreshClothingTimeouts` when a Sim changes into swimwear or naked, and removes the buff.
+- `BuffFreshClothing.OnRemoval` records 0 when the buff ends.
+- A dryer cycle clears the map.
+
+Because nothing reads the map, `AddLaundryBuff` always adds the buff at full length.
+
+**The fix (switch on), at the reader.** In `AddLaundryBuff`, for a Sim that has a saved entry and no Fresh Clothing buff on:
+- with a saved time, the add resumes it, and the entry is used up;
+- with a saved 0, nothing is added, because the buff already ran out on this laundry.
+
+With no entry, or with the buff still on the Sim, EA's add runs.
+
+### B6 §4 twinbellyshape
+
+**The bug [verified].** `Pregnancy+InternalHaveBabyHome.Run` calls `SetPregnancy(1 - BabyIndex / TotalCount)` with integer division. The belly stays full until the last baby.
+
+**The fix (switch on).** The `Run` hook records the baby index and count for its own sim task, because `Run` yields in `AnimateSim`. When `SimDescription.SetPregnancy(float)` is called from that task with EA's value, it gets `1 - i/n` instead. Any other call is untouched.
+
+### Not built
+
+- **P4, mermaid `AskedToRehydrate`.** The field is never set because EA has no "ask to rehydrate" interaction. The frozen-Sim twin, `AskToThawOut`, exists in SimTemperature; nothing like it exists for mermaids. A fix would mean adding a new social, with no text or animation known to ship, so it is a feature rather than a fix.
+- **P6, the zombie `ChanceToAutonomouslyPerformBraaaiiinsSocial` property.** It calls itself, but nothing in EA's code or in the NRaas sources calls it, so it is skipped.
+
+### Batch 6 tests (in game, off then on)
+
+Repros `<switch>-check`: `disposebase`, `boardingschoolmoney`, `freshclothingresume`, `twinbellyshape`.
+
+Live confirmation:
+- **B6 §1**: sell a junk pile or a register with a Sim's interaction queued on it; the queue is purged ([1093]).
+- **B6 §2**: [1096] after the world loads; check a need-money call's amount against the tuned range.
+- **B6 §3**: Fresh Clothing time before a swim and after changing back.
+

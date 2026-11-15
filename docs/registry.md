@@ -396,35 +396,36 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2709-2710 | reserved (claude, `fixes-2709`) | routecauselog (RouteCauseLog.cs, docs/579): lines written / dropped by the cap |
 | 994-996 | reserved (claude, `fixes-994`) | scarepriority (ScarePriority.cs, docs/580 §14): Scare/StaticShock receivers raised / seen with switch off / errors |
 | 997 | reserved (claude, `fixes-997`) | outfitwaitpoll household rule (OutfitWait.cs, docs/580 §15): stale waits kept on EA's per-tick loop because the Sim is the player's |
-| 998-1000 | reserved (claude, `fixes-998`) | sandwichalarm (SandwichAlarm.cs, docs/580 §16): stale daily sandwich-board alarms removed before EA re-adds / seen with switch off / errors |
-| 1001 | reserved (claude, `fixes-1001`) | sandwichalarm load sweep (SandwichAlarm.cs, docs/580 §16): saved duplicate ResetSandwichBoards alarms removed |
+| 998-1000 | reserved (claude, `fixes-998`) | sandwichalarm (SandwichAlarm.cs, docs/580 §16): stale daily sandwich-board alarms removed before EA re-adds / seen with switch off / errors; proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1001 | reserved (claude, `fixes-1001`) | sandwichalarm load sweep (SandwichAlarm.cs, docs/580 §16): saved duplicate ResetSandwichBoards alarms removed; proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
 | 1002-1005 | reserved (claude, `fixes-1002`) | dreamcleanup (DreamCleanup.cs, docs/580 §18): pet-subject nodes unfiled / woken repeatables re-filed / seen with switch off / errors |
-| 1006-1008 | reserved (claude, `fixes-1006`) | vehiclefxhelper (docs/582 §1) |
-| 1009-1011 | reserved (claude, `fixes-1009`) | prankditchempty (docs/582) |
-| 1012-1015 | reserved (claude, `fixes-1012`) | serviceassignexit (docs/582) |
-| 1016-1018 | reserved (claude, `fixes-1016`) | serviceshowalarm (docs/582) |
-| 1022-1024 | reserved (claude, `fixes-1022`) | maildogchaser (docs/582) |
-| 1025-1027 | reserved (claude, `fixes-1025`) | lifeguardsurvey (docs/582) |
-| 1028-1030 | reserved (claude, `fixes-1028`) | moonriselistener (docs/582) |
-| 1031-1034 | reserved (claude, `fixes-1031`) | holidaylights (docs/582) |
-| 1035-1039 | reserved (claude, `fixes-1035`) | doorlockowner (batch 4) |
-| 1040-1042 | reserved (claude, `fixes-1040`) | elevatorkitten (batch 4) |
-| 1043-1045 | reserved (claude, `fixes-1043`) | elevatorresetriders (batch 4) |
-| 1046-1049 | reserved (claude, `fixes-1046`) | elevatorsavedlog (batch 4) |
-| 1050-1052 | reserved (claude, `fixes-1050`) | starlightreset (batch 4) |
-| 1053-1055 | reserved (claude, `fixes-1053`) | moondiallistener (batch 4) |
-| 1056-1058 | reserved (claude, `fixes-1056`) | snublistener (batch 4) |
-| 1059-1061 | reserved (claude, `fixes-1059`) | elevatorridertimeout (batch 4 E2) |
-| 1062-1064 | reserved (claude, `fixes-1062`) | rolenullguard (batch 5, docs/583 lead) |
+| 1006-1008 | reserved (claude, `fixes-1006`) | vehiclefxhelper (docs/582 §1); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1009-1011 | reserved (claude, `fixes-1009`) | prankditchempty (docs/582); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1012-1015 | reserved (claude, `fixes-1012`) | serviceassignexit (docs/582); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1016-1018 | reserved (claude, `fixes-1016`) | serviceshowalarm (docs/582); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1022-1024 | reserved (claude, `fixes-1022`) | maildogchaser (docs/582); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1025-1027 | reserved (claude, `fixes-1025`) | lifeguardsurvey (docs/582); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1028-1030 | reserved (claude, `fixes-1028`) | moonriselistener (docs/582); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1031-1034 | reserved (claude, `fixes-1031`) | holidaylights (docs/582); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1035-1039 | reserved (claude, `fixes-1035`) | doorlockowner (batch 4); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1040-1042 | reserved (claude, `fixes-1040`) | elevatorkitten (batch 4); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1043-1045 | reserved (claude, `fixes-1043`) | elevatorresetriders (batch 4); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1046-1049 | reserved (claude, `fixes-1046`) | elevatorsavedlog (batch 4); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1050-1052 | reserved (claude, `fixes-1050`) | starlightreset (batch 4); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1053-1055 | reserved (claude, `fixes-1053`) | moondiallistener (batch 4); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1056-1058 | reserved (claude, `fixes-1056`) | snublistener (batch 4); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1059-1061 | reserved (claude, `fixes-1059`) | elevatorridertimeout (batch 4 E2); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1062-1064 | reserved (claude, `fixes-1062`) | rolenullguard (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
 | 1065-1067 | reserved (claude, `fixes-1065`) | homeworkskillbonus (batch 5, docs/583 lead) |
-| 1068-1070 | reserved (claude, `fixes-1068`) | horseranchchallenge (batch 5, docs/583 lead) |
-| 1071-1073 | reserved (claude, `fixes-1071`) | digsiteemptypick (batch 5, docs/583 lead) |
-| 1074-1076 | reserved (claude, `fixes-1074`) | oppchainworld (batch 5, docs/583 lead) |
-| 1077-1079 | reserved (claude, `fixes-1077`) | teleportcommunitylot (batch 5, docs/583 lead) |
-| 1080-1082 | reserved (claude, `fixes-1080`) | photosubjectstars (batch 5, docs/583 lead) |
+| 1068-1070 | reserved (claude, `fixes-1068`) | horseranchchallenge (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1071-1073 | reserved (claude, `fixes-1071`) | digsiteemptypick (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1074-1076 | reserved (claude, `fixes-1074`) | oppchainworld (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1077-1079 | reserved (claude, `fixes-1077`) | teleportcommunitylot (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
+| 1080-1082 | reserved (claude, `fixes-1080`) | photosubjectstars (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) |
 | 1083-1086 | reserved (claude, `fixes-1083`) | residentspawnslot (batch 5b, spawn-slot stand-in) |
 | 1087-1092 | reserved (claude, `fixes-1087`) | talkoccupationchance, shelldoorsummon (batch 5 leads 7, 8) |
-| **1093+** | next free | reserve here  |
+| 1093-1105 | reserved (claude, `fixes-1093`) | batch 6 (Roslyn pass 2: disposebase, boardingschoolmoney, freshclothingresume, twinbellyshape) |
+| **1106+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 
