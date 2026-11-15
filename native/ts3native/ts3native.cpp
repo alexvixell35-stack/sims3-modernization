@@ -2722,7 +2722,7 @@ struct Ts3nCounters {
     LONG kdCeilNpc;                        // +0x5D4C, jobs and sync plans cut at it, also counted in kdCeilCut ("KD NPC CEILING CUT" lines)
     LONG kdCutNpc;                         // +0x5D50, KindDeadlines cuts of a seen NPC (scope 3), not in kdCutSeen, which is now the household side only
     // v168 (0.36.186, docs/197 §7, plandeadline.cpp): [RouteAsync] KdCutCamRecheck
-    volatile LONG kdCamMode;               // +0x5D54, switch (native_set kdcutcamrecheck / --ab kdcutcamrecheck, start value KdCutCamRecheck): 1 = a route known unseen in view at its cut runs on; 2 = it is cut, and VIEW? keeps ts3fixes' unseen recovery off (no hold)
+    volatile LONG kdCamMode;               // +0x5D54, switch (native_set kdcutcamrecheck / --ab kdcutcamrecheck, start value KdCutCamRecheck): 1 = a route known unseen in view at its cut runs on; 2 = as 1, and a ceiling cut after that answers VIEW? 1 (no unseen recovery)
     LONG kdCamChecks;                      // +0x5D58, cuts of a route known unseen tested against the camera (either mode)
     LONG kdCamHeld;                        // +0x5D5C, mode 1: in view, cut held to the NPC ceiling
     LONG kdCamStale;                       // +0x5D60, no fresh snapshot (either mode; mode 1 holds them too)
@@ -3299,7 +3299,7 @@ static __declspec(thread) LONG t_fbjdCut[3];
 // camera, 2 in view: t_kdCamDl is its deadline now. Points = x, z of the plan's start and goals, copied at Route_PlanLocked (they die with it)
 enum { KD_CAM_PTS = 9 };
 static __declspec(thread) LONG t_kdCam, t_kdCamN, t_kdCamNote;
-static __declspec(thread) LONG t_kdCamView;  // KdCutCamRecheck=2: this job's / plan's cut came in view or with no fresh camera
+static __declspec(thread) LONG t_kdCamView;  // KdCutCamRecheck=2: this job / plan was seen in view (or untestable) at its first cut
 static __declspec(thread) LONGLONG t_kdCamDl;
 static __declspec(thread) float t_kdCamP[KD_CAM_PTS][2];
 static bool KdCamHold(LONGLONG now, LONGLONG* dl);

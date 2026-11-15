@@ -127,10 +127,10 @@ static __declspec(thread) bool t_kdSeen, t_kdNpc;  // this sync plan's scope was
 // never farther than the 3D distance of UfSphereUnseen, so it can only hold more than that rule. In view or no fresh snapshot = no cut:
 // the job or plan runs on to the NPC ceiling (scope 2 is never household). One test per job or plan, at its first cut; a hold is not retested.
 // Stale: 1 s, above every kind deadline (backoff doubled = 500 ms), because the sim stops publishing while it waits on the job's +0x918.
-// Mode 2 (no hold): the same non-blocking test of the published snapshot decides at the cut, and the cut goes ahead either way, so
-// nothing runs on to the ceiling and the sim never waits longer than mode 0. In view or no fresh snapshot = t_kdCamView: CUT? still
-// answers 1, and VIEW? (0x83 optLo 4) answers 1 once, so ts3fixes skips its unseen-only recovery (teleport, no-retry window, not-a-
-// failure) and the cut is an ordinary failed plan for EA's own retry and the KD backoff. Older ts3fixes never asks: recovery as mode 0.
+// "Held" = not cut: the job or plan simply runs on, as a seen NPC's does under KdExemptSeen (same KdSeenNpcCeilMs, same exempt
+// records); nothing waits on the sim thread that a seen Sim's job would not make it wait for. Mode 2 = mode 1, plus: if that
+// ceiling still cuts it, VIEW? (0x83 optLo 4, asked by ts3fixes after CUT? answered 1) answers 1, so ts3fixes skips its unseen-only
+// recovery (teleport, no-retry window, not-a-failure) as for a seen NPC's ceiling cut. Older ts3fixes never asks.
 static const LONG kKdCamStaleMs = 1000;
 static void UfCamFresh();
 static bool KdCamRead(KdCamSnap* out) {
@@ -171,23 +171,23 @@ static bool KdCamHold(LONGLONG now, LONGLONG* dl) {
     if (!t_kdCam) return false;
     if (t_kdCam == 2) return *dl = t_kdCamDl, now < t_kdCamDl;
     Ts3nCounters& k = ts3native_counters;
-    const bool act = k.kdCamMode == 1, noHold = k.kdCamMode == 2;
+    const bool act = k.kdCamMode >= 1, viewAsk = k.kdCamMode == 2;
     const LONGLONG t0 = t_pd.open ? t_pd.t0 : t_jobT0, ceil = t0 + (LONGLONG)k.kdNpcCeilUs * g_qpf.QuadPart / 1000000;
     if (!t_kdCamN) {  // before the IC's first plan: no points yet, the next cut point asks again; the ceiling still holds
+        if (viewAsk) t_kdCamView = 1;  // untestable counts as in view, also for the cut at the ceiling
         if (act && now < ceil) return true;
-        if (noHold) t_kdCamView = 1, t_kdCamNote = 6;  // no points to test: unknown counts as in view
         t_kdCam = 0;
         return false;
     }
     t_kdCam = 0;
     InterlockedIncrement(&k.kdCamChecks);
-    if ((act || noHold) && t_pd.open) UfCamFresh();  // a sync plan: the sim publishes nothing while it plans, and this is the sim
+    if (act && t_pd.open) UfCamFresh();  // a sync plan: the sim publishes nothing while it plans, and this is the sim
     KdCamSnap c;
     const bool fresh = KdCamRead(&c) && (now - c.at) * 1000 < kKdCamStaleMs * g_qpf.QuadPart;
-    if (fresh && !KdCamInView(c, t_kdCamP, t_kdCamN)) return false;
+    if (fresh && !KdCamInView(c, t_kdCamP, t_kdCamN)) { t_kdCamView = 0; return false; }  // unseen after all: recovery as ever
     if (!fresh) InterlockedIncrement(&k.kdCamStale);
-    t_kdCamNote = fresh ? (act ? 1 : noHold ? 5 : 3) : (act ? 2 : noHold ? 6 : 4);
-    if (noHold) t_kdCamView = 1;  // cut now; VIEW? tells ts3fixes not to treat it as unseen
+    t_kdCamNote = fresh ? (act ? 1 : 3) : (act ? 2 : 4);
+    if (viewAsk) t_kdCamView = 1;  // a later ceiling cut of this job or plan answers VIEW? 1
     if (!act) { if (fresh) InterlockedIncrement(&k.kdCamWould); return false; }
     if (fresh) InterlockedIncrement(&k.kdCamHeld);
     if (now >= ceil) return false;
@@ -468,8 +468,7 @@ static bool KdNpcLineOk() {
 }
 // after the job or plan, off the cut path (the cut holds +0x918): how the recheck answered
 static void KdCamNoteLog(DWORD h, const char* t) {
-    static const char* const kWhy[] = {"", "held, in view", "held, stale snapshot", "would hold, in view (switch off)", "would hold, stale snapshot (switch off)",
-                                       "cut, in view, no unseen recovery (mode 2)", "cut, stale snapshot, no unseen recovery (mode 2)"};
+    static const char* const kWhy[] = {"", "held, in view", "held, stale snapshot", "would hold, in view (switch off)", "would hold, stale snapshot (switch off)"};
     const LONG w = t_kdCamNote;
     t_kdCamNote = 0;
     if (KdNpcLineOk()) Log("kd cam recheck: route %08lX %s%s", h, kWhy[w], t);
