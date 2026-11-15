@@ -1,5 +1,5 @@
 {
- "note": "mono-gc-1115-mm: copy of mono-gc-1115.json, repinned to master-mono-1115 (0.36.264-mono1). mono-gc-1115 (PREPARED, NOT RUN; correctness + one RUN FIRST measurement, no timing). Build ts3native.asi.mono-gc-1115 (0.36.262-monogc1, branch feature/mono-gc-1115 on master aae8e1d6): PR #334's #295 verifier fixes ported (GC_gc_no abandon in the [MonoJit] Mode=2 verifier, EA native body +0x24 refusal in JitOne and the direct lazy site, _TRUNCATE method names) and mtprobe v8 worker allocation counts (docs/30 §18). No new switch. Household Sims untouched by construction: the JIT changes refuse or abandon (the interpreter runs), the counters only count; no Sim behaviour change. Jobs: (1) bp-gc-c5-release: release defaults ([MonoJit] Mode=1 ON as master); (2) bp-gc-c5-verify: Mode=2 VerifyEvery=16, so the gc0 guard runs; read jitAbandoned as coverage, jitMismatch must stay 0; (3) bp-gc-d8-allocs RUN FIRST for D8: the go-live worker config (MonoThread LazyGate/LazyEarly + AutShadow Mode=3 Satb=2), read mtprobe workerJobs, workerAllocs, workerAllocsTyped, workerAllocMaxJob, simLockWaits/simLockWaitUs/simLockMaxWaitUs from the job's -native.json (docs/30 §18.3 decision rule). Run: node tools/harness/queue.ts tools/harness/queues/mono-gc-1115.json",
+ "note": "mono-gc-1115-mm: copy of mono-gc-1115.json, repinned to master-mono-1115 (0.36.264-mono1). mono-gc-1115 (PREPARED, NOT RUN; correctness + one RUN FIRST measurement, no timing). Build ts3native.asi.mono-gc-1115 (0.36.264-mono1, branch feature/mono-gc-1115 on master aae8e1d6): PR #334's #295 verifier fixes ported (GC_gc_no abandon in the [MonoJit] Mode=2 verifier, EA native body +0x24 refusal in JitOne and the direct lazy site, _TRUNCATE method names) and mtprobe v8 worker allocation counts (docs/30 §18). No new switch. Household Sims untouched by construction: the JIT changes refuse or abandon (the interpreter runs), the counters only count; no Sim behaviour change. Jobs: (1) bp-gc-c5-release: release defaults ([MonoJit] Mode=1 ON as master); (2) bp-gc-c5-verify: Mode=2 VerifyEvery=16, so the gc0 guard runs; read jitAbandoned as coverage, jitMismatch must stay 0; (3) bp-gc-d8-allocs RUN FIRST for D8: the go-live worker config (MonoThread LazyGate/LazyEarly + AutShadow Mode=3 Satb=2), read mtprobe workerJobs, workerAllocs, workerAllocsTyped, workerAllocMaxJob, simLockWaits/simLockWaitUs/simLockMaxWaitUs from the job's -native.json (docs/30 §18.3 decision rule). Run: node tools/harness/queue.ts tools/harness/queues/mono-gc-1115.json",
  "stopQueueOnFail": false,
  "jobs": [
   {
@@ -26,19 +26,19 @@
     }
    },
    "logRequire": {
-    "^ts3native 0\\.36\\.262-monogc1 ": 1
+    "^ts3native 0\\.36\\.264-mono1 ": 1
    },
    "logForbid": {
     "jit verify MISMATCH": 0,
     "^FAIL mono jit": 0
    },
    "regexCases": {
-    "^ts3native 0\\.36\\.262-monogc1 ": {
+    "^ts3native 0\\.36\\.264-mono1 ": {
      "match": [
-      "ts3native 0.36.262-monogc1 2026-11-15 21:44:15"
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
      ],
      "noMatch": [
-      "ts3native 0.36.261-lanes1 2026-11-15 09:44:15"
+      "ts3native 0.36.260-other1 2026-11-15 09:44:15"
      ]
     },
     "jit verify MISMATCH": {
@@ -89,7 +89,7 @@
     }
    },
    "logRequire": {
-    "^ts3native 0\\.36\\.262-monogc1 ": 1
+    "^ts3native 0\\.36\\.264-mono1 ": 1
    },
    "logForbid": {
     "jit verify MISMATCH": 0,
@@ -119,12 +119,12 @@
     }
    ],
    "regexCases": {
-    "^ts3native 0\\.36\\.262-monogc1 ": {
+    "^ts3native 0\\.36\\.264-mono1 ": {
      "match": [
-      "ts3native 0.36.262-monogc1 2026-11-15 21:44:15"
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
      ],
      "noMatch": [
-      "ts3native 0.36.261-lanes1 2026-11-15 09:44:15"
+      "ts3native 0.36.260-other1 2026-11-15 09:44:15"
      ]
     },
     "jit verify MISMATCH": {
@@ -198,15 +198,15 @@
     }
    },
    "logRequire": {
-    "^ts3native 0\\.36\\.262-monogc1 ": 1
+    "^ts3native 0\\.36\\.264-mono1 ": 1
    },
    "regexCases": {
-    "^ts3native 0\\.36\\.262-monogc1 ": {
+    "^ts3native 0\\.36\\.264-mono1 ": {
      "match": [
-      "ts3native 0.36.262-monogc1 2026-11-15 21:44:15"
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
      ],
      "noMatch": [
-      "ts3native 0.36.261-lanes1 2026-11-15 09:44:15"
+      "ts3native 0.36.260-other1 2026-11-15 09:44:15"
      ]
     }
    },

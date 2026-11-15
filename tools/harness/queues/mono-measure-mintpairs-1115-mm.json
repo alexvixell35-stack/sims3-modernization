@@ -1,5 +1,5 @@
 {
- "note": "mono-measure-mintpairs-1115-mm: copy of mono-measure-mintpairs-1115.json, repinned to master-mono-1115 (0.36.264-mono1). RUN FIRST (prepared 2026-11-15, lane mono-measure, NOT RUN). D6 = docs/139 rank 3 (superinstructions for hot pairs) needs the pairs from play first, not from the monohost phases (docs/139 §3). Build ts3native.asi.mono-measure-1115 (feature/mono-measure-1115, 0.36.261-mintpairs1) = master aae8e1d6 + [MonoFast] PairCount (mintpairs.cpp, TEST-RUN TOOL, default 0): the mint dispatch head 0xE544D5 counts (previous op, op) on the sim thread and logs the top 200 pairs / 120 ops every 5 min, after each save and at exit. CallPath=0 in every job (its fast call / ret handlers dispatch the next op through their own head copy, which the counter does not see). Jobs: (1) bp-mintpairs-jiton: master defaults (MonoJit on): what the JIT leaves interpreted = the pairs a superop could still speed up; (2) ip-mintpairs-jiton: same on IP; (3) bp-mintpairs-jitoff: MonoJit.Enabled=0, the vanilla interpreter mix to compare with docs/139 §3's host phases. 11 min each (two interval reports). Data runs, not timing (the counter adds ~10 instructions per dispatch). Household untouched by construction: a counter at the dispatch head, the same handler runs for every op. Read: node tools/harness/mint-pairs.ts mono-measure-mintpairs-1115-<date> -> the docs/139 §3 table rows (dispatches, superop share, top fusable pairs, top 10/20/50 cover). Decision after the run: superops only if the JIT-on top fusable pairs cover a share worth 1-4 ms/s (docs/139 rank 3); else drop D6 (inventory: overlaps MonoJit). Regex cases: the version line is real (master log), the mint pair lines are from the Log formats (no run of the counter yet). Start: node tools/harness/queue.ts tools/harness/queues/mono-measure-mintpairs-1115.json --no-smoke",
+ "note": "mono-measure-mintpairs-1115-mm: copy of mono-measure-mintpairs-1115.json, repinned to master-mono-1115 (0.36.264-mono1). RUN FIRST (prepared 2026-11-15, lane mono-measure, NOT RUN). D6 = docs/139 rank 3 (superinstructions for hot pairs) needs the pairs from play first, not from the monohost phases (docs/139 §3). Build ts3native.asi.mono-measure-1115 (feature/mono-measure-1115, 0.36.264-mono1) = master aae8e1d6 + [MonoFast] PairCount (mintpairs.cpp, TEST-RUN TOOL, default 0): the mint dispatch head 0xE544D5 counts (previous op, op) on the sim thread and logs the top 200 pairs / 120 ops every 5 min, after each save and at exit. CallPath=0 in every job (its fast call / ret handlers dispatch the next op through their own head copy, which the counter does not see). Jobs: (1) bp-mintpairs-jiton: master defaults (MonoJit on): what the JIT leaves interpreted = the pairs a superop could still speed up; (2) ip-mintpairs-jiton: same on IP; (3) bp-mintpairs-jitoff: MonoJit.Enabled=0, the vanilla interpreter mix to compare with docs/139 §3's host phases. 11 min each (two interval reports). Data runs, not timing (the counter adds ~10 instructions per dispatch). Household untouched by construction: a counter at the dispatch head, the same handler runs for every op. Read: node tools/harness/mint-pairs.ts mono-measure-mintpairs-1115-<date> -> the docs/139 §3 table rows (dispatches, superop share, top fusable pairs, top 10/20/50 cover). Decision after the run: superops only if the JIT-on top fusable pairs cover a share worth 1-4 ms/s (docs/139 rank 3); else drop D6 (inventory: overlaps MonoJit). Regex cases: the version line is real (master log), the mint pair lines are from the Log formats (no run of the counter yet). Start: node tools/harness/queue.ts tools/harness/queues/mono-measure-mintpairs-1115.json --no-smoke",
  "jobs": [
   {
    "id": "bp-mintpairs-jiton",
@@ -28,7 +28,7 @@
     }
    },
    "logRequire": {
-    "^ts3native 0\\.36\\.261-mintpairs1 ": 1,
+    "^ts3native 0\\.36\\.264-mono1 ": 1,
     "^OK   mint pair count \\(\\[MonoFast\\] PairCount": 1,
     "^mintpairs: \\w+ #\\d+ dispatches [1-9]\\d*, ": 2,
     "^mintpair: 0x[0-9A-F]{3} 0x[0-9A-F]{3} \\d+$": 50
@@ -37,13 +37,13 @@
     "^SKIP mint pair count": 0
    },
    "regexCases": {
-    "^ts3native 0\\.36\\.261-mintpairs1 ": {
+    "^ts3native 0\\.36\\.264-mono1 ": {
      "match": [
-      "ts3native 0.36.261-mintpairs1 2026-11-15 21:10:00"
+      "ts3native 0.36.264-mono1 2026-11-15 21:10:00"
      ],
      "noMatch": [
-      "ts3native 0.36.261-lanes1 2026-11-15 17:24:21",
-      "prior log: ts3native 0.36.261-mintpairs1 2026-11-15 21:10:00"
+      "ts3native 0.36.260-other1 2026-11-15 17:24:21",
+      "prior log: ts3native 0.36.260-other1 2026-11-15 21:10:00"
      ]
     },
     "^OK   mint pair count \\(\\[MonoFast\\] PairCount": {

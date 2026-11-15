@@ -2,6 +2,7 @@
 // or thermal throttling). One PowerShell loop per run, a JSON line every 30 s into <pre>-machine.jsonl:
 //   other = CPU used by every process except TS3W and Idle, in % of the whole machine (all logical cores)
 //   ts3w  = TS3W's own CPU in % of the whole machine; top = the 3 busiest other processes (% of machine)
+//   bridge / g3dBridge = NvRemixBridge.exe CPU (% of machine) and GPU 3D %: the game's renderer in Apex arms, not in other/og/g3dOther
 //   perf  = '% Processor Performance' (CPU clock vs base; > 100 = turbo; a drop during the run = throttling or power limit)
 //   og/oo = busy % of the game CPUs (gc, pin.ts, default 4-15) minus TS3W's share / busy % of the other CPUs (per-core raw
 //           counters over the same 30 s; the split is exact only while TS3W is pinned: pin = its affinity == the game set)
@@ -31,6 +32,9 @@ const NOISE = { highOg: 10, highG3d: 30, medOg: 3, medOo: 50, medGpu: 10 };
 // "others on game CPUs" (og) is busy time minus TS3W's share, so it also holds kernel/driver time no process owns: vanilla IP
 // read og >= 10% twice with other CPU ~2% (2026-10-24). og alone makes a run high/invalid only when processes also used >= 5%
 export const OG_OTHER_MIN = 5;
+// Apex Radiance's RTX Remix bridge renders for TS3W out of process (Apex arms, 2026-11-15): its CPU (bridge, % of machine) and
+// GPU 3D (g3dBridge) are the game's own work, so they leave other / og / g3dOther and get their own fields
+export const BRIDGE_NAME = 'NvRemixBridge';
 
 const script = (file: string, everyS: number, cpus: string | null) => {
   const game = cpus ? cpuMask(cpus) : 0n, rest = ((1n << BigInt(availableParallelism())) - 1n) & ~game;
@@ -53,7 +57,8 @@ while (Get-Process -Id ${process.pid}) {
   }
   $prev = $cur
   $ts3w = ($rows | Where-Object n -eq '${GAME_NAME}' | Measure-Object c -Sum).Sum
-  $others = $rows | Where-Object { $_.n -ne '${GAME_NAME}' -and $_.n -ne 'Idle' }
+  $bridge = ($rows | Where-Object n -eq '${BRIDGE_NAME}' | Measure-Object c -Sum).Sum
+  $others = $rows | Where-Object { $_.n -ne '${GAME_NAME}' -and $_.n -ne 'Idle' -and $_.n -ne '${BRIDGE_NAME}' }
   $other = ($others | Measure-Object c -Sum).Sum
   $top = $others | Group-Object n | ForEach-Object { [pscustomobject]@{ n = $_.Name; c = ($_.Group | Measure-Object c -Sum).Sum } } |
     Sort-Object c -Descending | Select-Object -First 3 | ForEach-Object { '{0} {1:N1}' -f $_.n, $_.c }
@@ -70,22 +75,26 @@ while (Get-Process -Id ${process.pid}) {
   $pc = $cc
   $ts = Get-Process -Name ${GAME_NAME} | Select-Object -First 1
   $pin = if ($ts -and $gm) { $ts.ProcessorAffinity.ToInt64() -eq $gm } else { $null }
-  $og = if ($ng) { [math]::Round([math]::Max(0, $bg - [double]$ts3w * $n) / $ng, 1) } else { $null }
+  # shortcut: the bridge is not pinned, so its share of the game CPUs is taken as even (ng of n CPUs); pin it if og ever matters for Apex arms
+  $og = if ($ng) { [math]::Round([math]::Max(0, $bg - [double]$ts3w * $n - [double]$bridge * $ng) / $ng, 1) } else { $null }
   $oo = if ($no) { [math]::Round($bo / $no, 1) } else { $null }
-  $g3d = $null; $g3o = $null; $gdec = $null; $gtop = @()
+  $g3d = $null; $g3o = $null; $g3b = $null; $gdec = $null; $gtop = @()
   $gs = (Get-Counter '\\GPU Engine(*engtype_3D)\\Utilization Percentage', '\\GPU Engine(*engtype_VideoDecode)\\Utilization Percentage').CounterSamples
   if ($gs) {
     $g3 = @($gs | Where-Object InstanceName -like '*engtype_3d')
     $tsp = if ($ts) { "pid_$($ts.Id)_*" } else { 'none' }
     $g3d = [math]::Min(100, [math]::Round([double]($g3 | Measure-Object CookedValue -Sum).Sum, 1))
-    $g3o = [math]::Min(100, [math]::Round([double]($g3 | Where-Object InstanceName -notlike $tsp | Measure-Object CookedValue -Sum).Sum, 1))
+    $brp = @(Get-Process -Name '${BRIDGE_NAME}' | ForEach-Object { "pid_$($_.Id)_*" })
+    $isBr = { param($i) [bool]($brp | Where-Object { $i -like $_ }) }
+    $g3o = [math]::Min(100, [math]::Round([double]($g3 | Where-Object { $_.InstanceName -notlike $tsp -and -not (& $isBr $_.InstanceName) } | Measure-Object CookedValue -Sum).Sum, 1))
+    $g3b = if ($brp.Count) { [math]::Min(100, [math]::Round([double]($g3 | Where-Object { & $isBr $_.InstanceName } | Measure-Object CookedValue -Sum).Sum, 1)) } else { $null }
     $gtop = @($g3 | Where-Object CookedValue -gt 0.5 | ForEach-Object { if ($_.InstanceName -match 'pid_(\\d+)_') { [pscustomobject]@{ p = [int]$Matches[1]; c = $_.CookedValue } } } |
       Group-Object p | ForEach-Object { [pscustomobject]@{ n = (Get-Process -Id ([int]$_.Name)).ProcessName; c = ($_.Group | Measure-Object c -Sum).Sum } } |
       Sort-Object c -Descending | Select-Object -First 3 | ForEach-Object { '{0} {1:N0}' -f $_.n, $_.c })
     $gdec = [math]::Min(100, [math]::Round([double]($gs | Where-Object InstanceName -like '*engtype_videodecode' | Measure-Object CookedValue -Sum).Sum, 1))
   }
-  $o = [ordered]@{ t = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); other = [math]::Round($other, 1); ts3w = [math]::Round([double]$ts3w, 1); top = @($top); perf = if ($perf) { [math]::Round($perf) } else { $null };
-    mhz = if ($perf -and $freq) { [math]::Round($freq * $perf / 100) } else { $null }; gc = '${cpus ?? ''}'; og = $og; oo = $oo; pin = $pin; g3d = $g3d; g3dOther = $g3o; gdec = $gdec; gtop = @($gtop);
+  $o = [ordered]@{ t = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); other = [math]::Round($other, 1); ts3w = [math]::Round([double]$ts3w, 1); bridge = [math]::Round([double]$bridge, 1); top = @($top); perf = if ($perf) { [math]::Round($perf) } else { $null };
+    mhz = if ($perf -and $freq) { [math]::Round($freq * $perf / 100) } else { $null }; gc = '${cpus ?? ''}'; og = $og; oo = $oo; pin = $pin; g3d = $g3d; g3dOther = $g3o; g3dBridge = $g3b; gdec = $gdec; gtop = @($gtop);
     pAvg = if ($pf.Count) { [math]::Round(($pf | Measure-Object -Average).Average) } else { $null }; pMin = if ($pf.Count) { [math]::Round(($pf | Measure-Object -Minimum).Minimum) } else { $null } }
   Add-Content -Path '${file.replace(/'/g, "''")}' -Value ($o | ConvertTo-Json -Compress)
 }`;
@@ -140,6 +149,7 @@ export function summarizeRows(rows: any[]): { line: string; ok: boolean; noise: 
   const why = [mean('other') >= OTHER_MAX && `other CPU ${mean('other').toFixed(1)}% >= ${OTHER_MAX}%`,
     dips >= PERF_DIPS && `clock fell to ${perfMin}% from ${perf0}% (${dips} samples under ${Math.round(perf0! * PERF_DROP)}%)`].filter(Boolean);
   const line = `machine load: other CPU mean ${mean('other').toFixed(1)}% max ${busiest.other}% (${busiest.top.join(', ')}), TS3W ${mean('ts3w').toFixed(1)}%, ` +
+    (rows.some(r => r.bridge > 0) ? `${BRIDGE_NAME} ${mean('bridge').toFixed(1)}% (GPU 3D ${avg(rows, 'g3dBridge')?.toFixed(1) ?? '-'}%, counted with the game), ` : '') +
     `clock ${perf0 ?? '-'}% -> min ${perfMin ?? '-'}%${dips === 1 ? ' (1 dip, ignored)' : ''} (${rows.length} samples): ${why.length ? `NOT comparable: ${why.join('; ')}` : 'ok'}`;
   const n = noise(rows, why.length > 0);
   return { line: `${line}; ${n.text}`, ok: !why.length, noise: n.level, short: n.short };
@@ -184,6 +194,8 @@ if (import.meta.main) {
     rmSync(f);
   }
   check(lv([{ other: 2, perf: 100 }]) === 'low', 'old rows without the new fields');
+  check(new RegExp(String.raw`TS3W 10\.0%, ${BRIDGE_NAME} 2\.5% \(GPU 3D 17\.0%, counted with the game\), clock`).test(summarizeRows([{ other: 2, ts3w: 10, bridge: 2.5, g3dBridge: 17, top: [], perf: 100 }]).line)
+    && /TS3W 10\.0%, clock/.test(summarizeRows([{ other: 2, ts3w: 10, bridge: 0, top: [], perf: 100 }]).line), 'bridge named in the line only when it ran');
   { // locked file (EBUSY): retried, then the unread summary instead of a throw
     const f = `${process.env.TEMP ?? '.'}/machine-load-busy-${process.pid}.jsonl`; writeFileSync(f, '');
     const busy = (n: number) => { let k = 0; return () => { if (k++ < n) throw Object.assign(new Error('EBUSY: resource busy or locked'), { code: 'EBUSY' }); return JSON.stringify({ t: 1, other: 2, perf: 100, top: [] }) + '\n'; }; };

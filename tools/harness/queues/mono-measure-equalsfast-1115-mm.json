@@ -1,5 +1,5 @@
 {
- "note": "mono-measure-equalsfast-1115-mm: copy of mono-measure-equalsfast-1115.json (jobs bp-eqfast-correct,bp-iclock-eqfast-ab only: correctness part), repinned to master-mono-1115 (0.36.264-mono1). PREPARED, NOT RUN (2026-11-15, lane mono-measure). B1: [EqualsFast] option C + L9 SmallEnums (docs/258 §7 gates 2-3, §8) repinned from equalsfast-1112 (0.36.246 branch build, never run) to the current master build master-dalexlol-417-1115 (b9cddf2a, ts3native 0.36.261-lanes1; no native change on master since) + ts3fixes l3-convgone-1115 (master ts3fixes). bp-l9-diag (lane-L9-1115) already ran EqualsFast+SmallEnums PASS for correctness on 0.36.261-lanes1. Order: (1) bp-eqfast-correct BP 10 min correctness (eqOn/eqMode/eqSmall read back, eqHits > 0, 0 script errors); (2) bp-iclock-eqfast-ab COUNT job (not timing) for the docs/258 §3 contention answer and the §6 hit rate (< 50% = fall back to option B); (3) bp-eqfast-ab + ip-eqfast-ab TIMING, NEEDS A QUIET MACHINE: in-load ABBA of --ab equalsfast (eqMode flips plans on/off, SmallEnums stays installed), warm-up slice then off,on,on,off,off,on,on,off 1.5-min slices = 4 per arm, light tools (noSamplers). Read: node tools/harness/arm-ms.ts mono-measure-equalsfast-1115-<date>-{bp,ip}-eqfast-ab and hitch-ab.ts on the same tags; ON by default only with a consistent 3-5 ms/s gain both worlds (est 6-9 ms/s [inferred, docs/258]) and exactness (native selftest + monohost MONOHOST_EQFAST corpus 0 mismatches, already PASS). Household untouched by construction: an exact speedup of ValueType.InternalEquals, same boolean for every caller, no Sim state changed. Est ~14 + 12 + 2 x 16 min + load gaps ~70 min. Start (after chain-reruns-1115 ends): node tools/harness/queue.ts tools/harness/queues/mono-measure-equalsfast-1115.json (the smoke runs first for the timing jobs); correctness only: --only bp-eqfast-correct,bp-iclock-eqfast-ab --no-smoke",
+ "note": "mono-measure-equalsfast-1115-mm: copy of mono-measure-equalsfast-1115.json (jobs bp-eqfast-correct,bp-iclock-eqfast-ab only: correctness part), repinned to master-mono-1115 (0.36.264-mono1). PREPARED, NOT RUN (2026-11-15, lane mono-measure). B1: [EqualsFast] option C + L9 SmallEnums (docs/258 §7 gates 2-3, §8) repinned from equalsfast-1112 (0.36.246 branch build, never run) to the current master build master-dalexlol-417-1115 (b9cddf2a, ts3native 0.36.264-mono1; no native change on master since) + ts3fixes l3-convgone-1115 (master ts3fixes). bp-l9-diag (lane-L9-1115) already ran EqualsFast+SmallEnums PASS for correctness on 0.36.264-mono1. Order: (1) bp-eqfast-correct BP 10 min correctness (eqOn/eqMode/eqSmall read back, eqHits > 0, 0 script errors); (2) bp-iclock-eqfast-ab COUNT job (not timing) for the docs/258 §3 contention answer and the §6 hit rate (< 50% = fall back to option B); (3) bp-eqfast-ab + ip-eqfast-ab TIMING, NEEDS A QUIET MACHINE: in-load ABBA of --ab equalsfast (eqMode flips plans on/off, SmallEnums stays installed), warm-up slice then off,on,on,off,off,on,on,off 1.5-min slices = 4 per arm, light tools (noSamplers). Read: node tools/harness/arm-ms.ts mono-measure-equalsfast-1115-<date>-{bp,ip}-eqfast-ab and hitch-ab.ts on the same tags; ON by default only with a consistent 3-5 ms/s gain both worlds (est 6-9 ms/s [inferred, docs/258]) and exactness (native selftest + monohost MONOHOST_EQFAST corpus 0 mismatches, already PASS). Household untouched by construction: an exact speedup of ValueType.InternalEquals, same boolean for every caller, no Sim state changed. Est ~14 + 12 + 2 x 16 min + load gaps ~70 min. Start (after chain-reruns-1115 ends): node tools/harness/queue.ts tools/harness/queues/mono-measure-equalsfast-1115.json (the smoke runs first for the timing jobs); correctness only: --only bp-eqfast-correct,bp-iclock-eqfast-ab --no-smoke",
  "jobs": [
   {
    "id": "bp-eqfast-correct",
@@ -29,19 +29,19 @@
    },
    "nativeRequire": "@eqOn>=1,@eqMode>=1,eqHits>=1,eqPlans>=1,@eqSmall>=1",
    "logRequire": {
-    "^ts3native 0\\.36\\.261-lanes1 ": 1,
+    "^ts3native 0\\.36\\.264-mono1 ": 1,
     "^OK   equals fast .*SmallEnums=1": 1
    },
    "logForbid": {
     "^(SKIP|FAIL) .*equals fast": 0
    },
    "regexCases": {
-    "^ts3native 0\\.36\\.261-lanes1 ": {
+    "^ts3native 0\\.36\\.264-mono1 ": {
      "match": [
-      "ts3native 0.36.261-lanes1 2026-11-15 17:24:21"
+      "ts3native 0.36.264-mono1 2026-11-15 17:24:21"
      ],
      "noMatch": [
-      "prior log: ts3native 0.36.261-lanes1 2026-11-15 17:12:18",
+      "prior log: ts3native 0.36.264-mono1 2026-11-15 17:12:18",
       "ts3native 0.36.256-jitbundle2 2026-11-14 12:13:00"
      ]
     },
@@ -78,17 +78,17 @@
     "EqualsFast.SmallEnums": 1
    },
    "logRequire": {
-    "^ts3native 0\\.36\\.261-lanes1 ": 1,
+    "^ts3native 0\\.36\\.264-mono1 ": 1,
     "^OK   equals fast .*SmallEnums=1": 1,
     "^OK   detour mono_loader_unlock \\(ic lock check\\)": 1
    },
    "regexCases": {
-    "^ts3native 0\\.36\\.261-lanes1 ": {
+    "^ts3native 0\\.36\\.264-mono1 ": {
      "match": [
-      "ts3native 0.36.261-lanes1 2026-11-15 17:24:21"
+      "ts3native 0.36.264-mono1 2026-11-15 17:24:21"
      ],
      "noMatch": [
-      "prior log: ts3native 0.36.261-lanes1 2026-11-15 17:12:18",
+      "prior log: ts3native 0.36.264-mono1 2026-11-15 17:12:18",
       "ts3native 0.36.256-jitbundle2 2026-11-14 12:13:00"
      ]
     },
