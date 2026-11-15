@@ -1,4 +1,4 @@
-# docs/583 DoorMemoX=3: cross-job door memo with ts3fixes' door inputs in the generation
+# docs/585 DoorMemoX=3: cross-job door memo with ts3fixes' door inputs in the generation
 
 Status: built, default off (`[RouteSnap] DoorMemoX=-1`, switch `doorgen` off). One in-game A/B arm (below). Not proven exact by
 argument alone; the 1-in-8 self-check and the self-disable stay on.
