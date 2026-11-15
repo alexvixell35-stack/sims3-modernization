@@ -43,7 +43,7 @@ namespace Ts3Fixes
         static int sRflMinute = -1, sRflInMinute, sRflTotal;
         class RflCmd { public WeakReference Ia;  // weak (issue #40): an ended command kept its interaction and Sim reachable
             public int Id, Attempts, Fails, Near, Lines; public uint Route, T0; public Vector3 Goal; public string Last; }
-        class RflRow { public string Name; public int Seen, Unseen; public bool Household; }
+        class RflRow { public string Name; public int Seen, Unseen, Locked; public bool Household; }  // Locked: FailedBecauseDestinationPortalLocked (the agent's sim_health reads the rows)
         static readonly Dictionary<ulong, RflCmd> sRflCmds = new Dictionary<ulong, RflCmd>();  // by Sim object id
         static readonly Dictionary<ulong, RflRow> sRflSims = new Dictionary<ulong, RflRow>();
         static readonly Dictionary<ulong, int[]> sRflLots = new Dictionary<ulong, int[]>();    // fails, added, removed, added and removed in build/buy
@@ -97,7 +97,7 @@ namespace Ts3Fixes
             catch (Exception) { }
         }
 
-        static void RflCount(Sim sim)
+        static void RflCount(Sim sim, RoutePlanResultType result)
         {
             bool seen = UfWhy(sim) != 0, hh = sim.IsInActiveHousehold;
             sRflFails++;
@@ -117,6 +117,7 @@ namespace Ts3Fixes
                 sRflSims[id] = r;
             }
             if (seen) r.Seen++; else r.Unseen++;
+            if (result == RoutePlanResultType.FailedBecauseDestinationPortalLocked) r.Locked++;
             int now = System.Environment.TickCount;
             if (sRflSummaryAt == 0) sRflSummaryAt = now;
             if (unchecked(now - sRflSummaryAt) >= 900000) RflSummary("15 min");
@@ -359,7 +360,7 @@ namespace Ts3Fixes
                 if (cmd != null) RflCmdPlan(cmd, r, sim, what, res, t0);
                 if (ok && !show) return;
                 if (!ShortcutOn("routefaillog")) return;
-                if (!ok) RflCount(sim);
+                if (!ok) RflCount(sim, res.mType);
                 if (!show && !sim.IsInActiveHousehold) return;
                 RflLine(show, sim, what + " blocker " + res.mBlockerType + RflBlocker(res.mBlockerObjectId), r.GetApproximateOriginalDestination(), t0, r.Handle, cmd);
             }
