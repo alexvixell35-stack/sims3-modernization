@@ -338,6 +338,11 @@ namespace Ts3Fixes
         [Tunable] public static bool kPutDownInUse = false;    // putdowninuse (docs/576 §3): a put-down on a surface cut after the in-use mark leaves the item in use and the surface held
         [Tunable] public static bool kAutonomyInUseBlock = false;    // autonomyinuseblock (docs/577 §1): an autonomous action that finds its object taken and returns false leaves no failure block, so autonomy re-picks it
         [Tunable] public static bool kNpcBusyPartner = false;    // npcbusypartner (docs/577 §4): an NPC starter waits 45 sim-min for an NPC partner whose linked action is still only queued (StartSync pre-sync timeout has no failure branch)
+        [Tunable] public static bool kSocialReplanLog = false;    // socialreplanlog (docs/577 §2): log only: a social receiver replanning against its own sync partner (route builder, ignore list, positions, outcome)
+        [Tunable] public static bool kBarOrderLog = false;    // barorderlog (docs/578 §1): log only: times the bar customer side of a bartender conversation (OrderConversation.RunOrderBehavior)
+        [Tunable] public static bool kPetPutDownWait = false;    // petputdownwait (docs/578 §2): a carried pet waits 30 sim-min for a carrier whose PutDownPet already failed (no FinishLinkedInteraction on its early returns)
+        [Tunable] public static bool kPuddleReach = false;    // puddlereach (docs/578 §3): autonomy stops re-picking a rain-puddle splash whose run just reached no puddle on the same lot and puddle set
+        [Tunable] public static bool kRouteCauseLog = false;    // routecauselog (docs/580): log the cause of NPC zero-plan route failures and of locked-door failures (doors, privacy owner)
         [Tunable] public static bool kFireTrapCount = false;    // firetrapcount (docs/570 §5): firefighter "free N Sims" counts trapped Sims who left the lot or sit in hidden apartment units
         [Tunable] public static bool kFireActiveJob = false;    // fireactivejob (docs/570 §1): the firefighter's current emergency (a static) survives a world quit; afterwards every new emergency is dropped
         [Tunable] public static bool kEatOutsideCount = false;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)

@@ -4003,6 +4003,76 @@
       "what": "docs/577 §4 npcbusypartner (NpcBusyPartner.cs)",
       "at": "2026-11-15T13:16:45.765Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2699",
+      "kind": "fixes",
+      "from": 2699,
+      "to": 2700,
+      "by": "claude",
+      "what": "docs/577 §2 socialreplanlog (SocialReplanLog.cs)",
+      "at": "2026-11-15T13:20:33.959Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-578",
+      "kind": "doc",
+      "from": 578,
+      "to": 578,
+      "by": "claude",
+      "what": "docs/578 next wait/failure areas",
+      "at": "2026-11-15T13:23:06.367Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2701",
+      "kind": "fixes",
+      "from": 2701,
+      "to": 2702,
+      "by": "claude",
+      "what": "docs/578 §1 barorderlog (BarOrderLog.cs)",
+      "at": "2026-11-15T13:25:47.578Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2703",
+      "kind": "fixes",
+      "from": 2703,
+      "to": 2705,
+      "by": "claude",
+      "what": "docs/578 §2 petputdownwait (PetPutDownWait.cs)",
+      "at": "2026-11-15T13:30:01.888Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2706",
+      "kind": "fixes",
+      "from": 2706,
+      "to": 2708,
+      "by": "claude",
+      "what": "puddlereach (PuddleReach.cs, docs/578 §3): splash tests answered from the no-reachable-puddle memory / seen with switch off / errors",
+      "at": "2026-11-15T13:59:36.645Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2709",
+      "kind": "fixes",
+      "from": 2709,
+      "to": 2710,
+      "by": "claude",
+      "what": "routecauselog (RouteCauseLog.cs, docs/579): lines written / dropped by the cap",
+      "at": "2026-11-15T14:10:50.693Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-580",
+      "kind": "doc",
+      "from": 580,
+      "to": 580,
+      "by": "claude",
+      "what": "log-census batch: RE verdicts and routecauselog (follow-up to docs/579-log-issues.md)",
+      "at": "2026-11-15T14:11:00.601Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }
