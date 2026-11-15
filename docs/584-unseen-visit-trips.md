@@ -71,6 +71,39 @@ STARTs with `[RouteAsync] Kinds=0` unless they carry the watchdog tag (`Watchdog
 hooked (`hooked mask 6`); turning on `Kinds=2` (or `ForeignKinds=6`) is an A/B, not code. Plans from a context that
 cannot yield (a reset run outside the Sim's task, alarms) stay sync whatever the config.
 
+Callers [verified, decompiled; 26 call sites]: `Sim.AttemptToFindSafeLocation` (every reset and `AttemptToPutInSafeLocation`),
+`Sim.FindRoutablePointInsideNearFrontDoor` (send-home, NRaas instantiation), `Sim.CreateTeleportInstanceToPosition`,
+`Service.CreateSim` / `GetPositionNearLotCorners`, `ServiceSituation.IsGoodSpawnPoint`, `PerformerBase.GetPositionForShow`,
+Pregnancy, Boat, Stroller, teleporters and others, plus ours through `SpotVerdict` (SafeSpot for the trip shortcuts, the
+watchdog). The plan is always kind 2 (`Route.PlanFromPoint` of a throwaway adult route whose follower is the Sim). Which
+caller produced tick 20979 is not in that log; the `src` label below names it in the next run. Scale: 411 runs in
+ts3-runs hold 19,274 slow unscoped kind-2 plans (median 239 ms, max 3,291 ms, ~4,960 s in all).
+
+**`routableasync` (default off, for an A/B with `[RouteAsync] Kinds=2`).** `AsyncKindStart(2)` sends a START only from
+inside `IsPointInLotSafelyRoutable` (`sInRoutableCheck`, now kept per task so a check sleeping on its job never tags
+another task's plans) for an unseen NPC (`UfWhy` 0: never household, selected, unknown scope or pets) and outside the
+watchdog's own A1 path; every other PlanFromPoint is refused locally and stays sync, as with `Kinds=0`. The job takes the
+pre-plan callback (doors, tombs, closed venues) as A1 does. Why it is safe for those callers: the job runs the game's
+own PlanFromPoint IC on the worker (the same IC and handshake as the watchdog's A1 jobs, `WatchdogKind2`, which have a
+sync shadow compare arm, `watchdogasyncshadow`); the route is a throwaway (no follower moves, only its result is read); the Sim's own task sleeps until READY
+only where `CheckYieldingContext` allows a yield, else the check stays sync; with `KdOwnPlanFromPointMs=0` no job is cut,
+so the verdict is the planner's own, one or more frames later. A cut (non-zero deadline) would answer "not routable"
+for an unseen NPC only, and SpotVerdict would cache that cell for a sim-day, so the A/B keeps it at 0.
+Counters 2736 let through, 2737 refused here, 2738 let through but not started.
+
+A/B lines (in-load ABBA, `--ab asyncreplan` toggles arMode: shadow = sync, 1 = async):
+```
+[RouteAsync]
+Kinds=2
+KindsMode=1
+KdOwnPlanFromPointMs=0
+```
+EARLYFIX `"routableasync":true` and `"ufplansplit":true` (both arms). Read: ufplan / planwait lines with `src routable`,
+hitchwatch, 2736-2738; correctness: `watchdogasyncshadow` style mismatches are not wired for this path, so compare the
+unseen-NPC reset placements (moved lines) between arms. `ForeignKinds=6` (adds PlanFromPoint from other yielding tasks)
+is a second step: none of the callers above plans from another Sim's task except service spawns, which run in
+alarm / situation code that mostly cannot yield [inferred].
+
 Change (log only): `ufplan` / `ufplansplit` lines of unscoped plans now carry `src <kind> <Sim> [in <task Sim>'s task]`
 (`routable`, `spot`, `watchdog`, `stuckcheck`, `leg`, `pet` or the follower's type), and since 2f6ce3e4 the refused
 START's sync plan is timed (`sync N ms (START refused)` instead of `no wait`). The next `ufplansplit` run names the caller.
