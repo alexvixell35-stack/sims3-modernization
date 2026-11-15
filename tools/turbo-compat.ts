@@ -12,6 +12,8 @@
 //                                                  into <dir>/<arm>/ and grep the lines that matter into summary.txt
 //   node tools/turbo-compat.ts restore <dir>       state base, Apex Documents folder back, Bin files not in the snapshot removed
 //                                                  (known Apex/bridge/Turbo outputs only), whole-Bin sha256 compare; exit 1 on a diff
+//   node tools/turbo-compat.ts install-copy        rewind arm (docs/270 §12): copy of the latest Apex release in game-copy/rewind-bridge-1115/install
+//                                                  with our patched bridge pair and rewindMode = True; state name apex-rewind uses it
 //   node tools/turbo-compat.ts --self-check
 // TURBO_COMPAT_DRY=1 with TS3_BIN/TS3_USER on copies: dry run of snapshot/state/restore while a game runs.
 // Windows-only by nature (game Bin, 32-bit Windows PowerShell for the WOW64 thread walk). Turbo files never come from the web
@@ -44,6 +46,9 @@ export const ALL_ON = ['# TS3 Turbo Engine Configuration (all on, turbo-apex-111
   'Janeladeborda = 1', 'MenuKey = 118', 'AutoClean = 1', 'ThreadPriorityBoost = 1', 'CpuTopologyOpt = 1', 'SmartRamManager = 1', 'PreFaultMemory = 1',
   'InstalacaoValida = 1'];
 
+// docs/270 §12: the rewind arm. The patched pair is built from Apex's own bridge source at this release plus patch 0015
+// (tools/harness/rewind/bridge-patch/README.md); a newer Apex release needs a rebuild first.
+const REWIND = join(GC, 'rewind-bridge-1115'), REWIND_BUILT_ON = 'v4.0.1';
 type Src = string | null; // file to copy into Bin, null = absent
 export const STATES: Record<string, (unz: string) => Record<string, Src>> = {
   base: () => ({}),
@@ -51,6 +56,8 @@ export const STATES: Record<string, (unz: string) => Record<string, Src>> = {
   'apex-turbo': unz => ({ ...STATES.apex(unz), 'Turbo.asi': SRC.turbo.path }),
   'apex-turbo-ual77': unz => ({ ...STATES['apex-turbo'](unz), 'wininet.dll': SRC.ual77.path }),
   turbo: () => ({ 'Turbo.asi': SRC.turbo.path }),
+  // docs/270 §12: the install copy with our patched bridge pair and rewindMode = True (made by `install-copy`)
+  'apex-rewind': () => STATES.apex(join(REWIND, 'install', 'apex-unz')),
 };
 // every path a state or a run can change; backed up at snapshot when present, reset to the snapshot before each state
 export const MANAGED = [...new Set([...Object.keys(STATES['apex-turbo-ual77']('')), 'Turbo.txt', 'imgui.ini', 'ts3native.asi', 'ts3native.ini'])];
@@ -126,6 +133,21 @@ async function fetchApex(dir: string) {
 }
 
 // ------------------------------------------------------------------------------------------------ snapshot / state / restore
+// A copy of the latest Apex release's files in game-copy/rewind-bridge-1115/install/apex-unz, with our patched bridge pair
+// and rewindMode = True in both bridge.conf. Apex's zip and anything Apex installed stay untouched.
+async function installCopy() {
+  const dir = join(REWIND, 'install'), unz = join(dir, 'apex-unz'), out = join(REWIND, 'apex-repo', 'native', 'remix-bridge', 'out');
+  const pair = ['d3d9.dll', '.trex/NvRemixBridge.exe'];
+  for (const p of pair) if (!existsSync(join(out, p))) throw new Error(`install-copy: ${join(out, p)} missing: build it first (tools/harness/rewind/bridge-patch/README.md)`);
+  mkdirSync(dir, { recursive: true });
+  await fetchApex(dir);
+  const tag = JSON.parse(readFileSync(join(dir, 'apex.json'), 'utf8')).tag;
+  if (tag !== REWIND_BUILT_ON) throw new Error(`install-copy: the latest Apex release is ${tag}, the patched bridge pair was built on ${REWIND_BUILT_ON}: rebuild it on the new release and update REWIND_BUILT_ON`);
+  for (const p of pair) copyFileSync(join(out, p), join(unz, p));
+  for (const c of ['bridge.conf', '.trex/bridge.conf']) appendFileSync(join(unz, c), '\r\nrewindMode = True\r\n');
+  say(`install-copy: ${unz} = Apex ${tag} + patched d3d9.dll ${sha(join(unz, pair[0])).slice(0, 12)}, NvRemixBridge.exe ${sha(join(unz, pair[1])).slice(0, 12)}, rewindMode = True`);
+}
+
 async function snapshot(dir: string) {
   if (existsSync(join(dir, 'snapshot.json'))) throw new Error(`${dir}/snapshot.json exists: restore first (or remove it after a verified restore)`);
   if (!DRY && gamePids().length) throw new Error('TS3W.exe runs');
@@ -311,6 +333,8 @@ function collect(dir: string, arm: string) {
 function selfCheck() {
   assert.ok(MANAGED.includes('wininet.dll') && MANAGED.includes('d3d9.dll') && MANAGED.includes('.trex/NvRemixBridge.exe') && MANAGED.includes('ts3native.asi'));
   assert.deepEqual(Object.keys(STATES.turbo('u')), ['Turbo.asi']);
+  assert.ok(Object.keys(STATES['apex-rewind']('u')).every(k => MANAGED.includes(k)), 'restore knows every file of the rewind arm');
+  assert.ok(STATES['apex-rewind']('u')['ApexRadiance.asi']!.includes('rewind-bridge-1115'), 'the rewind arm takes its files from the install copy');
   assert.equal(STATES['apex-turbo-ual77']('u')['wininet.dll'], SRC.ual77.path);
   assert.ok(!('wininet.dll' in STATES['apex-turbo']('u')), 'arm 2 keeps our loader');
   const dg = `sha256:${'a'.repeat(64)}`, url = 'https://x/y';
@@ -337,8 +361,9 @@ const { values: v, positionals: [cmd, dir, arg] } = parseArgs({ allowPositionals
   'all-on': { type: 'boolean' }, f7: { type: 'boolean' }, 'max-min': { type: 'string' }, 'self-check': { type: 'boolean' } } });
 if (v['self-check']) selfCheck();
 else if (cmd === 'snapshot' && dir) await snapshot(resolve(dir));
+else if (cmd === 'install-copy') await installCopy();
 else if (cmd === 'state' && dir && arg) setState(resolve(dir), arg);
 else if (cmd === 'monitor' && dir && arg) monitor(resolve(dir), arg, { allOn: !!v['all-on'], f7: !!v.f7, maxMin: Number(v['max-min'] ?? 40) });
 else if (cmd === 'collect' && dir && arg) collect(resolve(dir), arg);
 else if (cmd === 'restore' && dir) process.exit(restore(resolve(dir)) ? 0 : 1);
-else { console.error('usage: node tools/turbo-compat.ts snapshot|restore <dir> | state <dir> <base|apex|apex-turbo|apex-turbo-ual77|turbo> | monitor <dir> <arm> [--all-on] [--f7] | collect <dir> <arm> | --self-check'); process.exit(2); }
+else { console.error('usage: node tools/turbo-compat.ts snapshot|restore <dir> | state <dir> <base|apex|apex-turbo|apex-turbo-ual77|turbo> (or apex-rewind) | install-copy | monitor <dir> <arm> [--all-on] [--f7] | collect <dir> <arm> | --self-check'); process.exit(2); }

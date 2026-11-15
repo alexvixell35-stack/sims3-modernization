@@ -12445,6 +12445,32 @@ static void TestP4() {
         g_asRoute = savedRoute, g_asRmSlot = savedSlot;
         k.asyncMode = savedMode, k.asyncReady = savedReady;
     }
+    // [Rewind] Park (docs/270 §19): while the rewind tool asks, no job starts (the plan runs inline, as with async off)
+    {
+        RwPark park = {};
+        const LONG savedMode = k.asyncMode, savedReady = k.asyncReady;
+        k.asyncMode = 1, k.asyncReady = 1;
+        g_rwPark = &park;
+        park.request = 1;
+        assert(AsyncStart(0x4C07) == 0 && park.held == 1 && !JobFor(0x4C07));
+        g_rwPark = NULL;
+        assert(!RewindHold());
+        assert(OffPatch(GetModuleHandleW(NULL)) == 0);  // [Rewind] Offline: selftest.exe imports no wininet, nothing written
+        {   // [Rewind] Offline stubs: the 18 TS3W.exe wininet imports (docs/270 §22), never InternetCrackUrlA
+            int left = -1;
+            assert(OffPatch(GetModuleHandleW(NULL), &left) == 0 && left == 0);
+            assert(sizeof kOffImports / sizeof kOffImports[0] == 18);
+            for (const auto& o : kOffImports) assert(strcmp(o.name, "InternetCrackUrlA") && o.fn);
+            SetLastError(0);
+            assert(Off8(1, 2, 3, 4, 5, 6, 7, 8) == 0 && GetLastError() == 12163);
+            SetLastError(0);
+            assert(Off5(1, 2, 3, 4, 5) == 0 && GetLastError() == 12163);
+            DWORD fl = 7;
+            assert(!OffConnected(&fl, 0) && fl == 0 && OffClose(nullptr) && OffErrorDlg(nullptr, nullptr, 0, 0, nullptr) == ERROR_CANCELLED);
+            assert(OffCallback(nullptr, nullptr) == nullptr && Off3(1, 2, 3) == 0 && Off4(1, 2, 3, 4) == 0);
+        }
+        k.asyncMode = savedMode, k.asyncReady = savedReady;
+    }
     // H20d: a portal IC (SetPortalCost) in the window is D5 family 9, always counted (no reader stub): M5 with nr 256
     {
         const LONG m5p = k.snM[5], bp = k.snNrBitPortal;

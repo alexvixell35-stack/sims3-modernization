@@ -4373,10 +4373,38 @@ static void ServeAsync() {
     }
 }
 
+// [Rewind] Park (docs/270 §19, default 0; only the rewind test queues turn it on): the rewind tool (tools/harness/rewind)
+// asks through the mapping Local\rewind-ts3n-<pid> that this worker sit in its idle wait below while it snapshots or
+// rewinds. While asked, no async job starts (AsyncStartBody: the plan runs inline, as with async off); running and queued
+// jobs finish as usual (their managed calls need the sim thread, so a job left running would hold the worker in Proxy's
+// deeper wait), and the worker comes back here. idle says the worker is in this wait.
+struct RwPark { DWORD magic, version; volatile LONG request, idle, held; };
+static RwPark* g_rwPark;  // NULL = off
+static void RewindParkInit(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"Rewind", L"Park", 0, ini)) return;
+    wchar_t name[64];
+    swprintf_s(name, L"Local\\rewind-ts3n-%lu", GetCurrentProcessId());
+    HANDLE m = CreateFileMappingW(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(RwPark), name);
+    RwPark* p = m ? (RwPark*)MapViewOfFile(m, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(RwPark)) : NULL;
+    if (!p) { Log("FAIL [Rewind] Park: mapping %ls (err %lu)", name, GetLastError()); return; }
+    p->version = 1;
+    p->magic = 0x4E545752;  // 'RWTN', written last: the tool reads the block only with it
+    g_rwPark = p;
+    Log("[Rewind] Park on: the route worker parks in its idle wait when %ls asks", name);
+}
+static bool RewindHold() {
+    if (!g_rwPark || !g_rwPark->request) return false;
+    InterlockedIncrement(&g_rwPark->held);
+    return true;
+}
+
 static DWORD WINAPI WorkerMain(LPVOID) {
     for (;;) {
         HANDLE h[2] = {g_jobReady, g_asyncReady};
-        if (WaitForMultipleObjects(2, h, FALSE, INFINITE) == WAIT_OBJECT_0) ServePlan();
+        if (g_rwPark) InterlockedExchange(&g_rwPark->idle, 1);
+        const DWORD w = WaitForMultipleObjects(2, h, FALSE, INFINITE);
+        if (g_rwPark) InterlockedExchange(&g_rwPark->idle, 0);
+        if (w == WAIT_OBJECT_0) ServePlan();
         else ServeAsync();
     }
 }
@@ -5091,6 +5119,7 @@ static u8 AsyncStartBody(DWORD handle, int kind, const float* pt, bool foreign) 
     g_rfbHandle = 0;
     Ts3nCounters& k = ts3native_counters;
     if (k.asyncMode != 1 || !k.asyncReady) return 0;  // asyncMode is writable at runtime
+    if (RewindHold()) return 0;  // [Rewind] Park: the rewind tool waits for an idle worker, the plan runs inline
     if (kind && !(k.arReady & (1 << (kind - 1)))) return AsyncRefuse(handle, RFB_NOSTART, kind, false);  // that IC not hooked
     if (AsyncLosRoute(handle)) { InterlockedIncrement(&k.arLosRefused); return AsyncRefuse(handle, RFB_LOS, kind); }
     // the caller could not sleep (nested native->managed call: its yield would abort the game)
@@ -5808,6 +5837,73 @@ static_assert(offsetof(Ts3nCounters, dsN) == 0x6178 && offsetof(Ts3nCounters, lr
 #include "unseen.cpp"
 #include "worldimage.cpp"
 #include "crashreport.cpp"
+// [Rewind] Offline (docs/270 §20, default 0; only the rewind test queues turn it on): EA's online code in TS3W.exe (store,
+// news, Exchange, login; docs/16) gets no internet session, so the system wininet behind the ASI loader's wininet.dll never
+// asks urlmon's zone manager, which maps the cross-process section UrlZonesSM_<user> that a rewind cannot put back.
+// Every wininet import of TS3W.exe except InternetCrackUrlA (pure string parsing) is turned away with
+// ERROR_INTERNET_DISCONNECTED: InternetOpenA alone (0.36.261) still let a call on a NULL handle start the system wininet's
+// 30 s pool work item (callback rva 0x1d4760, Sleep(30000) debounce loop; docs/270 §22), which a snapshot sees as a
+// thread-pool worker inside a work item. Close succeeds, ErrorDlg cancels, the status callback setter reports none.
+// shortcut: TS3W.exe's import table only (TSLHost.dll too if it is already loaded); a module loaded later keeps its imports.
+static const DWORD kOffErr = 12163;  // ERROR_INTERNET_DISCONNECTED
+static BOOL WINAPI OffConnected(DWORD* flags, DWORD) { if (flags) *flags = 0; SetLastError(kOffErr); return FALSE; }
+static BOOL WINAPI OffClose(void*) { return TRUE; }
+static DWORD WINAPI OffErrorDlg(HWND, void*, DWORD, DWORD, void**) { return ERROR_CANCELLED; }
+static void* WINAPI OffCallback(void*, void*) { return NULL; }
+static UINT_PTR WINAPI Off3(UINT_PTR, UINT_PTR, UINT_PTR) { SetLastError(kOffErr); return 0; }
+static UINT_PTR WINAPI Off4(UINT_PTR, UINT_PTR, UINT_PTR, UINT_PTR) { SetLastError(kOffErr); return 0; }
+static UINT_PTR WINAPI Off5(UINT_PTR, UINT_PTR, UINT_PTR, UINT_PTR, UINT_PTR) { SetLastError(kOffErr); return 0; }
+static UINT_PTR WINAPI Off8(UINT_PTR, UINT_PTR, UINT_PTR, UINT_PTR, UINT_PTR, UINT_PTR, UINT_PTR, UINT_PTR) {
+    SetLastError(kOffErr);
+    return 0;
+}
+// stdcall: the stub's argument count must match the import's, or the caller's stack breaks
+static const struct { const char* name; const void* fn; } kOffImports[] = {
+    {"InternetOpenA", (const void*)Off5}, {"InternetGetConnectedState", (const void*)OffConnected},
+    {"InternetSetCookieA", (const void*)Off3}, {"InternetGetCookieW", (const void*)Off4},
+    {"InternetCloseHandle", (const void*)OffClose}, {"InternetErrorDlg", (const void*)OffErrorDlg},
+    {"InternetSetStatusCallback", (const void*)OffCallback}, {"HttpAddRequestHeadersA", (const void*)Off4},
+    {"InternetSetOptionA", (const void*)Off4}, {"InternetQueryOptionA", (const void*)Off4},
+    {"InternetReadFile", (const void*)Off4}, {"InternetWriteFile", (const void*)Off4}, {"HttpEndRequestA", (const void*)Off4},
+    {"HttpQueryInfoA", (const void*)Off5}, {"HttpSendRequestA", (const void*)Off5}, {"HttpSendRequestExA", (const void*)Off5},
+    {"InternetConnectA", (const void*)Off8}, {"HttpOpenRequestA", (const void*)Off8}};
+// returns the imports turned away; *left counts wininet imports left alone (InternetCrackUrlA, unknown names, ordinals)
+static int OffPatch(HMODULE mod, int* left = nullptr) {
+    const u8* b = (const u8*)mod;
+    const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(b + ((const IMAGE_DOS_HEADER*)b)->e_lfanew);
+    const IMAGE_DATA_DIRECTORY& d = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+    int n = 0, l = 0;
+    if (d.VirtualAddress)
+        for (const IMAGE_IMPORT_DESCRIPTOR* i = (const IMAGE_IMPORT_DESCRIPTOR*)(b + d.VirtualAddress); i->Name; i++) {
+            if (_stricmp((const char*)(b + i->Name), "wininet.dll") || !i->OriginalFirstThunk) continue;
+            const DWORD* names = (const DWORD*)(b + i->OriginalFirstThunk);
+            DWORD* slots = (DWORD*)(b + i->FirstThunk);
+            for (int k = 0; names[k]; k++) {
+                bool hit = false;
+                if (!(names[k] & 0x80000000)) {
+                    const char* fn = (const char*)(b + names[k] + 2);
+                    for (const auto& o : kOffImports) {
+                        const DWORD v = (DWORD)(uintptr_t)o.fn;
+                        if (!strcmp(fn, o.name) && Write(&slots[k], &v, 4)) hit = true;
+                    }
+                }
+                hit ? n++ : l++;
+            }
+        }
+    if (left) *left = l;
+    return n;
+}
+static void RewindOfflineInit(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"Rewind", L"Offline", 0, ini)) return;
+    int left = 0, tleft = 0;
+    const int n = OffPatch(GetModuleHandleW(NULL), &left);
+    const HMODULE tsl = GetModuleHandleW(L"TSLHost.dll");
+    const int t = tsl ? OffPatch(tsl, &tleft) : 0;
+    char tb[96];
+    if (tsl) _snprintf_s(tb, sizeof tb, _TRUNCATE, ", TSLHost.dll %d turned away, %d left", t, tleft);
+    Log("[Rewind] Offline on: %d wininet imports of TS3W.exe turned away, %d left (InternetCrackUrlA only expected)%s "
+        "(no internet session, no wininet pool work for EA online code)", n, left, tsl ? tb : "; TSLHost.dll not loaded");
+}
 #include "watchpt.cpp"  // docs/157 §8: [Watchpoint] hardware data watchpoints (default off)
 #include "arenatail.cpp"  // docs/67 §22.7: Crash S fix [ArenaGuard] TailPad + writer watch [GcRootCheck] TailWatch (after crashreport.cpp: CrStack)
 #include "crashfx.cpp"  // docs/157 §11.7: [CrashForensics] guarded sites + crash dump (default off)
@@ -5939,6 +6035,8 @@ static void Run(HMODULE self) {
         SeedWaitKeys();
         InstallXcptLog(ini);
         ApexDetect(ini);  // docs/148 §7: before every install (stand-downs, crash report line)
+        RewindParkInit(ini);  // before the route worker starts
+        RewindOfflineInit(ini);  // before the game's online code runs
         InstallCrashReport(ini, log);
         ApplyGc(ini);
         bool cache = ApplyRouteCache(ini);

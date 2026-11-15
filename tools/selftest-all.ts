@@ -49,6 +49,8 @@ const CSC = { why: 'Windows .NET Framework csc' };
 const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/harness/machine-load.ts': { why: 'Windows PowerShell counters' },
   'tools/harness/night-run.ts': { why: 'Windows session lock query' },
+  'tools/harness/rewind-census.ts': { why: 'Windows: censuses a 32-bit SysWOW64 ping toy process' },
+  'tools/harness/rewind-smoke.ts': { why: 'Windows + MSVC: builds tools/harness/rewind and runs its toy selftest (skips itself without MSVC)' },
   'tools/harness/layout-map.ts': CSC,
   'tools/harness/stove-repeat-core.ts': CSC,
   'tools/binder-bodies.ts': { why: 'game script assemblies', needs: 'game-copy/assemblies/mscorlib.dll' },
@@ -179,7 +181,9 @@ const NO_SELF_CHECK: Record<string, string> = {
   'tools/setup/install-fixes.ts': 'installer: downloads into the game folder; its content health part is content-health.ts --self-test',
 };
 
-const TIMEOUT_S: Record<string, number> = {};
+const TIMEOUT_S: Record<string, number> = {
+  'tools/harness/rewind-smoke.ts': 300, // two cl builds + ~25 toy processes
+};
 
 // args that run the self-check, or undefined when the script has none
 export function selfCheckArgs(rel: string, src: string): string[] | undefined {
