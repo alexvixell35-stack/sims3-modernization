@@ -45,7 +45,12 @@ namespace Ts3Fixes
         static int sUfSlowLogged, sUfSlowMinute;
         // per plan, not static (PR #306, Dalexlol): async plans of two Sims overlap (each task sleeps on its route job), and shared fields printed one
         // plan's time with another plan's verdict and Sim (e.g. "why 3 cut" on a household Sim: a cut needs a mark, a mark why 0)
-        struct UfLast { public int Why; public bool Marked, Cut, ViewerOnly; public Sim Sim; }
+        struct UfLast { public int Why; public bool Marked, Cut, ViewerOnly; public Sim Sim; public string Src; }
+        // Src (why -1 plans only, for the ufplan / ufplansplit lines): which unscoped plan it was, docs/584 §3. "routable" =
+        // EA's Sim.IsPointInLotSafelyRoutable (a PlanFromPoint from the spot to the lot's 8 edge points: AttemptToFindSafeLocation,
+        // FindRoutablePointInsideNearFrontDoor, CreateTeleportInstanceToPosition), "spot" = ours through SpotVerdict, "watchdog" =
+        // the idle check, "stuckcheck" = EA's stuck check probes, "leg" = D-leave's leg, "pet", else the follower's type name;
+        // then the follower Sim and the task's Sim when it is another one.
         // ufplansplit (log switch, default off): where a slow ufplan's wall time went. AsyncWait / the refused-START sync path
         // write these with no yield before UfPlan reads them, so they belong to the plan that reads them; UfPlan clears them
         // first (a plan that never reaches AsyncWait reads Seen false). Line "ufplansplit:" for plans >= kUfSlowPlanMs only:
@@ -104,6 +109,23 @@ namespace Ts3Fixes
             }
             catch (Exception) { return UnseenFallbackCore.kHousehold; }
         }
+        static string UfSrc(IScriptProxy proxy, Sim sim, Sim who)
+        {
+            try
+            {
+                string src = sInWdCheck ? "watchdog" : sStuckIn ? "stuckcheck" : sInRoutableCheck && !sInOwnCheck ? "routable" : sInOwnCheck ? "spot"
+                    : sUfInLeg ? "leg" : sim != null && sim.SimDescription != null && sim.SimDescription.IsPet ? "pet"
+                    : proxy != null && proxy.Target != null ? proxy.Target.GetType().Name : "none";
+                if (who != null) src += " " + who.FullName;
+                IScriptProxy tp = Simulator.GetProxy(Simulator.CurrentTask);
+                Sim ts = tp != null ? tp.Target as Sim : null;
+                if (ts != null && ts != who) src += " in " + ts.FullName + "'s task";
+                else if (ts == null) src += tp != null && tp.Target != null ? " in " + tp.Target.GetType().Name + " task" : " in a non-object task";
+                return src;
+            }
+            catch (Exception) { return "?"; }
+        }
+
         // the dedicated line, under ufplan's per-minute cap shared with nothing else (kUfSlowPlanPerMin of its own)
         static int sUfSplitLogged, sUfSplitMinute;
         static void UfSplitLog(ScriptCore.Route rt, int kind, int ms, int t0, UfLast l, RoutePlanResult r, UfSplit u)
@@ -116,7 +138,7 @@ namespace Ts3Fixes
             string dist = "?";
             try { Sim s = rt.Follower != null ? rt.Follower.Target as Sim : null; if (s != null) dist = Math.Round((rt.GetApproximateOriginalDestination() - s.Position).Length(), 0).ToString(); }
             catch (Exception) { }
-            DiagLine("ufplansplit: kind " + kind + " " + ms + " ms, " + parts + ", why " + l.Why + (l.Cut ? " cut" : "") + ", result " + r.mType
+            DiagLine("ufplansplit: kind " + kind + " " + ms + " ms, " + parts + ", why " + l.Why + (l.Cut ? " cut" : "") + (l.Src != null ? ", src " + l.Src : "") + ", result " + r.mType
                 + ", dist " + dist + (l.Sim != null ? ", " + l.Sim.FullName + (l.Sim.LotCurrent != null ? " on " + l.Sim.LotCurrent.Name : "") : "")
                 + ", tick " + Sims3.Gameplay.Utilities.SimClock.CurrentTicks);
         }
@@ -178,7 +200,7 @@ namespace Ts3Fixes
             if (minute != sUfSlowMinute) { sUfSlowMinute = minute; sUfSlowLogged = 0; }
             if (sUfSlowLogged++ >= kUfSlowPlanPerMin) return;
             Sim s = l.Sim;
-            DiagLine("ufplan: kind " + kind + " " + ms + " ms why " + l.Why + (l.Marked ? " marked" : "") + (l.Cut ? " cut" : "")
+            DiagLine("ufplan: kind " + kind + " " + ms + " ms why " + l.Why + (l.Marked ? " marked" : "") + (l.Cut ? " cut" : "") + (l.Src != null ? " src " + l.Src : "")
                 + (s != null ? " " + s.FullName + (Simulator.CurrentTask == s.ObjectId ? " own task" : " other task") : "")
                 + ", tick " + Sims3.Gameplay.Utilities.SimClock.CurrentTicks);
         }
@@ -956,7 +978,10 @@ namespace Ts3Fixes
                 if (!pre && !leave && !ShortcutOn("unseenfbplan")) return false;
                 // never: stuck-check probes (phase B), our own route checks, IsPointInLotSafelyRoutable, non-Sims, pets, D-leave's own leg
                 if (sim == null || ownCheck || sim.SimDescription == null || sim.SimDescription.IsPet)
+                {
+                    last.Src = UfSrc(proxy, sim, who);
                     return false;
+                }
                 int[] c = PatchCounters();
                 last.Why = why; last.Sim = sim;
                 if (why != 0 && why != UnseenFallbackCore.kGoalHousehold && why != UnseenFallbackCore.kBirth && sUrPlaced.Count > 0 && sUrPlaced.ContainsKey(sim.ObjectId.Value) && UrRepairSim(sim)) sUrPlaced.Remove(sim.ObjectId.Value);  // §3.9.7 (D)

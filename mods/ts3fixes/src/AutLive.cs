@@ -1227,6 +1227,7 @@ namespace Ts3Fixes
             public bool PushHook(InteractionInstance best)
             {
                 bool r = PushOrig(best);
+                if (ShortcutOn("autlastsearch")) LastSearchNote(((AutonomyT)(object)this).Actor, best, r);
                 // Mode 3 only: the hook is in every package since O6, and G8Note walks every Sim each sim-hour
                 try { if (sLiveMode) G8Note((AutonomyT)(object)this, best, r); } catch (Exception) { PatchCounters()[121]++; }
                 if (best != null && ReferenceEquals(best, sDirectInst))
@@ -1237,6 +1238,43 @@ namespace Ts3Fixes
                 return r;
             }
             public bool PushOrig(InteractionInstance best) { return false; } // receives Autonomy.ConsiderPerformingAutonomousAction's original header
+        }
+
+        // autlastsearch (log only, default off; docs/584 §4): each Sim's last autonomy search that reached the push decision
+        // (RunAutonomy -> ConsiderPerformingAutonomousAction, every search with a queue to add to) and its result, for the
+        // census's idle question (ts3agent SimHealthHandlers: last_search, last_search_min). AppDomain data
+        // "ts3fixes.lastsearch": SimDescriptionId -> "ticks|result", result "pushed <interaction>" (EA queued its pick), "kept
+        // <head>" (a pick lost to the running head interaction) or "none" (no pick: nothing scored). Read only: the push is EA's.
+        static Dictionary<ulong, string> sLastSearch;
+        // the definition's type (as the census's "definition" field), no localized name lookup per search
+        static string LsName(InteractionInstance i)
+        {
+            if (i == null) return "?";
+            object d = i.InteractionDefinition;
+            return d != null ? d.GetType().FullName : i.GetType().FullName;
+        }
+        static void LastSearchNote(Sim actor, InteractionInstance best, bool pushed)
+        {
+            try
+            {
+                if (actor == null || actor.SimDescription == null) return;
+                if (sLastSearch == null)
+                {
+                    sLastSearch = AppDomain.CurrentDomain.GetData("ts3fixes.lastsearch") as Dictionary<ulong, string>;
+                    if (sLastSearch == null) { sLastSearch = new Dictionary<ulong, string>(); AppDomain.CurrentDomain.SetData("ts3fixes.lastsearch", sLastSearch); }
+                }
+                string what;
+                if (best == null) what = "none";
+                else if (pushed) what = "pushed " + LsName(best);
+                else
+                {
+                    InteractionInstance head = actor.InteractionQueue != null ? actor.InteractionQueue.GetHeadInteraction() : null;
+                    what = "kept " + LsName(head) + " over " + LsName(best);
+                }
+                if (sLastSearch.Count >= 4096) sLastSearch.Clear();  // bounded; the census reads the latest only
+                sLastSearch[actor.SimDescription.SimDescriptionId] = Sims3.Gameplay.Utilities.SimClock.CurrentTicks + "|" + what;
+            }
+            catch (Exception) { PatchCounters()[kCUnExc]++; }
         }
 
         // ---- docs/222 unseen-direct ----

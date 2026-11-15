@@ -165,6 +165,18 @@ namespace Ts3Agent
             o["terrain"] = ShTerrain(p);
             o["unseen_why"] = ShUfWhy(s);
             o["uf_hold"] = ShHeld(s, now);
+            // ts3fixes autlastsearch (docs/584 §4): the last autonomy search's result and how long ago (null: none recorded / switch off)
+            Dictionary<ulong, string> ls = AppDomain.CurrentDomain.GetData("ts3fixes.lastsearch") as Dictionary<ulong, string>;
+            string lsv;
+            object lsWhat = null, lsMin = null;
+            if (ls != null && ls.TryGetValue(d.SimDescriptionId, out lsv))
+            {
+                int bar = lsv.IndexOf('|');
+                long at;
+                if (bar > 0 && long.TryParse(lsv.Substring(0, bar), out at)) { lsWhat = lsv.Substring(bar + 1); lsMin = Math.Round(SimClock.ConvertFromTicks(now - at, TimeUnit.Minutes), 1); }
+            }
+            o["last_search"] = lsWhat;
+            o["last_search_min"] = lsMin;
             // counters since the last call
             int seen = 0, locked = 0;
             object row = rfl != null && rfl.Contains(d.SimDescriptionId) ? rfl[d.SimDescriptionId] : null;
