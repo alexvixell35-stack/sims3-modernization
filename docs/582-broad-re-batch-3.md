@@ -393,7 +393,7 @@ It changes none of the other methods below (`docs/data/mod-method-diff.csv` and 
 | B5 §2 | 2 | `homeworkskillbonus` | 1177-1179 | **household-visible**: the homework-skill bonus applies below level 10 | verified |
 | B5 §3 | 3 | `horseranchchallenge` | 1180-1182 | **household-visible**: "visit a horse ranch" is hidden for households with no horse | verified |
 | B5 §4 | 4 | `digsiteemptypick` | 1183-1185 | **household-visible**: an empty dig no longer uses up the site | verified |
-| B5 §5 | 6 | `oppchainworld` | 1186-1188 | **household-visible**: chain history is cleared from the world change | verified (intent: the repeated `opportunity4` test) |
+| B5 §5 | 6 | `oppchainworld` | 1186-1188 | **household-visible**: adventure chain history is cleared from the world change (category test fixed 2026-11-15) | verified (intent: the repeated `opportunity4` test) |
 | B5 §6 | 9 | `teleportcommunitylot` | 1189-1191 | **household-visible** (menu): no "Teleport to community lot" when no lot is valid | verified |
 | B5 §7 | 11 | `photosubjectstars` | 1192-1194 | UI: the photo journal stars use float division | verified |
 | B5 §8 | Apollo lead | `residentspawnslot` | 1195-1198 | NPC spawn placement: an apartment resident's door slot is judged with the resident's door rights, not the selected Sim's | verified (code); live count pending |
@@ -667,3 +667,33 @@ Repros `<switch>-check` for all eight switches, and `dreamcleanup-check` again. 
 - The code alone cannot tell them apart; the buff's description text would.
 
 **Skipped:** coverage #6 (Imaginary Friend copy ctor; inferred, rare), #7 (MoodLamp; no callers), runtime R3 (no stack yet).
+
+## Review of batches 3-8b (2026-11-15)
+
+The user's rule: every EA method we replaced or read for batches 3-8b, and its direct callees, was read again for loops that can't exit, uncapped retries, per-tick O(n²), first-item returns, collections changed while iterated, wrong order and other defects. Fixes went into the same switch. Static only; no new slots.
+
+**Our-code defects fixed:**
+- `oppchainworld` (B5 §5): the hook tested the category the wrong way round. It changed ordinary chains and never reached the adventure branch with EA's typo. It now acts on adventure chains only. EA's walk there can also reach null (NRE, or recursion on null); with the switch on that case clears nothing. **Household-visible.**
+- `digsiteemptypick` (B5 §4): a site whose treasure info does not resolve always picks nothing, and the dig loop ends only at count 0, so the dig could go on forever. After 3 empty digs in a row on one site, the count drops as in EA. **Household-visible.**
+- `holidaylights` (§9): the held trickle alarm was removed even when EA then returned early (`sLotsWithLights` set), which stranded the remaining lots. It is now removed only when EA rebuilds the lists. NPC lots.
+- `doorlockowner` (B4 §1): for an instantiated Sim, EA's own `HouseholdSimChanged` empties the owner list during `Household.Remove`, so the after-check saw nothing gone. Lists holding the Sim are recorded first; a list this removal emptied opens. **Household-visible.**
+- `weddinglistener`, `serviceassignexit`, `lifeguardsurvey`: our post-step now runs in `finally`, so a throw in EA's method (null host, KeyNotFound) no longer skips it.
+- `twinbellyshape` (B6 §4): EA's `SetPregnancy` does not redraw an already-pregnant Sim, so the corrected value never showed. `RefreshBodyShape` now follows. **Household-visible.**
+- Static Sim / Event references (lecturebroadcaster, innerbeautyonce, the dig-run map) are cleared at world load.
+
+**EA defects folded in:**
+- `innerbeautyonce` (B8b §2): EA shows "MeanSocialTNS" outside its buff test, so every selectable Sim gets it. With the switch on, only actors with Inner Beauty get it. **Household-visible.**
+- `residentspawnslot` (B5 §8): `Instantiate(Lot, ResourceKey)` tests the slot with the caller's lot, not the resident's VirtualLotHome, so invited residents never use their own door. With the switch on the method receives VirtualLotHome. NPC-only.
+- `serviceshowalarm` (§4): `ServiceSituation.CleanUp` drops a pending show alarm, leaving a surviving (apartment) worker hidden, non-autonomous and unsociable. With the switch on, EA's `MakeServiceSimVisible` runs first. NPC-only.
+
+**Queued, not built here** (new switches, a full method copy, or a design call):
+- `TraitManager.RemoveElement` null trait (needs a full copy including the base call; reach inferred).
+- `FutureFoodSynthesizer` null RoleGivingObject (low reach).
+- Homework copy multiplier (design call).
+- LaundryManager per-lot mood flag.
+- HolidayHouseLights `PreviousSeason` order and unsaved statics.
+- Theatre post-show one-shot handle.
+- `Service.CreateSim` non-public slot fallback.
+- WeddingParty / NpcParty CleanUp null guards.
+- `AttemptToPutInSafeLocation` fallback leaving the Sim hidden.
+- Smaller items (review list B14).

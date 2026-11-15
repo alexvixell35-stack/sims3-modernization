@@ -89,10 +89,13 @@ namespace Ts3Fixes
         // that instance's OnDidMeanSocial, which acts on e.Actor, not on its own Sim. With N Inner Beauty Sims one mean social runs N
         // times: N "MeanSocialTNS" notices and N timeout resets. Fix: each event (EventTracker makes a new Event per send)
         // is handled once; the other listeners' calls for the same event return Keep. Household-visible: yes (one notice).
+        // Also (review 2026-11-15): EA shows the notice outside its `if (buff != null)`, so every selectable Sim's mean
+        // social says "Inner Beauty" whether or not that Sim has the buff; with the switch on an actor without the buff gets
+        // nothing (EA's reset does nothing for it either). Counted in [1261] / [1262].
         // Counters: [1261] duplicate calls skipped, [1262] duplicates seen with the switch off, [1263] errors.
         static Event sIbLast;
-        // Pure: skip this call? same: the event was handled by another listener already.
-        internal static bool IbSkip(bool on, bool same) { return on && same; }
+        // Pure: skip this call? same: the event was handled by another listener already; hasBuff: the actor has Inner Beauty.
+        internal static bool IbSkip(bool on, bool same, bool hasBuff) { return on && (same || !hasBuff); }
 
         static void ApplyInnerBeautyOnce()
         {
@@ -105,9 +108,16 @@ namespace Ts3Fixes
             {
                 bool same = e != null && ReferenceEquals(e, sIbLast);
                 sIbLast = e;
-                if (same)
+                bool hasBuff = true;
+                try
                 {
-                    if (IbSkip(ShortcutOn("innerbeautyonce"), true)) { PatchCounters()[1261]++; return ListenerAction.Keep; }
+                    Sim a = e == null ? null : e.Actor as Sim;
+                    hasBuff = a == null || a.BuffManager == null || a.BuffManager.HasElement(BuffNames.InnerBeauty);
+                }
+                catch (Exception) { PatchCounters()[1263]++; }
+                if (same || !hasBuff)
+                {
+                    if (IbSkip(ShortcutOn("innerbeautyonce"), same, hasBuff)) { PatchCounters()[1261]++; return ListenerAction.Keep; }
                     PatchCounters()[1262]++;
                 }
                 return MeanOrig(e);
@@ -182,8 +192,18 @@ namespace Ts3Fixes
             return kind == 1 ? !hasAthletic : !simLive;
         }
 
+        // Review 2026-11-15: static references to Sims / events / objects held by batch 5-8b hooks are dropped at world
+        // load (a world switch would otherwise keep the old world's objects alive and match them).
+        static void B582StaticsWorldLoad()
+        {
+            sIbLast = null;
+            sLbBySim.Clear(); sLbSeen.Clear();
+            sDsEmptyRun.Clear();
+        }
+
         internal static void TopicTestNullWorldLoad()
         {
+            try { B582StaticsWorldLoad(); } catch (Exception) { }
             try
             {
                 IDictionary<string, ActiveTopicData> data = sTtData == null ? null : sTtData.GetValue(null) as IDictionary<string, ActiveTopicData>;

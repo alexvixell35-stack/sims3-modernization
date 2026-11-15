@@ -213,6 +213,8 @@ namespace Ts3Fixes
         // always true, so a dig that found nothing still uses up the site. Fix (switch on, the 4-line method replaced): the
         // same calls in the same order (GetStandardTreasure, GiveTreasuresToSim with the collection behavior), and the site
         // count drops only when the pick holds something. Household-visible: empty digs no longer exhaust a site.
+        // Cap (2026-11-15 review): a site whose treasure info does not resolve always picks nothing, and the dig loop ends
+        // only when the count reaches 0, so after kDsMaxEmpty empty digs in a row on one site the count drops as in EA.
         // Counters: [1183] empty digs that kept the site's treasure, [1184] empty digs with the switch off, [1185] errors.
         static readonly FieldInfo sDsLeft = typeof(DigSite).GetField("mNumTreasuresRemaining", kInstAll);
         static string sDsMissing = "";
@@ -224,10 +226,13 @@ namespace Ts3Fixes
             Patch(typeof(DigSite), "ExcavateSomething", new Type[] { typeof(InteractionInstance) }, typeof(BDsHook), "DigHook", "DigOrig");
         }
 
-        // Pure: does this dig use up one of the site's treasures?
-        internal static bool DsSpend(bool on, int picked)
+        const int kDsMaxEmpty = 3;
+        static readonly Dictionary<ulong, int> sDsEmptyRun = new Dictionary<ulong, int>();  // site object id -> empty digs in a row
+
+        // Pure: does this dig use up one of the site's treasures? emptyRun: empty digs in a row before this one.
+        internal static bool DsSpend(bool on, int picked, int emptyRun)
         {
-            return on ? picked > 0 : picked >= 0;
+            return on ? picked > 0 || emptyRun >= kDsMaxEmpty : picked >= 0;
         }
 
         public class BDsHook
@@ -240,8 +245,12 @@ namespace Ts3Fixes
                 List<IGameObject> picked = site.TreasureComponent.GetStandardTreasure(actor);
                 try
                 {
-                    if (DsSpend(true, picked.Count)) sDsLeft.SetValue(site, (int)sDsLeft.GetValue(site) - 1);
-                    else PatchCounters()[1183]++;
+                    ulong id = site.ObjectId.Value;
+                    int run;
+                    sDsEmptyRun.TryGetValue(id, out run);
+                    int n = picked == null ? 0 : picked.Count;
+                    if (DsSpend(true, n, run)) { sDsLeft.SetValue(site, (int)sDsLeft.GetValue(site) - 1); sDsEmptyRun.Remove(id); }
+                    else { PatchCounters()[1183]++; sDsEmptyRun[id] = run + 1; }
                 }
                 catch (Exception) { PatchCounters()[1185]++; }
                 site.TreasureComponent.GiveTreasuresToSim(picked, actor, true);
@@ -250,13 +259,17 @@ namespace Ts3Fixes
         }
 
         // ---- B5 §5 oppchainworld (tuning kOppChainWorld; docs/583 lead 6) --------------------------------------------------
-        // [verified, decompiled] Opportunity.ClearChainHistory (non-adventure chains) decides whether the chain crosses
-        // worlds with `source.World != target.World && (target.World != Undefined || target.World != Undefined)`: the second
-        // test repeats the target where the source was meant, so a chain whose source needs another world and whose target
-        // needs none is treated as same-world, and the whole chain's history is cleared instead of the part after the world
-        // change. Fix: in exactly that case (source world set, target world Undefined, EA's other clause false), EA's own
-        // world-change branch runs: walk up to the source or target opportunity, then clear from its parent (recursing into
-        // ClearChainHistory as EA does). Every other case is EA's code. Household-visible (which opportunities can repeat).
+        // [verified, decompiled] Opportunity.ClearChainHistory: ordinary categories just walk the parents. For the ADVENTURE
+        // categories (China / Egypt / France) EA decides whether the chain crosses worlds with `source.World != target.World
+        // && (target.World != Undefined || target.World != Undefined)`: the second test repeats the target where the source was
+        // meant, so a chain whose source needs another world and whose target needs none is treated as same-world, and the
+        // whole chain's history is cleared instead of the part after the world change. Fix: in exactly that case (source world
+        // set, target world Undefined, EA's other clause false), EA's own world-change branch runs: walk up to the source or
+        // target opportunity, then clear from its parent (recursing into ClearChainHistory as EA does). The same walk is
+        // null-safe (EA's walk and its parent step can reach null: NullReferenceException or a recursion on null); when it
+        // reaches null with the switch on, nothing is cleared. Ordinary categories and every other case are EA's code.
+        // (Fixed 2026-11-15: the first build tested the category the wrong way round and never reached the adventure case.)
+        // Household-visible (which opportunities can repeat).
         // Counters: [1186] world-change branch taken, [1187] seen with the switch off, [1188] errors.
         static readonly MethodInfo sOcReqWorld = typeof(Opportunity).GetMethod("RequiredWorldForCategory", kInstAll, null, Type.EmptyTypes, null);
         static string sOcMissing = "";
@@ -289,20 +302,21 @@ namespace Ts3Fixes
                 try
                 {
                     OpportunityCategory cat = opp.OpportunityCategory;
-                    if (cat != OpportunityCategory.AdventureChina && cat != OpportunityCategory.AdventureEgypt && cat != OpportunityCategory.AdventureFrance)
+                    if (cat == OpportunityCategory.AdventureChina || cat == OpportunityCategory.AdventureEgypt || cat == OpportunityCategory.AdventureFrance)
                     {
                         Opportunity src = OcOriginal(opp, opp.SharedData.mSourceType), tgt = OcOriginal(opp, opp.SharedData.mTargetType);
                         bool other = opp.TargetWorldRequired != WorldName.Undefined && (WorldName)sOcReqWorld.Invoke(opp, null) != opp.TargetWorldRequired;
-                        if (src != null && tgt != null && OcMissed(true, src.TargetWorldRequired, tgt.TargetWorldRequired, other))
+                        bool eaBranch = src != null && tgt != null && (src.TargetWorldRequired != tgt.TargetWorldRequired && tgt.TargetWorldRequired != WorldName.Undefined || other);
+                        bool missed = src != null && tgt != null && OcMissed(true, src.TargetWorldRequired, tgt.TargetWorldRequired, other);
+                        if ((missed || eaBranch) && ShortcutOn("oppchainworld"))
                         {
-                            if (!ShortcutOn("oppchainworld")) PatchCounters()[1187]++;
-                            else
-                            {
-                                Opportunity o = opp;
-                                while (o != null && o.Guid != src.Guid && o.Guid != tgt.Guid) o = OpportunityManager.GetStaticOpportunity(o.SharedData.mParentOpportunity);
-                                if (o != null) from = OpportunityManager.GetStaticOpportunity(o.SharedData.mParentOpportunity);
-                            }
+                            Opportunity o = opp;
+                            while (o != null && o.Guid != src.Guid && o.Guid != tgt.Guid) o = OpportunityManager.GetStaticOpportunity(o.SharedData.mParentOpportunity);
+                            if (o != null) from = OpportunityManager.GetStaticOpportunity(o.SharedData.mParentOpportunity);
+                            if (from == null) { PatchCounters()[1186]++; return opp.Guid; }  // EA would throw here: nothing cleared
+                            if (!missed) return ClearOrig(opp, s);  // EA's branch with a valid walk: EA's own code
                         }
+                        else if (missed) PatchCounters()[1187]++;
                     }
                 }
                 catch (Exception) { PatchCounters()[1188]++; from = null; }

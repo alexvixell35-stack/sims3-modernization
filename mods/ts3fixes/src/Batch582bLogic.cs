@@ -109,6 +109,41 @@ namespace Ts3Fixes
             return n;
         }
 
+        // Owner-list doors on the lot that list this Sim (before Household.Remove).
+        static List<CommonDoor> DlListsHolding(Lot lot, SimDescription d)
+        {
+            if (lot == null || lot.IsWorldLot || d == null) return null;
+            List<CommonDoor> r = null;
+            foreach (CommonDoor door in lot.GetObjects<CommonDoor>())
+            {
+                if (door.LockType != CommonDoor.tLock.OwnerList) continue;
+                List<ulong> list = sDlOwnerList.GetValue(door) as List<ulong>;
+                if (list != null && list.Contains(d.SimDescriptionId)) (r ?? (r = new List<CommonDoor>())).Add(door);
+            }
+            return r;
+        }
+
+        // Review 2026-11-15: for an instantiated Sim, EA's CommonDoor.HouseholdSimChanged removes the id during
+        // Household.Remove, so the after-check saw no gone owner; a list that this removal emptied opens (Anybody), the case
+        // the comment above promises. A list the player emptied is never in `held`.
+        static void DlEmptied(List<CommonDoor> held)
+        {
+            if (held == null) return;
+            try
+            {
+                bool on = ShortcutOn("doorlockowner");
+                foreach (CommonDoor door in held)
+                {
+                    List<ulong> list = sDlOwnerList.GetValue(door) as List<ulong>;
+                    if (door.LockType != CommonDoor.tLock.OwnerList || list == null || list.Count > 0) continue;
+                    if (!on) { PatchCounters()[1148]++; continue; }
+                    door.SetLockTypeAndOwner(CommonDoor.tLock.Anybody, null, (int)sDlOneWay.GetValue(door));
+                    PatchCounters()[1147]++;
+                }
+            }
+            catch (Exception) { PatchCounters()[1151]++; }
+        }
+
         static void DlAfter(Lot lot)
         {
             try
@@ -143,9 +178,19 @@ namespace Ts3Fixes
             public void RemoveHook(SimDescription simDescription, bool deleteHouseholdIfEmpty)
             {
                 Lot lot = null;
-                try { lot = ((Household)(object)this).LotHome; } catch (Exception) { }
-                RemoveOrig(simDescription, deleteHouseholdIfEmpty);
-                DlAfter(lot);
+                List<CommonDoor> held = null;
+                try
+                {
+                    lot = ((Household)(object)this).LotHome;
+                    held = DlListsHolding(lot, simDescription);
+                }
+                catch (Exception) { }
+                try { RemoveOrig(simDescription, deleteHouseholdIfEmpty); }
+                finally
+                {
+                    DlEmptied(held);  // EA's own HouseholdSimChanged may already have taken the id out (an instantiated Sim)
+                    DlAfter(lot);
+                }
             }
             public void RemoveOrig(SimDescription simDescription, bool deleteHouseholdIfEmpty) { } // receives Household.Remove(SimDescription,bool)'s original header
             public void MoveInHook(Household household, bool bOnLoad)

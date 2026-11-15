@@ -186,12 +186,33 @@ namespace Ts3Fixes
             return true;
         }
 
+        // Review 2026-11-15: EA tests the resident's own door slot with `lot.LotLocationIsPublicResidential`, the CALLER's
+        // lot (a phone invite passes the inviter's lot, also Annex / School / ShowStage), although the slot is on the
+        // resident's VirtualLotHome, so an invited resident never spawns at its own door. `lot` is used nowhere else once
+        // VirtualLotHome is set, so with the switch on the method receives VirtualLotHome. Never for the active household.
+        // Counted in [1195] / [1196].
+        internal static bool RsUseHome(bool on, bool hasHome, bool sameLot, bool household) { return on && hasHome && !sameLot && !household; }
+        static Lot RsTestLot(SimDescription d, Lot lot)
+        {
+            try
+            {
+                Lot home = d == null ? null : d.VirtualLotHome;
+                bool household = d != null && d.Household != null && d.Household == Household.ActiveHousehold;
+                if (home == null || home == lot || household || sRsMissing.Length > 0) return lot;
+                bool on = ShortcutOn("residentspawnslot");
+                PatchCounters()[on ? 1195 : 1196]++;
+                return RsUseHome(on, true, false, false) ? home : lot;
+            }
+            catch (Exception) { PatchCounters()[1198]++; return lot; }
+        }
+
         public class BRsHook
         {
             public Sim InstHook(Lot lot, ResourceKey outfitKey)
             {
-                SimDescription prev = RsEnter((SimDescription)(object)this);
-                try { return InstOrig(lot, outfitKey); }
+                SimDescription d = (SimDescription)(object)this;
+                SimDescription prev = RsEnter(d);
+                try { return InstOrig(RsTestLot(d, lot), outfitKey); }
                 finally { RsLeave(prev); }
             }
             public Sim InstOrig(Lot lot, ResourceKey outfitKey) { return null; } // receives SimDescription.Instantiate(Lot,ResourceKey)

@@ -234,12 +234,16 @@ namespace Ts3Fixes
         {
             public void FinishedHook(Situation assignment)
             {
-                FinishedOrig(assignment);
+                try { FinishedOrig(assignment); }
+                finally { After((Service)(object)this, assignment); }  // also when EA's OnAssignmentFinished throws (review 2026-11-15)
+            }
+            static void After(Service svc, Situation assignment)
+            {
                 try
                 {
                     if (assignment == null) return;
                     bool on = ShortcutOn("serviceassignexit");
-                    int n = SeSweep((Service)(object)this, assignment, on);
+                    int n = SeSweep(svc, assignment, on);
                     PatchCounters()[on ? 1124 : 1125] += n;
                 }
                 catch (Exception) { PatchCounters()[1127]++; }
@@ -256,8 +260,15 @@ namespace Ts3Fixes
         // Fix (at creation): when the held show alarm is still pending, EA's OnServiceStarting is not run again (the Sim is
         // shown once, at the first alarm's time, as EA's first call set it). A fired or missing alarm runs EA's code.
         // Overrides (BurglarSituation) are untouched.
-        // Counters: [1128] re-arms skipped (on), [1129] the same seen with the switch off, [1130] errors.
+        // Also (review 2026-11-15): ServiceSituation.CleanUp removes a still-pending show alarm without undoing what CreateSim
+        // did (hidden, autonomy disabled, socials off). A worker that survives CleanUp (VirtualLotHome: apartment residents
+        // go home instead of being destroyed) stays invisible, non-autonomous and unsociable. With the switch on, a pending
+        // show alarm on a surviving worker runs EA's MakeServiceSimVisible before CleanUp. NPC-only (service workers).
+        // Counters: [1128] re-arms skipped and workers shown at CleanUp (on), [1129] the same seen with the switch off,
+        // [1130] errors.
         static readonly FieldInfo sSsShow = typeof(ServiceSituation).GetField("mAlarmShowSim", kInstAll);
+        static readonly FieldInfo sSsDestroy = typeof(ServiceSituation).GetField("mDestroyWorkerOnExit", kInstAll);
+        static readonly MethodInfo sSsMakeVisible = typeof(ServiceSituation).GetMethod("MakeServiceSimVisible", kInstAll, null, Type.EmptyTypes, null);
         static string sSsMissing = "";
 
         static void ApplyServiceShowAlarm()
@@ -266,6 +277,16 @@ namespace Ts3Fixes
                 + (typeof(ServiceSituation).GetMethod("OnServiceStarting", kInstAll, null, Type.EmptyTypes, null) == null ? "ServiceSituation.OnServiceStarting" : "")).Trim();
             if (sSsMissing.Length > 0) { AppliedLog().Add("serviceshowalarm: not found: " + sSsMissing); return; }
             Patch(typeof(ServiceSituation), "OnServiceStarting", Type.EmptyTypes, typeof(BSsHook), "StartHook", "StartOrig");
+            if (sSsDestroy != null && sSsMakeVisible != null)
+                Patch(typeof(ServiceSituation), "CleanUp", Type.EmptyTypes, typeof(BSsHook), "CleanHook", "CleanOrig");
+            else AppliedLog().Add("serviceshowalarm: CleanUp part not found: ServiceSituation.mDestroyWorkerOnExit / MakeServiceSimVisible");
+        }
+
+        // Pure: show the worker before CleanUp? (EA's destroy test inverted: destroy, alive, service household, no virtual home)
+        internal static bool SsShowAtCleanUp(bool on, bool pending, bool destroy, bool alive, bool serviceHousehold, bool virtualHome)
+        {
+            bool destroyed = destroy && alive && serviceHousehold && !virtualHome;
+            return on && pending && alive && !destroyed;
         }
 
         // Pure: skip EA's re-arm?
@@ -293,6 +314,38 @@ namespace Ts3Fixes
                 StartOrig();
             }
             public void StartOrig() { } // receives ServiceSituation.OnServiceStarting's original body
+            public void CleanHook()
+            {
+                try
+                {
+                    ServiceSituation ss = (ServiceSituation)(object)this;
+                    Sim w = ss.Worker;
+                    AlarmHandle h = (AlarmHandle)sSsShow.GetValue(ss);
+                    bool pending = h != AlarmHandle.kInvalidHandle && AlarmManager.Global.GetTimeLeft(h, TimeUnit.Minutes) > 0f;
+                    if (pending && w != null)
+                    {
+                        bool alive = !w.HasBeenDestroyed;
+                        bool svcHh = w.Household != null && w.Household.IsServiceNpcHousehold;
+                        bool vh = w.SimDescription != null && w.SimDescription.VirtualLotHome != null;
+                        bool hh = w.Household != null && w.Household == Household.ActiveHousehold;
+                        bool show = !hh && SsShowAtCleanUp(true, true, (bool)sSsDestroy.GetValue(ss), alive, svcHh, vh);
+                        if (show)
+                        {
+                            if (ShortcutOn("serviceshowalarm"))
+                            {
+                                AlarmManager.Global.RemoveAlarm(h);
+                                sSsShow.SetValue(ss, AlarmHandle.kInvalidHandle);
+                                sSsMakeVisible.Invoke(ss, null);  // not swapped: Invoke is fine
+                                PatchCounters()[1128]++;
+                            }
+                            else PatchCounters()[1129]++;
+                        }
+                    }
+                }
+                catch (Exception) { PatchCounters()[1130]++; }
+                CleanOrig();
+            }
+            public void CleanOrig() { } // receives ServiceSituation.CleanUp
         }
 
         // ---- §6 maildogchaser (tuning kMailDogChaser) --------------------------------------------------------------------
@@ -396,13 +449,17 @@ namespace Ts3Fixes
         {
             public void CompleteHook()
             {
-                CompleteOrig();
+                try { CompleteOrig(); }
+                finally { After(this); }  // also when EA's OnCompletion throws (review 2026-11-15)
+            }
+            static void After(object job)
+            {
                 try
                 {
-                    if (!sLgSurvey.IsInstanceOfType(this)) return;
-                    bool held = (AlarmHandle)sLgAlarm.GetValue(this) != AlarmHandle.kInvalidHandle;
+                    if (!sLgSurvey.IsInstanceOfType(job)) return;
+                    bool held = (AlarmHandle)sLgAlarm.GetValue(job) != AlarmHandle.kInvalidHandle;
                     if (!held) return;
-                    if (LgRemove(ShortcutOn("lifeguardsurvey"), true, held, true)) { sLgRemove.Invoke(this, null); PatchCounters()[1137]++; }
+                    if (LgRemove(ShortcutOn("lifeguardsurvey"), true, held, true)) { sLgRemove.Invoke(job, null); PatchCounters()[1137]++; }
                     else PatchCounters()[1138]++;
                 }
                 catch (Exception) { PatchCounters()[1139]++; }
@@ -475,7 +532,9 @@ namespace Ts3Fixes
         //  (c) the statics are not saved ([PersistableStatic(false)]) but the alarm is: after a load mid-trickle the saved
         //      alarm is an orphan that EA can never remove (TrickleOnHouseLights removes the invalid static handle) and
         //      fires hourly for good.
-        // Fix (at creation): before EA's ApplyLightsToWorld a held trickle alarm is removed; after it, a 0 pulse with lots
+        // Fix (at creation): before EA's ApplyLightsToWorld a held trickle alarm is removed, but only when EA will rebuild
+        // the lists (sLotsWithLights null; EA returns at once otherwise and a running trickle must keep its alarm, review
+        // 2026-11-15: the cheat or a second call mid-winter stranded the remaining lots); after it, a 0 pulse with lots
         // waiting becomes 1, and the new alarm is made NeverPersisted (a load forgets the lists anyway, as before; nothing
         // EA reads needs the saved alarm). Saved orphans: at world load (switch on) TrickleOnHouseLights alarms other than
         // the held handle are removed.
@@ -484,6 +543,7 @@ namespace Ts3Fixes
         static readonly FieldInfo sHlAlarm = typeof(HolidayHouseLights).GetField("sTurnOnLightsAlarm", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
         static readonly FieldInfo sHlLots = typeof(HolidayHouseLights).GetField("sLotsThatNeedLights", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
         static readonly FieldInfo sHlPulse = typeof(HolidayHouseLights).GetField("sNumLightsToApplyPerPulse", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+        static readonly FieldInfo sHlWith = typeof(HolidayHouseLights).GetField("sLotsWithLights", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
         static string sHlMissing = "";
 
         static void ApplyHolidayLights()
@@ -536,7 +596,7 @@ namespace Ts3Fixes
                 try
                 {
                     AlarmHandle h = (AlarmHandle)sHlAlarm.GetValue(null);
-                    if (on && h != AlarmHandle.kInvalidHandle)
+                    if (on && h != AlarmHandle.kInvalidHandle && (sHlWith == null || sHlWith.GetValue(null) == null))
                     {
                         AlarmManager.Global.RemoveAlarm(h);
                         sHlAlarm.SetValue(null, AlarmHandle.kInvalidHandle);
