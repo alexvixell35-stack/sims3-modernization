@@ -284,10 +284,20 @@ namespace Ts3Agent
             r["tracked"] = SpawnedSims().Count;
         }
 
+        // Horses only go to houses: never an apartment lot (a unit can sit on an upper floor a horse cannot reach, so GoHome
+        // fails with result 16/18), and households whose lot has a box stall first. Dogs and cats may live anywhere.
+        static List<Household> HorseHomes(List<Household> room)
+        {
+            List<Household> ground = room.FindAll(delegate(Household x) { return !x.LotHome.IsApartmentLot; });
+            List<Household> stall = ground.FindAll(delegate(Household x) { return x.LotHome.GetObjects<Sims3.Gameplay.Objects.Pets.BoxStall>().Length > 0; });
+            return stall.Count > 0 ? stall : ground;
+        }
+
         // spawn_sims {count, species?: "Human"}: the debug `spawn <n>` command (Commands.OnSpawn) but tracked: each new YA/adult/elder joins a
         // random non-active household with a home lot and is instantiated near its lot corner. Returns ids for remove_sims.
         // species Dog / LittleDog / Cat / Horse: an adult or elder pet (GeneticsPet.MakeRandomPet + AssignRandomTraits, as
-        // Sim.MakePet) into a non-active household with room for it (CanAddSpeciesToHousehold): NPC pets, never the player's.
+        // Sim.MakePet) into a non-active household with room for it (CanAddSpeciesToHousehold): NPC pets, never the player's;
+        // a horse only on a non-apartment lot, one with a box stall if any (HorseHomes).
         static object SpawnSims(Args a)
         {
             RequireLive();
@@ -309,7 +319,8 @@ namespace Ts3Agent
                 if (pet)
                 {
                     List<Household> room = homes.FindAll(delegate(Household x) { return x.CanAddSpeciesToHousehold(species); });
-                    if (room.Count == 0) { Dictionary<string, object> full = Util.Obj(); full["error"] = "no non-active household with room for a " + species; made.Add(full); break; }
+                    if (species == CASAgeGenderFlags.Horse) room = HorseHomes(room);
+                    if (room.Count == 0) { Dictionary<string, object> full = Util.Obj(); full["error"] = "no non-active household with room for a " + species + (species == CASAgeGenderFlags.Horse ? " on a non-apartment lot" : ""); made.Add(full); break; }
                     h = RandomUtil.GetRandomObjectFromList(room);
                     sd = GeneticsPet.MakeRandomPet(RandomUtil.CoinFlip() ? CASAgeGenderFlags.Adult : CASAgeGenderFlags.Elder,
                         RandomUtil.CoinFlip() ? CASAgeGenderFlags.Male : CASAgeGenderFlags.Female, species);
