@@ -3843,6 +3843,106 @@
       "what": "phone around University Life travel (docs/573)",
       "at": "2026-11-15T11:36:33.186Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2636",
+      "kind": "fixes",
+      "from": 2636,
+      "to": 2653,
+      "by": "claude",
+      "what": "docs/573 phone around University Life travel (9 switches)",
+      "at": "2026-11-15T11:46:55.449Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-574",
+      "kind": "doc",
+      "from": 574,
+      "to": 574,
+      "by": "claude",
+      "what": "WA / skills+self-employed / rabbit-hole careers / relationships batch (docs/574)",
+      "at": "2026-11-15T11:55:14.549Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2654",
+      "kind": "fixes",
+      "from": 2654,
+      "to": 2667,
+      "by": "claude",
+      "what": "docs/574 WA/skills/households (7 switches)",
+      "at": "2026-11-15T12:02:46.476Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2668",
+      "kind": "fixes",
+      "from": 2668,
+      "to": 2671,
+      "by": "claude",
+      "what": "docs/573 §10-11 smartphone give/fixup",
+      "at": "2026-11-15T12:05:02.738Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2672",
+      "kind": "fixes",
+      "from": 2672,
+      "to": 2675,
+      "by": "claude",
+      "what": "docs/574 careers (2 switches)",
+      "at": "2026-11-15T12:08:23.925Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-575",
+      "kind": "doc",
+      "from": 575,
+      "to": 575,
+      "by": "claude",
+      "what": "RE pass: inferred triggers, parked leads, inventory/ownership (docs/575)",
+      "at": "2026-11-15T12:21:03.075Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2676",
+      "kind": "fixes",
+      "from": 2676,
+      "to": 2676,
+      "by": "Dalexlol",
+      "what": "unseentpgoal: unseen teleport goals placed unchecked (switch off) (docs/267 F1)",
+      "at": "2026-11-15T12:24:26.387Z",
+      "worktree": "/home/<user>/dev/s3m-ep"
+    },
+    {
+      "id": "fixes-2677",
+      "kind": "fixes",
+      "from": 2677,
+      "to": 2678,
+      "by": "Dalexlol",
+      "what": "unseenhidden: TownieUnseen NPCs in a Late Night hidden room judged seen (on) / let through as unseen (off) (docs/267 F2)",
+      "at": "2026-11-15T12:24:26.481Z",
+      "worktree": "/home/<user>/dev/s3m-ep"
+    },
+    {
+      "id": "fixes-2679",
+      "kind": "fixes",
+      "from": 2679,
+      "to": 2684,
+      "by": "claude",
+      "what": "docs/575 handsetreset flowersinuse uselistprune",
+      "at": "2026-11-15T12:28:59.250Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2685",
+      "kind": "fixes",
+      "from": 2685,
+      "to": 2686,
+      "by": "claude",
+      "what": "docs/575 chestuselist",
+      "at": "2026-11-15T12:32:20.319Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

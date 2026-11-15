@@ -159,6 +159,12 @@ namespace Ts3Fixes
             ApplyIslandParadiseLogic(); // docs/572 §6-7 (IslandParadiseLogic.cs)
             ApplyFutureLogic();      // docs/572 §9-12 (FutureLogic.cs)
             ApplyPetsLogic();        // docs/572 §13-15 (PetsLogic.cs)
+            ApplyPhoneLogic();       // docs/573 §1-6 (PhoneLogic.cs)
+            ApplyUniTravelLogic();   // docs/573 §7-9 (UniTravelLogic.cs)
+            ApplySmartPhoneGive();   // docs/573 §10-11 (SmartPhoneGive.cs)
+            ApplyHouseholdLogic();   // docs/574 §1-3 (HouseholdLogic.cs)
+            ApplyWaSkillsLogic();    // docs/574 §4-7 (WaSkillsLogic.cs)
+            ApplyCareerLogic();      // docs/574 §8-9 (CareerLogic.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -504,6 +510,26 @@ namespace Ts3Fixes
         // [2630-2631] horsetraitscore (PetsLogic.cs, docs/572 §13): scores computed on the horse / errors.
         // [2632-2633] wildhorsegender (PetsLogic.cs, docs/572 §14): genders swapped / errors.
         // [2634-2635] littercap (PetsLogic.cs, docs/572 §15): caps lowered / errors.
+        // [2636-2637] phoneloadreset (PhoneLogic.cs, docs/573 §1): phones cleared / errors.
+        // [2638-2639] phonecallschedule (PhoneLogic.cs, docs/573 §2): windows corrected / errors.
+        // [2640-2641] phonecallrearm (PhoneLogic.cs, docs/573 §3): alarms re-armed / errors.
+        // [2642-2643] woohootywait (PhoneLogic.cs, docs/573 §4): waits ended early / errors.
+        // [2644-2645] invitecallreply (PhoneLogic.cs, docs/573 §5): replies corrected / errors.
+        // [2646-2647] gradvisitors (PhoneLogic.cs, docs/573 §6): entries dropped / errors.
+        // [2648-2649] resumetns (UniTravelLogic.cs, docs/573 §7): notices shown / errors.
+        // [2650-2651] unitravelflag (UniTravelLogic.cs, docs/573 §8): flags cleared / errors.
+        // [2652-2653] returnhomealarms (UniTravelLogic.cs, docs/573 §9): handles reset / errors.
+        // [2668-2669] phonefixup (SmartPhoneGive.cs, docs/573 §10): phones checked after a grant / errors.
+        // [2670-2671] phonegive (SmartPhoneGive.cs, docs/573 §11): phones given with a correction / errors.
+        // [2654-2655] wildherdmother (HouseholdLogic.cs, docs/574 §1): mothers replaced / errors.
+        // [2656-2657] splitpartner (HouseholdLogic.cs, docs/574 §2): partners cleared or splits refused / errors.
+        // [2658-2659] movingflag (HouseholdLogic.cs, docs/574 §3): flags cleared / errors.
+        // [2660-2661] sandscoins (WaSkillsLogic.cs, docs/574 §4): piles given / errors.
+        // [2674-2675] tombmusic (WaSkillsLogic.cs, docs/574 §5): resets / errors.
+        // [2662-2663] artsellnoartist (WaSkillsLogic.cs, docs/574 §6): sales completed without an artist / errors.
+        // [2664-2665] royaltyorphan (WaSkillsLogic.cs, docs/574 §7): alarms removed / errors.
+        // [2666-2667] promoteshift (CareerLogic.cs, docs/574 §8): answers corrected / errors.
+        // [2672-2673] gotoworkstale (CareerLogic.cs, docs/574 §9): stale pushes skipped / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -854,6 +880,26 @@ namespace Ts3Fixes
                 case "horsetraitscore": return Instantiator.kHorseTraitScore;
                 case "wildhorsegender": return Instantiator.kWildHorseGender;
                 case "littercap": return Instantiator.kLitterCap;
+                case "phoneloadreset": return Instantiator.kPhoneLoadReset;
+                case "phonecallschedule": return Instantiator.kPhoneCallSchedule;
+                case "phonecallrearm": return Instantiator.kPhoneCallRearm;
+                case "woohootywait": return Instantiator.kWooHootyWait;
+                case "invitecallreply": return Instantiator.kInviteCallReply;
+                case "gradvisitors": return Instantiator.kGradVisitors;
+                case "resumetns": return Instantiator.kResumeTns;
+                case "unitravelflag": return Instantiator.kUniTravelFlag;
+                case "returnhomealarms": return Instantiator.kReturnHomeAlarms;
+                case "phonefixup": return Instantiator.kPhoneFixUp;
+                case "phonegive": return Instantiator.kPhoneGive;
+                case "wildherdmother": return Instantiator.kWildHerdMother;
+                case "splitpartner": return Instantiator.kSplitPartner;
+                case "movingflag": return Instantiator.kMovingFlag;
+                case "sandscoins": return Instantiator.kSandsCoins;
+                case "tombmusic": return Instantiator.kTombMusic;
+                case "artsellnoartist": return Instantiator.kArtSellNoArtist;
+                case "royaltyorphan": return Instantiator.kRoyaltyOrphan;
+                case "promoteshift": return Instantiator.kPromoteShift;
+                case "gotoworkstale": return Instantiator.kGoToWorkStale;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
