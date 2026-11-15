@@ -133,7 +133,7 @@ namespace Ts3Fixes
         static readonly MethodInfo sRhHouseholdJobOnLot = typeof(Occupation).GetMethod("AnySimInHouseholdHasJobOnLot", kInstAll);
         static readonly FieldInfo sRhRescueEffect = typeof(RabbitholeFirefightingJob).GetField("mRabbitholeEffect", kInstAll);
         static readonly FieldInfo sRhGhostEffect = typeof(GhostHunter.GhostHunterJob).GetField("mVisualEffect", kInstAll);
-        static readonly FieldInfo sRhJobSpec = typeof(Job).GetField("Specification", kInstAll);  // internal
+        static readonly FieldInfo sRhJobSpec = typeof(Sims3.Gameplay.Careers.Job).GetField("Specification", kInstAll);  // internal (bare "Job" is Ts3Fixes.Job, the EaSpread delegate)
         static readonly FieldInfo sRhEventTarget = typeof(Sims3.Gameplay.EventSystem.Event).GetField("mTargetObject", kInstAll);
         static readonly FieldInfo sRhListenerTargets = typeof(OpportunityInteractionCompleteListener).GetField("mTargets", kInstAll);
         static readonly Type[] sRhTargetForEventArgs = { typeof(Opportunity), typeof(Opportunity.OpportunitySharedData.EventInfo) };
@@ -252,8 +252,7 @@ namespace Ts3Fixes
             public bool SetupHook()
             {
                 bool ok = SetupOrig();
-                Job job = (Job)(object)this;
-                RhMoveJobEffect(job, sRhRescueEffect);
+                RhMoveJobEffect((object)this as Sims3.Gameplay.Careers.Job, sRhRescueEffect);
                 return ok;
             }
             public bool SetupOrig() { return false; } // receives RabbitholeFirefightingJob.SetupRabbitholeRescue's original body
@@ -265,8 +264,7 @@ namespace Ts3Fixes
             public bool CreateHook()
             {
                 bool ok = CreateOrig();
-                Job job = (Job)(object)this;
-                RhMoveJobEffect(job, sRhGhostEffect);
+                RhMoveJobEffect((object)this as Sims3.Gameplay.Careers.Job, sRhGhostEffect);
                 return ok;
             }
             public bool CreateOrig() { return false; } // receives GhostHunter.GhostHunterJob.CreateRabbitHoleInvestigation's original body
@@ -545,7 +543,7 @@ namespace Ts3Fixes
         }
 
         // combojob: an effect EA started at the job's rabbit hole (a piece: OutOfWorld) moves to the building.
-        static void RhMoveJobEffect(Job job, FieldInfo effectField)
+        static void RhMoveJobEffect(Sims3.Gameplay.Careers.Job job, FieldInfo effectField)
         {
             try
             {

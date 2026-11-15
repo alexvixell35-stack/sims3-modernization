@@ -3533,6 +3533,36 @@
       "what": "Activity batch 2: consignment, gym training, bistro eat outside",
       "at": "2026-11-15T03:34:53.764Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2570",
+      "kind": "fixes",
+      "from": 2570,
+      "to": 2572,
+      "by": "claude",
+      "what": "fireactivejob: stale ActiveFireFighter.sActiveJob across world loads (docs/570)",
+      "at": "2026-11-15T10:08:19.229Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-570",
+      "kind": "doc",
+      "from": 570,
+      "to": 570,
+      "by": "claude",
+      "what": "Ambitions active careers logic: firefighter, ghost hunter, stylist, architect",
+      "at": "2026-11-15T10:08:19.306Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2573",
+      "kind": "fixes",
+      "from": 2573,
+      "to": 2576,
+      "by": "claude",
+      "what": "firetrapcount: firefighter trapped-Sim tasks follow the victims actually trapped (docs/570 §5)",
+      "at": "2026-11-15T10:19:05.822Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

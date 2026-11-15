@@ -72114,5 +72114,167 @@
         }
       }
     ]
+  },
+  {
+    "id": "fire-active-job-stale",
+    "bug": "ActiveFireFighter.sActiveJob (plain static) survives a world quit: the loaded emergency is not adopted, household firefighters stay 'on the job', and every later emergency is dropped by MakeMapTagForRandomJobVisible (docs/570 §1)",
+    "fix": "ts3fixes FireActiveJob.cs: fireactivejob (default off), docs/570 §1",
+    "save": "any world (pure check)",
+    "note": "FireActiveJobCheck 'run' puts an unregistered FireFightingJob through the drop decision with controls (read-only). End to end: firefighter emergency announced, save, load the save (or another), wait for the next emergency; 'result' shows 2570/2571.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fireactivejob": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireActiveJobCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireActiveJobCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fireactivejob": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireActiveJobCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireActiveJobCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fireactivejob": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fireactivejob": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "fire-trap-count",
+    "bug": "Firefighter large fire / earthquake: a trapped Sim who leaves the lot (or is deleted) unfreed keeps its 'free N Sims' task, and on apartment lots trap spots include hidden neighbour units nobody can enter; the count cannot be met and the job times out (docs/570 §5)",
+    "fix": "ts3fixes FireTrapCount.cs: firetrapcount (default off), docs/570 §5",
+    "save": "any world (pure check)",
+    "note": "FireTrapCountCheck 'run' evaluates the drop / spot decisions with controls (read-only). End to end: testingcheatsenabled, shift-click the apartment lot as a household firefighter, debug Spawn Job -> LargeFires (Careers/SpawnJob), respond; 'result' shows 2573/2574.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "firetrapcount": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireTrapCountCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireTrapCountCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firetrapcount": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireTrapCountCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireTrapCountCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firetrapcount": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "firetrapcount": false
+        }
+      }
+    ]
   }
 ]
