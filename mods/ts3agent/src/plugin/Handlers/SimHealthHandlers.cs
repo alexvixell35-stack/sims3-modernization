@@ -24,9 +24,15 @@ namespace Ts3Agent
     //     failed = the Sim still carried a failure exit reason (FailedToStart, RouteFailed, ObjectInUse, SynchronizationFailed,
     //     NullValueFound, FailedToRemoveFromInventory, BuffFailureState, TimedOut) when the watcher saw the head go;
     //     game_cancelled = the instance was cancelled without UserCanceled. Approximate: EA clears the exit reasons when the
-    //     next interaction starts, so a failure followed at once by the next head can read as a plain end; short (< 1 sim
-    //     minute) non-user ends are counted as well, per definition, for the spam list;
-    //   spam: interaction definitions that failed, were cancelled by the game or ended short >= 3 times since the last call;
+    //     next interaction starts, so a failure followed at once by the next head can read as a plain end; short = (< 1 sim
+    //     minute) non-user ends that are not ours;
+    //   spam: interaction definitions that failed (a failure exit reason above) >= 3 times since the last call; game
+    //     cancels without one and short ends are by design often (SwitchToOutfit, LunacyFreakOut's reactions, IdleTend
+    //     cancelled by an order) and are not spam;
+    //   short_ends: definitions that ended short (< 1 sim minute, not user-cancelled, not ours) >= 3 times, lower ranked;
+    //   ours / ours_ends: ends caused by ts3fixes' own shortcuts (the Sim was in or just left an unseenfb hold, or
+    //     ts3fixes.moved got a new move for it while the head ran): counted apart, never failed / short / spam;
+    //   since_min (top level): sim minutes since the previous call, the span the counters cover;
     //   holds / hold_ends / after_hold: ts3fixes unseenfb walk-time holds started and ended, and the Sim's posture / walk
     //     style / terrain when one ended (oddities after a hold: a ridden horse, a mermaid off water, a flying vampire);
     //   moved / moved_new: ts3fixes' last shortcut move of the Sim (teleport, placement) and whether it is new.
@@ -56,11 +62,17 @@ namespace Ts3Agent
             public int Holds, HoldEnds;
             public readonly List<object> AfterHold = new List<object>();  // the Sim's state when a hold ended (at most 3 a call)
             public string Moved;                   // ts3fixes' last shortcut move of this Sim (ts3fixes.moved, by full name)
-            public readonly Dictionary<string, int> Bad = new Dictionary<string, int>();
+            public readonly Dictionary<string, int> Bad = new Dictionary<string, int>();     // failed, by definition (spam)
+            public readonly Dictionary<string, int> ShortDefs = new Dictionary<string, int>();
+            public readonly Dictionary<string, int> OursDefs = new Dictionary<string, int>();
+            public int Ours;
+            public string HeadMoved;               // ts3fixes.moved for this Sim when the head started
+            public bool HeadMovedKnown;
         }
 
         static readonly Dictionary<ulong, ShTrack> sShTrack = new Dictionary<ulong, ShTrack>();  // by Sim object id
         static bool sShWatching;
+        static double sShLastMin = -1;         // sim_minutes at the previous call
         static int sShGen, sShSampleTicks = 2;
         static FieldInfo sShRflSims, sShRflSeen, sShRflUnseen, sShRflLocked, sShHolding;
         static MethodInfo sShUfWhy, sShHrOut;
@@ -91,7 +103,10 @@ namespace Ts3Agent
             foreach (ulong id in gone) sShTrack.Remove(id);
             Dictionary<string, object> r = Util.Obj();
             r["tick"] = now;
-            r["sim_minutes"] = Math.Round(SimClock.ElapsedTime(TimeUnit.Minutes), 1);
+            double simMin = Math.Round(SimClock.ElapsedTime(TimeUnit.Minutes), 1);
+            r["sim_minutes"] = simMin;
+            r["since_min"] = sShLastMin >= 0 && simMin >= sShLastMin ? Math.Round(simMin - sShLastMin, 1) : 0;  // 0: first call (or clock reset)
+            sShLastMin = simMin;
             r["hour"] = Math.Round(SimClock.HoursPassedOfDay, 2);
             r["live"] = Sims3.Gameplay.GameStates.IsLiveState;
             r["watching"] = sShWatching;
@@ -150,10 +165,9 @@ namespace Ts3Agent
             o["route_locked"] = Math.Max(0, locked - t.RfLocked);
             t.RfSeen = seen; t.RfLocked = locked;
             o["ended"] = t.Ended; o["failed"] = t.Failed; o["game_cancelled"] = t.GameCancelled; o["user_cancelled"] = t.UserCancelled; o["short"] = t.Short;
-            List<object> spam = new List<object>();
-            foreach (KeyValuePair<string, int> kv in t.Bad)
-                if (kv.Value >= kShSpam) { Dictionary<string, object> sp = Util.Obj(); sp["definition"] = kv.Key; sp["count"] = kv.Value; spam.Add(sp); }
-            o["spam"] = spam;
+            o["spam"] = ShDefs(t.Bad, kShSpam);
+            o["short_ends"] = ShDefs(t.ShortDefs, kShSpam);
+            o["ours"] = t.Ours; o["ours_ends"] = ShDefs(t.OursDefs, 1);
             o["holds"] = t.Holds; o["hold_ends"] = t.HoldEnds; o["after_hold"] = new List<object>(t.AfterHold);
             t.Holds = t.HoldEnds = 0; t.AfterHold.Clear();
             Dictionary<string, object> moved = AppDomain.CurrentDomain.GetData("ts3fixes.moved") as Dictionary<string, object>;
@@ -162,9 +176,25 @@ namespace Ts3Agent
             o["moved"] = m;
             o["moved_new"] = m != null && m != t.Moved;  // a shortcut moved this Sim since the last call (the last move only)
             t.Moved = m;
-            t.Ended = t.Failed = t.GameCancelled = t.UserCancelled = t.Short = 0;
-            t.Bad.Clear();
+            t.Ended = t.Failed = t.GameCancelled = t.UserCancelled = t.Short = t.Ours = 0;
+            t.Bad.Clear(); t.ShortDefs.Clear(); t.OursDefs.Clear();
             return o;
+        }
+
+        static List<object> ShDefs(Dictionary<string, int> defs, int min)
+        {
+            List<object> l = new List<object>();
+            foreach (KeyValuePair<string, int> kv in defs)
+                if (kv.Value >= min) { Dictionary<string, object> sp = Util.Obj(); sp["definition"] = kv.Key; sp["count"] = kv.Value; l.Add(sp); }
+            return l;
+        }
+
+        static void ShBump(Dictionary<string, int> defs, string def)
+        {
+            if (def == null) return;
+            int n;
+            defs.TryGetValue(def, out n);
+            defs[def] = n + 1;
         }
 
         static List<object> ShOccults(Sim s, SimDescription d)
@@ -220,6 +250,7 @@ namespace Ts3Agent
         {
             long now = SimClock.CurrentTicks, shortTicks = SimClock.ConvertToTicks(1f, TimeUnit.Minutes);
             Dictionary<ulong, long> holding = AppDomain.CurrentDomain.GetData("ts3fixes.unseenfb.holding") as Dictionary<ulong, long>;
+            Dictionary<string, object> moved = AppDomain.CurrentDomain.GetData("ts3fixes.moved") as Dictionary<string, object>;
             foreach (Sim s in LotManager.Actors)
             {
                 if (s == null || s.HasBeenDestroyed || s.InteractionQueue == null) continue;
@@ -229,6 +260,7 @@ namespace Ts3Agent
                 if ((p - t.Pos).LengthSqr() > 0.25f) { t.Pos = p; t.PosSince = now; }
                 long until;
                 bool held = holding != null && holding.TryGetValue(s.ObjectId.Value, out until) && now <= until;
+                bool holdChanged = held != t.Held;
                 if (held != t.Held)
                 {
                     t.Held = held;
@@ -245,23 +277,24 @@ namespace Ts3Agent
                 if (id == t.HeadId) continue;
                 InteractionInstance old = t.Head != null ? t.Head.Target as InteractionInstance : null;
                 if (old != null && s.InteractionQueue.HasInteraction(old)) { ShSetHead(t, h, now); continue; }  // pushed back, not ended
+                object mv;
+                string m = moved != null && moved.TryGetValue(s.FullName, out mv) ? mv as string : null;  // only on a head change
                 if (t.HeadId != 0)
                 {
                     t.Ended++;
                     ExitReason why = s.ExitReason;
                     bool user = (why & ExitReason.UserCanceled) != 0, cancelled = old != null && old.Cancelled;
-                    bool bad = false;
+                    bool ours = !user && (held || holdChanged || (t.HeadMovedKnown && m != null && m != t.HeadMoved));
                     if (user) t.UserCancelled++;
-                    else if ((why & kShFail) != 0) { t.Failed++; bad = true; }
-                    else if (cancelled) { t.GameCancelled++; bad = true; }
-                    if (!user && now - t.HeadSince < shortTicks) { t.Short++; bad = true; }
-                    if (bad && t.HeadDef != null)
+                    else if (ours) { t.Ours++; ShBump(t.OursDefs, t.HeadDef); }
+                    else
                     {
-                        int n;
-                        t.Bad.TryGetValue(t.HeadDef, out n);
-                        t.Bad[t.HeadDef] = n + 1;
+                        if ((why & kShFail) != 0) { t.Failed++; ShBump(t.Bad, t.HeadDef); }
+                        else if (cancelled) t.GameCancelled++;
+                        if (now - t.HeadSince < shortTicks) { t.Short++; ShBump(t.ShortDefs, t.HeadDef); }
                     }
                 }
+                t.HeadMoved = m; t.HeadMovedKnown = true;
                 ShSetHead(t, h, now);
             }
         }
