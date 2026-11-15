@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Sims3.Gameplay;
+using Sims3.Gameplay.Abstracts;
 using Sims3.Gameplay.Actors;
+using Sims3.Gameplay.CAS;
 using Sims3.Gameplay.Controllers;
 using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Utilities;
@@ -36,11 +38,77 @@ namespace Ts3Fixes
             int room = World.GetRoomId(dest);  // the id HrRoomTag and the "trap" check read [inferred: same as Sim.RoomId]
             bool hidden = TombRoomManager.IsPointInATombOrHiddenRoom(dest) || (onLot && lot.IsRoomHidden(room));
             bool outdoor = !hidden && UfOutdoorGround(dest);
-            bool open = !hidden && !outdoor && onLot && UfLotOpen(lot);
+            bool open = !hidden && !outdoor && onLot && (ShortcutOn("tpdoorrights") ? UfTpLotOpen(lot, sim) : UfLotOpen(lot));
             bool outside = LotManager.RoomIdIsOutside(room);
             int n;
             bool? reach = open && !outside ? HrReachesOutside(lot, room, sim, out n) : null;
             return UfPreCore.TpGoal(hidden, outdoor, open, outside, reach);
+        }
+
+        // docs/584 §7 tpdoorrights (default off; off = upstream's UfLotOpen): F1's lot test with the teleporting Sim's own door
+        // rights. Special lots stay closed as upstream has them (apartments, shells, moving houseboats, resorts, diving lots);
+        // then each door by UfPreCore.TpDoor: EA's IsAllowedThrough(sim), and on the Sim's home lot its household's access to a
+        // lock a family member owns (GoHome past a sibling's locked room; HrReachesOutside still floods with the Sim's own rights,
+        // so it is never placed in a room it cannot leave). Not cached: the verdict is per Sim (one door scan per cut teleport).
+        // [2739] lots open here that upstream closes, [2740] of those only by household access, [2741] closed by a door the Sim
+        // cannot pass (no lock-free verdict upstream either). Only unseen NPCs reach this (UfTeleport's UfWhy / TownieUnseen).
+        static bool UfTpLotOpen(Lot lot, Sim sim)
+        {
+            if (lot.IsApartmentLot || lot.BuildableShells.Length > 0 || !HouseboatOk(lot)) return false;
+            if (lot.CommercialLotSubType == CommercialLotSubType.kEP10_Resort || lot.CommercialLotSubType == CommercialLotSubType.kEP10_Diving) return false;
+            int[] c = PatchCounters();
+            SimDescription sd = sim.SimDescription;
+            Household hh = sd == null ? null : sd.Household;
+            bool home = hh != null && hh.LotHome == lot;
+            bool upstreamCloses = false;
+            int via = UfPreCore.kTpDoorFree;
+            foreach (CommonDoor d in lot.GetObjects<CommonDoor>())
+            {
+                if (d == null) return false;
+                int lk = (int)d.LockType;
+                bool g = d is DoorSingleGender;
+                int ow = d.OneWayRoomDestinationId;
+                if (UfPreCore.TpDoorUpstreamCloses(lk, g, ow)) upstreamCloses = true;
+                if (lk == UfPreCore.kLockAnybody && !g && ow == UfPreCore.kNoOneWayRoom) continue;  // free: no EA call needed
+                bool own;
+                try { own = d.IsAllowedThrough(sim); } catch (Exception) { own = false; }  // EA reads mLockOwner without a null check
+                int v = UfPreCore.TpDoor(lk, g, ow, own, home, home && !own && UfTpHouseholdOwns(d, hh));
+                if (v == UfPreCore.kTpDoorClosed) { c[2741]++; return false; }
+                if (v > via) via = v;
+            }
+            if (upstreamCloses) { c[2739]++; if (via == UfPreCore.kTpDoorHome) c[2740]++; }
+            return true;
+        }
+
+        // the door's lock belongs to the household: its owner, or one of its owner list, is a member
+        static bool UfTpHouseholdOwns(CommonDoor d, Household hh)
+        {
+            if (hh == null) return false;
+            CommonDoor.tLock t = d.LockType;
+            if (t == CommonDoor.tLock.SelectedActor || t == CommonDoor.tLock.SelectedHousehold)
+                return d.LockOwner != null && d.LockOwner.Household == hh;
+            if (t != CommonDoor.tLock.OwnerList || d.OwnerList == null) return false;
+            foreach (SimDescription m in hh.AllSimDescriptions)
+                if (m != null && d.OwnerList.Contains(m.SimDescriptionId)) return true;
+            return false;
+        }
+
+        // one ts3native.log line per sim-hour when F1's counters moved (s57 reads why teleports are refused); at most 200 a session
+        static AlarmHandle sUfTpLogAlarm = AlarmHandle.kInvalidHandle;
+        static string sUfTpLogLast;
+        static int sUfTpLogLines;
+        static void UfTpLogPass()
+        {
+            if (sUfTpLogLines >= 200) return;
+            int[] c = PatchCounters();
+            string line = "unseen tp goal: refused tomb/hidden " + c[kUfTpSlot] + ", lot closed " + c[kUfTpSlot + 1] + ", no way out " + c[kUfTpSlot + 2]
+                + ", raised " + c[kUfTpSlot + 3] + " (" + kUfTpSlot + "-" + (kUfTpSlot + 3) + "); load cleanup moved " + c[kUfTpSlot + 4] + " left " + c[kUfTpSlot + 5]
+                + "; teleports " + c[307] + "; tpdoorrights " + (ShortcutOn("tpdoorrights") ? "on" : "off") + ": lots opened " + c[2739] + " (household access " + c[2740]
+                + "), closed by a door " + c[2741] + " (2739-2741)";
+            if (line == sUfTpLogLast) return;
+            sUfTpLogLast = line;
+            sUfTpLogLines++;
+            try { DiagLine(line); } catch (Exception) { }
         }
 
         static string UfTpWhyName(int why)
@@ -67,6 +135,9 @@ namespace Ts3Fixes
         {
             if (AlarmManager.Global == null) return;
             AlarmManager.Global.AddAlarm(1f, TimeUnit.Minutes, delegate { try { UfTpCleanup(); } catch (Exception) { } }, "Ts3Fixes.UnseenTpCleanup", AlarmType.NeverPersisted, null);
+            if (sUfTpLogAlarm != AlarmHandle.kInvalidHandle) AlarmManager.Global.RemoveAlarm(sUfTpLogAlarm);
+            sUfTpLogLast = null;
+            sUfTpLogAlarm = AlarmManager.Global.AddAlarmRepeating(1f, TimeUnit.Hours, delegate { try { UfTpLogPass(); } catch (Exception) { } }, 1f, TimeUnit.Hours, "Ts3Fixes.UnseenTpLog", AlarmType.NeverPersisted, null);
         }
 
         // returns "moved m, left l" (the harness reads it)
