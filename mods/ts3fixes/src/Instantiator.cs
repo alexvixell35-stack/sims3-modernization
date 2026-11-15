@@ -262,6 +262,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kVampireHuntGlow = false;   // vampirehuntglow (docs/561 §7): hunt candidates that leave the lot lose the heat-vision glow
         [Tunable] public static bool kHotTubWoohooFx = false;    // hottubwoohoofx (docs/561 §7): a woohoo cut off by a reset no longer leaves the hot tub's woohoo effect on
         [Tunable] public static bool kBribeGuard = false;        // bribeguard (docs/561 §7): a bouncer bribe charged after the nightly rope cleanup no longer throws
+        [Tunable] public static bool kOppDeadListeners = false;  // oppdeadlisteners (docs/562 §1): an ended Sim-target opportunity's global Sim died / disposed / instantiated listeners are removed
+        [Tunable] public static bool kDaycareQuit = false;       // daycarequit (docs/562 §2): quitting daycare outside work hours removes the child managers and their listeners
+        [Tunable] public static bool kPrivateEyeCase = false;    // privateeyecase (docs/562 §5): Investigator mail on apartment mailboxes, garbage search after the case ended, stale snoop alarm, break-in door lock
         [Tunable] public static bool kShellLighting = false;      // shelllighting (docs/561 §5): a buildable shell shows the lighting of the latest passed lighting time after load (EA keeps Default until the next alarm)
         [Tunable] public static bool kPhotoBoothFunds = false;    // photoboothfunds (docs/561 §2): a Sim that entered a photo booth and then lacked the fee is walked out (EA leaves it faded out inside)
         [Tunable] public static bool kGoHomeWalk = false;         // gohomewalk (docs/560 §2): GoHome takes back the walk style (Run) it requested, so Sims sent home from a busted party stop running

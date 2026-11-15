@@ -70089,5 +70089,248 @@
         }
       }
     ]
+  },
+  {
+    "id": "opp-dead-listeners",
+    "bug": "Opportunity.RemoveAllIncompleteListeners never removes mSimDiedListener / mSimDescriptionDisposedListener / mSimCreatedListener, so every ended Sim-target opportunity leaves global listeners for the session, and a suspended one can re-register its listeners when its target Sim comes back (docs/562 §1)",
+    "fix": "ts3fixes OppDeadListeners.cs: oppdeadlisteners (default off), docs/562 §1",
+    "save": "any world (pure check)",
+    "note": "OppDeadListenersCheck 'run' evaluates an ending opportunity's Sim listener, with two controls.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "oppdeadlisteners": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OppDeadListenersCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OppDeadListenersCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "oppdeadlisteners": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OppDeadListenersCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OppDeadListenersCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "oppdeadlisteners": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "oppdeadlisteners": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "daycare-quit-managers",
+    "bug": "Daycare.LeaveJobNow removes the child managers only when a workday situation runs; quitting outside work hours leaves their global age-up / died listeners, so the ex-owner gets withdraw TNSes (or a throw) when former clients age up (docs/562 §2)",
+    "fix": "ts3fixes DaycareQuit.cs: daycarequit (default off), docs/562 §2",
+    "save": "any world (pure check)",
+    "note": "DaycareQuitCheck 'run' evaluates a quit outside work hours, with three controls.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "daycarequit": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DaycareQuitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DaycareQuitCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "daycarequit": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DaycareQuitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DaycareQuitCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "daycarequit": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "daycarequit": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "privateeye-case",
+    "bug": "Investigator case interactions: LookThroughMail dereferences a null apartment wall-mailbox door (or a null case), SearchThroughGarbage throws when the case ended during the search, the SnoopForClues alarm is never removed and later ends an unrelated interaction, BreakIntoHouse leaves a locked front door unlocked, Stakeout throws on a deleted required Sim or with no crime candidates (docs/562 §5)",
+    "fix": "ts3fixes PrivateEyeCase.cs: privateeyecase (default off), docs/562 §5",
+    "save": "any world; Bridgeport for the live mailbox part",
+    "note": "PrivateEyeCaseCheck 'run' evaluates the four decisions with controls and, on a world with apartment wall mailboxes (Bridgeport), a read-only door lookup for a Sim from another lot.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "privateeyecase": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PrivateEyeCaseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PrivateEyeCaseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "privateeyecase": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PrivateEyeCaseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PrivateEyeCaseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "privateeyecase": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "privateeyecase": false
+        }
+      }
+    ]
   }
 ]

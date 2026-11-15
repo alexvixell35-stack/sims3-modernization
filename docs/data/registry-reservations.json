@@ -3183,6 +3183,56 @@
       "what": "bribeguard (bouncer bribe charged after the nightly rope cleanup), docs/561 §7",
       "at": "2026-11-15T00:56:11.527Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2495",
+      "kind": "fixes",
+      "from": 2495,
+      "to": 2496,
+      "by": "claude",
+      "what": "oppdeadlisteners (opportunity kSimDied/kSimDescriptionDisposed/kSimInstantiated listeners left after the opportunity ends), docs/562",
+      "at": "2026-11-15T01:08:50.299Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2497",
+      "kind": "fixes",
+      "from": 2497,
+      "to": 2498,
+      "by": "claude",
+      "what": "daycarequit (daycare child managers and listeners left after quitting outside a workday), docs/562",
+      "at": "2026-11-15T01:08:50.375Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-562",
+      "kind": "doc",
+      "from": 562,
+      "to": 562,
+      "by": "claude",
+      "what": "career and opportunity logic batch",
+      "at": "2026-11-15T01:08:53.937Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2499",
+      "kind": "fixes",
+      "from": 2499,
+      "to": 2503,
+      "by": "claude",
+      "what": "privateeyecase (Investigator: mail door, garbage dead case, stale snoop alarm, break-in lock), docs/562 §5",
+      "at": "2026-11-15T01:15:57.472Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2504",
+      "kind": "fixes",
+      "from": 2504,
+      "to": 2504,
+      "by": "claude",
+      "what": "privateeyecase stakeout part (deleted required Sim / no crime candidates), docs/562 §5",
+      "at": "2026-11-15T01:20:20.785Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

@@ -326,10 +326,17 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2489-2490 | `VampireHuntGlow.cs` (`fixes-2489`, docs/561 §7), `vampirehuntglow` | built 2026-11-15, default off, NOT RUN: heat-vision glows cleared on hunt candidates that left the lot (2489) / errors (2490) |
 | 2491-2492 | `HotTubWoohooFx.cs` (`fixes-2491`, docs/561 §7), `hottubwoohoofx` | built 2026-11-15, default off, NOT RUN: hot tub woohoo effects stopped after a woohoo cut off between its start/stop events (2491) / errors (2492) |
 | 2493-2494 | `BouncerBribeGuard.cs` (`fixes-2493`, docs/561 §7), `bribeguard` | built 2026-11-15, default off, NOT RUN: bribe charges on a null bribe dictionary (after NightlyCleanUp) returned false (2493) / errors (2494) |
+| 2495-2496 | `OppDeadListeners.cs` (`fixes-2495`, docs/562 §1), `oppdeadlisteners` | built 2026-11-15, default off, NOT RUN: ended opportunities' kSimDied / kSimDescriptionDisposed / kSimInstantiated listeners removed (2495) / errors (2496) |
+| 2497-2498 | `DaycareQuit.cs` (`fixes-2497`, docs/562 §2), `daycarequit` | built 2026-11-15, default off, NOT RUN: daycare child managers cleaned in CleanupDaycareOwner (LeaveJobNow) outside a workday (2497) / errors (2498) |
+| 2499-2504 | `PrivateEyeCase.cs` (`fixes-2499`, docs/562 §5), `privateeyecase` | built 2026-11-15, default off, NOT RUN: LookThroughMail with no case failed / apartment door lookup fallback (2499) / SearchThroughGarbage throw after the case ended caught (2500) / stale SnoopForClues alarms ignored (2501) / BreakIntoHouse door locks restored (2502) / errors (2503) / Stakeout crime setup fixed: deleted required Sim or no candidates (2504) |
 | 2486-2488 | reserved (claude, `fixes-2486`) | djcleanup (DJ booth DoPlay/RequestMusic cleanup of another Sim's set), docs/561 §7 |
 | 2489-2490 | reserved (claude, `fixes-2489`) | vampirehuntglow (hunt heat vision left on Sims who left the lot), docs/561 §7 |
 | 2491-2492 | reserved (claude, `fixes-2491`) | hottubwoohoofx (woohoo effect left on after a Sim reset mid-woohoo), docs/561 §7 |
 | 2493-2494 | reserved (claude, `fixes-2493`) | bribeguard (bouncer bribe charged after the nightly rope cleanup), docs/561 §7 |
+| 2495-2496 | reserved (claude, `fixes-2495`) | oppdeadlisteners (opportunity kSimDied/kSimDescriptionDisposed/kSimInstantiated listeners left after the opportunity ends), docs/562 |
+| 2497-2498 | reserved (claude, `fixes-2497`) | daycarequit (daycare child managers and listeners left after quitting outside a workday), docs/562 |
+| 2499-2503 | reserved (claude, `fixes-2499`) | privateeyecase (Investigator: mail door, garbage dead case, stale snoop alarm, break-in lock), docs/562 §5 |
+| 2504 | reserved (claude, `fixes-2504`) | privateeyecase stakeout part (deleted required Sim / no crime candidates), docs/562 §5 |
 | **994+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

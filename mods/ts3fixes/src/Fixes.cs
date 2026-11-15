@@ -124,6 +124,9 @@ namespace Ts3Fixes
             ApplyVampireHuntGlow();   // docs/561 §7 (VampireHuntGlow.cs)
             ApplyHotTubWoohooFx();    // docs/561 §7 (HotTubWoohooFx.cs)
             ApplyBouncerBribeGuard(); // docs/561 §7 (BouncerBribeGuard.cs)
+            ApplyOppDeadListeners();  // docs/562 §1 (OppDeadListeners.cs)
+            ApplyDaycareQuit();       // docs/562 §2 (DaycareQuit.cs)
+            ApplyPrivateEyeCase();    // docs/562 §5 (PrivateEyeCase.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -414,6 +417,9 @@ namespace Ts3Fixes
         // [2489-2490] vampirehuntglow (VampireHuntGlow.cs, docs/561 §7): heat-vision glows cleared on hunt candidates that left the lot / errors.
         // [2491-2492] hottubwoohoofx (HotTubWoohooFx.cs, docs/561 §7): woohoo effects stopped after a cut-off woohoo / errors.
         // [2493-2494] bribeguard (BouncerBribeGuard.cs, docs/561 §7): bouncer bribe charges guarded after the nightly rope cleanup / errors.
+        // [2495-2496] oppdeadlisteners (OppDeadListeners.cs, docs/562 §1): ended opportunities' Sim died / disposed / instantiated listeners removed / errors.
+        // [2497-2498] daycarequit (DaycareQuit.cs, docs/562 §2): daycare child managers cleaned after a quit outside work hours / errors.
+        // [2499-2504] privateeyecase (PrivateEyeCase.cs, docs/562 §5): mail no-case / door fallback / garbage dead-case exits / stale snoop alarms ignored / break-in locks restored / errors / stakeouts fixed.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -712,6 +718,9 @@ namespace Ts3Fixes
                 case "vampirehuntglow": return Instantiator.kVampireHuntGlow;
                 case "hottubwoohoofx": return Instantiator.kHotTubWoohooFx;
                 case "bribeguard": return Instantiator.kBribeGuard;
+                case "oppdeadlisteners": return Instantiator.kOppDeadListeners;
+                case "daycarequit": return Instantiator.kDaycareQuit;
+                case "privateeyecase": return Instantiator.kPrivateEyeCase;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

@@ -261,6 +261,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kVampireHuntGlow value="False" />
     <kHotTubWoohooFx value="False" />
     <kBribeGuard value="False" />
+    <kOppDeadListeners value="False" />
+    <kDaycareQuit value="False" />
+    <kPrivateEyeCase value="False" />
     <kBirthRoute value="False" />
     <kPutDownPlace value="False" />
     <kAwardKeep value="False" />
