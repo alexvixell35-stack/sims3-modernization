@@ -71,6 +71,39 @@ STARTs with `[RouteAsync] Kinds=0` unless they carry the watchdog tag (`Watchdog
 hooked (`hooked mask 6`); turning on `Kinds=2` (or `ForeignKinds=6`) is an A/B, not code. Plans from a context that
 cannot yield (a reset run outside the Sim's task, alarms) stay sync whatever the config.
 
+Callers [verified, decompiled; 26 call sites]: `Sim.AttemptToFindSafeLocation` (every reset and `AttemptToPutInSafeLocation`),
+`Sim.FindRoutablePointInsideNearFrontDoor` (send-home, NRaas instantiation), `Sim.CreateTeleportInstanceToPosition`,
+`Service.CreateSim` / `GetPositionNearLotCorners`, `ServiceSituation.IsGoodSpawnPoint`, `PerformerBase.GetPositionForShow`,
+Pregnancy, Boat, Stroller, teleporters and others, plus ours through `SpotVerdict` (SafeSpot for the trip shortcuts, the
+watchdog). The plan is always kind 2 (`Route.PlanFromPoint` of a throwaway adult route whose follower is the Sim). Which
+caller produced tick 20979 is not in that log; the `src` label below names it in the next run. Scale: 411 runs in
+ts3-runs hold 19,274 slow unscoped kind-2 plans (median 239 ms, max 3,291 ms, ~4,960 s in all).
+
+**`routableasync` (default off, for an A/B with `[RouteAsync] Kinds=2`).** `AsyncKindStart(2)` sends a START only from
+inside `IsPointInLotSafelyRoutable` (`sInRoutableCheck`, now kept per task so a check sleeping on its job never tags
+another task's plans) for an unseen NPC (`UfWhy` 0: never household, selected, unknown scope or pets) and outside the
+watchdog's own A1 path; every other PlanFromPoint is refused locally and stays sync, as with `Kinds=0`. The job takes the
+pre-plan callback (doors, tombs, closed venues) as A1 does. Why it is safe for those callers: the job runs the game's
+own PlanFromPoint IC on the worker (the same IC and handshake as the watchdog's A1 jobs, `WatchdogKind2`, which have a
+sync shadow compare arm, `watchdogasyncshadow`); the route is a throwaway (no follower moves, only its result is read); the Sim's own task sleeps until READY
+only where `CheckYieldingContext` allows a yield, else the check stays sync; with `KdOwnPlanFromPointMs=0` no job is cut,
+so the verdict is the planner's own, one or more frames later. A cut (non-zero deadline) would answer "not routable"
+for an unseen NPC only, and SpotVerdict would cache that cell for a sim-day, so the A/B keeps it at 0.
+Counters 2736 let through, 2737 refused here, 2738 let through but not started.
+
+A/B lines (in-load ABBA, `--ab asyncreplan` toggles arMode: shadow = sync, 1 = async):
+```
+[RouteAsync]
+Kinds=2
+KindsMode=1
+KdOwnPlanFromPointMs=0
+```
+EARLYFIX `"routableasync":true` and `"ufplansplit":true` (both arms). Read: ufplan / planwait lines with `src routable`,
+hitchwatch, 2736-2738; correctness: `watchdogasyncshadow` style mismatches are not wired for this path, so compare the
+unseen-NPC reset placements (moved lines) between arms. `ForeignKinds=6` (adds PlanFromPoint from other yielding tasks)
+is a second step: none of the callers above plans from another Sim's task except service spawns, which run in
+alarm / situation code that mostly cannot yield [inferred].
+
 Change (log only): `ufplan` / `ufplansplit` lines of unscoped plans now carry `src <kind> <Sim> [in <task Sim>'s task]`
 (`routable`, `spot`, `watchdog`, `stuckcheck`, `leg`, `pet` or the follower's type), and since 2f6ce3e4 the refused
 START's sync plan is timed (`sync N ms (START refused)` instead of `no wait`). The next `ufplansplit` run names the caller.
@@ -81,3 +114,40 @@ START's sync plan is timed (`sync N ms (START refused)` instead of `no wait`). T
 on) records each Sim's last search that reached the push decision: `pushed <definition>`, `kept <head> over <pick>`, or
 `none` (nothing scored). ts3agent's census adds `last_search` and `last_search_min` per Sim (null when the switch is off).
 An idle Sim with `none` a few minutes ago is an empty search; with a stale or missing entry, autonomy is not running for it.
+
+## 5. Per-update list copies (GC leads from docs/583 §7.2), ranked by call rate; `motivebuf`
+
+Call rates from the code paths [verified, decompiled] and run 2043's census (123 Sims in the world on average, 6 in the
+household); rates are upper bounds where unseenthrottle stretches unseen Sims' updates.
+
+| Rank | Site | Called | Calls / sim-hour (Bridgeport, 123 Sims) | Allocations per call |
+|---:|---|---|---:|---|
+| 1 | `Motives.UpdateMotives` | `Autonomy.Update`, every Sim, once >= 1 sim-minute has passed (the active Sim every update) | ~7,400+ | List + array (+ ValueCollection on Mono 2.x) |
+| 1 | `BuffManager.UpdateBuffs` | same call, right after | ~7,400+ | List + array (copy of `mDelayedBuffs`, almost always empty); a second List only when a buff times out |
+| 3 | `ThoughtBalloonManager.Update` | same call, only while `NeedsToUpdate` (a balloon showing: seen Sims) | small | ArrayList |
+| 4 | `DreamsAndPromisesManager.Update` | household Sims only (6), when set to update | small | Dictionary + up to 5 Lists |
+| 5 | `RoleManagerTask.Simulate`, `TrafficManager.Simulate`, `SeasonsManager.Update` | once per their task's tick, world-wide | per tick, not per Sim | list of lists / lot list + table / float[2] |
+
+`motivebuf` (default off, MotiveBuf.cs) takes rank 1a: a swap of `UpdateMotives` that snapshots into a pooled list (taken
+per call, so a Sim sleeping mid-loop keeps its own) instead of a new one, with EA's timer, sleep, destroyed-Sim return and
+`MotiveChanged` unchanged. Proven-exact, so it covers household Sims too (CLAUDE.md: exact speedups stay); identical
+results are the point of `motivebufcheck` (pure check: every snapshot compared with EA's copy by count and reference,
+mismatches counted in 2731 and must be 0). Allocations saved per sim-hour = 2 x the rise of counter 2729 (at least).
+
+Rank 1b (`UpdateBuffs`): ts3native IL patch `ilp_buffbuf` (default off, needs `[IlPatch] Enabled=1`; spec
+`mods/ilpatch/specs/buffbuf-delayed-copy.json`, EA 1.67 body only; other builds fail the hash and run EA's body). Inserted
+at the top: `if (!mDelayedBuffs.GetEnumerator().MoveNext()) goto 0x89` (the code after the first loop). With an empty
+list, EA copies it into a new List and walks nothing, so skipping is exact; with buffs pending, EA's body runs unchanged.
+`ListSorted` has no `Count` field reference in the module (an IL patch can only use existing tokens), so the test
+enumerates: that box stays, the copy's List (and its array on this Mono [inferred]) goes. `buffbufcheck` (ts3fixes,
+off) runs right before each `UpdateBuffs` from `Autonomy.Update` (after the motive hook): calls (2733), empty lists = the
+skips (2734), and `ListSorted.Count` vs enumeration (2735, must be 0: EA's other code trusts Count). Tooling:
+`tools/ilpatch-convert.ts --dump` / `--fill` (hand specs), and MemberRefs whose return type ends in `>` now key right.
+The rest are per-tick or rare; measure the GC share first (§6).
+
+## 6. GC measure for the next A/B
+
+`tools/harness/gc-rate.ts <off log> <on log> [--sim-hours H,H]` reads the [MemDiag] samples: marks (Boehm collections,
+`GC_gc_no`) per hour and live-set growth per hour (gcHeap - gcFree at the `ev=gc-after` samples, least squares; every
+sample as an upper bound when there are fewer than two), per arm and on - off. Run 2043 for reference: 1.5 h, 164 marks
+(108/h), live set 215 -> 298 MB (+49 MB/h). The gc fields are still flagged unvalidated in the log.

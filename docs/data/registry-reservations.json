@@ -6386,6 +6386,47 @@
       "at": "2026-11-15T22:43:38.182Z",
       "worktree": "/home/<user>/dev/s3m-ep-sweep",
       "pinned": true
+    },
+    {
+      "id": "fixes-2729",
+      "kind": "fixes",
+      "from": 2729,
+      "to": 2732,
+      "by": "claude",
+      "what": "motivebuf (MotiveBuf.cs): Motives.UpdateMotives snapshot without a list copy",
+      "at": "2026-11-15T23:04:57.567Z",
+      "worktree": "/home/<user>/dev/s3m-cleanup"
+    },
+    {
+      "id": "fixes-2733",
+      "kind": "fixes",
+      "from": 2733,
+      "to": 2735,
+      "by": "claude",
+      "what": "buffbufcheck (MotiveBuf.cs): ilp_buffbuf precondition check",
+      "at": "2026-11-15T23:12:33.426Z",
+      "worktree": "/home/<user>/dev/s3m-cleanup"
+    },
+    {
+      "id": "fixes-2736",
+      "kind": "fixes",
+      "from": 2736,
+      "to": 2738,
+      "by": "claude",
+      "what": "routableasync (RouteBackoff.cs): kind-2 STARTs only for unseen IsPointInLotSafelyRoutable checks",
+      "at": "2026-11-15T23:19:17.236Z",
+      "worktree": "/home/<user>/dev/s3m-cleanup"
+    },
+    {
+      "id": "fixes-1500",
+      "kind": "fixes",
+      "from": 1500,
+      "to": 1599,
+      "by": "claude",
+      "what": "EP batch 3+ (docs/587 tranche 2, overflow of fixes-1400)",
+      "at": "2026-11-15T23:22:37.575Z",
+      "worktree": "/home/<user>/dev/s3m-ep-sweep",
+      "pinned": true
     }
   ]
 }
