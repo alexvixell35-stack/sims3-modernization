@@ -269,3 +269,102 @@ Checks: `OutfitWaitCheck("scope")` (pure): a household Sim past the mark sleeps 
 sleep a sim-minute with the switch on, and nothing changes before the mark. Self-test `tools/selftest/outfitwait` has
 `PollAllowed` cases. Not run in game.
 
+
+## §16 Growth leads from phase-20261115-1506 (leak-0 / leak-4 / leak-9, alarms-0..9)
+
+1. **Duplicate `Theatre.ResetSandwichBoards (MovieCineplex)`: EA bug, fix `sandwichalarm` built (off).** The count went
+   0, 2, 4, ... 17 over the ten snapshots. [verified, decompiled] `Theatre.ResetSandwichBoardFromPlayerConcert` (the
+   one-shot that `EndPlayerConcert` / `EndPlayerConvention` add) re-adds the daily alarm `mEveningShowSandwichResetBoardAlarm`
+   and overwrites the handle without removing the one it holds. If a second show starts before the first show's one-shot
+   fires, the first one-shot re-adds the alarm after the start removed it, and the handle is overwritten again. The
+   orphan repeats daily and is saved (`AlwaysPersisted`). It only resets the board graphic. Fix: `SandwichAlarm.cs`
+   removes the held handle before EA's body (counters 998 removed, 999 seen with the switch off, 1000 errors; check
+   `SandwichAlarmCheck`). Saved duplicates: at world load (switch on) each theatre keeps the `ResetSandwichBoards`
+   alarm whose handle it holds (or, if that handle is stale, the first one, which becomes the held one) and removes its other
+   `ResetSandwichBoards` alarms; other callbacks and other theatres are untouched (counter 1001). Not in the hourly sweep:
+   with the hook on no new duplicates appear.
+2. **Alarm growth (global 1984 -> 2440, total 2876 -> 3387): Sims added by the test, no orphans.** `gone_owner` = 0 and
+   `gone_callback_target` = 0 in every snapshot. By owner type: SimDescription 992 -> 1269, Sim 391 -> 496, null 116 -> 151,
+   InsectJig +41, Bartender +34, Wildflower +29. By callback: career / school workday alarms and CelebrityManager
+   (89 -> 109) grow with the Sims the run spawned (33 humans with occults and 8 pets). "(other N)" is a bucket of N types,
+   not a count (712 -> 777). Nothing repeats forever except the sandwich-board duplicates.
+3. **Household dream listeners 6389 -> 7365 -> 7535 (leak-0, -4, -9): wish churn that levels off, not a leak.** Every
+   listener is held by a live household node; `subject_gone` and orphans are 0. The growth is relationship triggers
+   (kRelationshipLTRChanged 384 -> 701, kSocialInteraction 535 -> 703, new kCaughtCheatingWithSim / OnPartner 134 each),
+   which grow with the Sims the household meets. Report only; household wishes are not changed.
+4. **Syncwait timeouts (18):** Scare 7 (partner in WorkOut, MopPuddle, Watch, ReadBook, GetInCarpool: the §14 cause;
+   `scarepriority` was not on), DanceTogetherA receiver 4 (Completed, docs/577 §4), plain social pairs 3, seated social 2,
+   ZombifiedSocials 1, GiveFlowers 1.
+
+## §17 Dream listeners: why ~1000 per household Sim (2026-11-15, RE, report only)
+
+Lifecycle [verified, decompiled `DreamsAndPromisesManager` / `ActiveDreamNode`]:
+- `mActiveNodes` is the whole active frontier of the Sim's wish trees, not only the wishes on screen. Each active node holds
+  one `EventTracker` listener for its trigger (`ResetListener` removes the old listener before adding one, so a node never
+  has two). `mDreamNodes` are the offered wishes; `mDisplayedDreamNodes` the top 3 in the panel; `mPromiseNodes` the 5 promise slots.
+- **A wish leaving the panel does not remove its node.** In `Update`, a wish whose `TimeActive` passes `DisplayTime` is only
+  taken out of `mDreamNodes` / `mDisplayedDreamNodes`. The node stays active, listening, until `TimeActive > SatisfyTime`
+  (`UpdateStatus.TimedOut` -> `RemoveActiveNode`, which removes the listener). Root nodes, promised nodes and nodes with
+  `SatisfyTime == 0` never time out. That is EA's design: hidden nodes complete silently and score their children.
+- Completion: `RemoveActiveNode` (listener removed), or for a repeatable node either `Reset(true)` in place
+  (`TimeBetweenRepeats <= 0`) or a move to `mSleepingNodes` (listener removed) until it wakes.
+- Dismissal (`CancelDream`) only takes the node off the offered lists. Promise breaking and trait / age changes go through
+  the same `RemoveActiveNode` or rebuild the manager (`ResetDnP`, `NullDnPManager` clears every listener).
+- Subject-specific nodes (wishes about a Sim or object) are made per subject. The count grows with the Sims the household
+  meets, and they are removed when the subject goes (`mPotentialRemovalNodes`). That matches the census: growth in
+  relationship and social triggers, levelling off, and subject_gone 0.
+
+EA defects found (household data: report only, no change):
+1. `AddActiveNode` files Pet and SimOrPet subjects in `mPotentialRemovalNodes`; `RemoveActiveNode` removes only Sim,
+   OutOfWorldSim and Object ones. Pet-subject entries stay after their node is gone: a node reference leak with no
+   listener attached.
+2. A repeatable node woken from `mSleepingNodes` goes back into `mActiveNodes` without `AddActiveNode`, so it is not
+   re-filed in `mPotentialRemovalNodes`. If its subject later leaves the world, the node is not removed with the rest
+   [inferred: rare; subject_gone was 0 in 1506].
+No path re-adds a duplicate node for the same primitive and subject (`IsNodeAlreadyActive` guards the scoring paths), but
+the census below counts that too.
+
+Pets: `Sim.SetupSelectableSimManagers` gives a manager to any selectable `ChildOrAbove` Sim and does not test species.
+1506 had no household pets, so whether household pets get wish trees was not measured.
+
+Census (log-only, ts3agent `leak_census`): `dream_listeners.nodes_by_manager`, per manager: active, displayed, shown,
+promised, hidden never_times_out / timed / past_display, dup, no_listener, sleeping, stale_removal (defect 1). Not run yet.
+
+## §18 `dreamcleanup` (built, off by default; memory only, household managers included, approved)
+
+Fixes the two §17 defects in the wish manager's clean-up index (`mPotentialRemovalNodes`), nothing else:
+1. After EA's `RemoveActiveNode(node, true)`, a Pet or SimOrPet subject node is taken out of the index under the key
+   `AddActiveNode` filed it with (the SimDescriptionId). New hook `DcHook.RemoveHook` (`DreamCleanup.cs`).
+2. After EA's full `Update`, a node that was in `mSleepingNodes` before and is active now is filed as `AddActiveNode`
+   would file it, unless it is already there. Shares `WlMgr.UpdateHook` (`WishListenerFixes.cs`, one patch per method):
+   the sleeping list is copied before EA's body only when it is not empty.
+
+1b. Same hook: an Object-subject node whose object was destroyed first (`Subject.mObject` null, so EA has no key) is found
+   in the index and taken out. With 1 and 1b, the `dnppetkeys` / `dnpobjkeys` hourly sweeps (`DnpRemovalKeys.cs`) are
+   needed only for entries already in a save.
+
+Both parts act where the stale entry is made (root cause), not in a later sweep. No listener, timer, panel list, promise or score is touched, so which wishes appear, and when, stays EA's. Counters 1002
+unfiled, 1003 woken nodes filed, 1004 either case seen with the switch off, 1005 errors. Check `DreamCleanupCheck` (pure,
+on a model manager). Controls: a Sim-subject node is left to EA, a promised node is not filed, no double filing, a node
+with no subject key or still asleep is not filed, and the model's listener count, panel list and promise slot are
+identical before and after. Not run in game. The §17 census (`stale_removal`) shows whether it matters in a save.
+
+### §17 addendum: full audit of EA's wish code (2026-11-15, decompiled; ranked, root-cause fixes first)
+
+Rule (user): fix where the bad state is created; sweeps only for state already in a save.
+
+| # | Finding [verified, decompiled] | Cost | Same wishes for the player? | Status / proposal |
+|---|---|---|---|---|
+| 1 | `ObjectDestroyedDelegate` on `kEventObjectDisposed` (what `OnLoadFixup` registers, so live in vanilla after any load): when a removed node was a displayed promise it reads `dnPSubjectDestroyedEvent.SimDescription`, but that event is a plain object-disposed event (`dnPSubjectDestroyedEvent` null): NullReferenceException. The rest of that subject's nodes are not removed, the index entry stays, and the UI never gets `FireBreakPromise`. | per destroyed object that is the subject of a promised wish | No: the fix shows the promise failing (EA's intent) where vanilla throws. EA bug, household-visible | not built; needs approval (one null guard) |
+| 2 | `RemoveActiveNode` does not unfile Pet / SimOrPet subjects, and an Object subject whose object is gone (key from `Subject.mObject`, now null) | node refs held per pet / object wish | yes (index only) | `dreamcleanup` 1 / 1b, at the creation point; `dnppetkeys` / `dnpobjkeys` sweeps now only for saved state |
+| 3 | `Update` wakes sleeping repeatables without `AddActiveNode`, so they are not re-filed | rare missed subject clean-up | yes | `dreamcleanup` 2, at the creation point |
+| 4 | The constructor registers both destroyed-subject listeners on `kDnPSubjectDestroyed` (one should be `kEventObjectDisposed`): the handler runs twice per Sim destruction, and object destruction is missed until a reload | 2 calls per event per manager | yes (as after a reload) | `dnpdisposelistener` exists (at creation), default off: recommend testing it |
+| 5 | A dead Sim's object-disposed path keys the lookup by the `SimDescription` object, but entries are filed by id: it never matches (the `DnPSubjectDestroyedEvent` path covers it) | one wasted lookup | yes | not worth a hook |
+| 6 | Listener cost: wish listeners are keyed by owner, so an event runs only its Sim's listeners for that event id (about 100 for kSocialInteraction per household Sim), not O(n²). `IsSatisfiableByThirdParty` nodes are keyed 0 and run for every Sim's event | unknown | n/a | census `dream_listeners.global_by_event` added; measure before any change |
+| 7 | `mActiveNodes` is a List (about 1000): `Remove` and `Contains` are linear, per timeout or completion | small | yes (an index gives the same order) | low priority; measure with ScriptHotSpots first |
+| 8 | `SetupForNewSim` activates the root of every tree for every Sim (age, species and occult checks happen later in each node's check function). Roots never time out, so this is most of the ~1000 listeners | memory, plus feedback calls on matching events | No guarantee: the manager is not rebuilt on most age-ups, so pruning by age could drop wishes later | do not build |
+| 9 | Save / load: `SetupFromExport` rebuilds from export data only for travel and passport; a normal load keeps the saved nodes and re-registers listeners in `OnLoadFixup` | none | n/a | nothing to fix |
+
+Re-check against the rule: `sandwichalarm` acts in `ResetSandwichBoardFromPlayerConcert`, the call that makes the orphan
+(root); its world-load pass only removes duplicates already saved. `dreamcleanup` acts in `RemoveActiveNode` and right
+after the `Update` wake, where the stale entries are made (root); nothing in it is a sweep.
