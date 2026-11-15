@@ -185,6 +185,11 @@ export function costLines(i: Input): string[] {
           `TierClassMax ${as.tcMax ?? NA}: ${per('tcCapped')} classifications deferred; gone marks without a record: ` +
           (gw ? `none ${gw[0]}, other lot ${gw[1]}, other room ${gw[2]}, full ${gw[3]}` : NA));
       }
+      if (as.version >= 23) {  // docs/122 §14.29: ListWalk's world part from one world-lot index a cut
+        const g = (n: string) => d(N, 'autshadow', n) ?? NA;
+        L.push(`- world index per cut [measured]: WorldIndex ${as.wiOn ?? NA}: ${per('wiBuilds')} builds (${per('wiEntries')} entries, ${per('wiUs')} us), ` +
+          `${per('wiLots')} lot world parts from it, ${per('wiFall')} walked per lot; checks ${g('wiChecks')}, misses ${g('wiMis')} (must be 0)`);
+      }
     }
     if (as.version >= 15 && as.satbMode) L.push(...satbLines(N, secs));
     if (as.version >= 20 && as.alOn) L.push(...liveLines(N, secs, i.fix));
@@ -622,6 +627,10 @@ function selfCheck() {
     tcMax: 16, tcCapped: 100, gdWhy: [10, 20, 30, 0] } } };
   assert.match(costLines({ tag: 'v19', minutes: 10, native: v19, fix }).join('\n'),
     /mono-cost17 per cut \[measured\]: IdsDelta 1: 4\.0 rows same ids, 1\.0 rows plus new objects \(3\.0 small host calls\), 0\.5 to the host, 10\.0 us; checks 300, misses 0 \(must be 0\); SimEvLearn 1 \/ SimEvSeated 1: 20\.0 \/ 4\.0 rows kept; TierClassMax 16: 0\.2 classifications deferred; gone marks without a record: none 10, other lot 20, other room 30, full 0/);
+  const v23 = { before: v19.before, after: { ...v19.after, autshadow: { ...v19.after.autshadow, version: 23, wiOn: 1, wiBuilds: 400, wiEntries: 800_000,
+    wiUs: 12_000, wiLots: 1300, wiFall: 0, wiChecks: 160, wiMis: 0 } } };
+  assert.match(costLines({ tag: 'v23', minutes: 10, native: v23, fix }).join('\n'),
+    /world index per cut \[measured\]: WorldIndex 1: 0\.8 builds \(1600\.0 entries, 24\.0 us\), 2\.6 lot world parts from it, 0\.0 walked per lot; checks 160, misses 0 \(must be 0\)/);
   const v13w = { before: v13.before, after: { ...v13.after, autshadow: { ...v13.after.autshadow, windowUs: 4_000 } } };
   assert.match(costLines({ tag: 'v13w', minutes: 10, native: v13w, fix }).join('\n'),
     /worker window \[measured\]: quiescent gap .* 10\.0 us vs 3\.0 ms a job.*overruns 40 of 400 \(10\.0%\) at the test wait; .*sim waits 3\.0 ms a request x 5\.0\/s = 15\.0 ms\/s: net /);

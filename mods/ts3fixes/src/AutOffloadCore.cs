@@ -74,5 +74,34 @@ namespace Ts3Fixes
             best = d;
             return 1;
         }
+
+        // docs/126 §8 IC dry compare: first slot where w and r differ, skipping slots whose group (slotGroup[i]) aborted on
+        // either side (bit g of abMask); slotGroup.Length = no difference.
+        public static int IcFirstDiff(long[] w, long[] r, byte[] slotGroup, int abMask)
+        {
+            int d = 0;
+            while (d < slotGroup.Length && (((abMask >> slotGroup[d]) & 1) != 0 || w[d] == r[d])) d++;
+            return d;
+        }
+
+        // docs/208 §10 autoffunseen: scope of one Sim from its UfWhy code (UnseenFallbackCore.k*; -1 = UfWhy threw).
+        // Apply only for 0 (unseen, not household, not selected, not on the camera lot); household and selected Sims are
+        // household; not-live, gone and failed reads are unknown (the game's own path, as household); the rest is seen.
+        public const int kScopeApply = 0, kScopeHousehold = 1, kScopeSeen = 2, kScopeUnknown = 3;
+        public static int Scope(int why)
+        {
+            if (why == UnseenFallbackCore.kSeen) return kScopeApply;
+            if (why == UnseenFallbackCore.kHousehold || why == UnseenFallbackCore.kGoalHousehold) return kScopeHousehold;
+            if (why < 0 || why == UnseenFallbackCore.kNotLive || why == UnseenFallbackCore.kGone) return kScopeUnknown;
+            return kScopeSeen;
+        }
+
+        // the other Sims a scan or broadcast touches: seen non-household Sims are fine for the env scan (only the actor's
+        // reactions run), household and unknown are not
+        public static int OtherScope(int why)
+        {
+            int s = Scope(why);
+            return s == kScopeSeen ? kScopeApply : s;
+        }
     }
 }

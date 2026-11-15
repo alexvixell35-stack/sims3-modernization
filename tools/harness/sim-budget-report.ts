@@ -35,6 +35,7 @@ type B = typeof BUCKETS[number];
 type Row = Record<string, number>;
 export type Run = { tag: string; rows: Row[]; hitches: Row[]; managed: string[][]; simstack: string[][]; native?: { before?: Row; after?: Row }; ics: Set<string> };
 
+export const OTHER_TIMERS = ['svcUpdate', 'preLoco', 'pump', 'other7694'];
 const n = (r: Row, k: string) => Number(r[k]) || 0;
 // one second row or one hitch frame -> exclusive ms per bucket; script = Mono + ICs before the sample split
 export function split(r: Row, wall: number, steerShare: number) {
@@ -86,6 +87,10 @@ export function analyze(r: Run) {
     for (const s of ['animSacs', 'animPose', 'locomotion', 'publish']) count(animParts, s, n(row, s));
   }
   const perS = (x: number) => wallMs ? x * 1000 / wallMs : 0;
+  // the four "other"-bucket timers (docs/28 §0.3): ms/s each, only when the profile has the columns (older runs: none).
+  // Diagnostic: they overlap the other buckets (publish, route waits, lot add inside the pump), so they do not sum to "other".
+  const otherTimers: Record<string, number> = {};
+  if (kept.length && OTHER_TIMERS.every(k => k in kept[0].row)) for (const k of OTHER_TIMERS) otherTimers[k] = perS(kept.reduce((s, { row }) => s + n(row, k), 0));
   // managed samples: route ICs, other ICs, Mono
   const ic = new Map<string, number>(), mono = new Map<string, number>(), route = new Map<string, number>();
   let icN = 0, monoN = 0, routeN = 0;
@@ -128,7 +133,7 @@ export function analyze(r: Run) {
   ledOf['Mono script'] = `${pct('script')} (Mono + ICs)`; ledOf['ICs (native under script)'] = 'in Mono row';
   ledOf['route sync plans'] = pct('route'); ledOf['+0x918 / job waits'] = pct('waits'); ledOf['GC + finalizers'] = pct('gc');
   ledOf['anim + locomotion + publish'] = pct('anim'); ledOf['other (untimed, sync, idle)'] = pct('other');
-  return { tag: r.tag, world: worldOf(r.tag), secs: kept.length, wallMs, its: perS(iters), hitches: hs.length, ms, contrib, ledOf,
+  return { tag: r.tag, world: worldOf(r.tag), otherTimers, secs: kept.length, wallMs, its: perS(iters), hitches: hs.length, ms, contrib, ledOf,
     samples: { managed: r.managed.length, routeN, icN, monoN, simstack: r.simstack.length, otherN }, native: keyUs > 0 };
 }
 
@@ -138,7 +143,8 @@ export function report(x: ReturnType<typeof analyze>) {
     `${x.secs} s kept (first 60 s and paused seconds dropped), ${x.its.toFixed(1)} it/s, ${x.hitches} frames >= ${HITCH_MS} ms (${(x.hitches * 3600 / Math.max(x.secs, 1)).toFixed(0)}/h); managed samples ${x.samples.managed} (route ${x.samples.routeN}, IC ${x.samples.icN}, Mono ${x.samples.monoN}), simstack ${x.samples.simstack} (other ${x.samples.otherN}); /native waits by key: ${x.native ? 'yes' : 'MISSING'}`, '',
     '| Bucket | ms/s | Share of sim-thread time | Frames >= 300 ms it leads | Top 5 contributors (ms/s) |', '|---|---|---|---|---|',
     ...BUCKETS.map(b => `| ${b} | ${x.ms[b].toFixed(1)} | ${(x.ms[b] * 100 / (total || 1)).toFixed(1)}% | ${x.ledOf[b]} | ${x.contrib[b]} |`),
-    `| **sum** | ${total.toFixed(1)} | 100% | | |`].join('\n');
+    `| **sum** | ${total.toFixed(1)} | 100% | | |`,
+    ...(Object.keys(x.otherTimers).length ? ['', `"other" timers (ms/s, overlap the buckets): ${Object.entries(x.otherTimers).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(', ')}`] : [])].join('\n');
 }
 
 const jsonl = (f: string) => existsSync(f) ? readFileSync(f, 'utf8').split('\n').filter(Boolean).flatMap(l => { try { return [JSON.parse(l)]; } catch { return []; } }) : [];
@@ -183,6 +189,9 @@ function selfCheck() {
   close(BUCKETS.reduce((s, b) => s + x.ms[b], 0), 1000, 'buckets sum to wall');
   // waits larger than the script stages sit in locomotion: nothing counted twice, other = wall - timed
   const w = split({ rtLock: 700, animSacs: 780, gcMark: 1 }, 1000, 0); close(w.waits + w.anim + w.gc + w.other, 1000, 'excess waits moved out of anim');
+  assert.deepEqual(x.otherTimers, {}); // fixture rows carry no timer columns
+  const xt = analyze({ ...fx, rows: fx.rows.map(r => ({ ...r, svcUpdate: 14, preLoco: 3, pump: 2, other7694: 1 })) });
+  close(xt.otherTimers.svcUpdate, 14, 'svcUpdate ms/s'); assert.match(report(xt), /"other" timers \(ms\/s, overlap the buckets\): svcUpdate 14\.0, preLoco 3\.0/);
   assert.equal(x.hitches, 1); assert.equal(x.ledOf['route sync plans'], '100%');
   assert.match(x.contrib['+0x918 / job waits'], /steering avoidance A 30\.0; UpdateSimFootprint 30\.0/);
   assert.match(x.contrib['Mono script'], /autonomy search/); assert.match(x.contrib['route sync plans'], /Route_Plan <- Sims3\.Gameplay\.Actors\.SimRoutingComponent\.DoRoute/);

@@ -28,13 +28,13 @@ export interface Session {
   edition?: string; fileVersion?: string; installClass?: string; exeSha?: string; patchOk: number; patchDiffer: string[];
   system: string[]; laa?: string; addons: string[]; scriptMods: string[]; packages?: string;
   events: string[]; exceptions: Map<string, number>; selfRange?: [number, number]; lowFree?: number; exited: boolean; prevCrash: boolean;
-  saveFails: string[]; longSaves: string[];
+  saveFails: string[]; longSaves: string[]; ini: string[];
 }
-export interface Digest { file: string; sessions: Session[]; doctor: string[]; exe: string; supported: boolean; issues: string[]; builds: string[]; overlaps: string[] }
+export interface Digest { file: string; sessions: Session[]; doctor: string[]; exe: string; supported: boolean; issues: string[]; builds: string[]; overlaps: string[]; iniDiff: string[] }
 
 const hex = (n: number) => '0x' + n.toString(16).toUpperCase().padStart(8, '0');
 function newSession(header: string): Session {
-  return { header, uiTasks: false, fixesLines: 0, patchOk: 0, patchDiffer: [], system: [], addons: [], scriptMods: [], events: [], exceptions: new Map(), exited: false, prevCrash: false, saveFails: [], longSaves: [] };
+  return { header, uiTasks: false, fixesLines: 0, patchOk: 0, patchDiffer: [], system: [], addons: [], scriptMods: [], events: [], exceptions: new Map(), exited: false, prevCrash: false, saveFails: [], longSaves: [], ini: [] };
 }
 
 export function parseLog(text: string): Session[] {
@@ -55,6 +55,7 @@ export function parseLog(text: string): Session[] {
     else if ((m = l.match(/^diag: Bin add-ons: (.*)$/))) s.addons = m[1].split(/, (?=\S+\.(?:asi|dll|orig)\b)/);
     else if ((m = l.match(/^diag: script mods \(S3SA packages\): (.*)$/))) s.scriptMods.push(...m[1].split(/(?<=\.package), /i).filter(x => /\.package$/i.test(x)));  // names may hold ", "
     else if ((m = l.match(/^diag: Mods\\Packages (.*?); scan/))) s.packages = m[1];
+    else if ((m = l.match(/^diag: ini \(enabled sections, all keys\): (.*)$/))) s.ini.push(...m[1].split(/, (?=\[[^\]]*\](?:,|$)|[A-Za-z0-9_.]+=)/));
     else if ((m = l.match(/^crash log: first \d+ first-chance exceptions \(module 0x([0-9A-F]+)-0x([0-9A-F]+)\)/))) s.selfRange = [parseInt(m[1], 16), parseInt(m[2], 16)];
     else if ((m = l.match(/^crash report: the previous session \(([^)]*)\) ended without a clean exit/))) { s.prevCrash = true; s.events.push(`previous session (${m[1]}) ended without a clean exit`); }
     else if ((m = l.match(/^exception ([0-9A-F]{8}) at 0x([0-9A-F]{8})/))) s.exceptions.set(`${m[1]} ${m[2]}`, (s.exceptions.get(`${m[1]} ${m[2]}`) ?? 0) + 1);
@@ -92,7 +93,41 @@ function overlapsOf(mods: string[], matrix: string): string[] {
   return [...out];
 }
 
-export function digest(file: string, logs: string[], doctorText: string | null, buildsJson: string, matrix: string): Digest {
+// docs/188 §1 "ini diff": the log's enabled sections and their keys against the repo ts3native.ini (the current defaults; an
+// older release's ini can differ). Sections on here only / off here only; keys with another value or not in the repo ini.
+export function iniDiff(items: string[], releaseIni: string): string[] {
+  if (!items.length || !releaseIni) return [];
+  const rel = new Map<string, { name: string; keys: Map<string, string> }>();
+  let cur: Map<string, string> | null = null;
+  for (const raw of releaseIni.split(/\r?\n/)) {
+    const l = raw.trim();
+    let m: RegExpMatchArray | null;
+    if ((m = l.match(/^\[([^\]]+)\]$/))) rel.set(m[1].toLowerCase(), { name: m[1], keys: (cur = new Map()) });
+    else if (cur && !l.startsWith(';') && (m = l.match(/^([^=]+?)\s*=\s*(.*)$/))) cur.set(m[1].toLowerCase(), m[2]);
+  }
+  const on = (sec?: { keys: Map<string, string> }) => !!sec && parseInt(sec.keys.get('enabled') ?? '0', 10) > 0;
+  const log = new Map<string, { name: string; keys: [string, string][] }>();
+  let sec: { name: string; keys: [string, string][] } | null = null;
+  for (const it of items) {
+    const m = it.match(/^\[([^\]]+)\]$/);
+    if (m) log.set(m[1].toLowerCase(), (sec = { name: m[1], keys: [] }));
+    else if (sec && it.includes('=')) { const i = it.indexOf('='); sec.keys.push([it.slice(0, i).trim(), it.slice(i + 1).trim()]); }
+  }
+  const out: string[] = [];
+  for (const [k, v] of log) {
+    const r = rel.get(k);
+    if (!r || !on(r)) { out.push(`[${v.name}] on (repo default off${r ? '' : ': section not in the repo ini'})`); continue; }
+    for (const [name, val] of v.keys) {
+      const rv = r.keys.get(name.toLowerCase());
+      if (rv === undefined) out.push(`[${v.name}] ${name}=${val} (not in the repo ini)`);
+      else if (rv !== val) out.push(`[${v.name}] ${name}=${val} (repo ${rv})`);
+    }
+  }
+  for (const [k, r] of rel) if (on(r) && !log.has(k)) out.push(`[${r.name}] off (repo default on)`);
+  return out;
+}
+
+export function digest(file: string, logs: string[], doctorText: string | null, buildsJson: string, matrix: string, releaseIni = ''): Digest {
   const sessions = logs.flatMap(parseLog), last = sessions[sessions.length - 1] ?? newSession('(empty)');
   const issues: string[] = [];
   // exe class: from the newest session that printed it
@@ -137,7 +172,7 @@ export function digest(file: string, logs: string[], doctorText: string | null, 
     for (const l of i >= 0 ? L.slice(i + 1) : []) { const m = l.match(/^\s+\d+\. (.*)$/); if (m) doctor.push(m[1]); else if (/^==/.test(l)) break; }
     issues.push(...doctor.map(d => `doctor: ${d}`));
   }
-  return { file, sessions, doctor, exe, supported, issues, builds, overlaps };
+  return { file, sessions, doctor, exe, supported, issues, builds, overlaps, iniDiff: supported ? iniDiff(last.ini, releaseIni) : [] };
 }
 
 function exceptionLines(x: Session) {
@@ -160,6 +195,7 @@ export function render(d: Digest, all: boolean): string[] {
     o.push(`  Bin add-ons: ${last.addons.join(', ') || 'none listed'}`);
     o.push(`  mods: ${last.packages ?? '?'}; ${last.scriptMods.length} script mods listed${all && last.scriptMods.length ? `: ${last.scriptMods.join(', ')}` : ''}`);
     for (const v of d.overlaps) o.push(`  overlap: ${v}`);
+    if (d.iniDiff.length) o.push(`  ini vs repo defaults (${d.iniDiff.length}): ${(all ? d.iniDiff : d.iniDiff.slice(0, 12)).join('; ')}${!all && d.iniDiff.length > 12 ? `; ${d.iniDiff.length - 12} more (--all)` : ''}`);
     for (const x of d.sessions) {
       o.push(`  session ${x.header.replace(/^ts3native /, '')}:`);
       for (const e of x.events) o.push(`    ${e}`);
@@ -247,6 +283,14 @@ function selfCheck() {
     t(r.logs.length === 1 && dz.sessions[0].native === '0.36.148', 'zip log read (BOM stripped)');
     t(dz.issues.includes('doctor: Old ts3fixes (before v0.2.4): C:\\Users\\<user>\\x.package'), 'doctor issues');
   } finally { rmSync(tmp, { force: true }); }
+  // ini diff (docs/188 §1): the header line shape of userdiag.cpp UdIniLines against a small repo ini
+  const relIni = '[GC]\r\n; comment\r\nEnabled=1\r\nInitialHeapMB=352\r\n\r\n[Probe]\r\nEnabled=0\r\n\r\n[UserDiag]\r\nEnabled=1\r\nLowSpaceMB=256\r\n';
+  const ip = parseLog('diag: ini (enabled sections, all keys): [GC], InitialHeapMB=512, GrowthStepMB=32, [Probe], Mode=1\r\nnot an ini line: [GC], X=1')[0];
+  t(ip.ini.join('|') === '[GC]|InitialHeapMB=512|GrowthStepMB=32|[Probe]|Mode=1', 'ini line split');
+  const dd = iniDiff(ip.ini, relIni);
+  t(dd.join('|') === '[GC] InitialHeapMB=512 (repo 352)|[GC] GrowthStepMB=32 (not in the repo ini)|[Probe] on (repo default off)|[UserDiag] off (repo default on)', 'ini diff');
+  t(iniDiff(['[GC]', 'InitialHeapMB=352'], relIni).join('|') === '[UserDiag] off (repo default on)' && iniDiff([], relIni).length === 0, 'ini same / no line');
+  t(ok.iniDiff.length === 0, 'no ini line: no diff');
   console.log(`player-log-digest self-check: ${n} checks${process.exitCode ? ', FAILED' : ', ok'}`);
 }
 
@@ -257,9 +301,10 @@ if (import.meta.filename === resolve(process.argv[1] ?? '')) {
     if (!positionals.length) { console.error('usage: node tools/player-log-digest.ts <ts3native.log | doctor.zip> [...] [--all] [--json]'); process.exit(2); }
     const B = readFileSync(join(ROOT, 'docs', 'data', 'builds.json'), 'utf8');
     const M = existsSync(join(ROOT, 'docs', 'data', 'compat-matrix.csv')) ? readFileSync(join(ROOT, 'docs', 'data', 'compat-matrix.csv'), 'utf8') : 'mod\n';
+    const iniPath = join(ROOT, 'native', 'ts3native', 'ts3native.ini'), I = existsSync(iniPath) ? readFileSync(iniPath, 'utf8') : '';
     let bad = 0;
     for (const p of positionals) {
-      const r = readInput(p), d = digest(basename(p), r.logs, r.doctor, B, M);
+      const r = readInput(p), d = digest(basename(p), r.logs, r.doctor, B, M, I);
       if (!r.logs.length) d.issues.unshift('no ts3native.log in this file');
       bad += d.issues.length;
       if (v.json) console.log(JSON.stringify({ ...d, sessions: d.sessions.map(x => ({ ...x, exceptions: Object.fromEntries(x.exceptions) })) }, null, 2));

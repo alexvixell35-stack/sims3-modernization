@@ -48,10 +48,10 @@ typedef bool(__fastcall* RmTestFn)(void* actor);                       // 0x93E1
 typedef void(__fastcall* RmInsFn)(void* list, void* edx, void* entry);  // 0x5718C0, thiscall(list; entry), ret 4: link at the head
 typedef void(__fastcall* RmRelFn)(void* owner, void* edx, int del);   // owner vtable +0, thiscall(owner; 1)
 typedef void(__fastcall* Rm2SteerFn)(void* self, void* edx, const float* p16, const float* q16);  // 0x954580, ret 8, movaps reads
-static const DWORD RM_TS_CALL = 0x00571BF3, RM_TS = 0x00942C00, RM_FLAG_CALL = 0x00571C4C, RM_FLAG = 0x00C0FD60,
-                   RM_STEP_CALL = 0x00571D20, RM_REM_CALL = 0x00571DDC, RM_POSE = 0x00940430, RM_TEST = 0x0093E190,
-                   RM_SUB_AT = 0x00571C83, RM_SUB_EA = 0x00571C8E, RM_SUB_DONE = 0x00571E0A, RM_INS_CALL = 0x009402E3,
-                   RM_INS = 0x005718C0, RM_CLIP_AT = 0x00569CC9, RM2_STEER_SLOT = 0x010445C0, RM2_STEER = 0x00954580;
+static const DWORD RM_TS_CALL = TS3A(0x00571BF3), RM_TS = TS3A(0x00942C00), RM_FLAG_CALL = TS3A(0x00571C4C), RM_FLAG = TS3A(0x00C0FD60),
+                   RM_STEP_CALL = TS3A(0x00571D20), RM_REM_CALL = TS3A(0x00571DDC), RM_POSE = TS3A(0x00940430), RM_TEST = TS3A(0x0093E190),
+                   RM_SUB_AT = TS3A(0x00571C83), RM_SUB_EA = TS3A(0x00571C8E), RM_SUB_DONE = TS3A(0x00571E0A), RM_INS_CALL = TS3A(0x009402E3),
+                   RM_INS = TS3A(0x005718C0), RM_CLIP_AT = TS3A(0x00569CC9), RM2_STEER_SLOT = TS3A(0x010445C0), RM2_STEER = TS3A(0x00954580);
 // 0x571C83: cmp byte ptr [esp+13h],0 / je 0x571E0A
 static const u8 kRmSubPro[11] = {0x80, 0x7C, 0x24, 0x13, 0x00, 0x0F, 0x84, 0x7C, 0x01, 0x00, 0x00};
 static RmStepFn g_rmTsOrig = (RmStepFn)(uintptr_t)RM_TS, g_rmPoseOrig = (RmStepFn)(uintptr_t)RM_POSE;
@@ -59,8 +59,8 @@ static RmTestFn g_rmTest = (RmTestFn)(uintptr_t)RM_TEST;
 static RmInsFn g_rmInsOrig = (RmInsFn)(uintptr_t)RM_INS;
 // 0x569CC9: mov byte ptr [esi+5FBh],al (ClipController root-motion flag from the clip, in the clip assign 0x569C50)
 static const u8 kRmClipPro[6] = {0x88, 0x86, 0xFB, 0x05, 0x00, 0x00};
-static const float* g_rmStepC = (const float*)(uintptr_t)0x010434C4;  // 1/30, EA's sub-step
-static const float* g_rmRemC = (const float*)(uintptr_t)0x00FC25C4;   // 1/60, remainder threshold
+static const float* g_rmStepC = (const float*)(uintptr_t)TS3A(0x010434C4);  // 1/30, EA's sub-step
+static const float* g_rmRemC = (const float*)(uintptr_t)TS3A(0x00FC25C4);   // 1/60, remainder threshold
 static DWORD g_rmJmpEa = RM_SUB_EA, g_rmJmpDone = RM_SUB_DONE;
 enum { RM_SET = 1024, RM_SLMAX = 512 };
 enum { RMZ_PARENT, RMZ_SACS, RMZ_STARTED, RMZ_NEARVIS, RMZ_VIEWER, RMZ_NOAGENT, RMZ_NONE, RMZ_NOGRID };
@@ -338,17 +338,17 @@ static void* Rm2Owner(void* actor) {
 struct Rm2CamIcSite { DWORD addr; u8 len; u8 pro[6]; signed char durArg; const char* name; };
 enum { RM2_IC_N = 11 };
 static const Rm2CamIcSite kRm2CamIc[RM2_IC_N] = {
-    {0x0073D550, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, -1, "IC_Camera_SetPositionAndTarget"},           // (pos, target)
-    {0x0073D840, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 3, "IC_Camera_RequestLerpToTarget"},             // (target, time, swing)
-    {0x0073D950, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 6, "IC_Camera_RequestLerpToPositionAndTarget"},  // (pos, target, time, swing)
-    {0x0073DB00, 5, {0xE8, 0x8B, 0xD8, 0x22, 0x00}, 4, "IC_Camera_FocusOnLot"},                            // (lot u64, zoom, pitch, time)
-    {0x0073DB70, 5, {0xE8, 0x1B, 0xD8, 0x22, 0x00}, 4, "IC_Camera_FocusOnLotForBuildBuy"},                 // (lot u64, zoom, pitch, time, tol)
-    {0x0073DC20, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, -1, "IC_Camera_EnableObjectFollow"},             // (obj u64, offset)
-    {0x0073DDC0, 5, {0xE8, 0xCB, 0xD5, 0x22, 0x00}, -1, "IC_Camera_TetherToLot"},                          // (lot u64, immediate)
-    {0x0073DE60, 5, {0xE8, 0x2B, 0xD5, 0x22, 0x00}, -1, "IC_Camera_TetherToObject"},                       // (obj u64)
-    {0x0073DEF0, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 8, "IC_Camera_Lock"},                            // (obj u64, offset, zoom, pitch, yaw, time)
-    {0x0073DFB0, 5, {0xE8, 0xDB, 0xD3, 0x22, 0x00}, 0, "IC_Camera_EnableMapViewMode"},                     // (time)
-    {0x0073E000, 5, {0xE8, 0x8B, 0xD3, 0x22, 0x00}, 2, "IC_Camera_DisableMapViewMode"},                    // (zoom, pitch, time)
+    {TS3A(0x0073D550), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, -1, "IC_Camera_SetPositionAndTarget"},           // (pos, target)
+    {TS3A(0x0073D840), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 3, "IC_Camera_RequestLerpToTarget"},             // (target, time, swing)
+    {TS3A(0x0073D950), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 6, "IC_Camera_RequestLerpToPositionAndTarget"},  // (pos, target, time, swing)
+    {TS3A(0x0073DB00), 5, {0xE8, 0x8B, 0xD8, 0x22, 0x00}, 4, "IC_Camera_FocusOnLot"},                            // (lot u64, zoom, pitch, time)
+    {TS3A(0x0073DB70), 5, {0xE8, 0x1B, 0xD8, 0x22, 0x00}, 4, "IC_Camera_FocusOnLotForBuildBuy"},                 // (lot u64, zoom, pitch, time, tol)
+    {TS3A(0x0073DC20), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, -1, "IC_Camera_EnableObjectFollow"},             // (obj u64, offset)
+    {TS3A(0x0073DDC0), 5, {0xE8, 0xCB, 0xD5, 0x22, 0x00}, -1, "IC_Camera_TetherToLot"},                          // (lot u64, immediate)
+    {TS3A(0x0073DE60), 5, {0xE8, 0x2B, 0xD5, 0x22, 0x00}, -1, "IC_Camera_TetherToObject"},                       // (obj u64)
+    {TS3A(0x0073DEF0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 8, "IC_Camera_Lock"},                            // (obj u64, offset, zoom, pitch, yaw, time)
+    {TS3A(0x0073DFB0), 5, {0xE8, 0xDB, 0xD3, 0x22, 0x00}, 0, "IC_Camera_EnableMapViewMode"},                     // (time)
+    {TS3A(0x0073E000), 5, {0xE8, 0x8B, 0xD3, 0x22, 0x00}, 2, "IC_Camera_DisableMapViewMode"},                    // (zoom, pitch, time)
 };
 static void* g_rm2IcTramp[RM2_IC_N];
 static volatile LONG g_rm2IcHold;  // passes asked by the camera ICs since the last pass start (atomic max; any thread)

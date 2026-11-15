@@ -115,6 +115,38 @@ namespace MonoHostTest
         public static int JitLzAlloc(int n) { int acc = 0; for (int i = 0; i < n; i++) acc += LzAlloc(i); return acc; }
         public static int JitLzAllocPlain(int n) { int acc = 0; for (int i = 0; i < n; i++) acc += LzAlloc(i); return acc; }
 
+        // ported 2026-11-15 from feature/jitbench-newvt / -ldsflda / -groups (their cases 35-39 renumbered 53-59: master took 35-52)
+        // docs/537 §20 B2b NewVt: a compiled loop of value-type newobj (Vector3 3 floats, ObjectGuid 8 bytes: both ctors are in the game's hot list)
+        public static int JitVt(int n) { int acc = 0; ObjectGuid g0 = new ObjectGuid(5UL); for (int i = 0; i < n; i++) { Vector3 v = new Vector3((float)i, (float)(i + 1), (float)(i & 7)); ObjectGuid g = new ObjectGuid((ulong)(i & 7)); if (g != g0) acc++; acc += (int)v.x + (int)v.y + (int)v.z; } return acc; }
+        // docs/537 §20 C3 ([MonoJit] Ldsflda): static struct fields read and called through their address (game shape: a holder
+        // class with a static ctor and static Vector3 / Rect style fields; ldsflda + ldfld, ldsflda + call on a struct method)
+        public struct JitBV { public int X, Y, Z; public JitBV(int x) { X = x; Y = x * 3; Z = x ^ 5; } public int Dot(int k) { return X * k + Y - Z; } }
+        public static class JitBLs { public static JitBV V; public static JitBV P; static JitBLs() { V = new JitBV(7); P = new JitBV(11); } }
+        public static int JitLs(int k) { int a = 0; for (int i = 0; i < 64; i++) a += JitBLs.V.Dot(i + k) + JitBLs.V.X + JitBLs.P.Y; return a; }
+        // Groups bench (docs/537 §10; template groups of MONOHOST_JITC2): one compiled loop of 64 per group family, shapes of the game's hot bodies
+        // (Vector3-like float fields, static counters, int/float/object arrays, string length + chars, switch + unsigned div/rem, struct moves + initobj + isinst + float compares)
+        public class GVec { public float X, Y, Z; public double D; public int Tag; }
+        public struct GPair { public int A; public int B; public float F; }
+        static int s_gCount; static float s_gScale = 1.5f; static int[] s_gI = new int[64]; static float[] s_gF = new float[64]; static object[] s_gO = new object[64];
+        static GVec[] s_gV; static GPair[] s_gP; static string[] s_gS;
+        static void GSetup()
+        {
+            if (s_gV != null) return;
+            s_gV = new GVec[16]; s_gP = new GPair[16]; s_gS = new string[16];
+            for (int i = 0; i < 16; i++) { s_gV[i] = new GVec(); s_gV[i].X = i * 0.5f; s_gV[i].Y = i + 0.25f; s_gV[i].D = i * 1.5; s_gP[i].A = i; s_gP[i].B = i * 3; s_gP[i].F = i * 0.125f; s_gS[i] = new string((char)('a' + i), 7 + i % 9) + i; }
+            for (int i = 0; i < 64; i++) { s_gI[i] = i * 5; s_gF[i] = i * 0.75f; s_gO[i] = (i & 3) == 0 ? (object)("s" + i) : (i & 1) == 0 ? (object)new GVec() : (object)(i + 1); }
+        }
+        // 1 + 2: float and double fields, a static int and a static float
+        public static int JitGFloat(int k) { int acc = 0; s_gCount = k; for (int i = 0; i < 64; i++) { GVec v = s_gV[(k + i) & 15]; v.Y = i * 0.25f; v.X = v.Y * s_gScale + 1f; v.Z = v.X - v.Y; v.D = v.Z + (double)k; v.Tag = i; s_gCount++; acc += (int)v.Z + (int)v.D + s_gCount; } return acc; }
+        // 4: ldelem / stelem of int[], float[], object[]
+        public static int JitGArr(int k) { int acc = 0; for (int i = 0; i < 64; i++) { s_gI[i] = i * 5 + k; s_gF[i] = i * 0.75f + k; s_gO[i] = (i & 3) == 0 ? s_gS[i & 15] : (object)s_gV[i & 15]; } for (int i = 0; i < 64; i++) { int j = (k + i) & 63; s_gI[j] = s_gI[(j + 1) & 63] + i; s_gF[j] = s_gF[(j + 3) & 63] * 0.5f + 1f; object o = s_gO[j]; s_gO[(j + 5) & 63] = o; acc += s_gI[j] + (int)s_gF[j]; } return acc; }
+        // 16: cknull + string length + chars
+        public static int JitGStr(int k) { int acc = 0; for (int i = 0; i < 64; i++) { string s = s_gS[(k + i) & 15]; acc += s.Length + s[(i & 3)] + s[s.Length - 1]; } return acc; }
+        // 32 + 64: switch and unsigned div / rem
+        public static int JitGSwitch(int k) { int acc = 0; for (int i = 0; i < 64; i++) { uint u = (uint)(k * 64 + i) * 2654435761u; switch ((int)(u % 6u)) { case 0: acc += 1; break; case 1: acc += 3; break; case 2: acc += (int)(u / 7u); break; case 3: acc -= 2; break; case 4: acc ^= 5; break; default: acc += 9; break; } } return acc; }
+        // 8 + 128 + 256: struct copy in and out of an array, initobj, isinst, float compares
+        public static int JitGVt(int k) { int acc = 0; for (int j = 0; j < 16; j++) { s_gP[j].A = j + k; s_gP[j].B = j * 3; s_gP[j].F = j * 0.125f; } for (int i = 0; i < 64; i++) { GPair p = s_gP[(k + i) & 15]; GPair q = new GPair(); q.A = p.B; q.B = p.A + i; q.F = p.F + 0.5f; s_gP[(i + 1) & 15] = q; GVec gv = ((i & 1) == 0 ? (object)s_gV[i & 15] : (object)s_gS[i & 15]) as GVec; if (gv != null) acc += 2; if (q.F > 3.0f) acc += 1; if (p.F < q.F && q.B >= p.A) acc += q.A; } return acc; }
+
         // docs/537 §27 RetTeardown bench (cases 45-48): a compiled callee returns into the INTERPRETED JitBench loop, the only place the ret block runs.
         // 35 getters (4 rets: int, int, long, int), 36 small void methods (4 ret.void), 37 ctor via newobj (1 ret.void: the block bails to EA), 38 mixed (1 ctor + 3 getters)
         public class RtBox
@@ -290,6 +322,13 @@ namespace MonoHostTest
                 case 49: for (int r = 0; r < n; r++) { string a = s_rA[r & 63], b = s_rB[r & 63]; if (string.Equals(a, b)) acc += 1; if (a == b) acc += 2; acc += a.GetHashCode() & 255; if (a.Equals(b)) acc += 4; } break;
                 case 50: for (int r = 0; r < n; r++) { int sv; if (s_dS.TryGetValue(s_rB[r & 63], out sv)) acc += sv + 1; } break;
                 case 51: { System.Collections.Generic.EqualityComparer<string> cmp = System.Collections.Generic.EqualityComparer<string>.Default; for (int r = 0; r < n; r++) { string a = s_rA[r & 63]; acc += cmp.GetHashCode(a) & 255; if (cmp.Equals(a, s_rB[r & 63])) acc += 3; } break; }
+                case 53: for (int r = 0; r < n; r += 64) acc += JitVt(64); break;
+                case 54: for (int r = 0; r < n; r += 64) acc += JitLs(r >> 6); break;
+                case 55: GSetup(); for (int r = 0; r < n; r += 64) acc += JitGFloat(r >> 6); break;
+                case 56: GSetup(); for (int r = 0; r < n; r += 64) acc += JitGArr(r >> 6); break;
+                case 57: GSetup(); for (int r = 0; r < n; r += 64) acc += JitGStr(r >> 6); break;
+                case 58: GSetup(); for (int r = 0; r < n; r += 64) acc += JitGSwitch(r >> 6); break;
+                case 59: GSetup(); for (int r = 0; r < n; r += 64) acc += JitGVt(r >> 6); break;
                 default: return -1;
             }
             return acc;

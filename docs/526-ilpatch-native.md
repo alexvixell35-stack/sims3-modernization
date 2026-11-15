@@ -115,7 +115,7 @@ does not carry. Insertions move the clause boundaries after them and an insertio
 | Converter emitter, specs table, patcher, wiring (counters v907, ini section, probe fields, satb client, registry row, docs/68 row) | done, committed on `feat/ilpatch-native` |
 | CI build + selftest | see the PR: the first builds failed on size asserts and the version check that every `*-test.h` carries (fixed) |
 | Smoke queue | run 2026-11-02 09:15, PASS (section 5): all three fixes applied on UPDATE242 with the converter's hashes |
-| Repros per fix (B80 phone chat with a target with no everyday outfit, B87 opportunity from a non-yielding context) | not written; B89 is covered by the load |
+| Repros per fix (B80 phone chat with a target with no everyday outfit, B87 opportunity from a non-yielding context) | built 2026-11-15 (not run): repros `ilp-b80-remote-chat-off/on`, `ilp-b87-scavenger-off/on` (agent `ilp_remote_chat_check`, `ilp_scavenger_check`), queue `ilpatch-b80-b87.json`; B89 is covered by the load |
 | Batch 2 (section 7): b15, b72, b76, b81 | specs written and self-checked offline, native table 7 specs, selftest ok; the smoke queue arms all seven; live run pending |
 | Batch 3 (section 7): b17 (3 methods), b64, b68 (3), b69, b70, b73, b75 (2), b77, b90 after the converter's label fix (docs/521 §6) | 14 more specs, native table 21 specs, selftest ok; the smoke queue arms all 21; smokes 22 to 24 found two patcher defects (section 8); smoke 25: 20 of 21 applied, no hang, b73 never transformed (open) |
 

@@ -15,7 +15,7 @@ const SRC = join(import.meta.dirname, '..', '..', 'native', 'ts3native', 'loadpr
 
 export function sites(src = readFileSync(SRC, 'utf8')): Site[] {
   const body = src.slice(src.indexOf('kLpSites[LP_N] = {'), src.indexOf('};', src.indexOf('kLpSites[LP_N] = {')));
-  return [...body.matchAll(/\{0x[0-9A-Fa-f]+, \d+, \{[^}]*\}, (?:0x[0-9A-Fa-f]+|0), (LPK_\w+), "([^"]+)"\}/g)]
+  return [...body.matchAll(/\{(?:TS3A\()?0x[0-9A-Fa-f]+\)?, \d+, \{[^}]*\}, (?:(?:TS3A\()?0x[0-9A-Fa-f]+\)?|0), (LPK_\w+), "([^"]+)"\}/g)]  // TS3A(): addr-codemod
     .map(m => ({ name: m[2], routing: m[1] === 'LPK_ROUTING' }));
 }
 

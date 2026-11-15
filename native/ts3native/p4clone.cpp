@@ -27,7 +27,7 @@
 
 static const DWORD kPcWorldSz = 0xA00;   // the routing world object reaches past +0x994 (docs/101); 0xA00 covers it
 static const DWORD kPcWSz = 0x198;       // PathPlannerWorld W (allocated with 0x198 at 0x82998B, ctor 0x657C50) [verified]
-static const DWORD kPcEmptyBk = 0x0114C900;  // the shared empty bucket array an EASTL hash starts on (ctor 0x657CE7) [verified]
+static const DWORD kPcEmptyBk = TS3A(0x0114C900);  // the shared empty bucket array an EASTL hash starts on (ctor 0x657CE7) [verified]
 static const DWORD kPcGridRec = 0x50;    // footprint grid record (chain +0x48) [size inferred, I-94-131]
 static const DWORD kPcHoldMs = 3000;
 static const DWORD kPcWaitMs = 50;
@@ -77,22 +77,22 @@ static PcWx* g_pcWxLast;              // sim: the last trees / group hash copy (
 
 // game entry points (thiscall as fastcall; the selftest points them at fakes or NULL = skipped)
 typedef void(__fastcall* PcThisFn)(const u8* self, void*);
-static PcThisFn g_pcApplyPending = (PcThisFn)(uintptr_t)0x0082C420;   // RoutingWorld_ApplyPendingUpdates (world)
-static PcThisFn g_pcFlushDeferred = (PcThisFn)(uintptr_t)0x00666A40;  // LotQuadTree_FlushDeferred (Q)
+static PcThisFn g_pcApplyPending = (PcThisFn)(uintptr_t)TS3A(0x0082C420);   // RoutingWorld_ApplyPendingUpdates (world)
+static PcThisFn g_pcFlushDeferred = (PcThisFn)(uintptr_t)TS3A(0x00666A40);  // LotQuadTree_FlushDeferred (Q)
 typedef void*(__fastcall* PcCtorFn)(void* self, void*);
-static PcCtorFn g_pcAstarCtor = (PcCtorFn)(uintptr_t)0x0061BF60;     // cAStarSearch ctor (0x9C90 bytes, docs/18)
+static PcCtorFn g_pcAstarCtor = (PcCtorFn)(uintptr_t)TS3A(0x0061BF60);     // cAStarSearch ctor (0x9C90 bytes, docs/18)
 // W' (docs/94 §21.13). Not the W ctor 0x657C50 / dtor 0x657A80: their container ctor 0x673C70 / dtor 0x674010 register and
 // unregister the tuning variables by name (0x5A00A0), which would unbind the live container's [verified disassembly]
 typedef void(__fastcall* PcFcInitFn)(u8* fc, void*, DWORD wm, u8* W, u8* P, const u8* R);  // ret 0x10
-static PcFcInitFn g_pcFcInit = (PcFcInitFn)(uintptr_t)0x00652C50;   // FindClosest object W+0xE0 init (as 0x654101)
+static PcFcInitFn g_pcFcInit = (PcFcInitFn)(uintptr_t)TS3A(0x00652C50);   // FindClosest object W+0xE0 init (as 0x654101)
 typedef void(__fastcall* PcClosedFn)(u8* ctr, void*, const u8* R, DWORD);  // 0x6735C0 = add ecx,4; jmp 0x673500 (ret 8)
-static PcClosedFn g_pcClosedInit = (PcClosedFn)(uintptr_t)0x006735C0;   // frees and rebuilds the closed list for R
-static PcThisFn g_pcFcReset = (PcThisFn)(uintptr_t)0x00654110;          // W+0xE0: blocks, nodes freed, +0xC / +0x10 released
-static PcThisFn g_pcCtrClear = (PcThisFn)(uintptr_t)0x006741D0;         // W+0x18: pool blocks and closed list freed
+static PcClosedFn g_pcClosedInit = (PcClosedFn)(uintptr_t)TS3A(0x006735C0);   // frees and rebuilds the closed list for R
+static PcThisFn g_pcFcReset = (PcThisFn)(uintptr_t)TS3A(0x00654110);          // W+0xE0: blocks, nodes freed, +0xC / +0x10 released
+static PcThisFn g_pcCtrClear = (PcThisFn)(uintptr_t)TS3A(0x006741D0);         // W+0x18: pool blocks and closed list freed
 typedef void(__fastcall* PcHashClrFn)(u8* h, void*, DWORD bk, DWORD n);  // ret 8 (the W dtor's calls at 0x657ADA, 0x657B47)
-static PcHashClrFn g_pcClrC0 = (PcHashClrFn)(uintptr_t)0x00657650, g_pcClrFC = (PcHashClrFn)(uintptr_t)0x007F3790;
+static PcHashClrFn g_pcClrC0 = (PcHashClrFn)(uintptr_t)TS3A(0x00657650), g_pcClrFC = (PcHashClrFn)(uintptr_t)TS3A(0x007F3790);
 typedef void(__cdecl* PcGameFreeFn)(void*);
-static PcGameFreeFn g_pcGameFree = (PcGameFreeFn)(uintptr_t)0x004E3F70;  // NULL-safe (0x4E3F74)
+static PcGameFreeFn g_pcGameFree = (PcGameFreeFn)(uintptr_t)TS3A(0x004E3F70);  // NULL-safe (0x4E3F74)
 
 // --- small arena (our heap; freed as a whole) ---
 static void* PcAlloc(PcBlocks*& b, DWORD n) {
@@ -530,7 +530,7 @@ static u8* PcGrow(u8*& buf, DWORD& cap, DWORD need) {
 
 static bool PcAstar(PcWork& w) {
     if (w.astar || !g_pcAstarCtor) return true;
-    u8* a = (u8*)g_rpNew(0x9C90, 0x00FEC594, 0, 0, 0, 0);  // as the P init 0x62E9F1
+    u8* a = (u8*)g_rpNew(0x9C90, TS3A(0x00FEC594), 0, 0, 0, 0);  // as the P init 0x62E9F1
     if (!a) return false;
     CfRec(CF_ASTAR_NEW, a, 0x9C90);
     __try { g_pcAstarCtor(a, NULL); } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
@@ -1087,8 +1087,8 @@ static void PcRegister() {
     if (!g_p4On) return;
     if (!g_rpOn) { Log("route snapshot P4: no clone provider (needs [RouteSnap] Lots=replay): every shadow refused \"clone\""); return; }
     static const u8 kIns[] = {0x83, 0xEC, 0x18, 0x53, 0x55}, kRem[] = {0x83, 0xEC, 0x10, 0x53, 0x56};  // sub esp,n; push x2
-    g_pcQIns = (PcQInsFn)InstallDetour("LotQuadTree_Insert (P4 deferral stop)", 0x00666C50, kIns, sizeof(kIns), (void*)PcQInsHook, &g_pcQIns);
-    g_pcQRem = g_pcQIns ? (PcQRemFn)InstallDetour("LotQuadTree_Remove (P4 deferral stop)", 0x00666E30, kRem, sizeof(kRem),
+    g_pcQIns = (PcQInsFn)InstallDetour("LotQuadTree_Insert (P4 deferral stop)", TS3A(0x00666C50), kIns, sizeof(kIns), (void*)PcQInsHook, &g_pcQIns);
+    g_pcQRem = g_pcQIns ? (PcQRemFn)InstallDetour("LotQuadTree_Remove (P4 deferral stop)", TS3A(0x00666E30), kRem, sizeof(kRem),
                                                  (void*)PcQRemHook, &g_pcQRem) : NULL;
     if (!g_pcQRem) { Log("FAIL route snapshot P4: deferral stop not installed: no clone provider (every shadow refused \"clone\")"); return; }
     P4SetCloneProvider(&kPcProvider);

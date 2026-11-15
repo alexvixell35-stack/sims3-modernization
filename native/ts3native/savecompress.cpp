@@ -13,14 +13,18 @@
 // failed) runs the game's slot as before. So the bytes written are the game's own compressor's output by construction.
 // No game state is touched on the workers: no Mono, no game allocator, no locks of the game.
 
-static const DWORD SC_COMMIT_SITE = 0x004A850F, SC_COMMIT = 0x004A7910;  // call in FUN_004A8500 (package commit)
-static const DWORD SC_SLOT = 0x00FB901C, SC_SLOT_FN = 0x004EC200;        // RefPack codec vtable, slot 1 (Compress)
-static const DWORD SC_COMPRESS = 0x004EC0A0;
-static const DWORD SC_LOCK_ACQUIRE = 0x004E16F0, SC_LOCK_RELEASE = 0x004E17B0, SC_LOCK_DEADLINE = 0x00FB24F8;
+static const DWORD SC_COMMIT_SITE = TS3A(0x004A850F), SC_COMMIT = TS3A(0x004A7910);  // call in FUN_004A8500 (package commit)
+static const DWORD SC_SLOT = TS3A(0x00FB901C), SC_SLOT_FN = TS3A(0x004EC200);        // RefPack codec vtable, slot 1 (Compress)
+static const DWORD SC_COMPRESS = TS3A(0x004EC0A0);
+static const DWORD SC_LOCK_ACQUIRE = TS3A(0x004E16F0), SC_LOCK_RELEASE = TS3A(0x004E17B0), SC_LOCK_DEADLINE = TS3A(0x00FB24F8);
 // Code the workers run: size writer 0x4EB340, cores 0x4EB750 / 0x4EBB90, wrapper 0x4EC0A0, slot 0x4EC200 (not the decoder
 // 0x4EB3B0..0x4EB74C, which S3SS patches, nor 0x4EC010..0x4EC07F, where phase 6 retargets a call). FNV-1a of Steam 1.67.
-static const DWORD kScCode[3][2] = {{0x004EB340, 0x004EB3B0}, {0x004EB750, 0x004EBFD0}, {0x004EC0A0, 0x004EC282}};
+static const DWORD kScCode[3][2] = {{TS3A(0x004EB340), TS3A(0x004EB3B0)}, {TS3A(0x004EB750), TS3A(0x004EBFD0)}, {TS3A(0x004EC0A0), TS3A(0x004EC282)}};
+#ifdef TS3A_TABLE
+static const DWORD SC_CODE_FNV = 0x0B2F02B4;  // EA app 1.69.47: the same code 0x140 higher, operands moved (vtable 0x1003154, thunks)
+#else
 static const DWORD SC_CODE_FNV = 0x86B12C94;
+#endif
 static const DWORD kScRecClass = 0x12E4A892;  // record class id at record+8 that FUN_004A8E00 sends to FUN_004A8910
 static const DWORD kScMinLen = 4096;          // smaller records stay with the game (job overhead)
 static const DWORD kScMaxLen = 0xF42400;      // FUN_004A8910 / FUN_004A82C0 compress 0x32..0xF42400 bytes

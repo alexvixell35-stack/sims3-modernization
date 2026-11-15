@@ -212,6 +212,19 @@ BinBase copy, DXVK x86 in-process, Apex off. Tool: a VirtualQueryEx walk (read-o
 - That turns "private 2,059 MB" into a per-owner list, which is what decides what can leave the 32-bit space first. The only
   movable block known today is the resource cache (150-200 MB, the docs/08 ts3res64 helper) [doc].
 - Risk is low while it only logs; Apex owns the allocator hooks, so a shared hook point is their call.
+- **First owner log (2026-11-15, queue `memdiag3-owners-1115`, PASS 2/2, BP 10 min, last sample #3) [measured]:**
+
+| | plain Bin | with Apex 3.2.3 + bridge |
+|---|---|---|
+| own virt MB (top owners) | 1,851: gc 405, drv 257, ea.res 210, none 147, ea.anim 144, ea.script 142, ea.world 75, s3ss 65, sys 59, d3d9 49 | 1,698: gc 401, apex 302, ea.anim 169, ea.res 168, ea.script 135, s3ss 96, ea.route 68, none 37, d3d9 32 |
+| untracked virt MB | 262 (14%) | 89 (5%) |
+| own map MB | 99.7 (d3d9 86.4) | 11.2 |
+| own EA heap MB (top) | 953: script 156, mono 142, world 102, gfx 101, cas 101, anim 61, route 58, audio 58, res 52 | 854: script 157, mono 148, cas 108, world 102, gfx 91, route 48, anim 36, res 31 |
+
+  Reading: the Boehm heap (gc, about 400 MB) is the largest single owner either way. With Apex, the driver and d3d9 share
+  moves out of the process (drv 257 MB, map 86 MB) and Apex's own allocations come in (302 MB). The resource cache
+  (ea.res 168-210 MB) matches docs/08's 150-200 MB movable block [measured]. Timing on both jobs was VOID (noisy machine),
+  so these are memory numbers only.
 
 ## 9. Gaps and how to close each
 
@@ -224,6 +237,17 @@ BinBase copy, DXVK x86 in-process, Apex off. Tool: a VirtualQueryEx walk (read-o
 | M2 free-block distribution | heap-peek pass over Boehm's free lists in a 60-min run and a travel |
 | M3 owners between free ranges | the VirtualQueryEx series plus the L6 owner log |
 | M4 | EA heap bins walk + mimalloc stats on one save |
+
+**Prepared 2026-11-15 (lane mono-measure, nothing run):**
+
+- EA 1.69 (EA laptop list): S1 = `node tools/memory/gc-build-strings.ts <EA TS3W.exe>` (same strings check as §1; on Steam 1.67
+  it prints "same S1" [verified 11-15]). S2 = the out-of-repo Capstone census (§10), copied to the EA laptop, on the EA exe.
+- M1 natural BP / SV: queue `mono-measure-memgaps-1115` (`bp-m1-gcnat`, `sv-m1-gcnat`, 12 min, `[GC] SqrtHeapLimit=2` observe:
+  a gcsize line with gcMs per collection). Read with `tools/memory-report.ts` (GC ms/s = sum gcMs / play seconds).
+- M3 owners: the L6 owner log ran 11-15 (`memdiag3-owners-1115`, PASS 2/2). It splits private into owners and so feeds this row.
+- M2, M4: no unattended runner. The read-only attach tools exist (`tools/memory/mono-census.py` free blocks for M2;
+  `ea-pool-census.py` + `mem-census.py` for the EA side of M4), so run them by hand at minute 50 of a 60-min SV job. There is
+  no dlmalloc bin walker and no mimalloc stats reader, so M4 stays open until one is written.
 
 ## 10. Tools
 

@@ -101,13 +101,13 @@ namespace Ts3Fixes
         }
 
         // D's Sim rules (UfPreSim) with the finish deny list (a townie's plain Go Here allowed), standing (walking keeps Standing),
-        // not in a tomb room
+        // not in a tomb or hidden room
         static bool UfFinishSim(Sim s)
         {
             Sims3.Gameplay.CAS.SimDescription d = s.SimDescription;
             if (d == null || d.IsPet || !d.TeenOrAbove || !s.IsHuman || UfHeld(s) || s.Posture != s.Standing) return false;
             if (s.GetSituationOfType<Sims3.Gameplay.Situations.GroupingSituation>() != null) return false;
-            if (Sims3.Gameplay.Controllers.TombRoomManager.IsObjectInATombRoom(s)) return false;
+            if (Sims3.Gameplay.Controllers.TombRoomManager.IsObjectInATombOrHiddenRoom(s)) return false;  // docs/267 F2: hidden rooms too
             Sims3.Gameplay.Interactions.InteractionInstance cur = s.CurrentInteraction;
             return cur != null && !(cur is Sims3.Gameplay.Socializing.SocialInteraction) && !UfFinishCore.Denied(cur.GetType().FullName);
         }

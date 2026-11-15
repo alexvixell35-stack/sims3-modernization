@@ -1,0 +1,130 @@
+{
+  "note": "docs/190 phase 2 [MemDiag] Access correctness + own cost (prepared 2026-11-15, NOT RUN): ts3native.asi.memdiag2b-1115 (feature/memdiag-phase2-1115, counters v199 ma*; 2026-11-14 run on memdiag2-1115 FAILED only the load-line regex: lines list anim before rc, and the owner scans 0x4B0070 were counted as gets, so both caches showed the same keys; memdiag2b counts scans apart and prints rc first). One BP 10 min natural job with [MemDiag] Enabled=1 Access=1 (no self-test: it leaks 8 MB on purpose). Pass: install line with both hooks (Find slot chained to 0x007324E0, ReadDecompress detour OK), a diag: memaccess line at load and at least one periodic line with rc / anim / rd fields, counters read back (maOn 3, finds, hits, reads, lines), no FAIL, no crash. Read ourMs / win of the periodic lines for the counters' own cost (docs/190 §5.2: under 0.1 ms/s expected). Correctness only, never timing.",
+  "jobs": [
+    {
+      "id": "bp-memdiag2-access",
+      "asi": "game-copy/ts3native.asi.memdiag2b-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+      "pinReason": "memdiag2b-1115 (builds.json): feature/memdiag-phase2-1115 = master af8e0c36 + [MemDiag] Access (docs/190 phase 2, counters v199); ts3fixes = current release package rel0211b (no ts3fixes change on this branch)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "MemDiag.Access": 1
+      },
+      "scriptErrorsMax": 0,
+      "note": "BP 10 min natural. Lines at load and every 5 min of play (2 periodic in 10 min). maRcGets/maRdN are updated at each memaccess line, so they read back the load + periodic windows. regexCases: the install, detour, load and periodic lines of the 2026-11-14 run (memdiag2-1115, anim listed first) are real; the memdiag2b samples follow memaccess.cpp's format (TestMemAccess checks it).",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 25,
+      "nativeRequire": "@maOn>=3,@maRdMaxKB>=1,maRcGets>=1000,maRcHits>=1,maRdN>=10,@maRdMB>=1,maLines>=1",
+      "logRequire": {
+        "^mem access on \\(docs/190 phase 2\\): cache finds \\(slot 6 of 0x00FFDD94, chained to 0x007324E0\\), reads \\(0x004A8380\\); our work \\d+ ns a find, \\d+ ns a read;": 1,
+        "^OK   detour DBPF ReadDecompress \\(mem access\\) at 0x004A8380": 1,
+        "^diag: memaccess #\\d+ load win=\\d+(?=.* rc get=\\d+ hit=[\\d.]+ miss=\\d+ keys=\\d+ )(?=.* anim get=\\d+ ).* rd n=\\d+ MB=[\\d.]+ rawMB=[\\d.]+ maxMB=[\\d.]+ flyMaxMB=[\\d.]+ big=\\d+ ms=\\d+ main=[\\d.]+ fail=\\d+ ourMs=[\\d.]+ t=\\d+": 1,
+        "^diag: memaccess #\\d+ load win=\\d+ rc get=\\d+ hit=[\\d.]+ miss=\\d+ keys=\\d+ scan=\\d+ scanHit=[\\d.]+ anim get=\\d+ hit=[\\d.]+ miss=\\d+ keys=\\d+ scan=\\d+ scanHit=[\\d.]+ ": 1,
+        "^diag: memaccess #\\d+ periodic win=\\d+(?=.* rc get=[1-9]\\d* hit=[\\d.]+ miss=\\d+ keys=[1-9]\\d* ).* rd n=\\d+ ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^FAIL mem access": 0,
+        "^SKIP detour DBPF ReadDecompress": 0,
+        "^diag: memaccess #\\d+ save-": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "stopQueueOnFail": true,
+      "regexCases": {
+        "^mem access on \\(docs/190 phase 2\\): cache finds \\(slot 6 of 0x00FFDD94, chained to 0x007324E0\\), reads \\(0x004A8380\\); our work \\d+ ns a find, \\d+ ns a read;": {
+          "match": [
+            "mem access on (docs/190 phase 2): cache finds (slot 6 of 0x00FFDD94, chained to 0x007324E0), reads (0x004A8380); our work 10 ns a find, 75 ns a read; diag: memaccess at load, periodic, mark and exit samples"
+          ],
+          "noMatch": [
+            "mem access on (docs/190 phase 2): cache finds (slot 6 of 0x00FFDD94, chained to 0x007324E0), reads off (0x004A8380); our work 31 ns a find, 88 ns a read; diag: memaccess at load, periodic, mark and exit samples"
+          ]
+        },
+        "^OK   detour DBPF ReadDecompress \\(mem access\\) at 0x004A8380": {
+          "match": [
+            "OK   detour DBPF ReadDecompress (mem access) at 0x004A8380"
+          ],
+          "noMatch": [
+            "SKIP detour DBPF ReadDecompress (mem access) at 0x004A8380: prologue differs"
+          ]
+        },
+        "^diag: memaccess #\\d+ load win=\\d+(?=.* rc get=\\d+ hit=[\\d.]+ miss=\\d+ keys=\\d+ )(?=.* anim get=\\d+ ).* rd n=\\d+ MB=[\\d.]+ rawMB=[\\d.]+ maxMB=[\\d.]+ flyMaxMB=[\\d.]+ big=\\d+ ms=\\d+ main=[\\d.]+ fail=\\d+ ourMs=[\\d.]+ t=\\d+": {
+          "match": [
+            "diag: memaccess #1 load win=83 anim get=490445 hit=0.3 miss=489139 keys=156526 rc get=666404 hit=54.8 miss=301204 keys=156526 rd n=189 MB=19.6 rawMB=5.3 maxMB=3.2 flyMaxMB=3.2 big=0 ms=38 main=86.8 fail=0 ourMs=11.9 t=83",
+            "diag: memaccess #1 load win=83 rc get=177265 hit=93.1 miss=12231 keys=21440 scan=489139 scanHit=63.4 anim get=1306 hit=99.0 miss=13 keys=410 scan=489139 scanHit=0.3 rd n=189 MB=19.6 rawMB=5.3 maxMB=3.2 flyMaxMB=3.2 big=0 ms=38 main=86.8 fail=0 ourMs=11.9 t=83"
+          ],
+          "noMatch": [
+            "diag: memaccess #2 periodic win=217 anim get=1155058 hit=51.0 miss=565612 keys=43221 rc get=897489 hit=75.7 miss=218042 keys=43182 rd n=56 MB=0.2 rawMB=0.0 maxMB=0.0 flyMaxMB=0.0 big=0 ms=1 main=0.0 fail=0 ourMs=21.1 t=300"
+          ]
+        },
+        "^diag: memaccess #\\d+ load win=\\d+ rc get=\\d+ hit=[\\d.]+ miss=\\d+ keys=\\d+ scan=\\d+ scanHit=[\\d.]+ anim get=\\d+ hit=[\\d.]+ miss=\\d+ keys=\\d+ scan=\\d+ scanHit=[\\d.]+ ": {
+          "match": [
+            "diag: memaccess #1 load win=83 rc get=177265 hit=93.1 miss=12231 keys=21440 scan=489139 scanHit=63.4 anim get=1306 hit=99.0 miss=13 keys=410 scan=489139 scanHit=0.3 rd n=189 MB=19.6 rawMB=5.3 maxMB=3.2 flyMaxMB=3.2 big=0 ms=38 main=86.8 fail=0 ourMs=11.9 t=83"
+          ],
+          "noMatch": [
+            "diag: memaccess #1 load win=83 anim get=490445 hit=0.3 miss=489139 keys=156526 rc get=666404 hit=54.8 miss=301204 keys=156526 rd n=189 MB=19.6 rawMB=5.3 maxMB=3.2 flyMaxMB=3.2 big=0 ms=38 main=86.8 fail=0 ourMs=11.9 t=83"
+          ]
+        },
+        "^diag: memaccess #\\d+ periodic win=\\d+(?=.* rc get=[1-9]\\d* hit=[\\d.]+ miss=\\d+ keys=[1-9]\\d* ).* rd n=\\d+ ": {
+          "match": [
+            "diag: memaccess #2 periodic win=217 anim get=1155058 hit=51.0 miss=565612 keys=43221 rc get=897489 hit=75.7 miss=218042 keys=43182 rd n=56 MB=0.2 rawMB=0.0 maxMB=0.0 flyMaxMB=0.0 big=0 ms=1 main=0.0 fail=0 ourMs=21.1 t=300",
+            "diag: memaccess #2 periodic win=300 rc get=9120 hit=99.0 miss=91 keys=880 scan=560000 scanHit=40.1 anim get=10 hit=100.0 miss=0 keys=4 scan=565612 scanHit=1.0 rd n=91 MB=12.0 rawMB=4.1 maxMB=1.0 flyMaxMB=2.0 big=0 ms=40 main=12.0 fail=0 ourMs=0.3 t=395"
+          ],
+          "noMatch": [
+            "diag: memaccess #2 periodic win=300 rc get=0 hit=0.0 miss=0 keys=0 scan=0 scanHit=0.0 rd n=0 MB=0.0 rawMB=0.0 maxMB=0.0 flyMaxMB=0.0 big=0 ms=0 main=0.0 fail=0 ourMs=0.0 t=395"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL mem access: VirtualProtect at 0x00FFDD94, rc counters off"
+          ],
+          "noMatch": [
+            "OK   detour DBPF ReadDecompress (mem access) at 0x004A8380"
+          ]
+        },
+        "^FAIL mem access": {
+          "match": [
+            "FAIL mem access: cache vtable 0x00FFDD94 slot 6 not readable, rc counters off"
+          ],
+          "noMatch": [
+            "mem access FAILED (docs/190 phase 2)"
+          ]
+        },
+        "^SKIP detour DBPF ReadDecompress": {
+          "match": [
+            "SKIP detour DBPF ReadDecompress (mem access) at 0x004A8380: prologue differs"
+          ],
+          "noMatch": [
+            "OK   detour DBPF ReadDecompress (mem access) at 0x004A8380"
+          ]
+        },
+        "^diag: memaccess #\\d+ save-": {
+          "match": [
+            "diag: memaccess #3 save-start win=10 rc get=1"
+          ],
+          "noMatch": [
+            "diag: memaccess #2 periodic win=300 rc get=9120 hit=99.0 miss=91 keys=880 scan=560000 scanHit=40.1 anim get=10 hit=100.0 miss=0 keys=4 scan=565612 scanHit=1.0 rd n=91 MB=12.0 rawMB=4.1 maxMB=1.0 flyMaxMB=2.0 big=0 ms=40 main=12.0 fail=0 ourMs=0.3 t=395"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "log C:\\Users\\<user>\\Documents"
+          ],
+          "noMatch": [
+            "diag: memaccess #2 periodic win=300 rc get=9120 hit=99.0 miss=91 keys=880 scan=560000 scanHit=40.1 anim get=10 hit=100.0 miss=0 keys=4 scan=565612 scanHit=1.0 rd n=91 MB=12.0 rawMB=4.1 maxMB=1.0 flyMaxMB=2.0 big=0 ms=40 main=12.0 fail=0 ourMs=0.3 t=395"
+          ]
+        }
+      }
+    }
+  ]
+}

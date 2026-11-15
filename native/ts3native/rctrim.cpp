@@ -17,15 +17,15 @@
 // a settle delay; every TrimEveryMin minutes of play. The Overwatch nightly trigger is not built: ts3fixes sends no
 // Overwatch signal to native (docs/198 §4.2).
 // Apex Radiance loaded and [Compat] ApexStandDown=1: no trim, one log line (late Apex load included: checked per trim).
-static const DWORD RT_SVC_SLOT = 0x00FFEB2C, RT_SVC_UPDATE = 0x007377F0;  // ResourceSystem service +0x1C (main thread)
+static const DWORD RT_SVC_SLOT = TS3A(0x00FFEB2C), RT_SVC_UPDATE = TS3A(0x007377F0);  // ResourceSystem service +0x1C (main thread)
 // The manager at service + 0x18 has two vtables: ctor 0x736DB0 stores 0xFFE2F0 at +0 (`C7 06 F0 E2 FF 00` at 0x736DD2) and
 // 0xFFE250 at +8 (`C7 07 50 E2 FF 00` at 0x736DD8, edi = this + 8); g_ResourceManager [0x11C78D8] points at +8. Until the
 // "next version" fix rctrim compared +0 with 0xFFE250 and skipped every trim ("vtable not as expected", in game).
-static const DWORD RT_MGR_VT0 = 0x00FFE2F0, RT_MGR_VT = 0x00FFE250, RT_CACHE_VT = 0x00FFDD94;
+static const DWORD RT_MGR_VT0 = TS3A(0x00FFE2F0), RT_MGR_VT = TS3A(0x00FFE250), RT_CACHE_VT = TS3A(0x00FFDD94);
 typedef void(__thiscall* RtSvcFn)(void* svc, DWORD realDt, DWORD gameDt);
 typedef void(__thiscall* RtShrinkFn)(void* mgr);
 static RtSvcFn g_rtOrig;
-static RtShrinkFn g_rtShrink = (RtShrinkFn)(uintptr_t)0x00733E70;  // selftest: a fake
+static RtShrinkFn g_rtShrink = (RtShrinkFn)(uintptr_t)TS3A(0x00733E70);  // selftest: a fake
 static bool g_rtOn;
 static DWORD g_rtEveryMs;                 // 0 = no periodic trim
 static DWORD g_rtSettleMs = 2000;         // world load -> trim
@@ -117,6 +117,10 @@ static void ApplyRcTrim(const wchar_t* ini) {
     g_rtOn = GetPrivateProfileIntW(L"ResourceCache", L"TrimAfterCleanup", 0, ini) > 0;
     const int every = GetPrivateProfileIntW(L"ResourceCache", L"TrimEveryMin", 0, ini);
     g_rtEveryMs = every > 0 ? (DWORD)(every < 600 ? every : 600) * 60000 : 0;
+#ifdef TS3A_TABLE
+    if (g_rtOn || g_rtEveryMs) Log("SKIP rctrim ([ResourceCache] TrimAfterCleanup / TrimEveryMin): no EA 1.69 address, docs/232 §8");
+    g_rtOn = false, g_rtEveryMs = 0;
+#endif
     if (!g_rtOn) return;
     DWORD* slot = (DWORD*)(uintptr_t)RT_SVC_SLOT;
     if (*slot != RT_SVC_UPDATE) { Log("FAIL rctrim: ResourceSystem service slot 0x%08X holds 0x%08lX, not 0x%08X: not installed", RT_SVC_SLOT, *slot, RT_SVC_UPDATE); return; }

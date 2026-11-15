@@ -49,7 +49,7 @@ static SRWLOCK g_rdLock = SRWLOCK_INIT;
 static void* g_rdOrig[4];  // own detours' trampolines ([1] Replan, [3] ReplanFromPosition) when A10 does not hook the kind
 // Route_GetFollowerPosition 0x752480: thiscall(route; pos16*, dir16*, ids*), ret 0xC; 1 = ok, 5 = no follower [verified]
 typedef DWORD(__fastcall* RdFollowerPosFn)(void* route, void* edx, float* pos16, float* dir16, DWORD* ids);
-static RdFollowerPosFn g_rdFollowerPos = (RdFollowerPosFn)(uintptr_t)0x00752480;
+static RdFollowerPosFn g_rdFollowerPos = (RdFollowerPosFn)(uintptr_t)TS3A(0x00752480);
 static const ULONGLONG kRdWinMs[3] = {250, 500, 1000};
 static const ULONGLONG kRdServeMs = 500;  // docs/151 D7
 static const float kRdStartM = 0.1f;

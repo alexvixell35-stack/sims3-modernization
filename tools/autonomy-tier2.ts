@@ -163,7 +163,9 @@ export const TIER2_BUILT = new Set(['World_GetPoolObjectIdForPoolBelowPositionIm
   // docs/219 §2 shared rows built 2026-11-06 behind [AutShadow] Tier2Rows (autofft2 Mode R item); listed here 2026-11-08 with P5
   'World_IsOnRoofImpl', 'Objects_GetHeightAboveFloor',
   // P5 slot rows (docs/data/tier2-rows35-handoff.md, ledger §466): Tier2SlotRows, actor gate
-  'Slots_IsSlotEnabledImpl', 'Slots_GetRoutingSlotNamesImpl']);
+  'Slots_IsSlotEnabledImpl', 'Slots_GetRoutingSlotNamesImpl',
+  // lane L8 (2026-11-15): #14 pool-backed out (AS_OF_BIG), #20 masked struct (AS_OF_DIFF), Tier2IcNew bits 5-6
+  'World_GetPondInfo', 'World_LotGetDisplayLevelInfoImpl']);
 export function icClass(name: string): string {
   const meth = name.slice(name.indexOf('::'));
   if (snap.has(meth)) return snap.get(meth)!;

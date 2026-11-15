@@ -1,0 +1,10 @@
+# Queue float5-round4 2026-11-09
+
+Tool: `tools/harness/queue.ts` (docs/TESTING.md). Times UTC (PHT in brackets). Rows: `probe-out/queue/float5-round4-2026-11-09.jsonl`.
+
+## 2026-11-09T04:16 UTC, build c1f4f5b4, jobs bp-float5-r4-all-off-1, bp-float5-r4-all-off-2
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| bp-float5-r4-all-off-1 | 04:16 (12:16) | 14.6 | **CRASH** | FAIL: game died at 04:29:23 (agent not answering for 60 s (heartbeat frozen))<br>run: FAIL<br>summary: 1 cases, 0 passed, 1 failed (run)<br>FAIL: events not fired: log /^diag: mem #\d+ save-start ev=travel-save / 0 lines (want >= 8)<br>PASS: no forbidden log lines<br>PASS: 0 new script errors (max 0, 1 known EA ignored) | 1 | 2058.2/1708.5/1703.1 -> 2446.5/2040.3/1312.4 | - | timing: invalid (job FAIL: crash: no crash report of this run written since 2026-11-09T04:16:30.952Z with pid 50132; FAIL: game died at 04:29:23 (a; noise high); build: asi f2c101264480 ts3native.asi.float5mono-1109 ts3native 0.36.232 (log ok); ts3fixes tuning 718c92c6f84d ts3fixes.package.wdasync-1109/ts3fixes.package.master1109c/ts3fixes.package.float5trap-1109/ts3fixes.package.float5uaf-1109/ts |
+| bp-float5-r4-all-off-2 | 04:31 (12:31) | 31.7 | **CRASH** | FAIL: game died at 05:01:22 (agent not answering for 60 s (heartbeat frozen))<br>run: FAIL<br>summary: 1 cases, 0 passed, 1 failed (run)<br>FAIL: events not fired: log /^diag: mem #\d+ save-start ev=travel-save / 0 lines (want >= 8)<br>PASS: no forbidden log lines<br>FAIL: 1 new script errors (max 0, 3 known EA ignored): ScriptError_<pc>__11-09-2026__12-48-05__EBA10D53.xml | 1 | 2039.6/1692.6/1713.9 -> 2769.7/2617.8/690.1 | - | timing: invalid (job FAIL: crash: no crash report of this run written since 2026-11-09T04:31:11.110Z with pid 4172; FAIL: game died at 05:01:22 (ag; noise high); build: asi f2c101264480 ts3native.asi.float5mono-1109 ts3native 0.36.232 (log ok); ts3fixes tuning 718c92c6f84d ts3fixes.package.wdasync-1109/ts3fixes.package.master1109c/ts3fixes.package.float5trap-1109/ts3fixes.package.float5uaf-1109/ts |

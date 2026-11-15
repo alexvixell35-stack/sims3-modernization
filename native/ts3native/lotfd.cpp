@@ -17,12 +17,12 @@
 // Release through vtable 0xFED048 are counted by thread during jobs (T-L3, .rdata slot swap). It also installs the QL writer
 // stubs W4, W5, W6g (uncontended without a reader) so T-L3 can tell worker calls inside them from the others.
 
-static const DWORD LT_FD = 0x00631800;
+static const DWORD LT_FD = TS3A(0x00631800);
 static const u8 kFdPro[] = {0x8B, 0x44, 0x24, 0x08, 0x56, 0x8B, 0xF1};  // mov eax,[esp+8]; push esi; mov esi,ecx (no relative operand)
 typedef u64(__fastcall* FdFn)(const u8* p, void* edx, DWORD lo, DWORD hi, DWORD type, const u8** out);
 static FdFn g_fdOrig;
-static DWORD g_ltAddRef = 0x0064E8E0, g_ltRelease = 0x0064E8F0;  // portal vtable 0xFED048 slots 0 / +4 (tests point them elsewhere)
-static const DWORD LT_PORTAL_VT = 0x00FED048;
+static DWORD g_ltAddRef = TS3A(0x0064E8E0), g_ltRelease = TS3A(0x0064E8F0);  // portal vtable 0xFED048 slots 0 / +4 (tests point them elsewhere)
+static const DWORD LT_PORTAL_VT = TS3A(0x00FED048);
 static bool g_ltCheckVt = true;  // selftest fakes turn the portal vtable check off
 
 // --- T-L3: portal AddRef / Release by thread during jobs (counting thunks in the .rdata slots of vtable 0xFED048) ---
@@ -211,14 +211,14 @@ static u64 __fastcall FdHook(const u8* p, void* edx, DWORD lo, DWORD hi, DWORD t
 // and also for G10-C, whose site-10 key is Route_PlanCommon's caller).
 struct P1bSite { DWORD key; int site; int off; };
 static const int kP1bRows = 6;
-static const DWORD kP10Ic[4] = {0x00765160, 0x00765490, 0x00765240, 0x00765550};  // IC_Route_Plan, Replan, PlanFromPoint, ReplanFromPosition
+static const DWORD kP10Ic[4] = {TS3A(0x00765160), TS3A(0x00765490), TS3A(0x00765240), TS3A(0x00765550)};  // IC_Route_Plan, Replan, PlanFromPoint, ReplanFromPosition
 static const P1bSite kP1b[kP1bRows] = {
-    {0x0062F782, 12, 7},  // LotRouting_PortalsForObject 0x62F760: sub esp,8; push esi; push edi; 2 args
-    {0x0062FB74, 12, 4},  // LotTable_GetIfPresent 0x62FB60: push esi; 2 args
-    {0x00631814, 12, 4},  // LotRouting_FrontDoorPortal 0x631800: push esi; 2 args (with L1 on: our hook, 0xFFFFFF)
-    {0x00631F40, 12, 9},  // LotRouting_FootprintsNearPoint 0x631F10: sub esp,0xC; push ebx/esi/edi; 2 args
-    {0x0062EF7A, 0, 0},   // lot transform wrapper 0x62EF30 -> GetOrInsert (gate 0): push ebp; mov ebp,esp; and esp,-16
-    {0x00760BFF, 10, 0},  // Route_PlanCommon 0x7606E0 -> goal step 0x75C2D0 (gate 10): push ebp; mov ebp,esp; and esp,-16
+    {TS3A(0x0062F782), 12, 7},  // LotRouting_PortalsForObject 0x62F760: sub esp,8; push esi; push edi; 2 args
+    {TS3A(0x0062FB74), 12, 4},  // LotTable_GetIfPresent 0x62FB60: push esi; 2 args
+    {TS3A(0x00631814), 12, 4},  // LotRouting_FrontDoorPortal 0x631800: push esi; 2 args (with L1 on: our hook, 0xFFFFFF)
+    {TS3A(0x00631F40), 12, 9},  // LotRouting_FootprintsNearPoint 0x631F10: sub esp,0xC; push ebx/esi/edi; 2 args
+    {TS3A(0x0062EF7A), 0, 0},   // lot transform wrapper 0x62EF30 -> GetOrInsert (gate 0): push ebp; mov ebp,esp; and esp,-16
+    {TS3A(0x00760BFF), 10, 0},  // Route_PlanCommon 0x7606E0 -> goal step 0x75C2D0 (gate 10): push ebp; mov ebp,esp; and esp,-16
 };
 
 static void P1bNote(int site, DWORD key, const DWORD* slot, LONG us) {

@@ -1,6 +1,6 @@
 # Handoff: replan-burst logging build (docs/261 §6 L1)
 
-Branch `feature/replan-burst-log` (from `feature/jit-bundle-1113`, so the JIT-on arm carries the logging). Local only: not merged, not pushed. Built, host self-tests pass, **NOT RUN in game**. Logging only: no behaviour change, household untouched.
+Branch `feature/replan-burst-log` (from `feature/jit-bundle-1113`, so the JIT-on arm carries the logging). Local only: not merged, not pushed. Built, host self-tests pass, **NOT RUN in game**. **Update 2026-11-15 [verified 2026-11-15: git, docs/261 on `docs/npc-replan-bursts-1114`]:** merged (b53dc4a6); ran 2026-11-14 in replan-burst-1114 (8/8 PASS), replan-shadow-1114 (8/8 PASS) and the replan-burst-1114 rerun; verdicts docs/261 §7-§8 (unmerged branch). Logging only: no behaviour change, household untouched.
 
 Design and background: docs/261 (branch `docs/npc-replan-bursts-1114`). Bursts of ~7 `Route_Replan`/s x ~40 ms for 2-11 s from `FollowRouteAction.PerformRoute` callbacks, seen only in the JIT-on SV runs of jit-bundle-ab-1113 (n = 2 per arm). Every `arRefusedReplan` there is reason 2 (`[RouteAsync] Kinds=0` -> NoStart in `GetOptionHook`), so the other checks never ran.
 

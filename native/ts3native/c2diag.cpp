@@ -14,13 +14,13 @@
 //  - IC_Route_DestroyRoute 0x750400: a 64-entry ring of handles, printed with a bad element.
 // World phase: routesnap's World_FireEvent detour (sim thread) calls C2WorldEvent. Lines: MaxLines (default 200) a session, then
 // counted only (c2LinesDropped).
-static const DWORD C2_CLEAR = 0x0074FC30, C2_DDTOR = 0x0074A830, C2_DDTOR_SA = 0x00751450, C2_DESTROY = 0x00750400;
+static const DWORD C2_CLEAR = TS3A(0x0074FC30), C2_DDTOR = TS3A(0x0074A830), C2_DDTOR_SA = TS3A(0x00751450), C2_DESTROY = TS3A(0x00750400);
 static const u8 kC2Clear[6] = {0x56, 0x57, 0x8B, 0xF9, 0x8B, 0x37};    // push esi; push edi; mov edi,ecx; mov esi,[edi]
 static const u8 kC2DDtor[6] = {0xF6, 0x44, 0x24, 0x04, 0x01, 0x56};    // test byte [esp+4],1; push esi
 static const u8 kC2DDtorSa[6] = {0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x30};  // push esi; mov esi,ecx; mov eax,[esi+0x30]
 static const u8 kC2Destroy[6] = {0x8B, 0x0D, 0xC4, 0x40, 0x1D, 0x01};  // mov ecx,[0x11D40C4] (RouteManager)
 // destination vtables [verified .rdata scan: slot 2 = 0x74A830 or 0x751450]: base, point, slot array, radial range, lot
-static const DWORD kC2DestVt[5] = {0x01004148, 0x010041C8, 0x0100421C, 0x0100423C, 0x0100425C};
+static const DWORD kC2DestVt[5] = {TS3A(0x01004148), TS3A(0x010041C8), TS3A(0x0100421C), TS3A(0x0100423C), TS3A(0x0100425C)};
 static const DWORD C2_TEXT_LO = 0x00401000, C2_TEXT_HI = 0x00F95000, C2_RDATA_LO = 0x00F95000, C2_RDATA_HI = 0x01146000;
 
 struct C2Free {
@@ -116,7 +116,7 @@ static void C2Bad(DWORD head, int idx, DWORD e, DWORD vt, const DWORD* sp) {
     DWORD s2 = 0, setVt = 0, setRefs = 0;
     __try { s2 = *(const DWORD*)(uintptr_t)(vt + 8); } __except (EXCEPTION_EXECUTE_HANDLER) {}
     __try { setVt = *(const DWORD*)(uintptr_t)set, setRefs = *(const DWORD*)(uintptr_t)(set + 8); } __except (EXCEPTION_EXECUTE_HANDLER) {}
-    const char* from = ret == 0x00756EAE ? "ClearDestinationList" : ret == 0x00756FB8 ? "destination set dtor" : ret == 0x007646F8 ? "route copy" : "?";
+    const char* from = ret == TS3A(0x00756EAE) ? "ClearDestinationList" : ret == TS3A(0x00756FB8) ? "destination set dtor" : ret == TS3A(0x007646F8) ? "route copy" : "?";
     char st[128];
     C2Stack(sp, st, sizeof(st));
     Log("crash2diag: BAD destination #%d 0x%08lX vt 0x%08lX (%s, slot 2 0x%08lX %s) in list 0x%08lX (set 0x%08lX vt 0x%08lX refs %ld), clear "
@@ -224,6 +224,9 @@ static __declspec(naked) void C2DestroyHook() {  // cdecl, [esp+4] = route handl
 
 static bool ApplyCrash2Diag(const wchar_t* ini) {
     if (GetPrivateProfileIntW(L"Crash2Diag", L"Enabled", 0, ini) <= 0) return false;
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP crash2 diag ([Crash2Diag]): no EA 1.69 address, docs/232 §8"); return false; }
+#endif
     g_c2MaxLines = Clamp(GetPrivateProfileIntW(L"Crash2Diag", L"MaxLines", 200, ini), 0, 100000);
     LARGE_INTEGER f;
     QueryPerformanceFrequency(&f), g_c2Freq = f.QuadPart;

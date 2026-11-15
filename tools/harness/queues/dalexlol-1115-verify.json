@@ -1,0 +1,40 @@
+{
+  "note": "dalexlol-1115-verify (PREPARED, NOT RUN; correctness only, no timing): first Windows run of the Dalexlol imports 2026-11-15 (PR #409 KdUnseenForeignCap=2, PR #405 docs/546-557; #405 was tested on the Linux/Wine repack only). One BP job, 10 min autopilot, the shipped master ini and the master-dalexlol-1115 package as built. Read-back: the queue build check matches the installed package's tuningDigest with builds.json ts3fixes.package.master-dalexlol-1115 (joyridecostume, socialfinish, socialreceivefail, alarmkilllog True); profile fixesOn reads the four switches in game ('fixes on: ... (verified)'); the native log must show KdUnseenForeignCap=2 from the ini. Also exercises the always-on PlayerSims.cs household helper (IsPlayerSim / IsNpcSim / IsPlayerDesc) on Windows. PASS = 0 script errors, both read-backs, no crash. Run: node tools/harness/queue.ts tools/harness/queues/dalexlol-1115-verify.json",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-dalexlol-1115",
+      "note": "[est 16 min] Correctness (10 min): BP autopilot with the new pair. Pass: KdUnseenForeignCap=2 line in ts3native.log, the four #405 switches read back on, 0 script errors.",
+      "asi": "game-copy/ts3native.asi.master-dalexlol-1115",
+      "iniBase": "game-copy/ts3native.ini.master-dalexlol-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-dalexlol-1115",
+      "pinReason": "master-dalexlol-1115 (builds.json, branch import/dalexlol-prs-1115 = master 96932b5b + PR #409 + PR #405): asi 0.36.256-jitbundle2 with KdUnseenForeignCap 0..2; ini = master's shipped ini (KdUnseenForeignCap=2); package = master ts3fixes + #405 with joyridecostume, socialfinish, socialreceivefail, alarmkilllog on",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "ini": {},
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "joyridecostume,socialfinish,socialreceivefail,alarmkilllog"
+        }
+      },
+      "logRequire": {
+        "^route async: KdUnseenForeignCap=2: foreign and own jobs of unseen followers ": 1
+      },
+      "regexCases": {
+        "^route async: KdUnseenForeignCap=2: foreign and own jobs of unseen followers ": {
+          "match": [
+            "route async: KdUnseenForeignCap=2: foreign and own jobs of unseen followers keep the doubled deadline at backoff level 2 (docs/197 §7)"
+          ],
+          "noMatch": [
+            "route async: KdUnseenForeignCap=1: foreign jobs of unseen followers keep the doubled deadline at backoff level 2 (docs/197 §7)"
+          ]
+        }
+      }
+    }
+  ]
+}

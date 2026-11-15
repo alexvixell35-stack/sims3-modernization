@@ -7,6 +7,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { readLive } from './machine-load.ts';
 
 const DIR = join(resolve(import.meta.dirname, '..', '..'), 'probe-out', 'profile');
 type Snap = { i: number; s: number; c: Record<string, number> };
@@ -83,7 +84,7 @@ function report(tag: string) {
   console.log(`  ${'worker job time (asyncUs)'.padEnd(34)} ${msps(s.on.tot.asyncUs ?? 0, s.on.secs).padStart(7)} ${msps(s.off.tot.asyncUs ?? 0, s.off.secs).padStart(7)}`);
   const mf = join(DIR, `${tag}-machine.jsonl`);
   if (t0 && existsSync(mf)) {
-    const k = clockSides(slices, t0, readFileSync(mf, 'utf8').trim().split('\n').map(l => JSON.parse(l)));
+    const k = clockSides(slices, t0, (readLive(mf) ?? '').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)));
     const f = (v: number | null) => (v == null ? '-' : v.toFixed(0) + '%');
     console.log(`  ${'CPU clock (machine samples)'.padEnd(34)} ${f(k.on).padStart(7)} ${f(k.off).padStart(7)}   (${k.n[0]} / ${k.n[1]} samples)`);
   }

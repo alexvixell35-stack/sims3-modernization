@@ -133,6 +133,7 @@ namespace Ts3Fixes
 
         static void RouteSrcEnd(ScriptCore.Route r, RouteSrcCall call, bool ok)
         {
+            RouteLenEnd(r, ok);  // routelen counters (RouteLen.cs, docs/246 §6)
             if (call.Bucket < 0) return;
             try
             {

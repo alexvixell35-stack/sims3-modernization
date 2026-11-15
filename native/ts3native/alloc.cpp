@@ -18,7 +18,7 @@
 // uses too), so realloc, memalign, heap walks and the debug layer see exactly what they would see for a live allocation.
 // No memory is reserved: cached chunks are already-committed heap memory, bounded by ThreadKB per thread and MaxMB in total.
 
-static const DWORD EA_MALLOC = 0x004E69D0, EA_MEMALIGN = 0x004E6A20, EA_FREE = 0x004E5920, EA_SHUTDOWN = 0x004E5CB0;
+static const DWORD EA_MALLOC = TS3A(0x004E69D0), EA_MEMALIGN = TS3A(0x004E6A20), EA_FREE = TS3A(0x004E5920), EA_SHUTDOWN = TS3A(0x004E5CB0);
 // push esi ; push edi ; mov edi,ecx ; mov esi,[edi+4E4h]   (same 10 bytes at Malloc, Memalign and Free)
 static const u8 kEaLockedPrologue[] = {0x56, 0x57, 0x8B, 0xF9, 0x8B, 0xB7, 0xE4, 0x04, 0x00, 0x00};
 // push ebp ; mov ebp,esp ; sub esp,14h
@@ -271,6 +271,8 @@ static bool AcInit(int threadKB, int maxMB, int perBin) {
 // [Alloc]: returns true when the detours are installed (the log must then stay open for the periodic counters).
 static bool ApplyAlloc(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"Alloc", L"Enabled", 0, ini)) { Log("alloc cache off (Enabled=0)"); return false; }
+    // docs/148 §6 #9, §7: Apex FastMemory owns the EA allocator; ours stays off next to it (no shared entry, one owner)
+    if (ApexStandsDown(AXF_FAST_MEMORY, "[Alloc]", "EA allocator entries 0x4E69D0 / 0x4E6A20 / 0x4E5920 / 0x4E5CB0")) return false;
     Ts3nCounters& c = ts3native_counters;
     const int threadKB = Clamp((int)GetPrivateProfileIntW(L"Alloc", L"ThreadKB", 64, ini), 16, 1024);
     const int maxMB = Clamp((int)GetPrivateProfileIntW(L"Alloc", L"MaxMB", 4, ini), 1, 32);

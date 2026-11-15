@@ -30,6 +30,22 @@ static class UnseenFbTest
         }
         Check(UnseenFallbackCore.Cell(-0.5f) == -1 && UnseenFallbackCore.Cell(3.99f) == 3, "cell floor");
 
+        // docs/267 F1 teleport goal: tomb/hidden first, outdoor ground passes, indoors needs an open lot and a way out
+        Check(UfPreCore.TpGoal(true, true, true, false, true) == UfPreCore.kTpTombOrHidden, "tp: tomb or hidden room refuses before anything");
+        Check(UfPreCore.TpGoal(false, true, false, true, null) == UfPreCore.kTpOk, "tp: outdoor ground passes on any lot");
+        Check(UfPreCore.TpGoal(false, false, false, false, true) == UfPreCore.kTpLotClosed, "tp: indoors on a closed lot refuses");
+        Check(UfPreCore.TpGoal(false, false, true, true, true) == UfPreCore.kTpRaised, "tp: raised outdoor (deck, roof) refuses");
+        Check(UfPreCore.TpGoal(false, false, true, false, true) == UfPreCore.kTpOk, "tp: indoor room with a way out passes");
+        Check(UfPreCore.TpGoal(false, false, true, false, false) == UfPreCore.kTpNoWayOut, "tp: sealed or locked room refuses");
+        Check(UfPreCore.TpGoal(false, false, true, false, null) == UfPreCore.kTpNoWayOut, "tp: unknown flood refuses");
+        for (int m = 0; m < 48; m++)
+        {
+            bool th = (m & 1) != 0, og = (m & 2) != 0, ol = (m & 4) != 0, ro = (m & 8) != 0;
+            bool? re = (m >> 4) == 0 ? (bool?)null : (m >> 4) == 1 ? (bool?)false : true;
+            bool ok = !th && (og || (ol && !ro && re == true));
+            Check((UfPreCore.TpGoal(th, og, ol, ro, re) == UfPreCore.kTpOk) == ok, "tp: rule mask " + m);
+        }
+
         // limiter
         UfLimiter u = new UfLimiter();
         object r;

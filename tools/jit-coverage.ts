@@ -196,7 +196,8 @@ export function runHost(env: Record<string, string>, gc: string, timeoutS: numbe
   const r = spawnSync(exe, [join(gc, 'monohost', 'TS3W.exe'), join(gc, 'assemblies'), 'selftest', join(gc, 'monohost', 'hostdata.txt')],
     { env: { ...process.env, MONOHOST_JITCORPUS: '1', MONOHOST_JITCORPUS_WORKER: '0', MONOHOST_DIVGUARD: '1', MONOHOST_MINTCALL: 'fast', MONOHOST_JITLIST: jitList(readFileSync(resolve(ROOT, 'native/monohost/monohost-jit.cpp'), 'utf8')), ...env }, timeout: timeoutS * 1000, stdio: 'ignore' });
   if (r.error) throw r.error;
-  const log = readFileSync(env.MONOHOST_LOG ?? join(OUT, 'monohost.exe.log'), 'latin1');  // MONOHOST_LOG: a per-run log path
+  let log = '';  // MONOHOST_LOG: a per-run log path; EBUSY = the exe's log handle is still closing (seen in a bench), retry up to 5 s
+  for (let t = 0; ; t++) try { log = readFileSync(env.MONOHOST_LOG ?? join(OUT, 'monohost.exe.log'), 'latin1'); break; } catch (e: any) { if (t >= 20 || e.code !== 'EBUSY') throw e; Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250); }
   const c = log.match(/jit corpus: (\d+) cases, (\d+) differ, (\d+) unstable.*/);
   if (!c && corpus) throw new Error('no corpus line in monohost.exe.log');
   return { line: c?.[0] ?? '', differ: +(c?.[2] ?? 0), log };
