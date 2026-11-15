@@ -70,6 +70,7 @@ namespace Ts3Fixes
             Patch(typeof(GoToLot), "Run", typeof(GoToLotHook), "RunHook", "RunOrig");
             Patch(typeof(GoToCommunityLot), "Run", typeof(GoToCommunityLotHook), "RunHook", "RunOrig");
             ApplyTripSubclasses();
+            ApplyMotiveBuf();  // motivebuf (MotiveBuf.cs): pass-through while off
             ApplyUnseenVisitTrip();  // visitcar (UnseenVisitTrip.cs): the visit's driving chance, pass-through unless a Run asked
             // No tuning gate here: Apply runs in Instantiator's static constructor, before the tuning loader sets the [Tunable]
             // fields, so every tuning reads its C# default (docs/124 §17.8). Hooks read their tuning per call; patches that must
@@ -565,6 +566,7 @@ namespace Ts3Fixes
         // [2689-2690] resetinusefree (InUseLogic.cs, docs/576 §2): items freed / errors.
         // [2691-2692] putdowninuse (InUseLogic.cs, docs/576 §3): put-downs repaired / errors.
         // [2693-2695] autonomyinuseblock (AutonomyInUseBlock.cs, docs/577 §1): taken objects blocked / seen with switch off / errors.
+        // [2729-2732] motivebuf (MotiveBuf.cs, docs/584 §5): updates from a pooled list / snapshots checked / check mismatches (must be 0) / fallbacks or errors.
         // [2722-2724] visitcar (UnseenVisitTrip.cs, docs/584 §1): long autonomous NPC visits judged / flips that kept driving / left to EA's flip (household, selected, seen).
         // [2725-2728] visitwalkfinish (UnseenVisitTrip.cs, docs/584 §1): interrupts asked / walks finished at the goal / refused at the callback / errors.
         // [2696-2698] npcbusypartner (NpcBusyPartner.cs, docs/577 §4): NPC waits ended / seen with switch off / errors.
@@ -768,6 +770,8 @@ namespace Ts3Fixes
                 // docs/250 §7.1 A1: OFF since rc1110b (2026-11-09) until the wdasync-fix-1110 tests (Instantiator.kWatchdogAsync)
                 case "watchdogasync": return Instantiator.kWatchdogAsync;
                 case "watchdogasyncshadow": return false;  // correctness arm only: re-runs each A1 check sync and counts mismatches
+                case "motivebuf": return false;  // proven-exact speedup, off until measured: motive updates snapshot into a pooled list (MotiveBuf.cs, docs/584 §5)
+                case "motivebufcheck": return false;  // pure check for motivebuf: each snapshot compared with the game's copy (MotiveBuf.cs)
                 case "visitcar": return false;  // unseen NPC visits keep driving at EA's coin flip (UnseenVisitTrip.cs, docs/584 §1)
                 case "visitwalkfinish": return false;  // unseen NPC still walking to a visit after 60 sim-min finishes at the lot (UnseenVisitTrip.cs, docs/584 §1)
                 case "autlastsearch": return false;  // log only: each Sim's last autonomy search and its result, for the census (AutLive.cs, docs/584 §4)

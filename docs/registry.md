@@ -409,6 +409,7 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2693-2695 | reserved (claude, `fixes-2693`) | docs/577 §1 autonomyinuseblock (AutonomyInUseBlock.cs) |
 | 2696-2698 | reserved (claude, `fixes-2696`) | docs/577 §4 npcbusypartner (NpcBusyPartner.cs) |
 | 2722-2728 | `UnseenVisitTrip.cs` (`fixes-2722`, docs/584 §1), `visitcar` / `visitwalkfinish` | built 2026-11-15, default off, NOT RUN: long autonomous NPC visits judged (2722) / coin flips that kept driving (2723) / left to EA's flip, household or seen (2724); walk interrupts asked (2725) / walks finished at the lot (2726) / refused at the callback (2727) / errors (2728) |
+| 2729-2732 | `MotiveBuf.cs` (`fixes-2729`, docs/584 §5), `motivebuf` / `motivebufcheck` | built 2026-11-15, default off, NOT RUN: motive updates served from a pooled list, >= 2 allocations saved each (2729) / snapshots checked against the game's copy (2730) / check mismatches, must be 0 (2731) / fallbacks or errors (2732) |
 | **1057+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
