@@ -7,7 +7,7 @@ namespace Ts3Fixes
     {
         // docs/202 §2: the first failing test of the scope rule, 0 = unseen (act). Order = the doc's table, so counters and
         // logs name the cheapest reason first.
-        public const int kSeen = 0, kNotLive = 1, kGone = 2, kHousehold = 3, kActiveLot = 4, kOnScreen = 5, kNearViewers = 6, kHeld = 7, kSocialSeen = 8, kGoalHousehold = 9;  // 9: from UfGoalWhy only, never Why or UfWhy
+        public const int kSeen = 0, kNotLive = 1, kGone = 2, kHousehold = 3, kActiveLot = 4, kOnScreen = 5, kNearViewers = 6, kHeld = 7, kSocialSeen = 8, kGoalHousehold = 9, kBirth = 10;  // 9: from UfGoalWhy only, 10: from UfBirthWhy only (birthroute, docs/558); never Why or UfWhy
         public static int Why(bool live, bool exists, bool household, bool activeLot, bool onScreen, bool far, bool held, bool targetSeen)
         {
             if (!live) return kNotLive;
@@ -29,7 +29,8 @@ namespace Ts3Fixes
 
         // docs/197 §7 KdSeenNpcCeilMs: the reasons that prove a known NPC the player sees. Household, not live, gone, -1 (a failed
         // check) and anything else stay on the household ceiling.
-        public static bool SeenNpc(int why) { return why >= kActiveLot && why <= kGoalHousehold; }
+        // kBirth (docs/558 birthroute): an unseen NPC's birth route (Pregnancy priority) gets the seen-NPC ceiling, never a cut.
+        public static bool SeenNpc(int why) { return why >= kActiveLot && why <= kBirth; }
         // the UserDiag op that tells native a route's scope: 11 unseen, 13 seen NPC, 10 household or unknown
         public static int KdScopeOp(int why) { return why == kSeen ? 11 : SeenNpc(why) ? 13 : 10; }
         // a kHeld Sim held only by the vehicle it sits in (not riding, carried-by or carrying, no household or selectable occupant)

@@ -4,7 +4,7 @@
   "jobs": [
     {
       "id": "bp-golive-checks",
-      "note": "[est 16 min] Correctness (10 min): go-live acting with autlivelod and autlivetune on, repro aut-live-crowd-view (spawned Sims sent onto the active lot every 150 s: LOD flips while searches wait). Pass: read-backs, g8_unseen_pushes >= 1, autlivelod_drops and autlivetune_drops present, autlivetune_us >= 1 (fingerprints ran), 0 script errors, G8 h.d = 0.",
+      "note": "[est 34 min] Correctness (10 min): go-live acting with autlivelod and autlivetune on, repro aut-live-crowd-view (spawned Sims sent onto the active lot every 150 s: LOD flips while searches wait). Pass: read-backs, g8_unseen_pushes >= 1, autlivelod_drops and autlivetune_drops present, autlivetune_us >= 1 (fingerprints ran), 0 script errors, G8 h.d = 0.",
       "asi": "game-copy/ts3native.asi.master-lanes-1115",
       "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
       "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
@@ -13,7 +13,7 @@
       "minCounters": 159,
       "noiseCheck": false,
       "scriptErrorsMax": 0,
-      "timeoutMin": 30,
+      "timeoutMin": 45,
       "ini": {
         "HitchAttr.Enabled": 1,
         "RouteSnap.Enabled": 1,

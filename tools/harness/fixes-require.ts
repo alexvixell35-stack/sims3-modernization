@@ -84,6 +84,14 @@ export async function nativeWindowStep(s: { cmd: string; args?: any }, native: (
   return { ok: true, result: Object.fromEntries(parseRequire(rule).map(r => [r.name, d[r.name] ?? d[r.name.replace(/\.(\d+)$/, '_$1')]])) };
 }
 
+// Repro step "mustMatch": "<regex>": the step's answer (result text, or JSON when not a string) must match, else the step FAILs
+// (2026-11-15 bp-unseen-tp-goal PASSed hollow: trap "N/A", mark "no trapped NPC", cleanup "moved 0" were only logged)
+export function mustMatchFail(s: { cmd: string; mustMatch?: string }, r: { ok?: boolean; result?: unknown }): string | null {
+  if (!s.mustMatch || !r?.ok) return null;
+  const text = typeof r.result === 'string' ? r.result : JSON.stringify(r.result);
+  return new RegExp(s.mustMatch).test(text) ? null : `repro step ${s.cmd} answer does not match /${s.mustMatch}/: ${String(text).slice(0, 300)}`;
+}
+
 if (import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/').replace(/^\//, '')}`) {
   assert.deepEqual(checkRequire('a>=1,b<5000', { a: 2, b: 4999 }), []);
   assert.deepEqual(checkRequire('a>=1,b<5000', { a: 0, b: 5000 }), ['a=0 (want >=1)', 'b=5000 (want <5000)']);
@@ -121,5 +129,18 @@ if (import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/').replace(
   assert.deepEqual(await nativeWindowStep({ cmd: 'native_check', args: { name: 'bb', require: 'ufcTry_3<=0' } }, nat, marks), { ok: true, result: { ufcTry_3: 0 } });
   assert.deepEqual(await nativeWindowStep({ cmd: 'native_check', args: { name: 'bb', require: 'ufcTry_3<=0,w<=2' } }, nat, marks),
     { ok: false, error: 'native_check bb: ufcTry_3=1 (want <=0)' });
+  // mustMatch on the real 2026-11-15 answers: the hollow ones fail, the wanted ones pass
+  const mm = (re: string, result: unknown) => mustMatchFail({ cmd: 'reflect_call', mustMatch: re }, { ok: true, result });
+  assert.match(mm('\\(in the room\\) hidden=True exit=closed', 'trap: N/A (lot Air Spray - 2br, 2ba has no hidden room; lots ...') ?? '', /does not match/);
+  assert.equal(mm('\\(in the room\\) hidden=True exit=closed', 'trap: X -> hidden room 26 level 0 on F; now room 26 lot F (in the room) hidden=True exit=closed'), null);
+  assert.match(mm('\\(in the room\\) hidden=True exit=closed', 'trap: X -> hidden room 26 ...; now room 1 lot F (NOT in the room) hidden=False exit=out') ?? '', /does not match/);
+  assert.match(mm('^mark: (?!no trapped)', 'mark: no trapped NPC (run HiddenRoomCheck trap first) | counters') ?? '', /does not match/);
+  assert.equal(mm('^mark: (?!no trapped)', 'mark: Lenny Shutter @1,2 room 26 | counters'), null);
+  assert.match(mm('moved [1-9]', 'cleanup: moved 0, left 0 | counters') ?? '', /does not match/);
+  assert.equal(mm('left [1-9]', 'cleanup: moved 0, left 1 | counters'), null);
+  assert.match(mm('\\nPASS: ', 'goal: lot A\n  entry point outside: teleport ok\nN/A (no closed room on this lot): closed 0') ?? '', /does not match/);
+  assert.equal(mm('\\nPASS: ', 'goal: lot F\n  hidden marker r26(H) closed: refused\nPASS: closed 4'), null);
+  assert.equal(mm('x', { a: 'x' }), null);  // object answers match against their JSON
+  assert.equal(mustMatchFail({ cmd: 'c', mustMatch: 'x' }, { ok: false }), null);  // a failed step is the optional/failed rule's job
   console.log('fixes-require selftest: PASS');
 }

@@ -65,7 +65,7 @@ that is no longer scheduled. Same code: a level-up moves generic courses to anot
 old building, so deleting the class's new building never cancels the course. The leak lasts the world session (the
 EventTracker is rebuilt per world, §5; the listener field is not re-added after load).
 
-**courselistener [built, NOT RUN]** (`SmallEaFixes555.cs`, tuning `kCourseListener`, off): EA's `RemoveListener` for every
+**courselistener [built, NOT RUN]** (`CourseListener.cs`, tuning `kCourseListener`, off): EA's `RemoveListener` for every
 scheduled course in LeaveJobNow's `RemoveStudent` step (its only caller; LeaveJobNow itself is invoked by reflection in
 `LeaveJobDispose.cs`, so it is not swapped) and before `CreateCoursesSchedule`; `ChangeRabbitHoleTo` re-adds a moved
 course's listener on the new rabbit hole with EA's `SetRabbitHoleDisposedEventListener`. Counters 2420 removed, 2421

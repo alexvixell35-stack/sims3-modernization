@@ -27,6 +27,7 @@ namespace Ts3Agent
             RegisterThumbCensus(); // ThumbCensusHandlers.cs
             RegisterBoatGone(); // BoatGoneHandlers.cs
             RegisterBoatGetOutStress(); // BoatGetOutStressHandlers.cs
+            RegisterInteractionSweep(); // InteractionSweepHandlers.cs, docs/268
         }
 
         static object Ping(Args a)

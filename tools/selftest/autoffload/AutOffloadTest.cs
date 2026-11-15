@@ -9,6 +9,20 @@ static class AutOffloadTest
     static int sFail;
     static void Check(string what, int got, int want) { if (got != want) { sFail++; Console.WriteLine("FAIL " + what + ": " + got + " want " + want); } }
 
+    // docs/126 §8 IC compare with per-group aborts: groups 0 = slots 0-1, 1 = slot 2, 2 = slots 3-4
+    static void IcDiffChecks()
+    {
+        byte[] g = { 0, 0, 1, 2, 2 };
+        long[] w = { 1, 2, 3, 4, 5 }, r = { 1, 2, 3, 4, 5 };
+        Check("ic all equal", AutOffloadCore.IcFirstDiff(w, r, g, 0), 5);
+        r[2] = 9;
+        Check("ic diff in slot 2", AutOffloadCore.IcFirstDiff(w, r, g, 0), 2);
+        Check("ic diff in an aborted group is skipped", AutOffloadCore.IcFirstDiff(w, r, g, 1 << 1), 5);
+        r[4] = 9;
+        Check("ic diff after an aborted group", AutOffloadCore.IcFirstDiff(w, r, g, 1 << 1), 4);
+        Check("ic other group aborted", AutOffloadCore.IcFirstDiff(w, r, g, 1 << 0), 2);
+    }
+
     // docs/208 §9.2 closest-lot rule on a lot from (0,0) to (10,20)
     static void LotChecks()
     {
@@ -41,6 +55,7 @@ static class AutOffloadTest
     static int Main()
     {
         LotChecks();
+        IcDiffChecks();
         object a = new object(), b = new object(), c = new object();
         object[] w = { a, b, c }, r = { a, b, c }, swapped = { b, a, c }, other = { a, b, a };
         bool[] f = { true, false, true }, fs = { false, true, true }, g = { true, true, true };

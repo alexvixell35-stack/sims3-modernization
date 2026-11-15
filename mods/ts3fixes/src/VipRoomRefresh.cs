@@ -20,7 +20,7 @@ namespace Ts3Fixes
     // The fix runs EA's loop body unchanged over a copy of VIPRooms: the same rooms in the same order, the same calls,
     // and the empty room is removed from the real list as EA does; only the throw (and the rooms it skipped) go away.
     // Counters: [2417] calls where EA's loop would have thrown (counted with the switch off too), [2418] empty rooms the
-    // fix removed, [2419] errors (registry fixes-2417). Harness check: VipRoomCheck below, repro vip-room-refresh-modified.
+    // fix removed, [2419] errors (registry fixes-2417). Harness check: VipRoomCheck (VipRoomRefreshChecks.cs), repro vip-room-refresh-modified.
     public static partial class Fixes
     {
         static void ApplyVipRoomRefresh()
@@ -76,31 +76,6 @@ namespace Ts3Fixes
                 }
                 if (room.DoorIds.Count <= 0) { rm.VIPRooms.Remove(room); PatchCounters()[2418]++; }
             }
-        }
-
-        // VipRoomCheck
-        //   run     a throwaway ResortManager (private constructor: no lot, no alarms, nothing registered) with two VIP rooms
-        //           whose only door id names no object; EA's RefreshVIPRooms (through the patch) is called once.
-        //           Off arm: BROKEN = "Collection was modified" thrown, 1 room left (the one after the removed room was
-        //           never visited). On arm: FIXED = no exception, 0 rooms left, 2418 +2.
-        //   result  counters 2417-2419
-        public static object VipRoomCheck(string what)
-        {
-            int[] c = PatchCounters();
-            string counters = "viproomrefresh: would throw 2417=" + c[2417] + ", removed 2418=" + c[2418] + ", errors 2419=" + c[2419];
-            if (what == "result") return counters;
-            if (what != "run") return "viproom <run|result>";
-            ResortManager rm = Activator.CreateInstance(typeof(ResortManager), true) as ResortManager;
-            if (rm == null || rm.VIPRooms == null) return "viproom check: no ResortManager (N/A)";
-            rm.VIPRooms.Add(new ResortManager.VIPRoomData(0uL, ObjectGuid.InvalidObjectGuid));
-            rm.VIPRooms.Add(new ResortManager.VIPRoomData(0uL, ObjectGuid.InvalidObjectGuid));
-            string thrown = "none";
-            try { rm.RefreshVIPRooms(); }
-            catch (Exception e) { thrown = e.GetType().Name + ": " + e.Message; }
-            int left = rm.VIPRooms.Count;
-            bool on = ShortcutOn("viproomrefresh");
-            string verdict = left == 0 && thrown == "none" ? "FIXED" : left == 1 && thrown != "none" ? "BROKEN" : "UNEXPECTED";
-            return "viproom check (switch " + (on ? "on" : "off") + "): exception " + thrown + ", rooms left " + left + " of 2; verdict: " + verdict + "; " + counters;
         }
     }
 }

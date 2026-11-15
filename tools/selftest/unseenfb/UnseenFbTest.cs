@@ -235,7 +235,8 @@ static class UnseenFbTest
         Check(UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kActiveLot) && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kOnScreen) && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kNearViewers)
             && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kHeld) && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kSocialSeen), "seen NPC ceiling: the five proving reasons");
         Check(!UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kHousehold) && !UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kNotLive) && !UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kGone)
-            && !UnseenFallbackCore.SeenNpc(-1) && !UnseenFallbackCore.SeenNpc(0) && !UnseenFallbackCore.SeenNpc(10), "household, not live, gone, failed check, unseen, unknown values: never the NPC ceiling");
+            && !UnseenFallbackCore.SeenNpc(-1) && !UnseenFallbackCore.SeenNpc(0) && !UnseenFallbackCore.SeenNpc(11), "household, not live, gone, failed check, unseen, unknown values: never the NPC ceiling");
+        Check(UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kBirth) && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kBirth) == 13 && !UnseenFallbackCore.SeenButMovable(UnseenFallbackCore.kBirth), "birth route (docs/558): seen NPC scope, never cut, never a D-leave");
         Check(UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kSeen) == 11 && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kHeld) == 13 && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kGoalHousehold) == 13
             && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kHousehold) == 10 && UnseenFallbackCore.KdScopeOp(-1) == 10 && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kGone) == 10, "scope op: unseen 11, seen NPC 13, household and unknown 10");
         Check(UnseenFallbackCore.KdHeldUnseen(true, false, false) && !UnseenFallbackCore.KdHeldUnseen(false, false, false)

@@ -864,6 +864,7 @@ namespace Ts3Fixes
                 int driverlessWhy = 0;
                 if (who == null && !ownCheck) { UfDriverless(proxy); driverlessWhy = UfDriverlessWhy(proxy); }  // scope-gap counters; the household rule for a route without a driver
                 int why = who != null ? SafeUfWhy(who) : driverlessWhy;
+                if (why == 0 && who != null && !ownCheck && BirthRouteKept(who)) why = UnseenFallbackCore.kBirth;  // docs/558 birthroute: never cut a birth route
                 if (why == 0 && who != null && !ownCheck && ShortcutOn("goalhhexempt")) why = UfGoalWhy(who, kind);  // docs/197 §7
                 if (sim != null && !ownCheck && sim.SimDescription != null && !sim.SimDescription.IsPet) last.ViewerOnly = sUfWhyViewerOnly;  // scope-gap counters: viewer-only 80 m
                 int kdWhy = why;  // native's scope only: why itself stays kHeld, so no unseen feature moves or fakes a rider
@@ -877,7 +878,7 @@ namespace Ts3Fixes
                     return false;
                 int[] c = PatchCounters();
                 last.Why = why; last.Sim = sim;
-                if (why != 0 && why != UnseenFallbackCore.kGoalHousehold && sUrPlaced.Count > 0 && sUrPlaced.ContainsKey(sim.ObjectId.Value) && UrRepairSim(sim)) sUrPlaced.Remove(sim.ObjectId.Value);  // §3.9.7 (D)
+                if (why != 0 && why != UnseenFallbackCore.kGoalHousehold && why != UnseenFallbackCore.kBirth && sUrPlaced.Count > 0 && sUrPlaced.ContainsKey(sim.ObjectId.Value) && UrRepairSim(sim)) sUrPlaced.Remove(sim.ObjectId.Value);  // §3.9.7 (D)
                 if (why != 0)
                 {
                     if (leave && UnseenFallbackCore.SeenButMovable(why) && UfLeave(sim, GetApproximateOriginalDestination(), out r)) return true;

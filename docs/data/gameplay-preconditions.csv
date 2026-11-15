@@ -275,3 +275,4 @@ rel_onesided,DesignedReproHandlers,Live,none (read),harness,,handler,none
 nraas_reset_sims,DesignedReproHandlers,Live,NRaas MasterController-style reset of up to 10 uncontrolled Sims at once,stress,NRaas installed; never household or selected Sims,handler,live
 event_cost,DesignedReproHandlers,Any,none (diagnostics switch and read),harness,,handler,none
 place_cancel_loop,MemHandlers,Live,placing an inventory object and cancelling the hand tool again and again (50 rounds),stress,selected Sim's inventory; live mode,handler,none
+interaction_sweep,InteractionSweepHandlers,Live,"none: every pack interaction definition forced on NPC actors (ages + pets) teleported to each target, run a few seconds, cancelled or reset; pack objects bought free and placed on the far community lot (docs/268)",stress,"NPCs of known non-active, non-service households; the active Sim only with household: true on a test save; destructive definitions skipped",handler,live

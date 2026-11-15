@@ -74,5 +74,14 @@ namespace Ts3Fixes
             best = d;
             return 1;
         }
+
+        // docs/126 §8 IC dry compare: first slot where w and r differ, skipping slots whose group (slotGroup[i]) aborted on
+        // either side (bit g of abMask); slotGroup.Length = no difference.
+        public static int IcFirstDiff(long[] w, long[] r, byte[] slotGroup, int abMask)
+        {
+            int d = 0;
+            while (d < slotGroup.Length && (((abMask >> slotGroup[d]) & 1) != 0 || w[d] == r[d])) d++;
+            return d;
+        }
     }
 }

@@ -92,20 +92,41 @@ while (Get-Process -Id ${process.pid}) {
 };
 
 // cpus: the game CPU set for the og/oo split (pin.ts: TS3_GAME_CPUS, default 4-<n-1>); the sampler itself runs on the rest
-export function startMachineLoad(file: string, everyS = 30, cpus: string | null = gameCpus()): () => void {
+// stop() resolves once the sampler has exited (max 5 s), so the summary does not read a file it still holds open
+// (2026-11-15: EBUSY on the -machine.jsonl right after kill() killed the whole queue)
+export function startMachineLoad(file: string, everyS = 30, cpus: string | null = gameCpus()): () => Promise<void> {
   const p: ChildProcess = spawn('powershell', ['-NoProfile', '-NonInteractive', '-Command', script(file, everyS, cpus)], { stdio: 'ignore', windowsHide: true });
-  return () => { try { p.kill(); } catch { /* gone */ } };
+  const gone = new Promise<void>(r => { p.once('exit', () => r()); p.once('error', () => r()); });
+  return async () => {
+    if (p.exitCode === null && p.signalCode === null) { try { p.kill(); } catch { /* gone */ } }
+    await Promise.race([gone, new Promise(r => setTimeout(r, 5000))]);
+  };
 }
 
-// rows of a machine file; a line the sampler is still writing is skipped (queue.ts reads the file mid-run)
-const rowsOf = (file: string): any[] => (existsSync(file) ? readFileSync(file, 'utf8').trim().split(/\r?\n/).filter(Boolean)
-  .flatMap(l => { try { return [JSON.parse(l)]; } catch { return []; } }) : []);
-export const summarize = (file: string) => summarizeRows(rowsOf(file));
+// read a file another process may still hold (sampler, AV, indexer): EBUSY/EPERM/EACCES retried 5 x 200 ms, then null;
+// other errors (file gone) give null too. read: injectable for the self-check
+export function readLive(file: string, read: (f: string) => string = f => readFileSync(f, 'utf8')): string | null {
+  for (let i = 0; ; i++) {
+    try { return read(file); } catch (e) {
+      if (!['EBUSY', 'EPERM', 'EACCES'].includes((e as NodeJS.ErrnoException).code ?? '') || i >= 4) return null;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200);
+    }
+  }
+}
+
+// rows of a machine file; a line the sampler is still writing is skipped (queue.ts reads the file mid-run); null = unreadable
+const rowsOf = (file: string, read?: (f: string) => string): any[] | null => {
+  if (!existsSync(file)) return [];
+  const t = readLive(file, read);
+  return t === null ? null : t.trim().split(/\r?\n/).filter(Boolean).flatMap(l => { try { return [JSON.parse(l)]; } catch { return []; } });
+};
+export const UNREAD = { line: 'machine load: unread (file locked)', ok: false, noise: 'unknown', short: 'noise: unknown (machine load unread)' };
+export const summarize = (file: string, read?: (f: string) => string) => { const rows = rowsOf(file, read); return rows ? summarizeRows(rows) : UNREAD; };
 // early verdict (queue.ts, timing jobs): the NOT comparable rule below over the samples from `from` + 60 s (profiler start-up
 // skipped); null until `min` samples exist (ask again), '' when fine, else why the run is void
 export function earlyNoise(file: string, from: number, min = 3): string | null {
-  const rows = rowsOf(file).filter(r => r.t >= from + 60000);
-  if (rows.length < min) return null;
+  const rows = rowsOf(file)?.filter(r => r.t >= from + 60000);
+  if (!rows || rows.length < min) return null; // unreadable: ask again
   const s = summarizeRows(rows);
   return s.ok ? '' : `noisy machine early: ${s.line}`;
 }
@@ -163,11 +184,19 @@ if (import.meta.main) {
     rmSync(f);
   }
   check(lv([{ other: 2, perf: 100 }]) === 'low', 'old rows without the new fields');
+  { // locked file (EBUSY): retried, then the unread summary instead of a throw
+    const f = `${process.env.TEMP ?? '.'}/machine-load-busy-${process.pid}.jsonl`; writeFileSync(f, '');
+    const busy = (n: number) => { let k = 0; return () => { if (k++ < n) throw Object.assign(new Error('EBUSY: resource busy or locked'), { code: 'EBUSY' }); return JSON.stringify({ t: 1, other: 2, perf: 100, top: [] }) + '\n'; }; };
+    check(/\(1 samples\)/.test(summarize(f, busy(2)).line), 'EBUSY twice, then read');
+    check(summarize(f, busy(99)) === UNREAD, 'EBUSY always: unread summary, no throw');
+    check(readLive(f, () => { throw Object.assign(new Error('x'), { code: 'ENOENT' }); }) === null, 'other error: null');
+    rmSync(f);
+  }
   if (process.argv.includes('--verdict-only')) { console.log('self-check PASS (verdict only)'); process.exit(0); }
   const secs = Number(process.argv[2] ?? 30), file = `${process.env.TEMP ?? '.'}/machine-load-selfcheck-${Date.now()}.jsonl`;
   const stop = startMachineLoad(file, 5);
   await new Promise(r => setTimeout(r, (secs + 3) * 1000));
-  stop();
+  await stop();
   const s = summarize(file);
   console.log(s.line);
   if (!existsSync(file) || !readFileSync(file, 'utf8').trim()) { console.log('self-check FAIL: no samples written'); process.exit(1); }

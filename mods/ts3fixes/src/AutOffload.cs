@@ -85,7 +85,11 @@ namespace Ts3Fixes
         // docs/126 §8 (autofft2ic, with autofft2 and [AutShadow] Tier2IcRows=1): the class-a IC rows for the same objects. Each
         // group writes its own slots of V (G1 0-5, G2 6-8, G3 9-10, G4 11-14, docs/data/tier2-rows-handoff.md); equal = all slots
         const int kIcV = 28;  // slots 0-14: IcG1-IcG4; 15-19: IcG5 (E rows); 20-21: IcG6 (E3 rows); 22: IcG7 (P6); 23-24: IcG8 (P5); 25-27: IcG9 (L8)
-        sealed class IcRes { public bool Done, Exc; public int Abort = -1; public readonly long[] V = new long[kIcV]; }
+        sealed class IcRes { public bool Done, Exc; public int Abort = -1, AbG; public readonly long[] V = new long[kIcV]; }
+        // Group of each slot (IcG1 = 0 .. IcG9 = 8). A group whose read aborted on either side is left out of the compare, so one
+        // early abort (G1's pos rows abort first on ~every BP item) no longer hides the later groups (lane-l8-1115 BP eq=0).
+        static readonly byte[] kIcSlotG = { 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 6, 7, 7, 8, 8, 8 };
+        const int kIcAllG = (1 << 9) - 1;
         static readonly IcRes[] sIcRef = NewIc(), sIcWork = NewIc();
         static int sIcN;
         static Household sIcHh;  // the active household at the post (sim thread), for IcG5's household rule
@@ -411,7 +415,7 @@ namespace Ts3Fixes
                 IcRes r = ir[k];
                 r.Exc = false; r.Abort = -1;
                 if (worker && AutShadowNative.Stopped()) return;
-                try { IcRead(sT2Objs[k], r.V); }
+                try { IcRead(sT2Objs[k], r); }
                 catch (Exception) { r.Exc = true; }
                 Settle(ref r.Abort);
                 r.Done = !(worker && AutShadowNative.Stopped());
@@ -495,9 +499,9 @@ namespace Ts3Fixes
                 IcRes w = sIcWork[k], r = sIcRef[k];
                 if (!cmp || !w.Done || !r.Done) { c[cIc + 4]++; continue; }
                 if (w.Exc || r.Exc) { c[cIc + 5]++; continue; }
-                if (w.Abort >= 0 || r.Abort >= 0) { c[cIc + 3]++; Reason(48, w.Abort >= 0 ? w.Abort : r.Abort); continue; }
-                int d = 0;
-                while (d < kIcV && w.V[d] == r.V[d]) d++;
+                int abG = w.AbG | r.AbG;
+                if (abG == kIcAllG) { c[cIc + 3]++; Reason(48, w.Abort >= 0 ? w.Abort : r.Abort); continue; }
+                int d = AutOffloadCore.IcFirstDiff(w.V, r.V, kIcSlotG, abG);
                 c[d == kIcV ? cIc + 1 : cIc + 2]++;
                 if (d < kIcV) OffLog("t2ic", sT2Objs[k], d, 0, 0, 0, (int)w.V[d], (int)r.V[d]);
             }
@@ -726,10 +730,21 @@ namespace Ts3Fixes
             return sIcWorld != null;
         }
 
-        static void IcRead(GameObject o, long[] v)
+        static void IcRead(GameObject o, IcRes r)
         {
+            long[] v = r.V;
             Array.Clear(v, 0, v.Length);
-            IcG1(o, v); IcG2(o, v); IcG3(o, v); IcG4(o, v); IcG5(o, v); IcG6(o, v); IcG7(o, v); IcG8(o, v); IcG9(o, v);
+            r.AbG = 0;
+            IcG1(o, v); IcAb(r, 0); IcG2(o, v); IcAb(r, 1); IcG3(o, v); IcAb(r, 2); IcG4(o, v); IcAb(r, 3); IcG5(o, v); IcAb(r, 4);
+            IcG6(o, v); IcAb(r, 5); IcG7(o, v); IcAb(r, 6); IcG8(o, v); IcAb(r, 7); IcG9(o, v); IcAb(r, 8);
+        }
+        static void IcAb(IcRes r, int g)
+        {
+            int ab = AutShadowNative.Aborted();  // as Settle, per group; the sim thread never aborts
+            if (ab < 0) return;
+            r.AbG |= 1 << g;
+            if (r.Abort < 0) r.Abort = ab;
+            AutShadowNative.ResetAbort();
         }
 
         // G1 terrain and floor, slots 0-5 (rows: TerrainHeight, TerrainType, HasFloorFeatures, HasFloorFeaturesWorldPos,

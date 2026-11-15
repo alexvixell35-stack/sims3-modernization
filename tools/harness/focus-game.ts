@@ -52,9 +52,9 @@ if (import.meta.main) {
     const s = returnFocusPs(1);
     console.assert(!/keybd_event|SendKeys|SendInput/.test(s), 'focus return must not synthesize keys');
     console.assert(s.includes('AttachThreadInput') && s.includes('[IntPtr]1;'), 'attach method + hwnd');
-    console.log('focus-game self-check ok'); process.exit(0);
+    console.log('focus-game self-check ok'); // no process.exit: on a pipe it aborted in libuv (async.c line 94, exit 127, 2026-11-15)
   }
-  if (a === 'save') { saveForeground(); console.log('saved', existsSync(STATE) ? readFileSync(STATE, 'utf8') : '(game was in front, nothing saved)'); }
+  else if (a === 'save') { saveForeground(); console.log('saved', existsSync(STATE) ? readFileSync(STATE, 'utf8') : '(game was in front, nothing saved)'); }
   else if (a === 'back') console.log(giveFocusBack());
   else console.log(focusGame() ? 'in front' : 'not in front');
 }

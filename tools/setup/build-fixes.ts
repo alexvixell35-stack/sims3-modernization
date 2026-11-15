@@ -249,34 +249,65 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSocialReceiveFail value="True" />
     <kPetFirePlan value="False" />
     <kSplashRoof value="False" />
-    <kShuffleboardBcast value="False" />
-    <kCookClickListener value="False" />
-    <kVipRoomRefresh value="False" />
-    <kCourseListener value="False" />
-    <kObservatoryMsg value="False" />
-    <kBubblePipeGuard value="False" />
-    <kBuffState value="False" />
-    <kStoreWorldEvents value="False" />
+    <kShuffleboardBcast value="True" />
+    <kCookClickListener value="True" />
+    <kVipRoomRefresh value="True" />
+    <kCourseListener value="True" />
+    <kObservatoryMsg value="True" />
+    <kBubblePipeGuard value="True" />
+    <kBuffState value="True" />
+    <kStoreWorldEvents value="True" />
+    <kBowlingLane value="True" />
+    <kGenieBanish value="True" />
+    <kSpaceSimPartner value="True" />
+    <kBandJam value="True" />
+    <kStatueLine value="True" />
+    <kCleanFlag value="True" />
+    <kBirdTvNull value="True" />
+    <kGoHomeWalk value="True" />
+    <kPhotoBoothFunds value="True" />
+    <kShellLighting value="True" />
+    <kBonfireSpice value="True" />
+    <kDjCleanup value="True" />
+    <kVampireHuntGlow value="True" />
+    <kHotTubWoohooFx value="True" />
+    <kBribeGuard value="True" />
+    <kOppDeadListeners value="True" />
+    <kDaycareQuit value="True" />
+    <kPrivateEyeCase value="True" />
+    <kWeddingCancel value="True" />
+    <kGhostSpawnArgs value="True" />
+    <kMoveInPartner value="True" />
+    <kReaperFlow value="True" />
+    <kServiceLeave value="True" />
+    <kVisitGreetAlarm value="True" />
+    <kFieldTripAdult value="True" />
+    <kAutonomyFailBlock value="True" />
+    <kVisitTooLate value="True" />
+    <kSpoonReset value="True" />
+    <kHomeworkHelp value="True" />
+    <kBirthRoute value="True" />
+    <kPutDownPlace value="True" />
     <kAwardKeep value="False" />
-    <kCeremonySpot value="False" />
-    <kEventCrowdRing value="False" />
-    <kEventRouteRetry value="False" />
+    <kCeremonySpot value="True" />
+    <kEventCrowdRing value="True" />
+    <kEventRouteRetry value="True" />
     <kSimFestKeep value="False" />
-    <kWeddingArchKeep value="False" />
-    <kHsGradKeep value="False" />
+    <kWeddingArchKeep value="True" />
+    <kHsGradKeep value="True" />
     <kUniGradKeep value="False" />
     <kBsRefund value="False" />
-    <kComboProtest value="False" />
+    <kComboProtest value="True" />
     <kComboVenue value="False" />
-    <kComboSituation value="False" />
-    <kComboJob value="False" />
-    <kComboProtestLot value="False" />
-    <kComboOpp value="False" />
-    <kHiddenRoomNpc value="False" />
-    <kHiddenRoomSpawn value="False" />
-    <kAptLeave value="False" />
+    <kComboSituation value="True" />
+    <kComboJob value="True" />
+    <kComboProtestLot value="True" />
+    <kComboOpp value="True" />
+    <kHiddenRoomNpc value="True" />
+    <kHiddenRoomSpawn value="True" />
+    <kAptLeave value="True" />
     <kPartyOutcome value="False" />
-    <kPartyMotive value="False" />
+    <kPartyMotive value="True" />
     <kFilterGridLeak value="True" />
     <kCompositorGhost value="True" />
     <kCasPuckEvents value="True" />
@@ -309,7 +340,8 @@ const lintStatics = (srcDir: string) => {
 const compile = (srcDir: string, out: string, extraRefs: string[] = []) => (lintStatics(srcDir),
   execFileSync(CSC, ['/nologo', '/nostdlib+', '/noconfig', '/target:library', '/optimize+', '/langversion:5', '/warn:4',
     '/nowarn:414,169,649', `/out:${out}`, ...REFS.map(r => `/reference:${join(REF_DIR, `${r}.dll`)}`), ...extraRefs.map(r => `/reference:${r}`),
-    ...readdirSync(srcDir).filter(f => f.endsWith('.cs')).map(f => join(srcDir, f))], { stdio: 'inherit' }));
+    // file names relative to cwd: absolute paths from a worktree overflow Windows' 32 K command line
+    ...readdirSync(srcDir).filter(f => f.endsWith('.cs'))], { stdio: 'inherit', cwd: srcDir }));
 compile(src, dll);
 const pkg = writePackage([
   { type: TYPE_S3SA, group: 0, instance: fnv64(ASSEMBLY), data: s3saEncode(readFileSync(dll)) },

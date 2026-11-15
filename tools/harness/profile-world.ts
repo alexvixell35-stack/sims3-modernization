@@ -75,7 +75,7 @@ import { join, resolve } from 'node:path';
 import { classify } from './shadow-compare-report.ts';
 import { lastLockWaitLineInFile } from './lock-wait-line.ts';
 import { parseArgs } from 'node:util';
-import { checkRequire, nativeWindowStep, numericFields, parseRequire, stepTally } from './fixes-require.ts';
+import { checkRequire, mustMatchFail, nativeWindowStep, numericFields, parseRequire, stepTally } from './fixes-require.ts';
 import { checkHitchTasks, parseHitchTasks } from './hitch-tasks.ts';
 import { checkTag, parseRule } from './frame-lead.ts';
 import { isSetup, runLoop, runSteps, stopLine, untilUnlocked, withRule } from './repro-loop.ts';
@@ -525,6 +525,8 @@ const reproStep = async (s: any) => {
   // fail fast, as repro.ts: a failed setup step means the rest of the run measures nothing (2026-10-19 bp-ab-wildflowertask
   // ended PASS after wildflower_drain failed); "optional": true steps may fail. The queue closes the game after the job.
   if (!r.ok && !s.optional) await reproFail(`repro step ${s.cmd} failed: ${String(r.error).split('\n')[0].slice(0, 300)}`);
+  const mm = mustMatchFail(s, r); // "mustMatch": the answer must show the case happened (an "N/A" answer is not a PASS)
+  if (mm) await reproFail(mm);
   return r;
 };
 const reproRun = (async () => {
@@ -643,7 +645,7 @@ if (window) { samplerSpan('native', nativeT0); console.log(`${stamp()} native sa
 await Promise.all([upkeep, profDone, toggler, fwLoop, reproRun, mainOnlyRun, inroomDone, watchDone, lr2Done, f4bDone, vresDone, framesDone, nlogDone]);
 if (framesOn && framesShared) { await sleep(1000); console.log(`${stamp()} frames: ${sliceFrames(framesShared, `${pre}-${secs}-frames.csv`, t0, Date.now())} rows of the load's frame log copied`); } // drained every 250 ms
 if (values['camera-pan']) await ag('camera_pan', { stop: true });
-stopLoad();
+await stopLoad();
 await restoreFixes();
 console.log(`${stamp()} ${summarize(`${pre}-machine.jsonl`).line}`);
 rng.simMinutes.end = (await ag('time')).result?.minutes_total ?? null;

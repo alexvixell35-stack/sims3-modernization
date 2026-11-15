@@ -978,6 +978,14 @@ namespace Ts3Agent
             return list;
         }
 
+        // buy_object near a lot: the centre of an island or water lot has no spot (FindGoodLocationNearby false); try its corners
+        static bool NearLotCorner(GameObject go, Lot lot, ref Vector3 pos, ref Vector3 fwd)
+        {
+            if (lot == null) return false;
+            for (int i = 0; i < 4; i++) { Vector3 p = lot.Corners[i]; if (GlobalFunctions.FindGoodLocationNearby(go, ref p, ref fwd)) { pos = p; return true; } }
+            return false;
+        }
+
         static readonly Dictionary<string, bool> sNotInventoriable = new Dictionary<string, bool>();  // product keys a Sim inventory refused (buy_object sim_inventory)
 
         static readonly Dictionary<string, string> sProductOfType = new Dictionary<string, string>();  // class name -> product key (buy_object type)
@@ -986,7 +994,8 @@ namespace Ts3Agent
         // object is that class or a subclass (IsOfTypeName). Catalogue names are localized and EA class names are not, so EP
         // repros name the class (docs/267). Products matching the name hint, the class name or the OBJD instance name are tried
         // first, then the rest; each try creates the object out of world and destroys it. The key is cached per class.
-        // shortcut: at most 800 tries per call (a paused-setup hitch of a second or two), upgrade to a class index if repros need more
+        // shortcut: at most max_tries (800) tries per call (a paused-setup hitch of a second or two per 800), upgrade to a class index if
+        // repros need more often; 2026-11-15 ep-home-sv: WeatherStone, NectarMaker, BoardBreaker, SnakeCharmingBasket not in the first 800
         static object BuyOfType(Args a)
         {
             string type = a.Str("type").Trim(), hint = a.Str("name", type).ToLowerInvariant(), tl = type.ToLowerInvariant();
@@ -995,12 +1004,15 @@ namespace Ts3Agent
             {
                 List<BuildBuyProduct> first = new List<BuildBuyProduct>(), rest = new List<BuildBuyProduct>();
                 foreach (BuildBuyProduct p in Catalog())
-                    if ((p.CatalogName ?? "").ToLowerInvariant().IndexOf(hint) >= 0 || (p.ObjectInstanceName ?? "").ToLowerInvariant().IndexOf(tl) >= 0) first.Add(p); else rest.Add(p);
+                    // the hint also matches the OBJD instance name: 2026-11-15 ShowStage (abstract; products are ShowStageSmall/Large) was not
+                    // in the first 800 tries with the class name alone; repros give a hint such as "stage"
+                    if ((p.CatalogName ?? "").ToLowerInvariant().IndexOf(hint) >= 0 || (p.ObjectInstanceName ?? "").ToLowerInvariant().IndexOf(tl) >= 0
+                        || (p.ObjectInstanceName ?? "").ToLowerInvariant().IndexOf(hint) >= 0) first.Add(p); else rest.Add(p);
                 first.AddRange(rest);
-                int tries = 0;
+                int tries = 0, maxTries = (int)a.Long("max_tries", 800);
                 foreach (BuildBuyProduct p in first)
                 {
-                    if (++tries > 800) break;
+                    if (++tries > maxTries) break;
                     GameObject g = null;
                     try { g = GlobalFunctions.CreateObjectOutOfWorld(p.ProductResourceKey) as GameObject; } catch (Exception) { }
                     if (g == null) continue;
@@ -1076,8 +1088,9 @@ namespace Ts3Agent
             bool onLot = a.Bool("on_lot", false);
             Lot home = hh.LotHome;
             if (onLot && home == null) { go.Destroy(); throw new McpException("the active household has no home lot"); }
+            Lot nearLot = null;
             if (onLot) pos = Vector3.Zero;
-            else if (a.Has("near")) { GameObject nt = FindTarget(a, "near"); pos = nt is Lot ? ((Lot)nt).GetCenterPosition() : nt.Position; }  // a lot ("@far"): its centre, not its corner
+            else if (a.Has("near")) { GameObject nt = FindTarget(a, "near"); nearLot = nt as Lot; pos = nearLot != null ? nearLot.GetCenterPosition() : nt.Position; }  // a lot ("@far"): its centre, not its corner
             else if (a.Has("x")) pos = new Vector3((float)a.Double("x"), (float)a.Double("y", 0), (float)a.Double("z"));
             else pos = Util.ActiveSim().Position;
             Vector3 fwd = Vector3.UnitZ;
@@ -1092,13 +1105,16 @@ namespace Ts3Agent
                 go.AddToWorld();
                 where = "placed";
             }
-            else if (!a.Bool("to_inventory", false) && GlobalFunctions.FindGoodLocationNearby(go, ref pos, ref fwd))
+            else if (!a.Bool("to_inventory", false) && (GlobalFunctions.FindGoodLocationNearby(go, ref pos, ref fwd) || NearLotCorner(go, nearLot, ref pos, ref fwd)))
             {
                 go.SetPosition(pos);
                 go.SetForward(fwd);
                 go.AddToWorld();
                 where = "placed";
             }
+            // must_place: a repro object NPCs use in the world; the family inventory is a silent skip (2026-11-15 ip-ep-home-1115: all eight
+            // buys on the far Isla Paradiso lot went to the inventory and every later step found no object)
+            else if (a.Bool("must_place", false)) { go.Destroy(); throw new McpException("no free spot near the target for " + prod.CatalogName + " (must_place)"); }
             else if (hh.SharedFamilyInventory != null && hh.SharedFamilyInventory.Inventory.TryToAdd(go))
             {
                 where = "family inventory";

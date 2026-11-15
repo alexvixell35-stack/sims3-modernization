@@ -80,7 +80,12 @@ namespace Ts3Agent
                 return Describe(route.Replan(), (int)a.Long("depth", 1));
             BindingFlags flags = kAny & ~(owner == null ? BindingFlags.Instance : 0);
             Exception last = null;
-            foreach (MethodInfo mi in ownerType.GetMethods(flags))
+            // GetMethods leaves out a base class's private methods (FindMember walks the bases for fields): add them, e.g.
+            // "@type:TombTrap.EnterState" on a FloorTrap, the base's private state change (ep-wa-tomb, 2026-11-15)
+            List<MethodInfo> methods = new List<MethodInfo>(ownerType.GetMethods(flags));
+            for (Type b = ownerType.BaseType; b != null; b = b.BaseType)
+                foreach (MethodInfo bm in b.GetMethods(flags | BindingFlags.DeclaredOnly)) if (bm.IsPrivate) methods.Add(bm);
+            foreach (MethodInfo mi in methods)
             {
                 if (mi.Name != name) continue;
                 ParameterInfo[] ps = mi.GetParameters();
