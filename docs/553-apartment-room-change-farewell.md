@@ -1,6 +1,8 @@
 # 553. Apartment visitors say goodbye in the hallway (Late Night)
 
-2026-11-14, static audit of the 1.67 script code (Sims3GameplaySystems, decompiled locally), check and fix built, NOT RUN.
+**In-game status:** `aptleave`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
+
+2026-11-14, static audit of the 1.67 script code (Sims3GameplaySystems, decompiled locally), check and fix built (in-game status above).
 Player report (a project dev, related to docs/552): "when people who are not part of your household go to a part that's
 not assigned to you, they announce it with an interaction 'looks like it's time to leave, see you'. It also happens when
 they are not leaving the lot but going between rooms where one has a public room marker and the other does not." Later:
@@ -82,7 +84,7 @@ and guest state, decision lines, counters); `visit` / `party [make]` (test setup
 room of a U|P door, greeted, visit flag cleared, optionally made a party guest; EA's Go Here to the public room behind the
 door queued); `status` (verdict BROKEN / FIXED / WAIT); `home` (EA's MakeSimGoHome: the farewell must show in both arms);
 `unparty`. Repro `apartment-leave-farewell` (Baseline-BP, Trawler Lodge F5900033BA9E8C10): off visit + party ->
-BROKEN (party=left-early), on visit + party -> FIXED, on home -> farewell shown. Not run yet.
+BROKEN (party=left-early), on visit + party -> FIXED, on home -> farewell shown. Proven in game 2026-11-14/15.
 
 Real party (user request): `throw [n] [now]` makes the selected Sim throw a HouseParty at home the phone's way (guests =
 the n best-related Sims of EA's phone invite list `Phone.Call.GetAllValidCalleesForParty`, invitations delivered,

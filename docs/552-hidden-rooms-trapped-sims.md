@@ -1,6 +1,8 @@
 # 552. Hidden rooms: Sims that cannot leave (apartments)
 
-2026-11-14, static audit of the 1.67 script code (Sims3GameplaySystems, decompiled locally), check and fix built, NOT RUN.
+**In-game status:** `hiddenroomnpc`, `hiddenroomspawn`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
+
+2026-11-14, static audit of the 1.67 script code (Sims3GameplaySystems, decompiled locally), check and fix built (in-game status above).
 Player report (a project dev): "if there are hidden rooms on the ground floor, Sims tend to get stuck. The game likes to
 spawn Sims on the ground floor, and if the spot is in a hidden room they cannot figure out how to use the doors to get
 out. Check apartments." Switch `hiddenroomnpc` (default off, `mods/ts3fixes/src/HiddenRoom.cs`, counters 2379-2383),

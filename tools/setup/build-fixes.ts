@@ -286,6 +286,17 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kVisitTooLate value="True" />
     <kSpoonReset value="True" />
     <kHomeworkHelp value="True" />
+    <kGroupTalkStale value="True" />
+    <kConvMerge value="True" />
+    <kPortraitPose value="True" />
+    <kPicnicCamera value="True" />
+    <kUpgradeFailAlarm value="True" />
+    <kRepairTimeCache value="True" />
+    <kBurglarIdle value="True" />
+    <kGigWaitLeave value="True" />
+    <kSculptPose value="True" />
+    <kTrainBoost value="True" />
+    <kEatOutsideCount value="True" />
     <kBirthRoute value="True" />
     <kPutDownPlace value="True" />
     <kAwardKeep value="False" />

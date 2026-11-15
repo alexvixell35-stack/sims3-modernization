@@ -68748,7 +68748,7 @@
     "bug": "Conversation.mMembers keeps a Sim reset or destroyed mid-talk; EA's RemoveSim cannot take it out and throws later when the last live member leaves (issue #166 core build 40, docs/517 §4)",
     "fix": "ts3fixes DeadRefs.cs: deadrefsweep phase 15, switch deadrefconvo (default off; conversations with a household or selected member are skipped)",
     "save": "Baseline-BP",
-    "note": "Hard state built by the agent check (DeadRefConversationCheck seed): a conversation of two townies (no household member) reached from the first one; the second one's Sim object is destroyed (put back at the end of each arm). Off arm: the gone member stays. On arm: the sweep pass removes it, one live member left.",
+    "note": "Hard state built by the agent check (DeadRefConversationCheck seed): a conversation of two townies with no relationship to each other (no household member; a related pair is cleaned by EA itself on Destroy, SocialComponent.Dispose -> Relationship.RemoveReferencesToSim) reached from the first one; the second one's Sim object is destroyed (put back at the end of each arm). Off arm: the gone member stays. On arm: the sweep pass removes it, one live member left.",
     "expect": "off: expect left sees gone 1 with the switches off. on: expect cleaned sees gone 0, members 1; deadrefconvo_members >= 1, deadrefconvo_household unchanged.",
     "steps": [
       {
@@ -74170,6 +74170,897 @@
         "cmd": "patches",
         "args": {
           "homeworkhelp": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "group-talk-stale",
+    "bug": "Sims keep departed Sims (other lot, destroyed) in their group talk: relationship gains, social bumps and Chat events with absent Sims; a re-registering Sim stays a phantom member of its old group (docs/566 §1)",
+    "fix": "ts3fixes GroupTalkStale.cs: grouptalkstale (default off), docs/566 §1",
+    "save": "any world (pure check)",
+    "note": "GroupTalkStaleCheck 'run' evaluates the member-drop decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "grouptalkstale": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GroupTalkStaleCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GroupTalkStaleCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "grouptalkstale": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GroupTalkStaleCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GroupTalkStaleCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "grouptalkstale": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "grouptalkstale": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "conv-merge-region",
+    "bug": "Conversation.Merge drops the two old conversations without cleaning their discourage regions: hidden DynamicSlot objects with discourage footprints stay at old group spots (docs/566 §2)",
+    "fix": "ts3fixes ConvMerge.cs: convmerge (default off), docs/566 §2",
+    "save": "any world (pure check)",
+    "note": "ConvMergeCheck 'run' evaluates the region-clean decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "convmerge": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvMergeCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvMergeCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "convmerge": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvMergeCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ConvMergeCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "convmerge": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "convmerge": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "portrait-pose-left",
+    "bug": "Paint Portrait failing before the grab (route, UI check) or a painter reset leaves the subject waiting up to 30 sim-minutes per sync step or posing until cancelled (docs/566 §4)",
+    "fix": "ts3fixes PortraitPose.cs: portraitpose (default off), docs/566 §4",
+    "save": "any world (pure check)",
+    "note": "PortraitPoseCheck 'run' evaluates the pose-cancel decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "portraitpose": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PortraitPoseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PortraitPoseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "portraitpose": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PortraitPoseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PortraitPoseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "portraitpose": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "portraitpose": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "picnic-camera-callback",
+    "bug": "PicnicBasket.Serve success path leaves OnMapViewEnabled on CameraController.OnCameraMapViewEnabledCallback: each later map-view toggle closes the open placement tool; the interaction is never freed (docs/566 §5)",
+    "fix": "ts3fixes PicnicCamera.cs: picniccamera (default off), docs/566 §5",
+    "save": "any world (pure check)",
+    "note": "PicnicCameraCheck 'run' evaluates the removal decision with controls; 'result' shows the live handler count (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "picniccamera": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PicnicCameraCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PicnicCameraCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "picniccamera": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PicnicCameraCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PicnicCameraCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "picniccamera": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "picniccamera": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "upgrade-fail-alarm",
+    "bug": "A failed Handiness upgrade cut short (cancel, interrupt) leaves its Failure Upgrade Alarm, which later adds CanceledByScript to the Sim and cancels whatever it does then, including a retry (docs/567 §1)",
+    "fix": "ts3fixes UpgradeFailAlarm.cs: upgradefailalarm (default off), docs/567 §1",
+    "save": "any world (pure check)",
+    "note": "UpgradeFailAlarmCheck 'run' evaluates the removal decision with controls; 'result' shows live noted alarms (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "upgradefailalarm": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UpgradeFailAlarmCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UpgradeFailAlarmCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "upgradefailalarm": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UpgradeFailAlarmCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UpgradeFailAlarmCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "upgradefailalarm": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "upgradefailalarm": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "repair-time-cache",
+    "bug": "RepairableComponent.mRepairTime cached for a Sim whose repair never reached StopRepair (cancelled, route/in-use fail, electrocuted, reset) is used for the next Sim (docs/567 §2)",
+    "fix": "ts3fixes RepairTimeCache.cs: repairtimecache (default off), docs/567 §2",
+    "save": "any world (pure check)",
+    "note": "RepairTimeCacheCheck 'run' evaluates the drop / own-time decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "repairtimecache": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RepairTimeCacheCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RepairTimeCacheCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "repairtimecache": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RepairTimeCacheCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RepairTimeCacheCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "repairtimecache": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "repairtimecache": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "burglar-idle",
+    "bug": "BurglarSituation.Stealing.Init with a fire on the lot only pushes ReactToFire and relies on its tail calling SetToLeave (skipped for Coward/Mummy and witch-fire burglars, cancels, resets); with no EffectiveHousehold it returns at once: the burglar stands in the house (docs/568 §1)",
+    "fix": "ts3fixes BurglarIdle.cs: burglaridle (default off), docs/568 §1",
+    "save": "any world (pure check)",
+    "note": "BurglarIdleCheck 'run' evaluates the leave / fire-watch decisions with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "burglaridle": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurglarIdleCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurglarIdleCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "burglaridle": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurglarIdleCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurglarIdleCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "burglaridle": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "burglaridle": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "gig-wait-leave",
+    "bug": "Stylist makeover / Singer singagram wait pulse calls ForceLeaveJob when the customer waited too long but does not return: it still pushes a critical WaitForSim for the cancelled gig (customer routes over, second cancel TNS, job counted twice) (docs/568 §2)",
+    "fix": "ts3fixes GigWaitLeave.cs: gigwaitleave (default off), docs/568 §2",
+    "save": "any world (pure check)",
+    "note": "GigWaitLeaveCheck 'run' evaluates the stop decision with a control; 'result' shows counters and whether both private states were found (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "gigwaitleave": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GigWaitLeaveCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GigWaitLeaveCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "gigwaitleave": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GigWaitLeaveCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GigWaitLeaveCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "gigwaitleave": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "gigwaitleave": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "sculpt-pose",
+    "bug": "SculptingStation.SculptSim failure paths (route fail, CanAfford false after Committed, reset) leave the subject in PoseForSculpture, posing until cancelled (docs/568 §3)",
+    "fix": "ts3fixes SculptPose.cs: sculptpose (default off), docs/568 §3",
+    "save": "any world (pure check)",
+    "note": "SculptPoseCheck 'run' evaluates the cancel decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "sculptpose": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SculptPoseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SculptPoseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "sculptpose": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SculptPoseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SculptPoseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "sculptpose": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "sculptpose": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "train-boost",
+    "bug": "AthleticGameObject.TrainSim.Run raises the trainee's Athletic skill-gain and shape-delta multipliers and lowers them only after DoLoop returns: a trainer reset mid-session leaves both raised for good (persisted) (docs/569 §1)",
+    "fix": "ts3fixes TrainBoost.cs: trainboost (default off), docs/569 §1",
+    "save": "any world (pure check)",
+    "note": "TrainBoostCheck 'run' evaluates the undo decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "trainboost": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TrainBoostCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TrainBoostCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "trainboost": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TrainBoostCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TrainBoostCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "trainboost": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "trainboost": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "eat-outside-count",
+    "bug": "Bistro EatOutside: a follower that reported done and is then cancelled is decremented twice, so the leader stops waiting while another follower is still inside; that one is never seated or charged (docs/569 §2)",
+    "fix": "ts3fixes EatOutsideCount.cs: eatoutsidecount (default off), docs/569 §2",
+    "save": "any world (pure check)",
+    "note": "EatOutsideCountCheck 'run' evaluates the restore decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "eatoutsidecount": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EatOutsideCountCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EatOutsideCountCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "eatoutsidecount": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EatOutsideCountCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EatOutsideCountCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "eatoutsidecount": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "eatoutsidecount": false
         }
       }
     ]

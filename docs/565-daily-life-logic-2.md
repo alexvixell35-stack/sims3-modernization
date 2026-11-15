@@ -1,8 +1,10 @@
 # 565: Daily-life logic batch 2 (visits, field trips, autonomy, spooning, homework help)
 
+**In-game status:** `visitgreetalarm`, `visittoolate`, `fieldtripadult`, `autonomyfailblock`, `spoonreset`, `homeworkhelp`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
+
 2026-11-15, static (decompiled EA scripts; `tools/static/gameplay-scan.sh` + Infer# report filtered to visits, school,
 homework, beds, cooking/serving, interaction queue; then reads of each system's Run / Cleanup / alarm paths). Built,
-NOT RUN. All three switches off by default; EA bug fixes only. Scope picked from docs/564 "Leftovers".
+proven in game (status above). All three switches off by default; EA bug fixes only. Scope picked from docs/564 "Leftovers".
 
 | § | Switch | Counters | Check | Repro |
 |---|---|---|---|---|

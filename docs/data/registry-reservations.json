@@ -1732,7 +1732,7 @@
       "by": "dalexlol-pr153",
       "what": "menumaven (PR #153, docs/501)",
       "at": "2026-11-01T10:31:43.365Z",
-      "worktree": "C:Users\rodneAppDataLocalTempclaudeC--Users-<user>-IdeaProjects-sims-3-modernizatione6bfb8b4-38e0-46f9-8504-9bab9fed282bscratchpadwt-dalex"
+      "worktree": "<scratchpad>"
     },
     {
       "id": "ledger-900",
@@ -1742,7 +1742,7 @@
       "by": "dalexlol-pr153",
       "what": "menumaven (PR #153, docs/501)",
       "at": "2026-11-01T10:31:43.365Z",
-      "worktree": "C:Users\rodneAppDataLocalTempclaudeC--Users-<user>-IdeaProjects-sims-3-modernizatione6bfb8b4-38e0-46f9-8504-9bab9fed282bscratchpadwt-dalex"
+      "worktree": "<scratchpad>"
     },
     {
       "id": "doc-501",
@@ -1752,7 +1752,7 @@
       "by": "dalexlol-pr153",
       "what": "menumaven (PR #153)",
       "at": "2026-11-01T10:31:43.365Z",
-      "worktree": "C:Users\rodneAppDataLocalTempclaudeC--Users-<user>-IdeaProjects-sims-3-modernizatione6bfb8b4-38e0-46f9-8504-9bab9fed282bscratchpadwt-dalex"
+      "worktree": "<scratchpad>"
     },
     {
       "id": "fixes-2003",
@@ -1762,7 +1762,7 @@
       "by": "dalexlol-pr158",
       "what": "outfitwaitpoll causes (PR #158, docs/224 §5)",
       "at": "2026-11-01T10:31:43.365Z",
-      "worktree": "C:Users\rodneAppDataLocalTempclaudeC--Users-<user>-IdeaProjects-sims-3-modernizatione6bfb8b4-38e0-46f9-8504-9bab9fed282bscratchpadwt-dalex"
+      "worktree": "<scratchpad>"
     },
     {
       "id": "fixes-2008",
@@ -1772,7 +1772,7 @@
       "by": "dalexlol-pr158",
       "what": "outfitwaitpoll clears, dropped callbacks, on-screen (PR #158, docs/224 §5)",
       "at": "2026-11-01T10:31:43.365Z",
-      "worktree": "C:Users\rodneAppDataLocalTempclaudeC--Users-<user>-IdeaProjects-sims-3-modernizatione6bfb8b4-38e0-46f9-8504-9bab9fed282bscratchpadwt-dalex"
+      "worktree": "<scratchpad>"
     },
     {
       "id": "fixes-2014",
@@ -1782,7 +1782,7 @@
       "by": "dalexlol-pr164",
       "what": "nullservice (PR #164, docs/504)",
       "at": "2026-11-01T10:31:43.365Z",
-      "worktree": "C:Users\rodneAppDataLocalTempclaudeC--Users-<user>-IdeaProjects-sims-3-modernizatione6bfb8b4-38e0-46f9-8504-9bab9fed282bscratchpadwt-dalex"
+      "worktree": "<scratchpad>"
     },
     {
       "id": "ledger-903",
@@ -1792,7 +1792,7 @@
       "by": "dalexlol-pr164",
       "what": "nullservice (PR #164, docs/504)",
       "at": "2026-11-01T10:31:43.365Z",
-      "worktree": "C:Users\rodneAppDataLocalTempclaudeC--Users-<user>-IdeaProjects-sims-3-modernizatione6bfb8b4-38e0-46f9-8504-9bab9fed282bscratchpadwt-dalex"
+      "worktree": "<scratchpad>"
     },
     {
       "id": "doc-504",
@@ -1802,7 +1802,7 @@
       "by": "dalexlol-pr164",
       "what": "nullservice (PR #164)",
       "at": "2026-11-01T10:31:43.365Z",
-      "worktree": "C:Users\rodneAppDataLocalTempclaudeC--Users-<user>-IdeaProjects-sims-3-modernizatione6bfb8b4-38e0-46f9-8504-9bab9fed282bscratchpadwt-dalex"
+      "worktree": "<scratchpad>"
     },
     {
       "id": "fixes-2015",
@@ -1812,7 +1812,7 @@
       "by": "dalexlol-pr167",
       "what": "rabbitholedoor (PR #167, docs/505)",
       "at": "2026-11-01T10:31:43.365Z",
-      "worktree": "C:Users\rodneAppDataLocalTempclaudeC--Users-<user>-IdeaProjects-sims-3-modernizatione6bfb8b4-38e0-46f9-8504-9bab9fed282bscratchpadwt-dalex"
+      "worktree": "<scratchpad>"
     },
     {
       "id": "ledger-904",
@@ -1822,7 +1822,7 @@
       "by": "dalexlol-pr167",
       "what": "rabbitholedoor (PR #167, docs/505)",
       "at": "2026-11-01T10:31:43.365Z",
-      "worktree": "C:Users\rodneAppDataLocalTempclaudeC--Users-<user>-IdeaProjects-sims-3-modernizatione6bfb8b4-38e0-46f9-8504-9bab9fed282bscratchpadwt-dalex"
+      "worktree": "<scratchpad>"
     },
     {
       "id": "doc-505",
@@ -1832,7 +1832,7 @@
       "by": "dalexlol-pr167",
       "what": "rabbitholedoor (PR #167)",
       "at": "2026-11-01T10:31:43.365Z",
-      "worktree": "C:Users\rodneAppDataLocalTempclaudeC--Users-<user>-IdeaProjects-sims-3-modernizatione6bfb8b4-38e0-46f9-8504-9bab9fed282bscratchpadwt-dalex"
+      "worktree": "<scratchpad>"
     },
     {
       "id": "doc-506",
@@ -3453,6 +3453,1988 @@
       "what": "EP/SP interaction sweep",
       "at": "2026-11-15T02:16:02.764Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-427",
+      "kind": "ledger",
+      "from": 427,
+      "to": 427,
+      "by": "agent-d7461e-b",
+      "what": "AsWatch repeat samples d7461e",
+      "at": "2026-11-05T10:00:13.539Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-d7461e-b"
+    },
+    {
+      "id": "fixes-760",
+      "kind": "fixes",
+      "from": 760,
+      "to": 762,
+      "by": "saved-stacks",
+      "what": "saved stacks kept at load (SavedStacks.cs): entries remapped to original-header stubs, entries still dropped, stub-checksum failures",
+      "at": "2026-11-06T02:35:01.733Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-acab4611a58692d66"
+    },
+    {
+      "id": "fixes-763",
+      "kind": "fixes",
+      "from": 763,
+      "to": 776,
+      "by": "agent-o7-o13",
+      "what": "autofft2 + autofflot Mode R items (AutOffload.cs, docs/208 §9)",
+      "at": "2026-11-06T02:38:46.254Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-afb3531224539fbfe"
+    },
+    {
+      "id": "ledger-428",
+      "kind": "ledger",
+      "from": 428,
+      "to": 428,
+      "by": "agent-afb3531224539fbfe",
+      "what": "O7/O13 tier-2 rows and closest-lot Mode R",
+      "at": "2026-11-06T02:38:46.664Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-afb3531224539fbfe"
+    },
+    {
+      "id": "doc-242",
+      "kind": "doc",
+      "from": 242,
+      "to": 242,
+      "by": "saved-stacks",
+      "what": "saved stacks: swaps vs load",
+      "at": "2026-11-06T02:48:51.007Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-acab4611a58692d66"
+    },
+    {
+      "id": "ledger-429",
+      "kind": "ledger",
+      "from": 429,
+      "to": 429,
+      "by": "saved-stacks",
+      "what": "saved stacks",
+      "at": "2026-11-06T02:48:51.287Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-acab4611a58692d66"
+    },
+    {
+      "id": "doc-243",
+      "kind": "doc",
+      "from": 243,
+      "to": 243,
+      "by": "agent-unseen-thread",
+      "what": "unseen lots on another thread: design study",
+      "at": "2026-11-06T03:00:00.917Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a21dac2b26c6a6fb8"
+    },
+    {
+      "id": "doc-537",
+      "kind": "doc",
+      "from": 537,
+      "to": 537,
+      "by": "monojit-c6-c7",
+      "what": "C6 frame reader census and C7 lazy frames in ts3native",
+      "at": "2026-11-06T04:35:16.100Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a95154896a26f6956"
+    },
+    {
+      "id": "ledger-942",
+      "kind": "ledger",
+      "from": 942,
+      "to": 942,
+      "by": "monojit-c6-c7",
+      "what": "C6 frame readers, C7 lazy frames",
+      "at": "2026-11-06T04:35:16.428Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a95154896a26f6956"
+    },
+    {
+      "id": "native-v909",
+      "kind": "native",
+      "version": 909,
+      "from": 23660,
+      "to": 23703,
+      "by": "monojit-c6-c7",
+      "what": "[MonoJit] Direct=1 lazy frames and the reader trap",
+      "at": "2026-11-06T04:35:16.738Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a95154896a26f6956"
+    },
+    {
+      "id": "native-v164",
+      "kind": "native",
+      "version": 164,
+      "from": 23704,
+      "to": 23719,
+      "by": "feature/mintfuse-sub",
+      "what": "[MintFuse] Sub mf* counters (docs/139 §4)",
+      "at": "2026-11-06T04:37:24.781Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ade86473461b868fb"
+    },
+    {
+      "id": "ledger-430",
+      "kind": "ledger",
+      "from": 430,
+      "to": 430,
+      "by": "feature/mintfuse-sub",
+      "what": "MintFuse sub-run fusion port (docs/139 §4)",
+      "at": "2026-11-06T04:37:26.050Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ade86473461b868fb"
+    },
+    {
+      "id": "doc-244",
+      "kind": "doc",
+      "from": 244,
+      "to": 244,
+      "by": "x4-agent",
+      "what": "X4 fixed-work bench",
+      "at": "2026-11-06T04:37:52.078Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a37ad57ad40617b0a"
+    },
+    {
+      "id": "doc-245",
+      "kind": "doc",
+      "from": 245,
+      "to": 245,
+      "by": "agent-motive",
+      "what": "motive decay redesign O14",
+      "at": "2026-11-06T04:39:09.507Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a889f5402d5c2b255"
+    },
+    {
+      "id": "fixes-777",
+      "kind": "fixes",
+      "from": 777,
+      "to": 784,
+      "by": "agent-motive",
+      "what": "unseenrefresh low-LOD refresh gate counters (O14)",
+      "at": "2026-11-06T04:39:09.938Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a889f5402d5c2b255"
+    },
+    {
+      "id": "ledger-431",
+      "kind": "ledger",
+      "from": 431,
+      "to": 431,
+      "by": "agent-motive",
+      "what": "motive decay redesign O14",
+      "at": "2026-11-06T04:39:10.365Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a889f5402d5c2b255"
+    },
+    {
+      "id": "fixes-785",
+      "kind": "fixes",
+      "from": 785,
+      "to": 817,
+      "by": "gate2-additions",
+      "what": "docs/222 §11.8 search queue wait, search length, worker wait by class, seen path and household split, autseengame, pace credit",
+      "at": "2026-11-06T04:46:34.527Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a7f5c862996b14323"
+    },
+    {
+      "id": "ledger-432",
+      "kind": "ledger",
+      "from": 432,
+      "to": 432,
+      "by": "agent-a7f5c862996b14323",
+      "what": "gate 2 search queue counters and V6 cause",
+      "at": "2026-11-06T04:55:34.507Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a7f5c862996b14323"
+    },
+    {
+      "id": "fixes-818",
+      "kind": "fixes",
+      "from": 818,
+      "to": 823,
+      "by": "feature/unseenpark",
+      "what": "unseenpark D1 search park counters (docs/243 §9)",
+      "at": "2026-11-06T04:57:44.686Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a5f95da446428c03c"
+    },
+    {
+      "id": "ledger-433",
+      "kind": "ledger",
+      "from": 433,
+      "to": 433,
+      "by": "feature/unseenpark",
+      "what": "unseenpark D1 gate site and behaviour",
+      "at": "2026-11-06T04:57:44.910Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a5f95da446428c03c"
+    },
+    {
+      "id": "ledger-434",
+      "kind": "ledger",
+      "from": 434,
+      "to": 434,
+      "by": "agent-a371e4549ac848126",
+      "what": "MonoJit C5 templates",
+      "at": "2026-11-06T05:04:41.599Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a371e4549ac848126"
+    },
+    {
+      "id": "doc-246",
+      "kind": "doc",
+      "from": 246,
+      "to": 246,
+      "by": "docs-unseen-routing-risk",
+      "what": "unseen routing risk audit",
+      "at": "2026-11-06T05:10:39.341Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ad7cebb8eb0fc6449"
+    },
+    {
+      "id": "ledger-435",
+      "kind": "ledger",
+      "from": 435,
+      "to": 435,
+      "by": "docs-unseen-routing-risk",
+      "what": "unseen routing risk",
+      "at": "2026-11-06T05:10:41.171Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ad7cebb8eb0fc6449"
+    },
+    {
+      "id": "native-v910",
+      "kind": "native",
+      "version": 910,
+      "from": 23720,
+      "to": 23775,
+      "by": "monojit-all",
+      "what": "[MonoJit] jit* block, moved off v908 (master v908 = RcRefCallers rrc*)",
+      "at": "2026-11-06T05:12:59.154Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a14cde0c853624659"
+    },
+    {
+      "id": "fixes-824",
+      "kind": "fixes",
+      "from": 824,
+      "to": 825,
+      "by": "unseen-routing-bars",
+      "what": "unseenpark stagger: 824 max snap releases in one tick, 825 polls deferred by the stagger slot (docs/243 s9, docs/246 s6)",
+      "at": "2026-11-06T05:18:19.291Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ae2e2ea8d391154bc"
+    },
+    {
+      "id": "ledger-436",
+      "kind": "ledger",
+      "from": 436,
+      "to": 436,
+      "by": "monojit-all",
+      "what": "MonoJit cold exits, float compares, list growth, S4, S5",
+      "at": "2026-11-06T05:36:35.700Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a14cde0c853624659"
+    },
+    {
+      "id": "native-v911",
+      "kind": "native",
+      "version": 911,
+      "from": 23776,
+      "to": 23791,
+      "by": "monojit-all",
+      "what": "[MonoJit] jitInlined, jitInlineNo (S4), jitWide, jitWideNo (S5)",
+      "at": "2026-11-06T05:52:08.685Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a14cde0c853624659"
+    },
+    {
+      "id": "native-v912",
+      "kind": "native",
+      "version": 912,
+      "from": 23792,
+      "to": 23831,
+      "by": "dalexlol-import",
+      "what": "[CasTrim] ct* (PR #285, docs/191 step 2), moved off v909 (monojit-c6-c7 reservation)",
+      "at": "2026-11-06T06:00:20.002Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a25f573cc7422de8b"
+    },
+    {
+      "id": "doc-247",
+      "kind": "doc",
+      "from": 247,
+      "to": 247,
+      "by": "agent-hitch-sources",
+      "what": "hitch-sources-v027",
+      "at": "2026-11-06T07:45:40.033Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-aee5a5097a0644972"
+    },
+    {
+      "id": "ledger-437",
+      "kind": "ledger",
+      "from": 437,
+      "to": 437,
+      "by": "agent-hitch-sources",
+      "what": "hitch-sources-v027",
+      "at": "2026-11-06T07:45:40.270Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-aee5a5097a0644972"
+    },
+    {
+      "id": "fixes-826",
+      "kind": "fixes",
+      "from": 826,
+      "to": 833,
+      "by": "hitch-cause-logging",
+      "what": "alarmtime, boatreplanlog, owresettime (HitchCause.cs, docs/247 §9)",
+      "at": "2026-11-06T07:59:57.614Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a45482d0a27bb9d02"
+    },
+    {
+      "id": "ledger-438",
+      "kind": "ledger",
+      "from": 438,
+      "to": 438,
+      "by": "hitch-cause-logging",
+      "what": "hitch cause logging (docs/247 §9)",
+      "at": "2026-11-06T07:59:57.829Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a45482d0a27bb9d02"
+    },
+    {
+      "id": "fixes-834",
+      "kind": "fixes",
+      "from": 834,
+      "to": 835,
+      "by": "hitch-cause-logging",
+      "what": "boatreplanlog ms by seen/unseen (HitchCause.cs)",
+      "at": "2026-11-06T08:03:07.565Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a45482d0a27bb9d02"
+    },
+    {
+      "id": "fixes-836",
+      "kind": "fixes",
+      "from": 836,
+      "to": 849,
+      "by": "feature/unseen-boat-teleport",
+      "what": "unseenboat counters",
+      "at": "2026-11-06T08:09:35.248Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a947d566b36ea10a4"
+    },
+    {
+      "id": "doc-248",
+      "kind": "doc",
+      "from": 248,
+      "to": 248,
+      "by": "feature/unseen-boat-teleport",
+      "what": "unseen boat shortcut",
+      "at": "2026-11-06T08:09:35.556Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a947d566b36ea10a4"
+    },
+    {
+      "id": "ledger-439",
+      "kind": "ledger",
+      "from": 439,
+      "to": 439,
+      "by": "feature/unseen-boat-teleport",
+      "what": "unseen boat shortcut",
+      "at": "2026-11-06T08:09:35.790Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a947d566b36ea10a4"
+    },
+    {
+      "id": "ledger-440",
+      "kind": "ledger",
+      "from": 440,
+      "to": 440,
+      "by": "agent-ac0b7bbf774170035",
+      "what": "hitch fixes 1106: Follows Orig skip, wildflower default on, foreign cap",
+      "at": "2026-11-06T14:47:52.192Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ac0b7bbf774170035"
+    },
+    {
+      "id": "ledger-442",
+      "kind": "ledger",
+      "from": 442,
+      "to": 442,
+      "by": "agent-a58a592829e3dfa7f",
+      "what": "jit-autshadow crash: GC expand streak",
+      "at": "2026-11-06T19:22:29.788Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a58a592829e3dfa7f"
+    },
+    {
+      "id": "fixes-850",
+      "kind": "fixes",
+      "from": 850,
+      "to": 853,
+      "by": "feature/unseenboat-houseboat-start",
+      "what": "unseenboatstart_*: candidates, shortcuts, no_spot, left_dirty (UnseenBoat.cs, docs/248 §10)",
+      "at": "2026-11-06T21:32:58.026Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a3b6e0f40de15fb99"
+    },
+    {
+      "id": "ledger-443",
+      "kind": "ledger",
+      "from": 443,
+      "to": 443,
+      "by": "feature/unseenboat-houseboat-start",
+      "what": "unseenboat houseboat start",
+      "at": "2026-11-06T21:32:58.264Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a3b6e0f40de15fb99"
+    },
+    {
+      "id": "ledger-444",
+      "kind": "ledger",
+      "from": 444,
+      "to": 444,
+      "by": "agent-a54a9b15a1ce2ea68",
+      "what": "jit argument capture and replay",
+      "at": "2026-11-06T22:10:19.632Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a54a9b15a1ce2ea68"
+    },
+    {
+      "id": "doc-249",
+      "kind": "doc",
+      "from": 249,
+      "to": 249,
+      "by": "audit-agent",
+      "what": "household Sims audit",
+      "at": "2026-11-06T22:48:34.686Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-abd046d3d765a56f5"
+    },
+    {
+      "id": "native-v167",
+      "kind": "native",
+      "version": 167,
+      "from": 23880,
+      "to": 23891,
+      "by": "feature/kd-cut-camera-recheck",
+      "what": "[RouteAsync] KdSeenNpcCeilMs: kdNpcCeilUs, kdCeilNpc, kdCutNpc (plandeadline.cpp, docs/197 7)",
+      "at": "2026-11-07T00:26:27.842Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a137078b6b682bc8b"
+    },
+    {
+      "id": "native-v168",
+      "kind": "native",
+      "version": 168,
+      "from": 23892,
+      "to": 23911,
+      "by": "feature/kd-cut-camera-recheck",
+      "what": "[RouteAsync] KdCutCamRecheck: kdCamMode, kdCamChecks, kdCamHeld, kdCamStale, kdCamWould (plandeadline.cpp, docs/197 7)",
+      "at": "2026-11-07T00:36:54.872Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a137078b6b682bc8b"
+    },
+    {
+      "id": "fixes-854",
+      "kind": "fixes",
+      "from": 854,
+      "to": 861,
+      "by": "feature/scope-gap-counters",
+      "what": "scope gap counters: driverless routes (vehicle/ownable/occupant/non-vehicle), viewer-only 80 m plans (count, >250 ms, ms)",
+      "at": "2026-11-07T00:53:05.270Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a05be8ecfba59642f"
+    },
+    {
+      "id": "fixes-862",
+      "kind": "fixes",
+      "from": 862,
+      "to": 865,
+      "by": "goal-household-exempt",
+      "what": "goalhhexempt: routes exempted by lot goal, by Sim target, by a failed check, off-arm would-exempt",
+      "at": "2026-11-07T00:59:54.006Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a79aa585d61560f88"
+    },
+    {
+      "id": "native-v169",
+      "kind": "native",
+      "version": 169,
+      "from": 23912,
+      "to": 23931,
+      "by": "agent-unseenanim-held",
+      "what": "docs/249 [UnseenAnim] held table: kdAaHeldIn, kdAaHeldPar, kdAaHeldNoClass, kdAaHeldPush, kdAaHeldRows",
+      "at": "2026-11-07T01:01:39.445Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a80082f26296330a8"
+    },
+    {
+      "id": "ledger-445",
+      "kind": "ledger",
+      "from": 445,
+      "to": 445,
+      "by": "agent",
+      "what": "compositor registry liveness",
+      "at": "2026-11-07T08:08:19.956Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a2a38fb94188c5ab9"
+    },
+    {
+      "id": "native-v171",
+      "kind": "native",
+      "version": 171,
+      "from": 23936,
+      "to": 24039,
+      "by": "castrim-mode3",
+      "what": "[CasTrim] Mode 3/4 save sweep and docs/539 probes P1-P6",
+      "at": "2026-11-07T08:28:46.192Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ab81eaed03016e774"
+    },
+    {
+      "id": "ledger-446",
+      "kind": "ledger",
+      "from": 446,
+      "to": 446,
+      "by": "agent-ab81eaed03016e774",
+      "what": "compositor sweep Mode 3 and probes P1-P7",
+      "at": "2026-11-07T08:28:47.753Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ab81eaed03016e774"
+    },
+    {
+      "id": "fixes-866",
+      "kind": "fixes",
+      "from": 866,
+      "to": 866,
+      "by": "kd-household-ab",
+      "what": "routefaillog: household plans per plan hook, denominator of fails per plan (issue 304, kd-household-ab)",
+      "at": "2026-11-07T08:36:52.402Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a439343b729def08e"
+    },
+    {
+      "id": "native-v172",
+      "kind": "native",
+      "version": 172,
+      "from": 24040,
+      "to": 24119,
+      "by": "fp2-lost-removal",
+      "what": "[Discourage] LostRemovalFix + GhostSweep: fp2lr*, gh* (docs/89 §15)",
+      "at": "2026-11-07T10:19:11.191Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a12bc65be7cc3f242"
+    },
+    {
+      "id": "ledger-447",
+      "kind": "ledger",
+      "from": 447,
+      "to": 447,
+      "by": "agent-a12bc65be7cc3f242",
+      "what": "fp2 lost removal, ghost footprints",
+      "at": "2026-11-07T10:19:11.430Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a12bc65be7cc3f242"
+    },
+    {
+      "id": "ledger-448",
+      "kind": "ledger",
+      "from": 448,
+      "to": 448,
+      "by": "agent",
+      "what": "UfEffUs overrun without host waits",
+      "at": "2026-11-07T14:35:15.235Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "ledger-449",
+      "kind": "ledger",
+      "from": 449,
+      "to": 449,
+      "by": "wt-castrim-emu",
+      "what": "CasTrim Mode 3 sweep: static map and emulation (docs/539 §10)",
+      "at": "2026-11-07T22:31:11.953Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "ledger-450",
+      "kind": "ledger",
+      "from": 450,
+      "to": 450,
+      "by": "sims-3-modernization",
+      "what": "CAS/GeometryResource leak candidate verdict (casgeom agent)",
+      "at": "2026-11-07T23:11:29.125Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-867",
+      "kind": "fixes",
+      "from": 867,
+      "to": 870,
+      "by": "feature/gu2-arrive-hh-wait",
+      "what": "household wait (AutLive.cs QueueNote, WorkerWait): g8_hh_q_n, g8_hh_q_ticks, g8_hh_w_n, g8_hh_w_ticks",
+      "at": "2026-11-07T23:11:41.740Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-451",
+      "kind": "ledger",
+      "from": 451,
+      "to": 451,
+      "by": "docs-unknown-mem-owners",
+      "what": "unknown memory owners: lot message pool, DXVK mapped chunks (docs/215 §6)",
+      "at": "2026-11-07T23:36:05.997Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v173",
+      "kind": "native",
+      "version": 173,
+      "from": 24120,
+      "to": 24139,
+      "by": "g2pair1108b",
+      "what": "[UnseenFallback] HostLate switch + host-late us; [HitchAttr] JobNameMs rtjob-name lines, dropped, max wait",
+      "at": "2026-11-08T00:04:43.169Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "ledger-452",
+      "kind": "ledger",
+      "from": 452,
+      "to": 452,
+      "by": "agent-triage-1108",
+      "what": "247 §12.8-12.9: wildflower-save ScriptErrors verdict, boat no-refusal row, hbstart1 household check",
+      "at": "2026-11-08T00:06:13.839Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-250",
+      "kind": "doc",
+      "from": 250,
+      "to": 250,
+      "by": "h4-design",
+      "what": "H4 goal validation without the +0x918 wait (GoalValidRO in-job + read-only hits)",
+      "at": "2026-11-08T00:09:34.559Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-453",
+      "kind": "ledger",
+      "from": 453,
+      "to": 453,
+      "by": "h4-design",
+      "what": "docs/H4 goal validation design",
+      "at": "2026-11-08T00:09:34.846Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-871",
+      "kind": "fixes",
+      "from": 871,
+      "to": 871,
+      "by": "g2pair1108b",
+      "what": "watchdoglockskip: StuckWatchdog.CheckIdle Sims skipped while a route job holds +0x918",
+      "at": "2026-11-08T00:13:13.328Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "native-v174",
+      "kind": "native",
+      "version": 174,
+      "from": 24140,
+      "to": 24211,
+      "by": "h4-agent",
+      "what": "gvattr: [GoalValidRO] Attr (docs/250 §7.0)",
+      "at": "2026-11-08T00:18:51.400Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "fixes-872",
+      "kind": "fixes",
+      "from": 872,
+      "to": 875,
+      "by": "h4-agent",
+      "what": "watchdogasync A1: wdA1Sent/Started/Refused/Ms (docs/250 §7.1)",
+      "at": "2026-11-08T00:18:51.822Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "native-v175",
+      "kind": "native",
+      "version": 175,
+      "from": 24212,
+      "to": 24255,
+      "by": "h4-agent",
+      "what": "steerretry: [SteerRO] Retry SrRetry, per site steering 0x85FE10 / gather 0x85F6CB (docs/250 §8)",
+      "at": "2026-11-08T00:23:16.367Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "ledger-454",
+      "kind": "ledger",
+      "from": 454,
+      "to": 454,
+      "by": "claude",
+      "what": "docs/222 §11.10 bp-gu2-arrive-off pop triage",
+      "at": "2026-11-08T00:59:19.686Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-455",
+      "kind": "ledger",
+      "from": 455,
+      "to": 455,
+      "by": "agent",
+      "what": "castrim-live-mode3 travel_home triage",
+      "at": "2026-11-08T01:14:53.633Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-456",
+      "kind": "ledger",
+      "from": 456,
+      "to": 456,
+      "by": "sims-3-modernization",
+      "what": "bp-castrim-live-mode3 travel-save AV 0x5E772C triage",
+      "at": "2026-11-08T01:56:21.874Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-251",
+      "kind": "doc",
+      "from": 251,
+      "to": 251,
+      "by": "agent",
+      "what": "book in hand without carry machine: PutAwayLeftovers PutDownOnSurface NRE",
+      "at": "2026-11-08T04:42:18.300Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-876",
+      "kind": "fixes",
+      "from": 876,
+      "to": 877,
+      "by": "bookhand",
+      "what": "BookHand.cs (docs/251), bookhand: book in hand with no carry machine seen, moved to the inventory",
+      "at": "2026-11-08T04:48:59.982Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "doc-252",
+      "kind": "doc",
+      "from": 252,
+      "to": 252,
+      "by": "claude",
+      "what": "small-fix rule candidates 2026-11-08",
+      "at": "2026-11-08T06:03:12.893Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-878",
+      "kind": "fixes",
+      "from": 878,
+      "to": 883,
+      "by": "tier2-ic-rows",
+      "what": "autofft2 IC rows Mode R dry compare (docs/126 §8): items, equal, mismatch, aborts, not compared, exceptions",
+      "at": "2026-11-08T06:15:33.666Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-tier2rows"
+    },
+    {
+      "id": "ledger-457",
+      "kind": "ledger",
+      "from": 457,
+      "to": 457,
+      "by": "s3m-tier2rows",
+      "what": "docs/126 §8 tier-2 IC rows (owners, refusals)",
+      "at": "2026-11-08T06:27:55.825Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-tier2rows"
+    },
+    {
+      "id": "ledger-458",
+      "kind": "ledger",
+      "from": 458,
+      "to": 458,
+      "by": "sims-3-modernization",
+      "what": "CasTrim release smoke crash 0xD4B156 outfit dtor",
+      "at": "2026-11-08T06:29:55.254Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v176",
+      "kind": "native",
+      "version": 176,
+      "from": 24256,
+      "to": 24263,
+      "by": "castrimdiag1108b",
+      "what": "[CasTrim] CellGuard: ctCellSeen, ctCellSkip (docs/539 §13.7)",
+      "at": "2026-11-08T06:42:26.233Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "fixes-884",
+      "kind": "fixes",
+      "from": 884,
+      "to": 891,
+      "by": "tier2p1-1108",
+      "what": "tier-2 P1: get_InUse aborts by class (6), fire aborts, drag pre-warm fills (docs/219 §3.1)",
+      "at": "2026-11-08T07:25:21.202Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-460",
+      "kind": "ledger",
+      "from": 460,
+      "to": 460,
+      "by": "sims-3-modernization",
+      "what": "tier2 enablers E1 write mask + E2 ulong[] rows (#7 #15 #16 #21 houseboat)",
+      "at": "2026-11-08T07:31:00.722Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-253",
+      "kind": "doc",
+      "from": 253,
+      "to": 253,
+      "by": "claude",
+      "what": "dance floor follower Collection was modified triage (castrim-release-smoke-b1)",
+      "at": "2026-11-08T07:55:05.330Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-892",
+      "kind": "fixes",
+      "from": 892,
+      "to": 897,
+      "by": "dancediag1108",
+      "what": "dancefloorlistdiag (docs/253)",
+      "at": "2026-11-08T08:00:06.125Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\dancediag1108"
+    },
+    {
+      "id": "ledger-461",
+      "kind": "ledger",
+      "from": 461,
+      "to": 461,
+      "by": "sims-3-modernization",
+      "what": "R4a 0x11CB920 GetACP cache",
+      "at": "2026-11-08T08:31:52.652Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-462",
+      "kind": "ledger",
+      "from": 462,
+      "to": 462,
+      "by": "tier2p6",
+      "what": "P6 Query_CountObjectsInRange row (tier2 rows35)",
+      "at": "2026-11-08T08:34:11.197Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\tier2p6"
+    },
+    {
+      "id": "fixes-898",
+      "kind": "fixes",
+      "from": 898,
+      "to": 902,
+      "by": "tier2h7-1108",
+      "what": "tier-2 H7-H10 (docs/126 §3): 898 cache aborts, 899 tuning aborts, 900 H7 drag answers, 901 H10 lod answers, 902 H10 stale lod answers",
+      "at": "2026-11-08T08:53:49.302Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-463",
+      "kind": "ledger",
+      "from": 463,
+      "to": 463,
+      "by": "tier2-e3",
+      "what": "E3 level-bit gate rows #2 #4 (tier2e3-1108)",
+      "at": "2026-11-08T08:59:02.971Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\tier2-e3"
+    },
+    {
+      "id": "fixes-903",
+      "kind": "fixes",
+      "from": 903,
+      "to": 927,
+      "by": "tier2l0-1108",
+      "what": "tier-2 L0 local-phase probe (AutLocalProbe.cs, switch autt2l0, docs/data/tier2-local-phase-handoff.md L0)",
+      "at": "2026-11-08T10:14:00.905Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\tier2-l0"
+    },
+    {
+      "id": "ledger-464",
+      "kind": "ledger",
+      "from": 464,
+      "to": 464,
+      "by": "c4a-agent",
+      "what": "MonoJit C4a allocator leaf reach (box/newarr/newobj)",
+      "at": "2026-11-08T10:14:08.213Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\monojit-c4a"
+    },
+    {
+      "id": "ledger-466",
+      "kind": "ledger",
+      "from": 466,
+      "to": 466,
+      "by": "tier2p5",
+      "what": "P5 slot rows IsSlotEnabled + GetRoutingSlotNames (tier2p5-1108)",
+      "at": "2026-11-08T10:56:42.943Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\tier2-p5"
+    },
+    {
+      "id": "ledger-467",
+      "kind": "ledger",
+      "from": 467,
+      "to": 467,
+      "by": "races-r1-1108",
+      "what": "races R1a pre-warm map + R1b/R2b witness (races-r1-1108)",
+      "at": "2026-11-08T10:57:42.052Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\races-r1-r2b"
+    },
+    {
+      "id": "fixes-928",
+      "kind": "fixes",
+      "from": 928,
+      "to": 929,
+      "by": "bugfix/dancefloor-guard",
+      "what": "dancefloorlistguard (docs/253 §11): guarded calls, list changes the snapshot loop got past",
+      "at": "2026-11-08T10:59:33.981Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\dfguard"
+    },
+    {
+      "id": "native-v178",
+      "kind": "native",
+      "version": 178,
+      "from": 24296,
+      "to": 24311,
+      "by": "float5-modelbuilder",
+      "what": "[CasTrim] ModelBuilder float-5 detector mbCalls, mbCells, mbBad, mbSkip (castrim.cpp, docs/539 14; 0.36.218)",
+      "at": "2026-11-08T20:28:21.586Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ae4df1de27fe7a355"
+    },
+    {
+      "id": "ledger-468",
+      "kind": "ledger",
+      "from": 468,
+      "to": 468,
+      "by": "agent-ae4df1de27fe7a355",
+      "what": "float-5 4th hit: ModelBuilder part-record release 0x5D82A0 -> 0xD4B154 (0.36.218)",
+      "at": "2026-11-08T20:28:21.852Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ae4df1de27fe7a355"
+    },
+    {
+      "id": "fixes-930",
+      "kind": "fixes",
+      "from": 930,
+      "to": 932,
+      "by": "wdasync-agent",
+      "what": "watchdogasync A1 (docs/250 §7.1): wdA1Stale verdicts dropped (Sim/route/position changed during the async wait), wdShadowRuns, wdShadowMismatch (watchdogasyncshadow)",
+      "at": "2026-11-08T22:40:16.611Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\wdasync"
+    },
+    {
+      "id": "native-v179",
+      "kind": "native",
+      "version": 179,
+      "from": 24344,
+      "to": 24359,
+      "by": "wdasync-agent",
+      "what": "watchdogasync A1 job time: wdJobN, wdJobUs, wdJobMaxUs, wdJobLong (watchdog-tagged own STARTs, docs/250 §7.1); placed after PR #313 lptrim v913 block 0x5EF8-0x5F17 (padded on master)",
+      "at": "2026-11-08T22:40:23.128Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\wdasync"
+    },
+    {
+      "id": "native-v180",
+      "kind": "native",
+      "version": 180,
+      "from": 24360,
+      "to": 24375,
+      "by": "float5-outfit-guard",
+      "what": "[CasTrim] outfit save string check at 0x5E7BC2 -> 0x5E61A0: osCalls, osObjs, osBad, osFix (castrim.cpp, docs/539 15; 0.36.225)",
+      "at": "2026-11-08T22:42:47.042Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\float5-outfit-guard"
+    },
+    {
+      "id": "ledger-469",
+      "kind": "ledger",
+      "from": 469,
+      "to": 469,
+      "by": "float5-outfit-guard",
+      "what": "float-5 5th hit: outfit save string 0x5E61A0 -> 0x5BF4C0 -> MSVCR80 memcpy (0.36.225)",
+      "at": "2026-11-08T22:42:47.348Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\float5-outfit-guard"
+    },
+    {
+      "id": "fixes-933",
+      "kind": "fixes",
+      "from": 933,
+      "to": 933,
+      "by": "bugfix/outfitwait-dead-sim",
+      "what": "outfitwaitpoll dead-Sim waits ended (issue #40)",
+      "at": "2026-11-08T23:32:17.377Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\outfitwait-dead"
+    },
+    {
+      "id": "native-v181",
+      "kind": "native",
+      "version": 181,
+      "from": 24376,
+      "to": 24391,
+      "by": "float5-writetrap",
+      "what": "[CasTrim] WriteTrap DR write trap on outfit result cells: trArms, trHits, trF5, trGone (castrim.cpp, docs/539 16)",
+      "at": "2026-11-09T00:36:51.749Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\float5-writetrap"
+    },
+    {
+      "id": "ledger-470",
+      "kind": "ledger",
+      "from": 470,
+      "to": 470,
+      "by": "float5-writetrap",
+      "what": "float-5 writer: DR write trap on [outfit+0xBC] cells (WriteTrap)",
+      "at": "2026-11-09T00:36:52.050Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\float5-writetrap"
+    },
+    {
+      "id": "native-v182",
+      "kind": "native",
+      "version": 182,
+      "from": 24392,
+      "to": 24407,
+      "by": "float5-writetrap",
+      "what": "[CasTrim] realm shape check at Realm_RemoveShape / Realm_AddShape call sites: rlCalls, rlBad, rlFix, rlSkip (castrim.cpp, docs/539 16.6)",
+      "at": "2026-11-09T00:53:57.949Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\float5-writetrap"
+    },
+    {
+      "id": "native-v183",
+      "kind": "native",
+      "version": 183,
+      "from": 24408,
+      "to": 24431,
+      "by": "float5-uaf",
+      "what": "[UafCheck] delayed-free quarantine uaf* (docs/539 §17)",
+      "at": "2026-11-09T01:44:31.650Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\float5-uaf"
+    },
+    {
+      "id": "ledger-471",
+      "kind": "ledger",
+      "from": 471,
+      "to": 471,
+      "by": "float5-uaf",
+      "what": "float5 uaf check",
+      "at": "2026-11-09T01:44:31.884Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\float5-uaf"
+    },
+    {
+      "id": "native-v184",
+      "kind": "native",
+      "version": 184,
+      "from": 24432,
+      "to": 24447,
+      "by": "swapsig-agent",
+      "what": "[MonoSigGuard] msgOn, msgSkip, msgParamCount, msgSpare (0xD70F90 SwapLoadScreen delegate sig guard)",
+      "at": "2026-11-09T04:06:24.859Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\swapsig"
+    },
+    {
+      "id": "fixes-934",
+      "kind": "fixes",
+      "from": 934,
+      "to": 935,
+      "by": "deadsim-hh",
+      "what": "dreamnodedeadsim/overwatchdeadsim household skips",
+      "at": "2026-11-09T17:43:13.564Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-af822fa8e41ddda0b"
+    },
+    {
+      "id": "fixes-936",
+      "kind": "fixes",
+      "from": 936,
+      "to": 936,
+      "by": "deadsim-hh",
+      "what": "outfitwaitsaved household skips",
+      "at": "2026-11-09T17:44:18.879Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-af822fa8e41ddda0b"
+    },
+    {
+      "id": "doc-254",
+      "kind": "doc",
+      "from": 254,
+      "to": 254,
+      "by": "agent-apex300",
+      "what": "apex-3.0.0-compat",
+      "at": "2026-11-10T01:13:12.913Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-256",
+      "kind": "doc",
+      "from": 256,
+      "to": 256,
+      "by": "agent",
+      "what": "TS3W direct-start hang (foulplay)",
+      "at": "2026-11-10T03:29:20.273Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-938",
+      "kind": "fixes",
+      "from": 938,
+      "to": 943,
+      "by": "feature/tier2-p2-p3",
+      "what": "tier-2 P2 CauseEffect pre-warm/guard, front-door memo, BuyModeSuite guard (AutShadow.cs)",
+      "at": "2026-11-12T10:09:26.403Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a56cbed42ad031287"
+    },
+    {
+      "id": "fixes-944",
+      "kind": "fixes",
+      "from": 944,
+      "to": 944,
+      "by": "feature/tier2-p2-p3",
+      "what": "tier-2 P3 CallPet worker-owned picker list (AutShadow.cs)",
+      "at": "2026-11-12T10:09:26.656Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a56cbed42ad031287"
+    },
+    {
+      "id": "ledger-473",
+      "kind": "ledger",
+      "from": 473,
+      "to": 473,
+      "by": "feature/tier2-p2-p3",
+      "what": "tier-2 P2/P3 worker guards",
+      "at": "2026-11-12T10:09:26.902Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a56cbed42ad031287"
+    },
+    {
+      "id": "native-v185",
+      "kind": "native",
+      "version": 185,
+      "from": 24448,
+      "to": 24463,
+      "by": "satb-struct-this",
+      "what": "[AutShadow] Satb struct this (#352, docs/206 §17): sbVtGiveUp, sbLowHdr, sbSpare[2] (satb.cpp; 0.36.241 rc1111f + master port)",
+      "at": "2026-11-12T10:19:53.054Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a8b85f285bc9f5b99"
+    },
+    {
+      "id": "doc-258",
+      "kind": "doc",
+      "from": 258,
+      "to": 258,
+      "by": "analysis/ic-lock-1112",
+      "what": "IC lock: loader_mutex cost under ValueType.InternalEquals",
+      "at": "2026-11-12T10:22:27.033Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-af6497f476a1e0e4a"
+    },
+    {
+      "id": "ledger-474",
+      "kind": "ledger",
+      "from": 474,
+      "to": 474,
+      "by": "analysis/ic-lock-1112",
+      "what": "IC lock loader_mutex InternalEquals",
+      "at": "2026-11-12T10:22:27.250Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-af6497f476a1e0e4a"
+    },
+    {
+      "id": "ledger-475",
+      "kind": "ledger",
+      "from": 475,
+      "to": 475,
+      "by": "maintainer",
+      "what": "docs/537 §20: monojit verdicts 11-12 (ClauseLazy, C2b, get_Value, A3, code region)",
+      "at": "2026-11-12T10:23:42.492Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-af023e28a8deee2f8"
+    },
+    {
+      "id": "ledger-476",
+      "kind": "ledger",
+      "from": 476,
+      "to": 476,
+      "by": "agent-callexits",
+      "what": "MonoJit StrKeys: string-keyed comparer exits in the game (T=string, inferred)",
+      "at": "2026-11-12T10:28:00.548Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a29c21509b2ab563e"
+    },
+    {
+      "id": "ledger-478",
+      "kind": "ledger",
+      "from": 478,
+      "to": 478,
+      "by": "agent-h4-static",
+      "what": "H4 static: validator callers, A2 switches, B1 hit-loop map (docs/250 §11-13)",
+      "at": "2026-11-12T10:33:09.674Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a5d1b752daa325c2a"
+    },
+    {
+      "id": "native-v186",
+      "kind": "native",
+      "version": 186,
+      "from": 24464,
+      "to": 24527,
+      "by": "feature/valuetype-equals-fast",
+      "what": "[EqualsFast] ValueType.InternalEquals 0xE7A590 compare-plan cache (docs/258 option C): eq* (equalsfast.cpp; ts3native 0.36.243)",
+      "at": "2026-11-12T10:34:56.586Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a9be6917fb90254f0"
+    },
+    {
+      "id": "ledger-479",
+      "kind": "ledger",
+      "from": 479,
+      "to": 479,
+      "by": "route-misc-1112",
+      "what": "offranks IP lot A0 gate (docs/208 §9.5)",
+      "at": "2026-11-12T10:35:14.598Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ac02670a7394b1a76"
+    },
+    {
+      "id": "ledger-480",
+      "kind": "ledger",
+      "from": 480,
+      "to": 480,
+      "by": "route-misc-1112",
+      "what": "UnseenAnim Objects histogram verdict (docs/144 §3.6.1)",
+      "at": "2026-11-12T10:35:14.859Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ac02670a7394b1a76"
+    },
+    {
+      "id": "ledger-481",
+      "kind": "ledger",
+      "from": 481,
+      "to": 481,
+      "by": "route-misc-1112",
+      "what": "Boat GetOut stale posture diag (docs/257 §8)",
+      "at": "2026-11-12T10:35:15.111Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ac02670a7394b1a76"
+    },
+    {
+      "id": "ledger-482",
+      "kind": "ledger",
+      "from": 482,
+      "to": 482,
+      "by": "route-misc-1112",
+      "what": "Boat no-refusal split entries (docs/247 §12.10)",
+      "at": "2026-11-12T10:35:15.374Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-ac02670a7394b1a76"
+    },
+    {
+      "id": "ledger-483",
+      "kind": "ledger",
+      "from": 483,
+      "to": 483,
+      "by": "agent-route-hitches",
+      "what": "route hitches 1112 (docs/247 §13)",
+      "at": "2026-11-12T10:36:45.396Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-aa2be273889808eb5"
+    },
+    {
+      "id": "native-v187",
+      "kind": "native",
+      "version": 187,
+      "from": 24528,
+      "to": 24583,
+      "by": "feature/races-r2c",
+      "what": "[AutShadow] Races bit 2 R2c world drain (autraces.cpp, docs/data/races-handoff.md R2c): r2c* (ts3native 0.36.244)",
+      "at": "2026-11-12T10:41:49.576Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a2a7c47480d24a03e"
+    },
+    {
+      "id": "native-v188",
+      "kind": "native",
+      "version": 188,
+      "from": 24584,
+      "to": 24599,
+      "by": "feature/monojit-r1-c2c-e1",
+      "what": "[MonoJit] R1 code region (jitFullN, jitFullBytes, jitRegionKB) + [Binder] TypeHandleDirect tdOn (docs/537 §20; 0.36.242)",
+      "at": "2026-11-12T10:42:04.338Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a179de412d0f078e2"
+    },
+    {
+      "id": "native-v189",
+      "kind": "native",
+      "version": 189,
+      "from": 24600,
+      "to": 24743,
+      "by": "feature/h4-gvunseen",
+      "what": "[GoalValidRO] UnseenDefer B2 gvu* + gvattr diagnostics gvaPlansN/gvaNoLaterN/gvaNoLaterUs/gvaWhyWaitUs[20] (docs/250 §7.3, §12, §13; gvro.cpp)",
+      "at": "2026-11-12T10:43:16.307Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a6649464fea4a5913"
+    },
+    {
+      "id": "fixes-945",
+      "kind": "fixes",
+      "from": 945,
+      "to": 947,
+      "by": "route-misc-builds-1112",
+      "what": "boatgetoutdiag (docs/257 §7): watched GetOuts, replaced in window, stale throws",
+      "at": "2026-11-12T10:49:39.378Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-aaf50c4ede881d668"
+    },
+    {
+      "id": "fixes-948",
+      "kind": "fixes",
+      "from": 948,
+      "to": 949,
+      "by": "route-misc-builds-1112",
+      "what": "unseenboat no-refusal split (docs/247 §12.10): replans booked with no sUbLastWhy entry, their ms",
+      "at": "2026-11-12T10:49:41.065Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-aaf50c4ede881d668"
+    },
+    {
+      "id": "native-v190",
+      "kind": "native",
+      "version": 190,
+      "from": 24744,
+      "to": 24775,
+      "by": "feature/route-hitch-logs-1112",
+      "what": "[RouteAsync] FbApplyPending timing fbAp* (docs/247 §13.1 L; ts3native 0.36.245)",
+      "at": "2026-11-12T10:53:39.650Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a2d84b941204f8982"
+    },
+    {
+      "id": "native-v191",
+      "kind": "native",
+      "version": 191,
+      "from": 24776,
+      "to": 24951,
+      "by": "feature/route-hitch-logs-1112",
+      "what": "RouteAsync ReplanFromPosition START refusal split arRf3 (docs/247 §13.3 R1; ts3native 0.36.245)",
+      "at": "2026-11-12T10:53:39.941Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a2d84b941204f8982"
+    },
+    {
+      "id": "native-v192",
+      "kind": "native",
+      "version": 192,
+      "from": 24952,
+      "to": 25175,
+      "by": "feature/route-hitch-logs-1112",
+      "what": "DiscDrain / LostRemovalFix per-site waits ds*/lrs* (docs/247 §13.4 C; ts3native 0.36.245)",
+      "at": "2026-11-12T10:53:40.188Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a2d84b941204f8982"
+    },
+    {
+      "id": "fixes-950",
+      "kind": "fixes",
+      "from": 950,
+      "to": 952,
+      "by": "feature/route-hitch-logs-1112",
+      "what": "boatreplanlog gangway fixup replans: lines, ms seen, ms unseen (docs/247 §13.3 R1)",
+      "at": "2026-11-12T10:53:40.419Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\agent-a2d84b941204f8982"
+    },
+    {
+      "id": "doc-259",
+      "kind": "doc",
+      "from": 259,
+      "to": 259,
+      "by": "apex311-agent",
+      "what": "Apex Radiance 3.1.1 vs rc1111g compat",
+      "at": "2026-11-12T12:05:36.685Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-260",
+      "kind": "doc",
+      "from": 260,
+      "to": 260,
+      "by": "apex-crash1",
+      "what": "Apex 3.1.1 crash 1 light vtable static analysis",
+      "at": "2026-11-12T22:13:58.333Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\apex-crash1"
+    },
+    {
+      "id": "native-v193",
+      "kind": "native",
+      "version": 193,
+      "from": 25176,
+      "to": 25207,
+      "by": "crash2diag-agent",
+      "what": "[Crash2Diag] route destination list lifetime detector (docs/259 §9)",
+      "at": "2026-11-12T22:29:48.364Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "native-v194",
+      "kind": "native",
+      "version": 194,
+      "from": 25208,
+      "to": 25255,
+      "by": "feature/monojit-boundcall",
+      "what": "[MonoJit] BoundCall: guarded sites call EA bound bodies (bc*; docs/537 §22; ts3native 0.36.249)",
+      "at": "2026-11-12T22:36:46.035Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "ledger-484",
+      "kind": "ledger",
+      "from": 484,
+      "to": 484,
+      "by": "feature/monojit-boundcall",
+      "what": "MonoJit BoundCall (docs/537 §22)",
+      "at": "2026-11-12T22:36:46.247Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "fixes-953",
+      "kind": "fixes",
+      "from": 953,
+      "to": 954,
+      "by": "boatgetoutguard-agent",
+      "what": "boatgetoutguard: guard_hit / guard_skipped_household (docs/257 §9)",
+      "at": "2026-11-13T09:02:40.291Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "fixes-955",
+      "kind": "fixes",
+      "from": 955,
+      "to": 956,
+      "by": "agent-ageupabortwait",
+      "what": "ageupabortwait: Instantiate waiter returned the other caller's Sim / rethrown (docs/512 §6)",
+      "at": "2026-11-13T09:09:40.849Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-485",
+      "kind": "ledger",
+      "from": 485,
+      "to": 485,
+      "by": "boatgetoutguard-agent",
+      "what": "boatgetoutguard stale-posture guard + stress repro (docs/257 §9)",
+      "at": "2026-11-13T09:16:10.600Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "native-v195",
+      "kind": "native",
+      "version": 195,
+      "from": 25256,
+      "to": 25287,
+      "by": "feature/monojit-clauselazy-guards",
+      "what": "[MonoJit] ClauseLazy guards: allow-list, session kill switch, fault fallback (cl*; docs/537 §24)",
+      "at": "2026-11-13T12:00:22.307Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "native-v918",
+      "kind": "native",
+      "version": 918,
+      "from": 25288,
+      "to": 25291,
+      "by": "import/dalexlol-prs-1113",
+      "what": "[EaCrashFixes] BridgeHeightNaN bhnHits (Dalexlol PR #394, docs/67 §37; ts3native 0.36.253)",
+      "at": "2026-11-13T12:15:21.823Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "native-v196",
+      "kind": "native",
+      "version": 196,
+      "from": 25292,
+      "to": 25299,
+      "by": "claude",
+      "what": "[MonoJit] MaxMethods: jitTableFull refusals, jitMethCap cap in force (docs/537 §25; ts3native 0.36.254)",
+      "at": "2026-11-13T13:12:37.120Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "native-v197",
+      "kind": "native",
+      "version": 197,
+      "from": 25300,
+      "to": 25331,
+      "by": "feature/monojit-ret-teardown",
+      "what": "[MonoJit] RetTeardown: compiled ret/ret.void run the frame return natively, verify trap + kill switch + fault fallback (rt*; docs/537 §26; ts3native 0.36.255)",
+      "at": "2026-11-13T13:16:23.951Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "fixes-957",
+      "kind": "fixes",
+      "from": 957,
+      "to": 962,
+      "by": "p1-offunseen-1113",
+      "what": "autoffunseen env/bcast skipped household/seen/unknown (docs/208 §10)",
+      "at": "2026-11-13T14:13:06.670Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-963",
+      "kind": "fixes",
+      "from": 963,
+      "to": 968,
+      "by": "diag-life-events-twopointjj",
+      "what": "lifeeventdiag (LifeEventDiag.cs): pregnancy starts, shows, leave calls, skill level-ups, notification/sting reach, lines dropped",
+      "at": "2026-11-13T21:46:29.345Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "doc-261",
+      "kind": "doc",
+      "from": 261,
+      "to": 261,
+      "by": "agent-npc-replan-1114",
+      "what": "NPC mid-route Route.Replan bursts (jit-bundle-ab-1113 SV)",
+      "at": "2026-11-13T22:06:30.690Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-969",
+      "kind": "fixes",
+      "from": 969,
+      "to": 984,
+      "by": "replan-burst-log",
+      "what": "docs/261 L1 replanlog: Replan calls/ms total and per scope, bursts, lines, dropped, would-start",
+      "at": "2026-11-13T22:16:40.236Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "doc-262",
+      "kind": "doc",
+      "from": 262,
+      "to": 262,
+      "by": "agent tiny-ui-fix triage",
+      "what": "tiny-ui-fix-triage",
+      "at": "2026-11-13T22:44:25.003Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-263",
+      "kind": "doc",
+      "from": 263,
+      "to": 263,
+      "by": "agent-turbo",
+      "what": "Turbo Simulation Engine V3.4 compat",
+      "at": "2026-11-13T23:33:36.895Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-264",
+      "kind": "doc",
+      "from": 264,
+      "to": 264,
+      "by": "issue-338-agent",
+      "what": "issue-338 route lock freeze",
+      "at": "2026-11-14T00:09:12.678Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "fixes-985",
+      "kind": "fixes",
+      "from": 985,
+      "to": 987,
+      "by": "offload-pickup-1114",
+      "what": "autoffenv pickup loss: asked_expired, never_asked, pick_overdue (AutOffload.cs)",
+      "at": "2026-11-14T00:46:08.660Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims3-wt-offpickup1114"
+    },
+    {
+      "id": "native-v198",
+      "kind": "native",
+      "version": 198,
+      "from": 25332,
+      "to": 25347,
+      "by": "issue-338-uncut-ceiling",
+      "what": "[RouteAsync] KdUncutCeilMs: kdUncutMode, kdUncutCeilUs, kdUncutHit, kdUncutMaxUs (docs/264)",
+      "at": "2026-11-14T00:47:01.942Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "fixes-988",
+      "kind": "fixes",
+      "from": 988,
+      "to": 990,
+      "by": "replan-async-kind1",
+      "what": "replanbudget: unseen NPC Replans checked by the per-route budget, answered failed over budget, of those with an async START refused first",
+      "at": "2026-11-14T02:45:30.037Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "doc-265",
+      "kind": "doc",
+      "from": 265,
+      "to": 265,
+      "by": "fn-coverage-agent",
+      "what": "function name coverage",
+      "at": "2026-11-14T05:15:56.808Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-991",
+      "kind": "fixes",
+      "from": 991,
+      "to": 993,
+      "by": "bugfix/wish-movein-same-household",
+      "what": "minihomelot: stale MiniSimDescription home lot sync (SetLot syncs, load repairs, stale reads)",
+      "at": "2026-11-14T08:36:52.972Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-266",
+      "kind": "doc",
+      "from": 266,
+      "to": 266,
+      "by": "bugfix/wish-movein-same-household",
+      "what": "minihomelot: Move In wish for a Sim already in the household (stale mini home lot)",
+      "at": "2026-11-14T08:37:07.851Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v199",
+      "kind": "native",
+      "version": 199,
+      "from": 25428,
+      "to": 25467,
+      "by": "memdiag-phase2-1115",
+      "what": "[MemDiag] Access (docs/190 phase 2): maOn, maRcNs, maRdNs, maRcGets, maRcHits, maRdN, maRdMB, maRdMaxKB, maRdFlyMaxKB, maLines",
+      "at": "2026-11-14T22:55:33.007Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\build-left-1115-memdiag"
+    },
+    {
+      "id": "native-v200",
+      "kind": "native",
+      "version": 200,
+      "from": 25468,
+      "to": 25507,
+      "by": "feature/memdiag-phase3-1115",
+      "what": "[MemDiag] AllocSites owner buckets + Apex coexist mode ao* (docs/190 phase 3)",
+      "at": "2026-11-14T23:22:59.157Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\build-left-1115-memdiag3"
+    },
+    {
+      "id": "ledger-486",
+      "kind": "ledger",
+      "from": 486,
+      "to": 486,
+      "by": "feature/memdiag-phase3-1115",
+      "what": "memdiag phase 3: owner ranges + AllocSites next to Apex 3.2.3",
+      "at": "2026-11-14T23:33:44.754Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\build-left-1115-memdiag3"
+    },
+    {
+      "id": "fixes-994",
+      "kind": "fixes",
+      "from": 994,
+      "to": 996,
+      "by": "lane-L3-1115",
+      "what": "deadrefcooking handlers / deadrefconvo members / takeariskguard skips",
+      "at": "2026-11-15T00:08:19.855Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\lane-L3-1115"
+    },
+    {
+      "id": "fixes-997",
+      "kind": "fixes",
+      "from": 997,
+      "to": 997,
+      "by": "lane-L3-1115",
+      "what": "takeariskguard skips",
+      "at": "2026-11-15T00:09:40.347Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\lane-L3-1115"
+    },
+    {
+      "id": "fixes-998",
+      "kind": "fixes",
+      "from": 998,
+      "to": 998,
+      "by": "lane-L5-1115",
+      "what": "AutLive autlivelod: go-live drops by LOD flag flip (docs/124 §3.1)",
+      "at": "2026-11-15T00:12:31.821Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\lane-L5-1115"
+    },
+    {
+      "id": "native-v201",
+      "kind": "native",
+      "version": 201,
+      "from": 25508,
+      "to": 25571,
+      "by": "lane-L9-1115",
+      "what": "[AnimPhase] G10 timers inside rig pose 0x940430 (docs/22 §6)",
+      "at": "2026-11-15T00:16:41.168Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\lane-L9-1115"
+    },
+    {
+      "id": "fixes-999",
+      "kind": "fixes",
+      "from": 999,
+      "to": 1011,
+      "by": "lane-L6-1115",
+      "what": "spawncap D1 + probe (5), routelen unseen counters 1/4 (8)",
+      "at": "2026-11-15T00:26:57.478Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\lane-L6-1115"
+    },
+    {
+      "id": "fixes-1012",
+      "kind": "fixes",
+      "from": 1012,
+      "to": 1013,
+      "by": "lane-L5-1115",
+      "what": "AutLive autlivetune: go-live drops by tuning fingerprint change (999), fingerprints taken (1000) (docs/124 §3.1)",
+      "at": "2026-11-15T00:27:24.139Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\lane-L5-1115"
+    },
+    {
+      "id": "fixes-1014",
+      "kind": "fixes",
+      "from": 1014,
+      "to": 1037,
+      "by": "lane-L4-1115",
+      "what": "L4 ts3fixes memos: permamemo, buffremovenoop, catnamecache, autroommemo/autslicetime (docs/245 §5 H, docs/95 §5.5, docs/96 B2, docs/97 §7)",
+      "at": "2026-11-15T00:29:07.083Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\lane-L4-1115"
+    },
+    {
+      "id": "native-v202",
+      "kind": "native",
+      "version": 202,
+      "from": 25572,
+      "to": 25635,
+      "by": "lane-L9-1115",
+      "what": "[Compat] Apex stand-down counters ap* + [StallWatch] sim stall sampler ss* (docs/148 §7, docs/67 §25)",
+      "at": "2026-11-15T00:31:10.720Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\lane-L9-1115"
+    },
+    {
+      "id": "fixes-1038",
+      "kind": "fixes",
+      "from": 1038,
+      "to": 1039,
+      "by": "lane-L6-1115",
+      "what": "vaclistenerpad: imports padded / left (vaclistenernull off)",
+      "at": "2026-11-15T00:32:26.566Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\lane-L6-1115"
+    },
+    {
+      "id": "doc-267",
+      "kind": "doc",
+      "from": 267,
+      "to": 267,
+      "by": "ep-worlds-1115",
+      "what": "EP worlds coverage (WA/UL/ITF mono + routing)",
+      "at": "2026-11-15T00:40:19.917Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-487",
+      "kind": "ledger",
+      "from": 487,
+      "to": 487,
+      "by": "ep-worlds-1115",
+      "what": "EP worlds coverage inferences",
+      "at": "2026-11-15T00:40:20.207Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-1040",
+      "kind": "fixes",
+      "from": 1040,
+      "to": 1045,
+      "by": "lane-f1f2-1115",
+      "what": "docs/267 F1 unseenfb teleport goal refusals (tomb/hidden, lot closed, no way out, raised outdoor) + load cleanup (moved ours, left unknown)",
+      "at": "2026-11-15T01:29:37.565Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v921",
+      "kind": "native",
+      "version": 921,
+      "from": 25636,
+      "to": 25891,
+      "by": "import-395-1115",
+      "what": "PR #395 (Dalexlol) [DoorFast] df* counters (his v916 + v919 + v920, 64 int32)",
+      "at": "2026-11-15T03:05:25.704Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import-395-1115"
+    },
+    {
+      "id": "doc-269",
+      "kind": "doc",
+      "from": 269,
+      "to": 269,
+      "by": "import-395-1115",
+      "what": "PR #395 (Dalexlol) door fast path (his docs/548)",
+      "at": "2026-11-15T03:05:35.376Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import-395-1115"
+    },
+    {
+      "id": "fixes-1046",
+      "kind": "fixes",
+      "from": 1046,
+      "to": 1046,
+      "by": "import-405b-1115",
+      "what": "moveinpartner: story move-ins left to EA because a household / selected / unknown-scope Sim is involved (docs/563 §3)",
+      "at": "2026-11-15T03:18:24.078Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import-405b-1115"
+    },
+    {
+      "id": "fixes-2541",
+      "kind": "fixes",
+      "from": 2541,
+      "to": 2543,
+      "by": "claude",
+      "what": "grouptalkstale: departed group-talk members dropped / sims moved out of a stale group / errors",
+      "at": "2026-11-15T02:52:31.531Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2544",
+      "kind": "fixes",
+      "from": 2544,
+      "to": 2545,
+      "by": "claude",
+      "what": "convmerge: merged-away conversation discourage regions cleaned / errors",
+      "at": "2026-11-15T02:52:31.607Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-566",
+      "kind": "doc",
+      "from": 566,
+      "to": 566,
+      "by": "claude",
+      "what": "social and skill-object logic batch (grouptalkstale, convmerge)",
+      "at": "2026-11-15T02:52:31.680Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2546",
+      "kind": "fixes",
+      "from": 2546,
+      "to": 2547,
+      "by": "claude",
+      "what": "portraitpose: portrait subjects released after the painter failed / errors",
+      "at": "2026-11-15T02:57:20.444Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2548",
+      "kind": "fixes",
+      "from": 2548,
+      "to": 2549,
+      "by": "claude",
+      "what": "picniccamera: picnic Serve map-view callbacks removed / errors",
+      "at": "2026-11-15T02:57:20.517Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2550",
+      "kind": "fixes",
+      "from": 2550,
+      "to": 2552,
+      "by": "claude",
+      "what": "upgradefailalarm: failed-upgrade cancel alarms removed when the attempt ended early / dropped on restart / errors",
+      "at": "2026-11-15T03:12:28.607Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2553",
+      "kind": "fixes",
+      "from": 2553,
+      "to": 2555,
+      "by": "claude",
+      "what": "repairtimecache: stale repair times dropped / fresh times for a waiting Sim / errors",
+      "at": "2026-11-15T03:12:28.682Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-567",
+      "kind": "doc",
+      "from": 567,
+      "to": 567,
+      "by": "claude",
+      "what": "household objects, repair/upgrade, fire, burglar, inventory batch",
+      "at": "2026-11-15T03:12:28.754Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2556",
+      "kind": "fixes",
+      "from": 2556,
+      "to": 2558,
+      "by": "claude",
+      "what": "burglaridle: burglar Stealing state idle after fire react / no household",
+      "at": "2026-11-15T03:19:38.307Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-568",
+      "kind": "doc",
+      "from": 568,
+      "to": 568,
+      "by": "claude",
+      "what": "Burglar idle and Ambitions/Bridgeport activity logic",
+      "at": "2026-11-15T03:19:38.384Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2559",
+      "kind": "fixes",
+      "from": 2559,
+      "to": 2561,
+      "by": "claude",
+      "what": "gigwaitleave: Stylist makeover / Singer singagram wait pulse keeps going after its own timeout ends the job",
+      "at": "2026-11-15T03:21:52.949Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2562",
+      "kind": "fixes",
+      "from": 2562,
+      "to": 2563,
+      "by": "claude",
+      "what": "sculptpose: SculptSim failure paths leave the subject posing",
+      "at": "2026-11-15T03:22:49.057Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2566",
+      "kind": "fixes",
+      "from": 2566,
+      "to": 2567,
+      "by": "claude",
+      "what": "trainboost: reset during Train Sim leaves trainee's doubled athletic/shape gain",
+      "at": "2026-11-15T03:34:53.625Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2568",
+      "kind": "fixes",
+      "from": 2568,
+      "to": 2569,
+      "by": "claude",
+      "what": "eatoutsidecount: Bistro eat-outside follower counted twice (done then cancelled)",
+      "at": "2026-11-15T03:34:53.698Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-569",
+      "kind": "doc",
+      "from": 569,
+      "to": 569,
+      "by": "claude",
+      "what": "Activity batch 2: consignment, gym training, bistro eat outside",
+      "at": "2026-11-15T03:34:53.764Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "native-v203",
+      "kind": "native",
+      "version": 203,
+      "from": 25892,
+      "to": 25907,
+      "by": "mono-jitfault-1115",
+      "what": "[MonoJit] FaultRecover: runtime fault recovery for compiled bodies (frOn, frRecovered, frPassed, frTestFaults)",
+      "at": "2026-11-15T09:42:25.538Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\mono-jitfault-1115"
+    },
+    {
+      "id": "fixes-1047",
+      "kind": "fixes",
+      "from": 1047,
+      "to": 1048,
+      "by": "mono-offload-1115",
+      "what": "autoffunseen pick scope: env Sims / bcast broadcasters skipped at the pick (not unseen non-household)",
+      "at": "2026-11-15T09:42:51.613Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\mono-offload-1115"
+    },
+    {
+      "id": "fixes-1049",
+      "kind": "fixes",
+      "from": 1049,
+      "to": 1049,
+      "by": "mono-park-1115",
+      "what": "unseenpark_household_held (must stay 0)",
+      "at": "2026-11-15T09:46:33.980Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\mono-park-1115"
+    },
+    {
+      "id": "fixes-1050",
+      "kind": "fixes",
+      "from": 1050,
+      "to": 1053,
+      "by": "feature/mono-autshadow-1115",
+      "what": "autliveseen: seen-NPC exact go-live (posted, dry runs, household at resume, household at post tripwire), docs/124 §17.12",
+      "at": "2026-11-15T09:53:16.036Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\mono-autshadow-1115"
+    },
+    {
+      "id": "fixes-1054",
+      "kind": "fixes",
+      "from": 1054,
+      "to": 1056,
+      "by": "feature/mono-autshadow-1115",
+      "what": "autliveseen dry compare misses: top-10 set, top 1 (up to ties), replay model (docs/124 §17.12)",
+      "at": "2026-11-15T09:59:56.367Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\mono-autshadow-1115"
+    },
+    {
+      "id": "ledger-488",
+      "kind": "ledger",
+      "from": 488,
+      "to": 488,
+      "by": "feature/mono-autshadow-1115",
+      "what": "mono-autshadow-1115: WorldIndex gain, seen-exact go-live, IC pass-through",
+      "at": "2026-11-15T10:01:17.068Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\mono-autshadow-1115"
     }
   ]
 }

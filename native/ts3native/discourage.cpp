@@ -475,6 +475,7 @@ static bool DiscDefer(bool add, void* obj, const u8* begin, int n, int high, int
     if (!g_discDraining && g_async.state != A_RUNNING) return false;  // no job: apply now (after older records)
     if (g_discCount == kDiscCap) { InterlockedIncrement(&k.discOverflow); return false; }
     DiscRec& r = g_disc[(g_discHead + g_discCount) % kDiscCap];
+    r = DiscRec{};  // #408: as the other writers; a slot last used by a kind 2 record kept its lr and lot
     r.add = add;
     r.high = (DWORD)high;
     r.allow = (DWORD)allow;
@@ -483,12 +484,8 @@ static bool DiscDefer(bool add, void* obj, const u8* begin, int n, int high, int
     r.idHi = *(const DWORD*)((const u8*)obj + 0xC);
     r.t = GetTickCount();
     r.n = n;
-    r.pts = NULL;
     r.lock = g_rgLock;
     r.obj = obj;
-    r.usf = false;
-    r.fp2 = 0;
-    r.pf = false;
     if (add) {
         // 16-byte aligned like the game's own vector: the original reads the points with movaps (0xAB88BD); a malloc'd
         // copy (8-byte aligned) crashed it in 0.12.2 (#GP reported as an access violation at 0xFFFFFFFF, 2026-10-17)

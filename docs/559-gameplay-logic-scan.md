@@ -1,7 +1,9 @@
 # 559. Gameplay logic scan: bowling, Genie Banish, Space Simulator, band jam, statue line, clean flags, bird TV (2026-11-14)
 
+**In-game status:** `bowlinglane`, `geniebanish`, `spacesimpartner`, `bandjam`, `statueline`, `cleanflag`, `birdtvnull`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
+
 Static hunt for gameplay logic flaws in `Sims3GameplaySystems` / `Sims3GameplayObjects` (local decompile; no game run).
-Online, Store-server and Simport code skipped; cosmetic messages only listed. Status: **static, built, NOT RUN.**
+Online, Store-server and Simport code skipped; cosmetic messages only listed. Status: **static, built; proven in game (see above).**
 The pregnant-NPC hospital loop, the carried-child put-down retry and the bartender PortalLocked are docs/558 (other agent).
 
 ## 1. Tools and rerun

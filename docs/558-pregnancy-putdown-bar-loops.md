@@ -1,6 +1,8 @@
 # 558. Bridgeport gameplay loops: hospital birth retry, carried child never put down, bartender PortalLocked
 
-2026-11-14, static (decompiled 1.67 scripts, read locally) + the 2026-11-14 run logs (`phase-20261114-*`), built, NOT RUN.
+**In-game status:** `birthroute`, `putdownplace`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
+
+2026-11-14, static (decompiled 1.67 scripts, read locally) + the 2026-11-14 run logs (`phase-20261114-*`), built (in-game status above).
 Switches `birthroute` and `putdownplace` (both off), diagnostics `BarStaffCheck` (no switch). Counters 2438-2447, 2469-2476.
 Repros `birth-hospital-retry`, `putdown-child-loop`, `bar-staff-portal-locked`.
 

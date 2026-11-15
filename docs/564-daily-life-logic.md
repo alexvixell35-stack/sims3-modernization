@@ -1,8 +1,10 @@
 # 564: Daily-life logic batch (service NPCs)
 
+**In-game status:** `serviceleave`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
+
 2026-11-15, static (decompiled EA scripts plus semgrep `tools/static/ea-gameplay-logic.semgrep.yml` /
 `ea-script-logic.semgrep.yml` over 377 files: school/homework/carpool, cooking/fridge/serving, beds, bathroom and privacy,
-maid/repairman/repo man, bills, phone/visits; then reads of the state machines). Built, NOT RUN. Off by default; EA bug
+maid/repairman/repo man, bills, phone/visits; then reads of the state machines). Built, proven in game (status above). Off by default; EA bug
 fixes on service NPCs only.
 
 | § | Switch | Counters | Check | Repro |

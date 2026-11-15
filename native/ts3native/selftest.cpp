@@ -4681,6 +4681,17 @@ static void TestDiscourage() {
     g_async.state = A_IDLE;  // WaitAsyncDone returns at once in the test
     DiscPoll();
     assert(g_discCount == 0 && k.discForced == 0);  // no job ran: a plain drain
+    // #408: a slot keeps nothing from the record that used it before (a kind 2 LostRemovalFix record's lr and lot)
+    g_disc[g_discHead].lr = true;
+    g_disc[g_discHead].lotLo = 7;
+    g_disc[g_discHead].lotHi = 8;
+    g_async.state = A_RUNNING;
+    DiscRemoveHook(world, NULL, g_dObjA);
+    assert(g_discCount == 1 && !g_disc[g_discHead].lr && g_disc[g_discHead].lotLo == 0 && g_disc[g_discHead].lotHi == 0);
+    g_async.state = A_IDLE;
+    g_dLogN = 0;
+    DiscPoll();
+    assert(g_discCount == 0 && g_dLogN == 1 && g_dLog[0] == 'a');
     // mode 0: never deferred
     k.discMode = 0;
     g_async.state = A_RUNNING;

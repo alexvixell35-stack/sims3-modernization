@@ -17,7 +17,8 @@ import { basename, dirname, join, resolve } from 'node:path';
 
 type Kind = 'fixes' | 'native' | 'ledger' | 'doc';
 // A reservation's stored worktree must not name the machine's user (AGENTS.md: no personal paths in commits).
-const shownPath = (p: string): string =>
+// Temp/scratchpad paths embed the user name in a folder name too (C--Users-<name>-...): stored as '<scratchpad>'.
+export const shownPath = (p: string): string => /\\AppData\\Local\\Temp\\|^\/tmp\//i.test(p) ? '<scratchpad>' :
   p.replace(/^\/home\/[^/]+(?=\/|$)/, '/home/<user>').replace(/^([A-Za-z]:\\Users\\)[^\\]+/, '$1<user>');
 interface Res { id: string; kind: Kind; from: number; to: number; version?: number; by: string; what: string; at: string; worktree: string }
 interface Used { fixesMax: number; nativeVer: number; nativeEnd: number; cFixesMax: number; cNativeVer: number }
@@ -213,6 +214,8 @@ function list(args: string[]) {
 async function selfCheck() {
   const d = mkdtempSync(join(tmpdir(), 'registry-check-'));
   const ok = (c: unknown, m: string) => { if (!c) { console.error('FAIL', m); process.exitCode = 1; } else console.log('ok  ', m); };
+  ok(shownPath('C:\\Users\\<user>\\AppData\\Local\\Temp\\claude\\C--Users-bob-x\\s') === '<scratchpad>', 'shownPath: temp path stored as <scratchpad>');
+  ok(shownPath('C:\\Users\\<user>\\IdeaProjects\\x') === 'C:\\Users\\<user>\\IdeaProjects\\x', 'shownPath: home path keeps the rest, user masked');
   try {
     mkdirSync(join(d, 'docs'));
     writeFileSync(join(d, 'docs', 'registry.md'), [

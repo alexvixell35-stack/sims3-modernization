@@ -499,6 +499,7 @@ namespace Ts3Fixes
         //             and the townie put back where it stood.
         public class DartState { public int gone, players, teams; public bool current, cheating, destroyed; }
         static Dartboard sDartBoard;
+        static Sim sDartSim; // the seeded Sim object: its description may get a new one during the wait
         static SimDescription sDartDesc;
         static Vector3 sDartPos;
 
@@ -514,7 +515,7 @@ namespace Ts3Fixes
                 Dartboard.Team team = new Dartboard.Team();
                 team.AddPlayerToTeam(victim, board);
                 board.Teams.Add(team); board.CurrentTeam = team; board.CurrentPlayer = victim; board.CheatingSim = victim;
-                sDartBoard = board; sDartDesc = victim.SimDescription; sDartPos = victim.Position;
+                sDartBoard = board; sDartSim = victim; sDartDesc = victim.SimDescription; sDartPos = victim.Position;
                 string name = victim.FullName;
                 victim.Destroy();
                 return "dart seed: " + name + " on the board as player, current player and cheating Sim, then destroyed";
@@ -526,7 +527,7 @@ namespace Ts3Fixes
                 DartState st = new DartState();
                 st.gone = DartGone(b); st.players = b.Players.Count; st.teams = b.Teams.Count;
                 st.current = b.CurrentPlayer != null; st.cheating = b.CheatingSim != null;
-                st.destroyed = sDartDesc.CreatedSim == null || sDartDesc.CreatedSim.HasBeenDestroyed;
+                st.destroyed = SimGone(sDartSim);
                 return st;
             }
             if (what != "expect left" && what != "expect cleaned") return "dart <seed|state|expect left|expect cleaned>";
@@ -534,7 +535,7 @@ namespace Ts3Fixes
             int gone = DartGone(b), players = b.Players.Count, teams = b.Teams.Count;
             bool ok = what == "expect left" ? !on && gone == 3 : on && gone == 0 && players == 0 && teams == 0 && b.CurrentPlayer == null && b.CheatingSim == null;
             string line = "gone " + gone + ", players " + players + ", teams " + teams + ", current " + (b.CurrentPlayer != null) + ", cheating " + (b.CheatingSim != null) + " (switch " + on + ")";
-            sDartBoard = null;
+            sDartBoard = null; sDartSim = null;
             b.Destroy();
             string back = DrPutBack(sDartDesc, sDartPos);
             if (!ok) throw new InvalidOperationException("dart " + what + ": wrong outcome; " + line + "; " + sDartDesc.FullName + " " + back);
@@ -575,6 +576,7 @@ namespace Ts3Fixes
         //             the townie put back.
         public class UseState { public int gone, use, reference, routing; public bool destroyed; }
         static GameObject sUseObj;
+        static Sim sUseSim; // the seeded Sim object, as sDartSim
         static SimDescription sUseDesc;
         static Vector3 sUsePos;
 
@@ -587,7 +589,7 @@ namespace Ts3Fixes
                 Sim victim = DrPickTownie();
                 if (victim == null) { jig.Destroy(); throw new InvalidOperationException("use seed: no townie to use"); }
                 jig.AddToUseList(victim); jig.AddToReferenceList(victim); jig.AddToRoutingReferenceList(victim);
-                sUseObj = jig; sUseDesc = victim.SimDescription; sUsePos = victim.Position;
+                sUseObj = jig; sUseSim = victim; sUseDesc = victim.SimDescription; sUsePos = victim.Position;
                 string name = victim.FullName;
                 victim.Destroy();
                 return "use seed: " + name + " in the jig's use, reference and routing reference lists, then destroyed";
@@ -599,7 +601,7 @@ namespace Ts3Fixes
                 UseState st = new UseState();
                 st.gone = UseListGone(o); st.use = o.ActorsUsingMe.Count; st.reference = o.ReferenceList.Count;
                 st.routing = o.RoutingReferenceList != null ? o.RoutingReferenceList.Count : 0;
-                st.destroyed = sUseDesc.CreatedSim == null || sUseDesc.CreatedSim.HasBeenDestroyed;
+                st.destroyed = SimGone(sUseSim);
                 return st;
             }
             if (what != "expect left" && what != "expect cleaned") return "use <seed|state|expect left|expect cleaned>";
@@ -607,7 +609,7 @@ namespace Ts3Fixes
             int gone = UseListGone(o), use = o.ActorsUsingMe.Count, reference = o.ReferenceList.Count, routing = o.RoutingReferenceList != null ? o.RoutingReferenceList.Count : 0;
             bool ok = what == "expect left" ? !on && gone == 3 : on && gone == 0 && use == 0 && reference == 0 && routing == 0;
             string line = "gone " + gone + ", use " + use + ", reference " + reference + ", routing " + routing + " (switch " + on + ")";
-            sUseObj = null;
+            sUseObj = null; sUseSim = null;
             o.Destroy();
             string back = DrPutBack(sUseDesc, sUsePos);
             if (!ok) throw new InvalidOperationException("use " + what + ": wrong outcome; " + line + "; " + sUseDesc.FullName + " " + back);
@@ -1042,11 +1044,16 @@ namespace Ts3Fixes
         // Agent check for phase 15 (repro conversation-gone-check), a hard state built and undone:
         //   "seed":   a conversation (EA's own empty constructor) with two townies as members, reached from the first one's
         //             SocialComponent.Conversation; the second one's Sim object is then destroyed (put back at the end).
-        //   "state":  ConvState: gone members of that conversation, its member count, destroyed.
+        //             The two have no relationship: SocialComponent.Dispose -> Relationship.RemoveReferencesToSim takes a
+        //             destroyed Sim out of the conversations of the Sims it has a relationship with, and RemoveSim then
+        //             ends a two-member conversation (members 0; 2026-11-15 run picked two Joneses). The stale entry stays
+        //             only where that walk does not reach (#166).
+        //   "state":  ConvState: gone members of that conversation, its member count, destroyed (the seeded Sim object; its
+        //             description may get a new Sim object meanwhile, which is not in the conversation).
         //   "expect left" (switches off) / "expect cleaned" (deadrefsweep and deadrefconvo on): throws unless the gone member
         //             is still there (left) or gone (cleaned). Either way the conversation is taken off the first townie.
         public class ConvState { public int gone, members; public bool destroyed; }
-        static Sim sCvHost; static Conversation sCvConv; static SimDescription sCvDesc; static Vector3 sCvPos;
+        static Sim sCvHost, sCvVictim; static Conversation sCvConv; static SimDescription sCvDesc; static Vector3 sCvPos;
 
         public static object DeadRefConversationCheck(string what)
         {
@@ -1054,13 +1061,13 @@ namespace Ts3Fixes
             if (what == "seed")
             {
                 Sim host = DrPickTownie(), victim = null;
-                if (host != null && host.SocialComponent != null && host.SocialComponent.Conversation == null) victim = DrPickTownie(host.SimDescription);
-                if (victim == null) throw new InvalidOperationException("conversation seed: no two townies, or the first is talking already");
+                if (host != null && host.SocialComponent != null && host.SocialComponent.Conversation == null) victim = DrPickTownie(host.SimDescription, host);
+                if (victim == null) throw new InvalidOperationException("conversation seed: no two unrelated townies, or the first is talking already");
                 Conversation cv = (Conversation)Activator.CreateInstance(typeof(Conversation), true);
                 List<Sim> m = (List<Sim>)sConvMembers.GetValue(cv);
                 m.Add(host); m.Add(victim);
                 host.SocialComponent.Conversation = cv; // the field only: SetConversation would touch the host's posture and UI
-                sCvHost = host; sCvConv = cv; sCvDesc = victim.SimDescription; sCvPos = victim.Position;
+                sCvHost = host; sCvConv = cv; sCvVictim = victim; sCvDesc = victim.SimDescription; sCvPos = victim.Position;
                 string names = host.FullName + " with " + victim.FullName;
                 victim.Destroy();
                 return "conversation seed: " + names + ", the second Sim object destroyed";
@@ -1069,14 +1076,14 @@ namespace Ts3Fixes
             if (h == null || sCvConv == null) throw new InvalidOperationException("conversation " + what + ": no seed");
             List<Sim> mm = (List<Sim>)sConvMembers.GetValue(sCvConv);
             int gone = 0; foreach (Sim x in mm) if (SimGone(x)) gone++;
-            if (what == "state") { ConvState st = new ConvState(); st.gone = gone; st.members = mm.Count; st.destroyed = sCvDesc.CreatedSim == null || sCvDesc.CreatedSim.HasBeenDestroyed; return st; }
+            if (what == "state") { ConvState st = new ConvState(); st.gone = gone; st.members = mm.Count; st.destroyed = SimGone(sCvVictim); return st; }
             if (what != "expect left" && what != "expect cleaned") return "conversation <seed|state|expect left|expect cleaned>";
             bool on = ShortcutOn("deadrefsweep") && ShortcutOn("deadrefconvo");
             bool ok = what == "expect left" ? !on && gone == 1 : on && gone == 0 && mm.Count == 1;
             string line = "gone " + gone + ", members " + mm.Count + " (switches " + on + ")";
             if (!SimGone(h) && h.SocialComponent != null && h.SocialComponent.Conversation == sCvConv) h.SocialComponent.Conversation = null;
             mm.Clear();
-            sCvHost = null; sCvConv = null;
+            sCvHost = null; sCvVictim = null; sCvConv = null;
             string back = DrPutBack(sCvDesc, sCvPos);
             if (!ok) throw new InvalidOperationException("conversation " + what + ": wrong outcome; " + line + "; " + sCvDesc.FullName + " " + back);
             return "as expected; " + line + "; " + sCvDesc.FullName + " " + back;
@@ -1084,8 +1091,10 @@ namespace Ts3Fixes
 
         // A townie for a hard state: not selectable, no pet, teen or older, not of the active household, not on its home
         // lot, no role or service, a valid description.
-        static Sim DrPickTownie() { return DrPickTownie(null); }
-        static Sim DrPickTownie(SimDescription except)
+        static Sim DrPickTownie() { return DrPickTownie(null, null); }
+        static Sim DrPickTownie(SimDescription except) { return DrPickTownie(except, null); }
+        // unrelatedTo: skip Sims with a relationship to that Sim (conversation seed).
+        static Sim DrPickTownie(SimDescription except, Sim unrelatedTo)
         {
             Household active = Household.ActiveHousehold;
             Lot home = active != null ? active.LotHome : null;
@@ -1094,6 +1103,7 @@ namespace Ts3Fixes
                 SimDescription d = s.SimDescription;
                 if (IsPlayerSim(s) || s.IsPet || d == except || !d.IsValidDescription || !d.TeenOrAbove) continue;  // PlayerSims.cs: d != null after it
                 if ((home != null && s.LotCurrent == home) || d.AssignedRole != null || d.CreatedByService != null) continue;
+                if (unrelatedTo != null && Relationship.Get(unrelatedTo, s, false) != null) continue;
                 return s;
             }
             return null;

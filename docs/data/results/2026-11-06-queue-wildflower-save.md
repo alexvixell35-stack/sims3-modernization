@@ -1,0 +1,42 @@
+# Queue wildflower-save 2026-11-06
+
+Tool: `tools/harness/queue.ts` (docs/TESTING.md). Times UTC (PHT in brackets). Rows: `probe-out/queue/wildflower-save-2026-11-06.jsonl`.
+
+## 2026-11-06T18:13 UTC, build 8ac806dc, jobs bp-wf-save-pending, bp-wf-save-reload, bp-wf-save-removed, bp-wf-matrix, ip-wf-matrix, sv-wf-matrix, bp-wf-travel-france
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| bp-wf-save-pending | 18:13 (02:13) | 2 | PASS | wildflower-save-abort: PASS: steps done (no watch) (expected: wildflower_saveaborts >= 1 with a '(save)' line in wildflower_log, the save written, out_of_world 0, no script errors. The next jobs load the save (wildflower-save-check))<br>PASS: repro events fired<br>PASS: 0 new script errors (max 0) | 0 | 2125.3/1847.6/1613.3 -> 2125/1854/1613.3 | - | timing: invalid (noise medium; correctness-only tool ProbeSnap.CallSites); build: asi a3a5e35af970 ts3native.asi.hitchfix1 ts3native 0.36.177 (log ok); ts3fixes tuning a76b034dbe89 not in DB (expected build/ts3fixes.package); noise: medium (other apps 17.1% of game CPUs); others on game CPUs 17.1%; clock avg/min 4202/4201 MHz; save during a pending fire, writes Wildflower-Scratch; wildflower_savea |
+| bp-wf-save-reload | 18:15 (02:15) | 3.6 | **FAIL** | wildflower-save-check: PASS: steps done (no watch) (expected: world loads, out_of_world 0 at load and after 2 min, no script errors)<br>PASS: repro events fired<br>FAIL: 1 new script errors (max 0): ScriptError_<pc>__11-07-2026__02-18-35__8814E895.xml | 0 | 2162.8/1857.7/1605.4 -> 2159.2/1895/1585.4 | - | timing: invalid (job FAIL: FAIL: 1 new script errors (max 0): ScriptError_<pc>__11-07-2026__02-18-35__8814E895.xml; noise medium; correctness-only tool ProbeSnap.CallSites); build: asi a3a5e35af970 ts3native.asi.hitchfix1 ts3native 0.36.177 (log ok); ts3fixes tuning a76b034dbe89 not in DB (expected build/ts3fixes.package); noise: medium (other apps 15.8% of game CPUs); others on game CPUs 15 |
+
+Stopped: bp-wf-save-reload failed (stopQueueOnFail): FAIL: 1 new script errors (max 0): ScriptError_<pc>__11-07-2026__02-18-35__8814E895.xml.
+
+## 2026-11-06T19:31 UTC, build 230a16fa, jobs bp-wf-save-removed, bp-wf-matrix, ip-wf-matrix, sv-wf-matrix, bp-wf-travel-france
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| bp-wf-save-removed | 19:31 (03:31) | 3.6 | **FAIL** | wildflower-save-check: PASS: steps done (no watch) (expected: world loads, out_of_world 0 at load and after 2 min, no script errors)<br>PASS: clean baseline: clean: no Bin/ts3native.log, /native null, ts3fixes.applied null, no counter above 0<br>N/A (ourMods false): asi build check, ts3fixes build check, ts3native.log version gate, ts3native.ini features, hook FAIL lines and route hook state, coun | 0 | 1924/1624.5/1844.8 -> 1907/1653.6/1828.8 | - | timing: invalid (job FAIL: FAIL: 1 new script errors (max 0): ScriptError_<pc>__11-07-2026__03-33-54__26D48523.xml; noise medium); noise: medium (other apps 13.6% of game CPUs); others on game CPUs 13.6%; clock avg/min 4225/4180 MHz; mod removed: that save loads without ts3fixes (no mod data in saves) |
+
+Stopped: bp-wf-save-removed failed (stopQueueOnFail): FAIL: 1 new script errors (max 0): ScriptError_<pc>__11-07-2026__03-33-54__26D48523.xml.
+
+## 2026-11-06T21:09 UTC, build 41cfcd23, jobs bp-wf-matrix, ip-wf-matrix, sv-wf-matrix, bp-wf-travel-france
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| bp-wf-matrix | 21:09 (05:09) | 10.6 | PASS | overwrite: PASS<br>back-to-back: PASS<br>unpaused: PASS<br>build-mode: PASS<br>verify-counters: PASS<br>== reload: paused: save all off, then all on; load each (two restarts): households match, 60 s at speed 3, game alive; FAIL only on ScriptErrors with ON that OFF does not have<br>reload: PENDING (reload commands above)<br>summary: 8 cases, 8 passed, 0 failed, pending: reload<br>reload on: reload | 0 | 2128.1/1844.1/1612.9 -> 2092.6/1856.1/1612.9 | - | timing: invalid (noise medium; correctness-only tool ProbeSnap.CallSites); build: asi a3a5e35af970 ts3native.asi.hitchfix1 ts3native 0.36.177 (log ok); ts3fixes tuning a76b034dbe89 not in DB (expected build/ts3fixes.package); noise: medium (other apps 17.5% of game CPUs); others on game CPUs 17.5%; clock avg/min 4232/4189 MHz; save matrix, shipped mode, kWildflowerTask on; the spring saves carry a |
+| ip-wf-matrix | 21:20 (05:20) | 10 | **FAIL** | overwrite: PASS<br>back-to-back: PASS<br>unpaused: PASS<br>build-mode: PASS<br>verify-counters: PASS<br>== reload: paused: save all off, then all on; load each (two restarts): households match, 60 s at speed 3, game alive; FAIL only on ScriptErrors with ON that OFF does not have<br>reload: PENDING (reload commands above)<br>summary: 8 cases, 8 passed, 0 failed, pending: reload<br>reload on: reload | 1 | 2158/1850.1/1610.9 -> 2123.6/1854.6/1598.8 | - | timing: invalid (job FAIL: exit code 1; noise medium; correctness-only tool ProbeSnap.CallSites); build: asi a3a5e35af970 ts3native.asi.hitchfix1 ts3native 0.36.177 (log ok); ts3fixes tuning a76b034dbe89 not in DB (expected build/ts3fixes.package); noise: medium (other apps 15.9% of game CPUs); others on game CPUs 15.9%; clock avg/min 4225/4155 MHz; as bp-wf-matrix, Isla Paradiso |
+
+Stopped: ip-wf-matrix failed (stopQueueOnFail): see the row.
+
+## 2026-11-06T21:31 UTC, build 41cfcd23, jobs sv-wf-matrix, bp-wf-travel-france
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| sv-wf-matrix | 21:31 (05:31) | 10.5 | PASS | overwrite: PASS<br>back-to-back: PASS<br>unpaused: PASS<br>build-mode: PASS<br>verify-counters: PASS<br>== reload: paused: save all off, then all on; load each (two restarts): households match, 60 s at speed 3, game alive; FAIL only on ScriptErrors with ON that OFF does not have<br>reload: PENDING (reload commands above)<br>summary: 8 cases, 8 passed, 0 failed, pending: reload<br>reload on: reload | 0 | 2112/1791.8/1644.9 -> 2096.5/1799.2/1628.9 | - | timing: invalid (noise medium; correctness-only tool ProbeSnap.CallSites); build: asi a3a5e35af970 ts3native.asi.hitchfix1 ts3native 0.36.177 (log ok); ts3fixes tuning a76b034dbe89 not in DB (expected build/ts3fixes.package); noise: medium (other apps 26.2% of game CPUs); others on game CPUs 26.2%; clock avg/min 4201/4172 MHz; as bp-wf-matrix, Sunset Valley |
+| bp-wf-travel-france | 21:41 (05:41) | 4.6 | PASS | travel: PASS<br>summary: 1 cases, 1 passed, 0 failed<br>PASS: repro events fired | 0 | 2135.7/1850.7/1596.9 -> 2204.3/1906.2/1539.3 | - | timing: invalid (noise medium; correctness-only tool ProbeSnap.CallSites); build: asi a3a5e35af970 ts3native.asi.hitchfix1 ts3native 0.36.177 (log ok); ts3fixes tuning a76b034dbe89 not in DB (expected build/ts3fixes.package); noise: medium (other apps 17.4% of game CPUs); others on game CPUs 17.4%; clock avg/min 4212/4176 MHz; travel save: the guard also reads GameStates.IsTravelling. One trip: th |
+
+## 2026-11-06T21:48 UTC, build 16363a78, jobs ip-wf-matrix
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| ip-wf-matrix | 21:48 (05:48) | 10.3 | PASS | overwrite: PASS<br>back-to-back: PASS<br>unpaused: PASS<br>build-mode: PASS<br>verify-counters: PASS<br>== reload: paused: save all off, then all on; load each (two restarts): households match, 60 s at speed 3, game alive; FAIL only on ScriptErrors with ON that OFF does not have<br>reload: PENDING (reload commands above)<br>summary: 8 cases, 8 passed, 0 failed, pending: reload<br>reload on: reload | 0 | 2166.4/1846.9/1596.9 -> 2138.8/1856.8/1602.3 | - | timing: invalid (noise medium; correctness-only tool ProbeSnap.CallSites); build: asi a3a5e35af970 ts3native.asi.hitchfix1 ts3native 0.36.177 (log ok); ts3fixes tuning a76b034dbe89 not in DB (expected build/ts3fixes.package); noise: medium (other apps 24.8% of game CPUs); others on game CPUs 24.8%; clock avg/min 4206/4170 MHz; as bp-wf-matrix, Isla Paradiso |

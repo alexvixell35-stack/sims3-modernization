@@ -1,5 +1,7 @@
 # 551. Combined rabbit hole bugs (combo buildings)
 
+**In-game status:** `comboopp`, `combojob`, `comboprotestlot`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
+
 2026-11-14, static audit of the 1.67 script code (Sims3GameplayObjects, Sims3GameplaySystems; the EP code lives in the same
 two DLLs), fixes built. Switches `comboprotest`, `combovenue`, `combosituation`, `combojob`, `comboprotestlot`, `comboopp`
 (all default off, `mods/ts3fixes/src/ComboRabbitHole.cs`, counters 2337-2343, 2374-2378 and 2405-2408), harness checks `ComboRabbitHoleCheck` / `ComboFixCheck`

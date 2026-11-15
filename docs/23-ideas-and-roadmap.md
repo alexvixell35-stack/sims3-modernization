@@ -22,7 +22,7 @@ Claims here are `[inferred]` unless marked otherwise; most are proposals.
 | 12 | Texture streaming and DXVK tuning for Error 12 | high | medium | low | research |
 | 13 | World-level own route planner | high | high | high | research |
 | 14 | Animation LOD | medium | medium | medium | research |
-| 15 | Mono interpreter speedups | high | high | high | research |
+| 15 | Mono interpreter speedups | high | high | high | built (MonoJit lane: `[MonoJit]`, `[MonoFast] CallPath`, `[MintFuse] Sub`, ON on master 2026-11-15, not yet in a release) |
 | 16 | 64-bit research notes | low (clarity) | low | low | research |
 | 17 | Sim-thread offload architecture (long-term goal) | high | high | high | research |
 | 18 | Readability refactor (packages, files, docs; same behavior) | medium | medium (~1-2 days of agents + 1 validation night) | medium (native counter offsets, unity build split, byte-exact patch tables, install order) | refactor |
@@ -43,7 +43,7 @@ Ranked by expected gain against effort, with cheap gates first. Detail lives in 
 | 4 | IC-transition lock `0x11F43A8` under `0xDA5970` ([docs/29 §5](29-mono-jit.md), [docs/258](258-ic-lock-valuetype-equals.md)): really Mono's loader lock, taken once per field by `ValueType.InternalEquals` (`Enum.Equals` path) | 6-9 ms/s for a per-class `InternalEquals` fast path [inferred; lock ~8.7 ms/s, uncontended before AutShadow] | medium (2-3 h + monohost corpus) | low | monohost exactness corpus, then `[IcLockCheck]` count with AutShadow on, then BP/IP A/B | analysed 2026-11-12, not built |
 | 5 | S3PP type-hash cache confirm (`MonoTypeEHashProbe`, [docs/29 §5](29-mono-jit.md)) | ~20-30 ms/s inclusive, already S3PP's [inferred]; decides that we do not duplicate it | low (one simstack run) | low | simstack BP run, S3PP cache on vs off | pending |
 | 6 | Save levers ([docs/26](26-incremental-save.md), PLAN "Research done") | cached reflection ~0.5-1 s, compressed-bytes cache ~0.25 s, life-event trim ~0.3-1.2 s (opt-in) per save [inferred] | medium | medium (save path) | full save matrix + save s on/off | ranked, not built |
-| 7 | Mono second-thread patch `[MonoThread]` ([docs/30](30-mono-second-thread.md)) | enabler for managed offload (autonomy ~110 ms/s, [docs/28](28-sim-thread-map.md)); costs 0.2-1.5% sim-thread [inferred] | high (~2.5-3.5 weeks) | high (GC, interpreter state) | `[MonoThread]` Mode=1 proof with Verify; `[GcThreadCheck]` clean in IP, save, travel | design done; BP GcThreadCheck 0 foreign allocations [measured] |
+| 7 | Mono second-thread patch `[MonoThread]` ([docs/30](30-mono-second-thread.md)) | enabler for managed offload (autonomy ~110 ms/s, [docs/28](28-sim-thread-map.md)); costs 0.2-1.5% sim-thread [inferred] | high (built) | high (GC, interpreter state) | `[MonoThread]` Mode=1 proof with Verify; `[GcThreadCheck]` clean in IP, save, travel | shipped ON since v0.2.11 (`Enabled=1 Mode=1`) [verified: tagged ini]; BP GcThreadCheck 0 foreign allocations [measured] |
 | 8 | Animation phase split + C++ rewrite ([docs/22 §7](22-parallel-animation.md)) | ~5-15 ms/s [inferred] | high | high | G10: docs/22 §6 timing split (per-phase ms/s of `0x940430`) | research done; G10 timers built 2026-11-15 (`[AnimPhase]`, docs/22 §6), not run |
 | 9 | Address space: S3SS mimalloc arena ([docs/08 §2.5](08-resource-offload-design.md)) | <= ~64 MB largest free block early in a session [inferred] | low (upstream ask for a 32 MiB option) | low | runtime confirm: `NtAllocateVirtualMemory` >= 32 MB reserve backtrace on `wear_parts` | cause inferred, no config switch |
 | 10 | Address space: catalog ~8 MB resident ([docs/08 §2.5](08-resource-offload-design.md)) | ~8 MB for 14,577 products [inferred]; lazy decode not viable | medium | medium | catalog cost at the main menu (docs/08 M9 step 1) | queue job pending |
@@ -52,7 +52,7 @@ Ranked by expected gain against effort, with cheap gates first. Detail lives in 
 
 - Skip-Evaluate for idle off-screen actors: dropped; idle actors already skip it ([docs/22 §5.1a](22-parallel-animation.md)).
 - Drop off-screen Sim meshes/textures: dropped; ~0.15 MB per Sim [measured] (PLAN lane G item 6, M11).
-- Mono JIT: dropped; EA "mint" interpreter, no JIT code, yielding tasks keep interpreter frames ([docs/29](29-mono-jit.md)).
+- Mono JIT: a full Mono JIT stays dropped (EA "mint" interpreter, no JIT code, yielding tasks keep interpreter frames, [docs/29](29-mono-jit.md)). 2026-11-15: our own method compiler `[MonoJit]` (docs/527, docs/537) is ON on master (`Enabled=1 Direct=1 Inline=2 Wide=1 BoundCall=1 ClauseLazy=1`), not yet in a release.
 - Footprint quadtree cache (#8): NO-GO, physics radius query on moving Sims, 0.5% of samples ([docs/20 §4b](20-offload-candidates.md)).
 - Catalog lazy OBJD decode: not viable, the in-memory filter needs every decoded OBJD ([docs/08 §2.5](08-resource-offload-design.md)).
 - Done: sim-thread map ([docs/28](28-sim-thread-map.md)), Mono helper split G9 ([docs/29 §5](29-mono-jit.md)), second-thread design ([docs/30](30-mono-second-thread.md)), H6 plan ([docs/18](18-route-search-off-thread.md)), M9 128 MB block explained ([docs/08 §2.5](08-resource-offload-design.md)), `s3pp` label check (no stale labels, PLAN lane G item 4).
@@ -151,6 +151,7 @@ Results from different machines only compare when everyone measures the same sav
 ### 15. Mono interpreter speedups
 
 - docs/04 F6/F7: scripts run in Mono 1.2's interpreter, the largest sim-thread cost. Ideas: a method lookup cache, inline caches for virtual/interface calls, faster field access paths, cheaper `isinst`/`castclass`. Each is a native patch inside the interpreter loop, with correctness risk across all game scripts.
+- 2026-11-15: own method compiler `[MonoJit]` (docs/527, docs/537) ON on master (`Enabled=1 Direct=1 Inline=2 Wide=1 BoundCall=1 ClauseLazy=1`), not yet in a release; supersedes the 10-15 line below.
 - 2026-10-15: JIT dropped; helper split done ([docs/29 §5](29-mono-jit.md)): the top helper is already cached by S3PP, our first own target is the IC-transition lock (Next big wins #4, #5).
 - Research first: which interpreter opcodes and lookups dominate (sample the interpreter with the probe), and what upstream Mono later changed in those paths (as design ideas, not code).
 - Issue: `[research] Mono interpreter hot paths: method/virtual call caches`.
