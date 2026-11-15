@@ -71547,5 +71547,410 @@
         }
       }
     ]
+  },
+  {
+    "id": "upgrade-fail-alarm",
+    "bug": "A failed Handiness upgrade cut short (cancel, interrupt) leaves its Failure Upgrade Alarm, which later adds CanceledByScript to the Sim and cancels whatever it does then, including a retry (docs/567 §1)",
+    "fix": "ts3fixes UpgradeFailAlarm.cs: upgradefailalarm (default off), docs/567 §1",
+    "save": "any world (pure check)",
+    "note": "UpgradeFailAlarmCheck 'run' evaluates the removal decision with controls; 'result' shows live noted alarms (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "upgradefailalarm": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UpgradeFailAlarmCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UpgradeFailAlarmCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "upgradefailalarm": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UpgradeFailAlarmCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UpgradeFailAlarmCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "upgradefailalarm": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "upgradefailalarm": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "repair-time-cache",
+    "bug": "RepairableComponent.mRepairTime cached for a Sim whose repair never reached StopRepair (cancelled, route/in-use fail, electrocuted, reset) is used for the next Sim (docs/567 §2)",
+    "fix": "ts3fixes RepairTimeCache.cs: repairtimecache (default off), docs/567 §2",
+    "save": "any world (pure check)",
+    "note": "RepairTimeCacheCheck 'run' evaluates the drop / own-time decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "repairtimecache": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RepairTimeCacheCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RepairTimeCacheCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "repairtimecache": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RepairTimeCacheCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RepairTimeCacheCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "repairtimecache": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "repairtimecache": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "burglar-idle",
+    "bug": "BurglarSituation.Stealing.Init with a fire on the lot only pushes ReactToFire and relies on its tail calling SetToLeave (skipped for Coward/Mummy and witch-fire burglars, cancels, resets); with no EffectiveHousehold it returns at once: the burglar stands in the house (docs/568 §1)",
+    "fix": "ts3fixes BurglarIdle.cs: burglaridle (default off), docs/568 §1",
+    "save": "any world (pure check)",
+    "note": "BurglarIdleCheck 'run' evaluates the leave / fire-watch decisions with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "burglaridle": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurglarIdleCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurglarIdleCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "burglaridle": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurglarIdleCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurglarIdleCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "burglaridle": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "burglaridle": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "gig-wait-leave",
+    "bug": "Stylist makeover / Singer singagram wait pulse calls ForceLeaveJob when the customer waited too long but does not return: it still pushes a critical WaitForSim for the cancelled gig (customer routes over, second cancel TNS, job counted twice) (docs/568 §2)",
+    "fix": "ts3fixes GigWaitLeave.cs: gigwaitleave (default off), docs/568 §2",
+    "save": "any world (pure check)",
+    "note": "GigWaitLeaveCheck 'run' evaluates the stop decision with a control; 'result' shows counters and whether both private states were found (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "gigwaitleave": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GigWaitLeaveCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GigWaitLeaveCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "gigwaitleave": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GigWaitLeaveCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GigWaitLeaveCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "gigwaitleave": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "gigwaitleave": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "sculpt-pose",
+    "bug": "SculptingStation.SculptSim failure paths (route fail, CanAfford false after Committed, reset) leave the subject in PoseForSculpture, posing until cancelled (docs/568 §3)",
+    "fix": "ts3fixes SculptPose.cs: sculptpose (default off), docs/568 §3",
+    "save": "any world (pure check)",
+    "note": "SculptPoseCheck 'run' evaluates the cancel decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "sculptpose": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SculptPoseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SculptPoseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "sculptpose": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SculptPoseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SculptPoseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "sculptpose": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "sculptpose": false
+        }
+      }
+    ]
   }
 ]

@@ -279,6 +279,11 @@ namespace Ts3Fixes
         [Tunable] public static bool kConvMerge = false;    // convmerge (docs/566 §2): merged conversations leave their discourage-route footprint objects in the world
         [Tunable] public static bool kPortraitPose = false;    // portraitpose (docs/566 §4): portrait subject keeps waiting / posing after the painter failed or was reset
         [Tunable] public static bool kPicnicCamera = false;    // picniccamera (docs/566 §5): served picnic leaves its map-view callback on the camera (closes placement tools on map view)
+        [Tunable] public static bool kUpgradeFailAlarm = false;    // upgradefailalarm (docs/567 §1): a failed upgrade cut short leaves its alarm, which later cancels whatever the Sim is doing
+        [Tunable] public static bool kRepairTimeCache = false;    // repairtimecache (docs/567 §2): repair time cached for the last Sim that started (and dropped) a repair is used for the next Sim
+        [Tunable] public static bool kBurglarIdle = false;    // burglaridle (docs/568 §1): burglar stands in the house after a fire reaction that did not leave, or when the household is gone
+        [Tunable] public static bool kGigWaitLeave = false;    // gigwaitleave (docs/568 §2): Stylist/Singer gig customer still pushed to wait after the gig timed out
+        [Tunable] public static bool kSculptPose = false;    // sculptpose (docs/568 §3): Sculpt Sim failure paths leave the subject posing
         [Tunable] public static bool kHomeworkHelp = false;    // homeworkhelp (docs/565 §7): helper starting Help with Homework after the child finished hits a null jig
         [Tunable] public static bool kShellLighting = false;      // shelllighting (docs/561 §5): a buildable shell shows the lighting of the latest passed lighting time after load (EA keeps Default until the next alarm)
         [Tunable] public static bool kPhotoBoothFunds = false;    // photoboothfunds (docs/561 §2): a Sim that entered a photo booth and then lacked the fee is walked out (EA leaves it faded out inside)

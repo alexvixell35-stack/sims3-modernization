@@ -142,6 +142,11 @@ namespace Ts3Fixes
             ApplyConvMerge();    // docs/566 §2 (ConvMerge.cs)
             ApplyPortraitPose();    // docs/566 §4 (PortraitPose.cs)
             ApplyPicnicCamera();    // docs/566 §5 (PicnicCamera.cs)
+            ApplyUpgradeFailAlarm();    // docs/567 §1 (UpgradeFailAlarm.cs)
+            ApplyRepairTimeCache();    // docs/567 §2 (RepairTimeCache.cs)
+            ApplyBurglarIdle();    // docs/568 §1 (BurglarIdle.cs)
+            ApplyGigWaitLeave();    // docs/568 §2 (GigWaitLeave.cs)
+            ApplySculptPose();    // docs/568 §3 (SculptPose.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -452,6 +457,11 @@ namespace Ts3Fixes
         // [2544-2545] convmerge (ConvMerge.cs, docs/566 §2): merged-away conversation discourage regions cleaned / errors.
         // [2546-2547] portraitpose (PortraitPose.cs, docs/566 §4): portrait subjects' poses cancelled after the painter failed / errors.
         // [2548-2549] picniccamera (PicnicCamera.cs, docs/566 §5): picnic Serve map-view callbacks removed / errors.
+        // [2550-2552] upgradefailalarm (UpgradeFailAlarm.cs, docs/567 §1): pending failed-upgrade cancel alarms removed at booking / at restart / errors.
+        // [2553-2555] repairtimecache (RepairTimeCache.cs, docs/567 §2): stale repair times dropped / own time while another Sim repairs / errors.
+        // [2556-2558] burglaridle (BurglarIdle.cs, docs/568 §1): burglar leaves with no household / after a fire reaction that did not leave / errors.
+        // [2559-2561] gigwaitleave (GigWaitLeave.cs, docs/568 §2): Stylist / Singer gig wait pulses stopped after their own timeout leave / errors.
+        // [2562-2563] sculptpose (SculptPose.cs, docs/568 §3): Sculpt Sim subject poses cancelled after the sculptor failed / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -768,6 +778,11 @@ namespace Ts3Fixes
                 case "convmerge": return Instantiator.kConvMerge;
                 case "portraitpose": return Instantiator.kPortraitPose;
                 case "picniccamera": return Instantiator.kPicnicCamera;
+                case "upgradefailalarm": return Instantiator.kUpgradeFailAlarm;
+                case "repairtimecache": return Instantiator.kRepairTimeCache;
+                case "burglaridle": return Instantiator.kBurglarIdle;
+                case "gigwaitleave": return Instantiator.kGigWaitLeave;
+                case "sculptpose": return Instantiator.kSculptPose;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

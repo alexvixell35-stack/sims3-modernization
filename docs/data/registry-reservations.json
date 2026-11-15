@@ -3433,6 +3433,76 @@
       "what": "picniccamera: picnic Serve map-view callbacks removed / errors",
       "at": "2026-11-15T02:57:20.517Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2550",
+      "kind": "fixes",
+      "from": 2550,
+      "to": 2552,
+      "by": "claude",
+      "what": "upgradefailalarm: failed-upgrade cancel alarms removed when the attempt ended early / dropped on restart / errors",
+      "at": "2026-11-15T03:12:28.607Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2553",
+      "kind": "fixes",
+      "from": 2553,
+      "to": 2555,
+      "by": "claude",
+      "what": "repairtimecache: stale repair times dropped / fresh times for a waiting Sim / errors",
+      "at": "2026-11-15T03:12:28.682Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-567",
+      "kind": "doc",
+      "from": 567,
+      "to": 567,
+      "by": "claude",
+      "what": "household objects, repair/upgrade, fire, burglar, inventory batch",
+      "at": "2026-11-15T03:12:28.754Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2556",
+      "kind": "fixes",
+      "from": 2556,
+      "to": 2558,
+      "by": "claude",
+      "what": "burglaridle: burglar Stealing state idle after fire react / no household",
+      "at": "2026-11-15T03:19:38.307Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-568",
+      "kind": "doc",
+      "from": 568,
+      "to": 568,
+      "by": "claude",
+      "what": "Burglar idle and Ambitions/Bridgeport activity logic",
+      "at": "2026-11-15T03:19:38.384Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2559",
+      "kind": "fixes",
+      "from": 2559,
+      "to": 2561,
+      "by": "claude",
+      "what": "gigwaitleave: Stylist makeover / Singer singagram wait pulse keeps going after its own timeout ends the job",
+      "at": "2026-11-15T03:21:52.949Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2562",
+      "kind": "fixes",
+      "from": 2562,
+      "to": 2563,
+      "by": "claude",
+      "what": "sculptpose: SculptSim failure paths leave the subject posing",
+      "at": "2026-11-15T03:22:49.057Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

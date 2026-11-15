@@ -279,6 +279,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kConvMerge value="False" />
     <kPortraitPose value="False" />
     <kPicnicCamera value="False" />
+    <kUpgradeFailAlarm value="False" />
+    <kRepairTimeCache value="False" />
+    <kBurglarIdle value="False" />
+    <kGigWaitLeave value="False" />
+    <kSculptPose value="False" />
     <kBirthRoute value="False" />
     <kPutDownPlace value="False" />
     <kAwardKeep value="False" />

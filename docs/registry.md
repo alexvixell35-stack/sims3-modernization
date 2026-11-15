@@ -360,6 +360,11 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2544-2545 | reserved (claude, `fixes-2544`) | convmerge: merged-away conversation discourage regions cleaned / errors |
 | 2546-2547 | reserved (claude, `fixes-2546`) | portraitpose: portrait subjects released after the painter failed / errors |
 | 2548-2549 | reserved (claude, `fixes-2548`) | picniccamera: picnic Serve map-view callbacks removed / errors |
+| 2550-2552 | reserved (claude, `fixes-2550`) | upgradefailalarm: failed-upgrade cancel alarms removed when the attempt ended early / dropped on restart / errors |
+| 2553-2555 | reserved (claude, `fixes-2553`) | repairtimecache: stale repair times dropped / fresh times for a waiting Sim / errors |
+| 2556-2558 | reserved (claude, `fixes-2556`) | burglaridle: burglar Stealing state idle after fire react / no household |
+| 2559-2561 | reserved (claude, `fixes-2559`) | gigwaitleave: Stylist makeover / Singer singagram wait pulse keeps going after its own timeout ends the job |
+| 2562-2563 | reserved (claude, `fixes-2562`) | sculptpose: SculptSim failure paths leave the subject posing |
 | **994+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
