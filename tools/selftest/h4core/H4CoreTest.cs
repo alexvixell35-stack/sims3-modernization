@@ -55,6 +55,9 @@ static class H4CoreTest
         Check(H4Core.WdStillSince(100, 250, 200) == 100, "stamp in the future: ignored");
         Check(H4Core.WdStillSince(100, 0, 200) == 100, "never emptied / no autonomy: unchanged (real stuck Sim still counts)");
         Check(H4Core.WdStillSince(100, 100, 200) == 100, "emptied as the record began: unchanged");
+        Check(H4Core.WdStationaryResets(false, true), "human on terrain a day: reset");
+        Check(H4Core.WdStationaryResets(true, false), "horse on a lot a day: reset");
+        Check(!H4Core.WdStationaryResets(true, true), "horse grazing on terrain: left alone");
         Console.WriteLine(fails == 0 ? "h4core selftest: ok" : "h4core selftest: " + fails + " failed");
         return fails == 0 ? 0 : 1;
     }

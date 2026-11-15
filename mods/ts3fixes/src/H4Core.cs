@@ -52,5 +52,12 @@ namespace Ts3Fixes
         {
             return emptiedAt > since && emptiedAt <= now ? emptiedAt : since;
         }
+
+        // Watchdog [48] stationary reset: every Sim but a horse on open terrain (the world lot), where standing a day is grazing
+        // and the reset's placement would take it to its home's front door instead of ground it can route from.
+        public static bool WdStationaryResets(bool horse, bool onWorldLot)
+        {
+            return !(horse && onWorldLot);
+        }
     }
 }
