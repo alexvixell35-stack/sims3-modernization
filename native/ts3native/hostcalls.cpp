@@ -131,17 +131,20 @@ static LONG DmxGen() {
 }
 static DWORD DmxDeleg() { return g_dmxDelegate ? *(volatile const DWORD*)g_dmxDelegate : 0; }
 // the newest row for the key, NULL = none; *stale = a row existed but its generation, delegate or age no longer holds
+static volatile LONG g_dmxFound;  // valid rows (the miss split's other side; not logged)
 static const DmxRow* DmxFind(const DWORD* key, LONG gen, DWORD deleg, LONGLONG now, bool* stale) {
     const DmxRow* best = NULL;
     for (int i = 0; i < 256; i++) {
         const DmxRow& r = g_dmx[i];
         if (r.t && !memcmp(r.key, key, sizeof(r.key)) && (!best || r.t > best->t)) best = &r;
     }
-    *stale = best && (best->gen != gen || best->deleg != deleg || now - best->t > g_dmxTicks);
+    const bool other = best && (best->gen != gen || best->deleg != deleg), old = best && !other && now - best->t > g_dmxTicks;
+    *stale = other || old;
+    InterlockedIncrement(!best ? &ts3native_doorgen.missCold : other ? &ts3native_doorgen.missGen : old ? &ts3native_doorgen.missAge : &g_dmxFound);
     return *stale ? NULL : best;
 }
 static void DmxPut(const DWORD* key, DWORD ans, LONG gen, DWORD deleg, LONGLONG now) {
-    if (ans != 2) return;  // only "unlocked": see the header
+    if (ans != 2) { InterlockedIncrement(&ts3native_doorgen.notUnlocked); return; }  // only "unlocked": see the header
     DmxRow& w = g_dmx[g_dmxI];
     g_dmxI = (g_dmxI + 1) & 255;
     memcpy(w.key, key, sizeof(w.key));

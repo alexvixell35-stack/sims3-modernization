@@ -740,3 +740,4 @@ Separate struct of `LONG`, not versioned (`[RouteSnap] DoorMemoX=3`, switch `doo
 | Offsets | Fields |
 |---|---|
 | 0x00-0x0F | `gen` (managed door-input generation), `armed` (op 36 lo 1 seen this session), `bumps`, `unarmedAsks` (mode 3 asks before arming, run as mode 0) |
+| 0x10-0x1F | `missCold` (no row for the key), `missGen` (row of another generation / delegate set), `missAge` (row older than DoorMemoXMs), `notUnlocked` (live answers not "unlocked", never stored); any DoorMemoX mode, "door memo x misses:" line |
