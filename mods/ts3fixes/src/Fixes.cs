@@ -165,6 +165,10 @@ namespace Ts3Fixes
             ApplyHouseholdLogic();   // docs/574 §1-3 (HouseholdLogic.cs)
             ApplyWaSkillsLogic();    // docs/574 §4-7 (WaSkillsLogic.cs)
             ApplyCareerLogic();      // docs/574 §8-9 (CareerLogic.cs)
+            ApplyObjectUseLogic();   // docs/575 §2-5 (ObjectUseLogic.cs)
+            ApplyInUseLogic();       // docs/576 §2-3 (InUseLogic.cs)
+            ApplyAutonomyInUseBlock(); // docs/577 §1 (AutonomyInUseBlock.cs)
+            ApplyNpcBusyPartner();   // docs/577 §4 (NpcBusyPartner.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -530,6 +534,15 @@ namespace Ts3Fixes
         // [2664-2665] royaltyorphan (WaSkillsLogic.cs, docs/574 §7): alarms removed / errors.
         // [2666-2667] promoteshift (CareerLogic.cs, docs/574 §8): answers corrected / errors.
         // [2672-2673] gotoworkstale (CareerLogic.cs, docs/574 §9): stale pushes skipped / errors.
+        // [2679-2680] handsetreset (ObjectUseLogic.cs, docs/575 §2): handsets put back / errors.
+        // [2681-2682] flowersinuse (ObjectUseLogic.cs, docs/575 §3): bouquets freed / errors.
+        // [2683-2684] uselistprune (ObjectUseLogic.cs, docs/575 §4): use/reference entries dropped / errors.
+        // [2685-2686] chestuselist (ObjectUseLogic.cs, docs/575 §5): Sims taken off / errors.
+        // [2687-2688] swapdelegates (SwapDelegates.cs, docs/576 §1, ON): hook classes mapped / left alone (gauges, not counts).
+        // [2689-2690] resetinusefree (InUseLogic.cs, docs/576 §2): items freed / errors.
+        // [2691-2692] putdowninuse (InUseLogic.cs, docs/576 §3): put-downs repaired / errors.
+        // [2693-2695] autonomyinuseblock (AutonomyInUseBlock.cs, docs/577 §1): taken objects blocked / seen with switch off / errors.
+        // [2696-2698] npcbusypartner (NpcBusyPartner.cs, docs/577 §4): NPC waits ended / seen with switch off / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -900,6 +913,14 @@ namespace Ts3Fixes
                 case "royaltyorphan": return Instantiator.kRoyaltyOrphan;
                 case "promoteshift": return Instantiator.kPromoteShift;
                 case "gotoworkstale": return Instantiator.kGoToWorkStale;
+                case "handsetreset": return Instantiator.kHandsetReset;
+                case "flowersinuse": return Instantiator.kFlowersInUse;
+                case "uselistprune": return Instantiator.kUseListPrune;
+                case "chestuselist": return Instantiator.kChestUseList;
+                case "resetinusefree": return Instantiator.kResetInUseFree;
+                case "putdowninuse": return Instantiator.kPutDownInUse;
+                case "autonomyinuseblock": return Instantiator.kAutonomyInUseBlock;
+                case "npcbusypartner": return Instantiator.kNpcBusyPartner;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
@@ -985,7 +1006,7 @@ namespace Ts3Fixes
                 case "compactionfail": return false;  // test only (Compaction.cs, docs/204 §6): the reload throws after the screen is up
                 case "spotspread": return true;
                 case "routefaillog": return true;  // ON in release (Rodney 2026-11-08): helps triage player reports in early releases
-                case "asyncroute": case "asyncreplan": case "asyncreplanforeign": case "overwatchstuck": case "savedstacks": case "gm6trace": case "savecleanup": return true;  // were on through the old default: true
+                case "asyncroute": case "asyncreplan": case "asyncreplanforeign": case "overwatchstuck": case "savedstacks": case "swapdelegates": case "gm6trace": case "savecleanup": return true;  // were on through the old default: true
                 default: return false;  // new switches default off (AGENTS.md); a typo stays off
             }
         }
@@ -1019,6 +1040,7 @@ namespace Ts3Fixes
                 // 0x58D9B6: the game dies on the first call, buycellrecycle v1/v2 2026-11-11), so refuse such pairs
                 PatchSigCheck(t, r, "hook");
                 if (stub != null) PatchSigCheck(t, hook.GetMethod(stub, all), "stub");
+                Type sdOwner = t.DeclaringType;  // docs/576 §1: the class the save must name (SwapMethod moves the class word)
                 string swName = AutShadowCore.MemberName(t);  // G-M6: callers' IL hashes name t as before the swap
                 if (swName != null) AutShadowCore.SwapNames[t.MethodHandle.Value] = swName;
                 if (stub != null) { MethodInfo s = hook.GetMethod(stub, all); SwapMethod(s, t); StubDirect(s); }
@@ -1026,6 +1048,7 @@ namespace Ts3Fixes
                 sStubs.Add(t);  // docs/242: a frame in the hook's body saves as the hook's class, which often cannot find it again
                 sPatched[t.MethodHandle.Value] = hook;  // docs/128 G-M4: our own swap, accepted by the closure sweep (by MonoMethod: GetMethods hands out other MethodInfo objects)
                 AppliedLog().Add(target.Name + "." + method + ": ok");
+                SdRecord(hook, sdOwner, t, r, stub != null ? hook.GetMethod(stub, all) : null);  // docs/576 §1 swapdelegates
                 return true;
             }
             catch (Exception e) { AppliedLog().Add(TypeName(target) + "." + method + ": " + e.Message); return false; }

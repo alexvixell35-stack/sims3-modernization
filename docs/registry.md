@@ -385,6 +385,10 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2672-2675 | reserved (claude, `fixes-2672`) | docs/574 careers (2 switches); built 2026-11-15, default off, all proven in game 2026-11-15 (Bridgeport, off BROKEN / on FIXED, controls ok, members found) |
 | 2679-2684 | reserved (claude, `fixes-2679`) | docs/575 handsetreset flowersinuse uselistprune |
 | 2685-2686 | reserved (claude, `fixes-2685`) | docs/575 chestuselist |
+| 2687-2688 | reserved (claude, `fixes-2687`) | docs/576 swapdelegates |
+| 2689-2692 | reserved (claude, `fixes-2689`) | docs/576 resetinusefree putdowninuse |
+| 2693-2695 | reserved (claude, `fixes-2693`) | docs/577 §1 autonomyinuseblock (AutonomyInUseBlock.cs) |
+| 2696-2698 | reserved (claude, `fixes-2696`) | docs/577 §4 npcbusypartner (NpcBusyPartner.cs) |
 | **994+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

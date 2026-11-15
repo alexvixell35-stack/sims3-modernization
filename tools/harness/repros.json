@@ -75921,5 +75921,734 @@
         }
       }
     ]
+  },
+  {
+    "id": "handsetreset-check",
+    "bug": "A landline keeps its handset hidden after a call cut by a reset (docs/575 §2)",
+    "fix": "ts3fixes ObjectUseLogic.cs: handsetreset (default off), docs/575 §2",
+    "save": "any world (pure check)",
+    "note": "HandsetResetCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "handsetreset": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HandsetResetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HandsetResetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "handsetreset": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HandsetResetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HandsetResetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "handsetreset": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "handsetreset": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "flowersinuse-check",
+    "bug": "A rejected Give Flowers leaves the bouquet in use for good (docs/575 §3)",
+    "fix": "ts3fixes ObjectUseLogic.cs: flowersinuse (default off), docs/575 §3",
+    "save": "any world (pure check)",
+    "note": "FlowersInUseCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "flowersinuse": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FlowersInUseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FlowersInUseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "flowersinuse": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FlowersInUseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FlowersInUseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "flowersinuse": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "flowersinuse": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "uselistprune-check",
+    "bug": "Objects stay in use by Sims who are gone (EA validator never called) (docs/575 §4)",
+    "fix": "ts3fixes ObjectUseLogic.cs: uselistprune (default off), docs/575 §4",
+    "save": "any world (pure check)",
+    "note": "UseListPruneCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "uselistprune": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UseListPruneCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UseListPruneCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "uselistprune": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UseListPruneCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UseListPruneCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "uselistprune": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "uselistprune": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "chestuselist-check",
+    "bug": "A cut treasure-chest open keeps the Sim on the chest use list (docs/575 §5)",
+    "fix": "ts3fixes ObjectUseLogic.cs: chestuselist (default off), docs/575 §5",
+    "save": "any world (pure check)",
+    "note": "ChestUseListCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "chestuselist": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ChestUseListCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ChestUseListCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "chestuselist": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ChestUseListCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ChestUseListCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "chestuselist": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "chestuselist": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "swapdelegates-check",
+    "bug": "A saved delegate to a swapped method (alarm callback, loop delegate) loads as null, so EA drops it: no NPC trick-or-treaters / NPC holiday party after a save, with every switch off (docs/576 §1)",
+    "fix": "ts3fixes SwapDelegates.cs: swapdelegates (default ON, repairs our own swaps), docs/576 §1",
+    "save": "any world (pure check)",
+    "note": "SwapDelegatesCheck 'run' round-trips every swapped target through the save's own MethodInst write/read lookup (off: as the hook class, on: through the live class remap) plus an unswapped control; 'result' lists hook classes left alone.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "swapdelegates": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwapDelegatesCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: the hook class as written"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwapDelegatesCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "swapdelegates": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwapDelegatesCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the remap"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwapDelegatesCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "swapdelegates": true
+        },
+        "note": "back to the default (on)"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "swapdelegates": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "resetinusefree-check",
+    "bug": "An item stays in use in a Sim inventory after the Sim is reset mid-interaction (docs/576 §2)",
+    "fix": "ts3fixes InUseLogic.cs: resetinusefree (default off), docs/576 §2",
+    "save": "any world (pure check)",
+    "note": "ResetInUseFreeCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "resetinusefree": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ResetInUseFreeCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ResetInUseFreeCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "resetinusefree": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ResetInUseFreeCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ResetInUseFreeCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "resetinusefree": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "resetinusefree": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "putdowninuse-check",
+    "bug": "A put-down on a surface cut after the in-use mark leaves the item in use and the surface held (docs/576 §3)",
+    "fix": "ts3fixes InUseLogic.cs: putdowninuse (default off), docs/576 §3",
+    "save": "any world (pure check)",
+    "note": "PutDownInUseCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "putdowninuse": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownInUseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownInUseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "putdowninuse": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownInUseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownInUseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "putdowninuse": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "putdowninuse": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "autonomyinuseblock-check",
+    "bug": "An autonomous action that finds its object taken and returns false leaves no failure block, so autonomy re-picks it (docs/577 §1)",
+    "fix": "ts3fixes AutonomyInUseBlock.cs: autonomyinuseblock (default off), docs/577 §1",
+    "save": "any world (pure check)",
+    "note": "AutonomyInUseBlockCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "autonomyinuseblock": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AutonomyInUseBlockCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AutonomyInUseBlockCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "autonomyinuseblock": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AutonomyInUseBlockCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AutonomyInUseBlockCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "autonomyinuseblock": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "autonomyinuseblock": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "npcbusypartner-check",
+    "bug": "An NPC starter waits 45 sim-min for an NPC partner whose linked action is still only queued (StartSync pre-sync timeout has no failure branch) (docs/577 §4)",
+    "fix": "ts3fixes NpcBusyPartner.cs: npcbusypartner (default off), docs/577 §4",
+    "save": "any world (pure check)",
+    "note": "NpcBusyPartnerCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "npcbusypartner": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NpcBusyPartnerCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NpcBusyPartnerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "npcbusypartner": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NpcBusyPartnerCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NpcBusyPartnerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "npcbusypartner": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "npcbusypartner": false
+        }
+      }
+    ]
   }
 ]

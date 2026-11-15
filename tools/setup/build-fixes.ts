@@ -333,6 +333,14 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kRoyaltyOrphan value="False" />
     <kPromoteShift value="False" />
     <kGoToWorkStale value="False" />
+    <kHandsetReset value="False" />
+    <kFlowersInUse value="False" />
+    <kUseListPrune value="False" />
+    <kChestUseList value="False" />
+    <kResetInUseFree value="False" />
+    <kPutDownInUse value="False" />
+    <kAutonomyInUseBlock value="False" />
+    <kNpcBusyPartner value="False" />
     <kBirthRoute value="False" />
     <kPutDownPlace value="False" />
     <kAwardKeep value="False" />

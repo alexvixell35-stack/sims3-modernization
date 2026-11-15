@@ -3943,6 +3943,66 @@
       "what": "docs/575 chestuselist",
       "at": "2026-11-15T12:32:20.319Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-576",
+      "kind": "doc",
+      "from": 576,
+      "to": 576,
+      "by": "claude",
+      "what": "docs/576 in-use sites, firetrapcount, stuck Sims",
+      "at": "2026-11-15T12:43:47.130Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2687",
+      "kind": "fixes",
+      "from": 2687,
+      "to": 2688,
+      "by": "claude",
+      "what": "docs/576 swapdelegates",
+      "at": "2026-11-15T12:53:59.869Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2689",
+      "kind": "fixes",
+      "from": 2689,
+      "to": 2692,
+      "by": "claude",
+      "what": "docs/576 resetinusefree putdowninuse",
+      "at": "2026-11-15T12:59:57.104Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-577",
+      "kind": "doc",
+      "from": 577,
+      "to": 577,
+      "by": "claude",
+      "what": "docs/577 pets/occults stuck, autonomy fail loop, locked doors",
+      "at": "2026-11-15T13:03:44.771Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2693",
+      "kind": "fixes",
+      "from": 2693,
+      "to": 2695,
+      "by": "claude",
+      "what": "docs/577 §1 autonomyinuseblock (AutonomyInUseBlock.cs)",
+      "at": "2026-11-15T13:10:09.867Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2696",
+      "kind": "fixes",
+      "from": 2696,
+      "to": 2698,
+      "by": "claude",
+      "what": "docs/577 §4 npcbusypartner (NpcBusyPartner.cs)",
+      "at": "2026-11-15T13:16:45.765Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }
