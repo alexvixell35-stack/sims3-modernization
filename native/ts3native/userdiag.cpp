@@ -663,7 +663,8 @@ static const LONG kUdUfPlanLines = 30000;  // ufplan: disk guard (~3 MB); ts3fix
 static bool UdHitchLine(const char* s) {
     static const char* const kPrefixes[] = {"boatreplan:", "gangway:", "owreset:", "alarmtime:", "lotpass:", "syncwait",
                                             "socialfinish:", "socialreceivefail:", "hourlypass:", "spawnplace:",
-                                            "replanlog"};  // replanlog: docs/261 L1, ts3fixes caps its own (2000 lines a session)
+                                            "replanlog",   // replanlog: docs/261 L1, ts3fixes caps its own (2000 lines a session)
+                                            "ufplansplit:", "planwait:"};  // ufplansplit fell under the shared 400 before (the A/B arms got ~100 lines each)
     for (const char* p : kPrefixes)
         if (!strncmp(s, p, strlen(p))) return true;
     return false;
