@@ -15,13 +15,14 @@
    "scriptErrorsMax": 0,
    "timeoutMin": 30,
    "save": "Baseline-BP-Spring",
-   "note": "Forced-fault arm (test-only hook): [MonoJit] FaultTest=RuntimeTypeHandle.get_Value FaultTestN=1000, so call 1000 of that method's normal body reads address 0. PASS = no crash, the fault recovered exactly once (frRecovered 1, frPassed 0, one \"jit: fault recovered\" line naming get_Value word 0), the method back in EA's interpreter (frTestCalls stops at 1000), 0 script errors, jitMismatch 0, switches read back. Household Sims untouched: the JIT is exact and the recovered call runs in EA's interpreter, so no Sim changes; check the who/lot lines of the household are as in a JIT-on run. If the armed line is missing (method not compiled on this build), pick another listed method that runs from interpreted callers and rerun.",
+   "note": "Forced-fault arm (test-only hook): [MonoJit] FaultTest=RuntimeTypeHandle.get_Value FaultTestN=1000, so call 1000 of that method's normal body reads address 0. PASS = no crash, the fault recovered exactly once (frRecovered 1, frPassed 0, one \"jit: fault recovered\" line naming get_Value word 0), the method back in EA's interpreter (frTestCalls stops at 1000), 0 script errors, jitMismatch 0, switches read back. Household Sims untouched: the JIT is exact and the recovered call runs in EA's interpreter, so no Sim changes; check the who/lot lines of the household are as in a JIT-on run. [Binder] TypeHandleDirect=0 in this arm: master turned it on (b0507f79), and with it Type.GetTypeFromHandle no longer calls get_Value, so get_Value is never compiled (0 of 101 TD-on job logs compile it; the 2026-11-15 13:49 UTC run failed the early gate with frTestCalls=0). The binder patch is not under test here. If the armed line is missing (method not compiled on this build), pick another listed method that runs from interpreted callers and rerun.",
    "ini": {
     "MonoJit.Enabled": 1,
     "MonoJit.Mode": 1,
     "MonoJit.FaultRecover": 1,
     "MonoJit.FaultTest": "RuntimeTypeHandle.get_Value",
-    "MonoJit.FaultTestN": 1000
+    "MonoJit.FaultTestN": 1000,
+    "Binder.TypeHandleDirect": 0
    },
    "logRequire": {
     "OK   mono jit \\(docs/527\\): Mode=1, .*FaultRecover=1(?!\\w)": 1,
@@ -32,7 +33,8 @@
     "^jit: fault passed on": 0,
     "SKIP mono jit": 0,
     "jit verify MISMATCH": 0,
-    "^FAIL mono jit clause lazy": 0
+    "^FAIL mono jit clause lazy": 0,
+    "^OK   binder type handle direct": 0
    },
    "nativeRequire": "@jitOn>=1,@frOn>=1,frRecovered>=1,frRecovered<=1,frPassed<=0,frTestCalls>=1000,jitMismatch<=0,jitFaults<=0,clFaults<=0",
    "earlyGates": [
@@ -53,6 +55,14 @@
     }
    },
    "regexCases": {
+    "^OK   binder type handle direct": {
+     "match": [
+      "OK   binder type handle direct (docs/537 §20.3): Type.GetTypeFromHandle's EA body 0xDB0940 reads the handle at 0x00DB095E, no 0xD8A8E0 call to RuntimeTypeHandle.get_Value"
+     ],
+     "noMatch": [
+      "SKIP binder type handle direct: bytes at 0x00DB0940 differ (another owner or another exe): not installed"
+     ]
+    },
     "OK   mono jit \\(docs/527\\): Mode=1, .*FaultRecover=1(?!\\w)": {
      "match": [
       "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1"
