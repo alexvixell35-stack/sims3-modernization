@@ -570,6 +570,9 @@ static void ReadPlanDeadline(const wchar_t* ini) {
     k.owReady = GetPrivateProfileIntW(L"RouteAsync", L"OwnJobWait", 0, ini) ? 1 : 0;          // docs/178 T4 (observe only)
     k.jyMode = GetPrivateProfileIntW(L"RouteAsync", L"JobYield", 0, ini) ? 1 : 0;             // docs/183 (runtime switch)
     k.rwMode = GetPrivateProfileIntW(L"RouteAsync", L"WorkerWait", 0, ini) ? 1 : 0;           // docs/203 §6 (runtime switch)
+    ts3native_readydrain.mode = GetPrivateProfileIntW(L"RouteAsync", L"ReadyDrain", 0, ini) ? 1 : 0;  // ts3native.cpp ReadyDrain
+    ts3native_readydrain.budgetUs = Clamp((LONG)GetPrivateProfileIntW(L"RouteAsync", L"ReadyDrainUs", 2000, ini), 100, 10000);
+    if (ts3native_readydrain.mode) Log("route async: ReadyDrain=1, budget %ld us per READY poll", ts3native_readydrain.budgetUs);
     ReadKindDeadlines(ini);                                                                    // docs/197
     ReadUnseenFallback(ini);                                                                   // docs/202 (unseenfb.cpp)
     Log("route async: PlanDeadlineMs=%ld PlanDeadlineOwnMs=%ld FailMemo=%d FbJobDeadline=%d OwnJobWait=%ld JobYield=%ld WorkerWait=%ld",
