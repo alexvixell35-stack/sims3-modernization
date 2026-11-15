@@ -45,6 +45,14 @@ namespace Ts3Fixes
         // per plan, not static (PR #306, Dalexlol): async plans of two Sims overlap (each task sleeps on its route job), and shared fields printed one
         // plan's time with another plan's verdict and Sim (e.g. "why 3 cut" on a household Sim: a cut needs a mark, a mark why 0)
         struct UfLast { public int Why; public bool Marked, Cut, ViewerOnly; public Sim Sim; }
+        // ufplansplit (log switch, default off): where a slow ufplan's wall time went. AsyncWait / the refused-START sync path
+        // write these with no yield before UfPlan reads them, so they belong to the plan that reads them; UfPlan clears them
+        // first (a plan that never reaches AsyncWait reads Seen false). Line "ufplansplit:" for plans >= kUfSlowPlanMs only:
+        //   pre  = UfPlan start -> the async wait (why checks, marks, START), wait = the task sleeping one frame per poll until
+        //   the job is READY (polls = frames), post = the original Plan collecting the result and the rest of UfPlan; sync = a
+        //   refused START planned on the sim thread instead (the frame waits for it); dist = straight line to the destination.
+        struct UfSplit { public bool On, Seen; public int WaitStart, WaitMs, Polls, SyncMs; }
+        static UfSplit sUfSplit;
         // Scope-gap counters (counters only, no behaviour change). [854-857, 861] plans whose follower is not a Sim (who == null) that
         // reach UfPlanBody: Vehicle and IOwnableVehicle / Vehicle not ownable / Vehicle with a household or selectable Sim in
         // Occupants / not a Vehicle (or no proxy), and the total. [858-860] Sim plans whose why is kNearViewers only through the
@@ -93,6 +101,24 @@ namespace Ts3Fixes
             }
             catch (Exception) { return UnseenFallbackCore.kHousehold; }
         }
+        // the dedicated line, under ufplan's per-minute cap shared with nothing else (kUfSlowPlanPerMin of its own)
+        static int sUfSplitLogged, sUfSplitMinute;
+        static void UfSplitLog(ScriptCore.Route rt, int kind, int ms, int t0, UfLast l, RoutePlanResult r)
+        {
+            int minute = System.Environment.TickCount / 60000;
+            if (minute != sUfSplitMinute) { sUfSplitMinute = minute; sUfSplitLogged = 0; }
+            if (sUfSplitLogged++ >= kUfSlowPlanPerMin) return;
+            UfSplit u = sUfSplit;
+            string parts = !u.Seen ? "no wait" : u.SyncMs >= 0 ? "sync " + u.SyncMs + " ms (START refused)"
+                : "pre " + unchecked(u.WaitStart - t0) + " wait " + u.WaitMs + " (" + u.Polls + " polls) post " + (ms - unchecked(u.WaitStart - t0) - u.WaitMs);
+            string dist = "?";
+            try { Sim s = rt.Follower != null ? rt.Follower.Target as Sim : null; if (s != null) dist = Math.Round((rt.GetApproximateOriginalDestination() - s.Position).Length(), 0).ToString(); }
+            catch (Exception) { }
+            DiagLine("ufplansplit: kind " + kind + " " + ms + " ms, " + parts + ", why " + l.Why + (l.Cut ? " cut" : "") + ", result " + r.mType
+                + ", dist " + dist + (l.Sim != null ? ", " + l.Sim.FullName + (l.Sim.LotCurrent != null ? " on " + l.Sim.LotCurrent.Name : "") : "")
+                + ", tick " + Sims3.Gameplay.Utilities.SimClock.CurrentTicks);
+        }
+
         static void UfSlowPlanLog(int kind, int ms, UfLast l)
         {
             if (l.ViewerOnly)
@@ -817,6 +843,8 @@ namespace Ts3Fixes
                 int t0 = System.Environment.TickCount;
                 UfLast last = new UfLast();
                 last.Why = -1;
+                sUfSplit = new UfSplit { On = ShortcutOn("ufplansplit"), SyncMs = -1 };
+                bool split = sUfSplit.On;
                 RoutePlanResult r;
                 ulong task = Simulator.CurrentTask.Value;
                 sUfPlanDepth.Enter(task);  // §3.9.6: > 1 in this task = a plan inside another plan's callback (PostPlan / AboutToPlan)
@@ -839,7 +867,10 @@ namespace Ts3Fixes
                     if (r.mType == RoutePlanResultType.Succeeded) sUrC.Set(ln.G, ln.S, true);
                     else if (r.mType == RoutePlanResultType.FailedBecauseNoPathToDestination && !last.Cut) sUrC.Set(ln.G, ln.S, false);
                 }
-                UfSlowPlanLog(kind, unchecked(System.Environment.TickCount - t0), last);
+                int ufMs = unchecked(System.Environment.TickCount - t0);
+                UfSlowPlanLog(kind, ufMs, last);
+                if (split && ufMs >= kUfSlowPlanMs) UfSplitLog(this, kind, ufMs, t0, last, r);
+                sUfSplit = default(UfSplit);
                 UfLoopNote(Follower, r);  // docs/202 §5.7 E (unseenfbloopdet)
                 if (sUfFill.Route != null && ReferenceEquals(sUfFill.Route, this))
                 {
