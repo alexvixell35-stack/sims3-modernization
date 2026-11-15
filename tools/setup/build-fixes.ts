@@ -269,6 +269,12 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kMoveInPartner value="False" />
     <kReaperFlow value="False" />
     <kServiceLeave value="False" />
+    <kVisitGreetAlarm value="False" />
+    <kFieldTripAdult value="False" />
+    <kAutonomyFailBlock value="False" />
+    <kVisitTooLate value="False" />
+    <kSpoonReset value="False" />
+    <kHomeworkHelp value="False" />
     <kBirthRoute value="False" />
     <kPutDownPlace value="False" />
     <kAwardKeep value="False" />

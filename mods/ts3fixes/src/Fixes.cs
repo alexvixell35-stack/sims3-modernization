@@ -132,6 +132,12 @@ namespace Ts3Fixes
             ApplyMoveInPartner();    // docs/563 §3 (MoveInPartner.cs)
             ApplyReaperFlow();    // docs/563 §4 (ReaperFlow.cs)
             ApplyServiceLeave();    // docs/564 §1 (ServiceLeave.cs)
+            ApplyVisitGreetAlarm();    // docs/565 §1 (VisitGreetAlarm.cs)
+            ApplyFieldTripAdult();    // docs/565 §2 (FieldTripAdult.cs)
+            ApplyAutonomyFailBlock();    // docs/565 §3 (AutonomyFailBlock.cs)
+            ApplyVisitTooLate();    // docs/565 §5 (VisitTooLate.cs)
+            ApplySpoonReset();    // docs/565 §6 (SpoonReset.cs)
+            ApplyHomeworkHelp();    // docs/565 §7 (HomeworkHelp.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -431,6 +437,13 @@ namespace Ts3Fixes
         // [2513-2515] reaperflow (ReaperFlow.cs, docs/563 §4): reaper soda pushes given a failure path / Challenge Death to Chess hidden with no grave / errors.
         // [2517-2521] serviceleave (ServiceLeave.cs, docs/564 §1): service timeouts re-armed after a worker reset (wait/leave, work limit) / repo man left with no mailbox / no delay found / errors.
         // [2522-2523] serviceleave (docs/564 §2): babysitter/butler periodic checks re-armed / repo-man no-op states left.
+        // [2524-2526] visitgreetalarm (VisitGreetAlarm.cs, docs/565 §1): re-armed greeting wait alarms dropped / stale wait timeouts ignored / errors.
+        // [2527-2529, 2533] fieldtripadult (FieldTripAdult.cs, docs/565 §2): trips ended with no possible chaperone (hang) / unfit chaperones skipped / deleted-chaperone or exited-trip calls / errors.
+        // [2530-2532] autonomyfailblock (AutonomyFailBlock.cs, docs/565 §3): autonomous posture failures blocked / left alone / errors.
+        // [2534-2535] visittoolate (VisitTooLate.cs, docs/565 §5): NPC guests sent home when outside and too late / errors.
+        // [2536-2537] spoonreset (SpoonReset.cs, docs/565 §6): spoon pairs released after the partner was gone / errors.
+        // [2538-2539] homeworkhelp (HomeworkHelp.cs, docs/565 §7): helpers stopped with no jig or no child / errors.
+        // [2540] fieldtripadult (docs/565 §2d): carpool home with no selected Sim / no home handled.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -737,6 +750,12 @@ namespace Ts3Fixes
                 case "moveinpartner": return Instantiator.kMoveInPartner;
                 case "reaperflow": return Instantiator.kReaperFlow;
                 case "serviceleave": return Instantiator.kServiceLeave;
+                case "visitgreetalarm": return Instantiator.kVisitGreetAlarm;
+                case "fieldtripadult": return Instantiator.kFieldTripAdult;
+                case "autonomyfailblock": return Instantiator.kAutonomyFailBlock;
+                case "visittoolate": return Instantiator.kVisitTooLate;
+                case "spoonreset": return Instantiator.kSpoonReset;
+                case "homeworkhelp": return Instantiator.kHomeworkHelp;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

@@ -270,6 +270,12 @@ namespace Ts3Fixes
         [Tunable] public static bool kMoveInPartner = false;    // moveinpartner (docs/563 §3): story move-in with partner over the household cap, teen couples (§5)
         [Tunable] public static bool kReaperFlow = false;    // reaperflow (docs/563 §4): Grim Reaper stuck after a failed vending-machine soda, Challenge Death to Chess with no grave
         [Tunable] public static bool kServiceLeave = false;    // serviceleave (docs/564 §1): service NPC timeouts lost on a worker reset (never arrive / never leave), repo man with no mailbox
+        [Tunable] public static bool kVisitGreetAlarm = false;    // visitgreetalarm (docs/565 §1): leaked "waiting to be greeted" alarm sends a let-in guest home / reroutes an ended visit
+        [Tunable] public static bool kFieldTripAdult = false;    // fieldtripadult (docs/565 §2): field-trip chaperone search hangs with no candidate; pets / on-duty service NPCs as chaperone; deleted-chaperone NRE
+        [Tunable] public static bool kAutonomyFailBlock = false;    // autonomyfailblock (docs/565 §3): autonomous action failing on an unreachable posture leaves no failure block (object re-picked)
+        [Tunable] public static bool kVisitTooLate = false;    // visittoolate (docs/565 §5): NPC visitors told to leave late at night stand in the yard all night
+        [Tunable] public static bool kSpoonReset = false;    // spoonreset (docs/565 §6): spooning Sim kept in the pair (spoon pose, skipped wake checks) after its partner was reset
+        [Tunable] public static bool kHomeworkHelp = false;    // homeworkhelp (docs/565 §7): helper starting Help with Homework after the child finished hits a null jig
         [Tunable] public static bool kShellLighting = false;      // shelllighting (docs/561 §5): a buildable shell shows the lighting of the latest passed lighting time after load (EA keeps Default until the next alarm)
         [Tunable] public static bool kPhotoBoothFunds = false;    // photoboothfunds (docs/561 §2): a Sim that entered a photo booth and then lacked the fee is walked out (EA leaves it faded out inside)
         [Tunable] public static bool kGoHomeWalk = false;         // gohomewalk (docs/560 §2): GoHome takes back the walk style (Run) it requested, so Sims sent home from a busted party stop running

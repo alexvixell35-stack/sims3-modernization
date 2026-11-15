@@ -3293,6 +3293,96 @@
       "what": "serviceleave 2522 babysitter periodic checks re-armed, 2523 repo man no-op states left",
       "at": "2026-11-15T02:03:07.948Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2524",
+      "kind": "fixes",
+      "from": 2524,
+      "to": 2526,
+      "by": "claude",
+      "what": "visitgreetalarm 1st (re-armed wait alarms dropped), 2nd stale callbacks ignored, 3rd errors",
+      "at": "2026-11-15T02:24:01.194Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2527",
+      "kind": "fixes",
+      "from": 2527,
+      "to": 2529,
+      "by": "claude",
+      "what": "fieldtripadult: no chaperone found (hang avoided) / unfit chaperone skipped / adult-deleted exit handled",
+      "at": "2026-11-15T02:24:01.270Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2530",
+      "kind": "fixes",
+      "from": 2530,
+      "to": 2532,
+      "by": "claude",
+      "what": "autonomyfailblock: posture-unreachable autonomous failures blocked / skipped (exit reason set or test failed) / errors",
+      "at": "2026-11-15T02:24:01.343Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-565",
+      "kind": "doc",
+      "from": 565,
+      "to": 565,
+      "by": "claude",
+      "what": "daily-life logic batch 2 (visits, field trips, autonomy failure block)",
+      "at": "2026-11-15T02:24:01.416Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2533",
+      "kind": "fixes",
+      "from": 2533,
+      "to": 2533,
+      "by": "claude",
+      "what": "fieldtripadult errors",
+      "at": "2026-11-15T02:24:55.593Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2534",
+      "kind": "fixes",
+      "from": 2534,
+      "to": 2535,
+      "by": "claude",
+      "what": "visittoolate: NPC guests sent home when all outside and too late / errors",
+      "at": "2026-11-15T02:31:41.718Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2536",
+      "kind": "fixes",
+      "from": 2536,
+      "to": 2537,
+      "by": "claude",
+      "what": "spoonreset: spoon pair released after partner reset / errors",
+      "at": "2026-11-15T02:31:41.795Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2538",
+      "kind": "fixes",
+      "from": 2538,
+      "to": 2539,
+      "by": "claude",
+      "what": "homeworkhelp: helper stopped with no jig or child not waiting / errors",
+      "at": "2026-11-15T02:31:41.877Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2540",
+      "kind": "fixes",
+      "from": 2540,
+      "to": 2540,
+      "by": "claude",
+      "what": "fieldtripadult: carpool home with no selected Sim / homeless selected Sim handled",
+      "at": "2026-11-15T02:31:41.949Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

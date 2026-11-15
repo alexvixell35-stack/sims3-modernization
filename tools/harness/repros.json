@@ -70737,5 +70737,491 @@
         }
       }
     ]
+  },
+  {
+    "id": "visit-greet-alarm",
+    "bug": "VisitorWantsToComeIn.Init re-run after a failed NPC invite-in overwrites the 1-h 'waiting to be greeted' alarm; the leaked alarm later switches the visit to GuestLeavesAfterWaitingTooLong (let-in NPC guest walks home) or sends an NPC home after its visit ended (docs/565 §1)",
+    "fix": "ts3fixes VisitGreetAlarm.cs: visitgreetalarm (default off), docs/565 §1",
+    "save": "any world (pure check)",
+    "note": "VisitGreetAlarmCheck 'run' evaluates the drop / stale decisions with controls and lists live visits and whether a greeting state holds a wait alarm (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "visitgreetalarm": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VisitGreetAlarmCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VisitGreetAlarmCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "visitgreetalarm": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VisitGreetAlarmCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VisitGreetAlarmCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "visitgreetalarm": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "visitgreetalarm": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "field-trip-adult",
+    "bug": "FieldTripSituation.BringAdultToSchool loops forever (game freeze) when no NPC adult passes its test, since rejected Sims are never removed from the list; adult pets and on-duty service NPCs pass the chaperone test; deleting the chaperone throws after Exit; the bus home NREs with no selected Sim (docs/565 §2)",
+    "fix": "ts3fixes FieldTripAdult.cs: fieldtripadult (default off), docs/565 §2",
+    "save": "any world (pure check)",
+    "note": "FieldTripAdultCheck 'run' evaluates the chaperone decisions with controls and counts live Sims that pass EA's adult test, pets and service NPCs among them (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fieldtripadult": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FieldTripAdultCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FieldTripAdultCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fieldtripadult": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FieldTripAdultCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FieldTripAdultCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fieldtripadult": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fieldtripadult": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "autonomy-fail-block",
+    "bug": "An autonomous action that fails because its posture cannot be reached (no transition) ends with no exit reason, so InteractionQueue.OnValidInteractionFailed never blocks the target and autonomy re-picks the same object (docs/565 §3)",
+    "fix": "ts3fixes AutonomyFailBlock.cs: autonomyfailblock (default off), docs/565 §3",
+    "save": "any world (pure check)",
+    "note": "AutonomyFailBlockCheck 'run' evaluates the block decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "autonomyfailblock": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AutonomyFailBlockCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AutonomyFailBlockCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "autonomyfailblock": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AutonomyFailBlockCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AutonomyFailBlockCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "autonomyfailblock": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "autonomyfailblock": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "visit-too-late",
+    "bug": "NPC visitors told to leave late at night (TimeForGuestToLeave, all outside, IsTooLateToVisit) are never sent home: RemindGuestsToLeave does nothing in that case and they stand in the yard all night (docs/565 §5)",
+    "fix": "ts3fixes VisitTooLate.cs: visittoolate (default off), docs/565 §5",
+    "save": "any world (pure check)",
+    "note": "VisitTooLateCheck 'run' evaluates the send-home decision with controls and lists visits told to leave (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "visittoolate": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VisitTooLateCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VisitTooLateCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "visittoolate": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VisitTooLateCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VisitTooLateCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "visittoolate": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "visittoolate": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "spoon-reset",
+    "bug": "A Sim in a shared-bed spoon pair whose partner was reset keeps the pair: stays in the spoon pose, skips EA's wake checks; a lone master errors at FinishSpooning (docs/565 §6)",
+    "fix": "ts3fixes SpoonReset.cs: spoonreset (default off), docs/565 §6",
+    "save": "any world (pure check)",
+    "note": "SpoonResetCheck 'run' evaluates the release decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spoonreset": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoonResetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoonResetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spoonreset": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoonResetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoonResetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spoonreset": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spoonreset": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "homework-help-jig",
+    "bug": "HelpWithHomework started after the child finished reads the destroyed two-person jig (NullReferenceException on the helper) (docs/565 §7)",
+    "fix": "ts3fixes HomeworkHelp.cs: homeworkhelp (default off), docs/565 §7",
+    "save": "any world (pure check)",
+    "note": "HomeworkHelpCheck 'run' evaluates the stop decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "homeworkhelp": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HomeworkHelpCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HomeworkHelpCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "homeworkhelp": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HomeworkHelpCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HomeworkHelpCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "homeworkhelp": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "homeworkhelp": false
+        }
+      }
+    ]
   }
 ]

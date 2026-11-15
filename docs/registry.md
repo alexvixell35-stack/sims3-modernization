@@ -348,6 +348,14 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2513-2516 | reserved (claude, `fixes-2513`) | reaperflow 2513-2515 (vending fail, chess no grave, errors), moveinpartner teen skip 2516 |
 | 2517-2521 | reserved (claude, `fixes-2517`) | serviceleave 2517-2521 (service Sim timeouts re-armed after a worker reset, repoman with no mailbox) |
 | 2522-2523 | reserved (claude, `fixes-2522`) | serviceleave 2522 babysitter periodic checks re-armed, 2523 repo man no-op states left |
+| 2524-2526 | reserved (claude, `fixes-2524`) | visitgreetalarm 1st (re-armed wait alarms dropped), 2nd stale callbacks ignored, 3rd errors |
+| 2527-2529 | reserved (claude, `fixes-2527`) | fieldtripadult: no chaperone found (hang avoided) / unfit chaperone skipped / adult-deleted exit handled |
+| 2530-2532 | reserved (claude, `fixes-2530`) | autonomyfailblock: posture-unreachable autonomous failures blocked / skipped (exit reason set or test failed) / errors |
+| 2533 | reserved (claude, `fixes-2533`) | fieldtripadult errors |
+| 2534-2535 | reserved (claude, `fixes-2534`) | visittoolate: NPC guests sent home when all outside and too late / errors |
+| 2536-2537 | reserved (claude, `fixes-2536`) | spoonreset: spoon pair released after partner reset / errors |
+| 2538-2539 | reserved (claude, `fixes-2538`) | homeworkhelp: helper stopped with no jig or child not waiting / errors |
+| 2540 | reserved (claude, `fixes-2540`) | fieldtripadult: carpool home with no selected Sim / homeless selected Sim handled |
 | **994+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
