@@ -241,7 +241,8 @@ namespace Ts3Fixes
             //  Stillness restarts whenever the Sim's interaction changes or its queue empties (an interaction ended), so a
             //  Sim busy in place is never still; only position plus no activity counts.
             //  [48] Stationary: any non-selectable Sim in the same spot and interaction for a whole sim-day (Overwatch's
-            //       "Stationary"; Sims in a rabbit hole, in a bed, vehicle or other parent are skipped).
+            //       "Stationary"; Sims in a rabbit hole, in a bed, vehicle or other parent are skipped, and a horse on the
+            //       world lot's open terrain: H4Core.WdStationaryResets).
             //  [49] Route plans failing: any Sim but the active household (docs/249; [2066] counts those left alone), whose route plans
             //       failed at least 10 times over more than 30 sim-minutes while it stayed within 1 m (RouteBackoff's plan
             //       hook counts them via NotePlanResult; a successful plan clears the count; our own routability checks do
@@ -291,9 +292,15 @@ namespace Ts3Fixes
                     st.Since = H4Core.WdStillSince(st.Since, emptied, now);
                     keep[id] = st;
                     long still = now - st.Since;
-                    if (still >= kDayTicks) { if (Act(s, now, 48, "reset (stationary a sim-day)")) keep.Remove(id); continue; }
-                    bool unseen = TownieUnseen(s, null);
                     Lot lot = s.LotCurrent;
+                    if (still >= kDayTicks)
+                    {
+                        // A horse standing on open terrain (the world lot) is grazing, not stuck: the reset's placement would
+                        // move it off the terrain to its home's front door (an apartment floor tile in phase 1335).
+                        if (H4Core.WdStationaryResets(s.IsHorse, lot == null || lot.IsWorldLot) && Act(s, now, 48, "reset (stationary a sim-day)")) keep.Remove(id);
+                        continue;
+                    }
+                    bool unseen = TownieUnseen(s, null);
                     if (still < (unseen ? idle : kDayTicks) || s.IsRouting || lot == null || lot.IsWorldLot) continue;
                     if (lot.IsRoomHidden(s.RoomId)) { if (Act(s, now, 47, "reset (hidden room)")) keep.Remove(id); continue; }
                     if (s.Posture == s.Standing && (st.OkAt == 0 || now - st.OkAt > kDayTicks)) queue.Add(s);
