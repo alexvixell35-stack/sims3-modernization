@@ -379,6 +379,12 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2630-2631 | reserved (claude, `fixes-2630`) | horsetraitscore: horse traits count in equestrian competitions (docs/572); built 2026-11-15, default off, proven in game 2026-11-15 (Bridgeport, off BROKEN / on FIXED, controls ok, members found) |
 | 2632-2633 | reserved (claude, `fixes-2632`) | wildhorsegender: wild horse female share as tuned (docs/572); built 2026-11-15, default off, proven in game 2026-11-15 (Bridgeport, off BROKEN / on FIXED, controls ok, members found) |
 | 2634-2635 | reserved (claude, `fixes-2634`) | littercap: neighbour litter respects the 10-member cap (docs/572); built 2026-11-15, default off, proven in game 2026-11-15 (Bridgeport, off BROKEN / on FIXED, controls ok, members found) |
+| 2636-2653 | reserved (claude, `fixes-2636`) | docs/573 phone around University Life travel (9 switches); built 2026-11-15, default off, all proven in game 2026-11-15 (Bridgeport, off BROKEN / on FIXED, controls ok, members found) |
+| 2654-2667 | reserved (claude, `fixes-2654`) | docs/574 WA/skills/households (7 switches); built 2026-11-15, default off, all proven in game 2026-11-15 (Bridgeport, off BROKEN / on FIXED, controls ok, members found) |
+| 2668-2671 | reserved (claude, `fixes-2668`) | docs/573 §10-11 smartphone give/fixup; built 2026-11-15, default off, all proven in game 2026-11-15 (Bridgeport, off BROKEN / on FIXED, controls ok, members found) |
+| 2672-2675 | reserved (claude, `fixes-2672`) | docs/574 careers (2 switches); built 2026-11-15, default off, all proven in game 2026-11-15 (Bridgeport, off BROKEN / on FIXED, controls ok, members found) |
+| 2679-2684 | reserved (claude, `fixes-2679`) | docs/575 handsetreset flowersinuse uselistprune |
+| 2685-2686 | reserved (claude, `fixes-2685`) | docs/575 chestuselist |
 | **994+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
