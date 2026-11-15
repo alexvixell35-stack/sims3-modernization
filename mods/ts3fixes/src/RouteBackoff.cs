@@ -130,10 +130,10 @@ namespace Ts3Fixes
                     : ForeignEligible() && PreCb(0, ref pre) && GetOption2((Sims3.SimIFace.Route.RouteOption2)kArStart);
                 if (!started)
                 {
-                    int ts = sUfSplit.On ? System.Environment.TickCount : 0;
+                    int ts = UfSyncStart();
                     StepAside();
                     if (!GvuDefer(0, out r)) r = PlanOrig();
-                    if (sUfSplit.On) { sUfSplit.SyncMs = unchecked(System.Environment.TickCount - ts); sUfSplit.Seen = true; }
+                    UfSyncEnd(ts);
                 }
                 else
                 {
@@ -256,7 +256,9 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 c[56]++;
                 RflAsyncMark(); // routefaillog: this plan waits on a ts3native job
-                int t0 = sUfSplit.On ? System.Environment.TickCount : 0, i = 0;
+                ulong splitTask = Simulator.CurrentTask.Value;
+                bool splitOn = sUfSplits.ContainsKey(splitTask);
+                int t0 = System.Environment.TickCount, i = 0;
                 for (; !GetOption2(kAsyncReady); i++)
                 {
                     // shortcut: a fixed cap (~10-20 s real time); past it the plan waits natively and is then made
@@ -265,8 +267,10 @@ namespace Ts3Fixes
                     c[57]++;
                     Simulator.Sleep(0);
                 }
-                // ufplansplit (log only): no yield between here and UfPlan's read, so these are this plan's
-                if (sUfSplit.On) { sUfSplit.WaitStart = t0; sUfSplit.WaitMs = unchecked(System.Environment.TickCount - t0); sUfSplit.Polls = i; sUfSplit.Seen = true; }
+                // ufplansplit (log only): this task's entry (other Sims' plans ran during the polls; they keep their own)
+                UfSplit su;
+                if (splitOn && sUfSplits.TryGetValue(splitTask, out su))
+                { su.WaitStart = t0; su.WaitMs = unchecked(System.Environment.TickCount - t0); su.Polls = i; su.Seen = true; sUfSplits[splitTask] = su; }
             }
 
             // docs/185 §5: the original Plan/Replan runs Route.AboutToPlanCallback only after the async job (it is called after
@@ -333,7 +337,7 @@ namespace Ts3Fixes
             {
                 DoorMirror.SyncRoute(this, Vector3.Invalid);
                 bool pre = false;
-                if (!AsyncKindStart(1, Vector3.Origin, ref pre)) { RoutePlanResult d; return GvuDefer(1, out d) ? d : ReplanOrig(); }
+                if (!AsyncKindStart(1, Vector3.Origin, ref pre)) { RoutePlanResult d; int ts = UfSyncStart(); if (!GvuDefer(1, out d)) d = ReplanOrig(); UfSyncEnd(ts); return d; }
                 try
                 {
                     AsyncWait();
@@ -359,7 +363,7 @@ namespace Ts3Fixes
             {
                 DoorMirror.SyncRoute(this, startPosition);
                 bool pre = false;
-                if (!AsyncKindStart(2, startPosition, ref pre)) { RoutePlanResult d; return GvuDefer(2, out d) ? d : PlanFromPointOrig(startPosition); }
+                if (!AsyncKindStart(2, startPosition, ref pre)) { RoutePlanResult d; int ts = UfSyncStart(); if (!GvuDefer(2, out d)) d = PlanFromPointOrig(startPosition); UfSyncEnd(ts); return d; }
                 try
                 {
                     AsyncWait();
@@ -386,7 +390,7 @@ namespace Ts3Fixes
                 UbCountReplan();  // docs/248
                 DoorMirror.SyncRoute(this, fromPt);
                 bool pre = false;
-                if (!AsyncKindStart(3, fromPt, ref pre)) { RoutePlanResult d; return GvuDefer(3, out d) ? d : ReplanFromPointOrig(fromPt); }
+                if (!AsyncKindStart(3, fromPt, ref pre)) { RoutePlanResult d; int ts = UfSyncStart(); if (!GvuDefer(3, out d)) d = ReplanFromPointOrig(fromPt); UfSyncEnd(ts); return d; }
                 try
                 {
                     AsyncWait();
