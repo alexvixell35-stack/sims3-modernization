@@ -45,6 +45,12 @@ const TARGET_VARS: Record<string, string> = {
   'EpBatch1aLogic.cs:sSuTest': 'Sims3.Gameplay.Objects.Miscellaneous.UniversityWelcomeKit+TakeAptitudeTest', 'EpBatch1aLogic.cs:sHeType': 'Sims3.Gameplay.Objects.FoodObjects.EatHarvestablePet',
   'EpBatch1bLogic.cs:sBrRide': 'Sims3.Gameplay.Objects.Entertainment.MechanicalBull+RideBull', 'EpBatch1bLogic.cs:sBbDef': 'Sims3.Gameplay.Objects.Misc.BalancingBall+BalanceBall+Definition',
   'EpBatch2Logic.cs:sBaRide': 'Sims3.Gameplay.Objects.HobbiesSkills.MagicBroomArena+RideBroomArena',
+  'EpBatch3Logic.cs:sSbSnack': 'Sims3.Gameplay.Objects.Miscellaneous.SnackBowl+HaveSomeSnack',
+  'EpBatch3Logic.cs:sMdType': 'Sims3.Gameplay.ActorSystems.OccultMermaid+Dehydrate',
+  'EpBatch3Logic.cs:sDcHelper': 'Sims3.Gameplay.ActiveCareer.ActiveCareers.DaycareWorkdaySituation+RemoveChildHelper',
+  'EpBatch3Logic.cs:sBsShape': 'Sims3.Gameplay.Objects.Rewards.BodySculptor+ChangeShape',
+  'EpBatch3Logic.cs:sNvData': 'Sims3.Gameplay.Objects.Register.ConsignmentRegister+ConsignmentRegisterData',
+  'EpBatch3Logic.cs:sGnRun': 'Sims3.Gameplay.Objects.Environment.StrayWildlifeGnome+DisallowStrayWildlife',
   'EpBatch1bLogic.cs:sGpType': 'Sims3.Gameplay.Objects.Appliances.MakeGourmetFoodForPet',
   'BowlingLane.cs:sBlLane': 'BowlingLane', 'BowlingLane.cs:sBlBowl': 'BowlingLane+BowlInBowlingLane', 'CleanFlag.cs:pitPutAway': 'FirePit+PutAway',
 };
