@@ -244,6 +244,29 @@ namespace Ts3Fixes
             ApplySafeLocUnhide();   // docs/582 B9 §5
             ApplyMidlifeUiEnding();   // docs/582 B9 §6
             ApplyNemesisNoRomance();   // docs/582 B9 §7
+            ApplyDisplayCaseReset();   // docs/587 EP1 §1
+            ApplySuatGradeBonus();   // docs/587 EP1 §2
+            ApplyMermaidSharkNull();   // docs/587 EP1 §3
+            ApplyJetpackFlyHereCleanup();   // docs/587 EP1 §4
+            ApplyNaniteRouteFail();   // docs/587 EP1 §5
+            ApplySpringDanceClear();   // docs/587 EP1 §6
+            ApplyNectarCopyLevel10();   // docs/587 EP1 §7
+            ApplyHarvestEatVfx();   // docs/587 EP1 §8
+            ApplyBuffetEmptyPick();   // docs/587 EP1 §9
+            ApplyKrakenFriendSailor();   // docs/587 EP1 §10
+            ApplyMummyCurseTrait();   // docs/587 EP1 §12
+            ApplyBullRiderCleanup();   // docs/587 EP1 §13
+            ApplyBroomTipPerformer();   // docs/587 EP1 §14
+            ApplyBalancingBallCareer();   // docs/587 EP1 §15
+            ApplyElvisGnome();   // docs/587 EP1 §16
+            ApplyCatToyPickerRel();   // docs/587 EP1 §17
+            ApplyGourmetPetRecipe();   // docs/587 EP1 §18
+            ApplyChipComponents();   // docs/587 EP1 §19
+            ApplyNaniteMerge();   // docs/587 EP1 §20
+            ApplyConsignmentLastDay();   // docs/587 EP2 §7.1
+            ApplyBartendingHourlyPay();   // docs/587 EP2 §7.2
+            ApplyInfluenceFollowerBonus();   // docs/587 EP2 §7.3
+            ApplyBroomArenaChoice();   // docs/587 EP2 §7.4
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -696,6 +719,32 @@ namespace Ts3Fixes
         // [1285-1287] safelocunhide (Batch582iLogic.cs, docs/582 B9 §5): fallback placements unhidden / seen with switch off / errors.
         // [1288-1290] midlifeuiending (Batch582iLogic.cs, docs/582 B9 §6): reads that would have ended the crisis / seen with switch off / errors.
         // [1291-1293] nemesisnoromance (Batch582iLogic.cs, docs/582 B9 §7): nemeses made where EA's romance test refused / seen with switch off / errors.
+        // [1400-1402] displaycasereset (EpBatch1aLogic.cs, docs/587 EP1 §1): resets kept contents / destroyed with switch off / errors.
+        // [1403-1405] suatgradebonus (EpBatch1aLogic.cs, docs/587 EP1 §2): scores corrected / differ with switch off / errors.
+        // [1406-1408] mermaidsharknull (EpBatch1aLogic.cs, docs/587 EP1 §3): fallbacks taken / NRE with switch off / errors.
+        // [1409-1411] jetpackflyherecleanup (EpBatch1aLogic.cs, docs/587 EP1 §4): cleanups without jetpack / seen with switch off / errors.
+        // [1412-1414] naniteroutefail (EpBatch1aLogic.cs, docs/587 EP1 §5): terrariums kept / destroyed with switch off / errors.
+        // [1415-1417] springdanceclear (EpBatch1aLogic.cs, docs/587 EP1 §6): tallies cleared / kept with switch off / errors.
+        // [1418-1420] nectarcopylevel10 (EpBatch1aLogic.cs, docs/587 EP1 §7): copies completed / incomplete with switch off / errors.
+        // [1421-1423] harvesteatvfx (EpBatch1aLogic.cs, docs/587 EP1 §8): effects kept / leaking starts with switch off / errors.
+        // [1424-1426] buffetemptypick (EpBatch1aLogic.cs, docs/587 EP1 §9): picks limited / could throw with switch off / errors.
+        // [1427-1429] krakenfriendsailor (EpBatch1aLogic.cs, docs/587 EP1 §10): attacks dropped / scheduled with switch off / errors.
+        // [1430-1432] mummycursetrait (EpBatch1bLogic.cs, docs/587 EP1 §12): visible picks / any-trait picks with switch off / errors.
+        // [1433-1435] bullridercleanup (EpBatch1bLogic.cs, docs/587 EP1 §13): riders kept / cleared with switch off / errors.
+        // [1436-1438] broomtipperformer (EpBatch1bLogic.cs, docs/587 EP1 §14): tips skipped / no performer with switch off / errors.
+        // [1439-1441] balancingballcareer (EpBatch1bLogic.cs, docs/587 EP1 §15): non-acrobats refused / allowed with switch off / errors.
+        // [1442-1444] elvisgnomeguard (EpBatch1bLogic.cs, docs/587 EP1 §16): guarded / seen with switch off / errors.
+        // [1445-1447] elvisgnomecap (EpBatch1bLogic.cs, docs/587 EP1 §16): spawns skipped / rolled with a gnome, switch off / errors.
+        // [1448-1450] cattoypickerrel (EpBatch1bLogic.cs, docs/587 EP1 §17): strangers added / left out with switch off / errors.
+        // [1451-1453] gourmetpetrecipe (EpBatch1bLogic.cs, docs/587 EP1 §18): choices corrected / seen with switch off / errors.
+        // [1454-1456] chipfamilycrystal (EpBatch1bLogic.cs, docs/587 EP1 §19): family crystals consumed / left with switch off / errors.
+        // [1457-1459] chipcomponentorphan (EpBatch1bLogic.cs, docs/587 EP1 §19): orphans destroyed / left with switch off / errors.
+        // [1460-1462] chipanycount (EpBatch1bLogic.cs, docs/587 EP1 §19): over-asks trimmed / over-asks with switch off / errors.
+        // [1463-1465] nanitemerge (EpBatch1bLogic.cs, docs/587 EP1 §20): lists merged / left with switch off / errors.
+        // [1466-1468] consignmentlastday (EpBatch2Logic.cs, docs/587 EP2 §7.1): last-day prices or returns / would throw with switch off / errors.
+        // [1469-1471] bartendinghourlypay (EpBatch2Logic.cs, docs/587 EP2 §7.2): wages paid / unpaid with switch off / errors.
+        // [1472-1474] influencefollowerbonus (EpBatch2Logic.cs, docs/587 EP2 §7.3): modifiers scaled / stepped with switch off / errors.
+        // [1475-1477] broomarenachoice (EpBatch2Logic.cs, docs/587 EP2 §7.4): chosen brooms used / dropped with switch off / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -1157,6 +1206,32 @@ namespace Ts3Fixes
                 case "safelocunhide": return Instantiator.kSafeLocUnhide;
                 case "midlifeuiending": return Instantiator.kMidlifeUiEnding;
                 case "nemesisnoromance": return Instantiator.kNemesisNoRomance;
+                case "displaycasereset": return Instantiator.kDisplayCaseReset;
+                case "suatgradebonus": return Instantiator.kSuatGradeBonus;
+                case "mermaidsharknull": return Instantiator.kMermaidSharkNull;
+                case "jetpackflyherecleanup": return Instantiator.kJetpackFlyHereCleanup;
+                case "naniteroutefail": return Instantiator.kNaniteRouteFail;
+                case "springdanceclear": return Instantiator.kSpringDanceClear;
+                case "nectarcopylevel10": return Instantiator.kNectarCopyLevel10;
+                case "harvesteatvfx": return Instantiator.kHarvestEatVfx;
+                case "buffetemptypick": return Instantiator.kBuffetEmptyPick;
+                case "krakenfriendsailor": return Instantiator.kKrakenFriendSailor;
+                case "mummycursetrait": return Instantiator.kMummyCurseTrait;
+                case "bullridercleanup": return Instantiator.kBullRiderCleanup;
+                case "broomtipperformer": return Instantiator.kBroomTipPerformer;
+                case "balancingballcareer": return Instantiator.kBalancingBallCareer;
+                case "elvisgnomeguard": return Instantiator.kElvisGnomeGuard;
+                case "elvisgnomecap": return Instantiator.kElvisGnomeCap;
+                case "cattoypickerrel": return Instantiator.kCatToyPickerRel;
+                case "gourmetpetrecipe": return Instantiator.kGourmetPetRecipe;
+                case "chipfamilycrystal": return Instantiator.kChipFamilyCrystal;
+                case "chipcomponentorphan": return Instantiator.kChipComponentOrphan;
+                case "chipanycount": return Instantiator.kChipAnyCount;
+                case "nanitemerge": return Instantiator.kNaniteMerge;
+                case "consignmentlastday": return Instantiator.kConsignmentLastDay;
+                case "bartendinghourlypay": return Instantiator.kBartendingHourlyPay;
+                case "influencefollowerbonus": return Instantiator.kInfluenceFollowerBonus;
+                case "broomarenachoice": return Instantiator.kBroomArenaChoice;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

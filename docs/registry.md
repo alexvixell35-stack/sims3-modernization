@@ -454,6 +454,7 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 1258-1272 | reserved (claude, `fixes-1258`) | batch 8b (docs/582 B8b): midlifewishsave, innerbeautyonce, betrayednullsim, topictestnull, opptrackerrelisten |
 | 1273-1293 | reserved (claude, `fixes-1273`) | batch 9 (docs/582 B9): traitremovenull, homeworkcopyold, laundrymoodeach, partycleanupnull, safelocunhide, midlifeuiending, nemesisnoromance |
 | **1294+** | next free | reserve here  |
+| 1400-1499 | pinned (claude, `fixes-1400`) | EP batch 1 (docs/587 leads, batch EP1); 1400-1465 used, 3 each in this order: displaycasereset, suatgradebonus, mermaidsharknull, jetpackflyherecleanup, naniteroutefail, springdanceclear, nectarcopylevel10, harvesteatvfx, buffetemptypick, krakenfriendsailor, mummycursetrait, bullridercleanup, broomtipperformer, balancingballcareer, elvisgnomeguard, elvisgnomecap, cattoypickerrel, gourmetpetrecipe, chipfamilycrystal, chipcomponentorphan, chipanycount, nanitemerge; EP batch 2: consignmentlastday 1466, bartendinghourlypay 1469, influencefollowerbonus 1472, broomarenachoice 1475 (3 each); 1478-1499 free |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 
