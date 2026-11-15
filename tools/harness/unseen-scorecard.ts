@@ -148,11 +148,13 @@ export function scorecard(log: string, healthText: string, stuckH = 4, lists = 1
 
   // 4 shortcuts
   let ours = 0, helped = 0, hasHelped = false, moved = 0, onGoal = 0;
+  const whyN = new Map<string, number>();  // census ours_why (newer ts3agent): "definition: reason"
   const byDef = new Map<string, [number, number]>();  // interaction definition -> [ended by us, helped]
   for (const s of samples) for (const r of s.sims) {
     ours += r.ours ?? 0;
     if (typeof r.helped === 'number') { hasHelped = true; helped += r.helped; }
     for (const e of r.ours_ends ?? []) { const d = byDef.get(e.definition) ?? [0, 0]; d[0] += e.count; byDef.set(e.definition, d); }
+    for (const e of r.ours_why ?? []) whyN.set(e.definition, (whyN.get(e.definition) ?? 0) + e.count);
     for (const e of r.helped_ends ?? []) { const d = byDef.get(e.definition) ?? [0, 0]; d[1] += e.count; byDef.set(e.definition, d); }
     if (r.moved_new && typeof r.moved === 'string') {
       moved++;
@@ -166,7 +168,8 @@ export function scorecard(log: string, healthText: string, stuckH = 4, lists = 1
   const g4: Grade = !(ours + helped) ? 'n/a' : share > 20 ? 'FAIL' : share > 5 ? 'WARN' : 'PASS';
   out.push({ n: 4, name: 'shortcuts', grade: g4,
     line: `touched by a shortcut: ended by us ${ours} (${ofNpc}% of ${endedNpc} NPC ends), helped ${hasHelped ? helped : 'not in this census (older ts3agent)'}${hasHelped ? ` (${share}% ended by us)` : ''}; new moves ${moved}, on the moved-to lot at the sample ${onGoal} (${pct(onGoal, moved)}%; later moves elsewhere are normal)`,
-    list: [...byDef].sort((a, b) => b[1][0] - a[1][0]).slice(0, lists).map(([d, [o, h]]) => `${d.replace(/^.*\.(?=[^.]*\+)|^.*\./, '')}: ended by us ${o}, helped ${h}${o >= 5 && o >= h ? '  <- lead: the shortcut breaks it more often than not' : ''}`) });
+    list: [...[...byDef].sort((a, b) => b[1][0] - a[1][0]).slice(0, lists).map(([d, [o, h]]) => `${d.replace(/^.*\.(?=[^.]*\+)|^.*\./, '')}: ended by us ${o}, helped ${h}${o >= 5 && o >= h ? '  <- lead: the shortcut breaks it more often than not' : ''}`),
+      ...[...whyN].sort((a, b) => b[1] - a[1]).slice(0, lists).map(([k, v]) => `why ${v} x ${k.replace(/^[^:]*\.(?=[^.:]*:)/, '')}`)] });
 
   // 5 explain ufdriverless / goalhh
   const drv = new Map<string, number>(), gh = new Map<string, number>();
