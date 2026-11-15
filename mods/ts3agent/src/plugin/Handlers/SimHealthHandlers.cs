@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.ActorSystems;
+using Sims3.Gameplay.Autonomy;
 using Sims3.Gameplay.CAS;
 using Sims3.Gameplay.Interfaces;
 using Sims3.Gameplay.Core;
@@ -30,8 +31,11 @@ namespace Ts3Agent
     //     cancels without one and short ends are by design often (SwitchToOutfit, LunacyFreakOut's reactions, IdleTend
     //     cancelled by an order) and are not spam;
     //   short_ends: definitions that ended short (< 1 sim minute, not user-cancelled, not ours) >= 3 times, lower ranked;
-    //   ours / ours_ends: ends caused by ts3fixes' own shortcuts (the Sim was in or just left an unseenfb hold, or
-    //     ts3fixes.moved got a new move for it while the head ran): counted apart, never failed / short / spam;
+    //   ours / ours_ends: ends ts3fixes' own shortcuts cut (the Sim was in or just left an unseenfb hold, or ts3fixes.moved
+    //     got a new move for it while the head ran, and the head then failed, was cancelled or ended short): never spam;
+    //   helped / helped_ends: the same shortcut touched the head and it then completed (no cancel, no failure exit
+    //     reason, not short; a rabbit-hole placement before EA's meal ran): normal ends, listed to judge the shortcut;
+    //   hunger / energy: the Sim's motive values (-100..100; null when it has none), for judging meal and sleep loops;
     //   since_min (top level): sim minutes since the previous call, the span the counters cover;
     //   holds / hold_ends / after_hold: ts3fixes unseenfb walk-time holds started and ended, and the Sim's posture / walk
     //     style / terrain when one ended (oddities after a hold: a ridden horse, a mermaid off water, a flying vampire);
@@ -65,7 +69,8 @@ namespace Ts3Agent
             public readonly Dictionary<string, int> Bad = new Dictionary<string, int>();     // failed, by definition (spam)
             public readonly Dictionary<string, int> ShortDefs = new Dictionary<string, int>();
             public readonly Dictionary<string, int> OursDefs = new Dictionary<string, int>();
-            public int Ours;
+            public int Ours, Helped;
+            public readonly Dictionary<string, int> HelpedDefs = new Dictionary<string, int>();
             public string HeadMoved;               // ts3fixes.moved for this Sim when the head started
             public bool HeadMovedKnown;
         }
@@ -149,6 +154,7 @@ namespace Ts3Agent
             try { routing = s.SimRoutingComponent != null && s.SimRoutingComponent.IsRouting; } catch (Exception) { }
             o["routing"] = routing;
             o["posture"] = ShPosture(s);
+            o["hunger"] = ShMotive(s, CommodityKind.Hunger); o["energy"] = ShMotive(s, CommodityKind.Energy);
             o["walk_style"] = ShWalkStyle(s);
             o["terrain"] = ShTerrain(p);
             o["unseen_why"] = ShUfWhy(s);
@@ -168,6 +174,7 @@ namespace Ts3Agent
             o["spam"] = ShDefs(t.Bad, kShSpam);
             o["short_ends"] = ShDefs(t.ShortDefs, kShSpam);
             o["ours"] = t.Ours; o["ours_ends"] = ShDefs(t.OursDefs, 1);
+            o["helped"] = t.Helped; o["helped_ends"] = ShDefs(t.HelpedDefs, 1);
             o["holds"] = t.Holds; o["hold_ends"] = t.HoldEnds; o["after_hold"] = new List<object>(t.AfterHold);
             t.Holds = t.HoldEnds = 0; t.AfterHold.Clear();
             Dictionary<string, object> moved = AppDomain.CurrentDomain.GetData("ts3fixes.moved") as Dictionary<string, object>;
@@ -176,9 +183,14 @@ namespace Ts3Agent
             o["moved"] = m;
             o["moved_new"] = m != null && m != t.Moved;  // a shortcut moved this Sim since the last call (the last move only)
             t.Moved = m;
-            t.Ended = t.Failed = t.GameCancelled = t.UserCancelled = t.Short = t.Ours = 0;
-            t.Bad.Clear(); t.ShortDefs.Clear(); t.OursDefs.Clear();
+            t.Ended = t.Failed = t.GameCancelled = t.UserCancelled = t.Short = t.Ours = t.Helped = 0;
+            t.Bad.Clear(); t.ShortDefs.Clear(); t.OursDefs.Clear(); t.HelpedDefs.Clear();
             return o;
+        }
+
+        static object ShMotive(Sim s, CommodityKind k)
+        {
+            return s.Motives != null && s.Motives.HasMotive(k) ? (object)Math.Round(s.Motives.GetMotiveValue(k), 1) : null;
         }
 
         static List<object> ShDefs(Dictionary<string, int> defs, int min)
@@ -284,14 +296,16 @@ namespace Ts3Agent
                     t.Ended++;
                     ExitReason why = s.ExitReason;
                     bool user = (why & ExitReason.UserCanceled) != 0, cancelled = old != null && old.Cancelled;
-                    bool ours = !user && (held || holdChanged || (t.HeadMovedKnown && m != null && m != t.HeadMoved));
+                    bool touched = !user && (held || holdChanged || (t.HeadMovedKnown && m != null && m != t.HeadMoved));
+                    bool fail = (why & kShFail) != 0, isShort = now - t.HeadSince < shortTicks;
                     if (user) t.UserCancelled++;
-                    else if (ours) { t.Ours++; ShBump(t.OursDefs, t.HeadDef); }
+                    else if (touched && (fail || cancelled || isShort)) { t.Ours++; ShBump(t.OursDefs, t.HeadDef); }  // ended by us
+                    else if (touched) { t.Helped++; ShBump(t.HelpedDefs, t.HeadDef); }  // helped by us: completed
                     else
                     {
-                        if ((why & kShFail) != 0) { t.Failed++; ShBump(t.Bad, t.HeadDef); }
+                        if (fail) { t.Failed++; ShBump(t.Bad, t.HeadDef); }
                         else if (cancelled) t.GameCancelled++;
-                        if (now - t.HeadSince < shortTicks) { t.Short++; ShBump(t.ShortDefs, t.HeadDef); }
+                        if (isShort) { t.Short++; ShBump(t.ShortDefs, t.HeadDef); }
                     }
                 }
                 t.HeadMoved = m; t.HeadMovedKnown = true;

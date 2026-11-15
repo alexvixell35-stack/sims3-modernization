@@ -7,7 +7,9 @@
 // moved for > --still-min, sleeping and other long by-design interactions listed too: judge by the name), the sample
 // spacing (sim minutes between calls; counters cover since_min, the span since the census's previous call), failure spam
 // (Sim x definition x count, failure exit reasons only), short ends (by design often, lower ranked), ends our own
-// shortcuts caused (ours: unseenfb holds and ts3fixes moves, never spam; censuses before since_min mixed game cancels and
+// shortcuts cut (ended by us: an unseenfb hold or ts3fixes move touched the interaction and it then failed, was cancelled
+// or ended short; never spam) apart from ones they helped (touched, then completed), each with the Sims' hunger / energy
+// at the sample (censuses before since_min: censuses before since_min mixed game cancels and
 // short ends into spam and had no ours, labelled), and per group (human, dog, cat, horse, other, each occult, unseen, held) the
 // rates per Sim-hour of route fails, locked-portal fails, failed / game-cancelled / short interactions, unseen holds and
 // shortcut moves, plus from the log: unseen cuts, cut -> retry success, KD NPC ceiling cuts; and the state of non-human
@@ -68,7 +70,7 @@ const newAcc = (): Acc => ({ sims: new Set(), simMin: 0, route: 0, locked: 0, fa
 export function report(samples: Sample[], log: Map<string, LogTally> | null, stuckMin: number, stillMin: number) {
   const groups = new Map<string, Acc>();
   const acc = (g: string) => { let a = groups.get(g); if (!a) groups.set(g, a = newAcc()); return a; };
-  const locked = new Map<string, string>(), stuck = new Map<string, string>(), spam = new Map<string, number>(), shortEnds = new Map<string, number>(), ours = new Map<string, number>(), after: string[] = [];
+  const locked = new Map<string, string>(), stuck = new Map<string, string>(), spam = new Map<string, number>(), shortEnds = new Map<string, number>(), ours = new Map<string, number>(), helped = new Map<string, number>(), after: string[] = [];
   const gaps: number[] = [];
   const legacy = samples.length > 0 && samples.every((s) => s.since_min === null);
   const simGroups = new Map<string, Set<string>>(), names = new Map<string, string>();
@@ -93,8 +95,9 @@ export function report(samples: Sample[], log: Map<string, LogTally> | null, stu
       if (r.trapped === true) locked.set(id, `${who} room ${r.room} on ${r.lot}${r.hidden_room ? ' (hidden room)' : ''}`);
       if ((r.interaction_min ?? 0) > stuckMin) stuck.set(id, `${who}: ${r.interaction} for ${r.interaction_min} sim-min on ${r.lot}`);
       else if ((r.still_min ?? 0) > stillMin) stuck.set(id, `${who}: not moved for ${r.still_min} sim-min (${r.interaction ?? 'idle'}) on ${r.lot}`);
-      const add = (m: Map<string, number>, l: any[] | undefined) => { for (const sp of l ?? []) { const key = `${who} x ${sp.definition}`; m.set(key, (m.get(key) ?? 0) + sp.count); } };
-      add(spam, r.spam); add(shortEnds, r.short_ends); add(ours, r.ours_ends);
+      const mot = typeof r.hunger === 'number' ? ` (hunger ${r.hunger} energy ${r.energy})` : '';
+      const add = (m: Map<string, number>, l: any[] | undefined, tag = '') => { for (const sp of l ?? []) { const key = `${who} x ${sp.definition}${tag}`; m.set(key, (m.get(key) ?? 0) + sp.count); } };
+      add(spam, r.spam); add(shortEnds, r.short_ends); add(ours, r.ours_ends, mot); add(helped, r.helped_ends, mot);
       if (r.species !== 'human' || (r.occults ?? []).length) for (const h of r.after_hold ?? []) if (after.length < 60) after.push(`${who}: ${h}`);
     }
   }
@@ -108,7 +111,7 @@ export function report(samples: Sample[], log: Map<string, LogTally> | null, stu
   }
   gaps.sort((a, b) => a - b);
   const spacing = gaps.length ? { min: gaps[0], median: gaps[gaps.length >> 1], max: gaps[gaps.length - 1] } : null;
-  return { groups, locked, stuck, spam, shortEnds, ours, after, samples: samples.length, spacing, legacy };
+  return { groups, locked, stuck, spam, shortEnds, ours, helped, after, samples: samples.length, spacing, legacy };
 }
 
 const per = (n: number, min: number) => (min > 0 ? (n * 60 / min).toFixed(2) : '-');
@@ -125,7 +128,9 @@ export function render(r: ReturnType<typeof report>): string {
   const se = [...r.shortEnds].sort((a, b) => b[1] - a[1]);
   o.push(`\n== short ends (< 1 sim minute, >= 3 between two calls; often by design: outfit spins, reactions, orders): ${se.length}`); for (const [k, n] of se.slice(0, 20)) o.push(`  ${n}  ${k}`);
   const ou = [...r.ours].sort((a, b) => b[1] - a[1]);
-  o.push(`\n== ends caused by our shortcuts (ours: unseenfb hold or ts3fixes move during the interaction; not failures): ${ou.length}`); for (const [k, n] of ou.slice(0, 20)) o.push(`  ${n}  ${k}`);
+  o.push(`\n== ended by us (our hold or move touched it, then it failed, was cancelled or ended short): ${ou.length}`); for (const [k, n] of ou.slice(0, 20)) o.push(`  ${n}  ${k}`);
+  const he = [...r.helped].sort((a, b) => b[1] - a[1]);
+  o.push(`\n== helped by us (our hold or move touched it, then it completed): ${he.length}`); for (const [k, n] of he.slice(0, 20)) o.push(`  ${n}  ${k}`);
   o.push('\n== per group, per Sim-hour (route fails, locked-portal fails, failed, game-cancelled, short ends, ours, unseen holds, shortcut moves); log: unseen cuts, retry ok after a cut, KD NPC cuts');
   o.push('  group              sims  simh   route  locked failed cancel short  ours   holds  moves | ufcut  cuts  retry-ok  kdnpc');
   const rows = [...r.groups].sort((a, b) => b[1].sims.size - a[1].sims.size);
@@ -165,9 +170,10 @@ function selfCheck() {
   // new census: since_min is the counters' span (the first call's reset sample covers 0), short and ours apart from spam
   const nu = parseHealth([JSON.stringify({ result: { sim_minutes: 0, since_min: 0, sims: [sim('1', {})] } }),
     JSON.stringify({ result: { sim_minutes: 900, since_min: 120, sims: [sim('1', { short: 4, ours: 2, short_ends: [{ definition: 'SwitchToOutfit', count: 4 }],
-      ours_ends: [{ definition: 'GoHome', count: 2 }] })] } })].join('\n'));
+      ours_ends: [{ definition: 'GoHome', count: 2 }], helped: 1, helped_ends: [{ definition: 'EatHere', count: 1 }], hunger: 80, energy: -10 })] } })].join('\n'));
   const r2 = report(nu, null, 120, 240);
-  ok(r2.groups.get('dog')!.simMin === 120 && r2.spam.size === 0 && r2.shortEnds.size === 1 && r2.ours.size === 1 && !r2.legacy, 'since_min span, short / ours not spam');
+  ok(r2.groups.get('dog')!.simMin === 120 && r2.spam.size === 0 && r2.shortEnds.size === 1 && r2.ours.size === 1 && r2.helped.size === 1 && !r2.legacy, 'since_min span, short / ours not spam');
+  ok(render(r2).includes('x EatHere (hunger 80 energy -10)') && render(r2).includes('helped by us'), 'helped listed apart, with motives');
   ok(render(r2).includes('15.0 / 15.0 / 15.0 sim-hours apart'), 'spacing stated');
   ok(render(r).includes('per Sim-hour'), 'render');
   console.log('sim-health-report self-check: ok');
@@ -181,7 +187,7 @@ else {
   const log = values.log ? parseLog(readFileSync(values.log, 'latin1')) : null;
   const r = report(samples, log, Number(values['stuck-min'] ?? 120), Number(values['still-min'] ?? 240));
   if (values.json) console.log(JSON.stringify({ samples: r.samples, locked: [...r.locked.values()], stuck: [...r.stuck.values()], spam: Object.fromEntries(r.spam),
-    short_ends: Object.fromEntries(r.shortEnds), ours: Object.fromEntries(r.ours), spacing: r.spacing, legacy: r.legacy, after: r.after,
+    short_ends: Object.fromEntries(r.shortEnds), ours: Object.fromEntries(r.ours), helped: Object.fromEntries(r.helped), spacing: r.spacing, legacy: r.legacy, after: r.after,
     groups: Object.fromEntries([...r.groups].map(([g, a]) => [g, { ...a, sims: a.sims.size }])) }, null, 1));
   else console.log(render(r));
 }
