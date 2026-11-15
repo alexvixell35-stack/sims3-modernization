@@ -51,6 +51,39 @@ namespace Ts3Fixes
             return sMbOk;
         }
 
+        // buffbufcheck (default off, check for ts3native [IlPatch] ilp_buffbuf, spec mods/ilpatch/specs/buffbuf-delayed-copy.json):
+        // the IL patch jumps over UpdateBuffs' copy-and-walk of mDelayedBuffs when that ListSorted enumerates nothing. Skipping
+        // is exact because a walk over an empty copy does nothing; this check reads, right before UpdateBuffs (Autonomy.Update
+        // calls it after UpdateMotives), whether the list's own Count field agrees with what it enumerates (the patch tests
+        // enumeration, EA's other code trusts Count), and how many calls take the patched skip. [2733] calls checked, [2734]
+        // empty (the patched build skips the copy: >= 1 allocation saved each), [2735] Count / enumeration mismatches (must be 0).
+        static FieldInfo sBbDelayed, sBbCount;
+        static bool sBbTried;
+        static void BbCheck(Sim sim)
+        {
+            int[] c = PatchCounters();
+            try
+            {
+                if (sim == null || sim.HasBeenDestroyed || sim.BuffManager == null) return;
+                if (!sBbTried)
+                {
+                    sBbTried = true;
+                    sBbDelayed = typeof(Sims3.Gameplay.ActorSystems.BuffManager).GetField("mDelayedBuffs", BindingFlags.Instance | BindingFlags.NonPublic);
+                    if (sBbDelayed != null) sBbCount = sBbDelayed.FieldType.GetField("Count", BindingFlags.Instance | BindingFlags.Public);
+                }
+                if (sBbDelayed == null || sBbCount == null) return;
+                object list = sBbDelayed.GetValue(sim.BuffManager);
+                System.Collections.IEnumerable e = list as System.Collections.IEnumerable;
+                if (e == null) return;
+                int n = 0;
+                foreach (object o in e) n++;
+                c[2733]++;
+                if (n == 0) c[2734]++;
+                if (n != (int)sBbCount.GetValue(list)) c[2735]++;
+            }
+            catch (Exception) { c[2732]++; }
+        }
+
         static List<Motive> MbTake() { return sMbPool.Count > 0 ? sMbPool.Pop() : new List<Motive>(32); }
         static void MbGive(List<Motive> l) { l.Clear(); if (sMbPool.Count < 16) sMbPool.Push(l); }
 
@@ -72,6 +105,11 @@ namespace Ts3Fixes
         public class MotivesUpdateHook : Motives
         {
             public void UpdateHook(float simMinutesPassed, Sim sim)
+            {
+                try { UpdateBody(simMinutesPassed, sim); }
+                finally { if (ShortcutOn("buffbufcheck")) BbCheck(sim); }  // Autonomy.Update calls UpdateBuffs right after this
+            }
+            void UpdateBody(float simMinutesPassed, Sim sim)
             {
                 if (!ShortcutOn("motivebuf") || !MbReady()) { UpdateOrig(simMinutesPassed, sim); return; }
                 int[] c = PatchCounters();

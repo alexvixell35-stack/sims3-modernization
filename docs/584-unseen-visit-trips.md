@@ -101,10 +101,16 @@ per call, so a Sim sleeping mid-loop keeps its own) instead of a new one, with E
 results are the point of `motivebufcheck` (pure check: every snapshot compared with EA's copy by count and reference,
 mismatches counted in 2731 and must be 0). Allocations saved per sim-hour = 2 x the rise of counter 2729 (at least).
 
-Rank 1b (`UpdateBuffs`) is not built: the copy sits at the top of a long method over private members, so a managed swap
-would mean re-implementing the whole body. The exact form is an IL patch (docs/506): `if (mDelayedBuffs.Count == 0)`
-jump over the copy loop, which iterates nothing in that case. That needs a spec in `mods/ilpatch/specs` and a ts3native
-rebuild (ilpatch-specs.h). The rest are per-tick or rare; measure the GC share first (§6).
+Rank 1b (`UpdateBuffs`): ts3native IL patch `ilp_buffbuf` (default off, needs `[IlPatch] Enabled=1`; spec
+`mods/ilpatch/specs/buffbuf-delayed-copy.json`, EA 1.67 body only; other builds fail the hash and run EA's body). Inserted
+at the top: `if (!mDelayedBuffs.GetEnumerator().MoveNext()) goto 0x89` (the code after the first loop). With an empty
+list, EA copies it into a new List and walks nothing, so skipping is exact; with buffs pending, EA's body runs unchanged.
+`ListSorted` has no `Count` field reference in the module (an IL patch can only use existing tokens), so the test
+enumerates: that box stays, the copy's List (and its array on this Mono [inferred]) goes. `buffbufcheck` (ts3fixes,
+off) runs right before each `UpdateBuffs` from `Autonomy.Update` (after the motive hook): calls (2733), empty lists = the
+skips (2734), and `ListSorted.Count` vs enumeration (2735, must be 0: EA's other code trusts Count). Tooling:
+`tools/ilpatch-convert.ts --dump` / `--fill` (hand specs), and MemberRefs whose return type ends in `>` now key right.
+The rest are per-tick or rare; measure the GC share first (§6).
 
 ## 6. GC measure for the next A/B
 
