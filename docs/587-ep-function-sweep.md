@@ -117,3 +117,44 @@ Inferred and rarer (listed for the fix agent, not ranked):
 - Fix agent: findings 1-8 are the household-visible ones with plain code defects.
 - Rerun `ep-pack-classify.py` after the next sweep. The CSV rows for these 150 types now read `hand-read=yes`, `read-in` += `docs/587`, with `rank` cleared.
 - Pack types still uncovered after this pass: about 2,650. `ep-pack-classify.py` lists them in rank order.
+
+## 6. Batch EP1: built (2026-11-15, branch `feat/ep-batch1-1115`, NOT RUN)
+
+Sources: `mods/ts3fixes/src/EpBatch1aLogic.cs` (§1-§10), `EpBatch1bLogic.cs` (§12-§20), `EpBatch1Checks.cs`. Counter slots 1400-1465 (pinned block `fixes-1400`, `docs/registry.md`; 1466-1499 kept for EP batch 2). Every switch is off by default. Each has a pure `Ts3Fixes.Fixes.<Name>Check("run"|"result")` and a repro `<switch>-check` in `tools/harness/repros.json` (off: `verdict: BROKEN`, on: `verdict: FIXED`). Swap rows are in `docs/data/swap-stack-audit.csv`; every hook has a stub.
+
+The user rule for this batch was to fix loop, order and logic defects in every EA function read for a fix. Extras found that way are marked **RE**.
+
+| § | Switch | Check | Hook | Household-visible | Notes |
+|---|---|---|---|---|---|
+| 1 | `displaycasereset` | `DisplayCaseResetCheck` | DoReset + Cleanup: inside a reset, Cleanup keeps the items and only stops the effects | yes | Build-mode move and Dispose keep EA's path. |
+| 2 | `suatgradebonus` | `SuatGradeBonusCheck` | GetSUATScore: GPA path reads the bonus best-first; a school A gets bonus[0] | yes | Shipped tuning is 1.3/1.15/1/0.75/0.5. The two paths index the same array in opposite enum orders, and the school gate skips exactly A, so this is a code bug. |
+| 3 | `mermaidsharknull` | `MermaidSharkNullCheck` | Copy of SummonShark.Run: RequestState runs only after a successful placement | yes | Yields; protected by the stub remap. |
+| 4 | `jetpackflyherecleanup` | `JetpackFlyHereCleanupCheck` | FlyHere.Cleanup without an active jetpack: jigs destroyed, base Cleanup, no StopFX | yes | |
+| 5 | `naniteroutefail` | `NaniteRouteFailCheck` | ReverseEngineer.Cleanup destroys the terrarium only once it is in the actor's inventory | yes | |
+| 6 | `springdanceclear` | `SpringDanceClearCheck` | The dance tally is cleared after CheckForDanceWinners | yes | RE, not fixed: the queen branch can both mail the sculpture and add it to inventory. |
+| 7 | `nectarcopylevel10` | `NectarCopyLevel10Check` | DuplicateData copies MadeByLevel10Sim and refreshes the visual and effects | yes | RE, not fixed (no trigger): NectarRegister uses the bottle before its null check. |
+| 8 | `harvesteatvfx` | `HarvestEatVfxCheck` | Start/StopEatingVfx store, stop and clear the effect | yes | RE: species with no effect got `Create("")`; now they get nothing. |
+| 9 | `buffetemptypick` | `BuffetEmptyPickCheck` | ConsumeMoreFood picks only tables with servings (room first, then lot) | yes | |
+| 10 | `krakenfriendsailor` | `KrakenFriendSailorCheck` | The alarm notes boats where EA's scan misses a friend; the next attack one-shot on such a boat does nothing | rare | Deliberate releases are untouched. RE, not fixed: the kraken jig leaks on failure paths. |
+| 12 | `mummycursetrait` | `MummyCurseTraitCheck` | OnTimeout removes a visible trait | yes | |
+| 13 | `bullridercleanup` | `BullRiderCleanupCheck` | A rider still riding this bull is restored after another Sim's RideBull.Cleanup | yes | |
+| 14 | `broomtipperformer` | `BroomTipPerformerCheck` | RouteToTipJar returns false when the performer is gone after the route | yes | §14b (chosen broom) stays parked. |
+| 15 | `balancingballcareer` | `BalancingBallCareerCheck` | BalanceBall Test requires PerformanceArtistCareer, as GiantRingOfFire does | yes | |
+| 16 | `elvisgnomeguard` | `ElvisGnomeGuardCheck` | Guards for no ActiveActor or home lot; the leaked out-of-world gnome is destroyed; RE: plates without a CookingProcess skipped, one music loop and one stop alarm per play, Stop finds every gnome | yes | |
+| 16 | `elvisgnomecap` | `ElvisGnomeCapCheck` | No spawn while the home lot has an Elvis gnome | yes | Intent inferred (MagicGnomeVampire caps), so this is a separate switch. |
+| 17 | `cattoypickerrel` | `CatToyPickerRelCheck` | GetValidSims admits no relationship when requiredLtr <= 0 | yes | Shipped value is -10. |
+| 18 | `gourmetpetrecipe` | `GourmetPetRecipeCheck` | Copy of Run: the granola coin flip needs dogs or cats; RE: no draw from an empty list | yes | Run does not yield. |
+| 19 | `chipfamilycrystal` | `ChipFamilyCrystalCheck` | Crystal components found in the family inventory are removed from it | yes | RE: no family inventory no longer throws. |
+| 19 | `chipanycount` **RE** | `ChipAnyCountCheck` | An "Any" chip component asks medium and large blanks only for what is still missing | yes | |
+| 19 | `chipcomponentorphan` **RE** | `ChipComponentOrphanCheck` | Components that left the inventories during RemoveComponentsFromInventory and are in no inventory are destroyed | no | |
+| 20 | `nanitemerge` | `NaniteMergeCheck` | MergeTravelData copies the collected-nanite list; RE: the schematics list gets its own copy | yes | |
+
+Parked: §11 KissingBooth retry loop (low impact; the fix needs a full Run copy) and §14b.
+
+Verification:
+- `build-fixes.ts` builds clean.
+- `reflect-members-check.ts`: 500 lookups, 0 wrong kind.
+- `swap-stack-audit.ts` gate and self-check pass.
+- `registry.ts --self-check` and `check-docs-code.ts` pass.
+
+Next: one off/on run of the 22 repros.

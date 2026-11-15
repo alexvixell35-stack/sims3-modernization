@@ -2,7 +2,9 @@
 // ts3fixes counter slots, plus docs/51 inference-ledger section numbers. Parallel worktrees see each other through docs/data/registry-reservations.json in the
 // MAIN checkout (found via `git rev-parse --git-common-dir`), guarded by an O_EXCL lock file next to its registry.md.
 //   node tools/registry.ts reserve native <n-int32> --by <who> --what <text>
-//   node tools/registry.ts reserve fixes <n-slots> --by <who> --what <text>
+//   node tools/registry.ts reserve fixes <n-slots> --by <who> --what <text> [--at <first-slot>]
+//        --at pins a block at a chosen start (a batch handed a slot block by the coordinator); later automatic reserves
+//        skip pinned blocks without jumping past them, so the "next free" row stays where it was
 //   node tools/registry.ts reserve ledger --for <topic> [--by <who>]      next free docs/51 `## N.` section (max of the
 //        headings in this worktree's and the main checkout's docs/51 and of every ledger reservation, + 1); docs/51 not touched
 //   node tools/registry.ts reserve doc --for <topic> [--by <who>]      next free docs/NNN number (docs/ files + reservations)
@@ -20,7 +22,7 @@ type Kind = 'fixes' | 'native' | 'ledger' | 'doc';
 // Temp/scratchpad paths embed the user name in a folder name too (C--Users-<name>-...): stored as '<scratchpad>'.
 export const shownPath = (p: string): string => /\\AppData\\Local\\Temp\\|^\/tmp\//i.test(p) ? '<scratchpad>' :
   p.replace(/^\/home\/[^/]+(?=\/|$)/, '/home/<user>').replace(/^([A-Za-z]:\\Users\\)[^\\]+/, '$1<user>');
-interface Res { id: string; kind: Kind; from: number; to: number; version?: number; by: string; what: string; at: string; worktree: string }
+interface Res { id: string; kind: Kind; from: number; to: number; version?: number; by: string; what: string; at: string; worktree: string; pinned?: boolean }
 interface Used { fixesMax: number; nativeVer: number; nativeEnd: number; cFixesMax: number; cNativeVer: number }
 
 // Contributor ranges (docs/registry.md "Contributor ranges"); maintainer numbers never enter them.
@@ -64,6 +66,13 @@ export function section(L: string[], head: string): [number, number] {
   return [s, e < 0 ? L.length : e];
 }
 export const fixRow = (l: string) => { const m = l.match(/^\| (\d+)(?:-(\d+))? \|/); return m ? [+m[1], +(m[2] ?? m[1])] : null; };
+// A pinned block row (`| 1400-1499 | pinned (...) |`) is checked for overlaps but does not move the "next free" row.
+const isPinnedRow = (l: string) => /^\| \d+(?:-\d+)? \| pinned /.test(l);
+// First start >= from where n slots fit between the pinned blocks.
+export function skipPinned(from: number, n: number, pins: number[][]): number {
+  for (let moved = true; moved;) { moved = false; for (const [a, b] of pins) if (from <= b && from + n - 1 >= a) { from = b + 1; moved = true; } }
+  return from;
+}
 export const natRow = (l: string) => {
   const m = l.match(/^\| v(\d+) \|[^|]*\|([^|]*)\|/);
   if (!m) return null;
@@ -72,11 +81,11 @@ export const natRow = (l: string) => {
 };
 const isNext = (l: string) => /^\| \*\*/.test(l);
 
-export function scanDoc(text: string): Used & { collisions: string[] } {
+export function scanDoc(text: string): Used & { collisions: string[]; pins: number[][]; slots: number[][] } {
   const L = text.split(/\r?\n/), col: string[] = [];
   let fixesMax = -1, nativeVer = 0, nativeEnd = -1, cFixesMax = CONTRIB.fixes[0] - 1, cNativeVer = CONTRIB.nativeV - 1;
-  const [fs, fe] = section(L, FIX_HEAD), slots: number[][] = [];
-  for (let i = fs; i >= 0 && i < fe; i++) { const r = fixRow(L[i]); if (r) { slots.push(r); if (isContribFix(r[0])) cFixesMax = Math.max(cFixesMax, r[1]); else fixesMax = Math.max(fixesMax, r[1]); } }
+  const [fs, fe] = section(L, FIX_HEAD), slots: number[][] = [], pins: number[][] = [];
+  for (let i = fs; i >= 0 && i < fe; i++) { const r = fixRow(L[i]); if (r) { slots.push(r); if (isPinnedRow(L[i])) pins.push(r); else if (isContribFix(r[0])) cFixesMax = Math.max(cFixesMax, r[1]); else fixesMax = Math.max(fixesMax, r[1]); } }
   const [ns, ne] = section(L, NAT_HEAD), vers = new Map<number, number>(), offs: number[][] = [];
   for (let i = ns; i >= 0 && i < ne; i++) {
     const r = natRow(L[i]); if (!r) continue;
@@ -88,7 +97,7 @@ export function scanDoc(text: string): Used & { collisions: string[] } {
   for (const [v, n] of vers) if (n > 1) col.push(`ts3native v${v} taken ${n} times`);
   offs.sort((a, b) => a[0] - b[0]);
   for (let i = 1; i < offs.length; i++) if (offs[i][0] <= offs[i - 1][1]) col.push(`ts3native offsets of v${offs[i - 1][2]} and v${offs[i][2]} overlap at ${hex(offs[i][0])}`);
-  return { fixesMax, nativeVer, nativeEnd, cFixesMax, cNativeVer, collisions: col };
+  return { fixesMax, nativeVer, nativeEnd, cFixesMax, cNativeVer, collisions: col, pins, slots };
 }
 
 // Rebuilds both "next free" rows from the highest row in each table.
@@ -180,14 +189,20 @@ function reserve(args: string[], c: boolean) {
     const res = loadRes(main);
     const u = docs.map(d => scanDoc(readFileSync(d, 'utf8')));
     let fixesMax = Math.max(...u.map(x => c ? x.cFixesMax : x.fixesMax)), nativeVer = Math.max(...u.map(x => c ? x.cNativeVer : x.nativeVer)), nativeEnd = Math.max(...u.map(x => x.nativeEnd));
-    for (const r of res) if (r.kind === 'fixes') { if (isContribFix(r.from) === c) fixesMax = Math.max(fixesMax, r.to); } else if (r.kind === 'native') { if (isContribVer(r.version!) === c) nativeVer = Math.max(nativeVer, r.version!); nativeEnd = Math.max(nativeEnd, r.to); }
+    const pins = [...u.flatMap(x => x.pins), ...res.filter(r => r.kind === 'fixes' && r.pinned).map(r => [r.from, r.to])];
+    const atS = opt(args, '--at'), at0 = atS === undefined ? -1 : Number(atS);
+    if (atS !== undefined && (kind !== 'fixes' || !(at0 >= 0 && Number.isInteger(at0)))) throw new Error('--at <first-slot> is for fixes only');
+    if (at0 >= 0) for (const [a, b] of [...u.flatMap(x => x.slots), ...res.filter(r => r.kind === 'fixes').map(r => [r.from, r.to])])
+      if (at0 <= b && at0 + n - 1 >= a) throw new Error(`--at ${at0}: slots ${at0}-${at0 + n - 1} overlap ${a}-${b}`);
+    for (const r of res) if (r.kind === 'fixes' && !r.pinned) { if (isContribFix(r.from) === c) fixesMax = Math.max(fixesMax, r.to); } else if (r.kind === 'native') { if (isContribVer(r.version!) === c) nativeVer = Math.max(nativeVer, r.version!); nativeEnd = Math.max(nativeEnd, r.to); }
     if (c && kind === 'fixes') fixesMax = contribFixFrom(fixesMax, n) - 1;
     if (c && kind === 'fixes' && fixesMax + n > CONTRIB.fixes[1]) throw new Error(`contributor slot range ${CONTRIB.fixes.join('-')} has ${CONTRIB.fixes[1] - fixesMax} left, asked ${n}`);
     const at = new Date().toISOString();
     let r: Res, row: string;
     if (kind === 'fixes') {
-      r = { id: `fixes-${fixesMax + 1}`, kind, from: fixesMax + 1, to: fixesMax + n, by, what, at, worktree: shownPath(wt) };
-      row = `| ${r.from === r.to ? r.from : `${r.from}-${r.to}`} | reserved (${by}, \`${r.id}\`) | ${what} |`;
+      const from = at0 >= 0 ? at0 : skipPinned(fixesMax + 1, n, pins);
+      r = { id: `fixes-${from}`, kind, from, to: from + n - 1, by, what, at, worktree: shownPath(wt), ...(at0 >= 0 ? { pinned: true } : {}) };
+      row = `| ${r.from === r.to ? r.from : `${r.from}-${r.to}`} | ${at0 >= 0 ? 'pinned' : 'reserved'} (${by}, \`${r.id}\`) | ${what} |`;
     } else {
       const from = (nativeEnd + 4) & ~3;
       r = { id: `native-v${nativeVer + 1}`, kind, version: nativeVer + 1, from, to: from + 4 * n - 1, by, what, at, worktree: shownPath(wt) };
@@ -281,6 +296,15 @@ async function selfCheck() {
     const mr = loadRes(d);
     ok(mr.some(r => r.kind === 'fixes' && r.from === 285) && mr.some(r => r.kind === 'native' && r.version === 118) && mr.some(r => r.id === 'ledger-323'), 'maintainer reserves skip the contributor ranges (fixes 285, native v118, ledger 323)');
     ok(scanDoc(readFileSync(join(d, 'docs', 'registry.md'), 'utf8')).collisions.length === 0, 'doc has no collisions with contributor rows');
+    // pinned block: --at puts it where asked; automatic reserves skip it but keep counting from below it
+    await r1(['reserve', 'fixes', '10', '--at', '400', '--by', 'p', '--what', 'pinned']);
+    await r1(['reserve', 'fixes', '3', '--at', '405', '--by', 'p', '--what', 'overlap']);
+    const pr = loadRes(d), pin = pr.find(r => r.id === 'fixes-400');
+    ok(!!pin?.pinned && pin.to === 409 && !pr.some(r => r.id === 'fixes-405'), 'fixes --at 400 pinned 400-409; an overlapping --at is refused');
+    await r1(['reserve', 'fixes', '2', '--by', 'm', '--what', 'after pin']);
+    ok(loadRes(d).some(r => r.id === 'fixes-286'), 'next automatic reserve stays below the pinned block (286)');
+    ok(skipPinned(398, 5, [[400, 409]]) === 410 && skipPinned(390, 5, [[400, 409]]) === 390 && skipPinned(405, 2, [[400, 409], [410, 411]]) === 412, 'skipPinned jumps only blocks that overlap');
+    ok(readFileSync(join(d, 'docs', 'registry.md'), 'utf8').includes('| 400-409 | pinned (p, `fixes-400`)'), 'pinned row written');
     ok(!existsSync(join(d, 'docs', 'registry.md.lock')), 'lock file removed');
     // second contributor block: a block that would cross 2199/2200 starts at 2200; 2799 is the end (2400-2799 added 2026-11-14)
     ok(contribFixFrom(2006, 5) === 2007 && contribFixFrom(2195, 5) === 2200 && contribFixFrom(2195, 4) === 2196 && contribFixFrom(2303, 3) === 2304, 'contributor fixes: blocks stay inside 2000-2199 or start at 2200');
