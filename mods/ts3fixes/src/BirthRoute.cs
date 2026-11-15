@@ -64,10 +64,9 @@ namespace Ts3Fixes
 
         static void ApplyBirthRoute()
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            sBrNewborns = typeof(Pregnancy.HaveBabyHospital).GetField("mNewborns", inst);
-            sBrBroadcast = typeof(Pregnancy).GetField("mContractionBroadcast", inst);
-            sBrContractions = typeof(Pregnancy).GetField("mContractionsAlarm", inst);
+            sBrNewborns = typeof(Pregnancy.HaveBabyHospital).GetField("mNewborns", kInstAll);
+            sBrBroadcast = typeof(Pregnancy).GetField("mContractionBroadcast", kInstAll);
+            sBrContractions = typeof(Pregnancy).GetField("mContractionsAlarm", kInstAll);
             if (sBrNewborns == null) AppliedLog().Add("birthroute: HaveBabyHospital.mNewborns not found, Cleanup not patched");
             else
             {

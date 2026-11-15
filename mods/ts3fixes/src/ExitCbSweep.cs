@@ -34,9 +34,8 @@ namespace Ts3Fixes
                 if (!sXcbTried)
                 {
                     sXcbTried = true;
-                    const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-                    FieldInfo e = typeof(Sim).GetField("OnExitReasonsAdded", inst);
-                    FieldInfo r = typeof(ScriptAdaptor).GetField("mRouteAction", inst);
+                    FieldInfo e = typeof(Sim).GetField("OnExitReasonsAdded", kInstAll);
+                    FieldInfo r = typeof(ScriptAdaptor).GetField("mRouteAction", kInstAll);
                     bool ok = e != null && r != null && typeof(Delegate).IsAssignableFrom(e.FieldType);
                     sXcbEvent = ok ? e : null;
                     sXcbRoute = ok ? r : null;
@@ -48,27 +47,36 @@ namespace Ts3Fixes
                 foreach (Sim s in new List<Sim>(Sims3.Gameplay.Queries.GetObjects<Sim>()))
                 {
                     if (IsPlayerSim(s)) continue;  // townie Sims only (PlayerSims.cs: household, selected, unknown skipped)
-                    Delegate head = sXcbEvent.GetValue(s) as Delegate;
-                    if (head == null) continue;
-                    Delegate[] list = head.GetInvocationList();
-                    if (list.Length > longest) longest = list.Length;
-                    for (int i = 0; i < list.Length; i++)
-                    {
-                        ScriptAdaptor a = list[i].Target as ScriptAdaptor;
-                        FollowRouteAction ra = a == null ? null : sXcbRoute.GetValue(a) as FollowRouteAction;
-                        if (ra == null) continue;
-                        if (object.ReferenceEquals(ra.ScriptAdaptor, a) && (int)ra.RouteKillType == 0) continue;  // a live route's own
-                        s.OnExitReasonsAdded -= (Sim.ExitReasonsAddedCallback)list[i];
-                        removed++;
-                    }
+                    try { removed += ExitCbSweepSim(s, ref longest); }
+                    catch (Exception e) { PassThrewOnce(ref sXcbThrew, "exitcbsweep", e); }  // one bad Sim skips only itself
                 }
                 c[2120] += removed;
                 if (longest > c[2121]) c[2121] = longest;
             }
             catch (Exception e)
             {
-                if (!sXcbThrew) { sXcbThrew = true; AppliedLog().Add("exitcbsweep: pass threw " + e.Message); }
+                PassThrewOnce(ref sXcbThrew, "exitcbsweep", e);
             }
+        }
+
+        // One townie's OnExitReasonsAdded: removes the callbacks of route adaptors that no longer belong to a live route.
+        static int ExitCbSweepSim(Sim s, ref int longest)
+        {
+            Delegate head = sXcbEvent.GetValue(s) as Delegate;
+            if (head == null) return 0;
+            Delegate[] list = head.GetInvocationList();
+            if (list.Length > longest) longest = list.Length;
+            int removed = 0;
+            for (int i = 0; i < list.Length; i++)
+            {
+                ScriptAdaptor a = list[i].Target as ScriptAdaptor;
+                FollowRouteAction ra = a == null ? null : sXcbRoute.GetValue(a) as FollowRouteAction;
+                if (ra == null) continue;
+                if (object.ReferenceEquals(ra.ScriptAdaptor, a) && (int)ra.RouteKillType == 0) continue;  // a live route's own
+                s.OnExitReasonsAdded -= (Sim.ExitReasonsAddedCallback)list[i];
+                removed++;
+            }
+            return removed;
         }
     }
 }

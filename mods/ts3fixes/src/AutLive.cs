@@ -207,15 +207,14 @@ namespace Ts3Fixes
             sLiveMargin = AutShadowNative.Config(15) / 1000f;
             sLiveMaxWait = AutShadowNative.Config(16);
             sLiveDry = AutShadowNative.Config(18) != 0;
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-            fInterrupted = typeof(AutonomyT).GetField("mAutonomySearchWasInterrupted", inst);
-            fInspection = typeof(AutonomyT).GetField("IsRunningAutonomyForInspectionWindow", inst);
-            fBestScores = typeof(AutonomyT).GetField("mBestScores", inst);
+            fInterrupted = typeof(AutonomyT).GetField("mAutonomySearchWasInterrupted", kInstAll);
+            fInspection = typeof(AutonomyT).GetField("IsRunningAutonomyForInspectionWindow", kInstAll);
+            fBestScores = typeof(AutonomyT).GetField("mBestScores", kInstAll);
             FieldInfo fTimer = typeof(AutonomyT).GetField("sUpdateTimer", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
             sMetaTimer = fTimer != null ? fTimer.GetValue(null) as StopWatch : null;
             Type mt = typeof(Sims3.Gameplay.Autonomy.AutonomyManager);
             fMgrInstance = mt.GetField("sInstance", BindingFlags.Static | BindingFlags.NonPublic);
-            fMgrHigh = mt.GetField("mAutonomyQueueHighLOD", inst); fMgrLow = mt.GetField("mAutonomyQueueLowLOD", inst);
+            fMgrHigh = mt.GetField("mAutonomyQueueHighLOD", kInstAll); fMgrLow = mt.GetField("mAutonomyQueueLowLOD", kInstAll);
             if (fMgrHigh == null || fMgrLow == null) fMgrInstance = null;
             if (fInterrupted == null || fInspection == null || fBestScores == null)
             {

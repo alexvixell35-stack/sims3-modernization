@@ -87,10 +87,11 @@ namespace Ts3Fixes
                     }
                     if (sRtcWho.Count > 256)
                     {
-                        List<RepairableComponent> gone = new List<RepairableComponent>();
+                        // runs on every call while over the cap: no list unless something is gone
+                        List<RepairableComponent> gone = null;
                         foreach (KeyValuePair<RepairableComponent, Sim> kv in sRtcWho)
-                            if (kv.Key.Owner == null || kv.Key.Owner.HasBeenDestroyed || kv.Value == null || kv.Value.HasBeenDestroyed) gone.Add(kv.Key);
-                        foreach (RepairableComponent g in gone) sRtcWho.Remove(g);
+                            if (kv.Key.Owner == null || kv.Key.Owner.HasBeenDestroyed || kv.Value == null || kv.Value.HasBeenDestroyed) (gone ?? (gone = new List<RepairableComponent>())).Add(kv.Key);
+                        if (gone != null) foreach (RepairableComponent g in gone) sRtcWho.Remove(g);
                     }
                 }
                 catch (Exception) { PatchCounters()[2555]++; }

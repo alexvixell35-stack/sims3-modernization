@@ -26,9 +26,8 @@ namespace Ts3Fixes
 
         static void ApplyMoodDrift()
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            sMdTarget = typeof(MoodManager).GetField("mTargetMoodAxis", inst);
-            sMdActor = typeof(BuffManager).GetField("mActor", inst);
+            sMdTarget = typeof(MoodManager).GetField("mTargetMoodAxis", kInstAll);
+            sMdActor = typeof(BuffManager).GetField("mActor", kInstAll);
             if (sMdTarget == null || sMdActor == null) { AppliedLog().Add("mooddrift: fields not found, not patched"); return; }
             Patch(typeof(BuffManager), "UpdateBuffs", new Type[] { typeof(float) }, typeof(MdHook), "UpdateHook", "UpdateOrig");
         }

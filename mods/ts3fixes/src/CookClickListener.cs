@@ -47,11 +47,10 @@ namespace Ts3Fixes
 
         static void ApplyCookClickListener()
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             Type cp = typeof(CookingProcess);
-            sCcListener = cp.GetField("mStateChangedListener", inst);
-            sCcClear = cp.GetMethod("ClearObjectListeners", inst, null, Type.EmptyTypes, null);
-            sCcOnDisposed = cp.GetMethod("ObjectClickedOnDestroyed", inst, null, new Type[] { typeof(GameObject) }, null);
+            sCcListener = cp.GetField("mStateChangedListener", kInstAll);
+            sCcClear = cp.GetMethod("ClearObjectListeners", kInstAll, null, Type.EmptyTypes, null);
+            sCcOnDisposed = cp.GetMethod("ObjectClickedOnDestroyed", kInstAll, null, new Type[] { typeof(GameObject) }, null);
             if (sCcListener == null || sCcClear == null || sCcOnDisposed == null) { AppliedLog().Add("cookclicklistener: CookingProcess members not found, not patched"); return; }
             Patch(cp, "AddObjectListeners", typeof(CcHook), "AddHook", "AddOrig");
             Patch(cp, "ClearObjectListeners", typeof(CcHook), "ClearHook", "ClearOrig");

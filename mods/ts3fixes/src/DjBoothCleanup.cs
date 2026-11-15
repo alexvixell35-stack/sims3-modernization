@@ -37,13 +37,12 @@ namespace Ts3Fixes
         // RequestMusic instances that passed DoRouting (so Run set or read RequestedGenre); removed in their Cleanup.
         static readonly Dictionary<object, bool> sDjRouted = new Dictionary<object, bool>();
 
-        const BindingFlags kDjInst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        static readonly FieldInfo sDjName = typeof(DJTurntable.DoPlay).GetField("mOverrideInteractionName", kDjInst);
-        static readonly FieldInfo sDjState = typeof(InteractionInstance).GetField("mInteractionState", kDjInst);
-        static readonly FieldInfo sDjExtra = typeof(InteractionInstance).GetField("mAdditionalObjcectsToClearInUse", kDjInst);
-        static readonly FieldInfo sDjVfxs = typeof(InteractionInstance).GetField("mVfxs", kDjInst);
-        static readonly MethodInfo sDjLine = typeof(InteractionInstance).GetMethod("RemoveFromLine", kDjInst, null, Type.EmptyTypes, null);
-        static readonly MethodInfo sDjWalk = typeof(InteractionInstance).GetMethod("CleanupWalkStyleRequests", kDjInst, null, Type.EmptyTypes, null);
+        static readonly FieldInfo sDjName = typeof(DJTurntable.DoPlay).GetField("mOverrideInteractionName", kInstAll);
+        static readonly FieldInfo sDjState = typeof(InteractionInstance).GetField("mInteractionState", kInstAll);
+        static readonly FieldInfo sDjExtra = typeof(InteractionInstance).GetField("mAdditionalObjcectsToClearInUse", kInstAll);
+        static readonly FieldInfo sDjVfxs = typeof(InteractionInstance).GetField("mVfxs", kInstAll);
+        static readonly MethodInfo sDjLine = typeof(InteractionInstance).GetMethod("RemoveFromLine", kInstAll, null, Type.EmptyTypes, null);
+        static readonly MethodInfo sDjWalk = typeof(InteractionInstance).GetMethod("CleanupWalkStyleRequests", kInstAll, null, Type.EmptyTypes, null);
         static bool sDjBaseOk;
 
         static void ApplyDjBoothCleanup()

@@ -44,11 +44,10 @@ namespace Ts3Fixes
                 if (!sCcsTried)
                 {
                     sCcsTried = true;
-                    const BindingFlags kS = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static;
-                    FieldInfo d = typeof(UIManager).GetField("mCustomControlInstanceDict", kS);
-                    FieldInfo ev = typeof(UIManager).GetField("mEventRegistry", kS);
-                    FieldInfo mgr = typeof(UIManager).GetField("gUIMgr", kS);
-                    sCcsDeReg = typeof(UIManager).GetMethod("DeRegisterAllEvents", kS, null, new Type[] { typeof(WindowBase) }, null);
+                    FieldInfo d = typeof(UIManager).GetField("mCustomControlInstanceDict", kStaticAll);
+                    FieldInfo ev = typeof(UIManager).GetField("mEventRegistry", kStaticAll);
+                    FieldInfo mgr = typeof(UIManager).GetField("gUIMgr", kStaticAll);
+                    sCcsDeReg = typeof(UIManager).GetMethod("DeRegisterAllEvents", kStaticAll, null, new Type[] { typeof(WindowBase) }, null);
                     sCcsDict = d == null ? null : d.GetValue(null) as Dictionary<uint, WindowBase>;
                     sCcsEvents = ev == null ? null : ev.GetValue(null) as IDictionary;
                     sCcsMgr = mgr == null ? null : mgr.GetValue(null) as IUIManager;
@@ -96,7 +95,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sCcsThrew) { sCcsThrew = true; AppliedLog().Add("customctlsweep: pass threw " + e.Message); }
+                PassThrewOnce(ref sCcsThrew, "customctlsweep", e);
             }
         }
     }

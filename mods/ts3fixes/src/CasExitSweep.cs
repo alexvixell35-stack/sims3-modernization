@@ -42,12 +42,10 @@ namespace Ts3Fixes
 
         static void ApplyCasExitSweep()
         {
-            const BindingFlags st = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            MethodInfo bd = typeof(WindowBase).GetMethod("Dispose", inst, null, new Type[] { typeof(bool) }, null);
+            MethodInfo bd = typeof(WindowBase).GetMethod("Dispose", kInstAll, null, new Type[] { typeof(bool) }, null);
             sCesBaseDispose = bd != null && bd.DeclaringType == typeof(WindowBase) ? bd : null;
-            sCfgSingleton = typeof(CASPuck).GetField("gSingleton", st);
-            sCfgFilter = typeof(CASPuck).GetField("mContentTypeFilter", inst);
+            sCfgSingleton = typeof(CASPuck).GetField("gSingleton", kStaticAll);
+            sCfgFilter = typeof(CASPuck).GetField("mContentTypeFilter", kInstAll);
             if (sCfgSingleton != null && sCfgFilter != null)
                 Patch(typeof(CASPuck), "Unload", Type.EmptyTypes, typeof(CesHook), "PuckUnloadHook", "PuckUnloadOrig");
             else AppliedLog().Add("casfiltergrid: CASPuck members not found, not patched");

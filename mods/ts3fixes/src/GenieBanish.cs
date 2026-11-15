@@ -32,9 +32,8 @@ namespace Ts3Fixes
 
         static void ApplyGenieBanish()
         {
-            const BindingFlags stat = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-            sGbCost = typeof(OccultGenie.RemoveSim).GetField("kMagicPointCost", stat);
-            sGbLtr = typeof(OccultGenie.RemoveSim).GetField("kLTRHitFromRemoving", stat);
+            sGbCost = typeof(OccultGenie.RemoveSim).GetField("kMagicPointCost", kStaticAll);
+            sGbLtr = typeof(OccultGenie.RemoveSim).GetField("kLTRHitFromRemoving", kStaticAll);
             if (sGbCost == null || sGbLtr == null) AppliedLog().Add("geniebanish: RemoveSim tunables not found, not patched");
             else Patch(typeof(OccultGenie.RemoveSim), "Run", typeof(GbHook), "RunHook", "RunOrig");
         }

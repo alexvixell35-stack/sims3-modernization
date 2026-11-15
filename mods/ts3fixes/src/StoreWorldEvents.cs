@@ -23,14 +23,13 @@ namespace Ts3Fixes
     // Harness check: StoreWorldEventsCheck, repro store-world-events.
     public static partial class Fixes
     {
-        const BindingFlags kSweStatic = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
         static FieldInfo sSweQuit, sSwePlaced, sSweLsm, sSweSaving;
 
         static void ApplyStoreWorldEvents()
         {
-            sSweQuit = typeof(World).GetField("sOnWorldQuitEventHandler", kSweStatic);
-            sSwePlaced = typeof(World).GetField("sOnObjectPlacedInLotEventHandler", kSweStatic);
-            sSweLsm = typeof(LoadSaveManager).GetField("gLoadSaveManager", kSweStatic);
+            sSweQuit = typeof(World).GetField("sOnWorldQuitEventHandler", kStaticAll);
+            sSwePlaced = typeof(World).GetField("sOnObjectPlacedInLotEventHandler", kStaticAll);
+            sSweLsm = typeof(LoadSaveManager).GetField("gLoadSaveManager", kStaticAll);
             if (sSweQuit == null || sSwePlaced == null) AppliedLog().Add("storeworldevents: World event fields not found, World lists not swept");
         }
 

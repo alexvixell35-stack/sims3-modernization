@@ -53,11 +53,10 @@ namespace Ts3Fixes
     // ignored, [2502] door locks restored, [2503] errors, [2504] stakeouts fixed (deleted required Sim / no crime). Check: PrivateEyeCaseChecks.cs.
     public static partial class Fixes
     {
-        const BindingFlags kPeInst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         static readonly Type sPeMail = typeof(PrivateEyeInteractions).GetNestedType("LookThroughMail", BindingFlags.Public | BindingFlags.NonPublic);
-        static readonly FieldInfo sPeGarbageOk = typeof(PrivateEyeInteractions.SearchThroughGarbage).GetField("success", kPeInst);
-        static readonly FieldInfo sPeDoor = typeof(PrivateEyeInteractions.BreakIntoHouse).GetField("mDoor", kPeInst);
-        static readonly FieldInfo sPeResult = typeof(PrivateEyeInteractions.Stakeout).GetField("mResultType", kPeInst);
+        static readonly FieldInfo sPeGarbageOk = typeof(PrivateEyeInteractions.SearchThroughGarbage).GetField("success", kInstAll);
+        static readonly FieldInfo sPeDoor = typeof(PrivateEyeInteractions.BreakIntoHouse).GetField("mDoor", kInstAll);
+        static readonly FieldInfo sPeResult = typeof(PrivateEyeInteractions.Stakeout).GetField("mResultType", kInstAll);
 
         // (a) mailbox -> case Sim whose door lookup gets the fallback while that LookThroughMail.Run runs
         static readonly Dictionary<Mailbox, Sim> sPeMailFallback = new Dictionary<Mailbox, Sim>();

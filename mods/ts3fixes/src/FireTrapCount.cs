@@ -34,11 +34,10 @@ namespace Ts3Fixes
     // completed by a drop, [2576] errors. Check: FireTrapCountChecks.cs.
     public static partial class Fixes
     {
-        const BindingFlags kFtcInst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-        static readonly FieldInfo sFtcTrapped = typeof(FireFightingJob).GetField("mTrappedSims", kFtcInst);
-        static readonly FieldInfo sFtcRubble = typeof(FireFightingJob).GetField("mRubbleTrappedSims", kFtcInst);
-        static readonly FieldInfo sFtcPositions = typeof(FireFightingJob).GetField("mPossiblePlacementPositions", kFtcInst);
-        static readonly FieldInfo sFtcSpec = typeof(Sims3.Gameplay.Careers.Job).GetField("Specification", kFtcInst);
+        static readonly FieldInfo sFtcTrapped = typeof(FireFightingJob).GetField("mTrappedSims", kInstAll);
+        static readonly FieldInfo sFtcRubble = typeof(FireFightingJob).GetField("mRubbleTrappedSims", kInstAll);
+        static readonly FieldInfo sFtcPositions = typeof(FireFightingJob).GetField("mPossiblePlacementPositions", kInstAll);
+        static readonly FieldInfo sFtcSpec = typeof(Sims3.Gameplay.Careers.Job).GetField("Specification", kInstAll);
         static readonly List<KeyValuePair<FireFightingJob, ulong>> sFtcDropped = new List<KeyValuePair<FireFightingJob, ulong>>();
 
         // The EA members the hooks read, by name; empty when all were found.

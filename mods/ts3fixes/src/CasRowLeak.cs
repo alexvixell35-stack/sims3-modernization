@@ -35,17 +35,15 @@ namespace Ts3Fixes
 
         static void ApplyCasRowLeak()
         {
-            const BindingFlags st = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            sCrlDict = typeof(UIManager).GetField("mCustomControlInstanceDict", st);
-            sCrlDeregister = typeof(UIManager).GetMethod("DeRegisterAllEvents", st, null, new Type[] { typeof(WindowBase) }, null);
+            sCrlDict = typeof(UIManager).GetField("mCustomControlInstanceDict", kStaticAll);
+            sCrlDeregister = typeof(UIManager).GetMethod("DeRegisterAllEvents", kStaticAll, null, new Type[] { typeof(WindowBase) }, null);
             sCrlGridWins = typeof(Sims3.UI.CAS.CASClothingRow).GetField("mGridWindows", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             // WindowBase.Dispose(bool), bound as a delegate (not MethodInfo.Invoke: tools/selftest/swapinvoke). Only when no
             // class between CASClothingRow and WindowBase overrides it, so the bound call is exactly EA's base step.
             MethodInfo bd = typeof(Sims3.UI.CAS.CASClothingRow).GetMethod("Dispose", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new Type[] { typeof(bool) }, null);
             sCrlBaseDispose = bd != null && bd.DeclaringType == typeof(WindowBase) ? bd : null;
             if (sCrlBaseDispose == null) AppliedLog().Add("casrowleak: WindowBase.Dispose(bool) not found or overridden, rows never shown are left as before");
-            sCrlHandle = typeof(WindowBase).GetProperty("WinHandle", inst);
+            sCrlHandle = typeof(WindowBase).GetProperty("WinHandle", kInstAll);
             if (sCrlDict == null || sCrlDeregister == null || sCrlHandle == null)
             {
                 AppliedLog().Add("casrowleak: members not found (dict " + (sCrlDict != null) + ", deregister " + (sCrlDeregister != null)

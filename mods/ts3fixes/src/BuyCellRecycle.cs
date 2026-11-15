@@ -50,11 +50,10 @@ namespace Ts3Fixes
 
         static void ApplyBuyCellRecycle()
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             Type b = typeof(BuyController);
-            sBcrBuyCache = b.GetField("mBuyCatalogGridItemCache", inst);
-            sBcrPatCache = b.GetField("mBuildCatalogPatternGridItemCache", inst);
-            sBcrType = b.GetField("mCurrCatalogType", inst);
+            sBcrBuyCache = b.GetField("mBuyCatalogGridItemCache", kInstAll);
+            sBcrPatCache = b.GetField("mBuildCatalogPatternGridItemCache", kInstAll);
+            sBcrType = b.GetField("mCurrCatalogType", kInstAll);
             if (sBcrBuyCache == null || sBcrPatCache == null || sBcrType == null)
             {
                 AppliedLog().Add("buycellrecycle: members not found, not patched");
@@ -64,13 +63,13 @@ namespace Ts3Fixes
             sBcrGridState = new FieldInfo[gs.Length];
             for (int i = 0; i < gs.Length; i++)
             {
-                sBcrGridState[i] = typeof(ItemGrid).GetField(gs[i], inst);
+                sBcrGridState[i] = typeof(ItemGrid).GetField(gs[i], kInstAll);
                 if (sBcrGridState[i] == null) { AppliedLog().Add("buycellrecycle: ItemGrid." + gs[i] + " not found, not patched"); return; }
             }
-            sBcrCatalogGrid = b.GetField("mCatalogGrid", inst);
+            sBcrCatalogGrid = b.GetField("mCatalogGrid", kInstAll);
             string[] og = { "mGridSortByFunction", "mGridSortByRoom", "mGridCollection", "mGridStoreNotable" };
             List<FieldInfo> ogf = new List<FieldInfo>();
-            foreach (string n in og) { FieldInfo f = b.GetField(n, inst); if (f != null) ogf.Add(f); else AppliedLog().Add("buygridsweep: " + n + " not found"); }
+            foreach (string n in og) { FieldInfo f = b.GetField(n, kInstAll); if (f != null) ogf.Add(f); else AppliedLog().Add("buygridsweep: " + n + " not found"); }
             sBcrOtherGrids = ogf.ToArray();
             if (sBcrCatalogGrid != null)
                 Patch(b, "ShowCatalogGrid", new Type[] { typeof(bool) }, typeof(BcrHook), "ShowHook", "ShowOrig");
