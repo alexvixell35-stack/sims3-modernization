@@ -47,8 +47,14 @@ static bool UfOn() {
 
 static u8 UfMsg(DWORD handle, DWORD lo) {
     Ts3nCounters& k = ts3native_counters;
+    if (lo == 4) {  // VIEW? (KdCutCamRecheck=2), asked after CUT? answered 1: the cut came with the Sim in view or no fresh camera
+        const bool v = handle && g_ufCutViewH == handle;
+        g_ufCutViewH = 0;
+        return v ? 1 : 0;
+    }
     if (lo == 2) {  // CUT?
         const bool cut = handle && g_ufCutH == handle;
+        if (!cut) g_ufCutViewH = 0;
         if (g_ufH == handle) g_ufH = 0;
         g_ufCutH = 0;
         if (cut) InterlockedIncrement(&k.ufCutAsks);
@@ -134,6 +140,7 @@ static u8 GvuMsg(DWORD handle, DWORD kind) {
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
     g_ufH = 0;          // the mark is used up: no IC follows
     g_ufCutH = handle;  // CUT? answers 1: UfPlanBody's recovery
+    g_ufCutViewH = 0;   // a deferral is not a camera cut
     InterlockedIncrement(&k.gvuN);
     InterlockedIncrement(&k.gvuKind[kind]);
     if (InterlockedIncrement(&g_gvuLines) <= 40)
@@ -224,6 +231,7 @@ static void UfSyncEnd(DWORD handle, const u8* out, LONG us) {
     if (cut) {
         InterlockedIncrement(&k.ufSyncCut);
         g_ufCutH = handle;
+        g_ufCutViewH = t_kdCamView ? handle : 0;
     }
     UfNote(us);
 }
@@ -236,6 +244,7 @@ static void UfJobEnd(AsyncJob* j, bool capped, LONG us, LONG lateUs, unsigned ma
     UfOverNote(1, mask, lateUs);
     const bool cut = capped && *(const DWORD*)j->result != 1;
     j->ufCut = cut ? 1 : 0;
+    j->ufCutView = cut && t_kdCamView ? 1 : 0;
     if (cut) InterlockedIncrement(&k.ufJobCut);
     UfNote(us);
 }

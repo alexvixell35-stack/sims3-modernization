@@ -28,7 +28,7 @@ const q = (v: number[], p: number) => { if (!v.length) return 0; const s = [...v
 const worst = (...g: Grade[]): Grade => (g.includes('FAIL') ? 'FAIL' : g.includes('WARN') ? 'WARN' : g.every(x => x === 'n/a') ? 'n/a' : 'PASS');
 
 const RE_KD = /route kind deadlines: .*?after a cut ok (\d+) fail (\d+) \(uncut ok (\d+)\).*?cuts by scope unknown (\d+) seen (\d+) unseen (\d+) npc (\d+); npc ceiling \d+ ms cuts (\d+); camera recheck mode (\d+) checks (\d+) held (\d+) stale (\d+) would hold (\d+)/;
-const RE_CAM = /kd cam recheck: route ([0-9A-F]{8}) (held, in view|held, stale snapshot|would hold, in view \(switch off\)|would hold, stale snapshot \(switch off\)), job seq \d+ (\d+) ms.*?follower ([0-9A-F]{16}),/;
+const RE_CAM = /kd cam recheck: route ([0-9A-F]{8}) (held, in view|held, stale snapshot|would hold, in view \(switch off\)|would hold, stale snapshot \(switch off\)|cut, in view, no unseen recovery \(mode 2\)|cut, stale snapshot, no unseen recovery \(mode 2\)), job seq \d+ (\d+) ms.*?follower ([0-9A-F]{16}),/;
 const RE_JOB = /routefail job: route ([0-9A-F]{8}), (.*?), job seq \d+ (\d+) ms result (-?\d+), (cut \(([A-Za-z]+), mask \d+\)|uncut(?: \(exempt\))?), kind .*?follower ([0-9A-F]{16}),.*, (unseen|seen npc|seen|scope unknown)$/;
 const RE_RETRY = /routefail retry: route [0-9A-F]{8}, .*?, backoff level \d+, (succeeded|failed), .*?follower ([0-9A-F]{16}),/;
 const RE_UFB = /unseen fallback: mode \d+ .*?jobs (\d+) cut (\d+)/;
@@ -64,7 +64,9 @@ export function scorecard(log: string, healthText: string, stuckH = 4, lists = 1
     if (m[6] === 'UnseenFallback' && r && r.scope !== 'npc') { hhCuts++; if (s1.length < lists) s1.push(`cut on household Sim: ${who(m[7])}, route ${m[1]}, ${m[2]}, ${m[3]} ms`); }
   }
   const cam: string[] = [];
-  for (const l of L) { const m = RE_CAM.exec(l); if (m && m[2].startsWith('would hold')) cam.push(`in view, cut: ${who(m[4])}, route ${m[1]}${jobIa.has(m[1]) ? ', ' + jobIa.get(m[1]) : ''}, job ${m[3]} ms, camera: ${m[2].replace(' (switch off)', '')}`); }
+  let camNoRecovery = 0;  // KdCutCamRecheck=2: cut in view, ordinary failure, no unseen recovery
+  for (const l of L) { const m = RE_CAM.exec(l); if (m && m[2].startsWith('cut')) camNoRecovery++;
+    else if (m && m[2].startsWith('would hold')) cam.push(`in view, cut: ${who(m[4])}, route ${m[1]}${jobIa.has(m[1]) ? ', ' + jobIa.get(m[1]) : ''}, job ${m[3]} ms, camera: ${m[2].replace(' (switch off)', '')}`); }
   let hhHolds = 0, hhMoves = 0, hhOurs = 0, heldSeen = 0;
   for (const s of samples) for (const r of s.sims) {
     if (r.scope !== 'npc') {
@@ -76,7 +78,7 @@ export function scorecard(log: string, healthText: string, stuckH = 4, lists = 1
   if (kd) {
     const [unk, seen, uns, npc, ceil, camMode, , , , would] = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map(i => Number(kd[i]));
     g1 = worst(seen + hhCuts + hhHolds + hhMoves + hhOurs > 0 ? 'FAIL' : 'PASS', unk > 0 || (camMode === 0 && would > 0) || heldSeen > 0 ? 'WARN' : 'PASS');
-    line1 = `native cuts by scope: seen ${seen}, unknown ${unk}, unseen ${uns}, seen-NPC ceiling ${npc} (by design, ${ceil} ceiling cuts); in view at the cut ${would} (KdCutCamRecheck ${camMode}${camMode === 0 ? ', off: cut anyway' : ''}); census: household cuts ${hhCuts}, holds ${hhHolds}, moves ${hhMoves}, ours ${hhOurs}; held while seen at a sample ${heldSeen}`;
+    line1 = `native cuts by scope: seen ${seen}, unknown ${unk}, unseen ${uns}, seen-NPC ceiling ${npc} (by design, ${ceil} ceiling cuts); in view at the cut ${would} (KdCutCamRecheck ${camMode}${camMode === 0 ? ', off: cut anyway' : camMode === 2 ? `, no hold: ${camNoRecovery} logged cuts without unseen recovery` : ''}); census: household cuts ${hhCuts}, holds ${hhHolds}, moves ${hhMoves}, ours ${hhOurs}; held while seen at a sample ${heldSeen}`;
   }
   out.push({ n: 1, name: 'safety', grade: g1, line: line1, list: [...s1, ...cam.slice(0, lists), ...(cam.length > lists ? [`... ${cam.length - lists} more in-view cuts logged`] : [])] });
 
