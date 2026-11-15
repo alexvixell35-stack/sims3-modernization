@@ -269,6 +269,7 @@ namespace Ts3Fixes
             public void SetHook(float percentPregnant)
             {
                 float v;
+                bool refresh = false;
                 if (sPgByTask.Count > 0 && sPgByTask.TryGetValue(Simulator.CurrentTask.Value, out v))
                 {
                     int packed = (int)v, i = packed / 1000, n = packed % 1000;
@@ -276,11 +277,15 @@ namespace Ts3Fixes
                     float fixedV = PgShape(true, percentPregnant, i, n);
                     if (fixedV != percentPregnant)
                     {
-                        if (on) { percentPregnant = fixedV; PatchCounters()[1215]++; }
+                        if (on) { percentPregnant = fixedV; refresh = fixedV > 0f; PatchCounters()[1215]++; }
                         else PatchCounters()[1216]++;
                     }
                 }
                 SetOrig(percentPregnant);
+                // EA's SetPregnancy only stores the value when the Sim is already visually pregnant (the belly is redrawn
+                // only for 0); review 2026-11-15: without this the corrected value never showed.
+                if (refresh)
+                    try { ((SimDescription)(object)this).RefreshBodyShape(); } catch (Exception) { PatchCounters()[1217]++; }
             }
             public void SetOrig(float percentPregnant) { } // receives SimDescription.SetPregnancy(float)
         }

@@ -47,8 +47,8 @@ namespace Ts3Fixes
             if (what == "result") return counters;
             if (what != "run") return "digsiteemptypick <run|result>";
             bool on = ShortcutOn("digsiteemptypick");
-            bool fixedNow = !DsSpend(on, 0), controls = DsSpend(on, 1);
-            return B582Line("digsiteemptypick", on, "empty pick keeps the treasure", fixedNow, "real pick spends one=" + controls, controls, sDsMissing, counters);
+            bool fixedNow = !DsSpend(on, 0, 0), controls = DsSpend(on, 1, 0) && DsSpend(on, 0, kDsMaxEmpty);
+            return B582Line("digsiteemptypick", on, "empty pick keeps the treasure", fixedNow, "real pick / capped empty run spends one=" + controls, controls, sDsMissing, counters);
         }
 
         // OppChainWorldCheck run: source world set, target Undefined -> world-change branch. Controls: same worlds, both

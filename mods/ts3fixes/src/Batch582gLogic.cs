@@ -362,16 +362,20 @@ namespace Ts3Fixes
         {
             public void CleanHook()
             {
-                CleanOrig();
+                try { CleanOrig(); }
+                finally { After(this); }  // EA's CleanUp can throw on a null host/guest (review 2026-11-15); listeners still go
+            }
+            static void After(object party)
+            {
                 try
                 {
-                    List<EventListener> list = sWlList.GetValue(this) as List<EventListener>;
+                    List<EventListener> list = sWlList.GetValue(party) as List<EventListener>;
                     if (list == null) return;
                     int live = 0;
                     foreach (EventListener l in list) if (l != null && EventTracker.ContainsListener(l)) live++;
                     if (live == 0) return;
                     if (WlRemove(ShortcutOn("weddinglistener"), live) == 0) { PatchCounters()[1247] += live; return; }
-                    foreach (EventListener l in list) EventTracker.RemoveListener(l);
+                    foreach (EventListener l in list) if (l != null) EventTracker.RemoveListener(l);
                     PatchCounters()[1246] += live;
                 }
                 catch (Exception) { PatchCounters()[1248]++; }

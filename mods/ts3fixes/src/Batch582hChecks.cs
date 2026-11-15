@@ -23,8 +23,8 @@ namespace Ts3Fixes
             if (what == "result") return counters;
             if (what != "run") return "innerbeautyonce <run|result>";
             bool on = ShortcutOn("innerbeautyonce");
-            bool fixedNow = on && IbSkip(true, true);
-            bool controls = !IbSkip(true, false) && !IbSkip(false, true);
+            bool fixedNow = on && IbSkip(true, true, true) && IbSkip(true, false, false);
+            bool controls = !IbSkip(true, false, true) && !IbSkip(false, true, false);
             return B582Line("innerbeautyonce", on, "one mean social handled once", fixedNow, "new event / off unchanged=" + controls, controls, "", counters);
         }
 
