@@ -267,6 +267,20 @@ namespace Ts3Fixes
             ApplyBartendingHourlyPay();   // docs/587 EP2 §7.2
             ApplyInfluenceFollowerBonus();   // docs/587 EP2 §7.3
             ApplyBroomArenaChoice();   // docs/587 EP2 §7.4
+            ApplyFortuneTellerScamOdds();   // docs/587 EP3 §8.1
+            ApplyConsignmentSkillCurve();   // docs/587 EP3 §8.2
+            ApplyConsignmentStockLeak();   // docs/587 EP3 §8.3
+            ApplyHerbQualityFloor();   // docs/587 EP3 §8.4
+            ApplySnackBowlSlobVfx();   // docs/587 EP3 §8.5
+            ApplyWorldPondSkateTest();   // docs/587 EP3 §8.6
+            ApplyPingPongOpponent();   // docs/587 EP3 §8.7
+            ApplyMermaidDehydrateLook();   // docs/587 EP3 §8.8
+            ApplyMeteorMagnetOrphan();   // docs/587 EP3 §8.9
+            ApplyDaycareLateAlarm();   // docs/587 EP3 §8.10
+            ApplyBoxOfMysteryWooHoo();   // docs/587 EP3 §8.11
+            ApplyBodySculptorWeight();   // docs/587 EP3 §8.12
+            ApplyNectarConsignValue();   // docs/587 EP3 §8.13
+            ApplyStrayGnomeTns();   // docs/587 EP3 §8.14
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -745,6 +759,20 @@ namespace Ts3Fixes
         // [1469-1471] bartendinghourlypay (EpBatch2Logic.cs, docs/587 EP2 §7.2): wages paid / unpaid with switch off / errors.
         // [1472-1474] influencefollowerbonus (EpBatch2Logic.cs, docs/587 EP2 §7.3): modifiers scaled / stepped with switch off / errors.
         // [1475-1477] broomarenachoice (EpBatch2Logic.cs, docs/587 EP2 §7.4): chosen brooms used / dropped with switch off / errors.
+        // [1478-1480] fortunetellerscamodds (EpBatch3Logic.cs, docs/587 EP3 §8.1): scam rows rebuilt / shared rows with switch off / errors.
+        // [1481-1483] consignmentskillcurve (EpBatch3Logic.cs, docs/587 EP3 §8.2): curves rebuilt / frequency curve with switch off / errors.
+        // [1484-1486] consignmentstockleak (EpBatch3Logic.cs, docs/587 EP3 §8.3): objects destroyed / leaked with switch off / errors.
+        // [1487-1489] herbqualityfloor (EpBatch3Logic.cs, docs/587 EP3 §8.4): decreases floored / below floor with switch off / errors.
+        // [1490-1492] snackbowlslobvfx (EpBatch3Logic.cs, docs/587 EP3 §8.5): one-shots fired / leaked with switch off / errors.
+        // [1493-1495] worldpondskatetest (EpBatch3Logic.cs, docs/587 EP3 §8.6): skate entries refused / offered against test with switch off / errors.
+        // [1496-1498] pingpongopponent (EpBatch3Logic.cs, docs/587 EP3 §8.7): Sims removed / non-players with switch off / errors.
+        // [1500-1502] mermaiddehydratelook (EpBatch3Logic.cs, docs/587 EP3 §8.8): look-ats re-enabled / left disabled with switch off / errors.
+        // [1503-1505] meteormagnetorphan (EpBatch3Logic.cs, docs/587 EP3 §8.9): fragments destroyed / leaked with switch off / errors.
+        // [1506-1508] daycarelatealarm (EpBatch3Logic.cs, docs/587 EP3 §8.10): stale alarms skipped / would throw with switch off / errors.
+        // [1509-1511] boxofmysterywoohoo (EpBatch3Logic.cs, docs/587 EP3 §8.11): failed woohoos without roll / rolled after failure with switch off / errors.
+        // [1512-1514] bodysculptorweight (EpBatch3Logic.cs, docs/587 EP3 §8.12): weights corrected / mirrored with switch off / errors.
+        // [1515-1517] nectarconsignvalue (EpBatch3Logic.cs, docs/587 EP3 §8.13): values re-rolled / minimum with switch off / errors.
+        // [1518-1520] straygnometns (EpBatch3Logic.cs, docs/587 EP3 §8.14): runs with right notice / stale notices with switch off / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -1232,6 +1260,20 @@ namespace Ts3Fixes
                 case "bartendinghourlypay": return Instantiator.kBartendingHourlyPay;
                 case "influencefollowerbonus": return Instantiator.kInfluenceFollowerBonus;
                 case "broomarenachoice": return Instantiator.kBroomArenaChoice;
+                case "fortunetellerscamodds": return Instantiator.kFortuneTellerScamOdds;
+                case "consignmentskillcurve": return Instantiator.kConsignmentSkillCurve;
+                case "consignmentstockleak": return Instantiator.kConsignmentStockLeak;
+                case "herbqualityfloor": return Instantiator.kHerbQualityFloor;
+                case "snackbowlslobvfx": return Instantiator.kSnackBowlSlobVfx;
+                case "worldpondskatetest": return Instantiator.kWorldPondSkateTest;
+                case "pingpongopponent": return Instantiator.kPingPongOpponent;
+                case "mermaiddehydratelook": return Instantiator.kMermaidDehydrateLook;
+                case "meteormagnetorphan": return Instantiator.kMeteorMagnetOrphan;
+                case "daycarelatealarm": return Instantiator.kDaycareLateAlarm;
+                case "boxofmysterywoohoo": return Instantiator.kBoxOfMysteryWooHoo;
+                case "bodysculptorweight": return Instantiator.kBodySculptorWeight;
+                case "nectarconsignvalue": return Instantiator.kNectarConsignValue;
+                case "straygnometns": return Instantiator.kStrayGnomeTns;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
