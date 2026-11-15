@@ -32,7 +32,10 @@ namespace Ts3Agent
     //     cancelled by an order) and are not spam;
     //   short_ends: definitions that ended short (< 1 sim minute, not user-cancelled, not ours) >= 3 times, lower ranked;
     //   ours / ours_ends: ends ts3fixes' own shortcuts cut (the Sim was in or just left an unseenfb hold, or ts3fixes.moved
-    //     got a new move for it while the head ran, and the head then failed, was cancelled or ended short): never spam;
+    //     got a new move for it while the head ran, and the head then failed or was cancelled; a short end alone is the
+    //     shortcut skipping the walk, helped): never spam;
+    //   ours_why: the same ends by "definition: reason" (failure exit reason, or cancelled with its CancelledReason);
+    //     a head cancelled only for an EA hand-off (HigherPriorityNext, PriorityOverride, StageComplete, Finished) is helped;
     //   helped / helped_ends: the same shortcut touched the head and it then completed (no cancel, no failure exit
     //     reason, not short; a rabbit-hole placement before EA's meal ran): normal ends, listed to judge the shortcut;
     //   hunger / energy: the Sim's motive values (-100..100; null when it has none), for judging meal and sleep loops;
@@ -52,6 +55,8 @@ namespace Ts3Agent
         const ExitReason kShFail = ExitReason.FailedToStart | ExitReason.RouteFailed | ExitReason.ObjectInUse | ExitReason.SynchronizationFailed
             | ExitReason.NullValueFound | ExitReason.FailedToRemoveFromInventory | ExitReason.BuffFailureState | ExitReason.TimedOut;
         const int kShSpam = 3;
+        // cancel reasons that are EA's normal hand-off to the next interaction, not a broken one
+        const ExitReason kShHandOff = ExitReason.HigherPriorityNext | ExitReason.PriorityOverride | ExitReason.StageComplete | ExitReason.Finished;
 
         sealed class ShTrack
         {
@@ -69,6 +74,7 @@ namespace Ts3Agent
             public readonly Dictionary<string, int> Bad = new Dictionary<string, int>();     // failed, by definition (spam)
             public readonly Dictionary<string, int> ShortDefs = new Dictionary<string, int>();
             public readonly Dictionary<string, int> OursDefs = new Dictionary<string, int>();
+            public readonly Dictionary<string, int> OursWhy = new Dictionary<string, int>();   // "definition: exit / cancel reason"
             public int Ours, Helped;
             public readonly Dictionary<string, int> HelpedDefs = new Dictionary<string, int>();
             public string HeadMoved;               // ts3fixes.moved for this Sim when the head started
@@ -173,7 +179,7 @@ namespace Ts3Agent
             o["ended"] = t.Ended; o["failed"] = t.Failed; o["game_cancelled"] = t.GameCancelled; o["user_cancelled"] = t.UserCancelled; o["short"] = t.Short;
             o["spam"] = ShDefs(t.Bad, kShSpam);
             o["short_ends"] = ShDefs(t.ShortDefs, kShSpam);
-            o["ours"] = t.Ours; o["ours_ends"] = ShDefs(t.OursDefs, 1);
+            o["ours"] = t.Ours; o["ours_ends"] = ShDefs(t.OursDefs, 1); o["ours_why"] = ShDefs(t.OursWhy, 1);
             o["helped"] = t.Helped; o["helped_ends"] = ShDefs(t.HelpedDefs, 1);
             o["holds"] = t.Holds; o["hold_ends"] = t.HoldEnds; o["after_hold"] = new List<object>(t.AfterHold);
             t.Holds = t.HoldEnds = 0; t.AfterHold.Clear();
@@ -184,7 +190,7 @@ namespace Ts3Agent
             o["moved_new"] = m != null && m != t.Moved;  // a shortcut moved this Sim since the last call (the last move only)
             t.Moved = m;
             t.Ended = t.Failed = t.GameCancelled = t.UserCancelled = t.Short = t.Ours = t.Helped = 0;
-            t.Bad.Clear(); t.ShortDefs.Clear(); t.OursDefs.Clear(); t.HelpedDefs.Clear();
+            t.Bad.Clear(); t.ShortDefs.Clear(); t.OursDefs.Clear(); t.OursWhy.Clear(); t.HelpedDefs.Clear();
             return o;
         }
 
@@ -298,8 +304,19 @@ namespace Ts3Agent
                     bool user = (why & ExitReason.UserCanceled) != 0, cancelled = old != null && old.Cancelled;
                     bool touched = !user && (held || holdChanged || (t.HeadMovedKnown && m != null && m != t.HeadMoved));
                     bool fail = (why & kShFail) != 0, isShort = now - t.HeadSince < shortTicks;
+                    // EA's own hand-off: the head was cancelled because the next one outranks it (AfterExitingRabbitHole pushes
+                    // GoHome at High priority once FinishWorking ran, so the work head ends HigherPriorityNext): completed,
+                    // not ended by us. A cancel with no reason recorded stays ours.
+                    ExitReason cr = old != null ? old.CancelledReason : ExitReason.None;
+                    bool handOff = cancelled && !fail && cr != ExitReason.None && (cr & ~kShHandOff) == 0;
                     if (user) t.UserCancelled++;
-                    else if (touched && (fail || cancelled || isShort)) { t.Ours++; ShBump(t.OursDefs, t.HeadDef); }  // ended by us
+                    // a touched head that ended short with no failure and no cancel finished early because the shortcut skipped its
+                    // walk (an unseen GoHome placed at home ends at once): completed, not ours
+                    else if (touched && (fail || (cancelled && !handOff)))
+                    {
+                        t.Ours++; ShBump(t.OursDefs, t.HeadDef);  // ended by us
+                        ShBump(t.OursWhy, t.HeadDef + ": " + (fail ? "failed " + (why & kShFail) : "cancelled " + cr) + (isShort && (fail || cancelled) ? ", short" : ""));
+                    }
                     else if (touched) { t.Helped++; ShBump(t.HelpedDefs, t.HeadDef); }  // helped by us: completed
                     else
                     {

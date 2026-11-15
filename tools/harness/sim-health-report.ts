@@ -92,7 +92,8 @@ export function report(samples: Sample[], log: Map<string, LogTally> | null, stu
         a.route += r.route_fails ?? 0; a.locked += r.route_locked ?? 0; a.failed += r.failed ?? 0; a.gameCancel += r.game_cancelled ?? 0;
         a.short += r.short ?? 0; a.ours += r.ours ?? 0; a.ended += r.ended ?? 0; a.holds += r.holds ?? 0; a.moves += r.moved_new ? 1 : 0;
       }
-      if (r.trapped === true) locked.set(id, `${who} room ${r.room} on ${r.lot}${r.hidden_room ? ' (hidden room)' : ''}`);
+      if (r.trapped === true || r.trapped === 'True')  // older censuses wrote the bool as a string
+        locked.set(id, `${who} room ${r.room} on ${r.lot}${r.hidden_room ? ' (hidden room)' : ''}`);
       if ((r.interaction_min ?? 0) > stuckMin) stuck.set(id, `${who}: ${r.interaction} for ${r.interaction_min} sim-min on ${r.lot}`);
       else if ((r.still_min ?? 0) > stillMin) stuck.set(id, `${who}: not moved for ${r.still_min} sim-min (${r.interaction ?? 'idle'}) on ${r.lot}`);
       const mot = typeof r.hunger === 'number' ? ` (hunger ${r.hunger} energy ${r.energy})` : '';
@@ -179,7 +180,8 @@ function selfCheck() {
   console.log('sim-health-report self-check: ok');
 }
 
-if (process.argv.includes('--self-check')) selfCheck();
+if (!process.argv[1]?.endsWith('sim-health-report.ts')) { /* imported (unseen-scorecard.ts) */ }
+else if (process.argv.includes('--self-check')) selfCheck();
 else {
   const { values, positionals } = parseArgs({ allowPositionals: true, options: { log: { type: 'string' }, 'stuck-min': { type: 'string' }, 'still-min': { type: 'string' }, json: { type: 'boolean' } } });
   if (!positionals[0]) { console.error('usage: node tools/harness/sim-health-report.ts <health.jsonl> [--log ts3native.log] [--stuck-min 120] [--still-min 240] [--json]'); process.exit(1); }

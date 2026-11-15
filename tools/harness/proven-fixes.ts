@@ -32,12 +32,19 @@ export function defaultOff(fixes: string, inst: string): Set<string> {
   return off;
 }
 
-export function problems(s: { set: string[]; excluded: string[] }, off: Set<string>): string[] {
+// Switches hard-coded off in Fixes.cs (`case "name": return false;`, no tunable): may be listed (e.g. a pending A/B), not required.
+export function plainOff(fixes: string): Set<string> {
+  const off = new Set<string>();
+  for (const m of fixes.matchAll(/case "([a-z0-9]+)":\s*return false;/g)) off.add(m[1]);
+  return off;
+}
+
+export function problems(s: { set: string[]; excluded: string[] }, off: Set<string>, plain: Set<string> = new Set()): string[] {
   const out: string[] = [], seen = new Set<string>();
   for (const n of [...s.set, ...s.excluded]) {
     if (seen.has(n)) out.push(`${n}: listed twice`);
     seen.add(n);
-    if (!off.has(n)) out.push(`${n}: not a default-off ts3fixes switch`);
+    if (!off.has(n) && !plain.has(n)) out.push(`${n}: not a default-off ts3fixes switch`);
   }
   for (const n of off) if (!seen.has(n)) out.push(`${n}: default-off switch in neither the set nor the excluded block`);
   return out;
@@ -53,7 +60,10 @@ function selfCheck() {
   ok(s.set.join() === 'a' && s.excluded.join() === 'b', 'set parse');
   ok(problems(s, off).length === 0, 'clean fixture');
   ok(problems(parseSet('a\nc\n'), off).length === 2, 'non-switch and missing switch flagged');
-  const real = problems(parseSet(readFileSync(SET, 'utf8')), defaultOff(readFileSync(join(ROOT, 'mods/ts3fixes/src/Fixes.cs'), 'utf8'), readFileSync(join(ROOT, 'mods/ts3fixes/src/Instantiator.cs'), 'utf8')));
+  const plain = plainOff('case "d": return false;  // x\ncase "e": return true;');
+  ok(plain.has('d') && !plain.has('e') && problems(parseSet('a\n# ---- excluded (x)\n#   b d\n'), off, plain).length === 0, 'hard-coded-off switch may be listed');
+  const fixesCs = readFileSync(join(ROOT, 'mods/ts3fixes/src/Fixes.cs'), 'utf8');
+  const real = problems(parseSet(readFileSync(SET, 'utf8')), defaultOff(fixesCs, readFileSync(join(ROOT, 'mods/ts3fixes/src/Instantiator.cs'), 'utf8')), plainOff(fixesCs));
   ok(real.length === 0, 'repo set: ' + real.join('; '));
   console.log('proven-fixes self-check: ok');
 }
