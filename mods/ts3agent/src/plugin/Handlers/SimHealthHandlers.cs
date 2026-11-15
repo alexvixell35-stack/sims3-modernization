@@ -32,8 +32,9 @@ namespace Ts3Agent
     //     cancelled by an order) and are not spam;
     //   short_ends: definitions that ended short (< 1 sim minute, not user-cancelled, not ours) >= 3 times, lower ranked;
     //   ours / ours_ends: ends ts3fixes' own shortcuts cut (the Sim was in or just left an unseenfb hold, or ts3fixes.moved
-    //     got a new move for it while the head ran, and the head then failed, was cancelled or ended short): never spam;
-    //   ours_why: the same ends by "definition: reason" (failure exit reason, or cancelled with its CancelledReason, or short);
+    //     got a new move for it while the head ran, and the head then failed or was cancelled; a short end alone is the
+    //     shortcut skipping the walk, helped): never spam;
+    //   ours_why: the same ends by "definition: reason" (failure exit reason, or cancelled with its CancelledReason);
     //     a head cancelled only for an EA hand-off (HigherPriorityNext, PriorityOverride, StageComplete, Finished) is helped;
     //   helped / helped_ends: the same shortcut touched the head and it then completed (no cancel, no failure exit
     //     reason, not short; a rabbit-hole placement before EA's meal ran): normal ends, listed to judge the shortcut;
@@ -309,10 +310,12 @@ namespace Ts3Agent
                     ExitReason cr = old != null ? old.CancelledReason : ExitReason.None;
                     bool handOff = cancelled && !fail && cr != ExitReason.None && (cr & ~kShHandOff) == 0;
                     if (user) t.UserCancelled++;
-                    else if (touched && (fail || (cancelled && !handOff) || (isShort && !handOff)))
+                    // a touched head that ended short with no failure and no cancel finished early because the shortcut skipped its
+                    // walk (an unseen GoHome placed at home ends at once): completed, not ours
+                    else if (touched && (fail || (cancelled && !handOff)))
                     {
                         t.Ours++; ShBump(t.OursDefs, t.HeadDef);  // ended by us
-                        ShBump(t.OursWhy, t.HeadDef + ": " + (fail ? "failed " + (why & kShFail) : cancelled ? "cancelled " + cr : "short") + (isShort && (fail || cancelled) ? ", short" : ""));
+                        ShBump(t.OursWhy, t.HeadDef + ": " + (fail ? "failed " + (why & kShFail) : "cancelled " + cr) + (isShort && (fail || cancelled) ? ", short" : ""));
                     }
                     else if (touched) { t.Helped++; ShBump(t.HelpedDefs, t.HeadDef); }  // helped by us: completed
                     else

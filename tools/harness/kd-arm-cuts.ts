@@ -1,6 +1,6 @@
 // KindDeadlines cuts per KdExemptSeen arm, from ts3native.log (docs/249, household-scope proof):
 //   node tools/harness/kd-arm-cuts.ts <ts3native.log> [--expect-on-zero] [--ceil-ms N] [--cam]     --self-check
-// --cam: KdCutCamRecheck per arm (0 / 1, or 0 / 2: mode 2 cuts in-view windows without the unseen recovery, never holds) from "KdCutCamRecheck switch now N" and "kd cam recheck:" lines; exit 1 on a hold in an off arm, a would-hold in an on arm, or an arm with none.
+// --cam: KdCutCamRecheck per arm (0 / 1, or 0 / 2: mode 2 holds as 1) from "KdCutCamRecheck switch now N" and "kd cam recheck:" lines; exit 1 on a hold in an off arm, a would-hold in an on arm, or an arm with none.
 // The arm comes from the "KdExemptSeen switch now N" line (logged at the first job after a flip); a cut line is a
 // "routefail job: ... cut (KindDeadlines" line, "seen" = its trailing flag, household = a follower a "gohere start" line named as an
 // active-household Sim. --expect-on-zero: exit 1 when an on arm (mode 1) has a cut of a seen or household Sim (the household rule).
@@ -41,15 +41,15 @@ export function camArms(lines: string[]): Record<string, Record<string, number>>
   for (const l of lines) {
     const f = l.match(/KdCutCamRecheck switch now (\d)/);
     if (f) { mode = Number(f[1]); continue; }
-    const c = l.match(/kd cam recheck: route \S+ (held|would hold|cut)/);
+    const c = l.match(/kd cam recheck: route \S+ (held|would hold)/);
     if (c && mode >= 0) { const m = (a[mode] ??= {}); m[c[1]] = (m[c[1]] ?? 0) + 1; }
   }
   return a;
 }
-// mode 2 arm (when present, in place of mode 1): its in-view windows are cut ("cut, ... no unseen recovery"), never held
+// the on arm is mode 1 or 2 (mode 2 holds as 1; it only adds VIEW? for a later ceiling cut)
 export const camBad = (a: Record<string, Record<string, number>>): boolean => {
-  const on = a['2'] ? '2' : '1', want = on === '2' ? 'cut' : 'held';
-  return !a['0']['would hold'] || !a[on][want] || !!a['0'].held || !!a['0'].cut || Object.keys(a[on]).some(k => k !== want);
+  const on = a['2'] ? '2' : '1';
+  return !a['0']['would hold'] || !a[on].held || !!a['0'].held || Object.keys(a[on]).some(k => k !== 'held');
 };
 
 if (process.argv.includes('--self-check')) {
@@ -77,9 +77,9 @@ if (process.argv.includes('--self-check')) {
   assert.deepEqual(cam, { '0': { 'would hold': 1 }, '1': { held: 1 } });
   assert.equal(camBad(cam), false);
   assert.equal(camBad(camArms(['KdCutCamRecheck switch now 1', 'kd cam recheck: route 2 held, in view'])), true, 'an arm with no window proves nothing');
-  const c2 = camArms(['KdCutCamRecheck switch now 0 (checks 0)', 'kd cam recheck: route 1 would hold, in view (switch off), job', 'KdCutCamRecheck switch now 2 (checks 1)', 'kd cam recheck: route 2 cut, in view, no unseen recovery (mode 2), job']);
-  assert.equal(camBad(c2), false, 'mode 2 arm: cut in view, no hold');
-  assert.equal(camBad(camArms(['KdCutCamRecheck switch now 0', 'kd cam recheck: route 1 would hold, in view', 'KdCutCamRecheck switch now 2', 'kd cam recheck: route 2 held, in view'])), true, 'a hold in mode 2 is bad');
+  const c2 = camArms(['KdCutCamRecheck switch now 0 (checks 0)', 'kd cam recheck: route 1 would hold, in view (switch off), job', 'KdCutCamRecheck switch now 2 (checks 1)', 'kd cam recheck: route 2 held, in view, job']);
+  assert.equal(camBad(c2), false, 'mode 2 arm holds like mode 1');
+  assert.equal(camBad(camArms(['KdCutCamRecheck switch now 0', 'kd cam recheck: route 1 would hold, in view', 'KdCutCamRecheck switch now 2', 'kd cam recheck: route 2 would hold, in view'])), true, 'a would-hold in an on arm is bad');
   console.log('kd-arm-cuts self-check: PASS');
 } else if (process.argv[2]) {
   const ci = process.argv.indexOf('--ceil-ms');
