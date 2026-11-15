@@ -242,13 +242,13 @@ namespace Ts3Fixes
         // + Simulator.DestroyObject) keeps 1 in 32 destroyed objects in a ring of 512 reused WeakReference slots (no new
         // finalizable object per sample; a weak ref = a Mono GC handle + a Boehm disappearing link, docs/57). At each memsus
         // answer, a slot whose target survived at least 2 collections since its destroy counts as alive, by type:
-        //   memsus alive: seen=<destroys> trk=<slots in use> freed=<collected> alive=<n> hook=1|0 ms=<read> top=Type:n,...
+        //   memsus alive: seen=<destroys> trk=<slots in use> freed=<collected> alive=<n> hook=0 (no destroy hook is set; kept for the line format) ms=<read> top=Type:n,...
         // Types: EA core assemblies by class name, anything else as <assembly>/<class> (ties a type to its mod). Sim thread only
         // (Destroy runs on the sim; no GC handle on a worker, docs/57).
         // shortcut: ring overwrite drops the oldest tracked object after 512 x 32 destroys (~15 min to hours of play; a world
         // shutdown fills it at once); growth of alive across samples is the leak signal, not the absolute count.
         const int kAliveSlots = 512, kAliveEvery = 32;
-        static bool sAliveOn, sAliveHook, sTypesDue;
+        static bool sAliveOn, sTypesDue;
         static int sAliveSeen, sAliveNext, sAliveFreed;
         static readonly WeakReference[] sAliveRef = new WeakReference[kAliveSlots];
         static readonly int[] sAliveGc = new int[kAliveSlots];  // GC.CollectionCount(0) at the destroy; -1 = slot empty
@@ -325,7 +325,7 @@ namespace Ts3Fixes
             }
             string top = TopList(byType, 8, 260);
             w.Stop();
-            string line = "memsus alive: seen=" + sAliveSeen + " trk=" + trk + " freed=" + sAliveFreed + " alive=" + alive + " hook=" + (sAliveHook ? 1 : 0)
+            string line = "memsus alive: seen=" + sAliveSeen + " trk=" + trk + " freed=" + sAliveFreed + " alive=" + alive + " hook=0"
                 + " ms=" + (w.GetElapsedTime() / 1000.0).ToString("0.00") + " top=" + top;
             w.Dispose();
             return line;

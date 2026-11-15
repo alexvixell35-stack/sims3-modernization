@@ -1962,7 +1962,7 @@ namespace Ts3Fixes
         // every H7-H10 site takes an explicit abort branch for it first (uncounted). H8 and H10 answer only for the
         // request's own autonomy, whose actor is that NPC; any other Sim's autonomy aborts.
         static bool sT2DragHooked, sT2CacheHooked, sT2TuningHooked, sT2LodHooked;
-        static FieldInfo fDragCached, fDragCache, fUseCached, fHighLod, fLodTick, fReqTuning, fTuning, fTargetType, fTuningMember;
+        static FieldInfo fDragCached, fDragCache, fUseCached, fHighLod, fLodTick, fReqTuning, fTargetType, fTuningMember;
 
         static void T2HHooks(List<string> failed)
         {
