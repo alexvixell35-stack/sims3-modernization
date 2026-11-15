@@ -70,6 +70,7 @@ namespace Ts3Fixes
             Patch(typeof(GoToLot), "Run", typeof(GoToLotHook), "RunHook", "RunOrig");
             Patch(typeof(GoToCommunityLot), "Run", typeof(GoToCommunityLotHook), "RunHook", "RunOrig");
             ApplyTripSubclasses();
+            ApplyUnseenVisitTrip();  // visitcar (UnseenVisitTrip.cs): the visit's driving chance, pass-through unless a Run asked
             // No tuning gate here: Apply runs in Instantiator's static constructor, before the tuning loader sets the [Tunable]
             // fields, so every tuning reads its C# default (docs/124 §17.8). Hooks read their tuning per call; patches that must
             // stay out unless a tuning is on go in ApplyTuned.
@@ -617,6 +618,8 @@ namespace Ts3Fixes
         // [2689-2690] resetinusefree (InUseLogic.cs, docs/576 §2): items freed / errors.
         // [2691-2692] putdowninuse (InUseLogic.cs, docs/576 §3): put-downs repaired / errors.
         // [2693-2695] autonomyinuseblock (AutonomyInUseBlock.cs, docs/577 §1): taken objects blocked / seen with switch off / errors.
+        // [2722-2724] visitcar (UnseenVisitTrip.cs, docs/584 §1): long autonomous NPC visits judged / flips that kept driving / left to EA's flip (household, selected, seen).
+        // [2725-2728] visitwalkfinish (UnseenVisitTrip.cs, docs/584 §1): interrupts asked / walks finished at the goal / refused at the callback / errors.
         // [2696-2698] npcbusypartner (NpcBusyPartner.cs, docs/577 §4): NPC waits ended / seen with switch off / errors.
         // [2699-2700] socialreplanlog (SocialReplanLog.cs, docs/577 §2): partner-blocked receiver replans / lines dropped by the 300 cap.
         // [2701-2702] barorderlog (BarOrderLog.cs, docs/578 §1): conversations timed / lines dropped by the 300 cap.
@@ -875,6 +878,9 @@ namespace Ts3Fixes
                 // docs/250 §7.1 A1: OFF since rc1110b (2026-11-09) until the wdasync-fix-1110 tests (Instantiator.kWatchdogAsync)
                 case "watchdogasync": return Instantiator.kWatchdogAsync;
                 case "watchdogasyncshadow": return false;  // correctness arm only: re-runs each A1 check sync and counts mismatches
+                case "visitcar": return false;  // unseen NPC visits keep driving at EA's coin flip (UnseenVisitTrip.cs, docs/584 §1)
+                case "visitwalkfinish": return false;  // unseen NPC still walking to a visit after 60 sim-min finishes at the lot (UnseenVisitTrip.cs, docs/584 §1)
+                case "autlastsearch": return false;  // log only: each Sim's last autonomy search and its result, for the census (AutLive.cs, docs/584 §4)
                 case "ufplansplit": return false;  // log only: where a slow unseen-fallback plan's wall time goes (UnseenFallback.cs)
                 case "doorgen": return false;  // DoorGen.cs: bump ts3native's door generation when a door answer input changes (DoorMemoX=3)
                 case "alarmtime": case "boatreplanlog": case "owresettime": case "synctime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
@@ -1820,7 +1826,20 @@ namespace Ts3Fixes
             {
                 if ((mFollowers == null || mFollowers.Count == 0) && ShortcutToLot(Actor, Target, "visit", 7))
                     mFollowers = new List<Sims3.Gameplay.Actors.Sim>();
-                return RunOrig();
+                Sims3.Gameplay.Actors.Sim actor = Actor;
+                VwfTrip trip = VisitTripBegin(actor, Target, Autonomous);  // visitcar / visitwalkfinish (UnseenVisitTrip.cs); null when both are off
+                try
+                {
+                    bool r = RunOrig();
+                    if (r || trip == null || !trip.Finished || actor.HasBeenDestroyed || actor.LotCurrent != Target) return r;
+                    // visitwalkfinish ended the walk on the lot and Run took it as a failed route: Run's own arrival step
+                    actor.RemoveExitReason(Sims3.Gameplay.Actors.ExitReason.RouteFailed);
+                    if (Autonomous && VwfLooks(this)) Target.MakeSimDoSomethingAfterArrivingAtVenue(Target.GetMetaAutonomyVenueType(), actor);
+                    if (!Sims3.Gameplay.Situations.GroupingSituation.DoesGroupingSituationExistForFamily(actor))
+                        Sims3.Gameplay.Situations.GroupingSituation.StartGroupingSitatuationWithFollowers(actor, mFollowers ?? new List<Sims3.Gameplay.Actors.Sim>());
+                    return true;
+                }
+                finally { VisitTripEnd(actor, trip); }
             }
             public bool RunOrig() { return false; } // receives VisitCommunityLot.Run's original header
         }
