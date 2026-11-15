@@ -164,3 +164,7 @@ The game log names the first 48 classes it saw: either `equals fast: plan ...` o
   - Off arms answer the §3 contention question.
   - On arms give the hit rate. If it is below 50%, fall back to B.
 - **`bp-eqfast-ab` and `ip-eqfast-ab`** are the timing pair: in-load ABBA of `--ab equalsfast`, 1.5-min slices, 4 per arm. Read them with `hitch-ab.ts` and `arm-ms.ts`. ON by default only with a consistent 3-5 ms/s gain.
+
+## 8. §5 extension built: 1- and 2-byte enums (2026-11-15, lane L9, offline, NOT RUN)
+
+`[EqualsFast] SmallEnums=1` (default 0, needs `Enabled=1`): a class whose only instance field is `value__` of kind I1/U1/I2/U2 gets a plan with a 1- or 2-byte compare. Vanilla boxes the pair and returns false; the managed caller's `SByte/Byte/Int16/UInt16.Equals` loop gives the same boolean the byte compare gives, so only the allocation count changes. Any other struct with a small field stays a kind reject. Counter `eqSmall` (+0x5FC8, was `eqSpare[0]`). Selftest: 1- and 2-byte enum plans (bytes past the field ignored), byte struct rejected, switch off = reject as before. The monohost corpus case (gate 1 for this kind) is not run: it needs the host build with the game copy. Option B stays gated on the C hit rate.

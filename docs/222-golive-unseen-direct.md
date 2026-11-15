@@ -219,7 +219,7 @@ The measure stays ms/s per arm, not hitches or it/s; hitches are a no-regression
 |---|---|---|
 | G1 net | `autunseen` saved - cost >= 3 ms/s in **every** run, both orders, BP and IP (`*-gu2-t-ab`, `-onfirst`, 18 min) | BP 6.0 / 5.5, IP 10.3 / 10.2 [measured counters; saved side is the guard's model, which counts (Rodney 2026-11-06)] |
 | G2 no contradiction | pooled Threaded ms/iter not up > 2% per world; with X3, TaskObjects and script read beside it | BP -7.0%, IP -5.5% |
-| G3 whole stack | full stack beats the release state by >= 3 ms/s, both worlds (`*-gu2-x-*`, cross-run ABBA). Read by hand with X3 + X4 | Never measured |
+| G3 whole stack | full stack beats the release state by >= 3 ms/s, both worlds (`*-gu2-x-*`, cross-run ABBA). Read by hand with X3 + X4 | Never measured. P3 price of the shipped stack: queue `mono-measure-g3stack-1115` (master ON vs ourMods false, separate-load ABBA per world, NOT RUN, quiet night); read `arm-ms.ts <tag>-{bp,ip}-g3stack --json` |
 | Hitches | not worse (`hitch-ab.ts`, AGENTS.md clear-regression rule) | IP pass, BP borderline |
 
 **Why not the summed stage columns.** The +2.2 / +14.8 figures are `arm-ms.ts` sums. Per order they are BP +10.4 / -14.6 and IP -31.3 / +1.4 ms/s (on - off), so **IP disagrees between orders too**, not only BP as the verdict said. The swing is route and locomotion, which `autunseen` does not touch: workload mix [inferred]. TaskObjects, where searches run, went +5.4, +4.8, +10.4, -17.2 [measured].

@@ -1,0 +1,73 @@
+{
+  "note": "golive-checks-1115-rerun (PREPARED, NOT RUN): repeats golive-checks-1115 bp-golive-checks with the same pair (master-lanes-1115 asi/ini/ts3fixes) and timeoutMin 45. The 2026-11-15 03:24 UTC FAIL was the 30-min job timeout, not a game crash: aut-live-crowd-view has 31 min of fixed step waits that run past the 10-min window (repro-loop.ts runSteps); the timeout kill faulted the Frida bootstrap thread (EA xcpt 11.24.49). queue.ts now refuses a timeoutMin below the fixed waits + 3 min. Original note: golive-checks-1115 (lane L5, PREPARED, NOT RUN; correctness only, no timing): docs/124 §3.1 LOD rule (switch autlivelod, default off; fixes-998 autlivelod_drops) and tuning rule (switch autlivetune, default off; fixes-1012 autlivetune_drops, 1013 autlivetune_us = in-game fingerprint cost, read it per posted search) and the §7.2 G8 pick histogram (grouped {\"t\":\"picks\",\"g\":...} lines every 100 pushes; gate2-report.ts G8 lines). One BP job, 10 min with repro aut-live-crowd-view, the gate2 full stack ini (go-live Mode=3 acting, Satb=2) on the master-dalexlol-1115 asi/ini. Needs the lane-L5 ts3agent (switch names autlivelod, autlivetune; their counters) installed: run after the orchestrator merges feature/lane-L5-1115. Read-back: fixesOn reads autlive, autunseen, autlivelod on in game; fixesRequire proves pushes and the new slot. PASS = 0 script errors, read-backs, no crash, autshadow.jsonl copy holds picks lines with \"g\", and node tools/harness/gate2-report.ts golive-checks-1115 prints G8 bp household-scope worker direct picks = 0 PASS (household untouched). Run: node tools/harness/queue.ts tools/harness/queues/golive-checks-1115.json",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-golive-checks",
+      "note": "[est 34 min] Correctness (10 min): go-live acting with autlivelod and autlivetune on, repro aut-live-crowd-view (spawned Sims sent onto the active lot every 150 s: LOD flips while searches wait). Pass: read-backs, g8_unseen_pushes >= 1, autlivelod_drops and autlivetune_drops present, autlivetune_us >= 1 (fingerprints ran), 0 script errors, G8 h.d = 0.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "pinReason": "master-lanes-1115 (builds.json, master 84ee284f): lane L5 merged (AutLive LOD and tuning rules, grouped picks lines); repinned from lane-L5-1115 2026-11-15",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 159,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 45,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 3,
+        "AutShadow.Sample": 1,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 0,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.TopN": 10,
+        "AutShadow.Bands": 3,
+        "AutShadow.Margin": 0,
+        "AutShadow.MaxWait": 3,
+        "AutShadow.VerifyEvery": 50,
+        "AutShadow.Dry": 0,
+        "AutShadow.Satb": 2,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.PreLearn": 0,
+        "AutShadow.TierReqLots": 1,
+        "AutShadow.Unseen": 0,
+        "RouteAsync.ForeignKinds": 0,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 200
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autlivelod,autlivetune",
+          "fixesOff": "autunseencmp",
+          "fixesReport": "g8_,autunseen_,autlivelod_,autlivetune_",
+          "fixesRequire": "g8_unseen_pushes>=1,autlivelod_drops>=0,autunseen_exc<1,autlivetune_drops>=0,autlivetune_us>=1",
+          "repro": "aut-live-crowd-view"
+        }
+      }
+    }
+  ]
+}

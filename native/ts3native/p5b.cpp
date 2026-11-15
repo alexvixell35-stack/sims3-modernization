@@ -103,7 +103,7 @@ static void HgRetakeCheck() {
         Log("FAIL hold keyed: the worker retook +0x918 with %ld admitted gate frame(s) open (sim %lu): HoldKeyed off for this "
             "session", g_hgOpen, g_async.owner);
 }
-static const DWORD kP5bPfoRet = 0x0062F782, kP5bSlotRet = 0x0076F15D;  // F-B: PortalsForObject's key, its caller 0x76F0A0
+static const DWORD kP5bPfoRet = TS3A(0x0062F782), kP5bSlotRet = TS3A(0x0076F15D);  // F-B: PortalsForObject's key, its caller 0x76F0A0
 
 // a gate's +0x918 wait on the sim: a read-only leaf (P5B_G12, P5B_G0 = a hit still to check) or not (P5B_NO)
 static int P5bGate() {
@@ -112,7 +112,7 @@ static int P5bGate() {
     if (t_p5bSite != 13) return P5B_NO;
     // not F-G 0x631F40 (docs/155 §4, §8): after its Contains leaf 0x631F10 calls the pinned quadtree query 0x667480 at 0x631F9A
     // without +0x918, which can flush (W1/W2) under the worker's remaining live plan (TailUnlock) or fallback plan (P5b)
-    if (t_waitKey == 0x00631814) return P5B_G12;
+    if (t_waitKey == TS3A(0x00631814)) return P5B_G12;
     return t_waitKey == kP5bPfoRet && VfRealRet(t_p5bSlot + 7) == kP5bSlotRet ? P5B_G12 : P5B_NO;  // P1b's frame offset
 }
 // gate 0 with the lent lock held: GetOrInsert(P+0x48)(key*) finds the key (slot[-2] = ecx, slot[1] = key*)
@@ -134,7 +134,7 @@ static int P5bAllowed(const void* lock) {
     if (t_steerRet && !t_waitKey) return P5B_STEER;
     // P5c: every acquire outside a gate wait (t_waitKey stays set through a gate-0 miss given back; the C-A rebuild wait,
     // steerro.cpp, keys itself 0x80E5B0 and is a writer)
-    if (g_p5cJob && (!t_waitKey || t_waitKey == 0x0080E5B0)) return P5B_FREE;
+    if (g_p5cJob && (!t_waitKey || t_waitKey == TS3A(0x0080E5B0))) return P5B_FREE;
     return g_p5cJob && HgKeyed() ? P5B_HOLD : P5bGate();
 }
 
@@ -169,7 +169,7 @@ static LONG P5bLock(void* lock, void* edx, const DWORD* d) {
         if (!counted) {
             counted = true;
             InterlockedIncrement(&k.p5bHeldOut);
-            if (t_p5bSite == 13 && t_waitKey == 0x00631F40) InterlockedIncrement(&k.p5bFgHeldOut);  // docs/155: F-G not admitted
+            if (t_p5bSite == 13 && t_waitKey == TS3A(0x00631F40)) InterlockedIncrement(&k.p5bFgHeldOut);  // docs/155: F-G not admitted
         }
         // the lock is the worker's for this caller: a try or a passed deadline fails as it would against the worker's hold
         if (*d == 0 || (*d != 0xFFFFFFFF && (LONG)(GetTickCount() - *d) >= 0)) return -2;

@@ -9,7 +9,7 @@
 #error define MF_CTR (the struct holding the mf* counters) before including mintfuse.cpp
 #endif
 
-static const DWORD MF_SITE = 0x00E5C8CA, MF_MATCHER = 0x00D89930, MF_OPLEN = 0x01195088, MF_DESC = 0x0108FCD8;
+static const DWORD MF_SITE = TS3A(0x00E5C8CA), MF_MATCHER = TS3A(0x00D89930), MF_OPLEN = TS3A(0x01195088), MF_DESC = TS3A(0x0108FCD8);
 static const int MF_BASE_OPS = 0x1A9, MF_DESCS = 22, MF_DESC_SIZE = 0x48;
 static const unsigned short MF_SUPER = 0x1AA;
 

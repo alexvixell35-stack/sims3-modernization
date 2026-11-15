@@ -28,14 +28,14 @@
 //   cache, unknown slot, tripwire, BlockerCheck2d's physics tail (option 4, no hit), option 0x100000 (slot children), SH off.
 // Counters v93 (+0x3FF0, after v95): rtoMode (+0x3FF4, --ab routetoobjro), rtoShadow (+0x3FF8, --ab routetoobjroshadow).
 
-static const DWORD RTO_ACQ_SITE = 0x00831568, RTO_CALL_SITE = 0x00831633, RTO_REL_SITE = 0x008316FF;
-static const DWORD RTO_LOCK_ACQ = 0x004E16F0, RTO_ROUTE = 0x00830340, RTO_LOCK_REL = 0x004E17B0;
+static const DWORD RTO_ACQ_SITE = TS3A(0x00831568), RTO_CALL_SITE = TS3A(0x00831633), RTO_REL_SITE = TS3A(0x008316FF);
+static const DWORD RTO_LOCK_ACQ = TS3A(0x004E16F0), RTO_ROUTE = TS3A(0x00830340), RTO_LOCK_REL = TS3A(0x004E17B0);
 typedef DWORD*(__fastcall* RtoRouteFn)(u8* world, void* edx, DWORD* out, u8* sim, u8* target, const float* point, u8* opts,
                                       DWORD a6, DWORD a7, DWORD a8, DWORD a9, DWORD a10);  // 0x830340, ret 0x28
 static LockAcquireFn g_rtoAcq = (LockAcquireFn)(uintptr_t)RTO_LOCK_ACQ;  // through the address: LockAcquireHook runs
 static LockReleaseFn g_rtoRel = (LockReleaseFn)(uintptr_t)RTO_LOCK_REL;
 static RtoRouteFn g_rtoRoute = (RtoRouteFn)(uintptr_t)RTO_ROUTE;
-static const DWORD* g_rtoDeadline = (const DWORD*)(uintptr_t)0x01021CF0;  // 0x831530's Lock_Acquire argument
+static const DWORD* g_rtoDeadline = (const DWORD*)(uintptr_t)TS3A(0x01021CF0);  // 0x831530's Lock_Acquire argument
 
 // game helpers (sim-owned reads; selftest points them at fakes)
 typedef u8*(__fastcall* RtoCompFn)(const u8* obj, void* edx, DWORD key);      // 0x935770 / 0x951420, ret 4
@@ -50,25 +50,25 @@ typedef u8(__fastcall* RtoPortalFn)(const u8* portal, void* edx, const u8* rec);
 typedef int (*RtoQueryFn)(SrCtx* c, const u8* p, DWORD lo, DWORD hi, const SrPt& pt, float r, const u8* rec);
 typedef int (*RtoGatherFn)(SrCtx* c, const u8* p, DWORD lo, DWORD hi, LONG level, const u8* rec, float u0, float v0, float u1,
                            float v1, float r);
-static RtoCompFn g_rtoComp = (RtoCompFn)(uintptr_t)0x00935770;
-static RtoCompFn g_rtoSlotGet = (RtoCompFn)(uintptr_t)0x00951420;
-static RtoMatFn g_rtoPos = (RtoMatFn)(uintptr_t)0x00959000;
-static RtoMatFn g_rtoMat = (RtoMatFn)(uintptr_t)0x00959060;
-static RtoHasSlotFn g_rtoHasSlot = (RtoHasSlotFn)(uintptr_t)0x00B02360;
-static SlFn g_rtoSlPos = (SlFn)(uintptr_t)0x0076F0A0;  // through the address: SH's detour decides the hold
-static RtoObjRecFn g_rtoObjRec = (RtoObjRecFn)(uintptr_t)0x00C8EC50;
-static RtoOptCopyFn g_rtoOptCopy = (RtoOptCopyFn)(uintptr_t)0x0081D3C0;
-static RtoOptSetFn g_rtoOptSet = (RtoOptSetFn)(uintptr_t)0x0081C810;
-static RtoOptFreeFn g_rtoOptFree = (RtoOptFreeFn)(uintptr_t)0x0081CBE0;
-static RtoListFn g_rtoSimList = (RtoListFn)(uintptr_t)0x00B69840;
-static RtoPortalFn g_rtoPortal = (RtoPortalFn)(uintptr_t)0x00946E90;
-static const DWORD* g_rtoKeyTc = (const DWORD*)(uintptr_t)0x011E9158;    // transform component key
-static const DWORD* g_rtoKeySlot = (const DWORD*)(uintptr_t)0x011E9114;  // slot component key
-static u8* const* g_rtoObjTab = (u8* const*)(uintptr_t)0x011ED034;       // object record table (0xB01770, 0xB02360)
-static const float* g_rtoRadius = (const float*)(uintptr_t)0x00FEC6DC;   // obstacle query radius (0.123)
-static const float* g_rtoSegR = (const float*)(uintptr_t)0x0106E8A8;     // BlockerCheck2d segment gather radius
-static const float* g_rtoFar = (const float*)(uintptr_t)0x00FECE14;      // kind 9: shift the goal above this distance (0.9)
-static const float* g_rtoHalf = (const float*)(uintptr_t)0x00F9A5AC;     // kind 9: shift length (0.5)
+static RtoCompFn g_rtoComp = (RtoCompFn)(uintptr_t)TS3A(0x00935770);
+static RtoCompFn g_rtoSlotGet = (RtoCompFn)(uintptr_t)TS3A(0x00951420);
+static RtoMatFn g_rtoPos = (RtoMatFn)(uintptr_t)TS3A(0x00959000);
+static RtoMatFn g_rtoMat = (RtoMatFn)(uintptr_t)TS3A(0x00959060);
+static RtoHasSlotFn g_rtoHasSlot = (RtoHasSlotFn)(uintptr_t)TS3A(0x00B02360);
+static SlFn g_rtoSlPos = (SlFn)(uintptr_t)TS3A(0x0076F0A0);  // through the address: SH's detour decides the hold
+static RtoObjRecFn g_rtoObjRec = (RtoObjRecFn)(uintptr_t)TS3A(0x00C8EC50);
+static RtoOptCopyFn g_rtoOptCopy = (RtoOptCopyFn)(uintptr_t)TS3A(0x0081D3C0);
+static RtoOptSetFn g_rtoOptSet = (RtoOptSetFn)(uintptr_t)TS3A(0x0081C810);
+static RtoOptFreeFn g_rtoOptFree = (RtoOptFreeFn)(uintptr_t)TS3A(0x0081CBE0);
+static RtoListFn g_rtoSimList = (RtoListFn)(uintptr_t)TS3A(0x00B69840);
+static RtoPortalFn g_rtoPortal = (RtoPortalFn)(uintptr_t)TS3A(0x00946E90);
+static const DWORD* g_rtoKeyTc = (const DWORD*)(uintptr_t)TS3A(0x011E9158);    // transform component key
+static const DWORD* g_rtoKeySlot = (const DWORD*)(uintptr_t)TS3A(0x011E9114);  // slot component key
+static u8* const* g_rtoObjTab = (u8* const*)(uintptr_t)TS3A(0x011ED034);       // object record table (0xB01770, 0xB02360)
+static const float* g_rtoRadius = (const float*)(uintptr_t)TS3A(0x00FEC6DC);   // obstacle query radius (0.123)
+static const float* g_rtoSegR = (const float*)(uintptr_t)TS3A(0x0106E8A8);     // BlockerCheck2d segment gather radius
+static const float* g_rtoFar = (const float*)(uintptr_t)TS3A(0x00FECE14);      // kind 9: shift the goal above this distance (0.9)
+static const float* g_rtoHalf = (const float*)(uintptr_t)TS3A(0x00F9A5AC);     // kind 9: shift length (0.5)
 
 static int RtoQueryGame(SrCtx* c, const u8* p, DWORD lo, DWORD hi, const SrPt& pt, float r, const u8* rec) {
     return SrQuery(c, p, lo, hi, pt, true, r, rec, true);  // 0x82EDB0 mode 1 (visitor flag 1)
@@ -228,8 +228,8 @@ static int RtoTargetFp(const RtoIn& in, const u8** out) {
             const u8* obj = h ? *(const u8* const*)(h + 8) : NULL;
             if (!obj) continue;
             const DWORD* vt = *(const DWORD* const*)obj;
-            if (g_srCheckSlots && (!SrSlotsOk(obj) || vt[0x14 / 4] != 0x00806FD0 || vt[0x70 / 4] != 0x0080E610 ||
-                                   (vt[0] != 0x00619EF0 && vt[0] != 0x0083F5F0)))
+            if (g_srCheckSlots && (!SrSlotsOk(obj) || vt[0x14 / 4] != TS3A(0x00806FD0) || vt[0x70 / 4] != TS3A(0x0080E610) ||
+                                   (vt[0] != TS3A(0x00619EF0) && vt[0] != TS3A(0x0083F5F0))))
                 return SrShape(SRS_SLOT);
             const unsigned __int64 oid = ((SlotIdFn)(uintptr_t)vt[0x7C / 4])(obj, NULL);
             if (oid != ((unsigned __int64)idHi << 32 | idLo)) continue;
@@ -291,7 +291,7 @@ static int RtoBlock(const RtoIn& in, const u8* entry, DWORD* res, const float* g
         if (ign || g_srOptId(in.opts, NULL, lo, hi)) continue;
         if (in.tSim && in.simList && g_rtoSimList(in.simList, NULL, lo, hi)) continue;
         if (!((SlotBoolFn)(uintptr_t)vt[0xC0 / 4])(fp, NULL)) continue;
-        if (g_srCheckSlots && (vt[0x44 / 4] != 0x00806FC0 || vt[0xD8 / 4] != 0x0080F080 || vt[0x88 / 4] != 0x00F20360))
+        if (g_srCheckSlots && (vt[0x44 / 4] != TS3A(0x00806FC0) || vt[0xD8 / 4] != TS3A(0x0080F080) || vt[0x88 / 4] != TS3A(0x00F20360)))
             return SrShape(SRS_SLOT);
         const float r = ((RtoF44Fn)(uintptr_t)vt[0x44 / 4])(fp, NULL);
         u8 hit = 0;
@@ -448,7 +448,7 @@ static int RtoPhaseR(RtoIn& in, DWORD* res) {
     const DWORD* vt = fp ? *(const DWORD* const*)fp : NULL;
     if (fp) {
         if (g_srCheckSlots && (!SrSlotsOk(fp) || (vt[0xB8 / 4] != AV_PT_POLY && vt[0xB8 / 4] != AV_PT_NONE) ||
-                               (vt[3] != 0x00624450 && vt[3] != 0x0070AE20)))
+                               (vt[3] != TS3A(0x00624450) && vt[3] != TS3A(0x0070AE20))))
             return SrShape(SRS_SLOT);
         u8 inside = 0;
         if (!g_srCheckSlots || vt[0xB8 / 4] == AV_PT_POLY) {
@@ -466,7 +466,7 @@ static int RtoPhaseR(RtoIn& in, DWORD* res) {
     if (fp) {
         const int kind = ((SlotIntFn)(uintptr_t)vt[3])(fp, NULL);
         if (kind == 1 || kind == 9) {
-            if (g_srCheckSlots && (vt[0xC4 / 4] != 0x0080E540 || vt[0xBC / 4] != 0x0080E910)) return SrShape(SRS_SLOT);
+            if (g_srCheckSlots && (vt[0xC4 / 4] != TS3A(0x0080E540) || vt[0xBC / 4] != TS3A(0x0080E910))) return SrShape(SRS_SLOT);
             if (!((RtoLvlFn)(uintptr_t)vt[0xC4 / 4])(fp, NULL, 0)) {
                 __declspec(align(16)) float nearPt[4] = {};
                 if ((why = RtoCached(fp, 0, [&]() { ((RtoNearFn)(uintptr_t)vt[0xBC / 4])(fp, NULL, 0, lotPt, nearPt); })) != SR_OK)
@@ -542,11 +542,11 @@ typedef void*(__cdecl* RtoPhysFn)();
 typedef u8(__fastcall* RtoRangeFn)(void* scene, void* edx, const float* pt, float r, DWORD flags, void* vec);  // ret 0x10
 typedef u8(__cdecl* RtoBlockerFn)(DWORD lo, DWORD hi);
 typedef void(__cdecl* RtoMemFreeFn)(void* p);
-static RtoPhysFn g_rtoPhys = (RtoPhysFn)(uintptr_t)0x00686A90;
-static RtoRangeFn g_rtoRange = (RtoRangeFn)(uintptr_t)0x00682590;
-static RtoBlockerFn g_rtoBlocker = (RtoBlockerFn)(uintptr_t)0x0082A780;
-static RtoMemFreeFn g_rtoMemFree = (RtoMemFreeFn)(uintptr_t)0x004E3F70;
-static const char* const RTO_RANGE_NAME = (const char*)(uintptr_t)0x01003D7C;  // "Physics/RangeResult", the vector's allocator name
+static RtoPhysFn g_rtoPhys = (RtoPhysFn)(uintptr_t)TS3A(0x00686A90);
+static RtoRangeFn g_rtoRange = (RtoRangeFn)(uintptr_t)TS3A(0x00682590);
+static RtoBlockerFn g_rtoBlocker = (RtoBlockerFn)(uintptr_t)TS3A(0x0082A780);
+static RtoMemFreeFn g_rtoMemFree = (RtoMemFreeFn)(uintptr_t)TS3A(0x004E3F70);
+static const char* const RTO_RANGE_NAME = (const char*)(uintptr_t)TS3A(0x01003D7C);  // "Physics/RangeResult", the vector's allocator name
 struct RtoVec { DWORD *b, *e, *cap; const char* name; };
 static void RtoTail(const RtoIn& in, DWORD* res) {
     Ts3nCounters& k = ts3native_counters;
@@ -733,7 +733,7 @@ static DWORD* __fastcall RtoCallStub(u8* world, void* edx, DWORD* out, u8* sim, 
         return out;
     }
     RtoFallback(why);
-    t_rtoKey = 0x0083156D;  // probe P0: the late take keyed as the original site
+    t_rtoKey = TS3A(0x0083156D);  // probe P0: the late take keyed as the original site
     const int uf = g_ufcC3 ? g_ufcC3(world + 0x918) : 0;  // docs/202 C3: an unseen Sim's late take with a deadline
     if (!uf) g_rtoAcq(world + 0x918, NULL, g_rtoDeadline);
     t_rtoKey = 0;

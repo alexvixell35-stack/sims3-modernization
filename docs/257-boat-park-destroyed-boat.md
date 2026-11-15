@@ -69,7 +69,7 @@ Forced repro `ip-boat-gone` (repros.json), queue `tools/harness/queues/boatparkg
 | 6 | `boatparkgone`, `BoatLegHook`, `VisitLotHook` | no (Park returns early; the rest are pass-through) | after GetOut / around the route | excluded |
 | 7 | `OutfitWait.cs` reset | through the reset | dead Sims in a makeover only | excluded |
 
-**Diag design (`boatgetoutdiag`, not built).** Tuning `kBoatGetOutDiag = false`. It only logs and changes no Sim's behaviour, so it needs no household exemption; household Sims are logged with a flag.
+**Diag design (`boatgetoutdiag`, built since: §8).** Tuning `kBoatGetOutDiag = false`. It only logs and changes no Sim's behaviour, so it needs no household exemption; household Sims are logged with a flag.
 - **Watch:** a new hook on that 8-argument `Boat.GetOut`. Every overload ends there, and it is non-virtual; use the same `Patch` pattern as `BoatParkGoneHook`. With the switch on, the hook pushes `{sim id, boat, Simulator.CurrentTask, entry posture, sim-minute, depth}` into a static array of 8 (when full, count the overflow and do not watch). It then runs the original inside `try { } catch (NullReferenceException) { log; throw; } finally { pop }`. `throw;` keeps the game's error and its ScriptError.
 - **Writer:** the existing `PosturePopHook.SetHook` (always installed) gets one new first line: `if (sBgoN != 0) BgoNote(s, cur, value);`. With the switch off, that costs one static compare per posture set. `BgoNote` acts only when all of these hold: `s` is watched, `cur` is the watched `SittingInBoat` of that boat, and the set is not the own task's normal end. The normal end is the own task at depth 1 after the fade; the watch record sets a flag when the fade returns. Once per watch it stores the new posture type; own task, foreign task or nested GetOut (depth > 1); the current task's object type (`Simulator.GetProxy(CurrentTask)`); `PlayTrace.Callers()` widened to 12 frames, with every `Ts3Fixes` frame named as ours; and `MovedSims()[name]` (our last move of this Sim).
 - **Lines** (ts3native.log via `AppliedLog`, at most 20 per session):
@@ -82,7 +82,7 @@ Forced repro `ip-boat-gone` (repros.json), queue `tools/harness/queues/boatparkg
   - Then decide the fix. The planned NPC-only guard (`GetOutOfBoat.Run` / `GetOut`: posture not `SittingInBoat` -> return) stays as the fallback.
 - **Cost:** about 30-45 min to build (ts3fixes only, plus one selftest for the watch push/pop and the "own end" rule). Use this line, not a bisect, to settle row 1 of the table above.
 
-## 8. `boatgetoutdiag` built (2026-11-12, NOT RUN; design §7 on `analysis/route-misc-1112`)
+## 8. `boatgetoutdiag` built (2026-11-12; merged, run: master1112b-verify moder-offranks PASS, boat-getout-stress 2026-11-13; design §7 on `analysis/route-misc-1112`)
 
 **03:00 check first [measured, `probe-out/2026*/events.jsonl` script errors, ErrorTrap `Sim-Time`]:** there are 32 unique `GetOutIntoWater` sightings since 10-18 (31 IP, 1 Bridgeport), all NPCs. None falls within 02:30-03:30 sim time. The nearest are 03:38 and 03:43, one each. The rest spread over the day, mostly 12:00-19:59 (21 of 32). So the sightings do **not** cluster at the 3 AM stuck check (`FewerPlans.cs` `SetObjectToReset`, §7 table row 1). Row 1 is unlikely as the main writer [inferred from timing; the diag line settles it].
 
@@ -93,7 +93,7 @@ Forced repro `ip-boat-gone` (repros.json), queue `tools/harness/queues/boatparkg
 - Counters 945-947 (agent `boatgetoutdiag_watched`, `_replaced`, `_stale`). Self-check `tools/selftest/boatgetoutdiag` covers push/pop, own end, foreign, nested and overflow.
 - Run: turn it on in natural IP correctness jobs (`fixesOn: boatgetoutdiag`) and read every `boatgetout stale:` line as in §7.
 
-## 9. `boatgetoutguard`: the fix, and a forced stress repro (2026-11-13, built, NOT RUN; ledger §485)
+## 9. `boatgetoutguard`: the fix, and a forced stress repro (2026-11-13, built, merged 96bbaf1b; run 2026-11-13: guard-on FAIL 3/3 on the household side only, guard_hit 2 in round 2; ledger §485 [verified 2026-11-15: docs/data/results/2026-11-13-queue-boat-getout-stress.md])
 
 Rodney 11-13: build the guard now, so it ships next to the diag. The writer is still unknown, but the end state does not depend on it. Repro: "do it over and over with many boats".
 
@@ -125,7 +125,7 @@ Rodney 11-13: build the guard now, so it ships next to the diag. The writer is s
 - *Stop.* At the first hit (`auto`: with the guard off, the first stale NRE [947]; with it on, the first guard hit [953] plus the household's kept error [954]) or after 60 windows. A `boat_getout_stress: stop (...)` line names the last forced writer and Sim; the diag lines name the writer task.
 - *Result check.* `{result, require}` fails unless a writer was forced in a window and either (guard off) stale >= 1, or (guard on) hit >= 1, stale == hit + household, and household >= 1 once the household Sim was forced.
 
-**Queue `tools/harness/queues/boat-getout-stress.json` (NOT RUN; run after the timing queues).**
+**Queue `tools/harness/queues/boat-getout-stress.json` (run 2026-11-13, 3 rounds, see the results file; repro v2 on the unmerged `bugfix/boat-stress-land-near`, not run).**
 - *Pair.* asi `ts3native.asi.master1112b` (0.36.248) + ini `ts3native.ini.master1112b` + `game-copy/ts3fixes.package.boatgetoutguard` (builds.json).
 - *Arm A* `ip-bgo-stress-guard-off`: diag on, guard off. Expects the NRE (scriptErrorsReport `Boat:GetOutIntoWater`), `boatgetoutdiag_stale>=1`, `boatgetout replaced` + npc `stale` lines, and no guard line.
 - *Arm B* `ip-bgo-stress-guard-on`: both on. Expects `boatgetoutguard_hit>=1`, `_skipped_household>=1`, the npc + household guard lines, and only the household Sim's GetOutIntoWater error.

@@ -6,117 +6,58 @@
 # One switch per line; `node tools/harness/proven-fixes.ts` checks the file and prints it for EARLYFIX / `ag patches`.
 # Built 2026-11-15 from the 215 default-off switches (+8 docs/575-577, soak verdicts BROKEN/FIXED) (Fixes.cs ShortcutOn names -> Instantiator k* = false).
 
-aptleave
 artsellnoartist
-autonomyfailblock
 autonomyinuseblock
-bandjam
-birdtvnull
 birthdayagers
-birthroute
-bonfirespice
-bowlinglane
-bribeguard
-bubblepipeguard
-buffstate
-burglaridle
 chestuselist
-cleanflag
-combojob
-comboopp
-comboprotestlot
-convmerge
-cookclicklistener
-courselistener
 curfewalarm
-daycarequit
-djcleanup
-eatoutsidecount
 efficientchip
 fairyauratimer
-fieldtripadult
 fireactivejob
 firetrapcount
 flowersinuse
-geniebanish
-ghostspawnargs
 gigpullaudience
-gigwaitleave
-gohomewalk
 gotoworkstale
 gradvisitors
-grouptalkstale
 handsetreset
 hauntedumbrella
-hiddenroomnpc
-hiddenroomspawn
-homeworkhelp
 horsetraitscore
-hottubwoohoofx
 invitecallreply
 jetpackflyingbuff
 littercap
 lunacysocials
-moveinpartner
 movingflag
 npcbusypartner
 npcseasonalparty
 npcshowstuck
-observatorymsg
-oppdeadlisteners
-partymotive
 permazombiemoon
 phonecallrearm
 phonecallschedule
 phonefixup
 phonegive
 phoneloadreset
-photoboothfunds
-picniccamera
 plumbotfacelistener
-portraitpose
-privateeyecase
 professorterm
 promcarpool
 promoteshift
 protestlastday
 putdowninuse
-putdownplace
-reaperflow
-repairtimecache
 resetinusefree
 resortweddingalarm
 resumetns
 returnhomealarms
 royaltyorphan
 sandscoins
-sculptpose
 seasickpaused
 sentiencename
-serviceleave
-shelllighting
-shuffleboardbcast
 sneakoutlistener
 snowfightjoinwait
-socialfinish
-socialreceivefail
-spacesimpartner
 splitpartner
-spoonreset
-statueline
 steadygigmiss
-storeworldevents
 tombmusic
-trainboost
 trickortreatalarm
 unitravelflag
-upgradefailalarm
 uselistprune
-vampirehuntglow
-viproomrefresh
-visitgreetalarm
-visittoolate
-weddingcancel
 wildherdmother
 wildhorsegender
 woohootywait
@@ -131,19 +72,20 @@ woohootywait
 # measurement / diagnostics / test aids:
 #   autunseencmp boatgetoutdiag bookhanddiag deadsimcount routesrc wildflowerprobe
 # test-only, registry says test (vehicle leak tests, age-up swap, dead-Sim hollowing, joyride costume):
-#   ageupswap deadsimhollow joyridecostume vehfrankentaxi vehgetinleak vehparkreserve vehprotestcar vehseatdestroy
+#   ageupswap deadsimhollow vehfrankentaxi vehgetinleak vehparkreserve vehprotestcar vehseatdestroy
 # leak / save-data fixes, opt-in until measured (changes save data or not proven in game):
 #   attractionalarm casuihandlers deadrefguards deadrefsweep familyinvghost firepitchair preferredservice relremovesafe
 #   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim spouseunlink
 # gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
-#   awardkeep bouncerskip boatgetoutguard bsrefund convturn eanullguards eventcrowdring eventrouteretry hsgradkeep indoorcap
+#   awardkeep bouncerskip boatgetoutguard bsrefund convturn eanullguards indoorcap
 #   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
-#   vacexitreturn vacexport vacimportfix vaclistenernull vacreturnskip vacstoreguard vacteendelete weddingarchkeep
+#   vacexitreturn vacexport vacimportfix vaclistenernull vacreturnskip vacstoreguard vacteendelete
 # combo pieces: first in-game check only, not marked proven (docs/551):
-#   comboprotest combosituation combovenue
+#   combovenue
 # ceremonyspot: the bug is verified in game, the fix has no recorded off/on verdict:
-#   ceremonyspot
 # partyoutcome: the registry row proves partymotive only; partyoutcome stays idle beside the core mod (docs/554):
 #   partyoutcome
 # built 2026-11-15, in-game off/on test pending (DoorMemoX=3 A/B; ufplansplit is log only); move to the set once proven:
 #   doorgen ufplansplit
+# new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:
+#   permamemo buffremovenoop catnamecache autroommemo autslicetime invcache vaclistenerpad spawncapcount deadrefcooking deadrefconvo takeariskguard

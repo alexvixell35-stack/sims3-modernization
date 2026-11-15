@@ -1,0 +1,4 @@
+{
+  "_about": "Known-bad or outdated mods for tools/compat-scan.ts. Each entry: name (regex, case-insensitive, matched against the file name without extension), optional key (resource key type:group:instance as compat-scan prints it, 8:8:16 hex digits), status (known-bad | outdated), reason, source (doc, issue or URL a human can check). Add an entry only with a source; no guessed entries.",
+  "entries": []
+}

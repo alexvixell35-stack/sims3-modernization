@@ -481,7 +481,7 @@ Verdict: **EA** [verified for the lock cycle; "not caused by our detour" inferre
 
 Action: no fix in our code. Rerun the job (counts as N/A, not a CasTrim result). docs/67's "known rare hang" rule stays: rerun once, a second hang in a row stops the chain. Optional, not built: (1) the hang capture (`game-alive.ts`) names each `Lock_Acquire` / `EnterCriticalSection` waiter's CS owner from `edi` and prints the cycle, so the next one is triaged from the summary line without a dump; (2) `cycle.ts` waits for a quiet resource update before `LoadSave` or retries the load once on this exact signature. An EA-side fix (lock order in `0x734710` vs `0x735358`) needs a static study of that object first; not worth it at this rate unless players report menu freezes. (Superseded by §13.9: the static study is done and a fix is designed, per the "fix EA bugs too" rule.)
 
-### 13.9 Fix design: EA package-lock ABBA deadlock (2026-11-08; static design; built as ts3native 0.36.216, not run: §13.9.9)
+### 13.9 Fix design: EA package-lock ABBA deadlock (2026-11-08; static design; built as ts3native 0.36.216, merged; pkg-abba proof PASS 3/3 per arm in fixes-1109, still Mode=0 [verified 2026-11-15: docs/data/results/2026-11-08-queue-fixes-1109.md]: §13.9.9)
 
 Follows §13.8 (and docs/67 §23). Standing rule: EA bugs get our fix too, behind a switch with counters, selftest and repro. Steam 1.67 exe, Ghidra (`tools/ghidra/DecompileTo.java`, `CallerTree.java`) plus capstone on `game-copy/Bin/TS3W.exe`. Names follow docs/67 §16.1: **D** = the DBPF database (vtable `0xFFE078`), **O** = D - 8 (outer object, vtable `0xFFE0D0`). Ledger: docs/51 §465.
 
@@ -698,7 +698,7 @@ The static pass (11-09) found no writer of ours and could not rule out CasTrim's
 
 Queue `float5-guard.json` now: (a1, a2) Mode 0 control twice, (b) Mode 3 + OutfitStrGuard 1, (c) `bp-float5-memtravel-x8-quar`: Mode 3 + Quarantine 4096 + OutfitStrGuard 0 (detect only), stops at the first detector or quarantine hit. Reading (c): a quarantine hit = stale writer into an erased compositor (the offset names the field; next: a DR0 watch on that field of the next erased one); float-5 elsewhere = not caused by our erase's free; clean while (b) or earlier Mode 3 runs hit = the free path our erase triggers. ~30-35 min a job, ~2-2.5 h for four (60 min cap each).
 
-## 16. Float-5 triage cycle 3: write trap on the outfit cells, and the realm shape check (2026-11-09, ledger §470; built 0.36.227, pair float5trap-1109, not run)
+## 16. Float-5 triage cycle 3: write trap on the outfit cells, and the realm shape check (2026-11-09, ledger §470; built 0.36.227, pair float5trap-1109, merged; run float5-trap 0/2 PASS)
 
 Inputs: the Mode 0 control `bp-float5-memtravel-x8-m0-a1` (release-verify-1109, master1109c): float-5 hit three outfit result cells with no CasTrim sweep or erase (outfit `0x5E6F15C0` entry 87 of 121 at saves #5 / #6; `0x5E459330` entry 3 of 81 at #29 / #30; `0x3DAF5900` entry 87 of 91 at #33; all outfits vtable `0xFE4A10`, found by the save inventory check `0x5EFE11`) [verified: log]. So CasTrim's erase is not the cause [verified for that run]; EA vs our other features is open. Then `bp-float5-memtravel-x8-guard` (Mode 3) crashed at a new float-5 site, `0x6820F4` in Realm_RemoveShape (§16.6), with every outfit detector clean: the stray 5.0f store is heap-wide, not outfit-only [inferred].
 
@@ -737,7 +737,7 @@ Built (with Detect=1 or RealmGuard=1, any Mode): the five calls are patched (`Pa
 - Selftest `TestCasTrimRealm`: log only, restore, swap-remove, realm last dropped, `0x40A00000` shape skipped / passed, add on the root, clean add.
 - Not done (by request): no DR watch on a neighbouring slot; the logged node address is the target for a next run. The crash's stack values (`0x936CB7`, `0xC6E396`, `0xAA94A7`) are not resolved yet.
 
-## 17. Float-5 triage cycle 4: `[UafCheck]` delayed-free quarantine (2026-11-09, ledger §471; built 0.36.228, pair float5uaf-1109, not run)
+## 17. Float-5 triage cycle 4: `[UafCheck]` delayed-free quarantine (2026-11-09, ledger §471; built 0.36.228, pair float5uaf-1109, merged; pair float5uaf-1109b ran float5-split 0/4 PASS)
 
 Inputs: §16 (writer not named yet); the stray `0x40A00000` sits in pointer-sized slots at different offsets of unrelated heap objects (ModelBuilder record rec+4, outfit string begin `[obj+0x2C]`, `[outfit+0xBC]` cells, the physics group shape vector). Hypothesis: a writer through a stale pointer into memory that was freed and reused [inferred]. The 0x6820F4 crash's stack data holds `0x4E5954` and `0x4E3F84` (return addresses inside EA Free / EA_Free) above the fault, so a free ran shortly before on that thread [verified: EA report stack values; that it freed the victim is inferred].
 
@@ -768,7 +768,7 @@ Selftest `TestUafCheck` (fake chunks, fake main heap, fake Free, hook called dir
 
 Reading: a `uaf: write after free` with `0x40A00000` gives the stale object's size and field offset and the free stack (who freed it); the DR line then names the writer's eip. Clean while float-5 detectors hit elsewhere = the stale write lands outside the window (oldest age) or outside the main heap range; then widen (MinSize 0, larger window) or quarantine the pools.
 
-## 18. Float-5 triage cycle 5: `[SlotGuard]` at the SlotComponent teardown, `[UafCheck]` Object blocks (2026-11-09; built 0.36.230, pair float5slot-1109, not run)
+## 18. Float-5 triage cycle 5: `[SlotGuard]` at the SlotComponent teardown, `[UafCheck]` Object blocks (2026-11-09; built 0.36.230, pair float5slot-1109, merged; run float5-round3 0/3 PASS)
 
 New site: 0x951A00 in SlotComponent clear 0x9519C0, ContainmentSlots array pointer `[comp+0x14]` = 0x40A00000 (cell Object+0xEC, 0xC mod 16 like the earlier cells), path ObjMgr_RemoveObject 0xC70150 -> DestroyById 0x939420 -> 0x935DF0 -> Object_Destruct 0x935860 -> 0x952F60 -> 0x952D20 -> 0x9519C0.
 
@@ -781,7 +781,7 @@ No. `InstallDiscourage` returns before reading `DestroyPark`, `DestroyParkDx` or
 - Crash fix: pair float5uaf-1109b with `UafCheck.Enabled=1` and AllocSites off died at load (AV writing 0 in memcpy, ts3native+0xC5D39, `AsDetourCore` from `ApplyUafCheck`): the trampoline page `g_asTramp` was made only by AllocSites' `AsInit`, so the prologue was copied to NULL. The bytes at 0x4E5920 were EA's (`starts 56`), so S3SS was not the cause. `AsDetourCore` now makes its own page; `ApplyUafCheck` refuses a jmp at 0x4E5920 into another module (`SKIP uaf check: EA heap Free 0x4E5920 is already patched by another module`).
 - Pair ini `ts3native.ini.float5slot-1109`: branch release ini + `[SlotGuard] Enabled=1 Guard=1`, `[UafCheck] ObjectMaxSize=16384` (UafCheck Enabled stays 0; queues set it).
 
-## 19. Float-5 triage cycle 6: `[Float5Free]` at EA Free and the SACS Walker request queue (2026-11-09; built 0.36.231, pair float5free-1109, not run)
+## 19. Float-5 triage cycle 6: `[Float5Free]` at EA Free and the SACS Walker request queue (2026-11-09; built 0.36.231, pair float5free-1109, merged; this pair never ran, the detector ran in the float5mono pairs)
 
 New site (float5-split `bp-float5-split-b-1`, 0.36.229, xcpt 11.26.02): GeneralAllocator_FreeCore 0x4E51BF read `[0x40A00000-0xC]` (AV at 0x409FFFF4), eax = 0x40A00000, during world unload on travel.
 
@@ -803,14 +803,14 @@ New site (float5-split `bp-float5-split-b-1`, 0.36.229, xcpt 11.26.02): GeneralA
 - Pair ini `ts3native.ini.float5free-1109`: the float5slot-1109 pair ini + `[Float5Free] Enabled=1 Guard=1`.
 - Next: rerun the float-5 travel job on this pair; a `float5 deque:` line names the Walker whose request queue was freed under it; then find who frees a live Walker's pointer array (deque grow 0x7xxxxx realloc path, or a Walker freed twice through 0x8050B0).
 
-### 19.3 Range rule false positives, fixed in 0.36.233 (pair float5mono-1109b, not run)
+### 19.3 Range rule false positives, fixed in 0.36.233 (pair float5mono-1109b, merged; run float5-round5 0/2 PASS)
 - float5-round4 `all-off-1` (0.36.232, `Guard=1`): 26 `float5 free:` lines, every one with reason `0x40A00000 range (float 5.0)`, 26 distinct pointers 0x40A001F0..0x40A07BD0 plus 0x40A00000 itself, each freed once, all 16-byte aligned like EA user pointers, heap = the main heap, callers vary (0x57A9EB, 0x4461AA, 0x575CC7, 0xC3A250, ...), 22 at world load #0, 3 at #1, 1 at #4 [verified log]. The range test ran before the header checks, so the headers were never read; but the pattern is ordinary allocation traffic in a heap region that also held live blocks at earlier sites (0x409E089C, 0x40E65EE0, §13), and the exact 0x40A00000 free came from 0xC3A250 67 s into world load #1, not from the Walker deque. So they were false positives [inferred: pattern + range ordering; the 0.36.233 pass line below confirms it in game], and Guard=1 leaked 26 real blocks and changed the heap layout of the run.
 - The 11-09 crash itself faulted reading `[0x40A00000-0xC]`: the float 5.0 had no readable chunk header. That case does not need the range test.
 - Rule now (`F5fBad`): a pointer is bad when misaligned / outside user space, its chunk header is unreadable, or its plain chunk is not in use (next chunk's in-use bit clear); in 0x40A00000..0x40A0FFFF also when the plain header's size is below 0x10 (zero memory, no chunk). In the range the reason is prefixed `0x40A00000 range (float 5.0), `. A pointer in the range with an in-use header passes to EA untouched, Guard or not, and logs `float5 free: ptr 0x%08lX in the 0x40A00000 range has an in-use chunk header (size word 0x%08lX): passed to EA; ...; range passes %ld` (first 20 a session), so a float 5.0 that lands on a real block still shows up.
 - Self-test: unmapped 0x40A00000 flagged (header unreadable); a region committed at 0x409F0000 with an in-use block at 0x40A07BD0 and at exactly 0x40A00000 (both pass, and the Free hook with Guard=1 hands 0x40A07BD0 to EA), a freed block at 0x40A01010 (flagged, skipped) and zero memory at 0x40A04000 (flagged, header invalid).
 - Queue regexes `^float5 (free|deque): ` still match both the bad lines and the new pass line (report-only caps).
 
-## 20. `[MonoSigGuard]`: EA reads params[0] of a zero-parameter delegate signature (2026-11-09; built 0.36.232, pair float5mono-1109, not run)
+## 20. `[MonoSigGuard]`: EA reads params[0] of a zero-parameter delegate signature (2026-11-09; built 0.36.232, pair float5mono-1109, merged; run float5-round4 0/2 PASS)
 
 Crash: float5-round3 `all-off-1` and `all-off-2` (0.36.230 / 0.36.231, every ts3native feature section off) both died with an AV reading 0x7 at 0xF4AC64 (`movzx eax,byte [eax+6]`, eax = edi = 1), right after a save + travel, on the travel loading screen [verified log]. Not a float-5 hit: a vanilla EA path.
 
@@ -832,7 +832,7 @@ Crash: float5-round3 `all-off-1` and `all-off-2` (0.36.230 / 0.36.231, every ts3
 - float5-round4 `all-off-1`: 124 `mono sig guard:` lines and 103,000 skips, param_count 13 / 6 / 4 / 3 only, none with param_count 0 [verified log]. For param_count > 1 vanilla reads an in-bounds params[0], calls 0xF4AC60 (pure read), then `cmp word [esi+4],1; jne 0xD70FEB`: the same "no" tail the stub jumps to [verified from the checked bytes kMsgSite at 0xD70FBB..0xD70FC4]. So the skip returns EA's own false and only the noise was wrong.
 - Now every skip counts (`msgSkip`, `msgParamCount` unchanged), but lines are written only for param_count 0 (params[0] past the 0x10-byte signature, the SwapLoadScreen crash), first 20 then every 1000th of those; the line adds `(param_count 0: %ld)`. Self-test: param_count 2 counts without a line counter step, param_count 0 steps it.
 
-## 21. Float-5 writer catch: `[Float5Sticky]`, `[Float5Watch]`, `[UafCheck]` TravelHold (2026-11-09; built 0.36.234, pair float5catch-1109, not run)
+## 21. Float-5 writer catch: `[Float5Sticky]`, `[Float5Watch]`, `[UafCheck]` TravelHold (2026-11-09; built 0.36.234, pair float5catch-1109, merged; run float5-catch 0/1 PASS)
 
 Inputs: float5-round5 all-off-1 (0.36.233) and float5-round4 all-off-2 [verified log]: `[UafCheck]` found 0x40A00000 at ONE absolute address per session, in different freed blocks: 0x3364623C (block 0x33646150 +0xEC, sizes 0x220 / 0x500, world loads #3 / #6 / #8) and 0x335A5FBC (4 hits, loads #4 / #6 / #8 / #11), main thread, at the eviction right after a save, free tag none. The 0x220 free is a transient EASTL string buffer (`0x9C1FE0` <- `0x9C0460` <- `0x9CD9E0`), so the victim blocks are bystanders. The run's crash (AV reading 0x41650000 at 0x64ED7B, Lot_Save -> ... -> portal save list `0x62AD40` -> Portal_Save `0x64E9A0`) was a live Portal whose vector begin `[portal+0x5C]` sat at 0x3364623C and held 0x40A00000 [verified: EA report registers, disassembly TS3W 1.67]. So the writer keeps one raw address across world loads and stores 5.0f there around saves [inferred]. The DR arms of §17.2 watched the hit offset of other new blocks of the same size and never fired: the target must be the absolute address.
 
@@ -862,7 +862,7 @@ Sticky arm on a real variable with real DR hits (5.0 and another value logged), 
 ### 21.5 Next
 Run the float-5 travel job (all-off or full features) on pair float5catch-1109 with `[UafCheck] Enabled=1`. Report every `float5 sticky:` line (the 0x40A00000 write's eip and stack name the writer), `float5 portal:`, `float5 watch: WRITER`, `float5 window:` and the `uaf: travel hold` lines. Queue regexes: `^float5 sticky: write to 0x[0-9A-F]{8} value 0x40A00000`, `^float5 sticky: armed DR\d`, `^float5 portal: `, `^float5 watch: WRITER DR\d`, `^float5 window: `.
 
-### 21.6 DR own-write safety (2026-11-09; built 0.36.235, pair float5catch-1109b, not run)
+### 21.6 DR own-write safety (2026-11-09; built 0.36.235, pair float5catch-1109b, merged; run float5-s3ss-off 2 PASS / 1 FAIL)
 bp-float5-catch-1 (pair float5catch-1109) crashed after world load #5: `exception 80000004 at ts3native+0xB661A` on the main thread, the `[UafCheck]` 0xFEEEFEEE fill (`UafFill`) writing an outfit cell / SlotComponent `+0x14` under a `[Float5Watch]` rotating DR. 16 earlier hits of the same kind were handled. Root cause [verified in code, inferred for the crash from the log order]: `WpDisarm` (and a `WpArm` steal, `WpTrapSet`) clears the slot's address first and sets the threads' registers afterwards (`WpApply` suspends each thread in turn), so a thread can still trap on the dropped address. `WpVeh` checked only `g_wp[i].addr`, read 0, declined the single-step, and `XcptLog` (`WpOwnsXcpt` false) logged it and EA's filter took it. `F5wRotate` disarms all its slots at each travel window, the same moment the travel hold's frees fill quarantined blocks on the main thread.
 Fix (watchpt.cpp):
 - A DR6 bit is ours when the thread's DRi equals the slot's address now, or one of the last 8 addresses that slot held (`WpForget` before every address change in `WpArm`, `WpTrapSet`, `WpDisarm`). A hit on a dropped address is consumed and counted (`stale`), not handed to the slot's handler. An address never armed, or a trace-flag single-step, still passes on. `WpOwnsXcpt` uses the same test.
@@ -872,7 +872,7 @@ Fix (watchpt.cpp):
 Selftest `TestWatchpointOwn` (watchpt-test.h): a real DR on a block `UafFill` fills (own, counted, handler not called, no crash), an own float-5 store handed on, a handler that writes its own watched dword (nested, counted), the bp-float5-catch-1 gap (slot address cleared before the pass: hit handled, DR taken off the thread, the next write not trapped), and the classifier on a made-up context (dropped address ours, unknown address and BS flag passed on).
 Pair float5catch-1109b = float5catch-1109 with ts3native 0.36.235 (same pair ini, ts3fixes / ts3agent copies). Next: the float5-catch queue on this pair can turn `[Float5Watch] DrWatch` back on.
 
-## 22. `[S3SSCompat] StaleWriteGuard`: S3SS 1.6.3's stale camera-threshold write (2026-11-09; built 0.36.236, pair s3ssguard-1109, not run)
+## 22. `[S3SSCompat] StaleWriteGuard`: S3SS 1.6.3's stale camera-threshold write (2026-11-09; built 0.36.236, pair s3ssguard-1109, merged; run float5-s3ssguard 2/2 PASS, ON in the v0.2.11 / v0.2.12 inis [verified 2026-11-15: results 2026-11-09-queue-float5-*.md, game-copy inis])
 The float-5 writer caught by §21 (`float5 sticky: write to 0x40AC7F7C value 0x40A00000 ... Sims3SettingsSetter+0xE6FFB`, world load #5; earlier `uaf: write after free` at block offset +0x4C, same value) is S3SS 1.6.3, not EA [verified: DR eip in S3SS's CRT `memcpy`, return chain below, S3SS source read for behaviour only, never copied]. S3SS has no license: we hook its binary at verified offsets and copy none of its code.
 - `LotStreamingOptimizations` -> `streamingSettings` (default on) sets the live setting `Camera speed threshold` = 5.0 once and keeps its address in the patch's maintained-write list. That setting is `WorldManager+0xEC` (docs/28, docs/65; WorldManager = `[0x11ECBC4]`). On every later VariableRegistry pass (S3SS re-fires on `MT Time Step`, once per world load) `OptimizationPatch::OnSettingsRefired` (S3SS+0x28C90) calls `SafeReassert` (S3SS+0x28760) for each entry, which compares and writes the 4 bytes again (`VirtualProtect`, `memcpy`, SEH). The address is never refreshed.
 - EA frees that WorldManager on travel: `[0x11ECBC4]` is cleared at `0xC6B507` (shutdown `0xC6B500`) and `0xC7E281` (before the new 0x1F0-byte allocation), and set only at the end of `WorldManager_Init 0xC671E0` (`0xC67883`) and in `WorldManager_LoadWorld` (`0xC6D0CC`) [verified disassembly]. So from the second world on, S3SS writes 5.0f into freed or reused EA heap.

@@ -1,0 +1,51 @@
+{
+  "note": "Rerun of the two B87 jobs of ilpatch-b80-b87 (2026-11-15: queue.ts died on EBUSY reading the bp-ilp-b87-off machine file; b87-on never ran). Jobs copied unchanged; same preconditions as ilpatch-b80-b87.json. Run: node tools/harness/queue.ts tools/harness/queues/ilpatch-b87-rerun-1115.json",
+  "jobs": [
+    {
+      "id": "bp-ilp-b87-off",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "IlPatch.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 3,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ilp-b87-scavenger-off"
+        }
+      },
+      "timeoutMin": 15,
+      "note": "B87 off arm. Pass: threw true with spawned >= 1. No throw = the YieldingDisabled context does not reach EA's failure ([inferred] in the repro note): N/A, not a fix result."
+    },
+    {
+      "id": "bp-ilp-b87-on",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "IlPatch.Enabled": 1,
+        "IlPatch.ilp_scavengersleep": 1
+      },
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^il patch: b87-scavenger-sleep applied to Sims3\\.Gameplay\\.Opportunities\\.ScavengerOpportunity::OnAdded": 1
+      },
+      "logForbid": {
+        "^il patch: .*(refused|not the converter's|fault)": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 3,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ilp-b87-scavenger-on"
+        }
+      },
+      "timeoutMin": 15,
+      "note": "B87 on arm. Pass: the applied line, threw false with spawned >= 1, 0 script errors, no crash."
+    }
+  ]
+}

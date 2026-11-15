@@ -1,0 +1,51 @@
+{
+  "note": "docs/506 §8 per-fix repros for the converted ilpatch fixes B80 and B87 (built 2026-11-15, lane L10, NOT RUN). Each job loads Baseline-BP-Spring, runs one agent check and 3 min of play. Off jobs: [IlPatch] off, the step must throw (EA). On jobs: the one switch on, the step must not throw, and the method's 'applied' line. Needs a game core whose bodies the specs know (EA 1.67 or UPDATE242 without patches, as bp-ilpatch-smoke) and the ts3agent package of feature/lane-L10-1115 (game-copy/ts3agent.package.lane-L10-1115) installed. Run: node tools/harness/queue.ts tools/harness/queues/ilpatch-b80-b87.json",
+  "jobs": [
+    {
+      "id": "bp-ilp-b80-off",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "ini": { "IlPatch.Enabled": 0 },
+      "run": { "profile": { "minutes": 3, "seed": 12345, "noSamplers": true, "repro": "ilp-b80-remote-chat-off" } },
+      "timeoutMin": 15,
+      "note": "B80 off arm. Pass: the repro step reports threw true (NullReferenceException from ThumbnailKey), outfit_back true, no crash. The thrown error is caught by the agent (one ScriptError-free run expected)."
+    },
+    {
+      "id": "bp-ilp-b80-on",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "ini": { "IlPatch.Enabled": 1, "IlPatch.ilp_remotechatnoeverydayoutfit": 1 },
+      "scriptErrorsMax": 0,
+      "logRequire": { "^il patch: b80-remote-chat-no-everyday-outfit applied to Sims3\\.Gameplay\\.Actors\\.Sim::DoOneRoundOfRemoteChat": 1 },
+      "logForbid": { "^il patch: .*(refused|not the converter's|fault)": 0 },
+      "run": { "profile": { "minutes": 3, "seed": 12345, "noSamplers": true, "repro": "ilp-b80-remote-chat-on" } },
+      "timeoutMin": 15,
+      "note": "B80 on arm. Pass: the applied line, threw false, 0 script errors, no crash."
+    },
+    {
+      "id": "bp-ilp-b87-off",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "ini": { "IlPatch.Enabled": 0 },
+      "run": { "profile": { "minutes": 3, "seed": 12345, "noSamplers": true, "repro": "ilp-b87-scavenger-off" } },
+      "timeoutMin": 15,
+      "note": "B87 off arm. Pass: threw true with spawned >= 1. No throw = the YieldingDisabled context does not reach EA's failure ([inferred] in the repro note): N/A, not a fix result."
+    },
+    {
+      "id": "bp-ilp-b87-on",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "ini": { "IlPatch.Enabled": 1, "IlPatch.ilp_scavengersleep": 1 },
+      "scriptErrorsMax": 0,
+      "logRequire": { "^il patch: b87-scavenger-sleep applied to Sims3\\.Gameplay\\.Opportunities\\.ScavengerOpportunity::OnAdded": 1 },
+      "logForbid": { "^il patch: .*(refused|not the converter's|fault)": 0 },
+      "run": { "profile": { "minutes": 3, "seed": 12345, "noSamplers": true, "repro": "ilp-b87-scavenger-on" } },
+      "timeoutMin": 15,
+      "note": "B87 on arm. Pass: the applied line, threw false with spawned >= 1, 0 script errors, no crash."
+    }
+  ]
+}

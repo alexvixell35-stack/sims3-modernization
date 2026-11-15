@@ -19,10 +19,9 @@
 // run it on the release branch once nobody else is editing repros.json. Ship set = --features, else the features the repo
 // ini/tuning have on now (tools/release-features.ts status). A release tag that is missing locally resolves through
 // feature-repros.json "releases" (v0.1.4 = d6ff7a91, the commit the v0.1.4 asi was built from).
-// TODO(multi-repro, session reuse): queue.ts/profile-world.ts fields for several repros in one load and for reusing a loaded
-// session are not on master yet. Once they are, group parts c-e by save (part e is already sorted by save) so each world
-// loads once (~1.7 min load + profiler start per job saved), and let the soak save at its end in the same load (save size
-// after 45 min of play). Until then every job is a plain one-load job and the queue runs as is.
+// Session reuse (docs/170 §5): the queue sets reuseSession: true and parts c-f profile jobs are ordered by save (groupBySave), so queue.ts shares one
+// game load among consecutive jobs with an identical game start. The queue.ts run line and the carry-over check decide per job; a mismatch loads fresh.
+// TODO(soak save): the soak saving at its end in the same load (save size after 45 min of play) still needs a queue.ts hook.
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -269,7 +268,19 @@ export function build(o: { map: FeatureMap; repros: Repro[]; validate: Job[]; sh
   jobs.push({ ...base('bp-rc-soak', 'Baseline-BP-Spring', profile({ minutes: 45 }), 60,
     'Release check part f (soak): 45 min natural play, no repro. Pass: no crash, 0 watchdog lines, stuck Sims within docs/TESTING.md. Read: hitch-ab.ts <tag> (docs/161 real-hitch counts, p99, max), freeze-report.ts <tag>, VAS growth = the row\'s commit/private/largest free MB before -> after (v0.1.4 bp-rel-play as reference). TODO(session reuse): save at the end in the same load and record the save folder MB (today: the matrix saves give save size, not after 45 min of play).'),
     part: 'f soak', estMin: 45 + times.overhead, est: 'measured overhead' });
+  groupBySave(jobs);
   return { jobs, derived, needs, touched, newShip, want, replaced };
+}
+
+// docs/170 §5: parts c-f profile jobs of one save sit next to each other (save order = first appearance), so the queue-level reuseSession
+// shares one game load among them (queue.ts decides per job whether the game start is identical; otherwise it loads fresh). Parts a/b keep their place.
+// Non-profile jobs (matrix, scripts) never reuse. Stable: the order inside one save is unchanged.
+export function groupBySave<T extends { part: string; save?: string; run?: any; reuseSession?: unknown }>(jobs: T[]): T[] {
+  const rank = new Map<string, number>(), key = (j: T) => /^[cdef] /.test(j.part) && j.run?.profile ? 1 : 0;
+  for (const j of jobs) if (key(j) && !rank.has(String(j.save))) rank.set(String(j.save), rank.size);
+  for (const j of jobs) if (!j.run?.profile) j.reuseSession = false;
+  const tail = jobs.map((j, i) => ({ j, i })).filter(x => key(x.j)).sort((a, b) => rank.get(String(a.j.save))! - rank.get(String(b.j.save))! || a.i - b.i).map(x => x.j);
+  let k = 0; const out = jobs.map(j => key(j) ? tail[k++] : j); jobs.splice(0, jobs.length, ...out); return jobs;
 }
 
 // minutes saved when parts c-e and the soak share one load per save (multi-repro / session reuse, docs/170 §5): every job
@@ -300,6 +311,10 @@ export function coverage(validate: Job[], jobs: Job[], want: Map<string, string[
 
 // ---------------------------------------------------------------- main
 function selfCheck() {
+  { const J = (id: string, part: string, save: string, profile = true) => ({ id, part, save, run: profile ? { profile: {} } : { matrix: {} } } as any);
+    const g = groupBySave([J('s', 'a smoke', 'X'), J('m', 'b save matrix', 'X', false), J('c1', 'c fix on', 'A'), J('c2', 'c fix on', 'B'), J('d1', 'd bundle A/B', 'A'), J('e1', 'e rare', 'B', false), J('f', 'f soak', 'A')]);
+    assert.deepEqual(g.map(j => j.id), ['s', 'm', 'c1', 'd1', 'f', 'e1', 'c2'], 'c-f profile jobs fill their own slots grouped by save; a/b and non-profile jobs stay put');
+    assert.deepEqual(g.map(j => j.reuseSession), [undefined, false, undefined, undefined, undefined, false, undefined], 'non-profile jobs never reuse'); }
   const map: FeatureMap = { releases: {}, shared: [], groups: { g: ['old-rare'] }, features: {
     a: { what: 'A', on: { ini: { 'A.Enabled': '1' } }, native: ['a'], paths: ['src/a.cpp'], match: 'AThing', repro: { id: 'r' }, fixesRequire: 'a_run>={n}', rare: ['@g'] },
     b: { what: 'B', on: { ini: { 'B.Enabled': '1' } }, fixes: ['b'], values: ['bcap'], paths: [], match: 'BThing', rare: [] },
@@ -465,7 +480,7 @@ if (import.meta.filename === resolve(process.argv[1] ?? '')) {
     console.log(`\nold rare jobs kept (no forced path reaches the code):\n${kept.map(([r, by]) => `- ${r} (${by.join(', ')}): ${by.map(id => map.features[id].rareWhy).filter(Boolean)[0] ?? 'no reason in feature-repros.json rareWhy'}`).join('\n') || '- none'}`);
     console.log(`\nnot run vs release-validate.json (${validate.length} jobs):\n| job | why acceptable / what replaces it |\n|---|---|\n${coverage(validate, b.jobs, b.want, map.groups['route-all-worlds'], b.replaced).join('\n')}`);
     const queue = { note: `Generated by tools/release-check.ts ${prev} (${rev.slice(0, 8)})${listArg ? ` --features ${listArg}` : ''} on ${new Date().toISOString().slice(0, 10)}; do not edit, regenerate (docs/170 §4, docs/RELEASE.md). Parts: a smoke, b save matrix, c fix-on forced repros, d bundle A/B, e rare jobs of changed features, f soak. Estimated ${(total / 60).toFixed(1)} h. Needs the rc-* repros in repros.json (--install-repros). Clean night only for part d timing reads; a-c, e, f are correctness and run in the day.`,
-      jobs: b.jobs.map(({ part, estMin, est, ...j }) => j) };
+      reuseSession: true, jobs: b.jobs.map(({ part, estMin, est, ...j }) => j) };
     if (args.includes('--write')) {
       writeFileSync(out, JSON.stringify(queue, null, 2) + '\n');
       writeFileSync(H('release-check-repros.json'), JSON.stringify(b.derived, null, 2) + '\n');

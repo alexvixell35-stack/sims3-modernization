@@ -47,6 +47,13 @@ namespace Ts3Fixes
     //   vacimportfix (row 7, EA's vacation return home too): (a) OriginalTarget/OriginalSource ids that no longer find the
     //     exported Sim are pointed at that description's Sim; (b) ExpirationTime tick 0 (no time-based timeout) is not
     //     "expired": raised for the import call only. [479] ids refreshed, [480] expiry checks skipped.
+    //   vaclistenerpad (docs/210 §6, >3 listeners): OpportunityExportInfo.ListenerStates is a fixed new [3], and both import
+    //     reads (AcceptOpportunityFromTravel mid-body, the existing-opportunity branch) index it per listener, so an
+    //     opportunity with 4+ tuned events throws IndexOutOfRange. Fix: for the AddOpportunityFromTravel call only, the array
+    //     is swapped for a copy padded with nulls to the event count (EaVacationCore.PadLength), then put back (EA's export
+    //     stops at the first null, so nothing else could see it anyway). Needs vaclistenernull: a null state must start the
+    //     listener fresh, else RestoreState(null) throws instead. [1038] imports padded, [1039] pad left (vaclistenernull off).
+    //     The store side already throws on a 4th listener; vacstoreguard drops that slot.
     public static partial class Fixes
     {
         static readonly BindingFlags kVacAll = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -376,17 +383,64 @@ namespace Ts3Fixes
         {
             public bool AddHook(OpportunityHistory.OpportunityExportInfo exportInfo, OpportunityNames guid, OpportunityManager.OpportunityPropagateInfo source, OpportunityManager.OpportunityPropagateInfo target, List<OpportunityNames> opportunityChain, bool allowReject)
             {
-                if (exportInfo == null || !ShortcutOn("vacimportfix")) return AddOrig(exportInfo, guid, source, target, opportunityChain, allowReject);
-                VacRefresh(exportInfo.OriginalTarget, exportInfo.TargetSimDescriptionId);
-                VacRefresh(exportInfo.OriginalSource, exportInfo.SourceSimDescriptionId);
-                if (EaVacationCore.ExpiryApplies(exportInfo.ExpirationTime.Ticks)) return AddOrig(exportInfo, guid, source, target, opportunityChain, allowReject);
-                PatchCounters()[480]++;
-                DateAndTime was = exportInfo.ExpirationTime;
-                exportInfo.ExpirationTime = new DateAndTime(long.MaxValue); // never "expired"; put back after the call
-                try { return AddOrig(exportInfo, guid, source, target, opportunityChain, allowReject); }
-                finally { exportInfo.ExpirationTime = was; }
+                EventListenerExportInfo[] states = exportInfo != null ? exportInfo.ListenerStates : null;
+                if (states != null && ShortcutOn("vaclistenerpad")) VacPad(exportInfo, guid);
+                try
+                {
+                    if (exportInfo == null || !ShortcutOn("vacimportfix")) return AddOrig(exportInfo, guid, source, target, opportunityChain, allowReject);
+                    VacRefresh(exportInfo.OriginalTarget, exportInfo.TargetSimDescriptionId);
+                    VacRefresh(exportInfo.OriginalSource, exportInfo.SourceSimDescriptionId);
+                    if (EaVacationCore.ExpiryApplies(exportInfo.ExpirationTime.Ticks)) return AddOrig(exportInfo, guid, source, target, opportunityChain, allowReject);
+                    PatchCounters()[480]++;
+                    DateAndTime was = exportInfo.ExpirationTime;
+                    exportInfo.ExpirationTime = new DateAndTime(long.MaxValue); // never "expired"; put back after the call
+                    try { return AddOrig(exportInfo, guid, source, target, opportunityChain, allowReject); }
+                    finally { exportInfo.ExpirationTime = was; }
+                }
+                finally { if (states != null) exportInfo.ListenerStates = states; }  // vaclistenerpad: the stored array back
             }
             public bool AddOrig(OpportunityHistory.OpportunityExportInfo exportInfo, OpportunityNames guid, OpportunityManager.OpportunityPropagateInfo source, OpportunityManager.OpportunityPropagateInfo target, List<OpportunityNames> opportunityChain, bool allowReject) { return false; } // OpportunityManager.AddOpportunityFromTravel
+        }
+
+        // shortcut: pads to the tuned event count (one listener per event at import); an existing opportunity holding more
+        // listeners than events (no EA path known) would still throw in the existing-opportunity branch.
+        static void VacPad(OpportunityHistory.OpportunityExportInfo exportInfo, OpportunityNames guid)
+        {
+            try
+            {
+                Opportunity op = OpportunityManager.GetStaticOpportunity(guid);
+                int n = op != null ? EaVacationCore.PadLength(exportInfo.ListenerStates.Length, op.EventListCount) : -1;
+                if (n < 0) return;
+                if (!ShortcutOn("vaclistenernull")) { PatchCounters()[1039]++; return; }
+                EventListenerExportInfo[] padded = new EventListenerExportInfo[n];
+                Array.Copy(exportInfo.ListenerStates, padded, exportInfo.ListenerStates.Length);
+                exportInfo.ListenerStates = padded;
+                PatchCounters()[1038]++;
+                ShortcutLog("vaclistenerpad: " + guid + " " + op.EventListCount + " events, 3 stored states, padded for the import");
+            }
+            catch (Exception) { }  // EA's import as is
+        }
+
+        // Agent check (repro vacation-listener-pad): counts the opportunities whose tuning has more events than the 3 stored
+        // states (the inferred trigger, docs/210 §6; none = the import throw cannot happen with EA's tuning) and reads the
+        // pad counters. The pad rule itself is in the vacation selftest.
+        public static string VacPadCheck()
+        {
+            int all = 0, over = 0, max = 0;
+            string first = null;
+            FieldInfo f = typeof(GenericManager<OpportunityNames, Opportunity, Opportunity>).GetField("sDictionary", BindingFlags.Static | BindingFlags.NonPublic);
+            Dictionary<ulong, Opportunity> d = f != null ? f.GetValue(null) as Dictionary<ulong, Opportunity> : null;
+            if (d == null) return "GenericManager.sDictionary not found";
+            foreach (Opportunity op in d.Values)
+            {
+                if (op == null) continue;
+                all++;
+                int n = op.EventListCount;
+                if (n > max) max = n;
+                if (n > 3) { over++; if (first == null) first = op.Guid.ToString(); }
+            }
+            return "opportunities " + all + ", with > 3 events " + over + (first != null ? " (first " + first + ")" : "") + ", most events " + max
+                + "; padded " + PatchCounters()[1038] + ", left " + PatchCounters()[1039];
         }
 
         // ---- agent checks (repros bp-vacation-*) ----

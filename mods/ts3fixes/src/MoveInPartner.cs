@@ -5,8 +5,8 @@ using Sims3.Gameplay.StoryProgression;
 
 namespace Ts3Fixes
 {
-    // moveinpartner (tuning kMoveInPartner, off by default; docs/563 §3). EA bug fix; NPC households only (EA's action
-    // already skips the active household and the NPC service household).
+    // moveinpartner (tuning kMoveInPartner, on by default since 2026-11-15; docs/563 §3). EA bug fix; NPC households only: EA's action
+    // already skips the active household, and MipExempt (IsPlayerDesc on both Sims; counter 1046) leaves any household, selected or unknown-scope Sim to EA.
     //
     // StoryProgression MoveInWithPartner [verified, decompiled]: NotLivingWithPartner accepts a couple when either way
     // works: (Sim can leave and the partner's household has room for it) OR (partner can leave and the Sim's household has
@@ -42,6 +42,12 @@ namespace Ts3Fixes
             return partnerCanMove ? 1 : 2;
         }
 
+        // Household rule (CLAUDE.md): a move-in that touches a household, selected or unknown-scope Sim (IsPlayerDesc) is left to EA.
+        internal static bool MipExempt(bool simPlayer, bool partnerPlayer)
+        {
+            return simPlayer || partnerPlayer;
+        }
+
         // Teens: skip the story move when either Sim is a teen or younger.
         internal static bool MipTeenSkip(bool on, bool teenOrBelow)
         {
@@ -59,8 +65,9 @@ namespace Ts3Fixes
                         object a = this;
                         SimDescription sd = SimDescription.Find((ulong)sMipSim.GetValue(a));
                         SimDescription partner = sd == null ? null : sd.Partner;
-                        if (partner != null && MipTeenSkip(true, sd.TeenOrBelow || partner.TeenOrBelow)) { PatchCounters()[2516]++; return; }
-                        if (partner != null && partner.Household != null && sd.Household != null)
+                        if (partner != null && MipExempt(IsPlayerDesc(sd), IsPlayerDesc(partner))) PatchCounters()[1046]++;  // EA's move, untouched
+                        else if (partner != null && MipTeenSkip(true, sd.TeenOrBelow || partner.TeenOrBelow)) { PatchCounters()[2516]++; return; }
+                        else if (partner != null && partner.Household != null && sd.Household != null)
                         {
                             bool room = partner.Household.CanAddSimDescriptionToHousehold(sd);
                             bool other = !room && (bool)sMipCanRemove.Invoke(a, new object[] { partner }) && sd.Household.CanAddSimDescriptionToHousehold(partner);

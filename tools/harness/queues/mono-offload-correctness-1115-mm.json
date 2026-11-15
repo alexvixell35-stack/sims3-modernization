@@ -1,0 +1,314 @@
+{
+ "note": "mono-offload-correctness-1115-mm: copy of mono-offload-correctness-1115.json, repinned to master-mono-1115 (0.36.264-mono1). mono-offload-correctness-1115 (PREPARED, NOT RUN; lane mono-offload-1115, docs/208 s10-s12): correctness of the env + bcast offload apply restricted to unseen non-household Sims (autoffunseen) with the s11 pickup fix and the s12 pick scope, on the master-dalexlol-417-1115 native pair. Mode R (AutShadow.Mode 1, reference compare) as in offload-unseen-apply-1113. Jobs: BP smoke 4 min, BP Mode R dry (no apply), BP apply, BP household crowd, IP apply, IP household crowd (~1.3 h). Every job: 0 new script errors (scriptErrorsMax 0), switch read-back by the profile ('fixes on: ... (verified)'), exc 0, no crash. Household / seen untouched: with apply on, autoff_*_pick_scoped >= 1 (household / selected / seen / unknown Sims and broadcasters left out of the pick) and the live gate at the update still sends any that slip through to the game's own path (autoff_*_scope_household / _seen / _unknown); with apply off, applied and pick_scoped stay 0. Read from the saved counters (not gated): dry_eq = autoff_env_apply_dry_eq / autoff_env_applied >= 0.99; scope_* at the update small next to pick_scoped. Decision: BP autoff_env_applied + autoff_bcast_applied in the hundreds per 10 min = run mono-offload-timing-1115.json on a quiet night; < ~20 with pick_scoped large = park env apply under autoffunseen (too little unseen high-LOD work). IP env had 100% worker aborts on 11-14 (A4 pos/ic), so IP applied is NOT gated. Run (after chain-reruns-1115 ends): TS3_AGENT_PACKAGE=game-copy/ts3agent.package.mono-offload-1115 node tools/harness/queue.ts tools/harness/queues/mono-offload-correctness-1115.json",
+ "stopQueueOnFail": true,
+ "jobs": [
+  {
+   "id": "bp-offu-smoke",
+   "note": "Smoke (4 min BP, all switches). PASS = no crash, env/bcast ready >= 1, env pickups >= 1, autoff_env_pick_scoped >= 1 (the s12 pick scope runs), exc 0, 0 script errors. A FAIL stops the queue.",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.master-dalexlol-417-1115, ts3native.ini.master-dalexlol-417-1115, ts3fixes.package.mono-offload-1115",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "RouteSnap.Enabled": 1,
+    "RouteSnap.Count": 1,
+    "RouteSnap.AuditEvery": 0,
+    "MonoThread.Enabled": 1,
+    "MonoThread.Mode": 1,
+    "MonoThread.GcLock": 1,
+    "MonoThread.FrameTls": 1,
+    "MonoThread.ArenaFix": 1,
+    "MonoThread.N2mPrivate": 1,
+    "MonoThread.LazyGate": 1,
+    "AutShadow.Enabled": 1,
+    "AutShadow.Mode": 1,
+    "AutShadow.Sample": 4,
+    "AutShadow.Audit": 50,
+    "AutShadow.DumpOnMismatch": 1,
+    "AutShadow.WindowWaitUs": 0,
+    "AutShadow.ColdIc": 1,
+    "AutShadow.CutLean": 2,
+    "AutShadow.TierMs": 1500,
+    "AutShadow.ListAudit": 1,
+    "AutShadow.TierClassMs": 1000,
+    "AutShadow.RowHot": 200,
+    "AutShadow.RunSkip": 1,
+    "AutShadow.FreshEvery": 8,
+    "AutShadow.KeepPartial": 1,
+    "AutShadow.Satb": 2,
+    "MonoThread.LazyEarly": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "fixesOn": "autshadow,autoffenv,autoffbcast,autoffenvapply,autoffbcastapply,autoffdry,autoffunseen",
+     "fixesRequire": "autoff_env_ready>=1,autoff_bcast_ready>=1,autoff_env_dry>=1,autoff_env_pick_scoped>=1,autoff_env_exc<1,autoff_bcast_exc<1"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 30,
+   "scriptErrorsMax": 0
+  },
+  {
+   "id": "bp-offu-dry",
+   "note": "Mode R dry, no apply (10 min BP): worker answers compared with the reference and the live driver only; the game's own result always used. PASS = env pickups >= 1, applied 0 on env and bcast (apply off = untouched), pick_scoped 0 (the scope pick acts only with apply on), exc 0.",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.master-dalexlol-417-1115, ts3native.ini.master-dalexlol-417-1115, ts3fixes.package.mono-offload-1115",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "RouteSnap.Enabled": 1,
+    "RouteSnap.Count": 1,
+    "RouteSnap.AuditEvery": 0,
+    "MonoThread.Enabled": 1,
+    "MonoThread.Mode": 1,
+    "MonoThread.GcLock": 1,
+    "MonoThread.FrameTls": 1,
+    "MonoThread.ArenaFix": 1,
+    "MonoThread.N2mPrivate": 1,
+    "MonoThread.LazyGate": 1,
+    "AutShadow.Enabled": 1,
+    "AutShadow.Mode": 1,
+    "AutShadow.Sample": 4,
+    "AutShadow.Audit": 50,
+    "AutShadow.DumpOnMismatch": 1,
+    "AutShadow.WindowWaitUs": 0,
+    "AutShadow.ColdIc": 1,
+    "AutShadow.CutLean": 2,
+    "AutShadow.TierMs": 1500,
+    "AutShadow.ListAudit": 1,
+    "AutShadow.TierClassMs": 1000,
+    "AutShadow.RowHot": 200,
+    "AutShadow.RunSkip": 1,
+    "AutShadow.FreshEvery": 8,
+    "AutShadow.KeepPartial": 1,
+    "AutShadow.Satb": 2,
+    "MonoThread.LazyEarly": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "autshadow,autoffenv,autoffbcast,autoffdry,autoffunseen",
+     "fixesRequire": "autoff_env_dry>=1,autoff_bcast_ready>=1,autoff_env_applied<1,autoff_bcast_applied<1,autoff_env_pick_scoped<1,autoff_bcast_pick_scoped<1,autoff_env_exc<1,autoff_bcast_exc<1"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 30,
+   "scriptErrorsMax": 0
+  },
+  {
+   "id": "bp-offu-apply",
+   "note": "Apply, unseen only (10 min BP, all switches). PASS = env applied >= 1, env and bcast pick_scoped >= 1, exc 0. Read: applied counts (decision in the queue note), scope_* at the update, dry_eq share.",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.master-dalexlol-417-1115, ts3native.ini.master-dalexlol-417-1115, ts3fixes.package.mono-offload-1115",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "RouteSnap.Enabled": 1,
+    "RouteSnap.Count": 1,
+    "RouteSnap.AuditEvery": 0,
+    "AutShadow.Audit": 50,
+    "AutShadow.DumpOnMismatch": 1,
+    "AutShadow.ListAudit": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "autshadow,autoffenv,autoffbcast,autoffenvapply,autoffbcastapply,autoffdry,autoffunseen",
+     "fixesRequire": "autoff_env_applied>=1,autoff_env_pick_scoped>=1,autoff_bcast_pick_scoped>=1,autoff_env_exc<1,autoff_bcast_exc<1"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 30,
+   "scriptErrorsMax": 0
+  },
+  {
+   "id": "bp-offu-household",
+   "note": "Household crowd near broadcasters (repro as in offload-unseen-apply-1113 bp-off3u-household, PASS there 11-14). PASS = env and bcast pick_scoped >= 1 (household Sims and household-near broadcasters left out of the pick), exc 0, 0 script errors. scope_household at the update may now be 0 (filtered at the pick); not gated.",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.master-dalexlol-417-1115, ts3native.ini.master-dalexlol-417-1115, ts3fixes.package.mono-offload-1115",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "RouteSnap.Enabled": 1,
+    "RouteSnap.Count": 1,
+    "RouteSnap.AuditEvery": 0,
+    "MonoThread.Enabled": 1,
+    "MonoThread.Mode": 1,
+    "MonoThread.GcLock": 1,
+    "MonoThread.FrameTls": 1,
+    "MonoThread.ArenaFix": 1,
+    "MonoThread.N2mPrivate": 1,
+    "MonoThread.LazyGate": 1,
+    "AutShadow.Enabled": 1,
+    "AutShadow.Mode": 1,
+    "AutShadow.Sample": 4,
+    "AutShadow.Audit": 50,
+    "AutShadow.DumpOnMismatch": 1,
+    "AutShadow.WindowWaitUs": 0,
+    "AutShadow.ColdIc": 1,
+    "AutShadow.CutLean": 2,
+    "AutShadow.TierMs": 1500,
+    "AutShadow.ListAudit": 1,
+    "AutShadow.TierClassMs": 1000,
+    "AutShadow.RowHot": 200,
+    "AutShadow.RunSkip": 1,
+    "AutShadow.FreshEvery": 8,
+    "AutShadow.KeepPartial": 1,
+    "AutShadow.Satb": 2,
+    "MonoThread.LazyEarly": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "repro": "rare-big-crowd",
+     "fixesOn": "autshadow,autoffenv,autoffbcast,autoffenvapply,autoffbcastapply,autoffdry,autoffunseen",
+     "fixesRequire": "autoff_env_pick_scoped>=1,autoff_bcast_pick_scoped>=1,autoff_env_dry>=1,autoff_env_exc<1,autoff_bcast_exc<1"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 40,
+   "scriptErrorsMax": 0
+  },
+  {
+   "id": "ip-offu-apply",
+   "note": "Apply, unseen only (10 min IP). PASS = bcast ready >= 1, env pick_scoped >= 1, exc 0, no crash. Env applied NOT gated: 11-14 ip-off3u-env aborted every worker item (A4 pos 546 / ic 660, A0 0; docs/208 s12 reading 3); read autoff_reasons 0-23 for the split.",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.master-dalexlol-417-1115, ts3native.ini.master-dalexlol-417-1115, ts3fixes.package.mono-offload-1115",
+   "save": "Baseline-IP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "RouteSnap.Enabled": 1,
+    "RouteSnap.Count": 1,
+    "RouteSnap.AuditEvery": 0,
+    "AutShadow.Audit": 50,
+    "AutShadow.DumpOnMismatch": 1,
+    "AutShadow.ListAudit": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "autshadow,autoffenv,autoffbcast,autoffenvapply,autoffbcastapply,autoffdry,autoffunseen",
+     "fixesRequire": "autoff_bcast_ready>=1,autoff_env_pick_scoped>=1,autoff_env_exc<1,autoff_bcast_exc<1"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 30,
+   "scriptErrorsMax": 0
+  },
+  {
+   "id": "ip-offu-household",
+   "note": "Household crowd near broadcasters, IP (repro as in ip-off3u-household, never run). PASS = env and bcast pick_scoped >= 1, exc 0, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.master-dalexlol-417-1115, ts3native.ini.master-dalexlol-417-1115, ts3fixes.package.mono-offload-1115",
+   "save": "Baseline-IP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "RouteSnap.Enabled": 1,
+    "RouteSnap.Count": 1,
+    "RouteSnap.AuditEvery": 0,
+    "MonoThread.Enabled": 1,
+    "MonoThread.Mode": 1,
+    "MonoThread.GcLock": 1,
+    "MonoThread.FrameTls": 1,
+    "MonoThread.ArenaFix": 1,
+    "MonoThread.N2mPrivate": 1,
+    "MonoThread.LazyGate": 1,
+    "AutShadow.Enabled": 1,
+    "AutShadow.Mode": 1,
+    "AutShadow.Sample": 4,
+    "AutShadow.Audit": 50,
+    "AutShadow.DumpOnMismatch": 1,
+    "AutShadow.WindowWaitUs": 0,
+    "AutShadow.ColdIc": 1,
+    "AutShadow.CutLean": 2,
+    "AutShadow.TierMs": 1500,
+    "AutShadow.ListAudit": 1,
+    "AutShadow.TierClassMs": 1000,
+    "AutShadow.RowHot": 200,
+    "AutShadow.RunSkip": 1,
+    "AutShadow.FreshEvery": 8,
+    "AutShadow.KeepPartial": 1,
+    "AutShadow.Satb": 2,
+    "MonoThread.LazyEarly": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "repro": "rare-big-crowd",
+     "fixesOn": "autshadow,autoffenv,autoffbcast,autoffenvapply,autoffbcastapply,autoffdry,autoffunseen",
+     "fixesRequire": "autoff_env_pick_scoped>=1,autoff_bcast_pick_scoped>=1,autoff_env_exc<1,autoff_bcast_exc<1"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 40,
+   "scriptErrorsMax": 0
+  }
+ ]
+}

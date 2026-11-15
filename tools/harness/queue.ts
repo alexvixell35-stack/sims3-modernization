@@ -225,7 +225,7 @@ export function allowedCorrection(xml: string, allow: string[]): boolean {
 }
 import { EA_PACKAGE_LOCK } from '../dump-locks.ts';
 import { clickLines, dumpHungGame, GUARD_MS, logTail, type ModeSnap, modeExit, modeSnap, noSafeButton, PKG_ABBA, pkgAbba } from './game-alive.ts';
-import { BIN, EA_LAUNCHER, EA_URI, GAME_EXE, gameRunning, isSteamGame, killLeftovers, LAUNCH, logUntrackedGame, MACHINE, machineTag, seenPids } from './game-exe.ts';
+import { BIN, EA_LAUNCHER, EA_URI, GAME_EXE, gameRunning, isSteamGame, killLeftovers, LAUNCH, logUntrackedGame, MACHINE, machineTag, relaunched, seenPids } from './game-exe.ts';
 import { checkCfg as checkFailFast, describe as describeFailFast, routingGuard, type FailFast } from './routing-failfast.ts';
 import { checkRequire, flatDelta, parseRequire, startupDeltaLint } from './fixes-require.ts';
 import { parseHitchTasks } from './hitch-tasks.ts';
@@ -270,7 +270,9 @@ const log = (m: string) => console.log(`${stamp()} queue: ${m}`);
 // ---------------------------------------------------------------- pure parts (covered by --self-check)
 // the "tested" source version: the release define only. ts3native.cpp's first define is the TS3N_RFTEST one ("0.36.189-rftest1",
 // never a release), which made every "tested" job STALE and refused; pr-preflight.ts reads the same digits-only form
-const SRC_VERSION_RE = /#define TS3NATIVE_VERSION "(\d+\.\d+\.\d+)"/;
+// the release define, suffix kept (the build tag 0.36.261-lanes1 left SRC_VERSION undefined on 2026-11-15, which turned the
+// "tested" version check and the pin checks off); the TS3N_RFTEST define stays out
+const SRC_VERSION_RE = /#define TS3NATIVE_VERSION "(\d+\.\d+\.\d+(?!\d|-rftest)[^"]*)"/;
 // machine column / jsonl field only off the main machine: main-machine results stay byte-identical (docs/TESTING.md)
 function machineCols(tag: string) { return tag ? { head: ' machine |', sep: '---|', cell: (m: string) => ` ${m} |` } : { head: '', sep: '', cell: (_m: string) => '' }; }
 function machineField(tag: string): { machineTag?: string } { return tag ? { machineTag: tag } : {}; }
@@ -1080,6 +1082,17 @@ export function pinWarnings(jobs: Job[], src: string | undefined, asiVer: (path:
   }
   return out;
 }
+// old asi under the repo ini (2026-11-15 lane-l3: v0.2.4 0.36.105 ran master's AutShadow Mode=3, refused every async plan and
+// crashed in AsStrKey): a pinned asi older than the source (x.y.z, suffix ignored) needs iniBase = its own ini; a refusal, pinReason or not
+const verNum = (v: string) => /^(\d+)\.(\d+)\.(\d+)/.exec(v)?.slice(1, 4).map(Number);
+export function iniPinRefusals(jobs: Job[], src: string | undefined, asiVer: (path: string) => string | undefined): string[] {
+  const s = src ? verNum(src) : undefined;
+  return jobs.flatMap(j => {
+    if (!s || j.asi === 'tested' || j.iniBase || j.ourMods === false) return [];
+    const v = asiVer(j.asi), x = v ? verNum(v) : undefined, d = x ? x.findIndex((n, i) => n !== s[i]) : -1;
+    return x && d >= 0 && x[d] < s[d] ? [`pin ${j.id}: asi ${j.asi} is ts3native ${v} but Bin/ts3native.ini would be the repo ini (source ${src}): set "iniBase" to that build's ini (game-copy/ts3native.ini.<build>, or the release zip's ts3native.ini)`] : [];
+  });
+}
 // logForbid: { "<regex>": max lines }; failed rules as text
 export function logForbidFails(text: string, forb: Record<string, number>): string[] {
   return Object.entries(forb).flatMap(([re, max]) => { const n = text.split(/\r?\n/).filter(l => new RegExp(re).test(l)).length; return n <= max ? [] : [`log /${re}/ ${n} lines (want <= ${max})`]; });
@@ -1231,6 +1244,7 @@ if (values['self-check']) {
     const src = '#ifdef TS3N_RFTEST\n#define TS3NATIVE_VERSION "0.36.189-rftest1"  // never a release\n#else\n#define TS3NATIVE_VERSION "0.36.239"  // release\n#endif\n';
     assert.equal(SRC_VERSION_RE.exec(src)?.[1], '0.36.239');
     assert.equal(SRC_VERSION_RE.exec('#define TS3NATIVE_VERSION "0.36.189-rftest1"'), null);
+    assert.equal(SRC_VERSION_RE.exec(src.replace('0.36.239"', '0.36.261-lanes1"'))?.[1], '0.36.261-lanes1');
   }
   { // end-of-queue publish hook
     assert.equal(publishPlan({ PERSONAL_GITHUB_TOKEN: 't' }, false, false).run, true);
@@ -1512,6 +1526,12 @@ if (values['self-check']) {
   assert.match(asyncIdle(raOn, {}, null), /^UNKNOWN: \[RouteAsync\] on but \/native did not answer/); assert.match(asyncIdle(raOn, {}, { invokeHook: 1 }), /has no asyncStarted/);
   assert.equal(fixesOnFail(undefined, ''), ''); assert.equal(fixesOnFail('a,b', '12:00:00 fixes on: a,b (verified)\n'), '');
   assert.match(fixesOnFail('a,b', '12:00:00 fixes on: a (verified)\n'), /fixesOn a,b without/);
+  assert.deepEqual(launchArgs(), ['-noupnp']); assert.deepEqual(launchArgs(['-x']), ['-noupnp', '-x']); assert.deepEqual(launchArgs(['-NoUPnP']), ['-NoUPnP']);
+  { // docs/236 #19: unreadable folder = problem, a stat failure counts as new, only ScriptError_*.xml names match
+    const d = mkdtempSync(join(tmpdir(), 'ts3-se-')); writeFileSync(join(d, 'ScriptError_1.xml'), 'x'); writeFileSync(join(d, 'other.xml'), 'x');
+    try { assert.deepEqual(newScriptErrors(d, 0), { files: ['ScriptError_1.xml'], problem: '' }); assert.deepEqual(newScriptErrors(d, Date.now() + 1e6).files, []); } finally { rmSync(d, { recursive: true, force: true }); }
+    assert.match(newScriptErrors(join(tmpdir(), 'ts3-no-such-dir-x'), 0).problem, /cannot read/);
+  }
   { // scriptErrorsAllow: correction-only reports pass, anything else (a Wildflower line, a stack) still FAILs
     const al = ['^Destroyed Object Found: .*NewspaperShreds$', '^Out of World Object Found 2: .*SocialJigOnePerson$', '^Destroyed: .*SocialJigOnePerson.*$'];
     const rep = (c: string) => `<NRaas.ErrorTrap>\n<Content>\n  -- Correction Logs --\n${c}\n\n Loaded Assemblies: A B\n</Content>\n</NRaas.ErrorTrap>`;
@@ -1547,6 +1567,14 @@ if (values['self-check']) {
     '0.36.148', p => (p.endsWith('.now') ? '0.36.148' : '0.36.105'), () => true);
   assert.equal(pw.length, 2); assert.match(pw[0], /^WARN pin old: .*0\.36\.105, source is 0\.36\.148/); assert.match(pw[1], /^WARN pin pkg: fixesPackage/);
   assert.throws(() => parseQueue([{ ...pj('e'), pinReason: ' ' }]), /pinReason/);
+  { // old asi + repo ini refused (the 2026-11-15 lane-l3 pair); same base version with a suffix, iniBase, tested, newer: not
+    const vers: Record<string, string> = { 'game-copy/asi-v024/ts3native.asi': '0.36.105', 'game-copy/ts3native.asi.master-lanes-1115': '0.36.261-lanes1', 'game-copy/n': '0.37.0' };
+    const jobs = parseQueue([{ ...pj('old'), asi: 'game-copy/asi-v024/ts3native.asi', pinReason: 'v0.2.4 arm' }, { ...pj('ib'), asi: 'game-copy/asi-v024/ts3native.asi', iniBase: 'game-copy/asi-v024/ts3native.ini' },
+      { ...pj('lanes'), asi: 'game-copy/ts3native.asi.master-lanes-1115' }, pj('t'), { ...pj('new'), asi: 'game-copy/n' }]);
+    const ir = iniPinRefusals(jobs, '0.36.261-lanes1', p => vers[p]);
+    assert.equal(ir.length, 1); assert.match(ir[0], /^pin old: asi game-copy\/asi-v024\/ts3native\.asi is ts3native 0\.36\.105 .*iniBase/);
+    assert.deepEqual(iniPinRefusals(jobs, undefined, p => vers[p]), []);
+  }
   { const used = new Set(['q-d-j', 'q-d-j-r2']); assert.equal(freeTag('q-d-j', t => used.has(t)), 'q-d-j-r3'); assert.equal(freeTag('q-d-k', t => used.has(t)), 'q-d-k'); }
   // a longer sibling's files (its reruns too) do not take the shorter tag; a stranger with the same start does not either
   { const sib = ['q-d-j', 'q-d-j-x'];
@@ -1571,6 +1599,10 @@ if (values['self-check']) {
   const rids = new Set((JSON.parse(readFileSync(H('repros.json'), 'utf8')) as { id: string }[]).map(r => r.id));
   assert.ok(vq.every(j => j.minCounters === 22 && j.ini?.['Verify.Enabled'] === 1 && j.run.profile?.mainstack === 'main' && rids.has(j.run.profile!.repro!) && (j.timeoutMin ?? 60) <= 25));
   assert.deepEqual(vq.map(j => j.save), ['Baseline-BP', 'Baseline-IP']);
+  // fixed waits count up to the first until/waitUntil step (it stops at the window end)
+  assert.equal(fixedStepMin([{ waitS: 60 }, { waitS: 120 }]), 3);
+  assert.equal(fixedStepMin([{ waitS: 60 }, { waitS: 600, until: {} }, { waitS: 600 }]), 1);
+  assert.equal(fixedStepMin(), 0);
   // the rare-scenario queues (docs/117) parse and point at existing repros
   // the loop example (docs/168 §6): its repro's loop passes checkLoop; the profile-world stop line reaches the row
   const lq = parseQueue(JSON.parse(readFileSync(H('queues/overwatch-loop2.json'), 'utf8')))[0];
@@ -2072,7 +2104,16 @@ if (values.only) {
   if (miss.length) { console.error(`--only: no job ${miss.join(', ')}`); process.exit(2); }
   jobs = jobs.filter(j => ids.includes(j.id));
 }
-const REPROS = JSON.parse(readFileSync(H('repros.json'), 'utf8')) as { id: string; save: string; loop?: Loop }[];
+// minutes a repro's steps always take: fixed waitS run to the end even after the window end, only until/waitUntil steps stop
+// there (repro-loop.ts runSteps), so the job needs this plus load time (golive-checks-1115 2026-11-15: 31 min of crowd_go
+// waits in a 10-min profile hit timeoutMin 30, the timeout kill was reported as a crash)
+function fixedStepMin(steps: { waitS?: number; until?: unknown; waitUntil?: unknown }[] = []): number {
+  let s = 0;
+  for (const t of steps) { if (t.until || t.waitUntil) break; s += t.waitS ?? 0; }
+  return s / 60;
+}
+const REPRO_LOAD_MIN = 3; // load + world ready before the window, measured ~2 min (bp-gf-g7-crowd: 31 min of waits, job 32.8 min)
+const REPROS = JSON.parse(readFileSync(H('repros.json'), 'utf8')) as { id: string; save: string; loop?: Loop; steps?: { waitS?: number; until?: unknown; waitUntil?: unknown }[] }[];
 const loopOfId = (id?: string) => REPROS.find(r => r.id === id)?.loop;
 const loopOf = (j: Job) => { const l = loopOfId(j.run.profile?.repro); return l && withRule(l, j.run.profile?.loopRule); };
 const asiPath = (j: Job) => (j.asi === 'tested' ? TESTED_ASI : resolve(ROOT, j.asi));
@@ -2081,7 +2122,7 @@ const asiPath = (j: Job) => (j.asi === 'tested' ? TESTED_ASI : resolve(ROOT, j.a
 const SRC_VERSION = SRC_VERSION_RE.exec(readFileSync(join(ROOT, 'native', 'ts3native', 'ts3native.cpp'), 'utf8'))?.[1];
 const staleAsi = (j: Job) => {
   if (j.asi !== 'tested' || !existsSync(TESTED_ASI)) return '';
-  const v = /ts3native (\d+\.\d+\.\d+) %04d/.exec(readFileSync(TESTED_ASI).toString('latin1'))?.[1];
+  const v = /ts3native (\d+\.\d+\.\d+\S*) %04d/.exec(readFileSync(TESTED_ASI).toString('latin1'))?.[1];
   return v === SRC_VERSION ? '' : `tested build is ts3native ${v ?? '?'}, source is ${SRC_VERSION}: rebuild with native/ts3native/build.cmd`;
 };
 const saveOf = (j: Job) => j.save ?? (j.run.menuMemory ? 'menu' : REPROS.find(r => r.id === j.run.repro)?.save);
@@ -2133,6 +2174,10 @@ const canTakeOver = (key: string, next?: Job) => !!next && !!reuseOf(next) && !r
 for (const j of jobs) {
   if (j.run.repro && !REPROS.some(r => r.id === j.run.repro)) { console.error(`${j.id}: no repro ${j.run.repro} in tools/harness/repros.json`); process.exit(2); }
   if (j.run.profile?.repro && !REPROS.some(r => r.id === j.run.profile!.repro)) { console.error(`${j.id}: no repro ${j.run.profile.repro} in tools/harness/repros.json`); process.exit(2); }
+  if (j.run.profile?.repro) {
+    const need = fixedStepMin(REPROS.find(r => r.id === j.run.profile!.repro)!.steps) + REPRO_LOAD_MIN;
+    if (need > (j.timeoutMin ?? 60)) { console.error(`${j.id}: timeoutMin ${j.timeoutMin ?? 60} < ${need.toFixed(1)} min: repro ${j.run.profile.repro} fixed waits run past the window end (repro-loop.ts runSteps) plus ${REPRO_LOAD_MIN} min load`); process.exit(2); }
+  }
   try { if (loopOf(j)) { checkLoop(loopOf(j)); if (j.run.profile!.ab || j.run.profile!.untilCompares) throw new Error('a loop repro takes no profile.ab / untilCompares'); } } catch (e: any) { console.error(`${j.id}: repro ${j.run.profile!.repro}: ${e.message}`); process.exit(2); }
   for (const it of itemsOf(j) ?? []) {
     if (!REPROS.some(r => r.id === it.id)) { console.error(`${j.id}: profile.repros: no repro ${it.id} in tools/harness/repros.json`); process.exit(2); }
@@ -2162,6 +2207,8 @@ let fixesSrcAt = 0; // last commit time of the ts3fixes source (ms), for the sta
 try { fixesSrcAt = 1000 * Number(execFileSync('git', ['-C', ROOT, 'log', '-1', '--format=%ct', '--', 'mods/ts3fixes', 'tools/setup/build-fixes.ts']).toString().trim()); } catch { /* not a repo */ }
 const pairs = [...pairWarnings(all), ...pinWarnings(all, SRC_VERSION, p => (existsSync(resolve(ROOT, p)) ? asiVersion(readFileSync(resolve(ROOT, p))) : undefined),
   p => existsSync(resolve(ROOT, p)) && statSync(resolve(ROOT, p)).mtimeMs < fixesSrcAt)];
+const iniRefuse = VANILLA ? [] : iniPinRefusals(all, SRC_VERSION, p => (existsSync(resolve(ROOT, p)) ? asiVersion(readFileSync(resolve(ROOT, p))) : undefined));
+if (iniRefuse.length && !values['dry-run']) { console.error(iniRefuse.map(r => `refusing to start: ${r}`).join('\n')); process.exit(2); }
 
 // measurement smoke (header): planned here so --dry-run shows it, run below before the queue touches the machine
 const smoke = values['no-smoke'] || timingMinutes(jobs) <= SMOKE_OVER_MIN ? null : smokeJob(queueJson, jobs);
@@ -2180,6 +2227,7 @@ if (values['dry-run']) {
   if (VANILLA) console.log(`  vanilla mode (docs/236): ${existsSync(join(vanillaSpec().stash, 'manifest.json')) ? 'stash already installed: read back only, left in place' : `vanilla.ts install at the start (agent ${vanillaSpec().agent ?? '** TS3_AGENT_PACKAGE unset: a real run refuses **'}), restore at the end`}; N/A per row: ${VANILLA_NA.join(', ')}`);
   console.log(`  ${smokeLine}`);
   if (stale) console.log(`** a real run would refuse to start: ${stale}`);
+  for (const r of iniRefuse) console.log(`** a real run would refuse to start: ${r}`);
   if (existsSync(ourModsMf())) console.log(`** ts3native + ts3fixes are in the stash of an unfinished run (${ourModsSpec().stash}): a real run restores them first`);
   for (const w of pairs) console.log(`** ${w}`);
   let dryKey = '', dryWin = 0, dryPrev = '';
@@ -2242,7 +2290,7 @@ if (values['dry-run']) {
     if (j.crashHunt) console.log('  9 crashHunt: crashes do not stop the queue (crash bisect)');
     if (j.fixes?.install?.length) console.log(`  4 node tools/setup/install-fixes.ts install --only ${j.fixes.install.join(',')}   (uninstalled after the job)`);
     if (j.fixes?.uninstall?.length) console.log(`  4 node tools/setup/install-fixes.ts uninstall --only ${j.fixes.uninstall.join(',')}   (reinstalled after the job)`);
-    console.log(`  5 python tools/probe/ts3probe.py serve --launch${j.gameArgs?.length ? ` -- ${j.gameArgs.join(' ')}` : ''}   (child, killed at job end)${LAUNCH === 'ea' ? `; TS3_LAUNCH=ea: ${EA_LAUNCHER} ${EA_URI}, then waits for ${GAME_EXE} (game args are not passed)` : ''}`);
+    console.log(`  5 python tools/probe/ts3probe.py serve --launch -- ${launchArgs(j.gameArgs).join(' ')}   (child, killed at job end)${LAUNCH === 'ea' ? `; TS3_LAUNCH=ea: ${EA_LAUNCHER} ${EA_URI}, then waits for ${GAME_EXE} (game args are not passed)` : ''}`);
     console.log(`  5 ${describePin(pinConfig(j.pin))}; machine load every 30 s -> ${queueName}-<date>-${j.id}-machine.jsonl (noise verdict in the note)${j.run.profile ? (j.noiseCheck === false ? '; early noise check off (noiseCheck false)' : '; early noise check ~2.5 min in: other CPU >= 10% or clock drop stops the job; noisy -> rerun once as ' + (j.rerunOf ? 'none (this is the rerun)' : `${j.id}-rerun`) + ' at the end') : ''}`);
     if (storyCopy(j, s) !== s) console.log(`  6 copy Saves/${saveFile(s)} -> Saves/${saveFile(storyCopy(j, s))}   (story scratch copy, replaced each job; the Baseline file is only read)`);
     console.log(`  6 ${s === 'menu' ? 'wait for the main menu (agent ping)' : `node tools/harness/cycle.ts --save ${saveFile(storyCopy(j, s))}`}`);
@@ -2435,6 +2483,14 @@ const freshCrashReport = (since: string) => {
   try { return readdirSync(USER).some(n => /^xcpt .*\.txt$/i.test(n) && statSync(join(USER, n)).mtime >= new Date(since)); }
   catch { return false; }
 };
+// docs/236 #19: ScriptError_*.xml newer than `since` in dir; a failed readdir or stat is a problem, never "0 new" (an unstat-able file counts as new)
+export function newScriptErrors(dir: string, since: number): { files: string[]; problem: string } {
+  let names: string[]; try { names = readdirSync(dir); } catch (e) { return { files: [], problem: `cannot read ${dir}: ${String(e).split('\n')[0]}` }; }
+  const isNew = (f: string) => { try { return statSync(join(dir, f)).mtimeMs >= since; } catch { return true; } };
+  return { files: names.filter(f => /^ScriptError_.*\.xml$/i.test(f) && isNew(f)), problem: '' };
+}
+// docs/16 §5 #2: every harness launch skips the DirtySock UPnP discovery (0xF73760, SSDP + AddPortMapping on the LAN); no firewall rule
+export function launchArgs(a: string[] = []): string[] { return a.some(x => x.toLowerCase() === '-noupnp') ? a : ['-noupnp', ...a]; }
 const triage = (since: string) => {
   try { return execFileSync(process.execPath, [H('crash-ledger.ts'), 'triage', '--since', since, ...(seenPids.size ? ['--pids', [...seenPids].join(',')] : [])]).toString().trim().split(/\n\s*\n/).at(-1) ?? ''; }
   catch (e) { return `crash-ledger triage failed: ${String(e).split('\n')[0]}`; }
@@ -2616,7 +2672,7 @@ const startProbe = (j: Job) => {
   log(`${j.id}: ${scOut[0]}`);
   if (sc.status === 3) throw new Error(`${scOut[1]}; refused before the game started`); // FAIL, never PASS
   const pf =createWriteStream(join(OUT, `${queueName}-${date}-${j.id}-probe.log`), { flags: 'a' });
-  const pr = probe = spawn('python', [join(ROOT, 'tools', 'probe', 'ts3probe.py'), 'serve', '--launch', '--port', values.port!, ...(j.gameArgs?.length ? ['--', ...j.gameArgs] : [])], { cwd: ROOT });
+  const pr = probe = spawn('python', [join(ROOT, 'tools', 'probe', 'ts3probe.py'), 'serve', '--launch', '--port', values.port!, '--', ...launchArgs(j.gameArgs)], { cwd: ROOT });
   pr.stdout?.pipe(pf); pr.stderr?.pipe(pf); launched = true;
   const clicksFile = noOurs(j) ? join(OUT, `${queueName}-${date}-${j.id}.clicks.log`) : '';
   if (clicksFile) process.env.TS3_CLICKS_LOG = clicksFile; // children (vanilla-steps.ts accept) read the accept lines from it
@@ -2736,7 +2792,7 @@ for (const [n, j] of jobs.entries()) {
   await waitHold(log); // crash-triage build running (hold.ts, AGENTS.md Rules): no next job until it is done
   markJob(j.id); // hold.ts wait-job-end waits for this to go
   const t0 = new Date().toISOString(), deadline = Date.now() + (j.timeoutMin ?? 60) * 60000;
-  seenPids.clear(); // crash pickup: only this job's game PIDs (triage)
+  relaunched.clear(); seenPids.clear(); // crash pickup: only this job's game PIDs (triage)
   // 2026-10-25: a child that threw left the game up; closing it here made the job a CRASH with an old xcpt (sv-jobyield-verify)
   let closedByUs = false;
   const closeLost = () => { closedByUs = gameRunning(); return closeGame(probe?.pid); };
@@ -2763,7 +2819,7 @@ for (const [n, j] of jobs.entries()) {
   }
   const guarded = guardedSaves(s);
   row.saveHashes = { before: hashSaves(SAVES, guarded) };
-  let stopLoad: (() => void) | null = null, iniUsed: string | undefined;
+  let stopLoad: (() => Promise<void>) | null = null, iniUsed: string | undefined;
   // docs/170 §2: sess is still set only when the job before kept its game for this one (same key, reuse on, carry-over check ok)
   const reused = !!sess;
   row.session = reused ? { load: sess!.load, window: sess!.windows, line: `reused session (#${sess!.windows} since load)`, before: sess!.carry ?? null } : { line: 'fresh load' };
@@ -3123,7 +3179,9 @@ for (const [n, j] of jobs.entries()) {
     for (const f of counterGaps(j.ini ?? {}, row.counters.after)) { row.verdict.push(`FAIL: ${f}`); row.selfCheckFail ||= f; }
   } catch (e) { row.error = String((e as Error).message ?? e); log(`${j.id}: ${row.error}`); }
   noiseGuard = null; routeGuard = null; gateGuard = null; // modeGuard stays for the next job of a shared load
-  if (stopLoad) { stopLoad(); const ml = loadSummary(machineFile); Object.assign(row, { machine: ml.line, noise: ml.noise, noiseNote: ml.short, machineLog: machineFile }); log(`${j.id}: ${ml.line}`); }
+  // a machine-load failure never ends the queue (2026-11-15: EBUSY here killed ilpatch-b80-b87 mid-job)
+  if (stopLoad) try { await stopLoad(); const ml = loadSummary(machineFile); Object.assign(row, { machine: ml.line, noise: ml.noise, noiseNote: ml.short, machineLog: machineFile }); log(`${j.id}: ${ml.line}`); if (/unread/.test(ml.short)) (row.verdict ??= []).push('note: machine load unread'); }
+    catch (e) { Object.assign(row, { machine: `machine load unread: ${(e as Error).message ?? e}`, noise: 'unknown', machineLog: machineFile }); (row.verdict ??= []).push('note: machine load unread'); log(`${j.id}: machine load unread: ${(e as Error).message ?? e}`); }
   if (stall && !row.error?.includes(stall)) row.error = [row.error, stall].filter(Boolean).join('; ');
   stall = '';
   // a fresh EA crash report also counts (2026-11-04: the game died while a read-back FAIL closed it, so closedByUs was set
@@ -3169,7 +3227,8 @@ for (const [n, j] of jobs.entries()) {
     if (bad.length) row.pass = false;
   }
   if (j.scriptErrorsMax !== undefined) {
-    const since = Date.parse(t0), news = readdirSync(USER).filter(f => /^ScriptError_.*\.xml$/i.test(f) && statSync(join(USER, f)).mtimeMs >= since);
+    const se = newScriptErrors(USER, Date.parse(t0)), news = se.files;
+    if (se.problem) { row.verdict.push(`FAIL: UNKNOWN: script errors not checked (${se.problem})`); row.pass = false; } // docs/236 #19: an unreadable folder is not "0 new"
     const studied = news.filter(f => { try { return reportedError(readFileSync(join(USER, f), 'utf8'), j.scriptErrorsReport ?? []); } catch { return false; } });
     if (j.scriptErrorsReport) row.verdict.push(`REPORT: ${studied.length} script errors matching ${j.scriptErrorsReport.join(' | ')}${studied.length ? `: ${studied.slice(0, 3).join(', ')}` : ''}`);
     const unknown = news.filter(f => { try { const x = readFileSync(join(USER, f), 'utf8'); return !studied.includes(f) && !matchKnown(x) && !allowedCorrection(x, j.scriptErrorsAllow ?? []); } catch { return true; } });

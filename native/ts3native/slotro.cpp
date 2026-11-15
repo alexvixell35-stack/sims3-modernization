@@ -15,9 +15,9 @@
 // the portal vtable 0xFED048 gets interlocked count functions (PortalAddRefX / PortalReleaseX in lotfd.cpp) for the whole run.
 // Shadow (no job, job starts held off): the game's call, then the call again under a dry hold on a copy of the point, compared.
 
-static const DWORD SL_POS = 0x0076F0A0;
+static const DWORD SL_POS = TS3A(0x0076F0A0);
 static const u8 kSlPro[] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0};  // push ebp; mov ebp,esp; and esp,-16 (no relative operand)
-static const DWORD SL_PFO_RET = 0x0062F782;  // PortalsForObject's return from LotTable_Contains (P1 key of F-B)
+static const DWORD SL_PFO_RET = TS3A(0x0062F782);  // PortalsForObject's return from LotTable_Contains (P1 key of F-B)
 typedef DWORD(__cdecl* SlFn)(float* point, const u8* obj, DWORD ags, DWORD a4);
 static SlFn g_slOrig;
 static __declspec(thread) LONG t_slDry;
@@ -165,7 +165,7 @@ static bool InstallPortalRefX() {
         InterlockedExchange((volatile LONG*)&g_ltRelease, (LONG)x[1]);
         return true;
     }
-    if (vt[0] != 0x0064E8E0 || vt[1] != 0x0064E8F0) return false;
+    if (vt[0] != TS3A(0x0064E8E0) || vt[1] != TS3A(0x0064E8F0)) return false;
     return Write(vt, x, sizeof(x));
 }
 
