@@ -131,11 +131,11 @@ The bug is real (EA's `RidingSkill.ImportContent` reads key 2999955368 into `mCr
 **The bug [verified].**
 - **Zero pulse:** `ApplyLightsToWorld` sets `sNumLightsToApplyPerPulse = (int)(picked/12 + 0.5)`, which is 0 for 1-5 picked lots. No light is ever placed, and the hourly AlwaysPersisted alarm never ends.
 - **Overwritten handle:** a re-run overwrites `sTurnOnLightsAlarm` without removing the alarm it held.
-- **Orphan after load:** the statics are `[PersistableStatic(false)]` but the alarm is saved. After a load mid-trickle, the saved alarm is an orphan that EA can never remove.
+- **Orphan after load:** an alarm overwritten by (b) is saved too, and nothing can remove it after the load. (Corrected 2026-11-15: `[PersistableStatic(false)]` means "not main-menu-only", so the statics ARE saved with the alarm and a saved trickle resumes. The first build's claim that they are not saved was wrong.)
 
 **The fix.**
-- Before EA's call, a held trickle alarm is removed.
-- After it, a 0 pulse with lots waiting becomes 1, and the alarm is made NeverPersisted. A load forgets the lists anyway, as before.
+- Before EA's call, a held trickle alarm is removed, but only when EA rebuilds the lists (`sLotsWithLights` null).
+- After it, a 0 pulse with lots waiting becomes 1. (The first build also made the alarm NeverPersisted. That left a saved handle with no alarm after a load and stranded the trickle, so it is removed.)
 - Load sweep (saved state): trickle alarms other than the held handle are removed.
 
 ## Leads not built
@@ -675,7 +675,7 @@ The user's rule: every EA method we replaced or read for batches 3-8b, and its d
 **Our-code defects fixed:**
 - `oppchainworld` (B5 §5): the hook tested the category the wrong way round. It changed ordinary chains and never reached the adventure branch with EA's typo. It now acts on adventure chains only. EA's walk there can also reach null (NRE, or recursion on null); with the switch on that case clears nothing. **Household-visible.**
 - `digsiteemptypick` (B5 §4): a site whose treasure info does not resolve always picks nothing, and the dig loop ends only at count 0, so the dig could go on forever. After 3 empty digs in a row on one site, the count drops as in EA. **Household-visible.**
-- `holidaylights` (§9): the held trickle alarm was removed even when EA then returned early (`sLotsWithLights` set), which stranded the remaining lots. It is now removed only when EA rebuilds the lists. NPC lots.
+- `holidaylights` (§9): the held trickle alarm was removed even when EA then returned early (`sLotsWithLights` set), which stranded the remaining lots. It is now removed only when EA rebuilds the lists. Batch 9: the statics are saved (`PersistableStatic(false)` = not main-menu-only), so the NeverPersisted step, which left a dangling saved handle, is removed. NPC lots.
 - `doorlockowner` (B4 §1): for an instantiated Sim, EA's own `HouseholdSimChanged` empties the owner list during `Household.Remove`, so the after-check saw nothing gone. Lists holding the Sim are recorded first; a list this removal emptied opens. **Household-visible.**
 - `weddinglistener`, `serviceassignexit`, `lifeguardsurvey`: our post-step now runs in `finally`, so a throw in EA's method (null host, KeyNotFound) no longer skips it.
 - `twinbellyshape` (B6 §4): EA's `SetPregnancy` does not redraw an already-pregnant Sim, so the corrected value never showed. `RefreshBodyShape` now follows. **Household-visible.**
@@ -697,3 +697,42 @@ The user's rule: every EA method we replaced or read for batches 3-8b, and its d
 - WeddingParty / NpcParty CleanUp null guards.
 - `AttemptToPutInSafeLocation` fallback leaving the Sim hidden.
 - Smaller items (review list B14).
+
+## Batch 9 (review queue, Imminent Nemesis)
+
+2026-11-15. Static only. Code: `Batch582iLogic.cs`, checks `Batch582iChecks.cs`, slots 1273-1293. All default off. simler90 UPDATE242 changes none of these methods.
+
+| § | Switch | Slots | Scope | Status |
+|---|---|---|---|---|
+| B9 §1 | `traitremovenull` | 1273-1275 | **household-visible** | verified (Trait.Fixup -> RemoveElement for a missing-pack or removed-CC trait) |
+| B9 §2 | `homeworkcopyold` | 1276-1278 | **household-visible**: copying old homework is slower | verified; design-direction call |
+| B9 §3 | `laundrymoodeach` | 1279-1281 | **household-visible** | verified |
+| B9 §4 | `partycleanupnull` | 1282-1284 | **household-visible** (player parties) | verified derefs; root cause of partylotlistener / weddinglistener |
+| B9 §5 | `safelocunhide` | 1285-1287 | **household-visible** (reset placement) | verified code; reach inferred |
+| B9 §6 | `midlifeuiending` | 1288-1290 | **household-visible**: the crisis ends at the day pass | verified |
+| B9 §7 | `nemesisnoromance` | 1291-1293 | **household-visible** | user decision: option A |
+
+**How each fix works** (details in the code comments):
+- **§1.** `RemoveElement` reads `traitFromDictionary.Guid` with no null test for an instantiated Sim. EA's steps run null-safe; the base step goes through reflection. It shares traitlistenerremove's hook.
+- **§2.** The copy multiplier is read from the copier's own homework, which is never old. The rate is scaled to the copied homework's multiplier.
+- **§3.** The mood multiplier flag is per lot, so only the first Sim gets it, and a re-add can multiply twice. Each buff is raised idempotently to base x multiplier. It shares freshclothingresume's hook.
+- **§4.** `Happening.CleanUp` and `WeddingParty.CleanUp` throw on a gone host or guest before `base.CleanUp`. Where EA would throw, its steps run null-safe, then EA's base, through hook classes that derive from EA's base types.
+- **§5.** The reset fallback in `AttemptToPutInSafeLocation` does not unhide. It now runs EA's found-spot unhide steps. It shares hiddenroomspawn's hook.
+- **§6.** The moodlet tooltip getter `GetMinutesLeft` called `SuccessfulEnding`. It now returns EA's value with no side effect.
+- **§7.** `CanHaveRomanceWith` is dropped. Both Sims must be human and child or older (the forced Fight! social's ages).
+
+**Folded into existing switches (logic changed, so off/on retest):**
+- `rolenullguard`: `FutureFoodSynthesizer.TestIfSocialValid` had the same typo, and throws on an active role with no giver.
+- `sandwichalarm`: the theatre one-shot does nothing while a player show runs.
+- `talkoccupationchance`: the best-choice cap was off by one (6 shown where the tuning says at most 5); the seed is called only with occupations left.
+- `elevatorridertimeout`: the failsafe return clears the entry's sleeping flag and task.
+- `holidaylights` correction: `[PersistableStatic(false)]` means "not main-menu-only", so the statics are saved. The NeverPersisted step left a dangling saved handle and is removed.
+
+**Not built:**
+- `Service.CreateSim` slot fallback: EA keeps the last routable door slot (the resident's own side) on purpose as a fallback; a bad elevator spot is already moved by `hiddenroomspawn`.
+- `HolidayHouseLights.SeasonChanged` null order: the listener only receives SeasonTransitionEvent, so it is unreachable. The "statics not saved" item was a false premise.
+- InnerBeauty broadcaster re-create / RemoveEffects null: inferred; needs a load test.
+- Werewolf / fairy alarm handles: the alarms belong to the old Sim object and go with it.
+- Elevator StateMachineClient release: EA's pattern everywhere.
+
+**Lecture (lecturebroadcaster), not changed:** EA starts the broadcaster in the social's `peau` (after-update) callback, once the speech animation has ended. Disposing it when the interaction ends would remove it at once. The effect is meant to outlast the speech; the sibling `BeInspirational` is tuned to 30 minutes. This needs the user's call.

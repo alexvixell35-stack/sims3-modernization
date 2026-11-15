@@ -412,6 +412,8 @@ namespace Ts3Fixes
                 if (E2Fire(true, SimClock.ElapsedTime(TimeUnit.Minutes, mine), 0f))
                 {
                     PatchCounters()[1172]++;
+                    sErSleeping.SetValue(entry, false);  // batch 9 tidy: EA's failsafe return left the entry asleep with its task
+                    sErTask.SetValue(entry, Simulator.kBadObjectGuid);
                     s.SetObjectToReset();
                     Simulator.Sleep(0u);
                     return false;

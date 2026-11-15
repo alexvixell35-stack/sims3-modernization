@@ -236,6 +236,13 @@ namespace Ts3Fixes
             ApplyInnerBeautyOnce();   // docs/582 B8b §2
             ApplyBetrayedNullSim();   // docs/582 B8b §3
             ApplyOppTrackerRelisten();   // docs/582 B8b §5
+            ApplyTraitRemoveNull();   // docs/582 B9 §1
+            ApplyHomeworkCopyOld();   // docs/582 B9 §2
+            ApplyLaundryMoodEach();   // docs/582 B9 §3
+            ApplyPartyCleanupNull();   // docs/582 B9 §4
+            ApplySafeLocUnhide();   // docs/582 B9 §5
+            ApplyMidlifeUiEnding();   // docs/582 B9 §6
+            ApplyNemesisNoRomance();   // docs/582 B9 §7
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -678,6 +685,13 @@ namespace Ts3Fixes
         // [1264-1266] betrayednullsim (Batch582hLogic.cs, docs/582 B8b §3): notices shown and break-ups done / seen with switch off / errors.
         // [1267-1269] topictestnull (Batch582hLogic.cs, docs/582 B8b §4): throws avoided / seen with switch off / errors.
         // [1270-1272] opptrackerrelisten (Batch582hLogic.cs, docs/582 B8b §5): duplicate registrations avoided / seen with switch off / errors.
+        // [1273-1275] traitremovenull (Batch582iLogic.cs, docs/582 B9 §1): removals finished / would have thrown (switch off) / errors.
+        // [1276-1278] homeworkcopyold (Batch582iLogic.cs, docs/582 B9 §2): loop ticks at the old rate / seen with switch off / errors.
+        // [1279-1281] laundrymoodeach (Batch582iLogic.cs, docs/582 B9 §3): buffs given the multiplier / Sims EA left without it (switch off) / errors.
+        // [1282-1284] partycleanupnull (Batch582iLogic.cs, docs/582 B9 §4): cleanups finished null-safe / would have thrown (switch off) / errors.
+        // [1285-1287] safelocunhide (Batch582iLogic.cs, docs/582 B9 §5): fallback placements unhidden / seen with switch off / errors.
+        // [1288-1290] midlifeuiending (Batch582iLogic.cs, docs/582 B9 §6): reads that would have ended the crisis / seen with switch off / errors.
+        // [1291-1293] nemesisnoromance (Batch582iLogic.cs, docs/582 B9 §7): nemeses made where EA's romance test refused / seen with switch off / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -1128,6 +1142,13 @@ namespace Ts3Fixes
                 case "betrayednullsim": return Instantiator.kBetrayedNullSim;
                 case "topictestnull": return Instantiator.kTopicTestNull;
                 case "opptrackerrelisten": return Instantiator.kOppTrackerRelisten;
+                case "traitremovenull": return Instantiator.kTraitRemoveNull;
+                case "homeworkcopyold": return Instantiator.kHomeworkCopyOld;
+                case "laundrymoodeach": return Instantiator.kLaundryMoodEach;
+                case "partycleanupnull": return Instantiator.kPartyCleanupNull;
+                case "safelocunhide": return Instantiator.kSafeLocUnhide;
+                case "midlifeuiending": return Instantiator.kMidlifeUiEnding;
+                case "nemesisnoromance": return Instantiator.kNemesisNoRomance;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

@@ -29,6 +29,9 @@ namespace Ts3Fixes
         // random chance is 0 whenever any occupation is left over (1 only when none is). Intent: 1/(count+1) as a float.
         // The copy keeps EA's order of steps, its RandomChance01 draw (EA draws even at chance 0), its sort (EA's own
         // ImpressMerticTuple list) and its loop limits. Household-visible: the player's pie menu may now offer Unemployment.
+        // Also (batch 9, 2026-11-15 review): EA's best-choice cap tests `num > k` before adding, so the menu gets k + 1 best
+        // choices (6 where the tuning says "at most 5"); the copy stops at k. GetRandomSeed is called only when some
+        // occupation is left (it takes `% count`; with none left EA's loop adds nothing anyway).
         // Counters: [1199] menus built by the copy, [1200] Unemployment offered only through the fixed chance, [1201] errors.
         static MethodInfo sTaoOccPts, sTaoUnempPts, sTaoSeed;
         static ConstructorInfo sTaoTuple;
@@ -59,6 +62,13 @@ namespace Ts3Fixes
             Patch(typeof(TalkAboutOccupation.Definition), "AddInteractions", new Type[] { typeof(InteractionObjectPair), typeof(Sim), typeof(Sim), typeof(List<InteractionObjectPair>) }, typeof(BTaoHook), "AddHook", "AddOrig");
         }
 
+        // Pure: room for another best choice? (EA, on false: `num > kBest` / `num > kMax`, one too many)
+        internal static bool TaoRoomForBest(bool on, int num)
+        {
+            if (!on) return !(num > TalkAboutOccupation.kMaximumNumberOfBestChoiceOccupationsInPieMenu) && !(num > TalkAboutOccupation.kMaximumNumberOfOccupationsInPieMenu);
+            return num < TalkAboutOccupation.kMaximumNumberOfBestChoiceOccupationsInPieMenu && num < TalkAboutOccupation.kMaximumNumberOfOccupationsInPieMenu;
+        }
+
         static void TaoAdd(Sim actor, Sim target, List<InteractionObjectPair> results)
         {
             List<ulong> list = null;
@@ -86,8 +96,7 @@ namespace Ts3Fixes
             int num = 0;
             for (int i = 0; i < list2.Count; i++)
             {
-                if (num > TalkAboutOccupation.kMaximumNumberOfBestChoiceOccupationsInPieMenu) break;
-                if (num > TalkAboutOccupation.kMaximumNumberOfOccupationsInPieMenu) break;
+                if (!TaoRoomForBest(true, num)) break;
                 object t = list2[i];
                 if ((float)sTaoScore.GetValue(t, null) <= 0f) break;
                 ulong metric = (ulong)sTaoMetric.GetValue(t, null);
@@ -105,6 +114,7 @@ namespace Ts3Fixes
                 num++;
             }
             int left = count;
+            if (count <= 0) return;
             int idx = (int)sTaoSeed.Invoke(null, new object[] { actor, target, count });
             while (num < TalkAboutOccupation.kMaximumNumberOfOccupationsInPieMenu && left > 0)
             {

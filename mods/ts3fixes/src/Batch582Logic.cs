@@ -529,15 +529,15 @@ namespace Ts3Fixes
         //  (a) sNumLightsToApplyPerPulse = (int)(picked / 12 + 0.5) is 0 for 1-5 picked lots: no light is ever placed, the
         //      list never empties and the alarm repeats for good (small worlds, Low/Medium processor setting);
         //  (b) the add overwrites sTurnOnLightsAlarm without removing the held one;
-        //  (c) the statics are not saved ([PersistableStatic(false)]) but the alarm is: after a load mid-trickle the saved
-        //      alarm is an orphan that EA can never remove (TrickleOnHouseLights removes the invalid static handle) and
-        //      fires hourly for good.
+        //  (c) [corrected 2026-11-15, batch 9 review] the first build said the statics are not saved. [PersistableStatic(false)]
+        //      means "not main-menu-only": they ARE saved with the alarm (PostLoadInit reads sCustomLightColors after a load),
+        //      so a saved trickle resumes. Making the alarm NeverPersisted (first build) left a saved handle pointing at no
+        //      alarm after a load, which stranded the trickle; that part is removed.
         // Fix (at creation): before EA's ApplyLightsToWorld a held trickle alarm is removed, but only when EA will rebuild
         // the lists (sLotsWithLights null; EA returns at once otherwise and a running trickle must keep its alarm, review
         // 2026-11-15: the cheat or a second call mid-winter stranded the remaining lots); after it, a 0 pulse with lots
-        // waiting becomes 1, and the new alarm is made NeverPersisted (a load forgets the lists anyway, as before; nothing
-        // EA reads needs the saved alarm). Saved orphans: at world load (switch on) TrickleOnHouseLights alarms other than
-        // the held handle are removed.
+        // waiting becomes 1. At world load (switch on) TrickleOnHouseLights alarms other than the held handle (left over
+        // from (b) in a save) are removed.
         // Counters: [1143] pulses raised from 0 (on), [1144] held alarms removed before the re-add, [1145] saved orphans
         // removed at load, [1146] errors (and the 0 pulse seen with the switch off is not counted separately).
         static readonly FieldInfo sHlAlarm = typeof(HolidayHouseLights).GetField("sTurnOnLightsAlarm", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
@@ -612,8 +612,6 @@ namespace Ts3Fixes
                     int pulse = (int)sHlPulse.GetValue(null);
                     int put = HlPulse(true, pulse, lots != null ? lots.Count : 0);
                     if (put != pulse) { sHlPulse.SetValue(null, put); PatchCounters()[1143]++; }
-                    AlarmHandle h = (AlarmHandle)sHlAlarm.GetValue(null);
-                    if (h != AlarmHandle.kInvalidHandle) AlarmManager.Global.SetAlarmType(h, AlarmType.NeverPersisted);
                 }
                 catch (Exception) { PatchCounters()[1146]++; }
             }

@@ -36,8 +36,8 @@ namespace Ts3Fixes
             if (what == "result") return counters;
             if (what != "run") return "talkoccupationchance <run|result>";
             bool on = ShortcutOn("talkoccupationchance");
-            bool fixedNow = TaoChance(on, 3) == 0.25f && TaoChance(on, 1) == 0.5f;
-            bool controls = TaoChance(on, 0) == 1f;
+            bool fixedNow = TaoChance(on, 3) == 0.25f && TaoChance(on, 1) == 0.5f && (!on || !TaoRoomForBest(true, Sims3.Gameplay.CelebritySystem.TalkAboutOccupation.kMaximumNumberOfBestChoiceOccupationsInPieMenu));
+            bool controls = TaoChance(on, 0) == 1f && TaoRoomForBest(true, 0) && TaoRoomForBest(false, Sims3.Gameplay.CelebritySystem.TalkAboutOccupation.kMaximumNumberOfBestChoiceOccupationsInPieMenu);
             return B582Line("talkoccupationchance", on, "3 left -> 0.25, 1 left -> 0.5", fixedNow, "none left -> 1=" + controls, controls, sTaoMissing, counters);
         }
 
