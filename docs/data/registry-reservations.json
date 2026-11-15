@@ -4093,6 +4093,296 @@
       "what": "outfitwaitpoll household rule (OutfitWait.cs, docs/580 §15): stale waits kept on EA's per-tick loop because the Sim is the player's",
       "at": "2026-11-15T16:13:21.538Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-998",
+      "kind": "fixes",
+      "from": 998,
+      "to": 1000,
+      "by": "claude",
+      "what": "sandwichalarm (SandwichAlarm.cs, docs/580 §16): stale daily sandwich-board alarms removed before EA re-adds / seen with switch off / errors",
+      "at": "2026-11-15T16:24:43.755Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1001",
+      "kind": "fixes",
+      "from": 1001,
+      "to": 1001,
+      "by": "claude",
+      "what": "sandwichalarm load sweep (SandwichAlarm.cs, docs/580 §16): saved duplicate ResetSandwichBoards alarms removed",
+      "at": "2026-11-15T16:27:15.536Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1002",
+      "kind": "fixes",
+      "from": 1002,
+      "to": 1005,
+      "by": "claude",
+      "what": "dreamcleanup (DreamCleanup.cs, docs/580 §18): pet-subject nodes unfiled / woken repeatables re-filed / seen with switch off / errors",
+      "at": "2026-11-15T16:46:51.281Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1006",
+      "kind": "fixes",
+      "from": 1006,
+      "to": 1008,
+      "by": "claude",
+      "what": "vehiclefxhelper (docs/582 §1)",
+      "at": "2026-11-15T19:28:33.173Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1009",
+      "kind": "fixes",
+      "from": 1009,
+      "to": 1011,
+      "by": "claude",
+      "what": "prankditchempty (docs/582)",
+      "at": "2026-11-15T19:34:48.829Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1012",
+      "kind": "fixes",
+      "from": 1012,
+      "to": 1015,
+      "by": "claude",
+      "what": "serviceassignexit (docs/582)",
+      "at": "2026-11-15T19:34:48.914Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1016",
+      "kind": "fixes",
+      "from": 1016,
+      "to": 1018,
+      "by": "claude",
+      "what": "serviceshowalarm (docs/582)",
+      "at": "2026-11-15T19:34:48.997Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1022",
+      "kind": "fixes",
+      "from": 1022,
+      "to": 1024,
+      "by": "claude",
+      "what": "maildogchaser (docs/582)",
+      "at": "2026-11-15T19:34:49.158Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1025",
+      "kind": "fixes",
+      "from": 1025,
+      "to": 1027,
+      "by": "claude",
+      "what": "lifeguardsurvey (docs/582)",
+      "at": "2026-11-15T19:34:49.241Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1028",
+      "kind": "fixes",
+      "from": 1028,
+      "to": 1030,
+      "by": "claude",
+      "what": "moonriselistener (docs/582)",
+      "at": "2026-11-15T19:34:49.321Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1031",
+      "kind": "fixes",
+      "from": 1031,
+      "to": 1034,
+      "by": "claude",
+      "what": "holidaylights (docs/582)",
+      "at": "2026-11-15T19:34:49.411Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1035",
+      "kind": "fixes",
+      "from": 1035,
+      "to": 1039,
+      "by": "claude",
+      "what": "doorlockowner (batch 4)",
+      "at": "2026-11-15T20:06:23.312Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1040",
+      "kind": "fixes",
+      "from": 1040,
+      "to": 1042,
+      "by": "claude",
+      "what": "elevatorkitten (batch 4)",
+      "at": "2026-11-15T20:06:23.396Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1043",
+      "kind": "fixes",
+      "from": 1043,
+      "to": 1045,
+      "by": "claude",
+      "what": "elevatorresetriders (batch 4)",
+      "at": "2026-11-15T20:06:23.483Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1046",
+      "kind": "fixes",
+      "from": 1046,
+      "to": 1049,
+      "by": "claude",
+      "what": "elevatorsavedlog (batch 4)",
+      "at": "2026-11-15T20:06:23.571Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1050",
+      "kind": "fixes",
+      "from": 1050,
+      "to": 1052,
+      "by": "claude",
+      "what": "starlightreset (batch 4)",
+      "at": "2026-11-15T20:06:23.655Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1053",
+      "kind": "fixes",
+      "from": 1053,
+      "to": 1055,
+      "by": "claude",
+      "what": "moondiallistener (batch 4)",
+      "at": "2026-11-15T20:06:23.740Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1056",
+      "kind": "fixes",
+      "from": 1056,
+      "to": 1058,
+      "by": "claude",
+      "what": "snublistener (batch 4)",
+      "at": "2026-11-15T20:06:23.820Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1059",
+      "kind": "fixes",
+      "from": 1059,
+      "to": 1061,
+      "by": "claude",
+      "what": "elevatorridertimeout (batch 4 E2)",
+      "at": "2026-11-15T20:15:10.745Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1062",
+      "kind": "fixes",
+      "from": 1062,
+      "to": 1064,
+      "by": "claude",
+      "what": "rolenullguard (batch 5, docs/583 lead)",
+      "at": "2026-11-15T20:21:06.439Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1065",
+      "kind": "fixes",
+      "from": 1065,
+      "to": 1067,
+      "by": "claude",
+      "what": "homeworkskillbonus (batch 5, docs/583 lead)",
+      "at": "2026-11-15T20:21:06.602Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1068",
+      "kind": "fixes",
+      "from": 1068,
+      "to": 1070,
+      "by": "claude",
+      "what": "horseranchchallenge (batch 5, docs/583 lead)",
+      "at": "2026-11-15T20:21:06.795Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1071",
+      "kind": "fixes",
+      "from": 1071,
+      "to": 1073,
+      "by": "claude",
+      "what": "digsiteemptypick (batch 5, docs/583 lead)",
+      "at": "2026-11-15T20:21:06.997Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1074",
+      "kind": "fixes",
+      "from": 1074,
+      "to": 1076,
+      "by": "claude",
+      "what": "oppchainworld (batch 5, docs/583 lead)",
+      "at": "2026-11-15T20:21:07.186Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1077",
+      "kind": "fixes",
+      "from": 1077,
+      "to": 1079,
+      "by": "claude",
+      "what": "teleportcommunitylot (batch 5, docs/583 lead)",
+      "at": "2026-11-15T20:21:07.369Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1080",
+      "kind": "fixes",
+      "from": 1080,
+      "to": 1082,
+      "by": "claude",
+      "what": "photosubjectstars (batch 5, docs/583 lead)",
+      "at": "2026-11-15T20:21:07.568Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-583",
+      "kind": "doc",
+      "from": 583,
+      "to": 583,
+      "by": "claude",
+      "what": "DoorMemoX mode 3: door memo with managed inputs in the generation",
+      "at": "2026-11-15T20:26:47.827Z",
+      "worktree": "/home/<user>/dev/s3m-doormemo"
+    },
+    {
+      "id": "fixes-1083",
+      "kind": "fixes",
+      "from": 1083,
+      "to": 1086,
+      "by": "claude",
+      "what": "residentspawnslot (batch 5b, spawn-slot stand-in)",
+      "at": "2026-11-15T20:34:00.300Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1087",
+      "kind": "fixes",
+      "from": 1087,
+      "to": 1092,
+      "by": "claude",
+      "what": "talkoccupationchance, shelldoorsummon (batch 5 leads 7, 8)",
+      "at": "2026-11-15T20:36:37.226Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

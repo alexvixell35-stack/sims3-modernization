@@ -147,6 +147,7 @@ woohootywait
 # partyoutcome: the registry row proves partymotive only; partyoutcome stays idle beside the core mod (docs/554):
 #   partyoutcome
 # built 2026-11-15, in-game off/on test pending (docs/575-577); move to the set once proven:
-#   petputdownwait puddlereach scarepriority
+#   petputdownwait puddlereach scarepriority sandwichalarm dreamcleanup
+#   vehiclefxhelper prankditchempty serviceassignexit serviceshowalarm maildogchaser lifeguardsurvey moonriselistener holidaylights doorlockowner elevatorkitten elevatorresetriders elevatorsavedlog starlightreset moondiallistener snublistener elevatorridertimeout rolenullguard homeworkskillbonus horseranchchallenge digsiteemptypick oppchainworld teleportcommunitylot photosubjectstars residentspawnslot talkoccupationchance shelldoorsummon
 # diagnostics (log only):
 #   socialreplanlog barorderlog routecauselog
