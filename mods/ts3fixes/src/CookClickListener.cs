@@ -25,8 +25,8 @@ namespace Ts3Fixes
     // ObjectDisposed, and FutureFoodSynthesizer re-points it without re-adding: in all three, ClearObjectListeners can no
     // longer unhook ObjectDisposed from the object it was added to, so that handler stays for the appliance's lifetime.
     //
-    // The fix (switch on): every process AddObjectListeners hooks is noted with the object it hooked. A few noted entries
-    // are checked on each later AddObjectListeners call (no alarm): a process whose Owner has been destroyed for
+    // The fix (switch on): every process AddObjectListeners hooks is noted with the object it hooked. The noted entries
+    // are checked hourly (CookClickPass, never inside AddObjectListeners; see there): a process whose Owner has been destroyed for
     // kCcDeadMinutes gets EA's own ClearObjectListeners. After any ClearObjectListeners, and for an entry whose state
     // listener EA already removed, ObjectDisposed is also unhooked from the object it was added to when ObjectClickedOn no
     // longer points there. A dead process's handlers only write its own fields, so removing them changes nothing any Sim
@@ -42,7 +42,7 @@ namespace Ts3Fixes
         sealed class CcEntry { public CookingProcess P; public GameObject Hooked; public long DeadSince; }
         static readonly List<CcEntry> sCcNoted = new List<CcEntry>();  // sim thread only
         static int sCcNext;
-        const int kCcNotedMax = 4096, kCcCheckPerAdd = 8;
+        const int kCcNotedMax = 4096;
         const float kCcDeadMinutes = 10f;
 
         static void ApplyCookClickListener()
@@ -88,7 +88,17 @@ namespace Ts3Fixes
             }
             e.Hooked = hooked;
             e.DeadSince = 0;
-            CcCheck(kCcCheckPerAdd, false);
+        }
+
+        // Hourly (ErrorTrapSims' alarm, sHourlyPasses), never inside AddObjectListeners. The check used to run 8 entries on
+        // every AddObjectListeners call, i.e. inside the household's own cooking and serving interactions; with it there the
+        // Bridgeport all-on bisect (2026-11-15) showed household bathroom PortalLocked replan bursts (57/32/38 per run vs
+        // 0-4 without the switch). No code path from the cleanup to routing or privacy was found, so the work now runs at a
+        // quiet moment and skips entries whose appliance is in use right now.
+        public static void CookClickPass()
+        {
+            if (sCcNoted.Count == 0 || !ShortcutOn("cookclicklistener")) return;
+            try { CcCheck(sCcNoted.Count, false); } catch (Exception) { PatchCounters()[2414]++; }
         }
 
         static CcEntry CcFind(CookingProcess p)
@@ -141,6 +151,7 @@ namespace Ts3Fixes
                 if (owner == null || !owner.HasBeenDestroyed) { e.DeadSince = 0; continue; }  // no owner yet / live serving
                 if (e.DeadSince == 0) e.DeadSince = now;
                 if (!force && now - e.DeadSince < wait) continue;
+                if (!force && e.P.ObjectClickedOn != null && e.P.ObjectClickedOn.InUse) continue;  // appliance busy: next pass
                 if (clear == null) clear = new List<CcEntry>();
                 if (!clear.Contains(e)) clear.Add(e);
             }

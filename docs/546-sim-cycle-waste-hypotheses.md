@@ -532,7 +532,7 @@ EA's Cleanup, counts the board's broadcasters: off BROKEN (+2 left), on FIXED (+
 arm's pair. Repro `shuffleboard-broadcast-leak` (any world with an idle shuffleboard; Bridgeport). Natural check: census
 `broadcasters.by_object_type.Shuffleboard` stays near 2 per board in use.
 
-**cookclicklistener [built, proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15].** `CookClickListener.cs`, tuning `kCookClickListener` (off). Hooks
+**cookclicklistener [built; proven in game 2026-11-15 after rework (pass moved to the hourly sweep, in-use appliances skipped): off BROKEN / on FIXED; all-on Bridgeport soak 0739: household-lot Replan-sync PortalLocked 0 (first version: 57/32/38 vs off 4/0/4, bisected 2026-11-15). Was proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED. Bisect: Trawler Lodge Replan-sync PortalLocked 57/32/38 with it on, 4/0/4 off, 0 with all-on minus it (phase-20261115-0702); bursts of ~10 replans by one household Sim toward the toilet/shower/keyboard while the room is privacy-locked. No code path from the cleanup to routing found [verified: EventTracker defers removals from a list being dispatched]. Changed 2026-11-15, untested: the check runs in the hourly pass instead of inside every AddObjectListeners call, and skips appliances in use].** `CookClickListener.cs`, tuning `kCookClickListener` (off). Hooks
 `CookingProcess.AddObjectListeners` (notes the process and the object it hooked; checks 8 noted entries per call, no
 alarm) and `ClearObjectListeners` (drops the note; unhooks `ObjectDisposed` from the original object when `ObjectClickedOn`
 was nulled or re-pointed). A process whose Owner has been destroyed for 10 sim-minutes gets EA's own
