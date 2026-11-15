@@ -3008,6 +3008,13 @@ struct Ts3nCounters {
     volatile LONG ppNoMgr;                 // +0x634C, Resolve calls with no resource manager yet
     LONG ppSpare;                          // +0x6350
 };
+// [RouteAsync] ReadyDrain (default 0, docs: issue "why off-screen plans take 500-800 ms"): on the READY poll of the job the worker
+// runs now, serve every managed call it posts within a small budget (not one per poll), and answer "done" in the same poll when
+// the job ended meanwhile. Same calls, same order, same thread (the job's owner); only sooner. Own exported block, so the
+// counters layout (docs/registry.md) is unchanged: polls that drained, calls served past the first, polls answered done by
+// the drain (a frame each, saved), budget ends with the job still running.
+struct ReadyDrainCounters { volatile LONG mode, budgetUs, polls, served, saved, budgetHits; LONG maxUs; };
+extern "C" __declspec(dllexport) ReadyDrainCounters ts3native_readydrain = {0, 2000, 0, 0, 0, 0, 0};
 extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {912,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -3171,6 +3178,16 @@ static void MaybeLogCounters(ULONGLONG now) {
     if (c.eoReady) EoLogCounters();
     if (c.mwReady || c.gvReady || c.ikReady) MwLogCounters();  // docs/178 §9
     if (c.p6wReady) P6wLogCounters();  // docs/189 phase 0
+    if (ts3native_readydrain.mode)
+        Log("route ready drain: budget %ld us, polls %ld, calls served past the first %ld, done in the same poll %ld, budget ends %ld, "
+            "max %ld us", ts3native_readydrain.budgetUs, ts3native_readydrain.polls, ts3native_readydrain.served,
+            ts3native_readydrain.saved, ts3native_readydrain.budgetHits, ts3native_readydrain.maxUs);
+    if (c.hcReady & 1)  // [RouteJobPhases] HostSplit=1 (hostcalls.cpp): per serve site n / queue ms; serve, return, nested ms
+        Log("route host calls: pump918 %ld/%ld pumpOther %ld/%ld ready %ld/%ld asyncDone %ld/%ld jobDone %ld/%ld runPlan %ld/%ld, "
+            "queue max %ld ms, serve %ld ms (max %ld), return %ld ms, nested %ld ms", c.hcN[0], c.hcQueueUs[0] / 1000, c.hcN[1],
+            c.hcQueueUs[1] / 1000, c.hcN[2], c.hcQueueUs[2] / 1000, c.hcN[3], c.hcQueueUs[3] / 1000, c.hcN[4], c.hcQueueUs[4] / 1000,
+            c.hcN[5], c.hcQueueUs[5] / 1000, c.hcQueueMaxUs / 1000, c.hcServeUs / 1000, c.hcServeMaxUs / 1000, c.hcReturnUs / 1000,
+            c.hcNestedUs / 1000);
     if (c.workerReady || c.asyncReady)
         Log("route plans: off %ld (fails %ld) on %ld (fails %ld) hostCalls %ld", c.planOffCalls, c.planOffFails, c.planOnCalls, c.planOnFails, c.hostCalls);
     static LONG xcptSkipLogged;  // docs/172 §7: repeats per logged address, only when the total moved
@@ -5228,6 +5245,7 @@ static u8 ArRf3(int idx, bool fgn, DWORD handle, u8 r, int why = -1) {
     InterlockedIncrement(&ts3native_counters.arRf3[fgn ? 1 : 0][why]);
     return r;
 }
+static bool ReadyDrain(AsyncJob* j);  // [RouteAsync] ReadyDrain, below
 static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD options2) {
     if ((u8)options2 && optHi == kWouldHi) return ArWould(handle, optLo);
     if ((u8)options2 && optHi == kJobBusyHi && !optLo) return JyBusy();  // docs/183
@@ -5300,7 +5318,7 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
     }
     if (j && (j->state == J_QUEUED || j->state == J_RUNNING)) {
         if (WaitForSingleObject(g_invReady, 0) == WAIT_OBJECT_0) ServeInvoke(HC_READY);  // keep the running job moving
-        return 0;
+        if (!ReadyDrain(j)) return 0;
     }
     if (j && j->state == J_SKIPPED) {  // not planned (world changed): the plan runs synchronously
         InterlockedExchange(&j->state, J_FREE);
@@ -5309,6 +5327,37 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
     }
     g_collect = j ? handle : 0;
     return 1;
+}
+
+// [RouteAsync] ReadyDrain (see ReadyDrainCounters): called by READY after its one serve, owner thread only. Drains only the job
+// the worker is running now (a queued job posts nothing yet); spins with Sleep(0) between checks, never blocks on an event the
+// other waits use. true = the job is DONE / SKIPPED now: READY goes on and reports it.
+static bool ReadyDrain(AsyncJob* j) {
+    ReadyDrainCounters& d = ts3native_readydrain;
+    if (!d.mode || j->state != J_RUNNING || g_async.state != A_RUNNING || g_async.handle != j->handle) return false;
+    InterlockedIncrement(&d.polls);
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    for (;;) {
+        if (WaitForSingleObject(g_invReady, 0) == WAIT_OBJECT_0) {
+            ServeInvoke(HC_READY);
+            InterlockedIncrement(&d.served);
+        }
+        const LONG st = j->state;
+        if (st == J_DONE || st == J_SKIPPED) {
+            InterlockedIncrement(&d.saved);
+            Max(&d.maxUs, UsSince(t0));
+            return true;
+        }
+        if (st != J_RUNNING) return false;  // dropped or reused meanwhile: the poll answers "not yet", as before
+        const LONG us = UsSince(t0);
+        if (us >= d.budgetUs) {
+            InterlockedIncrement(&d.budgetHits);
+            Max(&d.maxUs, us);
+            return false;
+        }
+        Sleep(0);
+    }
 }
 
 // Every Lock_Acquire in the game passes through here; only the job owner's waits during a job are changed (INFINITE and
