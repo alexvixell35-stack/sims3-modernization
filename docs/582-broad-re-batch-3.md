@@ -590,3 +590,54 @@ Live confirmation:
 Repros `<switch>-check`: `boatstaleswimmer`, `oppcategoryprotect`, `nocommercialcar`, `scavengernolot`, `partylotlistener`. Live confirmation:
 - **B7 §5:** [1231] with the switch off in a save that has had NPC parties.
 - **B7 §1:** [1219] after boat trips with swimmers.
+
+**Proven 2026-11-15 (s56, phase-20261115-2218 smallfix, off BROKEN / on FIXED):** `boardingschoolmoney`, `boatstaleswimmer`, `disposebase`, `freshclothingresume`, `homeworkskillbonus`, `nocommercialcar`, `oppcategoryprotect`, `partylotlistener`, `residentspawnslot`, `scavengernolot`, `shelldoorsummon`, `talkoccupationchance`, `twinbellyshape` (moved into `tools/harness/sets/proven-fixes.txt`). `dreamcleanup` was ERROR both ways; see B8 notes.
+
+## Batch 8 (REA tranche 4, docs/584 §7; coverage sweep, docs/586; CD30 spawn walk)
+
+2026-11-15. Static only. Code: `Batch582gLogic.cs`, checks `Batch582gChecks.cs`; §8 in `ResidentSpawnSlot.cs`. Slots 1233-1257. All switches off by default. simler90 UPDATE242 changes none of these methods (its `Secrets.cs` has the same key bug), and none was hooked before (`docs/data/swap-stack-audit.csv`).
+
+| § | Lead | Switch | Slots | Scope | Status |
+|---|---|---|---|---|---|
+| B8 §1 | REA R4 | `trashpileimport` | 1233-1236 | **household-visible**: an imported pile ages and smells once | verified |
+| B8 §2 | coverage #1 | `catgymwatch` | 1237-1239 | **household-visible**: passers-by now watch a cat on the jungle gym | verified |
+| B8 §3 | coverage #3 | `badsecretkey` | 1240-1242 | **household-visible**: the bad relationship secret text shows | verified |
+| B8 §4 | coverage 2 #1 | `traitlistenerremove` | 1243-1245 | **household-visible**: a lost trait stops reacting | verified |
+| B8 §5 | coverage 2 #2 | `weddinglistener` | 1246-1248 | stale state only | verified |
+| B8 §6 | runtime R1 | `portasknohome` | 1249-1251 | **household-visible**: a homeless Sim's social menu builds | verified, runtime x2 |
+| B8 §7 | runtime R2 / #13 | `lecturebroadcaster` | 1252-1254 | **household-visible**: one lecture pulse, not one per lecture given | verified, tuning read |
+| B8 §8 | CD30 reach | `residentspawnwalk` | 1255-1257 | NPC spawn placement only | verified (code + live reach) |
+
+**How each fix works.**
+- **B8 §1.** `TrashPile.CreateAlarmAndStartAgeEffects` runs from `OnCreation` and again from `ImportContent`.
+  - The second run adds an age alarm without removing the first; that one later re-fires Fresh→Old over the live broadcaster and stink.
+  - A pile saved as Ancient goes straight to `AlarmCallbackOldToAncient`, which needs the broadcaster only Fresh→Old makes: the import throws.
+  - Fix: release the earlier alarm, broadcaster and stink first; build an Ancient pile through EA's Old step, then EA's Old→Ancient step (a delegate call, not `MethodInfo.Invoke`).
+- **B8 §2.** `CatJungleGym.OnEnterWatchPetBroadcaster` pushes `WatchCatJungleGym` without `JungleGymRef`; `Run` returns false when it is null. Fix at `Run`: fill it with the gym the cat is using (`Target.CurrentInteraction.Target`, what `InLoop` checks).
+- **B8 §3.** `Secrets.GetBestBadSecretTextFor` builds the relationship key without the `:` its own guard uses. Fix after EA's method: when the result is exactly the wrong key's text, it becomes the right key's text. EA's pick and its `sRelationshipSecrets` bookkeeping stay.
+- **B8 §4.** `TraitManager.RemoveElement(ulong)` reads `TraitListener` from a fresh dictionary clone (always null). Fix before EA's method: the Sim's own trait (`GetElement`) has its listener removed, as `Trait.Fixup` does.
+- **B8 §5.** `WeddingParty.CleanUp` never removes the world-wide `kMarriage` listener. Fix after EA's `CleanUp`: the party's still-registered listeners are removed.
+- **B8 §6.** `SocialTest.AskToChangePortTest` calls `IsHouseboatLot()` on a null home lot. Fix: false where EA would throw.
+- **B8 §7.** `Education.BeIntrigueing` makes an unstored broadcaster; the shipped `kGreatLectureBroadcastParams` has `TimeDuration -1` (`tools/static/game-data-check.ts tuning kGreatLectureBroadcastParams`). Fix: one broadcaster per lecturer; a new lecture disposes the previous one, then builds EA's. The kept one has EA's endless duration: a bounded duration (Political uses 30) is a design call for the user.
+- **B8 §8 (root of the CD30 resident spawn).** EA's `SimDescription.Instantiate(Lot, ResourceKey)` tests the resident's NPC-door slot with `PlumbBob.SelectedActor.IsPointInLotSafelyRoutable`: a plan as the selected Sim from the slot to the lot corners.
+  - From room 10 (level 1) that plan rides the elevator. `ElevatorDoors.IsAllowedThrough` asks `CanTravelInElevator` of the plan's Sim: the selected Sim is not on its home lot, not greeted and not an NPC, so only ground-level elevators are open to it (`DoorRestriction`).
+  - That is no door lock, so `LockedDoorsDuringPlan` stays empty and `residentspawnslot` never sees it. The resident (an NPC of the lot) may ride any elevator in a public residential room. Live reach on CD30: r10 out for the resident and an NPC, closed for William.
+  - Fix: a failed check during a resident's placement is re-judged by the room walk (`HiddenRoom.cs HrWalkOut`, now shared with HiddenRoomCheck) with the resident's rules: a portal the selected Sim passes is open; an elevator opens as EA's NPC branch opens it; a door opens when the resident passes its lock (`RsDoorPasses`); anything else is closed. EA's public-residential test on the slot still follows. Never for a resident of the active household.
+  - The fix cannot move the test to the resident itself: the resident has no Sim (no route proxy) until this method makes one.
+
+**Already covered, not rebuilt.** REA R2 and R5(b): `fieldtripadult` (docs/565 §2 (a), (c)). REA R1: `prankditchempty` (B §2).
+
+**Checked, not built.**
+- **R3 (face-paint booth loops).** Not reachable with the shipped data: every listed paint and failure pattern has a CAS part for child, teen, adult and elder, both sexes (`tools/static/game-data-check.ts casp ...`; tuning from GameplayData.package). Path (b) sits mid-`Run` after a yield, so a guard means replacing `Run`: not cheap.
+- **R5(a).** `TryToGiveReward` reads `Reward` before its null check: field trips are made only for `IFieldTrippable` rabbit holes.
+- Coverage #2 (midlife export), #4 (Inner Beauty listener), #5 (nemesis, design call), #6, #7, coverage 2 #3-#5 and runtime R3 (needs a stack): left for a later batch.
+
+**Our harness bugs fixed.**
+- **dreamcleanup ERROR (s56).** The game's Mono throws `KeyNotFoundException` from a generic `Dictionary`'s `IDictionary` indexer on a missing key (.NET returns null). The missing key was the not-yet-filed woken node's key (9) in the check, and any unfiled key in the live hooks (counted as errors). `DcIndexList` now tests `Contains` first.
+- **combo venue TargetException (2026-11-14 runs).** Already fixed in c45b9d65 (a delegate for the swapped `StartShowSoundBroadcaster`); `EndShowSoundBroadcaster` now goes the same way.
+
+**New tool.** `tools/static/game-data-check.ts` (local-only, read-only): `tuning <regex>` greps XML tuning in the installed packages; `casp <names>` checks CAS parts per age and sex.
+
+### Batch 8 tests (in game, off then on)
+
+Repros `<switch>-check` for all eight switches, and `dreamcleanup-check` again. Live confirmation: `residentspawnwalk` [1256] with the switch off on CD30 (Apollo Bloom), then the resident at his own door with it on.

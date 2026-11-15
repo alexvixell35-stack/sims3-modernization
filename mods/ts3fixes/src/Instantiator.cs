@@ -392,6 +392,14 @@ namespace Ts3Fixes
         [Tunable] public static bool kNoCommercialCar = false;    // nocommercialcar (docs/582 B7 §3): driverless traffic car with no commercial lot waits and drives off instead of throwing
         [Tunable] public static bool kScavengerNoLot = false;    // scavengernolot (docs/582 B7 §4): scavenger opportunity in a world without community lots is accepted without the throw
         [Tunable] public static bool kPartyLotListener = false;    // partylotlistener (docs/582 B7 §5): hostless NPC party lot-change listener removes itself
+        [Tunable] public static bool kTrashPileImport = false;    // trashpileimport (docs/582 B8 §1): imported trash pile releases its first age setup and an Ancient pile is built through Old (no second alarm, no import throw)
+        [Tunable] public static bool kCatGymWatch = false;    // catgymwatch (docs/582 B8 §2): Sim passing a cat on the jungle gym gets the gym set so the watch reaction plays
+        [Tunable] public static bool kBadSecretKey = false;    // badsecretkey (docs/582 B8 §3): bad relationship secret uses the right string key
+        [Tunable] public static bool kTraitListenerRemove = false;    // traitlistenerremove (docs/582 B8 §4): a lost trait's event listeners are removed
+        [Tunable] public static bool kWeddingListener = false;    // weddinglistener (docs/582 B8 §5): wedding party that ends drops its marriage listener
+        [Tunable] public static bool kPortAskNoHome = false;    // portasknohome (docs/582 B8 §6): ask-to-change-port social test returns false for a Sim with no home lot instead of throwing
+        [Tunable] public static bool kLectureBroadcaster = false;    // lecturebroadcaster (docs/582 B8 §7): one great-lecture broadcaster per lecturer instead of one more per lecture
+        [Tunable] public static bool kResidentSpawnWalk = false;    // residentspawnwalk (docs/582 B8 §8): resident's NPC-door spawn slot that EA's selected-Sim plan refuses is judged by the room walk with the resident's own rules (elevators, door locks)
         [Tunable] public static bool kFireTrapCount = false;    // firetrapcount (docs/570 §5): firefighter "free N Sims" counts trapped Sims who left the lot or sit in hidden apartment units
         [Tunable] public static bool kFireActiveJob = false;    // fireactivejob (docs/570 §1): the firefighter's current emergency (a static) survives a world quit; afterwards every new emergency is dropped
         [Tunable] public static bool kEatOutsideCount = true;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)

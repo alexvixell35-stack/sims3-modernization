@@ -6132,7 +6132,7 @@
       "from": 1177,
       "to": 1179,
       "by": "claude",
-      "what": "homeworkskillbonus (batch 5, docs/583 lead) [moved from 1065-1067: upstream took 994-1056]",
+      "what": "homeworkskillbonus (batch 5, docs/583 lead); proven in game 2026-11-15 (phase-20261115-2218 smallfix: off BROKEN / on FIXED) [moved from 1065-1067: upstream took 994-1056]",
       "at": "2026-11-15T20:21:06.602Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -6202,7 +6202,7 @@
       "from": 1195,
       "to": 1198,
       "by": "claude",
-      "what": "residentspawnslot (batch 5b, spawn-slot stand-in) [moved from 1083-1086: upstream took 994-1056]",
+      "what": "residentspawnslot (batch 5b, spawn-slot stand-in); proven in game 2026-11-15 (phase-20261115-2218 smallfix: off BROKEN / on FIXED) [moved from 1083-1086: upstream took 994-1056]",
       "at": "2026-11-15T20:34:00.300Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -6212,7 +6212,7 @@
       "from": 1199,
       "to": 1204,
       "by": "claude",
-      "what": "talkoccupationchance, shelldoorsummon (batch 5 leads 7, 8) [moved from 1087-1092: upstream took 994-1056]",
+      "what": "talkoccupationchance, shelldoorsummon (batch 5 leads 7, 8); proven in game 2026-11-15 (phase-20261115-2218 smallfix: off BROKEN / on FIXED) [moved from 1087-1092: upstream took 994-1056]",
       "at": "2026-11-15T20:36:37.226Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -6222,7 +6222,7 @@
       "from": 1205,
       "to": 1217,
       "by": "claude",
-      "what": "batch 6 (Roslyn pass 2: disposebase, boardingschoolmoney, freshclothingresume, twinbellyshape) [moved from 1093-1105: upstream took 994-1056]",
+      "what": "batch 6 (Roslyn pass 2: disposebase, boardingschoolmoney, freshclothingresume, twinbellyshape); proven in game 2026-11-15 (phase-20261115-2218 smallfix: off BROKEN / on FIXED) [moved from 1093-1105: upstream took 994-1056]",
       "at": "2026-11-15T21:07:12.826Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
@@ -6302,9 +6302,70 @@
       "from": 1218,
       "to": 1232,
       "by": "claude",
-      "what": "batch 7 (REA tranche 3 + NRaas #42: boatstaleswimmer, oppcategoryprotect, nocommercialcar, scavengernolot, partylotlistener)",
+      "what": "batch 7 (REA tranche 3 + NRaas #42: boatstaleswimmer, oppcategoryprotect, nocommercialcar, scavengernolot, partylotlistener); proven in game 2026-11-15 (phase-20261115-2218 smallfix: off BROKEN / on FIXED)",
       "at": "2026-11-15T21:43:14.005Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1233",
+      "kind": "fixes",
+      "from": 1233,
+      "to": 1248,
+      "by": "claude",
+      "what": "batch 8 (docs/582 B8): trashpileimport, catgymwatch, badsecretkey, traitlistenerremove, weddinglistener",
+      "at": "2026-11-15T22:30:52.633Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1249",
+      "kind": "fixes",
+      "from": 1249,
+      "to": 1254,
+      "by": "claude",
+      "what": "batch 8 (docs/582 B8 §6-7): portasknohome, lecturebroadcaster",
+      "at": "2026-11-15T22:35:16.187Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2722",
+      "kind": "fixes",
+      "from": 2722,
+      "to": 2728,
+      "by": "claude",
+      "what": "visitcar / visitwalkfinish (unseen visit keeps driving, mid-walk finish)",
+      "at": "2026-11-15T22:37:38.458Z",
+      "worktree": "/home/<user>/dev/s3m-cleanup"
+    },
+    {
+      "id": "doc-584",
+      "kind": "doc",
+      "from": 584,
+      "to": 584,
+      "by": "claude",
+      "what": "unseen visit trips, closed rooms, sync PlanFromPoint, last search census",
+      "at": "2026-11-15T22:38:52.333Z",
+      "worktree": "/home/<user>/dev/s3m-cleanup"
+    },
+    {
+      "id": "fixes-1255",
+      "kind": "fixes",
+      "from": 1255,
+      "to": 1257,
+      "by": "claude",
+      "what": "batch 8 (docs/582 B8 §8): residentspawnwalk",
+      "at": "2026-11-15T22:39:42.223Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1400",
+      "kind": "fixes",
+      "from": 1400,
+      "to": 1499,
+      "by": "claude",
+      "what": "EP batch 1 (docs/587 leads, batch EP1)",
+      "at": "2026-11-15T22:43:38.182Z",
+      "worktree": "/home/<user>/dev/s3m-ep-sweep",
+      "pinned": true
     }
   ]
 }

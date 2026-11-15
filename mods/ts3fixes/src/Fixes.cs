@@ -224,6 +224,13 @@ namespace Ts3Fixes
             ApplyNoCommercialCar();   // docs/582 B7 §3
             ApplyScavengerNoLot();   // docs/582 B7 §4
             ApplyPartyLotListener();   // docs/582 B7 §5
+            ApplyTrashPileImport();   // docs/582 B8 §1
+            ApplyCatGymWatch();   // docs/582 B8 §2
+            ApplyBadSecretKey();   // docs/582 B8 §3
+            ApplyTraitListenerRemove();   // docs/582 B8 §4
+            ApplyWeddingListener();   // docs/582 B8 §5
+            ApplyPortAskNoHome();   // docs/582 B8 §6
+            ApplyLectureBroadcaster();   // docs/582 B8 §7
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -651,6 +658,14 @@ namespace Ts3Fixes
         // [1224-1226] nocommercialcar (Batch582fLogic.cs, docs/582 B7 §3): cars idled / seen with switch off / errors.
         // [1227-1229] scavengernolot (Batch582fLogic.cs, docs/582 B7 §4): accepts handled / seen with switch off / errors.
         // [1230-1232] partylotlistener (Batch582fLogic.cs, docs/582 B7 §5): stale listeners removed / would throw with switch off / errors.
+        // [1233-1236] trashpileimport (Batch582gLogic.cs, docs/582 B8 §1): stale age setups released / Ancient piles built through Old / seen with switch off / errors.
+        // [1237-1239] catgymwatch (Batch582gLogic.cs, docs/582 B8 §2): gym references filled / seen with switch off / errors.
+        // [1240-1242] badsecretkey (Batch582gLogic.cs, docs/582 B8 §3): texts corrected / seen with switch off / errors.
+        // [1243-1245] traitlistenerremove (Batch582gLogic.cs, docs/582 B8 §4): listeners removed / left with switch off / errors.
+        // [1246-1248] weddinglistener (Batch582gLogic.cs, docs/582 B8 §5): listeners removed / left with switch off / errors.
+        // [1249-1251] portasknohome (Batch582gLogic.cs, docs/582 B8 §6): throws avoided / seen with switch off / errors.
+        // [1252-1254] lecturebroadcaster (Batch582gLogic.cs, docs/582 B8 §7): earlier broadcasters disposed / repeat lectures with switch off / errors.
+        // [1255-1257] residentspawnwalk (ResidentSpawnSlot.cs, docs/582 B8 §8): points accepted by the walk / would accept with switch off / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -1085,6 +1100,14 @@ namespace Ts3Fixes
                 case "nocommercialcar": return Instantiator.kNoCommercialCar;
                 case "scavengernolot": return Instantiator.kScavengerNoLot;
                 case "partylotlistener": return Instantiator.kPartyLotListener;
+                case "trashpileimport": return Instantiator.kTrashPileImport;
+                case "catgymwatch": return Instantiator.kCatGymWatch;
+                case "badsecretkey": return Instantiator.kBadSecretKey;
+                case "traitlistenerremove": return Instantiator.kTraitListenerRemove;
+                case "weddinglistener": return Instantiator.kWeddingListener;
+                case "portasknohome": return Instantiator.kPortAskNoHome;
+                case "lecturebroadcaster": return Instantiator.kLectureBroadcaster;
+                case "residentspawnwalk": return Instantiator.kResidentSpawnWalk;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

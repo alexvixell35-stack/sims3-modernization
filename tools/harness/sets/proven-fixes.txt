@@ -8,9 +8,12 @@
 artsellnoartist
 autonomyinuseblock
 birthdayagers
+boardingschoolmoney
+boatstaleswimmer
 chestuselist
 curfewalarm
 digsiteemptypick
+disposebase
 doorlockowner
 efficientchip
 elevatorkitten
@@ -21,12 +24,14 @@ fairyauratimer
 fireactivejob
 firetrapcount
 flowersinuse
+freshclothingresume
 gigpullaudience
 gotoworkstale
 gradvisitors
 handsetreset
 hauntedumbrella
 holidaylights
+homeworkskillbonus
 horseranchchallenge
 horsetraitscore
 invitecallreply
@@ -38,10 +43,13 @@ maildogchaser
 moondiallistener
 moonriselistener
 movingflag
+nocommercialcar
 npcbusypartner
 npcseasonalparty
 npcshowstuck
+oppcategoryprotect
 oppchainworld
+partylotlistener
 permazombiemoon
 phonecallrearm
 phonecallschedule
@@ -57,6 +65,7 @@ promoteshift
 protestlastday
 putdowninuse
 resetinusefree
+residentspawnslot
 resortweddingalarm
 resumetns
 returnhomealarms
@@ -64,19 +73,23 @@ rolenullguard
 royaltyorphan
 sandscoins
 sandwichalarm
+scavengernolot
 seasickpaused
 sentiencename
 serviceassignexit
 serviceshowalarm
+shelldoorsummon
 sneakoutlistener
 snowfightjoinwait
 snublistener
 splitpartner
 starlightreset
 steadygigmiss
+talkoccupationchance
 teleportcommunitylot
 tombmusic
 trickortreatalarm
+twinbellyshape
 unitravelflag
 uselistprune
 vehiclefxhelper
@@ -86,6 +99,7 @@ woohootywait
 
 # Built 2026-11-15 from the 215 default-off switches (+8 docs/575-577, soak verdicts BROKEN/FIXED) (Fixes.cs ShortcutOn names -> Instantiator k* = false).
 # +23 2026-11-15: phase-20261115-2043 smallfix.txt, off BROKEN / on FIXED with controls ok (docs/582 batches 3-5, docs/575-577 sandwichalarm).
+# +13 2026-11-15: phase-20261115-2218 smallfix.txt (s56), off BROKEN / on FIXED (docs/582 batches 5b-7, residentspawnslot).
 
 # ---- excluded (default off, not in the set), by reason
 # perf experiments / sim-thread offload and caching (not EA gameplay fixes):
@@ -113,7 +127,7 @@ woohootywait
 #   partyoutcome
 # built 2026-11-15, in-game off/on test pending (docs/575-577); move to the set once proven:
 #   petputdownwait puddlereach scarepriority dreamcleanup
-#   homeworkskillbonus residentspawnslot talkoccupationchance shelldoorsummon disposebase boardingschoolmoney freshclothingresume twinbellyshape boatstaleswimmer oppcategoryprotect nocommercialcar scavengernolot partylotlistener
+#   trashpileimport catgymwatch badsecretkey traitlistenerremove weddinglistener portasknohome lecturebroadcaster residentspawnwalk
 # diagnostics (log only):
 #   socialreplanlog barorderlog routecauselog
 # built 2026-11-15, in-game off/on test pending (DoorMemoX=3 A/B; ufplansplit is log only); move to the set once proven:

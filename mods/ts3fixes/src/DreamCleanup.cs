@@ -91,9 +91,16 @@ namespace Ts3Fixes
         }
 
         // index edits on the manager's dictionary (object -> List<ActiveDreamNode>), as EA's own code does them
+        // The game's Mono throws KeyNotFoundException from a generic Dictionary's IDictionary indexer on a missing key
+        // (.NET returns null; live 2026-11-15, phase-20261115-2218): every lookup goes through DcIndexList.
+        static IList DcIndexList(IDictionary index, object key)
+        {
+            return key != null && index.Contains(key) ? index[key] as IList : null;
+        }
+
         internal static bool DcIndexRemove(IDictionary index, object key, object node)
         {
-            IList l = key != null ? index[key] as IList : null;
+            IList l = DcIndexList(index, key);
             if (l == null || !l.Contains(node)) return false;
             l.Remove(node);
             if (l.Count == 0) index.Remove(key);
@@ -102,14 +109,14 @@ namespace Ts3Fixes
 
         internal static bool DcIndexHas(IDictionary index, object key, object node)
         {
-            IList l = key != null ? index[key] as IList : null;
+            IList l = DcIndexList(index, key);
             return l != null && l.Contains(node);
         }
 
         internal static void DcIndexAdd(IDictionary index, object key, object node, Type listType)
         {
-            IList l = index[key] as IList;
-            if (l == null) { l = (IList)Activator.CreateInstance(listType); index.Add(key, l); }
+            IList l = DcIndexList(index, key);
+            if (l == null) { l = (IList)Activator.CreateInstance(listType); index[key] = l; }
             l.Add(node);
         }
 

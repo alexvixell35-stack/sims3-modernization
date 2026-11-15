@@ -396,6 +396,14 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kNoCommercialCar value="False" />
     <kScavengerNoLot value="False" />
     <kPartyLotListener value="False" />
+    <kTrashPileImport value="False" />
+    <kCatGymWatch value="False" />
+    <kBadSecretKey value="False" />
+    <kTraitListenerRemove value="False" />
+    <kWeddingListener value="False" />
+    <kPortAskNoHome value="False" />
+    <kLectureBroadcaster value="False" />
+    <kResidentSpawnWalk value="False" />
     <kBirthRoute value="True" />
     <kPutDownPlace value="True" />
     <kAwardKeep value="False" />

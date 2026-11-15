@@ -198,6 +198,7 @@ namespace Ts3Fixes
         // StartShowSoundBroadcaster is private and swapped by combovenue: MethodInfo.Invoke refuses a swapped method
         // ("Unable to invoke an invalid target", EaFixes.cs PrefRemoveFn); a delegate runs it like the game's own callers.
         delegate void ShowSoundFn(ShowVenue.ShowTypes type);
+        delegate void EndSoundFn();
 
         static string ComboCheckVenue()
         {
@@ -210,7 +211,7 @@ namespace Ts3Fixes
             ((ShowSoundFn)Delegate.CreateDelegate(typeof(ShowSoundFn), t, start))(ShowVenue.ShowTypes.kPlayerConcert);
             ReactionBroadcaster b = sRhTheatreBroadcaster.GetValue(t) as ReactionBroadcaster;
             object origin = b == null ? null : b.BroadcastingObject;
-            end.Invoke(t, null);  // not swapped
+            ((EndSoundFn)Delegate.CreateDelegate(typeof(EndSoundFn), t, end))();  // same call style as start (the old Invoke form threw TargetException on 2026-11-14)
             return (origin == t.RabbitHoleProxy ? "FIXED" : "BROKEN") + " (TheatreMusic broadcaster origin " + (origin == null ? "none" : origin == t ? "the piece" : origin.GetType().Name) + ")";
         }
 
