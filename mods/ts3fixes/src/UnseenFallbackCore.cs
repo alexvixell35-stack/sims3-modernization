@@ -146,7 +146,9 @@ namespace Ts3Fixes
             return homeLot && householdPasses && shared && !gendered ? kTpDoorHome : kTpDoorClosed;
         }
         // upstream's rule (tpdoorrights off): any lock, a single-gender door or "one-way" (as upstream reads it) closes the lot
-        public static bool TpDoorUpstreamCloses(int lockType, bool gendered, int oneWayRoom) { return lockType != kLockAnybody || gendered || oneWayRoom != 0; }
+        public static bool TpDoorUpstreamCloses(int lockType, bool gendered, int oneWayRoom) { return lockType != kLockAnybody || gendered || OneWay(oneWayRoom, false); }
+        // is the door one-way? sentinel true (tpdoorrights) = EA's test (!= 0x8FFF); false = upstream's "!= 0", true for every door
+        public static bool OneWay(int oneWayRoom, bool sentinel) { return sentinel ? oneWayRoom != kNoOneWayRoom : oneWayRoom != 0; }
         public static int TpGoal(bool tombOrHidden, bool outdoorGround, bool openLot, bool roomOutside, bool? reachesOutside)
         {
             if (tombOrHidden) return kTpTombOrHidden;
