@@ -27,6 +27,7 @@ namespace Ts3Fixes
             Marshal.Copy(o, saved, 0, kMethodHeader);
             Marshal.Copy(r, repl, 0, kMethodHeader);
             if (keepVirtual) KeepVirtual(saved, repl);
+            KeepAccess(saved, repl);
             Marshal.Copy(repl, 0, o, kNameOffset);
             Marshal.Copy(repl, kNameOffset + 4, new IntPtr(o.ToInt32() + kNameOffset + 4), kMethodHeader - kNameOffset - 4);
             return saved;
@@ -43,6 +44,17 @@ namespace Ts3Fixes
             Array.Copy(BitConverter.GetBytes(slot), 0, repl, kSlotOffset, 4);
         }
 
+        // The original keeps its own access bits (MethodAttributes.MemberAccessMask, flags word bits 0-2); the rest of the
+        // flags word stays the hook's (or the original's whole word, KeepVirtual). Before, a hooked private or protected
+        // EA method read as public afterwards, so a lookup with NonPublic and without Public (ours, another mod's, EA's)
+        // returned null, and a hook's stub read as the target's access. The bits do not change how a call runs: TS3W's
+        // Mono 1.2.3 makes no access checks (docs/200 [verified]), and vtable setup reads them only for virtual methods
+        // [inferred, Mono 1.2 class.c], whose whole flags word KeepVirtual already keeps. Check: VirtualSwapCheck.
+        static void KeepAccess(byte[] saved, byte[] repl)
+        {
+            const int access = (int)MethodAttributes.MemberAccessMask;  // 7, low byte of the flags word
+            repl[0] = (byte)((repl[0] & ~access) | (saved[0] & access));
+        }
 
         public static void Apply()
         {
