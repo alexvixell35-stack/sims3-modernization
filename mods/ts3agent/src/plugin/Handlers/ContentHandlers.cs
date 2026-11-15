@@ -284,13 +284,18 @@ namespace Ts3Agent
             r["tracked"] = SpawnedSims().Count;
         }
 
-        // spawn_sims {count}: the debug `spawn <n>` command (Commands.OnSpawn) but tracked: each new YA/adult/elder joins a
+        // spawn_sims {count, species?: "Human"}: the debug `spawn <n>` command (Commands.OnSpawn) but tracked: each new YA/adult/elder joins a
         // random non-active household with a home lot and is instantiated near its lot corner. Returns ids for remove_sims.
+        // species Dog / LittleDog / Cat / Horse: an adult or elder pet (GeneticsPet.MakeRandomPet + AssignRandomTraits, as
+        // Sim.MakePet) into a non-active household with room for it (CanAddSpeciesToHousehold): NPC pets, never the player's.
         static object SpawnSims(Args a)
         {
             RequireLive();
             int n = (int)a.Long("count");
             if (n < 1 || n > 50) throw new McpException("count must be 1..50");
+            CASAgeGenderFlags species = Util.ParseEnum<CASAgeGenderFlags>(a.Str("species", "Human"));
+            bool pet = species == CASAgeGenderFlags.Dog || species == CASAgeGenderFlags.LittleDog || species == CASAgeGenderFlags.Cat || species == CASAgeGenderFlags.Horse;
+            if (!pet && species != CASAgeGenderFlags.Human) throw new McpException("species must be Human, Dog, LittleDog, Cat or Horse");
             List<Household> homes = new List<Household>();
             foreach (Household h in Household.sHouseholdList)
                 if (!h.IsActive && !h.IsSpecialHousehold && h.LotHome != null) homes.Add(h);
@@ -299,11 +304,26 @@ namespace Ts3Agent
             List<object> made = new List<object>();
             for (int i = 0; i < n; i++)
             {
-                Household h = RandomUtil.GetRandomObjectFromList(homes);
-                SimUtils.SimCreationSpec spec = new SimUtils.SimCreationSpec();
-                spec.Age = CASAgeGenderFlags.YoungAdult | CASAgeGenderFlags.Adult | CASAgeGenderFlags.Elder;
-                spec.Normalize();
-                SimDescription sd = spec.Instantiate();
+                SimDescription sd;
+                Household h;
+                if (pet)
+                {
+                    List<Household> room = homes.FindAll(delegate(Household x) { return x.CanAddSpeciesToHousehold(species); });
+                    if (room.Count == 0) { Dictionary<string, object> full = Util.Obj(); full["error"] = "no non-active household with room for a " + species; made.Add(full); break; }
+                    h = RandomUtil.GetRandomObjectFromList(room);
+                    sd = GeneticsPet.MakeRandomPet(RandomUtil.CoinFlip() ? CASAgeGenderFlags.Adult : CASAgeGenderFlags.Elder,
+                        RandomUtil.CoinFlip() ? CASAgeGenderFlags.Male : CASAgeGenderFlags.Female, species);
+                    if (sd == null) throw new McpException("the game made no " + species + " (Pets not installed?)");
+                    GeneticsPet.AssignRandomTraits(sd);
+                }
+                else
+                {
+                    h = RandomUtil.GetRandomObjectFromList(homes);
+                    SimUtils.SimCreationSpec spec = new SimUtils.SimCreationSpec();
+                    spec.Age = CASAgeGenderFlags.YoungAdult | CASAgeGenderFlags.Adult | CASAgeGenderFlags.Elder;
+                    spec.Normalize();
+                    sd = spec.Instantiate();
+                }
                 h.Add(sd);
                 Vector3 pos = h.LotHome.Corners[RandomUtil.GetInt(3)];
                 pos.x += RandomUtil.GetFloat(-10f, 10f);
@@ -314,6 +334,7 @@ namespace Ts3Agent
                 d["id"] = Util.Id(sd.SimDescriptionId);
                 d["name"] = sd.FullName;
                 d["household"] = h.Name;
+                d["species"] = sd.Species.ToString();
                 if (!ok) d["error"] = "not instantiated";
                 made.Add(d);
             }

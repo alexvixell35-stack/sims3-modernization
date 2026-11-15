@@ -20,6 +20,10 @@ namespace Ts3Fixes
         public class VsOldHook { public int FHook() { return 10 + FOrig(); } public int FOrig() { return 0; } }
         public class VsNewHook { public int FHook() { return 10 + FOrig(); } public int FOrig() { return 0; } }
 
+        // a private non-virtual target hooked as Patch does (stub first): after the swap it must still read as private
+        public class VsPrivTarget { int G() { return 1; } public int CallG() { return G(); } }
+        public class VsPrivHook { public int GHook() { return 20 + GOrig(); } public int GOrig() { return 0; } }
+
         static bool sVsSwapped;
         static VsOldBase sVsOld, sVsOldB;
         static VsNewBase sVsNew, sVsNewB;
@@ -39,7 +43,7 @@ namespace Ts3Fixes
         static int sVsThrew;
         static ListenerAction VsOnThrew(Sims3.Gameplay.EventSystem.Event e) { sVsThrew++; return ListenerAction.Keep; }
 
-        // "expect fixed": the old-way pair shows the bug (a derived receiver runs the hooked base, 11), the KeepVirtual pair
+        // "expect fixed": a hooked private method still reads as private and runs the hook (KeepAccess); the old-way pair shows the bug (a derived receiver runs the hooked base, 11), the KeepVirtual pair
         // dispatches (derived 2, base 11), ScriptObject.Destroy (hooked by memalive before v0.2.6) still reads as virtual, and
         // Destroy() on a new bowl with a second bowl in its stacking slot runs PreparedFood.Destroy for both
         // (kCleanedOrThrewAwayObject twice; once when the stack could not be built out of the world).
@@ -51,11 +55,19 @@ namespace Ts3Fixes
                 sVsOld = new VsOldBase(); sVsOldB = new VsOldDerived(); sVsNew = new VsNewBase(); sVsNewB = new VsNewDerived();  // vtables set up before the swap, as the game's are
                 VsSwap(typeof(VsOldBase), typeof(VsOldHook), false);
                 VsSwap(typeof(VsNewBase), typeof(VsNewHook), true);
+                MethodInfo g = typeof(VsPrivTarget).GetMethod("G", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                SwapMethod(typeof(VsPrivHook).GetMethod("GOrig"), g);
+                SwapMethod(g, typeof(VsPrivHook).GetMethod("GHook"));
                 sVsSwapped = true;
             }
             int oldD = VsCallOld(sVsOldB), oldB = VsCallOld(sVsOld), newD = VsCallNew(sVsNewB), newB = VsCallNew(sVsNew);
             MethodInfo destroy = typeof(ScriptObject).GetMethod("Destroy", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
             bool destroyVirtual = destroy != null && destroy.IsVirtual;
+            // KeepAccess: the hooked private G is found as non-public only, and calls still reach the hook (21)
+            MethodInfo gNon = typeof(VsPrivTarget).GetMethod("G", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+            MethodInfo gPub = typeof(VsPrivTarget).GetMethod("G", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+            bool gPrivate = gNon != null && gNon.IsPrivate && gPub == null;
+            int gCall = new VsPrivTarget().CallG();
 
             Bowl a = GlobalFunctions.CreateObjectOutOfWorld("Bowl") as Bowl, b = GlobalFunctions.CreateObjectOutOfWorld("Bowl") as Bowl;
             if (a == null || b == null)
@@ -73,8 +85,9 @@ namespace Ts3Fixes
             if (!stacked || threw < 2) b.Destroy();  // a's Destroy did not reach b
 
             string line = "old way: derived " + oldD + ", base " + oldB + "; KeepVirtual: derived " + newD + ", base " + newB
-                + "; ScriptObject.Destroy virtual " + destroyVirtual + "; bowl stack built " + stacked + ", kCleanedOrThrewAwayObject x" + threw;
-            bool ok = oldD == 11 && oldB == 11 && newD == 2 && newB == 11 && destroyVirtual && threw == (stacked ? 2 : 1);
+                + "; ScriptObject.Destroy virtual " + destroyVirtual + "; bowl stack built " + stacked + ", kCleanedOrThrewAwayObject x" + threw
+                + "; hooked private G: private " + gPrivate + ", call " + gCall;
+            bool ok = oldD == 11 && oldB == 11 && newD == 2 && newB == 11 && destroyVirtual && threw == (stacked ? 2 : 1) && gPrivate && gCall == 21;
             if (!ok) throw new InvalidOperationException("virtualswap " + what + ": wrong outcome; " + line);
             return "as expected; " + line;
         }
