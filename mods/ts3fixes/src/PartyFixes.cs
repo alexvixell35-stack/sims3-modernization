@@ -30,7 +30,7 @@ namespace Ts3Fixes
     // Counters ([2398-2399] unused: partylisteners was dropped to a candidate, docs/554): [2400] lame outcomes restored,
     // [2401] guest outcomes changed by the tier order, [2402] partyoutcome errors, [2403] party motives removed from
     // leaving guests, [2404] partymotive errors. Harness check: ApartmentLeaveCheck "throw" / "partyreport" / "partyend"
-    // (AptLeavePartyCheck.cs) and PartyFixCheck below.
+    // (AptLeavePartyCheck.cs) and PartyFixCheck (PartyFixChecks.cs).
     public static partial class Fixes
     {
         static void ApplyPartyFixes()

@@ -16,6 +16,9 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 
 type Kind = 'fixes' | 'native' | 'ledger' | 'doc';
+// A reservation's stored worktree must not name the machine's user (AGENTS.md: no personal paths in commits).
+const shownPath = (p: string): string =>
+  p.replace(/^\/home\/[^/]+(?=\/|$)/, '/home/<user>').replace(/^([A-Za-z]:\\Users\\)[^\\]+/, '$1<user>');
 interface Res { id: string; kind: Kind; from: number; to: number; version?: number; by: string; what: string; at: string; worktree: string }
 interface Used { fixesMax: number; nativeVer: number; nativeEnd: number; cFixesMax: number; cNativeVer: number }
 
@@ -128,7 +131,7 @@ function reserveLedger(args: string[], c: boolean) {
     const res = loadRes(main), docs = [...new Set([join(wt, LEDGER), join(main, LEDGER)])].filter(existsSync);
     const n = Math.max(c ? CONTRIB.ledger[0] - 1 : 0, ...docs.map(d => ledgerMax(readFileSync(d, 'utf8'), c)), ...res.filter(r => r.kind === 'ledger' && inR(r.to, CONTRIB.ledger) === c).map(r => r.to)) + 1;
     if (c && n > CONTRIB.ledger[1]) throw new Error(`contributor ledger range ${CONTRIB.ledger.join('-')} is full`);
-    const r: Res = { id: `ledger-${n}`, kind: 'ledger', from: n, to: n, by, what, at: new Date().toISOString(), worktree: wt };
+    const r: Res = { id: `ledger-${n}`, kind: 'ledger', from: n, to: n, by, what, at: new Date().toISOString(), worktree: shownPath(wt) };
     saveRes(main, [...res, r]);
     console.log(`reserved docs/51 §${n} id=${r.id}: write it as "## ${n}. ..." (unused: node tools/registry.ts release ${r.id})`);
     return r;
@@ -142,7 +145,7 @@ function reserveDoc(args: string[], c: boolean) {
     const res = loadRes(main), dirs = [...new Set([join(wt, 'docs'), join(main, 'docs')])].filter(existsSync);
     const n = Math.max(c ? CONTRIB.doc[0] - 1 : 0, ...dirs.map(d => docMax(readdirSync(d), c)), ...res.filter(r => r.kind === 'doc' && inR(r.to, CONTRIB.doc) === c).map(r => r.to)) + 1;
     if (c && n > CONTRIB.doc[1]) throw new Error(`contributor doc range ${CONTRIB.doc.join('-')} is full`);
-    const r: Res = { id: `doc-${n}`, kind: 'doc', from: n, to: n, by, what, at: new Date().toISOString(), worktree: wt };
+    const r: Res = { id: `doc-${n}`, kind: 'doc', from: n, to: n, by, what, at: new Date().toISOString(), worktree: shownPath(wt) };
     saveRes(main, [...res, r]);
     console.log(`reserved docs/${n}-*.md id=${r.id} (unused: node tools/registry.ts release ${r.id})`);
     return r;
@@ -167,11 +170,11 @@ function reserve(args: string[], c: boolean) {
     const at = new Date().toISOString();
     let r: Res, row: string;
     if (kind === 'fixes') {
-      r = { id: `fixes-${fixesMax + 1}`, kind, from: fixesMax + 1, to: fixesMax + n, by, what, at, worktree: wt };
+      r = { id: `fixes-${fixesMax + 1}`, kind, from: fixesMax + 1, to: fixesMax + n, by, what, at, worktree: shownPath(wt) };
       row = `| ${r.from === r.to ? r.from : `${r.from}-${r.to}`} | reserved (${by}, \`${r.id}\`) | ${what} |`;
     } else {
       const from = (nativeEnd + 4) & ~3;
-      r = { id: `native-v${nativeVer + 1}`, kind, version: nativeVer + 1, from, to: from + 4 * n - 1, by, what, at, worktree: wt };
+      r = { id: `native-v${nativeVer + 1}`, kind, version: nativeVer + 1, from, to: from + 4 * n - 1, by, what, at, worktree: shownPath(wt) };
       row = `| v${r.version} | reserved (${by}, \`${r.id}\`) | ${hex(r.from)}-${hex(r.to)} | ${what} |`;
     }
     saveRes(main, [...res, r]);

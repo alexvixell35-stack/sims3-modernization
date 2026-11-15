@@ -41,8 +41,8 @@ const TARGET_VARS: Record<string, string> = {
   'SimFestKeep.cs:sSfPresent': 'ShowStage+EmceePresentSimFestAward', 'JoyrideCostume.cs:jd': 'GoForJoyride+Definition',
   'JoyrideCostume.cs:rd': 'RouteAndGetToCostumeForJoyride+Definition', 'SyncWaitLog.cs:si': 'SocialInteraction',
   'WeddingArchKeep.cs:sWaSlotRoute': 'WeddingArch+RouteToWeddingArchSlot', 'BoardingRefund.cs:sBsCarState': 'BoardingSchoolPickUpSituation+CreateCarAndRoute',
-  'SplashRoof.cs:ia': 'Sim+AutonomousSplashInPuddle', 'ShuffleboardBroadcast.cs:play': 'Shuffleboard+Play', 'CookClickListener.cs:cp': 'CookingProcess', 'ErrorTrapDerefDiag.cs:dm': 'mod:ErrorTrap', 'SmallEaFixes555.cs:sBbBlow': 'BubbleBar+BlowBubbles',
-  'GameplayLogic559.cs:sBlLane': 'BowlingLane', 'GameplayLogic559.cs:sBlBowl': 'BowlingLane+BowlInBowlingLane', 'GameplayLogic559b.cs:pitPutAway': 'FirePit+PutAway',
+  'SplashRoof.cs:ia': 'Sim+AutonomousSplashInPuddle', 'ShuffleboardBroadcast.cs:play': 'Shuffleboard+Play', 'CookClickListener.cs:cp': 'CookingProcess', 'ErrorTrapDerefDiag.cs:dm': 'mod:ErrorTrap', 'BubblePipeGuard.cs:sBbBlow': 'BubbleBar+BlowBubbles',
+  'BowlingLane.cs:sBlLane': 'BowlingLane', 'BowlingLane.cs:sBlBowl': 'BowlingLane+BowlInBowlingLane', 'CleanFlag.cs:pitPutAway': 'FirePit+PutAway',
 };
 // reviewed in docs/242: hooks that may have no stub
 const kNoStub = new Set<string>();

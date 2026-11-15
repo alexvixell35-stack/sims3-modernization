@@ -254,6 +254,13 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kCleanFlag value="False" />
     <kBirdTvNull value="False" />
     <kGoHomeWalk value="False" />
+    <kPhotoBoothFunds value="False" />
+    <kShellLighting value="False" />
+    <kBonfireSpice value="False" />
+    <kDjCleanup value="False" />
+    <kVampireHuntGlow value="False" />
+    <kHotTubWoohooFx value="False" />
+    <kBribeGuard value="False" />
     <kBirthRoute value="False" />
     <kPutDownPlace value="False" />
     <kAwardKeep value="False" />

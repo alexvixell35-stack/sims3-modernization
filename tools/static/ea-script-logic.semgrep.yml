@@ -87,8 +87,29 @@ rules:
     languages: [csharp]
     severity: WARNING
     message: ReactionBroadcaster field overwritten without disposing the old one (shuffleboard shape)
+    # Tuned 2026-11-15 (docs/561 §1): an interaction's Run, OnStartup / OnLoad / a constructor run once per fresh object,
+    # so a plain assignment there cannot overwrite a live broadcaster (166 hits before tuning, mostly of that kind). Kept: assignments in a
+    # loop anywhere, and in any other method (callbacks, alarms, state changes that can run again on the same object).
     patterns:
       - pattern: $F = new ReactionBroadcaster(...);
+      - pattern-either:
+          - pattern-inside: while (...) { ... }
+          - pattern-inside: for ($A; $B; $C) { ... }
+          - pattern-inside: foreach ($T $E in $L) { ... }
+          - patterns:
+              - pattern: $F = new ReactionBroadcaster(...);
+              - pattern-not-inside: |
+                  $R Run() { ... }
+              - pattern-not-inside: |
+                  $R OnStartup() { ... }
+              - pattern-not-inside: |
+                  $R OnLoad() { ... }
+              - pattern-not-inside: |
+                  $R Init(...) { ... }
+              # a buff's OnAddition writes a fresh per-Sim BuffInstance (a field on the shared Buff is the buffstate family,
+              # docs/557, and is found by listener-overwrite / review, not here)
+              - pattern-not-inside: |
+                  $R OnAddition(...) { ... }
       - pattern-not-inside: |
           if ($F == null) { ... }
       - pattern-not-inside: |

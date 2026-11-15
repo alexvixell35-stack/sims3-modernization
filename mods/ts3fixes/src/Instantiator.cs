@@ -257,6 +257,13 @@ namespace Ts3Fixes
         [Tunable] public static bool kBandJam = false;            // bandjam (docs/559 §6): Sweet Move only for a playing jammer (a leaving one hung in the jam); jam music stopped when the last jammer is removed
         [Tunable] public static bool kStatueLine = false;         // statueline (docs/559 §7): Box of Danger statue line removes the cancelled performer, not the head; stale entries dropped
         [Tunable] public static bool kCleanFlag = false;          // cleanflag (docs/559 §8): fire pit Put Away / picnic basket Clean Up no longer leave BeingCleaned set (object unusable)
+        [Tunable] public static bool kBonfireSpice = false;       // bonfirespice (docs/561 §6): Spice It Up gives the herb back on a failed route, destroys the used herb, and handles two Sims spicing at once
+        [Tunable] public static bool kDjCleanup = false;         // djcleanup (docs/561 §7): a cancelled or failed DJ set / music request no longer ends another Sim's set or clears another patron's request
+        [Tunable] public static bool kVampireHuntGlow = false;   // vampirehuntglow (docs/561 §7): hunt candidates that leave the lot lose the heat-vision glow
+        [Tunable] public static bool kHotTubWoohooFx = false;    // hottubwoohoofx (docs/561 §7): a woohoo cut off by a reset no longer leaves the hot tub's woohoo effect on
+        [Tunable] public static bool kBribeGuard = false;        // bribeguard (docs/561 §7): a bouncer bribe charged after the nightly rope cleanup no longer throws
+        [Tunable] public static bool kShellLighting = false;      // shelllighting (docs/561 §5): a buildable shell shows the lighting of the latest passed lighting time after load (EA keeps Default until the next alarm)
+        [Tunable] public static bool kPhotoBoothFunds = false;    // photoboothfunds (docs/561 §2): a Sim that entered a photo booth and then lacked the fee is walked out (EA leaves it faded out inside)
         [Tunable] public static bool kGoHomeWalk = false;         // gohomewalk (docs/560 §2): GoHome takes back the walk style (Run) it requested, so Sims sent home from a busted party stop running
         [Tunable] public static bool kBirdTvNull = false;         // birdtvnull (docs/559 §9): large bird TV reaction skips TVs on with no channel instead of throwing
         [Tunable] public static bool kBirthRoute = false;        // birthroute (docs/558 §1): EA's birth flow fixed (lost / duplicate / stale births, homeless mom crashes, Cleanup NRE: every Sim); NPC moms: birth routes never cut, re-haves wait 1/15/60 min, unseen moms placed at the hospital after a failed trip, the other birth kind (home safety net) after 3 failed attempts

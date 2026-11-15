@@ -68350,7 +68350,7 @@
   {
     "id": "course-listener-leak",
     "bug": "AcademicCareer+CourseCreationSpec adds a kEventObjectDisposed listener on each course's rabbit hole and removes it only when it fires: leaving university or rebuilding the schedule leaves every listener (career and Sim pinned for the world session, stale 'course location destroyed' notices), and ChangeRabbitHoleTo (level-up) leaves it on the old building (docs/555 §4)",
-    "fix": "ts3fixes SmallEaFixes555.cs: courselistener (default off), docs/555 §4",
+    "fix": "ts3fixes CourseListener.cs: courselistener (default off), docs/555 §4",
     "save": "any world with two rabbit holes",
     "note": "CourseListenerCheck 'run' builds a throwaway course spec (uninitialized, no career) on one world rabbit hole with EA's SetRabbitHoleDisposedEventListener, runs EA's ChangeRabbitHoleTo to a second rabbit hole, then the hooks' drop (ClDropAll) on a throwaway uninitialized career holding it; the listener is removed at the end in both arms. Nothing in the world changes.",
     "expect": "off: 'verdict: BROKEN' (move BROKEN, leave BROKEN), 2422 +1. on: 'verdict: FIXED', 2420 +1, 2421 +1, 2423 +0; no script errors.",
@@ -68431,7 +68431,7 @@
   {
     "id": "observatory-stardust-msg",
     "bug": "StellarObservatory+TravelToSimulonV tests dark matter twice (num3 > 0 || num3 > 0) before its summary notice: a stardust-only trip shows 'found nothing' although the stardust is inventoried (docs/555 §6)",
-    "fix": "ts3fixes SmallEaFixes555.cs: observatorymsg (default off), docs/555 §6",
+    "fix": "ts3fixes ObservatoryMsg.cs: observatorymsg (default off), docs/555 §6",
     "save": "any world (pure check)",
     "note": "ObservatoryMsgCheck 'run' asks the hook's notice choice (ObsPick) for a stardust-only trip (3, 0) and an empty trip (0, 0). No notice is shown.",
     "expect": "off: 'verdict: BROKEN' (stardust-only SummaryOfNothingFoundOnSimulonV), 2424 +1. on: 'verdict: FIXED' (SummaryOfEverythingFoundOnSimulonV; empty trip still nothing), 2424 +1, 2425 +0.",
@@ -68512,7 +68512,7 @@
   {
     "id": "bubblebar-pipe-null",
     "bug": "BubbleBar+BlowBubbles.Run uses the pipe prop (SetHiddenFlags) before its null check, so a pipe that was not created throws a NullReferenceException instead of EA's StandardExit/return false (docs/555 §7)",
-    "fix": "ts3fixes SmallEaFixes555.cs: bubblepipeguard (default off), docs/555 §7",
+    "fix": "ts3fixes BubblePipeGuard.cs: bubblepipeguard (default off), docs/555 §7",
     "save": "any world (throwaway interaction)",
     "note": "BubblePipeCheck 'run' asks the guard (BbPipeFailed) about a throwaway uninitialized BlowBubbles in the failed-pipe state (state machine set, pipe null) and before EnterStateMachine (must decline). Never queued; nothing in the world changes.",
     "expect": "off: 'verdict: BROKEN' (pipe-failure exit False). on: 'verdict: FIXED' (True, NRE before the state machine handled False), 2426 +1, 2427 +0.",
@@ -68797,7 +68797,7 @@
   {
     "id": "bowling-lane-wait",
     "bug": "BowlingLane+BowlInBowlingLane: Run's start wait (while !ReadyToStart) ignores cancel and waits for listed bowlers that never arrive (AskToJoin keeps the id when its push fails); BowlingLoop retries a failed RouteToBowl forever without ending the turn; EndBowlerTurn restarts only the bowler ending the turn after a join (tests sim, not sim2) (docs/559 §3)",
-    "fix": "ts3fixes GameplayLogic559.cs: bowlinglane (default off), docs/559 §3",
+    "fix": "ts3fixes BowlingLane.cs: bowlinglane (default off), docs/559 §3",
     "save": "any world (pure check)",
     "note": "BowlingLaneCheck 'run' calls EA's ReadyToStart (through the hook) on a throwaway uninitialized lane whose list holds the waiting bowler and a ghost id (no Sim), then feeds the route-fail counter 3 failed in-loop routes. The lane is never placed; no Sim is touched.",
     "expect": "off: 'verdict: BROKEN' (ready=False, ghost kept; no route exit). on: 'verdict: FIXED' (ready=True, ghost dropped; exit on the 3rd failure), 2449 +1, 2452 +0.",
@@ -68878,7 +68878,7 @@
   {
     "id": "genie-banish-pick",
     "bug": "OccultGenie+RemoveSim.Run picks allCommunityLots[RandomUtil.GetInt(Count)]; GetInt(max) is inclusive, so 1 banish in Count+1 throws ArgumentOutOfRange after the liking hit and the target's queue cancel (docs/559 §4)",
-    "fix": "ts3fixes GameplayLogic559.cs: geniebanish (default off), docs/559 §4",
+    "fix": "ts3fixes GenieBanish.cs: geniebanish (default off), docs/559 §4",
     "save": "any world with community lots (pure check)",
     "note": "GenieBanishCheck 'run' computes the lot index EA's pick and the fixed pick give for NextDouble()=0.9999 over the world's community lots (read only). Nothing is cast.",
     "expect": "off: 'verdict: BROKEN' (index == lot count). on: 'verdict: FIXED' (index < lot count), 2454 +0.",
@@ -68959,7 +68959,7 @@
   {
     "id": "spacesim-partner-wait",
     "bug": "SpaceSimulator+RideWith.Run pushes DoRideB on the partner and can return before the ride starts (rider cancelled while waiting); DoRideB then waits for RideOver for good once the rider's cancel exit reason is gone (docs/559 §5)",
-    "fix": "ts3fixes GameplayLogic559.cs: spacesimpartner (default off), docs/559 §5",
+    "fix": "ts3fixes SpaceSimPartner.cs: spacesimpartner (default off), docs/559 §5",
     "save": "any world (pure check)",
     "note": "SpaceSimPartnerCheck 'run' asks the release rule (SsPartnerStranded) about a throwaway uninitialized simulator in the state a cancelled RideWith leaves (rider in, ride not started) and after a ride. Decision only; no queue is touched.",
     "expect": "off: 'verdict: BROKEN' (stranded partner detected, release skipped). on: 'verdict: FIXED' (release runs; never after a ride), 2457 +0.",
@@ -69040,7 +69040,7 @@
   {
     "id": "band-jam-sweetmove",
     "bug": "JamController.SetSweetMove tests (j != null && s != Exited) || s != PlayingSweetMove: a Sweet Move on a leaving jammer (PendingExit) turns it back into SweetMoveRequested and RemoveJammer's wait for Exited never ends; RemoveJammer(BandInstrument) on an instrument reset leaves the jam music playing with no jammer (docs/559 §6)",
-    "fix": "ts3fixes GameplayLogic559b.cs: bandjam (default off), docs/559 §6",
+    "fix": "ts3fixes BandJam.cs: bandjam (default off), docs/559 §6",
     "save": "any world (pure check)",
     "note": "BandJamCheck 'run' calls EA's SetSweetMove (through the hook) on a throwaway JamController (never attached to an instrument) holding one placeholder jammer in PendingExit, then asks the empty-jam sound rule. No sound or Sim is touched.",
     "expect": "off: 'verdict: BROKEN' (state SweetMoveRequested), 2458 +1. on: 'verdict: FIXED' (state PendingExit), 2458 +1, 2460 +0.",
@@ -69121,7 +69121,7 @@
   {
     "id": "statue-line-dequeue",
     "bug": "BoxOfDanger+DoTrick.Cleanup does `if (line.Contains(Actor)) line.Dequeue()` on the static persisted statue line: a performer cancelled while waiting removes the head instead of itself, and its stale entry blocks every later Human Statue trick (docs/559 §7)",
-    "fix": "ts3fixes GameplayLogic559b.cs: statueline (default off), docs/559 §7",
+    "fix": "ts3fixes StatueLine.cs: statueline (default off), docs/559 §7",
     "save": "any world (pure check)",
     "note": "StatueLineCheck 'run' applies EA's Cleanup step (and the fix) to a local copy of the line [other, actor] with placeholder Sims. The real static line is not touched.",
     "expect": "off: 'verdict: BROKEN' (head removed, cancelled performer kept), 2461 +0. on: 'verdict: FIXED' (performer removed, head kept), 2462 +0.",
@@ -69202,7 +69202,7 @@
   {
     "id": "clean-flag-left",
     "bug": "FirePit+PutAway and PicnicBasket+CleanUp set BeingCleaned and return true on their already-cleaned exit without clearing it: the pit can never be lit/cleaned, a basket served again can never be eaten from or cleaned (docs/559 §8)",
-    "fix": "ts3fixes GameplayLogic559b.cs: cleanflag (default off), docs/559 §8",
+    "fix": "ts3fixes CleanFlag.cs: cleanflag (default off), docs/559 §8",
     "save": "any world (pure check)",
     "note": "CleanFlagCheck 'run' applies the end-of-run rule to a throwaway PicnicBasket (uninitialized, never placed) whose run set the flag and left it set, and to a flag another cleaner set. Nothing in the world changes.",
     "expect": "off: 'verdict: BROKEN' (flag kept), 2463 +1. on: 'verdict: FIXED' (flag cleared; another cleaner's flag kept), 2463 +1, 2464 +0.",
@@ -69283,7 +69283,7 @@
   {
     "id": "bird-tv-null-channel",
     "bug": "MinorPetBirdLarge.ShouldReactToTv dereferences TV.CurrentChannel for every TV that is on; a TV switched on while broken (or with a channel from a removed pack) has none, so the large bird's idle behaviour throws (docs/559 §9)",
-    "fix": "ts3fixes GameplayLogic559b.cs: birdtvnull (default off), docs/559 §9",
+    "fix": "ts3fixes BirdTvNull.cs: birdtvnull (default off), docs/559 §9",
     "save": "any world (pure check)",
     "note": "BirdTvNullCheck 'run' evaluates EA's expression and the fixed test on a throwaway TV (uninitialized, never placed) that is on with no channel.",
     "expect": "off: 'verdict: BROKEN' (NullReferenceException). on: 'verdict: FIXED' (TV skipped), 2465 +1, 2466 +0.",
@@ -69364,7 +69364,7 @@
   {
     "id": "spacesim-ride-over-timing",
     "bug": "SpaceSimulator+RideWith.Run sets RideOver = true right before DoTimedLoop, so the partner's DoRideB ends at the start of the ride, not at its end (docs/559 §10; verified order, in-game effect to confirm)",
-    "fix": "ts3fixes GameplayLogic559.cs: spacesimpartner (default off), docs/559 §10",
+    "fix": "ts3fixes SpaceSimPartner.cs: spacesimpartner (default off), docs/559 §10",
     "save": "a lot with a free Space Simulator (Late Night / store; place one in buy mode) and two Sims",
     "note": "IN GAME, on the selected Sim's lot (a free Space Simulator and a second Sim there, e.g. a household member at home). SpaceSimPartnerCheck 'ride' pushes EA's RideWith (Medium) on the selected Sim with the other as partner (EA's ride fee is charged off the owner's lot). A ride lasts kTimeRideLasts sim-minutes; 'result' after it shows 2467 (partner finished at the start) vs 2468 (partner rode to the end). Watch the partner during the off arm: it leaves the ride interaction at the start.",
     "expect": "off: 2467 +1 (BROKEN: partner gone before the ride ended). on: 2468 +1 (FIXED: partner still riding at the end); no new 2457 errors.",
@@ -69445,7 +69445,7 @@
   {
     "id": "gohome-walkstyle-left",
     "bug": "GoHome.Run requests its WalkStyle on the Sim (Sim.RequestWalkStyle, a per-Sim count) and never unrequests it: Sims sent home with Run from a busted party keep running while they stay in the world (docs/560 §2)",
-    "fix": "ts3fixes GoHomeHook (Fixes.cs) + RoutingTravel560.cs: gohomewalk (default off), docs/560 §2",
+    "fix": "ts3fixes GoHomeHook (Fixes.cs) + GoHomeWalk.cs: gohomewalk (default off), docs/560 §2",
     "save": "any world, a Sim selected",
     "note": "GoHomeWalkCheck 'run' makes GoHome's Run request on the selected Sim, then the hook's release step; it takes its own request back in both arms.",
     "expect": "off: 'verdict: BROKEN' (after = before + 1). on: 'verdict: FIXED' (after = before), 2477 +1, 2478 +0.",
@@ -69519,6 +69519,573 @@
         "cmd": "patches",
         "args": {
           "gohomewalk": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "photobooth-funds-stuck",
+    "bug": "PhotoBooth TakePhoto/TakePhotoWith enter the booth (use list, fade out) before the community-lot fee test and return false with no exit: a Sim whose family funds dropped after queuing walks on invisible (docs/561 §2)",
+    "fix": "ts3fixes PhotoBoothFunds.cs: photoboothfunds (default off), docs/561 §2",
+    "save": "any world (pure check)",
+    "note": "PhotoBoothFundsCheck 'run' evaluates the hook's decision for the no-funds exit and three controls.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "photoboothfunds": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PhotoBoothFundsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PhotoBoothFundsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "photoboothfunds": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PhotoBoothFundsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PhotoBoothFundsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "photoboothfunds": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "photoboothfunds": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "shell-lighting-after-load",
+    "bug": "BuildableShell.UpdateLightAlarms drops every lighting time already past today, so after a load a shell keeps Default until the next lighting alarm (docs/561 §5)",
+    "fix": "ts3fixes ShellLighting.cs: shelllighting (default off), docs/561 §5",
+    "save": "any world; a world with buildable shells (Bridgeport towers) for the shell list",
+    "note": "ShellLightingCheck 'run' evaluates the pick for EA's default tuning at 22:00 and lists the world's shells with the kind the fix would apply now (read only). In game: switch on, save, load at night: the towers show night lighting at once; 2481 grows.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "shelllighting": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShellLightingCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShellLightingCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "shelllighting": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShellLightingCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShellLightingCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "shelllighting": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "shelllighting": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "bonfire-spice-herb",
+    "bug": "BonFire SpiceItUp removes the herb before routing (failed route = herb lost), never destroys the used herb, and two Sims spicing at once throw / leave the first haze broadcaster for good (docs/561 §6)",
+    "fix": "ts3fixes BonfireSpice.cs: bonfirespice (default off), docs/561 §6",
+    "save": "any world (pure check)",
+    "note": "BonfireSpiceCheck 'run' evaluates the herb step for a failed route and a finished spice, with two controls.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bonfirespice": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BonfireSpiceCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BonfireSpiceCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bonfirespice": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BonfireSpiceCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BonfireSpiceCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bonfirespice": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bonfirespice": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "dj-cleanup-other-set",
+    "bug": "DJTurntable DoPlay.Cleanup ends whoever owns the playing booth (exit reason, ExitDJBooth, tip jar destroyed) even when the cleaning-up DoPlay is another Sim's cancelled or test-failed queued set; RequestMusic.Cleanup clears another patron's pending genre request the same way (docs/561 §7)",
+    "fix": "ts3fixes DjBoothCleanup.cs: djcleanup (default off), docs/561 §7",
+    "save": "any world (pure check)",
+    "note": "DjBoothCleanupCheck 'run' evaluates another Sim's set and another patron's request at cleanup, with five controls.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "djcleanup": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DjBoothCleanupCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DjBoothCleanupCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "djcleanup": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DjBoothCleanupCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DjBoothCleanupCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "djcleanup": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "djcleanup": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "vampire-hunt-glow",
+    "bug": "OccultVampire VampireHunt.LoopDel drops hunt candidates that left the lot without clearing the HeatVision visual override, so they glow for the rest of the session (docs/561 §7)",
+    "fix": "ts3fixes VampireHuntGlow.cs: vampirehuntglow (default off), docs/561 §7",
+    "save": "any world (pure check)",
+    "note": "VampireHuntGlowCheck 'run' evaluates a candidate that left the lot, with two controls.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "vampirehuntglow": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VampireHuntGlowCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VampireHuntGlowCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "vampirehuntglow": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VampireHuntGlowCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VampireHuntGlowCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "vampirehuntglow": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "vampirehuntglow": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "hottub-woohoo-fx",
+    "bug": "HotTubBase CuddleSeatedWooHoo starts the woohoo effect at animation event 110 and stops it only at event 111 or a tub reset; a Sim reset between them leaves the effect on (docs/561 §7)",
+    "fix": "ts3fixes HotTubWoohooFx.cs: hottubwoohoofx (default off), docs/561 §7",
+    "save": "any world (pure check)",
+    "note": "HotTubWoohooFxCheck 'run' evaluates a woohoo cleanup after a mid-woohoo reset, with three controls.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hottubwoohoofx": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HotTubWoohooFxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HotTubWoohooFxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hottubwoohoofx": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HotTubWoohooFxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HotTubWoohooFxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hottubwoohoofx": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hottubwoohoofx": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "bouncer-bribe-null",
+    "bug": "VelvetRopes.ChargeSimForBribe reads mBribeDictionary without a null check; NightlyCleanUp nulls it, so a bribe offered just before throws in the bribe social callback (docs/561 §7)",
+    "fix": "ts3fixes BouncerBribeGuard.cs: bribeguard (default off), docs/561 §7",
+    "save": "any world (pure check)",
+    "note": "BouncerBribeGuardCheck 'run' evaluates a charge after the nightly cleanup, with one control.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bribeguard": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BouncerBribeGuardCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BouncerBribeGuardCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bribeguard": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BouncerBribeGuardCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BouncerBribeGuardCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bribeguard": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bribeguard": false
         }
       }
     ]

@@ -52,6 +52,13 @@ rules:
           - pattern: if ($X == null) { ... $V = $X.$F; ... }
       - pattern-not: if ($X == null) { ... $X = $Y; ... }
       - pattern-not: if ($X == null) { ... $X = $Y; ... $X.$M(...); ... }
+      # Tuned 2026-11-15 (docs/561 §1): EA calls that set the field themselves (EnterStateMachine sets
+      # mCurrentStateMachine, object creation callbacks set the slot's object, lazy singletons).
+      - pattern-not: if ($X == null) { ... EnterStateMachine(...); ... }
+      - pattern-not: if ($X == null) { ... GlobalFunctions.$CREATE(...); ... }
+      - pattern-not: if ($X == null) { ... $X.$ADD<$T>(...); ... }
+      - pattern-not-inside: |
+          if ($X == null) { ... $S = new $C(...); ... }
   # Contains/Add inversion: adds only when already present (or removes only when absent).
   - id: contains-inverted
     languages: [csharp]
@@ -292,3 +299,22 @@ rules:
           - pattern: $S.RouteToLot(...);
           - pattern: $S.DoRoute(...);
           - pattern: $V.GetIn(...);
+  # ---------- commit before the fee test (docs/561 §2, photo booth) ----------
+  # The Sim is already entered / faded out / listed in the object, then a funds test returns false with no exit path.
+  - id: fee-test-after-enter
+    languages: [csharp]
+    severity: WARNING
+    message: funds tested after the Sim entered the object; the early `return false` leaves it inside (no exit / fade-in)
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              $O.$ENTER(...);
+              ...
+          - pattern-inside: |
+              if (!$O.$ENTER(...)) { ... }
+              ...
+      - pattern: |
+          if ($S.FamilyFunds < $C) { ... return false; }
+      - metavariable-regex:
+          metavariable: $ENTER
+          regex: ^(RouteToAndEnter\w*|Enter\w*|FadeOut|AddToUseList|ParentToSlot|SetHiddenFlags)$

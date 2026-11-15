@@ -12,8 +12,9 @@ namespace Ts3Agent
     //   not_queued:       in mTimers, not in the queue -> never fires, never cleaned up by firing
     //   unregistered:     in the queue, not in mTimers -> fires, cannot be removed by its handle
     //   overdue:          due more than 1 sim hour ago and still queued (Simulate should have popped it)
-    //   duplicate:        same callback method + same target object + same owner under more than one handle (re-added
-    //                     without removing the old one: the callback runs once per copy)
+    //   duplicate:        same callback method + same target object + same owner + same fire time under more than one
+    //                     handle (re-added without removing the old one: the callback runs once per copy). Copies due at
+    //                     other times are not counted (by design, e.g. BuildableShell's 6 lighting alarms a day).
     //   bad_repeat:       repeating with RepeatLength <= 0
     //   far_future:       due more than 1 sim year ahead
     // Each class: count and top callbacks ("Type.Method"), with owner types.
@@ -68,7 +69,8 @@ namespace Ts3Agent
                         }
                         object data = LcGet(t, "mData"), len = LcGet(t, "RepeatLength");  // Timer.Repeating = mData & 0x80
                         if (data is byte && ((byte)data & 0x80) != 0 && len is float && (float)len <= 0f) { counts["bad_repeat"]++; LcBump(by["bad_repeat"], name); }
-                        string key = LcMethod(cb) + "|" + (cb != null && cb.Target != null ? System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(cb.Target).ToString() : "static") + "|" + (owner != null ? System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(owner).ToString() : "null");
+                        string key = LcMethod(cb) + "|" + (cb != null && cb.Target != null ? System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(cb.Target).ToString() : "static") + "|" + (owner != null ? System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(owner).ToString() : "null")
+                            + "|" + (when is DateAndTime ? ((DateAndTime)when).Ticks.ToString() : "?");  // fire time: same callback at other times is by design (BuildableShell's lighting alarms, docs/561 §5)
                         if (inHandle.ContainsKey(key)) continue;
                         inHandle[key] = true;
                         int n; sig.TryGetValue(key, out n); sig[key] = n + 1;
