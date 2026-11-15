@@ -566,6 +566,7 @@ namespace Ts3Fixes
         // [2689-2690] resetinusefree (InUseLogic.cs, docs/576 §2): items freed / errors.
         // [2691-2692] putdowninuse (InUseLogic.cs, docs/576 §3): put-downs repaired / errors.
         // [2693-2695] autonomyinuseblock (AutonomyInUseBlock.cs, docs/577 §1): taken objects blocked / seen with switch off / errors.
+        // [2739-2741] tpdoorrights (UnseenTeleportGoal.cs, docs/584 §7): lots open by the Sim's own door rights that upstream closes / of those only by household access / closed by a door the Sim cannot pass.
         // [2736-2738] routableasync (RouteBackoff.cs, docs/584 §3): kind-2 STARTs let through (unseen routable checks) / refused here / let through but not started.
         // [2733-2735] buffbufcheck (MotiveBuf.cs, docs/584 §5): UpdateBuffs calls checked / empty delayed list (ilp_buffbuf skips the copy) / Count vs enumeration mismatches (must be 0).
         // [2729-2732] motivebuf (MotiveBuf.cs, docs/584 §5): updates from a pooled list / snapshots checked / check mismatches (must be 0) / fallbacks or errors.
@@ -776,6 +777,7 @@ namespace Ts3Fixes
                 case "motivebufcheck": return false;
                 case "buffbufcheck": return false;
                 case "routableasync": return false;  // A/B with [RouteAsync] Kinds=2: async PlanFromPoint only for unseen NPCs' IsPointInLotSafelyRoutable (RouteBackoff.cs, docs/584 §3)  // check for ts3native ilp_buffbuf: UpdateBuffs' delayed-buff list empty and consistent (MotiveBuf.cs, docs/584 §5)  // pure check for motivebuf: each snapshot compared with the game's copy (MotiveBuf.cs)
+                case "tpdoorrights": return false;  // F1's unseen-teleport lot test by the Sim's own door rights, EA's one-way sentinel (UnseenTeleportGoal.cs, docs/584 §7)
                 case "visitcar": return false;  // unseen NPC visits keep driving at EA's coin flip (UnseenVisitTrip.cs, docs/584 §1)
                 case "visitwalkfinish": return false;  // unseen NPC still walking to a visit after 60 sim-min finishes at the lot (UnseenVisitTrip.cs, docs/584 §1)
                 case "autlastsearch": return false;  // log only: each Sim's last autonomy search and its result, for the census (AutLive.cs, docs/584 §4)
