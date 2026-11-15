@@ -130,8 +130,10 @@ namespace Ts3Fixes
                     : ForeignEligible() && PreCb(0, ref pre) && GetOption2((Sims3.SimIFace.Route.RouteOption2)kArStart);
                 if (!started)
                 {
+                    int ts = sUfSplit.On ? System.Environment.TickCount : 0;
                     StepAside();
                     if (!GvuDefer(0, out r)) r = PlanOrig();
+                    if (sUfSplit.On) { sUfSplit.SyncMs = unchecked(System.Environment.TickCount - ts); sUfSplit.Seen = true; }
                 }
                 else
                 {
@@ -254,7 +256,8 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 c[56]++;
                 RflAsyncMark(); // routefaillog: this plan waits on a ts3native job
-                for (int i = 0; !GetOption2(kAsyncReady); i++)
+                int t0 = sUfSplit.On ? System.Environment.TickCount : 0, i = 0;
+                for (; !GetOption2(kAsyncReady); i++)
                 {
                     // shortcut: a fixed cap (~10-20 s real time); past it the plan waits natively and is then made
                     // again synchronously. Upgrade to a time-based cap if long searches ever reach it.
@@ -262,6 +265,8 @@ namespace Ts3Fixes
                     c[57]++;
                     Simulator.Sleep(0);
                 }
+                // ufplansplit (log only): no yield between here and UfPlan's read, so these are this plan's
+                if (sUfSplit.On) { sUfSplit.WaitStart = t0; sUfSplit.WaitMs = unchecked(System.Environment.TickCount - t0); sUfSplit.Polls = i; sUfSplit.Seen = true; }
             }
 
             // docs/185 §5: the original Plan/Replan runs Route.AboutToPlanCallback only after the async job (it is called after
