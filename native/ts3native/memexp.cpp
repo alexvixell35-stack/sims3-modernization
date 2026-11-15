@@ -30,15 +30,15 @@ struct MxAddrs {  // game globals; the host selftest points them at fakes
     const DWORD* incremental;  // GC_incremental
     const DWORD* dontGc;       // GC_dont_gc
 };
-static MxAddrs g_mx = {(const DWORD*)(uintptr_t)0x01233318, (const DWORD*)(uintptr_t)0x011F3054,
-                       (const DWORD*)(uintptr_t)0x011F30D8, (const DWORD*)(uintptr_t)0x011F2F90,
-                       (const DWORD*)(uintptr_t)0x012225A0, (const DWORD*)(uintptr_t)0x012225C4,
-                       (const DWORD*)(uintptr_t)0x012225C0, (const DWORD*)(uintptr_t)0x011F2F9C,
-                       (const DWORD*)(uintptr_t)0x011F30A8};
+static MxAddrs g_mx = {(const DWORD*)(uintptr_t)TS3A(0x01233318), (const DWORD*)(uintptr_t)TS3A(0x011F3054),
+                       (const DWORD*)(uintptr_t)TS3A(0x011F30D8), (const DWORD*)(uintptr_t)TS3A(0x011F2F90),
+                       (const DWORD*)(uintptr_t)TS3A(0x012225A0), (const DWORD*)(uintptr_t)TS3A(0x012225C4),
+                       (const DWORD*)(uintptr_t)TS3A(0x012225C0), (const DWORD*)(uintptr_t)TS3A(0x011F2F9C),
+                       (const DWORD*)(uintptr_t)TS3A(0x011F30A8)};
 typedef int(__cdecl* MxExpandFn)(DWORD blocks);               // GC_expand_hp_inner 0xE49C80 (min 0x40 blocks)
 typedef int(__cdecl* MxCoeFn)(DWORD needed, int ignoreOffPage);  // GC_collect_or_expand 0xE4A120
 typedef int(__cdecl* MxStepFn)(void* stop);                    // GC_try_to_collect 0xE4A050
-static MxExpandFn g_mxExpand = (MxExpandFn)(uintptr_t)0x00E49C80;
+static MxExpandFn g_mxExpand = (MxExpandFn)(uintptr_t)TS3A(0x00E49C80);
 static MxCoeFn g_mxCoeOrig;
 static MxStepFn g_mxStepOrig;
 
@@ -509,7 +509,7 @@ static int __cdecl MxCoe(DWORD needed, int ignoreOffPage) {
 }
 
 static const Site kMxNotifySite[] = {
-    {0x00D7E62A, {0xC7, 0x05, 0x60, 0x43, 0x23, 0x01, 0x60, 0xFD}, 8, 6},  // mov [GC_notify_event],0xC0FD60
+    {TS3A(0x00D7E62A), {0xC7, 0x05, 0x60, 0x43, 0x23, 0x01, 0x60, 0xFD}, 8, 6},  // mov [GC_notify_event],0xC0FD60
 };
 static const u8 kMxCoePro[7] = {0x83, 0x3D, 0x9C, 0x2F, 0x1F, 0x01, 0x00};  // cmp dword [GC_incremental],0
 
@@ -543,18 +543,18 @@ static bool ApplyMemExp(const wchar_t* ini) {
     }
     if (!g_mxPage) g_mxPage = (u8*)VirtualAlloc(NULL, 1 << 18, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     // the notify pointer: the immediate MonoScriptHost init stores, or the pointer itself when init already ran
-    DWORD* slot = (DWORD*)(uintptr_t)0x01234360;
+    DWORD* slot = (DWORD*)(uintptr_t)TS3A(0x01234360);
     bool hooked = PatchImm32("GC_notify_event (mem experiments)", kMxNotifySite, 1, (DWORD)(uintptr_t)MxNotify);
-    if (Readable(slot, 4) && *slot == 0x00C0FD60) {
+    if (Readable(slot, 4) && *slot == TS3A(0x00C0FD60)) {
         const DWORD v = (DWORD)(uintptr_t)MxNotify;
         hooked = Write(slot, &v, 4) || hooked;
     }
     if (!hooked) { Log("SKIP mem experiments: GC_notify_event site differs"); return false; }
     if (sh) {
-        const CallSite cs = {0x00D819AA, 0x00E4A050, (void*)MxStep};
-        g_mxStepOrig = (MxStepFn)(uintptr_t)0x00E4A050;
+        const CallSite cs = {TS3A(0x00D819AA), TS3A(0x00E4A050), (void*)MxStep};
+        g_mxStepOrig = (MxStepFn)(uintptr_t)TS3A(0x00E4A050);
         if (!PatchCalls("per-frame GC_try_to_collect timing (mem experiments)", &cs, 1)) g_mxStepOrig = NULL;
-        g_mxCoeOrig = (MxCoeFn)InstallDetour("GC_collect_or_expand (SqrtHeapLimit)", 0x00E4A120, kMxCoePro, sizeof(kMxCoePro), (void*)MxCoe, &g_mxCoeOrig);
+        g_mxCoeOrig = (MxCoeFn)InstallDetour("GC_collect_or_expand (SqrtHeapLimit)", TS3A(0x00E4A120), kMxCoePro, sizeof(kMxCoePro), (void*)MxCoe, &g_mxCoeOrig);
         if (!g_mxStepOrig || !g_mxCoeOrig) Log("note: SqrtHeapLimit without %s: GC time undercounted%s", g_mxStepOrig ? "the collect_or_expand detour" : "the per-frame timing",
                                                g_mxCoeOrig ? "" : ", heap policy unchanged");
     }

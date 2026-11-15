@@ -27,7 +27,7 @@ static SgCloneFn g_sgClone;
 static const u8 kSgClearPro[] = {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x4E, 0x0C};  // push ebx; push esi; mov esi,ecx; mov ecx,[esi+0xC]
 static const u8 kSgLoadPro[] = {0x53, 0x55, 0x56, 0x33, 0xDB};              // push ebx; push ebp; push esi; xor ebx,ebx
 static const u8 kSgClonePro[] = {0x53, 0x55, 0x56, 0x8B, 0xF1};             // push ebx; push ebp; push esi; mov esi,ecx
-static const DWORD kSgObjVt = 0x01042CA8, kSgF5 = 0x40A00000;
+static const DWORD kSgObjVt = TS3A(0x01042CA8), kSgF5 = 0x40A00000;
 static const char* const kSgPair[5] = {"RoutingSlots", "ContainmentSlots", "FxSlots", "slots +0x24", "slots +0x2C"};
 static bool g_sgGuard;
 static DWORD g_sgExeLo = 0x00401000, g_sgExeHi = 0x01400000;  // element vtables live in the image (selftest: its own range)
@@ -61,9 +61,9 @@ static SgSeen& SgSlot(DWORD comp) { return g_sgSeen[(comp >> 3) & 4095]; }
 static const char* SgWhen(DWORD ret, bool after) {
     if (after) return ret ? "load end (0x951F20)" : "clone end (0x951AE0)";
     switch (ret) {
-        case 0x00952D2F: return "teardown (SlotComponent dtor 0x952D20)";
-        case 0x00951F49: return "clear before load (0x951F44)";
-        case 0x00951B5E: return "clear before clone (0x951B59)";
+        case TS3A(0x00952D2F): return "teardown (SlotComponent dtor 0x952D20)";
+        case TS3A(0x00951F49): return "clear before load (0x951F44)";
+        case TS3A(0x00951B5E): return "clear before clone (0x951B59)";
         default: return "clear (other caller)";
     }
 }
@@ -136,9 +136,9 @@ static DWORD __fastcall SgCloneHook(u8* comp, void* edx, const u8* src) {
 static bool ApplySlotGuard(const wchar_t* ini) {
     if (GetPrivateProfileIntW(L"SlotGuard", L"Enabled", 0, ini) <= 0) return false;
     g_sgGuard = GetPrivateProfileIntW(L"SlotGuard", L"Guard", 0, ini) > 0;
-    if (!g_sgClear) g_sgClear = (SgClearFn)InstallDetour("SlotComponent_Clear (slot guard)", 0x009519C0, kSgClearPro, sizeof(kSgClearPro), (void*)SgClearHook, &g_sgClear);
-    if (!g_sgLoad) g_sgLoad = (SgLoadFn)InstallDetour("SlotComponent_Load (slot guard)", 0x00951F20, kSgLoadPro, sizeof(kSgLoadPro), (void*)SgLoadHook, &g_sgLoad);
-    if (!g_sgClone) g_sgClone = (SgCloneFn)InstallDetour("SlotComponent_Clone (slot guard)", 0x00951AE0, kSgClonePro, sizeof(kSgClonePro), (void*)SgCloneHook, &g_sgClone);
+    if (!g_sgClear) g_sgClear = (SgClearFn)InstallDetour("SlotComponent_Clear (slot guard)", TS3A(0x009519C0), kSgClearPro, sizeof(kSgClearPro), (void*)SgClearHook, &g_sgClear);
+    if (!g_sgLoad) g_sgLoad = (SgLoadFn)InstallDetour("SlotComponent_Load (slot guard)", TS3A(0x00951F20), kSgLoadPro, sizeof(kSgLoadPro), (void*)SgLoadHook, &g_sgLoad);
+    if (!g_sgClone) g_sgClone = (SgCloneFn)InstallDetour("SlotComponent_Clone (slot guard)", TS3A(0x00951AE0), kSgClonePro, sizeof(kSgClonePro), (void*)SgCloneHook, &g_sgClone);
     Log("slot guard %s (CRASH-TRIAGE, docs/539 §18): SlotComponent slot arrays +0x0C..+0x2C checked before every clear (teardown 0x9519C0)%s%s; "
         "a 0x40A00000 / non-heap / unreadable array pointer logged (\"slot guard: float5 slot bad\")%s", g_sgClear ? "on" : "off (no hook)",
         g_sgLoad ? ", after every load (0x951F20)" : "", g_sgClone ? ", after every clone (0x951AE0)" : "",

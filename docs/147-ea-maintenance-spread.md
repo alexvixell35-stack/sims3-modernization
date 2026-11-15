@@ -90,6 +90,14 @@ docs/145 §6's per-job seconds (21.9 s, 26.4 s, 53.3 s) are mostly a few shared 
 
 **Design D1 (count first, exact):** before the array walk, ask the native count of all objects of the type (`Queries.CountObjects<T>`, exists); when the total is below the cap, the uncaptured count is too, so the answer is "yes" without the array. Same answer in every case; saves only when the world is under the cap. **D2 (tick memo):** keep each answer for the rest of the sim tick and drop it when any spawner creates an object; near-exact (a capture mid-tick is seen a tick later). Before either: one capture with a probe counter of cap checks per tick and the share of "under cap" answers (~15 min run), because the measured total (~1.8 s over ~32 h) is too small to justify a hook blind. Effort if the capture says yes: D1 ~30-60 min + 1 repro.
 
+**Built 2026-11-15 (lane L6, not run):** D1 as `spawncapcount` (`SpawnCap.cs`, `SpawnCapCore.UnderCap`, default off) and the
+probe as `spawncapprobe` (EA's method always runs; checks and under-cap answers counted, D1's answer compared: mismatches must
+stay 0). Both hooks swap the two static checks; EA's guards (EP5 / Appaloosa Plains, wildflower packs and Seasons
+temperature) are written out as in the game. Counters 999-1003. Selftest `tools/selftest/spawncap` (D1 == EA on 20000
+random worlds). Repro `spawncap-check`, queue `lane-l6-1115.json` `bp-spawncap-check` (not run). D2 not built: it waits for
+the probe's under-cap share, as above. `Queries.CountObjects` and `GetObjects` use the same native type query [inferred: both
+go through `IQueries` with `typeof(T)`]; the probe's mismatch counter checks it.
+
 ## 6. Build, counters, triggers, queue
 
 - **Files:** `mods/ts3fixes/src/EaSpread.cs` (hooks, passes, trigger), `EaSpreadCore.cs` (game-independent `SlicedPass`, `DailyPass`, slice budget, pair owner), wiring in `Fixes.cs` (`ApplyEaSpread`, switches, `int[197]`) and `Instantiator.cs` (`kEaSpreadLots`, `kEaSpreadPets`, `kEaSpreadDecay`, all off), tuning XML in `tools/setup/build-fixes.ts`, agent `patches` keys in `PatchHandlers.cs`, README rows.

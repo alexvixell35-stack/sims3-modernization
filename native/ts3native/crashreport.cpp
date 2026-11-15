@@ -350,6 +350,9 @@ static HANDLE CrOpenReport(const char* kind) {
     return h;
 }
 
+static bool g_crRdata;  // [CrashReport] RdataCheck=1 (docs/260 §7, default off): the .rdata protection + vtable compare line
+static void CfRdataText(const u8* img, const wchar_t* file, char* out, size_t cap);  // crashfx.cpp
+
 static void CrMarkerPath(wchar_t* out) { swprintf_s(out, MAX_PATH, L"%s\\running.txt", g_crDir); }
 
 static void CrReport(const EXCEPTION_POINTERS* e) {
@@ -385,6 +388,13 @@ static void CrReport(const EXCEPTION_POINTERS* e) {
         CrPut("  %s\r\n", fr);
     }
     CrFlush(h);  // the part that matters is on disk before anything that could fault again
+    if (g_crRdata) {  // after the flush: it reads the exe file
+        static char rd[2560];
+        CfRdataText((const u8*)GetModuleHandleW(NULL), g_crExe, rd, sizeof(rd));
+        CrPut("%s\r\n", rd);
+        Log("crash report: %s", rd);
+        CrFlush(h);
+    }
     static char tail[32768];
     const size_t tn = CrTailOf(g_crLog, tail, sizeof(tail), 50);
     CrCommonTail(h, tail, tn, "ts3native.log (last 50 lines)");
@@ -534,14 +544,15 @@ static void InstallCrashReport(const wchar_t* ini, const wchar_t* log) {
         WriteFile(mh, t, (DWORD)sprintf_s(t, "ts3native " TS3NATIVE_VERSION "\r\npid %lu\r\n", GetCurrentProcessId()), &w, NULL);
         CloseHandle(mh);
     }
+    g_crRdata = GetPrivateProfileIntW(L"CrashReport", L"RdataCheck", 0, ini) != 0;
     g_crOn = true;
     g_crPrev = SetUnhandledExceptionFilter(CrFilter);
     g_crIatReal = (void*)GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "SetUnhandledExceptionFilter");
     g_crIatSlot = CrFindIat(GetModuleHandleW(NULL), g_crIatReal);
     const DWORD v = (DWORD)(uintptr_t)CrSetFilter;
     const bool hooked = g_crIatSlot && Write(g_crIatSlot, &v, 4);
-    Log("crash report on: filter set (next 0x%p), exe IAT SetUnhandledExceptionFilter %s 0x%08lX, %d scrub needles", (void*)g_crPrev,
-        hooked ? "hooked at" : "NOT hooked (a later filter replaces ours)", (DWORD)(uintptr_t)g_crIatSlot, g_crNeedleN);
+    Log("crash report on: filter set (next 0x%p), exe IAT SetUnhandledExceptionFilter %s 0x%08lX, %d scrub needles, RdataCheck %d", (void*)g_crPrev,
+        hooked ? "hooked at" : "NOT hooked (a later filter replaces ours)", (DWORD)(uintptr_t)g_crIatSlot, g_crNeedleN, g_crRdata ? 1 : 0);
     if (g_apexFound)
         Log("crash report: Apex crash report also active: chain Apex -> ours -> EA; expect ApexRadiance_Crash.txt next to ours (docs/148 §6 #8)");
 }

@@ -21,8 +21,8 @@ namespace Ts3Fixes
     // InteractionPriorityChangedCallback (set by AddInteraction) then runs RemoveLowerPriorityInteractions, which cancels
     // only an autonomous, non-MustRun head, exactly as for any autonomous social. A player-directed scare's receiver is
     // already UserDirected (unchanged), and a target busy with something the player ordered (UserDirected) still
-    // outranks the raised receiver. Counters: [994] receivers raised (on), [995] the same case seen with the switch off,
-    // [996] errors. Check: ScarePriorityChecks.cs.
+    // outranks the raised receiver. Counters: [1106] receivers raised (on), [1107] the same case seen with the switch off,
+    // [1108] errors. Check: ScarePriorityChecks.cs.
     public static partial class Fixes
     {
         static string sSpMissing = "";
@@ -75,12 +75,12 @@ namespace Ts3Fixes
                 if (!SpRaise(true, queued, isHead, level)) return;
                 if (ShortcutOn("scarepriority"))
                 {
-                    PatchCounters()[994]++;
+                    PatchCounters()[1106]++;
                     recv.SetPriority(InteractionPriorityLevel.NonCriticalNPCBehavior);
                 }
-                else PatchCounters()[995]++;
+                else PatchCounters()[1107]++;
             }
-            catch (Exception) { PatchCounters()[996]++; }
+            catch (Exception) { PatchCounters()[1108]++; }
         }
 
         public class SpScareHook

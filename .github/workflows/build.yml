@@ -27,6 +27,55 @@ jobs:
             native/ts3native/out/ts3native.asi
             native/ts3native/out/ts3native.ini
 
+  # EA app 1.69.47 build (docs/228): the same sources with /DTS3A_TABLE take their addresses from the committed
+  # native/ts3native/ts3addr-ea169.h. No selftest.exe (not compile-checked under the table). The EA ini is the Steam ini with
+  # every section off except the allowlist, and an allowlisted section's source file must not have a 0 (unresolved) row.
+  native-ea169:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ts3native-ea169.asi (/DTS3A_TABLE)
+        shell: cmd
+        run: |
+          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSDIR=%%i"
+          if not defined VSDIR (echo Visual Studio with the C++ tools not found & exit /b 1)
+          call "%VSDIR%\VC\Auxiliary\Build\vcvars32.bat" >nul || exit /b 1
+          cd native\ts3native
+          mkdir out-ea169
+          cl /nologo /LD /O2 /MT /W4 /WX /DTS3A_TABLE /Foout-ea169\ /Feout-ea169\ts3native-ea169.asi ts3native.cpp /link /DLL /MAP:out-ea169\ts3native-ea169.map kernel32.lib || exit /b 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18'
+      - name: EA inis (minimal allowlist and release candidate) and unresolved-row assert
+        shell: bash
+        env:
+          # sections left on for EA (docs/228 §6 first smoke); everything else: every integer-valued key =0
+          # (Enabled and independent switches such as [ArenaGuard] TailPad/InitobjFix)
+          # [EaDiag] (eadiag.cpp, docs/234) has no section in the v0.2.11 ini: ProductGate defaults to 0, the hooks stay off
+          # [WaterJps]: EA range hash added (docs/232 "WaterJps on 1.69"), Enabled=1 in the Steam ini
+          ALLOW: Decompress OptsInit WaterJps
+          # like ALLOW, but Enabled=1 is forced (the Steam ini ships it 0 until verified in game). [FootprintIndex]: standalone,
+          # footprint.cpp has no unresolved row, its byte-check site is ok; an FNV mismatch on 1.69 only logs SKIP
+          # [LotSinCos]: standalone, 0xAB8540 -> 0xAB71B0 same code (docs/232 "LotSinCos on 1.69"), prologue row ok
+          # [ImageGuard] (imgguard.cpp, EA build only, TS3N_EA_PORT): decode 0x445FB0 -> 0x445E80 same code (docs/232 Run 8d); its
+          # section comes from tools/ea-ini.ts EA_ADD (the Steam ini has none)
+          ALLOW_ON: FootprintIndex LotSinCos ImageGuard
+        # tools/ea-ini.ts writes out-ea169/ts3native-ea169.ini (minimal: ALLOW / ALLOW_ON only) and ts3native-ea169-rc.ini (release candidate:
+        # shipped values for every section whose files have no unresolved / bytes-bad row and no zeroed dependency; docs/232 rc table). It fails when an
+        # ALLOW section reads a file with such a row ([EaDiag] is EA-only: its file is not in the tables). tools/ini-sections.json (section -> .cpp files
+        # naming it as L"<Section>") was built with the one-liner in git history (docs/232 §5 row 6); rebuild it after adding a section or moving its reader.
+        run: node tools/ea-ini.ts --out native/ts3native/out-ea169
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ts3native-ea169
+          path: |
+            native/ts3native/out-ea169/ts3native-ea169.asi
+            native/ts3native/out-ea169/ts3native-ea169.ini
+            native/ts3native/out-ea169/ts3native-ea169-rc.ini
+            native/ts3native/out-ea169/ts3native-ea169-test.ini
+            native/ts3native/ts3addr-ea169.h
+            native/ts3native/ts3bytes-ea169.h
+
   node:
     runs-on: ubuntu-latest
     steps:
@@ -60,8 +109,8 @@ jobs:
           test -s notes.md || { echo "CHANGELOG.md has no section '## $TAG'"; exit 1; }
           # releases ship only the stable patches ([GC], [WaterJps], [Decompress], [SaveWrite], [LotRemoveGuard], [OptsInit], and since
           # v0.1.4 background routing [RouteAsync] + [RouteGate] + [Discourage]; v0.1.5 candidates [SlotEnabledRO], [AvoidRO],
-          # [UnseenThrottle], switched by tools/release-features.ts after their A/Bs; v0.2.0 [UnseenFallback] hitch guard; v0.2.5 [UnseenAnim], [UnseenTable]; after v0.2.5 [ThreadStack] and the route read-only stack; after v0.2.10 [MonoThread] + [RouteSnap] + [AutShadow] (unseen-direct go-live), [MonoSigGuard] (EA loading-screen crash fix) and [LauncherFix] (launcher telemetry wait skipped); next release [ThumbStall] (Sim portrait stall abort, Rodney OK 2026-11-13): any other enabled section fails the release
-          extra=$(awk -F= '{sub(/\r$/, "")} /^\[/ {s=$0} $1=="Enabled" && $2+0 && s!="[GC]" && s!="[WaterJps]" && s!="[Decompress]" && s!="[SaveWrite]" && s!="[LotRemoveGuard]" && s!="[OptsInit]" && s!="[RouteAsync]" && s!="[UnseenFallback]" && s!="[UserDiag]" && s!="[RouteGate]" && s!="[Discourage]" && s!="[SlotEnabledRO]" && s!="[AvoidRO]" && s!="[UnseenThrottle]" && s!="[UnseenAnim]" && s!="[UnseenTable]" && s!="[ThreadStack]" && s!="[SteerRO]" && s!="[Gate0RO]" && s!="[RouteToObjRO]" && s!="[PlacementRO]" && s!="[IdleCheckRO]" && s!="[LotFrontDoorRO]" && s!="[GoalValidRO]" && s!="[ObstructedRO]" && s!="[FootstepRO]" && s!="[MonoThread]" && s!="[RouteSnap]" && s!="[AutShadow]" && s!="[MonoSigGuard]" && s!="[LauncherFix]" && s!="[ThumbStall]" {print s}' ts3native/ts3native.ini)
+          # [UnseenThrottle], switched by tools/release-features.ts after their A/Bs; v0.2.0 [UnseenFallback] hitch guard; v0.2.5 [UnseenAnim], [UnseenTable]; after v0.2.5 [ThreadStack] and the route read-only stack; after v0.2.10 [MonoThread] + [RouteSnap] + [AutShadow] (unseen-direct go-live), [MonoSigGuard] (EA loading-screen crash fix) and [LauncherFix] (launcher telemetry wait skipped); next release [ThumbStall] (Sim portrait stall abort, Rodney OK 2026-11-13) and [MonoJit] (script compiler, Rodney OK 2026-11-15): any other enabled section fails the release
+          extra=$(awk -F= '{sub(/\r$/, "")} /^\[/ {s=$0} $1=="Enabled" && $2+0 && s!="[GC]" && s!="[WaterJps]" && s!="[Decompress]" && s!="[SaveWrite]" && s!="[LotRemoveGuard]" && s!="[OptsInit]" && s!="[RouteAsync]" && s!="[UnseenFallback]" && s!="[UserDiag]" && s!="[RouteGate]" && s!="[Discourage]" && s!="[SlotEnabledRO]" && s!="[AvoidRO]" && s!="[UnseenThrottle]" && s!="[UnseenAnim]" && s!="[UnseenTable]" && s!="[ThreadStack]" && s!="[SteerRO]" && s!="[Gate0RO]" && s!="[RouteToObjRO]" && s!="[PlacementRO]" && s!="[IdleCheckRO]" && s!="[LotFrontDoorRO]" && s!="[GoalValidRO]" && s!="[ObstructedRO]" && s!="[FootstepRO]" && s!="[MonoThread]" && s!="[RouteSnap]" && s!="[AutShadow]" && s!="[MonoSigGuard]" && s!="[LauncherFix]" && s!="[ThumbStall]" && s!="[MonoJit]" {print s}' ts3native/ts3native.ini)
           test -z "$extra" || { echo "Not stable, must be Enabled=0 in ts3native.ini: $extra"; exit 1; }
           # every release lists everything switched on plus install steps (docs/PLAYERS.md): it must name each enabled
           # ts3native section and each ts3fixes tunable shipped True (kInstantiator is the loader, not a feature)
@@ -70,5 +119,8 @@ jobs:
           missing=$(for f in $on; do grep -qF "$f" docs/PLAYERS.md || echo "$f"; done)
           test -z "$missing" || { echo "docs/PLAYERS.md does not list: $missing"; exit 1; }
           { echo; echo '---'; echo; cat docs/PLAYERS.md; } >> notes.md
+          # CI note on the release page (docs/HOW-WE-BUILD.md): what CI built, how to check the file, what it did not build
+          sha=$(sha256sum ts3native/ts3native.asi | cut -d' ' -f1)
+          { echo; echo '---'; echo; echo "**Built by CI.** \`ts3native.asi\` in the zip is built from this tag's source by GitHub Actions ([run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)), SHA-256 \`$sha\`. \`ts3fixes.package\` compiles against EA's own game files, which cannot be in CI, so the maintainer builds it from the same tag and attaches it by hand. Neither file is code-signed. Details: docs/HOW-WE-BUILD.md."; } >> notes.md
           (cd ts3native && zip -q "../ts3native-$TAG.zip" ts3native.asi ts3native.ini)
           gh release create "$TAG" "ts3native-$TAG.zip" --draft --title "$TAG" --notes-file notes.md

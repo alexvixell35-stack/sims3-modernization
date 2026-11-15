@@ -20,6 +20,7 @@
 #include <string.h>
 #include <limits.h>
 #include <intrin.h>  // _ReturnAddress (ts3native simloop.cpp SppHook)
+#include "../ts3native/ts3addr.h"  // TS3A() in the ts3native sources included below; no /DTS3A_TABLE here, so the host stays on Steam addresses
 
 typedef unsigned char u8;
 static const DWORD IMG_LO = 0x00400000, IMG_HI = 0x0125A000;  // SizeOfImage 0xE5A000 (Steam 1.67)
@@ -1043,6 +1044,7 @@ static bool Write(void* addr, const void* bytes, size_t n) {
 // ts3native pieces the included files call (monothread-m5 arena guard detours, autshadow FPU state, locowin shims): host no-ops
 static void* InstallDetour(const char*, DWORD, const u8*, size_t, void*) { return NULL; }
 template <class F> static void* InstallDetour(const char*, DWORD, const u8*, size_t, void*, F*) { return NULL; }
+static int Clamp(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }  // ts3native.cpp's (QuitStop ini read)
 #include "../ts3native/uaftag.h"  // UafTagSet in MtWorkerMain ([UafCheck] free tags; only a thread-local write here)
 #include "../ts3native/simloop.cpp"  // the per-iteration hook ApplyMonoThread adds (the host never runs Simulate)
 #include "../ts3native/monothread.cpp"
@@ -1060,6 +1062,7 @@ static void* g_snJmp[1];
 struct McCtr { LONG mcSwitch, mcReady, mcCall, mcCallvirt, mcRet, mcBailCall, mcBailCallvirt, mcBailRet, mcVerified, mcMismatch, mcVSkipped, mcVerifyEvery, mcFirstBad; };
 static McCtr g_mcCtr;
 #define MC_CTR g_mcCtr
+#define MC_COUNTFAST  // fast mode counts fast calls (mcCall) and rets (mcRet) too: the fire rate on host inputs
 #include "../ts3native/mintcall.cpp"
 // [MintFuse] Sub (docs/139 §4)
 struct MfCtr { LONG mfReady, mfRuns, mfWhole, mfInner; };
@@ -1069,7 +1072,7 @@ static LONGLONG g_mfTicks;
 #define MF_TICKS g_mfTicks
 #include "../ts3native/mintfuse.cpp"
 // [EqualsFast] (docs/258 option C): the plan code, run against EA's own InternalEquals by the MONOHOST_EQFAST corpus
-struct EqCtr { LONG eqOn, eqMode, eqHits, eqPlans, eqRejects, eqFtNull, eqFtType, eqFtKind, eqFtNew, eqFtBusy, eqFtFull, eqRejGeneric, eqRejKind, eqRejMany; };
+struct EqCtr { LONG eqOn, eqMode, eqHits, eqPlans, eqRejects, eqFtNull, eqFtType, eqFtKind, eqFtNew, eqFtBusy, eqFtFull, eqRejGeneric, eqRejKind, eqRejMany, eqSmall; };
 static EqCtr g_eqCtr;
 #define EQ_CTR g_eqCtr
 #define EQ_NO_INSTALL

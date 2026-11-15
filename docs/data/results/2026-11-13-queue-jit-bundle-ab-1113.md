@@ -48,3 +48,28 @@ Pooled mean about -1.6%. Spread between repeats of one arm (about 3-10%) is as l
 - Nothing at >=1000 ms in any arm. Every pair has fewer than 10 events at >=500 ms: no significant difference.
 
 **Verdict:** no clear gain (not 3-5 ms/s) and no proven penalty; IP leans worse (it/s -7.6%, >=300 ms +28%) but within noise and unconfirmed. Correctness clean. Per rules (gain + no penalty = ON) the bundle does not go ON and nothing is shown to have regressed. Hold at default OFF. Next, before any ON decision: find why cpOn is 0 and MintCall never takes its fast path, then rerun IP with a per-thread ms/s counter and a clean OFF-1 retry.
+
+## Verdict correction (2026-11-14)
+
+The verdict above judged a JIT/compiler bundle by it/s and ms/s. The rule for JIT pieces is ship on static gain: host replay / corpus 0 mismatch + coverage (the piece fires in game) + modelled gain + guard cost < gain; the game bundle job is for correctness only; only a valid game A/B showing a real penalty blocks. Its "Not firing" findings were also misread:
+
+- **CallPath did enable** (verified, job native.json): `cpOn` is Compaction's counter (the queue note says so); `[MonoFast] CallPath` reads back as `mcSwitch` = 1, `mcReady` = 3 in all six ON arms, and the `OK   mintcall: ... (fast, switch 1)` line is in every ON log.
+- **MintCall does not bail on every call** (verified, docs/139 §8, `mintcall.cpp`): with CallPath=1 fast calls are not counted (a per-call increment costs ~1-2 ns); `mcCall` / `mcCallvirt` / `mcRet` count only in verify mode (CallPath=2), so `mcCall 0` with ~1.2e8 / 1.5e8 / 1.7e8 bails per 10 min says nothing about the fast share. MintCall and CallPath are the same piece.
+- Host fire rate with the bundle ON set (verified, monohost, 2026-11-14, bugfix/jit-bundle-ab2-1114): replay of the IP c3g game capture (MonoJit verify + `MONOHOST_MINTCALL=verify`): fast call+callvirt 10.69 M vs 1.33 M bails (89%), ret 8.98 M fast vs 0.45 M (95%), 9.84 M calls compared, **mcMismatch 0**; JIT replay 4235 ran, 0 differ, per-call verify MISMATCH 0. Selftest + bench, JIT ON set, CallPath verify: 32.8 M compared, 0 mismatch, SELFTEST OK.
+- **Real bug found on the way:** CallPath=2 (verify) and the JIT could not run together. In the game the JIT refused (`SKIP mono jit: jump-table entry 0x1A9 ... CallPath=2 has them all`), so CallPath could never be verified in a JIT load; in monohost the JIT's JIT_OP entry bypassed the verify catch and the compare ran a few instructions late: a false `mintcall verify MISMATCH` (edi +0x14 / +4) that switched the fast path off for the session (the first replay: 93 fast calls, then all bails). Fix: `McVChain` (mintcall.cpp) puts JitEnter behind the verify catch in both (ts3native 0.36.256-jitbundle2).
+- **ClauseLazy did not fire** (verified): `clOn` 1, `clBodies` 0 in every ON arm; with CallExit=0 it builds no lazy body (queue note, monojit.cpp lazyOk). Inert in this set: no coverage, so no ON decision for it here.
+
+**Fired, correctness clean (jitMismatch 0, jitFaults 0, rng-compare PASS, no ON-arm script error), per job delta (6 ON jobs):**
+
+| Piece | Counter (10 min) |
+|---|---|
+| MonoJit core (Mode=1, Direct=2 lazy, CodeKB 8192 / MaxMethods 4096, C2c list) | jitCalls 5.5-6.1e8, jitMethods +591..+701 (3395-3505 total), jitLazyCalls 2.2-2.4e8 |
+| Wide | jitWide +322..+395 bodies |
+| Inline=2 | jitInlined +27..+31 (~420 total) |
+| BoundCall mask 3 | bcHits 2.2-3.0e7, bcFills 4 |
+| [MintFuse] Sub | mfRuns 1.23-1.36e5, mfInner 2.8-3.3e4, mfWhole 5.5-6.3e3 |
+| [Binder] TypeHandleDirect (E1) | tdOn 1 (0xDB095E patched; no per-call counter) |
+
+Per rule these go **default ON**: no valid game A/B shows a real penalty (below). CallPath goes ON after jit-bundle-ab2-1114's verify job shows it fires in game (`mcCall` > 0, `mcMismatch` 0) with the bundle correctness clean. ClauseLazy stays as set (no effect with CallExit=0).
+
+**IP penalty question: ambiguous, not a proven penalty.** arm-ms (verified): IP sum ms/s off 138.5 / on 138.7 (+0.2), script ms/s +0.1; threaded ms/iter 8.25 / 8.85 (+0.6 = the it/s -7.6%). Per pair: off-1 8.51 / on-1 8.67 (+0.16), on-2 9.03 / off-2 8.01 (+1.02): same sign, 6x different size. ip-on-1 had other apps at 10.7% of the game CPUs (>= 10% = rerun rule), the other three IP jobs 7.5-8.2%; machine.jsonl other CPU avg 2.1-2.6%, min clock 4064 MHz. BP (+0.1 ms/s) and SV (+12.5, all in route: on-1 27.6 vs on-2 15.7, a native routing burst, not script) do not show it. Hitch >= 300 ms IP 12.2 / 15.6 per 10 min is ~24 vs ~31 events (Poisson spread ~±5). **The one thing jit-bundle-ab2-1114 must settle: the IP pair (both pairs, threaded ms/iter and sum ms/s); if both IP pairs again show ON slower by > 3 ms/s sum or > 0.5 ms/iter with clean load, that is a real penalty to resolve before ON.**

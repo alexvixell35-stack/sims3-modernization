@@ -364,3 +364,23 @@ Player report (twopointjj, v0.2.12, 2026-11-14): crash after quit to desktop, ~1
 **Verify** (queue `quitstop-verify-1114`, run): 4 save + quit cycles with the release ini (`[MonoThread] Enabled=1`, `[AutShadow] Satb=2`); pass = clean exit, the `OK   mono thread QuitStop: mono shutdown enter, worker stopped` line, no `WARN mono thread QuitStop`.
 
 **Verdict (2026-11-14 13:51-14:07 UTC, queue quitstop-verify-1114, `docs/data/results/2026-11-14-queue-quitstop-verify-1114.md`) [verified log]:** 4/4 PASS with the release ini. Each quit logs `OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered (... jobs, job running 0) in ~450 us ... finalizer pass 0xE4B3F0 back to the game's, root push [0x11949CC] back to the game's`; 0 timeouts, clean exit. Without the fix queue quitcrash-repro-1114 was 10/10 PASS, so the player crash is still not reproduced: default ON on the unreproduced-crash rule (static review above + these runs).
+
+## 18. Worker-private free lists (D8): the missing design and the RUN FIRST measurement (2026-11-15, ts3native 0.36.262-monogc1, mtprobe v8, NOT RUN)
+
+§16 left a worker-private allocator as an idea with two open problems. This section closes the design questions it can close statically and says what to measure before building anything.
+
+### 18.1 What is missing from §16 [inferred, from docs/57 and §16]
+
+1. **GC roots.** A private list holds free objects that Boehm no longer knows are taken. A collection clears the global free lists (`GC_clear_fl_marks` / reclaim), so a cell on our list could be swept and handed out again by the sim. Each private batch must be either (a) registered as a root range (`GC_add_roots 0xE4D9F0`, which is one of our 17 lock sites and costly per call) or (b) returned to Boehm (dropped) at the start of every collection: a hook on the two collection entries (`0xE4A050`, `0xE4A0B0`, already lock sites) that clears the worker's list under the lock before the mark phase. (b) is the simple choice: the worker refills after a collection.
+2. **Typed objects.** `GC_malloc_explicitly_typed 0xE50DE0` keeps the descriptor in the object's last word; a free cell on a private list has no valid descriptor, so if a root scan reaches it, marking is unsafe. With (b) no private cell survives into a mark, so this only needs: private lists hold untyped (`GC_malloc` / `_atomic`) sizes only; typed allocations keep the locked path.
+3. **Batch source.** EA's Boehm has no `GC_malloc_many` (0 hits, §16). A batch = N calls of `GC_malloc` under one lock entry (one lock take instead of N), linked through word 0. The saving is lock entries, not allocator work.
+
+### 18.2 When it pays [inferred]
+
+The private list only saves the worker's lock entries for allocation (and the sim's waits behind them). §16's v6 split separates the sim's waits (`simLockWaitUs`) from the worker's. If the worker allocates little per job, or the sim's waits are small, a private list saves nothing measurable and is not built.
+
+### 18.3 RUN FIRST: allocation counts per worker job
+
+mtprobe **v8** (always on with `GcLock=1`, no switch): `workerAllocs` (+0xBC, allocation entries on the worker at hook depth 0: `GC_malloc`, `_atomic`, `_uncollectable`, `_explicitly_typed`, `GC_generic_malloc`), `workerAllocsTyped` (+0xC0, of those `GC_malloc_explicitly_typed`), `workerAllocMaxJob` (+0xC4, most in one job). Selftest `TestMonoThreadM5`: the fake job's 20,000 allocations counted exactly, the sim's concurrent ones not.
+
+Queue `tools/harness/queues/mono-gc-1115.json` job `bp-gc-d8-allocs` (BP 10 min, the go-live worker config). Decision rule: build the private list (§18.1 (b), untyped sizes only, default OFF) only if **untyped worker allocations x 68 ns** (§15's uncontended entry cost) **plus the sim's lock waits (`simLockWaitUs`/s)** together exceed ~1 ms/s; otherwise park D8 with the numbers.

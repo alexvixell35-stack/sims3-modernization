@@ -26,15 +26,15 @@
 
 | § | Switch | Slots | Scope | Status |
 |---|---|---|---|---|
-| 1 | `vehiclefxhelper` | 1006-1008 | any vehicle (cosmetic, leak) | verified |
-| 2 | `prankditchempty` | 1009-1011 | prankster (household or NPC) | verified |
-| 3 | `serviceassignexit` | 1012-1015 | service bookkeeping; **household-visible**: the preferred service Sim can return | verified, + load sweep |
-| 4 | `serviceshowalarm` | 1016-1018 | NPC service Sims | verified |
+| 1 | `vehiclefxhelper` | 1118-1120 | any vehicle (cosmetic, leak) | verified |
+| 2 | `prankditchempty` | 1121-1123 | prankster (household or NPC) | verified |
+| 3 | `serviceassignexit` | 1124-1127 | service bookkeeping; **household-visible**: the preferred service Sim can return | verified, + load sweep |
+| 4 | `serviceshowalarm` | 1128-1130 | NPC service Sims | verified |
 | 5 | ~~`ridingjumpwins`~~ | (released) | removed: simler90 core fixes the same line | [simler90 fixes it] |
-| 6 | `maildogchaser` | 1022-1024 | **household-visible**: the dog no longer chases at every delivery | verified |
-| 7 | `lifeguardsurvey` | 1025-1027 | household lifeguard's leftover alarm | verified, + load sweep |
-| 8 | `moonriselistener` | 1028-1030 | mostly NPC fairies and werewolves (leak) | leak verified, gameplay effect inferred |
-| 9 | `holidaylights` | 1031-1034 | world (NPC homes), alarm leak | verified, + load sweep |
+| 6 | `maildogchaser` | 1134-1136 | **household-visible**: the dog no longer chases at every delivery | verified |
+| 7 | `lifeguardsurvey` | 1137-1139 | household lifeguard's leftover alarm | verified, + load sweep |
+| 8 | `moonriselistener` | 1140-1142 | mostly NPC fairies and werewolves (leak) | leak verified, gameplay effect inferred |
+| 9 | `holidaylights` | 1143-1146 | world (NPC homes), alarm leak | verified, + load sweep |
 
 ## §1 vehiclefxhelper: orphaned tire and hover effect helpers
 
@@ -88,7 +88,7 @@
 
 ## §5 ridingjumpwins: removed (simler90 fixes it)
 
-The bug is real (EA's `RidingSkill.ImportContent` reads key 2999955368 into `mCrossCountryCompetitionsWon`), but simler90's Gameplay Core Mod UPDATE242, which our installer ships (docs/07 §2.1), already reads it into `mJumpCompetitionsWon`. The switch, its hook and slots 1019-1021 were removed so we do not stack a second swap on simler90's replacement.
+The bug is real (EA's `RidingSkill.ImportContent` reads key 2999955368 into `mCrossCountryCompetitionsWon`), but simler90's Gameplay Core Mod UPDATE242, which our installer ships (docs/07 §2.1), already reads it into `mJumpCompetitionsWon`. The switch, its hook and slots 1131-1133 were removed so we do not stack a second swap on simler90's replacement.
 
 ## §6 maildogchaser: one dog chases the mail carrier forever
 
@@ -249,14 +249,14 @@ Every batch 3 and batch 4 hook targets a method that simler90 leaves byte-identi
 
 | § | Switch | Slots | Scope | Status |
 |---|---|---|---|---|
-| B4 §1 | `doorlockowner` | 1035-1039 | **household-visible**: a door locked to a gone Sim opens, or is re-pointed to a resident | verified, + load pass |
-| B4 §2 | `elevatorkitten` | 1040-1042 | kittens and puppies (any household): the route fails at planning, not at the doors | verified |
-| B4 §3 | `elevatorresetriders` | 1043-1045 | **household-visible**: riders get EA's failsafe reset at once instead of after 30 frozen minutes | verified |
-| B4 §3b | `elevatorridertimeout` | 1059-1061 | **household-visible**: each rider's failsafe counts from its own arrival | verified |
-| B4 §4 | `elevatorsavedlog` | 1046-1049 | log only | REA E4 unconfirmed; this logs it |
-| B4 §5 | `starlightreset` | 1050-1052 | **household-visible**: the selected Sim is no longer reset | verified |
-| B4 §6 | `moondiallistener` | 1053-1055 | deleted moon dials (leak) | verified |
-| B4 §7 | `snublistener` | 1056-1058 | destroyed Sims (leak) | verified |
+| B4 §1 | `doorlockowner` | 1147-1151 | **household-visible**: a door locked to a gone Sim opens, or is re-pointed to a resident | verified, + load pass |
+| B4 §2 | `elevatorkitten` | 1152-1154 | kittens and puppies (any household): the route fails at planning, not at the doors | verified |
+| B4 §3 | `elevatorresetriders` | 1155-1157 | **household-visible**: riders get EA's failsafe reset at once instead of after 30 frozen minutes | verified |
+| B4 §3b | `elevatorridertimeout` | 1171-1173 | **household-visible**: each rider's failsafe counts from its own arrival | verified |
+| B4 §4 | `elevatorsavedlog` | 1158-1161 | log only | REA E4 unconfirmed; this logs it |
+| B4 §5 | `starlightreset` | 1162-1164 | **household-visible**: the selected Sim is no longer reset | verified |
+| B4 §6 | `moondiallistener` | 1165-1167 | deleted moon dials (leak) | verified |
+| B4 §7 | `snublistener` | 1168-1170 | destroyed Sims (leak) | verified |
 
 ### B4 §1 doorlockowner: doors stay locked to a dead or moved-out Sim
 
@@ -373,7 +373,7 @@ It changes nothing. A fix follows only if a live run shows the state.
 Repros `<switch>-check`: `doorlockowner`, `elevatorkitten`, `elevatorresetriders`, `elevatorridertimeout`, `elevatorsavedlog`, `starlightreset`, `moondiallistener`, `snublistener`.
 
 Live confirmation:
-- **B4 §1**: lock a door to one Sim, then move that Sim out. Off, the door stays locked. On, it opens. On a saved game, counter 1037 is nonzero after load.
+- **B4 §1**: lock a door to one Sim, then move that Sim out. Off, the door stays locked. On, it opens. On a saved game, counter 1149 is nonzero after load.
 - **B4 §4**: log lines `elevatorsavedlog:` on a Late Night apartment save.
 - **B4 §6 and §7**: kMoonChangeEvent and kSimAgeTransition listener counts stay flat in the leak census.
 
@@ -389,16 +389,16 @@ It changes none of the other methods below (`docs/data/mod-method-diff.csv` and 
 
 | § | Lead | Switch | Slots | Scope | Status |
 |---|---|---|---|---|---|
-| B5 §1 | 1 | `rolenullguard` | 1062-1064 | barista or waiter with no role: the menu or test answers "no" instead of throwing | verified; simler90 partial |
-| B5 §2 | 2 | `homeworkskillbonus` | 1065-1067 | **household-visible**: the homework-skill bonus applies below level 10 | verified |
-| B5 §3 | 3 | `horseranchchallenge` | 1068-1070 | **household-visible**: "visit a horse ranch" is hidden for households with no horse | verified |
-| B5 §4 | 4 | `digsiteemptypick` | 1071-1073 | **household-visible**: an empty dig no longer uses up the site | verified |
-| B5 §5 | 6 | `oppchainworld` | 1074-1076 | **household-visible**: chain history is cleared from the world change | verified (intent: the repeated `opportunity4` test) |
-| B5 §6 | 9 | `teleportcommunitylot` | 1077-1079 | **household-visible** (menu): no "Teleport to community lot" when no lot is valid | verified |
-| B5 §7 | 11 | `photosubjectstars` | 1080-1082 | UI: the photo journal stars use float division | verified |
-| B5 §8 | Apollo lead | `residentspawnslot` | 1083-1086 | NPC spawn placement: an apartment resident's door slot is judged with the resident's door rights, not the selected Sim's | verified (code); live count pending |
-| B5 §9 | 7 | `talkoccupationchance` | 1087-1089 | **household-visible** (menu): the Unemployment entry's chance is 1/(count+1) as a float | verified |
-| B5 §10 | 8 | `shelldoorsummon` | 1090-1092 | Showtime: the summoned proprietor's exit is queued only after its teleport | verified |
+| B5 §1 | 1 | `rolenullguard` | 1174-1176 | barista or waiter with no role: the menu or test answers "no" instead of throwing | verified; simler90 partial |
+| B5 §2 | 2 | `homeworkskillbonus` | 1177-1179 | **household-visible**: the homework-skill bonus applies below level 10 | verified |
+| B5 §3 | 3 | `horseranchchallenge` | 1180-1182 | **household-visible**: "visit a horse ranch" is hidden for households with no horse | verified |
+| B5 §4 | 4 | `digsiteemptypick` | 1183-1185 | **household-visible**: an empty dig no longer uses up the site | verified |
+| B5 §5 | 6 | `oppchainworld` | 1186-1188 | **household-visible**: chain history is cleared from the world change | verified (intent: the repeated `opportunity4` test) |
+| B5 §6 | 9 | `teleportcommunitylot` | 1189-1191 | **household-visible** (menu): no "Teleport to community lot" when no lot is valid | verified |
+| B5 §7 | 11 | `photosubjectstars` | 1192-1194 | UI: the photo journal stars use float division | verified |
+| B5 §8 | Apollo lead | `residentspawnslot` | 1195-1198 | NPC spawn placement: an apartment resident's door slot is judged with the resident's door rights, not the selected Sim's | verified (code); live count pending |
+| B5 §9 | 7 | `talkoccupationchance` | 1199-1201 | **household-visible** (menu): the Unemployment entry's chance is 1/(count+1) as a float | verified |
+| B5 §10 | 8 | `shelldoorsummon` | 1202-1204 | Showtime: the summoned proprietor's exit is queued only after its teleport | verified |
 
 **How each fix works.**
 - **B5 §1.** The no-role test is `role == null && role.RoleGivingObject == null`, which dereferences the null role. Our hooks run before EA's code on four methods: `BaristaBar.BuyDrinkFromBar/BuySnackFromBar.Definition.AddInteractions`, `FutureFoodSynthesizer+OrderFoodOnWaiter+Definition.AddInteractions` and `.Test`. A target with a null role gets EA's own "no": nothing added, or Test false. A role with no giver already gets EA's "no" without throwing, so that case is left alone. `FutureFoodSynthesizer.TestIfSocialValid` has the same test, but it sits behind `HasActiveRole`, so a null role cannot reach it; not hooked.
@@ -428,7 +428,7 @@ It changes none of the other methods below (`docs/data/mod-method-diff.csv` and 
 - The resident is then placed at an elevator or a lot corner instead of its own door.
 - phase-20261115-1831: 119 such failed plans attributed to Apollo Bloom (household), all with goal 815.1,29.4,1658.2 (a corner of lot 0xF590003595C3CD30) and 10 locked doors at rooms 10/7 on that lot. None was Apollo's own route.
 - `doors.json` in phase 1831 and 1935 covers only the household's own lot (Trawler Lodge, 14 doors, all Anybody), so the CD30 lock types are not on record. The agent `doors` command now reports, per door, the lock owner, whether that owner still lives there, the owner-list size and gone ids, hidden sides and NPC doors. Run `doors {"lot":"0xF590003595C3CD30"}` to tell which case applies. A lock to a gone owner is `doorlockowner`'s (B4 §1); a lock to the living residents is this one's.
-- Live doors for CD30 ("Founders Peace - Studio", household Shutter): 6 Anybody and 3 Nobody. The three refusing doors are NPC doors to hidden room 7 (rooms 10/7). No owner is gone, so `doorlockowner` does not apply. The resident is refused there too: `Door.CanGoThrough` is false for NPC doors, and `CommonDoor.IsAllowedThrough` refuses hidden rooms before it reads the lock. So `residentspawnslot` keeps EA's failure here ([1085]). EA already skips the hidden-side slots, so the open question is whether corridor room 10 (level 1) reaches outside. The tool to answer it is `HiddenRoomCheck "reach F590003595C3CD30 1 all"`, which prints out/closed per probe (selected, resident, NPC, or a named Sim) and each portal with IsAllowedThrough per probe. `lot` scans now list level-1 rooms too. If room 10 is closed, EA is right: the resident spawns at the ground elevator spot, and the failed plans are only a cost. If room 10 is out, the planner disagrees with the room walk, and a slot-test fix is due. Pending.
+- Live doors for CD30 ("Founders Peace - Studio", household Shutter): 6 Anybody and 3 Nobody. The three refusing doors are NPC doors to hidden room 7 (rooms 10/7). No owner is gone, so `doorlockowner` does not apply. The resident is refused there too: `Door.CanGoThrough` is false for NPC doors, and `CommonDoor.IsAllowedThrough` refuses hidden rooms before it reads the lock. So `residentspawnslot` keeps EA's failure here ([1197]). EA already skips the hidden-side slots, so the open question is whether corridor room 10 (level 1) reaches outside. The tool to answer it is `HiddenRoomCheck "reach F590003595C3CD30 1 all"`, which prints out/closed per probe (selected, resident, NPC, or a named Sim) and each portal with IsAllowedThrough per probe. `lot` scans now list level-1 rooms too. If room 10 is closed, EA is right: the resident spawns at the ground elevator spot, and the failed plans are only a cost. If room 10 is out, the planner disagrees with the room walk, and a slot-test fix is due. Pending.
 - `SimDescription.Instantiate` is not logged, so the spawn count is not known (each spawn tests every NPC-door slot).
 - `Service.cs:1123` (`GetPositionNearLotCorners`, `Sim.ActiveActor`) tests outdoor corner spots for visitors. A visitor's rights are about the same as anyone's there, so it is left alone. In a resident's spawn (its last fallback) the same re-judging applies.
 - simler90 ships `Service` unchanged at these lines; it does not touch `SimDescription.Instantiate`.
@@ -438,7 +438,7 @@ It changes none of the other methods below (`docs/data/mod-method-diff.csv` and 
 - `Sim.IsPointInLotSafelyRoutable` is already hooked by FewerPlans (`routablecache`), so one line there hands the selected Sim's verdict to `RsAdjust`. With the switch on, in a resident's context, the verdict cache is skipped, because a cached "false" has no door list to judge.
 - A failed verdict is re-judged from EA's `SimRoutingComponent.LockedDoorsDuringPlan`, which EA clears at each plan start. The spot counts as routable only if the plan found at least one locked door and the resident passes **every** one of them by `CommonDoor`'s lock rules: its own lock, its household's lock, or its owner list. Pets locks are passed by non-pets.
 - These stay blocking: hidden-room doors, one-way doors, Nobody and VIPRoom locks, horses at non-barn doors, and the four door types with their own `IsAllowedThrough` (SecretDoor, NonAnimatedDoor, gender doors, Turnstile). A failure with no locked door (no path at all) stays a failure.
-- The selected Sim is never routed, moved or changed; only where the NPC appears does. Switch off: EA's verdict, counted as "would accept" in [1084].
+- The selected Sim is never routed, moved or changed; only where the NPC appears does. Switch off: EA's verdict, counted as "would accept" in [1196].
 - Limit: the lock list shows why the planner was refused, not that a path exists with the doors open. A refused door that is the only obstacle is the logged case.
 
 ### B5 §9 talkoccupationchance: the Unemployment entry never appears by chance (lead 7)
@@ -466,7 +466,7 @@ Repros `<switch>-check`: `rolenullguard`, `homeworkskillbonus`, `horseranchchall
 Live confirmation:
 - **B5 §2**: a level-5 Homework Sim's homework rate before and after.
 - **B5 §7**: the journal shows 1-5 stars.
-- **B5 §8**: with Apollo's household selected, the count of `FailedBecauseDestinationPortalLocked` plans at the CD30 corners (off), then [1083] and residents fading in at their doors (on). First run `doors {"lot":"0xF590003595C3CD30"}`.
+- **B5 §8**: with Apollo's household selected, the count of `FailedBecauseDestinationPortalLocked` plans at the CD30 corners (off), then [1195] and residents fading in at their doors (on). First run `doors {"lot":"0xF590003595C3CD30"}`.
 - **B5 §9**: the Talk About Occupation menu offers Unemployment about 1 time in count+1.
 
 ## Batch 6 (Roslyn pass 2, docs/583 §6, user-approved)
@@ -481,10 +481,10 @@ Live confirmation:
 
 | § | Lead | Switch | Slots | Scope | Status |
 |---|---|---|---|---|---|
-| B6 §1 | P1 | `disposebase` | 1093-1095 | **household-visible**: five object types run `GameObject.Dispose` | verified (IL, all five) |
-| B6 §2 | P2 | `boardingschoolmoney` | 1096-1098 | **household-visible** (funds): the boarding-school phone-call amounts come from the tuned ranges | verified |
-| B6 §3 | P3 | `freshclothingresume` | 1099-1102 | **household-visible** (moodlet): Fresh Clothing resumes after a swim or shower | verified code; effect inferred |
-| B6 §4 | P5 | `twinbellyshape` | 1103-1105 | **household-visible** (cosmetic): the belly shrinks per baby with twins and triplets | verified |
+| B6 §1 | P1 | `disposebase` | 1205-1207 | **household-visible**: five object types run `GameObject.Dispose` | verified (IL, all five) |
+| B6 §2 | P2 | `boardingschoolmoney` | 1208-1210 | **household-visible** (funds): the boarding-school phone-call amounts come from the tuned ranges | verified |
+| B6 §3 | P3 | `freshclothingresume` | 1211-1214 | **household-visible** (moodlet): Fresh Clothing resumes after a swim or shower | verified code; effect inferred |
+| B6 §4 | P5 | `twinbellyshape` | 1215-1217 | **household-visible** (cosmetic): the belly shrinks per baby with twins and triplets | verified |
 | - | P4 | not built | - | mermaid `AskedToRehydrate` | see below |
 | - | P6 | skipped | - | zombie property recursion | no caller in EA or NRaas |
 
@@ -541,7 +541,7 @@ With no entry, or with the buff still on the Sim, EA's add runs.
 Repros `<switch>-check`: `disposebase`, `boardingschoolmoney`, `freshclothingresume`, `twinbellyshape`.
 
 Live confirmation:
-- **B6 §1**: sell a junk pile or a register with a Sim's interaction queued on it; the queue is purged ([1093]).
-- **B6 §2**: [1096] after the world loads; check a need-money call's amount against the tuned range.
+- **B6 §1**: sell a junk pile or a register with a Sim's interaction queued on it; the queue is purged ([1205]).
+- **B6 §2**: [1208] after the world loads; check a need-money call's amount against the tuned range.
 - **B6 §3**: Fresh Clothing time before a swim and after changing back.
 

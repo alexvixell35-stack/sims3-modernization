@@ -166,7 +166,11 @@ The thresholds are judgement from one data set: adjust after the first pair. The
 | `unseen-park.json` | R1-R6 replace the `routes/s` stop line. Add a pair with `autunseen` on. Read `unseen_park_snap` against camera jumps in `unseen-park-loop` |
 | `routingFailFast` | `{ ms: 300, scope: "unseen" }` on BP jobs of `gate2` and `unseen-park`. **Not on IP:** IP has 2-3 marked plans >= 300 ms per arm set in both arms, so the job would stop on baseline; use R5 there. None of these queues has the field today |
 
-**Missing counters** (reserve slots at build time; none built here):
+**Missing counters** (reserve slots at build time; none built here). **1, 3 and 4 built 2026-11-15 (lane L6, not run)** as the
+diagnostic switch `routelen` (`RouteLen.cs`, counters 1004-1011, off): 1 at `RouteSrcEnd` (metres from
+`GetDistanceRemaining`, class by `UfWhy`), 4 as unseen plans whose goal passes `!UfGoalUnseen`, 3 as `pick:<definition>`
+keys in the agent's patches result while `routelen` is on, so every --ab slice snapshot holds them. `gate2-report.ts` prints
+them as log rows (block "docs/246 §6 missing counters"). Queue `lane-l6-1115.json` `bp-routelen-crowd`.
 
 1. **Route length by class.** Sum and count of `Route.GetDistanceRemaining()` at a successful plan, seen / unseen, plus a >= 40 m bucket. Site: `RouteSrcEnd`. The one thing that closes "farther picks".
 2. **Park release burst.** Built as `unseen_park_burst_max` (most snap releases in one tick) with the stagger of docs/243 §9; slots 824-825.

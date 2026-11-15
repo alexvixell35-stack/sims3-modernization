@@ -35,7 +35,7 @@ namespace Ts3Fixes
         // Measured: log-issues growth leak.events.by_delegate.TireEffectHelper.UpdateEffects 0 -> 10 in 34 runs.
         // Fix (at creation): before EA's Create*EffectHelper, a held helper is destroyed with EA's own Destroy*EffectHelper.
         // The new helper is EA's, so effects and listeners are the same as a vehicle that ran PostRoute first.
-        // Counters: [1006] helpers destroyed before re-create (on), [1007] the same seen with the switch off, [1008] errors.
+        // Counters: [1118] helpers destroyed before re-create (on), [1119] the same seen with the switch off, [1120] errors.
         static readonly FieldInfo sVfTire = typeof(Vehicle).GetField("mTireEffectHelper", kInstAll);
         static readonly FieldInfo sVfHover = typeof(Vehicle).GetField("mHoverEffectHelper", kInstAll);
         static readonly MethodInfo sVfTireDestroy = typeof(Vehicle).GetMethod("DestroyTireEffectHelper", kInstAll, null, Type.EmptyTypes, null);
@@ -64,10 +64,10 @@ namespace Ts3Fixes
             try
             {
                 if (f.GetValue(v) == null) return;
-                if (!ShortcutOn("vehiclefxhelper")) { PatchCounters()[1007]++; return; }
-                if (VfDestroyFirst(true, true)) { destroy.Invoke(v, null); PatchCounters()[1006]++; }
+                if (!ShortcutOn("vehiclefxhelper")) { PatchCounters()[1119]++; return; }
+                if (VfDestroyFirst(true, true)) { destroy.Invoke(v, null); PatchCounters()[1118]++; }
             }
-            catch (Exception) { PatchCounters()[1008]++; }
+            catch (Exception) { PatchCounters()[1120]++; }
         }
 
         public class BVfHook
@@ -104,7 +104,7 @@ namespace Ts3Fixes
         // (FlamingBag, ThrowingEggs) test the count.
         // Fix: that one exception, when the lot household really has nobody at home, ends Run the way EA's own null branch
         // does (AnimateSim("Exit"), return true). Any other exception is rethrown unchanged.
-        // Counters: [1009] empty-list ends handled (on), [1010] the same thrown with the switch off, [1011] errors.
+        // Counters: [1121] empty-list ends handled (on), [1122] the same thrown with the switch off, [1123] errors.
         static readonly FieldInfo sPdDoor = typeof(Door.PrankDoorbellDitch).GetField("mFrontDoor", kInstAll);
         static string sPdMissing = "";
 
@@ -140,11 +140,11 @@ namespace Ts3Fixes
                     InteractionInstanceShim me = new InteractionInstanceShim(this);
                     bool empty = e.Message == "The list is empty.";
                     bool nobody = false;
-                    try { nobody = PdNobodyHome(sPdDoor.GetValue(this) as Door); } catch (Exception) { PatchCounters()[1011]++; }
+                    try { nobody = PdNobodyHome(sPdDoor.GetValue(this) as Door); } catch (Exception) { PatchCounters()[1123]++; }
                     if (!empty || !nobody) throw;
-                    if (!ShortcutOn("prankditchempty")) { PatchCounters()[1010]++; throw; }
+                    if (!ShortcutOn("prankditchempty")) { PatchCounters()[1122]++; throw; }
                     if (!PdAbsorb(true, empty, nobody)) throw;
-                    PatchCounters()[1009]++;
+                    PatchCounters()[1121]++;
                     me.Exit();
                     return true;
                 }
@@ -157,7 +157,7 @@ namespace Ts3Fixes
         {
             readonly Sims3.Gameplay.Interactions.InteractionInstance mI;
             public InteractionInstanceShim(object o) { mI = o as Sims3.Gameplay.Interactions.InteractionInstance; }
-            public void Exit() { try { if (mI != null) mI.AnimateSim("Exit"); } catch (Exception) { PatchCounters()[1011]++; } }
+            public void Exit() { try { if (mI != null) mI.AnimateSim("Exit"); } catch (Exception) { PatchCounters()[1123]++; } }
         }
 
         // ---- §3 serviceassignexit (tuning kServiceAssignExit) ------------------------------------------------------------
@@ -172,8 +172,8 @@ namespace Ts3Fixes
         // removed from the three tables. EA's skip of the DestroyMyself push stays (the Sim is hanging out). A socializing
         // Sim cannot be sent meanwhile: FindSimForAssignment requires CreatedSim == null. Saved stale entries: at world load
         // (switch on) entries whose situation has exited are removed (SituationExited; live situations untouched).
-        // Counters: [1012] entries removed at the exit (on), [1013] the same seen with the switch off, [1014] saved stale
-        // entries removed at load, [1015] errors.
+        // Counters: [1124] entries removed at the exit (on), [1125] the same seen with the switch off, [1126] saved stale
+        // entries removed at load, [1127] errors.
         static readonly FieldInfo sSaAssigned = typeof(Service).GetField("mSituationsAssignedToSims", kInstAll);
         static readonly FieldInfo sSaCreated = typeof(Service).GetField("mCreatedSims", kInstAll);
         static readonly FieldInfo sSaLots = typeof(Service).GetField("mSimsAssignedToLots", kInstAll);
@@ -226,8 +226,8 @@ namespace Ts3Fixes
         internal static void ServiceAssignExitWorldLoad()
         {
             if (!ShortcutOn("serviceassignexit") || sSeMissing.Length > 0) return;
-            try { foreach (Service s in Services.AllServices) if (s != null) PatchCounters()[1014] += SeSweep(s, null, true); }
-            catch (Exception) { PatchCounters()[1015]++; }
+            try { foreach (Service s in Services.AllServices) if (s != null) PatchCounters()[1126] += SeSweep(s, null, true); }
+            catch (Exception) { PatchCounters()[1127]++; }
         }
 
         public class BSeHook
@@ -240,9 +240,9 @@ namespace Ts3Fixes
                     if (assignment == null) return;
                     bool on = ShortcutOn("serviceassignexit");
                     int n = SeSweep((Service)(object)this, assignment, on);
-                    PatchCounters()[on ? 1012 : 1013] += n;
+                    PatchCounters()[on ? 1124 : 1125] += n;
                 }
-                catch (Exception) { PatchCounters()[1015]++; }
+                catch (Exception) { PatchCounters()[1127]++; }
             }
             public void FinishedOrig(Situation assignment) { } // receives Service.OnAssignmentFinished's original body
         }
@@ -256,7 +256,7 @@ namespace Ts3Fixes
         // Fix (at creation): when the held show alarm is still pending, EA's OnServiceStarting is not run again (the Sim is
         // shown once, at the first alarm's time, as EA's first call set it). A fired or missing alarm runs EA's code.
         // Overrides (BurglarSituation) are untouched.
-        // Counters: [1016] re-arms skipped (on), [1017] the same seen with the switch off, [1018] errors.
+        // Counters: [1128] re-arms skipped (on), [1129] the same seen with the switch off, [1130] errors.
         static readonly FieldInfo sSsShow = typeof(ServiceSituation).GetField("mAlarmShowSim", kInstAll);
         static string sSsMissing = "";
 
@@ -285,11 +285,11 @@ namespace Ts3Fixes
                     bool pending = valid && AlarmManager.Global.GetTimeLeft(h, TimeUnit.Minutes) > 0f;
                     if (valid && pending)
                     {
-                        if (SsSkip(ShortcutOn("serviceshowalarm"), valid, pending)) { PatchCounters()[1016]++; return; }
-                        PatchCounters()[1017]++;
+                        if (SsSkip(ShortcutOn("serviceshowalarm"), valid, pending)) { PatchCounters()[1128]++; return; }
+                        PatchCounters()[1129]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1018]++; }
+                catch (Exception) { PatchCounters()[1130]++; }
                 StartOrig();
             }
             public void StartOrig() { } // receives ServiceSituation.OnServiceStarting's original body
@@ -302,7 +302,7 @@ namespace Ts3Fixes
         // DogBark -> DogChase with that same dog: it is forced into "Growl At", the carrier runs off, every day.
         // Fix (at creation of the next state): when a chase ends (MailCarrierSituation.DogChase.Finished), the service's
         // DogChaser is cleared if it is still this chase's dog. A dog set meanwhile by another lot's delivery is kept.
-        // Counters: [1022] chasers cleared (on), [1023] the same seen with the switch off, [1024] errors.
+        // Counters: [1134] chasers cleared (on), [1135] the same seen with the switch off, [1136] errors.
         static readonly Type sMdChase = typeof(MailCarrierSituation).GetNestedType("DogChase", BindingFlags.Public | BindingFlags.NonPublic);
         static readonly FieldInfo sMdDog = sMdChase != null ? sMdChase.GetField("mDogChaser", kInstAll) : null;
         static string sMdMissing = "";
@@ -332,11 +332,11 @@ namespace Ts3Fixes
                     foreach (Service svc in Services.AllServices) { mc = svc as Sims3.Gameplay.Interfaces.IMailCarrier; if (mc != null) break; }
                     if (mc != null && dog != null && object.ReferenceEquals(mc.DogChaser, dog))
                     {
-                        if (MdClear(ShortcutOn("maildogchaser"), true)) { mc.DogChaser = null; PatchCounters()[1022]++; }
-                        else PatchCounters()[1023]++;
+                        if (MdClear(ShortcutOn("maildogchaser"), true)) { mc.DogChaser = null; PatchCounters()[1134]++; }
+                        else PatchCounters()[1135]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1024]++; }
+                catch (Exception) { PatchCounters()[1136]++; }
                 FinishedOrig(actor, x);
             }
             public void FinishedOrig(Sim actor, float x) { } // receives MailCarrierSituation.DogChase.Finished's original body
@@ -352,8 +352,8 @@ namespace Ts3Fixes
         // Fix (at creation): after EA's Job.OnCompletion of a BeachSurvey, its event alarm is removed with EA's own
         // RemoveAlarm. Saved orphans: at world load (switch on) CheckLifeguardEvents alarms whose job is no longer its
         // occupation's CurrentJob are removed.
-        // Counters: [1025] alarms removed at completion (on), [1026] the same seen with the switch off,
-        // [1027] errors. Load removals count in [1025].
+        // Counters: [1137] alarms removed at completion (on), [1138] the same seen with the switch off,
+        // [1139] errors. Load removals count in [1137].
         static readonly Type sLgSurvey = typeof(Lifeguard).GetNestedType("BeachSurvey", BindingFlags.Public | BindingFlags.NonPublic);
         static readonly FieldInfo sLgAlarm = sLgSurvey != null ? sLgSurvey.GetField("mEventTriggerAlarm", kInstAll) : null;
         static readonly MethodInfo sLgRemove = sLgSurvey != null ? sLgSurvey.GetMethod("RemoveAlarm", kInstAll, null, Type.EmptyTypes, null) : null;
@@ -386,10 +386,10 @@ namespace Ts3Fixes
                     Job j = cbs[i].Target as Job;
                     if (cbs[i].Method.Name != "CheckLifeguardEvents" || j == null || !sLgSurvey.IsInstanceOfType(j)) continue;
                     bool over = j.Occupation == null || !object.ReferenceEquals(j.Occupation.CurrentJob, j);
-                    if (LgRemove(true, true, true, over)) { AlarmManager.Global.RemoveAlarm(keys[i]); PatchCounters()[1025]++; }
+                    if (LgRemove(true, true, true, over)) { AlarmManager.Global.RemoveAlarm(keys[i]); PatchCounters()[1137]++; }
                 }
             }
-            catch (Exception) { PatchCounters()[1027]++; }
+            catch (Exception) { PatchCounters()[1139]++; }
         }
 
         public class BLgHook
@@ -402,10 +402,10 @@ namespace Ts3Fixes
                     if (!sLgSurvey.IsInstanceOfType(this)) return;
                     bool held = (AlarmHandle)sLgAlarm.GetValue(this) != AlarmHandle.kInvalidHandle;
                     if (!held) return;
-                    if (LgRemove(ShortcutOn("lifeguardsurvey"), true, held, true)) { sLgRemove.Invoke(this, null); PatchCounters()[1025]++; }
-                    else PatchCounters()[1026]++;
+                    if (LgRemove(ShortcutOn("lifeguardsurvey"), true, held, true)) { sLgRemove.Invoke(this, null); PatchCounters()[1137]++; }
+                    else PatchCounters()[1138]++;
                 }
-                catch (Exception) { PatchCounters()[1027]++; }
+                catch (Exception) { PatchCounters()[1139]++; }
             }
             public void CompleteOrig() { } // receives Job.OnCompletion's original body
         }
@@ -418,7 +418,7 @@ namespace Ts3Fixes
         // load of a fairy or werewolf leaves one more listener, and each moonrise runs all of them (on a destroyed
         // mOwningSim between loads, where the werewolf handler adds alarms to that dead Sim).
         // Fix (at creation): before EA's SetupSimHandlers, a held listener is removed (EA's RemoveListener) and cleared.
-        // Counters: [1028] listeners removed before re-add (on), [1029] the same seen with the switch off, [1030] errors.
+        // Counters: [1140] listeners removed before re-add (on), [1141] the same seen with the switch off, [1142] errors.
         static readonly FieldInfo sMrFairy = typeof(OccultFairy).GetField("mEventLunarCycleEvent", kInstAll);
         static readonly FieldInfo sMrWolf = typeof(OccultWerewolf).GetField("mEventLunarCycleEvent", kInstAll);
         static string sMrMissing = "";
@@ -445,12 +445,12 @@ namespace Ts3Fixes
             {
                 EventListener l = f.GetValue(occult) as EventListener;
                 if (l == null) return;
-                if (!MrRemoveFirst(ShortcutOn("moonriselistener"), true)) { PatchCounters()[1029]++; return; }
+                if (!MrRemoveFirst(ShortcutOn("moonriselistener"), true)) { PatchCounters()[1141]++; return; }
                 EventTracker.RemoveListener(l);
                 f.SetValue(occult, null);
-                PatchCounters()[1028]++;
+                PatchCounters()[1140]++;
             }
-            catch (Exception) { PatchCounters()[1030]++; }
+            catch (Exception) { PatchCounters()[1142]++; }
         }
 
         public class BMrFairyHook
@@ -479,8 +479,8 @@ namespace Ts3Fixes
         // waiting becomes 1, and the new alarm is made NeverPersisted (a load forgets the lists anyway, as before; nothing
         // EA reads needs the saved alarm). Saved orphans: at world load (switch on) TrickleOnHouseLights alarms other than
         // the held handle are removed.
-        // Counters: [1031] pulses raised from 0 (on), [1032] held alarms removed before the re-add, [1033] saved orphans
-        // removed at load, [1034] errors (and the 0 pulse seen with the switch off is not counted separately).
+        // Counters: [1143] pulses raised from 0 (on), [1144] held alarms removed before the re-add, [1145] saved orphans
+        // removed at load, [1146] errors (and the 0 pulse seen with the switch off is not counted separately).
         static readonly FieldInfo sHlAlarm = typeof(HolidayHouseLights).GetField("sTurnOnLightsAlarm", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
         static readonly FieldInfo sHlLots = typeof(HolidayHouseLights).GetField("sLotsThatNeedLights", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
         static readonly FieldInfo sHlPulse = typeof(HolidayHouseLights).GetField("sNumLightsToApplyPerPulse", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
@@ -523,9 +523,9 @@ namespace Ts3Fixes
                     names[i] = cbs[i].Method.DeclaringType == typeof(HolidayHouseLights) ? cbs[i].Method.Name : "";
                     isHeld[i] = held != AlarmHandle.kInvalidHandle && keys[i] == held;
                 }
-                foreach (int i in HlPick(names, isHeld)) { AlarmManager.Global.RemoveAlarm(keys[i]); PatchCounters()[1033]++; }
+                foreach (int i in HlPick(names, isHeld)) { AlarmManager.Global.RemoveAlarm(keys[i]); PatchCounters()[1145]++; }
             }
-            catch (Exception) { PatchCounters()[1034]++; }
+            catch (Exception) { PatchCounters()[1146]++; }
         }
 
         public class BHlHook
@@ -540,10 +540,10 @@ namespace Ts3Fixes
                     {
                         AlarmManager.Global.RemoveAlarm(h);
                         sHlAlarm.SetValue(null, AlarmHandle.kInvalidHandle);
-                        PatchCounters()[1032]++;
+                        PatchCounters()[1144]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1034]++; }
+                catch (Exception) { PatchCounters()[1146]++; }
                 ApplyOrig();
                 if (!on) return;
                 try
@@ -551,11 +551,11 @@ namespace Ts3Fixes
                     List<ulong> lots = sHlLots.GetValue(null) as List<ulong>;
                     int pulse = (int)sHlPulse.GetValue(null);
                     int put = HlPulse(true, pulse, lots != null ? lots.Count : 0);
-                    if (put != pulse) { sHlPulse.SetValue(null, put); PatchCounters()[1031]++; }
+                    if (put != pulse) { sHlPulse.SetValue(null, put); PatchCounters()[1143]++; }
                     AlarmHandle h = (AlarmHandle)sHlAlarm.GetValue(null);
                     if (h != AlarmHandle.kInvalidHandle) AlarmManager.Global.SetAlarmType(h, AlarmType.NeverPersisted);
                 }
-                catch (Exception) { PatchCounters()[1034]++; }
+                catch (Exception) { PatchCounters()[1146]++; }
             }
             public static void ApplyOrig() { } // receives HolidayHouseLights.ApplyLightsToWorld's original body
         }

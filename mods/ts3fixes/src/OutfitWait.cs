@@ -26,7 +26,7 @@ namespace Ts3Fixes
     // Whether the native swap needs the Sim in view (docs/224 §5): [2012] stale waits whose Sim was on screen when the wait
     // went stale, [2013] stale waits whose Sim was on screen when the wait ended; the end is logged (first 10 lines).
     // Household rule (docs/580 §15): a live player Sim (IsPlayerSim: household, selected, selectable, unknown) keeps EA's
-    // per-tick loop past the mark; only NPC and gone-Sim waits are polled. [997] waits kept on EA's loop by the rule.
+    // per-tick loop past the mark; only NPC and gone-Sim waits are polled. [1109] waits kept on EA's loop by the rule.
     public static partial class Fixes
     {
         const float kOutfitWaitStaleMinutes = 60f;
@@ -71,7 +71,7 @@ namespace Ts3Fixes
                     if (poll && !OutfitWaitPollable(h))
                     {
                         poll = false;
-                        if (!hhKept) { hhKept = true; PatchCounters()[997]++; }
+                        if (!hhKept) { hhKept = true; PatchCounters()[1109]++; }
                     }
                     uint sleep = OutfitWaitCore.SleepTicks(waited, staleAfter, minute, poll);
                     if (sleep > 1)
@@ -137,7 +137,7 @@ namespace Ts3Fixes
 
         // docs/580 §15: scope check before the minute poll (read at each wake past the mark, so a Sim that joins the household
         // mid-wait goes back to EA's per-tick loop). A household, selected, selectable or unknown-scope live Sim is exempt;
-        // a gone Sim is not (the issue #40 dead-wait end needs the poll path). [997] waits kept on EA's loop by the rule
+        // a gone Sim is not (the issue #40 dead-wait end needs the poll path). [1109] waits kept on EA's loop by the rule
         // (counted once per wait in WaitHook).
         static bool OutfitWaitPollable(object h)
         {
@@ -440,7 +440,7 @@ namespace Ts3Fixes
                     bool controls = npc == (on ? minute : 1u) && gone == (on ? minute : 1u) && early == 1u;
                     return "outfitwaitpoll scope (switch " + (on ? "on" : "off") + "): household Sim past the mark sleeps " + hh + " tick(s) (EA's loop)="
                         + fixedNow + "; control: NPC sleeps " + npc + ", gone Sim (issue #40) sleeps " + gone + ", NPC before the mark sleeps " + early
-                        + "; controls ok=" + controls + "; household waits kept on EA's loop 997=" + PatchCounters()[997];
+                        + "; controls ok=" + controls + "; household waits kept on EA's loop 1109=" + PatchCounters()[1109];
                 }
                 case "counts": // no start needed (repro outfit-wait-view-log)
                 {

@@ -243,13 +243,13 @@ Proposed root fix (`scarepriority`, off by default):
   social does.
 - Optionally apply the same rule to StaticShock and SimBeLuredToBag.
 
-**Built (2026-11-15):** `scarepriority` (`ScarePriority.cs`, tuning `kScarePriority`, off; counters 994 raised, 995 seen
-with the switch off, 996 errors). It hooks `SetupJazzGraph` of `Sim+Scare`, `Sim+StaticShock` and
+**Built (2026-11-15):** `scarepriority` (`ScarePriority.cs`, tuning `kScarePriority`, off; counters 1106 raised, 1107 seen
+with the switch off, 1108 errors). It hooks `SetupJazzGraph` of `Sim+Scare`, `Sim+StaticShock` and
 `Sim+ScareWithMegaPhone` (all three run `BaseScare.Run`) and, after EA's body, raises the linked receiver to
 `NonCriticalNPCBehavior` when it is still in the target's queue, not its head, and `Autonomous`. Check
 `ScarePriorityCheck` (repro `scarepriority-check`), controls: a player-ordered head and a MustRun head are kept, an
 already raised or player-directed receiver is unchanged, a receiver no longer queued or already the head is unchanged,
-and an unraised receiver keeps EA's wait. Not tested in game yet. Counter 995 in an off run gives the number of scares
+and an unraised receiver keeps EA's wait. Not tested in game yet. Counter 1107 in an off run gives the number of scares
 the switch would change.
 
 ## §15 `outfitwaitpoll` household rule (2026-11-15)
@@ -262,7 +262,7 @@ Change (`OutfitWait.cs`, `OutfitWaitCore.PollAllowed`): at each wake past the 60
 the minute delay. A live Sim that `IsPlayerSim` calls the player's (household, selected, selectable, or unknown scope)
 keeps EA's per-tick loop. An NPC's wait is polled as before. A gone Sim's wait is also polled as before, so the issue #40
 dead-wait end still runs. The check is read at every wake, so a Sim that joins the household mid-wait goes back to EA's
-loop. Counter [997] counts waits kept on EA's loop by this rule, once per wait. A household Sim's stale wait is no longer
+loop. Counter [1109] counts waits kept on EA's loop by this rule, once per wait. A household Sim's stale wait is no longer
 marked or logged as stale ([680-682], [2003-2013] now count NPC and gone-Sim waits only).
 
 Checks: `OutfitWaitCheck("scope")` (pure): a household Sim past the mark sleeps 1 tick. Controls: an NPC and a gone Sim
@@ -278,10 +278,10 @@ sleep a sim-minute with the switch on, and nothing changes before the mark. Self
    and overwrites the handle without removing the one it holds. If a second show starts before the first show's one-shot
    fires, the first one-shot re-adds the alarm after the start removed it, and the handle is overwritten again. The
    orphan repeats daily and is saved (`AlwaysPersisted`). It only resets the board graphic. Fix: `SandwichAlarm.cs`
-   removes the held handle before EA's body (counters 998 removed, 999 seen with the switch off, 1000 errors; check
+   removes the held handle before EA's body (counters 1110 removed, 1111 seen with the switch off, 1112 errors; check
    `SandwichAlarmCheck`). Saved duplicates: at world load (switch on) each theatre keeps the `ResetSandwichBoards`
    alarm whose handle it holds (or, if that handle is stale, the first one, which becomes the held one) and removes its other
-   `ResetSandwichBoards` alarms; other callbacks and other theatres are untouched (counter 1001). Not in the hourly sweep:
+   `ResetSandwichBoards` alarms; other callbacks and other theatres are untouched (counter 1113). Not in the hourly sweep:
    with the hook on no new duplicates appear.
 2. **Alarm growth (global 1984 -> 2440, total 2876 -> 3387): Sims added by the test, no orphans.** `gone_owner` = 0 and
    `gone_callback_target` = 0 in every snapshot. By owner type: SimDescription 992 -> 1269, Sim 391 -> 496, null 116 -> 151,
@@ -343,8 +343,8 @@ Fixes the two §17 defects in the wish manager's clean-up index (`mPotentialRemo
    in the index and taken out. With 1 and 1b, the `dnppetkeys` / `dnpobjkeys` hourly sweeps (`DnpRemovalKeys.cs`) are
    needed only for entries already in a save.
 
-Both parts act where the stale entry is made (root cause), not in a later sweep. No listener, timer, panel list, promise or score is touched, so which wishes appear, and when, stays EA's. Counters 1002
-unfiled, 1003 woken nodes filed, 1004 either case seen with the switch off, 1005 errors. Check `DreamCleanupCheck` (pure,
+Both parts act where the stale entry is made (root cause), not in a later sweep. No listener, timer, panel list, promise or score is touched, so which wishes appear, and when, stays EA's. Counters 1114
+unfiled, 1115 woken nodes filed, 1116 either case seen with the switch off, 1117 errors. Check `DreamCleanupCheck` (pure,
 on a model manager). Controls: a Sim-subject node is left to EA, a promised node is not filed, no double filing, a node
 with no subject key or still asleep is not filed, and the model's listener count, panel list and promise slot are
 identical before and after. Not run in game. The §17 census (`stale_removal`) shows whether it matters in a save.

@@ -26,7 +26,7 @@
 // the worker has a job armed (TwArm, ServeAsync) and at the trampoline otherwise; per-call timers (rdtsc) for the S2 entry,
 // the stubs, shadow compares and the QL try-lock.
 
-static const DWORD STEER_LOCO = 0x0085FD10;
+static const DWORD STEER_LOCO = TS3A(0x0085FD10);
 static const u8 kLocoPro[] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0};  // push ebp; mov ebp,esp; and esp,-16 (no relative operand)
 typedef void(__fastcall* LocoFn)(u8* agent, void* edx, u8* ids, const void* ign1, DWORD n1, const void* ign2, DWORD n2);
 static LocoFn g_locoOrig;
@@ -45,22 +45,22 @@ typedef void(__fastcall* SrIdPushFn)(void* vec, void* edx, const DWORD* id);    
 typedef u8(__fastcall* SrQueryFn)(u8* world, void* edx, const void* pt, float r, void* vec, DWORD mode, DWORD opt);  // 0x82EDB0, ret 0x14
 typedef void(__fastcall* SrVecRelFn)(void* vec, void* edx, void* b, void* e);               // FootprintRefVec_ReleaseRange 0xAAC090, ret 8
 typedef void(__cdecl* SrFreeFn)(void* p);                                                   // EA_Free 0x4E3F70
-static SrWorldFn g_srWorldGet = (SrWorldFn)(uintptr_t)0x008292D0;
-static SrConvFn g_srConv = (SrConvFn)(uintptr_t)0x0085AE60;
-static SrLotLookupFn g_srLotLookup = (SrLotLookupFn)(uintptr_t)0x00C68990;
-static SrLotFindFn g_srLotFind = (SrLotFindFn)(uintptr_t)0x00627E00;
-static SrActiveLotFn g_srActiveLot = (SrActiveLotFn)(uintptr_t)0x00C88FD0;
-static SrWalkPtFn g_srWalkPt = (SrWalkPtFn)(uintptr_t)0x00663E20;
-static SrWalkSegFn g_srWalkSeg = (SrWalkSegFn)(uintptr_t)0x00663B20;
-static SrIdListFn g_srIdList = (SrIdListFn)(uintptr_t)0x0085AAA0;
-static SrIdPushFn g_srIdPush = (SrIdPushFn)(uintptr_t)0x00572400;
-static SrQueryFn g_srQuery = (SrQueryFn)(uintptr_t)0x0082EDB0;
-static SrVecRelFn g_srVecRel = (SrVecRelFn)(uintptr_t)0x00AAC090;
-static SrFreeFn g_srFree = (SrFreeFn)(uintptr_t)0x004E3F70;
-static u8* const* g_srWmSlot = (u8* const*)(uintptr_t)0x011ECBC4;     // the world manager Locomotion passes to EditPath
-static const float* g_srOne = (const float*)(uintptr_t)0x0107A538;    // 1.0f, the w of every transformed point
-static const DWORD* g_srMaskTab = (const DWORD*)(uintptr_t)0x00FEDE48;  // CollectMasked: iterator byte -> mask bit
-static const DWORD kSrVecTag = 0x01026E1C;                            // 4th word of Locomotion's footprint vector
+static SrWorldFn g_srWorldGet = (SrWorldFn)(uintptr_t)TS3A(0x008292D0);
+static SrConvFn g_srConv = (SrConvFn)(uintptr_t)TS3A(0x0085AE60);
+static SrLotLookupFn g_srLotLookup = (SrLotLookupFn)(uintptr_t)TS3A(0x00C68990);
+static SrLotFindFn g_srLotFind = (SrLotFindFn)(uintptr_t)TS3A(0x00627E00);
+static SrActiveLotFn g_srActiveLot = (SrActiveLotFn)(uintptr_t)TS3A(0x00C88FD0);
+static SrWalkPtFn g_srWalkPt = (SrWalkPtFn)(uintptr_t)TS3A(0x00663E20);
+static SrWalkSegFn g_srWalkSeg = (SrWalkSegFn)(uintptr_t)TS3A(0x00663B20);
+static SrIdListFn g_srIdList = (SrIdListFn)(uintptr_t)TS3A(0x0085AAA0);
+static SrIdPushFn g_srIdPush = (SrIdPushFn)(uintptr_t)TS3A(0x00572400);
+static SrQueryFn g_srQuery = (SrQueryFn)(uintptr_t)TS3A(0x0082EDB0);
+static SrVecRelFn g_srVecRel = (SrVecRelFn)(uintptr_t)TS3A(0x00AAC090);
+static SrFreeFn g_srFree = (SrFreeFn)(uintptr_t)TS3A(0x004E3F70);
+static u8* const* g_srWmSlot = (u8* const*)(uintptr_t)TS3A(0x011ECBC4);     // the world manager Locomotion passes to EditPath
+static const float* g_srOne = (const float*)(uintptr_t)TS3A(0x0107A538);    // 1.0f, the w of every transformed point
+static const DWORD* g_srMaskTab = (const DWORD*)(uintptr_t)TS3A(0x00FEDE48);  // CollectMasked: iterator byte -> mask bit
+static const DWORD kSrVecTag = TS3A(0x01026E1C);                            // 4th word of Locomotion's footprint vector
 static bool g_srCheckSlots = true;  // selftest fakes turn the slot whitelist off
 
 // Footprint vtable slots the clone calls (thiscall); every target was read (docs/84 §3.6) and is checked per object
@@ -151,18 +151,18 @@ static bool QlPushWorker(RgThread& t, DWORD* slot, LONG reader) {
 struct QlSite { DWORD addr; u8 len; u8 pro[8]; u8 cache; const char* name; };
 static const int QL_N = 12;
 static const QlSite kQlSites[QL_N] = {
-    {0x00665C50, 6, {0x81, 0xEC, 0x80, 0x00, 0x00, 0x00}, 0, "LotQuadTree_ApplyInsert (W1)"},          // ret 8
-    {0x00666750, 5, {0x83, 0xEC, 0x60, 0x53, 0x55}, 0, "LotQuadTree_ApplyRemove (W2)"},                // ret 8
-    {0x0062F8A0, 7, {0x8B, 0x44, 0x24, 0x08, 0x83, 0xEC, 0x14}, 0, "LotRouting_QuadTreeBuild (W3)"},   // ret 0x10
-    {0x0062E680, 8, {0x83, 0xEC, 0x08, 0x53, 0x8B, 0x5C, 0x24, 0x14}, 0, "LotTable_Insert (W5)"},      // ret 0xC
-    {0x0080E5B0, 5, {0x53, 0x8B, 0x5C, 0x24, 0x08}, 1, "Footprint_EnsureLevelPolygons (W6a)"},         // ret 4
-    {0x0080E610, 8, {0x51, 0x57, 0x8B, 0xF9, 0x83, 0x7F, 0x38, 0x00}, 1, "Footprint_EnsureAllPolygons (W6b)"},  // ret
-    {0x0080E980, 8, {0x83, 0xEC, 0x2C, 0x53, 0x8B, 0x5C, 0x24, 0x34}, 1, "footprint +0x78 rebuild (W6c)"},       // ret 0xC
-    {0x0080EC30, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 1, "footprint +0xF0 transform (W6d)"},       // ret 4
-    {0x0080E0B0, 7, {0x56, 0x8B, 0xF1, 0x83, 0x7E, 0x38, 0x00}, 1, "Footprint_InvalidatePolygons (W6e)"},  // ret
-    {0x0080F6A0, 5, {0x8B, 0x54, 0x24, 0x08, 0x53}, 1, "Footprint_SetLevelPolygons (W6f)"},            // ret 0xC
-    {0x0080CB40, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 1, "footprint +0x100 class 0xFEB848 (W6g)"},  // ret 8
-    {0x00806770, 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 1, "footprint +0x100 class 0xFEB970 (W6g)"},  // ret 8
+    {TS3A(0x00665C50), 6, {0x81, 0xEC, 0x80, 0x00, 0x00, 0x00}, 0, "LotQuadTree_ApplyInsert (W1)"},          // ret 8
+    {TS3A(0x00666750), 5, {0x83, 0xEC, 0x60, 0x53, 0x55}, 0, "LotQuadTree_ApplyRemove (W2)"},                // ret 8
+    {TS3A(0x0062F8A0), 7, {0x8B, 0x44, 0x24, 0x08, 0x83, 0xEC, 0x14}, 0, "LotRouting_QuadTreeBuild (W3)"},   // ret 0x10
+    {TS3A(0x0062E680), 8, {0x83, 0xEC, 0x08, 0x53, 0x8B, 0x5C, 0x24, 0x14}, 0, "LotTable_Insert (W5)"},      // ret 0xC
+    {TS3A(0x0080E5B0), 5, {0x53, 0x8B, 0x5C, 0x24, 0x08}, 1, "Footprint_EnsureLevelPolygons (W6a)"},         // ret 4
+    {TS3A(0x0080E610), 8, {0x51, 0x57, 0x8B, 0xF9, 0x83, 0x7F, 0x38, 0x00}, 1, "Footprint_EnsureAllPolygons (W6b)"},  // ret
+    {TS3A(0x0080E980), 8, {0x83, 0xEC, 0x2C, 0x53, 0x8B, 0x5C, 0x24, 0x34}, 1, "footprint +0x78 rebuild (W6c)"},       // ret 0xC
+    {TS3A(0x0080EC30), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 1, "footprint +0xF0 transform (W6d)"},       // ret 4
+    {TS3A(0x0080E0B0), 7, {0x56, 0x8B, 0xF1, 0x83, 0x7E, 0x38, 0x00}, 1, "Footprint_InvalidatePolygons (W6e)"},  // ret
+    {TS3A(0x0080F6A0), 5, {0x8B, 0x54, 0x24, 0x08, 0x53}, 1, "Footprint_SetLevelPolygons (W6f)"},            // ret 0xC
+    {TS3A(0x0080CB40), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 1, "footprint +0x100 class 0xFEB848 (W6g)"},  // ret 8
+    {TS3A(0x00806770), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, 1, "footprint +0x100 class 0xFEB970 (W6g)"},  // ret 8
 };
 static void* g_qlTramp[QL_N];
 static volatile LONG g_snQl[QL_N];  // [RouteSnap] site index + 1 counted from inside the W stub, 0 = none (routesnap.cpp)
@@ -173,7 +173,7 @@ static volatile LONG g_snQl[QL_N];  // [RouteSnap] site index + 1 counted from i
 // rest of the job, which the job may read. C-A takes +0x918 in the stub, before the original body runs: the same wait, moved
 // before the level is touched. Only with no QL held on this thread (lock order, §5); counted either way (T-L5).
 static volatile LONG g_caOn;
-static DWORD g_caClasses[4] = {0x00FEB848, 0x00FEB970, 0x00FEBD10, 0x00FEBE38};  // steerro-test points one at its fake vtable
+static DWORD g_caClasses[4] = {TS3A(0x00FEB848), TS3A(0x00FEB970), TS3A(0x00FEBD10), TS3A(0x00FEBE38)};  // steerro-test points one at its fake vtable
 static const int QL_W6A = 4;  // kQlSites index of 0x80E5B0
 
 static void CaEnter(DWORD tid, DWORD* slot) {
@@ -199,7 +199,7 @@ static void CaEnter(DWORD tid, DWORD* slot) {
         static const DWORD kInfinite = 0xFFFFFFFF;
         LARGE_INTEGER t0;
         QueryPerformanceCounter(&t0);
-        t_waitKey = 0x0080E5B0;  // probe P0: this wait keyed by the rebuild
+        t_waitKey = TS3A(0x0080E5B0);  // probe P0: this wait keyed by the rebuild
         LockAcquireHook(lock, NULL, &kInfinite);
         t_waitKey = 0;
         rel |= RG_REL_LOCK;
@@ -253,17 +253,17 @@ static void (*const kQlStubs[QL_N])() = {QlStub0, QlStub1, QlStub2, QlStub3, QlS
 struct TwSite { DWORD addr; u8 len; u8 pro[9]; const char* name; };
 static const int TW_T4 = 4, TW_N = 11;
 static const TwSite kTwSites[TW_N] = {  // bytes read from the exe (2026-10-17): whole instructions, no relative operand
-    {0x006653A0, 5, {0x83, 0xEC, 0x68, 0x53, 0x55}, "LotQuadTree node insert helper (T4)"},                       // ret 0xC
-    {0x00666010, 6, {0x81, 0xEC, 0x8C, 0x00, 0x00, 0x00}, "LotQuadTree node remove helper (T4)"},              // ret 8
-    {0x0061ED80, 6, {0x56, 0x68, 0x6C, 0xAC, 0xFE, 0x00}, "FootprintMapEntry_Alloc (T4)"},                     // ret
-    {0x0061ED10, 9, {0x56, 0x8B, 0xF1, 0xC7, 0x06, 0x7C, 0xAC, 0xFE, 0x00}, "FootprintMapEntry_DeletingDtor (T4)"},  // ret 4
-    {0x00807110, 7, {0x8B, 0x41, 0x20, 0x8B, 0x54, 0x24, 0x04}, "Footprint_SetLockKeyObject (T-S7)"},          // ret 4
-    {0x008077A0, 5, {0x51, 0x53, 0x55, 0x8B, 0xE9}, "Footprint_Load (T-S7)"},                                  // ret 0x10
-    {0x0062E420, 5, {0x83, 0xEC, 0x0C, 0x53, 0x55}, "LotGraph_Reset (T-S7)"},                                  // ret 8
-    {0x00947FA0, 6, {0x8B, 0x44, 0x24, 0x0C, 0x85, 0xC0}, "LockKeys_Set (T-S7)"},                              // ret 0xC
-    {0x00948050, 7, {0x8B, 0x44, 0x24, 0x0C, 0x83, 0xEC, 0x08}, "LockKeys_Add (T-S7)"},                        // ret 0xC
-    {0x009479D0, 6, {0x8B, 0x44, 0x24, 0x0C, 0x85, 0xC0}, "LockKeys_Remove (T-S7)"},                           // ret 0xC
-    {0x00947620, 6, {0x8B, 0x41, 0x08, 0x89, 0x41, 0x0C}, "LockKeys_Clear (T-S7)"},                            // ret
+    {TS3A(0x006653A0), 5, {0x83, 0xEC, 0x68, 0x53, 0x55}, "LotQuadTree node insert helper (T4)"},                       // ret 0xC
+    {TS3A(0x00666010), 6, {0x81, 0xEC, 0x8C, 0x00, 0x00, 0x00}, "LotQuadTree node remove helper (T4)"},              // ret 8
+    {TS3A(0x0061ED80), 6, {0x56, 0x68, 0x6C, 0xAC, 0xFE, 0x00}, "FootprintMapEntry_Alloc (T4)"},                     // ret
+    {TS3A(0x0061ED10), 9, {0x56, 0x8B, 0xF1, 0xC7, 0x06, 0x7C, 0xAC, 0xFE, 0x00}, "FootprintMapEntry_DeletingDtor (T4)"},  // ret 4
+    {TS3A(0x00807110), 7, {0x8B, 0x41, 0x20, 0x8B, 0x54, 0x24, 0x04}, "Footprint_SetLockKeyObject (T-S7)"},          // ret 4
+    {TS3A(0x008077A0), 5, {0x51, 0x53, 0x55, 0x8B, 0xE9}, "Footprint_Load (T-S7)"},                                  // ret 0x10
+    {TS3A(0x0062E420), 5, {0x83, 0xEC, 0x0C, 0x53, 0x55}, "LotGraph_Reset (T-S7)"},                                  // ret 8
+    {TS3A(0x00947FA0), 6, {0x8B, 0x44, 0x24, 0x0C, 0x85, 0xC0}, "LockKeys_Set (T-S7)"},                              // ret 0xC
+    {TS3A(0x00948050), 7, {0x8B, 0x44, 0x24, 0x0C, 0x83, 0xEC, 0x08}, "LockKeys_Add (T-S7)"},                        // ret 0xC
+    {TS3A(0x009479D0), 6, {0x8B, 0x44, 0x24, 0x0C, 0x85, 0xC0}, "LockKeys_Remove (T-S7)"},                           // ret 0xC
+    {TS3A(0x00947620), 6, {0x8B, 0x41, 0x08, 0x89, 0x41, 0x0C}, "LockKeys_Clear (T-S7)"},                            // ret
 };
 static void* g_twTramp[TW_N];
 static volatile LONG g_twActive;   // tripwire calls running now on other threads
@@ -374,15 +374,15 @@ static bool SrIn(DWORD v, const DWORD* s, int n) {
 
 // Slot targets of the 9 footprint classes and the middle table (docs/83 §8, re-read 2026-10-17); anything else is a doubt
 static bool SrParentOk(const u8* obj) {
-    static const DWORD k8[] = {0x0080F840, 0x0080C300, 0x00807090, 0x00807B70, 0x008066C0, 0x006119F0};
+    static const DWORD k8[] = {TS3A(0x0080F840), TS3A(0x0080C300), TS3A(0x00807090), TS3A(0x00807B70), TS3A(0x008066C0), TS3A(0x006119F0)};
     const DWORD* vt = *(const DWORD* const*)obj;
     const DWORD* sv = *(const DWORD* const*)(obj + 4);
     if (!vt || !sv) return false;
-    return vt[0x60 / 4] == 0x009C1B00 && (vt[0x28 / 4] == 0x00620D60 || vt[0x28 / 4] == 0x00620DD0) && SrIn(vt[2], k8, 6) &&
-           (vt[3] == 0x00624450 || vt[3] == 0x0070AE20) && vt[0x84 / 4] == 0x00620CC0 && vt[0x7C / 4] == 0x00806FE0 &&
-           (vt[0xC0 / 4] == 0x00620D60 ||
-            (vt[0xC0 / 4] == 0x007EAEA0 && vt[0xE8 / 4] == 0x0080E690 && (vt[0] == 0x00619EF0 || vt[0] == 0x0083F5F0))) &&
-           sv[1] == 0x00620E60 && (sv[2] == 0x00624ED0 || sv[2] == 0x00620E50);
+    return vt[0x60 / 4] == TS3A(0x009C1B00) && (vt[0x28 / 4] == TS3A(0x00620D60) || vt[0x28 / 4] == TS3A(0x00620DD0)) && SrIn(vt[2], k8, 6) &&
+           (vt[3] == TS3A(0x00624450) || vt[3] == TS3A(0x0070AE20)) && vt[0x84 / 4] == TS3A(0x00620CC0) && vt[0x7C / 4] == TS3A(0x00806FE0) &&
+           (vt[0xC0 / 4] == TS3A(0x00620D60) ||
+            (vt[0xC0 / 4] == TS3A(0x007EAEA0) && vt[0xE8 / 4] == TS3A(0x0080E690) && (vt[0] == TS3A(0x00619EF0) || vt[0] == TS3A(0x0083F5F0)))) &&
+           sv[1] == TS3A(0x00620E60) && (sv[2] == TS3A(0x00624ED0) || sv[2] == TS3A(0x00620E50));
 }
 // 0.37 (docs/84 §3.6, bp-s2cov-shadow: every one of the 31% shape fallbacks was SRS_SLOT): the child footprint 0xFEBF90
 // ("Routing/ExtensionFootprint", 0x28 bytes, docs/94 §21; the only live class of replay.cpp's 11 that the list above
@@ -396,11 +396,11 @@ static bool SrSlotsOk(const u8* obj) {
     const DWORD* vt = *(const DWORD* const*)obj;
     const DWORD* sv = *(const DWORD* const*)(obj + 4);
     if (!vt || !sv) return false;
-    if (vt[0x60 / 4] != 0x00806F00) return SrParentOk(obj);
+    if (vt[0x60 / 4] != TS3A(0x00806F00)) return SrParentOk(obj);
     const u8* parent = *(const u8* const*)(obj + 0xC);  // the game forwards without a NULL check (it would fault)
-    return vt[0] == 0x00626210 && vt[2] == 0x00806BF0 && vt[3] == 0x00626220 && vt[0x28 / 4] == 0x00620D60 &&
-           vt[0x84 / 4] == 0x006262D0 && vt[0xB8 / 4] == 0x00BFB320 && vt[0xC0 / 4] == 0x00620D60 && sv[1] == 0x006262E0 &&
-           sv[2] == 0x00626300 && parent && SrParentOk(parent);
+    return vt[0] == TS3A(0x00626210) && vt[2] == TS3A(0x00806BF0) && vt[3] == TS3A(0x00626220) && vt[0x28 / 4] == TS3A(0x00620D60) &&
+           vt[0x84 / 4] == TS3A(0x006262D0) && vt[0xB8 / 4] == TS3A(0x00BFB320) && vt[0xC0 / 4] == TS3A(0x00620D60) && sv[1] == TS3A(0x006262E0) &&
+           sv[2] == TS3A(0x00626300) && parent && SrParentOk(parent);
 }
 
 static void SrAdd(SrCtx* c, const u8* obj) {
@@ -417,8 +417,8 @@ static void SrAdd(SrCtx* c, const u8* obj) {
 // RoutingOptions_Test(0x1004, 0, 0) holds (0x669A2F / 0x669437) [verified disassembly 2026-10-22]
 typedef u8(__fastcall* SrOptIdFn)(const u8* opts, void* edx, DWORD lo, DWORD hi);           // 0x81C970, ret 8
 typedef u8(__fastcall* SrOptTestFn)(const u8* opts, void* edx, DWORD a, DWORD b, DWORD c);  // 0x81C880, ret 0xC
-static SrOptIdFn g_srOptId = (SrOptIdFn)(uintptr_t)0x0081C970;
-static SrOptTestFn g_srOptTest = (SrOptTestFn)(uintptr_t)0x0081C880;
+static SrOptIdFn g_srOptId = (SrOptIdFn)(uintptr_t)TS3A(0x0081C970);
+static SrOptTestFn g_srOptTest = (SrOptTestFn)(uintptr_t)TS3A(0x0081C880);
 static void SrCollect(SrCtx* c, const u8* node, bool masked, DWORD bit) {
     const u8* l = node + 8;
     const bool heap = (l[0] & 1) != 0;
@@ -820,7 +820,7 @@ template <class F> static int SrRetry(int why, F run) {
     InterlockedIncrement(why ? &k.srrFb[site] : &k.srrOk[site]);
     return why;
 }
-static int SrWaitSite(DWORD key) { return key == 0x0085FE10 ? 0 : key == 0x0085F6CB ? 1 : -1; }
+static int SrWaitSite(DWORD key) { return key == TS3A(0x0085FE10) ? 0 : key == TS3A(0x0085F6CB) ? 1 : -1; }
 
 static void __fastcall LocoHook(u8* agent, void* edx, u8* ids, const void* ign1, DWORD n1, const void* ign2, DWORD n2) {
     Ts3nCounters& k = ts3native_counters;

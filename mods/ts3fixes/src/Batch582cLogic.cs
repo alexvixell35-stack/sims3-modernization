@@ -36,7 +36,7 @@ namespace Ts3Fixes
         // lost the role while a pie menu or a queued order still targets them. simler90 fixes the barista Runs and
         // ConfigureInteraction; left: BuyDrinkFromBar/BuySnackFromBar Definition.AddInteractions and OrderFoodOnWaiter
         // Definition.Test / AddInteractions. Fix: a target with no role gets EA's own "no" (nothing added / Test false) before
-        // EA's code runs. Counters: [1062] calls answered "no role", [1063] seen with the switch off, [1064] errors.
+        // EA's code runs. Counters: [1174] calls answered "no role", [1175] seen with the switch off, [1176] errors.
         static readonly Type sRnWaiterDef = RnWaiterDef();
         static string sRnMissing = "";
 
@@ -71,10 +71,10 @@ namespace Ts3Fixes
             try
             {
                 if (target == null || target.SimDescription == null || target.SimDescription.AssignedRole != null) return false;
-                if (!ShortcutOn("rolenullguard")) { PatchCounters()[1063]++; return false; }
-                if (RnSkip(true, true)) { PatchCounters()[1062]++; return true; }
+                if (!ShortcutOn("rolenullguard")) { PatchCounters()[1175]++; return false; }
+                if (RnSkip(true, true)) { PatchCounters()[1174]++; return true; }
             }
-            catch (Exception) { PatchCounters()[1064]++; }
+            catch (Exception) { PatchCounters()[1176]++; }
             return false;
         }
 
@@ -120,7 +120,7 @@ namespace Ts3Fixes
         // so the fraction is 0 below max level and the bonus only exists at level 10. Fix: after EA's rate, the missing part
         // (k * level / max, below max level) is added, scaled by EA's own end multipliers (copying x2 / x1 when old,
         // MultiTasker). Household-visible: homework goes faster with the Homework skill, as EA tuned it.
-        // Counters: [1065] rates raised, [1066] seen with the switch off, [1067] errors.
+        // Counters: [1177] rates raised, [1178] seen with the switch off, [1179] errors.
         static readonly FieldInfo sHwK = typeof(Homework).GetField("kCompletetionRateModifierHomeworkSkill", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         static readonly FieldInfo sHwCopy = typeof(Homework).GetField("kCopyingMultiplier", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         static readonly FieldInfo sHwCopyOld = typeof(Homework).GetField("kCopyingMultiplierOld", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
@@ -154,14 +154,14 @@ namespace Ts3Fixes
                     Skill helper = hw.HelpingSim == null ? null : hw.HelpingSim.SkillManager.GetElement(SkillNames.Homework);
                     Skill used = mine != null && (helper == null || mine.SkillLevel > helper.SkillLevel) ? mine : helper;  // EA's pick
                     if (used == null || used.SkillLevel <= 0 || used.SkillLevel >= used.MaxSkillLevel) return rate;
-                    if (!ShortcutOn("homeworkskillbonus")) { PatchCounters()[1066]++; return rate; }
+                    if (!ShortcutOn("homeworkskillbonus")) { PatchCounters()[1178]++; return rate; }
                     float mult = 1f;
                     if (isCopying) mult *= (bool)sHwIsOld.GetValue(hw) ? (float)sHwCopyOld.GetValue(null) : (float)sHwCopy.GetValue(null);
                     if (sim.HasTrait(TraitNames.MultiTasker)) mult *= TraitTuning.MultiTaskerHomeworkTimeMultiplier;
                     float add = HwMissing(true, used.SkillLevel, used.MaxSkillLevel, (float)sHwK.GetValue(null), mult);
-                    if (add > 0f) { PatchCounters()[1065]++; return rate + add; }
+                    if (add > 0f) { PatchCounters()[1177]++; return rate + add; }
                 }
-                catch (Exception) { PatchCounters()[1067]++; }
+                catch (Exception) { PatchCounters()[1179]++; }
                 return rate;
             }
             public float RateOrig(Sim sim, bool isCopying, bool isInStudyClub) { return 0f; } // Homework.GetCompletionRate
@@ -172,7 +172,7 @@ namespace Ts3Fixes
         // with `>= 0`, always true, so "visit a horse ranch" becomes active and visible for every human Sim, horses or not;
         // kBecomeActiveButNonVisible is unreachable. Fix: an active answer for a household with no horse becomes EA's
         // non-visible answer. Household-visible (the challenge is hidden until the household has a horse).
-        // Counters: [1068] answers hidden, [1069] seen with the switch off, [1070] errors.
+        // Counters: [1180] answers hidden, [1181] seen with the switch off, [1182] errors.
         static string sHrMissing = "";
 
         static void ApplyHorseRanchChallenge()
@@ -199,10 +199,10 @@ namespace Ts3Fixes
                 {
                     int horses = Owner.Household.CurrentMembers.GetActorsOfType(CASAGSAvailabilityFlags.AllHorsesMask).Count;
                     if (horses > 0) return r;
-                    if (!ShortcutOn("horseranchchallenge")) { PatchCounters()[1069]++; return r; }
-                    if (HrHide(true, true, horses)) { PatchCounters()[1068]++; return ChallengeCheckResult.kBecomeActiveButNonVisible; }
+                    if (!ShortcutOn("horseranchchallenge")) { PatchCounters()[1181]++; return r; }
+                    if (HrHide(true, true, horses)) { PatchCounters()[1180]++; return ChallengeCheckResult.kBecomeActiveButNonVisible; }
                 }
-                catch (Exception) { PatchCounters()[1070]++; }
+                catch (Exception) { PatchCounters()[1182]++; }
                 return r;
             }
             public static ChallengeCheckResult CheckOrig(ChallengeNode node, Sim Owner) { return ChallengeCheckResult.kThrowAway; } // the original
@@ -213,7 +213,7 @@ namespace Ts3Fixes
         // always true, so a dig that found nothing still uses up the site. Fix (switch on, the 4-line method replaced): the
         // same calls in the same order (GetStandardTreasure, GiveTreasuresToSim with the collection behavior), and the site
         // count drops only when the pick holds something. Household-visible: empty digs no longer exhaust a site.
-        // Counters: [1071] empty digs that kept the site's treasure, [1072] empty digs with the switch off, [1073] errors.
+        // Counters: [1183] empty digs that kept the site's treasure, [1184] empty digs with the switch off, [1185] errors.
         static readonly FieldInfo sDsLeft = typeof(DigSite).GetField("mNumTreasuresRemaining", kInstAll);
         static string sDsMissing = "";
 
@@ -241,9 +241,9 @@ namespace Ts3Fixes
                 try
                 {
                     if (DsSpend(true, picked.Count)) sDsLeft.SetValue(site, (int)sDsLeft.GetValue(site) - 1);
-                    else PatchCounters()[1071]++;
+                    else PatchCounters()[1183]++;
                 }
-                catch (Exception) { PatchCounters()[1073]++; }
+                catch (Exception) { PatchCounters()[1185]++; }
                 site.TreasureComponent.GiveTreasuresToSim(picked, actor, true);
             }
             public void DigOrig(InteractionInstance inst) { } // DigSite.ExcavateSomething
@@ -257,7 +257,7 @@ namespace Ts3Fixes
         // change. Fix: in exactly that case (source world set, target world Undefined, EA's other clause false), EA's own
         // world-change branch runs: walk up to the source or target opportunity, then clear from its parent (recursing into
         // ClearChainHistory as EA does). Every other case is EA's code. Household-visible (which opportunities can repeat).
-        // Counters: [1074] world-change branch taken, [1075] seen with the switch off, [1076] errors.
+        // Counters: [1186] world-change branch taken, [1187] seen with the switch off, [1188] errors.
         static readonly MethodInfo sOcReqWorld = typeof(Opportunity).GetMethod("RequiredWorldForCategory", kInstAll, null, Type.EmptyTypes, null);
         static string sOcMissing = "";
 
@@ -295,7 +295,7 @@ namespace Ts3Fixes
                         bool other = opp.TargetWorldRequired != WorldName.Undefined && (WorldName)sOcReqWorld.Invoke(opp, null) != opp.TargetWorldRequired;
                         if (src != null && tgt != null && OcMissed(true, src.TargetWorldRequired, tgt.TargetWorldRequired, other))
                         {
-                            if (!ShortcutOn("oppchainworld")) PatchCounters()[1075]++;
+                            if (!ShortcutOn("oppchainworld")) PatchCounters()[1187]++;
                             else
                             {
                                 Opportunity o = opp;
@@ -305,9 +305,9 @@ namespace Ts3Fixes
                         }
                     }
                 }
-                catch (Exception) { PatchCounters()[1076]++; from = null; }
+                catch (Exception) { PatchCounters()[1188]++; from = null; }
                 if (from == null) return ClearOrig(opp, s);
-                PatchCounters()[1074]++;
+                PatchCounters()[1186]++;
                 return Opportunity.ClearChainHistory(from, s);  // EA's recursion
             }
             public static OpportunityNames ClearOrig(Opportunity opp, Sim s) { return default(OpportunityNames); } // the original
@@ -317,7 +317,7 @@ namespace Ts3Fixes
         // [verified, decompiled] Teleporter+TeleportToCommunityLot.Definition.Test returns `GetValidCommunityLots(a).Count >= 0`,
         // always true, so "Teleport to community lot" is offered in a world with no valid community lot (Run then fails
         // cleanly). Fix: EA's true becomes false when that collection is empty. Household-visible (menu only).
-        // Counters: [1077] options hidden, [1078] seen with the switch off, [1079] errors.
+        // Counters: [1189] options hidden, [1190] seen with the switch off, [1191] errors.
         static readonly Type sTcDef = TcDef();
         static string sTcMissing = "";
 
@@ -352,10 +352,10 @@ namespace Ts3Fixes
                     ICollection<Lot> lots = CarOwnable.GetValidCommunityLots(a);
                     int n = lots == null ? 0 : lots.Count;
                     if (n > 0) return r;
-                    if (!ShortcutOn("teleportcommunitylot")) { PatchCounters()[1078]++; return r; }
-                    if (TcRefuse(true, true, n)) { PatchCounters()[1077]++; return false; }
+                    if (!ShortcutOn("teleportcommunitylot")) { PatchCounters()[1190]++; return r; }
+                    if (TcRefuse(true, true, n)) { PatchCounters()[1189]++; return false; }
                 }
-                catch (Exception) { PatchCounters()[1079]++; }
+                catch (Exception) { PatchCounters()[1191]++; }
                 return r;
             }
             public bool TestOrig(Sim a, Teleporter target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; } // the original
@@ -365,7 +365,7 @@ namespace Ts3Fixes
         // [verified, decompiled] SubjectDefinition.Difficulty divides SkillPoints and Value (ints) by the largest ones (ints),
         // so both fractions are 0 below the maximum and the photography journal shows 1 star for almost every subject (its
         // only reader, Photography's journal row, maps Difficulty * 5 to stars). Fix: the same weighted mean with float
-        // division. UI only. Counters: [1080] values corrected, [1081] seen with the switch off, [1082] errors.
+        // division. UI only. Counters: [1192] values corrected, [1193] seen with the switch off, [1194] errors.
         static string sPsMissing = "";
 
         static void ApplyPhotoSubjectStars()
@@ -394,11 +394,11 @@ namespace Ts3Fixes
                     float f = PsDifficulty(d.SkillPoints, PhotographySubjects.sMaxSubjectSkillPoints, d.Value, PhotographySubjects.sMaxSubjectValue,
                         PhotographySubjects.kDifficultyWeightSubjectSkillPoints, PhotographySubjects.kDifficultyWeightSubjectValue);
                     if (f == ea) return ea;
-                    if (!ShortcutOn("photosubjectstars")) { PatchCounters()[1081]++; return ea; }
-                    PatchCounters()[1080]++;
+                    if (!ShortcutOn("photosubjectstars")) { PatchCounters()[1193]++; return ea; }
+                    PatchCounters()[1192]++;
                     return f;
                 }
-                catch (Exception) { PatchCounters()[1082]++; }
+                catch (Exception) { PatchCounters()[1194]++; }
                 return ea;
             }
             public float DifficultyOrig() { return 0f; } // SubjectDefinition.get_Difficulty

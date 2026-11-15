@@ -22,8 +22,12 @@ export function parseScriptError(xml: string): { exception: string; message: str
   return { exception: ex?.[1] ?? '', message: (ex?.[2] ?? '').trim(), frames };
 }
 
+// NRaas ErrorTrap/Overwatch correction + dereferencing report: info lines only, no exception and no stack frame (not a script exception)
+const DEREF: KnownError = { id: 'errortrap-deref-report', exception: '', frames: [], why: 'ErrorTrap correction/dereferencing report, no exception and no stack', first_seen: '2026-11-15', evidence: ['probe-out/script-errors-1115'] };
+
 export function matchKnown(xml: string, known: KnownError[] = loadKnown()): KnownError | undefined {
   const { exception, message, frames } = parseScriptError(xml);
+  if (!exception && !frames.length && /^-- Dereferencing --\s*$/m.test(xml) && /^Potential Object Found:/m.test(xml)) return DEREF;
   const is = (f: string, want: string) => f === want || f.endsWith('.' + want);
   return known.find(k => {
     const fs = frames.filter(f => !k.passFrames?.some(p => is(f, p)));
@@ -72,6 +76,13 @@ if (argv[0] === '--self-check') {
   assert.equal(matchKnown(bx(plate, eaBook), known), undefined, 'same stack, Plate (not BookGeneral) is not known');
   assert.equal(matchKnown(bx(book, [...hookBook, 'NRaas.NRaas.ErrorTrap:Wrap']), known), undefined, 'a mod frame outside passFrames never matches');
   assert.equal(matchKnown(xml(nre, [...wed.slice(0, 4), 'Ts3Fixes.Fixes+BookHandQueueHook:PutDownCarriedObjects', ...wed.slice(4)]), known), undefined, 'passFrames apply only to their own entry');
+  // ErrorTrap deref report (real 2026-11-15 shape): known; with a stack it is judged by the stack
+  const deref = '<NRaas.ErrorTrap>\n<Content>\n\n-- Correction Logs --\n\nDestroyed Object Found: Sims3.Gameplay.Objects.CookingObjects.PlateServing\n\n\n-- Dereferencing --\n\nPotential Object Found: Sims3.Gameplay.Core.SocialJigOnePerson (ID=0x1, W=False, I=False)\n  Reference Continue: Sims3.Gameplay.Roles.RolePaparazzi+FollowCelebrity mJig\n    UNHANDLED Reference: Sims3.SimIFace.World+FindGoodLocationParams PlacementCheckFunc\n\nLoaded Assemblies:\n System\n</Content>\n</NRaas.ErrorTrap>';
+  assert.equal(matchKnown(deref, known)?.id, 'errortrap-deref-report', 'deref report is known');
+  const hdr = '<Content>\n-- Dereferencing --\nPotential Object Found: X';
+  assert.equal(matchKnown(xml(nre, [...wed, 'NRaas.NRaas.ErrorTrap:Wrap']).replace('<Content>', hdr), known), undefined, 'real mod exception is not rescued by deref text');
+  assert.equal(matchKnown(xml('System.InvalidCastException', wed).replace('<Content>', hdr), known), undefined, 'real unknown exception is not rescued by deref text');
+  assert.equal(matchKnown('<Content>\n-- Dereferencing --\nno object</Content>', known), undefined, 'header without Potential Object is not known');
   console.log('known-script-errors self-check: PASS');
 } else if (argv.length) {
   const known = loadKnown();

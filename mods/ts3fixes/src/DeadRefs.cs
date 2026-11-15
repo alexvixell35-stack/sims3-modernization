@@ -11,6 +11,7 @@ using Sims3.Gameplay.Careers;
 using Sims3.Gameplay.Core;
 using Sims3.Gameplay.EventSystem;
 using Sims3.Gameplay.ObjectComponents;
+using Sims3.Gameplay.Objects.CookingObjects;
 using Sims3.Gameplay.Objects.Fishing;
 using Sims3.Gameplay.Objects.HobbiesSkills;
 using Sims3.Gameplay.Objects.Vehicles;
@@ -45,13 +46,15 @@ namespace Ts3Fixes
     //     routing-reference lists (gone Sims removed through EA's own Remove methods; #166 build 40, docs/517), 11 object owner
     //     components (a gone owner or thief Sim relinked to its live instance, a reward giver with none dropped; #166 build 43, docs/519),
     //     12 ObjectDisposed handlers of relationships nobody holds (a deleted description, or a decayed relationship; #166 build 41, docs/522),
-    //     13 celebrity waiting-to-react lists (gone reactors removed through EA's RemoveSimFromWaitingToReactList; docs/523).
+    //     13 celebrity waiting-to-react lists (gone reactors removed through EA's RemoveSimFromWaitingToReactList; docs/523),
+    //     14 CookingProcess handlers left on an appliance's ObjectDisposed (own switch deadrefcooking, default off; docs/205 §4),
+    //     15 gone Sims in a live NPC conversation's members (own switch deadrefconvo, default off; docs/517 §4). Both need
+    //     deadrefsweep on too.
     //     [395] relationship keys removed, [396] relationship entries removed, [397] aging states removed, [398] alarm owners
     //     cleared, [399] react-time entries, [400] coworker / boss / chess entries, [401] topics, [402] fishers, [403] Sim
-    //     fields (pusher, talking, vehicle, dad), [404] passenger and horseshoe entries, [2045] dartboard entries, [2046] use-list entries, [2047] owner entries, [2048] disposed handlers, [2049] celebrity reactors, [405] passes finished, [406] slices,
+    //     fields (pusher, talking, vehicle, dad), [404] passenger and horseshoe entries, [2045] dartboard entries, [2046] use-list entries, [2047] owner entries, [2048] disposed handlers, [2049] celebrity reactors, [994] cooking handlers, [995] conversation members, [996] conversations skipped (household), [405] passes finished, [406] slices,
     //     [407] longest slice us, [408] total pass ms, [409] longest save pass us, [410] passes refused or stopped (unsafe state, switch off) and items that threw.
-    //   Not built (docs/205 §4): CookingProcess appliance handlers,
-    //   adoption pool pets, Service.mPreferredServiceNpc (= preferredservice, #86).
+    //   Not built (docs/205 §4): adoption pool pets, Service.mPreferredServiceNpc (= preferredservice, #86).
     public static partial class Fixes
     {
         static readonly FieldInfo sAgingStates = typeof(AgingManager).GetField("AgingStates", kInstAll);
@@ -79,7 +82,7 @@ namespace Ts3Fixes
         static ObjectGuid sDeadRefTask = ObjectGuid.InvalidObjectGuid;
         static StopWatch sDeadRefWatch;
         static long sDeadRefTotalUs;
-        // Phases 10-12 walk every GameObject. They share one walk and run only when a Sim object was destroyed or a description
+        // Phases 10-12 and 14 walk every GameObject. They share one walk and run only when a Sim object was destroyed or a description
         // disposed since the last walk (EA's kSimDestroyed / kSimDescriptionDisposed), else once per kDeadRefObjHours: phase 12's
         // decayed-relationship case sends no event (docs/205 §2.3a). [2055] walks, [2056] ms in finished walks, [2057] walks an
         // event asked for (the first walk after a load counts as asked).
@@ -93,6 +96,7 @@ namespace Ts3Fixes
         {
             Patch(typeof(Relationship), "Get", new Type[] { typeof(SimDescription) }, typeof(RelGetHook), "GetHook", "GetOrig");
             Patch(typeof(AgingManager), "IsAgingStateValid", typeof(AgingValidHook), "ValidHook", "ValidOrig");
+            Patch(typeof(Political), "PoliticalTakeARisk", typeof(TakeARiskHook), "Hook", "Orig");  // TakeARiskGuard.cs, docs/529 §4
         }
 
         static bool DescGone(SimDescription d) { return d == null || !d.IsValidDescription; }
@@ -198,13 +202,15 @@ namespace Ts3Fixes
                 objWalk,
                 objWalk,
                 objWalk,
+                objWalk, // phase 14 (cooking handlers): its own switch is tested per item
                 delegate { return Objects<Sim>(); },
+                delegate { return ShortcutOn("deadrefconvo") ? Objects<Sim>() : new List<object>(); },
             };
             try
             {
                 for (int p = 0; p < phases.Length; p++)
                 {
-                    if (p >= 9 && p <= 11) // phases 10-12
+                    if (p >= 9 && p <= 12) // phases 10-12 and 14
                     {
                         if (!objRun) continue;
                         if (p == 9) { sDeadRefObjDue = false; objOpen = true; objUs0 = sDeadRefTotalUs; } // an event from here on asks again
@@ -231,7 +237,7 @@ namespace Ts3Fixes
                         sDeadRefWatch.Restart();
                     }
                     if (p == 3) c[392] = sNoOutfitSeen; // #100 end state, counted here so the count is spread too
-                    if (p == 11)
+                    if (p == 12)
                     {
                         objOpen = false;
                         sDeadRefObjLastH = SimClock.ElapsedTime(TimeUnit.Hours);
@@ -247,7 +253,7 @@ namespace Ts3Fixes
             finally
             {
                 sDeadRefTask = ObjectGuid.InvalidObjectGuid;
-                if (objOpen) sDeadRefObjDue = true; // stopped inside phases 10-12: walk again next pass
+                if (objOpen) sDeadRefObjDue = true; // stopped inside phases 10-12 or 14: walk again next pass
             }
         }
 
@@ -319,7 +325,9 @@ namespace Ts3Fixes
                     case 9: UseListHolders(o as GameObject); break;
                     case 10: OwnerHolders(o as GameObject); break;
                     case 11: HandlerHolders(o as GameObject); break;
-                    case 12: CelebrityHolders(o as Sim); break;
+                    case 12: CookingHandlers(o as GameObject); break;
+                    case 13: CelebrityHolders(o as Sim); break;
+                    case 14: ConversationHolders(o as Sim); break;
                 }
             }
             catch (Exception) { PatchCounters()[410]++; }
@@ -490,6 +498,7 @@ namespace Ts3Fixes
         //             and the townie put back where it stood.
         public class DartState { public int gone, players, teams; public bool current, cheating, destroyed; }
         static Dartboard sDartBoard;
+        static Sim sDartSim; // the seeded Sim object: its description may get a new one during the wait
         static SimDescription sDartDesc;
         static Vector3 sDartPos;
 
@@ -505,7 +514,7 @@ namespace Ts3Fixes
                 Dartboard.Team team = new Dartboard.Team();
                 team.AddPlayerToTeam(victim, board);
                 board.Teams.Add(team); board.CurrentTeam = team; board.CurrentPlayer = victim; board.CheatingSim = victim;
-                sDartBoard = board; sDartDesc = victim.SimDescription; sDartPos = victim.Position;
+                sDartBoard = board; sDartSim = victim; sDartDesc = victim.SimDescription; sDartPos = victim.Position;
                 string name = victim.FullName;
                 victim.Destroy();
                 return "dart seed: " + name + " on the board as player, current player and cheating Sim, then destroyed";
@@ -517,7 +526,7 @@ namespace Ts3Fixes
                 DartState st = new DartState();
                 st.gone = DartGone(b); st.players = b.Players.Count; st.teams = b.Teams.Count;
                 st.current = b.CurrentPlayer != null; st.cheating = b.CheatingSim != null;
-                st.destroyed = sDartDesc.CreatedSim == null || sDartDesc.CreatedSim.HasBeenDestroyed;
+                st.destroyed = SimGone(sDartSim);
                 return st;
             }
             if (what != "expect left" && what != "expect cleaned") return "dart <seed|state|expect left|expect cleaned>";
@@ -525,7 +534,7 @@ namespace Ts3Fixes
             int gone = DartGone(b), players = b.Players.Count, teams = b.Teams.Count;
             bool ok = what == "expect left" ? !on && gone == 3 : on && gone == 0 && players == 0 && teams == 0 && b.CurrentPlayer == null && b.CheatingSim == null;
             string line = "gone " + gone + ", players " + players + ", teams " + teams + ", current " + (b.CurrentPlayer != null) + ", cheating " + (b.CheatingSim != null) + " (switch " + on + ")";
-            sDartBoard = null;
+            sDartBoard = null; sDartSim = null;
             b.Destroy();
             string back = DrPutBack(sDartDesc, sDartPos);
             if (!ok) throw new InvalidOperationException("dart " + what + ": wrong outcome; " + line + "; " + sDartDesc.FullName + " " + back);
@@ -566,6 +575,7 @@ namespace Ts3Fixes
         //             the townie put back.
         public class UseState { public int gone, use, reference, routing; public bool destroyed; }
         static GameObject sUseObj;
+        static Sim sUseSim; // the seeded Sim object, as sDartSim
         static SimDescription sUseDesc;
         static Vector3 sUsePos;
 
@@ -578,7 +588,7 @@ namespace Ts3Fixes
                 Sim victim = DrPickTownie();
                 if (victim == null) { jig.Destroy(); throw new InvalidOperationException("use seed: no townie to use"); }
                 jig.AddToUseList(victim); jig.AddToReferenceList(victim); jig.AddToRoutingReferenceList(victim);
-                sUseObj = jig; sUseDesc = victim.SimDescription; sUsePos = victim.Position;
+                sUseObj = jig; sUseSim = victim; sUseDesc = victim.SimDescription; sUsePos = victim.Position;
                 string name = victim.FullName;
                 victim.Destroy();
                 return "use seed: " + name + " in the jig's use, reference and routing reference lists, then destroyed";
@@ -590,7 +600,7 @@ namespace Ts3Fixes
                 UseState st = new UseState();
                 st.gone = UseListGone(o); st.use = o.ActorsUsingMe.Count; st.reference = o.ReferenceList.Count;
                 st.routing = o.RoutingReferenceList != null ? o.RoutingReferenceList.Count : 0;
-                st.destroyed = sUseDesc.CreatedSim == null || sUseDesc.CreatedSim.HasBeenDestroyed;
+                st.destroyed = SimGone(sUseSim);
                 return st;
             }
             if (what != "expect left" && what != "expect cleaned") return "use <seed|state|expect left|expect cleaned>";
@@ -598,7 +608,7 @@ namespace Ts3Fixes
             int gone = UseListGone(o), use = o.ActorsUsingMe.Count, reference = o.ReferenceList.Count, routing = o.RoutingReferenceList != null ? o.RoutingReferenceList.Count : 0;
             bool ok = what == "expect left" ? !on && gone == 3 : on && gone == 0 && use == 0 && reference == 0 && routing == 0;
             string line = "gone " + gone + ", use " + use + ", reference " + reference + ", routing " + routing + " (switch " + on + ")";
-            sUseObj = null;
+            sUseObj = null; sUseSim = null;
             o.Destroy();
             string back = DrPutBack(sUseDesc, sUsePos);
             if (!ok) throw new InvalidOperationException("use " + what + ": wrong outcome; " + line + "; " + sUseDesc.FullName + " " + back);
@@ -874,10 +884,216 @@ namespace Ts3Fixes
             return "as expected; " + line + "; " + sCeDesc.FullName + " " + back;
         }
 
+        // Phase 14 (docs/205 §4, issue #91, switch deadrefcooking): CookingProcess subscribes ObjectClickedOnDestroyed to the
+        // clicked appliance's (stove, BBQ, fridge) ObjectDisposed and adds a state listener. Nothing unsubscribes while the
+        // appliance lives: ClearObjectListeners runs only from the disposal handler itself (after it nulled ObjectClickedOn),
+        // and the state-changed path and the Prepare steps (FoodTray, Pot, FryingPan, BakingDish, Microwave set
+        // ObjectClickedOn = null) leave the handler, so the process, its ingredients and the eaten dish stay reachable from the
+        // appliance and go into every save [verified: CookingProcess AddObjectListeners / ClearObjectListeners; the same in
+        // simler90's core]. A handler goes when its process no longer names this object, or when the process is dead (no
+        // owner, or its owner object destroyed; then ObjectClickedOn is cleared as EA's handler would at disposal). A process
+        // that names no object also loses its state listener. No Sim is touched. [994] handlers.
+        static readonly MethodInfo sCpAddListeners = typeof(CookingProcess).GetMethod("AddObjectListeners", kInstAll);
+        delegate void CpAddFn(); // CookClickListener.cs swaps AddObjectListeners: MethodInfo.Invoke with a target would throw (swapinvoke selftest)
+        static readonly FieldInfo sCpStateListener = typeof(CookingProcess).GetField("mStateChangedListener", kInstAll);
+
+        // shortcut: a live owner whose CookingProcess is another process still counts as live; tighten if load scans show such handlers
+        static bool CpDead(CookingProcess cp)
+        {
+            GameObject owner = cp.Owner as GameObject;
+            return cp.Owner == null || (owner != null && owner.HasBeenDestroyed);
+        }
+
+        static bool CpStale(CookingProcess cp, GameObject o) { return cp.ObjectClickedOn != o || CpDead(cp); }
+
+        static void CookingHandlers(GameObject o)
+        {
+            if (o == null || o.HasBeenDestroyed || sObjDisposed == null || !ShortcutOn("deadrefcooking")) return;
+            Delegate ev = sObjDisposed.GetValue(o) as Delegate;
+            if (ev == null) return;
+            int[] c = PatchCounters();
+            foreach (Delegate d in ev.GetInvocationList())
+            {
+                CookingProcess cp = d.Target as CookingProcess;
+                if (cp == null || !CpStale(cp, o)) continue;
+                sObjDisposed.SetValue(o, Delegate.Remove(sObjDisposed.GetValue(o) as Delegate, d));
+                if (cp.ObjectClickedOn == o) cp.ObjectClickedOn = null; // dead process: what EA's handler does at disposal
+                if (cp.ObjectClickedOn == null) CpDropListener(cp); // its listener can only name an object it already let go
+                c[994]++;
+            }
+        }
+
+        static void CpDropListener(CookingProcess cp)
+        {
+            EventListener l = cp != null && sCpStateListener != null ? sCpStateListener.GetValue(cp) as EventListener : null;
+            if (l == null) return;
+            EventTracker.RemoveListener(l);
+            sCpStateListener.SetValue(cp, null);
+        }
+
+        static int CookingGone(GameObject o)
+        {
+            Delegate ev = o != null && !o.HasBeenDestroyed && sObjDisposed != null ? sObjDisposed.GetValue(o) as Delegate : null;
+            if (ev == null) return 0;
+            int n = 0;
+            foreach (Delegate d in ev.GetInvocationList()) { CookingProcess cp = d.Target as CookingProcess; if (cp != null && CpStale(cp, o)) n++; }
+            return n;
+        }
+
+        // Agent check for phase 14 (repro cooking-handler-gone-check), a hard state built and undone:
+        //   "seed":   two CookingProcesses (EA's empty constructor) subscribed to one fridge through EA's own AddObjectListeners:
+        //             one then lets go of the fridge as a Prepare step does (ObjectClickedOn = null), the other keeps naming it
+        //             with no owner (a dead process).
+        //   "state":  CookState: stale cooking handlers on that fridge, ours still subscribed.
+        //   "expect left" (switches off) / "expect cleaned" (deadrefsweep and deadrefcooking on): throws unless both of ours are
+        //             still there (left) or gone with the dead one's listener (cleaned). Either way ours still there are removed.
+        public class CookState { public int gone, mine; }
+        static GameObject sCkObj; static CookingProcess sCkA, sCkB;
+
+        static int CkMine(GameObject o)
+        {
+            Delegate ev = sObjDisposed.GetValue(o) as Delegate; int n = 0;
+            if (ev != null) foreach (Delegate d in ev.GetInvocationList()) if (d.Target == sCkA || d.Target == sCkB) n++;
+            return n;
+        }
+
+        public static object DeadRefCookingCheck(string what)
+        {
+            if (sObjDisposed == null || sCpAddListeners == null || sCpStateListener == null) throw new InvalidOperationException("cooking check: ObjectDisposed, AddObjectListeners or mStateChangedListener not found");
+            if (what == "seed")
+            {
+                GameObject host = null;
+                foreach (Sims3.Gameplay.Objects.Appliances.Fridge f in Sims3.Gameplay.Queries.GetObjects<Sims3.Gameplay.Objects.Appliances.Fridge>()) if (!f.HasBeenDestroyed && f.LotCurrent != null) { host = f; break; }
+                if (host == null) throw new InvalidOperationException("cooking seed: no fridge in the world");
+                CookingProcess a = new CookingProcess(), b = new CookingProcess();
+                a.ObjectClickedOn = host; ((CpAddFn)Delegate.CreateDelegate(typeof(CpAddFn), a, sCpAddListeners))(); a.ObjectClickedOn = null;
+                b.ObjectClickedOn = host; ((CpAddFn)Delegate.CreateDelegate(typeof(CpAddFn), b, sCpAddListeners))();
+                sCkObj = host; sCkA = a; sCkB = b;
+                return "cooking seed: two processes on " + host.GetType().Name + " " + host.ObjectId.Value + ", one let go, one dead";
+            }
+            GameObject o = sCkObj;
+            if (o == null) throw new InvalidOperationException("cooking " + what + ": no seed");
+            int mine = CkMine(o);
+            if (what == "state") { CookState st = new CookState(); st.gone = CookingGone(o); st.mine = mine; return st; }
+            if (what != "expect left" && what != "expect cleaned") return "cooking <seed|state|expect left|expect cleaned>";
+            bool on = ShortcutOn("deadrefsweep") && ShortcutOn("deadrefcooking");
+            bool ok = what == "expect left" ? !on && mine == 2 : on && mine == 0 && sCpStateListener.GetValue(sCkB) == null;
+            string line = "mine " + mine + ", gone " + CookingGone(o) + " (switches " + on + ")";
+            Delegate ev = sObjDisposed.GetValue(o) as Delegate;
+            if (ev != null) foreach (Delegate d in ev.GetInvocationList()) if (d.Target == sCkA || d.Target == sCkB) ev = Delegate.Remove(ev, d);
+            sObjDisposed.SetValue(o, ev);
+            CpDropListener(sCkA); CpDropListener(sCkB);
+            sCkObj = null; sCkA = sCkB = null;
+            if (!ok) throw new InvalidOperationException("cooking " + what + ": wrong outcome; " + line);
+            return "as expected; " + line;
+        }
+
+        // Phase 15 (docs/517 §4, issue #166 core build 40, switch deadrefconvo): Conversation.mMembers (saved with the
+        // conversation, reached from each member's SocialComponent.Conversation) keeps a Sim reset or destroyed mid-talk. EA's
+        // RemoveSim needs the leaving Sim's BuffManager and SocialComponent, which a destroyed Sim no longer has, and when the
+        // last live member leaves later, RemoveSim's one-member exit takes the gone Sim as the partner and throws [verified:
+        // Conversation.RemoveSim, the same in simler90's core]. Gone members leave the list and the discourage region, the
+        // turn and talked-last fields move to a live member, their topical-socials keys go; the live member's own later leave
+        // is then EA's normal empty-conversation exit. Household rule: a conversation with any household, selected or
+        // unknown-scope live member stays as EA has it. [995] members removed, [996] conversation visits skipped (household).
+        static readonly FieldInfo sConvMembers = typeof(Conversation).GetField("mMembers", kInstAll);
+        static readonly FieldInfo sConvTurn = typeof(Conversation).GetField("mWhoseTurn", kInstAll);
+        static readonly FieldInfo sConvTalked = typeof(Conversation).GetField("mWhoTalkedLast", kInstAll);
+        static readonly FieldInfo sConvTopical = typeof(Conversation).GetField("mTopicalSocialsAlreadyUsed", kInstAll);
+
+        static List<Sim> ConvMembers(Sim s)
+        {
+            Conversation cv = !SimGone(s) && s.SocialComponent != null && sConvMembers != null ? s.SocialComponent.Conversation : null;
+            return cv != null ? sConvMembers.GetValue(cv) as List<Sim> : null;
+        }
+
+        static void ConversationHolders(Sim s)
+        {
+            if (!ShortcutOn("deadrefconvo")) return;
+            List<Sim> m = ConvMembers(s);
+            if (m == null) return;
+            Conversation cv = s.SocialComponent.Conversation;
+            List<Sim> gone = new List<Sim>(); bool household = false;
+            foreach (Sim x in m) { if (SimGone(x)) gone.Add(x); else if (IsPlayerSim(x)) household = true; }
+            if (gone.Count == 0) return;
+            int[] c = PatchCounters();
+            if (household) { c[996]++; return; }
+            foreach (Sim x in gone)
+            {
+                try { if (cv.DiscourageRegion != null) cv.DiscourageRegion.RemoveMember(x); } catch (Exception) { } // a destroyed Sim's id may be cleared already
+                m.Remove(x); c[995]++;
+            }
+            Sim first = m.Count > 0 ? m[0] : null;
+            foreach (FieldInfo f in new FieldInfo[] { sConvTurn, sConvTalked })
+            {
+                Sim who = f != null ? f.GetValue(cv) as Sim : null;
+                if (who != null && SimGone(who)) f.SetValue(cv, first);
+            }
+            IDictionary topical = sConvTopical != null ? sConvTopical.GetValue(cv) as IDictionary : null;
+            if (topical != null) foreach (Sim x in gone) topical.Remove(x);
+        }
+
+        static int ConversationGone(Sim s)
+        {
+            List<Sim> m = ConvMembers(s); int n = 0;
+            if (m != null) foreach (Sim x in m) if (SimGone(x)) n++;
+            return n;
+        }
+
+        // Agent check for phase 15 (repro conversation-gone-check), a hard state built and undone:
+        //   "seed":   a conversation (EA's own empty constructor) with two townies as members, reached from the first one's
+        //             SocialComponent.Conversation; the second one's Sim object is then destroyed (put back at the end).
+        //             The two have no relationship: SocialComponent.Dispose -> Relationship.RemoveReferencesToSim takes a
+        //             destroyed Sim out of the conversations of the Sims it has a relationship with, and RemoveSim then
+        //             ends a two-member conversation (members 0; 2026-11-15 run picked two Joneses). The stale entry stays
+        //             only where that walk does not reach (#166).
+        //   "state":  ConvState: gone members of that conversation, its member count, destroyed (the seeded Sim object; its
+        //             description may get a new Sim object meanwhile, which is not in the conversation).
+        //   "expect left" (switches off) / "expect cleaned" (deadrefsweep and deadrefconvo on): throws unless the gone member
+        //             is still there (left) or gone (cleaned). Either way the conversation is taken off the first townie.
+        public class ConvState { public int gone, members; public bool destroyed; }
+        static Sim sCvHost, sCvVictim; static Conversation sCvConv; static SimDescription sCvDesc; static Vector3 sCvPos;
+
+        public static object DeadRefConversationCheck(string what)
+        {
+            if (sConvMembers == null) throw new InvalidOperationException("conversation check: mMembers not found");
+            if (what == "seed")
+            {
+                Sim host = DrPickTownie(), victim = null;
+                if (host != null && host.SocialComponent != null && host.SocialComponent.Conversation == null) victim = DrPickTownie(host.SimDescription, host);
+                if (victim == null) throw new InvalidOperationException("conversation seed: no two unrelated townies, or the first is talking already");
+                Conversation cv = (Conversation)Activator.CreateInstance(typeof(Conversation), true);
+                List<Sim> m = (List<Sim>)sConvMembers.GetValue(cv);
+                m.Add(host); m.Add(victim);
+                host.SocialComponent.Conversation = cv; // the field only: SetConversation would touch the host's posture and UI
+                sCvHost = host; sCvConv = cv; sCvVictim = victim; sCvDesc = victim.SimDescription; sCvPos = victim.Position;
+                string names = host.FullName + " with " + victim.FullName;
+                victim.Destroy();
+                return "conversation seed: " + names + ", the second Sim object destroyed";
+            }
+            Sim h = sCvHost;
+            if (h == null || sCvConv == null) throw new InvalidOperationException("conversation " + what + ": no seed");
+            List<Sim> mm = (List<Sim>)sConvMembers.GetValue(sCvConv);
+            int gone = 0; foreach (Sim x in mm) if (SimGone(x)) gone++;
+            if (what == "state") { ConvState st = new ConvState(); st.gone = gone; st.members = mm.Count; st.destroyed = SimGone(sCvVictim); return st; }
+            if (what != "expect left" && what != "expect cleaned") return "conversation <seed|state|expect left|expect cleaned>";
+            bool on = ShortcutOn("deadrefsweep") && ShortcutOn("deadrefconvo");
+            bool ok = what == "expect left" ? !on && gone == 1 : on && gone == 0 && mm.Count == 1;
+            string line = "gone " + gone + ", members " + mm.Count + " (switches " + on + ")";
+            if (!SimGone(h) && h.SocialComponent != null && h.SocialComponent.Conversation == sCvConv) h.SocialComponent.Conversation = null;
+            mm.Clear();
+            sCvHost = null; sCvVictim = null; sCvConv = null;
+            string back = DrPutBack(sCvDesc, sCvPos);
+            if (!ok) throw new InvalidOperationException("conversation " + what + ": wrong outcome; " + line + "; " + sCvDesc.FullName + " " + back);
+            return "as expected; " + line + "; " + sCvDesc.FullName + " " + back;
+        }
+
         // A townie for a hard state: not selectable, no pet, teen or older, not of the active household, not on its home
         // lot, no role or service, a valid description.
-        static Sim DrPickTownie() { return DrPickTownie(null); }
-        static Sim DrPickTownie(SimDescription except)
+        static Sim DrPickTownie() { return DrPickTownie(null, null); }
+        static Sim DrPickTownie(SimDescription except) { return DrPickTownie(except, null); }
+        // unrelatedTo: skip Sims with a relationship to that Sim (conversation seed).
+        static Sim DrPickTownie(SimDescription except, Sim unrelatedTo)
         {
             Household active = Household.ActiveHousehold;
             Lot home = active != null ? active.LotHome : null;
@@ -886,6 +1102,7 @@ namespace Ts3Fixes
                 SimDescription d = s.SimDescription;
                 if (IsPlayerSim(s) || s.IsPet || d == except || !d.IsValidDescription || !d.TeenOrAbove) continue;  // PlayerSims.cs: d != null after it
                 if ((home != null && s.LotCurrent == home) || d.AssignedRole != null || d.CreatedByService != null) continue;
+                if (unrelatedTo != null && Relationship.Get(unrelatedTo, s, false) != null) continue;
                 return s;
             }
             return null;
@@ -952,7 +1169,7 @@ namespace Ts3Fixes
                 }
                 case "sweep": sDeadRefObjDue = true; return "sweep: started " + DeadRefSweepStart() + " (" + (DeadRefUnsafe(false) ?? "safe") + ")";
                 case "savepass": return DeadRefSavePass();
-                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass; dartboards: DeadRefDartCheck, use lists: DeadRefUseListCheck, owner components: DeadRefOwnerCheck, disposed handlers: DeadRefHandlerCheck, celebrity reactors: DeadRefCelebrityCheck)";
+                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass; dartboards: DeadRefDartCheck, use lists: DeadRefUseListCheck, owner components: DeadRefOwnerCheck, disposed handlers: DeadRefHandlerCheck, celebrity reactors: DeadRefCelebrityCheck, cooking handlers: DeadRefCookingCheck, conversations: DeadRefConversationCheck)";
             }
         }
 
@@ -977,9 +1194,9 @@ namespace Ts3Fixes
                 if (u != null) foreach (ActiveTopic a in u) if (a != null && a.Parameter != null && DescGone(a.Parameter)) topics++;
             }
             int uselists = 0, owners = 0, handlers = 0;
-            int celebs = 0;
-            foreach (Sim cs in Sims3.Gameplay.Queries.GetObjects<Sim>()) celebs += CelebrityGone(cs);
-            foreach (GameObject g in Sims3.Gameplay.Queries.GetObjects<GameObject>()) { uselists += UseListGone(g); owners += OwnerGone(g); handlers += HandlerGone(g); }
+            int celebs = 0, convs = 0, cooking = 0;
+            foreach (Sim cs in Sims3.Gameplay.Queries.GetObjects<Sim>()) { celebs += CelebrityGone(cs); convs += ConversationGone(cs); }
+            foreach (GameObject g in Sims3.Gameplay.Queries.GetObjects<GameObject>()) { uselists += UseListGone(g); owners += OwnerGone(g); handlers += HandlerGone(g); cooking += CookingGone(g); }
             int darts = 0;
             foreach (Dartboard b in Sims3.Gameplay.Queries.GetObjects<Dartboard>()) darts += DartGone(b);
             foreach (SimDescription d in Household.EverySimDescription())
@@ -990,7 +1207,7 @@ namespace Ts3Fixes
             }
             return "count: relationship keys gone " + relGone + "/" + Relationship.sAllRelationships.Count + ", entries naming gone " + relEntries
                 + ", aging states gone " + AgingStatesToCheck().Count + ", alarm owners gone " + AlarmOwnersToCheck().Count
-                + ", react times gone " + react + ", topics gone " + topics + ", coworkers gone " + coworkers + ", dartboard entries gone " + darts + ", use-list entries gone " + uselists + ", owner entries gone " + owners + ", disposed handlers gone " + handlers + ", celebrity reactors gone " + celebs
+                + ", react times gone " + react + ", topics gone " + topics + ", coworkers gone " + coworkers + ", dartboard entries gone " + darts + ", use-list entries gone " + uselists + ", owner entries gone " + owners + ", disposed handlers gone " + handlers + ", celebrity reactors gone " + celebs + ", cooking handlers stale " + cooking + ", conversation members gone " + convs
                 + ", no-outfit descriptions " + NoOutfitDescriptions().Count + " | " + (DeadRefUnsafe(false) ?? "safe");
         }
     }

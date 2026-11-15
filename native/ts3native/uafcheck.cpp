@@ -32,11 +32,11 @@ struct UafBlk { DWORD p, chunk, tick, save, world, from[4], tag, site, oidLo, oi
 // = 0x4E3EF0 (thiscall(alloc; ptr, size), ret 8: push ptr, call this Free 0x4E5920 on [alloc+4]). So Object frees already
 // reach this hook: at the hook the return address is 0x4E3EFD and two dwords up sits 0x4E3EF0's own return 0x935E1B. They
 // are tagged by that chain (no extra detour) and may use ObjectMaxSize (Object blocks with many components pass MaxSize).
-static const DWORD kUafObjRet = 0x00935E1B;
+static const DWORD kUafObjRet = TS3A(0x00935E1B);
 static DWORD g_uafObjMax;          // [UafCheck] ObjectMaxSize, 0 = MaxSize
 static volatile LONG g_uafObjHeld;
-static bool UafObjFree(const DWORD* ra) { return ra[0] == 0x004E3EFD && ra[2] == kUafObjRet; }
-static void* const* g_uafHeapAt = (void* const*)(uintptr_t)0x011CB864;  // the main heap pointer (selftest: its own)
+static bool UafObjFree(const DWORD* ra) { return ra[0] == TS3A(0x004E3EFD) && ra[2] == kUafObjRet; }
+static void* const* g_uafHeapAt = (void* const*)(uintptr_t)TS3A(0x011CB864);  // the main heap pointer (selftest: its own)
 static EaFreeFn g_uafFree;                                               // the continuation of the hooked Free
 static UafBlk* g_uafRing;
 struct UafGone { DWORD p, chunk, tick, freedTick, tag, site; };  // chunk 0: a tagged pass-through of unknown size (0x400 window)
@@ -72,7 +72,7 @@ static void UafFrames(const DWORD* sp, DWORD* f) {  // first 4 exe return addres
     int k = 0;
     for (int i = 0; i < 96 && sp + i < top && k < 4; i++) {
         const DWORD v = sp[i];
-        if (v >= 0x004E3D00 && v < 0x004E9000) continue;
+        if (v >= TS3A(0x004E3D00) && v < TS3A(0x004E9000)) continue;
         if (AsExeRet(v) && (!k || f[k - 1] != v)) f[k++] = v;
     }
 }
@@ -267,7 +267,7 @@ static void UafCrtNote(const char* when) {
     const bool jmp = crt && Readable(crt, 1) && crt[0] == 0xE9, iat = crt && CrFindIat(GetModuleHandleW(NULL), crt) != NULL;
     Log("uaf check (%s): MSVCR80 malloc %s%s%s; S3SS Mimalloc %s; EA heap Free 0x4E5920 starts %02X (E9 = a detour: ours or another tool's)", when,
         crt ? "found" : "not loaded", jmp ? ", jmp at its entry" : "", crt ? (iat ? ", exe IAT slot points at it" : ", no exe IAT slot points at it") : "",
-        !crt ? "unknown" : jmp || !iat ? "MAY BE ACTIVE (CRT malloc redirected)" : "not active (CRT malloc untouched)", Readable((const void*)(uintptr_t)0x004E5920, 1) ? *(const u8*)(uintptr_t)0x004E5920 : 0);
+        !crt ? "unknown" : jmp || !iat ? "MAY BE ACTIVE (CRT malloc redirected)" : "not active (CRT malloc untouched)", Readable((const void*)(uintptr_t)TS3A(0x004E5920), 1) ? *(const u8*)(uintptr_t)TS3A(0x004E5920) : 0);
 }
 
 // docs/539 §21: f5watch.cpp F5wEvent calls this at a travel save start (on) and at each world load end (off). A hold that never
@@ -344,7 +344,7 @@ static DWORD UafForeignJmp(const u8* t) {
     return dst >= g_selfLo && dst < g_selfHi ? 0 : dst;
 }
 static bool UafHookCheck(const char* who) {  // 0x4E5920 as expected: EA's prologue or our own jmp ([Alloc], AllocSites)
-    const u8* t = (const u8*)(uintptr_t)0x004E5920;
+    const u8* t = (const u8*)(uintptr_t)TS3A(0x004E5920);
     if (!Readable(t, 10) || (t[0] != 0xE9 && memcmp(t, kEaLockedPrologue, sizeof(kEaLockedPrologue)))) { Log("SKIP %s: EA heap Free not as expected", who); return false; }
     if (const DWORD dst = UafForeignJmp(t)) {
         Log("SKIP %s: EA heap Free 0x4E5920 is already patched by another module (jmp to 0x%08lX, outside ts3native); not chaining into it", who, dst);
@@ -356,7 +356,7 @@ static bool UafHookCheck(const char* who) {  // 0x4E5920 as expected: EA's prolo
 static bool UafHookInstall(const char* who) {
     if (g_uafFree) return true;
     if (!UafHookCheck(who)) return false;
-    g_uafFree = (EaFreeFn)AsDetour("EA heap Free (uaf check / float5 free)", 0x004E5920, kEaLockedPrologue, (int)sizeof(kEaLockedPrologue), (void*)UafFreeHook, &g_uafFree);
+    g_uafFree = (EaFreeFn)AsDetour("EA heap Free (uaf check / float5 free)", TS3A(0x004E5920), kEaLockedPrologue, (int)sizeof(kEaLockedPrologue), (void*)UafFreeHook, &g_uafFree);
     return g_uafFree != NULL;
 }
 static bool UafInit(DWORD maxMB, DWORD maxBlocks, DWORD travelMB = 0) {

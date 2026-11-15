@@ -1,0 +1,32 @@
+{
+ "note": "mono-offload-rmretest-1115-mm: copy of mono-offload-rmretest-1115.json (jobs bp-rmr-snapback only: correctness part), repinned to master-mono-1115 (0.36.264-mono1). mono-offload-rmretest-1115 (E1, PREPARED, NOT RUN; correctness job + timing, the A/B jobs NEED A QUIET MACHINE): Rodney's R5 (memory golive-unseen-only-redesign): [UnseenRootMotion] Mode 1 again after Mono, off in the release ini since v0.2.5 (v025-speed-ab -13% it/s). rootmotion-retest.json (mono1106c, never run) repinned to the newest master pair (JIT ON, Mono M0-M6). Order: bp-rmr-snapback (Mode 1 correctness, stops the queue on FAIL), measurement smoke (job 2: per-arm split, rmMode read back 0 / 1 per slice), then in-load A/B --ab unseenrm (rmMode flips at runtime once Enabled=1 Shortlist=1 install the jump), BP and IP, both orders. Read: node tools/harness/arm-ms.ts mono-offload-rmretest-1115 (per-arm ms/s), hitch-ab.ts (hitches, it/s), gate2-report.ts (R1-R6 route bars for --ab unseenrm). Mode 1 is EA-identical (docs/246 null control): a route bar failing is a finding. Ship rule: ON only at >= 3 ms/s on both worlds with no it/s loss and the snapback PASS. ~1.3 h. Run: node tools/harness/queue.ts tools/harness/queues/mono-offload-rmretest-1115.json",
+ "stopQueueOnFail": true,
+ "jobs": [
+  {
+   "id": "bp-rmr-snapback",
+   "note": "Correctness first (Mode 1 fixed, not A/B): repro unseen-snapback (as unseen-root-motion.json bp-urm-snapback), 16 min BP. PASS = no crash, 0 new script errors, rmMode 1 read back in /native, snap-back bars of the repro. A FAIL stops the queue.",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.master-dalexlol-417-1115, ts3native.ini.master-dalexlol-417-1115, ts3fixes.package.master-dalexlol-417-1115",
+   "save": "Baseline-BP",
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "minCounters": 90,
+   "ini": {
+    "HitchAttr.Enabled": 1,
+    "UnseenRootMotion.Enabled": 1,
+    "UnseenRootMotion.Shortlist": 1,
+    "UnseenRootMotion.Mode": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 16,
+     "seed": 12345,
+     "repro": "unseen-snapback"
+    }
+   },
+   "timeoutMin": 40
+  }
+ ]
+}

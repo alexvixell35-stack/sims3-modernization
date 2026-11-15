@@ -1,0 +1,327 @@
+{
+  "note": "mono-offload-rmretest-1115 (E1, PREPARED, NOT RUN; correctness job + timing, the A/B jobs NEED A QUIET MACHINE): Rodney's R5 (memory golive-unseen-only-redesign): [UnseenRootMotion] Mode 1 again after Mono, off in the release ini since v0.2.5 (v025-speed-ab -13% it/s). rootmotion-retest.json (mono1106c, never run) repinned to the newest master pair (JIT ON, Mono M0-M6). Order: bp-rmr-snapback (Mode 1 correctness, stops the queue on FAIL), measurement smoke (job 2: per-arm split, rmMode read back 0 / 1 per slice), then in-load A/B --ab unseenrm (rmMode flips at runtime once Enabled=1 Shortlist=1 install the jump), BP and IP, both orders. Read: node tools/harness/arm-ms.ts mono-offload-rmretest-1115 (per-arm ms/s), hitch-ab.ts (hitches, it/s), gate2-report.ts (R1-R6 route bars for --ab unseenrm). Mode 1 is EA-identical (docs/246 null control): a route bar failing is a finding. Ship rule: ON only at >= 3 ms/s on both worlds with no it/s loss and the snapback PASS. ~1.3 h. Run: node tools/harness/queue.ts tools/harness/queues/mono-offload-rmretest-1115.json",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-rmr-snapback",
+      "note": "Correctness first (Mode 1 fixed, not A/B): repro unseen-snapback (as unseen-root-motion.json bp-urm-snapback), 16 min BP. PASS = no crash, 0 new script errors, rmMode 1 read back in /native, snap-back bars of the repro. A FAIL stops the queue.",
+      "asi": "game-copy/ts3native.asi.master-dalexlol-417-1115",
+      "iniBase": "game-copy/ts3native.ini.master-dalexlol-417-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-dalexlol-417-1115",
+      "pinReason": "newest master pair master-dalexlol-417-1115 (builds.json; ts3native 0.36.261-lanes1, native unchanged on master since b9cddf2a; JIT, Mono M0-M6 and the shipped release ini). Job ini only turns [UnseenRootMotion] on; everything else is the shipped ini",
+      "save": "Baseline-BP",
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "UnseenRootMotion.Enabled": 1,
+        "UnseenRootMotion.Shortlist": 1,
+        "UnseenRootMotion.Mode": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 16,
+          "seed": 12345,
+          "repro": "unseen-snapback"
+        }
+      },
+      "timeoutMin": 40
+    },
+    {
+      "id": "bp-rmr-smoke",
+      "note": "Measurement smoke (Measurement smoke: BP Spring 4 min, --ab unseenrm 1-min slices, Shortlist=1, Mode=0 start. Pass: per-arm split, rmMode read back per slice (0 / 1), rmReady 3, rmPasses and rmSampled > 0, rmK_* sum = rmPasses (k histogram filled), rmCallsAll > 0, rmSlPasses grows only in on slices, rmSlFallback_3 0, rmFaults ~0, heavy tools off, no crash. 6 min: rmSlMiss must stay 0 over >= 60 audits (rmSlAudit). g8_simhours_x100 > 0 (docs/246: R1, R2 read it, it needs kAutLive).)",
+      "asi": "game-copy/ts3native.asi.master-dalexlol-417-1115",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.master-dalexlol-417-1115",
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "UnseenRootMotion.Enabled": 1,
+        "UnseenRootMotion.Shortlist": 1,
+        "UnseenRootMotion.Mode": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 6,
+          "ab": "unseenrm",
+          "slice": 1,
+          "fixesReport": "g8_,gohome_",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 15,
+      "pinReason": "newest master pair master-dalexlol-417-1115 (builds.json; ts3native 0.36.261-lanes1, native unchanged on master since b9cddf2a; JIT, Mono M0-M6 and the shipped release ini). Job ini only turns [UnseenRootMotion] on; everything else is the shipped ini",
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (the pass hook [UnseenRootMotion] needs)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + shortlist jump not both in (rmReady != 3)"
+        },
+        {
+          "afterSec": 150,
+          "counter": "rmSampled",
+          "op": ">",
+          "value": 0,
+          "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmCallsAll",
+          "op": ">",
+          "value": 0,
+          "why": "no root-motion pose call seen at 0x571D20 / 0x571DDC"
+        },
+        {
+          "afterSec": 60,
+          "counter": "rmSlMiss",
+          "op": "<=",
+          "value": 0,
+          "why": "Mode 1 shortlist audit found a root-motion actor the shortlist would skip (rmSlMiss > 0; 0.36.164 fix: last pass root-motion set; 0.36.165 fix: walk-1 rescan)"
+        },
+        {
+          "afterSec": 240,
+          "counter": "fixes:g8_simhours_x100",
+          "op": ">",
+          "value": 0,
+          "why": "no Sim-hours: docs/246 R1 and R2 would read no data"
+        }
+      ],
+      "minCounters": 159,
+      "nativeRequire": "rmSlAudit>=60,rmSlMiss<=0,rmSlW1Late>=1",
+      "iniBase": "game-copy/ts3native.ini.master-dalexlol-417-1115",
+      "scriptErrorsMax": 0,
+      "noiseCheck": false
+    },
+    {
+      "id": "bp-rmr-ab",
+      "note": "[UnseenRootMotion] Mode 1 in-load A/B on BP, 10 min, --ab unseenrm 2-min slices, off first; Shortlist=1, probe counters in both arms; release ini + HitchAttr. Read as the queue note.",
+      "asi": "game-copy/ts3native.asi.master-dalexlol-417-1115",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.master-dalexlol-417-1115",
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "UnseenRootMotion.Enabled": 1,
+        "UnseenRootMotion.Shortlist": 1,
+        "UnseenRootMotion.Mode": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "ab": "unseenrm",
+          "slice": 2,
+          "noSamplers": true,
+          "fixesReport": "g8_,gohome_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "newest master pair master-dalexlol-417-1115 (builds.json; ts3native 0.36.261-lanes1, native unchanged on master since b9cddf2a; JIT, Mono M0-M6 and the shipped release ini). Job ini only turns [UnseenRootMotion] on; everything else is the shipped ini",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (the pass hook [UnseenRootMotion] needs)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + shortlist jump not both in (rmReady != 3)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmSampled",
+          "op": ">",
+          "value": 0,
+          "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
+        }
+      ],
+      "minCounters": 159,
+      "iniBase": "game-copy/ts3native.ini.master-dalexlol-417-1115",
+      "scriptErrorsMax": 0
+    },
+    {
+      "id": "bp-rmr-ab-onfirst",
+      "note": "[UnseenRootMotion] Mode 1 in-load A/B on BP, 10 min, --ab unseenrm 2-min slices, on first; Shortlist=1, probe counters in both arms; release ini + HitchAttr. Read as the queue note.",
+      "asi": "game-copy/ts3native.asi.master-dalexlol-417-1115",
+      "save": "Baseline-BP-Spring",
+      "fixesPackage": "game-copy/ts3fixes.package.master-dalexlol-417-1115",
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "UnseenRootMotion.Enabled": 1,
+        "UnseenRootMotion.Shortlist": 1,
+        "UnseenRootMotion.Mode": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "ab": "unseenrm",
+          "slice": 2,
+          "abOnFirst": true,
+          "noSamplers": true,
+          "fixesReport": "g8_,gohome_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "newest master pair master-dalexlol-417-1115 (builds.json; ts3native 0.36.261-lanes1, native unchanged on master since b9cddf2a; JIT, Mono M0-M6 and the shipped release ini). Job ini only turns [UnseenRootMotion] on; everything else is the shipped ini",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (the pass hook [UnseenRootMotion] needs)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + shortlist jump not both in (rmReady != 3)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmSampled",
+          "op": ">",
+          "value": 0,
+          "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
+        }
+      ],
+      "minCounters": 159,
+      "iniBase": "game-copy/ts3native.ini.master-dalexlol-417-1115",
+      "scriptErrorsMax": 0
+    },
+    {
+      "id": "ip-rmr-ab",
+      "note": "[UnseenRootMotion] Mode 1 in-load A/B on IP, 10 min, --ab unseenrm 2-min slices, off first; Shortlist=1, probe counters in both arms; release ini + HitchAttr. Read as the queue note.",
+      "asi": "game-copy/ts3native.asi.master-dalexlol-417-1115",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.master-dalexlol-417-1115",
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "UnseenRootMotion.Enabled": 1,
+        "UnseenRootMotion.Shortlist": 1,
+        "UnseenRootMotion.Mode": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "ab": "unseenrm",
+          "slice": 2,
+          "noSamplers": true,
+          "fixesReport": "g8_,gohome_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "newest master pair master-dalexlol-417-1115 (builds.json; ts3native 0.36.261-lanes1, native unchanged on master since b9cddf2a; JIT, Mono M0-M6 and the shipped release ini). Job ini only turns [UnseenRootMotion] on; everything else is the shipped ini",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (the pass hook [UnseenRootMotion] needs)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + shortlist jump not both in (rmReady != 3)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmSampled",
+          "op": ">",
+          "value": 0,
+          "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
+        }
+      ],
+      "minCounters": 159,
+      "iniBase": "game-copy/ts3native.ini.master-dalexlol-417-1115",
+      "scriptErrorsMax": 0
+    },
+    {
+      "id": "ip-rmr-ab-onfirst",
+      "note": "[UnseenRootMotion] Mode 1 in-load A/B on IP, 10 min, --ab unseenrm 2-min slices, on first; Shortlist=1, probe counters in both arms; release ini + HitchAttr. Read as the queue note.",
+      "asi": "game-copy/ts3native.asi.master-dalexlol-417-1115",
+      "save": "Baseline-IP",
+      "fixesPackage": "game-copy/ts3fixes.package.master-dalexlol-417-1115",
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "UnseenRootMotion.Enabled": 1,
+        "UnseenRootMotion.Shortlist": 1,
+        "UnseenRootMotion.Mode": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "ab": "unseenrm",
+          "slice": 2,
+          "abOnFirst": true,
+          "noSamplers": true,
+          "fixesReport": "g8_,gohome_"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "pinReason": "newest master pair master-dalexlol-417-1115 (builds.json; ts3native 0.36.261-lanes1, native unchanged on master since b9cddf2a; JIT, Mono M0-M6 and the shipped release ini). Job ini only turns [UnseenRootMotion] on; everything else is the shipped ini",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "aaReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenAnim] call sites not both patched (the pass hook [UnseenRootMotion] needs)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmReady",
+          "op": "==",
+          "value": 3,
+          "why": "[UnseenRootMotion] probe sites + shortlist jump not both in (rmReady != 3)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "rmSampled",
+          "op": ">",
+          "value": 0,
+          "why": "no sampled anim pass (pass hook not reaching RmPassBegin?)"
+        }
+      ],
+      "minCounters": 159,
+      "iniBase": "game-copy/ts3native.ini.master-dalexlol-417-1115",
+      "scriptErrorsMax": 0
+    }
+  ]
+}

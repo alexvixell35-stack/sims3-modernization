@@ -213,6 +213,8 @@ EA saves contain EA data and the maintainer's saves cannot be shared, so every c
 4. Profile the baseline: `cycle.ts --save Baseline-BP.sims3`, then `profile-world.ts --tag bp` (3 runs if you can). Then install our layer and profile again with a new tag.
 5. Keep your baseline saves read-only; tests that save write new names.
 
+One command for steps 2-3 and a check that your save matches the recipe: `node tools/harness/baseline-save.ts --world bp` (prints the plan; `--run` executes, `--check` compares with the recorded fingerprint). Recipe: `docs/data/baseline-saves.json`.
+
 ## 8. Reporting results
 
 Post results (in a PR or issue) as a table against your own baseline:

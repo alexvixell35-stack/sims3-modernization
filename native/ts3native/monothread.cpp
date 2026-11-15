@@ -12,9 +12,9 @@
 // P1: at the first MonoScriptHost_Simulate tick (vtable slot 0x108B6B0) the sim thread logs the table and registers
 // itself with 0xE51070 if it is missing. P3, P4 and the worker (M5 build) are in monothread-m5.cpp.
 
-static const DWORD MT_PUSH_HOOK = 0x011949CC, MT_PUSH_THUNK = 0x00E4EF90, MT_PUSH_THUNK2 = 0x00E51350, MT_PUSH_EA = 0x00D71820;
-static const DWORD MT_NEW_THREAD = 0x00E51070, MT_PUSH_ONE = 0x00E4D520, MT_PUSH_STACK = 0x00E4CEE0;
-static const DWORD MT_SIM_SLOT = 0x0108B6B0, MT_SIMULATE = 0x00D81840;
+static const DWORD MT_PUSH_HOOK = TS3A(0x011949CC), MT_PUSH_THUNK = TS3A(0x00E4EF90), MT_PUSH_THUNK2 = TS3A(0x00E51350), MT_PUSH_EA = TS3A(0x00D71820);
+static const DWORD MT_NEW_THREAD = TS3A(0x00E51070), MT_PUSH_ONE = TS3A(0x00E4D520), MT_PUSH_STACK = TS3A(0x00E4CEE0);
+static const DWORD MT_SIM_SLOT = TS3A(0x0108B6B0), MT_SIMULATE = TS3A(0x00D81840);
 static const u8 kMtNewThread[16] = {0x56, 0x57, 0x8B, 0x3D, 0x34, 0x52, 0xF9, 0x00, 0x6A, 0x01, 0x68, 0x00, 0x10, 0x22, 0x01, 0x33};
 static const u8 kMtPushOne[10] = {0x8B, 0x44, 0x24, 0x04, 0x3B, 0x05, 0x24, 0x48, 0x19, 0x01};  // mov eax,[esp+4]; cmp eax,[0x1194824]
 static const u8 kMtPushStack[7] = {0x83, 0x3D, 0xB4, 0x49, 0x19, 0x01, 0x00};                // cmp [0x11949B4],0
@@ -32,9 +32,9 @@ static MtVoidFn g_mtOrigPush;
 static MtPushOneFn g_mtPushOne = (MtPushOneFn)(uintptr_t)MT_PUSH_ONE;
 static MtPushStackFn g_mtPushStack = (MtPushStackFn)(uintptr_t)MT_PUSH_STACK;
 static MtNewThreadFn g_mtNewThread = (MtNewThreadFn)(uintptr_t)MT_NEW_THREAD;
-static DWORD* g_mtTable = (DWORD*)(uintptr_t)0x01221000;               // 5 DWORDs per entry
-static volatile LONG* g_mtMaxIdx = (volatile LONG*)(uintptr_t)0x011F4124;
-static volatile LONG* g_mtStopped = (volatile LONG*)(uintptr_t)0x011F4120;
+static DWORD* g_mtTable = (DWORD*)(uintptr_t)TS3A(0x01221000);               // 5 DWORDs per entry
+static volatile LONG* g_mtMaxIdx = (volatile LONG*)(uintptr_t)TS3A(0x011F4124);
+static volatile LONG* g_mtStopped = (volatile LONG*)(uintptr_t)TS3A(0x011F4120);
 static __declspec(align(16)) CONTEXT g_mtCtx;  // only used with the world stopped, by the one collecting thread
 static void* g_mtSimOrig;
 static volatile LONG g_mtTicked;
@@ -211,11 +211,22 @@ static bool ApplyMonoThread(const wchar_t* ini) {
     if (k.mtMode < 0) k.mtMode = 0;
     DWORD* hook = (DWORD*)(uintptr_t)MT_PUSH_HOOK;
     DWORD* slot = (DWORD*)(uintptr_t)MT_SIM_SLOT;
-    if (!Readable(hook, 4) || !Readable(slot, 4) || !Readable(g_mtTable, 256 * 0x14)) { Log("SKIP mono thread: GC globals unreadable"); return false; }
+    if (!Readable(hook, 4) || !Readable(slot, 4) || !Readable(g_mtTable, 256 * 0x14)) {
+#ifdef TS3A_TABLE
+        MEMORY_BASIC_INFORMATION m = {};
+        VirtualQuery(g_mtTable, &m, sizeof(m));
+        Log("SKIP mono thread: GC globals unreadable (hook 0x%08lX %d, slot 0x%08lX %d, table 0x%08lX %d: region 0x%08lX+0x%lX state 0x%lX protect 0x%lX)",
+            (DWORD)(uintptr_t)hook, Readable(hook, 4), (DWORD)(uintptr_t)slot, Readable(slot, 4), (DWORD)(uintptr_t)g_mtTable,
+            Readable(g_mtTable, 256 * 0x14), (DWORD)(uintptr_t)m.BaseAddress, (DWORD)m.RegionSize, m.State, m.Protect);
+#else
+        Log("SKIP mono thread: GC globals unreadable");  // Steam: unchanged (the EA port fold keeps the Steam asi identical)
+#endif
+        return false;
+    }
     const bool viaThunk = *hook == MT_PUSH_THUNK && Matches((void*)(uintptr_t)MT_PUSH_THUNK, kMtThunk, 5) &&
                           Matches((void*)(uintptr_t)MT_PUSH_THUNK2, kMtThunk2, 5);
     if (!(viaThunk || *hook == MT_PUSH_EA) || !Matches((void*)(uintptr_t)MT_PUSH_EA, kMtPushEa, sizeof(kMtPushEa)) ||
-        !Matches((void*)(uintptr_t)0x00E4D9DC, kMtPushTail, sizeof(kMtPushTail)) ||
+        !Matches((void*)(uintptr_t)TS3A(0x00E4D9DC), kMtPushTail, sizeof(kMtPushTail)) ||
         !Matches((void*)(uintptr_t)MT_PUSH_ONE, kMtPushOne, sizeof(kMtPushOne)) ||
         !Matches((void*)(uintptr_t)MT_PUSH_STACK, kMtPushStack, sizeof(kMtPushStack)) ||
         !Matches((void*)(uintptr_t)MT_NEW_THREAD, kMtNewThread, sizeof(kMtNewThread)) || *slot != MT_SIMULATE) {
@@ -238,6 +249,10 @@ static bool ApplyMonoThread(const wchar_t* ini) {
         (DWORD)(uintptr_t)g_mtOrigPush, MT_SIM_SLOT, (k.mtReady & 2) ? "hooked" : "not hooked", k.mtMode, g_mtWantP3, g_mtWantP4);
     // QuitStop (docs/30 §17): the worker stops and our GC hooks go back at the Mono shutdown entry
     g_mtQuitStop = GetPrivateProfileIntW(L"MonoThread", L"QuitStop", 1, ini) != 0;
+#ifdef TS3A_TABLE
+    if (g_mtQuitStop) Log("SKIP mono thread QuitStop ([MonoThread] QuitStop, Mono shutdown entry): no EA 1.69 address, docs/232 §8");
+    g_mtQuitStop = false;
+#endif
     g_mtQuitWaitMs = (DWORD)Clamp(GetPrivateProfileIntW(L"MonoThread", L"QuitWaitMs", 2000, ini), 100, 10000);
     if (g_mtQuitStop && (g_mtShutT = InstallDetour("Mono shutdown 0xE534D0 (QuitStop)", MT_SHUTDOWN, kMtShutdown, sizeof(kMtShutdown),
                                                    (void*)&MtShutdownHook, &g_mtShutT)) != NULL)

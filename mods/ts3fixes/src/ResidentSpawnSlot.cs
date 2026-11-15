@@ -25,8 +25,8 @@ namespace Ts3Fixes
     // cleared at each plan) is one the resident passes by CommonDoor's lock rules, the spot counts as routable. Hidden-room
     // doors, one-way doors, Nobody / VIPRoom locks and door types with their own rules (not a plain CommonDoor lock) count
     // as blocking. Any other failure (no path at all) stays a failure. The selected Sim itself is never routed, moved or
-    // changed; only where the NPC appears. Counters: [1083] spots accepted for the resident, [1084] re-judged with the
-    // switch off (would accept), [1085] failures kept (a door the resident cannot pass either), [1086] errors.
+    // changed; only where the NPC appears. Counters: [1195] spots accepted for the resident, [1196] re-judged with the
+    // switch off (would accept), [1197] failures kept (a door the resident cannot pass either), [1198] errors.
     public static partial class Fixes
     {
         static readonly FieldInfo sRsOwnerList = typeof(CommonDoor).GetField("mOwnerList", kInstAll);
@@ -84,8 +84,8 @@ namespace Ts3Fixes
             Lot lot = door.LotCurrent;
             int[] rooms = door.GetRoomConnections();
             bool hidden = lot != null && rooms != null && rooms.Length >= 2 && (lot.IsRoomHidden(rooms[0]) || lot.IsRoomHidden(rooms[1]));
-            // the four EA door types that override CommonDoor.IsAllowedThrough keep their own rules: judged blocking
-            int kind = door is SecretDoor || door is NonAnimatedDoor || door is DoorSingleGender || door.GetType().Name == "Turnstile" ? 1 : 0;
+            // EA door types that override CommonDoor.IsAllowedThrough keep their own rules: judged blocking (SecretDoor and NonAnimatedDoor are no Door)
+            int kind = door is DoorSingleGender || door.GetType().Name == "Turnstile" ? 1 : 0;
             if (d.IsHorse && !(door is IBarnDoor)) kind = 1;  // EA's horse rule (gates aside): judged blocking
             bool oneWay = (int)sRsOneWay.GetValue(door) != 36863;
             SimDescription owner = door.LockOwner;
@@ -112,10 +112,10 @@ namespace Ts3Fixes
                 foreach (Door door in locked) if (door == null || !RsDoorPasses(door, d)) { allPass = false; break; }
                 bool on = ShortcutOn("residentspawnslot");
                 bool r = RsDecide(on, ok, n, allPass);
-                PatchCounters()[!allPass ? 1085 : on ? 1083 : 1084]++;
+                PatchCounters()[!allPass ? 1197 : on ? 1195 : 1196]++;
                 return r;
             }
-            catch (Exception) { PatchCounters()[1086]++; }
+            catch (Exception) { PatchCounters()[1198]++; }
             return ok;
         }
 

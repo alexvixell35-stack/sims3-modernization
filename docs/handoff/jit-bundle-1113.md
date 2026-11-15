@@ -1,6 +1,6 @@
 # Handoff: JIT bundle 1113 (integration asi for tonight's bundle measurement)
 
-Branch `feature/jit-bundle-1113` (worktree from master 411ace46). Local only: not merged to master, not pushed. NOT RUN in game.
+Branch `feature/jit-bundle-1113` (worktree from master 411ace46). Local only: not merged to master, not pushed. NOT RUN in game. **Update 2026-11-15 [verified 2026-11-15: git, results]:** merged; ran in jit-bundle-ab-1113 and jit-bundle-verify-1113 (2026-11-13), superseded by jit-bundle-ab2-1114 (merged b0507f79).
 For: the queue agent (tonight's ON / OFF bundle queue) and the morning merge.
 
 ## Merged, in order

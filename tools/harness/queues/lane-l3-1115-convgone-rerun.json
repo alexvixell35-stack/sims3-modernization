@@ -1,0 +1,105 @@
+{
+ "note": "lane-l3-1115-convgone-rerun (NOT RUN): 3 jobs. Rerun of bp-conversation-gone-check from lane-l3-1115-deadrefs-rerun-1115b (FAIL 2026-11-15 09:12 UTC at the seed wait, members 0, destroyed false: seed picked related townies, EA Dispose emptied the conversation). Same job, ts3fixes l3-convgone-1115 (seed fix), asi + ini master-merge-1115; agent package as installed by the chain (master-merge-1115). Plus bp-dart-gone-check and bp-use-list-gone-check (from dart-gone.json / use-list-gone.json, never run), same pins: their seeds are not emptied by EA on Destroy [verified, decompiled: Sim.Destroy/Dispose have no dartboard or use-list cleanup; EA's only kSimDestroyed listener is UniversityMascot], only their destroyed flag now tracks the seeded Sim object.",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-conversation-gone-check",
+   "note": "Correctness (10 min): repro conversation-gone-check. Pass: its steps pass (expect left: off, the gone member stays; expect cleaned: on, phase 15 removed it, one member left); deadrefconvo_household 0; 0 script errors",
+   "asi": "game-copy/ts3native.asi.master-merge-1115",
+   "pinReason": "2026-11-15: asi + ini master-merge-1115 (builds.json); ts3fixes l3-convgone-1115 (bugfix/l3-convgone-1115 on master 3bd0257c: conversation seed picks two unrelated townies; rerun-1115b FAILed at the seed wait because EA cleaned the related pair on Destroy). repinned 2026-11-15 to the master-merge-1115 set (builds.json, master 5d5a581f, 0.36.261-lanes1: asi + ini + ts3fixes from one build; agent game-copy/ts3agent.package.master-merge-1115 installed to build/ by chain-reruns-1115.sh). Was: master-lanes-1115 pair (builds.json, master 84ee284f): asi, ini and ts3fixes from one build. The v0.2.4 asi under the master ini (no iniBase) ran AutShadow Enabled=1 Mode=3 (v0.2.4 ships Enabled=0): 2026-11-15 RouteAsync refused every plan (invokeHook 0, void) and crashed in AsStrKey (conversation job); repinned 2026-11-15",
+   "fixesPackage": "game-copy/ts3fixes.package.l3-convgone-1115",
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "conversation-gone-check",
+     "fixesRequire": "deadrefconvo_members>=1"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 18,
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:deadrefconvo_members",
+     "op": ">=",
+     "value": 1,
+     "why": "the on arm removed no member: phase missing, sweep refused, or the seed failed"
+    }
+   ],
+   "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+   "rerunOf": "bp-conversation-gone-check"
+  },
+  {
+   "id": "bp-dart-gone-check",
+   "note": "Correctness (10 min): repro dart-gone-check. Pass: the repro's steps pass (expect left: off, the seeded gone entries stay; expect cleaned: on, the sweep's phase 9 removed them; each throws otherwise)",
+   "asi": "game-copy/ts3native.asi.master-merge-1115",
+   "pinReason": "2026-11-15: asi + ini master-merge-1115 (builds.json), ts3fixes l3-convgone-1115 (seed state destroyed tracks the seeded Sim object). Was: the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "dart-gone-check",
+     "fixesRequire": "deadrefsweep_dartboards>=3"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 18,
+   "earlyGates": [
+    {
+     "afterSec": 420,
+     "counter": "fixes:deadrefsweep_dartboards",
+     "op": ">=",
+     "value": 3,
+     "why": "the on arm cleaned nothing 7 min in: phase missing, sweep refused, or the seed failed"
+    }
+   ],
+   "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.l3-convgone-1115",
+   "rerunOf": "bp-dart-gone-check"
+  },
+  {
+   "id": "bp-use-list-gone-check",
+   "note": "Correctness (12 min): repro use-list-gone-check. Pass: the repro's steps pass (expect left: off, the seeded gone entries stay; expect cleaned: on, the sweep's phase 10 removed them; each throws otherwise)",
+   "asi": "game-copy/ts3native.asi.master-merge-1115",
+   "pinReason": "2026-11-15: asi + ini master-merge-1115 (builds.json), ts3fixes l3-convgone-1115 (seed state destroyed tracks the seeded Sim object). Was: the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change",
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "run": {
+    "profile": {
+     "minutes": 12,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "use-list-gone-check",
+     "fixesRequire": "deadrefsweep_uselists>=3"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20,
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:deadrefsweep_uselists",
+     "op": ">=",
+     "value": 3,
+     "why": "the on arm cleaned nothing 8 min in: phase missing, sweep refused, or the seed failed"
+    }
+   ],
+   "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.l3-convgone-1115",
+   "rerunOf": "bp-use-list-gone-check"
+  }
+ ]
+}

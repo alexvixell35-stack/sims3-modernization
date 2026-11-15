@@ -421,7 +421,7 @@ if (import.meta.main) {
   } else if (argv.includes('--run')) {
     const replay = resolve(opt('--run')!), mode = opt('--mode') ?? 'verify', sw = parseSwitches(opt('--switches') ?? ''), cover = argv.includes('--coverage');
     const list = opt('--list') ?? [...new Set(readFileSync(replay, 'utf8').split('\n').filter(l => l.startsWith('meth ')).map(l => l.split(' ').slice(4).join(' ')))].join(',');
-    const baseEnv = (s: Switches): Record<string, string> => ({ MONOHOST_JIT: mode, MONOHOST_MINTCALL: 'fast', MONOHOST_DIVGUARD: '1', ...(argv.includes('--lazy') ? { MONOHOST_JITLAZY: '1' } : {}),
+    const baseEnv = (s: Switches): Record<string, string> => ({ MONOHOST_JIT: mode, MONOHOST_MINTCALL: process.env.MONOHOST_MINTCALL ?? 'fast', MONOHOST_DIVGUARD: '1', ...(argv.includes('--lazy') ? { MONOHOST_JITLAZY: '1' } : {}),
       MONOHOST_JITLIST: list === 'corpus' ? jitList(readFileSync(resolve(ROOT, 'native/monohost/monohost-jit.cpp'), 'utf8')) : list, ...(cover ? { MONOHOST_JITCOVER: '1' } : {}), ...switchEnv(s) });
     if (argv.includes('--bisect')) {
       const cands = sw.filter(([, v]) => v !== '0').map(([n]) => n);
