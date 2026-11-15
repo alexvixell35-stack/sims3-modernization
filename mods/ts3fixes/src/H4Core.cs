@@ -44,5 +44,20 @@ namespace Ts3Fixes
         {
             return alive && !household && moved <= kWdSameSpot && sameInteraction && sameLot && standing && !routing;
         }
+
+        // Watchdog idle stillness (RouteFixes CheckIdle): the start of a Sim's still record moves to the time its interaction
+        // queue last became empty when that is later (an interaction ended in place since). A stamp in the future (clock
+        // reset, load) or before the record is ignored.
+        public static long WdStillSince(long since, long emptiedAt, long now)
+        {
+            return emptiedAt > since && emptiedAt <= now ? emptiedAt : since;
+        }
+
+        // Watchdog [48] stationary reset: every Sim but a horse on open terrain (the world lot), where standing a day is grazing
+        // and the reset's placement would take it to its home's front door instead of ground it can route from.
+        public static bool WdStationaryResets(bool horse, bool onWorldLot)
+        {
+            return !(horse && onWorldLot);
+        }
     }
 }
