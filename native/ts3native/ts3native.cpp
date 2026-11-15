@@ -3091,6 +3091,9 @@ struct Ts3nCounters {
     LONG frPassed;                         // +0x652C, faults ours (eip or a return address in a compiled body) passed on to the game's handlers (method off)
     volatile LONG frTestCalls;             // +0x6530, [MonoJit] FaultTest only: calls of the test method's normal body
 };
+// [RouteSnap] DoorMemoX=3 (hostcalls.cpp): the managed door-input generation ts3fixes DoorGen.cs bumps through UserDiag op 36
+struct DmxScriptGen { volatile LONG gen, armed, bumps, unarmedAsks; };
+extern "C" __declspec(dllexport) DmxScriptGen ts3native_doorgen = {0, 0, 0, 0};
 extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {912,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -3254,6 +3257,10 @@ static void MaybeLogCounters(ULONGLONG now) {
     if (c.eoReady) EoLogCounters();
     if (c.mwReady || c.gvReady || c.ikReady) MwLogCounters();  // docs/178 §9
     if (c.p6wReady) P6wLogCounters();  // docs/189 phase 0
+    if (c.dmxMode == 3 || ts3native_doorgen.armed)
+        Log("door memo x mode 3: armed %ld, managed input bumps %ld, asks before arming %ld, hits %ld miss %ld inval %ld shadow %ld "
+            "mismatch %ld", ts3native_doorgen.armed, ts3native_doorgen.bumps, ts3native_doorgen.unarmedAsks, c.dmxHit, c.dmxMiss,
+            c.dmxInval, c.dmxShadow, c.dmxMismatch);
     if (c.workerReady || c.asyncReady)
         Log("route plans: off %ld (fails %ld) on %ld (fails %ld) hostCalls %ld", c.planOffCalls, c.planOffFails, c.planOnCalls, c.planOnFails, c.hostCalls);
     static LONG xcptSkipLogged;  // docs/172 §7: repeats per logged address, only when the total moved
