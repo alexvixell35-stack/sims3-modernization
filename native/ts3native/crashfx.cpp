@@ -42,6 +42,18 @@ static void CtInvFault(const CONTEXT* c);  // castrim.cpp: the outfit inventory 
 static void CtRelFault(const CONTEXT* c);  // castrim.cpp: the outfit release fault decoder (docs/539 §13.5)
 static void CtOsFault(const CONTEXT* c);   // castrim.cpp: the outfit save string copy fault decoder (docs/539 §15)
 static bool CfVtOk(DWORD vt) { return vt >= g_cfVtLo && vt < g_cfVtHi && !(vt & 3); }
+// docs/254 R2: image ranges of TS3W.exe and MSVCR80.dll for the CtOsFault gate (CfModInit at the crash log install; 0 = no range)
+static DWORD g_cfExeLo, g_cfExeHi, g_cfCrtLo, g_cfCrtHi;
+static bool CfOsGate(DWORD eip) { return (eip >= g_cfExeLo && eip < g_cfExeHi) || (eip >= g_cfCrtLo && eip < g_cfCrtHi); }
+static void CfImgRange(HMODULE m, DWORD* lo, DWORD* hi) {
+    if (!m) return;
+    const u8* b = (const u8*)m;
+    *lo = (DWORD)(uintptr_t)b, *hi = *lo + ((const IMAGE_NT_HEADERS*)(b + ((const IMAGE_DOS_HEADER*)b)->e_lfanew))->OptionalHeader.SizeOfImage;
+}
+static void CfModInit() {  // ts3native.cpp InstallXcptLog: MSVCR80 is a static import of TS3W, loaded before us
+    CfImgRange(GetModuleHandleW(NULL), &g_cfExeLo, &g_cfExeHi);
+    CfImgRange(GetModuleHandleW(L"msvcr80.dll"), &g_cfCrtLo, &g_cfCrtHi);
+}
 
 // one guarded-site finding: count, ring lookup, first 16 logged
 static void CfBad(int site, DWORD owner, DWORD holder, DWORD obj, DWORD vt, DWORD ret, const char* what) {
@@ -184,8 +196,9 @@ static void CfOnFault(const EXCEPTION_POINTERS* x) {
     if (eip == TS3A(0x005E772C) || eip == TS3A(0x005E76DA)) CtInvFault(x->ContextRecord);
     // docs/539 §13.5: the 11-08 release-smoke crash; §14: 0xD4B154 / any fault in the callback 0xD4B150 (11-09, from 0x5D82A0)
     if ((eip >= TS3A(0x00D4B150) && eip <= TS3A(0x00D4B159)) || eip == TS3A(0x005AF67E)) CtRelFault(x->ContextRecord);
-    // docs/539 §15: the 11-09 outfit save crash faults in MSVCR80's memcpy (0x408C3A / 0x5E621C on the stack), so any AV is searched
-    if (x->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) CtOsFault(x->ContextRecord);
+    // docs/539 §15: the 11-09 outfit save crash faults in MSVCR80's memcpy (0x408C3A / 0x5E621C on the stack), so an AV is searched;
+    // docs/254 R2: only with eip in TS3W.exe or MSVCR80.dll, so a foreign AV storm (Apex issue 55) skips the 1 KB stack copy
+    if (x->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && CfOsGate(eip)) CtOsFault(x->ContextRecord);
     const bool wild = XcptWild(x->ExceptionRecord->ExceptionCode);  // C0000096 too (2026-11-02 drain crash wrote no dump)
     if (!g_cfOn || (!wild && (eip < TS3A(0x00401000) || eip >= TS3A(0x00F95000))) || InterlockedIncrement(&g_cfDumpN) > 4) return;
     Ts3nCounters& k = ts3native_counters;
@@ -1059,6 +1072,83 @@ static void CfRdata() {
     const IMAGE_SECTION_HEADER* s = IMAGE_FIRST_SECTION(nt);
     for (int i = 0; i < nt->FileHeader.NumberOfSections; i++, s++)
         if (!memcmp(s->Name, ".rdata", 6)) g_cfVtLo = (DWORD)(uintptr_t)(base + s->VirtualAddress), g_cfVtHi = g_cfVtLo + s->Misc.VirtualSize;
+}
+
+// docs/260 §7, [CrashReport] RdataCheck=1 (crashreport.cpp, at crash time only): which pages of the exe's .rdata are writable
+// (Apex 3.1.1 LevelLightShare leaves 0xFF3000 PAGE_READWRITE, and a stray `add [eax],al` rewrote vtable 0xFF39F8 slot 0) and which
+// dwords of those pages and of the known light/probe/blocker vtables differ from the exe file. Read only: VirtualQuery, ReadFile,
+// no protection change. A dword equal to file + (base - ImageBase) is a relocation, not a change. Static buffers (the heap may
+// be broken); one caller at a time (the crash report runs once per process).
+static const DWORD kCfKnownVt[] = {
+#ifndef TS3A_TABLE  // Steam 1.67 values (docs/260 §2); the EA 1.69 table has no rows for them, so that build checks pages only
+    0x00FF39F8, 0x00FF30F4, 0x00FF3118, 0x00FF3C24, 0x00FF3CBC, 0x00FF3CDC, 0x00FF42F8, 0x00FF4250,
+#endif
+    0};
+static const DWORD* g_cfRdKnown = kCfKnownVt;  // selftest: its own list
+static u8 g_cfRdFile[4096];
+// dwords of [va, va+len) (inside the section) that differ from the file; the first few listed into out
+static int CfRdDiff(HANDLE h, const IMAGE_SECTION_HEADER* s, DWORD base, DWORD delta, DWORD va, DWORD len, char* out, size_t cap, size_t* l, int* listed) {
+    const DWORD rva = va - base - s->VirtualAddress;
+    if (rva >= s->SizeOfRawData) return 0;
+    if (len > s->SizeOfRawData - rva) len = s->SizeOfRawData - rva;
+    if (len > sizeof(g_cfRdFile)) len = sizeof(g_cfRdFile);
+    DWORD got = 0;
+    if (h == INVALID_HANDLE_VALUE || SetFilePointer(h, (LONG)(s->PointerToRawData + rva), NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER ||
+        !ReadFile(h, g_cfRdFile, len, &got, NULL) || got < len)
+        return 0;
+    int n = 0;
+    for (DWORD i = 0; i + 4 <= len; i += 4) {
+        const DWORD f = *(const DWORD*)(g_cfRdFile + i);
+        DWORD m = f;
+        __try { m = *(const DWORD*)(uintptr_t)(va + i); } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
+        if (m == f || m == f + delta) continue;
+        n++;
+        if (++*listed <= 12 && *l + 64 < cap) {
+            char fr[96];
+            CrFrame(m, fr, sizeof(fr));
+            *l += sprintf_s(out + *l, cap - *l, " 0x%08lX %08lX (file %08lX, %s)", va + i, m, f, fr);
+        }
+    }
+    return n;
+}
+static void CfRdataText(const u8* img, const wchar_t* file, char* out, size_t cap) {
+    const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(img + ((const IMAGE_DOS_HEADER*)img)->e_lfanew);
+    const IMAGE_SECTION_HEADER* s = IMAGE_FIRST_SECTION(nt);
+    int i = 0;
+    for (; i < nt->FileHeader.NumberOfSections && memcmp(s->Name, ".rdata", 6); i++, s++) {}
+    if (i == nt->FileHeader.NumberOfSections) { sprintf_s(out, cap, "rdata check: no .rdata section"); return; }
+    const DWORD base = (DWORD)(uintptr_t)img, lo = base + s->VirtualAddress, hi = lo + s->Misc.VirtualSize, delta = base - nt->OptionalHeader.ImageBase;
+    HANDLE h = CreateFileW(file, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
+    size_t l = (size_t)sprintf_s(out, cap, "rdata check (docs/260 §7): .rdata 0x%08lX-0x%08lX%s; writable:", lo, hi,
+                                 h == INVALID_HANDLE_VALUE ? " (exe file not readable: no compare)" : "");
+    int pages = 0, diffs = 0, listed = 0;
+    static char dl[1200];
+    size_t dn = 0;
+    dl[0] = 0;
+    MEMORY_BASIC_INFORMATION mbi;
+    for (DWORD a = lo; a < hi && VirtualQuery((const void*)(uintptr_t)a, &mbi, sizeof(mbi));) {
+        const DWORD end = (DWORD)(uintptr_t)mbi.BaseAddress + (DWORD)mbi.RegionSize, e = end < hi ? end : hi;
+        if (mbi.State == MEM_COMMIT && (mbi.Protect & (PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) {
+            if (l + 48 < cap) l += sprintf_s(out + l, cap - l, " 0x%08lX-0x%08lX (protect %02lX)", a, e, mbi.Protect);
+            for (DWORD p = a; p < e; p += 4096) pages++, diffs += CfRdDiff(h, s, base, delta, p, e - p < 4096 ? e - p : 4096, dl, sizeof(dl), &dn, &listed);
+        }
+        if (end <= a) break;
+        a = end;
+    }
+    if (!pages && l + 8 < cap) l += sprintf_s(out + l, cap - l, " none");
+    if (l + 64 < cap) l += sprintf_s(out + l, cap - l, " (%d pages); %d dwords differ from the exe file%s%s", pages, diffs, diffs ? ":" : "", dl);
+    if (l + 24 < cap) l += sprintf_s(out + l, cap - l, "; known vtables:");
+    for (const DWORD* v = g_cfRdKnown; *v; v++) {
+        if (*v < lo || *v + 16 > hi) continue;
+        int ignore = 99;  // listed past the cap: count only
+        size_t z = 0;
+        char none[1] = "";
+        const int d = CfRdDiff(h, s, base, delta, *v, 16, none, 0, &z, &ignore);
+        DWORD m0 = 0;
+        __try { m0 = *(const DWORD*)(uintptr_t)*v; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        if (l + 40 < cap) l += sprintf_s(out + l, cap - l, d ? " 0x%08lX DIFF (slot 0 %08lX)" : " 0x%08lX same", *v, m0);
+    }
+    if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
 }
 
 // 0x7B0A00: the stolen `je` is rel8, so InstallDetour cannot copy it; this trampoline re-encodes it

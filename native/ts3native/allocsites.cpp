@@ -1,6 +1,8 @@
 // [MemDiag] AllocSites (docs/201): attributes native address-space growth to call sites. TEST-RUN TOOL, off by default,
 // never a release default. The allocator is Apex Radiance's area (docs/191 Ownership): this only observes, and it stands
-// down when Apex is loaded ([Compat] ApexStandDown=1). Included by ts3native.cpp after memdiag.cpp (g_mdOn, MdTag; its
+// down when Apex is loaded ([Compat] ApexStandDown=1) unless [MemDiag] AllocSitesWithApex=1 (docs/190 §5.6: no shared site;
+// then only pristine sites are hooked). [MemDiag] AllocSitesOwners=1 adds "own" lines: live bytes by subsystem from an owner
+// range table of TS3W.exe 1.67 (docs/190 phase 3). Included by ts3native.cpp after memdiag.cpp (g_mdOn, MdTag; its
 // output rides on every "diag: mem" sample: each mem_mark and every 5 min of play).
 //
 // Hooks (docs/201 §2, each verified against the bytes before it is written; a jmp already there is chained, never lost):
@@ -36,6 +38,11 @@ static DWORD g_asTextLo = TS3A(0x00401000), g_asTextHi = TS3A(0x00F95000), g_asE
 static DWORD g_asWrapLo = TS3A(0x004E3D00), g_asWrapHi = TS3A(0x004E9000);  // EA allocator wrappers, cores and debug layer
 static DWORD g_asSelfLo, g_asSelfHi;  // our own image: our hooks' frames are never a site (docs/201 §12.1)
 static DWORD g_asHeapAt[4] = {TS3A(0x004E69D0), TS3A(0x004E6A20), TS3A(0x004E6A70), TS3A(0x004E5920)};  // Malloc, Memalign, Realloc, Free
+// docs/190 §5.6: [MemDiag] AllocSitesWithApex=1 installs with Apex Radiance loaded; then a jmp at a site that does not lead
+// into our own image is never chained (that would wrap another module's hook), and Apex's VirtualAlloc frame is passed through
+static bool g_asApexMode;
+static DWORD g_asApexBase;  // ApexRadiance.asi image base (0 = not loaded at our install)
+static bool g_asOwn;        // [MemDiag] AllocSitesOwners=1: "own" lines (owner buckets) at every sample
 static DWORD g_asSys[3][2];  // ntdll, kernelbase, kernel32: [base, end)
 
 enum { AS_HEAP, AS_VIRT, AS_MAP, AS_KINDS };
@@ -261,6 +268,13 @@ static void AsAnyFrames(const DWORD* sp, DWORD* f0, DWORD* f1) {
         const DWORD mod = AsModOf(v, &cLo, &cHi);
         if (!mod || AsSysMod(mod) || !(mod == g_asExeBase ? AsExeRet(v) : AsCodeRetSafe(v, mod, cLo, cHi))) continue;
         if (!a) { a = v, am = mod; continue; }
+        // Apex FastMemory routes the EA allocator's VirtualAlloc calls through its own code (docs/190 §5.6): that frame
+        // stands between kernel32 and the EA core, so the core becomes at= and its heap user from=, as without Apex
+        if (am == g_asApexBase && am && mod == g_asExeBase && AsInWrap(v)) {
+            a = v, am = mod;
+            InterlockedIncrement(&ts3native_counters.aoApexPass);
+            continue;
+        }
         if (am == g_asExeBase ? (mod != am || !AsInWrap(a) || !AsInWrap(v)) : mod != am) b = v;
     }
     *f0 = a, *f1 = b;
@@ -501,6 +515,11 @@ static void* AsDetourCore(const char* name, DWORD at, const u8* pro, int len, vo
     const char* how;
     if (t[0] == 0xE9) {
         const u8* dst = t + 5 + *(const LONG*)(t + 1);
+        if (g_asApexMode && !((DWORD)(uintptr_t)dst >= g_asSelfLo && (DWORD)(uintptr_t)dst < g_asSelfHi)) {
+            InterlockedIncrement(&ts3native_counters.aoApexRefused);
+            Log("SKIP alloc sites %s at 0x%08lX: a jmp into another module (Apex mode never chains one)", name, at);
+            return NULL;
+        }
         tr[0] = 0xE9, *(LONG*)(tr + 1) = (LONG)(dst - (tr + 5));
         how = "chained";
     } else if (pro ? !memcmp(t, pro, len) : t[0] == 0xB8) {
@@ -581,7 +600,10 @@ static bool AsIsDriverRegion(DWORD base) {
 static int AsInstallHeap() {
     for (DWORD a : g_asHeapAt) {
         const u8* t = (const u8*)(uintptr_t)a;
-        if (!Readable(t, 10) || (t[0] != 0xE9 && memcmp(t, kEaLockedPrologue, sizeof(kEaLockedPrologue)))) {
+        const bool ok = Readable(t, 10) && (t[0] == 0xE9 ? !g_asApexMode || (a + 5 + *(const LONG*)(t + 1) >= g_asSelfLo &&
+                                                                           a + 5 + *(const LONG*)(t + 1) < g_asSelfHi)
+                                                         : !memcmp(t, kEaLockedPrologue, sizeof(kEaLockedPrologue)));
+        if (!ok) {  // all four or none; in Apex mode a jmp must lead into our own image ([Alloc])
             Log("SKIP alloc sites EA heap: entry 0x%08lX not as expected, no heap hooks", a);
             return 0;
         }
@@ -616,6 +638,76 @@ static int AsInstallVirtual() {
         if (fmx && (g_asNtMapEx = (AsNtMapExFn)AsDetour("NtMapViewOfSectionEx", (DWORD)(uintptr_t)fmx, NULL, 5, (void*)AsNtMapExHook, &g_asNtMapEx))) n++;
     }
     return n;
+}
+
+// --- owners (docs/190 phase 3, §5.6) ----------------------------------------------------------------------------------
+// TS3W.exe 1.67 (Steam; the EA 1.69 port has other addresses: there every exe caller is exe?) code ranges by subsystem.
+// Sources per row in docs/190 §5.6: the engine maps (docs/32-55, 201) and the EA allocation tag strings ("CAS/...") each range
+// pushes, counted by tools/alloc-owner-tags.ts. v = verified (a doc range tagged verified, or tag pushes >= 85 % one owner),
+// 0 = inferred (a band, a min / max of named functions, or mixed tags). Gaps are exe?.
+#include "allocsites-owners.h"  // OW_* owners, kAoName, kAsOwn (sorted TS3W.exe 1.67 ranges)
+static int AsExeOwner(DWORD va) {  // a TS3W.exe 1.67 VA
+    int lo = 0, hi = kAsOwnN - 1;
+    while (lo <= hi) {
+        const int m = (lo + hi) >> 1;
+        if (va < kAsOwn[m].lo) hi = m - 1;
+        else if (va >= kAsOwn[m].hi) lo = m + 1;
+        else return kAsOwn[m].own;
+    }
+    return OW_EXEQ;
+}
+// another module by file name (output thread only; a small cache by image base)
+static int AsModOwner(DWORD a) {
+    static struct { DWORD lo, hi; int own; } c[48];
+    static int n;
+    for (int i = 0; i < n; i++) if (a >= c[i].lo && a < c[i].hi) return c[i].own;
+    MEMORY_BASIC_INFORMATION m;
+    wchar_t w[MAX_PATH];
+    if (!VirtualQuery((void*)(uintptr_t)a, &m, sizeof(m)) || m.Type != MEM_IMAGE || !GetModuleFileNameW((HMODULE)m.AllocationBase, w, MAX_PATH)) return OW_MOD;
+    const DWORD base = (DWORD)(uintptr_t)m.AllocationBase;
+    const wchar_t* f = wcsrchr(w, L'\\');
+    f = f ? f + 1 : w;
+    wchar_t sys[MAX_PATH];
+    const UINT sl = GetSystemWindowsDirectoryW(sys, MAX_PATH);
+    const int own = base == g_asApexBase && base ? OW_APEX : AsInDrv(a) ? OW_DRV : !_wcsicmp(f, L"Sims3SettingsSetter.asi") ? OW_S3SS
+                  : !_wcsicmp(f, L"Sims3Performance.asi") ? OW_S3PP : !_wcsicmp(f, L"d3d9.dll") && _wcsnicmp(w, sys, sl) ? OW_D3D9
+                  : sl && !_wcsnicmp(w, sys, sl) ? OW_SYS : OW_MOD;
+    const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(uintptr_t)(base + ((const IMAGE_DOS_HEADER*)(uintptr_t)base)->e_lfanew);
+    if (n < 48) c[n].lo = base, c[n].hi = base + nt->OptionalHeader.SizeOfImage, c[n].own = own, n++;
+    return own;
+}
+static int AsOwnerAt(DWORD a) {
+    if (!a) return OW_NONE;
+    if (a >= g_asSelfLo && a < g_asSelfHi) return OW_OURS;
+    if (a >= g_asTextLo && a < g_asTextHi) return AsExeOwner(a - g_asExeBase + 0x400000);
+    return AsModOwner(a);
+}
+// a site's owner: the first frame's, or the heap user's (from=) when the first frame is the EA allocator (cores, direct
+// blocks); *ea = that case
+static int AsSiteOwner(const AsSite& s, bool* ea) {
+    *ea = s.f0 >= g_asTextLo && s.f0 < g_asTextHi && AsInWrap(s.f0);
+    return AsOwnerAt(*ea ? s.f1 : s.f0);
+}
+// one "own" line: total, then owners by MB, largest first, until the line is full (rest in more=)
+static void AsOwnLine(const char* head, const char* what, const double* mb, const char* const* names, int n, const char* tail) {
+    char line[480];
+    double tot = 0;
+    for (int i = 0; i < n; i++) tot += mb[i];
+    int len = sprintf_s(line, "%s own %s MB=%.1f", head, what, tot);
+    bool used[2 * OW_N] = {};
+    double more = 0;
+    for (;;) {
+        int best = -1;
+        for (int i = 0; i < n; i++) if (!used[i] && mb[i] >= 0.05 && (best < 0 || mb[i] > mb[best])) best = i;
+        if (best < 0) break;
+        used[best] = true;
+        char e[48];
+        const int el = sprintf_s(e, " %s=%.1f", names[best], mb[best]);
+        if (len + el + 40 >= (int)sizeof(line)) { more += mb[best]; continue; }
+        memcpy(line + len, e, el + 1), len += el;
+    }
+    if (more > 0) sprintf_s(line + len, sizeof(line) - len, " more=%.1f", more);  // 40 bytes kept free for this and tail
+    Log("%s%s", line, tail);
 }
 
 // --- output (every diag: mem sample: each mem_mark and every 5 min of play) --------------------------------------------
@@ -810,6 +902,7 @@ static void AsAfterSample(LONG n, const char* tag, const char* ev) {
     // untracked: first-seen sample from the previous list (both in address order), then the summary and the rows that
     // matter: inside the previous largest free block or touching the current one, new since the previous output, and
     // every private / map allocation that is not a thread stack (images and stacks only when new or at the window)
+    double untrMB = 0;
     {
         const AsUnt* pv = g_asUnt[g_asUntCur ^ 1];
         const int np = g_asUntN[g_asUntCur ^ 1];
@@ -833,6 +926,7 @@ static void AsAfterSample(LONG n, const char* tag, const char* ev) {
             if (g_asUntHad && u.first == n) newN++;
         }
         Log("%s usum private=%d/%.1fMB map=%d/%.1fMB image=%d/%.1fMB new=%d more=%d", head, cN[0], cMB[0], cN[1], cMB[1], cN[2], cMB[2], newN, more);
+        untrMB = cMB[0];
         for (int i = 0; i < nu; i++) {
             const AsUnt& u = cu[i];
             const DWORD end = u.base + u.size;
@@ -849,15 +943,58 @@ static void AsAfterSample(LONG n, const char* tag, const char* ev) {
         g_asUntN[g_asUntCur] = nu, g_asUntCur ^= 1, g_asUntHad = true;
     }
     g_asWinLo = fb[0], g_asWinHi = fb[0] + fs[0];
+    // docs/190 §5.6: live bytes by owner. heap = EA heap blocks (docs/190 `ea` by subsystem); virt = reserves, `ea.<owner>`
+    // for EA cores / direct blocks by heap user, the rest by module or exe range; untr = private no record owns (`rest`)
+    if (g_asOwn) {
+        double hMB[OW_N] = {}, vMB[2 * OW_N] = {}, mMB[OW_N] = {};
+        static const char* vName[2 * OW_N];
+        static char eaName[OW_N][16];
+        for (int i = 0; i < OW_N; i++) vName[i] = kAoName[i], sprintf_s(eaName[i], "ea.%s", kAoName[i]), vName[OW_N + i] = eaName[i];
+        for (int k = 0; k < ni; k++) {
+            const AsSite& x = g_asSite[idx[k]];
+            if (!idx[k] || x.live <= 0) continue;  // overflow row: no frames (the sum row's siteFull counts its records)
+            bool ea;
+            const int o = AsSiteOwner(x, &ea);
+            const double v = x.live * MB;
+            if (x.kind == AS_HEAP) hMB[o] += v;
+            else if (x.kind == AS_MAP) mMB[o] += v;
+            else vMB[ea ? OW_N + o : o] += v;
+        }
+        double eaMB = 0;
+        for (int i = 0; i < OW_N; i++) eaMB += vMB[OW_N + i];
+        char tail[40];
+        sprintf_s(tail, " untr=%.1f", untrMB);
+        AsOwnLine(head, "heap", hMB, kAoName, OW_N, "");
+        AsOwnLine(head, "virt", vMB, vName, 2 * OW_N, tail);
+        AsOwnLine(head, "map", mMB, kAoName, OW_N, "");
+        double hTot = 0;
+        for (double v : hMB) hTot += v;
+        ts3native_counters.aoHeapKB = (LONG)(hTot * 1024), ts3native_counters.aoHeapUnkKB = (LONG)(hMB[OW_EXEQ] * 1024);
+        ts3native_counters.aoEaCoreKB = (LONG)(eaMB * 1024), ts3native_counters.aoUntrKB = (LONG)(untrMB * 1024);
+        InterlockedIncrement(&ts3native_counters.aoLines);
+    }
     ReleaseSRWLockExclusive(&g_asOutLock);
     AsLeave();
 }
 
+// Apex Radiance loaded at our install with ApexStandDown: 0 = stand down, 2 = Apex mode (AllocSitesWithApex=1); 1 = no Apex.
+// The stand-down is ownership, not a shared site (docs/190 §5.6): Apex 3.2.3 hooks none of our entries or stubs.
+static int AsApexGate(bool apexLoaded, bool standDown, bool withApex) { return !(apexLoaded && standDown) ? 1 : withApex ? 2 : 0; }
+
 // [MemDiag] AllocSites=1: TEST-RUN TOOL (docs/201). Needs [MemDiag] Light or Enabled (its samples carry the lines).
 static bool ApplyAllocSites(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"MemDiag", L"AllocSites", 0, ini)) return false;
-    if (g_apexFound && g_apexStandDown) { Log("SKIP alloc sites: Apex Radiance loaded (the allocator is its area; [Compat] ApexStandDown=1)"); return false; }
+    const int gate = AsApexGate(g_apexFound != 0, g_apexStandDown, GetPrivateProfileIntW(L"MemDiag", L"AllocSitesWithApex", 0, ini) != 0);
+    if (!gate) { Log("SKIP alloc sites: Apex Radiance loaded (the allocator is its area; [Compat] ApexStandDown=1; [MemDiag] AllocSitesWithApex=1 observes next to it)"); return false; }
     if (!g_mdOn) { Log("SKIP alloc sites: needs [MemDiag] Light=1 or Enabled=1 (its samples carry the output)"); return false; }
+    g_asApexMode = gate == 2;
+    for (const wchar_t* m : g_apexModules)
+        if (HMODULE h = GetModuleHandleW(m)) g_asApexBase = (DWORD)(uintptr_t)h;  // shortcut: zzApexRadiance.asi loaded after us is not known
+    g_asOwn = GetPrivateProfileIntW(L"MemDiag", L"AllocSitesOwners", 0, ini) != 0;
+    int ver = 0;
+    for (const AsOwnRow& r : kAsOwn) ver += r.ver;
+    ts3native_counters.aoOn = (g_asOwn ? 1 : 0) | (g_asApexMode ? 2 : 0) | (g_asApexBase ? 4 : 0);
+    ts3native_counters.aoRows = kAsOwnN, ts3native_counters.aoRowsVer = ver;
     const DWORD n = (DWORD)Clamp((int)GetPrivateProfileIntW(L"MemDiag", L"AllocSitesSample", 64, ini), 1, 4096);
     DWORD bits = 0;
     while ((2u << bits) <= n) bits++;  // round down to a power of two
@@ -876,5 +1013,9 @@ static bool ApplyAllocSites(const wchar_t* ini) {
     Log("alloc sites %s (TEST-RUN TOOL, docs/201): EA heap hooks %d/4, ntdll hooks %d, heap blocks < 64 KB 1 in %lu by address, "
         "blocks >= 64 KB / reserves / views all, top %d; allocsites: lines at every diag: mem sample", g_asOn ? "on" : "off (no hook)",
         h, v, g_asN, g_asTop);
+    if (g_asOn && (g_asOwn || g_asApexMode))
+        Log("alloc sites owners %s (docs/190 phase 3): %d TS3W.exe 1.67 ranges, %d verified; Apex mode %s%s", g_asOwn ? "on" : "off", kAsOwnN, ver,
+            g_asApexMode ? "on (next to Apex Radiance: pristine sites only, its VirtualAlloc frame passed through)" : "off",
+            g_asApexMode && !g_asApexBase ? ", Apex image not found" : "");
     return g_asOn;
 }

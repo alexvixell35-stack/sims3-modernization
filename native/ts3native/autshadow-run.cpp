@@ -503,6 +503,7 @@ static int __cdecl AsIcConfig(int key) {
         case 34: return 1;  // 0.36.148: SearchMark registered, Config(33) answers
         case 35: return 1;  // P6: ActorScope registered (the Query_CountObjectsInRange row's actor gate; P5 slot rows since 0.36.213)
         case 36: return (g_asT2eBits >> 8) & 1;  // 0.36.213 P5: [AutShadow] Tier2SlotRows in force (ts3fixes autofft2ic slots 23-24)
+        case 37: return 1;  // lane L8: DumpCut registered (DumpOnMismatch snapshot dump, docs/122 §5.1)
         default: return AsLgConfig(key);  // 5-10: ledger probe (autledger.cpp)
     }
 }
@@ -710,23 +711,79 @@ static void __cdecl AsIcSetRefs(void* empty, void* fmtExc) {
     if (empty) ts3native_autshadow.rooted |= 4;
     if (fmtExc) ts3native_autshadow.rooted |= 8;
 }
-// EA's MonoString {vtable, length, UTF-16 at +8} [verified, as AsStrKey]: one line to autshadow.jsonl
-static void __cdecl AsIcLog(const DWORD* s) {
+// one line (buf must have room for the newline after n bytes) to autshadow.jsonl, cap 100k lines
+static void AsJsonlLine(char* buf, int n) {
     Ts3nAutShadow& k = ts3native_autshadow;
-    if (!s || k.logLines >= 100000) return;
+    if (n <= 0 || k.logLines >= 100000) return;
     if (g_asJsonl == INVALID_HANDLE_VALUE) {
         if (!g_asJsonlPath[0]) return;
         g_asJsonl = CreateFileW(g_asJsonlPath, FILE_APPEND_DATA, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
         if (g_asJsonl == INVALID_HANDLE_VALUE) { g_asJsonlPath[0] = 0; return; }
     }
-    const LONG len = (LONG)s[1];
-    char buf[4096];
-    int n = len > 0 && len < 1300 ? WideCharToMultiByte(CP_UTF8, 0, (const wchar_t*)(s + 2), len, buf, sizeof(buf) - 2, NULL, NULL) : 0;
-    if (n <= 0) return;
     buf[n++] = '\n';
     DWORD w;
     WriteFile(g_asJsonl, buf, (DWORD)n, &w, NULL);
     k.logLines++;
+}
+// EA's MonoString {vtable, length, UTF-16 at +8} [verified, as AsStrKey]: one line to autshadow.jsonl
+static void __cdecl AsIcLog(const DWORD* s) {
+    if (!s || ts3native_autshadow.logLines >= 100000) return;
+    const LONG len = (LONG)s[1];
+    char buf[4096];
+    const int n = len > 0 && len < 1300 ? WideCharToMultiByte(CP_UTF8, 0, (const wchar_t*)(s + 2), len, buf, sizeof(buf) - 2, NULL, NULL) : 0;
+    AsJsonlLine(buf, n);
+}
+// DumpOnMismatch (docs/122 §5.1, §14.6; lane L8): ts3fixes calls DumpCut(meta object id) after logging an A1-A3 pair
+// (Config(37) == 1). The sim thread writes the published version's rows that the worker read since that version was
+// published (used) or that the meta object owns, one {"t":"row"} line each after a {"t":"dump"} header, so the IC answers
+// can be checked offline against the row builder. At most AS_DUMP_ROWS rows per dump, AS_DUMP_MAX dumps per session.
+// Read-only: the sim thread is the only publisher, so the version cannot change during the walk.
+static const int AS_DUMP_MAX = 20, AS_DUMP_ROWS = 256;
+static LONG g_asDumpN;
+// append to b at n; n = -1 once anything was cut (the line is then dropped)
+static void AsCat(char* b, int cap, int& n, const char* fmt, ...) {
+    if (n < 0) return;
+    va_list ap;
+    va_start(ap, fmt);
+    const int w = _vsnprintf_s(b + n, cap - n, _TRUNCATE, fmt, ap);
+    va_end(ap);
+    n = w < 0 ? -1 : n + w;
+}
+static int AsDumpRow(char* b, int cap, LONG dump, int i, const AsTab& t) {
+    const AsEnt& e = t.e[i];
+    const char* nm = g_asName[e.ic] ? g_asName[e.ic] : "-";
+    DWORD f[2];
+    memcpy(f, &e.f, 8);
+    int n = _snprintf_s(b, cap, _TRUNCATE, "{\"t\":\"row\",\"n\":%ld,\"i\":%d,\"ic\":\"%s\",\"own\":%llu,\"fl\":%u,\"used\":%u,\"key\":[",
+                        dump, i, nm, (unsigned long long)e.owner, (unsigned)e.flags, (unsigned)t.used[i]);
+    for (int q = 0; q < e.nKey && q < AS_KEY; q++) AsCat(b, cap, n, "%s%lu", q ? "," : "", e.key[q]);
+    AsCat(b, cap, n, "],\"r\":[%lu,%lu],\"f\":\"%08lX%08lX\",\"st\":\"", e.r[0], e.r[1], f[1], f[0]);
+    for (int q = 0; q < (int)sizeof(e.st); q++) AsCat(b, cap, n, "%02X", e.st[q]);
+    AsCat(b, cap, n, "\",\"out\":\"");
+    for (int q = 0; q < (int)sizeof(e.out); q++) AsCat(b, cap, n, "%02X", e.out[q]);
+    AsCat(b, cap, n, "\",\"payN\":%ld,\"pay\":[", e.payN);
+    for (int q = 0; q < e.payN && q < 16; q++) AsCat(b, cap, n, "%s%lu", q ? "," : "", t.pool[e.pay + q]);
+    AsCat(b, cap, n, "]}");
+    return n;  // -1 when truncated: AsJsonlLine drops the line
+}
+static void __cdecl AsIcDumpCut(DWORD lo, DWORD hi) {
+    if (!g_asDump || !g_as || AsIcIsWorker() || g_asDumpN >= AS_DUMP_MAX) return;
+    const LONG v = g_asPub;
+    if (v < 0) return;
+    const AsTab& t = g_as->v[v];
+    const AsU64 meta = lo | (AsU64)hi << 32;
+    const LONG dump = ++g_asDumpN;
+    int rows = 0, used = 0;
+    for (int i = 0; i < t.n; i++) if (t.used[i] || t.e[i].owner == meta) rows++, used += t.used[i] != 0;
+    char b[1024];
+    const int n = _snprintf_s(b, sizeof(b) - 1, _TRUNCATE, "{\"t\":\"dump\",\"n\":%ld,\"meta\":%llu,\"cut\":%ld,\"ver\":%ld,\"rows\":%d,\"used\":%d,\"of\":%ld,\"cap\":%d}",
+                              dump, (unsigned long long)meta, g_asCut, v, rows, used, t.n, AS_DUMP_ROWS);
+    AsJsonlLine(b, n);
+    for (int i = 0, w = 0; i < t.n && w < AS_DUMP_ROWS; i++) {
+        if (!t.used[i] && t.e[i].owner != meta) continue;
+        AsJsonlLine(b, AsDumpRow(b, sizeof(b) - 1, dump, i, t));
+        w++;
+    }
 }
 
 static void AsRegisterIcs() {
@@ -766,13 +823,14 @@ static void AsRegisterIcs() {
         {"Ts3Fixes.AutShadowNative::SearchMark", (const void*)AsIcSearchMark},
         {"Ts3Fixes.AutShadowNative::ImageSha", (const void*)AsIcImageSha},
         {"Ts3Fixes.AutShadowNative::ActorScope", (const void*)AsIcActorScope},
+        {"Ts3Fixes.AutShadowNative::DumpCut", (const void*)AsIcDumpCut},
     };
     if (!g_asAddIc) return;
     for (const auto& ic : kIcs) g_asAddIc(ic.name, ic.fn);
     ts3native_autshadow.icRegistered = (LONG)(sizeof(kIcs) / sizeof(kIcs[0]));
 }
 
-// [AutShadow] Mode/Sample/WarmIn/DumpOnMismatch; the cut needs [MonoThread]'s Simulate slot stub (Enabled=1, any Mode)
+// [AutShadow] Mode/Sample/WarmIn/DumpOnMismatch (ts3fixes + the DumpCut row dump); the cut needs [MonoThread]'s Simulate slot stub (Enabled=1, any Mode)
 static void AsInstallRun(const wchar_t* ini, bool slotStub) {
     Ts3nAutShadow& k = ts3native_autshadow;
     LARGE_INTEGER f;
@@ -890,6 +948,7 @@ static void AsInstallRun(const wchar_t* ini, bool slotStub) {
     // docs/206 §7: Satb=1 probe (S0 store counts in one job length of the next tick, no concurrency), 2 act (the worker runs
     // concurrently with the next tick and reads the cut through the log); needs Mode >= 1 and the worker (default 0)
     const int satb = ini ? GetPrivateProfileIntW(L"AutShadow", L"Satb", 0, ini) : 0;
+    g_satbTripwire = ini && GetPrivateProfileIntW(L"AutShadow", L"SatbTripwire", 0, ini) == 1;  // docs/206 §15 rows 4 / 9 (off)
     if (satb > 0 && slotStub && g_asMode >= 1) {
         g_satbRtSwapped = SatbInstallRt();
         const int m = SatbInstall(satb);

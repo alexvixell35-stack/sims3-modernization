@@ -19,7 +19,8 @@ namespace Ts3Fixes
     //                    returns as an ordinary failed plan. Then a no-retry window (same Sim, same 1 m goal cell, 1.5 s) and
     //                    a per-Sim cap (4 cuts in 10 s, then uncut) (UfLimiter).
     //   unseenfbteleport (§3.2 item 1, needs unseenfbplan): a cut own-task Route.Plan of a standing unseen townie places it at
-    //                    a point-routable, unseen route goal (the trip shortcuts' PlaceSim) and plans once more from there.
+    //                    a point-routable, unseen route goal (the trip shortcuts' PlaceSim) and plans once more from there;
+    //                    never a goal in a tomb, hidden or closed room (docs/267 F1, UnseenTeleportGoal.cs).
     // Counters: [303] stuck checks deferred, [304] stuck checks run (Sim seen), [305] plans marked, [306] marked plans cut,
     // [307] teleports, [308] teleports refused (no spot), [309] no-retry answers, [310] plans checked but seen,
     // [311] marks refused (no ts3native, [UnseenFallback] off or not installed), [312] longest marked plan (ms, wall).
@@ -1327,7 +1328,16 @@ namespace Ts3Fixes
                     c[308]++;
                     return false;
                 }
+                int why = UfTpGoalWhy(sim, dest);  // docs/267 F1: never into a tomb, hidden, locked or doorless room (UnseenTeleportGoal.cs)
+                if (why != UfPreCore.kTpOk)
+                {
+                    c[308]++;
+                    c[kUfTpSlot + why - 1]++;
+                    ShortcutLog(sim.FullName + " -> unseenfb teleport refused (goal: " + UfTpWhyName(why) + ")");
+                    return false;
+                }
                 PlaceSim(sim, dest, sim.ForwardVector, "unseenfb route goal");
+                UfTpNote(sim, dest);
                 c[307]++;
                 ShortcutLog(sim.FullName + " => route goal (unseenfb, cut plan)");
                 bool marked = UfSend(1);

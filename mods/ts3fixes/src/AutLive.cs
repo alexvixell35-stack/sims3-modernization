@@ -95,6 +95,11 @@ namespace Ts3Fixes
             public object Household, Role, Occ, Job;
             public IMetaObject Career;
             public bool Selectable, Chip;
+            // docs/124 §3.1 LOD rule (switch autlivelod, latched at the request): Autonomy.mbHighLOD at the request
+            public bool LodOn, HighLod;
+            // docs/124 §3.1 tuning rule (switch autlivetune, latched at the request): per allow-listed pair, TuneFp at the request
+            public bool TunOn;
+            public uint[] TunFp = new uint[128];
             // dry: the game's C1 calls during its B13 (pair index, or a negative id for pairs outside the request)
             public int EvN;
             public int[] EvId = new int[128];
@@ -115,7 +120,7 @@ namespace Ts3Fixes
                     int n = Math.Max(pairs, Pair.Length * 2);
                     Pair = new InteractionObjectPair[n]; PairObj = new int[n]; Def = new int[n]; Code = new int[n]; Buf = new int[n];
                     W = new float[n]; Live = new float[n]; Acb = new bool[n]; LiveHas = new bool[n]; Sent = new bool[n]; Sel = new bool[n];
-                    Eligible = new bool[n];
+                    Eligible = new bool[n]; TunFp = new uint[n];
                 }
                 if (Bands.Order.Length < pairs) Bands.Order = new int[Math.Max(pairs, Bands.Order.Length * 2)];
             }
@@ -225,6 +230,7 @@ namespace Ts3Fixes
             }
             if (sLiveSw == null) sLiveSw = StopWatch.Create(StopWatch.TickStyles.Microseconds);
             if (sLiveB14Sw == null) sLiveB14Sw = StopWatch.Create(StopWatch.TickStyles.Microseconds);
+            TuneFields();
             sGuard.Reset();
             sGuard.OffPm = Instantiator.kAutLiveGuardOffPm; sGuard.OnPm = Instantiator.kAutLiveGuardOnPm;
             sGuard.MinSearches = Instantiator.kAutLiveGuardMinSearches; sGuard.MinFrames = Instantiator.kAutLiveGuardMinFrames;
@@ -334,6 +340,80 @@ namespace Ts3Fixes
             }
             ActorFields(L.Actor, out L.AgeSpecies, out L.LotCur, out L.LotHome, out L.Household, out L.Selectable, out L.Role, out L.Occ,
                 out L.JobCount, out L.Job, out L.Career, out L.Chip);
+            L.LodOn = fHighLod != null && ShortcutOn("autlivelod");
+            L.HighLod = L.LodOn && (bool)fHighLod.GetValue(q.Aut);
+            L.TunOn = fTunFlags != null && fAvFlags != null && ShortcutOn("autlivetune");
+            if (L.TunOn)
+            {
+                sTunSw.Restart();
+                for (int p = 0; p < q.Pairs; p++) if (L.Def[p] >= 0) L.TunFp[p] = TuneFp(q.Pair[p].Tuning);
+                PatchCounters()[kCTunUs] += (int)sTunSw.GetElapsedTime();
+            }
+        }
+
+        // ---- docs/124 §3.1 tuning rule (autlivetune; fixes-1012 drops, 1013 fingerprint us at request + resume) ----
+        // The fields AutLiveCore.TunFp lists, read at the request and again at the resume: an in-place edit (Retuner) of any
+        // of them between the two drops the result and the game runs its own search. Only allow-listed pairs (off-list pairs
+        // go through the game's C1 live anyway).
+        const int kCTunDrop = 1012, kCTunUs = 1013;
+        static FieldInfo fTunFlags, fAvFlags;
+        static StopWatch sTunSw;
+        static void TuneFields()
+        {
+            const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            fTunFlags = typeof(InteractionTuning).GetField("mFlags", inst);
+            fAvFlags = typeof(Availability).GetField("mFlags", inst);
+            if (sTunSw == null) sTunSw = StopWatch.Create(StopWatch.TickStyles.Microseconds);
+            if (fTunFlags == null || fAvFlags == null) AppliedLog().Add("AutShadow: go-live tuning rule off: InteractionTuning/Availability mFlags not found");
+        }
+        static uint TuneFp(InteractionTuning t)
+        {
+            if (t == null) return 1u;
+            uint h = AutLiveCore.TunFp.kSeed;
+            h = AutLiveCore.TunFp.Mix(h, Convert.ToInt32(fTunFlags.GetValue(t)));
+            h = AutLiveCore.TunFp.Mix(h, t.AlwaysChooseBest ? 1 : 0);
+            Availability a = t.Availability;
+            if (a != null)
+            {
+                h = AutLiveCore.TunFp.Mix(h, Convert.ToInt32(fAvFlags.GetValue(a)));
+                h = AutLiveCore.TunFp.Mix64(h, (long)a.AgeSpeciesAvailabilityFlags);
+                h = AutLiveCore.TunFp.Mix64(h, (long)a.MotiveThresholdType); h = AutLiveCore.TunFp.MixF(h, a.MotiveThresholdValue);
+                h = AutLiveCore.TunFp.Mix64(h, (long)a.MoodThresholdType); h = AutLiveCore.TunFp.MixF(h, a.MoodThresholdValue);
+                h = AutLiveCore.TunFp.Mix64(h, (long)a.SkillThresholdType); h = AutLiveCore.TunFp.Mix(h, a.SkillThresholdValue);
+                h = AutLiveCore.TunFp.Mix64(h, (long)a.CareerThresholdType); h = AutLiveCore.TunFp.Mix(h, a.CareerThresholdValue);
+                h = AutLiveCore.TunFp.Mix64(h, (long)a.WorldRestrictionType);
+                h = AutLiveCore.TunFp.Mix64(h, (long)a.OccultRestrictions); h = AutLiveCore.TunFp.Mix64(h, (long)a.OccultRestrictionType);
+                h = AutLiveCore.TunFp.Mix(h, a.SnowLevelValue);
+                h = AutLiveCore.TunFp.Mix(h, a.ExcludingTraits != null ? a.ExcludingTraits.Count : -1);
+                h = AutLiveCore.TunFp.Mix(h, a.RequiredTraits != null ? a.RequiredTraits.Count : -1);
+                h = AutLiveCore.TunFp.Mix(h, a.ExcludingBuffs != null ? a.ExcludingBuffs.Count : -1);
+                h = AutLiveCore.TunFp.Mix(h, a.RequiredBuffs != null ? a.RequiredBuffs.Count : -1);
+            }
+            Tradeoff tr = t.mTradeoff;
+            if (tr != null)
+            {
+                h = AutLiveCore.TunFp.MixF(h, tr.TimeEstimate);
+                List<CommodityChange> o = tr.mOutputs;
+                h = AutLiveCore.TunFp.Mix(h, o != null ? o.Count : -1);
+                if (o != null)
+                    for (int i = 0; i < o.Count; i++)
+                    {
+                        CommodityChange c = o[i];
+                        if (c == null) { h = AutLiveCore.TunFp.Mix(h, -1); continue; }
+                        h = AutLiveCore.TunFp.Mix64(h, (long)c.Commodity); h = AutLiveCore.TunFp.MixF(h, c.ConstantChange); h = AutLiveCore.TunFp.MixF(h, c.mMultiplier);
+                    }
+            }
+            return AutLiveCore.TunFp.End(h);
+        }
+        // resume (and each late slice): true = every allow-listed pair's tuning still has its request fingerprint
+        static bool TuneSame(LiveSearch L)
+        {
+            sTunSw.Restart();
+            bool same = true;
+            for (int p = 0; p < L.Pairs && same; p++)
+                if (L.Def[p] >= 0 && L.Pair[p] != null && TuneFp(L.Pair[p].Tuning) != L.TunFp[p]) same = false;
+            PatchCounters()[kCTunUs] += (int)sTunSw.GetElapsedTime();
+            return same;
         }
 
         static void ActorFields(Sim s, out int ageSpecies, out Lot lotCur, out Lot lotHome, out object household, out bool selectable,
@@ -542,6 +622,7 @@ namespace Ts3Fixes
         }
 
         // ---- per-search feature mask (AutLiveCore.Feat; fixes-575: 575-583 searches, 584-592 mismatches, 593-601 give-ups, per bit) ----
+        const int kCLodDrop = 998;  // autlivelod (docs/124 §3.1): drops by a LOD flag flip, inside kSDropActor
         const int kCFeatSearches = 575, kCFeatMis = 584, kCFeatDrop = 593, kLiveUseMaxLog = 50;
         static bool sFeatNative;  // ts3native 0.36.148+: Config(33) job bits, SearchMark
         static int sLiveUseLogged;
@@ -576,6 +657,11 @@ namespace Ts3Fixes
             ActorFields(s, out ags, out lc, out lh, out hh, out sel, out role, out occ, out jobs, out job, out career, out chip);
             if (ags != L.AgeSpecies || lh != L.LotHome || hh != L.Household || sel != L.Selectable || role != L.Role || occ != L.Occ
                 || jobs != L.JobCount || job != L.Job || career != L.Career || chip != L.Chip) return kSDropActor;
+            // LOD flag flipped since the request (the worker answered the on-screen check from the old one): an actor-field drop,
+            // counted on its own in fixes-998 (al[] has no free slot until the next autshadow layout bump)
+            if (L.LodOn && (bool)fHighLod.GetValue(a) != L.HighLod) { PatchCounters()[kCLodDrop]++; return kSDropActor; }
+            // tuning edited in place since the request (Retuner-style): al[] has no tuning slot, so kSDropOther there, fixes-1012 here
+            if (L.TunOn && !TuneSame(L)) { PatchCounters()[kCTunDrop]++; return kSDropOther; }
             return 0;
         }
 
@@ -950,15 +1036,18 @@ namespace Ts3Fixes
         // ConsiderPerformingAutonomousAction (private, one caller: RunAutonomy with addToQueue) passes through; after it:
         // pushes, searches with no pick, the MakeSimGoHome fallback RunAutonomy takes next (its own condition, read-only
         // getters), Sim-hours (instantiated Sims x sim hours, x100, sampled per sim hour), request-to-push latency in ticks from
-        // the B13 entry (Mode 3 searches only; bins 0, 1, 2, 3, 4+), and a {"t":"picks"} autshadow.jsonl line (cumulative pushes
+        // the B13 entry (Mode 3 searches only; bins 0, 1, 2, 3, 4+), and {"t":"picks"} autshadow.jsonl lines (cumulative pushes
         // per definition, "DeclaringType.Definition", most first) every kPicksEvery pushes.
+        // docs/124 §7.2 G8 pick histogram: one picks line per group "<class>.<path>" (AutLiveCore.PickGroup): class u unseen,
+        // s seen, h household scope (household or unknown); path d = the worker's direct pick (unseen-direct D2), x = the exact
+        // consumer's search, g = the game's own search (incl. a direct search whose D2 fell back). Read by gate2-report.ts G8 lines.
         // docs/222 §8 (fixes-661): the same by actor class at the push / no-pick (UfWhy 0 = unseen, else seen): searches (every
         // ConsiderPerformingAutonomousAction), pushes, no-pick, GoHome; unseen 661-664, seen 665-668; unseen Sim-hours x100 669
         // (the hourly sample's unseen actors), so per-search rates and the cadence (searches per Sim-hour) split by class.
-        const int kCPushes = 566, kCNullPicks = 567, kCGoHome = 568, kCSimHours100 = 569, kCLatency0 = 570, kPicksEvery = 500;
+        const int kCPushes = 566, kCNullPicks = 567, kCGoHome = 568, kCSimHours100 = 569, kCLatency0 = 570, kPicksEvery = 100;
         const int kCG8Unseen = 661, kCG8Seen = 665, kCG8UnseenHours100 = 669;  // + 0 searches, 1 pushes, 2 no-pick, 3 GoHome
         static readonly Dictionary<object, int> sMetaStart = new Dictionary<object, int>();  // autonomy -> frame of its B13 entry
-        static readonly Dictionary<string, int> sPicks = new Dictionary<string, int>();
+        static readonly Dictionary<string, int>[] sPicks = AutLiveCore.PickGroup.NewTables();
         static float sG8Hours = -1f;
         static int sPushN;
         // docs/222 §11.8 (fixes-785): why seen cadence falls. Queue wait = AutonomyManager.Add to the search's start (B13 entry; a
@@ -1034,6 +1123,9 @@ namespace Ts3Fixes
                 sG8Hours = h;
             }
             int f0;
+            // before QueueNote clears sExactAut; the PushHook clears sDirectInst after this call
+            int path = best != null && ReferenceEquals(best, sDirectInst) ? AutLiveCore.PickGroup.kDirect
+                : ReferenceEquals(sExactAut, a) ? AutLiveCore.PickGroup.kExact : AutLiveCore.PickGroup.kGame;
             bool timed = sMetaStart.TryGetValue(a, out f0);
             if (timed) sMetaStart.Remove(a);
             Sim actor = a.Actor;
@@ -1053,7 +1145,8 @@ namespace Ts3Fixes
             if (timed) k[kCLatency0 + Math.Max(0, Math.Min(AutShadowNative.Config(19) - f0, 4))]++;
             string def = best.InteractionDefinition != null ? DefKey(best.InteractionDefinition.GetType()) : "?";
             int c;
-            sPicks[def] = sPicks.TryGetValue(def, out c) ? c + 1 : 1;
+            Dictionary<string, int> g = sPicks[AutLiveCore.PickGroup.Index(AutLiveCore.PickGroup.Class(wc == 0, UnseenFallbackCore.HouseholdScope(wc)), path)];
+            g[def] = g.TryGetValue(def, out c) ? c + 1 : 1;
             if (++sPushN % kPicksEvery == 0 && sProbe > 0) LogPicks();
         }
 
@@ -1062,17 +1155,24 @@ namespace Ts3Fixes
 
         static void LogPicks()
         {
-            List<KeyValuePair<string, int>> all = new List<KeyValuePair<string, int>>(sPicks);
-            all.Sort(delegate (KeyValuePair<string, int> x, KeyValuePair<string, int> y) { return y.Value.CompareTo(x.Value); });
-            StringBuilder b = new StringBuilder(1300);
-            b.Append("{\"t\":\"picks\",\"n\":").Append(sPushN).Append(",\"def\":[");
-            for (int i = 0; i < all.Count; i++)
+            for (int gi = 0; gi < sPicks.Length; gi++)
             {
-                string d = all[i].Key.Length > 64 ? all[i].Key.Substring(0, 64) : all[i].Key;
-                if (b.Length + d.Length + 16 > 1250) break;  // native line limit 1300 (AsIcLog)
-                b.Append(i > 0 ? ",[\"" : "[\"").Append(JsonEsc(d)).Append("\",").Append(all[i].Value).Append(']');
+                if (sPicks[gi].Count == 0) continue;
+                List<KeyValuePair<string, int>> all = new List<KeyValuePair<string, int>>(sPicks[gi]);
+                all.Sort(delegate (KeyValuePair<string, int> x, KeyValuePair<string, int> y) { return y.Value.CompareTo(x.Value); });
+                int gn = 0, listed = 0;
+                foreach (KeyValuePair<string, int> e in all) gn += e.Value;
+                StringBuilder b = new StringBuilder(1300);
+                b.Append("{\"t\":\"picks\",\"n\":").Append(sPushN).Append(",\"g\":\"").Append(AutLiveCore.PickGroup.Name(gi)).Append("\",\"gn\":").Append(gn).Append(",\"def\":[");
+                for (int i = 0; i < all.Count; i++)
+                {
+                    string d = all[i].Key.Length > 64 ? all[i].Key.Substring(0, 64) : all[i].Key;
+                    if (b.Length + d.Length + 40 > 1250) break;  // native line limit 1300 (AsIcLog); room for "other"
+                    b.Append(i > 0 ? ",[\"" : "[\"").Append(JsonEsc(d)).Append("\",").Append(all[i].Value).Append(']');
+                    listed += all[i].Value;
+                }
+                AutShadowNative.Log(b.Append("],\"other\":").Append(gn - listed).Append('}').ToString());
             }
-            AutShadowNative.Log(b.Append("]}").ToString());
         }
 
         // docs/222 §11.8 AutonomyManager.Add (public static; the Sim task's enqueue, docs/59 §1.1). Passes through; Mode 3 only.

@@ -85,6 +85,9 @@ namespace Ts3Fixes
         // P6, Config(35) == 1 (docs/data/tier2-rows35-handoff.md): the request the worker scores next has a household, selected
         // or unknown actor (1) or not (0); the Query_CountObjectsInRange row answers only at 0. Worker only, no-op elsewhere
         [MethodImpl(MethodImplOptions.InternalCall)] public static extern void ActorScope(int hh);
+        // lane L8, Config(37) == 1 (docs/122 §5.1 DumpOnMismatch): the native side writes the published cut's rows the worker
+        // read (and the meta object's rows) to autshadow.jsonl; cap 20 dumps per session; sim thread only, no-op elsewhere
+        [MethodImpl(MethodImplOptions.InternalCall)] public static extern void DumpCut(ulong meta);
     }
 
     // [AutShadow] pilot part 2, managed half (docs/122 §1.2, §3.5, §4, §5, §12.5). Shadow only: the worker's scores are
@@ -516,6 +519,7 @@ namespace Ts3Fixes
         static bool sSweptAtLoad;
         static bool sReqLotRows;
         static bool sActorScope;  // ts3native has ActorScope (Config(35)); else its P6 row stays shut for every actor
+        static bool sDumpCut;     // DumpOnMismatch=1 and ts3native has DumpCut (Config(37)): A1-A3 pairs dump the cut's rows
 
         // docs/124 §17: B14, the go-live consumer (passes through unless a Mode 3 search of that autonomy is in its game B13).
         // kAutLive packages only (default True since O6): the pass-through costs one interpreter frame under every meta B14 (docs/130 §11 budget).
@@ -571,6 +575,7 @@ namespace Ts3Fixes
                 sFeatNative = AutShadowNative.Config(34) == 1;  // 0.36.148+: Config(33) job bits and SearchMark
                 sActorScope = AutShadowNative.Config(35) == 1;
                 if (sActorScope) AutShadowNative.ActorScope(1);  // sim thread: a no-op that resolves the icall before the worker needs it
+                sDumpCut = AutShadowNative.Config(3) != 0 && AutShadowNative.Config(37) == 1;
                 AutShadowNative.SetRefs(sEmpty, sFmtException);
                 const BindingFlags st = BindingFlags.Static | BindingFlags.NonPublic;
                 AutShadowNative.SetMethods(typeof(Fixes).GetMethod("AutFinish", st).MethodHandle.Value,
@@ -1340,6 +1345,7 @@ namespace Ts3Fixes
                 AutNum(s, "ref", sRef.Score[i]); AutNum(s, "work", sWork.Score[i]); AutNum(s, "refMeta", sRef.Meta[o]); AutNum(s, "workMeta", sWork.Meta[o]);
                 s.Append(",\"refCode\":").Append(sRef.Code[i]).Append(",\"workCode\":").Append(sWork.Code[i]).Append('}');
                 AutShadowNative.Log(s.ToString());
+                if (sDumpCut) AutShadowNative.DumpCut(sReq.Obj[o].ObjectId.Value);  // the rows behind this pair, after its A line
             }
             catch (Exception) { }
         }
@@ -1693,7 +1699,22 @@ namespace Ts3Fixes
             {
                 if (!OnWorker())
                 {   // docs/125 addendum §4.1: a recalculation inside the reference draws from a scratch stream
-                    if (!sInRef) return AllowedOrig(lotId, roomId);
+                    if (!sInRef)
+                    {   // docs/97 AM-1 H2 (AutRoomMemo.cs, autroommemo): exact per-segment memo inside autonomy pairs
+                        Sim ms = (Sim)(object)this;
+                        bool kept;
+                        int k = ArmLookup(ms, lotId, roomId, out kept);
+                        if (k == 1)
+                        {
+                            if (!VerifyNow("autroommemoverify")) return kept;
+                            bool g = AllowedOrig(lotId, roomId);
+                            if (g != kept) PatchCounters()[1028]++;
+                            return g;
+                        }
+                        bool r = AllowedOrig(lotId, roomId);  // throws as the game's does (nothing kept)
+                        if (k == 0) ArmStore(ms, lotId, roomId, r);
+                        return r;
+                    }
                     AutShadowNative.RngPause(1);
                     try { return AllowedOrig(lotId, roomId); }
                     finally { AutShadowNative.RngPause(0); }

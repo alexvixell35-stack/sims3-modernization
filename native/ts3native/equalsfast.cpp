@@ -35,6 +35,11 @@ typedef const u8*(__cdecl* EqFieldsFn)(const u8* klass, void** iter);
 static EqFn g_eqOrig;  // the trampoline: vanilla InternalEquals
 static EqFieldsFn g_eqGetFields = (EqFieldsFn)(uintptr_t)EQ_GETFIELDS;
 static CRITICAL_SECTION* g_eqLoaderCs = (CRITICAL_SECTION*)(uintptr_t)TS3A(0x011F43A8);
+// [EqualsFast] SmallEnums=1 (docs/258 §5 extension, default 0): 1- and 2-byte enums (one instance field value__ of kind
+// I1/U1/I2/U2). Vanilla boxes both values into the pair array and returns false; the managed caller's loop then runs
+// SByte/Byte/Int16/UInt16.Equals, a value compare. The plan's byte compare gives the same boolean with *fields = NULL, so
+// the result matches but the two boxes and the pair array are not allocated (allocation counts change; hence a sub-switch).
+static bool g_eqSmallEnums;
 
 enum { EQ_MAXF = 8, EQ_TAB = 8192, EQ_POOL = 4096, EQ_PROBE = 16 };
 struct EqPlan {
@@ -74,6 +79,7 @@ static LONG EqBuild(const u8* klass, EqPlan* p) {
     p->klass = klass;
     if (klass[0xA6] != 0x11) return -1;  // byval_arg (+0xA0) .type: MONO_TYPE_VALUETYPE (enums too); 0x15 = GENERICINST
     LONG n = 0;
+    bool hasSmall = false;
     void* iter = NULL;
     for (const u8* f; (f = g_eqGetFields(klass, &iter)) != NULL;) {  // MonoClassField: +0 type, +8 offset, +0xC name
         const u8* type = *(const u8* const*)f;
@@ -81,7 +87,9 @@ static LONG EqBuild(const u8* klass, EqPlan* p) {
         if (attrs & 0x10) continue;  // static
         if ((attrs & 0x600) && !strcmp(*(const char* const*)(f + 0xC), "_Deleted")) continue;
         const u8 t = type[6];
-        const u8 size = t == 0x08 || t == 0x09 ? 4 : t == 0x0A || t == 0x0B ? 8 : 0;  // I4 U4 : I8 U8
+        u8 size = t == 0x08 || t == 0x09 ? 4 : t == 0x0A || t == 0x0B ? 8 : 0;  // I4 U4 : I8 U8
+        if (!size && g_eqSmallEnums && t >= 0x04 && t <= 0x07 && !strcmp(*(const char* const*)(f + 0xC), "value__"))
+            size = t <= 0x05 ? 1 : 2, hasSmall = true;  // I1 U1 : I2 U2 enum backing field
         if (!size) return -2;
         const DWORD off = *(const DWORD*)(f + 8);
         if (n == EQ_MAXF || off > 0xFFF0) return -3;
@@ -89,7 +97,7 @@ static LONG EqBuild(const u8* klass, EqPlan* p) {
         p->size[n] = size;
         n++;
     }
-    return n;
+    return hasSmall && n != 1 ? -2 : n;  // a small field only as an enum's sole value__
 }
 
 static void EqLearn(const u8* klass) {
@@ -100,7 +108,7 @@ static void EqLearn(const u8* klass) {
     if (i >= EQ_POOL) { k.eqFtFull++; return; }
     EqPlan* p = &g_eqPool[i];
     p->n = EqBuild(klass, p);
-    if (p->n >= 0) k.eqPlans++;
+    if (p->n >= 0) k.eqPlans++, k.eqSmall += p->n == 1 && p->size[0] < 4;
     else {
         k.eqRejects++;
         if (p->n == -1) k.eqRejGeneric++;
@@ -129,8 +137,11 @@ static bool __cdecl EqHook(const u8* self, const u8* that, void** fields) {
         bool eq = true;
         for (LONG i = 0; i < p->n && eq; i++) {
             const DWORD o = p->off[i];
-            eq = *(const DWORD*)(self + o) == *(const DWORD*)(that + o) &&
-                 (p->size[i] == 4 || *(const DWORD*)(self + o + 4) == *(const DWORD*)(that + o + 4));
+            const u8 sz = p->size[i];
+            eq = sz == 1   ? self[o] == that[o]
+                 : sz == 2 ? *(const WORD*)(self + o) == *(const WORD*)(that + o)
+                           : *(const DWORD*)(self + o) == *(const DWORD*)(that + o) &&
+                                 (sz == 4 || *(const DWORD*)(self + o + 4) == *(const DWORD*)(that + o + 4));
         }
         *fields = NULL;
         k.eqHits++;
@@ -152,10 +163,11 @@ static bool ApplyEqualsFast(const wchar_t* ini) {
 #endif
     if (!InstallDetour("ValueType.InternalEquals (equals fast)", EQ_ICALL, kEqPrologue, sizeof(kEqPrologue), (void*)EqHook, &g_eqOrig))
         return false;  // DetourCore logged the SKIP
+    g_eqSmallEnums = GetPrivateProfileIntW(L"EqualsFast", L"SmallEnums", 0, ini) == 1;
     EQ_CTR.eqMode = 1;
     EQ_CTR.eqOn = 1;
     Log("OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, "
-        "no loader lock (switch eqMode +0x5F94, --ab equalsfast)");
+        "no loader lock (switch eqMode +0x5F94, --ab equalsfast), SmallEnums=%d", g_eqSmallEnums ? 1 : 0);
     return true;  // the plan lines
 }
 #endif

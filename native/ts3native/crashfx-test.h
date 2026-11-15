@@ -6,13 +6,58 @@ static int g_cfFakeErase, g_cfFakeClr;
 static DWORD* __fastcall CfFakeErase(void*, void*, DWORD* it, u8*, DWORD*) { g_cfFakeErase++; return it; }
 static void __fastcall CfFakeClr(u8*, void*) { g_cfFakeClr++; }
 
+// lane L7 (docs/254 R2, docs/260 §7): the CtOsFault gate by image range, and the .rdata check on this selftest image: no
+// writable page at first; one page made read-write and one dword changed = that page listed and the dword named; a known
+// "vtable" in that page reads DIFF; protection and value restored.
+static const DWORD kCfRdTest[2048] = {0x11111111, 0x22222222, 0x33333333};  // 8 KB of .rdata: holds one whole page
+static void TestCfL7() {
+    const DWORD e0 = g_cfExeLo, e1 = g_cfExeHi, c0 = g_cfCrtLo, c1 = g_cfCrtHi;
+    g_cfExeLo = g_cfExeHi = g_cfCrtLo = g_cfCrtHi = 0;
+    assert(!CfOsGate(0x005E621C));  // no ranges: nothing passes
+    g_cfExeLo = 0x00400000, g_cfExeHi = 0x0125A000, g_cfCrtLo = 0x78130000, g_cfCrtHi = 0x781CB000;
+    assert(CfOsGate(0x005E621C) && CfOsGate(0x78138C3A) && !CfOsGate(0x6F5E672C) && !CfOsGate(0x0125A000) && !CfOsGate(0x781CB000));
+    CfModInit();
+    assert(CfOsGate((DWORD)(uintptr_t)&TestCfL7));  // this exe plays TS3W
+    g_cfExeLo = e0, g_cfExeHi = e1, g_cfCrtLo = c0, g_cfCrtHi = c1;
+
+    wchar_t exe[MAX_PATH];
+    GetModuleFileNameW(NULL, exe, MAX_PATH);
+    const u8* img = (const u8*)GetModuleHandleW(NULL);
+    const DWORD pg = ((DWORD)(uintptr_t)kCfRdTest + 4095) & ~4095u, word = pg + 0x40;
+    DWORD known[2] = {word, 0};
+    const DWORD* k0 = g_cfRdKnown;
+    g_cfRdKnown = known;
+    static char t[2560];
+    CfRdataText(img, exe, t, sizeof(t));
+    assert(strstr(t, "writable: none (0 pages); 0 dwords differ") && strstr(t, " same"));
+    DWORD old = 0;
+    assert(VirtualProtect((void*)(uintptr_t)pg, 4096, PAGE_READWRITE, &old));
+    const DWORD v0 = *(volatile const DWORD*)(uintptr_t)word;
+    *(volatile DWORD*)(uintptr_t)word = v0 ^ 0xA0;
+    CfRdataText(img, exe, t, sizeof(t));
+    char want[64];
+    sprintf_s(want, " 0x%08lX-0x%08lX (protect", pg, pg + 4096);
+    assert(strstr(t, want) && strstr(t, "(1 pages); 1 dwords differ"));
+    sprintf_s(want, " 0x%08lX %08lX (file %08lX", word, v0 ^ 0xA0, v0);
+    assert(strstr(t, want) && strstr(t, " DIFF (slot 0"));
+    *(volatile DWORD*)(uintptr_t)word = v0;
+    DWORD tmp;
+    assert(VirtualProtect((void*)(uintptr_t)pg, 4096, old, &tmp));
+    CfRdataText(img, exe, t, sizeof(t));
+    assert(strstr(t, "writable: none"));
+    CfRdataText(img, L"Z:\\no\\such.exe", t, sizeof(t));  // no file: pages still listed, nothing compared
+    assert(strstr(t, "exe file not readable") && strstr(t, "0 dwords differ"));
+    g_cfRdKnown = k0;
+    printf("crash forensics: CtOsFault gate (TS3W / MSVCR80 ranges), .rdata check (writable page, changed dword, known vtable) ok\n");
+}
+
 static void TestCrashForensics() {
     static_assert(offsetof(Ts3nCounters, cfReady) == 0x4770 && offsetof(Ts3nCounters, cfCalls) == 0x4778 && offsetof(Ts3nCounters, cfBad) == 0x4780 &&
                       offsetof(Ts3nCounters, cfRingHit) == 0x4788 && offsetof(Ts3nCounters, cfHeapBad) == 0x478C &&
                       offsetof(Ts3nCounters, cfDumps) == 0x4790,
                   "counters v114 layout after v113 (docs/registry.md)");
     static_assert(offsetof(Ts3nCounters, cdReady) == 0x4794 && offsetof(Ts3nCounters, cdBad) == 0x4798 &&
-                      offsetof(Ts3nCounters, ceRecs) == 0x47A8 && sizeof(Ts3nCounters) == 6357 * 4,
+                      offsetof(Ts3nCounters, ceRecs) == 0x47A8 && sizeof(Ts3nCounters) == 6409 * 4,
                   "counters v115 layout after v114 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
@@ -164,6 +209,7 @@ static void TestCrashForensics() {
     VirtualFree(pg, 0, MEM_RELEASE);
     g_cfOn = 0, g_cfEraseOrig = NULL, g_cfClrOrig = NULL, g_cfVtLo = g_cfVtHi = 0, g_cfDumpN = 0, g_cfBadLogs[0] = g_cfBadLogs[1] = 0, g_cfHeapLogs = 0;
     printf("crash forensics: ring wraparound, block lookup, heap check, erase/clear guards on dummies, trampoline, dump ok\n");
+    TestCfL7();
 }
 
 // docs/186 §8: our-events ring (off = nothing, wraparound, spans per tag) and the four draw guards on dummies: the model and
@@ -429,7 +475,7 @@ static __declspec(naked) void OrtCallRes() {  // as 0x6FA2DB: edi = the object, 
 
 static void TestCrashForensicsObjRes() {
     static_assert(offsetof(Ts3nCounters, mhReady) == 0x47C4 && offsetof(Ts3nCounters, mhFxQueued) == 0x47D8 &&
-                      sizeof(Ts3nCounters) == 6357 * 4, "counters v117 layout after v116 (docs/registry.md)");
+                      sizeof(Ts3nCounters) == 6409 * 4, "counters v117 layout after v116 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const DWORD savedMain = g_mainTid;
     g_mainTid = GetCurrentThreadId();

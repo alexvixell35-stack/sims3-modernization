@@ -79,6 +79,8 @@ static int UdDbpfCount(const u8* hdr, size_t hdrN, const u8* idx, size_t idxN, D
     return n;
 }
 static const DWORD kUdS3SA = 0x073FAA07;  // script assembly resource
+// CC split by kind (docs/188 §1) [community: TS3 resource types]: CAS part, object definition
+static const DWORD kUdCASP = 0x034AEECB, kUdOBJD = 0x319E4F1D;
 
 // "PackedFile <pattern>" lines of a Resource.cfg (patterns are relative: no user path); returns their count.
 static int UdCfgPatterns(const char* txt, size_t n, UdList& l) {
@@ -194,7 +196,8 @@ static void UdMemAdd(UdMemStat& s, const MEMORY_BASIC_INFORMATION& m) {
     (m.Type == MEM_IMAGE ? s.image : m.Type == MEM_MAPPED ? s.mapped : s.priv) += m.RegionSize;
     if (m.Type == MEM_MAPPED && (uintptr_t)m.BaseAddress - s.ownLo < s.ownLen) s.ownMapped += m.RegionSize;
 }
-static const DWORD kUdLowBigMB = 256;  // largest free block under this: Error 12 / crash-on-save territory (docs/66)
+// largest free block under this: Error 12 / crash-on-save territory (docs/66); [UserDiag] LowSpaceMB (64-1024, default 256)
+static DWORD g_udLowMB = 256;
 static const char* UdLimitText(u64 top) {  // top = highest user address + 1
     return top > (3ull << 30) ? "4 GB (large address aware, 64-bit Windows)" : top > (2ull << 30) ? "3 GB (large address aware, /3GB)"
                                                                                : "2 GB (NOT large address aware)";
@@ -207,8 +210,8 @@ static void UdMemFormat(char* out, size_t cap, const char* what, const UdMemStat
               (DWORD)(s.big2 >> 20), lowMB, (DWORD)(s.image >> 20), (DWORD)(s.mapped >> 20), (DWORD)(s.priv >> 20), walkUs, s.regions);
 }
 static bool UdMemLow(char* out, size_t cap, DWORD bigMB) {  // the warning line, false = no warning
-    if (bigMB >= kUdLowBigMB) return false;
-    sprintf_s(out, cap, "diag: low address space: largest free block %lu MB (under %lu) - risk of Error 12 / crash on save", bigMB, kUdLowBigMB);
+    if (bigMB >= g_udLowMB) return false;
+    sprintf_s(out, cap, "diag: low address space: largest free block %lu MB (under %lu) - risk of Error 12 / crash on save", bigMB, g_udLowMB);
     return true;
 }
 static volatile DWORD g_udLowBigMB = 0xFFFFFFFF;  // session low of the largest free block
@@ -363,7 +366,7 @@ static void UdBinLines(const wchar_t* bin) {
 }
 
 static const DWORD kUdIdxCap = 1 << 21;  // index read cap 2 MB (~65k entries); a bigger index counts as no script
-struct UdScan { int files, script, deep; u64 bytes; u8* idx; UdList names, scripts; };
+struct UdScan { int files, script, deep, cas, obj; u64 bytes; u8* idx; UdList names, scripts; };
 static void UdScanPackages(const wchar_t* dir, int depth, UdScan& s) {
     wchar_t pat[MAX_PATH], p[MAX_PATH];
     if (swprintf_s(pat, L"%s\\*", dir) < 0) return;
@@ -394,10 +397,13 @@ static void UdScanPackages(const wchar_t* dir, int depth, UdScan& s) {
             LARGE_INTEGER at;
             at.QuadPart = pos;
             DWORD got = 0;
-            if (s.idx && size && size <= kUdIdxCap && SetFilePointerEx(fh, at, NULL, FILE_BEGIN) && ReadFile(fh, s.idx, size, &got, NULL) &&
-                UdDbpfCount(hdr, sizeof(hdr), s.idx, got, kUdS3SA) > 0) {
-                s.script++;
-                if (s.script <= 100) UdListAdd(s.scripts, name);
+            if (s.idx && size && size <= kUdIdxCap && SetFilePointerEx(fh, at, NULL, FILE_BEGIN) && ReadFile(fh, s.idx, size, &got, NULL)) {
+                if (UdDbpfCount(hdr, sizeof(hdr), s.idx, got, kUdS3SA) > 0) {
+                    s.script++;
+                    if (s.script <= 100) UdListAdd(s.scripts, name);
+                }
+                s.cas += UdDbpfCount(hdr, sizeof(hdr), s.idx, got, kUdCASP) > 0;
+                s.obj += UdDbpfCount(hdr, sizeof(hdr), s.idx, got, kUdOBJD) > 0;
             }
         }
         CloseHandle(fh);
@@ -479,8 +485,9 @@ static void UdModsLines(const wchar_t* user) {
     UdScanPackages(p, 0, s);
     if (s.idx) VirtualFree(s.idx, 0, MEM_RELEASE);
     // shortcut: *.package directly in Mods (not loaded by the usual Resource.cfg) and Overrides are not counted
-    Log("diag: Mods\\Packages %d .package files, %llu MB, %d with scripts (S3SA), %d other (CC, tuning), %d folders deeper than 5 not read; scan %ld ms",
-        s.files, s.bytes >> 20, s.script, s.files - s.script, s.deep, UsSince(t0) / 1000);
+    Log("diag: Mods\\Packages %d .package files, %llu MB, %d with scripts (S3SA), %d other (CC, tuning), %d folders deeper than 5 not read; scan %ld ms; "
+        "CC by kind: %d with CAS parts (CASP), %d with objects (OBJD)",
+        s.files, s.bytes >> 20, s.script, s.files - s.script, s.deep, UsSince(t0) / 1000, s.cas, s.obj);
     UdListFlush(s.scripts);
     UdListFlush(s.names);
     if (s.files > 200) Log("diag: packages: %d more names not listed", s.files - 200);
@@ -811,8 +818,14 @@ static DWORD WINAPI UdDogMain(LPVOID) {
         char wt[96] = "", rs[200];
         if (w) sprintf_s(wt, ", waiting for %s for %lu s", w, (now - g_udWaitTick) / 1000);
         UdRouteState(rs, sizeof(rs));
-        Log("save: still running after %lu s: phase %s for %lu s%s; %s; backup worker %s %ld files %ld MB", (now - g_udSaveTick) / 1000,
-            p ? p : "?", (now - g_udPhaseTick) / 1000, wt, rs, g_sjActive ? "copying," : "idle,", g_sjFiles, g_sjKb >> 10);
+        // docs/188 §6: the address-space state of a stuck save (a walk on this thread, ~5-20 ms per 5 s line)
+        UdMemStat ms;
+        UdMemWalk(ms, NULL);
+        const DWORD big = (DWORD)(ms.big1 >> 20);
+        char low[48] = "";
+        if (big < g_udLowMB) sprintf_s(low, " - LOW (under %lu MB)", g_udLowMB);
+        Log("save: still running after %lu s: phase %s for %lu s%s; %s; backup worker %s %ld files %ld MB; largest free %lu MB%s", (now - g_udSaveTick) / 1000,
+            p ? p : "?", (now - g_udPhaseTick) / 1000, wt, rs, g_sjActive ? "copying," : "idle,", g_sjFiles, g_sjKb >> 10, big, low);
     }
     if (g_udSaveDir[0]) {  // after the save: its folder size, off the sim thread
         int files = 0;
@@ -892,6 +905,8 @@ static bool ApplyUserDiag(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"UserDiag", L"Enabled", 1, ini)) { Log("user diag off (Enabled=0)"); return false; }
     g_udOn = true;
     wcscpy_s(g_udIni, ini);
+    const int lowMB = (int)GetPrivateProfileIntW(L"UserDiag", L"LowSpaceMB", 256, ini);
+    g_udLowMB = lowMB < 64 ? 64 : lowMB > 1024 ? 1024 : (DWORD)lowMB;
     wchar_t exe[MAX_PATH];
     GetModuleFileNameW(NULL, exe, MAX_PATH);
     if (!g_crExe[0]) wcscpy_s(g_crExe, exe);  // scrubber needles (crashreport.cpp fills them only with [CrashReport] on)

@@ -58,6 +58,7 @@ namespace Ts3Agent
             AddRoot("sim", delegate { return PlumbBob.SelectedActor; });
             AddRoot("household", delegate { return Household.ActiveHousehold; });
             AddRoot("lot", delegate { return PlumbBob.SelectedActor != null ? PlumbBob.SelectedActor.LotCurrent : null; });
+            AddRoot("far", delegate { return FindLotByName("far"); });  // the community lot farthest from the active Sim (docs/267 repros)
         }
 
         // ------------------------------------------------------------ async work
@@ -394,6 +395,30 @@ namespace Ts3Agent
             return Util.FindObject(a, key);
         }
 
+        // true when t or one of its base classes is named `name` (case-insensitive): "BoxStall" matches every stall subclass
+        internal static bool IsOfTypeName(Type t, string name)
+        {
+            for (; t != null && t != typeof(object); t = t.BaseType)
+                if (string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
+
+        // "@type:<class>" (ReflectHandlers): the in-world object of that class nearest the selected Sim (any one when none is selected)
+        internal static GameObject NearestOfType(string name)
+        {
+            Sim me = PlumbBob.SelectedActor;
+            GameObject best = null;
+            float bestD = float.MaxValue;
+            foreach (GameObject o in Sims3.Gameplay.Queries.GetObjects<GameObject>())
+            {
+                if (o == null || !o.InWorld || o.HasBeenDestroyed || !IsOfTypeName(o.GetType(), name)) continue;
+                float d = me != null ? (o.Position - me.Position).Length() : 0f;
+                if (d < bestD) { best = o; bestD = d; }
+            }
+            if (best == null) throw new McpException("no " + name + " in this world");
+            return best;
+        }
+
         // ------------------------------------------------------------ interactions
 
         class MenuEntry
@@ -540,6 +565,16 @@ namespace Ts3Agent
         {
             string w = wanted.Trim().ToLowerInvariant();
             List<MenuEntry> enabled = menu.FindAll(delegate(MenuEntry e) { return e.Enabled; });
+            // "def:<part>": by the definition's class name, e.g. "def:TombTrap+Disarm" (labels are localized; decompiled class names are not)
+            if (w.StartsWith("def:"))
+            {
+                string d = w.Substring(4);
+                foreach (MenuEntry e in enabled)
+                    if (e.Iop != null && e.Iop.InteractionDefinition != null && e.Iop.InteractionDefinition.GetType().FullName.ToLowerInvariant().IndexOf(d) >= 0) return e;
+                List<string> defs = new List<string>();
+                foreach (MenuEntry e in menu) if (e.Iop != null && e.Iop.InteractionDefinition != null) defs.Add(e.Iop.InteractionDefinition.GetType().Name + (e.Enabled ? "" : " (off)"));
+                throw new McpException("no enabled interaction definition matching '" + d + "'; menu: " + string.Join("; ", defs.ToArray()));
+            }
             foreach (MenuEntry e in enabled) if (e.Label.ToLowerInvariant() == w) return e;
             // Match on the last path segment ("Prepare Food / Mac & Cheese" -> "Mac & Cheese").
             List<MenuEntry> hits = enabled.FindAll(delegate(MenuEntry e)
@@ -652,7 +687,7 @@ namespace Ts3Agent
             }
             else if (a.Has("to")) pos = RequireRarePoint(s, a.Str("to"));  // "pond", "ocean", "far" (RareHandlers)
             else pos = new Vector3((float)a.Double("x"), (float)a.Double("y", 0), (float)a.Double("z"));
-            pos = WalkableClick(s, pos);
+            if (!IsSealed(a)) pos = WalkableClick(s, pos);  // "sealed" (docs/264 §3) must stay unreachable
             InteractionInstance ii = Terrain.GoHere.GetSingleton(s, pos).CreateInstance(Terrain.Singleton, s,
                 new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
             Terrain.GoHere gh = ii as Terrain.GoHere;
@@ -945,12 +980,50 @@ namespace Ts3Agent
 
         static readonly Dictionary<string, bool> sNotInventoriable = new Dictionary<string, bool>();  // product keys a Sim inventory refused (buy_object sim_inventory)
 
+        static readonly Dictionary<string, string> sProductOfType = new Dictionary<string, string>();  // class name -> product key (buy_object type)
+
+        // buy_object {type: <class>, name?: catalogue-name hint, ...the other buy_object args}: the first catalogue product whose
+        // object is that class or a subclass (IsOfTypeName). Catalogue names are localized and EA class names are not, so EP
+        // repros name the class (docs/267). Products matching the name hint, the class name or the OBJD instance name are tried
+        // first, then the rest; each try creates the object out of world and destroys it. The key is cached per class.
+        // shortcut: at most 800 tries per call (a paused-setup hitch of a second or two), upgrade to a class index if repros need more
+        static object BuyOfType(Args a)
+        {
+            string type = a.Str("type").Trim(), hint = a.Str("name", type).ToLowerInvariant(), tl = type.ToLowerInvariant();
+            string pk;
+            if (!sProductOfType.TryGetValue(tl, out pk))
+            {
+                List<BuildBuyProduct> first = new List<BuildBuyProduct>(), rest = new List<BuildBuyProduct>();
+                foreach (BuildBuyProduct p in Catalog())
+                    if ((p.CatalogName ?? "").ToLowerInvariant().IndexOf(hint) >= 0 || (p.ObjectInstanceName ?? "").ToLowerInvariant().IndexOf(tl) >= 0) first.Add(p); else rest.Add(p);
+                first.AddRange(rest);
+                int tries = 0;
+                foreach (BuildBuyProduct p in first)
+                {
+                    if (++tries > 800) break;
+                    GameObject g = null;
+                    try { g = GlobalFunctions.CreateObjectOutOfWorld(p.ProductResourceKey) as GameObject; } catch (Exception) { }
+                    if (g == null) continue;
+                    bool hit = IsOfTypeName(g.GetType(), type);
+                    try { g.Destroy(); } catch (Exception) { }
+                    if (hit) { pk = KeyString(p.ProductResourceKey); break; }
+                }
+                if (pk == null) throw new McpException("buy_object: no catalogue product makes a " + type + " (" + Math.Min(tries, first.Count) + " tried; pack not installed?)");
+                sProductOfType[tl] = pk;
+            }
+            Dictionary<string, object> args = new Dictionary<string, object>();
+            foreach (string k in new string[] { "free", "near", "x", "y", "z", "on_lot", "to_inventory" }) if (a.Has(k)) args[k] = a.Raw(k);
+            args["product"] = pk;
+            return BuyObject(new Args(args));
+        }
+
         static object BuyObject(Args a)
         {
             // Live or Buy mode: GateHandlers wraps it (kLiveOrBuy), so the story buy flow runs inside Buy mode (docs/171 §16)
             if (a.Bool("pool", false)) return BuyFromInvPool(a);  // inv_pool products, distinct (BuildCcHandlers.cs)
             // product = key; or name = catalogue name part (e.g. "CCGen", docs/191 synthetic CC) + nth = which match (mod count)
             BuildBuyProduct prod = null;
+            if (a.Has("type")) return BuyOfType(a);
             string key = a.Has("name") ? null : a.Str("product");
             List<BuildBuyProduct> hits = new List<BuildBuyProduct>();
             foreach (BuildBuyProduct p in Catalog())
@@ -1004,7 +1077,7 @@ namespace Ts3Agent
             Lot home = hh.LotHome;
             if (onLot && home == null) { go.Destroy(); throw new McpException("the active household has no home lot"); }
             if (onLot) pos = Vector3.Zero;
-            else if (a.Has("near")) pos = FindTarget(a, "near").Position;
+            else if (a.Has("near")) { GameObject nt = FindTarget(a, "near"); pos = nt is Lot ? ((Lot)nt).GetCenterPosition() : nt.Position; }  // a lot ("@far"): its centre, not its corner
             else if (a.Has("x")) pos = new Vector3((float)a.Double("x"), (float)a.Double("y", 0), (float)a.Double("z"));
             else pos = Util.ActiveSim().Position;
             Vector3 fwd = Vector3.UnitZ;

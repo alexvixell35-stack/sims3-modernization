@@ -310,6 +310,41 @@ namespace Ts3Fixes
         // docs/222 §11.8 enqueue-to-start wait bins in ticks: <= 1, 2-9, 10-49, 50-199, 200+
         public static int QueueBin(int ticks) { return ticks <= 1 ? 0 : ticks < 10 ? 1 : ticks < 50 ? 2 : ticks < 200 ? 3 : 4; }
 
+        // docs/124 §3.1 tuning rule as a per-pair fingerprint (Rodney 2026-11-15, switch autlivetune): the reader in
+        // AutLive.cs TuneFp mixes the InteractionTuning fields a pushed pick reads and Retuner-style mods edit in place
+        // (Retuner's SeasonSettings Apply: tuning flags, Availability flags and age/species, the advertised outputs'
+        // constant change), plus the other Availability thresholds the Test reads and the Tradeoff values the score reads:
+        // kScalars fixed values + kPerOutput per Tradeoff output. Not covered: mInputs, mChecks, trait/buff/world lists
+        // (only their count), static [Tunable] fields. FNV-1a over 32-bit words with a final avalanche.
+        public static class TunFp
+        {
+            public const int kScalars = 22, kPerOutput = 3;
+            public const uint kSeed = 2166136261u;
+            [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit)]
+            struct F2I { [System.Runtime.InteropServices.FieldOffset(0)] public float F; [System.Runtime.InteropServices.FieldOffset(0)] public int I; }
+            public static uint Mix(uint h, int v) { unchecked { return (h ^ (uint)v) * 16777619u; } }
+            public static uint Mix64(uint h, long v) { return Mix(Mix(h, (int)v), (int)(v >> 32)); }
+            public static uint MixF(uint h, float f) { F2I u = new F2I(); u.F = f; return Mix(h, u.I); }
+            public static uint End(uint h) { unchecked { h ^= h >> 16; h *= 0x85EBCA6Bu; h ^= h >> 13; h *= 0xC2B2AE35u; h ^= h >> 16; return h; } }
+        }
+
+        // docs/124 §7.2 G8 pick histogram groups: actor class (u unseen, s seen, h household scope: household or unknown, which
+        // wins over unseen) x path (d worker direct pick, x exact consumer, g the game's search); name "<class>.<path>"
+        public static class PickGroup
+        {
+            public const int kDirect = 0, kExact = 1, kGame = 2, kPaths = 3, kN = 9;
+            static readonly string[] sNames = { "u.d", "u.x", "u.g", "s.d", "s.x", "s.g", "h.d", "h.x", "h.g" };
+            public static int Class(bool unseen, bool householdScope) { return householdScope ? 2 : unseen ? 0 : 1; }
+            public static int Index(int cls, int path) { return cls * kPaths + path; }
+            public static string Name(int i) { return sNames[i]; }
+            public static Dictionary<string, int>[] NewTables()
+            {
+                Dictionary<string, int>[] t = new Dictionary<string, int>[kN];
+                for (int i = 0; i < kN; i++) t[i] = new Dictionary<string, int>();
+                return t;
+            }
+        }
+
         public sealed class Pace
         {
             public double ChargedMs;

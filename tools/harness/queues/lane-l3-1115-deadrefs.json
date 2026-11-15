@@ -1,0 +1,99 @@
+{
+  "note": "lane L3 1115 (not run): correctness repros of deadrefcooking (phase 14), deadrefconvo (phase 15) and takeariskguard, off then on in one load each, BP 10 min, switches set and read back by the repro steps, 0 script errors, household untouched (the seeds use townies only; takeariskguard puts the career back). Build ts3fixes.lane-L3-1115 + ts3agent.lane-L3-1115.",
+  "jobs": [
+    {
+      "id": "bp-cooking-handler-gone-check",
+      "note": "Correctness (10 min): repro cooking-handler-gone-check. Pass: its steps pass (expect left: off, both seeded handlers stay; expect cleaned: on, phase 14 removed both and the dead process listener; each throws otherwise); 0 script errors",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change; ts3fixes master-lanes-1115 (master 84ee284f, the lane merged; repinned from the lane build 2026-11-15)",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "cooking-handler-gone-check",
+          "fixesRequire": "deadrefcooking_handlers>=2"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 18,
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:deadrefcooking_handlers",
+          "op": ">=",
+          "value": 2,
+          "why": "the on arm removed fewer than 2 handlers: phase missing, sweep refused, or the seed failed"
+        }
+      ]
+    },
+    {
+      "id": "bp-conversation-gone-check",
+      "note": "Correctness (10 min): repro conversation-gone-check. Pass: its steps pass (expect left: off, the gone member stays; expect cleaned: on, phase 15 removed it, one member left); deadrefconvo_household 0; 0 script errors",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change; ts3fixes master-lanes-1115 (master 84ee284f, the lane merged; repinned from the lane build 2026-11-15)",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "conversation-gone-check",
+          "fixesRequire": "deadrefconvo_members>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 18,
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:deadrefconvo_members",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm removed no member: phase missing, sweep refused, or the seed failed"
+        }
+      ]
+    },
+    {
+      "id": "bp-takeariskguard-check",
+      "note": "Correctness (10 min): repro takeariskguard-check. Pass: expect throws (off) and expect guarded (on) both pass; 0 script errors besides the off arm caught throws",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change; ts3fixes master-lanes-1115 (master 84ee284f, the lane merged; repinned from the lane build 2026-11-15)",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "takeariskguard-check",
+          "fixesRequire": "takeariskguard_skips>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 18,
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:takeariskguard_skips",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm skipped nothing: hook not applied or the check failed"
+        }
+      ]
+    }
+  ],
+  "stopQueueOnFail": false
+}

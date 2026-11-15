@@ -458,3 +458,69 @@ static void AaDrainFaultDump(const CONTEXT* c) {
             e.obj ? "obj" : "sim", (DWORD)(uintptr_t)e.actor, e.hi, e.lo, e.owedUs, e.pass);
     }
 }
+
+// [AnimPhase] (docs/22 §6, docs/23 Next big wins #8 gate G10; counters v201 an*): per-phase timers inside rig pose 0x940430,
+// the gate for the phase split (docs/22 §7). Measurement only: four `call rel32` sites inside 0x940430 go through a timing
+// wrapper that calls EA's callee with the same registers and arguments. Both animation passes reach these sites (0x571B90
+// directly, 0x571AD0 through 0x942C50). Sites [verified disassembly, Steam 1.67, this note]:
+//   0x940569 -> 0x583D00 TrackManager Advance, thiscall(tm; float dt, p, p), `ret 0xC`, eax used (`mov esi,eax`)
+//   0x94059E -> 0x947590 routing notify, thiscall(c; int, int), `ret 8`, eax unused
+//   0x940742 -> 0x5833C0 Evaluate (blend into the pose buffer), thiscall(tm; buf, owner), `ret 8`, eax pushed next
+//   0x94118B -> 0x959670 transform publish, thiscall(c; p), `ret 4`, eax unused
+// None of the callees relies on the caller's 16-byte stack alignment: 0x959670 aligns its own frame (`and esp,-16`),
+// 0x583D00 / 0x5833C0 only `sub esp` [verified prologues]. Advance count vs Evaluate count = the share reaching step 6.
+// shortcut: clip events (0x568710) are not counted; Frida (docs/22 §6) if the split needs them.
+typedef DWORD(__fastcall* AnFn3)(void* self, void* edx, DWORD a, DWORD b, DWORD c);
+typedef DWORD(__fastcall* AnFn2)(void* self, void* edx, DWORD a, DWORD b);
+typedef DWORD(__fastcall* AnFn1)(void* self, void* edx, DWORD a);
+static AnFn3 g_anAdv = (AnFn3)(uintptr_t)TS3A(0x00583D00);
+static AnFn2 g_anNot = (AnFn2)(uintptr_t)TS3A(0x00947590), g_anEval = (AnFn2)(uintptr_t)TS3A(0x005833C0);
+static AnFn1 g_anPub = (AnFn1)(uintptr_t)TS3A(0x00959670);
+static void AnAdd(LONG* c, LARGE_INTEGER t0) {  // c: n, us, maxUs
+    const LONG us = UsSince(t0);
+    InterlockedIncrement(&c[0]);
+    InterlockedExchangeAdd(&c[1], us);
+    Max(&c[2], us);
+}
+static DWORD __fastcall AnAdvHook(void* self, void* edx, DWORD dt, DWORD a, DWORD b) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const DWORD r = g_anAdv(self, edx, dt, a, b);
+    AnAdd(&ts3native_counters.anAdvN, t0);
+    return r;
+}
+static DWORD __fastcall AnNotHook(void* self, void* edx, DWORD a, DWORD b) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const DWORD r = g_anNot(self, edx, a, b);
+    AnAdd(&ts3native_counters.anNotN, t0);
+    return r;
+}
+static DWORD __fastcall AnEvalHook(void* self, void* edx, DWORD a, DWORD b) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const DWORD r = g_anEval(self, edx, a, b);
+    AnAdd(&ts3native_counters.anEvalN, t0);
+    return r;
+}
+static DWORD __fastcall AnPubHook(void* self, void* edx, DWORD a) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const DWORD r = g_anPub(self, edx, a);
+    AnAdd(&ts3native_counters.anPubN, t0);
+    return r;
+}
+
+// [AnimPhase] Enabled=1 (default 0, a test-run timer): all four sites or none
+static bool ApplyAnimPhase(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"AnimPhase", L"Enabled", 0, ini)) return false;
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP anim phase ([AnimPhase]): no EA 1.69 address, docs/232 §8"); return false; }
+#endif
+    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+    const CallSite sites[] = {{TS3A(0x00940569), TS3A(0x00583D00), (void*)AnAdvHook}, {TS3A(0x0094059E), TS3A(0x00947590), (void*)AnNotHook},
+                              {TS3A(0x00940742), TS3A(0x005833C0), (void*)AnEvalHook}, {TS3A(0x0094118B), TS3A(0x00959670), (void*)AnPubHook}};
+    if (!PatchCalls("anim phase timers in rig pose 0x940430 (advance, notify, evaluate, publish)", sites, 4)) return false;
+    ts3native_counters.anReady = 1;
+    return true;
+}

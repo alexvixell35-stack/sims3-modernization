@@ -119,5 +119,8 @@ jobs:
           missing=$(for f in $on; do grep -qF "$f" docs/PLAYERS.md || echo "$f"; done)
           test -z "$missing" || { echo "docs/PLAYERS.md does not list: $missing"; exit 1; }
           { echo; echo '---'; echo; cat docs/PLAYERS.md; } >> notes.md
+          # CI note on the release page (docs/HOW-WE-BUILD.md): what CI built, how to check the file, what it did not build
+          sha=$(sha256sum ts3native/ts3native.asi | cut -d' ' -f1)
+          { echo; echo '---'; echo; echo "**Built by CI.** \`ts3native.asi\` in the zip is built from this tag's source by GitHub Actions ([run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)), SHA-256 \`$sha\`. \`ts3fixes.package\` compiles against EA's own game files, which cannot be in CI, so the maintainer builds it from the same tag and attaches it by hand. Neither file is code-signed. Details: docs/HOW-WE-BUILD.md."; } >> notes.md
           (cd ts3native && zip -q "../ts3native-$TAG.zip" ts3native.asi ts3native.ini)
           gh release create "$TAG" "ts3native-$TAG.zip" --draft --title "$TAG" --notes-file notes.md

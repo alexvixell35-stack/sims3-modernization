@@ -47,7 +47,7 @@ struct Ts3nMtProbe {
     LONG arenaRelNonEmpty;   // +0x6C, 0xD71B70 release-all calls that found a non-empty chain (+0x13C now cleared after them)
     LONG arenaDropped;       // +0x70, pool nodes dropped: duplicate chunks at install, or a pooled chunk found in use (top != base)
     // v2: F1, worker-private call records for ScriptHost_NativeToManaged 0xD8A8E0 (N2mPrivate=1, docs/120 §9.4)
-    LONG n2mReady;           // +0x74, 1 = detour at 0xD8A8E0 installed
+    LONG n2mReady;           // +0x74, 1 = detour at 0xD8A8E0 installed, 2 = chained behind [Verify]'s stub there
     LONG n2mWorker;          // +0x78, entries on the worker (private records)
     LONG n2mMaxDepth;        // +0x7C, deepest private record nesting
     LONG n2mOverflow;        // +0x80, tripwire: nesting past the private records (that call took the game's shared chain)
@@ -868,7 +868,18 @@ static __declspec(naked) void MtN2mEntry() {
         jmp dword ptr [g_mtN2mCont]
     }
 }
+// docs/120 §9.4, docs/122 §12.4 "shared stub, one owner": [Verify]'s count-only nativeToManaged stub owns 0xD8A8E0 when it is
+// on (it installs at load, F1 at the first tick). verify.cpp points this at its trampoline slot; F1 then replaces the slot,
+// so Verify counts first and jumps into MtN2mEntry with the entry's stack. MtN2mEntry's game path runs the same 5 prologue
+// bytes and jumps to +5, as Verify's trampoline did (the bytes have no relative operand).
+static void* volatile* g_mtVfN2mSlot;
 static void MtInstallN2m() {
+    if (g_mtVfN2mSlot && *g_mtVfN2mSlot) {
+        InterlockedExchangePointer((void* volatile*)g_mtVfN2mSlot, (void*)MtN2mEntry);
+        ts3native_mtprobe.n2mReady = 2;
+        Log("OK   mono thread F1: chained behind [Verify] nativeToManaged at 0xD8A8E0 -> worker-private call records");
+        return;
+    }
     if (!Matches((void*)(uintptr_t)MT_N2M, kMtN2m, sizeof(kMtN2m))) { Log("SKIP mono thread F1: 0xD8A8E0 differs, nothing written"); return; }
     if (MtJmpTo(MT_N2M, (const void*)MtN2mEntry, 5)) ts3native_mtprobe.n2mReady = 1;
     Log("%s mono thread F1: 0xD8A8E0 -> worker-private call records", ts3native_mtprobe.n2mReady ? "OK  " : "FAIL");

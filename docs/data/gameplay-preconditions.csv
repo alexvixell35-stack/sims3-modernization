@@ -243,6 +243,7 @@ bad_tattoo,OutfitStressHandlers,Live,MagicMirror bad tattoo (one Sim at a time),
 bad_makeover,OutfitStressHandlers,Live,MagicMirror bad makeover (one Sim at a time),stress,townies only: active household skipped; outfit churn at a rate no player produces (issue #40 leak stress),handler,live
 pet_adopt,PetHandlers,Live,none for townies (EA adoption path forced on a townie household),cheat,townies only: active household skipped (issue #40 leak stress; not run in game yet),handler,live
 pet_give_away,PetHandlers,Live,none for townies (EA give-away path forced on a townie household),cheat,townies only: active household skipped (issue #40 leak stress; not run in game yet),handler,live
+spawn_horse,PetHandlers,Live,none for townies (a townie household gets an adult horse: EA adoption pool or MakeRandomPet),cheat,townies only: active household never gets the horse; needs EP5 (docs/267 F3; not run in game yet),handler,live
 social,SocialRoundHandlers,Live,none: EA social queued by name on two townies (forced Fight! included),cheat,townies only: active household skipped (issue #40 leak stress),handler,live
 social_round,SocialRoundHandlers,Live,none: a round of EA socials between townies at once,stress,townies only: active household skipped (issue #40 leak stress),handler,live
 make_celebrity,StoryHandlers,Live,none for townies (EA force-set-level cheat path; level 0 removes the status),cheat,townies only: active household skipped (issue #40 leak stress),handler,live
@@ -267,3 +268,10 @@ object_types,AutCensusHandlers,Live,none (read: game objects by type and in/out 
 doors,DoorHandlers,Live,none (read: doors and their lock types on a lot),harness,an active household with a home lot or a lot id,handler,none
 hitch_watch,HitchWatchHandlers,Live,none (harness sim task: stamps each tick and records Sim states around hitches; read),harness,start:true inside the world,handler,none
 household_routine,HitchWatchHandlers,Live,pie-menu clicks: one routine action (meal / outfit / shower / social / TV / ...) queued per household Sim and pet that is idle,natural,an active household with a home lot; a Sim with more than one queued interaction is left alone,handler,none
+ilp_remote_chat_check,DesignedReproHandlers,Live,none: one forced phone-chat round between two uncontrolled Sims with the target's Everyday outfits hidden for that call (docs/506 B80),cheat,uncontrolled Sims only,handler,live
+ilp_scavenger_check,DesignedReproHandlers,Live,none: scavenger opportunity OnAdded on unattached clones with yielding disabled (docs/506 B87),cheat,,handler,live
+velvet_bouncer,DesignedReproHandlers,Live,none: puts the club bouncer at the velvet rope and pushes WatchDoor (EA's own calls),stress,night hours; a velvet-rope venue (BP clubs),handler,live
+rel_onesided,DesignedReproHandlers,Live,none (read),harness,,handler,none
+nraas_reset_sims,DesignedReproHandlers,Live,NRaas MasterController-style reset of up to 10 uncontrolled Sims at once,stress,NRaas installed; never household or selected Sims,handler,live
+event_cost,DesignedReproHandlers,Any,none (diagnostics switch and read),harness,,handler,none
+place_cancel_loop,MemHandlers,Live,placing an inventory object and cancelling the hand tool again and again (50 rounds),stress,selected Sim's inventory; live mode,handler,none

@@ -27,6 +27,8 @@ static void TestUserDiag() {
     *(DWORD*)(idx + 4) = 0x0333406C, *(DWORD*)(idx + 36) = kUdS3SA, *(DWORD*)(idx + 68) = kUdS3SA;
     assert(UdDbpfCount(hdr, 96, idx, sizeof(idx), kUdS3SA) == 2);
     assert(UdDbpfCount(hdr, 96, idx, sizeof(idx) - 1, kUdS3SA) == -1);  // index shorter than 3 entries
+    *(DWORD*)(idx + 4) = kUdCASP;  // CC split by kind: one CAS part, one script, one other
+    assert(UdDbpfCount(hdr, 96, idx, sizeof(idx), kUdCASP) == 1 && UdDbpfCount(hdr, 96, idx, sizeof(idx), kUdOBJD) == 0);
     *(DWORD*)idx = 5;  // type and instance high constant: 8 header bytes, 24-byte entries
     *(DWORD*)(idx + 4) = kUdS3SA;
     assert(UdDbpfCount(hdr, 96, idx, 12 + 24 * 3, kUdS3SA) == 3 && UdDbpfCount(hdr, 96, idx, 12 + 24 * 3, 0x1234) == 0);
@@ -125,6 +127,9 @@ static void TestUserDiag() {
         char mline[480];
         assert(!UdMemLow(mline, sizeof(mline), 256) && UdMemLow(mline, sizeof(mline), 255));
         assert(!strcmp(mline, "diag: low address space: largest free block 255 MB (under 256) - risk of Error 12 / crash on save"));
+        g_udLowMB = 300;  // [UserDiag] LowSpaceMB
+        assert(UdMemLow(mline, sizeof(mline), 299) && !UdMemLow(mline, sizeof(mline), 300) && strstr(mline, "(under 300)"));
+        g_udLowMB = 256;
         UdMemFormat(mline, sizeof(mline), "save: memory at start #3", s, 0x100000000ull, 1851ull << 20, 120, 410);
         assert(!strcmp(mline, "save: memory at start #3: private 1851 MB, committed 540 MB; limit 4 GB (large address aware, 64-bit Windows), free 650 MB, "
                              "largest free 300 MB (2nd 200), session low 120 MB; modules 32 MB, mapped files 10 MB, heaps and other private 596 MB; "

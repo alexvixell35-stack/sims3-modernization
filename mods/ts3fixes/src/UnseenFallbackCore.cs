@@ -117,6 +117,21 @@ namespace Ts3Fixes
             return m < kMinHoldMin ? kMinHoldMin : m > kMaxHoldMin ? kMaxHoldMin : m;
         }
 
+        // docs/267 F1: the unseen teleport's goal (a cut plan never proved it reachable). 0 = the Sim may be placed there; else the
+        // refusal, also the offset of its counter. In order: a tomb or hidden room never; outdoor ground always (the pre-plan
+        // path's rule); indoors or raised only on a lot UfLotOpen passes; raised outdoor (deck, roof: stairs the flood does not
+        // see) never; an indoor room only when EA's allowed-room flood (HrReachesOutside, the Sim's own door rights) reaches
+        // outside; unknown (null, a portal threw) refuses.
+        public const int kTpOk = 0, kTpTombOrHidden = 1, kTpLotClosed = 2, kTpNoWayOut = 3, kTpRaised = 4;
+        public static int TpGoal(bool tombOrHidden, bool outdoorGround, bool openLot, bool roomOutside, bool? reachesOutside)
+        {
+            if (tombOrHidden) return kTpTombOrHidden;
+            if (outdoorGround) return kTpOk;
+            if (!openLot) return kTpLotClosed;
+            if (roomOutside) return kTpRaised;
+            return reachesOutside == true ? kTpOk : kTpNoWayOut;
+        }
+
         // docs/202 §3.6.4 lot trips: 0 = no shortcut, 1 = place at once (the trip shortcuts as shipped), 2 = D's walk-time hold, then
         // place. Kinds the shortcuts already cover (newKind false; their own switch was checked by the caller) keep 1 unless
         // unseenfbtriphold; kinds they miss (mod subclasses that override the trip's Run) act only with unseenfbtrip, always held.

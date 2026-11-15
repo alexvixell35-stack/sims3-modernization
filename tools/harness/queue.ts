@@ -225,7 +225,7 @@ export function allowedCorrection(xml: string, allow: string[]): boolean {
 }
 import { EA_PACKAGE_LOCK } from '../dump-locks.ts';
 import { clickLines, dumpHungGame, GUARD_MS, logTail, type ModeSnap, modeExit, modeSnap, noSafeButton, PKG_ABBA, pkgAbba } from './game-alive.ts';
-import { BIN, EA_LAUNCHER, EA_URI, GAME_EXE, gameRunning, isSteamGame, killLeftovers, LAUNCH, logUntrackedGame, MACHINE, machineTag, seenPids } from './game-exe.ts';
+import { BIN, EA_LAUNCHER, EA_URI, GAME_EXE, gameRunning, isSteamGame, killLeftovers, LAUNCH, logUntrackedGame, MACHINE, machineTag, relaunched, seenPids } from './game-exe.ts';
 import { checkCfg as checkFailFast, describe as describeFailFast, routingGuard, type FailFast } from './routing-failfast.ts';
 import { checkRequire, flatDelta, parseRequire, startupDeltaLint } from './fixes-require.ts';
 import { parseHitchTasks } from './hitch-tasks.ts';
@@ -1512,6 +1512,12 @@ if (values['self-check']) {
   assert.match(asyncIdle(raOn, {}, null), /^UNKNOWN: \[RouteAsync\] on but \/native did not answer/); assert.match(asyncIdle(raOn, {}, { invokeHook: 1 }), /has no asyncStarted/);
   assert.equal(fixesOnFail(undefined, ''), ''); assert.equal(fixesOnFail('a,b', '12:00:00 fixes on: a,b (verified)\n'), '');
   assert.match(fixesOnFail('a,b', '12:00:00 fixes on: a (verified)\n'), /fixesOn a,b without/);
+  assert.deepEqual(launchArgs(), ['-noupnp']); assert.deepEqual(launchArgs(['-x']), ['-noupnp', '-x']); assert.deepEqual(launchArgs(['-NoUPnP']), ['-NoUPnP']);
+  { // docs/236 #19: unreadable folder = problem, a stat failure counts as new, only ScriptError_*.xml names match
+    const d = mkdtempSync(join(tmpdir(), 'ts3-se-')); writeFileSync(join(d, 'ScriptError_1.xml'), 'x'); writeFileSync(join(d, 'other.xml'), 'x');
+    try { assert.deepEqual(newScriptErrors(d, 0), { files: ['ScriptError_1.xml'], problem: '' }); assert.deepEqual(newScriptErrors(d, Date.now() + 1e6).files, []); } finally { rmSync(d, { recursive: true, force: true }); }
+    assert.match(newScriptErrors(join(tmpdir(), 'ts3-no-such-dir-x'), 0).problem, /cannot read/);
+  }
   { // scriptErrorsAllow: correction-only reports pass, anything else (a Wildflower line, a stack) still FAILs
     const al = ['^Destroyed Object Found: .*NewspaperShreds$', '^Out of World Object Found 2: .*SocialJigOnePerson$', '^Destroyed: .*SocialJigOnePerson.*$'];
     const rep = (c: string) => `<NRaas.ErrorTrap>\n<Content>\n  -- Correction Logs --\n${c}\n\n Loaded Assemblies: A B\n</Content>\n</NRaas.ErrorTrap>`;
@@ -2242,7 +2248,7 @@ if (values['dry-run']) {
     if (j.crashHunt) console.log('  9 crashHunt: crashes do not stop the queue (crash bisect)');
     if (j.fixes?.install?.length) console.log(`  4 node tools/setup/install-fixes.ts install --only ${j.fixes.install.join(',')}   (uninstalled after the job)`);
     if (j.fixes?.uninstall?.length) console.log(`  4 node tools/setup/install-fixes.ts uninstall --only ${j.fixes.uninstall.join(',')}   (reinstalled after the job)`);
-    console.log(`  5 python tools/probe/ts3probe.py serve --launch${j.gameArgs?.length ? ` -- ${j.gameArgs.join(' ')}` : ''}   (child, killed at job end)${LAUNCH === 'ea' ? `; TS3_LAUNCH=ea: ${EA_LAUNCHER} ${EA_URI}, then waits for ${GAME_EXE} (game args are not passed)` : ''}`);
+    console.log(`  5 python tools/probe/ts3probe.py serve --launch -- ${launchArgs(j.gameArgs).join(' ')}   (child, killed at job end)${LAUNCH === 'ea' ? `; TS3_LAUNCH=ea: ${EA_LAUNCHER} ${EA_URI}, then waits for ${GAME_EXE} (game args are not passed)` : ''}`);
     console.log(`  5 ${describePin(pinConfig(j.pin))}; machine load every 30 s -> ${queueName}-<date>-${j.id}-machine.jsonl (noise verdict in the note)${j.run.profile ? (j.noiseCheck === false ? '; early noise check off (noiseCheck false)' : '; early noise check ~2.5 min in: other CPU >= 10% or clock drop stops the job; noisy -> rerun once as ' + (j.rerunOf ? 'none (this is the rerun)' : `${j.id}-rerun`) + ' at the end') : ''}`);
     if (storyCopy(j, s) !== s) console.log(`  6 copy Saves/${saveFile(s)} -> Saves/${saveFile(storyCopy(j, s))}   (story scratch copy, replaced each job; the Baseline file is only read)`);
     console.log(`  6 ${s === 'menu' ? 'wait for the main menu (agent ping)' : `node tools/harness/cycle.ts --save ${saveFile(storyCopy(j, s))}`}`);
@@ -2435,6 +2441,14 @@ const freshCrashReport = (since: string) => {
   try { return readdirSync(USER).some(n => /^xcpt .*\.txt$/i.test(n) && statSync(join(USER, n)).mtime >= new Date(since)); }
   catch { return false; }
 };
+// docs/236 #19: ScriptError_*.xml newer than `since` in dir; a failed readdir or stat is a problem, never "0 new" (an unstat-able file counts as new)
+export function newScriptErrors(dir: string, since: number): { files: string[]; problem: string } {
+  let names: string[]; try { names = readdirSync(dir); } catch (e) { return { files: [], problem: `cannot read ${dir}: ${String(e).split('\n')[0]}` }; }
+  const isNew = (f: string) => { try { return statSync(join(dir, f)).mtimeMs >= since; } catch { return true; } };
+  return { files: names.filter(f => /^ScriptError_.*\.xml$/i.test(f) && isNew(f)), problem: '' };
+}
+// docs/16 §5 #2: every harness launch skips the DirtySock UPnP discovery (0xF73760, SSDP + AddPortMapping on the LAN); no firewall rule
+export function launchArgs(a: string[] = []): string[] { return a.some(x => x.toLowerCase() === '-noupnp') ? a : ['-noupnp', ...a]; }
 const triage = (since: string) => {
   try { return execFileSync(process.execPath, [H('crash-ledger.ts'), 'triage', '--since', since, ...(seenPids.size ? ['--pids', [...seenPids].join(',')] : [])]).toString().trim().split(/\n\s*\n/).at(-1) ?? ''; }
   catch (e) { return `crash-ledger triage failed: ${String(e).split('\n')[0]}`; }
@@ -2616,7 +2630,7 @@ const startProbe = (j: Job) => {
   log(`${j.id}: ${scOut[0]}`);
   if (sc.status === 3) throw new Error(`${scOut[1]}; refused before the game started`); // FAIL, never PASS
   const pf =createWriteStream(join(OUT, `${queueName}-${date}-${j.id}-probe.log`), { flags: 'a' });
-  const pr = probe = spawn('python', [join(ROOT, 'tools', 'probe', 'ts3probe.py'), 'serve', '--launch', '--port', values.port!, ...(j.gameArgs?.length ? ['--', ...j.gameArgs] : [])], { cwd: ROOT });
+  const pr = probe = spawn('python', [join(ROOT, 'tools', 'probe', 'ts3probe.py'), 'serve', '--launch', '--port', values.port!, '--', ...launchArgs(j.gameArgs)], { cwd: ROOT });
   pr.stdout?.pipe(pf); pr.stderr?.pipe(pf); launched = true;
   const clicksFile = noOurs(j) ? join(OUT, `${queueName}-${date}-${j.id}.clicks.log`) : '';
   if (clicksFile) process.env.TS3_CLICKS_LOG = clicksFile; // children (vanilla-steps.ts accept) read the accept lines from it
@@ -2736,7 +2750,7 @@ for (const [n, j] of jobs.entries()) {
   await waitHold(log); // crash-triage build running (hold.ts, AGENTS.md Rules): no next job until it is done
   markJob(j.id); // hold.ts wait-job-end waits for this to go
   const t0 = new Date().toISOString(), deadline = Date.now() + (j.timeoutMin ?? 60) * 60000;
-  seenPids.clear(); // crash pickup: only this job's game PIDs (triage)
+  relaunched.clear(); seenPids.clear(); // crash pickup: only this job's game PIDs (triage)
   // 2026-10-25: a child that threw left the game up; closing it here made the job a CRASH with an old xcpt (sv-jobyield-verify)
   let closedByUs = false;
   const closeLost = () => { closedByUs = gameRunning(); return closeGame(probe?.pid); };
@@ -3169,7 +3183,8 @@ for (const [n, j] of jobs.entries()) {
     if (bad.length) row.pass = false;
   }
   if (j.scriptErrorsMax !== undefined) {
-    const since = Date.parse(t0), news = readdirSync(USER).filter(f => /^ScriptError_.*\.xml$/i.test(f) && statSync(join(USER, f)).mtimeMs >= since);
+    const se = newScriptErrors(USER, Date.parse(t0)), news = se.files;
+    if (se.problem) { row.verdict.push(`FAIL: UNKNOWN: script errors not checked (${se.problem})`); row.pass = false; } // docs/236 #19: an unreadable folder is not "0 new"
     const studied = news.filter(f => { try { return reportedError(readFileSync(join(USER, f), 'utf8'), j.scriptErrorsReport ?? []); } catch { return false; } });
     if (j.scriptErrorsReport) row.verdict.push(`REPORT: ${studied.length} script errors matching ${j.scriptErrorsReport.join(' | ')}${studied.length ? `: ${studied.slice(0, 3).join(', ')}` : ''}`);
     const unknown = news.filter(f => { try { const x = readFileSync(join(USER, f), 'utf8'); return !studied.includes(f) && !matchKnown(x) && !allowedCorrection(x, j.scriptErrorsAllow ?? []); } catch { return true; } });

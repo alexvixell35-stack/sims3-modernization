@@ -1,0 +1,98 @@
+{
+  "note": "lane L4 1115 (not run): correctness of the exact memos, each switch on (with its verify switch) then off in one load, BP 10 min, switches set and read back by the repro patches steps. Pass: hits > 0, every *_mismatches counter 0, 0 script errors, household Sims untouched (all memos are exact for every Sim; the repros only spawn townies). Build ts3fixes.lane-L4-1115 + ts3agent.lane-L4-1115 (agent reads the new counters).",
+  "jobs": [
+    {
+      "id": "bp-autonomy-memo-check",
+      "note": "Correctness (10 min): repro autonomy-memo. Pass: autroommemo_hits >= 1, autroommemo_mismatches 0, autmemo_segments > 0, autslice_* filled; 0 script errors",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change; ts3fixes master-lanes-1115 (master 84ee284f, the lane merged; repinned from the lane build 2026-11-15)",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "autonomy-memo",
+          "fixesRequire": "autroommemo_hits>=1,autroommemo_mismatches<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 18,
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:autroommemo_hits",
+          "op": ">=",
+          "value": 1,
+          "why": "no room memo hit: AutShadow AutRoomHook or the pair hook not patched (see ts3fixes.applied), or the switch not read back"
+        }
+      ]
+    },
+    {
+      "id": "bp-lane-l4-memos-check",
+      "note": "Correctness (10 min): repro lane-l4-memos. Pass: permamemo_hits >= 1, permamemo_mismatches 0, buffremovenoop_early >= 1, catnamecache_mismatches 0; 0 script errors",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change; ts3fixes master-lanes-1115 (master 84ee284f, the lane merged; repinned from the lane build 2026-11-15)",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "lane-l4-memos",
+          "fixesRequire": "permamemo_hits>=1,permamemo_mismatches<1,buffremovenoop_early>=1,catnamecache_mismatches<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 18,
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:permamemo_hits",
+          "op": ">=",
+          "value": 1,
+          "why": "no IsPermaMoodlet memo hit: patch refused (ParseBuffData and IsPermaMoodlet in ts3fixes.applied) or the switch not read back"
+        }
+      ]
+    },
+    {
+      "id": "bp-event59-invcache-check",
+      "note": "Correctness (10 min): repro event59-invcache. Pass: invcache_hits >= 1, invcache_mismatches 0; 0 script errors",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change; ts3fixes master-lanes-1115 (master 84ee284f, the lane merged; repinned from the lane build 2026-11-15)",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "event59-invcache",
+          "fixesRequire": "invcache_hits>=1,invcache_mismatches<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 18,
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:invcache_hits",
+          "op": ">=",
+          "value": 1,
+          "why": "no cached dispatch: Lot.OnPortalPathPlan patch refused or the switch not read back"
+        }
+      ]
+    }
+  ]
+}

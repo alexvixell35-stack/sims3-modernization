@@ -7,12 +7,15 @@
 // Config [verified apex_paths.cpp, apex_presets.cpp]: <Documents>\Electronic Arts\The Sims 3\Apex Radiance\ApexRadiance.toml,
 // one [patches.<Name>] table per switch with `enabled = true|false`; a missing table or key = the switch's default.
 
-enum { AXF_OBJECT_INDEX = 1, AXF_FAST_CACHE = 2, AXF_MEMORY_GUARD = 4, AXF_RES_LOOKUP = 8, AXF_FILE_LIST = 16, AXF_LOT = 32 };
+enum { AXF_OBJECT_INDEX = 1, AXF_FAST_CACHE = 2, AXF_MEMORY_GUARD = 4, AXF_RES_LOOKUP = 8, AXF_FILE_LIST = 16, AXF_LOT = 32, AXF_FAST_MEMORY = 64 };
 struct ApexSwitch { const char* name; int bit; bool def; };
 static const ApexSwitch kApexSwitch[] = {
     {"ObjectLookupIndex", AXF_OBJECT_INDEX, true}, {"FastCacheCompression", AXF_FAST_CACHE, true},
     {"MemoryGuard", AXF_MEMORY_GUARD, true},       {"ResourceLookupCache", AXF_RES_LOOKUP, true},
     {"FileListCache", AXF_FILE_LIST, true},
+    // the EA allocator (spin count, big-block release worker, trim): Apex owns it (docs/148 §6 #9, §7); enabledByDefault = true,
+    // Steam only [verified apex-src-3.0.0 performance_patches.cpp FastMemoryPatch]
+    {"FastMemory", AXF_FAST_MEMORY, true},
     // the lot streaming group: enabledByDefault = false in performance_patches.cpp [verified]
     {"LotLodStreaming", AXF_LOT, false},   {"LotObjectThrottle", AXF_LOT, false}, {"LotVisibilityOverride", AXF_LOT, false},
     {"LotActiveThreshold", AXF_LOT, false}, {"LotDetailRange", AXF_LOT, false}};
@@ -23,6 +26,12 @@ static bool g_apexStandDown = true;   // [Compat] ApexStandDown
 static int g_apexFound;               // bits: 1 ApexRadiance.asi, 2 zzApexRadiance.asi, 4 instance mutex
 static int g_apexOn;                  // AXF_* bits of the Apex switches that are on
 static volatile LONG g_apexStood;     // modules (and Verify probes) that stood down
+// counters v202 ap* (docs/148 §7 "counters", lane L9 2026-11-15): what the log lines say, readable from /native
+static void ApexCounters(bool late) {
+    Ts3nCounters& k = ts3native_counters;
+    k.apFound = g_apexFound, k.apOn = g_apexOn, k.apStood = g_apexStood, k.apStandDown = g_apexStandDown ? 1 : 0;
+    if (late) k.apLate = 1;
+}
 
 // <Documents>\Electronic Arts\The Sims 3 (the folder SHGetFolderPath(CSIDL_PERSONAL) returns; OneDrive moves it)
 static void UserSims3Dir(wchar_t* out) {
@@ -75,6 +84,9 @@ static int ApexSwitchesOn(const char* t) {
     int bits = 0;
     for (int i = 0; i < n; i++)
         if (on[i]) bits |= kApexSwitch[i].bit;
+#ifdef TS3A_TABLE
+    bits &= ~AXF_FAST_MEMORY;  // FastMemory is a Steam-only Apex patch (supportedVersions = VERSION_STEAM)
+#endif
     return bits;
 }
 
@@ -104,11 +116,13 @@ static void ApexLogFound(const char* when) {
 static void ApexDetect(const wchar_t* ini) {
     g_apexStandDown = GetPrivateProfileIntW(L"Compat", L"ApexStandDown", 1, ini) != 0;
     g_apexFound = ApexProbe();
+    ApexCounters(false);
     if (!g_apexFound) { Log("compat: Apex Radiance not loaded at start"); return; }
     UserSims3Dir(g_apexToml);
     wcscat_s(g_apexToml, L"\\Apex Radiance\\ApexRadiance.toml");
     if (GetFileAttributesW(g_apexToml) == INVALID_FILE_ATTRIBUTES) g_apexToml[0] = 0;
     g_apexOn = ApexReadToml();
+    ApexCounters(false);
     ApexLogFound("at start");
 }
 
@@ -119,7 +133,7 @@ static bool ApexStandsDown(int bits, const char* what, const char* site) {
     const char* feat = "?";
     for (const ApexSwitch& s : kApexSwitch)
         if (g_apexOn & bits & s.bit) { feat = s.name; break; }
-    InterlockedIncrement(&g_apexStood);
+    ts3native_counters.apStood = InterlockedIncrement(&g_apexStood);
     Log("compat: stood down for Apex %s: %s not installed (%s, docs/148 §6)", feat, what, site);
     return true;
 }
@@ -149,9 +163,11 @@ static DWORD WINAPI ApexLateThread(LPVOID) {
         wcscat_s(g_apexToml, L"\\Apex Radiance\\ApexRadiance.toml");
         if (GetFileAttributesW(g_apexToml) == INVALID_FILE_ATTRIBUTES) g_apexToml[0] = 0;
         g_apexOn = ApexReadToml();
+        ApexCounters(true);
         ApexLogFound("after our start");
         if ((g_apexOn & AXF_MEMORY_GUARD) && SaveWriteYieldToApex()) {
             InterlockedIncrement(&g_apexStood);
+            ts3native_counters.apStood = g_apexStood;
             Log("compat: stood down for Apex MemoryGuard: [SaveWrite] call 0xAB12AF given back (late), write phase not timed");
         }
         const struct { bool on; int bit; const char* what; } late[] = {
@@ -159,7 +175,8 @@ static DWORD WINAPI ApexLateThread(LPVOID) {
             {ts3native_counters.compressReady != 0, AXF_FAST_CACHE, "[SaveCompress]"},
             {ts3native_counters.lsReady != 0, AXF_LOT, "[LotStream]"},
             {(ts3native_counters.vfReady | ts3native_counters.vfReady2 | ts3native_counters.vfReady3) != 0,
-             AXF_OBJECT_INDEX | AXF_RES_LOOKUP | AXF_FILE_LIST | AXF_LOT, "[Verify]"}};
+             AXF_OBJECT_INDEX | AXF_RES_LOOKUP | AXF_FILE_LIST | AXF_LOT, "[Verify]"},
+            {ts3native_counters.allocReady != 0, AXF_FAST_MEMORY, "[Alloc]"}};
         for (const auto& l : late)
             if (l.on && (g_apexOn & l.bit)) Log("compat: Apex loaded after ts3native: %s stays installed; Apex's switch on the same site stays off", l.what);
         return 0;

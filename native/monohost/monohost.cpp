@@ -1072,7 +1072,7 @@ static LONGLONG g_mfTicks;
 #define MF_TICKS g_mfTicks
 #include "../ts3native/mintfuse.cpp"
 // [EqualsFast] (docs/258 option C): the plan code, run against EA's own InternalEquals by the MONOHOST_EQFAST corpus
-struct EqCtr { LONG eqOn, eqMode, eqHits, eqPlans, eqRejects, eqFtNull, eqFtType, eqFtKind, eqFtNew, eqFtBusy, eqFtFull, eqRejGeneric, eqRejKind, eqRejMany; };
+struct EqCtr { LONG eqOn, eqMode, eqHits, eqPlans, eqRejects, eqFtNull, eqFtType, eqFtKind, eqFtNew, eqFtBusy, eqFtFull, eqRejGeneric, eqRejKind, eqRejMany, eqSmall; };
 static EqCtr g_eqCtr;
 #define EQ_CTR g_eqCtr
 #define EQ_NO_INSTALL

@@ -613,6 +613,16 @@ static void TestMonoThreadM5() {
         g_mtExec = e0, g_mtSig = s0, g_mtUncoll = u0;
         printf("mono thread F1: worker-private call records, nested 2 deep, cleared after each call, overflow refused\n");
     }
+    // F1 behind [Verify] (docs/120 §9.4): with Verify's trampoline slot set, F1 takes the slot and writes no game bytes
+    {
+        void* slot = (void*)(uintptr_t)0x7E57;
+        const LONG readySave = m.n2mReady;
+        g_mtVfN2mSlot = &slot;
+        MtInstallN2m();
+        assert(slot == (void*)MtN2mEntry && m.n2mReady == 2);
+        g_mtVfN2mSlot = NULL, m.n2mReady = readySave;
+        printf("mono thread F1: chained into [Verify]'s nativeToManaged trampoline slot\n");
+    }
 
     k.mtMode = modeSave;
     TlsFree(g_mtDomIdx), TlsFree(g_mtCtxIdx);

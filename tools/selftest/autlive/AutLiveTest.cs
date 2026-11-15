@@ -13,6 +13,7 @@ static class AutLiveTest
 
     static int Main()
     {
+        sFail += TunFpTest.Run();
         // queue: scores > 0 only; full = replace the smallest only when strictly greater
         AutLiveCore.Heap h = new AutLiveCore.Heap(3);
         h.Add(1, 5f); h.Add(2, 3f); h.Add(3, 0f); h.Add(4, -1f); h.Add(5, 4f);
@@ -303,6 +304,12 @@ static class AutLiveTest
         Check("pace credit: the rest of the charge is added", Math.Abs(pw.Charge(30, 50, 0.2, 1) - 1.0) < 1e-9 && pw.CreditMs == 0 && pw.Forced);
         Check("queue bins", AutLiveCore.QueueBin(0) == 0 && AutLiveCore.QueueBin(1) == 0 && AutLiveCore.QueueBin(2) == 1 && AutLiveCore.QueueBin(9) == 1
             && AutLiveCore.QueueBin(10) == 2 && AutLiveCore.QueueBin(49) == 2 && AutLiveCore.QueueBin(50) == 3 && AutLiveCore.QueueBin(199) == 3 && AutLiveCore.QueueBin(200) == 4);
+        // docs/124 §7.2 G8 pick groups: household scope wins over unseen; every index distinct and named
+        Check("pick groups", AutLiveCore.PickGroup.Name(AutLiveCore.PickGroup.Index(AutLiveCore.PickGroup.Class(true, false), AutLiveCore.PickGroup.kDirect)) == "u.d"
+            && AutLiveCore.PickGroup.Name(AutLiveCore.PickGroup.Index(AutLiveCore.PickGroup.Class(false, false), AutLiveCore.PickGroup.kExact)) == "s.x"
+            && AutLiveCore.PickGroup.Name(AutLiveCore.PickGroup.Index(AutLiveCore.PickGroup.Class(true, true), AutLiveCore.PickGroup.kGame)) == "h.g"
+            && AutLiveCore.PickGroup.NewTables().Length == AutLiveCore.PickGroup.kN
+            && AutLiveCore.PickGroup.Index(2, AutLiveCore.PickGroup.kGame) == AutLiveCore.PickGroup.kN - 1);
         pc.Slice(); pc.Charge(30, 10, 0.3, 1); pc.Charge(30, 1, 0.9, 1);
         Check("pace: forced only when this charge crosses (0.9 + 0.03 stays under)", !pc.Forced);
         // docs/222 §9 per-definition compare: mismatch directions, both-pass ratios, age bins
@@ -315,5 +322,103 @@ static class AutLiveTest
         Check("defcmp: age bins mismatches", dc.AgeMis[0] == 1 && dc.AgeMis[3] == 1 && dc.AgeMis[4] == 1 && dc.AgeMis[1] + dc.AgeMis[2] == 0);
         Check("defcmp: median, p90 nearest rank", dc.Quantile(0.5) == 2.5f && dc.Quantile(0.9) == 4.5f && dc.Quantile(1) == 5f);
         Check("defcmp: age bin edges", AutLiveCore.DefCmp.AgeBin(0) == 0 && AutLiveCore.DefCmp.AgeBin(4) == 3 && AutLiveCore.DefCmp.AgeBin(7) == 3 && AutLiveCore.DefCmp.AgeBin(8) == 4);
+    }
+}
+
+// docs/124 §3.1 tuning fingerprint (AutLiveCore.TunFp): a model of AutLive.cs TuneFp over mock types with the game's field
+// shapes (private enum flags read by FieldInfo + Convert.ToInt32, ulong enums mixed as two words, floats as bits). Proves:
+// same tuning = same hash; an in-place change of any covered field = a different hash (restored = the old hash again);
+// reports ns per fingerprint on this host (.NET Framework; the game's Mono 2.x is slower, inferred 2-5x).
+static class TunFpTest
+{
+    enum TFlags : byte { None = 0, DisallowAutonomous = 1, DisallowUserDirected = 2 }
+    enum AFlags : ushort { None = 0, A = 1, B = 0x100 }
+    enum Big : ulong { None = 0, Hi = 1UL << 40 }
+    class Change { public Big Commodity; public float ConstantChange, mMultiplier; }
+    class Avail
+    {
+        AFlags mFlags; public void Set(AFlags f) { mFlags = f; } public AFlags Get() { return mFlags; }
+        public uint AgeSpecies; public Big MotiveType, MoodType, SkillType, CareerType; public float MotiveValue, MoodValue;
+        public int SkillValue, CareerValue; public int WorldType; public uint Occult; public int OccultType; public short Snow;
+        public System.Collections.Generic.List<int> ExTraits = new System.Collections.Generic.List<int>(), ReqTraits, ExBuffs, ReqBuffs;
+    }
+    class Trade { public float TimeEstimate = 1; public System.Collections.Generic.List<Change> mOutputs = new System.Collections.Generic.List<Change>(); }
+    class Tun { TFlags mFlags; public void Set(TFlags f) { mFlags = f; } public bool AlwaysChooseBest; public Avail Availability = new Avail(); public Trade mTradeoff = new Trade(); }
+    static readonly System.Reflection.FieldInfo fT = typeof(Tun).GetField("mFlags", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic),
+        fA = typeof(Avail).GetField("mFlags", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+    static int sFields;
+    static uint Fp(Tun t)
+    {
+        int n = 0;
+        uint h = AutLiveCore.TunFp.kSeed;
+        h = AutLiveCore.TunFp.Mix(h, Convert.ToInt32(fT.GetValue(t))); h = AutLiveCore.TunFp.Mix(h, t.AlwaysChooseBest ? 1 : 0); n += 2;
+        Avail a = t.Availability;
+        h = AutLiveCore.TunFp.Mix(h, Convert.ToInt32(fA.GetValue(a))); h = AutLiveCore.TunFp.Mix64(h, (long)a.AgeSpecies);
+        h = AutLiveCore.TunFp.Mix64(h, (long)a.MotiveType); h = AutLiveCore.TunFp.MixF(h, a.MotiveValue);
+        h = AutLiveCore.TunFp.Mix64(h, (long)a.MoodType); h = AutLiveCore.TunFp.MixF(h, a.MoodValue);
+        h = AutLiveCore.TunFp.Mix64(h, (long)a.SkillType); h = AutLiveCore.TunFp.Mix(h, a.SkillValue);
+        h = AutLiveCore.TunFp.Mix64(h, (long)a.CareerType); h = AutLiveCore.TunFp.Mix(h, a.CareerValue);
+        h = AutLiveCore.TunFp.Mix64(h, a.WorldType); h = AutLiveCore.TunFp.Mix64(h, (long)a.Occult); h = AutLiveCore.TunFp.Mix64(h, a.OccultType);
+        h = AutLiveCore.TunFp.Mix(h, a.Snow);
+        h = AutLiveCore.TunFp.Mix(h, a.ExTraits != null ? a.ExTraits.Count : -1); h = AutLiveCore.TunFp.Mix(h, a.ReqTraits != null ? a.ReqTraits.Count : -1);
+        h = AutLiveCore.TunFp.Mix(h, a.ExBuffs != null ? a.ExBuffs.Count : -1); h = AutLiveCore.TunFp.Mix(h, a.ReqBuffs != null ? a.ReqBuffs.Count : -1);
+        n += 18;
+        Trade tr = t.mTradeoff;
+        h = AutLiveCore.TunFp.MixF(h, tr.TimeEstimate); h = AutLiveCore.TunFp.Mix(h, tr.mOutputs.Count); n += 2;
+        for (int i = 0; i < tr.mOutputs.Count; i++)
+        {
+            Change c = tr.mOutputs[i];
+            h = AutLiveCore.TunFp.Mix64(h, (long)c.Commodity); h = AutLiveCore.TunFp.MixF(h, c.ConstantChange); h = AutLiveCore.TunFp.MixF(h, c.mMultiplier); n += 3;
+        }
+        sFields = n;
+        return AutLiveCore.TunFp.End(h);
+    }
+    static Tun Make()
+    {
+        Tun t = new Tun();
+        t.Availability.AgeSpecies = 0x7F; t.Availability.MotiveValue = -50; t.Availability.SkillValue = 3;
+        for (int i = 0; i < 3; i++) { Change c = new Change(); c.Commodity = (Big)(i + 1); c.ConstantChange = 10 * (i + 1); c.mMultiplier = 1; t.mTradeoff.mOutputs.Add(c); }
+        return t;
+    }
+    public static int Run()
+    {
+        int fail = 0;
+        Tun t = Make();
+        uint h0 = Fp(t);
+        if (Fp(Make()) != h0 || Fp(t) != h0) { fail++; Console.WriteLine("FAIL tunfp: same tuning, same hash"); }
+        if (sFields != AutLiveCore.TunFp.kScalars + 3 * AutLiveCore.TunFp.kPerOutput) { fail++; Console.WriteLine("FAIL tunfp: field count " + sFields); }
+        // every covered field, Retuner-style in place: changed = new hash, restored = old hash
+        Action<Tun>[] edit = {
+            x => x.Set(TFlags.DisallowAutonomous), x => x.AlwaysChooseBest = true, x => x.Availability.Set(AFlags.B),
+            x => x.Availability.AgeSpecies = 0x3F, x => x.Availability.MotiveType = Big.Hi, x => x.Availability.MotiveValue = -40,
+            x => x.Availability.MoodType = (Big)2, x => x.Availability.MoodValue = 1, x => x.Availability.SkillType = Big.Hi, x => x.Availability.SkillValue = 4,
+            x => x.Availability.CareerType = (Big)5, x => x.Availability.CareerValue = 1, x => x.Availability.WorldType = 1, x => x.Availability.Occult = 2,
+            x => x.Availability.OccultType = 1, x => x.Availability.Snow = 1, x => x.Availability.ExTraits.Add(1), x => x.Availability.ReqTraits = new System.Collections.Generic.List<int>(),
+            x => x.Availability.ExBuffs = new System.Collections.Generic.List<int>(), x => x.Availability.ReqBuffs = new System.Collections.Generic.List<int>(),
+            x => x.mTradeoff.TimeEstimate = 2, x => x.mTradeoff.mOutputs.RemoveAt(2),
+            x => x.mTradeoff.mOutputs[1].Commodity = Big.Hi, x => x.mTradeoff.mOutputs[1].ConstantChange = 25, x => x.mTradeoff.mOutputs[2].mMultiplier = 1.5f };
+        for (int i = 0; i < edit.Length; i++)
+        {
+            Tun x = Make();
+            edit[i](x);
+            if (Fp(x) == h0) { fail++; Console.WriteLine("FAIL tunfp: edit " + i + " kept the hash"); }
+        }
+        t.mTradeoff.mOutputs[1].ConstantChange = 25;
+        uint h1 = Fp(t);
+        t.mTradeoff.mOutputs[1].ConstantChange = 20;
+        if (h1 == h0 || Fp(t) != h0) { fail++; Console.WriteLine("FAIL tunfp: in-place edit and restore"); }
+        if (edit.Length != AutLiveCore.TunFp.kScalars + AutLiveCore.TunFp.kPerOutput) { fail++; Console.WriteLine("FAIL tunfp: one edit per covered field kind"); }
+        // cost on this host: 3 outputs (the field count printed)
+        const int kN = 200000;
+        uint sink = 0;
+        for (int i = 0; i < 2000; i++) sink += Fp(t);
+        System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
+        for (int i = 0; i < kN; i++) sink += Fp(t);
+        sw.Stop();
+        double ns = sw.Elapsed.TotalMilliseconds * 1e6 / kN;
+        Console.WriteLine("tunfp: " + sFields + " fields (" + AutLiveCore.TunFp.kScalars + " + " + AutLiveCore.TunFp.kPerOutput + " x 3 outputs), "
+            + ns.ToString("0") + " ns per fingerprint on this host (.NET Framework), 40 pairs x 2 (request + resume) = "
+            + (ns * 80 / 1000).ToString("0.0") + " us per search (sink " + (sink & 1) + ")");
+        return fail;
     }
 }

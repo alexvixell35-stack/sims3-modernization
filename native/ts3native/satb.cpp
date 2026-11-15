@@ -1713,6 +1713,30 @@ static void SatbLogObj(DWORD obj, bool arrays) {
     if (!k || !k[0x10]) return;
     SatbRtLog(items + 0x10, *(const DWORD*)(uintptr_t)(items + 8) * *(const DWORD*)(k + 0x5C));
 }
+// docs/206 §15 rows 4 and 9: tripwires only (count + "autshadow satb tripwire" lines at 1, 10, 100, ... in SatbBodyLog; no
+// give-up, nothing else changes). Row 4: a worker binder call whose `this` is a shared (not worker-private)
+// System.Text.StringBuilder: every StringBuilder writer body (Append*, Insert*, Remove, Replace, set_Length, EnsureCapacity,
+// ToString's _cached_str; docs/data/binder-bodies.csv) stores into it natively, past the barrier. Readers count too.
+// shortcut: String.InternalSetLength 0xDA07E0 / InternalSetChar 0xDDD630 are not matched (they write strings built inside
+// the call [inferred]); add them by address if row 4 ever fires. Row 9: EA host static setters 0xD79EF0 (int) / 0xD79F50
+// (float), host vtable slots +0xAC / +0xB0, no caller found in .text [verified docs/212 #9]: any call is counted per side.
+static bool g_satbTripwire;  // [AutShadow] SatbTripwire=1 (default 0), read before SatbInstall
+static LONG g_satbRow4, g_satbRow4Logged, g_satbRow9[2][2], g_satbRow9Logged[2][2];  // row 9: [setter][sim/other, worker]
+static bool SatbIsStringBuilder(DWORD obj) {
+    const DWORD vt = *(const DWORD*)(uintptr_t)obj;
+    if (vt < 0x10000) return false;
+    const DWORD k = *(const DWORD*)(uintptr_t)vt;
+    if (k < 0x10000) return false;
+    const char* nm = *(const char* const*)(uintptr_t)(k + 0x34);
+    const char* ns = *(const char* const*)(uintptr_t)(k + 0x38);
+    return nm && ns && !strcmp(nm, "StringBuilder") && !strcmp(ns, "System.Text");
+}
+static void* g_satbHostSetTramp[2];
+static const u8 kSatbHostSet[6] = {0x8B, 0x44, 0x24, 0x08, 0x56, 0x57};  // mov eax,[esp+8]; push esi; push edi (both setters)
+static void __stdcall SatbHostSetSeen(int i) { InterlockedIncrement(&g_satbRow9[i][SatbWorkerSide() ? 1 : 0]); }
+#define SATB_HS_STUB(i) static __declspec(naked) void SatbHostSet##i() { __asm pushad __asm pushfd __asm push i     __asm call SatbHostSetSeen __asm popfd __asm popad __asm jmp dword ptr [g_satbHostSetTramp + i * 4] }
+SATB_HS_STUB(0) SATB_HS_STUB(1)
+#undef SATB_HS_STUB
 static void __cdecl SatbBindCall(DWORD frame, DWORD ctx) {
     const SatbBindFn next = (SatbBindFn)g_satbBindNext;
     if (!g_satbOn) { next(frame, ctx); return; }
@@ -1767,6 +1791,7 @@ static void __cdecl SatbBindCall(DWORD frame, DWORD ctx) {
         // row 12 (b): a body reads `this` natively, past the load redirect; any word of it the sim changed since the cut
         const DWORD n = SatbObjFields(self);
         if (n && n <= 4 * SATB_IC_MAXW && SatbWAnyLogged(self + 4, n)) { g_satbBindGiveUps++; SatbWGiveUp(TS3A(0xE525C0)); }
+        if (g_satbTripwire && n && SatbIsStringBuilder(self)) InterlockedIncrement(&g_satbRow4);  // row 4 tripwire
     }
     next(frame, ctx);
 }
@@ -1776,6 +1801,15 @@ static void SatbBodyLog() {
         for (int s = 0; s < 2; s++)
             for (LONG n = g_satbBodySeen[i][s], p = 1; p <= n && p <= 100000000; p *= 10)
                 if (p > g_satbBodyLogged[i][s]) { g_satbBodyLogged[i][s] = p; Log("autshadow satb binder body on the %s: %s x%ld", s ? "worker" : "sim", kSatbBodyNames[i], n); }
+    for (LONG n = g_satbRow4, p = 1; p <= n && p <= 100000000; p *= 10)
+        if (p > g_satbRow4Logged) { g_satbRow4Logged = p; Log("autshadow satb tripwire row 4: worker binder call on a shared StringBuilder x%ld", n); }
+    for (int i = 0; i < 2; i++)
+        for (int s = 0; s < 2; s++)
+            for (LONG n = g_satbRow9[i][s], p = 1; p <= n && p <= 100000000; p *= 10)
+                if (p > g_satbRow9Logged[i][s]) {
+                    g_satbRow9Logged[i][s] = p;
+                    Log("autshadow satb tripwire row 9: host static setter %s on the %s x%ld", i ? "float 0xD79F50" : "int 0xD79EF0", s ? "worker" : "sim/other", n);
+                }
 }
 
 // Rows 7, 11: EA's static-field helpers in native bodies [verified, disassembly]: set 0xD89BF0(field, value*), address-of
@@ -1875,6 +1909,9 @@ static int SatbInstallNative() {
         n += InstallDetour("satb static set 0xD89BF0", TS3A(0x00D89BF0), kSatbStSet, 8, (void*)SatbStaticSet) != NULL;
         n += InstallDetour("satb static address 0xD89C60", TS3A(0x00D89C60), kSatbStAddr, 8, (void*)SatbStaticAddrOf) != NULL;
         n += InstallDetour("satb static get 0xD89CD0", TS3A(0x00D89CD0), kSatbStGet, 8, (void*)SatbStaticGet) != NULL;
+        // row 9 tripwire: pass-through count stubs (the 6 prologue bytes have no relative operand)
+        if (g_satbTripwire) n += InstallDetour("satb tripwire host static set int 0xD79EF0", TS3A(0x00D79EF0), kSatbHostSet, 6, (void*)SatbHostSet0, &g_satbHostSetTramp[0]) != NULL;
+        if (g_satbTripwire) n += InstallDetour("satb tripwire host static set float 0xD79F50", TS3A(0x00D79F50), kSatbHostSet, 6, (void*)SatbHostSet1, &g_satbHostSetTramp[1]) != NULL;
     }
     return n;
 }

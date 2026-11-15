@@ -271,6 +271,8 @@ static bool AcInit(int threadKB, int maxMB, int perBin) {
 // [Alloc]: returns true when the detours are installed (the log must then stay open for the periodic counters).
 static bool ApplyAlloc(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"Alloc", L"Enabled", 0, ini)) { Log("alloc cache off (Enabled=0)"); return false; }
+    // docs/148 §6 #9, §7: Apex FastMemory owns the EA allocator; ours stays off next to it (no shared entry, one owner)
+    if (ApexStandsDown(AXF_FAST_MEMORY, "[Alloc]", "EA allocator entries 0x4E69D0 / 0x4E6A20 / 0x4E5920 / 0x4E5CB0")) return false;
     Ts3nCounters& c = ts3native_counters;
     const int threadKB = Clamp((int)GetPrivateProfileIntW(L"Alloc", L"ThreadKB", 64, ini), 16, 1024);
     const int maxMB = Clamp((int)GetPrivateProfileIntW(L"Alloc", L"MaxMB", 4, ini), 1, 32);

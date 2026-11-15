@@ -272,3 +272,35 @@ static void TestUnseenAnim() {
     memcpy(&k, &saved, sizeof(k));
     printf("selftest unseen anim ok\n");
 }
+
+// TestAnimPhase ([AnimPhase], docs/22 §6 G10): each timing wrapper passes ecx, edx and the stack arguments through, returns
+// the callee's eax and counts one call; Enabled=1 in this process finds no game call at 0x940569 and writes nothing
+static DWORD g_anFakeSum;
+static DWORD __fastcall AnFake3(void* s, void* e, DWORD a, DWORD b, DWORD c) { return g_anFakeSum = (DWORD)(uintptr_t)s + (DWORD)(uintptr_t)e + a + b + c; }
+static DWORD __fastcall AnFake2(void* s, void* e, DWORD a, DWORD b) { return g_anFakeSum = (DWORD)(uintptr_t)s + (DWORD)(uintptr_t)e + a + b; }
+static DWORD __fastcall AnFake1(void* s, void* e, DWORD a) { return g_anFakeSum = (DWORD)(uintptr_t)s + (DWORD)(uintptr_t)e + a; }
+static void TestAnimPhase() {
+    static_assert(offsetof(Ts3nCounters, anReady) == 0x63A4 && offsetof(Ts3nCounters, anPubMaxUs) == 0x63D4 && offsetof(Ts3nCounters, anSpare) == 0x63D8 &&
+                      sizeof(Ts3nCounters) == 6409 * 4, "counters v201 (docs/registry.md)");
+    Ts3nCounters& k = ts3native_counters;
+    const AnFn3 a0 = g_anAdv;
+    const AnFn2 n0 = g_anNot, e0 = g_anEval;
+    const AnFn1 p0 = g_anPub;
+    g_anAdv = AnFake3, g_anNot = AnFake2, g_anEval = AnFake2, g_anPub = AnFake1;
+    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+    const LONG adv = k.anAdvN, nt = k.anNotN, ev = k.anEvalN, pub = k.anPubN;
+    assert(AnAdvHook((void*)1, (void*)2, 3, 4, 5) == 15 && k.anAdvN == adv + 1 && k.anAdvUs >= 0);
+    assert(AnNotHook((void*)1, (void*)2, 3, 4) == 10 && k.anNotN == nt + 1);
+    assert(AnEvalHook((void*)10, (void*)20, 30, 40) == 100 && k.anEvalN == ev + 1);
+    assert(AnPubHook((void*)1, (void*)2, 3) == 6 && k.anPubN == pub + 1 && k.anPubMaxUs >= 0);
+    g_anAdv = a0, g_anNot = n0, g_anEval = e0, g_anPub = p0;
+    wchar_t ini[MAX_PATH];
+    GetTempPathW(MAX_PATH, ini);
+    swprintf_s(ini + wcslen(ini), MAX_PATH - wcslen(ini), L"ts3n-an-test-%lu.ini", GetCurrentProcessId());
+    WritePrivateProfileStringW(L"AnimPhase", L"Enabled", L"0", ini);
+    assert(!ApplyAnimPhase(ini) && !k.anReady);
+    WritePrivateProfileStringW(L"AnimPhase", L"Enabled", L"1", ini);
+    assert(!ApplyAnimPhase(ini) && !k.anReady);  // no `call 0x583D00` at 0x940569 here
+    DeleteFileW(ini);
+    printf("anim phase: four timing wrappers pass registers and arguments through, count; install refuses without the game's calls\n");
+}

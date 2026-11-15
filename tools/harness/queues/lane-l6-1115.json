@@ -1,0 +1,90 @@
+{
+  "note": "lane L6 1115 (not run): correctness repros of spawncapcount/spawncapprobe (docs/147 §5 D1), vaclistenerpad (docs/210 §6) and the routelen counters (docs/246 §6 1/3/4). BP 10 min each, switches set and read back by the repro steps / profile.fixesOn, 0 script errors, household untouched (spawncap and routelen change nothing; vaclistenerpad only runs inside a travel import). Build ts3fixes.lane-L6-1115 + the ts3agent of the same commit (agent knows the four switch names and the 999-1011 / 1038-1039 counters).",
+  "jobs": [
+    {
+      "id": "bp-spawncap-check",
+      "note": "Correctness (10 min): repro spawncap-check. Pass: every SpawnCapCheck step returns (it throws on a D1 answer that differs from EA's); spawncap_mismatch 0; checks counted; 0 script errors. Read spawncap_pet_under / spawncap_flower_under against the checks: the under-cap share docs/147 §5 asks for before D1/D2 go further",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change; ts3fixes master-lanes-1115 (master 84ee284f, the lane merged; repinned from the lane build 2026-11-15)",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "spawncap-check",
+          "fixesRequire": "spawncap_pet_checks>=600,spawncap_flower_checks>=600,spawncap_mismatch<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 18,
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:spawncap_pet_checks",
+          "op": ">=",
+          "value": 600,
+          "why": "the repro's checks did not run: hook missing (ts3fixes.applied) or reflect_call failed"
+        }
+      ]
+    },
+    {
+      "id": "bp-vacation-listener-pad",
+      "note": "Correctness (10 min): repro vacation-listener-pad. Pass: VacPadCheck returns a line (opportunities with > 3 events N); vaclistenerpad_padded and _left read back; 0 script errors. N = 0 closes the docs/210 §6 row as dead with EA's tuning",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change; ts3fixes master-lanes-1115 (master 84ee284f, the lane merged; repinned from the lane build 2026-11-15)",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "vacation-listener-pad",
+          "fixesRequire": "vaclistenerpad_padded<1,vaclistenerpad_left<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 18
+    },
+    {
+      "id": "bp-routelen-crowd",
+      "note": "Correctness (10 min): repro replan-buildbuy-crowd with routelen on (observe only). Pass: routelen_seen_n + routelen_unseen_n > 0, routelen_errors 0, 0 script errors; the patches result carries pick:<definition> keys while routelen is on (counter 3). Read routelen_*_m / _n for the mean planned metres per class",
+      "asi": "game-copy/asi-v024/ts3native.asi",
+      "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change; ts3fixes master-lanes-1115 (master 84ee284f, the lane merged; repinned from the lane build 2026-11-15)",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "replan-buildbuy-crowd",
+          "fixesRequire": "routelen_seen_n>=1,routelen_errors<1",
+          "fixesOn": "routelen"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 18,
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:routelen_seen_n",
+          "op": ">=",
+          "value": 1,
+          "why": "no successful plan counted: routelen not on, or RouteSrcEnd not reached"
+        }
+      ]
+    }
+  ]
+}

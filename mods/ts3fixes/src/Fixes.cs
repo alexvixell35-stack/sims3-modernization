@@ -91,6 +91,7 @@ namespace Ts3Fixes
             ApplyRelAlarmGuard();
             ApplyMoodDrift();
             ApplyListenerFixes();
+            ApplyEventCost();  // docs/545 §5 diagnostics, switch eventcost off
             ApplyWishListenerFixes();
             ApplyBuyCellRecycle();
             ApplyMoodPending();
@@ -124,14 +125,18 @@ namespace Ts3Fixes
             ApplyNameCache();
             ApplyScriptHotSpots();
             ApplyVenueMemo();
+            ApplyExactMemos();  // lane L4 1115: permamemo, buffremovenoop, catnamecache (ExactMemos.cs), off by default
             ApplyDoorMirror();
             ApplyAutShadow();
+            ApplyAutRoomMemo();  // docs/97 AM-1 H1-H3/H5 (AutRoomMemo.cs), off by default; after AutShadow (rides on its IsAllowedInRoom swap)
             ApplyAutOffload();
             ApplyReplanDefer();
             ApplyUnseenThrottle();
             ApplyEaSpread();
             ApplySeasonMarkerCache();
             ApplyRouteSources();
+            ApplySpawnCap();  // docs/147 §5 D1, off by default (spawncapcount, spawncapprobe)
+            ApplyRouteLen();  // docs/246 §6 counters 1/3/4, diagnostic, off (routelen)
             ApplyDisposeSpread();
             ApplyMemAlive();
             ApplyUfFinish();
@@ -200,7 +205,7 @@ namespace Ts3Fixes
         // [90-92] SafeSpot placements answered by a stored FindGoodLocation result / searches run / verify differences (switch safespotreuse),
         // [88-89] tooltip window walks skipped / run (ScriptHotSpots.cs),
         // [93-98] spring wildflower fires / tries / placed / failed / longest ms / save aborts (wildflowerprobe, wildflowertask; ScriptHotSpots.cs, docs/110),
-        // [99-101] reserved for invcache (docs/115), [102-105] door mirror: door imports seen / lot invalidations / lot tables built /
+        // [99-101] invcache (ScriptHotSpots.cs, docs/115): dispatches from the kept handler list / lists built / verify mismatches, [102-105] door mirror: door imports seen / lot invalidations / lot tables built /
         // builds refused (doormirror; DoorMirror.cs, docs/105 §10.5), [106-121] [AutShadow] pilot (AutShadow.cs, docs/122): A0..A5,
         // L pairs / equal / Test agree / top-1 agree, skips, warm-in reference runs, requests posted, Begin busy, mod-guard
         // skips, managed exceptions in the driver, [122-126] [AutShadow] mod guards (docs/128 §5): sf skips, G-M4 methods /
@@ -344,6 +349,10 @@ namespace Ts3Fixes
         // [2047] deadrefsweep phase 11 (DeadRefs.cs, issue #166 build 43, docs/519): object owner components whose owner or thief Sim was gone (relinked or dropped).
         // [2048] deadrefsweep phase 12 (DeadRefs.cs, issue #166 build 41, docs/522): ObjectDisposed handlers of relationships nobody holds, removed.
         // [2049] deadrefsweep phase 13 (DeadRefs.cs, issue #166, docs/523): celebrity waiting-to-react entries that were gone, removed.
+        // [994] deadrefcooking (DeadRefs.cs phase 14, docs/205 §4): CookingProcess ObjectDisposed handlers removed. [995-996] deadrefconvo (phase 15, docs/517 §4): gone conversation members removed / conversation visits skipped for a household member.
+        // [997] takeariskguard (TakeARiskGuard.cs, docs/529 §4): Take a Risk liking updates skipped (null relationship, EA would throw).
+        // [1014-1017] permamemo (ExactMemos.cs, docs/245 §5 H): hits / misses / verify mismatches / table clears. [1018-1019] buffremovenoop (docs/95 §5.5): early returns / calls passed on.
+        // [1020-1023] catnamecache (ExactMemos.cs, docs/96 B2): hits / misses / verify mismatches / clears. [1024-1037] AM-1 (AutRoomMemo.cs, docs/97 §7): pairs, segments, room memo hits / misses / verify mismatches, calls outside a pair, floods inside a pair, memo drops inside a pair, segment time buckets <1/1-2/2-5/5-10/>=10 ms, max segment us.
         // [2050] rewardgiver (RewardGiver.cs, docs/525): owner components SetRewardGiver added in place of EA's NullReferenceException.
         // [2054] leavejobdispose (LeaveJobDispose.cs, docs/529 §2): deferred job leaves done at once for a description being disposed at work.
         // [2053] unused (a bedpartner fix was dropped: simler90's core already guards the partner in BedMultiPart.ClaimOwnership, docs/529 §1).
@@ -511,6 +520,13 @@ namespace Ts3Fixes
                 case "hoursmemo": return Instantiator.kHoursMemo;
                 case "venuememo": return Instantiator.kVenueMemo;
                 case "venuememoverify": return false; // verify switch: test runs only
+                case "permamemo": return Instantiator.kPermaMoodletMemo;  // exact memo, off (ExactMemos.cs, docs/245 §5 H)
+                case "buffremovenoop": return Instantiator.kBuffRemoveNoOp;  // exact early-out, off (ExactMemos.cs, docs/95 §5.5)
+                case "catnamecache": return Instantiator.kCatalogNameCache;  // exact memo, off (ExactMemos.cs, docs/96 B2)
+                case "autroommemo": return Instantiator.kAutonomyRoomMemo;  // exact memo, off (AutRoomMemo.cs, docs/97 §7 H2)
+                case "autslicetime": return Instantiator.kAutonomySliceTime;  // measure only, off (AutRoomMemo.cs, docs/97 §7 H5)
+                case "invcache": return Instantiator.kPortalInvocationCache;  // exact, off (ScriptHotSpots.cs, docs/115)
+                case "permamemoverify": case "catnamecacheverify": case "autroommemoverify": case "invcacheverify": return false; // verify switches: test runs only
                 case "caneearly": return Instantiator.kCaneEarlyOut;
                 case "tooltipthrottle": return Instantiator.kTooltipThrottle;
                 case "detailprioverify": case "hoursmemoverify": return false; // verify switches: test runs only, no tuning
@@ -531,6 +547,8 @@ namespace Ts3Fixes
                 case "autt2callpet": return false; // tier-2 P3 CallPet worker-owned picker list (AutShadow.cs): test runs only
                 case "autt2l0": return false;  // tier-2 L0 local-phase probe (AutLocalProbe.cs): measurement only, test runs
                 case "autlive": return IniUnseen(); // docs/124 §17 go-live consume ([AutShadow] Mode=3): test runs, or ini Unseen=1
+                case "autlivetune": return false; // docs/124 §3.1 tuning rule: drop a go-live result when an allow-listed pair's tuning fingerprint (AutLiveCore.TunFp) changed since the request (only acts with autlive); test runs only
+                case "autlivelod": return false; // docs/124 §3.1 LOD rule: drop a go-live result when Autonomy.mbHighLOD flipped since the request (only acts with autlive); test runs only
                 case "autlivelate": return Instantiator.kAutLiveLate; // docs/217 L1 late consume (only acts with autlive)
                 case "autliveguard": return Instantiator.kAutLiveGuard; // docs/124 §17.10 go-live cost guard (only acts with autlive)
                 case "autunseenpace": return Instantiator.kAutUnseenPace; // docs/222 §8 unseen-direct pacing (only acts with autunseen)
@@ -737,11 +755,17 @@ namespace Ts3Fixes
                 case "vacexitreturn": return Instantiator.kVacExitReturn;
                 case "vaclistenernull": return Instantiator.kVacListenerNull;
                 case "vacimportfix": return Instantiator.kVacImportFix;
+                case "vaclistenerpad": return Instantiator.kVacListenerPad;  // EA bug fix, off (EaVacation.cs, docs/210 §6)
+                case "spawncapcount": return Instantiator.kSpawnCapCount;  // exact, off until its probe run (SpawnCap.cs, docs/147 §5 D1)
+                case "spawncapprobe": case "routelen": return false;  // diagnostics only (SpawnCap.cs, RouteLen.cs)
                 case "menumaven": return Instantiator.kMenuMaven;
                 case "dancefloorlistdiag": return false;  // diagnostics only (DanceFloorDiag.cs, docs/253 §7)
                 case "boatgetoutdiag": return Instantiator.kBoatGetOutDiag;  // diagnostics only, off (BoatGetOutDiag.cs, docs/257 §7)
                 case "boatgetoutguard": return Instantiator.kBoatGetOutGuard;  // EA bug fix, off until the boat-getout-stress queue (BoatGetOutDiag.cs, docs/257 §9)
                 case "boatparkgone": return Instantiator.kBoatParkGone;  // EA bug fix, on by default (BoatParkGone.cs, docs/257)
+                case "deadrefcooking": return Instantiator.kDeadRefCooking;  // EA bug fix, off (DeadRefs.cs phase 14, docs/205 §4)
+                case "deadrefconvo": return Instantiator.kDeadRefConvo;  // EA bug fix, off (DeadRefs.cs phase 15, docs/517 §4)
+                case "takeariskguard": return Instantiator.kTakeARiskGuard;  // EA bug fix, off (TakeARiskGuard.cs, docs/529 §4)
                 case "minihomelot": return Instantiator.kMiniHomeLot;  // EA bug fix, on (MiniHomeLot.cs, docs/266)
                 case "dancefloorlistguard": return Instantiator.kDanceFloorListGuard;  // EA bug fix, ON in release (Rodney 2026-11-09; DanceFloorDiag.cs, docs/253 §12)
                 case "compactionfail": return false;  // test only (Compaction.cs, docs/204 §6): the reload throws after the screen is up
@@ -1124,19 +1148,22 @@ namespace Ts3Fixes
         }
 
         // A townie on its own, on foot, standing, and not near anything the player can see. Shared by the trip shortcuts.
-        static bool TownieUnseen(Sims3.Gameplay.Actors.Sim sim, List<Sims3.Gameplay.Actors.Sim> followers)
+        static bool TownieUnseen(Sims3.Gameplay.Actors.Sim sim, List<Sims3.Gameplay.Actors.Sim> followers) { return TownieUnseen(sim, followers, false); }
+        // hiddenOk: a Sim in a Late Night hidden room still counts (only the stuck watchdog's idle timer, which rescues it from there)
+        static bool TownieUnseen(Sims3.Gameplay.Actors.Sim sim, List<Sims3.Gameplay.Actors.Sim> followers, bool hiddenOk)
         {
             long t = UcBegin(kUcTownie, sim != null ? sim.ObjectId.Value : 0);  // docs/227 probe
-            bool r = TownieUnseenBody(sim, followers);
+            bool r = TownieUnseenBody(sim, followers, hiddenOk);
             UcEnd(kUcTownie, t);
             return r;
         }
-        static bool TownieUnseenBody(Sims3.Gameplay.Actors.Sim sim, List<Sims3.Gameplay.Actors.Sim> followers)
+        static bool TownieUnseenBody(Sims3.Gameplay.Actors.Sim sim, List<Sims3.Gameplay.Actors.Sim> followers, bool hiddenOk)
         {
             if (IsPlayerSim(sim)) return false;  // household rule (PlayerSims.cs)
             if (followers != null && followers.Count > 0) return false;
             if (sim.Posture != sim.Standing || sim.IsInRidingPosture || sim.IsInBeingRiddenPosture) return false;
-            if (Sims3.Gameplay.Controllers.TombRoomManager.IsObjectInATombRoom(sim)) return false;
+            // docs/267 F2: Late Night hidden rooms too (allowHidden), same EA lookup as the tomb-only one
+            if (Sims3.Gameplay.Controllers.TombRoomManager.IsObjectInATombOrHiddenRoom(sim, !hiddenOk)) return false;
             int b = UtbBits(sim);  // docs/227 §6 central table
             if (b >= 0) return sUtbCheck ? UtbCompare(UtbUnseen(b), !UcOnScreen(sim) && FarFromViewers(sim.Position)) : UtbUnseen(b);
             if (UcOnScreen(sim)) return false;

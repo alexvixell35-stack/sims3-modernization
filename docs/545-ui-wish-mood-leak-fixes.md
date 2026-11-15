@@ -171,5 +171,5 @@ the step the override ends with.
   CAF.ShowRelationshipsPanel), so this may be a harness artifact [inferred]. Needs a Create a Family route before any
   fix; `casexitsweep` would also cover thumbs registered during a CAS visit.
 - Live test of `moodpending` (a Sim sleeping in a bed until WellRested: target 20 vs sum 10 off, equal on).
-- Listener cost: count dispatches and time per event id (EventTracker.ProcessEvent).
+- Listener cost: count dispatches and time per event id (EventTracker.ProcessEvent). Built 2026-11-15 (not run): ts3fixes `eventcost` (EventCost.cs, off, diagnostics only), agent `event_cost`, repro `event-cost-probe`.
 - Inventory audit items A1/A3/D1/C1 and the Downtrodden / Torched / Lunacy shared fields (static only so far).

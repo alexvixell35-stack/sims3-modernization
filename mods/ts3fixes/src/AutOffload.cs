@@ -84,7 +84,7 @@ namespace Ts3Fixes
         static int sT2N, sT2At;
         // docs/126 §8 (autofft2ic, with autofft2 and [AutShadow] Tier2IcRows=1): the class-a IC rows for the same objects. Each
         // group writes its own slots of V (G1 0-5, G2 6-8, G3 9-10, G4 11-14, docs/data/tier2-rows-handoff.md); equal = all slots
-        const int kIcV = 25;  // slots 0-14: IcG1-IcG4; 15-19: IcG5 (E rows); 20-21: IcG6 (E3 rows); 22: IcG7 (P6); 23-24: IcG8 (P5)
+        const int kIcV = 28;  // slots 0-14: IcG1-IcG4; 15-19: IcG5 (E rows); 20-21: IcG6 (E3 rows); 22: IcG7 (P6); 23-24: IcG8 (P5); 25-27: IcG9 (L8)
         sealed class IcRes { public bool Done, Exc; public int Abort = -1; public readonly long[] V = new long[kIcV]; }
         static readonly IcRes[] sIcRef = NewIc(), sIcWork = NewIc();
         static int sIcN;
@@ -729,7 +729,7 @@ namespace Ts3Fixes
         static void IcRead(GameObject o, long[] v)
         {
             Array.Clear(v, 0, v.Length);
-            IcG1(o, v); IcG2(o, v); IcG3(o, v); IcG4(o, v); IcG5(o, v); IcG6(o, v); IcG7(o, v); IcG8(o, v);
+            IcG1(o, v); IcG2(o, v); IcG3(o, v); IcG4(o, v); IcG5(o, v); IcG6(o, v); IcG7(o, v); IcG8(o, v); IcG9(o, v);
         }
 
         // G1 terrain and floor, slots 0-5 (rows: TerrainHeight, TerrainType, HasFloorFeatures, HasFloorFeaturesWorldPos,
@@ -868,6 +868,34 @@ namespace Ts3Fixes
             v[23] = h;
             v[24] = on + 1;
         }
+
+        // G9 lane L8 rows (docs/126 §8 #14, #20), slots 25-27: LotGetDisplayLevelInfo (hash of the 6 ints, over a struct the
+        // game fills itself), GetPondInfo for the pond at the object's position, world path (lot 0) and lot path, each over a
+        // fixed in-value so a byte the game leaves must come back as that in-value (false = 2). Same household-lot skip as IcG5.
+        static void IcG9(GameObject o, long[] v)
+        {
+            Lot lot = o.LotCurrent;
+            if (lot == null) return;
+            if (lot.Household != null && lot.Household == sIcHh) return;
+            LotDisplayLevelInfo d = Sims3.SimIFace.World.LotGetDisplayLevelInfo(lot.LotId);
+            v[25] = ((((((long)d.mCurrent * 31 + d.mMin) * 31 + d.mMax) * 31 + d.mNumLevels) * 31 + d.mInitialDisplayLevel) * 31 + d.mMaxAvailableLevel) * 31 + 1;
+            uint pond = Sims3.SimIFace.World.GetPondAtPoint(lot.LotId, o.Position);
+            v[26] = IcPond(pond, 0UL);
+            v[27] = IcPond(pond, lot.LotId);
+        }
+        static long IcPond(uint pond, ulong lotId)
+        {
+            PondInfo p = new PondInfo();
+            Vector3 s = new Vector3(-7f, -8f, -9f);
+            p.mRepresentativePos = s; p.mBoundCorner0 = s; p.mBoundCorner1 = s; p.mBoundCorner2 = s; p.mBoundCorner3 = s;
+            p.mBestRectCorner0 = s; p.mBestRectCorner1 = s; p.mBestRectCorner2 = s; p.mBestRectCorner3 = s;
+            p.mfWaterHeight = -5f; p.mID = 0x5A5A5A5A; p.mObjectID = 0x6B6B6B6B6B6B6B6BUL;
+            if (!Sims3.SimIFace.World.GetPondInfo(pond, lotId, ref p)) return 2;
+            long h = IcV3(IcV3(IcV3(IcV3(IcV3(37, p.mRepresentativePos), p.mBoundCorner0), p.mBoundCorner1), p.mBoundCorner2), p.mBoundCorner3);
+            h = IcV3(IcV3(IcV3(IcV3(h, p.mBestRectCorner0), p.mBestRectCorner1), p.mBestRectCorner2), p.mBestRectCorner3);
+            return ((h * 31 + AutShadowCore.Bits(p.mfWaterHeight)) * 31 + p.mID) * 31 + (long)p.mObjectID + 3;
+        }
+        static long IcV3(long h, Vector3 q) { return ((h * 31 + AutShadowCore.Bits(q.x)) * 31 + AutShadowCore.Bits(q.y)) * 31 + AutShadowCore.Bits(q.z); }
 
         // The read part of Camera.GetClosestVisibleLot from the request's inputs, in the game's order: the candidate lots, then
         // the closest one. Not done: the sCurrentFocusedGreetedLot write and LotFocusChanged, which stay on the sim thread.

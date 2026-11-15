@@ -285,7 +285,7 @@ namespace Ts3Fixes
                     keep[id] = st;
                     long still = now - st.Since;
                     if (still >= kDayTicks) { if (Act(s, now, 48, "reset (stationary a sim-day)")) keep.Remove(id); continue; }
-                    bool unseen = TownieUnseen(s, null);
+                    bool unseen = TownieUnseen(s, null, true);  // docs/267 F2: a hidden-room NPC keeps the unseen idle timer (its rescue below)
                     Lot lot = s.LotCurrent;
                     if (still < (unseen ? idle : kDayTicks) || s.IsRouting || lot == null || lot.IsWorldLot) continue;
                     if (lot.IsRoomHidden(s.RoomId)) { if (Act(s, now, 47, "reset (hidden room)")) keep.Remove(id); continue; }

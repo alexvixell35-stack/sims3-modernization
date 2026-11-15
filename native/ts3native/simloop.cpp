@@ -12,7 +12,7 @@
 static const DWORD SLP_SITE = TS3A(0x00D81FF6), SLP_LOOP_TOP = TS3A(0x00D818C0);
 static const u8 kSlpSite[11] = {0x8B, 0x8E, 0x08, 0x0C, 0x00, 0x00, 0x83, 0xF9, 0x01, 0x0F, 0x84};  // mov ecx,[esi+0xC08]; cmp ecx,1; je
 typedef void(__cdecl* SlpFn)();
-static SlpFn g_slpFns[4];
+static SlpFn g_slpFns[8];  // 8: [MonoThread], [MonoJit], host calls, world image, [StallWatch] can all be on
 static volatile LONG g_slpN;
 static DWORD g_slpBack;  // the je's original target (the loop head)
 static LONG g_slpState;  // 0 not tried, 1 installed, -1 refused
@@ -51,7 +51,7 @@ static bool SimLoopAdd(SlpFn fn, const char* who, u8* site = (u8*)(uintptr_t)SLP
         if (g_slpState > 0) Log("OK   sim loop: je at 0x%08X -> SlpThunk, then 0x%08X (every Simulate iteration)", (DWORD)(uintptr_t)(site + 9), wantTarget);
         else Log("SKIP sim loop: bytes at 0x%08X differ (not the Steam 1.67 Simulate loop-back), nothing written", (DWORD)(uintptr_t)site);
     }
-    if (g_slpState < 0 || g_slpN >= 4) { Log("SKIP sim loop: %s not added", who); return false; }
+    if (g_slpState < 0 || g_slpN >= 8) { Log("SKIP sim loop: %s not added", who); return false; }
     g_slpFns[g_slpN] = fn;
     InterlockedIncrement(&g_slpN);
     Log("OK   sim loop: %s runs at the end of every Simulate iteration", who);

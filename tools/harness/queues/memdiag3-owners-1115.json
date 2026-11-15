@@ -1,0 +1,236 @@
+{
+  "note": "docs/190 phase 3 [MemDiag] AllocSitesOwners + AllocSitesWithApex correctness (prepared 2026-11-15, NOT RUN): ts3native.asi.memdiag3-1115 (feature/memdiag-phase3-1115, counters v200 ao*). Two BP 10 min natural jobs with [MemDiag] Enabled=1 AllocSites=1 AllocSitesOwners=1: (1) bp-memdiag3-owners = Bin as found (no Apex), plain queue.ts; (2) bp-memdiag3-owners-apex = the latest Apex Radiance release + its RTX Remix bridge in Bin (3.2.3 on 11-15; tools/turbo-compat.ts snapshot fetches GitHub latest into game-copy/apex-<ver>, state apex sets Bin, restore puts it back with a whole-Bin sha256 compare) and AllocSitesWithApex=1. queue.ts never changes Bin: run job 2 only through probe-out/queue/chain-memdiag3-1115.sh (both jobs, job 1 first). Pass: install lines (hooks 4/4 + 7, owners on, Apex mode off / on), own heap / virt / map lines at load and at least one 5-min sample, counters read back (aoOn, aoRows 67, aoLines), no SKIP alloc sites, no FAIL, no crash. Read in the logs: own heap by owner (docs/190 ea split), own virt ea.<owner> + untr (rest split), exe? share (aoHeapUnkKB / aoHeapKB: owner table coverage), aoApexPass in the Apex job (Apex FastMemory's VirtualAlloc frame passed through; 0 = Apex's calls leave no frame). Correctness only, never timing (AllocSites is a TEST-RUN TOOL). node tools/harness/queue.ts tools/harness/queues/memdiag3-owners-1115.json --only bp-memdiag3-owners --no-smoke",
+  "jobs": [
+    {
+      "id": "bp-memdiag3-owners",
+      "asi": "game-copy/ts3native.asi.memdiag3-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+      "pinReason": "memdiag3-1115 (builds.json): feature/memdiag-phase3-1115 = memdiag2b-1115 (0.36.257-memacc2) + [MemDiag] AllocSitesOwners / AllocSitesWithApex (docs/190 phase 3, counters v200); ts3fixes = current release package rel0211b (no ts3fixes change on this branch)",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "MemDiag.AllocSites": 1,
+        "MemDiag.AllocSitesOwners": 1
+      },
+      "scriptErrorsMax": 0,
+      "note": "BP 10 min natural, Bin as found (no Apex). allocsites lines ride on every diag: mem sample (load + every 5 min). aoLines counts owner line sets; aoRows / aoOn are set at install.",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 25,
+      "nativeRequire": "@aoOn>=1,@aoRows>=67,@aoRowsVer>=40,aoLines>=1,@aoHeapKB>=1024,@aoEaCoreKB>=1024",
+      "logRequire": {
+        "^alloc sites on \\(TEST-RUN TOOL, docs/201\\): EA heap hooks 4/4, ntdll hooks 7,": 1,
+        "^alloc sites owners on \\(docs/190 phase 3\\): 67 TS3W\\.exe 1\\.67 ranges, \\d+ verified; Apex mode off": 1,
+        "^allocsites: #\\d+ \\S+.* own heap MB=[\\d.]+ \\w": 2,
+        "^allocsites: #\\d+ \\S+.* own virt MB=[\\d.]+ .*\\bea\\.\\w+=[\\d.]+.* untr=[\\d.]+": 2,
+        "^allocsites: #\\d+ \\S+.* own map MB=[\\d.]+": 2
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^SKIP alloc sites": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "stopQueueOnFail": false,
+      "regexCases": {
+        "^alloc sites on \\(TEST-RUN TOOL, docs/201\\): EA heap hooks 4/4, ntdll hooks 7,": {
+          "match": [
+            "alloc sites on (TEST-RUN TOOL, docs/201): EA heap hooks 4/4, ntdll hooks 7, heap blocks < 64 KB 1 in 64 by address, blocks >= 64 KB / reserves / views all, top 12; allocsites: lines at every diag: mem sample"
+          ],
+          "noMatch": [
+            "alloc sites on (TEST-RUN TOOL, docs/201): EA heap hooks 0/4, ntdll hooks 7, heap blocks < 64 KB 1 in 64 by address, blocks >= 64 KB / reserves / views all, top 12; allocsites: lines at every diag: mem sample"
+          ]
+        },
+        "^alloc sites owners on \\(docs/190 phase 3\\): 67 TS3W\\.exe 1\\.67 ranges, \\d+ verified; Apex mode off": {
+          "match": [
+            "alloc sites owners on (docs/190 phase 3): 67 TS3W.exe 1.67 ranges, 43 verified; Apex mode off"
+          ],
+          "noMatch": [
+            "alloc sites owners on (docs/190 phase 3): 67 TS3W.exe 1.67 ranges, 43 verified; Apex mode on (next to Apex Radiance: pristine sites only, its VirtualAlloc frame passed through)"
+          ]
+        },
+        "^allocsites: #\\d+ \\S+.* own heap MB=[\\d.]+ \\w": {
+          "match": [
+            "allocsites: #2 periodic own heap MB=612.4 res=120.3 cas=88.1 mono=60.2 exe?=3.1"
+          ],
+          "noMatch": [
+            "allocsites: #2 periodic sum heapMB=612.4 heapN=1840000 virtMB=1702.3 virtN=861"
+          ]
+        },
+        "^allocsites: #\\d+ \\S+.* own virt MB=[\\d.]+ .*\\bea\\.\\w+=[\\d.]+.* untr=[\\d.]+": {
+          "match": [
+            "allocsites: #1 load own virt MB=1210.2 gc=374.5 drv=128.0 ea.res=96.0 ea.anim=64.0 d3d9=40.0 ea.script=24.0 untr=306.0"
+          ],
+          "noMatch": [
+            "allocsites: #1 load own virt MB=1210.2 gc=374.5 drv=128.0 d3d9=40.0 untr=306.0"
+          ]
+        },
+        "^allocsites: #\\d+ \\S+.* own map MB=[\\d.]+": {
+          "match": [
+            "allocsites: #1 load own map MB=131.9 d3d9=120.0 exe?=11.9"
+          ],
+          "noMatch": [
+            "allocsites: #1 load sum heapMB=612.4 heapN=1840000 virtMB=1702.3 virtN=861 mapMB=131.9"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL alloc sites EA heap Malloc: VirtualProtect (err 5)"
+          ],
+          "noMatch": [
+            "OK   alloc sites EA heap Malloc detour at 0x004E69D0"
+          ]
+        },
+        "^SKIP alloc sites": {
+          "match": [
+            "SKIP alloc sites EA heap Free at 0x004E5920: a jmp into another module (Apex mode never chains one)"
+          ],
+          "noMatch": [
+            "OK   alloc sites EA heap Free detour at 0x004E5920"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "log C:\\Users\\<user>\\Documents"
+          ],
+          "noMatch": [
+            "allocsites: #1 load own map MB=131.9 d3d9=120.0 exe?=11.9"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-memdiag3-owners-apex",
+      "asi": "game-copy/ts3native.asi.memdiag3-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+      "pinReason": "memdiag3-1115 (builds.json), as bp-memdiag3-owners; Bin state apex (latest Apex Radiance release + RTX Remix bridge, tools/turbo-compat.ts) set by probe-out/queue/chain-memdiag3-1115.sh before this job",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "MemDiag.Enabled": 1,
+        "MemDiag.AllocSites": 1,
+        "MemDiag.AllocSitesOwners": 1,
+        "MemDiag.AllocSitesWithApex": 1
+      },
+      "scriptErrorsMax": 0,
+      "note": "BP 10 min natural next to the latest Apex Radiance (+ bridge), [Compat] ApexStandDown=1 (default). Pass also needs Apex found at start, Apex mode on in the owners line and no SKIP alloc sites line (no site refused). Read aoApexPass and the apex= / ea.* rows: with the pass-through the EA cores keep their heap user (ea.<owner>) instead of apex. Apex's own log (ApexRadiance_LOG.txt, collected by the chain): its [FastMemory] On line must still say the five VirtualAlloc calls were found (our hooks do not touch them).",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 25,
+      "nativeRequire": "@aoOn>=7,@aoRows>=67,aoLines>=1,@aoHeapKB>=1024,@aoEaCoreKB>=1024",
+      "logRequire": {
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: .*\\bApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+": 1,
+        "^alloc sites on \\(TEST-RUN TOOL, docs/201\\): EA heap hooks 4/4, ntdll hooks 7,": 1,
+        "^alloc sites owners on \\(docs/190 phase 3\\): 67 TS3W\\.exe 1\\.67 ranges, \\d+ verified; Apex mode on \\(next to Apex Radiance": 1,
+        "^allocsites: #\\d+ \\S+.* own heap MB=[\\d.]+ \\w": 2,
+        "^allocsites: #\\d+ \\S+.* own virt MB=[\\d.]+ .*\\bea\\.\\w+=[\\d.]+.* untr=[\\d.]+": 2
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "^SKIP alloc sites": 0,
+        "Apex image not found": 0,
+        "[\\\\/]Users[\\\\/][^<]": 0
+      },
+      "stopQueueOnFail": false,
+      "regexCases": {
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not found at start"
+          ]
+        },
+        "^diag: Bin add-ons: .*\\bApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+": {
+          "match": [
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.2.3.0, d3d9.dll 1013 KB, MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+          ],
+          "noMatch": [
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1434 KB"
+          ]
+        },
+        "^alloc sites on \\(TEST-RUN TOOL, docs/201\\): EA heap hooks 4/4, ntdll hooks 7,": {
+          "match": [
+            "alloc sites on (TEST-RUN TOOL, docs/201): EA heap hooks 4/4, ntdll hooks 7, heap blocks < 64 KB 1 in 64 by address, blocks >= 64 KB / reserves / views all, top 12; allocsites: lines at every diag: mem sample"
+          ],
+          "noMatch": [
+            "alloc sites off (no hook) (TEST-RUN TOOL, docs/201): EA heap hooks 0/4, ntdll hooks 0, heap blocks < 64 KB 1 in 64 by address, blocks >= 64 KB / reserves / views all, top 12; allocsites: lines at every diag: mem sample"
+          ]
+        },
+        "^alloc sites owners on \\(docs/190 phase 3\\): 67 TS3W\\.exe 1\\.67 ranges, \\d+ verified; Apex mode on \\(next to Apex Radiance": {
+          "match": [
+            "alloc sites owners on (docs/190 phase 3): 67 TS3W.exe 1.67 ranges, 43 verified; Apex mode on (next to Apex Radiance: pristine sites only, its VirtualAlloc frame passed through)"
+          ],
+          "noMatch": [
+            "alloc sites owners on (docs/190 phase 3): 67 TS3W.exe 1.67 ranges, 43 verified; Apex mode off"
+          ]
+        },
+        "^allocsites: #\\d+ \\S+.* own heap MB=[\\d.]+ \\w": {
+          "match": [
+            "allocsites: #2 periodic own heap MB=612.4 res=120.3 cas=88.1 mono=60.2 exe?=3.1"
+          ],
+          "noMatch": [
+            "allocsites: #2 periodic sum heapMB=612.4 heapN=1840000 virtMB=1702.3 virtN=861"
+          ]
+        },
+        "^allocsites: #\\d+ \\S+.* own virt MB=[\\d.]+ .*\\bea\\.\\w+=[\\d.]+.* untr=[\\d.]+": {
+          "match": [
+            "allocsites: #1 load own virt MB=1210.2 gc=374.5 drv=128.0 ea.res=96.0 ea.anim=64.0 apex=12.0 ea.script=24.0 untr=306.0"
+          ],
+          "noMatch": [
+            "allocsites: #1 load own virt MB=1210.2 gc=374.5 apex=412.0 untr=306.0"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL alloc sites EA heap Malloc: VirtualProtect (err 5)"
+          ],
+          "noMatch": [
+            "OK   alloc sites EA heap Malloc detour at 0x004E69D0"
+          ]
+        },
+        "^SKIP alloc sites": {
+          "match": [
+            "SKIP alloc sites: Apex Radiance loaded (the allocator is its area; [Compat] ApexStandDown=1; [MemDiag] AllocSitesWithApex=1 observes next to it)"
+          ],
+          "noMatch": [
+            "OK   alloc sites NtAllocateVirtualMemory detour at 0x77B12C30"
+          ]
+        },
+        "Apex image not found": {
+          "match": [
+            "alloc sites owners on (docs/190 phase 3): 67 TS3W.exe 1.67 ranges, 43 verified; Apex mode on (next to Apex Radiance: pristine sites only, its VirtualAlloc frame passed through), Apex image not found"
+          ],
+          "noMatch": [
+            "alloc sites owners on (docs/190 phase 3): 67 TS3W.exe 1.67 ranges, 43 verified; Apex mode on (next to Apex Radiance: pristine sites only, its VirtualAlloc frame passed through)"
+          ]
+        },
+        "[\\\\/]Users[\\\\/][^<]": {
+          "match": [
+            "log C:\\Users\\<user>\\Documents"
+          ],
+          "noMatch": [
+            "allocsites: #1 load own map MB=131.9 d3d9=120.0 exe?=11.9"
+          ]
+        }
+      }
+    }
+  ]
+}

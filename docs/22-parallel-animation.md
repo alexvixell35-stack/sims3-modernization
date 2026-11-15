@@ -134,6 +134,8 @@ Probe-only, in a test run (not done here):
 
 If Evaluate is under ~1% of sim-thread time, drop the idea. If it is above ~2%, prototype alternative 5.1 first.
 
+**Timers built 2026-11-15 (lane L9, offline, not run): `[AnimPhase] Enabled=1`** (default 0, counters v201 `an*`) times four calls inside `0x940430` by rel32 rewrite: Advance `0x940569 -> 0x583D00` (`ret 0xC`), routing notify `0x94059E -> 0x947590` (`ret 8`), Evaluate `0x940742 -> 0x5833C0` (`ret 8`), publish `0x94118B -> 0x959670` (`ret 4`) [verified call sites and rets, Steam 1.67]. n / us / max us per phase; `anEvalN / anAdvN` = share reaching step 6. Not covered: actors per pass, clip events `0x568710`. Queue (not run): `tools/harness/queues/lane-L9-1115.json (job bp-l9-diag)`.
+
 ## 7. H3: callee sweep to depth 3 and controller vtables (2026-10-15)
 
 **Method.** Ghidra headless on the copy project `game-copy/ghidra-h1`, read-only: the call tree of `0x940430` to depth 3 (99 functions); every caller of the controller constructor `0x565A80` and the vtables they install (54 primary and secondary vtables in `0xFC1AA0-0xFC2548`, plus TrackManager `0xFCBA70`); slots `+0x8` (Advance) and `+0xC` (Evaluate) of each, to depth 1 (~100 more functions). Each function was tagged by pattern (Mono/IC names, event dispatchers `0x568710`/`0x5689A0`/`0x583AB0`/`0x805870`, allocators, `LOCK()` increments, plain `x[1]++`, global writes, routing range `0x82xxxx-0x83xxxx`, render publish) and the hits were read. Decompiled output stayed under `game-copy/`.

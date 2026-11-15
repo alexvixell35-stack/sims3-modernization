@@ -397,7 +397,12 @@ static const char* const kAsAbortName[AS_AB_N] = {"row", "pos", "memo", "rng", "
 // body's footprint check would test is set (AsLevelGate); LVL1 = the level is the third argument, LVLA = every level of the lot.
 // AS_OF_HH (P6, P5): the actor gate: the worker refuses the row (abort `other`, no lookup, no learn) while the request's actor
 // is household, selected or unknown (g_asActorHh, AutShadowNative.ActorScope); a flag, so the rows need no fixed position.
-enum { AS_OF_TRUE = 1, AS_OF_DIFF = 2, AS_OF_ARR = 4, AS_OF_LVL1 = 8, AS_OF_LVLA = 16, AS_OF_HH = 32 };
+// AS_OF_LVLID (lane L8, docs/126 §8 #18 retro): the E3 gate for a row keyed by lot id (args 0-1 after the hidden result),
+// every level of that lot, only with [AutShadow] Tier2RoomGate=1. AS_OF_BIG (lane L8, #14): out 0 is larger than e.out
+// (outSz up to AS_BIG): the cut fills it twice in a local buffer (00, then FF) and keeps the after-image plus the
+// written-byte mask in the pool (outSz/4 + outSz/32 dwords); the hit writes only the masked bytes.
+enum { AS_OF_TRUE = 1, AS_OF_DIFF = 2, AS_OF_ARR = 4, AS_OF_LVL1 = 8, AS_OF_LVLA = 16, AS_OF_HH = 32, AS_OF_LVLID = 64, AS_OF_BIG = 128 };
+static const int AS_BIG = 128;  // largest AS_OF_BIG out (bytes, a multiple of 32)
 struct AsDesc {
     const char* name;
     u8 owner, kind, nArg, sz, at, reason, strMask, lotClear, nOut;
@@ -460,7 +465,8 @@ static const AsDesc kAsDesc[] = {
     // RoomInfo (6 dwords, 24 B: st[16] runs on into out[24], unused by an IC without out parameters; static_assert below).
     // docs/131 §9: the body may run the lazy terrain footprint update under +0x918, so it is filled at the cut (sim thread)
     // only, never by the worker. (ulong obj, Vector3, float) -> uint tree count.
-    AS_D("ScriptCore.World::World_GetInformationAboutRoomImpl", AO_CUT, AK_STRUCT, 4, 24, 0, AS_AB_OTHER),
+    // lane L8: AS_OF_LVLID = the E3 level-bit gate (docs/126 §8 #18 retro), active only with [AutShadow] Tier2RoomGate=1
+    {"ScriptCore.World::World_GetInformationAboutRoomImpl", AO_CUT, AK_STRUCT, 4, 24, 0, AS_AB_OTHER, 0, 0, 0, {0}, {0}, AS_OF_LVLID, 0},
     AS_D("ScriptCore.World::World_TreesWithinRadialRangeImpl", AO_CUT, AK_INT, 6, 4, 0, AS_AB_OTHER),
     // docs/219 §2 four shared tier-2 rows, last so [AutShadow] Tier2Rows=0 leaves them out of the guard lookup (the worker
     // then aborts `ic` as before). (ulong obj) -> bool (the extern takes the object id, not a position as docs/219 said),
@@ -532,14 +538,25 @@ static const AsDesc kAsDesc[] = {
     // the object or component is missing: the shape of Slots_GetContainmentSlotNamesImpl (row 9, AO_OBJ, 4-byte elements).
     {"ScriptCore.Slots::Slots_IsSlotEnabledImpl", AO_CUT, AK_INT, 3, 1, 0, AS_AB_ROW, 0, 0, 0, {0}, {0}, AS_OF_HH, 0},
     {"ScriptCore.Slots::Slots_GetRoutingSlotNamesImpl", AO_OBJ, AK_ARRAY, 2, 4, 0, AS_AB_ROW, 0, 0, 0, {0}, {0}, AS_OF_HH, 0},
+    // lane L8 (docs/126 §8 #14, #20; tier2-enablers-handoff Rows), E bits 10-11 = [AutShadow] Tier2IcNew bits 5-6. Layouts
+    // [verified, Steam 1.67]. #14 0x78BC70 cdecl (uint pond, ulong lot, ref PondInfo) -> bool: WM null, pond 0 or over the
+    // count, no record, lot miss or no lot pond data -> false, out untouched; world path (lot 0) writes +0xC..+0x3B, +0x6C,
+    // +0x70; lot path (0xB64E00 -> 0xB64620, the lot's pond list +0x2C8 by short id) writes +0x0..+0x73 and +0x78..+0x7F.
+    // Neither path reads the out, so AS_OF_BIG's two fills give the written mask. AO_CUT: lot ponds follow the lot transform.
+    // #20 0x7869F0 cdecl (result 24 B, ulong lot) -> LotDisplayLevelInfo: dwords 0-3 zeroed first; no WM or no lot -> dwords
+    // 4-5 untouched (the caller's bytes), else all 6 written. The hidden result is e.st and runs on into e.out (as #18), so
+    // AS_OF_DIFF with mask 0xFF = struct bytes 16-23. AO_CUT: the display level moves with the camera floor buttons.
+    {"ScriptCore.World::World_GetPondInfo", AO_CUT, AK_INT, 4, 1, 0, AS_AB_POS, 0, 0, 1, {3}, {AS_BIG}, AS_OF_TRUE | AS_OF_BIG, 0},
+    {"ScriptCore.World::World_LotGetDisplayLevelInfoImpl", AO_CUT, AK_STRUCT, 2, 24, 0, AS_AB_OTHER, 0, 0, 0, {0}, {0}, AS_OF_DIFF, 0xFF},
 };
 static const int AS_NDESC = sizeof(kAsDesc) / sizeof(kAsDesc[0]);
 static const int AS_NT2 = 4;     // the docs/219 rows, just before the docs/126 §8 rows
-static const int AS_NT2IC = 25;  // the docs/126 §8 rows + E3 + P6 + P5 at the end of kAsDesc (the last AS_NT2E also need their bit)
-static const int AS_NT2E = 10;   // the E rows: Tier2IcNew bits 0-3, bit 4 = Tier2HouseboatRow, bits 5-6 = Tier2IcNew bit 4 (E3), bit 7 = Tier2CountRange (P6), bits 8-9 = Tier2SlotRows (P5); P6 and P5 also carry AS_OF_HH (actor gate)
+static const int AS_NT2IC = 27;  // the docs/126 §8 rows + E3 + P6 + P5 + L8 at the end of kAsDesc (the last AS_NT2E also need their bit)
+static const int AS_NT2E = 12;   // the E rows: Tier2IcNew bits 0-3, bit 4 = Tier2HouseboatRow, bits 5-6 = Tier2IcNew bit 4 (E3), bit 7 = Tier2CountRange (P6), bits 8-9 = Tier2SlotRows (P5), bits 10-11 = Tier2IcNew bits 5-6 (L8 #14, #20); P6 and P5 also carry AS_OF_HH (actor gate)
 static bool g_asTier2Rows;       // [AutShadow] Tier2Rows
 static bool g_asTier2IcRows;     // [AutShadow] Tier2IcRows (only with Tier2Rows)
 static DWORD g_asT2eBits;        // per E row, default 0 (all off)
+static bool g_asRoomGate;        // [AutShadow] Tier2RoomGate (lane L8): AS_OF_LVLID rows (#18) take the E3 level-bit gate
 // descriptors the guard lookup sees: the docs/219 rows only with Tier2Rows, the docs/126 §8 rows only with both keys
 static int AsNDescOn() { return !g_asTier2Rows ? AS_NDESC - AS_NT2IC - AS_NT2 : !g_asTier2IcRows ? AS_NDESC - AS_NT2IC : AS_NDESC; }
 static bool AsDescOn(int i) { const int e = i - (AS_NDESC - AS_NT2E); return i < AsNDescOn() && (e < 0 || ((g_asT2eBits >> e) & 1)); }
@@ -869,13 +886,19 @@ static u8* const* g_asLvWm = (u8* const*)(uintptr_t)TS3A(0x011ECBC4);
 static u8* const* g_asLvRw = (u8* const*)(uintptr_t)TS3A(0x011D9128);
 static volatile LONG* g_asJobState;  // &g_async.state (ts3native.cpp; A_IDLE = 0); NULL in the host
 static LONG g_asLvFill, g_asLvSkip;  // logged: Mode R's skip count (I-131-8)
+// AS_OF_LVLID (lane L8, #18 0x7933A0) [verified disassembly]: the body finds the lot by id (0xC62D40, thiscall(WM; lo, hi, 0),
+// ret 0xC), hands it to the room summary 0xB01B50 as arg 0, which calls lot->World_SurfaceTypeAtPoint 0xAB9580 (ecx = that
+// lot, at 0xB01CF2) at a level it derives from the room's tiles: the same 0xAB9580 path as #2 and #4, so every level of the
+// lot is asked, as LVLA. a[0] = the hidden result, a[1..2] = the lot id.
+typedef u8*(__fastcall* AsLvLotIdFn)(u8* wm, void* edx, DWORD lo, DWORD hi, DWORD z);  // 0xC62D40, ret 0xC
+static AsLvLotIdFn g_asLvLotId = (AsLvLotIdFn)(uintptr_t)TS3A(0x00C62D40);
 static bool AsLevelGate(const AsDesc& d, const DWORD* a) {
-    const bool one = (d.of & AS_OF_LVL1) != 0;
-    float x, z;
-    memcpy(&x, &a[one ? 0 : 2], 4), memcpy(&z, &a[one ? 1 : 4], 4);
+    const bool one = (d.of & AS_OF_LVL1) != 0, byId = (d.of & AS_OF_LVLID) != 0;
+    float x = 0, z = 0;
+    if (!byId) memcpy(&x, &a[one ? 0 : 2], 4), memcpy(&z, &a[one ? 1 : 4], 4);
     bool ok = true;
     u8* const wm = *g_asLvWm;
-    u8* const lot = wm ? g_asLvLotAt(wm, NULL, x, z) : NULL;
+    u8* const lot = !wm ? NULL : byId ? g_asLvLotId(wm, NULL, a[1], a[2], 0) : g_asLvLotAt(wm, NULL, x, z);
     u8* const rw = *g_asLvRw;
     if (lot && !(*(const LONG*)(lot + 0x408) == 1 && *(const LONG*)(lot + 0x40C) == 0x50) && rw && rw[0x974]) {
         const LONG lo = one ? (signed char)a[2] : *(const LONG*)(lot + 0x17C), hi = one ? lo : *(const LONG*)(lot + 0x180);
@@ -907,12 +930,33 @@ static void AsRefresh(int idx, AsEnt& e, DWORD* pool, LONG* poolN) {
         a[n++] = j < d.nOut ? (DWORD)(uintptr_t)(e.out + AsOutOff(d, j)) : e.key[k++];
     }
     AsRet r = {0, 0, 0};
-    if ((d.of & (AS_OF_LVL1 | AS_OF_LVLA)) && !AsLevelGate(d, a)) {  // E3: the body would build footprints (and may wait on +0x918)
+    if (((d.of & (AS_OF_LVL1 | AS_OF_LVLA)) || ((d.of & AS_OF_LVLID) && g_asRoomGate)) && !AsLevelGate(d, a)) {  // E3: the body would build footprints (and may wait on +0x918)
         e.r[0] = e.r[1] = 0, e.f = 0, e.flags |= AE_NOPAY;  // no answer this cut (the worker aborts pos); no stale reference kept
         e.pay = e.payN = 0;
         return;
     }
     if (d.of) memset(e.out, 0, sizeof(e.out));  // E1: bytes the game leaves are not a stale answer's
+    if (d.of & AS_OF_BIG) {  // lane L8: out 0 in a local buffer, filled over 00 then FF; after-image + written mask to the pool
+        const int ai = (d.kind == AK_STRUCT) + d.outIdx[0], sz = d.outSz[0], w = sz / 4 + sz / 32;
+        u8 b0[AS_BIG], b1[AS_BIG];
+        memset(b0, 0, sz), memset(b1, 0xFF, sz);
+        a[ai] = (DWORD)(uintptr_t)b0;
+        AsCallRaw(g_asOrig[idx], a, n, &r, d.kind == AK_FP);
+        AsRet r1 = {0, 0, 0};
+        a[ai] = (DWORD)(uintptr_t)b1;
+        AsCallRaw(g_asOrig[idx], a, n, &r1, d.kind == AK_FP);
+        AsStoreAnswer(d, e, r1, pool, poolN);
+        if ((r.lo & 0xFF) != (r1.lo & 0xFF)) { e.flags |= AE_NOPAY; return; }  // two answers for one input: no answer
+        if (!(d.of & AS_OF_TRUE) || (r1.lo & 0xFF)) {
+            if (*poolN + w > AS_POOL) { e.flags |= AE_NOPAY; ts3native_autshadow.full++; return; }
+            DWORD* dst = pool + *poolN;
+            memcpy(dst, b1, sz);
+            memset(dst + sz / 4, 0, sz / 8);
+            for (int b = 0; b < sz; b++) if (b0[b] == b1[b]) dst[sz / 4 + b / 32] |= 1u << (b & 31);
+            e.pay = *poolN, e.payN = w, *poolN += w;
+        }
+        return;
+    }
     AsCallRaw(g_asOrig[idx], a, n, &r, d.kind == AK_FP);
     if (d.of & AS_OF_DIFF) {  // second fill over FF: a byte the body wrote comes out the same both times
         u8 o0[sizeof(e.out)];
@@ -961,6 +1005,15 @@ static void AsStoreAnswer(const AsDesc& d, AsEnt& e, const AsRet& r, DWORD* pool
 // array of an AS_OF_ARR out could not be made (nothing written; the caller aborts `ref`).
 static bool AsOutWrite(const AsDesc& d, const AsEnt& e, const DWORD* pool, const DWORD* a) {
     if ((d.of & AS_OF_TRUE) && !(e.r[0] & 0xFF)) return true;  // false answer: the game writes no out
+    if (d.of & AS_OF_BIG) {  // lane L8: the bytes the game wrote on this input, from the pool
+        if (!e.payN) return false;
+        const int sz = d.outSz[0];
+        const u8* v = (const u8*)(pool + e.pay);
+        const DWORD* m = pool + e.pay + sz / 4;
+        u8* dst = (u8*)(uintptr_t)a[d.outIdx[0]];
+        for (int b = 0; b < sz; b++) if ((m[b / 32] >> (b & 31)) & 1) dst[b] = v[b];
+        return true;
+    }
     if (d.of & AS_OF_ARR) {
         if (!e.payN || !g_asNewArray) return false;
         DWORD* arr = (DWORD*)g_asNewArray(pool[e.pay], pool[e.pay + 1], 4);
@@ -976,6 +1029,14 @@ static bool AsOutWrite(const AsDesc& d, const AsEnt& e, const DWORD* pool, const
         for (int b = 0; b < d.outSz[j]; b++) if ((m >> (o + b)) & 1) dst[b] = e.out[o + b];
     }
     return true;
+}
+
+// a struct row's hit into the caller's result. AS_OF_DIFF (lane L8 #20): the bytes past e.st (they run on into e.out) only
+// where the game wrote them on this input, so a no-lot answer leaves the caller's dwords 4-5 as the game's own call does.
+static void AsStructWrite(const AsDesc& d, const AsEnt& e, u8* dst) {
+    if (!(d.of & AS_OF_DIFF)) { memcpy(dst, e.st, d.sz); return; }
+    memcpy(dst, e.st, min((int)d.sz, (int)sizeof(e.st)));
+    for (int b = 0; b + (int)sizeof(e.st) < d.sz; b++) if ((e.om >> b) & 1) dst[sizeof(e.st) + b] = e.out[b];
 }
 
 // LRU eviction (docs/122 §14.14): drops the eighth of the rows least recently used by the sim or the worker (memo rows
@@ -1463,7 +1524,7 @@ static int AsWorkerAnswer(DWORD idx, DWORD* args, AsRet* r) {
     InterlockedIncrement(&k.workerHits);
     switch (d->kind) {
         case AK_FP: r->f = e.f; return 1;
-        case AK_STRUCT: memcpy((void*)(uintptr_t)args[0], e.st, d->sz); return 0;
+        case AK_STRUCT: AsStructWrite(*d, e, (u8*)(uintptr_t)args[0]); return 0;
         case AK_ARRAY:
             if (!e.payN) return 0;
             if (!g_asNewArray) { AsAbort(AS_AB_REF, idx); return 0; }
@@ -1635,7 +1696,7 @@ static bool AsSame(const AsDesc& d, const AsEnt& a, const DWORD* poolA, const As
         ((a.flags ^ b.flags) & AE_NOPAY) || ((d.of & AS_OF_DIFF) && a.om != b.om))
         return false;
     const bool same = d.kind == AK_ARRAY ? !a.r[0] == !b.r[0] : a.r[0] == b.r[0] && a.r[1] == b.r[1];
-    if (d.kind != AK_ARRAY && !(d.of & AS_OF_ARR)) return same;
+    if (d.kind != AK_ARRAY && !(d.of & (AS_OF_ARR | AS_OF_BIG))) return same;
     return same && a.payN == b.payN && !memcmp(poolA + a.pay, poolB + b.pay, a.payN * 4);
 }
 
@@ -3244,7 +3305,10 @@ static bool ApplyAutShadow(const wchar_t* ini) {
     const DWORD icNew = (DWORD)GetPrivateProfileIntW(L"AutShadow", L"Tier2IcNew", 0, ini);
     g_asT2eBits = (icNew & 15) | (GetPrivateProfileIntW(L"AutShadow", L"Tier2HouseboatRow", 0, ini) ? 16u : 0u) | (icNew & 16 ? 0x60u : 0u) |
                   (GetPrivateProfileIntW(L"AutShadow", L"Tier2CountRange", 0, ini) ? 0x80u : 0u) |
-                  (GetPrivateProfileIntW(L"AutShadow", L"Tier2SlotRows", 0, ini) ? 0x300u : 0u);
+                  (GetPrivateProfileIntW(L"AutShadow", L"Tier2SlotRows", 0, ini) ? 0x300u : 0u) | ((icNew >> 5) & 3u) << 10;
+    g_asRoomGate = GetPrivateProfileIntW(L"AutShadow", L"Tier2RoomGate", 0, ini) != 0;
+    Log("autonomy shadow: Tier2IcNew bits 5-6 = %lu (L8 #14 GetPondInfo, #20 LotGetDisplayLevelInfo) Tier2RoomGate=%d (#18 level-bit gate)",
+        (g_asT2eBits >> 10) & 3, g_asRoomGate ? 1 : 0);
     Log("autonomy shadow: Tier2IcNew=%lu Tier2HouseboatRow=%d Tier2CountRange=%d Tier2SlotRows=%d (E rows #7 #15 #16 #21, bit 4 = E3 #2 #4; houseboat; P6 CountObjectsInRange; P5 IsSlotEnabled + GetRoutingSlotNames; need Tier2IcRows)",
         (g_asT2eBits & 15) | (icNew & 16), (g_asT2eBits >> 4) & 1, (g_asT2eBits >> 7) & 1, (g_asT2eBits >> 8) & 1);
     const u8* base = (const u8*)GetModuleHandleW(NULL);

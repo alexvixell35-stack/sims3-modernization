@@ -469,7 +469,7 @@ The ts3fixes half compiles clean against the game assemblies and its logic selft
 ### 14.6 Open items
 
 - **In game first (G-A3, then G-A4):** queue `tools/harness/queues/autshadow-first.json`, ready to run: §14.7.
-- `DumpOnMismatch` is only passed to ts3fixes; the native snapshot dump of §5.1 is not built.
+- ~~`DumpOnMismatch` is only passed to ts3fixes; the native snapshot dump of §5.1 is not built.~~ Built 2026-11-15 (lane L8, not run): ts3fixes calls `AutShadowNative.DumpCut(meta)` after each logged A1-A3 pair when `Config(3) != 0 && Config(37) == 1`; the sim thread writes one `{"t":"dump"}` header and one `{"t":"row"}` line per row of the published version that the worker read (`used`) or the meta object owns (key, answer, st/out bytes, first 16 payload dwords), cap 256 rows per dump, 20 dumps per session.
 - `unguarded` and `workerClassInit` are reserved v2 fields, not wired (need an icall-resolution hook and a class-init hook).
 - ~~Still open from §13.4: every snapshot body's not-found path for a raise (I-122-26) and the remaining argument layouts (I-122-20)~~: closed statically in §14.8; shim side and the 7 memo bodies in §14.9.
 - Once a run started, the M5 worker is the shadow worker for the session: a later non-AutShadow job on it would also get snapshot answers. No such job exists.

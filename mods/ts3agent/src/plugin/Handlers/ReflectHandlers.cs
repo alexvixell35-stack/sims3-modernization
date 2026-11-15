@@ -261,6 +261,10 @@ namespace Ts3Agent
                     ulong oid = ulong.Parse(root.Substring(5), CultureInfo.InvariantCulture);
                     owner = Sims3.Gameplay.Abstracts.GameObject.GetObject(new Sims3.SimIFace.ObjectGuid(oid));
                 }
+                // "@type:<class>": the in-world object of that class (or a subclass) nearest the selected Sim (docs/267 repros)
+                else if (root.StartsWith("@type:")) owner = NearestOfType(root.Substring(6));
+                // "@picked:N": the N-th pick_sims / spawn_horse Sim (Util.FindSimDescription "picked:N")
+                else if (root.StartsWith("@picked:")) owner = Util.FindSim(new Args(new Dictionary<string, object> { { "sim", root.Substring(1) } }), "sim");
                 else
                 {
                     RootResolver r;

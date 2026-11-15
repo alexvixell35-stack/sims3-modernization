@@ -68589,5 +68589,2928 @@
         }
       }
     ]
+  },
+  {
+    "id": "cooking-handler-gone-check",
+    "bug": "CookingProcess handlers stay on an appliance's ObjectDisposed after the Prepare steps or the state-changed path let go of it, so the process, its ingredients and the dish go into every save (issue #91, docs/205 §4)",
+    "fix": "ts3fixes DeadRefs.cs: deadrefsweep phase 14, switch deadrefcooking (default off)",
+    "save": "Baseline-BP",
+    "note": "Hard state built by the agent check (DeadRefCookingCheck seed): two CookingProcesses subscribed to one fridge through EA's own AddObjectListeners; one lets go (ObjectClickedOn = null), one keeps naming it with no owner. No Sim is touched. Off arm: switches off, both handlers stay. On arm: the sweep pass removes both and the dead one's state listener.",
+    "expect": "off: expect left sees mine 2 with the switches off. on: expect cleaned sees mine 0; deadrefcooking_handlers >= 2.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": false,
+          "deadrefcooking": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCookingCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "off: the hard state",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefCookingCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "mine",
+              "equals": 2
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "off: started False (switch off); nothing runs",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCookingCheck",
+          "args": [
+            "expect left"
+          ]
+        },
+        "note": "off: the stale entries still there; removed by the check"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": true,
+          "deadrefcooking": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCookingCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "on: the same hard state again",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefCookingCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "mine",
+              "equals": 2
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "on: started True (safe); the phase reaches the holder within the pass",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCookingCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: poll until cleaned",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefCookingCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "mine",
+              "equals": 0
+            }
+          ],
+          "maxS": 300,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCookingCheck",
+          "args": [
+            "expect cleaned"
+          ]
+        },
+        "note": "on: cleaned; deadrefcooking_handlers +1"
+      }
+    ]
+  },
+  {
+    "id": "conversation-gone-check",
+    "bug": "Conversation.mMembers keeps a Sim reset or destroyed mid-talk; EA's RemoveSim cannot take it out and throws later when the last live member leaves (issue #166 core build 40, docs/517 §4)",
+    "fix": "ts3fixes DeadRefs.cs: deadrefsweep phase 15, switch deadrefconvo (default off; conversations with a household or selected member are skipped)",
+    "save": "Baseline-BP",
+    "note": "Hard state built by the agent check (DeadRefConversationCheck seed): a conversation of two townies (no household member) reached from the first one; the second one's Sim object is destroyed (put back at the end of each arm). Off arm: the gone member stays. On arm: the sweep pass removes it, one live member left.",
+    "expect": "off: expect left sees gone 1 with the switches off. on: expect cleaned sees gone 0, members 1; deadrefconvo_members >= 1, deadrefconvo_household unchanged.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": false,
+          "deadrefconvo": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefConversationCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "off: the hard state",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefConversationCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            },
+            {
+              "path": "gone",
+              "equals": 1
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "off: started False (switch off); nothing runs",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefConversationCheck",
+          "args": [
+            "expect left"
+          ]
+        },
+        "note": "off: the stale entries still there; removed by the check"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": true,
+          "deadrefconvo": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefConversationCheck",
+          "args": [
+            "seed"
+          ]
+        },
+        "note": "on: the same hard state again",
+        "waitS": 2,
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefConversationCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "destroyed",
+              "equals": true
+            }
+          ],
+          "maxS": 60,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "on: started True (safe); the phase reaches the holder within the pass",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefConversationCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "on: poll until cleaned",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.DeadRefConversationCheck",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "gone",
+              "equals": 0
+            }
+          ],
+          "maxS": 300,
+          "everyS": 3
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefConversationCheck",
+          "args": [
+            "expect cleaned"
+          ]
+        },
+        "note": "on: cleaned; deadrefconvo_members +1"
+      }
+    ]
+  },
+  {
+    "id": "takeariskguard-check",
+    "bug": "Political.PoliticalTakeARisk updates the boss's and co-workers' liking through GetRelationship(x, true).LTR with no check; a null boss or a gone co-worker throws after the notification (docs/529 §4)",
+    "fix": "ts3fixes TakeARiskGuard.cs: switch takeariskguard (default off)",
+    "save": "Baseline-BP",
+    "note": "The agent check (TakeARiskCheck) takes a townie's career (not household, not selectable), sets no boss and one never-valid co-worker, runs five Take a Risk results, then puts the boss, co-workers and ShouldPromote back. A notification may show for that townie.",
+    "expect": "off: expect throws (threw >= 1). on: expect guarded (threw 0, takeariskguard_skips up).",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "takeariskguard": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TakeARiskCheck",
+          "args": [
+            "expect throws"
+          ]
+        },
+        "note": "off: EA throws on the null boss"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "takeariskguard": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TakeARiskCheck",
+          "args": [
+            "expect guarded"
+          ]
+        },
+        "note": "on: no throw, skips counted"
+      }
+    ]
+  },
+  {
+    "id": "autonomy-memo",
+    "bug": "Autonomy pair scoring asks Sim.IsAllowedInRoom many times per pair (GetLot + two dictionary probes + the portal cache version each time): 1.01% of managed samples; the slice length of a scoring segment is unknown (docs/97 §3, §7)",
+    "fix": "ts3fixes AutRoomMemo.cs (switches autroommemo + autroommemoverify, autslicetime; tunings kAutonomyRoomMemo / kAutonomySliceTime, default off): exact (Sim, lot, room) memo inside the pairs of one (Autonomy, tick, task) segment, dropped on every allowed-room recalculation and lot cache refresh; segment time histogram. Rides on [AutShadow] AutRoomHook (docs/97 §7 H1-H3, H5)",
+    "save": "Baseline-BP",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "autroommemo": true,
+          "autroommemoverify": true,
+          "autslicetime": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 5
+        },
+        "waitS": 5,
+        "note": "townies with meta autonomy, motive updates and routes through doors"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 90,
+        "note": "autonomy runs: autroommemo_hits and autslice_* rise"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "autroommemo": false,
+          "autroommemoverify": false,
+          "autslicetime": false
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "autroommemo": false,
+          "autroommemoverify": false,
+          "autslicetime": false
+        },
+        "waitS": 1
+      }
+    ],
+    "watch": {
+      "kind": "counter",
+      "counter": "autroommemo_hits",
+      "min": 1,
+      "minutes": 2
+    },
+    "expect": "switch on: autmemo_pairs and autmemo_segments > 0, autroommemo_hits > 0, autroommemo_mismatches 0, autslice_* buckets sum = segments closed; ts3fixes.applied lists Sim.IsAllowedInRoom (AutShadow), RecalculateAllowedRooms, RefreshObjectCacheUsers, RefreshObjectCaches and CalculateScoreAndAddToCandidates ok; no script errors; household Sims route and pick actions as with the switch off"
+  },
+  {
+    "id": "lane-l4-memos",
+    "bug": "Motive.Update removes perma-moodlet buffs the Sim does not have (RemoveElement probes an enum-keyed dictionary that boxes) and asks IsPermaMoodlet through the static buff table on every trigger; Overwatch CleanupInventory asks every inventory item for its native catalog name (docs/95 §5.5, docs/245 §5 H, docs/96 B2)",
+    "fix": "ts3fixes ExactMemos.cs (switches permamemo + permamemoverify, buffremovenoop, catnamecache + catnamecacheverify; tunings kPermaMoodletMemo, kBuffRemoveNoOp, kCatalogNameCache, default off): exact memo per buff name (dropped on any buff table change), exact no-op early return, catalog name per product object and handle (cleared on new content / locale)",
+    "save": "Baseline-BP",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "permamemo": true,
+          "permamemoverify": true,
+          "buffremovenoop": true,
+          "catnamecache": true,
+          "catnamecacheverify": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 5
+        },
+        "waitS": 5,
+        "note": "townies with meta autonomy, motive updates and routes through doors"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 90,
+        "note": "motive updates: permamemo_hits and buffremovenoop_early rise"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "permamemo": false,
+          "permamemoverify": false,
+          "buffremovenoop": false,
+          "catnamecache": false,
+          "catnamecacheverify": false
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "permamemo": false,
+          "permamemoverify": false,
+          "buffremovenoop": false,
+          "catnamecache": false,
+          "catnamecacheverify": false
+        },
+        "waitS": 1
+      }
+    ],
+    "watch": {
+      "kind": "counter",
+      "counter": "permamemo_hits",
+      "min": 1,
+      "minutes": 2
+    },
+    "expect": "switch on: permamemo_hits >> permamemo_misses, permamemo_mismatches 0, buffremovenoop_early > 0, catnamecache_mismatches 0 (hits only where something asks catalog names: Overwatch daily cleanup, inventory UI); moodlets of household Sims identical to the switch off; no script errors"
+  },
+  {
+    "id": "event59-invcache",
+    "bug": "Lot.OnPortalPathPlan (World event 59, ~150 dispatches/s) clones every handler with GetInvocationList on each dispatch (docs/115 §1)",
+    "fix": "ts3fixes ScriptHotSpots.cs PortalInvCacheHook (switch invcache + invcacheverify, tuning kPortalInvocationCache, default off): the lot handler list kept by field reference (4 slots), dispatch as vanilla",
+    "save": "Baseline-BP",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "invcache": true,
+          "invcacheverify": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 5
+        },
+        "waitS": 5,
+        "note": "townies with meta autonomy, motive updates and routes through doors"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 90,
+        "note": "route plans through doors: invcache_hits rise; privacy situations (shower, toilet) add and remove handlers: invcache_rebuilds"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "invcache": false,
+          "invcacheverify": false
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "invcache": false,
+          "invcacheverify": false
+        },
+        "waitS": 1
+      }
+    ],
+    "watch": {
+      "kind": "counter",
+      "counter": "invcache_hits",
+      "min": 1,
+      "minutes": 2
+    },
+    "expect": "switch on: invcache_hits >> invcache_rebuilds, invcache_mismatches 0; doors lock and privacy works as with the switch off; no script errors"
+  },
+  {
+    "id": "spawncap-check",
+    "bug": "docs/147 §5: every spawner try (insects, rocks/gems/metals, seeds) calls MinorPet.CanSpawnMoreMinorPetsInWorld and Wildflower.CanSpawnWildflowers, each building an array of every object of the type in the world to count up to a cap",
+    "fix": "ts3fixes SpawnCap.cs: spawncapcount (D1, default off) answers from the native count under the cap; spawncapprobe (diagnostic) compares D1 with EA's answer",
+    "save": "any world (EP5 for the minor-pet path; Seasons temperature decides the wildflower guard)",
+    "note": "UNVERIFIED (static only, 2026-11-15, lane L6): never run. SpawnCapCheck calls both checks 200 times per arm and throws when a D1 answer differs from EA's (1003 > 0). Arm 1 probe only (EA's answers, under-cap share), arm 2 probe + D1 (still EA's answer, compared), arm 3 D1 alone. Changes nothing in the world.",
+    "expect": "each SpawnCapCheck returns 'mismatches 0'; spawncap_pet_checks / spawncap_flower_checks +200 per arm; spawncap_pet_under / _flower_under = the under-cap share the design asks for",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spawncapcount": false,
+          "spawncapprobe": true
+        },
+        "note": "probe only",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpawnCapCheck",
+          "args": [
+            "200"
+          ]
+        },
+        "waitS": 2,
+        "note": "probe: EA's answers, under-cap counted"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spawncapcount": true,
+          "spawncapprobe": true
+        },
+        "note": "probe + D1",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpawnCapCheck",
+          "args": [
+            "200"
+          ]
+        },
+        "waitS": 2,
+        "note": "D1 compared with EA's answer"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spawncapcount": true,
+          "spawncapprobe": false
+        },
+        "note": "D1 alone",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpawnCapCheck",
+          "args": [
+            "200"
+          ]
+        },
+        "waitS": 2,
+        "note": "D1 answers"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spawncapcount": false,
+          "spawncapprobe": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spawncapcount": false,
+          "spawncapprobe": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "vacation-listener-pad",
+    "bug": "docs/210 §6: OpportunityExportInfo.ListenerStates is a fixed new [3]; the travel import (AcceptOpportunityFromTravel, existing-opportunity branch) reads it once per listener, so an opportunity with 4+ tuned events throws IndexOutOfRange",
+    "fix": "ts3fixes EaVacation.cs: vaclistenerpad (default off, needs vaclistenernull) pads the states with nulls for the AddOpportunityFromTravel call only",
+    "save": "any world",
+    "note": "UNVERIFIED (static only, 2026-11-15, lane L6): never run. VacPadCheck counts the opportunities whose tuning has more than 3 events (the inferred trigger). 0 = the import throw cannot happen with EA's tuning (close the row as dead). Otherwise run bp-vacation-roundtrip with vaclistenerpad + vaclistenernull on and an adult holding the named opportunity; vaclistenerpad_padded must rise.",
+    "expect": "VacPadCheck: 'with > 3 events N'; padded / left counters read back",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "vaclistenerpad": true,
+          "vaclistenernull": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VacPadCheck",
+          "args": []
+        },
+        "waitS": 2,
+        "note": "opportunities with more than 3 events"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "vaclistenerpad": false,
+          "vaclistenernull": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "vaclistenerpad": false,
+          "vaclistenernull": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "ilp-b80-remote-chat-off",
+    "bug": "docs/506 §8 B80: Sim.DoOneRoundOfRemoteChat shows the target's portrait from its first Everyday outfit; a target with none throws (ThumbnailKey(SimOutfit) reads outfit.Key of null) [verified decompiled]",
+    "fix": "ilpatch b80-remote-chat-no-everyday-outfit ([IlPatch] ilp_remotechatnoeverydayoutfit, off by default): this is the OFF arm (EA), the step must throw",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (built 2026-11-15, lane L10, static only): never run. ilp_remote_chat_check: two uncontrolled Sims (never household, selected or without a household); the target's Everyday list is emptied and the portrait chance forced to 2 for one synchronous call, both put back in a finally (no tick sees them). Job ini IlPatch.Enabled=0 (or the switch 0). The step fails on the wrong outcome.",
+    "steps": [
+      {
+        "cmd": "ilp_remote_chat_check",
+        "args": {
+          "expect": "throw"
+        },
+        "waitS": 2,
+        "note": "off arm: EA throws NullReferenceException in ThumbnailKey"
+      }
+    ],
+    "expect": "the step throws (threw true, NullReferenceException from ThumbnailKey); outfit_back true; 0 new script errors besides the caught one; no crash"
+  },
+  {
+    "id": "ilp-b80-remote-chat-on",
+    "bug": "same as ilp-b80-remote-chat-off",
+    "fix": "ilpatch b80 on: IlPatch.Enabled=1, IlPatch.ilp_remotechatnoeverydayoutfit=1 (the speech-balloon branch at 0x5F runs instead)",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (built 2026-11-15, lane L10, static only): never run. Same action as the off arm; the method is transformed at its first call, which is this step, so the patch applies here (\"il patch: b80-remote-chat-no-everyday-outfit applied\" line).",
+    "steps": [
+      {
+        "cmd": "ilp_remote_chat_check",
+        "args": {
+          "expect": "ok"
+        },
+        "waitS": 2,
+        "note": "on arm: no throw"
+      }
+    ],
+    "expect": "the step returns threw false, outfit_hidden true, outfit_back true; the b80 applied line; no crash"
+  },
+  {
+    "id": "ilp-b87-scavenger-off",
+    "bug": "docs/506 §8 B87: ScavengerOpportunity.OnAdded calls Simulator.Sleep(0) after each spawned item, also where the script may not yield",
+    "fix": "ilpatch b87-scavenger-sleep ([IlPatch] ilp_scavengersleep, off by default): OFF arm (EA)",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (built 2026-11-15, lane L10, static only): never run. ilp_scavenger_check: a clone of each static scavenger opportunity (attached to no Sim, so no household change) runs OnAdded with Simulator.YieldingDisabled set (one of the two contexts where CheckYieldingContext(false) is false); the first clone that spawns or throws decides; its spawned gems / metals / insects are destroyed again. [inferred] EA's Sleep under YieldingDisabled throws in native: if this arm does not throw, the repro does not reach the bug (report N/A, not a fix result). Error \"N/A: none ... spawned\" = the world holds enough of every item.",
+    "steps": [
+      {
+        "cmd": "ilp_scavenger_check",
+        "args": {
+          "expect": "throw"
+        },
+        "waitS": 2,
+        "note": "off arm: EA sleeps in a non-yielding context"
+      }
+    ],
+    "expect": "the step throws (threw true, spawned >= 1); every spawned object destroyed; no crash"
+  },
+  {
+    "id": "ilp-b87-scavenger-on",
+    "bug": "same as ilp-b87-scavenger-off",
+    "fix": "ilpatch b87 on: IlPatch.Enabled=1, IlPatch.ilp_scavengersleep=1 (Sleep skipped when CheckYieldingContext(false) is false)",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (built 2026-11-15, lane L10, static only): never run. Same action as the off arm; OnAdded is transformed at this first call (\"il patch: b87-scavenger-sleep applied\" line).",
+    "steps": [
+      {
+        "cmd": "ilp_scavenger_check",
+        "args": {
+          "expect": "ok"
+        },
+        "waitS": 2,
+        "note": "on arm: no throw, items spawned without the sleep"
+      }
+    ],
+    "expect": "the step returns threw false with spawned >= 1; the b87 applied line; no crash"
+  },
+  {
+    "id": "bp-bouncerskip-loop",
+    "bug": "docs/151 §6 D3 / docs/170 §5: VelvetRopes+WatchDoor.LoopDel re-routes the bouncer to RoutingSlot_2 every 5 s loop even when he already stands there (a route plan per loop per club)",
+    "fix": "ts3fixes bouncerskip (kBouncerSlotSkip, off): skips that route when RouteSrcCore.AtSlot; routesrc counts the loops at slot on both arms",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (built 2026-11-15, lane L10, static only): never run. docs/170 §5 had no forced path. Night clock (test_env hour 22), velvet_bouncer finds a velvet rope (IVelvetRopes, BP clubs), forces the role manager and, once the Bouncer role has a Sim, puts him on the rope's RoutingSlot_0 and pushes WatchDoor (EA's own calls). The bouncer is an uncontrolled role Sim; velvet_bouncer refuses a household or unknown-scope one. One firing = 30 s of WatchDoor loops (~6 LoopDel calls), counted by routesrc_bouncer_at_slot.",
+    "steps": [
+      {
+        "cmd": "test_env",
+        "args": {
+          "hour": 22
+        },
+        "waitS": 3,
+        "note": "clubs open, Bouncer role hours"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "routesrc": true
+        },
+        "waitS": 1,
+        "note": "routesrc counts the at-slot loops on both arms (c[232])"
+      },
+      {
+        "cmd": "velvet_bouncer",
+        "args": {},
+        "until": {
+          "cmd": "velvet_bouncer",
+          "args": {},
+          "all": [
+            {
+              "path": "watching",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 180
+        },
+        "note": "wait until a bouncer stands at the rope in WatchDoor (pushed by the step itself)"
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "patches",
+          "setup": true,
+          "args": {
+            "bouncerskip": "$on"
+          },
+          "waitS": 1,
+          "note": "arm"
+        },
+        {
+          "cmd": "velvet_bouncer",
+          "setup": true,
+          "args": {},
+          "waitS": 1,
+          "note": "state: re-push WatchDoor if anything ended it"
+        },
+        {
+          "cmd": "velvet_bouncer",
+          "setup": false,
+          "args": {},
+          "waitS": 30,
+          "note": "fire: 30 s of WatchDoor loops",
+          "count": {
+            "counter": "routesrc_bouncer_at_slot"
+          }
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 20
+      },
+      "maxMinutes": 12
+    },
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bouncerskip": false,
+          "routesrc": false
+        }
+      }
+    ],
+    "expect": ">= 20 at-slot loops per arm; off arms: bouncerskip_skipped flat; on arms: bouncerskip_skipped rises by the at-slot count; velvet_bouncer watching true on every firing (the bouncer keeps watching); 0 new script errors; no crash"
+  },
+  {
+    "id": "leak-place-mapview",
+    "bug": "docs/192 #1: IPlaceableObject_Place.Run subscribes Responder.Instance.GameStateChanging and CameraController.OnCameraMapViewEnabledCallback and never unsubscribes [verified decompiled]: +2 handlers per placement, each pinning the interaction",
+    "fix": "none yet (measure first, docs/191 module 2 \"#1 needs an inventory-placement action\")",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (built 2026-11-15, lane L10, static only): never run. place_cancel_loop: a sleeping bag (any IPlaceableObject by name) into the selected Sim's inventory, then 50 x the game's own Place from inventory with the hand tool closed after 10 ticks (EA's Cancel path; the item stays in the inventory and leaves at the end). Marks place-mv-r10..r50 carry ts3fixes memsus gsc / mapv. Then one map view on/off: every leaked handler runs Cancel (UserToolUtils.OnClose) once. Needs [MemDiag] for the memsus lines; the gsc / mapv before / after numbers in the step result work without it.",
+    "steps": [
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "place-mv-start"
+        },
+        "optional": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "place_cancel_loop",
+        "args": {
+          "name": "sleeping bag",
+          "n": 50,
+          "mark_every": 10,
+          "dwell_ticks": 10
+        },
+        "until": {
+          "cmd": "place_cancel_loop",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "failOn": "error",
+          "everyS": 5,
+          "maxS": 600
+        },
+        "max": 1200
+      },
+      {
+        "cmd": "map_view",
+        "args": {
+          "on": true
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "map_view",
+        "args": {
+          "on": false
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "mem_gc",
+        "args": {
+          "rounds": 2
+        },
+        "optional": true,
+        "waitS": 5
+      }
+    ],
+    "expect": "rounds_done 50, rounds_stuck 0; leak real: gsc_after - gsc_before = +50 and mapv_after - mapv_before = +50 (0 = not a leak in this path); map view toggles without error; 0 new script errors; no crash"
+  },
+  {
+    "id": "rel-onesided-census",
+    "bug": "docs/535 §4: what makes two Sims' relationship tables come apart (seen after NRaas MasterController Reset All, docs/535 §1)",
+    "fix": "census only (reltablesapart rejoins pairs at the next lookup; counter 2065)",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (built 2026-11-15, lane L10, static only): never run. Long session around NRaas resets: each firing takes rel_onesided, resets 10 uncontrolled in-world Sims with NRaas's own ResetSimTask.Perform (nraas_reset_sims, by reflection; never household, selected or without a household), waits 60 s at normal speed, takes rel_onesided again. 20 firings ~ 25 min; the arms are labels only (no switch is flipped), 10 firings each. Read: one_sided before / after each reset and its growth over the session; the sample names both Sims. Needs an NRaas mod with Common (MasterController / Overwatch); without one the reset step fails setup.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "rel_onesided",
+        "args": {
+          "sample": 12
+        },
+        "waitS": 1,
+        "note": "baseline at load"
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "rel_onesided",
+          "setup": true,
+          "args": {
+            "sample": 12
+          },
+          "waitS": 1,
+          "note": "before the reset"
+        },
+        {
+          "cmd": "nraas_reset_sims",
+          "setup": false,
+          "args": {
+            "count": 10
+          },
+          "waitS": 60,
+          "note": "fire: NRaas reset of 10 uncontrolled Sims, then a minute of play"
+        },
+        {
+          "cmd": "rel_onesided",
+          "setup": true,
+          "args": {
+            "sample": 12
+          },
+          "waitS": 1,
+          "note": "after"
+        }
+      ],
+      "arms": [
+        "off",
+        "on"
+      ],
+      "until": {
+        "perArm": 10
+      },
+      "maxMinutes": 30
+    },
+    "expect": "every firing resets >= 1 Sim; report one_sided / split_objects / one_sided_household per rel_onesided call (census, no pass threshold); 0 new script errors besides NRaas reset noise; no crash"
+  },
+  {
+    "id": "event-cost-probe",
+    "bug": "docs/545 §5: listener cost per event id is unknown (leak_census counts listeners only)",
+    "fix": "diagnostics: ts3fixes eventcost (EventCost.cs, switch off by default) times EventTracker.ProcessEvent per event id",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (built 2026-11-15, lane L10, static only): never run. event_cost on + reset, 10 min of play, read the top 25 ids by exclusive time, switch off. Inclusive time covers nested events; exclusive = minus nested ProcessEvent calls. hooked false = the patch did not go in (ProcessEvent already compiled): no data.",
+    "steps": [
+      {
+        "cmd": "event_cost",
+        "args": {
+          "on": true,
+          "reset": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 600,
+        "note": "10 min of play"
+      },
+      {
+        "cmd": "event_cost",
+        "args": {
+          "top": 25
+        },
+        "waitS": 1,
+        "max": 4000
+      },
+      {
+        "cmd": "event_cost",
+        "args": {
+          "on": false
+        },
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "event_cost",
+        "args": {
+          "on": false
+        }
+      }
+    ],
+    "expect": "hooked true, on true while measuring, calls > 0, the top 25 rows (calls, incl_us, excl_us, max_us); 0 new script errors; no crash"
+  },
+  {
+    "id": "ip-kd-uncut-ceiling",
+    "bug": "issue #338 / docs/264 §3: an unseen follower's own plan at backoff level 2 runs uncut and holds the route lock (+0x918) for >= 1 s while the sim thread waits",
+    "fix": "native [RouteAsync] KdUncutCeilMs (kduncutceil); the on arm lowers the ceiling to 0.3 s (kduncutceilus 300000)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED (built 2026-11-15, lane L10, static only): never run. docs/264 §3 forcing repro. kdownplanus 1000 (test-lowered own-Plan deadline, 1 ms) cuts the townie's first two plans, so the third runs at backoff 2 (uncut). The goal is \"sealed\": an unroutable spot (enclosed room / fenced corner) on the nearest non-household lot, never swapped for a reachable one, so the A* floods the whole area. Deviation from §3 step 4: go_here (the townie's own task plans: kind own) instead of sim_route_to (the agent's task: foreign, kd-cut-camera-recheck note). The household Sim walks to \"far\" so steering takes +0x918 during plan 3. Household Sims keep their exemption (kdexemptseen, household floor); only kdUs[KD_PLAN] is lowered, put back to 250 ms (kKdDefMs) in cleanup. Off arm with plan 3 < 1 s = N/A (world too small).",
+    "steps": [],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "kinddeadlines": 1,
+            "kdexemptseen": 1,
+            "kduncutceil": "$on",
+            "kduncutceilus": 300000,
+            "kdownplanus": 1000
+          },
+          "waitS": 1,
+          "note": "arm (ceiling 0.3 s on the on arm, none on the off arm)"
+        },
+        {
+          "cmd": "pick_sims",
+          "setup": true,
+          "args": {
+            "count": 1,
+            "townies": true,
+            "noPets": true
+          },
+          "waitS": 0,
+          "note": "a townie"
+        },
+        {
+          "cmd": "cancel_interactions",
+          "setup": true,
+          "args": {
+            "sim": "picked:1"
+          },
+          "waitS": 1
+        },
+        {
+          "cmd": "camera_to_tagged",
+          "setup": true,
+          "args": {
+            "sim": "active",
+            "height": 12,
+            "back": 12
+          },
+          "waitS": 2,
+          "note": "camera on the household: the townie answers unseen if he is not near it"
+        },
+        {
+          "cmd": "native_mark",
+          "setup": true,
+          "args": {
+            "name": "arm"
+          },
+          "waitS": 0,
+          "note": "per-arm snapshot start"
+        },
+        {
+          "cmd": "go_here",
+          "setup": false,
+          "args": {
+            "sim": "picked:1",
+            "to": "sealed"
+          },
+          "waitS": 1,
+          "note": "fire: plan 1 (cut at 1 ms)"
+        },
+        {
+          "cmd": "go_here",
+          "setup": false,
+          "args": {
+            "sim": "picked:1",
+            "to": "sealed"
+          },
+          "waitS": 1,
+          "note": "plan 2 (deadline doubled, cut)"
+        },
+        {
+          "cmd": "go_here",
+          "setup": false,
+          "args": {
+            "sim": "picked:1",
+            "to": "sealed"
+          },
+          "waitS": 0,
+          "note": "plan 3: backoff 2, uncut"
+        },
+        {
+          "cmd": "go_here",
+          "setup": false,
+          "args": {
+            "to": "far"
+          },
+          "waitS": 8,
+          "note": "the household Sim walks: steering takes +0x918 during plan 3"
+        },
+        {
+          "cmd": "native_check",
+          "setup": true,
+          "args": {
+            "name": "arm",
+            "require": "kdBackoff_1>=1,kdUncutHit>=0,kdCut_0>=0,kdExempt>=0"
+          },
+          "waitS": 0,
+          "note": "the uncut backoff job happened this firing (else setup fails)"
+        },
+        {
+          "cmd": "cancel_interactions",
+          "setup": true,
+          "args": {
+            "sim": "picked:1"
+          },
+          "waitS": 1
+        },
+        {
+          "cmd": "cancel_interactions",
+          "setup": true,
+          "args": {},
+          "waitS": 1,
+          "note": "the household Sim stops walking"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 5
+      },
+      "maxMinutes": 10
+    },
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "kdownplanus": 250000,
+          "kduncutceilus": 30000000
+        }
+      }
+    ],
+    "expect": "off arms: a hitch >= 1000 ms with rtLock and a \"long job >= 1000 ms ... uncut: backoff\" line per firing; on arms: \"uncut ceiling hit\" lines, kdUncutHit >= 1 per firing, no hitch >= 1 s from that job; no household cut (kd-arm-cuts.ts --expect-on-zero); 0 new script errors; no crash"
+  },
+  {
+    "id": "bp-kd-uncut-ceiling",
+    "bug": "issue #338 / docs/264 §3: an unseen follower's own plan at backoff level 2 runs uncut and holds the route lock (+0x918) for >= 1 s while the sim thread waits",
+    "fix": "native [RouteAsync] KdUncutCeilMs (kduncutceil); the on arm lowers the ceiling to 0.3 s (kduncutceilus 300000)",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (built 2026-11-15, lane L10, static only): never run. docs/264 §3 forcing repro. kdownplanus 1000 (test-lowered own-Plan deadline, 1 ms) cuts the townie's first two plans, so the third runs at backoff 2 (uncut). The goal is \"sealed\": an unroutable spot (enclosed room / fenced corner) on the nearest non-household lot, never swapped for a reachable one, so the A* floods the whole area. Deviation from §3 step 4: go_here (the townie's own task plans: kind own) instead of sim_route_to (the agent's task: foreign, kd-cut-camera-recheck note). The household Sim walks to \"far\" so steering takes +0x918 during plan 3. Household Sims keep their exemption (kdexemptseen, household floor); only kdUs[KD_PLAN] is lowered, put back to 250 ms (kKdDefMs) in cleanup. Off arm with plan 3 < 1 s = N/A (world too small). BP copy: the flood is smaller, the off arm may stay under 1 s (N/A).",
+    "steps": [],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "kinddeadlines": 1,
+            "kdexemptseen": 1,
+            "kduncutceil": "$on",
+            "kduncutceilus": 300000,
+            "kdownplanus": 1000
+          },
+          "waitS": 1,
+          "note": "arm (ceiling 0.3 s on the on arm, none on the off arm)"
+        },
+        {
+          "cmd": "pick_sims",
+          "setup": true,
+          "args": {
+            "count": 1,
+            "townies": true,
+            "noPets": true
+          },
+          "waitS": 0,
+          "note": "a townie"
+        },
+        {
+          "cmd": "cancel_interactions",
+          "setup": true,
+          "args": {
+            "sim": "picked:1"
+          },
+          "waitS": 1
+        },
+        {
+          "cmd": "camera_to_tagged",
+          "setup": true,
+          "args": {
+            "sim": "active",
+            "height": 12,
+            "back": 12
+          },
+          "waitS": 2,
+          "note": "camera on the household: the townie answers unseen if he is not near it"
+        },
+        {
+          "cmd": "native_mark",
+          "setup": true,
+          "args": {
+            "name": "arm"
+          },
+          "waitS": 0,
+          "note": "per-arm snapshot start"
+        },
+        {
+          "cmd": "go_here",
+          "setup": false,
+          "args": {
+            "sim": "picked:1",
+            "to": "sealed"
+          },
+          "waitS": 1,
+          "note": "fire: plan 1 (cut at 1 ms)"
+        },
+        {
+          "cmd": "go_here",
+          "setup": false,
+          "args": {
+            "sim": "picked:1",
+            "to": "sealed"
+          },
+          "waitS": 1,
+          "note": "plan 2 (deadline doubled, cut)"
+        },
+        {
+          "cmd": "go_here",
+          "setup": false,
+          "args": {
+            "sim": "picked:1",
+            "to": "sealed"
+          },
+          "waitS": 0,
+          "note": "plan 3: backoff 2, uncut"
+        },
+        {
+          "cmd": "go_here",
+          "setup": false,
+          "args": {
+            "to": "far"
+          },
+          "waitS": 8,
+          "note": "the household Sim walks: steering takes +0x918 during plan 3"
+        },
+        {
+          "cmd": "native_check",
+          "setup": true,
+          "args": {
+            "name": "arm",
+            "require": "kdBackoff_1>=1,kdUncutHit>=0,kdCut_0>=0,kdExempt>=0"
+          },
+          "waitS": 0,
+          "note": "the uncut backoff job happened this firing (else setup fails)"
+        },
+        {
+          "cmd": "cancel_interactions",
+          "setup": true,
+          "args": {
+            "sim": "picked:1"
+          },
+          "waitS": 1
+        },
+        {
+          "cmd": "cancel_interactions",
+          "setup": true,
+          "args": {},
+          "waitS": 1,
+          "note": "the household Sim stops walking"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 5
+      },
+      "maxMinutes": 10
+    },
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "kdownplanus": 250000,
+          "kduncutceilus": 30000000
+        }
+      }
+    ],
+    "expect": "off arms: a hitch >= 1000 ms with rtLock and a \"long job >= 1000 ms ... uncut: backoff\" line per firing; on arms: \"uncut ceiling hit\" lines, kdUncutHit >= 1 per firing, no hitch >= 1 s from that job; no household cut (kd-arm-cuts.ts --expect-on-zero); 0 new script errors; no crash"
+  },
+  {
+    "id": "ep-wa-tomb",
+    "bug": "World Adventures tombs, mummies and tomb routing never ran under our routing or Mono changes (docs/267 §1: France, China and Egypt last ran 2026-10-28, travel cases only)",
+    "fix": "measurement only: correctness and profile coverage of never-seen pack content (docs/267 §5)",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-11-15): never run. Run by profile.travel france | china | egypt (one repro for the three WA worlds: same tomb classes). Tomb lots are world-placed; the @type: targets find the nearest one. Repro rules (docs/TESTING.md:33): Sims teleported (setup_sims) and actions forced (do_interaction def:<class>), no waiting for natural events. NPCs (pick_sims townies, spawn_sims) carry the pack content; the household only does normal player actions (one use of an object, a walk). Every forced step is optional: a world or install without the object logs the step failed and the run goes on; read <tag>-repro.jsonl for which steps forced their content. Targets: @type:<class> = the in-world object of that class (or a subclass) nearest the active Sim, @far = the community lot farthest from the active Sim (agent, docs/267 §5).",
+    "area": "ep-coverage",
+    "steps": [
+      {
+        "cmd": "test_env",
+        "args": {
+          "mode": "read"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "log: season, weather, hour"
+      },
+      {
+        "cmd": "travel_state",
+        "args": {},
+        "waitS": 1,
+        "optional": true,
+        "note": "log: world and vacation days left (TravelUtil timers)"
+      },
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "count": 6,
+          "age": "youngadult,adult,elder"
+        },
+        "waitS": 1,
+        "note": "six local or tourist NPCs (never the travelling household)"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "active"
+          ],
+          "near": "@type:Sarcophagus"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "repro setup: the active traveller into the nearest tomb"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1",
+            "picked:2"
+          ],
+          "near": "@type:TombTrap"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:3",
+            "picked:4"
+          ],
+          "near": "@type:Sarcophagus"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:TombTrap",
+          "interaction": "def:TombTrap+Disarm"
+        },
+        "waitS": 20,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:TombTrap",
+          "interaction": "def:TombTrap+AttemptToCross"
+        },
+        "waitS": 20,
+        "optional": true,
+        "note": "GetCaughtByTrap path"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:Sarcophagus",
+          "interaction": "def:Sarcophagus+LookInside"
+        },
+        "waitS": 30,
+        "optional": true,
+        "note": "mummy spawn path (SummonPlayableMummy / MummyExitSarcophagus)"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:PushableStatue",
+          "interaction": "def:PushableStatue+Move"
+        },
+        "waitS": 20,
+        "optional": true,
+        "note": "route + SetPosition (PushableStatue.cs:479)"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:TreasureChest",
+          "interaction": "def:TreasureChest+OpenWith"
+        },
+        "waitS": 20,
+        "optional": true,
+        "note": "not set up: walks there, a route goal inside the tomb (docs/267 F1 path)"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@type:TombTrap",
+          "interaction": "def:TombTrap+Inspect"
+        },
+        "waitS": 20,
+        "optional": true,
+        "note": "household: one normal player action"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 6
+        },
+        "waitS": 20,
+        "optional": true
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "@type:Sarcophagus"
+        },
+        "waitS": 90,
+        "optional": true,
+        "note": "townie route goals inside the tomb (UfTeleport goal check gap, docs/267 F1)"
+      },
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 90,
+        "optional": true,
+        "note": "household walks out of the tomb to the farthest community lot"
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 60,
+        "optional": true,
+        "note": "townies follow: cross-lot plans out of a tomb"
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "waitS": 1,
+        "optional": true,
+        "note": "log: who is in this world"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10,
+        "optional": true,
+        "note": "spawn_sims Sims out again"
+      }
+    ],
+    "expect": "no crash, 0 script errors; the tomb steps queue their interactions (repro.jsonl); townies route into and out of the tomb; the household is never cut, skipped or teleported by our code"
+  },
+  {
+    "id": "ep-uni-campus",
+    "bug": "University Life campus content (classes, kegs, whiteboards, campus crowds) never ran under our routing or Mono changes (docs/267 §1: last run 2026-11-02, travel case only)",
+    "fix": "measurement only: correctness and profile coverage of never-seen pack content (docs/267 §5)",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-11-15): never run. Run by profile.travel university (queued moving van, --stay). Roommates and dorm mates are in the active household (IsNeverSelectable), so pick_sims never picks them. Repro rules (docs/TESTING.md:33): Sims teleported (setup_sims) and actions forced (do_interaction def:<class>), no waiting for natural events. NPCs (pick_sims townies, spawn_sims) carry the pack content; the household only does normal player actions (one use of an object, a walk). Every forced step is optional: a world or install without the object logs the step failed and the run goes on; read <tag>-repro.jsonl for which steps forced their content. Targets: @type:<class> = the in-world object of that class (or a subclass) nearest the active Sim, @far = the community lot farthest from the active Sim (agent, docs/267 §5).",
+    "area": "ep-coverage",
+    "steps": [
+      {
+        "cmd": "travel_state",
+        "args": {},
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "count": 10,
+          "age": "youngadult,adult"
+        },
+        "waitS": 1,
+        "note": "ten student or townie NPCs"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "Whiteboard",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "Whiteboard on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "JuiceKeg",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "JuiceKeg on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1",
+            "picked:2",
+            "picked:3",
+            "picked:4",
+            "picked:5",
+            "picked:6",
+            "picked:7",
+            "picked:8",
+            "picked:9",
+            "picked:10"
+          ],
+          "near": "@type:JuiceKeg"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "ten NPCs on one lot (Student Union door pile-up, docs/19 §2 #1)"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:Whiteboard",
+          "interaction": "def:Whiteboard+GivePresentation"
+        },
+        "waitS": 20,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:Whiteboard",
+          "interaction": "def:Whiteboard+WatchPresentation"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:JuiceKeg",
+          "interaction": "def:JuiceKeg+KegStand"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:JuiceKeg",
+          "interaction": "def:JuiceKeg+HelpWithKegStand"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:JuiceKeg",
+          "interaction": "def:JuiceKeg+PourJuice"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:GraffitiSurface",
+          "interaction": "def:GraffitiSurface+Start"
+        },
+        "waitS": 20,
+        "optional": true,
+        "note": "world-placed street art spot, if any"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@type:RabbitHole",
+          "interaction": "def:AttendClassDefinition"
+        },
+        "waitS": 30,
+        "optional": true,
+        "note": "household: attend class (AcademicCourse); the nearest rabbit hole may not host the class"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 6
+        },
+        "waitS": 20,
+        "optional": true
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "@far"
+        },
+        "waitS": 90,
+        "optional": true,
+        "note": "campus crowd onto the far lot"
+      },
+      {
+        "cmd": "time",
+        "waitS": 90
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 90,
+        "optional": true,
+        "note": "household walk across campus"
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "waitS": 1,
+        "optional": true,
+        "note": "log: who is in this world"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10,
+        "optional": true,
+        "note": "spawn_sims Sims out again"
+      }
+    ],
+    "expect": "no crash, 0 script errors; class, keg and whiteboard interactions queue; the campus crowd routes; the household is never cut, skipped or teleported by our code"
+  },
+  {
+    "id": "ep-future-oasis",
+    "bug": "Into the Future (Oasis Landing) hover-train stations, plumbots, synthesizers and meteor showers never ran under our routing or Mono changes (docs/267 §1: last run 2026-10-28, travel case only)",
+    "fix": "measurement only: correctness and profile coverage of never-seen pack content (docs/267 §5)",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-11-15): never run. Run by profile.travel future (portal Travel, prepare: true, --stay). The meteor lands near the far community lot (away from the household), as EA's random meteor does; TriggerMeteorShowerEvent sets the game speed to normal, the next step puts x3 back. Repro rules (docs/TESTING.md:33): Sims teleported (setup_sims) and actions forced (do_interaction def:<class>), no waiting for natural events. NPCs (pick_sims townies, spawn_sims) carry the pack content; the household only does normal player actions (one use of an object, a walk). Every forced step is optional: a world or install without the object logs the step failed and the run goes on; read <tag>-repro.jsonl for which steps forced their content. Targets: @type:<class> = the in-world object of that class (or a subclass) nearest the active Sim, @far = the community lot farthest from the active Sim (agent, docs/267 §5).",
+    "area": "ep-coverage",
+    "steps": [
+      {
+        "cmd": "travel_state",
+        "args": {},
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "count": 6,
+          "age": "youngadult,adult,elder"
+        },
+        "waitS": 1,
+        "note": "six NPCs (plumbots count as human)"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1",
+            "picked:2"
+          ],
+          "near": "@type:HoverTrainStation"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:HoverTrainStation",
+          "interaction": "def:HoverTrainStation+TravelTo"
+        },
+        "waitS": 20,
+        "optional": true,
+        "note": "station rabbit hole + CheckAndUpdateRouteForStations (docs/10 V2)"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:HoverTrainStation",
+          "interaction": "def:HoverTrainStation+TravelTo"
+        },
+        "waitS": 20,
+        "optional": true
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "FutureFoodSynthesizer",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "FutureFoodSynthesizer on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "BotMakingStation",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "BotMakingStation on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:3",
+            "picked:4",
+            "picked:5"
+          ],
+          "near": "@type:FutureFoodSynthesizer"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:FutureFoodSynthesizer",
+          "interaction": "def:SynthesizerOrder"
+        },
+        "waitS": 20,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:BotMakingStation",
+          "interaction": "def:BotMakingStation+DesignSchematics"
+        },
+        "waitS": 20,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:BotMakingStation",
+          "interaction": "def:BotMakingStation+CreateServobot"
+        },
+        "waitS": 20,
+        "optional": true
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 6
+        },
+        "waitS": 20,
+        "optional": true
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "@far"
+        },
+        "waitS": 90,
+        "optional": true,
+        "note": "cross-lot plans: hover-train station checks after each plan"
+      },
+      {
+        "cmd": "sim_visit_lot",
+        "args": {
+          "lot": "far"
+        },
+        "waitS": 90,
+        "optional": true,
+        "note": "household: the game's own visit (hover train, car or walk)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.Miscellaneous.MeteorShower.TriggerMeteorShowerEvent",
+          "args": [
+            "@far.Position"
+          ]
+        },
+        "waitS": 30,
+        "optional": true,
+        "note": "meteor at the lot farthest from the household (MeteorShower alarm, fires, rocks)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "back to x3 after the meteor"
+      },
+      {
+        "cmd": "time",
+        "waitS": 60
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "waitS": 1,
+        "optional": true,
+        "note": "log: who is in this world"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10,
+        "optional": true,
+        "note": "spawn_sims Sims out again"
+      }
+    ],
+    "expect": "no crash, 0 script errors; station, synthesizer and bot-station interactions queue; the meteor lands away from the household; the household is never cut, skipped or teleported by our code"
+  },
+  {
+    "id": "ep-home-bp",
+    "bug": "Late Night, Showtime, Ambitions and Supernatural home-world objects (DJ booth, karaoke, stage, sculpting, inventing, alchemy) never seen in our managed data (docs/267 §2)",
+    "fix": "measurement only: correctness and profile coverage of never-seen pack content (docs/267 §5)",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-11-15): never run. Home world. Objects go on the far community lot, so NPCs use them away from the household; one household Sim walks over and sings (normal play). Bar brawls (BarBrawlSituation) start on their own at bars: here only a townie Fight! social. Repro rules (docs/TESTING.md:33): Sims teleported (setup_sims) and actions forced (do_interaction def:<class>), no waiting for natural events. NPCs (pick_sims townies, spawn_sims) carry the pack content; the household only does normal player actions (one use of an object, a walk). Every forced step is optional: a world or install without the object logs the step failed and the run goes on; read <tag>-repro.jsonl for which steps forced their content. Targets: @type:<class> = the in-world object of that class (or a subclass) nearest the active Sim, @far = the community lot farthest from the active Sim (agent, docs/267 §5).",
+    "area": "ep-coverage",
+    "steps": [
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "count": 8,
+          "age": "youngadult,adult"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "DJTurntable",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "DJTurntable on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "KaraokeMachine",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "KaraokeMachine on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "ShowStage",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "ShowStage on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "SculptingStation",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "SculptingStation on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "InventionWorkbench",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "InventionWorkbench on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "AlchemyStation",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "AlchemyStation on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "MagicCauldronRegency",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "Store object: absent without it"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1",
+            "picked:2",
+            "picked:3",
+            "picked:4",
+            "picked:5",
+            "picked:6",
+            "picked:7",
+            "picked:8"
+          ],
+          "near": "@type:DJTurntable"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:DJTurntable",
+          "interaction": "def:DJTurntable+DoPlay"
+        },
+        "waitS": 10,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:DJTurntable",
+          "interaction": "def:DJTurntable+CheerDJ"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:KaraokeMachine",
+          "interaction": "def:KaraokeMachine+SingAlone"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:ShowStage",
+          "interaction": "def:ShowStage+SetupStage"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SculptingStation",
+          "interaction": "def:SculptingStation+CreateSculpture"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:InventionWorkbench",
+          "interaction": "def:InventionWorkbench+Invent"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:7",
+          "target": "@type:AlchemyStation",
+          "interaction": "def:AlchemyStation+ResearchAlchemy"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:8",
+          "target": "@type:MagicCauldronRegency",
+          "interaction": "def:BrewPotion"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "social",
+        "args": {
+          "sim": "picked:2",
+          "target": "picked:3",
+          "name": "Fight!"
+        },
+        "waitS": 20,
+        "optional": true,
+        "note": "townie fight (EP3 brawl stand-in)"
+      },
+      {
+        "cmd": "make_occult",
+        "args": {
+          "sim": "picked:4",
+          "type": "Genie"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "EP6 genie (OccultGenie)"
+      },
+      {
+        "cmd": "make_occult",
+        "args": {
+          "sim": "picked:5",
+          "type": "Witch"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "EP7 witch"
+      },
+      {
+        "cmd": "make_celebrity",
+        "args": {
+          "sim": "picked:6",
+          "level": 3
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "EP3 celebrity: Follow Celebrity / paparazzi paths"
+      },
+      {
+        "cmd": "career",
+        "args": {
+          "sim": "picked:7",
+          "action": "join",
+          "career": "Stylist"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "EP2 Ambitions career"
+      },
+      {
+        "cmd": "career",
+        "args": {
+          "sim": "picked:8",
+          "action": "join",
+          "career": "Firefighter"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "EP2 Ambitions career (FirefighterEmergencySituation)"
+      },
+      {
+        "cmd": "career",
+        "args": {
+          "sim": "picked:1",
+          "action": "join",
+          "career": "SingerCareer"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "EP6 performance career"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 4
+        },
+        "waitS": 20,
+        "optional": true
+      },
+      {
+        "cmd": "zombies",
+        "args": {
+          "spawned": true,
+          "target": "@far"
+        },
+        "waitS": 30,
+        "optional": true,
+        "note": "EP7 zombies from the spawn_sims townies, sent to the far lot"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@type:KaraokeMachine",
+          "interaction": "def:KaraokeMachine+Sing"
+        },
+        "waitS": 30,
+        "optional": true,
+        "note": "household: walks to the far lot and sings (normal play)"
+      },
+      {
+        "cmd": "time",
+        "waitS": 120
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "waitS": 1,
+        "optional": true,
+        "note": "log: who is in this world"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10,
+        "optional": true,
+        "note": "spawn_sims Sims out again"
+      }
+    ],
+    "expect": "no crash, 0 script errors; the pack interactions queue for NPCs; the household sings vanilla-like; it is never cut, skipped or teleported by our code"
+  },
+  {
+    "id": "ep-home-sv",
+    "bug": "Seasons, Generations, World Adventures home objects and Supernatural Bonehilda never seen in our managed data (docs/267 §2)",
+    "fix": "measurement only: correctness and profile coverage of never-seen pack content (docs/267 §5)",
+    "save": "Baseline-SV",
+    "note": "UNVERIFIED (static only, 2026-11-15): never run. Home world in winter with snow (test_env fixed: the job needs run.profile.noEnv, or the 30 s env guard turns winter into spring). Festivals start on their own at season start: not forced here. Repro rules (docs/TESTING.md:33): Sims teleported (setup_sims) and actions forced (do_interaction def:<class>), no waiting for natural events. NPCs (pick_sims townies, spawn_sims) carry the pack content; the household only does normal player actions (one use of an object, a walk). Every forced step is optional: a world or install without the object logs the step failed and the run goes on; read <tag>-repro.jsonl for which steps forced their content. Targets: @type:<class> = the in-world object of that class (or a subclass) nearest the active Sim, @far = the community lot farthest from the active Sim (agent, docs/267 §5).",
+    "area": "ep-coverage",
+    "steps": [
+      {
+        "cmd": "test_env",
+        "args": {
+          "mode": "fixed",
+          "season": "winter",
+          "weather": "snow",
+          "intensity": "Moderate"
+        },
+        "waitS": 3,
+        "note": "EP8 winter weather (WeatherStone, snowmen, skating)"
+      },
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "count": 8,
+          "age": "youngadult,adult,elder"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "SkatingRink",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "SkatingRink on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "WeatherStone",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "WeatherStone on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "Treehouse",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "Treehouse on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "Clothesline",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "Clothesline on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "BabySwing",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "Store object: absent without it"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "NectarMaker",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "NectarMaker on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "BoardBreaker",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "BoardBreaker on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "SnakeCharmingBasket",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "SnakeCharmingBasket on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "BonehildaCoffin",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "BonehildaCoffin on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1",
+            "picked:2",
+            "picked:3",
+            "picked:4",
+            "picked:5",
+            "picked:6",
+            "picked:7",
+            "picked:8"
+          ],
+          "near": "@type:SkatingRink"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:SkatingRink",
+          "interaction": "def:SkatingRink+Skate"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:SkatingRink",
+          "interaction": "def:SkatingRink+SkateBackward"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:WeatherStone",
+          "interaction": "def:WeatherStone+SummonWeather"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:Treehouse",
+          "interaction": "def:Treehouse+GetIn"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:NectarMaker",
+          "interaction": "def:NectarMaker+SquishGrapes"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:BoardBreaker",
+          "interaction": "def:BoardBreaker+Practice"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:7",
+          "target": "@type:SnakeCharmingBasket",
+          "interaction": "def:SnakeCharmingBasket+"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "first enabled snake-charming interaction"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:8",
+          "target": "@type:BonehildaCoffin",
+          "interaction": "def:BonehildaCoffin+AwakenBonehilda"
+        },
+        "waitS": 5,
+        "optional": true,
+        "note": "spawns Bonehilda (NPC service Sim)"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:Clothesline",
+          "interaction": "def:Clothesline+DryClothing"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "terrain",
+          "interaction": "def:Snowman+MakeSnowman"
+        },
+        "waitS": 20,
+        "optional": true,
+        "note": "snowman on the terrain under the Sim"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@type:SkatingRink",
+          "interaction": "def:SkatingRink+Skate"
+        },
+        "waitS": 30,
+        "optional": true,
+        "note": "household: walks to the far lot and skates (normal play)"
+      },
+      {
+        "cmd": "time",
+        "waitS": 150
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "waitS": 1,
+        "optional": true,
+        "note": "log: who is in this world"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10,
+        "optional": true,
+        "note": "spawn_sims Sims out again"
+      }
+    ],
+    "expect": "no crash, 0 script errors; skating, weather-stone, treehouse, nectar, board-breaking and Bonehilda interactions queue; the household skates vanilla-like; it is never cut, skipped or teleported by our code"
+  },
+  {
+    "id": "ep-home-ip",
+    "bug": "Pets horses (box stalls, jumps), Into the Future and University Life home-world objects never seen in our managed data (docs/267 §2); no horse could be spawned before (docs/267 F3)",
+    "fix": "measurement only: correctness and profile coverage of never-seen pack content (docs/267 §5)",
+    "save": "Baseline-IP",
+    "note": "UNVERIFIED (static only, 2026-11-15): never run. Home world. spawn_horse (docs/267 F3) puts two townie horses at the far lot and REPLACES the pick_sims list, so the human steps run first. The meteor lands near the far lot while the household is at home. EP10 sharks are not forced (no step can spawn one). Repro rules (docs/TESTING.md:33): Sims teleported (setup_sims) and actions forced (do_interaction def:<class>), no waiting for natural events. NPCs (pick_sims townies, spawn_sims) carry the pack content; the household only does normal player actions (one use of an object, a walk). Every forced step is optional: a world or install without the object logs the step failed and the run goes on; read <tag>-repro.jsonl for which steps forced their content. Targets: @type:<class> = the in-world object of that class (or a subclass) nearest the active Sim, @far = the community lot farthest from the active Sim (agent, docs/267 §5).",
+    "area": "ep-coverage",
+    "steps": [
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "count": 6,
+          "age": "youngadult,adult,elder"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "BoxStall",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "BoxStall on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "HorseJump",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "HorseJump on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "HitchingPost",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "HitchingPost on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "WaterTrough",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "WaterTrough on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "FutureFoodSynthesizer",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "FutureFoodSynthesizer on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "BotMakingStation",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "BotMakingStation on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "Teleporter",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "Teleporter on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "TimePortal",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "world-placed in most saves; buy only if the catalogue has it"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "JuiceKeg",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "JuiceKeg on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "Whiteboard",
+          "free": true,
+          "near": "@far"
+        },
+        "waitS": 3,
+        "optional": true,
+        "note": "Whiteboard on the far community lot (class match, docs/267)"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1",
+            "picked:2",
+            "picked:3",
+            "picked:4",
+            "picked:5",
+            "picked:6"
+          ],
+          "near": "@type:FutureFoodSynthesizer"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:FutureFoodSynthesizer",
+          "interaction": "def:SynthesizerOrder"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:BotMakingStation",
+          "interaction": "def:BotMakingStation+DesignSchematics"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:Teleporter",
+          "interaction": "def:Teleporter+TeleportToCommunityLot"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:JuiceKeg",
+          "interaction": "def:JuiceKeg+KegStand"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:Whiteboard",
+          "interaction": "def:Whiteboard+GivePresentation"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:TimePortal",
+          "interaction": "def:TimePortal+GatherAround"
+        },
+        "waitS": 5,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Sims3.Gameplay.Objects.Miscellaneous.MeteorShower.TriggerMeteorShowerEvent",
+          "args": [
+            "@far.Position"
+          ]
+        },
+        "waitS": 30,
+        "optional": true,
+        "note": "EP11 meteor at the lot farthest from the household"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "back to x3 after the meteor"
+      },
+      {
+        "cmd": "spawn_horse",
+        "args": {
+          "count": 2,
+          "near": "@type:BoxStall"
+        },
+        "waitS": 5,
+        "note": "docs/267 F3: townie horses at the stall; picked:1..2 are the horses from here"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:BoxStall",
+          "interaction": "def:BoxStall+Enter"
+        },
+        "waitS": 20,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:HorseJump",
+          "interaction": "def:HorseJump+Jump"
+        },
+        "waitS": 20,
+        "optional": true,
+        "note": "portal-component jump route"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:WaterTrough",
+          "interaction": "def:WaterTrough+DrinkWater"
+        },
+        "waitS": 20,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 90
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@type:HitchingPost",
+          "interaction": "def:HitchingPost+"
+        },
+        "waitS": 30,
+        "optional": true,
+        "note": "household: walks to the far lot, first enabled hitching-post action (normal play)"
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "waitS": 1,
+        "optional": true,
+        "note": "log: who is in this world"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10,
+        "optional": true,
+        "note": "spawn_sims Sims out again"
+      }
+    ],
+    "expect": "no crash, 0 script errors; spawn_horse answers two horses; stall, jump, trough, synthesizer, bot-station, keg and whiteboard interactions queue; the household is never cut, skipped or teleported by our code"
+  },
+  {
+    "id": "unseen-tp-goal-closed",
+    "bug": "docs/267 F1: the unseen teleport (unseenfbteleport, on by default) placed a cut own Route.Plan's unseen NPC at the plan goal with no tomb, hidden-room, indoor or lot check (UnseenFallback.cs UfTeleport), so the NPC could land in a World Adventures tomb room, a Late Night hidden room, a locked or doorless room or an upper floor the cut plan never proved reachable",
+    "fix": "ts3fixes UnseenTeleportGoal.cs UfTpGoalWhy (ships with unseenfbteleport, no own switch): refuses tomb/hidden rooms, indoor goals on lots UfLotOpen refuses, raised outdoor goals and indoor rooms with no allowed way out (HrReachesOutside, EA's allowed-room flood with the NPC's own door rights); a refused goal takes the cut plan's no-teleport path. Load cleanup: one sim-minute after world load, an NPC in a closed room that our teleport placed exactly there this session is moved by EA's placement; others are left and counted. Check: UnseenTpCheck",
+    "save": "Baseline-BP",
+    "switches": [
+      "unseenfbteleport"
+    ],
+    "note": "Calls the goal check and the load cleanup directly (the real cut plan needs a slow plan; the check is the same function UfTeleport calls). Baseline-BP's active lot (Trawler Lodge) has a floor-0 hidden room. A sealed room (four walls, no door) built in BP on any community lot is tested with goal <hex lot id>; goal prints N/A on a lot without a closed room. Household Sims: clean never judges them (who lists any household Sim inside, unchanged). Paused throughout: nothing else moves the trapped NPC.",
+    "expect": "goal active: hidden marker and every (H)/(N) spot \"refused (...)\", at least one open spot \"teleport ok\", last line PASS; no BROKEN. trap: \"(in the room) hidden=True exit=closed\". clean before mark: \"left 1\" (or more), moved 0, counter 1045 +1. mark: the trapped NPC. clean after mark: \"moved 1\", counter 1044 +1. lot active after: the trapped NPC no longer in the room (\"last move: unseenfb cleanup ...\"). 0 script errors.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "note": "pause, act, unpause"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenfbteleport": true
+        },
+        "note": "the shipped default, read back",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenTpCheck",
+          "args": [
+            "goal active"
+          ]
+        },
+        "note": "the active lot: hidden room marker, one spot per floor-0 room, entry point; PASS"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenTpCheck",
+          "args": [
+            "goal hidden"
+          ]
+        },
+        "note": "the first non-active lot with a floor-0 hidden room (N/A if none)",
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "trap active"
+          ]
+        },
+        "note": "one adult non-resident NPC directly into the active lot's hidden room; must read \"(in the room) hidden=True exit=closed\"",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenTpCheck",
+          "args": [
+            "clean"
+          ]
+        },
+        "note": "not marked as ours: left and counted, not moved"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenTpCheck",
+          "args": [
+            "mark"
+          ]
+        },
+        "note": "record the trapped NPC as placed there by our teleport"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenTpCheck",
+          "args": [
+            "clean"
+          ]
+        },
+        "note": "ours: moved by the game's safe-spot placement",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "lot active"
+          ]
+        },
+        "note": "the trapped NPC is out of the room; household Sims unchanged"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      }
+    ]
   }
 ]

@@ -40,6 +40,7 @@ static bool __cdecl EqtOrig(const u8* a, const u8* b, void** fields) {
             eq = eq && (x == y || (x != x && y != y));
             break;
         }
+        case 0x06: case 0x07: *fields = kEqtBoxed; eq = eq && !memcmp(a + o, b + o, 2); break;  // I2/U2: boxed, Int16.Equals
         default: *fields = kEqtBoxed; eq = eq && !memcmp(a + o, b + o, 1); break;  // U1 etc.: boxed, byte compare
         }
     }
@@ -108,7 +109,7 @@ static DWORD WINAPI EqtWorker(void* p) {
 
 static void TestEqualsFast() {
     static_assert(offsetof(Ts3nCounters, sbVtGiveUp) == 0x5F80 && offsetof(Ts3nCounters, eqOn) == 0x5F90 && offsetof(Ts3nCounters, eqMode) == 0x5F94 &&
-                      offsetof(Ts3nCounters, eqRejMany) == 0x5FC4 && offsetof(Ts3nCounters, eqSpare) == 0x5FC8 && sizeof(Ts3nCounters) == 6357 * 4,
+                      offsetof(Ts3nCounters, eqRejMany) == 0x5FC4 && offsetof(Ts3nCounters, eqSmall) == 0x5FC8 && offsetof(Ts3nCounters, eqSpare) == 0x5FCC && sizeof(Ts3nCounters) == 6409 * 4,
                   "counters v186 layout after v185 (docs/registry.md)");
     static_assert(sizeof(kEqPrologue) == 6, "push ebp; mov ebp,esp; sub esp,10h");
     Ts3nCounters& k = ts3native_counters;
@@ -170,6 +171,44 @@ static void TestEqualsFast() {
     EqtMake(u1, 0x11, "Small", 1, fu1);
     EqtNew(a, u1), EqtNew(b, u1);
     assert(EqtSame(a, &b, &hit) && !hit && k.eqRejKind == 2);
+
+    // SmallEnums=1 (docs/258 §5 extension): 1- and 2-byte enums (sole value__) get a plan, the same final boolean as vanilla's
+    // boxed pair + managed Equals; a struct with a byte field stays on vanilla
+    {
+        g_eqSmallEnums = true;
+        static EqtClass e1, e2, sb;
+        const EqtField fe1[2] = {{0x05, 0x606, 4, "value__"}, {0x11, 0x8056, 0, "A"}};
+        const EqtField fe2[1] = {{0x06, 0x606, 4, "value__"}};
+        const EqtField fsb[2] = {{0x05, 0x606, 4, "value__"}, {0x08, 0x1, 8, "X"}};  // not an enum shape
+        EqtMake(e1, 0x11, "Tiny", 2, fe1), EqtMake(e2, 0x11, "Short", 1, fe2), EqtMake(sb, 0x11, "ByteStruct", 2, fsb);
+        const LONG small0 = k.eqSmall, rk0 = k.eqRejKind;
+        EqtClass* const smalls[2] = {&e1, &e2};
+        for (EqtClass* cl : smalls) {
+            EqtNew(a, *cl), EqtNew(b, *cl);
+            a.b[4] = b.b[4] = 3, a.b[5] = b.b[5] = 0x80;
+            a.b[6] = 0x11, b.b[6] = 0x22;  // past the field: ignored
+            f = (void*)1;
+            const bool v = EqHook(a.b, b.b, &f);  // vanilla (boxed): answer only
+            assert(v && f == kEqtBoxed);
+            f = (void*)1;
+            assert(EqHook(a.b, b.b, &f) && f == NULL);  // the plan
+            b.b[5] ^= 1;
+            const bool want = cl == &e1;  // 1-byte enum ignores +5, 2-byte enum sees it
+            f = (void*)1;
+            assert(EqHook(a.b, b.b, &f) == want && f == NULL);
+            b.b[4] ^= 1;
+            assert(!EqHook(a.b, b.b, &f) && f == NULL);
+        }
+        assert(k.eqSmall == small0 + 2 && EqFind(e1.k)->size[0] == 1 && EqFind(e2.k)->size[0] == 2);
+        EqtNew(a, sb), EqtNew(b, sb);
+        assert(EqtSame(a, &b, &hit) && !hit && k.eqRejKind == rk0 + 1 && EqtSame(a, &b, &hit) && !hit);
+        g_eqSmallEnums = false;
+        static EqtClass e3;  // switch off: a 1-byte enum is a kind reject as before
+        EqtMake(e3, 0x11, "TinyOff", 1, fe1);
+        EqtNew(a, e3), EqtNew(b, e3);
+        assert(EqtSame(a, &b, &hit) && !hit && k.eqRejKind == rk0 + 2 && k.eqSmall == small0 + 2);
+        k.eqRejKind = rk0, k.eqRejects -= 2;  // the counts below expect the earlier rejects only
+    }
 
     // generic instance (byval_arg GENERICINST): not cached even with int fields
     static EqtClass gi;
@@ -277,6 +316,6 @@ static void TestEqualsFast() {
     EqtReset();
     k.eqMode = 0;
     DeleteCriticalSection(&cs);
-    printf("equalsfast: enum / int-struct plans (vanilla first, then no walk), R4 / U1 / generic / 9-field / special-name rejects, "
+    printf("equalsfast: enum / int-struct plans (vanilla first, then no walk), R4 / U1 / generic, 1/2-byte enums (SmallEnums) / 9-field / special-name rejects, "
            "_Deleted skip, null / vtable / off / busy / full fall-through, 20000 random pairs, 4 threads x 64 classes: ok\n");
 }
