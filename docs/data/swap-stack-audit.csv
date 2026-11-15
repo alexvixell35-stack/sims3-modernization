@@ -526,3 +526,4 @@ PortalInvCacheHook.DispatchHook,Lot,OnPortalPathPlan,ScriptHotSpots.cs,DispatchO
 SpawnCapHook.PetsHook,MinorPet,CanSpawnMoreMinorPetsInWorld,SpawnCap.cs,PetsOrig,no,no path to a yield in 1 overload(s),spawncapcount / spawncapprobe (docs/147 §5 D1): spawner cap check answered from the native count under the cap,keep
 SpawnCapHook.FlowersHook,Wildflower,CanSpawnWildflowers,SpawnCap.cs,FlowersOrig,yes,Wildflower::CanSpawnWildflowers > SeasonsManager::get_Enabled > .. 8 .. > SACS::SACS_AcquireDriverImpl,spawncapcount / spawncapprobe (docs/147 §5 D1): spawner cap check answered from the native count under the cap,"keep, stub remap (SavedStacks.cs)"
 VisitCarHook.ChanceHook,Lot,get_ChanceOfGoingToCommunityLotByCar,UnseenVisitTrip.cs,ChanceOrig,no,no path to a yield in 1 overload(s),UnseenVisitTrip,keep
+MotivesUpdateHook.UpdateHook,Motives,UpdateMotives,MotiveBuf.cs,UpdateOrig,yes,Motives::UpdateMotives > Simulator::Sleep,MotiveBuf,"keep, stub remap (SavedStacks.cs)"
