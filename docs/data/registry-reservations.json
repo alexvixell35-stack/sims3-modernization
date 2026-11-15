@@ -4073,6 +4073,26 @@
       "what": "log-census batch: RE verdicts and routecauselog (follow-up to docs/579-log-issues.md)",
       "at": "2026-11-15T14:11:00.601Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-994",
+      "kind": "fixes",
+      "from": 994,
+      "to": 996,
+      "by": "claude",
+      "what": "scarepriority (ScarePriority.cs, docs/580 §14): Scare/StaticShock receivers raised / seen with switch off / errors",
+      "at": "2026-11-15T16:06:34.297Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-997",
+      "kind": "fixes",
+      "from": 997,
+      "to": 997,
+      "by": "claude",
+      "what": "outfitwaitpoll household rule (OutfitWait.cs, docs/580 §15): stale waits kept on EA's per-tick loop because the Sim is the player's",
+      "at": "2026-11-15T16:13:21.538Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

@@ -12,7 +12,7 @@ what is still missing. Rows done in docs/577 are not repeated: bar drink time, t
 
 | # | Row | 1146 \| 0523 | Status |
 |---:|---|---|---|
-| 1 | Service queue: `MakeConversation` bartender waits for the customer | 774 min x45 \| 1100 x63 | open, see §1 |
+| 1 | Service queue: `MakeConversation` bartender waits for the customer | 774 min x45 \| 1100 x63 | closed: EA timing, see §1 (1335) |
 | 2 | Social sync: `SocialInteractionA` / `B` ok waits | 774 min x295 \| 447 x200 | normal approach routes (1-5 min each); the long tail is docs/577 §2 |
 | 3 | `ShowVideos` timeouts | 117 min x23 \| 51 x10 | `socialfinish` (docs/546 §9), proven |
 | 4 | `PutDownPet` waits for the carrier | 145 min x6 \| 63 x2 | open, see §2 |
@@ -48,6 +48,11 @@ Read them with the bartender's syncwait line, whose Committed wait ends when the
 - end -> the end of the bartender's wait = the exit animation.
 
 Capped at 300 lines per session.
+
+**Result (phase-20261115-1335, 114 proven fixes on, barorderlog on) [measured]:** 29 customer chats, median 7.5 and max
+10.7 sim-min, all ok, none dropped. That fits EA's `DoTimedLoop(GetInt(5, 10))` plus the order and exit animations. The
+17-min mean bartender wait in 1146 therefore includes the customer's walk and order before Committed. It is EA timing,
+not a stall. Lead closed. `barorderlog` stays a diagnostic.
 
 ## §2 `PutDownPet` waits
 

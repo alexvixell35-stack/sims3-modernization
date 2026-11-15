@@ -186,6 +186,7 @@ namespace Ts3Fixes
             ApplyPetPutDownWait();   // docs/578 §2 (PetPutDownWait.cs)
             ApplyPuddleReach();   // docs/578 §3 (PuddleReach.cs)
             ApplyRouteCauseLog();   // docs/580 (RouteCauseLog.cs), logging only
+            ApplyScarePriority();   // docs/580 §14 (ScarePriority.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -393,6 +394,7 @@ namespace Ts3Fixes
         // [2006-2007] ageupswap (AgeUpSwap.cs, docs/503): age-up swaps EA refused and moved to Everyday, age-up tasks released with no swap.
         // [2003-2005] outfitwaitpoll stale-wait causes (OutfitWait.cs, issue #115, docs/224 §5): own swap pending, replaced, nothing pending.
         // [2008-2009] outfitwaitpoll (OutfitWait.cs, docs/224 §5): pending-outfit resets while a helper waits: instant switches, delayed swaps by another path.
+        // [997] outfitwaitpoll household rule (OutfitWait.cs, docs/580 §15): stale waits of a live player Sim kept on EA's per-tick loop.
         // [683-684] bakesaleseller (BakeSale.cs, issue #102): dead-seller reads, orphaned NPC tables given a new clean-up alarm.
         // [685-686] docs/222 §10: unseen-direct pairs with a RabbitHole target sent to the game's C1 (autunseenrh; in Dry the same pairs
         // skipped by autunseencmp), worker-pass / game-fail compare pairs whose worker score is 0 (BestScores drops both).
@@ -565,6 +567,7 @@ namespace Ts3Fixes
         // [2703-2705] petputdownwait (PetPutDownWait.cs, docs/578 §2): pet waits ended / seen with switch off / errors.
         // [2706-2708] puddlereach (PuddleReach.cs, docs/578 §3): splash tests withheld after a failed run / seen with switch off / errors.
         // [2709-2710] routecauselog (RouteCauseLog.cs, docs/580): lines / dropped by the caps.
+        // [994-996] scarepriority (ScarePriority.cs, docs/580 §14): receivers raised / seen with switch off / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -948,6 +951,7 @@ namespace Ts3Fixes
                 case "petputdownwait": return Instantiator.kPetPutDownWait;
                 case "puddlereach": return Instantiator.kPuddleReach;
                 case "routecauselog": return Instantiator.kRouteCauseLog;
+                case "scarepriority": return Instantiator.kScarePriority;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

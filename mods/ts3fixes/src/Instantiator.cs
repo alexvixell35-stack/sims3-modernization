@@ -343,6 +343,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kPetPutDownWait = false;    // petputdownwait (docs/578 §2): a carried pet waits 30 sim-min for a carrier whose PutDownPet already failed (no FinishLinkedInteraction on its early returns)
         [Tunable] public static bool kPuddleReach = false;    // puddlereach (docs/578 §3): autonomy stops re-picking a rain-puddle splash whose run just reached no puddle on the same lot and puddle set
         [Tunable] public static bool kRouteCauseLog = false;    // routecauselog (docs/580): log the cause of NPC zero-plan route failures and of locked-door failures (doors, privacy owner)
+        [Tunable] public static bool kScarePriority = false;    // scarepriority (docs/580 §14): an autonomous Scare/StaticShock receiver still queued after the scarer routed is raised to NonCriticalNPCBehavior, as EA does for every social receiver
         [Tunable] public static bool kFireTrapCount = false;    // firetrapcount (docs/570 §5): firefighter "free N Sims" counts trapped Sims who left the lot or sit in hidden apartment units
         [Tunable] public static bool kFireActiveJob = false;    // fireactivejob (docs/570 §1): the firefighter's current emergency (a static) survives a world quit; afterwards every new emergency is dropped
         [Tunable] public static bool kEatOutsideCount = false;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)

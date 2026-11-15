@@ -346,6 +346,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kPetPutDownWait value="False" />
     <kPuddleReach value="False" />
     <kRouteCauseLog value="False" />
+    <kScarePriority value="False" />
     <kBirthRoute value="False" />
     <kPutDownPlace value="False" />
     <kAwardKeep value="False" />
