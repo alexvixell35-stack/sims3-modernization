@@ -391,6 +391,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBoardingSchoolMoney value="False" />
     <kFreshClothingResume value="False" />
     <kTwinBellyShape value="False" />
+    <kBoatStaleSwimmer value="False" />
+    <kOppCategoryProtect value="False" />
+    <kNoCommercialCar value="False" />
+    <kScavengerNoLot value="False" />
+    <kPartyLotListener value="False" />
     <kBirthRoute value="True" />
     <kPutDownPlace value="True" />
     <kAwardKeep value="False" />

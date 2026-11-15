@@ -6295,6 +6295,16 @@
       "what": "starlightreset (batch 4); proven in game 2026-11-15 (phase-20261115-2043 smallfix: off BROKEN / on FIXED) [moved from 1050-1052: upstream took 994-1056]",
       "at": "2026-11-15T20:06:23.655Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1218",
+      "kind": "fixes",
+      "from": 1218,
+      "to": 1232,
+      "by": "claude",
+      "what": "batch 7 (REA tranche 3 + NRaas #42: boatstaleswimmer, oppcategoryprotect, nocommercialcar, scavengernolot, partylotlistener)",
+      "at": "2026-11-15T21:43:14.005Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

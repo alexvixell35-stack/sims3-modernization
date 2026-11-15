@@ -387,6 +387,11 @@ namespace Ts3Fixes
         [Tunable] public static bool kBoardingSchoolMoney = false;    // boardingschoolmoney (docs/582 B6 §2): boarding-school phone-call money ranges each read into their own pair (world load)
         [Tunable] public static bool kFreshClothingResume = false;    // freshclothingresume (docs/582 B6 §3): Fresh Clothing resumes its saved time after a swim or shower, not restarted
         [Tunable] public static bool kTwinBellyShape = false;    // twinbellyshape (docs/582 B6 §4): belly shape between twins and triplets uses float division
+        [Tunable] public static bool kBoatStaleSwimmer = false;    // boatstaleswimmer (docs/582 B7 §1): boat route start removes swimmers with no Sim before EA's loop (no throw, swimmers waited for)
+        [Tunable] public static bool kOppCategoryProtect = false;    // oppcategoryprotect (docs/582 B7 §2): opportunity accept that EA rejects adds no cull protection
+        [Tunable] public static bool kNoCommercialCar = false;    // nocommercialcar (docs/582 B7 §3): driverless traffic car with no commercial lot waits and drives off instead of throwing
+        [Tunable] public static bool kScavengerNoLot = false;    // scavengernolot (docs/582 B7 §4): scavenger opportunity in a world without community lots is accepted without the throw
+        [Tunable] public static bool kPartyLotListener = false;    // partylotlistener (docs/582 B7 §5): hostless NPC party lot-change listener removes itself
         [Tunable] public static bool kFireTrapCount = false;    // firetrapcount (docs/570 §5): firefighter "free N Sims" counts trapped Sims who left the lot or sit in hidden apartment units
         [Tunable] public static bool kFireActiveJob = false;    // fireactivejob (docs/570 §1): the firefighter's current emergency (a static) survives a world quit; afterwards every new emergency is dropped
         [Tunable] public static bool kEatOutsideCount = true;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)
