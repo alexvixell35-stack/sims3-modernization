@@ -945,6 +945,10 @@ namespace Ts3Fixes
                 if (ms > c[312]) c[312] = ms;
                 if (!cut || r.mType == RoutePlanResultType.Succeeded) return true;
                 c[306]++;
+                // ts3native KdCutCamRecheck=2 (plandeadline.cpp): the cut came with the Sim in view (or no fresh camera, or no points to
+                // test): an ordinary failed plan, no unseen-only recovery (teleport, no-retry window, not-a-failure). Older ts3native and
+                // modes 0/1 answer false.
+                if (UfSend(4)) { UfGuardNote(id, "cut in view (kind " + kind + "), no unseen recovery"); return true; }
                 last.Cut = true;
                 UfGuardNote(id, "cut (kind " + kind + ")");
                 UfNotAFailure(id, dest);
