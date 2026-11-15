@@ -290,6 +290,7 @@ namespace Ts3Fixes
 
         static bool sOwReplReady; // the replace check's second swap called back
         static string sOwAbortSaw, sOwWaitEnd; // sOwWaitEnd null = task 1 still in Wait (GetProxy is null for a script Task)
+        const int kOwStartWaitTicks = 6000; // test task 2: Sleep(1) rounds it waits for the helper to start before giving up
         static readonly List<string> sOwLines = new List<string>(); // first 20 stale-wait lines this session (check "log")
 
         // Agent checks for #115 (repro outfit-wait-stale-check), EA's abort-in-the-loop path. The test Sim's outfit does not
@@ -353,7 +354,12 @@ namespace Ts3Fixes
                     if (what != "start control")
                         sOwAbort = Simulator.AddObject(new LoopTask(delegate
                         {
-                            while (!(bool)sSohStarted.GetValue(helper)) Simulator.Sleep(1);
+                            int startWait = 0;  // bounded: a helper that never starts must not keep this test task alive
+                            while (!(bool)sSohStarted.GetValue(helper))
+                            {
+                                if (++startWait > kOwStartWaitTicks) { sOwAbortSaw = "helper not started after " + kOwStartWaitTicks + " ticks; stop and start again"; return; }
+                                Simulator.Sleep(1);
+                            }
                             if ((bool)sSohReady.GetValue(helper)) { sOwAbortSaw = "ready before task 2 (swap was immediate); stop and start again"; return; }
                             if (what == "start replace")
                             {

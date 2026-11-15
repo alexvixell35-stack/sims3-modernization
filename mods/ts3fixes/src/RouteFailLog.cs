@@ -235,6 +235,8 @@ namespace Ts3Fixes
             return sRflTypeIds[t] = sRflTypeIds.Count + 1;
         }
 
+        static readonly Dictionary<Type, FieldInfo> sRflHitField = new Dictionary<Type, FieldInfo>();
+
         static void RflCmdStart(RflCmd c, Sim sim, Vector3 goal)
         {
             InteractionInstance ia = c.Ia.Target as InteractionInstance;
@@ -247,7 +249,9 @@ namespace Ts3Fixes
                 + ", from " + RflLoc(sim.Position));
             var rc = sim.SimRoutingComponent;  // EA's own route-end event (no DoRoute swap, docs/537); -= first, one subscription a Sim
             if (rc != null) { rc.OnRouteActionsFinished -= RflCmdEnd; rc.OnRouteActionsFinished += RflCmdEnd; }
-            FieldInfo f = ia.GetType().GetField("Hit", BindingFlags.Public | BindingFlags.Instance);  // InteractionGameObjectHit<,>.Hit: where the player clicked
+            FieldInfo f;  // InteractionGameObjectHit<,>.Hit: where the player clicked (looked up once per interaction type)
+            Type it = ia.GetType();
+            if (!sRflHitField.TryGetValue(it, out f)) sRflHitField[it] = f = it.GetField("Hit", BindingFlags.Public | BindingFlags.Instance);
             string click = "no click point";
             if (f != null && f.FieldType == typeof(GameObjectHit))
             {
