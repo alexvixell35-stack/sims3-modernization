@@ -6305,6 +6305,17 @@
       "what": "batch 7 (REA tranche 3 + NRaas #42: boatstaleswimmer, oppcategoryprotect, nocommercialcar, scavengernolot, partylotlistener)",
       "at": "2026-11-15T21:43:14.005Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1400",
+      "kind": "fixes",
+      "from": 1400,
+      "to": 1499,
+      "by": "claude",
+      "what": "EP batch 1 (docs/587 leads, batch EP1)",
+      "at": "2026-11-15T22:43:38.182Z",
+      "worktree": "/home/<user>/dev/s3m-ep-sweep",
+      "pinned": true
     }
   ]
 }
