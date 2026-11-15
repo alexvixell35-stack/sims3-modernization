@@ -63,6 +63,10 @@ static class UnseenFbTest
         Check(UfPreCore.TpDoor(UfPreCore.kLockVipRoom, false, NW, false, true, true) == UfPreCore.kTpDoorClosed, "door: VIP room closes without the Sim's own right");
         Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, true, NW, true, false, false) == UfPreCore.kTpDoorOwn, "door: single-gender door passes a Sim of that gender");
         Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, true, NW, false, true, true) == UfPreCore.kTpDoorClosed, "door: single-gender door closes for the other gender, even at home");
+        // the same sentinel in UfPreLot / UfLotLocked (UfDoorOneWay): off keeps upstream's "!= 0", on uses EA's 0x8FFF
+        Check(UfPreCore.OneWay(NW, false) && UfPreCore.OneWay(12, false) && !UfPreCore.OneWay(0, false), "oneway: upstream reads every ordinary door (0x8FFF) as one-way");
+        Check(!UfPreCore.OneWay(NW, true) && UfPreCore.OneWay(12, true) && UfPreCore.OneWay(0, true), "oneway: EA's sentinel: only a real destination room is one-way");
+        Check(!UfPreCore.TpDoorUpstreamCloses(UfPreCore.kLockAnybody, false, 0) && UfPreCore.TpDoorUpstreamCloses(UfPreCore.kLockAnybody, false, NW), "oneway: upstream lot test closes on the sentinel");
         for (int lk = 0; lk <= 6; lk++)
             for (int m = 0; m < 32; m++)
             {

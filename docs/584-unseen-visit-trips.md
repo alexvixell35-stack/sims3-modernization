@@ -166,7 +166,11 @@ counts as closed, every indoor goal is refused (counter 1041, "lot closed"), and
 The refused cut then falls through to EA's own fallbacks (front door slots, mailbox, PlanToLotEx), whose first plan the
 native retry line records as the failed retry. The run's door dump (doors.json) shows nearly all doors "Anybody", so the
 lock test itself is not what closes them. The same `!= 0` test is in `UfLotOpen`'s other caller `UfPreLot` (docs/202 §3.5 D)
-and in `UfLotLocked` (`UrCore.DoorRefuses`); those are older and left as they are here.
+and in `UfLotLocked` (`UrCore.DoorRefuses`), both older (since 2026-10-27); `tpdoorrights` fixes them too (`UfDoorOneWay`,
+`UfPreCore.OneWay`): `UfPreLot` (the pre-plan teleport, docs/202 §3.5 D) then accepts lots with only unlocked ordinary doors,
+which it refused all along; `UfLotLocked` gets the right value, but `DoorRefuses` ignores one-way since §3.9.7b (whose "one-way
+doors refused every beach / park goal" was this sentinel), so it does not change. No other `== 0` / `!= 0` one-way test exists
+in the tree or in upstream/main (DoorMirror, snap.cpp and p4door.h only copy the value; HiddenRoom and DoorMirrorCore use 36863).
 
 `tpdoorrights` (default off; off = upstream's rule unchanged): F1 judges the lot with the teleporting Sim's own door rights
 (`UfPreCore.TpDoor`, pure, self-check in tools/selftest/unseenfb): special lots stay closed as before; a door with no lock and
