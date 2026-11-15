@@ -389,6 +389,11 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2689-2692 | reserved (claude, `fixes-2689`) | docs/576 resetinusefree putdowninuse |
 | 2693-2695 | reserved (claude, `fixes-2693`) | docs/577 §1 autonomyinuseblock (AutonomyInUseBlock.cs) |
 | 2696-2698 | reserved (claude, `fixes-2696`) | docs/577 §4 npcbusypartner (NpcBusyPartner.cs) |
+| 2699-2700 | reserved (claude, `fixes-2699`) | docs/577 §2 socialreplanlog (SocialReplanLog.cs) |
+| 2701-2702 | reserved (claude, `fixes-2701`) | docs/578 §1 barorderlog (BarOrderLog.cs) |
+| 2703-2705 | reserved (claude, `fixes-2703`) | docs/578 §2 petputdownwait (PetPutDownWait.cs) |
+| 2706-2708 | reserved (claude, `fixes-2706`) | puddlereach (PuddleReach.cs, docs/578 §3): splash tests answered from the no-reachable-puddle memory / seen with switch off / errors |
+| 2709-2710 | reserved (claude, `fixes-2709`) | routecauselog (RouteCauseLog.cs, docs/579): lines written / dropped by the cap |
 | **994+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

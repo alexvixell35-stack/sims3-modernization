@@ -34,13 +34,24 @@ namespace Ts3Fixes
         {
             bool ok = PatchSyncWaitCore();  // wait + receive hooks, shared with socialreceivefail (SocialReceiveFail.cs)
             ok &= Patch(typeof(SocialInteractionA.Definition), "CanSocializeWithSyncCheck", new Type[] { typeof(string), typeof(Sim), typeof(Sim), typeof(bool), typeof(GreyedOutTooltipCallback).MakeByRefType(), typeof(bool), typeof(bool) }, typeof(SwCheckHook), "CheckHook", "CheckOrig");
-            // which step of ReceiveSocialInteraction a receiver is in (shown on failed waits as "partner step")
+            ok &= PatchSwSteps();  // receiver steps, shared with socialreplanlog (SocialReplanLog.cs)
+            return ok;
+        }
+
+        // which step of ReceiveSocialInteraction a receiver is in (shown on failed waits as "partner step", and as the route
+        // builder on socialreplanlog lines); installed once, by whichever of synctime / socialreplanlog comes first
+        static bool sSwStepsPatched;
+        static bool PatchSwSteps()
+        {
+            if (sSwStepsPatched) return true;
+            bool ok = true;
             Type si = typeof(SocialInteraction);
             Type[] three = { typeof(Sim), typeof(Sim), si };
             ok &= Patch(si, "SimsNeedToRoute", new Type[] { typeof(Sim), typeof(Sim) }, typeof(SwStepHook), "NeedHook", "NeedOrig");
             ok &= Patch(si, "SetupTwoPersonSocial", three, typeof(SwStepHook), "TwoHook", "TwoOrig");
             ok &= Patch(si, "SetupGroupSocial", three, typeof(SwStepHook), "GroupHook", "GroupOrig");
             ok &= Patch(si, "PlaceSocial", three, typeof(SwStepHook), "PlaceHook", "PlaceOrig");
+            sSwStepsPatched = ok;
             return ok;
         }
 
@@ -54,9 +65,10 @@ namespace Ts3Fixes
         {
             try
             {
-                if (!ShortcutOn("synctime")) return;
                 Sim a = ((InteractionInstance)ii).InstanceActor;
                 if (a == null) return;
+                SrlStep(a, ii, step);  // socialreplanlog (SocialReplanLog.cs); returns at once when it is off
+                if (!ShortcutOn("synctime")) return;
                 int at = -1;
                 for (int i = 0; i < sStSims.Count; i++) if (object.ReferenceEquals(sStSims[i], a)) { at = i; break; }
                 if (at < 0) { if (sStSims.Count >= 200) { sStSims.RemoveAt(0); sStStep.RemoveAt(0); sStT0.RemoveAt(0); } sStSims.Add(a); sStStep.Add(step); sStT0.Add(SimClock.CurrentTicks); }
@@ -133,7 +145,7 @@ namespace Ts3Fixes
                 sSwLines++;
                 string res = r ? "ok" : (min >= giveupTime ? "timeout" : (me.HasExitReason(ExitReason.SynchronizationFailed) ? "failed" : "exit"));
                 HcLine("syncwait: " + SwWho(me) + " -> " + SwWho(target) + ", " + level + ", " + res + ", " + min.ToString("0.0") + "/" + giveupTime.ToString("0") + " min, checks " + st.Checks + " " + (st.CheckUs / 1000) + " ms, in "
-                    + SwIn(me) + ", partner in " + SwPartner(me, target) + (r ? "" : SwSyncState(me, target)) + ", " + HcSimTime());
+                    + SwIn(me) + ", partner in " + SwPartner(me, target) + (r ? "" : SwSyncState(me, target) + SwExits(me, target)) + ", " + HcSimTime());
             }
             catch (Exception) { sSwErrors++; }
         }
@@ -160,6 +172,14 @@ namespace Ts3Fixes
         static void SwLogEndedEarly(Sim me, Sim target, Sim.SyncLevel level)
         {
             if (ShortcutOn("synctime")) HcLine("socialreceivefail: " + SwWho(me) + " -> " + SwWho(target) + ", " + level + ", ended at once (partner's receive failed), in " + SwIn(me) + ", " + HcSimTime());
+        }
+
+        // Failed waits only (docs/580 §8): a wait that fails at 0.0 min with no checks ended on an exit reason that was
+        // already set when it began (EA's final HasExitReason test), not on the partner: show both Sims' exit reasons.
+        static string SwExits(Sim me, Sim p)
+        {
+            try { return ", own exit " + me.ExitReason + (p != null ? ", partner exit " + p.ExitReason : ""); }
+            catch (Exception) { return ""; }
         }
 
         static string SwIn(Sim s) { return s.CurrentInteraction != null ? s.CurrentInteraction.GetType().Name : "none"; }

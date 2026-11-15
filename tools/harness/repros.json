@@ -76650,5 +76650,167 @@
         }
       }
     ]
+  },
+  {
+    "id": "petputdownwait-check",
+    "bug": "A carried pet waits 30 sim-min for a carrier whose PutDownPet already failed (no FinishLinkedInteraction on its early returns) (docs/578 §2)",
+    "fix": "ts3fixes PetPutDownWait.cs: petputdownwait (default off), docs/578 §2",
+    "save": "any world (pure check)",
+    "note": "PetPutDownWaitCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petputdownwait": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetPutDownWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetPutDownWaitCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petputdownwait": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetPutDownWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetPutDownWaitCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petputdownwait": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petputdownwait": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "puddlereach-check",
+    "bug": "Autonomy stops re-picking a rain-puddle splash whose run just reached no puddle on the same lot and puddle set (docs/578 §3)",
+    "fix": "ts3fixes PuddleReach.cs: puddlereach (default off), docs/578 §3",
+    "save": "any world (pure check)",
+    "note": "PuddleReachCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "puddlereach": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PuddleReachCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PuddleReachCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "puddlereach": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PuddleReachCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PuddleReachCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "puddlereach": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "puddlereach": false
+        }
+      }
+    ]
   }
 ]

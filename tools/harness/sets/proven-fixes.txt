@@ -5,6 +5,14 @@
 # Excluded below: measurement, diagnostics, test-only, perf experiments, regressions and fixes not proven yet.
 # One switch per line; `node tools/harness/proven-fixes.ts` checks the file and prints it for EARLYFIX / `ag patches`.
 # Built 2026-11-15 from the 207 default-off switches (Fixes.cs ShortcutOn names -> Instantiator k* = false).
+handsetreset
+flowersinuse
+uselistprune
+chestuselist
+resetinusefree
+putdowninuse
+autonomyinuseblock
+npcbusypartner
 
 aptleave
 artsellnoartist
@@ -137,3 +145,7 @@ woohootywait
 #   ceremonyspot
 # partyoutcome: the registry row proves partymotive only; partyoutcome stays idle beside the core mod (docs/554):
 #   partyoutcome
+# built 2026-11-15, in-game off/on test pending (docs/575-577); move to the set once proven:
+#   petputdownwait puddlereach
+# diagnostics (log only):
+#   socialreplanlog barorderlog routecauselog

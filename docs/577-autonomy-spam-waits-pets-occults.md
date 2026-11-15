@@ -8,6 +8,7 @@ Date: 2026-11-15. Static work (decompiled scripts, deterministic scans) plus the
 |---|---|---|---|---|
 | 1 | `autonomyinuseblock` (off) | 2693-2695 | `Ts3Fixes.Fixes.AutonomyInUseBlockCheck` | `autonomyinuseblock-check` |
 | 4 | `npcbusypartner` (off) | 2696-2698 | `Ts3Fixes.Fixes.NpcBusyPartnerCheck` | `npcbusypartner-check` |
+| 2 | `socialreplanlog` (off, log only) | 2699-2700 | none (fix-repro exemption) | its `socialreplan:` lines in a soak |
 
 Read-only diagnostic: `Ts3Fixes.Fixes.PrivacyCensus("list")` (§3).
 
@@ -95,8 +96,25 @@ is the group-position branch of `ReceiveSocialInteraction` (`route3` / `PlanToMa
 `RouteSimsToSocial` turn-to-face route also qualifies. The initiator has already reached its spot, which covers the
 receiver's start. Every replan fails (`NoPathToDestination`, start inside a Sim footprint) until the initiator gives up.
 
-No fix yet, because the branch is not proven and a routing change for household Sims must be exact. **Log request** (see
-the end of this doc).
+No fix yet, because the branch is not proven and a routing change for household Sims must be exact.
+
+**`socialreplanlog`** (log only, off; SocialReplanLog.cs) collects the proof. It hooks nothing new per plan:
+- `RouteFailLog.RflPlan`, which already runs after every plan, calls it for failed plans.
+- The receiver-step hooks of the synctime log (`SimsNeedToRoute`, `SetupTwoPersonSocial`, `SetupGroupSocial`,
+  `PlaceSocial`) moved into a guarded `PatchSwSteps()` in SyncWaitLog.cs. They are now installed in every package and
+  feed the branch trail. Each costs one switch test while both logs are off.
+
+For each failed Replan / ReplanFromPoint of a Sim whose running interaction is a `SocialInteraction`, whose role is
+Receiver and whose blocker object is its own `SynchronizationTarget`, the first 3 replans of a receive each log a
+`socialreplan:` line with:
+- the result;
+- the branch trail (`needroute<yes`, `twoperson<ok`, `place<ok`, `group<ok`, `jig`);
+- the route's ignore list (`partner` / `self` / ids);
+- both positions and the gap;
+- the partner's route destination or "standing", with its sync level and role.
+
+At the end of the receive a `socialreplan done:` line gives the count and ok / fail. The log is capped at 300 lines per
+session. Counters: 2699 partner-blocked receiver replans, 2700 lines dropped by the cap.
 
 **(d) DanceTogether / snowball waits for a busy partner (45 min).** Fixed for NPC pairs in §4.
 
@@ -182,8 +200,8 @@ Scans:
   - household rows unchanged.
 - `PrivacyCensus list` after a load and each in-game hour.
 
-**Log request (for (b)/(c), via the census or `routefail`).** For each `SocialInteractionB` replan whose blocker is its
-`SynchronizationTarget`, log:
+**(b)/(c) proof run:** turn `socialreplanlog` on in a household social soak. Each receiver replan whose blocker is its
+`SynchronizationTarget` logs:
 - which `ReceiveSocialInteraction` branch built the route (jig / two-person / `PlaceSocial` / group position);
 - the receiver's route ignore list;
 - both Sims' positions;

@@ -341,6 +341,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kPutDownInUse value="False" />
     <kAutonomyInUseBlock value="False" />
     <kNpcBusyPartner value="False" />
+    <kSocialReplanLog value="False" />
+    <kBarOrderLog value="False" />
+    <kPetPutDownWait value="False" />
+    <kPuddleReach value="False" />
+    <kRouteCauseLog value="False" />
     <kBirthRoute value="False" />
     <kPutDownPlace value="False" />
     <kAwardKeep value="False" />

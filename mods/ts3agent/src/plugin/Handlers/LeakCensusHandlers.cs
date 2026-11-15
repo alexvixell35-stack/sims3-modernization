@@ -300,6 +300,7 @@ namespace Ts3Agent
             // is the node still held by its owner's DreamsAndPromisesManager, or only by the event tracker?
             Dictionary<string, int> dream = new Dictionary<string, int>(), dreamOwners = new Dictionary<string, int>(), dreamOrphans = new Dictionary<string, int>();
             Dictionary<object, Dictionary<object, bool>> dreamMgrs = new Dictionary<object, Dictionary<object, bool>>();
+            Dictionary<string, int> dreamByTrigger = new Dictionary<string, int>(), dreamGoneSubject = new Dictionary<string, int>();
             foreach (KeyValuePair<ulong, Dictionary<ulong, List<EventListener>>> ev in all)
             {
                 if (ev.Value == null) continue;
@@ -319,7 +320,7 @@ namespace Ts3Agent
                         DelegateListener dl = l as DelegateListener;
                         if (dl != null) LcBump(byDelegate, LcMethod(dl.Delegate));
                         if (dl != null && dl.Delegate != null && dl.Delegate.Target != null && dl.Delegate.Target.GetType().Name == "ActiveDreamNode")
-                            LcDreamListener(dl.Delegate.Target, dream, dreamMgrs, dreamOwners, dreamOrphans);
+                            LcDreamListener(dl.Delegate.Target, dream, dreamMgrs, dreamOwners, dreamOrphans, dreamByTrigger, dreamGoneSubject);
                         if (so == null) noOwner++;
                         bool g = (so != null && LcGone(so)) || (l.TargetObject != null && l.TargetObject.HasBeenDestroyed);
                         Sim s = so as Sim;
@@ -358,16 +359,19 @@ namespace Ts3Agent
             Dictionary<string, object> dr = Util.Obj();
             dr["state"] = LcTop(dream, 8); dr["by_owner"] = LcTop(dreamOwners, top); dr["orphans_by_node"] = LcTop(dreamOrphans, top);
             dr["managers"] = dreamMgrs.Count;
+            dr["by_trigger"] = LcTop(dreamByTrigger, top);  // docs/579 §1: which wish triggers the listener growth comes from
+            dr["subject_gone_by_trigger"] = LcTop(dreamGoneSubject, top);  // wishes about a Sim with no SimDescription / MiniSimDescription left
             r["dream_listeners"] = dr;
             return r;
         }
 
         // one ActiveDreamNode listener: held by the owner's manager (any of its node collections), or not
         static void LcDreamListener(object node, Dictionary<string, int> state, Dictionary<object, Dictionary<object, bool>> mgrs,
-            Dictionary<string, int> owners, Dictionary<string, int> orphans)
+            Dictionary<string, int> owners, Dictionary<string, int> orphans, Dictionary<string, int> byTrigger, Dictionary<string, int> goneSubject)
         {
             try
             {
+                LcDreamSubject(node as Sims3.Gameplay.DreamsAndPromises.ActiveDreamNode, byTrigger, goneSubject);
                 Sim owner = LcGet(node, "mOwner") as Sim;
                 if (owner == null) { LcBump(state, "no owner"); return; }
                 bool hh = owner.SimDescription != null && owner.SimDescription.Household == Household.ActiveHousehold;
@@ -401,6 +405,22 @@ namespace Ts3Agent
                 }
             }
             catch (Exception e) { LcBump(state, "error " + e.GetType().Name); }
+        }
+
+        // docs/579 §1: the wish's trigger event, and whether its subject Sim still exists anywhere (a leak only if not)
+        static void LcDreamSubject(Sims3.Gameplay.DreamsAndPromises.ActiveDreamNode n, Dictionary<string, int> byTrigger, Dictionary<string, int> goneSubject)
+        {
+            if (n == null) return;
+            string trig = "?";
+            try { trig = n.NodeInstance != null ? n.NodeInstance.TriggerEvent.ToString() : "no instance"; } catch (Exception) { }
+            LcBump(byTrigger, trig);
+            try
+            {
+                Sims3.Gameplay.DreamsAndPromises.ActiveNodeBase.NodeSubject sub = n.Subject;
+                if (sub == null || sub.mType != Sims3.Gameplay.DreamsAndPromises.DreamNodePrimitive.InputSubjectType.Sim || sub.mSimDescriptionId == 0) return;
+                if (SimDescription.Find(sub.mSimDescriptionId) == null && MiniSimDescription.Find(sub.mSimDescriptionId) == null) LcBump(goneSubject, trig);
+            }
+            catch (Exception e) { LcBump(goneSubject, "error " + e.GetType().Name); }
         }
 
         // 3. objects: every GameObject by type and by place

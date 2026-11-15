@@ -29,6 +29,7 @@ namespace Ts3Fixes
     // player's pie-menu splash, pets' puddle interactions) pass through: the hook acts only inside a hooked Run's own task.
     // Counters: [2384] roof puddles dropped from NPC runs, [2385] NPC runs that dropped one, [2386] errors (registry
     // fixes-2384). Harness check: SplashRoofCheck (SplashRoofCheck.cs), repro splash-roof-puddle.
+    // The Run hook is shared: it also hands every result to puddlereach (PuddleReach.cs, PrRunDone).
     public static partial class Fixes
     {
         static void ApplySplashRoof()
@@ -50,15 +51,18 @@ namespace Ts3Fixes
             public bool RunHook()
             {
                 Sim actor = null;
-                try
-                {
-                    if (ShortcutOn("splashroof")) actor = ((InteractionInstance)(object)this).InstanceActor as Sim;
-                }
+                try { actor = ((InteractionInstance)(object)this).InstanceActor as Sim; }
                 catch (Exception) { PatchCounters()[2386]++; }
                 int before;
-                if (!SrBegin(actor, out before)) return RunOrig();
-                try { return RunOrig(); }
-                finally { SrEnd(before); }
+                bool ok;
+                if (!SrBegin(actor, out before)) ok = RunOrig();
+                else
+                {
+                    try { ok = RunOrig(); }
+                    finally { SrEnd(before); }
+                }
+                PrRunDone(actor, ok);  // puddlereach (PuddleReach.cs, docs/578 §3): remembers a run that reached no puddle
+                return ok;
             }
             public bool RunOrig() { return false; } // receives Sim+AutonomousSplashInPuddle.Run's original body
         }
