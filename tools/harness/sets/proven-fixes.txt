@@ -1,0 +1,139 @@
+# Proven gameplay fixes: every default-off ts3fixes switch whose fix is proven in game (off BROKEN / on FIXED, or measured
+# off/on), and that fixes EA gameplay / bugs. Evidence: a docs/registry.md row "proven in game", a PLAN.md / docs entry "proven
+# in game" / "verified in game", a phasesoak verdict pair (switch false BROKEN, true FIXED; ~/dev/ts3-runs phase-*/phase.txt,
+# 2026-11-14/15), or a fix-repro-check.ts "measured off/on" note (socialfinish, socialreceivefail).
+# Excluded below: measurement, diagnostics, test-only, perf experiments, regressions and fixes not proven yet.
+# One switch per line; `node tools/harness/proven-fixes.ts` checks the file and prints it for EARLYFIX / `ag patches`.
+# Built 2026-11-15 from the 207 default-off switches (Fixes.cs ShortcutOn names -> Instantiator k* = false).
+
+aptleave
+artsellnoartist
+autonomyfailblock
+bandjam
+birdtvnull
+birthdayagers
+birthroute
+bonfirespice
+bowlinglane
+bribeguard
+bubblepipeguard
+buffstate
+burglaridle
+cleanflag
+combojob
+comboopp
+comboprotestlot
+convmerge
+cookclicklistener
+courselistener
+curfewalarm
+daycarequit
+djcleanup
+eatoutsidecount
+efficientchip
+fairyauratimer
+fieldtripadult
+fireactivejob
+firetrapcount
+geniebanish
+ghostspawnargs
+gigpullaudience
+gigwaitleave
+gohomewalk
+gotoworkstale
+gradvisitors
+grouptalkstale
+hauntedumbrella
+hiddenroomnpc
+hiddenroomspawn
+homeworkhelp
+horsetraitscore
+hottubwoohoofx
+invitecallreply
+jetpackflyingbuff
+littercap
+lunacysocials
+moveinpartner
+movingflag
+npcseasonalparty
+npcshowstuck
+observatorymsg
+oppdeadlisteners
+partymotive
+permazombiemoon
+phonecallrearm
+phonecallschedule
+phonefixup
+phonegive
+phoneloadreset
+photoboothfunds
+picniccamera
+plumbotfacelistener
+portraitpose
+privateeyecase
+professorterm
+promcarpool
+promoteshift
+protestlastday
+putdownplace
+reaperflow
+repairtimecache
+resortweddingalarm
+resumetns
+returnhomealarms
+royaltyorphan
+sandscoins
+sculptpose
+seasickpaused
+sentiencename
+serviceleave
+shelllighting
+shuffleboardbcast
+sneakoutlistener
+snowfightjoinwait
+socialfinish
+socialreceivefail
+spacesimpartner
+splitpartner
+spoonreset
+statueline
+steadygigmiss
+storeworldevents
+tombmusic
+trainboost
+trickortreatalarm
+unitravelflag
+upgradefailalarm
+vampirehuntglow
+viproomrefresh
+visitgreetalarm
+visittoolate
+weddingcancel
+wildherdmother
+wildhorsegender
+woohootywait
+
+# ---- excluded (default off, not in the set), by reason
+# perf experiments / sim-thread offload and caching (not EA gameplay fixes):
+#   autlivelate cachedreflection caneearly casmemo detailprio disposespread doormirror drivertaskasync failrepeat farthestsorted
+#   hoursmemo idlememo legreplanskip preplancb replandefer replanspread routablecache safespotcap safespotreuse safespotyield
+#   seasonimposter seasonimpostercold seasonmarkercache spatialcache stuckcheckbusy stuckcheckcap stuckchecknear stuckcheckown
+#   tooltipthrottle unseenbroadcast unseencars unseenenv unseenfbfinish unseenfbloopbreak unseenfbsites unseenfbtrip
+#   unseenfbtriphold unseenmotives unseenpark unseenroute venuememo wakepark wakepoll
+# measurement / diagnostics / test aids:
+#   autunseencmp boatgetoutdiag bookhanddiag deadsimcount routesrc wildflowerprobe
+# test-only, registry says test (vehicle leak tests, age-up swap, dead-Sim hollowing, joyride costume):
+#   ageupswap deadsimhollow joyridecostume vehfrankentaxi vehgetinleak vehparkreserve vehprotestcar vehseatdestroy
+# leak / save-data fixes, opt-in until measured (changes save data or not proven in game):
+#   attractionalarm casuihandlers deadrefguards deadrefsweep familyinvghost firepitchair preferredservice relremovesafe
+#   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim spouseunlink
+# gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
+#   awardkeep bouncerskip boatgetoutguard bsrefund convturn eanullguards eventcrowdring eventrouteretry hsgradkeep indoorcap
+#   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
+#   vacexitreturn vacexport vacimportfix vaclistenernull vacreturnskip vacstoreguard vacteendelete weddingarchkeep
+# combo pieces: first in-game check only, not marked proven (docs/551):
+#   comboprotest combosituation combovenue
+# ceremonyspot: the bug is verified in game, the fix has no recorded off/on verdict:
+#   ceremonyspot
+# partyoutcome: the registry row proves partymotive only; partyoutcome stays idle beside the core mod (docs/554):
+#   partyoutcome
