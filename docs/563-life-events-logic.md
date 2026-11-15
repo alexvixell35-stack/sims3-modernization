@@ -1,8 +1,10 @@
 # 563: Life-events logic batch (weddings, ghosts, story move-in)
 
+**In-game status:** `weddingcancel`, `ghostspawnargs`, `reaperflow`, `moveinpartner`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
+
 2026-11-15, static (decompiled EA scripts + semgrep `tools/static/ea-gameplay-logic.semgrep.yml` /
 `ea-script-logic.semgrep.yml` over 83 aging, birthday, death, ghost, moving, wedding and pet files, then reads of the
-Run / Init / CleanUp paths). Built, NOT RUN. Every switch is off by default and is an exact EA bug fix.
+Run / Init / CleanUp paths). Built, proven in game (status above). Every switch is off by default and is an exact EA bug fix.
 
 | § | Switch | Counters | Check | Repro |
 |---|---|---|---|---|

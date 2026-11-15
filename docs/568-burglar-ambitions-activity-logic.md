@@ -1,9 +1,11 @@
 # 568: Burglar idle, Ambitions / Bridgeport activity batch
 
+**In-game status:** `burglaridle`, `gigwaitleave`, `sculptpose`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
+
 2026-11-15, static (decompiled EA scripts: BurglarSituation, Situation / InteractionQueue add and reset paths, FireSource
 React To Fire; Ambitions / Showtime / Late Night activity code: Stylist, Singer, Firefighter and Interior Designer gigs,
 sculpting, inventing, tattooing, consignment, day spa, restaurants; an alarm add/remove census of those files, then reads
-of Run / Init / alarm paths). Built, NOT RUN. All switches off by default; EA bug fixes only, using EA's own methods.
+of Run / Init / alarm paths). Built, proven in game (status above). All switches off by default; EA bug fixes only, using EA's own methods.
 
 | § | Switch | Counters | Check | Repro |
 |---|---|---|---|---|

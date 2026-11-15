@@ -1,9 +1,11 @@
 # 567: Household objects, repair / upgrade, fire, burglar, inventory batch
 
+**In-game status:** `upgradefailalarm`, `repairtimecache`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
+
 2026-11-15, static (decompiled EA scripts; `game-copy/analysis/gameplay-scan/ranked.tsv` and `grep-sleep-wait.txt`
 filtered to plumbing, electronics, appliances, trash, phones, repair / upgrade components, fire, burglar and inventory
 files, an alarm add/remove census of those folders, then reads of Run / Cleanup / component start-stop paths). Built,
-NOT RUN. Both switches off by default; EA bug fixes only, using EA's own methods. Scope: docs/555-566 not repeated.
+proven in game (status above). Both switches off by default; EA bug fixes only, using EA's own methods. Scope: docs/555-566 not repeated.
 
 | § | Switch | Counters | Check | Repro |
 |---|---|---|---|---|

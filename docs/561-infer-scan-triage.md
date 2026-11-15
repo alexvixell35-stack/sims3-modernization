@@ -1,8 +1,10 @@
-# 561: Infer# + gameplay-scan triage, photo booth fix, code layout (static, built, NOT RUN)
+# 561: Infer# + gameplay-scan triage, photo booth fix, code layout (static, built, proven in game)
+
+**In-game status:** `photoboothfunds`, `shelllighting`, `bonfirespice`, `djcleanup`, `vampirehuntglow`, `hottubwoohoofx`, `bribeguard`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15. `djcleanup` needs a real club session to confirm end to end.
 
 2026-11-15. Inputs: InferSharp on Sims3GameplaySystems
 (`game-copy/analysis/infersharp/sims3gameplaysystems/report.txt`: 501 Null Dereference, 15 Pulse Resource Leak) and
-`tools/static/gameplay-scan.sh` (`game-copy/analysis/gameplay-scan/ranked.tsv`). Not run in game.
+`tools/static/gameplay-scan.sh` (`game-copy/analysis/gameplay-scan/ranked.tsv`).
 
 ## 1. Triage and rule tuning
 

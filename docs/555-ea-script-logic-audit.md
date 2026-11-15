@@ -1,5 +1,7 @@
 # 555. EA script logic-bug audit: rule scan of the gameplay assemblies (2026-11-14)
 
+**In-game status:** `viproomrefresh`, `courselistener`, `observatorymsg`, `bubblepipeguard`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
+
 Static audit of `Sims3GameplaySystems` and `Sims3GameplayObjects` (local decompile, 8,729 files) for code that will
 probably cause logic bugs. Every candidate below was read in context; tuning values come from the game's XML tuning
 resources (GameplayData + every EP FullBuild/DeltaBuild package, instance id = FNV-64 of the class name). No game run.
@@ -39,7 +41,7 @@ without Dispose (shuffleboard shape) but their tuning `TimeDuration` is 2 s, so 
 broadcaster (-1, never ended) only reacts for Sims heartbroken over that grave: intended; `Medical.OnLoadFixup`,
 `Job.PersistPostLoad`, `SocialInteraction` sleeping listener (removed in Cleanup).
 
-## 3. viproomrefresh [verified, decompiled; built, NOT RUN]
+## 3. viproomrefresh [verified, decompiled; built, proven in game]
 
 `RefreshVIPRooms` visits each VIP room: clears its guest list when the owner is gone or no longer checked in, relocks
 its doors, drops door ids with no object, and when none is left calls `VIPRooms.Remove(room)` inside the foreach. The
@@ -65,7 +67,7 @@ that is no longer scheduled. Same code: a level-up moves generic courses to anot
 old building, so deleting the class's new building never cancels the course. The leak lasts the world session (the
 EventTracker is rebuilt per world, §5; the listener field is not re-added after load).
 
-**courselistener [built, NOT RUN]** (`CourseListener.cs`, tuning `kCourseListener`, off): EA's `RemoveListener` for every
+**courselistener [built, proven in game]** (`CourseListener.cs`, tuning `kCourseListener`, off): EA's `RemoveListener` for every
 scheduled course in LeaveJobNow's `RemoveStudent` step (its only caller; LeaveJobNow itself is invoked by reflection in
 `LeaveJobDispose.cs`, so it is not swapped) and before `CreateCoursesSchedule`; `ChangeRabbitHoleTo` re-adds a moved
 course's listener on the new rabbit hole with EA's `SetRabbitHoleDisposedEventListener`. Counters 2420 removed, 2421
@@ -84,7 +86,7 @@ so only the handle is lost: no leak, no fix.
 After the Simulon V trip, `num2` stardust and `num3` dark matter are found and inventoried, then the notice tests
 `num3 > 0 || num3 > 0`: a stardust-only result shows the "found nothing" message. Items are not lost.
 
-**observatorymsg [built, NOT RUN]** (tuning `kObservatoryMsg`, off): `Sim.ShowTNSIfSelectable(TNSNames, actor, target,
+**observatorymsg [built, proven in game]** (tuning `kObservatoryMsg`, off): `Sim.ShowTNSIfSelectable(TNSNames, actor, target,
 params)` turns `SummaryOfNothingFoundOnSimulonV` (only the observatory sends it) into `SummaryOfEverythingFoundOnSimulonV`
 when the stardust argument is above 0. Counters 2424 corrected (also off), 2425 errors. Check `ObservatoryMsgCheck run`
 (pure notice choice): off BROKEN, on FIXED. Repro `observatory-stardust-msg`.
@@ -94,7 +96,7 @@ when the stardust argument is above 0. Counters 2424 corrected (also off), 2425 
 The pipe prop is used (`SetHiddenFlags`) before its null check, so the check's StandardExit path is dead and a failed
 prop creation throws instead of exiting cleanly. Only on a missing resource.
 
-**bubblepipeguard [built, NOT RUN]** (tuning `kBubblePipeGuard`, off): `BlowBubbles.Run` wrapped; a
+**bubblepipeguard [built, proven in game]** (tuning `kBubblePipeGuard`, off): `BlowBubbles.Run` wrapped; a
 NullReferenceException with the pipe still null and the state machine entered (the only point between EnterStateMachine
 and the pipe's first use) takes EA's `StandardExit` and returns false; anything else is rethrown. Counters 2426 exits,
 2427 errors. Check `BubblePipeCheck run` (throwaway uninitialized interaction; must decline before the state machine):

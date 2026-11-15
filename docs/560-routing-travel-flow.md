@@ -1,7 +1,9 @@
-# 560: routing and travel flow, script side (static, built, NOT RUN)
+# 560: routing and travel flow, script side (static, built, proven in game)
+
+**In-game status:** `gohomewalk`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
 
 2026-11-14. Static review of EA's script-side travel code (decompiled 1.67, not committed) with the
-gameplay semgrep rules from docs/559, extended for travel flows. Not run in game. Existing fixes checked
+gameplay semgrep rules from docs/559, extended for travel flows. Existing fixes checked
 first (docs/103-116, 513, 514, 544, 546, 551-553, 558; Fixes.cs switches `gohome`, `visit*`, `goto*`,
 `carnoroute`, `npcdriverpool`, `veh*`, `boat*`, `eventrouteretry`, `birthroute`, `putdownplace`).
 

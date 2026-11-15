@@ -1,9 +1,11 @@
 # 569: Activity batch 2 (gym training, Bistro meals, consignment, inventing, venues)
 
+**In-game status:** `trainboost`, `eatoutsidecount`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
+
 2026-11-15, static (decompiled EA scripts). This is a deeper pass on the areas docs/568 §4 only surface-scanned:
 AthleticGameObject WorkOut / TrainSim / QueueUpTrainSim, InventionWorkbench Invent / MakeInvention scrap handling,
 ConsignmentRegister / BotShopRegister, Restaurant / EatHere / RestaurantInteraction / EatOutside / EatOutsideWith /
-GetDrinks, CelebrityManager discounts, VelvetRopes (VIP access, bribes, temp lists). Built, NOT RUN. Both switches are off by
+GetDrinks, CelebrityManager discounts, VelvetRopes (VIP access, bribes, temp lists). Built, proven in game (status above). Both switches are off by
 default; EA bug fixes only, using EA's own methods.
 
 | § | Switch | Counters | Check | Repro |

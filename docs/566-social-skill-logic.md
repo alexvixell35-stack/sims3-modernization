@@ -1,8 +1,10 @@
 # 566: Social and skill-object logic batch (group talk, conversation merge, portrait, picnic)
 
+**In-game status:** `grouptalkstale`, `convmerge`, `portraitpose`, `picniccamera`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
+
 2026-11-15, static (decompiled EA scripts; `game-copy/analysis/gameplay-scan/ranked.tsv` and `grep-sleep-wait.txt`
 filtered to social / romance / skill-object files, an alarm add/remove census of HobbiesSkills, Gardening, Socializing
-and Fishing, then reads of each system's Run / Cleanup / join-leave paths). Built, NOT RUN. All switches off by
+and Fishing, then reads of each system's Run / Cleanup / join-leave paths). Built, proven in game (status above). All switches off by
 default; EA bug fixes only, using EA's own methods. Scope: docs/555-565 not repeated (band instruments, social sync
 waits, hot-tub woohoo FX are covered there).
 

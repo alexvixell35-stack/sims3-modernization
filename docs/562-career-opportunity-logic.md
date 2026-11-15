@@ -1,11 +1,13 @@
-# 562: Career and opportunity logic batch (static, built, NOT RUN)
+# 562: Career and opportunity logic batch (static, built, proven in game)
+
+**In-game status:** `privateeyecase`, `oppdeadlisteners`, `daycarequit`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
 
 2026-11-15. Scope: opportunity lifecycle (OpportunityManager add / accept / reject, Opportunity Cleanup, suspend and
 resume, target-deleted and Sim-died handling, completion delegates), active careers (PrivateEye / Investigator,
 Firefighter, Stylist, Architect, Daycare, Ghost Hunter, performance careers and gigs), job performance, rabbit-hole
 work and school files. Method: both semgrep configs over the 310 career / opportunity / rabbit-hole files, then a read
 of the listener lifecycles the hits pointed at and of each system's main Run / Cleanup paths. Combo-building parts
-(docs/551) skipped. Not run in game.
+(docs/551) skipped.
 
 ## 1. `oppdeadlisteners` (fixed, off by default)
 

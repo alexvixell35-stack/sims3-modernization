@@ -1,7 +1,9 @@
 # 557. Static scan of UI, Sims3StoreObjects and Sims3Metadata; shared-buff and store-event fixes (2026-11-14)
 
+**In-game status:** `buffstate`, `storeworldevents`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
+
 First static bug hunt over the three EA script assemblies nobody had decompiled yet: `UI.dll`, `Sims3StoreObjects.dll`,
-`Sims3Metadata.dll` (the gameplay pair is docs/555). Every hit below was read in context. No game run. Built, NOT RUN:
+`Sims3Metadata.dll` (the gameplay pair is docs/555). Every hit below was read in context. No game run. Built (in-game status above):
 `buffstate` and `storeworldevents`, both off by default.
 
 Tags: **[verified]** = read in the decompiled code (and IL where marked); **[inferred]** = reasoning about reachability or

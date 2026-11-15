@@ -1,6 +1,8 @@
 # 554. House party core: audit, two fixes, candidates
 
-2026-11-14, static audit of the 1.67 script code (Sims3GameplaySystems, decompiled locally), fixes built, NOT RUN.
+**In-game status:** `partymotive`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15. `partyoutcome`: not provable on a simler90 core-mod install.
+
+2026-11-14, static audit of the 1.67 script code (Sims3GameplaySystems, decompiled locally), fixes built (in-game status above).
 Request: "see if you can find some loopholes or logic bugs in parties". The scope was cut to the common flow: a regular
 house party (`HouseParty`, `HostedSituation`, `Party`) on a house lot and on an apartment lot (invite, arrive, greet,
 room-change bookkeeping, score, end and cleanup). Other party types, lot types and expansion packs: candidates only (§4).
