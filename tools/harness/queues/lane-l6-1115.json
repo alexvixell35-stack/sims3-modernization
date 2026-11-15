@@ -4,7 +4,7 @@
     {
       "id": "bp-spawncap-check",
       "note": "Correctness (10 min): repro spawncap-check. Pass: every SpawnCapCheck step returns (it throws on a D1 answer that differs from EA's); spawncap_mismatch 0; checks counted; 0 script errors. Read spawncap_pet_under / spawncap_flower_under against the checks: the under-cap share docs/147 §5 asks for before D1/D2 go further",
-      "asi": "game-copy/asi-v024/ts3native.asi",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115", "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
       "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change; ts3fixes master-lanes-1115 (master 84ee284f, the lane merged; repinned from the lane build 2026-11-15)",
       "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
       "save": "Baseline-BP",
@@ -35,7 +35,7 @@
     {
       "id": "bp-vacation-listener-pad",
       "note": "Correctness (10 min): repro vacation-listener-pad. Pass: VacPadCheck returns a line (opportunities with > 3 events N); vaclistenerpad_padded and _left read back; 0 script errors. N = 0 closes the docs/210 §6 row as dead with EA's tuning",
-      "asi": "game-copy/asi-v024/ts3native.asi",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115", "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
       "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change; ts3fixes master-lanes-1115 (master 84ee284f, the lane merged; repinned from the lane build 2026-11-15)",
       "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
       "save": "Baseline-BP",
@@ -57,7 +57,7 @@
     {
       "id": "bp-routelen-crowd",
       "note": "Correctness (10 min): repro replan-buildbuy-crowd with routelen on (observe only). Pass: routelen_seen_n + routelen_unseen_n > 0, routelen_errors 0, 0 script errors; the patches result carries pick:<definition> keys while routelen is on (counter 3). Read routelen_*_m / _n for the mean planned metres per class",
-      "asi": "game-copy/asi-v024/ts3native.asi",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115", "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
       "pinReason": "the player release v0.2.4 asi: a ts3fixes-only correctness test, no native change; ts3fixes master-lanes-1115 (master 84ee284f, the lane merged; repinned from the lane build 2026-11-15)",
       "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
       "save": "Baseline-BP-Spring",
