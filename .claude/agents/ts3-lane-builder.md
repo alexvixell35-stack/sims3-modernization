@@ -14,6 +14,7 @@ Read first: AGENTS.md, PLAN.md ("Where things stand", "Next tasks"), docs/index.
 - Counter slots, doc numbers and ledger entries: reserve them through `tools/registry.ts` / `tools/agent-merge.cjs`, never pick by hand.
 
 ## Build rules
+- Game jobs run on Apex latest + RTX Remix bridge only (Bin state `apex` via tools/turbo-compat.ts snapshot -> state -> restore); no plain-DXVK arms (Rodney 2026-11-15).
 - Missing build tool or SDK: install it (project venv or portable copy first, system install only if needed) and say what and where; never stop at a design because a tool is missing.
 - Every new behaviour switch defaults OFF. Diagnostics off unless the design says always-on.
 - Anything that changes Sims: explicit household, selected-Sim and unknown-scope exemption in code (unknown scope counts as household). Results for controlled Sims must equal vanilla.

@@ -22,6 +22,7 @@ Read first: AGENTS.md, the ts3-agent-merge skill (`.claude/skills/ts3-agent-merg
 - Copy each queue to `*-<set>.json` pinned to the set. Also update every version read-back (`^ts3native 0\.36\.NNN-<tag> `) and its `regexCases`: `match` lines carry the set's version, `noMatch` lines another build's. Dry-run every queue (`node tools/harness/queue.ts <file> --dry-run`); a regexCases error is a FAIL of your work.
 
 ## Chain
+- Game jobs run on Apex latest + RTX Remix bridge only (Bin state `apex` via tools/turbo-compat.ts snapshot -> state -> restore); no plain-DXVK arms (Rodney 2026-11-15).
 - Write `probe-out/queue/chain-<name>.sh` modelled on the existing chain scripts: wait for TS3W.exe to exit, `tools/builds.ts check` the pins, install the agent package to build/ with a backup, smoke first (stop on FAIL), then RUN FIRST queues, correctness, reruns. No timing queues unless the prompt says (they need a quiet machine and Rodney's OK). Give the ETA in PHT (logs are UTC; PHT = UTC+8). Do not start it unless told.
 - Commit: `<gitmoji> <summary>`, body, last line exactly `Assisted with AI`. Never --no-verify. No push.
 
