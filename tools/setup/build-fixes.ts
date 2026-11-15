@@ -409,6 +409,13 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBetrayedNullSim value="False" />
     <kTopicTestNull value="False" />
     <kOppTrackerRelisten value="False" />
+    <kTraitRemoveNull value="False" />
+    <kHomeworkCopyOld value="False" />
+    <kLaundryMoodEach value="False" />
+    <kPartyCleanupNull value="False" />
+    <kSafeLocUnhide value="False" />
+    <kMidlifeUiEnding value="False" />
+    <kNemesisNoRomance value="False" />
     <kBirthRoute value="True" />
     <kPutDownPlace value="True" />
     <kAwardKeep value="False" />

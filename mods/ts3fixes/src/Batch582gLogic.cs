@@ -228,6 +228,7 @@ namespace Ts3Fixes
                     }
                 }
                 catch (Exception) { PatchCounters()[1245]++; }
+                if (TnRemove(this, guid)) return;  // traitremovenull (Batch582iLogic.cs, docs/582 B9 §1): EA would throw
                 RemoveOrig(guid);
             }
             public void RemoveOrig(ulong guid) { } // receives TraitManager.RemoveElement(ulong)
@@ -358,11 +359,17 @@ namespace Ts3Fixes
             Patch(typeof(WeddingParty), "CleanUp", Type.EmptyTypes, typeof(BWlHook), "CleanHook", "CleanOrig");
         }
 
-        public class BWlHook
+        public class BWlHook : HouseParty  // derives from EA's base so `base.CleanUp()` is EA's non-virtual base call
         {
             public void CleanHook()
             {
-                try { CleanOrig(); }
+                try
+                {
+                    // partycleanupnull (Batch582iLogic.cs, docs/582 B9 §4): where EA's method would throw, its own steps run
+                    // null-safe, then EA's base (HouseParty.CleanUp)
+                    if (PcWedding((WeddingParty)(object)this)) base.CleanUp();
+                    else CleanOrig();
+                }
                 finally { After(this); }  // EA's CleanUp can throw on a null host/guest (review 2026-11-15); listeners still go
             }
             static void After(object party)

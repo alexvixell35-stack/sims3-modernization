@@ -12,7 +12,7 @@ namespace Ts3Fixes
             if (what == "result") return counters;
             if (what != "run") return "rolenullguard <run|result>";
             bool on = ShortcutOn("rolenullguard");
-            bool fixedNow = RnSkip(on, true), controls = !RnSkip(on, false);
+            bool fixedNow = RnSkip(on, true) && RnSocialThrows(false, false, true, true), controls = !RnSkip(on, false) && !RnSocialThrows(false, true, true, true) && !RnSocialThrows(false, false, true, false);
             return B582Line("rolenullguard", on, "no-role target answered before EA's throw", fixedNow, "target with a role runs EA's code=" + controls, controls, sRnMissing, counters);
         }
 

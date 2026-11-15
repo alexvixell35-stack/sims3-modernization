@@ -36,7 +36,10 @@ namespace Ts3Fixes
         // lost the role while a pie menu or a queued order still targets them. simler90 fixes the barista Runs and
         // ConfigureInteraction; left: BuyDrinkFromBar/BuySnackFromBar Definition.AddInteractions and OrderFoodOnWaiter
         // Definition.Test / AddInteractions. Fix: a target with no role gets EA's own "no" (nothing added / Test false) before
-        // EA's code runs. Counters: [1174] calls answered "no role", [1175] seen with the switch off, [1176] errors.
+        // EA's code runs. Also (batch 9, 2026-11-15 review): FutureFoodSynthesizer.TestIfSocialValid has the same typo on a
+        // target with an ACTIVE role: a role whose RoleGivingObject is null passes the test and `.LotCurrent` throws. With
+        // the switch on that case answers EA's intended "no" (false). Counted in [1174] / [1175].
+        // Counters: [1174] calls answered "no role", [1175] seen with the switch off, [1176] errors.
         static readonly Type sRnWaiterDef = RnWaiterDef();
         static string sRnMissing = "";
 
@@ -57,6 +60,33 @@ namespace Ts3Fixes
             Type waiter = sRnWaiterDef;
             Patch(waiter, "AddInteractions", add, typeof(BRnWaiterHook), "AddHook", "AddOrig");
             Patch(waiter, "Test", test, typeof(BRnWaiterHook), "TestHook", "TestOrig");
+            Patch(typeof(FutureFoodSynthesizer), "TestIfSocialValid", new Type[] { typeof(Sim), typeof(Sim) }, typeof(BRnSocialHook), "SocialHook", "SocialOrig");
+        }
+
+        // Pure: does EA's TestIfSocialValid throw? (EA's order: same Sim, actor role, target role, then the giver)
+        internal static bool RnSocialThrows(bool same, bool actorRole, bool targetRole, bool giverNull)
+        {
+            return !same && !actorRole && targetRole && giverNull;
+        }
+
+        public class BRnSocialHook
+        {
+            public static bool SocialHook(Sim actor, Sim target)
+            {
+                try
+                {
+                    if (actor != null && target != null && target.SimDescription != null && actor.SimDescription != null
+                        && RnSocialThrows(actor == target, actor.SimDescription.HasActiveRole, target.SimDescription.HasActiveRole,
+                            target.SimDescription.AssignedRole != null && target.SimDescription.AssignedRole.RoleGivingObject == null))
+                    {
+                        if (ShortcutOn("rolenullguard")) { PatchCounters()[1174]++; return false; }
+                        PatchCounters()[1175]++;
+                    }
+                }
+                catch (Exception) { PatchCounters()[1176]++; }
+                return SocialOrig(actor, target);
+            }
+            public static bool SocialOrig(Sim actor, Sim target) { return false; } // FutureFoodSynthesizer.TestIfSocialValid
         }
 
         // Pure: answer "no role" before EA's code? (only the null role throws; a role with no giver is EA's own "no")

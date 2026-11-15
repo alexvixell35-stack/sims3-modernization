@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay;
+using Sims3.Gameplay.Abstracts;
 using Sims3.Gameplay.Objects.RabbitHoles;
 using Sims3.Gameplay.Utilities;
 
@@ -24,7 +25,13 @@ namespace Ts3Fixes
     // RemoveAlarm, as the Start* paths do). The board and the one daily alarm stay EA's. Duplicates already in a save:
     // at world load (switch on) each theatre keeps the ResetSandwichBoards alarm whose handle it holds and its other
     // ResetSandwichBoards alarms are removed (SandwichAlarmWorldLoad; other callbacks and other theatres untouched).
-    // Counters: [1110] stale handles removed (on), [1111] the same case seen with the switch off, [1112] errors,
+    // Also (batch 9, 2026-11-15 review): the one-shot's handle is never stored, so a second player concert or convention
+    // that starts before the first show's one-shot fires cannot cancel it: it resets the board in the middle of the second
+    // show and re-adds the daily alarm that show's Start removed. With the switch on, the one-shot does nothing while a
+    // player show (concert, psychic or game convention) is running; that show's own End adds the next one-shot.
+    // Counted in [1110] / [1111].
+    // Counters: [1110] stale handles removed or mid-show one-shots skipped (on), [1111] the same seen with the switch
+    // off, [1112] errors,
     // [1113] saved duplicates removed at load.
     // Check: SandwichAlarmChecks.cs.
     public static partial class Fixes
@@ -45,6 +52,14 @@ namespace Ts3Fixes
         internal static bool SaRemoveFirst(bool on, bool handleValid)
         {
             return on && handleValid;
+        }
+
+        static readonly FieldInfo sSaShow = typeof(Theatre).GetField("mCurShowType", kInstAll);
+
+        // Pure: skip EA's one-shot because a player show is running?
+        internal static bool SaSkipMidShow(bool on, ShowVenue.ShowTypes cur)
+        {
+            return on && (cur == ShowVenue.ShowTypes.kPlayerConcert || cur == ShowVenue.ShowTypes.kPsychicConvention || cur == ShowVenue.ShowTypes.kGameConvention);
         }
 
         static readonly FieldInfo sSaTimers = typeof(AlarmManager).GetField("mTimers", kInstAll);
@@ -107,6 +122,15 @@ namespace Ts3Fixes
                 try
                 {
                     Theatre t = (Theatre)(object)this;
+                    if (sSaShow != null)
+                    {
+                        ShowVenue.ShowTypes cur = (ShowVenue.ShowTypes)sSaShow.GetValue(t);
+                        if (SaSkipMidShow(true, cur))
+                        {
+                            if (ShortcutOn("sandwichalarm")) { PatchCounters()[1110]++; return; }
+                            PatchCounters()[1111]++;
+                        }
+                    }
                     AlarmHandle h = (AlarmHandle)sSaHandle.GetValue(t);
                     bool valid = h != AlarmHandle.kInvalidHandle;
                     if (SaRemoveFirst(true, valid))

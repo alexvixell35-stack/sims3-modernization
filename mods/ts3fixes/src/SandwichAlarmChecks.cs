@@ -26,10 +26,12 @@ namespace Ts3Fixes
             bool ctlOtherTheatre = SaPick(new[] { "ResetSandwichBoards", "ResetSandwichBoards" }, new[] { true, false }, new[] { true, false }).Count == 0;
             List<int> stale = SaPick(new[] { "ResetSandwichBoards", "ResetSandwichBoards" }, new[] { true, true }, new[] { false, false });
             bool ctlStale = stale.Count == 1 && stale[0] == 1;
-            fixedNow = fixedNow && sweepOk;
-            bool controls = ctlStale && ctlNone && ctlSingle && ctlOtherCb && ctlOtherTheatre;
+            bool midShow = SaSkipMidShow(on, Sims3.Gameplay.Abstracts.ShowVenue.ShowTypes.kPlayerConcert);
+            bool ctlNoShow = !SaSkipMidShow(on, Sims3.Gameplay.Abstracts.ShowVenue.ShowTypes.kNoShow) && !SaSkipMidShow(on, Sims3.Gameplay.Abstracts.ShowVenue.ShowTypes.kMovie);
+            fixedNow = fixedNow && sweepOk && midShow;
+            bool controls = ctlStale && ctlNone && ctlSingle && ctlOtherCb && ctlOtherTheatre && ctlNoShow;
             return "sandwichalarm check (switch " + (on ? "on" : "off") + "): held daily handle removed before the re-add=" + fixedNow
-                + "; load sweep removes the 2 extra of 3=" + sweepOk + "; control: no handle held unchanged=" + ctlNone
+                + "; load sweep removes the 2 extra of 3=" + sweepOk + "; one-shot skipped during a player show=" + midShow + "; control: no show / movie run EA=" + ctlNoShow + "; control: no handle held unchanged=" + ctlNone
                 + ", single alarm untouched=" + ctlSingle + ", other alarm types untouched=" + ctlOtherCb + ", other theatre untouched=" + ctlOtherTheatre + ", stale held handle keeps one=" + ctlStale + "; controls ok=" + controls
                 + "; verdict: " + GlVerdict(on, fixedNow, controls, sSaMissing.Length == 0) + "; " + counters;
         }

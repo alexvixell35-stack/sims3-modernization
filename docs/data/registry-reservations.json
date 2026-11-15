@@ -6357,6 +6357,16 @@
       "worktree": "/home/<user>/dev/sims3-modernization"
     },
     {
+      "id": "fixes-1273",
+      "kind": "fixes",
+      "from": 1273,
+      "to": 1293,
+      "by": "claude",
+      "what": "batch 9 (docs/582 B9): traitremovenull, homeworkcopyold, laundrymoodeach, partycleanupnull, safelocunhide, midlifeuiending, nemesisnoromance",
+      "at": "2026-11-15T23:40:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
       "id": "fixes-1258",
       "kind": "fixes",
       "from": 1258,

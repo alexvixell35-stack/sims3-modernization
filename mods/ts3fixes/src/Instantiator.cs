@@ -405,6 +405,13 @@ namespace Ts3Fixes
         [Tunable] public static bool kBetrayedNullSim = false;    // betrayednullsim (docs/582 B8b §3): betrayal notice and break-up run when the betrayer is not instantiated
         [Tunable] public static bool kTopicTestNull = false;    // topictestnull (docs/582 B8b §4): conversation topic tests answer instead of throwing for a missing Sim or Athletic skill
         [Tunable] public static bool kOppTrackerRelisten = false;    // opptrackerrelisten (docs/582 B8b §5): opportunity completion listener is not registered twice when its target Sim appears
+        [Tunable] public static bool kTraitRemoveNull = false;    // traitremovenull (docs/582 B9 §1): removing a trait missing from the trait dictionary finishes instead of throwing for an instantiated Sim
+        [Tunable] public static bool kHomeworkCopyOld = false;    // homeworkcopyold (docs/582 B9 §2): copying old homework uses EA's old-homework multiplier
+        [Tunable] public static bool kLaundryMoodEach = false;    // laundrymoodeach (docs/582 B9 §3): every Sim dressed from an expensive-washer load gets the mood multiplier once
+        [Tunable] public static bool kPartyCleanupNull = false;    // partycleanupnull (docs/582 B9 §4): party and wedding cleanup finishes when the host or a guest is gone
+        [Tunable] public static bool kSafeLocUnhide = false;    // safelocunhide (docs/582 B9 §5): a Sim placed by the reset fallback is unhidden as on EA's found-spot path
+        [Tunable] public static bool kMidlifeUiEnding = false;    // midlifeuiending (docs/582 B9 §6): reading the midlife crisis moodlet tooltip no longer ends the crisis
+        [Tunable] public static bool kNemesisNoRomance = false;    // nemesisnoromance (docs/582 B9 §7): the Imminent Nemesis spell is not limited to romance-eligible Sims (user decision, option A)
         [Tunable] public static bool kFireTrapCount = false;    // firetrapcount (docs/570 §5): firefighter "free N Sims" counts trapped Sims who left the lot or sit in hidden apartment units
         [Tunable] public static bool kFireActiveJob = false;    // fireactivejob (docs/570 §1): the firefighter's current emergency (a static) survives a world quit; afterwards every new emergency is dropped
         [Tunable] public static bool kEatOutsideCount = true;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)
