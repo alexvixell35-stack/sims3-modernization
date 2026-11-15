@@ -3503,6 +3503,36 @@
       "what": "sculptpose: SculptSim failure paths leave the subject posing",
       "at": "2026-11-15T03:22:49.057Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2566",
+      "kind": "fixes",
+      "from": 2566,
+      "to": 2567,
+      "by": "claude",
+      "what": "trainboost: reset during Train Sim leaves trainee's doubled athletic/shape gain",
+      "at": "2026-11-15T03:34:53.625Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2568",
+      "kind": "fixes",
+      "from": 2568,
+      "to": 2569,
+      "by": "claude",
+      "what": "eatoutsidecount: Bistro eat-outside follower counted twice (done then cancelled)",
+      "at": "2026-11-15T03:34:53.698Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-569",
+      "kind": "doc",
+      "from": 569,
+      "to": 569,
+      "by": "claude",
+      "what": "Activity batch 2: consignment, gym training, bistro eat outside",
+      "at": "2026-11-15T03:34:53.764Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

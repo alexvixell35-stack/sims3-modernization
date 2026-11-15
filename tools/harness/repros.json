@@ -71952,5 +71952,167 @@
         }
       }
     ]
+  },
+  {
+    "id": "train-boost",
+    "bug": "AthleticGameObject.TrainSim.Run raises the trainee's Athletic skill-gain and shape-delta multipliers and lowers them only after DoLoop returns: a trainer reset mid-session leaves both raised for good (persisted) (docs/569 §1)",
+    "fix": "ts3fixes TrainBoost.cs: trainboost (default off), docs/569 §1",
+    "save": "any world (pure check)",
+    "note": "TrainBoostCheck 'run' evaluates the undo decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "trainboost": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TrainBoostCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TrainBoostCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "trainboost": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TrainBoostCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TrainBoostCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "trainboost": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "trainboost": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "eat-outside-count",
+    "bug": "Bistro EatOutside: a follower that reported done and is then cancelled is decremented twice, so the leader stops waiting while another follower is still inside; that one is never seated or charged (docs/569 §2)",
+    "fix": "ts3fixes EatOutsideCount.cs: eatoutsidecount (default off), docs/569 §2",
+    "save": "any world (pure check)",
+    "note": "EatOutsideCountCheck 'run' evaluates the restore decision with controls (read-only).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "eatoutsidecount": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EatOutsideCountCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EatOutsideCountCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "eatoutsidecount": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EatOutsideCountCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EatOutsideCountCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "eatoutsidecount": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "eatoutsidecount": false
+        }
+      }
+    ]
   }
 ]

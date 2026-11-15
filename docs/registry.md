@@ -365,6 +365,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2556-2558 | reserved (claude, `fixes-2556`) | burglaridle: burglar Stealing state idle after fire react / no household |
 | 2559-2561 | reserved (claude, `fixes-2559`) | gigwaitleave: Stylist makeover / Singer singagram wait pulse keeps going after its own timeout ends the job |
 | 2562-2563 | reserved (claude, `fixes-2562`) | sculptpose: SculptSim failure paths leave the subject posing |
+| 2566-2567 | reserved (claude, `fixes-2566`) | trainboost: reset during Train Sim leaves trainee's doubled athletic/shape gain |
+| 2568-2569 | reserved (claude, `fixes-2568`) | eatoutsidecount: Bistro eat-outside follower counted twice (done then cancelled) |
 | **994+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

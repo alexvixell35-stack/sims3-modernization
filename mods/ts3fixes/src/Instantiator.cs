@@ -284,6 +284,8 @@ namespace Ts3Fixes
         [Tunable] public static bool kBurglarIdle = false;    // burglaridle (docs/568 §1): burglar stands in the house after a fire reaction that did not leave, or when the household is gone
         [Tunable] public static bool kGigWaitLeave = false;    // gigwaitleave (docs/568 §2): Stylist/Singer gig customer still pushed to wait after the gig timed out
         [Tunable] public static bool kSculptPose = false;    // sculptpose (docs/568 §3): Sculpt Sim failure paths leave the subject posing
+        [Tunable] public static bool kTrainBoost = false;    // trainboost (docs/569 §1): a trainer reset during Train Sim leaves the trainee's doubled Athletic / shape gain for good
+        [Tunable] public static bool kEatOutsideCount = false;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)
         [Tunable] public static bool kHomeworkHelp = false;    // homeworkhelp (docs/565 §7): helper starting Help with Homework after the child finished hits a null jig
         [Tunable] public static bool kShellLighting = false;      // shelllighting (docs/561 §5): a buildable shell shows the lighting of the latest passed lighting time after load (EA keeps Default until the next alarm)
         [Tunable] public static bool kPhotoBoothFunds = false;    // photoboothfunds (docs/561 §2): a Sim that entered a photo booth and then lacked the fee is walked out (EA leaves it faded out inside)

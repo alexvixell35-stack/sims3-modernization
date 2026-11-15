@@ -284,6 +284,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBurglarIdle value="False" />
     <kGigWaitLeave value="False" />
     <kSculptPose value="False" />
+    <kTrainBoost value="False" />
+    <kEatOutsideCount value="False" />
     <kBirthRoute value="False" />
     <kPutDownPlace value="False" />
     <kAwardKeep value="False" />
