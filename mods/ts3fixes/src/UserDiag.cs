@@ -72,6 +72,7 @@ namespace Ts3Fixes
         public static void DiagWorldLoad()
         {
             RflWorldLoad();  // docs/197 §7
+            try { DoorGenWorldLoad(); } catch (Exception) { }  // DoorGen.cs: arm ts3native DoorMemoX=3 when switch doorgen is on
             // settings in effect: every tunable of Instantiator (the player's tuning), then any runtime test switch
             List<string> on = new List<string>(), off = new List<string>();
             foreach (FieldInfo f in typeof(Instantiator).GetFields(BindingFlags.Public | BindingFlags.Static))

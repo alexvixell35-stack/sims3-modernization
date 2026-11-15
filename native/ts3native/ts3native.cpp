@@ -2722,7 +2722,7 @@ struct Ts3nCounters {
     LONG kdCeilNpc;                        // +0x5D4C, jobs and sync plans cut at it, also counted in kdCeilCut ("KD NPC CEILING CUT" lines)
     LONG kdCutNpc;                         // +0x5D50, KindDeadlines cuts of a seen NPC (scope 3), not in kdCutSeen, which is now the household side only
     // v168 (0.36.186, docs/197 §7, plandeadline.cpp): [RouteAsync] KdCutCamRecheck
-    volatile LONG kdCamMode;               // +0x5D54, switch (native_set kdcutcamrecheck / --ab kdcutcamrecheck, start value KdCutCamRecheck): 1 = a route known unseen in view at its cut runs on
+    volatile LONG kdCamMode;               // +0x5D54, switch (native_set kdcutcamrecheck / --ab kdcutcamrecheck, start value KdCutCamRecheck): 1 = a route known unseen in view at its cut runs on; 2 = as 1, and a ceiling cut after that answers VIEW? 1 (no unseen recovery)
     LONG kdCamChecks;                      // +0x5D58, cuts of a route known unseen tested against the camera (either mode)
     LONG kdCamHeld;                        // +0x5D5C, mode 1: in view, cut held to the NPC ceiling
     LONG kdCamStale;                       // +0x5D60, no fresh snapshot (either mode; mode 1 holds them too)
@@ -3008,6 +3008,21 @@ struct Ts3nCounters {
     volatile LONG ppNoMgr;                 // +0x634C, Resolve calls with no resource manager yet
     LONG ppSpare;                          // +0x6350
 };
+// [RouteAsync] ReadyDrain (default 0, docs: issue "why off-screen plans take 500-800 ms"): on the READY poll of the job the worker
+// runs now, serve every managed call it posts within a small budget (not one per poll), and answer "done" in the same poll when
+// the job ended meanwhile. Same calls, same order, same thread (the job's owner); only sooner. Own exported block, so the
+// counters layout (docs/registry.md) is unchanged: polls that drained, calls served past the first, polls answered done by
+// the drain (a frame each, saved), budget ends with the job still running.
+// Frame guard: the spin is shared per sim-thread frame (approximated as a 33 ms wall window: the owner has no frame counter
+// here) up to frameUs; past it a poll only serves calls already queued (no spin) and frameHits counts the window once. The
+// spin also stops gapUs after the last served call (the job is computing, not calling back: not near its end).
+struct ReadyDrainCounters { volatile LONG mode, budgetUs, polls, served, saved, budgetHits; LONG maxUs; volatile LONG frameUs, gapUs, frameHits, idleStops; };
+// [RouteSnap] DoorMemoX=3 (hostcalls.cpp): the managed door-input generation ts3fixes DoorGen.cs bumps through UserDiag op 36
+// + why the cross-job memo missed (any DoorMemoX mode): no row for the key, a row of another generation / delegate set, a row past
+// DoorMemoXMs, and live answers that are not "unlocked" (never stored)
+struct DmxScriptGen { volatile LONG gen, armed, bumps, unarmedAsks, missCold, missGen, missAge, notUnlocked; };
+extern "C" __declspec(dllexport) DmxScriptGen ts3native_doorgen = {0, 0, 0, 0, 0, 0, 0, 0};
+extern "C" __declspec(dllexport) ReadyDrainCounters ts3native_readydrain = {0, 2000, 0, 0, 0, 0, 0, 3000, 300, 0, 0};
 extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {912,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -3171,6 +3186,25 @@ static void MaybeLogCounters(ULONGLONG now) {
     if (c.eoReady) EoLogCounters();
     if (c.mwReady || c.gvReady || c.ikReady) MwLogCounters();  // docs/178 §9
     if (c.p6wReady) P6wLogCounters();  // docs/189 phase 0
+    if (ts3native_readydrain.mode)
+        Log("route ready drain: budget %ld us, frame %ld us, gap %ld us, polls %ld, calls served past the first %ld, done in the same "
+            "poll %ld, budget ends %ld, idle stops %ld, frames at the frame budget %ld, max %ld us", ts3native_readydrain.budgetUs,
+            ts3native_readydrain.frameUs, ts3native_readydrain.gapUs, ts3native_readydrain.polls, ts3native_readydrain.served,
+            ts3native_readydrain.saved, ts3native_readydrain.budgetHits, ts3native_readydrain.idleStops, ts3native_readydrain.frameHits,
+            ts3native_readydrain.maxUs);
+    if (c.dmxMode == 3 || ts3native_doorgen.armed)
+        Log("door memo x mode 3: armed %ld, managed input bumps %ld, asks before arming %ld, hits %ld miss %ld inval %ld shadow %ld "
+            "mismatch %ld", ts3native_doorgen.armed, ts3native_doorgen.bumps, ts3native_doorgen.unarmedAsks, c.dmxHit, c.dmxMiss,
+            c.dmxInval, c.dmxShadow, c.dmxMismatch);
+    if (c.dmxMode)
+        Log("door memo x misses: no row %ld, other generation %ld, older than DoorMemoXMs %ld; live answers not unlocked (not stored) %ld",
+            ts3native_doorgen.missCold, ts3native_doorgen.missGen, ts3native_doorgen.missAge, ts3native_doorgen.notUnlocked);
+    if (c.hcReady & 1)  // [RouteJobPhases] HostSplit=1 (hostcalls.cpp): per serve site n / queue ms; serve, return, nested ms
+        Log("route host calls: pump918 %ld/%ld pumpOther %ld/%ld ready %ld/%ld asyncDone %ld/%ld jobDone %ld/%ld runPlan %ld/%ld, "
+            "queue max %ld ms, serve %ld ms (max %ld), return %ld ms, nested %ld ms", c.hcN[0], c.hcQueueUs[0] / 1000, c.hcN[1],
+            c.hcQueueUs[1] / 1000, c.hcN[2], c.hcQueueUs[2] / 1000, c.hcN[3], c.hcQueueUs[3] / 1000, c.hcN[4], c.hcQueueUs[4] / 1000,
+            c.hcN[5], c.hcQueueUs[5] / 1000, c.hcQueueMaxUs / 1000, c.hcServeUs / 1000, c.hcServeMaxUs / 1000, c.hcReturnUs / 1000,
+            c.hcNestedUs / 1000);
     if (c.workerReady || c.asyncReady)
         Log("route plans: off %ld (fails %ld) on %ld (fails %ld) hostCalls %ld", c.planOffCalls, c.planOffFails, c.planOnCalls, c.planOnFails, c.hostCalls);
     static LONG xcptSkipLogged;  // docs/172 §7: repeats per logged address, only when the total moved
@@ -3270,6 +3304,7 @@ static __declspec(thread) LONG t_fbjdCut[3];
 // camera, 2 in view: t_kdCamDl is its deadline now. Points = x, z of the plan's start and goals, copied at Route_PlanLocked (they die with it)
 enum { KD_CAM_PTS = 9 };
 static __declspec(thread) LONG t_kdCam, t_kdCamN, t_kdCamNote;
+static __declspec(thread) LONG t_kdCamView;  // KdCutCamRecheck=2: this job / plan was seen in view (or untestable) at its first cut
 static __declspec(thread) LONGLONG t_kdCamDl;
 static __declspec(thread) float t_kdCamP[KD_CAM_PTS][2];
 static bool KdCamHold(LONGLONG now, LONGLONG* dl);
@@ -3383,6 +3418,7 @@ static DWORD g_scSyncH;  // route handle of the last own START with a stuck-chec
 struct AsyncJob;
 static DWORD g_ufH;     // docs/202: route handle of the last UnseenFallback MARK (sim thread only), taken by its next START or sync IC
 static DWORD g_ufCutH;  // docs/202: route handle whose marked plan or job was cut, read once by CUT?
+static DWORD g_ufCutViewH;  // KdCutCamRecheck=2: that cut came in view (or no fresh camera), read once by VIEW? (optLo 4)
 static __declspec(thread) bool t_ufSess, t_pdHitLast;
 static __declspec(thread) LONG t_ufJob;
 static __declspec(thread) bool t_ucJob;  // docs/264 (issue #338): this job runs under KdUncutCeilMs, the only deadline it has
@@ -3519,6 +3555,7 @@ struct AsyncJob {
     u64 kdId;         // docs/197: the route's follower (route +0x40/+0x44) read at START with KindDeadlines on, 0 = unknown
     LONG uf;          // docs/202: 1 = an unseen Sim's route (UnseenFallback MARK right before its START): ufUs deadline
     LONG ufCut;       // docs/202: that job was cut (worker, before J_DONE); IcCollect hands it to the CUT? answer
+    LONG ufCutView;   // KdCutCamRecheck=2: that cut came in view (worker); IcCollect hands it to the VIEW? answer
     LONG kdScope;     // docs/197 §7: 0 unknown, 1 seen household side, 2 unseen (UfWhy 0), 3 seen NPC, from ts3fixes right before START
     u64 rfGoal;       // docs/197 §7: hash of the route's destinations at START (routefail retry: same request?)
     LONG rfIa;        // docs/226: routefail interaction id from ts3fixes' scope op (RfIaName), 0 = unknown
@@ -4877,7 +4914,7 @@ static u8* IcCollect(int kind, u8* out, DWORD handle, const float* pt, const voi
     if (done && collect) {
         memcpy(out, j->result, sizeof(j->result));
         InterlockedIncrement(&k.asyncCollected);
-        if (j->uf && j->ufCut) g_ufCutH = handle;  // docs/202: the C# caller asks CUT? right after this IC returns
+        if (j->uf && j->ufCut) g_ufCutH = handle, g_ufCutViewH = j->ufCutView ? handle : 0;  // docs/202: the C# caller asks CUT? (then VIEW?) right after this IC returns
         if (kind) {
             InterlockedIncrement(&k.arCollected[kind - 1]);
             InterlockedExchangeAdd(&k.arJobUs[kind - 1], j->us);
@@ -5055,7 +5092,7 @@ static u8 AsyncStartBody(DWORD handle, int kind, const float* pt, bool foreign) 
     j->rfIa = RfIaPeek(handle);  // before KdScopeTake: the same answer
     j->kdScope = KdScopeTake(handle);
     j->uf = UfTake(handle) ? 1 : 0;  // docs/202: the MARK is used up by the job it marks (a refused START leaves it to the sync IC)
-    j->ufCut = 0;
+    j->ufCut = j->ufCutView = 0;
     // docs/89 §18: a route not known unseen (household, unknown scope) does not plan past a queued removal; READY queues it
     j->rf = !park && j->kdScope != 2 && !j->uf && DiscRfStart();
     if (j->rf) park = true;
@@ -5228,10 +5265,11 @@ static u8 ArRf3(int idx, bool fgn, DWORD handle, u8 r, int why = -1) {
     InterlockedIncrement(&ts3native_counters.arRf3[fgn ? 1 : 0][why]);
     return r;
 }
+static bool ReadyDrain(AsyncJob* j);  // [RouteAsync] ReadyDrain, below
 static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD options2) {
     if ((u8)options2 && optHi == kWouldHi) return ArWould(handle, optLo);
     if ((u8)options2 && optHi == kJobBusyHi && !optLo) return JyBusy();  // docs/183
-    if ((u8)options2 && optHi == 0x83000000 && (optLo == 1 || optLo == 2)) return UfMsg(handle, optLo);  // docs/202
+    if ((u8)options2 && optHi == 0x83000000 && (optLo == 1 || optLo == 2 || optLo == 4)) return UfMsg(handle, optLo);  // docs/202; 4 = VIEW? (KdCutCamRecheck=2)
     if ((u8)options2 && optHi == 0x83000000 && (optLo & 0xFFFF00FF) == 3) return GvuMsg(handle, optLo >> 8 & 0xFF);  // docs/250 §7.3 B2 DEFER?
     if ((u8)options2 && (optHi & 0xFF00FFFF) == 0x83000000 && (optHi >> 16 & 0xFF) >= 3) return UfCamMsg(optLo, optHi);  // docs/202 §2.1
     if ((u8)options2 && optHi == kProbeHi && (!optLo || optLo >> 16 == 1)) return ScProbeMark(handle, optLo);  // docs/163 §10
@@ -5300,7 +5338,7 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
     }
     if (j && (j->state == J_QUEUED || j->state == J_RUNNING)) {
         if (WaitForSingleObject(g_invReady, 0) == WAIT_OBJECT_0) ServeInvoke(HC_READY);  // keep the running job moving
-        return 0;
+        if (!ReadyDrain(j)) return 0;
     }
     if (j && j->state == J_SKIPPED) {  // not planned (world changed): the plan runs synchronously
         InterlockedExchange(&j->state, J_FREE);
@@ -5309,6 +5347,47 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
     }
     g_collect = j ? handle : 0;
     return 1;
+}
+
+// [RouteAsync] ReadyDrain (see ReadyDrainCounters): called by READY after its one serve, owner thread only. Drains only the job
+// the worker is running now (a queued job posts nothing yet); spins with Sleep(0) between checks, never blocks on an event the
+// other waits use. true = the job is DONE / SKIPPED now: READY goes on and reports it.
+static bool ReadyDrain(AsyncJob* j) {
+    ReadyDrainCounters& d = ts3native_readydrain;
+    if (!d.mode || j->state != J_RUNNING || g_async.state != A_RUNNING || g_async.handle != j->handle) return false;
+    static LARGE_INTEGER s_win;  // owner thread only: start of the current frame window
+    static LONG s_winUs;         // spin time used in it
+    static bool s_winHit;
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    if (!s_win.QuadPart || UsSince(s_win) >= 33000) s_win = t0, s_winUs = 0, s_winHit = false;
+    const bool spin = s_winUs < d.frameUs;
+    if (!spin && !s_winHit) s_winHit = true, InterlockedIncrement(&d.frameHits);
+    InterlockedIncrement(&d.polls);
+    LONG lastServeUs = 0;
+    bool result = false;
+    for (;;) {
+        bool served = false;
+        if (WaitForSingleObject(g_invReady, 0) == WAIT_OBJECT_0) {
+            ServeInvoke(HC_READY);
+            InterlockedIncrement(&d.served);
+            served = true;
+        }
+        const LONG st = j->state;
+        const LONG us = UsSince(t0);
+        if (served) lastServeUs = us;
+        if (st == J_DONE || st == J_SKIPPED) { InterlockedIncrement(&d.saved); result = true; break; }
+        if (st != J_RUNNING) break;      // dropped or reused meanwhile: the poll answers "not yet", as before
+        if (served) continue;            // a call was waiting: look for the next one at once (queued calls, no spin)
+        if (!spin) break;                // frame budget used: queued calls only
+        if (us - lastServeUs >= d.gapUs) { InterlockedIncrement(&d.idleStops); break; }  // computing, not calling back
+        if (us >= d.budgetUs || s_winUs + us >= d.frameUs) { InterlockedIncrement(&d.budgetHits); break; }
+        Sleep(0);
+    }
+    const LONG used = UsSince(t0);
+    s_winUs += used;
+    Max(&d.maxUs, used);
+    return result;
 }
 
 // Every Lock_Acquire in the game passes through here; only the job owner's waits during a job are changed (INFINITE and

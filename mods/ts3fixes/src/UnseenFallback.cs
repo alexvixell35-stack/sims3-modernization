@@ -119,6 +119,37 @@ namespace Ts3Fixes
                 + ", tick " + Sims3.Gameplay.Utilities.SimClock.CurrentTicks);
         }
 
+        // ufplansplit's uncensored side: every plan's wall time and polls (not only >= kUfSlowPlanMs, no rate cap), one "planwait:"
+        // line a wall minute (written by the first plan after the minute is up), so arms compare whole distributions. Buckets:
+        // wall ms < 10, 50, 100, 150, 250, 500, 1000, >= 1000; polls 0, 1, 2, 3, 4-5, 6-10, > 10 (0 = no async wait); how the
+        // plan waited: async (frame polls), sync (START refused, planned on the sim), none (answered without either).
+        static readonly int[] kPwMs = { 10, 50, 100, 150, 250, 500, 1000 };
+        static readonly int[] sPwMs = new int[8], sPwPolls = new int[7];
+        static int sPwN, sPwAsync, sPwSync, sPwUnseen, sPwT0;
+        static long sPwSumMs, sPwPollSum, sPwWaitSum, sPwUnseenMs;
+        static void PlanWaitNote(int ms, int why)
+        {
+            UfSplit u = sUfSplit;
+            int b = 0;
+            while (b < kPwMs.Length && ms >= kPwMs[b]) b++;
+            sPwMs[b]++;
+            int polls = u.Seen && u.SyncMs < 0 ? u.Polls : 0;
+            sPwPolls[polls <= 3 ? polls : polls <= 5 ? 4 : polls <= 10 ? 5 : 6]++;
+            sPwN++; sPwSumMs += ms;
+            if (u.Seen && u.SyncMs >= 0) sPwSync++;
+            else if (u.Seen) { sPwAsync++; sPwPollSum += u.Polls; sPwWaitSum += u.WaitMs; }
+            if (why == 0) { sPwUnseen++; sPwUnseenMs += ms; }
+            int now = System.Environment.TickCount;
+            if (sPwT0 == 0) sPwT0 = now;
+            if (unchecked(now - sPwT0) < 60000) return;
+            DiagLine("planwait: " + unchecked(now - sPwT0) / 1000 + " s, plans " + sPwN + " (async " + sPwAsync + ", sync " + sPwSync + ", none "
+                + (sPwN - sPwAsync - sPwSync) + "), wall ms <10/50/100/150/250/500/1000/more " + string.Join("/", Array.ConvertAll(sPwMs, x => x.ToString()))
+                + ", sum " + sPwSumMs + " ms, polls 0/1/2/3/4-5/6-10/more " + string.Join("/", Array.ConvertAll(sPwPolls, x => x.ToString()))
+                + ", async wait " + sPwWaitSum + " ms in " + sPwPollSum + " polls, unseen (why 0) " + sPwUnseen + " plans " + sPwUnseenMs + " ms");
+            Array.Clear(sPwMs, 0, sPwMs.Length); Array.Clear(sPwPolls, 0, sPwPolls.Length);
+            sPwN = sPwAsync = sPwSync = sPwUnseen = 0; sPwSumMs = sPwPollSum = sPwWaitSum = sPwUnseenMs = 0; sPwT0 = now;
+        }
+
         static void UfSlowPlanLog(int kind, int ms, UfLast l)
         {
             if (l.ViewerOnly)
@@ -869,6 +900,7 @@ namespace Ts3Fixes
                 }
                 int ufMs = unchecked(System.Environment.TickCount - t0);
                 UfSlowPlanLog(kind, ufMs, last);
+                if (split) PlanWaitNote(ufMs, last.Why);
                 if (split && ufMs >= kUfSlowPlanMs) UfSplitLog(this, kind, ufMs, t0, last, r);
                 sUfSplit = default(UfSplit);
                 UfLoopNote(Follower, r);  // docs/202 §5.7 E (unseenfbloopdet)
@@ -945,6 +977,10 @@ namespace Ts3Fixes
                 if (ms > c[312]) c[312] = ms;
                 if (!cut || r.mType == RoutePlanResultType.Succeeded) return true;
                 c[306]++;
+                // ts3native KdCutCamRecheck=2 (plandeadline.cpp): the Sim was in view (or no fresh camera / no points) at the first cut,
+                // the plan ran on like a seen NPC's and only its NPC ceiling cut it: no unseen-only recovery (teleport, no-retry window,
+                // not-a-failure), as for a seen NPC. Older ts3native and modes 0/1 answer false.
+                if (UfSend(4)) { UfGuardNote(id, "cut in view (kind " + kind + "), no unseen recovery"); return true; }
                 last.Cut = true;
                 UfGuardNote(id, "cut (kind " + kind + ")");
                 UfNotAFailure(id, dest);
