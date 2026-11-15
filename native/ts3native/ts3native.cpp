@@ -3092,8 +3092,10 @@ struct Ts3nCounters {
     volatile LONG frTestCalls;             // +0x6530, [MonoJit] FaultTest only: calls of the test method's normal body
 };
 // [RouteSnap] DoorMemoX=3 (hostcalls.cpp): the managed door-input generation ts3fixes DoorGen.cs bumps through UserDiag op 36
-struct DmxScriptGen { volatile LONG gen, armed, bumps, unarmedAsks; };
-extern "C" __declspec(dllexport) DmxScriptGen ts3native_doorgen = {0, 0, 0, 0};
+// + why the cross-job memo missed (any DoorMemoX mode): no row for the key, a row of another generation / delegate set, a row past
+// DoorMemoXMs, and live answers that are not "unlocked" (never stored)
+struct DmxScriptGen { volatile LONG gen, armed, bumps, unarmedAsks, missCold, missGen, missAge, notUnlocked; };
+extern "C" __declspec(dllexport) DmxScriptGen ts3native_doorgen = {0, 0, 0, 0, 0, 0, 0, 0};
 extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {912,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -3261,6 +3263,9 @@ static void MaybeLogCounters(ULONGLONG now) {
         Log("door memo x mode 3: armed %ld, managed input bumps %ld, asks before arming %ld, hits %ld miss %ld inval %ld shadow %ld "
             "mismatch %ld", ts3native_doorgen.armed, ts3native_doorgen.bumps, ts3native_doorgen.unarmedAsks, c.dmxHit, c.dmxMiss,
             c.dmxInval, c.dmxShadow, c.dmxMismatch);
+    if (c.dmxMode)
+        Log("door memo x misses: no row %ld, other generation %ld, older than DoorMemoXMs %ld; live answers not unlocked (not stored) %ld",
+            ts3native_doorgen.missCold, ts3native_doorgen.missGen, ts3native_doorgen.missAge, ts3native_doorgen.notUnlocked);
     if (c.workerReady || c.asyncReady)
         Log("route plans: off %ld (fails %ld) on %ld (fails %ld) hostCalls %ld", c.planOffCalls, c.planOffFails, c.planOnCalls, c.planOnFails, c.hostCalls);
     static LONG xcptSkipLogged;  // docs/172 §7: repeats per logged address, only when the total moved
