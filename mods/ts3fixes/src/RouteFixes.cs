@@ -238,6 +238,8 @@ namespace Ts3Fixes
             //       cache (Fixes.SpotVerdict); a cached "not routable" is re-checked before acting. At most one full check
             //       per sim tick (budget shared with SafeSpot), a yield after each, at most kIdleChecksPerPass per pass.
             //  [47] Hidden room: same stillness rule, in a room the lot marks hidden (Lot.IsRoomHidden): no route check.
+            //  Stillness restarts whenever the Sim's interaction changes or its queue empties (an interaction ended), so a
+            //  Sim busy in place is never still; only position plus no activity counts.
             //  [48] Stationary: any non-selectable Sim in the same spot and interaction for a whole sim-day (Overwatch's
             //       "Stationary"; Sims in a rabbit hole, in a bed, vehicle or other parent are skipped).
             //  [49] Route plans failing: any Sim but the active household (docs/249; [2066] counts those left alone), whose route plans
@@ -282,6 +284,11 @@ namespace Ts3Fixes
                     Still st;
                     if (!mStill.TryGetValue(id, out st) || (s.Position - st.Pos).Length() > 1f || !SameCur(st.Cur, cur) || st.Since > now)
                         st = new Still { Pos = s.Position, Cur = cur == null ? null : new WeakReference(cur), Since = now };
+                    // An interaction that ended between passes (queue emptied after Since: a pet at its bowl or bed, a Sim at a
+                    // desk) is activity, not stillness: the record restarts there (H4Core.WdStillSince). Without this a Sim seen
+                    // with nothing to do at both passes counted as still however many interactions it finished in place.
+                    long emptied = s.Autonomy == null ? 0 : now - SimClock.ConvertToTicks(s.Autonomy.TimeSinceInteractionQueueBecameEmpty, TimeUnit.Minutes);
+                    st.Since = H4Core.WdStillSince(st.Since, emptied, now);
                     keep[id] = st;
                     long still = now - st.Since;
                     if (still >= kDayTicks) { if (Act(s, now, 48, "reset (stationary a sim-day)")) keep.Remove(id); continue; }
