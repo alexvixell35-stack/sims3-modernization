@@ -288,6 +288,7 @@ namespace Ts3Fixes
                 case "promcarpool": return EpLive(typeof(PromCarpoolHook), 0, "sPcCarpool", sPcCarpool, null);
                 case "promoteshift": return EpLive(typeof(PromoteShiftHook), 2);
                 case "protestexit": return EpLive(typeof(B12PeHook), 1);
+                case "pushwaitskip": return EpLive(typeof(PwHook), 1);
                 case "putdowninuse": return EpJoin(EpLive(typeof(PutDownInUseHook), 1), EpLive(typeof(VoodooPutDownInUseHook), 0));
                 case "putdownplace": return EpLive(typeof(PdHook), 1);
                 case "putdownplaced": return EpJoin(EpLive(typeof(B12PpHook), 1), EpLive(typeof(B12PpTrigger), 1));

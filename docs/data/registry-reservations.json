@@ -6697,6 +6697,47 @@
       "at": "2026-11-16T21:50:23.154Z",
       "worktree": "/home/<user>/dev/sims3-modernization",
       "pinned": true
+    },
+    {
+      "id": "doc-604",
+      "kind": "doc",
+      "from": 604,
+      "to": 604,
+      "by": "claude",
+      "what": "hot logic scan (Roslyn walker), shopping, ambient systems",
+      "at": "2026-11-16T23:09:25.604Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2790",
+      "kind": "fixes",
+      "from": 2790,
+      "to": 2792,
+      "by": "claude",
+      "what": "docs/604 pushwaitskip: RoutingComponent.PushSimsStatic wait pass checks every pushed Sim (passes fixed / double step seen with switch off / errors)",
+      "at": "2026-11-16T23:09:25.667Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-2793",
+      "kind": "fixes",
+      "from": 2793,
+      "to": 2796,
+      "by": "alexvixell35-stack",
+      "what": "detailprioexact (DetailPrio603.cs): exact answers / EA's body / check mismatches / errors",
+      "at": "2026-11-16T23:10:11.829Z",
+      "worktree": "/home/<user>/dev/s3m-hot"
+    },
+    {
+      "id": "doc-605",
+      "kind": "doc",
+      "from": 605,
+      "to": 605,
+      "by": "alexvixell35-stack",
+      "what": "hot methods: ShortcutOn switch cache, detailprioexact",
+      "at": "2026-11-16T23:10:11.902Z",
+      "worktree": "/home/<user>/dev/s3m-hot"
     }
   ]
 }

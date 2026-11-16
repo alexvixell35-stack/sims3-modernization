@@ -268,18 +268,13 @@ woohootywait
 # combo pieces: first in-game check only, not marked proven (docs/551):
 #   combovenue
 # ceremonyspot: the bug is verified in game, the fix has no recorded off/on verdict:
-#   
 # partyoutcome: the registry row proves partymotive only; partyoutcome stays idle beside the core mod (docs/554):
 #   partyoutcome
 # built 2026-11-15, in-game off/on test pending (docs/575-577); move to the set once proven:
-#   petputdownwait puddlereach scarepriority dreamcleanup
-#   trashpileimport catgymwatch badsecretkey traitlistenerremove weddinglistener portasknohome lecturebroadcaster residentspawnwalk midlifewishsave innerbeautyonce betrayednullsim topictestnull opptrackerrelisten traitremovenull homeworkcopyold laundrymoodeach partycleanupnull safelocunhide midlifeuiending nemesisnoromance
-# built 2026-11-16 (docs/598 §5, HoverTrain598.cs), in-game off/on test pending:
-#   hovertraintest
-# built 2026-11-16 (docs/603 §3, DetailPrio603.cs), in-game off/on test pending:
-#   detailprioexact
-# built 2026-11-16 (docs/597, docs/601), in-game off/on test pending; move to the set once proven:
-#   outfitwaitend spoonslavechecks queueproximity subroutefail petwakebed slavewakereason
+#   petputdownwait puddlereach scarepriority
+#   trashpileimport catgymwatch badsecretkey traitlistenerremove portasknohome lecturebroadcaster residentspawnwalk midlifewishsave betrayednullsim topictestnull opptrackerrelisten traitremovenull homeworkcopyold laundrymoodeach partycleanupnull safelocunhide midlifeuiending nemesisnoromance
+# built 2026-11-16 (docs/604 §2, PushWait604.cs), in-game off/on test pending:
+#   pushwaitskip
 # PRs #452 #454 #456 #457 (2026-11-16, other sessions), default off, in-game off/on test pending:
 #   safespotpool spotcheck tagunseen unseenoutfitdefer
 # diagnostics (log only):
