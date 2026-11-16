@@ -6676,6 +6676,27 @@
       "what": "tpaptgoal (UnseenTeleportGoal.cs, docs/584 §8): home apartment/shell goals allowed / refused tomb or hidden / refused no way out, raised or unknown",
       "at": "2026-11-16T21:38:14.355Z",
       "worktree": "/home/<user>/dev/s3m-pr1"
+    },
+    {
+      "id": "doc-603",
+      "kind": "doc",
+      "from": 603,
+      "to": 603,
+      "by": "claude",
+      "what": "hot methods (docs/603)",
+      "at": "2026-11-16T21:50:13.479Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2756",
+      "kind": "fixes",
+      "from": 2756,
+      "to": 2759,
+      "by": "claude",
+      "what": "docs/603 detailprioexact: Lot.CalculateDetailPriority without the AllActors lists (exact answers, EA fallbacks, check mismatches, errors)",
+      "at": "2026-11-16T21:50:23.154Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
     }
   ]
 }

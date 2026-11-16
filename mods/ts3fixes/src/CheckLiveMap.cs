@@ -97,6 +97,7 @@ namespace Ts3Fixes
                 case "daycarequit": return EpLive(typeof(DqHook), 1, "sDqSituation", sDqSituation, null, "sDqManagers", sDqManagers, null);
                 case "deadrefguards": return EpJoin(EpLive(typeof(AgingValidHook), 1, "sAgingDesc", sAgingDesc, null), EpLive(typeof(RelGetHook), 1));
                 case "detailprio": return EpLive(typeof(DetailPriorityHook), 0);
+                case "detailprioexact": return EpLive(typeof(DetailPriorityHook), 0);
                 case "digsiteemptypick": return EpLive(typeof(BDsHook), 1, "sDsLeft", sDsLeft, null, "sDsLeft", sDsLeft, typeof(int));
                 case "disposebase": return EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BDbBubbleHook), 1), EpLive(typeof(BDbFogHook), 1)), EpLive(typeof(BDbJunkHook), 1)), EpLive(typeof(BDbPetBedHook), 1)), EpLive(typeof(BDbRegisterHook), 1));
                 case "disposespread": return EpJoin(EpJoin(EpJoin(EpLive(typeof(DestroyMyselfHook), 1), EpLive(typeof(DisposeSaveHook), 1)), EpLive(typeof(FadeDestroyHook), 1)), EpLive(typeof(TrafficReleaseHook), 1));
