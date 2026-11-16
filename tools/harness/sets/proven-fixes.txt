@@ -305,3 +305,10 @@ soakedstat
 weathermanagerthrow
 outerwearautoloop
 outerwearrestore
+spoonslavechecks
+queueproximity
+subroutefail
+petwakebed
+slavewakereason
+outfitwaitend
+tpaptgoal
