@@ -290,7 +290,7 @@ async function selfCheck() {
     ok(udCheck(udDoc, 'static u8 UdTextMsg(DWORD lo) {\n case 37: return 1;\n}')[0]?.includes('op 37'), 'UserDiag ops: a case without a row is reported');
     ok(udCheck(udDoc + '| 36 | e | f |\n', null)[0]?.includes('op 36 has 2 rows'), 'UserDiag ops: a doubled op is reported');
     // this checkout: userdiag.cpp against docs/registry.md
-    const here = resolve(dirname(new URL(import.meta.url).pathname), '..'), cpp = join(here, 'native', 'ts3native', 'userdiag.cpp');
+    const here = resolve(import.meta.dirname, '..'), cpp = join(here, 'native', 'ts3native', 'userdiag.cpp');
     const udReal = udCheck(readFileSync(join(here, 'docs', 'registry.md'), 'utf8'), existsSync(cpp) ? readFileSync(cpp, 'utf8') : null);
     ok(udReal.length === 0, `UserDiag ops in this checkout${udReal.length ? ': ' + udReal.join('; ') : ''}`);
   } finally { rmSync(d, { recursive: true, force: true }); }

@@ -1,0 +1,130 @@
+{
+ "note": "householdtoo-correct-1116-1116b: copy of householdtoo-correct-1116.json repinned to master-1116b (0.36.266-mb1116), from bp-hhtoo-off on (the 1116 run stopped mid bp-hhtoo-off); timeoutMin x1.5 (Planet Zoo beside the game; correctness only, noiseCheck false). Was: householdtoo-correct-1116: docs/271 §4 HouseholdToo correctness, flag on then flag off, master-1116 (0.36.265-m1116). Jobs from mono-autshadow-seenexact-1116 bp-seen-act-crowd (aut-live-crowd-view repro, go-live shadow switches). Different ini = no rewind group (each starts fresh). NOT RUN.",
+ "rewind": "auto",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": {
+   "match": [
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0 (docs/124 §17)"
+   ],
+   "noMatch": [
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=1 (docs/124 §17)"
+   ]
+  },
+  "autshadow satb: Satb=2 -> mode 2 ": {
+   "match": [
+    "OK   autshadow satb: Satb=2 -> mode 2 (act: concurrent worker, read redirect), 51 runtime icall entries wrapped"
+   ],
+   "noMatch": [
+    "OK   autshadow satb: Satb=1 -> mode 1 (shadow)"
+   ]
+  },
+  "OK   sim loop: .* runs at the end of every Simulate iteration": {
+   "match": [
+    "OK   sim loop: mono thread tick runs at the end of every Simulate iteration"
+   ],
+   "noMatch": [
+    "OK   sim loop: je at 0x00D81FFF -> SlpThunk, then 0x00D818C0 (every Simulate iteration)"
+   ]
+  },
+  "OK   mono thread P4": {
+   "match": [
+    "OK   mono thread P4: frame globals -> TLS 15/17 (fs:0xE4C/0xE54), blocks 0xF of 0xF"
+   ],
+   "noMatch": [
+    "OK   mono thread P3: sites 19"
+   ]
+  },
+  "^ts3native 0\\.36\\.266-mb1116 ": {
+   "match": [
+    "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+    "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+   ]
+  },
+  "^EXPERIMENTAL HouseholdToo=1 ": {
+   "match": [
+    "EXPERIMENTAL HouseholdToo=1 (docs/271): memo / worker answers also for household, selected and unknown-scope Sims; teleports, cuts and fakes stay exempt"
+   ],
+   "noMatch": [
+    "[Experimental] HouseholdToo=0"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-hhtoo-off",
+   "note": "docs/271 §4 flag-off load: same as bp-hhtoo-on with HouseholdToo=0 (ini default). Pass: hhTooLift and householdtoo_lift both 0, autliveseen_hh_post 0, dmxMismatch 0.",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-correct-1116b.sh); timeoutMin x1.5 (Planet Zoo runs beside the game). Was: master-1116",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 159,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "earlyGates": [
+    {
+     "afterSec": 150,
+     "counter": "autshadow.req",
+     "op": ">",
+     "value": 0,
+     "why": "worker never posted (no [AutShadow] request)"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autliveseen_posted",
+     "op": ">",
+     "value": 0,
+     "why": "no seen NPC took the exact path: switch, package or scope (SeenNpc) not working"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autliveseen_hh_post",
+     "op": "==",
+     "value": 0,
+     "why": "household-scope actor on the seen-exact path (household rule): stop and triage"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:householdtoo_lift",
+     "op": "==",
+     "value": 0,
+     "why": "flag off but slot 1057 counted: the switch leaks"
+    }
+   ],
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1,
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+    "autshadow satb: Satb=2 -> mode 2 ": 1,
+    "^ts3native 0\\.36\\.266-mb1116 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 60,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "aut-live-crowd-view",
+     "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autseengame,autunseenpacecredit,autliveseen",
+     "fixesOff": "autunseencmp,autliveseendry",
+     "fixesReport": "autliveseen_,g8_,autunseen_,householdtoo_",
+     "fixesRequire": "autliveseen_posted>=50,autliveseen_hh_post<1,householdtoo_lift<1,autunseen_exc<1"
+    }
+   },
+   "ini": {
+    "Experimental.HouseholdToo": 0
+   },
+   "nativeRequire": "hhTooLift<1,dmxMismatch<1",
+   "logForbid": {
+    "^EXPERIMENTAL HouseholdToo=1 ": 0
+   }
+  }
+ ]
+}

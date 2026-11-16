@@ -1,0 +1,142 @@
+{
+ "note": "repinned 2026-11-16 to master-1116 (0.36.265-m1116, [Rewind] Park/Offline code from master 1aa9f375). docs/270 §30 pilot: queue.ts rewind reuse (feature/queue-rewind-1116). Bin state apex-rewind (the chain sets it: node tools/harness/queue-rewind.ts state <this file>). Three BP jobs with one game start: a loads fresh and the queue takes a snapshot after its load; b and c start from a rewind to it. Pass: a, b, c PASS; b and c rows say start: rewind (N ms) with N < 30000; the queue end line names 2 rewinds, 0 refused, 0 failed; no crash; a refused or failed rewind is a fresh load (row says which) and is read, not a FAIL. Correctness only. The asi is rewind-park2-1115 (has [Rewind] Park/Offline; the master-mono-1115 set does not). node tools/harness/queue.ts tools/harness/queues/rewind-pilot-1116.json --no-smoke",
+ "stopQueueOnFail": true,
+ "jobs": [
+  {
+   "id": "bp-rewind-pilot-a",
+   "note": "[est 9 min] [natural play, no cheats] fresh start, then the snapshot after the load; 5 min profile, seed 12345.",
+   "asi": "game-copy/ts3native.asi.master-1116",
+   "iniBase": "game-copy/ts3native.ini.master-1116",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116",
+   "pinReason": "repinned 2026-11-16 to the master-1116 set (merge/master-1116, 0.36.265-m1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh). Was: ts3native.asi.rewind-park2-1115 (rewind-park2-1115 (builds.json, 0.36.261-lanes1) = master-merge-1115, the set the 11-15 census ran with (docs/270 §3), + #408 + [Rewind] Park / Offline on (docs)",
+   "releaseDefaults": true,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0\\.36\\.265-m1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.265-m1116 ": {
+     "match": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.189 2026-11-07 09:44:15",
+      "ts3native 0.36.261-lanes1 2026-11-15 21:44:15"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 5
+    }
+   },
+   "timeoutMin": 25
+  },
+  {
+   "id": "bp-rewind-pilot-b",
+   "note": "[est 6 min] [natural play, no cheats] starts from a rewind to the snapshot after the load of bp-rewind-pilot-a; 5 min profile, seed 12345.",
+   "asi": "game-copy/ts3native.asi.master-1116",
+   "iniBase": "game-copy/ts3native.ini.master-1116",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116",
+   "pinReason": "repinned 2026-11-16 to the master-1116 set (merge/master-1116, 0.36.265-m1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh). Was: ts3native.asi.rewind-park2-1115 (rewind-park2-1115 (builds.json, 0.36.261-lanes1) = master-merge-1115, the set the 11-15 census ran with (docs/270 §3), + #408 + [Rewind] Park / Offline on (docs)",
+   "releaseDefaults": true,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0\\.36\\.265-m1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.265-m1116 ": {
+     "match": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.189 2026-11-07 09:44:15",
+      "ts3native 0.36.261-lanes1 2026-11-15 21:44:15"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 5
+    }
+   },
+   "timeoutMin": 25
+  },
+  {
+   "id": "bp-rewind-pilot-c",
+   "note": "[est 6 min] [natural play, no cheats] starts from a rewind to the snapshot after the load of bp-rewind-pilot-a; 5 min profile, seed 12345.",
+   "asi": "game-copy/ts3native.asi.master-1116",
+   "iniBase": "game-copy/ts3native.ini.master-1116",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116",
+   "pinReason": "repinned 2026-11-16 to the master-1116 set (merge/master-1116, 0.36.265-m1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh). Was: ts3native.asi.rewind-park2-1115 (rewind-park2-1115 (builds.json, 0.36.261-lanes1) = master-merge-1115, the set the 11-15 census ran with (docs/270 §3), + #408 + [Rewind] Park / Offline on (docs)",
+   "releaseDefaults": true,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0\\.36\\.265-m1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.265-m1116 ": {
+     "match": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.189 2026-11-07 09:44:15",
+      "ts3native 0.36.261-lanes1 2026-11-15 21:44:15"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 5
+    }
+   },
+   "timeoutMin": 25
+  }
+ ],
+ "rewind": "auto"
+}

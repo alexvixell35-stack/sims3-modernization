@@ -513,7 +513,8 @@ const nativeMarks = new Map<string, any>(); // native_mark / native_check window
 const reproStep = async (s: any) => {
   const call = () => s.cmd === 'native_set' ? nativeSet(s.args)
     : s.cmd === 'native_mark' || s.cmd === 'native_check' ? nativeWindowStep(s, () => get('native'), nativeMarks)
-    : ag(s.cmd, s.args, s.timeoutS ? s.timeoutS * 1000 : undefined);
+    // spawn_sims builds N Sims in one sim-thread call: 3-6 s at count 10, 8.1 s under load (bp-hhtoo-off 2026-11-16), past the 8 s default
+    : ag(s.cmd, s.args, s.timeoutS ? s.timeoutS * 1000 : s.cmd === 'spawn_sims' ? 30000 : undefined);
   if (s.pausesClock !== undefined) pauseDeclared = !!s.pausesClock; // the step pauses the clock on purpose until a later step says false
   let r = await call();
   if (s.cmd === 'set_speed') r = await untilUnlocked(call, r, { sleep, now: Date.now, log: l => console.log(`${stamp()} ${l}`),

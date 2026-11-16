@@ -1452,3 +1452,33 @@ play. Local queue (the save is the player's).
 - Selftest (`wastar-test.h`): patch bytes (another stack slot or another call target refused). Then the real stubs with their exits pointed at recorders: 35.7, -100, +0, -0, the smallest denormal and +-1e6 keep the game's path (the moved `fstp` writes the value and `ecx` is the terrain grid). NaN, -NaN, +inf, -inf, +-2.26389e34 and 1e6 + 1 ulp take the no-bridge path, each counted once. On both paths the x87 stack is balanced and `ebx`, `esi`, `edi` are unchanged.
 - Run in game [measured 2026-11-13, run nh2, Baseline-IP-Spring seed 777, HeightsInfLoop and BridgeHeightNaN on; test install with a replaced community `IslaParadiso.world`, see the note below]. Both jobs passed (grid probe 7.5 min, play 11.9 min, no freeze). 8 "ea fix: BridgeHeightNaN" lines, all from `0xC6A250`, all `0xFFC00000` (NaN), on one line from (831.0, 846.9) to (875.0, 856.3): the bridge. At the 7 grid points that were not finite, `GetTerrainHeight(x, z, true)` now returns 27.381319 at six of them and 35.6987 at (885, 849). That is not the bare terrain (20.3-25.8 m there, 35.70 at (885, 849)): the no-bridge path keeps the higher of the terrain and a 27.38 m surface, which is the same value as the world level noted in the 2026-11-12 dump and is most likely the water surface under the bridge [inferred].
 - The test install's `IslaParadiso.world` is a community version (Phantom99's) that adds a bridge. The bad bridge is most likely that one; EA's original world was not checked.
+
+## 38. Startup hang on `bp-jitsmall-b6` (2026-11-16 00:45 UTC): Apex Radiance 4.0.1 deadlocks on two of its own mutexes, main thread in Present
+
+Queue `mono-jitsmall-b6-1115-mm`, job `bp-jitsmall-b6` (Apex 4.0.1 + RTX Remix bridge, master-mono-1115, ts3native 0.36.264-mono1). FAIL text: `world load: nothing moved ... for 60 s (fail-fast guard)`.
+
+| Item | Finding |
+|---|---|
+| When | Before the main menu. No "Mod Scripts Found" dialog in 300 s (other jitsmall jobs on the same set: 15-130 s); the harness sent the load anyway at 00:45:18; the sim thread ran script at ~6% CPU until then, then 0.1% [verified: job log, machine.jsonl]. Bridge server CPU and GPU share 0 for the whole job (passing jobs: 2.5-3.8% CPU, 23-31% GPU), so the bridge never drew a frame [verified: machine.jsonl] |
+| Main thread | `Device_Present 0x611680+0xaa` -> Apex `+0x4683a6` ... `+0x37251d` -> lock helper `+0x560bb4` -> `AcquireSRWLockExclusive` (IAT call at `+0x560c6d`) [verified: hang threadstack + Apex import table] |
+| Deadlock | Kill dump: main (44900) waits std::mutex Apex `+0xC7ECD8` owned by thread 6048 (count 1); thread 6048 (Apex's own thread, start `+0xA02D2`, lock call from `+0x46FAC4`) waits std::recursive_mutex Apex `+0xC7FF28` owned by main (count 1). ABBA lock order inside Apex [verified: owner tid at mutex +40 in the dump, `node tools/dump-locks.ts <dmp>` after the fix below] |
+| Ours? | No ts3native, ts3fixes or JIT frame on either thread; both locks and both lock calls are Apex's. The sim thread only waits afterwards (`FUN_004e2760` = the WaitForSingleObject wait, docs/15) for the main thread. `/native` was readable at the hang: jitOn 2, jitMethods 1764, jitCalls 38.3M, bcOn 3, so the B6 JIT pieces loaded and ran; the verdict's "@jitOn missing" only means no end-of-run read [verified: hang native.json]. Not ours [verified for the lock cycle]; why the race hit this one start is not known (one start in the jitsmall set) [inferred: startup race in Apex] |
+| Other | Frida agent first-chance AV `frida-agent.dll+0x8A550` logged as the last ts3native.log line; thread 61568 is alive in a normal wait in the dump, not on the lock cycle [verified] |
+| Harness | The 60 s fail-fast was right: the process could not move. Before this fix `dump-locks.ts` printed `lock waits: 0 of 129 threads; no cycle` because it read only CRITICAL_SECTION owners; it now also reads MSVC std::mutex owners (`_Mtx_internal_imp_t`: SRW at +8, owner tid +40, count +44) and names the cycle |
+
+Next: rerun `bp-jitsmall-b6` once (a second hang on the same start = report to Apex with the dump offsets above).
+
+## 39. Crash on `bp-seen-smoke` (2026-11-16 01:56:03 UTC): sudden AV exit with no line anywhere; the crash log's 16 slots were spent at start-up
+
+Static only (no game run). Sources: `probe-out/queue/mono-autshadow-seenexact-1115-mm-2026-11-16-bp-seen-smoke{.log,-0143-ts3native.log,-probe.log}`, `probe-out/profile/...-bp-seen-smoke-240-frames.csv`, Apex `ApexRadiance_LOG.old.txt` of that start, `Get-WinEvent` Application log 09:50-10:00 PHT, WER folders. Build master-mono-1115 (ts3native 0.36.264-mono1), Apex 4.0.1 + bridge, AutShadow seen-exact switches on, Frida frames session attached.
+
+| | |
+|---|---|
+| Report | exit 0xC0000005 at 01:56:03 UTC (probe: `process-terminated`), 12.8 min after start; no EA xcpt file, no `[CrashReport]` (off), no WER report, no Application Error event for TS3W.exe [verified] |
+| Last signs of life | frames CSV last frame 01:56:03.093 (26 ms frame, normal); Apex log last line 09:56:03.098 PHT (normal RtOutdoorLamps line); memory.csv 01:56:02 commit 2026 MB, largest free 1544 MB [verified]. Sudden death within ~0.1 s, not a hang and not address space; "the game did not answer at the end" only means it was already gone |
+| Why no line | `XcptLog` logs the first 16 first-chance exceptions. All 16 were used by load time: 6 start-up (spfileq x2, setupapi, frida-agent, 2 C++), then Apex AVs; the 8 other-module dedupe slots filled, so Apex `+0x10AAB5` and `+0x1609BF` took the last slots one hit each. Every passing autshadow-worldindex job on the same build also shows `ex=16` [verified grep] |
+| Where | Unknown. `[CrashForensics]` light was on and dumps the first 4 AVs with eip in TS3W.exe .text before the cap: no `DUMP` line, so if user-mode dispatch ran, the fault eip was outside TS3W .text (Apex, bridge client, Frida, ts3native, JIT code in the heap, a system DLL) [inferred]. No EA xcpt and no WER event fit a fault whose dispatch never reached EA's unhandled filter (corrupt stack/SEH chain, as Crash J §12) [inferred] |
+| Owner | Not proven: ours until proven otherwise. Nothing in the logs points at the seen-exact switches, AutShadow, Apex or the bridge [verified: no error line in any of them] |
+| Fix (logging) | `XcptLateNew` (ts3native.cpp): past the 16-line cap an exception at an eip not yet seen past the cap still gets its lines (registers, AutShadow line, mono fault text), 64 eips at most; earlier rules unchanged. Selftest in selftest.cpp. `player-log-digest.ts` header regex also accepts the longer header text |
+
+Next: rerun `bp-seen-smoke` on a build with this fix; a repeat now names the fault eip.
