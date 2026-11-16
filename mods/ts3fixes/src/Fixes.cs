@@ -191,6 +191,8 @@ namespace Ts3Fixes
             ApplyBarOrderLog();      // docs/578 §1 (BarOrderLog.cs), logging only
             ApplyPetPutDownWait();   // docs/578 §2 (PetPutDownWait.cs)
             ApplyPuddleReach();   // docs/578 §3 (PuddleReach.cs)
+            ApplyMopUnreachable();   // s58 lead (MopUnreachable.cs)
+            ApplyPetPuddleTile();   // MopUnreachable.cs
             ApplyRouteCauseLog();   // docs/580 (RouteCauseLog.cs), logging only
             ApplyScarePriority();   // docs/580 §14 (ScarePriority.cs)
             ApplySandwichAlarm();   // docs/580 §16 (SandwichAlarm.cs)
@@ -955,6 +957,7 @@ namespace Ts3Fixes
         // [1889-1891] tempforecast (Batch593Logic.cs, B13 §10, docs/593 T1): forecasts our way / mirrored (switch off) / errors.
         // [1892-1894] mountfishcost (Batch593Logic.cs, B13 §11, docs/593 F1): costs set to the run's fish / another fish's cost charged (switch off) / errors.
         // [1895-1897] unused (fishscoremounted withdrawn after s58: docs/593 F2 was a false positive).
+        // [1913-1918] mopunreachable (MopUnreachable.cs, s58 lead): puddles skipped in a run / runs that mopped after a skip / runs ended on an unreachable puddle with others left (switch off) / memo withholds / memo seen with switch off / errors. [1919-1921] petpuddletile: hits moved to the puddle used / seen with switch off / errors.
         // [1898-1900] firefightercount (Batch593Logic.cs, B13 §13, docs/593 V8): extra firefighters not sent / sent (switch off) / errors.
         // [1901-1903] repairmanskill (Batch593Logic.cs, B13 §14, docs/593 V9): levels set to the roll / stacked (switch off) / errors.
         // [1904-1906] roundupreturn (Batch593Logic.cs, B13 §15, docs/593 V3): inits ended / run on (switch off) / errors.
@@ -1453,6 +1456,8 @@ namespace Ts3Fixes
                 case "barorderlog": return Instantiator.kBarOrderLog;
                 case "petputdownwait": return Instantiator.kPetPutDownWait;
                 case "puddlereach": return Instantiator.kPuddleReach;
+                case "mopunreachable": return Instantiator.kMopUnreachable;
+                case "petpuddletile": return Instantiator.kPetPuddleTile;
                 case "routecauselog": return Instantiator.kRouteCauseLog;
                 case "scarepriority": return Instantiator.kScarePriority;
                 case "sandwichalarm": return Instantiator.kSandwichAlarm;
