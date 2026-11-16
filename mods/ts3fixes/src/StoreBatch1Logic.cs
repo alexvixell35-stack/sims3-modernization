@@ -59,7 +59,9 @@ namespace Ts3Fixes
                 bool r = ImportOrig(reader);
                 try
                 {
+                    if (reader == null) return r;
                     SpellBook.CastingStore cs = (SpellBook.CastingStore)(object)this;
+                    bool on = ShortcutOn("spellbooksummonload");
                     int count;
                     reader.ReadInt32(199192889u, out count, 0);
                     for (uint i = 0u; i < count; i++)
@@ -69,9 +71,12 @@ namespace Ts3Fixes
                         byte spell; float progress;
                         child.ReadByte(199192896u, out spell, 0);
                         child.ReadFloat(199192897u, out progress, 0f);
-                        if (spell != 0 || progress == 0f) continue;   // EA already kept the others
-                        if (!ShortcutOn("spellbooksummonload")) { PatchCounters()[1622]++; continue; }
-                        if (!SbKeep(true, spell, progress)) continue;
+                        if (SbKeep(false, spell, progress)) continue;   // EA already kept it
+                        if (!SbKeep(on, spell, progress))
+                        {
+                            if (!on && SbKeep(true, spell, progress)) PatchCounters()[1622]++;
+                            continue;
+                        }
                         if (cs.SpellProgress == null) cs.SpellProgress = new Dictionary<SpellBook.SpellType, float>();
                         if (!cs.SpellProgress.ContainsKey(SpellBook.SpellType.Summon))
                         {
@@ -108,11 +113,10 @@ namespace Ts3Fixes
                 {
                     ChocolateFountain f = (ChocolateFountain)(object)this;
                     AlarmHandle h = (AlarmHandle)sCfGeyser.GetValue(f);
-                    if (h != AlarmHandle.kInvalidHandle)
-                    {
-                        if (!ShortcutOn("chocfountaingeyser")) PatchCounters()[1625]++;
-                        else if (CfRemove(true, true)) { f.RemoveAlarm(h); sCfGeyser.SetValue(f, AlarmHandle.kInvalidHandle); PatchCounters()[1624]++; }
-                    }
+                    bool on = ShortcutOn("chocfountaingeyser");
+                    bool live = h != AlarmHandle.kInvalidHandle;
+                    if (CfRemove(on, live)) { f.RemoveAlarm(h); sCfGeyser.SetValue(f, AlarmHandle.kInvalidHandle); PatchCounters()[1624]++; }
+                    else if (!on && live) PatchCounters()[1625]++;
                 }
                 catch (Exception) { PatchCounters()[1626]++; }
                 FilledOrig();
@@ -152,14 +156,13 @@ namespace Ts3Fixes
                         Sim v = pt.mVolunteerSim;
                         if (v != null && v.InteractionQueue != null)
                         {
+                            bool on = ShortcutOn("hypnotrickrelease");
                             foreach (InteractionInstance ii in v.InteractionQueue.InteractionList)
                             {
-                                if (ii == null || ii.GetType() != sHtLoop || ii.LinkedInteractionInstance != pt) continue;
-                                if (!(bool)sHtLock.GetValue(ii)) continue;
-                                if (!ShortcutOn("hypnotrickrelease")) { PatchCounters()[1628]++; continue; }
-                                if (!HtRelease(true, true, true)) continue;
-                                sHtLock.SetValue(ii, false);
-                                PatchCounters()[1627]++;
+                                if (ii == null || ii.GetType() != sHtLoop) continue;
+                                bool linked = ii.LinkedInteractionInstance == pt, locked = (bool)sHtLock.GetValue(ii);
+                                if (HtRelease(on, linked, locked)) { sHtLock.SetValue(ii, false); PatchCounters()[1627]++; }
+                                else if (!on && HtRelease(true, linked, locked)) PatchCounters()[1628]++;
                             }
                         }
                     }
@@ -184,7 +187,7 @@ namespace Ts3Fixes
             sVfType = typeof(VoodooDoll).GetNestedType("TransformSim", kSbNested);
             if (sVfType != null) sVfHandle = sVfType.GetField("mVfxFairyHandle", kInstAll);
             if (sVfType == null || sVfHandle == null) { AppliedLog().Add("voodoofairyfadein: not found: " + EpMiss("TransformSim", sVfType, "mVfxFairyHandle", sVfHandle)); return; }
-            Patch(typeof(VoodooDoll).GetNestedType("TransformSim", BindingFlags.Public | BindingFlags.NonPublic), "Cleanup", Type.EmptyTypes, typeof(BSt1VfHook), "CleanupHook", "CleanupOrig");
+            Patch(sVfType, "Cleanup", Type.EmptyTypes, typeof(BSt1VfHook), "CleanupHook", "CleanupOrig");
         }
 
         public class BSt1VfHook
@@ -194,11 +197,15 @@ namespace Ts3Fixes
                 VisualEffect fx = null;
                 try { fx = sVfHandle.GetValue(this) as VisualEffect; } catch (Exception) { PatchCounters()[1632]++; }
                 CleanupOrig();
-                if (fx == null) return;
                 try
                 {
-                    if (!ShortcutOn("voodoofairyfadein")) { PatchCounters()[1631]++; return; }
-                    if (!VfShow(true, true)) return;
+                    bool on = ShortcutOn("voodoofairyfadein");
+                    bool hidden = fx != null;
+                    if (!VfShow(on, hidden))
+                    {
+                        if (!on && hidden) PatchCounters()[1631]++;
+                        return;
+                    }
                     fx.Stop(VisualEffect.TransitionType.HardTransition);   // as EA's OnShowActor
                     fx.Dispose();
                     sVfHandle.SetValue(this, null);
@@ -239,10 +246,13 @@ namespace Ts3Fixes
                     {
                         InteractionInstance ii = (InteractionInstance)(object)this;
                         SaunaClassic sauna = ii.Target as SaunaClassic;
-                        if (sauna != null && sStTub.GetValue(sauna) == (object)ii.InstanceActor)
+                        Sim actor = ii.InstanceActor;
+                        if (sauna != null && actor != null)
                         {
-                            if (!ShortcutOn("saunatubclear")) PatchCounters()[1634]++;
-                            else if (StClear(true, true)) { sStTub.SetValue(sauna, null); PatchCounters()[1633]++; }
+                            bool on = ShortcutOn("saunatubclear");
+                            bool still = sStTub.GetValue(sauna) == (object)actor;
+                            if (StClear(on, still)) { sStTub.SetValue(sauna, null); PatchCounters()[1633]++; }
+                            else if (!on && still) PatchCounters()[1634]++;
                         }
                     }
                     catch (Exception) { PatchCounters()[1635]++; }
@@ -283,17 +293,16 @@ namespace Ts3Fixes
                     object def = ii.InteractionObjectPair == null ? null : ii.InteractionObjectPair.InteractionDefinition;
                     Array defs = sSmDefs.GetValue(null) as Array;
                     bool shared = def != null && defs != null && Array.IndexOf(defs, def) >= 0;
-                    if (ii.Autonomous && shared)
+                    bool on = ShortcutOn("slotmachinedefs");
+                    bool autonomous = ii.Autonomous;
+                    if (SmCopy(on, autonomous, shared))
                     {
-                        if (!ShortcutOn("slotmachinedefs")) PatchCounters()[1637]++;
-                        else if (SmCopy(true, true, true))
-                        {
-                            object copy = Activator.CreateInstance(sSmDef, true);
-                            sSmInit.Invoke(copy, new object[] { def });
-                            ii.InteractionObjectPair = new Sims3.Gameplay.Autonomy.InteractionObjectPair((InteractionDefinition)copy, ii.Target);
-                            PatchCounters()[1636]++;
-                        }
+                        object copy = Activator.CreateInstance(sSmDef, true);
+                        sSmInit.Invoke(copy, new object[] { def });
+                        ii.InteractionObjectPair = new Sims3.Gameplay.Autonomy.InteractionObjectPair((InteractionDefinition)copy, ii.Target);
+                        PatchCounters()[1636]++;
                     }
+                    else if (!on && autonomous && shared) PatchCounters()[1637]++;
                 }
                 catch (Exception) { PatchCounters()[1638]++; }
                 return RunOrig();
@@ -323,10 +332,11 @@ namespace Ts3Fixes
                     TreeOfProsperity t = (TreeOfProsperity)(object)this;
                     if (t.LotCurrent == null) return false;
                     int wells = (int)t.LotCurrent.CountObjects<WishingWell>();
-                    if (wells == 0) return false;
-                    if (!ShortcutOn("treewishingwell")) { PatchCounters()[1640]++; return false; }
-                    PatchCounters()[1639]++;
-                    return TwHas(true, 0, wells);
+                    bool on = ShortcutOn("treewishingwell");
+                    bool has = TwHas(on, 0, wells);   // 0: EA's interface count, false here (it returned above when true)
+                    if (has) PatchCounters()[1639]++;
+                    else if (!on && wells != 0) PatchCounters()[1640]++;
+                    return has;
                 }
                 catch (Exception) { PatchCounters()[1641]++; return false; }
             }
@@ -354,11 +364,10 @@ namespace Ts3Fixes
                 try
                 {
                     Sims3.Gameplay.Autonomy.ReactionBroadcaster rb = sPpCast.GetValue(this) as Sims3.Gameplay.Autonomy.ReactionBroadcaster;
-                    if (rb != null)
-                    {
-                        if (!ShortcutOn("playpentalkcast")) PatchCounters()[1643]++;
-                        else if (PpDispose(true, true)) { rb.Dispose(); sPpCast.SetValue(this, null); PatchCounters()[1642]++; }
-                    }
+                    bool on = ShortcutOn("playpentalkcast");
+                    bool live = rb != null;
+                    if (PpDispose(on, live)) { rb.Dispose(); sPpCast.SetValue(this, null); PatchCounters()[1642]++; }
+                    else if (!on && live) PatchCounters()[1643]++;
                 }
                 catch (Exception) { PatchCounters()[1644]++; }
                 CreateOrig();
@@ -389,11 +398,10 @@ namespace Ts3Fixes
                 {
                     int cost = actor.FamilyFunds;
                     if (actor.TraitManager.HasElement(Sims3.Gameplay.ActorSystems.TraitNames.DiscountDiner)) cost = int.MaxValue;
-                    if (sOmFoods.Invoke(this, new object[] { cost }) == null)
-                    {
-                        if (!ShortcutOn("ovenmenunull")) PatchCounters()[1646]++;
-                        else if (OmSkip(true, true)) { PatchCounters()[1645]++; return null; }
-                    }
+                    bool on = ShortcutOn("ovenmenunull");
+                    bool listNull = sOmFoods.Invoke(this, new object[] { cost }) == null;
+                    if (OmSkip(on, listNull)) { PatchCounters()[1645]++; return null; }
+                    if (!on && listNull) PatchCounters()[1646]++;
                 }
                 catch (Exception) { PatchCounters()[1647]++; }
                 return PickOrig(actor);
@@ -422,10 +430,17 @@ namespace Ts3Fixes
                 try
                 {
                     Curve cur = FVShoppingRegister.sSkillVsSaleChanceCurve;
-                    if (cur == null || cur == sFvSet) return;
-                    if (!ShortcutOn("fvstandskillcurve")) { if (cur != sFvSeen) { sFvSeen = cur; PatchCounters()[1649]++; } return; }   // review: seen only counts; on later still rebuilds
+                    if (cur == null) return;
+                    bool on = ShortcutOn("fvstandskillcurve");
+                    bool fromFrequency = cur != sFvSet;   // EA's (frequency-built) curve, not the one rebuilt here
+                    if (!FvRebuild(on, fromFrequency))
+                    {
+                        // review: seen counts once per curve; switched on later it still rebuilds
+                        if (!on && fromFrequency && cur != sFvSeen) { sFvSeen = cur; PatchCounters()[1649]++; }
+                        return;
+                    }
                     float[] x = FruitVeggieStand.kSaleProbabilitySkillXValues, y = FruitVeggieStand.kSaleProbabilitySkillYValues;
-                    if (!FvRebuild(true, true) || x == null || y == null || x.Length == 0 || x.Length != y.Length) return;
+                    if (x == null || y == null || x.Length == 0 || x.Length != y.Length) return;
                     sFvSet = new Curve(x, y);
                     FVShoppingRegister.sSkillVsSaleChanceCurve = sFvSet;
                     PatchCounters()[1648]++;
@@ -462,15 +477,18 @@ namespace Ts3Fixes
                 ulong[] players = sPkPlayers.GetValue(table) as ulong[];
                 ulong[] toAdd = sPkToAdd.GetValue(table) as ulong[];
                 if (players == null) return;
+                bool on = ShortcutOn("pokerdeadplayer");
                 for (int i = 0; i < players.Length; i++)
                 {
                     ulong id = players[i];
                     if (id == 0) continue;
                     Sims3.Gameplay.CAS.SimDescription d = Sims3.Gameplay.CAS.SimDescription.Find(id);
                     bool exists = d != null && d.CreatedSim != null && d.CreatedSim.InteractionQueue != null;
-                    if (exists) continue;
-                    if (!ShortcutOn("pokerdeadplayer")) { PatchCounters()[1652]++; continue; }
-                    if (!PkEmpty(true, id, false)) continue;
+                    if (!PkEmpty(on, id, exists))
+                    {
+                        if (!on && PkEmpty(true, id, exists)) PatchCounters()[1652]++;
+                        continue;
+                    }
                     players[i] = 0;
                     if (toAdd != null) for (int j = 0; j < toAdd.Length; j++) if (toAdd[j] == id) toAdd[j] = 0;
                     PatchCounters()[1651]++;
@@ -520,12 +538,10 @@ namespace Ts3Fixes
         {
             try
             {
+                bool on = ShortcutOn("roulettehackreset");
                 int hack = Convert.ToInt32(sRhHack[i].GetValue(table));
-                if (hack == 0) return;
-                if (!ShortcutOn("roulettehackreset")) { PatchCounters()[1655]++; return; }
-                if (!RhClear(true, hack)) return;
-                sRhReset[i].Invoke(table, null);
-                PatchCounters()[1654]++;
+                if (RhClear(on, hack)) { sRhReset[i].Invoke(table, null); PatchCounters()[1654]++; }
+                else if (!on && hack != 0) PatchCounters()[1655]++;
             }
             catch (Exception) { PatchCounters()[1656]++; }
         }
@@ -553,12 +569,13 @@ namespace Ts3Fixes
         // on Very Nice, not Great). Fix: GetWeightedIndex returns index + 1 when called with the coop's own array
         // (reference compare); every other caller gets EA's result. Run yields, so the shared helper is the hook point.
         static float[] sCeWeights;
+        static FieldInfo sCeField;
         internal static int CeIndex(bool on, bool coopArray, int idx, int len) { return on && coopArray && idx >= 0 && idx < len ? idx + 1 : idx; }
 
         static void ApplyCoopEggQuality()
         {
-            FieldInfo f = typeof(ChickenCoopClassic).GetField("kEggQualityWeights", kEpStatic);
-            if (f != null) sCeWeights = f.GetValue(null) as float[];
+            sCeField = typeof(ChickenCoopClassic).GetField("kEggQualityWeights", kEpStatic);
+            if (sCeField != null) sCeWeights = sCeField.GetValue(null) as float[];
             if (sCeWeights == null) { AppliedLog().Add("coopeggquality: not found: ChickenCoopClassic.kEggQualityWeights"); return; }
             Patch(typeof(RandomUtil), "GetWeightedIndex", new Type[] { typeof(float[]) }, typeof(BSt1CeHook), "IndexHook", "IndexOrig");
         }
@@ -568,12 +585,24 @@ namespace Ts3Fixes
             public static int IndexHook(float[] randomList)
             {
                 int idx = IndexOrig(randomList);
-                if (randomList == null || randomList != sCeWeights) return idx;
                 try
                 {
-                    if (!ShortcutOn("coopeggquality")) { PatchCounters()[1658]++; return idx; }
-                    PatchCounters()[1657]++;
-                    return CeIndex(true, true, idx, randomList.Length);
+                    if (randomList == null || sCeWeights == null || randomList.Length != sCeWeights.Length) return idx;   // not the coop's: EA's index in both states
+                    bool coop = randomList == sCeWeights;
+                    if (!coop)
+                    {
+                        // review: kEggQualityWeights is [Tunable]; a tuning load after Apply replaces the array, so the
+                        // reference captured at Apply would never match again. Same length: refresh it from the field.
+                        float[] cur = sCeField == null ? null : sCeField.GetValue(null) as float[];
+                        if (cur != null) sCeWeights = cur;
+                        coop = randomList == cur;
+                        if (!coop) return idx;
+                    }
+                    bool on = ShortcutOn("coopeggquality");
+                    int r = CeIndex(on, coop, idx, randomList.Length);
+                    if (r != idx) PatchCounters()[1657]++;
+                    else if (!on && CeIndex(true, coop, idx, randomList.Length) != idx) PatchCounters()[1658]++;
+                    return r;
                 }
                 catch (Exception) { PatchCounters()[1659]++; return idx; }
             }

@@ -61,7 +61,8 @@ namespace Ts3Fixes
         {
             public bool RouteHook()
             {
-                if (!ShortcutOn("dogswimslots") || !Actor.HasTrait(TraitNames.HydrophobicPet) || Actor.Posture is SwimmingInPool) return RouteOrig();
+                bool on = ShortcutOn("dogswimslots");
+                if (!on || !Actor.HasTrait(TraitNames.HydrophobicPet) || Actor.Posture is SwimmingInPool) return RouteOrig();
                 int[] times; float chance;
                 try { times = (int[])sDsTimes.GetValue(null); chance = (float)sDsChance.GetValue(null); }
                 catch (Exception) { PatchCounters()[1523]++; return RouteOrig(); }
@@ -86,7 +87,7 @@ namespace Ts3Fixes
                     Actor.PlaySoloAnimation("ad_idle_stand_bark_x", true, ProductVersion.EP5);
                 }
                 int num = RandomUtil.GetInt(times[0], times[1]);
-                if (!DsLoopRuns(true, list.Count)) { PatchCounters()[1521]++; num = 0; }  // changed: EA picks from an empty list and throws
+                if (!DsLoopRuns(on, list.Count)) { PatchCounters()[1521]++; num = 0; }  // changed: EA picks from an empty list and throws
                 for (int j = 0; j < num; j++)
                 {
                     Slot pick = RandomUtil.GetRandomObjectFromList(list);
@@ -153,6 +154,10 @@ namespace Ts3Fixes
         static readonly PropertyInfo sFrInfo = typeof(FragmentedObject).GetProperty("FragmentInfo", kInstAll);
         static readonly MethodInfo sFrTest = typeof(FragmentedObject).GetMethod("FragmentInventoryTest", kInstAll, null, new Type[] { typeof(IGameObject), typeof(object) }, null);
         static readonly MethodInfo sFrLoc = typeof(FragmentedObject).GetMethod("LocalizeString", kEpStatic, null, new Type[] { typeof(string), typeof(object[]) }, null);
+        static readonly MethodInfo sFrSound = sFrType == null ? null : sFrType.GetMethod("EventCallbackPlaySound", kInstAll);
+        static readonly Type sFrData = typeof(FragmentedObject).GetNestedType("FragmentData", BindingFlags.NonPublic | BindingFlags.Public);
+        static readonly FieldInfo sFrRequired = sFrData == null ? null : sFrData.GetField("RequiredNumberOfItems");
+        static readonly FieldInfo sFrDrop = sFrData == null ? null : sFrData.GetField("RouteDropDistance");
 
         // Pure: fragments used up for a stack of `free` with the Target at `targetIndex` (EA: N + 1 when it is not picked).
         internal static int FrUsed(bool on, int required, int free, int targetIndex)
@@ -163,7 +168,8 @@ namespace Ts3Fixes
 
         static void ApplyFragmentReconstruct()
         {
-            string miss = EpMiss("FragmentedObject+Reconstruct", sFrType, "mToRemoveObj", sFrRemove, "mCreatedObject", sFrCreated, "FragmentInfo", sFrInfo, "FragmentInventoryTest", sFrTest, "LocalizeString", sFrLoc);
+            string miss = EpMiss("FragmentedObject+Reconstruct", sFrType, "mToRemoveObj", sFrRemove, "mCreatedObject", sFrCreated, "FragmentInfo", sFrInfo, "FragmentInventoryTest", sFrTest, "LocalizeString", sFrLoc,
+                "EventCallbackPlaySound", sFrSound, "FragmentData.RequiredNumberOfItems", sFrRequired, "FragmentData.RouteDropDistance", sFrDrop);
             if (miss.Length > 0) { AppliedLog().Add("fragmentreconstruct: not found: " + miss); return; }
             Patch(sFrType, "RunFromInventory", Type.EmptyTypes, typeof(BEp4FrHook), "RunHook", "RunOrig");
         }
@@ -172,24 +178,30 @@ namespace Ts3Fixes
         {
             public bool RunHook()
             {
-                if (!ShortcutOn("fragmentreconstruct")) { FrCountOff(); return RunOrig(); }
-                object info; ItemTestFunction test;
-                try { info = sFrInfo.GetValue(Target, null); test = (ItemTestFunction)Delegate.CreateDelegate(typeof(ItemTestFunction), Target, sFrTest); }
+                bool on = ShortcutOn("fragmentreconstruct");
+                ItemTestFunction test; int required, t; float dropDistance; List<FragmentedObject> list;
+                try
+                {
+                    object info = sFrInfo.GetValue(Target, null);
+                    required = (int)sFrRequired.GetValue(info);
+                    dropDistance = (float)sFrDrop.GetValue(info);
+                    test = (ItemTestFunction)Delegate.CreateDelegate(typeof(ItemTestFunction), Target, sFrTest);
+                    list = Actor.Inventory.FindAll<FragmentedObject>(true, test);   // read only: EA's own first query
+                    t = list.IndexOf(Target);
+                }
                 catch (Exception) { PatchCounters()[1526]++; return RunOrig(); }
-                int required = (int)info.GetType().GetField("RequiredNumberOfItems").GetValue(info);
-                float dropDistance = (float)info.GetType().GetField("RouteDropDistance").GetValue(info);
+                int used = FrUsed(on, required, list.Count, t), eaUsed = FrUsed(false, required, list.Count, t);
+                if (!on) { if (eaUsed > required) PatchCounters()[1525]++; return RunOrig(); }
                 // EA's body from here
                 bool flag = false;
                 StandardEntry();
-                BeginCommodityUpdates();
-                List<FragmentedObject> list = Actor.Inventory.FindAll<FragmentedObject>(true, test);
+                BeginCommodityUpdates();   // EA's FindAll ran above (StandardEntry and the updates touch no inventory)
                 List<FragmentedObject> toRemove = null;
                 IGameObject created = null;
                 if (list.Count >= required)
                 {
                     toRemove = new List<FragmentedObject>();
-                    int t = list.IndexOf(Target);
-                    if (t > 0) { list.RemoveAt(t); list.Insert(0, Target); }  // changed: the clicked fragment is picked first
+                    if (used < eaUsed && t > 0) { list.RemoveAt(t); list.Insert(0, Target); }  // changed: the clicked fragment is picked first
                     foreach (FragmentedObject item in list)
                     {
                         if (!Actor.Inventory.GetInUse(item) && Actor.Inventory.SetInUse(item))
@@ -202,7 +214,7 @@ namespace Ts3Fixes
                 sFrRemove.SetValue(this, toRemove);
                 if (toRemove != null && toRemove.Count >= required)
                 {
-                    if (toRemove.Contains(Target) && list.IndexOf(Target) == 0) PatchCounters()[1524]++;   // review: counted once the pick is complete
+                    if (used < eaUsed && toRemove.Contains(Target)) PatchCounters()[1524]++;   // counted once the pick is complete and the move mattered
                     created = GlobalFunctions.CreateObjectOutOfWorld(Target.GetObjectToCreate(Actor), Target.GetProductVersion());
                     sFrCreated.SetValue(this, created);
                     created.SetHiddenFlags(HiddenFlags.Model);
@@ -223,7 +235,7 @@ namespace Ts3Fixes
                             {
                                 EnterStateMachine("solo_generic", "Enter", "x");
                                 SetParameter("AnimationName", "a_fragment_pieceTogether_x");
-                                AddOneShotScriptEventHandler(1001u, FrSoundHandler());
+                                AddOneShotScriptEventHandler(1001u, (SacsEventHandler)Delegate.CreateDelegate(typeof(SacsEventHandler), this, sFrSound));
                                 AnimateSim("Play Animation");
                                 AnimateSim("Exit");
                             }
@@ -259,24 +271,6 @@ namespace Ts3Fixes
                 return flag;
             }
             public bool RunOrig() { return false; } // FragmentedObject+Reconstruct.RunFromInventory
-
-            SacsEventHandler FrSoundHandler()
-            {
-                MethodInfo m = sFrType.GetMethod("EventCallbackPlaySound", kInstAll);
-                return (SacsEventHandler)Delegate.CreateDelegate(typeof(SacsEventHandler), this, m);
-            }
-
-            void FrCountOff()
-            {
-                try
-                {
-                    object info = sFrInfo.GetValue(Target, null);
-                    int required = (int)info.GetType().GetField("RequiredNumberOfItems").GetValue(info);
-                    List<FragmentedObject> list = Actor.Inventory.FindAll<FragmentedObject>(true, (ItemTestFunction)Delegate.CreateDelegate(typeof(ItemTestFunction), Target, sFrTest));
-                    if (FrUsed(false, required, list.Count, list.IndexOf(Target)) > required) PatchCounters()[1525]++;
-                }
-                catch (Exception) { PatchCounters()[1526]++; }
-            }
         }
 
         // ---- EP4 §3 labobjectpush (tuning kLabObjectPush) -------------------------------------------------------------
@@ -315,23 +309,21 @@ namespace Ts3Fixes
                         List<IAcademicLabObject> all = sLbObjects.GetValue(s) as List<IAcademicLabObject>;
                         if (all != null) foreach (IAcademicLabObject o in all) if (o != null && !o.HasBeenDestroyed && o.InWorld) lot.Add(o);
                         int n = inv == null ? 0 : inv.Count;
-                        if (n == 0 && lot.Count > 0)
+                        bool on = ShortcutOn("labobjectpush");
+                        if (LbUseLot(on, n, lot.Count))
                         {
-                            if (!ShortcutOn("labobjectpush")) PatchCounters()[1528]++;
-                            else if (LbUseLot(true, n, lot.Count))
+                            IAcademicLabObject pick = RandomUtil.GetRandomObjectFromList(lot);
+                            InteractionDefinition def = pick.GetRandomLabInteractionForAssociatedDegree(s.Major);
+                            if (def != null)
                             {
-                                IAcademicLabObject pick = RandomUtil.GetRandomObjectFromList(lot);
-                                InteractionDefinition def = pick.GetRandomLabInteractionForAssociatedDegree(s.Major);
-                                if (def != null)
-                                {
-                                    Callback done = (Callback)Delegate.CreateDelegate(typeof(Callback), s, sLbDone);
-                                    Callback fail = (Callback)Delegate.CreateDelegate(typeof(Callback), s, sLbFail);
-                                    s.ForceSituationSpecificInteraction(pick, sim, def, null, done, fail, new InteractionPriority(InteractionPriorityLevel.UserDirected, 1f));
-                                    PatchCounters()[1527]++;
-                                }
-                                return;
+                                Callback done = (Callback)Delegate.CreateDelegate(typeof(Callback), s, sLbDone);
+                                Callback fail = (Callback)Delegate.CreateDelegate(typeof(Callback), s, sLbFail);
+                                s.ForceSituationSpecificInteraction(pick, sim, def, null, done, fail, new InteractionPriority(InteractionPriorityLevel.UserDirected, 1f));
+                                PatchCounters()[1527]++;
                             }
+                            return;
                         }
+                        else if (n == 0 && lot.Count > 0 && !on) PatchCounters()[1528]++;
                     }
                 }
                 catch (Exception) { PatchCounters()[1529]++; }
@@ -362,18 +354,26 @@ namespace Ts3Fixes
         static readonly MethodInfo sBpBroadcast = typeof(AcademicBusinessPlanner.UseBusinessPlanner).GetMethod("BroadcastCallback", kInstAll);
         static readonly FieldInfo sBpParams = typeof(AcademicBusinessPlanner.UseBusinessPlanner).GetField("kPresentationBroadcastParams", kEpStatic);
         static readonly string[] kBpTunables = { "kMinWorkLength", "kMaxWorkLength", "kXPIncreasePerWorking", "kMinPresentationLength", "kMaxPresentationLength", "kXPIncreasePerPresentation" };
+        static readonly FieldInfo[] sBpTunables = BpTunableFields();
+
+        static FieldInfo[] BpTunableFields()
+        {
+            FieldInfo[] f = new FieldInfo[kBpTunables.Length];
+            for (int i = 0; i < f.Length; i++) f[i] = typeof(AcademicBusinessPlanner.UseBusinessPlanner).GetField(kBpTunables[i], kEpStatic);
+            return f;
+        }
 
         // Pure: is the planner put in the actor's inventory after a failed wait or route? Does the roll change the definition?
         internal static bool BpPockets(bool on, bool fromInventory) { return !on || fromInventory; }
         internal static bool BpWritesShared(bool on, bool autonomous, bool unset) { return !on && autonomous && unset; }
 
-        static float BpTune(int i) { return (float)typeof(AcademicBusinessPlanner.UseBusinessPlanner).GetField(kBpTunables[i], kEpStatic).GetValue(null); }
+        static float BpTune(int i) { return (float)sBpTunables[i].GetValue(null); }
 
         static void ApplyBusinessPlannerRun()
         {
             string miss = EpMiss("UseBusinessPlanner+Definition.mUsageType", sBpUsage, "mRunFromInventory", sBpFromInv, "mWaitTime", sBpWait, "mCurrentBusinessPlanningType", sBpCur,
                 "LocalizeString", sBpLoc, "BroadcastCallback", sBpBroadcast, "kPresentationBroadcastParams", sBpParams);
-            foreach (string k in kBpTunables) if (typeof(AcademicBusinessPlanner.UseBusinessPlanner).GetField(k, kEpStatic) == null) miss += (miss.Length > 0 ? ", " : "") + k;
+            for (int i = 0; i < kBpTunables.Length; i++) if (sBpTunables[i] == null) miss += (miss.Length > 0 ? ", " : "") + kBpTunables[i];
             if (miss.Length > 0) { AppliedLog().Add("businessplannerrun: not found: " + miss); return; }
             Patch(typeof(AcademicBusinessPlanner.UseBusinessPlanner), "Run", Type.EmptyTypes, typeof(BEp4BpHook), "RunHook", "RunOrig");
         }
@@ -384,13 +384,21 @@ namespace Ts3Fixes
             {
                 object def = InteractionDefinition;
                 if (def == null || !sBpDef.IsInstanceOfType(def)) return RunOrig();
-                if (!ShortcutOn("businessplannerrun")) { BpCountOff(def); return RunOrig(); }
                 const AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning None = AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning.None;
                 const AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning Work = AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning.WorkOnBusinessPlan;
                 const AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning Present = AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning.PresentBusinessPlan;
-                AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning usage = (AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning)sBpUsage.GetValue(def);
-                bool fromInv = (bool)sBpFromInv.GetValue(this);
-                if (Autonomous && usage == None) { usage = (AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning)RandomUtil.GetInt(0, 1); PatchCounters()[1530]++; }  // changed: local roll
+                bool on = ShortcutOn("businessplannerrun");
+                AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning usage; bool fromInv;
+                try { usage = (AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning)sBpUsage.GetValue(def); fromInv = (bool)sBpFromInv.GetValue(this); }
+                catch (Exception) { PatchCounters()[1532]++; return RunOrig(); }
+                bool unset = usage == None, shared = BpWritesShared(on, Autonomous, unset);
+                if (!on) { if (shared) PatchCounters()[1531]++; return RunOrig(); }
+                if (Autonomous && unset)
+                {
+                    usage = (AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning)RandomUtil.GetInt(0, 1);
+                    if (shared) sBpUsage.SetValue(def, usage);   // EA's write to the shared Singleton
+                    else PatchCounters()[1530]++;                // changed: local roll
+                }
                 string caption = usage == Present ? "PresentBusinessPlan" : usage == Work ? "WorkOnBusinessPlan" : "StartPlanning";
                 ((IInteractionNameCanBeOverriden)(object)this).SetInteractionName((string)sBpLoc.Invoke(null, new object[] { caption, new object[0] }));
                 UpdateCaption = true;
@@ -409,12 +417,12 @@ namespace Ts3Fixes
                 }
                 if (!Target.Line.WaitForTurn(this, SimQueue.WaitBehavior.CutAheadOfLowerPrioritySims, ExitReason.Default, AcademicBusinessPlanner.kTimeToWaitInLine))
                 {
-                    BpFailAdd(took);  // changed: EA always TryToAdd
+                    BpFailAdd(on, took);  // changed: EA always TryToAdd
                     return false;
                 }
                 if (!Actor.RouteToSlotAndCheckInUse(Target, Slot.RoutingSlot_0))
                 {
-                    BpFailAdd(took);  // changed: EA always TryToAdd
+                    BpFailAdd(on, took);  // changed: EA always TryToAdd
                     return false;
                 }
                 StandardEntry();
@@ -497,20 +505,10 @@ namespace Ts3Fixes
             }
             public bool RunOrig() { return false; } // AcademicBusinessPlanner+UseBusinessPlanner.Run
 
-            void BpFailAdd(bool fromInv)
+            void BpFailAdd(bool on, bool took)
             {
-                if (BpPockets(true, fromInv)) Actor.Inventory.TryToAdd(Target);
+                if (BpPockets(on, took)) Actor.Inventory.TryToAdd(Target);
                 else PatchCounters()[1530]++;
-            }
-
-            void BpCountOff(object def)
-            {
-                try
-                {
-                    bool unset = (AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning)sBpUsage.GetValue(def) == AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning.None;
-                    if (BpWritesShared(false, Autonomous, unset)) PatchCounters()[1531]++;
-                }
-                catch (Exception) { PatchCounters()[1532]++; }
             }
         }
 
@@ -533,6 +531,7 @@ namespace Ts3Fixes
         // Counters: [1533] size-0 unpacks skipped / null renames skipped / stuck loops left, [1534] seen with the switch off,
         // [1535] errors.
         static readonly FieldInfo sFdData = typeof(FutureDescendantService).GetField("sPersistableData", kEpStatic);
+        static readonly FieldInfo sFdInfos = sFdData == null ? null : sFdData.FieldType.GetField("ActiveDescendantHouseholdsInfo", kInstAll);
 
         // Pure: does Instantiate run? Does a resize loop continue after a call that changed the count from `before` to `after`?
         internal static bool FdInstantiates(bool on, int desired) { return !on || desired > 0; }
@@ -540,7 +539,8 @@ namespace Ts3Fixes
 
         static void ApplyFutureDescendantSize0()
         {
-            if (sFdData == null) { AppliedLog().Add("futuredescendantsize0: not found: FutureDescendantService.sPersistableData"); return; }
+            string miss = EpMiss("FutureDescendantService.sPersistableData", sFdData, "ActiveDescendantHouseholdsInfo", sFdInfos);
+            if (miss.Length > 0) { AppliedLog().Add("futuredescendantsize0: not found: " + miss); return; }
             Patch(typeof(FutureDescendantService.FutureDescendantHouseholdInfo), "Instantiate", Type.EmptyTypes, typeof(BEp4FdInfoHook), "InstHook", "InstOrig");
             Patch(typeof(FutureDescendantService), "ProcessDescendantHouseholds", Type.EmptyTypes, typeof(BEp4FdHook), "ProcHook", "ProcOrig");
         }
@@ -550,11 +550,10 @@ namespace Ts3Fixes
             public Household InstHook()
             {
                 FutureDescendantService.FutureDescendantHouseholdInfo info = (FutureDescendantService.FutureDescendantHouseholdInfo)(object)this;
-                if (info.mCurrentDesiredHouseholdSize <= 0)
-                {
-                    if (!ShortcutOn("futuredescendantsize0")) PatchCounters()[1534]++;
-                    else if (!FdInstantiates(true, info.mCurrentDesiredHouseholdSize)) { PatchCounters()[1533]++; return null; }
-                }
+                bool on = ShortcutOn("futuredescendantsize0");
+                int desired = info.mCurrentDesiredHouseholdSize;
+                if (!FdInstantiates(on, desired)) { PatchCounters()[1533]++; return null; }
+                else if (desired <= 0 && !on) PatchCounters()[1534]++;
                 return InstOrig();
             }
             public Household InstOrig() { return null; } // FutureDescendantService+FutureDescendantHouseholdInfo.Instantiate
@@ -564,12 +563,13 @@ namespace Ts3Fixes
         {
             public bool ProcHook()
             {
-                if (!ShortcutOn("futuredescendantsize0")) return ProcOrig();
+                bool on = ShortcutOn("futuredescendantsize0");
+                if (!on) return ProcOrig();
                 IList infos;
                 try
                 {
                     object data = sFdData.GetValue(null);
-                    infos = data == null ? null : data.GetType().GetField("ActiveDescendantHouseholdsInfo").GetValue(data) as IList;
+                    infos = data == null ? null : sFdInfos.GetValue(data) as IList;
                 }
                 catch (Exception) { PatchCounters()[1535]++; return ProcOrig(); }
                 if (infos == null) return ProcOrig();
@@ -586,13 +586,13 @@ namespace Ts3Fixes
                         {
                             int before = hh.NumMembers;
                             info.RemoveDescendant();
-                            if (!FdLoopGoesOn(true, before, hh.NumMembers)) { PatchCounters()[1533]++; break; }  // changed: EA loops forever
+                            if (!FdLoopGoesOn(on, before, hh.NumMembers)) { PatchCounters()[1533]++; break; }  // changed: EA loops forever
                         }
                         while (hh.NumMembers < info.mCurrentDesiredHouseholdSize)
                         {
                             int before = hh.NumMembers;
                             info.CreateAndAddDescendant();
-                            if (!FdLoopGoesOn(true, before, hh.NumMembers)) { PatchCounters()[1533]++; break; }  // changed: EA loops forever
+                            if (!FdLoopGoesOn(on, before, hh.NumMembers)) { PatchCounters()[1533]++; break; }  // changed: EA loops forever
                         }
                     }
                     foreach (ulong id in Household.mDirtyNameSimIds)

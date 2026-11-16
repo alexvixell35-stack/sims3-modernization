@@ -39,8 +39,9 @@ namespace Ts3Fixes
         static readonly FieldInfo sJgMax = typeof(JungleGymLookOutTower).GetField("kTimeMaxToWait", kEpStatic);
         static readonly List<Sim> sJgPending = new List<Sim>();
 
-        // Pure: does an entry stay in the exit queue?
+        // Pure: does an entry stay in the exit queue? Does ResetSafeToExit return on this queue (EA dequeues an empty one)?
         internal static bool JgKeep(bool on, bool live, bool onTower, bool alarmPending) { return !on || (live && (onTower || alarmPending)); }
+        internal static bool JgSafeSkips(bool on, int queued) { return on && queued == 0; }
 
         static void ApplyJungleGymExitQueue()
         {
@@ -50,7 +51,7 @@ namespace Ts3Fixes
             Patch(typeof(JungleGymLookOutTower), "ResetSafeToExit", Type.EmptyTypes, typeof(BEp4JgHook), "SafeHook", "SafeOrig");
         }
 
-        static void JgPurge(JungleGymLookOutTower t, Queue<Sim> q, Sim self, bool dropSelf)
+        static void JgPurge(bool on, JungleGymLookOutTower t, Queue<Sim> q, Sim self, bool dropSelf)
         {
             if (q.Count == 0) return;
             List<Sim> keep = new List<Sim>();
@@ -58,7 +59,7 @@ namespace Ts3Fixes
             foreach (Sim s in q)
             {
                 bool live = s != null && !s.HasBeenDestroyed;
-                if ((s == self ? !dropSelf : JgKeep(true, live, live && t.ActorsUsingMe.Contains(s), live && sJgPending.Contains(s)))) keep.Add(s);   // review: before enqueueing, the Sim's own stale entries go too
+                if ((s == self ? !dropSelf : JgKeep(on, live, live && t.ActorsUsingMe.Contains(s), live && sJgPending.Contains(s)))) keep.Add(s);   // review: before enqueueing, the Sim's own stale entries go too
                 else dropped++;
             }
             if (dropped == 0) return;
@@ -91,23 +92,33 @@ namespace Ts3Fixes
             public bool ExitHook(Sim actor)
             {
                 JungleGymLookOutTower t = (JungleGymLookOutTower)(object)this;
+                bool on = ShortcutOn("junglegymexitqueue");
                 Queue<Sim> q; float next, max;
                 try { q = (Queue<Sim>)sJgQueue.GetValue(t); next = (float)sJgNext.GetValue(null); max = (float)sJgMax.GetValue(null); }
                 catch (Exception) { PatchCounters()[1538]++; return ExitOrig(actor); }
-                if (!ShortcutOn("junglegymexitqueue"))
+                if (!on)
                 {
-                    try { if (q.Count > 0) { Sim h = q.Peek(); if (h == null || h.HasBeenDestroyed || !t.ActorsUsingMe.Contains(h)) PatchCounters()[1537]++; } }
-                    catch (Exception) { }
+                    try
+                    {
+                        if (q != null && q.Count > 0)
+                        {
+                            Sim h = q.Peek();
+                            bool live = h != null && !h.HasBeenDestroyed;
+                            if (!(live && (t.ActorsUsingMe.Contains(h) || sJgPending.Contains(h)))) PatchCounters()[1537]++;   // EA waits on a stale head
+                        }
+                    }
+                    catch (Exception) { PatchCounters()[1538]++; }
                     return ExitOrig(actor);
                 }
+                if (q == null) return ExitOrig(actor);
                 // EA's body, with the marked changes
-                JgPurge(t, q, actor, true);  // changed
+                JgPurge(on, t, q, actor, true);  // changed
                 q.Enqueue(actor);
                 DateAndTime start = SimClock.CurrentTime();
                 while (q.Count > 0 && q.Peek() != actor && SimClock.ElapsedTime(TimeUnit.Minutes, start) < max)
                 {
                     Simulator.Sleep(10u);
-                    JgPurge(t, q, actor, false);  // changed
+                    JgPurge(on, t, q, actor, false);  // changed
                 }
                 JgExitDone done = new JgExitDone(); done.Tower = t; done.Actor = actor;
                 if (!sJgPending.Contains(actor)) sJgPending.Add(actor);
@@ -121,8 +132,9 @@ namespace Ts3Fixes
             {
                 try
                 {
+                    bool on = ShortcutOn("junglegymexitqueue");
                     Queue<Sim> q = sJgQueue.GetValue(this) as Queue<Sim>;
-                    if (q != null && q.Count == 0 && ShortcutOn("junglegymexitqueue")) { PatchCounters()[1536]++; return; }
+                    if (q != null && JgSafeSkips(on, q.Count)) { PatchCounters()[1536]++; return; }
                 }
                 catch (Exception) { PatchCounters()[1538]++; }
                 SafeOrig();
@@ -155,7 +167,8 @@ namespace Ts3Fixes
         {
             public static Lot FindHook(SimDescription horse)
             {
-                if (!ShortcutOn("wildhorselot"))
+                bool on = ShortcutOn("wildhorselot");
+                if (!on)
                 {
                     if (WildHorses.kPreferredCommercialLots != null && WildHorses.kPreferredCommercialLots.Length > 0) PatchCounters()[1540]++;
                     return FindOrig(horse);
@@ -175,7 +188,7 @@ namespace Ts3Fixes
                         if (sims.Count > 0) num = WildHorses.kDefaultPopulatedLotWeight;
                         foreach (Sim s in sims) if (s.HasTrait(TraitNames.FriendOfTheHerdPet)) num += WildHorses.kFriendOfTheHerdLotWeightIncrease;
                         if (lot.IsResidentialLot) num *= WildHorses.kVisitResidentialLotMultiplier;
-                        else num *= WhMult(true, Array.IndexOf(WildHorses.kPreferredCommercialLots, lot.CommercialLotSubType), WildHorses.kPreferredCommercialLotWeights, WildHorses.kVisitCommercialLotMultiplier);  // changed: index 0 is preferred
+                        else num *= WhMult(on, Array.IndexOf(WildHorses.kPreferredCommercialLots, lot.CommercialLotSubType), WildHorses.kPreferredCommercialLotWeights, WildHorses.kVisitCommercialLotMultiplier);  // changed: index 0 is preferred
                         if (num != 0f) { list.Add(lot); list3.Add(num); }
                     }
                     PatchCounters()[1539]++;
@@ -210,11 +223,10 @@ namespace Ts3Fixes
                 try
                 {
                     HarvestPlant p = (HarvestPlant)(object)this;
-                    if (!HarvestPlant.HarvestTest(p, null))
-                    {
-                        if (!ShortcutOn("harvesterunripe")) PatchCounters()[1543]++;
-                        else if (!HuHarvests(true, false)) { PatchCounters()[1542]++; return false; }
-                    }
+                    bool on = ShortcutOn("harvesterunripe");
+                    bool ripe = HarvestPlant.HarvestTest(p, null);
+                    if (!HuHarvests(on, ripe)) { PatchCounters()[1542]++; return false; }
+                    else if (!ripe && !on) PatchCounters()[1543]++;
                 }
                 catch (Exception) { PatchCounters()[1544]++; }
                 return SuckOrig(actor, isOutOfControl);
@@ -283,12 +295,14 @@ namespace Ts3Fixes
         {
             public bool RunHook()
             {
-                if (!ShortcutOn("teenpartybreakup")) return RunOrig();
+                bool on = ShortcutOn("teenpartybreakup");
+                if (!on) return RunOrig();
                 // EA's body; changed: the situation is not dereferenced
                 Actor.RouteToDynamicObjectRadius(Target, 1f, null, null);
                 StandardEntry(false);
                 BeginCommodityUpdates();
-                if (TpThrows(false, Target.GetSituationOfType<TeenParty>() == null)) PatchCounters()[1548]++;
+                bool gone = Target.GetSituationOfType<TeenParty>() == null;
+                if (gone && !TpThrows(on, gone)) PatchCounters()[1548]++;   // EA would throw here
                 Actor.PlaySoloAnimation("a_teenParty_breakParty_x", ProductVersion.EP4);
                 TeenParty.MakeEveryoneGoHome(Actor, null);
                 EndCommodityUpdates(true);
@@ -337,10 +351,12 @@ namespace Ts3Fixes
                 {
                     try
                     {
-                        if (!reset && pool != null && !a.HasBeenDestroyed && a.Posture != null && a.Posture.Container == pool && !pool.IsActorUsingMe(a))
+                        if (!reset && pool != null && !a.HasBeenDestroyed)
                         {
-                            if (!ShortcutOn("dogswimaroundlist")) PatchCounters()[1552]++;
-                            else if (DaRestore(true, true, false)) { pool.AddToUseList(a); PatchCounters()[1551]++; }
+                            bool on = ShortcutOn("dogswimaroundlist");
+                            bool swimming = a.Posture != null && a.Posture.Container == pool, onList = pool.IsActorUsingMe(a);
+                            if (DaRestore(on, swimming, onList)) { pool.AddToUseList(a); PatchCounters()[1551]++; }
+                            else if (swimming && !onList && !on) PatchCounters()[1552]++;
                         }
                     }
                     catch (Exception) { PatchCounters()[1553]++; }
@@ -381,11 +397,14 @@ namespace Ts3Fixes
                 {
                     TutorSkillInteraction t = (TutorSkillInteraction)(object)this;
                     if (t.BalloonAlarm == AlarmHandle.kInvalidHandle) return;
-                    if (!ShortcutOn("tutorballoonalarm")) { PatchCounters()[1555]++; return; }
-                    if (TuAlarmAtCreate(true)) return;
-                    AlarmManager.Global.RemoveAlarm(t.BalloonAlarm);
-                    t.BalloonAlarm = AlarmHandle.kInvalidHandle;
-                    PatchCounters()[1554]++;
+                    bool on = ShortcutOn("tutorballoonalarm");
+                    if (!TuAlarmAtCreate(on))
+                    {
+                        AlarmManager.Global.RemoveAlarm(t.BalloonAlarm);
+                        t.BalloonAlarm = AlarmHandle.kInvalidHandle;
+                        PatchCounters()[1554]++;
+                    }
+                    else if (!on) PatchCounters()[1555]++;
                 }
                 catch (Exception) { PatchCounters()[1556]++; }
             }
@@ -396,7 +415,8 @@ namespace Ts3Fixes
                 try
                 {
                     TutorSkillInteraction t = (TutorSkillInteraction)(object)this;
-                    if (t.BalloonAlarm == AlarmHandle.kInvalidHandle && ShortcutOn("tutorballoonalarm"))
+                    bool on = ShortcutOn("tutorballoonalarm");
+                    if (t.BalloonAlarm == AlarmHandle.kInvalidHandle && !TuAlarmAtCreate(on))
                     {
                         AlarmTimerCallback cb = (AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), t, sTuShow);
                         t.BalloonAlarm = AlarmManager.Global.AddAlarmRepeating((float)sTuFirst.GetValue(null), TimeUnit.Minutes, cb, (float)sTuEvery.GetValue(null), TimeUnit.Minutes, "ShowSkillBalloon", AlarmType.AlwaysPersisted, null);

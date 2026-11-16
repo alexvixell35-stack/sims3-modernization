@@ -77,12 +77,17 @@ namespace Ts3Fixes
                 for (int i = 1; i < 10; i++)
                 {
                     float[] cur;
-                    if (!scamT.TryGetValue(i, out cur) || cur == null) continue;
-                    float[] want = FtScamRow(true, i, bas, scam, mystic);
-                    if (FtSame(cur, want)) continue;
-                    if (!on) { PatchCounters()[1479]++; continue; }
-                    scamT[i] = want;  // the mystic table keeps EA's array
-                    PatchCounters()[1478]++;
+                    if (!scamT.TryGetValue(i, out cur) || cur == null || cur.Length != bas.Length) continue;
+                    // On: the scam interpolation. Off: EA's row (the mystic one), so a row rebuilt earlier in the session
+                    // goes back to EA's values when the switch is turned off.
+                    float[] row = FtScamRow(on, i, bas, scam, mystic);
+                    if (FtSame(cur, row))
+                    {
+                        if (!on && !FtSame(cur, FtScamRow(true, i, bas, scam, mystic))) PatchCounters()[1479]++;
+                        continue;
+                    }
+                    scamT[i] = row;  // the mystic table keeps EA's array
+                    if (on) PatchCounters()[1478]++;
                 }
             }
             catch (Exception) { PatchCounters()[1480]++; }
@@ -111,7 +116,6 @@ namespace Ts3Fixes
         // at world load. Household-visible. RE: FruitVeggieStand has the same line (not in this batch; store content).
         // Counters: [1481] curves rebuilt, [1482] frequency curve left with the switch off, [1483] errors.
         static readonly FieldInfo[] sCsCurve = new FieldInfo[3], sCsX = new FieldInfo[3], sCsY = new FieldInfo[3];
-        static readonly Curve[] sCsSet = new Curve[3];
         static string sCsMissing = "";
         static readonly float[] kCsSkX = { 0f, 5f, 10f }, kCsSkY = { 0.5f, 0.75f, 1f }, kCsFqX = { 0f, 3f, 5f }, kCsFqY = { 1f, 0.9f, 0f };
 
@@ -128,6 +132,13 @@ namespace Ts3Fixes
         }
         // Pure: the skill factor at this Consignment level with the shipped curves (EA: the frequency curve).
         internal static float CsSkillFactor(bool on, float level) { return on ? CsLerp(kCsSkX, kCsSkY, level) : CsLerp(kCsFqX, kCsFqY, level); }
+        // Pure: is the curve rebuilt? have = the live curve at the skill curve's X points, want = its Y values.
+        internal static bool CsRebuild(bool on, float[] have, float[] want)
+        {
+            if (!on || have == null || want == null || have.Length != want.Length) return false;
+            for (int j = 0; j < have.Length; j++) if (Math.Abs(have[j] - want[j]) > 0.001f) return true;
+            return false;
+        }
 
         static void ApplyConsignmentSkillCurve()
         {
@@ -154,15 +165,19 @@ namespace Ts3Fixes
             try
             {
                 if (sCsCurve[i] == null || sCsX[i] == null || sCsY[i] == null) return;
-                object cur = sCsCurve[i].GetValue(null);
-                if (cur == null || cur == sCsSet[i]) return;
+                bool on = ShortcutOn("consignmentskillcurve");
+                Curve cur = sCsCurve[i].GetValue(null) as Curve;
+                if (cur == null) return;
                 float[] x = (float[])sCsX[i].GetValue(null), y = (float[])sCsY[i].GetValue(null);
                 if (x == null || y == null || x.Length == 0 || x.Length != y.Length) return;
-                if (!ShortcutOn("consignmentskillcurve")) { PatchCounters()[1482]++; return; }
-                Curve c = new Curve(x, y);
-                sCsCurve[i].SetValue(null, c);
-                sCsSet[i] = c;
-                PatchCounters()[1481]++;
+                float[] have = new float[x.Length];
+                for (int j = 0; j < x.Length; j++) have[j] = cur.Fx(x[j]);  // Fx only moves the curve's last-x cache
+                if (CsRebuild(on, have, y))
+                {
+                    sCsCurve[i].SetValue(null, new Curve(x, y));
+                    PatchCounters()[1481]++;
+                }
+                else if (!on && CsRebuild(true, have, y)) PatchCounters()[1482]++;
             }
             catch (Exception) { PatchCounters()[1483]++; }
         }
@@ -235,11 +250,9 @@ namespace Ts3Fixes
                     if (e == null || !(bool)test.GetValue(e, null)) continue;
                     GameObject g = sStObj[i].GetValue(e) as GameObject;
                     if (g == null) continue;
-                    bool live = !g.HasBeenDestroyed;
-                    if (!OrphanDestroy(true, live, live && g.InWorld, live && g.InInventory)) continue;
-                    if (!on) { PatchCounters()[1485]++; continue; }
-                    g.Destroy();
-                    PatchCounters()[1484]++;
+                    bool live = !g.HasBeenDestroyed, inWorld = live && g.InWorld, inInv = live && g.InInventory;
+                    if (OrphanDestroy(on, live, inWorld, inInv)) { g.Destroy(); PatchCounters()[1484]++; }
+                    else if (!on && OrphanDestroy(true, live, inWorld, inInv)) PatchCounters()[1485]++;
                 }
             }
             catch (Exception) { PatchCounters()[1486]++; }
@@ -286,12 +299,10 @@ namespace Ts3Fixes
             {
                 try
                 {
+                    bool on = ShortcutOn("herbqualityfloor");
                     int q = toDecrease == null ? int.MaxValue : (int)toDecrease.GetQuality();
-                    if (q <= (int)Sims3.Gameplay.Objects.Quality.Horrifying)
-                    {
-                        if (!ShortcutOn("herbqualityfloor")) PatchCounters()[1488]++;
-                        else if (HqFloored(true, q)) { PatchCounters()[1487]++; return; }
-                    }
+                    if (HqFloored(on, q)) { PatchCounters()[1487]++; return; }
+                    if (!on && HqFloored(true, q)) PatchCounters()[1488]++;
                 }
                 catch (Exception) { PatchCounters()[1489]++; }
                 DecOrig(toDecrease);
@@ -320,7 +331,7 @@ namespace Ts3Fixes
         {
             public void VfxHook()
             {
-                if (!ShortcutOn("snackbowlslobvfx")) { PatchCounters()[1491]++; VfxOrig(); return; }
+                if (SbLeaks(ShortcutOn("snackbowlslobvfx"))) { PatchCounters()[1491]++; VfxOrig(); return; }
                 Sim a = null;
                 try { a = ((InteractionInstance)(object)this).InstanceActor; }
                 catch (Exception) { }
@@ -354,9 +365,11 @@ namespace Ts3Fixes
         {
             public bool CanHook(Sim actor, ref GreyedOutTooltipCallback greyedOutTooltipCallback)
             {
-                if (!CanOrig(actor, ref greyedOutTooltipCallback)) return false;
+                bool ea = CanOrig(actor, ref greyedOutTooltipCallback);
+                if (!ea) return false;  // EA refused: nothing to do, either way
                 try
                 {
+                    bool on = ShortcutOn("worldpondskatetest");
                     WorldPondSkatingArea area = null;
                     List<WorldPondSkatingArea> areas = sWpAreas.GetValue(this) as List<WorldPondSkatingArea>;
                     if (areas != null)
@@ -364,13 +377,12 @@ namespace Ts3Fixes
                             if (x != null && x.GetTotalNumberOfSkaters() < x.MaxSkatersTotal) { area = x; break; }
                     GreyedOutTooltipCallback cb = greyedOutTooltipCallback;
                     bool shared = SkatingRink.Skate.SharedCanSkateOnObjectTest(actor, area, area != null, ref cb);
-                    if (shared) return true;
-                    if (!ShortcutOn("worldpondskatetest")) { PatchCounters()[1494]++; return true; }
-                    greyedOutTooltipCallback = cb;
-                    PatchCounters()[1493]++;
-                    return WpOffered(true, true, false);
+                    bool offered = WpOffered(on, ea, shared);
+                    if (!offered) { greyedOutTooltipCallback = cb; PatchCounters()[1493]++; }
+                    else if (!on && !shared) PatchCounters()[1494]++;
+                    return offered;
                 }
-                catch (Exception) { PatchCounters()[1495]++; return true; }
+                catch (Exception) { PatchCounters()[1495]++; return ea; }
             }
             public bool CanOrig(Sim actor, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; } // WorldPond.CanSkateOnWorldPond
         }
@@ -404,10 +416,9 @@ namespace Ts3Fixes
                 for (int i = list.Count - 1; i >= 0; i--)
                 {
                     SimDescription d = list[i] == null ? null : list[i].SimDescription;
-                    if (d != null && PpKeep(true, d.IsHuman, d.TeenOrAbove)) continue;
-                    if (!on) { PatchCounters()[1497]++; continue; }
-                    list.RemoveAt(i);
-                    PatchCounters()[1496]++;
+                    bool human = d != null && d.IsHuman, teen = d != null && d.TeenOrAbove;
+                    if (!PpKeep(on, human, teen)) { list.RemoveAt(i); PatchCounters()[1496]++; }
+                    else if (!on && !PpKeep(true, human, teen)) PatchCounters()[1497]++;
                 }
             }
             catch (Exception) { PatchCounters()[1498]++; }
@@ -445,12 +456,14 @@ namespace Ts3Fixes
             {
                 try
                 {
+                    bool on = ShortcutOn("mermaiddehydratelook");
                     InteractionInstance ii = (InteractionInstance)(object)this;
                     Sim a = ii.InstanceActor;
-                    if (a != null && !a.HasBeenDestroyed && a.LookAtManager != null && ii.StandardEntryCalled)
+                    if (a != null && !a.HasBeenDestroyed && a.LookAtManager != null)
                     {
-                        if (!ShortcutOn("mermaiddehydratelook")) PatchCounters()[1501]++;
-                        else if (MdReenable(true, true)) { a.LookAtManager.EnableLookAts(); PatchCounters()[1500]++; }
+                        bool entered = ii.StandardEntryCalled;
+                        if (MdReenable(on, entered)) { a.LookAtManager.EnableLookAts(); PatchCounters()[1500]++; }
+                        else if (!on && entered) PatchCounters()[1501]++;
                     }
                 }
                 catch (Exception) { PatchCounters()[1502]++; }
@@ -481,13 +494,17 @@ namespace Ts3Fixes
                 CleanOrig();
                 try
                 {
+                    bool on = ShortcutOn("meteormagnetorphan");
                     GameObject g = sMmFrag.GetValue(this) as GameObject;
-                    if (g == null || g.HasBeenDestroyed || g.InWorld || g.InInventory) return;
-                    if (!ShortcutOn("meteormagnetorphan")) { PatchCounters()[1504]++; return; }
-                    if (!OrphanDestroy(true, true, false, false)) return;
-                    g.Destroy();
-                    sMmFrag.SetValue(this, null);
-                    PatchCounters()[1503]++;
+                    if (g == null) return;
+                    bool live = !g.HasBeenDestroyed, inWorld = live && g.InWorld, inInv = live && g.InInventory;
+                    if (OrphanDestroy(on, live, inWorld, inInv))
+                    {
+                        g.Destroy();
+                        sMmFrag.SetValue(this, null);
+                        PatchCounters()[1503]++;
+                    }
+                    else if (!on && OrphanDestroy(true, live, inWorld, inInv)) PatchCounters()[1504]++;
                 }
                 catch (Exception) { PatchCounters()[1505]++; }
             }
@@ -523,20 +540,19 @@ namespace Ts3Fixes
             {
                 try
                 {
-                    bool force = (bool)sDcForce.GetValue(this);
-                    if (!force)
+                    bool on = ShortcutOn("daycarelatealarm");
+                    bool force = (bool)sDcForce.GetValue(this), found = true, monitored = true;
+                    if (!force)  // force removals are EA's own checked path
                     {
                         object sit = sDcSit.GetValue(this);
                         ulong id = (ulong)sDcId.GetValue(this);
                         SimDescription sd = SimDescription.Find(id);
                         IDictionary mon = sit == null ? null : sDcMonitors.GetValue(sit) as IDictionary;
-                        bool found = sd != null && sd.CreatedSim != null, monitored = mon != null && mon.Contains(id);
-                        if (!found || !monitored)
-                        {
-                            if (!ShortcutOn("daycarelatealarm")) PatchCounters()[1507]++;
-                            else if (DcSkip(true, false, found, monitored)) { PatchCounters()[1506]++; return; }
-                        }
+                        found = sd != null && sd.CreatedSim != null;
+                        monitored = mon != null && mon.Contains(id);
                     }
+                    if (DcSkip(on, force, found, monitored)) { PatchCounters()[1506]++; return; }
+                    if (!on && DcSkip(true, force, found, monitored)) PatchCounters()[1507]++;
                 }
                 catch (Exception) { PatchCounters()[1508]++; }
                 TrigOrig();
@@ -573,10 +589,11 @@ namespace Ts3Fixes
                 sBmWoohooed.Remove(a);
                 bool r = RunOrig();
                 bool did = sBmWoohooed.Remove(a);
-                if (!r || did) return r;
-                if (!ShortcutOn("boxofmysterywoohoo")) { PatchCounters()[1510]++; return r; }
-                PatchCounters()[1509]++;
-                return BmSucceeded(true, r, false);
+                bool on = ShortcutOn("boxofmysterywoohoo");
+                bool res = BmSucceeded(on, r, did);
+                if (r && !res) PatchCounters()[1509]++;
+                else if (!on && r && !BmSucceeded(true, r, did)) PatchCounters()[1510]++;
+                return res;
             }
             public bool RunOrig() { return false; } // BoxOfMystery+WooHooInBoxOfMystery.Run
         }
@@ -644,11 +661,12 @@ namespace Ts3Fixes
             int pl = Convert.ToInt32(sBsPower.GetValue(t));
             float[] pct = BodySculptor.kPowerLevelPercentages;
             if (pct == null || pl < 0 || pl >= pct.Length) return weight;
-            float ea = BsWeight(false, d.Weight, option, pct[pl]), fix = BsWeight(true, d.Weight, option, pct[pl]);
-            if (Math.Abs(ea - weight) > 0.001f || Math.Abs(fix - weight) < 0.0001f) return weight;  // not EA's mirrored value
-            if (!ShortcutOn("bodysculptorweight")) { PatchCounters()[1513]++; return weight; }
-            PatchCounters()[1512]++;
-            return fix;
+            bool on = ShortcutOn("bodysculptorweight");
+            if (Math.Abs(BsWeight(false, d.Weight, option, pct[pl]) - weight) > 0.001f) return weight;  // not EA's value: nothing to do, either way
+            float w = BsWeight(on, d.Weight, option, pct[pl]);
+            if (Math.Abs(w - weight) >= 0.0001f) { PatchCounters()[1512]++; return w; }
+            if (!on && Math.Abs(BsWeight(true, d.Weight, option, pct[pl]) - weight) >= 0.0001f) PatchCounters()[1513]++;
+            return weight;
         }
 
         public class BEp3BsHook
@@ -721,11 +739,11 @@ namespace Ts3Fixes
                     if (!r || np == null) return r;
                     string[] p = sNvParams.GetValue(this) as string[];
                     if (p == null || p.Length < 4) return r;
+                    bool on = ShortcutOn("nectarconsignvalue");
                     int lo = ParserFunctions.ParseInt(p[2], 0), hi = ParserFunctions.ParseInt(p[3], 0);
-                    if (NvMax(true, lo, hi) == lo) return r;
-                    if (!ShortcutOn("nectarconsignvalue")) { PatchCounters()[1516]++; return r; }
-                    np.Value = RandomUtil.GetInt(lo, NvMax(true, lo, hi));
-                    PatchCounters()[1515]++;
+                    int top = NvMax(on, lo, hi);
+                    if (top != lo) { np.Value = RandomUtil.GetInt(lo, top); PatchCounters()[1515]++; }
+                    else if (!on && NvMax(true, lo, hi) != lo) PatchCounters()[1516]++;
                 }
                 catch (Exception) { PatchCounters()[1517]++; }
                 return r;
@@ -743,7 +761,8 @@ namespace Ts3Fixes
         static readonly Type sGnRun = typeof(StrayWildlifeGnome).GetNestedType("DisallowStrayWildlife", BindingFlags.NonPublic | BindingFlags.Public);
         static readonly Type sGnDef = sGnRun == null ? null : sGnRun.GetNestedType("Definition", BindingFlags.NonPublic | BindingFlags.Public);
         static readonly FieldInfo sGnType = sGnDef == null ? null : sGnDef.GetField("mDisallowType", kInstAll);
-        static bool sGnRunning, sGnShown;
+        static bool sGnRunning;
+        static int sGnLeft;
 
         // Pure: the disallow type the notice names, and how many notices one Run shows for this many gnomes.
         internal static int GnTnsType(bool on, int oldType, int newType) { return on ? newType : oldType; }
@@ -764,29 +783,37 @@ namespace Ts3Fixes
                 bool active = false;
                 try
                 {
+                    bool on = ShortcutOn("straygnometns");
                     InteractionInstance ii = (InteractionInstance)(object)this;
                     StrayWildlifeGnome t = ii.Target as StrayWildlifeGnome;
                     object def = ii.InteractionDefinition;
                     if (t != null && def != null && sGnDef.IsInstanceOfType(def))
                     {
-                        StrayWildlifeGnome.DisallowType want = (StrayWildlifeGnome.DisallowType)sGnType.GetValue(def);
-                        if (!ShortcutOn("straygnometns")) { if (t.CurrentDisallowType != want) PatchCounters()[1519]++; }
-                        else
+                        int want = (int)(StrayWildlifeGnome.DisallowType)sGnType.GetValue(def);
+                        // EA's Run: SetAllowStrays(false) (the notice) on the target, then on each other gnome on the home lot.
+                        List<StrayWildlifeGnome> gnomes = new List<StrayWildlifeGnome>();
+                        gnomes.Add(t);
+                        foreach (StrayGnome g in t.GetAllStrayGnomesOfThisType())
                         {
-                            t.CurrentDisallowType = want;
-                            foreach (StrayGnome g in t.GetAllStrayGnomesOfThisType())
-                            {
-                                StrayWildlifeGnome w = g as StrayWildlifeGnome;
-                                if (w != null) w.CurrentDisallowType = want;
-                            }
-                            active = true;
-                            PatchCounters()[1518]++;
+                            StrayWildlifeGnome w = g as StrayWildlifeGnome;
+                            if (w != null) gnomes.Add(w);
                         }
+                        bool retyped = false, stale = false;
+                        foreach (StrayWildlifeGnome w in gnomes)
+                        {
+                            int cur = (int)w.CurrentDisallowType, named = GnTnsType(on, cur, want);
+                            if (named != cur) { w.CurrentDisallowType = (StrayWildlifeGnome.DisallowType)named; retyped = true; }
+                            else if (GnTnsType(true, cur, want) != cur) stale = true;
+                        }
+                        int limit = GnTnsCount(on, gnomes.Count);
+                        if (retyped || limit < gnomes.Count) PatchCounters()[1518]++;
+                        else if (!on && (stale || GnTnsCount(true, gnomes.Count) < gnomes.Count)) PatchCounters()[1519]++;
+                        if (limit < gnomes.Count) { active = true; sGnLeft = limit; }
                     }
                 }
                 catch (Exception) { PatchCounters()[1520]++; }
                 if (!active) return RunOrig();
-                sGnRunning = true; sGnShown = false;
+                sGnRunning = true;
                 try { return RunOrig(); }
                 finally { sGnRunning = false; }
             }
@@ -799,8 +826,8 @@ namespace Ts3Fixes
             {
                 if (sGnRunning && !allowed)
                 {
-                    if (sGnShown) return;
-                    sGnShown = true;
+                    if (sGnLeft <= 0) return;  // the Run's repeat notices
+                    sGnLeft--;
                 }
                 TnsOrig(allowed);
             }

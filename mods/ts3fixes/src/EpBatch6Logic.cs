@@ -50,11 +50,11 @@ namespace Ts3Fixes
                     InteractionInstance ii = (InteractionInstance)(object)this;
                     Sim actor = ii.InstanceActor;
                     GameObject plate = ii.Target as GameObject;
-                    if (actor != null && plate != null && !plate.HasBeenDestroyed && plate.IsActorUsingMe(actor))
-                    {
-                        if (!ShortcutOn("floorswitchuselist")) PatchCounters()[1610]++;
-                        else if (CuRemove(true, true)) { plate.RemoveFromUseList(actor); PatchCounters()[1609]++; }
-                    }
+                    if (actor == null || plate == null || plate.HasBeenDestroyed) return;
+                    bool on = ShortcutOn("floorswitchuselist");
+                    bool still = plate.IsActorUsingMe(actor);
+                    if (CuRemove(on, still)) { plate.RemoveFromUseList(actor); PatchCounters()[1609]++; }
+                    else if (!on && still) PatchCounters()[1610]++;
                 }
                 catch (ResetException) { throw; }
                 catch (Exception) { PatchCounters()[1611]++; }
@@ -74,21 +74,24 @@ namespace Ts3Fixes
             Patch(typeof(BuffPlasmaticPlatitudes.BuffInstancePlasmaticPlatitudes), "Faint", Type.EmptyTypes, typeof(BEp6DbHook), "FaintHook", "FaintOrig");
         }
 
-        static bool DbRoll(float chance)
+        // One roll, decided by the switch; counts the rolls whose outcome the fix changed.
+        static bool DbRoll(bool on, float chance)
         {
             float roll = RandomUtil.GetFloat(100f);
-            bool fixedFires = DbFires(true, roll, chance), eaFires = DbFires(false, roll, chance);
-            if (fixedFires != eaFires) PatchCounters()[1612]++;
-            return fixedFires;
+            bool fires = DbFires(on, roll, chance);
+            if (fires != DbFires(false, roll, chance)) PatchCounters()[1612]++;
+            return fires;
         }
 
         public class BEp6DbHook
         {
             public void GiggleHook()
             {
-                if (!ShortcutOn("donationbuffchance")) { PatchCounters()[1613]++; GiggleOrig(); return; }
+                // A copy of EA's whole DoGiggleFit: runs only with the switch on (off: EA's body as is, counted per roll).
+                bool on = ShortcutOn("donationbuffchance");
+                if (!on) { PatchCounters()[1613]++; GiggleOrig(); return; }
                 BuffGiggleFits.BuffInstanceGiggleFits b = (BuffGiggleFits.BuffInstanceGiggleFits)(object)this;
-                if (DbRoll(BuffGiggleFits.PercentageChanceOfFit))  // changed: < instead of >=
+                if (DbRoll(on, BuffGiggleFits.PercentageChanceOfFit))  // changed: < instead of >=
                 {
                     b.mSim.InteractionQueue.AddNext(BuffGiggleFits.GiggleFit.Singleton.CreateInstance(b.mSim, b.mSim, new InteractionPriority(InteractionPriorityLevel.Autonomous), true, false));
                 }
@@ -100,9 +103,10 @@ namespace Ts3Fixes
 
             public void FaintHook()
             {
-                if (!ShortcutOn("donationbuffchance")) { PatchCounters()[1613]++; FaintOrig(); return; }
+                bool on = ShortcutOn("donationbuffchance");   // copy of EA's whole Faint, as GiggleHook
+                if (!on) { PatchCounters()[1613]++; FaintOrig(); return; }
                 BuffPlasmaticPlatitudes.BuffInstancePlasmaticPlatitudes b = (BuffPlasmaticPlatitudes.BuffInstancePlasmaticPlatitudes)(object)this;
-                if (DbRoll(BuffPlasmaticPlatitudes.PercentageChanceOfFainting))  // changed: < instead of >=
+                if (DbRoll(on, BuffPlasmaticPlatitudes.PercentageChanceOfFainting))  // changed: < instead of >=
                 {
                     b.mSim.InteractionQueue.AddNext(TraitFunctions.CowardTraitFaint.Singleton.CreateInstance(b.mSim, b.mSim, new InteractionPriority(InteractionPriorityLevel.Autonomous), false, false));
                 }
@@ -132,25 +136,23 @@ namespace Ts3Fixes
         {
             public static void EatHook(Sim sim, Quality quality)
             {
-                Quality sated, snack;
-                try { sated = (Quality)sVfSated.GetValue(null); snack = (Quality)sVfSnack.GetValue(null); }
+                Quality snack;
+                bool buffed;   // EA's body reaches its Sated / Snack pick for this fruit
+                try
+                {
+                    Quality sated = (Quality)sVfSated.GetValue(null);
+                    snack = (Quality)sVfSnack.GetValue(null);
+                    Sims3.Gameplay.CAS.SimDescription sd = sim == null ? null : sim.SimDescription;
+                    buffed = sd != null && sd.IsVampire && sd.YoungAdultOrAbove && (sim.TraitManager.HasElement(TraitNames.Vegetarian) || quality >= sated);
+                }
                 catch (Exception) { PatchCounters()[1617]++; EatOrig(sim, quality); return; }
-                if (quality != snack || !sim.SimDescription.IsVampire) { EatOrig(sim, quality); return; }  // only the == case differs
-                if (!ShortcutOn("vampirefruitsnack")) { PatchCounters()[1616]++; EatOrig(sim, quality); return; }
-                if (sim.SimDescription.IsVampire && sim.SimDescription.YoungAdultOrAbove)
-                {
-                    sim.Motives.SetMax(CommodityKind.VampireThirst);
-                    if (sim.TraitManager.HasElement(TraitNames.Vegetarian) || quality >= sated)
-                    {
-                        bool snackBuff = VfSnack(true, (int)quality, (int)snack);  // changed: >= instead of >
-                        sim.BuffManager.AddElement(snackBuff ? BuffNames.SanguineSnack : BuffNames.Sated, Origin.FromEatingVampireFruit);
-                        if (snackBuff) PatchCounters()[1615]++;
-                    }
-                }
-                else if (!sim.SimDescription.IsVampire)
-                {
-                    sim.BuffManager.AddElement(BuffNames.Nauseous, Origin.FromEatingVampireFruit);
-                }
+                if (!buffed || quality != snack) { EatOrig(sim, quality); return; }  // only the == case differs, equal in both states
+                bool on = ShortcutOn("vampirefruitsnack");
+                if (!VfSnack(on, (int)quality, (int)snack)) { if (!on) PatchCounters()[1616]++; EatOrig(sim, quality); return; }
+                // EA's body for a buffed adult vampire, with the Snack pick at >= (changed: >= instead of >)
+                sim.Motives.SetMax(CommodityKind.VampireThirst);
+                sim.BuffManager.AddElement(BuffNames.SanguineSnack, Origin.FromEatingVampireFruit);
+                PatchCounters()[1615]++;
                 EventTracker.SendEvent(EventTypeId.kEatVampireFruit, sim);
             }
             public static void EatOrig(Sim sim, Quality quality) { } // VampireFruit.EatEffects
@@ -178,11 +180,10 @@ namespace Ts3Fixes
             {
                 try
                 {
-                    if ((bool)sFrCollected.GetValue(this))
-                    {
-                        if (!ShortcutOn("fallenrockcollected")) PatchCounters()[1619]++;
-                        else if (FrSkip(true, true)) { PatchCounters()[1618]++; return; }
-                    }
+                    bool on = ShortcutOn("fallenrockcollected");
+                    bool collected = (bool)sFrCollected.GetValue(this);
+                    if (FrSkip(on, collected)) { PatchCounters()[1618]++; return; }
+                    if (!on && collected) PatchCounters()[1619]++;
                 }
                 catch (Exception) { PatchCounters()[1620]++; }
                 TimeoutOrig();
