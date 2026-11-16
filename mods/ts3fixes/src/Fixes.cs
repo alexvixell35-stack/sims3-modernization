@@ -364,7 +364,9 @@ namespace Ts3Fixes
             ApplyRepairmanSkill();   // docs/593 V9 B13 §14
             ApplyRoundUpReturn();   // docs/593 V3 B13 §15
             ApplyButlerPayAlarm();   // docs/593 V1 B13 §16
-            ApplyPetHarvestVfx();   // docs/593 H1 B13 §17            ApplySuatGradeBonus();   // docs/587 EP1 §2
+            ApplyPetHarvestVfx();   // docs/593 H1 B13 §17
+            ApplySuatGradeBonus();   // docs/587 EP1 §2 (was inside the line above's comment, never called; docs/604 §5)
+            ApplyPushWaitSkip();   // docs/604 §2 (PushWait604.cs)
             ApplyMermaidSharkNull();   // docs/587 EP1 §3
             ApplyJetpackFlyHereCleanup();   // docs/587 EP1 §4
             ApplyNaniteRouteFail();   // docs/587 EP1 §5
@@ -1097,6 +1099,7 @@ namespace Ts3Fixes
         // [2278-2280] moodpending (MoodPending.cs): ChangeMoodValue on a pending buff (also off) / mood moves skipped / errors.
         // [2272-2277] buyclearrecycle / buygridsweep (BuyCellRecycle.cs): cells at ShowCatalogGrid(false) (also off) / cached / errors / icons in other grids at Dispose (also off) / disposed / errors.
         // [2269-2271] buycellrecycle (BuyCellRecycle.cs): Buy catalog cells dropped by AddGridItem (also off) / returned to a cache / errors.
+        // [2790-2792] pushwaitskip (PushWait604.cs, docs/604 §2): done Sims EA's double-step wait pass would have skipped / waiting calls on EA's body (switch off) / errors.
         // [2756-2759] detailprioexact (DetailPrio603.cs, docs/603 §3): exact answers / EA's body (null list or description, error) / check mismatches / errors.
         // [2260-2268] dreamrootorphan / blogorphan / dnpupdateguard (WishListenerFixes.cs): root listeners left by a thrown-away test (also off) / removed / errors / blog one-off listeners left (also off) / removed / errors / Update exceptions seen / swallowed / errors.
         // [2254-2259] dnpdisposelistener / seasondup (ListenerFixes.cs): wish managers created (also off) / object listeners moved / errors / duplicate season adds (also off) / skipped / errors.
@@ -1624,6 +1627,7 @@ namespace Ts3Fixes
                 case "pondclearscan": return Instantiator.kPondClearScan;
                 case "soakedstat": return Instantiator.kSoakedStat;
                 case "hovertraintest": return Instantiator.kHoverTrainTest;
+                case "pushwaitskip": return Instantiator.kPushWaitSkip;  // docs/604 §2 (PushWait604.cs), EA bug fix, off
                 case "detailprioexact": return Instantiator.kDetailPriorityExact;  // docs/603 §3 (DetailPrio603.cs), exact, off
                 case "newcartest": return Instantiator.kNewCarTest;
                 case "outerwearautoloop": return Instantiator.kOuterwearAutoLoop;

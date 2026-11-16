@@ -371,6 +371,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSoakedStat value="False" />
     <kHoverTrainTest value="False" />
     <kDetailPriorityExact value="False" />
+    <kPushWaitSkip value="False" />
     <kNewCarTest value="False" />
     <kOuterwearAutoLoop value="False" />
     <kOuterwearRestore value="False" />
