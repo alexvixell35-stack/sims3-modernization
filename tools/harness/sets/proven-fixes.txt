@@ -299,3 +299,5 @@ pondclearscan
 rainsheltercheap
 soakedstat
 weathermanagerthrow
+outerwearautoloop
+outerwearrestore
