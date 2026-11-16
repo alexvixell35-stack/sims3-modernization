@@ -102539,6 +102539,164 @@
     ]
   },
   {
+    "id": "hovertraintest-check",
+    "bug": "Sim.NPCUseHoverTrain.Definition.Test runs a world Queries.GetObjects<IHoverTrainStation>() for every autonomous NPC autonomy pass, in every world, stations or not (docs/598 §5)",
+    "fix": "ts3fixes HoverTrain598.cs: hovertraintest (default off)",
+    "save": "any world with NPCs (Oasis Landing shows the 2+ stations case; any other world the 0 case)",
+    "note": "HoverTrainTestCheck 'run' compares the memo's answer (stored by NPC tests before the check) with EA's query in the same tick, plus synthetic 0/1/2/3-station, placement and removal controls; mismatches count 1974 and must stay 0. 'result' shows counters 1971-1976 and the timing line (EA query vs memo, world object count). Run twice per point: the first run may only prime the memo.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED' on the second run of each point; counter 1974 = 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hovertraintest": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoverTrainTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoverTrainTestCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hovertraintest": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 60,
+        "note": "NPC autonomy fills the memo"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoverTrainTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: primes the memo if no NPC test did"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoverTrainTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: memo vs EA's query"
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 15,
+        "note": "Buy mode: the memo is forgotten and not stored while it is open"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoverTrainTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "in buy mode: EA's query answers"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "name": "CCGen",
+          "nth": 0,
+          "free": true
+        },
+        "waitS": 5,
+        "note": "a placement (non-station: must not break exactness)"
+      },
+      {
+        "cmd": "buy_close",
+        "waitS": 10
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 30
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoverTrainTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "after the placement"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoverTrainTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "after the placement: memo vs EA's query"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoverTrainTestCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hovertraintest": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hovertraintest": false
+        }
+      }
+    ]
+  },
+  {
     "id": "soakedstat-check",
     "bug": "BuffSoaked.OnReAddition increments TombStats 'times soaked' on every re-add, and rain re-adds Soaked every 2 sim-minutes (docs/594 §6)",
     "fix": "ts3fixes SeasonsHunt594b.cs: soakedstat (default off)",

@@ -11,6 +11,8 @@ Approved 2026-10-10. Rewritten 2026-10-12 with everything found so far (read thi
 
 **r43 load hang (2026-11-16, fixed for r43b):** one name-only `GetMethod` on an overloaded EA method in a static initializer (`betrayednullsim` sBtLoc) killed the whole `Fixes` class at startup, and an unwrapped world-load call then stopped the load. Root cause and guard (`tools/static/refs-resolve-check.ts`, run by build-fixes): docs/582 B8b §3.
 
+**hovertraintest (2026-11-16, docs/598 §5, NOT RUN, package r56):** `NPCUseHoverTrain.Definition.Test` answers ">= 2 stations" from a memo of EA's last query, forgotten on every station add path (Simulator create/add swaps, placement / lot / build-buy / world events); removals by proxy liveness. Run null guards (all stations charred). Repro `hovertraintest-check`, counters 1971-1976 (1974 mismatches must be 0).
+
 **World-scan census (2026-11-16, docs/598, static, nothing built):** the 172 `GetObjects<T>()` calls in hot-named EA methods (SeasonsManager extreme cold / flags, FoodTruckManager, FishingSpot, AboutToPlanRouteCallback, resort alarms, Lot.UpdateActiveTopics, ChairSectional) are edge-triggered, hourly / 10-30 sim-min alarms, conditional per-route lot queries or player/build actions; none per tick like pondclearscan. Open: count `Sim.NPCUseHoverTrain` Test calls before any build (docs/598 §3).
 
 **Route-fail leads (2026-11-16, docs/595, static, nothing built):** the six top route-fail leads of the 20 Bridgeport runs (SocialInteractionB, WashDishes, Scare, PlayWithMirror, UseToilet, Fridge) are contention in the 7-Sim test house, a mirror placed behind a bed, EA's planned Scare fallback or PlanFromPoint search rows; none an EA bug. r50 = r49 content.
