@@ -83,6 +83,7 @@ namespace Ts3Fixes
         static readonly FadingSubsetMemo sNcMemo = new FadingSubsetMemo();
         static readonly Predicate<object> sNcIsNew = NcIsNew;
         static readonly Predicate<object> sNcMatch = NcMatch;
+        static readonly Predicate<object> sNcOwnedAlive = NcOwnedAlive;
         static readonly Predicate<object> sNcAlive = HtAlive;   // HoverTrain598.cs: still registered with the simulator
         static readonly System.Collections.Generic.List<object> sNcPending = new System.Collections.Generic.List<object>();
         static bool sNcReady, sNcHooked;
@@ -167,14 +168,13 @@ namespace Ts3Fixes
             if (car != null && !sNcPending.Contains(car)) sNcPending.Add(car);
         }
 
-        // True while a started car is not yet registered (one pass, drops the resolved ones: registered, or init failed)
+        // True while a started car is not yet registered (one pass, drops the resolved ones: registered, init failed, or
+        // destroyed since: StartResolved, HoverTrain598.cs)
         static bool NcPendingOpen()
         {
             for (int i = sNcPending.Count - 1; i >= 0; i--)
             {
-                IScriptLogic l = sNcPending[i] as IScriptLogic;
-                IScriptProxy p = l == null ? null : l.Proxy;
-                if (p == null || Simulator.GetProxy(p.ObjectId) != null) sNcPending.RemoveAt(i);
+                if (StartResolved(sNcPending[i])) sNcPending.RemoveAt(i);
             }
             return sNcPending.Count > 0;
         }
@@ -212,6 +212,15 @@ namespace Ts3Fixes
             return c != null && c.IsNewCar;
         }
 
+        // The memo's "still listed" test, owner lot first: a plain field read (GameObject.GetOwnerLot, no side effect), so the
+        // native proxy lookup runs only for cars of the actor's home lot. With most cars new (Bridgeport: 50 of 50 kept) this
+        // keeps an answer at a few field reads; EA's own calls (IsNewCar, Value) still never run on a gone car.
+        static bool NcOwnedAlive(object o)
+        {
+            CarOwnable c = o as CarOwnable;
+            return c != null && c.GetOwnerLot() == sNcHome && sNcAlive(o);
+        }
+
         // EA's per-car test, same order (owner lot, then IsNewCar, then Value for the expensive test)
         static bool NcMatch(object o)
         {
@@ -232,7 +241,7 @@ namespace Ts3Fixes
         {
             sNcHome = actor.LotHome;
             sNcExpensive = expensive;
-            return sNcMemo.Answer(sNcMatch, sNcAlive, SimClock.CurrentTicks, NcDays());
+            return sNcMemo.Answer(sNcMatch, sNcOwnedAlive, SimClock.CurrentTicks, NcDays());
         }
 
         // EA's loop over a listed array (same as its body)
@@ -374,11 +383,30 @@ namespace Ts3Fixes
                 controls &= diff == 0;
                 fixedNow = on && use && fromMemo > 0 && diff == 0;
                 live = "live: Sims " + sims + ", answers from the memo " + fromMemo + ", EA true " + eaTrue + ", differ " + diff
-                    + ", memo known before=" + knownBefore + " (new cars kept " + kept + "), mode open=" + HtModeOpen() + ", pending " + sNcPending.Count;
+                    + ", memo known before=" + knownBefore + " (new cars kept " + kept + "), mode open=" + HtModeOpen() + ", pending " + sNcPending.Count + NcPendingWhy();
             }
             catch (Exception e) { missing = "threw " + e.GetType().Name; live = "live: threw"; }
             return B582Line("newcartest", on, "memo answers TestHasNewCar / TestHasExpensiveNewCar as EA", fixedNow,
                 "no / old / new / aged / gone / added car, clock back, tuning=" + ctl + ", " + live, controls, EpJoin(sNcMissing, missing), counters);
+        }
+
+        // Why each pending car is still pending: target still this car, object id, GetProxy / GetProxyPreInit found, in world
+        static string NcPendingWhy()
+        {
+            if (sNcPending.Count == 0) return "";
+            System.Text.StringBuilder b = new System.Text.StringBuilder(" [");
+            for (int i = 0; i < sNcPending.Count && i < 5; i++)
+            {
+                IScriptLogic l = sNcPending[i] as IScriptLogic;
+                IScriptProxy p = l == null ? null : l.Proxy;
+                CarOwnable c = sNcPending[i] as CarOwnable;
+                if (i > 0) b.Append("; ");
+                if (p == null) { b.Append("no proxy"); continue; }
+                b.Append(sNcPending[i].GetType().Name).Append(" target=").Append(ReferenceEquals(p.Target, l)).Append(" id=").Append(p.ObjectId.Value.ToString("X"))
+                    .Append(" proxy=").Append(Simulator.GetProxy(p.ObjectId) != null).Append(" pre=").Append(Simulator.GetProxyPreInit(p.ObjectId) != null)
+                    .Append(" inWorld=").Append(c != null && c.InWorld).Append(" inv=").Append(c != null && c.InInventory);
+            }
+            return b.Append("]").ToString();
         }
 
         static string NcTiming()
@@ -398,7 +426,7 @@ namespace Ts3Fixes
                 uint t2 = SrcNowUs();
                 sNcHome = s.LotHome; sNcExpensive = false;
                 int hits = 0;
-                for (int i = 0; i < 20; i++) if (m.Answer(sNcMatch, sNcAlive, SimClock.CurrentTicks, NcDays()) >= 0) hits++;
+                for (int i = 0; i < 20; i++) if (m.Answer(sNcMatch, sNcOwnedAlive, SimClock.CurrentTicks, NcDays()) >= 0) hits++;
                 uint t3 = SrcNowUs();
                 return "timing: EA test " + ((t1 - t0) / 20u) + " us, memo answer " + ((t3 - t2) / 20u) + " us (" + hits + "/20 from the memo; cars "
                     + cars.Length + ", new cars kept " + m.Kept + ")";
