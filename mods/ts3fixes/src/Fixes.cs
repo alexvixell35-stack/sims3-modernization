@@ -261,6 +261,18 @@ namespace Ts3Fixes
             ApplyBodySculptorWeight();   // docs/587 EP3 §8.12
             ApplyNectarConsignValue();   // docs/587 EP3 §8.13
             ApplyStrayGnomeTns();   // docs/587 EP3 §8.14
+            ApplyDogSwimSlots();   // docs/587 EP4 §9.1
+            ApplyFragmentReconstruct();   // docs/587 EP4 §9.2
+            ApplyLabObjectPush();   // docs/587 EP4 §9.3
+            ApplyBusinessPlannerRun();   // docs/587 EP4 §9.4
+            ApplyFutureDescendantSize0();   // docs/587 EP4 §9.5
+            ApplyJungleGymExitQueue();   // docs/587 EP4 §10.1
+            ApplyWildHorseLot();   // docs/587 EP4 §10.2
+            ApplyHarvesterUnripe();   // docs/587 EP4 §10.3
+            ApplyHotTubSeatPosture();   // docs/587 EP4 §10.4
+            ApplyTeenPartyBreakUp();   // docs/587 EP4 §10.5
+            ApplyDogSwimAroundList();   // docs/587 EP4 §10.6
+            ApplyTutorBalloonAlarm();   // docs/587 EP4 §10.7
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -728,6 +740,18 @@ namespace Ts3Fixes
         // [1512-1514] bodysculptorweight (EpBatch3Logic.cs, docs/587 EP3 §8.12): weights corrected / mirrored with switch off / errors.
         // [1515-1517] nectarconsignvalue (EpBatch3Logic.cs, docs/587 EP3 §8.13): values re-rolled / minimum with switch off / errors.
         // [1518-1520] straygnometns (EpBatch3Logic.cs, docs/587 EP3 §8.14): runs with right notice / stale notices with switch off / errors.
+        // [1521-1523] dogswimslots (EpBatch4Logic.cs, docs/587 EP4 §9.1): loops skipped, no free slot / would throw with switch off / errors.
+        // [1524-1526] fragmentreconstruct (EpBatch4Logic.cs, docs/587 EP4 §9.2): Target picked first / extra fragment used with switch off / errors.
+        // [1527-1529] labobjectpush (EpBatch4Logic.cs, docs/587 EP4 §9.3): lot objects pushed / idle students with switch off / errors.
+        // [1530-1532] businessplannerrun (EpBatch4Logic.cs, docs/587 EP4 §9.4): runs fixed / shared roll or pocketing with switch off / errors.
+        // [1533-1535] futuredescendantsize0 (EpBatch4Logic.cs, docs/587 EP4 §9.5): unpacks, renames or stuck loops skipped / seen with switch off / errors.
+        // [1536-1538] junglegymexitqueue (EpBatch4bLogic.cs, docs/587 EP4 §10.1): stale entries dropped / stale heads with switch off / errors.
+        // [1539-1541] wildhorselot (EpBatch4bLogic.cs, docs/587 EP4 §10.2): picks with corrected weights / big parks under-weighted with switch off / errors.
+        // [1542-1544] harvesterunripe (EpBatch4bLogic.cs, docs/587 EP4 §10.3): unripe suctions skipped / harvested unripe with switch off / errors.
+        // [1545-1547] hottubseatposture (EpBatch4bLogic.cs, docs/587 EP4 §10.4): duplicate inits skipped / duplicate alarms with switch off / errors.
+        // [1548-1550] teenpartybreakup (EpBatch4bLogic.cs, docs/587 EP4 §10.5): runs past a missing party / not counted with switch off / errors.
+        // [1551-1553] dogswimaroundlist (EpBatch4bLogic.cs, docs/587 EP4 §10.6): dogs put back / left off with switch off / errors.
+        // [1554-1556] tutorballoonalarm (EpBatch4bLogic.cs, docs/587 EP4 §10.7): alarms moved to tutoring start / started at creation with switch off / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -1202,6 +1226,18 @@ namespace Ts3Fixes
                 case "bodysculptorweight": return Instantiator.kBodySculptorWeight;
                 case "nectarconsignvalue": return Instantiator.kNectarConsignValue;
                 case "straygnometns": return Instantiator.kStrayGnomeTns;
+                case "dogswimslots": return Instantiator.kDogSwimSlots;
+                case "fragmentreconstruct": return Instantiator.kFragmentReconstruct;
+                case "labobjectpush": return Instantiator.kLabObjectPush;
+                case "businessplannerrun": return Instantiator.kBusinessPlannerRun;
+                case "futuredescendantsize0": return Instantiator.kFutureDescendantSize0;
+                case "junglegymexitqueue": return Instantiator.kJungleGymExitQueue;
+                case "wildhorselot": return Instantiator.kWildHorseLot;
+                case "harvesterunripe": return Instantiator.kHarvesterUnripe;
+                case "hottubseatposture": return Instantiator.kHotTubSeatPosture;
+                case "teenpartybreakup": return Instantiator.kTeenPartyBreakUp;
+                case "dogswimaroundlist": return Instantiator.kDogSwimAroundList;
+                case "tutorballoonalarm": return Instantiator.kTutorBalloonAlarm;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

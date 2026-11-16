@@ -51,6 +51,8 @@ const TARGET_VARS: Record<string, string> = {
   'EpBatch3Logic.cs:sBsShape': 'Sims3.Gameplay.Objects.Rewards.BodySculptor+ChangeShape',
   'EpBatch3Logic.cs:sNvData': 'Sims3.Gameplay.Objects.Register.ConsignmentRegister+ConsignmentRegisterData',
   'EpBatch3Logic.cs:sGnRun': 'Sims3.Gameplay.Objects.Environment.StrayWildlifeGnome+DisallowStrayWildlife',
+  'EpBatch4Logic.cs:sFrType': 'Sims3.Gameplay.Objects.TombObjects.FragmentedObject+Reconstruct',
+  'EpBatch4bLogic.cs:sDaType': 'Sims3.Gameplay.Pools.DoggySwimAround',
   'EpBatch1bLogic.cs:sGpType': 'Sims3.Gameplay.Objects.Appliances.MakeGourmetFoodForPet',
   'BowlingLane.cs:sBlLane': 'BowlingLane', 'BowlingLane.cs:sBlBowl': 'BowlingLane+BowlInBowlingLane', 'CleanFlag.cs:pitPutAway': 'FirePit+PutAway',
 };
