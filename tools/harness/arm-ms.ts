@@ -54,7 +54,7 @@ export function runArms(rows: Record<string, number>[], slices?: Slice[]): Recor
   return out;
 }
 
-function loadRun(tag: string) {
+export function loadRun(tag: string) {
   const f = readdirSync(PROFILE).filter(n => n.startsWith(`${tag}-`) && /^\d+-seconds\.csv$/.test(n.slice(tag.length + 1)))
     .sort((a, b) => statSync(join(PROFILE, b)).mtimeMs - statSync(join(PROFILE, a)).mtimeMs)[0];
   if (!f) throw new Error(`no ${tag}-<secs>-seconds.csv in ${PROFILE}`);
