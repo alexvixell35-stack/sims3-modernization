@@ -298,6 +298,23 @@ namespace Ts3Fixes
         [Tunable] public static bool kSculptPose = true;    // sculptpose (docs/568 §3): Sculpt Sim failure paths leave the subject posing
         [Tunable] public static bool kDoorGen = true;    // doorgen (docs/585, by Dalexlol, PR #430): bump ts3native's door generation for DoorMemoX=3; memo answers only unseen / seen-NPC jobs (docs/585 §5)
         [Tunable] public static bool kTrainBoost = true;    // trainboost (docs/569 §1): a trainer reset during Train Sim leaves the trainee's doubled Athletic / shape gain for good
+        [Tunable] public static bool kProtestExit = false;    // protestexit (B12 §1, docs/590 B2): a cancelled NPC protest ends with Exit(), so the child protest's lot-change handler is removed
+        [Tunable] public static bool kJogTerrain = false;    // jogterrain (B12 §2, docs/590 B3): a fatigued jogger's walk back is created on the terrain instead of throwing every minute
+        [Tunable] public static bool kLifeguardQuit = false;    // lifeguardquit (B12 §3, docs/590 B4): a lifeguard who quit mid-survey stops the loop instead of throwing in RescueCheck
+        [Tunable] public static bool kFrolicExit = false;    // frolicexit (B12 §4, docs/590 B5): any critical motive ends a fairy frolic, not only the last one in the list
+        [Tunable] public static bool kShooDef = false;    // shoodef (B12 §5, docs/590 B6): the Dislikes Children shoo uses its own definition instead of writing into the shared shoo Singleton
+        [Tunable] public static bool kIglooLookats = false;    // igloolookats (B12 §6, docs/590 B8): an igloo builder's look-ats are turned back on after the build
+        [Tunable] public static bool kGoHereBoatList = false;    // gohereboatlist (B12 §7, docs/590 B10): a deleted Sim leaves the go-here boat and hover-train lists
+        [Tunable] public static bool kBouncerRole = false;    // bouncerrole (B12 §8, docs/590 B12): the bouncer notices sneakers within the tuned radius (squared) and ropes without a bouncer role do not throw
+        [Tunable] public static bool kTrickSocials = false;    // tricksocials (B12 §9, docs/590 B13): a magician trick that ends early turns the watcher's socials back on
+        [Tunable] public static bool kFearFaintUndo = false;    // fearfaintundo (B12 §10, docs/590 B13): a Fear of Humans faint that ends early restarts the robot and removes its jig
+        [Tunable] public static bool kLotPrune = false;    // lotprune (B12 §11, docs/590 B14): the player's lot-popularity map drops deleted, residential and no-longer-visited lots
+        [Tunable] public static bool kWerewolfFind = false;    // werewolffind (B12 §12, docs/590 B15): a werewolf hunt with no metal or gem in range finds nothing instead of throwing, and an insect adds to the hunt value
+        [Tunable] public static bool kCopyHomeworkFx = false;    // copyhomeworkfx (B12 §13, docs/590 A2): a homework copy cut short removes its cheating broadcaster
+        [Tunable] public static bool kSpellTargetEnd = false;    // spelltargetend (B12 §14, docs/590 A3): a spell's target stops waiting when the cast ends
+        [Tunable] public static bool kFoodTrayGrill = false;    // foodtraygrill (B12 §15, docs/590 A6): a food tray whose grill step fails is put down and a failed grill push no longer throws
+        [Tunable] public static bool kCompositionNull = false;    // compositionnull (B12 §16, docs/590 A7, 591 C8): singing and band composition imports skip missing keys and unknown compositions
+        [Tunable] public static bool kPetDreamTimer = false;    // petdreamtimer (B12 §17, docs/590 A10): a sleeping pet's dream balloon timer resets after a dream of its human too
         [Tunable] public static bool kEatOutsideCount = true;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)
         [Tunable] public static bool kHomeworkHelp = true;    // homeworkhelp (docs/565 §7): helper starting Help with Homework after the child finished hits a null jig
         [Tunable] public static bool kShellLighting = true;      // shelllighting (docs/561 §5): a buildable shell shows the lighting of the latest passed lighting time after load (EA keeps Default until the next alarm)

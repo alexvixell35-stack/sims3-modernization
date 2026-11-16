@@ -151,6 +151,23 @@ namespace Ts3Fixes
             ApplySculptPose();    // docs/568 §3 (SculptPose.cs)
             ApplyTrainBoost();    // docs/569 §1 (TrainBoost.cs)
             ApplyEatOutsideCount();    // docs/569 §2 (EatOutsideCount.cs)
+            ApplyProtestExit();   // docs/590 B2 B12 §1
+            ApplyJogTerrain();   // docs/590 B3 B12 §2
+            ApplyLifeguardQuit();   // docs/590 B4 B12 §3
+            ApplyFrolicExit();   // docs/590 B5 B12 §4
+            ApplyShooDef();   // docs/590 B6 B12 §5
+            ApplyIglooLookats();   // docs/590 B8 B12 §6
+            ApplyGoHereBoatList();   // docs/590 B10 B12 §7
+            ApplyBouncerRole();   // docs/590 B12 B12 §8
+            ApplyTrickSocials();   // docs/590 B13 B12 §9
+            ApplyFearFaintUndo();   // docs/590 B13 B12 §10
+            ApplyLotPrune();   // docs/590 B14 B12 §11
+            ApplyWerewolfFind();   // docs/590 B15 B12 §12
+            ApplyCopyHomeworkFx();   // docs/590 A2 B12 §13
+            ApplySpellTargetEnd();   // docs/590 A3 B12 §14
+            ApplyFoodTrayGrill();   // docs/590 A6 B12 §15
+            ApplyCompositionNull();   // docs/590 A7, 591 C8 B12 §16
+            ApplyPetDreamTimer();   // docs/590 A10 B12 §17
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -478,6 +495,23 @@ namespace Ts3Fixes
         // [2564-2565] free (released).
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
+        // [3064-3066] protestexit (Batch590Logic.cs, B12 §1, docs/590 B2): exits / root-only cancels (switch off) / errors.
+        // [3067-3069] jogterrain (Batch590Logic.cs, B12 §2, docs/590 B3): walk-backs queued / fatigue checks with the switch off / errors.
+        // [3070-3072] lifeguardquit (Batch590Logic.cs, B12 §3, docs/590 B4): loops ended / quit loops run on (switch off) / errors.
+        // [3073-3075] frolicexit (Batch590Logic.cs, B12 §4, docs/590 B5): frolics ended / missed with the switch off / errors.
+        // [3076-3078] shoodef (Batch590Logic.cs, B12 §5, docs/590 B6): shoos with an own definition / shared writes (switch off) / errors.
+        // [3079-3081] igloolookats (Batch590Logic.cs, B12 §6, docs/590 B8): look-ats restored / left off (switch off) / errors.
+        // [3082-3084] gohereboatlist (Batch590Logic.cs, B12 §7, docs/590 B10): Sims dropped / left in a list (switch off) / errors.
+        // [3085-3087] bouncerrole (Batch590Logic.cs, B12 §8, docs/590 B12): notice tests answered our way / tests with the switch off / null-role runs ended.
+        // [3088-3090] tricksocials (Batch590Logic.cs, B12 §9, docs/590 B13): restored / left off (switch off) / errors.
+        // [3091-3093] fearfaintundo (Batch590Logic.cs, B12 §10, docs/590 B13): undone / left (switch off) / errors.
+        // [3094-3096] lotprune (Batch590Logic.cs, B12 §11, docs/590 B14): lots pruned / lots kept (switch off) / errors.
+        // [3097-3099] werewolffind (Batch590Logic.cs, B12 §12, docs/590 B15): null finds and insect sums fixed / seen with the switch off / errors.
+        // [3100-3102] copyhomeworkfx (Batch590Logic.cs, B12 §13, docs/590 A2): cleared / left (switch off) / errors.
+        // [3103-3105] spelltargetend (Batch590Logic.cs, B12 §14, docs/590 A3): targets released / left waiting (switch off) / errors.
+        // [3106-3108] foodtraygrill (Batch590Logic.cs, B12 §15, docs/590 A6): fixed returns / seen with the switch off / errors.
+        // [3109-3111] compositionnull (Batch590Logic.cs, B12 §16, docs/590 A7, 591 C8): imports cleaned / nulls kept (switch off) / errors.
+        // [3112-3114] petdreamtimer (Batch590Logic.cs, B12 §17, docs/590 A10): timers reset / left due (switch off) / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -815,6 +849,23 @@ namespace Ts3Fixes
                 case "sculptpose": return Instantiator.kSculptPose;
                 case "trainboost": return Instantiator.kTrainBoost;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
+                case "protestexit": return Instantiator.kProtestExit;
+                case "jogterrain": return Instantiator.kJogTerrain;
+                case "lifeguardquit": return Instantiator.kLifeguardQuit;
+                case "frolicexit": return Instantiator.kFrolicExit;
+                case "shoodef": return Instantiator.kShooDef;
+                case "igloolookats": return Instantiator.kIglooLookats;
+                case "gohereboatlist": return Instantiator.kGoHereBoatList;
+                case "bouncerrole": return Instantiator.kBouncerRole;
+                case "tricksocials": return Instantiator.kTrickSocials;
+                case "fearfaintundo": return Instantiator.kFearFaintUndo;
+                case "lotprune": return Instantiator.kLotPrune;
+                case "werewolffind": return Instantiator.kWerewolfFind;
+                case "copyhomeworkfx": return Instantiator.kCopyHomeworkFx;
+                case "spelltargetend": return Instantiator.kSpellTargetEnd;
+                case "foodtraygrill": return Instantiator.kFoodTrayGrill;
+                case "compositionnull": return Instantiator.kCompositionNull;
+                case "petdreamtimer": return Instantiator.kPetDreamTimer;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

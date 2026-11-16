@@ -24,6 +24,7 @@ export type Row = Patch & { yields: string; proof: string; purpose: string; acti
 
 // a target held in a variable: variable name in that file -> the class it names
 const TARGET_VARS: Record<string, string> = {
+  'Batch590Logic.cs:sGbState': 'Sims3.Gameplay.Objects.Vehicles.GoHereWithSituation+GoToPointState', 'Batch590Logic.cs:sBrAsk': 'Sims3.Gameplay.Objects.Miscellaneous.VelvetRopes+AskToGetIn', 'Batch590Logic.cs:sBrBribe': 'Sims3.Gameplay.Objects.Miscellaneous.VelvetRopes+BribeBouncer', 'Batch590Logic.cs:sChType': 'Sims3.Gameplay.Objects.Miscellaneous.Homework+CopyHomework', 'Batch590Logic.cs:sFtgType': 'Sims3.Gameplay.Objects.CookingObjects.FoodTray_Prepare',
   'RefTable.cs:t': 'ScriptCore.ReferenceHashtable', 'CachedReflection.cs:pc': 'ScriptCore.PersistedClass',
   'CachedReflection.cs:db': 'ScriptCore.PersistedClassDB', 'FewerPlans.cs:helper': 'LotManager+RunStuckCheckHelper',
   'RouteSources.cs:watch': 'VelvetRopes+WatchDoor', 'PlayTrace.cs:flow': 'Sims3.UI.GameEntry.PlayFlowInWorldFlow',
