@@ -384,6 +384,22 @@ namespace Ts3Fixes
             ApplyBodySculptorWeight();   // docs/587 EP3 §8.12
             ApplyNectarConsignValue();   // docs/587 EP3 §8.13
             ApplyStrayGnomeTns();   // docs/587 EP3 §8.14
+            ApplyDogSwimSlots();   // docs/587 EP4 §9.1
+            ApplyFragmentReconstruct();   // docs/587 EP4 §9.2
+            ApplyLabObjectPush();   // docs/587 EP4 §9.3
+            ApplyBusinessPlannerRun();   // docs/587 EP4 §9.4
+            ApplyFutureDescendantSize0();   // docs/587 EP4 §9.5
+            ApplyJungleGymExitQueue();   // docs/587 EP4 §10.1
+            ApplyWildHorseLot();   // docs/587 EP4 §10.2
+            ApplyHarvesterUnripe();   // docs/587 EP4 §10.3
+            ApplyHotTubSeatPosture();   // docs/587 EP4 §10.4
+            ApplyTeenPartyBreakUp();   // docs/587 EP4 §10.5
+            ApplyDogSwimAroundList();   // docs/587 EP4 §10.6
+            ApplyTutorBalloonAlarm();   // docs/587 EP4 §10.7
+            ApplyOneShotVfx();   // docs/587 EP5 §11.1
+            ApplyEpBatch5b();   // docs/587 EP5 §11.2
+            ApplyEpBatch6();   // docs/587 EP6 §12.1
+            ApplyStoreBatch1();   // docs/587 store §13
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -983,6 +999,52 @@ namespace Ts3Fixes
         // [1512-1514] bodysculptorweight (EpBatch3Logic.cs, docs/587 EP3 §8.12): weights corrected / mirrored with switch off / errors.
         // [1515-1517] nectarconsignvalue (EpBatch3Logic.cs, docs/587 EP3 §8.13): values re-rolled / minimum with switch off / errors.
         // [1518-1520] straygnometns (EpBatch3Logic.cs, docs/587 EP3 §8.14): runs with right notice / stale notices with switch off / errors.
+        // [1521-1523] dogswimslots (EpBatch4Logic.cs, docs/587 EP4 §9.1): loops skipped, no free slot / would throw with switch off / errors.
+        // [1524-1526] fragmentreconstruct (EpBatch4Logic.cs, docs/587 EP4 §9.2): Target picked first / extra fragment used with switch off / errors.
+        // [1527-1529] labobjectpush (EpBatch4Logic.cs, docs/587 EP4 §9.3): lot objects pushed / idle students with switch off / errors.
+        // [1530-1532] businessplannerrun (EpBatch4Logic.cs, docs/587 EP4 §9.4): runs fixed / shared roll or pocketing with switch off / errors.
+        // [1533-1535] futuredescendantsize0 (EpBatch4Logic.cs, docs/587 EP4 §9.5): unpacks, renames or stuck loops skipped / seen with switch off / errors.
+        // [1536-1538] junglegymexitqueue (EpBatch4bLogic.cs, docs/587 EP4 §10.1): stale entries dropped / stale heads with switch off / errors.
+        // [1539-1541] wildhorselot (EpBatch4bLogic.cs, docs/587 EP4 §10.2): picks with corrected weights / big parks under-weighted with switch off / errors.
+        // [1542-1544] harvesterunripe (EpBatch4bLogic.cs, docs/587 EP4 §10.3): unripe suctions skipped / harvested unripe with switch off / errors.
+        // [1545-1547] hottubseatposture (EpBatch4bLogic.cs, docs/587 EP4 §10.4): duplicate inits skipped / duplicate alarms with switch off / errors.
+        // [1548-1550] teenpartybreakup (EpBatch4bLogic.cs, docs/587 EP4 §10.5): runs past a missing party / not counted with switch off / errors.
+        // [1551-1553] dogswimaroundlist (EpBatch4bLogic.cs, docs/587 EP4 §10.6): dogs put back / left off with switch off / errors.
+        // [1554-1556] tutorballoonalarm (EpBatch4bLogic.cs, docs/587 EP4 §10.7): alarms moved to tutoring start / started at creation with switch off / errors.
+        // [1557-1559] chemistryvfx (EpBatch5Logic.cs, docs/587 EP5 §11.1): dropped effects auto-destroyed / dropped with switch off / errors.
+        // [1560-1562] dartboardvfx (EpBatch5Logic.cs, docs/587 EP5 §11.1): dropped effects auto-destroyed / dropped with switch off / errors.
+        // [1563-1565] wardrobewandvfx (EpBatch5Logic.cs, docs/587 EP5 §11.1): dropped effects auto-destroyed / dropped with switch off / errors.
+        // [1566-1568] petdroolvfx (EpBatch5Logic.cs, docs/587 EP5 §11.1): dropped effects auto-destroyed / dropped with switch off / errors.
+        // [1569-1571] timeportalvfx (EpBatch5Logic.cs, docs/587 EP5 §11.1): dropped effects auto-destroyed / dropped with switch off / errors.
+        // [1572-1574] haystackvfx (EpBatch5Logic.cs, docs/587 EP5 §11.1): dropped effects auto-destroyed / dropped with switch off / errors.
+        // [1575-1577] hayscattertime (EpBatch5bLogic.cs, docs/587 EP5 §11.2.1): scatter times reset / kept with switch off / errors.
+        // [1578-1580] hauntedgnomeinv (EpBatch5bLogic.cs, docs/587 EP5 §11.2.2): inventory gnomes cleaned / kept with switch off / errors.
+        // [1581-1583] houdinignomeleak (EpBatch5bLogic.cs, docs/587 EP5 §11.2.3): orphan gnomes destroyed / fallback skipped, no home lot / errors.
+        // [1584-1586] showstagefxend (EpBatch5bLogic.cs, docs/587 EP5 §11.2.4): one-shots ended, stale turn-ons skipped, failures fired, effects disposed / show ends dropped with switch off / errors.
+        // [1587-1589] soakedpetselfreact (EpBatch5bLogic.cs, docs/587 EP5 §11.2.5): self reactions skipped / shakes with switch off / errors.
+        // [1590-1592] tagbagsurfaceleak (EpBatch5bLogic.cs, docs/587 EP5 §11.2.6): surfaces destroyed / leaked with switch off / errors.
+        // [1593-1595] equestriantrophyname (EpBatch5bLogic.cs, docs/587 EP5 §11.2.7): horse names restored / rider name kept with switch off / errors.
+        // [1596-1598] rubbleuselist (EpBatch5bLogic.cs, docs/587 EP5 §11.2.8): Sims taken off / left on with switch off / errors.
+        // [1600-1602] backpacklotleak (EpBatch5bLogic.cs, docs/587 EP5 §11.2.9): lot handlers dropped / left subscribed with switch off / errors.
+        // [1603-1605] streetartmasterboost (EpBatch5bLogic.cs, docs/587 EP5 §11.2.10): Master rows boosted / boost missed with switch off / errors.
+        // [1606-1608] bubblingspringsreset (EpBatch5bLogic.cs, docs/587 EP5 §11.2.11): broadcasters recreated / left missing with switch off / errors.
+        // [1609-1611] floorswitchuselist (EpBatch6Logic.cs, docs/587 EP6 §12.1): Sims taken off / left on with switch off / errors.
+        // [1612-1614] donationbuffchance (EpBatch6Logic.cs, docs/587 EP6 §12.2): rolls that changed outcome / rolls with switch off / errors.
+        // [1615-1617] vampirefruitsnack (EpBatch6Logic.cs, docs/587 EP6 §12.3): Snacks at the threshold / Sated with switch off / errors.
+        // [1618-1620] fallenrockcollected (EpBatch6Logic.cs, docs/587 EP6 §12.4): collected rocks kept / destroyed with switch off / errors.
+        // [1621-1623] spellbooksummonload (StoreBatch1Logic.cs, docs/587 store §13.1): Summon spell progress restored on import.
+        // [1624-1626] chocfountaingeyser (StoreBatch1Logic.cs, docs/587 store §13.2): old geyser alarms removed on refill.
+        // [1627-1629] hypnotrickrelease (StoreBatch1Logic.cs, docs/587 store §13.3): volunteers released when the trick ends.
+        // [1630-1632] voodoofairyfadein (StoreBatch1Logic.cs, docs/587 store §13.4): hidden fairies faded in on cleanup.
+        // [1633-1635] saunatubclear (StoreBatch1Logic.cs, docs/587 store §13.5): sauna holds cleared when bathing ends.
+        // [1636-1638] slotmachinedefs (StoreBatch1Logic.cs, docs/587 store §13.6): shared stakes entries kept.
+        // [1639-1641] treewishingwell (StoreBatch1Logic.cs, docs/587 store §13.7): store wishing wells counted.
+        // [1642-1644] playpentalkcast (StoreBatch1Logic.cs, docs/587 store §13.8): old talk broadcasters disposed.
+        // [1645-1647] ovenmenunull (StoreBatch1Logic.cs, docs/587 store §13.9): null menu lists skipped.
+        // [1648-1650] fvstandskillcurve (StoreBatch1Logic.cs, docs/587 store §13.10): stand skill curve rebuilt.
+        // [1651-1653] pokerdeadplayer (StoreBatch1Logic.cs, docs/587 store §13.11): gone players unseated.
+        // [1654-1656] roulettehackreset (StoreBatch1Logic.cs, docs/587 store §13.12): hacks cleared on reset.
+        // [1657-1659] coopeggquality (StoreBatch1Logic.cs, docs/587 store §13.13): egg quality index shifted to the Quality enum.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -1591,6 +1653,52 @@ namespace Ts3Fixes
                 case "bodysculptorweight": return Instantiator.kBodySculptorWeight;
                 case "nectarconsignvalue": return Instantiator.kNectarConsignValue;
                 case "straygnometns": return Instantiator.kStrayGnomeTns;
+                case "dogswimslots": return Instantiator.kDogSwimSlots;
+                case "fragmentreconstruct": return Instantiator.kFragmentReconstruct;
+                case "labobjectpush": return Instantiator.kLabObjectPush;
+                case "businessplannerrun": return Instantiator.kBusinessPlannerRun;
+                case "futuredescendantsize0": return Instantiator.kFutureDescendantSize0;
+                case "junglegymexitqueue": return Instantiator.kJungleGymExitQueue;
+                case "wildhorselot": return Instantiator.kWildHorseLot;
+                case "harvesterunripe": return Instantiator.kHarvesterUnripe;
+                case "hottubseatposture": return Instantiator.kHotTubSeatPosture;
+                case "teenpartybreakup": return Instantiator.kTeenPartyBreakUp;
+                case "dogswimaroundlist": return Instantiator.kDogSwimAroundList;
+                case "tutorballoonalarm": return Instantiator.kTutorBalloonAlarm;
+                case "chemistryvfx": return Instantiator.kChemistryVfx;
+                case "dartboardvfx": return Instantiator.kDartboardVfx;
+                case "wardrobewandvfx": return Instantiator.kWardrobeWandVfx;
+                case "petdroolvfx": return Instantiator.kPetDroolVfx;
+                case "timeportalvfx": return Instantiator.kTimePortalVfx;
+                case "haystackvfx": return Instantiator.kHayStackVfx;
+                case "hayscattertime": return Instantiator.kHayScatterTime;
+                case "hauntedgnomeinv": return Instantiator.kHauntedGnomeInv;
+                case "houdinignomeleak": return Instantiator.kHoudiniGnomeLeak;
+                case "showstagefxend": return Instantiator.kShowStageFxEnd;
+                case "soakedpetselfreact": return Instantiator.kSoakedPetSelfReact;
+                case "tagbagsurfaceleak": return Instantiator.kTagBagSurfaceLeak;
+                case "equestriantrophyname": return Instantiator.kEquestrianTrophyName;
+                case "rubbleuselist": return Instantiator.kRubbleUseList;
+                case "backpacklotleak": return Instantiator.kBackpackLotLeak;
+                case "streetartmasterboost": return Instantiator.kStreetArtMasterBoost;
+                case "bubblingspringsreset": return Instantiator.kBubblingSpringsReset;
+                case "floorswitchuselist": return Instantiator.kFloorSwitchUseList;
+                case "donationbuffchance": return Instantiator.kDonationBuffChance;
+                case "vampirefruitsnack": return Instantiator.kVampireFruitSnack;
+                case "fallenrockcollected": return Instantiator.kFallenRockCollected;
+                case "spellbooksummonload": return Instantiator.kSpellBookSummonLoad;
+                case "chocfountaingeyser": return Instantiator.kChocFountainGeyser;
+                case "hypnotrickrelease": return Instantiator.kHypnoTrickRelease;
+                case "voodoofairyfadein": return Instantiator.kVoodooFairyFadeIn;
+                case "saunatubclear": return Instantiator.kSaunaTubClear;
+                case "slotmachinedefs": return Instantiator.kSlotMachineDefs;
+                case "treewishingwell": return Instantiator.kTreeWishingWell;
+                case "playpentalkcast": return Instantiator.kPlaypenTalkCast;
+                case "ovenmenunull": return Instantiator.kOvenMenuNull;
+                case "fvstandskillcurve": return Instantiator.kFvStandSkillCurve;
+                case "pokerdeadplayer": return Instantiator.kPokerDeadPlayer;
+                case "roulettehackreset": return Instantiator.kRouletteHackReset;
+                case "coopeggquality": return Instantiator.kCoopEggQuality;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

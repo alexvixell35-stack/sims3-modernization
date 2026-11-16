@@ -40,7 +40,7 @@ namespace Ts3Fixes
         // Dispose path are unchanged. Household-visible: stored collectibles survive a reset.
         // Counters: [1400] resets that kept the contents, [1401] resets that destroyed contents with the switch off, [1402] errors.
         static readonly Type sDcResetInfo = typeof(GameObject).GetNestedType("ResetInformation", BindingFlags.NonPublic | BindingFlags.Public);
-        static int sDcResetDepth;
+        static object sDcResetting;   // the case whose DoReset is running (review: was one counter for all cases)
 
         // Pure: does this Cleanup keep the items? (inside DoReset, EA's destroy branch, something stored)
         internal static bool DcKeep(bool on, bool inReset, bool buildModeMove, int items)
@@ -59,9 +59,10 @@ namespace Ts3Fixes
         {
             public void ResetHook(object resetInformation)
             {
-                sDcResetDepth++;
+                object prev = sDcResetting;
+                sDcResetting = this;
                 try { ResetOrig(resetInformation); }
-                finally { sDcResetDepth--; }
+                finally { sDcResetting = prev; }
             }
             public void ResetOrig(object resetInformation) { } // MetalMineralPotionDisplayCase.DoReset
 
@@ -71,17 +72,17 @@ namespace Ts3Fixes
                 bool keep = false;
                 try
                 {
-                    if (sDcResetDepth > 0 && c.Inventory != null)
+                    bool on = ShortcutOn("displaycasereset");
+                    bool inReset = sDcResetting == (object)c && c.Inventory != null;
+                    bool move = false; int items = 0;
+                    if (inReset)
                     {
                         Sim sel = PlumbBob.SelectedActor;
-                        bool move = LotManager.sIsBuildBuyModeOn && sel != null && c.GetOwnerLot() == sel.LotHome;  // EA's build-mode branch
-                        int items = c.Inventory.AmountIn<GameObject>();
-                        if (!move && items > 0)
-                        {
-                            if (!ShortcutOn("displaycasereset")) PatchCounters()[1401]++;
-                            else keep = DcKeep(true, true, false, items);
-                        }
+                        move = LotManager.sIsBuildBuyModeOn && sel != null && c.GetOwnerLot() == sel.LotHome;  // EA's build-mode branch
+                        items = c.Inventory.AmountIn<GameObject>();
                     }
+                    keep = DcKeep(on, inReset, move, items);
+                    if (!keep && !on && DcKeep(true, inReset, move, items)) PatchCounters()[1401]++;
                 }
                 catch (Exception) { PatchCounters()[1402]++; keep = false; }
                 if (!keep) { CleanupOrig(); return; }
@@ -115,6 +116,8 @@ namespace Ts3Fixes
         }
         // Pure: the index used with the switch on / off.
         internal static int SuIndex(bool on, bool academic, int grade) { return on ? SuFixIndex(academic, grade) : SuEaIndex(academic, grade); }
+        // Pure: does this score get a different multiplier than EA's? (the hook's decision)
+        internal static bool SuCorrects(bool on, bool academic, int grade) { return SuIndex(on, academic, grade) != SuEaIndex(academic, grade); }
         // Pure: EA's clamp of the scaled score.
         internal static uint SuClamp(int num) { num = num > 400 ? 400 : num; return num < 100 ? 100u : (uint)num; }
 
@@ -140,9 +143,14 @@ namespace Ts3Fixes
                     else if (a != null && a.School != null) grade = (int)a.School.CurrentGrade();
                 }
                 catch (Exception) { PatchCounters()[1405]++; return ScoreOrig(degreeName); }
-                int ea = SuEaIndex(academic, grade), fix = SuFixIndex(academic, grade);
-                if (bonus == null || bonus.Length < 5 || ea == fix) return ScoreOrig(degreeName);
-                if (!ShortcutOn("suatgradebonus")) { PatchCounters()[1404]++; return ScoreOrig(degreeName); }
+                if (bonus == null || bonus.Length < 5) return ScoreOrig(degreeName);
+                bool on = ShortcutOn("suatgradebonus");
+                if (!SuCorrects(on, academic, grade))
+                {
+                    if (!on && SuCorrects(true, academic, grade)) PatchCounters()[1404]++;
+                    return ScoreOrig(degreeName);
+                }
+                int ea = SuEaIndex(academic, grade), fix = SuIndex(on, academic, grade);
                 PatchCounters()[1403]++;
                 if (academic)
                 {
@@ -187,7 +195,8 @@ namespace Ts3Fixes
         {
             public bool RunHook()
             {
-                if (!ShortcutOn("mermaidsharknull"))
+                bool on = ShortcutOn("mermaidsharknull");
+                if (!on)
                 {
                     try { return RunOrig(); }
                     catch (NullReferenceException) { PatchCounters()[1407]++; throw; }
@@ -204,13 +213,14 @@ namespace Ts3Fixes
                     s.mMarineLifeObject = s.mSpeciesToSpawn == MarineLifeSpecies.Undefined ? MarineLifeBase.MakeRandomShark() : MarineLifeBase.Make(s.mSpeciesToSpawn);
                     if (s.mMarineLifeObject == null) return false;
                     s.mMarineLifeObject.mSpawnerParent = null;
-                    if (!s.mMarineLifeObject.TryToPlaceAndFadeIn(actor))
+                    bool placed = s.mMarineLifeObject.TryToPlaceAndFadeIn(actor);
+                    if (!placed)
                     {
                         s.mMarineLifeObject.Destroy();
                         s.mMarineLifeObject = null;
                         PatchCounters()[1406]++;
                     }
-                    else s.mMarineLifeObject.RequestState(MarineLifeStateType.NewlySpawned);  // EA: called even after a failed placement
+                    if (placed) s.mMarineLifeObject.RequestState(MarineLifeStateType.NewlySpawned);  // EA: also after a failed placement (on null)
                 }
                 if (s.mMarineLifeObject == null)
                 {
@@ -266,12 +276,11 @@ namespace Ts3Fixes
                 bool skip = false;
                 try
                 {
+                    bool on = ShortcutOn("jetpackflyherecleanup");
                     Sim a = ((Jetpack.FlyHere)(object)this).Actor;
-                    if (a != null && a.GetActiveJetpack() == null)
-                    {
-                        if (!ShortcutOn("jetpackflyherecleanup")) PatchCounters()[1410]++;
-                        else skip = JfSkip(true, false);
-                    }
+                    bool hasJetpack = a == null || a.GetActiveJetpack() != null;   // no actor: EA's code as before
+                    skip = JfSkip(on, hasJetpack);
+                    if (!skip && !on && JfSkip(true, hasJetpack)) PatchCounters()[1410]++;
                 }
                 catch (Exception) { PatchCounters()[1411]++; skip = false; }
                 if (!skip) { CleanupOrig(); return; }
@@ -313,15 +322,19 @@ namespace Ts3Fixes
                 {
                     NaniteTerrarium.ReverseEngineer r = (NaniteTerrarium.ReverseEngineer)(object)this;
                     Sim a = r.Actor; NaniteTerrarium t = r.Target;
-                    if (a != null && t != null && a.HasExitReason() && !a.HasExitReason(ExitReason.Canceled) && (a.Inventory == null || !a.Inventory.Contains(t)))
+                    if (a != null && t != null)
                     {
-                        if (!ShortcutOn("naniteroutefail")) PatchCounters()[1413]++;
-                        else keep = NrKeep(true, true, false, false);
+                        bool on = ShortcutOn("naniteroutefail");
+                        bool hasExit = a.HasExitReason(), canceled = a.HasExitReason(ExitReason.Canceled);
+                        bool inInv = a.Inventory != null && a.Inventory.Contains(t);
+                        keep = NrKeep(on, hasExit, canceled, inInv);
+                        if (!keep && !on && NrKeep(true, hasExit, canceled, inInv)) PatchCounters()[1413]++;
                     }
                 }
                 catch (Exception) { PatchCounters()[1414]++; keep = false; }
                 if (!keep) { CleanupOrig(); return; }
                 PatchCounters()[1412]++;
+                try { NaniteTerrarium kt = Target; if (kt != null) kt.SetOpacity(1f, 0f); } catch (Exception) { PatchCounters()[1414]++; }
                 base.Cleanup();
                 GameObject prop = sNrProp.GetValue(this) as GameObject;
                 if (prop != null) { prop.Destroy(); sNrProp.SetValue(this, null); }
@@ -359,9 +372,10 @@ namespace Ts3Fixes
                     try
                     {
                         PairedListDictionary<Sim, float> d = sSdDancers.GetValue(this) as PairedListDictionary<Sim, float>;
+                        bool on = ShortcutOn("springdanceclear");
                         int n = d == null ? 0 : d.Count;
-                        if (SdClear(ShortcutOn("springdanceclear"), n)) { d.Clear(); PatchCounters()[1415]++; }
-                        else if (n > 0) PatchCounters()[1416]++;
+                        if (SdClear(on, n)) { d.Clear(); PatchCounters()[1415]++; }
+                        else if (!on && SdClear(true, n)) PatchCounters()[1416]++;
                     }
                     catch (Exception) { PatchCounters()[1417]++; }
                 }
@@ -399,14 +413,19 @@ namespace Ts3Fixes
                 if (src == null) return;
                 try
                 {
-                    if (!ShortcutOn("nectarcopylevel10")) { PatchCounters()[1419]++; return; }
-                    NectarBottle b = (NectarBottle)(object)this;
+                    bool on = ShortcutOn("nectarcopylevel10");
                     NectarBottle.NectarBottleGlassInfo si = (NectarBottle.NectarBottleGlassInfo)sNcInfo.GetValue(src);
+                    if (!NcCopied(on, si.MadeByLevel10Sim))
+                    {
+                        if (!on && NcCopied(true, si.MadeByLevel10Sim)) PatchCounters()[1419]++;
+                        return;
+                    }
+                    NectarBottle b = (NectarBottle)(object)this;
                     NectarBottle.NectarBottleGlassInfo bi = (NectarBottle.NectarBottleGlassInfo)sNcInfo.GetValue(b);
-                    bi.MadeByLevel10Sim = NcCopied(true, si.MadeByLevel10Sim);
+                    bi.MadeByLevel10Sim = true;
                     sNcInfo.SetValue(b, bi);
                     sNcVisual.Invoke(b, null);
-                    sNcFx.Invoke(b, null);
+                    if (b.InWorld) sNcFx.Invoke(b, null);   // AddToWorld starts it otherwise
                     PatchCounters()[1418]++;
                 }
                 catch (Exception) { PatchCounters()[1420]++; }
@@ -450,14 +469,15 @@ namespace Ts3Fixes
         {
             public void StartHook(bool onGround)
             {
-                if (!ShortcutOn("harvesteatvfx")) { PatchCounters()[1422]++; StartOrig(onGround); return; }
+                bool on = ShortcutOn("harvesteatvfx");
+                if (!on) { PatchCounters()[1422]++; StartOrig(onGround); return; }
                 try
                 {
                     FieldInfo f = onGround ? sHeGround : sHeFall;
                     if (f.GetValue(this) != null) return;  // EA's `if (visualEffect == null)`
                     Sim a = ((InteractionInstance)(object)this).InstanceActor;
                     string name = HeName(a.IsHorse, a.IsFullSizeDog, a.IsLittleDog, a.TraitManager.HasElement(TraitNames.PiggyPet), onGround);
-                    if (!HeCreates(true, name)) return;
+                    if (!HeCreates(on, name)) return;
                     VisualEffect fx = VisualEffect.Create(name);
                     if (fx == null) return;
                     fx.ParentTo(a, Sim.FXJoints.Mouth);
@@ -503,10 +523,15 @@ namespace Ts3Fixes
             return roomTables > 0 ? roomWithFood < roomTables : lotTables > 0 && lotWithFood < lotTables;
         }
 
+        // Pure: does the hook pick among the tables with food? (the hook's decision)
+        internal static bool BfFixes(bool on, int roomTables, int roomWithFood, int lotTables, int lotWithFood)
+        {
+            return on && BfEaMayThrow(roomTables, roomWithFood, lotTables, lotWithFood);
+        }
         // Pure: can the pick land on a table without servings (EA: ArgumentException)?
         internal static bool BfMayPickEmpty(bool on, int roomTables, int roomWithFood, int lotTables, int lotWithFood)
         {
-            return !on && BfEaMayThrow(roomTables, roomWithFood, lotTables, lotWithFood);
+            return BfEaMayThrow(roomTables, roomWithFood, lotTables, lotWithFood) && !BfFixes(on, roomTables, roomWithFood, lotTables, lotWithFood);
         }
 
         static void ApplyBuffetEmptyPick()
@@ -531,25 +556,27 @@ namespace Ts3Fixes
             public static void ConsumeHook(Sim sim)
             {
                 List<ResortBuffetTable> pick = null;
+                Slot[] slots = null;
                 try
                 {
-                    Slot[] slots = sBfSlots.GetValue(null) as Slot[];
+                    bool on = ShortcutOn("buffetemptypick");
+                    slots = sBfSlots.GetValue(null) as Slot[];
                     int roomN, lotN;
                     List<ResortBuffetTable> room = BfWithFood(sim.LotCurrent.GetObjectsInRoom<ResortBuffetTable>(sim.RoomId), slots, out roomN);
                     List<ResortBuffetTable> lot = BfWithFood(sim.LotCurrent.GetObjects<ResortBuffetTable>(), slots, out lotN);
-                    if (BfEaMayThrow(roomN, room.Count, lotN, lot.Count))
+                    if (BfFixes(on, roomN, room.Count, lotN, lot.Count))
                     {
-                        if (!ShortcutOn("buffetemptypick")) { PatchCounters()[1425]++; ConsumeOrig(sim); return; }
                         PatchCounters()[1424]++;
                         int which = BfFixList(room.Count, lot.Count);
                         pick = which == 1 ? room : which == 2 ? lot : new List<ResortBuffetTable>();
                     }
+                    else if (BfMayPickEmpty(on, roomN, room.Count, lotN, lot.Count)) PatchCounters()[1425]++;
                 }
                 catch (Exception) { PatchCounters()[1426]++; pick = null; }
                 if (pick == null) { ConsumeOrig(sim); return; }
                 if (pick.Count == 0) return;
                 ResortBuffetTable t = RandomUtil.GetRandomObjectFromList(pick);
-                ServingContainerGroup g = RandomUtil.GetRandomObjectFromList(t.GetContainedObjectList<ServingContainerGroup>(sBfSlots.GetValue(null) as Slot[]));
+                ServingContainerGroup g = RandomUtil.GetRandomObjectFromList(t.GetContainedObjectList<ServingContainerGroup>(slots));
                 sim.InteractionQueue.PushAsContinuation(ServingContainerGroup.ServingContainerGroup_GrabAServing.Singleton, g, false);
             }
             public static void ConsumeOrig(Sim sim) { } // ResortBuffetTable.ConsumeMoreFood
@@ -583,7 +610,9 @@ namespace Ts3Fixes
         }
 
         // Pure: is the friend's immunity lost?
-        internal static bool KrImmunityLost(bool on, bool[] sailor, bool[] friend) { return !on && KrMisses(sailor, friend); }
+        internal static bool KrImmunityLost(bool on, bool[] sailor, bool[] friend) { return KrMisses(sailor, friend) && !KrDrop(on, true); }
+        // Pure: is the attack one-shot for a boat noted as missed dropped? (the one-shot hook's decision)
+        internal static bool KrDrop(bool on, bool noted) { return on && noted; }
 
         static void ApplyKrakenFriendSailor()
         {
@@ -613,13 +642,16 @@ namespace Ts3Fixes
                 catch (Exception) { PatchCounters()[1429]++; sKrImmune.Clear(); }
                 int before = -1;
                 try { System.Collections.ICollection l = sKrList.GetValue(this) as System.Collections.ICollection; before = l == null ? -1 : l.Count; } catch (Exception) { }
-                AlarmOrig();
-                try
+                try { AlarmOrig(); }
+                finally
                 {
-                    System.Collections.ICollection l = sKrList.GetValue(this) as System.Collections.ICollection;
-                    if (!(before > 0 && l != null && l.Count == 0)) sKrImmune.Clear();  // EA clears its list only when it schedules an attack
+                    try
+                    {
+                        System.Collections.ICollection l = sKrList.GetValue(this) as System.Collections.ICollection;
+                        if (!(before > 0 && l != null && l.Count == 0)) sKrImmune.Clear();  // EA clears its list only when it schedules an attack
+                    }
+                    catch (Exception) { sKrImmune.Clear(); }
                 }
-                catch (Exception) { sKrImmune.Clear(); }
             }
             public void AlarmOrig() { } // KrakenManager.KrakenAttackEndAlarmCallback
 
@@ -628,12 +660,12 @@ namespace Ts3Fixes
                 bool drop = false;
                 try
                 {
+                    bool on = ShortcutOn("krakenfriendsailor");
                     KrakenAttackParams p = obj as KrakenAttackParams;
-                    if (p != null && p.TargetBoat != null && sKrImmune.ContainsKey(p.TargetBoat.ObjectId))
-                    {
-                        if (!ShortcutOn("krakenfriendsailor")) PatchCounters()[1428]++;
-                        else { drop = true; p.AttackSucceeded = false; PatchCounters()[1427]++; }
-                    }
+                    bool noted = p != null && p.TargetBoat != null && sKrImmune.ContainsKey(p.TargetBoat.ObjectId);
+                    drop = KrDrop(on, noted);
+                    if (drop) { p.AttackSucceeded = false; PatchCounters()[1427]++; }
+                    else if (noted && !on) PatchCounters()[1428]++;
                 }
                 catch (Exception) { PatchCounters()[1429]++; drop = false; }
                 sKrImmune.Clear();  // one alarm, one one-shot

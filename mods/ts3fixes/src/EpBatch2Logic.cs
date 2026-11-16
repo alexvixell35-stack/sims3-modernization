@@ -35,7 +35,7 @@ namespace Ts3Fixes
         static string sCgMissing = "";
 
         // Pure: price index used for a sale at this age (EA: age itself).
-        internal static int CgPriceIndex(bool on, int age, int prices) { return on && age >= prices ? prices - 1 : age; }
+        internal static int CgPriceIndex(bool on, int age, int prices) { return on && prices > 0 && age >= prices ? prices - 1 : age; }
         // Pure: does an item of this age roll a sale?
         internal static bool CgRolls(bool on, int age, int lifespan) { return !on || age <= lifespan; }
 
@@ -73,10 +73,15 @@ namespace Ts3Fixes
                 n = ((float[])sCgPrices[i].GetValue(null)).Length;
             }
             catch (Exception) { PatchCounters()[1468]++; return orig(obj, desc); }
-            if (age < n || n == 0) return orig(obj, desc);
-            if (!ShortcutOn("consignmentlastday")) { PatchCounters()[1467]++; return orig(obj, desc); }
+            bool on = ShortcutOn("consignmentlastday");
+            int idx = CgPriceIndex(on, age, n);
+            if (idx == age)
+            {
+                if (!on && n > 0 && age >= n) PatchCounters()[1467]++;  // EA reads kConsignmentPrices[age] out of range
+                return orig(obj, desc);
+            }
             PatchCounters()[1466]++;
-            sCgAge[i].SetValue(obj, CgPriceIndex(true, age, n), null);
+            sCgAge[i].SetValue(obj, idx, null);
             try { return orig(obj, desc); }
             finally { sCgAge[i].SetValue(obj, age, null); }
         }
@@ -85,8 +90,10 @@ namespace Ts3Fixes
         {
             try
             {
+                bool on = ShortcutOn("consignmentlastday");
                 int age = (int)sCgAge[i].GetValue(obj, null), life = (int)sCgLife[i].GetValue(null);
-                if (age > life && ShortcutOn("consignmentlastday") && !CgRolls(true, age, life)) { PatchCounters()[1466]++; return 0f; }
+                // Switch off: the out-of-range sale this roll leads to is counted (1467) in CgValue.
+                if (!CgRolls(on, age, life)) { PatchCounters()[1466]++; return 0f; }
             }
             catch (Exception) { PatchCounters()[1468]++; }
             return orig(actor, obj);
@@ -142,13 +149,13 @@ namespace Ts3Fixes
                 StopOrig(lot, timePostureStarted);
                 try
                 {
+                    bool on = ShortcutOn("bartendinghourlypay");
                     int hourly = b.AmountOfMoneyMadeBartending - before;
-                    if (hourly <= 0) return;
-                    if (!ShortcutOn("bartendinghourlypay")) { PatchCounters()[1470]++; return; }
                     SimDescription sd = b.SkillOwner;
-                    if (sd == null) return;
-                    sd.ModifyFunds(BhPaid(true, hourly));
-                    PatchCounters()[1469]++;
+                    if (sd == null) return;  // nobody to pay, either way
+                    int paid = BhPaid(on, hourly);
+                    if (paid > 0) { sd.ModifyFunds(paid); PatchCounters()[1469]++; }
+                    else if (!on && hourly > 0) PatchCounters()[1470]++;
                 }
                 catch (Exception) { PatchCounters()[1471]++; }
             }
@@ -194,17 +201,22 @@ namespace Ts3Fixes
                     SocialNetworkingSkill s = (SocialNetworkingSkill)(object)this;
                     Sim sim = s.SkillOwner == null ? null : s.SkillOwner.CreatedSim;
                     if (sim == null || sim.SkillManager == null) return;
+                    bool on = ShortcutOn("influencefollowerbonus");
                     int k = SocialNetworkingSkill.kFollowerEffectInfluence;
-                    float ea = IfValue(false, followers, k), fix = IfValue(true, followers, k);
-                    if (ea == fix) return;
+                    float ea = IfValue(false, followers, k), want = IfValue(on, followers, k);
+                    bool stepped = ea != IfValue(true, followers, k);
+                    if (!stepped) return;  // EA's step equals the scaled value: nothing to do, either way
                     for (int i = 0; i < 3; i++)
                     {
                         float cur = (float)sIfFields[i].GetValue(s);
                         if (float.IsNaN(cur) || !sim.SkillManager.HasElement(sIfSkills[i])) continue;  // EA applied nothing here
-                        if (!ShortcutOn("influencefollowerbonus")) { PatchCounters()[1473]++; continue; }
-                        sim.SkillManager.ChangeSkillGainModifier(sIfSkills[i], fix - cur);
-                        sIfFields[i].SetValue(s, fix);
-                        PatchCounters()[1472]++;
+                        if (want != cur)
+                        {
+                            sim.SkillManager.ChangeSkillGainModifier(sIfSkills[i], want - cur);
+                            sIfFields[i].SetValue(s, want);
+                            PatchCounters()[1472]++;
+                        }
+                        else if (!on) PatchCounters()[1473]++;
                     }
                 }
                 catch (Exception) { PatchCounters()[1474]++; }
@@ -269,16 +281,18 @@ namespace Ts3Fixes
         {
             public MagicBroom PickHook(Sim sim, out bool fromInventory)
             {
+                bool on = ShortcutOn("broomarenachoice");
                 BaChoice c = sBaPending;
-                if (c != null && c.Actor == sim)
+                bool chosen = c != null && c.Actor == sim;
+                if (chosen)
                 {
-                    sBaPending = null;
+                    sBaPending = null;  // consumed by this pick, either way
                     try
                     {
                         MagicBroom b = c.Broom;
                         bool usable = b != null && !b.HasBeenDestroyed && (!b.Reserved || b.mReservingSim == sim)
-                            && (c.FromInventory ? sim.Inventory != null && sim.Inventory.Contains(b) : b.InWorld);
-                        if (BaUsesChoice(ShortcutOn("broomarenachoice"), true, usable)) { PatchCounters()[1475]++; fromInventory = c.FromInventory; return b; }
+                            && (c.FromInventory ? sim.Inventory != null && sim.Inventory.Contains(b) : b.InWorld && !b.InUse && !b.PendingUse && b.CanUse(sim.SimDescription));
+                        if (BaUsesChoice(on, chosen, usable)) { PatchCounters()[1475]++; fromInventory = c.FromInventory; return b; }
                     }
                     catch (Exception) { PatchCounters()[1477]++; }
                 }
