@@ -313,3 +313,4 @@ slavewakereason
 outfitwaitend
 tpaptgoal
 hovertraintest
+newcartest
