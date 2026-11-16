@@ -14,6 +14,7 @@ Needs the plugin from master, 0.36.256 or later (older plugins ignore the newer 
 - **Fewer long routing freezes on busy worlds (`[RouteAsync]` `JobYield` with `kJobYield`, on; by Dalexlol, PR #397).** A route plan that would wait for a background route search now lets the game run on for a few ticks instead of freezing it. Isla Paradiso: hitches of 300 ms or more about halved (0.53x), 1 s or more 0.41x; Bridgeport and Sunset Valley no worse. Routes of your own Sims give the same result.
 - **Background route searches for Sims you can't see always stay time-limited (`[RouteAsync]` `KdUnseenForeignCap`, on; by Dalexlol, PR #378).** A townie retrying a spot it cannot reach could make the background search run uncut again and again, holding up the game for up to 21 s on Isla Paradiso. Those searches keep a time limit now (27 such freezes in a repeat run went to 0). Sims you play or see are not affected.
 - **Sims 3 Settings Setter 1.6.3 camera fix also on for a second copy of 1.6.3 (`[S3SSCompat]`; by Dalexlol, PR #398).** A 1.6.3 file that differs from the release download only in its timestamps is now recognised, so the stale camera-write guard installs there too.
+- **Faster background route plans: door answers reused across plans for Sims you don't control (`[RouteSnap] DoorMemoX=3` with ts3fixes `doorgen`, on; by Dalexlol, PR #430).** A route plan of a townie can reuse a door's answer from an earlier plan until a lock, owner, greeting, household, fire, occult, role, age or similar change is seen; in his Bridgeport test, host calls per route job fell from 9.4 to 5.3 with 0 wrong answers. Your household, the selected Sim and Sims of unknown scope always get a fresh answer.
 
 ### Fixed (built, not in v0.2.12)
 
@@ -53,6 +54,7 @@ Needs the plugin from master, 0.36.256 or later (older plugins ignore the newer 
 
 ### Test features (all off by default, not tested in game yet)
 
+- **EXPERIMENTAL: household Sims too (`[Experimental] HouseholdToo=1`, off).** Normally the mod leaves the Sims you control on the game's own answers. With this switch your household also gets the speedups whose result looks the same: remembered door answers and the background autonomy scoring. Teleports, skipped or shortened routes, frozen animations, resets and save clean-ups never apply to your household, switch on or off. For testers only.
 - **`[Alloc]` steps aside for Apex Radiance's FastMemory (`[Alloc]` stays off by default; lane L9, docs/148 §7).** With `[Alloc] Enabled=1` and Apex's FastMemory on, the plugin's small-allocation pool now stands down instead of running next to Apex's allocator; the log names it. Nothing changes for the shipped ini.
 - **Sim stall sampler (`[StallWatch] Enabled=1`, off).** After 5 s without a finished simulation step, the plugin log gets the sim thread's stack as module + offset, so a freeze report names where the game hung.
 

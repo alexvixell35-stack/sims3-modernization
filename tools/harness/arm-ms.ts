@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { expandTags, rowArms } from './hitch-ab.ts';
+import { armStats, expandTags, loadRun as hitchLoad, rowArms, THRESH, type Arm, type Stats } from './hitch-ab.ts';
 
 const ROOT = process.env.TS3_REPO ?? join(import.meta.dirname, '..', '..');
 const PROFILE = join(ROOT, 'probe-out', 'profile');
@@ -123,6 +123,56 @@ export function table(runs: RunArms[]): string[] {
   return out;
 }
 
+// queue.ts results rows (docs/272 §4): per arm of one run the sim ms/s (sum of MS_COLS, as the table) and hitch-ab.ts's p99 / p99.9 /
+// max / counts >= 300 and >= 1000 ms over the same arms (its exclusions); null when the run left no seconds.csv. Reads files only.
+export type ArmHitch = { p99: string; p999: string; max: number; n300: number; n1000: number; mins: number };
+export type ArmSummary = { tag: string; arms: Record<string, Acc>; hitch: Record<string, ArmHitch>; line: string };
+const I300 = THRESH.indexOf(300), I1000 = THRESH.indexOf(1000);
+export const armHitch = (s: Stats): ArmHitch => ({ p99: `${s.p99.bounded ? '<' : ''}${Math.round(s.p99.ms)}`, p999: `${s.p999.bounded ? '<' : ''}${Math.round(s.p999.ms)}`, max: Math.round(s.max), n300: s.counts[I300], n1000: s.counts[I1000], mins: s.mins });
+const msps = (x?: Acc) => x?.secs ? MS_COLS.reduce((t, c) => t + x.ms[c] / x.secs, 0) : null;
+const sgn = (v: number, d = 1) => `${v >= 0 ? '+' : ''}${v.toFixed(d)}`;
+export function armLine(arms: Record<string, Acc>, hitch: Record<string, ArmHitch>): string {
+  const order = ['off', 'on', 'all'].filter(a => arms[a]?.secs);
+  if (!order.length) return '';
+  const h = (a: string) => hitch[a] ? `p99 ${hitch[a].p99} ms, p99.9 ${hitch[a].p999}, max ${hitch[a].max}, >=300 ${hitch[a].n300}, >=1000 ${hitch[a].n1000} (${hitch[a].mins.toFixed(1)} min)` : 'no hitch files';
+  const off = msps(arms.off), on = msps(arms.on);
+  const head = off !== null && on !== null ? `sim ms/s off ${f1(off)} / on ${f1(on)} (on - off ${sgn(on - off)}${off ? `, ${sgn(100 * (on - off) / off)}%` : ''})`
+    : order.map(a => `sim ms/s ${a === 'all' ? '' : `${a} `}${f1(msps(arms[a])!)}`).join(', ');
+  return `${head}; ${order.map(a => `${order.length > 1 ? `${a}: ` : ''}${h(a)}`).join('; ')}`;
+}
+export function armSummary(tag: string, load: { arms: (t: string) => Record<string, Acc>; hitch: (t: string) => { arms: Record<string, Arm> } } = { arms: loadRun, hitch: hitchLoad }): ArmSummary | null {
+  let arms: Record<string, Acc>;
+  try { arms = load.arms(tag); } catch (e) { if (/^Error: no .*-seconds\.csv in /.test(String(e))) return null; throw e; }
+  let hitch: Record<string, ArmHitch> = {};
+  try { hitch = Object.fromEntries(Object.entries(load.hitch(tag).arms).map(([a, x]) => [a, armHitch(armStats(x))])); } catch { /* no hitches.jsonl: ms/s only, the line says so */ }
+  return { tag, arms, hitch, line: armLine(arms, hitch) };
+}
+// per-queue A/B summary: job groups as table() (in-load arms per job; separate-load <name>-off-N / -on-N pooled as <name>), only
+// groups with both arms; ms/s weighted by seconds, hitches per 10 min pooled over the arm's runs ('?' when a run had no hitch files)
+export function abSummary(runs: Pick<ArmSummary, 'tag' | 'arms' | 'hitch'>[]): string[] {
+  const g = new Map<string, { arm: string; acc: Acc; h?: ArmHitch }[]>();
+  const add = (k: string, arm: string, acc: Acc, h?: ArmHitch) => g.set(k, [...(g.get(k) ?? []), { arm, acc, h }]);
+  for (const r of runs) {
+    for (const [a, x] of Object.entries(r.arms)) add(jobOf(r.tag), a, x, r.hitch[a]);
+    const m = abbaOf(r.tag); if (m && r.arms.all) add(m[1], m[2], r.arms.all, r.hitch.all);
+  }
+  const out: string[] = [];
+  for (const [k, xs] of g) {
+    const pool = (arm: string) => {
+      const ys = xs.filter(x => x.arm === arm), secs = ys.reduce((s, y) => s + y.acc.secs, 0);
+      if (!secs) return null;
+      const hs = ys.every(y => y.h) ? ys.map(y => y.h!) : null, mins = hs?.reduce((s, h) => s + h.mins, 0) ?? 0;
+      const per10 = (n: (h: ArmHitch) => number) => hs && mins ? (hs.reduce((s, h) => s + n(h), 0) * 10 / mins).toFixed(1) : '?';
+      return { runs: ys.length, ms: ys.reduce((s, y) => s + MS_COLS.reduce((t, c) => t + y.acc.ms[c], 0), 0) / secs, p300: per10(h => h.n300), p1000: per10(h => h.n1000) };
+    };
+    const off = pool('off'), on = pool('on');
+    if (!off || !on) continue;
+    out.push(`${k}: sim ms/s off ${f1(off.ms)} / on ${f1(on.ms)}, on - off ${sgn(on.ms - off.ms)} (${off.ms ? sgn(100 * (on.ms - off.ms) / off.ms) : '?'}%); `
+      + `>=300 ms per 10 min off ${off.p300} / on ${on.p300}, >=1000 off ${off.p1000} / on ${on.p1000} (${off.runs} off, ${on.runs} on run${on.runs > 1 ? 's' : ''})`);
+  }
+  return out;
+}
+
 function selfCheck() {
   // 2-min slices: warm-up on 0-119, off 120-239, on 240-359; 15 s settle after each switch
   const slices: Slice[] = [{ from: 0, on: true }, { from: 120, on: false }, { from: 240, on: true }, { from: 360, on: true }, { from: 480, on: false }];
@@ -152,6 +202,24 @@ function selfCheck() {
   assert.equal(onSlowerOrUnknown(js, ['bp', 'ip']).run, true, 'ip has no row: inconclusive');
   assert.equal(onSlowerOrUnknown({ 'x-ip-jb-abba': { runs: 2, off: 1, on: 2, diff: 1, pct: 100 } }, ['ip']).run, true, 'slower');
   assert.equal(onSlowerOrUnknown({}, ['bp']).run, true, 'empty');
+  // results-row line and A/B summary (docs/272 §4); on the real bp-iclock-eqfast-ab run (2026-11-16) the row read "sim ms/s off 212.7 /
+  // on 210.8 (on - off -1.9, -0.9%); off: p99 95 ms, p99.9 153, max 218, >=300 0, >=1000 0 (2.4 min); on: ..." as the CLI tables do
+  const st = (ms: number[], secs: number, iters = 1000): Stats => armStats({ iters, secs, hitches: ms.map((wallMs, t) => ({ t, wallMs })), excl: new Map() });
+  const hOff = armHitch(st([1200, 400, 120, 90], 600)), hOn = armHitch(st([310, 80], 600));
+  assert.deepEqual(hOff, { p99: '<50', p999: '400', max: 1200, n300: 2, n1000: 1, mins: 10 }, 'p99 below the 50 ms hitch floor is a bound');
+  const line = armLine({ off: fromCols.off, on: fromCols.on }, { off: hOff, on: hOn });
+  assert.equal(line, 'sim ms/s off 16.0 / on 8.0 (on - off -8.0, -50.0%); off: p99 <50 ms, p99.9 400, max 1200, >=300 2, >=1000 1 (10.0 min); on: p99 <50 ms, p99.9 80, max 310, >=300 1, >=1000 0 (10.0 min)');
+  assert.equal(armLine({ all: fromCols.off }, {}), 'sim ms/s 16.0; no hitch files');
+  assert.equal(armLine({}, {}), '');
+  const fake = { arms: (t: string) => { if (t === 'gone') throw new Error(`no ${t}-<secs>-seconds.csv in x`); return { off: fromCols.off, on: fromCols.on }; },
+    hitch: (t: string) => { if (t === 'nohitch') throw new Error('no hitches'); return { arms: {} }; } };
+  assert.equal(armSummary('gone', fake), null, 'no profile files: no line');
+  assert.match(armSummary('nohitch', fake)!.line, /^sim ms\/s off 16\.0 \/ on 8\.0 .*off: no hitch files; on: no hitch files$/);
+  assert.throws(() => armSummary('bad', { ...fake, arms: () => { throw new Error('csv broken'); } }), /csv broken/, 'other errors are not hidden');
+  const sum = abSummary([{ tag: 'q-2026-11-16-bp-x-off-1', arms: { all: fromCols.off }, hitch: { all: hOff } }, { tag: 'q-2026-11-16-bp-x-on-1', arms: { all: fromCols.on }, hitch: { all: hOn } },
+    { tag: 'q-2026-11-16-bp-x-on-2', arms: { all: fromCols.on }, hitch: {} }, { tag: 'q-2026-11-16-ip-y', arms: { off: fromCols.off, on: fromCols.on }, hitch: { off: hOff, on: hOn } }]);
+  assert.deepEqual(sum, ['q-bp-x: sim ms/s off 16.0 / on 8.0, on - off -8.0 (-50.0%); >=300 ms per 10 min off 2.0 / on ?, >=1000 off 1.0 / on ? (1 off, 2 on runs)',
+    'q-ip-y: sim ms/s off 16.0 / on 8.0, on - off -8.0 (-50.0%); >=300 ms per 10 min off 2.0 / on 1.0, >=1000 off 1.0 / on 0.0 (1 off, 1 on run)'], sum.join('\n'));
   console.log('arm-ms self-check ok');
 }
 

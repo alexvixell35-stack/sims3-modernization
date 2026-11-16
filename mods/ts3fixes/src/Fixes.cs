@@ -82,7 +82,7 @@ namespace Ts3Fixes
             ApplyRouteFixes();
             ApplyRouteBackoff();
             ApplyRouteFailLog();  // docs/226: logging only (routefaillog)
-            ApplyDoorGen();       // DoorGen.cs: door-answer generation for ts3native DoorMemoX=3 (switch doorgen, off)
+            ApplyDoorGen();       // DoorGen.cs: door-answer generation for ts3native DoorMemoX=3 (switch doorgen, on)
             ApplyOverwatchStuck(false);
             ApplyOverwatchSpread(false);
             ApplyOverwatchNotice(false);
@@ -419,6 +419,7 @@ namespace Ts3Fixes
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
             ApplyWeddingArchKeep();  // docs/546 §12, off by default
+            ApplyWeddingCleanup();  // WeddingCleanup.cs, default on (EA CleanUp NRE guard)
             ApplyGraduationKeep();  // docs/546 §12, off by default (hsgradkeep, unigradkeep)
             ApplyBoardingRefund();  // docs/546 §12, off by default
             ApplyHiddenRoomNpc();  // docs/552, off by default (no hook: a sweep alarm started at world load)
@@ -1128,6 +1129,8 @@ namespace Ts3Fixes
         // [930-932] watchdogasync: A1 verdicts dropped as stale (H4Core.WdFresh), shadow sync re-checks run, shadow verdicts that differ
         // [969-984] replanlog (ReplanLog.cs, docs/261 §6 L1, ts3native [RouteAsync] ReplanLog=1): own Replans and ms, calls and ms
         // per scope (household, selected, seenNpc, unseen, unknown), bursts, call lines, lines dropped, would start but Kinds
+        // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
+        // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 2799,
         // docs/registry.md), so a new fix never needs the array resized by hand.
         const int kCounterSlots = 2800;
@@ -1283,7 +1286,7 @@ namespace Ts3Fixes
                 case "visitwalkfinish": return false;  // unseen NPC still walking to a visit after 60 sim-min finishes at the lot (UnseenVisitTrip.cs, docs/584 §1)
                 case "autlastsearch": return false;  // log only: each Sim's last autonomy search and its result, for the census (AutLive.cs, docs/584 §4)
                 case "ufplansplit": return false;  // log only: where a slow unseen-fallback plan's wall time goes (UnseenFallback.cs)
-                case "doorgen": return false;  // DoorGen.cs: bump ts3native's door generation when a door answer input changes (DoorMemoX=3)
+                case "doorgen": return Instantiator.kDoorGen;  // DoorGen.cs: bump ts3native's door generation when a door answer input changes (DoorMemoX=3)
                 case "alarmtime": case "boatreplanlog": case "owresettime": case "synctime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
                 case "legreplanskip": return Instantiator.kLegReplanSkip;
                 case "bouncerskip": return Instantiator.kBouncerSlotSkip;
@@ -1752,6 +1755,7 @@ namespace Ts3Fixes
                 case "eventrouteretry": return Instantiator.kEventRouteRetry;
                 case "simfestkeep": return Instantiator.kSimFestKeep;
                 case "weddingarchkeep": return Instantiator.kWeddingArchKeep;
+                case "weddingcleanup": return Instantiator.kWeddingCleanup;
                 case "hsgradkeep": return Instantiator.kHsGradKeep;
                 case "unigradkeep": return Instantiator.kUniGradKeep;
                 case "bsrefund": return Instantiator.kBsRefund;

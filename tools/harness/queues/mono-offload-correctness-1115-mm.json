@@ -4,7 +4,7 @@
  "jobs": [
   {
    "id": "bp-offu-smoke",
-   "note": "Smoke (4 min BP, all switches). PASS = no crash, env/bcast ready >= 1, env pickups >= 1, autoff_env_pick_scoped >= 1 (the s12 pick scope runs), exc 0, 0 script errors. A FAIL stops the queue.",
+   "note": "Smoke (4 min BP, all switches). PASS = no crash, env/bcast ready >= 1, autoff_env_pick_scoped >= 1 (the s12 pick scope runs). Env pickups (autoff_env_dry) NOT gated: with apply + autoffunseen the pick asks only unseen Sims, mostly low LOD with no env update (docs/208 s12 reading 2; 11-16 smoke: ready 164, pick_scoped 1121, dry 0); bp-offu-dry gates pickups (unscoped pick), exc 0, 0 script errors. A FAIL stops the queue.",
    "asi": "game-copy/ts3native.asi.master-mono-1115",
    "iniBase": "game-copy/ts3native.ini.master-mono-1115",
    "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
@@ -51,7 +51,7 @@
      "seed": 12345,
      "minutes": 4,
      "fixesOn": "autshadow,autoffenv,autoffbcast,autoffenvapply,autoffbcastapply,autoffdry,autoffunseen",
-     "fixesRequire": "autoff_env_ready>=1,autoff_bcast_ready>=1,autoff_env_dry>=1,autoff_env_pick_scoped>=1,autoff_env_exc<1,autoff_bcast_exc<1"
+     "fixesRequire": "autoff_env_ready>=1,autoff_bcast_ready>=1,autoff_env_pick_scoped>=1,autoff_env_exc<1,autoff_bcast_exc<1"
     }
    },
    "gameArgs": [
@@ -157,7 +157,7 @@
   },
   {
    "id": "bp-offu-household",
-   "note": "Household crowd near broadcasters (repro as in offload-unseen-apply-1113 bp-off3u-household, PASS there 11-14). PASS = env and bcast pick_scoped >= 1 (household Sims and household-near broadcasters left out of the pick), exc 0, 0 script errors. scope_household at the update may now be 0 (filtered at the pick); not gated.",
+   "note": "Household crowd near broadcasters (repro as in offload-unseen-apply-1113 bp-off3u-household, PASS there 11-14). PASS = env and bcast pick_scoped >= 1 (household Sims and household-near broadcasters left out of the pick), exc 0, 0 script errors. scope_household at the update may now be 0 (filtered at the pick); not gated. Env pickups (autoff_env_dry) not gated either: the scoped pick asks only unseen Sims (bp-offu-smoke 11-16: dry 0).",
    "asi": "game-copy/ts3native.asi.master-mono-1115",
    "iniBase": "game-copy/ts3native.ini.master-mono-1115",
    "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
@@ -205,7 +205,7 @@
      "minutes": 10,
      "repro": "rare-big-crowd",
      "fixesOn": "autshadow,autoffenv,autoffbcast,autoffenvapply,autoffbcastapply,autoffdry,autoffunseen",
-     "fixesRequire": "autoff_env_pick_scoped>=1,autoff_bcast_pick_scoped>=1,autoff_env_dry>=1,autoff_env_exc<1,autoff_bcast_exc<1"
+     "fixesRequire": "autoff_env_pick_scoped>=1,autoff_bcast_pick_scoped>=1,autoff_env_exc<1,autoff_bcast_exc<1"
     }
    },
    "gameArgs": [

@@ -25,6 +25,7 @@ Facts from the EA laptop. Tags: [verified] = observed here, [inferred] = not con
 - The game maps both `Bin\WININET.dll` and `system32\WININET.dll`.
 - `ts3native.asi` 0.36.152 (CI artifact of commit b99f370) logs `host Sims3Launcher.exe base 0x00400000`, then `SKIP all: host is not TS3W.exe at 0x400000`.
 - The `host` line now also prints PE timestamp and SizeOfImage (Steam 1.67 = 52DEC247 / 0xE5A000, EA app 1.69.47 = 6707155C / 0xEB5000).
+- Host build guard (2026-11-16, always on, crash guard): both builds compare PE timestamp + SizeOfImage with `TS3A_HOST_PE/SIZE` (`HostBuildOk`; Steam asi = 52DEC247 / 0xE5A000 in `ts3addr.h`, EA asi = its table). A `TS3W.exe` of another build (retail 1.67: same code, every address moved, data +0x1000) logs `unsupported TS3W.exe build <ts>/<size>: all patches off; retail 1.67 needs ts3native-retail167.asi` in `ts3native.log` and installs nothing (no hooks, data reads, threads or exit work); the game starts vanilla. Selftest `TestHostBuild`. [verified: selftest; not run on a retail exe]
 
 ## Windowed
 - `Documents\Electronic Arts\The Sims 3\Options.ini`: `fullscreen = 0`, `resolution = 1600 900 0` (laptop screen 1920x1200). The EA launch cannot pass `-w`. Audio off too: `voicelevel`, `soundfxlevel`, `ambientlevel`, `musiclevel` = 0 and `soundfxmute`, `musicmute`, `ambientmute`, `voicemute` = 1, for unattended tests on the EA laptop (backup `Options.ini.bak-audio-2026-11-02`).

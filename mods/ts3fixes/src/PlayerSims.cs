@@ -39,6 +39,36 @@ namespace Ts3Fixes
 
         public static bool IsNpcSim(Sim s) { return !IsPlayerSim(s); }
 
+        // docs/271 [Experimental] HouseholdToo (ts3native.ini, default 0, asked once a session through GetOption2 q 14 as replanlog's
+        // q 10; an older ts3native answers false). HouseholdExempt is the shared predicate for the sites where the visible result stays
+        // realistic with the flag on (docs/271 rows marked yes: worker answers, exact go-live); true = keep the exemption (vanilla).
+        // Teleports, fakes, skips, cuts, resets and save cleanups keep IsPlayerSim and never change. Flag on: a live household,
+        // selected or unknown-scope Sim is let through (counter 1057); null, destroyed or description-less Sims stay exempt.
+        // New features whose household result stays realistic use this, not IsPlayerSim. Sim thread only (the first ask).
+        static int sHhToo = -1;
+        public static bool HouseholdTooOn()
+        {
+            if (sHhToo < 0) { try { sHhToo = HcWould(sYieldProbe, 14) ? 1 : 0; } catch (Exception) { sHhToo = 0; } }
+            return sHhToo == 1;
+        }
+
+        public static bool HouseholdExempt(Sim s)
+        {
+            return IsPlayerSim(s) && !HouseholdLift(s);  // HouseholdTooCore.Exempt is its offline model
+        }
+
+        // the flag part alone, for a site that already knows the Sim is household scope (UfWhy kHousehold): true = let through, counted
+        public static bool HouseholdLift(Sim s)
+        {
+            try
+            {
+                if (s == null || s.HasBeenDestroyed || s.SimDescription == null || !HouseholdTooOn()) return false;
+            }
+            catch (Exception) { return false; }
+            PatchCounters()[1057]++;
+            return true;
+        }
+
         // The same rule for a SimDescription (a Sim that may not be instantiated): null, no household, no active household,
         // the active household, or a live Sim that is selected or selectable = exempt.
         public static bool IsPlayerDesc(SimDescription d)

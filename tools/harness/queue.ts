@@ -9,6 +9,7 @@
 //     s3ppIni?: { "Patches.MonoTypeEHashProbe": 0 }, s3ssToml?: { "patches.LotStreamingOptimizations.enabled": false }, minCounters?: 20, timeoutMin?,
 //     pin?: false | { cpus?: "4-15", priority?: "High", others?: boolean | [names] } }   (also queue-level beside "jobs"; pin.ts)
 //     quitsGame?: true (run.script only, e.g. quit-cycle.ts): the script quits the game and judges that exit; a gone game is not a crash or stall, only its "game died" line or a fresh EA crash report is; its "after" numbers come from $TS3_AFTERRUN_FILE
+//     run.rewindGames: {n, profile: {minutes, seed?, ...}, ab?: "name,name"} (docs/270 §9.2, test-only, needs the patched RTX Remix bridge): n games from one load, each from the same snapshot; see rewindArms
 // Vanilla mode (docs/236, TS3_VANILLA=1 or queue-level "vanilla": true): the game runs without ts3native and ts3fixes, only the
 // ts3agent package from TS3_AGENT_PACKAGE. vanilla.ts installs the state at the start (unless a stash is already installed, which
 // is then only read back) and restores it at the end; jobs must say asi "none" and use no ini, fixes, counters, log rules, profile,
@@ -161,6 +162,16 @@
 //   the next job gets a fresh start. A crash or failed window ends the session: onFail auto = TS3_NIGHT=1 (night-run.ts) goes
 //   on with a fresh start, daytime stops the queue. row.session says 'fresh load' or 'reused session (#n since load)' and the
 //   drift line; the hitch reports drop the first minute only after a load or reload (<tag>-session.json, worst-hitches.ts).
+// rewind: "auto" | "off" (queue level, default REWIND_DEFAULT; TS3_REWIND overrides; job "rewind": false opts out; docs/270 §30,
+//   queue-rewind.ts): consecutive profile/repro jobs with the same game start (keyOf) form a rewind group. In a real run only with
+//   Bin state apex-rewind (rewindMode = True in Bin\bridge.conf; else no group, no ini change). Grouped jobs get ini [Rewind] Park=1
+//   Offline=1 and callSites false. After the first job's load (and a fresh fallback load) rewind-spike serve takes a snapshot (probe
+//   agent detached, route worker parked, game paused, speed put back); every later job of the group starts with a rewind to it
+//   (verify code 0 and switches read back equal) instead of quit + relaunch + load. Refused (2) or failed (3, game not answering,
+//   switches differ): the game is closed and the same game start is loaded fresh (reloadGame), row.start says which; two failures
+//   turn rewind off for the run. row.start = fresh | rewind (N ms) | rewind refused/failed -> fresh (...); the md note and a summary
+//   line give the wall time saved against this run's fresh starts. Counters are back at their snapshot values: every job reads its
+//   own /native and patches baselines after the rewind, as after a load. The hitch reports treat a rewound window as a fresh load.
 // Per job: cycle.ts --restart; copy the job's asi to Bin; write Bin/ts3native.ini = repo native/ts3native/ts3native.ini + job.ini
 // (+ [CrashForensics] Light=1 unless the job sets it, runs a release asi or says releaseDefaults: true, docs/67 §18)
 // (fresh each job, so settings never leak); install-fixes.ts changes; start `ts3probe.py serve --launch` as a child; cycle.ts --save
@@ -198,6 +209,8 @@ import { CSV_HEADER, csvLine, summarize, type AgeRow } from './age-report.ts';
 import { ledgerReport } from './mono-ledger-report.ts';
 import { saveStats } from './save-stats.ts';
 import { matchKnown } from './known-script-errors.ts';
+import { KC_SUFFIX, matchCause, voidRow } from './known-causes.ts';
+import { abSummary, armSummary, type ArmSummary } from './arm-ms.ts';
 // correction-only report: every content line (headers, blanks and the Loaded Assemblies tail aside) matches an allow regex; a stack frame never does
 // generic rule (all queues): the only section is 'Correction Logs' and no line looks like an exception, a stack frame or our own Ts3Fixes/Wildflower code;
 // the per-job allow regexes stay as an extra (a line the generic rule rejects can still be allowed by name)
@@ -233,6 +246,9 @@ import { parseRule } from './frame-lead.ts';
 import { abFixesClash } from './native-switches.ts';
 import { checkLoop, ruleText, STOP_LINE, withRule, type Loop } from './repro-loop.ts';
 import { drift, driftLine, failMode, logCopy, parseReuse, readSwitches, REUSE_DEFAULTS, reproItems, restoreSwitches, reuseBlock, snapshot, stableKey, subTag, type Extra, type ReproItem, type ReuseOpts, type WorldSnap } from './session-reuse.ts';
+import { bySaveGain, COMBASE_KEPT, groupBySave, parseRewindMode, SETTLE_S, queueRewind, REWIND_INI, rewindBlock, rewindGroups, rewindReady, rewindSession, rewindSummary, startLine, switchDiff } from './queue-rewind.ts';
+import { recordRefusals, REFUSALS } from './rewind-refusals.ts';
+import { EXE as REWIND_EXE, pidOf, REWIND_ON } from './rewind-smoke.ts';
 import { saveForeground } from './focus-game.ts';
 import { parseStory, smokeFails, storyFile } from './story-report.ts';
 import { clearJob, markJob, waitHold } from './hold.ts';
@@ -266,6 +282,24 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 const ourModsMf = () => vanillaMf(ourModsSpec()); // exists = an ourMods false job's files are in the stash
 const stamp = () => new Date().toISOString().slice(11, 19);
 const log = (m: string) => console.log(`${stamp()} queue: ${m}`);
+// Apex Radiance + RTX Remix bridge logs of one job (docs/67 §38): the bridge rewrites Bin/rtx-remix/logs at every launch and Apex
+// appends to its log, so keep both before the next launch: <prefix>-bridge32.log, -bridge64.log, -ApexRadiance_LOG.txt (from apexOff)
+const APEX_LOG = join(USER, 'Apex Radiance', 'ApexRadiance_LOG.txt'); // as turbo-compat.ts
+const sizeOf = (f: string) => { try { return statSync(f).size; } catch { return 0; } };
+export function keepApexLogs(prefix: string, apexOff: number, bin = BIN, apexLog = APEX_LOG): string[] {
+  const kept: string[] = [];
+  for (const b of ['bridge32.log', 'bridge64.log']) {
+    const src = join(bin, 'rtx-remix', 'logs', b);
+    if (existsSync(src)) { copyFileSync(src, `${prefix}-${b}`); kept.push(b); }
+  }
+  if (existsSync(apexLog)) {
+    const buf = readFileSync(apexLog);
+    writeFileSync(`${prefix}-ApexRadiance_LOG.txt`, buf.subarray(buf.length >= apexOff ? apexOff : 0)); // shorter = rewritten: all of it
+    kept.push('ApexRadiance_LOG.txt');
+  }
+  return kept;
+}
+let apexLogOff = 0; // Apex log size at the last launch
 
 // ---------------------------------------------------------------- pure parts (covered by --self-check)
 // the "tested" source version: the release define only. ts3native.cpp's first define is the TS3N_RFTEST one ("0.36.189-rftest1",
@@ -278,8 +312,8 @@ function machineCols(tag: string) { return tag ? { head: ' machine |', sep: '---
 function machineField(tag: string): { machineTag?: string } { return tag ? { machineTag: tag } : {}; }
 type Job = { id: string; note?: string; asi: string; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; run: { repro?: string; saveReload?: string[]; script?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
-    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; crashHunt?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
-  saveMatrix?: { fixes?: 'all' | 'shipped' }; regexCases?: Record<string, { match: string[]; noMatch: string[] }>; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; retryOf?: string; expectHang?: string; shadowCheck?: boolean; quitsGame?: boolean; skipIfMissing?: boolean; ourMods?: false };
+    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string }; rewindGames?: { n: number; profile: { minutes: number; seed?: number; fixesOn?: string; fixesOff?: string }; ab?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; crashHunt?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
+  saveMatrix?: { fixes?: 'all' | 'shipped' }; regexCases?: Record<string, { match: string[]; noMatch: string[] }>; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; retryOf?: string; kcOf?: string; expectHang?: string; shadowCheck?: boolean; quitsGame?: boolean; skipIfMissing?: boolean; ourMods?: false; rewind?: false };
 
 function checkRegexCases(cases: Record<string, { match?: unknown; noMatch?: unknown }>, res: string[], at: string) {
   for (const re of res) if (!cases[re]) throw new Error(`${at}: regexCases has no case for /${re}/`);
@@ -294,7 +328,7 @@ function checkRegexCases(cases: Record<string, { match?: unknown; noMatch?: unkn
 }
 
 // every top-level job key queue.ts reads (Job type plus the optional extras); anything else is a typo or a profile key at the wrong level
-const JOB_KEYS = new Set(['id', 'quitsGame', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'regexCases', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'crashHunt', 'reuseSession', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm']);
+const JOB_KEYS = new Set(['id', 'quitsGame', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'regexCases', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'crashHunt', 'reuseSession', 'rewind', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm']);
 // ---- vanilla mode (docs/236): what a job may not ask for without ts3native/ts3fixes, and the checks the row names as N/A
 export const VANILLA_NA = ['asi build check', 'ts3fixes build check', 'ts3native.log version gate', 'ts3native.ini features', 'hook FAIL lines and route hook state', 'counter gate and /native counters', 'ts3fixes activity'];
 // "ourMods": false: a plain profile window or one repro (queue repros run --no-load, so no restart; its steps must not need ts3fixes); anything
@@ -347,10 +381,39 @@ export const vanillaBlock = (prev: string | null, cur: string | null): string =>
 export const emptyButtons = (cur: string | null): boolean => !!cur && /buttons: *$/.test(cur);
 export const vanillaBlockFor = (prev: string | null, cur: string | null, sinceMs: number): string => emptyButtons(cur) && sinceMs <= 2 * GUARD_MS ? '' : vanillaBlock(prev, cur);
 
+// run.rewindGames (docs/270 §9.2): n games from one world load on the patched RTX Remix bridge (Bin state apex-rewind). After the
+// load: route worker parked, game paused, probe agent out, `rewind-spike serve` snapshot, agent back. Each game: one profile-world.ts
+// window without a Frida session of its own, its counters and its ts3native.log slice read (the log is not rolled back), then
+// park, pause, agent out, rewind to the snapshot for the next game. ab: patches switches on in the on games (--fixes-on) and off
+// in the off games (--fixes-off), in ABBA order. A refused (code 2) or fatal (code 3) rewind reloads the world, takes a new
+// snapshot and marks the game row reloaded.
+export const REWIND_PROFILE_KEYS = ['minutes', 'seed', 'fixesOn', 'fixesOff', 'noEnv', 'envGuard', 'quitJobs'];
+export const rewindArms = (n: number, ab?: string): ('on' | 'off' | '')[] => Array.from({ length: n }, (_, i) => (!ab ? '' : i % 4 === 0 || i % 4 === 3 ? 'off' : 'on'));
+export const rewindGameProfile = (p: any, ab: string | undefined, arm: string) => ({ ...p, noProf: true, noSamplers: true, noFrames: true,
+  ...(arm === 'on' ? { fixesOn: [p.fixesOn, ab].filter(Boolean).join(',') } : arm === 'off' ? { fixesOff: [p.fixesOff, ab].filter(Boolean).join(',') } : {}) });
+function checkRewindGames(j: any, at: string) {
+  const g = j.run.rewindGames, p = g?.profile, sp = (v: unknown) => (v === undefined ? [] : String(v).split(','));
+  if (typeof g !== 'object' || !g || Object.keys(g).some(k => !['n', 'profile', 'ab'].includes(k))) throw new Error(`${at}: run.rewindGames takes n, profile and ab`);
+  if (!(Number.isInteger(g.n) && g.n >= 1 && g.n <= 12)) throw new Error(`${at}: run.rewindGames.n must be 1..12 games`);
+  if (!(p?.minutes > 0)) throw new Error(`${at}: run.rewindGames.profile.minutes must be > 0`);
+  const extra = Object.keys(p).filter(k => !REWIND_PROFILE_KEYS.includes(k));
+  if (extra.length) throw new Error(`${at}: run.rewindGames.profile takes only ${REWIND_PROFILE_KEYS.join(', ')} (no Frida session beside a rewind): ${extra.join(', ')}`);
+  if (p.seed !== undefined && !Number.isInteger(p.seed)) throw new Error(`${at}: run.rewindGames.profile.seed must be an integer`);
+  for (const k of ['noEnv', 'envGuard', 'quitJobs']) if (p[k] !== undefined && typeof p[k] !== 'boolean') throw new Error(`${at}: run.rewindGames.profile.${k} must be true or false`);
+  for (const [k, v] of [['ab', g.ab], ['profile.fixesOn', p.fixesOn], ['profile.fixesOff', p.fixesOff]]) if (v !== undefined && !/^[a-z0-9]+(,[a-z0-9]+)*$/.test(String(v))) throw new Error(`${at}: run.rewindGames.${k} must be comma-separated switch names`);
+  const twice = abFixesClash(sp(g.ab), sp(p.fixesOn), sp(p.fixesOff));
+  if (twice.length) throw new Error(`${at}: run.rewindGames ab / fixesOn / fixesOff name the switch ${twice.join(',')} twice`);
+  if (Number(j.ini?.['Rewind.Park']) !== 1 || Number(j.ini?.['Rewind.Offline']) !== 1) throw new Error(`${at}: run.rewindGames needs ini Rewind.Park 1 and Rewind.Offline 1 (route worker parks, no wininet pool work: docs/270 §19, §22)`);
+  if (j.callSites) throw new Error(`${at}: run.rewindGames: callSites must stay off (int3 traps and their handler across a rewind, docs/270 §21)`);
+  if (!j.save || j.save === 'menu') throw new Error(`${at}: run.rewindGames needs a save to load`);
+  if (j.reuseSession) throw new Error(`${at}: run.rewindGames takes no reuseSession (the next job would get a rewound game)`);
+}
 export function parseQueue(json: unknown): Job[] {
   const jobs = Array.isArray(json) ? json : (json as any)?.jobs;
   if (!Array.isArray(jobs) || !jobs.length) throw new Error('queue: expected a non-empty list of jobs (or { "jobs": [...] })');
   const seen = new Set<string>();
+  if (!Array.isArray(json)) parseRewindMode((json as any).rewind, 'queue rewind');
+  if (!Array.isArray(json) && (json as any).rewindGroupBySave !== undefined && typeof (json as any).rewindGroupBySave !== 'boolean') throw new Error('queue rewindGroupBySave must be true or false');
   for (const [i, j] of jobs.entries()) {
     const at = `job ${i + 1}${j?.id ? ` (${j.id})` : ''}`;
     if (typeof j?.id !== 'string' || !/^[\w.-]+$/.test(j.id)) throw new Error(`${at}: id must be letters, digits, . _ -`);
@@ -373,8 +436,8 @@ export function parseQueue(json: unknown): Job[] {
     for (const k of Object.keys(j.dxvkConf ?? {})) if (!/^\w+\.\w+$/.test(k)) throw new Error(`${at}: dxvkConf key "${k}" must be component.option (e.g. d3d9.textureMemory)`);
     if (j.gameArgs && !(Array.isArray(j.gameArgs) && j.gameArgs.every((x: unknown) => typeof x === 'string' && x.startsWith('-')))) throw new Error(`${at}: gameArgs must be a list of -switches`);
     for (const k of ['install', 'uninstall']) if (j.fixes?.[k] && !Array.isArray(j.fixes[k])) throw new Error(`${at}: fixes.${k} must be a list of ids`);
-    const kinds = Object.keys(j.run ?? {}).filter(k => ['repro', 'matrix', 'soak', 'menuMemory', 'profile', 'routelock', 'worldimage', 'age', 'saveReload', 'script'].includes(k));
-    if (kinds.length !== 1 || Object.keys(j.run).length !== 1) throw new Error(`${at}: run needs exactly one of repro, matrix, soak, menuMemory, profile, routelock, worldimage, age, saveReload, script`);
+    const kinds = Object.keys(j.run ?? {}).filter(k => ['repro', 'matrix', 'soak', 'menuMemory', 'profile', 'routelock', 'worldimage', 'age', 'saveReload', 'script', 'rewindGames'].includes(k));
+    if (kinds.length !== 1 || Object.keys(j.run).length !== 1) throw new Error(`${at}: run needs exactly one of repro, matrix, soak, menuMemory, profile, routelock, worldimage, age, saveReload, script, rewindGames`);
     if (j.run.script !== undefined && !(Array.isArray(j.run.script) && j.run.script.every((x: unknown) => typeof x === 'string') && /^[\w-]+\.ts$/.test(j.run.script[0] ?? ''))) throw new Error(`${at}: run.script must be ["<tools/harness script>.ts", args...]`);
     if (j.quitsGame !== undefined && (j.quitsGame !== true || !j.run.script || j.reuseSession)) throw new Error(`${at}: quitsGame must be true, with run.script and no reuseSession (the script quits the game)`);
     if (j.run.saveReload !== undefined && !(Array.isArray(j.run.saveReload) && j.run.saveReload.every((x: unknown) => typeof x === 'string'))) throw new Error(`${at}: run.saveReload must be a list of save-reload.ts args`);
@@ -450,8 +513,8 @@ export function parseQueue(json: unknown): Job[] {
     if (j.releaseDefaults !== undefined && typeof j.releaseDefaults !== 'boolean') throw new Error(`${at}: releaseDefaults must be true or false`);
     // fixesPackage: a shipped ts3fixes.package (path from the repo root) installed over cycle.ts's build/ copy before each start (repro jobs: the start-path controls, release-validate *-v016)
     // matrix too: its reload restarts reinstall the package (release-followup-1111 ran reload on a pinned pair)
-    if (j.fixesPackage !== undefined && (typeof j.fixesPackage !== 'string' || !j.fixesPackage || j.fixesBuild !== undefined || !(j.run?.profile || j.run?.soak || j.run?.repro || j.run?.script || j.run?.matrix)))
-      throw new Error(`${at}: fixesPackage must be a path, only on profile/soak/repro/script/matrix jobs, not with fixesBuild`);
+    if (j.fixesPackage !== undefined && (typeof j.fixesPackage !== 'string' || !j.fixesPackage || j.fixesBuild !== undefined || !(j.run?.profile || j.run?.soak || j.run?.repro || j.run?.script || j.run?.matrix || j.run?.rewindGames)))
+      throw new Error(`${at}: fixesPackage must be a path, only on profile/soak/repro/script/matrix/rewindGames jobs, not with fixesBuild`);
     if (j.iniBase !== undefined && (typeof j.iniBase !== 'string' || !j.iniBase)) throw new Error(`${at}: iniBase must be a path from the repo root`);
     if (j.pinReason !== undefined && (typeof j.pinReason !== 'string' || !j.pinReason.trim())) throw new Error(`${at}: pinReason must be a non-empty text (why this job pins its asi/package)`);
     if (fridaAttach(j) && (j.callSites || Number(j.ini?.['ProbeSnap.CallSites']))) throw new Error(`${at}: ProbeSnap.CallSites with a second Frida agent (${fridaAttach(j)}): int3 traps + agent attach crashed the game (docs/67 §7); set run.profile.noProf (and drop the side probe) or callSites false`);
@@ -492,6 +555,8 @@ export function parseQueue(json: unknown): Job[] {
     try { pinConfig(j.pin); } catch (e) { throw new Error(`${at}: pin: ${(e as Error).message}`); }
     if (j.reuseSession === undefined && !Array.isArray(json) && (json as any).reuseSession !== undefined) j.reuseSession = (json as any).reuseSession; // queue-level default
     parseReuse(j.reuseSession, `${at}: reuseSession`);
+    if (j.rewind !== undefined && j.rewind !== false) throw new Error(`${at}: rewind must be false (opt-out; the queue-level "rewind": "auto" turns it on)`);
+    if (j.run.rewindGames !== undefined) checkRewindGames(j, at);
     if (j.run.profile?.repros !== undefined) {
       reproItems(j.run.profile.repros, `${at}: run.profile.repros`);
       for (const k of ['repro', 'ab', 'untilCompares', 'travel', 'loopRule']) if (j.run.profile[k] !== undefined) throw new Error(`${at}: run.profile.repros takes no profile.${k} (each repro is its own window)`);
@@ -601,7 +666,7 @@ export const fridaAttach = (j: Job): string => {
   const side = (['inroom', 'watchstalk', 'livereads2', 'f4b'] as const).filter(k => p[k]);
   return [...(!p.noProf && !p.watchstalk && !Number(j.ini?.['ProbeSnap.Enabled']) ? ['stutter profiler'] : []), ...side].join(', ');
 };
-const callSitesWanted = (j: Job) => !j.run.worldimage && (j.callSites ?? !(j.run.profile && j.noiseCheck !== false)) && j.ini?.['ProbeSnap.CallSites'] === undefined && !Number(j.ini?.['ProbeSnap.Enabled']);
+const callSitesWanted = (j: Job) => !j.run.worldimage && !j.run.rewindGames && (j.callSites ?? !(j.run.profile && j.noiseCheck !== false)) && j.ini?.['ProbeSnap.CallSites'] === undefined && !Number(j.ini?.['ProbeSnap.Enabled']);
 export const callSitesIni = (j: Job): Record<string, number> => callSitesWanted(j) && !fridaAttach(j) ? { 'ProbeSnap.CallSites': 1 } : {};
 // the one queue log line when the auto key is dropped for a Frida agent ('' = nothing to say)
 export const callSitesOffNote = (j: Job) => callSitesWanted(j) && fridaAttach(j) ? `ProbeSnap.CallSites off: ${fridaAttach(j)} attaches a Frida agent (docs/67 §7)` : '';
@@ -1026,6 +1091,11 @@ export function fixActivity(p0: any, p1: any, t0: any, t1: any, cfg: { fixesOn?:
       counters[gate] = { before: p0 && gate in p0 ? Number(p0[gate]) : null, after: Number(p1[gate]) };
       const up = Number(p1[gate]) - Number(p0?.[gate] ?? 0);
       if (up <= 0) { notes.push(`${a.what}: not reached (${gate} rose ${up}: the 3 AM venue cleanup had not armed the stuck checks yet)`); continue; }
+      // EA's RunStuckCheckHelper.CreateAlarm fires each armed check 20-60 sim min later: a pass that ended < 60 sim min before
+      // the end read queued nothing yet (sv-jitsmall-time 11-16, Mode=2 verify: the time-sliced pass took most of the night)
+      const end = [...(Array.isArray(p1.easpread_log) ? p1.easpread_log : [])].reverse().map(l => /^simmin (\d+) venue cleanup \(ours\)/.exec(String(l))).find(Boolean);
+      const left = end ? Number(t1?.minutes_total) - Number(end[1]) : NaN;
+      if (left < 60) { notes.push(`${a.what}: not reached (venue cleanup ended at simmin ${end![1]}, ${Math.round(left)} sim min before the end; EA fires the stuck checks 20-60 sim min after arming)`); continue; }
     }
     if (eventCovered(a.when!, t0, t1)) fails.push(`self check: ${a.what} on but ${a.counters.join('+')} ${a.when === 'load' ? 'is' : 'rose'} ${d} although sim time ${t0?.clock}+${Math.round(Number(t1?.minutes_total) - Number(t0?.minutes_total))} min covered ${a.when === '3am' ? '03:00' : 'the after-load pass'}: fix idle, run void`);
     else notes.push(`${a.what}: not reached (sim ${t0?.clock ?? '?'} +${Math.round(Number(t1?.minutes_total) - Number(t0?.minutes_total)) || 0} min, no ${a.when === '3am' ? '03:00' : 'after-load pass'})`);
@@ -1100,14 +1170,17 @@ export function logForbidFails(text: string, forb: Record<string, number>): stri
 const delta = (a: any, b: any) => (a && b ?Object.fromEntries(Object.keys(b).filter(k => typeof b[k] === 'number' && typeof a[k] === 'number' && b[k] !== a[k]).map(k => [k, b[k] - a[k]])) : null);
 
 // verdict lines of a child's output: repro.ts "<id>: PASS (...)", "FAIL: ...", save-matrix.ts "<case>: PASS", "summary: ..."
-export function profileHead(code: number | null, timedOut: boolean, stop: string | null, out: string): 'PASS' | 'ran' | 'FAIL' {
+export function profileHead(code: number | null, timedOut: boolean, stop: string | null, out: string): 'PASS' | 'ran' | 'FAIL' | 'N/A' {
   if (code === 0) return 'PASS';
+  const vs = verdicts(out);
+  if (!timedOut && vs.some(v => /^N\/A: /.test(v)) && !vs.some(isFail)) return 'N/A';
   return !timedOut && !!stop && /^stopped at /.test(stop) && verdicts(out).some(v => /^FAIL: /.test(v)) ? 'ran' : 'FAIL';
 }
 
 // every FAIL line plus the last 8 others: an early FAIL must not drop out of the row (docs/236 #15)
 export function verdicts(out: string): string[] {
-  const v = out.split(/\r?\n/).map(l => l.replace(/^\d\d:\d\d:\d\d /, '').trim())
+  // a repro step that reports N/A (precondition not triggered) is an N/A line, not a FAIL (2026-11-16 bp-ilp-b87-off)
+  const v = out.split(/\r?\n/).map(l => l.replace(/^\d\d:\d\d:\d\d /, '').trim().replace(/^FAIL: (repro step \S+) failed: (N\/A: )/, '$2$1: '))
     .filter(l => /(^|[\s:])(PASS|FAIL|PENDING|UNKNOWN)\b|^summary:|^N\/A: /.test(l) && !/^(fix under test|step )/.test(l));
   return v.filter((l, i) => isFail(l) || i >= v.length - 8);
 }
@@ -1184,10 +1257,12 @@ export function routelockSummary(r: any): any {
 }
 
 // stopQueueOnFail / --stop-on-fail: '' = go on, else the STOP reason naming the job (a noisy job with its -rerun queued goes on)
-export function failStop(j: { id: string; stopQueueOnFail?: boolean }, row: { pass?: boolean; na?: boolean; rerun?: string; error?: string | null; verdict?: string[] }, cli: boolean): string {
-  if (row.pass || row.na || row.rerun || !(j.stopQueueOnFail || cli)) return '';
-  return `${j.id} failed (stopQueueOnFail): ${String(row.error || row.verdict?.find(v => /^FAIL/.test(v)) || 'see the row').slice(0, 200)}`;
+export function failStop(j: { id: string; stopQueueOnFail?: boolean }, row: { pass?: boolean; na?: boolean; rerun?: string; relaunchedAs?: string; error?: string | null; verdict?: string[] }, cli: boolean): string {
+  if (row.pass || row.na || row.rerun || row.relaunchedAs || !(j.stopQueueOnFail || cli)) return '';
+  return `${j.id} failed (stopQueueOnFail): ${String(row.error || failText(row.verdict) || 'see the row').slice(0, 400)}`;
 }
+// all FAIL lines: a run head line ('FAIL: profile 16 min, seed N (rng-compare.ts)') carries no reason; the child's FAIL line after it does
+export const failText = (verdict?: string[]) => (verdict ?? []).filter(isFail).join(' | ');
 // stop rule after a job: same job crashed twice (earlier rows count), or this and the previous job both crashed
 export function crashStop(crashed: boolean, earlierCrashesOfJob: number, prevCrashed: boolean, crashHunt = false): string {
   if (!crashed || crashHunt) return '';
@@ -1240,6 +1315,21 @@ function publishAtEnd(queueName: string): void {
 
 if (values['self-check']) {
   const assert = (await import('node:assert')).strict;
+  { // bridge + Apex logs kept per job; the Apex log from the launch offset, all of it when it was rewritten shorter
+    const d = mkdtempSync(join(tmpdir(), 'q-apexlogs-')), bin = join(d, 'bin'), al = join(d, 'apex.txt');
+    try {
+      mkdirSync(join(bin, 'rtx-remix', 'logs'), { recursive: true });
+      writeFileSync(join(bin, 'rtx-remix', 'logs', 'bridge32.log'), 'client');
+      writeFileSync(al, 'old run;this run;');
+      assert.deepEqual(keepApexLogs(join(d, 'j'), 8, bin, al), ['bridge32.log', 'ApexRadiance_LOG.txt']);
+      assert.equal(readFileSync(join(d, 'j-bridge32.log'), 'utf8'), 'client');
+      assert.equal(readFileSync(join(d, 'j-ApexRadiance_LOG.txt'), 'utf8'), 'this run;');
+      assert.equal(existsSync(join(d, 'j-bridge64.log')), false);
+      keepApexLogs(join(d, 'k'), 999, bin, al);
+      assert.equal(readFileSync(join(d, 'k-ApexRadiance_LOG.txt'), 'utf8'), 'old run;this run;');
+      assert.deepEqual(keepApexLogs(join(d, 'n'), 0, join(d, 'none'), join(d, 'none.txt')), []);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  }
   { // tested-build source version: the release define, not the rftest one before it
     const src = '#ifdef TS3N_RFTEST\n#define TS3NATIVE_VERSION "0.36.189-rftest1"  // never a release\n#else\n#define TS3NATIVE_VERSION "0.36.239"  // release\n#endif\n';
     assert.equal(SRC_VERSION_RE.exec(src)?.[1], '0.36.239');
@@ -1309,7 +1399,24 @@ if (values['self-check']) {
   assert.equal(parseQueue([{ id: 'p', asi: 'tested', save: 'S', gameArgs: ['-disablestoryprogression'], run: { profile: { minutes: 10, seed: 7 } } },
     { id: 'i', asi: 'tested', save: 'menu', defaultIni: { 'Config.SimulatorRandomSeed': 7 }, run: { menuMemory: { draws: 3 } } }]).length, 2);
   for (const [q, re] of bad) assert.throws(() => parseQueue(q), re);
+  assert.throws(() => parseQueue({ rewindGroupBySave: "yes", jobs: [{ id: "x", asi: "tested", save: "S", run: { soak: { minutes: 1 } } }] }), /rewindGroupBySave must be true or false/);
+  assert.equal(parseQueue({ rewindGroupBySave: true, jobs: [{ id: "x", asi: "tested", save: "S", run: { soak: { minutes: 1 } } }] }).length, 1);
   const age = (a: object, extra: object = {}) => [{ id: 'age-bp', asi: 'tested', save: 'Baseline-BP', run: { age: { days: 14, checkpoint: 2, ...a } }, ...extra }];
+  // docs/270 §9.2: run.rewindGames planning and refusals
+  assert.deepEqual(rewindArms(5, 'routefaillog'), ['off', 'on', 'on', 'off', 'off']);
+  assert.deepEqual(rewindArms(2), ['', '']);
+  const rgp = { minutes: 2, seed: 7, fixesOn: 'a' };
+  assert.deepEqual([rewindGameProfile(rgp, 'x', 'on').fixesOn, rewindGameProfile(rgp, 'x', 'off').fixesOff, rewindGameProfile(rgp, 'x', 'off').fixesOn, rewindGameProfile(rgp, undefined, '').fixesOff], ['a,x', 'x', 'a', undefined]);
+  assert.ok(['noProf', 'noSamplers', 'noFrames'].every(k => (rewindGameProfile(rgp, 'x', 'on') as any)[k] === true), 'no Frida session of its own in a rewound game');
+  const rgj = (g: object, extra: object = {}) => [{ id: 'rg', asi: 'tested', save: 'Baseline-BP-Spring', ini: { 'Rewind.Park': 1, 'Rewind.Offline': 1 }, run: { rewindGames: { n: 3, profile: { minutes: 2, seed: 1 }, ab: 'routefaillog', ...g } }, ...extra }];
+  assert.equal(parseQueue(rgj({}))[0].run.rewindGames!.n, 3);
+  assert.deepEqual(callSitesIni(parseQueue(rgj({}))[0]), {}, 'no coverage traps across a rewind');
+  for (const [q, re] of [[rgj({ n: 0 }), /n must be 1..12/], [rgj({ profile: { minutes: 0 } }), /minutes must be > 0/], [rgj({ profile: { minutes: 2, ab: 'x' } }), /takes only .*: ab/],
+    [rgj({ profile: { minutes: 2, repros: ['a'] } }), /takes only/], [rgj({ ab: 'Bad-Name' }), /ab must be/], [rgj({ profile: { minutes: 2, fixesOff: 'routefaillog' } }), /twice/], [rgj({ arms: 2 }), /takes n, profile and ab/],
+    [rgj({}, { ini: { 'Rewind.Park': 1 } }), /Rewind.Offline 1/], [rgj({}, { callSites: true }), /callSites must stay off/], [rgj({}, { save: 'menu' }), /needs a save/], [rgj({}, { reuseSession: true }), /no reuseSession/],
+    [rgj({}, { run: { rewindGames: { n: 2, profile: { minutes: 2 } }, profile: { minutes: 2 } } }), /exactly one of/]] as [any, RegExp][])
+    assert.throws(() => parseQueue(q), re);
+  assert.equal(parseQueue(JSON.parse(readFileSync(H('queues/rewind-games-smoke-1116.json'), 'utf8')))[0].run.rewindGames!.ab, 'routefaillog');
   assert.equal(parseQueue(age({ keepAlive: 'off', save: 'Age-BP' }))[0].run.age!.days, 14);
   assert.equal(parseQueue(age({ keepAlive: -50 })).length, 1);
   for (const [q, re] of [[age({ days: 0 }), /days/], [age({ checkpoint: -1 }), /checkpoint/], [age({ keepAlive: 'on' }), /keepAlive/],
@@ -1501,6 +1608,10 @@ if (values['self-check']) {
   assert.deepEqual([eaR.fails.length, eaR.notes, eaR.counters.easpread_lots_passes], [1, ['ts3fixes stuckcheckasync: not reached (easpread_lots_passes rose 0: the 3 AM venue cleanup had not armed the stuck checks yet)'], { before: 3, after: 3 }]);
   assert.match(fixActivity(ea, { ...ea, easpread_lots_passes: 4 }, night[0], night[1]).fails.join(), /stuckcheckasync on but .* rose 0/);
   assert.match(fixActivity(ea, { ...ea, easpreadlots: false }, night[0], night[1]).fails.join(), /stuckcheckasync on but .* rose 0/);
+  // pass ended < 60 sim min before the end (EA's 20-60 min alarms): not reached; >= 60 min (or no log line) = judged
+  const eaLog = (m: number) => ({ ...ea, easpread_lots_passes: 4, easpread_log: [`simmin ${m} venue cleanup (ours): cleaned 3, virtual-slot lots 0, season only 1, velvet ropes 0, NPCs seeded 2, stuck checks armed 300, failed steps 0; 900 ticks, longest 9.1 ms, most units in a tick 64`, "simmin 290 venue cleanup (game's): lots per kind: cleaned 3", 'simmin 295 venue cleanup stopped: world gone'] });
+  assert.match(fixActivity(ea, eaLog(280), night[0], night[1]).notes.join(), /not reached \(venue cleanup ended at simmin 280, 20 sim min/);
+  assert.match(fixActivity(ea, eaLog(200), night[0], night[1]).fails.join(), /stuckcheckasync on but .* rose 0/);
   // fixesReport (docs/202 §3.6.3): prefix-matched numbers before/after, lists as read, switches and other keys skipped
   const uf0 = { unseenfbpre: true, unseenfbpre_rj_samelot: 1 }, uf1 = { ...uf0, unseenfbpre_rj_samelot: 9, unseenfbleave_rj_goalseen: 2, unseenfbpre_callers: ['3 Foo.Run'], unseenenv_x: 1 };
   const ufR = fixActivity(uf0, uf1, night[0], night[1], jobFixesCfg({ fixesOn: 'unseenfbpre', fixesReport: 'unseenfb' }));
@@ -1677,12 +1788,23 @@ if (values['self-check']) {
     const r = { pass: false, crashed: false, timedOut: false, error: null, verdict: [na, 'N/A (vanilla): asi build check'] };
     assert.ok(naRow(r)); assert.ok(!naRow({ ...r, pass: true }) && !naRow({ ...r, crashed: true }) && !naRow({ ...r, verdict: [na, 'FAIL: x'] }) && !naRow({ ...r, verdict: ['N/A (vanilla): asi build check'] }));
     assert.equal(failStop({ id: 'm', stopQueueOnFail: true }, { pass: false, na: true, verdict: [na] }, false), '');
+    assert.equal(failStop({ id: 'm', stopQueueOnFail: true }, { pass: false, relaunchedAs: 'm-kc', verdict: ['VOID: known cause x (y): run void, relaunched once as m-kc'] }, false), '', 'known-cause VOID row: its relaunch decides');
   }
   assert.deepEqual(silentFail(0, 'ok', false), []);
   assert.deepEqual(silentFail(1, '12:00:00 trip status: loaded true\n', false), ['FAIL: exit 1 with no verdict line (child stopped from outside or died before its summary); last output: 12:00:00 trip status: loaded true']);
   // profile-world.ts failed repro step: the reason reaches the job verdict (2026-10-19 bp-ab-wildflowertask)
   const reproFail = '12:00:00 repro wildflower-drain step wildflower_drain: {"id":29,"error":"Wildflower drain members not found","ok":false}\n12:00:00 FAIL: repro step wildflower_drain failed: Wildflower drain members not found\n12:00:01 cleanup wildflower_drain: ok\n';
   assert.deepEqual(silentFail(1, reproFail, false), ['FAIL: repro step wildflower_drain failed: Wildflower drain members not found']);
+  { // a repro step answering N/A is an N/A row, not a FAIL (2026-11-16 bp-ilp-b87-off); stopQueueOnFail does not stop on it
+    const naLine = '12:00:00 FAIL: repro step ilp_scavenger_check failed: N/A: none of 4 scavenger opportunities spawned anything (the world holds enough of every item)\n';
+    const v = silentFail(1, naLine, false);
+    assert.deepEqual(v, ['N/A: repro step ilp_scavenger_check: none of 4 scavenger opportunities spawned anything (the world holds enough of every item)']);
+    assert.equal(profileHead(1, false, null, naLine), 'N/A');
+    const row = { pass: false, crashed: false, timedOut: false, error: null, verdict: [`${profileHead(1, false, null, naLine)}: profile 10 min`, ...v] };
+    assert.ok(naRow(row)); assert.equal(failStop({ id: 'x', stopQueueOnFail: true }, { ...row, na: true }, false), '');
+    assert.equal(profileHead(1, false, null, naLine + '12:00:01 FAIL: fixes counters: x=0\n'), 'FAIL'); // a real FAIL beside it stays FAIL
+    assert.equal(profileHead(1, false, null, reproFail), 'FAIL');
+  }
 
   // child killed from outside (signal, or non-zero with no verdict line): reason logged, game closed; own FAIL line: left alone
   {
@@ -1793,6 +1915,8 @@ if (values['self-check']) {
   assert.equal(failStop({ id: 'a' }, { pass: false, verdict: ['FAIL: x'] }, false), '');
   assert.equal(failStop({ id: 'a', stopQueueOnFail: true }, { pass: false, rerun: 'a-rerun' }, false), '');
   assert.equal(failStop({ id: 'a', stopQueueOnFail: true }, { pass: false, verdict: ['note', 'FAIL: x'] }, false), 'a failed (stopQueueOnFail): FAIL: x');
+  // 2026-11-16 bp-rmr-snapback: the STOP line kept only the reasonless profile head line
+  assert.equal(failStop({ id: 'a', stopQueueOnFail: true }, { pass: false, verdict: ['FAIL: profile 16 min, seed 1 (rng-compare.ts)', 'FAIL: repro step s failed: why', 'PASS: 0 new script errors'] }, false), 'a failed (stopQueueOnFail): FAIL: profile 16 min, seed 1 (rng-compare.ts) | FAIL: repro step s failed: why');
   assert.equal(failStop({ id: 'a' }, { pass: false, error: 'early gate: w (c=0)', verdict: [] }, true), 'a failed (stopQueueOnFail): early gate: w (c=0)');
   // earlyGates (2026-10-31): parse rules, absolute values, fixes: + sums, missing counters, skipped rounds
   const eg = (g: object) => [{ id: 'g', asi: 'x', save: 'S', earlyGates: [g], run: { profile: { minutes: 5 } } }];
@@ -2092,18 +2216,23 @@ if (VANILLA) {
   if (bad.length) { console.error(`vanilla mode: these need ts3native or ts3fixes: ${bad.join('; ')}`); process.exit(2); }
 }
 const noOurs = (j: Job) => VANILLA || j.ourMods === false; // no asi, ini, ts3native.log or ts3fixes in this job's game start
-let jobs = all;
-if (values.from) {
-  const i = all.findIndex(j => j.id === values.from);
-  if (i < 0) { console.error(`--from: no job ${values.from}`); process.exit(2); }
-  jobs = all.slice(i);
+// --from / --only over `all`; run again after a rewindGroupBySave reorder, so --from resumes the grouped order
+function selectJobs(): Job[] {
+  let js = all;
+  if (values.from) {
+    const i = all.findIndex(j => j.id === values.from);
+    if (i < 0) { console.error(`--from: no job ${values.from}`); process.exit(2); }
+    js = all.slice(i);
+  }
+  if (values.only) {
+    const ids = values.only.split(',').map(s => s.trim());
+    const miss = ids.filter(id => !all.some(j => j.id === id));
+    if (miss.length) { console.error(`--only: no job ${miss.join(', ')}`); process.exit(2); }
+    js = js.filter(j => ids.includes(j.id));
+  }
+  return js;
 }
-if (values.only) {
-  const ids = values.only.split(',').map(s => s.trim());
-  const miss = ids.filter(id => !all.some(j => j.id === id));
-  if (miss.length) { console.error(`--only: no job ${miss.join(', ')}`); process.exit(2); }
-  jobs = jobs.filter(j => ids.includes(j.id));
-}
+let jobs = selectJobs();
 // minutes a repro's steps always take: fixed waitS run to the end even after the window end, only until/waitUntil steps stop
 // there (repro-loop.ts runSteps), so the job needs this plus load time (golive-checks-1115 2026-11-15: 31 min of crowd_go
 // waits in a 10-min profile hit timeoutMin 30, the timeout kill was reported as a crash)
@@ -2139,6 +2268,7 @@ const tagTaken = (t: string) => {
 };
 const tagOf = new Map<Job, string>(); // resolved once per job: every artifact path, the row and the reports share it
 const profileTag = (j: Job) => tagOf.get(j) ?? (tagOf.set(j, freeTag(`${queueName}-${new Date().toISOString().slice(0, 10)}-${j.id}`, tagTaken)), tagOf.get(j)!);
+const rewindTag = (j: Job, k: number, arm: string) => subTag(profileTag(j), `g${k + 1}${arm ? `-${arm}` : ''}`);
 // p: the job's profile, or for one repro of profile.repros that merged with the item (docs/170 §1); extra: session flags
 const profileArgs = (j: Job, p: any = j.run.profile!, tag = profileTag(j), extra: string[] = []): string[] => [H('profile-world.ts'), '--tag', tag, '--minutes', String(p.minutes), ...(p.seed !== undefined ? ['--seed', String(p.seed)] : []),
       ...(p.repro ? ['--repro', p.repro] : []), ...(p.loopRule ? ['--loop-rule', JSON.stringify(p.loopRule)] : []),...(p.mainstack ? ['--mainstack', String(p.mainstack)] : []),
@@ -2171,6 +2301,22 @@ const keyOf = (j: Job) => stableKey({ asi: asiPath(j), sha: sha(asiPath(j)), ini
 const itemsOf = (j: Job): ReproItem[] | null => (j.run.profile?.repros ? reproItems(j.run.profile.repros) : null);
 // the next job may take over the running game: reuse on for it, same key, a profile run that can share a load
 const canTakeOver = (key: string, next?: Job) => !!next && !!reuseOf(next) && !reuseBlock(next) && keyOf(next) === key;
+// docs/270 §30: rewind groups (queue-rewind.ts); keyed with the ini and callSites the group adds, so they never split a group
+const REWIND = queueRewind(queueJson), BRIDGE_CONF = join(BIN, 'bridge.conf');
+const rwBin = existsSync(BRIDGE_CONF) && REWIND_ON.test(readFileSync(BRIDGE_CONF, 'utf8'));
+const rwKey = (j: Job) => keyOf({ ...j, callSites: false, ini: { ...j.ini, ...REWIND_INI } });
+// docs/272 §3: queue rewindGroupBySave reorders the whole list (barriers: no-rewind jobs, stopQueueOnFail gates, smoke jobs); the gain line is in every dry run
+const rwBarrier = (j: Job) => rewindBlock(j, VANILLA) || (j.stopQueueOnFail ? 'stopQueueOnFail' : '') || (/smoke/i.test(j.id) ? 'smoke job' : '');
+const BY_SAVE = queueJson?.rewindGroupBySave === true, grouped = groupBySave(all, rwKey, rwBarrier);
+const bySaveLine = bySaveGain(all, grouped, rwBarrier, rwKey, BY_SAVE);
+if (BY_SAVE) { all.splice(0, all.length, ...grouped); jobs = selectJobs(); }
+const rwGroups = rewindGroups(jobs, () => REWIND === 'auto', j => rewindBlock(j, VANILLA), rwKey);
+const rwPlanned = rewindSummary({ groups: new Set(rwGroups.values()).size, members: rwGroups.size, jobs: jobs.length });
+if (!values['dry-run'] && rwGroups.size && !rwBin) { log('rewind: Bin state is not apex-rewind (no rewindMode = True in Bin\\bridge.conf): every job starts fresh, no [Rewind] ini added'); rwGroups.clear(); }
+for (const j of rwGroups.keys()) { j.ini = { ...j.ini, ...REWIND_INI }; j.callSites ??= false; }
+let rwOff = false, rwFails = 0;
+const armRuns: ArmSummary[] = []; // docs/272 §4: this run's per-arm profile data for the A/B summary at the end
+const rwRun = { rewinds: [] as number[], fresh: [] as number[], refused: 0, failed: 0 };
 for (const j of jobs) {
   if (j.run.repro && !REPROS.some(r => r.id === j.run.repro)) { console.error(`${j.id}: no repro ${j.run.repro} in tools/harness/repros.json`); process.exit(2); }
   if (j.run.profile?.repro && !REPROS.some(r => r.id === j.run.profile!.repro)) { console.error(`${j.id}: no repro ${j.run.profile.repro} in tools/harness/repros.json`); process.exit(2); }
@@ -2226,17 +2372,23 @@ if (values['dry-run']) {
   console.log(`queue ${queueName}: ${jobs.length} of ${all.length} jobs (dry run, nothing touched)`);
   if (VANILLA) console.log(`  vanilla mode (docs/236): ${existsSync(join(vanillaSpec().stash, 'manifest.json')) ? 'stash already installed: read back only, left in place' : `vanilla.ts install at the start (agent ${vanillaSpec().agent ?? '** TS3_AGENT_PACKAGE unset: a real run refuses **'}), restore at the end`}; N/A per row: ${VANILLA_NA.join(', ')}`);
   console.log(`  ${smokeLine}`);
+  console.log(`  ${bySaveLine}${BY_SAVE ? `; order now: ${jobs.map(j => j.id).join(', ').slice(0, 600)}` : ''}`);
+  console.log(`  rewind ${REWIND}: ${rwPlanned}${rwGroups.size && !rwBin ? '; Bin state is not apex-rewind now: a real run would start every job fresh' : ''}`);
   if (stale) console.log(`** a real run would refuse to start: ${stale}`);
   for (const r of iniRefuse) console.log(`** a real run would refuse to start: ${r}`);
   if (existsSync(ourModsMf())) console.log(`** ts3native + ts3fixes are in the stash of an unfinished run (${ourModsSpec().stash}): a real run restores them first`);
   for (const w of pairs) console.log(`** ${w}`);
   let dryKey = '', dryWin = 0, dryPrev = '';
-  for (const j of jobs) {
+  for (const [di, j] of jobs.entries()) {
     const a = asiPath(j), s = saveOf(j)!, r = runArgs(j);
     console.log(`\n${j.id}${j.note ? ` - ${j.note}` : ''} (timeout ${j.timeoutMin ?? 60} min)`);
     // docs/170: the game of the job before is taken over when both have reuse on, the same game start and the window budget left
-    const ro = reuseOf(j), key = keyOf(j), items = itemsOf(j), reused = !!ro && !reuseBlock(j) && key === dryKey && dryWin < ro.maxJobs;
-    console.log(`  0 session: ${reused ? `reuses the game of ${dryPrev} (window #${dryWin} since load, if its carry-over check passes: switches back to the load values, drift within ${JSON.stringify(ro)}); steps 1-6 skipped`
+    const rg = rwGroups.get(j), rwPrev = rg !== undefined && rwGroups.get(jobs[di - 1]) === rg, rwNext = rg !== undefined && rwGroups.get(jobs[di + 1]) === rg;
+    const ro = reuseOf(j), key = keyOf(j), items = itemsOf(j), reused = rwPrev || (!!ro && !reuseBlock(j) && key === dryKey && dryWin < ro.maxJobs);
+    if (rwPrev) console.log(`  0 start: rewind to the snapshot after the load (rewind group ${rg}; refused or failed -> close + fresh load, row.start says which); steps 1-6 skipped`);
+    else if (rwNext) console.log(`  0 start: fresh; after the load a rewind snapshot for the next job(s) of rewind group ${rg} (ini + ${Object.entries(REWIND_INI).map(([k, v]) => `${k}=${v}`).join(', ')}, callSites off)`);
+    else if (REWIND === 'auto') console.log(`  0 start: fresh (no rewind: ${rewindBlock(j, VANILLA) || 'game start differs from its neighbours'})`);
+    if (!rwPrev) console.log(`  0 session: ${reused ? `reuses the game of ${dryPrev} (window #${dryWin} since load, if its carry-over check passes: switches back to the load values, drift within ${JSON.stringify(ro)}); steps 1-6 skipped`
       : `fresh game start + load${ro && reuseBlock(j) ? ` (no reuse: ${reuseBlock(j)})` : ro && dryKey && key !== dryKey ? ' (game start differs from the job before)' : ro && dryKey ? ` (maxJobs ${ro.maxJobs} reached)` : ''}`}`);
     dryWin = (reused ? dryWin : 0) + (items?.length ?? 1); dryKey = ro && !reuseBlock(j) ? key : ''; dryPrev = j.id;
     if (!reused) {
@@ -2303,7 +2455,10 @@ if (values['dry-run']) {
     if (j.run.age) { const c = ageClash(j); console.log(`  7 saves ${ageName(j)}-dayN every ${j.run.age.checkpoint} sim days, final ${ageName(j)}; per checkpoint size/types/save ms/memory -> ${queueName}-<date>-${j.id}-age.csv${c.length ? `  ** REFUSED: would overwrite ${c.join(', ')} **` : ''}`); }
     if (!items) console.log(`  7 ${r ? `node ${r.map(x => x.replace(ROOT + '\\', '').replace(/\\/g, '/')).join(' ')}` : j.run.soak ? `soak ${j.run.soak.minutes} min at ${j.run.soak.speed ?? 'ultra'} (autopilot + watchdog.ts)`
       : j.run.routelock ? `routelock ${j.run.routelock.minutes} min at ${j.run.routelock.speed ?? 'ultra'}: autopilot, /routelock?start=1, watchdog.ts, /routelock?stop=1 -> row.routelock`
+      : j.run.rewindGames ? `rewindGames: refuse unless rewindReady (NvRemixBridge.exe, bridge.conf rewindMode = True, [Rewind] Park/Offline on); park, pause, probe agent out, rewindSession snapshot (queue-rewind.ts), agent back${existsSync(REWIND_EXE) ? '' : '  ** rewind-spike.exe MISSING: tools\\harness\\rewind\\build.cmd; the job refuses **'}`
       : j.run.worldimage ? `worldimage: require 'OK   world image' in ts3native.log; autopilot ${j.run.worldimage.speed ?? 'normal'}, settle ${j.run.worldimage.settleS ?? 60} s; ${j.run.worldimage.captures} x (write <OutDir>\\request, wait for the new wi-* folder's header.txt 'loose' line: progress check every 30 s, 2 misses = FAIL; gap ${j.run.worldimage.gapS ?? 30} s) -> row.worldimage (stall ms, MB, loose, lock owners, G3-1 statics read)` : `menu memory after ${j.run.menuMemory?.waitS ?? 60} s${j.run.menuMemory?.draws ? `, ${j.run.menuMemory.draws} RandomGen draws` : ''}`}`);
+    const rgm = j.run.rewindGames;
+    if (rgm) rewindArms(rgm.n, rgm.ab).forEach((arm, k) => console.log(`  7 game ${k + 1}/${rgm.n}${arm ? ` ${arm}` : ''}: ${k ? 'park, pause, probe agent out, rewind, agent back (code 2/3: reload + new snapshot, row marked); ' : ''}node ${profileArgs(j, rewindGameProfile(rgm.profile, rgm.ab, arm), rewindTag(j, k, arm)).map(x => x.replace(ROOT + '\\', '').replace(/\\/g, '/')).join(' ')}; counters + ts3native.log slice -> <tag>-counters.json, <tag>-ts3native.log`));
     if (j.saveMatrix?.fixes === 'shipped') console.log(`  7 release mode (save-matrix.ts --fixes shipped); when its reload case is pending: for ON then OFF save: close game, cycle.ts --restart, asi + ini (+ fixesPackage) again, probe, cycle.ts --save <it>, save-matrix.ts --reload-check [--off]`);
     if (loopOf(j)) { const l = loopOf(j)!; console.log(`  7 stop rule: ${ruleText(l.until)} (fixed before the run), arms ${l.arms.join(',')} repeated; cap ${Math.min(l.maxMinutes ?? j.run.profile!.minutes, j.run.profile!.minutes)} min (profile.minutes = cap)`); }
     if (j.minCounters !== undefined) console.log(`  7 refuse unless /native after the load reports counters >= v${j.minCounters}; full /native -> ${queueName}-<date>-${j.id}-native.json${j.ini?.['Verify.Enabled'] ? ' ([Verify] maxima zeroed after that read: live window)' : ''}`);
@@ -2633,7 +2788,7 @@ const ledgerBlocks: string[] = [];  // mono ledger probe (docs/51, mono-ledger-r
 // the running game and what its start changed; kept across jobs only when reuseSession lets the next job take it over (docs/170 §2)
 let d3d9Orig: Buffer | null = null; // DXVK d3d9.dll while a d3d9Dll job has the Bin swapped; not reset per job (a failed put-back must survive)
 let stopPin = () => {}, probe: ReturnType<typeof spawn> | undefined, applied = { install: [] as string[], uninstall: [] as string[] }, launched = false, defaultIniOrig: string | null = null, s3ppIniOrig: string | null = null, s3ssTomlOrig: string | null = null, dxvkConfOrig: string | null = null, stashed = false, ccInstalled = false, lotsInstalled = false;
-type Sess = { key: string; reuse: ReuseOpts | null; load: number; windows: number; logOff: number; base: WorldSnap | null; frames: string; carry?: string };
+type Sess = { key: string; reuse: ReuseOpts | null; load: number; windows: number; logOff: number; base: WorldSnap | null; frames: string; carry?: string; rw?: ReturnType<typeof rewindSession>; rwUsed?: boolean };
 let sess: Sess | null = null, loads = 0;
 const logSize = () => { try { return statSync(LOG).size; } catch { return 0; } };
 // build verification (2026-10-24: the whole v0.1.5 release check ran an old ts3fixes.package; docs/TESTING.md "Build verification"):
@@ -2673,6 +2828,7 @@ const startProbe = (j: Job) => {
   if (sc.status === 3) throw new Error(`${scOut[1]}; refused before the game started`); // FAIL, never PASS
   const pf =createWriteStream(join(OUT, `${queueName}-${date}-${j.id}-probe.log`), { flags: 'a' });
   const pr = probe = spawn('python', [join(ROOT, 'tools', 'probe', 'ts3probe.py'), 'serve', '--launch', '--port', values.port!, '--', ...launchArgs(j.gameArgs)], { cwd: ROOT });
+  apexLogOff = sizeOf(APEX_LOG);
   pr.stdout?.pipe(pf); pr.stderr?.pipe(pf); launched = true;
   const clicksFile = noOurs(j) ? join(OUT, `${queueName}-${date}-${j.id}.clicks.log`) : '';
   if (clicksFile) process.env.TS3_CLICKS_LOG = clicksFile; // children (vanilla-steps.ts accept) read the accept lines from it
@@ -2687,7 +2843,7 @@ const startProbe = (j: Job) => {
 const loaded = (j: Job): Sess => (sess = { key: keyOf(j), reuse: reuseOf(j), load: ++loads, windows: 0, logOff: logSize(), base: null,
   frames: join(ROOT, 'probe-out', 'profile', `${queueName}-${date}-${j.id}-load${loads}-${new Date().toISOString().slice(11, 19).replace(/:/g, '')}-frames.csv`) });
 // windows that share a load (reuseSession or profile.repros) tell profile-world.ts so (first minute, lead-in, one frames session)
-const sessionFlags = (j: Job) => sess && (sess.reuse || itemsOf(j)) ? ['--since-load', String(sess.windows), '--frames-shared', sess.frames] : [];
+const sessionFlags = (j: Job) => sess && !sess.rw && (sess.reuse || itemsOf(j)) ? ['--since-load', String(sess.windows), '--frames-shared', sess.frames] : [];
 const ioAgent = { ag: agent, get: (p: string) => get(p) };
 // between two windows of one load: switches back to the load values, world snapshot vs the one after the load (session-reuse.ts)
 async function carryCheck(o: ReuseOpts, x: Extra): Promise<{ reasons: string[]; line: string }> {
@@ -2699,6 +2855,7 @@ async function carryCheck(o: ReuseOpts, x: Extra): Promise<{ reasons: string[]; 
 // a reload inside a job (drift or a failed repro between profile.repros): close, restart, the job's asi and ini again, load
 async function reloadGame(j: Job, logFile: string, deadline: number, why: string) {
   log(`${j.id}: reload (${why})`);
+  await rwDrop();
   await closeGame(probe?.pid); stopPin();
   const rr = await node([H('cycle.ts'), '--restart'], logFile, noGameDeadline(deadline));
   if (rr.code !== 0) throw new Error(`reload: cycle.ts --restart exit ${rr.code}`);
@@ -2711,8 +2868,51 @@ async function reloadGame(j: Job, logFile: string, deadline: number, why: string
   logVersionGate();
   loaded(j); sess!.base = await snapshot(ioAgent);
 }
+// docs/270 §30: the tool holds the snapshot; quit it before the game closes (puts the pool worker minimums back)
+async function rwDrop() { if (sess?.rw) { const rw = sess.rw; sess.rw = undefined; log(`rewind: snapshot dropped (tool exit ${await rw.quit()})`); } }
+// docs/270 §33: every refusal reason with its owner goes to probe-out/rewind-refusals.jsonl; a kind+owner pair not seen before is logged
+function noteRefusals(j: Job, c: string, op: { code: number; why: string[] }) {
+  if (!op.code) return;
+  try { for (const m of recordRefusals(REFUSALS, { queue: queueName, job: j.id, op: c, code: op.code, why: op.why })) log(`${j.id}: rewind: new refusal kind: ${m}`); }
+  catch (e) { log(`rewind: refusal tally not written (${(e as Error).message})`); }
+}
+// after the load of a group's job whose next job is in the same group: snapshot; nothing ready -> the next job starts fresh
+async function rwSnapshot(j: Job, row: any, logFile: string, deadline: number) {
+  let bridgeRuns = true;
+  try { pidOf('NvRemixBridge.exe'); } catch { bridgeRuns = false; }
+  const why = rewindReady({ exe: existsSync(REWIND_EXE), conf: existsSync(BRIDGE_CONF) ? readFileSync(BRIDGE_CONF, 'utf8') : null, bridgeRuns, log: existsSync(LOG) ? readFileSync(LOG, 'latin1') : '' });
+  if (why) { row.snapshot = `skipped: ${why}`; log(`${j.id}: rewind snapshot skipped: ${why} (the next job starts fresh)`); return; }
+  const kept = existsSync(LOG) && COMBASE_KEPT.test(readFileSync(LOG, 'latin1'));  // docs/270 §32: combase patched, no settle wait
+  const rw = rewindSession(pidOf(GAME_EXE), { agent, get, log: m => log(`${j.id}: ${m}`), settleS: kept ? 0 : SETTLE_S });
+  const op = await rw.snapshot();
+  row.snapshot = op.code === 0 ? `taken (${op.ms} ms)` : `${op.code === 2 ? 'refused' : 'failed'}: ${op.why.join('; ').slice(0, 200)}`;
+  log(`${j.id}: rewind snapshot ${row.snapshot}`);
+  noteRefusals(j, 'snapshot', op);
+  if (op.code === 0) { sess!.rw = rw; sess!.rwUsed = true; return; }
+  log(`rewind: tool exit ${await rw.quit()}`);
+  if (op.code === 2) return; // refused before any change: the game plays on, the next job starts fresh
+  rwRun.failed++; row.rewindFailed = true;
+  if (++rwFails >= 2) { rwOff = true; log('rewind: 2 failures in this run: off for the rest of it'); }
+  await reloadGame(j, logFile, deadline, `rewind snapshot failed: ${op.why.join('; ').slice(0, 160)}`);
+}
+// before a group's later job: back to the snapshot; anything but a verified rewind with equal switches -> close + the same start fresh
+async function rwStart(j: Job, row: any, logFile: string, deadline: number) {
+  const op = await sess!.rw!.rewind();
+  if (op.code === 0 && sess!.base) { const d = switchDiff(sess!.base, await readSwitches(ioAgent)); if (d.length) Object.assign(op, { code: 3, why: [`switches differ from the load after the rewind: ${d.slice(0, 6).join(', ')}`] }); }
+  row.start = startLine(op); row.startMs = op.ms;
+  noteRefusals(j, 'rewind', op);
+  log(`${j.id}: start: ${row.start}`);
+  if (op.code) log(`${j.id}: rewind: why in full: ${op.why.join('; ')}`); // row.start cuts it at 200 characters
+  if (op.code === 0) { rwRun.rewinds.push(op.ms); row.session = { load: sess!.load, window: sess!.windows, line: `rewind to the snapshot after load #${sess!.load}` }; return; }
+  if (op.code === 2) rwRun.refused++; else { rwRun.failed++; row.rewindFailed = true; if (++rwFails >= 2) { rwOff = true; log('rewind: 2 failures in this run: off for the rest of it'); } }
+  const t = Date.now();
+  await reloadGame(j, logFile, deadline, row.start);
+  row.startMs = Date.now() - t; rwRun.fresh.push(row.startMs);
+  row.session = { line: `fresh load (${row.start.split(' -> ')[0]})` };
+}
 // close the running game (pins back first)
 async function endGame(j: Job) {
+  await rwDrop();
   jobGuard = null; modeGuard = null; clicksOn = false;
   stopPin(); stopPin = () => {};
   const pin = pinConfig(j.pin);
@@ -2809,6 +3009,7 @@ for (const [n, j] of jobs.entries()) {
   row.pin = describePin(pin);
   if (j.rerunOf) row.rerunOf = j.rerunOf;
   if (j.retryOf) row.retryOf = j.retryOf;
+  if (j.kcOf) row.kcOf = j.kcOf;
   let miss: string[] = [];
   if (j.skipIfMissing) try { miss = missingFixes(execFileSync(process.execPath, [fixesTool, 'plan', '--only', j.fixes!.install!.join(',')], { cwd: ROOT, encoding: 'utf8' })); } catch (e) { log(`${j.id}: install-fixes plan: ${String(e).split('\n')[0]}`); } // the install below then decides
   if (miss.length) {
@@ -2823,9 +3024,10 @@ for (const [n, j] of jobs.entries()) {
   // docs/170 §2: sess is still set only when the job before kept its game for this one (same key, reuse on, carry-over check ok)
   const reused = !!sess;
   row.session = reused ? { load: sess!.load, window: sess!.windows, line: `reused session (#${sess!.windows} since load)`, before: sess!.carry ?? null } : { line: 'fresh load' };
+  row.start = reused ? 'reused session' : 'fresh';
   if (reused) log(`${j.id}: ${row.session.line}; game start steps skipped`);
   else { stopPin = () => {}; probe = undefined; applied = { install: [], uninstall: [] }; launched = false; defaultIniOrig = s3ppIniOrig = s3ssTomlOrig = dxvkConfOrig = null; stashed = false; ccInstalled = false; lotsInstalled = false; lastBuild = null; }
-  let jobLogOff = 0;
+  let jobLogOff = 0, rwOffs: { sh: number; aut: number } | null = null; // rwOffs: Bin jsonl sizes at a rewound job's start (not truncated then)
   try {
     if (!noOurs(j) && !existsSync(asiPath(j))) throw new Error(`asi missing: ${j.asi} (refused before touching the game)`);
     if (j.ccSet && !ccSetReady(j.ccSet)) throw new Error(`ccSet missing or empty: ${[j.ccSet].flat().join(' + ')} (make it with tools/cc-gen.ts; refused before touching the game)`);
@@ -2945,10 +3147,19 @@ for (const [n, j] of jobs.entries()) {
     }
     logVersionGate();
     loaded(j); clicksOn = true;
-    } else stopLoad = startMachineLoad(machineFile, 30, pin?.cpus ?? gameCpus()); // ---- end of game start and load
+    row.startMs = Date.now() - Date.parse(t0); rwRun.fresh.push(row.startMs);
+    } else {
+      stopLoad = startMachineLoad(machineFile, 30, pin?.cpus ?? gameCpus());
+      if (sess!.rw) await rwStart(j, row, logFile, deadline); // docs/270 §30
+    } // ---- end of game start and load
     sess!.reuse = reuseOf(j); // this job's limits decide whether the next one may take the game over
-    if ((sess!.reuse || itemsOf(j)) && !sess!.base) sess!.base = await snapshot(ioAgent); // switch values and world right after the load
+    const rwNext = !rwOff && rwGroups.has(j) && rwGroups.get(j) === rwGroups.get(jobs[n + 1]);
+    if ((sess!.reuse || itemsOf(j) || rwNext) && !sess!.base) sess!.base = await snapshot(ioAgent); // switch values and world right after the load
+    if (rwNext && !sess!.rw) await rwSnapshot(j, row, logFile, deadline);
     jobLogOff = logSize();
+    const fsize = (f: string) => { try { return statSync(join(BIN, f)).size; } catch { return 0; } };
+    if (/^rewind \(/.test(row.start)) rwOffs = { sh: fsize('ts3native-shadow.jsonl'), aut: fsize('autshadow.jsonl') };
+    if (rwOffs) apexLogOff = sizeOf(APEX_LOG); // a rewound job keeps only its own Apex log lines
     if (j.run.menuMemory) await sleep((j.run.menuMemory.waitS ?? 60) * 1000);
     if (j.run.menuMemory?.draws) { // 0.0 means gRandomGen not cached yet (docs/27 §1.1)
       row.rngDraws = [];
@@ -3017,6 +3228,63 @@ for (const [n, j] of jobs.entries()) {
       }
       row.exitCode = row.repros.length === items.length && row.repros.every((x: any) => x.exitCode === 0) ? 0 : 1;
       row.timedOut = row.repros.some((x: any) => x.timedOut);
+    } else if (j.run.rewindGames) {
+      // ---- run.rewindGames (docs/270 §9.2, rewindArms above): one load, every game from the same snapshot
+      const g = j.run.rewindGames, arms = rewindArms(g.n, g.ab);
+      let bridgeRuns = true;
+      try { pidOf('NvRemixBridge.exe'); } catch { bridgeRuns = false; }
+      // the shared readiness check and snapshot/rewind ops of the queue's rewind reuse (queue-rewind.ts): one code path
+      const notReady = rewindReady({ exe: existsSync(REWIND_EXE), conf: existsSync(BRIDGE_CONF) ? readFileSync(BRIDGE_CONF, 'utf8') : null, bridgeRuns, log: existsSync(LOG) ? readFileSync(LOG, 'latin1') : '' });
+      if (notReady) throw new Error(`run.rewindGames: ${notReady}; refused, nothing run`);
+      let s: ReturnType<typeof rewindSession> | null = null;
+      const snap = async () => {
+        s = rewindSession(pidOf(GAME_EXE), { agent, get, log: m => log(`${j.id}: ${m}`) });
+        const r = await s.snapshot();
+        log(`${j.id}: rewind snapshot code ${r.code}, ${r.ms} ms${r.why.length ? `; ${r.why.join('; ')}` : ''}`);
+        if (r.code) { await s.quit(); s = null; }
+        return { code: r.code, ms: r.ms, why: r.why, stats: r.row?.stats };
+      };
+      row.games = [];
+      try { // the tool host never outlives the branch (a throw in a reload too)
+        row.rewindSnapshots = [await snap()];
+        for (const [k, arm] of arms.entries()) {
+          const gr: any = { game: k + 1, arm: arm || null, load: sess!.load };
+          if (k > 0) {
+            const r = s ? await s.rewind() : null;
+            if (r) gr.rewind = { code: r.code, ms: r.ms, why: r.why, stats: r.row?.stats };
+            if (!r || r.code !== 0) { // refused (2), target ended (3) or no snapshot: a fresh load and a new snapshot instead
+              if (s) await (s as ReturnType<typeof rewindSession>).quit();
+              s = null;
+              await reloadGame(j, logFile, deadline, r ? `rewind code ${r.code}: ${r.why.join('; ') || 'no reason given'}` : 'no snapshot to rewind to');
+              gr.reloaded = true; gr.load = sess!.load;
+              row.rewindSnapshots.push(await snap());
+            }
+          }
+          const p = rewindGameProfile(g.profile, g.ab, arm), tag = rewindTag(j, k, arm), how = gr.reloaded ? 'after a reload (rewind refused)' : k ? 'after a rewind' : 'first game after the load';
+          const before = { native: await get('native'), patches: (await agent('patches'))?.result ?? null }, from = logSize();
+          log(`${j.id}: game ${k + 1}/${arms.length}${arm ? ` ${arm}` : ''} (tag ${tag}, ${how})`);
+          appendFileSync(logFile, `\n${new Date().toISOString()} game ${k + 1}: profile-world.ts output in ${tag}.log\n`);
+          const r = await node(profileArgs(j, p, tag), join(OUT, `${tag}.log`), deadline);
+          // read now: the next rewind puts the counters back, and the log keeps growing past this game
+          writeFileSync(gr.counters = join(OUT, `${tag}-counters.json`), JSON.stringify({ before, after: { native: await get('native'), patches: (await agent('patches'))?.result ?? null } }, null, 1));
+          if (existsSync(LOG)) try { writeFileSync(gr.nativeLog = join(OUT, `${tag}-ts3native.log`), logCopy(readFileSync(LOG), sess!.logOff, from)); } catch (e) { log(`${j.id}: game ${k + 1}: ts3native.log slice: ${e}`); }
+          Object.assign(gr, { tag, exitCode: r.code, timedOut: r.timedOut });
+          gr.verdict = [`${r.code === 0 ? 'PASS' : 'FAIL'}: game ${k + 1}${arm ? ` ${arm}` : ''}: profile ${p.minutes} min, ${how}`, ...(r.code === 0 ? verdicts(r.out).filter(isFail) : silentFail(r.code, r.out, r.timedOut))];
+          // the arm's switches read back after the rewind
+          const fo = r.code !== 0 ? '' : fixesOnFail(p.fixesOn, r.out) || (p.fixesOff && !r.out.includes(`fixes off: ${p.fixesOff} (verified)`) ? `fixes off: ${p.fixesOff} not read back` : '');
+          if (fo) { gr.verdict.push(`FAIL: game ${k + 1}: ${fo}`); gr.exitCode = 1; }
+          row.games.push(gr); row.verdict.push(...gr.verdict);
+          const lost = r.timedOut || stall ? '' : await childLost('profile-world', r, closeLost, l => log(`${j.id}: ${l}`));
+          if (lost) { row.error = lost; break; }
+          if (gr.exitCode !== 0 && (!gameRunning() || r.timedOut)) break; // crash or deadline: the job ends, the crash rules decide
+        }
+      } finally { if (s) await (s as ReturnType<typeof rewindSession>).quit(); }
+      for (const b of ['bridge32.log', 'bridge64.log']) { // the bridge's [Rewind] lines; the Bin copy goes with the Bin restore (docs/270 §26)
+        const src = join(BIN, 'rtx-remix', 'logs', b);
+        if (existsSync(src)) copyFileSync(src, join(OUT, `${profileTag(j)}-${b}`));
+      }
+      row.exitCode = row.games.length === arms.length && row.games.every((x: any) => x.exitCode === 0) ? 0 : 1;
+      row.timedOut = row.games.some((x: any) => x.timedOut);
     } else if (j.run.age) {
       const clash = ageClash(j);
       if (clash.length) throw new Error(`age: would overwrite ${clash.join(', ')}; set run.age.save to a new name`);
@@ -3195,17 +3463,28 @@ for (const [n, j] of jobs.entries()) {
   try { row.hangCapture = hangCaptureLine(jobLogText); } catch { /* no job log */ }
   const retry = deadlockRetry(j, row, jobLogText, [...all, ...jobs].map(x => x.id));
   if (retry) { jobs.splice(n + 1, 0, retry); neutralizeRetried(row, retry.id); log(`${j.id}: ${DEADLOCK_RETRY}: ${retry.id} queued next`); }
+  // known third-party cause (known-causes.json, Rodney 2026-11-16): the row is VOID and the job runs once more right after it; a hit on
+  // that relaunch is a normal CRASH/FAIL row (today's stop rules: a crash right after the VOID crash is "two jobs in a row crashed")
+  const kc = retry || j.expectHang ? null : matchCause({ crashed: row.crashed, crash: row.crash, jobLog: jobLogText });
+  const kcId = `${j.id}${KC_SUFFIX}`;
+  if (kc && !j.kcOf && ![...all, ...jobs].some(x => x.id === kcId)) {
+    jobs.splice(n + 1, 0, { ...j, id: kcId, kcOf: j.id, note: `relaunch after known cause ${kc.id} in ${j.id}${j.note ? `: ${j.note}` : ''}` });
+    voidRow(row, kc, kcId); log(`${j.id}: known cause ${kc.id} (${kc.owner})${kc.weak ? `, ${kc.weak}` : ''}: run void, ${kcId} queued next`);
+  } else if (kc && j.kcOf) row.verdict.push(`note: known cause ${kc.id} again on the relaunch of ${j.kcOf}: this row counts (${kc.owner}; ${kc.upstream})`);
   expectedHang(j, row, jobLogText, j.expectHang ? logTail(1 << 20) : '');
   if (VANILLA) row.verdict.push(`N/A (vanilla): ${VANILLA_NA.join(', ')}`); // skipped, never PASS
   else if (j.ourMods === false) row.verdict.push(`N/A (ourMods false): ${OURMODS_NA.join(', ')}`);
-  row.pass = row.exitCode === 0 && !row.crashed && !row.error && !row.timedOut && !row.selfCheckFail && !row.verdict.some(isFail); // any FAIL line counts, exit 0 or not (docs/236 #15)
+  row.pass = !row.knownCause && row.exitCode === 0 && !row.crashed && !row.error && !row.timedOut && !row.selfCheckFail && !row.verdict.some(isFail); // any FAIL line counts, exit 0 or not (docs/236 #15)
   // docs/170 §2: the next job may take this game over (reuse on for both, same game start); else it closes now, as always
   const next = jobs[n + 1];
-  const mayKeep = !!sess?.reuse && !reuseBlock(j) && !row.crashed && !stopWhy && canTakeOver(sess.key, next);
+  // docs/270 §30: a rewind group keeps the game for its next job whatever the verdict (the rewind puts it back), not after a crash or hang
+  const rwKeep = !!sess?.rw && !rwOff && rwGroups.has(j) && rwGroups.get(j) === rwGroups.get(next) && !row.crashed && !row.timedOut && !row.error && !row.retriedAs && !row.knownCause && !stopWhy; // retried/VOID rows: error cleared, the game hung
+  if (!rwKeep) await rwDrop();
+  const mayKeep = rwKeep || (!!sess?.reuse && !reuseBlock(j) && !row.crashed && !row.knownCause && !stopWhy && canTakeOver(sess.key, next));
   if (!mayKeep) await endGame(j);
   // the game rewrites Bin/ts3native.log at every start: keep this job's copy (travel save lines, hook OK lines); in a shared load
   // the start-up part plus this job's own lines (session-reuse.ts logCopy)
-  if (launched && existsSync(LOG)) try { writeFileSync(row.nativeLog = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-ts3native.log`), sess && (sess.reuse || row.repros) ? logCopy(readFileSync(LOG), sess.logOff, jobLogOff) : readFileSync(LOG)); } catch (e) { log(`${j.id}: copy ts3native.log: ${e}`); }
+  if (launched && existsSync(LOG)) try { writeFileSync(row.nativeLog = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-ts3native.log`), sess && (sess.reuse || sess.rwUsed || row.repros) ? logCopy(readFileSync(LOG), sess.logOff, jobLogOff) : readFileSync(LOG)); } catch (e) { log(`${j.id}: copy ts3native.log: ${e}`); }
   // docs/133 §7: call-site coverage lines of this run into the cumulative DB (a failed merge only costs coverage)
   // every game start of the row: profile.repros reloads keep their starts only in the per-repro slices (docs/133 §8)
   if (launched && Number(rowIni(j)['ProbeSnap.CallSites'])) for (const f of callsiteLogs(row)) try { log(`${j.id}: ${mergeCallsites(f, j.id)}`); } catch (e) { log(`${j.id}: callsites merge ${f}: ${e}`); }
@@ -3254,12 +3533,15 @@ for (const [n, j] of jobs.entries()) {
   }
   // P4 shadow records (RouteSnap Mode=1, docs/94 §13): rewritten at every start too (row.shadowLog; shadow-compare-report.ts)
   const SHADOW = join(BIN, 'ts3native-shadow.jsonl');
-  if (launched && existsSync(SHADOW)) try { copyFileSync(SHADOW, row.shadowLog = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-shadow.jsonl`)); } catch (e) { log(`${j.id}: copy ts3native-shadow.jsonl: ${e}`); } // shortcut: whole load's records in a shared load; slice like the log when a P4 job uses reuse
+  const copyFrom = (src: string, dst: string, off = 0) => off ? writeFileSync(dst, readFileSync(src).subarray(off)) : copyFileSync(src, dst); // a rewound job: its own records only
+  if (launched && existsSync(SHADOW)) try { copyFrom(SHADOW, row.shadowLog = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-shadow.jsonl`), rwOffs?.sh); } catch (e) { log(`${j.id}: copy ts3native-shadow.jsonl: ${e}`); } // shortcut: whole load's records in a shared load; slice like the log when a P4 job uses reuse
   // [AutShadow] records (go-live dry-diff / dry-sim-mis, docs/124 §17), truncated at job start (row.autshadowLog)
   const AUTSHADOW = join(BIN, 'autshadow.jsonl');
-  if (launched && existsSync(AUTSHADOW) && statSync(AUTSHADOW).size > 0) try { copyFileSync(AUTSHADOW, row.autshadowLog = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-autshadow.jsonl`)); } catch (e) { log(`${j.id}: copy autshadow.jsonl: ${e}`); }
-  let keep = mayKeep && row.pass;
-  if (keep) {
+  if (launched && existsSync(AUTSHADOW) && statSync(AUTSHADOW).size > (rwOffs?.aut ?? 0)) try { copyFrom(AUTSHADOW, row.autshadowLog = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-autshadow.jsonl`), rwOffs?.aut); } catch (e) { log(`${j.id}: copy autshadow.jsonl: ${e}`); }
+  if (launched) try { const k = keepApexLogs(join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}`), apexLogOff); if (k.length) log(`${j.id}: kept ${k.join(', ')}`); } catch (e) { log(`${j.id}: copy bridge/Apex logs: ${e}`); }
+  let keep = mayKeep && (rwKeep || row.pass);
+  if (rwKeep) row.session.next = `rewind for ${next.id}`;
+  else if (keep) {
     const c = await carryCheck(reuseOf(next)!, { windows: sess!.windows, stuck: row.repros?.at(-1)?.stuck ?? row.stuck ?? 0, cleanupFailed: !!(row.repros?.at(-1)?.cleanupFailed ?? row.cleanupFailed) });
     row.session.after = sess!.carry = c.line;
     log(`${j.id}: carry-over check for ${next.id}: ${c.line}`);
@@ -3269,7 +3551,7 @@ for (const [n, j] of jobs.entries()) {
   if (mayKeep && !keep) await endGame(j);
   if (!keep) { const errs = await restoreStart(j.id, logFile); if (errs.length) row.error = [row.error, ...errs].filter(Boolean).join('; '); }
   // docs/170: a crash or failed window of a session job ends the session; daytime that also stops the queue
-  if (reuseOf(j) && !row.pass && !row.retriedAs && failMode(reuseOf(j)!) === 'stop') stopWhy ||= `${j.id} ${row.crashed ? 'crashed' : 'failed'} in a reuseSession queue (daytime rule; TS3_NIGHT=1 or reuseSession.onFail "restart" goes on with a fresh start)`;
+  if (reuseOf(j) && !row.pass && !row.retriedAs && !row.relaunchedAs && failMode(reuseOf(j)!) === 'stop') stopWhy ||= `${j.id} ${row.crashed ? 'crashed' : 'failed'} in a reuseSession queue (daytime rule; TS3_NIGHT=1 or reuseSession.onFail "restart" goes on with a fresh start)`;
   // baseline save integrity: a changed Baseline-*/Story-*/ApexTest-Town save fails the job and stops the queue
   row.saveHashes.after = hashSaves(SAVES, guarded);
   const changedSaves = saveDrift(row.saveHashes.before, row.saveHashes.after);
@@ -3279,6 +3561,7 @@ for (const [n, j] of jobs.entries()) {
   }
   row.buildCheck = lastBuild;
   if (row.retriedAs) neutralizeRetried(row, row.retriedAs); // checks above that ran on the hung game added their own FAIL lines
+  if (row.knownCause) voidRow(row, row.knownCause, row.relaunchedAs);
   // noisy timing job: once more at the end of this run as <id>-rerun (both rows kept; the note says which counts)
   const again = noisyRerun(j, row, [...all, ...jobs].map(x => x.id));
   if (again) { jobs.push(again); row.rerun = again.id; log(`${j.id}: noisy machine: ${again.id} queued at the end of this run`); }
@@ -3289,17 +3572,25 @@ for (const [n, j] of jobs.entries()) {
     Object.assign(row, { timing: tm.timing, timingWhy: tm.why });
     for (const rr of row.repros ?? []) { const w = tm.windows?.[rr.id]; if (w) Object.assign(rr, { timing: w.timing, timingWhy: w.why }); }
   } catch (e) { row.timing = 'invalid'; row.timingWhy = `timing verdict failed: ${String(e).split('\n')[0]}`; }
+  // docs/272 §4: per-arm sim ms/s, p99 / p99.9 / max and >= 300 / >= 1000 counts from this row's profile files (arm-ms.ts, hitch-ab.ts);
+  // nothing when the run left no seconds.csv; never fails the job
+  if (launched && j.run.profile) try {
+    const tags: [string, string][] = row.repros?.length ? row.repros.map((r: any) => [r.id, r.tag]) : row.profileTag ? [['', row.profileTag]] : [];
+    const parts = tags.flatMap(([id, t]) => { const a = armSummary(t); return a?.line ? [{ id, ...a }] : []; });
+    if (parts.length) { row.armMs = { line: parts.map(x => `${x.id ? `${x.id}: ` : ''}${x.line}`).join('<br>'), runs: parts.map(x => ({ tag: x.tag, line: x.line })) }; armRuns.push(...parts); }
+  } catch (e) { row.armMs = { line: `arm ms/s not read: ${String(e).split('\n')[0].slice(0, 200)}` }; }
   row.na = naRow(row);
   appendFileSync(jsonl, JSON.stringify(row) + '\n');
   clearJob();
   const cd = row.counters.delta ? Object.entries(row.counters.delta).map(([k, v]) => `${k} ${(v as number) > 0 ? '+' : ''}${v}`).join(', ') : '-';
   const cell = (x: string) => x.replace(/\|/g, '/').replace(/\r?\n/g, '<br>').slice(0, 400);
-  appendFileSync(md, `| ${j.id} | ${t0.slice(11, 16)} (${pht(t0)}) | ${row.minutes} | ${row.pass ? 'PASS' : row.na ? '**N/A**' : row.crashed ? '**CRASH**' : '**FAIL**'} | ${cell(row.verdict.join('<br>') || row.error || '-')} | ${row.exitCode ?? '-'} | ${memLine(row.memory.before)} -> ${memLine(row.memory.after)} | ${cell(cd || '-')} | ${cell([countsNote(row), `timing: ${timingText({ timing: row.timing, why: row.timingWhy })}`, buildLine(row.buildCheck), row.saveHashes.after && saveDrift(row.saveHashes.before, row.saveHashes.after).length ? 'BASELINE SAVE CHANGED' : '', row.session.line !== 'fresh load' || row.session.after ? [row.session.line, row.session.after, row.session.next].filter(Boolean).join('; ') : '', row.noiseNote, row.hangCapture, j.note, row.content !== 'as-is' ? `content ${row.content} (${row.contentMoved} moved)` : '', row.crashed ? row.crash.split('\n')[1]?.trim() : '', row.error && row.verdict.length ? row.error : ''].filter(Boolean).join('; ') || '')} |${machineCols(machineTag()).cell(MACHINE)}\n`);
-  log(`${j.id}: ${row.pass ? 'PASS' : row.na ? 'N/A' : row.crashed ? 'CRASH' : 'FAIL'} in ${row.minutes} min${row.pass || row.na ? '' : ` | ${(row.verdict.find(isFail) ?? row.error ?? '').replace(/\s+/g, ' ').slice(0, 160)}`}`); // after "in N min": log greps match that prefix
-  if (!row.pass && !row.na) exitCode = 1;
+  appendFileSync(md, `| ${j.id} | ${t0.slice(11, 16)} (${pht(t0)}) | ${row.minutes} | ${row.pass ? 'PASS' : row.knownCause ? '**VOID**' : row.na ? '**N/A**' : row.crashed ? '**CRASH**' : '**FAIL**'} | ${cell(row.verdict.join('<br>') || row.error || '-')} | ${row.exitCode ?? '-'} | ${memLine(row.memory.before)} -> ${memLine(row.memory.after)} | ${cell(cd || '-')} | ${cell([countsNote(row), `timing: ${timingText({ timing: row.timing, why: row.timingWhy })}`, buildLine(row.buildCheck), row.saveHashes.after && saveDrift(row.saveHashes.before, row.saveHashes.after).length ? 'BASELINE SAVE CHANGED' : '', row.session.line !== 'fresh load' || row.session.after ? [row.session.line, row.session.after, row.session.next].filter(Boolean).join('; ') : '',
+    rwGroups.size || row.start !== 'fresh' ? `start: ${row.start}${row.startMs ? ` (${Math.round(row.startMs / 1000)} s)` : ''}${row.snapshot ? `; snapshot ${row.snapshot}` : ''}` : '', row.noiseNote, row.hangCapture, j.note, row.content !== 'as-is' ? `content ${row.content} (${row.contentMoved} moved)` : '', row.crashed ? row.crash.split('\n')[1]?.trim() : '', row.error && row.verdict.length ? row.error : ''].filter(Boolean).join('; ') || '')}${row.armMs ? `<br>${row.armMs.line}` : ''} |${machineCols(machineTag()).cell(MACHINE)}\n`);
+  log(`${j.id}: ${row.pass ? 'PASS' : row.knownCause ? 'VOID' : row.na ? 'N/A' : row.crashed ? 'CRASH' : 'FAIL'} in ${row.minutes} min${row.pass || row.na ? '' : row.knownCause ? ` | ${row.verdict[0]}` : ` | ${(failText(row.verdict) || row.error || '').replace(/\s+/g, ' ').slice(0, 400)}`}`); // after "in N min": log greps match that prefix
+  if (!row.pass && !row.na && !row.knownCause) exitCode = 1;
 
   const earlierCrashes = earlier.filter(r => r.job === j.id && r.crashed).length;
-  stopWhy ||= crashStop(row.crashed, earlierCrashes, prevCrashed, !!j.crashHunt);
+  if (!row.knownCause) stopWhy ||= crashStop(row.crashed, earlierCrashes, prevCrashed, !!j.crashHunt); // VOID: its relaunch runs next
   // stopQueueOnFail / --stop-on-fail (Rodney 2026-10-31): a FAIL row ends the queue; a noisy timing job with its rerun queued does not
   stopWhy ||= failStop(j, row, !!values['stop-on-fail']);
   prevCrashed = row.crashed;
@@ -3347,6 +3638,8 @@ if (VANILLA) {
   }
 }
 for (const b of ledgerBlocks) appendFileSync(md, b);
+{ const ab = abSummary(armRuns); if (ab.length) appendFileSync(md, `\nA/B summary of this run (sim ms/s = script + route + animPose + locomotion, arm-ms.ts; hitches per 10 min over the same arms, hitch-ab.ts):\n\n${ab.map(l => `- ${l}`).join('\n')}\n`); }
+if (rwGroups.size && !values['dry-run']) { const l = rewindSummary({ ...rwRun, groups: new Set(rwGroups.values()).size, members: rwGroups.size, jobs: jobs.length }); log(l); appendFileSync(md, `\n${l}\n`); }
 if (stopWhy) appendFileSync(md, `\nStopped: ${stopWhy}.\n`);
 log(`results: ${jsonl}, ${md}`);
 publishAtEnd(queueName);

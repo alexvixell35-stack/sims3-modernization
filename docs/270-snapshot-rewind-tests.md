@@ -299,6 +299,20 @@ so it was not built in this lane.
   `ticks <n>` once the hook exists); on code 2 or 3 fall back to a normal restart and reload, and mark the row.
 - profile-world.ts `--no-load` (start from "in world"), as in §4.
 - ts3native.log and other files the game appends to are not rolled back: rows must be read per game before the next rewind.
+- Built 2026-11-16: queue job kind `run.rewindGames: { n, profile, ab? }` (`tools/harness/queue.ts`, `rewindArms`). The probe's
+  `/fridadetach` and `/fridaattach` were already there (§24), and profile-world.ts already starts from "in world", so no
+  `--no-load` was needed. Each game is one profile-world.ts window with `--no-prof --no-samplers --no-frames` (no Frida
+  session of its own across a rewind); `ab` switches go through `--fixes-on` / `--fixes-off` in ABBA order and are read back;
+  counters (`<tag>-counters.json`) and the ts3native.log slice are read per game before the next rewind; a rewind with code 2
+  or 3 reloads the world, takes a new snapshot and marks the game row `reloaded`. Smoke queue
+  `tools/harness/queues/rewind-games-smoke-1116.json` (dry-run ok).
+- First smoke run (2026-11-16, Dalexlol's PC, Apex 4.0.1 + the tip pair d3d9 926303ee / NvRemixBridge 749d75b8, Baseline-BP-Spring)
+  [verified: job log, bridge64.log]: snapshots code 0 (copy 830-1129 ms, park 147-181 ms); game 1 (off) played 2 min; its rewind
+  came back code 2 ("the bridge server refused op 3, result 80004005"), so the job reloaded as designed (~6 min), took a new
+  snapshot and ran game 2. The bridge server gave that second snapshot up 10 s after it was taken: "a 4096x1 surface of format
+  116 written after the snapshot could not be read first" (format 116 = A32B32G32R32F; a float lookup texture redrawn every
+  few seconds). Stopped by hand before game 3. Open: which renderer pass writes that surface, and whether the server can copy
+  such a surface (GetRenderTargetData / StretchRect) instead of giving the snapshot up.
 
 ## 10. Game smoke queue (not run)
 
@@ -558,7 +572,7 @@ with the game running on, a GPU module gives the GPU refusal. 93 checks, PASS.
 ### 12.6 Build, install copy and test arm
 
 - Source and branch: a clone of Apex's repo at release 4.0.1 (their latest `main`, d563695) in
-  `game-copy/rewind-bridge-1115/apex-repo` (git-ignored), local branch `feature/bridge-rewind`, seven commits:
+  `game-copy/rewind-bridge-1115/apex-repo` (git-ignored), local branch `feature/bridge-rewind`, eight commits:
   1. `tools: add rewind mode to the RTX Remix bridge` (675be38): the first version.
   2. `tools: make bridge rewinds exact or refused, with offline tests`: 12.4 as described above, the two tests,
      `native/remix-bridge/test-rewind.cmd`, and the feature, validation and history pages (78aa5da).
@@ -568,8 +582,10 @@ with the game running on, a GPU module gives the GPU refusal. 93 checks, PASS.
      04dc12c1, the one of reruns up to 8.
   5. `docs: name the shared views a bridge rewind host puts back` (bbfe752), docs only.
   6. `tools: read a rewound client's return from shared memory` (3eea11c): §28. Pair de394c51 / 706346bf.
-  7. `tools: stop counting render target 0 as a device reference` (956d61c, the tip): §29, patch 0016. Pair
+  7. `tools: stop counting render target 0 as a device reference` (956d61c): §29, patch 0016. Pair
      9b834944 / 7b2d7a77.
+  8. `tools: keep default pool textures written after a rewind snapshot` (cb2e62d, the tip): §30. Pair
+     c2968f76 / 4b759c9b.
   Their text check (`tools/public_text_check.py`) passes for the files and the commit message. Not pushed. Our repo
   holds the same patch file and the steps: `tools/harness/rewind/bridge-patch/`.
 - Two builds exist on disk [verified 2026-11-15]:
@@ -1086,6 +1102,11 @@ A writable view shared with another process that is neither ours nor the bridge'
   only by the target, the view is restored (`viewsSharedSelf`); with a second process holding it, it is left alone and
   named with that process's pid. `threads`: a 300 ms work item, refused with `retries` 2, taken after it ends with
   `retries` 40. Full rewind selftest PASS, selftest-all 0 FAIL.
+- Fix 2026-11-16 (extshare flake, 2 of 60 `refusals` runs): after the first shared-looking view, the owner scan holds a
+  duplicate of every section handle in the system, so a later view of the target's own unnamed section counted more handles
+  than the target holds and went through the scan too (`viewsSharedSelf` 2: still restored, never foreign). The tool's
+  duplicates are no longer counted; the extshare toy maps an unnamed section above the named view, so the case fails every
+  time without the fix (3 of 3) instead of by address layout.
 - ts3native is unchanged: `ts3native.asi.rewind-park-1115` stays pinned.
 
 ## 22. Rerun 5: a wininet pool work item at every snapshot (2026-11-16)
@@ -1220,7 +1241,8 @@ A writable view shared with another process that is neither ours nor the bridge'
   - The client parks only in `Present`, after `syncOnPresent` got the server's present semaphore. A Present that times
     out there returns before `parkForRewind`, so no park can answer [inferred from the patched source].
   - In rerun 7, rewind 1 was followed by 23-28 % GPU, so it does not happen every time.
-  - The bridge logs (`Bintx-remix\logsridge32.log`, `bridge64.log`) were gone with the job's Bin restore.
+  - The bridge logs (`Bin
+tx-remix\logsridge32.log`, `bridge64.log`) were gone with the job's Bin restore.
 - Changes:
   - The park refusal now says whether the target still reached its park point (`parkTicksSeen`, the block's tick:
     Presents for the bridge client): "it never reached its park point: a bridge client presented no frame", or "it
@@ -1329,6 +1351,305 @@ NvRemixBridge.exe 7b2d7a77 in `game-copy/rewind-bridge-1115/pr/apex-repo/native/
   pair without 0016, PASS with it, mode on and off.
 - For Apex: this is their bug in a shipped patch (4.0.1 has 0010), independent of rewind mode. It rides on our branch
   because the test arm needs it; it can go to them as its own PR (drop the test hunk, which needs 0015).
+
+## 30. Queue jobs start from a rewind (2026-11-16, branch `feature/queue-rewind-1116`, not run in game)
+
+Rodney 2026-11-16: "Make sure we now use the tool whenever we can." A fresh start (cycle.ts --restart, launch, load) takes ~2 min on
+BP and more on IP and big saves; a snapshot takes ~2.5 s and a verified rewind ~2-2.5 s (§26-§29, reruns 12-13).
+
+### 30.1 Design (`tools/harness/queue-rewind.ts`, `tools/harness/queue.ts`)
+
+- Queue key `"rewind": "auto" | "off"` (default `REWIND_DEFAULT` = off until the pilot passes, then auto; `TS3_REWIND` overrides;
+  job `"rewind": false` opts out). `rewindGroups` puts runs of >= 2 consecutive jobs into one group when each may start from a
+  rewind (`rewindBlock`) and all share the game start key (queue.ts `keyOf`: asi + sha, full ini, fixes, fixesPackage, save,
+  content, ccSet/ccLots, gameArgs, Default.ini / S3PP / S3SS / dxvk.conf, d3d9Dll, pin).
+- What may differ inside a group = what a job changes in the running game: `profile.ab`, `fixesOn` / `fixesOff`, `native_set`
+  repro steps, the repro itself, profile minutes and seed. A different asi, ini value, package, script DLL, config or save is a
+  different key and relaunches. Ini values are not mapped to runtime switches: an ini `Mode` key often decides whether a hook is
+  installed at all (`0 = not installed`, `1/2 = installed, starts on/off`), so an ini difference always relaunches [inferred from
+  the ini comments; a per-key map is the next step only if ini-only arm pairs turn out common, see 30.3].
+- Blocked (fresh start, reason in the dry run): `run.script` (rewind-smoke itself, quit-cycle), `run.matrix`, `run.saveReload`,
+  `run.age`, `run.soak`, `run.routelock`, `run.menuMemory`, `run.worldimage`, `profile.travel`, `profile.story`, `profile.repros`
+  (keeps one frame-times Frida session per load in the game: the tool's frida-agent guard would refuse), save `menu`, vanilla /
+  `ourMods: false` (no ts3native, no `[Rewind] Park`), `d3d9Dll`, `callSites: true` or ini `ProbeSnap.CallSites` on.
+- Grouped jobs get ini `Rewind.Park=1`, `Rewind.Offline=1` and `callSites: false`, as the rewind queues ran (§19-§22).
+- A real run needs Bin state `apex-rewind` (`rewindMode = True` in Bin\bridge.conf, `REWIND_ON`); without it the queue logs one line,
+  drops every group and adds no ini (every job starts fresh as before). Chains ask
+  `node tools/harness/queue-rewind.ts state <queue.json>` (prints `apex-rewind` for a rewind-auto queue when the tool is built, else
+  `apex`) and set that state with turbo-compat.ts. Bridge only, no DXVK arms.
+- Snapshot: after the load of a grouped job whose next job is in the same group (and after a fresh fallback load), when
+  `rewindReady` holds (rewind-spike.exe built, Bin state apex-rewind, NvRemixBridge.exe running, ts3native.log has
+  `[Rewind] Park on` and `[Rewind] Offline on`): one `rewind-spike serve` per load with the bridge-apply flags (rewind-smoke.ts
+  `MODES`). Each op: read the game speed (agent `time`) and the autopilot's speed target (first op), `park` (the route worker, before the pause, §21), agent `set_speed pause`,
+  probe `/fridadetach` and wait up to 30 s until `frida-agent*` is unloaded (§24), the op, `/fridaattach`, `set_speed` and the autopilot target back,
+  `game_state` in world. A paused-refusal sends `plan` to end the park hold.
+- Next job of the group: `rewind`. It counts only with code 0, `hashEqual` 1 (when reported) and the ts3fixes / ts3native switches
+  read back equal to the read after the load (`switchDiff`, session-reuse.ts `readSwitches`). Code 2 (refused, nothing changed):
+  close + the same game start loaded fresh (queue.ts `reloadGame`). Code 3, no answer, probe not back or switches differ: the same,
+  and the row gets `rewindFailed: true`. Never a FAIL of the job. Two failures (snapshot or rewind) turn rewind off for the run.
+- The game is kept for the next group job whatever the job's verdict (the rewind puts it back), but not after a crash, a timeout
+  or a job error. The serve process holds the snapshot; it quits before the game closes (endGame, reloadGame), which also puts the
+  pool-worker minimums back (§25).
+- Counters: ts3native counters, ts3fixes `patches`, the sim clock and switch values are memory and come back to the snapshot. Every
+  job already reads its `/native` (`c0`), patches (`fx0`) and memory baselines at its own start, now after the rewind, so
+  `nativeRequire` deltas, `fixActivity` (stuckcheck / easpread) and earlyGates (absolute values) see the same numbers as after a
+  fresh load. Files are not rolled back: the ts3native.log copy is the start-up part plus the job's own lines (`logCopy`, as in
+  docs/170), and `ts3native-shadow.jsonl` / `autshadow.jsonl` copies of a rewound job start at the size they had when it started.
+- Hitch reports: a rewound window gets no `--since-load` / `--frames-shared` (no kept frames session), so it is read as a first
+  window after a load (first minute dropped), which is what it is.
+- Rows: `row.start` = `fresh` | `rewind (N ms)` | `rewind refused -> fresh (why)` | `rewind failed -> fresh (why)`, `row.startMs`,
+  `row.snapshot` (taken / skipped / refused / failed); the md note says `start: ...` on every row of a queue with groups. The queue
+  ends with `rewind: N of M planned jobs started from a rewind (x s each), r refused, f failed; ~T min saved vs fresh starts (S s
+  each: mean of this run's fresh starts | estimate 120 s)`. The dry run prints `rewind auto: N of M jobs start from a rewind (G
+  groups); est. saving ~T min` and per job `0 start: ...` with the block reason.
+- Timing jobs: A/B arms in one group differ only in runtime switches by construction; the row records the rewind start; the
+  measurement smoke and the machine-load checks are unchanged (the smoke is a one-job child queue: always a fresh start).
+
+### 30.2 Self-checks
+
+`node tools/harness/queue-rewind.ts --self-check`: grouping (consecutive, equal key, opt-out, blocks), every block reason, mode
+parsing and `TS3_REWIND`, `rewindReady` on the real `[Rewind] Park on` / `Offline on` lines (rewind-bridge-1115
+bp-rewind-bridge-apply ts3native.log) and the real bridge.conf lines with non-matches (`FAIL [Rewind] Park: mapping ...`, a commented
+`# rewindMode = True`), the result rows of 2026-11-15 20:30 (code 0 with hashEqual 1, refusal "thread ... exited after the
+snapshot", an ended target), the op order on fakes (speed read, park, pause, detach, op, attach, speed back, game_state) and each
+fallback (refused, ended, hash differs, probe not back, game not in world, pause refused: park released by `plan`, nothing
+detached), `switchDiff`, the summary lines. `queue.ts --self-check` unchanged and ok.
+
+### 30.3 Dry run of every queue (TS3_REWIND=auto, 2026-11-16)
+
+- All 632 queue files: 630 dry-run (2 name a repro that no longer exists), 2918 jobs, **625 would start from a rewind** (405
+  groups, in 218 queues).
+- The 102 queues of 11-13 to 11-16: 414 jobs, **99 rewinds**. Examples: mono-park-timing-1115 9 of 12, satbdiag-stress-1114 15 of
+  16, satbguard-stress-1114 7 of 8, offload-unseen-apply-ab-1113 6 of 12, sweep-packs-home-1115 5 of 15, turbo-apex-1114 4 of 5,
+  mono-offload-timing-1115 3 of 5, lane-l3 / lane-l4 / mono-autshadow-seenexact 2 of 3.
+- Why the rest start fresh (all queues): game start differs from the neighbour 1466 jobs, run.matrix 117, run.script 69, no
+  ts3native 67, no save 67, profile.travel 32, profile.repros 23, run.soak 20, run.saveReload 13, profile.story 5, d3d9Dll 3.
+  Of 1900 neighbour pairs of rewindable kinds, 773 differ in the save (queues alternate BP / IP / SV), 69 in the asi, 257 only in
+  the ini (13 in the 11-13..16 queues), 223 in other start fields. So ordering jobs by save matters more than an ini-to-switch map.
+- Expected saving: ~112 s per rewound job on BP (~3 min on IP and big saves); the 11-13..16 queues together ~3 h. Caveat: the
+  current pinned sets (master-mono-1115, out/ tested build) have no `[Rewind]` code (merged to master 1aa9f375 on 11-16):
+  those jobs log "snapshot skipped: no [Rewind] Park on line" and start fresh until the next set is built from master.
+
+### 30.4 Pilot (first game run, after the chain)
+
+`tools/harness/queues/rewind-pilot-1116.json` (`rewind: "auto"`): three 5-min BP profile jobs with one game start (asi
+rewind-park2-1115, the set the rewind reruns used): `a` loads and the queue takes the snapshot, `b` and `c` start from rewinds.
+Bin state apex-rewind. Pass: a, b, c PASS; b and c `start: rewind (N ms)`; end line 2 rewinds, 0 refused, 0 failed. Then
+`REWIND_DEFAULT` goes to auto. Not run.
+## 31. Pilot refusal: a default pool texture written after the snapshot could not be read (2026-11-16)
+
+Apex branch commit 8 (cb2e62d), pair d3d9.dll c2968f76, NvRemixBridge.exe 4b759c9b in
+`game-copy/rewind-bridge-1115/pr/apex-repo/native/remix-bridge/out`. Fresh-fetch build and offline tests pass, not run in
+game. Pushed to the fork branch of draft PR 89.
+
+- Refusal [verified: `probe-out/queue/rewind-pilot-1116-2026-11-16-bp-rewind-pilot-a-0454-bridge64.log`]: Op 1 fine at
+  12:55:45 (25,468 objects, 339 surfaces, 448 MB); 14 s later "a 4096x1 surface of format 116 written after the snapshot
+  could not be read first" (116 = `D3DFMT_A32B32G32R32F`), so op 3 answered `E_FAIL`.
+- Which path [verified in the patch source and DXVK 3.1.1's source]: the message is the lock branch of `keepSurface`,
+  which only non-target surfaces reach. DXVK refuses `LockRect` when the texture is in the default pool and not dynamic
+  (`IsLockable`, `d3d9_device.cpp` texture creation; `LockImage` returns `D3DERR_INVALIDCALL`), as d3d9 does. Uploads
+  lock on the client first, so a surface like that is written by `UpdateTexture` (the game's only such call,
+  `0x60EC10`, docs/37) or by `UpdateSurface` / `StretchRect` from a mod. Who owns the 4096x1 float texture is [not
+  established]: nothing in ApexRadiance_LOG.txt names it.
+- Fix: when the lock fails on a default pool surface the server copies it with `StretchRect` into a render target of
+  the same format (DXVK and d3d9 both allow a texture as the source when the destination is a render target), reads
+  that with `GetRenderTargetData` into a system memory surface, and keeps that surface. A rewind puts it back with
+  `UpdateSurface`. Formats without a render target (compressed ones) still give the snapshot up.
+- Also: `UpdateTexture` copies what is marked dirty in its source and clears the marks, state the server cannot read or
+  restore. A rewind now marks every `UpdateTexture` source used since the snapshot dirty as a whole (`AddDirtyRect`),
+  so the game's next `UpdateTexture` copies all of it [exact as long as source and texture were in step outside the
+  dirty parts, which is what `UpdateTexture` maintains; a source locked with `D3DLOCK_NO_DIRTY_UPDATE` would differ].
+- Test [verified]: `test_rewind_server`, 75 checks, PASS on system d3d9 and DXVK 3.1.1: a 4096x1 A32B32G32R32F default
+  pool texture written by `UpdateTexture` from a system memory texture; cannot be locked; written after the snapshot
+  the snapshot stays; after a rewind it holds its old contents float for float (values outside 0..1); twice; then the
+  game's next `UpdateTexture` finds both alike. Before the fix this case ends in the pilot's refusal.
+
+## 32. Threads that end during a long job (2026-11-16, branch `feature/rewind-thread-exits-1116`)
+
+- First in-queue rewind on the new bridge pair (queue `mono-autshadow-seenexact-1116-rerun1-1116-1116b`, job
+  bp-seen-dry-crowd): refused. The snapshot was taken after bp-seen-smoke's load, 32 min (one job) earlier. Two threads
+  had ended and one was in another NtWaitForSingleObject wait (its owner was cut off by the queue's 200-character line).
+- Owners [verified: SysWOW64 module bases of this boot, then disassembly of the start routines]:
+  - 76dd3bf0 = combase.dll+0x123bf0: COM RPC thread-cache worker entry (thread id into the cache object, worker loop,
+    cleanup, FreeLibraryAndExitThread). The loop waits on its own event with a 30 s timeout (0x7530) and leaves the cache
+    when idle [inferred from the code shape].
+  - 74497710 = mswsock.dll+0x17710: Winsock async worker. Loops on NtRemoveIoCompletion; the last worker waits with a
+    300 s relative timeout and on timeout swaps the global worker count 1 -> 0 and exits [verified: disassembly].
+- Rule: a snapshot thread that ended still refuses, always. No class is allowed:
+  - combase and mswsock keep a user-mode cache entry or worker count. The memory restore puts it back, so work would be
+    handed to a thread that no longer exists (a hang).
+  - Even an idle ntdll pool worker cannot be left out. The kernel decommits the dead thread's TEB pages in the TEB
+    region, and `VirtualAllocEx(MEM_COMMIT)` from outside fails there with error 87 (toy: a rewind with the pool hold
+    lifted failed dirty at the TEB allocation). Pool workers are already held by §25, so they do not end.
+  - Threads are never made again.
+- What changed: the refusal names the start module and the worker class (`thread N (start combase.dll+123bf0, COM RPC
+  cache worker (ends after 30 s idle)) exited after the snapshot`). The queue logs the tool's full reason list
+  (`rewind: why in full:`). Toy `threads`: a game thread ends -> refused naming rewind-toy.exe; a pool worker ends (hold
+  lifted) -> refused before any change, toy runs pool work after it. All toy cases PASS.
+- Workers made after the snapshot stay safe to reap (§16.3): the memory rollback removes their cache entry or count too.
+- Keeping the workers alive (built; the names come from Microsoft's public symbols for this Windows build, found by
+  disassembly) [verified: static + toy]:
+  - mswsock: `SockAsyncThread` takes the 300 s timeout only while the global reference count is 1 (`cmovg`: above 1
+    it waits with no timeout). `WSPAsyncSelect` -> `SockAsyncSelectHelper` -> `SockCheckAndReferenceAsyncThread` adds a
+    reference. `SockAsyncSelectCompletion` re-arms the AFD poll (`SockProcessAsyncSelect`) and drops the reference
+    only when the select ends. So one live `WSAAsyncSelect` registration keeps the thread in a wait with no timeout,
+    with no traffic needed. ts3native `RewindKeepAsync` (only with `[Rewind] Park=1`, never in release defaults) does
+    this: a message-only window and one `WSAAsyncSelect(FD_ACCEPT)` on a TCP socket listening on 127.0.0.1 at a free
+    port. Nobody connects, so `[Rewind] Offline` holds. ws2_32 and user32 are loaded by name only in that mode. Log line:
+    `[Rewind] keepalive on`. Toy `keepalive`: after the same calls, the mswsock thread at the snapshot is in
+    `NtRemoveIoCompletion` with a NULL timeout, and the rewind is exact.
+  - combase: cannot be kept alive cleanly. `CRpcThread::WorkerLoop` waits 30 s on its own event. Work goes to the head
+    of `CRpcThreadCache::_pFreeList` (users: `OXIDEntry::PostCall` for cross-apartment calls into the MTA,
+    `CROIDTable::EnsureWorkerThread`, GIT revoke, `CDllHost::GetApartmentActivators`). A 20 s call would keep only one
+    cached thread alive, and the others would still end. Fallback: settle for this worker only. The tool has a new
+    command `settle <s> [module]` (no freeze; it polls the live threads' start modules), and queue-rewind runs
+    `settle 40` before each snapshot. That costs at most 40 s per group, and usually the remainder of the 30 s idle
+    time. If combase threads are still there, the snapshot is taken anyway (note line); a rewind then refuses if one
+    ends. Toy `keepalive`: settle returns at once when no thread matches, and waits its time and names them when they
+    stay.
+- combase in-memory patch (built after the settle wait, only with `[Rewind] Park=1`) [verified: static + ts3native
+  selftest]: `RewindCombaseKeep` (ts3native, on the keepalive thread at start) scans combase's loaded `.text` for a
+  wildcarded 55-byte block of `CRpcThread::WorkerLoop`. The block runs from the `WaitCoalesced` arguments
+  (`lea eax,[esp+?]; mov ecx,7530h; push eax; xor eax,eax; inc eax; push eax; push ecx; push ecx; push esi; mov edx,eax;
+  mov ecx,edi; call ?`) through the result handling (`test eax,eax; movzx ebx,bl; push 1; pop eax; cmovs ebx,eax; ...;
+  je ?`) to the fallback `push eax; push 7530h; push [esi]; call [?]` (WaitForSingleObjectEx). Calls, stack offsets and
+  jumps are wildcards, so the block is found wherever the function moves. Only the two imm32 values are written, both
+  to 0xFFFFFFFF:
+  - +5 is `mov ecx, 7530h`: WaitCoalesced's due time and tolerance. Its timer is then set about 49.7 days out. The
+    multiply by -10000 is 64-bit, so there is no overflow.
+  - +47 is `push 7530h`: the fallback's timeout. It then waits INFINITE.
+  So a cache worker never times out, and the cache keeps its idle threads. Written with VirtualProtect, write, restore
+  and FlushInstructionCache, in this process only; the file is never touched. Exactly one match is required. Otherwise
+  it logs `[Rewind] combase keepalive: pattern not found, settle wait used (combase <version>, <n> matches)` and changes
+  nothing. On success it logs `[Rewind] combase keepalive: patched (combase <version>, ...)`. queue.ts then passes
+  `settleS: 0` (`COMBASE_KEPT`) and the snapshot skips the settle wait. ts3native selftest: synthetic 0/1/2-copy cases,
+  then the system combase.dll read from disk, 10.0.26100.9818: **1 match**. Then the patch applied in the selftest's own
+  process: the pattern no longer matches, and the patched form matches once. Limit: a cache worker already in its 30 s
+  wait when the patch lands keeps that one wait. The patch runs at ts3native start, before the game's COM use.
+- Stopping the workers at the source instead (checked first, not possible from static data alone):
+  - mswsock: no game module imports `WSAAsyncSelect` (ws2_32 #101). Checked: TS3W.exe, TSLHost.dll and the ASI
+    loader (`Bin\ddraw.dll`, Ultimate ASI Loader). The worker is also started by `SockDoConnectReal` (connect
+    completion through `SockAsyncConnectCompletion`) [inferred: a connect in a non-blocking mode]. TS3W.exe (ordinals
+    4 connect and 10 ioctlsocket, used by EA's own socket code, not wininet, so `[Rewind] Offline` does not block it),
+    TSLHost.dll (wsock32 connect) and the ASI loader (connect + WSAEventSelect) can all do that. Which one does it in a
+    rewind run is not known; it needs the creator's stack at run time. So the keepalive stays.
+  - combase: the cache serves cross-apartment calls into the MTA (`OXIDEntry::PostCall`) and COM's own housekeeping.
+    Likely users at load are audio (MMDevAPI/WASAPI), text input (msctf) or shell calls [inferred]. None of these can be
+    turned off safely, so the settle wait stays.
+- Fallback load: after a refused or failed rewind, `rwStart` -> `reloadGame` drops the old snapshot, and the
+  `rwNext && !sess.rw` check right after the load takes a new one when the next job is in the same group (queue.ts
+  game-start block). So the next job already rewinds to the newest snapshot. No change needed.
+- Thread 71284 (the NtWaitForSingleObject wait with other arguments): not identified yet. The next refusal's
+  `rewind: why in full:` line gives its start and return sites.
+
+## 33. Refusal census and tally (2026-11-16, branch `feature/rewind-refusal-census-1116`, harness only, no game run)
+
+Rodney: "Can we also check for other refusal like it? So we can do memory patches and guard against them?" §32 covers
+combase and mswsock (branch `feature/rewind-thread-exits-1116`). This section lists every refusal seen so far, the other
+in-process sources that change over time, and a guard for each.
+
+### 33.1 Refusals seen so far [verified: chain logs, counted by `rewind-refusals.ts backfill`]
+
+Source: `probe-out/queue/chain-*.out` (rewind-smoke `refuse:` lines of reruns 1-13 and the smoke chain; queue.ts
+`rewind refused -> fresh` lines of the pilot and chain-correct-1116b). Toy build logs (deliberate refusals) are left out.
+A reason counts once per chain (thread ids ignored). 231 reasons in 13 chains:
+
+| Kind | Count | Owner(s) | Status |
+|---|---|---|---|
+| write-watch allocation | 116 | GC heap (1 chain, rerun 1) | fixed §15 |
+| shared writable view changed | 70 | bridge `DeviceClient`/`DeviceServer` 20, `QueryResults` 14, `ModuleClient`/`ModuleServer` 8, `UrlZonesSM` 8, unnamed 20 | fixed §12, §20, §23 |
+| wait with other registers or depth | 23 | ts3native 4, ntdll 1, not named 18 | fixed §17 |
+| wait taken up again / other wait | 4 | not named | §16.2; one still open (below) |
+| no snapshot (tool use) | 5 | harness | fixed in rewind-smoke |
+| thread made after the snapshot | 2 | starts 723c29e1, 6935dbc0 | §16.3 `--reap-workers` |
+| thread ended after the snapshot | 4 | ntdll pool worker, Frida agent, combase RPC cache worker, mswsock async thread | §25, §24, §32 |
+| route worker did not park | 2 | ts3native | fixed §27 |
+| bridge server refused op 3 | 2 | bridge (pilot b, c) | fixed §31 |
+| pool worker inside a work item | 1 | ntdll (wininet item) | §18, §22 |
+| thread inside NtFsControlFile | 1 | not named | §14 |
+| live upper vector registers | 1 | not named | §14.4 |
+
+In queue.ts all 4 rewinds so far were refused: pilot b and c (bridge op 3), and both in chain-correct-1116b (combase +
+mswsock ended, plus one thread in a different `NtWaitForSingleObject` wait: 71284, then 57156; owner still unknown, the
+queue line cut it off).
+
+### 33.2 Census of what changes over time [measured: `probe-out/rewind/ts3w-bp-{start,mid,end}.json`, BP, 7 min, 11-15, DXVK arm]
+
+Thread starts by module (start / end of the 442 s): msvcr80 `_beginthreadex` (the game's own threads) 98/98,
+frida-agent 14/9, d3d9 (DXVK) 12/12, ntdll pool 10/11, nvoglv32 9/9, dsound 3/3, ts3native 4/4, graphics-hook32 (OBS game
+capture) 2/2, one each for TS3W.exe, Sims3Performance, Sims3SettingsSetter, InputHost, netbios, ucrtbase, and three
+private (non-image) starts. Ended: combase+123bf0, mswsock+17710, 5 Frida agent threads, and the private start at
+0x41430000 (a thread that starts at an allocation base: an injected loader thread, Frida's [inferred]). Handles: Event
+513 -> 506, Thread 173 -> 167, File 240 -> 242, Section 71 -> 70, Timer 1 -> 0; IoCompletion, WaitCompletionPacket,
+TpWorkerFactory, IRTimer, ALPC Port, Mutant and Semaphore unchanged.
+
+Imports [verified: import tables of the Steam 1.67 Bin files and this Windows build's SysWOW64]:
+
+| Module | Threads / timers it can make | Idle exit or churn | Status |
+|---|---|---|---|
+| ntdll thread pool | workers on demand | end after ~130 s idle | verified, held by §25 |
+| combase | RPC thread cache | 30 s idle wait, then ends | verified, §32 patch + settle |
+| mswsock | async select thread | 300 s while its count is 1 | verified, §32 keepalive |
+| rpcrt4 | LRPC calls on the ntdll pool | no own idle exit seen | inferred (no ended thread in the census) |
+| wininet (Bin wrapper) | `QueueUserWorkItem`, `WSAEventSelect` | pool items | verified import; `[Rewind] Offline` §22 |
+| winhttp | `CreateThreadpoolWait/Work`, `SetThreadpoolTimer` | pool items, connection cache timers | verified import; user: ApexRadiance.asi imports `WinHttpOpen` (what it fetches: not established) |
+| dsound | `CreateThread`, `SetThreadpoolTimer`, `timeBeginPeriod` | 3 threads, stable 7 min | measured |
+| MMDevAPI, AudioSes | `CreateThreadpoolWait/Work`, `SetThreadpoolTimer`, waitable timers | pool items | verified import; §23 for the shared buffer |
+| winmm / winmmbase | `CreateThread`, `timeSetEvent` | timer thread on first `timeSetEvent` | verified import; no game module imports `timeSetEvent` (TS3W, ts3native, Apex, S3SS, S3PP checked) |
+| XInput1_4, InputHost, msctf, dxgi | `SetThreadpoolTimer`, `QueueUserWorkItem` / `TrySubmitThreadpoolCallback` | pool items (device polling, text input) | verified import; InputHost 1 thread stable |
+| netbios | `CreateThread` | 1 thread stable | measured |
+| d3d9 (bridge client) | `RegisterWaitForSingleObject`, `GetRawInputData` | pool wait | verified import; bridge side §28 |
+| Mono (inside TS3W.exe) | finalizer thread, Boehm GC (no GC threads) | no TS3W start ended in the census | measured; finalizer wait INFINITE [inferred] |
+| ts3native | route worker, offload workers, `CreateWaitableTimer(Ex)W` | park §21 | verified |
+| ApexRadiance.asi | `CreateThread`, `SetWaitableTimerEx`, `WinHttpOpen`, `CoInitializeEx` | not measured on Apex 4.0.1 | inferred |
+| TS3W.exe, TSLHost.dll | `CreateNamedPipeW`, `FindFirstChangeNotificationW`, `RegisterDeviceNotificationA`, `connect`, `timeBeginPeriod` | kernel object state | verified import |
+| graphics-hook32 (OBS), com_antivirus / product_info (antivirus, in the 11-16 logs) | injected, not ours | unknown | measured present |
+
+### 33.3 State a rewind cannot restore
+
+- Kernel objects: event, semaphore and mutex states are checked after a rewind (§8.7); a change notification handle
+  (`FindFirstChangeNotificationW`) signalled by a file write, a pipe's buffered bytes, a socket's kernel side, pending
+  overlapped I/O and APCs are not (§11). Profile jobs do not save (rewindBlock), so the change handle stays quiet [inferred].
+- Timers: waitable and pool timers keep their kernel due time; after a rewind they fire as if no time had passed in
+  between, or at once. The pool hold (§25) keeps workers to run them.
+- Clock: QueryPerformanceCounter, `timeGetTime` and `GetTickCount64` jump by the time since the snapshot. The game is
+  paused across the op, but the first frame's delta and any ts3native deadline taken from `GetTickCount64` see the jump.
+  `skewQpc` (§8.5) needs the ts3native clock hooks (§9.1, design only).
+- GPU: the bridge server (§12, §28, §31). Compressed default pool surfaces still give the snapshot up (§31 limit).
+- Sound: buffers and the device are outside the process; §8.6 and §23.
+
+### 33.4 Guards, ranked by likelihood x cost
+
+1. **The unnamed different wait (71284 / 57156)**, seen in every in-queue rewind after the bridge fix. Guard: §32's
+   `why in full` line names its start; if it is a timed worker loop, an in-memory signature patch of the timeout (wildcard
+   pattern, single match only, `[Rewind] Park=1` only, never on disk), else add it to the §16.2 rule when its loop keeps
+   no state between waits.
+2. **Injected third-party modules** (OBS `graphics-hook32`, antivirus `com_antivirus` / `product_info`): threads and pipes
+   to their own services can start or end at any time. Guard: the tally names their module; a pre-snapshot module check
+   that logs every loaded module outside Windows and Bin; a machine rule (OBS closed during rewind runs).
+3. **Clock jump after a rewind**: not a refusal but a first-frame hitch and early deadlines in timing data. Guard: drop the
+   first seconds after a rewind start from profile rows (cheap, queue side), then the `skewQpc` hooks.
+4. **Pool timer callbacks running at the snapshot** (dsound, MMDevAPI, AudioSes, XInput1_4, InputHost, msctf, dxgi,
+   winhttp): caught by §18 catch-and-hold; a long callback refuses. Guard: the existing retry, then a short settle.
+5. **Apex's `WinHttpOpen` user and other idle caches**: a winhttp session keeps sockets (mswsock) and pool timers.
+   Guard: find what Apex fetches and switch it off in rewind runs (Apex setting, or a `[Rewind] Offline` extension);
+   the mswsock keepalive (§32) covers the thread meanwhile.
+
+Lower: combase patch missing on another Windows build (settle wait fallback, §32); bridge surfaces with no render-target
+format (§31 limit, Apex side); named pipes and change notifications (no profile job writes saves).
+
+### 33.5 Refusal tally (built)
+
+- `tools/harness/rewind-refusals.ts`: `classify` sorts a reason into one of 22 kinds and an owner (`combase.dll` from
+  §32's `start <module>+<off>` form, `addr:<hex>` from the older form, `section:<name>`, `bridge`, `ts3native.asi`). An
+  unmatched reason is kind `new`.
+- queue.ts writes every reason of a refused or failed snapshot and rewind to `probe-out/rewind-refusals.jsonl` (queue,
+  job, op, code, kind, owner, doc reference, full reason) and logs `rewind: new refusal kind: <kind> <owner>: <reason>`
+  when the kind and owner pair is not yet in the file.
+- `tally` counts by kind and owner; `backfill [--write]` reads past chain logs. The file was seeded with the 231 reasons
+  of §33.1, so only new pairs are reported from now on.
+- Self-check on real reasons from the chain logs (match and non-match lines, the cut queue form, the new owner form),
+  queue.ts self-check and selftest-all pass.
 
 ## Spike on the toy process, first version (2026-11-15, history)
 

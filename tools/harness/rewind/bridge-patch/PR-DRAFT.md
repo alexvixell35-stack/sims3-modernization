@@ -1,8 +1,8 @@
 # Pull request for loinyx/Sims3-ApexRadiance: how to open it
 
-Not opened, not pushed. Rodney pushes the branch to his fork and opens it as a draft.
+Open as draft PR 89 on loinyx/Sims3-ApexRadiance, from the fork branch `feature/bridge-rewind`. New commits are pushed to that branch; the PR text on GitHub is not kept in step with `PR-BODY.md` automatically.
 
-- Branch: `feature/bridge-rewind`, seven commits on Apex's `main` (release 4.0.1, d563695). It is in both local clones:
+- Branch: `feature/bridge-rewind`, eight commits on Apex's `main` (release 4.0.1, d563695). It is in both local clones:
   `game-copy/rewind-bridge-1115/apex-repo` and `game-copy/rewind-bridge-1115/pr/apex-repo` (docs/270 §12.6).
 - Title: `tools: add rewind mode to the RTX Remix bridge`
 - Body: `PR-BODY.md` in this folder. It follows Apex's template (Summary, Validation, Checklist) and their public text

@@ -300,7 +300,7 @@ namespace Ts3Agent
         // the in-game camera onto the Sim and keeps it on the Sim every tick (CameraController only; the game window is
         // never moved or focused) until ts3native reports the class flip and for 10 ticks after it, then reads the record.
         // Verdict per Sim: "fail" = it did not run the flip pass, a part skipped it while it was classed visible (code 10),
-        // or the position jump over the flip tick passed its normal per-tick step + 4 m/s x (Rate owed time + [UnseenAnim] owed
+        // or the position jump over the flip tick passed max(normal per-tick step, 4 m/s x flip tick wall time) + 4 m/s x (Rate owed time + [UnseenAnim] owed
         // pose time, code 24) + 0.25 m; the normal step is the median over 8-tick windows of the 32 ticks before the camera moves
         // (whole Rate cycles: a throttled Sim moves every Every-th tick, so per-tick steps after the flip were ~0 and a Stray Dog
         // failed with 0.623 m over a 0.25 m bound, 2026-11-02); species per row (pets walk and run faster); "pass" =
@@ -443,17 +443,20 @@ namespace Ts3Agent
             Vector3 before = s.Position;
             int tick = 0, flipTick = -1, tries = 1;
             float jump = -1f, camAtFlip = -1f, camMax = 0f;
+            int flipTickMs = -1;
             List<float> steps = new List<float>();
             Vector3 prev = s.Position, offset = new Vector3(-8f, 10f, -8f);
             CameraController.SetPositionAndTarget(prev + offset, prev);
             while (true)
             {
+                int tickStart = System.Environment.TickCount;
                 Simulator.Sleep(0);
+                int tickMs = System.Environment.TickCount - tickStart;
                 tick++;
                 if (s.HasBeenDestroyed) { o["error"] = "Sim destroyed"; o["verdict"] = "not tested"; SnapMsg(11, 0); return o; }
                 Vector3 now = s.Position;
                 float step = (now - prev).Length(), cam = (CameraController.GetTarget() - now).Length();
-                if (flipTick < 0 && SnapMsg(8, 1)) { flipTick = tick; jump = step; camAtFlip = cam; }
+                if (flipTick < 0 && SnapMsg(8, 1)) { flipTick = tick; jump = step; camAtFlip = cam; flipTickMs = tickMs; }
                 else if (flipTick >= 0) { steps.Add(step); camMax = Math.Max(camMax, cam); }
                 prev = now;
                 if (flipTick >= 0 && tick - flipTick >= 10) break;
@@ -470,7 +473,10 @@ namespace Ts3Agent
             int animOwedMs = flipTick >= 0 ? SnapAtLeast(24, 1000) : 0;  // 0 without [UnseenAnim] (or an older asi)
             steps.Sort();
             float postMedian = steps.Count > 0 ? steps[steps.Count / 2] : 0f;
-            float bound = median + 4f * (owedMs + animOwedMs) / 1000f + 0.25f;
+            // the flip pass steps dt + owed (unseen.cpp UtRateStep); a Sim standing before the flip has median 0, so its own
+            // tick's walk (4 m/s x the flip tick's wall time, at most 1 s) stands in (2026-11-16 Brandy Collins: median 0, 0.576 m vs 0.514 m)
+            float tickWalk = flipTickMs > 0 ? 4f * Math.Min(flipTickMs, 1000) / 1000f : 0f;
+            float bound = Math.Max(median, tickWalk) + 4f * (owedMs + animOwedMs) / 1000f + 0.25f;
             bool ran = SnapMsg(8, 2);
             int skipsVis = SnapAtLeast(10, 1000), skipsUnseen = SnapAtLeast(16, 1000), unseenAfter = SnapAtLeast(17, 1000);
             o["flipped"] = flipTick >= 0;
@@ -494,6 +500,7 @@ namespace Ts3Agent
             o["step_median_m"] = Math.Round(median, 3);  // before the flip, whole passes (the bound's term)
             o["step_median_post_m"] = Math.Round(postMedian, 3);
             o["jump_bound_m"] = Math.Round(bound, 3);
+            o["flip_tick_ms"] = flipTickMs;
             o["still_routing"] = s.SimRoutingComponent != null && s.SimRoutingComponent.IsRouting;
             string verdict;
             if (flipTick < 0) verdict = "not tested";  // no flip: the camera never made it visible (or it stopped walking)

@@ -18,7 +18,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.264-mono1"  // merge/mono-1115: master + Mono lanes jitfault, measure, autshadow, gc, jitsmall + L9 P3 Verify chain (docs/537 §29, docs/139 §3, docs/122 §14.29)
+#define TS3NATIVE_VERSION "0.36.267-mc1116"  // merge/master-1116c set: master-1116b + exe guard, rewind mswsock keepalive + combase idle-wait patch (docs/270 §32), hhtoo-off fix, boat land-near
 #endif
 
 typedef unsigned char u8;
@@ -255,6 +255,19 @@ static int Clamp(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; 
 // handled AVs at 1-2 addresses before the world loads took every slot, so a later TS3W crash had no line); repeats are counted.
 static volatile LONG g_xcptN, g_xcptCpp, g_xcptOtherN, g_xcptOtherHits[8];
 static DWORD g_selfLo, g_selfHi, g_xcptOther[8];
+// docs/67 §39 (2026-11-16 bp-seen-smoke): every run spends the 16 slots before the world loads (start-up AVs in spfileq /
+// setupapi / Frida, then Apex Radiance's handled AVs), so the fault that ended the game had no line. Past the cap, an
+// exception at an eip not seen past the cap still gets its lines, 64 addresses at most.
+static volatile LONG g_xcptLateN;
+static DWORD g_xcptLate[64];
+static bool XcptLateNew(DWORD eip) {
+    for (LONG i = 0, n = g_xcptLateN < 64 ? g_xcptLateN : 64; i < n; i++)
+        if (g_xcptLate[i] == eip) return false;
+    const LONG k = InterlockedIncrement(&g_xcptLateN);
+    if (k > 64) return false;
+    g_xcptLate[k - 1] = eip;  // a racing thread with the same eip may log it twice: harmless
+    return true;
+}
 // "name+0xoffset" when a is in a loaded image other than TS3W.exe (base 0x400000) and this module. No loader lock.
 static bool XcptOtherModule(DWORD a, char* out, int cap) {
     MEMORY_BASIC_INFORMATION mbi;
@@ -335,7 +348,7 @@ static LONG CALLBACK XcptLog(EXCEPTION_POINTERS* e) {
     if (code == EXCEPTION_ACCESS_VIOLATION)  // docs/172 §7: another module's address already logged
         for (LONG i = 0, n = g_xcptOtherN < 8 ? g_xcptOtherN : 8; i < n; i++)
             if (g_xcptOther[i] == c->Eip) return InterlockedIncrement(&g_xcptOtherHits[i]), EXCEPTION_CONTINUE_SEARCH;
-    if (InterlockedIncrement(&g_xcptN) > 16) return EXCEPTION_CONTINUE_SEARCH;
+    if (InterlockedIncrement(&g_xcptN) > 16 && !XcptLateNew(c->Eip)) return EXCEPTION_CONTINUE_SEARCH;
     char refs[128], mod[MAX_PATH + 16] = "", in[MAX_PATH + 24] = "";
     if (code == EXCEPTION_ACCESS_VIOLATION && XcptOtherModule(c->Eip, mod, sizeof(mod))) {
         const LONG k = InterlockedIncrement(&g_xcptOtherN);
@@ -371,7 +384,7 @@ static void InstallXcptLog(const wchar_t* ini) {
     g_selfLo = (DWORD)(uintptr_t)self;
     g_selfHi = nt ? g_selfLo + nt->OptionalHeader.SizeOfImage : g_selfLo;
     CfModInit();
-    if (AddVectoredExceptionHandler(1, XcptLog)) Log("crash log: first 16 first-chance exceptions, an AV in another module once per address (module 0x%08lX-0x%08lX)", g_selfLo, g_selfHi);
+    if (AddVectoredExceptionHandler(1, XcptLog)) Log("crash log: first 16 first-chance exceptions, an AV in another module once per address, then one per new eip up to 64 (module 0x%08lX-0x%08lX)", g_selfLo, g_selfHi);
 }
 
 static void ApplyGc(const wchar_t* ini) {
@@ -400,7 +413,7 @@ static void ApplyGc(const wchar_t* ini) {
 }
 
 // --- Phase 2: negative cache for failed route plans (docs/11 Q5, docs/15 phase 2) ---
-// Counters for test tools: Frida `Module.findExportByName('ts3native.asi', 'ts3native_counters')`, read 6477 int32 (v203 [MonoJit] FaultRecover fr* at 0x6524 after the v921 placeholder resV921[64] at 0x6424 (docs/537 §29); v201 [AnimPhase] an* at 0x63A4 and v202 [Compat] ap* / [StallWatch] ss* at 0x63E4 after v200 (lane L9, docs/22 §6, docs/148 §7, docs/67 §25); v200 [MemDiag] AllocSitesOwners ao* at 0x637C after v199 (docs/190 phase 3); v199 [MemDiag] Access ma* at 0x6354 after v919 (docs/190 phase 2); v919 [AudioStateDup] ad* / [PkgProbe] pp* at 0x6304 after v198, contributor block, docs/549; v198 [RouteAsync] KdUncutCeilMs kdUncut* at 0x62F4 after the v196/v197 placeholder resV196_197[10] at 0x62CC (docs/264); v918 [EaCrashFixes] BridgeHeightNaN bhnHits at 0x62C8 after the v195 placeholder, contributor block, version field stays 912; v195 placeholder resV195[8] at 0x62A8 after v194, held for [MonoJit] ClauseLazy guards (feature/monojit-clauselazy-guards); v194 [MonoJit] BoundCall bc* at 0x6278 after v193, v193 [Crash2Diag] c2* at 0x6258 after v192, v192 drain / LostRemovalFix waits by site ds* lrs* at 0x6178 after v191, v191 ReplanFromPosition START refusals arRf3 at 0x60C8 after v190, v190 FbApplyPending fbAp* at 0x60A8 after v189, v189 [GoalValidRO] UnseenDefer gvu* + gvattr diagnostics at 0x6018 after v188, v188 [MonoJit] R1 jitFull* / jitRegionKB and [Binder] TypeHandleDirect tdOn at 0x6008 after v187, v187 [AutShadow] Races R2c r2c* at 0x5FD0 after v186, v186 [EqualsFast] eq* at 0x5F90 after v185, v185 [AutShadow] Satb struct this sb* at 0x5F80 after v184, v184 [MonoSigGuard] msg* at 0x5F70 after v183, v183 [UafCheck] delayed-free quarantine uaf* at 0x5F58 after v182, v182 [CasTrim] realm shape check rl* at 0x5F48 after v181, v181 [CasTrim] WriteTrap tr* at 0x5F38 after v180, v180 [CasTrim] outfit save string check os* at 0x5F28 after v179, v179 watchdog-check job time wd* at 0x5F18 after v913, v913 [LotPool] Trim lp* at 0x5EF8 after v178, contributor block, v178 [CasTrim] ModelBuilder check mb* at 0x5EE8, v177 [PkgLock] pk* at 0x5EC8, v176 [CasTrim] CellGuard ctCellSeen / ctCellSkip at 0x5EC0 after v175, v175 [SteerRO] Retry srr* at 0x5E94, v174 [GoalValidRO] Attr gva* at 0x5E4C (docs/250 §7.0, §8), v173 [UnseenFallback] HostLate and [HitchAttr] JobNameMs at 0x5E38, v172 [Discourage] LostRemovalFix and GhostSweep at 0x5DE8, v171 [CasTrim] Mode 3 / 4 and docs/539 probes at 0x5D80, v169 [UnseenAnim] held table kdAaHeld* at 0x5D68 after the gap held for v167-v168, v165 [RouteAsync] KdExemptSeen kd* at 0x5D18, version field stays 912; v912 [CasTrim] ct* at 0x5CF0, v164 [MintFuse] Sub mf* at 0x5C98 in the block held for it, version field stays 912; v911 [MonoJit] Inline, Wide jitInlined at 0x5CE0, v910 [MonoJit] jit* at 0x5CA8, v909 [MonoJit] jitDirect at 0x5C6C, contributor block, docs/527, docs/537; v908 [MemDiag] RcRefCallers rrc* at 0x5C34 after v907, contributor block; v907 [IlPatch] ilp* at 0x5C14 after v906, contributor block; v906 [IdleCheckRO] SiteCLoopJump icJumpMode / icJumped at 0x5C0C after v905, contributor block; v905 [IdleCheckRO] SiteCLoop icLoop* at 0x5BD8 after v904, contributor block; v904 [Discourage] DestroyParkDx dx* at 0x5BCC after v903, contributor block; v903 [IdleCheckRO] SiteC ic* at 0x5B84 after v902, contributor block; v902 [RouteToObjRO] Tail rtoTail* at 0x5B78 after v901, contributor block; v901 [FootstepRO] fs* at 0x5B30 after v163, contributor block; v163 [GC] BlackListCapKB window gcLenientN / gcSwitchSec at 0x5B28 after v162, version field 163; v162 [GC] BlackListCapKB gc* at 0x5B10 after v161, version field 162; v161 [GcGrowLog] gw* at 0x5AE8 after v160, version field 161; v160 [SaveSlim] slimFails after v159, version field 160; v159 [UnseenRootMotion] Mode 2 SacsHold=3 bound-actor classes rm2SacsCls after v158, version field 159; v158 [UnseenRootMotion] Mode 1 walk-1 rescan rmSlW1Late after v157, version field 158; v157 [UnseenRootMotion] Mode 2 SacsHold + SACS driver / actor histograms after v156, version field 157; v156 [UnseenAnim] aaSlotReset / aaStale + [UnseenRootMotion] rmSlMissHold after v155, version field 156; v155 [UnseenRootMotion] Mode 2 script camera IC hooks after v154, version field 155; v154 [UnseenRootMotion] Mode 2 coarse unseen Sims after v153, version field 154; v153 [UnseenRootMotion] Mode 1 late starts after v152, version field 153; v152 [UnseenTable] lazy rows after v151, version field 152; v151 [UnseenRootMotion] after v150, version field 151; v147 [UnseenAnim] after v146, version field 147; v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs after v145, version field 146; v145 [UnseenGhost] after v144; v144 [EaCrashFixes] MintDivGuard after v143, version field 144; v143 [MonoFast] CallPath after v142, version field 143; v142 [RouteAsync] WorkerWait after v141; v141 [EaCrashFixes] after v140, version field 141; v140 [UnseenFallback] FinishWalk holds after v139, version field 140; v139 [UnseenFallback] C1-C4 site fallbacks after v138, version field 139; v138 [UnseenFallback] after v137, version field 138; v137 [MemDiag] TypeGrowth + [GC] SqrtHeapLimit after v136 [ResourceCache] trim, version field 137; v135 PlanDeadlineMs sync-path exemptions after v134, version field 135; v134 [RouteAsync] KindDeadlines after v133; v133 [RouteSnap] LotUseReadout after v132; v132 [RouteSnap] PoolChunkMB / EpochHeap after v131; v129 [RouteSnap] StaleLotFp after reserved v126-v128, version field 129; v125 [RouteSnap] StaleLot after reserved v123 / v124, version field 125; v119 [IdleCheckRO] after v118, version field 119; v118 [GoalValidRO] slots kept, other branch; v117 CrashForensics ObjResLog after v116, version field 117; v116 CrashForensics EffectLog after v115, version field 116; v115 CrashForensics DrawGuards / OurEvents after v114, version field 115; v114 CrashForensics after v113, version field 114; v113 DeferPrivateFp after v112, version field 113; v112 P6 take kinds + Mode=2 cut sharing + per-job phase split after v111, version field 112; v111 watchpoint constructor-pair count + follow + replay audit rebase hold after v110, version field 111; v110 [Watchpoint] lot arm + child z / parent +0x30 writer probes after v109, version field 110; v109 job yield + sim job waits by site after v108, version field 109; v108 gate site 16 after v107; v107 PlanDrain after v106; v106 P5 steps 2-4 after v105 (layout of merge eaef8a1b; zeros without it); v105 RecsUnlocked after v104, version field 105; v104 refcount guard after v103; v103 job deadline + own waits + goal-step split after v102; v102 goal split + GoalGen D1 + H2 IC window after v101, version field 102; v101 foreign kinds after v100; v100 placement RO after v99; v99 plan deadline + fail memo after v98; v98 lock holders after v97; v97 sync plan phases after v96; v96 host-call split + DoorMemo after v93; v93 route-to-object RO appended after v95 at the 2026-10-22 0325 merge, version field stays 95; v95 F-G held-out count after v94, v94 design U phase 2 after v92, v92 route allocator sites after v91, v91 [Gate0RO] after v90, v90 replan dedupe after v88, all at the 2026-10-22 integration merge; version field 95; v88 cell memo probe appended after v89; v89 tail unlock; v87 route job phases; v86; v77 AvoidRO before v78, v79 unseen probe + throttle after v78, v80 unseen throttle phase 2, v81 foreign job cap, v83 unseen diagnostics, v84 foreign job split, v85 H2 counters, v86 acting early-out, no v52, v58 or v82 fields in this build).
+// Counters for test tools: Frida `Module.findExportByName('ts3native.asi', 'ts3native_counters')`, read 6478 int32 (v204 [Experimental] HouseholdToo hhTooLift at 0x6534 (docs/271); v203 [MonoJit] FaultRecover fr* at 0x6524 after the v921 placeholder resV921[64] at 0x6424 (docs/537 §29); v201 [AnimPhase] an* at 0x63A4 and v202 [Compat] ap* / [StallWatch] ss* at 0x63E4 after v200 (lane L9, docs/22 §6, docs/148 §7, docs/67 §25); v200 [MemDiag] AllocSitesOwners ao* at 0x637C after v199 (docs/190 phase 3); v199 [MemDiag] Access ma* at 0x6354 after v919 (docs/190 phase 2); v919 [AudioStateDup] ad* / [PkgProbe] pp* at 0x6304 after v198, contributor block, docs/549; v198 [RouteAsync] KdUncutCeilMs kdUncut* at 0x62F4 after the v196/v197 placeholder resV196_197[10] at 0x62CC (docs/264); v918 [EaCrashFixes] BridgeHeightNaN bhnHits at 0x62C8 after the v195 placeholder, contributor block, version field stays 912; v195 placeholder resV195[8] at 0x62A8 after v194, held for [MonoJit] ClauseLazy guards (feature/monojit-clauselazy-guards); v194 [MonoJit] BoundCall bc* at 0x6278 after v193, v193 [Crash2Diag] c2* at 0x6258 after v192, v192 drain / LostRemovalFix waits by site ds* lrs* at 0x6178 after v191, v191 ReplanFromPosition START refusals arRf3 at 0x60C8 after v190, v190 FbApplyPending fbAp* at 0x60A8 after v189, v189 [GoalValidRO] UnseenDefer gvu* + gvattr diagnostics at 0x6018 after v188, v188 [MonoJit] R1 jitFull* / jitRegionKB and [Binder] TypeHandleDirect tdOn at 0x6008 after v187, v187 [AutShadow] Races R2c r2c* at 0x5FD0 after v186, v186 [EqualsFast] eq* at 0x5F90 after v185, v185 [AutShadow] Satb struct this sb* at 0x5F80 after v184, v184 [MonoSigGuard] msg* at 0x5F70 after v183, v183 [UafCheck] delayed-free quarantine uaf* at 0x5F58 after v182, v182 [CasTrim] realm shape check rl* at 0x5F48 after v181, v181 [CasTrim] WriteTrap tr* at 0x5F38 after v180, v180 [CasTrim] outfit save string check os* at 0x5F28 after v179, v179 watchdog-check job time wd* at 0x5F18 after v913, v913 [LotPool] Trim lp* at 0x5EF8 after v178, contributor block, v178 [CasTrim] ModelBuilder check mb* at 0x5EE8, v177 [PkgLock] pk* at 0x5EC8, v176 [CasTrim] CellGuard ctCellSeen / ctCellSkip at 0x5EC0 after v175, v175 [SteerRO] Retry srr* at 0x5E94, v174 [GoalValidRO] Attr gva* at 0x5E4C (docs/250 §7.0, §8), v173 [UnseenFallback] HostLate and [HitchAttr] JobNameMs at 0x5E38, v172 [Discourage] LostRemovalFix and GhostSweep at 0x5DE8, v171 [CasTrim] Mode 3 / 4 and docs/539 probes at 0x5D80, v169 [UnseenAnim] held table kdAaHeld* at 0x5D68 after the gap held for v167-v168, v165 [RouteAsync] KdExemptSeen kd* at 0x5D18, version field stays 912; v912 [CasTrim] ct* at 0x5CF0, v164 [MintFuse] Sub mf* at 0x5C98 in the block held for it, version field stays 912; v911 [MonoJit] Inline, Wide jitInlined at 0x5CE0, v910 [MonoJit] jit* at 0x5CA8, v909 [MonoJit] jitDirect at 0x5C6C, contributor block, docs/527, docs/537; v908 [MemDiag] RcRefCallers rrc* at 0x5C34 after v907, contributor block; v907 [IlPatch] ilp* at 0x5C14 after v906, contributor block; v906 [IdleCheckRO] SiteCLoopJump icJumpMode / icJumped at 0x5C0C after v905, contributor block; v905 [IdleCheckRO] SiteCLoop icLoop* at 0x5BD8 after v904, contributor block; v904 [Discourage] DestroyParkDx dx* at 0x5BCC after v903, contributor block; v903 [IdleCheckRO] SiteC ic* at 0x5B84 after v902, contributor block; v902 [RouteToObjRO] Tail rtoTail* at 0x5B78 after v901, contributor block; v901 [FootstepRO] fs* at 0x5B30 after v163, contributor block; v163 [GC] BlackListCapKB window gcLenientN / gcSwitchSec at 0x5B28 after v162, version field 163; v162 [GC] BlackListCapKB gc* at 0x5B10 after v161, version field 162; v161 [GcGrowLog] gw* at 0x5AE8 after v160, version field 161; v160 [SaveSlim] slimFails after v159, version field 160; v159 [UnseenRootMotion] Mode 2 SacsHold=3 bound-actor classes rm2SacsCls after v158, version field 159; v158 [UnseenRootMotion] Mode 1 walk-1 rescan rmSlW1Late after v157, version field 158; v157 [UnseenRootMotion] Mode 2 SacsHold + SACS driver / actor histograms after v156, version field 157; v156 [UnseenAnim] aaSlotReset / aaStale + [UnseenRootMotion] rmSlMissHold after v155, version field 156; v155 [UnseenRootMotion] Mode 2 script camera IC hooks after v154, version field 155; v154 [UnseenRootMotion] Mode 2 coarse unseen Sims after v153, version field 154; v153 [UnseenRootMotion] Mode 1 late starts after v152, version field 153; v152 [UnseenTable] lazy rows after v151, version field 152; v151 [UnseenRootMotion] after v150, version field 151; v147 [UnseenAnim] after v146, version field 147; v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs after v145, version field 146; v145 [UnseenGhost] after v144; v144 [EaCrashFixes] MintDivGuard after v143, version field 144; v143 [MonoFast] CallPath after v142, version field 143; v142 [RouteAsync] WorkerWait after v141; v141 [EaCrashFixes] after v140, version field 141; v140 [UnseenFallback] FinishWalk holds after v139, version field 140; v139 [UnseenFallback] C1-C4 site fallbacks after v138, version field 139; v138 [UnseenFallback] after v137, version field 138; v137 [MemDiag] TypeGrowth + [GC] SqrtHeapLimit after v136 [ResourceCache] trim, version field 137; v135 PlanDeadlineMs sync-path exemptions after v134, version field 135; v134 [RouteAsync] KindDeadlines after v133; v133 [RouteSnap] LotUseReadout after v132; v132 [RouteSnap] PoolChunkMB / EpochHeap after v131; v129 [RouteSnap] StaleLotFp after reserved v126-v128, version field 129; v125 [RouteSnap] StaleLot after reserved v123 / v124, version field 125; v119 [IdleCheckRO] after v118, version field 119; v118 [GoalValidRO] slots kept, other branch; v117 CrashForensics ObjResLog after v116, version field 117; v116 CrashForensics EffectLog after v115, version field 116; v115 CrashForensics DrawGuards / OurEvents after v114, version field 115; v114 CrashForensics after v113, version field 114; v113 DeferPrivateFp after v112, version field 113; v112 P6 take kinds + Mode=2 cut sharing + per-job phase split after v111, version field 112; v111 watchpoint constructor-pair count + follow + replay audit rebase hold after v110, version field 111; v110 [Watchpoint] lot arm + child z / parent +0x30 writer probes after v109, version field 110; v109 job yield + sim job waits by site after v108, version field 109; v108 gate site 16 after v107; v107 PlanDrain after v106; v106 P5 steps 2-4 after v105 (layout of merge eaef8a1b; zeros without it); v105 RecsUnlocked after v104, version field 105; v104 refcount guard after v103; v103 job deadline + own waits + goal-step split after v102; v102 goal split + GoalGen D1 + H2 IC window after v101, version field 102; v101 foreign kinds after v100; v100 placement RO after v99; v99 plan deadline + fail memo after v98; v98 lock holders after v97; v97 sync plan phases after v96; v96 host-call split + DoorMemo after v93; v93 route-to-object RO appended after v95 at the 2026-10-22 0325 merge, version field stays 95; v95 F-G held-out count after v94, v94 design U phase 2 after v92, v92 route allocator sites after v91, v91 [Gate0RO] after v90, v90 replan dedupe after v88, all at the 2026-10-22 integration merge; version field 95; v88 cell memo probe appended after v89; v89 tail unlock; v87 route job phases; v86; v77 AvoidRO before v78, v79 unseen probe + throttle after v78, v80 unseen throttle phase 2, v81 foreign job cap, v83 unseen diagnostics, v84 foreign job split, v85 H2 counters, v86 acting early-out, no v52, v58 or v82 fields in this build).
 struct Ts3nCounters {
     LONG version;      // layout version, 4
     LONG enabled;      // 1 when the Route_PlanLocked detour is installed
@@ -3090,6 +3103,8 @@ struct Ts3nCounters {
     LONG frRecovered;                      // +0x6528, faults in a compiled normal body resumed in EA's interpreter at that word (method off for the session)
     LONG frPassed;                         // +0x652C, faults ours (eip or a return address in a compiled body) passed on to the game's handlers (method off)
     volatile LONG frTestCalls;             // +0x6530, [MonoJit] FaultTest only: calls of the test method's normal body
+    // v204 (householdtoo-1116, docs/271): [Experimental] HouseholdToo
+    volatile LONG hhTooLift;               // +0x6534, household / selected / unknown-scope asks HhExempt let through (flag on)
 };
 // [RouteAsync] ReadyDrain (default 0, docs: issue "why off-screen plans take 500-800 ms"): on the READY poll of the job the worker
 // runs now, serve every managed call it posts within a small budget (not one per poll), and answer "done" in the same poll when
@@ -3103,8 +3118,9 @@ struct ReadyDrainCounters { volatile LONG mode, budgetUs, polls, served, saved, 
 // [RouteSnap] DoorMemoX=3 (hostcalls.cpp): the managed door-input generation ts3fixes DoorGen.cs bumps through UserDiag op 36
 // + why the cross-job memo missed (any DoorMemoX mode): no row for the key, a row of another generation / delegate set, a row past
 // DoorMemoXMs, and live answers that are not "unlocked" (never stored)
-struct DmxScriptGen { volatile LONG gen, armed, bumps, unarmedAsks, missCold, missGen, missAge, notUnlocked; };
-extern "C" __declspec(dllexport) DmxScriptGen ts3native_doorgen = {0, 0, 0, 0, 0, 0, 0, 0};
+// + exempt: acting-mode (1, 3) asks of a household, selected or unknown-scope job (only unseen and seen-NPC jobs use the memo)
+struct DmxScriptGen { volatile LONG gen, armed, bumps, unarmedAsks, missCold, missGen, missAge, notUnlocked, exempt; };
+extern "C" __declspec(dllexport) DmxScriptGen ts3native_doorgen = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 extern "C" __declspec(dllexport) ReadyDrainCounters ts3native_readydrain = {0, 2000, 0, 0, 0, 0, 0, 3000, 300, 0, 0};
 extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {912,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -3277,8 +3293,8 @@ static void MaybeLogCounters(ULONGLONG now) {
             ts3native_readydrain.maxUs);
     if (c.dmxMode == 3 || ts3native_doorgen.armed)
         Log("door memo x mode 3: armed %ld, managed input bumps %ld, asks before arming %ld, hits %ld miss %ld inval %ld shadow %ld "
-            "mismatch %ld", ts3native_doorgen.armed, ts3native_doorgen.bumps, ts3native_doorgen.unarmedAsks, c.dmxHit, c.dmxMiss,
-            c.dmxInval, c.dmxShadow, c.dmxMismatch);
+            "mismatch %ld, household / unknown asks not answered from it %ld", ts3native_doorgen.armed, ts3native_doorgen.bumps, ts3native_doorgen.unarmedAsks, c.dmxHit, c.dmxMiss,
+            c.dmxInval, c.dmxShadow, c.dmxMismatch, ts3native_doorgen.exempt);
     if (c.dmxMode)
         Log("door memo x misses: no row %ld, other generation %ld, older than DoorMemoXMs %ld; live answers not unlocked (not stored) %ld",
             ts3native_doorgen.missCold, ts3native_doorgen.missGen, ts3native_doorgen.missAge, ts3native_doorgen.notUnlocked);
@@ -3882,6 +3898,8 @@ static void ServePlan() {
 // [RouteJobPhases] HostSplit (hostcalls.cpp, docs/159 §5): serve sites, stamps; t_hcJob = the job the worker runs (0 = none)
 enum { HC_PUMP918, HC_PUMPOTHER, HC_READY, HC_ASYNCDONE, HC_JOBDONE, HC_RUNPLAN, HC_SITES };
 static __declspec(thread) LONG t_hcJob;
+// DoorMemoX: the running job's scope (kdScope from ts3fixes UfWhy, 2 when marked uf): 0 unknown, 1 household or unknown, 2 unseen, 3 seen NPC
+static __declspec(thread) LONG t_hcScope;
 static LONG g_hcJobSeq;  // worker only
 static LONGLONG HcNow();
 static void HcPost(InvokeJob& v);
@@ -4325,11 +4343,12 @@ static void ServeAsync() {
             InterlockedExchange((volatile LONG*)&g_pdWkTid, (LONG)GetCurrentThreadId());
         RjpJobBegin(j->fb ? 2 : j->kind ? 1 : 0);  // [RouteJobPhases] (routephases.cpp): own START, own A10, foreign
         t_hcJob = ++g_hcJobSeq;                     // hostcalls.cpp: door keys and the memo are per job
+        t_hcScope = j->uf ? 2 : j->kdScope;         // hostcalls.cpp: DoorMemoX answers only unseen / seen-NPC jobs
         t_p6wOut = j->p4 >= 2 ? P6O_REFUSED : P6O_PLAIN;  // [P6Waits]: armed until P5Plan says taken / stale
         t_p6wArm = P6wArmNow();                            // [P6Waits]: the arm at the job's start
         UafTagScope uafTag(UT_ROUTE_JOB, (const void*)&ServeAsync);  // [UafCheck] frees during the worker job and its end
         CallIc(j->kind, j->result, j->handle, j->pt);
-        t_hcJob = 0;
+        t_hcJob = 0, t_hcScope = 0;
         LendBackstop();  // CE-4 (docs/154): a lend window an unwind left open is closed before the release below
         P5EarlyEnd();    // P6EarlyCopy (docs/94 §24.14): an early clone the IC never planned with (no Route_PlanLocked)
         InterlockedExchange((volatile LONG*)&g_pdWkTid, 0);
@@ -4417,6 +4436,7 @@ static void ServeAsync() {
 // deeper wait), and the worker comes back here. idle says the worker is in this wait.
 struct RwPark { DWORD magic, version; volatile LONG request, idle, held; };
 static RwPark* g_rwPark;  // NULL = off
+static DWORD WINAPI RewindKeepAsync(LPVOID);
 static void RewindParkInit(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"Rewind", L"Park", 0, ini)) return;
     wchar_t name[64];
@@ -4428,6 +4448,115 @@ static void RewindParkInit(const wchar_t* ini) {
     p->magic = 0x4E545752;  // 'RWTN', written last: the tool reads the block only with it
     g_rwPark = p;
     Log("[Rewind] Park on: the route worker parks in its idle wait when %ls asks", name);
+    if (HANDLE t = CreateThread(NULL, 64 * 1024, RewindKeepAsync, NULL, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL)) CloseHandle(t);
+}
+// [Rewind] Park=1 only (docs/270 §32): keeps mswsock's async thread from ending during a long job. A rewind refuses a
+// thread that ended after the snapshot, and SockAsyncThread (mswsock.dll) ends after 300 s idle when its reference count
+// is 1. One WSAAsyncSelect registration holds a reference while its AFD poll is pending (SockAsyncSelectHelper ->
+// SockCheckAndReferenceAsyncThread; dropped only in SockAsyncSelectCompletion when the select ends), and with the count
+// above 1 SockAsyncThread waits in NtRemoveIoCompletion with no timeout. The socket listens on 127.0.0.1 at a free port
+// and nobody connects: no traffic, so [Rewind] Offline holds. Window and socket exist before any snapshot. Everything is
+// loaded by name: ts3native does not import ws2_32 or user32.
+// [Rewind] Park=1 only (docs/270 §32): combase's RPC cache workers (CRpcThreadCache::RpcWorkerThreadEntry) end after 30 s
+// idle, and a rewind refuses a thread that ended after the snapshot. CRpcThread::WorkerLoop waits for work with
+// WaitCoalesced(timer, 1, &event, 30000, 30000, TRUE, &r) (coalescable timer, due -30000 * 10000 as 64-bit) or, when the
+// timer cannot be made, WaitForSingleObjectEx(event, 30000, TRUE); a timeout makes the worker leave the cache and exit.
+// The pattern covers the whole block from the WaitCoalesced arguments to the fallback call (register use, the cmovs on
+// the result, the branch to the fallback), not only the constant, so it finds the block wherever the function moves;
+// only the two imm32 30000 values are written: +5 (mov ecx, 7530h: WaitCoalesced's due time and tolerance) and +47
+// (push 7530h: the fallback's timeout), both to 0xFFFFFFFF. WaitCoalesced then sets its timer ~49.7 days out (no overflow:
+// the multiply is 64-bit), the fallback waits INFINITE. In this process's memory only; the file is never touched.
+static const char kCbPat[] = "8D 44 24 ?? B9 30 75 00 00 50 33 C0 40 50 51 51 56 8B D0 8B CF E8 ?? ?? ?? ?? 85 C0 0F B6 DB 6A 01 58 "
+                             "0F 48 D8 89 5C 24 ?? 84 DB 74 ?? 50 68 30 75 00 00 FF 36 FF 15";
+static const int kCbPatch[2] = {5, 47};
+// matches of a "AB ?? CD" pattern in [p, p + n); *at = the first one
+static int PatScan(const BYTE* p, size_t n, const char* pat, size_t* at) {
+    BYTE v[128]; bool any[128]; int m = 0;
+    for (const char* c = pat; *c && m < 128;) {
+        if (*c == ' ') { ++c; continue; }
+        any[m] = c[0] == '?';
+        v[m] = any[m] ? 0 : (BYTE)strtoul(c, NULL, 16);
+        ++m;
+        c += 2;
+    }
+    int hits = 0;
+    for (size_t i = 0; m && i + m <= n; ++i) {
+        int k = 0;
+        while (k < m && (any[k] || p[i + k] == v[k])) ++k;
+        if (k == m && hits++ == 0 && at) *at = i;
+    }
+    return hits;
+}
+// .text of a PE image: loaded (section RVA) or a file read into memory (raw offset)
+static bool PeText(const BYTE* b, size_t size, bool loaded, const BYTE** text, size_t* len) {
+    if (size < 0x40 || *(const WORD*)b != 0x5A4D) return false;
+    const DWORD pe = *(const DWORD*)(b + 0x3C);
+    if (pe + 0x18 > size || *(const DWORD*)(b + pe) != 0x4550) return false;
+    const IMAGE_FILE_HEADER* fh = (const IMAGE_FILE_HEADER*)(b + pe + 4);
+    const IMAGE_SECTION_HEADER* sh = (const IMAGE_SECTION_HEADER*)(b + pe + 0x18 + fh->SizeOfOptionalHeader);
+    for (int i = 0; i < fh->NumberOfSections; ++i)
+        if (!memcmp(sh[i].Name, ".text", 6)) {
+            const DWORD off = loaded ? sh[i].VirtualAddress : sh[i].PointerToRawData;
+            const DWORD n = loaded ? sh[i].Misc.VirtualSize : sh[i].SizeOfRawData;
+            if (!loaded && (size_t)off + n > size) return false;
+            *text = b + off; *len = n;
+            return true;
+        }
+    return false;
+}
+static void ModVersion(HMODULE m, char* out, size_t n) {
+    _snprintf_s(out, n, _TRUNCATE, "?");
+    HRSRC r = FindResourceW(m, MAKEINTRESOURCEW(1), MAKEINTRESOURCEW(16) /*RT_VERSION*/);
+    const BYTE* v = r ? (const BYTE*)LockResource(LoadResource(m, r)) : NULL;
+    const DWORD sz = r ? SizeofResource(m, r) : 0;
+    for (DWORD i = 0; v && i + sizeof(VS_FIXEDFILEINFO) <= sz; i += 4)
+        if (*(const DWORD*)(v + i) == 0xFEEF04BD) {
+            const VS_FIXEDFILEINFO* f = (const VS_FIXEDFILEINFO*)(v + i);
+            _snprintf_s(out, n, _TRUNCATE, "%u.%u.%u.%u", HIWORD(f->dwFileVersionMS), LOWORD(f->dwFileVersionMS), HIWORD(f->dwFileVersionLS), LOWORD(f->dwFileVersionLS));
+            return;
+        }
+}
+static void RewindCombaseKeep() {
+    const HMODULE cb = LoadLibraryW(L"combase.dll");
+    char ver[48] = "not loaded";
+    if (cb) ModVersion(cb, ver, sizeof ver);
+    const BYTE* text = NULL; size_t len = 0, at = 0;
+    const int hits = cb && PeText((const BYTE*)cb, ~(size_t)0, true, &text, &len) ? PatScan(text, len, kCbPat, &at) : 0;
+    bool ok = hits == 1;
+    for (int k = 0; ok && k < 2; ++k) {
+        BYTE* imm = (BYTE*)text + at + kCbPatch[k];
+        DWORD old = 0;
+        ok = VirtualProtect(imm, 4, PAGE_EXECUTE_READWRITE, &old) != 0;
+        if (ok) { *(volatile DWORD*)imm = 0xFFFFFFFF; VirtualProtect(imm, 4, old, &old); }
+    }
+    if (hits == 1) FlushInstructionCache(GetCurrentProcess(), text + at, 64);
+    if (ok) Log("[Rewind] combase keepalive: patched (combase %s, CRpcThread::WorkerLoop idle wait at +%zx: 30 s -> INFINITE, this process only)", ver, (size_t)(text - (const BYTE*)cb) + at);
+    else Log("[Rewind] combase keepalive: pattern not found, settle wait used (combase %s, %d matches)", ver, hits);
+}
+static DWORD WINAPI RewindKeepAsync(LPVOID) {
+    RewindCombaseKeep();  // first: before any cache worker of the game waits (docs/270 §32)
+    const HMODULE ws = LoadLibraryW(L"ws2_32.dll"), us = LoadLibraryW(L"user32.dll");
+    auto wsaStartup = ws ? (int(WINAPI*)(WORD, void*))GetProcAddress(ws, "WSAStartup") : NULL;
+    auto sock = ws ? (UINT_PTR(WINAPI*)(int, int, int))GetProcAddress(ws, "socket") : NULL;
+    auto bindF = ws ? (int(WINAPI*)(UINT_PTR, const void*, int))GetProcAddress(ws, "bind") : NULL;
+    auto listenF = ws ? (int(WINAPI*)(UINT_PTR, int))GetProcAddress(ws, "listen") : NULL;
+    auto asyncSel = ws ? (int(WINAPI*)(UINT_PTR, HWND, UINT, long))GetProcAddress(ws, "WSAAsyncSelect") : NULL;
+    auto lastErr = ws ? (int(WINAPI*)())GetProcAddress(ws, "WSAGetLastError") : NULL;
+    auto mkWnd = us ? (HWND(WINAPI*)(DWORD, LPCWSTR, LPCWSTR, DWORD, int, int, int, int, HWND, HMENU, HINSTANCE, LPVOID))GetProcAddress(us, "CreateWindowExW") : NULL;
+    auto getMsg = us ? (BOOL(WINAPI*)(MSG*, HWND, UINT, UINT))GetProcAddress(us, "GetMessageW") : NULL;
+    if (!wsaStartup || !sock || !bindF || !listenF || !asyncSel || !lastErr || !mkWnd || !getMsg) { Log("FAIL [Rewind] keepalive: ws2_32/user32 exports"); return 0; }
+    BYTE wsaData[512];
+    struct { short family; unsigned short port; DWORD addr; char zero[8]; } sa = {2 /*AF_INET*/, 0, 0x0100007F /*127.0.0.1*/, {}};
+    const HWND w = wsaStartup(0x0202, wsaData) ? NULL : mkWnd(0, L"STATIC", NULL, 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, NULL, NULL);
+    const UINT_PTR s = w ? sock(2 /*AF_INET*/, 1 /*SOCK_STREAM*/, 6 /*IPPROTO_TCP*/) : ~(UINT_PTR)0;
+    if (!w || s == ~(UINT_PTR)0 || bindF(s, &sa, sizeof sa) || listenF(s, 1) || asyncSel(s, w, WM_APP, 8 /*FD_ACCEPT*/)) {
+        Log("FAIL [Rewind] keepalive: loopback async select (window %p, wsa error %d)", w, w ? lastErr() : 0);
+        return 0;
+    }
+    Log("[Rewind] keepalive on: one async select on a loopback listen socket holds mswsock's async thread (no idle end)");
+    MSG m;
+    while (getMsg(&m, NULL, 0, 0) > 0) {}  // FD_ACCEPT never comes: nobody connects
+    return 0;
 }
 static bool RewindHold() {
     if (!g_rwPark || !g_rwPark->request) return false;
@@ -5342,6 +5471,18 @@ static u8 UdTextMsg(DWORD lo, DWORD hi);   // userdiag.cpp: ts3fixes text channe
 // q 8 (0.36.191, docs/247 §12.4, ts3fixes watchdoglockskip): a route job runs now and holds world+0x918, so a plan here would
 // wait for it. Plain reads, no lock taken, nothing counted, no managed call served.
 static const DWORD kWouldHi = 0x88000000;
+// docs/271 [Experimental] HouseholdToo (default 0): 1 = the realistic-only household exemptions (docs/271 rows marked yes) let a
+// household, selected or unknown-scope ask through like a seen NPC's. Teleports, fakes, cuts, skips and every crash guard keep the
+// exemption (they never call HhExempt). Read once at start; ts3fixes asks it through q 14 (PlayerSims.cs HouseholdExempt).
+static int g_hhToo;
+// the shared native predicate: hh = this ask is household, selected or unknown scope. true = keep the exemption (vanilla);
+// flag on: false, counted. New household-exempt sites that stay realistic with the flag on call this; others keep their own test.
+static bool HhExempt(bool hh) {
+    if (!hh) return false;
+    if (g_hhToo != 1) return true;
+    InterlockedIncrement(&ts3native_counters.hhTooLift);
+    return false;
+}
 static int g_rlOn;  // docs/261 §6 L1 [RouteAsync] ReplanLog (default 0): ts3fixes logs own Replan calls; asked once through q 10
 static u8 ArWould(DWORD handle, DWORD q) {
     Ts3nCounters& k = ts3native_counters;
@@ -5363,6 +5504,7 @@ static u8 ArWould(DWORD handle, DWORD q) {
         case 11: return (g_arOwnKinds & 1) != 0;       // Kinds has Replan (release Kinds=0: refused NoStart first)
         case 12: return (k.arReady & 1) != 0;          // the Replan IC is hooked (arReady bit 0)
         case 13: return AsyncLosRoute(handle);         // true = LOS refusal
+        case 14: return g_hhToo == 1;                  // docs/271 [Experimental] HouseholdToo (ts3fixes HouseholdTooOn)
     }
     return 0;
 }
@@ -5852,12 +5994,12 @@ static_assert(offsetof(Ts3nCounters, aoReady) == 0x56D0 && offsetof(Ts3nCounters
 static_assert(offsetof(Ts3nCounters, rmReady) == 0x5830 && offsetof(Ts3nCounters, rmK) == 0x5840 && offsetof(Ts3nCounters, rmTailN) == 0x5890 &&
               offsetof(Ts3nCounters, rmZoneN) == 0x58C0 && offsetof(Ts3nCounters, rmDeltaN) == 0x5900 &&
               offsetof(Ts3nCounters, rmSlFallback) == 0x5928 && offsetof(Ts3nCounters, rmSpare) == 0x5944 &&
-              sizeof(Ts3nCounters) == 6477 * 4, "v151 layout (docs/registry.md)");
+              sizeof(Ts3nCounters) == 6478 * 4, "v151 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, utbRowCalc) == 0x5950 && offsetof(Ts3nCounters, utbForced) == 0x5960, "v152 layout (docs/registry.md)");
-static_assert(offsetof(Ts3nCounters, rmSlIns) == 0x5964 && offsetof(Ts3nCounters, rmSlCandFull) == 0x5980 && sizeof(Ts3nCounters) == 6477 * 4,
+static_assert(offsetof(Ts3nCounters, rmSlIns) == 0x5964 && offsetof(Ts3nCounters, rmSlCandFull) == 0x5980 && sizeof(Ts3nCounters) == 6478 * 4,
               "v153 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, gwMode) == 0x5AE8 && offsetof(Ts3nCounters, gwXmlMaxKB) == 0x5B0C && offsetof(Ts3nCounters, gcCapKB) == 0x5B10 &&
-                  offsetof(Ts3nCounters, gcExpandStreakMax) == 0x5B20 && offsetof(Ts3nCounters, gcSwitchSec) == 0x5B2C && sizeof(Ts3nCounters) == 6477 * 4,
+                  offsetof(Ts3nCounters, gcExpandStreakMax) == 0x5B20 && offsetof(Ts3nCounters, gcSwitchSec) == 0x5B2C && sizeof(Ts3nCounters) == 6478 * 4,
               "v161 + v162 + v163 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, fsReady) == 0x5B30 && offsetof(Ts3nCounters, fsMode) == 0x5B34 && offsetof(Ts3nCounters, fsNearDiff) == 0x5B74,
               "v901 [FootstepRO] layout");
@@ -5872,14 +6014,15 @@ static_assert(offsetof(Ts3nCounters, icJumpMode) == 0x5C0C && offsetof(Ts3nCount
 static_assert(offsetof(Ts3nCounters, ilpOn) == 0x5C14 && offsetof(Ts3nCounters, ilpFaults) == 0x5C30, "v907 [IlPatch] layout");
 static_assert(offsetof(Ts3nCounters, rrcOn) == 0x5C34 && offsetof(Ts3nCounters, rrcHookNs) == 0x5C50, "v908 [MemDiag] RcRefCallers layout");
 static_assert(offsetof(Ts3nCounters, maOn) == 0x6354 && offsetof(Ts3nCounters, maLines) == 0x6378, "v199 [MemDiag] Access layout");
-static_assert(offsetof(Ts3nCounters, aoOn) == 0x637C && offsetof(Ts3nCounters, aoUntrKB) == 0x63A0 && sizeof(Ts3nCounters) == 6477 * 4, "v200 [MemDiag] AllocSitesOwners layout");
-static_assert(offsetof(Ts3nCounters, resV921) == 0x6424 && offsetof(Ts3nCounters, frOn) == 0x6524 && offsetof(Ts3nCounters, frTestCalls) == 0x6530 && sizeof(Ts3nCounters) == 6477 * 4, "v203 [MonoJit] FaultRecover layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, aoOn) == 0x637C && offsetof(Ts3nCounters, aoUntrKB) == 0x63A0 && sizeof(Ts3nCounters) == 6478 * 4, "v200 [MemDiag] AllocSitesOwners layout");
+static_assert(offsetof(Ts3nCounters, resV921) == 0x6424 && offsetof(Ts3nCounters, frOn) == 0x6524 && offsetof(Ts3nCounters, frTestCalls) == 0x6530 && sizeof(Ts3nCounters) == 6478 * 4, "v203 [MonoJit] FaultRecover layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, hhTooLift) == 0x6534 && sizeof(Ts3nCounters) == 6478 * 4, "v204 [Experimental] HouseholdToo layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, jitOn) == 0x5CA8 && offsetof(Ts3nCounters, jitCodeKB) == 0x5CDC, "v910 [MonoJit] layout");
 static_assert(offsetof(Ts3nCounters, jitInlined) == 0x5CE0 && offsetof(Ts3nCounters, jitWideNo) == 0x5CEC, "v911 [MonoJit] Inline, Wide layout");
 static_assert(offsetof(Ts3nCounters, jitDirect) == 0x5C6C && offsetof(Ts3nCounters, jitTrapUnknown) == 0x5C94, "v909 [MonoJit] Direct, Trap layout");
 static_assert(offsetof(Ts3nCounters, ctMode) == 0x5CF0 && offsetof(Ts3nCounters, ctOtherThread) == 0x5D14, "v912 [CasTrim] layout");
 static_assert(offsetof(Ts3nCounters, pkMode) == 0x5EC8 && offsetof(Ts3nCounters, pkDeferMax) == 0x5EE4, "v177 [PkgLock] layout");
-static_assert(offsetof(Ts3nCounters, adMode) == 0x6304 && offsetof(Ts3nCounters, ppMode) == 0x6314 && offsetof(Ts3nCounters, ppSpare) == 0x6350 && sizeof(Ts3nCounters) == 6477 * 4, "v919 [AudioStateDup] / [PkgProbe] layout");
+static_assert(offsetof(Ts3nCounters, adMode) == 0x6304 && offsetof(Ts3nCounters, ppMode) == 0x6314 && offsetof(Ts3nCounters, ppSpare) == 0x6350 && sizeof(Ts3nCounters) == 6478 * 4, "v919 [AudioStateDup] / [PkgProbe] layout");
 static_assert(offsetof(Ts3nCounters, fbApN) == 0x60A8 && offsetof(Ts3nCounters, fbApSpare) == 0x60C4, "v190 FbApplyPending layout");
 static_assert(offsetof(Ts3nCounters, arRf3) == 0x60C8 && offsetof(Ts3nCounters, arRf3Spare) == 0x6170, "v191 arRf3 layout");
 static_assert(offsetof(Ts3nCounters, dsN) == 0x6178 && offsetof(Ts3nCounters, lrsN) == 0x6238 && offsetof(Ts3nCounters, dsSpare) == 0x6250 &&
@@ -6054,6 +6197,11 @@ static bool ApplyD3dMultithreaded(const wchar_t* ini) {
 
 #include "launcherfix.cpp"  // docs/255: [LauncherFix] EA launcher telemetry busy-wait (launcher host only)
 static bool g_otherHost;  // not TS3W.exe (the launcher also loads the ASI loader): no exit work at DLL_PROCESS_DETACH
+// docs/230: the build this asi's addresses belong to (PE timestamp + SizeOfImage), the same pair on Steam and EA
+static bool HostBuildOk(const void* base) {
+    const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)((const u8*)base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
+    return nt->FileHeader.TimeDateStamp == (DWORD)TS3A_HOST_PE && nt->OptionalHeader.SizeOfImage == (DWORD)TS3A_HOST_SIZE;
+}
 
 static void Run(HMODULE self) {
     wchar_t path[MAX_PATH], ini[MAX_PATH], log[MAX_PATH], exe[MAX_PATH];
@@ -6068,12 +6216,12 @@ static void Run(HMODULE self) {
     const wchar_t* name = wcsrchr(exe, L'\\');
 #ifdef TS3A_TABLE
     // docs/228: the table names the build (PE timestamp + SizeOfImage), any file name: the EA game may run as Sims3Launcher.exe
-    {
-        const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)((const u8*)base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
-        g_otherHost = base != (HMODULE)0x400000 || nt->FileHeader.TimeDateStamp != (DWORD)TS3A_HOST_PE || nt->OptionalHeader.SizeOfImage != (DWORD)TS3A_HOST_SIZE;
-    }
+    g_otherHost = base != (HMODULE)0x400000 || !HostBuildOk(base);
+    const bool wrongBuild = false;
 #else
     g_otherHost = base != (HMODULE)0x400000 || _wcsicmp(name ? name + 1 : exe, L"TS3W.exe") != 0;
+    // a TS3W.exe of another build (retail 1.67 moves every address, docs/230): the game's log says so, nothing installs
+    const bool wrongBuild = !g_otherHost && !HostBuildOk(base);
 #endif
     swprintf_s(ini, L"%s.ini", path);
     swprintf_s(log, g_otherHost ? L"%s.launcher.log" : L"%s.log", path);  // a launcher start must not truncate the game's log
@@ -6099,7 +6247,10 @@ static void Run(HMODULE self) {
     // = 52DEC247 / 0xE5A000, EA app 1.69.47 TS3.exe = 6707155C / 0xEB5000) so a SKIP line from another edition is identifiable
     const IMAGE_NT_HEADERS* hostNt = (const IMAGE_NT_HEADERS*)((const u8*)base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
     Log("host %ls base 0x%p pe %08lX size 0x%lX", name ? name + 1 : exe, base, hostNt->FileHeader.TimeDateStamp, hostNt->OptionalHeader.SizeOfImage);
-    if (g_otherHost) {
+    if (wrongBuild) {
+        g_otherHost = true;  // nothing installed: no exit work either
+        Log("unsupported TS3W.exe build %08lX/%lX: all patches off; retail 1.67 needs ts3native-retail167.asi", hostNt->FileHeader.TimeDateStamp, hostNt->OptionalHeader.SizeOfImage);
+    } else if (g_otherHost) {
 #ifdef TS3A_TABLE
         Log("SKIP all: host is not " TS3A_HOST_NAME " (pe %08lX size 0x%lX)", hostNt->FileHeader.TimeDateStamp, hostNt->OptionalHeader.SizeOfImage);
 #else
@@ -6120,6 +6271,8 @@ static void Run(HMODULE self) {
         ApplyGc(ini);
         bool cache = ApplyRouteCache(ini);
         bool worker = ApplyRouteWorker(ini);
+        g_hhToo = Clamp(GetPrivateProfileIntW(L"Experimental", L"HouseholdToo", 0, ini), 0, 1);  // docs/271
+        if (g_hhToo) Log("EXPERIMENTAL HouseholdToo=1 (docs/271): memo / worker answers also for household, selected and unknown-scope Sims; teleports, cuts and fakes stay exempt");
         const int asyncMode = ReadRouteAsync(ini);
         if (asyncMode >= 0 && !worker && !(worker = StartWorker())) Log("FAIL route async: worker thread start (err %lu)", GetLastError());
         const bool gate = ReadRouteGate(ini);  // checks every prologue first: nothing is hooked if one differs

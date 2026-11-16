@@ -281,7 +281,7 @@ static DWORD __fastcall AnFake2(void* s, void* e, DWORD a, DWORD b) { return g_a
 static DWORD __fastcall AnFake1(void* s, void* e, DWORD a) { return g_anFakeSum = (DWORD)(uintptr_t)s + (DWORD)(uintptr_t)e + a; }
 static void TestAnimPhase() {
     static_assert(offsetof(Ts3nCounters, anReady) == 0x63A4 && offsetof(Ts3nCounters, anPubMaxUs) == 0x63D4 && offsetof(Ts3nCounters, anSpare) == 0x63D8 &&
-                      sizeof(Ts3nCounters) == 6477 * 4, "counters v201 (docs/registry.md)");
+                      sizeof(Ts3nCounters) == 6478 * 4, "counters v201 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const AnFn3 a0 = g_anAdv;
     const AnFn2 n0 = g_anNot, e0 = g_anEval;

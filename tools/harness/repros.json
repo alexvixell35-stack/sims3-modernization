@@ -79367,7 +79367,16 @@
       {
         "cmd": "ilp_scavenger_check",
         "args": {
-          "expect": "throw"
+          "check": false
+        },
+        "waitS": 3,
+        "note": "clear loose gems, metals, insects off household lots first; the engine finishes the destroys before the check (rerun2: cleared in the same call, nothing spawned)"
+      },
+      {
+        "cmd": "ilp_scavenger_check",
+        "args": {
+          "expect": "throw",
+          "clear": false
         },
         "waitS": 2,
         "note": "off arm: EA sleeps in a non-yielding context"
@@ -79385,7 +79394,16 @@
       {
         "cmd": "ilp_scavenger_check",
         "args": {
-          "expect": "ok"
+          "check": false
+        },
+        "waitS": 3,
+        "note": "clear loose gems, metals, insects off household lots first; the engine finishes the destroys before the check (rerun2: cleared in the same call, nothing spawned)"
+      },
+      {
+        "cmd": "ilp_scavenger_check",
+        "args": {
+          "expect": "ok",
+          "clear": false
         },
         "waitS": 2,
         "note": "on arm: no throw, items spawned without the sleep"
@@ -102778,6 +102796,728 @@
     ]
   },
   {
+    "id": "outerwearautoloop-check",
+    "bug": "Autonomous ChangeIntoOuterwear / ChangeOutOfOuterwear / ChangeToddlerClothes tests pass while Run cannot change (player-directed change < 2 h ago, disallow buffs, towel, reaper), so autonomy re-picks them (docs/596 §1)",
+    "fix": "ts3fixes SeasonsWeather596.cs: outerwearautoloop (default off)",
+    "save": "any Seasons world (live Sims; cold weather shows the outerwear path)",
+    "note": "OuterwearAutoLoopCheck 'run' checks the rule, compares our sticky test with EA's private one on every live Sim and that each refusal is also EA's GetOutfitForClothingChange answer; 'result' shows counters 1943-1947 and the cost of one GoingOutside outfit decision.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearautoloop": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearAutoLoopCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearAutoLoopCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearautoloop": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearAutoLoopCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearAutoLoopCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearautoloop": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearautoloop": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "outerwearrestore-check",
+    "bug": "ChangeIntoOuterwear (TemperatureTooCold) does not store the outfit to return to, so removing outerwear gives Everyday or a stale category from an earlier trip (docs/596 §2)",
+    "fix": "ts3fixes SeasonsWeather596.cs: outerwearrestore (default off)",
+    "save": "any world (pure check)",
+    "note": "OuterwearRestoreCheck 'run' checks the store rule and its controls; 'result' shows counters 1948-1950.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearrestore": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearRestoreCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearRestoreCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearrestore": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearRestoreCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearRestoreCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearrestore": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearrestore": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "outfitwaitend-check",
+    "bug": "Sim.SwitchOutfitHelper.Wait loops on Sleep(1) until the native swap is ready, which never happens while the Sim has no animation instance (off screen, low LOD; docs/224 §5): an off-screen NPC stays in Switch To Outfit or a route's clothing change for hours with its motives frozen (docs/601 §1)",
+    "fix": "ts3fixes OutfitWait.cs: outfitwaitend (default off)",
+    "save": "any world (pure check)",
+    "note": "OutfitWaitEndCheck 'run' checks the end rule (OutfitWaitCore.EndNow, the same call the hook makes) and its controls; 'result' shows counters 1977-1980 and the live path (Wait swap, handles).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitend": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's loop"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitend": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitend": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitend": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "spoonslavechecks-check",
+    "bug": "BedSleep.LoopHandler returns for the spooning slave partner before EA's per-sleeper checks, so the slave of a shared-bed couple skips the light-sleeper wake, early TiredFromMoving removal and NoMonsters cut all night (docs/597 §1)",
+    "fix": "ts3fixes SleepQueue597.cs + SpoonReset.cs SrHook: spoonslavechecks (default off)",
+    "save": "any world (pure check)",
+    "note": "SpoonSlaveChecksCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 1954-1957.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spoonslavechecks": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoonSlaveChecksCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoonSlaveChecksCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spoonslavechecks": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoonSlaveChecksCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoonSlaveChecksCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spoonslavechecks": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spoonslavechecks": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "queueproximity-check",
+    "bug": "SimQueue.FindNewPlaceInLine (OrderByProximity) compares a squared distance with plain distances, so a new Sim is placed too far back and refused from a full elevator line (docs/597 §2)",
+    "fix": "ts3fixes SleepQueue597.cs: queueproximity (default off)",
+    "save": "any world (pure check)",
+    "note": "QueueProximityCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 1958-1960.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "queueproximity": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.QueueProximityCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.QueueProximityCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "queueproximity": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.QueueProximityCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.QueueProximityCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "queueproximity": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "queueproximity": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "subroutefail-check",
+    "bug": "SimQueue.WaitForTurn plays a blocking route-fail animation and balloon after TryReplacementInteraction pushed a free substitute (toilet, urinal, shower...), before the Sim walks to it (docs/597 §3)",
+    "fix": "ts3fixes SleepQueue597b.cs: subroutefail (default off)",
+    "save": "any world (pure check)",
+    "note": "SubRouteFailCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 1961-1963.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "subroutefail": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SubRouteFailCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SubRouteFailCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "subroutefail": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SubRouteFailCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SubRouteFailCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "subroutefail": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "subroutefail": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "petwakebed-check",
+    "bug": "Pet WakeUpSim Cleanup leaves the bed part's ContainedSim set to the pet when the pet is reset between jumping on and off the bed, so that side looks taken (docs/597 §4)",
+    "fix": "ts3fixes SleepQueue597b.cs: petwakebed (default off)",
+    "save": "any world (pure check)",
+    "note": "PetWakeBedCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 1964-1966.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petwakebed": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetWakeBedCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetWakeBedCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petwakebed": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetWakeBedCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetWakeBedCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petwakebed": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petwakebed": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "slavewakereason-check",
+    "bug": "BedSleep.Run's spooning-slave wait re-reads Actor.ExitReason every pass, so the reason that woke the slave (HigherPriorityNext) is lost after a second pass: Slow Wake instead of Fast Wake (docs/597 §5)",
+    "fix": "ts3fixes SleepQueue597b.cs: slavewakereason (default off)",
+    "save": "any world (pure check)",
+    "note": "SlaveWakeReasonCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 1967-1970.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "slavewakereason": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlaveWakeReasonCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlaveWakeReasonCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "slavewakereason": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlaveWakeReasonCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlaveWakeReasonCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "slavewakereason": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "slavewakereason": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "unseen-tp-apt-goal",
+    "bug": "docs/584 §8: F1 (UfTpLotOpen / UfLotOpen) closes every apartment and shell lot outright, so a cut GoHome of an unseen NPC who lives in an apartment is never teleported; GoHome.Run's second PlanRouteIntoLot then fails with result 10 (Bridgeport retry after a cut 95% -> ~70% at the upstream merge, tpdoorrights on still ~71%)",
+    "fix": "ts3fixes tpaptgoal (UnseenTeleportGoal.cs UfTpAptLot / UfTpAptReach, UfPreCore.TpAptLot / TpAptOpen): the unseen NPC's own home apartment or shell lot is judged by the goal room only (tomb or hidden room refused, then a room flood with its own door rights plus TpDoor); other apartment lots stay closed. Check: UnseenTpCheck apt",
+    "save": "Baseline-BP",
+    "switches": [
+      "tpaptgoal"
+    ],
+    "note": "Read-only: calls the same goal function UfTeleport calls, for a resident NPC (never household or selected) and a non-resident visitor, on the first apartment / shell lot with a hidden-room marker and an instantiated resident ('any'). The hidden-room marker spots are the control that must stay refused with the switch on; the visitor's inside spots must stay refused (other units). Off arm: every inside spot refused (upstream). N/A when Baseline-BP has no instantiated apartment resident at load: then pass a lot id.",
+    "expect": "off: 'PASS (off: every inside goal refused, as upstream)'. on: hidden markers 'refused (tomb or hidden room)', at least one inside room 'teleport ok [room rule]', every visitor spot refused, last line PASS, no BROKEN; live path clean. 0 script errors.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "note": "read-only checks, paused"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenfbteleport": true,
+          "tpaptgoal": false
+        },
+        "note": "off arm: upstream",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenTpCheck",
+          "args": [
+            "apt any"
+          ]
+        },
+        "note": "every inside goal refused (lot closed)",
+        "mustMatch": "\\nPASS \\(off: "
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "tpaptgoal": true
+        },
+        "note": "on arm",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenTpCheck",
+          "args": [
+            "apt any"
+          ]
+        },
+        "note": "home rooms with a way out pass, hidden rooms and the visitor refused",
+        "mustMatch": "\\nPASS: closed [1-9]"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "tpaptgoal": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "tpaptgoal": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
@@ -105962,675 +106702,5 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
-  },
-  {
-    "id": "outerwearautoloop-check",
-    "bug": "Autonomous ChangeIntoOuterwear / ChangeOutOfOuterwear / ChangeToddlerClothes tests pass while Run cannot change (player-directed change < 2 h ago, disallow buffs, towel, reaper), so autonomy re-picks them (docs/596 §1)",
-    "fix": "ts3fixes SeasonsWeather596.cs: outerwearautoloop (default off)",
-    "save": "any Seasons world (live Sims; cold weather shows the outerwear path)",
-    "note": "OuterwearAutoLoopCheck 'run' checks the rule, compares our sticky test with EA's private one on every live Sim and that each refusal is also EA's GetOutfitForClothingChange answer; 'result' shows counters 1943-1947 and the cost of one GoingOutside outfit decision.",
-    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "outerwearautoloop": false
-        },
-        "note": "off first",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OuterwearAutoLoopCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "off: EA's path"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OuterwearAutoLoopCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "outerwearautoloop": true
-        },
-        "note": "on",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OuterwearAutoLoopCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "on: the fix"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OuterwearAutoLoopCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "outerwearautoloop": false
-        },
-        "note": "back to the default"
-      }
-    ],
-    "cleanup": [
-      {
-        "cmd": "patches",
-        "args": {
-          "outerwearautoloop": false
-        }
-      }
-    ]
-  },
-  {
-    "id": "outerwearrestore-check",
-    "bug": "ChangeIntoOuterwear (TemperatureTooCold) does not store the outfit to return to, so removing outerwear gives Everyday or a stale category from an earlier trip (docs/596 §2)",
-    "fix": "ts3fixes SeasonsWeather596.cs: outerwearrestore (default off)",
-    "save": "any world (pure check)",
-    "note": "OuterwearRestoreCheck 'run' checks the store rule and its controls; 'result' shows counters 1948-1950.",
-    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "outerwearrestore": false
-        },
-        "note": "off first",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OuterwearRestoreCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "off: EA's path"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OuterwearRestoreCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "outerwearrestore": true
-        },
-        "note": "on",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OuterwearRestoreCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "on: the fix"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OuterwearRestoreCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "outerwearrestore": false
-        },
-        "note": "back to the default"
-      }
-    ],
-    "cleanup": [
-      {
-        "cmd": "patches",
-        "args": {
-          "outerwearrestore": false
-        }
-      }
-    ]
-  },
-  {
-    "id": "outfitwaitend-check",
-    "bug": "Sim.SwitchOutfitHelper.Wait loops on Sleep(1) until the native swap is ready, which never happens while the Sim has no animation instance (off screen, low LOD; docs/224 §5): an off-screen NPC stays in Switch To Outfit or a route's clothing change for hours with its motives frozen (docs/601 §1)",
-    "fix": "ts3fixes OutfitWait.cs: outfitwaitend (default off)",
-    "save": "any world (pure check)",
-    "note": "OutfitWaitEndCheck 'run' checks the end rule (OutfitWaitCore.EndNow, the same call the hook makes) and its controls; 'result' shows counters 1977-1980 and the live path (Wait swap, handles).",
-    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "outfitwaitend": false
-        },
-        "note": "off first",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OutfitWaitEndCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "off: EA's loop"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OutfitWaitEndCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "outfitwaitend": true
-        },
-        "note": "on",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OutfitWaitEndCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "on: the fix"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OutfitWaitEndCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "outfitwaitend": false
-        },
-        "note": "back to the default"
-      }
-    ],
-    "cleanup": [
-      {
-        "cmd": "patches",
-        "args": {
-          "outfitwaitend": false
-        }
-      }
-    ]
-  },
-  {
-    "id": "spoonslavechecks-check",
-    "bug": "BedSleep.LoopHandler returns for the spooning slave partner before EA's per-sleeper checks, so the slave of a shared-bed couple skips the light-sleeper wake, early TiredFromMoving removal and NoMonsters cut all night (docs/597 §1)",
-    "fix": "ts3fixes SleepQueue597.cs + SpoonReset.cs SrHook: spoonslavechecks (default off)",
-    "save": "any world (pure check)",
-    "note": "SpoonSlaveChecksCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 1954-1957.",
-    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "spoonslavechecks": false
-        },
-        "note": "off first",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.SpoonSlaveChecksCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "off: EA's path"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.SpoonSlaveChecksCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "spoonslavechecks": true
-        },
-        "note": "on",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.SpoonSlaveChecksCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "on: the fix"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.SpoonSlaveChecksCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "spoonslavechecks": false
-        },
-        "note": "back to the default"
-      }
-    ],
-    "cleanup": [
-      {
-        "cmd": "patches",
-        "args": {
-          "spoonslavechecks": false
-        }
-      }
-    ]
-  },
-  {
-    "id": "queueproximity-check",
-    "bug": "SimQueue.FindNewPlaceInLine (OrderByProximity) compares a squared distance with plain distances, so a new Sim is placed too far back and refused from a full elevator line (docs/597 §2)",
-    "fix": "ts3fixes SleepQueue597.cs: queueproximity (default off)",
-    "save": "any world (pure check)",
-    "note": "QueueProximityCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 1958-1960.",
-    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "queueproximity": false
-        },
-        "note": "off first",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.QueueProximityCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "off: EA's path"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.QueueProximityCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "queueproximity": true
-        },
-        "note": "on",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.QueueProximityCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "on: the fix"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.QueueProximityCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "queueproximity": false
-        },
-        "note": "back to the default"
-      }
-    ],
-    "cleanup": [
-      {
-        "cmd": "patches",
-        "args": {
-          "queueproximity": false
-        }
-      }
-    ]
-  },
-  {
-    "id": "subroutefail-check",
-    "bug": "SimQueue.WaitForTurn plays a blocking route-fail animation and balloon after TryReplacementInteraction pushed a free substitute (toilet, urinal, shower...), before the Sim walks to it (docs/597 §3)",
-    "fix": "ts3fixes SleepQueue597b.cs: subroutefail (default off)",
-    "save": "any world (pure check)",
-    "note": "SubRouteFailCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 1961-1963.",
-    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "subroutefail": false
-        },
-        "note": "off first",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.SubRouteFailCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "off: EA's path"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.SubRouteFailCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "subroutefail": true
-        },
-        "note": "on",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.SubRouteFailCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "on: the fix"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.SubRouteFailCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "subroutefail": false
-        },
-        "note": "back to the default"
-      }
-    ],
-    "cleanup": [
-      {
-        "cmd": "patches",
-        "args": {
-          "subroutefail": false
-        }
-      }
-    ]
-  },
-  {
-    "id": "petwakebed-check",
-    "bug": "Pet WakeUpSim Cleanup leaves the bed part's ContainedSim set to the pet when the pet is reset between jumping on and off the bed, so that side looks taken (docs/597 §4)",
-    "fix": "ts3fixes SleepQueue597b.cs: petwakebed (default off)",
-    "save": "any world (pure check)",
-    "note": "PetWakeBedCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 1964-1966.",
-    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "petwakebed": false
-        },
-        "note": "off first",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.PetWakeBedCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "off: EA's path"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.PetWakeBedCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "petwakebed": true
-        },
-        "note": "on",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.PetWakeBedCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "on: the fix"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.PetWakeBedCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "petwakebed": false
-        },
-        "note": "back to the default"
-      }
-    ],
-    "cleanup": [
-      {
-        "cmd": "patches",
-        "args": {
-          "petwakebed": false
-        }
-      }
-    ]
-  },
-  {
-    "id": "slavewakereason-check",
-    "bug": "BedSleep.Run's spooning-slave wait re-reads Actor.ExitReason every pass, so the reason that woke the slave (HigherPriorityNext) is lost after a second pass: Slow Wake instead of Fast Wake (docs/597 §5)",
-    "fix": "ts3fixes SleepQueue597b.cs: slavewakereason (default off)",
-    "save": "any world (pure check)",
-    "note": "SlaveWakeReasonCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 1967-1970.",
-    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "slavewakereason": false
-        },
-        "note": "off first",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.SlaveWakeReasonCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "off: EA's path"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.SlaveWakeReasonCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "slavewakereason": true
-        },
-        "note": "on",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.SlaveWakeReasonCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "on: the fix"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.SlaveWakeReasonCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "slavewakereason": false
-        },
-        "note": "back to the default"
-      }
-    ],
-    "cleanup": [
-      {
-        "cmd": "patches",
-        "args": {
-          "slavewakereason": false
-        }
-      }
-    ]
-  },
-  {
-    "id": "unseen-tp-apt-goal",
-    "bug": "docs/584 §8: F1 (UfTpLotOpen / UfLotOpen) closes every apartment and shell lot outright, so a cut GoHome of an unseen NPC who lives in an apartment is never teleported; GoHome.Run's second PlanRouteIntoLot then fails with result 10 (Bridgeport retry after a cut 95% -> ~70% at the upstream merge, tpdoorrights on still ~71%)",
-    "fix": "ts3fixes tpaptgoal (UnseenTeleportGoal.cs UfTpAptLot / UfTpAptReach, UfPreCore.TpAptLot / TpAptOpen): the unseen NPC's own home apartment or shell lot is judged by the goal room only (tomb or hidden room refused, then a room flood with its own door rights plus TpDoor); other apartment lots stay closed. Check: UnseenTpCheck apt",
-    "save": "Baseline-BP",
-    "switches": [
-      "tpaptgoal"
-    ],
-    "note": "Read-only: calls the same goal function UfTeleport calls, for a resident NPC (never household or selected) and a non-resident visitor, on the first apartment / shell lot with a hidden-room marker and an instantiated resident ('any'). The hidden-room marker spots are the control that must stay refused with the switch on; the visitor's inside spots must stay refused (other units). Off arm: every inside spot refused (upstream). N/A when Baseline-BP has no instantiated apartment resident at load: then pass a lot id.",
-    "expect": "off: 'PASS (off: every inside goal refused, as upstream)'. on: hidden markers 'refused (tomb or hidden room)', at least one inside room 'teleport ok [room rule]', every visitor spot refused, last line PASS, no BROKEN; live path clean. 0 script errors.",
-    "steps": [
-      { "cmd": "set_speed", "args": { "speed": "pause" }, "note": "read-only checks, paused" },
-      { "cmd": "patches", "args": { "unseenfbteleport": true, "tpaptgoal": false }, "note": "off arm: upstream", "waitS": 1 },
-      { "cmd": "reflect_call", "args": { "path": "Ts3Fixes.Fixes.UnseenTpCheck", "args": [ "apt any" ] }, "note": "every inside goal refused (lot closed)", "mustMatch": "\\nPASS \\(off: " },
-      { "cmd": "patches", "args": { "tpaptgoal": true }, "note": "on arm", "waitS": 1 },
-      { "cmd": "reflect_call", "args": { "path": "Ts3Fixes.Fixes.UnseenTpCheck", "args": [ "apt any" ] }, "note": "home rooms with a way out pass, hidden rooms and the visitor refused", "mustMatch": "\\nPASS: closed [1-9]" },
-      { "cmd": "patches", "args": { "tpaptgoal": false }, "note": "back to the default" }
-    ],
-    "cleanup": [
-      { "cmd": "patches", "args": { "tpaptgoal": false } }
-    ]
   }
 ]
