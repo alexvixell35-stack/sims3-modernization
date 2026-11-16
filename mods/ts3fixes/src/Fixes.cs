@@ -332,7 +332,23 @@ namespace Ts3Fixes
             ApplyTraitIconDislike();   // docs/592 S9 B12 §42
             ApplyRoleUnprotect();   // docs/592 S11 B12 §43
             ApplyPutDownPlaced();   // docs/592 S13 B12 §44            ApplyDisplayCaseReset();   // docs/587 EP1 §1
-            ApplySuatGradeBonus();   // docs/587 EP1 §2
+            ApplyNullSituation();   // docs/593 V2 B13 §1
+            ApplyLightningWeights();   // docs/593 L1 B13 §2
+            ApplyPlantDormantFlip();   // docs/593 G1 B13 §3
+            ApplyPlantDormantTime();   // docs/593 G2 B13 §4
+            ApplyHarvestExtras();   // docs/593 H2, H5 B13 §5
+            ApplyShroomSlots();   // docs/593 H3 B13 §6
+            ApplyHarvestRegion();   // docs/593 H4 B13 §7
+            ApplyWellStealCooldown();   // docs/593 B2b B13 §8
+            ApplyOppFailCharge();   // docs/593 O1 B13 §9
+            ApplyTempForecast();   // docs/593 T1 B13 §10
+            ApplyMountFishCost();   // docs/593 F1 B13 §11
+            ApplyFishScoreMounted();   // docs/593 F2 B13 §12
+            ApplyFirefighterCount();   // docs/593 V8 B13 §13
+            ApplyRepairmanSkill();   // docs/593 V9 B13 §14
+            ApplyRoundUpReturn();   // docs/593 V3 B13 §15
+            ApplyButlerPayAlarm();   // docs/593 V1 B13 §16
+            ApplyPetHarvestVfx();   // docs/593 H1 B13 §17            ApplySuatGradeBonus();   // docs/587 EP1 §2
             ApplyMermaidSharkNull();   // docs/587 EP1 §3
             ApplyJetpackFlyHereCleanup();   // docs/587 EP1 §4
             ApplyNaniteRouteFail();   // docs/587 EP1 §5
@@ -909,6 +925,23 @@ namespace Ts3Fixes
         // [1853-1855] traiticondislike (Batch592Logic.cs, B12 §42, docs/592 S9): dislike icons shown / hidden (switch off) / errors.
         // [1856-1858] roleunprotect (Batch592Logic.cs, B12 §43, docs/592 S11): protections removed / left (switch off) / errors.
         // [1859-1861] putdownplaced (Batch592Logic.cs, B12 §44, docs/592 S13): placements fired as placed / fired as removed (switch off) / errors.
+        // [1862-1864] nullsituation (Batch593Logic.cs, B13 §1, docs/593 V2): null assignments dropped or errors contained / seen with the switch off / errors.
+        // [1865-1867] lightningweights (Batch593Logic.cs, B13 §2, docs/593 L1): weights restored / left zeroed (switch off) / errors.
+        // [1868-1870] plantdormantflip (Batch593Logic.cs, B13 §3, docs/593 G1): flips undone / flips seen (switch off) / errors.
+        // [1871-1873] plantdormanttime (Batch593Logic.cs, B13 §4, docs/593 G2): times refreshed / spans left to drain (switch off) / errors.
+        // [1874-1876] harvestextras (Batch593Logic.cs, B13 §5, docs/593 H2, H5): extras kept and journals to the harvester / extras lost (switch off) / errors.
+        // [1877-1879] shroomslots (Batch593Logic.cs, B13 §6, docs/593 H3): mushroom loops our way / EA's loops (switch off) / errors.
+        // [1880-1882] harvestregion (Batch593Logic.cs, B13 §7, docs/593 H4): regions our way / Average answered as Good (switch off) / errors.
+        // [1883-1885] wellstealcooldown (Batch593Logic.cs, B13 §8, docs/593 B2b): tests refused in the cooldown / passed in it (switch off) / errors.
+        // [1886-1888] oppfailcharge (Batch593Logic.cs, B13 §9, docs/593 O1): second charges skipped / charged twice (switch off) / errors.
+        // [1889-1891] tempforecast (Batch593Logic.cs, B13 §10, docs/593 T1): forecasts our way / mirrored (switch off) / errors.
+        // [1892-1894] mountfishcost (Batch593Logic.cs, B13 §11, docs/593 F1): costs set to the run's fish / another fish's cost charged (switch off) / errors.
+        // [1895-1897] fishscoremounted (Batch593Logic.cs, B13 §12, docs/593 F2): scores our way / Unmounted subjects that took mounted fish (switch off) / errors.
+        // [1898-1900] firefightercount (Batch593Logic.cs, B13 §13, docs/593 V8): extra firefighters not sent / sent (switch off) / errors.
+        // [1901-1903] repairmanskill (Batch593Logic.cs, B13 §14, docs/593 V9): levels set to the roll / stacked (switch off) / errors.
+        // [1904-1906] roundupreturn (Batch593Logic.cs, B13 §15, docs/593 V3): inits ended / run on (switch off) / errors.
+        // [1907-1909] butlerpayalarm (Batch593Logic.cs, B13 §16, docs/593 V1): alarms removed / left (switch off) / errors.
+        // [1910-1912] petharvestvfx (Batch593Logic.cs, B13 §17, docs/593 H1): effects kept and stopped / leaked (switch off) / errors.
         // [1727-1729] moodidleflavor (Batch589dLogic.cs, docs/589 B11 §26): rows appended / rows dropped (switch off) / errors.
         // [1400-1402] displaycasereset (EpBatch1aLogic.cs, docs/587 EP1 §1): resets kept contents / destroyed with switch off / errors.
         // [1403-1405] suatgradebonus (EpBatch1aLogic.cs, docs/587 EP1 §2): scores corrected / differ with switch off / errors.
@@ -1501,6 +1534,23 @@ namespace Ts3Fixes
                 case "traiticondislike": return Instantiator.kTraitIconDislike;
                 case "roleunprotect": return Instantiator.kRoleUnprotect;
                 case "putdownplaced": return Instantiator.kPutDownPlaced;
+                case "nullsituation": return Instantiator.kNullSituation;
+                case "lightningweights": return Instantiator.kLightningWeights;
+                case "plantdormantflip": return Instantiator.kPlantDormantFlip;
+                case "plantdormanttime": return Instantiator.kPlantDormantTime;
+                case "harvestextras": return Instantiator.kHarvestExtras;
+                case "shroomslots": return Instantiator.kShroomSlots;
+                case "harvestregion": return Instantiator.kHarvestRegion;
+                case "wellstealcooldown": return Instantiator.kWellStealCooldown;
+                case "oppfailcharge": return Instantiator.kOppFailCharge;
+                case "tempforecast": return Instantiator.kTempForecast;
+                case "mountfishcost": return Instantiator.kMountFishCost;
+                case "fishscoremounted": return Instantiator.kFishScoreMounted;
+                case "firefightercount": return Instantiator.kFirefighterCount;
+                case "repairmanskill": return Instantiator.kRepairmanSkill;
+                case "roundupreturn": return Instantiator.kRoundUpReturn;
+                case "butlerpayalarm": return Instantiator.kButlerPayAlarm;
+                case "petharvestvfx": return Instantiator.kPetHarvestVfx;
                 case "displaycasereset": return Instantiator.kDisplayCaseReset;
                 case "suatgradebonus": return Instantiator.kSuatGradeBonus;
                 case "mermaidsharknull": return Instantiator.kMermaidSharkNull;

@@ -344,6 +344,7 @@ namespace Ts3Fixes
                 }
                 catch (Exception) { PatchCounters()[1130]++; }
                 CleanOrig();
+                ButlerCleanUp((ServiceSituation)(object)this);  // butlerpayalarm (Batch593Logic.cs), switch tested inside
             }
             public void CleanOrig() { } // receives ServiceSituation.CleanUp
         }

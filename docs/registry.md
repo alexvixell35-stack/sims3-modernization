@@ -463,6 +463,7 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 1351-1398 | pinned (claude, `fixes-1351`) | batch 11 (docs/589 B11 §1-16): eatpostonce, motivemultonce, fightbroadcastend, reactioncopy, carpoolschoolskip, tvsyncalarm, photofunds, ltrhistorybits, goodbyepure, bathcleanup, tvwatchskill, computergametype, moodtankreset, reactiongrumpy, trainsimgone, stereoupgrade (3 each) |
 | 1700-1729 | pinned (claude, `fixes-1700`) | batch 11c-d (docs/589 B11 §17-26): buffremovedelayed, tvdisclistener, fridgetestnull, cancelposturedef, facialidleweight, bathsituationfx, socialnoeffect, guitargnomeboost, distressgate, moodidleflavor (3 each) |
 | 1730-1861 | pinned (claude, `fixes-1730`) | batch 12 (docs/590-592 B12 §1-44): protestexit..putdownplaced, 44 switches x3 |
+| 1862-1912 | pinned (claude, `fixes-1862`) | batch 13 (docs/593 B13 §1-17): nullsituation..petharvestvfx, 17 switches x3 |
 | **1399, 1730+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

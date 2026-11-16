@@ -776,3 +776,22 @@ B12TiHook.IconHook,InteractionObjectPair,GetTraitIconKey,Batch592Logic.cs,IconOr
 B12RuHook.RemoveHook,Role,RemoveSimFromRole,Batch592Logic.cs,RemoveOrig,yes,Role::RemoveSimFromRole > RoleSpecialMerchant::EndRole > .. 4 .. > Simulator::Sleep,Batch592Logic,"keep, stub remap (SavedStacks.cs)"
 B12PpHook.PutHook,CarrySystem,PutDownOnSurface,Batch592Logic.cs,PutOrig,yes,CarrySystem::PutDownOnSurface > CarrySystem::PutDownOnSurface > .. 2 .. > StateMachineClient::RequestState,Batch592Logic,"keep, stub remap (SavedStacks.cs)"
 B12PpTrigger.TriggerHook,SurfacePair,TriggerSlotUsed,Batch592Logic.cs,TriggerOrig,no,no path to a yield in 1 overload(s),Batch592Logic,keep
+B13NsHook.AddHook,Service,AddAssignment,Batch593Logic.cs,AddOrig,no,no path to a yield in 1 overload(s),Batch593Logic,keep
+B13NsHook.CheckHook,Service,CheckForAssignment,Batch593Logic.cs,CheckOrig,yes,Service::CheckForAssignment > Service::FindAssignment > .. 2 .. > Simulator::Sleep,Batch593Logic,"keep, stub remap (SavedStacks.cs)"
+B13LwHook.ScheduleHook,Sims3.Gameplay.Seasons.SeasonsManager+WeatherManager+RainEvent,ScheduleLightning,Batch593Logic.cs,ScheduleOrig,no,no path to a yield in 1 overload(s),Batch593Logic,keep
+B13PfHook.SeasonHook,Plant,UpdateSeasonalState,Batch593Logic.cs,SeasonOrig,yes,Plant::UpdateSeasonalState > Plant::CheckForDeleteHarvestables > .. 4 .. > StateMachineClient::RequestState,Batch593Logic,"keep, stub remap (SavedStacks.cs)"
+B13PtHook.EvalHook,Plant,EvaluatePlantGrowth,Batch593Logic.cs,EvalOrig,yes,Plant::EvaluatePlantGrowth > Plant::SetDead > .. 3 .. > StateMachineClient::RequestState,Batch593Logic,"keep, stub remap (SavedStacks.cs)"
+B13HeHook.HarvestHook,HarvestPlant,DoHarvest,Batch593Logic.cs,HarvestOrig,yes,HarvestPlant::DoHarvest > HarvestPlant::HarvestHarvestable > .. 2 .. > StateMachineClient::RequestState,Batch593Logic,"keep, stub remap (SavedStacks.cs)"
+B13HeHook.JournalHook,HarvestPlant,UpdateGardeningSkillJournal,Batch593Logic.cs,JournalOrig,yes,HarvestPlant::UpdateGardeningSkillJournal > SkillManager::AddElement > .. 4 .. > StateMachineClient::RequestState,Batch593Logic,"keep, stub remap (SavedStacks.cs)"
+B13SsHook.LoopHook,HarvestPlant,CreateHarvestablesLoop,Batch593Logic.cs,LoopOrig,yes,HarvestPlant::CreateHarvestablesLoop > OmniPlant::CreateHarvestableAndParentToSelf > .. 4 .. > Simulator::Sleep,Batch593Logic,"keep, stub remap (SavedStacks.cs)"
+B13HrHook.RegionHook,HarvestPlant,GetGrowthPerformanceRegion,Batch593Logic.cs,RegionOrig,no,no path to a yield in 1 overload(s),Batch593Logic,keep
+B13WsHook.TestHook,Sims3.Store.Objects.WishingWell+StealCoins+Definition,Test,Batch593Logic.cs,TestOrig,no,no path to a yield in 1 overload(s),Batch593Logic,keep
+B13OfHook.FailHook,Opportunity,IsFailed,Batch593Logic.cs,FailOrig,yes,Opportunity::IsFailed > Sim::ModifyFunds > .. 11 .. > Simulator::Sleep,Batch593Logic,"keep, stub remap (SavedStacks.cs)"
+B13TfHook.MinMaxHook,Sims3.Gameplay.Seasons.SeasonsManager+WeatherManager,GetMinMaxTemperature,Batch593Logic.cs,MinMaxOrig,no,hand-checked (GetVariationWeight and curve GetValue: arithmetic only; no call that yields),Batch593Logic,keep
+B13MfHook.RunHook,Sims3.Gameplay.Objects.Fishing.HaveFishMounted,RunFromInventory,Batch593Logic.cs,RunOrig,yes,HaveFishMounted::RunFromInventory > InteractionInstance::AnimateSim > StateMachineClient::RequestState,Batch593Logic,"keep, stub remap (SavedStacks.cs)"
+B13FsHook.ScoreHook,Fish,ScoreFish,Batch593Logic.cs,ScoreOrig,no,no path to a yield in 1 overload(s),Batch593Logic,keep
+B13FcHook.NeedsHook,Firefighter,NeedsAssignment,Batch593Logic.cs,NeedsOrig,no,no path to a yield in 1 overload(s),Batch593Logic,keep
+B13RsHook.UpdateHook,Repairman,UpdateCreatedSim,Batch593Logic.cs,UpdateOrig,yes,Repairman::UpdateCreatedSim > SkillManager::AddElement > .. 4 .. > StateMachineClient::RequestState,Batch593Logic,"keep, stub remap (SavedStacks.cs)"
+B13RuHook.InitHook,PoliceSituation.RoundUpTeens,Init,Batch593Logic.cs,InitOrig,yes,PoliceSituation+RoundUpTeens::Init > Situation::SetState > .. 2 .. > StateMachineClient::RequestState,Batch593Logic,"keep, stub remap (SavedStacks.cs)"
+B13PvHook.StartHook,Sims3.Gameplay.Objects.Gardening.HarvestPlant+EatFromHarvestPlantPet,StartEatingVfx,Batch593Logic.cs,StartOrig,no,no path to a yield in 1 overload(s),Batch593Logic,keep
+B13PvHook.StopHook,Sims3.Gameplay.Objects.Gardening.HarvestPlant+EatFromHarvestPlantPet,StopEatingVfx,Batch593Logic.cs,StopOrig,no,no path to a yield in 1 overload(s),Batch593Logic,keep
