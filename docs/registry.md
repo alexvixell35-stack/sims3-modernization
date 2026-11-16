@@ -467,7 +467,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 1913-1921 | pinned (claude, `fixes-1913`) | mopunreachable 1913-1918 (MopUnreachable.cs, s58 lead: mop run skips unreachable puddles, per-Sim memo), petpuddletile 1919-1921 (pet drink/play removes the puddle it used) |
 | 1922-1928 | pinned (claude, `fixes-1922`) | docs/594 Seasons hunt: initstacktrace 1922-1925 (InteractionInstance.Init / OnAddedToQueue dead stack walks), weatherstonelistener 1926-1928 (WeatherStone.Dispose leaves the weather listener) |
 | 1929-1942 | reserved (claude, `fixes-1929`) | docs/594 Built (2): weathermanagerthrow 1929-1931 (RainEvent.PutOutFires null firefighter dictionary), rainsheltercheap 1932-1935 (cheap test before the shelter natives), pondclearscan 1936-1939 (AllPondsClear world pond / memo first), soakedstat 1940-1942 (rain re-add does not count a new soak) |
-| **1943+** | next free | reserve here  |
+| 1943-1950 | reserved (claude, `fixes-1943`) | docs/596 seasons weather: outerwearautoloop (5), outerwearrestore (3) |
+| **1951+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 

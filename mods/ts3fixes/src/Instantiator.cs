@@ -360,6 +360,8 @@ namespace Ts3Fixes
         [Tunable] public static bool kRainShelterCheap = false;    // rainsheltercheap (docs/594 §4): the 10-sim-minute rain pass tests on-fire / plant water before the two native shelter tests (same result)
         [Tunable] public static bool kPondClearScan = false;    // pondclearscan (docs/594 §5): PondManager.AllPondsClear tests the world pond and the last pond in use before its world GetObjects scan (same result)
         [Tunable] public static bool kSoakedStat = false;    // soakedstat (docs/594 §6): a rain re-add of Soaked does not count another TombStats soak (persisted stat)
+        [Tunable] public static bool kOuterwearAutoLoop = false;    // outerwearautoloop (docs/596 §1): autonomous outerwear / toddler outerwear tests answer no when Run cannot change (player-sticky 2 h, disallow buffs)
+        [Tunable] public static bool kOuterwearRestore = false;    // outerwearrestore (docs/596 §2): ChangeIntoOuterwear stores the outfit to return to, as GoingOutside does
         [Tunable] public static bool kWeatherStoneListener = false;    // weatherstonelistener (docs/594 §2): WeatherStone.Dispose removes the summon's weather listener
         [Tunable] public static bool kRouteCauseLog = false;    // routecauselog (docs/580): log the cause of NPC zero-plan route failures and of locked-door failures (doors, privacy owner)
         [Tunable] public static bool kScarePriority = false;    // scarepriority (docs/580 §14): an autonomous Scare/StaticShock receiver still queued after the scarer routed is raised to NonCriticalNPCBehavior, as EA does for every social receiver

@@ -198,6 +198,8 @@ namespace Ts3Fixes
             ApplyRainFires();   // docs/594 §3-4 weathermanagerthrow + rainsheltercheap (SeasonsHunt594b.cs)
             ApplyPondClearScan();   // docs/594 §5 (SeasonsHunt594b.cs)
             ApplySoakedStat();   // docs/594 §6 (SeasonsHunt594b.cs)
+            ApplyOuterwearAutoLoop();   // docs/596 §1 (SeasonsWeather596.cs)
+            ApplyOuterwearRestore();   // docs/596 §2 (SeasonsWeather596.cs)
             ApplyRouteCauseLog();   // docs/580 (RouteCauseLog.cs), logging only
             ApplyScarePriority();   // docs/580 §14 (ScarePriority.cs)
             ApplySandwichAlarm();   // docs/580 §16 (SandwichAlarm.cs)
@@ -965,6 +967,7 @@ namespace Ts3Fixes
         // [1913-1918] mopunreachable (MopUnreachable.cs, s58 lead): puddles skipped in a run / runs that mopped after a skip / runs ended on an unreachable puddle with others left (switch off) / memo withholds / memo seen with switch off / errors. [1919-1921] petpuddletile: hits moved to the puddle used / seen with switch off / errors.
         // [1922-1925] initstacktrace (SeasonsHunt594.cs, docs/594 §1): Init walks skipped / OnAddedToQueue walks skipped / walks run (switch off) / errors. [1926-1928] weatherstonelistener (docs/594 §2): listeners removed at Dispose / left (switch off) / errors.
         // [1929-1931] weathermanagerthrow (SeasonsHunt594b.cs, docs/594 §3): null-dictionary lookups skipped / hit with the switch off (EA throws) / errors. [1932-1935] rainsheltercheap (§4): shelter tests skipped / run / passes / errors. [1936-1939] pondclearscan (§5): scans skipped (world pond in use) / skipped (remembered pond in use) / run / errors. [1940-1942] soakedstat (§6): rain re-adds not counted / counted (switch off) / errors.
+        // [1943-1947] outerwearautoloop (SeasonsWeather596.cs, docs/596 §1): into / out / toddler autonomous tests answered no / would loop with the switch off / errors. [1948-1950] outerwearrestore (§2): outfit to return to stored / not stored (switch off) / errors.
         // [1898-1900] firefightercount (Batch593Logic.cs, B13 §13, docs/593 V8): extra firefighters not sent / sent (switch off) / errors.
         // [1901-1903] repairmanskill (Batch593Logic.cs, B13 §14, docs/593 V9): levels set to the roll / stacked (switch off) / errors.
         // [1904-1906] roundupreturn (Batch593Logic.cs, B13 §15, docs/593 V3): inits ended / run on (switch off) / errors.
@@ -1471,6 +1474,8 @@ namespace Ts3Fixes
                 case "rainsheltercheap": return Instantiator.kRainShelterCheap;
                 case "pondclearscan": return Instantiator.kPondClearScan;
                 case "soakedstat": return Instantiator.kSoakedStat;
+                case "outerwearautoloop": return Instantiator.kOuterwearAutoLoop;
+                case "outerwearrestore": return Instantiator.kOuterwearRestore;
                 case "routecauselog": return Instantiator.kRouteCauseLog;
                 case "scarepriority": return Instantiator.kScarePriority;
                 case "sandwichalarm": return Instantiator.kSandwichAlarm;

@@ -13,6 +13,8 @@ Approved 2026-10-10. Rewritten 2026-10-12 with everything found so far (read thi
 
 **Route-fail leads (2026-11-16, docs/595, static, nothing built):** the six top route-fail leads of the 20 Bridgeport runs (SocialInteractionB, WashDishes, Scare, PlayWithMirror, UseToilet, Fridge) are contention in the 7-Sim test house, a mirror placed behind a bed, EA's planned Scare fallback or PlanFromPoint search rows; none an EA bug. r50 = r49 content.
 
+**Seasons weather outfits (2026-11-16, docs/596, r51, built, NOT RUN):** `outerwearautoloop` (autonomous outerwear / toddler outerwear tests answer no when Run cannot change: player-sticky 2 h, disallow buffs; autonomy loop, household-visible) and `outerwearrestore` (ChangeIntoOuterwear stores the outfit to return to), both off, slots 1943-1950, repros `<switch>-check`, pairs in s64.
+
 **Seasons hunt Built (2) (2026-11-16, docs/594 §3-6, r49, built, NOT RUN):** `weathermanagerthrow` (RainEvent.PutOutFires null firefighter dictionary: one throw stopped Seasons for the session), `rainsheltercheap`, `pondclearscan` (exact reorders), `soakedstat` (rain re-add no longer counts a soak), all off; envscoreshelter not built (needs a 500-line copy, costs more than it saves).
 
 **Seasons hunt (2026-11-16, docs/594, r48, built, NOT RUN):** `initstacktrace` (InteractionInstance.Init / OnAddedToQueue without the dead StackTrace walks; exact, every Sim) and `weatherstonelistener` (WeatherStone.Dispose removes the summon listener), both off; 45 Seasons scanner keys verified (1 real, 43 FP, 1 dup).

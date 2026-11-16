@@ -105804,5 +105804,167 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "outerwearautoloop-check",
+    "bug": "Autonomous ChangeIntoOuterwear / ChangeOutOfOuterwear / ChangeToddlerClothes tests pass while Run cannot change (player-directed change < 2 h ago, disallow buffs, towel, reaper), so autonomy re-picks them (docs/596 §1)",
+    "fix": "ts3fixes SeasonsWeather596.cs: outerwearautoloop (default off)",
+    "save": "any Seasons world (live Sims; cold weather shows the outerwear path)",
+    "note": "OuterwearAutoLoopCheck 'run' checks the rule, compares our sticky test with EA's private one on every live Sim and that each refusal is also EA's GetOutfitForClothingChange answer; 'result' shows counters 1943-1947 and the cost of one GoingOutside outfit decision.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearautoloop": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearAutoLoopCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearAutoLoopCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearautoloop": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearAutoLoopCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearAutoLoopCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearautoloop": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearautoloop": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "outerwearrestore-check",
+    "bug": "ChangeIntoOuterwear (TemperatureTooCold) does not store the outfit to return to, so removing outerwear gives Everyday or a stale category from an earlier trip (docs/596 §2)",
+    "fix": "ts3fixes SeasonsWeather596.cs: outerwearrestore (default off)",
+    "save": "any world (pure check)",
+    "note": "OuterwearRestoreCheck 'run' checks the store rule and its controls; 'result' shows counters 1948-1950.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearrestore": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearRestoreCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearRestoreCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearrestore": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearRestoreCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearRestoreCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearrestore": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearrestore": false
+        }
+      }
+    ]
   }
 ]
