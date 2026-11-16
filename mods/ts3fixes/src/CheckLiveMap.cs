@@ -59,6 +59,7 @@ namespace Ts3Fixes
                 case "buyclearrecycle": return EpLive(typeof(BcrHook), 0, "sBcrCatalogGrid", sBcrCatalogGrid, null);
                 case "buyiconleak": return EpLive(typeof(BilHook), 1);
                 case "cachedreflection": return EpJoin(EpLive(typeof(ClassDBHook), 0), EpLive(typeof(PersistedClassHook), 0));
+                case "callcensus": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(CcActionData), 1), EpLive(typeof(CcAutonomy), 1)), EpLive(typeof(CcBar), 1)), EpLive(typeof(CcBuffs), 1)), EpLive(typeof(CcQueue), 1)), EpLive(typeof(CcSinging), 1)), EpLive(typeof(CcSocial), 2)), EpLive(typeof(CcStatic), 12)), EpLive(typeof(CcTraits), 1)), EpLive(typeof(CcTv), 1));
                 case "cancelposturedef": return EpLive(typeof(BCpHook), 1);
                 case "caneearly": return EpLive(typeof(CaneEarlyOutHook), 0);
                 case "carnoroute": return EpLive(typeof(CarNoRouteHook), 1);
