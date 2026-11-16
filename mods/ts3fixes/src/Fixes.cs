@@ -538,6 +538,10 @@ namespace Ts3Fixes
         // per scope (household, selected, seenNpc, unseen, unknown), bursts, call lines, lines dropped, would start but Kinds
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
+        // [3446-3454] trip arrivals (Fixes.cs, docs/804): visitarrive [3446] visits that arrived after the shortcut without a route;
+        // visitonlot [3447] townie visits that started on the lot and arrived without the door route; gohomeshell [3448] apartment
+        // homes asked, [3449] placed inside, [3450] walked (EA's trip), split [3451] near or no room point, [3452] no safe spot,
+        // [3453] spot on another floor or lot, [3454] spot in view
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
         const int kCounterSlots = 4000;
@@ -583,6 +587,9 @@ namespace Ts3Fixes
             switch (name)
             {
                 case "gohome": return Instantiator.kGoHomeShortcut;
+                case "visitarrive": return Instantiator.kVisitArrive;
+                case "visitonlot": return Instantiator.kVisitOnLot;
+                case "gohomeshell": return Instantiator.kGoHomeShell;
                 case "rabbithole": return Instantiator.kBuildingTripShortcut;
                 case "visit": case "visitlot": case "gotolot": case "gotocommunity": return Instantiator.kLotTripShortcut;
                 case "broadcast": return Instantiator.kBroadcasterThrottle;
@@ -980,6 +987,7 @@ namespace Ts3Fixes
                         return RunOrig();
                     }
                     Sims3.SimIFace.Vector3 pos, fwd;
+                    if (sGhShell) return ShellArrive(id, now);
                     if (!SafeSpot(Actor, Target, Target.GetRandomPosition(false, true), out pos, out fwd))
                     {
                         sCounters[2]++;
@@ -1003,6 +1011,42 @@ namespace Ts3Fixes
                 finally { if (ghBefore >= 0) GhWalkRelease(Actor, WalkStyle, ghBefore); }
             }
             public bool RunOrig() { return false; } // receives GoHome.Run's original header
+
+            // gohomeshell (default off, townies only): an apartment home (a lot with a building shell) is always left to the walk: a
+            // random spot on the lot can be inside the closed building. The shortcut ends the trip the way the house shortcut does, with
+            // a safe spot inside the apartment's own rooms (Lot.GetRandomPosition(insideValid: true, outsideValid: false), found on that
+            // point's floor and on this lot), out of view; then GoHome succeeds without a route: no door, no elevator. A home near the
+            // camera or the household (UnseenBody refuses it), no room point, no such spot or a spot in view = EA's walk. (A first
+            // version placed the Sim in front of the shell's door and let EA's Run walk it in: about 420 townies a game then went
+            // through the shell door and up the tower, and Bridgeport apartment games crashed in EA's slot attach on freed physics;
+            // that is what the native LotLevelPastEnd fix of PR #449 clamps, so this switch should be tested with it.)
+            // Counters: [3448] shell homes asked, [3449] placed inside, [3450] walked, split [3451-3454].
+            static bool sGhShell;
+            bool ShellArrive(ulong id, long now)
+            {
+                Sims3.SimIFace.Vector3 pos = Sims3.SimIFace.Vector3.Invalid, fwd = Sims3.SimIFace.Vector3.Invalid;
+                Sims3.SimIFace.Vector3 room = Target.GetRandomPosition(true, false);
+                int walk = room == Sims3.SimIFace.Vector3.Invalid ? 3451 : !SafeSpot(Actor, Target, room, out pos, out fwd) ? 3452
+                    : Math.Abs(pos.y - room.y) > 1f || LotManager.GetLotAtPoint(pos) != Target ? 3453 : !UfGoalUnseen(pos) ? 3454 : 0;
+                if (walk != 0)
+                {
+                    sCounters[3450]++;
+                    sCounters[walk]++;
+                    return RunOrig();
+                }
+                sLastShortcut[id] = now;
+                ShortcutLog(Actor.FullName + " -> inside " + Target.Name + " from " + (Actor.LotCurrent != null ? Actor.LotCurrent.Name : "street"));
+                // same lead-in as GoHome.Run
+                if (!Sims3.Gameplay.Objects.Vehicles.CarpoolManager.WaitForCarpool(Actor)) return false;
+                Sims3.Gameplay.Situations.VisitSituation.OnSimLeavingLot(Actor);
+                Sims3.Gameplay.Situations.GroupingSituation.RemoveSimFromGroupSituation(Actor);
+                PlaceSim(Actor, pos, fwd, "homeshell " + Target.Name);
+                sCounters[3449]++;
+                NumSuccess++;
+                BeginCommodityUpdates();
+                EndCommodityUpdates(true);
+                return true;
+            }
             static readonly Dictionary<ulong, long> sLastShortcut = new Dictionary<ulong, long>();
             static readonly long kLoopTicks = Sims3.Gameplay.Utilities.SimClock.ConvertToTicks(10f, Sims3.Gameplay.Utilities.TimeUnit.Minutes);
 
@@ -1017,11 +1061,18 @@ namespace Ts3Fixes
             }
             bool UnseenBody(Sims3.Gameplay.Actors.Sim sim, Lot home)
             {
+                sGhShell = false;
                 if (home == null || !TownieUnseen(sim, SimFollowers)) return false;
                 // GoHome.Run may add the household horse as a follower after this point; keep pet households on foot
                 if (sim.Household != null && sim.Household.Pets.Count > 0) return false;
                 if (sim.LotHome != home || sim.LotCurrent == home || home == Household.ActiveHouseholdLot) return false;
-                if (!HouseboatOk(home) || home.BuildableShells.Length > 0) return false;
+                if (!HouseboatOk(home)) return false;
+                if (home.BuildableShells.Length > 0)
+                {
+                    if (!ShortcutOn("gohomeshell")) return false;
+                    sCounters[3448]++;
+                    sGhShell = true;  // ShellArrive, read right after Unseen returns (no yield in between)
+                }
                 return FarFromViewers(home.Position);
             }
         }
@@ -1510,11 +1561,62 @@ namespace Ts3Fixes
         {
             public bool RunHook()
             {
-                if ((mFollowers == null || mFollowers.Count == 0) && ShortcutToLot(Actor, Target, "visit", 7))
+                // visitonlot (default off, townies only; nothing is moved): a townie already standing on the lot it visits arrives
+                // without EA's route to the front door. EA's Run routes there anyway (RouteToFrontDoor, then PlanToLotEx); on a lot whose
+                // front door cannot be reached from inside every such visit fails, idles and is picked again. Arrive() is the game's own
+                // arrival. Household, selected Sims, followers, apartment shells, resorts and diving lots keep EA's Run.
+                if (ShortcutOn("visitonlot") && (mFollowers == null || mFollowers.Count == 0) && Actor.LotCurrent == Target && VisitOnLotOk(Actor, Target))
+                {
+                    PatchCounters()[3447]++;
                     mFollowers = new List<Sims3.Gameplay.Actors.Sim>();
+                    return Arrive();
+                }
+                if ((mFollowers == null || mFollowers.Count == 0) && ShortcutToLot(Actor, Target, "visit", 7))
+                {
+                    mFollowers = new List<Sims3.Gameplay.Actors.Sim>();
+                    if (ShortcutOn("visitarrive")) return Arrive();
+                }
                 return RunOrig();
             }
+            static bool VisitOnLotOk(Sims3.Gameplay.Actors.Sim sim, Lot lot)
+            {
+                if (IsPlayerSim(sim) || sim.Household == null || lot == null || lot.IsWorldLot || lot.BuildableShells.Length > 0 || lot == Household.ActiveHouseholdLot) return false;
+                return lot.CommercialLotSubType != CommercialLotSubType.kEP10_Resort && lot.CommercialLotSubType != CommercialLotSubType.kEP10_Diving;
+            }
             public bool RunOrig() { return false; } // receives VisitCommunityLot.Run's original header
+
+            // visitarrive (default off; only after the shortcut above placed an unseen townie on the lot): the game's Run then still
+            // routed to the front door (RouteToFrontDoor) or planned to the lot (PlanToLotEx), one 110-150 ms plan for a Sim already
+            // standing at the lot's entry point. Here the game's Run is followed line by line minus the route: carpool wait, outfits
+            // (cocktail venue, own workplace), then its success tail (NumSuccess, "do something after arriving" when autonomous,
+            // grouping situation). A Sim carrying a child (EA re-queues it standing first) keeps the game's Run. Resorts and diving
+            // lots never get here (ShortcutToLot). Counter [3446] arrivals without a route.
+            bool Arrive()
+            {
+                if (Actor.CarryingChildPosture != null) return RunOrig();
+                if (!Sims3.Gameplay.Objects.Vehicles.CarpoolManager.WaitForCarpool(Actor)) return false;
+                Sims3.Gameplay.Actors.Sim.SwitchToFormalOutfitIfCocktail(Actor, Target);  // its answer only dresses followers: none here
+                Sims3.Gameplay.Careers.Occupation occ = Actor.Occupation;
+                if (occ != null && occ.ActiveCareerLotID == Target.LotId && occ.IsAllowedToWork())
+                {
+                    occ.EnsureSimHasOccupationOutfit();
+                    if (Actor.Posture == Actor.Standing) Actor.SwitchToOutfitWithSpin(Sims3.Gameplay.Actors.Sim.ClothesChangeReason.GoingToWork);
+                    else
+                    {
+                        Sims3.SimIFace.CAS.OutfitCategories cat;
+                        Actor.GetOutfitForClothingChange(Sims3.Gameplay.Actors.Sim.ClothesChangeReason.GoingToWork, out cat);
+                        Actor.OutfitCategoryToUseForRoutingOffLot = cat;
+                    }
+                }
+                PatchCounters()[3446]++;
+                NumSuccess++;
+                VisitCommunityLot.Definition def = InteractionDefinition as VisitCommunityLot.Definition;
+                if (Autonomous && (def == null || def.mLookForAutonomousActionsUponArrival))
+                    Target.MakeSimDoSomethingAfterArrivingAtVenue(Target.GetMetaAutonomyVenueType(), Actor);
+                if (!Sims3.Gameplay.Situations.GroupingSituation.DoesGroupingSituationExistForFamily(Actor))
+                    Sims3.Gameplay.Situations.GroupingSituation.StartGroupingSitatuationWithFollowers(Actor, mFollowers);
+                return true;
+            }
         }
 
         // docs/202 §3.6.4 (unseenfbtrip): a mod that installs its own VisitCommunityLot subclass as the game's visit singletons and
