@@ -127,15 +127,15 @@ namespace Ts3Fixes
         // exception), the lock of the loop linked to this trick is cleared. Run yields; the wrapper keeps EA's body.
         // Not fixed: Run always returns false (its flag is never set); only commodity bookkeeping depends on it.
         static Type sHtLoop;
-        static PropertyInfo sHtLock;
+        static FieldInfo sHtLock;
         internal static bool HtRelease(bool on, bool linked, bool locked) { return on && linked && locked; }
 
         static void ApplyHypnoTrickRelease()
         {
             Type b = typeof(Hypnotizer).GetNestedType("HypnosisInteractionBase", kSbNested);
             sHtLoop = typeof(Hypnotizer).GetNestedType("BeHypnotizedMainLoop", kSbNested);
-            if (b != null) sHtLock = b.GetProperty("RouteLock", kInstAll);
-            if (sHtLoop == null || sHtLock == null) { AppliedLog().Add("hypnotrickrelease: not found: " + EpMiss("BeHypnotizedMainLoop", sHtLoop, "RouteLock", sHtLock)); return; }
+            if (b != null) sHtLock = b.GetField("mRouteLock", kInstAll);   // review: the RouteLock property has only a setter
+            if (sHtLoop == null || sHtLock == null) { AppliedLog().Add("hypnotrickrelease: not found: " + EpMiss("BeHypnotizedMainLoop", sHtLoop, "mRouteLock", sHtLock)); return; }
             Patch(typeof(Hypnotizer.PerformTrick), "Run", Type.EmptyTypes, typeof(BSt1HtHook), "RunHook", "RunOrig");
         }
 
@@ -155,10 +155,10 @@ namespace Ts3Fixes
                             foreach (InteractionInstance ii in v.InteractionQueue.InteractionList)
                             {
                                 if (ii == null || ii.GetType() != sHtLoop || ii.LinkedInteractionInstance != pt) continue;
-                                if (!(bool)sHtLock.GetValue(ii, null)) continue;
+                                if (!(bool)sHtLock.GetValue(ii)) continue;
                                 if (!ShortcutOn("hypnotrickrelease")) { PatchCounters()[1628]++; continue; }
                                 if (!HtRelease(true, true, true)) continue;
-                                sHtLock.SetValue(ii, false, null);
+                                sHtLock.SetValue(ii, false);
                                 PatchCounters()[1627]++;
                             }
                         }
@@ -199,7 +199,7 @@ namespace Ts3Fixes
                 {
                     if (!ShortcutOn("voodoofairyfadein")) { PatchCounters()[1631]++; return; }
                     if (!VfShow(true, true)) return;
-                    fx.Stop();
+                    fx.Stop(VisualEffect.TransitionType.HardTransition);   // as EA's OnShowActor
                     fx.Dispose();
                     sVfHandle.SetValue(this, null);
                     InteractionInstance ii = (InteractionInstance)(object)this;
@@ -255,39 +255,50 @@ namespace Ts3Fixes
         // AddInteractions hands out the four static PlaySlotDefs; for an autonomous Sim PlaySlots.Run calls
         // mCurrDef.InitFromID(PlaySlotDefs[GetInt(2)]) on the definition it was queued with, i.e. one of those shared
         // objects, so every autonomous play (NPC visitors too) rewrites a menu entry's name, stakes and kind for the rest
-        // of the session: duplicate entries, Lucky Coin gone, "Low" charging high stakes. Fix: InitFromID on a shared
-        // entry is skipped; the autonomous Sim plays the stakes it was queued with.
+        // of the session: duplicate entries, Lucky Coin gone, "Low" charging high stakes. Fix: before EA's Run, an
+        // autonomous play on a shared entry gets its own copy of that entry, so EA's Low/Medium pick rewrites the copy.
+        // (Review: the first version skipped InitFromID, which let autonomous Sims play High or spend a Lucky Coin.)
         static FieldInfo sSmDefs;
-        static Type sSmDef;   // SlotMachine+PlaySlots+Definition (TARGET_VARS in tools/swap-stack-audit.ts)
-        internal static bool SmSkip(bool on, bool shared) { return on && shared; }
+        static Type sSmDef;   // SlotMachine+PlaySlots+Definition
+        static MethodInfo sSmInit;
+        internal static bool SmCopy(bool on, bool autonomous, bool shared) { return on && autonomous && shared; }
 
         static void ApplySlotMachineDefs()
         {
             Type play = typeof(SlotMachine).GetNestedType("PlaySlots", kSbNested);
-            Type def = play == null ? null : play.GetNestedType("Definition", kSbNested);
+            sSmDef = play == null ? null : play.GetNestedType("Definition", kSbNested);
             if (play != null) sSmDefs = play.GetField("PlaySlotDefs", kEpStatic);
-            if (def == null || sSmDefs == null) { AppliedLog().Add("slotmachinedefs: not found: " + EpMiss("PlaySlots+Definition", def, "PlaySlotDefs", sSmDefs)); return; }
-            sSmDef = def;
-            Patch(sSmDef, "InitFromID", new Type[] { sSmDef }, typeof(BSt1SmHook), "InitHook", "InitOrig");
+            if (sSmDef != null) sSmInit = sSmDef.GetMethod("InitFromID", kInstAll, null, new Type[] { sSmDef }, null);
+            if (sSmDef == null || sSmDefs == null || sSmInit == null) { AppliedLog().Add("slotmachinedefs: not found: " + EpMiss("PlaySlots+Definition", sSmDef, "PlaySlotDefs", sSmDefs, "InitFromID", sSmInit)); return; }
+            Patch(typeof(SlotMachine).GetNestedType("PlaySlots", BindingFlags.Public | BindingFlags.NonPublic), "Run", Type.EmptyTypes, typeof(BSt1SmHook), "RunHook", "RunOrig");
         }
 
         public class BSt1SmHook
         {
-            public void InitHook(object d)
+            public bool RunHook()
             {
                 try
                 {
+                    InteractionInstance ii = (InteractionInstance)(object)this;
+                    object def = ii.InteractionObjectPair == null ? null : ii.InteractionObjectPair.InteractionDefinition;
                     Array defs = sSmDefs.GetValue(null) as Array;
-                    if (defs != null && Array.IndexOf(defs, this) >= 0)
+                    bool shared = def != null && defs != null && Array.IndexOf(defs, def) >= 0;
+                    if (ii.Autonomous && shared)
                     {
                         if (!ShortcutOn("slotmachinedefs")) PatchCounters()[1637]++;
-                        else if (SmSkip(true, true)) { PatchCounters()[1636]++; return; }
+                        else if (SmCopy(true, true, true))
+                        {
+                            object copy = Activator.CreateInstance(sSmDef, true);
+                            sSmInit.Invoke(copy, new object[] { def });
+                            ii.InteractionObjectPair = new Sims3.Gameplay.Autonomy.InteractionObjectPair((InteractionDefinition)copy, ii.Target);
+                            PatchCounters()[1636]++;
+                        }
                     }
                 }
                 catch (Exception) { PatchCounters()[1638]++; }
-                InitOrig(d);
+                return RunOrig();
             }
-            public void InitOrig(object d) { } // SlotMachine+PlaySlots+Definition.InitFromID
+            public bool RunOrig() { return false; } // SlotMachine+PlaySlots.Run
         }
 
         // ---- treewishingwell (docs/587 §13.7) [verified, decompiled] ----
@@ -365,7 +376,6 @@ namespace Ts3Fixes
         static void ApplyOvenMenuNull()
         {
             Type menu = typeof(IndustrialOven).GetNestedType("Menu", kSbNested);
-            if (menu == null) menu = typeof(IndustrialOven).Assembly.GetType("Sims3.Store.Objects.IndustrialOven+Menu");
             if (menu != null) sOmFoods = menu.GetMethod("GetFoodsAtOrBelowCost", kInstAll, null, new Type[] { typeof(int) }, null);
             if (menu == null || sOmFoods == null) { AppliedLog().Add("ovenmenunull: not found: " + EpMiss("IndustrialOven+Menu", menu, "GetFoodsAtOrBelowCost", sOmFoods)); return; }
             Patch(typeof(IndustrialOven).GetNestedType("Menu", BindingFlags.Public | BindingFlags.NonPublic), "PickGoodFoodForMe", new Type[] { typeof(Sim) }, typeof(BSt1OmHook), "PickHook", "PickOrig");
@@ -412,8 +422,8 @@ namespace Ts3Fixes
                 try
                 {
                     Curve cur = FVShoppingRegister.sSkillVsSaleChanceCurve;
-                    if (cur == null || cur == sFvSet || cur == sFvSeen) return;
-                    if (!ShortcutOn("fvstandskillcurve")) { sFvSeen = cur; PatchCounters()[1649]++; return; }
+                    if (cur == null || cur == sFvSet) return;
+                    if (!ShortcutOn("fvstandskillcurve")) { if (cur != sFvSeen) { sFvSeen = cur; PatchCounters()[1649]++; } return; }   // review: seen only counts; on later still rebuilds
                     float[] x = FruitVeggieStand.kSaleProbabilitySkillXValues, y = FruitVeggieStand.kSaleProbabilitySkillYValues;
                     if (!FvRebuild(true, true) || x == null || y == null || x.Length == 0 || x.Length != y.Length) return;
                     sFvSet = new Curve(x, y);
@@ -480,38 +490,60 @@ namespace Ts3Fixes
         }
 
         // ---- roulettehackreset (docs/587 §13.12) [verified, decompiled + shipped tuning] ----
-        // DoHackTable sets mCurrentHack and a DeleteOnReset alarm that calls ResetHack after kHackDuration. DoReset runs
-        // Cleanup and removes both eye effects but never clears mCurrentHack, while the reset deletes the alarm: the
-        // table keeps Good or Bad odds (shipped kOddsChangeForHackedTable 45) for good, with no effect shown, and Hack /
-        // Sabotage stay greyed out. Fix: after EA's DoReset a set hack is cleared (the effects are already removed).
-        static FieldInfo sRhHack;
+        // DoHackTable sets mCurrentHack and a DeleteOnReset alarm that calls ResetHack after kHackDuration. DoReset never
+        // clears mCurrentHack, while the reset deletes the alarm: the table keeps Good or Bad odds (shipped
+        // kOddsChangeForHackedTable 45) for good, and Hack / Sabotage stay greyed out. Fix: after EA's DoReset, a set hack
+        // runs EA's own ResetHack (clears the hack and the eye effects). Review: PokerTable and BlackjackTable have the
+        // same timer and DoReset (Blackjack does not even remove the eye effects); all three are covered.
+        static readonly Type[] sRhTypes = { typeof(RouletteTable), typeof(PokerTable), typeof(BlackjackTable) };
+        static readonly FieldInfo[] sRhHack = new FieldInfo[3];
+        static readonly MethodInfo[] sRhReset = new MethodInfo[3];
         internal static bool RhClear(bool on, int hack) { return on && hack != 0; }
 
         static void ApplyRouletteHackReset()
         {
-            sRhHack = typeof(RouletteTable).GetField("mCurrentHack", kInstAll);
             Type ri = typeof(GameObject).GetNestedType("ResetInformation", BindingFlags.Public | BindingFlags.NonPublic);
-            if (sRhHack == null || ri == null) { AppliedLog().Add("roulettehackreset: not found: " + EpMiss("mCurrentHack", sRhHack, "GameObject+ResetInformation", ri)); return; }
-            Patch(typeof(RouletteTable), "DoReset", new Type[] { ri }, typeof(BSt1RhHook), "ResetHook", "ResetOrig");
+            if (ri == null) { AppliedLog().Add("roulettehackreset: not found: GameObject+ResetInformation"); return; }
+            Type[] hooks = { typeof(BSt1RhHook0), typeof(BSt1RhHook1), typeof(BSt1RhHook2) };
+            for (int i = 0; i < 3; i++)
+            {
+                sRhHack[i] = sRhTypes[i].GetField("mCurrentHack", kInstAll);
+                sRhReset[i] = sRhTypes[i].GetMethod("ResetHack", kInstAll, null, Type.EmptyTypes, null);
+                if (sRhHack[i] == null || sRhReset[i] == null) { AppliedLog().Add("roulettehackreset: not found: " + sRhTypes[i].Name + " " + EpMiss("mCurrentHack", sRhHack[i], "ResetHack", sRhReset[i])); continue; }
+            }
+            if (sRhHack[0] != null && sRhReset[0] != null) Patch(typeof(RouletteTable), "DoReset", new Type[] { ri }, typeof(BSt1RhHook0), "ResetHook", "ResetOrig");
+            if (sRhHack[1] != null && sRhReset[1] != null) Patch(typeof(PokerTable), "DoReset", new Type[] { ri }, typeof(BSt1RhHook1), "ResetHook", "ResetOrig");
+            if (sRhHack[2] != null && sRhReset[2] != null) Patch(typeof(BlackjackTable), "DoReset", new Type[] { ri }, typeof(BSt1RhHook2), "ResetHook", "ResetOrig");
         }
 
-        public class BSt1RhHook
+        static void RhAfterReset(object table, int i)
         {
-            public void ResetHook(object resetInformation)
+            try
             {
-                ResetOrig(resetInformation);
-                try
-                {
-                    int hack = Convert.ToInt32(sRhHack.GetValue(this));
-                    if (hack == 0) return;
-                    if (!ShortcutOn("roulettehackreset")) { PatchCounters()[1655]++; return; }
-                    if (!RhClear(true, hack)) return;
-                    sRhHack.SetValue(this, Enum.ToObject(sRhHack.FieldType, 0));
-                    PatchCounters()[1654]++;
-                }
-                catch (Exception) { PatchCounters()[1656]++; }
+                int hack = Convert.ToInt32(sRhHack[i].GetValue(table));
+                if (hack == 0) return;
+                if (!ShortcutOn("roulettehackreset")) { PatchCounters()[1655]++; return; }
+                if (!RhClear(true, hack)) return;
+                sRhReset[i].Invoke(table, null);
+                PatchCounters()[1654]++;
             }
+            catch (Exception) { PatchCounters()[1656]++; }
+        }
+
+        public class BSt1RhHook0
+        {
+            public void ResetHook(object resetInformation) { ResetOrig(resetInformation); RhAfterReset(this, 0); }
             public void ResetOrig(object resetInformation) { } // RouletteTable.DoReset
+        }
+        public class BSt1RhHook1
+        {
+            public void ResetHook(object resetInformation) { ResetOrig(resetInformation); RhAfterReset(this, 1); }
+            public void ResetOrig(object resetInformation) { } // PokerTable.DoReset
+        }
+        public class BSt1RhHook2
+        {
+            public void ResetHook(object resetInformation) { ResetOrig(resetInformation); RhAfterReset(this, 2); }
+            public void ResetOrig(object resetInformation) { } // BlackjackTable.DoReset
         }
 
         // ---- coopeggquality (docs/587 §13.13) [verified code + shipped tuning; intent from the tunable's comment] ----

@@ -86,7 +86,7 @@ namespace Ts3Fixes
             try
             {
                 int age = (int)sCgAge[i].GetValue(obj, null), life = (int)sCgLife[i].GetValue(null);
-                if (age > life && ShortcutOn("consignmentlastday") && !CgRolls(true, age, life)) { PatchCounters()[1466]++; return 0f; }
+                if (ShortcutOn("consignmentlastday") && !CgRolls(true, age, life)) { PatchCounters()[1466]++; return 0f; }
             }
             catch (Exception) { PatchCounters()[1468]++; }
             return orig(actor, obj);
@@ -277,7 +277,7 @@ namespace Ts3Fixes
                     {
                         MagicBroom b = c.Broom;
                         bool usable = b != null && !b.HasBeenDestroyed && (!b.Reserved || b.mReservingSim == sim)
-                            && (c.FromInventory ? sim.Inventory != null && sim.Inventory.Contains(b) : b.InWorld);
+                            && (c.FromInventory ? sim.Inventory != null && sim.Inventory.Contains(b) : b.InWorld && !b.InUse && !b.PendingUse && b.CanUse(sim.SimDescription));
                         if (BaUsesChoice(ShortcutOn("broomarenachoice"), true, usable)) { PatchCounters()[1475]++; fromInventory = c.FromInventory; return b; }
                     }
                     catch (Exception) { PatchCounters()[1477]++; }

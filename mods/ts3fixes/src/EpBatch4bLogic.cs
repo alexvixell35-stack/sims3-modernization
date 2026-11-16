@@ -50,7 +50,7 @@ namespace Ts3Fixes
             Patch(typeof(JungleGymLookOutTower), "ResetSafeToExit", Type.EmptyTypes, typeof(BEp4JgHook), "SafeHook", "SafeOrig");
         }
 
-        static void JgPurge(JungleGymLookOutTower t, Queue<Sim> q, Sim self)
+        static void JgPurge(JungleGymLookOutTower t, Queue<Sim> q, Sim self, bool dropSelf)
         {
             if (q.Count == 0) return;
             List<Sim> keep = new List<Sim>();
@@ -58,7 +58,7 @@ namespace Ts3Fixes
             foreach (Sim s in q)
             {
                 bool live = s != null && !s.HasBeenDestroyed;
-                if (s == self || JgKeep(true, live, live && t.ActorsUsingMe.Contains(s), live && sJgPending.Contains(s))) keep.Add(s);
+                if ((s == self ? !dropSelf : JgKeep(true, live, live && t.ActorsUsingMe.Contains(s), live && sJgPending.Contains(s)))) keep.Add(s);   // review: before enqueueing, the Sim's own stale entries go too
                 else dropped++;
             }
             if (dropped == 0) return;
@@ -101,13 +101,13 @@ namespace Ts3Fixes
                     return ExitOrig(actor);
                 }
                 // EA's body, with the marked changes
-                JgPurge(t, q, actor);  // changed
+                JgPurge(t, q, actor, true);  // changed
                 q.Enqueue(actor);
                 DateAndTime start = SimClock.CurrentTime();
                 while (q.Count > 0 && q.Peek() != actor && SimClock.ElapsedTime(TimeUnit.Minutes, start) < max)
                 {
                     Simulator.Sleep(10u);
-                    JgPurge(t, q, actor);  // changed
+                    JgPurge(t, q, actor, false);  // changed
                 }
                 JgExitDone done = new JgExitDone(); done.Tower = t; done.Actor = actor;
                 if (!sJgPending.Contains(actor)) sJgPending.Add(actor);
@@ -257,7 +257,7 @@ namespace Ts3Fixes
                 catch (Exception) { PatchCounters()[1547]++; }
                 EnsureOrig();
                 if (!on) return;
-                try { if ((bool)sHtFirst.GetValue(this)) sHtFirst.SetValue(this, false); }
+                try { if ((AlarmHandle)sHtTimer.GetValue(this) != AlarmHandle.kInvalidHandle && (bool)sHtFirst.GetValue(this)) sHtFirst.SetValue(this, false); }   // review: only when InitPosture ran
                 catch (Exception) { PatchCounters()[1547]++; }
             }
             public void EnsureOrig() { } // HotTubPosture.EnsureSeatPosture
@@ -330,12 +330,14 @@ namespace Ts3Fixes
                     if (pool != null && !pool.IsActorUsingMe(a)) pool = null;  // EA's removal only matters when it was on the list
                 }
                 catch (Exception) { PatchCounters()[1553]++; }
+                bool reset = false;
                 try { return RunOrig(); }
+                catch (ResetException) { reset = true; throw; }
                 finally
                 {
                     try
                     {
-                        if (pool != null && !a.HasBeenDestroyed && a.Posture != null && a.Posture.Container == pool && !pool.IsActorUsingMe(a))
+                        if (!reset && pool != null && !a.HasBeenDestroyed && a.Posture != null && a.Posture.Container == pool && !pool.IsActorUsingMe(a))
                         {
                             if (!ShortcutOn("dogswimaroundlist")) PatchCounters()[1552]++;
                             else if (DaRestore(true, true, false)) { pool.AddToUseList(a); PatchCounters()[1551]++; }

@@ -40,7 +40,7 @@ namespace Ts3Fixes
         // Dispose path are unchanged. Household-visible: stored collectibles survive a reset.
         // Counters: [1400] resets that kept the contents, [1401] resets that destroyed contents with the switch off, [1402] errors.
         static readonly Type sDcResetInfo = typeof(GameObject).GetNestedType("ResetInformation", BindingFlags.NonPublic | BindingFlags.Public);
-        static int sDcResetDepth;
+        static object sDcResetting;   // the case whose DoReset is running (review: was one counter for all cases)
 
         // Pure: does this Cleanup keep the items? (inside DoReset, EA's destroy branch, something stored)
         internal static bool DcKeep(bool on, bool inReset, bool buildModeMove, int items)
@@ -59,9 +59,10 @@ namespace Ts3Fixes
         {
             public void ResetHook(object resetInformation)
             {
-                sDcResetDepth++;
+                object prev = sDcResetting;
+                sDcResetting = this;
                 try { ResetOrig(resetInformation); }
-                finally { sDcResetDepth--; }
+                finally { sDcResetting = prev; }
             }
             public void ResetOrig(object resetInformation) { } // MetalMineralPotionDisplayCase.DoReset
 
@@ -71,7 +72,7 @@ namespace Ts3Fixes
                 bool keep = false;
                 try
                 {
-                    if (sDcResetDepth > 0 && c.Inventory != null)
+                    if (sDcResetting == (object)c && c.Inventory != null)
                     {
                         Sim sel = PlumbBob.SelectedActor;
                         bool move = LotManager.sIsBuildBuyModeOn && sel != null && c.GetOwnerLot() == sel.LotHome;  // EA's build-mode branch
@@ -322,6 +323,7 @@ namespace Ts3Fixes
                 catch (Exception) { PatchCounters()[1414]++; keep = false; }
                 if (!keep) { CleanupOrig(); return; }
                 PatchCounters()[1412]++;
+                try { NaniteTerrarium kt = ((NaniteTerrarium.ReverseEngineer)(object)this).Target; if (kt != null) kt.SetOpacity(1f, 0f); } catch (Exception) { PatchCounters()[1414]++; }
                 base.Cleanup();
                 GameObject prop = sNrProp.GetValue(this) as GameObject;
                 if (prop != null) { prop.Destroy(); sNrProp.SetValue(this, null); }
@@ -399,14 +401,15 @@ namespace Ts3Fixes
                 if (src == null) return;
                 try
                 {
+                    NectarBottle.NectarBottleGlassInfo si = (NectarBottle.NectarBottleGlassInfo)sNcInfo.GetValue(src);
+                    if (!si.MadeByLevel10Sim) return;
                     if (!ShortcutOn("nectarcopylevel10")) { PatchCounters()[1419]++; return; }
                     NectarBottle b = (NectarBottle)(object)this;
-                    NectarBottle.NectarBottleGlassInfo si = (NectarBottle.NectarBottleGlassInfo)sNcInfo.GetValue(src);
                     NectarBottle.NectarBottleGlassInfo bi = (NectarBottle.NectarBottleGlassInfo)sNcInfo.GetValue(b);
                     bi.MadeByLevel10Sim = NcCopied(true, si.MadeByLevel10Sim);
                     sNcInfo.SetValue(b, bi);
                     sNcVisual.Invoke(b, null);
-                    sNcFx.Invoke(b, null);
+                    if (b.InWorld) sNcFx.Invoke(b, null);   // AddToWorld starts it otherwise
                     PatchCounters()[1418]++;
                 }
                 catch (Exception) { PatchCounters()[1420]++; }
@@ -613,13 +616,16 @@ namespace Ts3Fixes
                 catch (Exception) { PatchCounters()[1429]++; sKrImmune.Clear(); }
                 int before = -1;
                 try { System.Collections.ICollection l = sKrList.GetValue(this) as System.Collections.ICollection; before = l == null ? -1 : l.Count; } catch (Exception) { }
-                AlarmOrig();
-                try
+                try { AlarmOrig(); }
+                finally
                 {
-                    System.Collections.ICollection l = sKrList.GetValue(this) as System.Collections.ICollection;
-                    if (!(before > 0 && l != null && l.Count == 0)) sKrImmune.Clear();  // EA clears its list only when it schedules an attack
+                    try
+                    {
+                        System.Collections.ICollection l = sKrList.GetValue(this) as System.Collections.ICollection;
+                        if (!(before > 0 && l != null && l.Count == 0)) sKrImmune.Clear();  // EA clears its list only when it schedules an attack
+                    }
+                    catch (Exception) { sKrImmune.Clear(); }
                 }
-                catch (Exception) { sKrImmune.Clear(); }
             }
             public void AlarmOrig() { } // KrakenManager.KrakenAttackEndAlarmCallback
 

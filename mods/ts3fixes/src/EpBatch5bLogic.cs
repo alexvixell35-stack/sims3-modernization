@@ -362,18 +362,21 @@ namespace Ts3Fixes
         {
             public bool PlaceHook(GraffitiSurface surface)
             {
-                bool placed = PlaceOrig(surface);
-                try
+                bool placed = false;
+                try { placed = PlaceOrig(surface); return placed; }
+                finally
                 {
-                    if (!placed && surface != null && !surface.HasBeenDestroyed && !surface.InWorld)
+                    // review: also when a reset unwinds PlaceArt (the surface is still out of world then)
+                    try
                     {
-                        if (!ShortcutOn("tagbagsurfaceleak")) PatchCounters()[1591]++;
-                        else if (TbDestroy(true, false, false, false)) { surface.Destroy(); PatchCounters()[1590]++; }
+                        if (!placed && surface != null && !surface.HasBeenDestroyed && !surface.InWorld)
+                        {
+                            if (!ShortcutOn("tagbagsurfaceleak")) PatchCounters()[1591]++;
+                            else if (TbDestroy(true, false, false, false)) { surface.Destroy(); PatchCounters()[1590]++; }
+                        }
                     }
+                    catch (Exception) { PatchCounters()[1592]++; }
                 }
-                catch (ResetException) { throw; }
-                catch (Exception) { PatchCounters()[1592]++; }
-                return placed;
             }
             public bool PlaceOrig(GraffitiSurface surface) { return false; } // TagBag+PrepSpace.PlaceArt
         }

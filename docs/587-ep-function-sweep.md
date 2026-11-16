@@ -364,13 +364,38 @@ Sims3StoreObjects (79 decompiled files, namespace `Sims3.Store.Objects`) was rea
 | 13.3 | `hypnotrickrelease` | `HypnoTrickReleaseCheck` | When `Hypnotizer+PerformTrick.Run` ends (any path), the linked `BeHypnotizedMainLoop.RouteLock` is cleared. | Verified code: the trick sets the lock and never clears it; the loop repeats while it is set. Run yields; wrapper only. |
 | 13.4 | `voodoofairyfadein` | `VoodooFairyFadeInCheck` | After `VoodooDoll+TransformSim.Cleanup`, a still-set fairy effect is stopped and the bound Sim fades in. | Verified: Cleanup fades in the caster (already visible), not the hidden bound fairy. |
 | 13.5 | `saunatubclear` | `SaunaTubClearCheck` | When `SaunaClassic+BatheInWater.Run` ends, `mSimInTub` is cleared if it is still this Sim. | Verified: only the normal end clears it and the class has no Cleanup. Reach: a reset or exception while bathing. |
-| 13.6 | `slotmachinedefs` | `SlotMachineDefsCheck` | `SlotMachine+PlaySlots+Definition.InitFromID` on one of the shared `PlaySlotDefs` is skipped. | Verified: autonomous play rewrites the shared menu definitions, so entries duplicate and stakes change for everyone. |
+| 13.6 | `slotmachinedefs` | `SlotMachineDefsCheck` | Before `SlotMachine+PlaySlots.Run`, an autonomous play queued on one of the shared `PlaySlotDefs` gets its own copy, so EA's Low/Medium pick rewrites the copy. | Verified: autonomous play rewrites the shared menu definitions, so entries duplicate and stakes change for everyone. |
 | 13.7 | `treewishingwell` | `TreeWishingWellCheck` | `TreeOfProsperity.HasWishingWellOnLot` also counts store `WishingWell` objects. | Verified: it counts `IWishingWell`, which no class implements, so it is always false. |
 | 13.8 | `playpentalkcast` | `PlaypenTalkCastCheck` | Before `PlaypenClassic.CreateLearnToTalkBroadcaster`, a live broadcaster is disposed. | Verified: two toddlers learning at once orphan the first broadcaster. |
 | 13.9 | `ovenmenunull` | `OvenMenuNullCheck` | `IndustrialOven+Menu.PickGoodFoodForMe` returns null when `GetFoodsAtOrBelowCost` is null. | Verified code: the list is dereferenced at once; the caller already handles a null pick. Reach inferred (menu or funds change while a diner waits). |
 | 13.10 | `fvstandskillcurve` | `FvStandSkillCurveCheck` | After `FruitVeggieStand.InitializeData`, the skill curve is rebuilt from the skill arrays. | Verified, shipped tuning: same copy-paste as `consignmentskillcurve` (§8). |
 | 13.11 | `pokerdeadplayer` | `PokerDeadPlayerCheck` | Before `SetupRound`, `WaitForPlayersToCompleteAction` and `ActionsAreComplete`, a seat whose Sim no longer exists is emptied. | Verified code: the three dereference `CreatedSim` with no null test; the throw leaves the dealer flag set and the table dead. Frequency inferred. |
-| 13.12 | `roulettehackreset` | `RouletteHackResetCheck` | After `RouletteTable.DoReset`, a set `mCurrentHack` is cleared. | Verified, shipped tuning (odds change 45): the reset deletes the hack timer but keeps the hack. |
+| 13.12 | `roulettehackreset` | `RouletteHackResetCheck` | After `DoReset` of `RouletteTable`, `PokerTable` and `BlackjackTable`, a set hack runs EA's own `ResetHack`. | Verified, shipped tuning (odds change 45): the reset deletes the hack timer but keeps the hack. Poker and Blackjack added in the §14 review. |
 | 13.13 | `coopeggquality` | `CoopEggQualityCheck` | `RandomUtil.GetWeightedIndex(float[])` returns index + 1 when called with `ChickenCoopClassic.kEggQualityWeights`. | Verified code and tuning; intent from the tunable's comment and sibling code: the index is cast to `Quality`, which starts at 1, so eggs are one tier low and never Perfect. |
 
 Parked (verified code, needs a copy of a yielding method or more reach evidence): `FVShoppingRegister.SellConsignedItems` doubles every sale and adds the Gardener bonus as a whole number (lowers player income when fixed); `AutonomousBuyItem` never picks index 0; `TreeOfProsperity.EvaluateAOE` keeps a stale Sim list and over-applies boosts; `SurfArea.Surf.Run` dequeues the head instead of itself; `WishingWell.StealCoins` cooldown never enforced; `DeepFryerVegas` Continue Cooking on a done fryer restarts, and `OnDoneEating` takes any meal; `DanceFloorStore.GetBestSlowDancePartner` filters on `Parent != null`; `RoutineMachine.TeleportToGym.DoTeleport` never queues the visit; `TeppanyakiGrill.InUse` compares an instance with a definition, and `TGCook` leaks a food container; `PinballMachine`/`BBallArcade.Dispose` call `Destroy` instead of `base.Dispose`; `MovieScreen` leaves room lights dim on reset; `FountainOfYouth` rare failure can remove a hidden trait; Teppanyaki and other `Cleanup`s skip base. Part-4 leads (WoodFireOven listener, CowPlant broadcaster, Tablet catalog name, IceCreamMaker flavours, StasisChamber jig, Blackjack) were not verified in this pass.
+
+## 14. Review pass over EP1-EP6 and store batch 1 (2026-11-16, NOT RUN)
+
+Three read-only agents re-read every replaced EA method and our hook in full; each finding was checked in the decompile before the change. Fixed (no new switches or slots):
+
+- `hypnotrickrelease` (bug): `HypnosisInteractionBase.RouteLock` has only a setter, so reading it threw on every run and no volunteer was released. Now reads and writes the field `mRouteLock`.
+- `slotmachinedefs` (household-visible change): skipping `InitFromID` let autonomous Sims play High stakes or spend a Lucky Coin. Now a `PlaySlots.Run` wrapper gives an autonomous play on a shared entry its own copy.
+- `roulettehackreset`: `PokerTable` and `BlackjackTable` have the same reset defect; all three now call EA's `ResetHack`, which also removes Blackjack's eye effects.
+- `gourmetpetrecipe` (bug): a dog or cat household with only Horse Granola available cooked horse food; now no pick, as EA's throw intended.
+- `displaycasereset`: the in-reset marker was one counter for all cases; now it is the case being reset.
+- `krakenfriendsailor`: the immunity map is cleared in a finally, also when EA's callback throws.
+- `nectarcopylevel10`: only a level-10 source does anything or counts; the effect starts only in the world.
+- `naniteroutefail`: the kept terrarium gets its opacity back (a reset during `FadeOut` left it invisible).
+- `elvisgnomeguard`: the global stop-alarm handle is dropped on world load.
+- `broomarenachoice`: a chosen world broom must also pass EA's `CanUseBroom` rule (not in use, not pending, usable by the Sim).
+- `pingpongopponent`: the age rule is Teen or older, as EA's own picker (Child let the autonomous path pick a Sim the player cannot); the RE comment about an empty list is corrected (it throws, as in EA).
+- `businessplannerrun`: a failed run pockets only a planner this run took out of the inventory.
+- `junglegymexitqueue`: the Sim's own stale entries are dropped before it queues again (it could be queued twice).
+- `hottubseatposture`: first-idle is cleared only when EA's InitPosture ran.
+- `dogswimaroundlist`: no use-list restore while a reset unwinds.
+- `tagbagsurfaceleak`: the leaked surface is also destroyed when a reset unwinds `PlaceArt`.
+- `fvstandskillcurve`: turning the switch on later still rebuilds a curve seen while off.
+- Tidy: `consignmentlastday` tautology, `herbqualityfloor` double read, `fragmentreconstruct` counter, `voodoofairyfadein` hard stop as EA, dead `ovenmenunull` fallback.
+
+Open (inferred or needing a copy): `chipanycount` chain test can misfire with two explicit components of the same count; `bartendinghourlypay` falls back to the `None` bar entry (check the tuning for home bars); `fallenrockcollected` could instead copy `ImportContent` to store the alarm handle; `rubbleuselist`/`floorswitchuselist` still skip the rest of base `Cleanup`; most hooks call their pure function with constant arguments, so the checks test the formula, not the live decision. RE extras not fixed: kraken boat list never pruned, `ChemistryLab.MakePotionBase.FinishEvent` NRE on a full inventory, `Ep6EffectsMachine.CreateEffectAndTurnOn` effect leak, `ConsignmentRegister` day-0 price never used, `TryForBaby` null partner when autonomous.

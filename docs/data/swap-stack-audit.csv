@@ -696,7 +696,7 @@ BSt1CfHook.FilledHook,ChocolateFountain,FountainFilled,StoreBatch1Logic.cs,Fille
 BSt1HtHook.RunHook,Hypnotizer.PerformTrick,Run,StoreBatch1Logic.cs,RunOrig,yes,Hypnotizer+PerformTrick::Run > Simulator::Sleep,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
 BSt1VfHook.CleanupHook,VoodooDoll+TransformSim,Cleanup,StoreBatch1Logic.cs,CleanupOrig,yes,VoodooDoll+TransformSim::Cleanup > InteractionInstance::Cleanup > .. 2 .. > StateMachineClient::RequestState,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
 BSt1StHook.RunHook,SaunaClassic+BatheInWater,Run,StoreBatch1Logic.cs,RunOrig,yes,SaunaClassic+BatheInWater::Run > InteractionInstance::AnimateSim > StateMachineClient::RequestState,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
-BSt1SmHook.InitHook,Sims3.Store.Objects.SlotMachine+PlaySlots+Definition,InitFromID,StoreBatch1Logic.cs,InitOrig,no,no path to a yield in 1 overload(s),switch (docs/587 store §13),keep
+BSt1SmHook.RunHook,SlotMachine+PlaySlots,Run,StoreBatch1Logic.cs,RunOrig,yes,SlotMachine+PlaySlots::Run > StateMachineClient::RequestState,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
 BSt1TwHook.HasHook,TreeOfProsperity,get_HasWishingWellOnLot,StoreBatch1Logic.cs,HasOrig,no,no path to a yield in 1 overload(s),switch (docs/587 store §13),keep
 BSt1PpHook.CreateHook,PlaypenClassic,CreateLearnToTalkBroadcaster,StoreBatch1Logic.cs,CreateOrig,no,no path to a yield in 1 overload(s),switch (docs/587 store §13),keep
 BSt1OmHook.PickHook,IndustrialOven+Menu,PickGoodFoodForMe,StoreBatch1Logic.cs,PickOrig,no,no path to a yield in 1 overload(s),switch (docs/587 store §13),keep
@@ -704,5 +704,7 @@ BSt1FvHook.InitHook,FruitVeggieStand,InitializeData,StoreBatch1Logic.cs,InitOrig
 BSt1PkHook.SetupHook,PokerTable,SetupRound,StoreBatch1Logic.cs,SetupOrig,no,no path to a yield in 1 overload(s),switch (docs/587 store §13),keep
 BSt1PkHook.WaitHook,PokerTable,WaitForPlayersToCompleteAction,StoreBatch1Logic.cs,WaitOrig,yes,PokerTable::WaitForPlayersToCompleteAction > Simulator::Sleep,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
 BSt1PkHook.DoneHook,PokerTable,ActionsAreComplete,StoreBatch1Logic.cs,DoneOrig,no,no path to a yield in 1 overload(s),switch (docs/587 store §13),keep
-BSt1RhHook.ResetHook,RouletteTable,DoReset,StoreBatch1Logic.cs,ResetOrig,yes,RouletteTable::DoReset > GameObject::DoReset > .. 3 .. > StateMachineClient::RequestState,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
+BSt1RhHook0.ResetHook,RouletteTable,DoReset,StoreBatch1Logic.cs,ResetOrig,yes,RouletteTable::DoReset > GameObject::DoReset > .. 3 .. > StateMachineClient::RequestState,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
+BSt1RhHook1.ResetHook,PokerTable,DoReset,StoreBatch1Logic.cs,ResetOrig,yes,PokerTable::DoReset > GameObject::DoReset > .. 3 .. > StateMachineClient::RequestState,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
+BSt1RhHook2.ResetHook,BlackjackTable,DoReset,StoreBatch1Logic.cs,ResetOrig,yes,BlackjackTable::DoReset > GameObject::DoReset > .. 3 .. > StateMachineClient::RequestState,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
 BSt1CeHook.IndexHook,RandomUtil,GetWeightedIndex,StoreBatch1Logic.cs,IndexOrig,no,no path to a yield in 4 overload(s),switch (docs/587 store §13),keep
