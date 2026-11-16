@@ -151,6 +151,32 @@ namespace Ts3Fixes
             ApplySculptPose();    // docs/568 §3 (SculptPose.cs)
             ApplyTrainBoost();    // docs/569 §1 (TrainBoost.cs)
             ApplyEatOutsideCount();    // docs/569 §2 (EatOutsideCount.cs)
+            ApplyEatPostOnce();   // docs/589 B11 §1
+            ApplyMotiveMultOnce();   // docs/589 B11 §2
+            ApplyFightBroadcastEnd();   // docs/589 B11 §3
+            ApplyReactionCopy();   // docs/589 B11 §4
+            ApplyCarpoolSchoolSkip();   // docs/589 B11 §5
+            ApplyTvSyncAlarm();   // docs/589 B11 §6
+            ApplyPhotoFunds();   // docs/589 B11 §7
+            ApplyLtrHistoryBits();   // docs/589 B11 §8
+            ApplyGoodbyePure();   // docs/589 B11 §9
+            ApplyBathCleanup();   // docs/589 B11 §10
+            ApplyTvWatchSkill();   // docs/589 B11 §11
+            ApplyComputerGameType();   // docs/589 B11 §12
+            ApplyMoodTankReset();   // docs/589 B11 §13
+            ApplyReactionGrumpy();   // docs/589 B11 §14
+            ApplyTrainSimGone();   // docs/589 B11 §15
+            ApplyStereoUpgrade();   // docs/589 B11 §16
+            ApplyBuffRemoveDelayed();   // docs/589 B11 §17
+            ApplyTvDiscListener();   // docs/589 B11 §18
+            ApplyFridgeTestNull();   // docs/589 B11 §19
+            ApplyCancelPostureDef();   // docs/589 B11 §20
+            ApplyFacialIdleWeight();   // docs/589 B11 §21
+            ApplyBathSituationFx();   // docs/589 B11 §22
+            ApplySocialNoEffect();   // docs/589 B11 §23
+            ApplyGuitarGnomeBoost();   // docs/589 B11 §24
+            ApplyDistressGate();   // docs/589 B11 §25
+            ApplyMoodIdleFlavor();   // docs/589 B11 §26
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -478,6 +504,32 @@ namespace Ts3Fixes
         // [2564-2565] free (released).
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
+        // [2986-2988] eatpostonce (Batch589Logic.cs, docs/589 B11 §1): Cleanup posts skipped / doubled posts (switch off) / cut-off eats posted by Cleanup.
+        // [2989-2991] motivemultonce (Batch589Logic.cs, docs/589 B11 §2): updates with the multiplier once / stacked updates (switch off) / errors.
+        // [2992-2994] fightbroadcastend (Batch589Logic.cs, docs/589 B11 §3): broadcasters ended at Cleanup / left running (switch off) / errors.
+        // [2995-2997] reactioncopy (Batch589Logic.cs, docs/589 B11 §4): Sims given the caller's reaction / Sims given an earlier Sim's trait reaction (switch off) / errors.
+        // [2998-3000] carpoolschoolskip (Batch589Logic.cs, docs/589 B11 §5): skipping riders sent on their own / Runs that threw (switch off) / errors.
+        // [3001-3003] tvsyncalarm (Batch589bLogic.cs, docs/589 B11 §6): handles reset / stale handles kept (switch off) / errors.
+        // [3004-3006] photofunds (Batch589bLogic.cs, docs/589 B11 §7): photo payments taken / funds doubled (switch off) / errors.
+        // [3007-3009] ltrhistorybits (Batch589bLogic.cs, docs/589 B11 §8): forced changes with history kept / history wiped (switch off) / errors.
+        // [3010-3012] goodbyepure (Batch589bLogic.cs, docs/589 B11 §9): menu builds kept pure / side effects run (switch off) / errors.
+        // [3013-3015] bathcleanup (Batch589bLogic.cs, docs/589 B11 §10): bathers' alarm and footprint kept / cleared by another Sim's Cleanup (switch off) / errors.
+        // [3016-3018] tvwatchskill (Batch589bLogic.cs, docs/589 B11 §11): stray stops skipped / stray stops (switch off) / errors.
+        // [3019-3021] computergametype (Batch589bLogic.cs, docs/589 B11 §12): shared picks reset / picks left in the Singleton (switch off) / errors.
+        // [3022-3024] moodtankreset (Batch589bLogic.cs, docs/589 B11 §13): tank memories cleared / kept with a recovered mood (switch off) / errors.
+        // [3025-3027] reactiongrumpy (Batch589bLogic.cs, docs/589 B11 §14): reactions set / left at Angry (switch off) / errors.
+        // [3028-3030] trainsimgone (Batch589bLogic.cs, docs/589 B11 §15): trainee-less runs ended / runs that threw (switch off) / errors.
+        // [3031-3033] stereoupgrade (Batch589bLogic.cs, docs/589 B11 §16): rebuilds skipped on a silent stereo / dismissals of other dancers skipped / off-switch hits.
+        // [3034-3036] buffremovedelayed (Batch589cLogic.cs, docs/589 B11 §17): live buffs removed after a pending timer / left on the Sim (switch off) / errors.
+        // [3037-3039] tvdisclistener (Batch589cLogic.cs, docs/589 B11 §18): old listeners removed / old listeners kept (switch off) / errors.
+        // [3040-3042] fridgetestnull (Batch589cLogic.cs, docs/589 B11 §19): tests answered without the throw / tests that threw (switch off) / errors.
+        // [3043-3045] cancelposturedef (Batch589cLogic.cs, docs/589 B11 §20): duplicate stand-ups not queued / queued again (switch off) / errors.
+        // [3046-3048] facialidleweight (Batch589cLogic.cs, docs/589 B11 §21): lists built with float shares / lists with a truncated share (switch off) / errors.
+        // [3049-3051] bathsituationfx (Batch589dLogic.cs, docs/589 B11 §22): second exits skipped / old effects disposed / seen with the switch off.
+        // [3052-3054] socialnoeffect (Batch589dLogic.cs, docs/589 B11 §23): null rules seen / null rules with ilp_socialnoeffect expected on / errors.
+        // [3055-3057] guitargnomeboost (Batch589dLogic.cs, docs/589 B11 §24): extra boosts removed / boosts left on (switch off) / errors.
+        // [3058-3060] distressgate (Batch589dLogic.cs, docs/589 B11 §25): tests answered by a buff / missed (switch off) / errors.
+        // [3061-3063] moodidleflavor (Batch589dLogic.cs, docs/589 B11 §26): rows appended / rows dropped (switch off) / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -815,6 +867,32 @@ namespace Ts3Fixes
                 case "sculptpose": return Instantiator.kSculptPose;
                 case "trainboost": return Instantiator.kTrainBoost;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
+                case "eatpostonce": return Instantiator.kEatPostOnce;
+                case "motivemultonce": return Instantiator.kMotiveMultOnce;
+                case "fightbroadcastend": return Instantiator.kFightBroadcastEnd;
+                case "reactioncopy": return Instantiator.kReactionCopy;
+                case "carpoolschoolskip": return Instantiator.kCarpoolSchoolSkip;
+                case "tvsyncalarm": return Instantiator.kTvSyncAlarm;
+                case "photofunds": return Instantiator.kPhotoFunds;
+                case "ltrhistorybits": return Instantiator.kLtrHistoryBits;
+                case "goodbyepure": return Instantiator.kGoodbyePure;
+                case "bathcleanup": return Instantiator.kBathCleanup;
+                case "tvwatchskill": return Instantiator.kTvWatchSkill;
+                case "computergametype": return Instantiator.kComputerGameType;
+                case "moodtankreset": return Instantiator.kMoodTankReset;
+                case "reactiongrumpy": return Instantiator.kReactionGrumpy;
+                case "trainsimgone": return Instantiator.kTrainSimGone;
+                case "stereoupgrade": return Instantiator.kStereoUpgrade;
+                case "buffremovedelayed": return Instantiator.kBuffRemoveDelayed;
+                case "tvdisclistener": return Instantiator.kTvDiscListener;
+                case "fridgetestnull": return Instantiator.kFridgeTestNull;
+                case "cancelposturedef": return Instantiator.kCancelPostureDef;
+                case "facialidleweight": return Instantiator.kFacialIdleWeight;
+                case "bathsituationfx": return Instantiator.kBathSituationFx;
+                case "socialnoeffect": return Instantiator.kSocialNoEffect;
+                case "guitargnomeboost": return Instantiator.kGuitarGnomeBoost;
+                case "distressgate": return Instantiator.kDistressGate;
+                case "moodidleflavor": return Instantiator.kMoodIdleFlavor;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
