@@ -244,6 +244,7 @@ namespace Ts3Fixes
                 case "opptrackerrelisten": return EpLive(typeof(BOtHook), 1);
                 case "outerwearautoloop": return EpLive(typeof(OwTestHook), 3);
                 case "outerwearrestore": return EpLive(typeof(OwRunHook), 1);
+                case "outfitwaitend": return EpLive(typeof(OutfitWaitHook), 1, "sSohDisposed", sSohDisposed, typeof(bool), "sSohStarted", sSohStarted, typeof(bool), "sSohNoChange", sSohNoChange, typeof(bool), "sSohReady", sSohReady, typeof(bool), "sSohSim", sSohSim, null, "sSohAborted", sSohAborted, null);
                 case "outfitwaitpoll": return EpJoin(EpLive(typeof(OutfitWaitHook), 1, "sSohDisposed", sSohDisposed, typeof(bool), "sSohStarted", sSohStarted, typeof(bool), "sSohNoChange", sSohNoChange, typeof(bool), "sSohReady", sSohReady, typeof(bool), "sSohSim", sSohSim, null, "sSohAborted", sSohAborted, null), EpLive(typeof(SwapCbHook), 1));
                 case "owresettime": return EpJoin(EpLive(typeof(HcInstHook), 0), EpLive(typeof(HcTailHook), 0));
                 case "partycleanupnull": return EpLive(typeof(BPcHapHook), 1, "sPcMotives", sPcMotives, null);

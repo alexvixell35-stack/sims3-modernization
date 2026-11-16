@@ -472,7 +472,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 1954-1960 | reserved (claude, `fixes-1954`) | docs/597 sleep/social/queues: spoonslavechecks (4), queueproximity (3) |
 | 1961-1970 | reserved (claude, `fixes-1961`) | docs/597 read-not-built: subroutefail (3), petwakebed (3), slavewakereason (4) |
 | 1971-1976 | reserved (claude, `fixes-1971`) | docs/598 §5 hovertraintest: NPCUseHoverTrain station-count memo (answered, EA queries, forgets, check mismatches, Run guards, errors) |
-| **1977+** | next free | reserve here  |
+| 1977-1980 | reserved (claude, `fixes-1977`) | docs/601 outfitwaitend: stale unseen-NPC outfit waits ended with EA's instant switch |
+| **1981+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 
