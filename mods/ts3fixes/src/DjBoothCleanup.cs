@@ -75,7 +75,9 @@ namespace Ts3Fixes
                 foreach (IGameObject o in extra)
                     if (o.IsActorUsingMe(actor)) o.RemoveFromUseList(actor);
             sDjWalk.Invoke(ia, null);
-            if (!GameStates.IsGameShuttingDown) return;
+            // EA's base Cleanup disposes the effect list only while shutting down (inverted test, docs/592 S5); this copy
+            // follows the cleanupvfx rule so the switch covers our copy too
+            if (!CvDispose(ShortcutOn("cleanupvfx"), GameStates.IsGameShuttingDown)) return;
             List<VisualEffect> vfxs = sDjVfxs.GetValue(ia) as List<VisualEffect>;
             if (vfxs == null) return;
             foreach (VisualEffect v in vfxs) v.Dispose();

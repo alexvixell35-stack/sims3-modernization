@@ -151,6 +151,29 @@ namespace Ts3Fixes
             ApplySculptPose();    // docs/568 §3 (SculptPose.cs)
             ApplyTrainBoost();    // docs/569 §1 (TrainBoost.cs)
             ApplyEatOutsideCount();    // docs/569 §2 (EatOutsideCount.cs)
+            ApplyLeaveConvNull();   // docs/592 S2 B12 §37
+            ApplyVacationAlarms();   // docs/592 S3 B12 §38
+            ApplyCleanupVfx();   // docs/592 S5 B12 §39
+            ApplyLookAtCopy();   // docs/592 S6 B12 §40
+            ApplyLottoTooltip();   // docs/592 S8 B12 §41
+            ApplyTraitIconDislike();   // docs/592 S9 B12 §42
+            ApplyRoleUnprotect();   // docs/592 S11 B12 §43
+            ApplyPutDownPlaced();   // docs/592 S13 B12 §44            ApplyDisplayCaseReset();   // docs/587 EP1 §1
+            ApplyNullSituation();   // docs/593 V2 B13 §1
+            ApplyLightningWeights();   // docs/593 L1 B13 §2
+            ApplyPlantDormantFlip();   // docs/593 G1 B13 §3
+            ApplyPlantDormantTime();   // docs/593 G2 B13 §4
+            ApplyHarvestExtras();   // docs/593 H2, H5 B13 §5
+            ApplyShroomSlots();   // docs/593 H3 B13 §6
+            ApplyHarvestRegion();   // docs/593 H4 B13 §7
+            ApplyWellStealCooldown();   // docs/593 B2b B13 §8
+            ApplyOppFailCharge();   // docs/593 O1 B13 §9
+            ApplyTempForecast();   // docs/593 T1 B13 §10
+            ApplyMountFishCost();   // docs/593 F1 B13 §11
+            ApplyFirefighterCount();   // docs/593 V8 B13 §13
+            ApplyRepairmanSkill();   // docs/593 V9 B13 §14
+            ApplyRoundUpReturn();   // docs/593 V3 B13 §15
+            ApplyPetHarvestVfx();   // docs/593 H1 B13 §17
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -478,6 +501,29 @@ namespace Ts3Fixes
         // [2564-2565] free (released).
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
+        // [3172-3174] leaveconvnull (Batch592Logic.cs, B12 §37, docs/592 S2): empty leaves skipped / counted (switch off) / errors.
+        // [3175-3177] vacationalarms (Batch592Logic.cs, B12 §38, docs/592 S3): arrivals fixed / arrivals with the double shift (switch off) / errors.
+        // [3178-3180] cleanupvfx (Batch592Logic.cs, B12 §39, docs/592 S5): effect lists disposed / left to the finalizer (switch off) / errors.
+        // [3181-3183] lookatcopy (Batch592Logic.cs, B12 §40, docs/592 S6): copies filtered / live lists cut (switch off) / errors.
+        // [3184-3186] lottotooltip (Batch592Logic.cs, B12 §41, docs/592 S8): tooltips fixed / shifted tooltips (switch off) / errors.
+        // [3187-3189] traiticondislike (Batch592Logic.cs, B12 §42, docs/592 S9): dislike icons shown / hidden (switch off) / errors.
+        // [3190-3192] roleunprotect (Batch592Logic.cs, B12 §43, docs/592 S11): protections removed / left (switch off) / errors.
+        // [3193-3195] putdownplaced (Batch592Logic.cs, B12 §44, docs/592 S13): placements fired as placed / fired as removed (switch off) / errors.
+        // [3196-3198] nullsituation (Batch593Logic.cs, B13 §1, docs/593 V2): null assignments dropped or errors contained / seen with the switch off / errors.
+        // [3199-3201] lightningweights (Batch593Logic.cs, B13 §2, docs/593 L1): weights restored / left zeroed (switch off) / errors.
+        // [3202-3204] plantdormantflip (Batch593Logic.cs, B13 §3, docs/593 G1): flips undone / flips seen (switch off) / errors.
+        // [3205-3207] plantdormanttime (Batch593Logic.cs, B13 §4, docs/593 G2): times refreshed / spans left to drain (switch off) / errors.
+        // [3208-3210] harvestextras (Batch593Logic.cs, B13 §5, docs/593 H2, H5): extras kept and journals to the harvester / extras lost (switch off) / errors.
+        // [3211-3213] shroomslots (Batch593Logic.cs, B13 §6, docs/593 H3): mushroom loops our way / EA's loops (switch off) / errors.
+        // [3214-3216] harvestregion (Batch593Logic.cs, B13 §7, docs/593 H4): regions our way / Average answered as Good (switch off) / errors.
+        // [3217-3219] wellstealcooldown (Batch593Logic.cs, B13 §8, docs/593 B2b): tests refused in the cooldown / passed in it (switch off) / errors.
+        // [3220-3222] oppfailcharge (Batch593Logic.cs, B13 §9, docs/593 O1): second charges skipped / charged twice (switch off) / errors.
+        // [3223-3225] tempforecast (Batch593Logic.cs, B13 §10, docs/593 T1): forecasts our way / mirrored (switch off) / errors.
+        // [3226-3228] mountfishcost (Batch593Logic.cs, B13 §11, docs/593 F1): costs set to the run's fish / another fish's cost charged (switch off) / errors.
+        // [3229-3231] firefightercount (Batch593Logic.cs, B13 §13, docs/593 V8): extra firefighters not sent / sent (switch off) / errors.
+        // [3232-3234] repairmanskill (Batch593Logic.cs, B13 §14, docs/593 V9): levels set to the roll / stacked (switch off) / errors.
+        // [3235-3237] roundupreturn (Batch593Logic.cs, B13 §15, docs/593 V3): inits ended / run on (switch off) / errors.
+        // [3238-3240] petharvestvfx (Batch593Logic.cs, B13 §17, docs/593 H1): effects kept and stopped / leaked (switch off) / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -815,6 +861,29 @@ namespace Ts3Fixes
                 case "sculptpose": return Instantiator.kSculptPose;
                 case "trainboost": return Instantiator.kTrainBoost;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
+                case "leaveconvnull": return Instantiator.kLeaveConvNull;
+                case "vacationalarms": return Instantiator.kVacationAlarms;
+                case "cleanupvfx": return Instantiator.kCleanupVfx;
+                case "lookatcopy": return Instantiator.kLookAtCopy;
+                case "lottotooltip": return Instantiator.kLottoTooltip;
+                case "traiticondislike": return Instantiator.kTraitIconDislike;
+                case "roleunprotect": return Instantiator.kRoleUnprotect;
+                case "putdownplaced": return Instantiator.kPutDownPlaced;
+                case "nullsituation": return Instantiator.kNullSituation;
+                case "lightningweights": return Instantiator.kLightningWeights;
+                case "plantdormantflip": return Instantiator.kPlantDormantFlip;
+                case "plantdormanttime": return Instantiator.kPlantDormantTime;
+                case "harvestextras": return Instantiator.kHarvestExtras;
+                case "shroomslots": return Instantiator.kShroomSlots;
+                case "harvestregion": return Instantiator.kHarvestRegion;
+                case "wellstealcooldown": return Instantiator.kWellStealCooldown;
+                case "oppfailcharge": return Instantiator.kOppFailCharge;
+                case "tempforecast": return Instantiator.kTempForecast;
+                case "mountfishcost": return Instantiator.kMountFishCost;
+                case "firefightercount": return Instantiator.kFirefighterCount;
+                case "repairmanskill": return Instantiator.kRepairmanSkill;
+                case "roundupreturn": return Instantiator.kRoundUpReturn;
+                case "petharvestvfx": return Instantiator.kPetHarvestVfx;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
