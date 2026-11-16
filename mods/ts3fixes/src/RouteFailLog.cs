@@ -345,6 +345,7 @@ namespace Ts3Fixes
                 bool ok = res.mType == RoutePlanResultType.Succeeded;
                 IScriptProxy f = r.Follower;
                 Sim sim = f != null ? f.Target as Sim : null;
+                if (sNePending.Count > 0) NeLearn(r, f, res);  // npccarexit (UnseenTraffic.cs)
                 if (sim == null) return;
                 if (sim.IsInActiveHousehold) PatchCounters()[866]++;  // fails per plan: same four hooks as the routefail lines (issue #304, kd-household-ab.ts)
                 bool show = InShowOff(sim);

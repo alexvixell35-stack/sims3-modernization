@@ -224,6 +224,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kVehFrankenTaxi value="False" />
     <kVehProtestCar value="False" />
     <kBuyIconLeak value="True" />
+    <kUnseenTraffic value="False" />
+    <kNpcCarExit value="False" />
     <kCasRowLeak value="True" />
     <kCompositorLeak value="True" />
     <kGenealogyCycle value="True" />

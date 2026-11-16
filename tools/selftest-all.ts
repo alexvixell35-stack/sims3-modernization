@@ -112,6 +112,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/typecache/run.ts': CSC,
   'tools/selftest/unseen/run.ts': CSC,
   'tools/selftest/unseenfb/run.ts': CSC,
+  'tools/selftest/unseentraffic/run.ts': CSC,
   'tools/selftest/venuememo/run.ts': CSC,
   'tools/selftest/wakepark/run.ts': CSC,
 };

@@ -77,6 +77,7 @@ namespace Ts3Fixes
             ApplySpatialCache();
             ApplyFewerPlans();
             ApplyCandidateLoops();
+            ApplyUnseenTraffic();  // docs/855: npccarexit's hook; unseentraffic lives in ParkingSpotHook / TrafficReleaseHook
             ApplyRefTable();
             ApplyCachedReflection();
             ApplyUiCaches();
@@ -477,6 +478,7 @@ namespace Ts3Fixes
         // [2562-2563] sculptpose (SculptPose.cs, docs/568 §3): Sculpt Sim subject poses cancelled after the sculptor failed / errors.
         // [2564-2565] free (released).
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
+        // [3800-3826] unseentraffic (3800-3814) + npccarexit (3815-3826) (UnseenTraffic.cs, docs/855): see the list there.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
@@ -741,6 +743,8 @@ namespace Ts3Fixes
                 case "vehfrankentaxi": return Instantiator.kVehFrankenTaxi;
                 case "vehprotestcar": return Instantiator.kVehProtestCar;
                 case "buyiconleak": return Instantiator.kBuyIconLeak;
+                case "unseentraffic": return Instantiator.kUnseenTraffic;
+                case "npccarexit": return Instantiator.kNpcCarExit;
                 case "casrowleak": return Instantiator.kCasRowLeak;
                 case "compositorleak": return Instantiator.kCompositorLeak;
                 case "genealogycycle": return Instantiator.kGenealogyCycle;

@@ -71,6 +71,7 @@ namespace Ts3Fixes
             sVlGiActive.Clear();
             sVlGiGot.Clear();
             sVlGiArmed = false;
+            UtWorldLoad();  // npccarexit (UnseenTraffic.cs)
             if (sVlDestroyedListener != null) EventTracker.RemoveListener(sVlDestroyedListener);
             sVlDestroyedListener = EventTracker.AddListener(EventTypeId.kSimDestroyed, OnVlSimDestroyed);
             if (AlarmManager.Global == null) return;

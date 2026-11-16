@@ -123,10 +123,21 @@ namespace Ts3Fixes
         {
             public bool SpotHook(Car car, ref Matrix44 mat)
             {
-                if (!(car is CarNpcWithNoDriver) || !ShortcutOn("unseencars") || !InLiteDriver()) return SpotOrig(car, ref mat);
+                // unseentraffic (UnseenTraffic.cs, docs/855) shares this hook: its teleport leg is decided first; a leg it
+                // leaves to EA still gets unseencars' turn-down below when both are on
+                bool trf = ShortcutOn("unseentraffic"), uc = ShortcutOn("unseencars");
+                if (!(car is CarNpcWithNoDriver) || (!trf && !uc) || !InLiteDriver()) return SpotOrig(car, ref mat);
                 int[] c = PatchCounters();
-                c[197]++;
+                if (uc) c[197]++;
+                if (trf) c[3800]++;
                 if (!SpotOrig(car, ref mat)) return false;
+                if (trf)
+                {
+                    int leg = UtLeg((CarNpcWithNoDriver)car, mat, c);
+                    if (leg == 1) return true;  // placed and held: EA's loop finds the car at the spot (no plan), frees it and waits
+                    if (leg == 2) { ((StreetParking)(object)this).FreeParkingSpotForCar(car); return false; }  // car out of the world: EA's no-spot path
+                }
+                if (!uc) return true;
                 int key = UnseenMath.Key(car.ObjectId.Value);
                 if (!FarFromViewers(car.Position) || UcOnScreen(car) || !FarFromViewers(mat.pos.V3))
                 {
