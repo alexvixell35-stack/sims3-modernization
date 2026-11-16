@@ -9,7 +9,8 @@ namespace Ts3Fixes
     // failed, or a member or live-path problem). Nothing in the world is touched.
     // Live path: a fix registers its hook class and reflection handles with LiveAdd; CkLive then reports a hook with no
     // swap in place (Fixes.sPatched; it keeps the last hook of a stacked swap, so at least one is required) and each handle
-    // that is missing or not usable the way the hook uses it (EpMemberProblem). Same file in every PR that uses it.
+    // that is missing or not usable the way the hook uses it (EpMemberProblem). Also two small reflection helpers the fixes
+    // share (SpNames, B13Nested). Same file in every PR that uses it.
     public static partial class Fixes
     {
         static string CkVerdict(bool on, bool fixedNow, bool controlsOk, bool membersOk)
@@ -44,6 +45,21 @@ namespace Ts3Fixes
         {
             return name + " check (switch " + (on ? "on" : "off") + "): " + fixedText + "=" + fixedNow + "; control: " + ctlText + "; controls ok=" + controls
                 + "; verdict: " + CkVerdict(on, fixedNow, controls, EpJoin(missing, CkLive(name)).Length == 0) + "; " + counters;
+        }
+
+        // "a b" names of the members that are null in ("name", member, ...) pairs, for a fix's "not found" line.
+        static string SpNames(params object[] pairs)
+        {
+            string s = "";
+            for (int i = 0; i + 1 < pairs.Length; i += 2) if (pairs[i + 1] == null) s += pairs[i] + " ";
+            return s.Trim();
+        }
+
+        // A nested type by its chain of names (public or not), null when one is missing.
+        static Type B13Nested(Type t, params string[] names)
+        {
+            foreach (string n in names) { if (t == null) return null; t = t.GetNestedType(n, BindingFlags.Public | BindingFlags.NonPublic); }
+            return t;
         }
 
         delegate string LiveProbe();  // the game's mscorlib (.NET 2.0) has no Func<>
