@@ -11,6 +11,8 @@ Approved 2026-10-10. Rewritten 2026-10-12 with everything found so far (read thi
 
 **r43 load hang (2026-11-16, fixed for r43b):** one name-only `GetMethod` on an overloaded EA method in a static initializer (`betrayednullsim` sBtLoc) killed the whole `Fixes` class at startup, and an unwrapped world-load call then stopped the load. Root cause and guard (`tools/static/refs-resolve-check.ts`, run by build-fixes): docs/582 B8b §3.
 
+**Route-fail leads (2026-11-16, docs/595, static, nothing built):** the six top route-fail leads of the 20 Bridgeport runs (SocialInteractionB, WashDishes, Scare, PlayWithMirror, UseToilet, Fridge) are contention in the 7-Sim test house, a mirror placed behind a bed, EA's planned Scare fallback or PlanFromPoint search rows; none an EA bug. r50 = r49 content.
+
 **Seasons hunt Built (2) (2026-11-16, docs/594 §3-6, r49, built, NOT RUN):** `weathermanagerthrow` (RainEvent.PutOutFires null firefighter dictionary: one throw stopped Seasons for the session), `rainsheltercheap`, `pondclearscan` (exact reorders), `soakedstat` (rain re-add no longer counts a soak), all off; envscoreshelter not built (needs a 500-line copy, costs more than it saves).
 
 **Seasons hunt (2026-11-16, docs/594, r48, built, NOT RUN):** `initstacktrace` (InteractionInstance.Init / OnAddedToQueue without the dead StackTrace walks; exact, every Sim) and `weatherstonelistener` (WeatherStone.Dispose removes the summon listener), both off; 45 Seasons scanner keys verified (1 real, 43 FP, 1 dup).
