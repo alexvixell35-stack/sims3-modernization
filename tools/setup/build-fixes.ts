@@ -361,6 +361,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kPetPuddleTile value="False" />
     <kInitStackTrace value="False" />
     <kWeatherStoneListener value="False" />
+    <kWeatherManagerThrow value="False" />
+    <kRainShelterCheap value="False" />
+    <kPondClearScan value="False" />
+    <kSoakedStat value="False" />
     <kRouteCauseLog value="False" />
     <kScarePriority value="False" />
     <kSandwichAlarm value="False" />

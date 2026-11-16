@@ -268,6 +268,7 @@ namespace Ts3Fixes
                 case "plantdormantflip": return EpLive(typeof(B13PfHook), 1, "sPfLeafless", sPfLeafless, 0, "sPfFrost", sPfFrost, typeof(float), "sPfFrost", sPfFrost, "static", "sPfLeaves", sPfLeaves, typeof(float), "sPfLeaves", sPfLeaves, "static", "sPfDormant", sPfDormant, typeof(bool), "sPfDormant", sPfDormant, null, "sPfFrosted", sPfFrosted, 0, "sPfDelete", sPfDelete, 0);
                 case "plantdormanttime": return EpLive(typeof(B13PtHook), 1, "sPfDormant", sPfDormant, typeof(bool), "sPtLast", sPtLast, null);
                 case "plumbotfacelistener": return EpLive(typeof(PlumbotFaceHook), 0, "sPfOwner", sPfOwner, null);
+                case "pondclearscan": return EpLive(typeof(PcsHook), 1);
                 case "portaladaptorleak": return EpLive(typeof(PortalAdaptorHook), 1);
                 case "portasknohome": return EpLive(typeof(BPtHook), 1);
                 case "portraitpose": return EpLive(typeof(PpHook), 1, "sPpPaintee", sPpPaintee, null, "sPpPainter", sPpPainter, null);
@@ -283,6 +284,7 @@ namespace Ts3Fixes
                 case "putdowninuse": return EpJoin(EpLive(typeof(PutDownInUseHook), 1), EpLive(typeof(VoodooPutDownInUseHook), 0));
                 case "putdownplace": return EpLive(typeof(PdHook), 1);
                 case "putdownplaced": return EpJoin(EpLive(typeof(B12PpHook), 1), EpLive(typeof(B12PpTrigger), 1));
+                case "rainsheltercheap": return EpLive(typeof(RfHook), 1, "sRfNextField", sRfNextField, null, "sRfSchedule", sRfSchedule, 1);
                 case "reactioncopy": return EpLive(typeof(BRcHook), 1);
                 case "reactiongrumpy": return EpLive(typeof(BRgHook), 1, "sRgType", sRgType, null);
                 case "reaperflow": return EpJoin(EpLive(typeof(RfChessHook), 0), EpLive(typeof(RfVendingHook), 0));
@@ -430,6 +432,7 @@ namespace Ts3Fixes
                 case "wakepark": return EpLive(typeof(WpLotHook), 0);
                 case "wakepoll": return EpLive(typeof(WpLotHook), 0);
                 case "wakeprobe": return EpLive(typeof(WpLotHook), 0);
+                case "weathermanagerthrow": return EpLive(typeof(RfHook), 1, "sRfNextField", sRfNextField, null, "sRfSchedule", sRfSchedule, 1);
                 case "weatherstonelistener": return EpLive(typeof(WslHook), 1, "sWslListener", sWslListener, null);
                 case "weddingarchkeep": return EpJoin(EpLive(typeof(WeddingArchKeepHook), 1), EpLive(typeof(WeddingArchRouteHook), 1));
                 case "weddingcancel": return EpLive(typeof(WcHook), 1, "sWcJilter", sWcJilter, null, "sWcAlarm", sWcAlarm, null, "sWcWait", sWcWait, typeof(float), "sWcWait", sWcWait, "static");

@@ -6536,6 +6536,16 @@
       "at": "2026-11-16T11:50:56.427Z",
       "worktree": "/home/<user>/dev/sims3-modernization",
       "pinned": true
+    },
+    {
+      "id": "fixes-1929",
+      "kind": "fixes",
+      "from": 1929,
+      "to": 1942,
+      "by": "claude",
+      "what": "docs/594 Built (2): weathermanagerthrow 1929-1931 (RainEvent.PutOutFires null firefighter dictionary), rainsheltercheap 1932-1935 (cheap test before the shelter natives), pondclearscan 1936-1939 (AllPondsClear world pond / memo first), soakedstat 1940-1942 (rain re-add does not count a new soak)",
+      "at": "2026-11-16T13:41:35.201Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

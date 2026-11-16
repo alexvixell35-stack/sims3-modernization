@@ -1,6 +1,6 @@
 # 594. Seasons (EP8) hunt: scanner queue, hot paths, log (2026-11-16)
 
-Static + RE only, nothing run in game. Two switches built (default off), the rest verified false positives or leads.
+Static + RE only, nothing run in game. Six switches built (default off): §1-2, then §3-6 from the hot-path leads (Built (2)); the rest verified false positives or leads.
 Already built for Seasons before this pass (not repeated): tempforecast, holidaylights, hauntedumbrella, snowfightjoinwait,
 trickortreatalarm, npcseasonalparty, splashroof, puddlereach, mopunreachable, petpuddletile, seasonimposter /
 seasonmarkercache / easpreadlots (docs/44, docs/74, docs/147), lightning lead (docs/593).
@@ -30,6 +30,64 @@ seasonmarkercache / easpreadlots (docs/44, docs/74, docs/147), lightning lead (d
   (`SetToDestroy`, build/buy delete) leaves a listener that keeps it alive and runs `AnimateChangeWeatherStoneState` on the
   disposed stone. Fix: remove it before EA's `Dispose`. Household-visible only through the stone (player summons).
 
+## Built (2): the hot-path leads (2026-11-16, r49, default off, NOT RUN)
+All four act on household Sims too: an EA bug fix or a proven-exact reorder, no skip or throttle. Code:
+`mods/ts3fixes/src/SeasonsHunt594b.cs`; checks print `verdict:` BROKEN (off) / FIXED (on), `controls ok`, `members found`;
+live-path asserts in `CheckLiveMap.cs`; repros `<switch>-check`.
+
+### §3 `weathermanagerthrow` (fixes 1929-1931, `WeatherManagerThrowCheck`) — bug, kills Seasons for the session
+- [verified, decompiled] `SeasonsManager.Simulate` runs Progress, Temperature, Weather, TerrainCover and Tree `Update` in one
+  loop inside `try { } catch (ResetException) { }`: any other throw ends the script, so weather, temperature, snow, ponds and
+  leaves freeze until the next load. `RainEvent.PutOutFires` (every 10 sim-min of rain) extinguishes each unsheltered fire,
+  then calls `Firefighter.sFirefighterDictionary.TryGetValue` with no null test; `Firefighter.Create` allocates the
+  dictionary only when `ServiceNPCSpecifications.ValidForCurrentWorld(Firefighter)` and `DestroyFirefighter` nulls it.
+- Fix (root cause): the lookup is skipped when the dictionary is null (no firefighter to mark `RainAssisted`). No blanket
+  catch. Hook: our copy of `PutOutFires` (also carries §4); `UpdateData` is private, so the hook takes a field-for-field
+  mirror struct and Apply refuses to patch unless EA's fields match (names, types, order); `mNextPutOutFiresTime` /
+  `SchedulePutOutFires` through handles cached once (next time cached per RainEvent; the off path drops the cache).
+- Audit of the rest of the loop [verified, decompiled; no other unguarded null found that can be reached]: WeatherManager
+  (`TrimForecastQueue`, `UpdateWeatherQueue`, `UpdateCurrentWeather` -> event `Update`/`OnStart`/`OnStop`, `UpdateCloudiness`,
+  `UpdateWindiness` -> `UpdateFlagState`), PrecipitationEvent / RainEvent (`DoLightning` picks only lists with weight > 0,
+  `DoThunder`, `ConsiderCancellingSimInteractions`: `Lot.mSims` is a field-initialised List), TerrainCover (`UpdatePondFreezing`
+  -> `PondManager.*`, puddles), Temperature (`UpdateHeatWave` reads `Responder.Instance.HudModel`, live in game), Progress
+  (`GoToNextSeason` tests `Household.ActiveHousehold`), Tree (`DropLeaves` over `LotManager.AllLots`). `Sim.BuffManager`
+  (read by `IsSimOnFire` in the same pass) is set in `Sim.OnCreation` and never nulled. Noted, not a null: `UpdateWeatherQueue`
+  would never end if a profile's min and max length were both 0 (tuning has none).
+- Same unguarded dictionary outside this loop (not reached from Simulate, left): `ExtinguishBase` line ~265, `FireDamage.Begin`
+  (guarded by `Firefighter.Instance != null`).
+
+### §4 `rainsheltercheap` (fixes 1932-1935, `RainShelterCheapCheck`) — exact speedup
+- [verified, decompiled] The same pass tests every Sim and every Soil with `IsShelteredFromPrecipitation` (native
+  `GetLotAtPoint` + `HasAnyRoofOrFloorAbovePos`) before the cheap test: `IsSimOnFire` (buff lookup) / `Soil.OnSprinkled`'s
+  own condition (plant in the Plant slot with `WaterLevel < 100`). Both tests are pure and nothing runs between them, so the
+  cheap test goes first; the Soil branch then sets `WaterLevel = 100` itself (OnSprinkled's whole body, non-virtual). A Sim
+  with no BuffManager keeps EA's order. Fires keep EA's order (`HasLeafPileAtLocation` is not cheaper).
+- How often: once per 10 sim-minutes of rain; cost is 2 natives per Sim and Soil in the world. `result` prints one shelter
+  test vs one on-fire test in us and the Sim/Soil counts. `run` compares both predicates on every live Sim and Soil.
+
+### §5 `pondclearscan` (fixes 1936-1939, `PondClearScanCheck`) — exact speedup
+- [verified, decompiled] `TerrainCoverManager.UpdatePondFreezing` returns early on every SeasonsManager tick while
+  `mPondState == TryingToMelt`, the melt rate is > 0 and `AllPondsClear()` is false; each call is a world
+  `GetObjects<LotPond>` before the one-field world-pond test.
+- Fix, same answer: world pond `UseCount` first, then the lot pond the last scan found in use (still registered:
+  `Simulator.GetProxy(ObjectId) != null` [inferred = in GetObjects; `run` compares with EA's scan live]); EA's scan only when
+  neither is in use. How often: every Seasons tick (per sim frame) only while ponds try to melt with a skater on them.
+
+### §6 `soakedstat` (fixes 1940-1942, `SoakedStatCheck`) — bug, persisted stat (opt-in)
+- [verified, decompiled] `SimTemperature.AddSimTemperatureBuffsIfNecessary` re-adds Soaked (`Origin.FromRain`) to every Sim
+  outside in rain on each environment update (every 2 sim-min), and `BuffSoaked.OnReAddition` increments TombStats "times
+  soaked" each time: ~30 per hour of rain. First soak still counts (`OnAddition`); a rain re-add does not; other re-adds (a
+  trap or a balloon on a soaked Sim, EP1's case) count as before. Counted it a bug: the stat is "times soaked", and only the
+  later Seasons rain loop turns one soak into dozens.
+
+### `envscoreshelter`: not built
+- [verified, decompiled] `SimUpdate.CalculateSimEnvironmentScore` ends with `flag6 || IsShelteredFromPrecipitation(mSim)` and
+  `AddSimTemperatureBuffsIfNecessary` reads it only when outside (all three uses). How often: per Sim, toddler and up, every
+  2 sim-minutes (`mTimePassedEnvironment >= 2`) with motive decay on and Seasons enabled; the saving is the 2 natives for
+  each Sim indoors (skipped already when `IsProtectedFromTheSun`). A lazy test needs a copy of the whole ~500-line method
+  plus three private helpers (`DoSimEnvironmentUpdateInternal` ~230 lines) called through reflection per neighbour, which
+  costs more than it saves, and the method already carries two swaps (`unseenenv`, `autoffenv`). Left as a lead.
+
 ## Scanner queue (45 keys, all marked)
 1 real (WeatherStone listener: astgrep + lifecycle keys, §2), 43 false positives, 1 duplicate of a built fix
 (SnowWaterFight alarm: arena `DoEndOfGame` removes it; join-wait is `snowfightjoinwait`). Reasons in short: HolidayManager
@@ -39,7 +97,7 @@ in `Dispose`; LeafPile / Snowman / SnowAngel broadcasters and VFX are killed in 
 re-arms from its own alarm and the 3 AM kick runs once per lot per night; Umbrella's fx alarm is removed in `OnExitPosture`;
 dynamic-challenge listeners are rebuilt per load; Roslyn IDISP / ReSharper hits are style.
 
-## Hot paths read, no fix (leads)
+## Hot paths read (leads; §3-6 built, envscoreshelter not built: Built (2))
 - `SeasonsManager.Simulate` runs every tick: 5 managers + `WeatherControl.SendSettings` (new `float[23]` + SafeArray icall).
   [verified, Ghidra 0x7846E0] the icall converts, applies a mode at `obj+0x3DC`, copies 23 dwords under a lock to host
   `+0x924` and sets dirty `+0x9A0`. Skipping unchanged sends is not provably exact (mode and other writers), small gain.
