@@ -471,3 +471,12 @@ DoorGenVipHook.RemHook,ResortManager.VIPRoomData,RemoveGuest,DoorGen.cs,RemOrig,
 DoorGenDescHook.GenderHook,SimDescription,set_Gender,DoorGen.cs,GenderOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
 DoorGenDescHook.AgeHook,SimDescription,set_Age,DoorGen.cs,AgeOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
 DoorGenDescHook.PregHook,SimDescription,set_IsVisuallyPregnant,DoorGen.cs,PregOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+SpawnFixHook.FireHook,Sims3.Gameplay.Objects.Rewards.CollectionHelperSingleton,FireEvent,Fixes.cs,FireOrig,no,no path to a yield in 1 overload(s),spawnfix (docs/853),keep
+SpawnFixHook.AddHook,ObjectSpawner,AddObjectToSpawner,Fixes.cs,AddOrig,no,no path to a yield in 1 overload(s),spawnfix (docs/853),keep
+SpawnFixHook.RemoveHook,ObjectSpawner,RemoveObjectFromSpawner,Fixes.cs,RemoveOrig,yes,ObjectSpawner::RemoveObjectFromSpawner > ObjectSpawner::UpdateSpawnAlarm > .. 6 .. > StateMachineClient::RequestState,spawnfix (docs/853),"keep, stub remap (SavedStacks.cs)"
+SpawnFixHook.ImportHook,ObjectSpawner,ImportContent,Fixes.cs,ImportOrig,yes,ObjectSpawner::ImportContent > GameObject::ImportContent > .. 2 .. > StateMachineClient::RequestState,spawnfix (docs/853),"keep, stub remap (SavedStacks.cs)"
+SpawnFixHook.TrySpawnHook,ObjectSpawner,TrySpawnObject,Fixes.cs,TrySpawnOrig,yes,ObjectSpawner::TrySpawnObject > MinorPetSpawner::SpawnObject > .. 2 .. > StateMachineClient::RequestState,spawnfix (docs/853),"keep, stub remap (SavedStacks.cs)"
+SpawnFixHook.StartHook,SpawnerBase,OnStartup,Fixes.cs,StartOrig,no,no path to a yield in 1 overload(s),spawnfix (docs/853),keep
+SpawnFixHook.DisposeHook,SpawnerBase,Dispose,Fixes.cs,DisposeOrig,yes,SpawnerBase::Dispose > GameObject::Dispose > .. 6 .. > StateMachineClient::RequestState,spawnfix (docs/853),"keep, stub remap (SavedStacks.cs)"
+SpawnFixHook.ActivateHook,Sims3.Gameplay.Objects.Fishing.FishingSpotData,ActivateSpot,Fixes.cs,ActivateOrig,no,no path to a yield in 1 overload(s),spawnfix (docs/853),keep
+SpawnFixHook.DeactivateHook,Sims3.Gameplay.Objects.Fishing.FishingSpotData,DeactivateSpot,Fixes.cs,DeactivateOrig,no,no path to a yield in 1 overload(s),spawnfix (docs/853),keep
