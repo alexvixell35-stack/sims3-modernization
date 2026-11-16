@@ -75094,6 +75094,249 @@
     ]
   },
   {
+    "id": "spoonslavechecks-check",
+    "bug": "BedSleep.LoopHandler returns for the spooning slave partner before EA's per-sleeper checks, so the slave of a shared-bed couple skips the light-sleeper wake, early TiredFromMoving removal and NoMonsters cut all night (docs/543 §1)",
+    "fix": "ts3fixes SpoonSlaveChecks.cs + SpoonReset.cs SrHook: spoonslavechecks (default off)",
+    "save": "any world (pure check)",
+    "note": "SpoonSlaveChecksCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 2163-2166.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spoonslavechecks": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoonSlaveChecksCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoonSlaveChecksCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spoonslavechecks": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoonSlaveChecksCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoonSlaveChecksCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spoonslavechecks": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spoonslavechecks": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "petwakebed-check",
+    "bug": "Pet WakeUpSim Cleanup leaves the bed part's ContainedSim set to the pet when the pet is reset between jumping on and off the bed, so that side looks taken (docs/543 §4)",
+    "fix": "ts3fixes PetWakeBed.cs: petwakebed (default off)",
+    "save": "any world (pure check)",
+    "note": "PetWakeBedCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 2167-2169.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petwakebed": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetWakeBedCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetWakeBedCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petwakebed": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetWakeBedCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetWakeBedCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petwakebed": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petwakebed": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "slavewakereason-check",
+    "bug": "BedSleep.Run's spooning-slave wait re-reads Actor.ExitReason every pass, so the reason that woke the slave (HigherPriorityNext) is lost after a second pass: Slow Wake instead of Fast Wake (docs/543 §5)",
+    "fix": "ts3fixes PetWakeBed.cs: slavewakereason (default off)",
+    "save": "any world (pure check)",
+    "note": "SlaveWakeReasonCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 2170-2173.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "slavewakereason": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlaveWakeReasonCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlaveWakeReasonCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "slavewakereason": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlaveWakeReasonCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlaveWakeReasonCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "slavewakereason": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "slavewakereason": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

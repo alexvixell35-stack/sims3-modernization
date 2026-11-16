@@ -27,6 +27,7 @@ namespace Ts3Fixes
     // EA's code unchanged.
     //
     // Counters: [2536] pairs released after the partner was gone, [2537] errors. Check: SpoonResetChecks.cs.
+    // The same hook runs spoonslavechecks (docs/543 §1, SpoonSlaveChecks.cs): EA's per-sleeper checks for a live pair's slave.
     public static partial class Fixes
     {
         const BindingFlags kSrAll = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -88,7 +89,10 @@ namespace Ts3Fixes
                     }
                     catch (Exception) { PatchCounters()[2537]++; }
                 }
+                object self = this;
+                bool slaveChecks = SsBefore(self, ShortcutOn("spoonslavechecks"));  // spoonslavechecks (SpoonSlaveChecks.cs, docs/543 §1): read before EA's body
                 LoopOrig(smc, data);
+                if (slaveChecks) SsAfter(self);
             }
             public void LoopOrig(StateMachineClient smc, InteractionInstance.LoopData data) { } // receives BedSleep.LoopHandler's original body
         }

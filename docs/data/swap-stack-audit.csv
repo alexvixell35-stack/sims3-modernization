@@ -471,3 +471,5 @@ DoorGenVipHook.RemHook,ResortManager.VIPRoomData,RemoveGuest,DoorGen.cs,RemOrig,
 DoorGenDescHook.GenderHook,SimDescription,set_Gender,DoorGen.cs,GenderOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
 DoorGenDescHook.AgeHook,SimDescription,set_Age,DoorGen.cs,AgeOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
 DoorGenDescHook.PregHook,SimDescription,set_IsVisuallyPregnant,DoorGen.cs,PregOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+PwCleanupHook.CleanupHook,Sim.WakeUpSim,Cleanup,PetWakeBed.cs,CleanupOrig,yes,Sim+WakeUpSim::Cleanup > InteractionInstance::Cleanup > .. 2 .. > StateMachineClient::RequestState,petwakebed (docs/543 §4),"keep, stub remap (SavedStacks.cs)"
+SbSyncHook.SyncHook,Sim,IsAtSynchronizationLevelWith,PetWakeBed.cs,SyncOrig,yes,"original: no path to a yield; the hook body runs the slave wait (Simulator::Sleep) on BedSleep.Run's thread",slavewakereason (docs/543 §5),"keep, stub remap (SavedStacks.cs)"

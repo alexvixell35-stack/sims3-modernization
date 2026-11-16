@@ -298,6 +298,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSculptPose value="True" />
     <kTrainBoost value="True" />
     <kEatOutsideCount value="True" />
+    <kSpoonSlaveChecks value="False" />
+    <kPetWakeBed value="False" />
+    <kSlaveWakeReason value="False" />
     <kBirthRoute value="True" />
     <kPutDownPlace value="True" />
     <kAwardKeep value="False" />

@@ -298,6 +298,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kSculptPose = true;    // sculptpose (docs/568 §3): Sculpt Sim failure paths leave the subject posing
         [Tunable] public static bool kDoorGen = true;    // doorgen (docs/585, by Dalexlol, PR #430): bump ts3native's door generation for DoorMemoX=3; memo answers only unseen / seen-NPC jobs (docs/585 §5)
         [Tunable] public static bool kTrainBoost = true;    // trainboost (docs/569 §1): a trainer reset during Train Sim leaves the trainee's doubled Athletic / shape gain for good
+        [Tunable] public static bool kSpoonSlaveChecks = false;    // spoonslavechecks (docs/543 §1): the spooning slave partner gets EA's light-sleeper / TiredFromMoving / NoMonsters checks like every other sleeper
+        [Tunable] public static bool kPetWakeBed = false;    // petwakebed (docs/543 §4): pet WakeUpSim Cleanup clears the bed part that still holds the pet (reset mid-wake)
+        [Tunable] public static bool kSlaveWakeReason = false;    // slavewakereason (docs/543 §5): the spooning slave keeps the exit reason that woke it across its wait for the master
         [Tunable] public static bool kEatOutsideCount = true;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)
         [Tunable] public static bool kHomeworkHelp = true;    // homeworkhelp (docs/565 §7): helper starting Help with Homework after the child finished hits a null jig
         [Tunable] public static bool kShellLighting = true;      // shelllighting (docs/561 §5): a buildable shell shows the lighting of the latest passed lighting time after load (EA keeps Default until the next alarm)
