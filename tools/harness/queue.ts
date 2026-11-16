@@ -9,6 +9,7 @@
 //     s3ppIni?: { "Patches.MonoTypeEHashProbe": 0 }, s3ssToml?: { "patches.LotStreamingOptimizations.enabled": false }, minCounters?: 20, timeoutMin?,
 //     pin?: false | { cpus?: "4-15", priority?: "High", others?: boolean | [names] } }   (also queue-level beside "jobs"; pin.ts)
 //     quitsGame?: true (run.script only, e.g. quit-cycle.ts): the script quits the game and judges that exit; a gone game is not a crash or stall, only its "game died" line or a fresh EA crash report is; its "after" numbers come from $TS3_AFTERRUN_FILE
+//     run.rewindGames: {n, profile: {minutes, seed?, ...}, ab?: "name,name"} (docs/270 §9.2, test-only, needs the patched RTX Remix bridge): n games from one load, each from the same snapshot; see rewindArms
 // Vanilla mode (docs/236, TS3_VANILLA=1 or queue-level "vanilla": true): the game runs without ts3native and ts3fixes, only the
 // ts3agent package from TS3_AGENT_PACKAGE. vanilla.ts installs the state at the start (unless a stash is already installed, which
 // is then only read back) and restores it at the end; jobs must say asi "none" and use no ini, fixes, counters, log rules, profile,
@@ -231,6 +232,7 @@ import { checkRequire, flatDelta, parseRequire, startupDeltaLint } from './fixes
 import { parseHitchTasks } from './hitch-tasks.ts';
 import { parseRule } from './frame-lead.ts';
 import { abFixesClash } from './native-switches.ts';
+import { EXE as REWIND_EXE, fridaLoaded, MODES, pidOf, REWIND_ON, rendererOk, serve, type Row } from './rewind-smoke.ts';
 import { checkLoop, ruleText, STOP_LINE, withRule, type Loop } from './repro-loop.ts';
 import { drift, driftLine, failMode, logCopy, parseReuse, readSwitches, REUSE_DEFAULTS, reproItems, restoreSwitches, reuseBlock, snapshot, stableKey, subTag, type Extra, type ReproItem, type ReuseOpts, type WorldSnap } from './session-reuse.ts';
 import { saveForeground } from './focus-game.ts';
@@ -278,7 +280,7 @@ function machineCols(tag: string) { return tag ? { head: ' machine |', sep: '---
 function machineField(tag: string): { machineTag?: string } { return tag ? { machineTag: tag } : {}; }
 type Job = { id: string; note?: string; asi: string; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; run: { repro?: string; saveReload?: string[]; script?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
-    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; crashHunt?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
+    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string }; rewindGames?: { n: number; profile: { minutes: number; seed?: number; fixesOn?: string; fixesOff?: string }; ab?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; crashHunt?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
   saveMatrix?: { fixes?: 'all' | 'shipped' }; regexCases?: Record<string, { match: string[]; noMatch: string[] }>; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; retryOf?: string; expectHang?: string; shadowCheck?: boolean; quitsGame?: boolean; skipIfMissing?: boolean; ourMods?: false };
 
 function checkRegexCases(cases: Record<string, { match?: unknown; noMatch?: unknown }>, res: string[], at: string) {
@@ -347,6 +349,33 @@ export const vanillaBlock = (prev: string | null, cur: string | null): string =>
 export const emptyButtons = (cur: string | null): boolean => !!cur && /buttons: *$/.test(cur);
 export const vanillaBlockFor = (prev: string | null, cur: string | null, sinceMs: number): string => emptyButtons(cur) && sinceMs <= 2 * GUARD_MS ? '' : vanillaBlock(prev, cur);
 
+// run.rewindGames (docs/270 §9.2): n games from one world load on the patched RTX Remix bridge (Bin state apex-rewind). After the
+// load: route worker parked, game paused, probe agent out, `rewind-spike serve` snapshot, agent back. Each game: one profile-world.ts
+// window without a Frida session of its own, its counters and its ts3native.log slice read (the log is not rolled back), then
+// park, pause, agent out, rewind to the snapshot for the next game. ab: patches switches on in the on games (--fixes-on) and off
+// in the off games (--fixes-off), in ABBA order. A refused (code 2) or fatal (code 3) rewind reloads the world, takes a new
+// snapshot and marks the game row reloaded.
+export const REWIND_PROFILE_KEYS = ['minutes', 'seed', 'fixesOn', 'fixesOff', 'noEnv', 'envGuard', 'quitJobs'];
+export const rewindArms = (n: number, ab?: string): ('on' | 'off' | '')[] => Array.from({ length: n }, (_, i) => (!ab ? '' : i % 4 === 0 || i % 4 === 3 ? 'off' : 'on'));
+export const rewindGameProfile = (p: any, ab: string | undefined, arm: string) => ({ ...p, noProf: true, noSamplers: true, noFrames: true,
+  ...(arm === 'on' ? { fixesOn: [p.fixesOn, ab].filter(Boolean).join(',') } : arm === 'off' ? { fixesOff: [p.fixesOff, ab].filter(Boolean).join(',') } : {}) });
+function checkRewindGames(j: any, at: string) {
+  const g = j.run.rewindGames, p = g?.profile, sp = (v: unknown) => (v === undefined ? [] : String(v).split(','));
+  if (typeof g !== 'object' || !g || Object.keys(g).some(k => !['n', 'profile', 'ab'].includes(k))) throw new Error(`${at}: run.rewindGames takes n, profile and ab`);
+  if (!(Number.isInteger(g.n) && g.n >= 1 && g.n <= 12)) throw new Error(`${at}: run.rewindGames.n must be 1..12 games`);
+  if (!(p?.minutes > 0)) throw new Error(`${at}: run.rewindGames.profile.minutes must be > 0`);
+  const extra = Object.keys(p).filter(k => !REWIND_PROFILE_KEYS.includes(k));
+  if (extra.length) throw new Error(`${at}: run.rewindGames.profile takes only ${REWIND_PROFILE_KEYS.join(', ')} (no Frida session beside a rewind): ${extra.join(', ')}`);
+  if (p.seed !== undefined && !Number.isInteger(p.seed)) throw new Error(`${at}: run.rewindGames.profile.seed must be an integer`);
+  for (const k of ['noEnv', 'envGuard', 'quitJobs']) if (p[k] !== undefined && typeof p[k] !== 'boolean') throw new Error(`${at}: run.rewindGames.profile.${k} must be true or false`);
+  for (const [k, v] of [['ab', g.ab], ['profile.fixesOn', p.fixesOn], ['profile.fixesOff', p.fixesOff]]) if (v !== undefined && !/^[a-z0-9]+(,[a-z0-9]+)*$/.test(String(v))) throw new Error(`${at}: run.rewindGames.${k} must be comma-separated switch names`);
+  const twice = abFixesClash(sp(g.ab), sp(p.fixesOn), sp(p.fixesOff));
+  if (twice.length) throw new Error(`${at}: run.rewindGames ab / fixesOn / fixesOff name the switch ${twice.join(',')} twice`);
+  if (Number(j.ini?.['Rewind.Park']) !== 1 || Number(j.ini?.['Rewind.Offline']) !== 1) throw new Error(`${at}: run.rewindGames needs ini Rewind.Park 1 and Rewind.Offline 1 (route worker parks, no wininet pool work: docs/270 §19, §22)`);
+  if (j.callSites) throw new Error(`${at}: run.rewindGames: callSites must stay off (int3 traps and their handler across a rewind, docs/270 §21)`);
+  if (!j.save || j.save === 'menu') throw new Error(`${at}: run.rewindGames needs a save to load`);
+  if (j.reuseSession) throw new Error(`${at}: run.rewindGames takes no reuseSession (the next job would get a rewound game)`);
+}
 export function parseQueue(json: unknown): Job[] {
   const jobs = Array.isArray(json) ? json : (json as any)?.jobs;
   if (!Array.isArray(jobs) || !jobs.length) throw new Error('queue: expected a non-empty list of jobs (or { "jobs": [...] })');
@@ -373,8 +402,8 @@ export function parseQueue(json: unknown): Job[] {
     for (const k of Object.keys(j.dxvkConf ?? {})) if (!/^\w+\.\w+$/.test(k)) throw new Error(`${at}: dxvkConf key "${k}" must be component.option (e.g. d3d9.textureMemory)`);
     if (j.gameArgs && !(Array.isArray(j.gameArgs) && j.gameArgs.every((x: unknown) => typeof x === 'string' && x.startsWith('-')))) throw new Error(`${at}: gameArgs must be a list of -switches`);
     for (const k of ['install', 'uninstall']) if (j.fixes?.[k] && !Array.isArray(j.fixes[k])) throw new Error(`${at}: fixes.${k} must be a list of ids`);
-    const kinds = Object.keys(j.run ?? {}).filter(k => ['repro', 'matrix', 'soak', 'menuMemory', 'profile', 'routelock', 'worldimage', 'age', 'saveReload', 'script'].includes(k));
-    if (kinds.length !== 1 || Object.keys(j.run).length !== 1) throw new Error(`${at}: run needs exactly one of repro, matrix, soak, menuMemory, profile, routelock, worldimage, age, saveReload, script`);
+    const kinds = Object.keys(j.run ?? {}).filter(k => ['repro', 'matrix', 'soak', 'menuMemory', 'profile', 'routelock', 'worldimage', 'age', 'saveReload', 'script', 'rewindGames'].includes(k));
+    if (kinds.length !== 1 || Object.keys(j.run).length !== 1) throw new Error(`${at}: run needs exactly one of repro, matrix, soak, menuMemory, profile, routelock, worldimage, age, saveReload, script, rewindGames`);
     if (j.run.script !== undefined && !(Array.isArray(j.run.script) && j.run.script.every((x: unknown) => typeof x === 'string') && /^[\w-]+\.ts$/.test(j.run.script[0] ?? ''))) throw new Error(`${at}: run.script must be ["<tools/harness script>.ts", args...]`);
     if (j.quitsGame !== undefined && (j.quitsGame !== true || !j.run.script || j.reuseSession)) throw new Error(`${at}: quitsGame must be true, with run.script and no reuseSession (the script quits the game)`);
     if (j.run.saveReload !== undefined && !(Array.isArray(j.run.saveReload) && j.run.saveReload.every((x: unknown) => typeof x === 'string'))) throw new Error(`${at}: run.saveReload must be a list of save-reload.ts args`);
@@ -450,8 +479,8 @@ export function parseQueue(json: unknown): Job[] {
     if (j.releaseDefaults !== undefined && typeof j.releaseDefaults !== 'boolean') throw new Error(`${at}: releaseDefaults must be true or false`);
     // fixesPackage: a shipped ts3fixes.package (path from the repo root) installed over cycle.ts's build/ copy before each start (repro jobs: the start-path controls, release-validate *-v016)
     // matrix too: its reload restarts reinstall the package (release-followup-1111 ran reload on a pinned pair)
-    if (j.fixesPackage !== undefined && (typeof j.fixesPackage !== 'string' || !j.fixesPackage || j.fixesBuild !== undefined || !(j.run?.profile || j.run?.soak || j.run?.repro || j.run?.script || j.run?.matrix)))
-      throw new Error(`${at}: fixesPackage must be a path, only on profile/soak/repro/script/matrix jobs, not with fixesBuild`);
+    if (j.fixesPackage !== undefined && (typeof j.fixesPackage !== 'string' || !j.fixesPackage || j.fixesBuild !== undefined || !(j.run?.profile || j.run?.soak || j.run?.repro || j.run?.script || j.run?.matrix || j.run?.rewindGames)))
+      throw new Error(`${at}: fixesPackage must be a path, only on profile/soak/repro/script/matrix/rewindGames jobs, not with fixesBuild`);
     if (j.iniBase !== undefined && (typeof j.iniBase !== 'string' || !j.iniBase)) throw new Error(`${at}: iniBase must be a path from the repo root`);
     if (j.pinReason !== undefined && (typeof j.pinReason !== 'string' || !j.pinReason.trim())) throw new Error(`${at}: pinReason must be a non-empty text (why this job pins its asi/package)`);
     if (fridaAttach(j) && (j.callSites || Number(j.ini?.['ProbeSnap.CallSites']))) throw new Error(`${at}: ProbeSnap.CallSites with a second Frida agent (${fridaAttach(j)}): int3 traps + agent attach crashed the game (docs/67 §7); set run.profile.noProf (and drop the side probe) or callSites false`);
@@ -492,6 +521,7 @@ export function parseQueue(json: unknown): Job[] {
     try { pinConfig(j.pin); } catch (e) { throw new Error(`${at}: pin: ${(e as Error).message}`); }
     if (j.reuseSession === undefined && !Array.isArray(json) && (json as any).reuseSession !== undefined) j.reuseSession = (json as any).reuseSession; // queue-level default
     parseReuse(j.reuseSession, `${at}: reuseSession`);
+    if (j.run.rewindGames !== undefined) checkRewindGames(j, at);
     if (j.run.profile?.repros !== undefined) {
       reproItems(j.run.profile.repros, `${at}: run.profile.repros`);
       for (const k of ['repro', 'ab', 'untilCompares', 'travel', 'loopRule']) if (j.run.profile[k] !== undefined) throw new Error(`${at}: run.profile.repros takes no profile.${k} (each repro is its own window)`);
@@ -601,7 +631,7 @@ export const fridaAttach = (j: Job): string => {
   const side = (['inroom', 'watchstalk', 'livereads2', 'f4b'] as const).filter(k => p[k]);
   return [...(!p.noProf && !p.watchstalk && !Number(j.ini?.['ProbeSnap.Enabled']) ? ['stutter profiler'] : []), ...side].join(', ');
 };
-const callSitesWanted = (j: Job) => !j.run.worldimage && (j.callSites ?? !(j.run.profile && j.noiseCheck !== false)) && j.ini?.['ProbeSnap.CallSites'] === undefined && !Number(j.ini?.['ProbeSnap.Enabled']);
+const callSitesWanted = (j: Job) => !j.run.worldimage && !j.run.rewindGames && (j.callSites ?? !(j.run.profile && j.noiseCheck !== false)) && j.ini?.['ProbeSnap.CallSites'] === undefined && !Number(j.ini?.['ProbeSnap.Enabled']);
 export const callSitesIni = (j: Job): Record<string, number> => callSitesWanted(j) && !fridaAttach(j) ? { 'ProbeSnap.CallSites': 1 } : {};
 // the one queue log line when the auto key is dropped for a Frida agent ('' = nothing to say)
 export const callSitesOffNote = (j: Job) => callSitesWanted(j) && fridaAttach(j) ? `ProbeSnap.CallSites off: ${fridaAttach(j)} attaches a Frida agent (docs/67 §7)` : '';
@@ -1309,7 +1339,22 @@ if (values['self-check']) {
   assert.equal(parseQueue([{ id: 'p', asi: 'tested', save: 'S', gameArgs: ['-disablestoryprogression'], run: { profile: { minutes: 10, seed: 7 } } },
     { id: 'i', asi: 'tested', save: 'menu', defaultIni: { 'Config.SimulatorRandomSeed': 7 }, run: { menuMemory: { draws: 3 } } }]).length, 2);
   for (const [q, re] of bad) assert.throws(() => parseQueue(q), re);
-  const age = (a: object, extra: object = {}) => [{ id: 'age-bp', asi: 'tested', save: 'Baseline-BP', run: { age: { days: 14, checkpoint: 2, ...a } }, ...extra }];
+  // docs/270 §9.2: run.rewindGames planning and refusals
+  assert.deepEqual(rewindArms(5, 'routefaillog'), ['off', 'on', 'on', 'off', 'off']);
+  assert.deepEqual(rewindArms(2), ['', '']);
+  const rgp = { minutes: 2, seed: 7, fixesOn: 'a' };
+  assert.deepEqual([rewindGameProfile(rgp, 'x', 'on').fixesOn, rewindGameProfile(rgp, 'x', 'off').fixesOff, rewindGameProfile(rgp, 'x', 'off').fixesOn, rewindGameProfile(rgp, undefined, '').fixesOff], ['a,x', 'x', 'a', undefined]);
+  assert.ok(['noProf', 'noSamplers', 'noFrames'].every(k => (rewindGameProfile(rgp, 'x', 'on') as any)[k] === true), 'no Frida session of its own in a rewound game');
+  const rgj = (g: object, extra: object = {}) => [{ id: 'rg', asi: 'tested', save: 'Baseline-BP-Spring', ini: { 'Rewind.Park': 1, 'Rewind.Offline': 1 }, run: { rewindGames: { n: 3, profile: { minutes: 2, seed: 1 }, ab: 'routefaillog', ...g } }, ...extra }];
+  assert.equal(parseQueue(rgj({}))[0].run.rewindGames!.n, 3);
+  assert.deepEqual(callSitesIni(parseQueue(rgj({}))[0]), {}, 'no coverage traps across a rewind');
+  for (const [q, re] of [[rgj({ n: 0 }), /n must be 1..12/], [rgj({ profile: { minutes: 0 } }), /minutes must be > 0/], [rgj({ profile: { minutes: 2, ab: 'x' } }), /takes only .*: ab/],
+    [rgj({ profile: { minutes: 2, repros: ['a'] } }), /takes only/], [rgj({ ab: 'Bad-Name' }), /ab must be/], [rgj({ profile: { minutes: 2, fixesOff: 'routefaillog' } }), /twice/], [rgj({ arms: 2 }), /takes n, profile and ab/],
+    [rgj({}, { ini: { 'Rewind.Park': 1 } }), /Rewind.Offline 1/], [rgj({}, { callSites: true }), /callSites must stay off/], [rgj({}, { save: 'menu' }), /needs a save/], [rgj({}, { reuseSession: true }), /no reuseSession/],
+    [rgj({}, { run: { rewindGames: { n: 2, profile: { minutes: 2 } }, profile: { minutes: 2 } } }), /exactly one of/]] as [any, RegExp][])
+    assert.throws(() => parseQueue(q), re);
+  assert.equal(parseQueue(JSON.parse(readFileSync(H('queues/rewind-games-smoke-1116.json'), 'utf8')))[0].run.rewindGames!.ab, 'routefaillog');
+  const age =(a: object, extra: object = {}) => [{ id: 'age-bp', asi: 'tested', save: 'Baseline-BP', run: { age: { days: 14, checkpoint: 2, ...a } }, ...extra }];
   assert.equal(parseQueue(age({ keepAlive: 'off', save: 'Age-BP' }))[0].run.age!.days, 14);
   assert.equal(parseQueue(age({ keepAlive: -50 })).length, 1);
   for (const [q, re] of [[age({ days: 0 }), /days/], [age({ checkpoint: -1 }), /checkpoint/], [age({ keepAlive: 'on' }), /keepAlive/],
@@ -2139,6 +2184,7 @@ const tagTaken = (t: string) => {
 };
 const tagOf = new Map<Job, string>(); // resolved once per job: every artifact path, the row and the reports share it
 const profileTag = (j: Job) => tagOf.get(j) ?? (tagOf.set(j, freeTag(`${queueName}-${new Date().toISOString().slice(0, 10)}-${j.id}`, tagTaken)), tagOf.get(j)!);
+const rewindTag = (j: Job, k: number, arm: string) => subTag(profileTag(j), `g${k + 1}${arm ? `-${arm}` : ''}`);
 // p: the job's profile, or for one repro of profile.repros that merged with the item (docs/170 §1); extra: session flags
 const profileArgs = (j: Job, p: any = j.run.profile!, tag = profileTag(j), extra: string[] = []): string[] => [H('profile-world.ts'), '--tag', tag, '--minutes', String(p.minutes), ...(p.seed !== undefined ? ['--seed', String(p.seed)] : []),
       ...(p.repro ? ['--repro', p.repro] : []), ...(p.loopRule ? ['--loop-rule', JSON.stringify(p.loopRule)] : []),...(p.mainstack ? ['--mainstack', String(p.mainstack)] : []),
@@ -2303,7 +2349,10 @@ if (values['dry-run']) {
     if (j.run.age) { const c = ageClash(j); console.log(`  7 saves ${ageName(j)}-dayN every ${j.run.age.checkpoint} sim days, final ${ageName(j)}; per checkpoint size/types/save ms/memory -> ${queueName}-<date>-${j.id}-age.csv${c.length ? `  ** REFUSED: would overwrite ${c.join(', ')} **` : ''}`); }
     if (!items) console.log(`  7 ${r ? `node ${r.map(x => x.replace(ROOT + '\\', '').replace(/\\/g, '/')).join(' ')}` : j.run.soak ? `soak ${j.run.soak.minutes} min at ${j.run.soak.speed ?? 'ultra'} (autopilot + watchdog.ts)`
       : j.run.routelock ? `routelock ${j.run.routelock.minutes} min at ${j.run.routelock.speed ?? 'ultra'}: autopilot, /routelock?start=1, watchdog.ts, /routelock?stop=1 -> row.routelock`
+      : j.run.rewindGames ? `rewindGames: refuse unless NvRemixBridge.exe runs and Bin/bridge.conf has rewindMode = True; park, pause, probe agent out, rewind-spike serve <pid> ${MODES['bridge-apply'].flags.join(' ')}: snapshot, agent back${existsSync(REWIND_EXE) ? '' : '  ** rewind-spike.exe MISSING: tools\\harness\\rewind\\build.cmd; the job refuses **'}`
       : j.run.worldimage ? `worldimage: require 'OK   world image' in ts3native.log; autopilot ${j.run.worldimage.speed ?? 'normal'}, settle ${j.run.worldimage.settleS ?? 60} s; ${j.run.worldimage.captures} x (write <OutDir>\\request, wait for the new wi-* folder's header.txt 'loose' line: progress check every 30 s, 2 misses = FAIL; gap ${j.run.worldimage.gapS ?? 30} s) -> row.worldimage (stall ms, MB, loose, lock owners, G3-1 statics read)` : `menu memory after ${j.run.menuMemory?.waitS ?? 60} s${j.run.menuMemory?.draws ? `, ${j.run.menuMemory.draws} RandomGen draws` : ''}`}`);
+    const rg = j.run.rewindGames;
+    if (rg) rewindArms(rg.n, rg.ab).forEach((arm, k) => console.log(`  7 game ${k + 1}/${rg.n}${arm ? ` ${arm}` : ''}: ${k ? 'park, pause, probe agent out, rewind, agent back (code 2/3: reload + new snapshot, row marked); ' : ''}node ${profileArgs(j, rewindGameProfile(rg.profile, rg.ab, arm), rewindTag(j, k, arm)).map(x => x.replace(ROOT + '\\', '').replace(/\\/g, '/')).join(' ')}; counters + ts3native.log slice -> <tag>-counters.json, <tag>-ts3native.log`));
     if (j.saveMatrix?.fixes === 'shipped') console.log(`  7 release mode (save-matrix.ts --fixes shipped); when its reload case is pending: for ON then OFF save: close game, cycle.ts --restart, asi + ini (+ fixesPackage) again, probe, cycle.ts --save <it>, save-matrix.ts --reload-check [--off]`);
     if (loopOf(j)) { const l = loopOf(j)!; console.log(`  7 stop rule: ${ruleText(l.until)} (fixed before the run), arms ${l.arms.join(',')} repeated; cap ${Math.min(l.maxMinutes ?? j.run.profile!.minutes, j.run.profile!.minutes)} min (profile.minutes = cap)`); }
     if (j.minCounters !== undefined) console.log(`  7 refuse unless /native after the load reports counters >= v${j.minCounters}; full /native -> ${queueName}-<date>-${j.id}-native.json${j.ini?.['Verify.Enabled'] ? ' ([Verify] maxima zeroed after that read: live window)' : ''}`);
@@ -3017,6 +3066,73 @@ for (const [n, j] of jobs.entries()) {
       }
       row.exitCode = row.repros.length === items.length && row.repros.every((x: any) => x.exitCode === 0) ? 0 : 1;
       row.timedOut = row.repros.some((x: any) => x.timedOut);
+    } else if (j.run.rewindGames) {
+      // ---- run.rewindGames (docs/270 §9.2, rewindArms above): one load, every game from the same snapshot
+      const g = j.run.rewindGames, arms = rewindArms(g.n, g.ab), conf = join(BIN, 'bridge.conf');
+      let bridgeRuns = true;
+      try { pidOf('NvRemixBridge.exe'); } catch { bridgeRuns = false; }
+      if (!existsSync(REWIND_EXE)) throw new Error(`${REWIND_EXE} missing (tools\\harness\\rewind\\build.cmd); refused, nothing run`);
+      if (!rendererOk('bridge-rewind', bridgeRuns, existsSync(conf) && REWIND_ON.test(readFileSync(conf, 'utf8')))) throw new Error('run.rewindGames needs the patched RTX Remix bridge (NvRemixBridge.exe running, rewindMode = True in Bin/bridge.conf: Bin state apex-rewind); refused, nothing run');
+      let s: ReturnType<typeof serve> | null = null, pid = 0;
+      // an op that writes into the game (docs/270 §21, §24): the route worker parks while the sim runs, then pause, probe agent out, op, agent back
+      const op = async (c: string): Promise<Row> => {
+        const pk = await s!.cmd('park', 30);
+        if (pk.code) log(`${j.id}: park: code ${pk.code} ${pk.why.join('; ')}`);
+        await agent('set_speed', { speed: 'pause' }); await sleep(2000);
+        await get('fridadetach', 60000);
+        for (let t = 0; t < 100 && fridaLoaded(pid); t++) await sleep(200);
+        const r = await s!.cmd(c, 300);
+        if (!(await get('fridaattach', 60000))?.attached) log(`${j.id}: probe attach after ${c} failed`);
+        log(`${j.id}: rewind-spike ${c}: code ${r.code}, ms ${JSON.stringify(r.ms ?? {})}${r.why.length ? `; ${r.why.join('; ')}` : ''}`);
+        return r;
+      };
+      const snap = async () => {
+        s = serve(pid = pidOf(GAME_EXE), MODES['bridge-apply'].flags);
+        const r = await op('snapshot');
+        if (r.code) { await s.quit(); s = null; }
+        return { code: r.code, ms: r.ms, why: r.why, stats: r.stats };
+      };
+      row.games = [];
+      try { // the tool host never outlives the branch (a throw in a reload too)
+        row.rewindSnapshots = [await snap()];
+        for (const [k, arm] of arms.entries()) {
+          const gr: any = { game: k + 1, arm: arm || null, load: sess!.load };
+          if (k > 0) {
+            const r = s ? await op('rewind') : null;
+            if (r) gr.rewind = { code: r.code, ms: r.ms, why: r.why, stats: r.stats };
+            if (!r || r.code !== 0) { // refused (2), target ended (3) or no snapshot: a fresh load and a new snapshot instead
+              if (s) await (s as ReturnType<typeof serve>).quit();
+              s = null;
+              await reloadGame(j, logFile, deadline, r ? `rewind code ${r.code}: ${r.why.join('; ') || 'no reason given'}` : 'no snapshot to rewind to');
+              gr.reloaded = true; gr.load = sess!.load;
+              row.rewindSnapshots.push(await snap());
+            }
+          }
+          const p = rewindGameProfile(g.profile, g.ab, arm), tag = rewindTag(j, k, arm), how = gr.reloaded ? 'after a reload (rewind refused)' : k ? 'after a rewind' : 'first game after the load';
+          const before = { native: await get('native'), patches: (await agent('patches'))?.result ?? null }, from = logSize();
+          log(`${j.id}: game ${k + 1}/${arms.length}${arm ? ` ${arm}` : ''} (tag ${tag}, ${how})`);
+          appendFileSync(logFile, `\n${new Date().toISOString()} game ${k + 1}: profile-world.ts output in ${tag}.log\n`);
+          const r = await node(profileArgs(j, p, tag), join(OUT, `${tag}.log`), deadline);
+          // read now: the next rewind puts the counters back, and the log keeps growing past this game
+          writeFileSync(gr.counters = join(OUT, `${tag}-counters.json`), JSON.stringify({ before, after: { native: await get('native'), patches: (await agent('patches'))?.result ?? null } }, null, 1));
+          if (existsSync(LOG)) try { writeFileSync(gr.nativeLog = join(OUT, `${tag}-ts3native.log`), logCopy(readFileSync(LOG), sess!.logOff, from)); } catch (e) { log(`${j.id}: game ${k + 1}: ts3native.log slice: ${e}`); }
+          Object.assign(gr, { tag, exitCode: r.code, timedOut: r.timedOut });
+          gr.verdict = [`${r.code === 0 ? 'PASS' : 'FAIL'}: game ${k + 1}${arm ? ` ${arm}` : ''}: profile ${p.minutes} min, ${how}`, ...(r.code === 0 ? verdicts(r.out).filter(isFail) : silentFail(r.code, r.out, r.timedOut))];
+          // the arm's switches read back after the rewind
+          const fo = r.code !== 0 ? '' : fixesOnFail(p.fixesOn, r.out) || (p.fixesOff && !r.out.includes(`fixes off: ${p.fixesOff} (verified)`) ? `fixes off: ${p.fixesOff} not read back` : '');
+          if (fo) { gr.verdict.push(`FAIL: game ${k + 1}: ${fo}`); gr.exitCode = 1; }
+          row.games.push(gr); row.verdict.push(...gr.verdict);
+          const lost = r.timedOut || stall ? '' : await childLost('profile-world', r, closeLost, l => log(`${j.id}: ${l}`));
+          if (lost) { row.error = lost; break; }
+          if (gr.exitCode !== 0 && (!gameRunning() || r.timedOut)) break; // crash or deadline: the job ends, the crash rules decide
+        }
+      } finally { if (s) await (s as ReturnType<typeof serve>).quit(); }
+      for (const b of ['bridge32.log', 'bridge64.log']) { // the bridge's [Rewind] lines; the Bin copy goes with the Bin restore (docs/270 §26)
+        const src = join(BIN, 'rtx-remix', 'logs', b);
+        if (existsSync(src)) copyFileSync(src, join(OUT, `${profileTag(j)}-${b}`));
+      }
+      row.exitCode = row.games.length === arms.length && row.games.every((x: any) => x.exitCode === 0) ? 0 : 1;
+      row.timedOut = row.games.some((x: any) => x.timedOut);
     } else if (j.run.age) {
       const clash = ageClash(j);
       if (clash.length) throw new Error(`age: would overwrite ${clash.join(', ')}; set run.age.save to a new name`);

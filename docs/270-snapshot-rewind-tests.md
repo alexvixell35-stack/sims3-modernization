@@ -299,6 +299,20 @@ so it was not built in this lane.
   `ticks <n>` once the hook exists); on code 2 or 3 fall back to a normal restart and reload, and mark the row.
 - profile-world.ts `--no-load` (start from "in world"), as in §4.
 - ts3native.log and other files the game appends to are not rolled back: rows must be read per game before the next rewind.
+- Built 2026-11-16: queue job kind `run.rewindGames: { n, profile, ab? }` (`tools/harness/queue.ts`, `rewindArms`). The probe's
+  `/fridadetach` and `/fridaattach` were already there (§24), and profile-world.ts already starts from "in world", so no
+  `--no-load` was needed. Each game is one profile-world.ts window with `--no-prof --no-samplers --no-frames` (no Frida
+  session of its own across a rewind); `ab` switches go through `--fixes-on` / `--fixes-off` in ABBA order and are read back;
+  counters (`<tag>-counters.json`) and the ts3native.log slice are read per game before the next rewind; a rewind with code 2
+  or 3 reloads the world, takes a new snapshot and marks the game row `reloaded`. Smoke queue
+  `tools/harness/queues/rewind-games-smoke-1116.json` (dry-run ok).
+- First smoke run (2026-11-16, Dalexlol's PC, Apex 4.0.1 + the tip pair d3d9 926303ee / NvRemixBridge 749d75b8, Baseline-BP-Spring)
+  [verified: job log, bridge64.log]: snapshots code 0 (copy 830-1129 ms, park 147-181 ms); game 1 (off) played 2 min; its rewind
+  came back code 2 ("the bridge server refused op 3, result 80004005"), so the job reloaded as designed (~6 min), took a new
+  snapshot and ran game 2. The bridge server gave that second snapshot up 10 s after it was taken: "a 4096x1 surface of format
+  116 written after the snapshot could not be read first" (format 116 = A32B32G32R32F; a float lookup texture redrawn every
+  few seconds). Stopped by hand before game 3. Open: which renderer pass writes that surface, and whether the server can copy
+  such a surface (GetRenderTargetData / StretchRect) instead of giving the snapshot up.
 
 ## 10. Game smoke queue (not run)
 
