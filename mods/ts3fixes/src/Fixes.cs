@@ -53,6 +53,8 @@ namespace Ts3Fixes
             ApplyAutShadowLocHooks();  // next: any localized string before ApplyAutShadow compiles them (inert while autshadow is off)
             Patch(typeof(GoHome), "Run", typeof(GoHomeHook), "RunHook", "RunOrig");
             Patch(typeof(RabbitHole), "RouteNearEntranceAndEnterRabbitHole", typeof(RabbitHoleHook), "EnterHook", "EnterOrig");
+            // rhoutside (RabbitHoleDirect.cs, docs/806): the 7-argument overload every RouteOutside call ends in
+            Patch(typeof(RabbitHole), "RouteOutside", new Type[] { typeof(Sims3.Gameplay.Actors.Sim), typeof(List<Sims3.Gameplay.Actors.Sim>), typeof(Slot), typeof(bool), typeof(bool), typeof(bool), typeof(bool) }, typeof(RabbitHoleHook), "OutsideHook", "OutsideOrig");
             Patch(typeof(VisitCommunityLot), "Run", typeof(VisitCommunityLotHook), "RunHook", "RunOrig");
             Patch(typeof(VisitLot), "Run", typeof(VisitLotHook), "RunHook", "RunOrig");
             Patch(typeof(GoToLot), "Run", typeof(GoToLotHook), "RunHook", "RunOrig");
@@ -538,6 +540,7 @@ namespace Ts3Fixes
         // per scope (household, selected, seenNpc, unseen, unknown), bursts, call lines, lines dropped, would start but Kinds
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
+        // [3496-3510] rabbitholedirect [3496-3507] and rhoutside [3508-3510] (RabbitHoleDirect.cs, docs/806): see the lists there
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
         const int kCounterSlots = 4000;
@@ -585,6 +588,8 @@ namespace Ts3Fixes
                 case "gohome": return Instantiator.kGoHomeShortcut;
                 case "rabbithole": return Instantiator.kBuildingTripShortcut;
                 case "visit": case "visitlot": case "gotolot": case "gotocommunity": return Instantiator.kLotTripShortcut;
+                case "rabbitholedirect": return Instantiator.kRabbitHoleDirect;
+                case "rhoutside": return Instantiator.kRhOutside;
                 case "broadcast": return Instantiator.kBroadcasterThrottle;
                 case "virtualhome": return Instantiator.kVirtualHomeShortcut;
                 case "failreplan": return Instantiator.kNoRouteFailWalkOffscreen;
@@ -1339,7 +1344,7 @@ namespace Ts3Fixes
         // hole far away is placed at a safe spot by the entrance, then the game's own method runs: it plans only the last
         // few metres and does everything after the walk unchanged (entering animation, success count, followers).
         // Counters: [4] calls, [5] shortcuts, [6] no safe spot.
-        public class RabbitHoleHook : Sims3.Gameplay.Abstracts.RabbitHole
+        public partial class RabbitHoleHook : Sims3.Gameplay.Abstracts.RabbitHole
         {
             static int[] sCounters;
             public override RabbitHoleTuningClass RabbitHoleTuning { get { return null; } } // never instantiated; required by the base class
@@ -1347,6 +1352,7 @@ namespace Ts3Fixes
             {
                 if (sCounters == null) sCounters = PatchCounters();
                 sCounters[4]++;
+                if (ShortcutOn("rabbitholedirect")) { int d = RhDirect(a, inst, beforeEntering, routeMetaType); if (d != kRhdPass) return d == kRhdEntered; }
                 Sims3.Gameplay.Abstracts.RabbitHole proxy = RabbitHoleProxy;
                 if (ShortcutOn("rabbithole") && proxy != null && proxy.EnterSlots.Count > 0 && TownieUnseen(a, inst != null ? inst.SimFollowers : null))
                 {

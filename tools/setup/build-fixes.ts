@@ -266,6 +266,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kCleanFlag value="True" />
     <kBirdTvNull value="True" />
     <kGoHomeWalk value="True" />
+    <kRabbitHoleDirect value="False" />
+    <kRhOutside value="False" />
     <kPhotoBoothFunds value="True" />
     <kShellLighting value="True" />
     <kBonfireSpice value="True" />
