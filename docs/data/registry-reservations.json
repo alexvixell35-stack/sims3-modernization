@@ -6427,6 +6427,28 @@
       "at": "2026-11-15T23:22:37.575Z",
       "worktree": "/home/<user>/dev/s3m-ep-sweep",
       "pinned": true
+    },
+    {
+      "id": "fixes-1294",
+      "kind": "fixes",
+      "from": 1294,
+      "to": 1338,
+      "by": "claude",
+      "what": "batch 10 (docs/588 B10): story progression sprelcount..celebalarmnull, 15 switches x3",
+      "at": "2026-11-16T00:02:24.512Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-1339",
+      "kind": "fixes",
+      "from": 1339,
+      "to": 1350,
+      "by": "claude",
+      "what": "batch 10b (docs/588 B10 §16-19): disposevirtualslot, agingalarmcancel, virtualmoveindup, petpoolghost",
+      "at": "2026-11-16T00:05:18.966Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
     }
   ]
 }

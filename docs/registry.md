@@ -454,9 +454,13 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 1255-1257 | reserved (claude, `fixes-1255`) | batch 8 (docs/582 B8 §8): residentspawnwalk |
 | 1258-1272 | reserved (claude, `fixes-1258`) | batch 8b (docs/582 B8b): midlifewishsave, innerbeautyonce, betrayednullsim, topictestnull, opptrackerrelisten |
 | 1273-1293 | reserved (claude, `fixes-1273`) | batch 9 (docs/582 B9): traitremovenull, homeworkcopyold, laundrymoodeach, partycleanupnull, safelocunhide, midlifeuiending, nemesisnoromance |
-| **1294+** | next free | reserve here  |
 | 1400-1499 | pinned (claude, `fixes-1400`) | EP batch 1 (docs/587 leads, batch EP1); 1400-1465 used, 3 each in this order: displaycasereset, suatgradebonus, mermaidsharknull, jetpackflyherecleanup, naniteroutefail, springdanceclear, nectarcopylevel10, harvesteatvfx, buffetemptypick, krakenfriendsailor, mummycursetrait, bullridercleanup, broomtipperformer, balancingballcareer, elvisgnomeguard, elvisgnomecap, cattoypickerrel, gourmetpetrecipe, chipfamilycrystal, chipcomponentorphan, chipanycount, nanitemerge; EP batch 2: consignmentlastday 1466, bartendinghourlypay 1469, influencefollowerbonus 1472, broomarenachoice 1475 (3 each); EP batch 3: fortunetellerscamodds 1478, consignmentskillcurve 1481, consignmentstockleak 1484, herbqualityfloor 1487, snackbowlslobvfx 1490, worldpondskatetest 1493, pingpongopponent 1496 (3 each); 1499 free |
 | 1500-1599 | pinned (claude, `fixes-1500`) | EP batch 3+ (docs/587 tranche 2, overflow of fixes-1400); EP batch 3: mermaiddehydratelook 1500, meteormagnetorphan 1503, daycarelatealarm 1506, boxofmysterywoohoo 1509, bodysculptorweight 1512, nectarconsignvalue 1515, straygnometns 1518 (3 each); 1521-1599 free |
+| 1294-1338 | pinned (claude, `fixes-1294`) | batch 10 (docs/588 B10): story progression sprelcount..celebalarmnull, 15 switches x3 |
+| 1339-1350 | pinned (claude, `fixes-1339`) | batch 10b (docs/588 B10 §16-19): disposevirtualslot, agingalarmcancel, virtualmoveindup, petpoolghost |
+| 1294-1338 | reserved (claude, `fixes-1294`) | batch 10 (docs/588 §7 §1-15): sprelcount, spcollectnull, spclonedict, splotlookup, spbucketindex, spcreatemovein, splotdensity, sproommatejob, spoccultpick, spjobatwork, sprecheck, sppensionprompt, hhcleanupdup, virtualhomeshare, celebalarmnull (3 each) |
+| 1339-1350 | reserved (claude, `fixes-1339`) | batch 10b (docs/588 §7 §16-19): disposevirtualslot, agingalarmcancel, virtualmoveindup, petpoolghost (3 each) |
+| **1351+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 
