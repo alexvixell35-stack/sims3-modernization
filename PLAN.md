@@ -13,6 +13,8 @@ Approved 2026-10-10. Rewritten 2026-10-12 with everything found so far (read thi
 
 **Route-fail leads (2026-11-16, docs/595, static, nothing built):** the six top route-fail leads of the 20 Bridgeport runs (SocialInteractionB, WashDishes, Scare, PlayWithMirror, UseToilet, Fridge) are contention in the 7-Sim test house, a mirror placed behind a bed, EA's planned Scare fallback or PlanFromPoint search rows; none an EA bug. r50 = r49 content.
 
+**Sleep / social / need lines (2026-11-16, docs/597, r53, built, NOT RUN):** `spoonslavechecks` (shared-bed spooning slave gets EA's light-sleeper / TiredFromMoving / NoMonsters checks; household, every night) and `queueproximity` (elevator-line place by squared distance; rare), both off, slots 1954-1960, repros `<switch>-check`, pairs in s66. Toilet `kTimeToWaitInLine` ships 0 (EA's tuning, kept).
+
 **Seasons weather outfits (2026-11-16, docs/596, r51, built, NOT RUN):** `outerwearautoloop` (autonomous outerwear / toddler outerwear tests answer no when Run cannot change: player-sticky 2 h, disallow buffs; autonomy loop, household-visible) and `outerwearrestore` (ChangeIntoOuterwear stores the outfit to return to), both off, slots 1943-1950, repros `<switch>-check`, pairs in s64.
 
 **Seasons hunt Built (2) (2026-11-16, docs/594 §3-6, r49, built, NOT RUN):** `weathermanagerthrow` (RainEvent.PutOutFires null firefighter dictionary: one throw stopped Seasons for the session), `rainsheltercheap`, `pondclearscan` (exact reorders), `soakedstat` (rain re-add no longer counts a soak), all off; envscoreshelter not built (needs a 500-line copy, costs more than it saves).

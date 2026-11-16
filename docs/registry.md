@@ -469,7 +469,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 1929-1942 | reserved (claude, `fixes-1929`) | docs/594 Built (2): weathermanagerthrow 1929-1931 (RainEvent.PutOutFires null firefighter dictionary), rainsheltercheap 1932-1935 (cheap test before the shelter natives), pondclearscan 1936-1939 (AllPondsClear world pond / memo first), soakedstat 1940-1942 (rain re-add does not count a new soak) |
 | 1943-1950 | reserved (claude, `fixes-1943`) | docs/596 seasons weather: outerwearautoloop (5), outerwearrestore (3) |
 | 1951-1953 | reserved (claude, `fixes-1951`) | tpaptgoal (UnseenTeleportGoal.cs, docs/584 §8): home apartment/shell goals allowed / refused tomb or hidden / refused no way out, raised or unknown |
-| **1954+** | next free | reserve here  |
+| 1954-1960 | reserved (claude, `fixes-1954`) | docs/597 sleep/social/queues: spoonslavechecks (4), queueproximity (3) |
+| **1961+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 
