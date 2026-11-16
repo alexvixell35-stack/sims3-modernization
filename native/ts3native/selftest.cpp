@@ -14348,6 +14348,63 @@ static void TestLauncherFix() {
     VirtualFree(m, 0, MEM_RELEASE);
 }
 
+// host build guard (HostBuildOk, docs/230): Steam 1.67 stamp + SizeOfImage pass; retail 1.67 (other layout) or either field off fails
+static void TestHostBuild() {
+    static u8 img[0x200];
+    ((IMAGE_DOS_HEADER*)img)->e_lfanew = 0x80;
+    IMAGE_NT_HEADERS* nt = (IMAGE_NT_HEADERS*)(img + 0x80);
+    nt->FileHeader.TimeDateStamp = TS3A_HOST_PE, nt->OptionalHeader.SizeOfImage = TS3A_HOST_SIZE;
+    assert(HostBuildOk(img));
+    nt->OptionalHeader.SizeOfImage = TS3A_HOST_SIZE + 0x1000;
+    assert(!HostBuildOk(img));
+    nt->OptionalHeader.SizeOfImage = TS3A_HOST_SIZE, nt->FileHeader.TimeDateStamp = TS3A_HOST_PE + 1;
+    assert(!HostBuildOk(img));
+}
+
+// docs/270 §32: the combase keepalive pattern. Synthetic buffers (0, 1, 2 copies, wildcards free), then the system
+// combase.dll read from disk (a 32-bit process gets SysWOW64's copy): never ambiguous, the count is printed.
+static void TestCombasePattern() {
+    static BYTE blk[] = {0x8D, 0x44, 0x24, 0x18, 0xB9, 0x30, 0x75, 0, 0, 0x50, 0x33, 0xC0, 0x40, 0x50, 0x51, 0x51, 0x56, 0x8B, 0xD0, 0x8B, 0xCF,
+                         0xE8, 1, 1, 0, 0, 0x85, 0xC0, 0x0F, 0xB6, 0xDB, 0x6A, 1, 0x58, 0x0F, 0x48, 0xD8, 0x89, 0x5C, 0x24, 0x14, 0x84, 0xDB,
+                         0x74, 0x16, 0x50, 0x68, 0x30, 0x75, 0, 0, 0xFF, 0x36, 0xFF, 0x15};
+    static BYTE buf[3 * sizeof blk + 16];
+    size_t at = 0;
+    memset(buf, 0xCC, sizeof buf);
+    assert(PatScan(buf, sizeof buf, kCbPat, &at) == 0);
+    memcpy(buf + 5, blk, sizeof blk);
+    assert(PatScan(buf, sizeof buf, kCbPat, &at) == 1 && at == 5);
+    assert(*(DWORD*)(buf + at + kCbPatch[0]) == 30000 && *(DWORD*)(buf + at + kCbPatch[1]) == 30000);
+    memcpy(buf + 5 + sizeof blk, blk, sizeof blk);
+    buf[5 + sizeof blk + 3] = 0x20;  // a wildcard byte differs: still a match
+    assert(PatScan(buf, sizeof buf, kCbPat, &at) == 2);
+    buf[5 + sizeof blk + 5] = 0x31;  // the constant differs: no match there
+    assert(PatScan(buf, sizeof buf, kCbPat, &at) == 1);
+    wchar_t path[MAX_PATH];
+    GetSystemDirectoryW(path, MAX_PATH);
+    wcscat_s(path, L"\\combase.dll");
+    HANDLE f = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);  // read only
+    const DWORD size = f != INVALID_HANDLE_VALUE ? GetFileSize(f, NULL) : 0;
+    BYTE* img = size ? (BYTE*)VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE) : NULL;
+    DWORD got = 0;
+    const BYTE* text = NULL; size_t len = 0;
+    int hits = -1;
+    if (img && ReadFile(f, img, size, &got, NULL) && got == size && PeText(img, size, false, &text, &len)) hits = PatScan(text, len, kCbPat, &at);
+    if (f != INVALID_HANDLE_VALUE) CloseHandle(f);
+    char ver[48] = "?";
+    if (HMODULE cb = LoadLibraryW(L"combase.dll")) ModVersion(cb, ver, sizeof ver);
+    printf("combase keepalive pattern: %d match(es) in the system combase.dll %s .text\n", hits, ver);
+    assert(hits <= 1);  // 0 on another Windows build is allowed (settle wait); 2 never
+    if (img) VirtualFree(img, 0, MEM_RELEASE);
+    if (hits != 1) return;
+    RewindCombaseKeep();  // patches this test process's own combase (memory only): both values now INFINITE
+    const HMODULE cb = GetModuleHandleW(L"combase.dll");
+    assert(cb && PeText((const BYTE*)cb, ~(size_t)0, true, &text, &len));
+    assert(PatScan(text, len, kCbPat, &at) == 0);  // the 30000s are gone, so the pattern no longer matches
+    static char want[] = "8D 44 24 ?? B9 FF FF FF FF 50 33 C0 40 50 51 51 56 8B D0 8B CF E8 ?? ?? ?? ?? 85 C0 0F B6 DB 6A 01 58 "
+                         "0F 48 D8 89 5C 24 ?? 84 DB 74 ?? 50 68 FF FF FF FF FF 36 FF 15";
+    assert(PatScan(text, len, want, &at) == 1);
+    puts("combase keepalive: applied in this process (both 30000 -> 0xFFFFFFFF), file untouched");
+}
 int main() {
     setvbuf(stdout, NULL, _IONBF, 0);  // a crash keeps what was printed
     SetUnhandledExceptionFilter([](EXCEPTION_POINTERS* e) -> LONG {
@@ -14552,7 +14609,9 @@ int main() {
     TestMovedWaits();
     TestP6Waits();
     TestLauncherFix();
+    TestHostBuild();
     TestThumbLod();
+    TestCombasePattern();
     puts("selftest ok");
     return 0;
 }

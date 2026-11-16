@@ -159,8 +159,19 @@ static void caseThreads(const char* exe) {
     CHECK(ok(snapshot(t.S)) && t.cmd(C_THREAD_NEW));
     CHECK(refused(rewind(t.S, false), "was made after the snapshot") && t.advancing()); }
   { Toy t; if (!t.start(exe, "")) return;
-    CHECK(ok(snapshot(t.S)) && t.cmd(C_THREAD_EXIT));
-    CHECK(refused(rewind(t.S, false), "exited after the snapshot") && t.advancing()); }
+    CHECK(ok(snapshot(t.S)) && t.cmd(C_THREAD_EXIT));  // a game thread ends: refused, named by its start module
+    CHECK(refused(rewind(t.S, false), "(start rewind-toy.exe+") && t.advancing()); }
+  { Toy t; if (!t.start(exe, "")) return;  // an idle pool worker ends although held (hold lifted here): refused before any change
+    CHECK(t.cmd(C_TP_BURST));               // (docs/270 §32: its TEB pages are gone and cannot be committed again from outside)
+    Sleep(100);
+    CHECK(ok(snapshot(t.S)) && !t.S.s.poolMin.empty());
+    ULONG mn = 0, tot0 = 0, tot = 0;
+    HANDLE f = t.S.s.poolMin.empty() ? nullptr : t.S.s.poolMin[0].first;
+    LARGE_INTEGER idle; idle.QuadPart = -2000000;  // minimum back, WorkerFactoryIdleTimeout 200 ms: idle workers end now
+    CHECK(f && poolCounts(f, mn, tot0) && poolSetMin(f, t.S.s.poolMin[0].second) && NtSetInformationWorkerFactory_(f, 2, &idle, sizeof idle) >= 0);
+    for (int i = 0; i < 100 && f && poolCounts(f, mn, tot) && tot >= tot0; ++i) Sleep(100);
+    CHECK(tot < tot0);
+    CHECK(refused(rewind(t.S, false), "(start ntdll.dll+") && t.advancing() && t.cmd(C_TP) && t.audit()); }
   Toy t; if (!t.start(exe, "")) return;
   CHECK(ok(snapshot(t.S)));
   uint32_t runs = t.state().tpRuns;
@@ -191,6 +202,20 @@ static void caseThreads(const char* exe) {
   freeSnap(t.S.s);  // dropping the snapshot puts the minimum back
   CHECK(poolCounts(f2, mn, tot) && mn == orig && held > orig);
   CloseHandle(f2);
+}
+static void caseKeepalive(const char* exe) {  // ts3native's [Rewind] keepalive and the settle command (docs/270 §32)
+  Toy t; if (!t.start(exe, "")) return;
+  CHECK(t.cmd(C_WSA_KEEP) && ok(snapshot(t.S)));
+  const TS* a = nullptr;
+  for (auto& o : t.S.s.threads) { const View* v = viewAt(t.S.s.views, o.start); if (v && baseName(v->file) == "mswsock.dll") a = &o; }
+  // SockAsyncThread holding the select's reference waits in NtRemoveIoCompletion with no timeout (5th argument NULL),
+  // so it never reaches its 300 s idle end
+  CHECK(a && a->kernel && a->name == "NtRemoveIoCompletion" && a->sig[11] == 0);
+  CHECK(ok(rewind(t.S, false)) && t.audit());
+  Result r = settle(t.S, 5, "nosuch.dll");  // no such threads: returns at once
+  CHECK(r.stat("settleLeft") == 0 && r.stat("settleMs") < 1000);
+  r = settle(t.S, 1, "mswsock.dll");  // still there: waits its time, names them, the target runs on
+  CHECK(r.stat("settleLeft") >= 1 && r.stat("settleMs") >= 1000 && !r.notes.empty() && t.advancing());
 }
 static void caseMemory(const char* exe) {  // stack growth, protection changes, patched code, kernel object states
   Toy t; if (!t.start(exe, "")) return;
@@ -249,7 +274,7 @@ static void caseRefusals(const char* exe) {  // states no snapshot is taken in
     volatile unsigned char* v = m ? (unsigned char*)MapViewOfFile(m, FILE_MAP_READ, 0, 0, 0) : nullptr;
     CHECK(v && v[0] == 1);
     // held only by the target (and this host, which is the tool): the target's own memory, restored like the rest
-    Result a = snapshot(t.S);
+    Result a = snapshot(t.S); a.print();
     CHECK(ok(a) && a.stat("viewsSharedSelf") == 1 && a.stat("viewsForeign") == 0 && a.notes.empty());
     // a second process holds it: left alone at a rewind, which goes on only while its bytes are as at the snapshot
     STARTUPINFOA si{sizeof si}; PROCESS_INFORMATION pi{};
@@ -492,7 +517,7 @@ static void caseSpeed(const char* exe) {
 }
 static int selftest(const char* exe, const char* only) {
   struct { const char* name; void (*fn)(const char*); } cases[] = {
-    {"basic", caseBasic}, {"views", caseViews}, {"files", caseFiles}, {"waits", caseWaits}, {"threads", caseThreads},
+    {"basic", caseBasic}, {"views", caseViews}, {"files", caseFiles}, {"waits", caseWaits}, {"threads", caseThreads}, {"keepalive", caseKeepalive},
     {"memory", caseMemory}, {"refusals", caseRefusals}, {"parked", caseParked}, {"writewatch", caseWriteWatch},
     {"rearm", caseRearm}, {"catch", caseCatch}, {"workerpark", caseWorkerPark}, {"watchdog", caseWatchdog},
     {"speed", caseSpeed},

@@ -18,7 +18,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.266-mb1116"  // merge/master-1116b: master-1116 + harness known causes, weddingcleanup ts3fixes guard (1058-1059), rmr snapback bound; native code unchanged
+#define TS3NATIVE_VERSION "0.36.267-mc1116"  // merge/master-1116c set: master-1116b + exe guard, rewind mswsock keepalive + combase idle-wait patch (docs/270 §32), hhtoo-off fix, boat land-near
 #endif
 
 typedef unsigned char u8;
@@ -4411,6 +4411,7 @@ static void ServeAsync() {
 // deeper wait), and the worker comes back here. idle says the worker is in this wait.
 struct RwPark { DWORD magic, version; volatile LONG request, idle, held; };
 static RwPark* g_rwPark;  // NULL = off
+static DWORD WINAPI RewindKeepAsync(LPVOID);
 static void RewindParkInit(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"Rewind", L"Park", 0, ini)) return;
     wchar_t name[64];
@@ -4422,6 +4423,115 @@ static void RewindParkInit(const wchar_t* ini) {
     p->magic = 0x4E545752;  // 'RWTN', written last: the tool reads the block only with it
     g_rwPark = p;
     Log("[Rewind] Park on: the route worker parks in its idle wait when %ls asks", name);
+    if (HANDLE t = CreateThread(NULL, 64 * 1024, RewindKeepAsync, NULL, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL)) CloseHandle(t);
+}
+// [Rewind] Park=1 only (docs/270 §32): keeps mswsock's async thread from ending during a long job. A rewind refuses a
+// thread that ended after the snapshot, and SockAsyncThread (mswsock.dll) ends after 300 s idle when its reference count
+// is 1. One WSAAsyncSelect registration holds a reference while its AFD poll is pending (SockAsyncSelectHelper ->
+// SockCheckAndReferenceAsyncThread; dropped only in SockAsyncSelectCompletion when the select ends), and with the count
+// above 1 SockAsyncThread waits in NtRemoveIoCompletion with no timeout. The socket listens on 127.0.0.1 at a free port
+// and nobody connects: no traffic, so [Rewind] Offline holds. Window and socket exist before any snapshot. Everything is
+// loaded by name: ts3native does not import ws2_32 or user32.
+// [Rewind] Park=1 only (docs/270 §32): combase's RPC cache workers (CRpcThreadCache::RpcWorkerThreadEntry) end after 30 s
+// idle, and a rewind refuses a thread that ended after the snapshot. CRpcThread::WorkerLoop waits for work with
+// WaitCoalesced(timer, 1, &event, 30000, 30000, TRUE, &r) (coalescable timer, due -30000 * 10000 as 64-bit) or, when the
+// timer cannot be made, WaitForSingleObjectEx(event, 30000, TRUE); a timeout makes the worker leave the cache and exit.
+// The pattern covers the whole block from the WaitCoalesced arguments to the fallback call (register use, the cmovs on
+// the result, the branch to the fallback), not only the constant, so it finds the block wherever the function moves;
+// only the two imm32 30000 values are written: +5 (mov ecx, 7530h: WaitCoalesced's due time and tolerance) and +47
+// (push 7530h: the fallback's timeout), both to 0xFFFFFFFF. WaitCoalesced then sets its timer ~49.7 days out (no overflow:
+// the multiply is 64-bit), the fallback waits INFINITE. In this process's memory only; the file is never touched.
+static const char kCbPat[] = "8D 44 24 ?? B9 30 75 00 00 50 33 C0 40 50 51 51 56 8B D0 8B CF E8 ?? ?? ?? ?? 85 C0 0F B6 DB 6A 01 58 "
+                             "0F 48 D8 89 5C 24 ?? 84 DB 74 ?? 50 68 30 75 00 00 FF 36 FF 15";
+static const int kCbPatch[2] = {5, 47};
+// matches of a "AB ?? CD" pattern in [p, p + n); *at = the first one
+static int PatScan(const BYTE* p, size_t n, const char* pat, size_t* at) {
+    BYTE v[128]; bool any[128]; int m = 0;
+    for (const char* c = pat; *c && m < 128;) {
+        if (*c == ' ') { ++c; continue; }
+        any[m] = c[0] == '?';
+        v[m] = any[m] ? 0 : (BYTE)strtoul(c, NULL, 16);
+        ++m;
+        c += 2;
+    }
+    int hits = 0;
+    for (size_t i = 0; m && i + m <= n; ++i) {
+        int k = 0;
+        while (k < m && (any[k] || p[i + k] == v[k])) ++k;
+        if (k == m && hits++ == 0 && at) *at = i;
+    }
+    return hits;
+}
+// .text of a PE image: loaded (section RVA) or a file read into memory (raw offset)
+static bool PeText(const BYTE* b, size_t size, bool loaded, const BYTE** text, size_t* len) {
+    if (size < 0x40 || *(const WORD*)b != 0x5A4D) return false;
+    const DWORD pe = *(const DWORD*)(b + 0x3C);
+    if (pe + 0x18 > size || *(const DWORD*)(b + pe) != 0x4550) return false;
+    const IMAGE_FILE_HEADER* fh = (const IMAGE_FILE_HEADER*)(b + pe + 4);
+    const IMAGE_SECTION_HEADER* sh = (const IMAGE_SECTION_HEADER*)(b + pe + 0x18 + fh->SizeOfOptionalHeader);
+    for (int i = 0; i < fh->NumberOfSections; ++i)
+        if (!memcmp(sh[i].Name, ".text", 6)) {
+            const DWORD off = loaded ? sh[i].VirtualAddress : sh[i].PointerToRawData;
+            const DWORD n = loaded ? sh[i].Misc.VirtualSize : sh[i].SizeOfRawData;
+            if (!loaded && (size_t)off + n > size) return false;
+            *text = b + off; *len = n;
+            return true;
+        }
+    return false;
+}
+static void ModVersion(HMODULE m, char* out, size_t n) {
+    _snprintf_s(out, n, _TRUNCATE, "?");
+    HRSRC r = FindResourceW(m, MAKEINTRESOURCEW(1), MAKEINTRESOURCEW(16) /*RT_VERSION*/);
+    const BYTE* v = r ? (const BYTE*)LockResource(LoadResource(m, r)) : NULL;
+    const DWORD sz = r ? SizeofResource(m, r) : 0;
+    for (DWORD i = 0; v && i + sizeof(VS_FIXEDFILEINFO) <= sz; i += 4)
+        if (*(const DWORD*)(v + i) == 0xFEEF04BD) {
+            const VS_FIXEDFILEINFO* f = (const VS_FIXEDFILEINFO*)(v + i);
+            _snprintf_s(out, n, _TRUNCATE, "%u.%u.%u.%u", HIWORD(f->dwFileVersionMS), LOWORD(f->dwFileVersionMS), HIWORD(f->dwFileVersionLS), LOWORD(f->dwFileVersionLS));
+            return;
+        }
+}
+static void RewindCombaseKeep() {
+    const HMODULE cb = LoadLibraryW(L"combase.dll");
+    char ver[48] = "not loaded";
+    if (cb) ModVersion(cb, ver, sizeof ver);
+    const BYTE* text = NULL; size_t len = 0, at = 0;
+    const int hits = cb && PeText((const BYTE*)cb, ~(size_t)0, true, &text, &len) ? PatScan(text, len, kCbPat, &at) : 0;
+    bool ok = hits == 1;
+    for (int k = 0; ok && k < 2; ++k) {
+        BYTE* imm = (BYTE*)text + at + kCbPatch[k];
+        DWORD old = 0;
+        ok = VirtualProtect(imm, 4, PAGE_EXECUTE_READWRITE, &old) != 0;
+        if (ok) { *(volatile DWORD*)imm = 0xFFFFFFFF; VirtualProtect(imm, 4, old, &old); }
+    }
+    if (hits == 1) FlushInstructionCache(GetCurrentProcess(), text + at, 64);
+    if (ok) Log("[Rewind] combase keepalive: patched (combase %s, CRpcThread::WorkerLoop idle wait at +%zx: 30 s -> INFINITE, this process only)", ver, (size_t)(text - (const BYTE*)cb) + at);
+    else Log("[Rewind] combase keepalive: pattern not found, settle wait used (combase %s, %d matches)", ver, hits);
+}
+static DWORD WINAPI RewindKeepAsync(LPVOID) {
+    RewindCombaseKeep();  // first: before any cache worker of the game waits (docs/270 §32)
+    const HMODULE ws = LoadLibraryW(L"ws2_32.dll"), us = LoadLibraryW(L"user32.dll");
+    auto wsaStartup = ws ? (int(WINAPI*)(WORD, void*))GetProcAddress(ws, "WSAStartup") : NULL;
+    auto sock = ws ? (UINT_PTR(WINAPI*)(int, int, int))GetProcAddress(ws, "socket") : NULL;
+    auto bindF = ws ? (int(WINAPI*)(UINT_PTR, const void*, int))GetProcAddress(ws, "bind") : NULL;
+    auto listenF = ws ? (int(WINAPI*)(UINT_PTR, int))GetProcAddress(ws, "listen") : NULL;
+    auto asyncSel = ws ? (int(WINAPI*)(UINT_PTR, HWND, UINT, long))GetProcAddress(ws, "WSAAsyncSelect") : NULL;
+    auto lastErr = ws ? (int(WINAPI*)())GetProcAddress(ws, "WSAGetLastError") : NULL;
+    auto mkWnd = us ? (HWND(WINAPI*)(DWORD, LPCWSTR, LPCWSTR, DWORD, int, int, int, int, HWND, HMENU, HINSTANCE, LPVOID))GetProcAddress(us, "CreateWindowExW") : NULL;
+    auto getMsg = us ? (BOOL(WINAPI*)(MSG*, HWND, UINT, UINT))GetProcAddress(us, "GetMessageW") : NULL;
+    if (!wsaStartup || !sock || !bindF || !listenF || !asyncSel || !lastErr || !mkWnd || !getMsg) { Log("FAIL [Rewind] keepalive: ws2_32/user32 exports"); return 0; }
+    BYTE wsaData[512];
+    struct { short family; unsigned short port; DWORD addr; char zero[8]; } sa = {2 /*AF_INET*/, 0, 0x0100007F /*127.0.0.1*/, {}};
+    const HWND w = wsaStartup(0x0202, wsaData) ? NULL : mkWnd(0, L"STATIC", NULL, 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, NULL, NULL);
+    const UINT_PTR s = w ? sock(2 /*AF_INET*/, 1 /*SOCK_STREAM*/, 6 /*IPPROTO_TCP*/) : ~(UINT_PTR)0;
+    if (!w || s == ~(UINT_PTR)0 || bindF(s, &sa, sizeof sa) || listenF(s, 1) || asyncSel(s, w, WM_APP, 8 /*FD_ACCEPT*/)) {
+        Log("FAIL [Rewind] keepalive: loopback async select (window %p, wsa error %d)", w, w ? lastErr() : 0);
+        return 0;
+    }
+    Log("[Rewind] keepalive on: one async select on a loopback listen socket holds mswsock's async thread (no idle end)");
+    MSG m;
+    while (getMsg(&m, NULL, 0, 0) > 0) {}  // FD_ACCEPT never comes: nobody connects
+    return 0;
 }
 static bool RewindHold() {
     if (!g_rwPark || !g_rwPark->request) return false;
@@ -6020,6 +6130,11 @@ static bool ApplyD3dMultithreaded(const wchar_t* ini) {
 
 #include "launcherfix.cpp"  // docs/255: [LauncherFix] EA launcher telemetry busy-wait (launcher host only)
 static bool g_otherHost;  // not TS3W.exe (the launcher also loads the ASI loader): no exit work at DLL_PROCESS_DETACH
+// docs/230: the build this asi's addresses belong to (PE timestamp + SizeOfImage), the same pair on Steam and EA
+static bool HostBuildOk(const void* base) {
+    const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)((const u8*)base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
+    return nt->FileHeader.TimeDateStamp == (DWORD)TS3A_HOST_PE && nt->OptionalHeader.SizeOfImage == (DWORD)TS3A_HOST_SIZE;
+}
 
 static void Run(HMODULE self) {
     wchar_t path[MAX_PATH], ini[MAX_PATH], log[MAX_PATH], exe[MAX_PATH];
@@ -6034,12 +6149,12 @@ static void Run(HMODULE self) {
     const wchar_t* name = wcsrchr(exe, L'\\');
 #ifdef TS3A_TABLE
     // docs/228: the table names the build (PE timestamp + SizeOfImage), any file name: the EA game may run as Sims3Launcher.exe
-    {
-        const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)((const u8*)base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
-        g_otherHost = base != (HMODULE)0x400000 || nt->FileHeader.TimeDateStamp != (DWORD)TS3A_HOST_PE || nt->OptionalHeader.SizeOfImage != (DWORD)TS3A_HOST_SIZE;
-    }
+    g_otherHost = base != (HMODULE)0x400000 || !HostBuildOk(base);
+    const bool wrongBuild = false;
 #else
     g_otherHost = base != (HMODULE)0x400000 || _wcsicmp(name ? name + 1 : exe, L"TS3W.exe") != 0;
+    // a TS3W.exe of another build (retail 1.67 moves every address, docs/230): the game's log says so, nothing installs
+    const bool wrongBuild = !g_otherHost && !HostBuildOk(base);
 #endif
     swprintf_s(ini, L"%s.ini", path);
     swprintf_s(log, g_otherHost ? L"%s.launcher.log" : L"%s.log", path);  // a launcher start must not truncate the game's log
@@ -6065,7 +6180,10 @@ static void Run(HMODULE self) {
     // = 52DEC247 / 0xE5A000, EA app 1.69.47 TS3.exe = 6707155C / 0xEB5000) so a SKIP line from another edition is identifiable
     const IMAGE_NT_HEADERS* hostNt = (const IMAGE_NT_HEADERS*)((const u8*)base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
     Log("host %ls base 0x%p pe %08lX size 0x%lX", name ? name + 1 : exe, base, hostNt->FileHeader.TimeDateStamp, hostNt->OptionalHeader.SizeOfImage);
-    if (g_otherHost) {
+    if (wrongBuild) {
+        g_otherHost = true;  // nothing installed: no exit work either
+        Log("unsupported TS3W.exe build %08lX/%lX: all patches off; retail 1.67 needs ts3native-retail167.asi", hostNt->FileHeader.TimeDateStamp, hostNt->OptionalHeader.SizeOfImage);
+    } else if (g_otherHost) {
 #ifdef TS3A_TABLE
         Log("SKIP all: host is not " TS3A_HOST_NAME " (pe %08lX size 0x%lX)", hostNt->FileHeader.TimeDateStamp, hostNt->OptionalHeader.SizeOfImage);
 #else

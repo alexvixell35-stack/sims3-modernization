@@ -106,6 +106,16 @@ if (argv[0] === '--self-check') {
   assert.equal(matchKnown(xml(nre, [...veh, lyn + 'Run', ...run]), known)?.id, 'ea-follower-vehicle-nre', 'all-EA follower vehicle NRE is known');
   assert.equal(matchKnown(xml(nre, [...veh, lyn + 'RunOrig', 'Ts3Fixes.Fixes+VclSubHook0:Run', ...run]), known)?.id, 'ea-follower-vehicle-nre', 'through the VclSubHook0 pass-through is known');
   assert.equal(matchKnown(xml(nre, [...veh, 'Sims3.Gameplay.Core.Sims3.Gameplay.Core.GoHome:RunOrig', 'Ts3Fixes.Fixes+GoHomeHook:Run', ...run]), known)?.id, 'ea-follower-vehicle-nre', 'through the GoHomeHook pass-through is known');
+  // boat GetOutOntoLand SacsErrorException (from b1ad06dab; real frames: EA-only probe-out 2026-10-17..11-10; through BoatGetOutDiagHook 2026-11-15)
+  const sacs = 'Sims3.SimIFace.SacsErrorException';
+  const smc = 'Sims3.SimIFace.Sims3.SimIFace.StateMachineClient:RequestState', boat = 'Sims3.Gameplay.Objects.Vehicles.Sims3.Gameplay.Objects.Vehicles.Boat:';
+  const eaBoat = [smc, smc, boat + 'GetOutOntoLand', boat + 'GetOut', boat + 'GetOut', boat + 'GetOut', ...tail];
+  const hookBoat = [smc, smc, boat + 'GetOutOntoLand', boat + 'GetOutOrig', 'Ts3Fixes.Fixes+BoatGetOutDiagHook:GetOut', boat + 'GetOut', boat + 'GetOut', ...tail];
+  const sx = (frames: string[]) => xml(nre, frames).replace(`${nre}: A null value was found where an object instance was required.`, `${sacs}: `);
+  assert.equal(matchKnown(sx(eaBoat), known)?.id, 'ea-boat-getout-onto-land-sacs', 'all-EA boat SACS stack is known');
+  assert.equal(matchKnown(sx(hookBoat), known)?.id, 'ea-boat-getout-onto-land-sacs', 'boat SACS stack through BoatGetOutDiagHook is known');
+  assert.equal(matchKnown(xml(nre, hookBoat), known), undefined, 'boat stack with an NRE (the guard case) is not known');
+  assert.equal(matchKnown(sx([smc, smc, boat + 'GetOutIntoWater', ...tail]), known), undefined, 'other boat frame is not known');
   assert.equal(matchKnown(xml(nre, [veh[0], ...veh.slice(2), lyn + 'Run', ...run]), known), undefined, 'GetOwnedAndUsableVehicle not from CanBePreferredLeader is not known');
   // ErrorTrap deref report (real 2026-11-15 shape): known; with a stack it is judged by the stack
   const deref = '<NRaas.ErrorTrap>\n<Content>\n\n-- Correction Logs --\n\nDestroyed Object Found: Sims3.Gameplay.Objects.CookingObjects.PlateServing\n\n\n-- Dereferencing --\n\nPotential Object Found: Sims3.Gameplay.Core.SocialJigOnePerson (ID=0x1, W=False, I=False)\n  Reference Continue: Sims3.Gameplay.Roles.RolePaparazzi+FollowCelebrity mJig\n    UNHANDLED Reference: Sims3.SimIFace.World+FindGoodLocationParams PlacementCheckFunc\n\nLoaded Assemblies:\n System\n</Content>\n</NRaas.ErrorTrap>';

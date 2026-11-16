@@ -69358,7 +69358,16 @@
       {
         "cmd": "ilp_scavenger_check",
         "args": {
-          "expect": "throw"
+          "check": false
+        },
+        "waitS": 3,
+        "note": "clear loose gems, metals, insects off household lots first; the engine finishes the destroys before the check (rerun2: cleared in the same call, nothing spawned)"
+      },
+      {
+        "cmd": "ilp_scavenger_check",
+        "args": {
+          "expect": "throw",
+          "clear": false
         },
         "waitS": 2,
         "note": "off arm: EA sleeps in a non-yielding context"
@@ -69376,7 +69385,16 @@
       {
         "cmd": "ilp_scavenger_check",
         "args": {
-          "expect": "ok"
+          "check": false
+        },
+        "waitS": 3,
+        "note": "clear loose gems, metals, insects off household lots first; the engine finishes the destroys before the check (rerun2: cleared in the same call, nothing spawned)"
+      },
+      {
+        "cmd": "ilp_scavenger_check",
+        "args": {
+          "expect": "ok",
+          "clear": false
         },
         "waitS": 2,
         "note": "on arm: no throw, items spawned without the sleep"

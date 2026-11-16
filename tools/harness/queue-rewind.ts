@@ -92,6 +92,8 @@ export function bySaveGain<J>(before: J[], after: J[], block: (j: J) => string, 
 
 // real ts3native.log lines (rewind-bridge-1115 bp-rewind-bridge-apply, 2026-11-15): the asi has [Rewind] and the ini turned it on
 export const PARK_ON = /^\[Rewind\] Park on: /m, OFFLINE_ON = /^\[Rewind\] Offline on: /m;
+// ts3native patched combase's RPC cache idle wait to INFINITE (docs/270 §32): no settle wait before a snapshot
+export const COMBASE_KEPT = /^\[Rewind\] combase keepalive: patched /m;
 // '' when a snapshot may be taken in this game, else why not (the job then runs without one and the next job starts fresh)
 export function rewindReady(x: { exe: boolean; conf: string | null; bridgeRuns: boolean; log: string }): string {
   if (!x.exe) return 'rewind-spike.exe missing (tools\\harness\\rewind\\build.cmd)';
@@ -105,7 +107,7 @@ export function rewindReady(x: { exe: boolean; conf: string | null; bridgeRuns: 
 // the agent's game speed names (time / game_state "speed") as set_speed arguments
 const SPEED: Record<string, string> = { Pause: 'pause', Normal: 'normal', Double: 'fast', Triple: 'ultra' };
 export const speedArg = (s: unknown) => SPEED[String(s)] ?? 'normal';
-export type Io = { agent: (cmd: string, args?: object) => Promise<any>; get: (path: string, timeoutMs?: number) => Promise<any>; log: (m: string) => void };
+export type Io = { agent: (cmd: string, args?: object) => Promise<any>; get: (path: string, timeoutMs?: number) => Promise<any>; log: (m: string) => void; settleS?: number };
 // code 0 = done and verified; 2 = refused before any change (game as it was); 3 = failed after a change or the game does not answer
 export type Op = { code: number; why: string[]; ms: number; row?: Row };
 // a rewind counts only with code 0 and, when the tool reports it, the memory hash equal to the snapshot's
@@ -118,6 +120,8 @@ export const switchDiff = (a: Switches, b: Switches): string[] => [
 // wall time: a fresh start (cycle.ts --restart, launch, load) measured ~2 min on BP (more on IP and big saves); a rewind op with
 // park, pause, probe detach/attach and the switch read-back ~8 s; one snapshot per group about the same
 export const FRESH_EST_MS = 120000, REWIND_EST_MS = 8000;
+// before each snapshot: wait up to this long for combase's RPC cache workers to end (30 s idle timeout, docs/270 §32)
+export const SETTLE_S = 40;
 const sum = (x: number[]) => x.reduce((a, b) => a + b, 0);
 // dry run (plan) or end of a run (with rewinds/fresh: what happened, saved against this run's own fresh starts when it had any)
 export function rewindSummary(x: { groups: number; members: number; jobs: number; rewinds?: number[]; fresh?: number[]; refused?: number; failed?: number }): string {
@@ -135,6 +139,11 @@ export function rewindSession(pid: number, io: Io, dep = { serve, loaded: fridaL
   let speed = 'normal', ap: string | undefined; // game speed and the autopilot's speed target before the snapshot (set_speed changes the target)
   const op = async (c: 'snapshot' | 'rewind'): Promise<Op> => {
     const t0 = Date.now(), why: string[] = [];
+    const settleS = io.settleS ?? SETTLE_S;
+    if (c === 'snapshot' && settleS > 0) { // combase's RPC cache workers end after 30 s idle: snapshot after they did (docs/270 §32)
+      const st = await s.cmd(`settle ${settleS}`, settleS + 30);
+      io.log(`rewind: settle ${Math.round((st.stats?.settleMs ?? 0) / 1000)} s, ${st.stats?.settleLeft ?? '?'} combase worker(s) left`);
+    }
     if (c === 'snapshot') { speed = speedArg((await io.agent('time'))?.result?.speed); ap = (await io.agent('autopilot'))?.result?.speed; }
     const p = await s.cmd('park', 30); // before the pause: a route job waits for script ticks (docs/270 §21); held until the op ends
     if (p.code) why.push(`park: ${p.why.join('; ')}`);
@@ -222,10 +231,10 @@ async function selfCheck() {
   assert.match(startLine({ code: 3, why: ended.why, ms: 900 }), /^rewind failed -> fresh \(no clear answer/);
   assert.deepEqual(['Pause', 'Normal', 'Double', 'Triple', undefined].map(speedArg), ['pause', 'normal', 'fast', 'ultra', 'normal']);
   // the op sequence on fakes: park, pause, detach, op, attach, speed back, game_state; and the fallback paths
-  const run = async (rows: Row[], o: { attach?: boolean; inWorld?: boolean; pause?: boolean } = {}) => {
+  const run = async (rows: Row[], o: { attach?: boolean; inWorld?: boolean; pause?: boolean; settleS?: number } = {}) => {
     const calls: string[] = [];
-    const fake = (_pid: number, _f: string[]) => ({ cmd: async (c: string) => { calls.push(`tool ${c}`); return c === 'park' ? { op: 'park', code: 0, why: [] } : c === 'plan' ? { op: 'plan', code: 0, why: [] } : rows.shift()!; }, quit: async () => 0 });
-    const io: Io = { log: () => {}, get: async (p: string) => { calls.push(p); return p === 'fridadetach' ? { detached: true } : { attached: o.attach !== false }; },
+    const fake = (_pid: number, _f: string[]) => ({ cmd: async (c: string) => { calls.push(`tool ${c}`); return c === 'park' ? { op: 'park', code: 0, why: [] } : c.startsWith('settle') ? { op: 'settle', code: 0, why: [], stats: { settleMs: 31000, settleLeft: 0 } } : c === 'plan' ? { op: 'plan', code: 0, why: [] } : rows.shift()!; }, quit: async () => 0 });
+    const io: Io = { settleS: o.settleS, log: () => {}, get: async (p: string) => { calls.push(p); return p === 'fridadetach' ? { detached: true } : { attached: o.attach !== false }; },
       agent: async (c: string, a?: any) => { calls.push(`${c}${a?.speed ? ` ${a.speed}` : ''}`); return c === 'time' ? { ok: true, result: { speed: 'Triple' } } : c === 'autopilot' ? { ok: true, result: { speed: 'none' } } : c === 'game_state' ? { ok: true, result: { in_world: o.inWorld !== false } } : { ok: c !== 'set_speed' || a.speed !== 'pause' || o.pause !== false, error: 'game speed is locked' }; } };
     const s = rewindSession(1, io, { serve: fake as any, loaded: () => false, settleMs: 0 });
     return { snap: await s.snapshot(), rew: rows.length ? await s.rewind() : null, calls };
@@ -233,8 +242,12 @@ async function selfCheck() {
   const snapRow = parseRow('result {"op":"snapshot","code":0,"why":[],"ms":{"park":150.3,"freeze":37.9,"copy":1645.7,"handles":5.1,"views":953.5,"resume":0.5},"stats":{}}')!;
   const a = await run([snapRow, good]);
   assert.deepEqual([a.snap.code, a.rew!.code], [0, 0]);
-  assert.deepEqual(a.calls.slice(0, 11), ['time', 'autopilot', 'tool park', 'set_speed pause', 'fridadetach', 'tool snapshot', 'fridaattach', 'set_speed ultra', 'autopilot none', 'game_state', 'tool park'], 'speed and autopilot target read first, put back after');
+  assert.deepEqual(a.calls.slice(0, 12), ['tool settle 40', 'time', 'autopilot', 'tool park', 'set_speed pause', 'fridadetach', 'tool snapshot', 'fridaattach', 'set_speed ultra', 'autopilot none', 'game_state', 'tool park'], 'speed and autopilot target read first, put back after');
   assert.deepEqual((await run([{ ...snapRow }, refused])).rew!.code, 2, 'refused: fresh, nothing changed');
+  assert.ok(!(await run([{ ...snapRow }, good], { settleS: 0 })).calls.some(c => c.startsWith('tool settle')), 'combase patched: no settle');
+  // ts3native log line formats (RewindCombaseKeep; offset as on combase 10.0.26100.9818)
+  assert.ok(COMBASE_KEPT.test('[Rewind] combase keepalive: patched (combase 10.0.26100.9818, CRpcThread::WorkerLoop idle wait at +e78bf: 30 s -> INFINITE, this process only)'));
+  assert.ok(!COMBASE_KEPT.test('[Rewind] combase keepalive: pattern not found, settle wait used (combase 10.0.26100.9818, 0 matches)'));
   assert.deepEqual((await run([{ ...snapRow }, ended])).rew!.code, 3, 'ended: kill + fresh');
   assert.deepEqual((await run([{ ...snapRow }, { ...good, stats: { hashEqual: 0 } }])).rew!.code, 3, 'hash differs: kill + fresh');
   assert.equal((await run([{ ...snapRow }], { attach: false })).snap.code, 3, 'probe not back: kill');

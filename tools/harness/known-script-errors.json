@@ -44,6 +44,18 @@
     "probe-out/20261102-130132/events.jsonl",
     "<Documents>/Electronic Arts/The Sims 3/ScriptError_*__11-16-2026__16-12-38__82C58041.xml (mono-autshadow-seenexact-1116 bp-seen-smoke, NPC Marina Prattle, household Mixture of Good and Bad)"
    ]
+  },
+  {
+   "id": "ea-boat-getout-onto-land-sacs",
+   "exception": "Sims3.SimIFace.SacsErrorException",
+   "frames": ["StateMachineClient:RequestState", "StateMachineClient:RequestState", "Boat:GetOutOntoLand"],
+   "why": "EA Boat.GetOutOntoLand: the boat exit animation request (StateMachineClient.RequestState) throws a SACS error when a Sim gets out of a boat onto land (Boat+GetOutOfBoat / RouteBoatToLandOnWayToPosition), IP world, NPC boaters; fires at random, before any boat hook existed and on DXVK runs [verified: all-EA stacks in probe-out 20261017-135155, 20261025-173239, 20261110-094901 events.jsonl; the same throw under a boat leg route (20261025-135445, 20261103-135911) passes BoatLegHook/RflRouteHook frames and stays unknown]. ts3fixes BoatGetOutDiagHook catches only NullReferenceException and calls the original (GetOutOrig) unchanged otherwise [verified code, BoatGetOutDiag.cs], so the general hook pass-through applies.",
+   "first_seen": "2026-10-17",
+   "evidence": [
+    "probe-out/20261017-135155/events.jsonl",
+    "probe-out/20261110-094901/events.jsonl",
+    "<Documents>/Electronic Arts/The Sims 3/ScriptError_*__11-15-2026__21-11-55__D7983392.xml (through BoatGetOutDiagHook, rewind-census-bridge-1115)"
+   ]
   }
  ]
 }

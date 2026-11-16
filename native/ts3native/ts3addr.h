@@ -8,6 +8,10 @@
 #pragma once
 #ifndef TS3A_TABLE
 #define TS3A(x) (x)
+// the host build this asi's addresses belong to; any other exe (retail 1.67: same code, other layout, docs/230) gets nothing
+#define TS3A_HOST_PE 0x52DEC247
+#define TS3A_HOST_SIZE 0x00E5A000
+#define TS3A_HOST_NAME "Steam 1.67"
 #else
 #include "ts3addr-ea169.h"  // ts3addr_pairs[][2] sorted by Steam address, ts3addr_count, TS3A_HOST_*
 // EA-port-only features (ported from hotfix/v0.2.10-ea169, not in the Steam asi): [ImageGuard], [EaCrashFixes] SimNoTexture /

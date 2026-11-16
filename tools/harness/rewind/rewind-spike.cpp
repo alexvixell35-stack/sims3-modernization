@@ -795,6 +795,9 @@ static void matchViews(Sess& S, Snap& s, Result& r) {
     if (NtQueryObject_(h.pin, 1, nb, sizeof nb, nullptr) >= 0 && u->Buffer) name.assign(u->Buffer, u->Length / 2);
     struct { ULONG attr, access, handles, pointers; ULONG rest[10]; } obi{};
     NtQueryObject_(h.pin, 0, &obi, sizeof obi, nullptr);
+    // once a view was scanned, this tool holds a duplicate of every section handle in the system: not counted, or a later
+    // view of the target's own unnamed section looks shared (viewsSharedSelf 2 when it lies above the first shared view)
+    for (auto& x : holders) obi.handles -= CompareObjectHandles_ && CompareObjectHandles_(x.h, h.pin) ? 1 : 0;
     ULONG ours = 0;
     for (auto& o : s.handles) ours += o.pin && o.kind == L"Section" && CompareObjectHandles_ && CompareObjectHandles_(o.pin, h.pin) ? (o.strong ? 3 : 2) : 0;
     bool coop = name.find(L"rewind-coop-") != std::wstring::npos || name.find(L"rewind-ts3n-") != std::wstring::npos;
@@ -1291,7 +1294,17 @@ static void planThreads(Sess& S, Result& r, Plan& pl, std::vector<TS>& now) {
   for (auto& o : s.threads) {
     const TS* n = nullptr; const Th* th = nullptr;
     for (size_t i = 0; i < now.size(); ++i) if (now[i].tid == o.tid) { n = &now[i]; th = &S.frozen[i]; }
-    if (!n) { r.refuse(fmt("thread %lu (start %08lx) exited after the snapshot", o.tid, o.start)); continue; }
+    if (!n) {  // never allowed (docs/270 §32): the thread cannot be made again, and the kernel already decommitted its TEB
+      // pages in the TEB region, which cannot be committed from outside (error 87). Named by start module, so the log says
+      // which worker ended: combase/mswsock workers also keep a user-mode list or count that the memory would put back.
+      const View* v = viewAt(s.views, o.start);
+      std::string mod = v && v->type == MEM_IMAGE ? baseName(v->file) : "";
+      std::string where = mod.empty() ? fmt("%08lx", o.start) : fmt("%s+%lx", mod.c_str(), (unsigned long)(o.start - v->base));
+      const char* what = mod == "combase.dll" ? ", COM RPC cache worker (ends after 30 s idle)" : mod == "mswsock.dll" ? ", Winsock async worker (ends after 300 s idle)"
+                       : mod == "ntdll.dll" ? ", thread-pool worker" : "";
+      r.refuse(fmt("thread %lu (start %s%s) exited after the snapshot", o.tid, where.c_str(), what));
+      continue;
+    }
     if (n->slots[5] != o.slots[5]) { pl.retry.push_back(fmt("thread %lu is at another user-callback depth than at the snapshot", o.tid)); continue; }
     std::string diff; std::vector<DWORD> hs;
     if (o.parked) {  // never restarted: only left where it is
@@ -1869,6 +1882,30 @@ static int cycle(DWORD pid, DWORD runMs, int n, const Opt& o) {
   freeSnap(S.s);
   return r.code;
 }
+// Waits without a freeze until no live thread of the target starts in module mod, at most secs (docs/270 §32): combase's
+// RPC cache workers end after 30 s idle and cannot be kept alive one by one, so the snapshot is taken after they ended.
+static Result settle(Sess& S, unsigned secs, const std::string& mod) {
+  Result r; r.op = "settle";
+  ULONGLONG t0 = GetTickCount64();
+  auto views = viewsOf(S.p, regions(S.p));
+  double left = 0;
+  for (;;) {
+    left = 0;
+    for (HANDLE th : threadHandles(S.p)) {
+      ULONG64 st = 0;
+      if (WaitForSingleObject(th, 0) == WAIT_TIMEOUT && NtQueryInformationThread_(th, 9, &st, sizeof st, nullptr) >= 0) {
+        const View* v = viewAt(views, (DWORD)st);
+        left += v && v->type == MEM_IMAGE && baseName(v->file) == mod;
+      }
+      CloseHandle(th);
+    }
+    if (!left || GetTickCount64() - t0 >= secs * 1000ull) break;
+    Sleep(500);
+  }
+  r.add("settleMs", (double)(GetTickCount64() - t0)); r.add("settleLeft", left);
+  if (left) r.notes.push_back(fmt("%.0f %s thread(s) still there after %u s: the snapshot is taken anyway (a rewind refuses if one ends)", left, mod.c_str(), secs));
+  return r;
+}
 static int serve(DWORD pid, const Opt& o) {
   Sess S; S.o = o;
   if (!attach(S, pid)) return 1;
@@ -1880,9 +1917,14 @@ static int serve(DWORD pid, const Opt& o) {
     else if (!strncmp(line, "rewind", 6)) { Result r = rewind(S, false); r.print(); code = r.code; }
     else if (!strncmp(line, "plan", 4)) { Result r = rewind(S, true); r.print(); code = r.code; }
     else if (sscanf_s(line, "ticks %u", &ticks) == 1) { Result r = rewind(S, false, ticks); r.print(); code = r.code; }
+    else if (sscanf_s(line, "settle %u", &ticks) == 1) {  // settle <s> [module], default combase.dll
+      char mod[64] = "combase.dll";
+      sscanf_s(line, "settle %*u %63s", mod, (unsigned)sizeof mod);
+      settle(S, ticks, mod).print();
+    }
     else if (!strncmp(line, "park", 4)) { Result r; r.op = "park"; parkWorker(S, r); r.print(); }  // held until the next op ends
     else if (!strncmp(line, "quit", 4)) break;
-    else printf("result {\"op\":\"?\",\"code\":1,\"why\":[\"commands: snapshot | rewind | plan | ticks <n> | park | quit\"]}\n"), fflush(stdout);
+    else printf("result {\"op\":\"?\",\"code\":1,\"why\":[\"commands: snapshot | rewind | plan | ticks <n> | settle <s> [module] | park | quit\"]}\n"), fflush(stdout);
   }
   freeSnap(S.s);
   return code;

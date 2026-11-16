@@ -205,6 +205,18 @@ static DWORD WINAPI pipeServer(void* h) {
     DisconnectNamedPipe(h);
   }
 }
+// ts3native's [Rewind] keepalive (RewindKeepAsync, docs/270 §32), same calls: one async select on a loopback listen socket
+static DWORD WINAPI wsaKeep(void*) {
+  WSADATA wd;
+  sockaddr_in a = {};
+  a.sin_family = AF_INET; a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  HWND w = WSAStartup(MAKEWORD(2, 2), &wd) ? nullptr : CreateWindowExW(0, L"STATIC", nullptr, 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, nullptr, nullptr);
+  SOCKET k = w ? socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) : INVALID_SOCKET;
+  if (!w || k == INVALID_SOCKET || bind(k, (sockaddr*)&a, sizeof a) || listen(k, 1) || WSAAsyncSelect(k, w, WM_APP, FD_ACCEPT)) return 1;
+  MSG m;
+  while (GetMessageW(&m, nullptr, 0, 0) > 0) {}
+  return 0;
+}
 static DWORD WINAPI tpWork(void* arg) {
   if (arg) Sleep(300);
   InterlockedIncrement((volatile LONG*)&s.tpRuns);
@@ -291,6 +303,7 @@ static void run(unsigned c) {
         }
       break;
     }
+    case C_WSA_KEEP: CreateThread(nullptr, 0, wsaKeep, nullptr, 0, nullptr); Sleep(300); break;
     case C_TP_SLEEP: QueueUserWorkItem(tpWork, (void*)1, WT_EXECUTEDEFAULT); Sleep(20); break;  // a work item that sleeps 300 ms
     case C_TP: case C_TP_BURST: {
       unsigned want = s.tpRuns + (c == C_TP ? 1 : 8);
@@ -420,6 +433,11 @@ static void setup(const char* mode) {
     HANDLE m = CreateFileMappingA(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, 65536, name);
     unsigned* v = (unsigned*)MapViewOfFile(m, FILE_MAP_ALL_ACCESS, 0, 0, 0);
     if (v) v[0] = 1; else s.bad |= B_SETUP;
+    // an unnamed section of its own mapped above the named view: classified after the owner scan, still not shared
+    HANDLE u = CreateFileMappingA(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, 65536, nullptr);
+    void* uv = nullptr;
+    for (int k = 1; v && u && !uv && k < 4096; ++k) uv = MapViewOfFileEx(u, FILE_MAP_ALL_ACCESS, 0, 0, 0, (char*)v + 65536 * k);
+    if (!uv) s.bad |= B_SETUP;
   }
   CreateThread(nullptr, 0, waiter, nullptr, 0, nullptr);
   CreateThread(nullptr, 0, sleeper, nullptr, 0, nullptr);
