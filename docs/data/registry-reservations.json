@@ -6482,6 +6482,17 @@
       "at": "2026-11-16T01:42:19.435Z",
       "worktree": "/home/<user>/dev/sims3-modernization",
       "pinned": true
+    },
+    {
+      "id": "fixes-1862",
+      "kind": "fixes",
+      "from": 1862,
+      "to": 1912,
+      "by": "claude",
+      "what": "batch 13 (docs/593 B13 §1-17): nullsituation..petharvestvfx, 17 switches x3",
+      "at": "2026-11-16T02:10:34.600Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
     }
   ]
 }

@@ -21,7 +21,7 @@ const ROOT = resolve(import.meta.dirname, '..', '..');
 const SRC = join(ROOT, 'mods', 'ts3fixes', 'src');
 const OUT = join(SRC, 'CheckLiveMap.cs');
 // Check files of batches 3-12 (docs/574-592): the scope of the constant-gap gate.
-const BATCH_CHECKS = /^(Batch5\d\d[a-z]?Checks|Batch12Checks)\.cs$/;
+const BATCH_CHECKS = /^(Batch5\d\d[a-z]?Checks|Batch1\dChecks)\.cs$/;
 const SKIP = /^(Ep|Store)|^CheckLiveMap\.cs$|^EpLiveCheck\.cs$/;
 const PRIM = new Set(['int', 'bool', 'float', 'uint', 'long', 'ulong', 'string', 'double', 'short', 'ushort', 'byte']);
 
