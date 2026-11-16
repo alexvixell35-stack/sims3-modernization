@@ -43,7 +43,7 @@ namespace Ts3Fixes
                 case "bonfirespice": return EpJoin(EpLive(typeof(BfFireHook), 1), EpLive(typeof(BfRunHook), 1));
                 case "bookcarry": return EpLive(typeof(BookCarryHook), 1);
                 case "bouncerrole": return EpLive(typeof(B12BrHook), 3, "sBrDist", sBrDist, typeof(float), "sBrDist", sBrDist, "static");
-                case "bouncerskip": return EpJoin(EpJoin(EpLive(typeof(BoatLegHook), 1), EpLive(typeof(BouncerHook), 0)), EpLive(typeof(VehicleLegHook), 1));
+                case "bouncerskip": return EpJoin(EpJoin(EpLive(typeof(BoatLegHook), 1), EpLive(typeof(BouncerHook), 1)), EpLive(typeof(VehicleLegHook), 1));
                 case "bowlinglane": return EpJoin(EpLive(typeof(BlBowlHook), 0), EpLive(typeof(BlLaneHook), 0));
                 case "bribeguard": return EpLive(typeof(BrHook), 1, "sBrDict", sBrDict, null);
                 case "bsrefund": return EpLive(typeof(BoardingRefundHook), 2);
@@ -193,7 +193,7 @@ namespace Ts3Fixes
                 case "leaveconvnull": return EpLive(typeof(B12LvHook), 1);
                 case "leavejobdispose": return EpLive(typeof(LeaveJobDisposeHook), 1, "sLeaveOnExit", sLeaveOnExit, null, "sLeaveJobNow", sLeaveJobNow, 1);
                 case "lecturebroadcaster": return EpLive(typeof(BLbHook), 1, "sLbParams", sLbParams, null, "sLbParams", sLbParams, "static");
-                case "legreplanskip": return EpJoin(EpJoin(EpLive(typeof(BoatLegHook), 1), EpLive(typeof(BouncerHook), 0)), EpLive(typeof(VehicleLegHook), 1));
+                case "legreplanskip": return EpJoin(EpLive(typeof(BoatLegHook), 1), EpLive(typeof(VehicleLegHook), 1));
                 case "lifeguardquit": return EpLive(typeof(B12LqHook), 1);
                 case "lifeguardsurvey": return EpLive(typeof(BLgHook), 1, "sLgAlarm", sLgAlarm, null, "sLgRemove", sLgRemove, 0);
                 case "lightcustom": return EpLive(typeof(B12LcHook), 2);
@@ -300,7 +300,7 @@ namespace Ts3Fixes
                 case "romancecooldown": return EpLive(typeof(B12RcHook), 1, "sRcStc", sRcStc, null, "sRcStc", sRcStc, "static");
                 case "roundupreturn": return EpLive(typeof(B13RuHook), 1);
                 case "routablecache": return EpLive(typeof(RoutableCacheHook), 1);
-                case "routesrc": return EpJoin(EpJoin(EpLive(typeof(BoatLegHook), 1), EpLive(typeof(BouncerHook), 0)), EpLive(typeof(VehicleLegHook), 1));
+                case "routesrc": return EpJoin(EpJoin(EpLive(typeof(BoatLegHook), 1), EpLive(typeof(BouncerHook), 1)), EpLive(typeof(VehicleLegHook), 1));
                 case "royaltyorphan": return EpLive(typeof(RoyaltyOrphanHook), 0, "sRoAlarm", sRoAlarm, null);
                 case "safelocunhide": return EpLive(typeof(HrResetHook), 1);
                 case "safespotcap": return EpLive(typeof(SafeSpotCapHook), 1);
