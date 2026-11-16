@@ -51,6 +51,20 @@ static void TestJobYield() {
     SwNote(SW_RTWAIT, 400000, true, kH1, true);
     assert(k.swN[SW_RTWAIT] == 2 && k.swYieldable[SW_RTWAIT] == 2 && k.swLines == 1 && k.swMaxUs == 400000);
 
+    // 5. [RouteAsync] CutOnWait on (docs/850), real worker: a wait at disc behind a job of unknown scope (no ts3fixes answer =
+    // household) polls until the worker has looked at the job, asks nothing, and ends with the job, uncut
+    k.cowMode = 1;
+    const LONG cut0 = k.kdCutUnk + k.kdCutSeen + k.kdCutNpc + k.kdCutUnseen + k.budgetCapped;
+    assert(Start(kH1));
+    while (g_async.state != A_RUNNING) Sleep(0);
+    const DWORD cowSeq = g_asyncSeq;
+    WaitAsyncDone(SW_DISC);
+    assert(g_async.state != A_RUNNING && k.cowAsks == 0 && k.cowCut == 0 && g_cowReq == 0 && g_cowDecided == (LONG)cowSeq && k.swN[SW_DISC] == 1);
+    assert(k.kdCutUnk + k.kdCutSeen + k.kdCutNpc + k.kdCutUnseen + k.budgetCapped == cut0);
+    WaitReady(kH1);
+    assert(IcPlanHook(out, kH1) == out);
+    k.cowMode = 0;
+
     g_icSleepMs = 0;
     memset((void*)&k.jyMode, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, jyMode));
     printf("JobYield (docs/183): counters v109; JOBBUSY off / on / nested / no job, step-aside loop ends with the job; sim job "

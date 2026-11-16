@@ -934,6 +934,131 @@ static void TestA10() {
         memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
     }
 
+    // 11b. [RouteAsync] CutOnWait (docs/850): scope gate at the job's start (unseen and seen NPC only), one ask per job by site,
+    // the deadline moves to start + the scope's minimum run and never later than it was, the asked job's ClosestWaypoints_Find
+    // exit (asked jobs only), stale asks, counters. This thread plays the worker slot and the sim thread in turn.
+    {
+        const LONGLONG dlS = t_fbDeadline;
+        const auto scS = t_kdJobScope;
+        const LONG fmS = k.fbjdMode, exS = t_kdExemptUs, stS = g_async.state, ownS = g_jobOwn, decS = g_cowDecided;
+        const DWORD wkS = g_pdWkTid, seqS = g_asyncSeq, owS = g_async.owner, me = GetCurrentThreadId();
+        const LONG unS = g_cowUnseenUs, npS = g_cowNpcUs, lkS = g_cowLock;
+        const LONGLONG q = g_qpf.QuadPart;
+        assert(q > 0 && !t_pd.open && !t_kdCam);
+        static AsyncJob j;
+        memset(&j, 0, sizeof(j));
+        InterlockedExchange((volatile LONG*)&g_pdWkTid, (LONG)me);
+        g_async.owner = me, g_async.state = A_RUNNING, g_jobOwn = 0;
+        k.fbjdMode = 1, k.cowMode = 0, k.cowAsks = k.cowCut = k.cowNpcCut = 0;
+        g_cowUnseenUs = 200000, g_cowNpcUs = 500000, g_cowLock = 1, g_cowReq = 0;
+        DWORD seq = 9000;
+        LONGLONG t0 = 0;
+        // a job of `scope` that started ranMs ago with its deadline dlMs after its start
+        auto begin = [&](LONG scope, LONG ranMs, LONG dlMs) {
+            CowJobEnd(false);
+            j.seq = ++seq, g_asyncSeq = seq;
+            t0 = PdNow() - (LONGLONG)ranMs * q / 1000;
+            t_kdJobScope = scope, t_kdExemptUs = scope == 2 ? 0 : 2000000;
+            t_fbDeadline = dlMs ? t0 + (LONGLONG)dlMs * q / 1000 : 0;
+            CowJobBegin(&j, t0);
+        };
+        CowWait w = {};
+        // switch off: nothing is published, nothing asks, no poll, no exit
+        begin(2, 250, 400);
+        CowAsk(SW_DISC, &w);
+        assert(!t_cowSeq && !g_cowOk && !k.cowAsks && !w.seq && !CowPoll() && !CowAsked() && !CowFindSkip());
+        k.cowMode = 1;
+        assert(CowPoll());  // the running job was not looked at with the switch on: the wait looks again
+        // household-or-seen (1, household and selected Sims) and unknown (0): never, whatever waits
+        for (LONG sc = 0; sc <= 1; sc++) {
+            begin(sc, 900, 2000);
+            for (int s = 0; s <= SW_LOCK; s++) CowAsk(s, &w);
+            const LONGLONG dl = t_fbDeadline;
+            PdCowApply(&t_fbDeadline);
+            assert(!t_cowSeq && !g_cowOk && !k.cowAsks && !w.seq && !CowPoll() && t_fbDeadline == dl && !CowFindSkip());
+        }
+        // unseen, 50 ms old, deadline 400: asked once, the deadline becomes start + 200 ms, so no cut yet
+        begin(2, 50, 400);
+        assert(t_cowSeq == (LONG)seq && g_cowOk == (LONG)seq && !CowAsked() && !CowPoll());
+        CowAsk(SW_COLLECT, &w), CowAsk(SW_DROP, &w), CowAsk(SW_OTHER, &w);  // waits for a result or a drop never ask
+        g_jobOwn = 1;
+        CowAsk(SW_RUNPLAN, &w);  // a plan behind an own job: no
+        g_jobOwn = 0, g_cowLock = 0;
+        CowAsk(SW_LOCK, &w);     // CutOnWaitLock=0
+        g_cowLock = 1;
+        assert(!k.cowAsks && !CowAsked());
+        CowAsk(SW_DISC, &w);
+        CowAsk(SW_RTWAIT, &w);  // one ask per job
+        assert(k.cowAsks == 1 && w.seq == (LONG)seq && w.scope == 2 && w.site == SW_DISC && CowAsked());
+        assert(!CowFindSkip() && t_fbDeadline == t0 + 200 * q / 1000 && t_fbDeadline == t_cowDl);
+        CowDone(&w);
+        assert(!w.seq);
+        // unseen, 250 ms old, deadline 400: a lock wait asks, the job is past start + 200 ms: the candidate exit answers none
+        begin(2, 250, 400);
+        assert(!CowFindSkip());  // not asked, before its deadline
+        CowAsk(SW_LOCK, &w);
+        assert(k.cowAsks == 2 && w.site == SW_LOCK && CowFindSkip() == 1 && t_fbDeadline == t_cowDl);
+        CowJobEnd(true);
+        assert(k.cowCut == 1 && !k.cowNpcCut && !g_cowOk && !t_cowSeq && g_cowCapSeq == (LONG)seq);
+        // unseen, past its own deadline but not asked: the game's ClosestWaypoints_Find (no exit of its own)
+        begin(2, 900, 400);
+        assert(!CowAsked() && !CowFindSkip());
+        // a deadline earlier than the minimum run is never moved later
+        begin(2, 10, 100);
+        CowAsk(SW_RTWAIT, &w);
+        LONGLONG bdl = t_fbDeadline;
+        PdCowApply(&bdl);
+        assert(k.cowAsks == 3 && t_fbDeadline == t0 + 100 * q / 1000 && bdl == t_fbDeadline);
+        // seen NPC under its 2 s ceiling: 300 ms old no cut (start + 500 ms), 600 ms old cut; a Budget's copy of the deadline follows
+        begin(3, 300, 2000);
+        CowAsk(SW_RUNPLAN, &w);  // a plan behind a foreign job asks
+        bdl = t_fbDeadline;
+        PdCowApply(&bdl);
+        assert(k.cowAsks == 4 && w.scope == 3 && bdl == t0 + 500 * q / 1000 && t_fbDeadline == bdl && !CowFindSkip());
+        begin(3, 600, 2000);
+        CowAsk(SW_DISC, &w);
+        assert(CowFindSkip() == 1 && PdWorkerSkip(0) == 1);
+        t_fbjdCut[1] = 0;
+        CowJobEnd(true);
+        assert(k.cowCut == 2 && k.cowNpcCut == 1);
+        // not capped at its end (it finished first): not counted as cut
+        begin(3, 10, 2000);
+        CowAsk(SW_DISC, &w);
+        CowJobEnd(false);
+        assert(k.cowAsks == 6 && k.cowCut == 2 && g_cowCapSeq != (LONG)seq);
+        // an ask for the job before reaches no later job
+        begin(3, 900, 2000);
+        assert(!CowAsked() && !CowFindSkip() && t_fbDeadline == t0 + 2000 * q / 1000);
+        // CutOnWaitNpcMs=0: seen NPCs never; probes, stuck-check rounds, no deadline, not the worker slot: never
+        g_cowNpcUs = 0;
+        begin(3, 900, 2000);
+        assert(!t_cowSeq && !g_cowOk);
+        g_cowNpcUs = 500000;
+        j.probe = 1;
+        begin(2, 900, 2000);
+        assert(!t_cowSeq);
+        j.probe = 0, j.sc = 1;
+        begin(2, 900, 2000);
+        assert(!t_cowSeq);
+        j.sc = 0;
+        begin(2, 900, 0);
+        assert(!t_cowSeq);
+        InterlockedExchange((volatile LONG*)&g_pdWkTid, 0);
+        begin(2, 900, 2000);
+        assert(!t_cowSeq && g_cowDecided == (LONG)seq);
+        CowDone(&w), CowAsk(SW_DISC, &w);
+        assert(k.cowAsks == 6 && !w.seq);
+        CowDone(&w);
+        CowJobEnd(false);
+        InterlockedExchange((volatile LONG*)&g_pdWkTid, (LONG)wkS);
+        g_async.owner = owS, g_async.state = stS, g_jobOwn = ownS, g_asyncSeq = seqS, g_cowDecided = decS, g_cowReq = 0, g_cowCapSeq = 0;
+        g_cowUnseenUs = unS, g_cowNpcUs = npS, g_cowLock = lkS;
+        t_fbDeadline = dlS, t_kdJobScope = scS, t_kdExemptUs = exS, t_jobCapAt = 0;
+        k.fbjdMode = fmS, k.cowMode = k.cowAsks = k.cowCut = k.cowNpcCut = k.cowLateMaxUs = 0;
+        printf("CutOnWait (docs/850): scope gate (household / unknown never), sites, one ask per job, deadline = start + min run and never later, "
+               "ClosestWaypoints_Find exit for asked jobs only, stale ask, probe / stuck-check / no deadline / no worker slot never ok\n");
+    }
+
     // 12. random order over 4 routes and all kinds (incl. Route.Plan): START / READY / IC / CANCEL; every collected result
     // is its own route's and kind's, nothing is left at the end
     {

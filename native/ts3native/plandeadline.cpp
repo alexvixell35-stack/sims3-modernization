@@ -575,6 +575,7 @@ static void ReadPlanDeadline(const wchar_t* ini) {
     k.jyMode = GetPrivateProfileIntW(L"RouteAsync", L"JobYield", 0, ini) ? 1 : 0;             // docs/183 (runtime switch)
     k.rwMode = GetPrivateProfileIntW(L"RouteAsync", L"WorkerWait", 0, ini) ? 1 : 0;           // docs/203 §6 (runtime switch)
     ReadKindDeadlines(ini);                                                                    // docs/197
+    ReadCutOnWait(ini);                                                                        // docs/850 [RouteAsync] CutOnWait
     ReadUnseenFallback(ini);                                                                   // docs/202 (unseenfb.cpp)
     Log("route async: PlanDeadlineMs=%ld PlanDeadlineOwnMs=%ld FailMemo=%d FbJobDeadline=%d OwnJobWait=%ld JobYield=%ld WorkerWait=%ld",
         k.pdUs / 1000, k.pdOwnUs / 1000, g_fmIni, g_fbjdIni, k.owReady, k.jyMode, k.rwMode);
@@ -699,6 +700,90 @@ static void PdCapped() {
     InterlockedIncrement(&ts3native_counters.pdWorldCapped);
 }
 
+// [RouteAsync] CutOnWait (docs/850, next version, default 0; counters v922 cowMode +0x5C58 .. cowNpcCut +0x5C68, --ab cutonwait).
+// Isla Paradiso logs (6 JobYield games): 95% of the sim thread's job waits >= 150 ms are behind another Sim's running job and
+// want nothing from it (deferred footprint drain 60%, the event-9 insert flush 34%, destroy 5%); 83% of that time is behind
+// foreign Plan jobs of seen NPCs that run 1-2 s under KdSeenNpcCeilMs and fail anyway in 94-100% of the cases.
+// With the switch on, a sim-thread wait at disc / rtwait / runplan (foreign job) or, with CutOnWaitLock, a +0x918 wait in the lock
+// pump asks the running job to end. The ask moves the job's deadline to its START + the scope's minimum run (CutOnWaitUnseenMs,
+// CutOnWaitNpcMs), never later than the deadline it had and never earlier than that minimum: a job a few ms old is not cut (the
+// 2026-11-12 v1 cut at once, and a job cut at 1-90 ms then failed every candidate's world A* and walked the whole candidate
+// list: 1-4 s tails, more >= 1 s freezes). The job ends as an ordinary deadline cut (no path, kdCut, the follower's backoff,
+// "capped" lines), and an asked job also takes the ClosestWaypoints_Find exit (CowFindSkip) so its candidate loop ends too.
+// Scope gate, read by the worker at the job's start: known unseen (scope 2) or seen NPC (scope 3; CutOnWaitNpcMs 0 = never).
+// Household, selected, another seen household Sim and unknown scope (0 / 1) are never asked, nor stuck-check rounds and probes,
+// nor a job without a deadline or outside the worker slot. A job held in view by KdCutCamRecheck runs on to its ceiling.
+static volatile LONG g_cowOk;        // the running job's seq while a wait may end it, else 0
+static volatile LONG g_cowDecided;   // the seq of the last job CowJobBegin looked at (CowPoll)
+static volatile LONG g_cowCapSeq;    // the last asked job that ended cut
+static volatile LONG g_cowScope;     // g_cowOk's scope (log text)
+static volatile LONGLONG g_cowT0;    // its start (QPC), for the line
+static LONG g_cowUnseenUs = 200000, g_cowNpcUs = 500000, g_cowLock = 1;  // ini
+static void ReadCutOnWait(const wchar_t* ini) {
+    Ts3nCounters& k = ts3native_counters;
+    k.cowMode = GetPrivateProfileIntW(L"RouteAsync", L"CutOnWait", 0, ini) ? 1 : 0;
+    g_cowUnseenUs = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"CutOnWaitUnseenMs", 200, ini), 50, 10000) * 1000;
+    const int npc = GetPrivateProfileIntW(L"RouteAsync", L"CutOnWaitNpcMs", 500, ini);
+    g_cowNpcUs = npc > 0 ? Clamp(npc, 100, 10000) * 1000 : 0;
+    g_cowLock = GetPrivateProfileIntW(L"RouteAsync", L"CutOnWaitLock", 1, ini) ? 1 : 0;
+    Log("route async: CutOnWait=%ld (docs/850): a sim wait behind a townie's job ends it at its start + %ld ms (unseen) / %ld ms (seen NPC, 0 = never), lock waits ask %ld; "
+        "household, selected and unknown scope never", k.cowMode, g_cowUnseenUs / 1000, g_cowNpcUs / 1000, g_cowLock);
+}
+static void CowJobBegin(const AsyncJob* j, LONGLONG t0) {  // worker, after KdJobBegin, the deadline and the worker slot (ServeAsync)
+    t_cowSeq = 0;
+    if (ts3native_counters.cowMode != 1) return;
+    const LONG minUs = t_kdJobScope == 2 ? g_cowUnseenUs : t_kdJobScope == 3 && !j->uf ? g_cowNpcUs : 0;
+    if (minUs > 0 && j->seq && t_fbDeadline && !t_pd.open && !j->probe && !j->sc && GetCurrentThreadId() == g_pdWkTid) {
+        t_cowSeq = (LONG)j->seq;
+        t_cowDl = t0 + (LONGLONG)minUs * g_qpf.QuadPart / 1000000;
+        InterlockedExchange(&g_cowScope, t_kdJobScope);
+        InterlockedExchange64(&g_cowT0, t0);
+        InterlockedExchange(&g_cowOk, (LONG)j->seq);
+    }
+    InterlockedExchange(&g_cowDecided, (LONG)j->seq);
+}
+static void CowJobEnd(bool capped) {  // worker, before the job's +0x918 release
+    if (!t_cowSeq) return;
+    if (g_cowReq == t_cowSeq && capped) {
+        InterlockedIncrement(&ts3native_counters.cowCut);
+        if (t_kdJobScope == 3) InterlockedIncrement(&ts3native_counters.cowNpcCut);
+        InterlockedExchange(&g_cowCapSeq, t_cowSeq);
+    }
+    InterlockedCompareExchange(&g_cowOk, 0, t_cowSeq);
+    t_cowSeq = 0;
+}
+// sim thread, in a wait loop: true = the running job is not decided yet, look again soon
+static bool CowPoll() { return ts3native_counters.cowMode == 1 && g_async.state == A_RUNNING && g_cowDecided != (LONG)g_asyncSeq; }
+static void CowDone(CowWait* w) {  // sim thread, the wait (or the asked job) is over: one line, 20 a minute
+    if (!w->seq) return;
+    const LONGLONG us = (PdNow() - w->at) * 1000000 / g_qpf.QuadPart;
+    Max(&ts3native_counters.cowLateMaxUs, us > 0x7FFFFFFF ? 0x7FFFFFFF : (LONG)us);
+    static DWORD minute, lines;
+    const DWORD now = GetTickCount();
+    if (now - minute >= 60000) minute = now, lines = 0;
+    if (lines++ < 20) {
+        static const char* const kSite[SW_N + 1] = {"runplan", "rtwait", "disc", "collect", "drop", "other", "lock"};
+        Log("cut on wait: route %08lX (%s), site %s, job had run %ld ms, wait ended %ld ms after the ask (%s)", w->handle, KdScopeTag(w->scope), kSite[w->site],
+            w->jobT0 && w->at > w->jobT0 ? (LONG)((w->at - w->jobT0) * 1000 / g_qpf.QuadPart) : -1, (LONG)(us / 1000),
+            g_cowCapSeq == w->seq ? "cut" : "not cut: it ended first, lent the lock or runs on");
+    }
+    w->seq = 0;
+}
+// sim thread, about to wait behind the running job: ask it once (g_cowReq), if the worker said it may be asked
+static void CowAsk(int site, CowWait* w) {
+    Ts3nCounters& k = ts3native_counters;
+    if (k.cowMode != 1 || (site != SW_DISC && site != SW_RTWAIT && site != SW_RUNPLAN && (site != SW_LOCK || !g_cowLock))) return;
+    const LONG s = (LONG)g_asyncSeq;
+    if (!s || g_cowOk != s || g_async.state != A_RUNNING || GetCurrentThreadId() != g_async.owner) return;
+    // the worker writes g_jobOwn before this job's seq and g_cowOk: a plan waiting at runplan asks foreign jobs only (an own job may be the one it collects next)
+    if (site == SW_RUNPLAN && g_jobOwn) return;
+    if (InterlockedExchange(&g_cowReq, s) == s) return;  // asked by an earlier wait
+    InterlockedIncrement(&k.cowAsks);
+    CowDone(w);  // this wait outlasted a job it asked before
+    w->seq = s, w->site = site, w->handle = g_async.handle, w->scope = g_cowScope;
+    w->jobT0 = InterlockedCompareExchange64(&g_cowT0, 0, 0), w->at = PdNow();
+}
+
 static int g_pdSkipMask = 3;  // bit 0 cell, bit 1 water (steerro-test cuts one phase at a time; always 3 in game)
 // docs/178 T1: the worker inside a foreign job with a deadline (g_pdWkTid, set by ServeAsync while t_fbDeadline is set): the
 // same exits past t_fbDeadline (FbJobCapMs from the job's start), with the runtime switch fbjdMode. Counted per job
@@ -707,6 +792,7 @@ static int PdWorkerSkip(int which) {
     Ts3nCounters& k = ts3native_counters;
     if ((k.fbjdMode != 1 && !t_scProbe && !t_kdKind && !t_ufJob) || !t_fbDeadline || GetCurrentThreadId() != g_pdWkTid || !(g_pdSkipMask >> which & 1)) return 0;
     const LONGLONG now = PdNow();
+    PdCowApply(&t_fbDeadline);  // [RouteAsync] CutOnWait
     if (now < t_fbDeadline || KdCamHold(now, &t_fbDeadline)) return 0;
     if (t_jobT0 && !t_jobCapAt) t_jobCapAt = now;
     t_fbjdCut[1 + which]++;
@@ -807,6 +893,56 @@ static __declspec(naked) void PdWaterStub() {
     }
 }
 
+// [RouteAsync] CutOnWait (docs/850 §2): the world A* of an asked job fails at its moved deadline, but before each candidate's
+// A* PathPlanner_PlanHierarchical calls ClosestWaypoints_Find 0x65BB90 (docs/99 §4.5/§10.2: up to 3 widening tries of
+// 0x6595B0, each running the routability test 0x659390 -> Routing_SegmentClearOfRings 0x658A00 on every gathered waypoint
+// while none passes, with the sea-level ray 0xC6C810 and the bisection rays 0x658870). Nothing in that has a deadline exit, so
+// a cut job keeps paying it for every remaining candidate. Past the moved deadline of a job a sim wait asked to end (CowAsked:
+// unseen or seen NPC only) the call returns AL = 0 at once: "no waypoint", which EA returns when no waypoint passes. All 8
+// callers [verified disassembly, Steam 1.67] either test AL (0x65C401, 0x65D4CC, 0x65DFE5, 0x65E045, 0x65FA0E, 0x65FB55,
+// 0x65FC97) or read an output vector they emptied just before the call (0x65F731), so nothing stale is read. Every job no
+// wait asked, and every other thread, runs the game's function unchanged.
+static void* g_cowFindOrig;
+static int __cdecl CowFindSkip() {
+    Ts3nCounters& k = ts3native_counters;
+    if (!CowAsked() || !t_fbDeadline || (k.fbjdMode != 1 && !t_scProbe && !t_kdKind && !t_ufJob)) return 0;
+    const LONGLONG now = PdNow();
+    PdCowApply(&t_fbDeadline);
+    if (now < t_fbDeadline || KdCamHold(now, &t_fbDeadline)) return 0;
+    if (t_jobT0 && !t_jobCapAt) t_jobCapAt = now;
+    return 1;
+}
+static __declspec(naked) void CowFindStub() {
+    __asm {
+        push eax
+        mov eax, dword ptr fs:[0x24]
+        cmp eax, g_pdWkTid
+        jne off
+        pushad
+        pushfd
+        call CowFindSkip
+        test eax, eax
+        jnz skip
+        popfd
+        popad
+    off:
+        pop eax
+        jmp dword ptr [g_cowFindOrig]
+    skip:
+        popfd
+        popad
+        pop eax
+        xor al, al                       // as 0x65BBFF..0x65BC04 after 3 failed tries: AL = 0, thiscall ret 0x2C
+        ret 0x2C
+    }
+}
+static const u8 kCowFindPro[] = {0x51, 0x53, 0x8B, 0x5C, 0x24, 0x2C};  // push ecx; push ebx; mov ebx,[esp+2Ch]
+static void CowFindInstall() {
+    g_cowFindOrig = InstallDetour("ClosestWaypoints_Find (cut on wait)", 0x0065BB90, kCowFindPro, sizeof(kCowFindPro), (void*)CowFindStub, &g_cowFindOrig);
+    Log("%s cut on wait: ClosestWaypoints_Find 0x65BB90 answers none past the moved deadline of a job a sim wait asked to end",
+        g_cowFindOrig ? "OK  " : "FAIL");
+}
+
 static const u8 kPdCellPro[] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0};         // push ebp; mov ebp,esp; and esp,-16
 static const u8 kPdWaterPro[] = {0x8B, 0x44, 0x24, 0x24, 0x83, 0xEC, 0x50};  // mov eax,[esp+24h]; sub esp,50h
 
@@ -825,6 +961,7 @@ static void InstallPlanDeadline() {
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     if (k.pdUs || k.pdOwnUs || g_fbjdIni || g_kdIni || g_ufIni) {
         PdInstallAt(TS3A(0x0061E500), TS3A(0x00671930));
+        if (k.cowMode) CowFindInstall();  // docs/850 [RouteAsync] CutOnWait=1 (the runtime switch alone asks without this exit)
         if (g_kdIni) KdInstalled();  // docs/197
         if (g_ufIni) UfInstalled();  // docs/202
         if (g_fbjdIni) {  // docs/178 T1: the worker slot of the same stubs; the deadline is FbJobCapMs's (t_fbDeadline)
