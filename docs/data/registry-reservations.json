@@ -6451,6 +6451,27 @@
       "pinned": true
     },
     {
+      "id": "fixes-2742",
+      "kind": "fixes",
+      "from": 2742,
+      "to": 2746,
+      "by": "claude",
+      "what": "stcsocials / stcsocialscheck (Conversation.GetSocialsForSTC) and idleparamscheck",
+      "at": "2026-11-16T00:11:13.306Z",
+      "worktree": "/home/<user>/dev/s3m-cleanup"
+    },
+    {
+      "id": "fixes-1600",
+      "kind": "fixes",
+      "from": 1600,
+      "to": 1699,
+      "by": "claude",
+      "what": "EP batch 5 overflow (docs/587 §11, tranche 4; overflow of fixes-1500)",
+      "at": "2026-11-16T00:17:53.494Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
       "id": "fixes-1351",
       "kind": "fixes",
       "from": 1351,
