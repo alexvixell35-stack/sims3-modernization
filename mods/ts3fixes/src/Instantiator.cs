@@ -35,6 +35,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kRoutableCache = false;       // opt-in until measured: the game's "is this spot safely routable" checks share the SafeSpot verdict cache
         [Tunable] public static bool kStuckCheckBusy = false;      // opt-in until measured: the 3 AM stuck check skips Sims held by a bed, chair or other object
         [Tunable] public static bool kStuckCheckAsync = true;      // on, same as the shipped tuning (2026-11-14); was: opt-in until measured: the 3 AM stuck check runs in our own task, one Sim per tick, so [RouteAsync] FallbackAsync plans it on the worker without the world lot task sleeping in the alarm (docs/134 §8)
+        [Tunable] public static bool kTagUnseen = false;           // opt-in: all-unseen-townie Tag games skip the run routes (TagUnseen.cs, docs/60 §3)
         [Tunable] public static bool kSafeSpotCap = false;         // opt-in until measured: a reset's safe-spot search near the front door checks at most 6 cells (EA's own vacation-start limit), docs/141 §7.1
         [Tunable] public static bool kFarthestLotSorted = false;   // opt-in until measured: GetFarthestLot with routing plans the farthest lot first (same answer), at most 3 plans, sim-day cache, docs/141 §7.2
         [Tunable] public static bool kIndoorPositionCap = false;   // opt-in until measured: Lot.GetRoutableIndoorPositions gives a room up after 4 failed plans, docs/141 §7.3
