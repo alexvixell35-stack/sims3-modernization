@@ -257,6 +257,7 @@ namespace Ts3Fixes
                 case "petpoolghost": return EpLive(typeof(BPgHook), 1, "sPpgIds", sPpgIds, null);
                 case "petpoolorphan": return EpLive(typeof(PetPoolOrphanHook), 2);
                 case "petpuddletile": return EpLive(typeof(PetPuddleHook), 2);
+                case "petwakebed": return EpLive(typeof(PwCleanupHook), 1, "sPwBed", sPwBed, null);
                 case "phonecallrearm": return EpLive(typeof(PhCallRearmHook), 0, "sPhInterval", sPhInterval, typeof(int), "sPhInterval", sPhInterval, "static");
                 case "phonecallschedule": return EpLive(typeof(PhCallScheduleHook), 0, "sPhWindow", sPhWindow, typeof(int), "sPhWindow", sPhWindow, "static", "sPhAlarm", sPhAlarm, null);
                 case "phonefixup": return EpLive(typeof(PhoneFixUpHook), 1);
@@ -337,6 +338,7 @@ namespace Ts3Fixes
                 case "shroomslots": return EpLive(typeof(B13SsHook), 1, "sSsShrooms", sSsShrooms, typeof(int), "sSsHelped", sSsHelped, null, "sSsPost", sSsPost, 1, "sSsYielded", sSsYielded, null, "sSsYielded", sSsYielded, typeof(int), "sSsTimeout", sSsTimeout, 2);
                 case "shuffleboardbcast": return EpLive(typeof(SbHook), 2);
                 case "simfestkeep": return EpLive(typeof(SimFestKeepHook), 1);
+                case "slavewakereason": return EpLive(typeof(SbSyncHook), 1, "sSbMaster", sSbMaster, null);
                 case "sneakoutlistener": return EpLive(typeof(SneakOutHook), 0, "sSoOwner", sSoOwner, null, "sSoGoing", sSoGoing, 0, "sSoFrom", sSoFrom, null, "sSoOn", sSoOn, null);
                 case "snowfightjoinwait": return EpLive(typeof(SnowFightHook), 0);
                 case "snublistener": return EpLive(typeof(BSnlHook), 1);
@@ -372,6 +374,7 @@ namespace Ts3Fixes
                 case "stereoupgrade": return EpJoin(EpJoin(EpLive(typeof(BSuDanceHook), 1), EpLive(typeof(BSuSpeakerHook), 1)), EpLive(typeof(BSuUpHook), 1));
                 case "stuckcheckasync": return EpLive(typeof(StuckCheckBusyHook), 1);
                 case "stuckcheckbusy": return EpLive(typeof(StuckCheckBusyHook), 1);
+                case "subroutefail": return EpJoin(EpLive(typeof(SrfPlayHook), 1), EpLive(typeof(SrfTryHook), 1));
                 case "synctime": return EpLive(typeof(SfHook), 1);
                 case "takeariskguard": return EpLive(typeof(TakeARiskHook), 1);
                 case "talkoccupationchance": return EpLive(typeof(BTaoHook), 1);

@@ -6576,6 +6576,16 @@
       "what": "docs/597 sleep/social/queues: spoonslavechecks (4), queueproximity (3)",
       "at": "2026-11-16T14:17:33.874Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1961",
+      "kind": "fixes",
+      "from": 1961,
+      "to": 1970,
+      "by": "claude",
+      "what": "docs/597 read-not-built: subroutefail (3), petwakebed (3), slavewakereason (4)",
+      "at": "2026-11-16T14:27:53.331Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

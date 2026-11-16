@@ -364,6 +364,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kOuterwearRestore = false;    // outerwearrestore (docs/596 §2): ChangeIntoOuterwear stores the outfit to return to, as GoingOutside does
         [Tunable] public static bool kSpoonSlaveChecks = false;    // spoonslavechecks (docs/597 §1): the spooning slave partner gets EA's light-sleeper / TiredFromMoving / NoMonsters checks like every other sleeper
         [Tunable] public static bool kQueueProximity = false;    // queueproximity (docs/597 §2): SimQueue OrderByProximity places a new Sim by squared distance on both sides (elevator lines)
+        [Tunable] public static bool kSubRouteFail = false;    // subroutefail (docs/597 §3): no route-fail balloon/animation when SimQueue.TryReplacementInteraction pushed a substitute object
+        [Tunable] public static bool kPetWakeBed = false;    // petwakebed (docs/597 §4): pet WakeUpSim Cleanup clears the bed part that still holds the pet (reset mid-wake)
+        [Tunable] public static bool kSlaveWakeReason = false;    // slavewakereason (docs/597 §5): the spooning slave keeps the exit reason that woke it across its wait for the master
         [Tunable] public static bool kWeatherStoneListener = false;    // weatherstonelistener (docs/594 §2): WeatherStone.Dispose removes the summon's weather listener
         [Tunable] public static bool kRouteCauseLog = false;    // routecauselog (docs/580): log the cause of NPC zero-plan route failures and of locked-door failures (doors, privacy owner)
         [Tunable] public static bool kScarePriority = false;    // scarepriority (docs/580 §14): an autonomous Scare/StaticShock receiver still queued after the scarer routed is raised to NonCriticalNPCBehavior, as EA does for every social receiver
