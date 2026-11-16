@@ -6596,6 +6596,16 @@
       "what": "docs/598 §5 hovertraintest: NPCUseHoverTrain station-count memo (answered, EA queries, forgets, check mismatches, Run guards, errors)",
       "at": "2026-11-16T14:46:21.571Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1977",
+      "kind": "fixes",
+      "from": 1977,
+      "to": 1980,
+      "by": "claude",
+      "what": "docs/601 outfitwaitend: stale unseen-NPC outfit waits ended with EA's instant switch",
+      "at": "2026-11-16T16:18:40.770Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

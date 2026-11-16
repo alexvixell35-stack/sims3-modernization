@@ -368,6 +368,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kHoverTrainTest value="False" />
     <kOuterwearAutoLoop value="False" />
     <kOuterwearRestore value="False" />
+    <kOutfitWaitEnd value="False" />
+    <kOutfitWaitEndMinutes value="30" />
     <kSpoonSlaveChecks value="False" />
     <kQueueProximity value="False" />
     <kRouteCauseLog value="False" />

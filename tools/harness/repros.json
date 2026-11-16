@@ -106126,6 +106126,87 @@
     ]
   },
   {
+    "id": "outfitwaitend-check",
+    "bug": "Sim.SwitchOutfitHelper.Wait loops on Sleep(1) until the native swap is ready, which never happens while the Sim has no animation instance (off screen, low LOD; docs/224 §5): an off-screen NPC stays in Switch To Outfit or a route's clothing change for hours with its motives frozen (docs/601 §1)",
+    "fix": "ts3fixes OutfitWait.cs: outfitwaitend (default off)",
+    "save": "any world (pure check)",
+    "note": "OutfitWaitEndCheck 'run' checks the end rule (OutfitWaitCore.EndNow, the same call the hook makes) and its controls; 'result' shows counters 1977-1980 and the live path (Wait swap, handles).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitend": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's loop"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitend": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitend": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitend": false
+        }
+      }
+    ]
+  },
+  {
     "id": "spoonslavechecks-check",
     "bug": "BedSleep.LoopHandler returns for the spooning slave partner before EA's per-sleeper checks, so the slave of a shared-bed couple skips the light-sleeper wake, early TiredFromMoving removal and NoMonsters cut all night (docs/597 §1)",
     "fix": "ts3fixes SleepQueue597.cs + SpoonReset.cs SrHook: spoonslavechecks (default off)",
