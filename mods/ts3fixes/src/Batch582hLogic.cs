@@ -133,7 +133,9 @@ namespace Ts3Fixes
         // break-up runs. Household-visible: yes (the victim is selectable).
         // Counters: [1264] notices shown and break-ups done, [1265] seen with the switch off, [1266] errors.
         delegate string BtLocFn(bool[] isFemales, string key, object[] args);
-        static readonly MethodInfo sBtLoc = typeof(RomanceVisibilityState).GetMethod("LocalizeReputationKey", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+        // by its argument types: LocalizeReputationKey has a (bool, string, params object[]) overload too, and a lookup by name
+        // alone throws AmbiguousMatchException, which in a static initializer kills the whole Fixes class (r43 load hang)
+        static readonly MethodInfo sBtLoc = typeof(RomanceVisibilityState).GetMethod("LocalizeReputationKey", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic, null, new Type[] { typeof(bool[]), typeof(string), typeof(object[]) }, null);
 
         // Pure: does EA's method throw? (selectable victim, betrayer not instantiated)
         internal static bool BtThrows(bool betrayerLive, bool victimSelectable) { return !betrayerLive && victimSelectable; }

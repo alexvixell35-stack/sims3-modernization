@@ -561,6 +561,9 @@ const compile = (srcDir: string, out: string, extraRefs: string[] = []) => (lint
     // file names relative to cwd: absolute paths from a worktree overflow Windows' 32 K command line
     ...readdirSync(srcDir).filter(f => f.endsWith('.cs'))], { stdio: 'inherit', cwd: srcDir }));
 compile(src, dll);
+// what only the game's Mono finds: unresolved refs and name-only GetMethod lookups that are ambiguous in the game's
+// assemblies (one in a static initializer killed every fix in r43). Local-only: skipped without game-copy.
+execFileSync(process.execPath, [join(ROOT, 'tools', 'static', 'refs-resolve-check.ts'), dll, '--src', src], { stdio: 'inherit' });
 const pkg = writePackage([
   { type: TYPE_S3SA, group: 0, instance: fnv64(ASSEMBLY), data: s3saEncode(readFileSync(dll)) },
   { type: TYPE_XML, group: 0, instance: fnv64(`${ASSEMBLY}.Instantiator`), data: Buffer.from(tagXml(TUNING_XML), 'utf8') },
