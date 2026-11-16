@@ -220,3 +220,61 @@ Parked, with reasons:
   - AcademicBusinessPlanner.UseBusinessPlanner.Run (writes the shared Definition; can pocket a planner someone else is using).
 - Party chair count (`num == Length` pays only with exactly one chair): which objects count as "chair" is inferred. The OnOver bonus order is unclear.
 - Low or cosmetic: ClubLight Clamp result discarded; DaycareTransportSituation; CounterIsland.PlaceSnackBowl charge order; Dresser.PutOnUniform helper leak; VomitPile.Eat roll; MarineLifeStateWander PostPlanCallback; Fireplace mLitFireFX; PutInInventory null SimOwner.
+
+## 9. Copies of yielding methods, and batch EP4a (2026-11-16, same branch, NOT RUN)
+
+**Is a full copy of a yielding Run safe? Yes.** It is as safe as any wrapper around a yielding method, which ts3fixes already has many of.
+- EA's Run methods are not iterators. They yield through `Simulator.Sleep`, routes and animations inside the Sim's own task, so a copy keeps its yields just by calling the same members.
+- Saved stacks (docs/242 §2) handle copies the way they handle every swap:
+  - A save made while a Sim is inside the copy names the frame by the hook. It resumes in the copy under the same build.
+  - A save made inside EA's method is pointed by `savedstacks` at the stub, which holds EA's IL, and finishes as EA's.
+  - The one cost is shared with every yielding hook: a later build that changes the copy's IL resets a Sim saved inside it once.
+- How the copies are written:
+  - Each copy is EA's body with only the lines marked `// changed`.
+  - The copy's hook class derives from the interaction's base class, as BJfHook, BNrHook and BGpHook already do, so it can reach protected members.
+  - Private members are reached through reflection.
+  - With the switch off, the copy runs EA's IL.
+
+| § | Switch | Check | What changes | Evidence |
+|---|---|---|---|---|
+| 9.1 | `dogswimslots` | `DogSwimSlotsCheck` | Copy of `DoggySwimHere.RouteActorToDestination`: the hydrophobic reroute loop runs only when a slot is free. | Verified: `GetRandomObjectFromList` throws `ArgumentException` on an empty list. |
+| 9.2 | `fragmentreconstruct` | `FragmentReconstructCheck` | Copy of `Reconstruct.RunFromInventory`: the clicked fragment is picked first, and the trailing `Clear` is null-guarded. | Verified: when the Target is not among the first N, N+1 fragments are used up; how often that happens is inferred. RE: the Clear throws when too few fragments are free. |
+| 9.3 | `labobjectpush` | `LabObjectPushCheck` | Wrapper, no copy needed (the method does not yield): if the student's inventory list is empty, a live lot lab object is pushed with EA's own call. | Verified: the lot objects are added only when the inventory has one. Intent inferred. |
+| 9.4 | `businessplannerrun` | `BusinessPlannerRunCheck` | Copy of `UseBusinessPlanner.Run`: the use roll is kept in a local, and the caption shows it. After a failed wait or route, the planner is put back only if this run took it out of the inventory. | Verified: the roll is written on the shared Singleton definition, and `TryToAdd` pockets a planner another Sim is using. |
+| 9.5 | `futuredescendantsize0` | `FutureDescendantSize0Check` | `Instantiate` skips size-0 households. Copy of `ProcessDescendantHouseholds`: skips null households, missing progenitors, and resize loops that make no progress. | Verified, shipped size mapping: these throw, or hang (RE: `RemoveDescendant` can remove nobody and still return true). |
+
+**FutureDescendant: load safety.** The fix writes no state that EA would not write:
+- it skips EA's unpack of progenitors whose result EA throws away;
+- it skips the statements that throw;
+- it leaves a resize loop that is stuck.
+
+A save made with the switch on loads unchanged with it off. All five fixes are household-visible.
+
+## 10. Tranche 3 and batch EP4b (2026-11-16, NOT RUN)
+
+**Tranche 3.** 146 EP types were read by hand:
+- first, the 40 EP types in `docs/data/usage-rank-1115.csv` (real-use rank) not read before;
+- then the scanner rank;
+- store content and EA's StoryProgression namespace were skipped.
+
+Most of the use-ranked types are Mimics, spawner or fragment subclasses with no logic of their own. 8 leads were confirmed. Every built one is unfixed in simler90 UPDATE242.
+
+| § | Switch | Check | What changes | Evidence |
+|---|---|---|---|---|
+| 10.1 | `junglegymexitqueue` | `JungleGymExitQueueCheck` | Copy of `JungleGymLookOutTower.RouteOutOfJungleGym`: entries for Sims who are gone or off the tower, with no pending alarm, are dropped. Each exit alarm removes its own Sim's entry. `ResetSafeToExit` returns on an empty queue. | Verified code, shipped 3 / 45 min. Reach inferred: a Sim reset during the wait leaves a stale entry for good, and every later Sim then waits 45 minutes. |
+| 10.2 | `wildhorselot` | `WildHorseLotCheck` | Copy of `WildHorses.FindGoodLot` (static, does not yield): `< 0` instead of `<= 0`. RE: a lot whose gnome bars the horse is not a fallback either. | Verified, shipped tuning: big parks get weight ×1 instead of ×2. |
+| 10.3 | `harvesterunripe` | `HarvesterUnripeCheck` | `HarvestPlant.OnSuctioned` does nothing on a plant that fails `HarvestTest`. | Verified: the Harvester calls `DoHarvest` on unripe or dead plants, which still rolls Gatherer and Science extras. |
+| 10.4 | `hottubseatposture` | `HotTubSeatPostureCheck` | `EnsureSeatPosture` skips the re-init while the sore alarm is pending, and the first Idle does not repeat it. | Verified: each seated social adds another AlwaysPersisted sore alarm. |
+| 10.5 | `teenpartybreakup` | `TeenPartyBreakUpCheck` | Copy of `TeenParty.BreakUpParty.Run` without the unused `situation.Lot` read. | Verified: an NRE when the party ended during the route. The kegger sibling is already fixed (ilpatch row 73). |
+| 10.6 | `dogswimaroundlist` | `DogSwimAroundListCheck` | After `DoggySwimAround.Run`, a dog still in the pool is put back on the pool's use list. | Verified: `pool.ActorsUsingMe.Remove(Actor)` edits the live list. |
+| 10.7 | `tutorballoonalarm` | `TutorBalloonAlarmCheck` | The balloon alarm is removed after `ConfigureInteraction` and started in `PreSocialLoop`. | Verified: it starts at queue time. A rejected queue insert leaks it into the save (reach inferred). |
+
+All seven are household-visible.
+
+Parked or dropped:
+- `TeenParty.CollapseTeenPartyScenario`: it modifies `sAllSituations` while iterating over it. It is reachable only when a Generations save is loaded without Generations.
+- `JungleGym.PlayOn` `.Minute`: a wrong operand, but unreachable with the shipped times. The same pattern is in HalfPipe.cs:170, which is for a later tranche.
+- `WildHorses.SpawnWildHorse`: a null `InstantiateOffScreen` result is used without a check; reach inferred.
+- Scan pass 4 leads (docs/583 §8.1 on `analysis/roslyn-scan-1115`) are queued for the next batch:
+  - 18 sites that start a VisualEffect and drop it (fix: `SubmitOneShotEffect`). SnackBowl is already 8.5.
+  - The Consignment reputation fallback name (cosmetic).

@@ -1,0 +1,121 @@
+namespace Ts3Fixes
+{
+    // Harness checks for EpBatch4Logic.cs and EpBatch4bLogic.cs (docs/587 §9-§10, batch EP4). Pure decisions with
+    // controls; nothing in the world is touched.
+    public static partial class Fixes
+    {
+        static object Ep4Check(string sw, int first, string[] what, string miss, string what2, string fixedText, bool fixedNow, string ctlText, bool controls)
+        {
+            string counters = B582Counters(sw, first, what, miss);
+            if (what2 == "result") return counters;
+            if (what2 != "run") return sw + " <run|result>";
+            return B582Line(sw, ShortcutOn(sw), fixedText, fixedNow, ctlText + "=" + controls, controls, miss, counters);
+        }
+
+        // DogSwimSlotsCheck run: no free slot skips the reroute loop. Control: free slots loop as EA.
+        public static object DogSwimSlotsCheck(string what)
+        {
+            bool on = ShortcutOn("dogswimslots");
+            return Ep4Check("dogswimslots", 1521, new[] { "loops skipped, no free slot", "would throw with switch off", "errors" },
+                EpMiss("kNumberOfTimesForHydrophobicDogToRouteToOtherSlots", sDsTimes, "kChanceToShowHydrophobicThoughtBalloon", sDsChance), what,
+                "empty slot list skipped", !DsLoopRuns(on, 0), "free slots loop", DsLoopRuns(on, 3));
+        }
+
+        // FragmentReconstructCheck run: Target 4th of 5 with 3 needed uses 3. Controls: Target first, too few free.
+        public static object FragmentReconstructCheck(string what)
+        {
+            bool on = ShortcutOn("fragmentreconstruct");
+            return Ep4Check("fragmentreconstruct", 1524, new[] { "Target picked first", "extra fragment used with switch off", "errors" },
+                EpMiss("FragmentedObject+Reconstruct", sFrType, "mToRemoveObj", sFrRemove, "mCreatedObject", sFrCreated, "FragmentInfo", sFrInfo, "FragmentInventoryTest", sFrTest, "LocalizeString", sFrLoc), what,
+                "3 used, not 4", FrUsed(on, 3, 5, 3) == 3, "Target first uses 3, too few uses 0", FrUsed(on, 3, 5, 0) == 3 && FrUsed(on, 3, 2, 0) == 0);
+        }
+
+        // LabObjectPushCheck run: an empty inventory uses a lot object. Controls: inventory objects or no lot objects as EA.
+        public static object LabObjectPushCheck(string what)
+        {
+            bool on = ShortcutOn("labobjectpush");
+            return Ep4Check("labobjectpush", 1527, new[] { "lot objects pushed", "idle students with switch off", "errors" },
+                EpMiss("mAcademicLabObjects", sLbObjects, "LabSituationFinished", sLbDone, "LabSituationFailed", sLbFail), what,
+                "lot object used", LbUseLot(on, 0, 2), "inventory / no lot objects as EA", !LbUseLot(on, 1, 2) && !LbUseLot(on, 0, 0));
+        }
+
+        // BusinessPlannerRunCheck run: no pocketing and no shared write. Controls: from-inventory failure returns it.
+        public static object BusinessPlannerRunCheck(string what)
+        {
+            bool on = ShortcutOn("businessplannerrun");
+            return Ep4Check("businessplannerrun", 1530, new[] { "runs fixed", "shared roll or pocketing with switch off", "errors" },
+                EpMiss("UseBusinessPlanner+Definition.mUsageType", sBpUsage, "mRunFromInventory", sBpFromInv, "mWaitTime", sBpWait, "mCurrentBusinessPlanningType", sBpCur, "LocalizeString", sBpLoc, "BroadcastCallback", sBpBroadcast, "kPresentationBroadcastParams", sBpParams), what,
+                "no pocket, no shared write", !BpPockets(on, false) && !BpWritesShared(on, true, true), "own planner returned, set use kept", BpPockets(on, true) && !BpWritesShared(on, true, false));
+        }
+
+        // FutureDescendantSize0Check run: size 0 does not instantiate, a stuck loop stops. Controls: size 2, a loop that moves.
+        public static object FutureDescendantSize0Check(string what)
+        {
+            bool on = ShortcutOn("futuredescendantsize0");
+            return Ep4Check("futuredescendantsize0", 1533, new[] { "unpacks / renames / stuck loops skipped", "seen with switch off", "errors" },
+                EpMiss("FutureDescendantService.sPersistableData", sFdData), what,
+                "size 0 skipped, stuck loop left", !FdInstantiates(on, 0) && !FdLoopGoesOn(on, 3, 3), "size 2 and a moving loop as EA", FdInstantiates(on, 2) && FdLoopGoesOn(on, 3, 2));
+        }
+
+        // JungleGymExitQueueCheck run: a gone Sim's entry is dropped. Controls: a Sim on the tower or with a pending alarm stays.
+        public static object JungleGymExitQueueCheck(string what)
+        {
+            bool on = ShortcutOn("junglegymexitqueue");
+            return Ep4Check("junglegymexitqueue", 1536, new[] { "stale entries dropped", "stale heads with switch off", "errors" },
+                EpMiss("mExitQueue", sJgQueue, "kTimeToWaitForNextExit", sJgNext, "kTimeMaxToWait", sJgMax), what,
+                "gone / off-tower entries dropped", !JgKeep(on, false, false, false) && !JgKeep(on, true, false, false), "on tower / alarm pending kept", JgKeep(on, true, true, false) && JgKeep(on, true, false, true));
+        }
+
+        // WildHorseLotCheck run: the big park (index 0) gets weight 2. Controls: index 1 and not preferred as EA.
+        public static object WildHorseLotCheck(string what)
+        {
+            bool on = ShortcutOn("wildhorselot");
+            float[] w = { 2f, 2f, 16f, 24f };
+            return Ep4Check("wildhorselot", 1539, new[] { "picks with corrected weights", "big parks under-weighted with switch off", "errors" }, "", what,
+                "big park x2", WhMult(on, 0, w, 1f) == 2f, "beach x16, other x1", WhMult(on, 2, w, 1f) == 16f && WhMult(on, -1, w, 1f) == 1f);
+        }
+
+        // HarvesterUnripeCheck run: an unripe plant is not harvested. Control: a ripe one is.
+        public static object HarvesterUnripeCheck(string what)
+        {
+            bool on = ShortcutOn("harvesterunripe");
+            return Ep4Check("harvesterunripe", 1542, new[] { "unripe suctions skipped", "harvested unripe with switch off", "errors" }, "", what,
+                "unripe skipped", !HuHarvests(on, false), "ripe harvested", HuHarvests(on, true));
+        }
+
+        // HotTubSeatPostureCheck run: a pending sore alarm skips the re-init. Control: no pending alarm inits as EA.
+        public static object HotTubSeatPostureCheck(string what)
+        {
+            bool on = ShortcutOn("hottubseatposture");
+            return Ep4Check("hottubseatposture", 1545, new[] { "duplicate inits skipped", "duplicate alarms with switch off", "errors" },
+                EpMiss("HotTubPosture.mFirstIdle", sHtFirst, "HotTubPosture.mSoreBuffTimer", sHtTimer), what,
+                "pending alarm, no re-init", !HtInits(on, true), "no alarm inits", HtInits(on, false));
+        }
+
+        // TeenPartyBreakUpCheck run: a gone party does not throw. Control: a running party.
+        public static object TeenPartyBreakUpCheck(string what)
+        {
+            bool on = ShortcutOn("teenpartybreakup");
+            return Ep4Check("teenpartybreakup", 1548, new[] { "runs past a missing party", "(not counted with switch off: EA routes first)", "errors" }, "", what,
+                "gone party, no throw", !TpThrows(on, true), "running party", !TpThrows(on, false));
+        }
+
+        // DogSwimAroundListCheck run: a swimming dog off the list is put back. Controls: on the list, left the pool.
+        public static object DogSwimAroundListCheck(string what)
+        {
+            bool on = ShortcutOn("dogswimaroundlist");
+            return Ep4Check("dogswimaroundlist", 1551, new[] { "dogs put back", "left off with switch off", "errors" },
+                EpMiss("Sims3.Gameplay.Pools.DoggySwimAround", sDaType), what,
+                "dog back on the use list", DaRestore(on, true, false), "on list / out of pool untouched", !DaRestore(on, true, true) && !DaRestore(on, false, false));
+        }
+
+        // TutorBalloonAlarmCheck run: creating the interaction starts no alarm. Control: the members were found.
+        public static object TutorBalloonAlarmCheck(string what)
+        {
+            bool on = ShortcutOn("tutorballoonalarm");
+            string miss = EpMiss("TutorSkillInteraction.ShowBalloon", sTuShow, "kTimeToFirstBalloon", sTuFirst, "kTimeBetweenThoughtBalloons", sTuEvery);
+            return Ep4Check("tutorballoonalarm", 1554, new[] { "alarms moved to tutoring start", "started at creation with switch off", "errors" }, miss, what,
+                "no alarm at creation", !TuAlarmAtCreate(on), "members found", miss.Length == 0);
+        }
+    }
+}
