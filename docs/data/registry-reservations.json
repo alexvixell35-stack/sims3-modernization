@@ -6512,8 +6512,18 @@
       "by": "claude",
       "what": "batch 13 (docs/593 B13 §1-17): nullsituation..petharvestvfx, 17 switches x3",
       "at": "2026-11-16T02:10:34.600Z",
-      "worktree": "/home/<user>/dev/sims3-modernization",
       "worktree": "/home/<user>/dev/s3m-ep-sweep",
+      "pinned": true
+    },
+    {
+      "id": "fixes-1913",
+      "kind": "fixes",
+      "from": 1913,
+      "to": 1921,
+      "by": "claude",
+      "what": "mopunreachable 1913-1918 (MopUnreachable.cs, s58 lead: mop run skips unreachable puddles, per-Sim memo), petpuddletile 1919-1921 (pet drink/play removes the puddle it used)",
+      "at": "2026-11-16T11:24:25.337Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
       "pinned": true
     }
   ]

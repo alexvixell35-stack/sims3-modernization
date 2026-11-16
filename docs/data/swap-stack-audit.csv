@@ -884,3 +884,7 @@ CcStatic.Species,Terrain,ModifyRouteForSpecies,CallCensus.cs,SpeciesOrig,yes,Ter
 CcSinging.SongsHook,SingingInfo,get_AllKnownCompositions,CallCensus.cs,SongsOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
 CcBar.BowlHook,BarAdvanced,get_CurrentSnackBowl,CallCensus.cs,BowlOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
 CcStatic.Guarded,PetGuardSitutation.GuardObject,IsBeingGuarded,CallCensus.cs,GuardedOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
+MopRunHook.RunHook,Terrain.Mopping,Run,MopUnreachable.cs,RunOrig,yes,Terrain+Mopping::Run > Terrain+Mopping::MopTile > InteractionInstance::AnimateSim > StateMachineClient::RequestState,mopunreachable (MopUnreachable.cs; Run is a copy of EA's with the skip list),"keep, stub remap (SavedStacks.cs)"
+MopFloorHook.MoppableHook,Sim.MopFloor,IsLocationMoppableBySim,MopUnreachable.cs,MoppableOrig,no,no path to a yield in 1 overload(s),mopunreachable memo (MopUnreachable.cs),keep
+PetPuddleHook.DrinkHook,Terrain.DrinkPuddle,Run,MopUnreachable.cs,DrinkOrig,yes,Terrain+DrinkPuddle::Run > InteractionInstance::AnimateSim > StateMachineClient::RequestState,petpuddletile (MopUnreachable.cs; hit moved before EA's Run),"keep, stub remap (SavedStacks.cs)"
+PetPuddleHook.PlayHook,Terrain.PlayInPuddle,Run,MopUnreachable.cs,PlayOrig,yes,Terrain+PlayInPuddle::Run > InteractionInstance::AnimateSim > StateMachineClient::RequestState,petpuddletile (MopUnreachable.cs; hit moved before EA's Run),"keep, stub remap (SavedStacks.cs)"

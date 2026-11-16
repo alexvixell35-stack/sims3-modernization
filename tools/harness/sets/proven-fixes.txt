@@ -273,12 +273,13 @@ woohootywait
 #   partyoutcome
 # built 2026-11-15, in-game off/on test pending (docs/575-577); move to the set once proven:
 #   petputdownwait puddlereach scarepriority dreamcleanup
-#   trashpileimport catgymwatch badsecretkey traitlistenerremove weddinglistener portasknohome lecturebroadcaster residentspawnwalk midlifewishsave innerbeautyonce betrayednullsim topictestnull opptrackerrelisten traitremovenull homeworkcopyold laundrymoodeach partycleanupnull safelocunhide midlifeuiending nemesisnoromance petpoolghost motivemultonce doorprivacynull lottotooltip tempforecast
+#   trashpileimport catgymwatch badsecretkey traitlistenerremove weddinglistener portasknohome lecturebroadcaster residentspawnwalk midlifewishsave innerbeautyonce betrayednullsim topictestnull opptrackerrelisten traitremovenull homeworkcopyold laundrymoodeach partycleanupnull safelocunhide midlifeuiending nemesisnoromance
+# built 2026-11-16 (s58 mop lead, MopUnreachable.cs), in-game off/on test pending (s60); move to the set once proven:
+#   mopunreachable petpuddletile
 # diagnostics (log only):
 #   socialreplanlog barorderlog routecauselog
 # built 2026-11-15, in-game off/on test pending (docs/587 §6-13, batches EP1-EP6 and store 1); move to the set once proven:
 #   displaycasereset suatgradebonus mermaidsharknull jetpackflyherecleanup naniteroutefail springdanceclear nectarcopylevel10 harvesteatvfx buffetemptypick krakenfriendsailor mummycursetrait bullridercleanup broomtipperformer balancingballcareer elvisgnomeguard elvisgnomecap gourmetpetrecipe chipfamilycrystal chipcomponentorphan chipanycount nanitemerge consignmentlastday bartendinghourlypay influencefollowerbonus broomarenachoice fortunetellerscamodds consignmentskillcurve consignmentstockleak herbqualityfloor snackbowlslobvfx worldpondskatetest pingpongopponent mermaiddehydratelook meteormagnetorphan daycarelatealarm boxofmysterywoohoo bodysculptorweight nectarconsignvalue straygnometns
-#   coopeggquality
 # built 2026-11-15, in-game off/on test pending (DoorMemoX=3 A/B; ufplansplit is log only); move to the set once proven:
 #   doorgen ufplansplit
 # new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:

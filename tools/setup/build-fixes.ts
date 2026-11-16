@@ -357,6 +357,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBarOrderLog value="False" />
     <kPetPutDownWait value="False" />
     <kPuddleReach value="False" />
+    <kMopUnreachable value="False" />
+    <kPetPuddleTile value="False" />
     <kRouteCauseLog value="False" />
     <kScarePriority value="False" />
     <kSandwichAlarm value="False" />

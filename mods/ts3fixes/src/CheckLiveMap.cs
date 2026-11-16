@@ -219,6 +219,7 @@ namespace Ts3Fixes
                 case "moodtankreset": return EpLive(typeof(BMtHook), 1, "sMtPrev", sMtPrev, null);
                 case "moondiallistener": return EpLive(typeof(BMdlHook), 1, "sMdlListener", sMdlListener, null);
                 case "moonriselistener": return EpJoin(EpLive(typeof(BMrFairyHook), 1), EpLive(typeof(BMrWolfHook), 1));
+                case "mopunreachable": return EpJoin(EpLive(typeof(MopFloorHook), 1), EpLive(typeof(MopRunHook), 1, "sMuJig", sMuJig, null));
                 case "motivebar": return EpLive(typeof(MotiveBarHook), 0);
                 case "motivebuf": return EpLive(typeof(MotivesUpdateHook), 1, "sMbMotives", sMbMotives, null);
                 case "motivebufcheck": return EpLive(typeof(MotivesUpdateHook), 1, "sMbMotives", sMbMotives, null);
@@ -252,6 +253,7 @@ namespace Ts3Fixes
                 case "petharvestvfx": return EpLive(typeof(B13PvHook), 2);
                 case "petpoolghost": return EpLive(typeof(BPgHook), 1, "sPpgIds", sPpgIds, null);
                 case "petpoolorphan": return EpLive(typeof(PetPoolOrphanHook), 2);
+                case "petpuddletile": return EpLive(typeof(PetPuddleHook), 2);
                 case "phonecallrearm": return EpLive(typeof(PhCallRearmHook), 0, "sPhInterval", sPhInterval, typeof(int), "sPhInterval", sPhInterval, "static");
                 case "phonecallschedule": return EpLive(typeof(PhCallScheduleHook), 0, "sPhWindow", sPhWindow, typeof(int), "sPhWindow", sPhWindow, "static", "sPhAlarm", sPhAlarm, null);
                 case "phonefixup": return EpLive(typeof(PhoneFixUpHook), 1);
