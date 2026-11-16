@@ -1,5 +1,7 @@
 # 600. Needs-stress stalls: 1 s route plans and "other" hitches (2026-11-16)
 
+> **Withdrawn (2026-11-16):** the run analysed here ran on battery after the charger dropped at 15:02; the game ran at ~20 ticks/s instead of ~285, so the sim loop polled about once a second. The 1 s plan quanta are that power state, not a route-system wait. A rerun on AC is queued.
+
 Run `phase-20261116-1503` ("needs": every Bridgeport Sim at -40 on all needs, household on full autonomy, 6 x 8 min).
 Engine asi drain-7ab14d12 (ts3native 0.36.264-mono1), same ini as s58 (`phase-20261116-0234`, 0 game hitches).
 `hitch-attr.ts`: 46 game hitches, 44 s, 45 "other" at 880-1017 ms. Static read of the logs and source; nothing built or run.
