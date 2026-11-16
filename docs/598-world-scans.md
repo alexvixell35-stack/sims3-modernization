@@ -72,20 +72,25 @@ list is not the query's set (timing, other implementers), so it is not used.
 EA's query runs and is stored (not stored while build/buy or edit town is open). EA's gate runs first, unchanged, so
 selectable / household Sims get EA's false before the memo is read; a null actor runs EA's own Test.
 
-Where a station can enter the query's set, and what forgets the memo:
+Where a station can enter the query's set, and what forgets the memo. **r59 fix (2026-11-16):** the first in-game check
+(r56) returned UNEXPECTED, `members found=False (missing: a Simulator add hook)`: `Simulator.AddObject(object)` is already
+compiled when the mod loads (applied log: `Simulator.AddObject: already compiled`), so that swap is always refused and the
+memo never armed [verified, applied log]. The four Simulator swaps are replaced by one hook on the station itself:
 
 | Add path | Hook |
 |---|---|
-| Script spawn (`GlobalFunctions.CreateObject*`, every `Simulator.CreateObject` overload) | `Simulator.CreateObject(ResourceKey, Hashtable, ObjectInitParameters)` swap: new object a station, or not looked up → forget |
-| `Simulator.AddObject` / `AddObjectWithId` / `AddObjectPostLoad` (`CreateScriptLogic`, `AddObject(IScriptLogic, bool)`) | swaps: `obj is IHoverTrainStation` → forget |
-| Buy mode, objects moved onto a lot, edit-town lot placement | `World.OnObjectPlacedInLotEventHandler` (station or unknown object), `OnLotAdded` / `OnLotRemoved`, `LotManager.EnteringBuildBuyMode` / `ExitingBuildBuyMode` |
-| World load / travel | `OnWorldLoadStarted` / `Finished`, `OnWorldQuit`, `OnEnterNotInWorld` / `OnLeaveNotInWorld` |
+| Every station start: native creation (lot / world load, buy mode, edit town: `ScriptProxy.CreateLogic`), save load (`ScriptProxy` post-load `Init`), script spawns (`Simulator.CreateObject*`, `AddObject*`, `CreateScriptLogic`: ScriptCore `Simulator.AddObject` → `SetLogic`) | `HoverTrainStation.OnStartupRabbitHole` swap [verified, decompiled: `SetLogic` → `GameObject.Init` (both arms) → `OnStartup` → sealed `RabbitHole.OnStartup` → `OnStartupRabbitHole`]: forget, and keep the station pending |
+| The gap between `Init` and the native add (`AddObjectImpl` runs after `SetLogic`) | while a pending station has a proxy that `GetProxy` does not find yet, the memo answers unknown and stores nothing; resolved when registered or when init failed (proxy cleared) [inferred: registration makes `GetProxy` find it; the check compares live] |
+| Other `IHoverTrainStation` classes (mods), or a subclass that declares its own `OnStartupRabbitHole` | loaded assemblies scanned at apply and each world load: any such class keeps the memo off (`members found` names it) |
+| Buy mode, objects moved onto a lot, edit-town lot placement (belt and braces) | `World.OnObjectPlacedInLotEventHandler` (station or unknown object), `OnLotAdded` / `OnLotRemoved`, `LotManager.EnteringBuildBuyMode` / `ExitingBuildBuyMode`; nothing stored while build/buy or edit town is open |
+| World load / travel | `OnWorldLoadStarted` / `OnWorldQuit` (also drop pending), `Finished`, `OnEnterNotInWorld` / `OnLeaveNotInWorld` |
 
+Inventory placement: rabbit holes cannot go to an inventory [inferred], and a placed object is already a started script
+object (covered by the placement event anyway).
 Removals (`kSoldObject`, `kEventObjectDisposed`, `OnObjectPendingDestruction`, bulldoze: all end in
-`Simulator.DestroyObject`) need no event: a stored station without a proxy makes the memo unknown. EventTypeIds alone
-(`kBoughtObject`, `kSoldObject`) do not cover script spawns, so the Simulator add paths are hooked. [inferred: a live proxy
-means the object is in the per-class map; the check compares the memo with EA's query live.] If any add hook did not go in,
-the memo is never used. `TickMemo` / `ExactMemos` were checked: they are per-tick (`TickStamp`) or keyed generation memos,
+`Simulator.DestroyObject`) need no event: a stored station without a proxy makes the memo unknown. [inferred: a live proxy
+means the object is in the per-class map; the check compares the memo with EA's query live.] If the station hook did not go
+in, the memo is never used. `TickMemo` / `ExactMemos` were checked: they are per-tick (`TickStamp`) or keyed generation memos,
 none event-forgotten, so not reused.
 
 **Run [verified, decompiled].** EA's Run lists the stations again (kept: once per trip, and the list order feeds the random

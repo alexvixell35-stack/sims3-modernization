@@ -7,6 +7,7 @@ using Sims3.Gameplay.Autonomy;
 using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Interfaces;
+using Sims3.Gameplay.Objects.RabbitHoles;
 using Sims3.SimIFace;
 
 namespace Ts3Fixes
@@ -44,14 +45,21 @@ namespace Ts3Fixes
     // (a native walk of the script host's per-class maps, docs/125 §4.1) and compares the length with 2, in every world,
     // stations or not. Fix: the same answer from AtLeastMemo. EA's gate (`!isAutonomous || a.IsSelectable` -> false) runs
     // first and unchanged, so household / selectable Sims get EA's own false before the memo is read.
-    // Additions forget the memo (every place a station can enter the native maps):
-    //   - Simulator.CreateObject (3-arg; every other CreateObject overload and GlobalFunctions.CreateObject* end there),
-    //     Simulator.AddObject / AddObjectWithId / AddObjectPostLoad (CreateScriptLogic and AddObject(IScriptLogic, bool) end
-    //     there): the new object is a station -> forget (script-spawned stations);
-    //   - World.OnObjectPlacedInLot (buy mode, edit town lot placement, objects moved onto a lot) for a station or an object
-    //     that cannot be looked up; World.OnLotAdded / OnLotRemoved (edit town);
-    //   - world load started / finished, world quit, enter / leave not-in-world; LotManager.EnteringBuildBuyMode /
-    //     ExitingBuildBuyMode; and nothing is stored while build/buy or edit town is on (EA's query answers there).
+    // Additions forget the memo. [verified, decompiled] Every station script object starts in
+    // HoverTrainStation.OnStartupRabbitHole: GameObject.Init (both arms, new and postLoad) calls OnStartup, RabbitHole.OnStartup
+    // (sealed) calls OnStartupRabbitHole, and Init runs from ScriptProxy.SetLogic for every way an object starts: native
+    // creation (lot / world load, buy mode, edit town: ScriptProxy.CreateLogic), save load (ScriptProxy post-load Init) and
+    // script spawns (Simulator.CreateObject*, AddObject*, CreateScriptLogic: ScriptCore Simulator.AddObject -> SetLogic).
+    // One hook there replaces the old Simulator.CreateObject / AddObject* swaps (Simulator.AddObject(object) is compiled
+    // before the mod loads, so that swap is always refused and the memo never armed).
+    //   - The station enters the native maps right after Init (AddObjectImpl after SetLogic). So the hook keeps it pending:
+    //     while a pending station has no registered proxy (and init did not fail), the memo answers unknown and stores
+    //     nothing. [inferred: GetProxy finds an object once it is registered; the check compares the memo with EA's query]
+    //   - Another IHoverTrainStation class (a mod), or a subclass that declares its own OnStartupRabbitHole (may skip ours),
+    //     keeps the memo off: checked over the loaded assemblies at apply and at every world load.
+    //   - Also forget (cheap, belt and braces): World.OnObjectPlacedInLot for a station or an unknown object, OnLotAdded /
+    //     OnLotRemoved, world load started / finished, world quit, enter / leave not-in-world, LotManager.EnteringBuildBuyMode /
+    //     ExitingBuildBuyMode; nothing is stored while build/buy or edit town is on (EA's query answers there).
     // Removals (sold, deleted, bulldozed, destroyed by script: kSoldObject / kEventObjectDisposed / OnObjectPendingDestruction
     // all end in Simulator.DestroyObject): a stored station whose proxy is gone makes the memo unknown. [inferred: an object
     // with a live proxy is in the per-class map and a destroyed one is not; the check compares the memo with EA's query live]
@@ -69,26 +77,25 @@ namespace Ts3Fixes
         static readonly AtLeastMemo sHtMemo = new AtLeastMemo();
         static readonly Predicate<object> sHtAlive = HtAlive;
         static bool sHtReady;   // every addition hook is in: without one the memo could miss a new station
+        static bool sHtHooked;  // the OnStartupRabbitHole hook and the events are in
         static string sHtMissing = "";
+        static readonly System.Collections.Generic.List<object> sHtPending = new System.Collections.Generic.List<object>();
 
         static void ApplyHoverTrainTest()
         {
             sHtMissing = (sHtRun == null ? "Sim+NPCUseHoverTrain " : "") + (sHtDef == null ? "Sim+NPCUseHoverTrain+Definition" : "");
             sHtMissing = sHtMissing.Trim();
             if (sHtMissing.Length > 0) { AppliedLog().Add("hovertraintest: not found: " + sHtMissing); return; }
-            bool ok = Patch(typeof(Simulator), "CreateObject", new Type[] { typeof(ResourceKey), typeof(System.Collections.Hashtable), typeof(Simulator.ObjectInitParameters) }, typeof(HtAddHook), "CreateHook", "CreateOrig");
-            ok &= Patch(typeof(Simulator), "AddObject", new Type[] { typeof(object) }, typeof(HtAddHook), "AddHook", "AddOrig");
-            ok &= Patch(typeof(Simulator), "AddObjectWithId", new Type[] { typeof(object), typeof(ObjectGuid) }, typeof(HtAddHook), "AddIdHook", "AddIdOrig");
-            ok &= Patch(typeof(Simulator), "AddObjectPostLoad", new Type[] { typeof(object), typeof(ObjectGuid) }, typeof(HtAddHook), "AddPostHook", "AddPostOrig");
-            if (!ok) { sHtMissing = "a Simulator add hook (memo never used)"; AppliedLog().Add("hovertraintest: " + sHtMissing); }
+            bool ok = Patch(typeof(HoverTrainStation), "OnStartupRabbitHole", Type.EmptyTypes, typeof(HtStationHook), "StartHook", "StartOrig");
+            if (!ok) { sHtMissing = "HoverTrainStation.OnStartupRabbitHole hook (memo never used)"; AppliedLog().Add("hovertraintest: " + sHtMissing); }
             try
             {
                 World.OnObjectPlacedInLotEventHandler += HtPlaced;
                 World.OnLotAddedEventHandler += HtWorldEvent;
                 World.OnLotRemovedEventHandler += HtWorldEvent;
-                World.OnWorldLoadStartedEventHandler += HtWorldEvent;
+                World.OnWorldLoadStartedEventHandler += HtWorldGone;
                 World.OnWorldLoadFinishedEventHandler += HtWorldLoaded;
-                World.OnWorldQuitEventHandler += HtWorldEvent;
+                World.OnWorldQuitEventHandler += HtWorldGone;
                 World.OnEnterNotInWorldEventHandler += HtWorldEvent;
                 World.OnLeaveNotInWorldEventHandler += HtWorldEvent;
                 HtBuildBuyListen();
@@ -97,7 +104,64 @@ namespace Ts3Fixes
             Type[] test = new Type[] { typeof(Sim), typeof(Sim), typeof(bool), typeof(GreyedOutTooltipCallback).MakeByRefType() };
             Patch(sHtDef, "Test", test, typeof(HtTestHook), "TestHook", "TestOrig");
             Patch(sHtRun, "Run", Type.EmptyTypes, typeof(HtRunHook), "RunHook", "RunOrig");
-            sHtReady = ok;
+            sHtHooked = ok;
+            HtCheckClasses();
+        }
+
+        // The memo arms only when every IHoverTrainStation class starts through the hooked OnStartupRabbitHole:
+        // HoverTrainStation itself, or a subclass that does not declare its own (it runs ours). Anything else: memo off.
+        static int sHtScanned = -1;  // assembly count at the last scan (assemblies never unload: same count, same answer)
+        static string sHtForeign;
+
+        static void HtCheckClasses()
+        {
+            Assembly[] all = AppDomain.CurrentDomain.GetAssemblies();
+            if (all.Length != sHtScanned) { sHtForeign = HtForeignClass(all); sHtScanned = all.Length; }
+            string foreign = sHtForeign;
+            sHtReady = sHtHooked && foreign == null;
+            if (!sHtReady) sHtMemo.Forget();
+            if (foreign != null && sHtMissing.IndexOf("station class") < 0)
+            {
+                sHtMissing = EpJoin(sHtMissing, "other station class " + foreign + " (memo never used)");
+                AppliedLog().Add("hovertraintest: memo off, other station class " + foreign);
+            }
+        }
+
+        static string HtForeignClass(Assembly[] all)
+        {
+            const BindingFlags decl = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+            foreach (Assembly a in all)
+            {
+                Type[] ts;
+                try { ts = a.GetTypes(); } catch (Exception) { continue; }
+                foreach (Type t in ts)
+                {
+                    if (t == null || t == typeof(HoverTrainStation) || !typeof(IHoverTrainStation).IsAssignableFrom(t) || t.IsInterface) continue;
+                    if (t.IsSubclassOf(typeof(HoverTrainStation)) && t.GetMethod("OnStartupRabbitHole", decl) == null) continue;
+                    return t.FullName;
+                }
+            }
+            return null;
+        }
+
+        // OnStartupRabbitHole ran: a station is about to enter the native maps
+        static void HtStarted(object station)
+        {
+            HtForget();
+            if (station != null && !sHtPending.Contains(station)) sHtPending.Add(station);
+        }
+
+        // True while a started station is not yet registered (one pass, drops the resolved ones). Init failed (Proxy cleared
+        // by SetLogic) or registered (GetProxy finds it): resolved.
+        static bool HtPendingOpen()
+        {
+            for (int i = sHtPending.Count - 1; i >= 0; i--)
+            {
+                IScriptLogic l = sHtPending[i] as IScriptLogic;
+                IScriptProxy p = l == null ? null : l.Proxy;
+                if (p == null || Simulator.GetProxy(p.ObjectId) != null) sHtPending.RemoveAt(i);
+            }
+            return sHtPending.Count > 0;
         }
 
         // LotManager's static events: re-added on every world load (removed first, so never twice)
@@ -118,10 +182,13 @@ namespace Ts3Fixes
 
         static void HtWorldEvent(object sender, EventArgs e) { HtForget(); }
 
+        // The old world's objects go: their pending entries could never resolve
+        static void HtWorldGone(object sender, EventArgs e) { HtForget(); sHtPending.Clear(); }
+
         static void HtWorldLoaded(object sender, EventArgs e)
         {
             HtForget();
-            try { HtBuildBuyListen(); } catch (Exception) { PatchCounters()[1976]++; }
+            try { HtBuildBuyListen(); HtCheckClasses(); } catch (Exception) { PatchCounters()[1976]++; sHtReady = false; }
         }
 
         static void HtPlaced(object sender, EventArgs e)
@@ -156,58 +223,39 @@ namespace Ts3Fixes
         // EA's query, as its Test and Run call it
         static IHoverTrainStation[] HtQuery() { return Sims3.Gameplay.Queries.GetObjects<IHoverTrainStation>(); }
 
-        // ">= 2 stations" for the Test: from the memo when it is known, else EA's query (stored when no mode is open).
+        // The memo may answer / store now: armed, no station between start and registration, no mode open.
+        static bool HtMayUse()
+        {
+            if (!sHtReady) return false;
+            if (HtPendingOpen() || HtModeOpen()) { HtForget(); return false; }
+            return true;
+        }
+
+        // ">= 2 stations" for the Test: from the memo when it is known, else EA's query (stored when the memo may be used).
         static bool HtAtLeastTwo(int[] c)
         {
-            if (sHtReady)
+            bool use = HtMayUse();
+            if (use)
             {
                 int m = sHtMemo.Answer(2, sHtAlive);
                 if (m >= 0) { c[1971]++; return m == 1; }
             }
             c[1972]++;
             IHoverTrainStation[] s = HtQuery();
-            if (sHtReady)
-            {
-                if (HtModeOpen()) HtForget();
-                else sHtMemo.Store(s);
-            }
+            if (use) sHtMemo.Store(s);
             return s.Length >= 2;
         }
 
-        // ---- Simulator add paths: forget the memo when the new object is a station ----------------------------------------
-        public static class HtAddHook
+        // ---- HoverTrainStation.OnStartupRabbitHole: every station start (new, loaded, spawned) -----------------------------
+        // Instance hook; at run time `this` is the HoverTrainStation. EA's body first, unchanged.
+        public class HtStationHook
         {
-            public static ObjectGuid CreateHook(ResourceKey prototypeKey, System.Collections.Hashtable overrideData, Simulator.ObjectInitParameters initData)
+            public void StartHook()
             {
-                ObjectGuid g = CreateOrig(prototypeKey, overrideData, initData);
-                if (sHtMemo.Known) { try { if (HtMaybeStation(g)) HtForget(); } catch (Exception) { PatchCounters()[1976]++; HtForget(); } }
-                return g;
+                StartOrig();
+                try { HtStarted(this); } catch (Exception) { PatchCounters()[1976]++; sHtReady = false; sHtMemo.Forget(); }
             }
-            public static ObjectGuid CreateOrig(ResourceKey prototypeKey, System.Collections.Hashtable overrideData, Simulator.ObjectInitParameters initData) { return ObjectGuid.InvalidObjectGuid; } // Simulator.CreateObject(ResourceKey, Hashtable, ObjectInitParameters)
-
-            public static ObjectGuid AddHook(object obj)
-            {
-                ObjectGuid g = AddOrig(obj);
-                if (obj is IHoverTrainStation) HtForget();
-                return g;
-            }
-            public static ObjectGuid AddOrig(object obj) { return ObjectGuid.InvalidObjectGuid; } // Simulator.AddObject(object)
-
-            public static ObjectGuid AddIdHook(object obj, ObjectGuid objectId)
-            {
-                ObjectGuid g = AddIdOrig(obj, objectId);
-                if (obj is IHoverTrainStation) HtForget();
-                return g;
-            }
-            public static ObjectGuid AddIdOrig(object obj, ObjectGuid objectId) { return ObjectGuid.InvalidObjectGuid; } // Simulator.AddObjectWithId
-
-            public static ObjectGuid AddPostHook(object obj, ObjectGuid objectId)
-            {
-                ObjectGuid g = AddPostOrig(obj, objectId);
-                if (obj is IHoverTrainStation) HtForget();
-                return g;
-            }
-            public static ObjectGuid AddPostOrig(object obj, ObjectGuid objectId) { return ObjectGuid.InvalidObjectGuid; } // Simulator.AddObjectPostLoad
+            public void StartOrig() { } // HoverTrainStation.OnStartupRabbitHole
         }
 
         // ---- Sim.NPCUseHoverTrain.Definition.Test -------------------------------------------------------------------------
@@ -285,16 +333,17 @@ namespace Ts3Fixes
             {
                 bool knownBefore = sHtMemo.Known;
                 int stored = sHtMemo.Stored;
-                int m = sHtReady ? sHtMemo.Answer(2, sHtAlive) : -1;
+                bool use = HtMayUse();
+                int m = use ? sHtMemo.Answer(2, sHtAlive) : -1;
                 IHoverTrainStation[] s = HtQuery();
                 bool ea = s.Length >= 2;
                 if (m >= 0 && (m == 1) != ea) PatchCounters()[1974]++;
                 bool same = m < 0 || (m == 1) == ea;
                 controls &= same;
-                if (m < 0 && sHtReady && !HtModeOpen()) sHtMemo.Store(s);  // primes the memo for the next check
-                fixedNow = on && sHtReady && m >= 0 && same;  // a memo answer was compared (run twice: the first run may only prime it)
+                if (m < 0 && use) sHtMemo.Store(s);  // primes the memo for the next check
+                fixedNow = on && use && m >= 0 && same;  // a memo answer was compared (run twice: the first run may only prime it)
                 live = "live: stations " + s.Length + ", memo known before=" + knownBefore + " (stored " + stored + "), memo answer="
-                    + (m < 0 ? "unknown" : (m == 1).ToString()) + ", EA=" + ea + ", same=" + same + ", mode open=" + HtModeOpen();
+                    + (m < 0 ? "unknown" : (m == 1).ToString()) + ", EA=" + ea + ", same=" + same + ", mode open=" + HtModeOpen() + ", pending " + sHtPending.Count;
             }
             catch (Exception e) { missing = "threw " + e.GetType().Name; live = "live: threw"; }
             return B582Line("hovertraintest", on, "memo answers the >= 2 stations test", fixedNow,
