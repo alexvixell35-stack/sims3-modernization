@@ -151,6 +151,25 @@ namespace Ts3Fixes
             ApplySculptPose();    // docs/568 §3 (SculptPose.cs)
             ApplyTrainBoost();    // docs/569 §1 (TrainBoost.cs)
             ApplyEatOutsideCount();    // docs/569 §2 (EatOutsideCount.cs)
+            ApplyAwkwardScience();   // docs/591 C1 B12 §18
+            ApplyChessDefeated();   // docs/591 C2 B12 §19
+            ApplyPrivacyOthers();   // docs/591 C4 B12 §20
+            ApplyGigMaster();   // docs/591 C5 B12 §21
+            ApplyIntMultiple();   // docs/591 C6, 592 S4 B12 §22
+            ApplyDoorPrivacyNull();   // docs/591 C7 B12 §23
+            ApplyLeafBurnFail();   // docs/591 R1 B12 §24
+            ApplyCatchPreyOdds();   // docs/591 R2 B12 §25
+            ApplyPicnicAnts();   // docs/591 R3 B12 §26
+            ApplyLoyalDogLay();   // docs/591 R5 B12 §27
+            ApplyVisitListeners();   // docs/591 R6 B12 §28
+            ApplyScienceFxStop();   // docs/591 R7 B12 §29
+            ApplyDaycareLiking();   // docs/591 R9 B12 §30
+            ApplyKegBreakage();   // docs/591 R10 B12 §31
+            ApplyRomanceCooldown();   // docs/591 R11 B12 §32
+            ApplyLightCustom();   // docs/591 R12 B12 §33
+            ApplyEatPreyCancel();   // docs/591 R13 B12 §34
+            ApplyMeltAlarm();   // docs/591 R16 B12 §35
+            ApplyNewspaperDef();   // docs/591 R21 B12 §36
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -478,6 +497,25 @@ namespace Ts3Fixes
         // [2564-2565] free (released).
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
+        // [3115-3117] awkwardscience (Batch591Logic.cs, B12 §18, docs/591 C1): gains corrected / bonus on another skill (switch off) / errors.
+        // [3118-3120] chessdefeated (Batch591Logic.cs, B12 §19, docs/591 C2): wins recorded our way / EA's record (switch off) / errors.
+        // [3121-3123] privacyothers (Batch591Logic.cs, B12 §20, docs/591 C4): Sims dropped / kept (switch off) / errors.
+        // [3124-3126] gigmaster (Batch591Logic.cs, B12 §21, docs/591 C5): answers our way / off by one (switch off) / errors.
+        // [3127-3129] intmultiple (Batch591Logic.cs, B12 §22, docs/591 C6, 592 S4): draws our way / EA's draws (switch off) / errors.
+        // [3130-3132] doorprivacynull (Batch591Logic.cs, B12 §23, docs/591 C7): updates with a null target skipped / updates that threw (switch off) / errors.
+        // [3133-3135] leafburnfail (Batch591Logic.cs, B12 §24, docs/591 R1): piles freed / left blocked (switch off) / errors.
+        // [3136-3138] catchpreyodds (Batch591Logic.cs, B12 §25, docs/591 R2): rolls taken / sure catches (switch off) / errors.
+        // [3139-3141] picnicants (Batch591Logic.cs, B12 §26, docs/591 R3): cleanups done / left (switch off) / errors.
+        // [3142-3144] loyaldoglay (Batch591Logic.cs, B12 §27, docs/591 R5): lay-downs queued / refused targets (switch off) / errors.
+        // [3145-3147] visitlisteners (Batch591Logic.cs, B12 §28, docs/591 R6): entries dropped / kept (switch off) / errors.
+        // [3148-3150] sciencefxstop (Batch591Logic.cs, B12 §29, docs/591 R7): old sets stopped / leaked (switch off) / errors.
+        // [3151-3153] daycareliking (Batch591Logic.cs, B12 §30, docs/591 R9): payouts corrected / payouts at liking 0 (switch off) / errors.
+        // [3154-3156] kegbreakage (Batch591Logic.cs, B12 §31, docs/591 R10): chances computed our way / kegger rate on a non-kegger party (switch off) / errors.
+        // [3157-3159] romancecooldown (Batch591Logic.cs, B12 §32, docs/591 R11): blocked our way / let through (switch off) / errors.
+        // [3160-3162] lightcustom (Batch591Logic.cs, B12 §33, docs/591 R12): lights set our way / EA's copies (switch off) / errors.
+        // [3163-3165] eatpreycancel (Batch591Logic.cs, B12 §34, docs/591 R13): prey kept or re-enabled / seen with the switch off / errors.
+        // [3166-3168] meltalarm (Batch591Logic.cs, B12 §35, docs/591 R16): starts our way / starts that threw or doubled (switch off) / errors.
+        // [3169-3171] newspaperdef (Batch591Logic.cs, B12 §36, docs/591 R21): reads with an own definition / shared writes (switch off) / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -815,6 +853,25 @@ namespace Ts3Fixes
                 case "sculptpose": return Instantiator.kSculptPose;
                 case "trainboost": return Instantiator.kTrainBoost;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
+                case "awkwardscience": return Instantiator.kAwkwardScience;
+                case "chessdefeated": return Instantiator.kChessDefeated;
+                case "privacyothers": return Instantiator.kPrivacyOthers;
+                case "gigmaster": return Instantiator.kGigMaster;
+                case "intmultiple": return Instantiator.kIntMultiple;
+                case "doorprivacynull": return Instantiator.kDoorPrivacyNull;
+                case "leafburnfail": return Instantiator.kLeafBurnFail;
+                case "catchpreyodds": return Instantiator.kCatchPreyOdds;
+                case "picnicants": return Instantiator.kPicnicAnts;
+                case "loyaldoglay": return Instantiator.kLoyalDogLay;
+                case "visitlisteners": return Instantiator.kVisitListeners;
+                case "sciencefxstop": return Instantiator.kScienceFxStop;
+                case "daycareliking": return Instantiator.kDaycareLiking;
+                case "kegbreakage": return Instantiator.kKegBreakage;
+                case "romancecooldown": return Instantiator.kRomanceCooldown;
+                case "lightcustom": return Instantiator.kLightCustom;
+                case "eatpreycancel": return Instantiator.kEatPreyCancel;
+                case "meltalarm": return Instantiator.kMeltAlarm;
+                case "newspaperdef": return Instantiator.kNewspaperDef;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

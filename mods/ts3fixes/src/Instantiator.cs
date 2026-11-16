@@ -298,6 +298,25 @@ namespace Ts3Fixes
         [Tunable] public static bool kSculptPose = true;    // sculptpose (docs/568 §3): Sculpt Sim failure paths leave the subject posing
         [Tunable] public static bool kDoorGen = true;    // doorgen (docs/585, by Dalexlol, PR #430): bump ts3native's door generation for DoorMemoX=3; memo answers only unseen / seen-NPC jobs (docs/585 §5)
         [Tunable] public static bool kTrainBoost = true;    // trainboost (docs/569 §1): a trainer reset during Train Sim leaves the trainee's doubled Athletic / shape gain for good
+        [Tunable] public static bool kAwkwardScience = false;    // awkwardscience (B12 §18, docs/591 C1): the Socially Awkward science gain bonus applies to Science only
+        [Tunable] public static bool kChessDefeated = false;    // chessdefeated (B12 §19, docs/591 C2): the highest-ranking defeated chess opponent is the strongest one, stored with its rank
+        [Tunable] public static bool kPrivacyOthers = false;    // privacyothers (B12 §20, docs/591 C4): a Sim who left a private room's lot gets a new room check when it comes back
+        [Tunable] public static bool kGigMaster = false;    // gigmaster (B12 §21, docs/591 C5): Gig Master completes at the number of gigs its text names
+        [Tunable] public static bool kIntMultiple = false;    // intmultiple (B12 §22, docs/591 C6, 592 S4): RandomUtil.GetIntMultiple can return its top multiple (sales up to 80%, idles up to 30 min)
+        [Tunable] public static bool kDoorPrivacyNull = false;    // doorprivacynull (B12 §23, docs/591 C7): a privacy situation with no sync target no longer strips the privacy of later doors
+        [Tunable] public static bool kLeafBurnFail = false;    // leafburnfail (B12 §24, docs/591 R1): a leaf pile whose fire never started is usable again
+        [Tunable] public static bool kCatchPreyOdds = false;    // catchpreyodds (B12 §25, docs/591 R2): snakes and turtles are a sure catch only with Slither Stalker, like lizards
+        [Tunable] public static bool kPicnicAnts = false;    // picnicants (B12 §26, docs/591 R3): a packed picnic basket loses its ant alarm and the ant effect is disposed
+        [Tunable] public static bool kLoyalDogLay = false;    // loyaldoglay (B12 §27, docs/591 R5): a Loyal dog's lie-down near its human targets the dog so its test passes
+        [Tunable] public static bool kVisitListeners = false;    // visitlisteners (B12 §28, docs/591 R6): a removed visit host's listeners are not re-added after a load
+        [Tunable] public static bool kScienceFxStop = false;    // sciencefxstop (B12 §29, docs/591 R7): a science outcome's old effect set is stopped before a new one starts
+        [Tunable] public static bool kDaycareLiking = false;    // daycareliking (B12 §30, docs/591 R9): daycare experience uses the child's real liking for the owner
+        [Tunable] public static bool kKegBreakage = false;    // kegbreakage (B12 §31, docs/591 R10): the juice kegger breakage multiplier applies only at a juice kegger party
+        [Tunable] public static bool kRomanceCooldown = false;    // romancecooldown (B12 §32, docs/591 R11): the bad-date cooldown in a group of three or more lasts hours, not minutes
+        [Tunable] public static bool kLightCustom = false;    // lightcustom (B12 §33, docs/591 R12): a room or house custom light level copies the chosen level
+        [Tunable] public static bool kEatPreyCancel = false;    // eatpreycancel (B12 §34, docs/591 R13): a cancelled or failed prey eat keeps the prey and re-enables its interactions
+        [Tunable] public static bool kMeltAlarm = false;    // meltalarm (B12 §35, docs/591 R16): an ice sculpture with no known artist melts without a throw and a restart replaces its melt alarm
+        [Tunable] public static bool kNewspaperDef = false;    // newspaperdef (B12 §36, docs/591 R21): reading the newspaper autonomously no longer renames the newspaper menu root
         [Tunable] public static bool kEatOutsideCount = true;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)
         [Tunable] public static bool kHomeworkHelp = true;    // homeworkhelp (docs/565 §7): helper starting Help with Homework after the child finished hits a null jig
         [Tunable] public static bool kShellLighting = true;      // shelllighting (docs/561 §5): a buildable shell shows the lighting of the latest passed lighting time after load (EA keeps Default until the next alarm)
