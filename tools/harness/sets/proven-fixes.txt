@@ -295,3 +295,7 @@ mopunreachable
 petpuddletile
 initstacktrace
 weatherstonelistener
+pondclearscan
+rainsheltercheap
+soakedstat
+weathermanagerthrow
