@@ -175,6 +175,7 @@ namespace Ts3Fixes
                 try { SeasonImposterFlush(); } catch (Exception) { } // seasonimposter: the save holds fresh imposters (SeasonImposter.cs)
                 try { PreferredServiceSweep(); } catch (Exception) { } // preferredservice (EaFixes.cs)
                 try { FirePitChairSweep(); } catch (Exception) { } // firepitchair (EaFixes.cs)
+                try { OdFlushAll(); } catch (Exception) { } // unseenoutfitdefer: every waiting outfit is on its Sim before the save (UnseenOutfitDefer.cs)
                 try { DeadRefSavePass(); } catch (Exception) { } // deadrefsweep: cheap final pass, the rest is spread hourly (DeadRefs.cs)
                 bool saved = SaveOrig(synchronous, forceUseSaveName, forceSaveAs);
                 try { PlayedSyncKey(); } catch (Exception) { } // Save As: the played-household sidecar follows the new name (PlayedHouseholds.cs)
