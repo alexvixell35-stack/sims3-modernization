@@ -211,3 +211,35 @@ tested idle candidate. Needs a ts3native build (fork CI) and [IlPatch] Enabled=1
 Not measured yet: allocations saved per sim-hour come from the counters (2743) and gc-rate.ts in an A/B. REA N1
 (`0xC692F0`, lot-bounds polygon copies) is not timed: it needs a native timing detour (prologue bytes from TS3W.exe, not
 in game-copy) and an in-game run, so it waits for a run slot after s57.
+
+## 10. Call census of the speedup candidates (`callcensus`)
+
+None of the docs/589 §3 and docs/590 §3 candidates appear in `jit-hot.csv` or `jit-call-edges.csv`, so their real call
+rates are unknown. `callcensus` (ts3fixes `CallCensus.cs`, default off, log only) swaps 22 of them for pass-through hooks
+(the 23rd, GetSocialsForSTC, is counted in the stcsocials hook): same arguments, same result, same exceptions; off, a hook
+reads a flag cached for 1024 calls and calls EA's method. On, each call is counted and, where the method does real work,
+timed with one running EA StopWatch (microseconds). Once a sim-hour ts3native.log gets `ts3fixes: callcensus: <method>
+calls N in H sim-h, per sim-hour R, us/call U, ms total T` for each method that ran. The hooks may run on the autonomy
+worker thread (counts are plain increments: approximate there); the log alarm starts at world load on the sim thread.
+
+Hooked: Food.LotHasUsableCounter / Stove / Microwave / Grill, Sink.GetBrushTeethScore, BuffManager.HasAnyElement and
+TraitManager.HasAnyElement (every params caller), SocialComponent.SocializeWithMultiplier and FindSimOfRelationshipType,
+Autonomy.CalculateScoreForSocial, Relationship.GetMiniRelationships, Conversation.GetSocialsForSTC and IsSuitable,
+ActionData.Test (the per-social procedural-test CreateDelegate), InteractionQueue.InsertInteraction,
+ViewObjects.CreateRouteToObject, TV.CountOfHumansWatchingTvOrPlayingVideoGames, RabbitHole.GetRabbitHolesOfType,
+ImprovedProtestSituation.FindProtest, Terrain.ModifyRouteForSpecies, SingingInfo.AllKnownCompositions,
+BarAdvanced.CurrentSnackBowl, PetGuardSitutation.GuardObject.IsBeingGuarded.
+
+Not worth it (dropped): MetaAutonomyManager.CalculateTotalDesiredNumSims (hourly alarm), GetCandidateMetaObjectsForHotSpot
+AndDeadZones (once a day), Callbox.HasVisitableSimsOnLot (callbox test only), WildHorses.FindGoodLot (wild-horse pool),
+MoodManager 342/348 (GetMotiveSingleColor: the household mood skewer colour), Motive 1958/1974 (horses), VelvetRopes
+AddInteractions (ropes' menu / interaction list). Not hookable as a plain swap (private nested classes or single
+Definitions; read-only estimate rare): CarpoolManager's LoopUpdate (a waiting carpool), Windows.RouteToSimOutside,
+ChainableGardeningInteraction.CanGardenPlant, Terrain GetClosestPuddle (rain), SummonFairies.Test, Children.Sleep.Test,
+PlayVideoGameSystemOnTVOnline.Test. Already built: Motives (motivebuf), UpdateBuffs (ilp_buffbuf), TestIdleInfo
+(ilp_idleparams, not census-hooked because its body is IL-patched), GetSocialsForSTC (stcsocials).
+
+By code alone nothing left on the list runs per frame or per Sim per tick: Motive 1107 allocates only for the Social motive
+(once per Sim per motive update), and the per-autonomy ones (ActionData.Test's CreateDelegate, IsSuitable's repeated
+ActionData.Get, CalculateScoreForSocial) wait for the census; ActionData.Test's delegate cannot be cached by an IL patch
+(no field token to hold it) and needs a body swap of a large method, so it is built only if the census ranks it high.

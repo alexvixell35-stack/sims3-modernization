@@ -72,6 +72,7 @@ namespace Ts3Fixes
             ApplyTripSubclasses();
             ApplyMotiveBuf();  // motivebuf (MotiveBuf.cs): pass-through while off
             ApplySocialStc();  // stcsocials (SocialStc.cs): pass-through while off
+            ApplyCallCensus();  // callcensus (CallCensus.cs): pass-through, counts only while on
             ApplyUnseenVisitTrip();  // visitcar (UnseenVisitTrip.cs): the visit's driving chance, pass-through unless a Run asked
             // No tuning gate here: Apply runs in Instantiator's static constructor, before the tuning loader sets the [Tunable]
             // fields, so every tuning reads its C# default (docs/124 §17.8). Hooks read their tuning per call; patches that must
@@ -775,6 +776,7 @@ namespace Ts3Fixes
                 // docs/250 §7.1 A1: OFF since rc1110b (2026-11-09) until the wdasync-fix-1110 tests (Instantiator.kWatchdogAsync)
                 case "watchdogasync": return Instantiator.kWatchdogAsync;
                 case "watchdogasyncshadow": return false;  // correctness arm only: re-runs each A1 check sync and counts mismatches
+                case "callcensus": return false;  // log only: calls per sim-hour of the docs/589-590 speedup candidates, pass-through (CallCensus.cs, docs/584 §10)
                 case "stcsocials": return false;  // proven-exact speedup, off until measured: GetSocialsForSTC's autonomous branch without its two redundant copies (SocialStc.cs, docs/584 §9)
                 case "stcsocialscheck": return false;  // pure check for stcsocials: EA's method runs too, results compared (SocialStc.cs)
                 case "motivebuf": return false;  // proven-exact speedup, off until measured: motive updates snapshot into a pooled list (MotiveBuf.cs, docs/584 §5)

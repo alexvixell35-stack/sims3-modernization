@@ -93,6 +93,15 @@ namespace Ts3Fixes
         {
             public static List<SocialInteractionCandidate> StcHook(CommodityTypes commodity, Sim actor, Sim target, Relationship r, Conversation c, bool isAutonomous)
             {
+                if (CcOn())  // callcensus (CallCensus.cs): this hook doubles as the census hook for GetSocialsForSTC
+                {
+                    CcCount(kCcStc); uint t = CcT0();
+                    try { return StcBody(commodity, actor, target, r, c, isAutonomous); } finally { CcTime(kCcStc, t); }
+                }
+                return StcBody(commodity, actor, target, r, c, isAutonomous);
+            }
+            static List<SocialInteractionCandidate> StcBody(CommodityTypes commodity, Sim actor, Sim target, Relationship r, Conversation c, bool isAutonomous)
+            {
                 if (!isAutonomous || !ShortcutOn("stcsocials") || !StcReady()) return StcOrig(commodity, actor, target, r, c, isAutonomous);
                 int[] ctr = PatchCounters();
                 List<SocialInteractionCandidate> ours = StcAutonomous(commodity, actor, target, r, c, ctr);  // EA's exceptions pass through as in EA
