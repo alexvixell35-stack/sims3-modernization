@@ -24,14 +24,23 @@ interface Res { id: string; kind: Kind; from: number; to: number; version?: numb
 interface Used { fixesMax: number; nativeVer: number; nativeEnd: number; cFixesMax: number; cNativeVer: number }
 
 // Contributor ranges (docs/registry.md "Contributor ranges"); maintainer numbers never enter them.
-// fixes: 2000-2199 (full since the PR #368 import, 2026-11-12), then 2200-2799 (2400-2799 added 2026-11-14, PR #405: 2200-2399
-// was down to ~80 slots); FIX_BLOCK2 is where the second block starts.
-export const CONTRIB = { doc: [500, 599], ledger: [900, 999], fixes: [2000, 2799], nativeV: 900 } as const;
-export const FIX_BLOCK2 = 2200;
-// A contributor slot block never straddles 2199/2200: one that would starts at 2200.
-export const contribFixFrom = (max: number, n: number) => max < FIX_BLOCK2 && max + n >= FIX_BLOCK2 ? FIX_BLOCK2 : max + 1;
-const inR = (n: number, [a, b]: readonly [number, number] | readonly number[]) => n >= a && n <= b;
-export const isContribFix = (a: number) => a >= CONTRIB.fixes[0];
+// Each kind is a list of blocks, handed out in order. fixes: 2000-2199 (full since the PR #368 import, 2026-11-12), 2200-2799
+// (2400-2799 added 2026-11-14, PR #405), 2800-3999 (added 2026-11-17 for ~150 more fixes; ts3fixes kCounterSlots = 4000);
+// docs 600-899 and ledger §1000-1499 added 2026-11-17 too.
+type Ranges = readonly (readonly [number, number])[];
+export const CONTRIB = {
+  doc: [[500, 599], [600, 899]], ledger: [[900, 999], [1000, 1499]], fixes: [[2000, 2199], [2200, 2799], [2800, 3999]], nativeV: 900,
+} as const satisfies { doc: Ranges; ledger: Ranges; fixes: Ranges; nativeV: number };
+export const inRanges = (n: number, rs: Ranges) => rs.some(([a, b]) => n >= a && n <= b);
+export const rangesText = (rs: Ranges) => rs.map(([a, b]) => `${a}-${b}`).join(', ');
+// First number of a run of n past max that fits inside one block (a run never straddles a block end such as 2199/2200
+// or 2799/2800: it starts at the next block); -1 when no block has room.
+export function contribFrom(rs: Ranges, max: number, n = 1): number {
+  for (const [a, b] of rs) { const from = Math.max(a, max + 1); if (from + n - 1 <= b) return from; }
+  return -1;
+}
+export const contribFixFrom = (max: number, n: number) => contribFrom(CONTRIB.fixes, max, n);
+export const isContribFix = (a: number) => a >= CONTRIB.fixes[0][0];
 export const isContribVer = (v: number) => v >= CONTRIB.nativeV;
 
 export const FIX_HEAD = '## ts3fixes counters';
@@ -52,8 +61,8 @@ export function udCheck(doc: string, cpp: string | null): string[] {
   return out;
 }
 const LEDGER = join('docs', '51-inference-ledger.md');
-export const ledgerMax = (text: string, contrib = false) => Math.max(contrib ? CONTRIB.ledger[0] - 1 : 0, ...[...text.matchAll(/^## (\d+)\./gm)].map(m => +m[1]).filter(n => inR(n, CONTRIB.ledger) === contrib));
-export const docMax = (names: string[], contrib = false) => Math.max(contrib ? CONTRIB.doc[0] - 1 : 0, ...names.map(f => +(f.match(/^(\d+)-.*\.md$/)?.[1] ?? -1)).filter(n => n >= 0 && inR(n, CONTRIB.doc) === contrib));
+export const ledgerMax = (text: string, contrib = false) => Math.max(contrib ? CONTRIB.ledger[0][0] - 1 : 0, ...[...text.matchAll(/^## (\d+)\./gm)].map(m => +m[1]).filter(n => inRanges(n, CONTRIB.ledger) === contrib));
+export const docMax = (names: string[], contrib = false) => Math.max(contrib ? CONTRIB.doc[0][0] - 1 : 0, ...names.map(f => +(f.match(/^(\d+)-.*\.md$/)?.[1] ?? -1)).filter(n => n >= 0 && inRanges(n, CONTRIB.doc) === contrib));
 const hex = (n: number) => '0x' + n.toString(16).toUpperCase().padStart(4, '0');
 
 // Lines of a `## ` section that starts with head: [start, end) indices.
@@ -74,7 +83,7 @@ const isNext = (l: string) => /^\| \*\*/.test(l);
 
 export function scanDoc(text: string): Used & { collisions: string[] } {
   const L = text.split(/\r?\n/), col: string[] = [];
-  let fixesMax = -1, nativeVer = 0, nativeEnd = -1, cFixesMax = CONTRIB.fixes[0] - 1, cNativeVer = CONTRIB.nativeV - 1;
+  let fixesMax = -1, nativeVer = 0, nativeEnd = -1, cFixesMax = CONTRIB.fixes[0][0] - 1, cNativeVer = CONTRIB.nativeV - 1;
   const [fs, fe] = section(L, FIX_HEAD), slots: number[][] = [];
   for (let i = fs; i >= 0 && i < fe; i++) { const r = fixRow(L[i]); if (r) { slots.push(r); if (isContribFix(r[0])) cFixesMax = Math.max(cFixesMax, r[1]); else fixesMax = Math.max(fixesMax, r[1]); } }
   const [ns, ne] = section(L, NAT_HEAD), vers = new Map<number, number>(), offs: number[][] = [];
@@ -145,8 +154,9 @@ function reserveLedger(args: string[], c: boolean) {
   if (!what) throw new Error('usage: reserve ledger --for <topic> [--by <who>]');
   return withLock(join(main, 'docs', 'registry.md.lock'), () => {
     const res = loadRes(main), docs = [...new Set([join(wt, LEDGER), join(main, LEDGER)])].filter(existsSync);
-    const n = Math.max(c ? CONTRIB.ledger[0] - 1 : 0, ...docs.map(d => ledgerMax(readFileSync(d, 'utf8'), c)), ...res.filter(r => r.kind === 'ledger' && inR(r.to, CONTRIB.ledger) === c).map(r => r.to)) + 1;
-    if (c && n > CONTRIB.ledger[1]) throw new Error(`contributor ledger range ${CONTRIB.ledger.join('-')} is full`);
+    const max = Math.max(c ? CONTRIB.ledger[0][0] - 1 : 0, ...docs.map(d => ledgerMax(readFileSync(d, 'utf8'), c)), ...res.filter(r => r.kind === 'ledger' && inRanges(r.to, CONTRIB.ledger) === c).map(r => r.to));
+    const n = c ? contribFrom(CONTRIB.ledger, max) : max + 1;
+    if (n < 0) throw new Error(`contributor ledger ranges ${rangesText(CONTRIB.ledger)} are full`);
     const r: Res = { id: `ledger-${n}`, kind: 'ledger', from: n, to: n, by, what, at: new Date().toISOString(), worktree: shownPath(wt) };
     saveRes(main, [...res, r]);
     console.log(`reserved docs/51 §${n} id=${r.id}: write it as "## ${n}. ..." (unused: node tools/registry.ts release ${r.id})`);
@@ -159,8 +169,9 @@ function reserveDoc(args: string[], c: boolean) {
   if (!what) throw new Error('usage: reserve doc --for <topic> [--by <who>]');
   return withLock(join(main, 'docs', 'registry.md.lock'), () => {
     const res = loadRes(main), dirs = [...new Set([join(wt, 'docs'), join(main, 'docs')])].filter(existsSync);
-    const n = Math.max(c ? CONTRIB.doc[0] - 1 : 0, ...dirs.map(d => docMax(readdirSync(d), c)), ...res.filter(r => r.kind === 'doc' && inR(r.to, CONTRIB.doc) === c).map(r => r.to)) + 1;
-    if (c && n > CONTRIB.doc[1]) throw new Error(`contributor doc range ${CONTRIB.doc.join('-')} is full`);
+    const max = Math.max(c ? CONTRIB.doc[0][0] - 1 : 0, ...dirs.map(d => docMax(readdirSync(d), c)), ...res.filter(r => r.kind === 'doc' && inRanges(r.to, CONTRIB.doc) === c).map(r => r.to));
+    const n = c ? contribFrom(CONTRIB.doc, max) : max + 1;
+    if (n < 0) throw new Error(`contributor doc ranges ${rangesText(CONTRIB.doc)} are full`);
     const r: Res = { id: `doc-${n}`, kind: 'doc', from: n, to: n, by, what, at: new Date().toISOString(), worktree: shownPath(wt) };
     saveRes(main, [...res, r]);
     console.log(`reserved docs/${n}-*.md id=${r.id} (unused: node tools/registry.ts release ${r.id})`);
@@ -181,8 +192,11 @@ function reserve(args: string[], c: boolean) {
     const u = docs.map(d => scanDoc(readFileSync(d, 'utf8')));
     let fixesMax = Math.max(...u.map(x => c ? x.cFixesMax : x.fixesMax)), nativeVer = Math.max(...u.map(x => c ? x.cNativeVer : x.nativeVer)), nativeEnd = Math.max(...u.map(x => x.nativeEnd));
     for (const r of res) if (r.kind === 'fixes') { if (isContribFix(r.from) === c) fixesMax = Math.max(fixesMax, r.to); } else if (r.kind === 'native') { if (isContribVer(r.version!) === c) nativeVer = Math.max(nativeVer, r.version!); nativeEnd = Math.max(nativeEnd, r.to); }
-    if (c && kind === 'fixes') fixesMax = contribFixFrom(fixesMax, n) - 1;
-    if (c && kind === 'fixes' && fixesMax + n > CONTRIB.fixes[1]) throw new Error(`contributor slot range ${CONTRIB.fixes.join('-')} has ${CONTRIB.fixes[1] - fixesMax} left, asked ${n}`);
+    if (c && kind === 'fixes') {
+      const from = contribFixFrom(fixesMax, n);
+      if (from < 0) throw new Error(`contributor slot ranges ${rangesText(CONTRIB.fixes)}: no block has ${n} free slots in a row past ${fixesMax}`);
+      fixesMax = from - 1;
+    }
     const at = new Date().toISOString();
     let r: Res, row: string;
     if (kind === 'fixes') {
@@ -282,9 +296,20 @@ async function selfCheck() {
     ok(mr.some(r => r.kind === 'fixes' && r.from === 285) && mr.some(r => r.kind === 'native' && r.version === 118) && mr.some(r => r.id === 'ledger-323'), 'maintainer reserves skip the contributor ranges (fixes 285, native v118, ledger 323)');
     ok(scanDoc(readFileSync(join(d, 'docs', 'registry.md'), 'utf8')).collisions.length === 0, 'doc has no collisions with contributor rows');
     ok(!existsSync(join(d, 'docs', 'registry.md.lock')), 'lock file removed');
-    // second contributor block: a block that would cross 2199/2200 starts at 2200; 2799 is the end (2400-2799 added 2026-11-14)
+    // contributor blocks: a run that would cross a block end starts at the next block; past the last block = full
     ok(contribFixFrom(2006, 5) === 2007 && contribFixFrom(2195, 5) === 2200 && contribFixFrom(2195, 4) === 2196 && contribFixFrom(2303, 3) === 2304, 'contributor fixes: blocks stay inside 2000-2199 or start at 2200');
-    ok(CONTRIB.fixes[1] === 2799, 'contributor fixes range ends at 2799');
+    ok(contribFixFrom(2796, 3) === 2797 && contribFixFrom(2796, 4) === 2800 && contribFixFrom(2799, 1) === 2800, 'contributor fixes: 2799/2800 never straddled (2797-2799 fits, 4 slots start at 2800)');
+    ok(contribFixFrom(3997, 2) === 3998 && contribFixFrom(3997, 3) === -1 && contribFixFrom(3999, 1) === -1, 'contributor fixes: 3999 is the end, a run past it is full (-1)');
+    ok(contribFrom(CONTRIB.doc, 585) === 586 && contribFrom(CONTRIB.doc, 598) === 599 && contribFrom(CONTRIB.doc, 599) === 600 && contribFrom(CONTRIB.doc, 899) === -1, 'contributor docs: 586, then 599, then 600; full after 899');
+    ok(contribFrom(CONTRIB.ledger, 947) === 948 && contribFrom(CONTRIB.ledger, 999) === 1000 && contribFrom(CONTRIB.ledger, 1499) === -1, 'contributor ledger: §999 -> §1000; full after §1499');
+    ok(inRanges(650, CONTRIB.doc) && !inRanges(499, CONTRIB.doc) && !inRanges(900, CONTRIB.doc) && inRanges(1200, CONTRIB.ledger) && !inRanges(899, CONTRIB.ledger), 'inRanges: block bounds');
+    // through the CLI: doc 599 exists -> next contributor doc 600; ledger §999 exists -> §1000; a run that fits no block fails
+    writeFileSync(join(d, 'docs', '599-z.md'), 'x'); writeFileSync(join(d, LEDGER), ledgerText + '\n## 999. z\n');
+    await r1(['reserve', 'doc', '--contributor', '--for', 'c2']); await r1(['reserve', 'ledger', '--contributor', '--for', 'c2']);
+    const big = await r1(['reserve', 'fixes', '1201', '--contributor', '--by', 'c', '--what', 'too big']);
+    const br = loadRes(d);
+    ok(br.some(r => r.id === 'doc-600') && br.some(r => r.id === 'ledger-1000'), 'CLI: contributor doc 600 after 599, ledger §1000 after §999');
+    ok(big !== 0 && !br.some(r => r.what === 'too big'), 'CLI: a fixes run larger than any free block is refused, nothing reserved');
     const udDoc = [UD_HEAD, '', '| Op | Owner | Meaning |', '|---|---|---|', '| 0-2 | a | b |', '| 36 | c | d |', '| **37+** | next free | x |', ''].join('\n');
     ok(udCheck(udDoc, 'static u8 UdTextMsg(DWORD lo) {\n case 0: case 36: return 1;\n}').length === 0, 'UserDiag ops: every case has a row');
     ok(udCheck(udDoc, 'static u8 UdTextMsg(DWORD lo) {\n case 37: return 1;\n}')[0]?.includes('op 37'), 'UserDiag ops: a case without a row is reported');

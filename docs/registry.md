@@ -19,12 +19,12 @@ The public repo lags the private one, so contributor PRs (currently alexvixell35
 
 | Kind | Contributor range | Maintainers use |
 |---|---|---|
-| `docs/NNN-*.md` | 500-599 | below 500 |
-| docs/51 inference ledger `## N.` | §900-999 | below 900 |
-| ts3fixes counter slots | 2000-2199 (full), 2200-2799 (2400-2799 added 2026-11-14) | below 2000 |
+| `docs/NNN-*.md` | 500-599, then 600-899 (added 2026-11-17) | below 500 |
+| docs/51 inference ledger `## N.` | §900-999, then §1000-1499 (added 2026-11-17) | below 900 |
+| ts3fixes counter slots | 2000-2199 (full), 2200-2799 (2400-2799 added 2026-11-14), 2800-3999 (added 2026-11-17; `kCounterSlots` = 4000) | below 2000 |
 | ts3native counter version blocks | v900+ | below v900 |
 
-`node tools/registry.ts reserve --contributor <doc|ledger|fixes|native> ...` hands out the next free number of the range (same arguments as the normal `reserve`; without `--contributor` the ranges are skipped). ts3native version strings (`TS3NATIVE_VERSION`, changelog headings) are assigned by the maintainers at merge: a contributor PR writes "next version" and does not change the define. `tools/pr-preflight.ts` flags numbers outside the ranges and a changed version string (`--maintainer` turns that check off).
+`node tools/registry.ts reserve --contributor <doc|ledger|fixes|native> ...` hands out the next free number of the range (same arguments as the normal `reserve`; without `--contributor` the ranges are skipped). Blocks are used in order, and a slot run never straddles a block end (2199/2200, 2799/2800): one that would not fit starts at the next block. ts3native version strings (`TS3NATIVE_VERSION`, changelog headings) are assigned by the maintainers at merge: a contributor PR writes "next version" and does not change the define. `tools/pr-preflight.ts` flags numbers outside the ranges and a changed version string (`--maintainer` turns that check off).
 
 ## Checking a branch before the PR
 
@@ -373,7 +373,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 1054-1056 | `AutLive.cs` (`fixes-1054`, docs/124 §17.12), `autliveseendry` | built 2026-11-15 (feature/mono-autshadow-1115), default off, NOT RUN: seen-NPC dry compares that differ from the game's queue: top-10 set (`autliveseen_dry_top10_mis`), top 1 up to ties (`autliveseen_dry_top1_mis`), replay model (`autliveseen_dry_sim_mis`); all must be 0 |
 | 1057 | `PlayerSims.cs` (`fixes-1057`, docs/271), ts3native `[Experimental] HouseholdToo=1` | built 2026-11-16 (feature/householdtoo-1116), default off, NOT RUN: household, selected or unknown-scope asks `HouseholdLift` let through to a realistic-only path (AutShadow `q.Hh` / `q.T2Hh`, AutLive seen-exact); 0 with the flag off |
 | 1058-1059 | `WeddingCleanup.cs` (`fixes-1058`), `weddingcleanup` | built 2026-11-16 (bugfix/ip-jitfault-scripterror-1116), default on (rare EA crash fix), NOT RUN: EA WeddingCeremony.CleanUp calls where the guard hid a ring/audience Sim with no queue or dropped the couple from a destroyed arch's use list before EA's body (1058) / errors or EA's body still threw, with one "weddingcleanup: EA CleanUp threw" state line naming the null (1059) |
-| **1060+** | next free | reserve here  |
+| 1139-1140 | reserved (bugfix/burnttile-reach-1117, `fixes-1139`) | burnttilefloor reach memo: tiles learned unreachable, NoDestination fails on a known tile |
+| **1141+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 

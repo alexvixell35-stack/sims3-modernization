@@ -31,7 +31,7 @@ Read first: `CLAUDE.md` (constraints and tooling), `PLAN.md` ("Resume here" and 
    ```
 
    Common gitmojis: ✨ feature · 🐛 fix · ♻️ refactor · ⚡️ performance · ✅ tests · 📝 docs · 🔧 config · 🔥 remove · 🥅 error handling · 🔊 logs. No tool-specific trailers (no `Co-Authored-By` lines for agents). Mention AI help in the PR body if you like.
-5. **Before opening a PR**, run `node tools/pr-preflight.ts` on the branch (or `--pr <n>` on an open one): doc numbers, docs/51 §, counter slots and versions, ts3native version strings and files that clash with `origin/main`, plus the checks (`docs/registry.md` "Checking a branch before the PR"). Rebase and renumber until it says `needs review: none`. Contributors take new numbers only from their ranges (`docs/registry.md` "Contributor ranges"): `node tools/registry.ts reserve --contributor <doc|ledger|fixes|native> ...`.
+5. **Before opening a PR**, run `node tools/pr-preflight.ts` on the branch (or `--pr <n>` on an open one): doc numbers, docs/51 §, counter slots and versions, ts3native version strings and files that clash with `origin/main`, plus the checks (`docs/registry.md` "Checking a branch before the PR"). Rebase and renumber until it says `needs review: none`. Contributors take new numbers only from their ranges (`docs/registry.md` "Contributor ranges": docs 500-899, docs/51 §900-1499, counter slots 2000-3999, ts3native counters v900+): `node tools/registry.ts reserve --contributor <doc|ledger|fixes|native> ...` hands out the next free one.
 6. **Open a PR** with the template filled in, title = commit summary. Draft PRs are fine for early feedback. Results go in the PR and, for anything measured, in a results file (below).
 
 ## What a good PR contains
