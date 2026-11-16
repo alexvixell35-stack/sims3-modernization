@@ -244,6 +244,24 @@ namespace Ts3Fixes
             ApplySafeLocUnhide();   // docs/582 B9 §5
             ApplyMidlifeUiEnding();   // docs/582 B9 §6
             ApplyNemesisNoRomance();   // docs/582 B9 §7
+            ApplySpRelCount();   // docs/588 B10 §1-2
+            ApplySpCloneDict();   // docs/588 B10 §3
+            ApplySpLotLookup();   // docs/588 B10 §4
+            ApplySpBucketIndex();   // docs/588 B10 §5
+            ApplySpCreateMoveIn();   // docs/588 B10 §6
+            ApplySpLotDensity();   // docs/588 B10 §7
+            ApplySpRoommateJob();   // docs/588 B10 §8
+            ApplySpOccultPick();   // docs/588 B10 §9
+            ApplySpJobAtWork();   // docs/588 B10 §10
+            ApplySpRecheck();   // docs/588 B10 §11
+            ApplySpPensionPrompt();   // docs/588 B10 §12
+            ApplyHhCleanupDup();   // docs/588 B10 §13
+            ApplyVirtualHomeShare();   // docs/588 B10 §14
+            ApplyCelebAlarmNull();   // docs/588 B10 §15
+            ApplyDisposeVirtualSlot();   // docs/588 B10 §16
+            ApplyAgingAlarmCancel();   // docs/588 B10 §17
+            ApplyVirtualMoveInDup();   // docs/588 B10 §18
+            ApplyPetPoolGhost();   // docs/588 B10 §19
             ApplyDisplayCaseReset();   // docs/587 EP1 §1
             ApplySuatGradeBonus();   // docs/587 EP1 §2
             ApplyMermaidSharkNull();   // docs/587 EP1 §3
@@ -734,6 +752,25 @@ namespace Ts3Fixes
         // [1285-1287] safelocunhide (Batch582iLogic.cs, docs/582 B9 §5): fallback placements unhidden / seen with switch off / errors.
         // [1288-1290] midlifeuiending (Batch582iLogic.cs, docs/582 B9 §6): reads that would have ended the crisis / seen with switch off / errors.
         // [1291-1293] nemesisnoromance (Batch582iLogic.cs, docs/582 B9 §7): nemeses made where EA's romance test refused / seen with switch off / errors.
+        // [1294-1296] sprelcount (Batch588Logic.cs, docs/588 B10 §1): Collects with own counts / incremental Collects (switch off) / errors.
+        // [1297-1299] spcollectnull (Batch588Logic.cs, docs/588 B10 §2): null households skipped / seen with switch off / errors.
+        // [1300-1302] spclonedict (Batch588Logic.cs, docs/588 B10 §3): clones given their own dictionary / clones sharing (switch off) / errors.
+        // [1303-1305] splotlookup (Batch588Logic.cs, docs/588 B10 §4): specs counted on their lot / dropped by EA (switch off) / errors.
+        // [1306-1308] spbucketindex (Batch588Logic.cs, docs/588 B10 §5): targeted actions with the bucket / targeted draws (switch off) / errors.
+        // [1309-1311] spcreatemovein (Batch588Logic.cs, docs/588 B10 §6): predictions made once / double predictions (switch off) / errors.
+        // [1312-1314] splotdensity (Batch588Logic.cs, docs/588 B10 §7): left out by the lot test / off-lot households EA counted (switch off) / errors.
+        // [1315-1317] sproommatejob (Batch588Logic.cs, docs/588 B10 §8): roommates given the job / left jobless (switch off) / errors.
+        // [1318-1320] spoccultpick (Batch588Logic.cs, docs/588 B10 §9): random occult picks / first-in-list picks (switch off) / errors.
+        // [1321-1323] spjobatwork (Batch588Logic.cs, docs/588 B10 §10): new jobs kept / new jobs EA dropped (switch off) / errors.
+        // [1324-1326] sprecheck (Batch588Logic.cs, docs/588 B10 §11): actions not run on a played household / rounds with switch off / errors.
+        // [1327-1329] sppensionprompt (Batch588Logic.cs, docs/588 B10 §12): pension prompts asked first / asked after the leave (switch off) / errors.
+        // [1330-1332] hhcleanupdup (Batch588Logic.cs, docs/588 B10 §13): cleanups run fixed / shared-member loads (switch off) / errors.
+        // [1333-1335] virtualhomeshare (Batch588Logic.cs, docs/588 B10 §14): homes from the tuned share / draws over every lot (switch off) / errors.
+        // [1336-1338] celebalarmnull (Batch588Logic.cs, docs/588 B10 §15): alarms removed with no Sim / would have thrown (switch off) / errors.
+        // [1339-1341] disposevirtualslot (Batch588bLogic.cs, docs/588 B10 §16): virtual move-outs at Dispose / left in their slot (switch off) / stale entries swept at load.
+        // [1342-1344] agingalarmcancel (Batch588bLogic.cs, docs/588 B10 §17): graduation alarms cancelled / left armed (switch off) / errors.
+        // [1345-1347] virtualmoveindup (Batch588bLogic.cs, docs/588 B10 §18): repeat move-ins not added twice / added twice (switch off) / errors.
+        // [1348-1350] petpoolghost (Batch588bLogic.cs, docs/588 B10 §19): ghost ids dropped / ghost ids seen (switch off) / errors.
         // [1400-1402] displaycasereset (EpBatch1aLogic.cs, docs/587 EP1 §1): resets kept contents / destroyed with switch off / errors.
         // [1403-1405] suatgradebonus (EpBatch1aLogic.cs, docs/587 EP1 §2): scores corrected / differ with switch off / errors.
         // [1406-1408] mermaidsharknull (EpBatch1aLogic.cs, docs/587 EP1 §3): fallbacks taken / NRE with switch off / errors.
@@ -1236,6 +1273,25 @@ namespace Ts3Fixes
                 case "safelocunhide": return Instantiator.kSafeLocUnhide;
                 case "midlifeuiending": return Instantiator.kMidlifeUiEnding;
                 case "nemesisnoromance": return Instantiator.kNemesisNoRomance;
+                case "sprelcount": return Instantiator.kSpRelCount;
+                case "spcollectnull": return Instantiator.kSpCollectNull;
+                case "spclonedict": return Instantiator.kSpCloneDict;
+                case "splotlookup": return Instantiator.kSpLotLookup;
+                case "spbucketindex": return Instantiator.kSpBucketIndex;
+                case "spcreatemovein": return Instantiator.kSpCreateMoveIn;
+                case "splotdensity": return Instantiator.kSpLotDensity;
+                case "sproommatejob": return Instantiator.kSpRoommateJob;
+                case "spoccultpick": return Instantiator.kSpOccultPick;
+                case "spjobatwork": return Instantiator.kSpJobAtWork;
+                case "sprecheck": return Instantiator.kSpRecheck;
+                case "sppensionprompt": return Instantiator.kSpPensionPrompt;
+                case "hhcleanupdup": return Instantiator.kHhCleanupDup;
+                case "virtualhomeshare": return Instantiator.kVirtualHomeShare;
+                case "celebalarmnull": return Instantiator.kCelebAlarmNull;
+                case "disposevirtualslot": return Instantiator.kDisposeVirtualSlot;
+                case "agingalarmcancel": return Instantiator.kAgingAlarmCancel;
+                case "virtualmoveindup": return Instantiator.kVirtualMoveInDup;
+                case "petpoolghost": return Instantiator.kPetPoolGhost;
                 case "displaycasereset": return Instantiator.kDisplayCaseReset;
                 case "suatgradebonus": return Instantiator.kSuatGradeBonus;
                 case "mermaidsharknull": return Instantiator.kMermaidSharkNull;
