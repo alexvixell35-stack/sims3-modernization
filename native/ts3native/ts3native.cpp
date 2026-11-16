@@ -6367,6 +6367,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyLotGridMiss(ini) || keepLog;  // docs/67 §31.8
         keepLog = ApplyHeightsInfLoop(ini) || keepLog;  // docs/67 §36: off by default
         keepLog = ApplyBridgeHeightNaN(ini) || keepLog;  // docs/67 §37: off by default
+        keepLog = ApplyFglStaleObject(ini) || keepLog;  // docs/67 §41: off by default
         keepLog = ApplyProbeValues(ini) || keepLog;  // after every behaviour section: it counts inside their stubs or skips
         keepLog = ApplyRouteSnap(ini) || keepLog;  // after [ProbeValues]: counts inside its, [SteerRO]'s and [RouteGate]'s stubs
         InstallLotRemoveGuard(ini);                 // after [RouteSnap]: its stub at 0x635700 runs the same guard

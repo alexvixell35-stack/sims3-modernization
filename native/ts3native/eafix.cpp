@@ -54,6 +54,12 @@
 // pass every other case to the game's handler. INT_MIN / -1 goes to the game's OverflowException stub 0xE57AA5 (the one the
 // *.ovf opcodes use; it records this instruction as the frame ip), as .NET throws. INT_MIN % -1 gives 0, the exact result.
 //
+// LotLevelPastEnd (next version, docs/67 §40, no counters). The lot's level Group getter 0xAB70B0 clamps the object's
+// level below by the lot's lowest level and never above. A slotted object re-attached across a lot change still carries
+// its old lot's level; on a lot with fewer levels the getter returns the word past its Group table, and Realm_MoveShape
+// 0x682480 then moves a shape into it (Bridgeport AVs at 0x6824D0 / 0x6824F3 / 0x8621EA) [verified: logs + disassembly].
+// Fix: the vtable slot points to LlGroup, which answers the lot's top Group for such a level; in-range asks are unchanged.
+//
 // EA build only (TS3N_EA_PORT, ts3addr.h): ported from hotfix/v0.2.10-ea169, not in the Steam asi; the EA addresses are
 // table rows checked on the decrypted exe (docs/data/ea169-overrides.csv).
 // SimNoTexture (0.36.152a, docs/67 §34, crash Z). SimService_Process 0x5EBC50 (request state 11) looks up the request's two
@@ -457,6 +463,85 @@ static bool ApplyGeomBoneIndex(const wchar_t* ini) {
     return true;  // keep the log open for the skip lines
 }
 
+// ---- LotLevelPastEnd ----
+// docs/67 §40 (Bridgeport: AV at 0x6824D0 / 0x6824F3 / 0x8621EA under Transform_AttachToSlot 0x95A360). The lot's "physics
+// Group for this object's level" getter 0xAB70B0 (Lot vtable 0x1065268 +0x6C; only reference: the slot) takes the object's level
+// ([level component +0x18], 0x7FFFFFFF = 0, +1 when [+0x2C] bit 5), clamps it below by the lot's lowest level [lot+0x17C] and
+// indexes the lot's EASTL deque of Groups (+0x370) with no upper bound. An object that keeps the level of the lot it comes from
+// (level 5 of a high-rise) and is attached to a parent on a lot with fewer levels gets whatever lies past the deque: Realm_MoveShape
+// then reads or writes through it. The hook replays the index (reads only); in range: the game's getter, unchanged; past the end:
+// the lot's top Group (EA's own clamp, mirrored), or 0 (= the realm's root Group, EA's answer for an object with no level) when
+// the lot has no Group at all.
+static const DWORD LL_SLOT = TS3A(0x010652D4), LL_GET = TS3A(0x00AB70B0);
+static const u8 kLlHead[15] = {0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24, 0x08, 0x85, 0xC9, 0x0F, 0x84, 0x9A, 0x00, 0x00, 0x00};
+static const u8 kLlLow[6] = {0x3B, 0x86, 0x7C, 0x01, 0x00, 0x00};                                       // +0x4D cmp eax,[esi+17Ch]
+static const u8 kLlDeq[12] = {0x8B, 0x8E, 0x7C, 0x03, 0x00, 0x00, 0x8B, 0x86, 0x78, 0x03, 0x00, 0x00};  // +0x66 first, cur
+static const u8 kLlBlk[6] = {0x8B, 0xB6, 0x84, 0x03, 0x00, 0x00};                                       // +0x79 block table
+typedef DWORD(__fastcall* LlFn)(u8* lot, void*, u8* obj);
+static LlFn g_llGet = (LlFn)(uintptr_t)LL_GET;      // selftest: its own
+static DWORD g_llIdLevel = TS3A(0x011ECF08);        // address of the level component's mask bit (selftest: its own)
+static volatile LONG g_llHits;
+
+static LONG LlLevels(const u8* lot) {  // the deque's size, as 0xAB6608 computes it
+    const DWORD* q = (const DWORD*)(lot + 0x378);  // begin: cur, first, last, node; end: cur, first, last, node
+    return (((LONG)(q[7] - q[3]) >> 2) - 1) * 64 + ((LONG)(q[4] - q[5]) >> 2) + ((LONG)(q[2] - q[0]) >> 2);
+}
+static DWORD __fastcall LlGroup(u8* lot, void* edx, u8* obj) {
+    const DWORD id = *(const DWORD*)(uintptr_t)g_llIdLevel, m = obj ? *(const DWORD*)(obj + 0x2C) : 0;
+    if (!(m & id)) return g_llGet(lot, edx, obj);  // no object / no level component: EA answers 0
+    DWORD s = 0;
+    for (DWORD b = m & (id - 1); b; b &= b - 1) s++;  // QueryComponent 0x935770: the slot = mask bits below the id's
+    const u8* lc = *(const u8* const*)(obj + 0x34 + s * 4);
+    if (!lc) return g_llGet(lot, edx, obj);
+    const LONG raw = *(const LONG*)(lc + 0x18), lo = *(const LONG*)(lot + 0x17C), n = LlLevels(lot);
+    LONG lv = raw == 0x7FFFFFFF ? 0 : raw;
+    if (*(const DWORD*)(lc + 0x2C) & 0x20) lv++;
+    const DWORD i = (DWORD)(lv < lo ? lo : lv) - (DWORD)lo;
+    if (n > 0 && i < (DWORD)n) return g_llGet(lot, edx, obj);
+    DWORD g = 0;
+    if (n > 0) {
+        const DWORD* q = (const DWORD*)(lot + 0x378);
+        const DWORD idx = (DWORD)((LONG)(q[0] - q[1]) >> 2) + (DWORD)n - 1;
+        g = (*(const DWORD* const* const*)(lot + 0x384))[idx >> 6][idx & 63];
+    }
+    if (InterlockedIncrement(&g_llHits) <= 16) {
+        // the script frames name who re-parents the object; the native caller only says "attach by slot name"
+        char st[440];
+        if (FbStackText(st, sizeof(st), 10) <= 0) strcpy_s(st, "(no script frames)");
+        Log("ea fix: LotLevelPastEnd: lot %p id %08lX%08lX has %ld level Group(s) from level %ld, object %p id %08lX%08lX (lot %p) "
+            "asks for level %ld (index %ld, caller 0x%08X): answered the top Group 0x%08lX instead of the word past the table; "
+            "script stack: %s",
+            lot, *(const DWORD*)(lot + 0x4C), *(const DWORD*)(lot + 0x48), n, lo, obj, *(const DWORD*)(obj + 0xC), *(const DWORD*)(obj + 8),
+            *(void* const*)(obj + 0x30), lv, (LONG)i, (DWORD)(uintptr_t)_ReturnAddress(), g, st);
+    }
+    return g;
+}
+
+// slot = the vtable entry; checks the getter it names (entry, lowest-level clamp, deque reads) first.
+static bool LlPatch(DWORD* slot) {
+    if (!Readable(slot, 4)) return false;
+    const u8* f = (const u8*)(uintptr_t)*slot;
+    if (!Matches(f, kLlHead, sizeof(kLlHead)) || !Matches(f + 0x4D, kLlLow, sizeof(kLlLow)) ||
+        !Matches(f + 0x66, kLlDeq, sizeof(kLlDeq)) || !Matches(f + 0x79, kLlBlk, sizeof(kLlBlk)))
+        return false;
+    const DWORD hook = (DWORD)(uintptr_t)&LlGroup;
+    return Write(slot, &hook, 4);
+}
+
+static bool ApplyLotLevelPastEnd(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"EaCrashFixes", L"LotLevelPastEnd", 0, ini)) return false;
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP ea fix LotLevelPastEnd ([EaCrashFixes] LotLevelPastEnd): no EA 1.69 address, docs/232 §8"); return false; }
+#endif
+    DWORD* slot = (DWORD*)(uintptr_t)LL_SLOT;
+    if (!Readable(slot, 4) || *slot != LL_GET || !LlPatch(slot)) {
+        Log("SKIP ea fix: LotLevelPastEnd: vtable slot 0x%08X or the getter bytes differ: not installed", LL_SLOT);
+        return false;
+    }
+    Log("OK   ea fix: LotLevelPastEnd (docs/67 §40): the lot's level Group getter 0xAB70B0 answers the top Group past the lot's level table");
+    return true;  // keep the log open for the hit lines
+}
+
 // ---- GeomNoMaterial ----
 static const DWORD GN_SITE = TS3A(0x005DDB63), GN_SLOT = TS3A(0x00FE3318);                          // check in 0x5DDB30; GEOM vtable +0x58
 static const DWORD GN_SKIP = TS3A(0x005DE0E2), GN_CONT = TS3A(0x005DDB6D), GN_GET = TS3A(0x00580420);     // skip tail, next instruction, getter
@@ -720,6 +805,7 @@ static bool ApplyEaCrashFixes(const wchar_t* ini) {
     ApplyThumbPose(ini);
     keep = ApplyThumbPoseBones(ini) || keep;
     keep = ApplyGeomBoneIndex(ini) || keep;
+    keep = ApplyLotLevelPastEnd(ini) || keep;
     keep = ApplyGeomNoMaterial(ini) || keep;
     keep = ApplyMintDivGuard(ini) || keep;
 #ifdef TS3N_EA_PORT
