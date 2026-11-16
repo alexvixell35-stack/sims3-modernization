@@ -190,7 +190,6 @@ namespace Ts3Fixes
                     toRemove = new List<FragmentedObject>();
                     int t = list.IndexOf(Target);
                     if (t > 0) { list.RemoveAt(t); list.Insert(0, Target); }  // changed: the clicked fragment is picked first
-                    if (t >= required) PatchCounters()[1524]++;
                     foreach (FragmentedObject item in list)
                     {
                         if (!Actor.Inventory.GetInUse(item) && Actor.Inventory.SetInUse(item))
@@ -203,6 +202,7 @@ namespace Ts3Fixes
                 sFrRemove.SetValue(this, toRemove);
                 if (toRemove != null && toRemove.Count >= required)
                 {
+                    if (toRemove.Contains(Target) && list.IndexOf(Target) == 0) PatchCounters()[1524]++;   // review: counted once the pick is complete
                     created = GlobalFunctions.CreateObjectOutOfWorld(Target.GetObjectToCreate(Actor), Target.GetProductVersion());
                     sFrCreated.SetValue(this, created);
                     created.SetHiddenFlags(HiddenFlags.Model);
@@ -395,6 +395,7 @@ namespace Ts3Fixes
                 ((IInteractionNameCanBeOverriden)(object)this).SetInteractionName((string)sBpLoc.Invoke(null, new object[] { caption, new object[0] }));
                 UpdateCaption = true;
                 // EA's body from here
+                bool took = false;   // review: put back only what this run took out of the inventory
                 if (fromInv && Actor.Inventory.Contains(Target))
                 {
                     Vector3 pos, fwd;
@@ -404,15 +405,16 @@ namespace Ts3Fixes
                     Target.SetForward(fwd);
                     Target.AddToWorld();
                     Target.SetOpacity(0f, 0f);
+                    took = true;
                 }
                 if (!Target.Line.WaitForTurn(this, SimQueue.WaitBehavior.CutAheadOfLowerPrioritySims, ExitReason.Default, AcademicBusinessPlanner.kTimeToWaitInLine))
                 {
-                    BpFailAdd(fromInv);  // changed: EA always TryToAdd
+                    BpFailAdd(took);  // changed: EA always TryToAdd
                     return false;
                 }
                 if (!Actor.RouteToSlotAndCheckInUse(Target, Slot.RoutingSlot_0))
                 {
-                    BpFailAdd(fromInv);  // changed: EA always TryToAdd
+                    BpFailAdd(took);  // changed: EA always TryToAdd
                     return false;
                 }
                 StandardEntry();

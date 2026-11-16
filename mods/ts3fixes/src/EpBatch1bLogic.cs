@@ -207,6 +207,7 @@ namespace Ts3Fixes
         static readonly MethodInfo sEgSpawnAt = typeof(MagicGnomeElvis).GetMethod("SpawnElvis", kEpStatic, null, new Type[] { typeof(Vector3), typeof(Vector3) }, null);
         static readonly MethodInfo sEgSpawnLot = typeof(MagicGnomeElvis).GetMethod("SpawnElvis", kEpStatic, null, Type.EmptyTypes, null);
         static AlarmHandle sEgStopAlarm = AlarmHandle.kInvalidHandle;
+        internal static void ElvisGnomeWorldLoad() { sEgStopAlarm = AlarmHandle.kInvalidHandle; }   // a handle from the last world could match another alarm
 
         // Pure: does the nightly spawn run? (EA: always, and throws without a home lot)
         internal static bool EgSpawnRuns(bool guardOn, bool capOn, bool hasHome, int gnomesOnLot)
@@ -431,7 +432,7 @@ namespace Ts3Fixes
                 if ((dogs || cats) && (!hasPetFood || !horses))
                 {
                     if (recipes.Count > 0) pick = RandomUtil.GetRandomObjectFromList(recipes);
-                    else PatchCounters()[1451]++;  // EA: ArgumentException
+                    else { PatchCounters()[1451]++; if (!horses) pick = null; }  // EA: ArgumentException; never horse food without horses
                 }
                 if (horses)
                 {

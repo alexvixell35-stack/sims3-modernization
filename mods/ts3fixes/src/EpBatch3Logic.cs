@@ -286,10 +286,11 @@ namespace Ts3Fixes
             {
                 try
                 {
-                    if (toDecrease != null && (int)toDecrease.GetQuality() <= (int)Sims3.Gameplay.Objects.Quality.Horrifying)
+                    int q = toDecrease == null ? int.MaxValue : (int)toDecrease.GetQuality();
+                    if (q <= (int)Sims3.Gameplay.Objects.Quality.Horrifying)
                     {
                         if (!ShortcutOn("herbqualityfloor")) PatchCounters()[1488]++;
-                        else if (HqFloored(true, (int)toDecrease.GetQuality())) { PatchCounters()[1487]++; return; }
+                        else if (HqFloored(true, q)) { PatchCounters()[1487]++; return; }
                     }
                 }
                 catch (Exception) { PatchCounters()[1489]++; }
@@ -379,13 +380,14 @@ namespace Ts3Fixes
         // GetPotentialPlayers (the picker and the Definition tests) filter lot.GetSims() only by service, pregnancy, role,
         // sleep and passport; GetSimsOnLotWithSim(ignoreKids: false) has no age test at all and GetPotentialPlayers' Teen
         // test passes adult pets. So an autonomous game can pick a baby, toddler, dog, cat or horse as the opponent, and
-        // the picker lists pets. Fix: both lists keep only humans of Child age or older (EA's own Teen and bot rules still
-        // apply on top). Household-visible.
-        // RE, not fixed: the autonomous pick on an empty list leaves mSimY null and Run continues alone.
+        // the picker lists pets. Fix: both lists keep only humans of Teen age or older (EA's own picker rule; review: was
+        // Child, which let the autonomous path pick a child the player can never pick). Household-visible.
+        // RE, not fixed: an empty autonomous list throws in GetRandomObjectFromList (Run has no Count check); the
+        // Definition test filters the same way, so only a Sim leaving between Test and Run reaches it, as in EA.
         // Counters: [1496] Sims removed, [1497] non-players listed with the switch off, [1498] errors.
 
         // Pure: does this Sim stay in the list?
-        internal static bool PpKeep(bool on, bool human, bool childOrAbove) { return !on || (human && childOrAbove); }
+        internal static bool PpKeep(bool on, bool human, bool teenOrAbove) { return !on || (human && teenOrAbove); }
 
         static void ApplyPingPongOpponent()
         {
@@ -402,7 +404,7 @@ namespace Ts3Fixes
                 for (int i = list.Count - 1; i >= 0; i--)
                 {
                     SimDescription d = list[i] == null ? null : list[i].SimDescription;
-                    if (d != null && PpKeep(true, d.IsHuman, d.ChildOrAbove)) continue;
+                    if (d != null && PpKeep(true, d.IsHuman, d.TeenOrAbove)) continue;
                     if (!on) { PatchCounters()[1497]++; continue; }
                     list.RemoveAt(i);
                     PatchCounters()[1496]++;

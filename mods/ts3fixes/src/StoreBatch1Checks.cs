@@ -47,12 +47,12 @@ namespace Ts3Fixes
                 "own hold cleared", StClear(on, true), "other hold left", !StClear(on, false) && !StClear(false, true));
         }
 
-        // SlotMachineDefsCheck run: InitFromID on a shared entry is skipped. Control: a non-shared definition is set.
+        // SlotMachineDefsCheck run: an autonomous play on a shared entry gets a copy. Controls: user picks and copies are left.
         public static object SlotMachineDefsCheck(string what)
         {
             bool on = ShortcutOn("slotmachinedefs");
-            return Ep4Check("slotmachinedefs", 1636, new[] { "shared entries kept", "rewritten with switch off", "errors" }, EpMiss("PlaySlotDefs", sSmDefs), what,
-                "shared skipped", SmSkip(on, true), "own copy set", !SmSkip(on, false) && !SmSkip(false, true));
+            return Ep4Check("slotmachinedefs", 1636, new[] { "autonomous plays on a copy", "shared entry rewritten with switch off", "errors" }, EpMiss("PlaySlotDefs", sSmDefs, "InitFromID", sSmInit), what,
+                "autonomous shared -> copy", SmCopy(on, true, true), "user pick / own copy / off left", !SmCopy(on, false, true) && !SmCopy(on, true, false) && !SmCopy(false, true, true));
         }
 
         // TreeWishingWellCheck run: a store WishingWell counts. Controls: no well false; EA's interface count kept.
@@ -83,7 +83,7 @@ namespace Ts3Fixes
         public static object RouletteHackResetCheck(string what)
         {
             bool on = ShortcutOn("roulettehackreset");
-            return Ep4Check("roulettehackreset", 1654, new[] { "hacks cleared on reset", "left hacked with switch off", "errors" }, EpMiss("mCurrentHack", sRhHack), what,
+            return Ep4Check("roulettehackreset", 1654, new[] { "hacks cleared on reset", "left hacked with switch off", "errors" }, EpMiss("RouletteTable.mCurrentHack", sRhHack[0], "PokerTable.mCurrentHack", sRhHack[1], "BlackjackTable.mCurrentHack", sRhHack[2]), what,
                 "Good -> None", RhClear(on, 1), "None left", !RhClear(on, 0) && !RhClear(false, 2));
         }
 
