@@ -378,6 +378,7 @@ namespace Ts3Fixes
                 case "stuckcheckbusy": return EpLive(typeof(StuckCheckBusyHook), 1);
                 case "subroutefail": return EpJoin(EpLive(typeof(SrfPlayHook), 1), EpLive(typeof(SrfTryHook), 1));
                 case "synctime": return EpLive(typeof(SfHook), 1);
+                case "tagunseen": return EpLive(typeof(TagLoopHook), 2);
                 case "takeariskguard": return EpLive(typeof(TakeARiskHook), 1);
                 case "talkoccupationchance": return EpLive(typeof(BTaoHook), 1);
                 case "teleportcommunitylot": return EpLive(typeof(BTcHook), 1);
@@ -408,6 +409,7 @@ namespace Ts3Fixes
                 case "unseenfbstuck": return EpLive(typeof(StuckCheckBusyHook), 1);
                 case "unseenfbteleport": return EpLive(typeof(RouteBackoffHook), 4);
                 case "unseenmotives": return EpLive(typeof(AutonomyUpdateHook), 0);
+                case "unseenoutfitdefer": return EpJoin(EpJoin(EpJoin(EpLive(typeof(OdDescHook), 1), EpLive(typeof(OdGetHook), 0)), EpLive(typeof(OdIcHook), 4)), EpLive(typeof(OdSimHook), 1));
                 case "unseenpark": return EpJoin(EpLive(typeof(AutonomyUpdateHook), 0), EpLive(typeof(UnseenParkHook), 0));
                 case "unseenprobe": return EpJoin(EpLive(typeof(AutonomyUpdateHook), 0), EpLive(typeof(EnvScoreHook), 0, "sSimUpdateSim", sSimUpdateSim, null));
                 case "unseenroute": return EpLive(typeof(RouteBackoffHook), 4);

@@ -6626,6 +6626,36 @@
       "what": "unseenoutfitdefer (PR #457 docs/602, renumbered: ours has docs/602-function-coverage)",
       "at": "2026-11-16T16:37:16.770Z",
       "worktree": "<scratchpad>"
+    },
+    {
+      "id": "fixes-2711",
+      "kind": "fixes",
+      "from": 2711,
+      "to": 2712,
+      "by": "alexvixell35-stack",
+      "what": "safespotpool (PR #452, renumbered from 2700-2701)",
+      "at": "2026-11-16T17:00:00.000Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "fixes-2713",
+      "kind": "fixes",
+      "from": 2713,
+      "to": 2714,
+      "by": "alexvixell35-stack",
+      "what": "spotcheck (PR #454, renumbered from 2702-2703)",
+      "at": "2026-11-16T17:00:00.000Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "fixes-2715",
+      "kind": "fixes",
+      "from": 2715,
+      "to": 2718,
+      "by": "alexvixell35-stack",
+      "what": "tagunseen (PR #456, renumbered from 2704-2707)",
+      "at": "2026-11-16T17:00:00.000Z",
+      "worktree": "<scratchpad>"
     }
   ]
 }
