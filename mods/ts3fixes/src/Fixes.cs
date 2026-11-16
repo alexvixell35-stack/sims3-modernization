@@ -275,6 +275,7 @@ namespace Ts3Fixes
             ApplyTutorBalloonAlarm();   // docs/587 EP4 §10.7
             ApplyOneShotVfx();   // docs/587 EP5 §11.1
             ApplyEpBatch5b();   // docs/587 EP5 §11.2
+            ApplyEpBatch6();   // docs/587 EP6 §12.1
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -771,6 +772,10 @@ namespace Ts3Fixes
         // [1600-1602] backpacklotleak (EpBatch5bLogic.cs, docs/587 EP5 §11.2.9): lot handlers dropped / left subscribed with switch off / errors.
         // [1603-1605] streetartmasterboost (EpBatch5bLogic.cs, docs/587 EP5 §11.2.10): Master rows boosted / boost missed with switch off / errors.
         // [1606-1608] bubblingspringsreset (EpBatch5bLogic.cs, docs/587 EP5 §11.2.11): broadcasters recreated / left missing with switch off / errors.
+        // [1609-1611] floorswitchuselist (EpBatch6Logic.cs, docs/587 EP6 §12.1): Sims taken off / left on with switch off / errors.
+        // [1612-1614] donationbuffchance (EpBatch6Logic.cs, docs/587 EP6 §12.2): rolls that changed outcome / rolls with switch off / errors.
+        // [1615-1617] vampirefruitsnack (EpBatch6Logic.cs, docs/587 EP6 §12.3): Snacks at the threshold / Sated with switch off / errors.
+        // [1618-1620] fallenrockcollected (EpBatch6Logic.cs, docs/587 EP6 §12.4): collected rocks kept / destroyed with switch off / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -1274,6 +1279,10 @@ namespace Ts3Fixes
                 case "backpacklotleak": return Instantiator.kBackpackLotLeak;
                 case "streetartmasterboost": return Instantiator.kStreetArtMasterBoost;
                 case "bubblingspringsreset": return Instantiator.kBubblingSpringsReset;
+                case "floorswitchuselist": return Instantiator.kFloorSwitchUseList;
+                case "donationbuffchance": return Instantiator.kDonationBuffChance;
+                case "vampirefruitsnack": return Instantiator.kVampireFruitSnack;
+                case "fallenrockcollected": return Instantiator.kFallenRockCollected;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

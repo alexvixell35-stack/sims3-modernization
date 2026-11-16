@@ -332,3 +332,23 @@ Dropped or parked:
 - `FloorSwitch` Cleanup skips base (same as 11.2.8); it is for a later tranche.
 - `EyeOfHorus_Teleport`, `KeystonePanel` and `JumpOffObject`: narrow races, or reach not shown.
 - About 95 other types had nothing reachable. They are listed in the agents' notes, not here.
+
+## 12. Tranche 5 and batch EP6 (2026-11-16, NOT RUN)
+
+Tranche 5 covers the next 120 unread EP types by scanner rank, read by four read-only agents. Filters: at least 4 methods, no interfaces, tooltips or markers, no store content and no StoryProgression. All ranks are 0 now, so the types are ordered by method count. Three leads were confirmed, one was found by grepping their siblings, and one parked lead was built. Slots 1609-1620 (`fixes-1600`). Every switch is off and household-visible, and none is fixed in simler90 UPDATE242.
+
+| § | Switch | Check | What changes | Evidence |
+|---|---|---|---|---|
+| 12.1 | `floorswitchuselist` | `FloorSwitchUseListCheck` | After `FloorSwitch+StandOn.Cleanup` (which skips base), a Sim still on the switch's use list is taken off. | Parked in §11.2. Same defect as `rubbleuselist`. Reach: a reset while the Sim stands on the switch. |
+| 12.2 | `donationbuffchance` | `DonationBuffChanceCheck` | Copies of `BuffGiggleFits+BuffInstanceGiggleFits.DoGiggleFit` and `BuffPlasmaticPlatitudes+BuffInstancePlasmaticPlatitudes.Faint` (no yield) roll `< chance`. | Verified, shipped tuning: both tunables are "Percentage chance of ..." and ship as 15, but `GetFloat(100) >= chance` fires 85% of the time. A grep of all three gameplay DLLs for this roll shape found only these two. One tranche agent dropped GiggleFits, assuming the code default of 50. |
+| 12.3 | `vampirefruitsnack` | `VampireFruitSnackCheck` | Copy of the static `VampireFruit.EatEffects`: Sanguine Snack at `>= kQualityForSanguineSnack`. | Verified: the tunable's comment says ">=" and the Sated test uses `>=`, but the code compares with `>`, so an Outstanding fruit gives only Sated. |
+| 12.4 | `fallenrockcollected` | `FallenRockCollectedCheck` | `FallenRock.RockTimeoutCallback` does nothing on a collected rock (`mCollected`). | Verified code: `ImportContent` re-adds the timeout alarm without storing the handle, so `RockCollected` cannot remove it, and the callback `Destroy()`s the meteorite in the household's inventory. Reach: export/import (travel, moving). Parked: a second export then writes no timer. |
+
+Dropped or parked:
+- `ShowStageRig.StartSpeakerFX`: it overwrites the speaker effects without stopping them first. This is a leak only, on a repeated sound-on.
+- `Scarecrow.DoReactions`: a null watcher list in a window of a few seconds; inferred.
+- `DryerExpensive` tumble FX on a reset; inferred.
+- `TrashRelic.StacksWith` ignores the texture; value skew, not traced.
+- `PotionOfLiquidCourage.DoReset` adds a second sparkle alarm; cosmetic.
+- NPC party host types and `KissingBoothAttendant.EndRole`: NPC-only, or the same as their siblings.
+- About 105 types had nothing reachable.
