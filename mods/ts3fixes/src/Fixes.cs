@@ -496,6 +496,7 @@ namespace Ts3Fixes
         // [2278-2280] moodpending (MoodPending.cs): ChangeMoodValue on a pending buff (also off) / mood moves skipped / errors.
         // [2272-2277] buyclearrecycle / buygridsweep (BuyCellRecycle.cs): cells at ShowCatalogGrid(false) (also off) / cached / errors / icons in other grids at Dispose (also off) / disposed / errors.
         // [2269-2271] buycellrecycle (BuyCellRecycle.cs): Buy catalog cells dropped by AddGridItem (also off) / returned to a cache / errors.
+        // [2793-2796] detailprioexact (DetailPrioExact.cs, docs/605 §3): exact answers / EA's body (null list or description, error) / check mismatches / errors.
         // [2260-2268] dreamrootorphan / blogorphan / dnpupdateguard (WishListenerFixes.cs): root listeners left by a thrown-away test (also off) / removed / errors / blog one-off listeners left (also off) / removed / errors / Update exceptions seen / swallowed / errors.
         // [2254-2259] dnpdisposelistener / seasondup (ListenerFixes.cs): wish managers created (also off) / object listeners moved / errors / duplicate season adds (also off) / skipped / errors.
         // [2251-2253] mooddrift (MoodDrift.cs): Sims whose mood target had drifted off their buffs (also counted off) / mood points corrected / errors.
@@ -570,16 +571,140 @@ namespace Ts3Fixes
         }
 
         // A fix is on when the test switch says so, else per the tuning (Instantiator).
+        // docs/605 §2: ~360 call sites, ~2.7 ms/s of sim-thread self time measured in the lookup below. The answer for a
+        // name changes only when (a) the switch table changes: every writer bumps "ts3fixes.switchgen" (SwitchesChanged:
+        // agent patches / event_cost / reflect_set, NameCacheCheck), a new key also changes its Count, and names with an
+        // entry are read from the table on each call (an older agent does not bump); (b) the tuning
+        // is written: answers are cached only after ApplyTuned with the tuning set (the loader has run), and every world
+        // load finished starts a new table; (c) IniUnseen's one ask, memoized by itself. So ShortcutOn answers from a
+        // SwitchCache built for the current generation and count, else the slow path below and stores its answer.
         static Dictionary<string, bool> sSwitches;
+        static SwitchCache sSwCache;     // null: not cacheable yet (tuning) or turned off
+        static int[] sSwGen;             // "ts3fixes.switchgen" [0], shared with the agent
+        static bool sSwCacheOff;         // A/B aid: reflect_set Ts3Fixes.Fixes.sSwCacheOff true (reflect_set bumps the generation)
+
+        // A name with a table entry is stored as Live and read from the table on every call: an agent build without the
+        // generation bump can overwrite an entry without changing Count, but cannot add or remove one unseen (only
+        // NameCacheCheck removes, and it bumps). A name with no entry is stored with its tuning default.
         static bool ShortcutOn(string name)
+        {
+            SwitchCache t = SwCurrent();
+            bool on;
+            if (t != null)
+            {
+                int v = t.Get(name);
+                if (v == SwitchCache.Live) { if (sSwitches.TryGetValue(name, out on)) return on; }
+                else if (v >= 0) return v == SwitchCache.On;
+            }
+            else SwTable();
+            if (sSwitches.TryGetValue(name, out on)) { if (t != null) t.Put(name, SwitchCache.Live); return on; }
+            on = SwDefault(name);
+            if (t != null) t.Put(name, on ? SwitchCache.On : SwitchCache.Off);
+            return on;
+        }
+
+        // The table for the switch table as it is now. One read of sSwCache: its own Gen / Count say what it was built for.
+        static SwitchCache SwCurrent()
+        {
+            SwitchCache t = sSwCache;
+            if (t != null && t.Gen == sSwGen[0] && t.Count == sSwitches.Count) return t;  // t set implies both are
+            return SwRenew();
+        }
+
+        static SwitchCache SwRenew()
+        {
+            SwTable();
+            if (sSwCacheOff || !sTunedDone || !Instantiator.TuningSet) { sSwCache = null; return null; }
+            SwitchCache t = new SwitchCache(sSwGen[0], sSwitches.Count);
+            sSwCache = t;
+            return t;
+        }
+
+        static void SwTable()
         {
             if (sSwitches == null)
             {
                 sSwitches = AppDomain.CurrentDomain.GetData("ts3fixes.switches") as Dictionary<string, bool>;
                 if (sSwitches == null) { sSwitches = new Dictionary<string, bool>(); AppDomain.CurrentDomain.SetData("ts3fixes.switches", sSwitches); }
             }
+            if (sSwGen == null)
+            {
+                int[] g = AppDomain.CurrentDomain.GetData("ts3fixes.switchgen") as int[];
+                if (g == null || g.Length < 1) { g = new int[1]; AppDomain.CurrentDomain.SetData("ts3fixes.switchgen", g); }
+                sSwGen = g;
+            }
+        }
+
+        // Every write to the switch table (or to a tuning field at run time) calls this: the next ShortcutOn starts a new table.
+        internal static void SwitchesChanged()
+        {
+            SwTable();
+            unchecked { sSwGen[0]++; }
+        }
+
+        // SwitchCacheCheck: every name asked so far plus the table's keys, cached answer vs slow answer (twice: fill, hits),
+        // an override flip on a name nobody uses (set with a bump, overwritten without one, bumped, removed), and the cost
+        // per call of both paths.
+        public static string SwitchCacheCheck()
+        {
+            SwTable();
+            string[] names = SwNames();
+            if (names.Length == 0) names = new string[] { "gohome", "broadcast", "detailprio", "hovertraintest" };
+            int bad = 0, n = 0;
+            string firstBad = null;
+            for (int pass = 0; pass < 2; pass++)
+                foreach (string s in names)
+                {
+                    n++;
+                    bool a = ShortcutOn(s), b = ShortcutOnSlow(s);
+                    if (a != b) { bad++; if (firstBad == null) firstBad = s; }
+                }
+            const string probe = "switchcacheprobe";
+            bool p0 = ShortcutOn(probe);
+            sSwitches[probe] = true; SwitchesChanged(); bool p1 = ShortcutOn(probe), p1b = ShortcutOn(probe);
+            sSwitches[probe] = false; bool p2 = ShortcutOn(probe);  // overwritten with no bump (an older agent): read live
+            SwitchesChanged(); bool p2b = ShortcutOn(probe);
+            sSwitches.Remove(probe); SwitchesChanged(); bool p3 = ShortcutOn(probe);
+            bool flip = !p0 && p1 && p1b && !p2 && !p2b && !p3;
+            SwitchCache t = SwCurrent();
+            string cached = t == null ? "cache off (sSwCacheOff=" + sSwCacheOff + ", tuned=" + sTunedDone + ", tuning set=" + Instantiator.TuningSet + ")" : "cache on";
+            foreach (string s in names) ShortcutOn(s);  // fill again for the timing and the probe length
+            t = SwCurrent();
+            string probeLen = t == null ? "" : ", stored " + t.Used + ", longest probe " + t.MaxProbe();
+            uint t0 = SrcNowUs();
+            for (int r = 0; r < 20; r++) foreach (string s in names) ShortcutOnSlow(s);
+            uint t1 = SrcNowUs();
+            for (int r = 0; r < 20; r++) foreach (string s in names) ShortcutOn(s);
+            uint t2 = SrcNowUs();
+            int calls = 20 * Math.Max(1, names.Length);
+            return "switchcache: " + cached + ", names " + names.Length + ", compared " + n + ", mismatches " + bad + (firstBad != null ? " (first " + firstBad + ")" : "")
+                + ", override flip ok=" + flip + probeLen + "; timing: slow " + ((t1 - t0) * 1000u / (uint)calls) + " ns, cached " + ((t2 - t1) * 1000u / (uint)calls) + " ns per call"
+                + "; verdict: " + (bad == 0 && flip ? "PASS" : "FAIL");
+        }
+
+        // The names asked so far (the current table's keys: every site that ran since the last change) plus the switch
+        // table's own keys, each once.
+        static string[] SwNames()
+        {
+            List<string> l = new List<string>();
+            SwitchCache t = SwCurrent();
+            if (t != null) l.AddRange(t.Keys());
+            foreach (string k in sSwitches.Keys) if (!l.Contains(k)) l.Add(k);
+            return l.ToArray();
+        }
+
+        // The uncached answer: the switch table's entry, else the tuning default.
+        static bool ShortcutOnSlow(string name)
+        {
+            SwTable();
             bool on;
             if (sSwitches.TryGetValue(name, out on)) return on;
+            return SwDefault(name);
+        }
+
+        // The tuning default of a switch name (no table entry).
+        static bool SwDefault(string name)
+        {
             switch (name)
             {
                 case "gohome": return Instantiator.kGoHomeShortcut;
@@ -680,6 +805,7 @@ namespace Ts3Fixes
                 // docs/250 §7.1 A1: OFF since rc1110b (2026-11-09) until the wdasync-fix-1110 tests (Instantiator.kWatchdogAsync)
                 case "watchdogasync": return Instantiator.kWatchdogAsync;
                 case "watchdogasyncshadow": return false;  // correctness arm only: re-runs each A1 check sync and counts mismatches
+                case "detailprioexact": return Instantiator.kDetailPriorityExact;  // docs/605 §3 (DetailPrioExact.cs), exact, off
                 case "doorgen": return Instantiator.kDoorGen;  // DoorGen.cs: bump ts3native's door generation when a door answer input changes (DoorMemoX=3)
                 case "alarmtime": case "boatreplanlog": case "owresettime": case "synctime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
                 case "legreplanskip": return Instantiator.kLegReplanSkip;

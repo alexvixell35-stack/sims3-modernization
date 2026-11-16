@@ -75094,6 +75094,160 @@
     ]
   },
   {
+    "id": "detailprioexact-check",
+    "bug": "Lot.CalculateDetailPriority (every pass of every lot's Simulate: each tick on simulating lots) builds the active household's actor list twice over (Household.AllActors: two new lists and two copies) to find a member on the lot (docs/605 §3)",
+    "fix": "ts3fixes DetailPrioExact.cs: detailprioexact (default off)",
+    "save": "any save with an active household (a member away from the home lot adds the PlayerSim case)",
+    "note": "DetailPrioExactCheck 'run' answers every lot three ways in the same tick: EA's body over the same public members (reference), our scan, and the hooked private method as Lot.Simulate calls it; any difference counts 2795 and must stay 0. Controls: the home lot is Home, each member's lot outside a rabbit hole is PlayerSim, a lot with no member is None. 'result' shows counters 2793-2796 and the timing line (EA body vs exact scan per lot pass). detailprio (the per-tick lot set) must stay off: with it on the exact path is not used.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'; counter 2795 = 0, 2793 rising.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "detailprioexact": false,
+          "detailprio": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DetailPrioExactCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DetailPrioExactCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "detailprioexact": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 60,
+        "note": "lots simulate with the exact path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DetailPrioExactCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: every lot vs EA"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DetailPrioExactCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "detailprioexact": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "detailprioexact": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "switchcache-check",
+    "bug": "Fixes.ShortcutOn hashed the switch name twice per call (the switch dictionary, then the compiler's string switch): 2.7 ms/s of sim-thread self time from ~360 call sites (docs/605 §2)",
+    "fix": "ts3fixes Fixes.cs / SwitchCacheCore.cs: ShortcutOn answers cached per switch-table generation (always on; A/B with reflect_set Ts3Fixes.Fixes.sSwCacheOff)",
+    "save": "any save",
+    "note": "SwitchCacheCheck compares the cached answer with the slow path for every name asked since the last change plus the switch table's keys (twice: fill, hits), flips an unused override on/off/removed through the generation bump, and times both paths. A patches step in between proves the agent's bump.",
+    "expect": "'verdict: PASS', mismatches 0, override flip ok=True, cached ns well below slow ns.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 30,
+        "note": "the sites fill the cache"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwitchCacheCheck",
+          "args": []
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hovertraintest": true
+        },
+        "note": "an agent write: the next call must see it",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwitchCacheCheck",
+          "args": []
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hovertraintest": false
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwitchCacheCheck",
+          "args": []
+        },
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hovertraintest": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

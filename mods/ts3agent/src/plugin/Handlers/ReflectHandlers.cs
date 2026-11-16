@@ -52,11 +52,13 @@ namespace Ts3Agent
             if (f != null)
             {
                 f.SetValue(owner, ConvertTo(a.Raw("value"), f.FieldType));
+                Util.SwitchesChanged();
                 return Describe(f.GetValue(owner), 0);
             }
             if (p != null && p.CanWrite)
             {
                 p.SetValue(owner, ConvertTo(a.Raw("value"), p.PropertyType), null);
+                Util.SwitchesChanged();
                 return Describe(p.GetValue(owner, null), 0);
             }
             throw new McpException("'" + name + "' is not a writable field or property of " + ownerType.FullName);

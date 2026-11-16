@@ -342,7 +342,7 @@ namespace Ts3Agent
             AppDomain d = AppDomain.CurrentDomain;
             Dictionary<string, bool> sw = d.GetData("ts3fixes.switches") as Dictionary<string, bool>;
             if (sw == null) { sw = new Dictionary<string, bool>(); d.SetData("ts3fixes.switches", sw); }
-            if (a.Has("on")) sw["eventcost"] = a.Bool("on", false);
+            if (a.Has("on")) { sw["eventcost"] = a.Bool("on", false); Util.SwitchesChanged(); }
             Dictionary<ulong, long[]> t = d.GetData("ts3fixes.eventcost") as Dictionary<ulong, long[]>;
             Dictionary<string, object> r = Util.Obj();
             bool on;
