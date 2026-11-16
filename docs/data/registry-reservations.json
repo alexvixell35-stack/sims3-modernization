@@ -6656,6 +6656,16 @@
       "what": "tagunseen (PR #456, renumbered from 2704-2707)",
       "at": "2026-11-16T17:00:00.000Z",
       "worktree": "<scratchpad>"
+    },
+    {
+      "id": "fixes-2747",
+      "kind": "fixes",
+      "from": 2747,
+      "to": 2752,
+      "by": "claude",
+      "what": "docs/598 §6 newcartest: SocialTest.TestHasNewCar / TestHasExpensiveNewCar new-car memo (answered, EA queries, forgets, check mismatches, errors, Dispose/import forgets)",
+      "at": "2026-11-16T20:00:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

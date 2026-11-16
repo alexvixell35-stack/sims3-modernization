@@ -110,3 +110,56 @@ Counters: [1971] tests answered from the memo, [1972] tests that ran EA's query 
 arm measures the call rate this doc asked for), [1973] forgets, [1974] check mismatches, [1975] Run throws avoided,
 [1976] errors. Gain: up to the §3 estimate (~240 ms per sim-hour [inferred]); the off arm's 1972 and the timing line give the
 real figure.
+
+## 6. Second sweep: Test-like methods with world queries; built `newcartest` (2026-11-16, static, NOT RUN)
+
+Input: the cheap scan of Test-like methods with `GetObjects` / `CountObjects` / `GetRabbitHolesOfType` / `AllLots`
+(brief s70). Static only (decompiled EA code, `OriginalSocialDataEP4.xml` for the social wiring).
+
+### 6.1 Classification [verified, decompiled]
+
+| Rank | Method | Scope | How often | Verdict |
+|---|---|---|---|---|
+| 1 | `SocialTest.TestHasNewCar` (ProcTest of Enthuse About New Car / Fast Car / Technologically Advanced Car), `TestHasExpensiveNewCar` (Enthuse About Expensive Car) | **world** `GetObjects<CarOwnable>()` + a loop over every car (`GetOwnerLot() == actor.LotHome && IsNewCar`), no gate inside | all four `Available auto="True"`, ages T-E, actor not Grumpy (New Car: no trait needed; the others Daredevil / ComputerWhiz / Snob). `ActionData.Test` runs the ProcTest last, for every actor / target pair that passes, from `SocialInteractionA.Definition.Test` and `GetSocialsForSTC` (296 µs per call): per pair per social build | **built** (§6.2) |
+| 2 | `Sim.GoForWalkWithDog` Test | world `GetObjects<Lot>()` + per-lot test | only after `ActorCanWalkTarget` (target an adult dog of the actor's household, awake) | dog households only; not built |
+| 3 | `SocialTest.TestCanBeScouted` | world `CountObjects<IServoBotArena>` | only for a BotArena career actor with the scout unlock | rare |
+| - | `Sim` trait interviews (Snob / BookWorm / Virtuoso: `GetRabbitHolesOfType`, 1.29 ms), `Sim` TraitDesire (`CountObjects` of a type) | world | `isAutonomous` → false first | player menu only |
+| - | `Phone.CallInviteOverForeignVisitors`, `Phone.CallThrowParty` (`LotManager.AllLots`) | managed lot list loop | behind base Call tests, party / grounding / date gates | cheap managed loop; not built |
+| - | `Subway` ×4 | world `GetObjects<Subway>` | subway interactions on the rabbit hole only (§2) | not per Sim |
+| - | `SocialTest.TestBoastAboutCar` / `Bicycle` / `Pool`, `TestWooHoo` / `Spicy` / `Juiced` / `PetWooHoo` / `TryForBaby`, `TestTrainSim`, `TestComplainAbout*`, `TestEnthuseAboutFishing`, ... | **lot** `CountObjects<T>()` of the actor's home or current lot | per pair, mostly behind romance / trait gates | lot-scoped per-class count (tens of µs [inferred]); not built |
+| - | `Sim` costume chest, bed, DJ turntable, dare, pet food; `Phone` chess / soccer / show; `ServingContainer`, `WashingMachine`, `FutureFoodSynthesizer`, `Fish`, `Door`, `Terrain` igloo | lot | per object or lot-scoped | not world |
+| - | `Terrain` genius contemplate / tile test, `TraitFunctions` pyromaniac, `PicnicBasket` ×3 | radius queries around the actor | per Test, small radius | not a world scan |
+| - | `BabyDragon` ×2 (`AllLots`) | managed lot loop | store pet only | rare |
+
+Only rank 1 clearly runs per Sim pair on many autonomy passes in every world with cars.
+
+### 6.2 `newcartest` (tuning `kNewCarTest`, `NewCar598.cs`, counters 2747-2752, repro `newcartest-check`, package r60)
+
+**Exactness [verified, decompiled].** `IsNewCar` = `ElapsedTime(Days, TimeOfPurchase) <= BuffNewCarSmell.DaysOfNewCarSmell`.
+`TimeOfPurchase` is written only in `CarOwnable.OnCreation` (= now, the newest value possible; NRaas source has no writer),
+so a car that is not new stays not new while the clock runs forward and the tuning is unchanged. `FadingSubsetMemo`
+(game-independent) keeps the cars of EA's last query that were new then, with the clock ticks and the tuning value. Answer:
+any kept car that is still registered (proxy live, checked first, so EA's per-car calls are never made on a gone car) and
+matches EA's per-car test live (owner lot, `IsNewCar`, and `Value` for the expensive test, same order). A clock that went
+back or a changed tuning value: unknown → EA's query runs and is stored.
+
+**Additions forget.** Every car start goes through `CarOwnable.OnStartup` (`GameObject.Init`, both arms; `OnCreation` just
+before it). The six EA overrides (PriusC, CarTwizy, CarUFO, SirenEnabledVehicle, FireEngine, HoverCarExpensive) call
+`base.OnStartup` unconditionally [verified, decompiled]. Hooked like the hovertraintest station start: forget, and keep the
+car pending (nothing stored) until `GetProxy` finds it. `CarOwnable.ImportContent` forgets too. Any other `CarOwnable`
+subclass that declares `OnStartup` (a mod) keeps the memo off. Belt and braces: build/buy enter / exit, world load / quit,
+not-in-world; nothing stored in build/buy or edit town. [inferred: the query lists registered car script objects, inventory
+cars included, so inventory moves change nothing; the check compares memo vs EA for every Sim live.]
+
+**Household rule.** Household, selected and unknown-scope actors (`Fixes.HouseholdExempt`) and a null actor always run EA's test.
+
+**Check.** `NewCarTestCheck run`: for every Sim in the world, both tests from the memo against EA's own test (the stubs) in
+the same tick; differences count 2750 (must be 0). Synthetic controls: no / old / new / aged-out / gone / added car, clock
+back, tuning changed. `result`: counters and a `timing:` line (EA test µs vs memo µs, car count, new cars kept). Live assert:
+`CheckLiveMap` `newcartest` (2 car swaps, 2 test swaps).
+
+Counters: [2747] answered from the memo, [2748] EA tests (switch off: every call, the call rate), [2749] forgets,
+[2750] check mismatches, [2751] errors, [2752] ImportContent forgets. Gain [inferred, unmeasured]: one world car query
+(~0.3-0.5 ms, cf. the 487 µs station query in §5) per passing actor / target pair per social build; the off arm's 2748 and
+the timing line give the real figure. NPC car spawns (GeneratedOwnableForNpc) forget the memo, so the hit rate in busy
+towns is what the run must show.
