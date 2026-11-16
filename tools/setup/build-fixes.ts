@@ -465,6 +465,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBackpackLotLeak value="False" />
     <kStreetArtMasterBoost value="False" />
     <kBubblingSpringsReset value="False" />
+    <kFloorSwitchUseList value="False" />
+    <kDonationBuffChance value="False" />
+    <kVampireFruitSnack value="False" />
+    <kFallenRockCollected value="False" />
     <kBirthRoute value="True" />
     <kPutDownPlace value="True" />
     <kAwardKeep value="False" />
