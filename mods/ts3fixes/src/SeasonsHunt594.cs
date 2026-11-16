@@ -222,7 +222,7 @@ namespace Ts3Fixes
             catch (Exception e) { missing += " threw " + e.GetType().Name; }
             return B582Line("weatherstonelistener", on, "summon listener removed at Dispose", fixedNow, "no listener / off as EA=" + controls, controls, missing.Trim(), counters);
         }
-    
+
 
         // live paths of the checks (CheckVerdict.cs CkLive): hook swaps in place, reflection handles usable
         static readonly int sLive_initstacktrace = LiveAdd("initstacktrace", () => EpLive(typeof(IstHook), 2, "sIstSearch", sIstSearch, null, "sIstFlags", sIstFlags, null, "sIstNextId", sIstNextId, typeof(ulong), "sIstNextId", sIstNextId, "static", "sIstNextId", sIstNextId, null, "sIstSelected", sIstSelected, null));
