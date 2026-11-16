@@ -96,3 +96,14 @@ Ghidra: `tools/ghidra/run-headless-linux.sh DecompileTo.java / XrefsTo.java / Sc
   the ground (shader). If the frame delta is real and the main-thread stages of frame-times.js (drawMs, presentMs) carry
   it, the cost is render/bridge side; options then are lower emitter density (12-cell volume, `0xD669D0` tuning) or a
   cheaper snow shader path, both GPU-side, not sim-side.
+
+## Measured (2026-11-16, Bridgeport, winter, Remix bridge, screen on, 2.5 min per segment) [verified]
+
+| segment | frames avg / p95 / p99 ms | frames >= 50 ms | sim tick avg / p99 ms | state at end |
+|---|---|---|---|---|
+| clear | 21.0 / 17.7 / 20.0 (avg includes the first 1 s frame) | 25 | 33.4 / 36 | - |
+| heavy rain | 16.7 / 18.4 / 23.1 | 11 | 33.3 / 35 | wet 0.73, precip 0.97 |
+| blizzard | 16.7 / 18.0 / 22.4 | 9 | 33.4 / 36 | snow 0.27, precip 0.99 |
+| clear, snow on ground | 16.7 / 20.0 / 23.3 | 16 | 33.3 / 37 | snow 0.30 |
+
+Weather costs no sim time (ticks stay frame-paced at 30/s, 33.3 ms) and only ~2-3 ms at the frame p95/p99; 60 fps holds in every segment. Rain, snow particles and ground snow are not a performance problem on this setup; nothing to build. The 21:05 crash (forced rain at 15 MB free address space with 73 needy Sims) did not repeat at normal load.
