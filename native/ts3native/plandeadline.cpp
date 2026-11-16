@@ -113,8 +113,8 @@ static bool KdExempt(const AsyncJob* j) {
     return ts3native_counters.kdExMode == 1 && !j->uf && j->kdScope != 2;
 }
 static LONG KdCeilUs(LONG scope) { return scope == 3 ? ts3native_counters.kdNpcCeilUs : ts3native_counters.kdCeilUs; }
-static DWORD g_kdScopeH;
-static LONG g_kdScope, g_kdScopeIa;
+// g_kdScopeH / g_kdScope: declared in ts3native.cpp (ObstacleKind1 reads them at the START gate)
+static LONG g_kdScopeIa;
 // sim thread (UdTextMsg): this route's scope, good for its next START only; ia = the routefail interaction id sent with it (RfIaName)
 static void KdScopeSet(DWORD handle, LONG scope, LONG ia) { g_kdScopeH = handle, g_kdScope = scope, g_kdScopeIa = ia, ts3native_counters.kdScopeN++; }
 static LONG RfIaPeek(DWORD handle) { return handle && g_kdScopeH == handle ? g_kdScopeIa : 0; }  // START, before KdScopeTake

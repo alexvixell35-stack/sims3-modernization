@@ -125,7 +125,9 @@ namespace Ts3Fixes
                 // PlanAsync (docs/18, see below), inlined
                 RoutePlanResult r;
                 bool pre = false;
-                bool started = AsyncEligible(sim, "asyncroute") ? PreCb(0, ref pre) && GetOption(kAsyncStart)
+                bool ownStart = AsyncEligible(sim, "asyncroute");
+                if (ownStart) DueStepAside(sim, 3436);  // jobyieldstart: START's own drain would wait for a running job
+                bool started = ownStart ? PreCb(0, ref pre) && GetOption(kAsyncStart)
                     : OwnerTaskStart(ref pre) ? true
                     : ForeignEligible() && PreCb(0, ref pre) && GetOption2((Sims3.SimIFace.Route.RouteOption2)kArStart);
                 if (!started)
@@ -141,6 +143,7 @@ namespace Ts3Fixes
                         List<Door> doors = pre ? PrePlanCbCore.Snapshot(LockedDoors()) : null;
                         r = PlanOrig();
                         RestoreDoors(doors);
+                        if (ownStart) DueStepAside(sim, 3437);  // jobyieldstart: the CANCEL below drains too; never in the finally (a reset passes through it)
                     }
                     finally
                     {
@@ -409,11 +412,23 @@ namespace Ts3Fixes
                 // job (v179 wdJob*). CheckIdle picks A1 only when ts3native answers q 9 (RouteFixes.cs WdA1Would).
                 bool wd = WdA1Here() && ForeignEligible();
                 bool own = wd || AsyncEligible(proxy != null ? proxy.Target as Sims3.Gameplay.Actors.Sim : null, "asyncreplan");
+                // obstacleasync / interruptasync (ObstacleAsync.cs, default off): a townie's own Replan inside EA's obstacle wait, or
+                // inside one of the three other route interrupt actions, is tagged (probe channel bits 10 + 11, a label only); ts3native
+                // [RouteAsync] ObstacleKind1 starts it without Kinds bit 1 when the route's scope answer (UfPlanBody, sent before this)
+                // is non-household. Counters [3440-3442] obstacle, [3443-3445] interrupt: sent / started / refused.
+                bool oer = false, ira = false;
+                if (kind == 1 && own && !wd && ShortcutOn("obstacleasync"))
+                    try { oer = OerTownieRoute(proxy); } catch (Exception) { }
+                if (kind == 1 && own && !wd && !oer && ShortcutOn("interruptasync"))
+                    try { ira = IraTownieRoute(proxy); } catch (Exception) { }
                 if (!own && !(ShortcutOn("asyncreplan") && ShortcutOn("asyncreplanforeign") && ForeignEligible())) return false;
                 PreCb(kind, ref pre);
                 if (kind >= 2) { AsyncPoint(0, p.x); AsyncPoint(1, p.y); AsyncPoint(2, p.z); }
                 if (wd) { PatchCounters()[872]++; GetOption2(kProbe | (Sims3.SimIFace.Route.RouteOption2)0x10400UL); }
+                if (oer || ira) { PatchCounters()[oer ? 3440 : 3443]++; GetOption2(kProbe | (Sims3.SimIFace.Route.RouteOption2)0x10C00UL); }
                 bool started = GetOption2((Sims3.SimIFace.Route.RouteOption2)((own ? kArStart : kArStart | kArForeign) | (ulong)kind << 56));
+                if (oer) PatchCounters()[started ? 3441 : 3442]++;
+                if (ira) PatchCounters()[started ? 3444 : 3445]++;
                 if (wd) { if (started) PatchCounters()[873]++; }
                 else if (!own)
                 {
@@ -431,6 +446,28 @@ namespace Ts3Fixes
             // with no job left to wait for. Off: one switch read. Without ts3native's [RouteAsync] JobYield the game answers
             // false (bit 63 has no name) and nothing changes. Switch "jobyield" (default off). Counters: [248] step-asides,
             // [249] ticks slept, [250] gave up at the cap (the plan then waits natively, as before).
+            // jobyieldstart (default off; needs jobyield and ts3native DISCDUE; townies only): the own START and the CANCEL after the
+            // collect run GetOptionHook's DiscPoll, which forces a DiscDrain when the oldest deferred footprint is >= 250 ms old, and
+            // that drain waits for the running job with the sim thread stopped (Bridgeport game ji1: 49 "disc" wait samples, 1212 ms
+            // at the own START and 13, 472 ms at the CANCEL). jobyieldready only skips READY polls. Here the Sim's own task first asks
+            // DISCDUE (GetOption2 optHi 0x8A000000, optLo 0: true = this poll would force a drain while a job runs; bits 63 + 59 + 57
+            // have no RouteOption2 name, so the game and a ts3native without it answer false and nothing changes) and, if so, sleeps
+            // while JOBBUSY (StepAside: MayYield guard, 10 s cap); START / CANCEL then drain with no job to wait for. The CANCEL ask is
+            // made at the end of the try, never in the finally. Counters [3436] START asks answered due, [3437] CANCEL asks answered
+            // due, [3438] slept, [3439] ms slept.
+            static readonly Sims3.SimIFace.Route.RouteOption2 kDiscDue = unchecked((Sims3.SimIFace.Route.RouteOption2)0x8A00000000000000UL);
+            static void DueStepAside(Sims3.Gameplay.Actors.Sim sim, int slot)
+            {
+                if (!ShortcutOn("jobyieldstart") || !ShortcutOn("jobyield") || !StepTownie(sim) || !sYieldProbe.GetOption2(kDiscDue)) return;
+                int[] c = PatchCounters();
+                c[slot]++;
+                int n0 = c[248], t0 = System.Environment.TickCount;
+                StepAside();  // may sleep: outside every catch
+                if (c[248] == n0) return;
+                c[3438]++;
+                c[3439] += unchecked(System.Environment.TickCount - t0);
+            }
+
             static void StepAside()
             {
                 if (!ShortcutOn("jobyield") || !MayYield() || !sYieldProbe.GetOption2(kJobBusy)) return;

@@ -347,6 +347,20 @@ static void DiscPoll(int site) {
     DiscDrain(GetTickCount() - g_disc[g_discHead].t >= kDiscMaxAgeMs, site);
 }
 
+// DISCDUE (ts3fixes jobyieldstart asks GetOption2 with optHi 0x8A000000, optLo 0, before its own START and CANCEL; the bits
+// have no name, so the game and older builds answer false): 1 = the DiscPoll that START / CANCEL makes now would force a drain
+// that waits for the running job (the oldest deferred record is >= kDiscMaxAgeMs old and a job runs), so the task may step aside
+// first. Same conditions as DiscPoll / DiscDrain's wait, no side effects, nothing applied. Sim (owner) thread only.
+static LONG g_ddAsks, g_ddDue;  // logged by DiscRfLog; no counter fields (a counters block can name them later)
+static u8 DiscDue() {
+    if (ts3native_counters.jyMode != 1 || GetCurrentThreadId() != g_async.owner) return 0;
+    g_ddAsks++;
+    if (g_inInvoke || g_async.state != A_RUNNING || !CanYield() || !g_discCount || g_discDraining) return 0;
+    if (GetTickCount() - g_disc[g_discHead].t < kDiscMaxAgeMs) return 0;
+    g_ddDue++;
+    return 1;
+}
+
 // RemovalFirst (docs/89 §18, [Discourage] RemovalFirst=1, 0 = off; no counter fields, the hotfix keeps the layout; log line
 // "footprint removal first"): a START that finds a removal queued (a job runs, so DiscPoll left it) would plan past it: the worker
 // takes the next job at once and nothing drains between two jobs. A removal a Sim's own script made just before (a region's
@@ -378,6 +392,7 @@ static bool DiscRfWait(LONG ticks, LONG cap) {
     return false;
 }
 static void DiscRfLog() {
+    if (g_ddAsks) Log("disc due: asks %ld due %ld", g_ddAsks, g_ddDue);
     if (g_rfMode || g_rfParked) Log("footprint removal first: mode %d parked %ld capped %ld max ticks %ld", g_rfMode, g_rfParked, g_rfCapped, g_rfTicksMax);
 }
 

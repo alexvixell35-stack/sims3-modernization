@@ -4772,6 +4772,7 @@ static int RtM1Why();                                  // rtsites.cpp; the same 
 enum { DS_OTHER, DS_START, DS_A10START, DS_READY, DS_CANCEL, DS_PLAN, DS_ADD, DS_REMOVE, DS_USF, DS_FP2, DS_FP2READ, DS_PF,
        DS_FPGCENSUS, DS_FPGOP, DS_WORLD, DS_SAVE, DS_N };
 static void DiscPoll(int site = DS_OTHER);  // discourage.cpp
+static u8 DiscDue();                        // discourage.cpp (DISCDUE)
 static void DiscDrain(bool force, int site = DS_OTHER);  // discourage.cpp
 static bool DiscRfStart();            // discourage.cpp (docs/89 §18 RemovalFirst)
 static bool DiscRfWait(LONG ticks, LONG cap);
@@ -5412,6 +5413,22 @@ static int g_arOwnKinds = 7;        // [RouteAsync] Kinds: kinds whose own-task 
 static int g_arWdKind2;             // [RouteAsync] WatchdogKind2 (docs/250 §7.1): own PlanFromPoint STARTs tagged as the watchdog's check may start
 // WatchdogKind2 with kind 2 in neither Kinds nor ForeignKinds: a PlanFromPoint call that READY did not arm and that meets no job of
 // its route runs the game's IC directly (a10.cpp), exactly as unhooked. Sim thread only.
+// [RouteAsync] ObstacleKind1 (default 0): an own Replan START may start without Kinds bit 0 when ts3fixes (obstacleasync,
+// interruptasync) tagged its route as the replan of a townie in EA's obstacle wait or another route interrupt action (ScProbeMark
+// bits 10 + 11, a label only) and the route's scope answer is unseen or seen NPC (KdScopeSet 2 / 3; household, unknown and no
+// answer = refused, sync as before). With kind 1 in neither Kinds nor ForeignKinds every other Replan call runs the game's IC
+// directly (ArObPass), as unhooked. shortcut: counters in hgSpare (spare, unused so far): [23] tagged STARTs past the gate,
+// [24] tagged STARTs refused at the gate (scope), [25] pass-through IC calls; a later counters block can give them names.
+static int g_arObKind1;
+#define OB_ACCEPT (ts3native_counters.hgSpare[23])
+#define OB_REFUSE (ts3native_counters.hgSpare[24])
+#define OB_PASS (ts3native_counters.hgSpare[25])
+static DWORD g_kdScopeH;  // defined here for the START gate below; plandeadline.cpp (included later) owns the rest of the scope answer
+static LONG g_kdScope;
+static bool ArObPass(DWORD handle) {
+    return g_arObKind1 && !((g_arOwnKinds | ts3native_counters.afKinds) & 1) && g_collect != handle &&
+           !(GetCurrentThreadId() == g_async.owner && JobFor(handle));
+}
 static bool ArWdPass(DWORD handle) {
     return g_arWdKind2 && !((g_arOwnKinds | ts3native_counters.afKinds) & 2) && g_collect != handle &&
            !(GetCurrentThreadId() == g_async.owner && JobFor(handle));
@@ -5432,7 +5449,7 @@ static u8 ScProbeMark(DWORD handle, DWORD lo = 0) {
     const bool tagged = lo >> 16 == 1;
     g_scProbeH = 0;
     g_scTagH = handle;
-    g_scTag = 0x10000 | (tagged ? (LONG)(lo & 0x6FF) : 0);
+    g_scTag = 0x10000 | (tagged ? (LONG)(lo & 0xEFF) : 0);  // bit 11 (with 10): ObstacleKind1
     if (tagged && (lo & 0x400)) return 0;  // docs/250 §7.1 bit 10 = the watchdog's idle check: a label only (job time v179, log text), no probe, no kd mark
     KdStuckMark(handle);  // docs/197: a stuck check on a follower whose job was cut
     if (!handle || (tagged && !(lo & 0x100)) || !ScProbeUs() || !(k.pdReady & 7)) return 0;
@@ -5497,6 +5514,7 @@ static u8 ArRf3(int idx, bool fgn, DWORD handle, u8 r, int why = -1) {
 static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD options2) {
     if ((u8)options2 && optHi == kWouldHi) return ArWould(handle, optLo);
     if ((u8)options2 && optHi == kJobBusyHi && !optLo) return JyBusy();  // docs/183
+    if ((u8)options2 && optHi == 0x8A000000 && !optLo) return DiscDue();  // DISCDUE (ts3fixes jobyieldstart)
     if ((u8)options2 && optHi == 0x83000000 && (optLo == 1 || optLo == 2)) return UfMsg(handle, optLo);  // docs/202
     if ((u8)options2 && optHi == 0x83000000 && (optLo & 0xFFFF00FF) == 3) return GvuMsg(handle, optLo >> 8 & 0xFF);  // docs/250 §7.3 B2 DEFER?
     if ((u8)options2 && (optHi & 0xFF00FFFF) == 0x83000000 && (optHi >> 16 & 0xFF) >= 3) return UfCamMsg(optLo, optHi);  // docs/202 §2.1
@@ -5529,9 +5547,13 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
         if (!idx || !ptOk) { g_collect = 0; return idx ? ArRf3(idx, fgn, handle, AsyncRefuse(handle, RFB_NOSTART, idx, false)) : 0; }
         // docs/250 §7.1 [RouteAsync] WatchdogKind2: an own PlanFromPoint START whose route carries the watchdog tag (ScProbeMark
         // bit 10, sent by ts3fixes only for an A1 check, which never picks a household, selected or unknown-scope Sim)
-        const bool wd2 = idx == 2 && !fgn && g_arWdKind2 && g_scTagH == handle && (g_scTag & 0x10400) == 0x10400;
+        const bool wd2 = idx == 2 && !fgn && g_arWdKind2 && g_scTagH == handle && (g_scTag & 0x10C00) == 0x10400;
         // a watchdog tag is good for this START only, refused or not (AsyncStart takes it otherwise)
         const bool wdTagged = g_scTagH == handle && (g_scTag & 0x400);
+        // [RouteAsync] ObstacleKind1: the tagged own Replan START of a known non-household route (scope 2 unseen, 3 seen NPC)
+        const bool obTagged = idx == 1 && !fgn && g_arObKind1 && g_scTagH == handle && (g_scTag & 0x10C00) == 0x10C00;
+        const bool ob1 = obTagged && g_kdScopeH == handle && g_kdScope >= 2;
+        if (obTagged && !(g_arOwnKinds & 1)) InterlockedIncrement(ob1 ? &OB_ACCEPT : &OB_REFUSE);
         if (fgn) {
             InterlockedIncrement(&ts3native_counters.afSeen[idx - 1]);
             if (ts3native_counters.afMode != 1 || !(ts3native_counters.afKinds >> (idx - 1) & 1)) {
@@ -5539,7 +5561,7 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
                 if (wdTagged) g_scTagH = 0;
                 return ArRf3(idx, fgn, handle, RfbRefuse(handle, RFB_FOREIGN));
             }
-        } else if (!(g_arOwnKinds >> (idx - 1) & 1) && !wd2) {
+        } else if (!(g_arOwnKinds >> (idx - 1) & 1) && !wd2 && !ob1) {
             g_collect = 0;
             if (wdTagged) g_scTagH = 0;
             return ArRf3(idx, fgn, handle, AsyncRefuse(handle, RFB_NOSTART, idx, false), kRf3KindsOff);

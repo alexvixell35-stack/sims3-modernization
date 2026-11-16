@@ -65,6 +65,7 @@ namespace Ts3Fixes
             Patch(typeof(Sims3.Gameplay.Autonomy.ReactionBroadcaster), "PulseSims", typeof(BroadcasterPulseHook), "PulseHook", "PulseOrig");
             ApplyRouteFixes();
             ApplyRouteBackoff();
+            ApplyJobYieldPark();  // JobYieldPark.cs, docs/803
             ApplyRouteFailLog();  // docs/226: logging only (routefaillog)
             ApplyDoorGen();       // DoorGen.cs: door-answer generation for ts3native DoorMemoX=3 (switch doorgen, on)
             ApplyOverwatchStuck(false);
@@ -536,6 +537,7 @@ namespace Ts3Fixes
         // [930-932] watchdogasync: A1 verdicts dropped as stale (H4Core.WdFresh), shadow sync re-checks run, shadow verdicts that differ
         // [969-984] replanlog (ReplanLog.cs, docs/261 §6 L1, ts3native [RouteAsync] ReplanLog=1): own Replans and ms, calls and ms
         // per scope (household, selected, seenNpc, unseen, unknown), bursts, call lines, lines dropped, would start but Kinds
+        // [3427-3445] step-asides B (docs/803): jobyieldfpend 3427-3429 asks / slept / ms, jobyieldpark 3430-3435 asks / slept / ms / left out / gone / taken, jobyieldstart 3436-3439 START due / CANCEL due / slept / ms, obstacleasync 3440-3442 and interruptasync 3443-3445 tags sent / started / refused (RouteBackoff.cs AsyncKindStart)
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
@@ -688,6 +690,11 @@ namespace Ts3Fixes
                 case "stuckchecknear": return Instantiator.kStuckCheckNear;
                 case "failrepeat": return Instantiator.kFailRepeat;
                 case "jobyield": return Instantiator.kJobYield;
+                case "jobyieldfpend": return Instantiator.kJobYieldFpEnd;
+                case "jobyieldpark": return Instantiator.kJobYieldPark;
+                case "jobyieldstart": return Instantiator.kJobYieldStart;
+                case "obstacleasync": return Instantiator.kObstacleAsync;
+                case "interruptasync": return Instantiator.kInterruptAsync;
                 case "drivertaskasync": return Instantiator.kDriverTaskAsync;
                 case "stuckcheckown": return Instantiator.kStuckCheckOwn;
                 case "overwatchstuckslice": return Instantiator.kOverwatchStuckSlice;

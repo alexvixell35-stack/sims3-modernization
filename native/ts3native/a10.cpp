@@ -21,6 +21,11 @@
 static __declspec(noinline) u8* __cdecl ArReplanHook(u8* out, DWORD handle) {
     const void* ret = _ReturnAddress();
     if (g_p10On) P10Enter(1, (DWORD*)_AddressOfReturnAddress());  // P10 tags it here: its own stub is not installed then
+    // [RouteAsync] ObstacleKind1: hooked only for the tagged obstacle-wait STARTs; any other call goes to the game's IC directly
+    if (ArObPass(handle)) {
+        InterlockedIncrement(&OB_PASS);
+        return ((IcPlanFn)g_arOrig[1])(out, handle);
+    }
     return IcCollect(1, out, handle, NULL, ret);
 }
 static __declspec(noinline) u8* __cdecl ArPlanFromPointHook(u8* out, DWORD handle, float x, float y, float z) {
@@ -60,18 +65,21 @@ static void InstallA10(const wchar_t* ini) {
     const int kinds = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"Kinds", 0, ini), 0, 7);
     const int fkinds = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"ForeignKinds", 0, ini), 0, 7);
     const int wd2 = GetPrivateProfileIntW(L"RouteAsync", L"WatchdogKind2", 0, ini) ? 2 : 0;
-    if (!kinds && !fkinds && !wd2) { Log("route async A10 off (Kinds=0, ForeignKinds=0)"); return; }
+    const int ob1 = GetPrivateProfileIntW(L"RouteAsync", L"ObstacleKind1", 0, ini) ? 1 : 0;
+    if (!kinds && !fkinds && !wd2 && !ob1) { Log("route async A10 off (Kinds=0, ForeignKinds=0)"); return; }
     if (!k.asyncReady || !g_icPlanOrig) { Log("SKIP route async A10: needs the async route path"); return; }
     k.arMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KindsMode", 1, ini), 0, 1);
     k.afMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"ForeignKindsMode", 1, ini), 0, 1);
     for (int kind = 1; kind <= 3; kind++) {
-        if (!((kinds | fkinds | wd2) & kArBuilt & (1 << (kind - 1)))) continue;
+        if (!((kinds | fkinds | wd2 | ob1) & kArBuilt & (1 << (kind - 1)))) continue;
         g_arOrig[kind] = InstallDetour(kP10Name[kind], kP10Ic[kind], kP10Pro[kind], sizeof(kP10Pro[kind]), kArHooks[kind], &g_arOrig[kind]);
         if (g_arOrig[kind]) k.arReady |= 1 << (kind - 1);  // a kind without its detour is refused at START
     }
     g_arOwnKinds = kinds;
     k.afKinds = fkinds & k.arReady;
     g_arWdKind2 = wd2 && (k.arReady & 2) ? 1 : 0;
+    g_arObKind1 = ob1 && (k.arReady & 1) ? 1 : 0;
+    Log("route async A10: ObstacleKind1=%d (tagged own Replan STARTs of non-household routes; counters hgSpare[23..25])", g_arObKind1);
     Log("route async A10: Kinds=%d KindsMode=%ld ForeignKinds=%d ForeignKindsMode=%ld, hooked mask %ld, WatchdogKind2=%d", kinds,
         k.arMode, fkinds, k.afMode, k.arReady, g_arWdKind2);
 }

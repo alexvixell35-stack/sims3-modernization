@@ -1112,6 +1112,73 @@ static void TestA10() {
         k.arWdPass = 0;
         assert(!AsyncBusy() && g_async.state == A_IDLE);
     }
+
+    // 14b. [RouteAsync] ObstacleKind1 (local 2026-11-14, release shape Kinds=0): an own Replan START starts only with the switch
+    // on, the obstacle tag (ScProbeMark bits 10 + 11) on its route and a scope answer of unseen (2) or seen NPC (3) for that
+    // route; household (1), no answer, another route's answer and the plain watchdog tag stay refused. Every other Replan call
+    // runs the game's IC directly (hgSpare[25]), with no SyncIc. Counters hgSpare[23] accepted, [24] refused.
+    {
+        const int ownKinds = g_arOwnKinds;
+        g_arOwnKinds = 0;
+        const LONG st0 = k.arStarted[0], sync0 = k.arSyncN[0];
+        auto obTag = [](DWORD h) { return ScProbeMark(h, 0x10C00); };
+        assert(!OB_ACCEPT && !OB_REFUSE && !OB_PASS);
+        // switch off: tagged and unseen, refused, nothing counted; the IC call is the old A10 sync path
+        g_arObKind1 = 0;
+        KdScopeSet(kH1, 2);
+        assert(obTag(kH1) == 0 && !ArStart(kH1, 1, NULL) && !JobFor(kH1) && k.arStarted[0] == st0 && !OB_ACCEPT && !OB_REFUSE);
+        assert(ArCollect(1, out, kH1, NULL) == out && ArSync(out, 1) && k.arSyncN[0] == sync0 + 1 && !OB_PASS);
+        // switch on: an untagged own START is refused (not counted) and its IC goes straight to the game
+        g_arObKind1 = 1;
+        KdScopeSet(kH1, 2);
+        assert(!ArStart(kH1, 1, NULL) && !JobFor(kH1) && !OB_ACCEPT && !OB_REFUSE);
+        assert(ArCollect(1, out, kH1, NULL) == out && ArSync(out, 1) && k.arSyncN[0] == sync0 + 1 && OB_PASS == 1);
+        // tagged, but household / no scope answer / the answer is for another route: refused and counted
+        KdScopeSet(kH1, 1);
+        obTag(kH1);
+        assert(!ArStart(kH1, 1, NULL) && !JobFor(kH1) && OB_REFUSE == 1);
+        KdScopeClear(kH1);
+        obTag(kH1);
+        assert(!ArStart(kH1, 1, NULL) && !JobFor(kH1) && OB_REFUSE == 2);
+        KdScopeSet(kH2, 2);
+        obTag(kH1);
+        assert(!ArStart(kH1, 1, NULL) && !JobFor(kH1) && OB_REFUSE == 3 && !OB_ACCEPT);
+        // the watchdog tag (no bit 11) does not open this gate, and the obstacle tag does not open WatchdogKind2's
+        KdScopeSet(kH1, 2);
+        ScProbeMark(kH1, 0x10400);
+        assert(!ArStart(kH1, 1, NULL) && !JobFor(kH1) && OB_REFUSE == 3 && !OB_ACCEPT);
+        g_arWdKind2 = 1;
+        obTag(kH1);
+        assert(!ArStart(kH1, 2, p1) && !JobFor(kH1));
+        g_arWdKind2 = 0;
+        // tagged + unseen: the job starts (no stuck-check label on it) and the IC takes the worker's result
+        g_icSleepMs = 10;
+        KdScopeSet(kH1, 2);
+        assert(obTag(kH1) == 0 && ArStart(kH1, 1, NULL) && k.arStarted[0] == st0 + 1 && JobFor(kH1) && JobFor(kH1)->sc == 0 && OB_ACCEPT == 1);
+        WaitReady(kH1);
+        assert(ArCollect(1, out, kH1, NULL) == out && ArFromJob(out, kH1, 1, NULL) && OB_PASS == 1);
+        Cancel(kH1);
+        // a seen NPC (3) starts too
+        KdScopeSet(kH1, 3);
+        assert(obTag(kH1) == 0 && ArStart(kH1, 1, NULL) && k.arStarted[0] == st0 + 2 && OB_ACCEPT == 2);
+        WaitReady(kH1);
+        assert(ArCollect(1, out, kH1, NULL) == out && ArFromJob(out, kH1, 1, NULL));
+        Cancel(kH1);
+        g_icSleepMs = 0;
+        // the tag was used up: the next own START of the route is refused again
+        KdScopeSet(kH1, 2);
+        assert(!ArStart(kH1, 1, NULL) && !JobFor(kH1) && OB_ACCEPT == 2 && OB_REFUSE == 3);
+        // kind 1 in Kinds: no pass-through and no gate counters (the old A10 path)
+        g_arOwnKinds = 1;
+        obTag(kH1);
+        assert(ArCollect(1, out, kH1, NULL) == out && ArSync(out, 1) && OB_PASS == 1 && k.arSyncN[0] == sync0 + 2);
+        g_scTagH = 0;
+        KdScopeClear(kH1);
+        g_arObKind1 = 0;
+        g_arOwnKinds = ownKinds;
+        OB_ACCEPT = OB_REFUSE = OB_PASS = 0;
+        assert(!AsyncBusy() && g_async.state == A_IDLE);
+    }
     assert(k.watchdogs == wd0);
     g_routeIsActive = savedActive;
     memset(g_arOrig, 0, sizeof(g_arOrig));
@@ -5623,6 +5690,7 @@ static void TestFp2LostRemoval() {
     DiscPoll();
     assert(g_discCount == 0 && k.fp2ApplyInJob == 0 && k.rgOwnerTid == 0);
 
+    assert(DiscDue() == 0);  // DISCDUE: jyMode 0
     // GhostSweep, a fake footprint map holding every kind of entry
     const DWORD G = 0x1D3272D0, GH = 0x38B400F5, L = 0x1D327130, P = 0x1D328EB0;
     assert(k.fp2lrLost == 2);  // with the fix on nothing is lost

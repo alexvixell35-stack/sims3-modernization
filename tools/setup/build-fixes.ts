@@ -114,6 +114,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kStuckCheckNear value="False" />
     <kFailRepeat value="False" />
     <kJobYield value="True" />
+    <kJobYieldFpEnd value="False" />
+    <kJobYieldPark value="False" />
+    <kJobYieldStart value="False" />
+    <kObstacleAsync value="False" />
+    <kInterruptAsync value="False" />
     <kDriverTaskAsync value="False" />
     <kWatchdogAsync value="True" />
     <kStuckCheckOwn value="False" />
