@@ -283,3 +283,9 @@ woohootywait
 #   doorgen ufplansplit
 # new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:
 #   permamemo buffremovenoop catnamecache autroommemo autslicetime invcache vaclistenerpad spawncapcount deadrefcooking deadrefconvo takeariskguard
+coopeggquality
+doorprivacynull
+lottotooltip
+motivemultonce
+petpoolghost
+tempforecast
