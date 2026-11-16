@@ -105318,5 +105318,167 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "initstacktrace-check",
+    "bug": "InteractionInstance.Init and OnAddedToQueue build O(depth^2) StackTraces nobody reads (reader is compiled out); in rain, autonomy pays one per outdoor candidate it scores (docs/594 §1)",
+    "fix": "ts3fixes SeasonsHunt594.cs: initstacktrace (default off)",
+    "save": "any world with a household loaded",
+    "note": "InitStackTraceCheck 'run' creates two throwaway GoHere instances on the active Sim and reads mInitStackTrace (null = fixed) with EA-value controls; 'result' shows counters 1922-1925 and times one stack walk vs one instance.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "initstacktrace": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InitStackTraceCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InitStackTraceCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "initstacktrace": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InitStackTraceCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InitStackTraceCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "initstacktrace": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "initstacktrace": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "weatherstonelistener-check",
+    "bug": "WeatherStone.Dispose leaves the summon's kWeatherStarted/kWeatherStopped listener on the tracker, holding the dead stone (docs/594 §2)",
+    "fix": "ts3fixes SeasonsHunt594.cs: weatherstonelistener (default off)",
+    "save": "any world (pure check)",
+    "note": "WeatherStoneListenerCheck 'run' evaluates the Dispose rule (WslRemove) with controls and reads the field on the world's stone; 'result' shows counters 1926-1928.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "weatherstonelistener": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherStoneListenerCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherStoneListenerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weatherstonelistener": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherStoneListenerCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherStoneListenerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weatherstonelistener": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "weatherstonelistener": false
+        }
+      }
+    ]
   }
 ]
