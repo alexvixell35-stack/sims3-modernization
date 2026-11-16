@@ -590,6 +590,8 @@ if (tagArg > 0 && !/^[\w.]+(-[\w.]+)*$/.test(tag)) { console.error(`--tag: '${ta
 const tagXml = (xml: string) => tag ? xml.replace('<base>', `<base>\n  <!-- build ${tag} -->`) : xml;
 const src = join(ROOT, 'mods', 'ts3fixes', 'src');
 const dll = join(outDir, `${ASSEMBLY}.dll`);
+// CheckLiveMap.cs (the batch Checks' live-path assert) is generated from the source; it also gates the constant gap.
+execFileSync(process.execPath, [join(ROOT, 'tools', 'static', 'check-live-map.ts')], { stdio: 'inherit' });
 // EA's Mono never attaches a MonoThread, so any [ThreadStatic] / [ContextStatic] field access faults in
 // mono_get_special_static_data (TS3W 0x00EBAB5B, null+0x40; docs/191). Refuse to build them.
 const lintStatics = (srcDir: string) => {

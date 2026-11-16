@@ -95,6 +95,9 @@ namespace Ts3Fixes
             return h;
         }
 
+        // Pure: does a relationship histogram take the Sim's own count only? (EA: the incremental Add of SpRelHistogram)
+        internal static bool SpOwnOnly(bool on, bool relHistogram) { return on && relHistogram; }
+
         // Pure: does Collect skip this household? (EA: special only; fix: null too)
         internal static bool SpCollectSkips(bool on, bool isNull, bool special) { return isNull ? on : special; }
 
@@ -131,11 +134,11 @@ namespace Ts3Fixes
                 {
                     if (h == null)
                     {
-                        if (!nul) throw new NullReferenceException("Demographics.Collect: null household");  // EA's dereference
+                        if (!SpCollectSkips(nul, true, false)) throw new NullReferenceException("Demographics.Collect: null household");  // EA's dereference
                         PatchCounters()[1297]++;
                         continue;
                     }
-                    if (h.IsSpecialHousehold) continue;
+                    if (SpCollectSkips(nul, false, h.IsSpecialHousehold)) continue;
                     foreach (Demographics.Demographic dm in hhs) dm.Add(h);
                     foreach (SimDescription sd in h.AllSimDescriptions)
                     {
@@ -143,7 +146,7 @@ namespace Ts3Fixes
                         foreach (Demographics.Demographic dm in sims)
                         {
                             if (!sd.IsHuman && dm.IgnorePets) continue;
-                            if (rel && SpAddOwn(dm, sd)) continue;
+                            if (SpOwnOnly(rel, sCoOwn.ContainsKey(dm.GetType())) && SpAddOwn(dm, sd)) continue;
                             dm.Add(sd);
                         }
                     }
@@ -459,7 +462,7 @@ namespace Ts3Fixes
                 }
                 catch (Exception) { PatchCounters()[1311]++; spec = null; }
                 if (spec == null || lotId == 0) { UpdateOrig(demographics); return; }
-                if (!ShortcutOn("spcreatemovein")) { PatchCounters()[1310]++; UpdateOrig(demographics); return; }
+                if (SpSpecAdds(ShortcutOn("spcreatemovein")) != 1) { PatchCounters()[1310]++; UpdateOrig(demographics); return; }
                 ulong was = spec.HomeLotId;
                 spec.HomeLotId = lotId;
                 try
@@ -513,8 +516,7 @@ namespace Ts3Fixes
             bool story;
             try { story = SpStoryLot(lot); }
             catch (Exception) { PatchCounters()[1314]++; return 0; }
-            if (story) return 0;
-            if (!ShortcutOn("splotdensity")) { PatchCounters()[1313]++; return 0; }
+            if (SpDensityCounts(ShortcutOn("splotdensity"), true, story)) { if (!story) PatchCounters()[1313]++; return 0; }
             PatchCounters()[1312]++;
             return -1;
         }

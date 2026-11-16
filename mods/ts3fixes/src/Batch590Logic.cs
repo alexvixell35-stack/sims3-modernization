@@ -41,21 +41,15 @@ namespace Ts3Fixes
         static MethodInfo B12M(Type t, string n, params Type[] a) { return t == null ? null : t.GetMethod(n, kB11All, null, a, null); }
 
         // Live-path assert for the checks: the hook's own swap is in place (Fixes.Patch recorded it in sPatched).
-        static bool B12Live(Type hook)
-        {
-            foreach (Type t in sPatched.Values) if (t == hook) return true;
-            return false;
-        }
 
         // A check line from the hook's own decision, with the live-path assert folded into "members found".
-        static object B12Check(string what, string name, int first, string[] cw, string missing, Type hook, string fixedText, bool fixedPure, string ctlText, bool controls)
+        static object B12Check(string what, string name, int first, string[] cw, string missing, string fixedText, bool fixedPure, string ctlText, bool controls)
         {
-            string miss = missing + (B12Live(hook) ? "" : (missing.Length > 0 ? " " : "") + "hook-not-live");
-            string counters = B582Counters(name, first, cw, miss);
+            string counters = B582Counters(name, first, cw, missing);
             if (what == "result") return counters;
             if (what != "run") return name + " <run|result>";
             bool on = ShortcutOn(name);
-            return B582Line(name, on, fixedText, on && fixedPure, ctlText, controls, miss, counters);
+            return B582Line(name, on, fixedText, on && fixedPure, ctlText, controls, missing, counters);
         }
 
         // ---- B12 §1 protestexit (docs/590 B2) ------------------------------------------------------------------------

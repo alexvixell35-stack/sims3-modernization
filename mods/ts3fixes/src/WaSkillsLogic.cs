@@ -155,7 +155,8 @@ namespace Ts3Fixes
                 bool gone;
                 try { gone = me.Artist == null; }
                 catch (Exception) { gone = false; }
-                if (!gone || !ShortcutOn("artsellnoartist")) { SellOrig(seller, value, destroy); return; }
+                // EA completes a sale with an artist; with none it completes only through our path
+                if (!gone || !AsCompletes(ShortcutOn("artsellnoartist"), true)) { SellOrig(seller, value, destroy); return; }
                 // EA's steps without the artist's sold event (there is no artist)
                 seller.ModifyFunds(value);
                 me.SendObjectSoldEvent(seller);

@@ -4,12 +4,11 @@
 // each guard regex must match its own scope's line and not the other one. Windows (.NET Framework csc).
 //   node tools/selftest/boatgetoutdiag/run.ts
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, CSC } from '../csc-shim.ts';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..', '..', '..');
-const CSC = 'C:/Windows/Microsoft.NET/Framework/v4.0.30319/csc.exe';
 const out = join(ROOT, 'build', 'selftest');
 mkdirSync(out, { recursive: true });
 const exe = join(out, 'boatgetoutdiag-test.exe');

@@ -246,19 +246,24 @@ namespace Ts3Fixes
             data.Tables.TryGetValue("MoodIdle", out t);
             if (t == null) return;
             MoodFlavor last = MoodFlavor.Fulfilled;
+            bool haveLast = false;  // a flag, not a Fulfilled sentinel: rows after a Fulfilled row join it too
             foreach (XmlDbRow row in t.Rows)
             {
                 string text = row.GetString("MoodFlavor");
-                if (text != string.Empty)
+                bool named = text != string.Empty;
+                MoodFlavor f = MoodFlavor.Fulfilled;
+                if (named) ParserFunctions.TryParseEnum(text, out f, MoodFlavor.Fulfilled);
+                if (!named && !haveLast) continue;  // rows before the first named one have no flavour (EA drops them too)
+                MoodFlavor g = MiFlavor(true, named, f, last);
+                if (named)
                 {
-                    MoodFlavor f;
-                    ParserFunctions.TryParseEnum(text, out f, MoodFlavor.Fulfilled);
-                    if (!appendOnly) IdleManager.sMoodIdleAnimations.Add((long)f, new IdleAnimationInfo(sMiRow(row, true)));
-                    last = f;
+                    if (!appendOnly) IdleManager.sMoodIdleAnimations.Add((long)g, new IdleAnimationInfo(sMiRow(row, true)));
+                    last = g;
+                    haveLast = true;
                     continue;
                 }
                 IdleAnimationInfo info;
-                if (last != MoodFlavor.Fulfilled && IdleManager.sMoodIdleAnimations.TryGetValue((long)last, out info)) { info.AddAnimation(sMiRow(row, true)); PatchCounters()[1727]++; }
+                if (IdleManager.sMoodIdleAnimations.TryGetValue((long)g, out info)) { info.AddAnimation(sMiRow(row, true)); PatchCounters()[1727]++; }
             }
         }
 
