@@ -77,6 +77,8 @@ namespace Ts3Fixes
             ApplySpatialCache();
             ApplyFewerPlans();
             ApplyCandidateLoops();
+            // festivalhidden (FestivalHidden.cs, docs/856), default off: out-of-season festival objects stay out of autonomy's map
+            Patch(typeof(GameObject), "UpdateCommodityInteractionMap", Type.EmptyTypes, typeof(FestivalHiddenHook), "CimHook", "CimOrig");
             ApplyRefTable();
             ApplyCachedReflection();
             ApplyUiCaches();
@@ -475,6 +477,7 @@ namespace Ts3Fixes
         // [2556-2558] burglaridle (BurglarIdle.cs, docs/568 §1): burglar leaves with no household / after a fire reaction that did not leave / errors.
         // [2559-2561] gigwaitleave (GigWaitLeave.cs, docs/568 §2): Stylist / Singer gig wait pulses stopped after their own timeout leave / errors.
         // [2562-2563] sculptpose (SculptPose.cs, docs/568 §3): Sculpt Sim subject poses cancelled after the sculptor failed / errors.
+        // [3740-3743] festivalhidden (FestivalHidden.cs, docs/856): see the list there.
         // [2564-2565] free (released).
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
@@ -813,6 +816,7 @@ namespace Ts3Fixes
                 case "burglaridle": return Instantiator.kBurglarIdle;
                 case "gigwaitleave": return Instantiator.kGigWaitLeave;
                 case "sculptpose": return Instantiator.kSculptPose;
+                case "festivalhidden": return Instantiator.kFestivalHidden;
                 case "trainboost": return Instantiator.kTrainBoost;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
                 case "birthroute": return Instantiator.kBirthRoute;
