@@ -258,3 +258,17 @@ Not built: GenericPrivacySituation.ClearRoom.Init `continue` -> `break` is not p
 to Participants, and OtherSimCanJoinSituation / OtherSimCanIgnorePrivacy may answer differently on the second pass);
 RepairableComponent.UpdateBreakage, CatJungleGym, LeafPile: per object use or per wait of one object, rare; Daycare
 GetExperience changes results (bug fix, not a speedup).
+
+## 12. Usage sweep 4 (docs/592 §3): `ilp_locnocheck`
+
+`Localization.FillInTokens` ends both of its normal returns with `LogLocalizationResult(entryKey, text,
+StringTable.HasLocalizedString(entryKey))`. LogLocalizationResult's body is empty in the shipped game [verified,
+decompiled], and HasLocalizedString(string) calls `gStringTable.GetLocalizedString(key)`, ScriptCore's
+LocalizedStringService icall, which looks the key up again and returns a new managed string [verified, decompiled; native
+side assumed free of side effects: inferred]. IL patch `ilp_locnocheck` (spec `locfill-no-has-lookup`, ea-1.67 and
+simler90-242) removes the five-instruction argument push and both calls at 0xA5 and 0x1327. One native lookup and one
+string fewer per localized string with tokens (interaction names, tooltips, notifications). The third
+LogLocalizationResult (bad token, success false) is left.
+
+Not built: InteractionInstance.RemoveMotiveDelta (one small List per interaction end that has motive deltas; low rate),
+RandomUtil.GetRandomKeyValuePairFromPairedListDictionary (3 callers, rare), AlarmManager.Read (load only).
