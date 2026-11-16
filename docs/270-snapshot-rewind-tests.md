@@ -558,7 +558,7 @@ with the game running on, a GPU module gives the GPU refusal. 93 checks, PASS.
 ### 12.6 Build, install copy and test arm
 
 - Source and branch: a clone of Apex's repo at release 4.0.1 (their latest `main`, d563695) in
-  `game-copy/rewind-bridge-1115/apex-repo` (git-ignored), local branch `feature/bridge-rewind`, seven commits:
+  `game-copy/rewind-bridge-1115/apex-repo` (git-ignored), local branch `feature/bridge-rewind`, eight commits:
   1. `tools: add rewind mode to the RTX Remix bridge` (675be38): the first version.
   2. `tools: make bridge rewinds exact or refused, with offline tests`: 12.4 as described above, the two tests,
      `native/remix-bridge/test-rewind.cmd`, and the feature, validation and history pages (78aa5da).
@@ -568,8 +568,10 @@ with the game running on, a GPU module gives the GPU refusal. 93 checks, PASS.
      04dc12c1, the one of reruns up to 8.
   5. `docs: name the shared views a bridge rewind host puts back` (bbfe752), docs only.
   6. `tools: read a rewound client's return from shared memory` (3eea11c): §28. Pair de394c51 / 706346bf.
-  7. `tools: stop counting render target 0 as a device reference` (956d61c, the tip): §29, patch 0016. Pair
+  7. `tools: stop counting render target 0 as a device reference` (956d61c): §29, patch 0016. Pair
      9b834944 / 7b2d7a77.
+  8. `tools: keep default pool textures written after a rewind snapshot` (cb2e62d, the tip): §30. Pair
+     c2968f76 / 4b759c9b.
   Their text check (`tools/public_text_check.py`) passes for the files and the commit message. Not pushed. Our repo
   holds the same patch file and the steps: `tools/harness/rewind/bridge-patch/`.
 - Two builds exist on disk [verified 2026-11-15]:
@@ -1415,6 +1417,33 @@ detached), `switchDiff`, the summary lines. `queue.ts --self-check` unchanged an
 rewind-park2-1115, the set the rewind reruns used): `a` loads and the queue takes the snapshot, `b` and `c` start from rewinds.
 Bin state apex-rewind. Pass: a, b, c PASS; b and c `start: rewind (N ms)`; end line 2 rewinds, 0 refused, 0 failed. Then
 `REWIND_DEFAULT` goes to auto. Not run.
+## 31. Pilot refusal: a default pool texture written after the snapshot could not be read (2026-11-16)
+
+Apex branch commit 8 (cb2e62d), pair d3d9.dll c2968f76, NvRemixBridge.exe 4b759c9b in
+`game-copy/rewind-bridge-1115/pr/apex-repo/native/remix-bridge/out`. Fresh-fetch build and offline tests pass, not run in
+game. Pushed to the fork branch of draft PR 89.
+
+- Refusal [verified: `probe-out/queue/rewind-pilot-1116-2026-11-16-bp-rewind-pilot-a-0454-bridge64.log`]: Op 1 fine at
+  12:55:45 (25,468 objects, 339 surfaces, 448 MB); 14 s later "a 4096x1 surface of format 116 written after the snapshot
+  could not be read first" (116 = `D3DFMT_A32B32G32R32F`), so op 3 answered `E_FAIL`.
+- Which path [verified in the patch source and DXVK 3.1.1's source]: the message is the lock branch of `keepSurface`,
+  which only non-target surfaces reach. DXVK refuses `LockRect` when the texture is in the default pool and not dynamic
+  (`IsLockable`, `d3d9_device.cpp` texture creation; `LockImage` returns `D3DERR_INVALIDCALL`), as d3d9 does. Uploads
+  lock on the client first, so a surface like that is written by `UpdateTexture` (the game's only such call,
+  `0x60EC10`, docs/37) or by `UpdateSurface` / `StretchRect` from a mod. Who owns the 4096x1 float texture is [not
+  established]: nothing in ApexRadiance_LOG.txt names it.
+- Fix: when the lock fails on a default pool surface the server copies it with `StretchRect` into a render target of
+  the same format (DXVK and d3d9 both allow a texture as the source when the destination is a render target), reads
+  that with `GetRenderTargetData` into a system memory surface, and keeps that surface. A rewind puts it back with
+  `UpdateSurface`. Formats without a render target (compressed ones) still give the snapshot up.
+- Also: `UpdateTexture` copies what is marked dirty in its source and clears the marks, state the server cannot read or
+  restore. A rewind now marks every `UpdateTexture` source used since the snapshot dirty as a whole (`AddDirtyRect`),
+  so the game's next `UpdateTexture` copies all of it [exact as long as source and texture were in step outside the
+  dirty parts, which is what `UpdateTexture` maintains; a source locked with `D3DLOCK_NO_DIRTY_UPDATE` would differ].
+- Test [verified]: `test_rewind_server`, 75 checks, PASS on system d3d9 and DXVK 3.1.1: a 4096x1 A32B32G32R32F default
+  pool texture written by `UpdateTexture` from a system memory texture; cannot be locked; written after the snapshot
+  the snapshot stays; after a rewind it holds its old contents float for float (values outside 0..1); twice; then the
+  game's next `UpdateTexture` finds both alike. Before the fix this case ends in the pilot's refusal.
 
 ## Spike on the toy process, first version (2026-11-15, history)
 

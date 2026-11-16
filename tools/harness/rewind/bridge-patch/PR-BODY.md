@@ -17,8 +17,9 @@ hook is one test of a flag that is never set: no allocation, lock, system call o
   existing numbers stay. A request during which another thread sent is refused.
 - **Tombstones.** While a snapshot is held, a destroy of an object alive at it is deferred.
 - **Copy on write.** Render targets and depth surfaces are copied at the snapshot. The old contents of a vertex buffer,
-  index buffer or surface are kept before the first write after it. Both are limited by `rewindMaxKeptMB` (1024) and
-  logged as they grow; past the limit the snapshot is given up and freed.
+  index buffer or surface are kept before the first write after it; a level of a default pool texture, which cannot
+  be locked, is read through a render target. Both are limited by `rewindMaxKeptMB` (1024) and logged as they grow;
+  past the limit the snapshot is given up and freed.
 - **Depth surfaces made with Discard.** The game makes its depth surfaces that way, and `StretchRect` does not copy
   one. D3D9 leaves them undefined after a `Present`, so none is kept; the server checks in the command stream that
   the game clears each one before it draws with it, and gives the snapshot up otherwise.
@@ -41,11 +42,11 @@ ends the game. The rewind of the game process itself is the host tool's work and
 
 ## Validation
 
-- Tested commit: 956d61c
+- Tested commit: cb2e62d
 - Build (public / developer): not affected, the change is in the bridge only. `native\remix-bridge\build.cmd` from a
   fresh fetch: all 15 patches apply, x86 and x64 build.
 - Offline checks: `native\remix-bridge\test-rewind.cmd` passes. `test_rewind_server` runs the server side on a D3D9
-  device, 63 checks on the system's d3d9.dll and on DXVK: tables, deferred destroys, contents of buffers, textures,
+  device, 75 checks on the system's d3d9.dll and on DXVK: tables, deferred destroys, contents of buffers, textures,
   render targets, back buffer and depth surface, device state, queries, the memory limit, every refusal, `E_ABORT`.
   `test_rewind_device` runs a 32-bit app through the built pair with the mode on (park, snapshot, plan, drop, a second
   thread kept from sending) and off (nothing published), and checks that a new device survives an `AddRef` and a
@@ -61,7 +62,7 @@ ends the game. The rewind of the game process itself is the host tool's work and
   rewind the server read no command for 60 s, because the host resets kernel events with the memory (the server now
   holds on a word in the channel view, and the handshake events are named `Rewind*_<guid>`); one start of two crashed
   at device creation (patch 0016). Not verified: other backends than DXVK under the bridge, multisampled scenes (refused
-  by design), long play between snapshot and rewind. The rewind request itself
+  by design), long play between snapshot and rewind. A default pool texture written after the snapshot (UpdateTexture, UpdateSurface) is copied with StretchRect into a render target, read with GetRenderTargetData and put back with UpdateSurface on a rewind (cb2e62d). The rewind request itself
   has no offline test, since it needs a host that puts the game process back. In their first runs on the test machine
   the 32-bit bridge test apps, upstream's `test_sent_state_device` included and also with the pair built before this
   change, ended with an access violation at the first `Present`; every later run passed and the cause is not found.
