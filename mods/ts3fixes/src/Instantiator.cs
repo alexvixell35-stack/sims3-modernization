@@ -299,6 +299,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kDoorGen = true;    // doorgen (docs/585, by Dalexlol, PR #430): bump ts3native's door generation for DoorMemoX=3; memo answers only unseen / seen-NPC jobs (docs/585 §5)
         [Tunable] public static bool kTrainBoost = true;    // trainboost (docs/569 §1): a trainer reset during Train Sim leaves the trainee's doubled Athletic / shape gain for good
         [Tunable] public static bool kEatOutsideCount = true;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)
+        [Tunable] public static bool kQueueProximity = false;    // queueproximity (docs/597 §2): SimQueue OrderByProximity places a new Sim by squared distance on both sides (elevator lines)
+        [Tunable] public static bool kSubRouteFail = false;    // subroutefail (docs/597 §3): no route-fail balloon/animation when SimQueue.TryReplacementInteraction pushed a substitute object
+        [Tunable] public static bool kMopUnreachable = false;    // mopunreachable (docs/578 §3b): a mop run skips a puddle it cannot reach or that is blocked and mops the rest; a per-Sim memo stops autonomy re-picking unreachable puddles (household-visible)
+        [Tunable] public static bool kPetPuddleTile = false;    // petpuddletile (docs/578 §3b): a pet drinking from or playing in the closest puddle removes that puddle, not the clicked one
         [Tunable] public static bool kHomeworkHelp = true;    // homeworkhelp (docs/565 §7): helper starting Help with Homework after the child finished hits a null jig
         [Tunable] public static bool kShellLighting = true;      // shelllighting (docs/561 §5): a buildable shell shows the lighting of the latest passed lighting time after load (EA keeps Default until the next alarm)
         [Tunable] public static bool kPhotoBoothFunds = true;    // photoboothfunds (docs/561 §2): a Sim that entered a photo booth and then lacked the fee is walked out (EA leaves it faded out inside)

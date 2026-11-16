@@ -151,6 +151,10 @@ namespace Ts3Fixes
             ApplySculptPose();    // docs/568 §3 (SculptPose.cs)
             ApplyTrainBoost();    // docs/569 §1 (TrainBoost.cs)
             ApplyEatOutsideCount();    // docs/569 §2 (EatOutsideCount.cs)
+            ApplyQueueProximity();   // docs/597 §2 (SleepQueue597.cs)
+            ApplySubRouteFail();   // docs/597 §3 (SleepQueue597b.cs)
+            ApplyMopUnreachable();   // docs/578 §3b (MopUnreachable.cs)
+            ApplyPetPuddleTile();   // docs/578 §3b (MopUnreachable.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -516,6 +520,10 @@ namespace Ts3Fixes
         // [2097-2099] customctlsweep (CustomCtlSweep.cs): UIManager custom-control wrappers of gone windows removed / not-attached kept / entries left.
         // [2120-2121] exitcbsweep (ExitCbSweep.cs): stale Sim.OnExitReasonsAdded route delegates removed / longest delegate list seen on one Sim before the pass.
         // [2122-2123] dnppetkeys, dnpobjkeys (DnpRemovalKeys.cs): ended Pet/SimOrPet wish nodes dropped from mPotentialRemovalNodes / ended nodes under a destroyed object key dropped.
+        // [2760-2762] queueproximity (SleepQueue597.cs, docs/597 §2): places by squared distance / places that differ (switch off) / errors.
+        // [2763-2765] subroutefail (SleepQueue597b.cs, docs/597 §3): route fails skipped (replacement pushed) / would be skipped (switch off) / errors.
+        // [2766-2771] mopunreachable (MopUnreachable.cs, docs/578 §3b): puddles skipped in a run / runs that mopped after a skip / runs ended on an unreachable puddle with others left (switch off) / memo withholds / memo seen with switch off / errors.
+        // [2772-2774] petpuddletile (MopUnreachable.cs, docs/578 §3b): hits moved to the puddle used / hits that dried another puddle (switch off) / errors.
         // [876-877] bookhand (BookHand.cs, docs/251): books Book.StopUsingBook left in the hand with no carry machine, seen at an EA put-down that would throw (also with the switch off), moved out of the hand by EA's handler.
         // [758-759] asyncjigsync (AsyncJigSync.cs, RouteBackoff.cs AsyncEligible, docs/240): own plans kept sync while the Sim's interaction holds an unplaced SocialJig / of those with the jig only in the linked interaction.
         // [763-768] autofft2 (AutOffload.cs, docs/208 §9.1): items, A0, A2, A4, A5, exceptions
@@ -815,6 +823,10 @@ namespace Ts3Fixes
                 case "sculptpose": return Instantiator.kSculptPose;
                 case "trainboost": return Instantiator.kTrainBoost;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
+                case "queueproximity": return Instantiator.kQueueProximity;
+                case "subroutefail": return Instantiator.kSubRouteFail;
+                case "mopunreachable": return Instantiator.kMopUnreachable;
+                case "petpuddletile": return Instantiator.kPetPuddleTile;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

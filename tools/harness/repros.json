@@ -75094,6 +75094,330 @@
     ]
   },
   {
+    "id": "queueproximity-check",
+    "bug": "SimQueue.FindNewPlaceInLine (OrderByProximity) compares a squared distance with plain distances, so a new Sim is placed too far back and refused from a full elevator line (docs/597 §2)",
+    "fix": "ts3fixes SleepQueue597.cs: queueproximity (default off)",
+    "save": "any world (pure check)",
+    "note": "QueueProximityCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 2760-2762.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "queueproximity": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.QueueProximityCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.QueueProximityCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "queueproximity": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.QueueProximityCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.QueueProximityCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "queueproximity": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "queueproximity": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "subroutefail-check",
+    "bug": "SimQueue.WaitForTurn plays a blocking route-fail animation and balloon after TryReplacementInteraction pushed a free substitute (toilet, urinal, shower...), before the Sim walks to it (docs/597 §3)",
+    "fix": "ts3fixes SleepQueue597b.cs: subroutefail (default off)",
+    "save": "any world (pure check)",
+    "note": "SubRouteFailCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 2763-2765.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "subroutefail": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SubRouteFailCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SubRouteFailCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "subroutefail": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SubRouteFailCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SubRouteFailCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "subroutefail": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "subroutefail": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "mopunreachable-check",
+    "bug": "One unreachable or blocked puddle ends a mop run while reachable puddles stay wet, and autonomy re-picks the same puddle (s58: MopPuddle #3 by route-plan time, 96 s; household-visible routefails NoPathToDestination / DestinationPortalLocked)",
+    "fix": "ts3fixes MopUnreachable.cs: mopunreachable (default off)",
+    "save": "any world (pure check)",
+    "note": "MopUnreachableCheck 'run' evaluates the run's skip step (MuStep) and the memo's withhold (MuWithhold) with controls (read-only); 'result' shows counters 2766-2771.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "mopunreachable": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopUnreachableCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopUnreachableCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "mopunreachable": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopUnreachableCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MopUnreachableCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "mopunreachable": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "mopunreachable": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "petpuddletile-check",
+    "bug": "A pet drinking from or playing in the closest puddle removes the puddle under the click point instead of the one it used (Terrain.DrinkPuddle / PlayInPuddle)",
+    "fix": "ts3fixes MopUnreachable.cs: petpuddletile (default off)",
+    "save": "any world (pure check)",
+    "note": "PetPuddleTileCheck 'run' evaluates the hook's tile decision (PtUseClosest) with controls (read-only); 'result' shows counters 2772-2774.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petpuddletile": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetPuddleTileCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetPuddleTileCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petpuddletile": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetPuddleTileCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetPuddleTileCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petpuddletile": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petpuddletile": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

@@ -471,3 +471,10 @@ DoorGenVipHook.RemHook,ResortManager.VIPRoomData,RemoveGuest,DoorGen.cs,RemOrig,
 DoorGenDescHook.GenderHook,SimDescription,set_Gender,DoorGen.cs,GenderOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
 DoorGenDescHook.AgeHook,SimDescription,set_Age,DoorGen.cs,AgeOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
 DoorGenDescHook.PregHook,SimDescription,set_IsVisuallyPregnant,DoorGen.cs,PregOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+MopRunHook.RunHook,Terrain.Mopping,Run,MopUnreachable.cs,RunOrig,yes,Terrain+Mopping::Run > Terrain+Mopping::MopTile > InteractionInstance::AnimateSim > StateMachineClient::RequestState,mopunreachable (MopUnreachable.cs; Run is a copy of EA's with the skip list),"keep, stub remap (SavedStacks.cs)"
+MopFloorHook.MoppableHook,Sim.MopFloor,IsLocationMoppableBySim,MopUnreachable.cs,MoppableOrig,no,no path to a yield in 1 overload(s),mopunreachable memo (MopUnreachable.cs),keep
+PetPuddleHook.DrinkHook,Terrain.DrinkPuddle,Run,MopUnreachable.cs,DrinkOrig,yes,Terrain+DrinkPuddle::Run > InteractionInstance::AnimateSim > StateMachineClient::RequestState,petpuddletile (MopUnreachable.cs; hit moved before EA's Run),"keep, stub remap (SavedStacks.cs)"
+PetPuddleHook.PlayHook,Terrain.PlayInPuddle,Run,MopUnreachable.cs,PlayOrig,yes,Terrain+PlayInPuddle::Run > InteractionInstance::AnimateSim > StateMachineClient::RequestState,petpuddletile (MopUnreachable.cs; hit moved before EA's Run),"keep, stub remap (SavedStacks.cs)"
+SqPlaceHook.PlaceHook,SimQueue,FindNewPlaceInLine,SleepQueue597.cs,PlaceOrig,no,no path to a yield in 1 overload(s),queueproximity (docs/597 §2),keep
+SrfTryHook.TryHook,SimQueue,TryReplacementInteraction,SleepQueue597b.cs,TryOrig,yes,SimQueue::TryReplacementInteraction > Autonomy::FindBestActionForCommodityOnLot > .. 6 .. > Simulator::Sleep,subroutefail (docs/597 §3),"keep, stub remap (SavedStacks.cs)"
+SrfPlayHook.PlayHook,SimQueue,PlayRouteFail,SleepQueue597b.cs,PlayOrig,yes,SimQueue::PlayRouteFail > Sim::PlayRouteFailure > Sim::RouteFailure > StateMachineClient::RequestState,subroutefail (docs/597 §3),"keep, stub remap (SavedStacks.cs)"
