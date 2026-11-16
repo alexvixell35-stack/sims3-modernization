@@ -445,6 +445,7 @@ namespace Ts3Fixes
                 case "weatherstonelistener": return EpLive(typeof(WslHook), 1, "sWslListener", sWslListener, null);
                 case "weddingarchkeep": return EpJoin(EpLive(typeof(WeddingArchKeepHook), 1), EpLive(typeof(WeddingArchRouteHook), 1));
                 case "weddingcancel": return EpLive(typeof(WcHook), 1, "sWcJilter", sWcJilter, null, "sWcAlarm", sWcAlarm, null, "sWcWait", sWcWait, typeof(float), "sWcWait", sWcWait, "static");
+                case "weddingcleanup": return EpLive(typeof(WeddingCleanupHook), 1, "sWcuGiver", sWcuGiver, null, "sWcuReceiver", sWcuReceiver, null);
                 case "weddinglistener": return EpLive(typeof(BWlHook), 1, "sWlList", sWlList, null);
                 case "wellstealcooldown": return EpLive(typeof(B13WsHook), 1, "sWsLast", sWsLast, null, "sWsCool", sWsCool, typeof(float), "sWsCool", sWsCool, "static");
                 case "werewolffind": return EpLive(typeof(B12WhHook), 3, "sWhValue", sWhValue, typeof(int), "sWhValue", sWhValue, null);

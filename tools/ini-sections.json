@@ -98,5 +98,6 @@
  "Crash2Diag": ["c2diag.cpp"],
  "EqualsFast": ["equalsfast.cpp"],
  "ThumbStall": ["thumbstall.cpp"],
- "ThumbCallers": ["thumbstall.cpp"]
+ "ThumbCallers": ["thumbstall.cpp"],
+ "Experimental": ["ts3native.cpp"]
 }

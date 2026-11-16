@@ -34,7 +34,7 @@
     "jit verify MISMATCH": 0,
     "^FAIL mono jit clause lazy": 0
    },
-   "nativeRequire": "@jitOn>=1,@frOn>=1,frRecovered>=1,frRecovered<=1,frPassed<=0,frTestCalls>=1000,jitMismatch<=0,jitFaults<=0,clFaults<=0",
+   "nativeRequire": "@jitOn>=1,@frOn>=1,@frRecovered>=1,@frRecovered<=1,@frPassed<=0,@frTestCalls>=1000,@frTestCalls<=1000,@jitMismatch<=0,@jitFaults<=0,@clFaults<=0",
    "earlyGates": [
     {
      "afterSec": 300,
@@ -139,7 +139,7 @@
     "jit verify MISMATCH": 0,
     "^FAIL mono jit clause lazy": 0
    },
-   "nativeRequire": "@jitOn>=1,@frOn>=1,frRecovered<=0,frPassed<=0,frTestCalls<=0,jitMismatch<=0,jitFaults<=0,clFaults<=0,jitCalls>=1000",
+   "nativeRequire": "@jitOn>=1,@frOn>=1,@frRecovered<=0,@frPassed<=0,@frTestCalls<=0,@jitMismatch<=0,@jitFaults<=0,@clFaults<=0,jitCalls>=1000",
    "earlyGates": [
     {
      "afterSec": 240,
@@ -229,7 +229,7 @@
     "jit verify MISMATCH": 0,
     "^FAIL mono jit clause lazy": 0
    },
-   "nativeRequire": "@jitOn>=1,@frOn>=1,frRecovered<=0,frPassed<=0,frTestCalls<=0,jitMismatch<=0,jitFaults<=0,clFaults<=0,jitCalls>=1000",
+   "nativeRequire": "@jitOn>=1,@frOn>=1,@frRecovered<=0,@frPassed<=0,@frTestCalls<=0,@jitMismatch<=0,@jitFaults<=0,@clFaults<=0,jitCalls>=1000",
    "earlyGates": [
     {
      "afterSec": 240,
@@ -319,7 +319,7 @@
     "jit verify MISMATCH": 0,
     "^FAIL mono jit clause lazy": 0
    },
-   "nativeRequire": "@jitOn>=1,@frOn>=1,frRecovered<=0,frPassed<=0,frTestCalls<=0,jitMismatch<=0,jitFaults<=0,clFaults<=0,jitCalls>=1000",
+   "nativeRequire": "@jitOn>=1,@frOn>=1,@frRecovered<=0,@frPassed<=0,@frTestCalls<=0,@jitMismatch<=0,@jitFaults<=0,@clFaults<=0,jitCalls>=1000",
    "earlyGates": [
     {
      "afterSec": 240,

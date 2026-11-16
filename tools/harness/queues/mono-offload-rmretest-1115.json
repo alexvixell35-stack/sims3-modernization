@@ -4,7 +4,7 @@
   "jobs": [
     {
       "id": "bp-rmr-snapback",
-      "note": "Correctness first (Mode 1 fixed, not A/B): repro unseen-snapback (as unseen-root-motion.json bp-urm-snapback), 16 min BP. PASS = no crash, 0 new script errors, rmMode 1 read back in /native, snap-back bars of the repro. A FAIL stops the queue.",
+      "note": "Correctness first (Mode 1 fixed, not A/B): repro unseen-snapback (as unseen-root-motion.json bp-urm-snapback), 16 min BP. PASS = no crash, 0 new script errors, rmMode 1 read back in /native, snap-back bars of the repro. A FAIL stops the queue. 2026-11-16: [UnseenThrottle] Rate + [UnseenProbe] on for this job (as bp-urm-snapback): the repro's snap-back watch (codes 6/7/18) lives in [UnseenThrottle]; the 11-16 run failed every Sim with \"snap-back watch not answering\" because the master ini has it off.",
       "asi": "game-copy/ts3native.asi.master-dalexlol-417-1115",
       "iniBase": "game-copy/ts3native.ini.master-dalexlol-417-1115",
       "fixesPackage": "game-copy/ts3fixes.package.master-dalexlol-417-1115",
@@ -14,6 +14,16 @@
       "noiseCheck": false,
       "minCounters": 90,
       "ini": {
+        "UnseenProbe.Enabled": 1,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.Every": 4,
+        "UnseenThrottle.List": 1,
+        "UnseenThrottle.Avoid": 1,
+        "UnseenThrottle.Footprint": 1,
+        "UnseenThrottle.Rate": 1,
+        "UnseenThrottle.AvoidNearM": 3,
+        "UnseenThrottle.FpMs": 500,
+        "UnseenThrottle.RateNearM": 3,
         "HitchAttr.Enabled": 1,
         "UnseenRootMotion.Enabled": 1,
         "UnseenRootMotion.Shortlist": 1,

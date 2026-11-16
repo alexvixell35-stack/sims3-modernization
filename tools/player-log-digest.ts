@@ -56,7 +56,7 @@ export function parseLog(text: string): Session[] {
     else if ((m = l.match(/^diag: script mods \(S3SA packages\): (.*)$/))) s.scriptMods.push(...m[1].split(/(?<=\.package), /i).filter(x => /\.package$/i.test(x)));  // names may hold ", "
     else if ((m = l.match(/^diag: Mods\\Packages (.*?); scan/))) s.packages = m[1];
     else if ((m = l.match(/^diag: ini \(enabled sections, all keys\): (.*)$/))) s.ini.push(...m[1].split(/, (?=\[[^\]]*\](?:,|$)|[A-Za-z0-9_.]+=)/));
-    else if ((m = l.match(/^crash log: first \d+ first-chance exceptions \(module 0x([0-9A-F]+)-0x([0-9A-F]+)\)/))) s.selfRange = [parseInt(m[1], 16), parseInt(m[2], 16)];
+    else if ((m = l.match(/^crash log: first \d+ first-chance exceptions.*?\(module 0x([0-9A-F]+)-0x([0-9A-F]+)\)/))) s.selfRange = [parseInt(m[1], 16), parseInt(m[2], 16)];
     else if ((m = l.match(/^crash report: the previous session \(([^)]*)\) ended without a clean exit/))) { s.prevCrash = true; s.events.push(`previous session (${m[1]}) ended without a clean exit`); }
     else if ((m = l.match(/^exception ([0-9A-F]{8}) at 0x([0-9A-F]{8})/))) s.exceptions.set(`${m[1]} ${m[2]}`, (s.exceptions.get(`${m[1]} ${m[2]}`) ?? 0) + 1);
     else if ((m = l.match(/^ts3fixes: ts3fixes (\S+) build (\w+)/))) [s.fixes, s.fixesBuild] = [m[1], m[2]];

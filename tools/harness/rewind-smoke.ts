@@ -28,9 +28,10 @@ import { BIN } from './game-exe.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const DIR = resolve(import.meta.dirname, 'rewind'), EXE = join(DIR, 'out', 'rewind-spike.exe'), TOY = join(DIR, 'out', 'rewind-toy.exe');
+export { EXE };
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 export const TASK_ROW = /^"[^"]+","(\d+)"/m;
-const pidOf = (name: string): number => {  // not imported from rewind-census.ts: that script runs its own command line on import
+export const pidOf = (name: string): number => {  // not imported from rewind-census.ts: that script runs its own command line on import
   const m = execFileSync('tasklist', ['/FI', `IMAGENAME eq ${name}`, '/FO', 'CSV', '/NH'], { encoding: 'utf8', timeout: 30000 }).match(TASK_ROW);
   if (!m) throw new Error(`${name} not running`);
   return +m[1];
@@ -38,7 +39,7 @@ const pidOf = (name: string): number => {  // not imported from rewind-census.ts
 
 // `tasklist /M frida-agent* /FI "PID eq n"` output: a row while the probe's Frida agent is still loaded in the game
 export const fridaIn = (out: string) => TASK_ROW.test(out);
-const fridaLoaded = (pid: number) =>
+export const fridaLoaded = (pid: number) =>
   fridaIn(execFileSync('tasklist', ['/M', 'frida-agent*', '/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH'], { encoding: 'utf8', timeout: 30000 }));
 
 export type Row = { op: string; code: number; why: string[]; ms?: Record<string, number>; stats?: Record<string, number> };
@@ -216,4 +217,5 @@ async function main() {
   process.exit(alive && exit !== 3 ? 0 : 1);
 }
 
-await main();
+// queue-rewind.ts imports serve, MODES and the checks: main runs only when this file is the script
+if (import.meta.filename === resolve(process.argv[1] ?? '')) await main();

@@ -237,6 +237,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kSocialReceiveFail = true;   // socialreceivefail (docs/546 §9): the starter of a social waited 30 sim min for a partner whose ReceiveSocialInteraction had already failed
         [Tunable] public static bool kSimFestKeep = false;        // simfestkeep (docs/546 §11): a SimFest award whose emcee and winner failed to start in sync still gives the prize and clears the SimFest (EA's wrap-up)
         [Tunable] public static bool kWeddingArchKeep = true;     // weddingarchkeep (docs/546 §12): a partner's failed walk to the wedding arch no longer ends the wedding; it goes on as EA's wedding without an arch
+        [Tunable] public static bool kWeddingCleanup = true;      // weddingcleanup (WeddingCleanup.cs): EA WeddingCeremony.CleanUp no longer throws on a ring/audience Sim with no queue or a destroyed arch; [1058] guarded, [1059] errors
         [Tunable] public static bool kHsGradKeep = true;          // hsgradkeep (docs/546 §12): a high-school graduation the player sent to City Hall that fails after 14:30 graduates in place (EA's fallback for the autonomous one) instead of never
         [Tunable] public static bool kUniGradKeep = false;        // unigradkeep (docs/546 §12): a university graduation ceremony that fails (route, too late) graduates in place instead of losing the diploma and bonus trait
         [Tunable] public static bool kBsRefund = false;           // bsrefund (docs/546 §12): a failed boarding-school pickup refunds the tuition; with no car at all the student is also withdrawn instead of staying enrolled at home
@@ -297,6 +298,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kBurglarIdle = true;    // burglaridle (docs/568 §1): burglar stands in the house after a fire reaction that did not leave, or when the household is gone
         [Tunable] public static bool kGigWaitLeave = true;    // gigwaitleave (docs/568 §2): Stylist/Singer gig customer still pushed to wait after the gig timed out
         [Tunable] public static bool kSculptPose = true;    // sculptpose (docs/568 §3): Sculpt Sim failure paths leave the subject posing
+        [Tunable] public static bool kDoorGen = true;    // doorgen (docs/585, by Dalexlol, PR #430): bump ts3native's door generation for DoorMemoX=3; memo answers only unseen / seen-NPC jobs (docs/585 §5)
         [Tunable] public static bool kTrainBoost = true;    // trainboost (docs/569 §1): a trainer reset during Train Sim leaves the trainee's doubled Athletic / shape gain for good
         [Tunable] public static bool kBirthdayAgers = false;    // birthdayagers (docs/571 §1): birthday party records only the first Sim who ages up
         [Tunable] public static bool kSneakOutListener = false;    // sneakoutlistener (docs/571 §2): a caught teen's left-over sneak-out listener gives Snuck Out on the next trip (school carpool)

@@ -140,7 +140,7 @@ namespace Ts3Agent
                 picks.Add(s);
             }
             if (picks.Count == 0) throw new McpException("boat_getout_stress: no NPC fits (known non-active household, teen or older, home lot)");
-            if (household && me.LotHome != null) picks.Add(me);
+            if (household && me.LotHome != null) picks.Insert(0, me);  // first: its boat gets the first GetOut window
             Vector3 side = new Vector3(-dir.z, 0f, dir.x);
             for (int i = 0; i < picks.Count; i++)
             {
@@ -188,26 +188,31 @@ namespace Ts3Agent
             sBgsMade++;
             // FindGoodLocationNearby can put the boat 100+ m along the coast (run 2: Sims never reached it): land next to the boat
             Vector3 land;
+            // no dry ground within 24 m (run 4: boats 130 m along the coast): the Sim starts 4 m from the boat in the water and swims aboard
             if (BgsLandNear(pos, b.Shore, out land)) b.Shore = land;
+            else b.Shore = pos + new Vector3(4f, 0f, 0f);
             DiagLine("boat_getout_stress: boat for " + b.S.FullName + " " + (int)(pos - b.Sea).Length() + " m from the planned spot, shore " + (int)(b.Shore - pos).Length() + " m from it");
         }
 
-        // the first land point on the line from the boat towards `toward` (2 m steps, 150 m at most)
+        // the nearest dry ground around the boat: rings of 4..24 m, 16 points each, terrain height above sea level.
+        // World.GetTerrainType says WorldSea on beach and lot ground here (run 3: no land found for 8 of 11 boats), so it is not used.
         static bool BgsLandNear(Vector3 boat, Vector3 toward, out Vector3 land)
         {
-            Vector3 d = toward - boat; d.y = 0f;
-            float len = d.Length();
+            float sea = World.GetSeaLevel();
             land = Vector3.Invalid;
-            if (len < 0.1f) return false;
-            d = d * (1f / len);
-            for (float t = 2f; t <= 150f; t += 2f)
+            for (float rad = 4f; rad <= 24f; rad += 4f)
             {
-                Vector3 p = boat + d * t;
-                if ((TerrainType)World.GetTerrainType(p.x, p.z, 0) == TerrainType.WorldSea) continue;
-                p = p + d * 2f;  // a step inland, off the waterline
-                p.y = World.GetTerrainHeight(p.x, p.z);
-                land = p;
-                return true;
+                float best = float.MaxValue;
+                for (int i = 0; i < 16; i++)
+                {
+                    double ang = i * Math.PI / 8;
+                    Vector3 p = boat + new Vector3((float)Math.Cos(ang), 0f, (float)Math.Sin(ang)) * rad;
+                    float h = World.GetTerrainHeight(p.x, p.z);
+                    if (h < sea + 0.5f) continue;
+                    float d = (p - toward).LengthSqr();  // among equal rings, the point nearest the old shore spot
+                    if (d < best) { best = d; p.y = h; land = p; }
+                }
+                if (best != float.MaxValue) return true;
             }
             return false;
         }

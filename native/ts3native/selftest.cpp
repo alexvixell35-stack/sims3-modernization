@@ -663,7 +663,7 @@ static void __fastcall TpPassChecked(void* self, void* edx, float dt) {
 }
 static void TestH2Threaded() {
     static_assert(offsetof(Ts3nCounters, h2Released) == 0x364C && offsetof(Ts3nCounters, h2PassLockN) == 0x3650 &&
-                  offsetof(Ts3nCounters, h2PassLockUs) == 0x3658 && offsetof(Ts3nCounters, h2ReleaseMaxUs) == 0x3660 && sizeof(Ts3nCounters) == 6477 * 4, "v85 layout after v84 (docs/registry.md)");
+                  offsetof(Ts3nCounters, h2PassLockUs) == 0x3658 && offsetof(Ts3nCounters, h2ReleaseMaxUs) == 0x3660 && sizeof(Ts3nCounters) == 6478 * 4, "v85 layout after v84 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const LONG wd0 = k.watchdogs;
     QueryPerformanceFrequency(&g_qpf);
@@ -1535,7 +1535,7 @@ static void TestFallback() {
         Cancel(kH1);
         assert(GetOptionHook(kH1, 0x20000 | 0x100, kProbeHi, 1) == 0 && g_scTagH == 0);  // other optLo forms: not this channel
         // docs/250 §7.1 bit 10: the watchdog's idle check; a label only (no probe even with the cut bit, no sync mark), job time in v179
-        static_assert(offsetof(Ts3nCounters, wdJobN) == 0x5F18 && offsetof(Ts3nCounters, wdJobLong) == 0x5F24 && sizeof(Ts3nCounters) == 6477 * 4,
+        static_assert(offsetof(Ts3nCounters, wdJobN) == 0x5F18 && offsetof(Ts3nCounters, wdJobLong) == 0x5F24 && sizeof(Ts3nCounters) == 6478 * 4,
                       "counters v179 after the v913 gap (docs/registry.md)");
         const LONG wdN0 = k.wdJobN;
         assert(GetOptionHook(kH1, 0x10000 | 0x400 | 0x100, kProbeHi, 1) == 0);
@@ -1562,7 +1562,7 @@ static void TestFallback() {
     // docs/202 [UnseenFallback]: a MARK makes the route's next START a job under ufUs (worker deadline slot open); one START
     // per mark, a mark on another route or with ufMode 0 marks nothing; CUT? answers once; sync deadline choice; job end
     {
-        static_assert(offsetof(Ts3nCounters, ufMode) == 0x5360 && offsetof(Ts3nCounters, ufCutAsks) == 0x538C && sizeof(Ts3nCounters) == 6477 * 4,
+        static_assert(offsetof(Ts3nCounters, ufMode) == 0x5360 && offsetof(Ts3nCounters, ufCutAsks) == 0x538C && sizeof(Ts3nCounters) == 6478 * 4,
                       "counters v138 layout after v137 (docs/registry.md)");
         const LONG um0 = k.ufMode, uu0 = k.ufUs, ur0 = k.ufReady, pr0 = k.pdReady;
         // the 0.36.91 miss (sv-ufb-farcrowd-loop: a marked 402 ms sync plan, "world A* capped 0"): [UnseenFallback] alone,
@@ -1643,7 +1643,7 @@ static void TestFallback() {
     // 4c. docs/134 §11: the job cap is a deadline from the job's start, read every 4th cost call of either kind
     {
         static_assert(offsetof(Ts3nCounters, fbjcCapAtMaxUs) == 0x3604 && offsetof(Ts3nCounters, fbjcWaitHist) == 0x3634 &&
-                          sizeof(Ts3nCounters) == 6477 * 4, "counters v84 layout after v83 (docs/registry.md)");
+                          sizeof(Ts3nCounters) == 6478 * 4, "counters v84 layout after v83 (docs/registry.md)");
         const PlanLockedFn planSave = g_planOrig;
         const LONG readySave = k.budgetReady;
         g_planOrig = FbSlowSearch;
@@ -4088,7 +4088,7 @@ static void TestRouteSites() {
     reset();
     // gate site 16 (index 15, IC_World_FindPlacesOnShoreline, crash K) counts in v108, not in the v25 arrays
     static_assert(offsetof(Ts3nCounters, rgUnlocked3) == 0x45C4 && offsetof(Ts3nCounters, rgJob3) == 0x45C8 &&
-                  sizeof(Ts3nCounters) == 6477 * 4, "counters v108 layout after v107 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6478 * 4, "counters v108 layout after v107 (docs/registry.md)");
     assert(kRgSites[15].addr == 0x0078C440 && kRgSites[15].len == 6);
     k.rgUnlocked3 = k.rgJob3 = 0;
     RgEnter(15, &stack[20]);
@@ -4926,7 +4926,7 @@ static u8 __fastcall FakeUsfShould(void*, void*, void* obj) { assert(obj); retur
 static void TestFootprintDefer() {
     static_assert(offsetof(Ts3nCounters, usfReady) == 0x3174 && offsetof(Ts3nCounters, usfMode) == 0x3178 &&
                   offsetof(Ts3nCounters, usfApplied) == 0x31A4 && offsetof(Ts3nCounters, usfApplyInJob) == 0x31C4 &&
-                  sizeof(Ts3nCounters) == 6477 * 4, "v74 layout (without v52, v58)");
+                  sizeof(Ts3nCounters) == 6478 * 4, "v74 layout (without v52, v58)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
     memset((void*)&k.discDestroyMode, 0, offsetof(Ts3nCounters, discIdMismatch) + 4 - offsetof(Ts3nCounters, discDestroyMode));
@@ -5162,7 +5162,7 @@ static DWORD WINAPI F2JobEnd(void*) {  // the running job ends a little later (a
 static void TestFootprintDefer2() {
     static_assert(offsetof(Ts3nCounters, fp2Mode) == 0x3FB4 && offsetof(Ts3nCounters, fp2Deferred) == 0x3FBC &&
                   offsetof(Ts3nCounters, fp2Forced) == 0x3FDC && offsetof(Ts3nCounters, fp2ApplyInJob) == 0x3FE8 &&
-                  sizeof(Ts3nCounters) == 6477 * 4, "counters v94 layout after v92 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6478 * 4, "counters v94 layout after v92 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
     memset((void*)&k.discDestroyMode, 0, offsetof(Ts3nCounters, discIdMismatch) + 4 - offsetof(Ts3nCounters, discDestroyMode));
@@ -5459,7 +5459,7 @@ static void TestUolCalls() {
 static void TestFp2LostRemoval() {
     static_assert(offsetof(Ts3nCounters, fp2lrMode) == 0x5DE8 && offsetof(Ts3nCounters, fp2lrOrderMiss) == 0x5E08 &&
                   offsetof(Ts3nCounters, fpgMode) == 0x5E0C && offsetof(Ts3nCounters, fpgHeld) == 0x5E34 &&
-                  sizeof(Ts3nCounters) == 6477 * 4, "counters v172 layout (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6478 * 4, "counters v172 layout (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
     memset((void*)&k.discDestroyMode, 0, offsetof(Ts3nCounters, discIdMismatch) + 4 - offsetof(Ts3nCounters, discDestroyMode));
@@ -5740,7 +5740,7 @@ static unsigned __int64 __cdecl FakePfKey(int kind, int type, DWORD idLo, DWORD 
 
 static void TestPrivateFpDefer() {
     static_assert(offsetof(Ts3nCounters, pfReady) == 0x473C && offsetof(Ts3nCounters, pfMode) == 0x4740 &&
-                  offsetof(Ts3nCounters, pfApplyInJob) == 0x476C && sizeof(Ts3nCounters) == 6477 * 4,
+                  offsetof(Ts3nCounters, pfApplyInJob) == 0x476C && sizeof(Ts3nCounters) == 6478 * 4,
                   "counters v113 layout after v112 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
@@ -5961,7 +5961,7 @@ static u8 __fastcall PdFakePlan(void* world, void*, int*, int*, int*, DWORD, DWO
 static void TestPlanDrain() {
     static_assert(offsetof(Ts3nCounters, sdReady) == 0x4588 && offsetof(Ts3nCounters, sdMode) == 0x458C &&
                   offsetof(Ts3nCounters, sdSkip) == 0x45A8 && offsetof(Ts3nCounters, sdFail) == 0x45BC &&
-                  sizeof(Ts3nCounters) == 6477 * 4, "counters v107 layout after v106 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6478 * 4, "counters v107 layout after v106 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
     memset((void*)&k.discDestroyMode, 0, offsetof(Ts3nCounters, discIdMismatch) + 4 - offsetof(Ts3nCounters, discDestroyMode));
@@ -6213,7 +6213,7 @@ static void TestXformGuard() {
 static void TestDestroyPark() {
     static_assert(offsetof(Ts3nCounters, dpReady) == 0x31DC && offsetof(Ts3nCounters, dpMode) == 0x31E0 &&
                   offsetof(Ts3nCounters, dpParked) == 0x31E4 && offsetof(Ts3nCounters, dpKeptWait) == 0x31E8 &&
-                  sizeof(Ts3nCounters) == 6477 * 4, "v76 layout after v75 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6478 * 4, "v76 layout after v75 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     k.dpReady = k.dpMode = k.dpParked = k.dpKeptWait = 0;
     k.vfRtDestroyWaitUs = 0;
@@ -8173,7 +8173,7 @@ static void TestAvoidRO() {
                       offsetof(Ts3nCounters, avShadow) == 0x31F4 && offsetof(Ts3nCounters, avSiteSkip) == 0x3204 &&
                       offsetof(Ts3nCounters, avFb) == 0x3208 && offsetof(Ts3nCounters, avUs) == 0x3230 &&
                       offsetof(Ts3nCounters, avTwSite) == 0x323C && offsetof(Ts3nCounters, avShadowRuns) == 0x3244 &&
-                      offsetof(Ts3nCounters, avSimWriteInRo) == 0x325C && sizeof(Ts3nCounters) == 6477 * 4,
+                      offsetof(Ts3nCounters, avSimWriteInRo) == 0x325C && sizeof(Ts3nCounters) == 6478 * 4,
                   "counters v74 layout (docs/registry.md)");
     using namespace av;
     Ts3nCounters& k = ts3native_counters;
@@ -8740,7 +8740,7 @@ static void TestProbeSnap() {
 static void TestCallSites() {
     static_assert(offsetof(Ts3nCounters, cpOn) == 0x517C && offsetof(Ts3nCounters, cpTrapUs) == 0x518C &&
                   offsetof(Ts3nCounters, cpLateMin) == 0x51A4 && offsetof(Ts3nCounters, plChunkMB) == 0x51CC &&
-                  offsetof(Ts3nCounters, rpSlimSpare) == 0x51F8 && sizeof(Ts3nCounters) == 0x6534 && offsetof(Ts3nCounters, luOn) == 0x51FC, "v130 + v131 + v132 + v133 layout");
+                  offsetof(Ts3nCounters, rpSlimSpare) == 0x51F8 && sizeof(Ts3nCounters) == 0x6538 && offsetof(Ts3nCounters, luOn) == 0x51FC, "v130 + v131 + v132 + v133 layout");
     static_assert(sizeof(kVcCovSites) / sizeof(kVcCovSites[0]) == 2115, "coverage table = vcallsites5.h");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.vcReady, 0, 10 * sizeof(LONG));
@@ -11871,7 +11871,7 @@ static void TestP4DoorDump() {
 // the same ids is bit 2 only; a clone leaf without the entry is "only live"; box mode dumps a matched plan, outside it not
 static void TestP4LotDump() {
     static_assert(offsetof(Ts3nCounters, ldDumps) == 0x4B3C && offsetof(Ts3nCounters, ldObL) == 0x4B60 &&
-                      offsetof(Ts3nCounters, ldSpare) == 0x4B64 && sizeof(Ts3nCounters) == 6477 * 4,
+                      offsetof(Ts3nCounters, ldSpare) == 0x4B64 && sizeof(Ts3nCounters) == 6478 * 4,
                   "counters v121 layout after v120 (docs/registry.md)");
     assert(ts3native_counters.version == 912);
     struct Side {
@@ -12520,6 +12520,14 @@ static void TestP4() {
     }
     assert(g_xcptN == xcptN);
     RemoveVectoredExceptionHandler(xcpt);
+    {  // docs/67 §39: past the 16-line cap one line per new eip, 64 eips at most
+        const LONG lateN = g_xcptLateN;
+        g_xcptLateN = 0;
+        assert(XcptLateNew(0x604B89D8) && !XcptLateNew(0x604B89D8) && XcptLateNew(0x00D4B154));
+        for (DWORD a = 1; a <= 62; a++) assert(XcptLateNew(0x1000 + a));
+        assert(!XcptLateNew(0x2000) && !XcptLateNew(0x1001));
+        g_xcptLateN = lateN;
+    }
     // door miss: refused, NoListeners answered, no managed call
     rec = P4RunJob(4, list, s, g, opts);
     assert(strstr(rec, "\"refused\":\"door-miss\"") && strstr(rec, "\"copy\":null"));
@@ -12757,10 +12765,10 @@ static void TestP5() {
     static_assert(offsetof(Ts3nCounters, m2Ready) == 0x2F70 && offsetof(Ts3nCounters, m2Take) == 0x2F74 &&
                   offsetof(Ts3nCounters, m2Fb) == 0x2F90 && offsetof(Ts3nCounters, m2VerM) == 0x2FDC &&
                   offsetof(Ts3nCounters, m2DoorHist) == 0x3000 && offsetof(Ts3nCounters, m2Guard) == 0x3024 &&
-                  sizeof(Ts3nCounters) == 6477 * 4, "counters v61 layout + v62 + v63 + v65 + v66 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6478 * 4, "counters v61 layout + v62 + v63 + v65 + v66 (docs/registry.md)");
     static_assert(offsetof(Ts3nCounters, p4QCut) == 0x30EC && offsetof(Ts3nCounters, p4QCutMiss) == 0x30F0 &&
                   offsetof(Ts3nCounters, p4WaitExt) == 0x30F4 && offsetof(Ts3nCounters, oiClone) == 0x30F8 &&
-                  offsetof(Ts3nCounters, rpHard) == 0x30FC && sizeof(Ts3nCounters) == 6477 * 4,
+                  offsetof(Ts3nCounters, rpHard) == 0x30FC && sizeof(Ts3nCounters) == 6478 * 4,
                   "counters v67 layout (docs/registry.md)");
     static_assert(offsetof(Ts3nCounters, rpOldAsk) == 0x310C && offsetof(Ts3nCounters, p4AcqBad) == 0x3110, "counters v68 layout (docs/registry.md)");
     static_assert(offsetof(Ts3nCounters, p4Obst) == 0x3114 && offsetof(Ts3nCounters, p4ObstBusy) == 0x3118,
@@ -13105,7 +13113,7 @@ static void P6eUseFree() {  // nothing keeps g_rpUse: the consumer can drain
 static void TestP6Early(int* list, int* s, int* g, u8* opts, DWORD& seq) {
     static_assert(offsetof(Ts3nCounters, p6Early) == 0x4B7C && offsetof(Ts3nCounters, p6eRel) == 0x4B8C &&
                   offsetof(Ts3nCounters, p6eSkip) == 0x4B98 && offsetof(Ts3nCounters, p6eCopyUs) == 0x4BA8 &&
-                  offsetof(Ts3nCounters, p6eSpare) == 0x4BAC && sizeof(Ts3nCounters) == 6477 * 4,
+                  offsetof(Ts3nCounters, p6eSpare) == 0x4BAC && sizeof(Ts3nCounters) == 6478 * 4,
                   "counters v122 layout after v121 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     k.p6Plan = 1, k.p6Share = 1, k.p6Early = 1;
@@ -13212,7 +13220,7 @@ static void TestP6Kinds(int* list, int* s, int* g, u8* opts, DWORD& seq) {
     static_assert(offsetof(Ts3nCounters, p6All) == 0x503C && offsetof(Ts3nCounters, pkArmed) == 0x5040 &&
                   offsetof(Ts3nCounters, pkVerify) == 0x5080 && offsetof(Ts3nCounters, pkUntaken) == 0x50C0 &&
                   offsetof(Ts3nCounters, pkAfSkip) == 0x50D0 && offsetof(Ts3nCounters, pkSpare) == 0x50D8 &&
-                  sizeof(Ts3nCounters) == 6477 * 4, "counters v127 layout after the v123-v126 reservations (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6478 * 4, "counters v127 layout after the v123-v126 reservations (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const LONG early = k.p6Early, share = k.p6Share;
     k.p6Early = 0, k.p6Share = 1;
@@ -13277,7 +13285,7 @@ static void TestP6Kinds(int* list, int* s, int* g, u8* opts, DWORD& seq) {
 // a deadline; past the deadline BudgetStep walls the edges and the job counts as capped
 static void TestP6Foreign(int* list, int* s, int* g, u8* opts, DWORD& seq) {
     static_assert(offsetof(Ts3nCounters, p6fbOn) == 0x50DC && offsetof(Ts3nCounters, p6fbCloneCapped) == 0x50F0 &&
-                  offsetof(Ts3nCounters, p6fbSpare) == 0x50F4 && sizeof(Ts3nCounters) == 6477 * 4,
+                  offsetof(Ts3nCounters, p6fbSpare) == 0x50F4 && sizeof(Ts3nCounters) == 6478 * 4,
                   "counters v128 layout after the v123-v127 pad (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const LONG verify0 = g_p5Verify, ready0 = k.budgetReady, n0 = (LONG)g_p5N;
@@ -13353,7 +13361,7 @@ static void TestP6(int* list, int* s, int* g, u8* opts, DWORD& seq) {
                   offsetof(Ts3nCounters, p6BorrowMiss) == 0x4688 && offsetof(Ts3nCounters, p6ReAcqUs) == 0x46AC &&
                   offsetof(Ts3nCounters, p6jN) == 0x46B0 && offsetof(Ts3nCounters, p6jOut) == 0x4728 &&
                   offsetof(Ts3nCounters, p6jLines) == 0x4738 &&
-                  sizeof(Ts3nCounters) == 6477 * 4, "counters v112 layout after v111 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6478 * 4, "counters v112 layout after v111 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
     // (f1) TakeKinds 8 (default): a Route.Plan START is not armed; 9: it is, and its answer is the clone's
@@ -13846,7 +13854,7 @@ static void TestInsFreeInPlace() {
 static void TestRecsUnlocked() {
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, ulMode) == 0x4548 && offsetof(Ts3nCounters, ulFaults) == 0x4564 &&
-                  sizeof(Ts3nCounters) == 6477 * 4, "counters v105 layout after v104 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6478 * 4, "counters v105 layout after v104 (docs/registry.md)");
     static DWORD simTid;
     const DWORD* savedSim = g_rtSimTidSlot;
     simTid = GetCurrentThreadId();
@@ -14187,7 +14195,7 @@ static void TestRemPatch() {
 // TestRemPatch's level-box / child stand-ins
 static void TestP5Covers() {
     static_assert(offsetof(Ts3nCounters, rpLockKeyForce) == 0x4568 && offsetof(Ts3nCounters, p5bWdEscalate) == 0x4578 &&
-                  offsetof(Ts3nCounters, p5StormRunMax) == 0x4584 && sizeof(Ts3nCounters) == 6477 * 4,
+                  offsetof(Ts3nCounters, p5StormRunMax) == 0x4584 && sizeof(Ts3nCounters) == 6478 * 4,
                   "counters v106 layout after v105 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     // the fake replay worlds above (TestSnapReplay .. TestInsFreeInPlace) ran with InsCheck 1: their inserts' differences
@@ -14340,6 +14348,63 @@ static void TestLauncherFix() {
     VirtualFree(m, 0, MEM_RELEASE);
 }
 
+// host build guard (HostBuildOk, docs/230): Steam 1.67 stamp + SizeOfImage pass; retail 1.67 (other layout) or either field off fails
+static void TestHostBuild() {
+    static u8 img[0x200];
+    ((IMAGE_DOS_HEADER*)img)->e_lfanew = 0x80;
+    IMAGE_NT_HEADERS* nt = (IMAGE_NT_HEADERS*)(img + 0x80);
+    nt->FileHeader.TimeDateStamp = TS3A_HOST_PE, nt->OptionalHeader.SizeOfImage = TS3A_HOST_SIZE;
+    assert(HostBuildOk(img));
+    nt->OptionalHeader.SizeOfImage = TS3A_HOST_SIZE + 0x1000;
+    assert(!HostBuildOk(img));
+    nt->OptionalHeader.SizeOfImage = TS3A_HOST_SIZE, nt->FileHeader.TimeDateStamp = TS3A_HOST_PE + 1;
+    assert(!HostBuildOk(img));
+}
+
+// docs/270 §32: the combase keepalive pattern. Synthetic buffers (0, 1, 2 copies, wildcards free), then the system
+// combase.dll read from disk (a 32-bit process gets SysWOW64's copy): never ambiguous, the count is printed.
+static void TestCombasePattern() {
+    static BYTE blk[] = {0x8D, 0x44, 0x24, 0x18, 0xB9, 0x30, 0x75, 0, 0, 0x50, 0x33, 0xC0, 0x40, 0x50, 0x51, 0x51, 0x56, 0x8B, 0xD0, 0x8B, 0xCF,
+                         0xE8, 1, 1, 0, 0, 0x85, 0xC0, 0x0F, 0xB6, 0xDB, 0x6A, 1, 0x58, 0x0F, 0x48, 0xD8, 0x89, 0x5C, 0x24, 0x14, 0x84, 0xDB,
+                         0x74, 0x16, 0x50, 0x68, 0x30, 0x75, 0, 0, 0xFF, 0x36, 0xFF, 0x15};
+    static BYTE buf[3 * sizeof blk + 16];
+    size_t at = 0;
+    memset(buf, 0xCC, sizeof buf);
+    assert(PatScan(buf, sizeof buf, kCbPat, &at) == 0);
+    memcpy(buf + 5, blk, sizeof blk);
+    assert(PatScan(buf, sizeof buf, kCbPat, &at) == 1 && at == 5);
+    assert(*(DWORD*)(buf + at + kCbPatch[0]) == 30000 && *(DWORD*)(buf + at + kCbPatch[1]) == 30000);
+    memcpy(buf + 5 + sizeof blk, blk, sizeof blk);
+    buf[5 + sizeof blk + 3] = 0x20;  // a wildcard byte differs: still a match
+    assert(PatScan(buf, sizeof buf, kCbPat, &at) == 2);
+    buf[5 + sizeof blk + 5] = 0x31;  // the constant differs: no match there
+    assert(PatScan(buf, sizeof buf, kCbPat, &at) == 1);
+    wchar_t path[MAX_PATH];
+    GetSystemDirectoryW(path, MAX_PATH);
+    wcscat_s(path, L"\\combase.dll");
+    HANDLE f = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);  // read only
+    const DWORD size = f != INVALID_HANDLE_VALUE ? GetFileSize(f, NULL) : 0;
+    BYTE* img = size ? (BYTE*)VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE) : NULL;
+    DWORD got = 0;
+    const BYTE* text = NULL; size_t len = 0;
+    int hits = -1;
+    if (img && ReadFile(f, img, size, &got, NULL) && got == size && PeText(img, size, false, &text, &len)) hits = PatScan(text, len, kCbPat, &at);
+    if (f != INVALID_HANDLE_VALUE) CloseHandle(f);
+    char ver[48] = "?";
+    if (HMODULE cb = LoadLibraryW(L"combase.dll")) ModVersion(cb, ver, sizeof ver);
+    printf("combase keepalive pattern: %d match(es) in the system combase.dll %s .text\n", hits, ver);
+    assert(hits <= 1);  // 0 on another Windows build is allowed (settle wait); 2 never
+    if (img) VirtualFree(img, 0, MEM_RELEASE);
+    if (hits != 1) return;
+    RewindCombaseKeep();  // patches this test process's own combase (memory only): both values now INFINITE
+    const HMODULE cb = GetModuleHandleW(L"combase.dll");
+    assert(cb && PeText((const BYTE*)cb, ~(size_t)0, true, &text, &len));
+    assert(PatScan(text, len, kCbPat, &at) == 0);  // the 30000s are gone, so the pattern no longer matches
+    static char want[] = "8D 44 24 ?? B9 FF FF FF FF 50 33 C0 40 50 51 51 56 8B D0 8B CF E8 ?? ?? ?? ?? 85 C0 0F B6 DB 6A 01 58 "
+                         "0F 48 D8 89 5C 24 ?? 84 DB 74 ?? 50 68 FF FF FF FF FF 36 FF 15";
+    assert(PatScan(text, len, want, &at) == 1);
+    puts("combase keepalive: applied in this process (both 30000 -> 0xFFFFFFFF), file untouched");
+}
 int main() {
     setvbuf(stdout, NULL, _IONBF, 0);  // a crash keeps what was printed
     SetUnhandledExceptionFilter([](EXCEPTION_POINTERS* e) -> LONG {
@@ -14544,7 +14609,9 @@ int main() {
     TestMovedWaits();
     TestP6Waits();
     TestLauncherFix();
+    TestHostBuild();
     TestThumbLod();
+    TestCombasePattern();
     puts("selftest ok");
     return 0;
 }

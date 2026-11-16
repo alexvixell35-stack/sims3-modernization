@@ -261,6 +261,7 @@ namespace Ts3Agent
             if (c.Length > 997) { r["deadrefcooking_handlers"] = c[994]; r["deadrefconvo_members"] = c[995]; r["deadrefconvo_household"] = c[996]; r["takeariskguard_skips"] = c[997]; } // DeadRefs.cs phases 14-15, TakeARiskGuard.cs
             if (c.Length > 1013) { r["autlivetune_drops"] = c[1012]; r["autlivetune_us"] = c[1013]; } // AutLive.cs autlivetune (docs/124 §3.1)
             if (c.Length > 1056) { r["autliveseen_posted"] = c[1050]; r["autliveseen_dry"] = c[1051]; r["autliveseen_hh_resume"] = c[1052]; r["autliveseen_hh_post"] = c[1053]; r["autliveseen_dry_top10_mis"] = c[1054]; r["autliveseen_dry_top1_mis"] = c[1055]; r["autliveseen_dry_sim_mis"] = c[1056]; } // AutLive.cs autliveseen (docs/124 §17.12)
+            if (c.Length > 1057) r["householdtoo_lift"] = c[1057]; // PlayerSims.cs HouseholdExempt (docs/271): asks [Experimental] HouseholdToo=1 let through; 0 with the flag off
             if (c.Length > 998) r["autlivelod_drops"] = c[998]; // AutLive.cs autlivelod (docs/124 §3.1)
             if (c.Length > 993) { r["minihomelot_setlot"] = c[991]; r["minihomelot_load"] = c[992]; r["minihomelot_apart"] = c[993]; } // MiniHomeLot.cs, docs/266
             if (c.Length > 101) { r["invcache_hits"] = c[99]; r["invcache_rebuilds"] = c[100]; r["invcache_mismatches"] = c[101]; } // ScriptHotSpots.cs, docs/115

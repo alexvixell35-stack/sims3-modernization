@@ -1,0 +1,43 @@
+{
+ "note": "mono-offload-rmretest-rerun1-1116-1116b: copy of mono-offload-rmretest-rerun1-1116.json repinned to master-1116b (0.36.266-mb1116); timeoutMin x1.5 (Planet Zoo beside the game; correctness only, noiseCheck false). Was: mono-offload-rmretest-rerun1-1116: rerun of mono-offload-rmretest-1116 (bp-rmr-snapback FAILED 2026-11-16 16:34 PHT: 6 passed, 1 failed (Brandy Collins: jump 0.576 m vs bound 0.514 m, step_median_m 0, owed 66 ms), 2 not tested). Check rule fixed in the agent (bugfix/rmr-snapback-case-1116): the bound now allows the flip tick own walk (4 m/s x flip tick wall time) when the Sim stood before the flip; rows carry flip_tick_ms. INSTALL FIRST: cp game-copy/ts3agent.package.rmrcase1116 build/ts3agent.package (master-1116 agent + this check fix; asi/ini/ts3fixes stay master-1116). Was: mono-offload-rmretest-1116: copy of mono-offload-rmretest-1115-mm.json repinned to master-1116 (0.36.265-m1116); rewind auto (chain-followup-1116.sh runs rewind-pilot-1116 first; TS3_REWIND=off if the pilot fails). mono-offload-rmretest-1115-mm: copy of mono-offload-rmretest-1115.json (jobs bp-rmr-snapback only: correctness part), repinned to master-mono-1115 (0.36.264-mono1). mono-offload-rmretest-1115 (E1, PREPARED, NOT RUN; correctness job + timing, the A/B jobs NEED A QUIET MACHINE): Rodney's R5 (memory golive-unseen-only-redesign): [UnseenRootMotion] Mode 1 again after Mono, off in the release ini since v0.2.5 (v025-speed-ab -13% it/s). rootmotion-retest.json (mono1106c, never run) repinned to the newest master pair (JIT ON, Mono M0-M6). Order: bp-rmr-snapback (Mode 1 correctness, stops the queue on FAIL), measurement smoke (job 2: per-arm split, rmMode read back 0 / 1 per slice), then in-load A/B --ab unseenrm (rmMode flips at runtime once Enabled=1 Shortlist=1 install the jump), BP and IP, both orders. Read: node tools/harness/arm-ms.ts mono-offload-rmretest-1115 (per-arm ms/s), hitch-ab.ts (hitches, it/s), gate2-report.ts (R1-R6 route bars for --ab unseenrm). Mode 1 is EA-identical (docs/246 null control): a route bar failing is a finding. Ship rule: ON only at >= 3 ms/s on both worlds with no it/s loss and the snapback PASS. ~1.3 h. Run: node tools/harness/queue.ts tools/harness/queues/mono-offload-rmretest-1115.json",
+ "rewind": "auto",
+ "stopQueueOnFail": true,
+ "jobs": [
+  {
+   "id": "bp-rmr-snapback",
+   "note": "Correctness first (Mode 1 fixed, not A/B): repro unseen-snapback (as unseen-root-motion.json bp-urm-snapback), 16 min BP. PASS = no crash, 0 new script errors, rmMode 1 read back in /native, snap-back bars of the repro. A FAIL stops the queue. 2026-11-16: [UnseenThrottle] Rate + [UnseenProbe] on for this job (as bp-urm-snapback): the repro's snap-back watch (codes 6/7/18) lives in [UnseenThrottle]; the 11-16 run failed every Sim with \"snap-back watch not answering\" because the master ini has it off.",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-correct-1116b.sh); timeoutMin x1.5 (Planet Zoo runs beside the game). Was: master-1116",
+   "save": "Baseline-BP",
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "minCounters": 90,
+   "ini": {
+    "UnseenProbe.Enabled": 1,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.Every": 4,
+    "UnseenThrottle.List": 1,
+    "UnseenThrottle.Avoid": 1,
+    "UnseenThrottle.Footprint": 1,
+    "UnseenThrottle.Rate": 1,
+    "UnseenThrottle.AvoidNearM": 3,
+    "UnseenThrottle.FpMs": 500,
+    "UnseenThrottle.RateNearM": 3,
+    "HitchAttr.Enabled": 1,
+    "UnseenRootMotion.Enabled": 1,
+    "UnseenRootMotion.Shortlist": 1,
+    "UnseenRootMotion.Mode": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 16,
+     "seed": 12345,
+     "repro": "unseen-snapback"
+    }
+   },
+   "timeoutMin": 60
+  }
+ ]
+}
