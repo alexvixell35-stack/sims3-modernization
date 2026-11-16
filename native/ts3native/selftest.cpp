@@ -934,6 +934,52 @@ static void TestA10() {
         memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
     }
 
+    // 11d. DrainGate (docs/851): a forced poll behind an NPC job takes the start gate instead of waiting, the first poll
+    // with no job applies the record and opens the gate; a household job keeps the forced drain; WaitJobDone opens the gate
+    {
+        u8* world = (u8*)g_rgLock - 0x918;
+        const u8 w974 = world[0x974];
+        world[0x974] = 1;  // DiscWorldOk
+        LONG* const depth = (LONG*)((u8*)g_rgLock + 0x20);
+        *depth = 1;
+        *(DWORD*)(g_arDObj + 8) = 0xD;
+        g_discRemoveOrig = ArDRemove;
+        g_findRef = ArDFind;
+        g_objSvc = ArDSvc;
+        g_objRelease = ArDRelease;
+        k.discMode = 1;
+        g_icSleepMs = 30;
+        const LONG log0 = g_arDLogN, open0 = g_rgOffSimOpen;
+        DG_MODE = 1;
+        DG_TAKEN = DG_DRAINED = DG_HARD = DG_JOBWAIT = 0;
+        assert(ArStart(kH1, 3, p1));
+        while (g_async.state != A_RUNNING) Sleep(0);
+        assert(DiscRemoveHook(world, NULL, g_arDObj) == 1 && g_discCount == 1);  // deferred
+        g_disc[g_discHead].t -= kDiscMaxAgeMs;  // old enough that today's poll would wait for the job
+        JobFor(kH1)->kdScope = 1;  // household side: not ours
+        assert(!DgPoll(DS_OTHER) && !g_dgHeld && g_discCount == 1);
+        JobFor(kH1)->kdScope = 3;  // seen NPC
+        DiscPoll(DS_OTHER);
+        assert(g_dgHeld && g_discCount == 1 && g_rgOffSimOpen == open0 + 1 && DG_TAKEN == 1 && g_arDLogN == log0);
+        DiscPoll(DS_OTHER);  // the job still runs (or just ended): either way no forced wait, the gate stays or the drain runs
+        while (JobFor(kH1)->state != J_DONE) Sleep(1);
+        DiscPoll(DS_OTHER);
+        assert(!g_dgHeld && g_discCount == 0 && g_rgOffSimOpen == open0 && DG_DRAINED == 1 && DG_HARD == 0 && g_arDLogN == log0 + 1);
+        WaitReady(kH1);
+        assert(ArCollect(3, out, kH1, p1) == out && ArFromJob(out, kH1, 3, p1));
+        g_dgHeld = true;  // WaitJobDone's opener (a queued job must be able to start)
+        InterlockedIncrement(&g_rgOffSimOpen);
+        DgOpenForJobWait();
+        assert(!g_dgHeld && g_rgOffSimOpen == open0 && DG_JOBWAIT == 1);
+        DG_MODE = 0;
+        g_icSleepMs = 0;
+        k.discMode = 0;
+        world[0x974] = w974;
+        *depth = 0;
+        memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
+        assert(!AsyncBusy() && g_rgOffSimOpen == open0);
+    }
+
     // 12. random order over 4 routes and all kinds (incl. Route.Plan): START / READY / IC / CANCEL; every collected result
     // is its own route's and kind's, nothing is left at the end
     {

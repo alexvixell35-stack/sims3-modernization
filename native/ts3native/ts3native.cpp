@@ -4772,6 +4772,7 @@ static int RtM1Why();                                  // rtsites.cpp; the same 
 enum { DS_OTHER, DS_START, DS_A10START, DS_READY, DS_CANCEL, DS_PLAN, DS_ADD, DS_REMOVE, DS_USF, DS_FP2, DS_FP2READ, DS_PF,
        DS_FPGCENSUS, DS_FPGOP, DS_WORLD, DS_SAVE, DS_N };
 static void DiscPoll(int site = DS_OTHER);  // discourage.cpp
+static void DgOpenForJobWait();             // discourage.cpp ([Discourage] DrainGate)
 static void DiscDrain(bool force, int site = DS_OTHER);  // discourage.cpp
 static bool DiscRfStart();            // discourage.cpp (docs/89 §18 RemovalFirst)
 static bool DiscRfWait(LONG ticks, LONG cap);
@@ -4838,6 +4839,7 @@ static void WaitJobDone(AsyncJob* j, int site) {
     const bool waits = j->state == J_QUEUED || j->state == J_RUNNING;
     // H2: a queued or claimed job may be held by this thread's locomotion window; it must start for this wait to end
     if (waits) G0wDrop(G0W_JOBWAIT, _ReturnAddress());
+    if (waits) DgOpenForJobWait();  // DrainGate: the gate this thread holds would keep a queued job from starting
     RcDrop();  // docs/177 §7
     const LONG hand = P5cHandBegin();  // P5c, as WaitAsyncDone (a queued job waits for the running one too)
     const bool yieldable = waits && CanYield();

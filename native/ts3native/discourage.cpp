@@ -285,6 +285,37 @@ static bool UsfSuperseded(const DiscRec& r, u8* world) {
     return false;
 }
 
+// DrainGate (docs/851, [Discourage] DrainGate, default 0). Isla Paradiso: the sim thread's waits at "disc" for another Sim's job
+// were 53 s of the logged waits >= 300 ms in two 10-minute games (88 waits, up to 2.8 s each), all at points where the task could
+// have yielded. A poll that must drain (oldest record >= kDiscMaxAgeMs) while an unseen or seen NPC job runs (uf, kdScope 2 / 3)
+// makes the whole game wait for that job, then applies the records. With the switch on, the poll instead closes the worker's
+// start gate (one g_rgOffSimOpen count held across ticks) and returns: the running job ends on its own, no new job starts, and
+// the first poll that finds no job applies the records with no wait and opens the gate. The records land after the same job as
+// before, at most one poll later; meanwhile the sim thread runs with the old footprints, as it does for any record younger than
+// kDiscMaxAgeMs. A household, selected or unknown-scope job keeps the forced drain, as does a record older than kDgHardMs. Only
+// DiscPoll; D1/D2, Usf, Fp2, the reader flush, PF, world close and save keep their forced drains. The gate opens at any
+// completed drain and before a sim-thread wait for one job (WaitJobDone: a queued job must be able to start, as H2's G0wDrop).
+// Counters: own export ts3native_draingate (separate struct, the ts3native_counters layout is unchanged; docs/registry.md).
+struct DrainGateCounters { volatile LONG mode, taken, drained, hard, jobWait; };
+extern "C" __declspec(dllexport) DrainGateCounters ts3native_draingate = {0, 0, 0, 0, 0};
+#define DG_MODE (ts3native_draingate.mode)
+#define DG_TAKEN (ts3native_draingate.taken)
+#define DG_DRAINED (ts3native_draingate.drained)
+#define DG_HARD (ts3native_draingate.hard)
+#define DG_JOBWAIT (ts3native_draingate.jobWait)
+static const DWORD kDgHardMs = 3000;
+static bool g_dgHeld;  // owner thread only
+static void DgOpen() {
+    if (!g_dgHeld) return;
+    g_dgHeld = false;
+    RgOffSimDrop();
+}
+static void DgOpenForJobWait() {
+    if (!g_dgHeld || GetCurrentThreadId() != g_async.owner) return;
+    InterlockedIncrement(&DG_JOBWAIT);
+    DgOpen();
+}
+
 // Owner thread: applies every record in order. force = wait for a running job; else only when no job runs.
 // site (DS_*, docs/247 §13.4 C): the drain point, for the per-site wait counters v192 (dsN / dsUs / dsYield)
 static void DiscDrain(bool force, int site) {
@@ -337,12 +368,41 @@ static void DiscDrain(bool force, int site) {
     if (lock) LockReleaseHook(lock, NULL);
     RgOffSimDrop();
     g_discDraining = false;
+    DgOpen();  // DrainGate: every record is applied
 }
 
 static bool DiscPending() { return g_discCount != 0; }  // records still deferred (docs/134 §2.6 order check)
 
+// DrainGate poll (above). true = this poll is done (gate held, or drained after it); false = drain as before.
+static bool DgPoll(int site) {
+    if (GetCurrentThreadId() != g_async.owner || g_discDraining) return false;
+    if (g_dgHeld) {
+        if (!g_discCount) { DgOpen(); return true; }
+        if (g_async.state != A_RUNNING) {  // the job ended: apply with no wait (DiscDrain opens the gate)
+            InterlockedIncrement(&DG_DRAINED);
+            DiscDrain(false, site);
+            DgOpen();
+            return true;
+        }
+        if (GetTickCount() - g_disc[g_discHead].t < kDgHardMs) return true;  // still that job (or one started in the gap)
+        InterlockedIncrement(&DG_HARD);
+        DiscDrain(true, site);
+        DgOpen();
+        return true;
+    }
+    if (DG_MODE != 1 || !g_discCount || g_async.state != A_RUNNING) return false;
+    if (GetTickCount() - g_disc[g_discHead].t < kDiscMaxAgeMs) return false;  // not forced: DiscDrain(false) returns at once
+    const AsyncJob* j = JobFor(g_async.handle);
+    if (!j || j->state != J_RUNNING || !(j->uf || j->kdScope == 2 || j->kdScope == 3)) return false;
+    InterlockedIncrement(&g_rgOffSimOpen);  // the worker starts no new job; the running one ends on its own
+    g_dgHeld = true;
+    InterlockedIncrement(&DG_TAKEN);
+    return true;
+}
+
 // A drain point that is not a D1/D2 call: apply when no job runs, or when the oldest record is too old.
 static void DiscPoll(int site) {
+    if (DgPoll(site)) return;
     if (!g_discCount) return;
     DiscDrain(GetTickCount() - g_disc[g_discHead].t >= kDiscMaxAgeMs, site);
 }
@@ -378,6 +438,7 @@ static bool DiscRfWait(LONG ticks, LONG cap) {
     return false;
 }
 static void DiscRfLog() {
+    if (DG_MODE || DG_TAKEN) Log("drain gate: mode %ld took the gate %ld drained after it %ld hard %ld opened by a job wait %ld", DG_MODE, DG_TAKEN, DG_DRAINED, DG_HARD, DG_JOBWAIT);
     if (g_rfMode || g_rfParked) Log("footprint removal first: mode %d parked %ld capped %ld max ticks %ld", g_rfMode, g_rfParked, g_rfCapped, g_rfTicksMax);
 }
 
@@ -1083,6 +1144,8 @@ static void InstallDiscourage(const wchar_t* ini) {
     InstallPrivateFpDefer(ini);
     g_rfMode = Clamp(GetPrivateProfileIntW(L"Discourage", L"RemovalFirst", 1, ini), 0, 1);
     Log("footprint removal first: RemovalFirst=%d (docs/89 §18)", g_rfMode);
+    DG_MODE = Clamp(GetPrivateProfileIntW(L"Discourage", L"DrainGate", 0, ini), 0, 1);
+    Log("drain gate: DrainGate=%ld (docs/851; a forced drain behind an NPC job closes the start gate instead of waiting)", DG_MODE);
     ts3native_counters.fpgMode = Clamp(GetPrivateProfileIntW(L"Discourage", L"GhostSweep", 1, ini), 0, 2);
     g_fpgTest = GetPrivateProfileIntW(L"Discourage", L"GhostTest", 0, ini) != 0;
     Log("ghost census at world load: GhostSweep=%ld (0 off, 1 count only, 2 remove)%s", ts3native_counters.fpgMode, g_fpgTest ? ", GhostTest ops on" : "");

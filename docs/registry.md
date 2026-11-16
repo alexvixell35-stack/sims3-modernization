@@ -727,3 +727,11 @@ Separate struct of `LONG`, not versioned (`[RouteSnap] DoorMemoX=3`, switch `doo
 | 0x00-0x0F | `gen` (managed door-input generation), `armed` (op 36 lo 1 seen this session), `bumps`, `unarmedAsks` (mode 3 asks before arming, run as mode 0) |
 | 0x10-0x1F | `missCold` (no row for the key), `missGen` (row of another generation / delegate set), `missAge` (row older than DoorMemoXMs), `notUnlocked` (live answers not "unlocked", never stored); any DoorMemoX mode, "door memo x misses:" line |
 | 0x20-0x23 | `exempt`: mode 1 / 3 asks of a household, selected or unknown-scope job, asked live (docs/585 §5); "door memo x mode 3:" line |
+
+## ts3native `ts3native_draingate` export (`DrainGateCounters` in `native/ts3native/discourage.cpp`)
+
+Separate struct of `LONG`, not versioned (`[Discourage] DrainGate`, default 0, docs/851). Append fields at the end only. The `ts3native_counters` layout is unchanged. No `--ab` handle (the harness switches only `ts3native_counters` fields): the switch is the ini key.
+
+| Offsets | Fields |
+|---|---|
+| 0x00-0x13 | `mode` (DrainGate), `taken` (forced polls that took the start gate instead of waiting), `drained` (drains after the gate with no job), `hard` (forced at kDgHardMs = 3 s), `jobWait` (gates opened by a sim-thread wait for one job); "drain gate:" line with the footprint-removal line |
