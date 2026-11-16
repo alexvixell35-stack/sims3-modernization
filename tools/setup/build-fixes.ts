@@ -297,6 +297,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kGigWaitLeave value="True" />
     <kSculptPose value="True" />
     <kTrainBoost value="True" />
+    <kFakeMetaSeen value="False" />
+    <kFakeMetaBackoff value="False" />
+    <kPlaceholderUnseen value="False" />
     <kEatOutsideCount value="True" />
     <kBirthRoute value="True" />
     <kPutDownPlace value="True" />

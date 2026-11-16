@@ -77,6 +77,8 @@ namespace Ts3Fixes
             ApplySpatialCache();
             ApplyFewerPlans();
             ApplyCandidateLoops();
+            ApplyFakeMetaSeen();  // docs/854: fakemetaseen / fakemetabackoff (opt-in): fake meta-autonomy NPCs only onto seen / not failing lots
+            ApplyPlaceholderUnseen();  // docs/854: placeholderunseen (opt-in, NPC households): children stay placeholders on unseen home lots
             ApplyRefTable();
             ApplyCachedReflection();
             ApplyUiCaches();
@@ -477,6 +479,7 @@ namespace Ts3Fixes
         // [2562-2563] sculptpose (SculptPose.cs, docs/568 §3): Sculpt Sim subject poses cancelled after the sculptor failed / errors.
         // [2564-2565] free (released).
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
+        // [3720-3731] fakemetaseen (3720-3723), fakemetabackoff (3724-3727), placeholderunseen (3728-3731) (FakeMetaSeen.cs, PlaceholderUnseen.cs, docs/854): see the lists there.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
@@ -814,6 +817,9 @@ namespace Ts3Fixes
                 case "gigwaitleave": return Instantiator.kGigWaitLeave;
                 case "sculptpose": return Instantiator.kSculptPose;
                 case "trainboost": return Instantiator.kTrainBoost;
+                case "fakemetaseen": return Instantiator.kFakeMetaSeen;
+                case "fakemetabackoff": return Instantiator.kFakeMetaBackoff;
+                case "placeholderunseen": return Instantiator.kPlaceholderUnseen;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
