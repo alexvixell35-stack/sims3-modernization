@@ -149,6 +149,19 @@ namespace Ts3Fixes
         public static bool TpDoorUpstreamCloses(int lockType, bool gendered, int oneWayRoom) { return lockType != kLockAnybody || gendered || OneWay(oneWayRoom, false); }
         // is the door one-way? sentinel true (tpdoorrights) = EA's test (!= 0x8FFF); false = upstream's "!= 0", true for every door
         public static bool OneWay(int oneWayRoom, bool sentinel) { return sentinel ? oneWayRoom != kNoOneWayRoom : oneWayRoom != 0; }
+        // docs/584 §8 tpaptgoal: F1's lot verdict for an apartment or shell lot (Lot.IsApartmentLot, BuildableShells), which both
+        // lot tests close outright. kTpAptNone = not such a lot (the usual lot test applies); kTpAptClosed = closed as upstream has
+        // it (switch off, not the Sim's home lot, a special lot that stays closed: houseboat, resort, diving); kTpAptRoom = the
+        // Sim's own home apartment lot with the switch on: the lot counts as open and only the goal room decides (TpGoal: tomb or
+        // hidden refused first, then the room flood with the Sim's own rights plus TpDoor per door on the way out).
+        public const int kTpAptNone = 0, kTpAptClosed = 1, kTpAptRoom = 2;
+        public static int TpAptLot(bool aptOrShell, bool otherSpecial, bool homeLot, bool on)
+        {
+            if (!aptOrShell) return kTpAptNone;
+            return on && homeLot && !otherSpecial ? kTpAptRoom : kTpAptClosed;
+        }
+        // the openLot argument of TpGoal: kTpAptRoom opens, kTpAptClosed closes, kTpAptNone keeps the usual lot test's answer
+        public static bool TpAptOpen(int aptLot, bool usualOpen) { return aptLot == kTpAptRoom || (aptLot == kTpAptNone && usualOpen); }
         public static int TpGoal(bool tombOrHidden, bool outdoorGround, bool openLot, bool roomOutside, bool? reachesOutside)
         {
             if (tombOrHidden) return kTpTombOrHidden;

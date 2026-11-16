@@ -78,6 +78,37 @@ static class UnseenFbTest
                 Check(ok && ((lk != UfPreCore.kLockNobody && ow == NW) || v == UfPreCore.kTpDoorClosed), "door: rule mask " + lk + "/" + m);
             }
 
+        // docs/584 §8 tpaptgoal: apartment / shell lots open only on the Sim's own home lot with the switch on, and then only the
+        // goal room decides; a hidden-room goal (Late Night hidden apartment rooms, the hiddenroom* reports) must stay refused
+        Check(UfPreCore.TpAptLot(false, false, true, true) == UfPreCore.kTpAptNone, "apt: an ordinary lot keeps the usual lot test");
+        Check(UfPreCore.TpAptLot(true, false, true, false) == UfPreCore.kTpAptClosed, "apt: switch off = upstream (closed)");
+        Check(UfPreCore.TpAptLot(true, false, false, true) == UfPreCore.kTpAptClosed, "apt: not the Sim's home lot stays closed");
+        Check(UfPreCore.TpAptLot(true, true, true, true) == UfPreCore.kTpAptClosed, "apt: houseboat / resort / diving stays closed even at home");
+        Check(UfPreCore.TpAptLot(true, false, true, true) == UfPreCore.kTpAptRoom, "apt: home apartment, switch on: the room decides");
+        int aRoom = UfPreCore.kTpAptRoom;
+        Check(UfPreCore.TpGoal(true, false, UfPreCore.TpAptOpen(aRoom, false), false, true) == UfPreCore.kTpTombOrHidden, "apt control: hidden room at home refused even with a way out");
+        Check(UfPreCore.TpGoal(false, false, UfPreCore.TpAptOpen(aRoom, false), false, false) == UfPreCore.kTpNoWayOut, "apt control: home room with no way out refused");
+        Check(UfPreCore.TpGoal(false, false, UfPreCore.TpAptOpen(aRoom, false), false, null) == UfPreCore.kTpNoWayOut, "apt control: unknown flood refused");
+        Check(UfPreCore.TpGoal(false, false, UfPreCore.TpAptOpen(aRoom, false), true, true) == UfPreCore.kTpRaised, "apt control: balcony / roof refused");
+        Check(UfPreCore.TpGoal(false, false, UfPreCore.TpAptOpen(aRoom, false), false, true) == UfPreCore.kTpOk, "apt: own unit with a way out passes");
+        Check(UfPreCore.TpGoal(false, false, UfPreCore.TpAptOpen(UfPreCore.kTpAptClosed, true), false, true) == UfPreCore.kTpLotClosed, "apt control: a visitor's goal in someone's unit refused");
+        Check(UfPreCore.TpAptOpen(UfPreCore.kTpAptNone, true) && !UfPreCore.TpAptOpen(UfPreCore.kTpAptNone, false), "apt: ordinary lots keep the usual answer");
+        for (int am = 0; am < 16; am++)
+        {
+            bool xAp = (am & 1) != 0, xSp = (am & 2) != 0, xHo = (am & 4) != 0, xOn = (am & 8) != 0;
+            int av = UfPreCore.TpAptLot(xAp, xSp, xHo, xOn);
+            Check(av == (!xAp ? UfPreCore.kTpAptNone : xOn && xHo && !xSp ? UfPreCore.kTpAptRoom : UfPreCore.kTpAptClosed), "apt: lot mask " + am);
+            for (int ag = 0; ag < 48; ag++)
+            {
+                bool xTh = (ag & 1) != 0, xOg = (ag & 2) != 0, xUo = (ag & 4) != 0, xRo = (ag & 8) != 0;
+                bool? xRe = (ag >> 4) == 0 ? (bool?)null : (ag >> 4) == 1 ? (bool?)false : true;
+                int aw = UfPreCore.TpGoal(xTh, xOg, UfPreCore.TpAptOpen(av, xUo), xRo, xRe);
+                // never a tomb / hidden room; indoors on an apartment lot only at home with the switch on and a proven way out
+                bool aok = !xTh && (xOg || (UfPreCore.TpAptOpen(av, xUo) && !xRo && xRe == true));
+                Check((aw == UfPreCore.kTpOk) == aok && (!xTh || aw == UfPreCore.kTpTombOrHidden) && (av != UfPreCore.kTpAptClosed || xOg || aw != UfPreCore.kTpOk), "apt: goal mask " + am + "/" + ag);
+            }
+        }
+
         // limiter
         UfLimiter u = new UfLimiter();
         object r;

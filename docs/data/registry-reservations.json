@@ -6556,6 +6556,16 @@
       "what": "docs/596 seasons weather: outerwearautoloop (5), outerwearrestore (3)",
       "at": "2026-11-16T14:01:19.770Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1951",
+      "kind": "fixes",
+      "from": 1951,
+      "to": 1953,
+      "by": "claude",
+      "what": "tpaptgoal (UnseenTeleportGoal.cs, docs/584 §8): home apartment/shell goals allowed / refused tomb or hidden / refused no way out, raised or unknown",
+      "at": "2026-11-16T14:16:51.009Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

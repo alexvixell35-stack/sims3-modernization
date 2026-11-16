@@ -105966,5 +105966,27 @@
         }
       }
     ]
+  },
+  {
+    "id": "unseen-tp-apt-goal",
+    "bug": "docs/584 §8: F1 (UfTpLotOpen / UfLotOpen) closes every apartment and shell lot outright, so a cut GoHome of an unseen NPC who lives in an apartment is never teleported; GoHome.Run's second PlanRouteIntoLot then fails with result 10 (Bridgeport retry after a cut 95% -> ~70% at the upstream merge, tpdoorrights on still ~71%)",
+    "fix": "ts3fixes tpaptgoal (UnseenTeleportGoal.cs UfTpAptLot / UfTpAptReach, UfPreCore.TpAptLot / TpAptOpen): the unseen NPC's own home apartment or shell lot is judged by the goal room only (tomb or hidden room refused, then a room flood with its own door rights plus TpDoor); other apartment lots stay closed. Check: UnseenTpCheck apt",
+    "save": "Baseline-BP",
+    "switches": [
+      "tpaptgoal"
+    ],
+    "note": "Read-only: calls the same goal function UfTeleport calls, for a resident NPC (never household or selected) and a non-resident visitor, on the first apartment / shell lot with a hidden-room marker and an instantiated resident ('any'). The hidden-room marker spots are the control that must stay refused with the switch on; the visitor's inside spots must stay refused (other units). Off arm: every inside spot refused (upstream). N/A when Baseline-BP has no instantiated apartment resident at load: then pass a lot id.",
+    "expect": "off: 'PASS (off: every inside goal refused, as upstream)'. on: hidden markers 'refused (tomb or hidden room)', at least one inside room 'teleport ok [room rule]', every visitor spot refused, last line PASS, no BROKEN; live path clean. 0 script errors.",
+    "steps": [
+      { "cmd": "set_speed", "args": { "speed": "pause" }, "note": "read-only checks, paused" },
+      { "cmd": "patches", "args": { "unseenfbteleport": true, "tpaptgoal": false }, "note": "off arm: upstream", "waitS": 1 },
+      { "cmd": "reflect_call", "args": { "path": "Ts3Fixes.Fixes.UnseenTpCheck", "args": [ "apt any" ] }, "note": "every inside goal refused (lot closed)", "mustMatch": "\\nPASS \\(off: " },
+      { "cmd": "patches", "args": { "tpaptgoal": true }, "note": "on arm", "waitS": 1 },
+      { "cmd": "reflect_call", "args": { "path": "Ts3Fixes.Fixes.UnseenTpCheck", "args": [ "apt any" ] }, "note": "home rooms with a way out pass, hidden rooms and the visitor refused", "mustMatch": "\\nPASS: closed [1-9]" },
+      { "cmd": "patches", "args": { "tpaptgoal": false }, "note": "back to the default" }
+    ],
+    "cleanup": [
+      { "cmd": "patches", "args": { "tpaptgoal": false } }
+    ]
   }
 ]
