@@ -199,6 +199,7 @@ namespace Ts3Fixes
             ApplyPondClearScan();   // docs/594 §5 (SeasonsHunt594b.cs)
             ApplySoakedStat();   // docs/594 §6 (SeasonsHunt594b.cs)
             ApplyHoverTrainTest();   // docs/598 §5 (HoverTrain598.cs)
+            ApplyNewCarTest();   // docs/598 §6 (NewCar598.cs)
             ApplyOuterwearAutoLoop();   // docs/596 §1 (SeasonsWeather596.cs)
             ApplyOuterwearRestore();   // docs/596 §2 (SeasonsWeather596.cs)
             ApplyQueueProximity();   // docs/597 §2 (SleepQueue597.cs); spoonslavechecks rides spoonreset's SrHook
@@ -982,6 +983,7 @@ namespace Ts3Fixes
         // [1954-1957] spoonslavechecks (SleepQueue597.cs via SpoonReset.cs SrHook, docs/597 §1): slave ticks given EA's per-sleeper checks / light-sleeper wakes / slave ticks skipped (switch off) / errors. [1958-1960] queueproximity (§2): places by squared distance / places that differ (switch off) / errors.
         // [1961-1963] subroutefail (SleepQueue597b.cs, docs/597 §3): route fails skipped (replacement pushed) / would be skipped (switch off) / errors. [1964-1966] petwakebed (§4): bed parts cleared / left holding the pet (switch off) / errors. [1967-1970] slavewakereason (§5): slave waits handled / multi-pass waits / slave waits seen (switch off) / errors or ceiling.
         // [1971-1976] hovertraintest (HoverTrain598.cs, docs/598 §5): NPCUseHoverTrain tests answered from the station memo / tests that ran EA's query (switch off: every gated test) / memo forgets / check mismatches (must be 0) / Run throws avoided / errors.
+        // [2747-2752] newcartest (NewCar598.cs, docs/598 §6): TestHasNewCar / TestHasExpensiveNewCar answered from the new-car memo / tests that ran EA's (switch off: every call) / memo forgets / check mismatches (must be 0) / errors / ImportContent forgets.
         // [1898-1900] firefightercount (Batch593Logic.cs, B13 §13, docs/593 V8): extra firefighters not sent / sent (switch off) / errors.
         // [1901-1903] repairmanskill (Batch593Logic.cs, B13 §14, docs/593 V9): levels set to the roll / stacked (switch off) / errors.
         // [1904-1906] roundupreturn (Batch593Logic.cs, B13 §15, docs/593 V3): inits ended / run on (switch off) / errors.
@@ -1497,6 +1499,7 @@ namespace Ts3Fixes
                 case "pondclearscan": return Instantiator.kPondClearScan;
                 case "soakedstat": return Instantiator.kSoakedStat;
                 case "hovertraintest": return Instantiator.kHoverTrainTest;
+                case "newcartest": return Instantiator.kNewCarTest;
                 case "outerwearautoloop": return Instantiator.kOuterwearAutoLoop;
                 case "outerwearrestore": return Instantiator.kOuterwearRestore;
                 case "spoonslavechecks": return Instantiator.kSpoonSlaveChecks;
