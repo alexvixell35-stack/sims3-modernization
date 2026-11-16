@@ -54,6 +54,16 @@ namespace Ts3Fixes
             Patch(typeof(GoHome), "Run", typeof(GoHomeHook), "RunHook", "RunOrig");
             Patch(typeof(RabbitHole), "RouteNearEntranceAndEnterRabbitHole", typeof(RabbitHoleHook), "EnterHook", "EnterOrig");
             Patch(typeof(VisitCommunityLot), "Run", typeof(VisitCommunityLotHook), "RunHook", "RunOrig");
+            // spawnfix / spawnoffworld (SpawnFix.cs, docs/853), both default off: a spawn or removal refreshes one spawner, not every spawner in the world
+            Patch(typeof(Sims3.Gameplay.Objects.Rewards.CollectionHelperSingleton), "FireEvent", typeof(SpawnFixHook), "FireHook", "FireOrig");
+            Patch(typeof(ObjectSpawner), "AddObjectToSpawner", typeof(SpawnFixHook), "AddHook", "AddOrig");
+            Patch(typeof(ObjectSpawner), "RemoveObjectFromSpawner", typeof(SpawnFixHook), "RemoveHook", "RemoveOrig");
+            Patch(typeof(ObjectSpawner), "ImportContent", new Type[] { typeof(Sims3.SimIFace.CustomContent.ResKeyTable), typeof(Sims3.SimIFace.CustomContent.ObjectIdTable), typeof(Sims3.SimIFace.IPropertyStreamReader) }, typeof(SpawnFixHook), "ImportHook", "ImportOrig");
+            Patch(typeof(ObjectSpawner), "TrySpawnObject", typeof(SpawnFixHook), "TrySpawnHook", "TrySpawnOrig");
+            Patch(typeof(SpawnerBase), "OnStartup", typeof(SpawnFixHook), "StartHook", "StartOrig");
+            Patch(typeof(SpawnerBase), "Dispose", typeof(SpawnFixHook), "DisposeHook", "DisposeOrig");
+            Patch(typeof(Sims3.Gameplay.Objects.Fishing.FishingSpotData), "ActivateSpot", typeof(SpawnFixHook), "ActivateHook", "ActivateOrig");
+            Patch(typeof(Sims3.Gameplay.Objects.Fishing.FishingSpotData), "DeactivateSpot", typeof(SpawnFixHook), "DeactivateHook", "DeactivateOrig");
             Patch(typeof(VisitLot), "Run", typeof(VisitLotHook), "RunHook", "RunOrig");
             Patch(typeof(GoToLot), "Run", typeof(GoToLotHook), "RunHook", "RunOrig");
             Patch(typeof(GoToCommunityLot), "Run", typeof(GoToCommunityLotHook), "RunHook", "RunOrig");
@@ -478,6 +488,7 @@ namespace Ts3Fixes
         // [2564-2565] free (released).
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
+        // [3700-3716] spawnfix / spawnoffworld (SpawnFix.cs, docs/853): see the list there.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -815,6 +826,8 @@ namespace Ts3Fixes
                 case "sculptpose": return Instantiator.kSculptPose;
                 case "trainboost": return Instantiator.kTrainBoost;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
+                case "spawnfix": return Instantiator.kSpawnFix;
+                case "spawnoffworld": return Instantiator.kSpawnOffWorld;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
