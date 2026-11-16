@@ -478,6 +478,7 @@ namespace Ts3Fixes
         // [2564-2565] free (released).
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
+        // [2736-2738] routableasync (RouteBackoff.cs, docs/518): kind-2 STARTs let through (unseen routable checks) / refused here / let through but not started.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -680,6 +681,7 @@ namespace Ts3Fixes
                 // docs/250 §7.1 A1: OFF since rc1110b (2026-11-09) until the wdasync-fix-1110 tests (Instantiator.kWatchdogAsync)
                 case "watchdogasync": return Instantiator.kWatchdogAsync;
                 case "watchdogasyncshadow": return false;  // correctness arm only: re-runs each A1 check sync and counts mismatches
+                case "routableasync": return false;  // A/B with [RouteAsync] Kinds=2: async PlanFromPoint only for unseen NPCs' IsPointInLotSafelyRoutable (RouteBackoff.cs, docs/518)
                 case "doorgen": return Instantiator.kDoorGen;  // DoorGen.cs: bump ts3native's door generation when a door answer input changes (DoorMemoX=3)
                 case "alarmtime": case "boatreplanlog": case "owresettime": case "synctime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
                 case "legreplanskip": return Instantiator.kLegReplanSkip;

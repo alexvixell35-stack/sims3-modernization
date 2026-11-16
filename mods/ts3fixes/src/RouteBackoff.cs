@@ -278,9 +278,11 @@ namespace Ts3Fixes
             // The watchdog's A1 job (WdA1Here) always takes the pre-call: its verdict is acted on (OkAt skips the Sim a sim-day), and
             // without the callback the job missed locked/forbidden doors, closed venues and tombs the sync check applies
             // (wdasync-fix2-1110: shadow mismatch A1 True vs sync False on residential lots).
-            bool PreCb(int kind, ref bool pre)
+            bool PreCb(int kind, ref bool pre) { return PreCb(kind, ref pre, false); }
+            // force: routableasync's job takes the pre-call as the watchdog's A1 does (same check, same door / tomb rules)
+            bool PreCb(int kind, ref bool pre, bool force)
             {
-                if (pre || !(ShortcutOn("preplancb") || WdA1Here())) return true;
+                if (pre || !(force || ShortcutOn("preplancb") || WdA1Here())) return true;
                 pre = true;
                 Sims3.SimIFace.Route.AboutToPlanDelegate cb = Sims3.SimIFace.Route.AboutToPlanCallback;
                 if (cb == null || DestObjectInvalid()) return true;
@@ -408,9 +410,21 @@ namespace Ts3Fixes
                 // OwnerTaskStart's kind 0), and ts3native starts an own kind-2 START without Kinds bit 2 only with it; it labels the
                 // job (v179 wdJob*). CheckIdle picks A1 only when ts3native answers q 9 (RouteFixes.cs WdA1Would).
                 bool wd = WdA1Here() && ForeignEligible();
+                // routableasync (docs/518, default off; for an A/B with [RouteAsync] Kinds=2): a PlanFromPoint START only from
+                // EA's Sim.IsPointInLotSafelyRoutable (RoutableCacheHook, sInRoutableCheck; our SpotVerdict's calls go through it
+                // too) for an unseen NPC (UfWhy 0: never household, selected or unknown scope); every other PlanFromPoint stays
+                // sync, as with Kinds=0. [2736] STARTs let through, [2737] refused here, [2738] let through but not started.
+                bool rtGate = kind == 2 && !wd && ShortcutOn("routableasync");
+                if (rtGate)
+                {
+                    Sims3.Gameplay.Actors.Sim rs = proxy != null ? proxy.Target as Sims3.Gameplay.Actors.Sim : null;
+                    if (!sInRoutableCheck || sInWdCheck || rs == null || rs.SimDescription == null || rs.SimDescription.IsPet || UfWhy(rs) != 0)
+                    { PatchCounters()[2737]++; return false; }
+                    PatchCounters()[2736]++;
+                }
                 bool own = wd || AsyncEligible(proxy != null ? proxy.Target as Sims3.Gameplay.Actors.Sim : null, "asyncreplan");
                 if (!own && !(ShortcutOn("asyncreplan") && ShortcutOn("asyncreplanforeign") && ForeignEligible())) return false;
-                PreCb(kind, ref pre);
+                PreCb(kind, ref pre, rtGate);
                 if (kind >= 2) { AsyncPoint(0, p.x); AsyncPoint(1, p.y); AsyncPoint(2, p.z); }
                 if (wd) { PatchCounters()[872]++; GetOption2(kProbe | (Sims3.SimIFace.Route.RouteOption2)0x10400UL); }
                 bool started = GetOption2((Sims3.SimIFace.Route.RouteOption2)((own ? kArStart : kArStart | kArForeign) | (ulong)kind << 56));
@@ -422,6 +436,7 @@ namespace Ts3Fixes
                     if (started) c[247]++;
                 }
                 if (!started) StepAside();  // the kind's sync plan follows
+                if (rtGate && !started) PatchCounters()[2738]++;
                 return started;
             }
 

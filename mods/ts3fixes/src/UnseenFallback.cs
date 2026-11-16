@@ -33,7 +33,14 @@ namespace Ts3Fixes
     public static partial class Fixes
     {
         static readonly UfLimiter sUf = new UfLimiter();
-        static bool sInRoutableCheck;  // inside Sim.IsPointInLotSafelyRoutable (RoutableCacheHook): never marked
+        // inside Sim.IsPointInLotSafelyRoutable (RoutableCacheHook): never marked. Per task (docs/518): with routableasync the
+        // check's plan sleeps on its job, and another task's plan must not read this task's flag.
+        static readonly System.Collections.Generic.Dictionary<ulong, bool> sRoutableTasks = new System.Collections.Generic.Dictionary<ulong, bool>();
+        static bool sInRoutableCheck
+        {
+            get { return sRoutableTasks.Count > 0 && sRoutableTasks.ContainsKey(Simulator.CurrentTask.Value); }
+            set { if (value) { if (sRoutableTasks.Count >= 256) sRoutableTasks.Clear(); sRoutableTasks[Simulator.CurrentTask.Value] = true; } else sRoutableTasks.Remove(Simulator.CurrentTask.Value); }
+        }
         static bool sUfInLeg;          // D-leave walks its visible leg (UfLeave): plans inside are left to the game
 
         // docs/202 §5.6 (5): plans of >= kUfSlowPlanMs (wall, the hook's whole call: sync search, or the task's sleep for an async
