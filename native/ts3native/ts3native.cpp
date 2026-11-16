@@ -18,7 +18,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.265-m1116"  // merge/master-1116: master (rewind, DoorMemoX) + stuckcheckasync, b6 logs, HouseholdToo v204, seenexact crash log, queue rewind, rmr snapback
+#define TS3NATIVE_VERSION "0.36.266-mb1116"  // merge/master-1116b: master-1116 + harness known causes, weddingcleanup ts3fixes guard (1058-1059), rmr snapback bound; native code unchanged
 #endif
 
 typedef unsigned char u8;

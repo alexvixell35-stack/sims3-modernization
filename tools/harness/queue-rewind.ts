@@ -65,6 +65,31 @@ export function rewindGroups<J>(jobs: J[], on: (j: J) => boolean, block: (j: J) 
   return out;
 }
 
+// queue key rewindGroupBySave: true (docs/272 §3; the dry-run census found 773 of 1900 neighbouring job pairs differing only by
+// save): a stable reorder so jobs with the same start key sit next to each other. Barriers keep their place and are never crossed:
+// a job that cannot start from a rewind (it restarts, saves, travels or quits), a stopQueueOnFail gate (later jobs wait on its
+// verdict) and a smoke job (id with "smoke"). Between two barriers keys keep the order of their first job, jobs of one key their
+// own order (ABBA order inside one save stays).
+export function groupBySave<J>(jobs: J[], key: (j: J) => string, barrier: (j: J) => string): J[] {
+  const out: J[] = [];
+  let seg: J[] = [];
+  const flush = () => {
+    const by = new Map<string, J[]>();
+    for (const j of seg) { const k = key(j); by.set(k, [...(by.get(k) ?? []), j]); }
+    for (const g of by.values()) out.push(...g);
+    seg = [];
+  };
+  for (const j of jobs) if (barrier(j)) { flush(); out.push(j); } else seg.push(j);
+  flush();
+  return out;
+}
+// dry-run line: rewind starts with the queue order vs the grouped order (rewind assumed on)
+export function bySaveGain<J>(before: J[], after: J[], block: (j: J) => string, key: (j: J) => string, on: boolean): string {
+  const starts = (js: J[]) => { const g = rewindGroups(js, () => true, block, key); return g.size - new Set(g.values()).size; };
+  const a = starts(before), b = starts(after), moved = before.filter((j, i) => after[i] !== j).length;
+  return `rewindGroupBySave ${on ? 'on' : 'off'}: ${a} -> ${b} of ${before.length} jobs start from a rewind when grouped (${b - a >= 0 ? '+' : ''}${b - a}, ~${Math.round((b - a) * (FRESH_EST_MS - REWIND_EST_MS) / 60000)} min; ${moved} jobs move)${on ? '' : b > a ? '; set "rewindGroupBySave": true to use it' : ''}`;
+}
+
 // real ts3native.log lines (rewind-bridge-1115 bp-rewind-bridge-apply, 2026-11-15): the asi has [Rewind] and the ini turned it on
 export const PARK_ON = /^\[Rewind\] Park on: /m, OFFLINE_ON = /^\[Rewind\] Offline on: /m;
 // '' when a snapshot may be taken in this game, else why not (the job then runs without one and the next job starts fresh)
@@ -145,6 +170,16 @@ async function selfCheck() {
   assert.deepEqual(js.map(j => gs.get(j) ?? 0), [1, 1, 0, 0, 2, 2, 0, 0], 'a+b, e+f; c opts out, d and h alone, g a script');
   assert.equal(rewindGroups(js, () => false, j => rewindBlock(j), j => j.k).size, 0, 'rewind off: no groups');
   assert.equal(rewindGroups([J('a', 'A')], () => true, () => '', j => j.k).size, 0, 'one job: nothing to share');
+  // rewindGroupBySave: the re-baseline block form (bp/ip/sv alternate) groups per save; barriers stay and are never crossed
+  const bar = (j: any) => rewindBlock(j) || (j.stopQueueOnFail ? 'stopQueueOnFail' : '') || (/smoke/i.test(j.id) ? 'smoke job' : '');
+  const rb = ['bp-1', 'ip-1', 'sv-1', 'ip-2', 'bp-2', 'ip-3', 'sv-2', 'ip-4'].map(id => J(id, id.split('-')[0]));
+  const gb = groupBySave(rb, j => j.k, bar);
+  assert.deepEqual(gb.map(j => j.id), ['bp-1', 'bp-2', 'ip-1', 'ip-2', 'ip-3', 'ip-4', 'sv-1', 'sv-2'], 'first-appearance key order, stable inside a key');
+  assert.equal(bySaveGain(rb, gb, bar, j => j.k, false), 'rewindGroupBySave off: 0 -> 5 of 8 jobs start from a rewind when grouped (+5, ~9 min; 6 jobs move); set "rewindGroupBySave": true to use it');
+  const wb = [J('bp-1', 'bp'), J('ip-1', 'ip'), J('gate', 'bp', { stopQueueOnFail: true }), J('bp-2', 'bp'), J('ip-2', 'ip'), J('ip-smoke', 'ip'), J('bp-3', 'bp'), J('bp-s', 'bp', { run: { script: ['x.ts'] } }), J('ip-5', 'ip'), J('bp-4', 'bp')];
+  assert.deepEqual(groupBySave(wb, j => j.k, bar).map(j => j.id), ['bp-1', 'ip-1', 'gate', 'bp-2', 'ip-2', 'ip-smoke', 'bp-3', 'bp-s', 'ip-5', 'bp-4'], 'every segment already grouped: nothing moves across a gate, smoke or script job');
+  const same = [J('a', 'A'), J('b', 'A')];
+  assert.match(bySaveGain(same, groupBySave(same, j => j.k, bar), bar, j => j.k, true), /^rewindGroupBySave on: 1 -> 1 of 2 jobs .*\(\+0, ~0 min; 0 jobs move\)$/);
   for (const [x, re] of [[{ save: 'menu' }, /no save/], [{ ourMods: false }, /ts3native/], [{ d3d9Dll: 'x.dll' }, /bridge/], [{ callSites: true }, /callSites/], [{ ini: { 'ProbeSnap.CallSites': 1 } }, /int3/],
     [{ run: { profile: { minutes: 5, travel: 'egypt' } } }, /travel/], [{ run: { profile: { minutes: 5, repros: ['a'] } } }, /frames/], [{ run: { matrix: [] } }, /run\.matrix/],
     [{ run: { saveReload: [] } }, /run\.saveReload/], [{ run: { age: {} } }, /run\.age/], [{ run: { profile: { minutes: 5, story: {} } } }, /story/]] as const)

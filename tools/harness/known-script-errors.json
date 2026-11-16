@@ -1,18 +1,20 @@
 {
- "_doc": "Known EA script errors that fire without our code (ScriptError_*.xml / ErrorTrap). Matched by exception type + the top stack frames in order (suffix of 'Namespace.Type:Method'); a stack with any frame outside EA game script (Sims3.Gameplay*, Sims3.SimIFace, Sims3.UI, ScriptCore, System) never matches, except an entry's own passFrames (verified pass-through hooks of ours, dropped before matching); optional message = regex on the exception message. Matched errors are reported as 'known EA error <id> (ignored)' and counted, never dropped. Loader + matcher: tools/harness/known-script-errors.ts.",
+ "_doc": "Known EA script errors that fire without our code (ScriptError_*.xml / ErrorTrap). Matched by exception type + the top stack frames in order (suffix of 'Namespace.Type:Method'); a stack with any frame outside EA game script (Sims3.Gameplay*, Sims3.SimIFace, Sims3.UI, ScriptCore, System) never matches, except a ts3fixes hook frame (Ts3Fixes.Fixes+*Hook*:<method>) directly below EA's original body renamed <x>Orig: that pair counts as EA's <method> (known-script-errors.ts unhook); optional message = regex on the exception message. Matched errors are reported as 'known EA error <id> (ignored)' and counted, never dropped. Loader + matcher: tools/harness/known-script-errors.ts.",
  "errors": [
   {
    "id": "ea-wedding-cleanup-nre",
    "exception": "System.NullReferenceException",
    "frames": ["WeddingCeremony:CleanUp", "Situation:Exit", "WeddingCeremony+RouteToWeddingArch:OnRouteFailed"],
-   "why": "EA WeddingCeremony.CleanUp dereferences null when the route to the wedding arch fails (InteractionQueue DeQueue -> CleanupInteraction -> OnRouteFailed -> Situation.Exit), lot Sparkling Sands in the Baseline-IP save; fires at random after load, with and without our fixes [verified: 27 probe-out runs from 2026-10-12, before the v0.1.6 hotfix; all frames EA]",
+   "why": "EA WeddingCeremony.CleanUp dereferences null when the route to the wedding arch fails (InteractionQueue DeQueue -> CleanupInteraction -> OnRouteFailed -> Situation.Exit), lot Sparkling Sands in the Baseline-IP save; fires at random after load, with and without our fixes [verified: 27 probe-out runs from 2026-10-12, before the v0.1.6 hotfix; all frames EA; probe-out/20261012-174026 etc. have no Ts3Fixes assembly loaded]. Since weddingarchkeep (docs/546 §12, ON in master-1116) the stack runs through Ts3Fixes.Fixes+WeddingArchKeepHook:OnRouteFailed and EA's body renamed OnRouteFailedOrig: that frame pair only appears when the hook returned false and EA's unchanged body ran (a state the fix replaced never reaches the Orig body) [verified code, WeddingArchKeep.cs]; same NRE offset 0x3b as the all-EA 2026-10-16..10-20 runs. Seen 2026-11-15 21:13 and 2026-11-16 13:44 (mono-jitfault-correct-1116 ip-jitfault-on, JIT on; not JIT: the all-EA runs predate the JIT).",
    "first_seen": "2026-10-12",
    "evidence": [
     "probe-out/20261012-174026/events.jsonl",
     "probe-out/20261025-034427/events.jsonl",
     "<Documents>/Electronic Arts/The Sims 3/ScriptError_*__10-25-2026__08-31-19__FED401E4.xml",
     "<Documents>/Electronic Arts/The Sims 3/ScriptError_*__10-25-2026__03-46-48__BB72BED7.xml",
-    "hotfix gate job ip-hf-matrix reload case, 2026-10-25"
+    "hotfix gate job ip-hf-matrix reload case, 2026-10-25",
+    "<Documents>/Electronic Arts/The Sims 3/ScriptError_*__11-15-2026__21-13-56__867FA881.xml",
+    "<Documents>/Electronic Arts/The Sims 3/ScriptError_*__11-16-2026__13-44-05__5E6E00F2.xml"
    ]
   },
   {
@@ -20,8 +22,7 @@
    "exception": "System.ApplicationException",
    "frames": ["InteractionQueue:OnError"],
    "message": "left an object in the Sim's hand with no carry state machine: Sims3\\.Gameplay\\.Objects\\.BookGeneral$",
-   "passFrames": ["Fixes+BookHandQueueHook:PutDownCarriedObjects"],
-   "why": "EA InteractionQueue.PutDownCarriedObjects throws when an interaction (Bookshelf_ReadSomething, ReadBook, Book_PutAway, ServingContainer+PutAwayLeftovers) ends with a BookGeneral in the Sim's hand and no carry state machine (docs/251). Mostly household Angelista on Baseline-BP, also before ts3fixes existed [verified: this matcher matches 33 ScriptError events in probe-out events.jsonl 2026-10-11..2026-11-12, the first before ts3fixes had a book hook; the handoff counted 57 hits incl. the related CarrySystem.PutDownOnSurface NRE, which this entry does not cover]. ts3fixes BookHandQueueHook (bookhand off) only counts and calls the original, renamed PdcoOrig [verified code, BookHand.cs], so that frame is a listed pass-through. Household scope is not matched: the ErrorTrap Object block can name another Sim. Plate (Sink+WashDishes) is not covered.",
+   "why": "EA InteractionQueue.PutDownCarriedObjects throws when an interaction (Bookshelf_ReadSomething, ReadBook, Book_PutAway, ServingContainer+PutAwayLeftovers) ends with a BookGeneral in the Sim's hand and no carry state machine (docs/251). Mostly household Angelista on Baseline-BP, also before ts3fixes existed [verified: this matcher matches 33 ScriptError events in probe-out events.jsonl 2026-10-11..2026-11-12, the first before ts3fixes had a book hook; the handoff counted 57 hits incl. the related CarrySystem.PutDownOnSurface NRE, which this entry does not cover]. ts3fixes BookHandQueueHook (bookhand off) only counts and calls the original, renamed PdcoOrig [verified code, BookHand.cs], so that pair is unhooked before matching. Household scope is not matched: the ErrorTrap Object block can name another Sim. Plate (Sink+WashDishes) is not covered.",
    "first_seen": "2026-10-11",
    "evidence": [
     "probe-out/20261011-233951/events.jsonl",
@@ -29,6 +30,19 @@
     "probe-out/20261112-100240/events.jsonl",
     "freeze-stress-1112-04 job: household Lala Angelista, Bookshelf_ReadSomething, 2026-11-12",
     "docs/251-book-in-hand-no-carry.md"
+   ]
+  },
+  {
+   "id": "ea-follower-vehicle-nre",
+   "exception": "System.NullReferenceException",
+   "frames": ["Sim:GetOwnedAndUsableVehicle", "Sim:GetOwnedAndUsableVehicle", "SimRoutingComponent:CanBePreferredLeader", "SimRoutingComponent:GetProperLeader", "SimRoutingComponent:CreateGoHereWithInteractionInstance"],
+   "why": "Game script NRE in Sim.GetOwnedAndUsableVehicle (IL ~0x15f) when DoRouteWithFollowers picks the group leader and CanBePreferredLeader asks a follower for its vehicle; seen from the LynMods StudentUnionLibrary VisitCommunityLotLabLecture visit (a Sims3.Gameplay.* namespace mod, runs every community visit in this install). Same stack and offsets with no ts3fixes frame [verified: probe-out/20261016-181827 and 20261020-111857 events.jsonl, VisitCommunityLotLabLecture:Run 0x3f7, before VclSubHook existed]; since unseenfbtrip the mod's Run is renamed RunOrig under Ts3Fixes.Fixes+VclSubHookN:Run (ret at 0x6: Shortcut() then RunOrig, which only presets an empty follower list when it moves an unseen actor; the NRE needs a non-empty follower list). Also matches through GoHome:RunOrig under GoHomeHook:Run (2026-11-11, probe-out/20261111-003952).",
+   "first_seen": "2026-10-16",
+   "evidence": [
+    "probe-out/20261016-181827/events.jsonl",
+    "probe-out/20261020-111857/events.jsonl",
+    "probe-out/20261102-130132/events.jsonl",
+    "<Documents>/Electronic Arts/The Sims 3/ScriptError_*__11-16-2026__16-12-38__82C58041.xml (mono-autshadow-seenexact-1116 bp-seen-smoke, NPC Marina Prattle, household Mixture of Good and Bad)"
    ]
   }
  ]

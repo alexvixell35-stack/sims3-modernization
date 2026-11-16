@@ -11,6 +11,8 @@ node tools/harness/track.ts status                         # hold, job (pid aliv
 node tools/harness/track.ts stop --after-job               # hold, wait for the running job, stop chains + queue.ts, clean, release hold
 node tools/harness/track.ts stop                           # same now: also kills the job's tree and TS3W.exe
 node tools/harness/track.ts switch probe-out/queue/<chain>.sh [--after-job]   # stop, then start it detached (out: probe-out/queue/<chain>.out)
+node tools/harness/track.ts marker "<text>"                # inside a chain: line in the .out + probe-out/queue/<chain>.markers (handover lines)
+node tools/harness/track.ts wait-marker <chain> "<text>"   # block until that marker; exit 3 when the chain is gone without it (never grep the .out)
 node tools/harness/track.ts build-window <reason>          # hold "build-window: <reason>", wait for the job to end, "ok to build"
 node tools/harness/track.ts build-done                     # release the hold, only if it is a build-window hold
 ```

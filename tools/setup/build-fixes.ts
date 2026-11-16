@@ -306,6 +306,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kEventRouteRetry value="True" />
     <kSimFestKeep value="False" />
     <kWeddingArchKeep value="True" />
+    <kWeddingCleanup value="True" />
     <kHsGradKeep value="True" />
     <kUniGradKeep value="False" />
     <kBsRefund value="False" />

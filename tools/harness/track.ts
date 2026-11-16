@@ -6,11 +6,15 @@
 //   node tools/harness/track.ts stop [--after-job]           stop chains + queue.ts (+ job tree + TS3W.exe unless --after-job), clean
 //   node tools/harness/track.ts switch <script.sh> [--after-job]   stop, then start the script detached (out: probe-out/queue/<name>.out)
 //   node tools/harness/track.ts wait-chain <script.sh>         block until that chain, every queue.ts and the job are gone (use in the next chain)
+//   node tools/harness/track.ts marker [--chain <name>] <text>  in a chain: prints "marker: <time> <text>" (the .out) and appends it to
+//                                                             probe-out/queue/<chain>.markers (chain name: TS3_CHAIN, set by switch)
+//   node tools/harness/track.ts wait-marker <chain> <text>   block until <chain>.markers has a line containing text (exit 0), or the
+//                                                             chain process is gone without it (exit 3); use instead of grepping the .out
 //   node tools/harness/track.ts build-window <reason>       hold "build-window: <reason>", wait for the running job, "ok to build"
 //   node tools/harness/track.ts build-done                   release the hold if it is a build-window hold
 //   node tools/harness/track.ts --self-check                 temp dir, fake process list
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { GAME_EXE } from './game-exe.ts';
@@ -103,6 +107,39 @@ export async function waitChain(e: Env, script: string) {
     const c = classify(e.procs()), j = jobState(e, c.alive);
     if (!c.chains.some(p => p.script === name) && !c.queues.length && !j?.alive) return `${name} gone, no queue or job running`;
     if (t % 60 === 0) e.log(`waiting for ${name} (${t * e.sleepMs / 60000} min)`);
+    await sleep(e.sleepMs);
+  }
+}
+
+// Chain start (2026-11-16: no echo line of chain-mono-rest-rebaseline-1116.sh reached its .out, which broke a handover). Node's
+// openSync(f, 'a') gives a handle with FILE_APPEND_DATA but no FILE_WRITE_DATA; Git Bash (MSYS) programs fail to write to it
+// without an error (echo, tee), native ones (node, python) succeed, so the .out only had node lines [verified: repro in the
+// self-check]. bash now opens the .out itself (>>, MSYS append) and every child inherits that handle. TS3_CHAIN names the chain
+// for `track.ts marker`.
+export const chainName = (script: string) => basename(script).replace(/\.sh$/, '');
+export function startChain(script: string, outF: string, cwd: string) {
+  const git = 'C:\\Program Files\\Git\\bin\\bash.exe'; // not System32 bash.exe (WSL)
+  const fwd = (p: string) => p.replace(/\\/g, '/');
+  return spawn(existsSync(git) ? git : 'bash', ['-c', 'exec >>"$0" 2>&1 </dev/null; exec bash "$1"', fwd(outF), fwd(script)],
+    { cwd, detached: true, stdio: 'ignore', windowsHide: true, env: { ...process.env, TS3_CHAIN: chainName(script) } });
+}
+// a marker: "<UTC time> <text>" appended to probe-out/queue/<chain>.markers (waiters read this file, not the .out)
+export function writeMarker(dir: string, chain: string, text: string, now = new Date()) {
+  const line = `${now.toISOString().slice(0, 19)}Z ${text}`;
+  mkdirSync(dir, { recursive: true }); appendFileSync(join(dir, `${chain}.markers`), `${line}\n`);
+  return line;
+}
+// wait until <chain>.markers has a line containing text (plain substring); not ok when the chain process is gone without it
+export async function waitMarker(e: Env, chain: string, text: string): Promise<{ ok: boolean; line: string }> {
+  const f = join(e.dir, `${chainName(chain)}.markers`);
+  for (let t = 1; ; t++) {
+    const hit = (read(f) ?? '').split(/\r?\n/).find(l => l.includes(text));
+    if (hit) return { ok: true, line: `marker: ${hit}` };
+    if (!classify(e.procs()).chains.some(p => chainName(p.script) === chainName(chain))) {
+      const again = (read(f) ?? '').split(/\r?\n/).find(l => l.includes(text)); // written just before the exit
+      return again ? { ok: true, line: `marker: ${again}` } : { ok: false, line: `${chainName(chain)} is not running and wrote no marker "${text}"` };
+    }
+    if (t % 60 === 0) e.log(`waiting for marker "${text}" of ${chainName(chain)} (${t * e.sleepMs / 60000} min)`);
     await sleep(e.sleepMs);
   }
 }
@@ -212,6 +249,24 @@ if (import.meta.main) {
       let ticks = 0; const e2: Env = { ...e, procs: () => ps, sleepMs: 0 };
       const w = waitChain({ ...e2, procs: () => { if (++ticks === 3) ps = [ps[1]]; if (ticks === 5) ps = []; return ps; } }, 'probe-out/queue/chain-a.sh');
       assert.match(await w, /chain-a\.sh gone/); assert.equal(ticks, 5, 'waits for the orphaned queue too');
+      // markers: one "<UTC>Z text" line each; wait-marker finds it, and gives up once the chain is gone without it
+      assert.equal(writeMarker(d, 'chain-m', 'mono-1115 rest done (rc 0)', new Date('2026-11-16T05:00:01Z')), '2026-11-16T05:00:01Z mono-1115 rest done (rc 0)');
+      assert.equal(readFileSync(join(d, 'chain-m.markers'), 'utf8'), '2026-11-16T05:00:01Z mono-1115 rest done (rc 0)\n');
+      ps = [{ pid: 50, ppid: 1, name: 'bash.exe', cmd: 'bash probe-out/queue/chain-m.sh' }];
+      assert.deepEqual(await waitMarker(e2, 'chain-m.sh', 'rest done'), { ok: true, line: 'marker: 2026-11-16T05:00:01Z mono-1115 rest done (rc 0)' });
+      let polls = 0; const gone = waitMarker({ ...e2, procs: () => (++polls === 3 ? (ps = []) : ps) }, 'chain-m', 'rebaseline done');
+      assert.deepEqual(await gone, { ok: false, line: 'chain-m is not running and wrote no marker "rebaseline done"' }); assert.equal(polls, 3);
+      // the real start path: echo, tee and node lines of the chain all land in the .out (2026-11-16: echo and tee lines were lost)
+      const sh = join(d, 'chain-echo.sh'), chOut = join(d, 'chain-echo.out');
+      writeFileSync(sh, ['echo "06:44 mono-1115 rest start"', 'echo "tee line" | tee /dev/null', 'node -e "console.log(\'node line\')"',
+        'node "$TRACK" marker "rest done"', 'echo "06:45 mono-1115 rest done (rc 0)"', ''].join('\n'));
+      writeFileSync(chOut, 'earlier run\n');
+      process.env.TRACK = join(import.meta.dirname, 'track.ts'); process.env.TS3_QUEUE_DIR = d;
+      const ch = startChain(sh, chOut, d);
+      await new Promise(r => ch.on('exit', r));
+      assert.deepEqual(readFileSync(chOut, 'utf8').split(/\r?\n/).filter(Boolean), ['earlier run', '06:44 mono-1115 rest start', 'tee line', 'node line',
+        readFileSync(join(d, 'chain-echo.markers'), 'utf8').trim().replace(/^/, 'marker: '), '06:45 mono-1115 rest done (rc 0)'], 'every line, appended');
+      assert.match(readFileSync(join(d, 'chain-echo.markers'), 'utf8'), /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ rest done\n$/, 'TS3_CHAIN names the chain');
     } finally { rmSync(d, { recursive: true, force: true }); }
     console.log('self-check ok');
   } else if (cmd === 'status') {
@@ -222,12 +277,19 @@ if (import.meta.main) {
     if (cmd === 'switch') { script = resolve(rest[0]); if (!existsSync(script)) { console.error(`no such script: ${script}`); process.exit(2); } }
     for (const l of (await stop(e, afterJob)).slice(0, 10)) console.log(l);
     if (script) {
-      const git = 'C:\\Program Files\\Git\\bin\\bash.exe'; // not System32 bash.exe (WSL)
-      const outF = join(e.dir, `${basename(script).replace(/\.sh$/, '')}.out`), fd = openSync(outF, 'a');
-      const ch = spawn(existsSync(git) ? git : 'bash', [script], { cwd: dirname(dirname(e.dir)), detached: true, stdio: ['ignore', fd, fd], windowsHide: true });
+      const outF = join(e.dir, `${chainName(script)}.out`), ch = startChain(script, outF, dirname(dirname(e.dir)));
       ch.unref();
-      console.log(`started ${basename(script)} pid ${ch.pid}, out ${outF}`);
+      console.log(`started ${basename(script)} pid ${ch.pid}, out ${outF}, markers ${join(e.dir, `${chainName(script)}.markers`)}`);
     }
+  } else if (cmd === 'marker' && rest.length) {
+    // never fails a chain: without a chain name the text still goes to stdout (the .out)
+    const ci = rest.indexOf('--chain'), chain = ci >= 0 ? rest[ci + 1] : process.env.TS3_CHAIN;
+    const text = (ci >= 0 ? rest.filter((_, i) => i !== ci && i !== ci + 1) : rest).join(' ');
+    if (!chain) console.log(`marker: ${text} (WARN: no chain name, TS3_CHAIN unset and no --chain: not written to a .markers file)`);
+    else console.log(`marker: ${writeMarker(env().dir, chain, text)}`);
+  } else if (cmd === 'wait-marker' && rest.length >= 2) {
+    const r = await waitMarker(env(), rest[0], rest.slice(1).join(' '));
+    console.log(`${new Date().toISOString().slice(11, 19)} track: ${r.line}`); process.exit(r.ok ? 0 : 3);
   } else if (cmd === 'wait-chain' && rest[0]) {
     const e = env(); console.log(`${new Date().toISOString().slice(11, 19)} track: ${await waitChain(e, rest[0])}`);
   } else if (cmd === 'build-window' && rest.length) {

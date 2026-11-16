@@ -18,11 +18,12 @@ const MAIN_CALLER = 0x735358, WORKER_CALLER = 0x734725, CS_GAP = 0x78;
 
 interface Thread { tid: number; stackStart: number; stackSize: number; stackRva: number; ctxRva: number; ctxSize: number }
 interface Range { start: number; size: number; rva: number }
-export interface Wait { tid: number; cs: number; owner: number; recursion: number; reg: string; stack: Set<number>; kind?: 'CS' | 'std::mutex' }
-export interface Analysis { waits: Wait[]; cycle: number[] | null; deadlock: string; lines: string[]; summary: string }
+export interface Wait { tid: number; cs: number; owner: number; recursion: number; reg: string; stack: Set<number>; kind?: 'CS' | 'std::mutex'; caller?: number }
+export interface Analysis { waits: Wait[]; cycle: number[] | null; deadlock: string; lines: string[]; summary: string; cycleModules?: string }
+export interface Module { name: string; base: number; end: number }
 
 class Dump {
-  fd: number; threads: Thread[] = []; ranges: Range[] = []; ntdll: [number, number] | null = null; arch = -1;
+  fd: number; threads: Thread[] = []; ranges: Range[] = []; ntdll: [number, number] | null = null; arch = -1; modules: Module[] = [];
   file: string;
   constructor(file: string) {
     this.file = file;
@@ -58,6 +59,7 @@ class Dump {
     for (let i = 0; i < n; i++) {
       const base = b.readUInt32LE(i * 108), size = b.readUInt32LE(i * 108 + 8), nameRva = b.readUInt32LE(i * 108 + 20);
       const len = this.at(nameRva, 4).readUInt32LE(0), name = this.at(nameRva + 4, Math.min(len, 1024)).toString('utf16le');
+      this.modules.push({ name: name.split('\\').at(-1)!, base, end: base + size });
       if (/(^|\\)ntdll\.dll$/i.test(name) && (!this.ntdll || base < 0x80000000)) this.ntdll = [base, base + size]; // the 32-bit one (the x64 ntdll lies above 2 GB)
     }
   }
@@ -85,11 +87,31 @@ class Dump {
     }
     return null;
   }
+  // inside an executable section of the module's PE image in the dump (a return address, not a pointer into its data); no header = no
+  private code = new Map<Module, [number, number][]>();
+  inCode(m: Module, v: number): boolean {
+    if (!this.code.has(m)) {
+      const r: [number, number][] = [];
+      try {
+        const lfa = this.mem(m.base + 0x3C, 4)?.readUInt32LE(0), fh = lfa === undefined ? null : this.mem(m.base + lfa, 24);
+        if (fh && fh.toString('latin1', 0, 4) === 'PE\0\0') {
+          const n = fh.readUInt16LE(6), sec = this.mem(m.base + lfa! + 24 + fh.readUInt16LE(20), 40 * n);
+          for (let i = 0; sec && i < n; i++) if (sec.readUInt32LE(i * 40 + 36) & 0x20000000) r.push([m.base + sec.readUInt32LE(i * 40 + 12), m.base + sec.readUInt32LE(i * 40 + 12) + sec.readUInt32LE(i * 40 + 8)]);
+        }
+      } catch { /* unreadable header */ }
+      this.code.set(m, r);
+    }
+    return this.code.get(m)!.some(([a, b]) => v >= a && v < b);
+  }
   close() { closeSync(this.fd); }
 }
 
 const REGS: [string, number][] = [['edi', 0x9C], ['esi', 0xA0], ['ebx', 0xA4], ['ecx', 0xAC], ['edx', 0xA8]];
 const hex = (n: number) => `0x${n.toString(16).toUpperCase().padStart(8, '0')}`;
+const SYSTEM_DLL = /^(ntdll|kernelbase|kernel32|ucrtbase|msvcp\d+|vcruntime\d+(_\d+)?|msvcr\d+)\.dll$/i;
+const modAt = (mods: Module[], v: number) => mods.find(m => v >= m.base && v < m.end) ?? null;
+// "<module>+0x<offset>", a bare address outside every module (heap), or "?" when unknown
+export const modRef = (mods: Module[], v?: number) => { if (v === undefined) return '?'; const m = modAt(mods, v); return m ? `${m.name}+0x${(v - m.base).toString(16).toUpperCase()}` : hex(v); };
 
 // the signature of the EA package-lock ABBA (pure: covered by --self-check)
 export function matchEaPackageLock(cycle: number[] | null, waits: Wait[]): string {
@@ -128,13 +150,22 @@ export function analyzeDump(file: string): Analysis {
         for (let i = 0; i + 4 <= sb.length; i += 4) stack.add(sb.readUInt32LE(i));
         return stack;
       };
+      // the lock call's caller: the first return address near the stack top in a non-system module's code
+      const callerOf = (lock: number) => {
+        const top = d.span(c.readUInt32LE(0xC4), 0x200);
+        for (let i = 0; top && i + 4 <= top.length; i += 4) {
+          const v = top.readUInt32LE(i), m = modAt(d.modules, v);
+          if (m && !SYSTEM_DLL.test(m.name) && d.inCode(m, v)) return v;
+        }
+        return undefined;
+      };
       let found = false;
       for (const [reg, off] of REGS) {
         const p = c.readUInt32LE(off), cs = p % 4 === 0 ? d.mem(p, 24) : null;
         if (!cs) continue;
         const lock = cs.readInt32LE(4), rec = cs.readInt32LE(8), owner = cs.readUInt32LE(12);
         if (lock === -1 || rec < 1 || rec > 4096 || owner === t.tid || !tids.has(owner)) continue;
-        waits.push({ tid: t.tid, cs: p, owner, recursion: rec, reg, stack: stackOf(), kind: 'CS' });
+        waits.push({ tid: t.tid, cs: p, owner, recursion: rec, reg, stack: stackOf(), kind: 'CS', caller: callerOf(p) });
         found = true;
         break;
       }
@@ -147,7 +178,7 @@ export function analyzeDump(file: string): Analysis {
           if (!b) continue;
           const type = b.readUInt32LE(0), srw = b.readUInt32LE(8), owner = b.readUInt32LE(40), count = b.readInt32LE(44);
           if ((type & ~0x107) || !(type & 7) || !(srw & 1) || count < 1 || count > 4096 || owner === t.tid || !tids.has(owner)) continue;
-          waits.push({ tid: t.tid, cs: m, owner, recursion: count, reg: 'stack', stack: stackOf(), kind: 'std::mutex' });
+          waits.push({ tid: t.tid, cs: m, owner, recursion: count, reg: 'stack', stack: stackOf(), kind: 'std::mutex', caller: callerOf(m) });
           found = true;
           break;
         }
@@ -156,8 +187,15 @@ export function analyzeDump(file: string): Analysis {
     const cycle = findCycle(waits), deadlock = matchEaPackageLock(cycle, waits);
     const lines = waits.map(w => `thread ${w.tid} waits ${w.kind ?? 'CS'} ${hex(w.cs)} (via ${w.reg}) owned by thread ${w.owner} (recursion ${w.recursion})`);
     if (cycle) lines.push(`cycle: ${[...cycle, cycle[0]].join(' -> ')}${deadlock ? `: ${deadlock}` : ''}`);
-    const summary = `lock waits: ${waits.length} of ${d.threads.length} threads${cycle ? `; deadlock cycle ${[...cycle, cycle[0]].join('>')}` : '; no cycle'}${deadlock ? `; ${deadlock}` : ''}`;
-    return { waits, cycle, deadlock, lines, summary };
+    // which modules the cycle's locks and lock calls live in (tools/harness/known-causes.json hang rules match the one-module form)
+    let cycleModules: string | undefined;
+    if (cycle) {
+      const cw = cycle.map(t => waits.find(w => w.tid === t)!), at = (v?: number) => modRef(d.modules, v);
+      cycleModules = [...new Set(cw.flatMap(w => [at(w.cs), at(w.caller)]).map(r => r.split('+')[0]))].join(', ');
+      lines.push(`cycle modules: ${cycleModules} (locks ${cw.map(w => at(w.cs)).join(', ')}; callers ${cw.map(w => at(w.caller)).join(', ')})`);
+    }
+    const summary = `lock waits: ${waits.length} of ${d.threads.length} threads${cycle ? `; deadlock cycle ${[...cycle, cycle[0]].join('>')}` : '; no cycle'}${deadlock ? `; ${deadlock}` : ''}${cycle ? `; cycle modules: ${cycleModules}` : ''}`;
+    return { waits, cycle, deadlock, lines, summary, cycleModules };
   } finally { d.close(); }
   function fail(why: string): Analysis { return { waits: [], cycle: null, deadlock: '', lines: [why], summary: why }; }
 }
@@ -170,17 +208,23 @@ if (process.argv[1]?.endsWith('dump-locks.ts') && !process.argv.includes('--self
 
 // ---- self-check: synthetic x86 full-memory dumps
 interface FakeThread { tid: number; eip: number; edi: number; stack: number[] }
-function fakeDump(file: string, threads: FakeThread[], cs: { addr: number; lock: number; rec: number; owner: number }[], raw: { addr: number; buf: Buffer }[] = []) {
-  const T = 48 * threads.length + 4, M = 4 + 108, S = 56, G = 16 + 16 * (threads.length + cs.length + raw.length);
-  const dirRva = 32, nStreams = 4, sysRva = dirRva + 12 * nStreams, thrRva = sysRva + S, modRva = thrRva + T, nameRva = modRva + M, memRva = nameRva + 4 + 24;
+function fakeDump(file: string, threads: FakeThread[], cs: { addr: number; lock: number; rec: number; owner: number }[], raw: { addr: number; buf: Buffer }[] = [],
+  extraMods: { name: string; base: number; size: number }[] = []) {
+  const mods = [{ name: 'ntdll.dll', base: 0x7000_0000, size: 0x100000 }, ...extraMods];
+  const T = 48 * threads.length + 4, M = 4 + 108 * mods.length, S = 56, G = 16 + 16 * (threads.length + cs.length + raw.length);
+  const dirRva = 32, nStreams = 4, sysRva = dirRva + 12 * nStreams, thrRva = sysRva + S, modRva = thrRva + T, nameRva = modRva + M, memRva = nameRva + 68 * mods.length;
   const dataRva = memRva + G, ctxSize = 0x2CC;
   const parts: Buffer[] = [], ranges: { start: number; buf: Buffer }[] = [];
   const buf = Buffer.alloc(dataRva); buf.write('MDMP', 0, 'latin1'); buf.writeUInt32LE(nStreams, 8); buf.writeUInt32LE(dirRva, 12);
   [[7, S, sysRva], [3, T, thrRva], [4, M, modRva], [9, G, memRva]].forEach(([t, s, r], i) => { buf.writeUInt32LE(t, dirRva + i * 12); buf.writeUInt32LE(s, dirRva + i * 12 + 4); buf.writeUInt32LE(r, dirRva + i * 12 + 8); });
   buf.writeUInt16LE(0, sysRva); // x86
   buf.writeUInt32LE(threads.length, thrRva);
-  buf.writeUInt32LE(1, modRva); buf.writeUInt32LE(0x7000_0000, modRva + 4); buf.writeUInt32LE(0x100000, modRva + 12); buf.writeUInt32LE(nameRva, modRva + 24);
-  buf.writeUInt32LE(18, nameRva); buf.write('ntdll.dll', nameRva + 4, 'utf16le');
+  buf.writeUInt32LE(mods.length, modRva);
+  mods.forEach((m, i) => {
+    const o = modRva + 4 + 108 * i, nr = nameRva + 68 * i;
+    buf.writeUInt32LE(m.base, o); buf.writeUInt32LE(m.size, o + 8); buf.writeUInt32LE(nr, o + 20);
+    buf.writeUInt32LE(2 * m.name.length, nr); buf.write(m.name, nr + 4, 'utf16le');
+  });
   let off = dataRva;
   threads.forEach((t, i) => {
     const sb = Buffer.alloc(4 * t.stack.length); t.stack.forEach((v, k) => sb.writeUInt32LE(v, 4 * k));
@@ -230,6 +274,23 @@ if (process.argv[1]?.endsWith('dump-locks.ts') && process.argv.includes('--self-
     assert.deepEqual(m.waits.map(w => [w.tid, w.owner, w.cs]), [[10, 20, MA], [20, 10, MB]]);
     assert.deepEqual(m.cycle, [10, 20]); assert.equal(m.deadlock, '');
     assert.match(m.lines[0], /thread 10 waits std::mutex 0x10C7ECD8 \(via stack\) owned by thread 20 \(recursion 1\)/);
+    assert.match(m.summary, /; cycle modules: 0x10C7ECD8, \?, 0x10C7FF28$/, 'no module list: addresses, never a module name');
+    // module attribution (the 2026-11-16 bp-jitsmall-b6 dump's form: "cycle modules: ApexRadiance.asi (locks ApexRadiance.asi+0xC7ECD8,
+    // ApexRadiance.asi+0xC7FF28; callers ApexRadiance.asi+0x560C73, ApexRadiance.asi+0x476402)"): locks in the module's data, callers =
+    // return addresses in an executable section; a pointer into the module's data (the mutex itself) is no caller
+    const pe = () => { const b = Buffer.alloc(0x200); b.writeUInt32LE(0x80, 0x3C); b.write('PE\0\0', 0x80, 'latin1'); b.writeUInt16LE(1, 0x86); b.writeUInt16LE(0xE0, 0x94);
+      b.writeUInt32LE(0x1000, 0x178 + 8); b.writeUInt32LE(0x1000, 0x178 + 12); b.writeUInt32LE(0x60000020, 0x178 + 36); return b; };
+    const APEX = { name: 'ApexRadiance.asi', base: 0x10000000, size: 0x01000000 }, OURS = { name: 'ts3native.asi', base: 0x20000000, size: 0x100000 };
+    const locksRaw = [{ addr: MA, buf: mtx(2, 0x001AE903, 20, 1) }, { addr: MB, buf: mtx(0x102, 0x10DEEAD3, 10, 1) }, { addr: APEX.base, buf: pe() }, { addr: OURS.base, buf: pe() }];
+    const f5 = join(dir, 'apex.dmp');
+    fakeDump(f5, [{ tid: 10, eip: WAIT, edi: 0, stack: [7, MA + 8, MA, 0x10001234] }, { tid: 20, eip: WAIT, edi: 0, stack: [MB, 0x70000500, 0x10001500] }], [], locksRaw, [APEX, OURS]);
+    const ap = analyzeDump(f5);
+    assert.equal(ap.cycleModules, 'ApexRadiance.asi');
+    assert.equal(ap.lines.at(-1), 'cycle modules: ApexRadiance.asi (locks ApexRadiance.asi+0xC7ECD8, ApexRadiance.asi+0xC7FF28; callers ApexRadiance.asi+0x1234, ApexRadiance.asi+0x1500)');
+    assert.match(ap.summary, /deadlock cycle 10>20>10; cycle modules: ApexRadiance\.asi$/);
+    const f6 = join(dir, 'mixed.dmp'); // thread 20's lock call comes from our module: not an Apex-only cycle
+    fakeDump(f6, [{ tid: 10, eip: WAIT, edi: 0, stack: [MA, 0x10001234] }, { tid: 20, eip: WAIT, edi: 0, stack: [MB, 0x20001010, 0x10001500] }], [], locksRaw, [APEX, OURS]);
+    assert.equal(analyzeDump(f6).cycleModules, 'ApexRadiance.asi, ts3native.asi');
     writeFileSync(join(dir, 'bad.dmp'), 'not a dump at all, long enough for a header read.....');
     assert.throws(() => analyzeDump(join(dir, 'bad.dmp')), /not a minidump/);
     assert.deepEqual(findCycle([{ tid: 1, owner: 2 }, { tid: 2, owner: 3 }, { tid: 3, owner: 1 }] as Wait[]), [1, 2, 3]);

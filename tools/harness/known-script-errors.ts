@@ -1,14 +1,15 @@
 // Known EA script errors (known-script-errors.json): matches a ScriptError_*.xml / ErrorTrap report by exception type +
 // the top stack frames in order (+ optional `message` regex on the exception message). Only all-EA stacks can match: one
-// frame from ts3fixes, ts3agent, NRaas or any other mod and the error is never known, except frames the entry lists in
-// `passFrames` (a verified pass-through hook of ours), which are dropped before matching. Callers report matches as 'known EA error <id> (ignored)' and count them.
+// frame from ts3fixes, ts3agent, NRaas or any other mod and the error is never known, except a ts3fixes hook pair (unhook):
+// a Ts3Fixes.Fixes+*Hook*:<method> frame whose callee is EA's original body renamed <x>Orig (ts3fixes Patch) is dropped and
+// that body counts as EA's <method>; a hook frame without such a callee (a throw in our own code) still never matches. Callers report matches as 'known EA error <id> (ignored)' and count them.
 //   node tools/harness/known-script-errors.ts <ScriptError.xml>...   print the known id (or 'unknown') per file
 //   node tools/harness/known-script-errors.ts --self-check
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export type KnownError = { id: string; exception: string; frames: string[]; message?: string; passFrames?: string[]; why: string; first_seen: string; evidence: string[] };
+export type KnownError = { id: string; exception: string; frames: string[]; message?: string; why: string; first_seen: string; evidence: string[] };
 const LIST = join(dirname(fileURLToPath(import.meta.url)), 'known-script-errors.json');
 export const loadKnown = (path = LIST): KnownError[] => JSON.parse(readFileSync(path, 'utf8')).errors;
 
@@ -25,12 +26,24 @@ export function parseScriptError(xml: string): { exception: string; message: str
 // NRaas ErrorTrap/Overwatch correction + dereferencing report: info lines only, no exception and no stack frame (not a script exception)
 const DEREF: KnownError = { id: 'errortrap-deref-report', exception: '', frames: [], why: 'ErrorTrap correction/dereferencing report, no exception and no stack', first_seen: '2026-11-15', evidence: ['probe-out/script-errors-1115'] };
 
+// a ts3fixes hook class frame, e.g. 'Ts3Fixes.Fixes+VclSubHook0:Run'
+const HOOK = /^Ts3Fixes\.Fixes\+\w*Hook\w*:(\w+)$/;
+export function unhook(frames: string[]): string[] {
+  const out: string[] = [];
+  for (const f of frames) {
+    const h = f.match(HOOK), prev = out[out.length - 1];
+    if (h && prev && EA.test(prev) && /Orig$/.test(prev)) out[out.length - 1] = prev.replace(/:\w+Orig$/, ':' + h[1]);
+    else out.push(f);
+  }
+  return out;
+}
+
 export function matchKnown(xml: string, known: KnownError[] = loadKnown()): KnownError | undefined {
   const { exception, message, frames } = parseScriptError(xml);
   if (!exception && !frames.length && /^-- Dereferencing --\s*$/m.test(xml) && /^Potential Object Found:/m.test(xml)) return DEREF;
   const is = (f: string, want: string) => f === want || f.endsWith('.' + want);
+  const fs = unhook(frames);
   return known.find(k => {
-    const fs = frames.filter(f => !k.passFrames?.some(p => is(f, p)));
     return fs.length > 0 && fs.every(f => EA.test(f)) && k.exception === exception && (!k.message || new RegExp(k.message).test(message))
       && k.frames.length <= fs.length && k.frames.every((w, i) => is(fs[i], w));
   });
@@ -60,6 +73,16 @@ if (argv[0] === '--self-check') {
   assert.equal(matchKnown(xml(nre, [...wed, 'NRaas.NRaas.ErrorTrap:Wrap']), known), undefined, 'an NRaas frame never matches');
   assert.equal(matchKnown(xml('System.InvalidCastException', wed), known), undefined, 'other exception type is not known');
   assert.equal(matchKnown(xml(nre, [wed[1], wed[0], ...wed.slice(2)]), known), undefined, 'frame order matters');
+  // real 2026-11-16 13:44 stack (weddingarchkeep on): EA's body renamed OnRouteFailedOrig under the pass-through hook frame
+  const hookWed = [wed[0], wed[1], wed[2] + 'Orig', 'Ts3Fixes.Fixes+WeddingArchKeepHook:OnRouteFailed', ...wed.slice(3)];
+  assert.equal(matchKnown(xml(nre, hookWed), known)?.id, 'ea-wedding-cleanup-nre', 'stack through the WeddingArchKeepHook pass-through is known');
+  assert.equal(matchKnown(xml(nre, hookWed.map(f => f.replace('WeddingArchKeepHook', 'WeddingArchKeep'))), known), undefined, 'a non-hook Ts3Fixes frame above an Orig body never matches');
+  assert.equal(matchKnown(xml(nre, hookWed.map(f => f.replace('Ts3Fixes.Fixes+', 'Ts3Agent.Fixes+'))), known), undefined, 'a hook-named frame outside Ts3Fixes never matches');
+  // weddingcleanup on and EA's body still throws: CleanUpOrig under the WeddingCleanupHook pass-through frame (no catch in the hook)
+  const cleanWed = [wed[0] + 'Orig', 'Ts3Fixes.Fixes+WeddingCleanupHook:CleanUp', ...hookWed.slice(1)];
+  assert.equal(matchKnown(xml(nre, cleanWed), known)?.id, 'ea-wedding-cleanup-nre', 'stack through both wedding pass-through hooks is known');
+  assert.equal(matchKnown(xml(nre, [wed[0] + 'Orig', 'Ts3Fixes.Fixes+WeddingCleanupHook:WcuThrowLog', ...hookWed.slice(1)]), known), undefined, 'a throw from inside our hook body never matches');
+  assert.equal(matchKnown(xml(nre, hookWed.filter(f => !f.includes('Ts3Fixes'))).replace('System.NullReferenceException', 'System.InvalidCastException'), known), undefined, 'hook stack, other exception is not known');
   assert.equal(matchKnown('<Content>Destroyed Object Found: Glass</Content>', known), undefined, 'no stack, not known');
   // household book carry error: real frames (probe-out 2026-10-11 all EA; 2026-11-12 through BookHandQueueHook)
   const ae = 'System.ApplicationException';
@@ -74,8 +97,16 @@ if (argv[0] === '--self-check') {
   assert.equal(matchKnown(bx(book, eaBook), known)?.id, 'ea-book-carry-no-statemachine', 'all-EA book carry stack is known');
   assert.equal(matchKnown(bx(book, hookBook), known)?.id, 'ea-book-carry-no-statemachine', 'stack through the BookHandQueueHook pass-through is known');
   assert.equal(matchKnown(bx(plate, eaBook), known), undefined, 'same stack, Plate (not BookGeneral) is not known');
-  assert.equal(matchKnown(bx(book, [...hookBook, 'NRaas.NRaas.ErrorTrap:Wrap']), known), undefined, 'a mod frame outside passFrames never matches');
-  assert.equal(matchKnown(xml(nre, [...wed.slice(0, 4), 'Ts3Fixes.Fixes+BookHandQueueHook:PutDownCarriedObjects', ...wed.slice(4)]), known), undefined, 'passFrames apply only to their own entry');
+  assert.equal(matchKnown(bx(book, [...hookBook, 'NRaas.NRaas.ErrorTrap:Wrap']), known), undefined, 'a mod frame never matches, hook pair or not');
+  assert.equal(matchKnown(xml(nre, [...wed.slice(0, 4), 'Ts3Fixes.Fixes+BookHandQueueHook:PutDownCarriedObjects', ...wed.slice(4)]), known), undefined, 'a hook frame whose callee is not an Orig body never matches');
+  // follower vehicle NRE: real frames (probe-out 2026-10-16 all EA via the LynMods visit; 2026-11-16 through VclSubHook0; 2026-11-11 through GoHomeHook)
+  const A = 'Sims3.Gameplay.Actors.Sims3.Gameplay.Actors.', lyn = 'Sims3.Gameplay.Objects.LynMods.StudentUnionLibrary.Sims3.Gameplay.Objects.LynMods.StudentUnionLibrary.VisitCommunityLotLabLecture:';
+  const veh = [A + 'Sim:GetOwnedAndUsableVehicle', A + 'Sim:GetOwnedAndUsableVehicle', A + 'SimRoutingComponent:CanBePreferredLeader', A + 'SimRoutingComponent:GetProperLeader', A + 'SimRoutingComponent:CreateGoHereWithInteractionInstance', A + 'SimRoutingComponent:DoRouteWithFollowers', A + 'Sim:DoRouteWithFollowers'];
+  const run = ['Sims3.Gameplay.Interactions.Sims3.Gameplay.Interactions.InteractionInstance:RunInteractionWithoutCleanup', ...tail];
+  assert.equal(matchKnown(xml(nre, [...veh, lyn + 'Run', ...run]), known)?.id, 'ea-follower-vehicle-nre', 'all-EA follower vehicle NRE is known');
+  assert.equal(matchKnown(xml(nre, [...veh, lyn + 'RunOrig', 'Ts3Fixes.Fixes+VclSubHook0:Run', ...run]), known)?.id, 'ea-follower-vehicle-nre', 'through the VclSubHook0 pass-through is known');
+  assert.equal(matchKnown(xml(nre, [...veh, 'Sims3.Gameplay.Core.Sims3.Gameplay.Core.GoHome:RunOrig', 'Ts3Fixes.Fixes+GoHomeHook:Run', ...run]), known)?.id, 'ea-follower-vehicle-nre', 'through the GoHomeHook pass-through is known');
+  assert.equal(matchKnown(xml(nre, [veh[0], ...veh.slice(2), lyn + 'Run', ...run]), known), undefined, 'GetOwnedAndUsableVehicle not from CanBePreferredLeader is not known');
   // ErrorTrap deref report (real 2026-11-15 shape): known; with a stack it is judged by the stack
   const deref = '<NRaas.ErrorTrap>\n<Content>\n\n-- Correction Logs --\n\nDestroyed Object Found: Sims3.Gameplay.Objects.CookingObjects.PlateServing\n\n\n-- Dereferencing --\n\nPotential Object Found: Sims3.Gameplay.Core.SocialJigOnePerson (ID=0x1, W=False, I=False)\n  Reference Continue: Sims3.Gameplay.Roles.RolePaparazzi+FollowCelebrity mJig\n    UNHANDLED Reference: Sims3.SimIFace.World+FindGoodLocationParams PlacementCheckFunc\n\nLoaded Assemblies:\n System\n</Content>\n</NRaas.ErrorTrap>';
   assert.equal(matchKnown(deref, known)?.id, 'errortrap-deref-report', 'deref report is known');

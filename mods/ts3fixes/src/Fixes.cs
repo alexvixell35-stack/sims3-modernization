@@ -155,6 +155,7 @@ namespace Ts3Fixes
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
             ApplyWeddingArchKeep();  // docs/546 §12, off by default
+            ApplyWeddingCleanup();  // WeddingCleanup.cs, default on (EA CleanUp NRE guard)
             ApplyGraduationKeep();  // docs/546 §12, off by default (hsgradkeep, unigradkeep)
             ApplyBoardingRefund();  // docs/546 §12, off by default
             ApplyHiddenRoomNpc();  // docs/552, off by default (no hook: a sweep alarm started at world load)
@@ -822,6 +823,7 @@ namespace Ts3Fixes
                 case "eventrouteretry": return Instantiator.kEventRouteRetry;
                 case "simfestkeep": return Instantiator.kSimFestKeep;
                 case "weddingarchkeep": return Instantiator.kWeddingArchKeep;
+                case "weddingcleanup": return Instantiator.kWeddingCleanup;
                 case "hsgradkeep": return Instantiator.kHsGradKeep;
                 case "unigradkeep": return Instantiator.kUniGradKeep;
                 case "bsrefund": return Instantiator.kBsRefund;

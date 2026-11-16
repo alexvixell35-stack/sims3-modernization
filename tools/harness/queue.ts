@@ -208,6 +208,8 @@ import { CSV_HEADER, csvLine, summarize, type AgeRow } from './age-report.ts';
 import { ledgerReport } from './mono-ledger-report.ts';
 import { saveStats } from './save-stats.ts';
 import { matchKnown } from './known-script-errors.ts';
+import { KC_SUFFIX, matchCause, voidRow } from './known-causes.ts';
+import { abSummary, armSummary, type ArmSummary } from './arm-ms.ts';
 // correction-only report: every content line (headers, blanks and the Loaded Assemblies tail aside) matches an allow regex; a stack frame never does
 // generic rule (all queues): the only section is 'Correction Logs' and no line looks like an exception, a stack frame or our own Ts3Fixes/Wildflower code;
 // the per-job allow regexes stay as an extra (a line the generic rule rejects can still be allowed by name)
@@ -243,7 +245,7 @@ import { parseRule } from './frame-lead.ts';
 import { abFixesClash } from './native-switches.ts';
 import { checkLoop, ruleText, STOP_LINE, withRule, type Loop } from './repro-loop.ts';
 import { drift, driftLine, failMode, logCopy, parseReuse, readSwitches, REUSE_DEFAULTS, reproItems, restoreSwitches, reuseBlock, snapshot, stableKey, subTag, type Extra, type ReproItem, type ReuseOpts, type WorldSnap } from './session-reuse.ts';
-import { parseRewindMode, queueRewind, REWIND_INI, rewindBlock, rewindGroups, rewindReady, rewindSession, rewindSummary, startLine, switchDiff } from './queue-rewind.ts';
+import { bySaveGain, groupBySave, parseRewindMode, queueRewind, REWIND_INI, rewindBlock, rewindGroups, rewindReady, rewindSession, rewindSummary, startLine, switchDiff } from './queue-rewind.ts';
 import { EXE as REWIND_EXE, pidOf, REWIND_ON } from './rewind-smoke.ts';
 import { saveForeground } from './focus-game.ts';
 import { parseStory, smokeFails, storyFile } from './story-report.ts';
@@ -309,7 +311,7 @@ function machineField(tag: string): { machineTag?: string } { return tag ? { mac
 type Job = { id: string; note?: string; asi: string; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; run: { repro?: string; saveReload?: string[]; script?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
     profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; crashHunt?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
-  saveMatrix?: { fixes?: 'all' | 'shipped' }; regexCases?: Record<string, { match: string[]; noMatch: string[] }>; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; retryOf?: string; expectHang?: string; shadowCheck?: boolean; quitsGame?: boolean; skipIfMissing?: boolean; ourMods?: false; rewind?: false };
+  saveMatrix?: { fixes?: 'all' | 'shipped' }; regexCases?: Record<string, { match: string[]; noMatch: string[] }>; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; retryOf?: string; kcOf?: string; expectHang?: string; shadowCheck?: boolean; quitsGame?: boolean; skipIfMissing?: boolean; ourMods?: false; rewind?: false };
 
 function checkRegexCases(cases: Record<string, { match?: unknown; noMatch?: unknown }>, res: string[], at: string) {
   for (const re of res) if (!cases[re]) throw new Error(`${at}: regexCases has no case for /${re}/`);
@@ -382,6 +384,7 @@ export function parseQueue(json: unknown): Job[] {
   if (!Array.isArray(jobs) || !jobs.length) throw new Error('queue: expected a non-empty list of jobs (or { "jobs": [...] })');
   const seen = new Set<string>();
   if (!Array.isArray(json)) parseRewindMode((json as any).rewind, 'queue rewind');
+  if (!Array.isArray(json) && (json as any).rewindGroupBySave !== undefined && typeof (json as any).rewindGroupBySave !== 'boolean') throw new Error('queue rewindGroupBySave must be true or false');
   for (const [i, j] of jobs.entries()) {
     const at = `job ${i + 1}${j?.id ? ` (${j.id})` : ''}`;
     if (typeof j?.id !== 'string' || !/^[\w.-]+$/.test(j.id)) throw new Error(`${at}: id must be letters, digits, . _ -`);
@@ -1224,8 +1227,8 @@ export function routelockSummary(r: any): any {
 }
 
 // stopQueueOnFail / --stop-on-fail: '' = go on, else the STOP reason naming the job (a noisy job with its -rerun queued goes on)
-export function failStop(j: { id: string; stopQueueOnFail?: boolean }, row: { pass?: boolean; na?: boolean; rerun?: string; error?: string | null; verdict?: string[] }, cli: boolean): string {
-  if (row.pass || row.na || row.rerun || !(j.stopQueueOnFail || cli)) return '';
+export function failStop(j: { id: string; stopQueueOnFail?: boolean }, row: { pass?: boolean; na?: boolean; rerun?: string; relaunchedAs?: string; error?: string | null; verdict?: string[] }, cli: boolean): string {
+  if (row.pass || row.na || row.rerun || row.relaunchedAs || !(j.stopQueueOnFail || cli)) return '';
   return `${j.id} failed (stopQueueOnFail): ${String(row.error || failText(row.verdict) || 'see the row').slice(0, 400)}`;
 }
 // all FAIL lines: a run head line ('FAIL: profile 16 min, seed N (rng-compare.ts)') carries no reason; the child's FAIL line after it does
@@ -1366,6 +1369,8 @@ if (values['self-check']) {
   assert.equal(parseQueue([{ id: 'p', asi: 'tested', save: 'S', gameArgs: ['-disablestoryprogression'], run: { profile: { minutes: 10, seed: 7 } } },
     { id: 'i', asi: 'tested', save: 'menu', defaultIni: { 'Config.SimulatorRandomSeed': 7 }, run: { menuMemory: { draws: 3 } } }]).length, 2);
   for (const [q, re] of bad) assert.throws(() => parseQueue(q), re);
+  assert.throws(() => parseQueue({ rewindGroupBySave: "yes", jobs: [{ id: "x", asi: "tested", save: "S", run: { soak: { minutes: 1 } } }] }), /rewindGroupBySave must be true or false/);
+  assert.equal(parseQueue({ rewindGroupBySave: true, jobs: [{ id: "x", asi: "tested", save: "S", run: { soak: { minutes: 1 } } }] }).length, 1);
   const age = (a: object, extra: object = {}) => [{ id: 'age-bp', asi: 'tested', save: 'Baseline-BP', run: { age: { days: 14, checkpoint: 2, ...a } }, ...extra }];
   assert.equal(parseQueue(age({ keepAlive: 'off', save: 'Age-BP' }))[0].run.age!.days, 14);
   assert.equal(parseQueue(age({ keepAlive: -50 })).length, 1);
@@ -1738,6 +1743,7 @@ if (values['self-check']) {
     const r = { pass: false, crashed: false, timedOut: false, error: null, verdict: [na, 'N/A (vanilla): asi build check'] };
     assert.ok(naRow(r)); assert.ok(!naRow({ ...r, pass: true }) && !naRow({ ...r, crashed: true }) && !naRow({ ...r, verdict: [na, 'FAIL: x'] }) && !naRow({ ...r, verdict: ['N/A (vanilla): asi build check'] }));
     assert.equal(failStop({ id: 'm', stopQueueOnFail: true }, { pass: false, na: true, verdict: [na] }, false), '');
+    assert.equal(failStop({ id: 'm', stopQueueOnFail: true }, { pass: false, relaunchedAs: 'm-kc', verdict: ['VOID: known cause x (y): run void, relaunched once as m-kc'] }, false), '', 'known-cause VOID row: its relaunch decides');
   }
   assert.deepEqual(silentFail(0, 'ok', false), []);
   assert.deepEqual(silentFail(1, '12:00:00 trip status: loaded true\n', false), ['FAIL: exit 1 with no verdict line (child stopped from outside or died before its summary); last output: 12:00:00 trip status: loaded true']);
@@ -2165,18 +2171,23 @@ if (VANILLA) {
   if (bad.length) { console.error(`vanilla mode: these need ts3native or ts3fixes: ${bad.join('; ')}`); process.exit(2); }
 }
 const noOurs = (j: Job) => VANILLA || j.ourMods === false; // no asi, ini, ts3native.log or ts3fixes in this job's game start
-let jobs = all;
-if (values.from) {
-  const i = all.findIndex(j => j.id === values.from);
-  if (i < 0) { console.error(`--from: no job ${values.from}`); process.exit(2); }
-  jobs = all.slice(i);
+// --from / --only over `all`; run again after a rewindGroupBySave reorder, so --from resumes the grouped order
+function selectJobs(): Job[] {
+  let js = all;
+  if (values.from) {
+    const i = all.findIndex(j => j.id === values.from);
+    if (i < 0) { console.error(`--from: no job ${values.from}`); process.exit(2); }
+    js = all.slice(i);
+  }
+  if (values.only) {
+    const ids = values.only.split(',').map(s => s.trim());
+    const miss = ids.filter(id => !all.some(j => j.id === id));
+    if (miss.length) { console.error(`--only: no job ${miss.join(', ')}`); process.exit(2); }
+    js = js.filter(j => ids.includes(j.id));
+  }
+  return js;
 }
-if (values.only) {
-  const ids = values.only.split(',').map(s => s.trim());
-  const miss = ids.filter(id => !all.some(j => j.id === id));
-  if (miss.length) { console.error(`--only: no job ${miss.join(', ')}`); process.exit(2); }
-  jobs = jobs.filter(j => ids.includes(j.id));
-}
+let jobs = selectJobs();
 // minutes a repro's steps always take: fixed waitS run to the end even after the window end, only until/waitUntil steps stop
 // there (repro-loop.ts runSteps), so the job needs this plus load time (golive-checks-1115 2026-11-15: 31 min of crowd_go
 // waits in a 10-min profile hit timeoutMin 30, the timeout kill was reported as a crash)
@@ -2247,11 +2258,18 @@ const canTakeOver = (key: string, next?: Job) => !!next && !!reuseOf(next) && !r
 // docs/270 §30: rewind groups (queue-rewind.ts); keyed with the ini and callSites the group adds, so they never split a group
 const REWIND = queueRewind(queueJson), BRIDGE_CONF = join(BIN, 'bridge.conf');
 const rwBin = existsSync(BRIDGE_CONF) && REWIND_ON.test(readFileSync(BRIDGE_CONF, 'utf8'));
-const rwGroups = rewindGroups(jobs, () => REWIND === 'auto', j => rewindBlock(j, VANILLA), j => keyOf({ ...j, callSites: false, ini: { ...j.ini, ...REWIND_INI } }));
+const rwKey = (j: Job) => keyOf({ ...j, callSites: false, ini: { ...j.ini, ...REWIND_INI } });
+// docs/272 §3: queue rewindGroupBySave reorders the whole list (barriers: no-rewind jobs, stopQueueOnFail gates, smoke jobs); the gain line is in every dry run
+const rwBarrier = (j: Job) => rewindBlock(j, VANILLA) || (j.stopQueueOnFail ? 'stopQueueOnFail' : '') || (/smoke/i.test(j.id) ? 'smoke job' : '');
+const BY_SAVE = queueJson?.rewindGroupBySave === true, grouped = groupBySave(all, rwKey, rwBarrier);
+const bySaveLine = bySaveGain(all, grouped, rwBarrier, rwKey, BY_SAVE);
+if (BY_SAVE) { all.splice(0, all.length, ...grouped); jobs = selectJobs(); }
+const rwGroups = rewindGroups(jobs, () => REWIND === 'auto', j => rewindBlock(j, VANILLA), rwKey);
 const rwPlanned = rewindSummary({ groups: new Set(rwGroups.values()).size, members: rwGroups.size, jobs: jobs.length });
 if (!values['dry-run'] && rwGroups.size && !rwBin) { log('rewind: Bin state is not apex-rewind (no rewindMode = True in Bin\\bridge.conf): every job starts fresh, no [Rewind] ini added'); rwGroups.clear(); }
 for (const j of rwGroups.keys()) { j.ini = { ...j.ini, ...REWIND_INI }; j.callSites ??= false; }
 let rwOff = false, rwFails = 0;
+const armRuns: ArmSummary[] = []; // docs/272 §4: this run's per-arm profile data for the A/B summary at the end
 const rwRun = { rewinds: [] as number[], fresh: [] as number[], refused: 0, failed: 0 };
 for (const j of jobs) {
   if (j.run.repro && !REPROS.some(r => r.id === j.run.repro)) { console.error(`${j.id}: no repro ${j.run.repro} in tools/harness/repros.json`); process.exit(2); }
@@ -2308,6 +2326,7 @@ if (values['dry-run']) {
   console.log(`queue ${queueName}: ${jobs.length} of ${all.length} jobs (dry run, nothing touched)`);
   if (VANILLA) console.log(`  vanilla mode (docs/236): ${existsSync(join(vanillaSpec().stash, 'manifest.json')) ? 'stash already installed: read back only, left in place' : `vanilla.ts install at the start (agent ${vanillaSpec().agent ?? '** TS3_AGENT_PACKAGE unset: a real run refuses **'}), restore at the end`}; N/A per row: ${VANILLA_NA.join(', ')}`);
   console.log(`  ${smokeLine}`);
+  console.log(`  ${bySaveLine}${BY_SAVE ? `; order now: ${jobs.map(j => j.id).join(', ').slice(0, 600)}` : ''}`);
   console.log(`  rewind ${REWIND}: ${rwPlanned}${rwGroups.size && !rwBin ? '; Bin state is not apex-rewind now: a real run would start every job fresh' : ''}`);
   if (stale) console.log(`** a real run would refuse to start: ${stale}`);
   for (const r of iniRefuse) console.log(`** a real run would refuse to start: ${r}`);
@@ -2931,6 +2950,7 @@ for (const [n, j] of jobs.entries()) {
   row.pin = describePin(pin);
   if (j.rerunOf) row.rerunOf = j.rerunOf;
   if (j.retryOf) row.retryOf = j.retryOf;
+  if (j.kcOf) row.kcOf = j.kcOf;
   let miss: string[] = [];
   if (j.skipIfMissing) try { miss = missingFixes(execFileSync(process.execPath, [fixesTool, 'plan', '--only', j.fixes!.install!.join(',')], { cwd: ROOT, encoding: 'utf8' })); } catch (e) { log(`${j.id}: install-fixes plan: ${String(e).split('\n')[0]}`); } // the install below then decides
   if (miss.length) {
@@ -3327,16 +3347,24 @@ for (const [n, j] of jobs.entries()) {
   try { row.hangCapture = hangCaptureLine(jobLogText); } catch { /* no job log */ }
   const retry = deadlockRetry(j, row, jobLogText, [...all, ...jobs].map(x => x.id));
   if (retry) { jobs.splice(n + 1, 0, retry); neutralizeRetried(row, retry.id); log(`${j.id}: ${DEADLOCK_RETRY}: ${retry.id} queued next`); }
+  // known third-party cause (known-causes.json, Rodney 2026-11-16): the row is VOID and the job runs once more right after it; a hit on
+  // that relaunch is a normal CRASH/FAIL row (today's stop rules: a crash right after the VOID crash is "two jobs in a row crashed")
+  const kc = retry || j.expectHang ? null : matchCause({ crashed: row.crashed, crash: row.crash, jobLog: jobLogText });
+  const kcId = `${j.id}${KC_SUFFIX}`;
+  if (kc && !j.kcOf && ![...all, ...jobs].some(x => x.id === kcId)) {
+    jobs.splice(n + 1, 0, { ...j, id: kcId, kcOf: j.id, note: `relaunch after known cause ${kc.id} in ${j.id}${j.note ? `: ${j.note}` : ''}` });
+    voidRow(row, kc, kcId); log(`${j.id}: known cause ${kc.id} (${kc.owner})${kc.weak ? `, ${kc.weak}` : ''}: run void, ${kcId} queued next`);
+  } else if (kc && j.kcOf) row.verdict.push(`note: known cause ${kc.id} again on the relaunch of ${j.kcOf}: this row counts (${kc.owner}; ${kc.upstream})`);
   expectedHang(j, row, jobLogText, j.expectHang ? logTail(1 << 20) : '');
   if (VANILLA) row.verdict.push(`N/A (vanilla): ${VANILLA_NA.join(', ')}`); // skipped, never PASS
   else if (j.ourMods === false) row.verdict.push(`N/A (ourMods false): ${OURMODS_NA.join(', ')}`);
-  row.pass = row.exitCode === 0 && !row.crashed && !row.error && !row.timedOut && !row.selfCheckFail && !row.verdict.some(isFail); // any FAIL line counts, exit 0 or not (docs/236 #15)
+  row.pass = !row.knownCause && row.exitCode === 0 && !row.crashed && !row.error && !row.timedOut && !row.selfCheckFail && !row.verdict.some(isFail); // any FAIL line counts, exit 0 or not (docs/236 #15)
   // docs/170 §2: the next job may take this game over (reuse on for both, same game start); else it closes now, as always
   const next = jobs[n + 1];
   // docs/270 §30: a rewind group keeps the game for its next job whatever the verdict (the rewind puts it back), not after a crash or hang
-  const rwKeep = !!sess?.rw && !rwOff && rwGroups.has(j) && rwGroups.get(j) === rwGroups.get(next) && !row.crashed && !row.timedOut && !row.error && !stopWhy;
+  const rwKeep = !!sess?.rw && !rwOff && rwGroups.has(j) && rwGroups.get(j) === rwGroups.get(next) && !row.crashed && !row.timedOut && !row.error && !row.retriedAs && !row.knownCause && !stopWhy; // retried/VOID rows: error cleared, the game hung
   if (!rwKeep) await rwDrop();
-  const mayKeep = rwKeep || (!!sess?.reuse && !reuseBlock(j) && !row.crashed && !stopWhy && canTakeOver(sess.key, next));
+  const mayKeep = rwKeep || (!!sess?.reuse && !reuseBlock(j) && !row.crashed && !row.knownCause && !stopWhy && canTakeOver(sess.key, next));
   if (!mayKeep) await endGame(j);
   // the game rewrites Bin/ts3native.log at every start: keep this job's copy (travel save lines, hook OK lines); in a shared load
   // the start-up part plus this job's own lines (session-reuse.ts logCopy)
@@ -3407,7 +3435,7 @@ for (const [n, j] of jobs.entries()) {
   if (mayKeep && !keep) await endGame(j);
   if (!keep) { const errs = await restoreStart(j.id, logFile); if (errs.length) row.error = [row.error, ...errs].filter(Boolean).join('; '); }
   // docs/170: a crash or failed window of a session job ends the session; daytime that also stops the queue
-  if (reuseOf(j) && !row.pass && !row.retriedAs && failMode(reuseOf(j)!) === 'stop') stopWhy ||= `${j.id} ${row.crashed ? 'crashed' : 'failed'} in a reuseSession queue (daytime rule; TS3_NIGHT=1 or reuseSession.onFail "restart" goes on with a fresh start)`;
+  if (reuseOf(j) && !row.pass && !row.retriedAs && !row.relaunchedAs && failMode(reuseOf(j)!) === 'stop') stopWhy ||= `${j.id} ${row.crashed ? 'crashed' : 'failed'} in a reuseSession queue (daytime rule; TS3_NIGHT=1 or reuseSession.onFail "restart" goes on with a fresh start)`;
   // baseline save integrity: a changed Baseline-*/Story-*/ApexTest-Town save fails the job and stops the queue
   row.saveHashes.after = hashSaves(SAVES, guarded);
   const changedSaves = saveDrift(row.saveHashes.before, row.saveHashes.after);
@@ -3417,6 +3445,7 @@ for (const [n, j] of jobs.entries()) {
   }
   row.buildCheck = lastBuild;
   if (row.retriedAs) neutralizeRetried(row, row.retriedAs); // checks above that ran on the hung game added their own FAIL lines
+  if (row.knownCause) voidRow(row, row.knownCause, row.relaunchedAs);
   // noisy timing job: once more at the end of this run as <id>-rerun (both rows kept; the note says which counts)
   const again = noisyRerun(j, row, [...all, ...jobs].map(x => x.id));
   if (again) { jobs.push(again); row.rerun = again.id; log(`${j.id}: noisy machine: ${again.id} queued at the end of this run`); }
@@ -3427,18 +3456,25 @@ for (const [n, j] of jobs.entries()) {
     Object.assign(row, { timing: tm.timing, timingWhy: tm.why });
     for (const rr of row.repros ?? []) { const w = tm.windows?.[rr.id]; if (w) Object.assign(rr, { timing: w.timing, timingWhy: w.why }); }
   } catch (e) { row.timing = 'invalid'; row.timingWhy = `timing verdict failed: ${String(e).split('\n')[0]}`; }
+  // docs/272 §4: per-arm sim ms/s, p99 / p99.9 / max and >= 300 / >= 1000 counts from this row's profile files (arm-ms.ts, hitch-ab.ts);
+  // nothing when the run left no seconds.csv; never fails the job
+  if (launched && j.run.profile) try {
+    const tags: [string, string][] = row.repros?.length ? row.repros.map((r: any) => [r.id, r.tag]) : row.profileTag ? [['', row.profileTag]] : [];
+    const parts = tags.flatMap(([id, t]) => { const a = armSummary(t); return a?.line ? [{ id, ...a }] : []; });
+    if (parts.length) { row.armMs = { line: parts.map(x => `${x.id ? `${x.id}: ` : ''}${x.line}`).join('<br>'), runs: parts.map(x => ({ tag: x.tag, line: x.line })) }; armRuns.push(...parts); }
+  } catch (e) { row.armMs = { line: `arm ms/s not read: ${String(e).split('\n')[0].slice(0, 200)}` }; }
   row.na = naRow(row);
   appendFileSync(jsonl, JSON.stringify(row) + '\n');
   clearJob();
   const cd = row.counters.delta ? Object.entries(row.counters.delta).map(([k, v]) => `${k} ${(v as number) > 0 ? '+' : ''}${v}`).join(', ') : '-';
   const cell = (x: string) => x.replace(/\|/g, '/').replace(/\r?\n/g, '<br>').slice(0, 400);
-  appendFileSync(md, `| ${j.id} | ${t0.slice(11, 16)} (${pht(t0)}) | ${row.minutes} | ${row.pass ? 'PASS' : row.na ? '**N/A**' : row.crashed ? '**CRASH**' : '**FAIL**'} | ${cell(row.verdict.join('<br>') || row.error || '-')} | ${row.exitCode ?? '-'} | ${memLine(row.memory.before)} -> ${memLine(row.memory.after)} | ${cell(cd || '-')} | ${cell([countsNote(row), `timing: ${timingText({ timing: row.timing, why: row.timingWhy })}`, buildLine(row.buildCheck), row.saveHashes.after && saveDrift(row.saveHashes.before, row.saveHashes.after).length ? 'BASELINE SAVE CHANGED' : '', row.session.line !== 'fresh load' || row.session.after ? [row.session.line, row.session.after, row.session.next].filter(Boolean).join('; ') : '',
-    rwGroups.size || row.start !== 'fresh' ? `start: ${row.start}${row.startMs ? ` (${Math.round(row.startMs / 1000)} s)` : ''}${row.snapshot ? `; snapshot ${row.snapshot}` : ''}` : '', row.noiseNote, row.hangCapture, j.note, row.content !== 'as-is' ? `content ${row.content} (${row.contentMoved} moved)` : '', row.crashed ? row.crash.split('\n')[1]?.trim() : '', row.error && row.verdict.length ? row.error : ''].filter(Boolean).join('; ') || '')} |${machineCols(machineTag()).cell(MACHINE)}\n`);
-  log(`${j.id}: ${row.pass ? 'PASS' : row.na ? 'N/A' : row.crashed ? 'CRASH' : 'FAIL'} in ${row.minutes} min${row.pass || row.na ? '' : ` | ${(failText(row.verdict) || row.error || '').replace(/\s+/g, ' ').slice(0, 400)}`}`); // after "in N min": log greps match that prefix
-  if (!row.pass && !row.na) exitCode = 1;
+  appendFileSync(md, `| ${j.id} | ${t0.slice(11, 16)} (${pht(t0)}) | ${row.minutes} | ${row.pass ? 'PASS' : row.knownCause ? '**VOID**' : row.na ? '**N/A**' : row.crashed ? '**CRASH**' : '**FAIL**'} | ${cell(row.verdict.join('<br>') || row.error || '-')} | ${row.exitCode ?? '-'} | ${memLine(row.memory.before)} -> ${memLine(row.memory.after)} | ${cell(cd || '-')} | ${cell([countsNote(row), `timing: ${timingText({ timing: row.timing, why: row.timingWhy })}`, buildLine(row.buildCheck), row.saveHashes.after && saveDrift(row.saveHashes.before, row.saveHashes.after).length ? 'BASELINE SAVE CHANGED' : '', row.session.line !== 'fresh load' || row.session.after ? [row.session.line, row.session.after, row.session.next].filter(Boolean).join('; ') : '',
+    rwGroups.size || row.start !== 'fresh' ? `start: ${row.start}${row.startMs ? ` (${Math.round(row.startMs / 1000)} s)` : ''}${row.snapshot ? `; snapshot ${row.snapshot}` : ''}` : '', row.noiseNote, row.hangCapture, j.note, row.content !== 'as-is' ? `content ${row.content} (${row.contentMoved} moved)` : '', row.crashed ? row.crash.split('\n')[1]?.trim() : '', row.error && row.verdict.length ? row.error : ''].filter(Boolean).join('; ') || '')}${row.armMs ? `<br>${row.armMs.line}` : ''} |${machineCols(machineTag()).cell(MACHINE)}\n`);
+  log(`${j.id}: ${row.pass ? 'PASS' : row.knownCause ? 'VOID' : row.na ? 'N/A' : row.crashed ? 'CRASH' : 'FAIL'} in ${row.minutes} min${row.pass || row.na ? '' : row.knownCause ? ` | ${row.verdict[0]}` : ` | ${(failText(row.verdict) || row.error || '').replace(/\s+/g, ' ').slice(0, 400)}`}`); // after "in N min": log greps match that prefix
+  if (!row.pass && !row.na && !row.knownCause) exitCode = 1;
 
   const earlierCrashes = earlier.filter(r => r.job === j.id && r.crashed).length;
-  stopWhy ||= crashStop(row.crashed, earlierCrashes, prevCrashed, !!j.crashHunt);
+  if (!row.knownCause) stopWhy ||= crashStop(row.crashed, earlierCrashes, prevCrashed, !!j.crashHunt); // VOID: its relaunch runs next
   // stopQueueOnFail / --stop-on-fail (Rodney 2026-10-31): a FAIL row ends the queue; a noisy timing job with its rerun queued does not
   stopWhy ||= failStop(j, row, !!values['stop-on-fail']);
   prevCrashed = row.crashed;
@@ -3486,6 +3522,7 @@ if (VANILLA) {
   }
 }
 for (const b of ledgerBlocks) appendFileSync(md, b);
+{ const ab = abSummary(armRuns); if (ab.length) appendFileSync(md, `\nA/B summary of this run (sim ms/s = script + route + animPose + locomotion, arm-ms.ts; hitches per 10 min over the same arms, hitch-ab.ts):\n\n${ab.map(l => `- ${l}`).join('\n')}\n`); }
 if (rwGroups.size && !values['dry-run']) { const l = rewindSummary({ ...rwRun, groups: new Set(rwGroups.values()).size, members: rwGroups.size, jobs: jobs.length }); log(l); appendFileSync(md, `\n${l}\n`); }
 if (stopWhy) appendFileSync(md, `\nStopped: ${stopWhy}.\n`);
 log(`results: ${jsonl}, ${md}`);
