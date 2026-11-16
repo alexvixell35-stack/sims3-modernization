@@ -536,6 +536,7 @@ namespace Ts3Fixes
         // [930-932] watchdogasync: A1 verdicts dropped as stale (H4Core.WdFresh), shadow sync re-checks run, shadow verdicts that differ
         // [969-984] replanlog (ReplanLog.cs, docs/261 §6 L1, ts3native [RouteAsync] ReplanLog=1): own Replans and ms, calls and ms
         // per scope (household, selected, seenNpc, unseen, unknown), bursts, call lines, lines dropped, would start but Kinds
+        // [3424-3426] gohomespot2 (GhSecondSpot, docs/802): second SafeSpot searches from the mailbox / front door / spots found / ms spent
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
@@ -783,6 +784,7 @@ namespace Ts3Fixes
                 case "cleanflag": return Instantiator.kCleanFlag;
                 case "birdtvnull": return Instantiator.kBirdTvNull;
                 case "gohomewalk": return Instantiator.kGoHomeWalk;
+                case "gohomespot2": return Instantiator.kGoHomeSpot2;
                 case "photoboothfunds": return Instantiator.kPhotoBoothFunds;
                 case "shelllighting": return Instantiator.kShellLighting;
                 case "bonfirespice": return Instantiator.kBonfireSpice;
@@ -980,7 +982,8 @@ namespace Ts3Fixes
                         return RunOrig();
                     }
                     Sims3.SimIFace.Vector3 pos, fwd;
-                    if (!SafeSpot(Actor, Target, Target.GetRandomPosition(false, true), out pos, out fwd))
+                    if (!SafeSpot(Actor, Target, Target.GetRandomPosition(false, true), out pos, out fwd)
+                        && !(ShortcutOn("gohomespot2") && GhSecondSpot(Actor, Target, out pos, out fwd)))
                     {
                         sCounters[2]++;
                         return RunOrig();
@@ -1098,6 +1101,29 @@ namespace Ts3Fixes
         }
 
         const float kShortcutMinDistance = 80f;
+
+        // gohomespot2 (default off; townies only: GoHomeHook reaches it only for unseen townies, TownieUnseen). SafeSpot's three
+        // fresh tries all search from one random outdoor point of the home lot; in Sunset Valley that found no landing spot in
+        // 100 of 1,041 GoHomes (run gm4), so EA walked those Sims 140-480 m and 21 of the walks were cut at the 250 ms own-plan
+        // deadline (NoPathToDestination), then replanned. One more SafeSpot search from a fixed, normally reachable origin (the
+        // lot's mailbox, else its front door) before giving up. The same SafeSpot checks apply (on the lot, the
+        // IsPointInLotSafelyRoutable verdict, the other SafeSpot rules), so a found spot is as safe as a first-try one; the caller
+        // still tests the spot's view and the loop guard as for a first-try spot. The origin objects are the lot's own (an object
+        // on another lot is refused). Counters: [3424] second searches, [3425] found, [3426] ms spent in them (sim thread).
+        static bool GhSecondSpot(Sims3.Gameplay.Actors.Sim sim, Lot lot, out Sims3.SimIFace.Vector3 pos, out Sims3.SimIFace.Vector3 fwd)
+        {
+            pos = Sims3.SimIFace.Vector3.Invalid; fwd = Sims3.SimIFace.Vector3.Invalid;
+            GameObject origin = lot.FindMailbox();
+            if (origin == null || origin.HasBeenDestroyed || origin.LotCurrent != lot) origin = lot.FindFrontDoor();
+            if (origin == null || origin.HasBeenDestroyed || origin.LotCurrent != lot) return false;
+            int[] c = PatchCounters();
+            c[3424]++;
+            int t0 = System.Environment.TickCount;
+            bool ok = SafeSpot(sim, lot, origin.Position, out pos, out fwd);
+            c[3426] += unchecked(System.Environment.TickCount - t0);
+            if (ok) c[3425]++;
+            return ok;
+        }
 
         // A spot for a shortcut Sim on `lot` near `near`: on the lot (else the game still sees the Sim away) and passing the
         // game's Sim.IsPointInLotSafelyRoutable (a plan from the spot to the lot's corners and edge midpoints), so the Sim can

@@ -265,6 +265,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kStatueLine value="True" />
     <kCleanFlag value="True" />
     <kBirdTvNull value="True" />
+    <kGoHomeSpot2 value="False" />
     <kGoHomeWalk value="True" />
     <kPhotoBoothFunds value="True" />
     <kShellLighting value="True" />

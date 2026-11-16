@@ -302,6 +302,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kHomeworkHelp = true;    // homeworkhelp (docs/565 §7): helper starting Help with Homework after the child finished hits a null jig
         [Tunable] public static bool kShellLighting = true;      // shelllighting (docs/561 §5): a buildable shell shows the lighting of the latest passed lighting time after load (EA keeps Default until the next alarm)
         [Tunable] public static bool kPhotoBoothFunds = true;    // photoboothfunds (docs/561 §2): a Sim that entered a photo booth and then lacked the fee is walked out (EA leaves it faded out inside)
+        [Tunable] public static bool kGoHomeSpot2 = false;       // opt-in: a GoHome shortcut with no landing spot searches once more from the lot's mailbox / front door (Fixes.cs GhSecondSpot, docs/802)
         [Tunable] public static bool kGoHomeWalk = true;         // gohomewalk (docs/560 §2): GoHome takes back the walk style (Run) it requested, so Sims sent home from a busted party stop running
         [Tunable] public static bool kBirdTvNull = true;         // birdtvnull (docs/559 §9): large bird TV reaction skips TVs on with no channel instead of throwing
         [Tunable] public static bool kBirthRoute = true;        // birthroute (docs/558 §1): EA's birth flow fixed (lost / duplicate / stale births, homeless mom crashes, Cleanup NRE: every Sim); NPC moms: birth routes never cut, re-haves wait 1/15/60 min, unseen moms placed at the hospital after a failed trip, the other birth kind (home safety net) after 3 failed attempts
