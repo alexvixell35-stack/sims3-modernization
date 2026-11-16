@@ -278,3 +278,57 @@ Parked or dropped:
 - Scan pass 4 leads (docs/583 §8.1 on `analysis/roslyn-scan-1115`) are queued for the next batch:
   - 18 sites that start a VisualEffect and drop it (fix: `SubmitOneShotEffect`). SnackBowl is already 8.5.
   - The Consignment reputation fallback name (cosmetic).
+
+## 11. Batch EP5: scan pass 4 effects and tranche 4 (2026-11-16, NOT RUN)
+
+Slots 1557-1598 (`fixes-1500`) and 1600-1608 (new pinned block `fixes-1600`, 1600-1699). Every switch is off by default and household-visible. Each `<switch>-check` repro runs the pure decision off, then on (`tools/harness/repros.json`).
+
+### 11.1 Effects started and dropped (docs/583 §8.1 P4-2)
+
+The 13 methods below create a VisualEffect into a local, call `Start()` and return. They never call `SetAutoDestroy`, `Stop` or `Dispose`. EA's own `SubmitOneShotEffect` is `Start` + `SetAutoDestroy(true)`, so these engine effects are never destroyed [code verified; native lifetime inferred]. The sites are grouped into one switch per family, 16 effect sites in all.
+
+How the fix works: each site is wrapped, and EA's body runs unchanged.
+- A marker is open while that body runs.
+- A wrapper on `VisualEffect.Create` remembers the last effect created under the marker, but only if its asset name is one of the sites' 16 names.
+- When the body returns, that effect gets `SetAutoDestroy(true)`, which is exactly the tail of `SubmitOneShotEffect`.
+- The name filter matters because `ChemistryLab.StartEvent` and `ResetTheFuture` reach a yield deep down (swap audit). An effect another task creates during that yield is never taken for the site's.
+
+| Switch | Check | Sites |
+|---|---|---|
+| `chemistryvfx` | `ChemistryVfxCheck` | `BuffHorrified`, `BuffTurboSleep`, `BuffBrightenedDay` and `BuffChemistryLabPotion` (`OnRemoval`); `BladderFlowPotion+MotiveHelper.RestoreBladderCallback`; `ChemistryLab+MakePotionBase.StartEvent` |
+| `dartboardvfx` | `DartboardVfxCheck` | `Dartboard+TakeTurnThrowingDarts.PlayDartEffect` (4 throw results) |
+| `wardrobewandvfx` | `WardrobeWandVfxCheck` | `Wardrobe+UpgradeWardrobe.ShowSuccessVfx` / `ShowFailVfx` |
+| `petdroolvfx` | `PetDroolVfxCheck` | `ServingContainer+EatOffFloor.DroolEvent` / `SpitUpEvent` |
+| `timeportalvfx` | `TimePortalVfxCheck` | `TimePortal+ResetTimeContinuum.ResetTheFuture` |
+| `haystackvfx` | `HayStackVfxCheck` | `HayStack.PlayTransitionEffect` |
+
+Not built:
+- `FireworksBase.StartFX`: it stores the effect in `mFireworkFX`, which EA disposes. A false positive.
+- `SnackBowl.StartOneShotSlobVFX`: already fixed in 8.5.
+- **P4-1, Consignment RockBottom: dropped.** The shipped tuning has 9 `kReputationLevels` for 9 `kReputationNames`, so the fallback `kReputationNames[kReputationLevels.Length - 1]` is already RockBottom. Only the code defaults (8 levels) show the flaw.
+
+### 11.2 Tranche 4 (120 EP types)
+
+The usage rank (`docs/data/usage-rank-1115.csv`) had no EP types left to read. The 120 types were instead taken from the scanner rank (`ep-rank2`), with these filters: not read before, at least 4 methods, no tooltips or markers, no store content and no StoryProgression. Four read-only agents read them; 12 leads were confirmed, 11 built and the rest dropped. None of the built ones is fixed in simler90 UPDATE242.
+
+| § | Switch | Check | What changes | Evidence |
+|---|---|---|---|---|
+| 11.2.1 | `hayscattertime` | `HayScatterTimeCheck` | `HayBale.OnScattered` zeroes `mScatterTime` after EA's body. | Verified: it is never reset, so HayStack (3 piles) and HayBaleStacked finish every later scatter on the first tick, even when cancelled. |
+| 11.2.2 | `hauntedgnomeinv` | `HauntedGnomeInvCheck` | After `OnLoad` and before `SpawnGhost`, a gnome that is in an inventory gets EA's add-to-inventory cleanup, and `SpawnGhost` is skipped. RE: the removed alarm handle is cleared. | Verified code: `OnLoad` re-arms the ghost alarm and the coward-fear broadcaster with no `InInventory` check. Reach: an inventory plus a save/load. |
+| 11.2.3 | `houdinignomeleak` | `HoudiniGnomeLeakCheck` | Copy of `MagicGnomeHoudini.SpawnHoudini(pos, fwd)` (static, does not yield). When placement fails, the orphan is destroyed before EA's fallback. A null create no longer throws. RE: the fallback is skipped when there is no home lot. | Verified. |
+| 11.2.4 | `showstagefxend` | `ShowStageFxEndCheck` | A `kShowEnd` that arrives during a one-shot restores the saved state and ends the one-shot before EA's show-end code runs (`FXObject`, `Ep6EffectsMachine`). The EP6 one-shot alarm turns the machine back on only while its one-shot is still running. RE: the EP6 failure pick `GetInt(1)` with cases 1/2 now maps 0→dud fireworks, 1→black smoke; before, black smoke never showed and half of the failures showed nothing. RE: `FXObject.StopEffects` now disposes every effect, not only started ones. | Verified code; the symptom (stage lights stay on after a show) is inferred. |
+| 11.2.5 | `soakedpetselfreact` | `SoakedPetSelfReactCheck` | Copy of `BuffSoakedPet+ShakeWaterOff.Run` (it yields; safe per §9) that does not queue the reaction on the shaking pet. | Verified: `GetObjects<Sim>` includes the actor, while other EA sites remove it. The shipped re-soak chance is 0.25. |
+| 11.2.6 | `tagbagsurfaceleak` | `TagBagSurfaceLeakCheck` | After `TagBag+PrepSpace.PlaceArt` returns false, a surface still out of the world is destroyed. | Verified: the null-lot path returns without the `Destroy` that the hand-tool failure path has. |
+| 11.2.7 | `equestriantrophyname` | `EquestrianTrophyNameCheck` | After `EquestrianTrophy.ImportContent`, `mHorseName` is read again from its own key (183657686). | Verified: it was read from the rider key, so after export/import (travel, moving) the horse shows the rider's name. |
+| 11.2.8 | `rubbleuselist` | `RubbleUseListCheck` | After `RubblePile+Clear.Cleanup` (which skips `base.Cleanup`), a Sim still on the pile's use list is taken off. | Same defect as `chestuselist` (docs/575 §5). Reach: a reset during the dig. |
+| 11.2.9 | `backpacklotleak` | `BackpackLotLeakCheck` | `Backpack.Dispose` drops the static `Sim.OnLotChangedEvent` handler when the backpack is in use. `OnLotChanged` with no inventory parent unsubscribes itself. | Verified code: a disposed in-use backpack throws on every Sim lot change and aborts the other handlers. Reach inferred. |
+| 11.2.10 | `streetartmasterboost` | `StreetArtMasterBoostCheck` | For an Avant-Garde owner whose Master row is not at index 3, a copy of `GetMuralData` (does not yield) boosts the row whose quality is "Master". | Verified against the shipped StreetArtVariants: large murals have no Low row, so Master is at index 2 and never got the boost (5). The intent comes from the tuning name. |
+| 11.2.11 | `bubblingspringsreset` | `BubblingSpringsResetCheck` | After `BubblingSprings.DoReset`, EA's `SetBroadcaster` runs. | Verified code: the reset disposes the Nature's Hot Tub broadcaster and nothing recreates it. Reach: an object reset. |
+
+Dropped or parked:
+- `CrowdMonsterVFXSlave.Update`: an Exit cue with `mVFX` null; inferred, low.
+- `RelicStoreRegister`: a Global alarm on a destroyed object. AlarmManager drops timers whose target has no proxy.
+- `InfluenceSkill`: shared static tuning arrays, but the shipped rows are the same for all three skills.
+- `FloorSwitch` Cleanup skips base (same as 11.2.8); it is for a later tranche.
+- `EyeOfHorus_Teleport`, `KeystonePanel` and `JumpOffObject`: narrow races, or reach not shown.
+- About 95 other types had nothing reachable. They are listed in the agents' notes, not here.
