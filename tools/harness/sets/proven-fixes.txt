@@ -85,7 +85,7 @@ woohootywait
 # ceremonyspot: the bug is verified in game, the fix has no recorded off/on verdict:
 # partyoutcome: the registry row proves partymotive only; partyoutcome stays idle beside the core mod (docs/554):
 #   partyoutcome
-# built 2026-11-15, in-game off/on test pending (DoorMemoX=3 A/B; ufplansplit is log only); move to the set once proven:
-#   doorgen ufplansplit
+# built 2026-11-15, in-game off/on test pending (ufplansplit is log only; doorgen is default on since upstream #439):
+#   ufplansplit
 # new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:
 #   permamemo buffremovenoop catnamecache autroommemo autslicetime invcache vaclistenerpad spawncapcount deadrefcooking deadrefconvo takeariskguard
