@@ -6327,6 +6327,17 @@
       "at": "2026-11-15T23:22:37.575Z",
       "worktree": "/home/<user>/dev/s3m-ep-sweep",
       "pinned": true
+    },
+    {
+      "id": "fixes-1600",
+      "kind": "fixes",
+      "from": 1600,
+      "to": 1699,
+      "by": "claude",
+      "what": "EP batch 5 overflow (docs/587 §11, tranche 4; overflow of fixes-1500)",
+      "at": "2026-11-16T00:17:53.494Z",
+      "worktree": "/home/<user>/dev/s3m-ep-sweep",
+      "pinned": true
     }
   ]
 }

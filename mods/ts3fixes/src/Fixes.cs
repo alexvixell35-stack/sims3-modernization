@@ -273,6 +273,8 @@ namespace Ts3Fixes
             ApplyTeenPartyBreakUp();   // docs/587 EP4 §10.5
             ApplyDogSwimAroundList();   // docs/587 EP4 §10.6
             ApplyTutorBalloonAlarm();   // docs/587 EP4 §10.7
+            ApplyOneShotVfx();   // docs/587 EP5 §11.1
+            ApplyEpBatch5b();   // docs/587 EP5 §11.2
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -752,6 +754,23 @@ namespace Ts3Fixes
         // [1548-1550] teenpartybreakup (EpBatch4bLogic.cs, docs/587 EP4 §10.5): runs past a missing party / not counted with switch off / errors.
         // [1551-1553] dogswimaroundlist (EpBatch4bLogic.cs, docs/587 EP4 §10.6): dogs put back / left off with switch off / errors.
         // [1554-1556] tutorballoonalarm (EpBatch4bLogic.cs, docs/587 EP4 §10.7): alarms moved to tutoring start / started at creation with switch off / errors.
+        // [1557-1559] chemistryvfx (EpBatch5Logic.cs, docs/587 EP5 §11.1): dropped effects auto-destroyed / dropped with switch off / errors.
+        // [1560-1562] dartboardvfx (EpBatch5Logic.cs, docs/587 EP5 §11.1): dropped effects auto-destroyed / dropped with switch off / errors.
+        // [1563-1565] wardrobewandvfx (EpBatch5Logic.cs, docs/587 EP5 §11.1): dropped effects auto-destroyed / dropped with switch off / errors.
+        // [1566-1568] petdroolvfx (EpBatch5Logic.cs, docs/587 EP5 §11.1): dropped effects auto-destroyed / dropped with switch off / errors.
+        // [1569-1571] timeportalvfx (EpBatch5Logic.cs, docs/587 EP5 §11.1): dropped effects auto-destroyed / dropped with switch off / errors.
+        // [1572-1574] haystackvfx (EpBatch5Logic.cs, docs/587 EP5 §11.1): dropped effects auto-destroyed / dropped with switch off / errors.
+        // [1575-1577] hayscattertime (EpBatch5bLogic.cs, docs/587 EP5 §11.2.1): scatter times reset / kept with switch off / errors.
+        // [1578-1580] hauntedgnomeinv (EpBatch5bLogic.cs, docs/587 EP5 §11.2.2): inventory gnomes cleaned / kept with switch off / errors.
+        // [1581-1583] houdinignomeleak (EpBatch5bLogic.cs, docs/587 EP5 §11.2.3): orphan gnomes destroyed / fallback skipped, no home lot / errors.
+        // [1584-1586] showstagefxend (EpBatch5bLogic.cs, docs/587 EP5 §11.2.4): one-shots ended, stale turn-ons skipped, failures fired, effects disposed / show ends dropped with switch off / errors.
+        // [1587-1589] soakedpetselfreact (EpBatch5bLogic.cs, docs/587 EP5 §11.2.5): self reactions skipped / shakes with switch off / errors.
+        // [1590-1592] tagbagsurfaceleak (EpBatch5bLogic.cs, docs/587 EP5 §11.2.6): surfaces destroyed / leaked with switch off / errors.
+        // [1593-1595] equestriantrophyname (EpBatch5bLogic.cs, docs/587 EP5 §11.2.7): horse names restored / rider name kept with switch off / errors.
+        // [1596-1598] rubbleuselist (EpBatch5bLogic.cs, docs/587 EP5 §11.2.8): Sims taken off / left on with switch off / errors.
+        // [1600-1602] backpacklotleak (EpBatch5bLogic.cs, docs/587 EP5 §11.2.9): lot handlers dropped / left subscribed with switch off / errors.
+        // [1603-1605] streetartmasterboost (EpBatch5bLogic.cs, docs/587 EP5 §11.2.10): Master rows boosted / boost missed with switch off / errors.
+        // [1606-1608] bubblingspringsreset (EpBatch5bLogic.cs, docs/587 EP5 §11.2.11): broadcasters recreated / left missing with switch off / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -1238,6 +1257,23 @@ namespace Ts3Fixes
                 case "teenpartybreakup": return Instantiator.kTeenPartyBreakUp;
                 case "dogswimaroundlist": return Instantiator.kDogSwimAroundList;
                 case "tutorballoonalarm": return Instantiator.kTutorBalloonAlarm;
+                case "chemistryvfx": return Instantiator.kChemistryVfx;
+                case "dartboardvfx": return Instantiator.kDartboardVfx;
+                case "wardrobewandvfx": return Instantiator.kWardrobeWandVfx;
+                case "petdroolvfx": return Instantiator.kPetDroolVfx;
+                case "timeportalvfx": return Instantiator.kTimePortalVfx;
+                case "haystackvfx": return Instantiator.kHayStackVfx;
+                case "hayscattertime": return Instantiator.kHayScatterTime;
+                case "hauntedgnomeinv": return Instantiator.kHauntedGnomeInv;
+                case "houdinignomeleak": return Instantiator.kHoudiniGnomeLeak;
+                case "showstagefxend": return Instantiator.kShowStageFxEnd;
+                case "soakedpetselfreact": return Instantiator.kSoakedPetSelfReact;
+                case "tagbagsurfaceleak": return Instantiator.kTagBagSurfaceLeak;
+                case "equestriantrophyname": return Instantiator.kEquestrianTrophyName;
+                case "rubbleuselist": return Instantiator.kRubbleUseList;
+                case "backpacklotleak": return Instantiator.kBackpackLotLeak;
+                case "streetartmasterboost": return Instantiator.kStreetArtMasterBoost;
+                case "bubblingspringsreset": return Instantiator.kBubblingSpringsReset;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
