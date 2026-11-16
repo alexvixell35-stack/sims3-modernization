@@ -168,19 +168,3 @@ The game log names the first 48 classes it saw: either `equals fast: plan ...` o
 ## 8. §5 extension built: 1- and 2-byte enums (2026-11-15, lane L9, offline, NOT RUN)
 
 `[EqualsFast] SmallEnums=1` (default 0, needs `Enabled=1`): a class whose only instance field is `value__` of kind I1/U1/I2/U2 gets a plan with a 1- or 2-byte compare. Vanilla boxes the pair and returns false; the managed caller's `SByte/Byte/Int16/UInt16.Equals` loop gives the same boolean the byte compare gives, so only the allocation count changes. Any other struct with a small field stays a kind reject. Counter `eqSmall` (+0x5FC8, was `eqSpare[0]`). Selftest: 1- and 2-byte enum plans (bytes past the field ignored), byte struct rejected, switch off = reject as before. The monohost corpus case (gate 1 for this kind) is not run: it needs the host build with the game copy. Option B stays gated on the C hit rate.
-
-## 9. ON in the release ini (2026-11-17, branch `feature/equalsfast-on-1117`)
-
-`[EqualsFast] Enabled=1` in `native/ts3native/ts3native.ini` (code default stays 0). Reason: the compiler rule (JIT pieces ship on static gain: guarded, gain and no penalty = ON; EqualsFast is named in it), applied in the master-1116c re-baseline read (docs/data/results/2026-11-17-rebaseline-1116c-read.md §4, branch `docs/rebaseline-1116c-read`).
-
-Evidence:
-
-- Exactness [verified, measured on the host]: monohost corpus 61159 pairs over 2777 value types, 0 mismatches (§7); native selftest.
-- Game correctness [verified]: `bp-eqfast-correct` PASS (master-mono-1115, 0.36.264-mono1; eqOn / eqMode / eqHits / eqPlans / eqSmall read back, 0 script errors; docs/data/results/2026-11-16-queue-mono-measure-equalsfast-1115-mm.md).
-- Gain, indicative only: `bp-iclock-eqfast-ab` on - off = -1.9 ms/s (on faster; one order, BP only, `[IcLockCheck]` on, noise medium). No penalty seen. The 3-5 ms/s timing rule does not apply to compiler pieces.
-
-`SmallEnums` stays 0: §8 says nothing about shipping it with `Enabled`, and its own host corpus case (gate 1 for the 1- / 2-byte kind) has not run. Note: the game jobs above ran with `SmallEnums=1`, so the shipped setting (0) is a subset of the tested one.
-
-EA 1.69: `equalsfast.cpp` has no EA rows, so `tools/ea-ini.ts` zeroes `[EqualsFast]` in the EA inis and the EA asi SKIPs it (docs/232 §8). CI: `.github/workflows/build.yml` now allows `[EqualsFast]` in a release ini; CHANGELOG (Unreleased) and docs/PLAYERS.md name it.
-
-Optional timing check, NOT RUN: `tools/harness/queues/mono-measure-equalsfast-1117.json` (smoke + `bp-eqfast-ab` + `ip-eqfast-ab`, in-load `--ab equalsfast`, master-1116c set, Bin state apex, needs a quiet machine). A valid penalty there turns it back off.

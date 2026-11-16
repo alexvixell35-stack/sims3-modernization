@@ -66,12 +66,7 @@ if (values.restart) {
   const pkgs = join(USER_DIR, 'Mods', 'Packages');
   mkdirSync(pkgs, { recursive: true });
   // rebuild first: a plugin change that was only hot-reloaded would otherwise be lost on relaunch
-  // but keep an agent a chain or queue installed over the last build (build-agent.ts records its own package's sha256): the
-  // rebuild from this checkout's source replaced chain-1116d's pinned b87 agent with master's (ilpatch-b87-rerun4, 2026-11-16)
-  const agentPkg = join(ROOT, 'build', 'ts3agent.package'), agentBuilt = `${agentPkg}.built`;
-  if (existsSync(agentPkg) && existsSync(agentBuilt) && sha(agentPkg) !== readFileSync(agentBuilt, 'utf8').trim())
-    log(`build/ts3agent.package ${sha(agentPkg).slice(0, 12)} is not this checkout's last agent build: installed as is, not rebuilt`);
-  else execFileSync(process.execPath, [join(ROOT, 'tools', 'harness', 'build-agent.ts')], { stdio: ['ignore', 'ignore', 'inherit'] });
+  execFileSync(process.execPath, [join(ROOT, 'tools', 'harness', 'build-agent.ts')], { stdio: ['ignore', 'ignore', 'inherit'] });
   // the player mod with the fixes (mods/ts3fixes); the agent only reads and switches it
   execFileSync(process.execPath, [join(ROOT, 'tools', 'setup', 'build-fixes.ts')], { stdio: ['ignore', 'ignore', 'inherit'] });
   // the intro skip is built by nointro.ts, which no other step runs: a fresh worktree had none and every job failed at the

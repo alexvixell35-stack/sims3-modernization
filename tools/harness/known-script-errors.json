@@ -56,18 +56,6 @@
     "probe-out/20261110-094901/events.jsonl",
     "<Documents>/Electronic Arts/The Sims 3/ScriptError_*__11-15-2026__21-11-55__D7983392.xml (through BoatGetOutDiagHook, rewind-census-bridge-1115)"
    ]
-  },
-  {
-   "id": "ea-boat-getout-into-water-sacs",
-   "exception": "Sims3.SimIFace.SacsErrorException",
-   "frames": ["StateMachineClient:RequestState", "StateMachineClient:RequestState", "Boat:DoSpecificBoatStateMachineBehaviorOnGetOutIntoWater", "Boat:GetOutIntoWater"],
-   "why": "EA Boat.GetOutIntoWater: the water-exit animation request (DoSpecificBoatStateMachineBehaviorOnGetOutIntoWater -> StateMachineClient.RequestState) throws a SACS error when a Sim gets out of a boat into the water (Boat+GetOutOfBoat, autonomous Go Home), IP world, NPC boaters; the water-side twin of ea-boat-getout-onto-land-sacs [verified: all-EA stacks in probe-out 20261019-071132, 20261025-054407, 20261109-023214 events.jsonl; through BoatGetOutDiagHook in 20261117-000656]. BoatGetOutDiagHook catches only NullReferenceException and calls GetOutOrig unchanged otherwise [verified code, BoatGetOutDiag.cs]; no ts3native line touches the Sim's boat exit (rebaseline-1116c ip-apex-on-1).",
-   "first_seen": "2026-10-19",
-   "evidence": [
-    "probe-out/20261019-071132/events.jsonl",
-    "probe-out/20261109-023214/events.jsonl",
-    "<Documents>/Electronic Arts/The Sims 3/ScriptError_*__11-17-2026__00-15-32__7FDC6D42.xml (through BoatGetOutDiagHook, rebaseline-1116c ip-apex-on-1, NPC Tania Collins, active household Dregg)"
-   ]
   }
  ]
 }
