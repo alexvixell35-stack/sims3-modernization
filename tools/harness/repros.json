@@ -75094,6 +75094,322 @@
     ]
   },
   {
+    "id": "hovertraintest-check",
+    "bug": "Sim.NPCUseHoverTrain.Definition.Test runs a world Queries.GetObjects<IHoverTrainStation>() for every autonomous NPC autonomy pass, in every world, stations or not (docs/598 §5)",
+    "fix": "ts3fixes HoverTrain598.cs: hovertraintest (default off)",
+    "save": "any world with NPCs (Oasis Landing shows the 2+ stations case; any other world the 0 case)",
+    "note": "HoverTrainTestCheck 'run' compares the memo's answer (stored by NPC tests before the check) with EA's query in the same tick, plus synthetic 0/1/2/3-station, placement and removal controls; mismatches count 2160 and must stay 0. 'result' shows counters 2157-2162 and the timing line (EA query vs memo, world object count). Run twice per point: the first run may only prime the memo.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED' on the second run of each point; counter 2160 = 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hovertraintest": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoverTrainTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoverTrainTestCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hovertraintest": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 60,
+        "note": "NPC autonomy fills the memo"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoverTrainTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: primes the memo if no NPC test did"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoverTrainTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: memo vs EA's query"
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 15,
+        "note": "Buy mode: the memo is forgotten and not stored while it is open"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoverTrainTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "in buy mode: EA's query answers"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "name": "CCGen",
+          "nth": 0,
+          "free": true
+        },
+        "waitS": 5,
+        "note": "a placement (non-station: must not break exactness)"
+      },
+      {
+        "cmd": "buy_close",
+        "waitS": 10
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 30
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoverTrainTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "after the placement"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoverTrainTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "after the placement: memo vs EA's query"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoverTrainTestCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hovertraintest": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hovertraintest": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "newcartest-check",
+    "bug": "SocialTest.TestHasNewCar / TestHasExpensiveNewCar (ProcTests of four autonomous Friendly 'Enthuse About ... Car' socials) list every car in the world (Queries.GetObjects<CarOwnable>()) for each actor / target pair each time a conversation's socials are tested (docs/598 §6)",
+    "fix": "ts3fixes NewCar598.cs: newcartest (default off)",
+    "save": "any world with NPCs and cars (a busy town; conversations at a community lot fill the memo)",
+    "note": "NewCarTestCheck 'run' compares, for every Sim in the world, the memo's answer for both tests with EA's own test in the same tick, plus synthetic no / old / new / aged / gone / added car, clock-back and tuning controls; mismatches count 2750 and must stay 0. 'result' shows counters 2747-2752 (2748 with the switch off = the call rate) and the timing line (EA test vs memo, car count). Run twice per point: the first run may only prime the memo.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED' on the second run of each point; counter 2750 = 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "newcartest": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NewCarTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NewCarTestCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "newcartest": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 60,
+        "note": "NPC socials fill the memo"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NewCarTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: primes the memo if no NPC test did"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NewCarTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: memo vs EA's query"
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 15,
+        "note": "Buy mode: the memo is forgotten and not stored while it is open"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NewCarTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "in buy mode: EA's query answers"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "name": "CCGen",
+          "nth": 0,
+          "free": true
+        },
+        "waitS": 5,
+        "note": "a placement (non-car: must not break exactness)"
+      },
+      {
+        "cmd": "buy_close",
+        "waitS": 10
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 30
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NewCarTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "after the placement"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NewCarTestCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "after the placement: memo vs EA's query"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NewCarTestCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "newcartest": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "newcartest": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
