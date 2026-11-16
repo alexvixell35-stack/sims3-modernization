@@ -181,3 +181,109 @@ Sim's own rights, so it never lands in a room it cannot leave. Only unseen NPCs 
 Counters 2739 lots opened that upstream closes, 2740 of those only by household access, 2741 lots closed by a door the
 Sim cannot pass. Once a sim-hour, when they moved, ts3native.log gets `ts3fixes: unseen tp goal: ...` with 1040-1045, the
 teleport count (307) and 2739-2741, so s57 can confirm the reason with the switch off and on.
+
+## 9. Usage-ranked speedups (docs/589 §3): `stcsocials`, `ilp_idleparams`
+
+The usage sweep (docs/589 §3, `docs/data/usage-rank-1115.csv`) lists about 17 exact rewrites. Ranked by how often the code
+runs, not by type score: social autonomy (Sim targets: 16.5M autonomy test calls across our runs, the largest row) builds a
+`SocialInteractionCandidateCollection` per actor/target pair, which calls `Conversation.GetSocialsForSTC` once per playable
+commodity; idle choice tests every idle candidate through `IdleManager.TestIdleInfo`. motivebuf (§5) and ilp_buffbuf
+already cover the motive and buff updates. The fridge / stove / counter checks (`Food.LotHasUsable*`) run from Fridge_Have
+(31 autonomy calls in all runs) and the cooking process, so they are left for later despite `Cabinetry.IsCounterFree`
+doing a routing-slot test per counter; `HasAnyElement(params)` in Motive allocates only for the Social motive (a few
+thousand small arrays per sim-hour); CarpoolManager.LoopUpdate's rider delegate is not proven free of side effects.
+
+`stcsocials` (ts3fixes, `SocialStc.cs`, default off, every Sim: proven exact): the autonomous branch of GetSocialsForSTC
+without its two redundant copies. `ActionAvailabilityData.Get` returns a new list each call, so the earlier STCs' lists
+are added to it instead of to a copy of it; when the relationship has no STC or its STC is on this commodity, EA keeps
+every candidate in a third list and looks each one up in ActionData without reading the result (a dictionary lookup), so
+the list itself is returned. Same items, same order, same exceptions (r.STC null on the commodity test throws as in EA);
+the non-autonomous branch (pie menu, trait-menu items) runs EA's method. `stcsocialscheck` runs EA's method as well and
+compares name, topic and trait-menu flag item by item; EA's result is returned. Counters 2742 calls, 2743 lists or lookups
+saved, 2744 checks, 2745 mismatches (must stay 0), 2746 fallbacks.
+
+`ilp_idleparams` (ts3native [IlPatch], spec `idleparams-lazy-array`, default off): TestIdleInfo builds
+`new object[1] { mSim }` for every candidate that passes the early tests and reads it only when `ProceduralTest` is set.
+Inserted at 0x13C (branches to it enter the insert): `ldarg.1; ldfld ProceduralTest; brfalse 0x16F`, EA's own target for
+"no procedural test". Exact: nothing else reads the array, and newarr / stelem have no side effect. One object[] less per
+tested idle candidate. Needs a ts3native build (fork CI) and [IlPatch] Enabled=1.
+
+Not measured yet: allocations saved per sim-hour come from the counters (2743) and gc-rate.ts in an A/B. REA N1
+(`0xC692F0`, lot-bounds polygon copies) is not timed: it needs a native timing detour (prologue bytes from TS3W.exe, not
+in game-copy) and an in-game run, so it waits for a run slot after s57.
+
+## 10. Call census of the speedup candidates (`callcensus`)
+
+None of the docs/589 §3 and docs/590 §3 candidates appear in `jit-hot.csv` or `jit-call-edges.csv`, so their real call
+rates are unknown. `callcensus` (ts3fixes `CallCensus.cs`, default off, log only) swaps 22 of them for pass-through hooks
+(the 23rd, GetSocialsForSTC, is counted in the stcsocials hook): same arguments, same result, same exceptions; off, a hook
+reads a flag cached for 1024 calls and calls EA's method. On, each call is counted and, where the method does real work,
+timed with one running EA StopWatch (microseconds). Once a sim-hour ts3native.log gets `ts3fixes: callcensus: <method>
+calls N in H sim-h, per sim-hour R, us/call U, ms total T` for each method that ran. The hooks may run on the autonomy
+worker thread (counts are plain increments: approximate there); the log alarm starts at world load on the sim thread.
+
+Hooked: Food.LotHasUsableCounter / Stove / Microwave / Grill, Sink.GetBrushTeethScore, BuffManager.HasAnyElement and
+TraitManager.HasAnyElement (every params caller), SocialComponent.SocializeWithMultiplier and FindSimOfRelationshipType,
+Autonomy.CalculateScoreForSocial, Relationship.GetMiniRelationships, Conversation.GetSocialsForSTC and IsSuitable,
+ActionData.Test (the per-social procedural-test CreateDelegate), InteractionQueue.InsertInteraction,
+ViewObjects.CreateRouteToObject, TV.CountOfHumansWatchingTvOrPlayingVideoGames, RabbitHole.GetRabbitHolesOfType,
+ImprovedProtestSituation.FindProtest, Terrain.ModifyRouteForSpecies, SingingInfo.AllKnownCompositions,
+BarAdvanced.CurrentSnackBowl, PetGuardSitutation.GuardObject.IsBeingGuarded.
+
+Not worth it (dropped): MetaAutonomyManager.CalculateTotalDesiredNumSims (hourly alarm), GetCandidateMetaObjectsForHotSpot
+AndDeadZones (once a day), Callbox.HasVisitableSimsOnLot (callbox test only), WildHorses.FindGoodLot (wild-horse pool),
+MoodManager 342/348 (GetMotiveSingleColor: the household mood skewer colour), Motive 1958/1974 (horses), VelvetRopes
+AddInteractions (ropes' menu / interaction list). Not hookable as a plain swap (private nested classes or single
+Definitions; read-only estimate rare): CarpoolManager's LoopUpdate (a waiting carpool), Windows.RouteToSimOutside,
+ChainableGardeningInteraction.CanGardenPlant, Terrain GetClosestPuddle (rain), SummonFairies.Test, Children.Sleep.Test,
+PlayVideoGameSystemOnTVOnline.Test. Already built: Motives (motivebuf), UpdateBuffs (ilp_buffbuf), TestIdleInfo
+(ilp_idleparams, not census-hooked because its body is IL-patched), GetSocialsForSTC (stcsocials).
+
+By code alone nothing left on the list runs per frame or per Sim per tick: Motive 1107 allocates only for the Social motive
+(once per Sim per motive update), and the per-autonomy ones (ActionData.Test's CreateDelegate, IsSuitable's repeated
+ActionData.Get, CalculateScoreForSocial) wait for the census; ActionData.Test's delegate cannot be cached by an IL patch
+(no field token to hold it) and needs a body swap of a large method, so it is built only if the census ranks it high.
+
+## 11. Usage sweep 3 (docs/591 §3): `ilp_autolights`
+
+`LightGameObject.AutoLightsOff(sim, lot, roomId)` runs from `Sim.RoomChanged` for every Sim that changes room on a lot.
+After its Sim scan it fetches `lot.GetObjects<IUserControlledLight>()` whenever no awake Sim is in the room, but a light is
+switched only when `flag` (everyone on the lot asleep) or `flag3` (a sleeper in that room) holds. The walking Sim is
+awake and on the lot, so `flag` is almost always false, and with no sleeper in the room the loop's test is false for every
+light: the array and the walk do nothing. IL patch `ilp_autolights` (spec `autolights-early-out`, builds ea-1.67 and
+simler90-242) inserts at 0x97 `ldloc.2; ldloc.s 4; or; brfalse 0xFA` (the method's ret). Exact: no side effect is skipped
+(GetObjects is a query; the loop's `flag || (flag3 && ...)` short-circuits before any call).
+
+Not built: GenericPrivacySituation.ClearRoom.Init `continue` -> `break` is not proven exact (the first pass adds joiners
+to Participants, and OtherSimCanJoinSituation / OtherSimCanIgnorePrivacy may answer differently on the second pass);
+RepairableComponent.UpdateBreakage, CatJungleGym, LeafPile: per object use or per wait of one object, rare; Daycare
+GetExperience changes results (bug fix, not a speedup).
+
+## 12. Usage sweep 4 (docs/592 §3): `ilp_locnocheck` (diagnostic only on the S3PP stack)
+
+`Localization.FillInTokens` ends both of its normal returns with `LogLocalizationResult(entryKey, text,
+StringTable.HasLocalizedString(entryKey))`. LogLocalizationResult's body is empty in the shipped game [verified,
+decompiled]. HasLocalizedString(string) calls ScriptCore's `LocalizedStringService_GetLocalizedStringByString` icall.
+IL patch `ilp_locnocheck` (spec `locfill-no-has-lookup`, ea-1.67 and simler90-242) removes the argument pushes and both
+calls at 0xA5 and 0x1327; the third LogLocalizationResult (bad token, success false) is left.
+
+Native side (Ghidra, TS3W 1.67, decompiled 2026-11-16) [verified]:
+- the icall `0x7437E0` converts the MonoString through the service interface (vtable +0x58), hashes it to the 64-bit key
+  (`0x7CFE40`) and calls `0x59C850` -> `LocStrSvc_GetString_A` `0x59C5B0`;
+- `0x59C5B0` walks the string-table list at `service+0x48` (reads only), copies the hit into a temporary wide buffer (the
+  allocator tag "String/LocalizedStringService", freed before return; ja-jp gets a character replacement in that buffer)
+  and returns a new MonoString (vtable +0x50). No cache, no miss log, no write to the service or the tables.
+So on the vanilla game the lookup only allocates (a native temporary and one managed string): removing it is exact.
+
+With the Sims 3 Performance Patch it is not proven exact. S3PP's `LocalizedStringCache` (on in this setup:
+`LocalizedStringCache=1`, cap 16384) detours `0x59C5B0` and keeps a 64-bit-key cache that fills on a miss and clears at 75 %
+(docs/17 §8). When FillInTokens' string came from the same key moments before (`LocalizeString(entryKey)`), the removed
+lookup is a cache hit and nothing changes. When it came from a gender or species variant (`FindString`,
+`GetLocalizeSpeciesString`), the removed lookup is the only one for `entryKey` and inserts an entry: without it the cache
+fills more slowly and clears later. Results then differ only through S3PP's own staleness (an entry cached before a string
+table loads serves the old answer until a clear), so a shifted clear can change which answer a later lookup gets
+[inferred]; otherwise only the timing of later lookups changes. Verdict: exact without S3PP's cache; diagnostic only (A/B
+measurement, not for release) while `LocalizedStringCache=1`.
+
+Not built: InteractionInstance.RemoveMotiveDelta (one small List per interaction end that has motive deltas; low rate),
+RandomUtil.GetRandomKeyValuePairFromPairedListDictionary (3 callers, rare), AlarmManager.Read (load only).
