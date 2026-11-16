@@ -82,9 +82,12 @@ namespace Ts3Fixes
         // is ModifyFunds(+FamilyFunds), so the household's funds double while the shortfall still goes onto the bills.
         // EA meant to take what is there (-FamilyFunds) and bill the rest. Fix: Photography.GetCostToTakePhoto for a
         // phone camera notes the cost; the next Sim.ModifyFunds (EA's, the very next call, no yield between) that adds
-        // exactly the Sim's funds while they are short of that cost takes them instead. Any other ModifyFunds clears the
-        // note. Counters: [1369] photo payments taken, [1370] funds doubled (switch off), [1371] errors.
+        // exactly the Sim's funds while they are short of that cost takes them instead. The note is the photographer's
+        // (any Sim when EA passes no Photography skill) and this sim tick's only (no other Sim's ModifyFunds, no later one after a photo that was not taken); the next
+        // ModifyFunds clears it. Counters: [1369] photo payments taken, [1370] funds doubled (switch off), [1371] errors.
         static int sPhCost;
+        static Sim sPhSim;
+        static long sPhTick;
 
         static void ApplyPhotoFunds()
         {
@@ -100,7 +103,12 @@ namespace Ts3Fixes
             public static int CostHook(Photography skill, ICamera camera, PhotographSize size, PaintingStyle style)
             {
                 int r = CostOrig(skill, camera, size, style);
-                if (camera is PhoneCell) sPhCost = r;
+                if (camera is PhoneCell)
+                {
+                    sPhCost = r;
+                    sPhSim = skill != null && skill.SkillOwner != null ? skill.SkillOwner.CreatedSim : null;  // no skill: EA passes null
+                    sPhTick = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+                }
                 return r;
             }
 
@@ -111,8 +119,10 @@ namespace Ts3Fixes
                 if (sPhCost > 0)
                 {
                     int cost = sPhCost;
+                    bool mine = (sPhSim == null || (object)sPhSim == (object)this) && sPhTick == Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
                     sPhCost = 0;
-                    try
+                    sPhSim = null;
+                    if (mine) try
                     {
                         int funds = ((Sim)(object)this).FamilyFunds;
                         if (PhBuggy(cost, funds, delta))
@@ -254,9 +264,18 @@ namespace Ts3Fixes
         {
             sBcMissing = SpNames("Bathtub.mSimInBath", sBcInBath);
             if (sBcMissing.Length > 0) { AppliedLog().Add("bathcleanup: not found: " + sBcMissing); return; }
-            Patch(typeof(Bathtub.TakeBath), "Cleanup", Type.EmptyTypes, typeof(BBcHook), "CleanupHook", "CleanupOrig");
+            ApplyTakeBathCleanup();
             Patch(typeof(Bathtub), "DisableRoutingSlotFootprints", Type.EmptyTypes, typeof(BBcTubHook), "FootHook", "FootOrig");
             Patch(typeof(Bathtub), "CleanupAlarms", Type.EmptyTypes, typeof(BBcTubHook), "AlarmHook", "AlarmOrig");
+        }
+
+        // One swap of TakeBath.Cleanup serves bathcleanup and bathsituationfx (Batch589dLogic.cs BsfBeforeCleanup); either
+        // Apply installs it once.
+        static bool sTbCleanupPatched;
+        static void ApplyTakeBathCleanup()
+        {
+            if (sTbCleanupPatched) return;
+            sTbCleanupPatched = Patch(typeof(Bathtub.TakeBath), "Cleanup", Type.EmptyTypes, typeof(BBcHook), "CleanupHook", "CleanupOrig");
         }
 
         // Pure: does this Cleanup leave the tub's shared state alone? Only while another Sim bathes in it.
@@ -267,7 +286,8 @@ namespace Ts3Fixes
             public void CleanupHook()
             {
                 Bathtub tub = null;
-                try
+                BsfBeforeCleanup(this);  // bathsituationfx
+                if (sBcInBath != null) try
                 {
                     Bathtub.TakeBath b = (Bathtub.TakeBath)(object)this;
                     object inBath = b.Target != null ? sBcInBath.GetValue(b.Target) : null;

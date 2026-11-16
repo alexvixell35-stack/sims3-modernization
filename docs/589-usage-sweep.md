@@ -199,3 +199,13 @@ The user: "fix all of these", as EA intended, household included. Every lead bel
 
 - U24 ViewObjects.Run: false positive. The view is the reaction animation; EndCommodityUpdates and the Exit animation end it, and WaitAndGroupTalk is the lingering chat afterwards (EatHeldFood's hang-around has the same shape).
 - The lower-impact list of §2 is not in this batch.
+
+**Review pass (2026-11-16, before batch 12; every hooked EA body and our hook re-read in full):**
+
+- `carpoolschoolskip`: EA's loop handled a skipping rider only when RiderDelegate had listed it; one it had not was neither sent nor skipped, and got a GetIn its definition refuses (no ride at all). Our copy now sends every skipping rider (a destroyed one is only taken off).
+- `photofunds`: the cost note is now the photographer's and this sim tick's only (any Sim when EA passes no Photography skill); before, any later ModifyFunds by any Sim could take it after a photo that was not taken, or after the camera UI's PricePerShot lookup.
+- `buffremovedelayed`: the second removal now needs EA's early-return condition itself (a pending delayed add of that buff), not just "still live after".
+- `cancelposturedef`: the copy reads the head after OnCancelPosture (EA's order); the off path no longer calls GetCancelTransition (it builds a new transition each call), so [1710] counts cancels run as EA.
+- `bathcleanup` + `bathsituationfx` hooked TakeBath.Cleanup twice: now one swap (`BBcHook`, `ApplyTakeBathCleanup`) that calls `BsfBeforeCleanup`.
+- State that could outlive a world (Sim-keyed eat marks, mood ids, photo note) is cleared at world quit (`Batch589WorldQuit`); `sMiPatched` (unused) removed.
+- Checked and unchanged: the Motive copy (EA's Carefree / LaidbackLemon `else if`, riding benefit after the multiplier), OneShotReaction (no caller passes a null ignore list), GetGoodbyeSocial (only caller builds the socials list; OnHug does the removal when the hug happens), GetFacialMoodIdles, ParseMoodIdleData, Guitar.Play.Run (EA adds the boosts before base.Run and removes none when it throws). No loops without an exit: the carpool waits are EA's, capped by kExtraMinutesToWait.

@@ -8,14 +8,14 @@ namespace Ts3Fixes
     {
         public static object BuffRemoveDelayedCheck(string what)
         {
-            string counters = B582Counters("buffremovedelayed", 1700, new[] { "live buffs removed after a pending timer", "left on the Sim (switch off)", "errors" }, "");
+            string counters = B582Counters("buffremovedelayed", 1700, new[] { "live buffs removed after a pending timer", "left on the Sim (switch off)", "errors" }, sBrdMissing);
             if (what == "result") return counters;
             if (what != "run") return "buffremovedelayed <run|result>";
             bool on = ShortcutOn("buffremovedelayed");
             int[] c = PatchCounters();
-            bool fixedNow = on && BrLeft(true, true);
-            bool controls = !BrLeft(true, false) && !BrLeft(false, true);
-            return B582Line("buffremovedelayed", on, "live buff left is caught", fixedNow, "removed / not live untouched=" + controls, controls, "", counters);
+            bool fixedNow = on && BrLeft(true, true, true);
+            bool controls = !BrLeft(true, true, false) && !BrLeft(false, true, true) && !BrLeft(true, false, true);
+            return B582Line("buffremovedelayed", on, "live buff left is caught", fixedNow, "removed / not live / no timer untouched=" + controls, controls, sBrdMissing, counters);
         }
 
         public static object TvDiscListenerCheck(string what)
@@ -44,7 +44,7 @@ namespace Ts3Fixes
 
         public static object CancelPostureDefCheck(string what)
         {
-            string counters = B582Counters("cancelposturedef", 1709, new[] { "duplicate stand-ups not queued", "queued again (switch off)", "errors" }, "");
+            string counters = B582Counters("cancelposturedef", 1709, new[] { "duplicate stand-ups not queued", "cancels run as EA (switch off)", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "cancelposturedef <run|result>";
             bool on = ShortcutOn("cancelposturedef");

@@ -35,28 +35,22 @@ namespace Ts3Fixes
         {
             sBsMissing = SpNames("TakeBath.mSituation", sBsSit, "Bathtub.mBubbleBathFX", sBsFx);
             if (sBsMissing.Length > 0) { AppliedLog().Add("bathsituationfx: not found: " + sBsMissing); return; }
-            Patch(typeof(Bathtub.TakeBath), "Cleanup", Type.EmptyTypes, typeof(BBsfHook), "CleanupHook", "CleanupOrig");
+            ApplyTakeBathCleanup();  // the one TakeBath.Cleanup swap (Batch589bLogic.cs BBcHook) calls BsfBeforeCleanup
             Patch(typeof(Bathtub), "DoTakeBathPreLoop", new Type[] { typeof(Sim), typeof(StateMachineClient), typeof(int), typeof(bool), typeof(bool) }, typeof(BBsfTubHook), "PreHook", "PreOrig");
         }
 
-        public class BBsfHook
+        // Before EA's TakeBath.Cleanup: a privacy situation that already exited is not exited again.
+        static void BsfBeforeCleanup(object takeBath)
         {
-            public void CleanupHook()
+            if (sBsSit == null) return;
+            try
             {
-                try
-                {
-                    Sims3.Gameplay.Autonomy.Situation s = sBsSit.GetValue(this) as Sims3.Gameplay.Autonomy.Situation;
-                    if (s != null && s.SituationExited)
-                    {
-                        if (ShortcutOn("bathsituationfx")) { sBsSit.SetValue(this, null); PatchCounters()[1715]++; }
-                        else PatchCounters()[1717]++;
-                    }
-                }
-                catch (Exception) { }
-                CleanupOrig();
+                Sims3.Gameplay.Autonomy.Situation s = sBsSit.GetValue(takeBath) as Sims3.Gameplay.Autonomy.Situation;
+                if (s == null || !s.SituationExited) return;
+                if (ShortcutOn("bathsituationfx")) { sBsSit.SetValue(takeBath, null); PatchCounters()[1715]++; }
+                else PatchCounters()[1717]++;
             }
-
-            public void CleanupOrig() { }
+            catch (Exception) { }
         }
 
         public class BBsfTubHook
@@ -231,7 +225,6 @@ namespace Ts3Fixes
         delegate IdleInfo MiRowFn(XmlDbRow row, bool verify);
         static MiRowFn sMiRow;
         static bool sMiOurs;
-        static bool sMiPatched;
         static string sMiMissing = "";
 
         static void ApplyMoodIdleFlavor()
@@ -240,7 +233,7 @@ namespace Ts3Fixes
             sMiMissing = SpNames("IdleManager.ParseIdleInfoFromRow", pr);
             if (sMiMissing.Length > 0) { AppliedLog().Add("moodidleflavor: not found: " + sMiMissing); return; }
             sMiRow = (MiRowFn)Delegate.CreateDelegate(typeof(MiRowFn), pr);
-            sMiPatched = Patch(typeof(IdleManager), "ParseMoodIdleData", new Type[] { typeof(XmlDbData) }, typeof(BMiHook), "ParseHook", "ParseOrig");
+            Patch(typeof(IdleManager), "ParseMoodIdleData", new Type[] { typeof(XmlDbData) }, typeof(BMiHook), "ParseHook", "ParseOrig");
         }
 
         // Pure: the flavour a row belongs to: its own, else the last named one (EA: Fulfilled, the row dropped).
