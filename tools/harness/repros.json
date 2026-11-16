@@ -101891,6 +101891,87 @@
     ]
   },
   {
+    "id": "bouncerskip-check",
+    "bug": "Bouncers re-plan a route to the slot they already stand on every 5 s of the shift (VelvetRopes.WatchDoor.LoopDel; s58 Bridgeport: #1 interaction by plan time, ~512 s of planning in 2.5 h)",
+    "fix": "ts3fixes RouteSources.cs: bouncerskip (default off), docs/151 §6 D3",
+    "save": "any world (pure check)",
+    "note": "BouncerSkipCheck 'run' evaluates the hook's skip decision (BsSkip) with controls (read-only); 'result' shows counters [232] at slot / [235] skipped. bp-bouncerskip-loop is the in-game loop.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bouncerskip": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BouncerSkipCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BouncerSkipCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bouncerskip": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BouncerSkipCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BouncerSkipCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bouncerskip": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bouncerskip": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
