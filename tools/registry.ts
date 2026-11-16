@@ -36,6 +36,21 @@ export const isContribVer = (v: number) => v >= CONTRIB.nativeV;
 
 export const FIX_HEAD = '## ts3fixes counters';
 export const NAT_HEAD = '## ts3native counters (';
+export const UD_HEAD = '## ts3native UserDiag ops';
+// UserDiag ops (ts3fixes DiagSend -> userdiag.cpp UdTextMsg): every `case N:` in UdTextMsg needs a row in the UD_HEAD table,
+// and no op may have two rows. Returns the problems found.
+export const udRow = (l: string) => { const m = l.match(/^\| (\d+)(?:-(\d+))? \|/); return m ? [+m[1], +(m[2] ?? m[1])] : null; };
+export function udCheck(doc: string, cpp: string | null): string[] {
+  const L = doc.split(/\r?\n/), [s, e] = section(L, UD_HEAD), out: string[] = [], seen = new Map<number, number>();
+  if (s < 0) return cpp == null ? [] : ['docs/registry.md has no UserDiag ops table'];
+  for (let i = s; i < e; i++) { const r = udRow(L[i]); if (r) for (let op = r[0]; op <= r[1]; op++) seen.set(op, (seen.get(op) ?? 0) + 1); }
+  for (const [op, n] of seen) if (n > 1) out.push(`UserDiag op ${op} has ${n} rows`);
+  if (cpp != null) {
+    const b = cpp.indexOf('static u8 UdTextMsg('), body = b < 0 ? '' : cpp.slice(b, cpp.indexOf('\n}', b));
+    for (const m of body.matchAll(/case (\d+):/g)) if (!seen.has(+m[1])) out.push(`UserDiag op ${m[1]} (userdiag.cpp) has no row in docs/registry.md`);
+  }
+  return out;
+}
 const LEDGER = join('docs', '51-inference-ledger.md');
 export const ledgerMax = (text: string, contrib = false) => Math.max(contrib ? CONTRIB.ledger[0] - 1 : 0, ...[...text.matchAll(/^## (\d+)\./gm)].map(m => +m[1]).filter(n => inR(n, CONTRIB.ledger) === contrib));
 export const docMax = (names: string[], contrib = false) => Math.max(contrib ? CONTRIB.doc[0] - 1 : 0, ...names.map(f => +(f.match(/^(\d+)-.*\.md$/)?.[1] ?? -1)).filter(n => n >= 0 && inR(n, CONTRIB.doc) === contrib));
@@ -270,6 +285,14 @@ async function selfCheck() {
     // second contributor block: a block that would cross 2199/2200 starts at 2200; 2799 is the end (2400-2799 added 2026-11-14)
     ok(contribFixFrom(2006, 5) === 2007 && contribFixFrom(2195, 5) === 2200 && contribFixFrom(2195, 4) === 2196 && contribFixFrom(2303, 3) === 2304, 'contributor fixes: blocks stay inside 2000-2199 or start at 2200');
     ok(CONTRIB.fixes[1] === 2799, 'contributor fixes range ends at 2799');
+    const udDoc = [UD_HEAD, '', '| Op | Owner | Meaning |', '|---|---|---|', '| 0-2 | a | b |', '| 36 | c | d |', '| **37+** | next free | x |', ''].join('\n');
+    ok(udCheck(udDoc, 'static u8 UdTextMsg(DWORD lo) {\n case 0: case 36: return 1;\n}').length === 0, 'UserDiag ops: every case has a row');
+    ok(udCheck(udDoc, 'static u8 UdTextMsg(DWORD lo) {\n case 37: return 1;\n}')[0]?.includes('op 37'), 'UserDiag ops: a case without a row is reported');
+    ok(udCheck(udDoc + '| 36 | e | f |\n', null)[0]?.includes('op 36 has 2 rows'), 'UserDiag ops: a doubled op is reported');
+    // this checkout: userdiag.cpp against docs/registry.md
+    const here = resolve(import.meta.dirname, '..'), cpp = join(here, 'native', 'ts3native', 'userdiag.cpp');
+    const udReal = udCheck(readFileSync(join(here, 'docs', 'registry.md'), 'utf8'), existsSync(cpp) ? readFileSync(cpp, 'utf8') : null);
+    ok(udReal.length === 0, `UserDiag ops in this checkout${udReal.length ? ': ' + udReal.join('; ') : ''}`);
   } finally { rmSync(d, { recursive: true, force: true }); }
 }
 

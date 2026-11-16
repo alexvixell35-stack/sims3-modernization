@@ -3,6 +3,9 @@
 //   node tools/dump-locks.ts --self-check    synthetic dumps, no game
 // A waiting thread is one whose EIP is inside ntdll and one of whose registers (edi first: RtlEnterCriticalSection keeps the
 // CS there, docs/539 §13.8) points at a CRITICAL_SECTION owned by another thread of the dump. A cycle of owner edges is a deadlock.
+// Also MSVC std::mutex / recursive_mutex (an SRW lock, no owner in the lock itself): _Mtx_internal_imp_t keeps the owner
+// thread id at +40 and the lock count at +44 (x86 VS2022 STL; read in Apex Radiance 4.0.1's mutexes, docs/67 §38), found
+// through a pointer to the mutex (or to its SRW lock at +8) near the top of the waiting thread's stack.
 // The EA package-lock ABBA (docs/539 §13.8, docs/67 §23): main holds object+0xC0 and waits for +0x48, a worker holds +0x48 and
 // waits for +0xC0, seen from 0x735358 (main) and 0x734725 (worker); the signature needs both CS 0x78 apart and both callers.
 // Reads the dump with positioned reads only (dumps are 2 GB); dumps hold personal data and are never committed.
@@ -15,7 +18,7 @@ const MAIN_CALLER = 0x735358, WORKER_CALLER = 0x734725, CS_GAP = 0x78;
 
 interface Thread { tid: number; stackStart: number; stackSize: number; stackRva: number; ctxRva: number; ctxSize: number }
 interface Range { start: number; size: number; rva: number }
-export interface Wait { tid: number; cs: number; owner: number; recursion: number; reg: string; stack: Set<number> }
+export interface Wait { tid: number; cs: number; owner: number; recursion: number; reg: string; stack: Set<number>; kind?: 'CS' | 'std::mutex' }
 export interface Analysis { waits: Wait[]; cycle: number[] | null; deadlock: string; lines: string[]; summary: string }
 
 class Dump {
@@ -120,19 +123,38 @@ export function analyzeDump(file: string): Analysis {
       if (t.ctxSize < 0xC8) continue;
       const c = d.at(t.ctxRva, t.ctxSize), eip = c.readUInt32LE(0xB8);
       if (d.ntdll && !(eip >= d.ntdll[0] && eip < d.ntdll[1])) continue; // not inside a wait
+      const stackOf = () => {
+        const sb = d.span(c.readUInt32LE(0xC4), 1 << 20) ?? d.at(t.stackRva, t.stackSize), stack = new Set<number>();
+        for (let i = 0; i + 4 <= sb.length; i += 4) stack.add(sb.readUInt32LE(i));
+        return stack;
+      };
+      let found = false;
       for (const [reg, off] of REGS) {
         const p = c.readUInt32LE(off), cs = p % 4 === 0 ? d.mem(p, 24) : null;
         if (!cs) continue;
         const lock = cs.readInt32LE(4), rec = cs.readInt32LE(8), owner = cs.readUInt32LE(12);
         if (lock === -1 || rec < 1 || rec > 4096 || owner === t.tid || !tids.has(owner)) continue;
-        const sb = d.span(c.readUInt32LE(0xC4), 1 << 20) ?? d.at(t.stackRva, t.stackSize), stack = new Set<number>();
-        for (let i = 0; i + 4 <= sb.length; i += 4) stack.add(sb.readUInt32LE(i));
-        waits.push({ tid: t.tid, cs: p, owner, recursion: rec, reg, stack });
+        waits.push({ tid: t.tid, cs: p, owner, recursion: rec, reg, stack: stackOf(), kind: 'CS' });
+        found = true;
         break;
+      }
+      if (found) continue;
+      const top = d.span(c.readUInt32LE(0xC4), 0x200); // AcquireSRWLockExclusive's caller frames sit in the first words
+      for (let i = 0; top && !found && i + 4 <= top.length; i += 4) {
+        const v = top.readUInt32LE(i);
+        for (const m of [v, v - 8]) {
+          const b = m % 4 === 0 ? d.mem(m, 48) : null;
+          if (!b) continue;
+          const type = b.readUInt32LE(0), srw = b.readUInt32LE(8), owner = b.readUInt32LE(40), count = b.readInt32LE(44);
+          if ((type & ~0x107) || !(type & 7) || !(srw & 1) || count < 1 || count > 4096 || owner === t.tid || !tids.has(owner)) continue;
+          waits.push({ tid: t.tid, cs: m, owner, recursion: count, reg: 'stack', stack: stackOf(), kind: 'std::mutex' });
+          found = true;
+          break;
+        }
       }
     }
     const cycle = findCycle(waits), deadlock = matchEaPackageLock(cycle, waits);
-    const lines = waits.map(w => `thread ${w.tid} waits CS ${hex(w.cs)} (via ${w.reg}) owned by thread ${w.owner} (recursion ${w.recursion})`);
+    const lines = waits.map(w => `thread ${w.tid} waits ${w.kind ?? 'CS'} ${hex(w.cs)} (via ${w.reg}) owned by thread ${w.owner} (recursion ${w.recursion})`);
     if (cycle) lines.push(`cycle: ${[...cycle, cycle[0]].join(' -> ')}${deadlock ? `: ${deadlock}` : ''}`);
     const summary = `lock waits: ${waits.length} of ${d.threads.length} threads${cycle ? `; deadlock cycle ${[...cycle, cycle[0]].join('>')}` : '; no cycle'}${deadlock ? `; ${deadlock}` : ''}`;
     return { waits, cycle, deadlock, lines, summary };
@@ -148,8 +170,8 @@ if (process.argv[1]?.endsWith('dump-locks.ts') && !process.argv.includes('--self
 
 // ---- self-check: synthetic x86 full-memory dumps
 interface FakeThread { tid: number; eip: number; edi: number; stack: number[] }
-function fakeDump(file: string, threads: FakeThread[], cs: { addr: number; lock: number; rec: number; owner: number }[]) {
-  const T = 48 * threads.length + 4, M = 4 + 108, S = 56, G = 16 + 16 * (threads.length + cs.length);
+function fakeDump(file: string, threads: FakeThread[], cs: { addr: number; lock: number; rec: number; owner: number }[], raw: { addr: number; buf: Buffer }[] = []) {
+  const T = 48 * threads.length + 4, M = 4 + 108, S = 56, G = 16 + 16 * (threads.length + cs.length + raw.length);
   const dirRva = 32, nStreams = 4, sysRva = dirRva + 12 * nStreams, thrRva = sysRva + S, modRva = thrRva + T, nameRva = modRva + M, memRva = nameRva + 4 + 24;
   const dataRva = memRva + G, ctxSize = 0x2CC;
   const parts: Buffer[] = [], ranges: { start: number; buf: Buffer }[] = [];
@@ -170,6 +192,7 @@ function fakeDump(file: string, threads: FakeThread[], cs: { addr: number; lock:
     (t as any).ctx = ctx;
   });
   cs.forEach(c => { const b = Buffer.alloc(24); b.writeInt32LE(c.lock, 4); b.writeInt32LE(c.rec, 8); b.writeUInt32LE(c.owner, 12); ranges.push({ start: c.addr, buf: b }); parts.push(b); off += 24; });
+  raw.forEach(r => { ranges.push({ start: r.addr, buf: r.buf }); parts.push(r.buf); off += r.buf.length; });
   threads.forEach((t, i) => { buf.writeUInt32LE(off, thrRva + 4 + 48 * i + 44); parts.push((t as any).ctx); off += ctxSize; });
   buf.writeBigUInt64LE(BigInt(ranges.length), memRva); buf.writeBigUInt64LE(BigInt(dataRva), memRva + 8);
   ranges.forEach((r, i) => { buf.writeBigUInt64LE(BigInt(r.start), memRva + 16 + 16 * i); buf.writeBigUInt64LE(BigInt(r.buf.length), memRva + 24 + 16 * i); });
@@ -196,6 +219,17 @@ if (process.argv[1]?.endsWith('dump-locks.ts') && process.argv.includes('--self-
     // no cycle: a chain
     const f3 = join(dir, 'chain.dmp'); fakeDump(f3, [sim, { ...worker, edi: 0 }], locks);
     const c = analyzeDump(f3); assert.equal(c.cycle, null); assert.match(c.summary, /no cycle/);
+    // std::mutex ABBA (Apex Radiance 4.0.1, docs/67 §38): main waits mutex A (pointer to its SRW lock at +8 on the stack)
+    // owned by 20, 20 waits recursive mutex B owned by 10; a free mutex (count 0) is no edge
+    const mtx = (type: number, srw: number, owner: number, count: number) => { const b = Buffer.alloc(48); b.writeUInt32LE(type, 0); b.writeUInt32LE(srw, 8); b.writeUInt32LE(owner, 40); b.writeInt32LE(count, 44); return b; };
+    const MA = 0x10C7ECD8, MB = 0x10C7FF28, MF = 0x10C80000;
+    const f4 = join(dir, 'mutex.dmp');
+    fakeDump(f4, [{ tid: 10, eip: WAIT, edi: 0, stack: [7, MA + 8, MA] }, { tid: 20, eip: WAIT, edi: 0, stack: [MB] }, { tid: 30, eip: WAIT, edi: 0, stack: [MF] }], [],
+      [{ addr: MA, buf: mtx(2, 0x001AE903, 20, 1) }, { addr: MB, buf: mtx(0x102, 0x10DEEAD3, 10, 1) }, { addr: MF, buf: mtx(2, 0, 20, 0) }]);
+    const m = analyzeDump(f4);
+    assert.deepEqual(m.waits.map(w => [w.tid, w.owner, w.cs]), [[10, 20, MA], [20, 10, MB]]);
+    assert.deepEqual(m.cycle, [10, 20]); assert.equal(m.deadlock, '');
+    assert.match(m.lines[0], /thread 10 waits std::mutex 0x10C7ECD8 \(via stack\) owned by thread 20 \(recursion 1\)/);
     writeFileSync(join(dir, 'bad.dmp'), 'not a dump at all, long enough for a header read.....');
     assert.throws(() => analyzeDump(join(dir, 'bad.dmp')), /not a minidump/);
     assert.deepEqual(findCycle([{ tid: 1, owner: 2 }, { tid: 2, owner: 3 }, { tid: 3, owner: 1 }] as Wait[]), [1, 2, 3]);

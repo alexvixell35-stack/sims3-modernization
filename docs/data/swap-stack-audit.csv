@@ -436,3 +436,37 @@ WlNode.StandaloneHook,ActiveDreamNode,RunStandaloneFeedbackFunction,WishListener
 WlMgr.UpdateHook,DreamsAndPromisesManager,Update,WishListenerFixes.cs,UpdateOrig,yes,DreamsAndPromisesManager::Update > ActiveDreamNode::OnCompletion > .. 5 .. > Simulator::Sleep,WishListenerFixes,"keep, stub remap (SavedStacks.cs)"
 SpawnCapHook.PetsHook,MinorPet,CanSpawnMoreMinorPetsInWorld,SpawnCap.cs,PetsOrig,no,no path to a yield in 1 overload(s),spawncapcount / spawncapprobe (docs/147 §5 D1): spawner cap check answered from the native count under the cap,keep
 SpawnCapHook.FlowersHook,Wildflower,CanSpawnWildflowers,SpawnCap.cs,FlowersOrig,yes,Wildflower::CanSpawnWildflowers > SeasonsManager::get_Enabled > .. 8 .. > SACS::SACS_AcquireDriverImpl,spawncapcount / spawncapprobe (docs/147 §5 D1): spawner cap check answered from the native count under the cap,"keep, stub remap (SavedStacks.cs)"
+DoorGenDoorHook.Lock2Hook,CommonDoor,SetLockTypeAndOwner,DoorGen.cs,Lock2Orig,no,no path to a yield in 2 overload(s),DoorGen,keep
+DoorGenDoorHook.Lock3Hook,CommonDoor,SetLockTypeAndOwner,DoorGen.cs,Lock3Orig,no,no path to a yield in 2 overload(s),DoorGen,keep
+DoorGenDoorHook.ListHook,CommonDoor,SetLockTypeOwnerList,DoorGen.cs,ListOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+DoorGenDoorHook.AddHook,CommonDoor,AddToOwnerList,DoorGen.cs,AddOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+DoorGenDoorHook.RemoveHook,CommonDoor,RemoveFromOwnerList,DoorGen.cs,RemoveOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+DoorGenHouseholdHook.GreetHook,Household,AddGreetedLotToHousehold,DoorGen.cs,GreetOrig,yes,Household::AddGreetedLotToHousehold > Household::AddLearnRichInformation > .. 8 .. > Simulator::Sleep,DoorGen,"keep, stub remap (SavedStacks.cs)"
+DoorGenHouseholdHook.UngreetHook,Household,RemoveGreetedLotForHousehold,DoorGen.cs,UngreetOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+DoorGenHouseholdHook.AddHook,Household,Add,DoorGen.cs,AddOrig,yes,Household::Add > Situation::Exit > .. 2 .. > StateMachineClient::RequestState,DoorGen,"keep, stub remap (SavedStacks.cs)"
+DoorGenHouseholdHook.RemoveHook,Household,Remove,DoorGen.cs,RemoveOrig,yes,Household::Remove > Household::Remove > .. 4 .. > StateMachineClient::RequestState,DoorGen,"keep, stub remap (SavedStacks.cs)"
+DoorGenLotHook.AddHook,Lot,add_PortalPathPlan,DoorGen.cs,AddOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+DoorGenLotHook.RemoveHook,Lot,remove_PortalPathPlan,DoorGen.cs,RemoveOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+DoorGenFireHook.RegHook,FireManager,RegisterFire,DoorGen.cs,RegOrig,yes,FireManager::RegisterFire > FireManager::CheckForSmokeDetector > .. 5 .. > StateMachineClient::RequestState,DoorGen,"keep, stub remap (SavedStacks.cs)"
+DoorGenFireHook.UnregHook,FireManager,UnregisterFire,DoorGen.cs,UnregOrig,yes,FireManager::UnregisterFire > Kraken::Destroy > .. 2 .. > StateMachineClient::RequestState,DoorGen,"keep, stub remap (SavedStacks.cs)"
+DoorGenBuffHook.AddHook,BuffOnFire,OnAddition,DoorGen.cs,AddOrig,yes,BuffOnFire::OnAddition > Camera::FocusOnSim > .. 2 .. > Simulator::Sleep,DoorGen,"keep, stub remap (SavedStacks.cs)"
+DoorGenBuffHook.RemHook,BuffOnFire,OnRemoval,DoorGen.cs,RemOrig,yes,BuffOnFire::OnRemoval > StasisChamber+CyberneticEnhancementsStore+BuffInstanceCyberneticEnhancements::Dispose > .. 3 .. > StateMachineClient::RequestState,DoorGen,"keep, stub remap (SavedStacks.cs)"
+DoorGenBuffHook2.AddHook,BuffTorched,OnAddition,DoorGen.cs,AddOrig,yes,BuffTorched::OnAddition > BuffOnFire::OnAddition > .. 3 .. > Simulator::Sleep,DoorGen,"keep, stub remap (SavedStacks.cs)"
+DoorGenBuffHook2.RemHook,BuffTorched,OnRemoval,DoorGen.cs,RemOrig,yes,BuffTorched::OnRemoval > BuffOnFire::OnRemoval > .. 4 .. > StateMachineClient::RequestState,DoorGen,"keep, stub remap (SavedStacks.cs)"
+DoorGenSimHook.FlagHook,Sim,FlagSet,DoorGen.cs,FlagOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+DoorGenOccultHook.AddHook,OccultManager,AddOccultType,DoorGen.cs,AddOrig,yes,OccultManager::AddOccultType > OccultManager::AddOccultType > OccultPlantSim::OnAddition > Simulator::Sleep,DoorGen,"keep, stub remap (SavedStacks.cs)"
+DoorGenOccultHook.RemHook,OccultManager,RemoveOccultType,DoorGen.cs,RemOrig,yes,OccultManager::RemoveOccultType > OccultPlantSim::OnRemoval > Simulator::Sleep,DoorGen,"keep, stub remap (SavedStacks.cs)"
+DoorGenRoleHook.CreateHook,Role,CreateRole,DoorGen.cs,CreateOrig,yes,Role::CreateRole > Proprietor::StartRole > .. 3 .. > StateMachineClient::RequestState,DoorGen,"keep, stub remap (SavedStacks.cs)"
+DoorGenRoleHook.RemoveHook,Role,RemoveSimFromRole,DoorGen.cs,RemoveOrig,yes,Role::RemoveSimFromRole > RoleSpecialMerchant::EndRole > .. 4 .. > Simulator::Sleep,DoorGen,"keep, stub remap (SavedStacks.cs)"
+DoorGenRoleTaskHook.FillHook,RoleManagerTask,FillInWorldRole,DoorGen.cs,FillOrig,yes,RoleManagerTask::FillInWorldRole > Household::Add > .. 3 .. > StateMachineClient::RequestState,DoorGen,"keep, stub remap (SavedStacks.cs)"
+DoorGenResortHook.ClosedHook,ResortManager,set_Closed,DoorGen.cs,ClosedOrig,yes,ResortManager::set_Closed > ResortManager::EvictVIP > .. 7 .. > StateMachineClient::RequestState,DoorGen,"keep, stub remap (SavedStacks.cs)"
+DoorGenResortHook.UpdateHook,ResortManager,DoUpdate,DoorGen.cs,UpdateOrig,yes,ResortManager::DoUpdate > Simulator::AddObject > .. 5 .. > SACS::SACS_AcquireDriverImpl,DoorGen,"keep, stub remap (SavedStacks.cs)"
+DoorGenResortHook.GroupHook,ResortManager,CreateNewVIPDoorGroup,DoorGen.cs,GroupOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+DoorGenResortHook.RemDoorHook,ResortManager,RemoveDoorFromVIPRoom,DoorGen.cs,RemDoorOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+DoorGenResortHook.FindHook,ResortManager,FindVIPRoomData,DoorGen.cs,FindOrig,no,no path to a yield in 3 overload(s),DoorGen,keep
+DoorGenResortHook.RefreshHook,ResortManager,RefreshVIPRooms,DoorGen.cs,RefreshOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+DoorGenVipHook.AddHook,ResortManager.VIPRoomData,AddGuest,DoorGen.cs,AddOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+DoorGenVipHook.RemHook,ResortManager.VIPRoomData,RemoveGuest,DoorGen.cs,RemOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+DoorGenDescHook.GenderHook,SimDescription,set_Gender,DoorGen.cs,GenderOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+DoorGenDescHook.AgeHook,SimDescription,set_Age,DoorGen.cs,AgeOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+DoorGenDescHook.PregHook,SimDescription,set_IsVisuallyPregnant,DoorGen.cs,PregOrig,no,no path to a yield in 1 overload(s),DoorGen,keep

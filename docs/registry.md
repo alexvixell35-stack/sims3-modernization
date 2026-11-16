@@ -692,3 +692,34 @@ Separate append-only struct of `LONG` for the autonomy shadow pilot (docs/122 §
 | v908 | reserved (alexvixell35-stack, `native-v908`) | 0x5C34-0x5C53 | [MemDiag] RcRefCallers, part compositor references by caller (`memdiag.cpp`, docs/191 "Who holds the part compositors"): `rrcOn`, `rrcAddRefs`, `rrcReleases`, `rrcFinds`, `rrcCallers`, `rrcSampled`, `rrcRegistry`, `rrcHookNs` |
 | v909 | reserved (monojit-c6-c7, `native-v909`) | 0x5C6C-0x5C97 | [MonoJit] Direct lazy frames and the reader trap (`monojit.cpp`, docs/537): `jitDirect`, `jitLazyBodies`, `jitLazySites`, `jitGuardSites`, `jitLazyCalls`, `jitLazyMats`, `jitLazyFrames`, `jitTrapOn`, `jitTrapWindows`, `jitTrapHits`, `jitTrapUnknown` |
 | v910 | reserved (monojit-all, `native-v910`) | 0x5CA8-0x5CDF | [MonoJit] method compiler in ts3native (`monojit.cpp`, docs/527 §8): `jitOn`, `jitSwitch` (the `--ab jit` byte, 0x5CAC), `jitMethods`, `jitRefused`, `jitCalls`, `jitExits`, `jitVerified`, `jitMismatch`, `jitFirstBad`, `jitAbandoned`, `jitLarge`, `jitOtherTid`, `jitFaults`, `jitCodeKB`. Was v908 on the public lane; moved because master's v908 is RcRefCallers |
+
+## ts3native UserDiag ops (`UdTextMsg` in `native/ts3native/userdiag.cpp`)
+
+ts3fixes `DiagSend(op, lo)` (`UserDiag.cs`): `Route.GetOption2` with optHi = `0x87000000 | op << 16`. One row per op; `node tools/registry.ts --self-check` fails when a `case N:` in `UdTextMsg` has no row here or two rows share an op.
+
+| Op | Owner | Meaning |
+|---|---|---|
+| 0-2 | `UserDiag.cs` | text line: begin, append 4 bytes, end (logged as `ts3fixes: <line>`) |
+| 3-5 | `memdiag.cpp` | [MemDiag] on / sample wanted / self-test wanted |
+| 6 | `played.cpp` | store ready / household played (docs/14 §8.6) |
+| 7 | `compaction.cpp` | [Compaction] verdict and steps (docs/204) |
+| 8 | `autshadow-run.cpp` | [AutShadow] Unseen=1 asked (docs/222) |
+| 10-11 | `UnseenFallback.cs` | UfWhy scope of route lo before its START or sync plan (docs/197 §7, docs/226) |
+| 12 | `UnseenFallback.cs` | route lo's plan is over (docs/197 §7, docs/250 §7.0) |
+| 13 | `UnseenFallback.cs` | seen NPC scope (docs/197 §7) |
+| 14-19 | `castrim.cpp` | save sweep keep list and pump (docs/539 §6) |
+| 20-29 | `discourage.cpp` | [Discourage] GhostTest |
+| 30-34 | `discourage.cpp` | docs/89 §18 repro footprint window (`TS3N_RFTEST` builds only) |
+| 35 | `gvro.cpp` | gvattr: the next plan's source class and scope (docs/250 §7.0) |
+| 36 | `DoorGen.cs` / `hostcalls.cpp` | doorgen: lo 1 arms DoorMemoX=3, lo 0 bumps the managed door-input generation |
+| **37+** | next free | add a row with the `case` |
+
+## ts3native `ts3native_doorgen` export (`DmxScriptGen` in `native/ts3native/ts3native.cpp`)
+
+Separate struct of `LONG`, not versioned (`[RouteSnap] DoorMemoX=3`, switch `doorgen`). No ts3fixes counter slot: native counts the bumps.
+
+| Offsets | Fields |
+|---|---|
+| 0x00-0x0F | `gen` (managed door-input generation), `armed` (op 36 lo 1 seen this session), `bumps`, `unarmedAsks` (mode 3 asks before arming, run as mode 0) |
+| 0x10-0x1F | `missCold` (no row for the key), `missGen` (row of another generation / delegate set), `missAge` (row older than DoorMemoXMs), `notUnlocked` (live answers not "unlocked", never stored); any DoorMemoX mode, "door memo x misses:" line |
+| 0x20-0x23 | `exempt`: mode 1 / 3 asks of a household, selected or unknown-scope job, asked live (docs/585 §5); "door memo x mode 3:" line |
