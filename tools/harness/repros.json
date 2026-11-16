@@ -75094,6 +75094,3894 @@
     ]
   },
   {
+    "id": "suatgradebonus-check",
+    "bug": "SUAT grade bonus indexed best-first on both paths (GPA order inverted, school A skipped) (household-visible) (docs/587 EP1 §2)",
+    "fix": "ts3fixes EpBatch1aLogic.cs: suatgradebonus (default off), docs/587 EP1 §2",
+    "save": "any world (pure check)",
+    "note": "SuatGradeBonusCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "suatgradebonus": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SuatGradeBonusCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SuatGradeBonusCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "suatgradebonus": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SuatGradeBonusCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SuatGradeBonusCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "suatgradebonus": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "suatgradebonus": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "cattoypickerrel-check",
+    "bug": "Cat wall dancer Play With lists Sims with no relationship at the shipped -10 threshold (household-visible) (docs/587 EP1 §17)",
+    "fix": "ts3fixes EpBatch1bLogic.cs: cattoypickerrel (default off), docs/587 EP1 §17",
+    "save": "any world (pure check)",
+    "note": "CatToyPickerRelCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "cattoypickerrel": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CatToyPickerRelCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CatToyPickerRelCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "cattoypickerrel": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CatToyPickerRelCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CatToyPickerRelCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "cattoypickerrel": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "cattoypickerrel": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "dogswimslots-check",
+    "bug": "A hydrophobic dog sent to swim with every pool slot blocked no longer throws (household-visible) (docs/587 EP4 §9.1)",
+    "fix": "ts3fixes EpBatch4Logic.cs: dogswimslots (default off), docs/587 EP4 §9.1",
+    "save": "any world (pure check)",
+    "note": "DogSwimSlotsCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "dogswimslots": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DogSwimSlotsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DogSwimSlotsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "dogswimslots": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DogSwimSlotsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DogSwimSlotsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "dogswimslots": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "dogswimslots": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "fragmentreconstruct-check",
+    "bug": "Reassembling fragments uses the clicked fragment and no extra one (and no NRE when too few are free) (household-visible) (docs/587 EP4 §9.2)",
+    "fix": "ts3fixes EpBatch4Logic.cs: fragmentreconstruct (default off), docs/587 EP4 §9.2",
+    "save": "any world (pure check)",
+    "note": "FragmentReconstructCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fragmentreconstruct": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FragmentReconstructCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FragmentReconstructCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fragmentreconstruct": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FragmentReconstructCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FragmentReconstructCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fragmentreconstruct": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fragmentreconstruct": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "labobjectpush-check",
+    "bug": "University lab students without a lab item use the lab's own objects (intent inferred) (household-visible) (docs/587 EP4 §9.3)",
+    "fix": "ts3fixes EpBatch4Logic.cs: labobjectpush (default off), docs/587 EP4 §9.3",
+    "save": "any world (pure check)",
+    "note": "LabObjectPushCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "labobjectpush": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LabObjectPushCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LabObjectPushCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "labobjectpush": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LabObjectPushCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LabObjectPushCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "labobjectpush": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "labobjectpush": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "businessplannerrun-check",
+    "bug": "Business planner: autonomous use is rolled per run and a Sim who gives up waiting no longer pockets the planner (household-visible) (docs/587 EP4 §9.4)",
+    "fix": "ts3fixes EpBatch4Logic.cs: businessplannerrun (default off), docs/587 EP4 §9.4",
+    "save": "any world (pure check)",
+    "note": "BusinessPlannerRunCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "businessplannerrun": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BusinessPlannerRunCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BusinessPlannerRunCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "businessplannerrun": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BusinessPlannerRunCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BusinessPlannerRunCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "businessplannerrun": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "businessplannerrun": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "futuredescendantsize0-check",
+    "bug": "Future trip: size-0 descendant households no longer unpack progenitors or abort the descendant load step (household-visible) (docs/587 EP4 §9.5)",
+    "fix": "ts3fixes EpBatch4Logic.cs: futuredescendantsize0 (default off), docs/587 EP4 §9.5",
+    "save": "any world (pure check)",
+    "note": "FutureDescendantSize0Check 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "futuredescendantsize0": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FutureDescendantSize0Check",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FutureDescendantSize0Check",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "futuredescendantsize0": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FutureDescendantSize0Check",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FutureDescendantSize0Check",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "futuredescendantsize0": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "futuredescendantsize0": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "junglegymexitqueue-check",
+    "bug": "Look-out tower exit queue drops Sims who left (no permanent 45-minute wait) (household-visible) (docs/587 EP4 §10.1)",
+    "fix": "ts3fixes EpBatch4bLogic.cs: junglegymexitqueue (default off), docs/587 EP4 §10.1",
+    "save": "any world (pure check)",
+    "note": "JungleGymExitQueueCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "junglegymexitqueue": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.JungleGymExitQueueCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.JungleGymExitQueueCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "junglegymexitqueue": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.JungleGymExitQueueCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.JungleGymExitQueueCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "junglegymexitqueue": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "junglegymexitqueue": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "wildhorselot-check",
+    "bug": "Wild horses weight big parks as tuned and respect stray-wildlife gnomes in the fallback (household-visible) (docs/587 EP4 §10.2)",
+    "fix": "ts3fixes EpBatch4bLogic.cs: wildhorselot (default off), docs/587 EP4 §10.2",
+    "save": "any world (pure check)",
+    "note": "WildHorseLotCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "wildhorselot": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WildHorseLotCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WildHorseLotCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "wildhorselot": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WildHorseLotCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WildHorseLotCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "wildhorselot": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "wildhorselot": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "harvesterunripe-check",
+    "bug": "The Harvester no longer harvests unripe or dead plants (household-visible) (docs/587 EP4 §10.3)",
+    "fix": "ts3fixes EpBatch4bLogic.cs: harvesterunripe (default off), docs/587 EP4 §10.3",
+    "save": "any world (pure check)",
+    "note": "HarvesterUnripeCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "harvesterunripe": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HarvesterUnripeCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HarvesterUnripeCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "harvesterunripe": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HarvesterUnripeCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HarvesterUnripeCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "harvesterunripe": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "harvesterunripe": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "hottubseatposture-check",
+    "bug": "Hot tub seated socials no longer stack sore-buff alarms (household-visible) (docs/587 EP4 §10.4)",
+    "fix": "ts3fixes EpBatch4bLogic.cs: hottubseatposture (default off), docs/587 EP4 §10.4",
+    "save": "any world (pure check)",
+    "note": "HotTubSeatPostureCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hottubseatposture": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HotTubSeatPostureCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HotTubSeatPostureCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hottubseatposture": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HotTubSeatPostureCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HotTubSeatPostureCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hottubseatposture": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hottubseatposture": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "teenpartybreakup-check",
+    "bug": "Break Up Party no longer throws when the party ended during the route (household-visible) (docs/587 EP4 §10.5)",
+    "fix": "ts3fixes EpBatch4bLogic.cs: teenpartybreakup (default off), docs/587 EP4 §10.5",
+    "save": "any world (pure check)",
+    "note": "TeenPartyBreakUpCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "teenpartybreakup": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TeenPartyBreakUpCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TeenPartyBreakUpCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "teenpartybreakup": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TeenPartyBreakUpCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TeenPartyBreakUpCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "teenpartybreakup": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "teenpartybreakup": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "dogswimaroundlist-check",
+    "bug": "A dog swimming around stays on the pool's use list (household-visible) (docs/587 EP4 §10.6)",
+    "fix": "ts3fixes EpBatch4bLogic.cs: dogswimaroundlist (default off), docs/587 EP4 §10.6",
+    "save": "any world (pure check)",
+    "note": "DogSwimAroundListCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "dogswimaroundlist": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DogSwimAroundListCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DogSwimAroundListCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "dogswimaroundlist": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DogSwimAroundListCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DogSwimAroundListCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "dogswimaroundlist": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "dogswimaroundlist": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "tutorballoonalarm-check",
+    "bug": "Tutoring thought balloons start with tutoring, not when queued (no leaked alarm) (household-visible) (docs/587 EP4 §10.7)",
+    "fix": "ts3fixes EpBatch4bLogic.cs: tutorballoonalarm (default off), docs/587 EP4 §10.7",
+    "save": "any world (pure check)",
+    "note": "TutorBalloonAlarmCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "tutorballoonalarm": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TutorBalloonAlarmCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TutorBalloonAlarmCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "tutorballoonalarm": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TutorBalloonAlarmCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TutorBalloonAlarmCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "tutorballoonalarm": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "tutorballoonalarm": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "chemistryvfx-check",
+    "bug": "Chemistry potion wear-off and potion discovery effects were started and dropped, never destroyed; now auto-destroyed like EA's SubmitOneShotEffect (household-visible) (docs/587 EP5 §11.1)",
+    "fix": "ts3fixes EpBatch5Logic.cs: chemistryvfx (default off), docs/587 EP5 §11.1",
+    "save": "any world (pure check)",
+    "note": "ChemistryVfxCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "chemistryvfx": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ChemistryVfxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ChemistryVfxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "chemistryvfx": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ChemistryVfxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ChemistryVfxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "chemistryvfx": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "chemistryvfx": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "dartboardvfx-check",
+    "bug": "Expensive dartboard throw-result effects (4) were started and dropped; now auto-destroyed (household-visible) (docs/587 EP5 §11.1)",
+    "fix": "ts3fixes EpBatch5Logic.cs: dartboardvfx (default off), docs/587 EP5 §11.1",
+    "save": "any world (pure check)",
+    "note": "DartboardVfxCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "dartboardvfx": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DartboardVfxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DartboardVfxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "dartboardvfx": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DartboardVfxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DartboardVfxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "dartboardvfx": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "dartboardvfx": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "wardrobewandvfx-check",
+    "bug": "Wardrobe upgrade wand success/fail effects were started and dropped; now auto-destroyed (household-visible) (docs/587 EP5 §11.1)",
+    "fix": "ts3fixes EpBatch5Logic.cs: wardrobewandvfx (default off), docs/587 EP5 §11.1",
+    "save": "any world (pure check)",
+    "note": "WardrobeWandVfxCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "wardrobewandvfx": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WardrobeWandVfxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WardrobeWandVfxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "wardrobewandvfx": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WardrobeWandVfxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WardrobeWandVfxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "wardrobewandvfx": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "wardrobewandvfx": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "petdroolvfx-check",
+    "bug": "Piggy-pet drool and spit-up effects when eating off the floor were started and dropped; now auto-destroyed (household-visible) (docs/587 EP5 §11.1)",
+    "fix": "ts3fixes EpBatch5Logic.cs: petdroolvfx (default off), docs/587 EP5 §11.1",
+    "save": "any world (pure check)",
+    "note": "PetDroolVfxCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petdroolvfx": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetDroolVfxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetDroolVfxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petdroolvfx": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetDroolVfxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetDroolVfxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petdroolvfx": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petdroolvfx": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "timeportalvfx-check",
+    "bug": "Time portal reset effect was started and dropped; now auto-destroyed (household-visible) (docs/587 EP5 §11.1)",
+    "fix": "ts3fixes EpBatch5Logic.cs: timeportalvfx (default off), docs/587 EP5 §11.1",
+    "save": "any world (pure check)",
+    "note": "TimePortalVfxCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "timeportalvfx": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TimePortalVfxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TimePortalVfxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "timeportalvfx": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TimePortalVfxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TimePortalVfxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "timeportalvfx": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "timeportalvfx": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "haystackvfx-check",
+    "bug": "Haystack pile transition effect was started and dropped; now auto-destroyed (household-visible) (docs/587 EP5 §11.1)",
+    "fix": "ts3fixes EpBatch5Logic.cs: haystackvfx (default off), docs/587 EP5 §11.1",
+    "save": "any world (pure check)",
+    "note": "HayStackVfxCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "haystackvfx": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HayStackVfxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HayStackVfxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "haystackvfx": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HayStackVfxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HayStackVfxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "haystackvfx": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "haystackvfx": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "hayscattertime-check",
+    "bug": "Hay bale scatter time was never reset, so later scatters on a haystack or stacked bale finished at once; now reset after each scatter (household-visible) (docs/587 EP5 §11.2.1)",
+    "fix": "ts3fixes EpBatch5bLogic.cs: hayscattertime (default off), docs/587 EP5 §11.2.1",
+    "save": "any world (pure check)",
+    "note": "HayScatterTimeCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hayscattertime": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HayScatterTimeCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HayScatterTimeCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hayscattertime": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HayScatterTimeCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HayScatterTimeCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hayscattertime": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hayscattertime": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "hauntedgnomeinv-check",
+    "bug": "A haunted gnome loaded in an inventory kept spawning ghosts and scaring cowards; now cleaned like on inventory add (household-visible) (docs/587 EP5 §11.2.2)",
+    "fix": "ts3fixes EpBatch5bLogic.cs: hauntedgnomeinv (default off), docs/587 EP5 §11.2.2",
+    "save": "any world (pure check)",
+    "note": "HauntedGnomeInvCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hauntedgnomeinv": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HauntedGnomeInvCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HauntedGnomeInvCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hauntedgnomeinv": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HauntedGnomeInvCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HauntedGnomeInvCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hauntedgnomeinv": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hauntedgnomeinv": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "houdinignomeleak-check",
+    "bug": "The magician gnome created near a magic box leaked when it could not be placed, and a failed create threw; now destroyed before EA's fallback (household-visible) (docs/587 EP5 §11.2.3)",
+    "fix": "ts3fixes EpBatch5bLogic.cs: houdinignomeleak (default off), docs/587 EP5 §11.2.3",
+    "save": "any world (pure check)",
+    "note": "HoudiniGnomeLeakCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "houdinignomeleak": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoudiniGnomeLeakCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoudiniGnomeLeakCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "houdinignomeleak": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoudiniGnomeLeakCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HoudiniGnomeLeakCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "houdinignomeleak": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "houdinignomeleak": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "showstagefxend-check",
+    "bug": "A show end during a stage one-shot effect was dropped, so stage lights and EP6 effects machines stayed on after the show; plus the EP6 failure effect pick and stopped FX disposal (household-visible) (docs/587 EP5 §11.2.4)",
+    "fix": "ts3fixes EpBatch5bLogic.cs: showstagefxend (default off), docs/587 EP5 §11.2.4",
+    "save": "any world (pure check)",
+    "note": "ShowStageFxEndCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "showstagefxend": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowStageFxEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowStageFxEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "showstagefxend": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowStageFxEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowStageFxEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "showstagefxend": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "showstagefxend": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "soakedpetselfreact-check",
+    "bug": "A soaked pet shaking off water queued the shake reaction on itself; now only other Sims react (household-visible) (docs/587 EP5 §11.2.5)",
+    "fix": "ts3fixes EpBatch5bLogic.cs: soakedpetselfreact (default off), docs/587 EP5 §11.2.5",
+    "save": "any world (pure check)",
+    "note": "SoakedPetSelfReactCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "soakedpetselfreact": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SoakedPetSelfReactCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SoakedPetSelfReactCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "soakedpetselfreact": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SoakedPetSelfReactCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SoakedPetSelfReactCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "soakedpetselfreact": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "soakedpetselfreact": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "tagbagsurfaceleak-check",
+    "bug": "Street art prep leaked its surface object when no target lot was found; now destroyed (household-visible) (docs/587 EP5 §11.2.6)",
+    "fix": "ts3fixes EpBatch5bLogic.cs: tagbagsurfaceleak (default off), docs/587 EP5 §11.2.6",
+    "save": "any world (pure check)",
+    "note": "TagBagSurfaceLeakCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "tagbagsurfaceleak": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TagBagSurfaceLeakCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TagBagSurfaceLeakCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "tagbagsurfaceleak": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TagBagSurfaceLeakCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TagBagSurfaceLeakCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "tagbagsurfaceleak": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "tagbagsurfaceleak": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "equestriantrophyname-check",
+    "bug": "Equestrian trophies read the horse name from the rider key on import, showing the rider as the horse; now read from the horse key (household-visible) (docs/587 EP5 §11.2.7)",
+    "fix": "ts3fixes EpBatch5bLogic.cs: equestriantrophyname (default off), docs/587 EP5 §11.2.7",
+    "save": "any world (pure check)",
+    "note": "EquestrianTrophyNameCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "equestriantrophyname": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EquestrianTrophyNameCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EquestrianTrophyNameCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "equestriantrophyname": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EquestrianTrophyNameCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EquestrianTrophyNameCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "equestriantrophyname": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "equestriantrophyname": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "rubbleuselist-check",
+    "bug": "Clearing a rubble pile cut by a reset left the Sim on the pile's use list (Cleanup skips base); now taken off (household-visible) (docs/587 EP5 §11.2.8)",
+    "fix": "ts3fixes EpBatch5bLogic.cs: rubbleuselist (default off), docs/587 EP5 §11.2.8",
+    "save": "any world (pure check)",
+    "note": "RubbleUseListCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rubbleuselist": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RubbleUseListCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RubbleUseListCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rubbleuselist": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RubbleUseListCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RubbleUseListCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rubbleuselist": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rubbleuselist": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "backpacklotleak-check",
+    "bug": "A backpack destroyed while in use stayed on the static lot-change event and threw on every lot change; now unsubscribed (household-visible) (docs/587 EP5 §11.2.9)",
+    "fix": "ts3fixes EpBatch5bLogic.cs: backpacklotleak (default off), docs/587 EP5 §11.2.9",
+    "save": "any world (pure check)",
+    "note": "BackpackLotLeakCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "backpacklotleak": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BackpackLotLeakCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BackpackLotLeakCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "backpacklotleak": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BackpackLotLeakCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BackpackLotLeakCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "backpacklotleak": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "backpacklotleak": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "streetartmasterboost-check",
+    "bug": "The Avant-Garde masterpiece boost went to row 3, not the Master row, so large murals never got it; now the Master row (household-visible) (docs/587 EP5 §11.2.10)",
+    "fix": "ts3fixes EpBatch5bLogic.cs: streetartmasterboost (default off), docs/587 EP5 §11.2.10",
+    "save": "any world (pure check)",
+    "note": "StreetArtMasterBoostCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "streetartmasterboost": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StreetArtMasterBoostCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StreetArtMasterBoostCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "streetartmasterboost": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StreetArtMasterBoostCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StreetArtMasterBoostCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "streetartmasterboost": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "streetartmasterboost": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "bubblingspringsreset-check",
+    "bug": "A reset hot spring disposed its Nature's Hot Tub broadcaster and never recreated it; now recreated (household-visible) (docs/587 EP5 §11.2.11)",
+    "fix": "ts3fixes EpBatch5bLogic.cs: bubblingspringsreset (default off), docs/587 EP5 §11.2.11",
+    "save": "any world (pure check)",
+    "note": "BubblingSpringsResetCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bubblingspringsreset": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BubblingSpringsResetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BubblingSpringsResetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bubblingspringsreset": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BubblingSpringsResetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BubblingSpringsResetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bubblingspringsreset": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bubblingspringsreset": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "floorswitchuselist-check",
+    "bug": "Standing on a tomb floor switch cut by a reset left the Sim on the switch's use list (Cleanup skips base); now taken off (household-visible) (docs/587 EP6 §12.1)",
+    "fix": "ts3fixes EpBatch6Logic.cs: floorswitchuselist (default off), docs/587 EP6 §12.1",
+    "save": "any world (pure check)",
+    "note": "FloorSwitchUseListCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "floorswitchuselist": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FloorSwitchUseListCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FloorSwitchUseListCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "floorswitchuselist": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FloorSwitchUseListCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FloorSwitchUseListCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "floorswitchuselist": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "floorswitchuselist": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "donationbuffchance-check",
+    "bug": "The giggle-fit and plasma-faint donation buffs rolled the percent chance inverted (85% instead of the shipped 15%); now as tuned (household-visible) (docs/587 EP6 §12.2)",
+    "fix": "ts3fixes EpBatch6Logic.cs: donationbuffchance (default off), docs/587 EP6 §12.2",
+    "save": "any world (pure check)",
+    "note": "DonationBuffChanceCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "donationbuffchance": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DonationBuffChanceCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DonationBuffChanceCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "donationbuffchance": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DonationBuffChanceCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DonationBuffChanceCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "donationbuffchance": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "donationbuffchance": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "vampirefruitsnack-check",
+    "bug": "An Outstanding vampire fruit gave Sated instead of Sanguine Snack (> instead of the tuned >=); now >= (household-visible) (docs/587 EP6 §12.3)",
+    "fix": "ts3fixes EpBatch6Logic.cs: vampirefruitsnack (default off), docs/587 EP6 §12.3",
+    "save": "any world (pure check)",
+    "note": "VampireFruitSnackCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "vampirefruitsnack": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VampireFruitSnackCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VampireFruitSnackCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "vampirefruitsnack": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VampireFruitSnackCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VampireFruitSnackCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "vampirefruitsnack": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "vampirefruitsnack": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "fallenrockcollected-check",
+    "bug": "An imported meteorite's untracked timeout alarm destroyed it after the household collected it; now a collected rock is kept (household-visible) (docs/587 EP6 §12.4)",
+    "fix": "ts3fixes EpBatch6Logic.cs: fallenrockcollected (default off), docs/587 EP6 §12.4",
+    "save": "any world (pure check)",
+    "note": "FallenRockCollectedCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fallenrockcollected": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FallenRockCollectedCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FallenRockCollectedCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fallenrockcollected": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FallenRockCollectedCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FallenRockCollectedCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fallenrockcollected": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fallenrockcollected": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "spellbooksummonload-check",
+    "bug": "A learned Summon spell is dropped from the spellbook on every import (travel, move, exported Sim) (household-visible) (docs/587 store §13.1)",
+    "fix": "ts3fixes StoreBatch1Logic.cs: spellbooksummonload (default off), docs/587 store §13.1",
+    "save": "any world (pure check)",
+    "note": "SpellBookSummonLoadCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spellbooksummonload": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpellBookSummonLoadCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpellBookSummonLoadCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spellbooksummonload": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpellBookSummonLoadCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpellBookSummonLoadCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spellbooksummonload": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spellbooksummonload": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "chocfountaingeyser-check",
+    "bug": "Each refill of the chocolate fountain adds another repeating geyser alarm (household-visible) (docs/587 store §13.2)",
+    "fix": "ts3fixes StoreBatch1Logic.cs: chocfountaingeyser (default off), docs/587 store §13.2",
+    "save": "any world (pure check)",
+    "note": "ChocFountainGeyserCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "chocfountaingeyser": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ChocFountainGeyserCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ChocFountainGeyserCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "chocfountaingeyser": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ChocFountainGeyserCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ChocFountainGeyserCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "chocfountaingeyser": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "chocfountaingeyser": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "hypnotrickrelease-check",
+    "bug": "A hypnotized volunteer stays frozen because the trick never clears the route lock (household-visible) (docs/587 store §13.3)",
+    "fix": "ts3fixes StoreBatch1Logic.cs: hypnotrickrelease (default off), docs/587 store §13.3",
+    "save": "any world (pure check)",
+    "note": "HypnoTrickReleaseCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hypnotrickrelease": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HypnoTrickReleaseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HypnoTrickReleaseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hypnotrickrelease": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HypnoTrickReleaseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HypnoTrickReleaseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "hypnotrickrelease": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "hypnotrickrelease": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "voodoofairyfadein-check",
+    "bug": "A fairy bound to a voodoo doll stays invisible when the transform is cut short (household-visible) (docs/587 store §13.4)",
+    "fix": "ts3fixes StoreBatch1Logic.cs: voodoofairyfadein (default off), docs/587 store §13.4",
+    "save": "any world (pure check)",
+    "note": "VoodooFairyFadeInCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "voodoofairyfadein": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VoodooFairyFadeInCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VoodooFairyFadeInCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "voodoofairyfadein": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VoodooFairyFadeInCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VoodooFairyFadeInCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "voodoofairyfadein": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "voodoofairyfadein": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "saunatubclear-check",
+    "bug": "The sauna stays marked in use after a reset or exception while bathing (household-visible) (docs/587 store §13.5)",
+    "fix": "ts3fixes StoreBatch1Logic.cs: saunatubclear (default off), docs/587 store §13.5",
+    "save": "any world (pure check)",
+    "note": "SaunaTubClearCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "saunatubclear": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SaunaTubClearCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SaunaTubClearCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "saunatubclear": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SaunaTubClearCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SaunaTubClearCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "saunatubclear": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "saunatubclear": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "slotmachinedefs-check",
+    "bug": "Autonomous slot play rewrites the shared stakes menu entries (household-visible) (docs/587 store §13.6)",
+    "fix": "ts3fixes StoreBatch1Logic.cs: slotmachinedefs (default off), docs/587 store §13.6",
+    "save": "any world (pure check)",
+    "note": "SlotMachineDefsCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "slotmachinedefs": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlotMachineDefsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlotMachineDefsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "slotmachinedefs": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlotMachineDefsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlotMachineDefsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "slotmachinedefs": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "slotmachinedefs": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "treewishingwell-check",
+    "bug": "The Tree of Prosperity never sees a wishing well, so its night shows never spawn (household-visible) (docs/587 store §13.7)",
+    "fix": "ts3fixes StoreBatch1Logic.cs: treewishingwell (default off), docs/587 store §13.7",
+    "save": "any world (pure check)",
+    "note": "TreeWishingWellCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "treewishingwell": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TreeWishingWellCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TreeWishingWellCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "treewishingwell": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TreeWishingWellCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TreeWishingWellCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "treewishingwell": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "treewishingwell": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "playpentalkcast-check",
+    "bug": "A second learn-to-talk broadcaster orphans the first, which never stops (household-visible) (docs/587 store §13.8)",
+    "fix": "ts3fixes StoreBatch1Logic.cs: playpentalkcast (default off), docs/587 store §13.8",
+    "save": "any world (pure check)",
+    "note": "PlaypenTalkCastCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "playpentalkcast": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PlaypenTalkCastCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PlaypenTalkCastCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "playpentalkcast": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PlaypenTalkCastCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PlaypenTalkCastCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "playpentalkcast": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "playpentalkcast": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "ovenmenunull-check",
+    "bug": "Picking food from an empty or unaffordable restaurant menu throws (household-visible) (docs/587 store §13.9)",
+    "fix": "ts3fixes StoreBatch1Logic.cs: ovenmenunull (default off), docs/587 store §13.9",
+    "save": "any world (pure check)",
+    "note": "OvenMenuNullCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "ovenmenunull": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OvenMenuNullCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OvenMenuNullCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ovenmenunull": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OvenMenuNullCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OvenMenuNullCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ovenmenunull": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "ovenmenunull": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "fvstandskillcurve-check",
+    "bug": "The fruit and veggie stand builds its skill curve from the frequency arrays (household-visible) (docs/587 store §13.10)",
+    "fix": "ts3fixes StoreBatch1Logic.cs: fvstandskillcurve (default off), docs/587 store §13.10",
+    "save": "any world (pure check)",
+    "note": "FvStandSkillCurveCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fvstandskillcurve": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FvStandSkillCurveCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FvStandSkillCurveCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fvstandskillcurve": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FvStandSkillCurveCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FvStandSkillCurveCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fvstandskillcurve": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fvstandskillcurve": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "pokerdeadplayer-check",
+    "bug": "A seated Sim who no longer exists throws in the poker dealer and kills the table (household-visible) (docs/587 store §13.11)",
+    "fix": "ts3fixes StoreBatch1Logic.cs: pokerdeadplayer (default off), docs/587 store §13.11",
+    "save": "any world (pure check)",
+    "note": "PokerDeadPlayerCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "pokerdeadplayer": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PokerDeadPlayerCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PokerDeadPlayerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "pokerdeadplayer": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PokerDeadPlayerCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PokerDeadPlayerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "pokerdeadplayer": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "pokerdeadplayer": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "roulettehackreset-check",
+    "bug": "A reset leaves the roulette table hacked forever (household-visible) (docs/587 store §13.12)",
+    "fix": "ts3fixes StoreBatch1Logic.cs: roulettehackreset (default off), docs/587 store §13.12",
+    "save": "any world (pure check)",
+    "note": "RouletteHackResetCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "roulettehackreset": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RouletteHackResetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RouletteHackResetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "roulettehackreset": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RouletteHackResetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RouletteHackResetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "roulettehackreset": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "roulettehackreset": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "coopeggquality-check",
+    "bug": "Chicken coop eggs come out one quality tier low and never Perfect (household-visible) (docs/587 store §13.13)",
+    "fix": "ts3fixes StoreBatch1Logic.cs: coopeggquality (default off), docs/587 store §13.13",
+    "save": "any world (pure check)",
+    "note": "CoopEggQualityCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "coopeggquality": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CoopEggQualityCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CoopEggQualityCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "coopeggquality": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CoopEggQualityCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CoopEggQualityCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "coopeggquality": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "coopeggquality": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

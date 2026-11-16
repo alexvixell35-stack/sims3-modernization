@@ -24,6 +24,7 @@ export type Row = Patch & { yields: string; proof: string; purpose: string; acti
 
 // a target held in a variable: variable name in that file -> the class it names
 const TARGET_VARS: Record<string, string> = {
+  'EpBatch1aLogic.cs:sSuTest': 'Sims3.Gameplay.Objects.Miscellaneous.UniversityWelcomeKit+TakeAptitudeTest', 'EpBatch1aLogic.cs:sHeType': 'Sims3.Gameplay.Objects.FoodObjects.EatHarvestablePet', 'EpBatch1bLogic.cs:sBrRide': 'Sims3.Gameplay.Objects.Entertainment.MechanicalBull+RideBull', 'EpBatch1bLogic.cs:sBbDef': 'Sims3.Gameplay.Objects.Misc.BalancingBall+BalanceBall+Definition', 'EpBatch4Logic.cs:sFrType': 'Sims3.Gameplay.Objects.TombObjects.FragmentedObject+Reconstruct', 'EpBatch4bLogic.cs:sDaType': 'Sims3.Gameplay.Pools.DoggySwimAround', 'EpBatch5bLogic.cs:sSoType': 'Sims3.Gameplay.ActorSystems.BuffSoakedPet+ShakeWaterOff', 'StoreBatch1Logic.cs:sVfType': 'VoodooDoll+TransformSim', 'EpBatch1bLogic.cs:sGpType': 'Sims3.Gameplay.Objects.Appliances.MakeGourmetFoodForPet',
   'RefTable.cs:t': 'ScriptCore.ReferenceHashtable', 'CachedReflection.cs:pc': 'ScriptCore.PersistedClass',
   'CachedReflection.cs:db': 'ScriptCore.PersistedClassDB', 'FewerPlans.cs:helper': 'LotManager+RunStuckCheckHelper',
   'RouteSources.cs:watch': 'VelvetRopes+WatchDoor', 'PlayTrace.cs:flow': 'Sims3.UI.GameEntry.PlayFlowInWorldFlow',
