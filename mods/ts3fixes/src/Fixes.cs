@@ -1074,6 +1074,7 @@ namespace Ts3Fixes
         // [1657-1659] coopeggquality (StoreBatch1Logic.cs, docs/587 store §13.13): egg quality index shifted to the Quality enum.
         // [1981-1999] unseenoutfitdefer (UnseenOutfitDefer.cs, issue #451, docs/602): 1981 instant sets deferred, 1982 of those replacing a waiting one, 1983 applied: Sim seen, 1984 applied: selected / not a townie now, 1985 applied before a delayed set or model, 1986 applied: flush (switch off, not live, travel, save), 1987 dropped: Sim gone, 1988 dropped: EA's own set ran, 1989 dropped: model set, 1990 waiting now, 1991 most waiting, 1992 not deferred: first set after instantiate, 1993 not deferred: delayed swap open, 1994 not deferred: category or not a Sim outfit path, 1995 apply threw, 1996 not deferred: within the 40 m margin, 1997 applied: entered the margin, 1998 worst seen-to-apply ms (an upper bound), 1999 seen applies later than 250 ms.
         // [2711-2712] safespotpool (SafeSpot, docs/74 §13): placement answers in a pool or under the ground skipped / cached start spots skipped.
+        // [2713-2714] spotcheck (docs/560 §7): GoHome spot in view -> walk / lot-trip spot in view -> game's own trip.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -1751,6 +1752,7 @@ namespace Ts3Fixes
                 case "roulettehackreset": return Instantiator.kRouletteHackReset;
                 case "coopeggquality": return Instantiator.kCoopEggQuality;
                 case "safespotpool": return Instantiator.kSafeSpotPool;
+                case "spotcheck": return Instantiator.kSpotCheck;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
@@ -1930,6 +1932,9 @@ namespace Ts3Fixes
                         sCounters[2]++;
                         return RunOrig();
                     }
+                    // spotcheck (default off): Unseen(Actor, Target) judged the home lot, but the spot is a random outdoor point
+                    // anywhere on it (up to ~45 m from the centre on a 64 m lot): one in view = the Sim walks
+                    if (ShortcutOn("spotcheck") && !UfGoalUnseen(pos)) { sCounters[2713]++; return RunOrig(); }
                     // docs/202 §3.6.4 unseenfbtriphold: D's walk-time hold first; given up = the game's own trip
                     if (UfPreCore.TripMode(false, false, ShortcutOn("unseenfbtriphold")) == 2 && !UfTripHold(Actor, Target, pos)) return RunOrig();
                     sLastShortcut[id] = now;
@@ -2353,6 +2358,8 @@ namespace Ts3Fixes
             if (!TownieUnseen(sim, null) || (sim.Position - lot.Position).Length() <= kShortcutMinDistance || !FarFromViewers(lot.Position)) return false;
             Sims3.SimIFace.Vector3 pos, fwd;
             if (!SafeSpot(sim, lot, lot.EntryPoint(), out pos, out fwd)) { c[idx + 2]++; return false; }
+            // spotcheck (default off): the gate judged the lot's position; the spot itself must be out of view too
+            if (ShortcutOn("spotcheck") && !UfGoalUnseen(pos)) { c[2714]++; return false; }
             if (mode == 2 && !UfTripHold(sim, lot, pos)) return false;  // the game's own trip runs (the Sim lost only the hold)
             string from = sim.LotCurrent != null ? sim.LotCurrent.Name : "street";
             PlaceSim(sim, pos, fwd, name + " " + lot.Name);
