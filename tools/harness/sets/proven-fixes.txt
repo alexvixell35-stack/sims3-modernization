@@ -316,3 +316,4 @@ outfitwaitend
 tpaptgoal
 hovertraintest
 newcartest
+detailprioexact
