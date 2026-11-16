@@ -205,9 +205,62 @@ namespace Ts3Fixes
             public void LoopDelHook(StateMachineClient smc, InteractionInstance.LoopData ld)
             {
                 if (BouncerAtSlot(this)) return;
+                if (BouncerMemoSkip(this)) return;
                 LoopDelOrig(smc, ld);
+                BouncerMemoAfter(this);
             }
             public void LoopDelOrig(StateMachineClient smc, InteractionInstance.LoopData ld) { } // receives WatchDoor.LoopDel's original header
+        }
+
+        // bouncermemo (default off, townie bouncers only). Data: Bridgeport games of 10 min, 850-940 WatchDoor route plans a game
+        // (90-105 s of plan work); in one game 800 of 888 had a 0.0 m path with the goal 1.2-1.6 m away (RoutingSlot_2 is not
+        // reachable exactly), so the bouncer never moves and LoopDel plans the same route again every loop (720-835 same start +
+        // goal repeats a game). bouncerskip never fires there: it needs 0.1 m from the slot.
+        // With the switch on: after a loop's RouteToSlot the bouncer's spot is kept; the next loops skip LoopDel while the
+        // bouncer is within 0.25 m of that spot. A push of more than 0.25 m (EA's reason for the loop) routes again, as EA does.
+        // Household and selected Sims and an unknown scope (IsNpcSim, a household) keep EA's loop. Counters [3422] loops skipped,
+        // [3423] loops routed. The memo holds at most 64 bouncers (a few per world); destroyed ones are dropped first, then it
+        // starts over.
+        static readonly Dictionary<Sim, Vector3> sBmSpot = new Dictionary<Sim, Vector3>();
+        static Sim BouncerOf(object self)
+        {
+            if (!ShortcutOn("bouncermemo")) return null;
+            InteractionInstance ii = self as InteractionInstance;
+            Sim actor = ii != null ? ii.InstanceActor as Sim : null;
+            if (actor == null || actor.Parent != null || !IsNpcSim(actor) || actor.Household == null) return null;
+            return actor;
+        }
+        static bool BouncerMemoSkip(object self)
+        {
+            try
+            {
+                Sim actor = BouncerOf(self);
+                if (actor == null) return false;
+                Vector3 spot;
+                if (!sBmSpot.TryGetValue(actor, out spot) || (actor.Position - spot).LengthSqr() > 0.25f * 0.25f) { PatchCounters()[3423]++; return false; }
+                PatchCounters()[3422]++;
+                return true;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { return false; }
+        }
+        static void BouncerMemoAfter(object self)
+        {
+            try
+            {
+                Sim actor = BouncerOf(self);
+                if (actor == null) return;
+                if (sBmSpot.Count >= 64)
+                {
+                    List<Sim> gone = new List<Sim>();
+                    foreach (Sim s in sBmSpot.Keys) if (s == null || s.HasBeenDestroyed) gone.Add(s);
+                    foreach (Sim s in gone) sBmSpot.Remove(s);
+                    if (sBmSpot.Count >= 64) sBmSpot.Clear();
+                }
+                sBmSpot[actor] = actor.Position;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { }
         }
 
         static bool BouncerAtSlot(object self)

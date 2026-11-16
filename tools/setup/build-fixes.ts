@@ -109,6 +109,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kEaSpreadDecay value="True" />
     <kRouteSources value="False" />
     <kLegReplanSkip value="False" />
+    <kBouncerMemo value="False" />
     <kBouncerSlotSkip value="False" />
     <kIdlePlanMemo value="False" />
     <kStuckCheckNear value="False" />

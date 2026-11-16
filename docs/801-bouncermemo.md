@@ -1,0 +1,10 @@
+# 801: `bouncermemo`, a townie bouncer that cannot reach its slot stops planning the same route (default off)
+
+Answer: a velvet-rope bouncer's `WatchDoor` loop plans a route to `RoutingSlot_2` on every loop. At Bridgeport clubs the slot is often not exactly reachable (path 0.0 m, goal 1.2-1.6 m away), so the bouncer never moves and each loop plans the same route again. With `bouncermemo` on (tuning `kBouncerMemo`, off by default) a townie bouncer that is still within 0.25 m of where its last loop routed skips the loop.
+
+- Cause [verified: routetrace lines of Bridgeport games, 10 min each]: 850-940 `WatchDoor` plans a game (90-105 s of plan work); in one game 800 of 888 plans had a path of 0.0 m with the goal 1.2-1.6 m away, and 720-835 were repeats with the same start and goal. `bouncerskip` (docs/151) never fires there: it needs the bouncer within 0.1 m of the slot.
+- Fix (`RouteSources.cs`, `BouncerHook.LoopDelHook`): after a loop ran, the bouncer's position is kept; the next loops are skipped while the bouncer is within 0.25 m of it. A push of more than 0.25 m (EA's reason for the loop) routes again, as EA does. The memo holds at most 64 bouncers; destroyed ones are dropped first, then it starts over.
+- Scope: townie bouncers only (`IsNpcSim` and a household). Household, selected and unknown-scope Sims, and a bouncer in a parent object, keep EA's loop. Off: the hook runs EA's loop as before.
+- Risk [inferred]: if the slot itself moves (the door object is moved in build mode) while the bouncer stays within 0.25 m of its old spot, the loop is skipped until the bouncer is pushed or the memo is replaced.
+- Counters: [3422] loops skipped, [3423] loops routed.
+- Evidence [verified: ts3native.log routetrace summaries, natural-play games, not in-load A/Bs]: Bridgeport game wc17 (switch off): 1,360 `WatchDoor` plans, 179 s of plan time. Bridgeport game wc19 (on): 109 plans, 16.2 s. Other local changes differed between those games, and the switch was on in only two Bridgeport games (wc18, wc19), so the sample is small. The core mod of the author's setup later took over this case, so it was turned off locally.

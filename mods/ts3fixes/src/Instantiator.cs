@@ -98,6 +98,7 @@ namespace Ts3Fixes
         [Tunable] public static int kUnseenCarEvery = 4;           // N for the traffic car rule
         [Tunable] public static bool kRouteSources = false;        // test only: route plans counted by source (docs/151 §2 buckets), repeats, leg-end and bouncer shares; no behaviour change (RouteSources.cs)
         [Tunable] public static bool kLegReplanSkip = false;       // opt-in until measured: no replan after a boat/vehicle get-out when the planned rest of the route starts within 0.5 m of the Sim (RouteSources.cs, docs/151 D1)
+        [Tunable] public static bool kBouncerMemo = false;        // opt-in: a townie bouncer within 0.25 m of where its last WatchDoor loop routed skips the loop (RouteSources.cs BouncerMemoSkip, docs/801)
         [Tunable] public static bool kBouncerSlotSkip = false;     // opt-in until measured: a velvet-rope bouncer standing on its spot does not re-route to it every 5 s (RouteSources.cs, docs/151 D3)
         [Tunable] public static bool kStuckCheckNear = false;      // opt-in until measured: the 3 AM stuck check plans its random lot points nearest first (same points, same verdict), so fewer failed plans before the first success (FewerPlans.cs, docs/163 §3)
         [Tunable] public static bool kJobYield = true;             // on, same as the shipped tuning (2026-11-14); was: opt-in until measured: a route plan that would wait natively for a running route job sleeps its task a tick at a time instead (needs ts3native [RouteAsync] JobYield; RouteBackoff.cs StepAside, docs/183)
