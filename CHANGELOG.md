@@ -54,6 +54,7 @@ Needs the plugin from master, 0.36.256 or later (older plugins ignore the newer 
 
 ### Test features (all off by default, not tested in game yet)
 
+- **EXPERIMENTAL: household Sims too (`[Experimental] HouseholdToo=1`, off).** Normally the mod leaves the Sims you control on the game's own answers. With this switch your household also gets the speedups whose result looks the same: remembered door answers and the background autonomy scoring. Teleports, skipped or shortened routes, frozen animations, resets and save clean-ups never apply to your household, switch on or off. For testers only.
 - **`[Alloc]` steps aside for Apex Radiance's FastMemory (`[Alloc]` stays off by default; lane L9, docs/148 §7).** With `[Alloc] Enabled=1` and Apex's FastMemory on, the plugin's small-allocation pool now stands down instead of running next to Apex's allocator; the log names it. Nothing changes for the shipped ini.
 - **Sim stall sampler (`[StallWatch] Enabled=1`, off).** After 5 s without a finished simulation step, the plugin log gets the sim thread's stack as module + offset, so a freeze report names where the game hung.
 

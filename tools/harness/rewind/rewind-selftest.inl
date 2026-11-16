@@ -400,12 +400,14 @@ static void caseRearm(const char* exe) {
 // catch polls it alone until it is back in the snapshot's wait, holds it, and freezes the rest around it.
 static void caseCatch(const char* exe) {
   { Toy t; if (!t.start(exe, "")) return;  // no gap: never back at the shallow wait; the catch gives up, nothing changed
-    CHECK(ok(snapshot(t.S)) && t.cmd(C_BUSY_NOGAP));
+    CHECK(ok(snapshot(t.S)));
+    const uint32_t bs = t.state().busyRuns;  // at the snapshot: an exact rewind comes back to this count, not to b0
+    CHECK(t.cmd(C_BUSY_NOGAP));
     t.S.o.retries = 3; t.S.o.catchMs = 500;
     uint32_t b0 = t.state().busyRuns;
     Result r = rewind(t.S, false); r.print();
     // the shallow wait still shows up for a few us now and then; when the catch hits one, the rewind is exact instead
-    if (ok(r)) CHECK(r.stat("threadsCaught") >= 1 && t.state().busyRuns == b0 && t.audit() && t.advancing());
+    if (ok(r)) CHECK(r.stat("threadsCaught") >= 1 && t.state().busyRuns == bs && t.audit() && t.advancing());
     else {
       CHECK(refused(r, "differs: esp") && r.stat("catchPolls") > 0 && r.stat("threadsCaught") == 0);
       CHECK(t.state().busyRuns > b0 && t.advancing() && t.state().bad == 0);

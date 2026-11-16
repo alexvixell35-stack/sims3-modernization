@@ -210,8 +210,9 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
         // mode 1 self-check (0.36.63, integration review): every 8th valid row is asked anyway and compared like mode 2; a
         // mismatch turns the memo off for the session (DmxShadow), so an acting session can still see a wrong answer
         // household rule (CLAUDE.md): only a job known unseen (2, or uf) or a seen NPC's (3) takes a memo answer; household, selected
-        // and unknown scope (0, 1) always get the live host call, exactly as vanilla (its answer is still compared and kept)
-        const bool npc = t_hcScope == 2 || t_hcScope == 3;
+        // and unknown scope (0, 1) always get the live host call, exactly as vanilla (its answer is still compared and kept);
+        // docs/271 [Experimental] HouseholdToo=1 lets them take the memo too (same answer, cached; the 1-in-8 re-ask stays)
+        const bool npc = t_hcScope == 2 || t_hcScope == 3 || ((xm == 1 || xm == 3) && !HhExempt(true));
         if ((xm == 1 || xm == 3) && !npc) InterlockedIncrement(&ts3native_doorgen.exempt);
         if (xRow && (xm == 1 || xm == 3) && npc && (InterlockedIncrement(&g_dmxSelf) & 7)) {
             InterlockedIncrement(&k.dmxHit);

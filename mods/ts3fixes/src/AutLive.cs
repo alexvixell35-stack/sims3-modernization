@@ -467,6 +467,9 @@ namespace Ts3Fixes
             // docs/222 scope: the actor only; UfWhy 0 = unseen (never the active household or a selectable Sim)
             bool unseenOn = sChooseOk && ShortcutOn("autunseen");
             int why0 = unseenOn ? SafeUfWhy(a.Actor) : -1;
+            // docs/271 [Experimental] HouseholdToo=1: a live household Sim takes the seen-NPC exact path (same pick, worker-helped);
+            // never the unseen direct path (AtPost reads why0, which stays kHousehold)
+            bool hhLift = unseenOn && !sLiveDry && why0 == UnseenFallbackCore.kHousehold && ShortcutOn("autseengame") && HouseholdLift(a.Actor);
             bool direct = AutLiveCore.Unseen.AtPost(unseenOn, sLiveDry, why0);
             // docs/222 §11.8 V6 test: a seen actor runs the game's own search, no post and no worker wait in the shared manager
             // docs/124 §17.12 autliveseen: with autseengame, a proven seen NPC may take the exact path (seenDry: compare only);
@@ -475,9 +478,9 @@ namespace Ts3Fixes
             if (unseenOn && !direct && !sLiveDry)
             {
                 seenPath = AutLiveCore.Unseen.SeenPath(ShortcutOn("autseengame"), ShortcutOn("autliveseen"), ShortcutOn("autliveseendry"),
-                    UnseenFallbackCore.SeenNpc(why0));
+                    HouseholdTooCore.SeenExactOk(why0, hhLift));
                 if (seenPath == AutLiveCore.Unseen.kSeenGame) { uk[kCSeenGameRun]++; return h.MetaOrig(c); }
-                if (ShortcutOn("autseengame") && UnseenFallbackCore.HouseholdScope(why0)) { uk[kCSeenHhPost]++; return h.MetaOrig(c); }  // tripwire (must stay 0)
+                if (ShortcutOn("autseengame") && UnseenFallbackCore.HouseholdScope(why0) && !hhLift) { uk[kCSeenHhPost]++; return h.MetaOrig(c); }  // tripwire (must stay 0)
                 uk[kCUnSeenPost]++;
             }
             bool seenExact = unseenOn && !direct && !sLiveDry && ShortcutOn("autseengame");
@@ -520,7 +523,8 @@ namespace Ts3Fixes
             {
                 why = LiveCheck(L, a);
                 // docs/124 §17.12: the household rule again at the resume (household scope or unknown now = the game's B13)
-                if (why == 0 && L.SeenExact && !AutLiveCore.Unseen.SeenKeep(UnseenFallbackCore.HouseholdScope(SafeUfWhy(a.Actor)))) { uk[kCSeenHhResume]++; why = kSDropActor; }
+                int whyR = why == 0 && L.SeenExact ? SafeUfWhy(a.Actor) : -1;
+                if (why == 0 && L.SeenExact && !AutLiveCore.Unseen.SeenKeep(UnseenFallbackCore.HouseholdScope(whyR) && !(hhLift && whyR == UnseenFallbackCore.kHousehold))) { uk[kCSeenHhResume]++; why = kSDropActor; }
                 if (why == 0) LiveSelect(L);
             }
             catch (Exception e) { why = kSDropOther; PatchCounters()[121]++; AutNote("go-live check: " + e.Message); }

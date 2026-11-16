@@ -1220,7 +1220,8 @@ A writable view shared with another process that is neither ours nor the bridge'
   - The client parks only in `Present`, after `syncOnPresent` got the server's present semaphore. A Present that times
     out there returns before `parkForRewind`, so no park can answer [inferred from the patched source].
   - In rerun 7, rewind 1 was followed by 23-28 % GPU, so it does not happen every time.
-  - The bridge logs (`Bintx-remix\logsridge32.log`, `bridge64.log`) were gone with the job's Bin restore.
+  - The bridge logs (`Bin
+tx-remix\logsridge32.log`, `bridge64.log`) were gone with the job's Bin restore.
 - Changes:
   - The park refusal now says whether the target still reached its park point (`parkTicksSeen`, the block's tick:
     Presents for the bridge client): "it never reached its park point: a bridge client presented no frame", or "it
@@ -1329,6 +1330,91 @@ NvRemixBridge.exe 7b2d7a77 in `game-copy/rewind-bridge-1115/pr/apex-repo/native/
   pair without 0016, PASS with it, mode on and off.
 - For Apex: this is their bug in a shipped patch (4.0.1 has 0010), independent of rewind mode. It rides on our branch
   because the test arm needs it; it can go to them as its own PR (drop the test hunk, which needs 0015).
+
+## 30. Queue jobs start from a rewind (2026-11-16, branch `feature/queue-rewind-1116`, not run in game)
+
+Rodney 2026-11-16: "Make sure we now use the tool whenever we can." A fresh start (cycle.ts --restart, launch, load) takes ~2 min on
+BP and more on IP and big saves; a snapshot takes ~2.5 s and a verified rewind ~2-2.5 s (§26-§29, reruns 12-13).
+
+### 30.1 Design (`tools/harness/queue-rewind.ts`, `tools/harness/queue.ts`)
+
+- Queue key `"rewind": "auto" | "off"` (default `REWIND_DEFAULT` = off until the pilot passes, then auto; `TS3_REWIND` overrides;
+  job `"rewind": false` opts out). `rewindGroups` puts runs of >= 2 consecutive jobs into one group when each may start from a
+  rewind (`rewindBlock`) and all share the game start key (queue.ts `keyOf`: asi + sha, full ini, fixes, fixesPackage, save,
+  content, ccSet/ccLots, gameArgs, Default.ini / S3PP / S3SS / dxvk.conf, d3d9Dll, pin).
+- What may differ inside a group = what a job changes in the running game: `profile.ab`, `fixesOn` / `fixesOff`, `native_set`
+  repro steps, the repro itself, profile minutes and seed. A different asi, ini value, package, script DLL, config or save is a
+  different key and relaunches. Ini values are not mapped to runtime switches: an ini `Mode` key often decides whether a hook is
+  installed at all (`0 = not installed`, `1/2 = installed, starts on/off`), so an ini difference always relaunches [inferred from
+  the ini comments; a per-key map is the next step only if ini-only arm pairs turn out common, see 30.3].
+- Blocked (fresh start, reason in the dry run): `run.script` (rewind-smoke itself, quit-cycle), `run.matrix`, `run.saveReload`,
+  `run.age`, `run.soak`, `run.routelock`, `run.menuMemory`, `run.worldimage`, `profile.travel`, `profile.story`, `profile.repros`
+  (keeps one frame-times Frida session per load in the game: the tool's frida-agent guard would refuse), save `menu`, vanilla /
+  `ourMods: false` (no ts3native, no `[Rewind] Park`), `d3d9Dll`, `callSites: true` or ini `ProbeSnap.CallSites` on.
+- Grouped jobs get ini `Rewind.Park=1`, `Rewind.Offline=1` and `callSites: false`, as the rewind queues ran (§19-§22).
+- A real run needs Bin state `apex-rewind` (`rewindMode = True` in Bin\bridge.conf, `REWIND_ON`); without it the queue logs one line,
+  drops every group and adds no ini (every job starts fresh as before). Chains ask
+  `node tools/harness/queue-rewind.ts state <queue.json>` (prints `apex-rewind` for a rewind-auto queue when the tool is built, else
+  `apex`) and set that state with turbo-compat.ts. Bridge only, no DXVK arms.
+- Snapshot: after the load of a grouped job whose next job is in the same group (and after a fresh fallback load), when
+  `rewindReady` holds (rewind-spike.exe built, Bin state apex-rewind, NvRemixBridge.exe running, ts3native.log has
+  `[Rewind] Park on` and `[Rewind] Offline on`): one `rewind-spike serve` per load with the bridge-apply flags (rewind-smoke.ts
+  `MODES`). Each op: read the game speed (agent `time`) and the autopilot's speed target (first op), `park` (the route worker, before the pause, §21), agent `set_speed pause`,
+  probe `/fridadetach` and wait up to 30 s until `frida-agent*` is unloaded (§24), the op, `/fridaattach`, `set_speed` and the autopilot target back,
+  `game_state` in world. A paused-refusal sends `plan` to end the park hold.
+- Next job of the group: `rewind`. It counts only with code 0, `hashEqual` 1 (when reported) and the ts3fixes / ts3native switches
+  read back equal to the read after the load (`switchDiff`, session-reuse.ts `readSwitches`). Code 2 (refused, nothing changed):
+  close + the same game start loaded fresh (queue.ts `reloadGame`). Code 3, no answer, probe not back or switches differ: the same,
+  and the row gets `rewindFailed: true`. Never a FAIL of the job. Two failures (snapshot or rewind) turn rewind off for the run.
+- The game is kept for the next group job whatever the job's verdict (the rewind puts it back), but not after a crash, a timeout
+  or a job error. The serve process holds the snapshot; it quits before the game closes (endGame, reloadGame), which also puts the
+  pool-worker minimums back (§25).
+- Counters: ts3native counters, ts3fixes `patches`, the sim clock and switch values are memory and come back to the snapshot. Every
+  job already reads its `/native` (`c0`), patches (`fx0`) and memory baselines at its own start, now after the rewind, so
+  `nativeRequire` deltas, `fixActivity` (stuckcheck / easpread) and earlyGates (absolute values) see the same numbers as after a
+  fresh load. Files are not rolled back: the ts3native.log copy is the start-up part plus the job's own lines (`logCopy`, as in
+  docs/170), and `ts3native-shadow.jsonl` / `autshadow.jsonl` copies of a rewound job start at the size they had when it started.
+- Hitch reports: a rewound window gets no `--since-load` / `--frames-shared` (no kept frames session), so it is read as a first
+  window after a load (first minute dropped), which is what it is.
+- Rows: `row.start` = `fresh` | `rewind (N ms)` | `rewind refused -> fresh (why)` | `rewind failed -> fresh (why)`, `row.startMs`,
+  `row.snapshot` (taken / skipped / refused / failed); the md note says `start: ...` on every row of a queue with groups. The queue
+  ends with `rewind: N of M planned jobs started from a rewind (x s each), r refused, f failed; ~T min saved vs fresh starts (S s
+  each: mean of this run's fresh starts | estimate 120 s)`. The dry run prints `rewind auto: N of M jobs start from a rewind (G
+  groups); est. saving ~T min` and per job `0 start: ...` with the block reason.
+- Timing jobs: A/B arms in one group differ only in runtime switches by construction; the row records the rewind start; the
+  measurement smoke and the machine-load checks are unchanged (the smoke is a one-job child queue: always a fresh start).
+
+### 30.2 Self-checks
+
+`node tools/harness/queue-rewind.ts --self-check`: grouping (consecutive, equal key, opt-out, blocks), every block reason, mode
+parsing and `TS3_REWIND`, `rewindReady` on the real `[Rewind] Park on` / `Offline on` lines (rewind-bridge-1115
+bp-rewind-bridge-apply ts3native.log) and the real bridge.conf lines with non-matches (`FAIL [Rewind] Park: mapping ...`, a commented
+`# rewindMode = True`), the result rows of 2026-11-15 20:30 (code 0 with hashEqual 1, refusal "thread ... exited after the
+snapshot", an ended target), the op order on fakes (speed read, park, pause, detach, op, attach, speed back, game_state) and each
+fallback (refused, ended, hash differs, probe not back, game not in world, pause refused: park released by `plan`, nothing
+detached), `switchDiff`, the summary lines. `queue.ts --self-check` unchanged and ok.
+
+### 30.3 Dry run of every queue (TS3_REWIND=auto, 2026-11-16)
+
+- All 632 queue files: 630 dry-run (2 name a repro that no longer exists), 2918 jobs, **625 would start from a rewind** (405
+  groups, in 218 queues).
+- The 102 queues of 11-13 to 11-16: 414 jobs, **99 rewinds**. Examples: mono-park-timing-1115 9 of 12, satbdiag-stress-1114 15 of
+  16, satbguard-stress-1114 7 of 8, offload-unseen-apply-ab-1113 6 of 12, sweep-packs-home-1115 5 of 15, turbo-apex-1114 4 of 5,
+  mono-offload-timing-1115 3 of 5, lane-l3 / lane-l4 / mono-autshadow-seenexact 2 of 3.
+- Why the rest start fresh (all queues): game start differs from the neighbour 1466 jobs, run.matrix 117, run.script 69, no
+  ts3native 67, no save 67, profile.travel 32, profile.repros 23, run.soak 20, run.saveReload 13, profile.story 5, d3d9Dll 3.
+  Of 1900 neighbour pairs of rewindable kinds, 773 differ in the save (queues alternate BP / IP / SV), 69 in the asi, 257 only in
+  the ini (13 in the 11-13..16 queues), 223 in other start fields. So ordering jobs by save matters more than an ini-to-switch map.
+- Expected saving: ~112 s per rewound job on BP (~3 min on IP and big saves); the 11-13..16 queues together ~3 h. Caveat: the
+  current pinned sets (master-mono-1115, out/ tested build) have no `[Rewind]` code (merged to master 1aa9f375 on 11-16):
+  those jobs log "snapshot skipped: no [Rewind] Park on line" and start fresh until the next set is built from master.
+
+### 30.4 Pilot (first game run, after the chain)
+
+`tools/harness/queues/rewind-pilot-1116.json` (`rewind: "auto"`): three 5-min BP profile jobs with one game start (asi
+rewind-park2-1115, the set the rewind reruns used): `a` loads and the queue takes the snapshot, `b` and `c` start from rewinds.
+Bin state apex-rewind. Pass: a, b, c PASS; b and c `start: rewind (N ms)`; end line 2 rewinds, 0 refused, 0 failed. Then
+`REWIND_DEFAULT` goes to auto. Not run.
 
 ## Spike on the toy process, first version (2026-11-15, history)
 

@@ -930,7 +930,7 @@ namespace Ts3Fixes
             int at = sReqN;
             Request q = sReq = sReqs[at];
             q.Live = L;
-            q.Id = ++sNextId; q.Mode = mode; q.Actor = actor; q.Aut = a; q.C = c; q.Hh = IsPlayerSim(actor);
+            q.Id = ++sNextId; q.Mode = mode; q.Actor = actor; q.Aut = a; q.C = c; q.Hh = HouseholdExempt(actor);  // docs/271: IsPlayerSim unless [Experimental] HouseholdToo=1
             q.SearchType = a.CurrentSearchType; q.Flags = a.GetInteractionFlagsForCurrentSearch(); q.Hours = SimClock.HoursPassedOfDay;
             q.Objs = q.Pairs = 0;
             sRefs[at].Id = sWorks[at].Id = -1;
@@ -1913,7 +1913,7 @@ namespace Ts3Fixes
             q.T2Hh = true; q.T2InUse = q.T2Fire = false;
             try
             {
-                q.T2Hh = IsPlayerSim(actor);  // household rule (PlayerSims.cs); AutShadowCore.T2Household is its offline model
+                q.T2Hh = HouseholdExempt(actor);  // household rule (PlayerSims.cs; docs/271 HouseholdToo); AutShadowCore.T2Household is its offline model
                 q.T2InUse = sT2InUseHooked && ShortcutOn("autt2inuse");
                 q.T2Fire = sT2FireHooked && ShortcutOn("autt2fire");
                 // a UI model with no Sim state (docs/126 §3 pre-warm): made for any actor's request, as the game's first read would

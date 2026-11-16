@@ -114,24 +114,29 @@ namespace Ts3Agent
             Dictionary<string, object> r = Util.Obj();
             int tried = 0;
             // Force the condition: OnAdded only spawns what the world lacks, so first remove every loose gem / metal / insect
-            // jig lying on a COMMUNITY lot (not the household lot, not inventories, not parented). Test world only, no save.
-            int removed = 0;
+            // jig the world holds (any lot or none, parented or not) except what belongs to a household: not on a lot that has
+            // a Household (played or not), not in an inventory, not held by a Sim. Loaded test session only, no save.
+            int removed = 0, keptHousehold = 0, keptInventory = 0, keptHeld = 0;
             List<IGameObject> loose = new List<IGameObject>();
             foreach (IGameObject o in Sims3.Gameplay.Queries.GetObjects<IGem>()) loose.Add(o);
             foreach (IGameObject o in Sims3.Gameplay.Queries.GetObjects<IMetal>()) loose.Add(o);
             foreach (IGameObject o in Sims3.Gameplay.Queries.GetObjects<IInsectJig>()) loose.Add(o);
+            r["found"] = loose.Count;
             foreach (IGameObject o in loose)
             {
                 try
                 {
+                    if (o.InInventory) { keptInventory++; continue; }
+                    if (o.Parent is Sim) { keptHeld++; continue; }
                     Lot l = o.LotCurrent;
-                    if (l == null || !l.IsCommunityLot || o.InInventory || o.Parent != null) continue;
+                    if (l != null && l.Household != null) { keptHousehold++; continue; }
                     o.Destroy();
                     removed++;
                 }
                 catch (Exception) { }
             }
             r["removed"] = removed;
+            r["kept_household_lot"] = keptHousehold; r["kept_inventory"] = keptInventory; r["kept_held"] = keptHeld;
             foreach (OpportunityNames n in Enum.GetValues(typeof(OpportunityNames)))
             {
                 ScavengerOpportunity proto = OpportunityManager.GetStaticOpportunity(n) as ScavengerOpportunity;
@@ -163,7 +168,7 @@ namespace Ts3Agent
                 DrExpect(r, a.Str("expect", null), threw);
                 return r;
             }
-            throw new McpException("N/A: none of " + tried + " scavenger opportunities spawned anything (the world holds enough of every item)");
+            throw new McpException("N/A: none of " + tried + " scavenger opportunities spawned anything after clearing " + removed + " of " + loose.Count + " loose items (kept: " + keptHousehold + " on household lots, " + keptInventory + " in inventories, " + keptHeld + " held)");
         }
 
         // velvet_bouncer {lot?}: docs/170 §5 bouncerskip repro setup. Finds a velvet rope (IVelvetRopes; BP clubs), forces the

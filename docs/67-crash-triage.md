@@ -1467,3 +1467,18 @@ Queue `mono-jitsmall-b6-1115-mm`, job `bp-jitsmall-b6` (Apex 4.0.1 + RTX Remix b
 | Harness | The 60 s fail-fast was right: the process could not move. Before this fix `dump-locks.ts` printed `lock waits: 0 of 129 threads; no cycle` because it read only CRITICAL_SECTION owners; it now also reads MSVC std::mutex owners (`_Mtx_internal_imp_t`: SRW at +8, owner tid +40, count +44) and names the cycle |
 
 Next: rerun `bp-jitsmall-b6` once (a second hang on the same start = report to Apex with the dump offsets above).
+
+## 39. Crash on `bp-seen-smoke` (2026-11-16 01:56:03 UTC): sudden AV exit with no line anywhere; the crash log's 16 slots were spent at start-up
+
+Static only (no game run). Sources: `probe-out/queue/mono-autshadow-seenexact-1115-mm-2026-11-16-bp-seen-smoke{.log,-0143-ts3native.log,-probe.log}`, `probe-out/profile/...-bp-seen-smoke-240-frames.csv`, Apex `ApexRadiance_LOG.old.txt` of that start, `Get-WinEvent` Application log 09:50-10:00 PHT, WER folders. Build master-mono-1115 (ts3native 0.36.264-mono1), Apex 4.0.1 + bridge, AutShadow seen-exact switches on, Frida frames session attached.
+
+| | |
+|---|---|
+| Report | exit 0xC0000005 at 01:56:03 UTC (probe: `process-terminated`), 12.8 min after start; no EA xcpt file, no `[CrashReport]` (off), no WER report, no Application Error event for TS3W.exe [verified] |
+| Last signs of life | frames CSV last frame 01:56:03.093 (26 ms frame, normal); Apex log last line 09:56:03.098 PHT (normal RtOutdoorLamps line); memory.csv 01:56:02 commit 2026 MB, largest free 1544 MB [verified]. Sudden death within ~0.1 s, not a hang and not address space; "the game did not answer at the end" only means it was already gone |
+| Why no line | `XcptLog` logs the first 16 first-chance exceptions. All 16 were used by load time: 6 start-up (spfileq x2, setupapi, frida-agent, 2 C++), then Apex AVs; the 8 other-module dedupe slots filled, so Apex `+0x10AAB5` and `+0x1609BF` took the last slots one hit each. Every passing autshadow-worldindex job on the same build also shows `ex=16` [verified grep] |
+| Where | Unknown. `[CrashForensics]` light was on and dumps the first 4 AVs with eip in TS3W.exe .text before the cap: no `DUMP` line, so if user-mode dispatch ran, the fault eip was outside TS3W .text (Apex, bridge client, Frida, ts3native, JIT code in the heap, a system DLL) [inferred]. No EA xcpt and no WER event fit a fault whose dispatch never reached EA's unhandled filter (corrupt stack/SEH chain, as Crash J §12) [inferred] |
+| Owner | Not proven: ours until proven otherwise. Nothing in the logs points at the seen-exact switches, AutShadow, Apex or the bridge [verified: no error line in any of them] |
+| Fix (logging) | `XcptLateNew` (ts3native.cpp): past the 16-line cap an exception at an eip not yet seen past the cap still gets its lines (registers, AutShadow line, mono fault text), 64 eips at most; earlier rules unchanged. Selftest in selftest.cpp. `player-log-digest.ts` header regex also accepts the longer header text |
+
+Next: rerun `bp-seen-smoke` on a build with this fix; a repeat now names the fault eip.

@@ -35,7 +35,7 @@ static DWORD WINAPI AuWorker(void*) {
 static void TestAskLent() {
     static_assert(offsetof(Ts3nCounters, auMode) == 0x4FFC && offsetof(Ts3nCounters, auStaleAfter) == 0x500C &&
                       offsetof(Ts3nCounters, dmxMode) == 0x5014 && offsetof(Ts3nCounters, dmxMismatch) == 0x5028 &&
-                      offsetof(Ts3nCounters, auSpare) == 0x5030 && sizeof(Ts3nCounters) == 6477 * 4,
+                      offsetof(Ts3nCounters, auSpare) == 0x5030 && sizeof(Ts3nCounters) == 6478 * 4,
                   "counters v126 layout (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
@@ -226,6 +226,20 @@ static void TestAskLent() {
         assert(HcAsk(600) == 2 && g_hcFakeCalls == c0 && ts3native_doorgen.exempt == ex0 + 3);
     }
     assert(k.dmxHit == hit0 + 2);
+    // docs/271 [Experimental] HouseholdToo=1: household, selected and unknown scope take the memo as a seen NPC does, each counted
+    // once (hhTooLift); unseen and seen-NPC asks are not counted; flag back off = live asks again (the stale-row case below)
+    g_hhToo = 1;
+    const LONG lift0 = k.hhTooLift;
+    for (LONG s : kLive) {
+        t_hcScope = s, t_hcJob++, g_dmxSelf = 0, g_hcFakeAns = 1;
+        c0 = g_hcFakeCalls;
+        assert(HcAsk(600) == 2 && g_hcFakeCalls == c0 && ts3native_doorgen.exempt == ex0 + 3);
+    }
+    assert(k.hhTooLift == lift0 + 3 && k.dmxHit == hit0 + 5);
+    t_hcScope = 3, t_hcJob++, g_dmxSelf = 0;
+    assert(HcAsk(600) == 2 && k.hhTooLift == lift0 + 3);
+    g_hhToo = 0;
+    assert(HhExempt(true) && !HhExempt(false) && k.hhTooLift == lift0 + 3);
     // the sim's answer changed: a household Sim still gets it live (vanilla), and the stale row turns the memo off
     t_hcScope = 1, t_hcJob++, g_hcFakeAns = 1;
     assert(HcAsk(600) == 1 && k.dmxMode == 0);

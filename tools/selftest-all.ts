@@ -58,6 +58,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/mod-method-diff.ts': { why: 'game script assemblies', needs: 'game-copy/assemblies/ScriptCore.dll' },
   'tools/offload3-closure.ts': { why: 'managed call graph index', needs: 'game-copy/analysis/callgraph/index.json' },
   'tools/selftest/autlive/run.ts': CSC,
+  'tools/selftest/householdtoo/run.ts': CSC,
   'tools/selftest/autoffload/run.ts': CSC,
 'tools/selftest/autshadow/run.ts': CSC,
   'tools/selftest/doormirror/run.ts': CSC,
