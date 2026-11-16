@@ -186,6 +186,8 @@ tools/ini-sections.json gained [Binder], [Crash2Diag], [EqualsFast], [ThumbStall
 | [ResourceCache] TrimAfterCleanup / TrimEveryMin | rctrim.cpp | 1 | 0xFFE2F0 | both forced 0, SKIP line; rc ini 0 |
 | [EaCrashFixes] HeightsInfLoop | wastar.cpp | 4 | 0x64CEBA 0x64CEC0 0x64CF55 0x64D275 | SKIP line; rc ini HeightsInfLoop=0 |
 | [EaCrashFixes] BridgeHeightNaN | wastar.cpp | 10 | 0xB745A0 0xC6133B 0xC61342 0xC6137B 0xC6A46B 0xC6A472 0xC6A4B3 0xC6A709 0xC6A710 0xC6A772 | SKIP line; rc ini BridgeHeightNaN=0 |
+| [EaCrashFixes] LotLevelPastEnd (docs/67 §40) | eafix.cpp | 2 | 0xAB70B0 0x10652D4 | SKIP line; rc ini LotLevelPastEnd=0 (shipped 0) |
+| [EaCrashFixes] FglStaleObject (docs/67 §41) | wastar.cpp | 3 | 0xB11A95 0xB11A9C 0xB11ABF | SKIP line; rc ini FglStaleObject=0 (shipped 0) |
 | [Binder] TypeHandleDirect | bindertd.cpp | 2 | 0xDB0940 0xDB095E | SKIP line; rc ini section zeroed |
 | [Crash2Diag] | c2diag.cpp | 12 | 0x74A830 0x74FC30 0x750400 0x751450 0x756EAE 0x756FB8 0x7646F8 0x1004148 0x10041C8 0x100421C 0x100423C 0x100425C | SKIP line; rc ini section zeroed (shipped 0) |
 | [EqualsFast] | equalsfast.cpp | 2 | 0xE70180 0xE7A590 | SKIP line; rc ini section zeroed (shipped 0) |

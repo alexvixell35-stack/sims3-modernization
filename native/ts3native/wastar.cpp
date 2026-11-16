@@ -57,6 +57,10 @@
 // game's answer, unchanged). Any other value is popped and the query goes on at its own "no bridge here" path (the target of
 // its `je` after 0xB793F0, same esp), which ends in the terrain height. One "ea fix: BridgeHeightNaN" line for each of the
 // first 8 hits. Not fixed: why the bridge's curve (0xB73F60 inside 0xB745A0) gives such values.
+//
+// [EaCrashFixes] FglStaleObject (next version, docs/67 §41, no counters; off by default): find-good-location's ignore-list
+// compare reads a looked-up object's id with no NULL test, so an id near the spot whose object was deleted crashed at
+// 0xB11A9C. The compare's entry becomes a jump to FoStub, which sends a NULL object to the game's own missing-object path.
 
 static const DWORD WA_SITE = TS3A(0x00676627), WA_BACK = TS3A(0x0067662E), WA_SKIP = TS3A(0x0067673F);
 static const u8 kWaSite[7] = {0x8B, 0x54, 0x24, 0x1C, 0x0F, 0xB7, 0xC8};  // mov edx,[esp+1Ch]; movzx ecx,ax
@@ -484,5 +488,77 @@ static bool ApplyBridgeHeightNaN(const wchar_t* ini) {
     if (!n) return false;
     Log("OK   ea fix: BridgeHeightNaN (docs/67 §37): bridge heights that are not finite or above 1e6 in magnitude are ignored "
         "(%d of 3 height queries: 0x%08X, 0x%08X, 0x%08X)", n, BH_SITE[0], BH_SITE[1], BH_SITE[2]);
+    return true;  // keep the log open for the hit lines
+}
+
+// --- [EaCrashFixes] FglStaleObject ---
+// The game's find-good-location search (the function holding 0xB11A9C; the script's World.FindGoodLocation /
+// FindGoodLocationOnWorldAtCustomDepth with an objIdsToIgnore array) walks the object ids near a candidate spot (the vector
+// at [esp+0B8h]..[esp+0BCh], 8-byte ids) and looks each one up with 0x939560. A deleted object's id gives NULL, and the game
+// expects that: 0xB11ABF `test esi,esi; je 0xB11AF4` is its own path for a missing object. The ignore-list compare in
+// between (0xB11A89..0xB11ABD, taken only when the caller passed objIdsToIgnore) reads the object's id at [esi+8] first, with
+// no NULL test: read 0x00000008 at 0xB11A9C (docs/67 §41). Fix: the compare's first 7 bytes (xor eax,eax; cmp [ebp+54h],eax;
+// jle 0xB11ABF) become a jump to FoStub, which sends esi == NULL to 0xB11ABF (the game's missing-object path) and otherwise
+// runs the 7 bytes as they were. Only the NULL case changes path. Log: one "ea fix: FglStaleObject" line for each of the first
+// 8 hits, then at 16, 32, 64, ...: the stale id and the vtable of the object being placed ([ebp+8]), to find the caller.
+// Cleanup: none in the game's loop beyond the missing test (the ignore loop is bounded by its count, the id loop by its vector).
+static const DWORD FO_SITE = TS3A(0x00B11A95), FO_BACK = TS3A(0x00B11A9C), FO_NULL = TS3A(0x00B11ABF);
+static const u8 kFoSite[7] = {0x33, 0xC0, 0x39, 0x45, 0x54, 0x7E, 0x23};  // xor eax,eax; cmp [ebp+54h],eax; jle 0xB11ABF
+static const u8 kFoNull[4] = {0x85, 0xF6, 0x74, 0x31};                    // test esi,esi; je 0xB11AF4 (the game's own test)
+static DWORD g_foBack = FO_BACK, g_foNull = FO_NULL;  // stub targets (selftest swaps them)
+static volatile LONG g_foHits;
+
+static void __stdcall FoHit(const DWORD* id, const u8* frame) {
+    const LONG n = InterlockedIncrement(&g_foHits);
+    if (n > 8 && (n & (n - 1))) return;
+    DWORD lo = 0, hi = 0, obj = 0, vt = 0;
+    __try { lo = id[0], hi = id[1]; obj = *(const DWORD*)(frame + 8); if (obj) vt = *(const DWORD*)(uintptr_t)obj; }
+    __except (EXCEPTION_EXECUTE_HANDLER) {}
+    Log("ea fix: FglStaleObject: find-good-location met a deleted object (hit %ld, id %08lX%08lX, placing object 0x%08lX vt "
+        "%08lX); skipped as the game skips a missing object", n, hi, lo, obj, vt);
+}
+
+// At 0xB11A95: esi = 0x939560's answer, edi = the id entry, ebp = the search's frame (+8 the placed object, +50h/+54h the
+// ignore list and its count).
+static __declspec(naked) void FoStub() {
+    __asm {
+        test esi, esi
+        jz gone
+        xor eax, eax
+        cmp [ebp + 0x54], eax
+        jle none
+        jmp dword ptr [g_foBack]
+    none:
+        jmp dword ptr [g_foNull]
+    gone:
+        pushad
+        push ebp
+        push edi
+        call FoHit
+        popad
+        jmp dword ptr [g_foNull]
+    }
+}
+
+// at = the compare's 7 bytes, nul = the game's NULL test they jump to: both must be EA's.
+static bool FoPatch(u8* at, const u8* nul) {
+    if (!Matches(at, kFoSite, sizeof(kFoSite)) || !Matches(nul, kFoNull, sizeof(kFoNull))) return false;
+    u8 b[7] = {0xE9, 0, 0, 0, 0, 0xCC, 0xCC};  // the two int3 never run: the stub jumps on past them
+    *(LONG*)(b + 1) = (LONG)((uintptr_t)&FoStub - ((uintptr_t)at + 5));
+    return Write(at, b, sizeof(b));
+}
+
+static bool ApplyFglStaleObject(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"EaCrashFixes", L"FglStaleObject", 0, ini)) return false;
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP ea fix FglStaleObject ([EaCrashFixes] FglStaleObject): no EA 1.69 address, docs/232 §8"); return false; }
+#endif
+    if (!FoPatch((u8*)(uintptr_t)FO_SITE, (const u8*)(uintptr_t)FO_NULL)) {
+        Log("SKIP ea fix: FglStaleObject: bytes at 0x%08X / 0x%08X differ (another mod or a probe build owns them): not installed",
+            FO_SITE, FO_NULL);
+        return false;
+    }
+    Log("OK   ea fix: FglStaleObject (docs/67 §41): find-good-location's ignore-list compare skips a deleted object "
+        "instead of reading it (0x%08X)", FO_SITE);
     return true;  // keep the log open for the hit lines
 }
