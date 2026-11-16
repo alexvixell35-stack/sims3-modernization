@@ -151,6 +151,13 @@ namespace Ts3Fixes
             ApplySculptPose();    // docs/568 §3 (SculptPose.cs)
             ApplyTrainBoost();    // docs/569 §1 (TrainBoost.cs)
             ApplyEatOutsideCount();    // docs/569 §2 (EatOutsideCount.cs)
+            ApplyInitStackTrace();   // docs/594 §1 (SeasonsHunt594.cs)
+            ApplyWeatherStoneListener();   // docs/594 §2 (SeasonsHunt594.cs)
+            ApplyRainFires();   // docs/594 §3-4 weathermanagerthrow + rainsheltercheap (SeasonsHunt594b.cs)
+            ApplyPondClearScan();   // docs/594 §5 (SeasonsHunt594b.cs)
+            ApplySoakedStat();   // docs/594 §6 (SeasonsHunt594b.cs)
+            ApplyOuterwearAutoLoop();   // docs/596 §1 (SeasonsWeather596.cs)
+            ApplyOuterwearRestore();   // docs/596 §2 (SeasonsWeather596.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -478,6 +485,9 @@ namespace Ts3Fixes
         // [2564-2565] free (released).
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
+        // [2128-2131] initstacktrace (SeasonsHunt594.cs, docs/594 §1): Init walks skipped / OnAddedToQueue walks skipped / walks run (switch off) / errors. [2132-2134] weatherstonelistener (docs/594 §2): listeners removed at Dispose / left (switch off) / errors.
+        // [2135-2137] weathermanagerthrow (SeasonsHunt594b.cs, docs/594 §3): null-dictionary lookups skipped / hit with the switch off (EA throws) / errors. [2138-2141] rainsheltercheap (§4): shelter tests skipped / run / passes / errors. [2142-2145] pondclearscan (§5): scans skipped (world pond in use) / skipped (remembered pond in use) / run / errors. [2146-2148] soakedstat (§6): rain re-adds not counted / counted (switch off) / errors.
+        // [2149-2153] outerwearautoloop (SeasonsWeather596.cs, docs/596 §1): into / out / toddler autonomous tests answered no / would loop with the switch off / errors. [2154-2156] outerwearrestore (§2): outfit to return to stored / not stored (switch off) / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -815,6 +825,14 @@ namespace Ts3Fixes
                 case "sculptpose": return Instantiator.kSculptPose;
                 case "trainboost": return Instantiator.kTrainBoost;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
+                case "initstacktrace": return Instantiator.kInitStackTrace;
+                case "weatherstonelistener": return Instantiator.kWeatherStoneListener;
+                case "weathermanagerthrow": return Instantiator.kWeatherManagerThrow;
+                case "rainsheltercheap": return Instantiator.kRainShelterCheap;
+                case "pondclearscan": return Instantiator.kPondClearScan;
+                case "soakedstat": return Instantiator.kSoakedStat;
+                case "outerwearautoloop": return Instantiator.kOuterwearAutoLoop;
+                case "outerwearrestore": return Instantiator.kOuterwearRestore;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

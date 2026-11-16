@@ -298,6 +298,14 @@ namespace Ts3Fixes
         [Tunable] public static bool kSculptPose = true;    // sculptpose (docs/568 §3): Sculpt Sim failure paths leave the subject posing
         [Tunable] public static bool kDoorGen = true;    // doorgen (docs/585, by Dalexlol, PR #430): bump ts3native's door generation for DoorMemoX=3; memo answers only unseen / seen-NPC jobs (docs/585 §5)
         [Tunable] public static bool kTrainBoost = true;    // trainboost (docs/569 §1): a trainer reset during Train Sim leaves the trainee's doubled Athletic / shape gain for good
+        [Tunable] public static bool kInitStackTrace = false;    // initstacktrace (docs/594 §1): InteractionInstance.Init / OnAddedToQueue without the dead O(depth^2) StackTrace walks (fields only read by compiled-out debug code; exact)
+        [Tunable] public static bool kWeatherManagerThrow = false;    // weathermanagerthrow (docs/594 §3): RainEvent.PutOutFires skips the null firefighter dictionary (worlds without the service) instead of throwing, which stopped SeasonsManager for the session
+        [Tunable] public static bool kRainShelterCheap = false;    // rainsheltercheap (docs/594 §4): the 10-sim-minute rain pass tests on-fire / plant water before the two native shelter tests (same result)
+        [Tunable] public static bool kPondClearScan = false;    // pondclearscan (docs/594 §5): PondManager.AllPondsClear tests the world pond and the last pond in use before its world GetObjects scan (same result)
+        [Tunable] public static bool kSoakedStat = false;    // soakedstat (docs/594 §6): a rain re-add of Soaked does not count another TombStats soak (persisted stat)
+        [Tunable] public static bool kOuterwearAutoLoop = false;    // outerwearautoloop (docs/596 §1): autonomous outerwear / toddler outerwear tests answer no when Run cannot change (player-sticky 2 h, disallow buffs)
+        [Tunable] public static bool kOuterwearRestore = false;    // outerwearrestore (docs/596 §2): ChangeIntoOuterwear stores the outfit to return to, as GoingOutside does
+        [Tunable] public static bool kWeatherStoneListener = false;    // weatherstonelistener (docs/594 §2): WeatherStone.Dispose removes the summon's weather listener
         [Tunable] public static bool kEatOutsideCount = true;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)
         [Tunable] public static bool kHomeworkHelp = true;    // homeworkhelp (docs/565 §7): helper starting Help with Homework after the child finished hits a null jig
         [Tunable] public static bool kShellLighting = true;      // shelllighting (docs/561 §5): a buildable shell shows the lighting of the latest passed lighting time after load (EA keeps Default until the next alarm)

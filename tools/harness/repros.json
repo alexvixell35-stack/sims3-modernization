@@ -75094,6 +75094,654 @@
     ]
   },
   {
+    "id": "initstacktrace-check",
+    "bug": "InteractionInstance.Init and OnAddedToQueue build O(depth^2) StackTraces nobody reads (reader is compiled out); in rain, autonomy pays one per outdoor candidate it scores (docs/594 §1)",
+    "fix": "ts3fixes SeasonsHunt594.cs: initstacktrace (default off)",
+    "save": "any world with a household loaded",
+    "note": "InitStackTraceCheck 'run' creates two throwaway GoHere instances on the active Sim and reads mInitStackTrace (null = fixed) with EA-value controls; 'result' shows counters 2128-2131 and times one stack walk vs one instance.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "initstacktrace": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InitStackTraceCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InitStackTraceCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "initstacktrace": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InitStackTraceCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.InitStackTraceCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "initstacktrace": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "initstacktrace": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "weatherstonelistener-check",
+    "bug": "WeatherStone.Dispose leaves the summon's kWeatherStarted/kWeatherStopped listener on the tracker, holding the dead stone (docs/594 §2)",
+    "fix": "ts3fixes SeasonsHunt594.cs: weatherstonelistener (default off)",
+    "save": "any world (pure check)",
+    "note": "WeatherStoneListenerCheck 'run' evaluates the Dispose rule (WslRemove) with controls and reads the field on the world's stone; 'result' shows counters 2132-2134.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "weatherstonelistener": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherStoneListenerCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherStoneListenerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weatherstonelistener": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherStoneListenerCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherStoneListenerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weatherstonelistener": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "weatherstonelistener": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "weathermanagerthrow-check",
+    "bug": "RainEvent.PutOutFires reads Firefighter.sFirefighterDictionary without a null test; it is null in worlds without the firefighter service, and SeasonsManager.Simulate catches only ResetException, so one unsheltered fire in the rain stops weather for the session (docs/594 §3)",
+    "fix": "ts3fixes SeasonsHunt594b.cs: weathermanagerthrow (default off)",
+    "save": "any world (pure check; prints whether this world has the dictionary)",
+    "note": "WeatherManagerThrowCheck 'run' evaluates the null-dictionary rule (WmtSkip) with controls and checks the UpdateData mirror layout; 'result' shows counters 2135-2137 and the world's dictionary state.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "weathermanagerthrow": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherManagerThrowCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherManagerThrowCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weathermanagerthrow": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherManagerThrowCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherManagerThrowCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weathermanagerthrow": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "weathermanagerthrow": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "rainsheltercheap-check",
+    "bug": "The 10-sim-minute rain pass runs two native shelter tests on every Sim and Soil before the cheap on-fire / water-level test (docs/594 §4)",
+    "fix": "ts3fixes SeasonsHunt594b.cs: rainsheltercheap (default off)",
+    "save": "any world with Sims (Soil optional)",
+    "note": "RainShelterCheapCheck 'run' compares the reordered predicate with EA's over the truth table and every live Sim and Soil (read-only); 'result' shows counters 2138-2141 and times one shelter test vs one on-fire test.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rainsheltercheap": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RainShelterCheapCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RainShelterCheapCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rainsheltercheap": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RainShelterCheapCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RainShelterCheapCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rainsheltercheap": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rainsheltercheap": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "pondclearscan-check",
+    "bug": "PondManager.AllPondsClear runs a world GetObjects<LotPond> on every Seasons tick while ponds try to melt with a skater on them (docs/594 §5)",
+    "fix": "ts3fixes SeasonsHunt594b.cs: pondclearscan (default off)",
+    "save": "any world (a pond world shows the scan cost)",
+    "note": "PondClearScanCheck 'run' compares the shortcut answer with EA's scan live and checks the rule; 'result' shows counters 2142-2145 and times the scan vs the shortcut.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "pondclearscan": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PondClearScanCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PondClearScanCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "pondclearscan": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PondClearScanCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PondClearScanCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "pondclearscan": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "pondclearscan": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "soakedstat-check",
+    "bug": "BuffSoaked.OnReAddition increments TombStats 'times soaked' on every re-add, and rain re-adds Soaked every 2 sim-minutes (docs/594 §6)",
+    "fix": "ts3fixes SeasonsHunt594b.cs: soakedstat (default off)",
+    "save": "any world (pure check)",
+    "note": "SoakedStatCheck 'run' evaluates the count rule (SsCount) with controls; 'result' shows counters 2146-2148.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "soakedstat": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SoakedStatCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SoakedStatCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "soakedstat": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SoakedStatCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SoakedStatCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "soakedstat": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "soakedstat": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "outerwearautoloop-check",
+    "bug": "Autonomous ChangeIntoOuterwear / ChangeOutOfOuterwear / ChangeToddlerClothes tests pass while Run cannot change (player-directed change < 2 h ago, disallow buffs, towel, reaper), so autonomy re-picks them (docs/596 §1)",
+    "fix": "ts3fixes SeasonsWeather596.cs: outerwearautoloop (default off)",
+    "save": "any Seasons world (live Sims; cold weather shows the outerwear path)",
+    "note": "OuterwearAutoLoopCheck 'run' checks the rule, compares our sticky test with EA's private one on every live Sim and that each refusal is also EA's GetOutfitForClothingChange answer; 'result' shows counters 2149-2153 and the cost of one GoingOutside outfit decision.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearautoloop": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearAutoLoopCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearAutoLoopCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearautoloop": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearAutoLoopCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearAutoLoopCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearautoloop": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearautoloop": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "outerwearrestore-check",
+    "bug": "ChangeIntoOuterwear (TemperatureTooCold) does not store the outfit to return to, so removing outerwear gives Everyday or a stale category from an earlier trip (docs/596 §2)",
+    "fix": "ts3fixes SeasonsWeather596.cs: outerwearrestore (default off)",
+    "save": "any world (pure check)",
+    "note": "OuterwearRestoreCheck 'run' checks the store rule and its controls; 'result' shows counters 2154-2156.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearrestore": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearRestoreCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearRestoreCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearrestore": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearRestoreCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OuterwearRestoreCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearrestore": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outerwearrestore": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

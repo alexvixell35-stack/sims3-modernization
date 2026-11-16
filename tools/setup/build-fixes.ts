@@ -298,6 +298,14 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSculptPose value="True" />
     <kTrainBoost value="True" />
     <kEatOutsideCount value="True" />
+    <kInitStackTrace value="False" />
+    <kWeatherStoneListener value="False" />
+    <kWeatherManagerThrow value="False" />
+    <kRainShelterCheap value="False" />
+    <kPondClearScan value="False" />
+    <kSoakedStat value="False" />
+    <kOuterwearAutoLoop value="False" />
+    <kOuterwearRestore value="False" />
     <kBirthRoute value="True" />
     <kPutDownPlace value="True" />
     <kAwardKeep value="False" />
