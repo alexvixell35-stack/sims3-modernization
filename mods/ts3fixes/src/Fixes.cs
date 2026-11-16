@@ -151,6 +151,10 @@ namespace Ts3Fixes
             ApplySculptPose();    // docs/568 §3 (SculptPose.cs)
             ApplyTrainBoost();    // docs/569 §1 (TrainBoost.cs)
             ApplyEatOutsideCount();    // docs/569 §2 (EatOutsideCount.cs)
+            ApplyObjectUseLogic();   // docs/575 §2-5 (ObjectUseLogic.cs)
+            ApplyInUseLogic();       // docs/576 §2-3 (InUseLogic.cs)
+            ApplyAutonomyInUseBlock(); // docs/577 §1 (AutonomyInUseBlock.cs)
+            ApplyNpcBusyPartner();   // docs/577 §4 (NpcBusyPartner.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -478,6 +482,14 @@ namespace Ts3Fixes
         // [2564-2565] free (released).
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
+        // [2679-2680] handsetreset (ObjectUseLogic.cs, docs/575 §2): handsets put back / errors.
+        // [2681-2682] flowersinuse (ObjectUseLogic.cs, docs/575 §3): bouquets freed / errors.
+        // [2683-2684] uselistprune (ObjectUseLogic.cs, docs/575 §4): use/reference entries dropped / errors.
+        // [2685-2686] chestuselist (ObjectUseLogic.cs, docs/575 §5): Sims taken off / errors.
+        // [2689-2690] resetinusefree (InUseLogic.cs, docs/576 §2): items freed / errors.
+        // [2691-2692] putdowninuse (InUseLogic.cs, docs/576 §3): put-downs repaired / errors.
+        // [2693-2695] autonomyinuseblock (AutonomyInUseBlock.cs, docs/577 §1): taken objects blocked / seen with switch off / errors.
+        // [2696-2698] npcbusypartner (NpcBusyPartner.cs, docs/577 §4): NPC waits ended / seen with switch off / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -815,6 +827,14 @@ namespace Ts3Fixes
                 case "sculptpose": return Instantiator.kSculptPose;
                 case "trainboost": return Instantiator.kTrainBoost;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
+                case "handsetreset": return Instantiator.kHandsetReset;
+                case "flowersinuse": return Instantiator.kFlowersInUse;
+                case "uselistprune": return Instantiator.kUseListPrune;
+                case "chestuselist": return Instantiator.kChestUseList;
+                case "resetinusefree": return Instantiator.kResetInUseFree;
+                case "putdowninuse": return Instantiator.kPutDownInUse;
+                case "autonomyinuseblock": return Instantiator.kAutonomyInUseBlock;
+                case "npcbusypartner": return Instantiator.kNpcBusyPartner;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

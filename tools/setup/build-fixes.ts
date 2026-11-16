@@ -298,6 +298,14 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSculptPose value="True" />
     <kTrainBoost value="True" />
     <kEatOutsideCount value="True" />
+    <kHandsetReset value="False" />
+    <kFlowersInUse value="False" />
+    <kUseListPrune value="False" />
+    <kChestUseList value="False" />
+    <kResetInUseFree value="False" />
+    <kPutDownInUse value="False" />
+    <kAutonomyInUseBlock value="False" />
+    <kNpcBusyPartner value="False" />
     <kBirthRoute value="True" />
     <kPutDownPlace value="True" />
     <kAwardKeep value="False" />
