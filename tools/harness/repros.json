@@ -75094,6 +75094,87 @@
     ]
   },
   {
+    "id": "pushwaitskip-check",
+    "bug": "RoutingComponent.PushSimsStatic's wait pass steps twice per kept Sim, so a done Sim behind a busy one keeps the pusher idle one more 10-minute wait (docs/606 §2)",
+    "fix": "ts3fixes PushWaitSkip.cs: pushwaitskip (default off), docs/606 §2",
+    "save": "any world (pure check)",
+    "note": "PushWaitSkipCheck 'run' compares EA's wait pass with ours on fixed patterns (pure) and asserts the swap is live; 'result' shows the counters (3385 grows in play when two or more Sims are pushed with waiting).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "pushwaitskip": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PushWaitSkipCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PushWaitSkipCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "pushwaitskip": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PushWaitSkipCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PushWaitSkipCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "pushwaitskip": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "pushwaitskip": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
