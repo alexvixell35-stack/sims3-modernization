@@ -182,6 +182,30 @@ Counters 2739 lots opened that upstream closes, 2740 of those only by household 
 Sim cannot pass. Once a sim-hour, when they moved, ts3native.log gets `ts3fixes: unseen tp goal: ...` with 1040-1045, the
 teleport count (307) and 2739-2741, so s57 can confirm the reason with the switch off and on.
 
+## 8. Apartment and shell lots: F1 still refuses GoHome in Bridgeport (`tpaptgoal`)
+
+The merge regression (3024b2d6 -> b22f48e3, "retry after a cut" 95-96% -> ~70%, same engine and switches) is all GoHome:
+the cuts did not grow (good 150 / 176 GoHome cuts, bad 133 / 136), but cuts followed by EA's own replan on the same route
+(`GoHome.Run`'s second `PlanRouteIntoLot`, result 10 in ~1 ms, 0 plans) went from 5 / 4 to 98 / 108. Distinct
+"unseenfb route goal" placements in the census fell from 76 / 74 to 4 / 7, and with `unseenfbteleport` off (0612) to 0
+with the same replan pattern (102 failed of 147 cuts): the cut teleport is what recovered GoHome, and F1 refuses it.
+§7's `tpdoorrights` fixes the sentinel but recovers only part: s57 (0104) logged lot closed 61 with "closed by a door 1",
+so almost every refusal comes before the door loop: `UfTpLotOpen` (and `UfLotOpen`) close `IsApartmentLot` and
+`BuildableShells` lots outright, and Bridgeport's NPCs largely live in apartments [inferred: the log does not name the lot
+type; an off-lot, non-ground goal also counts as "lot closed"].
+
+That close is deliberate (NPCs trapped in Late Night hidden apartment rooms, the hiddenroom* switches). `tpaptgoal` (default
+off) opens only the unseen NPC's own home lot (`Household.LotHome`, what GoHome targets) and only by the goal room:
+`UfPreCore.TpAptLot` / `TpAptOpen` (pure, `tools/selftest/unseenfb`, with hidden-room, no-way-out, raised, unknown-flood and
+visitor controls), then `TpGoal` as before (tomb or hidden room refused first) with a room flood (`UfTpAptReach`) that asks
+EA's `IsAllowedThrough(from, to, sim)` per portal plus `TpDoor` per door (real one-way rooms and "nobody" locks close, no
+household access: other units' doors locked to other households block). Other apartment lots, houseboats, resorts and
+diving lots stay closed; household, selected and unknown-scope Sims never get the rule. Counters 1951 allowed, 1952
+refused as tomb or hidden, 1953 refused otherwise (counted in UfTeleport only), also on the hourly `unseen tp goal:` line.
+Also fixed: `UfLotOpen`'s one-sim-hour lot cache kept a verdict across a runtime `tpdoorrights` toggle (the one-way reading
+changed under it). Check: `UnseenTpCheck apt <hex id|any>` (repro `unseen-tp-apt-goal`). A/B: tpdoorrights on, tpaptgoal
+off vs on, same save; expect GoHome same-route replans after a cut to fall back toward 3024b2d6's handful.
+
 ## 9. Usage-ranked speedups (docs/589 §3): `stcsocials`, `ilp_idleparams`
 
 The usage sweep (docs/589 §3, `docs/data/usage-rank-1115.csv`) lists about 17 exact rewrites. Ranked by how often the code
