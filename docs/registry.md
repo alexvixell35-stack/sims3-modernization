@@ -475,7 +475,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 1961-1970 | reserved (claude, `fixes-1961`) | docs/597 read-not-built: subroutefail (3), petwakebed (3), slavewakereason (4) |
 | 1971-1976 | reserved (claude, `fixes-1971`) | docs/598 §5 hovertraintest: NPCUseHoverTrain station-count memo (answered, EA queries, forgets, check mismatches, Run guards, errors) |
 | 1977-1980 | reserved (claude, `fixes-1977`) | docs/601 outfitwaitend: stale unseen-NPC outfit waits ended with EA's instant switch |
-| **1981+** | next free | reserve here  |
+| 1981-1999 | `UnseenOutfitDefer.cs` (`fixes-1981`, PR #457, renumbered from 2570-2588, issue #451, docs/602), `unseenoutfitdefer` | built 2026-11-16, default off, natural-play runs on 4 worlds: instant sets deferred (1981) / of those replacing a waiting one (1982) / applied: seen (1983), selected or not a townie (1984), before a delayed set or model (1985), flush (1986) / dropped: Sim gone (1987), EA's own set (1988), model set (1989) / waiting (1990), most waiting (1991) / not deferred: first set (1992), delayed swap open (1993), category or not a Sim path (1994) / apply threw (1995) / not deferred: 40 m margin (1996) / applied: margin (1997) / worst seen-to-apply ms (1998) / seen applies > 250 ms (1999) |
+| **2000+** | next free (1981-1999 taken; free spans 2016-2021, 2711-2721 minus PR rows, 2747+) | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 

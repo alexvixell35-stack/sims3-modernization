@@ -6606,6 +6606,26 @@
       "what": "docs/601 outfitwaitend: stale unseen-NPC outfit waits ended with EA's instant switch",
       "at": "2026-11-16T16:18:40.770Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-1981",
+      "kind": "fixes",
+      "from": 1981,
+      "to": 1999,
+      "by": "alexvixell35-stack",
+      "what": "unseenoutfitdefer counters (UnseenOutfitDefer.cs; PR #457 1981-1999 renumbered in work/pr405-1114)",
+      "at": "2026-11-16T16:34:20.456Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "doc-602",
+      "kind": "doc",
+      "from": 602,
+      "to": 602,
+      "by": "alexvixell35-stack",
+      "what": "unseenoutfitdefer (PR #457 docs/602, renumbered: ours has docs/602-function-coverage)",
+      "at": "2026-11-16T16:37:16.770Z",
+      "worktree": "<scratchpad>"
     }
   ]
 }
