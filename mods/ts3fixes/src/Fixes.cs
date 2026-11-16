@@ -478,6 +478,7 @@ namespace Ts3Fixes
         // [2564-2565] free (released).
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
+        // [2702-2703] spotcheck (docs/560 §7): GoHome spot in view -> walk / lot-trip spot in view -> game's own trip.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -815,6 +816,7 @@ namespace Ts3Fixes
                 case "sculptpose": return Instantiator.kSculptPose;
                 case "trainboost": return Instantiator.kTrainBoost;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
+                case "spotcheck": return Instantiator.kSpotCheck;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
@@ -985,6 +987,9 @@ namespace Ts3Fixes
                         sCounters[2]++;
                         return RunOrig();
                     }
+                    // spotcheck (default off): Unseen(Actor, Target) judged the home lot, but the spot is a random outdoor point
+                    // anywhere on it (up to ~45 m from the centre on a 64 m lot): one in view = the Sim walks
+                    if (ShortcutOn("spotcheck") && !UfGoalUnseen(pos)) { sCounters[2702]++; return RunOrig(); }
                     // docs/202 §3.6.4 unseenfbtriphold: D's walk-time hold first; given up = the game's own trip
                     if (UfPreCore.TripMode(false, false, ShortcutOn("unseenfbtriphold")) == 2 && !UfTripHold(Actor, Target, pos)) return RunOrig();
                     sLastShortcut[id] = now;
@@ -1393,6 +1398,8 @@ namespace Ts3Fixes
             if (!TownieUnseen(sim, null) || (sim.Position - lot.Position).Length() <= kShortcutMinDistance || !FarFromViewers(lot.Position)) return false;
             Sims3.SimIFace.Vector3 pos, fwd;
             if (!SafeSpot(sim, lot, lot.EntryPoint(), out pos, out fwd)) { c[idx + 2]++; return false; }
+            // spotcheck (default off): the gate judged the lot's position; the spot itself must be out of view too
+            if (ShortcutOn("spotcheck") && !UfGoalUnseen(pos)) { c[2703]++; return false; }
             if (mode == 2 && !UfTripHold(sim, lot, pos)) return false;  // the game's own trip runs (the Sim lost only the hold)
             string from = sim.LotCurrent != null ? sim.LotCurrent.Name : "street";
             PlaceSim(sim, pos, fwd, name + " " + lot.Name);

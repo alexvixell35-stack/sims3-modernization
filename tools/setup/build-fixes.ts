@@ -119,6 +119,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kStuckCheckOwn value="False" />
     <kOverwatchStuckSlice value="True" />
     <kSeasonMarkerCache value="False" />
+    <kSpotCheck value="False" />
     <kSafeSpotYield value="False" />
     <kDisposeSpread value="False" />
     <kOverwatchStuckNoticeSummary value="False" />
