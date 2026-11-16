@@ -1,0 +1,54 @@
+{
+  "id": "b11-watch-no-player",
+  "switch": "ilp_watchnoplayer",
+  "counter": null,
+  "assembly": "Sims3GameplayObjects",
+  "method": "Sims3.Gameplay.Objects.HobbiesSkills.MusicalInstrument+WatchBase`1::Run()",
+  "edits": [
+    {
+      "at": "0x0",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldarg.0"
+      ],
+      "maxStack": 2,
+      "il": [
+        "ldarg.0",
+        "ldflda !1 class Sims3.Gameplay.Interactions.InteractionInstance`2<class Sims3.Gameplay.Actors.Sim,!0>::Target",
+        "constrained. !0",
+        "callvirt instance class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.Actors.Sim> Sims3.Gameplay.Abstracts.GameObject::get_ActorsUsingMe()",
+        "callvirt instance int32 class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.Actors.Sim>::get_Count()",
+        "brtrue B11W_GO",
+        "ldc.i4.0",
+        "ret",
+        "B11W_GO: nop"
+      ]
+    }
+  ],
+  "builds": {
+    "ea-1.67": {
+      "size": 982,
+      "sha256": "3bd40e760be97fb09601e5a29c41353a1e0abf4606fe2f701d65579240448a61",
+      "tokens": {
+        "!1 class Sims3.Gameplay.Interactions.InteractionInstance`2<class Sims3.Gameplay.Actors.Sim,!0>::Target": "0x0a001773",
+        "!0": "0x1b000e9f",
+        "instance class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.Actors.Sim> Sims3.Gameplay.Abstracts.GameObject::get_ActorsUsingMe()": "0x0a0000f7",
+        "instance int32 class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.Actors.Sim>::get_Count()": "0x0a000161"
+      },
+      "patchedSha256": "4193e641927af992f1ad961a0e3ed387247a7d25024a21284c5238187175926d"
+    },
+    "simler90-242": {
+      "size": 982,
+      "sha256": "ee77d45f14564bb7035f19bd6563f48924bbe16d15e1bc32a9c1f2915b28f09b",
+      "tokens": {
+        "!1 class Sims3.Gameplay.Interactions.InteractionInstance`2<class Sims3.Gameplay.Actors.Sim,!0>::Target": "0x0a0017ee",
+        "!0": "0x1b0004ae",
+        "instance class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.Actors.Sim> Sims3.Gameplay.Abstracts.GameObject::get_ActorsUsingMe()": "0x0a0001b9",
+        "instance int32 class [mscorlib]System.Collections.Generic.List`1<class Sims3.Gameplay.Actors.Sim>::get_Count()": "0x0a000156"
+      },
+      "patchedSha256": "9e58a07b2af4d1131ef261335fbfff73fee4a5713229970ea3776dbf4e68729c"
+    }
+  },
+  "ilHashG6": "c388f0dcbceacda7"
+}

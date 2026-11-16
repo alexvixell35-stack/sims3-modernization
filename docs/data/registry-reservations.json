@@ -6449,6 +6449,28 @@
       "at": "2026-11-16T00:05:18.966Z",
       "worktree": "/home/<user>/dev/sims3-modernization",
       "pinned": true
+    },
+    {
+      "id": "fixes-1351",
+      "kind": "fixes",
+      "from": 1351,
+      "to": 1398,
+      "by": "claude",
+      "what": "batch 11 (docs/589 B11 §1-16): eatpostonce, motivemultonce, fightbroadcastend, reactioncopy, carpoolschoolskip, tvsyncalarm, photofunds, ltrhistorybits, goodbyepure, bathcleanup, tvwatchskill, computergametype, moodtankreset, reactiongrumpy, trainsimgone, stereoupgrade (3 each)",
+      "at": "2026-11-16T00:40:30.172Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-1700",
+      "kind": "fixes",
+      "from": 1700,
+      "to": 1729,
+      "by": "claude",
+      "what": "batch 11c-d (docs/589 B11 §17-26): buffremovedelayed, tvdisclistener, fridgetestnull, cancelposturedef, facialidleweight, bathsituationfx, socialnoeffect, guitargnomeboost, distressgate, moodidleflavor (3 each)",
+      "at": "2026-11-16T00:40:47.602Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
     }
   ]
 }
