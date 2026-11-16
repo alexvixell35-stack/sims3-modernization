@@ -392,7 +392,7 @@ namespace Ts3Fixes
             e.At = now;
             e.Open = true;
             foreach (CommonDoor d in lot.GetObjects<CommonDoor>())
-                if (d == null || UrCore.DoorRefuses(d.LockType != CommonDoor.tLock.Anybody, d is DoorSingleGender, d.OneWayRoomDestinationId != 0)) { e.Open = false; break; }
+                if (d == null || UrCore.DoorRefuses(d.LockType != CommonDoor.tLock.Anybody, d is DoorSingleGender, UfDoorOneWay(d))) { e.Open = false; break; }
             if (sUrLocks.Count >= 256) sUrLocks.Clear();
             sUrLocks[lot.LotId] = e;
             return !e.Open;
@@ -427,20 +427,24 @@ namespace Ts3Fixes
         }
         static bool UfLotOpen(Lot lot)
         {
-            if (lot.IsApartmentLot || lot.BuildableShells.Length > 0 || !HouseboatOk(lot)) return false;
+            if (lot.IsApartmentLot || (lot.BuildableShells != null && lot.BuildableShells.Length > 0) || !HouseboatOk(lot)) return false;
             if (lot.CommercialLotSubType == CommercialLotSubType.kEP10_Resort || lot.CommercialLotSubType == CommercialLotSubType.kEP10_Diving) return false;
             long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+            bool sentinel = ShortcutOn("tpdoorrights");  // the verdict depends on the one-way reading: an entry made under the other one is stale
             UfDoors e;
-            if (sUfDoors.TryGetValue(lot.LotId, out e) && e.At <= now && now - e.At < kUfDoorTicks) return e.Open;
+            if (sUfDoors.TryGetValue(lot.LotId, out e) && e.At <= now && now - e.At < kUfDoorTicks && e.Sentinel == sentinel) return e.Open;
             e.At = now;
             e.Open = true;
+            e.Sentinel = sentinel;
             foreach (CommonDoor d in lot.GetObjects<CommonDoor>())
-                if (d == null || d.LockType != CommonDoor.tLock.Anybody || d is DoorSingleGender || d.OneWayRoomDestinationId != 0) { e.Open = false; break; }
+                if (d == null || d.LockType != CommonDoor.tLock.Anybody || d is DoorSingleGender || UfDoorOneWay(d)) { e.Open = false; break; }
             if (sUfDoors.Count >= 256) sUfDoors.Clear();
             sUfDoors[lot.LotId] = e;
             return e.Open;
         }
-        struct UfDoors { public long At; public bool Open; }
+        // docs/584 §7: one-way by EA's sentinel under tpdoorrights (UfPreLot and UfLotLocked too), upstream's "!= 0" when off
+        static bool UfDoorOneWay(CommonDoor d) { return UfPreCore.OneWay(d.OneWayRoomDestinationId, ShortcutOn("tpdoorrights")); }
+        struct UfDoors { public long At; public bool Open; public bool Sentinel; }
         static readonly System.Collections.Generic.Dictionary<ulong, UfDoors> sUfDoors = new System.Collections.Generic.Dictionary<ulong, UfDoors>();
         static readonly long kUfDoorTicks = Sims3.Gameplay.Utilities.SimClock.ConvertToTicks(1f, Sims3.Gameplay.Utilities.TimeUnit.Hours);
 
@@ -1329,7 +1333,9 @@ namespace Ts3Fixes
                     c[308]++;
                     return false;
                 }
-                int why = UfTpGoalWhy(sim, dest);  // docs/267 F1: never into a tomb, hidden, locked or doorless room (UnseenTeleportGoal.cs)
+                bool aptRoom;
+                int why = UfTpGoalWhy(sim, dest, out aptRoom);  // docs/267 F1: never into a tomb, hidden, locked or doorless room (UnseenTeleportGoal.cs)
+                if (aptRoom) c[kUfTpAptSlot + (why == UfPreCore.kTpOk ? 0 : why == UfPreCore.kTpTombOrHidden ? 1 : 2)]++;  // tpaptgoal, docs/584 §8
                 if (why != UfPreCore.kTpOk)
                 {
                     c[308]++;

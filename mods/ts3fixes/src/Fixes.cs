@@ -516,6 +516,8 @@ namespace Ts3Fixes
         // [2097-2099] customctlsweep (CustomCtlSweep.cs): UIManager custom-control wrappers of gone windows removed / not-attached kept / entries left.
         // [2120-2121] exitcbsweep (ExitCbSweep.cs): stale Sim.OnExitReasonsAdded route delegates removed / longest delegate list seen on one Sim before the pass.
         // [2122-2123] dnppetkeys, dnpobjkeys (DnpRemovalKeys.cs): ended Pet/SimOrPet wish nodes dropped from mPotentialRemovalNodes / ended nodes under a destroyed object key dropped.
+        // [2739-2741] tpdoorrights (UnseenTeleportGoal.cs, docs/584 §7): lots open by the Sim's own door rights that upstream closes / of those only by household access / closed by a door the Sim cannot pass.
+        // [2753-2755] tpaptgoal (UnseenTeleportGoal.cs, docs/584 §8): home apartment / shell goals allowed / refused as tomb or hidden room / refused otherwise (no way out, raised, unknown).
         // [876-877] bookhand (BookHand.cs, docs/251): books Book.StopUsingBook left in the hand with no carry machine, seen at an EA put-down that would throw (also with the switch off), moved out of the hand by EA's handler.
         // [758-759] asyncjigsync (AsyncJigSync.cs, RouteBackoff.cs AsyncEligible, docs/240): own plans kept sync while the Sim's interaction holds an unplaced SocialJig / of those with the jig only in the linked interaction.
         // [763-768] autofft2 (AutOffload.cs, docs/208 §9.1): items, A0, A2, A4, A5, exceptions
@@ -904,6 +906,8 @@ namespace Ts3Fixes
                 case "takeariskguard": return Instantiator.kTakeARiskGuard;  // EA bug fix, off (TakeARiskGuard.cs, docs/529 §4)
                 case "minihomelot": return Instantiator.kMiniHomeLot;  // EA bug fix, on (MiniHomeLot.cs, docs/266)
                 case "dancefloorlistguard": return Instantiator.kDanceFloorListGuard;  // EA bug fix, ON in release (Rodney 2026-11-09; DanceFloorDiag.cs, docs/253 §12)
+                case "tpdoorrights": return false;  // F1's unseen-teleport lot test by the Sim's own door rights, EA's one-way sentinel (UnseenTeleportGoal.cs, docs/584 §7)
+                case "tpaptgoal": return false;  // F1: an unseen NPC's own home apartment / shell lot judged by the goal room only (hidden rooms still refused; UnseenTeleportGoal.cs, docs/584 §8)
                 case "compactionfail": return false;  // test only (Compaction.cs, docs/204 §6): the reload throws after the screen is up
                 case "spotspread": return true;
                 case "routefaillog": return true;  // ON in release (Rodney 2026-11-08): helps triage player reports in early releases

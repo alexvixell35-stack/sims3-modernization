@@ -46,6 +46,69 @@ static class UnseenFbTest
             Check((UfPreCore.TpGoal(th, og, ol, ro, re) == UfPreCore.kTpOk) == ok, "tp: rule mask " + m);
         }
 
+        // docs/584 §7 tpdoorrights: real door-lock cases (CommonDoor.tLock, EA's one-way sentinel 0x8FFF)
+        const int NW = UfPreCore.kNoOneWayRoom;
+        Check(UfPreCore.TpDoorUpstreamCloses(UfPreCore.kLockAnybody, false, NW), "door: upstream closes an unlocked door (reads the no-one-way sentinel as one-way)");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, false, NW, true, false, false) == UfPreCore.kTpDoorFree, "door: unlocked ordinary door is free");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, false, 7, true, true, true) == UfPreCore.kTpDoorClosed, "door: real one-way room closes, even at home");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedHousehold, false, NW, true, true, true) == UfPreCore.kTpDoorOwn, "door: front door locked to the family passes its resident");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedHousehold, false, NW, false, false, false) == UfPreCore.kTpDoorClosed, "door: front door locked to the family closes for a visitor");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedActor, false, NW, false, true, true) == UfPreCore.kTpDoorHome, "door: sibling's locked bedroom passes on household access at home");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedActor, false, NW, false, false, true) == UfPreCore.kTpDoorClosed, "door: household access counts only on the home lot");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedActor, false, NW, false, true, false) == UfPreCore.kTpDoorClosed, "door: a lock owned outside the household closes");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockOwnerList, false, NW, true, false, false) == UfPreCore.kTpDoorOwn, "door: owner-list door passes a listed Sim");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockNobody, false, NW, true, true, true) == UfPreCore.kTpDoorClosed, "door: locked for everyone closes, residents too");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockPets, false, NW, true, false, false) == UfPreCore.kTpDoorOwn, "door: no-pets door passes a human");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockPets, false, NW, false, true, true) == UfPreCore.kTpDoorClosed, "door: no-pets door closes for a pet, even at home");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockVipRoom, false, NW, false, true, true) == UfPreCore.kTpDoorClosed, "door: VIP room closes without the Sim's own right");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, true, NW, true, false, false) == UfPreCore.kTpDoorOwn, "door: single-gender door passes a Sim of that gender");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, true, NW, false, true, true) == UfPreCore.kTpDoorClosed, "door: single-gender door closes for the other gender, even at home");
+        // the same sentinel in UfPreLot / UfLotLocked (UfDoorOneWay): off keeps upstream's "!= 0", on uses EA's 0x8FFF
+        Check(UfPreCore.OneWay(NW, false) && UfPreCore.OneWay(12, false) && !UfPreCore.OneWay(0, false), "oneway: upstream reads every ordinary door (0x8FFF) as one-way");
+        Check(!UfPreCore.OneWay(NW, true) && UfPreCore.OneWay(12, true) && UfPreCore.OneWay(0, true), "oneway: EA's sentinel: only a real destination room is one-way");
+        Check(!UfPreCore.TpDoorUpstreamCloses(UfPreCore.kLockAnybody, false, 0) && UfPreCore.TpDoorUpstreamCloses(UfPreCore.kLockAnybody, false, NW), "oneway: upstream lot test closes on the sentinel");
+        for (int lk = 0; lk <= 6; lk++)
+            for (int m = 0; m < 32; m++)
+            {
+                bool g = (m & 1) != 0, own = (m & 2) != 0, home = (m & 4) != 0, hh = (m & 8) != 0; int ow = (m & 16) != 0 ? 3 : NW;
+                int v = UfPreCore.TpDoor(lk, g, ow, own, home, hh);
+                // never laxer than the Sim's own rights except on its home lot through a household-owned lock; never opens "nobody" or one-way
+                bool ok = v == UfPreCore.kTpDoorClosed || (v == UfPreCore.kTpDoorFree && lk == UfPreCore.kLockAnybody && !g) || (v == UfPreCore.kTpDoorOwn && own)
+                    || (v == UfPreCore.kTpDoorHome && home && hh && !own);
+                Check(ok && ((lk != UfPreCore.kLockNobody && ow == NW) || v == UfPreCore.kTpDoorClosed), "door: rule mask " + lk + "/" + m);
+            }
+
+        // docs/584 §8 tpaptgoal: apartment / shell lots open only on the Sim's own home lot with the switch on, and then only the
+        // goal room decides; a hidden-room goal (Late Night hidden apartment rooms, the hiddenroom* reports) must stay refused
+        Check(UfPreCore.TpAptLot(false, false, true, true) == UfPreCore.kTpAptNone, "apt: an ordinary lot keeps the usual lot test");
+        Check(UfPreCore.TpAptLot(true, false, true, false) == UfPreCore.kTpAptClosed, "apt: switch off = upstream (closed)");
+        Check(UfPreCore.TpAptLot(true, false, false, true) == UfPreCore.kTpAptClosed, "apt: not the Sim's home lot stays closed");
+        Check(UfPreCore.TpAptLot(true, true, true, true) == UfPreCore.kTpAptClosed, "apt: houseboat / resort / diving stays closed even at home");
+        Check(UfPreCore.TpAptLot(true, false, true, true) == UfPreCore.kTpAptRoom, "apt: home apartment, switch on: the room decides");
+        int aRoom = UfPreCore.kTpAptRoom;
+        Check(UfPreCore.TpGoal(true, false, UfPreCore.TpAptOpen(aRoom, false), false, true) == UfPreCore.kTpTombOrHidden, "apt control: hidden room at home refused even with a way out");
+        Check(UfPreCore.TpGoal(false, false, UfPreCore.TpAptOpen(aRoom, false), false, false) == UfPreCore.kTpNoWayOut, "apt control: home room with no way out refused");
+        Check(UfPreCore.TpGoal(false, false, UfPreCore.TpAptOpen(aRoom, false), false, null) == UfPreCore.kTpNoWayOut, "apt control: unknown flood refused");
+        Check(UfPreCore.TpGoal(false, false, UfPreCore.TpAptOpen(aRoom, false), true, true) == UfPreCore.kTpRaised, "apt control: balcony / roof refused");
+        Check(UfPreCore.TpGoal(false, false, UfPreCore.TpAptOpen(aRoom, false), false, true) == UfPreCore.kTpOk, "apt: own unit with a way out passes");
+        Check(UfPreCore.TpGoal(false, false, UfPreCore.TpAptOpen(UfPreCore.kTpAptClosed, true), false, true) == UfPreCore.kTpLotClosed, "apt control: a visitor's goal in someone's unit refused");
+        Check(UfPreCore.TpAptOpen(UfPreCore.kTpAptNone, true) && !UfPreCore.TpAptOpen(UfPreCore.kTpAptNone, false), "apt: ordinary lots keep the usual answer");
+        for (int am = 0; am < 16; am++)
+        {
+            bool xAp = (am & 1) != 0, xSp = (am & 2) != 0, xHo = (am & 4) != 0, xOn = (am & 8) != 0;
+            int av = UfPreCore.TpAptLot(xAp, xSp, xHo, xOn);
+            Check(av == (!xAp ? UfPreCore.kTpAptNone : xOn && xHo && !xSp ? UfPreCore.kTpAptRoom : UfPreCore.kTpAptClosed), "apt: lot mask " + am);
+            for (int ag = 0; ag < 48; ag++)
+            {
+                bool xTh = (ag & 1) != 0, xOg = (ag & 2) != 0, xUo = (ag & 4) != 0, xRo = (ag & 8) != 0;
+                bool? xRe = (ag >> 4) == 0 ? (bool?)null : (ag >> 4) == 1 ? (bool?)false : true;
+                int aw = UfPreCore.TpGoal(xTh, xOg, UfPreCore.TpAptOpen(av, xUo), xRo, xRe);
+                // never a tomb / hidden room; indoors on an apartment lot only at home with the switch on and a proven way out
+                bool aok = !xTh && (xOg || (UfPreCore.TpAptOpen(av, xUo) && !xRo && xRe == true));
+                Check((aw == UfPreCore.kTpOk) == aok && (!xTh || aw == UfPreCore.kTpTombOrHidden) && (av != UfPreCore.kTpAptClosed || xOg || aw != UfPreCore.kTpOk), "apt: goal mask " + am + "/" + ag);
+            }
+        }
+
         // limiter
         UfLimiter u = new UfLimiter();
         object r;

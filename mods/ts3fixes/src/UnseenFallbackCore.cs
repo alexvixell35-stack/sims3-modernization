@@ -124,6 +124,44 @@ namespace Ts3Fixes
         // see) never; an indoor room only when EA's allowed-room flood (HrReachesOutside, the Sim's own door rights) reaches
         // outside; unknown (null, a portal threw) refuses.
         public const int kTpOk = 0, kTpTombOrHidden = 1, kTpLotClosed = 2, kTpNoWayOut = 3, kTpRaised = 4;
+
+        // docs/584 §7 tpdoorrights: one door's verdict for F1's lot test, judged with the teleporting Sim's own door rights instead
+        // of "any lock closes the lot". lockType is CommonDoor.tLock as an int; oneWayRoom is CommonDoor.OneWayRoomDestinationId,
+        // which EA sets to kNoOneWayRoom (0x8FFF) on every door that is not one-way (its field initializer and
+        // SetLockTypeAndOwner(lock, owner)); upstream's "!= 0" read that sentinel as one-way, so every lot with a door was closed.
+        // simPasses = EA's CommonDoor.IsAllowedThrough(sim) (both directions); householdPasses = the lock's owner (or one owner
+        // on the list) is in the Sim's household; homeLot = the lot is that household's home. Returns kTpDoorClosed (the lot is
+        // closed), kTpDoorFree (no lock in the way), kTpDoorOwn (the Sim's own rights pass it) or kTpDoorHome (only its household's
+        // access passes it: a resident going home past a family member's locked room; the room flood still uses the Sim's rights).
+        public const int kNoOneWayRoom = 36863;
+        public const int kLockNobody = 0, kLockSelectedActor = 1, kLockSelectedHousehold = 2, kLockAnybody = 3, kLockPets = 4, kLockOwnerList = 5, kLockVipRoom = 6;
+        public const int kTpDoorClosed = -1, kTpDoorFree = 0, kTpDoorOwn = 1, kTpDoorHome = 2;
+        public static int TpDoor(int lockType, bool gendered, int oneWayRoom, bool simPasses, bool homeLot, bool householdPasses)
+        {
+            if (oneWayRoom != kNoOneWayRoom) return kTpDoorClosed;  // a real one-way room: never (upstream's rule, with EA's sentinel)
+            if (lockType == kLockAnybody && !gendered) return kTpDoorFree;
+            if (lockType == kLockNobody) return kTpDoorClosed;      // locked for everyone, residents too
+            if (simPasses) return kTpDoorOwn;
+            bool shared = lockType == kLockSelectedActor || lockType == kLockSelectedHousehold || lockType == kLockOwnerList;
+            return homeLot && householdPasses && shared && !gendered ? kTpDoorHome : kTpDoorClosed;
+        }
+        // upstream's rule (tpdoorrights off): any lock, a single-gender door or "one-way" (as upstream reads it) closes the lot
+        public static bool TpDoorUpstreamCloses(int lockType, bool gendered, int oneWayRoom) { return lockType != kLockAnybody || gendered || OneWay(oneWayRoom, false); }
+        // is the door one-way? sentinel true (tpdoorrights) = EA's test (!= 0x8FFF); false = upstream's "!= 0", true for every door
+        public static bool OneWay(int oneWayRoom, bool sentinel) { return sentinel ? oneWayRoom != kNoOneWayRoom : oneWayRoom != 0; }
+        // docs/584 §8 tpaptgoal: F1's lot verdict for an apartment or shell lot (Lot.IsApartmentLot, BuildableShells), which both
+        // lot tests close outright. kTpAptNone = not such a lot (the usual lot test applies); kTpAptClosed = closed as upstream has
+        // it (switch off, not the Sim's home lot, a special lot that stays closed: houseboat, resort, diving); kTpAptRoom = the
+        // Sim's own home apartment lot with the switch on: the lot counts as open and only the goal room decides (TpGoal: tomb or
+        // hidden refused first, then the room flood with the Sim's own rights plus TpDoor per door on the way out).
+        public const int kTpAptNone = 0, kTpAptClosed = 1, kTpAptRoom = 2;
+        public static int TpAptLot(bool aptOrShell, bool otherSpecial, bool homeLot, bool on)
+        {
+            if (!aptOrShell) return kTpAptNone;
+            return on && homeLot && !otherSpecial ? kTpAptRoom : kTpAptClosed;
+        }
+        // the openLot argument of TpGoal: kTpAptRoom opens, kTpAptClosed closes, kTpAptNone keeps the usual lot test's answer
+        public static bool TpAptOpen(int aptLot, bool usualOpen) { return aptLot == kTpAptRoom || (aptLot == kTpAptNone && usualOpen); }
         public static int TpGoal(bool tombOrHidden, bool outdoorGround, bool openLot, bool roomOutside, bool? reachesOutside)
         {
             if (tombOrHidden) return kTpTombOrHidden;
