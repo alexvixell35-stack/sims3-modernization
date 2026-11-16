@@ -8,7 +8,7 @@ namespace Ts3Fixes
         public static object FloorSwitchUseListCheck(string what)
         {
             bool on = ShortcutOn("floorswitchuselist");
-            return Ep4Check("floorswitchuselist", 1609, new[] { "Sims taken off a floor switch's use list", "left on with switch off", "errors" }, "", what,
+            return Ep4Check("floorswitchuselist", 1609, new[] { "Sims taken off a floor switch's use list", "left on with switch off", "errors" }, EpLive(typeof(BEp6FsHook), 1), what,
                 "still on -> removed", CuRemove(on, true), "not on -> left", !CuRemove(on, false) && !CuRemove(false, true));
         }
 
@@ -16,7 +16,7 @@ namespace Ts3Fixes
         public static object DonationBuffChanceCheck(string what)
         {
             bool on = ShortcutOn("donationbuffchance");
-            return Ep4Check("donationbuffchance", 1612, new[] { "rolls that changed outcome", "rolls with switch off", "errors" }, "", what,
+            return Ep4Check("donationbuffchance", 1612, new[] { "rolls that changed outcome", "rolls with switch off", "errors" }, EpLive(typeof(BEp6DbHook), 2), what,
                 "10 < 15 fires, 50 does not", DbFires(on, 10f, 15f) && !DbFires(on, 50f, 15f), "off: 50 fires, 10 does not",
                 DbFires(false, 50f, 15f) && !DbFires(false, 10f, 15f));
         }
@@ -26,7 +26,9 @@ namespace Ts3Fixes
         {
             bool on = ShortcutOn("vampirefruitsnack");
             return Ep4Check("vampirefruitsnack", 1615, new[] { "Sanguine Snacks given at the threshold", "Sated given with switch off", "errors" },
-                EpMiss("kQualityForSated", sVfSated, "kQualityForSanguineSnack", sVfSnack), what,
+                EpJoin(EpMiss("kQualityForSated", sVfSated, "kQualityForSanguineSnack", sVfSnack),
+                    EpLive(typeof(BEp6VfHook), 1, "kQualityForSated", sVfSated, typeof(Sims3.Gameplay.Objects.Quality), "kQualityForSated", sVfSated, "static",
+                        "kQualityForSanguineSnack", sVfSnack, typeof(Sims3.Gameplay.Objects.Quality), "kQualityForSanguineSnack", sVfSnack, "static")), what,
                 "10 >= 10 snack", VfSnack(on, 10, 10), "9 no, 11 yes, off 10 no", !VfSnack(on, 9, 10) && VfSnack(on, 11, 10) && !VfSnack(false, 10, 10));
         }
 
@@ -34,7 +36,7 @@ namespace Ts3Fixes
         public static object FallenRockCollectedCheck(string what)
         {
             bool on = ShortcutOn("fallenrockcollected");
-            return Ep4Check("fallenrockcollected", 1618, new[] { "collected rocks kept", "destroyed with switch off", "errors" }, EpMiss("mCollected", sFrCollected), what,
+            return Ep4Check("fallenrockcollected", 1618, new[] { "collected rocks kept", "destroyed with switch off", "errors" }, EpJoin(EpMiss("mCollected", sFrCollected), EpLive(typeof(BEp6FrHook), 1, "mCollected", sFrCollected, typeof(bool))), what,
                 "collected kept", FrSkip(on, true), "uncollected times out as EA", !FrSkip(on, false) && !FrSkip(false, true));
         }
     }

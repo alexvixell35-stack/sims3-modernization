@@ -72,10 +72,11 @@ namespace Ts3Fixes
                 try
                 {
                     float t = (float)sHsTime.GetValue(this);
-                    if (t <= 0f) return;
-                    if (!ShortcutOn("hayscattertime")) { PatchCounters()[1576]++; return; }
-                    sHsTime.SetValue(this, HsAfter(true, t));
-                    PatchCounters()[1575]++;
+                    if (t <= 0f) return;   // nothing to reset, equal in both states
+                    bool on = ShortcutOn("hayscattertime");
+                    float after = HsAfter(on, t);
+                    if (after != t) { sHsTime.SetValue(this, after); PatchCounters()[1575]++; }
+                    else if (!on) PatchCounters()[1576]++;
                 }
                 catch (Exception) { PatchCounters()[1577]++; }
             }
@@ -105,8 +106,14 @@ namespace Ts3Fixes
         // True when the gnome was cleaned (in an inventory, switch on).
         static bool HgCleanUp(HauntedGnome g)
         {
-            if (g == null || !g.InInventory) return false;
-            if (!ShortcutOn("hauntedgnomeinv")) { PatchCounters()[1579]++; return false; }
+            if (g == null) return false;
+            bool on = ShortcutOn("hauntedgnomeinv");
+            bool inInventory = g.InInventory;
+            if (!HgClean(on, inInventory))
+            {
+                if (!on && inInventory) PatchCounters()[1579]++;
+                return false;
+            }
             sHgAdd.Invoke(g, new object[] { g, null });
             sHgAlarm.SetValue(g, AlarmHandle.kInvalidHandle);
             PatchCounters()[1578]++;
@@ -150,19 +157,23 @@ namespace Ts3Fixes
         {
             public static void SpawnHook(Vector3 objectPosition, Vector3 objectForwardVector)
             {
-                if (!ShortcutOn("houdinignomeleak")) { SpawnOrig(objectPosition, objectForwardVector); return; }
+                // The copy below replaces EA's whole body, so it runs only with the switch on (off: EA's body as is; the
+                // orphan only exists after EA's create, so it cannot be counted here with the switch off).
+                bool on = ShortcutOn("houdinignomeleak");
+                if (!on) { SpawnOrig(objectPosition, objectForwardVector); return; }
                 try
                 {
                     IGameObject created = GlobalFunctions.CreateObjectOutOfWorld("magicGnomeMagician", ProductVersion.EP6);
                     MagicGnomeHoudini gnome = created as MagicGnomeHoudini;
-                    if (gnome != null && GlobalFunctions.FindGoodLocationNearby(gnome, ref objectPosition, ref objectForwardVector))
+                    bool placed = gnome != null && GlobalFunctions.FindGoodLocationNearby(gnome, ref objectPosition, ref objectForwardVector);
+                    if (placed)
                     {
                         gnome.SetPosition(objectPosition);
                         gnome.SetForward(objectForwardVector);
                         gnome.AddToWorld();
                         return;
                     }
-                    if (HgOrphanDestroy(true, created != null, false)) { created.Destroy(); PatchCounters()[1581]++; }  // changed
+                    if (HgOrphanDestroy(on, created != null, placed)) { created.Destroy(); PatchCounters()[1581]++; }  // changed
                     Sim active = Sim.ActiveActor;
                     Lot lotHome = active == null ? null : active.LotHome;  // changed
                     if (lotHome == null) { PatchCounters()[1582]++; return; }
@@ -189,6 +200,10 @@ namespace Ts3Fixes
         static FieldInfo sE6OneShot, sE6SavedEffect, sE6SavedDelay, sE6Effect, sE6Delay;
         internal static bool FxEndOneShot(bool on, bool isShowEnd, bool oneShot) { return on && isShowEnd && oneShot; }
         internal static int E6FailCase(bool on, int roll) { return on ? roll + 1 : roll; }  // EA's cases are 1 and 2
+        // EP6: whether the hook fires the failure effect itself (EA: a roll that hits no case); one-shots stay EA's early return.
+        internal static bool E6OwnFailure(bool on, bool isFailure, bool oneShot) { return on && isFailure && !oneShot; }
+        // EP6 ReturnSaveState: whether the stale TurnOn (alarm fired after the one-shot already ended) is skipped.
+        internal static bool E6SkipTurnOn(bool on, bool oneShot) { return on && !oneShot; }
 
         static void ApplyShowStageFxEnd()
         {
@@ -211,16 +226,15 @@ namespace Ts3Fixes
             {
                 try
                 {
-                    if (eventType == ShowEventType.kShowEnd && mOneShot)
+                    bool on = ShortcutOn("showstagefxend");
+                    bool isEnd = eventType == ShowEventType.kShowEnd, oneShot = mOneShot;
+                    if (FxEndOneShot(on, isEnd, oneShot))
                     {
-                        if (!ShortcutOn("showstagefxend")) PatchCounters()[1585]++;
-                        else if (FxEndOneShot(true, true, true))
-                        {
-                            ReturnSaveState();
-                            mOneShot = false;
-                            PatchCounters()[1584]++;
-                        }
+                        ReturnSaveState();
+                        mOneShot = false;
+                        PatchCounters()[1584]++;
                     }
+                    else if (!on && FxEndOneShot(true, isEnd, oneShot)) PatchCounters()[1585]++;
                 }
                 catch (Exception) { PatchCounters()[1586]++; }
                 EventOrig(eventType);
@@ -229,6 +243,7 @@ namespace Ts3Fixes
 
             public void StopHook()
             {
+                // A copy of EA's whole StopEffects: runs only with the switch on (off: EA's body as is).
                 if (!ShortcutOn("showstagefxend")) { StopOrig(); return; }
                 if (mSequenceAlarm != AlarmHandle.kInvalidHandle)
                 {
@@ -261,20 +276,18 @@ namespace Ts3Fixes
                 try
                 {
                     bool oneShot = (bool)sE6OneShot.GetValue(this);
-                    if (eventType == ShowEventType.kShowEnd && oneShot)
+                    bool isEnd = eventType == ShowEventType.kShowEnd;
+                    if (FxEndOneShot(on, isEnd, oneShot))
                     {
-                        if (!on) PatchCounters()[1585]++;
-                        else
-                        {
-                            sE6Effect.SetValue(this, sE6SavedEffect.GetValue(this));
-                            sE6Delay.SetValue(this, sE6SavedDelay.GetValue(this));
-                            sE6OneShot.SetValue(this, false);
-                            PatchCounters()[1584]++;
-                        }
+                        sE6Effect.SetValue(this, sE6SavedEffect.GetValue(this));
+                        sE6Delay.SetValue(this, sE6SavedDelay.GetValue(this));
+                        sE6OneShot.SetValue(this, false);
+                        PatchCounters()[1584]++;
                     }
-                    else if (on && eventType == ShowEventType.kShowEffectFailure && !oneShot)
+                    else if (!on && FxEndOneShot(true, isEnd, oneShot)) PatchCounters()[1585]++;
+                    else if (E6OwnFailure(on, eventType == ShowEventType.kShowEffectFailure, oneShot))
                     {
-                        FireStageEvent(E6FailCase(true, RandomUtil.GetInt(1)) == 1 ? Effect.Fail_DudFireworks : Effect.Fail_BlackSmokePuffs);
+                        FireStageEvent(E6FailCase(on, RandomUtil.GetInt(1)) == 1 ? Effect.Fail_DudFireworks : Effect.Fail_BlackSmokePuffs);
                         PatchCounters()[1584]++;
                         return;
                     }
@@ -289,11 +302,10 @@ namespace Ts3Fixes
             {
                 try
                 {
-                    if (!(bool)sE6OneShot.GetValue(this))
-                    {
-                        if (ShortcutOn("showstagefxend")) { PatchCounters()[1584]++; return; }
-                        PatchCounters()[1585]++;
-                    }
+                    bool on = ShortcutOn("showstagefxend");
+                    bool oneShot = (bool)sE6OneShot.GetValue(this);
+                    if (E6SkipTurnOn(on, oneShot)) { PatchCounters()[1584]++; return; }
+                    if (!on && E6SkipTurnOn(true, oneShot)) PatchCounters()[1585]++;
                 }
                 catch (Exception) { PatchCounters()[1586]++; }
                 ReturnOrig();
@@ -322,12 +334,14 @@ namespace Ts3Fixes
         {
             public bool RunHook()
             {
-                if (!ShortcutOn("soakedpetselfreact")) { PatchCounters()[1588]++; return RunOrig(); }
+                // A copy of EA's whole Run: runs only with the switch on (off: EA's body as is, counted per shake).
+                bool on = ShortcutOn("soakedpetselfreact");
+                if (!on) { PatchCounters()[1588]++; return RunOrig(); }
                 Lot lotCurrent = Actor.LotCurrent;
                 Sim[] objects = Sims3.Gameplay.Queries.GetObjects<Sim>(Actor.Position, (float)sSoRadius.GetValue(null));
                 foreach (Sim sim in objects)
                 {
-                    if (!SpQueue(true, sim == Actor)) { PatchCounters()[1587]++; continue; }  // changed
+                    if (!SpQueue(on, sim == Actor)) { PatchCounters()[1587]++; continue; }  // changed
                     if ((lotCurrent == sim.LotCurrent || Actor.RoomId == 0) && Actor.RoomId == sim.RoomId && Actor.Level == sim.Level)
                     {
                         InteractionInstance instance = BuffSoakedPet.ReactToShakeWaterOff.Singleton.CreateInstance(Actor, sim, new InteractionPriority(InteractionPriorityLevel.High), true, true);
@@ -369,10 +383,12 @@ namespace Ts3Fixes
                     // review: also when a reset unwinds PlaceArt (the surface is still out of world then)
                     try
                     {
-                        if (!placed && surface != null && !surface.HasBeenDestroyed && !surface.InWorld)
+                        if (!placed && surface != null)
                         {
-                            if (!ShortcutOn("tagbagsurfaceleak")) PatchCounters()[1591]++;
-                            else if (TbDestroy(true, false, false, false)) { surface.Destroy(); PatchCounters()[1590]++; }
+                            bool on = ShortcutOn("tagbagsurfaceleak");
+                            bool destroyed = surface.HasBeenDestroyed, inWorld = !destroyed && surface.InWorld;
+                            if (TbDestroy(on, placed, destroyed, inWorld)) { surface.Destroy(); PatchCounters()[1590]++; }
+                            else if (!on && TbDestroy(true, placed, destroyed, inWorld)) PatchCounters()[1591]++;
                         }
                     }
                     catch (Exception) { PatchCounters()[1592]++; }
@@ -387,7 +403,8 @@ namespace Ts3Fixes
         // the rider's name as the horse's. Fix: after EA's import, mHorseName is read from its own key.
         const uint kEtHorseKey = 183657686u;
         static FieldInfo sEtHorse;
-        internal static uint EtHorseKey(bool on) { return on ? kEtHorseKey : 183657670u; }
+        // The horse name the trophy keeps: on, the value under its own key when present; off, EA's (read from the rider key).
+        internal static string EtName(bool on, string ea, bool hasHorseKey, string horse) { return on && hasHorseKey ? horse : ea; }
 
         static void ApplyEquestrianTrophyName()
         {
@@ -403,12 +420,13 @@ namespace Ts3Fixes
                 bool r = ImportOrig(resKeyTable, objIdTable, reader);
                 try
                 {
-                    string horse;
-                    if (reader != null && reader.ReadString(EtHorseKey(true), out horse, "") && horse != (string)sEtHorse.GetValue(this))
-                    {
-                        if (!ShortcutOn("equestriantrophyname")) PatchCounters()[1594]++;
-                        else { sEtHorse.SetValue(this, horse); PatchCounters()[1593]++; }
-                    }
+                    if (reader == null) return r;
+                    bool on = ShortcutOn("equestriantrophyname");
+                    string ea = (string)sEtHorse.GetValue(this), horse;
+                    bool has = reader.ReadString(kEtHorseKey, out horse, "");
+                    string name = EtName(on, ea, has, horse);
+                    if (name != ea) { sEtHorse.SetValue(this, name); PatchCounters()[1593]++; }
+                    else if (!on && EtName(true, ea, has, horse) != ea) PatchCounters()[1594]++;
                 }
                 catch (Exception) { PatchCounters()[1595]++; }
                 return r;
@@ -435,11 +453,11 @@ namespace Ts3Fixes
                     InteractionInstance ii = (InteractionInstance)(object)this;
                     Sim actor = ii.InstanceActor;
                     GameObject pile = ii.Target as GameObject;
-                    if (actor != null && pile != null && !pile.HasBeenDestroyed && pile.IsActorUsingMe(actor))
-                    {
-                        if (!ShortcutOn("rubbleuselist")) PatchCounters()[1597]++;
-                        else if (CuRemove(true, true)) { pile.RemoveFromUseList(actor); PatchCounters()[1596]++; }
-                    }
+                    if (actor == null || pile == null || pile.HasBeenDestroyed) return;
+                    bool on = ShortcutOn("rubbleuselist");
+                    bool still = pile.IsActorUsingMe(actor);
+                    if (CuRemove(on, still)) { pile.RemoveFromUseList(actor); PatchCounters()[1596]++; }
+                    else if (!on && still) PatchCounters()[1597]++;
                 }
                 catch (ResetException) { throw; }
                 catch (Exception) { PatchCounters()[1598]++; }
@@ -454,7 +472,8 @@ namespace Ts3Fixes
         // aborts the other handlers and the rest of the lot change. Fix: Dispose first drops the handler when in use;
         // OnLotChanged with no inventory parent drops itself and returns.
         static MethodInfo sBpOnLot;
-        internal static bool BpDrop(bool on, bool usingIt, bool hasParent) { return on && (usingIt || !hasParent); }
+        internal static bool BpDropOnDispose(bool on, bool usingIt) { return on && usingIt; }
+        internal static bool BpDropOnLot(bool on, bool hasParent) { return on && !hasParent; }
 
         static void ApplyBackpackLotLeak()
         {
@@ -476,11 +495,10 @@ namespace Ts3Fixes
                 try
                 {
                     Backpack b = (Backpack)(object)this;
-                    if (b.UsingBackpack)
-                    {
-                        if (!ShortcutOn("backpacklotleak")) PatchCounters()[1601]++;
-                        else if (BpDrop(true, true, true)) { BpUnsubscribe(b); PatchCounters()[1600]++; }
-                    }
+                    bool on = ShortcutOn("backpacklotleak");
+                    bool usingIt = b.UsingBackpack;
+                    if (BpDropOnDispose(on, usingIt)) { BpUnsubscribe(b); PatchCounters()[1600]++; }
+                    else if (!on && usingIt) PatchCounters()[1601]++;
                 }
                 catch (Exception) { PatchCounters()[1602]++; }
                 DisposeOrig();
@@ -489,16 +507,19 @@ namespace Ts3Fixes
 
             public void LotHook(Sim sim, Lot oldLot, Lot newLot)
             {
+                bool on = ShortcutOn("backpacklotleak");
                 try
                 {
                     Backpack b = (Backpack)(object)this;
-                    if (b.ItemComp == null || b.ItemComp.InventoryParent == null)
-                    {
-                        if (!ShortcutOn("backpacklotleak")) PatchCounters()[1601]++;
-                        else if (BpDrop(true, false, false)) { BpUnsubscribe(b); PatchCounters()[1600]++; return; }
-                    }
+                    bool hasParent = b.ItemComp != null && b.ItemComp.InventoryParent != null;
+                    if (BpDropOnLot(on, hasParent)) { BpUnsubscribe(b); PatchCounters()[1600]++; return; }
+                    if (!on && !hasParent) PatchCounters()[1601]++;
                 }
-                catch (Exception) { PatchCounters()[1602]++; return; }
+                catch (Exception)
+                {
+                    PatchCounters()[1602]++;
+                    if (on) return;   // review: with the switch off EA's handler always runs (it used to be skipped here)
+                }
                 LotOrig(sim, oldLot, newLot);
             }
             public void LotOrig(Sim sim, Lot oldLot, Lot newLot) { } // Backpack.OnLotChanged
@@ -571,27 +592,25 @@ namespace Ts3Fixes
                             if ((StreetArtSkill.Type)sSaType.GetValue(row) == streetArtType && SaVariations(row, size) > 0) rows.Add(row);
                         string[] q = new string[rows.Count];
                         for (int i = 0; i < q.Length; i++) q[i] = (string)sSaQuality.GetValue(rows[i]);
-                        int fixedIdx = SaBoostIndex(true, q);
-                        if (rows.Count > 0 && fixedIdx != SaBoostIndex(false, q))
+                        bool on = ShortcutOn("streetartmasterboost");
+                        int ea = SaBoostIndex(false, q), boostIdx = SaBoostIndex(on, q);
+                        if (rows.Count > 0 && boostIdx != ea)
                         {
-                            if (!ShortcutOn("streetartmasterboost")) PatchCounters()[1604]++;
-                            else
+                            float[] weights = new float[rows.Count];
+                            for (int i = 0; i < weights.Length; i++)
                             {
-                                float[] weights = new float[rows.Count];
-                                for (int i = 0; i < weights.Length; i++)
-                                {
-                                    weights[i] = ((int[])sSaWeights.GetValue(rows[i]))[skill.SkillLevel];
-                                    if (i == fixedIdx) weights[i] += TraitTuning.BoostCreatingStreetArtMasterpieceWithAvantGardeTrait;  // changed
-                                }
-                                int picked = RandomUtil.GetWeightedIndex(weights);
-                                quality = q[picked];
-                                variation = (string)sSaVarString.Invoke(skill, new object[] { rows[picked], picked, size });
-                                duration = (float)sSaDuration.Invoke(rows[picked], new object[] { size }) * 60f;
-                                isMasterpeice = quality == "Master";
-                                PatchCounters()[1603]++;
-                                return;
+                                weights[i] = ((int[])sSaWeights.GetValue(rows[i]))[skill.SkillLevel];
+                                if (i == boostIdx) weights[i] += TraitTuning.BoostCreatingStreetArtMasterpieceWithAvantGardeTrait;  // changed
                             }
+                            int picked = RandomUtil.GetWeightedIndex(weights);
+                            quality = q[picked];
+                            variation = (string)sSaVarString.Invoke(skill, new object[] { rows[picked], picked, size });
+                            duration = (float)sSaDuration.Invoke(rows[picked], new object[] { size }) * 60f;
+                            isMasterpeice = quality == "Master";
+                            PatchCounters()[1603]++;
+                            return;
                         }
+                        if (!on && rows.Count > 0 && SaBoostIndex(true, q) != ea) PatchCounters()[1604]++;
                     }
                 }
                 catch (Exception) { PatchCounters()[1605]++; }
@@ -627,11 +646,10 @@ namespace Ts3Fixes
                 ResetOrig(resetInformation);
                 try
                 {
-                    if (sBsCast.GetValue(this) != null) return;
-                    if (!ShortcutOn("bubblingspringsreset")) { PatchCounters()[1607]++; return; }
-                    if (!BsRecreate(true, true)) return;
-                    sBsSet.Invoke(this, null);
-                    PatchCounters()[1606]++;
+                    bool on = ShortcutOn("bubblingspringsreset");
+                    bool missing = sBsCast.GetValue(this) == null;
+                    if (BsRecreate(on, missing)) { sBsSet.Invoke(this, null); PatchCounters()[1606]++; }
+                    else if (!on && missing) PatchCounters()[1607]++;
                 }
                 catch (Exception) { PatchCounters()[1608]++; }
             }

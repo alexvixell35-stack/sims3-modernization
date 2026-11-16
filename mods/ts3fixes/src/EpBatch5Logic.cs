@@ -96,14 +96,13 @@ namespace Ts3Fixes
         {
             VisualEffect v = sOsLast;
             sOsOpen--; sOsLast = prev;
-            if (v == null) return;
+            if (v == null) return;   // nothing created: equal in both switch states
             int slot = kOsSlot[fam];
             try
             {
-                if (!ShortcutOn(kOsFam[fam])) { PatchCounters()[slot + 1]++; return; }
-                if (!OsAutoDestroy(true, true)) return;
-                v.SetAutoDestroy(true);
-                PatchCounters()[slot]++;
+                bool on = ShortcutOn(kOsFam[fam]);
+                if (OsAutoDestroy(on, v != null)) { v.SetAutoDestroy(true); PatchCounters()[slot]++; }
+                else if (v != null && !on) PatchCounters()[slot + 1]++;
             }
             catch (Exception) { PatchCounters()[slot + 2]++; }
         }
