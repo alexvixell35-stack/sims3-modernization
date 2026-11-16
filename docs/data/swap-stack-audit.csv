@@ -471,3 +471,4 @@ DoorGenVipHook.RemHook,ResortManager.VIPRoomData,RemoveGuest,DoorGen.cs,RemOrig,
 DoorGenDescHook.GenderHook,SimDescription,set_Gender,DoorGen.cs,GenderOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
 DoorGenDescHook.AgeHook,SimDescription,set_Age,DoorGen.cs,AgeOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
 DoorGenDescHook.PregHook,SimDescription,set_IsVisuallyPregnant,DoorGen.cs,PregOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+FestivalHiddenHook.CimHook,GameObject,UpdateCommodityInteractionMap,Fixes.cs,CimOrig,no,no path to a yield in 1 overload(s),festivalhidden (docs/856),keep
