@@ -151,6 +151,24 @@ namespace Ts3Fixes
             ApplySculptPose();    // docs/568 §3 (SculptPose.cs)
             ApplyTrainBoost();    // docs/569 §1 (TrainBoost.cs)
             ApplyEatOutsideCount();    // docs/569 §2 (EatOutsideCount.cs)
+            ApplySpRelCount();   // docs/588 B10 §1-2
+            ApplySpCloneDict();   // docs/588 B10 §3
+            ApplySpLotLookup();   // docs/588 B10 §4
+            ApplySpBucketIndex();   // docs/588 B10 §5
+            ApplySpCreateMoveIn();   // docs/588 B10 §6
+            ApplySpLotDensity();   // docs/588 B10 §7
+            ApplySpRoommateJob();   // docs/588 B10 §8
+            ApplySpOccultPick();   // docs/588 B10 §9
+            ApplySpJobAtWork();   // docs/588 B10 §10
+            ApplySpRecheck();   // docs/588 B10 §11
+            ApplySpPensionPrompt();   // docs/588 B10 §12
+            ApplyHhCleanupDup();   // docs/588 B10 §13
+            ApplyVirtualHomeShare();   // docs/588 B10 §14
+            ApplyCelebAlarmNull();   // docs/588 B10 §15
+            ApplyDisposeVirtualSlot();   // docs/588 B10 §16
+            ApplyAgingAlarmCancel();   // docs/588 B10 §17
+            ApplyVirtualMoveInDup();   // docs/588 B10 §18
+            ApplyPetPoolGhost();   // docs/588 B10 §19
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -478,6 +496,25 @@ namespace Ts3Fixes
         // [2564-2565] free (released).
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
+        // [2929-2931] sprelcount (Batch588Logic.cs, docs/588 B10 §1): Collects with own counts / incremental Collects (switch off) / errors.
+        // [2932-2934] spcollectnull (Batch588Logic.cs, docs/588 B10 §2): null households skipped / seen with switch off / errors.
+        // [2935-2937] spclonedict (Batch588Logic.cs, docs/588 B10 §3): clones given their own dictionary / clones sharing (switch off) / errors.
+        // [2938-2940] splotlookup (Batch588Logic.cs, docs/588 B10 §4): specs counted on their lot / dropped by EA (switch off) / errors.
+        // [2941-2943] spbucketindex (Batch588Logic.cs, docs/588 B10 §5): targeted actions with the bucket / targeted draws (switch off) / errors.
+        // [2944-2946] spcreatemovein (Batch588Logic.cs, docs/588 B10 §6): predictions made once / double predictions (switch off) / errors.
+        // [2947-2949] splotdensity (Batch588Logic.cs, docs/588 B10 §7): left out by the lot test / off-lot households EA counted (switch off) / errors.
+        // [2950-2952] sproommatejob (Batch588Logic.cs, docs/588 B10 §8): roommates given the job / left jobless (switch off) / errors.
+        // [2953-2955] spoccultpick (Batch588Logic.cs, docs/588 B10 §9): random occult picks / first-in-list picks (switch off) / errors.
+        // [2956-2958] spjobatwork (Batch588Logic.cs, docs/588 B10 §10): new jobs kept / new jobs EA dropped (switch off) / errors.
+        // [2959-2961] sprecheck (Batch588Logic.cs, docs/588 B10 §11): actions not run on a played household / rounds with switch off / errors.
+        // [2962-2964] sppensionprompt (Batch588Logic.cs, docs/588 B10 §12): pension prompts asked first / asked after the leave (switch off) / errors.
+        // [2965-2967] hhcleanupdup (Batch588Logic.cs, docs/588 B10 §13): cleanups run fixed / shared-member loads (switch off) / errors.
+        // [2968-2970] virtualhomeshare (Batch588Logic.cs, docs/588 B10 §14): homes from the tuned share / draws over every lot (switch off) / errors.
+        // [2971-2973] celebalarmnull (Batch588Logic.cs, docs/588 B10 §15): alarms removed with no Sim / would have thrown (switch off) / errors.
+        // [2974-2976] disposevirtualslot (Batch588bLogic.cs, docs/588 B10 §16): virtual move-outs at Dispose / left in their slot (switch off) / stale entries swept at load.
+        // [2977-2979] agingalarmcancel (Batch588bLogic.cs, docs/588 B10 §17): graduation alarms cancelled / left armed (switch off) / errors.
+        // [2980-2982] virtualmoveindup (Batch588bLogic.cs, docs/588 B10 §18): repeat move-ins not added twice / added twice (switch off) / errors.
+        // [2983-2985] petpoolghost (Batch588bLogic.cs, docs/588 B10 §19): ghost ids dropped / ghost ids seen (switch off) / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -815,6 +852,25 @@ namespace Ts3Fixes
                 case "sculptpose": return Instantiator.kSculptPose;
                 case "trainboost": return Instantiator.kTrainBoost;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
+                case "sprelcount": return Instantiator.kSpRelCount;
+                case "spcollectnull": return Instantiator.kSpCollectNull;
+                case "spclonedict": return Instantiator.kSpCloneDict;
+                case "splotlookup": return Instantiator.kSpLotLookup;
+                case "spbucketindex": return Instantiator.kSpBucketIndex;
+                case "spcreatemovein": return Instantiator.kSpCreateMoveIn;
+                case "splotdensity": return Instantiator.kSpLotDensity;
+                case "sproommatejob": return Instantiator.kSpRoommateJob;
+                case "spoccultpick": return Instantiator.kSpOccultPick;
+                case "spjobatwork": return Instantiator.kSpJobAtWork;
+                case "sprecheck": return Instantiator.kSpRecheck;
+                case "sppensionprompt": return Instantiator.kSpPensionPrompt;
+                case "hhcleanupdup": return Instantiator.kHhCleanupDup;
+                case "virtualhomeshare": return Instantiator.kVirtualHomeShare;
+                case "celebalarmnull": return Instantiator.kCelebAlarmNull;
+                case "disposevirtualslot": return Instantiator.kDisposeVirtualSlot;
+                case "agingalarmcancel": return Instantiator.kAgingAlarmCancel;
+                case "virtualmoveindup": return Instantiator.kVirtualMoveInDup;
+                case "petpoolghost": return Instantiator.kPetPoolGhost;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
@@ -929,6 +985,7 @@ namespace Ts3Fixes
                 throw new InvalidOperationException(what + " " + h.Name + " returns " + h.ReturnType.Name + ", original returns " + t.ReturnType.Name + ": not patched");
         }
 
+        // PetPoolOrphan's and petpoolghost's on PetPool.RandomRemovePet) chains: the later hook's stub receives the earlier
         static bool Patch(Type target, string method, Type[] args, Type hook, string replacement, string stub)
         {
             const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
