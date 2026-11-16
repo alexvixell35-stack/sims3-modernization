@@ -471,3 +471,5 @@ DoorGenVipHook.RemHook,ResortManager.VIPRoomData,RemoveGuest,DoorGen.cs,RemOrig,
 DoorGenDescHook.GenderHook,SimDescription,set_Gender,DoorGen.cs,GenderOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
 DoorGenDescHook.AgeHook,SimDescription,set_Age,DoorGen.cs,AgeOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
 DoorGenDescHook.PregHook,SimDescription,set_IsVisuallyPregnant,DoorGen.cs,PregOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+IceCreamHook.OneShotHook,IceCreamTruck,OneShotRouteToLot,IceCreamDirect.cs,OneShotOrig,yes,"IceCreamTruck::OneShotRouteToLot > .. > Simulator::Sleep (the truck drives a route; written by hand, not recomputed: no call graph on the posting machine)",IceCreamDirect,"keep, stub remap (SavedStacks.cs)"
+NvLotHook.WantHook,Lot,HowMuchItWantsSimToCome,NearVenue.cs,WantOrig,yes,"Lot::HowMuchItWantsSimToCome > SeasonsManager::get_Enabled > .. 8 .. > SACS::SACS_AcquireDriverImpl (same method as the VenueScoreHook row; written by hand, not recomputed)",NearVenue,"keep, stub remap (SavedStacks.cs)"

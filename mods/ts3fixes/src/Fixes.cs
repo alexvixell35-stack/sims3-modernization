@@ -172,6 +172,8 @@ namespace Ts3Fixes
             ApplyVenueMemo();
             ApplyExactMemos();  // lane L4 1115: permamemo, buffremovenoop, catnamecache (ExactMemos.cs), off by default
             ApplyDoorMirror();
+            ApplyNearVenue();  // docs/805: nearvenue (opt-in, townies only); before ApplyAutShadow, which reads Lot's callees
+            ApplyIceCreamDirect();  // docs/805: icecreamdirect (opt-in): an unseen ice cream truck skips its plan and drive
             ApplyAutShadow();
             ApplyAutRoomMemo();  // docs/97 AM-1 H1-H3/H5 (AutRoomMemo.cs), off by default; after AutShadow (rides on its IsAllowedInRoom swap)
             ApplyAutOffload();
@@ -538,6 +540,8 @@ namespace Ts3Fixes
         // per scope (household, selected, seenNpc, unseen, unknown), bursts, call lines, lines dropped, would start but Kinds
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
+        // [3455-3475] stagedarrival (TripStage.cs, docs/805): see the list there; [3476-3485] icecreamdirect (IceCreamDirect.cs);
+        // [3486-3495] nearvenue (NearVenue.cs): see the lists there
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
         const int kCounterSlots = 4000;
@@ -586,6 +590,9 @@ namespace Ts3Fixes
                 case "rabbithole": return Instantiator.kBuildingTripShortcut;
                 case "visit": case "visitlot": case "gotolot": case "gotocommunity": return Instantiator.kLotTripShortcut;
                 case "broadcast": return Instantiator.kBroadcasterThrottle;
+                case "stagedarrival": return Instantiator.kStagedArrival;
+                case "icecreamdirect": return Instantiator.kIceCreamDirect;
+                case "nearvenue": return Instantiator.kNearVenue;
                 case "virtualhome": return Instantiator.kVirtualHomeShortcut;
                 case "failreplan": return Instantiator.kNoRouteFailWalkOffscreen;
                 case "watchdog": return Instantiator.kStuckWatchdog;
@@ -969,7 +976,12 @@ namespace Ts3Fixes
                 {
                     if (sCounters == null) sCounters = PatchCounters();
                     sCounters[0]++;
-                    if (!ShortcutOn("gohome") || !Unseen(Actor, Target)) return RunOrig();
+                    sGhDestSeen = false;
+                    if (!ShortcutOn("gohome") || !Unseen(Actor, Target))
+                    {
+                        if (sGhDestSeen) Stage();
+                        return RunOrig();
+                    }
                     // a Sim shortcut twice within 10 sim-minutes is in some loop the game drives: let it walk
                     ulong id = Actor.SimDescription.SimDescriptionId;
                     long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
@@ -1003,6 +1015,20 @@ namespace Ts3Fixes
                 finally { if (ghBefore >= 0) GhWalkRelease(Actor, WalkStyle, ghBefore); }
             }
             public bool RunOrig() { return false; } // receives GoHome.Run's original header
+
+            // stagedarrival: home in view or near the household (Unseen's last test): the Sim leaves its lot as GoHome.Run's lead-in
+            // does, is placed at the nearest unseen street point, then GoHome.Run walks it in. Apartment shells keep EA's walk.
+            static bool sGhDestSeen;  // read right after Unseen returns (no yield in between)
+            void Stage()
+            {
+                if (!ShortcutOn("stagedarrival")) return;
+                Sims3.Gameplay.Actors.Sim a = Actor;
+                StageNear(a, Target.EntryPoint(), Target, kStageGoHome, UfPreCore.TripMode(false, false, ShortcutOn("unseenfbtriphold")), delegate
+                {
+                    Sims3.Gameplay.Situations.VisitSituation.OnSimLeavingLot(a);
+                    Sims3.Gameplay.Situations.GroupingSituation.RemoveSimFromGroupSituation(a);
+                });
+            }
             static readonly Dictionary<ulong, long> sLastShortcut = new Dictionary<ulong, long>();
             static readonly long kLoopTicks = Sims3.Gameplay.Utilities.SimClock.ConvertToTicks(10f, Sims3.Gameplay.Utilities.TimeUnit.Minutes);
 
@@ -1022,7 +1048,9 @@ namespace Ts3Fixes
                 if (sim.Household != null && sim.Household.Pets.Count > 0) return false;
                 if (sim.LotHome != home || sim.LotCurrent == home || home == Household.ActiveHouseholdLot) return false;
                 if (!HouseboatOk(home) || home.BuildableShells.Length > 0) return false;
-                return FarFromViewers(home.Position);
+                if (FarFromViewers(home.Position)) return true;
+                sGhDestSeen = true;
+                return false;
             }
         }
 
@@ -1352,8 +1380,13 @@ namespace Ts3Fixes
                 {
                     Lot lot = proxy.LotCurrent;
                     Sims3.SimIFace.Vector3 door = proxy.GetPositionOfSlot(proxy.EnterSlots[0]);
-                    if (lot != null && !lot.IsWorldLot && a.LotCurrent != lot && (a.Position - door).Length() > kShortcutMinDistance
-                        && !UcOnScreen(proxy) && FarFromViewers(door))
+                    bool doorSeen = UcOnScreen(proxy) || !FarFromViewers(door);
+                    if (lot != null && !lot.IsWorldLot && a.LotCurrent != lot && (a.Position - door).Length() > kShortcutMinDistance && doorSeen)
+                    {
+                        // stagedarrival: only the door is in view
+                        if (ShortcutOn("stagedarrival")) StageNear(a, door, lot, kStageRabbit, UfPreCore.TripMode(false, false, ShortcutOn("unseenfbtriphold")), null);
+                    }
+                    else if (lot != null && !lot.IsWorldLot && a.LotCurrent != lot && (a.Position - door).Length() > kShortcutMinDistance)
                     {
                         Sims3.SimIFace.Vector3 pos, fwd;
                         if (SafeSpot(a, lot, door, out pos, out fwd)
@@ -1390,7 +1423,10 @@ namespace Ts3Fixes
             if (!HouseboatOk(lot) || lot.BuildableShells.Length > 0 || lot == Household.ActiveHouseholdLot) return false;
             if (lot.CommercialLotSubType == CommercialLotSubType.kEP10_Resort || lot.CommercialLotSubType == CommercialLotSubType.kEP10_Diving) return false;
             if (sim.Household != null && sim.Household.Pets.Count > 0) return false;
-            if (!TownieUnseen(sim, null) || (sim.Position - lot.Position).Length() <= kShortcutMinDistance || !FarFromViewers(lot.Position)) return false;
+            if (!TownieUnseen(sim, null) || (sim.Position - lot.Position).Length() <= kShortcutMinDistance) return false;
+            // stagedarrival: only the destination is in view: walk on from the nearest unseen street point (true = staged, so the
+            // visit hooks preset no followers, as for a shortcut)
+            if (!FarFromViewers(lot.Position)) return ShortcutOn("stagedarrival") && StageNear(sim, lot.EntryPoint(), lot, kStageLot, mode, null);
             Sims3.SimIFace.Vector3 pos, fwd;
             if (!SafeSpot(sim, lot, lot.EntryPoint(), out pos, out fwd)) { c[idx + 2]++; return false; }
             if (mode == 2 && !UfTripHold(sim, lot, pos)) return false;  // the game's own trip runs (the Sim lost only the hold)
