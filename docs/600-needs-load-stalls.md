@@ -1,6 +1,6 @@
 # 600. Needs-stress stalls: 1 s route plans and "other" hitches (2026-11-16)
 
-> **Withdrawn (2026-11-16):** the run analysed here ran on battery after the charger dropped at 15:02; the game ran at ~20 ticks/s instead of ~285, so the sim loop polled about once a second. The 1 s plan quanta are that power state, not a route-system wait. A rerun on AC is queued.
+> **Cause found (2026-11-16):** the slow runs had the screen off (DPMS). With the display off the game runs ~20 ticks/s, and the sim loop polls about once a second. Runs that switch the screen on (s64, s66) run ~285 ticks/s. The battery drop at 15:02 coincided because the screen turns off sooner on battery. The 1 s plan quanta are not a route-system wait.
 
 Run `phase-20261116-1503` ("needs": every Bridgeport Sim at -40 on all needs, household on full autonomy, 6 x 8 min).
 Engine asi drain-7ab14d12 (ts3native 0.36.264-mono1), same ini as s58 (`phase-20261116-0234`, 0 game hitches).
