@@ -118,6 +118,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kWatchdogAsync value="True" />
     <kStuckCheckOwn value="False" />
     <kOverwatchStuckSlice value="True" />
+    <kTagUnseen value="False" />
     <kSeasonMarkerCache value="False" />
     <kSafeSpotPool value="False" />
     <kSpotCheck value="False" />
