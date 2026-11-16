@@ -465,6 +465,19 @@ namespace Ts3Fixes
         [Tunable] public static bool kDonationBuffChance = false;    // donationbuffchance (docs/587 EP6 §12.2): the giggle-fit and plasma-faint donation buffs rolled the percent chance inverted (85% instead of the shipped 15%); now as tuned
         [Tunable] public static bool kVampireFruitSnack = false;    // vampirefruitsnack (docs/587 EP6 §12.3): an Outstanding vampire fruit gave Sated instead of Sanguine Snack (> instead of the tuned >=); now >=
         [Tunable] public static bool kFallenRockCollected = false;    // fallenrockcollected (docs/587 EP6 §12.4): an imported meteorite's untracked timeout alarm destroyed it after the household collected it; now a collected rock is kept
+        [Tunable] public static bool kSpellBookSummonLoad = false;    // spellbooksummonload (docs/587 store §13.1): a learned Summon spell is dropped from the spellbook on every import (travel, move, exported Sim)
+        [Tunable] public static bool kChocFountainGeyser = false;    // chocfountaingeyser (docs/587 store §13.2): each refill of the chocolate fountain adds another repeating geyser alarm
+        [Tunable] public static bool kHypnoTrickRelease = false;    // hypnotrickrelease (docs/587 store §13.3): a hypnotized volunteer stays frozen because the trick never clears the route lock
+        [Tunable] public static bool kVoodooFairyFadeIn = false;    // voodoofairyfadein (docs/587 store §13.4): a fairy bound to a voodoo doll stays invisible when the transform is cut short
+        [Tunable] public static bool kSaunaTubClear = false;    // saunatubclear (docs/587 store §13.5): the sauna stays marked in use after a reset or exception while bathing
+        [Tunable] public static bool kSlotMachineDefs = false;    // slotmachinedefs (docs/587 store §13.6): autonomous slot play rewrites the shared stakes menu entries
+        [Tunable] public static bool kTreeWishingWell = false;    // treewishingwell (docs/587 store §13.7): the Tree of Prosperity never sees a wishing well, so its night shows never spawn
+        [Tunable] public static bool kPlaypenTalkCast = false;    // playpentalkcast (docs/587 store §13.8): a second learn-to-talk broadcaster orphans the first, which never stops
+        [Tunable] public static bool kOvenMenuNull = false;    // ovenmenunull (docs/587 store §13.9): picking food from an empty or unaffordable restaurant menu throws
+        [Tunable] public static bool kFvStandSkillCurve = false;    // fvstandskillcurve (docs/587 store §13.10): the fruit and veggie stand builds its skill curve from the frequency arrays
+        [Tunable] public static bool kPokerDeadPlayer = false;    // pokerdeadplayer (docs/587 store §13.11): a seated Sim who no longer exists throws in the poker dealer and kills the table
+        [Tunable] public static bool kRouletteHackReset = false;    // roulettehackreset (docs/587 store §13.12): a reset leaves the roulette table hacked forever
+        [Tunable] public static bool kCoopEggQuality = false;    // coopeggquality (docs/587 store §13.13): chicken coop eggs come out one quality tier low and never Perfect
         [Tunable] public static bool kFireTrapCount = false;    // firetrapcount (docs/570 §5): firefighter "free N Sims" counts trapped Sims who left the lot or sit in hidden apartment units
         [Tunable] public static bool kFireActiveJob = false;    // fireactivejob (docs/570 §1): the firefighter's current emergency (a static) survives a world quit; afterwards every new emergency is dropped
         [Tunable] public static bool kEatOutsideCount = true;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)
