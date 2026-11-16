@@ -63,6 +63,7 @@ or a planned search / fallback. No switch built, no registry slot used.
   (`gohere end ... RouteFailed`), and room 10 shares its spot with the sink and mirror (§2). Seven Sims, two toilets.
 
 ## §6 Fridge_Have / Fridge_EatLeftovers on FridgeModerate (71 lines) — probe, skip
+- Second pass (Contention fixes below): not `EatHeldFood`'s 3-5 m step-away; that interaction logs its own rows (18, PortalLocked only).
 - [measured; caller inferred] 65 of 71 rows are `PlanFromPoint sync ... NoPath`, no blocker, goals 2-6 m from the fridge (497.5,1561.5,
   495.5,1556.5, ...), never the fridge slot (502.5,1563.5). They are the place-to-eat search run while carrying the plate,
   which tries candidates and expects failures (same class as the docs/578 §4 probe).
@@ -71,3 +72,49 @@ or a planned search / fallback. No switch built, no registry slot used.
 ## Next
 - Nothing to build from these leads. A second save (not this 7-Sim house) would be needed to tell an EA bug from crowding.
 - Small static lead: §2 side note (`CanRouteToObjectOnSurface` null slot).
+
+## Contention fixes (2026-11-16, second pass): none built
+
+Asked: make Sims see that another Sim is using or heading to a sink / toilet / jig spot, plus `unreachablememo` and
+`eatwander`. Static RE plus the same 20 runs. Nothing built, no switch, no registry slot: each fix would act on a cause the
+code and the logs do not show.
+
+**EA already sees users of the same object** [verified, decompiled]:
+- Sink: `Sink.RouteToSink` = `Line.WaitForTurn(CutAheadOfLowerPrioritySims)` then `RouteToSlotAndCheckInUse` (ObjectInUse
+  after the walk). The dish pick (`ServingContainer...GetBestObjectToWashDishes` -> `CheckInUseAndRoutable`) drops broken and
+  unplannable sinks and scores in-use ones down (`kCleanupScoreModifierForInUse`); the queue then waits in the Line.
+- Toilet: `UseToilet.Run` = `Line.WaitForTurn`, plan to `RoutingSlot_0`, InUse check, then `ToiletSituation` (privacy).
+- Privacy rooms (`PrivacySituation`, `Lot.IsRoomRestricted`) are already in autonomy's `IsAllowedInRoom` filter.
+
+**The failing routes are our harness, not contention** [measured]: for each distinct failing `Replan sync` route, was a
+`gohere`-driven Sim (harness follower) logged within 1 m of the goal in the preceding 400 lines?
+
+| Lead | Routes | gohere Sim on the slot | Control: goal +3 / -3 / +6 m |
+|---|---|---|---|
+| WashDishes (NoDestination) | 42 | 36 | 2 / 8 / 0 |
+| UseToilet (NoDestination) | 19 | 19 | 3 / 3 / 0 |
+| SocialInteractionB (NoPath) | 9 | 5 | 1 / 0 / 2 |
+
+Every SocialInteractionB `NoPath` blocker is a harness follower (`...BE0E0`, `...BE040`, `...BE060`, `...BE080`, `...BE0A0`;
+all appear in `gohere start` lines; Matty Crewe's 46 rows are her follower too). The parked selected Sim is player-directed,
+so EA does not shoo it. Fix belongs in the harness (park `gohere` goals off object routing slots), not in the mod.
+The 6 sink routes without a nearby harness Sim are too few to tell privacy, bystander or user apart [inferred: any of them].
+
+**`unreachablememo` (general per-Sim memo after NoPath): not built.**
+- [verified] EA has the memory: `InteractionQueue.ShouldUpdateBlockTime` -> `GameObject.UpdateBlockTime` for any
+  `ExitReason.CausesBlocking` (0x10687, includes RouteFailed): a 1 sim-min hard block for autonomous tests, then a score
+  penalty fading over 30 sim-min (`kBlockingTimeToTestOut`, `kBlockingTimeToLowerScore`). `autonomyfailblock` (docs/565 §3)
+  covers the posture path EA forgot.
+- [measured] Of 575 distinct NoPath routes, 40 are a repeat by the same Sim, interaction, target type and goal in one run;
+  14 are MopPuddle (`mopunreachable` covers) and most others are the harness-blocked toilet / sink / plate rows above.
+- Invalidation is not airtight: NoPath is very often caused by Sims (dynamic blockers, see above). A memo cleared by object
+  move / build edit / door change / lot or room change would keep blocking an object that is reachable again once the
+  blocking Sim walks off, which is not vanilla minus failed tries.
+
+**`eatwander` (EatHeldFood step-away): not built.** [verified] `EatHeldFood.Run` wanders 3-5 m (`doRoutFail: true`) before
+`BeforeEatingCallback` and `InteractionTest`. But the §6 rows are not that wander: the route-fail logger names the Sim's
+current interaction, and `EatHeldFood` runs as a continuation after `Fridge_Have` / `Fridge_EatLeftovers` end; its own rows
+are logged as `EatHeldFood` (18, all `DestinationPortalLocked`, no NoPath). The Fridge rows' caller stays unknown
+[inferred: a put-down or place search inside the fridge interaction]. Reordering is also not neutral:
+`ServingContainerSingle.BeforeEatingCallback` plays the vegetarian retch, so moving it changes what the player sees;
+a 1-3 m ring is a placement EA does not offer.
