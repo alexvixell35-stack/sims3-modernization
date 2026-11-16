@@ -71,6 +71,7 @@ namespace Ts3Fixes
             sVlGiActive.Clear();
             sVlGiGot.Clear();
             sVlGiArmed = false;
+            FmsWorldLoad();  // fakemetabackoff (FakeMetaSeen.cs)
             if (sVlDestroyedListener != null) EventTracker.RemoveListener(sVlDestroyedListener);
             sVlDestroyedListener = EventTracker.AddListener(EventTypeId.kSimDestroyed, OnVlSimDestroyed);
             if (AlarmManager.Global == null) return;
@@ -437,6 +438,7 @@ namespace Ts3Fixes
             try
             {
                 Sim s = e.TargetObject as Sim;
+                if (s != null && sFmbLive.Count > 0) FmbGone(s);  // fakemetabackoff (FakeMetaSeen.cs)
                 if (s == null || !GameStates.IsLiveState) return ListenerAction.Keep;
                 Posture p = s.Posture;
                 if (!(p is SittingInVehicle) && !(p is SittingInBoat)) return ListenerAction.Keep;
