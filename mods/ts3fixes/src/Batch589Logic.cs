@@ -108,6 +108,14 @@ namespace Ts3Fixes
             public void CleanupOrig() { }
         }
 
+        // World quit: batch 11's per-Sim and per-object state (the transient Cleanup marks clear in their finally blocks;
+        // a Sim whose eat never posted, a mood id or a photo note would otherwise outlive the world).
+        internal static void Batch589WorldQuit()
+        {
+            sEpPending.Clear(); sEpSkip.Clear(); sMtMay.Clear(); sBcKeep.Clear(); sTwSkip.Clear(); sSuKeep.Clear();
+            sPhCost = 0; sPhSim = null; sLtForced = null;
+        }
+
         // ---- B11 §2 motivemultonce (U2) ---------------------------------------------------------------------------------
         // [verified, decompiled] Motive.UpdateMotiveWithDecay applies the Carefree fun-gain multiplier (x1.25) to the
         // positive pre-loop fun sources, then, inside the loop over the current interaction's motive deltas, applies the
@@ -335,7 +343,8 @@ namespace Ts3Fixes
         // definition also reads Sim.ActiveActor.LotHome with no active Sim. Fix: our copy of Run sends a school-bus rider
         // with EA's own School.CreateWorkInteractionInstance (as Run does further down for a rider off the lot; not
         // twice), any other car's rider with the Occupation's ride only when it has one, and tests ActiveActor for
-        // null. The rest is EA's Run. Counters: [1363] skipping riders sent on their own, [1364] Runs that threw on a
+        // null. A skipping rider RiderDelegate did not list is sent too (EA left it with a GetIn it could not take).
+        // The rest is EA's Run. Counters: [1363] skipping riders sent on their own, [1364] Runs that threw on a
         // skipping rider (switch off), [1365] errors.
         static Type sCsType;
         static FieldInfo sCsData, sCsRiders, sCsTimeToLeave, sCsStart, sCsHonkAlarm, sCsGetIn, sCsArrived;
@@ -411,9 +420,12 @@ namespace Ts3Fixes
                     bool skips = RidingPosture.SimIsRidingHorseAndCanGallop(rider) && lot == rider.LotHome && onLot;
                     if (!skips && onLot) skips = skip(rider, lot, lot2);
                     if (!rider.HasBeenDestroyed && !list.Contains(rider) && !skips) list.Add(rider);
-                    if (!skips || !list.Contains(rider)) continue;
+                    // EA handled a skipping rider only when RiderDelegate had listed it; one it had not was neither sent nor
+                    // skipped, and the GetIn loop below pushed a GetIn its definition (built from list) refuses: no ride at all
+                    if (!skips) continue;
                     list.Remove(rider);
                     Lazy.Add(ref skipped, rider);
+                    if (rider.HasBeenDestroyed) continue;
                     InteractionInstance ride = null;
                     switch (CsRide(schoolBus, rider.School != null, rider.Occupation != null))
                     {

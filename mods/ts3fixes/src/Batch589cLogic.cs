@@ -21,29 +21,43 @@ namespace Ts3Fixes
         // ---- B11 §17 buffremovedelayed (U17) ----------------------------------------------------------------------------
         // [verified, decompiled; frequency inferred] BuffManager.RemoveElement(ulong, bool): when a delayed add of the buff
         // is pending, it removes that timer and returns, so a live copy of the same buff stays on the Sim. Fix: when the
-        // buff was live before the call and is still live after it (only that early return leaves it), EA's removal runs
-        // once more, now past the timer, as base.RemoveElement would have. Counters: [1700] live buffs removed after a
-        // pending timer, [1701] left on the Sim (switch off), [1702] errors.
+        // buff was live and had a pending delayed add before the call and is still live after it (EA's early return),
+        // EA's removal runs once more, now past the timer, as base.RemoveElement would have. Counters: [1700] live buffs
+        // removed after a pending timer, [1701] left on the Sim (switch off), [1702] errors.
+        static readonly FieldInfo sBrdDelayed = typeof(BuffManager).GetField("mDelayedBuffs", kB11All);
+        static string sBrdMissing = "";
+
         static void ApplyBuffRemoveDelayed()
         {
+            sBrdMissing = SpNames("BuffManager.mDelayedBuffs", sBrdDelayed);
+            if (sBrdMissing.Length > 0) { AppliedLog().Add("buffremovedelayed: not found: " + sBrdMissing); return; }
             Patch(typeof(BuffManager), "RemoveElement", new Type[] { typeof(ulong), typeof(bool) }, typeof(BBrdHook), "RemoveHook", "RemoveOrig");
         }
 
         // Pure: did EA's call return early with the buff still live (fix runs the removal again)?
-        internal static bool BrLeft(bool liveBefore, bool liveAfter) { return liveBefore && liveAfter; }
+        internal static bool BrLeft(bool liveBefore, bool pendingBefore, bool liveAfter) { return liveBefore && pendingBefore && liveAfter; }
+
+        // Is a delayed add of this buff pending? (EA's own loop over mDelayedBuffs)
+        static bool BrPending(BuffManager bm, ulong guid)
+        {
+            System.Collections.IEnumerable list = sBrdDelayed.GetValue(bm) as System.Collections.IEnumerable;
+            if (list == null) return false;
+            foreach (object o in list) { BuffTimer t = o as BuffTimer; if (t != null && t.Buff == (BuffNames)guid) return true; }
+            return false;
+        }
 
         public class BBrdHook
         {
             public void RemoveHook(ulong guid, bool clearRefCounts)
             {
                 BuffManager bm = (BuffManager)(object)this;
-                bool live = false;
-                try { live = bm.HasElement((BuffNames)guid); } catch (Exception) { }
+                bool live = false, pending = false;
+                try { live = bm.HasElement((BuffNames)guid) && BrPending(bm, guid); pending = live; } catch (Exception) { }
                 RemoveOrig(guid, clearRefCounts);
                 if (!live) return;
                 try
                 {
-                    if (!BrLeft(live, bm.HasElement((BuffNames)guid))) return;
+                    if (!BrLeft(live, pending, bm.HasElement((BuffNames)guid))) return;
                     if (ShortcutOn("buffremovedelayed")) { RemoveOrig(guid, false); PatchCounters()[1700]++; }
                     else PatchCounters()[1701]++;
                 }
@@ -133,8 +147,8 @@ namespace Ts3Fixes
         // [verified, decompiled] Posture.CancelPosture returns early when the cancel transition is already at the head of
         // the queue, but compares the transition's definition with the head interaction itself (a definition with an
         // instance), so the test is never true and every cancel queues another stand-up. Fix: our copy compares the two
-        // definitions; the rest is EA's. Counters: [1709] duplicate stand-ups not queued, [1710] queued again (switch
-        // off), [1711] errors.
+        // definitions; the rest is EA's (same order). Counters: [1709] duplicate stand-ups not queued, [1710] cancels run
+        // as EA (switch off; EA's own test cannot tell a duplicate, and asking would build another transition), [1711] errors.
         static void ApplyCancelPostureDef()
         {
             Patch(typeof(Posture), "CancelPosture", new Type[] { typeof(Sim) }, typeof(BCpHook), "CancelHook", "CancelOrig");
@@ -147,24 +161,15 @@ namespace Ts3Fixes
         {
             public void CancelHook(Sim sim)
             {
+                if (sim == null || !ShortcutOn("cancelposturedef")) { if (sim != null) PatchCounters()[1710]++; CancelOrig(sim); return; }
                 Posture p = (Posture)(object)this;
-                InteractionInstance head = sim != null ? sim.InteractionQueue.GetHeadInteraction() : null;
-                bool on = ShortcutOn("cancelposturedef");
-                if (!on || head == null)
-                {
-                    if (head != null && !on)
-                    {
-                        try { InteractionInstance t = p.GetCancelTransition(); if (t != null && CpAlready(t.InteractionDefinition, head.InteractionDefinition)) PatchCounters()[1710]++; }
-                        catch (Exception) { PatchCounters()[1711]++; }
-                    }
-                    CancelOrig(sim);
-                    return;
-                }
+                // EA's order: OnCancelPosture and the flag first, then the head and the cancel transition (a new instance)
                 p.OnCancelPosture();
                 p.HasBeenCanceled = true;
                 InteractionQueue q = sim.InteractionQueue;
                 InteractionInstance cancelTransition = p.GetCancelTransition();
-                if (cancelTransition != null && CpAlready(cancelTransition.InteractionDefinition, head.InteractionDefinition)) { PatchCounters()[1709]++; return; }
+                InteractionInstance head = q.GetHeadInteraction();
+                if (cancelTransition != null && head != null && CpAlready(cancelTransition.InteractionDefinition, head.InteractionDefinition)) { PatchCounters()[1709]++; return; }
                 bool all = true;
                 List<ulong> ids = new List<ulong>();
                 foreach (InteractionInstance item in q.InteractionList)
