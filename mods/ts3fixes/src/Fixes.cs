@@ -1073,6 +1073,7 @@ namespace Ts3Fixes
         // [1654-1656] roulettehackreset (StoreBatch1Logic.cs, docs/587 store §13.12): hacks cleared on reset.
         // [1657-1659] coopeggquality (StoreBatch1Logic.cs, docs/587 store §13.13): egg quality index shifted to the Quality enum.
         // [1981-1999] unseenoutfitdefer (UnseenOutfitDefer.cs, issue #451, docs/602): 1981 instant sets deferred, 1982 of those replacing a waiting one, 1983 applied: Sim seen, 1984 applied: selected / not a townie now, 1985 applied before a delayed set or model, 1986 applied: flush (switch off, not live, travel, save), 1987 dropped: Sim gone, 1988 dropped: EA's own set ran, 1989 dropped: model set, 1990 waiting now, 1991 most waiting, 1992 not deferred: first set after instantiate, 1993 not deferred: delayed swap open, 1994 not deferred: category or not a Sim outfit path, 1995 apply threw, 1996 not deferred: within the 40 m margin, 1997 applied: entered the margin, 1998 worst seen-to-apply ms (an upper bound), 1999 seen applies later than 250 ms.
+        // [2711-2712] safespotpool (SafeSpot, docs/74 §13): placement answers in a pool or under the ground skipped / cached start spots skipped.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -1749,6 +1750,7 @@ namespace Ts3Fixes
                 case "pokerdeadplayer": return Instantiator.kPokerDeadPlayer;
                 case "roulettehackreset": return Instantiator.kRouletteHackReset;
                 case "coopeggquality": return Instantiator.kCoopEggQuality;
+                case "safespotpool": return Instantiator.kSafeSpotPool;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
@@ -2056,11 +2058,14 @@ namespace Ts3Fixes
             bool spread = ShortcutOn("spotspread");
             bool reuse = ShortcutOn("safespotreuse");
             int[] c = PatchCounters();
+            // safespotpool (default off): spots in a pool or under the ground outdoors are refused, so the caller runs EA's trip
+            bool noPool = ShortcutOn("safespotpool");
             for (int i = 0; i < 2 + 3; i++)
             {
                 bool fresh = i >= 2;
                 if (!fresh && v.Good.Count == 0) continue;
                 Sims3.SimIFace.Vector3 start = fresh ? near : v.Good[spread ? v.Next++ % v.Good.Count : v.Good.Count - 1];
+                if (noPool && !fresh && BelowGroundOutdoors(start)) { c[2712]++; continue; }
                 // A verified spot is itself an earlier FindGoodLocation result (a native placement search, hundreds of ms
                 // in Isla Paradiso at the school run): answer with it and the facing stored then, while its cached verdict
                 // (same cell and route profile; the lot's verdicts reset on a move-in, a moved lot or a day) still says
@@ -2083,6 +2088,7 @@ namespace Ts3Fixes
                 bool found = GlobalFunctions.FindGoodLocation(sim, new World.FindGoodLocationParams(start), out pos, out fwd);
                 if (ShortcutOn("safespotyield") && !SafeSpotYield(sim, near)) break;
                 if (!found) continue;
+                if (noPool && BelowGroundOutdoors(pos)) { c[2711]++; continue; }
                 if (verify && (pos - start).Length() > 0.5f) c[92]++;
                 if (LotManager.GetLotAtPoint(pos) != lot || SpotVerdict(sim, lot, v, prof, pos, fresh, false, true) != true) continue;
                 if (reuse && prof.Ok && v.Fwds.Count < 64) v.Fwds[KeyOf(prof, pos)] = fwd;
@@ -2091,6 +2097,17 @@ namespace Ts3Fixes
             }
             pos = fwd = Sims3.SimIFace.Vector3.Invalid;
             return false;
+        }
+
+        // safespotpool: a pool point, or an outdoor point under the ground (room 0, level < 0). FindGoodLocation can answer with
+        // the floor of a pool and IsPointInLotSafelyRoutable passes it, so every verified spot of a lot can lie in the water
+        // (Sunset Valley's community pool lot: those Sims' plans all failed). Basements (room > 0, level < 0) stay allowed.
+        static bool BelowGroundOutdoors(Sims3.SimIFace.Vector3 p)
+        {
+            if (World.IsInPool(p)) return true;
+            LotLocation l = LotLocation.Invalid;
+            World.GetLotLocation(p, ref l, eRoomDefinition.Default);
+            return l.mLevel < 0 && l.mRoom == 0;
         }
 
         // safespotyield (docs/74 §11 (b)): one native placement search per sim tick instead of up to 5 in one run. Yields
