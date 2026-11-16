@@ -262,6 +262,13 @@ namespace Ts3Agent
                 if (hh == null) throw new McpException("no active household");
                 sims.AddRange(hh.AllActors);
             }
+            else if (a.Str("sim", "") == "everyone")
+            {
+                // needs stress test: every instantiated Sim in the world (household, townies, NPC roles), skipping dead or resetting ones
+                if (LotManager.Actors != null)
+                    foreach (Sim s in new List<Sim>(LotManager.Actors))
+                        if (s != null && s.SimDescription != null && !s.HasBeenDestroyed && s.Motives != null) sims.Add(s);
+            }
             else sims.Add(Util.FindSim(a, "sim"));
             string which = a.Str("motive", "all");
             foreach (Sim s in sims)
