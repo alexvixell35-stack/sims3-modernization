@@ -181,3 +181,33 @@ Sim's own rights, so it never lands in a room it cannot leave. Only unseen NPCs 
 Counters 2739 lots opened that upstream closes, 2740 of those only by household access, 2741 lots closed by a door the
 Sim cannot pass. Once a sim-hour, when they moved, ts3native.log gets `ts3fixes: unseen tp goal: ...` with 1040-1045, the
 teleport count (307) and 2739-2741, so s57 can confirm the reason with the switch off and on.
+
+## 9. Usage-ranked speedups (docs/589 §3): `stcsocials`, `ilp_idleparams`
+
+The usage sweep (docs/589 §3, `docs/data/usage-rank-1115.csv`) lists about 17 exact rewrites. Ranked by how often the code
+runs, not by type score: social autonomy (Sim targets: 16.5M autonomy test calls across our runs, the largest row) builds a
+`SocialInteractionCandidateCollection` per actor/target pair, which calls `Conversation.GetSocialsForSTC` once per playable
+commodity; idle choice tests every idle candidate through `IdleManager.TestIdleInfo`. motivebuf (§5) and ilp_buffbuf
+already cover the motive and buff updates. The fridge / stove / counter checks (`Food.LotHasUsable*`) run from Fridge_Have
+(31 autonomy calls in all runs) and the cooking process, so they are left for later despite `Cabinetry.IsCounterFree`
+doing a routing-slot test per counter; `HasAnyElement(params)` in Motive allocates only for the Social motive (a few
+thousand small arrays per sim-hour); CarpoolManager.LoopUpdate's rider delegate is not proven free of side effects.
+
+`stcsocials` (ts3fixes, `SocialStc.cs`, default off, every Sim: proven exact): the autonomous branch of GetSocialsForSTC
+without its two redundant copies. `ActionAvailabilityData.Get` returns a new list each call, so the earlier STCs' lists
+are added to it instead of to a copy of it; when the relationship has no STC or its STC is on this commodity, EA keeps
+every candidate in a third list and looks each one up in ActionData without reading the result (a dictionary lookup), so
+the list itself is returned. Same items, same order, same exceptions (r.STC null on the commodity test throws as in EA);
+the non-autonomous branch (pie menu, trait-menu items) runs EA's method. `stcsocialscheck` runs EA's method as well and
+compares name, topic and trait-menu flag item by item; EA's result is returned. Counters 2742 calls, 2743 lists or lookups
+saved, 2744 checks, 2745 mismatches (must stay 0), 2746 fallbacks.
+
+`ilp_idleparams` (ts3native [IlPatch], spec `idleparams-lazy-array`, default off): TestIdleInfo builds
+`new object[1] { mSim }` for every candidate that passes the early tests and reads it only when `ProceduralTest` is set.
+Inserted at 0x13C (branches to it enter the insert): `ldarg.1; ldfld ProceduralTest; brfalse 0x16F`, EA's own target for
+"no procedural test". Exact: nothing else reads the array, and newarr / stelem have no side effect. One object[] less per
+tested idle candidate. Needs a ts3native build (fork CI) and [IlPatch] Enabled=1.
+
+Not measured yet: allocations saved per sim-hour come from the counters (2743) and gc-rate.ts in an A/B. REA N1
+(`0xC692F0`, lot-bounds polygon copies) is not timed: it needs a native timing detour (prologue bytes from TS3W.exe, not
+in game-copy) and an in-game run, so it waits for a run slot after s57.

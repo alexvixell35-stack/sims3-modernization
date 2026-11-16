@@ -390,6 +390,11 @@ static const IlpIns ilp20_ins0[] = {{0x2, 0, 0, 0x0}, {0x7b, 10, 0, 0x0}, {0x6f,
 static const IlpEdit ilp20_edits[] = {{0x0, 0, 0, 3, 5, 1, 0, ilp20_expect0, ilp20_ins0}};
 static const DWORD ilp20_tok0[] = {0x04006f9e, 0x0a002f3d, 0x0a00003c};  // ea-1.67: mDelayedBuffs, GetEnumerator, MoveNext
 static const IlpBuild ilp20_builds[] = {{"ea-1.67", 639, {0x14, 0x36, 0x1c, 0x21, 0x34, 0xfb, 0x03, 0xfd, 0x4d, 0x16, 0x82, 0xf6, 0x15, 0xf5, 0x2c, 0xda, 0xb2, 0xf0, 0xc5, 0x34, 0x4b, 0xa3, 0x00, 0x81, 0x09, 0x24, 0x10, 0x47, 0xc8, 0x33, 0x93, 0x6e}, {0x8f, 0x93, 0x28, 0xca, 0x72, 0x28, 0xa6, 0x5e, 0x68, 0xd9, 0x53, 0x2e, 0xce, 0x22, 0x91, 0xd0, 0xfa, 0x11, 0x2c, 0xec, 0xa2, 0xbf, 0x32, 0xc5, 0xbd, 0x1b, 0xf7, 0xc3, 0xa3, 0xc1, 0x94, 0xca}, ilp20_tok0, 3}};
+static const WORD ilp21_expect0[] = {0x17, 0x8d, 0x13};
+static const IlpIns ilp21_ins0[] = {{0x3, 0, 0, 0x0}, {0x7b, 10, 0, 0x0}, {0x39, 12, 0, 0x16f}};
+static const IlpEdit ilp21_edits[] = {{0x13c, 0, 1, 3, 3, 1, 0, ilp21_expect0, ilp21_ins0}};
+static const DWORD ilp21_tok0[] = {0x0400ba9c};  // ea-1.67: ProceduralTest
+static const IlpBuild ilp21_builds[] = {{"ea-1.67", 400, {0xf8, 0xc3, 0x5f, 0x26, 0x56, 0x7a, 0xf8, 0x42, 0xfc, 0x92, 0x7f, 0xa3, 0xd8, 0xb5, 0x8d, 0x88, 0xbf, 0x50, 0x5a, 0xa9, 0xf5, 0x5c, 0x6d, 0xb8, 0xd1, 0x3a, 0x0a, 0xfe, 0x8d, 0x10, 0xe8, 0x82}, {0xb3, 0x53, 0x34, 0x82, 0x92, 0x5f, 0xbb, 0x0c, 0xd7, 0xc9, 0xbb, 0x50, 0xff, 0xff, 0x36, 0x0b, 0xaa, 0xa2, 0x31, 0x1c, 0xdf, 0x8b, 0x80, 0x95, 0x0b, 0x05, 0x8e, 0x56, 0x85, 0x7b, 0x1b, 0x0b}, ilp21_tok0, 1}};
 static const IlpSpec kIlpSpecs[] = {
     {"b15-autonomy-inventory", L"ilp_autonomyinventory", "Sims3.Gameplay.Autonomy", "Autonomy", "ScoreInteractionsForLocalAutonomy", "Sims3.Gameplay.Autonomy.Autonomy::ScoreInteractionsForLocalAutonomy(Sims3.Gameplay.Autonomy.CommodityKind)", 2, 1, ilp0_builds, ilp0_edits},
     {"b17-snowarena-horseshoe-1", L"ilp_snowarenahorseshoe1", "Sims3.Gameplay.Objects", "SnowWaterFightArena", "DoScoring", "Sims3.Gameplay.Objects.SnowWaterFightArena::DoScoring(Sims3.Gameplay.Actors.Sim)", 2, 1, ilp1_builds, ilp1_edits},
@@ -412,5 +417,6 @@ static const IlpSpec kIlpSpecs[] = {
     {"b89-fixup-no-inventory", L"ilp_fixupnoinventory", "Sims3.Gameplay.CAS", "SimDescription", "Fixup", "Sims3.Gameplay.CAS.SimDescription::Fixup()", 2, 1, ilp18_builds, ilp18_edits},
     {"b90-duel-wand-put-away", L"ilp_duelwandputaway", "Sims3.Gameplay.ActorSystems", "InteractionQueue", "PutDownCarriedObjects", "Sims3.Gameplay.ActorSystems.InteractionQueue::PutDownCarriedObjects(Sims3.Gameplay.Interactions.InteractionInstance)", 2, 1, ilp19_builds, ilp19_edits},
     {"buffbuf-delayed-copy", L"ilp_buffbuf", "Sims3.Gameplay.ActorSystems", "BuffManager", "UpdateBuffs", "Sims3.Gameplay.ActorSystems.BuffManager::UpdateBuffs(float)", 1, 1, ilp20_builds, ilp20_edits},
+    {"idleparams-lazy-array", L"ilp_idleparams", "Sims3.Gameplay.ActorSystems", "IdleManager", "TestIdleInfo", "Sims3.Gameplay.ActorSystems.IdleManager::TestIdleInfo(Sims3.Gameplay.ActorSystems.IdleInfo,bool,bool)", 1, 1, ilp21_builds, ilp21_edits},
 };
-static const int kIlpSpecN = 21;
+static const int kIlpSpecN = 22;

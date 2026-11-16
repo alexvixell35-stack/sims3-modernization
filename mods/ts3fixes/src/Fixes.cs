@@ -71,6 +71,7 @@ namespace Ts3Fixes
             Patch(typeof(GoToCommunityLot), "Run", typeof(GoToCommunityLotHook), "RunHook", "RunOrig");
             ApplyTripSubclasses();
             ApplyMotiveBuf();  // motivebuf (MotiveBuf.cs): pass-through while off
+            ApplySocialStc();  // stcsocials (SocialStc.cs): pass-through while off
             ApplyUnseenVisitTrip();  // visitcar (UnseenVisitTrip.cs): the visit's driving chance, pass-through unless a Run asked
             // No tuning gate here: Apply runs in Instantiator's static constructor, before the tuning loader sets the [Tunable]
             // fields, so every tuning reads its C# default (docs/124 §17.8). Hooks read their tuning per call; patches that must
@@ -566,6 +567,7 @@ namespace Ts3Fixes
         // [2689-2690] resetinusefree (InUseLogic.cs, docs/576 §2): items freed / errors.
         // [2691-2692] putdowninuse (InUseLogic.cs, docs/576 §3): put-downs repaired / errors.
         // [2693-2695] autonomyinuseblock (AutonomyInUseBlock.cs, docs/577 §1): taken objects blocked / seen with switch off / errors.
+        // [2742-2746] stcsocials / stcsocialscheck (SocialStc.cs, docs/584 §9): calls served / lists or lookups saved / checks / check mismatches / fallbacks.
         // [2739-2741] tpdoorrights (UnseenTeleportGoal.cs, docs/584 §7): lots open by the Sim's own door rights that upstream closes / of those only by household access / closed by a door the Sim cannot pass.
         // [2736-2738] routableasync (RouteBackoff.cs, docs/584 §3): kind-2 STARTs let through (unseen routable checks) / refused here / let through but not started.
         // [2733-2735] buffbufcheck (MotiveBuf.cs, docs/584 §5): UpdateBuffs calls checked / empty delayed list (ilp_buffbuf skips the copy) / Count vs enumeration mismatches (must be 0).
@@ -773,6 +775,8 @@ namespace Ts3Fixes
                 // docs/250 §7.1 A1: OFF since rc1110b (2026-11-09) until the wdasync-fix-1110 tests (Instantiator.kWatchdogAsync)
                 case "watchdogasync": return Instantiator.kWatchdogAsync;
                 case "watchdogasyncshadow": return false;  // correctness arm only: re-runs each A1 check sync and counts mismatches
+                case "stcsocials": return false;  // proven-exact speedup, off until measured: GetSocialsForSTC's autonomous branch without its two redundant copies (SocialStc.cs, docs/584 §9)
+                case "stcsocialscheck": return false;  // pure check for stcsocials: EA's method runs too, results compared (SocialStc.cs)
                 case "motivebuf": return false;  // proven-exact speedup, off until measured: motive updates snapshot into a pooled list (MotiveBuf.cs, docs/584 §5)
                 case "motivebufcheck": return false;
                 case "buffbufcheck": return false;
