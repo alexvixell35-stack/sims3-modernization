@@ -862,3 +862,26 @@ BSt1RhHook0.ResetHook,RouletteTable,DoReset,StoreBatch1Logic.cs,ResetOrig,yes,Ro
 BSt1RhHook1.ResetHook,PokerTable,DoReset,StoreBatch1Logic.cs,ResetOrig,yes,PokerTable::DoReset > GameObject::DoReset > .. 3 .. > StateMachineClient::RequestState,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
 BSt1RhHook2.ResetHook,BlackjackTable,DoReset,StoreBatch1Logic.cs,ResetOrig,yes,BlackjackTable::DoReset > GameObject::DoReset > .. 3 .. > StateMachineClient::RequestState,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
 BSt1CeHook.IndexHook,RandomUtil,GetWeightedIndex,StoreBatch1Logic.cs,IndexOrig,no,no path to a yield in 4 overload(s),switch (docs/587 store §13),keep
+SocialStcHook.StcHook,Conversation,GetSocialsForSTC,SocialStc.cs,StcOrig,yes,Conversation::GetSocialsForSTC > ActionAvailabilityData::Get > .. 12 .. > Simulator::Sleep,SocialStc,"keep, stub remap (SavedStacks.cs)"
+CcStatic.Counter,Food,LotHasUsableCounter,CallCensus.cs,CounterOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
+CcStatic.Stove,Food,LotHasUsableStove,CallCensus.cs,StoveOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
+CcStatic.Microwave,Food,LotHasUsableMicrowave,CallCensus.cs,MicrowaveOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
+CcStatic.Grill,Food,LotHasUsableGrill,CallCensus.cs,GrillOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
+CcStatic.BrushTeeth,Sink,GetBrushTeethScore,CallCensus.cs,BrushTeethOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
+CcBuffs.AnyHook,BuffManager,HasAnyElement,CallCensus.cs,AnyOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
+CcTraits.AnyHook,TraitManager,HasAnyElement,CallCensus.cs,AnyOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
+CcSocial.MultHook,SocialComponent,SocializeWithMultiplier,CallCensus.cs,MultOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
+CcAutonomy.ScoreHook,Sims3.Gameplay.Autonomy.Autonomy,CalculateScoreForSocial,CallCensus.cs,ScoreOrig,yes,Autonomy::CalculateScoreForSocial > Sims3.Gameplay.Interactions.InteractionDefinition`3::Test > .. 3 .. > StateMachineClient::RequestState,CallCensus,"keep, stub remap (SavedStacks.cs)"
+CcSocial.FindHook,SocialComponent,FindSimOfRelationshipType,CallCensus.cs,FindOrig,yes,SocialComponent::FindSimOfRelationshipType > SocialComponent::FindSimOfRelationshipType > Simulator::Sleep,CallCensus,"keep, stub remap (SavedStacks.cs)"
+CcStatic.Mini,Relationship,GetMiniRelationships,CallCensus.cs,MiniOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
+CcStatic.Suitable,Conversation,IsSuitable,CallCensus.cs,SuitableOrig,yes,Conversation::IsSuitable > Relationship::Get > .. 9 .. > Simulator::Sleep,CallCensus,"keep, stub remap (SavedStacks.cs)"
+CcActionData.TestHook,ActionData,Test,CallCensus.cs,TestOrig,yes,ActionData::Test > ActionData::Test > .. 10 .. > Simulator::Sleep,CallCensus,"keep, stub remap (SavedStacks.cs)"
+CcQueue.InsertHook,InteractionQueue,InsertInteraction,CallCensus.cs,InsertOrig,yes,InteractionQueue::InsertInteraction > CommonDoor+EnterDoor::Test > .. 3 .. > StateMachineClient::RequestState,CallCensus,"keep, stub remap (SavedStacks.cs)"
+CcStatic.ViewRoute,ViewObjects,CreateRouteToObject,CallCensus.cs,ViewRouteOrig,yes,ViewObjects::CreateRouteToObject > GameObject::CreateRoute > .. 8 .. > StateMachineClient::RequestState,CallCensus,"keep, stub remap (SavedStacks.cs)"
+CcTv.CountHook,TV,get_CountOfHumansWatchingTvOrPlayingVideoGames,CallCensus.cs,CountOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
+CcStatic.Holes,RabbitHole,GetRabbitHolesOfType,CallCensus.cs,HolesOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
+CcStatic.Protest,ImprovedProtestSituation,FindProtest,CallCensus.cs,ProtestOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
+CcStatic.Species,Terrain,ModifyRouteForSpecies,CallCensus.cs,SpeciesOrig,yes,Terrain::ModifyRouteForSpecies > GlobalFunctions::FindGoodTurnAroundLocationAlongBoatRoute > Simulator::Sleep,CallCensus,"keep, stub remap (SavedStacks.cs)"
+CcSinging.SongsHook,SingingInfo,get_AllKnownCompositions,CallCensus.cs,SongsOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
+CcBar.BowlHook,BarAdvanced,get_CurrentSnackBowl,CallCensus.cs,BowlOrig,no,no path to a yield in 1 overload(s),CallCensus,keep
+CcStatic.Guarded,PetGuardSitutation.GuardObject,IsBeingGuarded,CallCensus.cs,GuardedOrig,no,no path to a yield in 1 overload(s),CallCensus,keep

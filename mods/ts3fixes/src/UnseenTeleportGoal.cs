@@ -138,6 +138,7 @@ namespace Ts3Fixes
             if (sUfTpLogAlarm != AlarmHandle.kInvalidHandle) AlarmManager.Global.RemoveAlarm(sUfTpLogAlarm);
             sUfTpLogLast = null;
             sUfTpLogAlarm = AlarmManager.Global.AddAlarmRepeating(1f, TimeUnit.Hours, delegate { try { UfTpLogPass(); } catch (Exception) { } }, 1f, TimeUnit.Hours, "Ts3Fixes.UnseenTpLog", AlarmType.NeverPersisted, null);
+            CallCensusWorldLoad();  // callcensus (CallCensus.cs): its hourly line rides on this world-load call
         }
 
         // returns "moved m, left l" (the harness reads it)
