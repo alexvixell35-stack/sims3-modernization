@@ -40,7 +40,9 @@ namespace Ts3Fixes
         // Household-visible (cursed household Sims). Counters: [1430] visible picks, [1431] any-trait picks with the switch off, [1432] errors.
 
         // Pure: may the removed trait be hidden?
-        internal static bool McMayRemoveHidden(bool on, bool evil, bool good) { return !on && !evil && !good; }
+        internal static bool McMayRemoveHidden(bool on, bool evil, bool good) { return !evil && !good && !McVisiblePick(on, evil, good); }
+        // Pure: does the hook run the visible pick? (the hook's decision)
+        internal static bool McVisiblePick(bool on, bool evil, bool good) { return on && !evil && !good; }
 
         static void ApplyMummyCurseTrait()
         {
@@ -53,8 +55,15 @@ namespace Ts3Fixes
             {
                 Sim actor = bm == null ? null : bm.Actor;
                 TraitManager tm = actor == null ? null : actor.TraitManager;
-                if (tm == null || tm.HasElement(TraitNames.Evil) || tm.HasElement(TraitNames.Good)) { TimeoutOrig(bm, bi, reason); return; }
-                if (!ShortcutOn("mummycursetrait")) { PatchCounters()[1431]++; TimeoutOrig(bm, bi, reason); return; }
+                if (tm == null) { TimeoutOrig(bm, bi, reason); return; }
+                bool on = ShortcutOn("mummycursetrait");
+                bool evil = tm.HasElement(TraitNames.Evil), good = tm.HasElement(TraitNames.Good);
+                if (!McVisiblePick(on, evil, good))
+                {
+                    if (McMayRemoveHidden(on, evil, good)) PatchCounters()[1431]++;
+                    TimeoutOrig(bm, bi, reason);
+                    return;
+                }
                 try
                 {
                     Trait t = tm.GetRandomVisibleElement();
@@ -90,23 +99,27 @@ namespace Ts3Fixes
         {
             public void CleanupHook()
             {
-                MechanicalBull bull = null; Sim rider = null; bool riding = false;
+                bool on = ShortcutOn("bullridercleanup");
+                MechanicalBull bull = null; Sim rider = null; bool other = false, riding = false;
                 try
                 {
                     InteractionInstance me = (InteractionInstance)(object)this;
                     bull = me.Target as MechanicalBull;
                     rider = bull == null ? null : sBrRider.GetValue(bull) as Sim;
-                    if (rider != null && rider != me.InstanceActor)
+                    other = rider != null && rider != me.InstanceActor;
+                    if (other)
                     {
                         InteractionInstance cur = rider.CurrentInteraction;
                         riding = cur != null && cur.GetType() == sBrRide && cur.Target == bull;
                     }
                 }
-                catch (Exception) { PatchCounters()[1435]++; rider = null; }
+                catch (Exception) { PatchCounters()[1435]++; other = false; }
                 CleanupOrig();
-                if (rider == null || !riding) return;
-                if (!ShortcutOn("bullridercleanup")) { PatchCounters()[1434]++; return; }
-                try { if (BrKeep(true, true, true)) { sBrRider.SetValue(bull, rider); PatchCounters()[1433]++; } }
+                try
+                {
+                    if (BrKeep(on, other, riding)) { sBrRider.SetValue(bull, rider); PatchCounters()[1433]++; }
+                    else if (!on && BrKeep(true, other, riding)) PatchCounters()[1434]++;
+                }
                 catch (Exception) { PatchCounters()[1435]++; }
             }
             public void CleanupOrig() { } // MechanicalBull+RideBull.Cleanup
@@ -138,10 +151,12 @@ namespace Ts3Fixes
                 if (!routed) return false;
                 try
                 {
-                    if (sBtPerformer.GetValue(this) != null) return true;
-                    if (!ShortcutOn("broomtipperformer")) { PatchCounters()[1437]++; return true; }
-                    PatchCounters()[1436]++;
-                    return BtTips(true, true, false);
+                    bool on = ShortcutOn("broomtipperformer");
+                    bool performer = sBtPerformer.GetValue(this) != null;
+                    bool tips = BtTips(on, routed, performer);
+                    if (!tips) PatchCounters()[1436]++;
+                    else if (!on && !BtTips(true, routed, performer)) PatchCounters()[1437]++;
+                    return tips;
                 }
                 catch (Exception) { PatchCounters()[1438]++; return true; }
             }
@@ -173,10 +188,13 @@ namespace Ts3Fixes
                 if (!TestOrig(a, target, isAutonomous, ref greyedOutTooltipCallback)) return false;
                 try
                 {
-                    if (a == null || a.Occupation is PerformanceArtistCareer) return true;
-                    if (!ShortcutOn("balancingballcareer")) { PatchCounters()[1440]++; return true; }
-                    PatchCounters()[1439]++;
-                    return BbAllowed(true, true, false);
+                    if (a == null) return true;
+                    bool on = ShortcutOn("balancingballcareer");
+                    bool artist = a.Occupation is PerformanceArtistCareer;
+                    bool allowed = BbAllowed(on, true, artist);   // EA's Test passed above
+                    if (!allowed) PatchCounters()[1439]++;
+                    else if (!on && !BbAllowed(true, true, artist)) PatchCounters()[1440]++;
+                    return allowed;
                 }
                 catch (Exception) { PatchCounters()[1441]++; return true; }
             }
@@ -207,6 +225,7 @@ namespace Ts3Fixes
         static readonly MethodInfo sEgSpawnAt = typeof(MagicGnomeElvis).GetMethod("SpawnElvis", kEpStatic, null, new Type[] { typeof(Vector3), typeof(Vector3) }, null);
         static readonly MethodInfo sEgSpawnLot = typeof(MagicGnomeElvis).GetMethod("SpawnElvis", kEpStatic, null, Type.EmptyTypes, null);
         static AlarmHandle sEgStopAlarm = AlarmHandle.kInvalidHandle;
+        internal static void ElvisGnomeWorldLoad() { sEgStopAlarm = AlarmHandle.kInvalidHandle; }   // a handle from the last world could match another alarm
 
         // Pure: does the nightly spawn run? (EA: always, and throws without a home lot)
         internal static bool EgSpawnRuns(bool guardOn, bool capOn, bool hasHome, int gnomesOnLot)
@@ -288,7 +307,8 @@ namespace Ts3Fixes
 
             public static void PlayHook()
             {
-                if (!ShortcutOn("elvisgnomeguard"))
+                bool on = ShortcutOn("elvisgnomeguard");
+                if (!on)
                 {
                     if (Sim.ActiveActor == null) PatchCounters()[1443]++;
                     PlayOrig();
@@ -308,8 +328,8 @@ namespace Ts3Fixes
                         sims++;
                         s.BuffManager.AddElement(BuffNames.FeelingElvish, Origin.FromElvisGnome);
                     }
-                    if (EgLoops(true, sims) == 0) return;
-                    if (sims > 1) PatchCounters()[1442]++;
+                    if (EgLoops(on, sims) == 0) return;
+                    if (EgLoops(false, sims) > EgLoops(on, sims)) PatchCounters()[1442]++;
                     ObjectSound old = sEgHandle.GetValue(gnomes[0]) as ObjectSound;
                     if (old != null) old.Stop();
                     ObjectSound snd = new ObjectSound(gnomes[0].ObjectId, "lvis_gnome_music_lp");
@@ -368,7 +388,9 @@ namespace Ts3Fixes
         {
             public static List<Sim> ValidHook(Sim actor, Lot lot, bool petsOnly, float requiredLtr)
             {
-                if (requiredLtr > 0f) return ValidOrig(actor, lot, petsOnly, requiredLtr);  // EA right there
+                // Our copy is EA's loop with CtAdmit as the test (same order, null when nobody), so the switch-off result
+                // is EA's; with the switch on a stranger passes when 0 >= requiredLtr (also for a positive threshold,
+                // where EA admitted strangers: the same reversed test).
                 bool on = ShortcutOn("cattoypickerrel");
                 List<Sim> r = null;
                 try
@@ -379,7 +401,8 @@ namespace Ts3Fixes
                         if (s == actor || !ok(s)) continue;
                         Relationship rel = actor.GetRelationship(s, false);
                         bool admit = CtAdmit(on, rel != null, rel == null ? 0f : rel.CurrentLTRLiking, requiredLtr);
-                        if (rel == null) PatchCounters()[on ? 1448 : 1449]++;
+                        if (rel == null && admit != CtAdmit(!on, false, 0f, requiredLtr) && CtAdmit(true, false, 0f, requiredLtr))
+                            PatchCounters()[on ? 1448 : 1449]++;   // a stranger the fix lists: added (on) / left out (off)
                         if (!admit) continue;
                         if (r == null) r = new List<Sim>();
                         r.Add(s);
@@ -413,9 +436,12 @@ namespace Ts3Fixes
         {
             public bool RunHook()
             {
+                bool on = ShortcutOn("gourmetpetrecipe");
+                Household hh = Actor.Household;
+                if (hh == null) return RunOrig();   // was dereferenced before EA's Run, also with the switch off
                 bool dogs, horses, cats;
-                Actor.Household.HasPetsOfType(out dogs, out horses, out cats);
-                if (!ShortcutOn("gourmetpetrecipe"))
+                hh.HasPetsOfType(out dogs, out horses, out cats);
+                if (!on)
                 {
                     if (horses && !dogs && !cats) PatchCounters()[1452]++;
                     return RunOrig();
@@ -431,13 +457,13 @@ namespace Ts3Fixes
                 if ((dogs || cats) && (!hasPetFood || !horses))
                 {
                     if (recipes.Count > 0) pick = RandomUtil.GetRandomObjectFromList(recipes);
-                    else PatchCounters()[1451]++;  // EA: ArgumentException
+                    else { PatchCounters()[1451]++; if (!horses) pick = null; }  // EA: ArgumentException; never horse food without horses
                 }
                 if (horses)
                 {
                     bool granola = Actor.Inventory.Find<Ingredient>(MakeGourmetFoodForPetIsHorseFood) != null;
                     // EA: with granola the coin flip ignores (dogs || cats); without it the flip is guarded
-                    if (GpOtherForHorses(true, dogs || cats) && RandomUtil.CoinFlip())
+                    if (GpOtherForHorses(on, dogs || cats) && RandomUtil.CoinFlip())
                     {
                         if (recipes.Count > 0) pick = RandomUtil.GetRandomObjectFromList(recipes);
                         else PatchCounters()[1451]++;
@@ -491,6 +517,8 @@ namespace Ts3Fixes
         internal static bool ChFamilyRemoved(bool on, bool foundInFamily) { return on && foundInFamily; }
         // Pure: is an object that left the inventories during the craft destroyed?
         internal static bool ChDestroy(bool on, bool leftInventory, bool inAnyInventory, bool destroyed) { return on && leftInventory && !inAnyInventory && !destroyed; }
+        // Pure: does a component call without a family inventory take the guarded path? (EA dereferences it: NRE)
+        internal static bool ChNoFamilyGuard(bool on, bool hasFamily) { return on && !hasFamily; }
 
         static void ApplyChipComponents()
         {
@@ -498,6 +526,27 @@ namespace Ts3Fixes
             Patch(typeof(TraitChipStaticData), "RemoveComponentsFromInventory", new Type[] { typeof(Sim) }, typeof(BChHook), "AllHook", "AllOrig");
             Patch(typeof(TraitChipStaticData), "RemoveComponent", new Type[] { typeof(Sim), typeof(uint), typeof(Type) }, typeof(BChHook), "TypeHook", "TypeOrig");
             Patch(typeof(TraitChipStaticData), "RemoveComponent", new Type[] { typeof(Sim), typeof(uint), typeof(CrystalPlant.ChargeTypes) }, typeof(BChHook), "CrystalHook", "CrystalOrig");
+        }
+
+        // Every object in the Sim's and the family inventory.
+        static List<GameObject> ChItems(Sim sim)
+        {
+            List<GameObject> r = new List<GameObject>();
+            foreach (Inventory inv in new Inventory[] { sim == null ? null : sim.Inventory, ChFamily(sim) })
+                if (inv != null) foreach (IGameObject o in inv.FindAll<IGameObject>(false)) { GameObject g = o as GameObject; if (g != null) r.Add(g); }
+            return r;
+        }
+
+        // Unused crystals of this charge in inv, counted up to cap.
+        static uint ChCrystals(Inventory inv, CrystalPlant.ChargeTypes chargeType, uint cap)
+        {
+            uint n = 0;
+            foreach (InventoryItem it in inv.FindItemListNotInUse(typeof(CrystalFlower), null, null))
+            {
+                CrystalFlower c = it.Object as CrystalFlower;
+                if (c != null && c.ChargeType == chargeType && ++n >= cap) break;
+            }
+            return n;
         }
 
         static Inventory ChFamily(Sim sim)
@@ -510,25 +559,23 @@ namespace Ts3Fixes
             public void AllHook(Sim sim)
             {
                 List<GameObject> before = null;
-                try
-                {
-                    before = new List<GameObject>();
-                    foreach (Inventory inv in new Inventory[] { sim == null ? null : sim.Inventory, ChFamily(sim) })
-                        if (inv != null) foreach (IGameObject o in inv.FindAll<IGameObject>(false)) { GameObject g = o as GameObject; if (g != null) before.Add(g); }
-                }
+                try { before = ChItems(sim); }
                 catch (Exception) { PatchCounters()[1459]++; before = null; }
                 sChDepth++; sChLastType = null; sChLastCount = 0; sChRemoved = 0;
                 try { AllOrig(sim); }
                 finally { sChDepth--; sChLastType = null; }
                 if (before == null) return;
                 bool on = ShortcutOn("chipcomponentorphan");
+                Dictionary<GameObject, bool> after = new Dictionary<GameObject, bool>();   // set: one pass, not Contains per object
+                try { foreach (GameObject g in ChItems(sim)) after[g] = true; }
+                catch (Exception) { PatchCounters()[1459]++; return; }
                 foreach (GameObject g in before)
                 {
                     try
                     {
-                        if (g.HasBeenDestroyed || g.InInventory) continue;
-                        if (!on) { PatchCounters()[1458]++; continue; }
-                        if (ChDestroy(true, true, false, false)) { g.Destroy(); PatchCounters()[1457]++; }
+                        bool left = !after.ContainsKey(g), inAny = g.InInventory, gone = g.HasBeenDestroyed;
+                        if (ChDestroy(on, left, inAny, gone)) { g.Destroy(); PatchCounters()[1457]++; }
+                        else if (!on && ChDestroy(true, left, inAny, gone)) PatchCounters()[1458]++;
                     }
                     catch (Exception) { PatchCounters()[1459]++; }
                 }
@@ -539,14 +586,12 @@ namespace Ts3Fixes
             {
                 bool chain = sChDepth > 0 && sChLastCount == count && sChRemoved < count
                     && ((componentType == typeof(ChipBlankMedium) && sChLastType == typeof(ChipBlankSmall)) || (componentType == typeof(ChipBlankLarge) && sChLastType == typeof(ChipBlankMedium)));
-                uint ask = count;
-                if (chain)
-                {
-                    if (!ShortcutOn("chipanycount")) PatchCounters()[1461]++;
-                    else { ask = ChAsk(true, count, true, sChRemoved); PatchCounters()[1460]++; }
-                }
+                bool on = ShortcutOn("chipanycount");
+                uint ask = ChAsk(on, count, chain, sChRemoved);
+                if (ask != count) PatchCounters()[1460]++;
+                else if (!on && ChAsk(true, count, chain, sChRemoved) != count) PatchCounters()[1461]++;
                 uint r;
-                if (ChFamily(sim) == null && ShortcutOn("chipfamilycrystal"))
+                if (ChNoFamilyGuard(ShortcutOn("chipfamilycrystal"), ChFamily(sim) != null))
                 {
                     // EA dereferences the family inventory unguarded once the Sim's own inventory falls short
                     r = 0;
@@ -563,9 +608,17 @@ namespace Ts3Fixes
             public void CrystalHook(Sim sim, uint count, CrystalPlant.ChargeTypes chargeType)
             {
                 sChLastType = null;
-                if (!ShortcutOn("chipfamilycrystal"))
+                bool on = ShortcutOn("chipfamilycrystal");
+                if (!on)
                 {
-                    if (ChFamily(sim) != null) PatchCounters()[1455]++;
+                    try
+                    {
+                        // a family crystal is needed (the Sim has too few): EA fails to remove it
+                        Inventory fam0 = ChFamily(sim);
+                        if (fam0 != null && sim.Inventory != null && ChCrystals(sim.Inventory, chargeType, count) < count && ChCrystals(fam0, chargeType, 1) > 0)
+                            PatchCounters()[1455]++;
+                    }
+                    catch (Exception) { PatchCounters()[1456]++; }
                     CrystalOrig(sim, count, chargeType);
                     return;
                 }
@@ -582,7 +635,7 @@ namespace Ts3Fixes
                     foreach (InventoryItem it in fam.FindItemListNotInUse(typeof(CrystalFlower), null, null))
                     {
                         CrystalFlower c = it.Object as CrystalFlower;
-                        if (c != null && c.ChargeType == chargeType && ChFamilyRemoved(true, true) && fam.TryToRemove(c))  // EA: sim.Inventory.TryToRemove
+                        if (c != null && c.ChargeType == chargeType && ChFamilyRemoved(on, true) && fam.TryToRemove(c))  // EA: sim.Inventory.TryToRemove
                         {
                             PatchCounters()[1454]++;
                             if (++n >= count) return;
@@ -604,7 +657,9 @@ namespace Ts3Fixes
         static readonly FieldInfo sNmChips = typeof(BotBuildingSkill).GetField("mTraitChipSchematicsLearned", kInstAll);
 
         // Pure: does a nanite collected before the trip count again after it?
-        internal static bool NmCountsAgain(bool on, bool collectedBefore) { return !on && collectedBefore; }
+        internal static bool NmCountsAgain(bool on, bool collectedBefore) { return collectedBefore && !NmMerge(on, true); }
+        // Pure: does the hook merge the list? (the travel skill has one)
+        internal static bool NmMerge(bool on, bool srcHasList) { return on && srcHasList; }
 
         static void ApplyNaniteMerge()
         {
@@ -619,11 +674,16 @@ namespace Ts3Fixes
                 MergeOrig(skill);
                 BotBuildingSkill src = skill as BotBuildingSkill;
                 if (src == null) return;
-                if (!ShortcutOn("nanitemerge")) { PatchCounters()[1464]++; return; }
+                bool on = ShortcutOn("nanitemerge");
+                List<InsectType> l = src.NanitesCollected;
+                if (!NmMerge(on, l != null))
+                {
+                    if (!on && NmMerge(true, l != null)) PatchCounters()[1464]++;
+                    return;
+                }
                 try
                 {
-                    List<InsectType> l = src.NanitesCollected;
-                    if (l != null) sNmList.SetValue(this, new List<InsectType>(l));
+                    sNmList.SetValue(this, new List<InsectType>(l));
                     List<TraitChipName> c = sNmChips.GetValue(this) as List<TraitChipName>;
                     if (c != null) sNmChips.SetValue(this, new List<TraitChipName>(c));
                     PatchCounters()[1463]++;

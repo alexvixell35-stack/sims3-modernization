@@ -220,3 +220,186 @@ Parked, with reasons:
   - AcademicBusinessPlanner.UseBusinessPlanner.Run (writes the shared Definition; can pocket a planner someone else is using).
 - Party chair count (`num == Length` pays only with exactly one chair): which objects count as "chair" is inferred. The OnOver bonus order is unclear.
 - Low or cosmetic: ClubLight Clamp result discarded; DaycareTransportSituation; CounterIsland.PlaceSnackBowl charge order; Dresser.PutOnUniform helper leak; VomitPile.Eat roll; MarineLifeStateWander PostPlanCallback; Fireplace mLitFireFX; PutInInventory null SimOwner.
+
+## 9. Copies of yielding methods, and batch EP4a (2026-11-16, same branch, NOT RUN)
+
+**Is a full copy of a yielding Run safe? Yes.** It is as safe as any wrapper around a yielding method, which ts3fixes already has many of.
+- EA's Run methods are not iterators. They yield through `Simulator.Sleep`, routes and animations inside the Sim's own task, so a copy keeps its yields just by calling the same members.
+- Saved stacks (docs/242 §2) handle copies the way they handle every swap:
+  - A save made while a Sim is inside the copy names the frame by the hook. It resumes in the copy under the same build.
+  - A save made inside EA's method is pointed by `savedstacks` at the stub, which holds EA's IL, and finishes as EA's.
+  - The one cost is shared with every yielding hook: a later build that changes the copy's IL resets a Sim saved inside it once.
+- How the copies are written:
+  - Each copy is EA's body with only the lines marked `// changed`.
+  - The copy's hook class derives from the interaction's base class, as BJfHook, BNrHook and BGpHook already do, so it can reach protected members.
+  - Private members are reached through reflection.
+  - With the switch off, the copy runs EA's IL.
+
+| § | Switch | Check | What changes | Evidence |
+|---|---|---|---|---|
+| 9.1 | `dogswimslots` | `DogSwimSlotsCheck` | Copy of `DoggySwimHere.RouteActorToDestination`: the hydrophobic reroute loop runs only when a slot is free. | Verified: `GetRandomObjectFromList` throws `ArgumentException` on an empty list. |
+| 9.2 | `fragmentreconstruct` | `FragmentReconstructCheck` | Copy of `Reconstruct.RunFromInventory`: the clicked fragment is picked first, and the trailing `Clear` is null-guarded. | Verified: when the Target is not among the first N, N+1 fragments are used up; how often that happens is inferred. RE: the Clear throws when too few fragments are free. |
+| 9.3 | `labobjectpush` | `LabObjectPushCheck` | Wrapper, no copy needed (the method does not yield): if the student's inventory list is empty, a live lot lab object is pushed with EA's own call. | Verified: the lot objects are added only when the inventory has one. Intent inferred. |
+| 9.4 | `businessplannerrun` | `BusinessPlannerRunCheck` | Copy of `UseBusinessPlanner.Run`: the use roll is kept in a local, and the caption shows it. After a failed wait or route, the planner is put back only if this run took it out of the inventory. | Verified: the roll is written on the shared Singleton definition, and `TryToAdd` pockets a planner another Sim is using. |
+| 9.5 | `futuredescendantsize0` | `FutureDescendantSize0Check` | `Instantiate` skips size-0 households. Copy of `ProcessDescendantHouseholds`: skips null households, missing progenitors, and resize loops that make no progress. | Verified, shipped size mapping: these throw, or hang (RE: `RemoveDescendant` can remove nobody and still return true). |
+
+**FutureDescendant: load safety.** The fix writes no state that EA would not write:
+- it skips EA's unpack of progenitors whose result EA throws away;
+- it skips the statements that throw;
+- it leaves a resize loop that is stuck.
+
+A save made with the switch on loads unchanged with it off. All five fixes are household-visible.
+
+## 10. Tranche 3 and batch EP4b (2026-11-16, NOT RUN)
+
+**Tranche 3.** 146 EP types were read by hand:
+- first, the 40 EP types in `docs/data/usage-rank-1115.csv` (real-use rank) not read before;
+- then the scanner rank;
+- store content and EA's StoryProgression namespace were skipped.
+
+Most of the use-ranked types are Mimics, spawner or fragment subclasses with no logic of their own. 8 leads were confirmed. Every built one is unfixed in simler90 UPDATE242.
+
+| § | Switch | Check | What changes | Evidence |
+|---|---|---|---|---|
+| 10.1 | `junglegymexitqueue` | `JungleGymExitQueueCheck` | Copy of `JungleGymLookOutTower.RouteOutOfJungleGym`: entries for Sims who are gone or off the tower, with no pending alarm, are dropped. Each exit alarm removes its own Sim's entry. `ResetSafeToExit` returns on an empty queue. | Verified code, shipped 3 / 45 min. Reach inferred: a Sim reset during the wait leaves a stale entry for good, and every later Sim then waits 45 minutes. |
+| 10.2 | `wildhorselot` | `WildHorseLotCheck` | Copy of `WildHorses.FindGoodLot` (static, does not yield): `< 0` instead of `<= 0`. RE: a lot whose gnome bars the horse is not a fallback either. | Verified, shipped tuning: big parks get weight ×1 instead of ×2. |
+| 10.3 | `harvesterunripe` | `HarvesterUnripeCheck` | `HarvestPlant.OnSuctioned` does nothing on a plant that fails `HarvestTest`. | Verified: the Harvester calls `DoHarvest` on unripe or dead plants, which still rolls Gatherer and Science extras. |
+| 10.4 | `hottubseatposture` | `HotTubSeatPostureCheck` | `EnsureSeatPosture` skips the re-init while the sore alarm is pending, and the first Idle does not repeat it. | Verified: each seated social adds another AlwaysPersisted sore alarm. |
+| 10.5 | `teenpartybreakup` | `TeenPartyBreakUpCheck` | Copy of `TeenParty.BreakUpParty.Run` without the unused `situation.Lot` read. | Verified: an NRE when the party ended during the route. The kegger sibling is already fixed (ilpatch row 73). |
+| 10.6 | `dogswimaroundlist` | `DogSwimAroundListCheck` | After `DoggySwimAround.Run`, a dog still in the pool is put back on the pool's use list. | Verified: `pool.ActorsUsingMe.Remove(Actor)` edits the live list. |
+| 10.7 | `tutorballoonalarm` | `TutorBalloonAlarmCheck` | The balloon alarm is removed after `ConfigureInteraction` and started in `PreSocialLoop`. | Verified: it starts at queue time. A rejected queue insert leaks it into the save (reach inferred). |
+
+All seven are household-visible.
+
+Parked or dropped:
+- `TeenParty.CollapseTeenPartyScenario`: it modifies `sAllSituations` while iterating over it. It is reachable only when a Generations save is loaded without Generations.
+- `JungleGym.PlayOn` `.Minute`: a wrong operand, but unreachable with the shipped times. The same pattern is in HalfPipe.cs:170, which is for a later tranche.
+- `WildHorses.SpawnWildHorse`: a null `InstantiateOffScreen` result is used without a check; reach inferred.
+- Scan pass 4 leads (docs/583 §8.1 on `analysis/roslyn-scan-1115`) are queued for the next batch:
+  - 18 sites that start a VisualEffect and drop it (fix: `SubmitOneShotEffect`). SnackBowl is already 8.5.
+  - The Consignment reputation fallback name (cosmetic).
+
+## 11. Batch EP5: scan pass 4 effects and tranche 4 (2026-11-16, NOT RUN)
+
+Slots 1557-1598 (`fixes-1500`) and 1600-1608 (new pinned block `fixes-1600`, 1600-1699). Every switch is off by default and household-visible. Each `<switch>-check` repro runs the pure decision off, then on (`tools/harness/repros.json`).
+
+### 11.1 Effects started and dropped (docs/583 §8.1 P4-2)
+
+The 13 methods below create a VisualEffect into a local, call `Start()` and return. They never call `SetAutoDestroy`, `Stop` or `Dispose`. EA's own `SubmitOneShotEffect` is `Start` + `SetAutoDestroy(true)`, so these engine effects are never destroyed [code verified; native lifetime inferred]. The sites are grouped into one switch per family, 16 effect sites in all.
+
+How the fix works: each site is wrapped, and EA's body runs unchanged.
+- A marker is open while that body runs.
+- A wrapper on `VisualEffect.Create` remembers the last effect created under the marker, but only if its asset name is one of the sites' 16 names.
+- When the body returns, that effect gets `SetAutoDestroy(true)`, which is exactly the tail of `SubmitOneShotEffect`.
+- The name filter matters because `ChemistryLab.StartEvent` and `ResetTheFuture` reach a yield deep down (swap audit). An effect another task creates during that yield is never taken for the site's.
+
+| Switch | Check | Sites |
+|---|---|---|
+| `chemistryvfx` | `ChemistryVfxCheck` | `BuffHorrified`, `BuffTurboSleep`, `BuffBrightenedDay` and `BuffChemistryLabPotion` (`OnRemoval`); `BladderFlowPotion+MotiveHelper.RestoreBladderCallback`; `ChemistryLab+MakePotionBase.StartEvent` |
+| `dartboardvfx` | `DartboardVfxCheck` | `Dartboard+TakeTurnThrowingDarts.PlayDartEffect` (4 throw results) |
+| `wardrobewandvfx` | `WardrobeWandVfxCheck` | `Wardrobe+UpgradeWardrobe.ShowSuccessVfx` / `ShowFailVfx` |
+| `petdroolvfx` | `PetDroolVfxCheck` | `ServingContainer+EatOffFloor.DroolEvent` / `SpitUpEvent` |
+| `timeportalvfx` | `TimePortalVfxCheck` | `TimePortal+ResetTimeContinuum.ResetTheFuture` |
+| `haystackvfx` | `HayStackVfxCheck` | `HayStack.PlayTransitionEffect` |
+
+Not built:
+- `FireworksBase.StartFX`: it stores the effect in `mFireworkFX`, which EA disposes. A false positive.
+- `SnackBowl.StartOneShotSlobVFX`: already fixed in 8.5.
+- **P4-1, Consignment RockBottom: dropped.** The shipped tuning has 9 `kReputationLevels` for 9 `kReputationNames`, so the fallback `kReputationNames[kReputationLevels.Length - 1]` is already RockBottom. Only the code defaults (8 levels) show the flaw.
+
+### 11.2 Tranche 4 (120 EP types)
+
+The usage rank (`docs/data/usage-rank-1115.csv`) had no EP types left to read. The 120 types were instead taken from the scanner rank (`ep-rank2`), with these filters: not read before, at least 4 methods, no tooltips or markers, no store content and no StoryProgression. Four read-only agents read them; 12 leads were confirmed, 11 built and the rest dropped. None of the built ones is fixed in simler90 UPDATE242.
+
+| § | Switch | Check | What changes | Evidence |
+|---|---|---|---|---|
+| 11.2.1 | `hayscattertime` | `HayScatterTimeCheck` | `HayBale.OnScattered` zeroes `mScatterTime` after EA's body. | Verified: it is never reset, so HayStack (3 piles) and HayBaleStacked finish every later scatter on the first tick, even when cancelled. |
+| 11.2.2 | `hauntedgnomeinv` | `HauntedGnomeInvCheck` | After `OnLoad` and before `SpawnGhost`, a gnome that is in an inventory gets EA's add-to-inventory cleanup, and `SpawnGhost` is skipped. RE: the removed alarm handle is cleared. | Verified code: `OnLoad` re-arms the ghost alarm and the coward-fear broadcaster with no `InInventory` check. Reach: an inventory plus a save/load. |
+| 11.2.3 | `houdinignomeleak` | `HoudiniGnomeLeakCheck` | Copy of `MagicGnomeHoudini.SpawnHoudini(pos, fwd)` (static, does not yield). When placement fails, the orphan is destroyed before EA's fallback. A null create no longer throws. RE: the fallback is skipped when there is no home lot. | Verified. |
+| 11.2.4 | `showstagefxend` | `ShowStageFxEndCheck` | A `kShowEnd` that arrives during a one-shot restores the saved state and ends the one-shot before EA's show-end code runs (`FXObject`, `Ep6EffectsMachine`). The EP6 one-shot alarm turns the machine back on only while its one-shot is still running. RE: the EP6 failure pick `GetInt(1)` with cases 1/2 now maps 0→dud fireworks, 1→black smoke; before, black smoke never showed and half of the failures showed nothing. RE: `FXObject.StopEffects` now disposes every effect, not only started ones. | Verified code; the symptom (stage lights stay on after a show) is inferred. |
+| 11.2.5 | `soakedpetselfreact` | `SoakedPetSelfReactCheck` | Copy of `BuffSoakedPet+ShakeWaterOff.Run` (it yields; safe per §9) that does not queue the reaction on the shaking pet. | Verified: `GetObjects<Sim>` includes the actor, while other EA sites remove it. The shipped re-soak chance is 0.25. |
+| 11.2.6 | `tagbagsurfaceleak` | `TagBagSurfaceLeakCheck` | After `TagBag+PrepSpace.PlaceArt` returns false, a surface still out of the world is destroyed. | Verified: the null-lot path returns without the `Destroy` that the hand-tool failure path has. |
+| 11.2.7 | `equestriantrophyname` | `EquestrianTrophyNameCheck` | After `EquestrianTrophy.ImportContent`, `mHorseName` is read again from its own key (183657686). | Verified: it was read from the rider key, so after export/import (travel, moving) the horse shows the rider's name. |
+| 11.2.8 | `rubbleuselist` | `RubbleUseListCheck` | After `RubblePile+Clear.Cleanup` (which skips `base.Cleanup`), a Sim still on the pile's use list is taken off. | Same defect as `chestuselist` (docs/575 §5). Reach: a reset during the dig. |
+| 11.2.9 | `backpacklotleak` | `BackpackLotLeakCheck` | `Backpack.Dispose` drops the static `Sim.OnLotChangedEvent` handler when the backpack is in use. `OnLotChanged` with no inventory parent unsubscribes itself. | Verified code: a disposed in-use backpack throws on every Sim lot change and aborts the other handlers. Reach inferred. |
+| 11.2.10 | `streetartmasterboost` | `StreetArtMasterBoostCheck` | For an Avant-Garde owner whose Master row is not at index 3, a copy of `GetMuralData` (does not yield) boosts the row whose quality is "Master". | Verified against the shipped StreetArtVariants: large murals have no Low row, so Master is at index 2 and never got the boost (5). The intent comes from the tuning name. |
+| 11.2.11 | `bubblingspringsreset` | `BubblingSpringsResetCheck` | After `BubblingSprings.DoReset`, EA's `SetBroadcaster` runs. | Verified code: the reset disposes the Nature's Hot Tub broadcaster and nothing recreates it. Reach: an object reset. |
+
+Dropped or parked:
+- `CrowdMonsterVFXSlave.Update`: an Exit cue with `mVFX` null; inferred, low.
+- `RelicStoreRegister`: a Global alarm on a destroyed object. AlarmManager drops timers whose target has no proxy.
+- `InfluenceSkill`: shared static tuning arrays, but the shipped rows are the same for all three skills.
+- `FloorSwitch` Cleanup skips base (same as 11.2.8); it is for a later tranche.
+- `EyeOfHorus_Teleport`, `KeystonePanel` and `JumpOffObject`: narrow races, or reach not shown.
+- About 95 other types had nothing reachable. They are listed in the agents' notes, not here.
+
+## 12. Tranche 5 and batch EP6 (2026-11-16, NOT RUN)
+
+Tranche 5 covers the next 120 unread EP types by scanner rank, read by four read-only agents. Filters: at least 4 methods, no interfaces, tooltips or markers, no store content and no StoryProgression. All ranks are 0 now, so the types are ordered by method count. Three leads were confirmed, one was found by grepping their siblings, and one parked lead was built. Slots 1609-1620 (`fixes-1600`). Every switch is off and household-visible, and none is fixed in simler90 UPDATE242.
+
+| § | Switch | Check | What changes | Evidence |
+|---|---|---|---|---|
+| 12.1 | `floorswitchuselist` | `FloorSwitchUseListCheck` | After `FloorSwitch+StandOn.Cleanup` (which skips base), a Sim still on the switch's use list is taken off. | Parked in §11.2. Same defect as `rubbleuselist`. Reach: a reset while the Sim stands on the switch. |
+| 12.2 | `donationbuffchance` | `DonationBuffChanceCheck` | Copies of `BuffGiggleFits+BuffInstanceGiggleFits.DoGiggleFit` and `BuffPlasmaticPlatitudes+BuffInstancePlasmaticPlatitudes.Faint` (no yield) roll `< chance`. | Verified, shipped tuning: both tunables are "Percentage chance of ..." and ship as 15, but `GetFloat(100) >= chance` fires 85% of the time. A grep of all three gameplay DLLs for this roll shape found only these two. One tranche agent dropped GiggleFits, assuming the code default of 50. |
+| 12.3 | `vampirefruitsnack` | `VampireFruitSnackCheck` | Copy of the static `VampireFruit.EatEffects`: Sanguine Snack at `>= kQualityForSanguineSnack`. | Verified: the tunable's comment says ">=" and the Sated test uses `>=`, but the code compares with `>`, so an Outstanding fruit gives only Sated. |
+| 12.4 | `fallenrockcollected` | `FallenRockCollectedCheck` | `FallenRock.RockTimeoutCallback` does nothing on a collected rock (`mCollected`). | Verified code: `ImportContent` re-adds the timeout alarm without storing the handle, so `RockCollected` cannot remove it, and the callback `Destroy()`s the meteorite in the household's inventory. Reach: export/import (travel, moving). Parked: a second export then writes no timer. |
+
+Dropped or parked:
+- `ShowStageRig.StartSpeakerFX`: it overwrites the speaker effects without stopping them first. This is a leak only, on a repeated sound-on.
+- `Scarecrow.DoReactions`: a null watcher list in a window of a few seconds; inferred.
+- `DryerExpensive` tumble FX on a reset; inferred.
+- `TrashRelic.StacksWith` ignores the texture; value skew, not traced.
+- `PotionOfLiquidCourage.DoReset` adds a second sparkle alarm; cosmetic.
+- NPC party host types and `KissingBoothAttendant.EndRole`: NPC-only, or the same as their siblings.
+- About 105 types had nothing reachable.
+
+## 13. Store content and store batch 1 (2026-11-16, NOT RUN)
+
+Sims3StoreObjects (79 decompiled files, namespace `Sims3.Store.Objects`) was read in full by five read-only agents; each lead below was then checked in the decompile, and against the shipped tuning where a value matters. simler90 ships no Store build, so there is no community diff. The other store DLLs are not covered: per docs/557 §1 the duplicate StoreObjects types in the store repacks never load. Slots 1621-1659 (`fixes-1600`). Every switch is off and household-visible.
+
+| § | Switch | Check | What changes | Evidence |
+|---|---|---|---|---|
+| 13.1 | `spellbooksummonload` | `SpellBookSummonLoadCheck` | After `SpellBook+CastingStore.ImportContent`, a Summon entry (SpellType 0) with progress is added back. | Verified: the import keeps an entry only when `value2 != 0`, and Summon is 0, so its progress is lost on every import. RE extra: with only Summon learned `SpellProgress` stayed null. |
+| 13.2 | `chocfountaingeyser` | `ChocFountainGeyserCheck` | Before `ChocolateFountain.FountainFilled`, a live `mGeyserAlarm` is removed. | Verified: each fill assigns a new repeating alarm over the handle; nothing removes the old ones. |
+| 13.3 | `hypnotrickrelease` | `HypnoTrickReleaseCheck` | When `Hypnotizer+PerformTrick.Run` ends (any path), the linked `BeHypnotizedMainLoop.RouteLock` is cleared. | Verified code: the trick sets the lock and never clears it; the loop repeats while it is set. Run yields; wrapper only. |
+| 13.4 | `voodoofairyfadein` | `VoodooFairyFadeInCheck` | After `VoodooDoll+TransformSim.Cleanup`, a still-set fairy effect is stopped and the bound Sim fades in. | Verified: Cleanup fades in the caster (already visible), not the hidden bound fairy. |
+| 13.5 | `saunatubclear` | `SaunaTubClearCheck` | When `SaunaClassic+BatheInWater.Run` ends, `mSimInTub` is cleared if it is still this Sim. | Verified: only the normal end clears it and the class has no Cleanup. Reach: a reset or exception while bathing. |
+| 13.6 | `slotmachinedefs` | `SlotMachineDefsCheck` | Before `SlotMachine+PlaySlots.Run`, an autonomous play queued on one of the shared `PlaySlotDefs` gets its own copy, so EA's Low/Medium pick rewrites the copy. | Verified: autonomous play rewrites the shared menu definitions, so entries duplicate and stakes change for everyone. |
+| 13.7 | `treewishingwell` | `TreeWishingWellCheck` | `TreeOfProsperity.HasWishingWellOnLot` also counts store `WishingWell` objects. | Verified: it counts `IWishingWell`, which no class implements, so it is always false. |
+| 13.8 | `playpentalkcast` | `PlaypenTalkCastCheck` | Before `PlaypenClassic.CreateLearnToTalkBroadcaster`, a live broadcaster is disposed. | Verified: two toddlers learning at once orphan the first broadcaster. |
+| 13.9 | `ovenmenunull` | `OvenMenuNullCheck` | `IndustrialOven+Menu.PickGoodFoodForMe` returns null when `GetFoodsAtOrBelowCost` is null. | Verified code: the list is dereferenced at once; the caller already handles a null pick. Reach inferred (menu or funds change while a diner waits). |
+| 13.10 | `fvstandskillcurve` | `FvStandSkillCurveCheck` | After `FruitVeggieStand.InitializeData`, the skill curve is rebuilt from the skill arrays. | Verified, shipped tuning: same copy-paste as `consignmentskillcurve` (§8). |
+| 13.11 | `pokerdeadplayer` | `PokerDeadPlayerCheck` | Before `SetupRound`, `WaitForPlayersToCompleteAction` and `ActionsAreComplete`, a seat whose Sim no longer exists is emptied. | Verified code: the three dereference `CreatedSim` with no null test; the throw leaves the dealer flag set and the table dead. Frequency inferred. |
+| 13.12 | `roulettehackreset` | `RouletteHackResetCheck` | After `DoReset` of `RouletteTable`, `PokerTable` and `BlackjackTable`, a set hack runs EA's own `ResetHack`. | Verified, shipped tuning (odds change 45): the reset deletes the hack timer but keeps the hack. Poker and Blackjack added in the §14 review. |
+| 13.13 | `coopeggquality` | `CoopEggQualityCheck` | `RandomUtil.GetWeightedIndex(float[])` returns index + 1 when called with `ChickenCoopClassic.kEggQualityWeights`. | Verified code and tuning; intent from the tunable's comment and sibling code: the index is cast to `Quality`, which starts at 1, so eggs are one tier low and never Perfect. |
+
+Parked (verified code, needs a copy of a yielding method or more reach evidence): `FVShoppingRegister.SellConsignedItems` doubles every sale and adds the Gardener bonus as a whole number (lowers player income when fixed); `AutonomousBuyItem` never picks index 0; `TreeOfProsperity.EvaluateAOE` keeps a stale Sim list and over-applies boosts; `SurfArea.Surf.Run` dequeues the head instead of itself; `WishingWell.StealCoins` cooldown never enforced; `DeepFryerVegas` Continue Cooking on a done fryer restarts, and `OnDoneEating` takes any meal; `DanceFloorStore.GetBestSlowDancePartner` filters on `Parent != null`; `RoutineMachine.TeleportToGym.DoTeleport` never queues the visit; `TeppanyakiGrill.InUse` compares an instance with a definition, and `TGCook` leaks a food container; `PinballMachine`/`BBallArcade.Dispose` call `Destroy` instead of `base.Dispose`; `MovieScreen` leaves room lights dim on reset; `FountainOfYouth` rare failure can remove a hidden trait; Teppanyaki and other `Cleanup`s skip base. Part-4 leads (WoodFireOven listener, CowPlant broadcaster, Tablet catalog name, IceCreamMaker flavours, StasisChamber jig, Blackjack) were not verified in this pass.
+
+## 14. Review pass over EP1-EP6 and store batch 1 (2026-11-16, NOT RUN)
+
+Three read-only agents re-read every replaced EA method and our hook in full; each finding was checked in the decompile before the change. Fixed (no new switches or slots):
+
+- `hypnotrickrelease` (bug): `HypnosisInteractionBase.RouteLock` has only a setter, so reading it threw on every run and no volunteer was released. Now reads and writes the field `mRouteLock`.
+- `slotmachinedefs` (household-visible change): skipping `InitFromID` let autonomous Sims play High stakes or spend a Lucky Coin. Now a `PlaySlots.Run` wrapper gives an autonomous play on a shared entry its own copy.
+- `roulettehackreset`: `PokerTable` and `BlackjackTable` have the same reset defect; all three now call EA's `ResetHack`, which also removes Blackjack's eye effects.
+- `gourmetpetrecipe` (bug): a dog or cat household with only Horse Granola available cooked horse food; now no pick, as EA's throw intended.
+- `displaycasereset`: the in-reset marker was one counter for all cases; now it is the case being reset.
+- `krakenfriendsailor`: the immunity map is cleared in a finally, also when EA's callback throws.
+- `nectarcopylevel10`: only a level-10 source does anything or counts; the effect starts only in the world.
+- `naniteroutefail`: the kept terrarium gets its opacity back (a reset during `FadeOut` left it invisible).
+- `elvisgnomeguard`: the global stop-alarm handle is dropped on world load.
+- `broomarenachoice`: a chosen world broom must also pass EA's `CanUseBroom` rule (not in use, not pending, usable by the Sim).
+- `pingpongopponent`: the age rule is Teen or older, as EA's own picker (Child let the autonomous path pick a Sim the player cannot); the RE comment about an empty list is corrected (it throws, as in EA).
+- `businessplannerrun`: a failed run pockets only a planner this run took out of the inventory.
+- `junglegymexitqueue`: the Sim's own stale entries are dropped before it queues again (it could be queued twice).
+- `hottubseatposture`: first-idle is cleared only when EA's InitPosture ran.
+- `dogswimaroundlist`: no use-list restore while a reset unwinds.
+- `tagbagsurfaceleak`: the leaked surface is also destroyed when a reset unwinds `PlaceArt`.
+- `fvstandskillcurve`: turning the switch on later still rebuilds a curve seen while off.
+- Tidy: `consignmentlastday` tautology, `herbqualityfloor` double read, `fragmentreconstruct` counter, `voodoofairyfadein` hard stop as EA, dead `ovenmenunull` fallback.
+
+Open (inferred or needing a copy): `chipanycount` chain test can misfire with two explicit components of the same count; `bartendinghourlypay` falls back to the `None` bar entry (check the tuning for home bars); `fallenrockcollected` could instead copy `ImportContent` to store the alarm handle; `rubbleuselist`/`floorswitchuselist` still skip the rest of base `Cleanup`; most hooks call their pure function with constant arguments, so the checks test the formula, not the live decision. RE extras not fixed: kraken boat list never pruned, `ChemistryLab.MakePotionBase.FinishEvent` NRE on a full inventory, `Ep6EffectsMachine.CreateEffectAndTurnOn` effect leak, `ConsignmentRegister` day-0 price never used, `TryForBaby` null partner when autonomous.
+
+### 14.1 Live-path checks (2026-11-16)
+
+hypnotrickrelease's Check passed while the live hook threw on every run, because checks tested the pure decision with constants. Every EP1-EP6 and store hook now calls its own decision function with the live values, and every Check adds `EpLive` (mods/ts3fixes/src/EpLiveCheck.cs) to its members verdict. EpLive confirms the hook class's swaps are in place (count from `sPatched`) and that each reflection handle is usable as the hook uses it: value type, getter or setter, argument count, a real static read. 86 of 87 checks had the constant gap. Real bugs found on the way: cattoypickerrel (an early return outside the rule, and a Check that was always UNEXPECTED with the switch off), gourmetpetrecipe (Household read before the switch), coopeggquality (stale tuning array reference), backpacklotleak (EA skipped on an error with the switch off), consignmentlastday (empty price table), worldpondskatetest (`true` on error), saunatubclear (null actor). Checks of whole-method copies (mermaidsharknull, gourmetpetrecipe, houdinignomeleak, the dogswimslots/fragmentreconstruct/businessplannerrun copies and others) can prove only swaps and handles; their effect needs the game run. The other §14 open items are deferred.
