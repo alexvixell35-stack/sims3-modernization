@@ -53,15 +53,37 @@
 // live repro) [verified disassembly + emulation + one game session]. Fix: both jump-table entries point to stubs that
 // pass every other case to the game's handler. INT_MIN / -1 goes to the game's OverflowException stub 0xE57AA5 (the one the
 // *.ovf opcodes use; it records this instruction as the frame ip), as .NET throws. INT_MIN % -1 gives 0, the exact result.
+//
+// LotLevelPastEnd (next version, docs/67 §40, no counters). The lot's level Group getter 0xAB70B0 clamps the object's
+// level below by the lot's lowest level and never above. A slotted object re-attached across a lot change still carries
+// its old lot's level; on a lot with fewer levels the getter returns the word past its Group table, and Realm_MoveShape
+// 0x682480 then moves a shape into it (Bridgeport AVs at 0x6824D0 / 0x6824F3 / 0x8621EA) [verified: logs + disassembly].
+// Fix: the vtable slot points to LlGroup, which answers the lot's top Group for such a level; in-range asks are unchanged.
+//
+// EA build only (TS3N_EA_PORT, ts3addr.h): ported from hotfix/v0.2.10-ea169, not in the Steam asi; the EA addresses are
+// table rows checked on the decrypted exe (docs/data/ea169-overrides.csv).
+// SimNoTexture (0.36.152a, docs/67 §34, crash Z). SimService_Process 0x5EBC50 (request state 11) looks up the request's two
+// composite textures in the builder's table (key 0x1F/4 and 0x1F/8) and reads the first one's width at 0x5EBE31 with no null
+// check; the second is checked. The texture is missing when its create in state 9 failed (call 0x5CFB7C -> 0x619C80 returned
+// false; that path stores nothing) [verified disassembly]. 0x5EBE38 `ja 0x5EBED4` is EA's own path for a texture too wide
+// to composite, and the no-recipe paths reach the same target with a null first result. Fix: the load and compare (0x5EBE2D)
+// become a jump to SnStub, which takes that path for a missing texture. Nothing after it reads the first result: the mark
+// 0x5CEA60 ignores its pointer argument and finds no table entry. The Sim gets no composite from this build.
+//
+// SimNoTextureAtlas (off, docs/67 §34.6). 0x5E0720 on CAS::SimBuilder (runs with UseCompression and CacheAtlases, script
+// ThumbnailHelper for a household leaving CAS or stored to the Library) makes the same two lookups and reads the first at
+// 0x5E082A with no null check. A failed create (EA 0x5E277F -> 0x5D0BA0) stores nothing [verified disassembly]. Fix: the load
+// at 0x5E077D jumps to SaStub, which for a missing texture takes EA's own no-recipe jump to 0x5E0872, before the composite
+// starts. Nothing after that target reads the first texture: the mark at 0x5E098C ignores its pointer argument.
 
-static const DWORD CA_ASK_SITES[3] = {0x0084EABD, 0x00849588, 0x00853521};
+static const DWORD CA_ASK_SITES[3] = {TS3A(0x0084EABD), TS3A(0x00849588), TS3A(0x00853521)};
 // mov ecx,[eax+1Ch]; mov edx,[ecx]; push eax; mov eax,[edx+10h]; call eax   (eax = controller)
 static const u8 kCaAsk[11] = {0x8B, 0x48, 0x1C, 0x8B, 0x11, 0x50, 0x8B, 0x42, 0x10, 0xFF, 0xD0};
-static const DWORD CA_CTOR_SITE = 0x0093F90D, CA_CTOR = 0x0093E5C0;  // AnimationComponent ctor (thiscall, owner; ret 4)
-static const DWORD CA_DTOR_SITE = 0x00942E73, CA_DTOR = 0x00941CD0;  // AnimationComponent dtor (thiscall, no args)
-static const DWORD CA_ANIM_VT8 = 0x010433EC;                          // AnimationComponent +8 interface vtable
-static DWORD g_ecaRdLo = 0x00F95000, g_ecaRdHi = 0x01146000;            // .rdata (vtables); selftest: its own range
-static DWORD g_ecaTxLo = 0x00401000, g_ecaTxHi = 0x00F95000;            // .text
+static const DWORD CA_CTOR_SITE = TS3A(0x0093F90D), CA_CTOR = TS3A(0x0093E5C0);  // AnimationComponent ctor (thiscall, owner; ret 4)
+static const DWORD CA_DTOR_SITE = TS3A(0x00942E73), CA_DTOR = TS3A(0x00941CD0);  // AnimationComponent dtor (thiscall, no args)
+static const DWORD CA_ANIM_VT8 = TS3A(0x010433EC);                          // AnimationComponent +8 interface vtable
+static DWORD g_ecaRdLo = TS3A(0x00F95000), g_ecaRdHi = TS3A(0x01146000);            // .rdata (vtables); selftest: its own range
+static DWORD g_ecaTxLo = TS3A(0x00401000), g_ecaTxHi = TS3A(0x00F95000);            // .text
 
 typedef void*(__fastcall* CaCtorFn)(u8* comp, void* edx, void* owner);
 typedef void(__fastcall* CaDtorFn)(u8* comp);
@@ -212,8 +234,8 @@ static bool ApplyConformActor(const wchar_t* ini) {
 }
 
 // ---- ThumbPose ----
-static const DWORD TP_DEFER_SITE = 0x00D5B77A, TP_RELEASE = 0x007460F0;  // call RefPtr_Release (ecx = &RefPtr)
-static const DWORD TP_AFTER_SITE = 0x00D5B874;                           // mov ecx,[esp+0ACh] after the evaluation
+static const DWORD TP_DEFER_SITE = TS3A(0x00D5B77A), TP_RELEASE = TS3A(0x007460F0);  // call RefPtr_Release (ecx = &RefPtr)
+static const DWORD TP_AFTER_SITE = TS3A(0x00D5B874);                           // mov ecx,[esp+0ACh] after the evaluation
 static const u8 kTpAfter[7] = {0x8B, 0x8C, 0x24, 0xAC, 0x00, 0x00, 0x00};
 typedef void(__fastcall* TpReleaseFn)(u8** ref);
 static TpReleaseFn g_tpRelease = (TpReleaseFn)(uintptr_t)TP_RELEASE;
@@ -304,7 +326,7 @@ static bool ApplyThumbPose(const wchar_t* ini) {
 // stores of the source pose ([esp+0x45C] = context +0x4C) a holder with fewer bones than the destination rig ([esp+0x7C],
 // bone vector +0x2C / +0x30 of 112-byte entries, as 0x575650) gives 0: the modifier skips a null source pose (0x54E754), and
 // branch (c) already stores 0 when the model has no holder [verified disassembly].
-static const DWORD TB_SITE_B = 0x00D5B708, TB_SITE_A = 0x00D5B768, TB_SITE_C = 0x00D5B7A1, TB_HOLDER_VT = 0x00FC2D30;
+static const DWORD TB_SITE_B = TS3A(0x00D5B708), TB_SITE_A = TS3A(0x00D5B768), TB_SITE_C = TS3A(0x00D5B7A1), TB_HOLDER_VT = TS3A(0x00FC2D30);
 // b: mov ecx,[eax+0Ch]; mov esi,[esp+0A8h]; mov [esp+45Ch],ecx   a: mov eax,[esp+28h]; mov ecx,[eax+0Ch]; mov [esp+45Ch],ecx
 // c: mov eax,[eax+0Ch]; jmp +2 (to the store at 0xD5B7A8)
 static const u8 kTbB[17] = {0x8B, 0x48, 0x0C, 0x8B, 0xB4, 0x24, 0xA8, 0x00, 0x00, 0x00, 0x89, 0x8C, 0x24, 0x5C, 0x04, 0x00, 0x00};
@@ -394,7 +416,7 @@ static bool ApplyThumbPoseBones(const wchar_t* ini) {
 }
 
 // ---- GeomBoneIndex ----
-static const DWORD GB_SLOT = 0x00FE3314, GB_GET = 0x005C6E00, GB_COUNT = 0x005C6DF0;  // vtable 0xFE32C0 +0x54, +0x50
+static const DWORD GB_SLOT = TS3A(0x00FE3314), GB_GET = TS3A(0x005C6E00), GB_COUNT = TS3A(0x005C6DF0);  // vtable 0xFE32C0 +0x54, +0x50
 // mov eax,[ecx+58h]; mov ecx,[esp+4]; mov eax,[eax+ecx*4]; ret 4
 static const u8 kGbGet[13] = {0x8B, 0x41, 0x58, 0x8B, 0x4C, 0x24, 0x04, 0x8B, 0x04, 0x88, 0xC2, 0x04, 0x00};
 // mov eax,[ecx+5Ch]; sub eax,[ecx+58h]; sar eax,2; ret
@@ -441,9 +463,88 @@ static bool ApplyGeomBoneIndex(const wchar_t* ini) {
     return true;  // keep the log open for the skip lines
 }
 
+// ---- LotLevelPastEnd ----
+// docs/67 §40 (Bridgeport: AV at 0x6824D0 / 0x6824F3 / 0x8621EA under Transform_AttachToSlot 0x95A360). The lot's "physics
+// Group for this object's level" getter 0xAB70B0 (Lot vtable 0x1065268 +0x6C; only reference: the slot) takes the object's level
+// ([level component +0x18], 0x7FFFFFFF = 0, +1 when [+0x2C] bit 5), clamps it below by the lot's lowest level [lot+0x17C] and
+// indexes the lot's EASTL deque of Groups (+0x370) with no upper bound. An object that keeps the level of the lot it comes from
+// (level 5 of a high-rise) and is attached to a parent on a lot with fewer levels gets whatever lies past the deque: Realm_MoveShape
+// then reads or writes through it. The hook replays the index (reads only); in range: the game's getter, unchanged; past the end:
+// the lot's top Group (EA's own clamp, mirrored), or 0 (= the realm's root Group, EA's answer for an object with no level) when
+// the lot has no Group at all.
+static const DWORD LL_SLOT = TS3A(0x010652D4), LL_GET = TS3A(0x00AB70B0);
+static const u8 kLlHead[15] = {0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24, 0x08, 0x85, 0xC9, 0x0F, 0x84, 0x9A, 0x00, 0x00, 0x00};
+static const u8 kLlLow[6] = {0x3B, 0x86, 0x7C, 0x01, 0x00, 0x00};                                       // +0x4D cmp eax,[esi+17Ch]
+static const u8 kLlDeq[12] = {0x8B, 0x8E, 0x7C, 0x03, 0x00, 0x00, 0x8B, 0x86, 0x78, 0x03, 0x00, 0x00};  // +0x66 first, cur
+static const u8 kLlBlk[6] = {0x8B, 0xB6, 0x84, 0x03, 0x00, 0x00};                                       // +0x79 block table
+typedef DWORD(__fastcall* LlFn)(u8* lot, void*, u8* obj);
+static LlFn g_llGet = (LlFn)(uintptr_t)LL_GET;      // selftest: its own
+static DWORD g_llIdLevel = TS3A(0x011ECF08);        // address of the level component's mask bit (selftest: its own)
+static volatile LONG g_llHits;
+
+static LONG LlLevels(const u8* lot) {  // the deque's size, as 0xAB6608 computes it
+    const DWORD* q = (const DWORD*)(lot + 0x378);  // begin: cur, first, last, node; end: cur, first, last, node
+    return (((LONG)(q[7] - q[3]) >> 2) - 1) * 64 + ((LONG)(q[4] - q[5]) >> 2) + ((LONG)(q[2] - q[0]) >> 2);
+}
+static DWORD __fastcall LlGroup(u8* lot, void* edx, u8* obj) {
+    const DWORD id = *(const DWORD*)(uintptr_t)g_llIdLevel, m = obj ? *(const DWORD*)(obj + 0x2C) : 0;
+    if (!(m & id)) return g_llGet(lot, edx, obj);  // no object / no level component: EA answers 0
+    DWORD s = 0;
+    for (DWORD b = m & (id - 1); b; b &= b - 1) s++;  // QueryComponent 0x935770: the slot = mask bits below the id's
+    const u8* lc = *(const u8* const*)(obj + 0x34 + s * 4);
+    if (!lc) return g_llGet(lot, edx, obj);
+    const LONG raw = *(const LONG*)(lc + 0x18), lo = *(const LONG*)(lot + 0x17C), n = LlLevels(lot);
+    LONG lv = raw == 0x7FFFFFFF ? 0 : raw;
+    if (*(const DWORD*)(lc + 0x2C) & 0x20) lv++;
+    const DWORD i = (DWORD)(lv < lo ? lo : lv) - (DWORD)lo;
+    if (n > 0 && i < (DWORD)n) return g_llGet(lot, edx, obj);
+    DWORD g = 0;
+    if (n > 0) {
+        const DWORD* q = (const DWORD*)(lot + 0x378);
+        const DWORD idx = (DWORD)((LONG)(q[0] - q[1]) >> 2) + (DWORD)n - 1;
+        g = (*(const DWORD* const* const*)(lot + 0x384))[idx >> 6][idx & 63];
+    }
+    if (InterlockedIncrement(&g_llHits) <= 16) {
+        // the script frames name who re-parents the object; the native caller only says "attach by slot name"
+        char st[440];
+        if (FbStackText(st, sizeof(st), 10) <= 0) strcpy_s(st, "(no script frames)");
+        Log("ea fix: LotLevelPastEnd: lot %p id %08lX%08lX has %ld level Group(s) from level %ld, object %p id %08lX%08lX (lot %p) "
+            "asks for level %ld (index %ld, caller 0x%08X): answered the top Group 0x%08lX instead of the word past the table; "
+            "script stack: %s",
+            lot, *(const DWORD*)(lot + 0x4C), *(const DWORD*)(lot + 0x48), n, lo, obj, *(const DWORD*)(obj + 0xC), *(const DWORD*)(obj + 8),
+            *(void* const*)(obj + 0x30), lv, (LONG)i, (DWORD)(uintptr_t)_ReturnAddress(), g, st);
+    }
+    return g;
+}
+
+// slot = the vtable entry; checks the getter it names (entry, lowest-level clamp, deque reads) first.
+static bool LlPatch(DWORD* slot) {
+    if (!Readable(slot, 4)) return false;
+    const u8* f = (const u8*)(uintptr_t)*slot;
+    if (!Matches(f, kLlHead, sizeof(kLlHead)) || !Matches(f + 0x4D, kLlLow, sizeof(kLlLow)) ||
+        !Matches(f + 0x66, kLlDeq, sizeof(kLlDeq)) || !Matches(f + 0x79, kLlBlk, sizeof(kLlBlk)))
+        return false;
+    const DWORD hook = (DWORD)(uintptr_t)&LlGroup;
+    return Write(slot, &hook, 4);
+}
+
+static bool ApplyLotLevelPastEnd(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"EaCrashFixes", L"LotLevelPastEnd", 0, ini)) return false;
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP ea fix LotLevelPastEnd ([EaCrashFixes] LotLevelPastEnd): no EA 1.69 address, docs/232 §8"); return false; }
+#endif
+    DWORD* slot = (DWORD*)(uintptr_t)LL_SLOT;
+    if (!Readable(slot, 4) || *slot != LL_GET || !LlPatch(slot)) {
+        Log("SKIP ea fix: LotLevelPastEnd: vtable slot 0x%08X or the getter bytes differ: not installed", LL_SLOT);
+        return false;
+    }
+    Log("OK   ea fix: LotLevelPastEnd (docs/67 §40): the lot's level Group getter 0xAB70B0 answers the top Group past the lot's level table");
+    return true;  // keep the log open for the hit lines
+}
+
 // ---- GeomNoMaterial ----
-static const DWORD GN_SITE = 0x005DDB63, GN_SLOT = 0x00FE3318;                          // check in 0x5DDB30; GEOM vtable +0x58
-static const DWORD GN_SKIP = 0x005DE0E2, GN_CONT = 0x005DDB6D, GN_GET = 0x00580420;     // skip tail, next instruction, getter
+static const DWORD GN_SITE = TS3A(0x005DDB63), GN_SLOT = TS3A(0x00FE3318);                          // check in 0x5DDB30; GEOM vtable +0x58
+static const DWORD GN_SKIP = TS3A(0x005DE0E2), GN_CONT = TS3A(0x005DDB6D), GN_GET = TS3A(0x00580420);     // skip tail, next instruction, getter
 static const u8 kGnSite[10] = {0x8B, 0x03, 0x85, 0xC0, 0x0F, 0x84, 0x75, 0x05, 0x00, 0x00};  // mov eax,[ebx]; test eax,eax; je 0x5DE0E2
 static const u8 kGnGet[4] = {0x8B, 0x41, 0x28, 0xC3};                                     // mov eax,[ecx+28h]; ret
 static DWORD g_gnSkip = GN_SKIP, g_gnCont = GN_CONT, g_gnGet = GN_GET;  // stub targets and the getter (selftest swaps them)
@@ -503,9 +604,9 @@ static bool ApplyGeomNoMaterial(const wchar_t* ini) {
 }
 
 // ---- MintDivGuard ----
-static const DWORD MD_TABLE = 0x00E59880;                    // mint jump table (opcode * 4), in .text
-static const DWORD MD_DIV = 0x00E55B4C, MD_REM = 0x00E55C0F;  // entries 0x127 / 0x143
-static const DWORD MD_OVF = 0x00E57AA5, MD_NEXT = 0x00E544D5;  // OverflowException stub, dispatch head
+static const DWORD MD_TABLE = TS3A(0x00E59880);                    // mint jump table (opcode * 4), in .text
+static const DWORD MD_DIV = TS3A(0x00E55B4C), MD_REM = TS3A(0x00E55C0F);  // entries 0x127 / 0x143
+static const DWORD MD_OVF = TS3A(0x00E57AA5), MD_NEXT = TS3A(0x00E544D5);  // OverflowException stub, dispatch head
 static const u8 kMdHead[6] = {0x83, 0x7E, 0xF8, 0x00, 0x0F, 0x84};  // cmp dword [esi-8],0; je <DivideByZero stub>
 static DWORD g_mdDiv = MD_DIV, g_mdRem = MD_REM, g_mdOvf = MD_OVF, g_mdNext = MD_NEXT;  // stub jump targets (selftest swaps them)
 static volatile LONG g_mdLogged;
@@ -579,12 +680,137 @@ static bool ApplyMintDivGuard(const wchar_t* ini) {
     return true;  // keep the log open for the hit lines
 }
 
+#ifdef TS3N_EA_PORT
+// ---- SimNoTexture ----
+static const DWORD SN_SITE = TS3A(0x005EBE2D), SN_CONT = TS3A(0x005EBE38), SN_SKIP = TS3A(0x005EBED4);  // load + cmp, the `ja`, its target
+static const DWORD SN_CREATE_SITE = TS3A(0x005CFB7C), SN_CREATE = TS3A(0x00619C80);  // state 9's texture create (thiscall, 6 args, bool)
+static const u8 kSnSite[11] = {0x8B, 0x54, 0x24, 0x74, 0x81, 0x7A, 0x14, 0x00, 0x08, 0x00, 0x00};  // mov edx,[esp+74h]; cmp dword [edx+14h],800h
+static DWORD g_snCont = SN_CONT, g_snSkip = SN_SKIP;  // stub targets (selftest swaps them)
+static volatile LONG g_snBad;
+
+static void __stdcall SnHit(const u8* req, DWORD second) {
+    const LONG n = InterlockedIncrement(&g_snBad);
+    if (n > 8) return;
+    MEMORYSTATUSEX m = {sizeof(m)};
+    GlobalMemoryStatusEx(&m);  // the create failure is inferred to be memory: this number is the evidence
+    Log("ea fix: SimNoTexture #%ld: request %p (size tier %lu, second texture %s): first texture missing, composite skipped; "
+        "%lu MB address space free", n, req, *(const DWORD*)(req + 8), second ? "present" : "missing", (DWORD)(m.ullAvailVirtual >> 20));
+}
+
+// In place of the 11 bytes at 0x5EBE2D, by jump: esi = the request, ebp = the second texture. edx and the flags are dead at
+// the skip target (0x5EBED4 cmp ebp,ebx); on the game's path the flags reach the `ja` through the jmp.
+static __declspec(naked) void SnStub() {
+    __asm {
+        mov edx, [esp + 0x74]
+        test edx, edx
+        je miss
+        cmp dword ptr [edx + 0x14], 0x800
+        jmp dword ptr [g_snCont]
+    miss:
+        pushad
+        push ebp
+        push esi
+        call SnHit
+        popad
+        jmp dword ptr [g_snSkip]
+    }
+}
+
+static bool SnPatch(u8* site) {
+    if (!Matches(site, kSnSite, sizeof(kSnSite))) return false;
+    u8 b[11] = {0xE9, 0, 0, 0, 0, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90};
+    *(LONG*)(b + 1) = (LONG)((uintptr_t)&SnStub - ((uintptr_t)site + 5));
+    return Write(site, b, sizeof(b));  // DllMain: no Sim is built yet
+}
+
+// Repro (test key, independent of the guard, so the off arm crashes): every Nth create in state 9 answers false after the
+// game's call; the caller then releases the good texture as it does on a real failure.
+typedef bool(__fastcall* SnCreateFn)(void* img, void*, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD);
+static SnCreateFn g_snCreate = (SnCreateFn)(uintptr_t)SN_CREATE;
+static LONG g_snEvery, g_snCreates;
+static bool __fastcall SnCreateRepro(void* img, void*, DWORD a, DWORD b, DWORD c, DWORD d, DWORD e, DWORD f) {
+    const bool ok = g_snCreate(img, NULL, a, b, c, d, e, f);
+    return ok && InterlockedIncrement(&g_snCreates) % g_snEvery != 0;
+}
+
+static bool ApplySimNoTexture(const wchar_t* ini) {
+    g_snEvery = (LONG)GetPrivateProfileIntW(L"EaCrashFixes", L"SimNoTextureRepro", 0, ini);
+    if (g_snEvery > 0) {
+        if (FpCallOk(SN_CREATE_SITE, SN_CREATE) && FpRedirect(SN_CREATE_SITE, (const void*)&SnCreateRepro))
+            Log("OK   ea fix: SimNoTextureRepro (TEST KEY): every create number %ld of a Sim composite texture fails", g_snEvery);
+        else Log("SKIP ea fix: SimNoTextureRepro: call at 0x%08X differs: not installed", SN_CREATE_SITE);
+    }
+    if (!GetPrivateProfileIntW(L"EaCrashFixes", L"SimNoTexture", 0, ini)) return g_snEvery > 0;
+    if (!SnPatch((u8*)(uintptr_t)SN_SITE)) {
+        Log("SKIP ea fix: SimNoTexture: bytes at 0x%08X differ: not installed", SN_SITE);
+        return g_snEvery > 0;
+    }
+    Log("OK   ea fix: SimNoTexture (docs/67 §34): a Sim request whose composite texture is missing skips the composite");
+    return true;  // keep the log open for the hit lines
+}
+
+// ---- SimNoTextureAtlas ----
+static const DWORD SA_SITE = TS3A(0x005E077D), SA_CONT = TS3A(0x005E0783), SA_SKIP = TS3A(0x005E0872);  // load, next instruction, EA's no-recipe target
+static const u8 kSaSite[6] = {0x8B, 0x96, 0xA8, 0x00, 0x00, 0x00};  // mov edx,[esi+0A8h]
+static DWORD g_saCont = SA_CONT, g_saSkip = SA_SKIP;  // stub targets (selftest swaps them)
+static volatile LONG g_saBad;
+
+static void __stdcall SaHit(const u8* builder, DWORD second) {
+    const LONG n = InterlockedIncrement(&g_saBad);
+    if (n > 8) return;
+    MEMORYSTATUSEX m = {sizeof(m)};
+    GlobalMemoryStatusEx(&m);
+    Log("ea fix: SimNoTextureAtlas #%ld: builder %p (second texture %s): first texture missing, atlas composite skipped; "
+        "%lu MB address space free", n, builder, second ? "present" : "missing", (DWORD)(m.ullAvailVirtual >> 20));
+}
+
+// In place of the 6 bytes at 0x5E077D, by jump: esi = the builder, ebx = the second texture, [esp+18h] = the first. eax, ecx,
+// edx and the flags are dead at the skip target (0x5E0872 cmp ebx,edi), where edi is still 0.
+static __declspec(naked) void SaStub() {
+    __asm {
+        cmp dword ptr [esp + 0x18], 0
+        je miss
+        mov edx, [esi + 0xA8]
+        jmp dword ptr [g_saCont]
+    miss:
+        pushad
+        push ebx
+        push esi
+        call SaHit
+        popad
+        jmp dword ptr [g_saSkip]
+    }
+}
+
+static bool SaPatch(u8* site) {
+    if (!Matches(site, kSaSite, sizeof(kSaSite))) return false;
+    u8 b[6] = {0xE9, 0, 0, 0, 0, 0x90};
+    *(LONG*)(b + 1) = (LONG)((uintptr_t)&SaStub - ((uintptr_t)site + 5));
+    return Write(site, b, sizeof(b));  // DllMain: no Sim is built yet
+}
+
+static bool ApplySimNoTextureAtlas(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"EaCrashFixes", L"SimNoTextureAtlas", 0, ini)) return false;
+    if (!SaPatch((u8*)(uintptr_t)SA_SITE)) {
+        Log("SKIP ea fix: SimNoTextureAtlas: bytes at 0x%08X differ: not installed", SA_SITE);
+        return false;
+    }
+    Log("OK   ea fix: SimNoTextureAtlas (docs/67 §34.6): a household atlas build whose composite texture is missing skips the composite");
+    return true;
+}
+#endif
+
 static bool ApplyEaCrashFixes(const wchar_t* ini) {
     bool keep = ApplyConformActor(ini);
     ApplyThumbPose(ini);
     keep = ApplyThumbPoseBones(ini) || keep;
     keep = ApplyGeomBoneIndex(ini) || keep;
+    keep = ApplyLotLevelPastEnd(ini) || keep;
     keep = ApplyGeomNoMaterial(ini) || keep;
     keep = ApplyMintDivGuard(ini) || keep;
+#ifdef TS3N_EA_PORT
+    keep = ApplySimNoTexture(ini) || keep;
+    keep = ApplySimNoTextureAtlas(ini) || keep;
+#endif
     return keep;
 }

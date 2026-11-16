@@ -18,10 +18,10 @@
 // dropped. Insert needs nothing: only found nodes are cached, never misses. Verify=1: every hit also walks the chain and
 // compares (mismatch: counted, logged, entry dropped, the walk's answer returned). Runtime switch: idcMode (+0xC3C).
 
-static const DWORD IDC_LOOKUP = 0x00939100, IDC_ERASE = 0x00938D00;
+static const DWORD IDC_LOOKUP = TS3A(0x00939100), IDC_ERASE = TS3A(0x00938D00);
 static const u8 kIdcLookupPrologue[8] = {0x83, 0xEC, 0x08, 0x56, 0x8B, 0x74, 0x24, 0x14};  // sub esp,8; push esi; mov esi,[esp+14h]
 static const u8 kIdcErasePrologue[5] = {0x8B, 0x44, 0x24, 0x04, 0x53};                     // mov eax,[esp+4]; push ebx
-static const DWORD* g_idcSimTid = (const DWORD*)(uintptr_t)0x011D8A8C;                   // sim thread id (game global, 0 until set)
+static const DWORD* g_idcSimTid = (const DWORD*)(uintptr_t)TS3A(0x011D8A8C);                   // sim thread id (game global, 0 until set)
 
 typedef DWORD*(__fastcall* IdcLookupFn)(u8* tbl, void* edx, DWORD* out, const DWORD* id);
 typedef void*(__fastcall* IdcEraseFn)(u8* tbl, void* edx, void* out, u8* node, void* bucket);

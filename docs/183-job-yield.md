@@ -1,6 +1,6 @@
 # 183. The last two 1 s+ routing freeze classes: caller ranking and JobYield (v0.1.6 groundwork)
 
-PLAN.md "After the release (Rodney 2026-10-24)" item 4: own-job wait fix and main-thread plan callers one by one. Static work and a build only; no game run, nothing here is measured live.
+PLAN.md "After the release (Rodney 2026-10-24)" item 4: own-job wait fix and main-thread plan callers one by one. §1-§5: static work and a build only. §6 (2026-11-13): the first in-game A/B, measured; proposes JobYield on from the next version.
 
 ## 1. Caller ranking from the existing logs (Part A)
 
@@ -95,3 +95,22 @@ JobYield reaches only the waits a C# caller can see coming: sync fallback plans 
 ## 5. Ledger
 
 I-183-1 (inferred): the cand-1721 >= 1 s freezes are sim waits on the long own-START job (lengths match one to one). I-183-2 (inferred): that wait is not in RunPlan / RtWaitJob / pump / DiscDrain (all noted, all 0 in those iterations). Both verified or refuted by job 1.
+
+## 6. In-game A/B (2026-11-13) [measured]
+
+Setup: the bridge test copy (Apex aside), ts3native main 2f50e37f plus #378, release ini, in-load A/B `--ab jobyield` with `--fixes-on jobyield` (the native switch and the ts3fixes step-aside together), 2-min slices, 10 min, both start sides. Isla Paradiso is where the sim thread waits most: in the same night's IP profiles, 97% of the `threaded` >= 300 ms time with no route search was waiting on the route worker (`rtLock` 250 s + `rtJob` 243 s of 509 s).
+
+| Run | Game | Hitches per 10 min, off -> on | Note |
+|---|---|---|---|
+| jy1 | IP seed 12345, both orders (pair mean) | >= 300 ms 227.6 -> 121.4 (0.53 [0.39, 0.73]); >= 500 ms 140.7 -> 75.0 (0.53 [0.35, 0.79]); >= 1 s 134.5 -> 55.4 (0.41 [0.26, 0.64]); >= 2 s 2.1 -> 5.4 (4 events, too few) | p99 670 -> 130 ms, p99.9 861 -> 723 ms, max 2,312 -> 1,558 ms |
+| jy1 | IP seed 2024, on first | >= 300 ms 358.8 -> 161.0; >= 1 s 61.8 -> 14.6; >= 2 s 11.8 -> 7.3 | |
+| jy1 | IP seed 2024, off first | >= 200 ms 49.1 -> 32.1; >= 300 ms 7.5 -> 3.2 | a quiet game |
+| jy2 | BP, on first | >= 100 ms 212.7 -> 166.9; >= 200 ms 7.6 -> 0 | no >= 300 ms in either arm |
+| jy2 | SV, off first | >= 100 ms 76.0 -> 42.2; >= 300 ms 0 -> 4.7 (1 event, 374 ms) | |
+
+- Step-asides: 326-499 per game, 2,459-6,590 ticks slept, `jobyield_capped` 0 in all 6 games.
+- Stuck Sims: in jy1 the on arms ran more stuck checks (597 against 418: a smoother game simulates more Sim time in the same minutes). Resets per check 6.0% on, 5.3% off. jy2: 0 resets in either arm.
+- Household Sims are included by design: a household Sim's task that would wait for a running job sleeps a few ticks first, as an async plan does, instead of the whole game freezing. Plan results are not changed. **Rodney 2026-11-13: accepted as exact for household Sims** ("same plan result, task sleeps a few ticks instead of the whole game freezing"), so JobYield has no household exemption. Merged as Dalexlol PR #397, ON from ts3native 0.36.253 (`JobYield=1`, ts3fixes `kJobYield=True`); results: docs/data/results/2026-11-13-jobyield-ab.md.
+- Not checked: the >= 2 s class (too few events in both arms), and a soak longer than 10 min.
+- Rough spots noted at merge, not blocking: the >= 2 s class went 2.1 -> 5.4 per 10 min in the IP seed 12345 pair (4 events); SV >= 300 ms 0 -> 4.7 (1 event, 374 ms). Watch both in the release soaks.
+- O1-O3 (§4): O3 is answered for stuck Sims (no rise per check); route-fail reactions were not compared, because the routefail lines share ts3native's 400-line text cap.

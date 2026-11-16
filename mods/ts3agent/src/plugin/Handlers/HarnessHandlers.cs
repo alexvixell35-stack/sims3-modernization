@@ -29,6 +29,13 @@ namespace Ts3Agent
             RegisterRepro();
             RegisterRare();
             RegisterRareVehicles();
+            RegisterVehicleCensus(); // VehicleCensusHandlers.cs, docs/544
+            RegisterTownieTrips(); // TownieTripsHandlers.cs, docs/544 §5
+            RegisterLeakCensus(); // LeakCensusHandlers.cs, docs/191 leak_census
+            RegisterInventoryStress(); // InventoryStressHandlers.cs, docs/191 inv_stuff
+            RegisterFamilyTree(); // FamilyTreeHandlers.cs, docs/191 family_tree
+            RegisterInvGhost();   // InvGhostProbe.cs, docs/191 inventory A2
+            RegisterBuffDrift();  // MoodCensus.cs, docs/191 moodlet drift
             RegisterCas();
             RegisterContent();
             RegisterFocus();
@@ -36,6 +43,7 @@ namespace Ts3Agent
             RegisterLabels();
             RegisterTravel();
             RegisterRouteFreeze();
+            RegisterDesignedRepros(); // DesignedReproHandlers.cs (lane L10 2026-11-15)
             RegisterStoveWall();
             RegisterLayout();
             RegisterPkgAbba();
@@ -352,6 +360,13 @@ namespace Ts3Agent
             // A household Sim leaves a young Sim alone (2026-11-07 al269 old save: "UWU cannot be left home alone. She needs a babysitter."
             // buttons 'Call Babysitter' / 'Stay Here'): no safe word, 60 s pause stop. Staying brings in no NPC and costs nothing.
             new[] { new[] { "cannot be left home alone", "needs a babysitter" }, new[] { "stay here" } },
+            // Romance prompt (2026-11-11 sp4 ip + sv soaks, active household: "Should we try for a baby?" buttons 'Yes!' / 'Eh... We should wait?'):
+            // no safe word, 60 s pause stop at 20 and 26 min. Accepting starts a pregnancy in a household Sim, so only the declining answer.
+            new[] { new[] { "try for a baby" }, new[] { "wait" } },
+            // Alien abduction result (2026-11-14 jit-bundle-ab2-1114 sv-jb2-off, 9.2 min: "...left Marty pregnant! Would you like to raise the alien baby or return it
+            // to grow up on its homeworld?" buttons 'raise' / 'send to homeworld'): no safe word, run stopped. Raising adds a new Sim to the household,
+            // sending it away leaves the household as it is, so take send to homeworld.
+            new[] { new[] { "raise the alien baby" }, new[] { "send to homeworld" } },
             new[] { new[] { "mod scripts found" }, new[] { "accept", "ok", "continue" } },
         };
 
@@ -584,6 +599,9 @@ namespace Ts3Agent
                 o["name"] = h.Name;
                 o["id"] = Util.Id(h.HouseholdId);
                 o["members"] = h.NumMembers;
+                int pets = 0;
+                foreach (Sims3.Gameplay.CAS.SimDescription d in h.AllSimDescriptions) if (d != null && !d.IsHuman) pets++;
+                o["pets"] = pets;
                 o["lot"] = h.LotHome.Name;
                 list.Add(o);
             }

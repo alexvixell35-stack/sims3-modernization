@@ -1,0 +1,91 @@
+# Proven gameplay fixes: every default-off ts3fixes switch whose fix is proven in game (off BROKEN / on FIXED, or measured
+# off/on), and that fixes EA gameplay / bugs. Evidence: a docs/registry.md row "proven in game", a PLAN.md / docs entry "proven
+# in game" / "verified in game", a phasesoak verdict pair (switch false BROKEN, true FIXED; ~/dev/ts3-runs phase-*/phase.txt,
+# 2026-11-14/15), or a fix-repro-check.ts "measured off/on" note (socialfinish, socialreceivefail).
+# Excluded below: measurement, diagnostics, test-only, perf experiments, regressions and fixes not proven yet.
+# One switch per line; `node tools/harness/proven-fixes.ts` checks the file and prints it for EARLYFIX / `ag patches`.
+# Built 2026-11-15 from the 215 default-off switches (+8 docs/575-577, soak verdicts BROKEN/FIXED) (Fixes.cs ShortcutOn names -> Instantiator k* = false).
+
+artsellnoartist
+autonomyinuseblock
+birthdayagers
+chestuselist
+curfewalarm
+efficientchip
+fairyauratimer
+fireactivejob
+firetrapcount
+flowersinuse
+gigpullaudience
+gotoworkstale
+gradvisitors
+handsetreset
+hauntedumbrella
+horsetraitscore
+invitecallreply
+jetpackflyingbuff
+littercap
+lunacysocials
+movingflag
+npcbusypartner
+npcseasonalparty
+npcshowstuck
+permazombiemoon
+phonecallrearm
+phonecallschedule
+phonefixup
+phonegive
+phoneloadreset
+plumbotfacelistener
+professorterm
+promcarpool
+promoteshift
+protestlastday
+putdowninuse
+resetinusefree
+resortweddingalarm
+resumetns
+returnhomealarms
+royaltyorphan
+sandscoins
+seasickpaused
+sentiencename
+sneakoutlistener
+snowfightjoinwait
+splitpartner
+steadygigmiss
+tombmusic
+trickortreatalarm
+unitravelflag
+uselistprune
+wildherdmother
+wildhorsegender
+woohootywait
+
+# ---- excluded (default off, not in the set), by reason
+# perf experiments / sim-thread offload and caching (not EA gameplay fixes):
+#   autlivelate cachedreflection caneearly casmemo detailprio disposespread doormirror drivertaskasync failrepeat farthestsorted
+#   hoursmemo idlememo legreplanskip preplancb replandefer replanspread routablecache safespotcap safespotreuse safespotyield
+#   seasonimposter seasonimpostercold seasonmarkercache spatialcache stuckcheckbusy stuckcheckcap stuckchecknear stuckcheckown
+#   tooltipthrottle unseenbroadcast unseencars unseenenv unseenfbfinish unseenfbloopbreak unseenfbsites unseenfbtrip
+#   unseenfbtriphold unseenmotives unseenpark unseenroute venuememo wakepark wakepoll
+# measurement / diagnostics / test aids:
+#   autunseencmp boatgetoutdiag bookhanddiag deadsimcount routesrc wildflowerprobe
+# test-only, registry says test (vehicle leak tests, age-up swap, dead-Sim hollowing, joyride costume):
+#   ageupswap deadsimhollow vehfrankentaxi vehgetinleak vehparkreserve vehprotestcar vehseatdestroy
+# leak / save-data fixes, opt-in until measured (changes save data or not proven in game):
+#   attractionalarm casuihandlers deadrefguards deadrefsweep familyinvghost firepitchair preferredservice relremovesafe
+#   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim spouseunlink
+# gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
+#   awardkeep bouncerskip boatgetoutguard bsrefund convturn eanullguards indoorcap
+#   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
+#   vacexitreturn vacexport vacimportfix vaclistenernull vacreturnskip vacstoreguard vacteendelete
+# combo pieces: first in-game check only, not marked proven (docs/551):
+#   combovenue
+# ceremonyspot: the bug is verified in game, the fix has no recorded off/on verdict:
+# partyoutcome: the registry row proves partymotive only; partyoutcome stays idle beside the core mod (docs/554):
+#   partyoutcome
+# built 2026-11-15, in-game off/on test pending (ufplansplit is log only; doorgen is default on since upstream #439):
+#   ufplansplit
+# new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:
+#   permamemo buffremovenoop catnamecache autroommemo autslicetime invcache vaclistenerpad spawncapcount deadrefcooking deadrefconvo takeariskguard

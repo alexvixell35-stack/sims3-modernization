@@ -2,3 +2,5 @@
 tools/mts-helper/** export-ignore
 docs/mts-site-map.md export-ignore
 tools/mts-helper export-ignore
+# Applied by git apply in Apex's bridge build: keep its bytes (as native/remix-bridge/.gitattributes does there)
+tools/harness/rewind/bridge-patch/*.patch -text

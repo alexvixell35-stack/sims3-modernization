@@ -21,7 +21,7 @@
 // lists, read by the consumer) wrapped; an entry off the sim thread while armed or beside a clone drops its answer.
 // Counters v77 (v74 on its branch) (+0x31EC): avMode (+0x31F0, --ab avoidro), avShadow (+0x31F4, --ab avoidshadow).
 
-static const DWORD AV_A = 0x00846B70, AV_B = 0x0085B470, AV_SITE = 0x00846D1C, AV_QUERY = 0x0082EDB0;
+static const DWORD AV_A = TS3A(0x00846B70), AV_B = TS3A(0x0085B470), AV_SITE = TS3A(0x00846D1C), AV_QUERY = TS3A(0x0082EDB0);
 static const u8 kAvPro[] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0};  // push ebp; mov ebp,esp; and esp,-16 (A, B and 0x85FF30)
 typedef u64(__cdecl* AvAFn)(u8* path, u8* agent, const float* goal, const void* ign, DWORD n);
 typedef u8(__cdecl* AvBFn)(u8* wm, u8* world, u8* p, const float* pt, DWORD opt);
@@ -37,12 +37,12 @@ typedef int (*AvQueryFn)(SrCtx* c, const u8* p, DWORD lo, DWORD hi, const SrPt& 
 static int AvQueryGame(SrCtx* c, const u8* p, DWORD lo, DWORD hi, const SrPt& pt, const u8* rec) {
     return SrQuery(c, p, lo, hi, pt, true, 0.0f, rec, true);  // radius 0, mode 1
 }
-static AvLevelFn g_avLevel = (AvLevelFn)(uintptr_t)0x008468C0;
-static AvPostureFn g_avPosture = (AvPostureFn)(uintptr_t)0x00953690;
-static AvOptIdFn g_avOpt38 = (AvOptIdFn)(uintptr_t)0x0081C970;
-static AvOptIdFn g_avOpt58 = (AvOptIdFn)(uintptr_t)0x0081C930;
+static AvLevelFn g_avLevel = (AvLevelFn)(uintptr_t)TS3A(0x008468C0);
+static AvPostureFn g_avPosture = (AvPostureFn)(uintptr_t)TS3A(0x00953690);
+static AvOptIdFn g_avOpt38 = (AvOptIdFn)(uintptr_t)TS3A(0x0081C970);
+static AvOptIdFn g_avOpt58 = (AvOptIdFn)(uintptr_t)TS3A(0x0081C930);
 static AvQueryFn g_avQuery = AvQueryGame;  // selftest hands in fake footprint lists
-static const DWORD AV_PT_POLY = 0x0080E8A0, AV_PT_NONE = 0x00BFB320;  // outer +0xB8 targets (docs/137 §2)
+static const DWORD AV_PT_POLY = TS3A(0x0080E8A0), AV_PT_NONE = TS3A(0x00BFB320);  // outer +0xB8 targets (docs/137 §2)
 
 // --- T-AV: the followed path's option writers (docs/137 §4.4). C wrappers (count, call, leave), installed with the hooks.
 // 0x81D090 is thiscall(src) ret 4; 0x85FF30 is cdecl(3 args); both read no register but ecx [verified disassembly].
@@ -116,7 +116,7 @@ template <class F> static int AvLocked(bool job, F body) {
     return why;
 }
 
-static bool AvSlot0Ok(DWORD s) { return s == 0x00619EF0 || s == 0x0083F5F0; }  // 1 or 3 levels (docs/137 §2)
+static bool AvSlot0Ok(DWORD s) { return s == TS3A(0x00619EF0) || s == TS3A(0x0083F5F0); }  // 1 or 3 levels (docs/137 §2)
 // A's consumer slots on top of SrSlotsOk (checked for every collected footprint): slot 0 and +0xB8 (the child 0xFEBF90
 // forwards slot 0 to its parent and has +0xB8 = 0xBFB320)
 static bool AvSlotsOk(const u8* obj) {
@@ -124,7 +124,7 @@ static bool AvSlotsOk(const u8* obj) {
     const DWORD* vt = *(const DWORD* const*)obj;
     const DWORD b8 = vt[0xB8 / 4];
     if (b8 != AV_PT_POLY && b8 != AV_PT_NONE) return false;
-    if (vt[0] != 0x00626210) return AvSlot0Ok(vt[0]);
+    if (vt[0] != TS3A(0x00626210)) return AvSlot0Ok(vt[0]);
     const u8* parent = *(const u8* const*)(obj + 0xC);
     return parent && AvSlot0Ok(**(const DWORD* const*)parent);
 }
@@ -445,16 +445,16 @@ static void InstallAvoidRO(const wchar_t* ini) {
     if (!k.rgEnforce || !k.asyncReady) { Log("SKIP avoid RO: needs [RouteGate] Enforce=1 with the async path"); return; }
     const u8* site = (const u8*)(uintptr_t)AV_SITE;
     if (!Matches((const void*)(uintptr_t)AV_A, kAvPro, sizeof(kAvPro)) || !Matches((const void*)(uintptr_t)AV_B, kAvPro, sizeof(kAvPro)) ||
-        !Matches((const void*)(uintptr_t)0x0085FF30, kAvPro, sizeof(kAvPro)) ||
-        !Matches((const void*)(uintptr_t)0x0081D090, kAvAssignPro, sizeof(kAvAssignPro)) || !Readable(site, 5) || site[0] != 0xE8 ||
+        !Matches((const void*)(uintptr_t)TS3A(0x0085FF30), kAvPro, sizeof(kAvPro)) ||
+        !Matches((const void*)(uintptr_t)TS3A(0x0081D090), kAvAssignPro, sizeof(kAvAssignPro)) || !Readable(site, 5) || site[0] != 0xE8 ||
         AV_SITE + 5 + *(const DWORD*)(site + 1) != AV_QUERY) {
         Log("SKIP avoid RO: a prologue (0x846B70, 0x85B470, 0x85FF30, 0x81D090) or the call at 0x846D1C differs");
         return;
     }
     if (!InstallSrWriters()) { Log("SKIP avoid RO: the S2 writer set (W1-W6, W4, tripwires) is not all in place"); return; }
-    g_avTwTramp[0] = InstallDetour("RoutingOptions_Assign (T-AV)", 0x0081D090, kAvAssignPro, sizeof(kAvAssignPro), (void*)AvTwAssign, &g_avTwTramp[0]);
+    g_avTwTramp[0] = InstallDetour("RoutingOptions_Assign (T-AV)", TS3A(0x0081D090), kAvAssignPro, sizeof(kAvAssignPro), (void*)AvTwAssign, &g_avTwTramp[0]);
     if (!g_avTwTramp[0]) return;
-    g_avTwTramp[1] = InstallDetour("RouteFollow_EditPathForRoute (T-AV)", 0x0085FF30, kAvPro, sizeof(kAvPro), (void*)AvTwEdit, &g_avTwTramp[1]);
+    g_avTwTramp[1] = InstallDetour("RouteFollow_EditPathForRoute (T-AV)", TS3A(0x0085FF30), kAvPro, sizeof(kAvPro), (void*)AvTwEdit, &g_avTwTramp[1]);
     if (!g_avTwTramp[1]) return;  // the first wrapper stays: it only counts
     k.avReady = 8;
     const CallSite cs = {AV_SITE, AV_QUERY, (void*)AvSiteEntry};

@@ -322,6 +322,63 @@ static void TestAllocSites() {
         VirtualFree(v, 0, MEM_RELEASE);
         g_asWrapLo = g_asWrapHi = g_asSelfLo = g_asSelfHi = 0;
     }
+    // docs/190 §5.6: an Apex frame (version.dll stands in) between the EA allocator and kernel32 is passed through only
+    // with the Apex image known: then at = the allocator frame and from = its caller, as without Apex
+    {
+        HMODULE dll = LoadLibraryW(L"version.dll");
+        DWORD cLo = 0, cHi = 0;
+        assert(dll && AsModOf((DWORD)(uintptr_t)GetProcAddress(dll, "GetFileVersionInfoW"), &cLo, &cHi) == (DWORD)(uintptr_t)dll);
+        auto afterCall = [](DWORD lo, DWORD hi) {  // an address whose 5 bytes before start with E8 (a call rel32)
+            for (DWORD a = lo + 8; a + 5 < hi; a++) if (*(const u8*)(uintptr_t)a == 0xE8) return a + 5;
+            return 0ul;
+        };
+        const DWORD apexRet = afterCall(cLo, cHi), wrapRet = afterCall(g_asTextLo + 0x1000, g_asTextHi);
+        const DWORD userRet = afterCall(wrapRet + 0x100, g_asTextHi);
+        assert(apexRet && wrapRet && userRet);
+        g_asWrapLo = wrapRet - 1, g_asWrapHi = wrapRet + 1;
+        const DWORD stk[3] = {apexRet, wrapRet, userRet};
+        DWORD f0, f1;
+        const LONG pass0 = ts3native_counters.aoApexPass;
+        AsAnyFrames(stk, &f0, &f1);
+        assert(f0 == apexRet && f1 == wrapRet && ts3native_counters.aoApexPass == pass0);
+        g_asApexBase = (DWORD)(uintptr_t)dll;
+        AsAnyFrames(stk, &f0, &f1);
+        assert(f0 == wrapRet && f1 == userRet && ts3native_counters.aoApexPass == pass0 + 1);
+        // owners: an Apex frame is apex; an EA allocator frame gives its from= owner (ea = true)
+        assert(AsOwnerAt(apexRet) == OW_APEX && AsOwnerAt(0) == OW_NONE);
+        AsSite ss = {};
+        ss.f0 = wrapRet, ss.f1 = apexRet;
+        bool ea = false;
+        assert(AsSiteOwner(ss, &ea) == OW_APEX && ea);
+        ss.f0 = userRet;
+        assert(AsSiteOwner(ss, &ea) != OW_APEX && !ea);
+        g_asApexBase = 0, g_asWrapLo = g_asWrapHi = 0;
+        FreeLibrary(dll);
+    }
+    // docs/190 §5.6 owner table (TS3W.exe 1.67 VAs): sorted, non-overlapping, inside .text, never the EA allocator range;
+    // the docs/201 §13.2 sites by name
+    {
+        int ver = 0;
+        for (int i = 0; i < kAsOwnN; i++) {
+            const AsOwnRow& r = kAsOwn[i];
+            assert(r.lo < r.hi && r.lo >= 0x401000 && r.hi <= 0xF95000 && r.own > OW_EXEQ && r.own < OW_OURS && r.ver <= 1);
+            assert(!i || kAsOwn[i - 1].hi <= r.lo);
+            assert(r.hi <= 0x4E3D00 || r.lo >= 0x4E9000);
+            ver += r.ver;
+        }
+        const struct { DWORD va; int own; } named[] = {{0x4DEC17, OW_RES}, {0x72D62B, OW_RES}, {0x57A593, OW_ANIM}, {0x5C7906, OW_CAS},
+            {0x5A2FFF, OW_CAS}, {0x8B452D, OW_AUDIO}, {0x60D91C, OW_GFX}, {0xD70916, OW_GC}, {0xD71558, OW_SCRIPT}, {0xD70A22, OW_MONO},
+            {0xE4EEF0, OW_GC}, {0x4AA1B0, OW_RES}, {0x59C5B0, OW_STR}, {0x83CED0, OW_ROUTE}, {0x4E5000, OW_EXEQ}, {0xDD0000, OW_EXEQ}};
+        for (const auto& n : named) {
+            if (AsExeOwner(n.va) != n.own) printf("allocsites FAIL: owner of 0x%06lX is %s, want %s\n", n.va, kAoName[AsExeOwner(n.va)], kAoName[n.own]);
+            assert(AsExeOwner(n.va) == n.own);
+        }
+        assert(kAsOwnN == 67 && ver >= 40);
+        printf("allocsites owners: %d ranges, %d verified, %d inferred\n", kAsOwnN, ver, kAsOwnN - ver);
+        // Apex gate: stand down unless AllocSitesWithApex=1; no Apex or ApexStandDown=0 = the normal install
+        assert(AsApexGate(false, true, false) == 1 && AsApexGate(true, false, false) == 1 && AsApexGate(true, true, false) == 0 &&
+               AsApexGate(true, true, true) == 2);
+    }
     // docs/201 §7.2: no first-chance AV in a hook when a stack word is a module base (DLL HMODULE, this exe's base) or
     // a header address; the reservation is still attributed to its caller
     {
@@ -387,6 +444,7 @@ static void TestAllocSites() {
         const HANDLE saved = g_log;
         g_log = h;
         static char buf[65536];
+        g_asOwn = true;  // docs/190 phase 3 "own" lines
         void* keep = AstCallMalloc(2u << 20);
         AsAfterSample(7, "mark", "cyc-full");
         void* v = AstCallReserve(16u << 20);
@@ -421,6 +479,13 @@ static void TestAllocSites() {
         assert(uw && uw < strchr(ur, '\n'));
         assert(strstr(buf, "allocsites: #11 mark ev=un usum private=") && strstr(buf, "owner=ts3native-allocsites first=#7 new=0"));
         assert(strstr(buf, " siteFull=0 "));
+        g_asOwn = false;
+        // own lines at each sample: heap holds the 2 + 3 + 5 MB blocks of #9 (under one owner or exe?), virt ends in untr=
+        const char* oh = strstr(buf, "allocsites: #9 mark ev=cyc-full own heap MB=");
+        assert(oh && atof(oh + strlen("allocsites: #9 mark ev=cyc-full own heap MB=")) >= 10.0);
+        const char* ov2 = strstr(buf, "allocsites: #11 mark ev=un own virt MB=");
+        assert(ov2 && strstr(ov2, " untr=") && strstr(ov2, " untr=") < strchr(ov2, '\n') && strstr(buf, "allocsites: #11 mark ev=un own map MB="));
+        assert(ts3native_counters.aoLines >= 5 && ts3native_counters.aoHeapKB >= 10 * 1024);
         for (char* s = buf; *s;) {  // every line fits the Log buffer
             char* e = strchr(s, '\n');
             assert(e && e - s < 510);
@@ -498,6 +563,15 @@ static void TestAllocSites() {
         u8* f = g_astCode + 288;
         memset(f, 0x90, 16);
         assert(!AsDetour("selftest other bytes", AstFn(f), kEaLockedPrologue, (int)sizeof(kEaLockedPrologue), (void*)AstChainHook, &g_astChainOrig) && f[0] == 0x90 && g_astChainOrig);  // refused: slot kept
+        // Apex mode (docs/190 §5.6): a jmp that does not lead into our own image is never chained; nothing written
+        g_asApexMode = true;
+        const LONG ref0 = ts3native_counters.aoApexRefused;
+        u8 was[5];
+        memcpy(was, e, 5);
+        AstIntFn slot = NULL;
+        assert(!AsDetour("selftest apex jmp", AstFn(e), kEaLockedPrologue, (int)sizeof(kEaLockedPrologue), (void*)AstChainHook, &slot) && !slot &&
+               !memcmp(was, e, 5) && ts3native_counters.aoApexRefused == ref0 + 1);
+        g_asApexMode = false;
     }
 
     // cost with the hooks in: 1 in 64 sampled (the default) and every block sampled (worst case)

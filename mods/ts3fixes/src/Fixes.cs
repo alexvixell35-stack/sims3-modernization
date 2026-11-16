@@ -27,6 +27,7 @@ namespace Ts3Fixes
             Marshal.Copy(o, saved, 0, kMethodHeader);
             Marshal.Copy(r, repl, 0, kMethodHeader);
             if (keepVirtual) KeepVirtual(saved, repl);
+            KeepAccess(saved, repl);
             Marshal.Copy(repl, 0, o, kNameOffset);
             Marshal.Copy(repl, kNameOffset + 4, new IntPtr(o.ToInt32() + kNameOffset + 4), kMethodHeader - kNameOffset - 4);
             return saved;
@@ -43,6 +44,17 @@ namespace Ts3Fixes
             Array.Copy(BitConverter.GetBytes(slot), 0, repl, kSlotOffset, 4);
         }
 
+        // The original keeps its own access bits (MethodAttributes.MemberAccessMask, flags word bits 0-2); the rest of the
+        // flags word stays the hook's (or the original's whole word, KeepVirtual). Before, a hooked private or protected
+        // EA method read as public afterwards, so a lookup with NonPublic and without Public (ours, another mod's, EA's)
+        // returned null, and a hook's stub read as the target's access. The bits do not change how a call runs: TS3W's
+        // Mono 1.2.3 makes no access checks (docs/200 [verified]), and vtable setup reads them only for virtual methods
+        // [inferred, Mono 1.2 class.c], whose whole flags word KeepVirtual already keeps. Check: VirtualSwapCheck.
+        static void KeepAccess(byte[] saved, byte[] repl)
+        {
+            const int access = (int)MethodAttributes.MemberAccessMask;  // 7, low byte of the flags word
+            repl[0] = (byte)((repl[0] & ~access) | (saved[0] & access));
+        }
 
         public static void Apply()
         {
@@ -58,6 +70,10 @@ namespace Ts3Fixes
             Patch(typeof(GoToLot), "Run", typeof(GoToLotHook), "RunHook", "RunOrig");
             Patch(typeof(GoToCommunityLot), "Run", typeof(GoToCommunityLotHook), "RunHook", "RunOrig");
             ApplyTripSubclasses();
+            ApplyMotiveBuf();  // motivebuf (MotiveBuf.cs): pass-through while off
+            ApplySocialStc();  // stcsocials (SocialStc.cs): pass-through while off
+            ApplyCallCensus();  // callcensus (CallCensus.cs): pass-through, counts only while on
+            ApplyUnseenVisitTrip();  // visitcar (UnseenVisitTrip.cs): the visit's driving chance, pass-through unless a Run asked
             // No tuning gate here: Apply runs in Instantiator's static constructor, before the tuning loader sets the [Tunable]
             // fields, so every tuning reads its C# default (docs/124 §17.8). Hooks read their tuning per call; patches that must
             // stay out unless a tuning is on go in ApplyTuned.
@@ -66,6 +82,7 @@ namespace Ts3Fixes
             ApplyRouteFixes();
             ApplyRouteBackoff();
             ApplyRouteFailLog();  // docs/226: logging only (routefaillog)
+            ApplyDoorGen();       // DoorGen.cs: door-answer generation for ts3native DoorMemoX=3 (switch doorgen, on)
             ApplyOverwatchStuck(false);
             ApplyOverwatchSpread(false);
             ApplyOverwatchNotice(false);
@@ -79,17 +96,128 @@ namespace Ts3Fixes
             ApplyRefTable();
             ApplyCachedReflection();
             ApplyUiCaches();
+            ApplyHudUnsub();
+            ApplyMapViewKeep();
+            ApplyBuyIconLeak();
+            ApplyCasRowLeak();  // back 2026-11-11: the two CAS crashes (TS3W 0x00EBAB5B) were its [ThreadStatic] depth field (EA's Mono has no thread statics), now a plain static
+            ApplyCompositorLeak();
+            ApplyGenealogyGuard();
+            ApplyRelRemoveSafe();
+            ApplyFamilyInvGhost();
+            ApplySellCursorLeak();
+            ApplyRelAlarmGuard();
+            ApplyMoodDrift();
+            ApplyListenerFixes();
+            ApplyEventCost();  // docs/545 §5 diagnostics, switch eventcost off
+            ApplyWishListenerFixes();
+            ApplyBuyCellRecycle();
+            ApplyMoodPending();
+            ApplyJoyrideCostume();  // docs/546 §4, on
+            ApplyAlarmKillLog();  // docs/546 row 5, log only
+            ApplySocialFinish();  // docs/546 §9, on
+            ApplySocialReceiveFail();  // docs/546 §9, on
+            ApplyPetFirePlan();  // docs/546 §10, off by default
+            ApplySplashRoof();  // docs/546 §16, off by default (NPCs only)
+            ApplyShuffleboardBcast();  // docs/546 §17, off by default (leak; exact for every Sim)
+            ApplyCookClickListener();  // docs/546 §17, off by default (leak; exact for every Sim)
+            ApplyVipRoomRefresh();  // docs/555 §3, off by default (EA throw; exact for every Sim)
+            ApplyCourseListener();    // docs/555 §4 (CourseListener.cs)
+            ApplyObservatoryMsg();    // docs/555 §6 (ObservatoryMsg.cs)
+            ApplyBubblePipeGuard();   // docs/555 §7 (BubblePipeGuard.cs)
+            ApplyBuffState();  // docs/557, off by default (per-Sim state on shared Buff objects; exact for one Sim, every Sim)
+            ApplyBirthRoute();  // docs/558 §1, off by default (NPC moms only)
+            ApplyPutDownPlace();  // docs/558 §2, off by default (NPC parent and child only)
+            ApplyStoreWorldEvents();  // docs/557 §4.2, off by default (leak: dead store-object handlers on static World events)
+            ApplyBowlingLane();       // docs/559 §3, off by default (BowlingLane.cs)
+            ApplyGenieBanish();       // docs/559 §4 (GenieBanish.cs)
+            ApplySpaceSimPartner();   // docs/559 §5, §10 (SpaceSimPartner.cs)
+            ApplyBandJam();           // docs/559 §6 (BandJam.cs)
+            ApplyStatueLine();        // docs/559 §7 (StatueLine.cs)
+            ApplyCleanFlag();         // docs/559 §8 (CleanFlag.cs)
+            ApplyBirdTvNull();        // docs/559 §9 (BirdTvNull.cs)
+            ApplyPhotoBoothFunds();   // docs/561 §2 (PhotoBoothFunds.cs)
+            ApplyShellLighting();     // docs/561 §5 (ShellLighting.cs)
+            ApplyBonfireSpice();      // docs/561 §6 (BonfireSpice.cs)
+            ApplyDjBoothCleanup();    // docs/561 §7 (DjBoothCleanup.cs)
+            ApplyVampireHuntGlow();   // docs/561 §7 (VampireHuntGlow.cs)
+            ApplyHotTubWoohooFx();    // docs/561 §7 (HotTubWoohooFx.cs)
+            ApplyBouncerBribeGuard(); // docs/561 §7 (BouncerBribeGuard.cs)
+            ApplyOppDeadListeners();  // docs/562 §1 (OppDeadListeners.cs)
+            ApplyDaycareQuit();       // docs/562 §2 (DaycareQuit.cs)
+            ApplyPrivateEyeCase();    // docs/562 §5 (PrivateEyeCase.cs)
+            ApplyWeddingCancel();    // docs/563 §1 (WeddingCancel.cs)
+            ApplyGhostSpawnArgs();    // docs/563 §2 (GhostSpawnArgs.cs)
+            ApplyMoveInPartner();    // docs/563 §3 (MoveInPartner.cs)
+            ApplyReaperFlow();    // docs/563 §4 (ReaperFlow.cs)
+            ApplyServiceLeave();    // docs/564 §1 (ServiceLeave.cs)
+            ApplyVisitGreetAlarm();    // docs/565 §1 (VisitGreetAlarm.cs)
+            ApplyFieldTripAdult();    // docs/565 §2 (FieldTripAdult.cs)
+            ApplyAutonomyFailBlock();    // docs/565 §3 (AutonomyFailBlock.cs)
+            ApplyVisitTooLate();    // docs/565 §5 (VisitTooLate.cs)
+            ApplySpoonReset();    // docs/565 §6 (SpoonReset.cs)
+            ApplyHomeworkHelp();    // docs/565 §7 (HomeworkHelp.cs)
+            ApplyGroupTalkStale();    // docs/566 §1 (GroupTalkStale.cs)
+            ApplyConvMerge();    // docs/566 §2 (ConvMerge.cs)
+            ApplyPortraitPose();    // docs/566 §4 (PortraitPose.cs)
+            ApplyPicnicCamera();    // docs/566 §5 (PicnicCamera.cs)
+            ApplyUpgradeFailAlarm();    // docs/567 §1 (UpgradeFailAlarm.cs)
+            ApplyRepairTimeCache();    // docs/567 §2 (RepairTimeCache.cs)
+            ApplyBurglarIdle();    // docs/568 §1 (BurglarIdle.cs)
+            ApplyGigWaitLeave();    // docs/568 §2 (GigWaitLeave.cs)
+            ApplySculptPose();    // docs/568 §3 (SculptPose.cs)
+            ApplyTrainBoost();    // docs/569 §1 (TrainBoost.cs)
+            ApplyEatOutsideCount();    // docs/569 §2 (EatOutsideCount.cs)
+            ApplyFireActiveJob();    // docs/570 §1 (FireActiveJob.cs)
+            ApplyFireTrapCount();    // docs/570 §5 (FireTrapCount.cs)
+            ApplyGenerationsLogic(); // docs/571 §1-4 (GenerationsLogic.cs)
+            ApplySeasonsLogic();     // docs/571 §5-7 (SeasonsLogic.cs)
+            ApplySupernaturalLogic(); // docs/571 §8 (SupernaturalLogic.cs)
+            ApplyShowtimeLogic();    // docs/571 §9-11 (ShowtimeLogic.cs)
+            ApplyUniversityLogic();  // docs/572 §4-5 (UniversityLogic.cs)
+            ApplyIslandParadiseLogic(); // docs/572 §6-7 (IslandParadiseLogic.cs)
+            ApplyFutureLogic();      // docs/572 §9-12 (FutureLogic.cs)
+            ApplyPetsLogic();        // docs/572 §13-15 (PetsLogic.cs)
+            ApplyPhoneLogic();       // docs/573 §1-6 (PhoneLogic.cs)
+            ApplyUniTravelLogic();   // docs/573 §7-9 (UniTravelLogic.cs)
+            ApplySmartPhoneGive();   // docs/573 §10-11 (SmartPhoneGive.cs)
+            ApplyHouseholdLogic();   // docs/574 §1-3 (HouseholdLogic.cs)
+            ApplyWaSkillsLogic();    // docs/574 §4-7 (WaSkillsLogic.cs)
+            ApplyCareerLogic();      // docs/574 §8-9 (CareerLogic.cs)
+            ApplyObjectUseLogic();   // docs/575 §2-5 (ObjectUseLogic.cs)
+            ApplyInUseLogic();       // docs/576 §2-3 (InUseLogic.cs)
+            ApplyAutonomyInUseBlock(); // docs/577 §1 (AutonomyInUseBlock.cs)
+            ApplyNpcBusyPartner();   // docs/577 §4 (NpcBusyPartner.cs)
+            ApplyAwardKeep();  // docs/546 §11, off by default
+            ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
+            ApplySimFestKeep();  // docs/546 §11, off by default
+            ApplyWeddingArchKeep();  // docs/546 §12, off by default
+            ApplyWeddingCleanup();  // WeddingCleanup.cs, default on (EA CleanUp NRE guard)
+            ApplyGraduationKeep();  // docs/546 §12, off by default (hsgradkeep, unigradkeep)
+            ApplyBoardingRefund();  // docs/546 §12, off by default
+            ApplyHiddenRoomNpc();  // docs/552, off by default (no hook: a sweep alarm started at world load)
+            ApplyHiddenRoomSpawn();  // docs/552, off by default (hiddenroomspawn)
+            ApplyAptLeave();  // docs/553, off by default (household guests: exact, deferred to the real lot exit)
+            ApplyPartyFixes();  // docs/554, off by default (partyoutcome, partymotive)
+            ApplyComboRabbitHole();  // docs/551, off by default (comboprotest, combovenue, combosituation, combojob, comboprotestlot, comboopp)
+            ApplyFilterGridLeak();
+            ApplyCasPuckLeak();
+            ApplyCasExitSweep();
+            ApplySeasonListener();
             ApplyNameCache();
             ApplyScriptHotSpots();
             ApplyVenueMemo();
+            ApplyExactMemos();  // lane L4 1115: permamemo, buffremovenoop, catnamecache (ExactMemos.cs), off by default
             ApplyDoorMirror();
             ApplyAutShadow();
+            ApplyAutRoomMemo();  // docs/97 AM-1 H1-H3/H5 (AutRoomMemo.cs), off by default; after AutShadow (rides on its IsAllowedInRoom swap)
             ApplyAutOffload();
             ApplyReplanDefer();
             ApplyUnseenThrottle();
             ApplyEaSpread();
             ApplySeasonMarkerCache();
             ApplyRouteSources();
+            ApplySpawnCap();  // docs/147 §5 D1, off by default (spawncapcount, spawncapprobe)
+            ApplyRouteLen();  // docs/246 §6 counters 1/3/4, diagnostic, off (routelen)
             ApplyDisposeSpread();
             ApplyMemAlive();
             ApplyUfFinish();
@@ -134,7 +262,10 @@ namespace Ts3Fixes
 
         static bool Compiled(MethodInfo t) { return Marshal.ReadInt32(new IntPtr(t.MethodHandle.Value.ToInt32() + 0x14)) != 0; }
 
-        static List<object> AppliedLog() { return (List<object>)AppDomain.CurrentDomain.GetData("ts3fixes.applied"); }
+        internal static List<object> AppliedLog() { return (List<object>)AppDomain.CurrentDomain.GetData("ts3fixes.applied"); }
+
+        // A patch target from GetNestedType/GetType is null when that type is missing (e.g. a core mod without it)
+        static string TypeName(Type t) { return t != null ? t.Name : "<null>"; }
 
         // Counters, read by test tools: [0-3] go-home runs/shortcuts/no spot/loop guard, [4-6] buildings, [7-18] lot
         // trips (visit, visitlot, gotolot, gotocommunity: runs/shortcuts/no spot each), [21] houseboat placements,
@@ -155,7 +286,7 @@ namespace Ts3Fixes
         // [90-92] SafeSpot placements answered by a stored FindGoodLocation result / searches run / verify differences (switch safespotreuse),
         // [88-89] tooltip window walks skipped / run (ScriptHotSpots.cs),
         // [93-98] spring wildflower fires / tries / placed / failed / longest ms / save aborts (wildflowerprobe, wildflowertask; ScriptHotSpots.cs, docs/110),
-        // [99-101] reserved for invcache (docs/115), [102-105] door mirror: door imports seen / lot invalidations / lot tables built /
+        // [99-101] invcache (ScriptHotSpots.cs, docs/115): dispatches from the kept handler list / lists built / verify mismatches, [102-105] door mirror: door imports seen / lot invalidations / lot tables built /
         // builds refused (doormirror; DoorMirror.cs, docs/105 §10.5), [106-121] [AutShadow] pilot (AutShadow.cs, docs/122): A0..A5,
         // L pairs / equal / Test agree / top-1 agree, skips, warm-in reference runs, requests posted, Begin busy, mod-guard
         // skips, managed exceptions in the driver, [122-126] [AutShadow] mod guards (docs/128 §5): sf skips, G-M4 methods /
@@ -281,6 +412,7 @@ namespace Ts3Fixes
         // [778-784] unseenprobe/unseenpark (UnseenThrottle.cs, docs/245): low-LOD refreshes run, us in those runs, gap histogram.
         // [818-823] unseenpark (UnseenThrottle.cs, docs/243 §9): held, snap-back, exempt, searches unseen / seen, arrivals; [824] most snap releases in one tick (the stagger working), [825] polls of a seen held Sim deferred to its slot.
         // [836-849] unseenboat (UnseenBoat.cs, docs/248): get-in replans seen by UbCountReplan (switch on or off), of those seen, unseen; shortcuts, no spot, refused route, refused Sim, houseboat teleports, owned boat, candidates (transport or houseboat trips), seen or ended during the gate or wait, refused goal, longest wait (sim-minutes), colours unknown.
+        // [948-949] unseenboat no-refusal split (UnseenBoat.cs UbBookReplan, docs/247 §12.11): boat replans booked with no sUbLastWhy entry (the Sim never reached UbTrip, or the 512 clear) / their ms.
         // [854-861] scopegap (UnseenFallback.cs UfDriverless, UfSlowPlanLog; counters only): driverless routes (who == null) by Vehicle+IOwnableVehicle / Vehicle not ownable / household or selectable Sim in Occupants / not a Vehicle; plans of Sims in 80 m viewer range only (viewer bit, no on-screen, no reach), of those >= 250 ms, their total ms; driverless total.
         // [850-853] unseenboatstart (docs/248 §10): Sims leaving a houseboat: candidates, shortcuts, no spot, left dirty (must stay 0). Subsets of [845], [839], [840].
         // [2033-2034] buffupdate (BuffUpdate.cs, issue #166 build 20, docs/510): out-of-sync exceptions from UpdateBuffs, caught.
@@ -298,6 +430,10 @@ namespace Ts3Fixes
         // [2047] deadrefsweep phase 11 (DeadRefs.cs, issue #166 build 43, docs/519): object owner components whose owner or thief Sim was gone (relinked or dropped).
         // [2048] deadrefsweep phase 12 (DeadRefs.cs, issue #166 build 41, docs/522): ObjectDisposed handlers of relationships nobody holds, removed.
         // [2049] deadrefsweep phase 13 (DeadRefs.cs, issue #166, docs/523): celebrity waiting-to-react entries that were gone, removed.
+        // [994] deadrefcooking (DeadRefs.cs phase 14, docs/205 §4): CookingProcess ObjectDisposed handlers removed. [995-996] deadrefconvo (phase 15, docs/517 §4): gone conversation members removed / conversation visits skipped for a household member.
+        // [997] takeariskguard (TakeARiskGuard.cs, docs/529 §4): Take a Risk liking updates skipped (null relationship, EA would throw).
+        // [1014-1017] permamemo (ExactMemos.cs, docs/245 §5 H): hits / misses / verify mismatches / table clears. [1018-1019] buffremovenoop (docs/95 §5.5): early returns / calls passed on.
+        // [1020-1023] catnamecache (ExactMemos.cs, docs/96 B2): hits / misses / verify mismatches / clears. [1024-1037] AM-1 (AutRoomMemo.cs, docs/97 §7): pairs, segments, room memo hits / misses / verify mismatches, calls outside a pair, floods inside a pair, memo drops inside a pair, segment time buckets <1/1-2/2-5/5-10/>=10 ms, max segment us.
         // [2050] rewardgiver (RewardGiver.cs, docs/525): owner components SetRewardGiver added in place of EA's NullReferenceException.
         // [2054] leavejobdispose (LeaveJobDispose.cs, docs/529 §2): deferred job leaves done at once for a description being disposed at work.
         // [2053] unused (a bedpartner fix was dropped: simler90's core already guards the partner in BedMultiPart.ClaimOwnership, docs/529 §1).
@@ -318,12 +454,167 @@ namespace Ts3Fixes
         // [2079] dreamnodedeadsim (DeadSimHolders.cs): EA dream nodes' owner-less trigger listeners removed whose node's Sim object is gone.
         // [2080] overwatchdeadsim (DeadSimHolders.cs): NRaas Overwatch stuck-check entries removed whose last interaction's Sim object is gone.
         // [934-935] dreamnodedeadsim / overwatchdeadsim (DeadSimHolders.cs): listeners / entries kept by the household rule (owner household, selected or unknown scope).
+        // [945-947] boatgetoutdiag (BoatGetOutDiag.cs, docs/257 §7): Boat.GetOut calls watched / SittingInBoat replaced by another task during the fade / NullReferenceException out of a watched GetOut (rethrown).
+        // [953-954] boatgetoutguard (BoatGetOutDiag.cs, docs/257 §9): stale-posture NullReferenceExceptions out of Boat.GetOut swallowed for NPCs (Sim reset) / kept by the household rule (household, selected or unknown scope; EA's error stays).
+        // [937] boatparkgone (BoatParkGone.cs, docs/257): BoatOwnable.Park calls skipped because the boat was already destroyed (no RoutingComponent; EA would throw).
         // [936] outfitwaitsaved (OutfitWaitSaved.cs): saved makeover tasks kept by the household rule.
         // [2081] errortrapctl (ErrorTrapSims.cs): NRaas ErrorTrap dereference controllers' item lists dropped after the world-load scan (they kept the whole graph until the next load).
         // [2083] outfitwaitsaved (OutfitWaitSaved.cs): MagicMirror MagicalMakeover alarm tasks resumed from the save inside EA's Wait (WaitOrig, never seen by the outfit-wait hook), actor gone, destroyed.
         // [2084-2087] simrefsdeadsim (SimRefsDeadSim.cs): live Sims' references to gone Sim objects dropped: SocialComponent.mLastTalkingTo cleared / SimRoutingComponent.mPusherSim cleared / Celebrity.mWaitingToReact entries removed / Occult*.mOwningSim reset to the current Sim or null.
         // [2088-2091] deadsimcount (DeadSimCount.cs, read-only): destroyed Sim objects still in memory now / of them destroyed 6+ sim hours ago / collected since the session began / Sim objects tracked.
+        // [2200-2216] vehicle leaks (VehicleLeaks.cs, docs/544): 2200-2204 vehparkreserve dead reservations seen at a pick / cleared at a pick / seen hourly / cleared hourly / kept by the household rule;
+        // 2205-2208 vehgetinleak get-ins that left their vehicle loose / throwaway released / NPC vehicle to inventory / kept; 2209-2211 vehseatdestroy seated Sims destroyed with the vehicle still there a tick later / dead refs cleared / released;
+        // 2212-2213 vehfrankentaxi unused intro taxis seen / released; 2214-2216 vehprotestcar cop cars tracked / left with no driver or drive-away after a sim-hour / destroyed. "Seen" counters count with the switch off too.
+        // [2235-2238] relremovesafe (RelRemoveSafe.cs): Sim removals where EA's relationship removal would throw / one-sided entries for the removed Sim / removals seen / errors.
+        // [2290-2292] seasonlistener (SeasonListenerLeak.cs): stale / duplicate Motives season listeners (also off) / removed / errors or skipped.
+        // [2287-2289] casfiltergrid (CasExitSweep.cs): CAS filter grids at CASPuck.Unload (also off) / restored / errors.
+        // [2384-2386] splashroof (SplashRoof.cs, docs/546 §16): rain puddles on roofs dropped from NPC splash runs / NPC runs that dropped one / errors.
+        // [2409-2411] shuffleboardbcast (ShuffleboardBroadcast.cs, docs/546 §17): broadcasters replaced by Shuffleboard+Play.TriggerReactions (also off) / disposed after Cleanup / errors.
+        // [2417-2419] viproomrefresh (VipRoomRefresh.cs, docs/555 §3): RefreshVIPRooms calls where EA's foreach would throw (also off) / empty VIP rooms removed over a copy / errors.
+        // [2420-2423] courselistener (SmallEaFixes555.cs, docs/555 §4): course listeners removed at leave / schedule rebuild / moved with the course / stale moves seen (also off) / errors.
+        // [2424-2425] observatorymsg (SmallEaFixes555.cs, docs/555 §6): Simulon V stardust-only notices corrected (also off) / errors. [2426-2427] bubblepipeguard: failed-pipe exits / errors.
+        // [2428-2434] buffstate (BuffSharedState.cs, docs/557): Downtrodden removals that would leave the Sim's alarm (also off) / Downtrodden alarms removed / curse removals hitting another Sim's listener (also off) / curse listeners fixed / Fertility Treatment traits removed / hypnosis+queasy handlers replaced / errors.
+        // [2435-2437] storeworldevents (StoreWorldEvents.cs, docs/557 §4.2): dead object handlers on World quit / placed-in-lot and ObjectGroupSaving (also off) / removed / errors.
+        // [2448-2452] bowlinglane (BowlingLane.cs, docs/559 §3): cancelled start waits released / ghost bowlers dropped / route-fail exits / join restarts applied to other bowlers / errors.
+        // [2458-2460] bandjam (BandJam.cs, docs/559 §6): sweet-move requests refused for a non-playing jammer (also off) / empty-jam sounds stopped / errors. [2461-2462] statueline (§7): statue-line entries fixed (wrong dequeues also off) / errors.
+        // [2463-2464] cleanflag (§8): BeingCleaned left set by an already-cleaned exit (also off; cleared when on) / errors. [2465-2466] birdtvnull (§9): TVs on with no channel skipped / errors. [2467-2468] spacesimpartner ride ends (§10, always): partner already gone / still riding.
+        // [2477-2478] gohomewalk (docs/560 §2): walk-style requests GoHome.Run left set, released / errors (hook in GoHomeHook).
+        // [2479-2480] photoboothfunds (PhotoBoothFunds.cs, docs/561 §2): Sims left faded out inside a photo booth taken out / errors.
+        // [2481-2482] shelllighting (ShellLighting.cs, docs/561 §5): shells set to the current lighting at startup / errors.
+        // [2483-2485] bonfirespice (BonfireSpice.cs, docs/561 §6): herbs returned or destroyed / overlapping spice events fixed / errors.
+        // [2486-2488] djcleanup (DjBoothCleanup.cs, docs/561 §7): other Sims' DJ sets kept / other patrons' requests kept / errors.
+        // [2489-2490] vampirehuntglow (VampireHuntGlow.cs, docs/561 §7): heat-vision glows cleared on hunt candidates that left the lot / errors.
+        // [2491-2492] hottubwoohoofx (HotTubWoohooFx.cs, docs/561 §7): woohoo effects stopped after a cut-off woohoo / errors.
+        // [2493-2494] bribeguard (BouncerBribeGuard.cs, docs/561 §7): bouncer bribe charges guarded after the nightly rope cleanup / errors.
+        // [2495-2496] oppdeadlisteners (OppDeadListeners.cs, docs/562 §1): ended opportunities' Sim died / disposed / instantiated listeners removed / errors.
+        // [2497-2498] daycarequit (DaycareQuit.cs, docs/562 §2): daycare child managers cleaned after a quit outside work hours / errors.
+        // [2499-2504] privateeyecase (PrivateEyeCase.cs, docs/562 §5): mail no-case / door fallback / garbage dead-case exits / stale snoop alarms ignored / break-in locks restored / errors / stakeouts fixed.
+        // [2505-2507] weddingcancel (WeddingCancel.cs, docs/563 §1): end alarms armed after the impatience cancel / guest insults set on the jilter relationship / errors.
+        // [2508-2509] ghostspawnargs (GhostSpawnArgs.cs, docs/563 §2): angry ghost spawns forwarded / spawns forwarded with another lot.
+        // [2510-2512] moveinpartner (MoveInPartner.cs, docs/563 §3): story move-ins swapped to the partner / skipped (no room either way) / errors; [2516] teen move skipped (docs/563 §5).
+        // [2513-2515] reaperflow (ReaperFlow.cs, docs/563 §4): reaper soda pushes given a failure path / Challenge Death to Chess hidden with no grave / errors.
+        // [2517-2521] serviceleave (ServiceLeave.cs, docs/564 §1): service timeouts re-armed after a worker reset (wait/leave, work limit) / repo man left with no mailbox / no delay found / errors.
+        // [2522-2523] serviceleave (docs/564 §2): babysitter/butler periodic checks re-armed / repo-man no-op states left.
+        // [2524-2526] visitgreetalarm (VisitGreetAlarm.cs, docs/565 §1): re-armed greeting wait alarms dropped / stale wait timeouts ignored / errors.
+        // [2527-2529, 2533] fieldtripadult (FieldTripAdult.cs, docs/565 §2): trips ended with no possible chaperone (hang) / unfit chaperones skipped / deleted-chaperone or exited-trip calls / errors.
+        // [2530-2532] autonomyfailblock (AutonomyFailBlock.cs, docs/565 §3): autonomous posture failures blocked / left alone / errors.
+        // [2534-2535] visittoolate (VisitTooLate.cs, docs/565 §5): NPC guests sent home when outside and too late / errors.
+        // [2536-2537] spoonreset (SpoonReset.cs, docs/565 §6): spoon pairs released after the partner was gone / errors.
+        // [2538-2539] homeworkhelp (HomeworkHelp.cs, docs/565 §7): helpers stopped with no jig or no child / errors.
+        // [2540] fieldtripadult (docs/565 §2d): carpool home with no selected Sim / no home handled.
+        // [2541-2543] grouptalkstale (GroupTalkStale.cs, docs/566 §1): departed group-talk members dropped / Sims moved out of an old group on re-register / errors.
+        // [2544-2545] convmerge (ConvMerge.cs, docs/566 §2): merged-away conversation discourage regions cleaned / errors.
+        // [2546-2547] portraitpose (PortraitPose.cs, docs/566 §4): portrait subjects' poses cancelled after the painter failed / errors.
+        // [2548-2549] picniccamera (PicnicCamera.cs, docs/566 §5): picnic Serve map-view callbacks removed / errors.
+        // [2550-2552] upgradefailalarm (UpgradeFailAlarm.cs, docs/567 §1): pending failed-upgrade cancel alarms removed at booking / at restart / errors.
+        // [2553-2555] repairtimecache (RepairTimeCache.cs, docs/567 §2): stale repair times dropped / own time while another Sim repairs / errors.
+        // [2556-2558] burglaridle (BurglarIdle.cs, docs/568 §1): burglar leaves with no household / after a fire reaction that did not leave / errors.
+        // [2559-2561] gigwaitleave (GigWaitLeave.cs, docs/568 §2): Stylist / Singer gig wait pulses stopped after their own timeout leave / errors.
+        // [2562-2563] sculptpose (SculptPose.cs, docs/568 §3): Sculpt Sim subject poses cancelled after the sculptor failed / errors.
+        // [2564-2565] free (released).
+        // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
+        // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
+        // [2570-2572] fireactivejob (FireActiveJob.cs, docs/570 §1): stale ActiveFireFighter.sActiveJob cleared at world quit / dropped at load / errors.
+        // [2573-2576] firetrapcount (FireTrapCount.cs, docs/570 §5): trapped-Sim tasks dropped for Sims gone from the lot / hidden apartment trap spots removed / jobs completed by a drop / errors.
+        // [2577-2579] birthdayagers (GenerationsLogic.cs, docs/571 §1): later agers recorded / listeners removed at cleanup / errors.
+        // [2580-2583] sneakoutlistener (GenerationsLogic.cs, docs/571 §2): stale sneak-outs skipped / duplicate return-home listeners removed / left-over sneak listeners removed / errors.
+        // [2584-2585] promcarpool (GenerationsLogic.cs, docs/571 §3): prom carpools removed / errors.
+        // [2586-2587] curfewalarm (GenerationsLogic.cs, docs/571 §4): handles reset at quit / errors.
+        // [2588-2590] trickortreatalarm (SeasonsLogic.cs, docs/571 §5): handles reset at quit / off-holiday runs skipped / errors.
+        // [2591-2592] snowfightjoinwait (SeasonsLogic.cs, docs/571 §6): arenas reset at game end / errors.
+        // [2593-2594] hauntedumbrella (SeasonsLogic.cs, docs/571 §7): answers changed / errors.
+        // [2595-2596] permazombiemoon (SupernaturalLogic.cs, docs/571 §8): listeners re-registered at load / errors.
+        // [2597-2599] steadygigmiss (ShowtimeLogic.cs, docs/571 §9): other Sims' misses ignored / listeners registered at load / errors.
+        // [2600-2601] npcshowstuck (ShowtimeLogic.cs, docs/571 §10): stale flags cleared / errors.
+        // [2602-2603] gigpullaudience (ShowtimeLogic.cs, docs/571 §11): stale pulls skipped / errors.
+        // [2604-2606] lunacysocials (SupernaturalLogic.cs, docs/572 §1): per-Sim alarms scheduled / re-armed at load / errors.
+        // [2607-2608] fairyauratimer (SupernaturalLogic.cs, docs/572 §2): timers restored / errors.
+        // [2609-2611] npcseasonalparty (SeasonsLogic.cs, docs/572 §3): listeners registered at load / NPC parties skipped / errors.
+        // [2612-2613] professorterm (UniversityLogic.cs, docs/572 §4): professors kept / errors.
+        // [2614-2615] protestlastday (UniversityLogic.cs, docs/572 §5): resets at quit / errors.
+        // [2616-2617] seasickpaused (IslandParadiseLogic.cs, docs/572 §6): buffs unpaused or alarms dropped / errors.
+        // [2618-2619] resortweddingalarm (IslandParadiseLogic.cs, docs/572 §7): handles released / errors.
+        // [2622-2623] plumbotfacelistener (FutureLogic.cs, docs/572 §9): other Sims' events ignored / errors.
+        // [2624-2625] efficientchip (FutureLogic.cs, docs/572 §10): modifiers corrected / errors.
+        // [2626-2627] sentiencename (FutureLogic.cs, docs/572 §11): names repaired / errors.
+        // [2628-2629] jetpackflyingbuff (FutureLogic.cs, docs/572 §12): buffs unpaused / errors.
+        // [2630-2631] horsetraitscore (PetsLogic.cs, docs/572 §13): scores computed on the horse / errors.
+        // [2632-2633] wildhorsegender (PetsLogic.cs, docs/572 §14): genders swapped / errors.
+        // [2634-2635] littercap (PetsLogic.cs, docs/572 §15): caps lowered / errors.
+        // [2636-2637] phoneloadreset (PhoneLogic.cs, docs/573 §1): phones cleared / errors.
+        // [2638-2639] phonecallschedule (PhoneLogic.cs, docs/573 §2): windows corrected / errors.
+        // [2640-2641] phonecallrearm (PhoneLogic.cs, docs/573 §3): alarms re-armed / errors.
+        // [2642-2643] woohootywait (PhoneLogic.cs, docs/573 §4): waits ended early / errors.
+        // [2644-2645] invitecallreply (PhoneLogic.cs, docs/573 §5): replies corrected / errors.
+        // [2646-2647] gradvisitors (PhoneLogic.cs, docs/573 §6): entries dropped / errors.
+        // [2648-2649] resumetns (UniTravelLogic.cs, docs/573 §7): notices shown / errors.
+        // [2650-2651] unitravelflag (UniTravelLogic.cs, docs/573 §8): flags cleared / errors.
+        // [2652-2653] returnhomealarms (UniTravelLogic.cs, docs/573 §9): handles reset / errors.
+        // [2668-2669] phonefixup (SmartPhoneGive.cs, docs/573 §10): phones checked after a grant / errors.
+        // [2670-2671] phonegive (SmartPhoneGive.cs, docs/573 §11): phones given with a correction / errors.
+        // [2654-2655] wildherdmother (HouseholdLogic.cs, docs/574 §1): mothers replaced / errors.
+        // [2656-2657] splitpartner (HouseholdLogic.cs, docs/574 §2): partners cleared or splits refused / errors.
+        // [2658-2659] movingflag (HouseholdLogic.cs, docs/574 §3): flags cleared / errors.
+        // [2660-2661] sandscoins (WaSkillsLogic.cs, docs/574 §4): piles given / errors.
+        // [2674-2675] tombmusic (WaSkillsLogic.cs, docs/574 §5): resets / errors.
+        // [2662-2663] artsellnoartist (WaSkillsLogic.cs, docs/574 §6): sales completed without an artist / errors.
+        // [2664-2665] royaltyorphan (WaSkillsLogic.cs, docs/574 §7): alarms removed / errors.
+        // [2666-2667] promoteshift (CareerLogic.cs, docs/574 §8): answers corrected / errors.
+        // [2672-2673] gotoworkstale (CareerLogic.cs, docs/574 §9): stale pushes skipped / errors.
+        // [2679-2680] handsetreset (ObjectUseLogic.cs, docs/575 §2): handsets put back / errors.
+        // [2681-2682] flowersinuse (ObjectUseLogic.cs, docs/575 §3): bouquets freed / errors.
+        // [2683-2684] uselistprune (ObjectUseLogic.cs, docs/575 §4): use/reference entries dropped / errors.
+        // [2685-2686] chestuselist (ObjectUseLogic.cs, docs/575 §5): Sims taken off / errors.
+        // [2687-2688] swapdelegates (SwapDelegates.cs, docs/576 §1, ON): hook classes mapped / left alone (gauges, not counts).
+        // [2689-2690] resetinusefree (InUseLogic.cs, docs/576 §2): items freed / errors.
+        // [2691-2692] putdowninuse (InUseLogic.cs, docs/576 §3): put-downs repaired / errors.
+        // [2693-2695] autonomyinuseblock (AutonomyInUseBlock.cs, docs/577 §1): taken objects blocked / seen with switch off / errors.
+        // [2742-2746] stcsocials / stcsocialscheck (SocialStc.cs, docs/584 §9): calls served / lists or lookups saved / checks / check mismatches / fallbacks.
+        // [2739-2741] tpdoorrights (UnseenTeleportGoal.cs, docs/584 §7): lots open by the Sim's own door rights that upstream closes / of those only by household access / closed by a door the Sim cannot pass.
+        // [2736-2738] routableasync (RouteBackoff.cs, docs/584 §3): kind-2 STARTs let through (unseen routable checks) / refused here / let through but not started.
+        // [2733-2735] buffbufcheck (MotiveBuf.cs, docs/584 §5): UpdateBuffs calls checked / empty delayed list (ilp_buffbuf skips the copy) / Count vs enumeration mismatches (must be 0).
+        // [2729-2732] motivebuf (MotiveBuf.cs, docs/584 §5): updates from a pooled list / snapshots checked / check mismatches (must be 0) / fallbacks or errors.
+        // [2722-2724] visitcar (UnseenVisitTrip.cs, docs/584 §1): long autonomous NPC visits judged / flips that kept driving / left to EA's flip (household, selected, seen).
+        // [2725-2728] visitwalkfinish (UnseenVisitTrip.cs, docs/584 §1): interrupts asked / walks finished at the goal / refused at the callback / errors.
+        // [2696-2698] npcbusypartner (NpcBusyPartner.cs, docs/577 §4): NPC waits ended / seen with switch off / errors.
+        // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
+        // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
+        // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
+        // [2443-2447] putdownplace (PutDownPlace.cs, docs/558 §2): put-down searches failed on routes (also off) / put down in place / children moved to a safe spot / declined / errors.
+        // [2415-2416] etderefdiag (ErrorTrapDerefDiag.cs, docs/552 §11, log only, on): etderef: lines written / errors.
+        // [2412-2414] cookclicklistener (CookClickListener.cs, docs/546 §17): clicked-object listeners of destroyed servings removed / ObjectDisposed handlers unhooked from the original object / errors.
+        // [2387-2390] hiddenroomspawn (HiddenRoomSpawn.cs, docs/552): reset fallbacks re-picked / corner spots re-picked / created service NPCs moved / errors.
+        // [2400-2404] party fixes (PartyFixes.cs, docs/554; 2398-2399 unused): partyoutcome lame restored / guest tier changed / errors; partymotive motives removed / errors.
+        // [2391-2397] aptleave (AptLeave.cs, docs/553): apartment room-change calls skipped (not leaving) / run with the switch on / seen (any state) / errors / deferred party removals applied at the real lot exit / deferrals dropped (back in the apartment) / household skips (of 2391).
+        // [2379-2383] hiddenroomnpc (HiddenRoom.cs, docs/552): trapped NPCs moved out (first try) / second tries (sent home) / household Sims seen trapped (log only) / NPCs left after two tries / errors.
+        // [2300-2303] casexitsweep (CasExitSweep.cs): detached live entries at CAS exit (also off) / cleaned / skipped parented / errors.
+        // [2284-2286] caspuckevents (CasPuckLeak.cs): CASPuck disposed with its dashboard handler attached (also off) / handlers removed / errors.
+        // [2293-2295] famcursorleak (CasPuckLeak.cs): family-screen drag cursor windows at Unload (also off) / disposed / errors.
+        // [2296-2298] compositorghost (CompositorLeak.cs): ghost controller entries after Unload (also off) / removed / left or errors; [2299] live orphan windows disposed.
+        // [2281-2283] filtergridleak (FilterGridLeak.cs): filter grids at Buy/Build Unload (also off) / DisposeOnDetach restored / errors.
+        // [2278-2280] moodpending (MoodPending.cs): ChangeMoodValue on a pending buff (also off) / mood moves skipped / errors.
+        // [2272-2277] buyclearrecycle / buygridsweep (BuyCellRecycle.cs): cells at ShowCatalogGrid(false) (also off) / cached / errors / icons in other grids at Dispose (also off) / disposed / errors.
+        // [2269-2271] buycellrecycle (BuyCellRecycle.cs): Buy catalog cells dropped by AddGridItem (also off) / returned to a cache / errors.
+        // [2260-2268] dreamrootorphan / blogorphan / dnpupdateguard (WishListenerFixes.cs): root listeners left by a thrown-away test (also off) / removed / errors / blog one-off listeners left (also off) / removed / errors / Update exceptions seen / swallowed / errors.
+        // [2254-2259] dnpdisposelistener / seasondup (ListenerFixes.cs): wish managers created (also off) / object listeners moved / errors / duplicate season adds (also off) / skipped / errors.
+        // [2251-2253] mooddrift (MoodDrift.cs): Sims whose mood target had drifted off their buffs (also counted off) / mood points corrected / errors.
+        // [2245-2250] attractionalarm / uncleguard (RelAlarmGuard.cs): attraction handlers seen / controllers stopped for a removed Sim / errors / uncle checks with a parent with no description (also off) / uncle checks / errors.
+        // [2242-2244] sellcursorleak (SellCursorLeak.cs): sell panels closed with drag-cursor windows noted (also with the switch off) / windows disposed / errors.
+        // [2239-2241] familyinvghost (FamilyInvGhost.cs): destroyed objects still listed in a family inventory (also with the switch off) / removed / errors.
+        // [2235-2238] relremovesafe (RelRemoveSafe.cs): see the file.
+        // [2229-2234] genealogycycle / spouseunlink (GenealogyGuard.cs): ancestor repeats skipped / parent loops stopped / Divorce with no spouse / old spouses unlinked / ApplySpouseUpdate calls / errors.
+        // [2226-2228] unused: petwishleak (PR #368) dropped at import, duplicate of dnppetkeys (Rodney 2026-11-12).
+        // [2223-2225] compositorleak (CompositorLeak.cs): CAS design-tool Unloads with a tool (also with the switch off) / dict entries of its tree unregistered / errors.
+        // [2220-2222] casrowleak (CasRowLeak.cs): empty CAS clothing rows CASClothingCategory.AddGridItem left unattached (also with the switch off) / disposed the OnCustomDetach way / errors.
+        // [2217-2219] buyiconleak (BuyIconLeak.cs): Buy/Build exits seen / stale custom-control entries removed after BuyController.Dispose / errors.
         // [2092-2093] deadsimhollow (DeadSimCount.cs): destroyed Sims held 6+ sim hours whose own reference fields were cleared / fields cleared.
+        // [2106-2107] dnpsubjectcache (DnpSubjectCache.cs): cached descriptions of removed Sims cleared / wish-subject table entries.
+        // [2108-2109] hudunsub (HudUnsub.cs): HUD panels whose leftover model handlers were removed at Dispose / handlers not found or errors.
+        // [2103-2105] mapviewkeep (MapViewKeep.cs): map filter panels shown again / built by the game / kept panels dropped.
+        // [2094-2096] tinyuieventreg (TinyUiEventReg.cs): Tiny UI Fix registry entries of detached windows removed / their handlers removed / entries left.
+        // [2097-2099] customctlsweep (CustomCtlSweep.cs): UIManager custom-control wrappers of gone windows removed / not-attached kept / entries left.
+        // [2120-2121] exitcbsweep (ExitCbSweep.cs): stale Sim.OnExitReasonsAdded route delegates removed / longest delegate list seen on one Sim before the pass.
+        // [2122-2123] dnppetkeys, dnpobjkeys (DnpRemovalKeys.cs): ended Pet/SimOrPet wish nodes dropped from mPotentialRemovalNodes / ended nodes under a destroyed object key dropped.
         // [876-877] bookhand (BookHand.cs, docs/251): books Book.StopUsingBook left in the hand with no carry machine, seen at an EA put-down that would throw (also with the switch off), moved out of the hand by EA's handler.
         // [758-759] asyncjigsync (AsyncJigSync.cs, RouteBackoff.cs AsyncEligible, docs/240): own plans kept sync while the Sim's interaction holds an unplaced SocialJig / of those with the jig only in the linked interaction.
         // [763-768] autofft2 (AutOffload.cs, docs/208 §9.1): items, A0, A2, A4, A5, exceptions
@@ -332,6 +623,9 @@ namespace Ts3Fixes
         // [785-817] G8 search queue wait, manager depth, seen path, household, worker wait, search length (AutLive.cs QueueNote, docs/222 §11.8)
         // [867-870] G8 household part of the seen waits: queue n, ticks, worker n, ticks (AutLive.cs QueueNote, WorkerWait)
         // [898-902] tier-2 H7-H10 (AutShadow.cs, docs/126 §3; autt2drag/autt2cache/autt2tuning/autt2lod): H8 `cache` aborts, H9 `tuning` aborts, H7 drag answers, H10 LOD answers, H10 answers past the game's 60-tick recompute.
+        // [938-943] tier-2 P2 (AutShadow.cs, docs/data/tier2-rows35-handoff.md; autt2cewarm/autt2frontdoor/autt2suite): CauseEffect data pre-warm fills (sim thread), CauseEffect worker aborts, front-door answers, front-door aborts, BuyModeSuite answers, BuyModeSuite aborts.
+        // [944] tier-2 P3 (AutShadow.cs, autt2callpet): CallPet self Tests run on the worker with the shared mSimPickerList put back.
+        // [950]-[952] boatreplanlog gangway fixups (HitchCause.cs, docs/247 §13.3 R1): lines, ms with the Sim unseen, ms not unseen.
         // [903-927] autt2l0 (AutLocalProbe.cs, docs/data/tier2-local-phase-handoff.md L0): local-phase searches, us and pairs by actor class (household, seen, unseen), side entries, no-local floor, unseen B8 reasons, span ms, nested, exceptions
         // [892-897] dancefloorlistdiag (DanceFloorDiag.cs, docs/253 §7): FindAndRouteOntoADanceFloorWithFollower calls, returns, "Collection was modified" throws (all three also with the switch off), route steps checked, steps with a mismatch, of those with the list freed.
         // [928-929] dancefloorlistguard (DanceFloorDiag.cs, docs/253 §11): guarded FindAndRouteOntoADanceFloorWithFollower calls, list changes the snapshot loop got past (EA's next MoveNext would have thrown).
@@ -339,12 +633,26 @@ namespace Ts3Fixes
         // [872-875] watchdogasync A1 (RouteFixes.cs CheckIdle, RouteBackoff.cs OwnerTaskSlot, docs/250 §7.1): own STARTs sent, started by
         // ts3native, refused before sending (A1 on, Sim eligible, ts3native would not start it), sim ticks the A1 checks took
         // [930-932] watchdogasync: A1 verdicts dropped as stale (H4Core.WdFresh), shadow sync re-checks run, shadow verdicts that differ
+        // [969-984] replanlog (ReplanLog.cs, docs/261 §6 L1, ts3native [RouteAsync] ReplanLog=1): own Replans and ms, calls and ms
+        // per scope (household, selected, seenNpc, unseen, unknown), bursts, call lines, lines dropped, would start but Kinds
+        // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
+        // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
+        // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 2799,
+        // docs/registry.md), so a new fix never needs the array resized by hand.
+        const int kCounterSlots = 2800;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
             if (sCountersCache != null) return sCountersCache; // hooks call this hundreds of times a second
             int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
-            if (c == null) { c = new int[2094]; AppDomain.CurrentDomain.SetData("ts3fixes.counters", c); }
+            if (c == null || c.Length < kCounterSlots)
+            {
+                // a shorter array (left by an older build in this session) is copied into a full-size one
+                int[] full = new int[kCounterSlots];
+                if (c != null) Array.Copy(c, full, c.Length);
+                c = full;
+                AppDomain.CurrentDomain.SetData("ts3fixes.counters", c);
+            }
             return sCountersCache = c;
         }
 
@@ -401,6 +709,13 @@ namespace Ts3Fixes
                 case "hoursmemo": return Instantiator.kHoursMemo;
                 case "venuememo": return Instantiator.kVenueMemo;
                 case "venuememoverify": return false; // verify switch: test runs only
+                case "permamemo": return Instantiator.kPermaMoodletMemo;  // exact memo, off (ExactMemos.cs, docs/245 §5 H)
+                case "buffremovenoop": return Instantiator.kBuffRemoveNoOp;  // exact early-out, off (ExactMemos.cs, docs/95 §5.5)
+                case "catnamecache": return Instantiator.kCatalogNameCache;  // exact memo, off (ExactMemos.cs, docs/96 B2)
+                case "autroommemo": return Instantiator.kAutonomyRoomMemo;  // exact memo, off (AutRoomMemo.cs, docs/97 §7 H2)
+                case "autslicetime": return Instantiator.kAutonomySliceTime;  // measure only, off (AutRoomMemo.cs, docs/97 §7 H5)
+                case "invcache": return Instantiator.kPortalInvocationCache;  // exact, off (ScriptHotSpots.cs, docs/115)
+                case "permamemoverify": case "catnamecacheverify": case "autroommemoverify": case "invcacheverify": return false; // verify switches: test runs only
                 case "caneearly": return Instantiator.kCaneEarlyOut;
                 case "tooltipthrottle": return Instantiator.kTooltipThrottle;
                 case "detailprioverify": case "hoursmemoverify": return false; // verify switches: test runs only, no tuning
@@ -413,12 +728,18 @@ namespace Ts3Fixes
                 case "autoffenv": case "autoffbcast": case "autoffdry": return false; // docs/208 offload Mode R (AutOffload.cs): test runs only
                 // docs/208 §8 apply switches: unset read true here (default branch) while the agent showed them off
                 case "autoffenvapply": case "autoffbcastapply": case "autoffnoref": return false;
+                case "autoffunseen": return false; // docs/208 §10 unseen-only gate on the env / bcast apply (only acts with the apply switches)
                 case "autofftick": return false; // docs/206 §15 Mode R tick item: test runs only
                 case "autofft2": case "autofft2ic": case "autofflot": return false; // docs/208 §9 Mode R items (tier-2 rows, closest lot): test runs only
                 case "autt2inuse": case "autt2fire": case "autt2dragwarm": return false; // docs/219 §3.1 tier-2 P1 worker guards + drag pre-warm (AutShadow.cs): test runs only
                 case "autt2drag": case "autt2cache": case "autt2tuning": case "autt2lod": return false; // docs/126 §3 tier-2 H7-H10 worker hooks (AutShadow.cs): test runs only
+                case "autt2cewarm": case "autt2frontdoor": case "autt2suite": return false; // tier-2 P2 pre-warm and guards (AutShadow.cs): test runs only
+                case "autt2callpet": return false; // tier-2 P3 CallPet worker-owned picker list (AutShadow.cs): test runs only
                 case "autt2l0": return false;  // tier-2 L0 local-phase probe (AutLocalProbe.cs): measurement only, test runs
                 case "autlive": return IniUnseen(); // docs/124 §17 go-live consume ([AutShadow] Mode=3): test runs, or ini Unseen=1
+                case "autlivetune": return false; // docs/124 §3.1 tuning rule: drop a go-live result when an allow-listed pair's tuning fingerprint (AutLiveCore.TunFp) changed since the request (only acts with autlive); test runs only
+                case "autliveseen": case "autliveseendry": return false; // docs/124 §17.12: with autseengame, a proven seen NPC takes the exact go-live path (dry: compare only); household and unknown scope never; test runs only
+                case "autlivelod": return false; // docs/124 §3.1 LOD rule: drop a go-live result when Autonomy.mbHighLOD flipped since the request (only acts with autlive); test runs only
                 case "autlivelate": return Instantiator.kAutLiveLate; // docs/217 L1 late consume (only acts with autlive)
                 case "autliveguard": return Instantiator.kAutLiveGuard; // docs/124 §17.10 go-live cost guard (only acts with autlive)
                 case "autunseenpace": return Instantiator.kAutUnseenPace; // docs/222 §8 unseen-direct pacing (only acts with autunseen)
@@ -458,7 +779,20 @@ namespace Ts3Fixes
                 // docs/250 §7.1 A1: OFF since rc1110b (2026-11-09) until the wdasync-fix-1110 tests (Instantiator.kWatchdogAsync)
                 case "watchdogasync": return Instantiator.kWatchdogAsync;
                 case "watchdogasyncshadow": return false;  // correctness arm only: re-runs each A1 check sync and counts mismatches
-                case "alarmtime": case "boatreplanlog": case "owresettime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
+                case "callcensus": return false;  // log only: calls per sim-hour of the docs/589-590 speedup candidates, pass-through (CallCensus.cs, docs/584 §10)
+                case "stcsocials": return false;  // proven-exact speedup, off until measured: GetSocialsForSTC's autonomous branch without its two redundant copies (SocialStc.cs, docs/584 §9)
+                case "stcsocialscheck": return false;  // pure check for stcsocials: EA's method runs too, results compared (SocialStc.cs)
+                case "motivebuf": return false;  // proven-exact speedup, off until measured: motive updates snapshot into a pooled list (MotiveBuf.cs, docs/584 §5)
+                case "motivebufcheck": return false;
+                case "buffbufcheck": return false;
+                case "routableasync": return false;  // A/B with [RouteAsync] Kinds=2: async PlanFromPoint only for unseen NPCs' IsPointInLotSafelyRoutable (RouteBackoff.cs, docs/584 §3)  // check for ts3native ilp_buffbuf: UpdateBuffs' delayed-buff list empty and consistent (MotiveBuf.cs, docs/584 §5)  // pure check for motivebuf: each snapshot compared with the game's copy (MotiveBuf.cs)
+                case "tpdoorrights": return false;  // F1's unseen-teleport lot test by the Sim's own door rights, EA's one-way sentinel (UnseenTeleportGoal.cs, docs/584 §7)
+                case "visitcar": return false;  // unseen NPC visits keep driving at EA's coin flip (UnseenVisitTrip.cs, docs/584 §1)
+                case "visitwalkfinish": return false;  // unseen NPC still walking to a visit after 60 sim-min finishes at the lot (UnseenVisitTrip.cs, docs/584 §1)
+                case "autlastsearch": return false;  // log only: each Sim's last autonomy search and its result, for the census (AutLive.cs, docs/584 §4)
+                case "ufplansplit": return false;  // log only: where a slow unseen-fallback plan's wall time goes (UnseenFallback.cs)
+                case "doorgen": return Instantiator.kDoorGen;  // DoorGen.cs: bump ts3native's door generation when a door answer input changes (DoorMemoX=3)
+                case "alarmtime": case "boatreplanlog": case "owresettime": case "synctime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
                 case "legreplanskip": return Instantiator.kLegReplanSkip;
                 case "bouncerskip": return Instantiator.kBouncerSlotSkip;
                 case "idlememo": return Instantiator.kIdlePlanMemo;
@@ -512,6 +846,171 @@ namespace Ts3Fixes
                 case "jazzparam": return Instantiator.kJazzParam;
                 case "buffupdate": return Instantiator.kBuffUpdate;
                 case "carnoroute": return Instantiator.kCarNoRoute;
+                case "vehparkreserve": return Instantiator.kVehParkReserve;
+                case "vehgetinleak": return Instantiator.kVehGetInLeak;
+                case "vehseatdestroy": return Instantiator.kVehSeatDestroy;
+                case "vehfrankentaxi": return Instantiator.kVehFrankenTaxi;
+                case "vehprotestcar": return Instantiator.kVehProtestCar;
+                case "buyiconleak": return Instantiator.kBuyIconLeak;
+                case "casrowleak": return Instantiator.kCasRowLeak;
+                case "compositorleak": return Instantiator.kCompositorLeak;
+                case "genealogycycle": return Instantiator.kGenealogyCycle;
+                case "spouseunlink": return Instantiator.kSpouseUnlink;
+                case "relremovesafe": return Instantiator.kRelRemoveSafe;
+                case "familyinvghost": return Instantiator.kFamilyInvGhost;
+                case "sellcursorleak": return Instantiator.kSellCursorLeak;
+                case "attractionalarm": return Instantiator.kAttractionAlarm;
+                case "uncleguard": return Instantiator.kUncleGuard;
+                case "mooddrift": return Instantiator.kMoodDrift;
+                case "dnpdisposelistener": return Instantiator.kDnpDisposeListener;
+                case "seasondup": return Instantiator.kSeasonDup;
+                case "dreamrootorphan": return Instantiator.kDreamRootOrphan;
+                case "blogorphan": return Instantiator.kBlogOrphan;
+                case "dnpupdateguard": return Instantiator.kDnpUpdateGuard;
+                case "buycellrecycle": return Instantiator.kBuyCellRecycle;
+                case "buyclearrecycle": return Instantiator.kBuyClearRecycle;
+                case "buygridsweep": return Instantiator.kBuyGridSweep;
+                case "moodpending": return Instantiator.kMoodPending;
+                case "joyridecostume": return Instantiator.kJoyrideCostume;
+                case "alarmkilllog": return Instantiator.kAlarmKillLog;
+                case "etderefdiag": return Instantiator.kEtDerefDiag;
+                case "socialfinish": return Instantiator.kSocialFinish;
+                case "socialreceivefail": return Instantiator.kSocialReceiveFail;
+                case "petfireplan": return Instantiator.kPetFirePlan;
+                case "splashroof": return Instantiator.kSplashRoof;
+                case "shuffleboardbcast": return Instantiator.kShuffleboardBcast;
+                case "cookclicklistener": return Instantiator.kCookClickListener;
+                case "viproomrefresh": return Instantiator.kVipRoomRefresh;
+                case "courselistener": return Instantiator.kCourseListener;
+                case "observatorymsg": return Instantiator.kObservatoryMsg;
+                case "bubblepipeguard": return Instantiator.kBubblePipeGuard;
+                case "buffstate": return Instantiator.kBuffState;
+                case "storeworldevents": return Instantiator.kStoreWorldEvents;
+                case "bowlinglane": return Instantiator.kBowlingLane;
+                case "geniebanish": return Instantiator.kGenieBanish;
+                case "spacesimpartner": return Instantiator.kSpaceSimPartner;
+                case "bandjam": return Instantiator.kBandJam;
+                case "statueline": return Instantiator.kStatueLine;
+                case "cleanflag": return Instantiator.kCleanFlag;
+                case "birdtvnull": return Instantiator.kBirdTvNull;
+                case "gohomewalk": return Instantiator.kGoHomeWalk;
+                case "photoboothfunds": return Instantiator.kPhotoBoothFunds;
+                case "shelllighting": return Instantiator.kShellLighting;
+                case "bonfirespice": return Instantiator.kBonfireSpice;
+                case "djcleanup": return Instantiator.kDjCleanup;
+                case "vampirehuntglow": return Instantiator.kVampireHuntGlow;
+                case "hottubwoohoofx": return Instantiator.kHotTubWoohooFx;
+                case "bribeguard": return Instantiator.kBribeGuard;
+                case "oppdeadlisteners": return Instantiator.kOppDeadListeners;
+                case "daycarequit": return Instantiator.kDaycareQuit;
+                case "privateeyecase": return Instantiator.kPrivateEyeCase;
+                case "weddingcancel": return Instantiator.kWeddingCancel;
+                case "ghostspawnargs": return Instantiator.kGhostSpawnArgs;
+                case "moveinpartner": return Instantiator.kMoveInPartner;
+                case "reaperflow": return Instantiator.kReaperFlow;
+                case "serviceleave": return Instantiator.kServiceLeave;
+                case "visitgreetalarm": return Instantiator.kVisitGreetAlarm;
+                case "fieldtripadult": return Instantiator.kFieldTripAdult;
+                case "autonomyfailblock": return Instantiator.kAutonomyFailBlock;
+                case "visittoolate": return Instantiator.kVisitTooLate;
+                case "spoonreset": return Instantiator.kSpoonReset;
+                case "homeworkhelp": return Instantiator.kHomeworkHelp;
+                case "grouptalkstale": return Instantiator.kGroupTalkStale;
+                case "convmerge": return Instantiator.kConvMerge;
+                case "portraitpose": return Instantiator.kPortraitPose;
+                case "picniccamera": return Instantiator.kPicnicCamera;
+                case "upgradefailalarm": return Instantiator.kUpgradeFailAlarm;
+                case "repairtimecache": return Instantiator.kRepairTimeCache;
+                case "burglaridle": return Instantiator.kBurglarIdle;
+                case "gigwaitleave": return Instantiator.kGigWaitLeave;
+                case "sculptpose": return Instantiator.kSculptPose;
+                case "trainboost": return Instantiator.kTrainBoost;
+                case "eatoutsidecount": return Instantiator.kEatOutsideCount;
+                case "fireactivejob": return Instantiator.kFireActiveJob;
+                case "firetrapcount": return Instantiator.kFireTrapCount;
+                case "birthdayagers": return Instantiator.kBirthdayAgers;
+                case "sneakoutlistener": return Instantiator.kSneakOutListener;
+                case "promcarpool": return Instantiator.kPromCarpool;
+                case "curfewalarm": return Instantiator.kCurfewAlarm;
+                case "trickortreatalarm": return Instantiator.kTrickOrTreatAlarm;
+                case "snowfightjoinwait": return Instantiator.kSnowFightJoinWait;
+                case "hauntedumbrella": return Instantiator.kHauntedUmbrella;
+                case "permazombiemoon": return Instantiator.kPermaZombieMoon;
+                case "steadygigmiss": return Instantiator.kSteadyGigMiss;
+                case "npcshowstuck": return Instantiator.kNpcShowStuck;
+                case "gigpullaudience": return Instantiator.kGigPullAudience;
+                case "lunacysocials": return Instantiator.kLunacySocials;
+                case "fairyauratimer": return Instantiator.kFairyAuraTimer;
+                case "npcseasonalparty": return Instantiator.kNpcSeasonalParty;
+                case "professorterm": return Instantiator.kProfessorTerm;
+                case "protestlastday": return Instantiator.kProtestLastDay;
+                case "seasickpaused": return Instantiator.kSeasickPaused;
+                case "resortweddingalarm": return Instantiator.kResortWeddingAlarm;
+                case "plumbotfacelistener": return Instantiator.kPlumbotFaceListener;
+                case "efficientchip": return Instantiator.kEfficientChip;
+                case "sentiencename": return Instantiator.kSentienceName;
+                case "jetpackflyingbuff": return Instantiator.kJetpackFlyingBuff;
+                case "horsetraitscore": return Instantiator.kHorseTraitScore;
+                case "wildhorsegender": return Instantiator.kWildHorseGender;
+                case "littercap": return Instantiator.kLitterCap;
+                case "phoneloadreset": return Instantiator.kPhoneLoadReset;
+                case "phonecallschedule": return Instantiator.kPhoneCallSchedule;
+                case "phonecallrearm": return Instantiator.kPhoneCallRearm;
+                case "woohootywait": return Instantiator.kWooHootyWait;
+                case "invitecallreply": return Instantiator.kInviteCallReply;
+                case "gradvisitors": return Instantiator.kGradVisitors;
+                case "resumetns": return Instantiator.kResumeTns;
+                case "unitravelflag": return Instantiator.kUniTravelFlag;
+                case "returnhomealarms": return Instantiator.kReturnHomeAlarms;
+                case "phonefixup": return Instantiator.kPhoneFixUp;
+                case "phonegive": return Instantiator.kPhoneGive;
+                case "wildherdmother": return Instantiator.kWildHerdMother;
+                case "splitpartner": return Instantiator.kSplitPartner;
+                case "movingflag": return Instantiator.kMovingFlag;
+                case "sandscoins": return Instantiator.kSandsCoins;
+                case "tombmusic": return Instantiator.kTombMusic;
+                case "artsellnoartist": return Instantiator.kArtSellNoArtist;
+                case "royaltyorphan": return Instantiator.kRoyaltyOrphan;
+                case "promoteshift": return Instantiator.kPromoteShift;
+                case "gotoworkstale": return Instantiator.kGoToWorkStale;
+                case "handsetreset": return Instantiator.kHandsetReset;
+                case "flowersinuse": return Instantiator.kFlowersInUse;
+                case "uselistprune": return Instantiator.kUseListPrune;
+                case "chestuselist": return Instantiator.kChestUseList;
+                case "resetinusefree": return Instantiator.kResetInUseFree;
+                case "putdowninuse": return Instantiator.kPutDownInUse;
+                case "autonomyinuseblock": return Instantiator.kAutonomyInUseBlock;
+                case "npcbusypartner": return Instantiator.kNpcBusyPartner;
+                case "birthroute": return Instantiator.kBirthRoute;
+                case "putdownplace": return Instantiator.kPutDownPlace;
+                case "awardkeep": return Instantiator.kAwardKeep;
+                case "ceremonyspot": return Instantiator.kCeremonySpot;
+                case "eventcrowdring": return Instantiator.kEventCrowdRing;
+                case "eventrouteretry": return Instantiator.kEventRouteRetry;
+                case "simfestkeep": return Instantiator.kSimFestKeep;
+                case "weddingarchkeep": return Instantiator.kWeddingArchKeep;
+                case "weddingcleanup": return Instantiator.kWeddingCleanup;
+                case "hsgradkeep": return Instantiator.kHsGradKeep;
+                case "unigradkeep": return Instantiator.kUniGradKeep;
+                case "bsrefund": return Instantiator.kBsRefund;
+                case "comboprotest": return Instantiator.kComboProtest;
+                case "combovenue": return Instantiator.kComboVenue;
+                case "combosituation": return Instantiator.kComboSituation;
+                case "combojob": return Instantiator.kComboJob;
+                case "comboprotestlot": return Instantiator.kComboProtestLot;
+                case "comboopp": return Instantiator.kComboOpp;
+                case "hiddenroomnpc": return Instantiator.kHiddenRoomNpc;
+                case "hiddenroomspawn": return Instantiator.kHiddenRoomSpawn;
+                case "aptleave": return Instantiator.kAptLeave;
+                case "partyoutcome": return Instantiator.kPartyOutcome;
+                case "partymotive": return Instantiator.kPartyMotive;
+                case "filtergridleak": return Instantiator.kFilterGridLeak;
+                case "compositorghost": return Instantiator.kCompositorGhost;
+                case "caspuckevents": return Instantiator.kCasPuckEvents;
+                case "famcursorleak": return Instantiator.kFamCursorLeak;
+                case "casexitsweep": return Instantiator.kCasExitSweep;
+                case "seasonlistener": return Instantiator.kSeasonListener;
+                case "casfiltergrid": return Instantiator.kCasFilterGrid;
                 case "convturn": return Instantiator.kConvTurn;
                 case "npcdriverpool": return Instantiator.kNpcDriverPool;
                 case "bookcarry": return Instantiator.kBookCarry;
@@ -538,6 +1037,14 @@ namespace Ts3Fixes
                 case "outfitwaitsaved": return Instantiator.kOutfitWaitSaved;
                 case "deadsimcount": return Instantiator.kDeadSimCount;
                 case "deadsimhollow": return Instantiator.kDeadSimHollow;
+                case "dnpsubjectcache": return Instantiator.kDnpSubjectCache;
+                case "hudunsub": return Instantiator.kHudUnsub;
+                case "mapviewkeep": return Instantiator.kMapViewKeep;
+                case "tinyuieventreg": return Instantiator.kTinyUiEventReg;
+                case "customctlsweep": return Instantiator.kCustomCtlSweep;
+                case "exitcbsweep": return Instantiator.kExitCbSweep;
+                case "dnppetkeys": return Instantiator.kDnpPetKeys;
+                case "dnpobjkeys": return Instantiator.kDnpObjKeys;
                 case "reltablesapart": return Instantiator.kRelTablesApart;
                 case "ageupswap": return Instantiator.kAgeUpSwap;
                 case "asyncjigsync": return Instantiator.kAsyncJigSync;
@@ -550,13 +1057,24 @@ namespace Ts3Fixes
                 case "vacexitreturn": return Instantiator.kVacExitReturn;
                 case "vaclistenernull": return Instantiator.kVacListenerNull;
                 case "vacimportfix": return Instantiator.kVacImportFix;
+                case "vaclistenerpad": return Instantiator.kVacListenerPad;  // EA bug fix, off (EaVacation.cs, docs/210 §6)
+                case "spawncapcount": return Instantiator.kSpawnCapCount;  // exact, off until its probe run (SpawnCap.cs, docs/147 §5 D1)
+                case "spawncapprobe": case "routelen": return false;  // diagnostics only (SpawnCap.cs, RouteLen.cs)
                 case "menumaven": return Instantiator.kMenuMaven;
                 case "dancefloorlistdiag": return false;  // diagnostics only (DanceFloorDiag.cs, docs/253 §7)
+                case "boatgetoutdiag": return Instantiator.kBoatGetOutDiag;  // diagnostics only, off (BoatGetOutDiag.cs, docs/257 §7)
+                case "boatgetoutguard": return Instantiator.kBoatGetOutGuard;  // EA bug fix, off until the boat-getout-stress queue (BoatGetOutDiag.cs, docs/257 §9)
+                case "boatparkgone": return Instantiator.kBoatParkGone;  // EA bug fix, on by default (BoatParkGone.cs, docs/257)
+                case "deadrefcooking": return Instantiator.kDeadRefCooking;  // EA bug fix, off (DeadRefs.cs phase 14, docs/205 §4)
+                case "deadrefconvo": return Instantiator.kDeadRefConvo;  // EA bug fix, off (DeadRefs.cs phase 15, docs/517 §4)
+                case "takeariskguard": return Instantiator.kTakeARiskGuard;  // EA bug fix, off (TakeARiskGuard.cs, docs/529 §4)
+                case "minihomelot": return Instantiator.kMiniHomeLot;  // EA bug fix, on (MiniHomeLot.cs, docs/266)
                 case "dancefloorlistguard": return Instantiator.kDanceFloorListGuard;  // EA bug fix, ON in release (Rodney 2026-11-09; DanceFloorDiag.cs, docs/253 §12)
                 case "compactionfail": return false;  // test only (Compaction.cs, docs/204 §6): the reload throws after the screen is up
                 case "spotspread": return true;
                 case "routefaillog": return true;  // ON in release (Rodney 2026-11-08): helps triage player reports in early releases
-                default: return true;
+                case "asyncroute": case "asyncreplan": case "asyncreplanforeign": case "overwatchstuck": case "savedstacks": case "swapdelegates": case "gm6trace": case "savecleanup": return true;  // were on through the old default: true
+                default: return false;  // new switches default off (AGENTS.md); a typo stays off
             }
         }
 
@@ -566,6 +1084,17 @@ namespace Ts3Fixes
         }
 
         // args picks one overload of target.method (null when the name is unique). True when the patch went in.
+        static void PatchSigCheck(MethodInfo t, MethodInfo h, string what)
+        {
+            if (t == null || h == null) return;
+            bool tv = t.ReturnType == typeof(void), hv = h.ReturnType == typeof(void);
+            if (tv != hv) throw new InvalidOperationException(what + " " + h.Name + " returns " + h.ReturnType.Name + ", original returns " + t.ReturnType.Name + ": not patched");
+            int tn = t.GetParameters().Length + (t.IsStatic ? 0 : 1), hn = h.GetParameters().Length + (h.IsStatic ? 0 : 1);
+            if (tn != hn) throw new InvalidOperationException(what + " " + h.Name + " takes " + hn + " stack arguments, original " + tn + ": not patched");
+            if (!tv && t.ReturnType.IsValueType != h.ReturnType.IsValueType)
+                throw new InvalidOperationException(what + " " + h.Name + " returns " + h.ReturnType.Name + ", original returns " + t.ReturnType.Name + ": not patched");
+        }
+
         static bool Patch(Type target, string method, Type[] args, Type hook, string replacement, string stub)
         {
             const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
@@ -573,6 +1102,12 @@ namespace Ts3Fixes
             {
                 MethodInfo t = args == null ? target.GetMethod(method, all) : target.GetMethod(method, all, null, args, null), r = hook.GetMethod(replacement, all);
                 if (Compiled(t)) throw new InvalidOperationException("already compiled");
+                // a swapped body keeps the hook's signature: a void hook for a method that returns a value makes every
+                // caller's pop/use of the result underflow Mono's transform (transform.c:1170 `td.sp >= td.stack`, int3 at
+                // 0x58D9B6: the game dies on the first call, buycellrecycle v1/v2 2026-11-11), so refuse such pairs
+                PatchSigCheck(t, r, "hook");
+                if (stub != null) PatchSigCheck(t, hook.GetMethod(stub, all), "stub");
+                Type sdOwner = t.DeclaringType;  // docs/576 §1: the class the save must name (SwapMethod moves the class word)
                 string swName = AutShadowCore.MemberName(t);  // G-M6: callers' IL hashes name t as before the swap
                 if (swName != null) AutShadowCore.SwapNames[t.MethodHandle.Value] = swName;
                 if (stub != null) { MethodInfo s = hook.GetMethod(stub, all); SwapMethod(s, t); StubDirect(s); }
@@ -580,9 +1115,10 @@ namespace Ts3Fixes
                 sStubs.Add(t);  // docs/242: a frame in the hook's body saves as the hook's class, which often cannot find it again
                 sPatched[t.MethodHandle.Value] = hook;  // docs/128 G-M4: our own swap, accepted by the closure sweep (by MonoMethod: GetMethods hands out other MethodInfo objects)
                 AppliedLog().Add(target.Name + "." + method + ": ok");
+                SdRecord(hook, sdOwner, t, r, stub != null ? hook.GetMethod(stub, all) : null);  // docs/576 §1 swapdelegates
                 return true;
             }
-            catch (Exception e) { AppliedLog().Add(target.Name + "." + method + ": " + e.Message); return false; }
+            catch (Exception e) { AppliedLog().Add(TypeName(target) + "." + method + ": " + e.Message); return false; }
         }
 
         // Off-screen go-home (PLAN fix b): a townie whose trip home nobody can see skips the walk/drive and appears on its
@@ -594,38 +1130,45 @@ namespace Ts3Fixes
             static int[] sCounters;
             public bool RunHook()
             {
-                if (sCounters == null) sCounters = PatchCounters();
-                sCounters[0]++;
-                if (!ShortcutOn("gohome") || !Unseen(Actor, Target)) return RunOrig();
-                // a Sim shortcut twice within 10 sim-minutes is in some loop the game drives: let it walk
-                ulong id = Actor.SimDescription.SimDescriptionId;
-                long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
-                long last;
-                if (sLastShortcut.TryGetValue(id, out last) && now - last < kLoopTicks)
+                // docs/560 gohomewalk: EA requests WalkStyle on the Sim and never unrequests it
+                int ghBefore = -1;
+                if (WalkStyle != Sims3.Gameplay.Actors.Sim.WalkStyle.AutoSelect && ShortcutOn("gohomewalk")) ghBefore = GhWalkCount(Actor, WalkStyle);
+                try
                 {
-                    sCounters[3]++;
-                    return RunOrig();
+                    if (sCounters == null) sCounters = PatchCounters();
+                    sCounters[0]++;
+                    if (!ShortcutOn("gohome") || !Unseen(Actor, Target)) return RunOrig();
+                    // a Sim shortcut twice within 10 sim-minutes is in some loop the game drives: let it walk
+                    ulong id = Actor.SimDescription.SimDescriptionId;
+                    long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+                    long last;
+                    if (sLastShortcut.TryGetValue(id, out last) && now - last < kLoopTicks)
+                    {
+                        sCounters[3]++;
+                        return RunOrig();
+                    }
+                    Sims3.SimIFace.Vector3 pos, fwd;
+                    if (!SafeSpot(Actor, Target, Target.GetRandomPosition(false, true), out pos, out fwd))
+                    {
+                        sCounters[2]++;
+                        return RunOrig();
+                    }
+                    // docs/202 §3.6.4 unseenfbtriphold: D's walk-time hold first; given up = the game's own trip
+                    if (UfPreCore.TripMode(false, false, ShortcutOn("unseenfbtriphold")) == 2 && !UfTripHold(Actor, Target, pos)) return RunOrig();
+                    sLastShortcut[id] = now;
+                    ShortcutLog(Actor.FullName + " -> " + Target.Name + " from " + (Actor.LotCurrent != null ? Actor.LotCurrent.Name : "street"));
+                    // same lead-in as GoHome.Run
+                    if (!Sims3.Gameplay.Objects.Vehicles.CarpoolManager.WaitForCarpool(Actor)) return false;
+                    Sims3.Gameplay.Situations.VisitSituation.OnSimLeavingLot(Actor);
+                    Sims3.Gameplay.Situations.GroupingSituation.RemoveSimFromGroupSituation(Actor);
+                    PlaceSim(Actor, pos, fwd, "home " + Target.Name);
+                    sCounters[1]++;
+                    NumSuccess++;
+                    BeginCommodityUpdates();
+                    EndCommodityUpdates(true);
+                    return true;
                 }
-                Sims3.SimIFace.Vector3 pos, fwd;
-                if (!SafeSpot(Actor, Target, Target.GetRandomPosition(false, true), out pos, out fwd))
-                {
-                    sCounters[2]++;
-                    return RunOrig();
-                }
-                // docs/202 §3.6.4 unseenfbtriphold: D's walk-time hold first; given up = the game's own trip
-                if (UfPreCore.TripMode(false, false, ShortcutOn("unseenfbtriphold")) == 2 && !UfTripHold(Actor, Target, pos)) return RunOrig();
-                sLastShortcut[id] = now;
-                ShortcutLog(Actor.FullName + " -> " + Target.Name + " from " + (Actor.LotCurrent != null ? Actor.LotCurrent.Name : "street"));
-                // same lead-in as GoHome.Run
-                if (!Sims3.Gameplay.Objects.Vehicles.CarpoolManager.WaitForCarpool(Actor)) return false;
-                Sims3.Gameplay.Situations.VisitSituation.OnSimLeavingLot(Actor);
-                Sims3.Gameplay.Situations.GroupingSituation.RemoveSimFromGroupSituation(Actor);
-                PlaceSim(Actor, pos, fwd, "home " + Target.Name);
-                sCounters[1]++;
-                NumSuccess++;
-                BeginCommodityUpdates();
-                EndCommodityUpdates(true);
-                return true;
+                finally { if (ghBefore >= 0) GhWalkRelease(Actor, WalkStyle, ghBefore); }
             }
             public bool RunOrig() { return false; } // receives GoHome.Run's original header
             static readonly Dictionary<ulong, long> sLastShortcut = new Dictionary<ulong, long>();
@@ -916,19 +1459,22 @@ namespace Ts3Fixes
         }
 
         // A townie on its own, on foot, standing, and not near anything the player can see. Shared by the trip shortcuts.
-        static bool TownieUnseen(Sims3.Gameplay.Actors.Sim sim, List<Sims3.Gameplay.Actors.Sim> followers)
+        static bool TownieUnseen(Sims3.Gameplay.Actors.Sim sim, List<Sims3.Gameplay.Actors.Sim> followers) { return TownieUnseen(sim, followers, false); }
+        // hiddenOk: a Sim in a Late Night hidden room still counts (only the stuck watchdog's idle timer, which rescues it from there)
+        static bool TownieUnseen(Sims3.Gameplay.Actors.Sim sim, List<Sims3.Gameplay.Actors.Sim> followers, bool hiddenOk)
         {
             long t = UcBegin(kUcTownie, sim != null ? sim.ObjectId.Value : 0);  // docs/227 probe
-            bool r = TownieUnseenBody(sim, followers);
+            bool r = TownieUnseenBody(sim, followers, hiddenOk);
             UcEnd(kUcTownie, t);
             return r;
         }
-        static bool TownieUnseenBody(Sims3.Gameplay.Actors.Sim sim, List<Sims3.Gameplay.Actors.Sim> followers)
+        static bool TownieUnseenBody(Sims3.Gameplay.Actors.Sim sim, List<Sims3.Gameplay.Actors.Sim> followers, bool hiddenOk)
         {
-            if (sim == null || sim.IsSelectable || sim.Household == Household.ActiveHousehold) return false;
+            if (IsPlayerSim(sim)) return false;  // household rule (PlayerSims.cs)
             if (followers != null && followers.Count > 0) return false;
             if (sim.Posture != sim.Standing || sim.IsInRidingPosture || sim.IsInBeingRiddenPosture) return false;
-            if (Sims3.Gameplay.Controllers.TombRoomManager.IsObjectInATombRoom(sim)) return false;
+            // docs/267 F2: Late Night hidden rooms too (allowHidden), same EA lookup as the tomb-only one
+            if (Sims3.Gameplay.Controllers.TombRoomManager.IsObjectInATombOrHiddenRoom(sim, !hiddenOk)) return false;
             int b = UtbBits(sim);  // docs/227 §6 central table
             if (b >= 0) return sUtbCheck ? UtbCompare(UtbUnseen(b), !UcOnScreen(sim) && FarFromViewers(sim.Position)) : UtbUnseen(b);
             if (UcOnScreen(sim)) return false;
@@ -1134,7 +1680,20 @@ namespace Ts3Fixes
             {
                 if ((mFollowers == null || mFollowers.Count == 0) && ShortcutToLot(Actor, Target, "visit", 7))
                     mFollowers = new List<Sims3.Gameplay.Actors.Sim>();
-                return RunOrig();
+                Sims3.Gameplay.Actors.Sim actor = Actor;
+                VwfTrip trip = VisitTripBegin(actor, Target, Autonomous);  // visitcar / visitwalkfinish (UnseenVisitTrip.cs); null when both are off
+                try
+                {
+                    bool r = RunOrig();
+                    if (r || trip == null || !trip.Finished || actor.HasBeenDestroyed || actor.LotCurrent != Target) return r;
+                    // visitwalkfinish ended the walk on the lot and Run took it as a failed route: Run's own arrival step
+                    actor.RemoveExitReason(Sims3.Gameplay.Actors.ExitReason.RouteFailed);
+                    if (Autonomous && VwfLooks(this)) Target.MakeSimDoSomethingAfterArrivingAtVenue(Target.GetMetaAutonomyVenueType(), actor);
+                    if (!Sims3.Gameplay.Situations.GroupingSituation.DoesGroupingSituationExistForFamily(actor))
+                        Sims3.Gameplay.Situations.GroupingSituation.StartGroupingSitatuationWithFollowers(actor, mFollowers ?? new List<Sims3.Gameplay.Actors.Sim>());
+                    return true;
+                }
+                finally { VisitTripEnd(actor, trip); }
             }
             public bool RunOrig() { return false; } // receives VisitCommunityLot.Run's original header
         }

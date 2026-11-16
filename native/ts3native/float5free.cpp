@@ -15,7 +15,7 @@
 //   Deque side: a detour on 0x727E10 checks the pointer array and every subarray pointer with the same test before EA frees them,
 //   logs "float5 deque: ..." and with Guard=1 skips the whole destruction (the queue leaks).
 // Log: first 50 lines of each kind a session, then every 100th; counts in every line.
-static const DWORD kF5fRet727 = 0x00727E5C, kF5fWalkerVt = 0x0102000C, kF5dRetWalker = 0x00800C99;
+static const DWORD kF5fRet727 = TS3A(0x00727E5C), kF5fWalkerVt = TS3A(0x0102000C), kF5dRetWalker = TS3A(0x00800C99);
 static volatile LONG g_f5fBad, g_f5fSkip, g_f5dBad, g_f5dSkip, g_f5dChecks, g_f5fRangePass;
 typedef void(__fastcall* F5dDtorFn)(DWORD* dq, void* edx);
 static F5dDtorFn g_f5dDtor;
@@ -56,7 +56,7 @@ static bool F5fFreeCheck(void* heap, DWORD p, const DWORD* ra) {
             if (k <= 20)
                 Log("float5 free: ptr 0x%08lX in the 0x40A00000 range has an in-use chunk header (size word 0x%08lX): passed to EA; caller 0x%08lX; "
                     "thread %lu; save #%ld, %ld s after world load #%ld; range passes %ld", p, *(const volatile DWORD*)(uintptr_t)(p - 0xC),
-                    ra[0] == 0x004E3F84 || ra[0] == 0x004E3EFD ? ra[2] : ra[0], GetCurrentThreadId(), g_ctInvSave, F5fWorldSec(), g_udWorlds, k);
+                    ra[0] == TS3A(0x004E3F84) || ra[0] == TS3A(0x004E3EFD) ? ra[2] : ra[0], GetCurrentThreadId(), g_ctInvSave, F5fWorldSec(), g_udWorlds, k);
         }
         return false;
     }
@@ -65,7 +65,7 @@ static bool F5fFreeCheck(void* heap, DWORD p, const DWORD* ra) {
     UafNearLog(p, "bad free pointer");  // [UafCheck] (no-op when off)
     if (p >= 0x40A00000 && p < 0x40A10000) F5wBad("EA Free of a float-5 range pointer (where it was stored is unknown)", 0, 0, p);  // docs/539 §21
     if (!F5fLogNow(n)) return g_f5fGuard;
-    const DWORD caller = ra[0] == 0x004E3F84 || ra[0] == 0x004E3EFD ? ra[2] : ra[0];
+    const DWORD caller = ra[0] == TS3A(0x004E3F84) || ra[0] == TS3A(0x004E3EFD) ? ra[2] : ra[0];
     char own[128] = "";
     if (caller == kF5fRet727) __try {  // 0x727E10's pushes above EA_Free's argument: ebx, edi, esi = the deque
             const DWORD dq = ra[6], w = dq - 0x2C, vt = *(const volatile DWORD*)(uintptr_t)w;
@@ -128,7 +128,7 @@ static bool ApplyFloat5Free(const wchar_t* ini) {
     if (g_apexFound && g_apexStandDown) { Log("SKIP float5 free: Apex Radiance loaded (the allocator is its area; [Compat] ApexStandDown=1)"); return false; }
     g_f5fGuard = GetPrivateProfileIntW(L"Float5Free", L"Guard", 0, ini) > 0;
     g_f5fOn = UafHookInstall("float5 free");
-    if (!g_f5dDtor) g_f5dDtor = (F5dDtorFn)InstallDetour("eastl deque dtor 0x727E10 (float5 free)", 0x00727E10, kF5dPro, sizeof(kF5dPro), (void*)F5dDtorHook, &g_f5dDtor);
+    if (!g_f5dDtor) g_f5dDtor = (F5dDtorFn)InstallDetour("eastl deque dtor 0x727E10 (float5 free)", TS3A(0x00727E10), kF5dPro, sizeof(kF5dPro), (void*)F5dDtorHook, &g_f5dDtor);
     Log("float5 free %s (CRASH-TRIAGE, docs/539 §19): EA Free 0x4E5920 pointers not a heap pointer / unreadable / free chunk (0x40A00000 range: also "
         "zero-size header; in-use range blocks pass, first 20 logged) logged (\"float5 free:\")%s; deque dtor 0x727E10 (SACS Walker mRequestQueue) pointer array and subarrays %s%s",
         g_f5fOn ? "on" : "off (no Free hook)", g_f5fOn ? (g_uafOn ? ", one detour shared with [UafCheck]" : ", own use of the shared detour") : "",

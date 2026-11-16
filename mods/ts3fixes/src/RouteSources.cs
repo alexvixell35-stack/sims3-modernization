@@ -80,6 +80,7 @@ namespace Ts3Fixes
             RouteSrcCall call = default(RouteSrcCall);
             call.Bucket = -1;
             if (kind == 3) HcBoatBegin(r, fromPt); // boatreplanlog (HitchCause.cs)
+            else if (kind == 1) RlBegin(r); // replanlog (ReplanLog.cs, docs/261)
             if (!ShortcutOn("routesrc")) return call;
             try
             {
@@ -132,6 +133,7 @@ namespace Ts3Fixes
 
         static void RouteSrcEnd(ScriptCore.Route r, RouteSrcCall call, bool ok)
         {
+            RouteLenEnd(r, ok);  // routelen counters (RouteLen.cs, docs/246 §6)
             if (call.Bucket < 0) return;
             try
             {

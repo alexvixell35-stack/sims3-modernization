@@ -1,6 +1,7 @@
 // Compiles mods/ts3fixes (the player mod with the stutter fixes, docs/04 F8-F12) against the game's own DLLs and packs
 // it into build/ts3fixes.package. Windows-only by nature: it needs the .NET Framework C# compiler (csc.exe, C# 5).
-//   node tools/setup/build-fixes.ts [--on kTuningA,kTuningB=value]   (--on: also a package with those tunings True, or =value)
+//   node tools/setup/build-fixes.ts [--on kTuningA,kTuningB=value] [--tag name]   (--on: also a package with those tunings True, or =value;
+//   --tag: a `<!-- build name -->` comment in the tuning XML, so the package's tuningDigest names this build; the game ignores it)
 // Also builds the TEST-ONLY mod mods/portalplan-test (MonoPatcher [TypePatch] on Lot.OnPortalPathPlan, docs/94 §20 job 17)
 // into build/ts3-portalplan-test.package when MonoPatcher's package is in the installer cache; skipped otherwise.
 import { execFileSync } from 'node:child_process';
@@ -10,7 +11,7 @@ import { join, resolve } from 'node:path';
 import { TYPE_S3SA, fnv64, s3saEncode, writePackage } from '../dbpf.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
-const CSC = 'C:/Windows/Microsoft.NET/Framework/v4.0.30319/csc.exe';
+const CSC = process.env.TS3_CSC ?? 'C:/Windows/Microsoft.NET/Framework/v4.0.30319/csc.exe'; // TS3_CSC: another C# compiler, e.g. Roslyn on Linux
 const REF_DIR = process.env.TS3_REF_DIR ?? join(ROOT, 'game-copy', 'assemblies'); // from tools/extract-assemblies.ts
 const REFS = ['mscorlib', 'System', 'System.Xml', 'ScriptCore', 'SimIFace', 'Sims3Metadata',
               'Sims3GameplaySystems', 'Sims3GameplayObjects', 'Sims3StoreObjects', 'UI'];
@@ -56,6 +57,12 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kDetailPriorityCache value="False" />
     <kHoursMemo value="False" />
     <kVenueMemo value="False" />
+    <kPermaMoodletMemo value="False" />
+    <kBuffRemoveNoOp value="False" />
+    <kCatalogNameCache value="False" />
+    <kAutonomyRoomMemo value="False" />
+    <kAutonomySliceTime value="False" />
+    <kPortalInvocationCache value="False" />
     <kAutLive value="True" />
     <kAutLiveGuard value="True" />
     <kAutLiveGuardOffPm value="1000" />
@@ -106,9 +113,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kIdlePlanMemo value="False" />
     <kStuckCheckNear value="False" />
     <kFailRepeat value="False" />
-    <kJobYield value="False" />
+    <kJobYield value="True" />
     <kDriverTaskAsync value="False" />
-    <kWatchdogAsync value="False" />
+    <kWatchdogAsync value="True" />
     <kStuckCheckOwn value="False" />
     <kOverwatchStuckSlice value="True" />
     <kSeasonMarkerCache value="False" />
@@ -166,22 +173,30 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kInvNotYet value="True" />
     <kMetricSkillMissing value="True" />
     <kFireworksFizzle value="True" />
-    <kBookHand value="False" />
+    <kBookHand value="True" />
     <kBookHandDiag value="False" />
     <kPetPoolOrphan value="True" />
-    <kErrorTrapSims value="False" />
-    <kCelebrityDeadSim value="False" />
+    <kErrorTrapSims value="True" />
+    <kCelebrityDeadSim value="True" />
     <kSeasonsDeadSim value="False" />
-    <kGhostReactDeadSim value="False" />
+    <kGhostReactDeadSim value="True" />
     <kCasUiHandlers value="False" />
-    <kErrorTrapLookup value="False" />
-    <kErrorTrapCtl value="False" />
-    <kDreamNodeDeadSim value="False" />
-    <kOverwatchDeadSim value="False" />
+    <kErrorTrapLookup value="True" />
+    <kErrorTrapCtl value="True" />
+    <kDreamNodeDeadSim value="True" />
+    <kOverwatchDeadSim value="True" />
     <kSimRefsDeadSim value="False" />
-    <kOutfitWaitSaved value="False" />
+    <kOutfitWaitSaved value="True" />
     <kDeadSimCount value="False" />
     <kDeadSimHollow value="False" />
+    <kDnpSubjectCache value="True" />
+    <kHudUnsub value="True" />
+    <kMapViewKeep value="True" />
+    <kTinyUiEventReg value="True" />
+    <kCustomCtlSweep value="True" />
+    <kExitCbSweep value="True" />
+    <kDnpPetKeys value="True" />
+    <kDnpObjKeys value="True" />
     <kRelTablesApart value="True" />
     <kAsyncJigSync value="True" />
     <kDeadRefSweep value="False" />
@@ -192,8 +207,182 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kVacExitReturn value="False" />
     <kVacListenerNull value="False" />
     <kVacImportFix value="False" />
-    <kMenuMaven value="False" />
+    <kVacListenerPad value="False" />
+    <kSpawnCapCount value="False" />
+    <kMenuMaven value="True" />
     <kDanceFloorListGuard value="True" />
+    <kBoatGetOutDiag value="False" />
+    <kBoatGetOutGuard value="False" />
+    <kBoatParkGone value="True" />
+    <kDeadRefCooking value="False" />
+    <kDeadRefConvo value="False" />
+    <kTakeARiskGuard value="False" />
+    <kMiniHomeLot value="True" />
+    <kVehParkReserve value="False" />
+    <kVehGetInLeak value="False" />
+    <kVehSeatDestroy value="False" />
+    <kVehFrankenTaxi value="False" />
+    <kVehProtestCar value="False" />
+    <kBuyIconLeak value="True" />
+    <kCasRowLeak value="True" />
+    <kCompositorLeak value="True" />
+    <kGenealogyCycle value="True" />
+    <kSpouseUnlink value="False" />
+    <kRelRemoveSafe value="False" />
+    <kFamilyInvGhost value="False" />
+    <kSellCursorLeak value="True" />
+    <kAttractionAlarm value="False" />
+    <kUncleGuard value="True" />
+    <kMoodDrift value="True" />
+    <kDnpDisposeListener value="True" />
+    <kSeasonDup value="True" />
+    <kDreamRootOrphan value="True" />
+    <kBlogOrphan value="True" />
+    <kDnpUpdateGuard value="True" />
+    <kBuyCellRecycle value="True" />
+    <kBuyClearRecycle value="True" />
+    <kBuyGridSweep value="True" />
+    <kMoodPending value="True" />
+    <kJoyrideCostume value="True" />
+    <kAlarmKillLog value="True" />
+    <kEtDerefDiag value="True" />
+    <kSocialFinish value="True" />
+    <kSocialReceiveFail value="True" />
+    <kPetFirePlan value="False" />
+    <kSplashRoof value="False" />
+    <kShuffleboardBcast value="True" />
+    <kCookClickListener value="True" />
+    <kVipRoomRefresh value="True" />
+    <kCourseListener value="True" />
+    <kObservatoryMsg value="True" />
+    <kBubblePipeGuard value="True" />
+    <kBuffState value="True" />
+    <kStoreWorldEvents value="True" />
+    <kBowlingLane value="True" />
+    <kGenieBanish value="True" />
+    <kSpaceSimPartner value="True" />
+    <kBandJam value="True" />
+    <kStatueLine value="True" />
+    <kCleanFlag value="True" />
+    <kBirdTvNull value="True" />
+    <kGoHomeWalk value="True" />
+    <kPhotoBoothFunds value="True" />
+    <kShellLighting value="True" />
+    <kBonfireSpice value="True" />
+    <kDjCleanup value="True" />
+    <kVampireHuntGlow value="True" />
+    <kHotTubWoohooFx value="True" />
+    <kBribeGuard value="True" />
+    <kOppDeadListeners value="True" />
+    <kDaycareQuit value="True" />
+    <kPrivateEyeCase value="True" />
+    <kWeddingCancel value="True" />
+    <kGhostSpawnArgs value="True" />
+    <kMoveInPartner value="True" />
+    <kReaperFlow value="True" />
+    <kServiceLeave value="True" />
+    <kVisitGreetAlarm value="True" />
+    <kFieldTripAdult value="True" />
+    <kAutonomyFailBlock value="True" />
+    <kVisitTooLate value="True" />
+    <kSpoonReset value="True" />
+    <kHomeworkHelp value="True" />
+    <kGroupTalkStale value="True" />
+    <kConvMerge value="True" />
+    <kPortraitPose value="True" />
+    <kPicnicCamera value="True" />
+    <kUpgradeFailAlarm value="True" />
+    <kRepairTimeCache value="True" />
+    <kBurglarIdle value="True" />
+    <kGigWaitLeave value="True" />
+    <kSculptPose value="True" />
+    <kTrainBoost value="True" />
+    <kEatOutsideCount value="True" />
+    <kFireActiveJob value="False" />
+    <kFireTrapCount value="False" />
+    <kBirthdayAgers value="False" />
+    <kSneakOutListener value="False" />
+    <kPromCarpool value="False" />
+    <kCurfewAlarm value="False" />
+    <kTrickOrTreatAlarm value="False" />
+    <kSnowFightJoinWait value="False" />
+    <kHauntedUmbrella value="False" />
+    <kPermaZombieMoon value="False" />
+    <kSteadyGigMiss value="False" />
+    <kNpcShowStuck value="False" />
+    <kGigPullAudience value="False" />
+    <kLunacySocials value="False" />
+    <kFairyAuraTimer value="False" />
+    <kNpcSeasonalParty value="False" />
+    <kProfessorTerm value="False" />
+    <kProtestLastDay value="False" />
+    <kSeasickPaused value="False" />
+    <kResortWeddingAlarm value="False" />
+    <kPlumbotFaceListener value="False" />
+    <kEfficientChip value="False" />
+    <kSentienceName value="False" />
+    <kJetpackFlyingBuff value="False" />
+    <kHorseTraitScore value="False" />
+    <kWildHorseGender value="False" />
+    <kLitterCap value="False" />
+    <kPhoneLoadReset value="False" />
+    <kPhoneCallSchedule value="False" />
+    <kPhoneCallRearm value="False" />
+    <kWooHootyWait value="False" />
+    <kInviteCallReply value="False" />
+    <kGradVisitors value="False" />
+    <kResumeTns value="False" />
+    <kUniTravelFlag value="False" />
+    <kReturnHomeAlarms value="False" />
+    <kPhoneFixUp value="False" />
+    <kPhoneGive value="False" />
+    <kWildHerdMother value="False" />
+    <kSplitPartner value="False" />
+    <kMovingFlag value="False" />
+    <kSandsCoins value="False" />
+    <kTombMusic value="False" />
+    <kArtSellNoArtist value="False" />
+    <kRoyaltyOrphan value="False" />
+    <kPromoteShift value="False" />
+    <kGoToWorkStale value="False" />
+    <kHandsetReset value="False" />
+    <kFlowersInUse value="False" />
+    <kUseListPrune value="False" />
+    <kChestUseList value="False" />
+    <kResetInUseFree value="False" />
+    <kPutDownInUse value="False" />
+    <kAutonomyInUseBlock value="False" />
+    <kNpcBusyPartner value="False" />
+    <kBirthRoute value="True" />
+    <kPutDownPlace value="True" />
+    <kAwardKeep value="False" />
+    <kCeremonySpot value="True" />
+    <kEventCrowdRing value="True" />
+    <kEventRouteRetry value="True" />
+    <kSimFestKeep value="False" />
+    <kWeddingArchKeep value="True" />
+    <kWeddingCleanup value="True" />
+    <kHsGradKeep value="True" />
+    <kUniGradKeep value="False" />
+    <kBsRefund value="False" />
+    <kComboProtest value="True" />
+    <kComboVenue value="False" />
+    <kComboSituation value="True" />
+    <kComboJob value="True" />
+    <kComboProtestLot value="True" />
+    <kComboOpp value="True" />
+    <kHiddenRoomNpc value="True" />
+    <kHiddenRoomSpawn value="True" />
+    <kAptLeave value="True" />
+    <kPartyOutcome value="False" />
+    <kPartyMotive value="True" />
+    <kFilterGridLeak value="True" />
+    <kCompositorGhost value="True" />
+    <kCasPuckEvents value="True" />
+    <kFamCursorLeak value="True" />
+    <kCasExitSweep value="True" />
+    <kSeasonListener value="True" />
+    <kCasFilterGrid value="True" />
   </Current_Tuning>
 </base>
 `;
@@ -205,16 +394,29 @@ if (missing.length) {
 }
 const outDir = process.env.TS3_BUILD_DIR ?? join(ROOT, 'build');
 mkdirSync(outDir, { recursive: true });
+const tagArg = process.argv.indexOf('--tag'), tag = tagArg > 0 ? process.argv[tagArg + 1] ?? '' : '';
+if (tagArg > 0 && !/^[\w.]+(-[\w.]+)*$/.test(tag)) { console.error(`--tag: '${tag}' must be letters, digits, '.', '_' or single '-'`); process.exit(1); }
+const tagXml = (xml: string) => tag ? xml.replace('<base>', `<base>\n  <!-- build ${tag} -->`) : xml;
 const src = join(ROOT, 'mods', 'ts3fixes', 'src');
 const dll = join(outDir, `${ASSEMBLY}.dll`);
-const compile = (srcDir: string, out: string, extraRefs: string[] = []) =>
+// EA's Mono never attaches a MonoThread, so any [ThreadStatic] / [ContextStatic] field access faults in
+// mono_get_special_static_data (TS3W 0x00EBAB5B, null+0x40; docs/191). Refuse to build them.
+const lintStatics = (srcDir: string) => {
+  for (const f of readdirSync(srcDir).filter(f => f.endsWith('.cs')))
+    readFileSync(join(srcDir, f), 'utf8').split('\n').forEach((l, i) => {
+      if (/^\s*\[\s*(System\.)?(ThreadStatic|ContextStatic)(Attribute)?\s*\]/.test(l))
+        throw new Error(`${f}:${i + 1}: [ThreadStatic]/[ContextStatic] crashes the game's Mono (no thread statics); use a plain static`);
+    });
+};
+const compile = (srcDir: string, out: string, extraRefs: string[] = []) => (lintStatics(srcDir),
   execFileSync(CSC, ['/nologo', '/nostdlib+', '/noconfig', '/target:library', '/optimize+', '/langversion:5', '/warn:4',
     '/nowarn:414,169,649', `/out:${out}`, ...REFS.map(r => `/reference:${join(REF_DIR, `${r}.dll`)}`), ...extraRefs.map(r => `/reference:${r}`),
-    ...readdirSync(srcDir).filter(f => f.endsWith('.cs')).map(f => join(srcDir, f))], { stdio: 'inherit' });
+    // file names relative to cwd: absolute paths from a worktree overflow Windows' 32 K command line
+    ...readdirSync(srcDir).filter(f => f.endsWith('.cs'))], { stdio: 'inherit', cwd: srcDir }));
 compile(src, dll);
 const pkg = writePackage([
   { type: TYPE_S3SA, group: 0, instance: fnv64(ASSEMBLY), data: s3saEncode(readFileSync(dll)) },
-  { type: TYPE_XML, group: 0, instance: fnv64(`${ASSEMBLY}.Instantiator`), data: Buffer.from(TUNING_XML, 'utf8') },
+  { type: TYPE_XML, group: 0, instance: fnv64(`${ASSEMBLY}.Instantiator`), data: Buffer.from(tagXml(TUNING_XML), 'utf8') },
 ]);
 const out = join(outDir, 'ts3fixes.package');
 writeFileSync(out, pkg);
@@ -225,7 +427,7 @@ console.log(`built ${out} (${pkg.length} bytes)`);
 const onArg = process.argv.indexOf('--on');
 if (onArg > 0) {
   const names = (process.argv[onArg + 1] ?? '').split(',').filter(Boolean);
-  let xml = TUNING_XML;
+  let xml = tagXml(TUNING_XML);
   for (const n of names) {
     const [key, value] = n.split('=');
     if (value !== undefined) { // any tuning, e.g. kAutUnseenPacePct=50 or kAutLive=False
@@ -254,7 +456,7 @@ if (!existsSync(MP_PKG)) {
 } else {
   const refDir = join(outDir, 'refs');
   mkdirSync(refDir, { recursive: true });
-  execFileSync(process.execPath, [join(ROOT, 'tools', 'extract-assemblies.ts'), refDir, MP_PKG], { stdio: 'ignore' });
+  execFileSync(process.execPath, [join(ROOT, 'tools', 'extract-assemblies.ts'), refDir, MP_PKG], { stdio: ['ignore', 'ignore', 'inherit'] });
   const TEST = 'Ts3PortalPlanTest';
   const testDll = join(outDir, `${TEST}.dll`);
   compile(join(ROOT, 'mods', 'portalplan-test', 'src'), testDll, [join(refDir, 'MonoPatcher.dll')]);

@@ -47,7 +47,7 @@ struct Ts3nMtProbe {
     LONG arenaRelNonEmpty;   // +0x6C, 0xD71B70 release-all calls that found a non-empty chain (+0x13C now cleared after them)
     LONG arenaDropped;       // +0x70, pool nodes dropped: duplicate chunks at install, or a pooled chunk found in use (top != base)
     // v2: F1, worker-private call records for ScriptHost_NativeToManaged 0xD8A8E0 (N2mPrivate=1, docs/120 §9.4)
-    LONG n2mReady;           // +0x74, 1 = detour at 0xD8A8E0 installed
+    LONG n2mReady;           // +0x74, 1 = detour at 0xD8A8E0 installed, 2 = chained behind [Verify]'s stub there
     LONG n2mWorker;          // +0x78, entries on the worker (private records)
     LONG n2mMaxDepth;        // +0x7C, deepest private record nesting
     LONG n2mOverflow;        // +0x80, tripwire: nesting past the private records (that call took the game's shared chain)
@@ -64,13 +64,25 @@ struct Ts3nMtProbe {
     LONG simLockWaitUs;      // +0x9C
     LONG simLockMaxWaitUs;   // +0xA0
     LONG lazyEarlyOff;       // +0xA4, LazyEarly=1: gate off at a depth-0 sim entry once the worker is idle (no wait for the next tick)
+    // v7 (QuitStop=1, docs/30 §17): the worker stops at the Mono shutdown entry 0xE534D0, before the domain finalize
+    LONG quitReady;          // +0xA8, 1 = 0xE534D0 detour installed
+    LONG quitStops;          // +0xAC, shutdown entries that found no worker or stopped it (at most 1 per process)
+    LONG quitTimeouts;       // +0xB0, the worker did not leave within QuitWaitMs (left as it was, quit goes on)
+    LONG quitWaitUs;         // +0xB4, the stop's wait
+    LONG quitRestored;       // +0xB8, bit 0 0xE4B3F0 back to EA's code, bit 1 [0x11949CC] back to EA's root push
+    // v8 (docs/30 §18, D8 RUN FIRST): how much the worker allocates, to size a worker-private free list; always on with GcLock=1
+    // (one compare per locked worker entry). Counted only at depth 0 (the outermost hooked GC frame), so GC_malloc's own call
+    // into GC_generic_malloc counts once.
+    LONG workerAllocs;       // +0xBC, allocation entries (GC_malloc, _atomic, _uncollectable, _explicitly_typed, GC_generic_malloc) on the worker
+    LONG workerAllocsTyped;  // +0xC0, of those, GC_malloc_explicitly_typed (descriptor in the object: docs/30 §16's hard case)
+    LONG workerAllocMaxJob;  // +0xC4, most allocation entries in one job
 };
-extern "C" __declspec(dllexport) Ts3nMtProbe ts3native_mtprobe = {6};
+extern "C" __declspec(dllexport) Ts3nMtProbe ts3native_mtprobe = {8};
 static volatile LONG g_mtStopReq, g_mtBusy;  // worker stop request; a job (or a skip) is inside the worker
 static bool g_mtLazyGate;   // [MonoThread] LazyGate=1 (default off: the gate stays on while a worker exists)
 static bool g_mtLazyEarly;  // [MonoThread] LazyEarly=1 (with LazyGate=1, docs/30 §16)
 
-static const DWORD MT_COLLECT_A = 0x00E4A050, MT_COLLECT_B = 0x00E4A0B0;
+static const DWORD MT_COLLECT_A = TS3A(0x00E4A050), MT_COLLECT_B = TS3A(0x00E4A0B0);
 
 struct MtSite {
     DWORD addr;
@@ -79,25 +91,25 @@ struct MtSite {
 };
 // [verified bytes: docs/30 §12.1, docs/57 §7, re-read from the Steam 1.67 exe for this build]
 static const MtSite kMtLockSites[17] = {
-    {0x00E4BE30, 9, {0x8B, 0x44, 0x24, 0x04, 0xB9, 0x00, 0x08, 0x00, 0x00}},  // GC_malloc
-    {0x00E4BDC0, 9, {0x8B, 0x44, 0x24, 0x04, 0xB9, 0x00, 0x08, 0x00, 0x00}},  // GC_malloc_atomic
-    {0x00E4BF90, 6, {0x8B, 0x0D, 0xB4, 0x49, 0x19, 0x01}},                    // GC_malloc_uncollectable
-    {0x00E50DE0, 5, {0xA1, 0xB4, 0x49, 0x19, 0x01}},                          // GC_malloc_explicitly_typed
-    {0x00E4BCE0, 7, {0x83, 0x3D, 0x04, 0x41, 0x1F, 0x01, 0x00}},              // GC_generic_malloc
-    {0x00E4A050, 7, {0x83, 0x3D, 0x94, 0x30, 0x1F, 0x01, 0x00}},              // GC_try_to_collect
-    {0x00E4A0B0, 7, {0x83, 0x3D, 0x94, 0x30, 0x1F, 0x01, 0x00}},              // GC_gcollect
-    {0x00E4E450, 7, {0x83, 0x3D, 0xC0, 0x30, 0x1F, 0x01, 0x00}},              // GC_enable_incremental
-    {0x00E4AAC0, 5, {0x53, 0x8B, 0x5C, 0x24, 0x08}},                          // register disappearing link
-    {0x00E4ABE0, 5, {0xA1, 0x40, 0x48, 0x19, 0x01}},                          // unregister disappearing link
-    {0x00E4AE30, 8, {0x8B, 0x44, 0x24, 0x14, 0x8B, 0x4C, 0x24, 0x10}},        // register finalizer
-    {0x00E4A3F0, 5, {0x8B, 0x44, 0x24, 0x04, 0x50}},                          // GC_apply_to_each_object
-    {0x00E4BEB0, 5, {0x56, 0x8B, 0x74, 0x24, 0x08}},                          // GC_free
-    {0x00D71900, 5, {0x8B, 0x44, 0x24, 0x04, 0x55}},                          // EA frame arena grow
-    {0x00D71A20, 5, {0x8B, 0x44, 0x24, 0x04, 0x56}},                          // EA frame arena pop
-    {0x00D71B70, 5, {0x8B, 0x44, 0x24, 0x04, 0x56}},                          // EA frame arena release all
-    {0x00E4D9F0, 8, {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x4C, 0x24, 0x04}},        // GC_add_roots (last: LockAddRoots=0 leaves it out)
+    {TS3A(0x00E4BE30), 9, {0x8B, 0x44, 0x24, 0x04, 0xB9, 0x00, 0x08, 0x00, 0x00}},  // GC_malloc
+    {TS3A(0x00E4BDC0), 9, {0x8B, 0x44, 0x24, 0x04, 0xB9, 0x00, 0x08, 0x00, 0x00}},  // GC_malloc_atomic
+    {TS3A(0x00E4BF90), 6, {0x8B, 0x0D, 0xB4, 0x49, 0x19, 0x01}},                    // GC_malloc_uncollectable
+    {TS3A(0x00E50DE0), 5, {0xA1, 0xB4, 0x49, 0x19, 0x01}},                          // GC_malloc_explicitly_typed
+    {TS3A(0x00E4BCE0), 7, {0x83, 0x3D, 0x04, 0x41, 0x1F, 0x01, 0x00}},              // GC_generic_malloc
+    {TS3A(0x00E4A050), 7, {0x83, 0x3D, 0x94, 0x30, 0x1F, 0x01, 0x00}},              // GC_try_to_collect
+    {TS3A(0x00E4A0B0), 7, {0x83, 0x3D, 0x94, 0x30, 0x1F, 0x01, 0x00}},              // GC_gcollect
+    {TS3A(0x00E4E450), 7, {0x83, 0x3D, 0xC0, 0x30, 0x1F, 0x01, 0x00}},              // GC_enable_incremental
+    {TS3A(0x00E4AAC0), 5, {0x53, 0x8B, 0x5C, 0x24, 0x08}},                          // register disappearing link
+    {TS3A(0x00E4ABE0), 5, {0xA1, 0x40, 0x48, 0x19, 0x01}},                          // unregister disappearing link
+    {TS3A(0x00E4AE30), 8, {0x8B, 0x44, 0x24, 0x14, 0x8B, 0x4C, 0x24, 0x10}},        // register finalizer
+    {TS3A(0x00E4A3F0), 5, {0x8B, 0x44, 0x24, 0x04, 0x50}},                          // GC_apply_to_each_object
+    {TS3A(0x00E4BEB0), 5, {0x56, 0x8B, 0x74, 0x24, 0x08}},                          // GC_free
+    {TS3A(0x00D71900), 5, {0x8B, 0x44, 0x24, 0x04, 0x55}},                          // EA frame arena grow
+    {TS3A(0x00D71A20), 5, {0x8B, 0x44, 0x24, 0x04, 0x56}},                          // EA frame arena pop
+    {TS3A(0x00D71B70), 5, {0x8B, 0x44, 0x24, 0x04, 0x56}},                          // EA frame arena release all
+    {TS3A(0x00E4D9F0), 8, {0x8B, 0x44, 0x24, 0x08, 0x8B, 0x4C, 0x24, 0x04}},        // GC_add_roots (last: LockAddRoots=0 leaves it out)
 };
-static const DWORD MT_FIN_INVOKE = 0x00E4B3F0, MT_MALLOC_HEAP = 0x00E4EC40;
+static const DWORD MT_FIN_INVOKE = TS3A(0x00E4B3F0), MT_MALLOC_HEAP = TS3A(0x00E4EC40);
 static const u8 kMtFinInvoke[9] = {0x51, 0x53, 0x56, 0x8B, 0x35, 0x3C, 0x30, 0x1F, 0x01};  // push ecx/ebx/esi; mov esi,[0x11F303C]
 static const u8 kMtMallocHeap[4] = {0x83, 0xEC, 0x20, 0x53};                                // sub esp,0x20; push ebx
 
@@ -107,14 +119,16 @@ static DWORD g_mtRet[64];   // callers' return addresses, guarded by g_mtLock (o
 static DWORD* g_mtSlot[64]; // each entry's return-slot address (caller's ESP at entry): frames nest, so outer slots are higher
 static LONG g_mtDepth;
 static void* g_mtTramp[17];
+// v8: the five allocation entries of kMtLockSites (0-4; [3] = GC_malloc_explicitly_typed); the selftest points [0] at its fake
+static DWORD g_mtAllocAt[5] = {TS3A(0x00E4BE30), TS3A(0x00E4BDC0), TS3A(0x00E4BF90), TS3A(0x00E50DE0), TS3A(0x00E4BCE0)};
 void MtLockExitThunk();
 static DWORD g_mtWorkerTid;
 static double g_mtUsPerTick;
 // GC_invoke_finalizers state; the selftest points these at fakes
-static DWORD** g_mtFinQueue = (DWORD**)(uintptr_t)0x011F303C;       // ready queue: entry +0 base, +4 next, +8 fn, +0xC data
-static volatile LONG* g_mtFinLimit = (volatile LONG*)(uintptr_t)0x01194848;  // 0 = no per-call limit
-static DWORD* g_mtMemFreed = (DWORD*)(uintptr_t)0x012225D4;
-static DWORD* g_mtFinFreed = (DWORD*)(uintptr_t)0x012225D8;
+static DWORD** g_mtFinQueue = (DWORD**)(uintptr_t)TS3A(0x011F303C);       // ready queue: entry +0 base, +4 next, +8 fn, +0xC data
+static volatile LONG* g_mtFinLimit = (volatile LONG*)(uintptr_t)TS3A(0x01194848);  // 0 = no per-call limit
+static DWORD* g_mtMemFreed = (DWORD*)(uintptr_t)TS3A(0x012225D4);
+static DWORD* g_mtFinFreed = (DWORD*)(uintptr_t)TS3A(0x012225D8);
 
 static void MtLockInit() {
     if (g_mtLockInit) return;
@@ -171,6 +185,9 @@ static void __cdecl MtLockEnter(DWORD site, DWORD* retSlot) {
     if (g_mtWorkerTid && GetCurrentThreadId() == g_mtWorkerTid) {
         m.lockedWorker++;
         if (site == MT_COLLECT_A || site == MT_COLLECT_B) m.workerCollects++;
+        if (g_mtDepth == 0)
+            for (int i = 0; i < 5; i++)
+                if (site == g_mtAllocAt[i]) { m.workerAllocs++; if (i == 3) m.workerAllocsTyped++; break; }
     }
     if (g_mtDepth >= 64) { m.lockOverflow++; LeaveCriticalSection(&g_mtLock); return; }
     g_mtSlot[g_mtDepth] = retSlot;
@@ -212,7 +229,7 @@ __declspec(naked) void MtLockExitThunk() {
 // an interpreter context 0xE78610 returns NULL instead and the hooked frames return through their thunks, so the
 // entries are taken back then (a call, not a tail jump). No SEH frame or destructor here: the longjmp crosses this frame.
 typedef void*(__cdecl* MtOomFn)(size_t);
-static const DWORD MT_OOM_SLOT = 0x011949BC, MT_OOM_MONO = 0x00E78610;
+static const DWORD MT_OOM_SLOT = TS3A(0x011949BC), MT_OOM_MONO = TS3A(0x00E78610);
 static MtOomFn g_mtOomOrig;
 static void* __cdecl MtOomWrap(size_t n) {
     DWORD ret[64];
@@ -269,11 +286,25 @@ static u8* MtEmitStub(u8* p, DWORD site, void** trampSlot) {
     return p;
 }
 
+// "Shared stub, one owner" (as F1, docs/120 §9.4): [Verify]'s count-only stubs gcFree 0xE4BEB0 and arenaGrow 0xD71900
+// (Threads group) own two P3 sites; they install at load, P3 at the first tick, so P3's prologue check saw their jmp and
+// wrote nothing (lane-L9-1115 bp-l9-f1verify). verify.cpp registers each hooked probe's trampoline slot here; P3 takes
+// that trampoline (original prologue, jmp +len) as its own and points the slot at its stub: Verify counts, then P3 locks.
+static struct { DWORD at; void* volatile* slot; } g_mtVfOwned[8];
+static int g_mtVfOwnedN;
+static void MtVfRegister(DWORD at, void* volatile* slot) {
+    if (g_mtVfOwnedN < 8) g_mtVfOwned[g_mtVfOwnedN].at = at, g_mtVfOwned[g_mtVfOwnedN++].slot = slot;
+}
+static void* volatile* MtVfOwner(DWORD at) {
+    for (int j = 0; j < g_mtVfOwnedN; j++) if (g_mtVfOwned[j].at == at && *g_mtVfOwned[j].slot) return g_mtVfOwned[j].slot;
+    return NULL;
+}
+
 // Checks every site first (all or nothing), then builds trampolines and stubs before writing any jmp, so a site is
-// never live without its trampoline. Returns the number of detours written.
+// never live without its trampoline. Returns the number of detours written (chained ones included).
 static int MtInstallLockSites(const MtSite* sites, int n) {
     for (int i = 0; i < n; i++)
-        if (!Matches((void*)(uintptr_t)sites[i].addr, sites[i].bytes, sites[i].len)) {
+        if (!MtVfOwner(sites[i].addr) && !Matches((void*)(uintptr_t)sites[i].addr, sites[i].bytes, sites[i].len)) {
             Log("SKIP mono thread P3: prologue at 0x%08X differs, nothing written", sites[i].addr);
             return 0;
         }
@@ -282,7 +313,16 @@ static int MtInstallLockSites(const MtSite* sites, int n) {
     for (int i = 0; i < n; i++) {
         u8* tramp = mem + i * 112;  // 32 trampoline + 80 stub
         u8* t = (u8*)(uintptr_t)sites[i].addr;
-        memcpy(tramp, sites[i].bytes, sites[i].len);
+        if (void* volatile* vf = MtVfOwner(sites[i].addr)) {  // Verify's trampoline runs the original prologue
+            g_mtTramp[i] = *vf;
+            MtEmitStub(tramp + 32, sites[i].addr, &g_mtTramp[i]);
+            continue;
+        }
+#ifdef TS3A_TABLE
+        memcpy(tramp, t, sites[i].len);  // the live bytes (= the checked ones; on EA their globals differ from the Steam literal)
+#else
+        memcpy(tramp, sites[i].bytes, sites[i].len);  // Steam: live = literal (checked); kept so the Steam asi stays identical
+#endif
         tramp[sites[i].len] = 0xE9;
         *(LONG*)(tramp + sites[i].len + 1) = (LONG)((t + sites[i].len) - (tramp + sites[i].len + 5));
         g_mtTramp[i] = tramp;
@@ -292,6 +332,12 @@ static int MtInstallLockSites(const MtSite* sites, int n) {
     int done = 0;
     for (int i = 0; i < n; i++) {
         u8* t = (u8*)(uintptr_t)sites[i].addr;
+        if (void* volatile* vf = MtVfOwner(sites[i].addr)) {
+            InterlockedExchangePointer(vf, (void*)(mem + i * 112 + 32));
+            Log("OK   mono thread P3: 0x%08X chained behind [Verify]'s stub", sites[i].addr);
+            done++;
+            continue;
+        }
         u8 jmp[16];
         memset(jmp, 0x90, sizeof(jmp));
         jmp[0] = 0xE9;
@@ -357,7 +403,7 @@ static bool MtJmpTo(DWORD at, const void* to, size_t len) {
 // frame exit finds the chain already emptied by the other state (fault at 0xE5444D) [verified in monohost].
 // Fix: clear +0x13C after release-all, drop duplicate chunks from the pool once at install, and before each grow drop
 // pooled chunks that are in use (a pooled chunk has top == data start; every release path resets it [verified bytes]).
-static DWORD** g_mtArenaPool = (DWORD**)(uintptr_t)0x011EE508;  // the selftest points it at a fake pool
+static DWORD** g_mtArenaPool = (DWORD**)(uintptr_t)TS3A(0x011EE508);  // the selftest points it at a fake pool
 static void* g_mtGrowOrig;
 static void* g_mtRelAllOrig;
 static bool g_mtArenaFix = true;
@@ -431,8 +477,8 @@ static bool ApplyArenaGuard(const wchar_t* ini) {
         Log("arena guard: left to [MonoThread] ArenaFix (P3 owns 0xD71900 / 0xD71B70)");
         return false;
     }
-    if ((g_mtGrowOrig = InstallDetour("arena grow (arena guard)", 0x00D71900, kAgGrow, 5, (void*)MtArenaGrow, &g_mtGrowOrig)) != NULL) g_agReady |= 1;
-    if ((g_mtRelAllOrig = InstallDetour("arena release all (arena guard)", 0x00D71B70, kAgRelAll, 5, (void*)MtArenaReleaseAll, &g_mtRelAllOrig)) != NULL) g_agReady |= 2;
+    if ((g_mtGrowOrig = InstallDetour("arena grow (arena guard)", TS3A(0x00D71900), kAgGrow, 5, (void*)MtArenaGrow, &g_mtGrowOrig)) != NULL) g_agReady |= 1;
+    if ((g_mtRelAllOrig = InstallDetour("arena release all (arena guard)", TS3A(0x00D71B70), kAgRelAll, 5, (void*)MtArenaReleaseAll, &g_mtRelAllOrig)) != NULL) g_agReady |= 2;
     Log("%s arena guard: ready 0x%X (bit 0 heal before grow, 1 clear after release-all)", g_agReady == 3 ? "OK  " : "PART", g_agReady);
     return g_agReady != 0;
 }
@@ -473,7 +519,7 @@ static void MtInstallP3(bool addRoots) {
 }
 
 // --- P4: interpreter frame globals to TLS ---
-static const DWORD MT_FRAME_G = 0x011F4170, MT_ARRAY_G = 0x011F416C, MT_FRAME_AT = 0x00E534E0;
+static const DWORD MT_FRAME_G = TS3A(0x011F4170), MT_ARRAY_G = TS3A(0x011F416C), MT_FRAME_AT = TS3A(0x00E534E0);
 struct MtBlock {
     DWORD addr;
     u8 len;
@@ -484,11 +530,11 @@ struct MtBlock {
 // [verified: docs/30 §4 table and §12.4; whole blocks re-read from the exe]. Each instruction that names a global has
 // it as its last 4 bytes; the stub repeats the block with an fs: prefix on those and the TEB slot offset instead.
 static const MtBlock kMtBlocks[3] = {
-    {0x00E53EBD, 37, 9, {5, 6, 1, 3, 3, 6, 2, 6, 5},
+    {TS3A(0x00E53EBD), 37, 9, {5, 6, 1, 3, 3, 6, 2, 6, 5},
      {0xA1, 0x70, 0x41, 0x1F, 0x01, 0x8B, 0x0D, 0x6C, 0x41, 0x1F, 0x01, 0x53, 0x8B, 0x5D, 0x08, 0x89, 0x45, 0xA0, 0x8D,
       0x85, 0x8C, 0xB3, 0xFF, 0xFF, 0x33, 0xD2, 0x89, 0x1D, 0x70, 0x41, 0x1F, 0x01, 0xA3, 0x6C, 0x41, 0x1F, 0x01}},  // entry
-    {0x00E597BA, 11, 2, {5, 6}, {0xA3, 0x70, 0x41, 0x1F, 0x01, 0x89, 0x0D, 0x6C, 0x41, 0x1F, 0x01}},              // exit A
-    {0x00E59866, 12, 2, {6, 6}, {0x89, 0x15, 0x6C, 0x41, 0x1F, 0x01, 0x89, 0x0D, 0x70, 0x41, 0x1F, 0x01}},        // exit B
+    {TS3A(0x00E597BA), 11, 2, {5, 6}, {0xA3, 0x70, 0x41, 0x1F, 0x01, 0x89, 0x0D, 0x6C, 0x41, 0x1F, 0x01}},              // exit A
+    {TS3A(0x00E59866), 12, 2, {6, 6}, {0x89, 0x15, 0x6C, 0x41, 0x1F, 0x01, 0x89, 0x0D, 0x70, 0x41, 0x1F, 0x01}},        // exit B
 };
 static const u8 kMtFrameAt[16] = {0x8B, 0x15, 0x6C, 0x41, 0x1F, 0x01, 0x85, 0xD2, 0x74, 0x4D, 0xA1, 0x70, 0x41, 0x1F, 0x01, 0x85};
 static DWORD g_mtSlotF = TLS_OUT_OF_INDEXES, g_mtSlotA = TLS_OUT_OF_INDEXES;
@@ -496,7 +542,11 @@ static DWORD g_mtSlotF = TLS_OUT_OF_INDEXES, g_mtSlotA = TLS_OUT_OF_INDEXES;
 // Stub for one block at `site` (the block's bytes, here or in a test copy): same instructions, globals -> fs:[0xE10 + 4*slot],
 // then jmp site + len. Returns the end of the stub.
 static u8* MtEmitBlock(u8* p, const MtBlock& b, DWORD site) {
-    const u8* in = b.bytes;
+#ifdef TS3A_TABLE
+    const u8* in = (const u8*)(uintptr_t)site;  // the live block (checked against b.bytes; on EA its globals are the EA ones)
+#else
+    const u8* in = b.bytes;  // Steam: live = b.bytes (checked); kept so the Steam asi stays identical
+#endif
     for (int i = 0; i < b.nIns; i++) {
         const u8 l = b.insLen[i];
         DWORD a;
@@ -594,11 +644,11 @@ static void MtInstallP4() {
 typedef void*(__cdecl* MtInvokeFn)(void* method, void* obj, void** params, void** exc);
 typedef void*(__cdecl* MtDomainGetFn)();
 typedef void(__cdecl* MtDomainSetFn)(void* domain);
-static MtInvokeFn g_mtInvoke = (MtInvokeFn)(uintptr_t)0x00E5A600;         // runtime invoke, called directly (not the slot)
-static MtDomainGetFn g_mtDomainGet = (MtDomainGetFn)(uintptr_t)0x00E75260;  // TlsGetValue([0x11959DC])
-static MtDomainSetFn g_mtDomainSet = (MtDomainSetFn)(uintptr_t)0x00E75270;  // TlsSetValue([0x11959DC], domain)
-static DWORD* g_mtInterpKey = (DWORD*)(uintptr_t)0x011F4160;                // TLS index of the interpreter ThreadContext
-static volatile LONG* g_mtTrackMode = (volatile LONG*)(uintptr_t)0x011DC18C;  // EA memory tracking mode
+static MtInvokeFn g_mtInvoke = (MtInvokeFn)(uintptr_t)TS3A(0x00E5A600);         // runtime invoke, called directly (not the slot)
+static MtDomainGetFn g_mtDomainGet = (MtDomainGetFn)(uintptr_t)TS3A(0x00E75260);  // TlsGetValue([0x11959DC])
+static MtDomainSetFn g_mtDomainSet = (MtDomainSetFn)(uintptr_t)TS3A(0x00E75270);  // TlsSetValue([0x11959DC], domain)
+static DWORD* g_mtInterpKey = (DWORD*)(uintptr_t)TS3A(0x011F4160);                // TLS index of the interpreter ThreadContext
+static volatile LONG* g_mtTrackMode = (volatile LONG*)(uintptr_t)TS3A(0x011DC18C);  // EA memory tracking mode
 struct MtJob { void* method; void* obj; void** params; };
 static MtJob g_mtJob;
 static HANDLE g_mtWorker, g_mtJobEv;
@@ -634,6 +684,7 @@ static DWORD WINAPI MtWorkerMain(void*) {
         LARGE_INTEGER t0, t1;
         if (g_mtJobHook) g_mtJobHook(0, g_mtJob.method);
         QueryPerformanceCounter(&t0);
+        const LONG a0 = m.workerAllocs;  // v8: only the worker writes it, under the lock
         void* exc = NULL;
         void* r = g_mtInvoke(g_mtJob.method, g_mtJob.obj, g_mtJob.params, &exc);
         QueryPerformanceCounter(&t1);
@@ -641,6 +692,7 @@ static DWORD WINAPI MtWorkerMain(void*) {
         const LONG us = (LONG)((t1.QuadPart - t0.QuadPart) * g_mtUsPerTick);
         m.workerJobs++, m.workerRunUs += us;
         if (us > m.workerMaxRunUs) m.workerMaxRunUs = us;
+        if (m.workerAllocs - a0 > m.workerAllocMaxJob) m.workerAllocMaxJob = m.workerAllocs - a0;
         if (exc) m.workerExceptions++, r = NULL;  // counted and dropped, never through the game's script error path
         InterlockedExchange(&m.result, (LONG)(uintptr_t)r);
         m.workerState = 2;
@@ -685,6 +737,60 @@ static bool MtStopWorker(DWORD waitMs) {
     return true;
 }
 
+// --- QuitStop (docs/30 §17): no worker of ours alive while Mono shuts down ---
+// Host shutdown 0xD80750 -> 0xE534D0 -> Mono cleanup 0xE53470 -> domain finalize 0xE79180 -> 0xE790E0 (run_finalize per
+// object of the domain's finalizable hash), on the sim thread, once per process, after the last Simulate tick [verified call
+// path, quitdiag-1114]; v0.2.12 crash (player twopointjj): run_finalize on a freed object there, with our worker still up.
+// At the 0xE534D0 entry (sim thread, outside every GC and interpreter function): [AutShadow]'s job in flight gets its stop
+// flag (every later answer aborts), the worker stops with a bounded wait (it unregisters from Boehm's table under the lock,
+// then the gate goes off), and only then 0xE4B3F0 and [0x11949CC] go back to the game's (each only if it still holds ours).
+// A worker still inside after QuitWaitMs keeps everything as today (registered, gate on, hooks kept), counted and logged:
+// quit is never held longer than the wait. Once per process; MtM5Tick never restarts the worker afterwards.
+static bool g_mtQuitStop = true;              // [MonoThread] QuitStop (default 1)
+static DWORD g_mtQuitWaitMs = 2000;           // [MonoThread] QuitWaitMs
+static volatile LONG g_mtQuitDone;
+static void(__cdecl* g_mtQuitDrain)();        // autshadow-run.cpp: stop flag for its job in flight
+static u8* g_mtFinAt = (u8*)(uintptr_t)MT_FIN_INVOKE;           // selftest: fakes
+static DWORD* g_mtPushHookAt = (DWORD*)(uintptr_t)MT_PUSH_HOOK;
+static void* g_mtShutT;
+static const DWORD MT_SHUTDOWN = TS3A(0x00E534D0);
+static const u8 kMtShutdown[6] = {0x8B, 0x44, 0x24, 0x04, 0x6A, 0x00};  // mov eax,[esp+4]; push 0 [verified bytes, quitdiag]
+
+static void MtQuitStop(const char* where) {
+    Ts3nMtProbe& m = ts3native_mtprobe;
+    if (!g_mtQuitStop || InterlockedExchange(&g_mtQuitDone, 1)) return;
+    const bool had = g_mtWorker != NULL;
+    const LONG jobs = m.workerJobs, busy = g_mtBusy;
+    if (had && busy && g_mtQuitDrain) g_mtQuitDrain();
+    LARGE_INTEGER f, t0, t1;
+    QueryPerformanceFrequency(&f), QueryPerformanceCounter(&t0);
+    const bool stopped = MtStopWorker(g_mtQuitWaitMs);
+    QueryPerformanceCounter(&t1);
+    m.quitWaitUs = (LONG)((t1.QuadPart - t0.QuadPart) * 1000000 / f.QuadPart);
+    if (!stopped) {
+        m.quitTimeouts++;
+        Log("WARN mono thread QuitStop: %s, worker still inside after %lu ms (state %ld, job running %ld): left as it was "
+            "(registered, gate on, hooks kept), quit goes on", where, g_mtQuitWaitMs, m.workerState, busy);
+        return;
+    }
+    m.quitStops++;
+    u8 jmp[5] = {0xE9};
+    *(LONG*)(jmp + 1) = (LONG)((const u8*)(const void*)MtInvokeFinalizers - (g_mtFinAt + 5));
+    if ((m.p3Ready & 2) && !memcmp(g_mtFinAt, jmp, 5) && Write(g_mtFinAt, kMtFinInvoke, 5)) m.p3Ready &= ~2, m.quitRestored |= 1;
+    const DWORD orig = (DWORD)(uintptr_t)g_mtOrigPush;
+    if (orig && *g_mtPushHookAt == (DWORD)(uintptr_t)MtPushOtherRoots && Write(g_mtPushHookAt, &orig, 4)) m.quitRestored |= 2;
+    Log("OK   mono thread QuitStop: %s, worker %s (%ld jobs, job running %ld) in %ld us, gate %ld; finalizer pass 0xE4B3F0 %s, "
+        "root push [0x11949CC] %s", where, had ? "stopped and unregistered" : "none", jobs, busy, m.quitWaitUs, m.locking,
+        (m.quitRestored & 1) ? "back to the game's" : "not ours", (m.quitRestored & 2) ? "back to the game's" : "not ours");
+}
+// 0xE534D0 (cdecl, one argument: the domain), sim thread
+static int __cdecl MtShutdownHook(DWORD dom) {
+    __try { MtQuitStop("mono shutdown enter"); } __except (EXCEPTION_EXECUTE_HANDLER) {
+        Log("FAIL mono thread QuitStop: exception 0x%08lX, shutdown goes on", GetExceptionCode());
+    }
+    return ((int(__cdecl*)(DWORD))g_mtShutT)(dom);
+}
+
 // Sim thread: hand one job to the idle worker. The arguments must stay alive and rooted until seq moves (a managed
 // static or a GC_malloc_uncollectable cell; docs/120 §1.2). Methods must have run once on the sim thread (docs/30 §5 step 6).
 // LazyGate=1: the gate goes on here, before the worker can see the job (SetEvent is a full barrier), so every GC/alloc
@@ -719,10 +825,10 @@ static void MtLazyOff() {
 typedef void(__cdecl* MtExecFn)(void* rec, void* ctx);
 typedef void*(__cdecl* MtSigFn)(void* method);
 typedef void*(__cdecl* MtUncollFn)(size_t n);
-static MtExecFn g_mtExec = (MtExecFn)(uintptr_t)0x00E53EB0;          // ves_exec_method_with_context
-static MtSigFn g_mtSig = (MtSigFn)(uintptr_t)0x00E85040;             // mono_method_signature
-static MtUncollFn g_mtUncoll = (MtUncollFn)(uintptr_t)0x00E4BF90;    // GC_malloc_uncollectable (P3-locked): records stay roots
-static const DWORD MT_N2M = 0x00D8A8E0;
+static MtExecFn g_mtExec = (MtExecFn)(uintptr_t)TS3A(0x00E53EB0);          // ves_exec_method_with_context
+static MtSigFn g_mtSig = (MtSigFn)(uintptr_t)TS3A(0x00E85040);             // mono_method_signature
+static MtUncollFn g_mtUncoll = (MtUncollFn)(uintptr_t)TS3A(0x00E4BF90);    // GC_malloc_uncollectable (P3-locked): records stay roots
+static const DWORD MT_N2M = TS3A(0x00D8A8E0);
 static const u8 kMtN2m[5] = {0x8B, 0x44, 0x24, 0x18, 0x53};  // mov eax,[esp+0x18]; push ebx
 static DWORD g_mtN2mCont = MT_N2M + 5;
 static u8* g_mtN2mRec[32];  // 0x150 record + its 0x28 frame buffer at +0x30, as the game's nodes
@@ -800,7 +906,18 @@ static __declspec(naked) void MtN2mEntry() {
         jmp dword ptr [g_mtN2mCont]
     }
 }
+// docs/120 §9.4, docs/122 §12.4 "shared stub, one owner": [Verify]'s count-only nativeToManaged stub owns 0xD8A8E0 when it is
+// on (it installs at load, F1 at the first tick). verify.cpp points this at its trampoline slot; F1 then replaces the slot,
+// so Verify counts first and jumps into MtN2mEntry with the entry's stack. MtN2mEntry's game path runs the same 5 prologue
+// bytes and jumps to +5, as Verify's trampoline did (the bytes have no relative operand).
+static void* volatile* g_mtVfN2mSlot;
 static void MtInstallN2m() {
+    if (g_mtVfN2mSlot && *g_mtVfN2mSlot) {
+        InterlockedExchangePointer((void* volatile*)g_mtVfN2mSlot, (void*)MtN2mEntry);
+        ts3native_mtprobe.n2mReady = 2;
+        Log("OK   mono thread F1: chained behind [Verify] nativeToManaged at 0xD8A8E0 -> worker-private call records");
+        return;
+    }
     if (!Matches((void*)(uintptr_t)MT_N2M, kMtN2m, sizeof(kMtN2m))) { Log("SKIP mono thread F1: 0xD8A8E0 differs, nothing written"); return; }
     if (MtJmpTo(MT_N2M, (const void*)MtN2mEntry, 5)) ts3native_mtprobe.n2mReady = 1;
     Log("%s mono thread F1: 0xD8A8E0 -> worker-private call records", ts3native_mtprobe.n2mReady ? "OK  " : "FAIL");
@@ -818,7 +935,7 @@ static void MtM5FirstTick() {
 // every Simulate tick (sim thread): start / stop the worker on the mtMode switch
 static void MtM5Tick() {
     Ts3nMtProbe& m = ts3native_mtprobe;
-    const bool want = ts3native_counters.mtMode >= 1 && (m.p3Ready & 3) == 3 && (m.p3Ready & 4) && m.p4Ready == 0xF;
+    const bool want = !g_mtQuitDone && ts3native_counters.mtMode >= 1 && (m.p3Ready & 3) == 3 && (m.p3Ready & 4) && m.p4Ready == 0xF;
     if (want && !g_mtWorker) {
         if (m.workerState >= 0 && m.workerState != 1) MtStartWorker();
     } else if (!want && g_mtWorker) {

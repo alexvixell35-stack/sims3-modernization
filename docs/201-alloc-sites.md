@@ -109,7 +109,7 @@ Questions the queue answers: per live cycle, which heap / view / reserve sites g
 - G4: `from` comes from a stack scan (stale return addresses possible); no deeper chain.
 - G5: heap live bytes are an estimate (address sampling; selftest ±25 % at 20,000 blocks, tighter with more); heap growth inside existing EA cores does not move the largest free block by itself: the `virtual` rows with `at` in `0x4E48F0` / `0x4E50F0` and their `from` are the heap's address-space cost.
 - G6: game cost not measured in the game (selftest numbers only); the call rate per second is unknown.
-- G7: when Apex Radiance is loaded the tool is off, so Apex setups need Apex's own memory analysis (docs/187).
+- G7: when Apex Radiance is loaded the tool is off, so Apex setups need Apex's own memory analysis (docs/187). 0.36.260-memdiag3: `[MemDiag] AllocSitesWithApex=1` runs it next to Apex (no shared site in Apex 3.2.3; docs/190 §5.6), not run yet.
 
 ## 11. First run failed: hook frame scan faulted (0.36.82, fixed in 0.36.84)
 

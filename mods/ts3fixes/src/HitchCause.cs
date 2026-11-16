@@ -34,13 +34,17 @@ namespace Ts3Fixes
     // boatreplanlog: every Route.ReplanFromPoint with a boat as follower, stamped from the leaves RouteSrcBegin and RflPlan so no
     // hook that can sit on a saved stack changes. Line "boatreplan:": ms, caller, previous route action, Sim and boat seen or
     // unseen (UfWhy), why [UnseenFallback] did not take it, why the docs/176 job would refuse it (ts3native ArWould), route size.
+    // docs/247 §13.3 R1: also the houseboat gangway fixups, Route.ReplanFromPoint with a Sim follower called from
+    // SimRoutingComponent.Exit/EnterHouseboatThroughGangway inside the plan's PostPlanCallback (no yield possible there, so always
+    // sync). Found by a stack walk of a few frames, only with the switch on. Line "gangway:": ms, Exit/Enter, Sim, uf, class
+    // (unseen / household = household, selected or unknown scope / seen), paths. Counters [950] lines, [951] / [952] ms unseen / not.
     //
     // owresettime: which part of a Overwatch reset ran how long. ResetSimTask.Perform and FixInvisibleTask.InstantiateAtHome are
     // swapped with stubs (they can sleep; test package only). Line "owreset:".
     //
     // Counters: [826] alarms timed, [827] alarmtime lines, [828] lotpass lines, [829] boatreplan lines, [830] of those the
     // docs/176 job could take if it were on, [831] of those with the Sim and the boat unseen, [832] owreset lines, [833] lines
-    // dropped by the cap, [834] / [835] boat replan ms seen / unseen.
+    // dropped by the cap, [834] / [835] boat replan ms seen / unseen; [950] gangway lines, [951] / [952] their ms unseen / not unseen.
     public static partial class Fixes
     {
         const uint kHcMinUs = 20000, kHcRestMinUs = 100000;
@@ -66,6 +70,12 @@ namespace Ts3Fixes
             // reset task's record (HcRstNow), so any other selection runs straight through. DoSelectActor does not sleep [inferred, decompile]
             ok &= Patch(typeof(PlumbBob), "DoSelectActor", new Type[] { typeof(Sim), typeof(bool) }, typeof(HcTailHook), "SelHook", "SelOrig");
             ok &= Patch(typeof(Sims3.Gameplay.GlobalFunctions), "CreateObjectWithOverrides", new Type[] { typeof(string), typeof(ProductVersion), typeof(Vector3), typeof(int), typeof(Vector3), typeof(System.Collections.Hashtable), typeof(Simulator.ObjectInitParameters) }, typeof(HcInstHook), "CowHook", "CowOrig");
+            // spawner placement (docs/546 row 5): ObjectSpawner.TriggerSpawn took up to 242 ms (SeaLifeSpawner, phase-20261114-0032);
+            // TryPlaceSpawnedObjectInWorld tries up to kMaxSpawnAttempts+1 = 11 PlaceAtGoodLocation searches and places the object
+            // at the last start position when all fail. Logs each placement >= 10 ms: spawner, attempts, whether one succeeded.
+            ok &= Patch(typeof(Sims3.Gameplay.Abstracts.ObjectSpawner), "TryPlaceSpawnedObjectInWorld", new Type[] { typeof(IGameObject).MakeByRefType(), typeof(bool), typeof(FindGoodLocationBooleans) }, typeof(HcSpawnHook), "PlaceHook", "PlaceOrig");
+            ok &= Patch(typeof(Sims3.Gameplay.GlobalFunctions), "PlaceAtGoodLocation", new Type[] { typeof(IGameObject), typeof(World.FindGoodLocationParams), typeof(bool) }, typeof(HcSpawnHook), "FglHook", "FglOrig");
+            ok &= ApplySyncWaitLog();  // SyncWaitLog.cs, docs/546 §9
             TunedLog("kHitchCauseHooks", ok, "alarm and lot pass stamps");
             HcApplyOverwatch();
         }
@@ -241,7 +251,7 @@ namespace Ts3Fixes
         struct HcBoat
         {
             public ScriptCore.Route Route;
-            public string Caller, Prev, Sim, Boat, Lot, Why, Uf;
+            public string Caller, Prev, Sim, Boat, Lot, Why, Uf, Gangway;
             public int SimWhy;
             public ulong SimId;
             public bool Unseen, Take;
@@ -260,7 +270,7 @@ namespace Ts3Fixes
             {
                 IScriptProxy f = r.Follower;
                 GameObject boat = f != null ? f.Target as GameObject : null;
-                if (!(boat is IBoat)) return;
+                if (!(boat is IBoat)) { HcGangBegin(r, f != null ? f.Target as Sim : null, fromPt); return; }
                 string caller = "?";
                 for (int i = 1; i < 24; i++)
                 {
@@ -310,6 +320,32 @@ namespace Ts3Fixes
             catch (Exception) { sHcBoat.Route = null; }
         }
 
+        // a Sim follower's ReplanFromPoint: a gangway fixup when one of the next frames is EA's gangway method (HcBoatBegin's
+        // callers sit between: RouteSrcBegin, the ReplanFromPoint hook)
+        static void HcGangBegin(ScriptCore.Route r, Sim sim, Vector3 fromPt)
+        {
+            if (sim == null) return;
+            string gw = null;
+            for (int i = 2; i < 10 && gw == null; i++)
+            {
+                MethodBase m = new StackFrame(i, false).GetMethod();
+                if (m == null) break;
+                if (m.Name == "ExitHouseboatThroughGangway" || m.Name == "EnterHouseboatThroughGangway") gw = m.Name;
+            }
+            if (gw == null) return;
+            HcBoat b = default(HcBoat);
+            b.Route = r;
+            b.Gangway = gw.StartsWith("Exit") ? "Exit" : "Enter";
+            b.SimWhy = UfWhy(sim);
+            b.Unseen = UbCore.Unseen(b.SimWhy);
+            b.SimId = sim.ObjectId.Value;
+            b.Sim = sim.FullName;
+            b.From = fromPt;
+            Lot lot = sim.LotCurrent;
+            b.Lot = lot != null ? lot.LotId.ToString("X") : "0";
+            sHcBoat = b;
+        }
+
         // RflPlan, after the plan; t0 = SrcNowUs() before it
         static void HcBoatEnd(ScriptCore.Route r, uint t0, RoutePlanResult res, bool async)
         {
@@ -320,6 +356,16 @@ namespace Ts3Fixes
             try
             {
                 uint ms = unchecked(SrcNowUs() - t0) / 1000;
+                if (b.Gangway != null)
+                {
+                    int[] g = PatchCounters();
+                    g[950]++;
+                    g[b.Unseen ? 951 : 952] += (int)ms;
+                    string cls = b.Unseen ? "unseen" : UnseenFallbackCore.HouseholdScope(b.SimWhy) ? "household" : "seen";
+                    HcLine("gangway: " + ms + " ms, " + b.Gangway + ", " + (async ? "async" : "sync") + " " + res.mType + ", sim " + b.Sim + " uf=" + b.SimWhy
+                        + ", class " + cls + ", route " + r.GetRouteLength().ToString("0.0") + " paths " + r.GetNumPaths() + ", lot " + b.Lot + ", from " + V(b.From));
+                    return;
+                }
                 int[] c = PatchCounters();
                 c[829]++;
                 if (b.Take) c[830]++;
@@ -500,6 +546,37 @@ namespace Ts3Fixes
         }
 
         // docs/247 §12.4: the reset tail's steps, stamped into the reset task's record; outside a reset they run straight through
+        static int sHcSpTries, sHcSpOk; static bool sHcSpIn;
+        public class HcSpawnHook
+        {
+            public void PlaceHook(ref IGameObject retObj, bool deleteObjOnFailure, FindGoodLocationBooleans booleanConstraints)
+            {
+                if (!ShortcutOn("alarmtime") || sHcSpIn) { PlaceOrig(ref retObj, deleteObjOnFailure, booleanConstraints); return; }
+                sHcSpIn = true; sHcSpTries = 0; sHcSpOk = 0;
+                uint t0 = SrcNowUs();
+                try { PlaceOrig(ref retObj, deleteObjOnFailure, booleanConstraints); }
+                finally
+                {
+                    sHcSpIn = false;
+                    uint us = unchecked(SrcNowUs() - t0);
+                    if (us >= 10000)
+                    {
+                        object sp = this;
+                        HcLine("spawnplace: " + (us / 1000) + " ms, " + sp.GetType().Name + " " + HcName(sp) + ", fgl tries " + sHcSpTries + ", ok " + sHcSpOk
+                            + ", obj " + (retObj != null ? retObj.GetType().Name : "null(deleted)") + ", " + HcSimTime());
+                    }
+                }
+            }
+            public void PlaceOrig(ref IGameObject retObj, bool deleteObjOnFailure, FindGoodLocationBooleans booleanConstraints) { }
+            public static bool FglHook(IGameObject obj, World.FindGoodLocationParams fglParams, bool deleteOnFailure)
+            {
+                bool r = FglOrig(obj, fglParams, deleteOnFailure);
+                if (sHcSpIn) { sHcSpTries++; if (r) sHcSpOk++; }
+                return r;
+            }
+            public static bool FglOrig(IGameObject obj, World.FindGoodLocationParams fglParams, bool deleteOnFailure) { return false; }
+        }
+
         public class HcTailHook
         {
             public static bool SelHook(Sim actor, bool force)

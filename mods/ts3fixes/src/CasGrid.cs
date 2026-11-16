@@ -113,16 +113,16 @@ namespace Ts3Fixes
         // ---- per-CAS-session part data (casmemo). Inputs are the part key only: SetCASPart(key) then the default preset
         // of that part, or its preset XML resource; user design presets do not change the default preset (inferred), and
         // hair (not hats) only shows the default one. Age/gender/species change also clears it, to be safe.
-        class PartData { public ResourceKeyContentCategory Type; public string Xml; public bool HasXml; }
-        static readonly Dictionary<ResourceKey, PartData> sPartMemo = new Dictionary<ResourceKey, PartData>();
+        class CasPartMemo { public ResourceKeyContentCategory Type; public string Xml; public bool HasXml; }
+        static readonly Dictionary<ResourceKey, CasPartMemo> sPartMemo = new Dictionary<ResourceKey, CasPartMemo>();
         static ICASModel sMemoModel;
         static CASAgeGenderFlags sMemoAgs;
         static void ClearPartMemo() { sPartMemo.Clear(); }
 
-        static PartData HairPartData(CASPart part, CASAgeGenderFlags ags)
+        static CasPartMemo HairPartData(CASPart part, CASAgeGenderFlags ags)
         {
             bool memo = ShortcutOn("casmemo");
-            PartData d = null;
+            CasPartMemo d = null;
             if (memo)
             {
                 ICASModel m = Responder.Instance.CASModel;
@@ -138,7 +138,7 @@ namespace Ts3Fixes
             }
             if (d == null)
             {
-                d = new PartData();
+                d = new CasPartMemo();
                 d.Type = UIUtils.GetCustomContentType(part.Key);
                 if (memo) sPartMemo[part.Key] = d;
             }
@@ -219,7 +219,7 @@ namespace Ts3Fixes
                 if (current == kPause) return true;
                 CASPart part = (CASPart)current;
                 bool wardrobe = Responder.Instance.CASModel.ActiveWardrobeContains(part);
-                PartData d = HairPartData(part, f.Ags);
+                CasPartMemo d = HairPartData(part, f.Ags);
                 if (UIUtils.IsContentTypeDisabled(d.Type)) return true;
                 CASPartPreset preset = new CASPartPreset(part, d.Xml);
                 if (!preset.Valid) return true;

@@ -17,7 +17,7 @@
 // shortcut: the tripwire covers acquires and our framed sites only, not every guarded leaf (lot-table / quadtree writers have
 // no frame of their own); the static closure is the proof, the tripwire the alarm.
 
-static const DWORD TU_P16 = 0x0064C7C0, TU_P17 = 0x0064D5B0, TU_P18 = 0x0064A690, TU_P19 = 0x00641DF0;
+static const DWORD TU_P16 = TS3A(0x0064C7C0), TU_P17 = TS3A(0x0064D5B0), TU_P18 = TS3A(0x0064A690), TU_P19 = TS3A(0x00641DF0);
 typedef bool(__fastcall* TuFn1)(void* pp, void* edx, DWORD a);  // thiscall via fastcall + dummy edx, callee pops
 typedef bool(__fastcall* TuFn2)(void* pp, void* edx, DWORD a, DWORD b);
 typedef bool(__fastcall* TuFn3)(void* pp, void* edx, DWORD a, DWORD b, DWORD c);
@@ -133,8 +133,8 @@ static bool __fastcall TuS19(void* pp, void*, DWORD a) {
     return r;
 }
 
-static const CallSite kTuSites[4] = {{0x0064E4ED, TU_P16, (void*)TuS16}, {0x0064E50B, TU_P17, (void*)TuS17},
-                                     {0x0064E523, TU_P18, (void*)TuS18}, {0x0064E533, TU_P19, (void*)TuS19}};
+static const CallSite kTuSites[4] = {{TS3A(0x0064E4ED), TU_P16, (void*)TuS16}, {TS3A(0x0064E50B), TU_P17, (void*)TuS17},
+                                     {TS3A(0x0064E523), TU_P18, (void*)TuS18}, {TS3A(0x0064E533), TU_P19, (void*)TuS19}};
 
 // [RouteAsync] TailUnlock=1 (after InstallRtSites: needs the steering frames; P5bLock's Lock_Release original)
 static void InstallTailUnlock(const wchar_t* ini) {

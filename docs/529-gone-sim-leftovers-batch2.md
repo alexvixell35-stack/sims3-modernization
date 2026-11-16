@@ -75,7 +75,7 @@ The results file has two earlier rows that are not about the fix. At 05:32 the j
   [verified, simler90's core too]. `Relationship.Get` returns null for a null boss or one whose description is no longer
   valid, so `.LTR` throws after the outcome's notification. The third outcome also loops over the co-workers the same
   way, so a gone co-worker throws too and the rest of that outcome is lost. `leavejobdispose` (§2) takes Sims deleted at
-  work out of those references; a career with no boss is still unguarded. Not fixed here.
+  work out of those references; a career with no boss is still unguarded. Built 2026-11-15 (not run): `takeariskguard` (TakeARiskGuard.cs, default off) runs the same outcome (one draw against EA's tunables, the same notification and deltas) and skips only an update whose relationship is null; counter 997, repro `takeariskguard-check`.
 
 Not yet checked against simler90's core:
 - **`Annex` graduation:**

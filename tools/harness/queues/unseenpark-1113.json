@@ -1,0 +1,244 @@
+{
+  "note": "unseenpark (docs/243 D1, §9), NOT RUN, retargeted 2026-11-13 to master 411ace46 package (same package both arms: kUnseenPark False, --ab unseenpark flips it at runtime, ShortcutOn). Timing = one 20-min in-load A/B per world (slice 2 = 10 alternating 2-min slices, off first); read per-arm ms/s with arm-ms.ts: continue only at >= 5 ms/s on BP and IP; under that, hold (one fix round, then park). Household exemption: UnseenFallback.cs:137 (IsSelectable or ActiveHousehold = kHousehold, never unseen, so ParkVerdict never holds); a classifier exception returns -1 = not unseen. Stop if searches fall under ~15% or a routing bar FAILs (R1-R6 docs/246 §6). Correctness jobs run with unseenpark ON via fixesOn; check also compares autonomy search counts per Sim-hour via unseen_park_ counters. Dropped from the 11-06 draft: onfirst reruns (in-load alternation balances order) and focus/arrive repros (need the gate2 stack and the -live package).",
+  "stopQueueOnFail": true,
+  "smoke": {
+    "id": "bp-upark-smoke",
+    "note": "Smoke (4 min BP, --ab unseenpark slice 1): arm split, switch read-back, held > 0, AutonomyManager.Add ok in the applied list.",
+    "asi": "game-copy/ts3native.asi.imp1113",
+    "fixesPackage": "game-copy/ts3fixes.package.unseenpark-1113",
+    "releaseDefaults": true,
+    "minCounters": 159,
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "pinReason": "docs/243 §9, 2026-11-13: asi = master native 0.36.253 (imp1113, 385a111e); package ts3fixes.package.unseenpark-1113 built from master 411ace46 (feature/unseenpark already merged), kUnseenPark=False default, switched at runtime by --ab/fixesOn unseenpark",
+    "save": "Baseline-BP-Spring",
+    "earlyGates": [
+      {
+        "afterSec": 200,
+        "counter": "fixes:unseen_refresh_gap_ge30",
+        "op": ">",
+        "value": 0,
+        "why": "no unseen low-LOD refresh classified: unseenprobe, hook or camera query not working"
+      },
+      {
+        "afterSec": 200,
+        "counter": "fixes:unseen_park_held",
+        "op": ">",
+        "value": 0,
+        "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+      }
+    ],
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "noSamplers": true,
+        "fixesOn": "unseenprobe",
+        "fixesReport": "unseen_park_,unseen_refresh_,gohome_",
+        "ab": "unseenpark",
+        "minutes": 4,
+        "slice": 1
+      }
+    },
+    "timeoutMin": 25,
+    "noiseCheck": false
+  },
+  "jobs": [
+    {
+      "id": "bp-upark-check",
+      "note": "docs/243 §7 correctness, 15 min, unseenpark on, EA story progression on: unseen_park_arrivals (compare the A/B arms), Overwatch resets, work attendance, GoHome, exempt and snap-back counts; I-243-4.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenpark-1113",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "gameArgs": [],
+      "pinReason": "docs/243 §9, 2026-11-13: asi = master native 0.36.253 (imp1113, 385a111e); package ts3fixes.package.unseenpark-1113 built from master 411ace46 (feature/unseenpark already merged), kUnseenPark=False default, switched at runtime by --ab/fixesOn unseenpark",
+      "save": "Baseline-BP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_refresh_gap_ge30",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen low-LOD refresh classified: unseenprobe, hook or camera query not working"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "unseenprobe,unseenpark",
+          "fixesReport": "unseen_park_,unseen_refresh_,gohome_",
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 35,
+      "noiseCheck": false
+    },
+    {
+      "id": "ip-upark-check",
+      "note": "docs/243 §7 correctness, 15 min, unseenpark on, EA story progression on: unseen_park_arrivals (compare the A/B arms), Overwatch resets, work attendance, GoHome, exempt and snap-back counts; I-243-4.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenpark-1113",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "gameArgs": [],
+      "pinReason": "docs/243 §9, 2026-11-13: asi = master native 0.36.253 (imp1113, 385a111e); package ts3fixes.package.unseenpark-1113 built from master 411ace46 (feature/unseenpark already merged), kUnseenPark=False default, switched at runtime by --ab/fixesOn unseenpark",
+      "save": "Baseline-IP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_refresh_gap_ge30",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen low-LOD refresh classified: unseenprobe, hook or camera query not working"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "unseenprobe,unseenpark",
+          "fixesReport": "unseen_park_,unseen_refresh_,gohome_",
+          "minutes": 15
+        }
+      },
+      "timeoutMin": 35,
+      "noiseCheck": false
+    },
+    {
+      "id": "bp-upark-loop",
+      "note": "Correctness, repro unseen-park-loop (STRESS): snap-back on camera jumps, pause, scratch save, off half.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenpark-1113",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/243 §9, 2026-11-13: asi = master native 0.36.253 (imp1113, 385a111e); package ts3fixes.package.unseenpark-1113 built from master 411ace46 (feature/unseenpark already merged), kUnseenPark=False default, switched at runtime by --ab/fixesOn unseenpark",
+      "save": "Baseline-BP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "unseenprobe",
+          "fixesReport": "unseen_park_,unseen_refresh_,gohome_",
+          "repro": "unseen-park-loop",
+          "minutes": 12
+        }
+      },
+      "timeoutMin": 25,
+      "noiseCheck": false
+    },
+    {
+      "id": "bp-upark-ab",
+      "note": "docs/243 §7: 20-min in-load A/B, 10 alternating 2-min slices, off first. Read arm-ms.ts total ms/s per arm, hitch p99/p99.9 per arm, unseen_park_ search counts per Sim-hour. Bar >= 5 ms/s, hitches not worse. Machine quiet.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenpark-1113",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/243 §9, 2026-11-13: asi = master native 0.36.253 (imp1113, 385a111e); package ts3fixes.package.unseenpark-1113 built from master 411ace46 (feature/unseenpark already merged), kUnseenPark=False default, switched at runtime by --ab/fixesOn unseenpark",
+      "save": "Baseline-BP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_refresh_gap_ge30",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen low-LOD refresh classified: unseenprobe, hook or camera query not working"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "unseenprobe",
+          "fixesReport": "unseen_park_,unseen_refresh_,gohome_",
+          "ab": "unseenpark",
+          "minutes": 20,
+          "slice": 2
+        }
+      },
+      "timeoutMin": 45,
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      }
+    },
+    {
+      "id": "ip-upark-ab",
+      "note": "docs/243 §7: 20-min in-load A/B, 10 alternating 2-min slices, off first. Read arm-ms.ts total ms/s per arm, hitch p99/p99.9 per arm, unseen_park_ search counts per Sim-hour. Bar >= 5 ms/s, hitches not worse. Machine quiet.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.unseenpark-1113",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "docs/243 §9, 2026-11-13: asi = master native 0.36.253 (imp1113, 385a111e); package ts3fixes.package.unseenpark-1113 built from master 411ace46 (feature/unseenpark already merged), kUnseenPark=False default, switched at runtime by --ab/fixesOn unseenpark",
+      "save": "Baseline-IP-Spring",
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:unseen_refresh_gap_ge30",
+          "op": ">",
+          "value": 0,
+          "why": "no unseen low-LOD refresh classified: unseenprobe, hook or camera query not working"
+        },
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "unseenprobe",
+          "fixesReport": "unseen_park_,unseen_refresh_,gohome_",
+          "ab": "unseenpark",
+          "minutes": 20,
+          "slice": 2
+        }
+      },
+      "timeoutMin": 45
+    }
+  ]
+}
