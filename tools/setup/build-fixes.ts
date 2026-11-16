@@ -365,6 +365,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kRainShelterCheap value="False" />
     <kPondClearScan value="False" />
     <kSoakedStat value="False" />
+    <kHoverTrainTest value="False" />
     <kOuterwearAutoLoop value="False" />
     <kOuterwearRestore value="False" />
     <kSpoonSlaveChecks value="False" />

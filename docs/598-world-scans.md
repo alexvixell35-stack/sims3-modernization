@@ -56,3 +56,52 @@ fires > ~1,000 times per sim-hour. Estimated upper bound today: 40 NPCs × 12 pa
 
 Nothing built, so 0 ms. The largest exact gains found (resort double scan, route-callback door scans) total well
 under 10 ms per sim-hour, against pondclearscan's ~1 s per sim-hour while its condition holds.
+
+## 5. Built: `hovertraintest` (2026-11-16, static, NOT RUN)
+
+Asked for by Rodney (hover trains are rarely used). Switch `hovertraintest` (tuning `kHoverTrainTest`), default off;
+`HoverTrain598.cs`; counters 1971-1976; repro `hovertraintest-check`; package r56.
+
+**What EA does [verified, decompiled].** `Sim.NPCUseHoverTrain.Definition.Test`: `!isAutonomous || a.IsSelectable` → false,
+else `Queries.GetObjects<IHoverTrainStation>().Length >= 2`. The query is the native per-class map walk (docs/125 §4.1).
+EA keeps its own `HoverTrainStation.sHoverTrainStations` (added in `OnStartupRabbitHole`, removed in `Dispose`) but that
+list is not the query's set (timing, other implementers), so it is not used.
+
+**Design.** `AtLeastMemo` (game-independent) keeps the array EA's query returned last. Answer: fewer than 2 stored →
+"no" (a removal only lowers the count); 2+ stored → "yes" if the first two still have a live proxy, else unknown. Unknown →
+EA's query runs and is stored (not stored while build/buy or edit town is open). EA's gate runs first, unchanged, so
+selectable / household Sims get EA's false before the memo is read; a null actor runs EA's own Test.
+
+Where a station can enter the query's set, and what forgets the memo:
+
+| Add path | Hook |
+|---|---|
+| Script spawn (`GlobalFunctions.CreateObject*`, every `Simulator.CreateObject` overload) | `Simulator.CreateObject(ResourceKey, Hashtable, ObjectInitParameters)` swap: new object a station, or not looked up → forget |
+| `Simulator.AddObject` / `AddObjectWithId` / `AddObjectPostLoad` (`CreateScriptLogic`, `AddObject(IScriptLogic, bool)`) | swaps: `obj is IHoverTrainStation` → forget |
+| Buy mode, objects moved onto a lot, edit-town lot placement | `World.OnObjectPlacedInLotEventHandler` (station or unknown object), `OnLotAdded` / `OnLotRemoved`, `LotManager.EnteringBuildBuyMode` / `ExitingBuildBuyMode` |
+| World load / travel | `OnWorldLoadStarted` / `Finished`, `OnWorldQuit`, `OnEnterNotInWorld` / `OnLeaveNotInWorld` |
+
+Removals (`kSoldObject`, `kEventObjectDisposed`, `OnObjectPendingDestruction`, bulldoze: all end in
+`Simulator.DestroyObject`) need no event: a stored station without a proxy makes the memo unknown. EventTypeIds alone
+(`kBoughtObject`, `kSoldObject`) do not cover script spawns, so the Simulator add paths are hooked. [inferred: a live proxy
+means the object is in the per-class map; the check compares the memo with EA's query live.] If any add hook did not go in,
+the memo is never used. `TickMemo` / `ExactMemos` were checked: they are per-tick (`TickStamp`) or keyed generation memos,
+none event-forgotten, so not reused.
+
+**Run [verified, decompiled].** EA's Run lists the stations again (kept: once per trip, and the list order feeds the random
+pick). Defects: `GetClosestObject` skips charred objects and returns null when every station is charred, and Run
+dereferences it; the travel definition is dereferenced unchecked. With the switch on both answer EA's "no station" false
+(counter 1975), after the same calls in the same order (one `RandomUtil` draw). The `destination == origin` step is one
+increment with wrap, not a loop: it always exits and the list has no duplicates. Kept as EA: the bias toward the station
+after the closest one (it gets two of the N draws).
+
+**Proof.** `HoverTrainTestCheck run`: the memo's answer (stored by NPC tests before the check) against EA's query in the
+same tick; a difference counts 1974 (must be 0). Synthetic controls on a private memo: 0, 1, 2, 3 stations, a placement
+(forget → recount lists one more), a removal (stored station gone → EA asked again), one going while fewer than 2 stored.
+`result`: counters and a `timing:` line (EA query µs vs memo answer µs, stations, world object count). The repro runs it off,
+on after 60 s of ultra speed, in buy mode, and after a placement.
+
+Counters: [1971] tests answered from the memo, [1972] tests that ran EA's query (switch off: every gated test, so the off
+arm measures the call rate this doc asked for), [1973] forgets, [1974] check mismatches, [1975] Run throws avoided,
+[1976] errors. Gain: up to the §3 estimate (~240 ms per sim-hour [inferred]); the off arm's 1972 and the timing line give the
+real figure.

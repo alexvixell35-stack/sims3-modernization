@@ -359,6 +359,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kWeatherManagerThrow = false;    // weathermanagerthrow (docs/594 §3): RainEvent.PutOutFires skips the null firefighter dictionary (worlds without the service) instead of throwing, which stopped SeasonsManager for the session
         [Tunable] public static bool kRainShelterCheap = false;    // rainsheltercheap (docs/594 §4): the 10-sim-minute rain pass tests on-fire / plant water before the two native shelter tests (same result)
         [Tunable] public static bool kPondClearScan = false;    // pondclearscan (docs/594 §5): PondManager.AllPondsClear tests the world pond and the last pond in use before its world GetObjects scan (same result)
+        [Tunable] public static bool kHoverTrainTest = false;    // hovertraintest (docs/598 §5): Sim.NPCUseHoverTrain.Definition.Test answers ">= 2 stations" from a memo of EA's last station query, forgotten on every station add path (same result)
         [Tunable] public static bool kSoakedStat = false;    // soakedstat (docs/594 §6): a rain re-add of Soaked does not count another TombStats soak (persisted stat)
         [Tunable] public static bool kOuterwearAutoLoop = false;    // outerwearautoloop (docs/596 §1): autonomous outerwear / toddler outerwear tests answer no when Run cannot change (player-sticky 2 h, disallow buffs)
         [Tunable] public static bool kOuterwearRestore = false;    // outerwearrestore (docs/596 §2): ChangeIntoOuterwear stores the outfit to return to, as GoingOutside does
