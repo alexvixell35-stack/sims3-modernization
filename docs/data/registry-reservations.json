@@ -6666,6 +6666,16 @@
       "what": "docs/598 §6 newcartest: SocialTest.TestHasNewCar / TestHasExpensiveNewCar new-car memo (answered, EA queries, forgets, check mismatches, errors, Dispose/import forgets)",
       "at": "2026-11-16T20:00:00.000Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-2753",
+      "kind": "fixes",
+      "from": 2753,
+      "to": 2755,
+      "by": "alexvixell35-stack",
+      "what": "tpaptgoal (UnseenTeleportGoal.cs, docs/584 §8): home apartment/shell goals allowed / refused tomb or hidden / refused no way out, raised or unknown",
+      "at": "2026-11-16T21:38:14.355Z",
+      "worktree": "/home/<user>/dev/s3m-pr1"
     }
   ]
 }

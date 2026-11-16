@@ -151,17 +151,26 @@ namespace Ts3Fixes
             if (station != null && !sHtPending.Contains(station)) sHtPending.Add(station);
         }
 
-        // True while a started station is not yet registered (one pass, drops the resolved ones). Init failed (Proxy cleared
-        // by SetLogic) or registered (GetProxy finds it): resolved.
+        // True while a started station is not yet registered (one pass, drops the resolved ones: StartResolved).
         static bool HtPendingOpen()
         {
             for (int i = sHtPending.Count - 1; i >= 0; i--)
             {
-                IScriptLogic l = sHtPending[i] as IScriptLogic;
-                IScriptProxy p = l == null ? null : l.Proxy;
-                if (p == null || Simulator.GetProxy(p.ObjectId) != null) sHtPending.RemoveAt(i);
+                if (StartResolved(sHtPending[i])) sHtPending.RemoveAt(i);
             }
             return sHtPending.Count > 0;
+        }
+
+        // A started script object is no longer between its start and its registration: init failed (SetLogic cleared Proxy),
+        // destroyed since (ScriptProxy.Dispose cleared the proxy's Target and ObjectId but left the object's Proxy set, so
+        // GetProxy never finds it again: r60 Bridgeport kept 3 cars pending for good), or registered (GetProxy finds it).
+        // [verified, decompiled ScriptCore ScriptProxy.SetLogic / Dispose] In the gap the proxy's Target is the object.
+        internal static bool StartResolved(object o)
+        {
+            IScriptLogic l = o as IScriptLogic;
+            IScriptProxy p = l == null ? null : l.Proxy;
+            if (p == null || !ReferenceEquals(p.Target, l)) return true;
+            return Simulator.GetProxy(p.ObjectId) != null;
         }
 
         // LotManager's static events: re-added on every world load (removed first, so never twice)

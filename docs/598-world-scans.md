@@ -163,3 +163,14 @@ Counters: [2747] answered from the memo, [2748] EA tests (switch off: every call
 (~0.3-0.5 ms, cf. the 487 µs station query in §5) per passing actor / target pair per social build; the off arm's 2748 and
 the timing line give the real figure. NPC car spawns (GeneratedOwnableForNpc) forget the memo, so the hit rate in busy
 towns is what the run must show.
+
+**r61 fix (2026-11-16).** r60 on Bridgeport: off BROKEN, on UNEXPECTED: `pending 3`, memo never armed (answers from the memo 0,
+counters 0); timing EA test 599 µs vs memo 8 µs (50 cars, all 50 new, EA true for 98 of 100 Sims). Cause [verified, decompiled
+ScriptCore]: `ScriptProxy.Dispose` clears the proxy's `Target` and `ObjectId` but leaves the object's `Proxy` set, so a car
+that started and was destroyed before registering or before the next pending pass (NPC-generated cars come and go) never
+resolved: `GetProxy(bad id)` stays null. Now `StartResolved` (shared with hovertraintest, same latent bug): resolved when the
+proxy is gone, its `Target` is no longer the object (destroyed / init failed), or `GetProxy` finds it; still pending only while
+the proxy targets the object and is unregistered (the start-to-`AddObjectImpl` gap). A destroyed car is not in EA's query, and
+a kept one is skipped by the liveness test, so the answer stays exact. The check's live line now lists why each pending car
+is pending (target, id, GetProxy / PreInit, in world, in inventory). With EA true for nearly everyone the memo answers "yes" at
+the first live kept car of the actor's home lot; the liveness lookup now runs only after the owner-lot field matches.
