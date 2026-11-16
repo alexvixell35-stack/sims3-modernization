@@ -322,3 +322,18 @@ Readings:
 **Gain ceiling** [inferred]: the 8-14 ms/s estimate (handoff §2) assumed every Sim's env scan; under unseen-only it is bounded by the env scans of unseen non-household high-LOD Sims, which reading 2 says are few. The timing queue only makes sense if the correctness queue shows `applied` in the hundreds.
 
 Queues: `tools/harness/queues/mono-offload-correctness-1115.json` (Mode R dry + apply, unseen only, household / seen untouched counters), `mono-offload-timing-1115.json` (ABBA BP + IP, needs a quiet machine; run only after correctness shows applied in the hundreds).
+
+## 13. Env apply parked 2026-11-16 (`[AutOffload]` env apply switch stays default off)
+
+**Evidence.**
+- `bp-offu-apply` (queue `tools/harness/queues/mono-offload-correctness-1116.json`, build set master-1116, build ecbc9c76, 2026-11-16 07:36 UTC / 15:36 PHT, Bridgeport, 10 min) FAILED: `fixes counters: autoff_env_applied=0 (want >=1)`; result `docs/data/results/2026-11-16-queue-mono-offload-correctness-1116.md` [measured]. Same job: `autoff_env_apply_none` 9298, `autoff_env_ready` 101, `autoff_env_pick_overdue` 3434, `autoff_bcast_apply_none` 127399 [measured].
+- Earlier same-shape result: §12 run offpickup1114 (BP `bp-off3u-env` applied 1, `bp-off3u-household` applied 0, IP `ip-off3u-env` applied 0; 396 of 399 pickups were household or seen Sims) [measured, from §12 table]. The 11-15/11-16 mm rerun (`2026-11-16-queue-mono-offload-correctness-1115-mm.md`) stopped at smoke on `autoff_env_dry=0` (rule bug, fixed by dafc8ae3), so it has no apply row in this checkout; the second `applied=0` is the 1116 run above.
+- `bp-offu-dry` PASS in the same queue after the rule fix: `autoff_env_dry_eq` 470, `autoff_env_ready` 1162 [measured].
+
+**Stays.** Dry run and the scoped pick (`autoffenv` dry, `autoffunseen`, §11 pickup fix, §12 pick scope) as built; they pass and are default off. Bcast code stays as built, no new claim.
+
+**Parked.** Env apply (`autoffenv` with apply on): no clean gain, second same failure, throttles park rule (one fix round, no gain = park). Switch stays default off. Timing queue `mono-offload-timing-1115.json` not run. Household and selected Sims untouched, as before.
+
+**Cause** [inferred, not verified]: after the §12 pick scope, unseen non-household Sims with a pickable env update are too few on Bridgeport for the apply to fire (§12 "Expected" stop rule). No per-Sim trace confirms it.
+
+**Reopen when** a design explains why env apply never fires on Bridgeport (a per-Sim trace of ready / picked / refused-by-scope / aborted, or a different source of unseen work), with a prediction of `applied` in the hundreds per 10 min.
