@@ -2,12 +2,11 @@
 // exclusive time per event id across nested ProcessEvent calls.
 // Windows (.NET Framework csc).
 //   node tools/selftest/eventcost/run.ts
-import { execFileSync } from 'node:child_process';
+import { execFileSync, CSC } from '../csc-shim.ts';
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..', '..', '..');
-const CSC = 'C:/Windows/Microsoft.NET/Framework/v4.0.30319/csc.exe';
 const out = join(ROOT, 'build', 'selftest');
 mkdirSync(out, { recursive: true });
 const exe = join(out, 'eventcost-test.exe');

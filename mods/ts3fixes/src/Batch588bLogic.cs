@@ -106,15 +106,13 @@ namespace Ts3Fixes
                     try
                     {
                         AlarmHandle h = (AlarmHandle)sAcGrad.GetValue(agingState);
-                        if (h != AlarmHandle.kInvalidHandle)
+                        bool armed = h != AlarmHandle.kInvalidHandle;
+                        if (AcLeaves(ShortcutOn("agingalarmcancel"), armed)) PatchCounters()[1343]++;
+                        else if (armed)
                         {
-                            if (ShortcutOn("agingalarmcancel"))
-                            {
-                                AlarmManager.Global.RemoveAlarm(h);
-                                sAcGrad.SetValue(agingState, AlarmHandle.kInvalidHandle);
-                                PatchCounters()[1342]++;
-                            }
-                            else PatchCounters()[1343]++;
+                            AlarmManager.Global.RemoveAlarm(h);
+                            sAcGrad.SetValue(agingState, AlarmHandle.kInvalidHandle);
+                            PatchCounters()[1342]++;
                         }
                     }
                     catch (Exception) { PatchCounters()[1344]++; }

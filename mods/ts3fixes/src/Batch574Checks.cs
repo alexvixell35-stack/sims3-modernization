@@ -17,9 +17,13 @@ namespace Ts3Fixes
             return m.Trim();
         }
 
+        // Counters and verdict carry the switch's live-path problems (CkLive: swaps in place, handles usable).
+        static string B4Counters(string name, int a, string an, string missing) { return PhCounters(name, a, an, EpJoin(missing, CkLive(name))); }
+
         static string B4Line(string sw, string what, bool fixedNow, string ctlText, bool controls, string missing, string counters)
         {
             bool on = ShortcutOn(sw);
+            missing = EpJoin(missing, CkLive(sw));
             return sw + " check (switch " + (on ? "on" : "off") + "): " + what + "=" + fixedNow + "; control: " + ctlText + "; controls ok=" + controls
                 + "; verdict: " + GlVerdict(on, fixedNow, controls, missing.Length == 0) + "; " + counters;
         }
@@ -29,7 +33,7 @@ namespace Ts3Fixes
         public static object WildHerdMotherCheck(string what)
         {
             string missing = B4Pick(HlMissing(), "WildHorsePool.mHerdMotherId");
-            string counters = PhCounters("wildherdmother", 2654, "mothers replaced", missing);
+            string counters = B4Counters("wildherdmother", 2654, "mothers replaced", missing);
             if (what == "result") return counters;
             if (what != "run") return "wildherdmother <run|result>";
             bool on = ShortcutOn("wildherdmother"), threw, threw0;
@@ -44,7 +48,7 @@ namespace Ts3Fixes
         public static object SplitPartnerCheck(string what)
         {
             string missing = B4Pick(HlMissing(), "SplitHousehold.mHouseholdId", "SplitHousehold.mSimToLeaveId");
-            string counters = PhCounters("splitpartner", 2656, "partners cleared / splits refused", missing);
+            string counters = B4Counters("splitpartner", 2656, "partners cleared / splits refused", missing);
             if (what == "result") return counters;
             if (what != "run") return "splitpartner <run|result>";
             bool on = ShortcutOn("splitpartner");
@@ -58,7 +62,7 @@ namespace Ts3Fixes
         public static object MovingFlagCheck(string what)
         {
             string missing = B4Pick(HlMissing(), "MovingSituation.sbMovingInProgress");
-            string counters = PhCounters("movingflag", 2658, "flags cleared", missing);
+            string counters = B4Counters("movingflag", 2658, "flags cleared", missing);
             if (what == "result") return counters;
             if (what != "run") return "movingflag <run|result>";
             bool on = ShortcutOn("movingflag");
@@ -71,7 +75,7 @@ namespace Ts3Fixes
         public static object SandsCoinsCheck(string what)
         {
             string missing = B4Pick(WsMissing(), "TreasureChest.OpenWithAnimation", "TreasureChest.mSandsOfUnderstandingCanAddCoins", "TreasureChest.kSandsOfUnderstandingCoinPileSizeWeightedChances", "OpenWithAnimation.LocalizeString");
-            string counters = PhCounters("sandscoins", 2660, "piles given", missing);
+            string counters = B4Counters("sandscoins", 2660, "piles given", missing);
             if (what == "result") return counters;
             if (what != "run") return "sandscoins <run|result>";
             bool on = ShortcutOn("sandscoins");
@@ -83,7 +87,7 @@ namespace Ts3Fixes
         public static object TombMusicCheck(string what)
         {
             string missing = B4Pick(WsMissing(), "TombRoomManager.sMusicType", "TombRoomManager.sTombMusicHandle", "TombRoomManager.sTombPlaylistHandle");
-            string counters = PhCounters("tombmusic", 2674, "resets", missing);
+            string counters = B4Counters("tombmusic", 2674, "resets", missing);
             if (what == "result") return counters;
             if (what != "run") return "tombmusic <run|result>";
             bool on = ShortcutOn("tombmusic");
@@ -96,7 +100,7 @@ namespace Ts3Fixes
         public static object ArtSellNoArtistCheck(string what)
         {
             string missing = typeof(ImageObject).GetMethod("SellImageObject", new Type[] { typeof(Sim), typeof(int), typeof(bool) }) == null ? "ImageObject.SellImageObject(Sim,int,bool)" : "";
-            string counters = PhCounters("artsellnoartist", 2662, "sales completed without an artist", missing);
+            string counters = B4Counters("artsellnoartist", 2662, "sales completed without an artist", missing);
             if (what == "result") return counters;
             if (what != "run") return "artsellnoartist <run|result>";
             bool on = ShortcutOn("artsellnoartist");
@@ -109,7 +113,7 @@ namespace Ts3Fixes
         public static object RoyaltyOrphanCheck(string what)
         {
             string missing = B4Pick(WsMissing(), "Writing.mRoyaltyAlarm");
-            string counters = PhCounters("royaltyorphan", 2664, "alarms removed", missing);
+            string counters = B4Counters("royaltyorphan", 2664, "alarms removed", missing);
             if (what == "result") return counters;
             if (what != "run") return "royaltyorphan <run|result>";
             bool on = ShortcutOn("royaltyorphan");
@@ -141,7 +145,7 @@ namespace Ts3Fixes
                 | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly;
             string missing = ((typeof(Occupation).GetMethod("IsTimeDuringWorkDay", psAll) == null ? "Occupation.IsTimeDuringWorkDay " : "")
                 + (typeof(Career).GetMethod("IsRegularWorkTime", psAll) == null ? "Career.IsRegularWorkTime" : "")).Trim();
-            string counters = PhCounters("promoteshift", 2666, "answers corrected", missing) + "; patch log: " + PsPatchLog("IsTimeDuringWorkDay") + " | " + PsPatchLog("IsRegularWorkTime");
+            string counters = B4Counters("promoteshift", 2666, "answers corrected", missing) + "; patch log: " + PsPatchLog("IsTimeDuringWorkDay") + " | " + PsPatchLog("IsRegularWorkTime");
             if (what == "result") return counters;
             if (what != "run") return "promoteshift <run|result>";
             bool on = ShortcutOn("promoteshift");
@@ -156,7 +160,7 @@ namespace Ts3Fixes
         {
             bool members = typeof(Career).GetMethod("RegularWorkDayGoToWorkHandle", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public) != null;
             string missing = members ? "" : "Career.RegularWorkDayGoToWorkHandle";
-            string counters = PhCounters("gotoworkstale", 2672, "stale pushes skipped", missing);
+            string counters = B4Counters("gotoworkstale", 2672, "stale pushes skipped", missing);
             if (what == "result") return counters;
             if (what != "run") return "gotoworkstale <run|result>";
             bool on = ShortcutOn("gotoworkstale");

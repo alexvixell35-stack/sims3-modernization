@@ -100,7 +100,7 @@ namespace Ts3Fixes
         public static object ResidentSpawnWalkCheck(string what)
         {
             int[] c = PatchCounters();
-            string counters = "residentspawnwalk: points accepted by the walk 1255=" + c[1255] + ", would accept with switch off 1256=" + c[1256] + ", errors 1257=" + c[1257] + "; " + GlMembers(sRsMissing);
+            string counters = "residentspawnwalk: points accepted by the walk 1255=" + c[1255] + ", would accept with switch off 1256=" + c[1256] + ", errors 1257=" + c[1257] + "; " + GlMembers(EpJoin(sRsMissing, CkLive("residentspawnwalk")));
             if (what == "result") return counters;
             if (what != "run") return "residentspawnwalk <run|result>";
             bool on = ShortcutOn("residentspawnwalk");

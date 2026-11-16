@@ -21,9 +21,9 @@ namespace Ts3Fixes
             bool on = ShortcutOn("sprelcount");
             int[][] tri = { new[] { 1, 2 }, new[] { 0, 2 }, new[] { 0, 1 } };
             int[] exact = SpRelHistogram(tri, true, 4);
-            bool fixedNow = on && exact[2] == 3 && !SpSame(SpRelHistogram(tri, false, 4), exact);
+            bool fixedNow = SpOwnOnly(on, true) && exact[2] == 3 && !SpSame(SpRelHistogram(tri, false, 4), exact);
             int[][] none = { new int[0], new int[0] };
-            bool controls = SpSame(SpRelHistogram(none, true, 4), SpRelHistogram(none, false, 4)) && SpRelHistogram(none, true, 4)[0] == 2;
+            bool controls = !SpOwnOnly(on, false) && SpSame(SpRelHistogram(none, true, 4), SpRelHistogram(none, false, 4)) && SpRelHistogram(none, true, 4)[0] == 2;
             return B582Line("sprelcount", on, "triangle counted 3 x 2 friends", fixedNow, "no friends same both ways=" + controls, controls, sCoMissing, counters);
         }
 

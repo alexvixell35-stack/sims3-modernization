@@ -4,6 +4,7 @@ using System.Collections.Generic;
 namespace Ts3Fixes
 {
     // Harness checks for Batch582Logic.cs (docs/582). Pure decisions with controls; nothing in the world is touched.
+    // B582Counters / B582Line add the switch's live-path problems (CkLive, CheckLiveMap.cs: swaps in place, handles usable).
     public static partial class Fixes
     {
         // VehicleFxHelperCheck run: a held tire / hover helper is destroyed before EA creates the next one.
@@ -11,8 +12,9 @@ namespace Ts3Fixes
         public static object VehicleFxHelperCheck(string what)
         {
             int[] c = PatchCounters();
+            string miss = EpJoin(sVfMissing, CkLive("vehiclefxhelper"));
             string counters = "vehiclefxhelper: destroyed before re-create 1118=" + c[1118] + ", seen with switch off 1119=" + c[1119] + ", errors 1120=" + c[1120]
-                + "; " + GlMembers(sVfMissing);
+                + "; " + GlMembers(miss);
             if (what == "result") return counters;
             if (what != "run") return "vehiclefxhelper <run|result>";
             bool on = ShortcutOn("vehiclefxhelper");
@@ -21,7 +23,7 @@ namespace Ts3Fixes
             bool controls = ctlNone;
             return "vehiclefxhelper check (switch " + (on ? "on" : "off") + "): held helper destroyed before the re-create=" + fixedNow
                 + "; control: no helper held unchanged=" + ctlNone + "; controls ok=" + controls
-                + "; verdict: " + GlVerdict(on, fixedNow, controls, sVfMissing.Length == 0) + "; " + counters;
+                + "; verdict: " + GlVerdict(on, fixedNow, controls, miss.Length == 0) + "; " + counters;
         }
 
         static string B582Counters(string name, int first, string[] what, string missing)
@@ -29,13 +31,13 @@ namespace Ts3Fixes
             int[] c = PatchCounters();
             System.Text.StringBuilder b = new System.Text.StringBuilder(name + ":");
             for (int i = 0; i < what.Length; i++) b.Append((i == 0 ? " " : ", ") + what[i] + " " + (first + i) + "=" + c[first + i]);
-            return b.Append("; ").Append(GlMembers(missing)).ToString();
+            return b.Append("; ").Append(GlMembers(EpJoin(missing, CkLive(name)))).ToString();
         }
 
         static string B582Line(string name, bool on, string fixedText, bool fixedNow, string ctlText, bool controls, string missing, string counters)
         {
             return name + " check (switch " + (on ? "on" : "off") + "): " + fixedText + "=" + fixedNow + "; control: " + ctlText + "; controls ok=" + controls
-                + "; verdict: " + GlVerdict(on, fixedNow, controls, missing.Length == 0) + "; " + counters;
+                + "; verdict: " + GlVerdict(on, fixedNow, controls, EpJoin(missing, CkLive(name)).Length == 0) + "; " + counters;
         }
 
         // PrankDitchEmptyCheck run: the empty-prankee throw ends Run as EA's null pick does.
