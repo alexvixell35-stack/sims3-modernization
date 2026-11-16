@@ -276,6 +276,7 @@ namespace Ts3Fixes
             ApplyOneShotVfx();   // docs/587 EP5 §11.1
             ApplyEpBatch5b();   // docs/587 EP5 §11.2
             ApplyEpBatch6();   // docs/587 EP6 §12.1
+            ApplyStoreBatch1();   // docs/587 store §13
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -776,6 +777,19 @@ namespace Ts3Fixes
         // [1612-1614] donationbuffchance (EpBatch6Logic.cs, docs/587 EP6 §12.2): rolls that changed outcome / rolls with switch off / errors.
         // [1615-1617] vampirefruitsnack (EpBatch6Logic.cs, docs/587 EP6 §12.3): Snacks at the threshold / Sated with switch off / errors.
         // [1618-1620] fallenrockcollected (EpBatch6Logic.cs, docs/587 EP6 §12.4): collected rocks kept / destroyed with switch off / errors.
+        // [1621-1623] spellbooksummonload (StoreBatch1Logic.cs, docs/587 store §13.1): Summon spell progress restored on import.
+        // [1624-1626] chocfountaingeyser (StoreBatch1Logic.cs, docs/587 store §13.2): old geyser alarms removed on refill.
+        // [1627-1629] hypnotrickrelease (StoreBatch1Logic.cs, docs/587 store §13.3): volunteers released when the trick ends.
+        // [1630-1632] voodoofairyfadein (StoreBatch1Logic.cs, docs/587 store §13.4): hidden fairies faded in on cleanup.
+        // [1633-1635] saunatubclear (StoreBatch1Logic.cs, docs/587 store §13.5): sauna holds cleared when bathing ends.
+        // [1636-1638] slotmachinedefs (StoreBatch1Logic.cs, docs/587 store §13.6): shared stakes entries kept.
+        // [1639-1641] treewishingwell (StoreBatch1Logic.cs, docs/587 store §13.7): store wishing wells counted.
+        // [1642-1644] playpentalkcast (StoreBatch1Logic.cs, docs/587 store §13.8): old talk broadcasters disposed.
+        // [1645-1647] ovenmenunull (StoreBatch1Logic.cs, docs/587 store §13.9): null menu lists skipped.
+        // [1648-1650] fvstandskillcurve (StoreBatch1Logic.cs, docs/587 store §13.10): stand skill curve rebuilt.
+        // [1651-1653] pokerdeadplayer (StoreBatch1Logic.cs, docs/587 store §13.11): gone players unseated.
+        // [1654-1656] roulettehackreset (StoreBatch1Logic.cs, docs/587 store §13.12): hacks cleared on reset.
+        // [1657-1659] coopeggquality (StoreBatch1Logic.cs, docs/587 store §13.13): egg quality index shifted to the Quality enum.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -1283,6 +1297,19 @@ namespace Ts3Fixes
                 case "donationbuffchance": return Instantiator.kDonationBuffChance;
                 case "vampirefruitsnack": return Instantiator.kVampireFruitSnack;
                 case "fallenrockcollected": return Instantiator.kFallenRockCollected;
+                case "spellbooksummonload": return Instantiator.kSpellBookSummonLoad;
+                case "chocfountaingeyser": return Instantiator.kChocFountainGeyser;
+                case "hypnotrickrelease": return Instantiator.kHypnoTrickRelease;
+                case "voodoofairyfadein": return Instantiator.kVoodooFairyFadeIn;
+                case "saunatubclear": return Instantiator.kSaunaTubClear;
+                case "slotmachinedefs": return Instantiator.kSlotMachineDefs;
+                case "treewishingwell": return Instantiator.kTreeWishingWell;
+                case "playpentalkcast": return Instantiator.kPlaypenTalkCast;
+                case "ovenmenunull": return Instantiator.kOvenMenuNull;
+                case "fvstandskillcurve": return Instantiator.kFvStandSkillCurve;
+                case "pokerdeadplayer": return Instantiator.kPokerDeadPlayer;
+                case "roulettehackreset": return Instantiator.kRouletteHackReset;
+                case "coopeggquality": return Instantiator.kCoopEggQuality;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

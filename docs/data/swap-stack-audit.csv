@@ -691,3 +691,18 @@ BEp6DbHook.GiggleHook,BuffGiggleFits.BuffInstanceGiggleFits,DoGiggleFit,EpBatch6
 BEp6DbHook.FaintHook,BuffPlasmaticPlatitudes.BuffInstancePlasmaticPlatitudes,Faint,EpBatch6Logic.cs,FaintOrig,yes,BuffPlasmaticPlatitudes+BuffInstancePlasmaticPlatitudes::Faint > GameObject::RemoveAlarm > .. 5 .. > StateMachineClient::RequestState,donationbuffchance (docs/587 EP6 §12.2),"keep, stub remap (SavedStacks.cs)"
 BEp6VfHook.EatHook,VampireFruit,EatEffects,EpBatch6Logic.cs,EatOrig,yes,VampireFruit::EatEffects > BuffManager::AddElement > .. 4 .. > Simulator::Sleep,vampirefruitsnack (docs/587 EP6 §12.3),"keep, stub remap (SavedStacks.cs)"
 BEp6FrHook.TimeoutHook,FallenRock,RockTimeoutCallback,EpBatch6Logic.cs,TimeoutOrig,yes,FallenRock::RockTimeoutCallback > Kraken::Destroy > .. 2 .. > StateMachineClient::RequestState,fallenrockcollected (docs/587 EP6 §12.4),"keep, stub remap (SavedStacks.cs)"
+BSt1SbHook.ImportHook,SpellBook.CastingStore,ImportContent,StoreBatch1Logic.cs,ImportOrig,no,no path to a yield in 1 overload(s),switch (docs/587 store §13),keep
+BSt1CfHook.FilledHook,ChocolateFountain,FountainFilled,StoreBatch1Logic.cs,FilledOrig,yes,ChocolateFountain::FountainFilled > GameObject::RemoveAlarm > .. 5 .. > StateMachineClient::RequestState,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
+BSt1HtHook.RunHook,Hypnotizer.PerformTrick,Run,StoreBatch1Logic.cs,RunOrig,yes,Hypnotizer+PerformTrick::Run > Simulator::Sleep,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
+BSt1VfHook.CleanupHook,VoodooDoll+TransformSim,Cleanup,StoreBatch1Logic.cs,CleanupOrig,yes,VoodooDoll+TransformSim::Cleanup > InteractionInstance::Cleanup > .. 2 .. > StateMachineClient::RequestState,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
+BSt1StHook.RunHook,SaunaClassic+BatheInWater,Run,StoreBatch1Logic.cs,RunOrig,yes,SaunaClassic+BatheInWater::Run > InteractionInstance::AnimateSim > StateMachineClient::RequestState,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
+BSt1SmHook.InitHook,Sims3.Store.Objects.SlotMachine+PlaySlots+Definition,InitFromID,StoreBatch1Logic.cs,InitOrig,no,no path to a yield in 1 overload(s),switch (docs/587 store §13),keep
+BSt1TwHook.HasHook,TreeOfProsperity,get_HasWishingWellOnLot,StoreBatch1Logic.cs,HasOrig,no,no path to a yield in 1 overload(s),switch (docs/587 store §13),keep
+BSt1PpHook.CreateHook,PlaypenClassic,CreateLearnToTalkBroadcaster,StoreBatch1Logic.cs,CreateOrig,no,no path to a yield in 1 overload(s),switch (docs/587 store §13),keep
+BSt1OmHook.PickHook,IndustrialOven+Menu,PickGoodFoodForMe,StoreBatch1Logic.cs,PickOrig,no,no path to a yield in 1 overload(s),switch (docs/587 store §13),keep
+BSt1FvHook.InitHook,FruitVeggieStand,InitializeData,StoreBatch1Logic.cs,InitOrig,no,no path to a yield in 1 overload(s),switch (docs/587 store §13),keep
+BSt1PkHook.SetupHook,PokerTable,SetupRound,StoreBatch1Logic.cs,SetupOrig,no,no path to a yield in 1 overload(s),switch (docs/587 store §13),keep
+BSt1PkHook.WaitHook,PokerTable,WaitForPlayersToCompleteAction,StoreBatch1Logic.cs,WaitOrig,yes,PokerTable::WaitForPlayersToCompleteAction > Simulator::Sleep,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
+BSt1PkHook.DoneHook,PokerTable,ActionsAreComplete,StoreBatch1Logic.cs,DoneOrig,no,no path to a yield in 1 overload(s),switch (docs/587 store §13),keep
+BSt1RhHook.ResetHook,RouletteTable,DoReset,StoreBatch1Logic.cs,ResetOrig,yes,RouletteTable::DoReset > GameObject::DoReset > .. 3 .. > StateMachineClient::RequestState,switch (docs/587 store §13),"keep, stub remap (SavedStacks.cs)"
+BSt1CeHook.IndexHook,RandomUtil,GetWeightedIndex,StoreBatch1Logic.cs,IndexOrig,no,no path to a yield in 4 overload(s),switch (docs/587 store §13),keep
