@@ -1,0 +1,36 @@
+{
+  "id": "b11-jam-base-cleanup",
+  "switch": "ilp_jambasecleanup",
+  "counter": null,
+  "assembly": "Sims3GameplayObjects",
+  "method": "Sims3.Gameplay.Objects.HobbiesSkills.BandInstrument+JamWithInstrument`1::Cleanup()",
+  "edits": [
+    {
+      "at": "0x5B",
+      "mode": "replace",
+      "entry": "incoming",
+      "expect": [
+        "brtrue.s"
+      ],
+      "maxStack": 1,
+      "il": [
+        "brtrue @0x73"
+      ]
+    }
+  ],
+  "builds": {
+    "ea-1.67": {
+      "size": 129,
+      "sha256": "0f77a0626e77ea1ed6b8e8431daff1b63545b1315b8224ce04750f4099218464",
+      "tokens": {},
+      "patchedSha256": "eb5d7a858447c2c4be84f24a2fca66488bbad418a3a5aff585ec5db681f1597a"
+    },
+    "simler90-242": {
+      "size": 129,
+      "sha256": "1012d85b4662a5b3a642102191e67c93c42f67192251acc5a6c9c8eb0767a38d",
+      "tokens": {},
+      "patchedSha256": "c9e4593a58f5d6989f6bfd77f4fcd07bc325b74edd5cfc3c11c3b85256283a03"
+    }
+  },
+  "ilHashG6": "d983cab30bff445c"
+}

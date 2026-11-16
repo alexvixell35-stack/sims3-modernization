@@ -460,7 +460,9 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 1339-1350 | pinned (claude, `fixes-1339`) | batch 10b (docs/588 B10 §16-19): disposevirtualslot, agingalarmcancel, virtualmoveindup, petpoolghost |
 | 1294-1338 | reserved (claude, `fixes-1294`) | batch 10 (docs/588 §7 §1-15): sprelcount, spcollectnull, spclonedict, splotlookup, spbucketindex, spcreatemovein, splotdensity, sproommatejob, spoccultpick, spjobatwork, sprecheck, sppensionprompt, hhcleanupdup, virtualhomeshare, celebalarmnull (3 each) |
 | 1339-1350 | reserved (claude, `fixes-1339`) | batch 10b (docs/588 §7 §16-19): disposevirtualslot, agingalarmcancel, virtualmoveindup, petpoolghost (3 each) |
-| **1351+** | next free | reserve here  |
+| 1351-1398 | pinned (claude, `fixes-1351`) | batch 11 (docs/589 B11 §1-16): eatpostonce, motivemultonce, fightbroadcastend, reactioncopy, carpoolschoolskip, tvsyncalarm, photofunds, ltrhistorybits, goodbyepure, bathcleanup, tvwatchskill, computergametype, moodtankreset, reactiongrumpy, trainsimgone, stereoupgrade (3 each) |
+| 1700-1729 | pinned (claude, `fixes-1700`) | batch 11c-d (docs/589 B11 §17-26): buffremovedelayed, tvdisclistener, fridgetestnull, cancelposturedef, facialidleweight, bathsituationfx, socialnoeffect, guitargnomeboost, distressgate, moodidleflavor (3 each) |
+| **1399, 1730+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 
