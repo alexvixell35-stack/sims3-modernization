@@ -5435,6 +5435,26 @@
       "what": "mono-autshadow-1115: WorldIndex gain, seen-exact go-live, IC pass-through",
       "at": "2026-11-15T10:01:17.068Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\mono-autshadow-1115"
+    },
+    {
+      "id": "fixes-2570",
+      "kind": "fixes",
+      "from": 2570,
+      "to": 2588,
+      "by": "alexvixell35-stack",
+      "what": "unseenoutfitdefer counters (UnseenOutfitDefer.cs)",
+      "at": "2026-11-16T16:34:20.456Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "doc-586",
+      "kind": "doc",
+      "from": 586,
+      "to": 586,
+      "by": "alexvixell35-stack",
+      "what": "unseenoutfitdefer",
+      "at": "2026-11-16T16:37:16.770Z",
+      "worktree": "<scratchpad>"
     }
   ]
 }

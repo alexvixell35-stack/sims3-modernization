@@ -193,6 +193,7 @@ namespace Ts3Fixes
             ApplyEaVacation();
             ApplyCompaction();  // docs/204: hooks only with ts3native [Compaction] Enabled=1 or 2
             ApplyCasTrimKeep();  // docs/539: hooks only with [CasTrim] save hooks in native
+            ApplyUnseenOutfitDefer();  // issue #451, off by default (UnseenOutfitDefer.cs)
         }
 
         // Patches that go in only when a tuning is on (docs/124 §17.8): Apply cannot read tunings (C# defaults there), so these
@@ -478,6 +479,7 @@ namespace Ts3Fixes
         // [2564-2565] free (released).
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
+        // [2570-2588] unseenoutfitdefer (UnseenOutfitDefer.cs, issue #451, docs/586): 2570 instant sets deferred, 2571 of those replacing a waiting one, 2572 applied: Sim seen, 2573 applied: selected / not a townie now, 2574 applied before a delayed set or model, 2575 applied: flush (switch off, not live, travel, save), 2576 dropped: Sim gone, 2577 dropped: EA's own set ran, 2578 dropped: model set, 2579 waiting now, 2580 most waiting, 2581 not deferred: first set after instantiate, 2582 not deferred: delayed swap open, 2583 not deferred: category or not a Sim outfit path, 2584 apply threw, 2585 not deferred: within the 40 m margin, 2586 applied: entered the margin, 2587 worst seen-to-apply ms (an upper bound), 2588 seen applies later than 250 ms.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -898,6 +900,7 @@ namespace Ts3Fixes
                 case "dancefloorlistdiag": return false;  // diagnostics only (DanceFloorDiag.cs, docs/253 §7)
                 case "boatgetoutdiag": return Instantiator.kBoatGetOutDiag;  // diagnostics only, off (BoatGetOutDiag.cs, docs/257 §7)
                 case "boatgetoutguard": return Instantiator.kBoatGetOutGuard;  // EA bug fix, off until the boat-getout-stress queue (BoatGetOutDiag.cs, docs/257 §9)
+                case "unseenoutfitdefer": return Instantiator.kUnseenOutfitDefer;  // issue #451, off (UnseenOutfitDefer.cs, docs/586)
                 case "boatparkgone": return Instantiator.kBoatParkGone;  // EA bug fix, on by default (BoatParkGone.cs, docs/257)
                 case "deadrefcooking": return Instantiator.kDeadRefCooking;  // EA bug fix, off (DeadRefs.cs phase 14, docs/205 §4)
                 case "deadrefconvo": return Instantiator.kDeadRefConvo;  // EA bug fix, off (DeadRefs.cs phase 15, docs/517 §4)

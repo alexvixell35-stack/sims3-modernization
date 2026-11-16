@@ -224,6 +224,7 @@ namespace Ts3Fixes
             sRflCmds.Clear();
             sStuckQueue.Clear();
             sUfCamLot = null; sUfCamLotTick = -1;
+            OdWorldQuit();  // unseenoutfitdefer (UnseenOutfitDefer.cs): object ids of the old world
         }
         public class SwapCbHook
         {
