@@ -6471,6 +6471,17 @@
       "at": "2026-11-16T00:40:47.602Z",
       "worktree": "/home/<user>/dev/sims3-modernization",
       "pinned": true
+    },
+    {
+      "id": "fixes-1730",
+      "kind": "fixes",
+      "from": 1730,
+      "to": 1861,
+      "by": "claude",
+      "what": "batch 12 (docs/590-592 B12 §1-44): protestexit..putdownplaced, 44 switches x3",
+      "at": "2026-11-16T01:42:19.435Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
     }
   ]
 }

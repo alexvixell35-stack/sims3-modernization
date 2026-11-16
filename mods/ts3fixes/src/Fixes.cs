@@ -287,7 +287,51 @@ namespace Ts3Fixes
             ApplySocialNoEffect();   // docs/589 B11 §23
             ApplyGuitarGnomeBoost();   // docs/589 B11 §24
             ApplyDistressGate();   // docs/589 B11 §25
-            ApplyMoodIdleFlavor();   // docs/589 B11 §26            ApplyDisplayCaseReset();   // docs/587 EP1 §1
+            ApplyMoodIdleFlavor();   // docs/589 B11 §26
+            ApplyProtestExit();   // docs/590 B2 B12 §1
+            ApplyJogTerrain();   // docs/590 B3 B12 §2
+            ApplyLifeguardQuit();   // docs/590 B4 B12 §3
+            ApplyFrolicExit();   // docs/590 B5 B12 §4
+            ApplyShooDef();   // docs/590 B6 B12 §5
+            ApplyIglooLookats();   // docs/590 B8 B12 §6
+            ApplyGoHereBoatList();   // docs/590 B10 B12 §7
+            ApplyBouncerRole();   // docs/590 B12 B12 §8
+            ApplyTrickSocials();   // docs/590 B13 B12 §9
+            ApplyFearFaintUndo();   // docs/590 B13 B12 §10
+            ApplyLotPrune();   // docs/590 B14 B12 §11
+            ApplyWerewolfFind();   // docs/590 B15 B12 §12
+            ApplyCopyHomeworkFx();   // docs/590 A2 B12 §13
+            ApplySpellTargetEnd();   // docs/590 A3 B12 §14
+            ApplyFoodTrayGrill();   // docs/590 A6 B12 §15
+            ApplyCompositionNull();   // docs/590 A7, 591 C8 B12 §16
+            ApplyPetDreamTimer();   // docs/590 A10 B12 §17
+            ApplyAwkwardScience();   // docs/591 C1 B12 §18
+            ApplyChessDefeated();   // docs/591 C2 B12 §19
+            ApplyPrivacyOthers();   // docs/591 C4 B12 §20
+            ApplyGigMaster();   // docs/591 C5 B12 §21
+            ApplyIntMultiple();   // docs/591 C6, 592 S4 B12 §22
+            ApplyDoorPrivacyNull();   // docs/591 C7 B12 §23
+            ApplyLeafBurnFail();   // docs/591 R1 B12 §24
+            ApplyCatchPreyOdds();   // docs/591 R2 B12 §25
+            ApplyPicnicAnts();   // docs/591 R3 B12 §26
+            ApplyLoyalDogLay();   // docs/591 R5 B12 §27
+            ApplyVisitListeners();   // docs/591 R6 B12 §28
+            ApplyScienceFxStop();   // docs/591 R7 B12 §29
+            ApplyDaycareLiking();   // docs/591 R9 B12 §30
+            ApplyKegBreakage();   // docs/591 R10 B12 §31
+            ApplyRomanceCooldown();   // docs/591 R11 B12 §32
+            ApplyLightCustom();   // docs/591 R12 B12 §33
+            ApplyEatPreyCancel();   // docs/591 R13 B12 §34
+            ApplyMeltAlarm();   // docs/591 R16 B12 §35
+            ApplyNewspaperDef();   // docs/591 R21 B12 §36
+            ApplyLeaveConvNull();   // docs/592 S2 B12 §37
+            ApplyVacationAlarms();   // docs/592 S3 B12 §38
+            ApplyCleanupVfx();   // docs/592 S5 B12 §39
+            ApplyLookAtCopy();   // docs/592 S6 B12 §40
+            ApplyLottoTooltip();   // docs/592 S8 B12 §41
+            ApplyTraitIconDislike();   // docs/592 S9 B12 §42
+            ApplyRoleUnprotect();   // docs/592 S11 B12 §43
+            ApplyPutDownPlaced();   // docs/592 S13 B12 §44            ApplyDisplayCaseReset();   // docs/587 EP1 §1
             ApplySuatGradeBonus();   // docs/587 EP1 §2
             ApplyMermaidSharkNull();   // docs/587 EP1 §3
             ApplyJetpackFlyHereCleanup();   // docs/587 EP1 §4
@@ -821,6 +865,50 @@ namespace Ts3Fixes
         // [1718-1720] socialnoeffect (Batch589dLogic.cs, docs/589 B11 §23): null rules seen / null rules with ilp_socialnoeffect expected on / errors.
         // [1721-1723] guitargnomeboost (Batch589dLogic.cs, docs/589 B11 §24): extra boosts removed / boosts left on (switch off) / errors.
         // [1724-1726] distressgate (Batch589dLogic.cs, docs/589 B11 §25): tests answered by a buff / missed (switch off) / errors.
+        // [1730-1732] protestexit (Batch590Logic.cs, B12 §1, docs/590 B2): exits / root-only cancels (switch off) / errors.
+        // [1733-1735] jogterrain (Batch590Logic.cs, B12 §2, docs/590 B3): walk-backs queued / fatigue checks with the switch off / errors.
+        // [1736-1738] lifeguardquit (Batch590Logic.cs, B12 §3, docs/590 B4): loops ended / quit loops run on (switch off) / errors.
+        // [1739-1741] frolicexit (Batch590Logic.cs, B12 §4, docs/590 B5): frolics ended / missed with the switch off / errors.
+        // [1742-1744] shoodef (Batch590Logic.cs, B12 §5, docs/590 B6): shoos with an own definition / shared writes (switch off) / errors.
+        // [1745-1747] igloolookats (Batch590Logic.cs, B12 §6, docs/590 B8): look-ats restored / left off (switch off) / errors.
+        // [1748-1750] gohereboatlist (Batch590Logic.cs, B12 §7, docs/590 B10): Sims dropped / left in a list (switch off) / errors.
+        // [1751-1753] bouncerrole (Batch590Logic.cs, B12 §8, docs/590 B12): notice tests answered our way / tests with the switch off / null-role runs ended.
+        // [1754-1756] tricksocials (Batch590Logic.cs, B12 §9, docs/590 B13): restored / left off (switch off) / errors.
+        // [1757-1759] fearfaintundo (Batch590Logic.cs, B12 §10, docs/590 B13): undone / left (switch off) / errors.
+        // [1760-1762] lotprune (Batch590Logic.cs, B12 §11, docs/590 B14): lots pruned / lots kept (switch off) / errors.
+        // [1763-1765] werewolffind (Batch590Logic.cs, B12 §12, docs/590 B15): null finds and insect sums fixed / seen with the switch off / errors.
+        // [1766-1768] copyhomeworkfx (Batch590Logic.cs, B12 §13, docs/590 A2): cleared / left (switch off) / errors.
+        // [1769-1771] spelltargetend (Batch590Logic.cs, B12 §14, docs/590 A3): targets released / left waiting (switch off) / errors.
+        // [1772-1774] foodtraygrill (Batch590Logic.cs, B12 §15, docs/590 A6): fixed returns / seen with the switch off / errors.
+        // [1775-1777] compositionnull (Batch590Logic.cs, B12 §16, docs/590 A7, 591 C8): imports cleaned / nulls kept (switch off) / errors.
+        // [1778-1780] petdreamtimer (Batch590Logic.cs, B12 §17, docs/590 A10): timers reset / left due (switch off) / errors.
+        // [1781-1783] awkwardscience (Batch591Logic.cs, B12 §18, docs/591 C1): gains corrected / bonus on another skill (switch off) / errors.
+        // [1784-1786] chessdefeated (Batch591Logic.cs, B12 §19, docs/591 C2): wins recorded our way / EA's record (switch off) / errors.
+        // [1787-1789] privacyothers (Batch591Logic.cs, B12 §20, docs/591 C4): Sims dropped / kept (switch off) / errors.
+        // [1790-1792] gigmaster (Batch591Logic.cs, B12 §21, docs/591 C5): answers our way / off by one (switch off) / errors.
+        // [1793-1795] intmultiple (Batch591Logic.cs, B12 §22, docs/591 C6, 592 S4): draws our way / EA's draws (switch off) / errors.
+        // [1796-1798] doorprivacynull (Batch591Logic.cs, B12 §23, docs/591 C7): updates with a null target skipped / updates that threw (switch off) / errors.
+        // [1799-1801] leafburnfail (Batch591Logic.cs, B12 §24, docs/591 R1): piles freed / left blocked (switch off) / errors.
+        // [1802-1804] catchpreyodds (Batch591Logic.cs, B12 §25, docs/591 R2): rolls taken / sure catches (switch off) / errors.
+        // [1805-1807] picnicants (Batch591Logic.cs, B12 §26, docs/591 R3): cleanups done / left (switch off) / errors.
+        // [1808-1810] loyaldoglay (Batch591Logic.cs, B12 §27, docs/591 R5): lay-downs queued / refused targets (switch off) / errors.
+        // [1811-1813] visitlisteners (Batch591Logic.cs, B12 §28, docs/591 R6): entries dropped / kept (switch off) / errors.
+        // [1814-1816] sciencefxstop (Batch591Logic.cs, B12 §29, docs/591 R7): old sets stopped / leaked (switch off) / errors.
+        // [1817-1819] daycareliking (Batch591Logic.cs, B12 §30, docs/591 R9): payouts corrected / payouts at liking 0 (switch off) / errors.
+        // [1820-1822] kegbreakage (Batch591Logic.cs, B12 §31, docs/591 R10): chances computed our way / kegger rate on a non-kegger party (switch off) / errors.
+        // [1823-1825] romancecooldown (Batch591Logic.cs, B12 §32, docs/591 R11): blocked our way / let through (switch off) / errors.
+        // [1826-1828] lightcustom (Batch591Logic.cs, B12 §33, docs/591 R12): lights set our way / EA's copies (switch off) / errors.
+        // [1829-1831] eatpreycancel (Batch591Logic.cs, B12 §34, docs/591 R13): prey kept or re-enabled / seen with the switch off / errors.
+        // [1832-1834] meltalarm (Batch591Logic.cs, B12 §35, docs/591 R16): starts our way / starts that threw or doubled (switch off) / errors.
+        // [1835-1837] newspaperdef (Batch591Logic.cs, B12 §36, docs/591 R21): reads with an own definition / shared writes (switch off) / errors.
+        // [1838-1840] leaveconvnull (Batch592Logic.cs, B12 §37, docs/592 S2): empty leaves skipped / counted (switch off) / errors.
+        // [1841-1843] vacationalarms (Batch592Logic.cs, B12 §38, docs/592 S3): arrivals fixed / arrivals with the double shift (switch off) / errors.
+        // [1844-1846] cleanupvfx (Batch592Logic.cs, B12 §39, docs/592 S5): effect lists disposed / left to the finalizer (switch off) / errors.
+        // [1847-1849] lookatcopy (Batch592Logic.cs, B12 §40, docs/592 S6): copies filtered / live lists cut (switch off) / errors.
+        // [1850-1852] lottotooltip (Batch592Logic.cs, B12 §41, docs/592 S8): tooltips fixed / shifted tooltips (switch off) / errors.
+        // [1853-1855] traiticondislike (Batch592Logic.cs, B12 §42, docs/592 S9): dislike icons shown / hidden (switch off) / errors.
+        // [1856-1858] roleunprotect (Batch592Logic.cs, B12 §43, docs/592 S11): protections removed / left (switch off) / errors.
+        // [1859-1861] putdownplaced (Batch592Logic.cs, B12 §44, docs/592 S13): placements fired as placed / fired as removed (switch off) / errors.
         // [1727-1729] moodidleflavor (Batch589dLogic.cs, docs/589 B11 §26): rows appended / rows dropped (switch off) / errors.
         // [1400-1402] displaycasereset (EpBatch1aLogic.cs, docs/587 EP1 §1): resets kept contents / destroyed with switch off / errors.
         // [1403-1405] suatgradebonus (EpBatch1aLogic.cs, docs/587 EP1 §2): scores corrected / differ with switch off / errors.
@@ -1369,6 +1457,50 @@ namespace Ts3Fixes
                 case "guitargnomeboost": return Instantiator.kGuitarGnomeBoost;
                 case "distressgate": return Instantiator.kDistressGate;
                 case "moodidleflavor": return Instantiator.kMoodIdleFlavor;
+                case "protestexit": return Instantiator.kProtestExit;
+                case "jogterrain": return Instantiator.kJogTerrain;
+                case "lifeguardquit": return Instantiator.kLifeguardQuit;
+                case "frolicexit": return Instantiator.kFrolicExit;
+                case "shoodef": return Instantiator.kShooDef;
+                case "igloolookats": return Instantiator.kIglooLookats;
+                case "gohereboatlist": return Instantiator.kGoHereBoatList;
+                case "bouncerrole": return Instantiator.kBouncerRole;
+                case "tricksocials": return Instantiator.kTrickSocials;
+                case "fearfaintundo": return Instantiator.kFearFaintUndo;
+                case "lotprune": return Instantiator.kLotPrune;
+                case "werewolffind": return Instantiator.kWerewolfFind;
+                case "copyhomeworkfx": return Instantiator.kCopyHomeworkFx;
+                case "spelltargetend": return Instantiator.kSpellTargetEnd;
+                case "foodtraygrill": return Instantiator.kFoodTrayGrill;
+                case "compositionnull": return Instantiator.kCompositionNull;
+                case "petdreamtimer": return Instantiator.kPetDreamTimer;
+                case "awkwardscience": return Instantiator.kAwkwardScience;
+                case "chessdefeated": return Instantiator.kChessDefeated;
+                case "privacyothers": return Instantiator.kPrivacyOthers;
+                case "gigmaster": return Instantiator.kGigMaster;
+                case "intmultiple": return Instantiator.kIntMultiple;
+                case "doorprivacynull": return Instantiator.kDoorPrivacyNull;
+                case "leafburnfail": return Instantiator.kLeafBurnFail;
+                case "catchpreyodds": return Instantiator.kCatchPreyOdds;
+                case "picnicants": return Instantiator.kPicnicAnts;
+                case "loyaldoglay": return Instantiator.kLoyalDogLay;
+                case "visitlisteners": return Instantiator.kVisitListeners;
+                case "sciencefxstop": return Instantiator.kScienceFxStop;
+                case "daycareliking": return Instantiator.kDaycareLiking;
+                case "kegbreakage": return Instantiator.kKegBreakage;
+                case "romancecooldown": return Instantiator.kRomanceCooldown;
+                case "lightcustom": return Instantiator.kLightCustom;
+                case "eatpreycancel": return Instantiator.kEatPreyCancel;
+                case "meltalarm": return Instantiator.kMeltAlarm;
+                case "newspaperdef": return Instantiator.kNewspaperDef;
+                case "leaveconvnull": return Instantiator.kLeaveConvNull;
+                case "vacationalarms": return Instantiator.kVacationAlarms;
+                case "cleanupvfx": return Instantiator.kCleanupVfx;
+                case "lookatcopy": return Instantiator.kLookAtCopy;
+                case "lottotooltip": return Instantiator.kLottoTooltip;
+                case "traiticondislike": return Instantiator.kTraitIconDislike;
+                case "roleunprotect": return Instantiator.kRoleUnprotect;
+                case "putdownplaced": return Instantiator.kPutDownPlaced;
                 case "displaycasereset": return Instantiator.kDisplayCaseReset;
                 case "suatgradebonus": return Instantiator.kSuatGradeBonus;
                 case "mermaidsharknull": return Instantiator.kMermaidSharkNull;
