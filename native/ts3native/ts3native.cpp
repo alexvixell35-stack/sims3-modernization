@@ -3112,6 +3112,16 @@ struct Ts3nCounters {
 // + exempt: acting-mode (1, 3) asks of a household, selected or unknown-scope job (only unseen and seen-NPC jobs use the memo)
 struct DmxScriptGen { volatile LONG gen, armed, bumps, unarmedAsks, missCold, missGen, missAge, notUnlocked, exempt; };
 extern "C" __declspec(dllexport) DmxScriptGen ts3native_doorgen = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+// [RouteAsync] ReadyDrain (default 0, docs: issue "why off-screen plans take 500-800 ms"): on the READY poll of the job the worker
+// runs now, serve every managed call it posts within a small budget (not one per poll), and answer "done" in the same poll when
+// the job ended meanwhile. Same calls, same order, same thread (the job's owner); only sooner. Own exported block, so the
+// counters layout (docs/registry.md) is unchanged: polls that drained, calls served past the first, polls answered done by
+// the drain (a frame each, saved), budget ends with the job still running.
+// Frame guard: the spin is shared per sim-thread frame (approximated as a 33 ms wall window: the owner has no frame counter
+// here) up to frameUs; past it a poll only serves calls already queued (no spin) and frameHits counts the window once. The
+// spin also stops gapUs after the last served call (the job is computing, not calling back: not near its end).
+struct ReadyDrainCounters { volatile LONG mode, budgetUs, polls, served, saved, budgetHits; LONG maxUs; volatile LONG frameUs, gapUs, frameHits, idleStops; };
+extern "C" __declspec(dllexport) ReadyDrainCounters ts3native_readydrain = {0, 2000, 0, 0, 0, 0, 0, 3000, 300, 0, 0};
 extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {912,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -3282,6 +3292,12 @@ static void MaybeLogCounters(ULONGLONG now) {
     if (c.dmxMode)
         Log("door memo x misses: no row %ld, other generation %ld, older than DoorMemoXMs %ld; live answers not unlocked (not stored) %ld",
             ts3native_doorgen.missCold, ts3native_doorgen.missGen, ts3native_doorgen.missAge, ts3native_doorgen.notUnlocked);
+    if (ts3native_readydrain.mode)
+        Log("route ready drain: budget %ld us, frame %ld us, gap %ld us, polls %ld, calls served past the first %ld, done in the same "
+            "poll %ld, budget ends %ld, idle stops %ld, frames at the frame budget %ld, max %ld us", ts3native_readydrain.budgetUs,
+            ts3native_readydrain.frameUs, ts3native_readydrain.gapUs, ts3native_readydrain.polls, ts3native_readydrain.served,
+            ts3native_readydrain.saved, ts3native_readydrain.budgetHits, ts3native_readydrain.idleStops, ts3native_readydrain.frameHits,
+            ts3native_readydrain.maxUs);
     if (c.workerReady || c.asyncReady)
         Log("route plans: off %ld (fails %ld) on %ld (fails %ld) hostCalls %ld", c.planOffCalls, c.planOffFails, c.planOnCalls, c.planOnFails, c.hostCalls);
     static LONG xcptSkipLogged;  // docs/172 §7: repeats per logged address, only when the total moved
@@ -5494,6 +5510,7 @@ static u8 ArRf3(int idx, bool fgn, DWORD handle, u8 r, int why = -1) {
     InterlockedIncrement(&ts3native_counters.arRf3[fgn ? 1 : 0][why]);
     return r;
 }
+static bool ReadyDrain(AsyncJob* j);  // [RouteAsync] ReadyDrain, below
 static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD options2) {
     if ((u8)options2 && optHi == kWouldHi) return ArWould(handle, optLo);
     if ((u8)options2 && optHi == kJobBusyHi && !optLo) return JyBusy();  // docs/183
@@ -5566,7 +5583,7 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
     }
     if (j && (j->state == J_QUEUED || j->state == J_RUNNING)) {
         if (WaitForSingleObject(g_invReady, 0) == WAIT_OBJECT_0) ServeInvoke(HC_READY);  // keep the running job moving
-        return 0;
+        if (!ReadyDrain(j)) return 0;
     }
     if (j && j->state == J_SKIPPED) {  // not planned (world changed): the plan runs synchronously
         InterlockedExchange(&j->state, J_FREE);
@@ -5575,6 +5592,47 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
     }
     g_collect = j ? handle : 0;
     return 1;
+}
+
+// [RouteAsync] ReadyDrain (see ReadyDrainCounters): called by READY after its one serve, owner thread only. Drains only the job
+// the worker is running now (a queued job posts nothing yet); spins with Sleep(0) between checks, never blocks on an event the
+// other waits use. true = the job is DONE / SKIPPED now: READY goes on and reports it.
+static bool ReadyDrain(AsyncJob* j) {
+    ReadyDrainCounters& d = ts3native_readydrain;
+    if (!d.mode || j->state != J_RUNNING || g_async.state != A_RUNNING || g_async.handle != j->handle) return false;
+    static LARGE_INTEGER s_win;  // owner thread only: start of the current frame window
+    static LONG s_winUs;         // spin time used in it
+    static bool s_winHit;
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    if (!s_win.QuadPart || UsSince(s_win) >= 33000) s_win = t0, s_winUs = 0, s_winHit = false;
+    const bool spin = s_winUs < d.frameUs;
+    if (!spin && !s_winHit) s_winHit = true, InterlockedIncrement(&d.frameHits);
+    InterlockedIncrement(&d.polls);
+    LONG lastServeUs = 0;
+    bool result = false;
+    for (;;) {
+        bool served = false;
+        if (WaitForSingleObject(g_invReady, 0) == WAIT_OBJECT_0) {
+            ServeInvoke(HC_READY);
+            InterlockedIncrement(&d.served);
+            served = true;
+        }
+        const LONG st = j->state;
+        const LONG us = UsSince(t0);
+        if (served) lastServeUs = us;
+        if (st == J_DONE || st == J_SKIPPED) { InterlockedIncrement(&d.saved); result = true; break; }
+        if (st != J_RUNNING) break;      // dropped or reused meanwhile: the poll answers "not yet", as before
+        if (served) continue;            // a call was waiting: look for the next one at once (queued calls, no spin)
+        if (!spin) break;                // frame budget used: queued calls only
+        if (us - lastServeUs >= d.gapUs) { InterlockedIncrement(&d.idleStops); break; }  // computing, not calling back
+        if (us >= d.budgetUs || s_winUs + us >= d.frameUs) { InterlockedIncrement(&d.budgetHits); break; }
+        Sleep(0);
+    }
+    const LONG used = UsSince(t0);
+    s_winUs += used;
+    Max(&d.maxUs, used);
+    return result;
 }
 
 // Every Lock_Acquire in the game passes through here; only the job owner's waits during a job are changed (INFINITE and
