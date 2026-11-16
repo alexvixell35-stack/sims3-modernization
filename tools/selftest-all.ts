@@ -122,6 +122,7 @@ const MTS_EXT = 'Chrome extension script (chrome.* APIs); its parsers run in too
 // Paths kept out of the public repo by .gitattributes export-ignore (maintainer-only tools).
 const INTERNAL = ['tools/mts-helper/'];
 const NO_SELF_CHECK: Record<string, string> = {
+  'tools/selftest/csc-shim.ts': 'library imported by the C# self-check runners (they exercise it); no entry point',
   'tools/probe/ep-gate-probe.js': 'Frida script injected into the game; no self-check possible',
   'tools/ai-usage.ts': 'appends the local Claude usage file to docs/ai-usage.md; no logic to test',
   'tools/autonomy-virtual-closure.ts': ONE_OFF,
