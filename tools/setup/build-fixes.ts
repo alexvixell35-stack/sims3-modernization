@@ -367,6 +367,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSoakedStat value="False" />
     <kOuterwearAutoLoop value="False" />
     <kOuterwearRestore value="False" />
+    <kSpoonSlaveChecks value="False" />
+    <kQueueProximity value="False" />
     <kRouteCauseLog value="False" />
     <kScarePriority value="False" />
     <kSandwichAlarm value="False" />

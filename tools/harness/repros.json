@@ -105968,6 +105968,168 @@
     ]
   },
   {
+    "id": "spoonslavechecks-check",
+    "bug": "BedSleep.LoopHandler returns for the spooning slave partner before EA's per-sleeper checks, so the slave of a shared-bed couple skips the light-sleeper wake, early TiredFromMoving removal and NoMonsters cut all night (docs/597 §1)",
+    "fix": "ts3fixes SleepQueue597.cs + SpoonReset.cs SrHook: spoonslavechecks (default off)",
+    "save": "any world (pure check)",
+    "note": "SpoonSlaveChecksCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 1954-1957.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spoonslavechecks": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoonSlaveChecksCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoonSlaveChecksCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spoonslavechecks": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoonSlaveChecksCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoonSlaveChecksCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spoonslavechecks": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spoonslavechecks": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "queueproximity-check",
+    "bug": "SimQueue.FindNewPlaceInLine (OrderByProximity) compares a squared distance with plain distances, so a new Sim is placed too far back and refused from a full elevator line (docs/597 §2)",
+    "fix": "ts3fixes SleepQueue597.cs: queueproximity (default off)",
+    "save": "any world (pure check)",
+    "note": "QueueProximityCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 1958-1960.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "queueproximity": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.QueueProximityCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.QueueProximityCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "queueproximity": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.QueueProximityCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.QueueProximityCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "queueproximity": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "queueproximity": false
+        }
+      }
+    ]
+  },
+  {
     "id": "unseen-tp-apt-goal",
     "bug": "docs/584 §8: F1 (UfTpLotOpen / UfLotOpen) closes every apartment and shell lot outright, so a cut GoHome of an unseen NPC who lives in an apartment is never teleported; GoHome.Run's second PlanRouteIntoLot then fails with result 10 (Bridgeport retry after a cut 95% -> ~70% at the upstream merge, tpdoorrights on still ~71%)",
     "fix": "ts3fixes tpaptgoal (UnseenTeleportGoal.cs UfTpAptLot / UfTpAptReach, UfPreCore.TpAptLot / TpAptOpen): the unseen NPC's own home apartment or shell lot is judged by the goal room only (tomb or hidden room refused, then a room flood with its own door rights plus TpDoor); other apartment lots stay closed. Check: UnseenTpCheck apt",

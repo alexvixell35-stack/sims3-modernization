@@ -286,6 +286,7 @@ namespace Ts3Fixes
                 case "putdowninuse": return EpJoin(EpLive(typeof(PutDownInUseHook), 1), EpLive(typeof(VoodooPutDownInUseHook), 0));
                 case "putdownplace": return EpLive(typeof(PdHook), 1);
                 case "putdownplaced": return EpJoin(EpLive(typeof(B12PpHook), 1), EpLive(typeof(B12PpTrigger), 1));
+                case "queueproximity": return EpLive(typeof(SqPlaceHook), 1);
                 case "rainsheltercheap": return EpLive(typeof(RfHook), 1, "sRfNextField", sRfNextField, null, "sRfSchedule", sRfSchedule, 1);
                 case "reactioncopy": return EpLive(typeof(BRcHook), 1);
                 case "reactiongrumpy": return EpLive(typeof(BRgHook), 1, "sRgType", sRgType, null);
@@ -358,6 +359,7 @@ namespace Ts3Fixes
                 case "splotlookup": return EpJoin(EpJoin(EpLive(typeof(BSpBigHook), 2), EpLive(typeof(BSpHorseHook), 1, "sLlStalls", sLlStalls, null, "sLlStalls", sLlStalls, typeof(uint))), EpLive(typeof(BSpSmallHook), 2));
                 case "spoccultpick": return EpLive(typeof(BSpOccultHook), 1);
                 case "spoonreset": return EpLive(typeof(SrHook), 1, "sSrMasterI", sSrMasterI, null, "sSrSlaveI", sSrSlaveI, null, "sSrIsSlave", sSrIsSlave, typeof(bool), "sSrIsMaster", sSrIsMaster, typeof(bool), "sSrSpooning", sSrSpooning, typeof(bool), "sSrSmc", sSrSmc, null, "sSrClear", sSrClear, 0);
+                case "spoonslavechecks": return EpLive(typeof(SrHook), 1, "sSrMasterI", sSrMasterI, null, "sSrSlaveI", sSrSlaveI, null, "sSrIsSlave", sSrIsSlave, typeof(bool), "sSrIsMaster", sSrIsMaster, typeof(bool), "sSrSpooning", sSrSpooning, typeof(bool), "sSrSmc", sSrSmc, null, "sSrClear", sSrClear, 0);
                 case "spouseunlink": return EpLive(typeof(GgHook), 4, "sGgAnc", sGgAnc, null);
                 case "sppensionprompt": return EpLive(typeof(BSpAcquireHook), 2);
                 case "sprecheck": return EpLive(typeof(BSpTryHook), 1, "sRcUpdate", sRcUpdate, 0, "sRcDemo", sRcDemo, null, "sRcTarget", sRcTarget, typeof(float), "sRcTarget", sRcTarget, "static", "sRcMult", sRcMult, null, "sRcDrop", sRcDrop, typeof(float), "sRcDrop", sRcDrop, "static", "sRcNotify", sRcNotify, 1, "sRcTun", sRcTun, null, "sRcLast", sRcLast, null);
