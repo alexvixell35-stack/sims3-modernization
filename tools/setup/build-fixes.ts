@@ -516,7 +516,6 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kOppFailCharge value="False" />
     <kTempForecast value="False" />
     <kMountFishCost value="False" />
-    <kFishScoreMounted value="False" />
     <kFirefighterCount value="False" />
     <kRepairmanSkill value="False" />
     <kRoundUpReturn value="False" />

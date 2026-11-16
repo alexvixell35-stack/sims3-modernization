@@ -17,7 +17,7 @@ EA bug fixes as EA intended, household included. ts3fixes `mods/ts3fixes/src/Bat
 | 9 | O1 | `oppfailcharge` | 1886-1888 | a failed opportunity's deleted-object penalty is charged once, not twice |
 | 10 | T1 | `tempforecast` | 1889-1891 | the temperature forecast range follows the real day curve instead of its mirror |
 | 11 | F1 | `mountfishcost` | 1892-1894 | mounting a fish charges that fish's cost, not the last fish tested |
-| 12 | F2 | `fishscoremounted` | 1895-1897 | an Unmounted fish photo subject no longer scores mounted fish, and Any matches once |
+| 12 | F2 | ~~`fishscoremounted`~~ withdrawn after s58 (false positive: `Contains("Mounted")` is case-sensitive, so "Unmounted" never matches; Arg0 is never null) | 1895-1897 unused | was: an Unmounted fish photo subject no longer scores mounted fish, and Any matches once |
 | 13 | V8 | `firefightercount` | 1898-1900 | no more firefighters come than the pool's maximum |
 | 14 | V9 | `repairmanskill` | 1901-1903 | a repairman's handiness is the rolled level, not the roll added on every visit |
 | 15 | V3 | `roundupreturn` | 1904-1906 | a curfew round-up with no active Sim leaves instead of throwing in Init |

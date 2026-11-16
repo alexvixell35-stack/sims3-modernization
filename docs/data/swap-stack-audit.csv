@@ -787,9 +787,8 @@ B13SsHook.LoopHook,HarvestPlant,CreateHarvestablesLoop,Batch593Logic.cs,LoopOrig
 B13HrHook.RegionHook,HarvestPlant,GetGrowthPerformanceRegion,Batch593Logic.cs,RegionOrig,no,no path to a yield in 1 overload(s),Batch593Logic,keep
 B13WsHook.TestHook,Sims3.Store.Objects.WishingWell+StealCoins+Definition,Test,Batch593Logic.cs,TestOrig,no,no path to a yield in 1 overload(s),Batch593Logic,keep
 B13OfHook.FailHook,Opportunity,IsFailed,Batch593Logic.cs,FailOrig,yes,Opportunity::IsFailed > Sim::ModifyFunds > .. 11 .. > Simulator::Sleep,Batch593Logic,"keep, stub remap (SavedStacks.cs)"
-B13TfHook.MinMaxHook,Sims3.Gameplay.Seasons.SeasonsManager+WeatherManager,GetMinMaxTemperature,Batch593Logic.cs,MinMaxOrig,no,hand-checked (GetVariationWeight and curve GetValue: arithmetic only; no call that yields),Batch593Logic,keep
+B13TfHook.MinMaxHook,Sims3.Gameplay.Seasons.SeasonsManager+TemperatureManager,GetMinMaxTemperature,Batch593Logic.cs,MinMaxOrig,no,hand-checked (GetVariationWeight and curve GetValue: arithmetic only; no call that yields),Batch593Logic,keep
 B13MfHook.RunHook,Sims3.Gameplay.Objects.Fishing.HaveFishMounted,RunFromInventory,Batch593Logic.cs,RunOrig,yes,HaveFishMounted::RunFromInventory > InteractionInstance::AnimateSim > StateMachineClient::RequestState,Batch593Logic,"keep, stub remap (SavedStacks.cs)"
-B13FsHook.ScoreHook,Fish,ScoreFish,Batch593Logic.cs,ScoreOrig,no,no path to a yield in 1 overload(s),Batch593Logic,keep
 B13FcHook.NeedsHook,Firefighter,NeedsAssignment,Batch593Logic.cs,NeedsOrig,no,no path to a yield in 1 overload(s),Batch593Logic,keep
 B13RsHook.UpdateHook,Repairman,UpdateCreatedSim,Batch593Logic.cs,UpdateOrig,yes,Repairman::UpdateCreatedSim > SkillManager::AddElement > .. 4 .. > StateMachineClient::RequestState,Batch593Logic,"keep, stub remap (SavedStacks.cs)"
 B13RuHook.InitHook,PoliceSituation.RoundUpTeens,Init,Batch593Logic.cs,InitOrig,yes,PoliceSituation+RoundUpTeens::Init > Situation::SetState > .. 2 .. > StateMachineClient::RequestState,Batch593Logic,"keep, stub remap (SavedStacks.cs)"

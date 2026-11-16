@@ -17,7 +17,7 @@ namespace Ts3Fixes
             return B582Line("eatpostonce", on, "finished eat not posted twice", fixedNow, "cut-off eat posted / off as EA=" + controls, controls, "", counters);
         }
 
-        // MotiveMultOnceCheck run: pre 10 + deltas 10,10 at x1.25 gives 37.5 once (EA 54.3). Controls: lemon loss, chip, sign.
+        // MotiveMultOnceCheck run: pre 10 + deltas 10,10 at x1.25 gives 37.5 once (EA stacks it to 47.66; s58 tested "> 50", never true). Controls: lemon loss, chip, sign.
         public static object MotiveMultOnceCheck(string what)
         {
             string counters = B582Counters("motivemultonce", 1354, new[] { "updates with the multiplier once", "stacked updates (switch off)", "errors" }, sMmMissing);
@@ -26,7 +26,7 @@ namespace Ts3Fixes
             bool on = ShortcutOn("motivemultonce");
             float once = MmApplyOnce(30f, true, true, false, false, 1.25f, 0.25f, 1.2f);
             float ea = MmEaStacked(10f, new float[] { 10f, 10f }, 1.25f);
-            bool fixedNow = on && once == 37.5f && ea > 50f;
+            bool fixedNow = on && once == 37.5f && ea > once + 10f;
             bool controls = MmApplyOnce(-8f, true, false, true, false, 1.25f, 0.25f, 1.2f) == -2f && MmApplyOnce(10f, false, false, false, true, 1.25f, 0.25f, 1.2f) == 12f
                 && MmApplyOnce(-10f, true, true, false, false, 1.25f, 0.25f, 1.2f) == -10f && MmEaStacked(0f, new float[] { 8f }, 1.25f) == MmApplyOnce(8f, true, true, false, false, 1.25f, 0.25f, 1.2f);
             return B582Line("motivemultonce", on, "Carefree x1.25 applied once", fixedNow, "lemon / chip / loss / one delta as EA=" + controls, controls, sMmMissing, counters);

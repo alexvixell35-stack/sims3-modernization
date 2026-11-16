@@ -97,14 +97,6 @@ namespace Ts3Fixes
             return B12Check(what, "mountfishcost", 1892, new string[] { "costs set to the run's fish", "another fish's cost charged (switch off)", "errors" }, miss, "other fish's cost replaced", f, "own cost untouched", c);
         }
 
-        public static object FishScoreMountedCheck(string what)
-        {
-            bool f = false, c = false;
-            try { f = FsKinds(true, "Unmounted") == 1 && FsKinds(false, "Unmounted") == 3; c = FsKinds(true, "Mounted") == 2 && FsKinds(true, "Any") == 7 && FsKey("Any", "x") && FsKey(null, "x") && !FsKey("Bass", "Trout"); } catch (Exception) { }
-            string miss = "";
-            return B12Check(what, "fishscoremounted", 1895, new string[] { "scores our way", "Unmounted subjects that took mounted fish (switch off)", "errors" }, miss, "Unmounted asks fish only", f, "Mounted / Any / key match", c);
-        }
-
         public static object FirefighterCountCheck(string what)
         {
             bool f = false, c = false;

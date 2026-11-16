@@ -190,7 +190,7 @@ namespace Ts3Fixes
         static readonly Type sLtDef = sLtBuy == null ? null : sLtBuy.GetNestedType("Definition", BindingFlags.NonPublic);
         static readonly FieldInfo sLtStart = B12F(sLtBuy, "kBuyLottoStart");
         static readonly FieldInfo sLtEnd = B12F(sLtBuy, "kBuyLottoEnd");
-        static readonly MethodInfo sLtLoc = B12M(sLtBuy, "LocalizeString", typeof(string), typeof(object[]));
+        static readonly MethodInfo sLtLoc = B12M(typeof(Grocery), "LocalizeString", typeof(string), typeof(object[]));
         static string sLtM12 = "";
 
         static void ApplyLottoTooltip()
