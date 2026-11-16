@@ -671,7 +671,7 @@ namespace Ts3Agent
                 try { PlayFlowModel.Singleton.PlayExisting(lotId); } catch (Exception) { }
                 const BindingFlags np = BindingFlags.NonPublic | BindingFlags.Instance;
                 PlayFlowModel m = PlayFlowModel.Singleton;
-                BoolFuncWithParam masked = (BoolFuncWithParam)Delegate.CreateDelegate(typeof(BoolFuncWithParam), m, typeof(PlayFlowModel).GetMethod("ActivateSimScreenMaskedFunc", np));
+                BoolFuncWithParam masked = (BoolFuncWithParam)Delegate.CreateDelegate(typeof(BoolFuncWithParam), m, typeof(PlayFlowModel).GetMethod("ActivateSimScreenMaskedFunc", np, null, new Type[] { typeof(object) }, null));
                 BoolFuncWithParam loaded = (BoolFuncWithParam)Delegate.CreateDelegate(typeof(BoolFuncWithParam), m, typeof(PlayFlowModel).GetMethod("LotsLoadedFunc", np));
                 BoolFuncWithParam unmasked = (BoolFuncWithParam)Delegate.CreateDelegate(typeof(BoolFuncWithParam), m, typeof(PlayFlowModel).GetMethod("ScreenUnmaskedFunc", np));
                 Sims3.UI.GameEntry.MiniLoad.Show(true, lotId, masked, loaded, unmasked, new Tuple(hh, hh.LotHome));
