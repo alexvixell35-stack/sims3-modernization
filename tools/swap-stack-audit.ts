@@ -24,6 +24,7 @@ export type Row = Patch & { yields: string; proof: string; purpose: string; acti
 
 // a target held in a variable: variable name in that file -> the class it names
 const TARGET_VARS: Record<string, string> = {
+  'Batch582fLogic.cs:sNcType': 'Sims3.Gameplay.Objects.Vehicles.CarNpcWithNoDriver+LiteDriver', 'Batch582fLogic.cs:sPlWait': 'Sims3.Gameplay.Situations.NpcParty+WaitForSelectableGuestToArrive', 'Batch582fLogic.cs:sPlHappen': 'Sims3.Gameplay.Situations.NpcParty+Happening', 'Batch582eLogic.cs:sPgType': 'Sims3.Gameplay.ActorSystems.Pregnancy+InternalHaveBabyHome', 'Batch582dLogic.cs:sSdType': 'Sims3.Gameplay.Objects.Door.BigLotShellDoor+SummonProprietor', 'Batch582cLogic.cs:waiter': 'Sims3.Gameplay.Objects.Appliances.FutureFoodSynthesizer+OrderFoodOnWaiter+Definition', 'Batch582cLogic.cs:def': 'Sims3.Gameplay.Objects.Rewards.Teleporter+TeleportToCommunityLot+Definition', 'Batch582bLogic.cs:star': 'Sims3.Gameplay.Objects.Lighting.StarLight',
   'RefTable.cs:t': 'ScriptCore.ReferenceHashtable', 'CachedReflection.cs:pc': 'ScriptCore.PersistedClass',
   'CachedReflection.cs:db': 'ScriptCore.PersistedClassDB', 'FewerPlans.cs:helper': 'LotManager+RunStuckCheckHelper',
   'RouteSources.cs:watch': 'VelvetRopes+WatchDoor', 'PlayTrace.cs:flow': 'Sims3.UI.GameEntry.PlayFlowInWorldFlow',

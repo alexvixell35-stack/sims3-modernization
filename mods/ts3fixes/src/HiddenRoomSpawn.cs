@@ -130,7 +130,10 @@ namespace Ts3Fixes
         {
             public Sim CreateHook(Lot lot, SimDescription d)
             {
-                Sim s = CreateOrig(lot, d);
+                SimDescription rsPrev = RsEnter(d);  // residentspawnslot (docs/582 B5 §8): resident placed by EA's door-slot test
+                Sim s;
+                try { s = CreateOrig(lot, d); }
+                finally { RsLeave(rsPrev); }
                 if (s == null || !ShortcutOn("hiddenroomspawn")) return s;
                 try
                 {

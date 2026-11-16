@@ -54,7 +54,6 @@ namespace Ts3Fixes
     //     [392] descriptions with no Naked and no Everyday outfit at the last count (no safe source to rebuild: counted, logged).
     public static partial class Fixes
     {
-        const BindingFlags kInstAll = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         static readonly FieldInfo sPrefNpc = typeof(Service).GetField("mPreferredServiceNpc", kInstAll);
         static readonly FieldInfo sSvcPool = typeof(Service).GetField("mPool", kInstAll);
         static readonly FieldInfo sBribeTable = typeof(VelvetRopes).GetField("mBribeDictionary", kInstAll);

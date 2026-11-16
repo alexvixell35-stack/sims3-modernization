@@ -151,6 +151,44 @@ namespace Ts3Fixes
             ApplySculptPose();    // docs/568 §3 (SculptPose.cs)
             ApplyTrainBoost();    // docs/569 §1 (TrainBoost.cs)
             ApplyEatOutsideCount();    // docs/569 §2 (EatOutsideCount.cs)
+            ApplyButlerPayAlarm();   // docs/593 V1 B13 §16
+            ApplySandwichAlarm();   // docs/580 §16 (SandwichAlarm.cs)
+            ApplyDreamCleanup();   // docs/580 §18 (DreamCleanup.cs), memory only
+            ApplyVehicleFxHelper();   // docs/582 §1 (Batch582Logic.cs)
+            ApplyPrankDitchEmpty();   // docs/582 §2
+            ApplyServiceAssignExit();   // docs/582 §3
+            ApplyServiceShowAlarm();   // docs/582 §4
+            ApplyMailDogChaser();   // docs/582 §6
+            ApplyLifeguardSurvey();   // docs/582 §7
+            ApplyMoonRiseListener();   // docs/582 §8
+            ApplyHolidayLights();   // docs/582 §9
+            ApplyDoorLockOwner();   // docs/582 B4 §1
+            ApplyElevatorKitten();   // docs/582 B4 §2
+            ApplyElevatorResetRiders();   // docs/582 B4 §3
+            ApplyStarLightReset();   // docs/582 B4 §5
+            ApplyMoonDialListener();   // docs/582 B4 §6
+            ApplySnubListener();   // docs/582 B4 §7
+            ApplyElevatorRiderTimeout();   // docs/582 B4 §3b
+            ApplyRoleNullGuard();   // docs/582 B5 §1
+            ApplyHomeworkSkillBonus();   // docs/582 B5 §2
+            ApplyHorseRanchChallenge();   // docs/582 B5 §3
+            ApplyDigSiteEmptyPick();   // docs/582 B5 §4
+            ApplyOppChainWorld();   // docs/582 B5 §5
+            ApplyTeleportCommunityLot();   // docs/582 B5 §6
+            ApplyPhotoSubjectStars();   // docs/582 B5 §7
+            ApplyResidentSpawnSlot();   // docs/582 B5 §8
+            ApplyTalkOccupationChance();   // docs/582 B5 §9
+            ApplyShellDoorSummon();   // docs/582 B5 §10
+            ApplyDisposeBase();   // docs/582 B6 §1
+            ApplyFreshClothingResume();   // docs/582 B6 §3
+            ApplyTwinBellyShape();   // docs/582 B6 §4
+            ApplyBoatStaleSwimmer();   // docs/582 B7 §1
+            ApplyOppCategoryProtect();   // docs/582 B7 §2
+            ApplyNoCommercialCar();   // docs/582 B7 §3
+            ApplyScavengerNoLot();   // docs/582 B7 §4
+            ApplyPartyLotListener();   // docs/582 B7 §5
+            ApplyWeddingListener();   // docs/582 B8 §5
+            ApplyInnerBeautyOnce();   // docs/582 B8b §2
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -441,6 +479,7 @@ namespace Ts3Fixes
         // [2435-2437] storeworldevents (StoreWorldEvents.cs, docs/557 §4.2): dead object handlers on World quit / placed-in-lot and ObjectGroupSaving (also off) / removed / errors.
         // [2448-2452] bowlinglane (BowlingLane.cs, docs/559 §3): cancelled start waits released / ghost bowlers dropped / route-fail exits / join restarts applied to other bowlers / errors.
         // [2458-2460] bandjam (BandJam.cs, docs/559 §6): sweet-move requests refused for a non-playing jammer (also off) / empty-jam sounds stopped / errors. [2461-2462] statueline (§7): statue-line entries fixed (wrong dequeues also off) / errors.
+        // [2926-2928] butlerpayalarm (Batch593Logic.cs, B13 §16, docs/593 V1): alarms removed / left (switch off) / errors.
         // [2463-2464] cleanflag (§8): BeingCleaned left set by an already-cleaned exit (also off; cleared when on) / errors. [2465-2466] birdtvnull (§9): TVs on with no channel skipped / errors. [2467-2468] spacesimpartner ride ends (§10, always): partner already gone / still riding.
         // [2477-2478] gohomewalk (docs/560 §2): walk-style requests GoHome.Run left set, released / errors (hook in GoHomeHook).
         // [2479-2480] photoboothfunds (PhotoBoothFunds.cs, docs/561 §2): Sims left faded out inside a photo booth taken out / errors.
@@ -478,6 +517,46 @@ namespace Ts3Fixes
         // [2564-2565] free (released).
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
+        // [2800-2802] sandwichalarm (SandwichAlarm.cs, docs/580 §16): stale handles removed / seen with switch off / errors.
+        // [2803] sandwichalarm (SandwichAlarm.cs, docs/580 §16): saved duplicate ResetSandwichBoards alarms removed at world load.
+        // [2804-2807] dreamcleanup (DreamCleanup.cs, docs/580 §18): pet nodes unfiled / woken nodes filed / seen with switch off / errors.
+        // [2808-2810] vehiclefxhelper (Batch582Logic.cs, docs/582 §1): destroyed before re-create / seen with switch off / errors.
+        // [2811-2813] prankditchempty (Batch582Logic.cs, docs/582 §2): empty-list ends handled / thrown with switch off / errors.
+        // [2814-2817] serviceassignexit (Batch582Logic.cs, docs/582 §3): entries removed at exit / seen with switch off / saved stale removed at load / errors.
+        // [2818-2820] serviceshowalarm (Batch582Logic.cs, docs/582 §4): re-arms skipped / seen with switch off / errors.
+        // [2821-2823] maildogchaser (Batch582Logic.cs, docs/582 §6): chasers cleared / seen with switch off / errors.
+        // [2824-2826] lifeguardsurvey (Batch582Logic.cs, docs/582 §7): alarms removed / seen with switch off / errors.
+        // [2827-2829] moonriselistener (Batch582Logic.cs, docs/582 §8): listeners removed before re-add / seen with switch off / errors.
+        // [2830-2833] holidaylights (Batch582Logic.cs, docs/582 §9): pulses raised from 0 / held alarms removed / saved orphans removed at load / errors.
+        // [2834-2838] doorlockowner (Batch582bLogic.cs, docs/582 B4 §1): locks fixed at removal or move-in / seen with switch off / saved stale fixed at load / owner-list callbacks re-registered at load / errors.
+        // [2839-2841] elevatorkitten (Batch582bLogic.cs, docs/582 B4 §2): refused at planning / seen with switch off / errors.
+        // [2842-2844] elevatorresetriders (Batch582bLogic.cs, docs/582 B4 §3): waiting riders released / seen with switch off / errors.
+        // [2845-2848] elevatorsavedlog (Batch582bLogic.cs, docs/582 B4 §4): elevators with saved entries / entries not sleeping / rider missing or no live task / errors.
+        // [2849-2851] starlightreset (Batch582bLogic.cs, docs/582 B4 §5): selected-Sim resets skipped / seen with switch off / errors.
+        // [2852-2854] moondiallistener (Batch582bLogic.cs, docs/582 B4 §6): listeners removed at Dispose / seen with switch off / errors.
+        // [2855-2857] snublistener (Batch582bLogic.cs, docs/582 B4 §7): listeners removed at Sim.Destroy / seen with switch off / errors.
+        // [2858-2860] elevatorridertimeout (Batch582bLogic.cs, docs/582 B4 §3b): rides run by the replacement / own-30-minute failsafe resets / errors (EA ran).
+        // [2861-2863] rolenullguard (Batch582cLogic.cs, docs/582 B5 §1): answered no role / seen with switch off / errors.
+        // [2864-2866] homeworkskillbonus (Batch582cLogic.cs, docs/582 B5 §2): rates raised / seen with switch off / errors.
+        // [2867-2869] horseranchchallenge (Batch582cLogic.cs, docs/582 B5 §3): answers hidden / seen with switch off / errors.
+        // [2870-2872] digsiteemptypick (Batch582cLogic.cs, docs/582 B5 §4): empty digs kept the treasure / seen with switch off / errors.
+        // [2873-2875] oppchainworld (Batch582cLogic.cs, docs/582 B5 §5): world-change branch taken / seen with switch off / errors.
+        // [2876-2878] teleportcommunitylot (Batch582cLogic.cs, docs/582 B5 §6): options hidden / seen with switch off / errors.
+        // [2879-2881] photosubjectstars (Batch582cLogic.cs, docs/582 B5 §7): values corrected / seen with switch off / errors.
+        // [2882-2885] residentspawnslot (ResidentSpawnSlot.cs, docs/582 B5 §8): slots accepted / would accept with switch off / failures kept / errors.
+        // [2886-2888] talkoccupationchance (Batch582dLogic.cs, docs/582 B5 §9): menus built / Unemployment through the fixed chance / errors.
+        // [2889-2891] shelldoorsummon (Batch582dLogic.cs, docs/582 B5 §10): summons run / teleport refused, exit not queued / errors.
+        // [2892-2894] disposebase (Batch582eLogic.cs, docs/582 B6 §1): base disposes run / seen with switch off / errors.
+        // [2895-2897] boardingschoolmoney (Batch582eLogic.cs, docs/582 B6 §2): schools corrected / would change with switch off / errors.
+        // [2898-2901] freshclothingresume (Batch582eLogic.cs, docs/582 B6 §3): resumed / skipped worn off / seen with switch off / errors.
+        // [2902-2904] twinbellyshape (Batch582eLogic.cs, docs/582 B6 §4): shapes corrected / seen with switch off / errors.
+        // [2905-2907] boatstaleswimmer (Batch582fLogic.cs, docs/582 B7 §1): stale keys removed / would throw with switch off / errors.
+        // [2908-2910] oppcategoryprotect (Batch582fLogic.cs, docs/582 B7 §2): early returns kept unprotected / seen with switch off / errors.
+        // [2911-2913] nocommercialcar (Batch582fLogic.cs, docs/582 B7 §3): cars idled / seen with switch off / errors.
+        // [2914-2916] scavengernolot (Batch582fLogic.cs, docs/582 B7 §4): accepts handled / seen with switch off / errors.
+        // [2917-2919] partylotlistener (Batch582fLogic.cs, docs/582 B7 §5): stale listeners removed / would throw with switch off / errors.
+        // [2920-2922] weddinglistener (Batch582gLogic.cs, docs/582 B8 §5): listeners removed / left with switch off / errors.
+        // [2923-2925] innerbeautyonce (Batch582hLogic.cs, docs/582 B8b §2): duplicate calls skipped / duplicates seen with switch off / errors.
         // [2453-2454] geniebanish (docs/559 §4): banishes run through the fixed copy / errors. [2455-2457] spacesimpartner (docs/559 §5): partners released / partners left waiting (also off) / errors.
         // [2438-2442] birthroute (BirthRoute.cs, docs/558 §1): birth plans kept uncut / failed hospital births (also off) / home births queued instead / homeless moms sent to a hospital / errors.
         // [2469-2476] birthroute (BirthRoute.cs, docs/558 §1): re-haves deferred / lost births re-armed / stale or duplicate calls dropped / BabyIsComing restored / unseen moms placed at the hospital / watchdogs / homeless after-birth / born after a failure.
@@ -738,6 +817,7 @@ namespace Ts3Fixes
                 case "vehparkreserve": return Instantiator.kVehParkReserve;
                 case "vehgetinleak": return Instantiator.kVehGetInLeak;
                 case "vehseatdestroy": return Instantiator.kVehSeatDestroy;
+                case "butlerpayalarm": return Instantiator.kButlerPayAlarm;
                 case "vehfrankentaxi": return Instantiator.kVehFrankenTaxi;
                 case "vehprotestcar": return Instantiator.kVehProtestCar;
                 case "buyiconleak": return Instantiator.kBuyIconLeak;
@@ -815,6 +895,45 @@ namespace Ts3Fixes
                 case "sculptpose": return Instantiator.kSculptPose;
                 case "trainboost": return Instantiator.kTrainBoost;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
+                case "sandwichalarm": return Instantiator.kSandwichAlarm;
+                case "dreamcleanup": return Instantiator.kDreamCleanup;
+                case "vehiclefxhelper": return Instantiator.kVehicleFxHelper;
+                case "prankditchempty": return Instantiator.kPrankDitchEmpty;
+                case "serviceassignexit": return Instantiator.kServiceAssignExit;
+                case "serviceshowalarm": return Instantiator.kServiceShowAlarm;
+                case "maildogchaser": return Instantiator.kMailDogChaser;
+                case "lifeguardsurvey": return Instantiator.kLifeguardSurvey;
+                case "moonriselistener": return Instantiator.kMoonRiseListener;
+                case "holidaylights": return Instantiator.kHolidayLights;
+                case "doorlockowner": return Instantiator.kDoorLockOwner;
+                case "elevatorkitten": return Instantiator.kElevatorKitten;
+                case "elevatorresetriders": return Instantiator.kElevatorResetRiders;
+                case "elevatorsavedlog": return Instantiator.kElevatorSavedLog;
+                case "starlightreset": return Instantiator.kStarLightReset;
+                case "moondiallistener": return Instantiator.kMoonDialListener;
+                case "snublistener": return Instantiator.kSnubListener;
+                case "elevatorridertimeout": return Instantiator.kElevatorRiderTimeout;
+                case "rolenullguard": return Instantiator.kRoleNullGuard;
+                case "homeworkskillbonus": return Instantiator.kHomeworkSkillBonus;
+                case "horseranchchallenge": return Instantiator.kHorseRanchChallenge;
+                case "digsiteemptypick": return Instantiator.kDigSiteEmptyPick;
+                case "oppchainworld": return Instantiator.kOppChainWorld;
+                case "teleportcommunitylot": return Instantiator.kTeleportCommunityLot;
+                case "photosubjectstars": return Instantiator.kPhotoSubjectStars;
+                case "residentspawnslot": return Instantiator.kResidentSpawnSlot;
+                case "talkoccupationchance": return Instantiator.kTalkOccupationChance;
+                case "shelldoorsummon": return Instantiator.kShellDoorSummon;
+                case "disposebase": return Instantiator.kDisposeBase;
+                case "boardingschoolmoney": return Instantiator.kBoardingSchoolMoney;
+                case "freshclothingresume": return Instantiator.kFreshClothingResume;
+                case "twinbellyshape": return Instantiator.kTwinBellyShape;
+                case "boatstaleswimmer": return Instantiator.kBoatStaleSwimmer;
+                case "oppcategoryprotect": return Instantiator.kOppCategoryProtect;
+                case "nocommercialcar": return Instantiator.kNoCommercialCar;
+                case "scavengernolot": return Instantiator.kScavengerNoLot;
+                case "partylotlistener": return Instantiator.kPartyLotListener;
+                case "weddinglistener": return Instantiator.kWeddingListener;
+                case "innerbeautyonce": return Instantiator.kInnerBeautyOnce;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
