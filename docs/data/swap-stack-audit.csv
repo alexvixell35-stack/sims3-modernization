@@ -471,3 +471,5 @@ DoorGenVipHook.RemHook,ResortManager.VIPRoomData,RemoveGuest,DoorGen.cs,RemOrig,
 DoorGenDescHook.GenderHook,SimDescription,set_Gender,DoorGen.cs,GenderOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
 DoorGenDescHook.AgeHook,SimDescription,set_Age,DoorGen.cs,AgeOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
 DoorGenDescHook.PregHook,SimDescription,set_IsVisuallyPregnant,DoorGen.cs,PregOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+TagLoopHook.SomewhereHook,t,RunSomewhereLoop,TagUnseen.cs,SomewhereOrig,?,not found in the index: t::RunSomewhereLoop,tagunseen (docs/60 §3),"keep, stub remap (SavedStacks.cs)"
+TagLoopHook.PreyHook,t,RunAfterPreyLoop,TagUnseen.cs,PreyOrig,?,not found in the index: t::RunAfterPreyLoop,tagunseen (docs/60 §3),"keep, stub remap (SavedStacks.cs)"
