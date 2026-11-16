@@ -345,7 +345,6 @@ namespace Ts3Fixes
             ApplyOppFailCharge();   // docs/593 O1 B13 §9
             ApplyTempForecast();   // docs/593 T1 B13 §10
             ApplyMountFishCost();   // docs/593 F1 B13 §11
-            ApplyFishScoreMounted();   // docs/593 F2 B13 §12
             ApplyFirefighterCount();   // docs/593 V8 B13 §13
             ApplyRepairmanSkill();   // docs/593 V9 B13 §14
             ApplyRoundUpReturn();   // docs/593 V3 B13 §15
@@ -955,7 +954,7 @@ namespace Ts3Fixes
         // [1886-1888] oppfailcharge (Batch593Logic.cs, B13 §9, docs/593 O1): second charges skipped / charged twice (switch off) / errors.
         // [1889-1891] tempforecast (Batch593Logic.cs, B13 §10, docs/593 T1): forecasts our way / mirrored (switch off) / errors.
         // [1892-1894] mountfishcost (Batch593Logic.cs, B13 §11, docs/593 F1): costs set to the run's fish / another fish's cost charged (switch off) / errors.
-        // [1895-1897] fishscoremounted (Batch593Logic.cs, B13 §12, docs/593 F2): scores our way / Unmounted subjects that took mounted fish (switch off) / errors.
+        // [1895-1897] unused (fishscoremounted withdrawn after s58: docs/593 F2 was a false positive).
         // [1898-1900] firefightercount (Batch593Logic.cs, B13 §13, docs/593 V8): extra firefighters not sent / sent (switch off) / errors.
         // [1901-1903] repairmanskill (Batch593Logic.cs, B13 §14, docs/593 V9): levels set to the roll / stacked (switch off) / errors.
         // [1904-1906] roundupreturn (Batch593Logic.cs, B13 §15, docs/593 V3): inits ended / run on (switch off) / errors.
@@ -1613,7 +1612,6 @@ namespace Ts3Fixes
                 case "oppfailcharge": return Instantiator.kOppFailCharge;
                 case "tempforecast": return Instantiator.kTempForecast;
                 case "mountfishcost": return Instantiator.kMountFishCost;
-                case "fishscoremounted": return Instantiator.kFishScoreMounted;
                 case "firefightercount": return Instantiator.kFirefighterCount;
                 case "repairmanskill": return Instantiator.kRepairmanSkill;
                 case "roundupreturn": return Instantiator.kRoundUpReturn;
@@ -1818,6 +1816,11 @@ namespace Ts3Fixes
                 throw new InvalidOperationException(what + " " + h.Name + " returns " + h.ReturnType.Name + ", original returns " + t.ReturnType.Name + ": not patched");
         }
 
+        // Swaps that went in, per hook class. A method swapped by two hooks (HitchCause's and a fix's on Lot.UpdateDoorPrivacy,
+        // PetPoolOrphan's and petpoolghost's on PetPool.RandomRemovePet) chains: the later hook's stub receives the earlier
+        // hook's body. sPatched maps the method to the later hook only, so the live-path asserts count here (s58).
+        static readonly Dictionary<Type, int> sSwapsByHook = new Dictionary<Type, int>();
+
         static bool Patch(Type target, string method, Type[] args, Type hook, string replacement, string stub)
         {
             const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
@@ -1836,6 +1839,7 @@ namespace Ts3Fixes
                 if (stub != null) { MethodInfo s = hook.GetMethod(stub, all); SwapMethod(s, t); StubDirect(s); }
                 SwapMethod(t, r);
                 sStubs.Add(t);  // docs/242: a frame in the hook's body saves as the hook's class, which often cannot find it again
+                int nSw; sSwapsByHook.TryGetValue(hook, out nSw); sSwapsByHook[hook] = nSw + 1;  // per hook: sPatched keeps only the last hook of a stacked swap (s58)
                 sPatched[t.MethodHandle.Value] = hook;  // docs/128 G-M4: our own swap, accepted by the closure sweep (by MonoMethod: GetMethods hands out other MethodInfo objects)
                 AppliedLog().Add(target.Name + "." + method + ": ok");
                 SdRecord(hook, sdOwner, t, r, stub != null ? hook.GetMethod(stub, all) : null);  // docs/576 §1 swapdelegates

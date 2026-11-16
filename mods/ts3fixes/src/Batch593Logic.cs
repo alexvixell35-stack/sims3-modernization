@@ -517,11 +517,11 @@ namespace Ts3Fixes
         }
 
         // ---- B13 §10 tempforecast (docs/593 T1) ----------------------------------------------------------------------
-        // [verified, decompiled] SeasonsManager.WeatherManager.GetMinMaxTemperature interpolates `w * min + (1 - w) * max`,
+        // [verified, decompiled] SeasonsManager.TemperatureManager.GetMinMaxTemperature (r44 looked on WeatherManager: not found) interpolates `w * min + (1 - w) * max`,
         // the inverse of GetTargetTemperature's `min + w * (max - min)`: the forecast range shown is the mirror of the
         // temperatures that come. Fix: GetTargetTemperature's formula. Counters: [1889] forecasts our way, [1890]
         // mirrored (switch off), [1891] errors.
-        static readonly Type sTfMgr = B13Nested(typeof(SeasonsManager), "WeatherManager");
+        static readonly Type sTfMgr = B13Nested(typeof(SeasonsManager), "TemperatureManager");
         static readonly FieldInfo sTfMin = sTfMgr == null ? null : B12F(sTfMgr, "sMinCurve");
         static readonly FieldInfo sTfMax = sTfMgr == null ? null : B12F(sTfMgr, "sMaxCurve");
         static readonly MethodInfo sTfWeight = sTfMgr == null ? null : B12M(sTfMgr, "GetVariationWeight", typeof(DateAndTime));
@@ -533,7 +533,7 @@ namespace Ts3Fixes
             MethodInfo target = null;
             if (sTfMgr != null) foreach (MethodInfo m in sTfMgr.GetMethods(kB11All | BindingFlags.DeclaredOnly)) if (m.Name == "GetMinMaxTemperature" && m.GetParameters().Length == 4) target = m;
             if (sTfMin != null) foreach (MethodInfo m in sTfMin.FieldType.GetMethods(kB11All)) if (m.Name == "GetValue" && m.GetParameters().Length == 2 && m.GetParameters()[1].ParameterType == typeof(float)) sTfGet = m;
-            sTfM13 = SpNames("SeasonsManager+WeatherManager", sTfMgr, "sMinCurve", sTfMin, "sMaxCurve", sTfMax, "GetVariationWeight", sTfWeight, "GetMinMaxTemperature(4)", target, "curve.GetValue(weights, float)", sTfGet);
+            sTfM13 = SpNames("SeasonsManager+TemperatureManager", sTfMgr, "sMinCurve", sTfMin, "sMaxCurve", sTfMax, "GetVariationWeight", sTfWeight, "GetMinMaxTemperature(4)", target, "curve.GetValue(weights, float)", sTfGet);
             if (sTfM13.Length > 0) { AppliedLog().Add("tempforecast: not found: " + sTfM13); return; }
             ParameterInfo[] ps = target.GetParameters();
             Patch(sTfMgr, "GetMinMaxTemperature", new Type[] { ps[0].ParameterType, ps[1].ParameterType, ps[2].ParameterType, ps[3].ParameterType }, typeof(B13TfHook), "MinMaxHook", "MinMaxOrig");
@@ -612,86 +612,10 @@ namespace Ts3Fixes
             public bool RunOrig() { return false; }
         }
 
-        // ---- B13 §12 fishscoremounted (docs/593 F2) ------------------------------------------------------------------
-        // [verified, decompiled] Fish.ScoreFish (photography subject): `Arg1.Contains("Mounted")` is also true for
-        // "Unmounted", so an "Unmounted fish" photo subject also scores mounted fish. Each loop also adds a key object
-        // twice for "Any" (the Any test, then Contains on the same key), and Contains throws on an empty Arg0. Fix: our
-        // copy matches the words exactly (Any / empty matches all, once) and reads Arg0 null-safe. Counters: [1895] scores
-        // our way, [1896] "Unmounted" subjects that took mounted fish (switch off), [1897] errors.
-        static void ApplyFishScoreMounted()
-        {
-            Patch(typeof(Fish), "ScoreFish", new Type[] { typeof(SubjectDefinition), typeof(SubjectScoringHelper) }, typeof(B13FsHook), "ScoreHook", "ScoreOrig");
-        }
-
-        // Pure: which kinds an Arg1 asks for: bit 1 fish, 2 mounted, 4 bowl.
-        internal static int FsKinds(bool fixedRule, string arg1)
-        {
-            if (string.IsNullOrEmpty(arg1) || arg1 == "Any") return 7;
-            int k = 0;
-            if (fixedRule)
-            {
-                foreach (string w in arg1.Split(new char[] { ',', ' ', '|' }, StringSplitOptions.RemoveEmptyEntries))
-                {
-                    if (w == "Unmounted") k |= 1;
-                    else if (w == "Mounted") k |= 2;
-                    else if (w == "Bowl") k |= 4;
-                }
-                return k;
-            }
-            if (arg1.Contains("Mounted")) k |= 2;
-            if (arg1.Contains("Unmounted")) k |= 1;
-            if (arg1.Contains("Bowl")) k |= 4;
-            return k;
-        }
-
-        // Pure: does a fish key match Arg0? (once)
-        internal static bool FsKey(string arg0, string key) { return string.IsNullOrEmpty(arg0) || arg0 == "Any" || (key != null && arg0.Contains(key)); }
-
-        public class B13FsHook
-        {
-            public static SubjectScoringFunctionResult ScoreHook(SubjectDefinition definition, SubjectScoringHelper helper)
-            {
-                bool on = ShortcutOn("fishscoremounted");
-                if (!on)
-                {
-                    if (definition != null && definition.Arg1 != null && FsKinds(false, definition.Arg1) != FsKinds(true, definition.Arg1)) PatchCounters()[1896]++;
-                    return ScoreOrig(definition, helper);
-                }
-                try
-                {
-                    SubjectScoringFunctionResult r = new SubjectScoringFunctionResult();
-                    int kinds = FsKinds(true, definition.Arg1);
-                    string a0 = definition.Arg0;
-                    if ((kinds & 1) != 0)
-                        foreach (ScreenGrabEntity e in helper.GetEntities<Fish>())
-                        {
-                            Fish f = e.GetObject() as Fish;
-                            if (f != null && f.Data != null && FsKey(a0, f.Data.Key)) r.AddKeyObject(e);
-                        }
-                    if ((kinds & 2) != 0)
-                        foreach (ScreenGrabEntity e in helper.GetEntities<MountedFish>())
-                        {
-                            MountedFish m = e.GetObject() as MountedFish;
-                            Fish f = m == null ? null : m.Fish;
-                            if (f != null && f.Data != null && FsKey(a0, f.Data.Key)) r.AddKeyObject(e);
-                        }
-                    if ((kinds & 4) != 0)
-                        foreach (ScreenGrabEntity e in helper.GetEntities<Fish.IFishBowl>())
-                        {
-                            Fish.IFishBowl bowl = e.GetObject() as Fish.IFishBowl;
-                            if (bowl == null) continue;
-                            Fish f = bowl.FishInBowl;
-                            if (f == null) { if (a0 == "Empty") r.AddKeyObject(e); }
-                            else if ((definition.Arg2 != "Dead" || bowl.FishIsDead) && f.Data != null && FsKey(a0, f.Data.Key)) r.AddKeyObject(e);
-                        }
-                    PatchCounters()[1895]++;
-                    return r;
-                }
-                catch (Exception) { PatchCounters()[1897]++; return ScoreOrig(definition, helper); }
-            }
-
-            public static SubjectScoringFunctionResult ScoreOrig(SubjectDefinition definition, SubjectScoringHelper helper) { return null; }
-        }
+        // ---- B13 §12 fishscoremounted (docs/593 F2): withdrawn after s58, a false positive -------------------------------
+        // Fish.ScoreFish's `Arg1.Contains("Mounted")` is ordinal and case-sensitive, so "Unmounted" does not match it; Arg0
+        // comes from PhotographySubjects.LoadSubjectDefinitionArg (never null, "" for empty), so "Any" / "" add a key object
+        // once and Contains never throws. s58 showed it: EA's own rule gave the "fixed" answer. Slots 1895-1897 stay unused.
 
         // ---- B13 §13 firefightercount (docs/593 V8) ------------------------------------------------------------------
         // [verified, decompiled] Firefighter.NeedsAssignment: `assigned <= GetMaxNumNPCsInPool()` lets one more firefighter

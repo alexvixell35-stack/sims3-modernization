@@ -552,7 +552,6 @@ namespace Ts3Fixes
         [Tunable] public static bool kOppFailCharge = false;    // oppfailcharge (B13 §9, docs/593 O1): a failed opportunity's deleted-object penalty is charged once, not twice
         [Tunable] public static bool kTempForecast = false;    // tempforecast (B13 §10, docs/593 T1): the temperature forecast range follows the real day curve instead of its mirror
         [Tunable] public static bool kMountFishCost = false;    // mountfishcost (B13 §11, docs/593 F1): mounting a fish charges that fish's cost, not the last fish tested
-        [Tunable] public static bool kFishScoreMounted = false;    // fishscoremounted (B13 §12, docs/593 F2): an Unmounted fish photo subject no longer scores mounted fish, and Any matches once
         [Tunable] public static bool kFirefighterCount = false;    // firefightercount (B13 §13, docs/593 V8): no more firefighters come than the pool's maximum
         [Tunable] public static bool kRepairmanSkill = false;    // repairmanskill (B13 §14, docs/593 V9): a repairman's handiness is the rolled level, not the roll added on every visit
         [Tunable] public static bool kRoundUpReturn = false;    // roundupreturn (B13 §15, docs/593 V3): a curfew round-up with no active Sim leaves instead of throwing in Init

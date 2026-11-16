@@ -103,7 +103,7 @@ namespace Ts3Fixes
             return Ep4Check("coopeggquality", 1657, new[] { "eggs one tier up", "one tier low with switch off", "errors" }, EpJoin(sCeWeights == null ? "kEggQualityWeights" : "",
                     EpLive(typeof(BSt1CeHook), 1, "kEggQualityWeights", sCeField, typeof(float[]), "kEggQualityWeights", sCeField, "static")), what,
                 "7 -> 8", CeIndex(on, true, 7, 11) == 8, "10 -> 11, other arrays and off as EA",
-                CeIndex(on, true, 10, 11) == 11 && CeIndex(on, false, 7, 11) == 7 && CeIndex(false, true, 7, 11) == 7);
+                CeIndex(true, true, 10, 11) == 11 && CeIndex(true, false, 7, 11) == 7 && CeIndex(false, true, 7, 11) == 7);  // the rules, not the switch (s58: off failed its own control)
         }
 
         // FvStandSkillCurveCheck run: the frequency-built curve is rebuilt. Control: off leaves it.

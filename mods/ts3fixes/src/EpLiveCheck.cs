@@ -7,7 +7,7 @@ namespace Ts3Fixes
     // Live-path asserts for the docs/587 checks (EP1-EP6, store). A check used to test only its pure decision with
     // constants, so a hook whose own reflection handle could not be used (hypnotrickrelease read a setter-only property
     // and threw on every run) still printed FIXED. EpLive adds, to the check's "members" verdict:
-    //   - the hook class's swaps are really in place (Fixes.Patch recorded them in sPatched), with the expected count;
+    //   - the hook class's swaps are really in place (Fixes.Patch counts them per hook in sSwapsByHook; sPatched keeps only the last hook of a stacked swap), with the expected count;
     //   - each reflection handle the hook uses is non-null and usable the way the hook uses it: a field's or property's
     //     type, a property's getter / setter, a method's parameter count and return type, a static value read for real.
     // Call: EpLive(hookType, swaps, "name", member, spec, ...). spec is a Type (value type the hook casts to), a string
@@ -17,9 +17,8 @@ namespace Ts3Fixes
     {
         static int EpSwapCount(Type hook)
         {
-            int n = 0;
-            foreach (KeyValuePair<IntPtr, Type> p in sPatched) if (p.Value == hook) n++;
-            return n;
+            int n;  // per hook, not from sPatched: a stacked swap's earlier hook is still in place (Fixes.sSwapsByHook)
+            return sSwapsByHook.TryGetValue(hook, out n) ? n : 0;
         }
 
         static string EpLive(Type hook, int swaps, params object[] triples)

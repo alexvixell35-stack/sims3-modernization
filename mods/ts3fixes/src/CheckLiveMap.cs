@@ -142,7 +142,6 @@ namespace Ts3Fixes
                 case "firefightercount": return EpLive(typeof(B13FcHook), 1, "sFcMax", sFcMax, 0);
                 case "firepitchair": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatParkGoneHook), 1), EpLive(typeof(BookHandPutDownHook), 1)), EpLive(typeof(BookHandQueueHook), 1, "sBhActor", sBhActor, null)), EpLive(typeof(BribeHook), 1, "sBribeTable", sBribeTable, null)), EpLive(typeof(CarryHook), 1)), EpLive(typeof(ConvTurnHook), 1)), EpLive(typeof(FireworksFizzleHook), 0)), EpLive(typeof(GraduationAttendHook), 1)), EpLive(typeof(GraduationCityHallHook), 1)), EpLive(typeof(OutfitClearHook), 2)), EpLive(typeof(SwAbuseHook), 1)), EpLive(typeof(SwAdoptHook), 1)), EpLive(typeof(SwPetAdoptHook), 1)), EpLive(typeof(SwPutUpHook), 1)), EpLive(typeof(ThrowHook), 3)), EpLive(typeof(TopicHook), 4));
                 case "firetrapcount": return EpJoin(EpLive(typeof(FtcJobHook), 1, "sFtcSpec", sFtcSpec, null, "sFtcPositions", sFtcPositions, null), EpLive(typeof(FtcSitHook), 2));
-                case "fishscoremounted": return EpLive(typeof(B13FsHook), 1);
                 case "flowersinuse": return EpLive(typeof(FlowersInUseHook), 1);
                 case "foodtraygrill": return EpLive(typeof(B12FtgHook), 1);
                 case "freshclothingresume": return EpLive(typeof(BFcHook), 1, "sFcMap", sFcMap, null);

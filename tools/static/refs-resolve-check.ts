@@ -102,6 +102,68 @@ export function ambiguous(files: { file: string; src: string }[], types: Map<str
   return out;
 }
 
+// Type fields as the source sets them: typeof(T), .GetNestedType("N") on typeof or on another field, B13Nested(owner, "A",
+// "B"), Assembly.GetType("full"). A nested type the game lacks is reported (the field is null in game, every lookup on it
+// fails quietly). Several passes so a field built from another field resolves.
+function typeVars(files: { file: string; src: string }[], types: Map<string, T>, out: Missing[]): Map<string, string[]> {
+  const find = finder(types);
+  const vars = new Map<string, string[]>();
+  const owner = (e: string): string[] | undefined => { const t = /^typeof\(([A-Za-z0-9_.+]+)\)$/.exec(e); return t ? find(t[1]) : vars.get(e); };
+  const nest = (sink: Missing[], file: string, line: number, base: string[], names: string[]): string[] => {
+    let cur = base;
+    for (const n of names) {
+      const next = cur.map((b) => `${b}+${n}`).filter((x) => types.has(x));
+      if (!next.length) { sink.push({ file, line, owner: [...new Set(cur)].join(' | '), name: n, kind: 'nested type' }); return []; }
+      cur = next;
+    }
+    return cur;
+  };
+  const re = /\b(s[A-Z][A-Za-z0-9_]*)\s*=\s*(?:[^;=]*?\?\s*null\s*:\s*)?(?:(typeof\([A-Za-z0-9_.+]+\)|s[A-Z][A-Za-z0-9_]*)\.GetNestedType\("([A-Za-z0-9_]+)"|B13Nested\((typeof\([A-Za-z0-9_.+]+\)|s[A-Z][A-Za-z0-9_]*)((?:\s*,\s*"[A-Za-z0-9_]+")+)\)|typeof\(([A-Za-z0-9_.+]+)\)(?:\.Assembly\.GetType\("([A-Za-z0-9_.+]+)"\))?)/g;
+  // passes 0-1 resolve fields built from fields; the last pass reports missing nested types once
+  for (let pass = 0; pass < 3; pass++) {
+    const sink: Missing[] = pass === 2 ? out : [];
+    for (const { file, src } of files) src.split('\n').forEach((l, i) => {
+      for (const m of l.matchAll(re)) {
+        let got: string[] = [];
+        if (m[6] !== undefined) got = m[7] ? (types.has(m[7]) ? [m[7]] : []) : find(m[6]);
+        else {
+          const base = owner(m[2] ?? m[4]); if (!base || !base.length) continue;
+          got = nest(sink, file, i + 1, base, m[3] ? [m[3]] : [...m[5].matchAll(/"([A-Za-z0-9_]+)"/g)].map((x) => x[1]));
+        }
+        if (got.length) vars.set(m[1], got);
+      }
+    });
+  }
+  return vars;
+}
+
+// Members looked up by name on a game type the source names (typeof(T) or a Type field above), through GetMethod /
+// GetField / GetProperty or our helpers B12F / B12FUp / B12M and Patch: the name must exist on the type or a base. A
+// wrong owner type or name only shows in game as "not found" or a swap that never went in (s58: tempforecast looked on
+// WeatherManager, lottotooltip's LocalizeString on the nested BuyLottoTicket; both are elsewhere).
+export interface Missing { file: string; line: number; owner: string; name: string; kind: string }
+export function missingMembers(files: { file: string; src: string }[], types: Map<string, T>): Missing[] {
+  const out: Missing[] = [];
+  const vars = typeVars(files, types, out);
+  const find = finder(types);
+  const re = /(?:(typeof\([A-Za-z0-9_.+]+\)|\bs[A-Z][A-Za-z0-9_]*)\.Get(Method|Field|Property)\("([A-Za-z0-9_]+)"|\b(B12FUp|B12F|B12M|Patch)\(\s*(typeof\([A-Za-z0-9_.+]+\)|s[A-Z][A-Za-z0-9_]*)\s*,\s*"([A-Za-z0-9_]+)")/g;
+  for (const { file, src } of files) src.split('\n').forEach((l, i) => {
+    if (l.includes('refs: optional')) return;  // a lookup that may miss on purpose (another build's member, null-checked)
+    for (const m of l.matchAll(re)) {
+      const oe = m[1] ?? m[5], name = m[3] ?? m[6];
+      const kind = m[2] ? m[2].toLowerCase() : m[4].startsWith('B12F') ? 'field' : 'method';
+      const t = /^typeof\(([A-Za-z0-9_.+]+)\)$/.exec(oe);
+      const owners = [...new Set(t ? find(t[1]) : vars.get(oe) ?? [])];
+      if (!owners.length) continue;
+      const has = (o: string) => chain(types, o).some((c) => kind === 'field' ? c.fields.has(name)
+        : kind === 'property' ? c.methods.has(`get_${name}`) || c.methods.has(`set_${name}`)
+        : [...c.methods.keys()].some((k) => k.replace(/`\d+$/, '') === name));
+      if (!owners.some(has)) out.push({ file, line: i + 1, owner: owners.join(' | '), name, kind });
+    }
+  });
+  return out;
+}
+
 function walk(dir: string, acc: string[] = []): string[] {
   for (const n of readdirSync(dir)) { const p = join(dir, n); if (statSync(p).isDirectory()) walk(p, acc); else if (n.endsWith('.cs')) acc.push(p); }
   return acc;
@@ -123,6 +185,16 @@ function selfCheck(): void {
   ].join('\n');
   const got = ambiguous([{ file: 'x.cs', src }], types).map((x) => `${x.line}:${x.owner}.${x.name}`);
   assert.deepEqual(got, ['1:N.R.Loc', '5:N.R+Inner.Two'], 'ambiguous lookups found, typed / single / DeclaredOnly ones not');
+  const msrc = [
+    'static readonly MethodInfo f = typeof(R).GetMethod("One", kAll);',  // own: fine
+    'static readonly MethodInfo g = B12M(typeof(R), "Loc", typeof(bool));',  // on the base: fine
+    'static readonly MethodInfo h = B12M(sIn, "Loc", typeof(bool));',  // nested type does not see the outer: missing
+    'static readonly Type sWrong = B13Nested(typeof(R), "Inner", "Deeper");',  // nested type missing
+    'static readonly FieldInfo k = typeof(R).GetField("kNope", kAll); // refs: optional',  // opted out
+    '            Patch(sIn, "Gone", Type.EmptyTypes, typeof(H), "X", "Y");',  // swap target missing
+  ].join('\n');
+  const mg = missingMembers([{ file: 'x.cs', src: src + '\n' + msrc }], types).map((x) => `${x.line}:${x.kind}:${x.name}`);
+  assert.deepEqual(mg.sort(), ['12:method:Gone', '9:method:Loc', '10:nested type:Deeper'].sort(), 'missing members and nested types found, base / own / opted-out ones not');
   console.log('refs-resolve-check self-check: ok');
 }
 
@@ -138,7 +210,10 @@ if (process.argv[1]?.endsWith('refs-resolve-check.ts')) {
   const un = unresolved(loadStandalone(dll, 'mod'), types);
   const amb = ambiguous(srcs.flatMap((d) => walk(d)).map((f) => ({ file: f.slice(ROOT.length + 1), src: readFileSync(f, 'utf8') })), types);
   for (const u of un) console.log(`unresolved ${u}`);
+  const files = srcs.flatMap((d) => walk(d)).map((f) => ({ file: f.slice(ROOT.length + 1), src: readFileSync(f, 'utf8') }));
+  const miss = missingMembers(files, types);
   for (const x of amb) console.log(`ambiguous ${x.file}:${x.line}: ${x.owner}.${x.name} has ${x.overloads} signatures; pass the argument types`);
-  console.log(`refs-resolve-check: ${un.length} unresolved, ${amb.length} ambiguous name-only GetMethod (game: ${game.map((g) => g.slice(ROOT.length + 1)).join(' + ')})`);
-  process.exit(un.length + amb.length ? 1 : 0);
+  for (const x of miss) console.log(`missing ${x.file}:${x.line}: ${x.kind} ${x.name} is not on ${x.owner} or its bases`);
+  console.log(`refs-resolve-check: ${un.length} unresolved, ${amb.length} ambiguous name-only GetMethod, ${miss.length} by-name lookups of missing members (game: ${game.map((g) => g.slice(ROOT.length + 1)).join(' + ')})`);
+  process.exit(un.length + amb.length + miss.length ? 1 : 0);
 }
