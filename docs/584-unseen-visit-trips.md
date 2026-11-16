@@ -259,16 +259,31 @@ to Participants, and OtherSimCanJoinSituation / OtherSimCanIgnorePrivacy may ans
 RepairableComponent.UpdateBreakage, CatJungleGym, LeafPile: per object use or per wait of one object, rare; Daycare
 GetExperience changes results (bug fix, not a speedup).
 
-## 12. Usage sweep 4 (docs/592 §3): `ilp_locnocheck`
+## 12. Usage sweep 4 (docs/592 §3): `ilp_locnocheck` (diagnostic only on the S3PP stack)
 
 `Localization.FillInTokens` ends both of its normal returns with `LogLocalizationResult(entryKey, text,
 StringTable.HasLocalizedString(entryKey))`. LogLocalizationResult's body is empty in the shipped game [verified,
-decompiled], and HasLocalizedString(string) calls `gStringTable.GetLocalizedString(key)`, ScriptCore's
-LocalizedStringService icall, which looks the key up again and returns a new managed string [verified, decompiled; native
-side assumed free of side effects: inferred]. IL patch `ilp_locnocheck` (spec `locfill-no-has-lookup`, ea-1.67 and
-simler90-242) removes the five-instruction argument push and both calls at 0xA5 and 0x1327. One native lookup and one
-string fewer per localized string with tokens (interaction names, tooltips, notifications). The third
-LogLocalizationResult (bad token, success false) is left.
+decompiled]. HasLocalizedString(string) calls ScriptCore's `LocalizedStringService_GetLocalizedStringByString` icall.
+IL patch `ilp_locnocheck` (spec `locfill-no-has-lookup`, ea-1.67 and simler90-242) removes the argument pushes and both
+calls at 0xA5 and 0x1327; the third LogLocalizationResult (bad token, success false) is left.
+
+Native side (Ghidra, TS3W 1.67, decompiled 2026-11-16) [verified]:
+- the icall `0x7437E0` converts the MonoString through the service interface (vtable +0x58), hashes it to the 64-bit key
+  (`0x7CFE40`) and calls `0x59C850` -> `LocStrSvc_GetString_A` `0x59C5B0`;
+- `0x59C5B0` walks the string-table list at `service+0x48` (reads only), copies the hit into a temporary wide buffer (the
+  allocator tag "String/LocalizedStringService", freed before return; ja-jp gets a character replacement in that buffer)
+  and returns a new MonoString (vtable +0x50). No cache, no miss log, no write to the service or the tables.
+So on the vanilla game the lookup only allocates (a native temporary and one managed string): removing it is exact.
+
+With the Sims 3 Performance Patch it is not proven exact. S3PP's `LocalizedStringCache` (on in this setup:
+`LocalizedStringCache=1`, cap 16384) detours `0x59C5B0` and keeps a 64-bit-key cache that fills on a miss and clears at 75 %
+(docs/17 §8). When FillInTokens' string came from the same key moments before (`LocalizeString(entryKey)`), the removed
+lookup is a cache hit and nothing changes. When it came from a gender or species variant (`FindString`,
+`GetLocalizeSpeciesString`), the removed lookup is the only one for `entryKey` and inserts an entry: without it the cache
+fills more slowly and clears later. Results then differ only through S3PP's own staleness (an entry cached before a string
+table loads serves the old answer until a clear), so a shifted clear can change which answer a later lookup gets
+[inferred]; otherwise only the timing of later lookups changes. Verdict: exact without S3PP's cache; diagnostic only (A/B
+measurement, not for release) while `LocalizedStringCache=1`.
 
 Not built: InteractionInstance.RemoveMotiveDelta (one small List per interaction end that has motive deltas; low rate),
 RandomUtil.GetRandomKeyValuePairFromPairedListDictionary (3 callers, rare), AlarmManager.Read (load only).
