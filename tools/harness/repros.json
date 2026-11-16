@@ -75094,6 +75094,87 @@
     ]
   },
   {
+    "id": "outfitwaitend-check",
+    "bug": "Sim.SwitchOutfitHelper.Wait loops on Sleep(1) until the native swap is ready, which never happens while the Sim has no animation instance (off screen, low LOD; docs/224 §5): an off-screen NPC stays in Switch To Outfit or a route's clothing change for hours with its motives frozen (docs/583 §1)",
+    "fix": "ts3fixes OutfitWait.cs: outfitwaitend (default off)",
+    "save": "any world (pure check)",
+    "note": "OutfitWaitEndCheck 'run' checks the end rule (OutfitWaitCore.EndNow, the same call the hook makes) and its controls; 'result' shows counters 2124-2127 and the live path (Wait swap, handles).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitend": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's loop"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitend": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OutfitWaitEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitend": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "outfitwaitend": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

@@ -363,6 +363,7 @@ namespace Ts3Fixes
         // [2006-2007] ageupswap (AgeUpSwap.cs, docs/503): age-up swaps EA refused and moved to Everyday, age-up tasks released with no swap.
         // [2003-2005] outfitwaitpoll stale-wait causes (OutfitWait.cs, issue #115, docs/224 §5): own swap pending, replaced, nothing pending.
         // [2008-2009] outfitwaitpoll (OutfitWait.cs, docs/224 §5): pending-outfit resets while a helper waits: instant switches, delayed swaps by another path.
+        // [2124-2127] outfitwaitend (OutfitWait.cs, docs/583 §1): off-screen NPC outfit waits ended with EA's instant switch / would end (switch off) / kept past the mark / errors.
         // [683-684] bakesaleseller (BakeSale.cs, issue #102): dead-seller reads, orphaned NPC tables given a new clean-up alarm.
         // [685-686] docs/222 §10: unseen-direct pairs with a RabbitHole target sent to the game's C1 (autunseenrh; in Dry the same pairs
         // skipped by autunseencmp), worker-pass / game-fail compare pairs whose worker score is 0 (BestScores drops both).
@@ -724,6 +725,7 @@ namespace Ts3Fixes
                 case "firepitchair": return Instantiator.kFirePitChair;
                 case "ageupkeepoutfits": return Instantiator.kAgeUpKeepOutfits;
                 case "outfitwaitpoll": return Instantiator.kOutfitWaitPoll;
+                case "outfitwaitend": return Instantiator.kOutfitWaitEnd;
                 case "uniformbackup": return Instantiator.kUniformBackup;
                 case "deadrefguards": return Instantiator.kDeadRefGuards;
                 case "bakesaleseller": return Instantiator.kBakeSaleSeller;

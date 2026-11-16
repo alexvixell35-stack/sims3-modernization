@@ -144,6 +144,8 @@ namespace Ts3Fixes
         [Tunable] public static bool kAgeUpKeepOutfits = true;    // on by default (2026-11-08): a failed or cancelled age-up builder keeps the Sim's outfits instead of wiping them (EaFixes.cs, issue #100)
         [Tunable] public static bool kAgeUpSwap = false;           // opt-in until verified: an age-up outfit swap EA refuses goes to Everyday or is released, so the age-up task finishes (AgeUpSwap.cs, docs/503)
         [Tunable] public static bool kOutfitWaitPoll = true;      // on by default: an outfit wait not ready after 60 sim-minutes reads its flag once per sim-minute instead of every tick (OutfitWait.cs, issue #115)
+        [Tunable] public static bool kOutfitWaitEnd = false;      // outfitwaitend (docs/583 §1): an off-screen NPC's outfit wait EA's loop holds forever (native swap never ready) ends with EA's instant switch after kOutfitWaitEndMinutes
+        [Tunable] public static float kOutfitWaitEndMinutes = 30f; // outfitwaitend: sim-minutes before such a wait is ended
         [Tunable] public static bool kConvTurn = false;           // opt-in until verified: a local Sim takes a conversation turn that its holder cannot or does not take (off screen, gone, busy, silent 15 sim minutes) (ConvTurn.cs, issue #166 build 19, docs/509)
         [Tunable] public static bool kUniformBackup = true;       // on by default (2026-11-08): the shared career uniform backup is cleared once uncached, so a later re-uniform cannot uncache the new Career outfit (UniformBackup.cs, issue #101)
         [Tunable] public static bool kDeadRefGuards = false;       // opt-in until verified: Relationship.Get makes no entry for a disposed description, dead aging states skipped (DeadRefs.cs, issue #91)
