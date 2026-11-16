@@ -536,6 +536,7 @@ namespace Ts3Fixes
         // [930-932] watchdogasync: A1 verdicts dropped as stale (H4Core.WdFresh), shadow sync re-checks run, shadow verdicts that differ
         // [969-984] replanlog (ReplanLog.cs, docs/261 §6 L1, ts3native [RouteAsync] ReplanLog=1): own Replans and ms, calls and ms
         // per scope (household, selected, seenNpc, unseen, unknown), bursts, call lines, lines dropped, would start but Kinds
+        // [3400-3421] jobyieldroad / jobyieldroadow / jobyieldspawn / jobyieldready / jobyieldfp (JobYieldRoad.cs, RouteBackoff.cs AsyncWait, docs/800): step-aside asks, sleeps, ms slept and cars / objects gone per site
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
@@ -688,6 +689,11 @@ namespace Ts3Fixes
                 case "stuckchecknear": return Instantiator.kStuckCheckNear;
                 case "failrepeat": return Instantiator.kFailRepeat;
                 case "jobyield": return Instantiator.kJobYield;
+                case "jobyieldroad": return Instantiator.kJobYieldRoad;
+                case "jobyieldroadow": return Instantiator.kJobYieldRoadOw;
+                case "jobyieldspawn": return Instantiator.kJobYieldSpawn;
+                case "jobyieldready": return Instantiator.kJobYieldReady;
+                case "jobyieldfp": return Instantiator.kJobYieldFp;
                 case "drivertaskasync": return Instantiator.kDriverTaskAsync;
                 case "stuckcheckown": return Instantiator.kStuckCheckOwn;
                 case "overwatchstuckslice": return Instantiator.kOverwatchStuckSlice;

@@ -101,6 +101,11 @@ namespace Ts3Fixes
         [Tunable] public static bool kBouncerSlotSkip = false;     // opt-in until measured: a velvet-rope bouncer standing on its spot does not re-route to it every 5 s (RouteSources.cs, docs/151 D3)
         [Tunable] public static bool kStuckCheckNear = false;      // opt-in until measured: the 3 AM stuck check plans its random lot points nearest first (same points, same verdict), so fewer failed plans before the first success (FewerPlans.cs, docs/163 §3)
         [Tunable] public static bool kJobYield = true;             // on, same as the shipped tuning (2026-11-14); was: opt-in until measured: a route plan that would wait natively for a running route job sleeps its task a tick at a time instead (needs ts3native [RouteAsync] JobYield; RouteBackoff.cs StepAside, docs/183)
+        [Tunable] public static bool kJobYieldRoad = false;  // opt-in: NPC cars' road-spot IC steps aside from a running route job (JobYieldRoad.cs, docs/800)
+        [Tunable] public static bool kJobYieldRoadOw = false;  // opt-in: with jobyieldroad, no sleep that lets a traffic car's LiteDriver destroy it (JobYieldRoad.cs, docs/800)
+        [Tunable] public static bool kJobYieldSpawn = false;  // opt-in: spawner placement steps aside from a running route job (JobYieldRoad.cs, docs/800)
+        [Tunable] public static bool kJobYieldReady = false;  // opt-in: no READY poll while a route job runs (JobYieldRoad.cs, docs/800)
+        [Tunable] public static bool kJobYieldFp = false;  // opt-in: townies' turn-in-place checks step aside from a running route job (JobYieldRoad.cs, docs/800)
         [Tunable] public static bool kDriverTaskAsync = false;     // opt-in until measured: a traffic car's plan in its LiteDriver task and a ridden vehicle's plan in its rider's task go async as own-task plans (RouteBackoff.cs OwnerTaskStart, docs/163 §7)
         [Tunable] public static bool kOverwatchStuckSlice = true;  // on, same as the shipped tuning (2026-11-14); was: opt-in until measured: NRaas Overwatch's Stuck Check takes a sim tick inside its walk over every Sim once 8 ms have passed since its last tick (OverwatchStuck.cs, docs/145 §12)
         // docs/250 §7.1 A1: StuckWatchdog.CheckIdle's route check as an own-task route job, verdict re-validated before acting.

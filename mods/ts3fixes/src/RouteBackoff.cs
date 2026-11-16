@@ -20,6 +20,7 @@ namespace Ts3Fixes
             Patch(typeof(ScriptCore.Route), "Replan", typeof(RouteBackoffHook), "ReplanHook", "ReplanOrig");
             Patch(typeof(ScriptCore.Route), "PlanFromPoint", typeof(RouteBackoffHook), "PlanFromPointHook", "PlanFromPointOrig");
             Patch(typeof(ScriptCore.Route), "ReplanFromPoint", typeof(RouteBackoffHook), "ReplanFromPointHook", "ReplanFromPointOrig");
+            ApplyJobYieldRoad();  // step-asides at five more plan sites (JobYieldRoad.cs, docs/800)
         }
 
         // Route-failure backoff (docs/11 recommendation 3): a failed plan expands every reachable node, then runs a native
@@ -254,14 +255,25 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 c[56]++;
                 RflAsyncMark(); // routefaillog: this plan waits on a ts3native job
-                for (int i = 0; !GetOption2(kAsyncReady); i++)
+                // jobyieldready (default off; needs jobyield): no READY poll while JOBBUSY says a job of the sim thread still runs.
+                // READY's DiscPollReady forces a DiscDrain once the oldest deferred footprint is >= 250 ms old, and that drain
+                // waits for the running job with the sim thread stopped. JOBBUSY returns in ts3native's GetOptionHook before
+                // DiscPoll / DiscPollReady and only serves one pending managed call of the job, as READY does, so the job keeps
+                // moving and the READY poll that follows finds it done: the same drain, no wait. Same poll cap. Cost: a job of
+                // another task that starts right after ours delays this task's collect until it ends. Timing only, no Sim
+                // scope (same as jobyield's StepAside). Counters [3405] polls skipped, [3406] waits with one.
+                bool jr = ShortcutOn("jobyieldready"), skipped = false;
+                for (int i = 0; ; i++)
                 {
+                    if (jr && sYieldProbe.GetOption2(kJobBusy)) { c[3405]++; skipped = true; }
+                    else if (GetOption2(kAsyncReady)) break;
                     // shortcut: a fixed cap (~10-20 s real time); past it the plan waits natively and is then made
                     // again synchronously. Upgrade to a time-based cap if long searches ever reach it.
                     if (i >= kAsyncMaxPolls) { c[58]++; StepAside(); break; }
                     c[57]++;
                     Simulator.Sleep(0);
                 }
+                if (skipped) c[3406]++;
             }
 
             // docs/185 §5: the original Plan/Replan runs Route.AboutToPlanCallback only after the async job (it is called after
