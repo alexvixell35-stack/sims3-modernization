@@ -41,6 +41,7 @@ Debug/
 Release/
 # core.ignorecase makes Release/ match our release/ notes folder too; keep it tracked (release/mts/out/ stays ignored via out/)
 !/release/
+!/tools/release/
 *.obj
 *.pdb
 *.ilk

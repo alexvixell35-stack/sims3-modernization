@@ -3,6 +3,7 @@
 //   node tools/harness/build-agent.ts          full package (needs a game restart to take effect)
 //   node tools/harness/build-agent.ts --hot    plugin only, uniquely named, for tools/harness/reload-agent.ts
 // Windows-only by nature: it needs the .NET Framework C# compiler that ships with Windows (csc.exe, C# 5).
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -61,5 +62,7 @@ if (hot) {
   ]);
   const out = join(outDir, 'ts3agent.package');
   writeFileSync(out, pkg);
+  // cycle.ts rebuilds only while build/ts3agent.package is this build: a package a chain/queue copied over it is kept (rerun4 b87)
+  writeFileSync(`${out}.built`, createHash('sha256').update(pkg).digest('hex'));
   console.log(`built ${out} (${pkg.length} bytes)`);
 }

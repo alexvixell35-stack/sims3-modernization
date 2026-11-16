@@ -1,0 +1,76 @@
+{
+  "note": "ilpatch-b87-rerun5-1116c: copy of ilpatch-b87-rerun4-1116c.json (master-1116c set unchanged). rerun4 ran master's agent, not the fix: chain-1116d copied ts3agent.package.b87-count-1116 into build/, then cycle.ts --restart rebuilt build/ts3agent.package from the main checkout's source (master) before installing it to Mods (change set: +mod ts3agent.package:be57b2f5fc3d, not 75ead823c383; N/A text in the old format). Run this queue from the worktree .claude/worktrees/b87-scavenger-count-1116 (its cycle.ts rebuilds the branch source, which carries the fix), or from a checkout that has bugfix/b87-scavenger-count-1116 merged (cycle.ts then keeps a pinned agent; build-agent.ts must have run once there so build/ts3agent.package.built exists). Agent copy: game-copy/ts3agent.package.b87-count2-1116 (c34225185eb1). Was: ilpatch-b87-rerun4-1116c: copy of ilpatch-b87-rerun3-1116c.json (master-1116c set unchanged). rerun3 was N/A on both arms: every static scavenger opportunity carries number required 0 (\"needs ... x0\"; EA rolls it from Min..Max only in OpportunityManager.SetupTargetItemsRequired when the opportunity is given to a Sim), so OnAdded on a bare clone computes 0 - count <= 0 and never spawns. Needs agent game-copy/ts3agent.package.b87-count-1116 (bugfix/b87-scavenger-count-1116) installed as build/ts3agent.package (or that branch merged and the master agent rebuilt): ilp_scavenger_check forces the count to max(Max,1) + items left for the one call and restores it. Was: ilpatch-b87-rerun3-1116c: copy of ilpatch-b87-1116b-rerun3-1116.json repinned to master-1116c (0.36.267-mc1116), run by probe-out/queue/chain-1116c.sh. Was: ilpatch-b87-1116b-rerun3-1116: rerun2 on master-1116b was N/A on both arms (cleared 68 of 71 loose items in the same call, 4 opportunities spawned nothing). Repro now clears in one step, waits 3 s, then checks (clear false) and reports per-opportunity needs and what EA counts see. Needs agent game-copy/ts3agent.package.b87two-1116 (df2d705f3ecf, bugfix/hhtoo-off-noreply-1116) as build/ts3agent.package, or that branch merged and the master agent rebuilt. Was: ilpatch-b87-rerun2-1116-1116b: copy of ilpatch-b87-rerun2-1116.json repinned to master-1116b (0.36.266-mb1116); timeoutMin x1.5 (Planet Zoo beside the game; correctness only, noiseCheck false). Was: ilpatch-b87-rerun2-1116: copy of ilpatch-b87-rerun2-1115-mm.json repinned to master-1116 (0.36.265-m1116); rewind auto (chain-followup-1116.sh runs rewind-pilot-1116 first). Agent game-copy/ts3agent.package.master-1116 (rebuilt 2026-11-16, merge/master-1116 94e24d21) now clears every loose world gem/metal/insect jig (not household lots, inventories or held items) before ilp_scavenger_check triggers the 4 opportunities; a repro step that still reports N/A makes the row N/A. Earlier: ilpatch-b87-rerun2-1115-mm: copy of ilpatch-b87-rerun2-1115.json, repinned to master-mono-1115 (0.36.264-mono1). ilpatch-b87-rerun2-1115: copy of ilpatch-b87-rerun-1115-1115b.json. The first rerun was hollow (ilp_scavenger_check: N/A, none of 4 opportunities spawned: world holds enough items). Agent game-copy/ts3agent.package.b87-repro-1115 (7110cf2d0d49) now removes loose gems/metals/insect jigs on community lots (never household lot, inventory or parented objects) before OnAdded, so EA spawn path runs. Install that package as the agent for this queue (TS3_AGENT_PACKAGE / build/ts3agent.package) before running. Run: node tools/harness/queue.ts tools/harness/queues/ilpatch-b87-rerun2-1115.json",
+  "jobs": [
+    {
+      "id": "bp-ilp-b87-off",
+      "asi": "game-copy/ts3native.asi.master-1116c",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "IlPatch.Enabled": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 3,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ilp-b87-scavenger-off"
+        }
+      },
+      "timeoutMin": 23,
+      "note": "B87 off arm. Pass: threw true with spawned >= 1. No throw = the YieldingDisabled context does not reach EA's failure ([inferred] in the repro note): N/A, not a fix result. Needs agent b87-repro-1115 (removed>=1 or spawned>=1 in the step result).",
+      "iniBase": "game-copy/ts3native.ini.master-1116c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+      "pinReason": "repinned 2026-11-16 to the master-1116c set (merge/master-1116c, 0.36.267-mc1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-1116c.sh). Was: master-1116b"
+    },
+    {
+      "id": "bp-ilp-b87-on",
+      "asi": "game-copy/ts3native.asi.master-1116c",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "ini": {
+        "IlPatch.Enabled": 1,
+        "IlPatch.ilp_scavengersleep": 1
+      },
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^il patch: b87-scavenger-sleep applied to Sims3\\.Gameplay\\.Opportunities\\.ScavengerOpportunity::OnAdded": 1
+      },
+      "logForbid": {
+        "^il patch: .*(refused|not the converter's|fault)": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 3,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ilp-b87-scavenger-on"
+        }
+      },
+      "timeoutMin": 23,
+      "note": "B87 on arm. Pass: the applied line, threw false with spawned >= 1, 0 script errors, no crash. Needs agent b87-repro-1115 (removed>=1 or spawned>=1 in the step result).",
+      "iniBase": "game-copy/ts3native.ini.master-1116c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+      "pinReason": "repinned 2026-11-16 to the master-1116c set (merge/master-1116c, 0.36.267-mc1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-1116c.sh). Was: master-1116b"
+    }
+  ],
+  "rewind": "auto",
+  "regexCases": {
+    "^il patch: b87-scavenger-sleep applied to Sims3.Gameplay.Opportunities.ScavengerOpportunity::OnAdded": {
+      "match": [
+        "il patch: b87-scavenger-sleep applied to Sims3.Gameplay.Opportunities.ScavengerOpportunity::OnAdded()"
+      ],
+      "noMatch": [
+        "il patch: b87-scavenger-sleep armed ([IlPatch] ilp_scavengersleep=1): Sims3.Gameplay.Opportunities.ScavengerOpportunity::OnAdded(), 2 known build(s)"
+      ]
+    },
+    "^il patch: .*(refused|not the converter's|fault)": {
+      "match": [
+        "il patch: b87-scavenger-sleep refused: token mismatch"
+      ],
+      "noMatch": [
+        "il patch: b87-scavenger-sleep armed ([IlPatch] ilp_scavengersleep=1): Sims3.Gameplay.Opportunities.ScavengerOpportunity::OnAdded(), 2 known build(s)"
+      ]
+    }
+  }
+}

@@ -1,0 +1,505 @@
+{
+  "schema": 1,
+  "updated": "2026-11-17",
+  "about": "Switch evidence for experimental builds (tools/release/experimental.ts). status verified = correctness gate PASSED: its on values go into the experimental ini/package; blocked = force its off values; unverified = master default stays. Agents update an entry when a correctness job passes or fails, with the result page as evidence.",
+  "switches": [
+    {
+      "id": "doormemox",
+      "status": "blocked",
+      "on": {
+        "ini": {
+          "RouteSnap": {
+            "DoorMemoX": "3"
+          }
+        }
+      },
+      "off": {
+        "ini": {
+          "RouteSnap": {
+            "DoorMemoX": "-1"
+          }
+        }
+      },
+      "evidence": [
+        "PLAN.md (DoorMemoX household rule 2026-11-16; experimental pre-release entry 2026-11-17)",
+        "docs/585-door-memo-generation.md (§5 household rule)",
+        "docs/data/results/2026-11-16-door-memo-x3.md (contributor data, before the mismatch)"
+      ],
+      "reason": "mode 3 still has a memo mismatch on privacy-handler lots (household dog's live ask said locked, memo row said unlocked); fix branch bugfix/doormemox-privacy-1117 not verified in game. -1 = not installed per the ini comment. ts3fixes doorgen (kDoorGen) only bumps the DoorMemoX=3 generation and is not in TUNING_XML, so it is not set here; with DoorMemoX=-1 it has nothing to arm."
+    },
+    {
+      "id": "householdtoo",
+      "status": "blocked",
+      "on": {
+        "ini": {
+          "Experimental": {
+            "HouseholdToo": "1"
+          }
+        }
+      },
+      "off": {
+        "ini": {
+          "Experimental": {
+            "HouseholdToo": "0"
+          }
+        }
+      },
+      "evidence": [
+        "CLAUDE.md (Household Sims stay untouched)",
+        "docs/271-householdtoo-experimental.md (built + selftest, not run)"
+      ],
+      "reason": "hard rule: experimental builds never lift the household exemption."
+    },
+    {
+      "id": "unseenpark",
+      "status": "verified",
+      "on": {
+        "tunables": {
+          "kUnseenPark": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kUnseenPark": "False"
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-11-13-queue-unseenpark-1113.md (bp/ip-upark-check, bp-upark-loop, bp/ip-upark-ab: 5/5 PASS)",
+        "docs/data/results/2026-11-17-rebaseline-1116c-read.md (§4 ON/off per switch)",
+        "docs/243-unseen-lots-thread-study.md (D1)"
+      ],
+      "reason": "correctness 5/5 PASS on BP and IP incl. the snap-back stress loop, household/selected Sims exempt (unseen_park_exempt counted, snap-backs counted), 0 script errors; only the stable ON waits on a valid timing run (mono-park-timing-1115)."
+    },
+    {
+      "id": "pkglock",
+      "status": "verified",
+      "on": {
+        "ini": {
+          "PkgLock": {
+            "Mode": "1"
+          }
+        }
+      },
+      "off": {
+        "ini": {
+          "PkgLock": {
+            "Mode": "0"
+          }
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-11-08-queue-fixes-1109.md (pkglock-abba-proof: m0 hang caught 3/3, m1 3/3 PASS with ReproWiden defer)",
+        "docs/data/results/2026-11-08-queue-correctness-1109.md (bp-pkg-abba-m0/m1)",
+        "PLAN.md (EA package-lock deadlock fix [PkgLock] 2026-11-08, verified 2026-11-15)",
+        "docs/release-notes/v0.2.11-dev.md (dfguard first try hit the EA package-lock deadlock)"
+      ],
+      "reason": "rare-hang rule met: EA lock-order deadlock seen in harness loads, forced repro hangs with Mode 0 and never with Mode 1 (3 runs each, ABBA order); not Sim behaviour, so no household question. Detect / ReproWiden stay at master values."
+    },
+    {
+      "id": "bouncerskip",
+      "status": "verified",
+      "on": {
+        "tunables": {
+          "kBouncerSlotSkip": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kBouncerSlotSkip": "False"
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-11-15-queue-l10-repros-1115.md (bp-bouncerskip-loop PASS, fixesRequire bouncerskip_skipped>=1)",
+        "docs/151-route-job-sources.md (D3)"
+      ],
+      "reason": "forced velvet-rope loop PASS with the skip firing and 0 script errors; it only drops a RouteToSlot whose result EA ignores while the role bouncer already stands on its slot (verified code), so no household Sim is affected."
+    },
+    {
+      "id": "takeariskguard",
+      "status": "verified",
+      "on": {
+        "tunables": {
+          "kTakeARiskGuard": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kTakeARiskGuard": "False"
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-11-15-queue-lane-l3-1115-deadrefs-rerun-1115b.md (bp-takeariskguard-check PASS)",
+        "docs/529-gone-sim-leftovers-batch2.md (§4)"
+      ],
+      "reason": "small EA bug fix, one repro: off arm throws, on arm guarded, both steps pass on the master-merge-1115 set; same outcome draw as EA, only a null relationship update is skipped (small-fix-one-repro rule). First run (lane-l3-1115-deadrefs) failed on the pinned pair, not on the fix."
+    },
+    {
+      "id": "boatgetoutguard",
+      "status": "blocked",
+      "on": {
+        "tunables": {
+          "kBoatGetOutGuard": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kBoatGetOutGuard": "False"
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-11-13-queue-boat-getout-stress.md (guard-on FAIL 3/3)",
+        "PLAN.md (boatgetoutguard RUN, not passed, verified 2026-11-15)"
+      ],
+      "reason": "guard-on arm FAILed in all 3 rounds (household side never shown: boatgetoutguard_skipped_household=0, household Sim never reached a GetOut window)."
+    },
+    {
+      "id": "deadrefconvo",
+      "status": "blocked",
+      "on": {
+        "tunables": {
+          "kDeadRefConvo": "True",
+          "kDeadRefSweep": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kDeadRefConvo": "False"
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-11-15-queue-lane-l3-1115-deadrefs.md (bp-conversation-gone-check CRASH)",
+        "docs/data/results/2026-11-15-queue-lane-l3-1115-deadrefs-rerun-1115b.md (FAIL at the seed wait)",
+        "PLAN.md (Lane L3 1115 entry)"
+      ],
+      "reason": "check crashed once and failed on rerun (triaged as a repro seed bug, rerun queue lane-l3-1115-convgone-rerun not run); also needs the save-changing kDeadRefSweep."
+    },
+    {
+      "id": "eanullguards",
+      "status": "blocked",
+      "on": {
+        "tunables": {
+          "kEaNullGuards": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kEaNullGuards": "False"
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-10-29-queue-seasons-spread.md (bp-eafixes-check FAIL)",
+        "PLAN.md (menumaven + [ThumbStall] ON entry, off-switch audit 2026-11-14)"
+      ],
+      "reason": "its only check FAILed at a repro step (TargetException, job void) and was never rerun; kept off in the 11-14 off-switch audit."
+    },
+    {
+      "id": "conformactor",
+      "status": "blocked",
+      "on": {
+        "ini": {
+          "EaCrashFixes": {
+            "ConformActor": "1"
+          }
+        }
+      },
+      "off": {
+        "ini": {
+          "EaCrashFixes": {
+            "ConformActor": "0"
+          }
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-11-14-queue-conformactor-bp-1114.md (bp-ca-1..3 FAIL)",
+        "PLAN.md (Lane park: unseenpark timing + ConformActor check 2026-11-15)"
+      ],
+      "reason": "3/3 FAIL: guard installed (caOn) but never fired (caSkip 0), crash seen once and not reproduced; fix not shown to work."
+    },
+    {
+      "id": "gvunseen",
+      "status": "unverified",
+      "on": {
+        "ini": {
+          "GoalValidRO": {
+            "UnseenDefer": "1"
+          }
+        }
+      },
+      "off": {
+        "ini": {
+          "GoalValidRO": {
+            "UnseenDefer": "0"
+          }
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-11-13-queue-master1112b-verify.md (ip-m1112b-gvunseen-loop PASS)",
+        "docs/data/results/2026-11-12-queue-master1112b-verify.md (bundle --ab gvunseen PASS)",
+        "PLAN.md (H4 B2 gvunseen entry)"
+      ],
+      "reason": "closest candidate: loop and bundle jobs PASS with gvuN > 0 and household never asked, but the loop ended on its cap with the firing rule not met and no snap-back check; one clean loop run needed."
+    },
+    {
+      "id": "l4memos",
+      "status": "unverified",
+      "on": {
+        "tunables": {
+          "kPermaMoodletMemo": "True",
+          "kBuffRemoveNoOp": "True",
+          "kCatalogNameCache": "True",
+          "kAutonomyRoomMemo": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kPermaMoodletMemo": "False",
+          "kBuffRemoveNoOp": "False",
+          "kCatalogNameCache": "False",
+          "kAutonomyRoomMemo": "False"
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-11-15-queue-lane-l4-1115-memos-1115b.md (bp-lane-l4-memos-check, bp-autonomy-memo-check PASS)",
+        "docs/data/results/2026-11-15-queue-lane-l4-1115-memos.md (first run FAIL)"
+      ],
+      "reason": "rerun PASS, but the page shows none of the pass counters (permamemo_hits, *_mismatches, autroommemo_hits): hits >= 1 and 0 mismatches not proven."
+    },
+    {
+      "id": "invcache",
+      "status": "unverified",
+      "on": {
+        "tunables": {
+          "kPortalInvocationCache": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kPortalInvocationCache": "False"
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-11-15-queue-lane-l4-1115-memos-1115b.md (bp-event59-invcache-check PASS)"
+      ],
+      "reason": "PASS but invcache_hits / invcache_mismatches are not in the result page; exactness not shown."
+    },
+    {
+      "id": "spawncapcount",
+      "status": "unverified",
+      "on": {
+        "tunables": {
+          "kSpawnCapCount": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kSpawnCapCount": "False"
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-11-15-queue-lane-l6-1115.md (bp-spawncap-check PASS)"
+      ],
+      "reason": "PASS but no spawncap counters on the page (mismatch 0 and check count not shown); under-cap share docs/147 §5 asks for not read."
+    },
+    {
+      "id": "deadrefcooking",
+      "status": "unverified",
+      "on": {
+        "tunables": {
+          "kDeadRefCooking": "True",
+          "kDeadRefSweep": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kDeadRefCooking": "False"
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-11-15-queue-lane-l3-1115-deadrefs-rerun-1115b.md (bp-cooking-handler-gone-check PASS)"
+      ],
+      "reason": "its repro PASSed, but it needs kDeadRefSweep, which changes save data and has no save-matrix PASS."
+    },
+    {
+      "id": "convturn",
+      "status": "unverified",
+      "on": {
+        "tunables": {
+          "kConvTurn": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kConvTurn": "False"
+        }
+      },
+      "evidence": [
+        "docs/509-conversation-turn.md (run 9 PASS after 8 set-up FAILs)",
+        "PLAN.md (off-switch audit 2026-11-14: kept off)"
+      ],
+      "reason": "one repro PASS (2026-11-01) on household Sims' conversations; it hands turns to local (incl. household) Sims, kept off in the 11-14 audit; no later run."
+    },
+    {
+      "id": "seasonimposter",
+      "status": "unverified",
+      "on": {
+        "tunables": {
+          "kSeasonImposter": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kSeasonImposter": "False"
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-10-29-queue-seasons-spread.md (season + ab reruns PASS)",
+        "PLAN.md (off-switch audit 2026-11-14: no hitch drop)"
+      ],
+      "reason": "perf switch with no measured hitch drop and a visible change (lot imposters rebuilt later); jobs PASS but carry no correctness assertion."
+    },
+    {
+      "id": "ilpatch-b80",
+      "status": "unverified",
+      "on": {
+        "ini": {
+          "IlPatch": {
+            "Enabled": "1",
+            "ilp_remotechatnoeverydayoutfit": "1"
+          }
+        }
+      },
+      "off": {
+        "ini": {
+          "IlPatch": {
+            "ilp_remotechatnoeverydayoutfit": "0"
+          }
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-11-15-queue-ilpatch-b80-b87.md (bp-ilp-b80-off/on PASS)"
+      ],
+      "reason": "off arm PASSed too and the page has no 'il patch: applied' line or counters, so neither the bug nor the fix is shown; b87 still rerunning."
+    },
+    {
+      "id": "smallenums",
+      "status": "unverified",
+      "on": {
+        "ini": {
+          "EqualsFast": {
+            "SmallEnums": "1"
+          }
+        }
+      },
+      "off": {
+        "ini": {
+          "EqualsFast": {
+            "SmallEnums": "0"
+          }
+        }
+      },
+      "evidence": [
+        "PLAN.md ([EqualsFast] ON + timing repins 2026-11-17)"
+      ],
+      "reason": "its host corpus case was not run; EqualsFast itself is already on in master."
+    },
+    {
+      "id": "deadsim-hourly",
+      "status": "unverified",
+      "on": {
+        "tunables": {
+          "kSeasonsDeadSim": "True",
+          "kCasUiHandlers": "True",
+          "kSimRefsDeadSim": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kSeasonsDeadSim": "False",
+          "kCasUiHandlers": "False",
+          "kSimRefsDeadSim": "False"
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-11-10-queue-deadsim8-1110.md",
+        "PLAN.md (#324 dead-Sim passes 2026-11-10)"
+      ],
+      "reason": "not among the 8 switches deadsim8 proved; Rodney kept them off 11-10."
+    },
+    {
+      "id": "savedata-fixes",
+      "status": "unverified",
+      "on": {
+        "tunables": {
+          "kRelRemoveSafe": "True",
+          "kSpouseUnlink": "True",
+          "kAttractionAlarm": "True",
+          "kDeadRefGuards": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kRelRemoveSafe": "False",
+          "kSpouseUnlink": "False",
+          "kAttractionAlarm": "False",
+          "kDeadRefGuards": "False"
+        }
+      },
+      "evidence": [
+        "PLAN.md (29 leak switches ON 2026-11-13; off-switch audit 2026-11-14)"
+      ],
+      "reason": "change saved data; no save-matrix PASS with them on."
+    },
+    {
+      "id": "vaclistenerpad",
+      "status": "unverified",
+      "on": {
+        "tunables": {
+          "kVacListenerPad": "True",
+          "kVacListenerNull": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kVacListenerPad": "False"
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-11-15-queue-lane-l6-1115.md (bp-vacation-listener-pad PASS)",
+        "docs/210-free-vacation-fixes.md (§6)"
+      ],
+      "reason": "check PASSed (probe line only), but it needs vaclistenernull, which like the other vacation fixes has no repro run."
+    },
+    {
+      "id": "vehicle-leaks",
+      "status": "unverified",
+      "on": {
+        "tunables": {
+          "kVehParkReserve": "True",
+          "kVehGetInLeak": "True",
+          "kVehSeatDestroy": "True",
+          "kVehFrankenTaxi": "True",
+          "kVehProtestCar": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kVehParkReserve": "False",
+          "kVehGetInLeak": "False",
+          "kVehSeatDestroy": "False",
+          "kVehFrankenTaxi": "False",
+          "kVehProtestCar": "False"
+        }
+      },
+      "evidence": [
+        "docs/544-vehicle-leak-sources.md (§7)",
+        "PLAN.md (off-switch audit 2026-11-14)"
+      ],
+      "reason": "contributor PR was a draft, his off/on soak not done, S4/S5 never fired; no run in this repo's harness."
+    }
+  ],
+  "knownIssues": [
+    "Apex Radiance 4.0.1 with its RTX Remix bridge can crash on a backbuffer error; fixed in Apex PR #89, not released yet.",
+    "Apex LightEval5 misalignment: Apex issue, fix in Apex PR #92, not released yet.",
+    "Experimental builds have passed self-tests and the per-switch correctness tests listed above, not the full release check (save matrix, soaks) a stable release gets."
+  ]
+}

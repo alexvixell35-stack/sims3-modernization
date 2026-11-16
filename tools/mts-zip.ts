@@ -35,7 +35,7 @@ export function vet(kind: Kind, name: string, buf: Buffer, version: string): Buf
   if (kind === 'package') {
     if (s.slice(0, 4) !== 'DBPF') throw new Error('package: not a DBPF package');
     if (!s.includes('Ts3Fixes')) throw new Error('package: no Ts3Fixes assembly');
-    for (const bad of ['Ts3Agent', 'PortalPlan']) if (s.includes(bad)) throw new Error(`package: contains ${bad} (test-only code)`);
+    for (const bad of ['Ts3Agent', 'PortalPlanTest'] /* the test mod's assembly Ts3PortalPlanTest; ts3fixes itself uses the game's PortalPlanEventArgs */) if (s.includes(bad)) throw new Error(`package: contains ${bad} (test-only code)`);
     for (const k of SHORTCUTS) if (!s.includes(`<k${k}Shortcut value="True"`)) throw new Error(`package: k${k}Shortcut is not True (docs/RELEASE.md: the release never ships them off)`);
     return buf;
   }
@@ -139,7 +139,7 @@ function selfCheck() {
     const refuse = (what: string, f: () => unknown) => { try { f(); } catch { return; } throw new Error(`self-check: accepted ${what}`); };
     refuse('ts3agent.package', () => vet('package', 'ts3agent.package', Buffer.from(pkg), '1'));
     refuse('package with Ts3Agent', () => vet('package', 'ts3fixes.package', Buffer.from(pkg + 'Ts3Agent'), '1'));
-    refuse('package with PortalPlan', () => vet('package', 'ts3fixes.package', Buffer.from(pkg + 'PortalPlanTest'), '1'));
+    refuse('package with PortalPlanTest', () => vet('package', 'ts3fixes.package', Buffer.from(pkg + 'PortalPlanTest'), '1'));
     refuse('shortcut off', () => vet('package', 'ts3fixes.package', Buffer.from(pkg.replace('GoHomeShortcut value="True"', 'GoHomeShortcut value="False"')), '1'));
     const pe64 = Buffer.from(pe); pe64.writeUInt16LE(0x8664, 0x84);
     refuse('64-bit asi', () => vet('asi', 'ts3native.asi', pe64, '1'));
