@@ -243,3 +243,18 @@ By code alone nothing left on the list runs per frame or per Sim per tick: Motiv
 (once per Sim per motive update), and the per-autonomy ones (ActionData.Test's CreateDelegate, IsSuitable's repeated
 ActionData.Get, CalculateScoreForSocial) wait for the census; ActionData.Test's delegate cannot be cached by an IL patch
 (no field token to hold it) and needs a body swap of a large method, so it is built only if the census ranks it high.
+
+## 11. Usage sweep 3 (docs/591 §3): `ilp_autolights`
+
+`LightGameObject.AutoLightsOff(sim, lot, roomId)` runs from `Sim.RoomChanged` for every Sim that changes room on a lot.
+After its Sim scan it fetches `lot.GetObjects<IUserControlledLight>()` whenever no awake Sim is in the room, but a light is
+switched only when `flag` (everyone on the lot asleep) or `flag3` (a sleeper in that room) holds. The walking Sim is
+awake and on the lot, so `flag` is almost always false, and with no sleeper in the room the loop's test is false for every
+light: the array and the walk do nothing. IL patch `ilp_autolights` (spec `autolights-early-out`, builds ea-1.67 and
+simler90-242) inserts at 0x97 `ldloc.2; ldloc.s 4; or; brfalse 0xFA` (the method's ret). Exact: no side effect is skipped
+(GetObjects is a query; the loop's `flag || (flag3 && ...)` short-circuits before any call).
+
+Not built: GenericPrivacySituation.ClearRoom.Init `continue` -> `break` is not proven exact (the first pass adds joiners
+to Participants, and OtherSimCanJoinSituation / OtherSimCanIgnorePrivacy may answer differently on the second pass);
+RepairableComponent.UpdateBreakage, CatJungleGym, LeafPile: per object use or per wait of one object, rare; Daycare
+GetExperience changes results (bug fix, not a speedup).
