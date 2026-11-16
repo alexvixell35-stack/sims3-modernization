@@ -179,6 +179,7 @@ namespace Ts3Fixes
                 case "hudunsub": return EpLive(typeof(HudUnsubHook), 0);
                 case "igloolookats": return EpLive(typeof(B12IlHook), 1, "sIlIgloo", sIlIgloo, null);
                 case "indoorcap": return EpLive(typeof(IndoorPositionsHook), 1);
+                case "initstacktrace": return EpLive(typeof(IstHook), 2, "sIstSearch", sIstSearch, null, "sIstFlags", sIstFlags, null, "sIstNextId", sIstNextId, typeof(ulong), "sIstNextId", sIstNextId, "static", "sIstNextId", sIstNextId, null, "sIstSelected", sIstSelected, null);
                 case "innerbeautyonce": return EpLive(typeof(BIbHook), 1);
                 case "intmultiple": return EpLive(typeof(B12ImHook), 1);
                 case "invcache": return EpLive(typeof(PortalInvCacheHook), 0, "sInvField", sInvField, null);
@@ -429,6 +430,7 @@ namespace Ts3Fixes
                 case "wakepark": return EpLive(typeof(WpLotHook), 0);
                 case "wakepoll": return EpLive(typeof(WpLotHook), 0);
                 case "wakeprobe": return EpLive(typeof(WpLotHook), 0);
+                case "weatherstonelistener": return EpLive(typeof(WslHook), 1, "sWslListener", sWslListener, null);
                 case "weddingarchkeep": return EpJoin(EpLive(typeof(WeddingArchKeepHook), 1), EpLive(typeof(WeddingArchRouteHook), 1));
                 case "weddingcancel": return EpLive(typeof(WcHook), 1, "sWcJilter", sWcJilter, null, "sWcAlarm", sWcAlarm, null, "sWcWait", sWcWait, typeof(float), "sWcWait", sWcWait, "static");
                 case "weddinglistener": return EpLive(typeof(BWlHook), 1, "sWlList", sWlList, null);
