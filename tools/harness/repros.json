@@ -106130,6 +106130,249 @@
     ]
   },
   {
+    "id": "subroutefail-check",
+    "bug": "SimQueue.WaitForTurn plays a blocking route-fail animation and balloon after TryReplacementInteraction pushed a free substitute (toilet, urinal, shower...), before the Sim walks to it (docs/597 §3)",
+    "fix": "ts3fixes SleepQueue597b.cs: subroutefail (default off)",
+    "save": "any world (pure check)",
+    "note": "SubRouteFailCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 1961-1963.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "subroutefail": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SubRouteFailCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SubRouteFailCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "subroutefail": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SubRouteFailCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SubRouteFailCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "subroutefail": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "subroutefail": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "petwakebed-check",
+    "bug": "Pet WakeUpSim Cleanup leaves the bed part's ContainedSim set to the pet when the pet is reset between jumping on and off the bed, so that side looks taken (docs/597 §4)",
+    "fix": "ts3fixes SleepQueue597b.cs: petwakebed (default off)",
+    "save": "any world (pure check)",
+    "note": "PetWakeBedCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 1964-1966.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petwakebed": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetWakeBedCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetWakeBedCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petwakebed": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetWakeBedCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetWakeBedCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petwakebed": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petwakebed": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "slavewakereason-check",
+    "bug": "BedSleep.Run's spooning-slave wait re-reads Actor.ExitReason every pass, so the reason that woke the slave (HigherPriorityNext) is lost after a second pass: Slow Wake instead of Fast Wake (docs/597 §5)",
+    "fix": "ts3fixes SleepQueue597b.cs: slavewakereason (default off)",
+    "save": "any world (pure check)",
+    "note": "SlaveWakeReasonCheck 'run' checks the decision and its controls plus the live hook; 'result' shows counters 1967-1970.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "slavewakereason": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlaveWakeReasonCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlaveWakeReasonCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "slavewakereason": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlaveWakeReasonCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlaveWakeReasonCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "slavewakereason": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "slavewakereason": false
+        }
+      }
+    ]
+  },
+  {
     "id": "unseen-tp-apt-goal",
     "bug": "docs/584 §8: F1 (UfTpLotOpen / UfLotOpen) closes every apartment and shell lot outright, so a cut GoHome of an unseen NPC who lives in an apartment is never teleported; GoHome.Run's second PlanRouteIntoLot then fails with result 10 (Bridgeport retry after a cut 95% -> ~70% at the upstream merge, tpdoorrights on still ~71%)",
     "fix": "ts3fixes tpaptgoal (UnseenTeleportGoal.cs UfTpAptLot / UfTpAptReach, UfPreCore.TpAptLot / TpAptOpen): the unseen NPC's own home apartment or shell lot is judged by the goal room only (tomb or hidden room refused, then a room flood with its own door rights plus TpDoor); other apartment lots stay closed. Check: UnseenTpCheck apt",

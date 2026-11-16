@@ -1,6 +1,6 @@
 # 597. Sleeping Sims as social targets, shared beds, need-object lines
 
-2026-11-16, static hunt (decompiled C# + shipped tuning), r53, built, NOT RUN. Both switches are off by default and act on household Sims too: they are EA bug fixes, with no skip or throttle. Our harness Sims barely look after their needs, so this was a read of the code, not of logs.
+2026-11-16, static hunt (decompiled C# + shipped tuning), r53 + r55, built, NOT RUN. All five switches are off by default and act on household Sims too: they are EA bug fixes, with no skip or throttle. Our harness Sims barely look after their needs, so this was a read of the code, not of logs.
 
 Existing work checked first: docs/565 §6 `spoonreset` (pair kept after a partner reset), docs/589 U10 `bathcleanup`, docs/577 (privacy situations), docs/595 (toilet / sink route fails are contention), docs/529 (bed-partner claim, simler90 guards it). Nothing here repeats them.
 
@@ -24,6 +24,22 @@ Effect: a Sim more than 1 m away is placed behind Sims nearer than its squared d
 
 Fix: squared distances on both sides. Only the `OrderByProximity` branch changes; `CutToHeadOfLine` and `CutAheadOfLowerPrioritySims` are tested first and left to EA.
 
+### §3 `subroutefail` (fixes 1961-1963, `SubRouteFailCheck`): household-visible, need-object lines
+
+[verified, decompiled] `SimQueue.WaitForTurn`: on the first pass, when `TryReplacementInteraction` finds a free object for the same need (toilet, urinal, all-in-one bathroom, shower, any need object with `TryAnotherObjectIfLineExists`), it pushes it as a continuation (`WasInUse`, `FailedToStart`) and the loop breaks with the Sim not at the head. The timeout tail then runs and calls `PlayRouteFail`: a route-fail balloon showing the busy object's user plus `Sim.RouteFailure`, a blocking animation, before the Sim walks to the substitute it just found. The intent is [inferred]: EA hands over to the substitute silently (WasInUse, continuation), and the balloon tells the player the Sim failed when it did not.
+
+Fix: the hook on `TryReplacementInteraction` stamps (Sim, tick) after a push; the hook on `PlayRouteFail` skips the route fail for that Sim on that tick (no yield lies between the two; the autonomy search inside TryReplacementInteraction can yield, so the stamp is taken after it returns). Queue removal and exit reasons stay EA's; every other route fail is unchanged, and `DontPlayRouteFail` callers stay silent as before.
+
+### §4 `petwakebed` (fixes 1964-1966, `PetWakeBedCheck`): household-visible, rare
+
+[verified, decompiled] Pet `Sim.WakeUpSim` jumps on the free side of a double bed with `partData.SetContainedSim(Actor)`, and Run clears it only after the 5-minute wait and Jump Down. `Cleanup` removes the pet from the bed's use list and destroys the jig, but leaves the part's `ContainedSim`. A pet reset in between (`InteractionQueue.OnReset` runs Cleanup) leaves the pet "in" that side: `GetSimInOtherPart` returns the pet, the side looks taken, and only a later route fail on that part clears it (SimRoutingComponent's stale-part heal). Fix: after EA's Cleanup, any part of `mBed` that still holds the pet is cleared, unless the pet is on the bed.
+
+### §5 `slavewakereason` (fixes 1967-1970, `SlaveWakeReasonCheck`): household-visible, couples
+
+[verified, decompiled] `BedSleep.Run`, the spooning slave after its sleep loop: `do { exitReason = Actor.ExitReason; Actor.ClearExitReasons(); synced = IsAtSynchronizationLevelWith(master, Completed); if (!synced) { Sleep(5); synced = master gone; } } while (!synced); Actor.AddExitReason(exitReason);`. The read is inside the loop, so when the wait takes a second pass (the master's `FinishSpooning` plays the ToSleep animation, many 5-tick passes) the reason that ended the sleep is lost. Effect: `HigherPriorityNext` (the player queued an action) is gone, so a tired slave (BadNightSleep/Tired/Sleepy/Exhausted) plays the Slow Wake instead of the Fast Wake, and the queue's post-Run reason checks see nothing.
+
+Fix, without a 150-line Run copy: the first pass's `IsAtSynchronizationLevelWith` call (after EA's first read and clear) is hooked. For the slave in this wait only (its current BedSleep is a spooning slave whose master has `mSpooningCancel`, not sleeping, level Completed), the hook runs EA's wait itself in EA's order (sync test, `Sleep(5)`, master gone test, clear), keeps the reasons that arrive during it, adds them back and answers true; EA then adds the first pass's reason. A one-pass wait gives EA's result. EA's loop has no ceiling; ours stops after 6000 passes (30000 ticks, crash guard only). The hook yields, so it has a stub remap (swap audit row).
+
 ## Shipped tuning (GameplayData.package, read-only `tools/static/tuning-xml-dump.py`)
 
 [verified] The Toilet tuning XML (the class with `kToiletTuning`, `kMaxLengthUseToilet`) ships `kTimeToWaitInLine = 0`, the same as the code default. Bathtub `kTimeToWaitForBath = 15`, Shower `kTimeToWaitToEvict = 15`, Sink 15, toilet line length 3, `SimQueue.kCheckPeriodInMinutes = 1`.
@@ -32,14 +48,12 @@ With 0, a Sim queued for a busy toilet routes to the door, tries one substitute,
 
 ## Read, not built
 
-- **Substitution route fail** [verified code, intent inferred]: when `TryReplacementInteraction` pushes another toilet, `WaitForTurn` breaks and still calls `PlayRouteFail`, a blocking route-fail animation plus balloon, before the Sim walks to the free toilet. This affects toilets, urinals and the all-in-one bathroom. It may be deliberate feedback ("busy"), so it is not built. If wanted: skip the balloon when the substitution was pushed (no yield between the two calls).
-- **Megaphone wake** (`Sim.WakeWithMegaphone.WakeTargetUp`): its first test always uses `Target`, so with a partner in bed the target is cancelled and gets `RudeAwakening` three times. The re-add only refreshes the buff and the cancels hit the same head. No visible effect.
-- **Pet `WakeUpSim`**: `mBed` is taken from the target's posture with no null test (the target may already be up when Run starts), and `Cleanup` does not clear the bed part's `ContainedSim` if the pet is reset between jumping on and jumping off. Both are rare (needs a reset or a stale queued wake); log-only.
-- **BedSleep slave wake wait** (docs/589 lead): the slave's wait loop re-reads `Actor.ExitReason` each pass, so a reason from the first pass is lost if the loop runs twice. The master's next tick usually ends it in one pass. A fix needs a 150-line Run copy; not built.
+- **Megaphone wake** (`Sim.WakeWithMegaphone.WakeTargetUp`) [verified, decompiled; checked again 2026-11-16, skipped as harmless]: the first test always uses `Target`, so with a partner in bed the target gets `CancelNthInteraction(0)` and `RudeAwakening` three times and the partner once. Every sleeper reaches that code inside its running sleep interaction (all `SetIsSleeping(true)` callers are in Run), so the head is locked and `CancelNthInteraction` only ORs `CanceledByScript` into the exit reasons again; it never removes the head or reaches the next queued action. The re-added buff only refreshes. Each sleeper already ends up woken once; nothing to fix.
+- **Pet `WakeUpSim` null bed** [verified, skipped]: `InteractionQueue.RunInteraction` calls `RunTest` (Test: target sleeping, container `IBed`) with no yield before Run, so `mBed` cannot be null at Run start. The Cleanup half is built (§4).
 - **Social tests on sleepers**: `SocialInteractionA` and `BeginSocialInteraction` refuse a sleeping target (`Social_TargetSleeping`; toddlers only for player-directed actions), and a target that falls asleep while the actor routes cancels the route (the `kSimFellAsleep` listener, removed in Cleanup, once per interaction). No autonomy loop and no stuck waiter found.
 - **Lines on reset, death or leaving the lot**: `InteractionQueue.OnReset` runs `Cleanup`, which runs `RemoveFromLine`, and `RemoveFromUseList` also leaves the line. The object's `DoReset` clears its line. Eviction marks the last record, which is never the newcomer. No stale head found.
 - **Naps** (`Nap`, `BedNap`): `IsSleeping` is cleared in both Run and Cleanup. No wake-order issue.
 
 ## Pairs
 
-r53 package; the off/on pairs are the repros `spoonslavechecks-check` and `queueproximity-check`.
+r53 package; the off/on pairs are the repros `spoonslavechecks-check` and `queueproximity-check`. r55 package adds `subroutefail-check`, `petwakebed-check` and `slavewakereason-check`.
