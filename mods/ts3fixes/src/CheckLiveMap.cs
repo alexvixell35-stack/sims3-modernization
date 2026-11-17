@@ -445,6 +445,8 @@ namespace Ts3Fixes
                 case "unseenfbpre": return EpLive(typeof(RouteBackoffHook), 4);
                 case "unseenfbstuck": return EpLive(typeof(StuckCheckBusyHook), 1);
                 case "unseenfbteleport": return EpLive(typeof(RouteBackoffHook), 4);
+                case "unseenloopskip": return EpLive(typeof(LsWaitHook), 0);
+                case "unseenloopskip_offscreen": return EpLive(typeof(LsWaitHook), 0);
                 case "unseenmotives": return EpLive(typeof(AutonomyUpdateHook), 0);
                 case "unseenoutfitdefer": return EpJoin(EpJoin(EpJoin(EpLive(typeof(OdDescHook), 1), EpLive(typeof(OdGetHook), 0)), EpLive(typeof(OdIcHook), 4)), EpLive(typeof(OdSimHook), 1));
                 case "unseenpark": return EpJoin(EpLive(typeof(AutonomyUpdateHook), 0), EpLive(typeof(UnseenParkHook), 0));
