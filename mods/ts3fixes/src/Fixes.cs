@@ -398,6 +398,7 @@ namespace Ts3Fixes
             ApplyWishSubjectGone();   // docs/623 §3 (Wishes86.cs)
             ApplyWishUpdateLost();   // docs/623 §4 (Wishes86.cs)
             ApplySocialWorkerPromise();   // docs/623 §5 (Wishes86.cs)
+            ApplyAlloc87();   // docs/625 (Alloc87Comparers.cs): enumcmpnobox, alarmcmpnobox
             ApplyMegaphoneRun();   // docs/608 §2 (WalkStyleLeak77.cs)
             ApplyDragonCurseRun();   // docs/608 §3 (WalkStyleLeak77.cs)
             ApplyMermaidSharkNull();   // docs/587 EP1 §3
@@ -511,6 +512,7 @@ namespace Ts3Fixes
             ApplyWakePark();
             ApplyAutLiveB14();
             ApplyHitchCause();
+            try { Alloc87Sync(); } catch (Exception) { }  // docs/625: before any save loads, when the tuning turns them on
         }
 
         static void TunedLog(string tuning, bool ok, string what)
@@ -1172,6 +1174,8 @@ namespace Ts3Fixes
         // [3529-3533] wishsubjectgone (Wishes86.cs, docs/623 §3): notices given / kept nodes filed again / notices lost (off) / kept unfiled (off) / errors.
         // [3534-3537] wishupdatelost (Wishes86.cs, docs/623 §4): updates kept / lost (off) / loop guard / errors.
         // [3538-3540] socialworkerpromise (Wishes86.cs, docs/623 §5): promised wishes removed / left in slot (off) / errors.
+        // [3550-3553] enumcmpnobox (Alloc87Comparers.cs, docs/625 §2): comparers installed / restored / errors / Check answer mismatches.
+        // [3554-3558] alarmcmpnobox (Alloc87Comparers.cs, docs/625 §3): installed / restored / mTimers swapped in place / errors / Check answer mismatches.
         // [3485-3489] spotasync (Fixes.cs SpotVerdict, docs/616): checks answered by a job (sync plans avoided) / their wall ms / eligible but planned sync / placements dropped after the wait / shadow mismatches.
         // [3391-3393] sarcmummynpc (TreasureSpawn74.cs, docs/607 §3): tomb mummy descriptions removed from NpcHousehold at sarcophagus cleanup / left with the switch off / errors.
         // [2790-2792] pushwaitskip (PushWait604.cs, docs/604 §2): done Sims EA's double-step wait pass would have skipped / waiting calls on EA's body (switch off) / errors.
@@ -1319,6 +1323,7 @@ namespace Ts3Fixes
         {
             SwTable();
             unchecked { sSwGen[0]++; }
+            try { Alloc87Sync(); } catch (Exception) { }  // docs/625: the comparer swaps follow their switches
         }
 
         // SwitchCacheCheck: every name asked so far plus the table's keys, cached answer vs slow answer (twice: fill, hits),
@@ -1738,6 +1743,8 @@ namespace Ts3Fixes
                 case "wishsubjectgone": return Instantiator.kWishSubjectGone;  // docs/623 §3 (Wishes86.cs), EA bug fix, off
                 case "wishupdatelost": return Instantiator.kWishUpdateLost;  // docs/623 §4 (Wishes86.cs), EA bug fix, off
                 case "socialworkerpromise": return Instantiator.kSocialWorkerPromise;  // docs/623 §5 (Wishes86.cs), EA bug fix, off
+                case "enumcmpnobox": return Instantiator.kEnumCmpNoBox;  // docs/625 §2 (Alloc87Comparers.cs), exact allocation cut, off
+                case "alarmcmpnobox": return Instantiator.kAlarmCmpNoBox;  // docs/625 §3 (Alloc87Comparers.cs), exact allocation cut, off
                 case "alarmzeroperiod": return Instantiator.kAlarmZeroPeriod;  // docs/609 §6 (GameSpeed78.cs), EA bug fix (hang guard), off
                 case "tspawninvdup": return Instantiator.kTreasureSpawnInvDup;  // docs/607 §2 (TreasureSpawn74.cs), EA bug fix, off
                 case "megaphonerun": return Instantiator.kMegaphoneRun;  // docs/608 §2 (WalkStyleLeak77.cs), EA bug fix, off
