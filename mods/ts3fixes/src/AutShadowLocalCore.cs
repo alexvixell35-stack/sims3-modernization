@@ -73,6 +73,34 @@ namespace Ts3Fixes
         // pair walk codes
         public const int kNew = 0, kDup = 1, kCap = 2;
         public const int kMaxLocalPairs = 8192;  // as the meta kMaxPairs; L0 data sizes it again in piece 5
+
+        // ---- piece 5 (L5 Mode R): reference vs worker by walk index, the game's own C2 against the worker walk ----
+        // Class of walk index i: both walks must hold the same pair there (value equality, as the dedupe), else kWalkMiss.
+        // Off-list pairs are skipped without Test on both sides by design: no class (as the meta compare, docs/122 §5.1).
+        // A0-A4 as AutShadowCore.Classify with no meta score; A5 (worker stopped before i) is the caller's.
+        public const int kWalkMiss = 6;
+        public static int LocalClass(bool samePair, int refCode, float refScore, int workCode, float workScore)
+        {
+            if (!samePair) return kWalkMiss;
+            if (refCode == AutShadowCore.kSkip && workCode == AutShadowCore.kSkip) return AutShadowCore.kNoClass;
+            return AutShadowCore.Classify(refCode, refScore, 0f, workCode, workScore, 0f);
+        }
+
+        // gameIdx[k] = worker walk index of the k-th pair the game's C2 scored in its own B9 (-1 = not in the walk). The game
+        // calls C2 inside its B12 walk after its own pre-checks, so its order is a subsequence of the walk [inferred, docs/51
+        // I-509-1]. Returns order misses (a walk index below the highest one before it); gameOnly = pairs not in the walk.
+        public static int GameOrderMisses(int[] gameIdx, int n, out int gameOnly)
+        {
+            int miss = 0, hi = -1;
+            gameOnly = 0;
+            for (int k = 0; k < n; k++)
+            {
+                int w = gameIdx[k];
+                if (w < 0) { gameOnly++; continue; }
+                if (w < hi) miss++; else hi = w;
+            }
+            return miss;
+        }
     }
 
     // The 9 fields Autonomy.CacheValuesToOptimizeTestFunctions(mActor) fills at B7 (Steam 1.67, read: IsOnFire, BabyIsComing,

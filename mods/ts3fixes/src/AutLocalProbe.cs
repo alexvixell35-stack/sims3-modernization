@@ -45,6 +45,17 @@ namespace Ts3Fixes
         {
             public int B7Hook(CommodityKind c, bool metaAutonomy)
             {
+                AutonomyT a = (AutonomyT)(object)this;
+                if (!LocalB7Open(a, c)) return B7Probe(c, metaAutonomy);
+                // autt2local (AutShadowLocal.cs): post after B9 (here when the search has no meta phase, else at B13's entry)
+                bool ok = false;
+                int r;
+                try { r = B7Probe(c, metaAutonomy); ok = true; }
+                finally { if (ok) LocalAfterB9(a); else if ((object)sLocB7 == (object)a) sLocB7 = null; }
+                return r;
+            }
+            int B7Probe(CommodityKind c, bool metaAutonomy)
+            {
                 if (sL0Aut != null) { if (ShortcutOn("autt2l0")) PatchCounters()[AutLocalProbeCore.kNested]++; return B7Orig(c, metaAutonomy); }
                 if (!ShortcutOn("autt2l0") || OnWorker() || !L0Open((AutonomyT)(object)this)) return B7Orig(c, metaAutonomy);
                 try { return B7Orig(c, metaAutonomy); }

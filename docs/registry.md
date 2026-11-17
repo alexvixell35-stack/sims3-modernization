@@ -632,7 +632,10 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3446-3449 | `StairDup82.cs` (`fixes-3446`, contributor range, docs/612 §2), `stairwaitend` | built 2026-11-17, default off, proven in game 2026-11-17 (one load off BROKEN / on FIXED, r70 force check): stair waits ended at 30 sim-min (3446) / past deadline with the switch off (3447) / past deadline kept by the household rule (3448) / errors (3449) |
 | 3450-3452 | `StairDup82.cs` (`fixes-3450`, contributor range, docs/612 §3), `simdisposelink` | built 2026-11-17, default off, proven in game 2026-11-17 (one load off BROKEN / on FIXED, r70 force check): description links kept over an unbound Sim's Dispose (3450) / unbound disposes with the switch off (3451) / errors (3452) |
 | 1145-1157 | reserved (hhtoo-local-1117, `fixes-1145`) | autt2lcov: household local-phase C2 coverage by local allow-list (docs/276 rank 5 piece 1) |
-| **1158+** | next free | reserve here  |
+| 1158-1181 | reserved (hhtoo-local3-1118, `fixes-1158`) | autt2local driver: post gate codes, request/pair/H8 counters (docs/276 rank 5 piece 3) |
+| 1182-1184 | reserved (hhtoo-local4-1118, `fixes-1182`) | autt2local L4 local object rows: target rows added, requests capped, max rows per request (docs/276 rank 5 piece 4) |
+| 1185-1199 | reserved (hhtoo-local5-1118, `fixes-1185`) | autt2local L5 Mode R: local A0-A5, walk-order misses, game C2 report (pairs/equal/test agree/top-1/order misses/game-only/cap) (docs/276 rank 5 piece 5) |
+| **1200+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 

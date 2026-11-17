@@ -104,6 +104,7 @@ export function costLines(i: Input): string[] {
     // docs/122 §5.1: A4 target < 20% of allow-listed pairs (ts3fixes from docs/122 §14.15 leaves off-allow-list skips out of A0-A5)
     const all = a.every(x => x !== undefined) ? a.reduce((s, x) => s! + x!, 0)! : undefined, skips = fx(i, 'autshadow_skips');
     L.push(`- A4 share: ${all ? `${(a[4]! * 100 / all).toFixed(1)}% of ${all} classified pairs (target < 20%)` : NA}; skipped pairs ${skips ?? NA} [measured]`);
+    L.push(...localLines(i.fix));
     L.push(`- answer table: ${as.entries ?? NA} rows after the last cut, learned ${d(N, 'autshadow', 'learned') ?? NA}, learnDropped ${d(N, 'autshadow', 'learnDropped') ?? NA}, inserts refused ${d(N, 'autshadow', 'full') ?? NA}` +
       (as.version >= 7 ? `; max ${as.entriesMax} rows, memo ${as.memoRows}, evicted ${d(N, 'autshadow', 'evicted') ?? NA} (memo ${d(N, 'autshadow', 'evictedMemo') ?? NA}), ring dropped ${d(N, 'autshadow', 'ringDropped') ?? NA}, most new keys at one cut ${as.learnWantMax}, most body calls at one cut ${as.refreshMax}` : '') + ' [measured]');
     if (as.version >= 8) {  // docs/122 §14.15: where the cut time goes
@@ -528,6 +529,20 @@ export function defCmpLines(fix: Input['fix'] | undefined, recs: any[]): string[
   return L;
 }
 
+// docs/276 rank 5 piece 5 (ts3fixes 1185-1199, switch autt2local, AutShadowLocal.cs): the local B9 replay in Mode R, reference vs
+// worker by walk index, and the worker against the game's own B9 C2 of the same search. Absent counters = no lines.
+export function localLines(fix: Input['fix'] | undefined): string[] {
+  if (typeof fix?.aut_lp_a0?.after !== 'number') return [];
+  const fv = (k: string) => { const c = fix?.[k]; return typeof c?.after === 'number' ? c.after - (c.before ?? 0) : 0; };
+  const pc = (x: number, y: number) => y > 0 ? `${(x * 100 / y).toFixed(1)}%` : NA;
+  const a = [0, 1, 2, 3, 4, 5].map(k => fv(`aut_lp_a${k}`)), all = a.reduce((x, y) => x + y, 0), gp = fv('aut_lp_g_pairs');
+  return [`- local Mode R (autt2local, docs/276 rank 5) [measured]: A0 ${pc(a[0], all)} of ${all} classified local pairs (A1 ${a[1]}, A2 ${a[2]}, ` +
+    `A3 ${a[3]}: must be 0; A4 ${a[4]}, A5 ${a[5]}); walk-order misses ${fv('aut_lp_walkmiss')} (must be 0); household share: {"t":"local"} lines, hh 1`,
+    `- local game report [measured]: ${gp} worker pairs the game's B9 C2 also scored, bit-equal ${pc(fv('aut_lp_g_equal'), gp)}, Test agree ` +
+    `${pc(fv('aut_lp_g_testagree'), gp)}, top 1 agree ${pc(fv('aut_lp_g_top1agree'), fv('aut_lp_g_top1'))} of ${fv('aut_lp_g_top1')} searches; game C2 ` +
+    `order misses ${fv('aut_lp_g_ordermiss')}, game-only pairs ${fv('aut_lp_g_only')} (maps changed between B9 and the cut), records capped ${fv('aut_lp_g_cap')}`];
+}
+
 function selfCheck() {
   const row = { iters: 30, script: 10, taskObjects: 80, oneShot: 0, threaded: 600, route: 100, rtPlanWait: 10, rtLock: 50, rtOtherLock: 0, rtJob: 0,
     gcMark: 4, gcForcedMs: 1, fin: 2, animSacs: 20, animPose: 30, locomotion: 40, publish: 10 };
@@ -762,6 +777,14 @@ function selfCheck() {
   assert.doesNotMatch(bare, /worker adds/);
   const count = costLines({ tag: 'y', minutes: 10, native: { before: native.before, after: { autshadow: { ...native.after.autshadow, mode: 0 } } } }).join('\n');
   assert.match(count, /Mode R match rate: n\/a/); assert.match(count, /compared n\/a/); assert.doesNotMatch(count, /worker adds/);
+  const lp = (k: string, v: number) => [k, { before: 0, after: v }];
+  const lfix = Object.fromEntries([lp('aut_lp_a0', 90), lp('aut_lp_a1', 0), lp('aut_lp_a2', 0), lp('aut_lp_a3', 0), lp('aut_lp_a4', 8), lp('aut_lp_a5', 2),
+    lp('aut_lp_walkmiss', 0), lp('aut_lp_g_pairs', 50), lp('aut_lp_g_equal', 45), lp('aut_lp_g_testagree', 49), lp('aut_lp_g_top1', 10), lp('aut_lp_g_top1agree', 9),
+    lp('aut_lp_g_ordermiss', 0), lp('aut_lp_g_only', 3), lp('aut_lp_g_cap', 0)]);
+  const ll = localLines(lfix).join('\n');
+  assert.match(ll, /A0 90\.0% of 100 classified local pairs \(A1 0, A2 0, A3 0: must be 0; A4 8, A5 2\); walk-order misses 0/);
+  assert.match(ll, /50 worker pairs .*bit-equal 90\.0%, Test agree 98\.0%, top 1 agree 90\.0% of 10 searches; game C2 order misses 0, game-only pairs 3/);
+  assert.deepEqual(localLines({}), []);
   console.log(out);
   console.log('self-check ok');
 }

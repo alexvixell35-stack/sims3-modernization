@@ -514,6 +514,15 @@ namespace Ts3Agent
                     "aut_lcov_off_n_hh", "aut_lcov_off_n_seen", "aut_lcov_off_n_unseen", "aut_lcov_off_us_hh", "aut_lcov_off_us_seen", "aut_lcov_off_us_unseen", "aut_lcov_live" };
                 for (int i = 0; i < cov.Length; i++) r[cov[i]] = c[1145 + i];
             }
+            if (c.Length > 1181) // AutShadowLocal.cs autt2local (docs/276 rank 5 piece 3): local request driver, Mode R/W shadow
+            {
+                string[] lp = { "aut_lp_post", "aut_lp_off", "aut_lp_notmanager", "aut_lp_forced", "aut_lp_scopehh", "aut_lp_scopeunknown", "aut_lp_nolocal", "aut_lp_busy",
+                    "aut_lp_notready", "aut_lp_refdone", "aut_lp_workdone", "aut_lp_dropped", "aut_lp_pairs", "aut_lp_dup", "aut_lp_cap", "aut_lp_skip", "aut_lp_pass",
+                    "aut_lp_fail", "aut_lp_abort", "aut_lp_pairexc", "aut_lp_noop", "aut_lp_cacheab", "aut_lp_exc", "aut_lp_refpairs" };
+                for (int i = 0; i < lp.Length; i++) r[lp[i]] = c[1158 + i];
+            }
+            if (c.Length > 1184) { r["aut_lp_rows"] = c[1182]; r["aut_lp_rowcap"] = c[1183]; r["aut_lp_rowmax"] = c[1184]; } // AutShadowLocal.cs piece 4 local object rows
+            if (c.Length > 1199) { string[] lm = { "aut_lp_a0", "aut_lp_a1", "aut_lp_a2", "aut_lp_a3", "aut_lp_a4", "aut_lp_a5", "aut_lp_walkmiss", "aut_lp_g_pairs", "aut_lp_g_equal", "aut_lp_g_testagree", "aut_lp_g_top1", "aut_lp_g_top1agree", "aut_lp_g_ordermiss", "aut_lp_g_only", "aut_lp_g_cap" }; for (int k = 0; k < lm.Length; k++) r[lm[k]] = c[1185 + k]; } // AutShadowLocal.cs piece 5 Mode R compare + game report
             if (c.Length > 537) { r["autoff_tick_items"] = c[534]; r["autoff_tick_a0"] = c[535]; r["autoff_tick_a2"] = c[536]; r["autoff_tick_unfinished"] = c[537]; } // AutOffload.cs autofftick (docs/206 §15)
             if (c.Length > 490) // AutOffload.cs (docs/208 §8): ready store and the apply at the game's own call
             {

@@ -20,7 +20,8 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { GAME_EXE } from './game-exe.ts';
 import { pending as modsPending, restoreMods, snapshotMods } from './mods-restore.ts';
 
-export type Proc = { pid: number; ppid: number; name: string; cmd: string; start?: string };
+// mppid: Windows pid of the MSYS (Git Bash) parent; differs from ppid after an exec (the exec'ing Windows process exits)
+export type Proc = { pid: number; ppid: number; name: string; cmd: string; start?: string; mppid?: number };
 type Env = { dir: string; procs: () => Proc[]; kill: (pid: number) => void; sleepMs: number; log: (m: string) => void };
 
 const read = (f: string) => { try { return readFileSync(f, 'utf8').trim(); } catch { return null; } };
@@ -38,7 +39,19 @@ function mainQueueDir() {
 export function realProcs(): Proc[] {
   const ps = `Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,CommandLine,@{n='S';e={$_.CreationDate.ToString('s')}} | ConvertTo-Json -Compress`;
   const out = execFileSync('powershell', ['-NoProfile', '-Command', ps], { timeout: 30000, maxBuffer: 64 << 20 }).toString();
-  return (JSON.parse(out) as any[]).map(p => ({ pid: p.ProcessId, ppid: p.ParentProcessId, name: p.Name ?? '', cmd: p.CommandLine ?? '', start: p.S }));
+  const mp = msysParents();
+  return (JSON.parse(out) as any[]).map(p => ({ pid: p.ProcessId, ppid: p.ParentProcessId, name: p.Name ?? '', cmd: p.CommandLine ?? '', start: p.S, mppid: mp.get(p.ProcessId) }));
+}
+// 2026-11-18 chain-1117j deadlock: `$(timeout 30 node track.ts status)` in a child chain: the $( ) subshell forks, execs timeout and
+// exits, so timeout.exe's Windows parent is dead and the Windows walk never reached the chain scripts. MSYS ps keeps the parent link.
+export function parseMsysPs(out: string) {
+  const rows = out.split('\n').map(l => /^\s*[A-Z]?\s*(\d+)\s+(\d+)\s+\d+\s+(\d+)\s/.exec(l)).filter(m => m).map(m => m!.slice(1, 4).map(Number));
+  const win = new Map(rows.map(([pid, , w]) => [pid, w])), m = new Map<number, number>();
+  for (const [, ppid, w] of rows) { const pw = win.get(ppid); if (pw) m.set(w, pw); }
+  return m;
+}
+function msysParents() {
+  try { return parseMsysPs(execFileSync('ps', [], { timeout: 15000 }).toString()); } catch { return new Map<number, number>(); }   // no Git Bash ps: Windows links only
 }
 const realKill = (pid: number) => { try { execFileSync('taskkill', ['/T', '/F', '/PID', String(pid)], { stdio: 'ignore', timeout: 15000 }); } catch { /* gone */ } };
 
@@ -47,7 +60,7 @@ const CHAIN = /([\w.-]*(?:chain-[\w.-]*|mono-loop[\w.-]*|probe-out[\\/]queue[\\/
 export function classify(all: Proc[], self = process.pid) {
   // never list or kill ourselves or our ancestors (the calling shell's command line names the chain script too)
   const byPid = new Map(all.map(p => [p.pid, p])), mine = new Set<number>();
-  for (let p = self; p && !mine.has(p); p = byPid.get(p)?.ppid ?? 0) mine.add(p);
+  for (const todo = [self]; todo.length;) { const p = todo.pop()!; if (!p || mine.has(p)) continue; mine.add(p); const q = byPid.get(p); if (q) todo.push(q.ppid, q.mppid ?? 0); }
   const ps = all.filter(p => !mine.has(p.pid));
   const pids = new Set(all.map(p => p.pid));
   // a shell that only waits on a chain (an agent's `... track.ts wait-chain <chain>.sh`) is not that chain: counting it made waiters wait on each other forever
@@ -215,6 +228,14 @@ if (import.meta.main) {
       // caller chain: bash 30 (cmd names the script) -> node 31 = self: neither listed
       const caller = [...ps, { pid: 30, ppid: 1, name: 'bash.exe', cmd: 'bash -c "node track.ts switch probe-out/queue/mono-loop.sh"' }, { pid: 31, ppid: 30, name: 'node.exe', cmd: 'node track.ts' }];
       assert.deepEqual(classify(caller, 31).chains.map(p => p.pid), [10], 'self and ancestors excluded');
+      // child chain calling status via $(timeout ...): timeout 62's Windows parent (the exec'd subshell) is gone; MSYS parent = child chain 61
+      const nested: Proc[] = [{ pid: 60, ppid: 1, name: 'bash.exe', cmd: 'bash probe-out/queue/chain-1117j.sh' }, { pid: 61, ppid: 60, name: 'bash.exe', cmd: 'bash probe-out/queue/chain-1117h-gi-rerun1.sh' },
+        { pid: 62, ppid: 999, mppid: 61, name: 'timeout.exe', cmd: 'timeout 30 node track.ts status' }, { pid: 63, ppid: 62, name: 'node.exe', cmd: 'node track.ts status' }];
+      assert.deepEqual(classify([...ps, ...nested], 63).chains.map(p => p.pid), [10], 'MSYS parents of an exec\'d subshell excluded too');
+      assert.deepEqual(classify([...ps, ...nested.map(p => ({ ...p, mppid: undefined }))], 63).chains.map(p => p.pid), [10, 60], 'without MSYS links the parent chain shows (the 1117j bug)');
+      // MSYS ps: optional flag column; parent link only to a listed MSYS pid
+      const ms = parseMsysPs('      PID    PPID    PGID     WINPID   TTY         UID    STIME COMMAND\n    78717       1   78717       9148  ?         197609 03:30:06 /usr/bin/bash\nS   78719   78717   78717      19520  ?         197609 03:30:06 /usr/bin/tail\n');
+      assert.deepEqual([...ms], [[19520, 9148]]);
       // another process's shell waiting on the chain is not the chain (two waiters used to wait on each other forever)
       const waiter = [...ps, { pid: 40, ppid: 1, name: 'bash.exe', cmd: 'bash -c "source x.sh && timeout 7000 node tools/harness/track.ts wait-chain probe-out/queue/chain-mono.sh"' }];
       assert.deepEqual(classify(waiter, 0).chains.map(p => p.pid), [10], 'wait-chain shells are not chains');

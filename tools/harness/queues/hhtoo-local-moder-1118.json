@@ -1,0 +1,266 @@
+{
+  "note": "MODE R (not run) of docs/276 rank 5 piece 5 (L5 + L6, branch feature/hhtoo-local5-1118): the local B9 replay of reference (sim thread) and worker compared pair for pair by walk index, and the worker against the game's own B9 C2 of the same search. Shadow only (Mode 1): no Sim, household or not, scores, chooses or acts differently. Rounds: 3 jobs a round, 1-3 rounds (fix the A1-A3 / walk-miss causes from the LA<k> lines between rounds). PASS = 0 crashes, no freeze, scriptErrors 0, switches read back, the fixesRequire lines (A1 = A2 = A3 = 0, walk misses 0, aut_lp_exc 0) and the early gates (autshadow.full 0, autshadow.unguarded 0). Read, per world: local A0 share = aut_lp_a0 / (aut_lp_a0..a5) overall and household-only from the {\"t\":\"local\"} lines (hh 1) of autshadow.jsonl: the piece-6 go/park number (>= ~37% household A0 share to reach 3 ms/s, docs/276 §10); aut_lp_a4 by reason from the LA4 lines; game report aut_lp_g_equal / aut_lp_g_pairs, g_testagree, g_top1agree / g_top1, g_ordermiss and g_only (maps that changed between B9 and the cut). Flag-off arm bp-lpr-flagoff: HouseholdToo=0, no local request posted, nothing compared. Run: TS3_AGENT_PACKAGE=game-copy/ts3agent.package.hhtoo-local5-1118 node tools/harness/queue.ts tools/harness/queues/hhtoo-local-moder-1118.json",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0.36.271-mc1117 ": {
+      "match": [
+        "ts3native 0.36.271-mc1117 2026-11-17 08:06:01"
+      ],
+      "noMatch": [
+        "ts3native 0.36.269-mb1117 2026-11-17 01:00:00",
+        "ts3native 0.36.272-gchold2 2026-11-17 11:41:10"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "sv-lpr-on",
+      "note": "SV-Spring 10 min, HouseholdToo=1, autshadow Mode 1 + autt2local + tier-2 worker hooks. PASS as the queue note.",
+      "asi": "game-copy/ts3native.asi.master-1117c",
+      "iniBase": "game-copy/ts3native.ini.master-1117c",
+      "fixesPackage": "game-copy/ts3fixes.package.hhtoo-local5-1118",
+      "pinReason": "feature/hhtoo-local5-1118 (builds.json ts3fixes.package.hhtoo-local5-1118 + ts3agent.package.hhtoo-local5-1118: master + autt2local driver + L4 rows + L5 Mode R compare / game report) on the master-1117c asi + ini (0.36.271-mc1117); install the agent with TS3_AGENT_PACKAGE=game-copy/ts3agent.package.hhtoo-local5-1118 for the aut_lp_* keys",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0.36.271-mc1117 ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 35,
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:aut_lp_post",
+          "op": ">",
+          "value": 0,
+          "why": "no local request posted: autt2local switch, HouseholdToo=1 read-back, autshadow Mode 1 ready (sHooksOk/sWarmOk) or agent package"
+        },
+        {
+          "afterSec": 540,
+          "counter": "autshadow.full",
+          "op": "<=",
+          "value": 0,
+          "why": "ts3native autshadow row table refused inserts (AS_CAP 8192 shared by the batch's meta rows and the local object rows, cap 256 a request): lower kMaxLocalObjs (AutShadowLocal.cs) before piece 6; the FAIL line carries the count"
+        },
+        {
+          "afterSec": 60,
+          "counter": "autshadow.unguarded",
+          "op": "<=",
+          "value": 0,
+          "why": "worker reached an IC with no thunk (asUnguarded)"
+        }
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "autshadow,autt2local,autt2drag,autt2cache,autt2tuning,autt2lod,autt2inuse,autt2fire",
+          "fixesReport": "aut_lp_,householdtoo_",
+          "fixesRequire": "aut_lp_post>=1,aut_lp_refdone>=1,aut_lp_workdone>=1,aut_lp_pairs>=1,aut_lp_exc<1,aut_lp_rows>=1,aut_lp_a0>=1,aut_lp_a1<1,aut_lp_a2<1,aut_lp_a3<1,aut_lp_walkmiss<1,aut_lp_g_pairs>=1,householdtoo_lift>=1"
+        }
+      },
+      "ini": {
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Tier2Rows": 1,
+        "AutShadow.Tier2IcRows": 1,
+        "AutShadow.Tier2IcNew": 96,
+        "AutShadow.Tier2RoomGate": 1,
+        "Experimental.HouseholdToo": 1
+      }
+    },
+    {
+      "id": "bp-lpr-on",
+      "note": "BP-Spring 10 min, HouseholdToo=1, as sv-lpr-on. PASS as the queue note.",
+      "asi": "game-copy/ts3native.asi.master-1117c",
+      "iniBase": "game-copy/ts3native.ini.master-1117c",
+      "fixesPackage": "game-copy/ts3fixes.package.hhtoo-local5-1118",
+      "pinReason": "feature/hhtoo-local5-1118 (builds.json ts3fixes.package.hhtoo-local5-1118 + ts3agent.package.hhtoo-local5-1118: master + autt2local driver + L4 rows + L5 Mode R compare / game report) on the master-1117c asi + ini (0.36.271-mc1117); install the agent with TS3_AGENT_PACKAGE=game-copy/ts3agent.package.hhtoo-local5-1118 for the aut_lp_* keys",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0.36.271-mc1117 ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 35,
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:aut_lp_post",
+          "op": ">",
+          "value": 0,
+          "why": "no local request posted: autt2local switch, HouseholdToo=1 read-back, autshadow Mode 1 ready or agent package"
+        },
+        {
+          "afterSec": 540,
+          "counter": "autshadow.full",
+          "op": "<=",
+          "value": 0,
+          "why": "ts3native autshadow row table refused inserts (AS_CAP 8192 shared by the batch's meta rows and the local object rows, cap 256 a request): lower kMaxLocalObjs (AutShadowLocal.cs) before piece 6; the FAIL line carries the count"
+        },
+        {
+          "afterSec": 60,
+          "counter": "autshadow.unguarded",
+          "op": "<=",
+          "value": 0,
+          "why": "worker reached an IC with no thunk (asUnguarded)"
+        }
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "autshadow,autt2local,autt2drag,autt2cache,autt2tuning,autt2lod,autt2inuse,autt2fire",
+          "fixesReport": "aut_lp_,householdtoo_",
+          "fixesRequire": "aut_lp_post>=1,aut_lp_refdone>=1,aut_lp_workdone>=1,aut_lp_pairs>=1,aut_lp_exc<1,aut_lp_rows>=1,aut_lp_a0>=1,aut_lp_a1<1,aut_lp_a2<1,aut_lp_a3<1,aut_lp_walkmiss<1,aut_lp_g_pairs>=1"
+        }
+      },
+      "ini": {
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Tier2Rows": 1,
+        "AutShadow.Tier2IcRows": 1,
+        "AutShadow.Tier2IcNew": 96,
+        "AutShadow.Tier2RoomGate": 1,
+        "Experimental.HouseholdToo": 1
+      }
+    },
+    {
+      "id": "bp-lpr-flagoff",
+      "note": "BP-Spring 10 min, HouseholdToo=0 with autt2local on: the post gate answers kOff for every search; no local request posted, nothing compared, no game C2 recorded (household untouched check). PASS as the queue note.",
+      "asi": "game-copy/ts3native.asi.master-1117c",
+      "iniBase": "game-copy/ts3native.ini.master-1117c",
+      "fixesPackage": "game-copy/ts3fixes.package.hhtoo-local5-1118",
+      "pinReason": "feature/hhtoo-local5-1118 (builds.json ts3fixes.package.hhtoo-local5-1118 + ts3agent.package.hhtoo-local5-1118: master + autt2local driver + L4 rows + L5 Mode R compare / game report) on the master-1117c asi + ini (0.36.271-mc1117); install the agent with TS3_AGENT_PACKAGE=game-copy/ts3agent.package.hhtoo-local5-1118 for the aut_lp_* keys",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0.36.271-mc1117 ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 35,
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:aut_lp_off",
+          "op": ">",
+          "value": 0,
+          "why": "autt2local B7 window never opened: switch or B7 hook"
+        }
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "autshadow,autt2local,autt2drag,autt2cache,autt2tuning,autt2lod,autt2inuse,autt2fire",
+          "fixesReport": "aut_lp_,householdtoo_",
+          "fixesRequire": "aut_lp_off>=1,aut_lp_post<1,aut_lp_scopehh<1,householdtoo_lift<1,aut_lp_exc<1,aut_lp_a0<1,aut_lp_g_pairs<1,aut_lp_g_cap<1"
+        }
+      },
+      "ini": {
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Tier2Rows": 1,
+        "AutShadow.Tier2IcRows": 1,
+        "AutShadow.Tier2IcNew": 96,
+        "AutShadow.Tier2RoomGate": 1,
+        "Experimental.HouseholdToo": 0
+      }
+    }
+  ]
+}

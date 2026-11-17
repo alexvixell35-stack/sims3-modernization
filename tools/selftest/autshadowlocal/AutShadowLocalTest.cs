@@ -106,6 +106,22 @@ static class AutShadowLocalTest
         Check(caps, 5, "big: rest capped");
         Check(dups, 100, "big: repeats are dups");
 
+        // piece 5: per-pair class by walk index, game C2 order against the worker walk
+        const int Ps = AutShadowCore.kPass, Fl = AutShadowCore.kTestFailed, Sk = AutShadowCore.kSkip, Ab = AutShadowCore.kAbort;
+        Check(AutShadowLocalCore.LocalClass(false, Ps, 1f, Ps, 1f), AutShadowLocalCore.kWalkMiss, "other pair at the index = walk miss");
+        Check(AutShadowLocalCore.LocalClass(true, Sk, 0f, Sk, 0f), AutShadowCore.kNoClass, "off-list both sides = no class");
+        Check(AutShadowLocalCore.LocalClass(true, Ps, 1.5f, Ps, 1.5f), AutShadowCore.A0, "same bits = A0");
+        Check(AutShadowLocalCore.LocalClass(true, Ps, 1f, Ps, BitConverter.ToSingle(BitConverter.GetBytes(BitConverter.ToInt32(BitConverter.GetBytes(1f), 0) + 1), 0)), AutShadowCore.A1, "1 ulp = A1");
+        Check(AutShadowLocalCore.LocalClass(true, Ps, 1f, Ps, 2f), AutShadowCore.A2, "far = A2");
+        Check(AutShadowLocalCore.LocalClass(true, Ps, 1f, Fl, 0f), AutShadowCore.A3, "pass vs Test failed = A3");
+        Check(AutShadowLocalCore.LocalClass(true, Ps, 1f, Ab, 0f), AutShadowCore.A4, "worker abort = A4");
+        Check(AutShadowLocalCore.LocalClass(true, Sk, 0f, Ps, 1f), AutShadowCore.A4, "one-sided skip = A4");
+        int only;
+        Check(AutShadowLocalCore.GameOrderMisses(new int[] { 0, 2, 5, -1, 7 }, 5, out only), 0, "subsequence: no miss");
+        Check(only, 1, "one game-only pair");
+        Check(AutShadowLocalCore.GameOrderMisses(new int[] { 3, 1, 4, 2, 9 }, 5, out only), 2, "two pairs below the high mark");
+        Check(AutShadowLocalCore.GameOrderMisses(new int[] { 3, 1 }, 0, out only) * 10 + only, 0, "n = 0");
+
         Console.WriteLine(sFails == 0 ? "autshadowlocal selftest: PASS" : "autshadowlocal selftest: " + sFails + " FAIL");
         Environment.Exit(sFails == 0 ? 0 : 1);
     }

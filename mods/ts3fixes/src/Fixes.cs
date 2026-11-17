@@ -994,6 +994,11 @@ namespace Ts3Fixes
         // local, pushed, no pick, not pushed under a user / autonomous head, same pick again, short gap, no-push runs, Sims, max per Sim, exceptions
         // [1135-1138] burnttilefloor (BurntTileFloor.cs, docs/277 §4.1): burnt tiles left out (no floor), lists that lost one, lists left empty, errors
         // [1115-1134] hhsearchprobe docs/277 §5: scope, why enqueued (immediate ok/fail, empty <5/5-10/10-60/>60 sim-min, none), gap ms bins, no pick after >60, L0 pairs, active lot, pets
+        // [1158-1181] autt2local (AutShadowLocal.cs, docs/276 rank 5 piece 3): post gate codes, posts refused by the session, reference /
+        // worker runs done, worker results dropped, pairs walked / dup / lpcap / skip / pass / fail / abort / exc, H8 local no-op / abort, sim-thread exc, reference pairs
+        // [1182-1184] autt2local piece 4 (AutShadowLocal.cs LocalRows): local target object rows added, requests capped at 256, most rows in one request
+        // [1185-1199] autt2local piece 5 (AutShadowLocal.cs LocalCompare): A0..A5 by walk index, walk-order misses, game report (pairs, bit-equal,
+        // Test agree, top 1 valid / agree), game C2 order misses, game-only pairs, game records capped
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,

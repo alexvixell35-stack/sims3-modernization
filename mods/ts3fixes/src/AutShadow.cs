@@ -155,6 +155,19 @@ namespace Ts3Fixes
             public Door T2Door;
             public int T2DoorState = -1;
             public bool T2CallPet;  // tier-2 P3 switch (T2P2Fill)
+            // docs/276 rank 5 piece 3 (AutShadowLocal.cs): a local-phase request (B9 replay, no meta objects: Objs = Pairs = 0).
+            // Filled on the sim thread right after the game's B9: the lot B9 picked, the other Sims B9 walked, the generic
+            // commodity order, the situation pairs (generic only), the source mask and the actor's C0 of this search.
+            public bool Local;
+            public Lot LLot;
+            public int LSrc, LKindN;
+            public readonly int[] LKinds = new int[kMaxLocalKinds];
+            public readonly List<Sim> LSims = new List<Sim>();
+            public readonly List<InteractionObjectPair> LSit = new List<InteractionObjectPair>();
+            public readonly LocalC0 LC0 = new LocalC0();
+            // piece 5: the game's own C2 calls of this search's B9 (pair, score) in call order, for the Mode R game report
+            public readonly List<InteractionObjectPair> LGame = new List<InteractionObjectPair>();
+            public readonly List<float> LGameS = new List<float>();
         }
 
         public sealed class Result
@@ -177,6 +190,10 @@ namespace Ts3Fixes
             // tier-2 P2 (worker-written, summed into counters 938-943 at the finish; AutShadowCore.kT2P2* order)
             public readonly int[] T2P2 = new int[AutShadowCore.kT2P2N];
             public int T2CallPet;  // tier-2 P3: CallPet self Tests run on the worker with the shared list put back (counter 944)
+            // local request (AutShadowLocal.cs): pairs in walk order (first occurrence; Score/Code/Reason share the index),
+            // duplicates and pairs past the cap, H8 local no-ops and cache aborts
+            public int LN, LDup, LCap, LNoop, LCacheAb;
+            public readonly InteractionObjectPair[] LPair = new InteractionObjectPair[kMaxPairs];
         }
 
         // Rooted requests and results (docs/122 §4.2), allocated at startup on the sim thread and reused. A shared cut (docs/122
@@ -929,7 +946,7 @@ namespace Ts3Fixes
             if (!join) sReqN = 0;
             int at = sReqN;
             Request q = sReq = sReqs[at];
-            q.Live = L;
+            q.Live = L; q.Local = false;
             q.Id = ++sNextId; q.Mode = mode; q.Actor = actor; q.Aut = a; q.C = c; q.Hh = HouseholdExempt(actor);  // docs/271: IsPlayerSim unless [Experimental] HouseholdToo=1
             q.SearchType = a.CurrentSearchType; q.Flags = a.GetInteractionFlagsForCurrentSearch(); q.Hours = SimClock.HoursPassedOfDay;
             q.Objs = q.Pairs = 0;
@@ -1117,7 +1134,7 @@ namespace Ts3Fixes
             if (sReqs[0].Mode == 1 || sReqs[0].Mode == 3) sGardening = Sim.NumSimsDoingGardening;  // Mode 3: verify cuts only
             for (int i = 0; i < sReqN; i++) ShelterFill(sReqs[i]);  // H11: the bit at the cut, the instant the reference reads
             sInRef = true;
-            try { for (int i = 0; i < sReqN; i++) { sReq = sReqs[i]; sRef = sRefs[i]; ScoreMeta(sReq, sRef); } OffScore(false); }
+            try { for (int i = 0; i < sReqN; i++) { sReq = sReqs[i]; sRef = sRefs[i]; if (sReq.Local) ScoreLocal(sReq, sRef, sLocSetRef); else ScoreMeta(sReq, sRef); } OffScore(false); }
             finally { sInRef = false; }
         }
 
@@ -1134,7 +1151,7 @@ namespace Ts3Fixes
                     sWorks[i].Id = -1; sWorks[i].Done = false;
                     if (i > 0 && AutShadowNative.Stopped()) continue;
                     sReq = sReqs[i]; sWork = sWorks[i];
-                    ScoreMeta(sReq, sWork);
+                    if (sReq.Local) ScoreLocal(sReq, sWork, sLocSetWork); else ScoreMeta(sReq, sWork);
                 }
                 if (sActorScope) AutShadowNative.ActorScope(sReqN > 0 && !sReqs[0].Hh ? 0 : 1);  // the offload items ride request 0
                 OffScore(true);  // docs/208 (AutOffload.cs)
@@ -1154,12 +1171,13 @@ namespace Ts3Fixes
             for (int k = 0; k < n; k++)  // each request against its own rows and its own reference (docs/122 §14.18)
             {
                 sReq = sReqs[k]; sRef = sRefs[k]; sWork = sWorks[k];
-                c[121] += (sRef.Id == sReq.Id ? sRef.Exceptions : 0) + (sWork.Id == sReq.Id ? sWork.Exceptions : 0);
+                if (!sReq.Local) c[121] += (sRef.Id == sReq.Id ? sRef.Exceptions : 0) + (sWork.Id == sReq.Id ? sWork.Exceptions : 0);  // local: 1177 / 1180
                 if (sWork.Id == sReq.Id) for (int w = 0; w < 4; w++) c[kCRainWhy + w] += sWork.RainWhy[w];  // fixes-607
                 if (sWork.Id == sReq.Id) for (int w = 0; w < AutShadowCore.kT2N; w++) c[kCT2Ab + w] += sWork.T2Ab[w];  // fixes-884
                 if (sWork.Id == sReq.Id) for (int w = 0; w < AutShadowCore.kT2HN; w++) c[kCT2H + w] += sWork.T2H[w];  // fixes-898
                 if (sWork.Id == sReq.Id) for (int w = 0; w < AutShadowCore.kT2P2N; w++) c[kCT2P2 + w] += sWork.T2P2[w];  // fixes-938
                 if (sWork.Id == sReq.Id) c[kCT2CallPet] += sWork.T2CallPet;  // fixes-944
+                if (sReq.Local) { LocalFinish(c, lr); continue; }  // docs/276 rank 5 pieces 3 + 5 (AutShadowLocal.cs): counters, Mode R compare, game report
                 // KeepPartial (docs/122 §14.21): an overrun (LastRun 1) whose worker result says Done kept the objects it
                 // finished before the stop; those are compared, the rest are A4 `stop`. An epoch drop (2) stays dropped.
                 bool partial = lr == 1 && sKeepPartial && sWork.Done && sWork.Partial && sWork.Id == sReq.Id;
@@ -1444,8 +1462,9 @@ namespace Ts3Fixes
         {
             score = 0f;
             Tradeoff t = iop.Tradeoff;
-            if (t == null) return AutShadowCore.kFiltered;
-            bool want = q.C == CommodityKind.None || t.SatisfiesCommodity(q.C);
+            if (t == null && !q.Local) return AutShadowCore.kFiltered;
+            // a local request has no commodity filter here: the map list it walked is the filter (B12), as C2 itself
+            bool want = q.Local || q.C == CommodityKind.None || t.SatisfiesCommodity(q.C);
             if (!want)
             {
                 IMetaInteractionDefinition md = iop.InteractionDefinition as IMetaInteractionDefinition;
@@ -1460,6 +1479,7 @@ namespace Ts3Fixes
             bool rain = false;
             if (OnWorker() && RainShelterBranch(q, iop))
             {
+                if (q.Local) { RainWhy(0); AutShadowNative.Abort(kReasonRain); return AutShadowCore.kAbort; }  // no shelter bit per local target (piece 4 rows)
                 if (!RainArmPair(q, o, iop)) { RainWhy(sRainArmRet == -1 ? 1 : 0); AutShadowNative.Abort(kReasonRain); return AutShadowCore.kAbort; }
                 rain = true;
             }
@@ -1633,6 +1653,7 @@ namespace Ts3Fixes
             {
                 AutonomyT a = (AutonomyT)(object)this;
                 L0Close(a);  // tier-2 L0: B9 is over when B13 starts (AutLocalProbe.cs)
+                LocalAfterB9(a);  // autt2local: the local request of this search (AutShadowLocal.cs)
                 bool mine = false;
                 if (!sSessionOff && ShortcutOn("autshadow"))
                 {
@@ -1675,6 +1696,12 @@ namespace Ts3Fixes
                     LiveScored(L, iop, ls);
                     if (sL0Cov && sL0Aut != null && (object)this == (object)sL0Aut) PatchCounters()[AutLocalProbeCore.kCovLive]++;
                     return ls;
+                }
+                if (sLocRec && sLocB7 != null && (object)this == (object)sLocB7 && !sL0Cov && !OnWorker())  // autt2local piece 5: the game's own local C2, same score (AutShadowLocal.cs)
+                {
+                    float gs = ScoreOrig(iop);
+                    LocalGameScored(iop, gs);
+                    return gs;
                 }
                 if (sL0Cov && sL0Aut != null && (object)this == (object)sL0Aut)  // autt2lcov (AutLocalProbe.cs): time + file, same score
                 {
@@ -2074,6 +2101,7 @@ namespace Ts3Fixes
         {
             public void CacheHook(IGameObject obj)
             {
+                if (sInLocal && (sInRef || OnWorker())) { LocalCache(this); return; }  // docs/276 rank 5 L1 (AutShadowLocal.cs), both sides
                 if (!OnWorker() || !sReq.T2Cache) { CacheOrig(obj); return; }
                 if (sReq.T2Hh) { T2HAbort(true, -1); return; }
                 if (AutShadowCore.T2CacheNoop((object)this == (object)sReq.Aut, sReq.T2CacheActive)) return;

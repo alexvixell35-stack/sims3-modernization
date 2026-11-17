@@ -150,6 +150,8 @@ Results from different machines only compare when everyone measures the same sav
 
 ### 15. Mono interpreter speedups
 
+> **Status 2026-11-18: shipped** as own method compiler `[MonoJit]` (ON on master).
+
 - docs/04 F6/F7: scripts run in Mono 1.2's interpreter, the largest sim-thread cost. Ideas: a method lookup cache, inline caches for virtual/interface calls, faster field access paths, cheaper `isinst`/`castclass`. Each is a native patch inside the interpreter loop, with correctness risk across all game scripts.
 - 2026-11-15: own method compiler `[MonoJit]` (docs/527, docs/537) ON on master (`Enabled=1 Direct=1 Inline=2 Wide=1 BoundCall=1 ClauseLazy=1`), not yet in a release; supersedes the 10-15 line below.
 - 2026-10-15: JIT dropped; helper split done ([docs/29 §5](29-mono-jit.md)): the top helper is already cached by S3PP, our first own target is the IC-transition lock (Next big wins #4, #5).
@@ -157,6 +159,8 @@ Results from different machines only compare when everyone measures the same sav
 - Issue: `[research] Mono interpreter hot paths: method/virtual call caches`.
 
 ### 16. 64-bit research notes
+
+> **Status 2026-11-18: superseded.** The 64-bit renderer is Apex Radiance's RTX Remix bridge; Apex also ships the `ts3wrap.exe` restart host (off by default).
 
 - Why it is not realistic: a 32-bit exe with ~40k functions, embedded Mono 1.2 (32-bit, interpreter), 32-bit pointer assumptions in data files and saves, third-party 32-bit plugins (S3SS, DXVK x32, ASI loader). What it would take: per-function rewrites verified live, or an out-of-process 64-bit helper (docs/08 tried a resource cache helper and dropped it). Write it down once so the question stops costing time.
 - Issue: `[research] 64-bit: why not, and what would be needed (notes only)`.
@@ -171,6 +175,8 @@ Results from different machines only compare when everyone measures the same sav
 - Issue: `[research] Sim-thread offload architecture: map, blockers, step plan`.
 
 ### 18. Route plan cache: measure repeats first (2026-10-19)
+
+> **Status 2026-11-18: dropped** (0 ms/s, see 18.1).
 
 > **Changes 2026-10-19:** new section. Build only; the game was not run.
 
