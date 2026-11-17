@@ -1178,6 +1178,7 @@ namespace Ts3Fixes
         // [3520-3524] timeralarmleak (Wishes86.cs, docs/623 §1): alarms removed at leave / left (off) / orphans ended at fire / orphan fires (off) / errors.
         // [3525-3528] wishfeedbackkeep (Wishes86.cs, docs/623 §2): kept after a feedback throw / dropped (off) / broken node throws (EA kept) / errors.
         // [3529-3533] wishsubjectgone (Wishes86.cs, docs/623 §3): notices given / kept nodes filed again / notices lost (off) / kept unfiled (off) / errors.
+        // [3620-3638] dormantprobe (DormantProbe.cs, docs/630 §2): plans / starts / pulses of unseen and dormant-candidate Sims and lots, hourly census; 3639-3659 reserved for dormantlots.
         // [3534-3537] wishupdatelost (Wishes86.cs, docs/623 §4): updates kept / lost (off) / loop guard / errors.
         // [3538-3540] socialworkerpromise (Wishes86.cs, docs/623 §5): promised wishes removed / left in slot (off) / errors.
         // [3550-3553] enumcmpnobox (Alloc87Comparers.cs, docs/625 §2): comparers installed / restored / errors / Check answer mismatches.
@@ -1495,6 +1496,7 @@ namespace Ts3Fixes
                 // docs/250 §7.1 A1: OFF since rc1110b (2026-11-09) until the wdasync-fix-1110 tests (Instantiator.kWatchdogAsync)
                 case "watchdogasync": return Instantiator.kWatchdogAsync;
                 case "watchdogasyncshadow": return false;  // correctness arm only: re-runs each A1 check sync and counts mismatches
+                case "dormantprobe": return false;  // log only: route plans, interaction starts, pulses and alarms of dormant-candidate lots per sim-hour (DormantProbe.cs, docs/630)
                 case "callcensus": return false;  // log only: calls per sim-hour of the docs/589-590 speedup candidates, pass-through (CallCensus.cs, docs/584 §10)
                 case "stcsocials": return false;  // proven-exact speedup, off until measured: GetSocialsForSTC's autonomous branch without its two redundant copies (SocialStc.cs, docs/584 §9)
                 case "stcsocialscheck": return false;  // pure check for stcsocials: EA's method runs too, results compared (SocialStc.cs)
@@ -2810,6 +2812,7 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 c[22]++;
                 Sims3.Gameplay.Interfaces.IGameObject o = b.BroadcastingObject;
+                if (DpOn()) DpPulseNote(o);  // dormantprobe (DormantProbe.cs, docs/630)
                 // docs/144: per-broadcaster one pulse in kUnseenBroadcastEvery, staggered by the broadcaster, instead of the
                 // shared 1-in-4 counter below (which can starve the same broadcasters when their pulses line up with it)
                 if (o != null && ShortcutOn("unseenbroadcast"))
