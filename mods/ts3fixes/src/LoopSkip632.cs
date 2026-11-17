@@ -7,6 +7,7 @@ using Sims3.Gameplay.Autonomy;
 using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Objects;
+using Sims3.Gameplay.Objects.Environment;
 using Sims3.Gameplay.Objects.Electronics;
 using Sims3.Gameplay.Objects.HobbiesSkills;
 using Sims3.Gameplay.Objects.Plumbing;
@@ -80,6 +81,10 @@ namespace Ts3Fixes
             LsAdd(typeof(Stereo.DanceTogetherA), kLsEnd, "Stereo.DanceTogetherA", miss);
             LsAdd(typeof(HotTubBase.Relax), kLsEnd, "HotTubBase.Relax", miss);
             LsAdd(typeof(PoolTable).GetNestedType("PerformForTips", nested), kLsEnd, "PoolTable.PerformForTips", miss);
+            // docs/632 §3b [verified, ilspycmd SwingSet+Swing.Run]: DoLoop(Default, LoopCallback); after the loop EA unregisters
+            // group talk, stops swinging unless BePushed is next (AnimateSim Neutral, UpdateFootprint), EndCommodityUpdates,
+            // TryMovingToAnotherObject. The callback reads mLifeTime only (playground move), so end only, no step.
+            LsAdd(typeof(SwingSet).GetNestedType("Swing", nested), kLsEnd, "SwingSet.Swing", miss);
             sLsMissing = string.Join(", ", miss.ToArray());
             if (sLsDayField == null || sLsNightField == null) miss.Add("Autonomy.kMaxTimeForLowLODInteraction*");
             sLsMissing = string.Join(", ", miss.ToArray());
@@ -279,7 +284,7 @@ namespace Ts3Fixes
                 List<KeyValuePair<Type, int>> top = new List<KeyValuePair<Type, int>>(sLsUnlisted);
                 top.Sort(delegate(KeyValuePair<Type, int> x, KeyValuePair<Type, int> y) { return y.Value.CompareTo(x.Value); });
                 System.Text.StringBuilder ub = new System.Text.StringBuilder();
-                for (int i = 0; i < top.Count && i < 8; i++) ub.Append((i == 0 ? "" : ", ") + top[i].Key.FullName.Replace("Sims3.Gameplay.", "") + " " + top[i].Value);
+                for (int i = 0; i < top.Count && i < 15; i++) ub.Append((i == 0 ? "" : ", ") + top[i].Key.FullName.Replace("Sims3.Gameplay.", "") + " " + top[i].Value);
                 live = "getters day " + day + " night " + night + " (EA tuning " + eaDay + "/" + eaNight + " off-scope), allow list " + sLsClasses.Count + " classes, step hook "
                     + (sLsStepPatched ? "in" : "not patched (kUnseenLoopSkipStep off)") + ", listed loops now " + listed + " (unseen " + t1 + ", off-screen " + t2 + ")"
                     + ", cap " + cap + " min, step " + Instantiator.kUnseenLoopSkipStepMin + " min, unlisted asks by class: " + (ub.Length > 0 ? ub.ToString() : "none");

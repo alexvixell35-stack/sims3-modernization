@@ -28,14 +28,14 @@ export function defaultOff(fixes: string, inst: string): Set<string> {
   const def = new Map<string, boolean>();
   for (const m of inst.matchAll(/\[Tunable\]\s*public static bool (k\w+)\s*=\s*(true|false);/g)) def.set(m[1], m[2] === 'true');
   const off = new Set<string>();
-  for (const m of fixes.matchAll(/case "([a-z0-9]+)":\s*return Instantiator\.(k\w+);/g)) if (def.get(m[2]) === false) off.add(m[1]);
+  for (const m of fixes.matchAll(/case "([a-z0-9_]+)":\s*return Instantiator\.(k\w+);/g)) if (def.get(m[2]) === false) off.add(m[1]);
   return off;
 }
 
 // Switches hard-coded off in Fixes.cs (`case "name": return false;`, no tunable): may be listed (e.g. a pending A/B), not required.
 export function plainOff(fixes: string): Set<string> {
   const off = new Set<string>();
-  for (const m of fixes.matchAll(/case "([a-z0-9]+)":\s*return false;/g)) off.add(m[1]);
+  for (const m of fixes.matchAll(/case "([a-z0-9_]+)":\s*return false;/g)) off.add(m[1]);
   return off;
 }
 

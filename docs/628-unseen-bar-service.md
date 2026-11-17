@@ -53,6 +53,8 @@ Preconditions (else EA's hand-off, counter 3607): server in IdleTend with nothin
 
 `Ts3Fixes.Fixes.UnseenServiceCheck run|result`: pure scope decision (off: EA's linked wait, BROKEN; on: served at once, FIXED) with controls (player, residential, owned venue, high LOD, seen, tier 2 needs its own switch, preconditions), plus a live probe: on a world bar with a bartender each order type maps to EA's server type through `CreateBartenderInteractionInstance` (nothing runs; mismatches count in 3611), and a census of Sims ordering and serving now. In a live run, 3600-3605 grow with the switch on while NPCs order at bars off camera, and the wait-report bar rows should shrink.
 
+`Ts3Fixes.Fixes.UnseenServiceOffscreenCheck run|result` (2026-11-17, repro `unseenservice_offscreen-check`): s89 (phase-20261117-1435) toggled only `unseenservice_offscreen` and ran UnseenServiceCheck, which reports the main tier, so both arms read FIXED. This Check tests the tier-2 decision itself (an off-screen order near viewers, main switch taken as on): sub-key off = EA's wait, BROKEN; on = tier 2, FIXED. Controls: unseen stays tier 1, on screen / player / main switch off keep EA.
+
 ## 7. Counters
 
 3600-3602 tier 1 conversation / drink / food served, 3603-3605 tier 2 the same, 3606 out of scope, 3607 precondition kept EA's hand-off, 3608 tier 2 refused at the on-screen re-check, 3609 RunBehavior false after a served order (payment refused), 3610 errors (falls back to EA's hand-off), 3611 Check live mismatches (must stay 0).

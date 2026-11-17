@@ -45,6 +45,7 @@ namespace Ts3Fixes
                 case "boatstaleswimmer": return EpLive(typeof(BBsHook), 1, "sBsWater", sBsWater, null);
                 case "bonfirespice": return EpJoin(EpLive(typeof(BfFireHook), 1), EpLive(typeof(BfRunHook), 1));
                 case "bookcarry": return EpLive(typeof(BookCarryHook), 1);
+                case "bouncerplace": return EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatLegHook), 1), EpLive(typeof(BouncerHook), 1)), EpLive(typeof(BouncerRunHook), 1)), EpLive(typeof(VehicleLegHook), 1));
                 case "bouncerrole": return EpLive(typeof(B12BrHook), 3, "sBrDist", sBrDist, typeof(float), "sBrDist", sBrDist, "static");
                 case "bouncerskip": return EpJoin(EpJoin(EpLive(typeof(BoatLegHook), 1), EpLive(typeof(BouncerHook), 1)), EpLive(typeof(VehicleLegHook), 1));
                 case "bowlinglane": return EpJoin(EpLive(typeof(BlBowlHook), 0), EpLive(typeof(BlLaneHook), 0));

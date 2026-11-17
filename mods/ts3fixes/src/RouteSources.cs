@@ -52,6 +52,7 @@ namespace Ts3Fixes
             Type watch = typeof(VelvetRopes).GetNestedType("WatchDoor", BindingFlags.NonPublic);
             if (watch == null) { AppliedLog().Add("VelvetRopes+WatchDoor: not found, bouncerskip off"); return; }
             Patch(watch, "LoopDel", typeof(BouncerHook), "LoopDelHook", "LoopDelOrig");
+            Patch(watch, "Run", Type.EmptyTypes, typeof(BouncerRunHook), "RunHook", "RunOrig");  // docs/633 bouncerplace
         }
 
         static int[] sRouteSrc;
@@ -211,6 +212,7 @@ namespace Ts3Fixes
             {
                 bool src = ShortcutOn("routesrc"), skip = ShortcutOn("bouncerskip");
                 if ((src || skip) && BouncerAtSlot(this, skip)) return;
+                if (ShortcutOn("bouncerplace") && BouncerPlace(this, false)) return;  // docs/633: unseen, placed instead of a route
                 LoopDelOrig(smc, ld);
             }
             public void LoopDelOrig(StateMachineClient smc, InteractionInstance.LoopData ld) { } // receives WatchDoor.LoopDel's original header
@@ -244,6 +246,92 @@ namespace Ts3Fixes
                 return true;
             }
             catch (Exception) { return false; }
+        }
+
+        // ---- docs/633 bouncerplace ----------------------------------------------------------------------------------------
+        // [verified, ilspycmd VelvetRopes+WatchDoor] Run: RouteToSlot(Target, RoutingSlot_2), Enter - Watch Door, Watch Loop,
+        // DoLoop(Default, LoopDel, 5 min), Exit; LoopDel: RouteToSlot(Target, RoutingSlot_2), result ignored. phase-2026111*
+        // logs: 250+ "routefail job: ... WatchDoor target VelvetRopes" (failed or cut bouncer routes). With the switch on, an
+        // unseen bouncer (TownieUnseen: not a player Sim, standing, alone, off screen, far from viewers; not the selected Sim;
+        // no parent) whose slot is off screen and far from viewers is put on RoutingSlot_2 facing the slot's forward
+        // (PlaceSim, as rhentryrelax's route-less arrival) instead of a route. In LoopDel EA's route is then skipped; in Run
+        // EA's RouteToSlot follows from the slot (a zero-length route) and the rest of Run is EA's. Seen bouncers route as EA.
+        // Counters: [3740] loop routes replaced, [3741] Run arrivals placed, [3742] out of scope (player / selected / seen /
+        // parented), [3743] slot on screen or near viewers, [3744] errors, [3745] Check mismatches (must stay 0), 3746-3749 spare.
+        internal static bool BpPlace(bool on, bool player, bool selected, bool unseen, bool parented, bool slotSeen)
+        {
+            return on && !player && !selected && unseen && !parented && !slotSeen;
+        }
+
+        // WatchDoor is private and sealed: `this` taken as object (BouncerHook pattern).
+        public class BouncerRunHook
+        {
+            public bool RunHook()
+            {
+                if (ShortcutOn("bouncerplace")) BouncerPlace(this, true);
+                return RunOrig();
+            }
+            public bool RunOrig() { return false; } // receives VelvetRopes+WatchDoor.Run
+        }
+
+        // Places the bouncer when in scope; true = placed (the caller skips EA's route).
+        static bool BouncerPlace(object self, bool run)
+        {
+            int[] c = PatchCounters();
+            try
+            {
+                InteractionInstance ii = self as InteractionInstance;
+                Sim actor = ii != null ? ii.InstanceActor as Sim : null;
+                GameObject target = ii != null ? ii.Target as GameObject : null;
+                if (actor == null || target == null || actor.HasBeenDestroyed) return false;
+                bool player = IsPlayerSim(actor), selected = actor == Sims3.Gameplay.Core.PlumbBob.SelectedActor, parented = actor.Parent != null;
+                bool unseen = !player && !selected && !parented && TownieUnseen(actor, null);
+                if (!BpPlace(true, player, selected, unseen, parented, false)) { c[3742]++; return false; }
+                Vector3 slot = target.GetPositionOfSlot(Slot.RoutingSlot_2), fwd = target.GetForwardOfSlot(Slot.RoutingSlot_2);
+                bool slotSeen = UcOnScreen(target) || !FarFromViewers(slot);
+                if (slotSeen) { c[3743]++; return false; }
+                PlaceSim(actor, slot, fwd, "bouncerplace");
+                c[run ? 3741 : 3740]++;
+                return true;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { c[3744]++; return false; }
+        }
+
+        // BouncerPlaceCheck run: the placement decision for an unseen bouncer with an unseen slot (off: EA routes, BROKEN;
+        // on: placed, FIXED). Controls: player / selected / seen / parented bouncer and a seen slot keep EA's route; the off
+        // rule never places. Live: bouncers on WatchDoor now, by unseen / seen. Read-only.
+        public static object BouncerPlaceCheck(string what)
+        {
+            string counters = B582Counters("bouncerplace", 3740, new[] { "loop routes replaced", "Run arrivals placed", "out of scope", "slot seen", "errors", "check mismatches" }, "");
+            if (what == "result") return counters;
+            if (what != "run") return "bouncerplace <run|result>";
+            bool on = ShortcutOn("bouncerplace");
+            bool fixedNow = BpPlace(on, false, false, true, false, false);
+            bool controls = !BpPlace(false, false, false, true, false, false)
+                && !BpPlace(true, true, false, true, false, false)    // player Sim
+                && !BpPlace(true, false, true, true, false, false)    // selected Sim
+                && !BpPlace(true, false, false, false, false, false)  // seen bouncer
+                && !BpPlace(true, false, false, true, true, false)    // parented
+                && !BpPlace(true, false, false, true, false, true);   // slot seen
+            if (!controls) PatchCounters()[3745]++;
+            Type watch = typeof(VelvetRopes).GetNestedType("WatchDoor", BindingFlags.NonPublic);
+            string missing = watch == null ? "VelvetRopes+WatchDoor" : "";
+            int unseenN = 0, seenN = 0;
+            try
+            {
+                if (watch != null)
+                    foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                    {
+                        InteractionInstance cur = s == null ? null : s.CurrentInteraction;
+                        if (cur == null || cur.GetType() != watch) continue;
+                        if (!IsPlayerSim(s) && TownieUnseen(s, null)) unseenN++; else seenN++;
+                    }
+            }
+            catch (Exception) { }
+            return B582Line("bouncerplace", on, "an unseen bouncer is placed on its slot instead of a route", fixedNow,
+                "player / selected / seen / parented bouncer or seen slot route as EA, off as EA, bouncers on WatchDoor now unseen " + unseenN + " seen " + seenN,
+                controls, missing, counters);
         }
 
         // BouncerSkipCheck run: the hook's decision on an on-slot bouncer (3 cm off, facing 2.6 degrees off): EA re-plans

@@ -7399,6 +7399,24 @@
       "from": 632,
       "at": "2026-11-17T16:00:00.000Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3740",
+      "kind": "fixes",
+      "from": 3740,
+      "to": 3749,
+      "by": "s90combo",
+      "what": "bouncerplace: unseen velvet-rope bouncer placed on its slot instead of a route",
+      "at": "2026-11-17T18:00:00.000Z",
+      "worktree": "/home/<user>/dev/s3m-combo",
+      "pinned": true
+    },
+    {
+      "id": "doc-633",
+      "kind": "doc",
+      "from": 633,
+      "at": "2026-11-17T18:00:00.000Z",
+      "worktree": "/home/<user>/dev/s3m-combo"
     }
   ]
 }

@@ -303,6 +303,28 @@ namespace Ts3Fixes
             public bool RunOrig() { return false; } // receives BarAdvanced+BarInteraction.Run
         }
 
+        // UnseenServiceOffscreenCheck run: the tier-2 sub-key's own decision (docs/628 tier 2). The case is an off-screen
+        // order near viewers (low LOD, not unseen): EA's wait (tier 0) with unseenservice_offscreen off, BROKEN; tier 2 with
+        // it on, FIXED. The main switch is taken as on so the verdict follows the sub-key only (s89 read the main tier).
+        // Controls: unseen stays tier 1, on screen / player / main switch off keep EA. Read-only.
+        public static object UnseenServiceOffscreenCheck(string what)
+        {
+            string counters = B582Counters("unseenservice_offscreen", 3603, new[] { "conv offscreen", "drinks offscreen", "food offscreen" }, sSvcMissing);
+            if (what == "result") return counters;
+            if (what != "run") return "unseenservice_offscreen <run|result>";
+            bool offOn = ShortcutOn("unseenservice_offscreen"), mainOn = ShortcutOn("unseenservice");
+            bool eaBug = SvcTier(true, false, false, true, false, true, false, true) == 0;   // sub-key off: EA's wait
+            bool fixedPure = SvcTier(true, offOn, false, true, false, true, false, true) == 2;
+            bool controls = eaBug
+                && SvcTier(true, true, false, true, false, true, true, true) == 1     // unseen stays tier 1
+                && SvcTier(true, true, false, true, false, true, false, false) == 0   // on screen
+                && SvcTier(true, true, true, true, false, true, false, true) == 0     // player / selected Sim
+                && SvcTier(false, true, false, true, false, true, false, true) == 0;  // main switch off
+            return B582Line("unseenservice_offscreen", offOn, "an off-screen, near-viewer bar order is served by the tier-2 path", fixedPure && sSvcMissing.Length == 0,
+                "EA waits with the sub-key off (" + eaBug + "), unseen stays tier 1, on screen / player / main switch off keep EA; live needs unseenservice (" + mainOn + ")",
+                controls, sSvcMissing, counters);
+        }
+
         // UnseenServiceCheck run: pure scope decision with controls (off: EA's long-wait hand-off, BROKEN; on: served at once,
         // FIXED), then live: every order type maps to EA's server type through CreateBartenderInteractionInstance on a world
         // bar with a bartender (nothing runs), and a census of bar orders and bartenders waiting now.
