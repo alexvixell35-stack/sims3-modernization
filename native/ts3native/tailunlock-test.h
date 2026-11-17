@@ -196,7 +196,10 @@ static void TestTailUnlock() {
     if (g_tuBad || wins + refusedWaiter != lentJobs || k.tuRefused[0] - r0 != 41 || steerIn[0] || !steerIn[1])
         printf("TailUnlock FAIL: bad %ld, windows %ld + refused (waiter) %ld of %ld lent jobs, refused (switch) %ld, steering "
                "granted in a body: kept %ld, lent %ld\n", g_tuBad, wins, refusedWaiter, lentJobs, k.tuRefused[0] - r0, steerIn[0], steerIn[1]);
-    assert(g_tuBad == 0 && !g_p5bWin && g_p5bIn == 0 && !t_tuOpen && k.p5bWatchdog == wd0);
+    assert(g_tuBad == 0);
+    assert(!g_p5bWin && g_p5bIn == 0 && !t_tuOpen);
+    // #530: the watchdog counts a retake of 2 s or more, the same timing as the retake check below
+    TIMING_ASSERT("TailUnlock no retake watchdog", k.p5bWatchdog == wd0);
     assert(wins + refusedWaiter == lentJobs && k.tuRefused[0] - r0 == 41);  // 40 kept jobs + the direct refusal above
     assert(steerIn[0] == 0);  // steering got the lock inside a job body only when lent
     TIMING_ASSERT("TailUnlock steering granted in a lent body", steerIn[1] > 0);

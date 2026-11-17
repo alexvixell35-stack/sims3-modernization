@@ -15,6 +15,7 @@ static void P5fJob(void* lock, int* list, int seq, DWORD holdMs = 0) {
     fo[0] = 0x0B1EC7;
     g_p5bFrame = fo;
     P4OnStart(&j);
+    InterlockedExchange(&g_p5bWaitSteer, holdMs ? 1 : 0);  // #530: the clone run waits for the holder below
     InterlockedExchange(&j.state, J_QUEUED);
     SetEvent(g_p5bGo);
     bool held = false;
@@ -30,6 +31,7 @@ static void P5fJob(void* lock, int* list, int seq, DWORD holdMs = 0) {
             const LONG r = LockAcquireHook(lock, NULL, &kP5bInf);
             assert(r > 0 && P5bMine());
             if (g_p5bWin) g_p5fSteerIn++;
+            InterlockedExchange(&g_p5bWaitSteer, 0);  // the holder has the lock: the clone run may end
             if (holdMs && !held) held = true, Sleep(holdMs);  // a holder that does not give the lock back for a while
             LockReleaseHook(lock, NULL);
             t_steerRet = 0;

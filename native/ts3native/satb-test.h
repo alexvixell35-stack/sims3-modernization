@@ -652,7 +652,7 @@ static void TestSatbLog() {
     LONG stores = 0;
     for (int job = 0; job < 200; job++) {
         InterlockedExchange(&g_sbPause, 1);  // no reader during a reset, as in the game (the worker is idle at a cut)
-        while (!g_sbIdle) YieldProcessor();
+        while (!g_sbIdle) SwitchToThread();  // #530: give the reader the CPU (a pause only spun on one core)
         SatbReset();
         memcpy(g_sbCut, g_sbArr, sizeof(g_sbArr));
         InterlockedExchange(&g_sbPause, 0);
@@ -670,7 +670,8 @@ static void TestSatbLog() {
     CloseHandle(th);
     printf("satb log: first values kept, partial words merged, overflow at %lu, epoch wraps clean; writer/reader %ld stores, %ld reads, %ld wrong\n",
            SATB_CAP, stores, g_sbReads, g_sbBad);
-    assert(g_sbBad == 0 && g_sbReads > 1000);
+    assert(g_sbBad == 0);
+    TIMING_ASSERT("satb reader ran beside the writer", g_sbReads > 1000);  // #530: the reader's share of the CPU
     TestSatbIcArgs();
     TestSatbRtWriters();
     TestSatbLoadThunk();

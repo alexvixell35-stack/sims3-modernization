@@ -49,9 +49,9 @@ static void TestApex() {
     g_apexOn = defs & ~AXF_FAST_CACHE;
     assert(!ApexStandsDown(AXF_FAST_CACHE, "[SaveCompress]", "t") && !ApexStandsDown(AXF_LOT, "[LotStream]", "t"));
     // the module entries: each returns before it writes anything, with a temp ini that turns it on
-    wchar_t ini[MAX_PATH];
-    GetTempPathW(MAX_PATH, ini);
-    wcscat_s(ini, L"ts3n-selftest-apex.ini");
+    wchar_t ini[MAX_PATH], tmp[MAX_PATH];
+    GetTempPathW(MAX_PATH, tmp);
+    swprintf_s(ini, L"%sts3n-selftest-apex-%lu.ini", tmp, GetCurrentProcessId());  // #530: per process, two selftests at once
     for (const wchar_t* sec : {L"IdCache", L"SaveCompress", L"FootprintIndex", L"LotStream", L"Alloc"}) WritePrivateProfileStringW(sec, L"Enabled", L"1", ini);
     g_apexOn = defs | AXF_LOT;
     const LONG st1 = g_apexStood;

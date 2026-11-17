@@ -1486,9 +1486,9 @@ static void TestMonoJit() {
     Ts3nCounters& C = ts3native_counters;
     // default: nothing installed without the switch, and the switch alone does nothing on another exe
     assert(!ApplyMonoJit(L"Z:\\no-such-dir\\none.ini") && !C.jitOn && !g_ilpPost);
-    wchar_t ini[MAX_PATH + 32];
-    GetTempPathW(MAX_PATH, ini);
-    wcscat_s(ini, L"monojit-test.ini");
+    wchar_t ini[MAX_PATH + 32], tmp[MAX_PATH];
+    GetTempPathW(MAX_PATH, tmp);
+    swprintf_s(ini, L"%smonojit-test-%lu.ini", tmp, GetCurrentProcessId());  // #530: per process, two selftests at once
     WritePrivateProfileStringW(L"MonoJit", L"Enabled", L"1", ini);
     assert(!ApplyMonoJit(ini) && !C.jitOn && !g_ilpPost);  // the selftest exe is not Steam 1.67
     WritePrivateProfileStringW(L"MonoJit", L"Mode", L"3", ini);

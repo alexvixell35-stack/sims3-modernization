@@ -387,9 +387,9 @@ static void TestEarlyOut() {
     EoEnd(saved, 0);
     // Mode=2 Act=1 from the ini: eoMode 1, eoAct 2
     {
-        wchar_t ini[MAX_PATH];
-        GetTempPathW(MAX_PATH, ini);
-        wcscat_s(ini, L"eo-selftest.ini");
+        wchar_t ini[MAX_PATH], tmp[MAX_PATH];
+        GetTempPathW(MAX_PATH, tmp);
+        swprintf_s(ini, L"%seo-selftest-%lu.ini", tmp, GetCurrentProcessId());  // #530: per process, two selftests at once
         WritePrivateProfileStringW(L"RouteEarlyOut", L"Enabled", L"1", ini);
         WritePrivateProfileStringW(L"RouteEarlyOut", L"Mode", L"2", ini);
         WritePrivateProfileStringW(L"RouteEarlyOut", L"Act", L"1", ini);

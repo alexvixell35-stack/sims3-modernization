@@ -70,7 +70,9 @@ static void TestRouteWorkerWait() {
     }
     const LONG stressUs = UsSince(t0);
     assert(k.rwTimeouts == 0);  // every park ended by a signal
-    assert(k.rwBlocked - blocked0 <= kRounds && k.rwSpinExits > spins0 && k.rwWaits > waits0 && k.rwWakes >= k.rwWaits);
+    assert(k.rwBlocked - blocked0 <= kRounds && k.rwWakes >= k.rwWaits);
+    // #530: which path a round takes depends on when the droppers get the CPU (on a crowded core the 50 us spin always runs out)
+    TIMING_ASSERT("RouteWorkerWait stress saw spin exits and waits", k.rwSpinExits > spins0 && k.rwWaits > waits0);
     assert(k.rwSignals >= k.rwWakes && k.rwMaxBlockUs < 1000000);
     const LONG blk = k.rwBlocked - blocked0, sx = k.rwSpinExits - spins0, wt = k.rwWaits - waits0, wk = k.rwWakes,
                sg = k.rwSignals, s0 = k.rwSleep0, mx = k.rwMaxBlockUs;
@@ -102,7 +104,9 @@ static void TestRouteWorkerWait() {
         struct W { static DWORD WINAPI Run(LPVOID) { G0wHold h = {}; RwStartWait(h); return 0; } };
         HANDLE w = CreateThread(NULL, 0, W::Run, NULL, 0, NULL);
         assert(w);
-        Sleep(20);
+        // #530: the drop comes after the worker's first timeout. A fixed Sleep(20) failed when the worker thread had not
+        // reached its park by then: it saw no blocker and left from its spin, with no timeout to count.
+        for (int i = 0; i < 5000 && k.rwTimeouts == 0; i++) Sleep(1);
         InterlockedDecrement(&g_rgOffSimOpen);  // no RwWake
         assert(WaitForSingleObject(w, 1000) == WAIT_OBJECT_0);
         CloseHandle(w);

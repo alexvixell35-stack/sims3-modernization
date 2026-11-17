@@ -70,6 +70,7 @@ static DWORD __cdecl P5bFakeDoor(DWORD a1, DWORD, DWORD, DWORD, DWORD, DWORD, DW
     InterlockedIncrement(&g_p5bAsks);
     return a1 * 10 + (a9 & 0xFF);
 }
+static volatile LONG g_p5bWaitSteer;  // 1 = the clone run waits for the test's steering holder (p5fault P5fJob holdMs)
 static u8 __fastcall P5bFakePlan(void* world, void*, int* outList, int*, int*, DWORD agent, DWORD, u8* opts, int* out1, int* out2,
                                  DWORD, DWORD) {
     assert(agent == 0xA6E && *(const DWORD*)(opts + 0x78) == 0x7777);
@@ -80,6 +81,9 @@ static u8 __fastcall P5bFakePlan(void* world, void*, int* outList, int*, int*, D
         assert(world == g_p4CloneWorld);
         if (g_p5bWin && P5bMine()) InterlockedIncrement(&g_p5bBad);  // lent out: the clone run runs without it
         P5bSpin(g_p5bSpinUs);
+        // #530: a case with a steering holder (p5fault F5/F6) keeps the window open until the holder has the lent lock; the
+        // poll could miss a short window on a crowded core, and then nothing held the lock
+        for (int i = 0; i < 5000 && g_p5bWaitSteer; i++) Sleep(1);
         if (g_p5bVariant == 1) {  // clone-run code reaching the live lock: tripwire, retaken first, then nested
             void* lock = g_p5bW + 0x918;
             LockAcquireHook(lock, NULL, &kP5bInf);

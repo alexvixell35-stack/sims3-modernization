@@ -2129,9 +2129,14 @@ static DWORD __fastcall FakeWrite(void*, void*, void*, int) {
     if (g_svTouch) {  // the old save changes while the worker copies it
         wchar_t p[MAX_PATH];
         swprintf_s(p, L"%s\\Saves\\Foo.sims3\\Meta.data", g_sv);
-        HANDLE h = CreateFileW(p, FILE_APPEND_DATA, 0, NULL, OPEN_EXISTING, 0, NULL);
+        // #530: the open fails while the worker's copy holds the file (sharing violation), and the change never happened
+        // when the worker started late: try again until it opens, so the old save always changes
+        HANDLE h = INVALID_HANDLE_VALUE;
+        for (int i = 0; i < 500 && h == INVALID_HANDLE_VALUE; i++)
+            if ((h = CreateFileW(p, FILE_APPEND_DATA, 0, NULL, OPEN_EXISTING, 0, NULL)) == INVALID_HANDLE_VALUE) Sleep(10);
+        assert(h != INVALID_HANDLE_VALUE);
         DWORD n;
-        WriteFile(h, "x", 1, &n, NULL);
+        assert(WriteFile(h, "x", 1, &n, NULL) && n == 1);
         CloseHandle(h);
     }
     return 0;
@@ -7009,12 +7014,16 @@ static void TestSteerRO() {
         memset((void*)&k.srrMode, 0, offsetof(Ts3nCounters, srrMaxUs) + 4 - offsetof(Ts3nCounters, srrMode));  // v175 only (v176+ follow it)
         int runs = 0;
         g_srPhase = 0;
-        assert(SrRetry(SR_FB_TRY, [&]() { return ++runs == 1 ? SR_FB_TRY : SR_OK; }) == SR_OK && runs == 2 && k.srrN[0] == 1 &&
-               k.srrOk[0] == 1 && k.srrFb[0] == 0);
+        // #530: the ~1 ms budget can run out before a rerun when the thread is preempted (a loaded machine): then the game's
+        // call, as SrRetry promises, and the spent budget shows in srrMaxUs
+        const int r0 = SrRetry(SR_FB_TRY, [&]() { return ++runs == 1 ? SR_FB_TRY : SR_OK; });
+        assert(k.srrN[0] == 1 && (runs == 2 ? r0 == SR_OK && k.srrOk[0] == 1 && k.srrFb[0] == 0
+                                            : runs < 2 && r0 == SR_FB_TRY && k.srrFb[0] == 1 && k.srrMaxUs >= 1000));
         runs = 0, g_srPhase = 1;
         assert(SrRetry(SR_FB_TRIP, [&]() { runs++; return SR_FB_TRIP; }) == SR_FB_TRIP && runs <= 4 && k.srrN[1] == 1 && k.srrFb[1] == 1);
         runs = 0;  // a state fallback from a rerun ends the loop: given up
-        assert(SrRetry(SR_FB_TRY, [&]() { runs++; return SR_FB_STATE; }) == SR_FB_STATE && runs == 1 && k.srrFb[1] == 2);
+        const int r2 = SrRetry(SR_FB_TRY, [&]() { runs++; return SR_FB_STATE; });
+        assert(runs <= 1 && r2 == (runs ? SR_FB_STATE : SR_FB_TRY) && k.srrFb[1] == 2 && (runs || k.srrMaxUs >= 1000));
         runs = 0, g_async.state = A_IDLE;  // the job ended: no rerun
         assert(SrRetry(SR_FB_TRY, [&]() { runs++; return SR_OK; }) == SR_FB_TRY && runs == 0);
         g_async.state = A_RUNNING;

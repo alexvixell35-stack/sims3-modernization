@@ -375,9 +375,9 @@ static void TestUnseenFallbackSites() {
     UfcLogCounters();
     // install gate: [RouteAsync] ready at load, no job queued yet (owner 0) = the sites install (all C off: nothing patched)
     {
-        wchar_t ini[MAX_PATH];
-        GetTempPathW(MAX_PATH, ini);
-        wcscat_s(ini, L"ts3n-selftest-ufc.ini");
+        wchar_t ini[MAX_PATH], tmp[MAX_PATH];
+        GetTempPathW(MAX_PATH, tmp);
+        swprintf_s(ini, L"%sts3n-selftest-ufc-%lu.ini", tmp, GetCurrentProcessId());  // #530: per process, two selftests at once
         WritePrivateProfileStringW(L"UnseenFallback", L"Sites", L"1", ini);
         WritePrivateProfileStringW(L"UnseenFallback", L"SiteWaitMs", L"37", ini);
         for (const wchar_t* c : {L"C1", L"C2", L"C3", L"C4"}) WritePrivateProfileStringW(L"UnseenFallback", c, L"0", ini);
@@ -413,7 +413,7 @@ static void TestUnseenFallbackSites() {
 // worker of a job in a two-thread Proxy, deadline g_ufTestDl: reports the wait left out of the overrun sample
 static LONGLONG g_ufTestDl;
 static LONG g_ufTestMark;
-static volatile LONGLONG g_ufTestLateQ, g_ufTestUs;
+static volatile LONGLONG g_ufTestLateQ, g_ufTestUs, g_ufTestT0;  // T0 = the worker's start (QPC)
 static void* __fastcall UfTestHost(void*, void*, void* out, void*, void*, void*) { return out; }
 static u8 __fastcall UfTestPlan(void*, void*, int*, int*, int*, DWORD, DWORD, u8*, int*, int*, DWORD, DWORD) {
     Sleep(40);
@@ -423,6 +423,7 @@ static DWORD WINAPI UfTestWorker(void* p) {
     t_ufJob = g_ufTestMark, t_ufHostLateQ = 0, t_fbDeadline = g_ufTestDl;
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
+    g_ufTestT0 = t0.QuadPart;
     InvokeJob v = {{p, NULL, NULL, NULL}, (void*)0x10, NULL};
     Proxy(v);
     g_ufTestUs = UsSince(t0), g_ufTestLateQ = t_ufHostLateQ;
@@ -465,9 +466,13 @@ static void TestUfHostLate() {
     // deadline ahead of the whole wait: nothing left out
     UfTestWait(HcNow() + 10000 * ms, 1, false);
     assert(g_ufTestLateQ == 0 && g_ufTestUs >= 45000);
-    // deadline in the middle: the part past it (a loaded machine stretches the wait; the 20 ms before it stay in)
-    UfTestWait(HcNow() + 25 * ms, 1, false);
-    assert(g_ufTestLateQ >= 15 * ms && g_ufTestLateQ * 1000 / g_qpf.QuadPart <= g_ufTestUs / 1000 - 20);
+    // deadline in the middle: only the part past it counts. The part before it is measured from the worker's start: a
+    // fixed 20 ms failed when the worker thread started more than 5 ms after the deadline was set (#530). The wait is at
+    // least 50 ms and ends at least 25 ms past the deadline; 1 ms covers the microsecond rounding of g_ufTestUs.
+    const LONGLONG dlMid = HcNow() + 25 * ms;
+    UfTestWait(dlMid, 1, false);
+    const LONGLONG before = dlMid > g_ufTestT0 ? dlMid - g_ufTestT0 : 0;
+    assert(g_ufTestLateQ >= 15 * ms && g_ufTestLateQ <= g_ufTestUs * g_qpf.QuadPart / 1000000 - before + ms);
     // deadline passed: the whole wait, less the 40 ms plan nested in it
     UfTestWait(HcNow() - ms, 1, true);
     assert(g_ufTestLateQ >= 45 * ms && g_ufTestLateQ * 1000 / g_qpf.QuadPart <= g_ufTestUs / 1000 - 35);
