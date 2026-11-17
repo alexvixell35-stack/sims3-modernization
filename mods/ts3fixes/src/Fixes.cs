@@ -862,6 +862,7 @@ namespace Ts3Fixes
         // [2709-2710] routecauselog (RouteCauseLog.cs, docs/580): lines / dropped by the caps.
         // [1106-1108] scarepriority (ScarePriority.cs, docs/580 §14): receivers raised / seen with switch off / errors.
         // [3841-3844] groupchatpriority (GroupChatPriority.cs, docs/638 §3): GroupChatB receivers raised / seen with switch off / errors / spare.
+        // [3845-3853] unseenboatland (UnseenBoatLand.cs, docs/639): land plans tried / land kept / boat may be much shorter (EA plan) / land plan failed or swims (EA plan) / refused: not one land component / refused: household, selected, unknown scope, seen, water posture or interaction, owned boat / land plan ms / of it ms followed by EA's plan / errors.
         // [1110-1112] sandwichalarm (SandwichAlarm.cs, docs/580 §16): stale handles removed / seen with switch off / errors.
         // [1113] sandwichalarm (SandwichAlarm.cs, docs/580 §16): saved duplicate ResetSandwichBoards alarms removed at world load.
         // [1114-1117] dreamcleanup (DreamCleanup.cs, docs/580 §18): pet nodes unfiled / woken nodes filed / seen with switch off / errors.
@@ -1562,6 +1563,7 @@ namespace Ts3Fixes
                 case "unseenroute": return Instantiator.kUnseenRouteRelaxed;
                 case "unseenboat": return Instantiator.kUnseenBoat;
                 case "unseenboatstart": return Instantiator.kUnseenBoatStart;
+                case "unseenboatland": return Instantiator.kUnseenBoatLand;
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;
                 case "seasonimpostercold": return Instantiator.kSeasonImposterCold;
