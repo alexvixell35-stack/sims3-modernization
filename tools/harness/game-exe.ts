@@ -47,11 +47,18 @@ export async function logUntrackedGame(log: (l: string) => void, seconds = 150) 
     for (const p of untrackedPids(out, seenPids)) if (!logged.has(p.pid)) { logged.add(p.pid); log(`untracked ${GAME_EXE} PID ${p.pid} ${t + 5} s after the game left: ${p.cmd} (not launched or seen by this run; not killed, not assumed a relaunch)`); }
   }
 }
+// docs/236 open 6: a PID that first shows up while none of the PIDs already seen is alive is a relaunch (EA's crash relaunch), not this run's
+// game. It goes to `relaunched` and stays out of seenPids, so crash pickup never blames it on this run and logUntrackedGame reports it.
+export const relaunched = new Set<number>();
+export function noteSeen(seen: Set<number>, rel: Set<number>, alive: number[]) {
+  const fresh = alive.filter(p => !seen.has(p) && !rel.has(p)), anyOld = alive.some(p => seen.has(p));
+  for (const p of fresh) (seen.size && !anyOld ? rel : seen).add(p);
+}
 export const csvPids = (csv: string): number[] => [...csv.matchAll(/^"[^"]*","(\d+)"/gm)].map(m => Number(m[1]));
 export const gameRunning = () => {
   try {
     const out = execFileSync('tasklist', ['/NH', '/FO', 'CSV', '/FI', `IMAGENAME eq ${GAME_EXE}`]).toString();
-    for (const p of csvPids(out)) seenPids.add(p);
+    noteSeen(seenPids, relaunched, csvPids(out));
     return out.includes(GAME_EXE);
   } catch { return true; } // tasklist failed: no verdict
 };
@@ -88,6 +95,9 @@ if (import.meta.main) {
     assert.deepEqual(untrackedPids(ps, new Set([100])), [{ pid: 28624, cmd: '"C:/EA Games/The Sims 3/Game/Bin/Sims3Launcher.exe"  -test' }]);
     assert.deepEqual(untrackedPids(ps, new Set([100, 28624])), []);
     assert.deepEqual(untrackedPids('', new Set()), []);
+    { const seen = new Set<number>(), rel = new Set<number>(); // first PID is the run's; a PID appearing after it is gone is a relaunch
+      noteSeen(seen, rel, [10]); noteSeen(seen, rel, [10, 11]); noteSeen(seen, rel, [12]); noteSeen(seen, rel, [12, 10]);
+      assert.deepEqual([[...seen], [...rel]], [[10, 11], [12]]); }
     // the running game is found by GAME_EXE/GAME_NAME only (7d: a soak loop watched TS3W on the EA laptop, where the game is Sims3Launcher.exe)
     const hard = /Get-Process\s+'?TS3W\b|IMAGENAME eq TS3W|frida\.attach\('TS3W|'-n', 'TS3W|\/IM', 'TS3W|Name='TS3W/;
     for (const f of readdirSync(import.meta.dirname).filter(f => /\.(ts|mjs|js)$/.test(f) && f !== 'game-exe.ts')) {

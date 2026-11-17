@@ -1,0 +1,819 @@
+{
+  "note": "sweep-packs-home-1115 (PREPARED, NOT RUN, 2026-11-15; docs/268 §6, EP/SP in a home world (BP / SV / IP)): Rodney 11-15 \"for those EP/SP interactions, can we force repro them so they occur? and add all the possible interactions in the test harness\". One correctness job per EP/SP in a home world (BP / SV / IP), each the repro sweep-<pack> (interaction_sweep over the pack's docs/data/ep-pack-types.csv types). ~12 h; SP1 first as the smoke job. Needs the ts3agent with interaction_sweep in build/ (merge feature/interaction-sweep-1115, node tools/harness/build-agent.ts) before the run.",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "sp1-sweep-home-1115",
+      "note": "[est 30 min] CORRECTNESS (docs/268): forced interaction sweep of High-End Loft objects; first: the smoke job (3 types, short), a broken sweep stops the queue (stopQueueOnFail). Baseline-BP, release bundle, repro sweep-sp1 (interaction_sweep cap 15 min). Pass: no crash, the last repro step passes (interaction_sweep require: state done, >= 1 row), \"isweep done <pack> state done rows N\" in ts3native.log (logRequire), switches read back (releaseDefaults), no FAIL line. Script errors: EA-only stacks are findings (scriptErrorsReport, counted as REPORT, never FAIL); one with a Ts3Fixes or Ts3Agent frame counts toward scriptErrorsMax 0 = FAIL. Household untouched by design: the sweep never picks a household Sim (household: false); read the kd / uf / UfTeleport lines for household or selected scope as usual. After: node tools/harness/interaction-sweep-report.ts <tag> <tag>-ts3native.log copy --out docs/data/results/<date>-sweep-<pack>.md; a capped sweep is rerun with from = the done line's next.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115b",
+      "pinReason": "master-lanes-1115 asi/ini + ts3fixes master-lanes-1115b (builds.json); ts3agent from build/ AFTER feature/interaction-sweep-1115 is merged and the agent rebuilt (interaction_sweep; game-copy/ts3agent.package.lane-sweep-1115 is this lane's build)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "^(?![\\s\\S]*\\n#\\d+:[^\\n]* in (?:Ts3Fixes|Ts3Agent)\\.)[\\s\\S]*\\n#\\d+: 0x"
+      ],
+      "timeoutMin": 50,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "isweep done SP1 state done rows [1-9]": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "isweep done SP1 state done rows [1-9]": {
+          "match": [
+            "ts3fixes: isweep done SP1 state done rows 412 next 1890 pushed 140 ran 121 se 3"
+          ],
+          "noMatch": [
+            "ts3fixes: isweep done SP1 state capped rows 300 next 1200 pushed 90 ran 80 se 0 stop time cap 40 min",
+            "ts3fixes: isweep done SP1 state done rows 0 next 0 pushed 0 ran 0 se 0",
+            "ts3fixes: boat_getout_stress: state Palmira Medina npc: windows 0, forced 0, posture StandingPosture, current none, queue 0, boat 32 m"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "stopQueueOnFail": true,
+      "run": {
+        "profile": {
+          "minutes": 23,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "sweep-sp1"
+        }
+      }
+    },
+    {
+      "id": "ep1-sweep-home-1115",
+      "note": "[est 55 min] CORRECTNESS (docs/268): forced interaction sweep of World Adventures home content (nectar, martial arts, snake charming, photography; tombs run in the dest queue). Baseline-SV, release bundle, repro sweep-ep1 (interaction_sweep cap 40 min). Pass: no crash, the last repro step passes (interaction_sweep require: state done, >= 1 row), \"isweep done <pack> state done rows N\" in ts3native.log (logRequire), switches read back (releaseDefaults), no FAIL line. Script errors: EA-only stacks are findings (scriptErrorsReport, counted as REPORT, never FAIL); one with a Ts3Fixes or Ts3Agent frame counts toward scriptErrorsMax 0 = FAIL. Household untouched by design: the sweep never picks a household Sim (household: false); read the kd / uf / UfTeleport lines for household or selected scope as usual. After: node tools/harness/interaction-sweep-report.ts <tag> <tag>-ts3native.log copy --out docs/data/results/<date>-sweep-<pack>.md; a capped sweep is rerun with from = the done line's next.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115b",
+      "pinReason": "master-lanes-1115 asi/ini + ts3fixes master-lanes-1115b (builds.json); ts3agent from build/ AFTER feature/interaction-sweep-1115 is merged and the agent rebuilt (interaction_sweep; game-copy/ts3agent.package.lane-sweep-1115 is this lane's build)",
+      "releaseDefaults": true,
+      "save": "Baseline-SV",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "^(?![\\s\\S]*\\n#\\d+:[^\\n]* in (?:Ts3Fixes|Ts3Agent)\\.)[\\s\\S]*\\n#\\d+: 0x"
+      ],
+      "timeoutMin": 75,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "isweep done EP1 state done rows [1-9]": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "isweep done EP1 state done rows [1-9]": {
+          "match": [
+            "ts3fixes: isweep done EP1 state done rows 412 next 1890 pushed 140 ran 121 se 3"
+          ],
+          "noMatch": [
+            "ts3fixes: isweep done EP1 state capped rows 300 next 1200 pushed 90 ran 80 se 0 stop time cap 40 min",
+            "ts3fixes: isweep done EP1 state done rows 0 next 0 pushed 0 ran 0 se 0",
+            "ts3fixes: boat_getout_stress: state Palmira Medina npc: windows 0, forced 0, posture StandingPosture, current none, queue 0, boat 32 m"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 48,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "sweep-ep1"
+        }
+      }
+    },
+    {
+      "id": "ep2-sweep-home-1115",
+      "note": "[est 55 min] CORRECTNESS (docs/268): forced interaction sweep of Ambitions (sculpting, inventing, firefighter, private eye, servo bot). Baseline-BP, release bundle, repro sweep-ep2 (interaction_sweep cap 40 min). Pass: no crash, the last repro step passes (interaction_sweep require: state done, >= 1 row), \"isweep done <pack> state done rows N\" in ts3native.log (logRequire), switches read back (releaseDefaults), no FAIL line. Script errors: EA-only stacks are findings (scriptErrorsReport, counted as REPORT, never FAIL); one with a Ts3Fixes or Ts3Agent frame counts toward scriptErrorsMax 0 = FAIL. Household untouched by design: the sweep never picks a household Sim (household: false); read the kd / uf / UfTeleport lines for household or selected scope as usual. After: node tools/harness/interaction-sweep-report.ts <tag> <tag>-ts3native.log copy --out docs/data/results/<date>-sweep-<pack>.md; a capped sweep is rerun with from = the done line's next.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115b",
+      "pinReason": "master-lanes-1115 asi/ini + ts3fixes master-lanes-1115b (builds.json); ts3agent from build/ AFTER feature/interaction-sweep-1115 is merged and the agent rebuilt (interaction_sweep; game-copy/ts3agent.package.lane-sweep-1115 is this lane's build)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "^(?![\\s\\S]*\\n#\\d+:[^\\n]* in (?:Ts3Fixes|Ts3Agent)\\.)[\\s\\S]*\\n#\\d+: 0x"
+      ],
+      "timeoutMin": 75,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "isweep done EP2 state done rows [1-9]": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "isweep done EP2 state done rows [1-9]": {
+          "match": [
+            "ts3fixes: isweep done EP2 state done rows 412 next 1890 pushed 140 ran 121 se 3"
+          ],
+          "noMatch": [
+            "ts3fixes: isweep done EP2 state capped rows 300 next 1200 pushed 90 ran 80 se 0 stop time cap 40 min",
+            "ts3fixes: isweep done EP2 state done rows 0 next 0 pushed 0 ran 0 se 0",
+            "ts3fixes: boat_getout_stress: state Palmira Medina npc: windows 0, forced 0, posture StandingPosture, current none, queue 0, boat 32 m"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 48,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "sweep-ep2"
+        }
+      }
+    },
+    {
+      "id": "ep3-sweep-home-1115",
+      "note": "[est 55 min] CORRECTNESS (docs/268): forced interaction sweep of Late Night (DJ booth, bar, pool bar, celebrity socials). Baseline-BP, release bundle, repro sweep-ep3 (interaction_sweep cap 40 min). Pass: no crash, the last repro step passes (interaction_sweep require: state done, >= 1 row), \"isweep done <pack> state done rows N\" in ts3native.log (logRequire), switches read back (releaseDefaults), no FAIL line. Script errors: EA-only stacks are findings (scriptErrorsReport, counted as REPORT, never FAIL); one with a Ts3Fixes or Ts3Agent frame counts toward scriptErrorsMax 0 = FAIL. Household untouched by design: the sweep never picks a household Sim (household: false); read the kd / uf / UfTeleport lines for household or selected scope as usual. After: node tools/harness/interaction-sweep-report.ts <tag> <tag>-ts3native.log copy --out docs/data/results/<date>-sweep-<pack>.md; a capped sweep is rerun with from = the done line's next.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115b",
+      "pinReason": "master-lanes-1115 asi/ini + ts3fixes master-lanes-1115b (builds.json); ts3agent from build/ AFTER feature/interaction-sweep-1115 is merged and the agent rebuilt (interaction_sweep; game-copy/ts3agent.package.lane-sweep-1115 is this lane's build)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "^(?![\\s\\S]*\\n#\\d+:[^\\n]* in (?:Ts3Fixes|Ts3Agent)\\.)[\\s\\S]*\\n#\\d+: 0x"
+      ],
+      "timeoutMin": 75,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "isweep done EP3 state done rows [1-9]": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "isweep done EP3 state done rows [1-9]": {
+          "match": [
+            "ts3fixes: isweep done EP3 state done rows 412 next 1890 pushed 140 ran 121 se 3"
+          ],
+          "noMatch": [
+            "ts3fixes: isweep done EP3 state capped rows 300 next 1200 pushed 90 ran 80 se 0 stop time cap 40 min",
+            "ts3fixes: isweep done EP3 state done rows 0 next 0 pushed 0 ran 0 se 0",
+            "ts3fixes: boat_getout_stress: state Palmira Medina npc: windows 0, forced 0, posture StandingPosture, current none, queue 0, boat 32 m"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 48,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "sweep-ep3"
+        }
+      }
+    },
+    {
+      "id": "ep4-sweep-home-1115",
+      "note": "[est 55 min] CORRECTNESS (docs/268): forced interaction sweep of Generations (treehouse, baby swing, clothesline, daycare). Baseline-SV, release bundle, repro sweep-ep4 (interaction_sweep cap 40 min). Pass: no crash, the last repro step passes (interaction_sweep require: state done, >= 1 row), \"isweep done <pack> state done rows N\" in ts3native.log (logRequire), switches read back (releaseDefaults), no FAIL line. Script errors: EA-only stacks are findings (scriptErrorsReport, counted as REPORT, never FAIL); one with a Ts3Fixes or Ts3Agent frame counts toward scriptErrorsMax 0 = FAIL. Household untouched by design: the sweep never picks a household Sim (household: false); read the kd / uf / UfTeleport lines for household or selected scope as usual. After: node tools/harness/interaction-sweep-report.ts <tag> <tag>-ts3native.log copy --out docs/data/results/<date>-sweep-<pack>.md; a capped sweep is rerun with from = the done line's next.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115b",
+      "pinReason": "master-lanes-1115 asi/ini + ts3fixes master-lanes-1115b (builds.json); ts3agent from build/ AFTER feature/interaction-sweep-1115 is merged and the agent rebuilt (interaction_sweep; game-copy/ts3agent.package.lane-sweep-1115 is this lane's build)",
+      "releaseDefaults": true,
+      "save": "Baseline-SV",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "^(?![\\s\\S]*\\n#\\d+:[^\\n]* in (?:Ts3Fixes|Ts3Agent)\\.)[\\s\\S]*\\n#\\d+: 0x"
+      ],
+      "timeoutMin": 75,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "isweep done EP4 state done rows [1-9]": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "isweep done EP4 state done rows [1-9]": {
+          "match": [
+            "ts3fixes: isweep done EP4 state done rows 412 next 1890 pushed 140 ran 121 se 3"
+          ],
+          "noMatch": [
+            "ts3fixes: isweep done EP4 state capped rows 300 next 1200 pushed 90 ran 80 se 0 stop time cap 40 min",
+            "ts3fixes: isweep done EP4 state done rows 0 next 0 pushed 0 ran 0 se 0",
+            "ts3fixes: boat_getout_stress: state Palmira Medina npc: windows 0, forced 0, posture StandingPosture, current none, queue 0, boat 32 m"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 48,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "sweep-ep4"
+        }
+      }
+    },
+    {
+      "id": "ep5-sweep-home-1115",
+      "note": "[est 55 min] CORRECTNESS (docs/268): forced interaction sweep of Pets (box stall, horse jump, pet bowl/bed/house; a horse actor from spawn_horse). Baseline-IP, release bundle, repro sweep-ep5 (interaction_sweep cap 40 min). Pass: no crash, the last repro step passes (interaction_sweep require: state done, >= 1 row), \"isweep done <pack> state done rows N\" in ts3native.log (logRequire), switches read back (releaseDefaults), no FAIL line. Script errors: EA-only stacks are findings (scriptErrorsReport, counted as REPORT, never FAIL); one with a Ts3Fixes or Ts3Agent frame counts toward scriptErrorsMax 0 = FAIL. Household untouched by design: the sweep never picks a household Sim (household: false); read the kd / uf / UfTeleport lines for household or selected scope as usual. After: node tools/harness/interaction-sweep-report.ts <tag> <tag>-ts3native.log copy --out docs/data/results/<date>-sweep-<pack>.md; a capped sweep is rerun with from = the done line's next.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115b",
+      "pinReason": "master-lanes-1115 asi/ini + ts3fixes master-lanes-1115b (builds.json); ts3agent from build/ AFTER feature/interaction-sweep-1115 is merged and the agent rebuilt (interaction_sweep; game-copy/ts3agent.package.lane-sweep-1115 is this lane's build)",
+      "releaseDefaults": true,
+      "save": "Baseline-IP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "^(?![\\s\\S]*\\n#\\d+:[^\\n]* in (?:Ts3Fixes|Ts3Agent)\\.)[\\s\\S]*\\n#\\d+: 0x"
+      ],
+      "timeoutMin": 75,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "isweep done EP5 state done rows [1-9]": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "isweep done EP5 state done rows [1-9]": {
+          "match": [
+            "ts3fixes: isweep done EP5 state done rows 412 next 1890 pushed 140 ran 121 se 3"
+          ],
+          "noMatch": [
+            "ts3fixes: isweep done EP5 state capped rows 300 next 1200 pushed 90 ran 80 se 0 stop time cap 40 min",
+            "ts3fixes: isweep done EP5 state done rows 0 next 0 pushed 0 ran 0 se 0",
+            "ts3fixes: boat_getout_stress: state Palmira Medina npc: windows 0, forced 0, posture StandingPosture, current none, queue 0, boat 32 m"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 48,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "sweep-ep5"
+        }
+      }
+    },
+    {
+      "id": "ep6-sweep-home-1115",
+      "note": "[est 55 min] CORRECTNESS (docs/268): forced interaction sweep of Showtime (stage, karaoke, genie lamp, performer careers). Baseline-BP, release bundle, repro sweep-ep6 (interaction_sweep cap 40 min). Pass: no crash, the last repro step passes (interaction_sweep require: state done, >= 1 row), \"isweep done <pack> state done rows N\" in ts3native.log (logRequire), switches read back (releaseDefaults), no FAIL line. Script errors: EA-only stacks are findings (scriptErrorsReport, counted as REPORT, never FAIL); one with a Ts3Fixes or Ts3Agent frame counts toward scriptErrorsMax 0 = FAIL. Household untouched by design: the sweep never picks a household Sim (household: false); read the kd / uf / UfTeleport lines for household or selected scope as usual. After: node tools/harness/interaction-sweep-report.ts <tag> <tag>-ts3native.log copy --out docs/data/results/<date>-sweep-<pack>.md; a capped sweep is rerun with from = the done line's next.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115b",
+      "pinReason": "master-lanes-1115 asi/ini + ts3fixes master-lanes-1115b (builds.json); ts3agent from build/ AFTER feature/interaction-sweep-1115 is merged and the agent rebuilt (interaction_sweep; game-copy/ts3agent.package.lane-sweep-1115 is this lane's build)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "^(?![\\s\\S]*\\n#\\d+:[^\\n]* in (?:Ts3Fixes|Ts3Agent)\\.)[\\s\\S]*\\n#\\d+: 0x"
+      ],
+      "timeoutMin": 75,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "isweep done EP6 state done rows [1-9]": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "isweep done EP6 state done rows [1-9]": {
+          "match": [
+            "ts3fixes: isweep done EP6 state done rows 412 next 1890 pushed 140 ran 121 se 3"
+          ],
+          "noMatch": [
+            "ts3fixes: isweep done EP6 state capped rows 300 next 1200 pushed 90 ran 80 se 0 stop time cap 40 min",
+            "ts3fixes: isweep done EP6 state done rows 0 next 0 pushed 0 ran 0 se 0",
+            "ts3fixes: boat_getout_stress: state Palmira Medina npc: windows 0, forced 0, posture StandingPosture, current none, queue 0, boat 32 m"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 48,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "sweep-ep6"
+        }
+      }
+    },
+    {
+      "id": "ep7-sweep-home-1115",
+      "note": "[est 55 min] CORRECTNESS (docs/268): forced interaction sweep of Supernatural (Bonehilda, alchemy, cauldron, crystal ball; fall + full moon). Baseline-SV, release bundle, repro sweep-ep7 (interaction_sweep cap 40 min). Pass: no crash, the last repro step passes (interaction_sweep require: state done, >= 1 row), \"isweep done <pack> state done rows N\" in ts3native.log (logRequire), switches read back (releaseDefaults), no FAIL line. Script errors: EA-only stacks are findings (scriptErrorsReport, counted as REPORT, never FAIL); one with a Ts3Fixes or Ts3Agent frame counts toward scriptErrorsMax 0 = FAIL. Household untouched by design: the sweep never picks a household Sim (household: false); read the kd / uf / UfTeleport lines for household or selected scope as usual. After: node tools/harness/interaction-sweep-report.ts <tag> <tag>-ts3native.log copy --out docs/data/results/<date>-sweep-<pack>.md; a capped sweep is rerun with from = the done line's next.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115b",
+      "pinReason": "master-lanes-1115 asi/ini + ts3fixes master-lanes-1115b (builds.json); ts3agent from build/ AFTER feature/interaction-sweep-1115 is merged and the agent rebuilt (interaction_sweep; game-copy/ts3agent.package.lane-sweep-1115 is this lane's build)",
+      "releaseDefaults": true,
+      "save": "Baseline-SV",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "^(?![\\s\\S]*\\n#\\d+:[^\\n]* in (?:Ts3Fixes|Ts3Agent)\\.)[\\s\\S]*\\n#\\d+: 0x"
+      ],
+      "timeoutMin": 75,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "isweep done EP7 state done rows [1-9]": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "isweep done EP7 state done rows [1-9]": {
+          "match": [
+            "ts3fixes: isweep done EP7 state done rows 412 next 1890 pushed 140 ran 121 se 3"
+          ],
+          "noMatch": [
+            "ts3fixes: isweep done EP7 state capped rows 300 next 1200 pushed 90 ran 80 se 0 stop time cap 40 min",
+            "ts3fixes: isweep done EP7 state done rows 0 next 0 pushed 0 ran 0 se 0",
+            "ts3fixes: boat_getout_stress: state Palmira Medina npc: windows 0, forced 0, posture StandingPosture, current none, queue 0, boat 32 m"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 48,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "sweep-ep7",
+          "noEnv": true
+        }
+      }
+    },
+    {
+      "id": "ep8-sweep-home-1115",
+      "note": "[est 55 min] CORRECTNESS (docs/268): forced interaction sweep of Seasons (snowman, skating rink, weather stone, festival stands; winter). Baseline-SV, release bundle, repro sweep-ep8 (interaction_sweep cap 40 min). Pass: no crash, the last repro step passes (interaction_sweep require: state done, >= 1 row), \"isweep done <pack> state done rows N\" in ts3native.log (logRequire), switches read back (releaseDefaults), no FAIL line. Script errors: EA-only stacks are findings (scriptErrorsReport, counted as REPORT, never FAIL); one with a Ts3Fixes or Ts3Agent frame counts toward scriptErrorsMax 0 = FAIL. Household untouched by design: the sweep never picks a household Sim (household: false); read the kd / uf / UfTeleport lines for household or selected scope as usual. After: node tools/harness/interaction-sweep-report.ts <tag> <tag>-ts3native.log copy --out docs/data/results/<date>-sweep-<pack>.md; a capped sweep is rerun with from = the done line's next.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115b",
+      "pinReason": "master-lanes-1115 asi/ini + ts3fixes master-lanes-1115b (builds.json); ts3agent from build/ AFTER feature/interaction-sweep-1115 is merged and the agent rebuilt (interaction_sweep; game-copy/ts3agent.package.lane-sweep-1115 is this lane's build)",
+      "releaseDefaults": true,
+      "save": "Baseline-SV",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "^(?![\\s\\S]*\\n#\\d+:[^\\n]* in (?:Ts3Fixes|Ts3Agent)\\.)[\\s\\S]*\\n#\\d+: 0x"
+      ],
+      "timeoutMin": 75,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "isweep done EP8 state done rows [1-9]": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "isweep done EP8 state done rows [1-9]": {
+          "match": [
+            "ts3fixes: isweep done EP8 state done rows 412 next 1890 pushed 140 ran 121 se 3"
+          ],
+          "noMatch": [
+            "ts3fixes: isweep done EP8 state capped rows 300 next 1200 pushed 90 ran 80 se 0 stop time cap 40 min",
+            "ts3fixes: isweep done EP8 state done rows 0 next 0 pushed 0 ran 0 se 0",
+            "ts3fixes: boat_getout_stress: state Palmira Medina npc: windows 0, forced 0, posture StandingPosture, current none, queue 0, boat 32 m"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 48,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "sweep-ep8",
+          "noEnv": true
+        }
+      }
+    },
+    {
+      "id": "ep9-sweep-home-1115",
+      "note": "[est 55 min] CORRECTNESS (docs/268): forced interaction sweep of University Life home content (keg, graffiti, whiteboard, tutor). Baseline-SV, release bundle, repro sweep-ep9 (interaction_sweep cap 40 min). Pass: no crash, the last repro step passes (interaction_sweep require: state done, >= 1 row), \"isweep done <pack> state done rows N\" in ts3native.log (logRequire), switches read back (releaseDefaults), no FAIL line. Script errors: EA-only stacks are findings (scriptErrorsReport, counted as REPORT, never FAIL); one with a Ts3Fixes or Ts3Agent frame counts toward scriptErrorsMax 0 = FAIL. Household untouched by design: the sweep never picks a household Sim (household: false); read the kd / uf / UfTeleport lines for household or selected scope as usual. After: node tools/harness/interaction-sweep-report.ts <tag> <tag>-ts3native.log copy --out docs/data/results/<date>-sweep-<pack>.md; a capped sweep is rerun with from = the done line's next.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115b",
+      "pinReason": "master-lanes-1115 asi/ini + ts3fixes master-lanes-1115b (builds.json); ts3agent from build/ AFTER feature/interaction-sweep-1115 is merged and the agent rebuilt (interaction_sweep; game-copy/ts3agent.package.lane-sweep-1115 is this lane's build)",
+      "releaseDefaults": true,
+      "save": "Baseline-SV",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "^(?![\\s\\S]*\\n#\\d+:[^\\n]* in (?:Ts3Fixes|Ts3Agent)\\.)[\\s\\S]*\\n#\\d+: 0x"
+      ],
+      "timeoutMin": 75,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "isweep done EP9 state done rows [1-9]": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "isweep done EP9 state done rows [1-9]": {
+          "match": [
+            "ts3fixes: isweep done EP9 state done rows 412 next 1890 pushed 140 ran 121 se 3"
+          ],
+          "noMatch": [
+            "ts3fixes: isweep done EP9 state capped rows 300 next 1200 pushed 90 ran 80 se 0 stop time cap 40 min",
+            "ts3fixes: isweep done EP9 state done rows 0 next 0 pushed 0 ran 0 se 0",
+            "ts3fixes: boat_getout_stress: state Palmira Medina npc: windows 0, forced 0, posture StandingPosture, current none, queue 0, boat 32 m"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 48,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "sweep-ep9"
+        }
+      }
+    },
+    {
+      "id": "ep10-sweep-home-1115",
+      "note": "[est 55 min] CORRECTNESS (docs/268): forced interaction sweep of Island Paradise (resort desk, food stand, boats, diving). Baseline-IP, release bundle, repro sweep-ep10 (interaction_sweep cap 40 min). Pass: no crash, the last repro step passes (interaction_sweep require: state done, >= 1 row), \"isweep done <pack> state done rows N\" in ts3native.log (logRequire), switches read back (releaseDefaults), no FAIL line. Script errors: EA-only stacks are findings (scriptErrorsReport, counted as REPORT, never FAIL); one with a Ts3Fixes or Ts3Agent frame counts toward scriptErrorsMax 0 = FAIL. Household untouched by design: the sweep never picks a household Sim (household: false); read the kd / uf / UfTeleport lines for household or selected scope as usual. After: node tools/harness/interaction-sweep-report.ts <tag> <tag>-ts3native.log copy --out docs/data/results/<date>-sweep-<pack>.md; a capped sweep is rerun with from = the done line's next.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115b",
+      "pinReason": "master-lanes-1115 asi/ini + ts3fixes master-lanes-1115b (builds.json); ts3agent from build/ AFTER feature/interaction-sweep-1115 is merged and the agent rebuilt (interaction_sweep; game-copy/ts3agent.package.lane-sweep-1115 is this lane's build)",
+      "releaseDefaults": true,
+      "save": "Baseline-IP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "^(?![\\s\\S]*\\n#\\d+:[^\\n]* in (?:Ts3Fixes|Ts3Agent)\\.)[\\s\\S]*\\n#\\d+: 0x"
+      ],
+      "timeoutMin": 75,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "isweep done EP10 state done rows [1-9]": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "isweep done EP10 state done rows [1-9]": {
+          "match": [
+            "ts3fixes: isweep done EP10 state done rows 412 next 1890 pushed 140 ran 121 se 3"
+          ],
+          "noMatch": [
+            "ts3fixes: isweep done EP10 state capped rows 300 next 1200 pushed 90 ran 80 se 0 stop time cap 40 min",
+            "ts3fixes: isweep done EP10 state done rows 0 next 0 pushed 0 ran 0 se 0",
+            "ts3fixes: boat_getout_stress: state Palmira Medina npc: windows 0, forced 0, posture StandingPosture, current none, queue 0, boat 32 m"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 48,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "sweep-ep10"
+        }
+      }
+    },
+    {
+      "id": "ep11-sweep-home-1115",
+      "note": "[est 55 min] CORRECTNESS (docs/268): forced interaction sweep of Into the Future home content (time portal, bot station, synthesizer, teleporter). Baseline-SV, release bundle, repro sweep-ep11 (interaction_sweep cap 40 min). Pass: no crash, the last repro step passes (interaction_sweep require: state done, >= 1 row), \"isweep done <pack> state done rows N\" in ts3native.log (logRequire), switches read back (releaseDefaults), no FAIL line. Script errors: EA-only stacks are findings (scriptErrorsReport, counted as REPORT, never FAIL); one with a Ts3Fixes or Ts3Agent frame counts toward scriptErrorsMax 0 = FAIL. Household untouched by design: the sweep never picks a household Sim (household: false); read the kd / uf / UfTeleport lines for household or selected scope as usual. After: node tools/harness/interaction-sweep-report.ts <tag> <tag>-ts3native.log copy --out docs/data/results/<date>-sweep-<pack>.md; a capped sweep is rerun with from = the done line's next.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115b",
+      "pinReason": "master-lanes-1115 asi/ini + ts3fixes master-lanes-1115b (builds.json); ts3agent from build/ AFTER feature/interaction-sweep-1115 is merged and the agent rebuilt (interaction_sweep; game-copy/ts3agent.package.lane-sweep-1115 is this lane's build)",
+      "releaseDefaults": true,
+      "save": "Baseline-SV",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "^(?![\\s\\S]*\\n#\\d+:[^\\n]* in (?:Ts3Fixes|Ts3Agent)\\.)[\\s\\S]*\\n#\\d+: 0x"
+      ],
+      "timeoutMin": 75,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "isweep done EP11 state done rows [1-9]": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "isweep done EP11 state done rows [1-9]": {
+          "match": [
+            "ts3fixes: isweep done EP11 state done rows 412 next 1890 pushed 140 ran 121 se 3"
+          ],
+          "noMatch": [
+            "ts3fixes: isweep done EP11 state capped rows 300 next 1200 pushed 90 ran 80 se 0 stop time cap 40 min",
+            "ts3fixes: isweep done EP11 state done rows 0 next 0 pushed 0 ran 0 se 0",
+            "ts3fixes: boat_getout_stress: state Palmira Medina npc: windows 0, forced 0, posture StandingPosture, current none, queue 0, boat 32 m"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 48,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "sweep-ep11"
+        }
+      }
+    },
+    {
+      "id": "sp6-sweep-home-1115",
+      "note": "[est 30 min] CORRECTNESS (docs/268): forced interaction sweep of Katy Perry objects. Baseline-BP, release bundle, repro sweep-sp6 (interaction_sweep cap 15 min). Pass: no crash, the last repro step passes (interaction_sweep require: state done, >= 1 row), \"isweep done <pack> state done rows N\" in ts3native.log (logRequire), switches read back (releaseDefaults), no FAIL line. Script errors: EA-only stacks are findings (scriptErrorsReport, counted as REPORT, never FAIL); one with a Ts3Fixes or Ts3Agent frame counts toward scriptErrorsMax 0 = FAIL. Household untouched by design: the sweep never picks a household Sim (household: false); read the kd / uf / UfTeleport lines for household or selected scope as usual. After: node tools/harness/interaction-sweep-report.ts <tag> <tag>-ts3native.log copy --out docs/data/results/<date>-sweep-<pack>.md; a capped sweep is rerun with from = the done line's next.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115b",
+      "pinReason": "master-lanes-1115 asi/ini + ts3fixes master-lanes-1115b (builds.json); ts3agent from build/ AFTER feature/interaction-sweep-1115 is merged and the agent rebuilt (interaction_sweep; game-copy/ts3agent.package.lane-sweep-1115 is this lane's build)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "^(?![\\s\\S]*\\n#\\d+:[^\\n]* in (?:Ts3Fixes|Ts3Agent)\\.)[\\s\\S]*\\n#\\d+: 0x"
+      ],
+      "timeoutMin": 50,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "isweep done SP6 state done rows [1-9]": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "isweep done SP6 state done rows [1-9]": {
+          "match": [
+            "ts3fixes: isweep done SP6 state done rows 412 next 1890 pushed 140 ran 121 se 3"
+          ],
+          "noMatch": [
+            "ts3fixes: isweep done SP6 state capped rows 300 next 1200 pushed 90 ran 80 se 0 stop time cap 40 min",
+            "ts3fixes: isweep done SP6 state done rows 0 next 0 pushed 0 ran 0 se 0",
+            "ts3fixes: boat_getout_stress: state Palmira Medina npc: windows 0, forced 0, posture StandingPosture, current none, queue 0, boat 32 m"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 23,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "sweep-sp6"
+        }
+      }
+    },
+    {
+      "id": "sp8-sweep-home-1115",
+      "note": "[est 30 min] CORRECTNESS (docs/268): forced interaction sweep of 70s 80s 90s (arcade machines). Baseline-BP, release bundle, repro sweep-sp8 (interaction_sweep cap 15 min). Pass: no crash, the last repro step passes (interaction_sweep require: state done, >= 1 row), \"isweep done <pack> state done rows N\" in ts3native.log (logRequire), switches read back (releaseDefaults), no FAIL line. Script errors: EA-only stacks are findings (scriptErrorsReport, counted as REPORT, never FAIL); one with a Ts3Fixes or Ts3Agent frame counts toward scriptErrorsMax 0 = FAIL. Household untouched by design: the sweep never picks a household Sim (household: false); read the kd / uf / UfTeleport lines for household or selected scope as usual. After: node tools/harness/interaction-sweep-report.ts <tag> <tag>-ts3native.log copy --out docs/data/results/<date>-sweep-<pack>.md; a capped sweep is rerun with from = the done line's next.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115b",
+      "pinReason": "master-lanes-1115 asi/ini + ts3fixes master-lanes-1115b (builds.json); ts3agent from build/ AFTER feature/interaction-sweep-1115 is merged and the agent rebuilt (interaction_sweep; game-copy/ts3agent.package.lane-sweep-1115 is this lane's build)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "^(?![\\s\\S]*\\n#\\d+:[^\\n]* in (?:Ts3Fixes|Ts3Agent)\\.)[\\s\\S]*\\n#\\d+: 0x"
+      ],
+      "timeoutMin": 50,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "isweep done SP8 state done rows [1-9]": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "isweep done SP8 state done rows [1-9]": {
+          "match": [
+            "ts3fixes: isweep done SP8 state done rows 412 next 1890 pushed 140 ran 121 se 3"
+          ],
+          "noMatch": [
+            "ts3fixes: isweep done SP8 state capped rows 300 next 1200 pushed 90 ran 80 se 0 stop time cap 40 min",
+            "ts3fixes: isweep done SP8 state done rows 0 next 0 pushed 0 ran 0 se 0",
+            "ts3fixes: boat_getout_stress: state Palmira Medina npc: windows 0, forced 0, posture StandingPosture, current none, queue 0, boat 32 m"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 23,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "sweep-sp8"
+        }
+      }
+    },
+    {
+      "id": "sp9-sweep-home-1115",
+      "note": "[est 30 min] CORRECTNESS (docs/268): forced interaction sweep of Movie Hangout objects. Baseline-BP, release bundle, repro sweep-sp9 (interaction_sweep cap 15 min). Pass: no crash, the last repro step passes (interaction_sweep require: state done, >= 1 row), \"isweep done <pack> state done rows N\" in ts3native.log (logRequire), switches read back (releaseDefaults), no FAIL line. Script errors: EA-only stacks are findings (scriptErrorsReport, counted as REPORT, never FAIL); one with a Ts3Fixes or Ts3Agent frame counts toward scriptErrorsMax 0 = FAIL. Household untouched by design: the sweep never picks a household Sim (household: false); read the kd / uf / UfTeleport lines for household or selected scope as usual. After: node tools/harness/interaction-sweep-report.ts <tag> <tag>-ts3native.log copy --out docs/data/results/<date>-sweep-<pack>.md; a capped sweep is rerun with from = the done line's next.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115b",
+      "pinReason": "master-lanes-1115 asi/ini + ts3fixes master-lanes-1115b (builds.json); ts3agent from build/ AFTER feature/interaction-sweep-1115 is merged and the agent rebuilt (interaction_sweep; game-copy/ts3agent.package.lane-sweep-1115 is this lane's build)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "scriptErrorsReport": [
+        "^(?![\\s\\S]*\\n#\\d+:[^\\n]* in (?:Ts3Fixes|Ts3Agent)\\.)[\\s\\S]*\\n#\\d+: 0x"
+      ],
+      "timeoutMin": 50,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "isweep done SP9 state done rows [1-9]": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "isweep done SP9 state done rows [1-9]": {
+          "match": [
+            "ts3fixes: isweep done SP9 state done rows 412 next 1890 pushed 140 ran 121 se 3"
+          ],
+          "noMatch": [
+            "ts3fixes: isweep done SP9 state capped rows 300 next 1200 pushed 90 ran 80 se 0 stop time cap 40 min",
+            "ts3fixes: isweep done SP9 state done rows 0 next 0 pushed 0 ran 0 se 0",
+            "ts3fixes: boat_getout_stress: state Palmira Medina npc: windows 0, forced 0, posture StandingPosture, current none, queue 0, boat 32 m"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 23,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "sweep-sp9"
+        }
+      }
+    }
+  ]
+}

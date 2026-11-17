@@ -15,16 +15,16 @@
 // Included by ts3native.cpp after hitchattr.cpp.
 
 static const DWORD kNtKeys[10] = {
-    0x0075AA16,  // 0 GoalPoint_Validate's goal footprint gather 0x82F0B0 (0x75AA11): next +0x918 take after T6's empty answer
-    0x0075A64C,  // 1 GoalPoint_Validate's own query (T6 fallbacks: footprints found, doubt) on the next ring point
-    0x00755990,  // 2 IsOkToIdleAtCurrentLocation's obstacle query 0x82EDB0 (0x75598B): IdleCheckRO's ikOnward answers
-    0x0062FB74,  // 3 gate-12 GetIfPresent (other sim callers, IdleCheckRO fallbacks)
-    0x00760BFF,  // 4 gate 10, the sync plan's goal step
+    TS3A(0x0075AA16),  // 0 GoalPoint_Validate's goal footprint gather 0x82F0B0 (0x75AA11): next +0x918 take after T6's empty answer
+    TS3A(0x0075A64C),  // 1 GoalPoint_Validate's own query (T6 fallbacks: footprints found, doubt) on the next ring point
+    TS3A(0x00755990),  // 2 IsOkToIdleAtCurrentLocation's obstacle query 0x82EDB0 (0x75598B): IdleCheckRO's ikOnward answers
+    TS3A(0x0062FB74),  // 3 gate-12 GetIfPresent (other sim callers, IdleCheckRO fallbacks)
+    TS3A(0x00760BFF),  // 4 gate 10, the sync plan's goal step
     0x05000000,  // 5 RunPlan: a sim sync plan that waits for the job first
-    0x0085FE10,  // 6 steering obstacle query (locomotion pass)
-    0x0062EF7A,  // 7 gate 0
-    0x00755FDD,  // 8 0x755EA0's obstacle query (route flow 0x75DE90)
-    0x00833593,  // 9 UpdateSimFootprint (docs/89: the usual absorber)
+    TS3A(0x0085FE10),  // 6 steering obstacle query (locomotion pass)
+    TS3A(0x0062EF7A),  // 7 gate 0
+    TS3A(0x00755FDD),  // 8 0x755EA0's obstacle query (route flow 0x75DE90)
+    TS3A(0x00833593),  // 9 UpdateSimFootprint (docs/89: the usual absorber)
 };
 static const char* const kMwName[MW_N] = {"goalvalid", "idlecheck", "slot", "avoid", "gate0", "routetoobj", "placement",
                                           "obstructed", "steer"};

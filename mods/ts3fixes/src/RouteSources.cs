@@ -50,8 +50,8 @@ namespace Ts3Fixes
             Patch(typeof(BoatFollowSubPathRouteAction), "PerformAction", typeof(BoatLegHook), "PerformActionHook", "PerformActionOrig");
             Patch(typeof(VehicleFollowSubPathRouteAction), "PerformAction", typeof(VehicleLegHook), "PerformActionHook", "PerformActionOrig");
             Type watch = typeof(VelvetRopes).GetNestedType("WatchDoor", BindingFlags.NonPublic);
-            if (watch == null) AppliedLog().Add("VelvetRopes+WatchDoor: not found, bouncerskip off");
-            else Patch(watch, "LoopDel", typeof(BouncerHook), "LoopDelHook", "LoopDelOrig");
+            if (watch == null) { AppliedLog().Add("VelvetRopes+WatchDoor: not found, bouncerskip off"); return; }
+            Patch(watch, "LoopDel", typeof(BouncerHook), "LoopDelHook", "LoopDelOrig");
         }
 
         static int[] sRouteSrc;
@@ -80,6 +80,7 @@ namespace Ts3Fixes
             RouteSrcCall call = default(RouteSrcCall);
             call.Bucket = -1;
             if (kind == 3) HcBoatBegin(r, fromPt); // boatreplanlog (HitchCause.cs)
+            else if (kind == 1) RlBegin(r); // replanlog (ReplanLog.cs, docs/261)
             if (!ShortcutOn("routesrc")) return call;
             try
             {
@@ -132,6 +133,7 @@ namespace Ts3Fixes
 
         static void RouteSrcEnd(ScriptCore.Route r, RouteSrcCall call, bool ok)
         {
+            RouteLenEnd(r, ok);  // routelen counters (RouteLen.cs, docs/246 §6)
             if (call.Bucket < 0) return;
             try
             {
@@ -198,20 +200,34 @@ namespace Ts3Fixes
         }
 
         // WatchDoor is private and sealed: `this` taken as object (ReplanSpreadHook pattern).
+        // D3 bouncerskip (docs/151 §6; s58 world-rank: WatchDoor.LoopDel was the #1 interaction by route-plan time, ~15
+        // Bridgeport bouncers x 150-270 plans of 170-230 ms in 2.5 h). EA's LoopDel calls RouteToSlot(Target, RoutingSlot_2)
+        // every 5 s of the shift and ignores the result; RouteToSlot is plan + DoRoute, nothing else. A bouncer already on
+        // the slot (no parent, < 0.1 m XZ, < 0.25 m height, facing the slot's way within ~10 degrees) gets a zero-length
+        // route, so skipping it gives EA's result. Off the slot or off-facing it routes as EA. [232] at slot, [235] skipped.
         public class BouncerHook
         {
             public void LoopDelHook(StateMachineClient smc, InteractionInstance.LoopData ld)
             {
-                if (BouncerAtSlot(this)) return;
+                bool src = ShortcutOn("routesrc"), skip = ShortcutOn("bouncerskip");
+                if ((src || skip) && BouncerAtSlot(this, skip)) return;
                 LoopDelOrig(smc, ld);
             }
             public void LoopDelOrig(StateMachineClient smc, InteractionInstance.LoopData ld) { } // receives WatchDoor.LoopDel's original header
         }
 
-        static bool BouncerAtSlot(object self)
+        // Pure: skip EA's re-route? Only with the switch on and the bouncer on the slot (RouteSrcCore.AtSlot).
+        internal static bool BsSkip(bool on, float dx, float dy, float dz, float fwdDot) { return on && RouteSrcCore.AtSlot(dx, dy, dz, fwdDot); }
+
+        // XZ cosine between the slot's forward and the Sim's (-1 when either is vertical or zero).
+        internal static float BsFacing(float fx, float fz, float ax, float az)
         {
-            bool src = ShortcutOn("routesrc"), skip = ShortcutOn("bouncerskip");
-            if (!src && !skip) return false;
+            float n1 = (float)Math.Sqrt(fx * fx + fz * fz), n2 = (float)Math.Sqrt(ax * ax + az * az);
+            return n1 > 0f && n2 > 0f ? (fx * ax + fz * az) / (n1 * n2) : -1f;
+        }
+
+        static bool BouncerAtSlot(object self, bool skip)
+        {
             try
             {
                 InteractionInstance ii = self as InteractionInstance;
@@ -219,16 +235,34 @@ namespace Ts3Fixes
                 GameObject target = ii != null ? ii.Target as GameObject : null;
                 if (actor == null || target == null || actor.Parent != null) return false;
                 Vector3 slot = target.GetPositionOfSlot(Slot.RoutingSlot_2), fwd = target.GetForwardOfSlot(Slot.RoutingSlot_2), a = actor.Position, af = actor.ForwardVector;
-                float n1 = (float)Math.Sqrt(fwd.x * fwd.x + fwd.z * fwd.z), n2 = (float)Math.Sqrt(af.x * af.x + af.z * af.z);
-                float dot = n1 > 0f && n2 > 0f ? (fwd.x * af.x + fwd.z * af.z) / (n1 * n2) : -1f;
+                float dot = BsFacing(fwd.x, fwd.z, af.x, af.z);
                 if (!RouteSrcCore.AtSlot(a.x - slot.x, a.y - slot.y, a.z - slot.z, dot)) return false;
                 int[] c = PatchCounters();
                 c[232]++;
-                if (!skip) return false;
+                if (!BsSkip(skip, a.x - slot.x, a.y - slot.y, a.z - slot.z, dot)) return false;
                 c[235]++;
                 return true;
             }
             catch (Exception) { return false; }
+        }
+
+        // BouncerSkipCheck run: the hook's decision on an on-slot bouncer (3 cm off, facing 2.6 degrees off): EA re-plans
+        // (BROKEN), the fix skips. Controls: a bouncer pushed 0.3 m off, one turned 25 degrees, and one 0.4 m above (stairs)
+        // still route; the off rule never skips. Read-only.
+        public static object BouncerSkipCheck(string what)
+        {
+            int[] c = PatchCounters();
+            string counters = "bouncerskip: bouncer loops at the slot 232=" + c[232] + ", re-routes skipped 235=" + c[235];
+            if (what == "result") return counters;
+            if (what != "run") return "bouncerskip <run|result>";
+            bool on = ShortcutOn("bouncerskip");
+            float near = BsFacing(1f, 0f, (float)Math.Cos(0.045), (float)Math.Sin(0.045)), turned = BsFacing(1f, 0f, (float)Math.Cos(0.44), (float)Math.Sin(0.44));
+            bool fixedNow = BsSkip(on, 0.03f, 0f, 0.0f, near);
+            bool controls = !BsSkip(true, 0.3f, 0f, 0f, near) && !BsSkip(true, 0.02f, 0f, 0.01f, turned) && !BsSkip(true, 0f, 0.4f, 0f, near)
+                && !BsSkip(false, 0.03f, 0f, 0f, near) && BsSkip(true, 0f, 0f, 0f, 1f);
+            Type watch = typeof(VelvetRopes).GetNestedType("WatchDoor", BindingFlags.NonPublic);
+            string missing = watch == null ? "VelvetRopes+WatchDoor" : "";
+            return B582Line("bouncerskip", on, "on-slot bouncer re-route skipped", fixedNow, "displaced / turned / raised still route, off as EA=" + controls, controls, missing, counters);
         }
     }
 }

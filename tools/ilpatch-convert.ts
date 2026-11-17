@@ -10,6 +10,10 @@
 //        --write write mods/ilpatch/specs/<id>.json for the converted entries (default: report only)
 //        --csv   census per entry (default docs/data/ilpatch-convert.csv with --write, else none)
 //   node tools/ilpatch-convert.ts --self-check     relocator and alignment on synthetic bodies (no files)
+//   node tools/ilpatch-convert.ts --dump <assembly> <method id substring>   a method's instructions with offsets and member
+//        names (EA 1.67 build; local reading for a hand spec, prints no bytes)
+//   node tools/ilpatch-convert.ts --fill <spec.json>   a hand-written spec (id, switch, assembly, method, edits): applies the
+//        edits offline to every known build and writes builds{size, sha256, tokens, patchedSha256} and ilHashG6 back
 //   node tools/ilpatch-convert.ts --emit-native [<out.h>]   the specs as a C table for ts3native (default
 //        native/ts3native/ilpatch-specs.h, docs/526); reads mods/ilpatch/specs only, no core repo needed
 // Builds: ea-1.67 = game-copy/assemblies (always); simler90-242 = game-copy/simler90-242/dll over EA, when present
@@ -25,7 +29,7 @@ const ROOT = resolve(import.meta.dirname, '..');
 const arg = (n: string, d: string) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : d; };
 const args = (n: string) => process.argv.flatMap((v, i) => (v === n ? [process.argv[i + 1]] : []));
 const CORE = arg('--core', process.env.TS3_CORE_REPO ?? '');
-if (!CORE && !process.argv.includes('--self-check') && !process.argv.includes('--emit-native')) { console.error('ilpatch-convert: --core <Core repo> (or TS3_CORE_REPO) is required'); process.exit(2); }
+if (!CORE && !process.argv.includes('--self-check') && !process.argv.includes('--emit-native') && !process.argv.includes('--dump') && !process.argv.includes('--fill')) { console.error('ilpatch-convert: --core <Core repo> (or TS3_CORE_REPO) is required'); process.exit(2); }
 const WRITE = process.argv.includes('--write');
 const SPECS = join(ROOT, 'mods/ilpatch/specs');
 const GAME_ASMS = new Set(['ScriptCore', 'SimIFace', 'Sims3GameplaySystems', 'Sims3GameplayObjects', 'Sims3Metadata', 'Sims3StoreObjects', 'UI']);
@@ -189,10 +193,12 @@ const memberKind = (o: Op): 'method' | 'field' | 'type' | 'other' => TYPE_OPS.ha
 type TokIndex = { method: Map<string, number[]>; field: Map<string, number[]>; type: Map<string, number[]> };
 const tokIndexes = new WeakMap<Asm, TokIndex>();
 // tokenText renders a method token as "Owner::Name`n(params):ret" (+ "<gargs>" for a MethodSpec), a field as "Owner::name:type".
-function keyOfTokenText(kind: 'method' | 'field' | 'type', s: string): string | null {
+// spec: a MethodSpec (0x2b), whose text ends in its generic arguments; a MemberRef's return type may end in '>' too
+// (IEnumerator`1<!0>), which is not a generic argument list
+function keyOfTokenText(kind: 'method' | 'field' | 'type', s: string, spec = false): string | null {
   if (kind === 'type') return normType(s);
   if (kind === 'field') { const m = /^(.*)::([^:]+?)(?::(.*))?$/.exec(s); return m ? `${normType(m[1])}::${m[2]}` : null; } // a Field id has no ":type"
-  let gargs = ''; if (s.endsWith('>')) { let d = 0; for (let i = s.length - 1; i >= 0; i--) { if (s[i] === '>') d++; else if (s[i] === '<') { d--; if (!d) { gargs = s.slice(i + 1, -1); s = s.slice(0, i); break; } } } }
+  let gargs = ''; if (spec && s.endsWith('>')) { let d = 0; for (let i = s.length - 1; i >= 0; i--) { if (s[i] === '>') d++; else if (s[i] === '<') { d--; if (!d) { gargs = s.slice(i + 1, -1); s = s.slice(0, i); break; } } } }
   const m = /^(.*?)::([^:(]+?)(`\d+)?\((.*)\)(?::([^:]*))?$/.exec(s); if (!m) return null; // a MethodDef id has no ":ret"
   return `${normType(m[1])}::${m[2]}${m[3] ?? ''}(${splitTop(m[4]).map(normType).join(',')})${gargs ? '<' + splitTop(gargs).map(normType).join(',') + '>' : ''}`;
 }
@@ -207,7 +213,7 @@ function tokIndex(a: Asm): TokIndex {
     for (let i = 1; i <= n; i++) {
       const tok = (t << 24) | i; let s: string; try { s = tokenText(a, tok); } catch { continue; }
       if (kind === 'member') { if (/\(.*\)/.test(s)) add(ix.method, keyOfTokenText('method', s), tok); else add(ix.field, keyOfTokenText('field', s), tok); }
-      else if (kind === 'method') add(ix.method, keyOfTokenText('method', s), tok);
+      else if (kind === 'method') add(ix.method, keyOfTokenText('method', s, true), tok);
       else add(ix.type, keyOfTokenText('type', s), tok);
     }
   }
@@ -566,8 +572,12 @@ function selfCheck(): void {
   const k2 = keyOfTokenText('method', 'Sims3.Gameplay.CAS.SimDescriptionCore::GetOutfit(Sims3.SimIFace.CAS.OutfitCategories,int)');
   if (k1 !== k2) throw new Error(`self-check: keys ${k1} | ${k2}`);
   const k3 = parseMember('method', 'instance class [mscorlib]System.Collections.Generic.List`1<!!0> Sims3.Gameplay.Inventory::FindAll<class Sims3.Gameplay.ActorSystems.TraitChip>(bool)').key;
-  const k4 = keyOfTokenText('method', 'Sims3.Gameplay.Inventory::FindAll`1(bool):System.Collections.Generic.List`1<!!0><Sims3.Gameplay.ActorSystems.TraitChip>');
+  const k4 = keyOfTokenText('method', 'Sims3.Gameplay.Inventory::FindAll`1(bool):System.Collections.Generic.List`1<!!0><Sims3.Gameplay.ActorSystems.TraitChip>', true);
   if (k3 !== k4) throw new Error(`self-check: generic keys ${k3} | ${k4}`);
+  // a MemberRef whose return type ends in '>' (not a MethodSpec): no generic arguments taken from it
+  const k5 = parseMember('method', 'instance class [mscorlib]System.Collections.Generic.IEnumerator`1<!0> class Sims3.Gameplay.Utilities.ListSorted`1<class Sims3.Gameplay.ActorSystems.BuffTimer>::GetEnumerator()').key;
+  const k6 = keyOfTokenText('method', 'Sims3.Gameplay.Utilities.ListSorted`1<Sims3.Gameplay.ActorSystems.BuffTimer>::GetEnumerator():System.Collections.Generic.IEnumerator`1<!0>');
+  if (k5 !== k6) throw new Error(`self-check: return-type keys ${k5} | ${k6}`);
   console.log('ilpatch-convert self-check ok');
 }
 
@@ -631,7 +641,40 @@ function emitNative(out: string): void {
   console.log(`${out}: ${files.length} specs (${files.map((f) => basename(f, '.json')).join(', ')}), ${OPS.length} opcodes`);
 }
 
-if (process.argv.includes('--self-check')) selfCheck();
+// --dump / --fill: hand-written specs (docs/584 §5 buffbuf); no core repo involved
+function dump(asmName: string, needle: string): void {
+  const builds = loadBuilds(), ea = builds[0]; const a = asmOf(ea, asmName, ea); if (!a) throw new Error(`no ${asmName}.dll`);
+  const ms = a.methods.filter((m) => m.id.includes(needle)); if (ms.length !== 1) throw new Error(`${ms.length} methods match: ${ms.slice(0, 5).map((m) => m.id).join(' | ')}`);
+  const b = bodyOf(ms[0])!; console.log(`${ms[0].id}: ${b.code.length} bytes, max stack ${b.maxStack}, ${b.clauses.length} clauses`);
+  for (const c of b.clauses) console.log(`  clause flags ${c.flags} try 0x${c.tryOff.toString(16)}+${c.tryLen} handler 0x${c.hOff.toString(16)}+${c.hLen}`);
+  for (const x of b.ins) {
+    const opnd = x.op.kind === 'tok' ? tokenText(a, x.v) : x.op.kind === 'br8' || x.op.kind === 'br32' ? `@0x${x.v.toString(16)}` : x.op.kind === 'switch' ? x.targets!.map((t) => `@0x${t.toString(16)}`).join(',') : x.op.kind === 'none' ? '' : String(x.v);
+    console.log(`  0x${x.at.toString(16).padStart(4, '0')} ${x.op.name} ${opnd}`);
+  }
+}
+function fill(file: string): void {
+  const spec = JSON.parse(readFileSync(file, 'utf8'));
+  const edits: Edit[] = spec.edits.map((e: any) => ({ at: parseInt(e.at, 16), mode: e.mode, entry: e.entry, expect: e.expect, il: e.il, maxStack: e.maxStack, drop: e.mode === 'replace' ? e.expect.length : 0 }));
+  const builds = loadBuilds(), ea = builds[0]; spec.builds = {};
+  const maxAdd = Math.max(0, ...edits.map((x) => x.maxStack));
+  for (const b of builds) {
+    const ba = asmOf(b, spec.assembly, ea); const bm = ba?.methods.find((x) => x.id === spec.method); const bb = bm ? bodyOf(bm) : null;
+    if (!ba || !bb) { console.log(`${b.label}: method missing`); continue; }
+    const applied = apply(bb, edits, (ref) => tokenFor(ba, ref), maxAdd);
+    if (applied.missing.length) throw new Error(`${b.label}: no token for ${applied.missing.join(' ; ')}`);
+    const tokens: Record<string, string> = {};
+    for (const ed of edits) for (const line of ed.il) { const al = assembleLine(line); const k = memberKind(al.op); if (al.op.kind === 'tok' && k !== 'other') tokens[al.operand] = '0x' + (tokenFor(ba, parseMember(k, al.operand))! >>> 0).toString(16).padStart(8, '0'); }
+    spec.builds[b.label] = { size: bb.code.length, sha256: sha(bb.code), tokens, patchedSha256: sha(applied.code) };
+    if (b === ea) spec.ilHashG6 = g6Hash(join(b.dir, `${spec.assembly}.dll`), spec.method);
+    console.log(`${b.label}: ${bb.code.length} -> ${applied.code.length} bytes`);
+    console.log(ilShapeBody(ba, applied.full, 0).split('\n').slice(0, 400).join('\n').length > 0 ? '  patched body decodes' : '');
+  }
+  writeFileSync(file, JSON.stringify(spec, null, 2) + '\n');
+}
+
+if (process.argv.includes('--dump')) { const i = process.argv.indexOf('--dump'); dump(process.argv[i + 1], process.argv[i + 2]); }
+else if (process.argv.includes('--fill')) fill(resolve(arg('--fill', '')));
+else if (process.argv.includes('--self-check')) selfCheck();
 else if (process.argv.includes('--emit-native')) { const o = arg('--emit-native', '') ?? ''; emitNative(!o || o.startsWith('--') ? join(ROOT, 'native/ts3native/ilpatch-specs.h') : resolve(o)); }
 else {
   const rows = convert();

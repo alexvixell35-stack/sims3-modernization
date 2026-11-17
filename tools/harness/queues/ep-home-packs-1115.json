@@ -1,0 +1,121 @@
+{
+  "note": "ep-home-packs-1115 (PREPARED, NOT RUN, 2026-11-15; docs/267 §5 step 3): one correctness job per home world forcing the never-seen pack content (repros.json ep-home-bp / ep-home-sv / ep-home-ip; ep-home-ip uses spawn_horse, docs/267 F3). ~50 min. Pins: TODO master-lanes-1115.",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-ep-home-1115",
+      "note": "[est 16 min] CORRECTNESS (docs/267 §5 step 3): Late Night DJ booth and celebrity, Showtime stage and karaoke, Ambitions careers (Stylist, Firefighter) and sculpting / inventing, Supernatural alchemy, witch, genie, zombies. Baseline-BP, release bundle (releaseDefaults), 10 min at x3 with repro ep-home-bp; 1 household Sim does one normal action, NPCs carry the pack content. Pass: no crash, 0 script errors, switches read back, no FAIL line. Household untouched: no automatic gate exists for it; read the kd / uf / UfTeleport lines of ts3native.log and the ts3fixes log for household or selected scope (must be none outside the long hard ceilings) and that the household Sims end where their own actions took them. After: node tools/harness/run-verdict.ts, <tag>-repro.jsonl (which forced steps queued their interaction), jitCodeKB / jitMethods / jit refusals in the native counters (docs/267 §1: the JIT region fills in another order in a destination world). Passing repros fold into the next bundle timing run.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "pinReason": "master-lanes-1115 (builds.json, master 84ee284f, 0.36.261-lanes1): includes feature/ep-world-runs-1115 (ts3agent with @type: targets, spawn_horse); ts3agent from build/ (game-copy/ts3agent.package.master-lanes-1115 is the same file)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ep-home-bp"
+        }
+      }
+    },
+    {
+      "id": "sv-ep-home-1115",
+      "note": "[est 16 min] CORRECTNESS (docs/267 §5 step 3): Seasons winter (skating rink, weather stone, snowman), Generations treehouse / clothesline / baby swing, WA home objects (nectar, board breaker, snake charming), Supernatural Bonehilda. Baseline-SV, release bundle (releaseDefaults), 10 min at x3 with repro ep-home-sv; 1 household Sim does one normal action, NPCs carry the pack content. noEnv: the repro sets winter + snow (test_env fixed); the env guard would turn it into spring. Pass: no crash, 0 script errors, switches read back, no FAIL line. Household untouched: no automatic gate exists for it; read the kd / uf / UfTeleport lines of ts3native.log and the ts3fixes log for household or selected scope (must be none outside the long hard ceilings) and that the household Sims end where their own actions took them. After: node tools/harness/run-verdict.ts, <tag>-repro.jsonl (which forced steps queued their interaction), jitCodeKB / jitMethods / jit refusals in the native counters (docs/267 §1: the JIT region fills in another order in a destination world). Passing repros fold into the next bundle timing run.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "pinReason": "master-lanes-1115 (builds.json, master 84ee284f, 0.36.261-lanes1): includes feature/ep-world-runs-1115 (ts3agent with @type: targets, spawn_horse); ts3agent from build/ (game-copy/ts3agent.package.master-lanes-1115 is the same file)",
+      "releaseDefaults": true,
+      "save": "Baseline-SV",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ep-home-sv",
+          "noEnv": true
+        }
+      }
+    },
+    {
+      "id": "ip-ep-home-1115",
+      "note": "[est 16 min] CORRECTNESS (docs/267 §5 step 3): Pets horses (spawn_horse, box stall, jump, trough, hitching post), Into the Future synthesizer / bot station / teleporter / time portal / meteor, University keg and whiteboard. Baseline-IP, release bundle (releaseDefaults), 10 min at x3 with repro ep-home-ip; 1 household Sim does one normal action, NPCs carry the pack content. Pass: no crash, 0 script errors, switches read back, no FAIL line. Household untouched: no automatic gate exists for it; read the kd / uf / UfTeleport lines of ts3native.log and the ts3fixes log for household or selected scope (must be none outside the long hard ceilings) and that the household Sims end where their own actions took them. After: node tools/harness/run-verdict.ts, <tag>-repro.jsonl (which forced steps queued their interaction), jitCodeKB / jitMethods / jit refusals in the native counters (docs/267 §1: the JIT region fills in another order in a destination world). Passing repros fold into the next bundle timing run.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "pinReason": "master-lanes-1115 (builds.json, master 84ee284f, 0.36.261-lanes1): includes feature/ep-world-runs-1115 (ts3agent with @type: targets, spawn_horse); ts3agent from build/ (game-copy/ts3agent.package.master-lanes-1115 is the same file)",
+      "releaseDefaults": true,
+      "save": "Baseline-IP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "ep-home-ip"
+        }
+      }
+    }
+  ]
+}

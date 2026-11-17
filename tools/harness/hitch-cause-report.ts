@@ -1,7 +1,7 @@
 // Report of the hitch-cause logging (docs/247 §9). Reads only; never talks to the game.
 //   node tools/harness/hitch-cause-report.ts <ts3native.log> [--frames <frames.csv>] [--top 5]
 //   node tools/harness/hitch-cause-report.ts --self-check
-// Reads the ts3fixes lines alarmtime:, lotpass:, boatreplan:, owreset: and the sync plan line ts3native writes right before a
+// Reads the ts3fixes lines alarmtime:, lotpass:, boatreplan:, gangway: (docs/247 §13.3 R1), owreset: and the sync plan line ts3native writes right before a
 // boatreplan: line ([RouteJobPhases] SyncPlans=1). frames.csv (--svcsplit runs): frames >= 100 ms by svcTop.
 // Boat split: seen = Sim or boat in view at the replan, unseen = neither (the part a teleport could remove).
 import { readFileSync } from 'node:fs';
@@ -21,14 +21,18 @@ export function parseBoat(line: string, planLine?: string): Boat | null {
     plan: p ? `plan ${p[1]} ms planlocked ${p[2]} ${p[3]}${p[4] ? ' ' + p[4] : ''}` : undefined };
 }
 
+// gangway fixup replans inside PostPlanCallback: ms, Exit / Enter, sync / async, Sim class
+export const GANGWAY = /gangway: (\d+) ms, (Exit|Enter), (sync|async) \w+, sim .*?, class (unseen|household|seen),/;
+
 export function report(log: string, frames: string | null, topN: number): string[] {
-  const alarms: Tally = new Map(), passes: Tally = new Map(), resets: Tally = new Map(), why: Tally = new Map();
+  const alarms: Tally = new Map(), passes: Tally = new Map(), resets: Tally = new Map(), why: Tally = new Map(), gang: Tally = new Map();
   const boats: Boat[] = [];
   const lines = log.split(/\r?\n/);
   lines.forEach((l, i) => {
     let m: RegExpExecArray | null;
     if ((m = /alarmtime: (\d+) ms, ([^,]+), target ([^,]*)/.exec(l))) tally(alarms, `${m[2]} on ${m[3]}`, +m[1]);
     else if ((m = /lotpass: (\d+) ms, lot ([^,]*),.*?door (\d+) ms, detail (\d+) ms, rest<= (\S+) ms/.exec(l))) tally(passes, `${m[2]} door=${m[3]} detail=${m[4]} rest<=${m[5]}`, +m[1]);
+    else if ((m = GANGWAY.exec(l))) tally(gang, `${m[2]} ${m[3]} ${m[4]}`, +m[1]);
     else if ((m = /owreset: OnPerform ([^,]*), ([^,]*), (\d+) ms with sleeps, after (\S+) ms, suffix (\S+), reset (\w+)/.exec(l))) tally(resets, `OnPerform ${m[2]} suffix=${m[5]} reset=${m[6]} after=${m[4]}`, +m[3]);
     else if ((m = /owreset: Perform ([^,]*), (\d+) ms.*?(create \d+ \d+ ms null \d+, retry \d+ \d+ ms, safe \d+ \d+ ms, restore \d+ ms)/.exec(l))) tally(resets, `Perform ${m[1]} ${m[3]}`, +m[2]);
     else if ((m = /owreset: InstantiateAtHome ([^,]*), (?:([^,]*), )?(\d+) ms, yielded \w+, result (\w+), tries (\S+)/.exec(l))) tally(resets, `InstantiateAtHome ${m[2] ?? ''} result=${m[4]} tries=${m[5]}`, +m[3]);
@@ -45,6 +49,7 @@ export function report(log: string, frames: string | null, topN: number): string
     out.push(...top(why, topN).map(s => `  boat why ${s}`));
     out.push(...[...boats].sort((a, b) => b.ms - a.ms).slice(0, topN).map(b => `  boat worst ${b.ms} ms ${b.mode} ${b.unseen ? 'unseen' : 'seen'} ${b.sim} route ${b.route} dist ${b.dist} paths ${b.paths}${b.plan ? ', ' + b.plan : ''}`));
   }
+  if (gang.size) out.push(...top(gang, topN).map(s => `  gangway ${s}`));
   if (frames !== null) {
     const rows = frames.split(/\r?\n/), head = rows[0].split(','), iTop = head.indexOf('svcTop'), iMs = head.indexOf('svcTopMs'), iFrame = head.findIndex(h => /^(ms|frameMs|dtMs)$/.test(h));
     const svc: Tally = new Map();
@@ -66,6 +71,8 @@ if (process.argv.includes('--self-check')) {
     'lotpass: 900 ms, lot WorldLot, alarms 3 890 ms, top 800 ms Lot.Tick, door 1 ms, detail 2 ms, rest<= 7 ms, day 1 hour 2.00',
     'owreset: Perform Ann Lee, 439 ms with sleeps, tail 3 ms, home True fade True result True, create 1 430 ms null 0, retry 0 0 ms, safe 1 2 ms, restore 5 ms, day 1',
     'owreset: InstantiateAtHome Ann Lee, Horse Adult, 431 ms, yielded False, result True, tries 2',
+    'ts3fixes: gangway: 212 ms, Exit, sync Succeeded, sim Ann Lee uf=3, class household, route 12.5 paths 3, lot 1A, from (1.0, 2.0, 3.0)',
+    'ts3fixes: gangway: 8 ms, Enter, sync Succeeded, sim Bo Day uf=0, class unseen, route 4.0 paths 2, lot 0, from (1.0, 2.0, 3.0)',
     'owreset: OnPerform Ann Lee, Human Adult, 460 ms with sleeps, after 20 ms, suffix Stuck, reset yes, safe 1 2 ms no 1, day 1'].join('\n');
   const r = report(log, 'ms,svcTop,svcTopMs\n182,state4,170\n5,state1,1\n150,na,0\n', 5);
   assert.ok(r[0].includes('alarmtime 1 lines, lotpass 1, boatreplan 2, owreset 3'), r[0]);
@@ -77,6 +84,9 @@ if (process.argv.includes('--self-check')) {
   assert.ok(t.includes('owreset OnPerform Human Adult suffix=Stuck reset=yes after=20 n=1 sum=460'), t);
   assert.ok(t.includes('svc state4 n=1 sum=170') && !t.includes('svc state1') && !t.includes('svc na'), t);
   assert.equal(parseBoat('nothing'), null);
+  assert.ok(t.includes('gangway Exit sync household n=1 sum=212') && t.includes('gangway Enter sync unseen n=1 sum=8'), t);
+  assert.equal(GANGWAY.exec('ts3fixes: gangway: 5 ms, Sideways, sync Succeeded, sim X uf=0, class unseen, route 1'), null);  // not a gangway method
+  assert.equal(GANGWAY.exec('ts3fixes: boatreplan: 5 ms, sync Succeeded, sim X uf=0, class unseen, job no'), null);
   assert.ok(report('', 'a,b\n', 5).join('\n').includes('no svcTop column'));
   console.log('hitch-cause-report self-check OK');
 } else {

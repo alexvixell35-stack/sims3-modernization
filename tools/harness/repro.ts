@@ -44,12 +44,12 @@ if (cmd === 'run-many') {
   }
   if (!batch.length) { console.error('no matching entries'); process.exit(2); }
   if (later.length) console.log(`not in this batch (same place, Sim or another save): ${later.join(', ')}`);
-  const counters = batch.filter(e => e.watch.kind === 'counter' || e.watch.kind === 'native');
+  const counters = batch.filter(e => e.watch?.kind === 'counter' || e.watch?.kind === 'native');
   if (counters.length) console.log(`counter / native watches run separately: ${counters.map(e => e.id).join(', ')}`);
-  const stuckOnes = batch.filter(e => e.watch.kind !== 'counter' && e.watch.kind !== 'native');
+  const stuckOnes = batch.filter(e => e.watch?.kind !== 'counter' && e.watch?.kind !== 'native');
   r = { id: stuckOnes.map(e => e.id).join('+'), bug: `${stuckOnes.length} repros together`, fix: '-', save: batch[0].save,
     steps: stuckOnes.flatMap(e => e.steps ?? []),
-    watch: { kind: 'stuck', sims: stuckOnes.flatMap(e => e.watch.sims ?? []), minutes: Math.max(...stuckOnes.map(e => e.watch.minutes)) },
+    watch: { kind: 'stuck', sims: stuckOnes.flatMap(e => e.watch?.sims ?? []), minutes: Math.max(0, ...stuckOnes.map(e => e.watch?.minutes ?? 0)) },
     expect: 'every repro passes' };
 } else r = LIB.find(x => x.id === id);
 if ((cmd !== 'run' && cmd !== 'run-many') || !r) { console.error('usage: repro.ts list | run <id> | run-many <id,id,...> [--no-load] [--set ...]'); process.exit(2); }

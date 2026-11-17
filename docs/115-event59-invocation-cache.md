@@ -10,6 +10,8 @@ Written 2026-10-18. Design only: no code, no game runs. Source finding: docs/105
 - **Existing mods.** None found that does this (a quick web search, 2026-10-18; the S3SS, S3PP and NRaas notes in docs/03, 07, 68, 69 and 77 do not touch the dispatcher) [community, negative search].
 - **Effort:** about 0.5 day for Claude with Rodney's help: 0.25 to build (one hook, one tuning, two switches, three counters, an agent read, a repro entry) and 0.25 for the verify load plus one night A/B.
 
+**Built 2026-11-15 (lane L4, NOT RUN):** as §3 (`PortalInvCacheHook` in `ScriptHotSpots.cs`, `InvListCache` in `TickMemo.cs`, tuning `kPortalInvocationCache` off, counters 99-101, agent `invcache_hits` / `_rebuilds` / `_mismatches`), plus: off the sim thread the game's method runs. Repro `event59-invcache`, queue `lane-l4-1115-memos.json`.
+
 ## 2. Where the dispatch lives [verified unless marked]
 
 | Piece | Where | Note |

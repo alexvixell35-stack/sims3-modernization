@@ -231,6 +231,21 @@ the camera and some were not. So every natural stale wait seen so far belongs to
 `outfitwaitpoll` poll ends them with nothing visible changing. Why an unseen Sim's swap does not become ready is still
 open [inferred: the engine may not build outfits for Sims it does not draw].
 
+**Why an unseen Sim's swap is not ready (2026-11-15, issue #151) [verified, Ghidra decompile of TS3W]:**
+`IC_CASUtils_SetOutfitInGameObjectDelayedImpl 0x5A9E90` wraps the callback, builds the request and calls
+`CAS_PostOutfitSwapMsg 0x5ADD40`, which is also the message handler (id `0x30290F0`). Each time it runs it
+re-posts the same message, without applying the swap or calling back, while either:
+- the request's flag word `+0x18` has bit 0 set (outfit still building), or
+- the Sim's **Animation** component (component bit `[0x11DC484]`, set at `0x933FB0` from the type `0x93DEC0` =
+  "Animation") answers null from its vtable `+0x20`.
+
+Only after both are clear does it apply the outfit and hand the callback on (`0x5AF160`). So a delayed swap of a Sim
+whose animation instance does not exist waits, re-posted, until it does [inferred: the Sim is not instantiated for
+drawing when far from the camera, which matches every natural stale wait being off screen and off the active lot,
+and about half of them ending later]. This is EA's design, not a lost callback and not a script bug: nothing in the
+Sim's task can make the swap ready, and completing it from script without the model would skip the native apply.
+`outfitwaitpoll` (read once per sim-minute after 60) stays the mitigation; no further fix is planned.
+
 ## 6. Waits whose Sim is destroyed (issue #40, 2026-11-09)
 
 Verified in the decompiled code: `MagicMirror.MagicalMakeover.MagicalMakeoverDelegate` adds a yielding one-minute alarm

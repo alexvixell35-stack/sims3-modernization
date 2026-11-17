@@ -48,10 +48,10 @@ static class OverwatchSpreadTest
             inv.RemoveAll(delegate(List<Item> s) { return s.Count == 0; });
         }
         List<Item> taken = new List<Item>(), added = new List<Item>();
-        DailyPairPass<List<List<Item>>, Job> pass = new DailyPairPass<List<List<Item>>, Job>();
+        DailyPairPass<List<List<Item>>, SpreadUnit> pass = new DailyPairPass<List<List<Item>>, SpreadUnit>();
         pass.Begin(inventories, delegate(List<List<Item>> inv)
         {
-            List<Job> u = new List<Job>();
+            List<SpreadUnit> u = new List<SpreadUnit>();
             List<List<Item>> stacks = new List<List<Item>>(inv);
             foreach (List<Item> stack in stacks)
             {
@@ -62,7 +62,7 @@ static class OverwatchSpreadTest
             }
             u.Add(delegate { foreach (List<Item> s in stacks) if (s.Count == 0) inv.Remove(s); });
             return u;
-        }, delegate(List<List<Item>> inv, Job unit) { unit(); return true; }, delegate { });
+        }, delegate(List<List<Item>> inv, SpreadUnit unit) { unit(); return true; }, delegate { });
         int slices = 0, units;
         bool done = false;
         while (!done)

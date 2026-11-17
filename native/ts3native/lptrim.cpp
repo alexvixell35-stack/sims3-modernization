@@ -24,8 +24,8 @@
 // (raises World.OnWorldQuit) -> Quit state -> exit, so the line arrives before EA's atexit [verified decompiled scripts].
 // Not covered: an exit that skips the world quit (process killed: no atexit runs either).
 // Apex Radiance loaded ([Compat] ApexStandDown=1): no trim (memory is its area, like rctrim.cpp), counted in lpBad.
-static const DWORD LP_POOL = 0x011EB590, LP_LOCK = 0x011EB5B0, LP_LOCK_FN = 0x004E16F0, LP_UNLOCK_FN = 0x004E17B0;
-static const DWORD LP_ITEM = 0x110, LP_ALIGN = 0x10, LP_PER = 0x80, LP_ALLOC_CB = 0x005C32D0, LP_FREE_CB = 0x004E8590;
+static const DWORD LP_POOL = TS3A(0x011EB590), LP_LOCK = TS3A(0x011EB5B0), LP_LOCK_FN = TS3A(0x004E16F0), LP_UNLOCK_FN = TS3A(0x004E17B0);
+static const DWORD LP_ITEM = 0x110, LP_ALIGN = 0x10, LP_PER = 0x80, LP_ALLOC_CB = TS3A(0x005C32D0), LP_FREE_CB = TS3A(0x004E8590);
 static const DWORD LP_MAX = 8192;  // cores; al320 Bridgeport had 599
 typedef int(__thiscall* LpLockFn)(void* lock, const LONG* deadline);
 typedef void(__thiscall* LpUnlockFn)(void* lock);

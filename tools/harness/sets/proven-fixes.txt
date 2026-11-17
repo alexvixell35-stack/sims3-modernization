@@ -1,0 +1,363 @@
+# Proven gameplay fixes: every default-off ts3fixes switch whose fix is proven in game (off BROKEN / on FIXED, or measured
+# off/on), and that fixes EA gameplay / bugs. Evidence: a docs/registry.md row "proven in game", a PLAN.md / docs entry "proven
+# in game" / "verified in game", a phasesoak verdict pair (switch false BROKEN, true FIXED; ~/dev/ts3-runs phase-*/phase.txt,
+# 2026-11-14/15), or a fix-repro-check.ts "measured off/on" note (socialfinish, socialreceivefail).
+# Excluded below: measurement, diagnostics, test-only, perf experiments, regressions and fixes not proven yet.
+# One switch per line; `node tools/harness/proven-fixes.ts` checks the file and prints it for EARLYFIX / `ag patches`.
+# Built 2026-11-15 from the 207 default-off switches (Fixes.cs ShortcutOn names -> Instantiator k* = false).
+agingalarmcancel
+artsellnoartist
+autonomyinuseblock
+awkwardscience
+backpacklotleak
+bathcleanup
+bathsituationfx
+birthdayagers
+boardingschoolmoney
+boatstaleswimmer
+bouncerrole
+bubblingspringsreset
+buffremovedelayed
+businessplannerrun
+butlerpayalarm
+cancelposturedef
+carpoolschoolskip
+catchpreyodds
+cattoypickerrel
+celebalarmnull
+chemistryvfx
+chessdefeated
+chestuselist
+chocfountaingeyser
+cleanupvfx
+compositionnull
+computergametype
+copyhomeworkfx
+curfewalarm
+dartboardvfx
+daycareliking
+digsiteemptypick
+disposebase
+disposevirtualslot
+distressgate
+dogswimaroundlist
+dogswimslots
+donationbuffchance
+doorlockowner
+eatpostonce
+eatpreycancel
+efficientchip
+elevatorkitten
+elevatorresetriders
+elevatorridertimeout
+elevatorsavedlog
+equestriantrophyname
+facialidleweight
+fairyauratimer
+fallenrockcollected
+fearfaintundo
+fightbroadcastend
+fireactivejob
+firefightercount
+firetrapcount
+floorswitchuselist
+flowersinuse
+foodtraygrill
+fragmentreconstruct
+freshclothingresume
+fridgetestnull
+frolicexit
+futuredescendantsize0
+fvstandskillcurve
+gigmaster
+gigpullaudience
+gohereboatlist
+goodbyepure
+gotoworkstale
+gradvisitors
+guitargnomeboost
+handsetreset
+harvesterunripe
+harvestextras
+harvestregion
+hauntedgnomeinv
+hauntedumbrella
+hayscattertime
+haystackvfx
+hhcleanupdup
+holidaylights
+homeworkskillbonus
+horseranchchallenge
+horsetraitscore
+hottubseatposture
+houdinignomeleak
+hypnotrickrelease
+igloolookats
+intmultiple
+invitecallreply
+jetpackflyingbuff
+jogterrain
+junglegymexitqueue
+kegbreakage
+labobjectpush
+leafburnfail
+leaveconvnull
+lifeguardquit
+lifeguardsurvey
+lightcustom
+lightningweights
+littercap
+lookatcopy
+lotprune
+loyaldoglay
+ltrhistorybits
+lunacysocials
+maildogchaser
+meltalarm
+moodidleflavor
+moodtankreset
+moondiallistener
+moonriselistener
+mountfishcost
+movingflag
+newspaperdef
+nocommercialcar
+npcbusypartner
+npcseasonalparty
+npcshowstuck
+nullsituation
+oppcategoryprotect
+oppchainworld
+oppfailcharge
+ovenmenunull
+partylotlistener
+permazombiemoon
+petdreamtimer
+petdroolvfx
+petharvestvfx
+phonecallrearm
+phonecallschedule
+phonefixup
+phonegive
+phoneloadreset
+photofunds
+photosubjectstars
+picnicants
+plantdormantflip
+plantdormanttime
+playpentalkcast
+plumbotfacelistener
+pokerdeadplayer
+prankditchempty
+privacyothers
+professorterm
+promcarpool
+promoteshift
+protestexit
+protestlastday
+putdowninuse
+putdownplaced
+reactioncopy
+reactiongrumpy
+repairmanskill
+resetinusefree
+residentspawnslot
+resortweddingalarm
+resumetns
+returnhomealarms
+rolenullguard
+roleunprotect
+romancecooldown
+roulettehackreset
+roundupreturn
+royaltyorphan
+rubbleuselist
+sandscoins
+sandwichalarm
+saunatubclear
+scavengernolot
+sciencefxstop
+seasickpaused
+sentiencename
+serviceassignexit
+serviceshowalarm
+shelldoorsummon
+shoodef
+showstagefxend
+shroomslots
+slotmachinedefs
+sneakoutlistener
+snowfightjoinwait
+snublistener
+soakedpetselfreact
+socialnoeffect
+spbucketindex
+spclonedict
+spcollectnull
+spcreatemovein
+spellbooksummonload
+spelltargetend
+spjobatwork
+splitpartner
+splotdensity
+splotlookup
+spoccultpick
+sppensionprompt
+sprecheck
+sprelcount
+sproommatejob
+starlightreset
+steadygigmiss
+stereoupgrade
+streetartmasterboost
+tagbagsurfaceleak
+talkoccupationchance
+teenpartybreakup
+teleportcommunitylot
+timeportalvfx
+tombmusic
+trainsimgone
+traiticondislike
+treewishingwell
+trickortreatalarm
+tricksocials
+tutorballoonalarm
+tvdisclistener
+tvsyncalarm
+tvwatchskill
+twinbellyshape
+unitravelflag
+uselistprune
+vacationalarms
+vampirefruitsnack
+vehiclefxhelper
+virtualhomeshare
+virtualmoveindup
+visitlisteners
+voodoofairyfadein
+wardrobewandvfx
+wellstealcooldown
+werewolffind
+wildherdmother
+wildhorsegender
+wildhorselot
+woohootywait
+
+# Built 2026-11-15 from the 215 default-off switches (+8 docs/575-577, soak verdicts BROKEN/FIXED) (Fixes.cs ShortcutOn names -> Instantiator k* = false).
+# +23 2026-11-15: phase-20261115-2043 smallfix.txt, off BROKEN / on FIXED with controls ok (docs/582 batches 3-5, docs/575-577 sandwichalarm).
+# +13 2026-11-15: phase-20261115-2218 smallfix.txt (s56), off BROKEN / on FIXED (docs/582 batches 5b-7, residentspawnslot).
+
+# ---- excluded (default off, not in the set), by reason
+# perf experiments / sim-thread offload and caching (not EA gameplay fixes):
+#   autlivelate cachedreflection caneearly casmemo detailprio disposespread doormirror drivertaskasync failrepeat farthestsorted
+#   hoursmemo idlememo legreplanskip preplancb replandefer replanspread routablecache safespotcap safespotreuse safespotyield
+#   seasonimposter seasonimpostercold seasonmarkercache spatialcache stuckcheckbusy stuckcheckcap stuckchecknear stuckcheckown
+#   tooltipthrottle unseenbroadcast unseencars unseenenv unseenfbfinish unseenfbloopbreak unseenfbsites unseenfbtrip
+#   unseenfbtriphold unseenmotives unseenpark unseenroute venuememo wakepark wakepoll
+# measurement / diagnostics / test aids:
+#   autunseencmp boatgetoutdiag bookhanddiag deadsimcount routesrc wildflowerprobe
+# test-only, registry says test (vehicle leak tests, age-up swap, dead-Sim hollowing, joyride costume):
+#   ageupswap deadsimhollow vehfrankentaxi vehgetinleak vehparkreserve vehprotestcar vehseatdestroy
+# leak / save-data fixes, opt-in until measured (changes save data or not proven in game):
+#   attractionalarm casuihandlers deadrefguards deadrefsweep familyinvghost firepitchair preferredservice relremovesafe
+#   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim spouseunlink
+# gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
+#   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap
+#   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
+#   vacexitreturn vacexport vacimportfix vaclistenernull vacreturnskip vacstoreguard vacteendelete
+# combo pieces: first in-game check only, not marked proven (docs/551):
+#   combovenue
+# ceremonyspot: the bug is verified in game, the fix has no recorded off/on verdict:
+# partyoutcome: the registry row proves partymotive only; partyoutcome stays idle beside the core mod (docs/554):
+#   partyoutcome
+# built 2026-11-15, in-game off/on test pending (docs/575-577); move to the set once proven:
+#   petputdownwait puddlereach scarepriority
+#   trashpileimport catgymwatch badsecretkey traitlistenerremove portasknohome lecturebroadcaster residentspawnwalk midlifewishsave betrayednullsim topictestnull opptrackerrelisten traitremovenull homeworkcopyold laundrymoodeach partycleanupnull safelocunhide midlifeuiending nemesisnoromance
+# built 2026-11-17 (docs/611, LotCallbacks80.cs), in-game off/on test pending (r68 Check verdict bug, re-run on r69):
+
+# PRs #452 #454 #456 #457 (2026-11-16, other sessions), default off, in-game off/on test pending:
+#   safespotpool spotcheck tagunseen unseenoutfitdefer
+# diagnostics (log only):
+#   socialreplanlog barorderlog routecauselog
+# built 2026-11-15, in-game off/on test pending (docs/587 §6-13, batches EP1-EP6 and store 1); move to the set once proven:
+#   displaycasereset mermaidsharknull jetpackflyherecleanup naniteroutefail springdanceclear nectarcopylevel10 harvesteatvfx buffetemptypick krakenfriendsailor mummycursetrait bullridercleanup broomtipperformer balancingballcareer elvisgnomeguard elvisgnomecap gourmetpetrecipe chipfamilycrystal chipcomponentorphan chipanycount nanitemerge consignmentlastday bartendinghourlypay influencefollowerbonus broomarenachoice fortunetellerscamodds consignmentskillcurve consignmentstockleak herbqualityfloor snackbowlslobvfx worldpondskatetest pingpongopponent mermaiddehydratelook meteormagnetorphan daycarelatealarm boxofmysterywoohoo bodysculptorweight nectarconsignvalue straygnometns
+# built 2026-11-15, in-game off/on test pending (ufplansplit is log only; doorgen is default on since upstream #439):
+#   ufplansplit
+# new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:
+#   permamemo buffremovenoop catnamecache autroommemo autslicetime invcache vaclistenerpad spawncapcount deadrefcooking deadrefconvo takeariskguard
+coopeggquality
+doorprivacynull
+lottotooltip
+motivemultonce
+petpoolghost
+tempforecast
+bouncerskip
+mopunreachable
+petpuddletile
+initstacktrace
+weatherstonelistener
+pondclearscan
+rainsheltercheap
+soakedstat
+weathermanagerthrow
+outerwearautoloop
+outerwearrestore
+spoonslavechecks
+queueproximity
+subroutefail
+petwakebed
+slavewakereason
+outfitwaitend
+tpaptgoal
+hovertraintest
+newcartest
+detailprioexact
+dreamcleanup
+innerbeautyonce
+weddinglistener
+pushwaitskip
+suatgradebonus
+tspawninvdup
+sarcmummynpc
+megaphonerun
+dragoncurserun
+vhomewalk
+speedskiplevel
+speedskipnoactor
+speedrecalclock
+speedlockowner
+alarmzeroperiod
+heartbrokenbcast
+spawnerskip
+maptagtaskalive
+lotmgrcallbacks
+fireplaceherb
+rummagebcast
+stairwaitend
+simdisposelink
+rhexitunseen
+tipsnpcend
+barputdownwait
+putdownsurfaceuse
+swiperestore
+unicornspawnfail
+datadiscputback
+spoilbroadcast
+weatherstonerelisten
+birthdayagerecord
+spotasync
+enumcmpnobox
+alarmcmpnobox
+autmetarows
+buffremovemerge
+swslots
+stuckwatchscan
+lifeeventidfirst
+buffpausedtimeout
+mooddriftnoalloc
+timeralarmleak
+wishfeedbackkeep
+wishsubjectgone
+wishupdatelost
+socialworkerpromise
+buffsrcempty

@@ -144,6 +144,8 @@ Gain caps are upper bounds: the owner's whole share, before any fix overhead [in
 **Fix idea.** Hook `BuffManager.RemoveElement(BuffNames)` (or the trigger loop): return at once when the buff is not active, its ref-count list is empty and no delayed buff is queued; all three checks are cheap and the original is a no-op in exactly that case [verified: the original's three steps]. Exact.
 **Gain cap:** ~0.9% of counted samples = ~5 ms/s in both worlds, ~30 ms/min of >= 50 slice time; steady, not a stall fix [inferred]. **Effort:** 0.5 day.
 
+**Built 2026-11-15 (lane L4, branch `feature/lane-L4-1115`, NOT RUN):** ts3fixes `buffremovenoop` (`ExactMemos.cs`, tuning `kBuffRemoveNoOp`, off; counters 1018-1019). Early return only when the buff is not in `mValues`, `mBuffCountList` is empty (no per-name probe, so no boxing) and `mDelayedBuffs` is null or empty; anything else runs the game's method. Exactness model in `tools/selftest/hotspots`. docs/245 §5: about half of these samples are real removals, which still run the game's method.
+
 ## 6. Limits
 
 - **Sampler coverage:** 5 Hz, ~180 s per run (minutes 1-4 of a 10-min run), stacks without time stamps placed by correlation (up to ~0.5 s off, docs/64 §9); the >= 100 buckets hold 178 (BP) and 100 (IP) counted samples, so rows under ~3% there are a few samples each. IP has only 3 async-on runs, all the same save and seed: the school-run burst is one repeated in-game moment, real but tied to that hour.

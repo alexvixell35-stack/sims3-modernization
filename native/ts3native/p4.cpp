@@ -94,9 +94,9 @@ static SnapWork g_p4Work;
 static SnapWorker g_p4Worker;
 
 // the game's globals (selftest points them at its own memory)
-static DWORD* g_p4StampLive = (DWORD*)(uintptr_t)0x011580C4;
-static DWORD g_p4ClipLive = 0x01158580;
-static const DWORD* g_p4WorldSlot = (const DWORD*)(uintptr_t)0x011D9128;
+static DWORD* g_p4StampLive = (DWORD*)(uintptr_t)TS3A(0x011580C4);
+static DWORD g_p4ClipLive = TS3A(0x01158580);
+static const DWORD* g_p4WorldSlot = (const DWORD*)(uintptr_t)TS3A(0x011D9128);
 
 // T1: `add word [stamp], 1` (8 bytes) -> `call SnStampAdd; nop x3`. Flags are not kept (next writer `or ecx,-1`, §12.2.1).
 static __declspec(naked) void SnStampAdd() {
@@ -180,7 +180,7 @@ static __declspec(naked) void SnWorldGet() {
 }
 
 enum { P4_T1, P4_T2, P4_T2D, P4_T3, P4_T4, P4_SITES };
-static DWORD g_p4At[P4_SITES] = {0x0061E360, 0x0061E030, 0x0061CC73, 0x0066AC37, 0x00836200};
+static DWORD g_p4At[P4_SITES] = {TS3A(0x0061E360), TS3A(0x0061E030), TS3A(0x0061CC73), TS3A(0x0066AC37), TS3A(0x00836200)};
 static const u8 kP4Len[P4_SITES] = {8, 5, 5, 5, 6};
 static const u8 kP4Pro[P4_SITES][8] = {
     {0x66, 0x83, 0x05, 0xC4, 0x80, 0x15, 0x01, 0x01},  // add word [0x11580C4], 1
@@ -264,7 +264,7 @@ static const char* const kP4Ab[P4_AB_N] = {"clone", "nover", "epoch", "cold", "u
                                             "door-miss", "door-over", "managed", "event", "livelock", "lazy", "fault", "other"};
 static const char* const kP4Ic[4] = {"Plan", "Replan", "PlanFromPoint", "ReplanFromPosition"};
 // docs/101 §2.2 #12, #14, and #27's guard dword (bit 0, identity matrix of 0x80D8C0) (selftest: own memory)
-static DWORD g_p4Guards[4] = {kPvGuards[0], kPvGuards[1], kPvGuards[2], 0x011D9060};
+static DWORD g_p4Guards[4] = {kPvGuards[0], kPvGuards[1], kPvGuards[2], TS3A(0x011D9060)};
 
 // tripwires and abort reasons from the stubs (worker only: a clone run, or the live capture for door-over)
 static void P4Abort(int why) {
@@ -304,7 +304,7 @@ static void P4LazyKeep() {
 typedef u8* (__fastcall* P4ObjArgFn)(void* self, void* edx, DWORD arg);  // thiscall, one stack argument
 static u8* P4VarPortalGame(DWORD h) {
     if ((h & 0xFF000000) != 0x28000000) return NULL;  // the IC's own handle type check (0x74D437)
-    u8* host = *(u8* volatile*)(uintptr_t)0x011D4BBC;
+    u8* host = *(u8* volatile*)(uintptr_t)TS3A(0x011D4BBC);
     if (!host) return NULL;
     u8* obj = ((P4ObjArgFn)(uintptr_t)RpD(RpP(host) + 0xCC))(host, NULL, h);
     return obj ? ((P4ObjArgFn)(uintptr_t)RpD(RpP(obj) + 0xC))(obj, NULL, 0xF0464184) : NULL;
@@ -522,9 +522,9 @@ static __declspec(naked) void P4DoorStub() {
 // clone run reads the bits through the vertical rays 0x6583E0 -> 0x686CC0 but never reaches a writer)
 struct P4DlSite { DWORD at; u8 len; u8 pro[10]; const char* name; };
 static const P4DlSite kP4Dl[3] = {
-    {0x00AC0570, 10, {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x86, 0x80, 0x01, 0x00, 0x00}, "Lot_SetDisplayLevel"},  // ... mov eax,[esi+0x180]
-    {0x00AC2190, 5, {0x83, 0xEC, 0x08, 0x53, 0x56}, "Lot_RoofUp"},
-    {0x00AC5C90, 5, {0x8B, 0x44, 0x24, 0x04, 0x55}, "Lot_DisplayLevelWriter3"},
+    {TS3A(0x00AC0570), 10, {0x53, 0x56, 0x8B, 0xF1, 0x8B, 0x86, 0x80, 0x01, 0x00, 0x00}, "Lot_SetDisplayLevel"},  // ... mov eax,[esi+0x180]
+    {TS3A(0x00AC2190), 5, {0x83, 0xEC, 0x08, 0x53, 0x56}, "Lot_RoofUp"},
+    {TS3A(0x00AC5C90), 5, {0x8B, 0x44, 0x24, 0x04, 0x55}, "Lot_DisplayLevelWriter3"},
 };
 static void* g_p4DlJmp[3];
 static void __cdecl P4DlEnter() {
@@ -542,7 +542,7 @@ static int P4InstallDl(const DWORD* at) {  // count of the stubs installed (prol
     return n;
 }
 
-static const DWORD P4_DOOR_AT = 0x0064F4D3, P4_DOOR_TARGET = 0x00791C00;
+static const DWORD P4_DOOR_AT = TS3A(0x0064F4D3), P4_DOOR_TARGET = TS3A(0x00791C00);
 // 4 = chained behind [ProbeValues]' stub (its jump slot now names P4DoorStub), 8 = own call-site redirect, 0 = bytes differ
 static LONG P4InstallDoor(DWORD at, DWORD target) {
     if (g_pvOn && g_pvJmp[PV_QUERY] == (void*)(uintptr_t)target && kPv[PV_QUERY].at == at) {
@@ -778,7 +778,7 @@ static bool P4Guarded(P4Run* r) {
 // then 0x866E90 on the list head (releases each node's path, frees the node) [verified disassembly, Steam 1.67]
 typedef void(__fastcall* P4PathSlotFn)(void* self, void* edx, DWORD a);
 typedef void(__fastcall* P4ListFreeFn)(void* head, void* edx);
-static P4ListFreeFn g_p4ListFree = (P4ListFreeFn)(uintptr_t)0x00866E90;
+static P4ListFreeFn g_p4ListFree = (P4ListFreeFn)(uintptr_t)TS3A(0x00866E90);
 static bool P4FreeList(int* head) {
     __try {
         for (int* node = (int*)(uintptr_t)head[0]; node != head; node = (int*)(uintptr_t)node[0]) {
@@ -814,7 +814,7 @@ static bool P4Cold() {
 // word +0x18) around every alloc / free (0x4E69D0, 0x4E5920) [verified disassembly]. A fault inside them, unwound by
 // P4Guarded, never left it: the worker kept the heap lock and every other thread's next allocation waited for ever (the
 // 0.32.4 run hung, heartbeat frozen, no xcpt). A clone run starts outside the allocator, so any hold left here is orphaned.
-static DWORD* g_p4EaHeap = (DWORD*)(uintptr_t)0x011CB864;
+static DWORD* g_p4EaHeap = (DWORD*)(uintptr_t)TS3A(0x011CB864);
 static int P4EaHeapUnlock() {
     int n = 0;
     if (!g_p4EaHeap || !Readable(g_p4EaHeap, 4)) return 0;  // no first-chance AV for the crash log (offline: not mapped)

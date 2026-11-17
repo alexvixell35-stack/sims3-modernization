@@ -337,3 +337,15 @@ Looked for a fix or teleport of townies leaving a houseboat; none found, nothing
 Looked for a fix of the menu hang (package database lock pair `O+0x48` / `O+0xC0`); none found, nothing reused, no code taken:
 - https://forums.ea.com/discussions/the-sims-3-technical-issues-en/sims-3-game-frozen-in-main-menu/8292874 , https://forums.ea.com/discussions/the-sims-3-technical-issues-en/help-frozen-loading-screen/12119308 (forum posts, read only): generic advice (windowed mode, delete caches, remove Mods), no lock cause.
 - Apex Radiance source (`resource_cache.cpp`, read for overlap): no hook in `0x7343B0`-`0x7356xx`.
+
+## Added 2026-11-12 (AI-assisted TS3 projects, GitHub + web search)
+GitHub facts verified (repo pages, commit trailers); Nexus items are search snippets only; no Reddit/Tumblr reception checked.
+
+| Project | URL | Overlap with us |
+|---|---|---|
+| ccstringmerge (SmellyBelly), v0.1.0 11-07, Claude co-authored | https://github.com/smellybellyy/ccstringmerge | Merges CC string tables per language; own-Sim pie menu 1.17 s -> 0.30 s with 6,282 CC packages. Closest overlap (CC-heavy UI/load); cross-link or collaboration candidate |
+| Sims3FreezeCursor (thesammy58), v1.0.2 11-07, Claude-made | https://github.com/thesammy58/Sims3FreezeCursor | ASI: busy cursor when the sim thread stalls > 1 s (split from an S3MM freeze-rescue feature). Partial overlap with our watchdog/stall detection. Same author: LimbIkScaleFix, RadioLeveler, an S3SS fork |
+| Sims3MP, sims-3-rust, sims-3-bevy (11 of 100 commits AI) | https://github.com/fsminecrafter/Sims3MP , https://github.com/mmeerrkkaa/sims-3-rust , https://github.com/Eamo5/sims-3-bevy | Multiplayer prototype; engine rewrites (long-term watch, like OpenTS3) |
+| Nexus "AI Lighting ... POPULATION with DEEPSEEK" | [snippet] | Fork of LazyDuchess population mod; low |
+
+Policy: Nexus Mods requires AI disclosure labels (AI Generated / AI Media / AI Assisted) since 2026-11-03, existing mods by 2027-01-02, no ban (GamingOnLinux, PC Gamer; secondary). Our Nexus page needs the "AI Assisted" label. No MTS AI rule found. The Sims Resource rejects AI-generated uploads.

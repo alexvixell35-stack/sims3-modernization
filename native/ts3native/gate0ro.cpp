@@ -23,8 +23,8 @@
 // Shadow=1: the same prediction and compare on G-a entries with no job running (behaviour unchanged).
 // Switches g0Mode (+0x3998, --ab gate0ro), g0Shadow (+0x399C, --ab gate0shadow).
 
-static const DWORD G0_WRAP_RET = 0x0062EF7A;  // the wrapper's return from GetOrInsert (gate-0 key)
-static const DWORD kG0Ga[4] = {0x00846E0E, 0x0085B57E, 0x0085F76D, 0x0085F7A9};  // G-a second frames (docs/86 §2)
+static const DWORD G0_WRAP_RET = TS3A(0x0062EF7A);  // the wrapper's return from GetOrInsert (gate-0 key)
+static const DWORD kG0Ga[4] = {TS3A(0x00846E0E), TS3A(0x0085B57E), TS3A(0x0085F76D), TS3A(0x0085F7A9)};  // G-a second frames (docs/86 §2)
 // g_g0On: declared in routegate.cpp (RgEnter reads it)
 static volatile LONG g_g0Noted;
 enum { G0_FB_PIECES, G0_FB_QL, G0_FB_TABLE, G0_FB_STATE };

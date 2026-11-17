@@ -356,10 +356,34 @@ struct Ts3nAutShadow {
     LONG rainArm;         // +0xC8C, rain/hail outdoor pairs the worker armed (RainArm with a definition)
     LONG rainSkip;        // +0xC90, of those, CreateInstance calls not made (null result)
     LONG rainMiss;        // +0xC94, armed but the call never came (disarmed with no skip: ts3fixes aborts the pair `rain`)
+    // v22: races R1b pre-warm + R2b/R3a witness ([AutShadow] Races, autraces.cpp, docs/data/races-handoff.md)
+    LONG r1On;            // +0xC98, Races in force (bit 0 R1, bit 1 R2)
+    LONG r1Calls;         // +0xC9C, lazy getters called by the pre-warm (their done flag was clear)
+    LONG r1Fills;         // +0xCA0, host converter class caches filled by the pre-warm
+    LONG r1Guard;         // +0xCA4, converter guard bits 0x11EE588 after the last pre-warm (0x7FFF = all 15)
+    LONG r1Clear;         // +0xCA8, guards still clear after the last pre-warm (the worker aborts while > 0)
+    LONG r1Aborts;        // +0xCAC, worker answers aborted by a clear guard
+    LONG r2Rows;          // +0xCB0, witness rows (37 R2 + 6 R3)
+    LONG r2Bases;         // +0xCB4, baselines taken (first cut after each world event 7)
+    LONG r2Cuts;          // +0xCB8, cuts compared
+    LONG r2Unexp;         // +0xCBC, changes of rows that must not change after load (must be 0)
+    LONG r2Runtime;       // +0xCC0, changes of rows R2a lists as runtime-written (logged)
+    LONG r2First;         // +0xCC4, witness row index + 1 of the first unexpected change
+    // v23: ListWalk world part from one per-cut index of the world-lot vector ([AutShadow] WorldIndex, docs/122 §14.29)
+    LONG wiOn;            // +0xCC8, WorldIndex in force (1 on, -1 tripped by a check miss or no memory)
+    LONG wiBuilds;        // +0xCCC, index builds (one world-lot vector walk, at the first lot walk of a cut)
+    LONG wiEntries;       // +0xCD0, entries indexed (sum over builds)
+    LONG wiUs;            // +0xCD4, build time (sum, us)
+    LONG wiLots;          // +0xCD8, lot walks whose world part came from the index
+    LONG wiFall;          // +0xCDC, lot walks that fell back to the full world walk (build fault or index full)
+    LONG wiChecks;        // +0xCE0, WorldIndexCheck: world parts also walked the old way and compared
+    LONG wiMis;           // +0xCE4, of those, different (WorldIndex off for the session, the old walk's ids kept; must be 0)
 };
-extern "C" __declspec(dllexport) Ts3nAutShadow ts3native_autshadow = {21};
+extern "C" __declspec(dllexport) Ts3nAutShadow ts3native_autshadow = {23};
 static_assert(offsetof(Ts3nAutShadow, alOn) == 0xB8C && offsetof(Ts3nAutShadow, al) == 0xBAC, "autshadow v20 layout");
-static_assert(offsetof(Ts3nAutShadow, rainArm) == 0xC8C && sizeof(Ts3nAutShadow) == 0xC98, "autshadow v21 layout");
+static_assert(offsetof(Ts3nAutShadow, rainArm) == 0xC8C && offsetof(Ts3nAutShadow, r1On) == 0xC98, "autshadow v21 layout");
+static_assert(offsetof(Ts3nAutShadow, r2First) == 0xCC4, "autshadow v22 layout");
+static_assert(offsetof(Ts3nAutShadow, wiOn) == 0xCC8 && sizeof(Ts3nAutShadow) == 0xCE8, "autshadow v23 layout");
 
 enum { AO_OBJ, AO_LIST, AO_CUT, AO_WORLD, AO_MEMO, AO_STUB, AO_ABORT, AO_RNG };  // AO_RNG: per-unit MT streams (docs/125 §2)
 enum { AK_INT, AK_FP, AK_STRUCT, AK_REF, AK_ARRAY };
@@ -381,7 +405,14 @@ static const char* const kAsAbortName[AS_AB_N] = {"row", "pos", "memo", "rng", "
 // is a ref the game sets to a fresh managed array of 4-byte elements, kept as a pool payload and re-made on each hit.
 // AS_OF_LVL1 / AS_OF_LVLA (E3, docs/126 §4.1 correction, ledger §463): the cut fills the row only when the level bit the
 // body's footprint check would test is set (AsLevelGate); LVL1 = the level is the third argument, LVLA = every level of the lot.
-enum { AS_OF_TRUE = 1, AS_OF_DIFF = 2, AS_OF_ARR = 4, AS_OF_LVL1 = 8, AS_OF_LVLA = 16 };
+// AS_OF_HH (P6, P5): the actor gate: the worker refuses the row (abort `other`, no lookup, no learn) while the request's actor
+// is household, selected or unknown (g_asActorHh, AutShadowNative.ActorScope); a flag, so the rows need no fixed position.
+// AS_OF_LVLID (lane L8, docs/126 §8 #18 retro): the E3 gate for a row keyed by lot id (args 0-1 after the hidden result),
+// every level of that lot, only with [AutShadow] Tier2RoomGate=1. AS_OF_BIG (lane L8, #14): out 0 is larger than e.out
+// (outSz up to AS_BIG): the cut fills it twice in a local buffer (00, then FF) and keeps the after-image plus the
+// written-byte mask in the pool (outSz/4 + outSz/32 dwords); the hit writes only the masked bytes.
+enum { AS_OF_TRUE = 1, AS_OF_DIFF = 2, AS_OF_ARR = 4, AS_OF_LVL1 = 8, AS_OF_LVLA = 16, AS_OF_HH = 32, AS_OF_LVLID = 64, AS_OF_BIG = 128 };
+static const int AS_BIG = 128;  // largest AS_OF_BIG out (bytes, a multiple of 32)
 struct AsDesc {
     const char* name;
     u8 owner, kind, nArg, sz, at, reason, strMask, lotClear, nOut;
@@ -444,7 +475,8 @@ static const AsDesc kAsDesc[] = {
     // RoomInfo (6 dwords, 24 B: st[16] runs on into out[24], unused by an IC without out parameters; static_assert below).
     // docs/131 §9: the body may run the lazy terrain footprint update under +0x918, so it is filled at the cut (sim thread)
     // only, never by the worker. (ulong obj, Vector3, float) -> uint tree count.
-    AS_D("ScriptCore.World::World_GetInformationAboutRoomImpl", AO_CUT, AK_STRUCT, 4, 24, 0, AS_AB_OTHER),
+    // lane L8: AS_OF_LVLID = the E3 level-bit gate (docs/126 §8 #18 retro), active only with [AutShadow] Tier2RoomGate=1
+    {"ScriptCore.World::World_GetInformationAboutRoomImpl", AO_CUT, AK_STRUCT, 4, 24, 0, AS_AB_OTHER, 0, 0, 0, {0}, {0}, AS_OF_LVLID, 0},
     AS_D("ScriptCore.World::World_TreesWithinRadialRangeImpl", AO_CUT, AK_INT, 6, 4, 0, AS_AB_OTHER),
     // docs/219 §2 four shared tier-2 rows, last so [AutShadow] Tier2Rows=0 leaves them out of the guard lookup (the worker
     // then aborts `ic` as before). (ulong obj) -> bool (the extern takes the object id, not a position as docs/219 said),
@@ -505,16 +537,36 @@ static const AsDesc kAsDesc[] = {
     // layout as Query_GetObjectsInRange (0x749770 vs 0x7496E0 differ only in the host slot, +0xC4 count vs +0xC0 array)
     // [verified]. The answer moves with every object of the type in range (a Sim type moves each tick), so it is AO_CUT:
     // re-asked through the game's body at every cut, never carried over a cut. Its own bit ([AutShadow] Tier2CountRange,
-    // g_asT2eBits bit 7) and the actor gate (AsWorkerAnswer: household, selected or unknown actors abort, no learn).
-    AS_D("ScriptCore.Queries::Query_CountObjectsInRange", AO_CUT, AK_INT, 5, 4, 0, AS_AB_QUERY),
+    // g_asT2eBits bit 7) and the actor gate (AS_OF_HH: household, selected or unknown actors abort, no learn).
+    {"ScriptCore.Queries::Query_CountObjectsInRange", AO_CUT, AK_INT, 5, 4, 0, AS_AB_QUERY, 0, 0, 0, {0}, {0}, AS_OF_HH, 0},
+    // P5 slot rows (docs/data/tier2-rows35-handoff.md, ledger §466), both behind [AutShadow] Tier2SlotRows (E bits 8-9) and the
+    // actor gate. Layouts [verified, Steam 1.67]: 0x76F000 is cdecl (ulong id, uint slot hash) -> bool: object lookup 0x939560,
+    // refcount +1, slot component 0x935770, 0x951940 = linear scan of the component's slot lists (0x951750) and flag bit 0 at
+    // entry +8, refcount -1 (deleting call at 0); no lock, no +0x918 (docs/90 holds; docs/219's +0x918 note was wrong). The
+    // enabled bit is live state (portals, pools turn slots on and off), so AO_CUT. 0x76FAE0 is cdecl (ulong id) -> uint[]: the
+    // same lookups, the slot hashes (entry +4) into a local vector, host +0x84 / +0x9C make and fill the managed array, null when
+    // the object or component is missing: the shape of Slots_GetContainmentSlotNamesImpl (row 9, AO_OBJ, 4-byte elements).
+    {"ScriptCore.Slots::Slots_IsSlotEnabledImpl", AO_CUT, AK_INT, 3, 1, 0, AS_AB_ROW, 0, 0, 0, {0}, {0}, AS_OF_HH, 0},
+    {"ScriptCore.Slots::Slots_GetRoutingSlotNamesImpl", AO_OBJ, AK_ARRAY, 2, 4, 0, AS_AB_ROW, 0, 0, 0, {0}, {0}, AS_OF_HH, 0},
+    // lane L8 (docs/126 §8 #14, #20; tier2-enablers-handoff Rows), E bits 10-11 = [AutShadow] Tier2IcNew bits 5-6. Layouts
+    // [verified, Steam 1.67]. #14 0x78BC70 cdecl (uint pond, ulong lot, ref PondInfo) -> bool: WM null, pond 0 or over the
+    // count, no record, lot miss or no lot pond data -> false, out untouched; world path (lot 0) writes +0xC..+0x3B, +0x6C,
+    // +0x70; lot path (0xB64E00 -> 0xB64620, the lot's pond list +0x2C8 by short id) writes +0x0..+0x73 and +0x78..+0x7F.
+    // Neither path reads the out, so AS_OF_BIG's two fills give the written mask. AO_CUT: lot ponds follow the lot transform.
+    // #20 0x7869F0 cdecl (result 24 B, ulong lot) -> LotDisplayLevelInfo: dwords 0-3 zeroed first; no WM or no lot -> dwords
+    // 4-5 untouched (the caller's bytes), else all 6 written. The hidden result is e.st and runs on into e.out (as #18), so
+    // AS_OF_DIFF with mask 0xFF = struct bytes 16-23. AO_CUT: the display level moves with the camera floor buttons.
+    {"ScriptCore.World::World_GetPondInfo", AO_CUT, AK_INT, 4, 1, 0, AS_AB_POS, 0, 0, 1, {3}, {AS_BIG}, AS_OF_TRUE | AS_OF_BIG, 0},
+    {"ScriptCore.World::World_LotGetDisplayLevelInfoImpl", AO_CUT, AK_STRUCT, 2, 24, 0, AS_AB_OTHER, 0, 0, 0, {0}, {0}, AS_OF_DIFF, 0xFF},
 };
 static const int AS_NDESC = sizeof(kAsDesc) / sizeof(kAsDesc[0]);
 static const int AS_NT2 = 4;     // the docs/219 rows, just before the docs/126 §8 rows
-static const int AS_NT2IC = 23;  // the docs/126 §8 rows + E3 + P6 at the end of kAsDesc (the last AS_NT2E also need their bit)
-static const int AS_NT2E = 8;    // the E rows: Tier2IcNew bits 0-3, bit 4 = Tier2HouseboatRow, bits 5-6 = Tier2IcNew bit 4 (E3), bit 7 = Tier2CountRange (P6; stays the last row: AsWorkerAnswer gates kAsDesc[AS_NDESC - 1])
+static const int AS_NT2IC = 27;  // the docs/126 §8 rows + E3 + P6 + P5 + L8 at the end of kAsDesc (the last AS_NT2E also need their bit)
+static const int AS_NT2E = 12;   // the E rows: Tier2IcNew bits 0-3, bit 4 = Tier2HouseboatRow, bits 5-6 = Tier2IcNew bit 4 (E3), bit 7 = Tier2CountRange (P6), bits 8-9 = Tier2SlotRows (P5), bits 10-11 = Tier2IcNew bits 5-6 (L8 #14, #20); P6 and P5 also carry AS_OF_HH (actor gate)
 static bool g_asTier2Rows;       // [AutShadow] Tier2Rows
 static bool g_asTier2IcRows;     // [AutShadow] Tier2IcRows (only with Tier2Rows)
 static DWORD g_asT2eBits;        // per E row, default 0 (all off)
+static bool g_asRoomGate;        // [AutShadow] Tier2RoomGate (lane L8): AS_OF_LVLID rows (#18) take the E3 level-bit gate
 // descriptors the guard lookup sees: the docs/219 rows only with Tier2Rows, the docs/126 §8 rows only with both keys
 static int AsNDescOn() { return !g_asTier2Rows ? AS_NDESC - AS_NT2IC - AS_NT2 : !g_asTier2IcRows ? AS_NDESC - AS_NT2IC : AS_NDESC; }
 static bool AsDescOn(int i) { const int e = i - (AS_NDESC - AS_NT2E); return i < AsNDescOn() && (e < 0 || ((g_asT2eBits >> e) & 1)); }
@@ -838,19 +890,25 @@ static void AsMaskRet(const AsDesc& d, DWORD* r) {
 // lookup itself would wait at gate 12 (docs/195): skip. Sim thread (the cut) only.
 typedef u8*(__fastcall* AsLvLotAtFn)(u8* wm, void* edx, float x, float z);   // 0xC68990, ret 8
 typedef u8*(__fastcall* AsLvGipFn)(u8* p, void* edx, DWORD lo, DWORD hi);     // 0x62FB60, ret 8
-static AsLvLotAtFn g_asLvLotAt = (AsLvLotAtFn)(uintptr_t)0x00C68990;
-static AsLvGipFn g_asLvGip = (AsLvGipFn)(uintptr_t)0x0062FB60;
-static u8* const* g_asLvWm = (u8* const*)(uintptr_t)0x011ECBC4;
-static u8* const* g_asLvRw = (u8* const*)(uintptr_t)0x011D9128;
+static AsLvLotAtFn g_asLvLotAt = (AsLvLotAtFn)(uintptr_t)TS3A(0x00C68990);
+static AsLvGipFn g_asLvGip = (AsLvGipFn)(uintptr_t)TS3A(0x0062FB60);
+static u8* const* g_asLvWm = (u8* const*)(uintptr_t)TS3A(0x011ECBC4);
+static u8* const* g_asLvRw = (u8* const*)(uintptr_t)TS3A(0x011D9128);
 static volatile LONG* g_asJobState;  // &g_async.state (ts3native.cpp; A_IDLE = 0); NULL in the host
 static LONG g_asLvFill, g_asLvSkip;  // logged: Mode R's skip count (I-131-8)
+// AS_OF_LVLID (lane L8, #18 0x7933A0) [verified disassembly]: the body finds the lot by id (0xC62D40, thiscall(WM; lo, hi, 0),
+// ret 0xC), hands it to the room summary 0xB01B50 as arg 0, which calls lot->World_SurfaceTypeAtPoint 0xAB9580 (ecx = that
+// lot, at 0xB01CF2) at a level it derives from the room's tiles: the same 0xAB9580 path as #2 and #4, so every level of the
+// lot is asked, as LVLA. a[0] = the hidden result, a[1..2] = the lot id.
+typedef u8*(__fastcall* AsLvLotIdFn)(u8* wm, void* edx, DWORD lo, DWORD hi, DWORD z);  // 0xC62D40, ret 0xC
+static AsLvLotIdFn g_asLvLotId = (AsLvLotIdFn)(uintptr_t)TS3A(0x00C62D40);
 static bool AsLevelGate(const AsDesc& d, const DWORD* a) {
-    const bool one = (d.of & AS_OF_LVL1) != 0;
-    float x, z;
-    memcpy(&x, &a[one ? 0 : 2], 4), memcpy(&z, &a[one ? 1 : 4], 4);
+    const bool one = (d.of & AS_OF_LVL1) != 0, byId = (d.of & AS_OF_LVLID) != 0;
+    float x = 0, z = 0;
+    if (!byId) memcpy(&x, &a[one ? 0 : 2], 4), memcpy(&z, &a[one ? 1 : 4], 4);
     bool ok = true;
     u8* const wm = *g_asLvWm;
-    u8* const lot = wm ? g_asLvLotAt(wm, NULL, x, z) : NULL;
+    u8* const lot = !wm ? NULL : byId ? g_asLvLotId(wm, NULL, a[1], a[2], 0) : g_asLvLotAt(wm, NULL, x, z);
     u8* const rw = *g_asLvRw;
     if (lot && !(*(const LONG*)(lot + 0x408) == 1 && *(const LONG*)(lot + 0x40C) == 0x50) && rw && rw[0x974]) {
         const LONG lo = one ? (signed char)a[2] : *(const LONG*)(lot + 0x17C), hi = one ? lo : *(const LONG*)(lot + 0x180);
@@ -882,12 +940,33 @@ static void AsRefresh(int idx, AsEnt& e, DWORD* pool, LONG* poolN) {
         a[n++] = j < d.nOut ? (DWORD)(uintptr_t)(e.out + AsOutOff(d, j)) : e.key[k++];
     }
     AsRet r = {0, 0, 0};
-    if ((d.of & (AS_OF_LVL1 | AS_OF_LVLA)) && !AsLevelGate(d, a)) {  // E3: the body would build footprints (and may wait on +0x918)
+    if (((d.of & (AS_OF_LVL1 | AS_OF_LVLA)) || ((d.of & AS_OF_LVLID) && g_asRoomGate)) && !AsLevelGate(d, a)) {  // E3: the body would build footprints (and may wait on +0x918)
         e.r[0] = e.r[1] = 0, e.f = 0, e.flags |= AE_NOPAY;  // no answer this cut (the worker aborts pos); no stale reference kept
         e.pay = e.payN = 0;
         return;
     }
     if (d.of) memset(e.out, 0, sizeof(e.out));  // E1: bytes the game leaves are not a stale answer's
+    if (d.of & AS_OF_BIG) {  // lane L8: out 0 in a local buffer, filled over 00 then FF; after-image + written mask to the pool
+        const int ai = (d.kind == AK_STRUCT) + d.outIdx[0], sz = d.outSz[0], w = sz / 4 + sz / 32;
+        u8 b0[AS_BIG], b1[AS_BIG];
+        memset(b0, 0, sz), memset(b1, 0xFF, sz);
+        a[ai] = (DWORD)(uintptr_t)b0;
+        AsCallRaw(g_asOrig[idx], a, n, &r, d.kind == AK_FP);
+        AsRet r1 = {0, 0, 0};
+        a[ai] = (DWORD)(uintptr_t)b1;
+        AsCallRaw(g_asOrig[idx], a, n, &r1, d.kind == AK_FP);
+        AsStoreAnswer(d, e, r1, pool, poolN);
+        if ((r.lo & 0xFF) != (r1.lo & 0xFF)) { e.flags |= AE_NOPAY; return; }  // two answers for one input: no answer
+        if (!(d.of & AS_OF_TRUE) || (r1.lo & 0xFF)) {
+            if (*poolN + w > AS_POOL) { e.flags |= AE_NOPAY; ts3native_autshadow.full++; return; }
+            DWORD* dst = pool + *poolN;
+            memcpy(dst, b1, sz);
+            memset(dst + sz / 4, 0, sz / 8);
+            for (int b = 0; b < sz; b++) if (b0[b] == b1[b]) dst[sz / 4 + b / 32] |= 1u << (b & 31);
+            e.pay = *poolN, e.payN = w, *poolN += w;
+        }
+        return;
+    }
     AsCallRaw(g_asOrig[idx], a, n, &r, d.kind == AK_FP);
     if (d.of & AS_OF_DIFF) {  // second fill over FF: a byte the body wrote comes out the same both times
         u8 o0[sizeof(e.out)];
@@ -936,6 +1015,15 @@ static void AsStoreAnswer(const AsDesc& d, AsEnt& e, const AsRet& r, DWORD* pool
 // array of an AS_OF_ARR out could not be made (nothing written; the caller aborts `ref`).
 static bool AsOutWrite(const AsDesc& d, const AsEnt& e, const DWORD* pool, const DWORD* a) {
     if ((d.of & AS_OF_TRUE) && !(e.r[0] & 0xFF)) return true;  // false answer: the game writes no out
+    if (d.of & AS_OF_BIG) {  // lane L8: the bytes the game wrote on this input, from the pool
+        if (!e.payN) return false;
+        const int sz = d.outSz[0];
+        const u8* v = (const u8*)(pool + e.pay);
+        const DWORD* m = pool + e.pay + sz / 4;
+        u8* dst = (u8*)(uintptr_t)a[d.outIdx[0]];
+        for (int b = 0; b < sz; b++) if ((m[b / 32] >> (b & 31)) & 1) dst[b] = v[b];
+        return true;
+    }
     if (d.of & AS_OF_ARR) {
         if (!e.payN || !g_asNewArray) return false;
         DWORD* arr = (DWORD*)g_asNewArray(pool[e.pay], pool[e.pay + 1], 4);
@@ -951,6 +1039,14 @@ static bool AsOutWrite(const AsDesc& d, const AsEnt& e, const DWORD* pool, const
         for (int b = 0; b < d.outSz[j]; b++) if ((m >> (o + b)) & 1) dst[b] = e.out[o + b];
     }
     return true;
+}
+
+// a struct row's hit into the caller's result. AS_OF_DIFF (lane L8 #20): the bytes past e.st (they run on into e.out) only
+// where the game wrote them on this input, so a no-lot answer leaves the caller's dwords 4-5 as the game's own call does.
+static void AsStructWrite(const AsDesc& d, const AsEnt& e, u8* dst) {
+    if (!(d.of & AS_OF_DIFF)) { memcpy(dst, e.st, d.sz); return; }
+    memcpy(dst, e.st, min((int)d.sz, (int)sizeof(e.st)));
+    for (int b = 0; b + (int)sizeof(e.st) < d.sz; b++) if ((e.om >> b) & 1) dst[sizeof(e.st) + b] = e.out[b];
 }
 
 // LRU eviction (docs/122 §14.14): drops the eighth of the rows least recently used by the sim or the worker (memo rows
@@ -1117,7 +1213,7 @@ static int g_asTransient;
 // map (+0x1678): those stay unknown, as do ids with no handle [verified disassembly]. [inferred, I-403-2: an id's handle and
 // class do not change while the object lives and the handle outlives event 5; the typed ListAudit rows and Mode R check it]
 static int g_asHostCls;
-static const DWORD* const g_asHostPP = (const DWORD*)(uintptr_t)0x011D4BBC;  // MonoScriptHost* (the getter 0x7692B0 reads it)
+static const DWORD* const g_asHostPP = (const DWORD*)(uintptr_t)TS3A(0x011D4BBC);  // MonoScriptHost* (the getter 0x7692B0 reads it)
 typedef DWORD(__fastcall* AsHostListFn)(void* host, void* edx, DWORD type, const AsU64* ids, DWORD n);  // thiscall, ret 0xC
 // the host's id -> handle maps (0xD726F0): {?, buckets +4, bucket count +8}; node {id lo, id hi, ?, handle +0xC, next +0x10}
 static const u8* AsHostNode(const u8* map, AsU64 id) {
@@ -1329,11 +1425,14 @@ static void AsObjRegister() {
     }
 }
 
+#include "autraces.cpp"  // [AutShadow] Races: R1b pre-warm, R2b/R3a witness (docs/data/races-handoff.md)
+
 // routesnap's World_FireEvent detour, sim thread (docs/76 §2): world events 2, 3, 5, 7, 9, 0x0A and lot events 0x0D-0x10,
 // 0x46 force a full rebuild; 0x11 (OnObjectLotUpdate) moves objects between lot lists
 static void AsWorldEvent(DWORD id) {
     if (!g_as) return;
     if (id == 7) { g_asTracked = true; ts3native_autshadow.ready |= 4; AsObjRegister(); }
+    ArWorldEvent(id);
     if (id == 2 || id == 3 || id == 5 || id == 7 || id == 9 || id == 0x0A || (id >= 0x0D && id <= 0x10) || id == 0x46) AsEpochBump();
     else if (id == 0x11) InterlockedIncrement(&g_asListGen);
 }
@@ -1362,10 +1461,10 @@ static void AsLearn(DWORD idx, const DWORD* key, int n) {
 
 // worker run bounds (part 2): only inside the sim's quiescent window, so never during a cut; a run that overruns keeps
 // its version held and the next cut writes the other one
-// P6 actor gate: 1 = the request the worker is scoring has a household, selected or unknown actor. ts3fixes sets it per
+// P6/P5 actor gate (AS_OF_HH rows): 1 = the request the worker is scoring has a household, selected or unknown actor. ts3fixes sets it per
 // request (AutShadowNative.ActorScope, worker only); every run starts at 1, so a ts3fixes without the call keeps it shut
 static volatile LONG g_asActorHh = 1;
-static LONG g_asActorHhAborts;  // Query_CountObjectsInRange reads refused by the gate (selftest; runs: the abortic line)
+static LONG g_asActorHhAborts;  // AS_OF_HH row reads (P6 CountObjectsInRange, P5 slot rows) refused by the gate (selftest; runs: the abortic line)
 void AsWorkerBegin() { InterlockedExchange(&g_asHeld, g_asPub); InterlockedExchange(&g_asStop, 0); InterlockedExchange(&g_asActorHh, 1); }
 void AsWorkerEnd() { InterlockedExchange(&g_asHeld, -1); }
 
@@ -1379,11 +1478,13 @@ static int AsWorkerAnswer(DWORD idx, DWORD* args, AsRet* r) {
     const int fp = kind == 'f' || kind == 'd';
     r->lo = kind == 's' ? args[0] : 0, r->hi = 0, r->f = 0;
     const AsDesc* d = g_asDescOf[idx];
+    if (g_arGate) { InterlockedIncrement(&ts3native_counters.r2cGateAborts); AsAbort(AS_AB_STOP, idx); return fp; }  // races R2c
     if (g_asStop) { AsAbort(AS_AB_STOP, idx); return fp; }
+    if (g_arR1Bad && (g_arOn & 1)) { InterlockedIncrement(&k.r1Aborts); AsAbort(AS_AB_OTHER, idx); return fp; }  // races R1b
     if (!d) { AsAbort(g_asNoDesc[idx], idx); return fp; }  // never the body: H12 route ICs would answer for handle 0
     if (d->owner == AO_ABORT) { AsAbort(d->reason, idx); return fp; }
-    // P6: household Sims never get this row's answer (CLAUDE.md household rule): no lookup, no learn, the game scores it
-    if (d == &kAsDesc[AS_NDESC - 1] && g_asActorHh) { InterlockedIncrement(&g_asActorHhAborts); AsAbort(AS_AB_OTHER, idx); return fp; }
+    // P6, P5: household Sims never get these rows' answers (CLAUDE.md household rule): no lookup, no learn, the game scores it
+    if ((d->of & AS_OF_HH) && g_asActorHh) { InterlockedIncrement(&g_asActorHhAborts); AsAbort(AS_AB_OTHER, idx); return fp; }
     if (d->owner == AO_RNG) return AsRngWorker(idx, r);
     if (d->owner == AO_STUB) {
         if (!g_asEmptyStr) AsAbort(AS_AB_REF, idx); else r->lo = (DWORD)(uintptr_t)g_asEmptyStr;
@@ -1433,7 +1534,7 @@ static int AsWorkerAnswer(DWORD idx, DWORD* args, AsRet* r) {
     InterlockedIncrement(&k.workerHits);
     switch (d->kind) {
         case AK_FP: r->f = e.f; return 1;
-        case AK_STRUCT: memcpy((void*)(uintptr_t)args[0], e.st, d->sz); return 0;
+        case AK_STRUCT: AsStructWrite(*d, e, (u8*)(uintptr_t)args[0]); return 0;
         case AK_ARRAY:
             if (!e.payN) return 0;
             if (!g_asNewArray) { AsAbort(AS_AB_REF, idx); return 0; }
@@ -1542,12 +1643,12 @@ static __declspec(naked) void AsGuardEntry() {
 // [0x11F2D84] (non-atomic ++/--). cdecl, arg 2 = MonoObject** exception out; the body's error exit stores the exception
 // there and returns [verified: 0xDA9F94..0xDAA08A]. Worker: abort `fmt` and leave through the same contract with an
 // exception, never touching the counter.
-static const DWORD AS_FMT_AT = 0x00DA9790;
+static const DWORD AS_FMT_AT = TS3A(0x00DA9790);
 static const u8 kAsFmtPro[6] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8};  // push ebp; mov ebp,esp; and esp,-8
 static void* g_asFmtTramp;
 static void* g_asFmtExc;  // part 2: a preallocated, rooted exception; else one is made on the worker (P3 lock)
 typedef void*(__cdecl* AsNewExcFn)();
-static AsNewExcFn g_asNewExc = (AsNewExcFn)(uintptr_t)0x00E770E0;  // mono_get_exception_null_reference (docs/118 §2)
+static AsNewExcFn g_asNewExc = (AsNewExcFn)(uintptr_t)TS3A(0x00E770E0);  // mono_get_exception_null_reference (docs/118 §2)
 static void __cdecl AsFmtAbort(void** exc) {
     AsAbort(AS_AB_FMT, (DWORD)-1);
     if (exc) *exc = g_asFmtExc ? g_asFmtExc : g_asNewExc();
@@ -1605,7 +1706,7 @@ static bool AsSame(const AsDesc& d, const AsEnt& a, const DWORD* poolA, const As
         ((a.flags ^ b.flags) & AE_NOPAY) || ((d.of & AS_OF_DIFF) && a.om != b.om))
         return false;
     const bool same = d.kind == AK_ARRAY ? !a.r[0] == !b.r[0] : a.r[0] == b.r[0] && a.r[1] == b.r[1];
-    if (d.kind != AK_ARRAY && !(d.of & AS_OF_ARR)) return same;
+    if (d.kind != AK_ARRAY && !(d.of & (AS_OF_ARR | AS_OF_BIG))) return same;
     return same && a.payN == b.payN && !memcmp(poolA + a.pay, poolB + b.pay, a.payN * 4);
 }
 
@@ -1692,10 +1793,10 @@ static bool AsIsActor(AsU64 id) {
 // walk across lots if listPrintUs shows it
 typedef void*(__fastcall* AsFindLotFn)(void* mgr, void* edx, DWORD lo, DWORD hi, DWORD z);
 typedef const u8*(__fastcall* AsCompFn)(const void* obj, void* edx, DWORD bit);
-static void* const* g_asWmPP = (void* const*)(uintptr_t)0x011ECBC4;
-static AsFindLotFn g_asFindLot = (AsFindLotFn)(uintptr_t)0x00C62D40;
-static AsCompFn g_asComp = (AsCompFn)(uintptr_t)0x00935770;
-static const DWORD* g_asCompBit = (const DWORD*)(uintptr_t)0x011ECF08;
+static void* const* g_asWmPP = (void* const*)(uintptr_t)TS3A(0x011ECBC4);
+static AsFindLotFn g_asFindLot = (AsFindLotFn)(uintptr_t)TS3A(0x00C62D40);
+static AsCompFn g_asComp = (AsCompFn)(uintptr_t)TS3A(0x00935770);
+static const DWORD* g_asCompBit = (const DWORD*)(uintptr_t)TS3A(0x011ECF08);
 static const LONG AS_AGE_EVERY = 8;  // CutLean=1: aging and its reindex every 8th cut (unused rows live up to 7 cuts longer)
 static void AsMix(AsU64& h, DWORD v) { h ^= v; h *= 0x100000001B3ull; }
 static void AsMixVec(const u8* owner, AsU64 lot, bool world, AsU64* p) {
@@ -1767,6 +1868,97 @@ static int g_asLwN, g_asLwUsed;
 static AsU64 g_asLwId[AS_LW_IDS];
 static DWORD g_asLwRoom[AS_LW_IDS];  // lot part: the component's room, 0xFFFFFFFE = no component (room rows go to the body)
 static AsU64 g_asLwTmp[AS_LW_IDS];
+// WorldIndex=1 (docs/122 §14.29): the world part of every lot walked at a cut comes from one walk of the world-lot vector
+// at that cut (the first lot walk), kept as (component lot, id, room) in vector order; a lot's world part is the entries
+// naming it, in order: the same reads at the same cut as the per-lot walk, so the same ids. mono-cost17 BP: 3.3 lot walks a
+// cut, 101 us, mostly the world part's component call per object [measured]. A fault or a full index sends the cut back
+// to the per-lot walk (wiFall); WorldIndexCheck=N: every Nth world part is also walked the old way (a difference: wiMis,
+// the old ids kept, WorldIndex off for the session).
+// shortcut: each lot scans the whole index (16 bytes an entry, no component call); bucket by lot if wiUs/lwWalkUs shows it
+static int g_asWorldIndex, g_asWorldIndexCheck = 8;
+static const int AS_WI_MAX = 16384;
+struct AsWiE { AsU64 lot; DWORD idLo, idHi, room, pad; };
+static AsWiE* g_asWi;     // allocated at the first use (no memory while off)
+static int g_asWiN = -1;  // entries this cut; -1 = not built this cut, -2 = could not build this cut (the per-lot walk)
+static void AsLwReset() { g_asLwN = g_asLwUsed = 0, g_asWiN = -1; }  // at each cut: lots and the index are walked again
+static bool AsWiBuild(const u8* W) {  // false = fault or full (the caller walks per lot)
+    __try {
+        int n = 0;
+        for (const void* const* b = *(const void* const* const*)(W + 0x14), * const* e = *(const void* const* const*)(W + 0x18); b && b < e; b++) {
+            const u8* o = (const u8*)*b;
+            if (!o) continue;
+            const u8* c = g_asComp(o, NULL, *g_asCompBit);
+            if (!c) continue;
+            if (n >= AS_WI_MAX) return false;
+            AsWiE& x = g_asWi[n++];
+            x.lot = *(const AsU64*)(c + 8), x.idLo = *(const DWORD*)(o + 8), x.idHi = *(const DWORD*)(o + 0xC), x.room = *(const DWORD*)(c + 0x20);
+        }
+        g_asWiN = n;
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+// the world part of w by the per-lot walk (EA's reads per object); false = fault or the id buffer full
+static bool AsLwWorldWalk(const u8* W, AsLwLot& w) {
+    __try {
+        for (const void* const* b = *(const void* const* const*)(W + 0x14), * const* e = *(const void* const* const*)(W + 0x18); b && b < e; b++) {
+            const u8* o = (const u8*)*b;
+            if (!o) continue;
+            const u8* c = g_asComp(o, NULL, *g_asCompBit);
+            if (!c || *(const AsU64*)(c + 8) != w.lot) continue;
+            if (g_asLwUsed >= AS_LW_IDS) return false;
+            g_asLwId[g_asLwUsed] = *(const AsU64*)(o + 8), g_asLwRoom[g_asLwUsed++] = *(const DWORD*)(c + 0x20);
+            w.nWorld++;
+        }
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+// the world part of w: from the index when WorldIndex is on and it could be built this cut, else the per-lot walk
+static bool AsLwWorld(const u8* W, AsLwLot& w) {
+    Ts3nAutShadow& k = ts3native_autshadow;
+    if (g_asWorldIndex > 0 && g_asWiN == -1) {
+        if (!g_asWi) g_asWi = (AsWiE*)HeapAlloc(GetProcessHeap(), 0, sizeof(AsWiE) * AS_WI_MAX);
+        if (!g_asWi) g_asWorldIndex = -1, k.wiOn = -1;
+        else {
+            LARGE_INTEGER a, b;
+            QueryPerformanceCounter(&a);
+            if (!AsWiBuild(W)) g_asWiN = -2;
+            QueryPerformanceCounter(&b);
+            k.wiBuilds++, k.wiUs += (LONG)((b.QuadPart - a.QuadPart) * g_asPrintUsPerTick);
+            if (g_asWiN >= 0) k.wiEntries += g_asWiN;
+        }
+    }
+    if (g_asWorldIndex <= 0 || g_asWiN < 0) {
+        if (g_asWorldIndex > 0) k.wiFall++;
+        return AsLwWorldWalk(W, w);
+    }
+    const int at = g_asLwUsed;
+    for (int i = 0; i < g_asWiN; i++) {
+        const AsWiE& x = g_asWi[i];
+        if (x.lot != w.lot) continue;
+        if (g_asLwUsed >= AS_LW_IDS) return false;
+        g_asLwId[g_asLwUsed] = (AsU64)x.idHi << 32 | x.idLo, g_asLwRoom[g_asLwUsed++] = x.room;
+        w.nWorld++;
+    }
+    k.wiLots++;
+    static unsigned s_wiN;
+    const int n = w.nWorld;
+    if (g_asWorldIndexCheck <= 0 || ++s_wiN % g_asWorldIndexCheck || AS_LW_IDS - g_asLwUsed < n + 64) return true;
+    // the old walk into the space after the index's part; equal = keep the index's part
+    k.wiChecks++;
+    AsLwLot o = w;
+    o.nWorld = 0;
+    const bool ok = AsLwWorldWalk(W, o);
+    bool same = ok && o.nWorld == n;
+    for (int j = 0; same && j < n; j++) same = g_asLwId[at + j] == g_asLwId[at + n + j] && g_asLwRoom[at + j] == g_asLwRoom[at + n + j];
+    if (same) { g_asLwUsed = at + n; return true; }
+    k.wiMis++, g_asWorldIndex = -1, k.wiOn = -1;
+    if (k.wiMis <= 8) Log("autshadow world index miss: lot 0x%08lX%08lX index %d ids, walk %d%s (WorldIndex off)", (DWORD)(w.lot >> 32),
+                          (DWORD)w.lot, n, ok ? o.nWorld : -1, ok ? "" : " (walk failed)");
+    if (!ok) return false;  // the per-lot walk failed: the body answers, as without the index
+    for (int j = 0; j < o.nWorld; j++) g_asLwId[at + j] = g_asLwId[at + n + j], g_asLwRoom[at + j] = g_asLwRoom[at + n + j];
+    w.nWorld = o.nWorld, g_asLwUsed = at + o.nWorld;
+    return true;
+}
 static bool AsLwWalkGame(AsLwLot& w) {
     __try {
         void* mgr = *g_asWmPP;
@@ -1782,16 +1974,7 @@ static bool AsLwWalkGame(AsLwLot& w) {
         }
         const u8* W = *(const u8* const*)((const u8*)mgr + 0xB0);
         if (!W) return true;
-        for (const void* const* b = *(const void* const* const*)(W + 0x14), * const* e = *(const void* const* const*)(W + 0x18); b && b < e; b++) {
-            const u8* o = (const u8*)*b;
-            if (!o) continue;
-            const u8* c = g_asComp(o, NULL, *g_asCompBit);
-            if (!c || *(const AsU64*)(c + 8) != w.lot) continue;
-            if (g_asLwUsed >= AS_LW_IDS) return false;
-            g_asLwId[g_asLwUsed] = *(const AsU64*)(o + 8), g_asLwRoom[g_asLwUsed++] = *(const DWORD*)(c + 0x20);
-            w.nWorld++;
-        }
-        return true;
+        return AsLwWorld(W, w);
     } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
 static bool (*g_asLwWalk)(AsLwLot&) = AsLwWalkGame;  // selftest: a fake world
@@ -2820,7 +3003,7 @@ LONG AsCut() {
     AsOlResolve(newEpoch);  // CutLean=2: touched objects placed, dirty lots (before the tiers: tier-1 lots read the map)
     AsTierCut();  // TierMs: which Sims of the work set wait (t2skip) and which tier-2 Sims are due (t2ref)
     g_asPrintN = 0;
-    g_asLwN = g_asLwUsed = 0;  // ListWalk: lots are walked again at each cut
+    AsLwReset();  // ListWalk: lots (and WorldIndex's world-lot index) are walked again at each cut
     QueryPerformanceCounter(&tp[1]);
     const LONG gen = g_asListGen, refreshed0 = k.refreshed;
     const bool tiers = g_asTierMs > 0;
@@ -3110,6 +3293,7 @@ LONG AsCut() {
     k.entries = m.n;
     k.snapBytes = (LONG)(m.n * sizeof(AsEnt) + sizeof(t.idx) + m.poolN * 4);
     k.listGen = gen;
+    ArCut();  // races R2b/R3a witness (Races bit 1)
     k.cuts++;
     QueryPerformanceCounter(&t1);
     k.cutLearnUs += us(t0, tp[0]), k.cutPrepUs += us(tp[0], tp[1]), k.cutRefreshUs += us(tp[1], tp[2]);
@@ -3151,6 +3335,16 @@ static int AsInstallGuards(DWORD* lo, DWORD* hi, DWORD imgLo, DWORD imgHi, DWORD
     for (DWORD* p = lo + 1; p < hi; p++) {
         const DWORD name = *p, fn = p[-1];
         if (name < imgLo || name >= imgHi || !AsIsName((const char*)(uintptr_t)name, imgHi)) continue;
+#ifdef TS3A_TABLE
+        // EA 1.69.47: mono's corlib icall tables (class-start u16s 0x010FF678, class names, method names, functions up to
+        // 0x01100BDC) are not IC slots, but the u16 pair at 0x010FF6BC reads as {0x00ED00CD in .text, "ScriptCore.World::
+        // World_SetObjectHighlightImpl"}; a thunk there broke the class table and mono_icall_init faulted at 0xE824B2 [verified]
+        if ((DWORD)(uintptr_t)(p - 1) >= 0x010FF678 && (DWORD)(uintptr_t)(p - 1) < 0x01100BDC) {
+            k.guardSkipped++;
+            Log("autonomy shadow: 0x%08lX is in mono's icall tables, not an IC slot: left as it is", (DWORD)(uintptr_t)(p - 1));
+            continue;
+        }
+#endif
         const bool chained = AsIsSnShim(fn);
         if (!chained && (fn < textLo || fn >= textHi)) continue;
         const char* s = (const char*)(uintptr_t)name;
@@ -3202,9 +3396,13 @@ static bool ApplyAutShadow(const wchar_t* ini) {
     Log("autonomy shadow: Tier2IcRows=%d (docs/126 IC rows, needs Tier2Rows)", g_asTier2IcRows ? 1 : 0);
     const DWORD icNew = (DWORD)GetPrivateProfileIntW(L"AutShadow", L"Tier2IcNew", 0, ini);
     g_asT2eBits = (icNew & 15) | (GetPrivateProfileIntW(L"AutShadow", L"Tier2HouseboatRow", 0, ini) ? 16u : 0u) | (icNew & 16 ? 0x60u : 0u) |
-                  (GetPrivateProfileIntW(L"AutShadow", L"Tier2CountRange", 0, ini) ? 0x80u : 0u);
-    Log("autonomy shadow: Tier2IcNew=%lu Tier2HouseboatRow=%d Tier2CountRange=%d (E rows #7 #15 #16 #21, bit 4 = E3 #2 #4; houseboat; P6 CountObjectsInRange; need Tier2IcRows)",
-        (g_asT2eBits & 15) | (icNew & 16), (g_asT2eBits >> 4) & 1, (g_asT2eBits >> 7) & 1);
+                  (GetPrivateProfileIntW(L"AutShadow", L"Tier2CountRange", 0, ini) ? 0x80u : 0u) |
+                  (GetPrivateProfileIntW(L"AutShadow", L"Tier2SlotRows", 0, ini) ? 0x300u : 0u) | ((icNew >> 5) & 3u) << 10;
+    g_asRoomGate = GetPrivateProfileIntW(L"AutShadow", L"Tier2RoomGate", 0, ini) != 0;
+    Log("autonomy shadow: Tier2IcNew bits 5-6 = %lu (L8 #14 GetPondInfo, #20 LotGetDisplayLevelInfo) Tier2RoomGate=%d (#18 level-bit gate)",
+        (g_asT2eBits >> 10) & 3, g_asRoomGate ? 1 : 0);
+    Log("autonomy shadow: Tier2IcNew=%lu Tier2HouseboatRow=%d Tier2CountRange=%d Tier2SlotRows=%d (E rows #7 #15 #16 #21, bit 4 = E3 #2 #4; houseboat; P6 CountObjectsInRange; P5 IsSlotEnabled + GetRoutingSlotNames; need Tier2IcRows)",
+        (g_asT2eBits & 15) | (icNew & 16), (g_asT2eBits >> 4) & 1, (g_asT2eBits >> 7) & 1, (g_asT2eBits >> 8) & 1);
     const u8* base = (const u8*)GetModuleHandleW(NULL);
     const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
     const IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);
@@ -3220,6 +3418,7 @@ static bool ApplyAutShadow(const wchar_t* ini) {
         AsInstallGuards(lo, lo + min(s.Misc.VirtualSize, s.SizeOfRawData) / 4, imgLo, imgHi, textLo, textHi, all);
     }
     AsInstallFmt(AS_FMT_AT);
+    ApplyAutRaces(ini);
     g_asTracked = false;  // until routesnap's detour delivers world event 7
     AsInstallRun(ini, (ts3native_counters.mtReady & 2) != 0);  // part 2 rides [MonoThread]'s Simulate slot stub
     const Ts3nAutShadow& k = ts3native_autshadow;

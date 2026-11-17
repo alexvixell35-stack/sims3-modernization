@@ -102,7 +102,11 @@ async function leg(name: string, cmd: string, args: object, fromWorld: string) {
     if (Date.now() >= nextTrip) {
       nextTrip = Date.now() + GUARD_MS;
       misses = (await tripQueued()) === false ? misses + 1 : 0;
-      if (misses >= 2) dead = `${name}: trip dropped: no travel interaction in the household queue for ~1 min (still in ${fromWorld}, fail-fast guard)`;
+      // A trip out or home that is dropped (~1 min with no travel interaction) is asked once more through another adult
+      // (the agent's alt), then gets another minute. 2026-11-12: the trip out dropped in 3 runs; with this retry it went.
+      const retry = cmd === 'travel_home' || cmd === 'travel_vacation';
+      if (misses === 2 && retry) log(`${name}: no travel interaction for ~1 min, asking again through another adult: ${JSON.stringify((await agent(cmd, { ...(args as any), alt: 1 })).result ?? null)}`);
+      if (misses >= (retry ? 4 : 2)) dead = `${name}: trip dropped: no travel interaction in the household queue for ~${retry ? 2 : 1} min (still in ${fromWorld}, fail-fast guard)`;
     }
     return false;
   }, 1000, tripGuard(stallGuard(`${name}: boarding`, { port: Number(values.port) })));

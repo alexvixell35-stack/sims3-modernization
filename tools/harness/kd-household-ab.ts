@@ -78,7 +78,9 @@ export function smokeProblems(rows: Row[], linesSeen: number, counterDelta: numb
 function selfCheck() {
   const l = (s: string, g: string, cut = false) => `ts3fixes: routefail: A B ${s} Adult active, Fridge_EatLeftovers, Plan async FailedBecauseNoPathToDestination blocker None, goal ${g}, at 1.0,2.0,3.0, lot 0x10 room 1, 250 ms, seen, route 0000ABCD${cut ? ', cut (KindDeadlines, mask 2)' : ''}`;
   assert.deepEqual(parseLine(l('0x1', '4.0,5.0,6.0')), { sim: '0x1', ia: 'Fridge_EatLeftovers', goal: '4.0,5.0,6.0', lot: '0x10', cut: false });
+  assert.equal(parseLine(l('0x1', '4.0,5.0,6.0').replace('Leftovers,', 'Leftovers target Fridge,'))?.ia, 'Fridge_EatLeftovers target Fridge');  // docs/226 Logging: interaction + target type
   assert.equal(parseLine('ts3fixes: routefail job: route 1, cut (KindDeadlines, mask 2)'), null);
+  assert.equal(parseLine('ts3fixes: routefail job: route 1, ReactToFire target FireSource, cut (KindDeadlines, mask 2)'), null);
   const slices: Sl[] = [{ on: true, warmup: true }, { on: false }, { on: true }, { on: true }, { on: false }];
   const lines = [l('0x1', '1,1,1'), l('0x1', '1,1,1'), l('0x2', '2,2,2'), l('0x1', '3,3,3', true), l('0x1', '3,3,3', true), l('0x2', '4,4,4'), l('0x2', '5,5,5'), 'junk', l('0x3', '6,6,6')];
   const fixes = [0, 1, 2, 3, 4].map((i, k) => ({ i, c: { routefaillog_routefail: [0, 2, 3, 5, 8][k], routefaillog_household_plans: 10 * k } }));
