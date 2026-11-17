@@ -389,6 +389,11 @@ namespace Ts3Fixes
         [Tunable] public static bool kSimDisposeLink = false; // simdisposelink (docs/612 §3): Sim.Dispose of an unbound Sim keeps its description's link to the live Sim (EA unbound it: next Instantiate made a duplicate Sim)
         [Tunable] public static bool kRhExitUnseen = false; // rhexitunseen (docs/613 §2): an NPC no camera can see (EA's low-LOD test) skips the rabbit hole NPC exit pacing wait (kNpcExitFreq, one NPC per 15 sim-min), as EA's school pupils do
         [Tunable] public static bool kTipsNpcEnd = false; // tipsnpcend (docs/613 §3): an unseen NPC Perform For Tips ends at EA's low-LOD interaction cap (420 day / 120 night sim-min); EA's only end was the Fatigued buff a low-LOD Sim never gets
+        [Tunable] public static bool kBarPutDownWait = false; // barputdownwait (docs/614 §1): the bartender's put-down helper finishes inline when its anim event never fired (EA's Wait looped forever)
+        [Tunable] public static bool kPutDownSurfaceUse = false; // putdownsurfaceuse (docs/614 §2): PutDown.TryToPlaceOnSurface releases the surface and item it took when ParentToSlot fails
+        [Tunable] public static bool kSwipeRestore = false; // swiperestore (docs/614 §3): a SwipeSomething whose family-inventory add fails puts the victim's object back and destroys the clone
+        [Tunable] public static bool kUnicornSpawnFail = false; // unicornspawnfail (docs/614 §4): an NPC unicorn spawn with no spot ends like EA's UnicornDespawn instead of staying invisible
+        [Tunable] public static bool kDataDiscPutBack = false; // datadiscputback (docs/614 §5): DataDiscStorage add/dump-all puts a refused disc back and moves the rest (EA lost it)
         [Tunable] public static bool kSarcMummyNpc = false; // sarcmummynpc (docs/607 §3): a reset or deleted Sarcophagus takes its tomb mummy out of NpcHousehold, as TombMummyDestroy does
         [Tunable] public static bool kPushWaitSkip = false; // pushwaitskip (docs/604 §2): RoutingComponent.PushSimsStatic's wait pass checks every pushed Sim once (EA steps twice and keeps the pusher idle an extra 10 sim-minutes)
         [Tunable] public static bool kDetailPriorityExact = false; // detailprioexact (docs/603 §3): Lot.CalculateDetailPriority gives EA's answer without building the household actor lists on every lot pass (exact, DetailPrio603.cs)

@@ -7128,6 +7128,71 @@
       "what": "stuck interactions: rabbit hole exit pacing, NPC perform for tips",
       "at": "2026-11-17T08:25:32.837Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3461",
+      "kind": "fixes",
+      "from": 3461,
+      "to": 3463,
+      "by": "s84",
+      "what": "barputdownwait: bartender put-down helper Wait completes inline when the anim event never fired",
+      "at": "2026-11-17T08:50:02.065Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3464",
+      "kind": "fixes",
+      "from": 3464,
+      "to": 3466,
+      "by": "s84",
+      "what": "putdownsurfaceuse: PutDown.TryToPlaceOnSurface failure releases the surface use and inventory in-use",
+      "at": "2026-11-17T08:50:02.134Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3467",
+      "kind": "fixes",
+      "from": 3467,
+      "to": 3469,
+      "by": "s84",
+      "what": "swiperestore: SwipeSomething failed family-inventory add restores the stolen object",
+      "at": "2026-11-17T08:50:02.206Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3470",
+      "kind": "fixes",
+      "from": 3470,
+      "to": 3472,
+      "by": "s84",
+      "what": "unicornspawnfail: UnicornSpawn with no spawn spot ends like EA's despawn",
+      "at": "2026-11-17T08:50:02.278Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3473",
+      "kind": "fixes",
+      "from": 3473,
+      "to": 3475,
+      "by": "s84",
+      "what": "datadiscputback: DataDiscStorage move puts a refused disc back",
+      "at": "2026-11-17T08:50:02.350Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "doc-614",
+      "kind": "doc",
+      "from": 614,
+      "to": 614,
+      "by": "s84",
+      "what": "scan triage real hits: bar put-down wait, put-down surface use, swipe, unicorn spawn, data discs",
+      "at": "2026-11-17T08:50:02.378Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }
