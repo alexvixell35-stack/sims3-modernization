@@ -358,6 +358,7 @@ namespace Ts3Fixes
                 RouteSrcCall src = RouteSrcBegin(this, 2, startPosition);
                 RoutePlanResult r = UfPlan(2, startPosition);
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
+                SemCapture(r);  // docs/636 spotedgememo: which goal EA's full routability plan reached
                 RflPlan(this, 2, rflT0, r);
                 return r;
             }

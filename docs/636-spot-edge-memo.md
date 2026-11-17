@@ -1,0 +1,50 @@
+# 636. Spot edge memo: fewer goals for the lot routability check
+
+Status: static, built into r96-combo (`ts3fixes.r96-combo.package`), NOT RUN. Switch `spotedgememo` (default off).
+
+## 1. Finding
+
+- [verified, logs] The slowest spot checks in the 2026-11-1x runs are townies idling at Bridgeport Eternal Rest
+  Cemetery: 300-578 ms each, all Succeeded. Seven of the top nine slow `spot:visit` checks are on that lot. Across
+  `phase-2026111*/ts3native.log` there are 135 `ufplansplit` lines on the cemetery (150-1000 ms, median ~206 ms;
+  120 Succeeded, 15 FailedBecauseNoPathToDestination).
+- [verified, ilspycmd] The check is EA's `Sim.IsPointInLotSafelyRoutable(lot, pos)`. After cheap early answers (null lot or
+  corners, zero or out-of-world spot, spot on another lot, water terrain, world lot = true), it plans one route from
+  `pos` with `CreateRouteAsAdult()`, `EnableWaterPlanning = IsHuman`, and 8 `RadialRangeDestination`s of radius 1 m
+  (2 m on a houseboat lot): corner i then the midpoint of edge i..i+1, for i = 0..3. Only `PlanResult.mType ==
+  Succeeded` counts. `RoutePlanResult` carries `mDestination` and `mDistanceTotal`, so the reached goal can be read back.
+- Hypothesis [inferred, not measured]: the cemetery's corners and some edges are fenced or walled off. The multi-goal
+  search is pulled toward near but unreachable goals and floods the enclosed lot before it finds the gate edge.
+  `SpotEdgeMemoCheck probe` measures it: EA's path length vs the straight distance to the reached goal, and each goal
+  planned alone (ms, result). A failed single goal floods the lot, so the probe hitches on purpose.
+
+## 2. Fix `spotedgememo` (default off, exact)
+
+`SpotEdgeMemo.cs`, called from `RoutableCacheHook` (FewerPlans.cs) wherever it would call EA's original, so it covers
+our SpotVerdict (and the spotasync job), routablecache misses and EA's own callers.
+
+- Memo: per lot and route profile (`SpotVerdicts.Edge`, keyed like the verdict cells with cell 0), a bit mask of the
+  goal indices that a successful full plan reached (`mDestination` matched to the nearest goal within radius + 0.25 m,
+  captured in `RouteBackoffHook.PlanFromPointHook` for the armed task only).
+- Next check on that lot: the same route (same options, same radius) to the remembered goals only.
+  - Success: a path from the spot to one of EA's own goals exists, so EA's 8-goal plan also succeeds: answer true.
+  - Failure: EA's own full call answers, so every false is EA's own verdict; the mask is cleared and relearned.
+- Exactness [inferred]: a multi-goal plan succeeds when any goal is reachable. The one theoretical gap is the planner's
+  abort budget (`FailedBecausePlannerAborted`): an 8-goal plan could abort where a 1-goal plan succeeds; not seen.
+  So household Sims use it too (proven-exact speedups stay); no HouseholdToo gate is needed (no worker path added).
+- Invalidation: the memo lives in the lot's `SpotVerdicts`, so it drops with them (one sim-day, household change, lot
+  moved, clock went back = another save or world). The verdict cache has no build/buy hook; for the memo a stale entry
+  can only cost a fallback plan, never a wrong answer, since a memo success is a live plan.
+- spotcut / spotbusydefer: when a memo plan's job was cut or deferred, the check returns false without the fallback
+  plan (SpotVerdict discards that verdict as "no verdict" anyway).
+- Cost: a spot EA would reject now pays the memo plan plus EA's full plan (both fail). The verdict caches limit repeats.
+
+Counters 3806-3811: memo hits, misses (no memo), fallbacks (memo plan failed), ms saved estimate (the lot's last
+full-call ms minus the memo plan's ms, per hit), goals learned, check mismatches (must stay 0).
+
+## 3. Test
+
+Repro `spotedgememo-check` (tools/harness/repros.json): `SpotEdgeMemoCheck run` off then on. It picks a Sim on an
+eligible lot spot (a lot named Cemetery first), runs EA's call with the memo bypassed, then the memo route to the goal
+EA reached. FIXED needs the memo to plan fewer than 8 goals with the same verdict; pure controls: off or no memo = EA's
+call, memo failure = EA's call. Then `probe` (hypothesis data) and `result`. Pending in tools/harness/sets/proven-fixes.txt.

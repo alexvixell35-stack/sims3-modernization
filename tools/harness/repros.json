@@ -379,6 +379,98 @@
       ]
     },
     {
+      "id": "spotedgememo-check",
+      "bug": "IsPointInLotSafelyRoutable plans to all 8 lot corner/edge goals; on Bridgeport Eternal Rest Cemetery each townie spot check takes 300-578 ms, all Succeeded (docs/636)",
+      "fix": "ts3fixes SpotEdgeMemo.cs + FewerPlans.cs + RouteBackoff.cs: spotedgememo (default off, exact: memo failure = EA's full call), docs/636",
+      "save": "any save with a Sim on a non-world lot (a Sim at a lot named Cemetery is picked first)",
+      "note": "SpotEdgeMemoCheck run: on a Sim's own spot, EA's 8-goal call (memo bypassed) vs the memo route to the goal EA's plan reached (fewer goals, same verdict), with pure controls (off / no memo = EA call, memo failure = EA call). probe adds every goal alone (ms, result) and EA's path vs straight distance; an unreachable single goal floods the lot (expect a hitch). result shows counters 3806-3811.",
+      "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+      "steps": [
+        {
+          "cmd": "patches",
+          "args": {
+            "spotedgememo": false
+          },
+          "note": "off first",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SpotEdgeMemoCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "waitS": 3,
+          "note": "off: EA's path"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SpotEdgeMemoCheck",
+            "args": [
+              "result"
+            ]
+          }
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "spotedgememo": true
+          },
+          "note": "on",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SpotEdgeMemoCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "waitS": 3,
+          "note": "on: the fix"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SpotEdgeMemoCheck",
+            "args": [
+              "probe"
+            ]
+          },
+          "waitS": 10,
+          "note": "hypothesis data (per-goal plans)"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SpotEdgeMemoCheck",
+            "args": [
+              "result"
+            ]
+          }
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "spotedgememo": false
+          },
+          "note": "back to the default"
+        }
+      ],
+      "cleanup": [
+        {
+          "cmd": "patches",
+          "args": {
+            "spotedgememo": false
+          }
+        }
+      ]
+    },
+    {
       "id": "unseenmusicwatch-check",
       "bug": "an unseen NPC watching a piano (Piano+Watch) holds its 1-minute DoLoop until EA's 360/180-minute low-LOD end (docs/634)",
       "fix": "ts3fixes LoopSkip632.cs: unseenmusicwatch (default off), docs/634; tier 2 with unseenloopskip_offscreen",
