@@ -272,8 +272,6 @@ woohootywait
 #   partyoutcome
 # built 2026-11-17, in-game off/on test pending (docs/638 §3 groupchatpriority, EA bug fix: seated/group chat receiver raised as CreateSocialB does); move to the set once proven:
 #   groupchatpriority
-# built 2026-11-17, in-game off/on test pending (docs/636 spotedgememo, exact speedup: memo route to the reached edge goals, failure = EA's call); move to the set once proven:
-#   spotedgememo
 # built 2026-11-17, in-game off/on test pending (docs/633 bouncerplace; docs/628 unseenservice_offscreen Check now tests the tier-2 decision); move to the set once proven:
 #   unseenloopskip_offscreen
 # built 2026-11-15, in-game off/on test pending (docs/575-577); move to the set once proven:
@@ -367,6 +365,7 @@ wishsubjectgone
 wishupdatelost
 socialworkerpromise
 buffsrcempty
+spotedgememo
 spotcut
 unseenservicewait
 spotbusydefer
