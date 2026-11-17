@@ -7341,6 +7341,26 @@
       "what": "non-boxing comparers: enum keys and AlarmHandle; HasAnyElement skipped",
       "at": "2026-11-17T12:00:00.000Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3580",
+      "kind": "fixes",
+      "from": 3580,
+      "to": 3599,
+      "by": "s88",
+      "what": "routefailprobe (NPC spot probes on the selected Sim), rhentryrelax / rhentryrelaxnear (relaxed rabbit hole entry for unseen and off-screen NPCs)",
+      "at": "2026-11-17T14:00:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-627",
+      "kind": "doc",
+      "from": 627,
+      "to": 627,
+      "by": "s88",
+      "what": "rabbit hole portal-locked route fails (NPC spot probes) and relaxed entry for unseen Sims",
+      "at": "2026-11-17T14:00:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

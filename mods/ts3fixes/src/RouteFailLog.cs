@@ -353,6 +353,7 @@ namespace Ts3Fixes
                 if (sim == null) return;
                 if (!ok) SrlReplan(r, sim, kind, res);  // socialreplanlog (SocialReplanLog.cs, docs/577 §2), logging only
                 if (!ok) RclPlan(r, sim, kind, res);  // routecauselog (RouteCauseLog.cs, docs/580), logging only
+                if (!ok && RfpPlan(sim, kind, res, r, t0)) return;  // routefailprobe (RhEntry627.cs, docs/627 §2): an NPC spot probe, not this Sim's route
                 if (sim.IsInActiveHousehold) PatchCounters()[866]++;  // fails per plan: same four hooks as the routefail lines (issue #304, kd-household-ab.ts)
                 bool show = InShowOff(sim);
                 if (show && sim == sSoChild) { sSoSeen = true; sSoPlans++; if (!ok) sSoPlanFails++; if (async) sSoAsync++; }
