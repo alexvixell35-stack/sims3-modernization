@@ -30,6 +30,7 @@ namespace Ts3Fixes
                 case "bakesaleseller": return EpLive(typeof(BakeSaleHook), 3, "sBstNpc", sBstNpc, null);
                 case "bandjam": return EpLive(typeof(BjHook), 1);
                 case "barorderlog": return EpLive(typeof(BarOrderLogHook), 1);
+                case "barputdownwait": return EpLive(typeof(BpwWaitHook), 1, "sBpwDone", sBpwDone, typeof(bool), "sBpwHandler", sBpwHandler, null);
                 case "bathcleanup": return EpLive(typeof(BBcHook), 0, "sBcInBath", sBcInBath, null);
                 case "bathsituationfx": return EpLive(typeof(BBsfTubHook), 1, "sBsFx", sBsFx, null);
                 case "betrayednullsim": return EpLive(typeof(BBtHook), 1);
@@ -93,6 +94,7 @@ namespace Ts3Fixes
                 case "courselistener": return EpJoin(EpLive(typeof(ClHook), 0), EpLive(typeof(ClSpecHook), 0));
                 case "dancefloorlistdiag": return EpLive(typeof(DanceFloorDiagHook), 1);
                 case "dancefloorlistguard": return EpLive(typeof(DanceFloorDiagHook), 1);
+                case "datadiscputback": return EpJoin(EpLive(typeof(DdpAddHook), 1), EpLive(typeof(DdpDumpHook), 1));
                 case "datingprofile": return EpLive(typeof(DatingProfileHook), 1, "sDatingProfile", sDatingProfile, null);
                 case "daycareliking": return EpLive(typeof(B12DlHook), 1);
                 case "daycarequit": return EpLive(typeof(DqHook), 1, "sDqSituation", sDqSituation, null, "sDqManagers", sDqManagers, null);
@@ -299,6 +301,7 @@ namespace Ts3Fixes
                 case "putdowninuse": return EpJoin(EpLive(typeof(PutDownInUseHook), 1), EpLive(typeof(VoodooPutDownInUseHook), 0));
                 case "putdownplace": return EpLive(typeof(PdHook), 1);
                 case "putdownplaced": return EpJoin(EpLive(typeof(B12PpHook), 1), EpLive(typeof(B12PpTrigger), 1));
+                case "putdownsurfaceuse": return EpLive(typeof(PduSurfaceHook), 1);
                 case "queueproximity": return EpLive(typeof(SqPlaceHook), 1);
                 case "rainsheltercheap": return EpLive(typeof(RfHook), 1, "sRfNextField", sRfNextField, null, "sRfSchedule", sRfSchedule, 1);
                 case "reactioncopy": return EpLive(typeof(BRcHook), 1);
@@ -396,6 +399,7 @@ namespace Ts3Fixes
                 case "stuckcheckasync": return EpLive(typeof(StuckCheckBusyHook), 1);
                 case "stuckcheckbusy": return EpLive(typeof(StuckCheckBusyHook), 1);
                 case "subroutefail": return EpJoin(EpLive(typeof(SrfPlayHook), 1), EpLive(typeof(SrfTryHook), 1));
+                case "swiperestore": return EpLive(typeof(SwrRunHook), 1, "sSwrObj", sSwrObj, null, "sSwrFinal", sSwrFinal, null, "sSwrParent", sSwrParent, null, "sSwrSlot", sSwrSlot, null);
                 case "synctime": return EpLive(typeof(SfHook), 1);
                 case "tagunseen": return EpLive(typeof(TagLoopHook), 2);
                 case "takeariskguard": return EpLive(typeof(TakeARiskHook), 1);
@@ -418,6 +422,7 @@ namespace Ts3Fixes
                 case "twinbellyshape": return EpLive(typeof(BPgSetHook), 1);
                 case "ufplansplit": return EpLive(typeof(RouteBackoffHook), 4);
                 case "uncleguard": return EpLive(typeof(RagUncle), 1);
+                case "unicornspawnfail": return EpLive(typeof(UsfRunHook), 1);
                 case "uniformbackup": return EpLive(typeof(UniformBackupHook), 1);
                 case "unigradkeep": return EpJoin(EpLive(typeof(HsGradKeepHook), 0), EpLive(typeof(UniGradKeepHook), 0));
                 case "unitravelflag": return EpLive(typeof(UniTravelFlagHook), 0);

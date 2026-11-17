@@ -24,6 +24,8 @@ export type Row = Patch & { yields: string; proof: string; purpose: string; acti
 
 // a target held in a variable: variable name in that file -> the class it names
 const TARGET_VARS: Record<string, string> = {
+  'Scan84.cs:sBpwType': 'BarAdvanced+PutDownCarriedObjectHelper', 'Scan84.cs:sSwrType': 'TraitFunctions+SwipeSomething', 'Scan84.cs:t': 'OccultUnicorn+UnicornSpawn',
+  'Scan84.cs:add': 'DataDiscStorage+AddAllDataDiscs', 'Scan84.cs:dump': 'DataDiscStorage+DumpAllDataDiscs',
   'SeasonsWeather596.cs:sOwIntoDef': 'Sims3.Gameplay.Actors.Sim+ChangeIntoOuterwear+Definition', 'SeasonsWeather596.cs:sOwOutDef': 'Sims3.Gameplay.Actors.Sim+ChangeOutOfOuterwear+Definition', 'SeasonsWeather596.cs:sOwTodDef': 'Sims3.Gameplay.ActorSystems.Children.ChangeToddlerClothes+ChangeToddlerClothesDefinition', 'SeasonsWeather596.cs:sOwIntoRun': 'Sims3.Gameplay.Actors.Sim+ChangeIntoOuterwear',
   'RefTable.cs:t': 'ScriptCore.ReferenceHashtable', 'CachedReflection.cs:pc': 'ScriptCore.PersistedClass',
   'CachedReflection.cs:db': 'ScriptCore.PersistedClassDB', 'FewerPlans.cs:helper': 'LotManager+RunStuckCheckHelper',

@@ -502,8 +502,18 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3450-3452 | `StairDup82.cs` (`fixes-3450`, s82, docs/612 §3), `simdisposelink` | built 2026-11-17, default off: description links kept over an unbound Sim's Dispose (3450) / unbound disposes with the switch off (3451) / errors (3452) |
 | 3453-3456 | `StuckJobs83.cs` (`fixes-3453`, s83, docs/613 §2), `rhexitunseen` | built 2026-11-17, default off: exit waits skipped (3453) / unseen NPC waits with the switch off (3454) / household or seen kept (3455) / errors (3456) |
 | 3457-3460 | `StuckJobs83.cs` (`fixes-3457`, s83, docs/613 §3), `tipsnpcend` | built 2026-11-17, default off: tips loops ended at the low-LOD cap (3457) / past the cap with the switch off (3458) / past the cap kept by the household rule or a seen Sim (3459) / errors (3460) |
+| 3461-3463 | `Scan84.cs` (`fixes-3461`, s84, docs/614 §1), `barputdownwait` | built 2026-11-17, default off: put-downs finished inline (3461) / hangs entered with the switch off (3462) / errors (3463) |
+| 3464-3466 | `Scan84.cs` (`fixes-3464`, s84, docs/614 §2), `putdownsurfaceuse` | built 2026-11-17, default off: surface releases (3464) / leaks with the switch off (3465) / errors (3466) |
+| 3467-3469 | `Scan84.cs` (`fixes-3467`, s84, docs/614 §3), `swiperestore` | built 2026-11-17, default off: objects restored (3467) / lost with the switch off (3468) / errors (3469) |
+| 3470-3472 | `Scan84.cs` (`fixes-3470`, s84, docs/614 §4), `unicornspawnfail` | built 2026-11-17, default off: failed spawns ended (3470) / left invisible with the switch off (3471) / errors (3472) |
+| 3473-3475 | `Scan84.cs` (`fixes-3473`, s84, docs/614 §5), `datadiscputback` | built 2026-11-17, default off: discs put back (3473) / lost because the put-back was refused (3474) / errors (3475) |
 | 3453-3456 | pinned (s83, `fixes-3453`) | rhexitunseen: an unseen NPC leaving a rabbit hole skips EA's NPC exit pacing wait (kNpcExitFreq) |
 | 3457-3460 | pinned (s83, `fixes-3457`) | tipsnpcend: an unseen NPC Perform For Tips ends at EA's low-LOD interaction cap |
+| 3461-3463 | pinned (s84, `fixes-3461`) | barputdownwait: bartender put-down helper Wait completes inline when the anim event never fired |
+| 3464-3466 | pinned (s84, `fixes-3464`) | putdownsurfaceuse: PutDown.TryToPlaceOnSurface failure releases the surface use and inventory in-use |
+| 3467-3469 | pinned (s84, `fixes-3467`) | swiperestore: SwipeSomething failed family-inventory add restores the stolen object |
+| 3470-3472 | pinned (s84, `fixes-3470`) | unicornspawnfail: UnicornSpawn with no spawn spot ends like EA's despawn |
+| 3473-3475 | pinned (s84, `fixes-3473`) | datadiscputback: DataDiscStorage move puts a refused disc back |
 | **2000+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

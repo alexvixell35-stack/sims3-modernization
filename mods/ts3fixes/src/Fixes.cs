@@ -383,6 +383,11 @@ namespace Ts3Fixes
             ApplySimDisposeLink();   // docs/612 §3 (StairDup82.cs)
             ApplyRhExitUnseen();   // docs/613 §2 (StuckJobs83.cs)
             ApplyTipsNpcEnd();   // docs/613 §3 (StuckJobs83.cs)
+            ApplyBarPutDownWait();   // docs/614 §1 (Scan84.cs)
+            ApplyPutDownSurfaceUse();   // docs/614 §2 (Scan84.cs)
+            ApplySwipeRestore();   // docs/614 §3 (Scan84.cs)
+            ApplyUnicornSpawnFail();   // docs/614 §4 (Scan84.cs)
+            ApplyDataDiscPutBack();   // docs/614 §5 (Scan84.cs)
             ApplyMegaphoneRun();   // docs/608 §2 (WalkStyleLeak77.cs)
             ApplyDragonCurseRun();   // docs/608 §3 (WalkStyleLeak77.cs)
             ApplyMermaidSharkNull();   // docs/587 EP1 §3
@@ -1135,6 +1140,11 @@ namespace Ts3Fixes
         // [3450-3452] simdisposelink (StairDup82.cs, docs/612 §3): links kept / unbound disposes (off) / errors.
         // [3453-3456] rhexitunseen (StuckJobs83.cs, docs/613 §2): exit waits skipped / unseen NPC waits (off) / household or seen kept / errors.
         // [3457-3460] tipsnpcend (StuckJobs83.cs, docs/613 §3): tips loops ended at low-LOD cap / past cap (off) / past cap household or seen kept / errors.
+        // [3461-3463] barputdownwait (Scan84.cs, docs/614 §1): finished inline / hangs entered (off) / errors.
+        // [3464-3466] putdownsurfaceuse (Scan84.cs, docs/614 §2): releases / leaks (off) / errors.
+        // [3467-3469] swiperestore (Scan84.cs, docs/614 §3): restores / lost (off) / errors.
+        // [3470-3472] unicornspawnfail (Scan84.cs, docs/614 §4): failed spawns ended / left invisible (off) / errors.
+        // [3473-3475] datadiscputback (Scan84.cs, docs/614 §5): discs put back / lost (put-back refused) / errors.
         // [3391-3393] sarcmummynpc (TreasureSpawn74.cs, docs/607 §3): tomb mummy descriptions removed from NpcHousehold at sarcophagus cleanup / left with the switch off / errors.
         // [2790-2792] pushwaitskip (PushWait604.cs, docs/604 §2): done Sims EA's double-step wait pass would have skipped / waiting calls on EA's body (switch off) / errors.
         // [2756-2759] detailprioexact (DetailPrio603.cs, docs/603 §3): exact answers / EA's body (null list or description, error) / check mismatches / errors.
@@ -1678,6 +1688,11 @@ namespace Ts3Fixes
                 case "simdisposelink": return Instantiator.kSimDisposeLink;  // docs/612 §3 (StairDup82.cs), EA bug fix, off
                 case "rhexitunseen": return Instantiator.kRhExitUnseen;  // docs/613 §2 (StuckJobs83.cs), EA bug fix, off
                 case "tipsnpcend": return Instantiator.kTipsNpcEnd;  // docs/613 §3 (StuckJobs83.cs), EA bug fix, off
+                case "barputdownwait": return Instantiator.kBarPutDownWait;  // docs/614 §1 (Scan84.cs), EA bug fix, off
+                case "putdownsurfaceuse": return Instantiator.kPutDownSurfaceUse;  // docs/614 §2 (Scan84.cs), EA bug fix, off
+                case "swiperestore": return Instantiator.kSwipeRestore;  // docs/614 §3 (Scan84.cs), EA bug fix, off
+                case "unicornspawnfail": return Instantiator.kUnicornSpawnFail;  // docs/614 §4 (Scan84.cs), EA bug fix, off
+                case "datadiscputback": return Instantiator.kDataDiscPutBack;  // docs/614 §5 (Scan84.cs), EA bug fix, off
                 case "alarmzeroperiod": return Instantiator.kAlarmZeroPeriod;  // docs/609 §6 (GameSpeed78.cs), EA bug fix (hang guard), off
                 case "tspawninvdup": return Instantiator.kTreasureSpawnInvDup;  // docs/607 §2 (TreasureSpawn74.cs), EA bug fix, off
                 case "megaphonerun": return Instantiator.kMegaphoneRun;  // docs/608 §2 (WalkStyleLeak77.cs), EA bug fix, off
