@@ -82480,6 +82480,87 @@
     ]
   },
   {
+    "id": "groupchatpriority-check",
+    "bug": "An autonomous seated / standing / mounted group chat pushes the receiver's GroupChatB at Autonomous priority, so it waits behind the receiver's autonomous activity and the starter times out after 15 sim-min; raised to NonCriticalNPCBehavior as EA does for every social receiver (docs/638 \u00a73)",
+    "fix": "ts3fixes GroupChatPriority.cs: groupchatpriority (default off), docs/638 \u00a73",
+    "save": "any world (pure check)",
+    "note": "GroupChatPriorityCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "groupchatpriority": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GroupChatPriorityCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GroupChatPriorityCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "groupchatpriority": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GroupChatPriorityCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.GroupChatPriorityCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "groupchatpriority": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "groupchatpriority": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sandwichalarm-check",
     "bug": "A theatre removes the daily sandwich-board reset alarm it holds before a show-end re-adds it, so back-to-back shows no longer orphan daily alarms (docs/580 \u00a716)",
     "fix": "ts3fixes SandwichAlarm.cs: sandwichalarm (default off), docs/580 \u00a716",

@@ -381,6 +381,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kQueueProximity value="False" />
     <kRouteCauseLog value="False" />
     <kScarePriority value="False" />
+    <kGroupChatPriority value="False" />
     <kSandwichAlarm value="False" />
     <kDreamCleanup value="False" />
     <kVehicleFxHelper value="False" />

@@ -208,6 +208,7 @@ namespace Ts3Fixes
             ApplySlaveWakeReason();   // docs/597 §5 (SleepQueue597b.cs)
             ApplyRouteCauseLog();   // docs/580 (RouteCauseLog.cs), logging only
             ApplyScarePriority();   // docs/580 §14 (ScarePriority.cs)
+            ApplyGroupChatPriority();   // docs/638 §3 (GroupChatPriority.cs)
             ApplySandwichAlarm();   // docs/580 §16 (SandwichAlarm.cs)
             ApplyDreamCleanup();   // docs/580 §18 (DreamCleanup.cs), memory only
             ApplyVehicleFxHelper();   // docs/582 §1 (Batch582Logic.cs)
@@ -859,6 +860,7 @@ namespace Ts3Fixes
         // [2706-2708] puddlereach (PuddleReach.cs, docs/578 §3): splash tests withheld after a failed run / seen with switch off / errors.
         // [2709-2710] routecauselog (RouteCauseLog.cs, docs/580): lines / dropped by the caps.
         // [1106-1108] scarepriority (ScarePriority.cs, docs/580 §14): receivers raised / seen with switch off / errors.
+        // [3841-3844] groupchatpriority (GroupChatPriority.cs, docs/638 §3): GroupChatB receivers raised / seen with switch off / errors / spare.
         // [1110-1112] sandwichalarm (SandwichAlarm.cs, docs/580 §16): stale handles removed / seen with switch off / errors.
         // [1113] sandwichalarm (SandwichAlarm.cs, docs/580 §16): saved duplicate ResetSandwichBoards alarms removed at world load.
         // [1114-1117] dreamcleanup (DreamCleanup.cs, docs/580 §18): pet nodes unfiled / woken nodes filed / seen with switch off / errors.
@@ -1799,6 +1801,7 @@ namespace Ts3Fixes
                 case "slavewakereason": return Instantiator.kSlaveWakeReason;
                 case "routecauselog": return Instantiator.kRouteCauseLog;
                 case "scarepriority": return Instantiator.kScarePriority;
+                case "groupchatpriority": return Instantiator.kGroupChatPriority;
                 case "sandwichalarm": return Instantiator.kSandwichAlarm;
                 case "dreamcleanup": return Instantiator.kDreamCleanup;
                 case "vehiclefxhelper": return Instantiator.kVehicleFxHelper;
