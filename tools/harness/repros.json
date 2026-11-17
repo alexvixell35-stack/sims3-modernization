@@ -383,7 +383,7 @@
       "bug": "IsPointInLotSafelyRoutable plans to all 8 lot corner/edge goals; on Bridgeport Eternal Rest Cemetery each townie spot check takes 300-578 ms, all Succeeded (docs/636)",
       "fix": "ts3fixes SpotEdgeMemo.cs + FewerPlans.cs + RouteBackoff.cs: spotedgememo (default off, exact: memo failure = EA's full call), docs/636",
       "save": "any save with a Sim on a non-world lot (a Sim at a lot named Cemetery is picked first)",
-      "note": "SpotEdgeMemoCheck run: on a Sim's own spot, EA's 8-goal call (memo bypassed) vs the memo route to the goal EA's plan reached (fewer goals, same verdict), with pure controls (off / no memo = EA call, memo failure = EA call). probe adds every goal alone (ms, result) and EA's path vs straight distance; an unreachable single goal floods the lot (expect a hitch). result shows counters 3806-3813 (seed hits 3812, misses 3813).",
+      "note": "SpotEdgeMemoCheck run: on a Sim's own spot, EA's 8-goal call (memo bypassed) vs the memo route to the goal EA's plan reached (fewer goals, same verdict), with pure controls (off / no memo = EA call, memo failure = EA call). probe adds every goal alone (ms, result) and EA's path vs straight distance; an unreachable single goal floods the lot (expect a hitch). The live line prints the memo's per-goal costs and the first single-goal try. result shows counters 3806-3814 (seed hits 3812, misses 3813, first single try hits 3814).",
       "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
       "steps": [
         {

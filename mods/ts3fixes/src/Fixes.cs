@@ -1171,7 +1171,7 @@ namespace Ts3Fixes
         // [3482-3484] birthdayagerecord (Scan85.cs, docs/615 §3): age-ups with listener kept / dropped (off) / errors.
         // [3750-3773] docs/634 families (LoopSkip632.cs), 6 slots each: unseenpianist 3750, unseenmusicwatch 3756, unseenjam 3762, unseenshow 3768: unseen / off-screen tier / out of scope / check mismatches (+4,+5 spare); 3774-3779 spare.
         // [3780-3802] docs/635: unseenservicewait + unseenservice per-reason split (UnseenService88.cs, 3780-3795), spotbusydefer (3800-3802), spotcut (3803-3805); 3796-3799 spare.
-        // [3806-3813] spotedgememo (SpotEdgeMemo.cs, docs/636): memo hits / misses / fallbacks / ms saved est / goals learned / check mismatches / seed hits / seed misses; 3814-3819 spare.
+        // [3806-3813] spotedgememo (SpotEdgeMemo.cs, docs/636): memo hits / misses / fallbacks / ms saved est / goals learned / check mismatches / seed hits / seed misses / first single try hits; 3815-3819 spare.
         // [3740-3745] bouncerplace (RouteSources.cs, docs/633): loop routes replaced / Run arrivals placed / out of scope / slot seen / errors / check mismatches; 3746-3749 spare.
         // [3700-3708] unseenloopskip (LoopSkip632.cs, docs/632): (b) capped unseen / offscreen, (a) stepped unseen / offscreen, listed out of scope, class not listed, off own task, errors, check mismatches; 3709-3739 spare.
         // [3600-3611] unseenservice (UnseenService88.cs, docs/628): unseen conv/drink/food served / off-screen tier the same / out of scope / precondition kept EA / off-screen re-check refused / RunBehavior false / errors / check mismatches; 3612-3619 spare.

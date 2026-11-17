@@ -57,3 +57,17 @@ Repro `spotedgememo-check` (tools/harness/repros.json): `SpotEdgeMemoCheck run` 
 eligible lot spot (a lot named Cemetery first), runs EA's call with the memo bypassed, then the memo route to the goal
 EA reached, then the seed goal (a seed true where EA said false counts as a mismatch). FIXED needs the memo to plan fewer than 8 goals with the same verdict; pure controls: off or no memo = EA's
 call, memo failure = EA's call, the street-side edge pick on a test square. Then `probe` (hypothesis data) and `result`. Pending in tools/harness/sets/proven-fixes.txt.
+
+## 4. s79 result and r99: cheapest goal alone first
+
+- s79 (phase-20261117-1751, r96/r97 path, smallfix.txt) [verified, game]: `SpotEdgeMemoCheck` off BROKEN / on FIXED,
+  mismatches 0, seed hits 72 vs 2 misses. Live line, Brigit Hemlock at the cemetery: EA's 8-goal plan 129 ms, reached
+  goal 7, path 77.6 m vs 31.5 m straight; goal 7 alone 116 ms; the seed goal 3 (street side) alone 13 ms. So the goal EA
+  reaches is not the cheap one, and remembering it saves little.
+- r99: each learned goal (from EA's full call or a successful seed) keeps a cost, the EWMA (alpha 0.3) of its single-goal
+  plan ms; a failed try also counts, so a goal this spot cannot reach sinks in the order. A check plans the learned goals
+  one at a time, cheapest known cost first (unknown last), at most 2 single-goal tries, then EA's full call. Still exact:
+  any success is true, and false only comes from EA's full call. Learning from the full call keeps the 2-goal cap; over
+  it, the most expensive goal is evicted (and its cost forgotten) instead of restarting the memo.
+- Counter 3814: hits on the first single-goal try. The Check's live line prints the memo's per-goal costs and the try
+  order; pure controls cover the eviction (the s79 costs keep goal 3), the order and the EWMA.
