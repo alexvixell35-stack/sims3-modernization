@@ -541,7 +541,9 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3520-3540 | pinned (s86w, `fixes-3520`) | docs/623 wishes engine fixes: timeralarmleak, wishfeedbackkeep, wishsubjectgone, wishupdatelost, socialworkerpromise (3541-3549 free in block) |
 | 3550-3553 | `Alloc87Comparers.cs` (`fixes-3550`, s87, docs/625 §2), `enumcmpnobox` | built 2026-11-17, default off: comparers installed (3550) / restored (3551) / errors (3552) / Check answer mismatches (3553, must stay 0) |
 | 3554-3558 | `Alloc87Comparers.cs` (`fixes-3554`, s87, docs/625 §3), `alarmcmpnobox` | built 2026-11-17, default off: installed (3554) / restored (3555) / live mTimers swapped in place (3556) / errors (3557) / Check answer mismatches (3558, must stay 0) |
+| 3620-3638 | `DormantProbe.cs` (`fixes-3620`, dormant, docs/630 §2), `dormantprobe` | built 2026-11-17, default off, log only: plans unseen / ms / dormant / ms / all (3620-3624), starts unseen / dormant / all (3625-3627), pulses dormant / all (3628-3629), census passes (3630), last census lots / npc-res lots / residents / objects / alarms / fires per sim-h (3631-3636), errors (3637), dormant autonomous starts (3638); 3639-3659 reserved for dormantlots (not built) |
 | 3559-3579 | pinned (s87, `fixes-3559`) | spare of the s87 allocation builder (docs/625) |
+| 3620-3659 | pinned (dormant, `fixes-3620`) | dormantprobe/dormantlots (docs/630) |
 | **2000+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

@@ -950,6 +950,7 @@ namespace Ts3Fixes
                     else if (r.mType == RoutePlanResultType.FailedBecauseNoPathToDestination && !last.Cut) sUrC.Set(ln.G, ln.S, false);
                 }
                 int ufMs = unchecked(System.Environment.TickCount - t0);
+                if (DpOn()) DpPlanNote(Follower, ufMs);  // dormantprobe (DormantProbe.cs, docs/630)
                 UfSlowPlanLog(kind, ufMs, last);
                 UfSplit mine;
                 if (!sUfSplits.TryGetValue(task, out mine)) mine = default(UfSplit);
