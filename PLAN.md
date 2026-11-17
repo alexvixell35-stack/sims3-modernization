@@ -30,6 +30,7 @@ Approved 2026-10-10. Rewritten 2026-10-12 with everything found so far (read thi
 **Wishes engine fixes (2026-11-17, docs/623, r76-wishes, static, NOT RUN):** built default-off `timeralarmleak` (3520-3524), `wishfeedbackkeep` (3525-3528), `wishsubjectgone` (3529-3533), `wishupdatelost` (3534-3537), `socialworkerpromise` (3538-3540) from docs/619 findings 1-6; each Check forces its case (off BROKEN, on FIXED). Next: run the five `-check` repros off then on.
 
 **Unseen bar service (2026-11-17, docs/628, r81-svc, static, NOT RUN):** built default-off `unseenservice` (3600-3611) + tier 2 `unseenservice_offscreen`: unseen NPC bar orders (conversation, one drink, one plate) complete at the queue head with EA's end steps. Next: run `unseenservice-check` off then on in Bridgeport, then a wait-report A/B on the bar rows.
+**Responsiveness (2026-11-17, docs/631, r83-resp, NOT RUN):** `playerfirst` (3660-3669; ts3native `[RouteAsync] PlayerFirst`, op 37) and `zoomtier` (3670-3689, 250 m / map view), default off. Next: run with the fork CI ts3native.
 
 **Scan triage pass 2 (2026-11-17, docs/615, r73, static, NOT RUN):** built default-off `spoilbroadcast` (3476-3478), `weatherstonerelisten` (3479-3481), `birthdayagerecord` (3482-3484); SnakeCharmingBasket and RideBroomArena hits false in IL. Next: run r73 with the s85 pairs.
 
