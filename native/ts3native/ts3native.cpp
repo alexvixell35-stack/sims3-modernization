@@ -18,7 +18,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.273-hotres2"  // master 0.36.272-gchold2 + feature/jit-hot-reserve-1117: [MonoJit] YRows (M2 Motive.UpdateMotiveWithDecay, default 0) + HotReserve (docs/537 §32, default 1, acts only with YRows=1)
+#define TS3NATIVE_VERSION "0.36.274-yalias2"  // bugfix/jit-yrow-swap-alias-1117: Y keys also match ts3fixes swap stubs (Motive.DecayOrig), HotReserve 300 s deadline; master 0.36.272-gchold2 + feature/jit-hot-reserve-1117: [MonoJit] YRows (M2 Motive.UpdateMotiveWithDecay, default 0) + HotReserve (docs/537 §32, default 1, acts only with YRows=1)
 #endif
 
 typedef unsigned char u8;

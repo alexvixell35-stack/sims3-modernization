@@ -106,6 +106,15 @@ static int g_jitRowN = kJitRowN;
 static bool g_jitYRows;
 static const JitRow* g_jitYRowP = kJitYRows;
 static int g_jitYRowCnt = kJitYRowN;
+// ts3fixes' body swaps (Fixes.SwapMethod keeps each method's own name) move EA's body of a Y key into the hook's stub, on the key's
+// class: with motivemultonce (docs/589 B11 §2, default on) EA's UpdateMotiveWithDecay runs as Motive.DecayOrig and the key name never
+// transforms (hotres2 BP 1117: no Motive line, jitHotKB 1800 to the end). The IL hash still has to be EA's.
+static const char* const kJitYAlias[][2] = {{"Motive.UpdateMotiveWithDecay", "Motive.DecayOrig"}};
+static bool JitYEnds(const char* full, const char* key) {  // full is the Y key, or its swap stub's name on the same class
+    if (JitEndsWith(full, key)) return true;
+    for (const auto& a : kJitYAlias) if (!strcmp(a[0], key) && JitEndsWith(full, a[1])) return true;
+    return false;
+}
 // docs/537 §32 [MonoJit] HotReserve (default 1; acts only with YRows=1): the Y rows' room in the code region, the method table and the
 // positions stays free for them until each Y key compiled or was refused for good, so the ~4k general (closed-generic) bodies a
 // Mode=2 session compiles first cannot fill the region before the hot row's first transform (m2-motive-correct rerun: "code region
@@ -117,7 +126,7 @@ static int g_jitHotPend;             // Y keys not settled yet
 static bool g_jitHotNow;             // JitOne -> JitCompile: the method being compiled is a Y row (it may use the reserve)
 static const char* g_jitHotSettled[8];
 static const char* JitHotKey(const char* full) {  // the Y row key this method name ends in, else NULL
-    for (int i = 0; i < g_jitYRowCnt; i++) if (JitEndsWith(full, g_jitYRowP[i].key)) return g_jitYRowP[i].key;
+    for (int i = 0; i < g_jitYRowCnt; i++) if (JitYEnds(full, g_jitYRowP[i].key)) return g_jitYRowP[i].key;
     return NULL;
 }
 static char g_jitUserBuf[512];       // [MonoJit] List=: narrows the built-in list (a name not in it stays refused: no known hash)
@@ -173,7 +182,7 @@ static const char* JitMethodName(const u8* rm, char* buf, int n) {  // "ns.Class
 static bool JitListed(const char* full) {
     bool hit = false;
     for (int i = 0; i < g_jitRowN && !hit; i++) hit = JitEndsWith(full, g_jitRows[i].key);
-    for (int i = 0; g_jitYRows && i < g_jitYRowCnt && !hit; i++) hit = JitEndsWith(full, g_jitYRowP[i].key);
+    for (int i = 0; g_jitYRows && i < g_jitYRowCnt && !hit; i++) hit = JitYEnds(full, g_jitYRowP[i].key);
     if (!hit || !g_jitUserN) return hit;
     for (int i = 0; i < g_jitUserN; i++) if (JitEndsWith(full, g_jitUser[i])) return true;
     return false;
@@ -652,7 +661,7 @@ static int JcnReportTo(const char* why, JcnOut out) {
     // entries, ret exits, other exits, exit sites taken, call-exit sites (call, con.call, callvirt, con.callvirt, newobj) taken
     for (int m = 0; g_jitYRows && m < g_jitMethN; m++) {
         bool y = false;
-        for (int i = 0; i < g_jitYRowCnt && !y; i++) y = JitEndsWith(g_jitMeth[m].name, g_jitYRowP[i].key);
+        for (int i = 0; i < g_jitYRowCnt && !y; i++) y = JitYEnds(g_jitMeth[m].name, g_jitYRowP[i].key);
         if (!y) continue;
         LONG rets = 0, exits = 0;
         int taken = 0, callTaken = 0;
@@ -1319,10 +1328,30 @@ static void JitPreTransform(u8* rm, void* ctx) {
 // word as a 32-bit offset and jumps to a wild ip. leave.s always exits to that handler, so its own word can stay.
 static unsigned short JitWord(unsigned short orig) { return orig == 0x9C ? orig : (unsigned short)JIT_OP; }
 // compile one method: returns why not (and leaves the code alone) if anything does not fit, else NULL
+// docs/537 §32 deadline: a Y key that never transforms (renamed, never called) must not hold the room all session (hotres2 BP 1117:
+// 2147 general compiles held, jitHotKB 1800 to the end). The reserve holds for at most JIT_HOT_DEADLINE_MS after its first held
+// compile, then goes back to general compiles with one log line. Under g_jitCs; true = this general body leaves the room alone.
+static const DWORD JIT_HOT_DEADLINE_MS = 300000;
+static DWORD g_jitHotT0;  // GetTickCount at the reserve's first held compile (0: none yet)
+static bool JitHotHold() {
+    if (g_jitHotPend <= 0 || g_jitHotNow) return false;
+    if (g_jitHotT0 && (LONG)(GetTickCount() - g_jitHotT0) > (LONG)JIT_HOT_DEADLINE_MS) {  // signed: T0 is the tick | 1, one ahead on an even tick
+        Log("jit: HotReserve released (deadline: %d YRows keys not transformed %lu s after the first held compile) at code region %lu of %ld KB, %d methods; general compiles held back: %ld",
+            g_jitHotPend, JIT_HOT_DEADLINE_MS / 1000, (unsigned long)(g_jitCodeUsed >> 10), ts3native_counters.jitRegionKB, g_jitMethN, ts3native_counters.jitHotHeld);
+        g_jitHotPend = 0, g_jitHotBytes = 0, ts3native_counters.jitHotKB = 0;
+        return false;
+    }
+    return true;
+}
+static const char* JitHotHeld(const char* why) {  // a general body refused for the reserve: counted, starts the deadline
+    if (!g_jitHotT0) g_jitHotT0 = GetTickCount() | 1;
+    ts3native_counters.jitHotHeld++;
+    return why;
+}
 static const char* JitCompile(u8* rm) {
     if (g_jitMethN >= g_jitMethCap) return ts3native_counters.jitTableFull++, "method table full";
-    const bool hotHold = g_jitHotPend > 0 && !g_jitHotNow;  // docs/537 §32: a general body leaves the Y rows' room alone
-    if (hotHold && g_jitMethN >= g_jitMethCap - g_jitHotPend) return ts3native_counters.jitHotHeld++, "method table full (HotReserve)";
+    const bool hotHold = JitHotHold();  // docs/537 §32: a general body leaves the Y rows' room alone (until the deadline)
+    if (hotHold && g_jitMethN >= g_jitMethCap - g_jitHotPend) return JitHotHeld("method table full (HotReserve)");
     if (g_jcn) g_jcn->meth = g_jitMethN;  // count mode: the index this method gets if it compiles
     if (rm[0x41] && !g_jitWide) return "exception clauses";
     g_jitFrTestNow = false;
@@ -1390,7 +1419,7 @@ static const char* JitCompile(u8* rm) {
         ts3native_counters.jitFullN++, ts3native_counters.jitFullBytes += (LONG)need;  // R1: what a larger region would have to hold
         return "code region full";
     }
-    if (hotHold && (size_t)(g_jitCodeEnd - (g_jitCode + g_jitCodeUsed)) < need + g_jitHotBytes) return ts3native_counters.jitHotHeld++, "code region full (HotReserve)";
+    if (hotHold && (size_t)(g_jitCodeEnd - (g_jitCode + g_jitCodeUsed)) < need + g_jitHotBytes) return JitHotHeld("code region full (HotReserve)");
     u8* const start = g_jitCode + g_jitCodeUsed;
     JitProt(start, need, PAGE_READWRITE);  // from the end of the last method on: no finished code lives here (its last page flips below)
     u8** const label = g_js->label;
@@ -1837,7 +1866,7 @@ static const char* JitCompile(u8* rm) {
     // 3. publish: table entries for every position, then patch the opcode words (positions of EA instruction starts and
     // superop inner positions alike; inner words are never read by the superop handlers)
     if (g_jitPosN + n > g_jitPosCap) return "position table full";
-    if (hotHold && g_jitPosN + n > g_jitPosCap - JIT_HOT_POS) return ts3native_counters.jitHotHeld++, "position table full (HotReserve)";
+    if (hotHold && g_jitPosN + n > g_jitPosCap - JIT_HOT_POS) return JitHotHeld("position table full (HotReserve)");
     JitMeth& M = g_jitMeth[g_jitMethN];
     M.rm = rm, M.code = code, M.words = words, M.pos0 = g_jitPosN, M.nativeOps = nat, M.exitOps = ex, M.native0 = start, M.bytes = bytes;
     JitMethodName(rm, M.name, sizeof(M.name));
@@ -2879,7 +2908,7 @@ static bool JitHashKnown(const char* full, const char* mn, DWORD size, const BYT
     for (int i = 0; i < g_jitRowN; i++)
         if (g_jitRows[i].size == size && !memcmp(g_jitRows[i].sha, sha, 32) && JitEndsWith(full, g_jitRows[i].key)) return true;
     for (int i = 0; g_jitYRows && i < g_jitYRowCnt; i++)
-        if (g_jitYRowP[i].size == size && !memcmp(g_jitYRowP[i].sha, sha, 32) && JitEndsWith(full, g_jitYRowP[i].key)) return true;
+        if (g_jitYRowP[i].size == size && !memcmp(g_jitYRowP[i].sha, sha, 32) && JitYEnds(full, g_jitYRowP[i].key)) return true;
     for (int i = 0; i < kIlpSpecN; i++) {  // a core that carries an [IlPatch] fix in the converter's form (docs/527 §1)
         if (strcmp(mn, kIlpSpecs[i].name)) continue;
         for (DWORD b = 0; b < kIlpSpecs[i].nBuilds; b++) if (!memcmp(kIlpSpecs[i].builds[b].patched, sha, 32)) return true;
@@ -2956,7 +2985,7 @@ static void JitHotSettle(const char* name, const char* why) {
 // docs/537 §32: [MonoJit] HotReserve (default 1) with YRows=1: the room JitCompile's bound asks for one Y body under this session's
 // Direct / Count switches (Direct + Count=1: 1800 KB; Direct only: 1352 KB; neither: 456 KB), at most half the region
 static void JitHotInit(const wchar_t* ini) {
-    g_jitHotPend = 0, g_jitHotBytes = 0, g_jitHotNow = false;
+    g_jitHotPend = 0, g_jitHotBytes = 0, g_jitHotNow = false, g_jitHotT0 = 0;
     memset(g_jitHotSettled, 0, sizeof(g_jitHotSettled));
     if (!g_jitYRows || !GetPrivateProfileIntW(L"MonoJit", L"HotReserve", 1, ini)) return;
     for (int i = 0; i < g_jitYRowCnt; i++) {

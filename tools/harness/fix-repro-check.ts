@@ -66,6 +66,7 @@ export const EXEMPT: Record<string, string> = {
   autshadowverify: DIAG, autunseencmp: DIAG, ownjobwait: DIAG, gcgrowlog: DIAG, autledger: MONO,
   hhsearchprobe: 'measurement probe (docs/276 §2.3 A, HhSearchProbe.cs): counts household autonomy searches by outcome per Sim, changes no result; run by hhsearch-sv-1116.json, not a fix',
   autt2l0: 'measurement probe (tier-2 L0, AutLocalProbe.cs): times the local phase per actor class, changes no result; run by tier2-local-l0.json, not a fix',
+  autt2lcov: 'measurement probe (docs/276 rank 5 piece 1, AutLocalProbe.cs, needs autt2l0): splits local-phase C2 time by the local allow-list, changes no result; run by hhtoo-local-cov-1117.json, not a fix',
   envlistmemo: 'dry probe (docs/274 R1, EnvBcProbes.cs): compares a lot/room list memo with the game env lists, changes no result; run by env-bcast-dry-probe-1116.json, not a fix',
   bcposdry: 'dry probe (docs/274 R2, EnvBcProbes.cs): compares a per-tick position-table bcast set with the game set, changes no result; run by env-bcast-dry-probe-1116.json, not a fix',
   autofftick: OFFLOAD,
@@ -113,7 +114,28 @@ export const EXEMPT: Record<string, string> = {
   simfestkeep: 'EA bug fix from the decompiled code (docs/546 §11), not yet run: no harness check exists yet (a SimFest needs a ShowStage, an emcee and a winner pulled from the audience); add a SimFestKeepCheck and a repro before turning it on',
   unigradkeep: 'EA bug fix from the decompiled code (docs/546 §12), not yet run: needs a University world (Annex), a Sim with a completed degree whose rewards were not granted and the 12:00 ceremony; no check yet, verify in a University save before turning it on',
   bsrefund: 'EA bug fix from the decompiled code (docs/546 §12), not yet run: the pickup needs an enrolment (modal dialog), a night and an NPC car whose drive fails; no forced trigger yet, verify the refund (2351) in a play run before turning it on',
+  // 2026-11-17: these were missing from the agent's names list (so no repro could set them); exempt until a repro lands
+  asyncroute: 'async route plans, on since docs/18 (ts3native [RouteAsync]): judged by every timing/correctness job, which runs it on by default; no forced repro',
+  autt2local: 'docs/276 rank 5 piece 2: HouseholdToo local exact path (AutShadowLocalCore.cs), nothing reads it before piece 3; needs [Experimental] HouseholdToo=1',
+  doorgen: 'Dalexlol PR #430 (docs/585): bumps ts3native door generation for DoorMemoX=3; judged by his harness evidence and the DoorMemo selftest, no forced repro',
+  eventcost: DIAG + ' (docs/545 §5, EventTracker.ProcessEvent timing; ts3agent event_cost turns it on)',
+  gm6trace: DIAG + ' (AutShadow.cs IL trace of bad methods)',
+  safespotpool: 'SafeSpot never answers a pool or below-ground outdoor cell (docs/74 §13), on by default: no forced repro yet',
+  savedstacks: 'on by default (docs/242): a swapped method keeps its saved Sims at load; judged by save/load correctness jobs, no forced repro',
+  spotcheck: 'GoHome / lot-trip teleport with an in-view landing spot walks instead (docs/560 §7), on by default: no forced repro yet',
+  tagunseen: 'all-unseen-townie Tag games skip the run routes (docs/60 §3), on by default: no forced repro yet',
+  tpdoorrights: 'F1 unseen-teleport lot test by the Sim\'s own door rights (docs/584 §7), on by default: judged by the unseen-fallback jobs, no own repro',
+  weddingcleanup: 'EA WeddingCeremony.CleanUp throw guard (counters 1058/1059), on by default: no forced repro yet',
 };
+
+// Every ts3fixes switch (a ShortcutOn("x") call or a SwDefault case in mods/ts3fixes/src) must be in the agent's names list,
+// or `patches` / profile-world --fixes-on reject it (autt2lcov, 2026-11-17).
+export function modSwitches(srcs: string[]): string[] {
+  const calls = srcs.flatMap(s => [...s.matchAll(/ShortcutOn\("(\w+)"\)/g)].map(m => m[1]));
+  const def = srcs.map(s => s.match(/static bool SwDefault\([\s\S]*?\n {8}\}/)?.[0]).find(Boolean) ?? '';
+  if (!def) throw new Error('ts3fixes: no SwDefault(name) switch in Fixes.cs');
+  return [...new Set([...calls, ...[...def.matchAll(/case "(\w+)":/g)].map(m => m[1])])];
+}
 
 export const fixesNames = (cs: string) => {
   const m = cs.match(/string\[\]\s+names\s*=\s*\{([^}]*)\}/);
@@ -174,6 +196,9 @@ function repoCheck() {
   const native = [...new Set([...nativeNames, ...Object.keys(counterSwitches)])];
   const switches = [...new Set([...fixes, ...native])];
   const errs = check(switches, JSON.parse(read('tools/harness/repros.json')), JSON.parse(read('tools/harness/feature-repros.json')), readQueues());
+  const srcDir = 'mods/ts3fixes/src';
+  for (const n of modSwitches(readdirSync(join(ROOT, srcDir)).filter(f => f.endsWith('.cs')).map(f => read(`${srcDir}/${f}`))))
+    if (!fixes.includes(n)) errs.push(`${n}: ts3fixes switch missing from the agent's names list (PatchHandlers.cs)`);
   if (errs.length) { console.error(`fix-repro-check FAILED (${errs.length}):\n  ${errs.join('\n  ')}`); process.exit(1); }
   console.log(`fix-repro-check ok: ${switches.length} switches (${fixes.length} ts3fixes, ${native.length} native), ${Object.keys(EXEMPT).length} exempt`);
 }
@@ -181,6 +206,8 @@ function repoCheck() {
 if (import.meta.filename === resolve(process.argv[1] ?? '')) {
   if (process.argv.includes('--self-check')) {
     assert.deepEqual(fixesNames('x; string[] names = { "a", "b" }; y'), ['a', 'b']);
+    const swd = 'static bool SwDefault(string name)\n        {\n            switch (name) { case "d": return false; }\n        }\n        case "notsw": x';
+    assert.deepEqual(modSwitches(['if (ShortcutOn("a")) y; ShortcutOn(n);', swd]), ['a', 'd'], 'ShortcutOn literals + SwDefault cases only');
     const repros = [
       { id: 'r1', steps: [{ cmd: 'patches', args: { a: true, off: false } }], loop: { steps: [{ cmd: 'native_set', args: { n: '$on' } }] } },
       { id: 'r2', loop: { steps: [{ cmd: 'go_to_work', args: { sim: '<child 1>' } }] } },

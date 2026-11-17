@@ -1937,6 +1937,19 @@ static void TestMonoJit() {
         JitPostPass(mG.rm, &domain);  // general again
         assert(pG[0] == JIT_OP && g_jitMethN == methN0 + 2 && C.jitHotHeld == held0 + 2 && C.jitRefused == refused);
         compiled += 2;
+        // deadline: a Y key that never transforms holds the room only JIT_HOT_DEADLINE_MS after the first held compile
+        JitHotInit(L"C:\\ts3native-selftest-no-such.ini");
+        assert(g_jitHotPend == 1 && !g_jitHotT0);
+        static unsigned short pD[] = {JT_LDC2, JT_RET};
+        static JtMeth mD;
+        JtInit(mD, pD, 2);
+        g_jitCodeUsed = (g_jitCodeBytes - g_jitHotBytes - 256) & ~(size_t)15;
+        JitPostPass(mD.rm, &domain);
+        assert(pD[0] == JT_LDC2 && g_jitHotT0 && g_jitHotPend == 1 && C.jitHotKB && C.jitRefused == ++refused);
+        g_jitHotT0 = GetTickCount() - JIT_HOT_DEADLINE_MS - 1000;
+        JitPostPass(mD.rm, &domain);  // past the deadline: released, the general body compiles
+        assert(pD[0] == JIT_OP && !g_jitHotPend && !g_jitHotBytes && !C.jitHotKB && C.jitRefused == refused);
+        compiled++;
         g_jitCodeUsed = hUsed0;  // the two bodies sit at the region end; the rest of the selftest stays far below them
         g_jitYRows = false, g_jitYRowP = hyp0, g_jitYRowCnt = hyn0;
     }
@@ -1958,6 +1971,10 @@ static void TestMonoJit() {
         g_jitYRows = true;
         assert(JitListed(full) && JitHashKnown(full, "UpdateMotiveWithDecay", 8, sha) && !JitHashKnown(full, "UpdateMotiveWithDecay", 9, sha));
         assert(!JitListed("Sims3.Gameplay.Autonomy.Motive.Update") && !JitListed("XMotive.UpdateMotiveWithDecay"));
+        // ts3fixes motivemultonce's swap: EA's body runs as Motive.DecayOrig; same key, same hash check, other classes' stubs not
+        const char* stub = "Sims3.Gameplay.Autonomy.Motive.DecayOrig";
+        assert(JitListed(stub) && JitHashKnown(stub, "DecayOrig", 8, sha) && !JitHashKnown(stub, "DecayOrig", 9, sha));
+        assert(JitHotKey(stub) == yrow.key && JitHotKey(full) == yrow.key && !JitListed("Ns.BMmHook.DecayOrig") && !JitHotKey("X.Other.DecayOrig"));
         g_jitYRows = false, g_jitYRowP = yp0, g_jitYRowCnt = yn0;
     }
     // an [IlPatch] spec's patched form counts as known, under that method's name only
