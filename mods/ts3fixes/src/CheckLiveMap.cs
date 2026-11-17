@@ -320,6 +320,7 @@ namespace Ts3Fixes
                 case "safespotcap": return EpLive(typeof(SafeSpotCapHook), 1);
                 case "sandscoins": return EpLive(typeof(SandsCoinsHook), 0, "sScFlag", sScFlag, typeof(bool), "sScWeights", sScWeights, null, "sScWeights", sScWeights, "static", "sScLocalize", sScLocalize, 3, "sScFlag", sScFlag, null);
                 case "sandwichalarm": return EpLive(typeof(SaHook), 1, "sSaShow", sSaShow, null, "sSaHandle", sSaHandle, null);
+                case "sarcmummynpc": return EpLive(typeof(SmHook), 1, "sSmMummy", sSmMummy, null);
                 case "savedstacks": return EpLive(typeof(SavedStackHook), 1);
                 case "scarepriority": return EpJoin(EpJoin(EpLive(typeof(SpMegaHook), 0), EpLive(typeof(SpScareHook), 0)), EpLive(typeof(SpShockHook), 0));
                 case "scavengernolot": return EpLive(typeof(BScHook), 1);
@@ -394,6 +395,7 @@ namespace Ts3Fixes
                 case "trashpileimport": return EpLive(typeof(BTpHook), 1, "sTpAlarm", sTpAlarm, null, "sTpBroad", sTpBroad, null);
                 case "trickortreatalarm": return EpLive(typeof(TrickOrTreatHook), 1);
                 case "tricksocials": return EpLive(typeof(B12MtHook), 1);
+                case "tspawninvdup": return EpLive(typeof(TspHook), 1);
                 case "tvdisclistener": return EpLive(typeof(BTdHook), 1, "sTdListener", sTdListener, null);
                 case "tvsyncalarm": return EpJoin(EpLive(typeof(BTsMsHook), 1), EpLive(typeof(BTsTvHook), 1));
                 case "tvwatchskill": return EpLive(typeof(BTwHook), 2, "sTwList", sTwList, null);
