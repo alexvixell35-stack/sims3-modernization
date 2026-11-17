@@ -382,6 +382,9 @@ namespace Ts3Fixes
         [Tunable] public static int kSpawnerSkipFails = 3; // spawnerskip: full searches failed in a row before the skip arms
         [Tunable] public static int kSpawnerSkipRetry = 8; // spawnerskip: every Nth spawn of an armed spawner runs the full search again (0 = only after a change)
         [Tunable] public static bool kMapTagTaskAlive = false; // maptagtaskalive (docs/610 §3): the map tag visibility and controller tasks restart on a forced update or inactive toggle instead of ending until the next UI load
+        [Tunable] public static bool kLotMgrCallbacks = false; // lotmgrcallbacks (docs/611 §2): LotManager.Shutdown removes the six world callbacks PreWorldLoad adds (portal lock, door visibility, walls, clone x2, group saving) and PreWorldLoad never stacks a second copy
+        [Tunable] public static bool kFireplaceHerb = false; // fireplaceherb (docs/611 §3): Fireplace.AddHerb removes a burning herb first (EA leaked the first herb's VFX and haze broadcaster)
+        [Tunable] public static bool kRummageBcast = false; // rummagebcast (docs/611 §4): a reset outdoor-trash rummage disposes the can's rummage broadcaster (EA left it queueing reactions)
         [Tunable] public static bool kSarcMummyNpc = false; // sarcmummynpc (docs/607 §3): a reset or deleted Sarcophagus takes its tomb mummy out of NpcHousehold, as TombMummyDestroy does
         [Tunable] public static bool kPushWaitSkip = false; // pushwaitskip (docs/604 §2): RoutingComponent.PushSimsStatic's wait pass checks every pushed Sim once (EA steps twice and keeps the pusher idle an extra 10 sim-minutes)
         [Tunable] public static bool kDetailPriorityExact = false; // detailprioexact (docs/603 §3): Lot.CalculateDetailPriority gives EA's answer without building the household actor lists on every lot pass (exact, DetailPrio603.cs)

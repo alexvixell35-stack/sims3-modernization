@@ -7021,6 +7021,49 @@
       "what": "spawner placement skip, map tag task",
       "at": "2026-11-17T01:15:39.465Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3435",
+      "kind": "fixes",
+      "from": 3435,
+      "to": 3438,
+      "by": "s80",
+      "what": "lotmgrcallbacks: LotManager PreWorldLoad/Shutdown callbacks never stack",
+      "at": "2026-11-17T01:38:11.521Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3439",
+      "kind": "fixes",
+      "from": 3439,
+      "to": 3441,
+      "by": "s80",
+      "what": "fireplaceherb: Fireplace.AddHerb removes a burning herb first",
+      "at": "2026-11-17T01:38:11.591Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3442",
+      "kind": "fixes",
+      "from": 3442,
+      "to": 3445,
+      "by": "s80",
+      "what": "rummagebcast: TrashcanOutside rummage broadcaster disposed at Cleanup",
+      "at": "2026-11-17T01:38:11.662Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "doc-611",
+      "kind": "doc",
+      "from": 611,
+      "to": 611,
+      "by": "s80",
+      "what": "LotManager callbacks, fireplace herb, rummage broadcaster",
+      "at": "2026-11-17T01:38:11.730Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

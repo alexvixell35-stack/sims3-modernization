@@ -104478,6 +104478,249 @@
     ]
   },
   {
+    "id": "lotmgrcallbacks-check",
+    "bug": "LotManager.PreWorldLoad adds six World / LoadSaveManager callbacks (portal locked, door visible in live mode, walls changed, two hand-tool clone callbacks, object group saving) that LotManager.Shutdown never removes, so each world load in a session stacks another copy and every portal-lock query runs Lot.OnPortalPathPlan once per load (docs/611 §2)",
+    "fix": "ts3fixes LotCallbacks80.cs: lotmgrcallbacks (default off), docs/611 §2",
+    "save": "any loaded save; a travel or second save load with the switch off first shows live counts of 2+",
+    "note": "LotMgrCallbacksCheck 'run' checks the strip-then-add model with controls (pure) and replays a second PreWorldLoad on copies of the six live callback lists (off: 2+ copies, on: 1), asserting both swaps are live; 'result' shows the counters (3435 grows when a load finds stacked copies with the switch on, 3437 at each world shutdown).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "lotmgrcallbacks": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotMgrCallbacksCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotMgrCallbacksCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "lotmgrcallbacks": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotMgrCallbacksCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotMgrCallbacksCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "lotmgrcallbacks": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "lotmgrcallbacks": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "fireplaceherb-check",
+    "bug": "Fireplace.AddHerb overwrites a burning herb's VFX and haze ReactionBroadcaster without stopping or disposing them when two Sims burn a herb at once (the HasHerb guard is checked before the animation event), so the first herb's fire VFX and haze broadcaster leak until reload (docs/611 §3)",
+    "fix": "ts3fixes LotCallbacks80.cs: fireplaceherb (default off), docs/611 §3",
+    "save": "any save with a fireplace in the world (live replay); pure part needs none",
+    "note": "FireplaceHerbCheck 'run' checks the remove-first decision with controls (pure) and replays EA's overwrite with two broadcasters on a world fireplace with no herb (disposed and cleared after), asserting the swap is live; 'result' shows the counters (3439 grows when a second herb lands on a burning one, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fireplaceherb": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireplaceHerbCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireplaceHerbCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fireplaceherb": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireplaceHerbCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireplaceHerbCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fireplaceherb": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fireplaceherb": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "rummagebcast-check",
+    "bug": "TrashcanOutside+Rummage.Cleanup does not destroy the can's rummage ReactionBroadcaster, so a Sim reset mid-rummage leaves it registered (RummagingSim never cleared: passers-by keep queueing RummageReaction) and the next rummage overwrites it without disposing (docs/611 §4)",
+    "fix": "ts3fixes LotCallbacks80.cs: rummagebcast (default off), docs/611 §4",
+    "save": "any save with an outdoor trash can in the world (live replay); pure part needs none",
+    "note": "RummageBcastCheck 'run' checks the dispose decision with controls (pure) and replays EA's create plus a reset rummage's Cleanup on a world TrashcanOutside (disposed after), asserting both swaps are live; also prints cans leaking a broadcaster now and the tuning TimeDuration; 'result' shows the counters (3442 grows when a rummaging Sim is reset, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rummagebcast": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RummageBcastCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RummageBcastCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rummagebcast": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RummageBcastCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RummageBcastCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rummagebcast": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rummagebcast": false
+        }
+      }
+    ]
+  },
+  {
     "id": "speedskiplevel-check",
     "bug": "Gameflow.SetGameSpeed(GameSpeed, bool) sends the engine speed level from the requested speed (IL_0095 ldarg.0), so Skip's Normal fallback (active Sim with no head interaction) runs at 1x while the engine is told level 3 (docs/609 §2)",
     "fix": "ts3fixes GameSpeed78.cs: speedskiplevel (default off), docs/609 §2",
