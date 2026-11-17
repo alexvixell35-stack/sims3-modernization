@@ -3122,6 +3122,13 @@ struct ReadyDrainCounters { volatile LONG mode, budgetUs, polls, served, saved, 
 struct DmxScriptGen { volatile LONG gen, armed, bumps, unarmedAsks, missCold, missGen, missAge, notUnlocked, exempt; };
 extern "C" __declspec(dllexport) DmxScriptGen ts3native_doorgen = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 extern "C" __declspec(dllexport) ReadyDrainCounters ts3native_readydrain = {0, 2000, 0, 0, 0, 0, 0, 3000, 300, 0, 0};
+// [RouteAsync] TaskServe (default 0, taskserve.cpp, docs/637): after every script task run (the four call sites of
+// ScriptHost_RunTask 0xD7F000) the job owner serves the managed call the route worker has posted, instead of leaving it for
+// the waiting task's next READY poll a sim tick later. Own exported block (counters layout unchanged): mode (ini, runtime),
+// ready (call sites patched), checks (task runs that found a call posted), served, skipped (posted but not servable here:
+// not the owner, inside a served call, no running job), queueUs / maxQueueUs (post -> pick-up of the calls served here).
+struct TaskServeCounters { volatile LONG mode, ready, checks, served, skipped, queueUs; LONG maxQueueUs; };
+extern "C" __declspec(dllexport) TaskServeCounters ts3native_taskserve = {0, 0, 0, 0, 0, 0, 0};
 extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {912,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -3291,6 +3298,10 @@ static void MaybeLogCounters(ULONGLONG now) {
             ts3native_readydrain.frameUs, ts3native_readydrain.gapUs, ts3native_readydrain.polls, ts3native_readydrain.served,
             ts3native_readydrain.saved, ts3native_readydrain.budgetHits, ts3native_readydrain.idleStops, ts3native_readydrain.frameHits,
             ts3native_readydrain.maxUs);
+    if (ts3native_taskserve.ready)  // docs/637
+        Log("route task serve: mode %ld, task runs with a call posted %ld, served %ld (queue %ld ms, max %ld us), not servable there %ld",
+            ts3native_taskserve.mode, ts3native_taskserve.checks, ts3native_taskserve.served, ts3native_taskserve.queueUs / 1000,
+            ts3native_taskserve.maxQueueUs, ts3native_taskserve.skipped);
     if (c.dmxMode == 3 || ts3native_doorgen.armed)
         Log("door memo x mode 3: armed %ld, managed input bumps %ld, asks before arming %ld, hits %ld miss %ld inval %ld shadow %ld "
             "mismatch %ld, household / unknown asks not answered from it %ld", ts3native_doorgen.armed, ts3native_doorgen.bumps, ts3native_doorgen.unarmedAsks, c.dmxHit, c.dmxMiss,
@@ -3873,6 +3884,10 @@ static InvokeFn g_invokeOrig;
 struct InvokeJob { void* a[4]; void* self; void* result; LONGLONG tPost, tPick, tDone, nested; };
 static InvokeJob* volatile g_invJob;
 static HANDLE g_invReady, g_invDone;
+// docs/637 [RouteAsync] TaskServe: 1 from Proxy's post until a serve site picks the call up (ServeInvoke clears it first), so
+// the between-tasks check reads a flag and makes no wait call while nothing is posted; g_invPostAt = the post's QPC (mode on)
+static volatile LONG g_invPosted;
+static volatile LONGLONG g_invPostAt;
 
 // Host delegate call (docs/18 "Crash: async route assert"): MonoScriptHost vtable slot 0x108B7C4 -> 0xD75FA0, thiscall, hidden
 // out pointer + 3 args, ret 10h, returns out. It boxes the callback arguments (mono_value_box), clears the running task's
@@ -3916,7 +3931,8 @@ static void ServePlan() {
 }
 
 // [RouteJobPhases] HostSplit (hostcalls.cpp, docs/159 §5): serve sites, stamps; t_hcJob = the job the worker runs (0 = none)
-enum { HC_PUMP918, HC_PUMPOTHER, HC_READY, HC_ASYNCDONE, HC_JOBDONE, HC_RUNPLAN, HC_SITES };
+// HC_TASK: [RouteAsync] TaskServe (taskserve.cpp, docs/637), between two script task runs; outside the hcN rows (layout kept)
+enum { HC_PUMP918, HC_PUMPOTHER, HC_READY, HC_ASYNCDONE, HC_JOBDONE, HC_RUNPLAN, HC_SITES, HC_TASK = HC_SITES };
 static __declspec(thread) LONG t_hcJob;
 // DoorMemoX: the running job's scope (kdScope from ts3fixes UfWhy, 2 when marked uf): 0 unknown, 1 household or unknown, 2 unseen, 3 seen NPC
 static __declspec(thread) LONG t_hcScope;
@@ -3929,6 +3945,7 @@ static void HcWake(InvokeJob& v);
 // Caller side: runs the worker's managed call on this (Mono-attached) thread. site = HC_* (who picked it up)
 static void ServeInvoke(int site) {
     InvokeJob& v = *g_invJob;
+    g_invPosted = 0;  // docs/637: before the call runs; the worker posts its next call only after g_invDone
     if (v.tPost) HcPick(v, site);
     static void* seen[8];  // first distinct MonoMethod pointers, logged once each, to name the callbacks later
     static int nSeen;
@@ -3979,6 +3996,8 @@ static void* Proxy(InvokeJob& v) {
     const bool rjp = RjpHostBegin((DWORD*)&t0);  // [RouteJobPhases]: the wait is phase host, nested plans its children
     HcPost(v);                                   // HostSplit: post stamp (worker in a job only)
     LONGLONG ufAt = t_ufJob ? HcNow() : 0;
+    if (ts3native_taskserve.mode) g_invPostAt = HcNow();  // docs/637: queue time of a call TaskServe picks up
+    InterlockedExchange(&g_invPosted, 1);
     SetEvent(g_invReady);
     HANDLE h[2] = {g_invDone, g_jobReady};
     while (WaitForMultipleObjects(2, h, FALSE, INFINITE) == WAIT_OBJECT_0 + 1) {  // a plan from inside the call
@@ -5988,6 +6007,7 @@ static void SlimWait();
 #include "slotro.cpp"
 #include "gate0ro.cpp"
 #include "locowin.cpp"
+#include "taskserve.cpp"  // docs/637: [RouteAsync] TaskServe (after savewrite.cpp: PatchCalls; after hostcalls.cpp: HcNow)
 #include "goalgen.cpp"  // docs/177 §3: [GoalGen] SameRing (D1)
 #include "rcguard.cpp"  // docs/177 §7: [RouteAsync] RefcountGuard
 #include "p10.cpp"
@@ -6338,6 +6358,7 @@ static void Run(HMODULE self) {
         InstallSlotRo(ini);
         InstallGate0Ro(ini);  // docs/152 §G1: after SteerRO and AvoidRO (reads their ready state for the log)
         InstallLocoWindow(ini);
+        InstallTaskServe(ini);  // docs/637: after InstallAsync (g_async.owner, the invoke events)
         InstallH2Ic(ini);     // docs/177 §4: the same start hold around the script ICs that write footprint refcounts
         InstallGoalGen(ini);  // docs/177 §3: D1, the duplicate ring of a radius route
         InstallRefcountGuard(ini);  // docs/177 §7: after the steering frames (InstallRtSites) and AvoidRO's A-site

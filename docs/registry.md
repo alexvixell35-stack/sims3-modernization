@@ -909,6 +909,14 @@ Separate struct of `LONG`, not versioned (branch feat/route-ready-drain-1115, `[
 |---|---|
 | 0x00-0x2B | `mode` (ReadyDrain), `budgetUs` (ReadyDrainUs), `polls`, `served`, `saved` (polls saved), `budgetHits`, `maxUs`, `frameUs` (ReadyDrainFrameUs), `gapUs` (ReadyDrainGapUs), `frameHits`, `idleStops` |
 
+## ts3native `ts3native_taskserve` export (`TaskServeCounters` in `native/ts3native/ts3native.cpp`)
+
+Separate struct of `LONG`, not versioned (`[RouteAsync] TaskServe`, docs/637, taskserve.cpp). Append fields at the end only. No ts3fixes counter slot (native only; the managed side is unchanged).
+
+| Offsets | Fields |
+|---|---|
+| 0x00-0x1B | `mode` (TaskServe, runtime switch), `ready` (call sites patched), `checks` (task runs with a call posted), `served`, `skipped` (posted but not servable there), `queueUs`, `maxQueueUs` (post -> pick-up of the calls served there) |
+
 ## ts3native `ts3native_doorgen` export (`DmxScriptGen` in `native/ts3native/ts3native.cpp`)
 
 Separate struct of `LONG`, not versioned (`[RouteSnap] DoorMemoX=3`, switch `doorgen`). No ts3fixes counter slot: native counts the bumps.
