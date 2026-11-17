@@ -322,3 +322,9 @@ sarcmummynpc
 megaphonerun
 dragoncurserun
 vhomewalk
+speedskiplevel
+speedskipnoactor
+speedrecalclock
+speedlockowner
+alarmzeroperiod
+heartbrokenbcast
