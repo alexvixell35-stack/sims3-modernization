@@ -1170,6 +1170,7 @@ namespace Ts3Fixes
         // [3479-3481] weatherstonerelisten (Scan85.cs, docs/615 §2): stale listeners removed / stacked (off) / errors.
         // [3482-3484] birthdayagerecord (Scan85.cs, docs/615 §3): age-ups with listener kept / dropped (off) / errors.
         // [3750-3773] docs/634 families (LoopSkip632.cs), 6 slots each: unseenpianist 3750, unseenmusicwatch 3756, unseenjam 3762, unseenshow 3768: unseen / off-screen tier / out of scope / check mismatches (+4,+5 spare); 3774-3779 spare.
+        // [3780-3802] docs/635: unseenservicewait + unseenservice per-reason split (UnseenService88.cs, 3780-3795), spotbusydefer (3800-3802); 3796-3799, 3803-3819 spare.
         // [3740-3745] bouncerplace (RouteSources.cs, docs/633): loop routes replaced / Run arrivals placed / out of scope / slot seen / errors / check mismatches; 3746-3749 spare.
         // [3700-3708] unseenloopskip (LoopSkip632.cs, docs/632): (b) capped unseen / offscreen, (a) stepped unseen / offscreen, listed out of scope, class not listed, off own task, errors, check mismatches; 3709-3739 spare.
         // [3600-3611] unseenservice (UnseenService88.cs, docs/628): unseen conv/drink/food served / off-screen tier the same / out of scope / precondition kept EA / off-screen re-check refused / RunBehavior false / errors / check mismatches; 3612-3619 spare.
@@ -1510,6 +1511,8 @@ namespace Ts3Fixes
                 case "motivebuf": return false;  // proven-exact speedup, off until measured: motive updates snapshot into a pooled list (MotiveBuf.cs, docs/584 §5)
                 case "motivebufcheck": return false;
                 case "buffbufcheck": return false;
+                case "spotbusydefer": return false;  // docs/635: a spotasync check whose tagged START was refused answers no verdict (no sync plan behind the worker's lock)
+                case "unseenservicewait": return false;  // docs/635 (UnseenService88.cs): an unseen bar order waits for a server between orders instead of the linked hand-off
                 case "spotasync": return false;  // docs/616: SafeSpot's full routability check of an unseen NPC as a watchdog-tagged async job (needs [RouteAsync] WatchdogKind2=1 or Kinds bit 2; uncut)
                 case "routableasync": return false;  // A/B with [RouteAsync] Kinds=2: async PlanFromPoint only for unseen NPCs' IsPointInLotSafelyRoutable (RouteBackoff.cs, docs/584 §3)  // check for ts3native ilp_buffbuf: UpdateBuffs' delayed-buff list empty and consistent (MotiveBuf.cs, docs/584 §5)  // pure check for motivebuf: each snapshot compared with the game's copy (MotiveBuf.cs)
                 case "tpdoorrights": return false;  // F1's unseen-teleport lot test by the Sim's own door rights, EA's one-way sentinel (UnseenTeleportGoal.cs, docs/584 §7)
@@ -2580,6 +2583,56 @@ namespace Ts3Fixes
             DiagLine("spotasync shadow mismatch: " + sim.FullName + " async " + ok + " sync " + sync + " @" + Math.Round(pos.x, 2) + "," + Math.Round(pos.z, 2) + " on " + lot.Name);
         }
 
+        // ---- docs/635 spotbusydefer (default off) ------------------------------------------------------------------------------
+        // The recurring Sun 12:47 PM hitch (s84 phase-20261117-1604, 305 ms; s86 0857 / 0127 / 0923 the same tick ~28760) with
+        // spotasync on: Armstrong's spot:visit check started a tagged kind-2 job (route async: long job 286 ms, own START, watchdog
+        // check, uncut); ~10 ms later Bianca's spot:rabbithole check sent its own tagged START, ts3native refused it (the worker
+        // holds world+0x918 for that job: AsyncStart's M1 lock test) and RouteBackoff planned it sync ("sync 284 ms (START
+        // refused)"), so the sim thread waited on the lock for the rest of the other job. With the switch on such a refused
+        // spotasync START plans nothing: the check answers no verdict (null, not cached), as SpotVerdict already does past its
+        // per-tick budget, and the caller keeps EA's own trip. Only spotasync's own unseen-NPC checks (H4Core.SpotAsync: never
+        // household, selected or unknown scope). Counters: [3800] checks deferred (sync lock waits avoided), [3801] refused tagged
+        // STARTs seen, [3802] check mismatches.
+        static readonly Dictionary<ulong, bool> sSpotDeferred = new Dictionary<ulong, bool>();  // task -> this check's START was refused
+        static void SpotStartRefused()
+        {
+            PatchCounters()[3801]++;
+            if (!ShortcutOn("spotbusydefer")) return;
+            if (sSpotDeferred.Count >= 64) sSpotDeferred.Clear();  // bounded: a task killed mid-check never takes its entry
+            sSpotDeferred[Simulator.CurrentTask.Value] = true;
+        }
+        // RouteBackoffHook.PlanFromPointAsync: this task's spot check had its START refused just now
+        static bool SpotBusyDeferNow()
+        {
+            return sSpotDeferred.Count > 0 && SpotAsyncHere() && sSpotDeferred.ContainsKey(Simulator.CurrentTask.Value);
+        }
+        static bool SpotDeferTake(ulong task)
+        {
+            return sSpotDeferred.Count > 0 && sSpotDeferred.Remove(task);
+        }
+        // Pure: 0 = sync plan (EA / today), 1 = defer (no verdict now)
+        internal static int SpotBusyDecision(bool on, bool spotAsyncCheck, bool startRefused)
+        {
+            return on && spotAsyncCheck && startRefused ? 1 : 0;
+        }
+        public static object SpotBusyDeferCheck(string what)
+        {
+            string counters = B582Counters("spotbusydefer", 3800, new[] { "checks deferred (sync lock waits avoided)", "refused tagged STARTs", "check mismatches" }, "");
+            if (what == "result") return counters;
+            if (what != "run") return "spotbusydefer <run|result>";
+            bool on = ShortcutOn("spotbusydefer");
+            bool eaBug = SpotBusyDecision(false, true, true) == 0;   // off: the refused START plans sync (the hitch)
+            bool fixedPure = SpotBusyDecision(on, true, true) == 1;
+            bool controls = eaBug && SpotBusyDecision(true, false, true) == 0   // not a spotasync check (household, other plans): sync as EA
+                && SpotBusyDecision(true, true, false) == 0                       // START accepted: the job answers
+                && H4Core.SpotAsync(true, true, true, true, true, false, false) && !H4Core.SpotAsync(true, true, true, true, true, true, false);  // household never async
+            bool liveOk = sSpotDeferred.Count < 64;
+            if (!liveOk) PatchCounters()[3802]++;
+            return B582Line("spotbusydefer", on, "a spotasync check whose START was refused answers no verdict instead of a sync plan behind the worker's lock", fixedPure,
+                "EA plans sync (" + eaBug + "), other plans and accepted STARTs unchanged, household never takes the spot async path; needs spotasync (" + ShortcutOn("spotasync")
+                + "); pending deferrals " + sSpotDeferred.Count, controls && liveOk, "", counters);
+        }
+
         // SpotAsyncCheck run: the hitch case (a SafeSpot full check of an unseen NPC in its own yielding task, ts3native would
         // start it) leaves the sim thread only with the switch on; controls: household / not own task / cannot yield / ts3native
         // refuses / inside the watchdog all stay sync, and a placement after a wait needs the Sim still there and unseen. Live
@@ -2638,7 +2691,7 @@ namespace Ts3Fixes
             SpotCtx sc;
             bool async = sSpotCtx.TryGetValue(task, out sc) && sc.AsyncOk && SpotAsyncWould(sim);
             int t0 = System.Environment.TickCount, starts = 0;
-            if (async) sSpotAsyncTasks[task] = 0;
+            if (async) { sSpotAsyncTasks[task] = 0; sSpotDeferred.Remove(task); }
             sInOwnCheck = true;
             try { ok = sim.IsPointInLotSafelyRoutable(lot, pos); }
             finally
@@ -2646,6 +2699,8 @@ namespace Ts3Fixes
                 sInOwnCheck = false;
                 if (async) { sSpotAsyncTasks.TryGetValue(task, out starts); sSpotAsyncTasks.Remove(task); }
             }
+            bool deferred = async && SpotDeferTake(task);
+            if (deferred) { c[3800]++; return null; }   // docs/635: no verdict, nothing cached; the caller takes EA's own trip
             if (async) SpotAsyncDone(sim, lot, pos, ok, starts, unchecked(System.Environment.TickCount - t0));
             if (p.Ok) v.Cells[key] = ok;
             if (ok && addGood && p.Ok && v.Good.Count < kMaxGoodSpots) v.Good.Add(pos);

@@ -137,14 +137,67 @@ namespace Ts3Fixes
             bool player = SvcPlayer(c) || SvcPlayer(b);
             bool community = lot != null && lot.IsCommunityLot;
             bool owned = community && SvcOwned(lot);
-            if (player || !community || owned) return 0;  // cheap tests first
+            if (player || !community || owned)  // cheap tests first; docs/635 per-reason counters
+            {
+                if (!sSvcQuiet) PatchCounters()[player ? 3780 : !community ? 3781 : 3782]++;
+                return 0;
+            }
             bool lowLod = RhxUnseen(c) && RhxUnseen(b);
-            if (!lowLod) return 0;
+            if (!lowLod) { if (!sSvcQuiet) PatchCounters()[3783]++; return 0; }
             bool unseen = SafeUfWhy(c) == 0 && SafeUfWhy(b) == 0;
             bool offOn = !unseen && ShortcutOn("unseenservice_offscreen");
             bool offscreen = offOn && !UcOnScreen(c.ObjectId) && !UcOnScreen(b.ObjectId)
                 && (dest.Object == null || !UcOnScreen(dest.Object.ObjectId)) && !UcOnScreen(bar.ObjectId);
-            return SvcTier(true, offOn, player, community, owned, lowLod, unseen, offscreen);
+            int tier = SvcTier(true, offOn, player, community, owned, lowLod, unseen, offscreen);
+            if (tier == 0 && !sSvcQuiet) PatchCounters()[3784]++;
+            return tier;
+        }
+
+        // ---- docs/635 unseenservicewait (default off) ----------------------------------------------------------------------------
+        // EA's BartenderInteraction.Cleanup dequeues its order first (IL_0007 DequeueInteraction) and pushes IdleTend only when
+        // mInteractions is then empty (IL_001f get_Count, IL_0051 AddNext): with a line at the bar the next order reaches the head
+        // while the server still runs (or has just left) the last Make*, never IdleTend. SvcServe's server-idle test (IdleTend
+        // only) then sends every queued order to EA's linked hand-off: s84 (phase-20261117-1604) 70 OrderDrink waits, 787
+        // sim-min, all at busy Bridgeport bars. With the switch on an in-scope order at the head waits (EA's own loop, Sleep(0))
+        // while the server is between orders (no interaction, or a BartenderInteraction whose order left the queue), and a
+        // server tending with no interaction counts as idle; after a served order EA's Cleanup step re-arms IdleTend when the
+        // queue is empty. Bounded by EA's giveupTime and kSvcWaitMaxMin; anything else keeps EA's hand-off.
+        const float kSvcWaitMaxMin = 10f;
+        static bool sSvcQuiet;   // set while an order waits: its repeat passes skip the per-reason counters
+        // Pure: the server-idle test. EA's state after its Cleanup with a line (no interaction, empty queue) is idle too with the switch.
+        internal static bool SvcServerIdle(bool waitOn, bool curNull, bool curIdleTend, int queueCount)
+        {
+            if (curIdleTend && queueCount <= 1) return true;
+            return waitOn && curNull && queueCount == 0;
+        }
+        // Pure: 0 = EA's hand-off, 1 = keep waiting in EA's loop. tier 0 (seen, player, ...) never waits.
+        internal static int SvcWaitDecision(bool waitOn, int tier, bool betweenOrders, bool capPassed)
+        {
+            return waitOn && tier > 0 && betweenOrders && !capPassed ? 1 : 0;
+        }
+        static bool SvcBetweenOrders(Sim b, List<BarAdvanced.BarInteraction> q)
+        {
+            if (b.InteractionQueue.Count > 1) return false;
+            InteractionInstance cur = b.CurrentInteraction;
+            if (cur == null) return b.InteractionQueue.Count == 0;
+            if (cur.GetType().BaseType == null || cur.GetType().BaseType.Name != "BartenderInteraction") return false;
+            BarAdvanced.BarInteraction linked = cur.LinkedInteractionInstance as BarAdvanced.BarInteraction;
+            return linked == null || !q.Contains(linked);   // its order already left the queue: Cleanup runs or ran
+        }
+        static bool SvcWaitHere(Sim b, List<BarAdvanced.BarInteraction> q, int tier, ref bool waited, float t0)
+        {
+            bool cap = SimClock.ElapsedTime(TimeUnit.Minutes) - t0 > kSvcWaitMaxMin;
+            if (SvcWaitDecision(ShortcutOn("unseenservicewait"), tier, SvcBetweenOrders(b, q), cap) == 0) return false;
+            if (!waited) { waited = true; PatchCounters()[3791]++; }
+            return true;
+        }
+        // EA's BartenderInteraction.Cleanup tail for an order served without a server instance: queue empty -> IdleTend next
+        static void SvcRearmIdle(BarAdvanced bar, Sim b, List<BarAdvanced.BarInteraction> q)
+        {
+            if (!ShortcutOn("unseenservicewait") || q.Count != 0 || b.CurrentInteraction != null || b.InteractionQueue.Count != 0) return;
+            if (b.Posture == null || b.Posture.Container != bar || b.Posture.HasBeenCanceled) return;
+            b.InteractionQueue.AddNext(BarAdvanced.GetIdleTendInteraction(bar, b, new InteractionPriority(InteractionPriorityLevel.Autonomous), true, true));
+            PatchCounters()[3794]++;
         }
 
         static bool SvcRunBehavior(BarAdvanced.BarInteraction ia)
@@ -158,7 +211,8 @@ namespace Ts3Fixes
         {
             Sim c = ia.Actor;
             BarAdvanced.BarDestination dest = (BarAdvanced.BarDestination)sSvcDest.GetValue(ia);
-            bool serverIdle = b.CurrentInteraction != null && b.CurrentInteraction.GetType() == sSvcIdleTend && b.InteractionQueue.Count <= 1;
+            InteractionInstance cur = b.CurrentInteraction;
+            bool serverIdle = SvcServerIdle(ShortcutOn("unseenservicewait"), cur == null, cur != null && cur.GetType() == sSvcIdleTend, b.InteractionQueue.Count);
             bool handsFree = b.GetObjectInRightHand() == null && c.GetObjectInRightHand() == null;
             bool slotEmpty = dest.Object != null && dest.Object.GetContainedObject(dest.PlacementSlot) == null;
             bool single = true, canMake = true;
@@ -174,7 +228,15 @@ namespace Ts3Fixes
                     : ia.InteractionDefinition.GetType().GetProperty("IsGroupServing", kInstAll).GetValue(ia.InteractionDefinition, null);
                 single = gs is bool && !(bool)gs && sSvcFoodRecipe.GetValue(ia) != null;
             }
-            if (!SvcReady(kind, serverIdle, handsFree, slotEmpty, single, canMake)) { PatchCounters()[3607]++; return false; }
+            if (!SvcReady(kind, serverIdle, handsFree, slotEmpty, single, canMake))
+            {
+                if (sSvcQuiet) return false;
+                int[] pc = PatchCounters();
+                pc[3607]++;
+                // docs/635: which precondition kept EA's hand-off
+                pc[!serverIdle ? (cur != null && cur.GetType() != sSvcIdleTend ? 3785 : 3786) : !handsFree ? 3787 : !slotEmpty ? 3788 : !single ? 3789 : 3790]++;
+                return false;
+            }
             if (tier == 2 && (UcOnScreen(c.ObjectId) || UcOnScreen(b.ObjectId) || (dest.Object != null && UcOnScreen(dest.Object.ObjectId))))
             {
                 PatchCounters()[3608]++;   // re-check at completion
@@ -254,6 +316,7 @@ namespace Ts3Fixes
                 BarAdvanced bar = (object)this as BarAdvanced;
                 List<BarAdvanced.BarInteraction> q = (List<BarAdvanced.BarInteraction>)sSvcQueue.GetValue(bar);
                 float t0 = SimClock.ElapsedTime(TimeUnit.Minutes);
+                bool waited = false;
                 q.Add(interaction);
                 while (!interaction.InstanceActor.HasExitReason())
                 {
@@ -262,18 +325,32 @@ namespace Ts3Fixes
                         Sim b = sSvcBartender.GetValue(bar) as Sim;
                         if (b != null && !b.Posture.HasBeenCanceled)
                         {
+                            bool hold = false;
                             try
                             {
                                 BarAdvanced.BarDestination dest = (BarAdvanced.BarDestination)sSvcDest.GetValue(interaction);
+                                sSvcQuiet = waited;   // a waiting order's repeat passes are not counted again
                                 int tier = SvcLiveTier(interaction.Actor, b, bar, dest);
-                                if (tier == 0) PatchCounters()[3606]++;
-                                else if (SvcServe(bar, interaction, b, kind, tier)) { q.Remove(interaction); return false; }
+                                if (tier == 0) { if (!waited) PatchCounters()[3606]++; }
+                                else if (SvcServe(bar, interaction, b, kind, tier))
+                                {
+                                    q.Remove(interaction);
+                                    if (waited) PatchCounters()[3792]++;
+                                    SvcRearmIdle(bar, b, q);
+                                    return false;
+                                }
+                                else hold = SvcWaitHere(b, q, tier, ref waited, t0);   // docs/635: server between orders
                             }
                             catch (ResetException) { throw; }
                             catch (Exception) { PatchCounters()[3610]++; }
-                            InteractionInstance ii = interaction.CreateBartenderInteractionInstance(b);
-                            ii.LinkedInteractionInstance = interaction;
-                            return b.InteractionQueue.Add(ii);
+                            finally { sSvcQuiet = false; }
+                            if (!hold)
+                            {
+                                if (waited) PatchCounters()[3793]++;
+                                InteractionInstance ii = interaction.CreateBartenderInteractionInstance(b);
+                                ii.LinkedInteractionInstance = interaction;
+                                return b.InteractionQueue.Add(ii);
+                            }
                         }
                     }
                     if (SimClock.ElapsedTime(TimeUnit.Minutes) - t0 > giveupTime)
@@ -323,6 +400,54 @@ namespace Ts3Fixes
             return B582Line("unseenservice_offscreen", offOn, "an off-screen, near-viewer bar order is served by the tier-2 path", fixedPure && sSvcMissing.Length == 0,
                 "EA waits with the sub-key off (" + eaBug + "), unseen stays tier 1, on screen / player / main switch off keep EA; live needs unseenservice (" + mainOn + ")",
                 controls, sSvcMissing, counters);
+        }
+
+        // UnseenServiceWaitCheck run (docs/635): the s84 case is an in-scope order at the queue head while the server is between
+        // orders (EA's Cleanup left no IdleTend because the line was not empty). Off: EA's hand-off (decision 0), BROKEN; on: the
+        // order waits in EA's loop and is then served (decision 1, and the server's empty state counts as idle), FIXED.
+        // Controls: tier 0 (seen / player / owned / high LOD) never waits; a server busy with anything else, or past the cap,
+        // keeps EA's hand-off; IdleTend with an empty queue is idle in both arms; with the switch off an empty server is not.
+        // Live: a census of bar servers now (between orders / idle / other). Read-only. Counters: the per-reason split of
+        // unseenservice's out-of-scope [3606] and precondition [3607] counters too.
+        public static object UnseenServiceWaitCheck(string what)
+        {
+            string counters = B582Counters("unseenservicewait", 3780, new[] { "out of scope: player", "not community", "owned venue", "high LOD", "seen (no tier 2)",
+                "kept EA: server busy", "server queue", "hands full", "slot taken", "not single", "cannot make", "waits for a server between orders",
+                "served after a wait", "waits handed off", "IdleTend re-armed", "check mismatches" }, sSvcMissing);
+            if (what == "result") return counters;
+            if (what != "run") return "unseenservicewait <run|result>";
+            bool on = ShortcutOn("unseenservicewait");
+            bool eaBug = SvcWaitDecision(false, 1, true, false) == 0 && !SvcServerIdle(false, true, false, 0);   // EA: hand-off, empty server not idle
+            bool fixedPure = SvcWaitDecision(on, 1, true, false) == 1 && SvcServerIdle(on, true, false, 0);
+            bool controls = eaBug
+                && SvcWaitDecision(true, 0, true, false) == 0      // seen / player / owned / high LOD
+                && SvcWaitDecision(true, 1, false, false) == 0     // server busy with something else
+                && SvcWaitDecision(true, 2, true, true) == 0       // past the cap
+                && SvcWaitDecision(true, 2, true, false) == 1      // off-screen tier waits too
+                && SvcServerIdle(false, false, true, 1) && SvcServerIdle(true, false, true, 1)   // IdleTend: idle in both arms
+                && !SvcServerIdle(true, true, false, 1) && !SvcServerIdle(true, false, false, 0);  // queued work / another interaction
+            string live = "no bar with a server";
+            bool liveOk = true;
+            try
+            {
+                int between = 0, idle = 0, other = 0;
+                if (sSvcMissing.Length == 0)
+                    foreach (BarAdvanced bar in Sims3.Gameplay.Queries.GetObjects<BarAdvanced>())
+                    {
+                        Sim b = bar == null ? null : sSvcBartender.GetValue(bar) as Sim;
+                        if (b == null) continue;
+                        List<BarAdvanced.BarInteraction> q = (List<BarAdvanced.BarInteraction>)sSvcQueue.GetValue(bar);
+                        InteractionInstance cur = b.CurrentInteraction;
+                        if (cur != null && cur.GetType() == sSvcIdleTend) idle++;
+                        else if (q != null && SvcBetweenOrders(b, q)) between++;
+                        else other++;
+                    }
+                live = "servers idle " + idle + ", between orders " + between + ", other " + other;
+            }
+            catch (Exception e) { liveOk = false; PatchCounters()[3795]++; live = "live probe threw " + (e.InnerException ?? e).GetType().Name; }
+            return B582Line("unseenservicewait", on, "an in-scope order waits for a server between orders and is served (no linked hand-off)", fixedPure && sSvcMissing.Length == 0,
+                "EA hands off (" + eaBug + "), seen / busy server / cap keep EA, IdleTend idle in both arms; needs unseenservice (" + ShortcutOn("unseenservice") + "); " + live,
+                controls && liveOk, sSvcMissing, counters);
         }
 
         // UnseenServiceCheck run: pure scope decision with controls (off: EA's long-wait hand-off, BROKEN; on: served at once,
