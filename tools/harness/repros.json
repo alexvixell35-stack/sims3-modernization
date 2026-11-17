@@ -109707,5 +109707,410 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "timeralarmleak-check",
+    "bug": "ActiveTimerNode.RemoveListenerFromTracker is empty, so a wish timer node that leaves play (RemoveActiveNode, NullDnPManager on ResetDnP / unselectable / travel, OnLoadFixup refreshed trees, ScoreChildren duplicate) keeps its AlwaysPersisted repeating alarm, which calls SetToUpdate(full) on the Sim's current manager every interval (docs/619 §1)",
+    "fix": "ts3fixes Wishes86.cs: timeralarmleak (default off), docs/623 §1",
+    "save": "any save with a selected Sim of child age or older (the check builds its own nodes)",
+    "note": "TimerAlarmLeakCheck run makes its own timer nodes for the selected Sim (own TimerNodeInstance, not in the manager): RemoveListenerFromTracker leaves the alarm (off) / removes it (on); an orphan TimerCallback keeps it (off) / takes EA's kill path (on); control: a node with no node instance (as after a load) is ended by EA's own guard. All alarms it made are removed. result shows counters 3520-3524.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "timeralarmleak": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TimerAlarmLeakCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TimerAlarmLeakCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "timeralarmleak": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TimerAlarmLeakCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TimerAlarmLeakCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "timeralarmleak": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "timeralarmleak": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "wishfeedbackkeep-check",
+    "bug": "EventTracker.ProcessEvent removes a listener whose ProcessEvent throws: a wish (ActiveDreamNode.RunFeedbackFunction) whose feedback function throws once never completes again (docs/619 §2)",
+    "fix": "ts3fixes Wishes86.cs: wishfeedbackkeep (default off), docs/623 §2",
+    "save": "any save with a selected Sim of child age or older (the check builds its own nodes)",
+    "note": "WishFeedbackKeepCheck run swaps EA's feedback wrapper for one that throws, for one call on a listener-less wish node of the selected Sim: the listener answer throws (off, EventTracker would drop it) / is Keep (on); control: a node without a listener still throws. result shows counters 3525-3528.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "wishfeedbackkeep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WishFeedbackKeepCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WishFeedbackKeepCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "wishfeedbackkeep": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WishFeedbackKeepCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WishFeedbackKeepCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "wishfeedbackkeep": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "wishfeedbackkeep": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "wishsubjectgone-check",
+    "bug": "DreamsAndPromisesManager.ObjectDestroyedDelegate removes a node (breaking its promise) before testing RemoveDisplayedPromiseNode, so the DreamFailureTNS notice and sting never happen; for a dead subject it also drops the index entry of the wishes it keeps (docs/619 §3, §6)",
+    "fix": "ts3fixes Wishes86.cs: wishsubjectgone (default off), docs/623 §3",
+    "save": "any save with a selected Sim of child age or older (the check builds its own nodes)",
+    "note": "WishSubjectGoneCheck run builds a test manager (no listeners, not active) with a promised wish and a valid-after-death wish filed under a fresh dead SimDescription and runs EA's delegate: no notice and kept wish unfiled (off) / notice counted and kept wish filed (on). result shows counters 3529-3533.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "wishsubjectgone": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WishSubjectGoneCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WishSubjectGoneCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "wishsubjectgone": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WishSubjectGoneCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WishSubjectGoneCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "wishsubjectgone": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "wishsubjectgone": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "wishupdatelost-check",
+    "bug": "The wish drain (EventTracker.ProcessEvent) runs sNeedToUpdateList[0].Update() and then removes it; a SetToUpdate made during that Update finds the manager listed and is lost (docs/619 §5)",
+    "fix": "ts3fixes Wishes86.cs: wishupdatelost (default off), docs/623 §4",
+    "save": "any save with a selected Sim of child age or older (the check builds its own nodes)",
+    "note": "WishUpdateLostCheck run lists a test manager (no listeners, empty) and drains it with a kEventNone SendEvent; inside its Update it asks for one more update: 1 update (off, lost) / 2 (on). result shows counters 3534-3537.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "wishupdatelost": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WishUpdateLostCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WishUpdateLostCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "wishupdatelost": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WishUpdateLostCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WishUpdateLostCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "wishupdatelost": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "wishupdatelost": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "socialworkerpromise-check",
+    "bug": "DreamsAndPromisesManager.ChildTakenBySocialWorkerCallback kills a promised wish about the taken child but never removes it; Update does not time out promised wishes, so it stays in its promise slot (docs/619 §4)",
+    "fix": "ts3fixes Wishes86.cs: socialworkerpromise (default off), docs/623 §5",
+    "save": "any save with a selected Sim of child age or older (the check builds its own nodes)",
+    "note": "SocialWorkerPromiseCheck run builds a test manager with a promised and an unpromised wish from one of EA's four trees about the selected Sim and runs EA's callback: the promised one stays in its slot (off) / is removed (on); control: EA kills both and keeps the unpromised one. result shows counters 3538-3540.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "socialworkerpromise": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SocialWorkerPromiseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SocialWorkerPromiseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "socialworkerpromise": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SocialWorkerPromiseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SocialWorkerPromiseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "socialworkerpromise": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "socialworkerpromise": false
+        }
+      }
+    ]
   }
 ]

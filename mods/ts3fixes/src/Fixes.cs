@@ -391,6 +391,11 @@ namespace Ts3Fixes
             ApplySpoilBroadcast();   // docs/615 §1 (Scan85.cs)
             ApplyWeatherStoneRelisten();   // docs/615 §2 (Scan85.cs)
             ApplyBirthdayAgeRecord();   // docs/615 §3 (Scan85.cs)
+            ApplyTimerAlarmLeak();   // docs/623 §1 (Wishes86.cs)
+            ApplyWishFeedbackKeep();   // docs/623 §2 (Wishes86.cs)
+            ApplyWishSubjectGone();   // docs/623 §3 (Wishes86.cs)
+            ApplyWishUpdateLost();   // docs/623 §4 (Wishes86.cs)
+            ApplySocialWorkerPromise();   // docs/623 §5 (Wishes86.cs)
             ApplyMegaphoneRun();   // docs/608 §2 (WalkStyleLeak77.cs)
             ApplyDragonCurseRun();   // docs/608 §3 (WalkStyleLeak77.cs)
             ApplyMermaidSharkNull();   // docs/587 EP1 §3
@@ -1151,6 +1156,11 @@ namespace Ts3Fixes
         // [3476-3478] spoilbroadcast (Scan85.cs, docs/615 §1): broadcasters disposed / leaked (off) / errors.
         // [3479-3481] weatherstonerelisten (Scan85.cs, docs/615 §2): stale listeners removed / stacked (off) / errors.
         // [3482-3484] birthdayagerecord (Scan85.cs, docs/615 §3): age-ups with listener kept / dropped (off) / errors.
+        // [3520-3524] timeralarmleak (Wishes86.cs, docs/623 §1): alarms removed at leave / left (off) / orphans ended at fire / orphan fires (off) / errors.
+        // [3525-3528] wishfeedbackkeep (Wishes86.cs, docs/623 §2): kept after a feedback throw / dropped (off) / broken node throws (EA kept) / errors.
+        // [3529-3533] wishsubjectgone (Wishes86.cs, docs/623 §3): notices given / kept nodes filed again / notices lost (off) / kept unfiled (off) / errors.
+        // [3534-3537] wishupdatelost (Wishes86.cs, docs/623 §4): updates kept / lost (off) / loop guard / errors.
+        // [3538-3540] socialworkerpromise (Wishes86.cs, docs/623 §5): promised wishes removed / left in slot (off) / errors.
         // [3485-3489] spotasync (Fixes.cs SpotVerdict, docs/616): checks answered by a job (sync plans avoided) / their wall ms / eligible but planned sync / placements dropped after the wait / shadow mismatches.
         // [3391-3393] sarcmummynpc (TreasureSpawn74.cs, docs/607 §3): tomb mummy descriptions removed from NpcHousehold at sarcophagus cleanup / left with the switch off / errors.
         // [2790-2792] pushwaitskip (PushWait604.cs, docs/604 §2): done Sims EA's double-step wait pass would have skipped / waiting calls on EA's body (switch off) / errors.
@@ -1704,6 +1714,11 @@ namespace Ts3Fixes
                 case "spoilbroadcast": return Instantiator.kSpoilBroadcast;  // docs/615 §1 (Scan85.cs), EA bug fix, off
                 case "weatherstonerelisten": return Instantiator.kWeatherStoneRelisten;  // docs/615 §2 (Scan85.cs), EA bug fix, off
                 case "birthdayagerecord": return Instantiator.kBirthdayAgeRecord;  // docs/615 §3 (Scan85.cs), EA bug fix, off
+                case "timeralarmleak": return Instantiator.kTimerAlarmLeak;  // docs/623 §1 (Wishes86.cs), EA bug fix, off
+                case "wishfeedbackkeep": return Instantiator.kWishFeedbackKeep;  // docs/623 §2 (Wishes86.cs), EA bug fix, off
+                case "wishsubjectgone": return Instantiator.kWishSubjectGone;  // docs/623 §3 (Wishes86.cs), EA bug fix, off
+                case "wishupdatelost": return Instantiator.kWishUpdateLost;  // docs/623 §4 (Wishes86.cs), EA bug fix, off
+                case "socialworkerpromise": return Instantiator.kSocialWorkerPromise;  // docs/623 §5 (Wishes86.cs), EA bug fix, off
                 case "alarmzeroperiod": return Instantiator.kAlarmZeroPeriod;  // docs/609 §6 (GameSpeed78.cs), EA bug fix (hang guard), off
                 case "tspawninvdup": return Instantiator.kTreasureSpawnInvDup;  // docs/607 §2 (TreasureSpawn74.cs), EA bug fix, off
                 case "megaphonerun": return Instantiator.kMegaphoneRun;  // docs/608 §2 (WalkStyleLeak77.cs), EA bug fix, off

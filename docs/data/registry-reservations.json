@@ -7266,6 +7266,27 @@
       "what": "spotasync shadow mismatches",
       "at": "2026-11-17T09:41:14.844Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3520",
+      "kind": "fixes",
+      "from": 3520,
+      "to": 3540,
+      "by": "s86w",
+      "what": "docs/623 wishes engine fixes: timeralarmleak, wishfeedbackkeep, wishsubjectgone, wishupdatelost, socialworkerpromise (3541-3549 free in block)",
+      "at": "2026-11-17T12:22:42.769Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "doc-623",
+      "kind": "doc",
+      "from": 623,
+      "to": 623,
+      "by": "s86w",
+      "what": "wishes engine fixes from docs/619: timer alarms, kept listeners, subject-gone notice, lost SetToUpdate, social-worker promises",
+      "at": "2026-11-17T12:22:42.769Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

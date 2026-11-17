@@ -510,6 +510,11 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3476-3478 | `Scan85.cs` (`fixes-3476`, s85, docs/615 §1), `spoilbroadcast` | built 2026-11-17, default off: broadcasters disposed (3476) / leaked with the switch off (3477) / errors (3478) |
 | 3479-3481 | `Scan85.cs` (`fixes-3479`, s85, docs/615 §2), `weatherstonerelisten` | built 2026-11-17, default off: stale listeners removed (3479) / stacked with the switch off (3480) / errors (3481) |
 | 3482-3484 | `Scan85.cs` (`fixes-3482`, s85, docs/615 §3), `birthdayagerecord` | built 2026-11-17, default off: age-ups with the listener kept (3482) / dropped with the switch off (3483) / errors (3484) |
+| 3520-3524 | `Wishes86.cs` (`fixes-3520`, s86w, docs/623 §1), `timeralarmleak` | built 2026-11-17, default off: timer alarms removed when the node left (3520) / left with the switch off (3521) / orphan alarms ended at fire (3522) / orphan fires with the switch off (3523) / errors (3524) |
+| 3525-3528 | `Wishes86.cs` (`fixes-3520`, s86w, docs/623 §2), `wishfeedbackkeep` | built 2026-11-17, default off: wishes kept after a feedback throw (3525) / dropped with the switch off (3526) / broken-node throws, EA's removal kept (3527) / errors (3528) |
+| 3529-3533 | `Wishes86.cs` (`fixes-3520`, s86w, docs/623 §3), `wishsubjectgone` | built 2026-11-17, default off: failure notices given (3529) / kept nodes filed again (3530) / notices lost with the switch off (3531) / kept nodes unfiled with the switch off (3532) / errors (3533) |
+| 3534-3537 | `Wishes86.cs` (`fixes-3520`, s86w, docs/623 §4), `wishupdatelost` | built 2026-11-17, default off: updates kept (3534) / lost with the switch off (3535) / loop guard hits (3536) / errors (3537) |
+| 3538-3540 | `Wishes86.cs` (`fixes-3520`, s86w, docs/623 §5), `socialworkerpromise` | built 2026-11-17, default off: promised wishes removed (3538) / left in their slot with the switch off (3539) / errors (3540) |
 | 3453-3456 | pinned (s83, `fixes-3453`) | rhexitunseen: an unseen NPC leaving a rabbit hole skips EA's NPC exit pacing wait (kNpcExitFreq) |
 | 3457-3460 | pinned (s83, `fixes-3457`) | tipsnpcend: an unseen NPC Perform For Tips ends at EA's low-LOD interaction cap |
 | 3461-3463 | pinned (s84, `fixes-3461`) | barputdownwait: bartender put-down helper Wait completes inline when the anim event never fired |
@@ -520,8 +525,10 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3476-3478 | pinned (s85, `fixes-3476`) | spoilbroadcast: PreparedFood.ForceSpoil disposes the disgust broadcaster it replaces |
 | 3479-3481 | pinned (s85, `fixes-3479`) | weatherstonerelisten: WeatherStone success summon drops a still-pending weather listener before adding |
 | 3482-3484 | pinned (s85, `fixes-3482`) | birthdayagerecord: BirthdayParty records every guest who ages up |
+| 3520-3540 | pinned (s86w, `fixes-3520`) | docs/623 wishes engine fixes (3541-3549 of the handed block left free) |
 | 3485-3488 | `Fixes.cs` SpotVerdict (`fixes-3485`, s86, docs/616), `spotasync` | built 2026-11-17, default off: checks answered by a job (3485) / their wall ms (3486) / eligible but planned sync (3487) / placements dropped after the wait (3488) |
 | 3489 | `Fixes.cs` SpotAsyncDone (`fixes-3489`, s86, docs/616), `spotasync` | built 2026-11-17: shadow mismatches with watchdogasyncshadow (expected 0) |
+| 3520-3540 | pinned (s86w, `fixes-3520`) | docs/623 wishes engine fixes: timeralarmleak, wishfeedbackkeep, wishsubjectgone, wishupdatelost, socialworkerpromise (3541-3549 free in block) |
 | **2000+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
