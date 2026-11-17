@@ -35,6 +35,7 @@ namespace Ts3Fixes
                 case "bathsituationfx": return EpLive(typeof(BBsfTubHook), 1, "sBsFx", sBsFx, null);
                 case "betrayednullsim": return EpLive(typeof(BBtHook), 1);
                 case "birdtvnull": return EpLive(typeof(BirdHook), 0);
+                case "birthdayagerecord": return EpLive(typeof(BapAgeHook), 1);
                 case "birthdayagers": return EpJoin(EpLive(typeof(BirthdayAgeHook), 0), EpLive(typeof(BirthdayCleanHook), 0, "sBaListeners", sBaListeners, null));
                 case "birthroute": return EpJoin(EpLive(typeof(BrHospitalHook), 0), EpLive(typeof(BrPregnancyHook), 0));
                 case "blogorphan": return EpLive(typeof(WlNode), 0, "sWlListener", sWlListener, null);
@@ -383,6 +384,7 @@ namespace Ts3Fixes
                 case "splotdensity": return EpLive(typeof(BSpDensityHook), 3);
                 case "splotlookup": return EpJoin(EpJoin(EpLive(typeof(BSpBigHook), 2), EpLive(typeof(BSpHorseHook), 1, "sLlStalls", sLlStalls, null, "sLlStalls", sLlStalls, typeof(uint))), EpLive(typeof(BSpSmallHook), 2));
                 case "spoccultpick": return EpLive(typeof(BSpOccultHook), 1);
+                case "spoilbroadcast": return EpLive(typeof(SpbSpoilHook), 1, "sSpbField", sSpbField, null);
                 case "spoonreset": return EpLive(typeof(SrHook), 1, "sSrMasterI", sSrMasterI, null, "sSrSlaveI", sSrSlaveI, null, "sSrIsSlave", sSrIsSlave, typeof(bool), "sSrIsMaster", sSrIsMaster, typeof(bool), "sSrSpooning", sSrSpooning, typeof(bool), "sSrSmc", sSrSmc, null, "sSrClear", sSrClear, 0);
                 case "spoonslavechecks": return EpLive(typeof(SrHook), 1, "sSrMasterI", sSrMasterI, null, "sSrSlaveI", sSrSlaveI, null, "sSrIsSlave", sSrIsSlave, typeof(bool), "sSrIsMaster", sSrIsMaster, typeof(bool), "sSrSpooning", sSrSpooning, typeof(bool), "sSrSmc", sSrSmc, null, "sSrClear", sSrClear, 0);
                 case "spouseunlink": return EpLive(typeof(GgHook), 4, "sGgAnc", sGgAnc, null);

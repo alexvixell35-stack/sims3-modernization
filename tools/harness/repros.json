@@ -109120,5 +109120,248 @@
         }
       }
     ]
+  },
+  {
+    "id": "spoilbroadcast-check",
+    "bug": "PreparedFood.ForceSpoil re-arms itself at each spoilage stage and assigns a new disgust ReactionBroadcaster each time without disposing the old one: leftovers carry 2-4 live broadcasters ticked by Lot.UpdateReactions (docs/615 §1)",
+    "fix": "ts3fixes Scan85.cs: spoilbroadcast (default off), docs/615 §1",
+    "save": "pure part needs no save",
+    "note": "SpoilBroadcastCheck run checks the dispose decision with controls (first stage, field not replaced); result shows counters 3476-3478 (3476 grows as food spoils, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spoilbroadcast": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoilBroadcastCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoilBroadcastCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spoilbroadcast": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoilBroadcastCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoilBroadcastCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spoilbroadcast": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spoilbroadcast": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "weatherstonerelisten-check",
+    "bug": "WeatherStone.AnimateChangeWeatherStoneState(AfterSuccessfulSummon) overwrites mWeatherChangedEventListener with a new kWeatherStarted listener without removing a stale one left by a reset: two listeners, OnWeatherStopped twice (docs/615 §2)",
+    "fix": "ts3fixes Scan85.cs: weatherstonerelisten (default off), docs/615 §2",
+    "save": "pure part needs no save",
+    "note": "WeatherStoneRelistenCheck run checks the remove decision with controls (other states, none held); result shows counters 3479-3481.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "weatherstonerelisten": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherStoneRelistenCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherStoneRelistenCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weatherstonerelisten": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherStoneRelistenCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherStoneRelistenCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weatherstonerelisten": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "weatherstonerelisten": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "birthdayagerecord-check",
+    "bug": "BirthdayParty.OnAgeTransition returns ListenerAction.Remove after recording the first guest who ages up, so later age-ups at the same party are not in mSimsWhoAgedUp (DidSimAgeUpAtParty wishes/challenges) (docs/615 §3)",
+    "fix": "ts3fixes Scan85.cs: birthdayagerecord (default off), docs/615 §3",
+    "save": "pure part needs no save",
+    "note": "BirthdayAgeRecordCheck run checks the listener answer with controls (non-guest keeps, exited party releases, switch off EA); result shows counters 3482-3484.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "birthdayagerecord": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthdayAgeRecordCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthdayAgeRecordCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "birthdayagerecord": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthdayAgeRecordCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthdayAgeRecordCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "birthdayagerecord": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "birthdayagerecord": false
+        }
+      }
+    ]
   }
 ]

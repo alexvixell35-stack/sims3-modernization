@@ -394,6 +394,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kSwipeRestore = false; // swiperestore (docs/614 §3): a SwipeSomething whose family-inventory add fails puts the victim's object back and destroys the clone
         [Tunable] public static bool kUnicornSpawnFail = false; // unicornspawnfail (docs/614 §4): an NPC unicorn spawn with no spot ends like EA's UnicornDespawn instead of staying invisible
         [Tunable] public static bool kDataDiscPutBack = false; // datadiscputback (docs/614 §5): DataDiscStorage add/dump-all puts a refused disc back and moves the rest (EA lost it)
+        [Tunable] public static bool kSpoilBroadcast = false; // spoilbroadcast (docs/615 §1): PreparedFood.ForceSpoil disposes the disgust broadcaster it replaces at each spoil stage
+        [Tunable] public static bool kWeatherStoneRelisten = false; // weatherstonerelisten (docs/615 §2): a successful weather stone summon removes a stale pending weather listener before adding its own
+        [Tunable] public static bool kBirthdayAgeRecord = false; // birthdayagerecord (docs/615 §3): a birthday party records every guest who ages up, not only the first
         [Tunable] public static bool kSarcMummyNpc = false; // sarcmummynpc (docs/607 §3): a reset or deleted Sarcophagus takes its tomb mummy out of NpcHousehold, as TombMummyDestroy does
         [Tunable] public static bool kPushWaitSkip = false; // pushwaitskip (docs/604 §2): RoutingComponent.PushSimsStatic's wait pass checks every pushed Sim once (EA steps twice and keeps the pusher idle an extra 10 sim-minutes)
         [Tunable] public static bool kDetailPriorityExact = false; // detailprioexact (docs/603 §3): Lot.CalculateDetailPriority gives EA's answer without building the household actor lists on every lot pass (exact, DetailPrio603.cs)
