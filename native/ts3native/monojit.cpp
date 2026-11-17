@@ -31,11 +31,11 @@
 static const DWORD JIT_OP = 0x1A9, JIT_EA_UNIMPLEMENTED = TS3A(0x00E596C2);
 #ifdef TS3A_TABLE
 // EA app 1.69.47: the interpreter range is the same code moved (8fb8e487); the bytes that differ are per build (JIT_B)
-static const DWORD JIT_PE_STAMP = TS3A_HOST_PE, JIT_PE_SIZE = TS3A_HOST_SIZE;  // the exe gate
+static const DWORD JIT_PE_STAMP = TS3A_HOST_PE;  // the exe gate (with Ts3HostImageOk)
 #define JIT_EXE_NAME TS3A_HOST_NAME
 #define JIT_B(steam, ea) ea
 #else
-static const DWORD JIT_PE_STAMP = 0x52DEC247, JIT_PE_SIZE = TS3A(0x00E5A000);  // the exe gate: Steam 1.67 (docs/527 §4.1)
+static const DWORD JIT_PE_STAMP = 0x52DEC247;  // the exe gate with Ts3HostImageOk: Steam 1.67 (docs/527 §4.1)
 #define JIT_EXE_NAME "Steam 1.67"
 #define JIT_B(steam, ea) steam
 #endif
@@ -3039,7 +3039,7 @@ static bool ApplyMonoJit(const wchar_t* ini) {
     if (mode != 1 && mode != 2) { Log("SKIP mono jit: Mode=%d (1 compiled, 2 verify)", mode); return false; }
     const u8* base = (const u8*)GetModuleHandleW(NULL);
     const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
-    if (nt->FileHeader.TimeDateStamp != JIT_PE_STAMP || nt->OptionalHeader.SizeOfImage != JIT_PE_SIZE) { Log("SKIP mono jit: not the " JIT_EXE_NAME " exe"); return false; }
+    if (nt->FileHeader.TimeDateStamp != JIT_PE_STAMP || !Ts3HostImageOk(nt)) { Log("SKIP mono jit: not the " JIT_EXE_NAME " exe"); return false; }
     for (const auto& c : kMcCode)  // [GcRootCheck] TailWatch and any other owner of the call path
         if (McFnv((const u8*)(uintptr_t)c.at, c.n) != c.fnv && (!c.fnv2 || McFnv((const u8*)(uintptr_t)c.at, c.n) != c.fnv2)) {
             Log("SKIP mono jit: EA code at 0x%08lX (%lu bytes) is not the stock " JIT_EXE_NAME " bytes", c.at, c.n);

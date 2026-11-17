@@ -31,3 +31,25 @@ template <unsigned long V> struct ts3addr_c { static constexpr unsigned long v =
 // keeps the literal's own type (int, unsigned) so comparisons and /W4 /WX warnings match the default build
 #define TS3A(x) ((decltype(x))ts3addr_c<ts3addr_find((x), 0, ts3addr_count - 1)>::v)
 #endif
+
+#ifdef _WINNT_
+// docs/230: the host exe this asi's addresses belong to (PE timestamp + SizeOfImage). A tool that appends a section after
+// EA's image (an import adder for an ASI loader writes `.addImp` there) grows SizeOfImage but moves no address, so the
+// exe still passes when every section that starts below TS3A_HOST_SIZE ends inside it and one ends in its last page (EA's
+// last section). Retail 1.67 (same timestamp, data +0x1000) has a section past TS3A_HOST_SIZE and still fails.
+static inline bool Ts3HostImageOk(const IMAGE_NT_HEADERS* nt) {
+    if (nt->FileHeader.TimeDateStamp != (DWORD)TS3A_HOST_PE) return false;
+    const DWORD size = nt->OptionalHeader.SizeOfImage, host = (DWORD)TS3A_HOST_SIZE;
+    if (size == host) return true;
+    if (size < host) return false;
+    const IMAGE_SECTION_HEADER* s = IMAGE_FIRST_SECTION(nt);
+    bool lastPage = false;
+    for (WORD i = 0; i < nt->FileHeader.NumberOfSections; i++) {
+        const DWORD va = s[i].VirtualAddress, len = s[i].Misc.VirtualSize ? s[i].Misc.VirtualSize : s[i].SizeOfRawData;
+        if (va >= host) continue;              // appended after EA's image
+        if (len > host - va) return false;     // an EA section runs past the Steam layout: another build
+        if (va + len > host - 0x1000) lastPage = true;
+    }
+    return lastPage;
+}
+#endif
