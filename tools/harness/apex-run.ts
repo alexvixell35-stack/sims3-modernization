@@ -102,8 +102,8 @@ export function newestXcpt(dir: string, since: number): string | null {
   return readdirSync(dir).filter(n => /^xcpt .*\.txt$/i.test(n)).map(n => [n, statSync(join(dir, n)).mtimeMs] as const)
     .filter(([, t]) => t >= since).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 }
-export function runnerArgs(o: { bin: string; job: string; apexAsi?: string; variant?: string; ab?: boolean; profiler?: string }) {
-  return ['-GameBin', o.bin, '-Job', o.job, ...(o.apexAsi ? ['-Asi', o.apexAsi] : []), ...(o.variant ? ['-Variant', o.variant] : []), ...(o.ab ? ['-AB'] : []), ...(o.profiler ? ['-Profiler', o.profiler] : [])];
+export function runnerArgs(o: { bin: string; job: string; apexAsi?: string; variant?: string; ab?: boolean; profiler?: string; keepSaves?: boolean }) {
+  return ['-GameBin', o.bin, '-Job', o.job, ...(o.apexAsi ? ['-Asi', o.apexAsi] : []), ...(o.variant ? ['-Variant', o.variant] : []), ...(o.ab ? ['-AB'] : []), ...(o.profiler ? ['-Profiler', o.profiler] : []), ...(o.keepSaves ? ['-KeepSaves'] : [])];
 }
 
 const gameRunning = () => {
@@ -143,7 +143,7 @@ async function main(v: Record<string, any>) {
   for (const f of src ? [src.asi, src.ini] : []) if (!existsSync(f)) fail(`missing ${f}`);
   const plan = armsPlan(arms, loads), tag = v.tag ?? `${new Date().toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-')}`;
   const out = join(APEX_OUT, tag), before = join(out, 'bin-before'), summary = join(out, 'summary.txt'), jsonl = join(out, 'runs.jsonl');
-  const rargs = runnerArgs({ bin: BIN, job: v.job, apexAsi: v['apex-asi'] && resolve(v['apex-asi']), variant: v.variant, ab: v.ab, profiler: v.profiler });
+  const rargs = runnerArgs({ bin: BIN, job: v.job, apexAsi: v['apex-asi'] && resolve(v['apex-asi']), variant: v.variant, ab: v.ab, profiler: v.profiler, keepSaves: v['keep-saves'] });
   console.log(`apex ${tag}: ${loads} load(s) ${plan.join(' ')}; our pair for 'with': ${src ? `${src.name} ${src.asi}` : 'the pair Bin has now'}; runner: run.ps1 ${rargs.join(' ')}`);
   if (v['dry-run']) return 0;
   if (existsSync(MARKER)) fail(`an earlier apex run did not restore Bin (${MARKER}): node tools/harness/apex-run.ts --restore`);
@@ -183,6 +183,7 @@ async function main(v: Record<string, any>) {
     if (!child) process.exit(130);
   });
 
+  let runnerFail = 0;
   try {
     for (let i = 0; i < plan.length && !stopReq; i++) {
       const arm = plan[i], n = i + 1, base = join(out, `load-${n}-${arm}`);
@@ -216,11 +217,12 @@ async function main(v: Record<string, any>) {
         appendFileSync(summary, `  triage: ${(xcpt && triageBlock(tri, xcpt)) || (xcpt ? 'report not in triage output' : 'no xcpt report written')}\n`.replace(/\n(?!$)/g, '\n    '));
         appendFileSync(summary, fx.length ? `  ts3native.log forensic lines (${fx.length}${fx.length > 40 ? ', first 40' : ''}):\n${fx.slice(0, 40).map(l => `    ${l}`).join('\n')}\n` : `  ts3native.log: no DRAW BAD / HEAP / crash forensics: DUMP lines${haveLog ? '' : ' (no log this load)'}\n`);
       }
+      if (exit !== 0) runnerFail++;  // runner exit 1 with no crash ('No test agent') used to return rc 0 = chain PASS
       if (pending) { stopWhy = `Apex restore pending after load ${n} (run.ps1 -Restore)`; break; }
       if (c.crashed && v['stop-on-crash']) { stopWhy = `crash at load ${n} (--stop-on-crash)`; break; }
     }
   } finally { delete runInfo.current; saveInfo(); if (!finish()) process.exitCode = 3; }
-  return process.exitCode ?? (crashes || stopWhy ? 1 : 0);
+  return process.exitCode ?? (crashes || stopWhy || runnerFail ? 1 : 0);
 }
 
 function selfCheck() {
@@ -274,7 +276,7 @@ function selfCheck() {
 
 if (import.meta.main) {
   const { values } = parseArgs({ options: {
-    'apex-repo': { type: 'string' }, job: { type: 'string' }, 'apex-asi': { type: 'string' }, variant: { type: 'string' }, ab: { type: 'boolean' }, profiler: { type: 'string' },
+    'apex-repo': { type: 'string' }, job: { type: 'string' }, 'apex-asi': { type: 'string' }, variant: { type: 'string' }, ab: { type: 'boolean' }, profiler: { type: 'string' }, 'keep-saves': { type: 'boolean' },
     release: { type: 'boolean' }, ts3native: { type: 'string' }, ini: { type: 'string' }, 'no-ts3native': { type: 'boolean' }, loads: { type: 'string' }, arms: { type: 'string' },
     'stop-on-crash': { type: 'boolean' }, 'ok-bisect': { type: 'boolean' }, tag: { type: 'string' }, 'dry-run': { type: 'boolean' }, restore: { type: 'boolean' }, 'self-check': { type: 'boolean' } } });
   if (values['self-check']) selfCheck();
