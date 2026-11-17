@@ -144,6 +144,7 @@ namespace Ts3Fixes
                 case "filtergridleak": return EpLive(typeof(FglHook), 0);
                 case "firefightercount": return EpLive(typeof(B13FcHook), 1, "sFcMax", sFcMax, 0);
                 case "firepitchair": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatParkGoneHook), 1), EpLive(typeof(BookHandPutDownHook), 1)), EpLive(typeof(BookHandQueueHook), 1, "sBhActor", sBhActor, null)), EpLive(typeof(BribeHook), 1, "sBribeTable", sBribeTable, null)), EpLive(typeof(CarryHook), 1)), EpLive(typeof(ConvTurnHook), 1)), EpLive(typeof(FireworksFizzleHook), 0)), EpLive(typeof(GraduationAttendHook), 1)), EpLive(typeof(GraduationCityHallHook), 1)), EpLive(typeof(OutfitClearHook), 2)), EpLive(typeof(SwAbuseHook), 1)), EpLive(typeof(SwAdoptHook), 1)), EpLive(typeof(SwPetAdoptHook), 1)), EpLive(typeof(SwPutUpHook), 1)), EpLive(typeof(ThrowHook), 3)), EpLive(typeof(TopicHook), 4));
+                case "fireplaceherb": return EpLive(typeof(FphAddHook), 1);
                 case "firetrapcount": return EpJoin(EpLive(typeof(FtcJobHook), 1, "sFtcSpec", sFtcSpec, null, "sFtcPositions", sFtcPositions, null), EpLive(typeof(FtcSitHook), 2));
                 case "flowersinuse": return EpLive(typeof(FlowersInUseHook), 1);
                 case "foodtraygrill": return EpLive(typeof(B12FtgHook), 1);
@@ -206,6 +207,7 @@ namespace Ts3Fixes
                 case "lightningweights": return EpLive(typeof(B13LwHook), 1, "sLwWeights", sLwWeights, null, "sLwWeights", sLwWeights, "static");
                 case "littercap": return EpLive(typeof(LitterCapHook), 1);
                 case "lookatcopy": return EpLive(typeof(B12LaHook), 1);
+                case "lotmgrcallbacks": return EpLive(typeof(LmcLoadHook), 2);
                 case "lotprune": return EpLive(typeof(B12LpHook), 1, "sLpMap", sLpMap, null, "sLpMap", sLpMap, "static", "sLpCount", sLpCount, "get");
                 case "lottotooltip": return EpLive(typeof(B12LtHook), 1, "sLtStart", sLtStart, typeof(float), "sLtStart", sLtStart, "static", "sLtEnd", sLtEnd, typeof(float), "sLtEnd", sLtEnd, "static", "sLtLoc", sLtLoc, 2);
                 case "loyaldoglay": return EpLive(typeof(B12LdHook), 1, "sLdLast", sLdLast, null, "sLdAlarm", sLdAlarm, null);
@@ -321,6 +323,7 @@ namespace Ts3Fixes
                 case "routablecache": return EpLive(typeof(RoutableCacheHook), 1);
                 case "routesrc": return EpJoin(EpJoin(EpLive(typeof(BoatLegHook), 1), EpLive(typeof(BouncerHook), 1)), EpLive(typeof(VehicleLegHook), 1));
                 case "royaltyorphan": return EpLive(typeof(RoyaltyOrphanHook), 0, "sRoAlarm", sRoAlarm, null);
+                case "rummagebcast": return EpJoin(EpLive(typeof(RmbCleanupHook), 1), EpLive(typeof(RmbCreateHook), 1));
                 case "safelocunhide": return EpLive(typeof(HrResetHook), 1);
                 case "safespotcap": return EpLive(typeof(SafeSpotCapHook), 1);
                 case "sandscoins": return EpLive(typeof(SandsCoinsHook), 0, "sScFlag", sScFlag, typeof(bool), "sScWeights", sScWeights, null, "sScWeights", sScWeights, "static", "sScLocalize", sScLocalize, 3, "sScFlag", sScFlag, null);
