@@ -156,8 +156,8 @@ namespace Ts3Fixes
         static RouteAction.ActionResult LegEnd(FollowRouteAction action, Route route, RouteAction.ActionResult res, bool replanWhenFinished, bool wasSim)
         {
             if (res != RouteAction.ActionResult.ContinueAndPopPathAndReplan) return res;
-            bool src = ShortcutOn("routesrc"), skip = ShortcutOn("legreplanskip");
-            if (!src && !skip) return res;
+            bool src = ShortcutOn("routesrc"), skip = ShortcutOn("legreplanskip"), snap = ShortcutOn("unseenlegsnap");
+            if (!src && !skip && !snap) return res;
             try
             {
                 Sim sim = route.Follower != null ? route.Follower.Target as Sim : null;
@@ -167,14 +167,39 @@ namespace Ts3Fixes
                     return res;
                 Vector3 p = sim.PositionOnFloor, s = Vector3.Invalid;
                 route.GetPathStartPoint(1u, ref s);
-                if (!RouteSrcCore.LegSkipNear(s.x - p.x, s.y - p.y, s.z - p.z)) return res;
+                if (!RouteSrcCore.LegSkipNear(s.x - p.x, s.y - p.y, s.z - p.z))
+                    return snap && LegSnap(sim, route, s) ? RouteAction.ActionResult.ContinueAndPopPath : res;
                 int[] c = PatchCounters();
                 c[230]++;
                 if (!skip) return res;
                 c[234]++;
                 return RouteAction.ActionResult.ContinueAndPopPath;
             }
+            catch (ResetException) { throw; }  // a reset must not end as "EA's result" (LegSnap places the Sim)
             catch (Exception) { return res; }
+        }
+
+        // unseenlegsnap (default off, unseen townies only; docs/807): the far case of legreplanskip. A car or boat leg that ends away
+        // from where the plan had the Sim get out returns ContinueAndPopPathAndReplan, and DoRoute replans the rest from the Sim on
+        // the sim thread (Bridgeport: unseen VisitCommunityLot replans after VehicleFollowSubPathRouteAction, 22-26 m, ~330 ms by
+        // the wall clock). For an unseen townie (lane snap's rule: a household, SafeUfWhy 0) the Sim is put on path 1's start, where
+        // the plan has it get out, and the planned walk follows: the same answer lane snap gives a portal. The vehicle stays where
+        // it stopped, as after EA's replan. Kept: legreplanskip's shape rule (LegSkipEligible above: not forced, a remainder, not a
+        // loop, plan succeeded, a Sim before the leg, no routing parent, not swimming); path 1 a walk; the spot routable, not below
+        // ground or in a pool, on a docked houseboat if any, out of view. Seen, household, selected and unknown-scope Sims: EA's
+        // replan. No wait, no table, no saved state. Counters [3526] asked, [3527] not an unseen townie, [3528] path 1 not a walk,
+        // [3529] spot refused or in view, [3530] snapped. Cleanup: no loop or retry; LegEnd's catch returns EA's result.
+        static bool LegSnap(Sim sim, Route route, Vector3 s)
+        {
+            int[] c = PatchCounters();
+            c[3526]++;
+            if (!LaneSnapUnseen(sim)) { c[3527]++; return false; }
+            if (route.GetPathData(1u).PathType != PathType.SimPath) { c[3528]++; return false; }
+            Sims3.Gameplay.Core.Lot ls = Sims3.Gameplay.Core.LotManager.GetLotAtPoint(s);
+            if (!((ls == null || HouseboatOk(ls)) && !BelowGroundOutdoors(s) && route.IsPointRoutable(s) && UfGoalUnseen(s))) { c[3529]++; return false; }
+            PlaceSim(sim, s, sim.ForwardVector, "legsnap");
+            c[3530]++;
+            return true;
         }
 
         static bool FollowerIsSim(Route r) { return r != null && r.Follower != null && r.Follower.Target is Sim; }

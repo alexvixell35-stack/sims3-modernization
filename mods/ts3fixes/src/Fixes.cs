@@ -172,6 +172,7 @@ namespace Ts3Fixes
             ApplyVenueMemo();
             ApplyExactMemos();  // lane L4 1115: permamemo, buffremovenoop, catnamecache (ExactMemos.cs), off by default
             ApplyDoorMirror();
+            ApplyLaneSnap();  // docs/807: unseenlanesnap (opt-in, unseen townies): portal other-lane replans
             ApplyAutShadow();
             ApplyAutRoomMemo();  // docs/97 AM-1 H1-H3/H5 (AutRoomMemo.cs), off by default; after AutShadow (rides on its IsAllowedInRoom swap)
             ApplyAutOffload();
@@ -539,6 +540,7 @@ namespace Ts3Fixes
         // per scope (household, selected, seenNpc, unseen, unknown), bursts, call lines, lines dropped, would start but Kinds
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
+        // [3511-3525] unseenlanesnap (LaneSnap.cs, docs/807): see the list there; [3526-3530] unseenlegsnap (RouteSources.cs LegSnap)
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
         const int kCounterSlots = 4000;
@@ -586,6 +588,8 @@ namespace Ts3Fixes
                 case "gohome": return Instantiator.kGoHomeShortcut;
                 case "rabbithole": return Instantiator.kBuildingTripShortcut;
                 case "visit": case "visitlot": case "gotolot": case "gotocommunity": return Instantiator.kLotTripShortcut;
+                case "unseenlanesnap": return Instantiator.kUnseenLaneSnap;
+                case "unseenlegsnap": return Instantiator.kUnseenLegSnap;
                 case "broadcast": return Instantiator.kBroadcasterThrottle;
                 case "virtualhome": return Instantiator.kVirtualHomeShortcut;
                 case "failreplan": return Instantiator.kNoRouteFailWalkOffscreen;
