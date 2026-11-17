@@ -202,6 +202,9 @@ static DWORD WINAPI MtOtherFrames(void*) {
 static DWORD g_mtDomIdx, g_mtCtxIdx, g_mtFakeInterpKey;
 static volatile LONG g_mtFakeTrack, g_mtFakeDrains;
 static HANDLE g_mtFakeHold;
+// #530: the first hammer job waits on this gate, so the "busy" assert cannot race the job's end (it failed when the test
+// thread was descheduled until the 20000-step job had finished: a low-priority build pinned beside a running game)
+static HANDLE g_mtFakeGate;
 static void __cdecl MtFakeQuitDrain() { InterlockedIncrement(&g_mtFakeDrains); }
 static void* __cdecl MtFakeDomainGet() { return (void*)0xD0D0; }
 static void __cdecl MtFakeDomainSet(void* d) { TlsSetValue(g_mtDomIdx, d); }
@@ -209,6 +212,7 @@ static void* __cdecl MtFakeInvoke(void* method, void* obj, void** params, void**
     if (TlsGetValue(g_mtDomIdx) != (void*)0xD0D0 || GetCurrentThreadId() != g_mtWorkerTid) return NULL;
     if (obj == (void*)1) { *exc = (void*)0xE0; return NULL; }
     if (obj == (void*)2) { WaitForSingleObject(g_mtFakeHold, 5000); return method; }  // a job that outlasts QuitWaitMs
+    if (g_mtFakeGate) WaitForSingleObject(g_mtFakeGate, 5000);  // the test's "busy" submit runs while the job waits here
     MtHammer((int)(uintptr_t)params[0]);  // allocates through the hooked entries while the sim thread does too
     return (void*)((uintptr_t)method + 1);
 }
@@ -444,10 +448,15 @@ static void TestMonoThreadM5() {
     MtResetList();
     g_mtDup = g_mtNull = 0;
     void* params[1] = {(void*)(uintptr_t)20000};
+    g_mtFakeGate = CreateEventW(NULL, TRUE, FALSE, NULL);
+    assert(g_mtFakeGate);
     assert(MtSubmit((void*)0x40, NULL, params));
-    assert(!MtSubmit((void*)0x40, NULL, params));  // busy
+    assert(!MtSubmit((void*)0x40, NULL, params));  // busy: the job waits at the gate
+    SetEvent(g_mtFakeGate);
     MtHammer(20000);                                // the sim thread allocates at the same time
     MtWaitFor(&m.seq, 1);
+    CloseHandle(g_mtFakeGate);
+    g_mtFakeGate = NULL;
     assert(m.result == 0x41 && m.workerJobs == 1 && g_mtDup == 0 && g_mtNull == 0 && MtListLen() == 64);
     assert(m.lockedWorker >= 40000 && g_mtDepth == 0);
     assert(m.workerAllocs == 20000 && m.workerAllocMaxJob == 20000 && m.workerAllocsTyped == 0);  // v8: the job's 20000 allocs, the sim's not counted
