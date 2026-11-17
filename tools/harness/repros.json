@@ -75094,6 +75094,249 @@
     ]
   },
   {
+    "id": "megaphonerun-check",
+    "bug": "Sim.WakeWithMegaphone.Run calls Actor.RequestWalkStyle(Run) (a Sim-level count) before pushing the RouteAway continuation and never unrequests it, so the waker (usually a household Sim) runs on every route for good, also after save/load (docs/608 §2)",
+    "fix": "ts3fixes WalkStyleLeak77.cs: megaphonerun (default off), docs/608 §2",
+    "save": "any world with a selected Sim (the check changes only the selected Sim's Run count and takes it back); in play: University Life megaphone, Wake Up a sleeping Sim",
+    "note": "MegaphoneRunCheck 'run' compares EA's Sim-level Run request with ours moved onto a RouteAway (pure + live on the selected Sim) and asserts the swap is live; 'result' shows counters 3394-3397 (3394 grows on each megaphone wake with the switch on, 3396 with it off).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "megaphonerun": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MegaphoneRunCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MegaphoneRunCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "megaphonerun": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MegaphoneRunCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MegaphoneRunCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "megaphonerun": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "megaphonerun": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "dragoncurserun-check",
+    "bug": "BabyDragon.PhantasmalCurse.DoAnimation calls TargetSim.SimRoutingComponent.RequestWalkStyle(Run) before its RouteAway and never unrequests it, so the cursed Sim runs on every route for good (docs/608 §3)",
+    "fix": "ts3fixes WalkStyleLeak77.cs: dragoncurserun (default off), docs/608 §3",
+    "save": "any world with a selected Sim (pure + live check on the selected Sim's Run count, taken back); in play: store Baby Dragon, Phantasmal Curse on a Sim",
+    "note": "DragonCurseRunCheck 'run' compares EA's leaked Run request with ours moved onto a RouteAway and asserts the swap is live; 'result' shows counters 3398-3401.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "dragoncurserun": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DragonCurseRunCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DragonCurseRunCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "dragoncurserun": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DragonCurseRunCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DragonCurseRunCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "dragoncurserun": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "dragoncurserun": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "vhomewalk-check",
+    "bug": "Sim.GoToVirtualHome.GoToVirtualHomeInternal.Run requests SimWalkStyle (Run for busted-party guests with apartment or virtual homes) on the Sim and never unrequests it; when the Sim is not faded out (active household, autonomous reaction at the apartment lot, cancel) it keeps running (docs/608 §4; the GoHome twin is gohomewalk, docs/560 §2)",
+    "fix": "ts3fixes WalkStyleLeak77.cs + RouteFixes.cs VirtualHomeHook: vhomewalk (default off), docs/608 §4",
+    "save": "any world with a selected Sim (the check changes only the selected Sim's Run count and takes it back); in play: Bridgeport, bust a party with apartment-dwelling guests",
+    "note": "VirtualHomeWalkCheck 'run' does GoToVirtualHomeInternal's request and the hook's release step on the selected Sim; 'result' shows counters 3402-3404.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "vhomewalk": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VirtualHomeWalkCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VirtualHomeWalkCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "vhomewalk": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VirtualHomeWalkCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VirtualHomeWalkCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "vhomewalk": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "vhomewalk": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

@@ -17,12 +17,13 @@ nice -n 10 "$sg" --config "$repo/tools/static/ea-gameplay-logic.semgrep.yml" --c
 grep -rnE "GetInt\((0, )?[A-Za-z0-9_.]+\.(Count|Length)\)" "${src[@]}" > "$out/grep-random-inclusive.txt" || true
 grep -rnP -A2 "^\s*while \((?!.*(ExitReason|HasBeenDestroyed|Count|ElapsedTime|num|i <|j <))[^;]*\)\s*$" "${src[@]}" \
   | grep -B2 "Simulator.Sleep" | grep -E "while \(" > "$out/grep-sleep-wait.txt" || true
-# direct Sim.RequestWalkStyle (per-Sim count, never released by an interaction's cleanup) in a file that never
-# unrequests or clears a walk style (GoHome's Run left set, docs/560 §1-2)
-grep -rlE "[A-Za-z]\.RequestWalkStyle\(" "${src[@]}" | while read -r f; do
-  grep -qE "UnrequestWalkStyle|ClearWalkStyle|ClearRequestedWalkStyles" "$f" && continue
-  grep -nE "[A-Za-z]\.RequestWalkStyle\(" "$f" | grep -vE "(interactionInstance|base|this|SimRoutingComponent|[Ii]nteraction)\.RequestWalkStyle" | sed "s|^|$f:|"
-done > "$out/grep-walkstyle-unreleased.txt" || true
+# direct Sim.RequestWalkStyle / x.SimRoutingComponent.RequestWalkStyle (per-Sim count, never released by an interaction's
+# cleanup), every call site (~50; no per-file filter): GoHome's Run left set (docs/560 §1-2), megaphone wake and
+# dragon curse Run left set (docs/608; a per-file filter hid them, Sim.cs unrequests elsewhere). Hand-check list: posture
+# pairs (swimming, ghost walk) release in other classes.
+grep -rnE "[A-Za-z]\.RequestWalkStyle\(" "${src[@]}" \
+  | grep -vE "(interactionInstance|base|this|[Ii]nteraction)\.RequestWalkStyle|^\S+:[0-9]+:\s*(public|private|protected)" \
+  > "$out/grep-walkstyle-unreleased.txt" || true
 python3 -I - "$out" "$repo/game-copy/decompiled/" <<'EOF'
 import json, sys, collections
 out, root = sys.argv[1], sys.argv[2]

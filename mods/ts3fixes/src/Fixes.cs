@@ -151,6 +151,8 @@ namespace Ts3Fixes
             ApplySculptPose();    // docs/568 §3 (SculptPose.cs)
             ApplyTrainBoost();    // docs/569 §1 (TrainBoost.cs)
             ApplyEatOutsideCount();    // docs/569 §2 (EatOutsideCount.cs)
+            ApplyMegaphoneRun();   // docs/608 §2 (WalkStyleLeak77.cs)
+            ApplyDragonCurseRun();   // docs/608 §3 (WalkStyleLeak77.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -495,6 +497,9 @@ namespace Ts3Fixes
         // [2281-2283] filtergridleak (FilterGridLeak.cs): filter grids at Buy/Build Unload (also off) / DisposeOnDetach restored / errors.
         // [2278-2280] moodpending (MoodPending.cs): ChangeMoodValue on a pending buff (also off) / mood moves skipped / errors.
         // [2272-2277] buyclearrecycle / buygridsweep (BuyCellRecycle.cs): cells at ShowCatalogGrid(false) (also off) / cached / errors / icons in other grids at Dispose (also off) / disposed / errors.
+        // [3394-3397] megaphonerun (WalkStyleLeak77.cs, docs/608 §2): WakeWithMegaphone Run requests moved to the RouteAway / released (no route-away) / left with the switch off / errors.
+        // [3398-3401] dragoncurserun (WalkStyleLeak77.cs, docs/608 §3): Phantasmal Curse Run requests moved to the RouteAway / released / left with the switch off / errors.
+        // [3402-3404] vhomewalk (WalkStyleLeak77.cs + RouteFixes.cs VirtualHomeHook, docs/608 §4): GoToVirtualHomeInternal walk-style requests released / left with the switch off / errors.
         // [2269-2271] buycellrecycle (BuyCellRecycle.cs): Buy catalog cells dropped by AddGridItem (also off) / returned to a cache / errors.
         // [2260-2268] dreamrootorphan / blogorphan / dnpupdateguard (WishListenerFixes.cs): root listeners left by a thrown-away test (also off) / removed / errors / blog one-off listeners left (also off) / removed / errors / Update exceptions seen / swallowed / errors.
         // [2254-2259] dnpdisposelistener / seasondup (ListenerFixes.cs): wish managers created (also off) / object listeners moved / errors / duplicate season adds (also off) / skipped / errors.
@@ -815,6 +820,9 @@ namespace Ts3Fixes
                 case "sculptpose": return Instantiator.kSculptPose;
                 case "trainboost": return Instantiator.kTrainBoost;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
+                case "megaphonerun": return Instantiator.kMegaphoneRun;  // docs/608 §2 (WalkStyleLeak77.cs), EA bug fix, off
+                case "dragoncurserun": return Instantiator.kDragonCurseRun;  // docs/608 §3 (WalkStyleLeak77.cs), EA bug fix, off
+                case "vhomewalk": return Instantiator.kVirtualHomeWalk;  // docs/608 §4 (WalkStyleLeak77.cs), EA bug fix, off
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

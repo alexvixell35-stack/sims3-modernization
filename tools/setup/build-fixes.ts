@@ -95,6 +95,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenBroadcastEvery value="16" />
     <kUnseenCarThrottle value="False" />
     <kHitchCauseHooks value="False" />
+    <kMegaphoneRun value="False" />
+    <kDragonCurseRun value="False" />
+    <kVirtualHomeWalk value="False" />
     <kWakeHooks value="False" />
     <kWakePark value="False" />
     <kWakePoll value="False" />
