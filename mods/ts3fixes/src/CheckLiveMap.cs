@@ -170,6 +170,7 @@ namespace Ts3Fixes
                 case "goodbyepure": return EpLive(typeof(BGbHook), 1);
                 case "gotoworkstale": return EpLive(typeof(GoToWorkStaleHook), 1);
                 case "gradvisitors": return EpLive(typeof(GradVisitorHook), 0);
+                case "groupchatpriority": return EpJoin(EpJoin(EpLive(typeof(GcpChatHook), 0), EpLive(typeof(GcpMountedHook), 0)), EpLive(typeof(GcpSeatedHook), 0));
                 case "grouptalkstale": return EpLive(typeof(GtHook), 2, "sGtField", sGtField, null, "sGtMembers", sGtMembers, "get");
                 case "guitargnomeboost": return EpLive(typeof(BGgHook), 1);
                 case "handsetreset": return EpLive(typeof(HandsetResetHook), 1, "sOuSetState", sOuSetState, 1);
