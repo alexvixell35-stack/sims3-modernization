@@ -285,8 +285,6 @@ woohootywait
 #   ufplansplit
 # new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:
 #   permamemo buffremovenoop catnamecache autroommemo autslicetime invcache vaclistenerpad spawncapcount deadrefcooking deadrefconvo takeariskguard
-# built 2026-11-17 (docs/622, Hitch622.cs): buffsrcempty in-game UNEXPECTED on (s96 phase-20261117-1237: empty entries from other paths remain), fix pending:
-#   buffsrcempty
 coopeggquality
 doorprivacynull
 lottotooltip
@@ -362,3 +360,4 @@ wishfeedbackkeep
 wishsubjectgone
 wishupdatelost
 socialworkerpromise
+buffsrcempty
