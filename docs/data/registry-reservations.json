@@ -5435,6 +5435,490 @@
       "what": "mono-autshadow-1115: WorldIndex gain, seen-exact go-live, IC pass-through",
       "at": "2026-11-15T10:01:17.068Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\mono-autshadow-1115"
+    },
+    {
+      "id": "doc-270",
+      "kind": "doc",
+      "from": 270,
+      "to": 270,
+      "by": "rewind-1115",
+      "what": "snapshot/rewind test design (Dalexlol notes 11-14)",
+      "at": "2026-11-15T10:33:40.460Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\rewind-1115"
+    },
+    {
+      "id": "doc-271",
+      "kind": "doc",
+      "from": 271,
+      "to": 271,
+      "by": "householdtoo-1116",
+      "what": "HouseholdToo experimental switch inventory",
+      "at": "2026-11-16T01:36:27.744Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\householdtoo-1116"
+    },
+    {
+      "id": "fixes-1057",
+      "kind": "fixes",
+      "from": 1057,
+      "to": 1057,
+      "by": "householdtoo-1116",
+      "what": "householdtoo: managed household asks let through by [Experimental] HouseholdToo",
+      "at": "2026-11-16T01:36:28.004Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\householdtoo-1116"
+    },
+    {
+      "id": "native-v204",
+      "kind": "native",
+      "version": 204,
+      "from": 25908,
+      "to": 25911,
+      "by": "householdtoo-1116",
+      "what": "hhTooLift: native household asks let through by [Experimental] HouseholdToo",
+      "at": "2026-11-16T01:36:28.242Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\householdtoo-1116"
+    },
+    {
+      "id": "doc-272",
+      "kind": "doc",
+      "from": 272,
+      "to": 272,
+      "by": "harness-kc-1116",
+      "what": "harness known causes, chain markers, rewind save grouping, per-arm ms/s (1116)",
+      "at": "2026-11-16T05:40:25.599Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\harness-kc-1116"
+    },
+    {
+      "id": "fixes-1058",
+      "kind": "fixes",
+      "from": 1058,
+      "to": 1059,
+      "by": "bugfix/ip-jitfault-scripterror-1116",
+      "what": "weddingcleanup: EA WeddingCeremony.CleanUp NRE guard (destroyed ring Sim / audience queue, gone arch)",
+      "at": "2026-11-16T06:14:09.828Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\ip-jitfault-scripterror-1116"
+    },
+    {
+      "id": "doc-273",
+      "kind": "doc",
+      "from": 273,
+      "to": 273,
+      "by": "retail-port-1116",
+      "what": "retail TS3W 1.67 port of v0.2.12",
+      "at": "2026-11-16T09:51:53.150Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-489",
+      "kind": "ledger",
+      "from": 489,
+      "to": 489,
+      "by": "retail-port-1116",
+      "what": "retail 1.67 port inferences",
+      "at": "2026-11-16T09:52:39.282Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-274",
+      "kind": "doc",
+      "from": 274,
+      "to": 274,
+      "by": "envbcast-1116",
+      "what": "Mono env/bcast offload redesign",
+      "at": "2026-11-16T13:45:21.073Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\envbcast-1116"
+    },
+    {
+      "id": "doc-275",
+      "kind": "doc",
+      "from": 275,
+      "to": 275,
+      "by": "mono-redesign-writers-1116",
+      "what": "mono redesign: writers (motive decay, zombies on lot)",
+      "at": "2026-11-16T13:45:31.591Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-276",
+      "kind": "doc",
+      "from": 276,
+      "to": 276,
+      "by": "mono-redesign-rest-1116",
+      "what": "Mono offload rest redesign (autofflot, t2, D10, seen go-live, G3, D7)",
+      "at": "2026-11-16T13:45:53.958Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\mono-redesign-rest-1116"
+    },
+    {
+      "id": "ledger-490",
+      "kind": "ledger",
+      "from": 490,
+      "to": 490,
+      "by": "mono-redesign-writers-1116",
+      "what": "docs/275 mono redesign writers",
+      "at": "2026-11-16T13:51:29.004Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-1060",
+      "kind": "fixes",
+      "from": 1060,
+      "to": 1068,
+      "by": "lane-z1-m1-1116",
+      "what": "Z1 zombie empty-table early-out (zdemptyout) + M1 absent-buff decay memo (decaymemo), docs/275",
+      "at": "2026-11-16T13:59:49.654Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\z1-m1-1116"
+    },
+    {
+      "id": "ledger-491",
+      "kind": "ledger",
+      "from": 491,
+      "to": 491,
+      "by": "lane-z1-m1-1116",
+      "what": "Z1/M1 docs/275 build: buff-table writer proof, zombie table writers",
+      "at": "2026-11-16T13:59:50.087Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\z1-m1-1116"
+    },
+    {
+      "id": "fixes-1069",
+      "kind": "fixes",
+      "from": 1069,
+      "to": 1084,
+      "by": "hoursmemo-svprobe-1116",
+      "what": "hoursmemo exact (verify checks, bar live rechecks, venue-key misses, verify log) + household search-rate probe hhsearchprobe (docs/276 ranks 1+3)",
+      "at": "2026-11-16T14:02:42.826Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\hoursmemo-svprobe-1116"
+    },
+    {
+      "id": "fixes-1085",
+      "kind": "fixes",
+      "from": 1085,
+      "to": 1090,
+      "by": "autliveseen-cutride-1116",
+      "what": "autliveseenride cut-riding: rode, skipped no open batch, own cost us, saved us, fair-share cut us, ride-refused",
+      "at": "2026-11-16T14:03:50.921Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\autliveseen-cutride-1116"
+    },
+    {
+      "id": "ledger-492",
+      "kind": "ledger",
+      "from": 492,
+      "to": 492,
+      "by": "autliveseen-cutride-1116",
+      "what": "autliveseenride-cutride",
+      "at": "2026-11-16T14:03:51.470Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\autliveseen-cutride-1116"
+    },
+    {
+      "id": "fixes-1091",
+      "kind": "fixes",
+      "from": 1091,
+      "to": 1114,
+      "by": "feature/envlist-bcpos-probes-1116",
+      "what": "docs/274 R1 envlistmemo dry (12) + R2 bcposdry (12) counters",
+      "at": "2026-11-16T14:05:38.503Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\envlist-bcpos-1116"
+    },
+    {
+      "id": "ledger-493",
+      "kind": "ledger",
+      "from": 493,
+      "to": 493,
+      "by": "hoursmemo-svprobe-1116",
+      "what": "hoursmemo exactness inputs + hhsearchprobe reading (docs/276)",
+      "at": "2026-11-16T14:11:48.877Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\hoursmemo-svprobe-1116"
+    },
+    {
+      "id": "ledger-494",
+      "kind": "ledger",
+      "from": 494,
+      "to": 494,
+      "by": "g3-rewind-measure-1116",
+      "what": "G3 rewind measure + M2 MonoJit feasibility (feature/g3-rewind-measure-1116)",
+      "at": "2026-11-16T14:17:46.988Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-277",
+      "kind": "doc",
+      "from": 277,
+      "to": 277,
+      "by": "sv-household-search-1116",
+      "what": "SV household local search rate",
+      "at": "2026-11-16T14:18:30.361Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-495",
+      "kind": "ledger",
+      "from": 495,
+      "to": 495,
+      "by": "feature/envlist-bcpos-probes-1116",
+      "what": "docs/274 R1/R2 dry probes",
+      "at": "2026-11-16T14:23:01.797Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\envlist-bcpos-1116"
+    },
+    {
+      "id": "fixes-1115",
+      "kind": "fixes",
+      "from": 1115,
+      "to": 1134,
+      "by": "hoursmemo-svprobe-1116",
+      "what": "hhsearchprobe docs/277 §5 items (scope, requeue reason, gap ms, pairs, lot)",
+      "at": "2026-11-16T14:25:38.509Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\hoursmemo-svprobe-1116"
+    },
+    {
+      "id": "fixes-1135",
+      "kind": "fixes",
+      "from": 1135,
+      "to": 1138,
+      "by": "hoursmemo-svprobe-1116",
+      "what": "burnttilefloor (docs/277 §4.1)",
+      "at": "2026-11-16T14:25:38.943Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\hoursmemo-svprobe-1116"
+    },
+    {
+      "id": "ledger-496",
+      "kind": "ledger",
+      "from": 496,
+      "to": 496,
+      "by": "m2-motive-jit-1116",
+      "what": "M2 Motive.UpdateMotiveWithDecay YRows: unlisted posture overrides exit to EA, yield resumes compiled",
+      "at": "2026-11-16T15:26:59.306Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\m2-motive-jit-1116"
+    },
+    {
+      "id": "fixes-1139",
+      "kind": "fixes",
+      "from": 1139,
+      "to": 1140,
+      "by": "bugfix/burnttile-reach-1117",
+      "what": "burnttilefloor reach memo: tiles learned unreachable, NoDestination fails on a known tile",
+      "at": "2026-11-16T21:31:51.765Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-497",
+      "kind": "ledger",
+      "from": 497,
+      "to": 497,
+      "by": "bugfix/burnttile-reach-1117",
+      "what": "burnttilefloor design 2 (docs/277 §8)",
+      "at": "2026-11-16T21:37:08.847Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-278",
+      "kind": "doc",
+      "from": 278,
+      "to": 278,
+      "by": "docs/camera-stream-priority-1117",
+      "what": "camera-stream-priority",
+      "at": "2026-11-16T21:43:19.959Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-498",
+      "kind": "ledger",
+      "from": 498,
+      "to": 498,
+      "by": "docs/camera-stream-priority-1117",
+      "what": "docs/278 camera stream priority",
+      "at": "2026-11-16T21:43:20.176Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-279",
+      "kind": "doc",
+      "from": 279,
+      "to": 279,
+      "by": "docs/sim-gc-per-tick-1117",
+      "what": "sim GC per tick",
+      "at": "2026-11-16T22:07:44.693Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\docs-sim-gc-per-tick-1117"
+    },
+    {
+      "id": "ledger-499",
+      "kind": "ledger",
+      "from": 499,
+      "to": 499,
+      "by": "docs/sim-gc-per-tick-1117",
+      "what": "sim GC per tick",
+      "at": "2026-11-16T22:07:44.958Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\docs-sim-gc-per-tick-1117"
+    },
+    {
+      "id": "doc-280",
+      "kind": "doc",
+      "from": 280,
+      "to": 280,
+      "by": "camera-sweep-1117",
+      "what": "camera-sweep",
+      "at": "2026-11-16T22:08:38.181Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\camera-sweep-1117"
+    },
+    {
+      "id": "ledger-500",
+      "kind": "ledger",
+      "from": 500,
+      "to": 500,
+      "by": "camera-sweep-1117",
+      "what": "camera-sweep-tickms",
+      "at": "2026-11-16T22:08:38.438Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\camera-sweep-1117"
+    },
+    {
+      "id": "doc-281",
+      "kind": "doc",
+      "from": 281,
+      "to": 281,
+      "by": "gc-idle-gate-1117",
+      "what": "sim GC per tick + idle gate (renumbered from 279, clash with experimental-ci)",
+      "at": "2026-11-16T22:14:40.383Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v205",
+      "kind": "native",
+      "version": 205,
+      "from": 25912,
+      "to": 25975,
+      "by": "gc-idle-gate-1117",
+      "what": "[GC] IdleGate gcg* (docs/281 G1)",
+      "at": "2026-11-16T22:20:35.814Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\gc-idle-gate-1117"
+    },
+    {
+      "id": "native-v206",
+      "kind": "native",
+      "version": 206,
+      "from": 25976,
+      "to": 25983,
+      "by": "jit-hot-reserve-1117",
+      "what": "[MonoJit] HotReserveKB: jitHotHeld general compiles refused by the hot reserve, jitHotKB reserve in force (0 = released/off) (docs/537 §32)",
+      "at": "2026-11-16T23:05:53.767Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\jit-hot-reserve-1117"
+    },
+    {
+      "id": "ledger-501",
+      "kind": "ledger",
+      "from": 501,
+      "to": 501,
+      "by": "jit-hot-reserve-1117",
+      "what": "MonoJit hot reserve",
+      "at": "2026-11-16T23:05:54.078Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\jit-hot-reserve-1117"
+    },
+    {
+      "id": "ledger-502",
+      "kind": "ledger",
+      "from": 502,
+      "to": 502,
+      "by": "merge-master-1117b",
+      "what": "Apex light-eval misaligned sample (bugfix/apex-lighteval-misalign-1117, renumbered from 489)",
+      "at": "2026-11-16T23:21:16.680Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-1141",
+      "kind": "fixes",
+      "from": 1141,
+      "to": 1144,
+      "by": "bugfix/ea-curtain-1117",
+      "what": "eacurtain: Curtain.UpdateWindow slot-2-only fixed / skipped writes done / load windows corrected / errors",
+      "at": "2026-11-17T01:21:40.838Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\ea-curtain-1117"
+    },
+    {
+      "id": "doc-282",
+      "kind": "doc",
+      "from": 282,
+      "to": 282,
+      "by": "bugfix/ea-curtain-1117",
+      "what": "eacurtain: EA Curtain.UpdateWindow window-light fixes",
+      "at": "2026-11-17T01:33:33.315Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\ea-curtain-1117"
+    },
+    {
+      "id": "ledger-503",
+      "kind": "ledger",
+      "from": 503,
+      "to": 503,
+      "by": "bugfix/ea-curtain-1117",
+      "what": "eacurtain: window dimmer persistence/default, deleted curtain still found",
+      "at": "2026-11-17T01:33:33.753Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\ea-curtain-1117"
+    },
+    {
+      "id": "doc-283",
+      "kind": "doc",
+      "from": 283,
+      "to": 283,
+      "by": "bugfix/mandatory-cleanup-1117",
+      "what": "mandatory cleanup (disk space)",
+      "at": "2026-11-17T03:12:12.267Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\mandatory-cleanup-1117"
+    },
+    {
+      "id": "native-v207",
+      "kind": "native",
+      "version": 207,
+      "from": 25984,
+      "to": 25999,
+      "by": "dxdiag-skip-1117",
+      "what": "[Startup] DxDiagCache (dxdiagcache.cpp): ddcMode, ddcPath, ddcMB, ddcSavedMs",
+      "at": "2026-11-17T03:54:05.827Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\dxdiag-skip-1117"
+    },
+    {
+      "id": "doc-284",
+      "kind": "doc",
+      "from": 284,
+      "to": 284,
+      "by": "dxdiag-skip-1117",
+      "what": "DxDiag VRAM cache at start-up",
+      "at": "2026-11-17T03:54:06.654Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\dxdiag-skip-1117"
+    },
+    {
+      "id": "ledger-504",
+      "kind": "ledger",
+      "from": 504,
+      "to": 504,
+      "by": "dxdiag-skip-1117",
+      "what": "VRAM_DxDiag semantics and DxDiagCache",
+      "at": "2026-11-17T03:54:07.370Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\dxdiag-skip-1117"
+    },
+    {
+      "id": "ledger-505",
+      "kind": "ledger",
+      "from": 505,
+      "to": 505,
+      "by": "sims-3-modernization",
+      "what": "GI static RE 1117 (room manager, wall set index, rig cap, palette space, bone hash)",
+      "at": "2026-11-17T10:53:14.261Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-2570",
+      "kind": "fixes",
+      "from": 2570,
+      "to": 2588,
+      "by": "alexvixell35-stack",
+      "what": "unseenoutfitdefer counters (UnseenOutfitDefer.cs)",
+      "at": "2026-11-16T16:34:20.456Z",
+      "worktree": "<scratchpad>"
+    },
+    {
+      "id": "doc-586",
+      "kind": "doc",
+      "from": 586,
+      "to": 586,
+      "by": "alexvixell35-stack",
+      "what": "unseenoutfitdefer",
+      "at": "2026-11-16T16:37:16.770Z",
+      "worktree": "<scratchpad>"
     }
   ]
 }

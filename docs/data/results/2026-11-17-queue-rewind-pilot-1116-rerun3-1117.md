@@ -1,0 +1,14 @@
+# Queue rewind-pilot-1116-rerun3-1117 2026-11-17
+
+Tool: `tools/harness/queue.ts` (docs/TESTING.md). Times UTC (PHT in brackets). Rows: `probe-out/queue/rewind-pilot-1116-rerun3-1117-2026-11-17.jsonl`.
+
+## 2026-11-17T01:57 UTC, build 1311018aa, jobs bp-rewind-pilot-a, bp-rewind-pilot-b, bp-rewind-pilot-c
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| bp-rewind-pilot-a | 01:58 (09:58) | 9.9 | PASS | PASS: profile 5 min, seed 12345 (rng-compare.ts)<br>ts3fixes activity: owchain_alarms 0->1, owspread_types_run 0->20, stuckcheckasync_queued 0->72, stuckcheckasync_run 0->72, etspread_passes 0->1, stuckcheck_noplan 0->64, stuckcheck_notstuck 0->3, stuckcheck_rearmed 0->4, stuckcheck_reset 0->2<br>PASS: repro events fired<br>PASS: 0 new script errors (max 0) | 0 | 1781.2/1665.9/1682.3 -> 1975.4/1900.9/1590.1 | - | timing: invalid (job VOID: runInvalid: noisy machine (other CPU 16.9% >= 10%); noise high; heavy tool samplers); build: asi 2b633b6935a7 ts3native.asi.rwud1116 ts3native 0.36.268-rwud1116 (log ok); ts3fixes tuning c64820e723fc ts3fixes.package.master-1116b/ts3fixes.package.master-1116c (expected game-copy/ts3fixes.package.master-1116c); start: fresh (184 s); snapshot taken (70157 ms); noise: high <br>sim ms/s 171.7; p99 123 ms, p99.9 281, max 417, >=300 2, >=1000 0 (0.7 min) |
+| bp-rewind-pilot-b | 02:08 (10:08) | 6.2 | **FAIL** | FAIL: profile 5 min, seed 12345 (rng-compare.ts)<br>FAIL: sim clock stuck at day 15 11:53 for ~60 s (speed Triple, sub_state LiveModeState) (fail-fast guard)<br>FAIL: self check: [RouteAsync] on but 0 async route jobs started (invokeHook 0): async off, run void<br>FAIL: self check: [RouteGate] Enforce on but rgEntries rose 0: feature idle, run void<br>FAIL: self check: [Discourage] DeferFootprint  | 1 | 1700.7/1629.1/1712.4 -> 1702.1/1629.1/1712.4 | - | timing: invalid (job VOID: FAIL: self check: [RouteAsync] on but 0 async route jobs started (invokeHook 0): async off, run void; FAIL: self check: ; noise high; heavy tool samplers); build: asi 2b633b6935a7 ts3native.asi.rwud1116 ts3native 0.36.268-rwud1116 (log ok); ts3fixes tuning c64820e723fc ts3fixes.package.master-1116b/ts3fixes.package.master-1116c (expected game-copy/ts3fixes.package.master |
+
+rewind: 0 of 2 planned jobs started from a rewind, 1 refused, 0 failed (fresh load instead); ~0 min saved vs fresh starts (202 s each: mean of this run's 2 fresh starts)
+
+Stopped: bp-rewind-pilot-b failed (stopQueueOnFail): FAIL: profile 5 min, seed 12345 (rng-compare.ts) | FAIL: sim clock stuck at day 15 11:53 for ~60 s (speed Triple, sub_state LiveModeState) (fail-fast guard) | FAIL: self check: [RouteAsync] on but 0 async route jobs started (invokeHook 0): async off, run void | FAIL: self check: [RouteGate] Enforce on but rgEntries rose 0: feature idle, run void | FAIL: self check: [Discourage] DeferFootprint on b.
