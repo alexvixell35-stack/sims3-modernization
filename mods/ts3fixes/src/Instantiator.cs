@@ -528,7 +528,26 @@ namespace Ts3Fixes
         [Tunable] public static bool kSpeedRecalcLock = true; // speedrecalclock (docs/609 §4): RecalculateGameSpeed keeps a held speed lock and does not persist the locked speed
         [Tunable] public static bool kSpeedLockOwner = true; // speedlockowner (docs/609 §5): build/buy exit unlocks the game speed only if its enter took the lock
         [Tunable] public static bool kAlarmZeroPeriod = true; // alarmzeroperiod (docs/609 §6): a repeating alarm period of 0 ticks or less counts as 1 tick (EA hangs), catch-up in one division
+        [Tunable] public static bool kSpoilBroadcast = false; // spoilbroadcast (docs/615 §1): PreparedFood.ForceSpoil disposes the disgust broadcaster it replaces at each spoil stage
+        [Tunable] public static bool kWeatherStoneRelisten = false; // weatherstonerelisten (docs/615 §2): a successful weather stone summon removes a stale pending weather listener before adding its own
+        [Tunable] public static bool kBirthdayAgeRecord = false; // birthdayagerecord (docs/615 §3): a birthday party records every guest who ages up, not only the first
         [Tunable] public static bool kHeartBrokenBcast = true; // heartbrokenbcast (docs/609 §7): SocialCallback.AddHeartBroken disposes the heartbroken broadcaster a repeat breakup replaces (EA left it pulsing on the first ex)
+        [Tunable] public static bool kRhExitUnseen = true; // rhexitunseen (docs/613 §2): an NPC no camera can see (EA's low-LOD test) skips the rabbit hole NPC exit pacing wait (kNpcExitFreq, one NPC per 15 sim-min), as EA's school pupils do
+        [Tunable] public static bool kTipsNpcEnd = false; // tipsnpcend (docs/613 §3): an unseen NPC Perform For Tips ends at EA's low-LOD interaction cap (420 day / 120 night sim-min); EA's only end was the Fatigued buff a low-LOD Sim never gets
+        [Tunable] public static bool kBarPutDownWait = true; // barputdownwait (docs/614 §1): the bartender's put-down helper finishes inline when its anim event never fired (EA's Wait looped forever)
+        [Tunable] public static bool kPutDownSurfaceUse = false; // putdownsurfaceuse (docs/614 §2): PutDown.TryToPlaceOnSurface releases the surface and item it took when ParentToSlot fails
+        [Tunable] public static bool kSwipeRestore = false; // swiperestore (docs/614 §3): a SwipeSomething whose family-inventory add fails puts the victim's object back and destroys the clone
+        [Tunable] public static bool kUnicornSpawnFail = false; // unicornspawnfail (docs/614 §4): an NPC unicorn spawn with no spot ends like EA's UnicornDespawn instead of staying invisible
+        [Tunable] public static bool kDataDiscPutBack = true; // datadiscputback (docs/614 §5): DataDiscStorage add/dump-all puts a refused disc back and moves the rest (EA lost it)
+        [Tunable] public static bool kSpawnerSkip = true; // spawnerskip (docs/610 §2): a spawner whose placement search failed kSpawnerSkipFails times in a row takes EA's failure ending at once, full search every kSpawnerSkipRetry-th spawn or when its lot changes
+        [Tunable] public static int kSpawnerSkipFails = 3; // spawnerskip: full searches failed in a row before the skip arms
+        [Tunable] public static int kSpawnerSkipRetry = 8; // spawnerskip: every Nth spawn of an armed spawner runs the full search again (0 = only after a change)
+        [Tunable] public static bool kMapTagTaskAlive = true; // maptagtaskalive (docs/610 §3): the map tag visibility and controller tasks restart on a forced update or inactive toggle instead of ending until the next UI load
+        [Tunable] public static bool kLotMgrCallbacks = true; // lotmgrcallbacks (docs/611 §2): LotManager.Shutdown removes the six world callbacks PreWorldLoad adds (portal lock, door visibility, walls, clone x2, group saving) and PreWorldLoad never stacks a second copy
+        [Tunable] public static bool kFireplaceHerb = true; // fireplaceherb (docs/611 §3): Fireplace.AddHerb removes a burning herb first (EA leaked the first herb's VFX and haze broadcaster)
+        [Tunable] public static bool kRummageBcast = true; // rummagebcast (docs/611 §4): a reset outdoor-trash rummage disposes the can's rummage broadcaster (EA left it queueing reactions)
+        [Tunable] public static bool kStairWaitEnd = true; // stairwaitend (docs/612 §2): a stair traversal wait ends at EA's 30 sim-minute portal failsafe (elevator sibling) for NPCs; EA's loop had no deadline
+        [Tunable] public static bool kSimDisposeLink = true; // simdisposelink (docs/612 §3): Sim.Dispose of an unbound Sim keeps its description's link to the live Sim (EA unbound it: next Instantiate made a duplicate Sim)
         [Tunable] public static bool kEatOutsideCount = true;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)
         [Tunable] public static bool kQueueProximity = true;    // queueproximity (docs/597 §2): SimQueue OrderByProximity places a new Sim by squared distance on both sides (elevator lines)
         [Tunable] public static bool kSubRouteFail = true;    // subroutefail (docs/597 §3): no route-fail balloon/animation when SimQueue.TryReplacementInteraction pushed a substitute object

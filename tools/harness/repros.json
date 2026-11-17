@@ -94001,6 +94001,249 @@
     ]
   },
   {
+    "id": "spoilbroadcast-check",
+    "bug": "PreparedFood.ForceSpoil re-arms itself at each spoilage stage and assigns a new disgust ReactionBroadcaster each time without disposing the old one: leftovers carry 2-4 live broadcasters ticked by Lot.UpdateReactions (docs/615 §1)",
+    "fix": "ts3fixes Scan85.cs: spoilbroadcast (default off), docs/615 §1",
+    "save": "pure part needs no save",
+    "note": "SpoilBroadcastCheck run checks the dispose decision with controls (first stage, field not replaced); result shows counters 3476-3478 (3476 grows as food spoils, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spoilbroadcast": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoilBroadcastCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoilBroadcastCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spoilbroadcast": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoilBroadcastCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpoilBroadcastCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spoilbroadcast": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spoilbroadcast": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "weatherstonerelisten-check",
+    "bug": "WeatherStone.AnimateChangeWeatherStoneState(AfterSuccessfulSummon) overwrites mWeatherChangedEventListener with a new kWeatherStarted listener without removing a stale one left by a reset: two listeners, OnWeatherStopped twice (docs/615 §2)",
+    "fix": "ts3fixes Scan85.cs: weatherstonerelisten (default off), docs/615 §2",
+    "save": "pure part needs no save",
+    "note": "WeatherStoneRelistenCheck run checks the remove decision with controls (other states, none held); result shows counters 3479-3481.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "weatherstonerelisten": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherStoneRelistenCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherStoneRelistenCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weatherstonerelisten": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherStoneRelistenCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WeatherStoneRelistenCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "weatherstonerelisten": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "weatherstonerelisten": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "birthdayagerecord-check",
+    "bug": "BirthdayParty.OnAgeTransition returns ListenerAction.Remove after recording the first guest who ages up, so later age-ups at the same party are not in mSimsWhoAgedUp (DidSimAgeUpAtParty wishes/challenges) (docs/615 §3)",
+    "fix": "ts3fixes Scan85.cs: birthdayagerecord (default off), docs/615 §3",
+    "save": "pure part needs no save",
+    "note": "BirthdayAgeRecordCheck run checks the listener answer with controls (non-guest keeps, exited party releases, switch off EA); result shows counters 3482-3484.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "birthdayagerecord": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthdayAgeRecordCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthdayAgeRecordCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "birthdayagerecord": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthdayAgeRecordCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthdayAgeRecordCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "birthdayagerecord": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "birthdayagerecord": false
+        }
+      }
+    ]
+  },
+  {
     "id": "heartbrokenbcast-check",
     "bug": "SocialCallback.AddHeartBroken assigns a new never-expiring ReactionBroadcaster over an already HeartBroken Sim's HeartBrokenBroadcaster without disposing the old one, so a repeat breakup leaves the old broadcaster registered on the first ex until that Sim is destroyed (docs/609 §7)",
     "fix": "ts3fixes GameSpeed78.cs: heartbrokenbcast (default off), docs/609 §7",
@@ -94151,6 +94394,1140 @@
         "cmd": "patches",
         "args": {
           "tpaptgoal": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "stairwaitend-check",
+    "bug": "Stairs+StairsPortalComponent.OnPortalStart sleeps in a Sleep(10) loop until the native stair callback (HandleStairsCompleted) or WakeAll clears mbSleeping; no deadline (the start minute is stored and never read), unlike the elevator sibling (30 sim-minute failsafe, SetObjectToReset) (docs/612 §2)",
+    "fix": "ts3fixes StairDup82.cs: stairwaitend (default off), docs/612 §2",
+    "save": "any save with a staircase in the world (live replay); pure part needs none",
+    "note": "StairWaitEndCheck run checks the 30 sim-minute decision with controls (29.9 min, awake entry, household Sim untouched) and replays the end step on a dummy wait entry in a world staircase (removed after), asserting the swap is live; prints stair waits asleep now; result shows the counters (3446 grows when an NPC stair wait passes 30 sim-minutes, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "stairwaitend": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairWaitEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairWaitEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "stairwaitend": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairWaitEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairWaitEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "stairwaitend": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "stairwaitend": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "simdisposelink-check",
+    "bug": "Sim.Dispose sets its SimDescription.CreatedSim to null even when the description is bound to another live Sim (EA itself counts the disposed one as destroyed), so the live Sim is unbound and the next SimDescription.Instantiate creates a duplicate Sim object (docs/612 §3)",
+    "fix": "ts3fixes StairDup82.cs: simdisposelink (default off), docs/612 §3",
+    "save": "any save with at least two NPC Sims in the world (live replay); pure part needs none",
+    "note": "SimDisposeLinkCheck run checks the keep-link decision with controls (bound, dead or no-description untouched), replays the raw link steps on a world NPC description (no Dispose, no household event, restored after) and prints a duplicate census (unbound live Sims, descriptions with two Sim objects, ids held by two descriptions); result shows the counters (3450 grows when an unbound Sim is disposed, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "simdisposelink": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimDisposeLinkCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimDisposeLinkCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "simdisposelink": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimDisposeLinkCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimDisposeLinkCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "simdisposelink": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "simdisposelink": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "spawnerskip-check",
+    "bug": "ObjectSpawner.TryPlaceSpawnedObjectInWorld runs 11 PlaceAtGoodLocation searches on every spawn of a spawner whose search always fails, then takes its failure ending anyway (destroy, or the last start point); InsectSpawner20 did 66 tries for 2 spots at 20-70 ms per spawn on the main thread (docs/610 §2)",
+    "fix": "ts3fixes SpawnerMapTag79.cs: spawnerskip (default off), docs/610 §2",
+    "save": "any save with a world loaded (live part reads a real spawner); pure part needs none",
+    "note": "SpawnerSkipCheck 'run' counts searches and placements for 40 spawns of an always-failing and an always-succeeding spawner off vs on (pure, with controls: cause-and-effect spawners, changed lot, retry 1) and asserts the swaps and the SpawnDiameter getter on a live spawner; 'result' shows the counters (3424 skipped spawns, 3428 real searches, 3429 real placements grow in play with the switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spawnerskip": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpawnerSkipCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpawnerSkipCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spawnerskip": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpawnerSkipCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpawnerSkipCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "spawnerskip": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spawnerskip": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "maptagtaskalive-check",
+    "bug": "MapTagController+MapTagVisibilityUpdate.Simulate returns (ends the task, made once per UI load) when a map tag add/remove/refresh sets mbForceUpdate during its per-5-tags sleep, or when MapTagsActive is false at the loop top (CAS); map tag show/hide, culling, active-Sim tag auto-hide and collisions stop; MapTagController.Simulate ends the same way on !mbActive (docs/610 §3)",
+    "fix": "ts3fixes SpawnerMapTag79.cs: maptagtaskalive (default off), docs/610 §3",
+    "save": "any save in live mode (live probe); pure part needs none",
+    "note": "MapTagTaskAliveCheck 'run' models the pass with a forced update mid-pass and an inactive-then-active toggle (pure, with controls), reports whether the visibility task runs, restarts one EA ended (switch on only) and sets mbForceUpdate as a tag add does; 'result' (after the wait) shows whether the task still runs and a pass ran since. Off arm can end the vanilla task (that is the bug); the on arm restarts it.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "maptagtaskalive": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MapTagTaskAliveCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 3,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MapTagTaskAliveCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "maptagtaskalive": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MapTagTaskAliveCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 3,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MapTagTaskAliveCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "maptagtaskalive": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "maptagtaskalive": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "lotmgrcallbacks-check",
+    "bug": "LotManager.PreWorldLoad adds six World / LoadSaveManager callbacks (portal locked, door visible in live mode, walls changed, two hand-tool clone callbacks, object group saving) that LotManager.Shutdown never removes, so each world load in a session stacks another copy and every portal-lock query runs Lot.OnPortalPathPlan once per load (docs/611 §2)",
+    "fix": "ts3fixes LotCallbacks80.cs: lotmgrcallbacks (default off), docs/611 §2",
+    "save": "any loaded save; a travel or second save load with the switch off first shows live counts of 2+",
+    "note": "LotMgrCallbacksCheck 'run' checks the strip-then-add model with controls (pure) and replays a second PreWorldLoad on copies of the six live callback lists (off: 2+ copies, on: 1), asserting both swaps are live; 'result' shows the counters (3435 grows when a load finds stacked copies with the switch on, 3437 at each world shutdown).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "lotmgrcallbacks": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotMgrCallbacksCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotMgrCallbacksCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "lotmgrcallbacks": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotMgrCallbacksCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotMgrCallbacksCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "lotmgrcallbacks": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "lotmgrcallbacks": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "fireplaceherb-check",
+    "bug": "Fireplace.AddHerb overwrites a burning herb's VFX and haze ReactionBroadcaster without stopping or disposing them when two Sims burn a herb at once (the HasHerb guard is checked before the animation event), so the first herb's fire VFX and haze broadcaster leak until reload (docs/611 §3)",
+    "fix": "ts3fixes LotCallbacks80.cs: fireplaceherb (default off), docs/611 §3",
+    "save": "any save with a fireplace in the world (live replay); pure part needs none",
+    "note": "FireplaceHerbCheck 'run' checks the remove-first decision with controls (pure) and replays EA's overwrite with two broadcasters on a world fireplace with no herb (disposed and cleared after), asserting the swap is live; 'result' shows the counters (3439 grows when a second herb lands on a burning one, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fireplaceherb": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireplaceHerbCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireplaceHerbCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fireplaceherb": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireplaceHerbCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireplaceHerbCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fireplaceherb": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fireplaceherb": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "rummagebcast-check",
+    "bug": "TrashcanOutside+Rummage.Cleanup does not destroy the can's rummage ReactionBroadcaster, so a Sim reset mid-rummage leaves it registered (RummagingSim never cleared: passers-by keep queueing RummageReaction) and the next rummage overwrites it without disposing (docs/611 §4)",
+    "fix": "ts3fixes LotCallbacks80.cs: rummagebcast (default off), docs/611 §4",
+    "save": "any save with an outdoor trash can in the world (live replay); pure part needs none",
+    "note": "RummageBcastCheck 'run' checks the dispose decision with controls (pure) and replays EA's create plus a reset rummage's Cleanup on a world TrashcanOutside (disposed after), asserting both swaps are live; also prints cans leaking a broadcaster now and the tuning TimeDuration; 'result' shows the counters (3442 grows when a rummaging Sim is reset, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rummagebcast": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RummageBcastCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RummageBcastCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rummagebcast": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RummageBcastCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RummageBcastCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rummagebcast": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rummagebcast": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "rhexitunseen-check",
+    "bug": "RabbitHole.AnimateExitRabbitHole makes every non-selectable Sim wait until kNpcExitFreq (15 sim-min) has passed since the last Sim left that rabbit hole: one NPC out per 15 sim-min, so 5-10 unseen NPCs at Steve's Business Complex stood 50-314 sim-min in InRabbitHolePosture with Go Home / Eat Out current (docs/613 §2)",
+    "fix": "ts3fixes StuckJobs83.cs: rhexitunseen (default off), docs/613 §2",
+    "save": "any save with a rabbit hole and an NPC off the active lot (live replay); pure part needs none",
+    "note": "RhExitUnseenCheck run checks the skip decision with controls (seen NPC, household Sim, EA's own selectable/school skips kept) and calls the swapped CanSimSkipExitWait on a world rabbit hole with an unseen NPC (off false, on true) and the selected Sim (EA answer both ways); prints Sims inside rabbit holes; result shows counters (3453 grows when an unseen NPC leaves a rabbit hole, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhexitunseen": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhExitUnseenCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhExitUnseenCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rhexitunseen": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhExitUnseenCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhExitUnseenCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rhexitunseen": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhexitunseen": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "tipsnpcend-check",
+    "bug": "NPCShowManager pushes the NPC tips performer's PerformerPerformForTips at CriticalNPCBehavior (not autonomous), so DoLoop's low-LOD cap (420 day / 120 night sim-min) never applies; its only end is the Fatigued buff, which a low-LOD Sim never gets (no motive updates), and LoopHandler clears queued exit reasons after each trick: Perform For Tips 316-589 sim-min with a queued interaction never run (docs/613 §3)",
+    "fix": "ts3fixes StuckJobs83.cs: tipsnpcend (default off), docs/613 §3",
+    "save": "any save with an NPC off the active lot (live decision); pure part needs none",
+    "note": "TipsNpcEndCheck run checks the end decision with controls (under the cap, seen Sim, household Sim) and replays it on a world unseen NPC with EA's live cap; prints Sims performing for tips; result shows counters (3457 grows when an unseen NPC tips loop passes the cap, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "tipsnpcend": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TipsNpcEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TipsNpcEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "tipsnpcend": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TipsNpcEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TipsNpcEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "tipsnpcend": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "tipsnpcend": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "barputdownwait-check",
+    "bug": "BarAdvanced+PutDownCarriedObjectHelper.Wait loops `while (!mHasExecuted) Sleep(0)`, and only the anim-event handler sets mHasExecuted; Wait runs after the state machine is disposed, so a put-down whose event never fired hangs the bartender forever (docs/614 §1)",
+    "fix": "ts3fixes Scan84.cs: barputdownwait (default off), docs/614 §1",
+    "save": "pure part needs no save",
+    "note": "BarPutDownWaitCheck run checks the inline-finish decision with controls (handler already ran, handler queued) and, switch on, calls the swapped Wait on a helper whose handler never fired (returns, success false); result shows counters 3461-3463.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "barputdownwait": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarPutDownWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarPutDownWaitCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "barputdownwait": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarPutDownWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarPutDownWaitCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "barputdownwait": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "barputdownwait": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "putdownsurfaceuse-check",
+    "bug": "PutDown.TryToPlaceOnSurface adds the Actor to the surface's use list and sets the item in use, then returns false on a failed ParentToSlot without releasing either: the counter or table stays InUse and refuses later put-downs (docs/614 §2)",
+    "fix": "ts3fixes Scan84.cs: putdownsurfaceuse (default off), docs/614 §2",
+    "save": "pure part needs no save",
+    "note": "PutDownSurfaceUseCheck run checks the release decision with controls (success, held before, not held); result shows counters 3464-3466.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "putdownsurfaceuse": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownSurfaceUseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownSurfaceUseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "putdownsurfaceuse": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownSurfaceUseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownSurfaceUseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "putdownsurfaceuse": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "putdownsurfaceuse": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "swiperestore-check",
+    "bug": "TraitFunctions+SwipeSomething.Run removes the victim's object from the world before adding the stolen copy to the family inventory and returns false when that add fails: the object is gone for good and the clone leaks (docs/614 §3)",
+    "fix": "ts3fixes Scan84.cs: swiperestore (default off), docs/614 §3",
+    "save": "pure part needs no save",
+    "note": "SwipeRestoreCheck run checks the restore decision with controls (success, still in world, destroyed, copy in inventory); result shows counters 3467-3469.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "swiperestore": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwipeRestoreCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwipeRestoreCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "swiperestore": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwipeRestoreCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwipeRestoreCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "swiperestore": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "swiperestore": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "unicornspawnfail-check",
+    "bug": "OccultUnicorn+UnicornSpawn.Run fades the NPC unicorn out (it was spawned at opacity 0) and returns false when FindGoodLocation finds no spot: no Cleanup, an invisible unicorn Sim stays in the world (docs/614 §4)",
+    "fix": "ts3fixes Scan84.cs: unicornspawnfail (default off), docs/614 §4",
+    "save": "pure part needs no save",
+    "note": "UnicornSpawnFailCheck run checks the end decision with controls (spawned, player Sim, destroyed); result shows counters 3470-3472.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "unicornspawnfail": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnicornSpawnFailCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnicornSpawnFailCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unicornspawnfail": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnicornSpawnFailCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnicornSpawnFailCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unicornspawnfail": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "unicornspawnfail": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "datadiscputback-check",
+    "bug": "DataDiscStorage AddAllDataDiscs / DumpAllDataDiscs remove each disc from one inventory and return false when the other refuses it: that disc is in neither inventory and the rest are not moved (docs/614 §5)",
+    "fix": "ts3fixes Scan84.cs: datadiscputback (default off), docs/614 §5",
+    "save": "pure part needs no save",
+    "note": "DataDiscPutBackCheck run replays the move on lists with one refused disc (off: EA loses it and stops; on: put back, the rest move) plus controls (all accepted, unremovable disc stops); result shows counters 3473-3475.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "datadiscputback": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DataDiscPutBackCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DataDiscPutBackCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "datadiscputback": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DataDiscPutBackCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DataDiscPutBackCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "datadiscputback": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "datadiscputback": false
         }
       }
     ]

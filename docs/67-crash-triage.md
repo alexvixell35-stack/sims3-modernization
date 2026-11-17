@@ -1524,3 +1524,12 @@ Next: rerun `bp-seen-smoke` on a build with this fix; a repeat now names the fau
 - Run in game [verified: ts3native.log]: on in 5 later games (Twinbrook professions x3, Bridgeport apartment x2, 2026-11-15/16), one hit in each, no crash; each hit was placing an object with vtable `0x01042CA8`.
 
 **Next.** Results from a second machine before default-on; which script call passes the ignore list (the vtable above is the lead).
+
+## 42. Second Swarm sample: 2026-11-17 r71 session (not reproduced)
+
+- **Run:** `phase-20261117-0832` (ts3fixes r71, Bridgeport), CRASH about 1 min after world load, before the first smallfix check ran (no check output in the log).
+- **Fault [verified log]:** `C0000005` at `0x370F8B72` (heap), main thread 232, `edx 370F8B61`, `eax 0`. Stack code refs `0x91AD03` (in `Swarm_FXString_3 0x91AC60`) <- `0x8E9C98`, `0x8FE723`, `0x8E937D`, `0x8EB2B2`, `0x8EB9BA`, `0x92F82B` (all `SwarmManager_UpdateEffectGroup` callees, names from `tools/ghidra/symbols/ts3w-1.67.symbols.csv`, unverified placeholders). Same pattern as crash A (§2): a virtual call through a dead effect object runs heap bytes (no NX).
+- **Not the §2.3 leading cause:** `alloc cache off (Enabled=0)` in that log. Frida's harness agent is loaded in every harness run (20+ clean runs the same day), so it does not single this one out.
+- **Not the new fixes [verified diff + rerun]:** with the switches off, r71's `rhexitunseen` / `tipsnpcend` hooks only read `IsPlayerSim` / unseen state and a counter, and returned EA's answer; no effect or object release. The exact r71 package and settings rerun (`phase-20261117-0923`) ran the whole session clean, both checks off BROKEN / on FIXED. Address space was low in both (largest free block 15 MB at world load).
+- **Exit noise, not crashes:** `C0000005 at 0xF???604F` with an empty stack appears at game close in clean runs too (e.g. `phase-20261117-0857`).
+- **Status:** one-off engine Swarm crash, 1 in 20+ sessions; reopen if a third sample appears (grep `0x91AD0` / `0x91A46E` in run logs).
