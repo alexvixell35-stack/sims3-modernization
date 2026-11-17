@@ -319,3 +319,6 @@ pushwaitskip
 suatgradebonus
 tspawninvdup
 sarcmummynpc
+megaphonerun
+dragoncurserun
+vhomewalk
