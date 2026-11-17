@@ -529,6 +529,13 @@ namespace Ts3Fixes
         [Tunable] public static bool kSpeedLockOwner = true; // speedlockowner (docs/609 §5): build/buy exit unlocks the game speed only if its enter took the lock
         [Tunable] public static bool kAlarmZeroPeriod = true; // alarmzeroperiod (docs/609 §6): a repeating alarm period of 0 ticks or less counts as 1 tick (EA hangs), catch-up in one division
         [Tunable] public static bool kHeartBrokenBcast = true; // heartbrokenbcast (docs/609 §7): SocialCallback.AddHeartBroken disposes the heartbroken broadcaster a repeat breakup replaces (EA left it pulsing on the first ex)
+        [Tunable] public static bool kRhExitUnseen = false; // rhexitunseen (docs/613 §2): an NPC no camera can see (EA's low-LOD test) skips the rabbit hole NPC exit pacing wait (kNpcExitFreq, one NPC per 15 sim-min), as EA's school pupils do
+        [Tunable] public static bool kTipsNpcEnd = false; // tipsnpcend (docs/613 §3): an unseen NPC Perform For Tips ends at EA's low-LOD interaction cap (420 day / 120 night sim-min); EA's only end was the Fatigued buff a low-LOD Sim never gets
+        [Tunable] public static bool kBarPutDownWait = false; // barputdownwait (docs/614 §1): the bartender's put-down helper finishes inline when its anim event never fired (EA's Wait looped forever)
+        [Tunable] public static bool kPutDownSurfaceUse = false; // putdownsurfaceuse (docs/614 §2): PutDown.TryToPlaceOnSurface releases the surface and item it took when ParentToSlot fails
+        [Tunable] public static bool kSwipeRestore = false; // swiperestore (docs/614 §3): a SwipeSomething whose family-inventory add fails puts the victim's object back and destroys the clone
+        [Tunable] public static bool kUnicornSpawnFail = false; // unicornspawnfail (docs/614 §4): an NPC unicorn spawn with no spot ends like EA's UnicornDespawn instead of staying invisible
+        [Tunable] public static bool kDataDiscPutBack = false; // datadiscputback (docs/614 §5): DataDiscStorage add/dump-all puts a refused disc back and moves the rest (EA lost it)
         [Tunable] public static bool kEatOutsideCount = true;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)
         [Tunable] public static bool kQueueProximity = true;    // queueproximity (docs/597 §2): SimQueue OrderByProximity places a new Sim by squared distance on both sides (elevator lines)
         [Tunable] public static bool kSubRouteFail = true;    // subroutefail (docs/597 §3): no route-fail balloon/animation when SimQueue.TryReplacementInteraction pushed a substitute object

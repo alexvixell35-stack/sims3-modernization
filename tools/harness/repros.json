@@ -94156,6 +94156,573 @@
     ]
   },
   {
+    "id": "rhexitunseen-check",
+    "bug": "RabbitHole.AnimateExitRabbitHole makes every non-selectable Sim wait until kNpcExitFreq (15 sim-min) has passed since the last Sim left that rabbit hole: one NPC out per 15 sim-min, so 5-10 unseen NPCs at Steve's Business Complex stood 50-314 sim-min in InRabbitHolePosture with Go Home / Eat Out current (docs/613 §2)",
+    "fix": "ts3fixes StuckJobs83.cs: rhexitunseen (default off), docs/613 §2",
+    "save": "any save with a rabbit hole and an NPC off the active lot (live replay); pure part needs none",
+    "note": "RhExitUnseenCheck run checks the skip decision with controls (seen NPC, household Sim, EA's own selectable/school skips kept) and calls the swapped CanSimSkipExitWait on a world rabbit hole with an unseen NPC (off false, on true) and the selected Sim (EA answer both ways); prints Sims inside rabbit holes; result shows counters (3453 grows when an unseen NPC leaves a rabbit hole, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhexitunseen": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhExitUnseenCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhExitUnseenCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rhexitunseen": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhExitUnseenCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhExitUnseenCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rhexitunseen": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhexitunseen": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "tipsnpcend-check",
+    "bug": "NPCShowManager pushes the NPC tips performer's PerformerPerformForTips at CriticalNPCBehavior (not autonomous), so DoLoop's low-LOD cap (420 day / 120 night sim-min) never applies; its only end is the Fatigued buff, which a low-LOD Sim never gets (no motive updates), and LoopHandler clears queued exit reasons after each trick: Perform For Tips 316-589 sim-min with a queued interaction never run (docs/613 §3)",
+    "fix": "ts3fixes StuckJobs83.cs: tipsnpcend (default off), docs/613 §3",
+    "save": "any save with an NPC off the active lot (live decision); pure part needs none",
+    "note": "TipsNpcEndCheck run checks the end decision with controls (under the cap, seen Sim, household Sim) and replays it on a world unseen NPC with EA's live cap; prints Sims performing for tips; result shows counters (3457 grows when an unseen NPC tips loop passes the cap, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "tipsnpcend": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TipsNpcEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TipsNpcEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "tipsnpcend": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TipsNpcEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TipsNpcEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "tipsnpcend": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "tipsnpcend": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "barputdownwait-check",
+    "bug": "BarAdvanced+PutDownCarriedObjectHelper.Wait loops `while (!mHasExecuted) Sleep(0)`, and only the anim-event handler sets mHasExecuted; Wait runs after the state machine is disposed, so a put-down whose event never fired hangs the bartender forever (docs/614 §1)",
+    "fix": "ts3fixes Scan84.cs: barputdownwait (default off), docs/614 §1",
+    "save": "pure part needs no save",
+    "note": "BarPutDownWaitCheck run checks the inline-finish decision with controls (handler already ran, handler queued) and, switch on, calls the swapped Wait on a helper whose handler never fired (returns, success false); result shows counters 3461-3463.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "barputdownwait": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarPutDownWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarPutDownWaitCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "barputdownwait": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarPutDownWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarPutDownWaitCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "barputdownwait": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "barputdownwait": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "putdownsurfaceuse-check",
+    "bug": "PutDown.TryToPlaceOnSurface adds the Actor to the surface's use list and sets the item in use, then returns false on a failed ParentToSlot without releasing either: the counter or table stays InUse and refuses later put-downs (docs/614 §2)",
+    "fix": "ts3fixes Scan84.cs: putdownsurfaceuse (default off), docs/614 §2",
+    "save": "pure part needs no save",
+    "note": "PutDownSurfaceUseCheck run checks the release decision with controls (success, held before, not held); result shows counters 3464-3466.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "putdownsurfaceuse": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownSurfaceUseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownSurfaceUseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "putdownsurfaceuse": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownSurfaceUseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PutDownSurfaceUseCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "putdownsurfaceuse": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "putdownsurfaceuse": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "swiperestore-check",
+    "bug": "TraitFunctions+SwipeSomething.Run removes the victim's object from the world before adding the stolen copy to the family inventory and returns false when that add fails: the object is gone for good and the clone leaks (docs/614 §3)",
+    "fix": "ts3fixes Scan84.cs: swiperestore (default off), docs/614 §3",
+    "save": "pure part needs no save",
+    "note": "SwipeRestoreCheck run checks the restore decision with controls (success, still in world, destroyed, copy in inventory); result shows counters 3467-3469.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "swiperestore": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwipeRestoreCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwipeRestoreCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "swiperestore": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwipeRestoreCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwipeRestoreCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "swiperestore": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "swiperestore": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "unicornspawnfail-check",
+    "bug": "OccultUnicorn+UnicornSpawn.Run fades the NPC unicorn out (it was spawned at opacity 0) and returns false when FindGoodLocation finds no spot: no Cleanup, an invisible unicorn Sim stays in the world (docs/614 §4)",
+    "fix": "ts3fixes Scan84.cs: unicornspawnfail (default off), docs/614 §4",
+    "save": "pure part needs no save",
+    "note": "UnicornSpawnFailCheck run checks the end decision with controls (spawned, player Sim, destroyed); result shows counters 3470-3472.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "unicornspawnfail": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnicornSpawnFailCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnicornSpawnFailCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unicornspawnfail": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnicornSpawnFailCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnicornSpawnFailCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unicornspawnfail": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "unicornspawnfail": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "datadiscputback-check",
+    "bug": "DataDiscStorage AddAllDataDiscs / DumpAllDataDiscs remove each disc from one inventory and return false when the other refuses it: that disc is in neither inventory and the rest are not moved (docs/614 §5)",
+    "fix": "ts3fixes Scan84.cs: datadiscputback (default off), docs/614 §5",
+    "save": "pure part needs no save",
+    "note": "DataDiscPutBackCheck run replays the move on lists with one refused disc (off: EA loses it and stops; on: put back, the rest move) plus controls (all accepted, unremovable disc stops); result shows counters 3473-3475.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "datadiscputback": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DataDiscPutBackCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DataDiscPutBackCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "datadiscputback": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DataDiscPutBackCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DataDiscPutBackCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "datadiscputback": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "datadiscputback": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

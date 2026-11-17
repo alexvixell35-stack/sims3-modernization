@@ -338,6 +338,13 @@ namespace Ts3Fixes
             ApplySpeedLockOwner();   // docs/609 §5 (GameSpeed78.cs)
             ApplyAlarmZeroPeriod();   // docs/609 §6 (GameSpeed78.cs); also carries the alarmtime stamp (HitchCause.cs)
             ApplyHeartBrokenBcast();   // docs/609 §7 (GameSpeed78.cs)
+            ApplyRhExitUnseen();   // docs/613 §2 (StuckJobs83.cs)
+            ApplyTipsNpcEnd();   // docs/613 §3 (StuckJobs83.cs)
+            ApplyBarPutDownWait();   // docs/614 §1 (Scan84.cs)
+            ApplyPutDownSurfaceUse();   // docs/614 §2 (Scan84.cs)
+            ApplySwipeRestore();   // docs/614 §3 (Scan84.cs)
+            ApplyUnicornSpawnFail();   // docs/614 §4 (Scan84.cs)
+            ApplyDataDiscPutBack();   // docs/614 §5 (Scan84.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -906,6 +913,13 @@ namespace Ts3Fixes
         // [3414-3416] speedlockowner (GameSpeed78.cs, docs/609 §5): build/buy exit unlocks skipped (lock not ours) / another holder released (off) / errors.
         // [3417-3420] alarmzeroperiod (GameSpeed78.cs, docs/609 §6): periods <= 0 as 1 tick / catch-ups by one division / repeating timers checked / errors.
         // [3421-3423] heartbrokenbcast (GameSpeed78.cs, docs/609 §7): replaced heartbroken broadcasters disposed / left registered (off) / errors.
+        // [3453-3456] rhexitunseen (StuckJobs83.cs, docs/613 §2): exit waits skipped / unseen NPC waits (off) / household or seen kept / errors.
+        // [3457-3460] tipsnpcend (StuckJobs83.cs, docs/613 §3): tips loops ended at low-LOD cap / past cap (off) / past cap household or seen kept / errors.
+        // [3461-3463] barputdownwait (Scan84.cs, docs/614 §1): finished inline / hangs entered (off) / errors.
+        // [3464-3466] putdownsurfaceuse (Scan84.cs, docs/614 §2): releases / leaks (off) / errors.
+        // [3467-3469] swiperestore (Scan84.cs, docs/614 §3): restores / lost (off) / errors.
+        // [3470-3472] unicornspawnfail (Scan84.cs, docs/614 §4): failed spawns ended / left invisible (off) / errors.
+        // [3473-3475] datadiscputback (Scan84.cs, docs/614 §5): discs put back / lost (put-back refused) / errors.
         // [2269-2271] buycellrecycle (BuyCellRecycle.cs): Buy catalog cells dropped by AddGridItem (also off) / returned to a cache / errors.
         // [2793-2796] detailprioexact (DetailPrioExact.cs, docs/605 §3): exact answers / EA's body (null list or description, error) / check mismatches / errors.
         // [2260-2268] dreamrootorphan / blogorphan / dnpupdateguard (WishListenerFixes.cs): root listeners left by a thrown-away test (also off) / removed / errors / blog one-off listeners left (also off) / removed / errors / Update exceptions seen / swallowed / errors.
@@ -1600,6 +1614,13 @@ namespace Ts3Fixes
                 case "speedrecalclock": return Instantiator.kSpeedRecalcLock;  // docs/609 §4 (GameSpeed78.cs), EA bug fix, off
                 case "speedlockowner": return Instantiator.kSpeedLockOwner;  // docs/609 §5 (GameSpeed78.cs), EA bug fix, off
                 case "heartbrokenbcast": return Instantiator.kHeartBrokenBcast;  // docs/609 §7 (GameSpeed78.cs), EA bug fix, off
+                case "rhexitunseen": return Instantiator.kRhExitUnseen;  // docs/613 §2 (StuckJobs83.cs), EA bug fix, off
+                case "tipsnpcend": return Instantiator.kTipsNpcEnd;  // docs/613 §3 (StuckJobs83.cs), EA bug fix, off
+                case "barputdownwait": return Instantiator.kBarPutDownWait;  // docs/614 §1 (Scan84.cs), EA bug fix, off
+                case "putdownsurfaceuse": return Instantiator.kPutDownSurfaceUse;  // docs/614 §2 (Scan84.cs), EA bug fix, off
+                case "swiperestore": return Instantiator.kSwipeRestore;  // docs/614 §3 (Scan84.cs), EA bug fix, off
+                case "unicornspawnfail": return Instantiator.kUnicornSpawnFail;  // docs/614 §4 (Scan84.cs), EA bug fix, off
+                case "datadiscputback": return Instantiator.kDataDiscPutBack;  // docs/614 §5 (Scan84.cs), EA bug fix, off
                 case "alarmzeroperiod": return Instantiator.kAlarmZeroPeriod;  // docs/609 §6 (GameSpeed78.cs), EA bug fix (hang guard), off
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
