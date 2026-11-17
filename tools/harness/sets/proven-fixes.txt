@@ -271,7 +271,9 @@ woohootywait
 # partyoutcome: the registry row proves partymotive only; partyoutcome stays idle beside the core mod (docs/554):
 #   partyoutcome
 # built 2026-11-17, in-game off/on test pending (docs/634 unseen townie loop families; step families need kUnseenLoopSkipStep for the live hook); move to the set once proven:
-#   unseenpianist unseenmusicwatch unseenjam unseenshow
+#  
+# built 2026-11-17, in-game off/on test pending (docs/635: unseenservicewait needs unseenservice, spotbusydefer needs spotasync); move to the set once proven:
+#   unseenservicewait spotbusydefer
 # built 2026-11-17, in-game off/on test pending (docs/633 bouncerplace; docs/628 unseenservice_offscreen Check now tests the tier-2 decision); move to the set once proven:
 #   unseenloopskip_offscreen
 # built 2026-11-15, in-game off/on test pending (docs/575-577); move to the set once proven:
@@ -365,6 +367,10 @@ wishsubjectgone
 wishupdatelost
 socialworkerpromise
 buffsrcempty
+unseenpianist
+unseenmusicwatch
+unseenjam
+unseenshow
 bouncerplace
 unseenservice_offscreen
 unseenloopskip
