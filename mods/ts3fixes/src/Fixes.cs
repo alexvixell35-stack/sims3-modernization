@@ -338,6 +338,11 @@ namespace Ts3Fixes
             ApplySpeedLockOwner();   // docs/609 §5 (GameSpeed78.cs)
             ApplyAlarmZeroPeriod();   // docs/609 §6 (GameSpeed78.cs); also carries the alarmtime stamp (HitchCause.cs)
             ApplyHeartBrokenBcast();   // docs/609 §7 (GameSpeed78.cs)
+            ApplySpawnerSkip();   // docs/610 §2 (SpawnerMapTag79.cs); also carries the alarmtime spawn timing (HitchCause.cs)
+            ApplyMapTagTaskAlive();   // docs/610 §3 (SpawnerMapTag79.cs)
+            ApplyLotMgrCallbacks();   // docs/611 §2 (LotCallbacks80.cs)
+            ApplyFireplaceHerb();   // docs/611 §3 (LotCallbacks80.cs)
+            ApplyRummageBcast();   // docs/611 §4 (LotCallbacks80.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
             ApplySimFestKeep();  // docs/546 §11, off by default
@@ -906,6 +911,11 @@ namespace Ts3Fixes
         // [3414-3416] speedlockowner (GameSpeed78.cs, docs/609 §5): build/buy exit unlocks skipped (lock not ours) / another holder released (off) / errors.
         // [3417-3420] alarmzeroperiod (GameSpeed78.cs, docs/609 §6): periods <= 0 as 1 tick / catch-ups by one division / repeating timers checked / errors.
         // [3421-3423] heartbrokenbcast (GameSpeed78.cs, docs/609 §7): replaced heartbroken broadcasters disposed / left registered (off) / errors.
+        // [3424-3429] spawnerskip (SpawnerMapTag79.cs, docs/610 §2): spawns ended without search / armed full searches / streaks armed / errors / spawner searches / spawns placed by search.
+        // [3430-3434] maptagtaskalive (SpawnerMapTag79.cs, docs/610 §3): visibility restarts / visibility ends (off) / controller restarts / controller ends (off) / errors.
+        // [3435-3438] lotmgrcallbacks (LotCallbacks80.cs, docs/611 §2): stacked copies removed at PreWorldLoad / stacked copies seen (off) / copies removed at Shutdown / errors.
+        // [3439-3441] fireplaceherb (LotCallbacks80.cs, docs/611 §3): burning herbs removed before a new one / left (off) / errors.
+        // [3442-3445] rummagebcast (LotCallbacks80.cs, docs/611 §4): disposed at Cleanup / stale disposed at create / left (off) / errors.
         // [2269-2271] buycellrecycle (BuyCellRecycle.cs): Buy catalog cells dropped by AddGridItem (also off) / returned to a cache / errors.
         // [2793-2796] detailprioexact (DetailPrioExact.cs, docs/605 §3): exact answers / EA's body (null list or description, error) / check mismatches / errors.
         // [2260-2268] dreamrootorphan / blogorphan / dnpupdateguard (WishListenerFixes.cs): root listeners left by a thrown-away test (also off) / removed / errors / blog one-off listeners left (also off) / removed / errors / Update exceptions seen / swallowed / errors.
@@ -1600,6 +1610,11 @@ namespace Ts3Fixes
                 case "speedrecalclock": return Instantiator.kSpeedRecalcLock;  // docs/609 §4 (GameSpeed78.cs), EA bug fix, off
                 case "speedlockowner": return Instantiator.kSpeedLockOwner;  // docs/609 §5 (GameSpeed78.cs), EA bug fix, off
                 case "heartbrokenbcast": return Instantiator.kHeartBrokenBcast;  // docs/609 §7 (GameSpeed78.cs), EA bug fix, off
+                case "spawnerskip": return Instantiator.kSpawnerSkip;  // docs/610 §2 (SpawnerMapTag79.cs), speedup with EA's failure ending, off
+                case "maptagtaskalive": return Instantiator.kMapTagTaskAlive;  // docs/610 §3 (SpawnerMapTag79.cs), EA bug fix, off
+                case "lotmgrcallbacks": return Instantiator.kLotMgrCallbacks;  // docs/611 §2 (LotCallbacks80.cs), EA bug fix, off
+                case "fireplaceherb": return Instantiator.kFireplaceHerb;  // docs/611 §3 (LotCallbacks80.cs), EA bug fix, off
+                case "rummagebcast": return Instantiator.kRummageBcast;  // docs/611 §4 (LotCallbacks80.cs), EA bug fix, off
                 case "alarmzeroperiod": return Instantiator.kAlarmZeroPeriod;  // docs/609 §6 (GameSpeed78.cs), EA bug fix (hang guard), off
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;

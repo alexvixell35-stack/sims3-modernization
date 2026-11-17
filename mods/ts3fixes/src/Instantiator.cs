@@ -529,6 +529,13 @@ namespace Ts3Fixes
         [Tunable] public static bool kSpeedLockOwner = true; // speedlockowner (docs/609 §5): build/buy exit unlocks the game speed only if its enter took the lock
         [Tunable] public static bool kAlarmZeroPeriod = true; // alarmzeroperiod (docs/609 §6): a repeating alarm period of 0 ticks or less counts as 1 tick (EA hangs), catch-up in one division
         [Tunable] public static bool kHeartBrokenBcast = true; // heartbrokenbcast (docs/609 §7): SocialCallback.AddHeartBroken disposes the heartbroken broadcaster a repeat breakup replaces (EA left it pulsing on the first ex)
+        [Tunable] public static bool kSpawnerSkip = false; // spawnerskip (docs/610 §2): a spawner whose placement search failed kSpawnerSkipFails times in a row takes EA's failure ending at once, full search every kSpawnerSkipRetry-th spawn or when its lot changes
+        [Tunable] public static int kSpawnerSkipFails = 3; // spawnerskip: full searches failed in a row before the skip arms
+        [Tunable] public static int kSpawnerSkipRetry = 8; // spawnerskip: every Nth spawn of an armed spawner runs the full search again (0 = only after a change)
+        [Tunable] public static bool kMapTagTaskAlive = false; // maptagtaskalive (docs/610 §3): the map tag visibility and controller tasks restart on a forced update or inactive toggle instead of ending until the next UI load
+        [Tunable] public static bool kLotMgrCallbacks = false; // lotmgrcallbacks (docs/611 §2): LotManager.Shutdown removes the six world callbacks PreWorldLoad adds (portal lock, door visibility, walls, clone x2, group saving) and PreWorldLoad never stacks a second copy
+        [Tunable] public static bool kFireplaceHerb = false; // fireplaceherb (docs/611 §3): Fireplace.AddHerb removes a burning herb first (EA leaked the first herb's VFX and haze broadcaster)
+        [Tunable] public static bool kRummageBcast = false; // rummagebcast (docs/611 §4): a reset outdoor-trash rummage disposes the can's rummage broadcaster (EA left it queueing reactions)
         [Tunable] public static bool kEatOutsideCount = true;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)
         [Tunable] public static bool kQueueProximity = true;    // queueproximity (docs/597 §2): SimQueue OrderByProximity places a new Sim by squared distance on both sides (elevator lines)
         [Tunable] public static bool kSubRouteFail = true;    // subroutefail (docs/597 §3): no route-fail balloon/animation when SimQueue.TryReplacementInteraction pushed a substitute object

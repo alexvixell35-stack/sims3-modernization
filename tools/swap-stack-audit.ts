@@ -46,7 +46,7 @@ const TARGET_VARS: Record<string, string> = {
   'AutShadow.cs:swing': 'Sims3.Gameplay.Objects.Environment.SwingSet', 'AutShadow.cs:stall': 'Sims3.Gameplay.Objects.Pets.BoxStall',
   'AutShadow.cs:sect': 'Sims3.Gameplay.Objects.Seating.ChairSectional', 'AutShadow.cs:cp': 'Sims3.Gameplay.Actors.Sim+CallPet+Definition',
   'ErrorTrapSpread.cs:inv': 'mod:ErrorTrap', 'OverwatchNotice.cs:reset': 'mod:Overwatch', 'OverwatchProbe.cs:sc': 'mod:Overwatch',
-  'GameSpeed78.cs:sAzTimer': 'AlarmManager+Timer', 'HitchCause.cs:simReset': 'mod:Overwatch', 'HitchCause.cs:inst': 'mod:Overwatch', 'HitchCause.cs:cp': 'mod:Overwatch', 'HitchCause.cs:place': 'mod:Overwatch', 'OverwatchSpread.cs:sOwType': 'mod:Overwatch', 'OverwatchSpread.cs:alarmBase': 'mod:Overwatch', 'OverwatchStuck.cs:simEx': 'mod:Overwatch', 'OverwatchStuck.cs:simTypes': 'mod:Overwatch',
+  'GameSpeed78.cs:sAzTimer': 'AlarmManager+Timer', 'SpawnerMapTag79.cs:sMtkVisType': 'Sims3.UI.MapTagController+MapTagVisibilityUpdate', 'HitchCause.cs:simReset': 'mod:Overwatch', 'HitchCause.cs:inst': 'mod:Overwatch', 'HitchCause.cs:cp': 'mod:Overwatch', 'HitchCause.cs:place': 'mod:Overwatch', 'OverwatchSpread.cs:sOwType': 'mod:Overwatch', 'OverwatchSpread.cs:alarmBase': 'mod:Overwatch', 'OverwatchStuck.cs:simEx': 'mod:Overwatch', 'OverwatchStuck.cs:simTypes': 'mod:Overwatch',
   'SimFestKeep.cs:sSfPresent': 'ShowStage+EmceePresentSimFestAward', 'JoyrideCostume.cs:jd': 'GoForJoyride+Definition',
   'JoyrideCostume.cs:rd': 'RouteAndGetToCostumeForJoyride+Definition', 'SyncWaitLog.cs:si': 'SocialInteraction',
   'WeddingArchKeep.cs:sWaSlotRoute': 'WeddingArch+RouteToWeddingArchSlot', 'BoardingRefund.cs:sBsCarState': 'BoardingSchoolPickUpSituation+CreateCarAndRoute',
