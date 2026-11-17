@@ -372,6 +372,12 @@ namespace Ts3Fixes
         [Tunable] public static bool kMegaphoneRun = false; // megaphonerun (docs/608 §2): Wake With Megaphone's Run request lasts only for its route-away (EA leaves the waker running for good)
         [Tunable] public static bool kDragonCurseRun = false; // dragoncurserun (docs/608 §3): the baby dragon's Phantasmal Curse target runs only during its route-away (EA leaves it running for good)
         [Tunable] public static bool kVirtualHomeWalk = false; // vhomewalk (docs/608 §4): GoToVirtualHomeInternal takes back its walk-style request (busted-party guests with apartment homes kept running)
+        [Tunable] public static bool kSpeedSkipLevel = false; // speedskiplevel (docs/609 §2): Gameflow.SetGameSpeed tells the engine the level of the speed it set (EA: Skip's Normal fallback sent level 3)
+        [Tunable] public static bool kSpeedSkipNoActor = false; // speedskipnoactor (docs/609 §3): Skip with no active Sim falls back to Normal (EA froze time at scale 0)
+        [Tunable] public static bool kSpeedRecalcLock = false; // speedrecalclock (docs/609 §4): RecalculateGameSpeed keeps a held speed lock and does not persist the locked speed
+        [Tunable] public static bool kSpeedLockOwner = false; // speedlockowner (docs/609 §5): build/buy exit unlocks the game speed only if its enter took the lock
+        [Tunable] public static bool kAlarmZeroPeriod = false; // alarmzeroperiod (docs/609 §6): a repeating alarm period of 0 ticks or less counts as 1 tick (EA hangs), catch-up in one division
+        [Tunable] public static bool kHeartBrokenBcast = false; // heartbrokenbcast (docs/609 §7): SocialCallback.AddHeartBroken disposes the heartbroken broadcaster a repeat breakup replaces (EA left it pulsing on the first ex)
         [Tunable] public static bool kSarcMummyNpc = false; // sarcmummynpc (docs/607 §3): a reset or deleted Sarcophagus takes its tomb mummy out of NpcHousehold, as TombMummyDestroy does
         [Tunable] public static bool kPushWaitSkip = false; // pushwaitskip (docs/604 §2): RoutingComponent.PushSimsStatic's wait pass checks every pushed Sim once (EA steps twice and keeps the pusher idle an extra 10 sim-minutes)
         [Tunable] public static bool kDetailPriorityExact = false; // detailprioexact (docs/603 §3): Lot.CalculateDetailPriority gives EA's answer without building the household actor lists on every lot pass (exact, DetailPrio603.cs)
