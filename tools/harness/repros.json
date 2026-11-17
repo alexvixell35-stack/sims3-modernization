@@ -75094,6 +75094,492 @@
     ]
   },
   {
+    "id": "speedskiplevel-check",
+    "bug": "Gameflow.SetGameSpeed(GameSpeed, bool) sends the engine speed level from the requested speed (IL_0095 ldarg.0), so Skip's Normal fallback (active Sim with no head interaction) runs at 1x while the engine is told level 3 (docs/609 §2)",
+    "fix": "ts3fixes GameSpeed78.cs: speedskiplevel (default off), docs/609 §2",
+    "save": "any save (pure check plus live swap assert)",
+    "note": "SpeedSkipLevelCheck 'run' models EA's SetGameSpeed and ours over every speed (pure) with controls and asserts the swap is live; 'result' shows the counters (3405 grows when Skip is pressed with an idle selected Sim, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "speedskiplevel": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedSkipLevelCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedSkipLevelCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "speedskiplevel": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedSkipLevelCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedSkipLevelCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "speedskiplevel": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "speedskiplevel": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "speedskipnoactor-check",
+    "bug": "Gameflow.SetGameSpeed(Skip) with Sim.ActiveActor null leaves the time scale at 0 and mGameSpeed unchanged, so time silently freezes (docs/609 §3)",
+    "fix": "ts3fixes GameSpeed78.cs: speedskipnoactor (default off), docs/609 §3",
+    "save": "any save (pure check plus live swap assert)",
+    "note": "SpeedSkipNoActorCheck 'run' checks the no-actor Skip falls back to Normal (pure) with controls and asserts the swap is live; 'result' shows the counters (3408 grows on Skip with no selected Sim, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "speedskipnoactor": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedSkipNoActorCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedSkipNoActorCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "speedskipnoactor": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedSkipNoActorCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedSkipNoActorCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "speedskipnoactor": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "speedskipnoactor": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "speedrecalclock-check",
+    "bug": "Gameflow.RecalculateGameSpeed calls SetGameSpeed(.., lockSpeed: false), clearing mGameSpeedLocked and persisting the locked speed while a thumbnail or MiniSimDescription lock is held (PlayFlowState/EditTownState.Shutdown) (docs/609 §4)",
+    "fix": "ts3fixes GameSpeed78.cs: speedrecalclock (default off), docs/609 §4",
+    "save": "any save (pure check plus live swap assert)",
+    "note": "SpeedRecalcLockCheck 'run' checks a recalculation under a lock keeps it and does not persist (pure) with controls and asserts the swap is live; 'result' shows the counters (3411 grows when a lock is held across a play-flow or edit-town shutdown, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "speedrecalclock": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedRecalcLockCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedRecalcLockCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "speedrecalclock": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedRecalcLockCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedRecalcLockCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "speedrecalclock": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "speedrecalclock": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "speedlockowner-check",
+    "bug": "LotManager.EnterBuildBuyMode locks Pause only when nobody holds a lock, but ExitBuildBuyMode always calls Gameflow.UnlockGameSpeed, releasing another holder's lock and restoring its saved speed (docs/609 §5)",
+    "fix": "ts3fixes GameSpeed78.cs: speedlockowner (default off), docs/609 §5",
+    "save": "any save (pure check plus live swap assert)",
+    "note": "SpeedLockOwnerCheck 'run' checks build/buy's exit unlocks only its own lock (pure) with controls and asserts the three swaps and LotManager.sIsBuildBuyModeOn are live; 'result' shows the counters (3414 grows when build/buy exits while another holder's lock is held, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "speedlockowner": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedLockOwnerCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedLockOwnerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "speedlockowner": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedLockOwnerCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedLockOwnerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "speedlockowner": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "speedlockowner": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "alarmzeroperiod-check",
+    "bug": "AlarmManager.Simulate's repeating catch-up loop `for (n = t + p; n < now; n += p)` never ends for p = ConvertToTicks(RepeatLength, UnitOfTime) <= 0 (periods under 1.6 sim-seconds truncate to 0; only mods or bad saves) and steps once per missed period (docs/609 §6)",
+    "fix": "ts3fixes GameSpeed78.cs: alarmzeroperiod (default off), docs/609 §6",
+    "save": "any save (pure check plus live swap assert)",
+    "note": "AlarmZeroPeriodCheck 'run' compares EA's loop with ours for p <= 0 (EA never ends) and a spread of p > 0 cases (same next time, no steps), and runs the fix on a private never-queued Timer with a 1 s period; asserts the swap and members are live; 'result' shows the counters (3419 grows with every fired repeating alarm, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "alarmzeroperiod": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AlarmZeroPeriodCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AlarmZeroPeriodCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "alarmzeroperiod": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AlarmZeroPeriodCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AlarmZeroPeriodCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "alarmzeroperiod": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "alarmzeroperiod": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "heartbrokenbcast-check",
+    "bug": "SocialCallback.AddHeartBroken assigns a new never-expiring ReactionBroadcaster over an already HeartBroken Sim's HeartBrokenBroadcaster without disposing the old one, so a repeat breakup leaves the old broadcaster registered on the first ex until that Sim is destroyed (docs/609 §7)",
+    "fix": "ts3fixes GameSpeed78.cs: heartbrokenbcast (default off), docs/609 §7",
+    "save": "any save with a selected Sim on a lot (live replay); pure part needs none",
+    "note": "HeartBrokenBcastCheck 'run' checks the dispose decision with controls (pure) and replays EA's overwrite with two broadcasters on the selected Sim (disposed after), asserting the swap is live; 'result' shows the counters (3421 grows on a second breakup of an already heartbroken Sim, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "heartbrokenbcast": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HeartBrokenBcastCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HeartBrokenBcastCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "heartbrokenbcast": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HeartBrokenBcastCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HeartBrokenBcastCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "heartbrokenbcast": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "heartbrokenbcast": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

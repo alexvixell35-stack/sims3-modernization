@@ -95,6 +95,12 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenBroadcastEvery value="16" />
     <kUnseenCarThrottle value="False" />
     <kHitchCauseHooks value="False" />
+    <kSpeedSkipLevel value="False" />
+    <kSpeedSkipNoActor value="False" />
+    <kSpeedRecalcLock value="False" />
+    <kSpeedLockOwner value="False" />
+    <kAlarmZeroPeriod value="False" />
+    <kHeartBrokenBcast value="False" />
     <kWakeHooks value="False" />
     <kWakePark value="False" />
     <kWakePoll value="False" />
