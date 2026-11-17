@@ -6913,6 +6913,82 @@
       "what": "s77 hot-method walk-style leaks",
       "at": "2026-11-17T00:40:55.656Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3405",
+      "kind": "fixes",
+      "from": 3405,
+      "to": 3407,
+      "by": "s78",
+      "what": "speedskiplevel: Gameflow.SetGameSpeed speed level from the speed set",
+      "at": "2026-11-17T00:57:41.716Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3408",
+      "kind": "fixes",
+      "from": 3408,
+      "to": 3410,
+      "by": "s78",
+      "what": "speedskipnoactor: Skip with no active Sim falls back to Normal",
+      "at": "2026-11-17T00:57:41.799Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3411",
+      "kind": "fixes",
+      "from": 3411,
+      "to": 3413,
+      "by": "s78",
+      "what": "speedrecalclock: RecalculateGameSpeed keeps a held speed lock",
+      "at": "2026-11-17T00:57:41.878Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3414",
+      "kind": "fixes",
+      "from": 3414,
+      "to": 3416,
+      "by": "s78",
+      "what": "speedlockowner: build/buy exit unlocks only its own lock",
+      "at": "2026-11-17T00:57:41.960Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3417",
+      "kind": "fixes",
+      "from": 3417,
+      "to": 3420,
+      "by": "s78",
+      "what": "alarmzeroperiod: repeating alarm period <= 0 ticks as 1 tick, one-division catch-up",
+      "at": "2026-11-17T00:57:42.044Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "doc-609",
+      "kind": "doc",
+      "from": 609,
+      "to": 609,
+      "by": "s78",
+      "what": "Gameflow speed lock and alarm period fixes",
+      "at": "2026-11-17T00:57:42.123Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3421",
+      "kind": "fixes",
+      "from": 3421,
+      "to": 3423,
+      "by": "s78",
+      "what": "heartbrokenbcast: AddHeartBroken disposes the replaced heartbroken broadcaster",
+      "at": "2026-11-17T01:06:01.938Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
     }
   ]
 }

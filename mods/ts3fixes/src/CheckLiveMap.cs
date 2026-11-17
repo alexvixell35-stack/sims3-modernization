@@ -15,7 +15,8 @@ namespace Ts3Fixes
                 case "ageupswap": return EpLive(typeof(AgeUpSwapHook), 1);
                 case "agingalarmcancel": return EpLive(typeof(BAcHook), 1, "sAcGrad", sAcGrad, null);
                 case "alarmkilllog": return EpLive(typeof(AkHook), 1, "sAkCallBack", sAkCallBack, null);
-                case "alarmtime": return EpJoin(EpJoin(EpLive(typeof(HcLotHook), 0), EpLive(typeof(HcSpawnHook), 0)), EpLive(typeof(HcTimerHook), 0));
+                case "alarmtime": return EpJoin(EpJoin(EpLive(typeof(AzTimerHook), 1), EpLive(typeof(HcLotHook), 0)), EpLive(typeof(HcSpawnHook), 0));
+                case "alarmzeroperiod": return EpLive(typeof(AzTimerHook), 1);
                 case "aptleave": return EpJoin(EpLive(typeof(AlLeaveHook), 1), EpLive(typeof(AlRoomHook), 1));
                 case "artsellnoartist": return EpLive(typeof(ArtSellHook), 1);
                 case "attractionalarm": return EpLive(typeof(RagHook), 0, "sRagParent", sRagParent, null);
@@ -167,6 +168,7 @@ namespace Ts3Fixes
                 case "harvestextras": return EpLive(typeof(B13HeHook), 2, "sHeHarvest", sHeHarvest, 3, "sHeManip", sHeManip, 2, "sHeJournal", sHeJournal, 3);
                 case "harvestregion": return EpLive(typeof(B13HrHook), 1);
                 case "hauntedumbrella": return EpLive(typeof(HauntedUmbrellaHook), 0, "sHuFlag", sHuFlag, typeof(bool));
+                case "heartbrokenbcast": return EpLive(typeof(HbBcastHook), 1);
                 case "hhcleanupdup": return EpLive(typeof(BHhCleanupHook), 1, "sHdNpc", sHdNpc, null, "sHdNpc", sHdNpc, "static", "sHdLotHome", sHdLotHome, null, "sHdTourist", sHdTourist, null, "sHdTourist", sHdTourist, "static");
                 case "hiddenroomspawn": return EpJoin(EpJoin(EpLive(typeof(HrCornersHook), 1), EpLive(typeof(HrCreateHook), 1)), EpLive(typeof(HrResetHook), 1));
                 case "holidaylights": return EpLive(typeof(BHlHook), 1, "sHlAlarm", sHlAlarm, null, "sHlAlarm", sHlAlarm, "static", "sHlWith", sHlWith, null, "sHlWith", sHlWith, "static", "sHlLots", sHlLots, null, "sHlLots", sHlLots, "static", "sHlPulse", sHlPulse, typeof(int), "sHlPulse", sHlPulse, "static", "sHlPulse", sHlPulse, null);
@@ -361,6 +363,10 @@ namespace Ts3Fixes
                 case "spclonedict": return EpJoin(EpLive(typeof(BSpBigHook), 2), EpLive(typeof(BSpSmallHook), 2));
                 case "spcollectnull": return EpLive(typeof(BSpCollectHook), 1, "sCoLot", sCoLot, null, "sCoHh", sCoHh, null, "sCoSim", sCoSim, null, "sCoAll", sCoAll, null);
                 case "spcreatemovein": return EpLive(typeof(BSpComboHook), 1, "sCmSpec", sCmSpec, null, "sCmLot", sCmLot, typeof(ulong));
+                case "speedlockowner": return EpLive(typeof(BbLockHook), 3, "sBbOn", sBbOn, typeof(bool), "sBbOn", sBbOn, "static");
+                case "speedrecalclock": return EpLive(typeof(GfRecalcHook), 1, "sGfSetSpeed", sGfSetSpeed, 2);
+                case "speedskiplevel": return EpLive(typeof(GfSpeedHook), 1);
+                case "speedskipnoactor": return EpLive(typeof(GfSpeedHook), 1);
                 case "spelltargetend": return EpLive(typeof(B12StHook), 1);
                 case "spjobatwork": return EpLive(typeof(BSpAssignHook), 1);
                 case "splashroof": return EpLive(typeof(SplashRoofRunHook), 1);
