@@ -5,6 +5,7 @@
 #define TS3N_EA_PORT  // the EA-port-only features (ts3addr.h): [ImageGuard], [EaCrashFixes] SimNoTexture, tested on dummies
 #include "ts3native.cpp"
 static void TestUfStrict();  // unseenfbc-test.h (docs/202 §3.1.1), run from the uf block
+static void TestDiscYield(u8* out);  // discyield-test.h (docs/640 [RouteAsync] DiscYieldForeign), run from TestFallback
 #include <assert.h>
 // CI runners are shared and slow: wall-clock bounds and thread-interleaving checks flake there (docs/RELEASE.md, "CI-skipped
 // selftests"). TIMING_ASSERT skips its condition on CI (GITHUB_ACTIONS / CI set) with one SKIPPED line per site; runs locally.
@@ -1398,6 +1399,7 @@ static void TestFallback() {
         p[0x10E] = 1;
         g_fbAcq = FbBusyAcquire;
     }
+    TestDiscYield(out);  // docs/640
     // the tick cap: READY gives up, the plan runs here with reason M1Pending, nothing applied
     p[0x10E] = 1;
     g_fbAcq = FbBusyAcquire;
@@ -13055,6 +13057,7 @@ static void TestP5() {
 #include "replandedupe-test.h"  // TestReplanDedupe ([RouteAsync] ReplanDedupe, docs/150 §13)
 #include "plandeadline-test.h"  // TestPlanDeadline ([RouteAsync] PlanDeadlineMs / FailMemo, docs/164 §7)
 #include "taskserve-test.h"  // TestTaskServe ([RouteAsync] TaskServe, docs/637)
+#include "discyield-test.h"  // TestDiscYield ([RouteAsync] DiscYieldForeign, docs/640)
 #include "gate0ro-test.h"     // TestGate0Ro ([Gate0RO], docs/152 §G1)
 #include "rtotail-test.h"  // TestRouteToObjTail ([RouteToObjRO] Tail); its stubs serve rtoro-test.h
 #include "rtoro-test.h"  // TestRouteToObjRO ([RouteToObjRO], docs/140 §12)
