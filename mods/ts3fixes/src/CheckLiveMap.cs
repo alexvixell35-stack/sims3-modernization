@@ -448,6 +448,8 @@ namespace Ts3Fixes
                 case "unseenpark": return EpJoin(EpLive(typeof(AutonomyUpdateHook), 0), EpLive(typeof(UnseenParkHook), 0));
                 case "unseenprobe": return EpJoin(EpLive(typeof(AutonomyUpdateHook), 0), EpLive(typeof(EnvScoreHook), 0, "sSimUpdateSim", sSimUpdateSim, null));
                 case "unseenroute": return EpLive(typeof(RouteBackoffHook), 4);
+                case "unseenservice": return EpJoin(EpLive(typeof(SvcEnqHook), 1, "sSvcQueue", sSvcQueue, null, "sSvcBartender", sSvcBartender, null, "sSvcDest", sSvcDest, null), EpLive(typeof(SvcRunHook), 1));
+                case "unseenservice_offscreen": return EpLive(typeof(SvcRunHook), 1);
                 case "upgradefailalarm": return EpLive(typeof(UfaHook), 2);
                 case "vacationalarms": return EpLive(typeof(B12VaHook), 1, "sVaSingle", sVaSingle, null, "sVaSingle", sVaSingle, "static", "sVaMake", sVaMake, 0, "sVaHour", sVaHour, typeof(float), "sVaHour", sVaHour, "static");
                 case "vacexitreturn": return EpJoin(EpLive(typeof(VacListenerHook), 4), EpLive(typeof(VacTripHook), 1));

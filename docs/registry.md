@@ -542,6 +542,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3550-3553 | `Alloc87Comparers.cs` (`fixes-3550`, s87, docs/625 §2), `enumcmpnobox` | built 2026-11-17, default off: comparers installed (3550) / restored (3551) / errors (3552) / Check answer mismatches (3553, must stay 0) |
 | 3554-3558 | `Alloc87Comparers.cs` (`fixes-3554`, s87, docs/625 §3), `alarmcmpnobox` | built 2026-11-17, default off: installed (3554) / restored (3555) / live mTimers swapped in place (3556) / errors (3557) / Check answer mismatches (3558, must stay 0) |
 | 3559-3579 | pinned (s87, `fixes-3559`) | spare of the s87 allocation builder (docs/625) |
+| 3600-3611 | `UnseenService88.cs` (`fixes-3600`, s88svc, docs/628), `unseenservice` + `unseenservice_offscreen` | built 2026-11-17, default off: unseen conversation / drink / food served at once (3600-3602), off-screen tier the same (3603-3605), out of scope (3606), precondition kept EA's hand-off (3607), off-screen re-check refused (3608), RunBehavior false after a served order (3609), errors (3610), Check live mismatches (3611, must stay 0) |
+| 3600-3619 | pinned (s88svc, `fixes-3600`) | unseenservice: unseen/offscreen bar orders complete with EA's results |
 | **2000+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
