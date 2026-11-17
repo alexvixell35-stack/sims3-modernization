@@ -520,6 +520,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3476-3478 | pinned (s85, `fixes-3476`) | spoilbroadcast: PreparedFood.ForceSpoil disposes the disgust broadcaster it replaces |
 | 3479-3481 | pinned (s85, `fixes-3479`) | weatherstonerelisten: WeatherStone success summon drops a still-pending weather listener before adding |
 | 3482-3484 | pinned (s85, `fixes-3482`) | birthdayagerecord: BirthdayParty records every guest who ages up |
+| 3485-3488 | `Fixes.cs` SpotVerdict (`fixes-3485`, s86, docs/616), `spotasync` | built 2026-11-17, default off: checks answered by a job (3485) / their wall ms (3486) / eligible but planned sync (3487) / placements dropped after the wait (3488) |
+| 3489 | `Fixes.cs` SpotAsyncDone (`fixes-3489`, s86, docs/616), `spotasync` | built 2026-11-17: shadow mismatches with watchdogasyncshadow (expected 0) |
 | **2000+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

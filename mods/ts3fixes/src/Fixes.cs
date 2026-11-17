@@ -1151,6 +1151,7 @@ namespace Ts3Fixes
         // [3476-3478] spoilbroadcast (Scan85.cs, docs/615 §1): broadcasters disposed / leaked (off) / errors.
         // [3479-3481] weatherstonerelisten (Scan85.cs, docs/615 §2): stale listeners removed / stacked (off) / errors.
         // [3482-3484] birthdayagerecord (Scan85.cs, docs/615 §3): age-ups with listener kept / dropped (off) / errors.
+        // [3485-3489] spotasync (Fixes.cs SpotVerdict, docs/616): checks answered by a job (sync plans avoided) / their wall ms / eligible but planned sync / placements dropped after the wait / shadow mismatches.
         // [3391-3393] sarcmummynpc (TreasureSpawn74.cs, docs/607 §3): tomb mummy descriptions removed from NpcHousehold at sarcophagus cleanup / left with the switch off / errors.
         // [2790-2792] pushwaitskip (PushWait604.cs, docs/604 §2): done Sims EA's double-step wait pass would have skipped / waiting calls on EA's body (switch off) / errors.
         // [2756-2759] detailprioexact (DetailPrio603.cs, docs/603 §3): exact answers / EA's body (null list or description, error) / check mismatches / errors.
@@ -1468,6 +1469,7 @@ namespace Ts3Fixes
                 case "motivebuf": return false;  // proven-exact speedup, off until measured: motive updates snapshot into a pooled list (MotiveBuf.cs, docs/584 §5)
                 case "motivebufcheck": return false;
                 case "buffbufcheck": return false;
+                case "spotasync": return false;  // docs/616: SafeSpot's full routability check of an unseen NPC as a watchdog-tagged async job (needs [RouteAsync] WatchdogKind2=1 or Kinds bit 2; uncut)
                 case "routableasync": return false;  // A/B with [RouteAsync] Kinds=2: async PlanFromPoint only for unseen NPCs' IsPointInLotSafelyRoutable (RouteBackoff.cs, docs/584 §3)  // check for ts3native ilp_buffbuf: UpdateBuffs' delayed-buff list empty and consistent (MotiveBuf.cs, docs/584 §5)  // pure check for motivebuf: each snapshot compared with the game's copy (MotiveBuf.cs)
                 case "tpdoorrights": return false;  // F1's unseen-teleport lot test by the Sim's own door rights, EA's one-way sentinel (UnseenTeleportGoal.cs, docs/584 §7)
                 case "tpaptgoal": return false;  // F1: an unseen NPC's own home apartment / shell lot judged by the goal room only (hidden rooms still refused; UnseenTeleportGoal.cs, docs/584 §8)
@@ -2144,7 +2146,7 @@ namespace Ts3Fixes
                         return RunOrig();
                     }
                     Sims3.SimIFace.Vector3 pos, fwd;
-                    if (!SafeSpot(Actor, Target, Target.GetRandomPosition(false, true), out pos, out fwd))
+                    if (!SafeSpot(Actor, Target, Target.GetRandomPosition(false, true), out pos, out fwd, "gohome", true))
                     {
                         sCounters[2]++;
                         return RunOrig();
@@ -2272,7 +2274,20 @@ namespace Ts3Fixes
         // F18), so its verdict is cached per 0.5 m cell and route profile (SpotVerdict). Spots next to the lot's verified ones are tried first,
         // rotating through them so arrivals spread out; then fresh spots from `near` (the entrance), whose cells may cost a
         // full check within the per-tick budget. No verified spot = false, and the caller runs the game's own trip.
-        static bool SafeSpot(Sims3.Gameplay.Actors.Sim sim, Lot lot, Sims3.SimIFace.Vector3 near, out Sims3.SimIFace.Vector3 pos, out Sims3.SimIFace.Vector3 fwd)
+        // who (docs/616): the caller, for the ufplan "src spot" tag; asyncOk: the caller gated on TownieUnseen + FarFromViewers(near)
+        // itself, so spotasync may send the fresh check as a job and re-apply that gate after the wait (SpotPlaceAfter).
+        static bool SafeSpot(Sims3.Gameplay.Actors.Sim sim, Lot lot, Sims3.SimIFace.Vector3 near, out Sims3.SimIFace.Vector3 pos, out Sims3.SimIFace.Vector3 fwd,
+            string who, bool asyncOk)
+        {
+            ulong task = Simulator.CurrentTask.Value;
+            SpotCtx was;
+            bool had = sSpotCtx.TryGetValue(task, out was);
+            if (sSpotCtx.Count >= 64) sSpotCtx.Clear();  // bounded: a task killed mid-check never removes itself
+            sSpotCtx[task] = new SpotCtx { Who = who + "@" + lot.Name, AsyncOk = asyncOk };
+            try { return SafeSpotBody(sim, lot, near, out pos, out fwd); }
+            finally { if (had) sSpotCtx[task] = was; else sSpotCtx.Remove(task); }
+        }
+        static bool SafeSpotBody(Sims3.Gameplay.Actors.Sim sim, Lot lot, Sims3.SimIFace.Vector3 near, out Sims3.SimIFace.Vector3 pos, out Sims3.SimIFace.Vector3 fwd)
         {
             SpotVerdicts v = Verdicts(lot);
             RouteProfile prof = ProfileOf(sim);
@@ -2312,7 +2327,12 @@ namespace Ts3Fixes
                 if (!found) continue;
                 if (noPool && BelowGroundOutdoors(pos)) { c[2711]++; continue; }
                 if (verify && (pos - start).Length() > 0.5f) c[92]++;
+                long tk = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
                 if (LotManager.GetLotAtPoint(pos) != lot || SpotVerdict(sim, lot, v, prof, pos, fresh, false, true) != true) continue;
+                // spotasync (docs/616): the check may have slept on its job; place only if the caller's unseen gate still holds
+                bool yielded = Sims3.Gameplay.Utilities.SimClock.CurrentTicks != tk && ShortcutOn("spotasync");  // other yields keep today's rule
+                if (!H4Core.SpotPlaceAfter(yielded, !sim.HasBeenDestroyed && sim.InWorld, yielded && TownieUnseen(sim, null), yielded && FarFromViewers(near)))
+                { c[3488]++; break; }
                 if (reuse && prof.Ok && v.Fwds.Count < 64) v.Fwds[KeyOf(prof, pos)] = fwd;
                 if (lot.IsHouseboatLot()) PatchCounters()[21]++;
                 return true;
@@ -2436,6 +2456,100 @@ namespace Ts3Fixes
             return key;
         }
 
+        // ---- docs/616 spotasync (default off) and the spot caller tag ----------------------------------------------------------
+        // The only game hitch of three Bridgeport sessions (314-370 ms, Sun 12:46 PM, tick ~28760) was one SpotVerdict full check:
+        // Sim.IsPointInLotSafelyRoutable's PlanFromPoint, ~280 ms sync on the sim thread ("START refused": [RouteAsync] Kinds=0).
+        // With the switch on, a SafeSpot full check of an unseen NPC in its own task that may yield, when ts3native would start it
+        // (WdA1Would: q 9 = WatchdogKind2 or Kinds bit 2), sends its PlanFromPoint STARTs with the watchdog's tag (RouteBackoff.cs
+        // AsyncKindStart): ts3native starts them as own jobs with no KindDeadlines cut (plandeadline.cpp: a tagged job is
+        // "uncut: watchdog", KdUncutCeilMs only), so the verdict is the planner's own, one or more ticks later; it is cached as
+        // today. SafeSpot places the Sim after a wait only when the caller's unseen gate still holds (H4Core.SpotPlaceAfter).
+        // Shadow arm: watchdogasyncshadow also re-checks each async spot verdict sync (counter 3489, mismatch lines).
+        // Counters: [3485] full checks answered by a job (sync plans avoided), [3486] their wall ms (the sync plan's cost moved
+        // off the sim thread [inferred: job time ~ sync time]), [3487] eligible checks that still planned sync (START refused),
+        // [3488] placements dropped after the wait (Sim seen or gone: the game's own trip runs), [3489] shadow mismatches.
+        struct SpotCtx { public string Who; public bool AsyncOk; }
+        static readonly Dictionary<ulong, SpotCtx> sSpotCtx = new Dictionary<ulong, SpotCtx>();  // by script task: SafeSpot's caller
+        static readonly Dictionary<ulong, int> sSpotAsyncTasks = new Dictionary<ulong, int>();  // tasks whose check may go async -> jobs started
+        static string SpotWhoHere()
+        {
+            SpotCtx sc;
+            return sSpotCtx.Count > 0 && sSpotCtx.TryGetValue(Simulator.CurrentTask.Value, out sc) ? sc.Who : null;
+        }
+        // RouteBackoffHook.AsyncKindStart: this PlanFromPoint belongs to a spotasync check of this task
+        static bool SpotAsyncHere()
+        {
+            return sSpotAsyncTasks.Count > 0 && sInRoutableCheck && sSpotAsyncTasks.ContainsKey(Simulator.CurrentTask.Value);
+        }
+        static void SpotAsyncStarted(bool started)
+        {
+            ulong task = Simulator.CurrentTask.Value;
+            int n;
+            if (started && sSpotAsyncTasks.TryGetValue(task, out n)) sSpotAsyncTasks[task] = n + 1;
+        }
+        static bool SpotAsyncWould(Sims3.Gameplay.Actors.Sim sim)
+        {
+            if (!ShortcutOn("spotasync")) return false;
+            bool ownTask = Simulator.CurrentTask == sim.ObjectId;
+            bool household = IsPlayerSim(sim) || sim.SimDescription == null || UfWhy(sim) != 0;  // household rule: unknown scope counts as household
+            return H4Core.SpotAsync(true, true, ownTask, ownTask && MayYield(), ownTask && StuckWatchdog.WdA1Would(), household, sInWdCheck);
+        }
+        static void SpotAsyncDone(Sims3.Gameplay.Actors.Sim sim, Lot lot, Sims3.SimIFace.Vector3 pos, bool ok, int starts, int ms)
+        {
+            int[] c = PatchCounters();
+            if (starts == 0) { c[3487]++; return; }
+            c[3485]++;
+            if (ms > 0) c[3486] += ms;
+            if (!ShortcutOn("watchdogasyncshadow")) return;
+            bool sync;
+            sInOwnCheck = true;
+            try { sync = sim.IsPointInLotSafelyRoutable(lot, pos); } finally { sInOwnCheck = false; }
+            if (sync == ok) return;
+            c[3489]++;
+            DiagLine("spotasync shadow mismatch: " + sim.FullName + " async " + ok + " sync " + sync + " @" + Math.Round(pos.x, 2) + "," + Math.Round(pos.z, 2) + " on " + lot.Name);
+        }
+
+        // SpotAsyncCheck run: the hitch case (a SafeSpot full check of an unseen NPC in its own yielding task, ts3native would
+        // start it) leaves the sim thread only with the switch on; controls: household / not own task / cannot yield / ts3native
+        // refuses / inside the watchdog all stay sync, and a placement after a wait needs the Sim still there and unseen. Live
+        // part: ts3native's q 9 answer now, and one unseen NPC's spot verdict planned sync here (this call is not the Sim's task,
+        // so it never goes async; the async verdicts are compared in play by the watchdogasyncshadow arm, counter 3489).
+        public static object SpotAsyncCheck(string what)
+        {
+            string counters = B582Counters("spotasync", 3485, new[] { "checks answered by a job (sync plans avoided)", "their wall ms", "eligible but planned sync",
+                "placements dropped after the wait", "shadow mismatches" }, "");
+            if (what == "result") return counters;
+            // test only (repro spotasync-trip-loop): drop every lot's verdicts so the next shortcut's SafeSpot check is a cold miss
+            if (what == "clear") { int n = sSpotVerdicts.Count; sSpotVerdicts.Clear(); return "spotasync: cleared verdicts of " + n + " lots; " + counters; }
+            if (what != "run") return "spotasync <run|result|clear>";
+            bool on = ShortcutOn("spotasync");
+            bool hitchAsync = H4Core.SpotAsync(on, true, true, true, true, false, false);
+            bool eaSync = !H4Core.SpotAsync(false, true, true, true, true, false, false);
+            bool controls = eaSync && !H4Core.SpotAsync(true, true, true, true, true, true, false) && !H4Core.SpotAsync(true, true, false, true, true, false, false)
+                && !H4Core.SpotAsync(true, true, true, false, true, false, false) && !H4Core.SpotAsync(true, true, true, true, false, false, false)
+                && !H4Core.SpotAsync(true, true, true, true, true, false, true) && !H4Core.SpotAsync(true, false, true, true, true, false, false)
+                && H4Core.SpotPlaceAfter(false, true, true, true) && !H4Core.SpotPlaceAfter(true, true, false, true) && H4Core.SpotPlaceAfter(true, true, true, true);
+            string live = "no unseen NPC on a lot";
+            try
+            {
+                bool would = StuckWatchdog.WdA1Would();
+                live = "ts3native would start a tagged PlanFromPoint now=" + would;
+                foreach (Sims3.Gameplay.Actors.Sim s in Sims3.Gameplay.Queries.GetObjects<Sims3.Gameplay.Actors.Sim>())
+                {
+                    if (s == null || s.LotCurrent == null || s.LotCurrent.IsWorldLot || IsPlayerSim(s) || s.SimDescription == null || UfWhy(s) != 0) continue;
+                    bool ok;
+                    int t0 = System.Environment.TickCount;
+                    sInOwnCheck = true;
+                    try { ok = s.IsPointInLotSafelyRoutable(s.LotCurrent, s.Position); } finally { sInOwnCheck = false; }
+                    live += ", sync verdict " + ok + " in " + unchecked(System.Environment.TickCount - t0) + " ms for an unseen NPC on " + s.LotCurrent.Name;
+                    break;
+                }
+            }
+            catch (Exception e) { live += ", error " + e.GetType().Name; }
+            return B582Line("spotasync", on, "the hitch case's routability plan leaves the sim thread (uncut job, same verdict)", hitchAsync,
+                "today sync (" + eaSync + "), household / other task / no yield / refused / watchdog stay sync, placement re-gated after a wait; " + live, controls, "", counters);
+        }
+
         static bool? SpotVerdict(Sims3.Gameplay.Actors.Sim sim, Lot lot, SpotVerdicts v, RouteProfile p, Sims3.SimIFace.Vector3 pos, bool mayCheck, bool recheckBad, bool addGood)
         {
             int[] c = PatchCounters();
@@ -2448,8 +2562,20 @@ namespace Ts3Fixes
             if (!mayCheck || sSpotChecks >= kMaxSpotChecksPerTick) return null;
             sSpotChecks++;
             c[39]++;
+            // spotasync (docs/616): the same check as a watchdog-tagged own-task job, the Sim's task sleeping until READY
+            ulong task = Simulator.CurrentTask.Value;
+            SpotCtx sc;
+            bool async = sSpotCtx.TryGetValue(task, out sc) && sc.AsyncOk && SpotAsyncWould(sim);
+            int t0 = System.Environment.TickCount, starts = 0;
+            if (async) sSpotAsyncTasks[task] = 0;
             sInOwnCheck = true;
-            try { ok = sim.IsPointInLotSafelyRoutable(lot, pos); } finally { sInOwnCheck = false; }
+            try { ok = sim.IsPointInLotSafelyRoutable(lot, pos); }
+            finally
+            {
+                sInOwnCheck = false;
+                if (async) { sSpotAsyncTasks.TryGetValue(task, out starts); sSpotAsyncTasks.Remove(task); }
+            }
+            if (async) SpotAsyncDone(sim, lot, pos, ok, starts, unchecked(System.Environment.TickCount - t0));
             if (p.Ok) v.Cells[key] = ok;
             if (ok && addGood && p.Ok && v.Good.Count < kMaxGoodSpots) v.Good.Add(pos);
             return ok;
@@ -2538,7 +2664,7 @@ namespace Ts3Fixes
                         && !UcOnScreen(proxy) && FarFromViewers(door))
                     {
                         Sims3.SimIFace.Vector3 pos, fwd;
-                        if (SafeSpot(a, lot, door, out pos, out fwd)
+                        if (SafeSpot(a, lot, door, out pos, out fwd, "rabbithole", true)
                             && (UfPreCore.TripMode(false, false, ShortcutOn("unseenfbtriphold")) != 2 || UfTripHold(a, lot, pos)))  // docs/202 §3.6.4
                         {
                             string from = a.LotCurrent != null ? a.LotCurrent.Name : "street";
@@ -2574,7 +2700,7 @@ namespace Ts3Fixes
             if (sim.Household != null && sim.Household.Pets.Count > 0) return false;
             if (!TownieUnseen(sim, null) || (sim.Position - lot.Position).Length() <= kShortcutMinDistance || !FarFromViewers(lot.Position)) return false;
             Sims3.SimIFace.Vector3 pos, fwd;
-            if (!SafeSpot(sim, lot, lot.EntryPoint(), out pos, out fwd)) { c[idx + 2]++; return false; }
+            if (!SafeSpot(sim, lot, lot.EntryPoint(), out pos, out fwd, name, true)) { c[idx + 2]++; return false; }
             // spotcheck (default off): the gate judged the lot's position; the spot itself must be out of view too
             if (ShortcutOn("spotcheck") && !UfGoalUnseen(pos)) { c[2714]++; return false; }
             if (mode == 2 && !UfTripHold(sim, lot, pos)) return false;  // the game's own trip runs (the Sim lost only the hold)

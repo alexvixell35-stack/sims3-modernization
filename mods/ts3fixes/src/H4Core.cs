@@ -59,5 +59,23 @@ namespace Ts3Fixes
         {
             return !(horse && onWorldLot);
         }
+
+        // docs/616 spotasync: SafeSpot's own routability check (SpotVerdict's full check, the trip shortcuts' placement test) sent
+        // as an own-task PlanFromPoint job with the watchdog's tag, so ts3native's [RouteAsync] WatchdogKind2 starts it (uncut: the
+        // tagged job takes no KindDeadlines cut, so the verdict is the planner's own) and the Sim's task sleeps until READY instead
+        // of the sim thread planning ~280 ms. Only when the switch is on, the plan would run anyway (a cache miss within the tick's
+        // budget), the check runs in the Sim's own task and may yield, ts3native would start it (q 9), and the Sim is not household,
+        // selected or of unknown scope; never inside the watchdog's own check (A1 has its own path). Else today's sync check.
+        public static bool SpotAsync(bool on, bool fullCheck, bool ownTask, bool mayYield, bool would, bool household, bool inWatchdog)
+        {
+            return on && fullCheck && ownTask && mayYield && would && !household && !inWatchdog;
+        }
+
+        // After an async spot verdict the Sim's task slept one or more ticks: the caller places the Sim only when it is still
+        // there and still unseen, as SafeSpotYield's rule; no yield = today's path. The verdict itself is cached either way.
+        public static bool SpotPlaceAfter(bool yielded, bool alive, bool unseen, bool farFromViewers)
+        {
+            return !yielded || (alive && unseen && farFromViewers);
+        }
     }
 }

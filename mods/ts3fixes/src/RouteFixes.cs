@@ -123,9 +123,10 @@ namespace Ts3Fixes
         struct RouteFails { public Vector3 Pos; public long First; public int Count; }
         static readonly Dictionary<ulong, RouteFails> sRouteFails = new Dictionary<ulong, RouteFails>();
         // per task (the shape of PR #306's flag): this check's plan can sleep on its route job, and another Sim's result must still reach
-        // NotePlanResult. shortcut: one slot, a second check sleeping beside it ends the first's cover early; a list if that ever shows up
-        static bool sOwnCheckOn;
-        static ulong sOwnCheckTask;
+        // NotePlanResult. docs/616: a set of tasks, not one slot: with spotasync several Sims' SafeSpot checks can sleep at once, and
+        // one slot let the second check's end clear the first's cover (its later plans counted as the Sim's own route fails and
+        // lost the spot tag and the async START). Kept small: a task is added for one check and removed in its finally.
+        static readonly System.Collections.Generic.List<ulong> sOwnCheckTasks = new System.Collections.Generic.List<ulong>(4);
         // docs/250: inside the watchdog's idle check (CheckIdle's SpotVerdict), same per-task rule as sInOwnCheck
         static bool sWdCheckOn;
         static ulong sWdCheckTask;
@@ -150,8 +151,13 @@ namespace Ts3Fixes
         }
         static bool sInOwnCheck
         {
-            get { return sOwnCheckOn && sOwnCheckTask == Simulator.CurrentTask.Value; }
-            set { sOwnCheckOn = value; sOwnCheckTask = value ? Simulator.CurrentTask.Value : 0; }
+            get { return sOwnCheckTasks.Count > 0 && sOwnCheckTasks.Contains(Simulator.CurrentTask.Value); }
+            set
+            {
+                ulong t = Simulator.CurrentTask.Value;
+                if (!value) { sOwnCheckTasks.Remove(t); return; }
+                if (!sOwnCheckTasks.Contains(t)) { if (sOwnCheckTasks.Count >= 64) sOwnCheckTasks.Clear(); sOwnCheckTasks.Add(t); }  // bounded: a task killed mid-check never removes itself
+            }
         }
         // docs/250 §7.1 A1: the task whose idle check CheckIdle sent as an async job (0 = none); RouteBackoff.cs OwnerTaskSlot 872
         static ulong sWdA1Task;
@@ -398,7 +404,7 @@ namespace Ts3Fixes
             // A START still refused later (queue full) runs the check sync: c[872] - c[873]. q 9 (ts3native 0.36.239): the check's
             // PlanFromPoint START passes ts3native's kind gate ([RouteAsync] WatchdogKind2 or Kinds bit 2); older ts3native and
             // the game answer false, so A1 is not chosen there (counted watchdogasync_refused) and the check runs sync.
-            static bool WdA1Would()
+            internal static bool WdA1Would()
             {
                 return RouteBackoffHook.ForeignEligible() && HcWould(sYieldProbe, 1) && HcWould(sYieldProbe, 5) && HcWould(sYieldProbe, 7)
                     && HcWould(sYieldProbe, 9);

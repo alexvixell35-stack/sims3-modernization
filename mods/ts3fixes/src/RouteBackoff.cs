@@ -291,7 +291,7 @@ namespace Ts3Fixes
             // force: routableasync's job takes the pre-call as the watchdog's A1 does (same check, same door / tomb rules)
             bool PreCb(int kind, ref bool pre, bool force)
             {
-                if (pre || !(force || ShortcutOn("preplancb") || WdA1Here())) return true;
+                if (pre || !(force || ShortcutOn("preplancb") || WdA1Here() || SpotAsyncHere())) return true;
                 pre = true;
                 Sims3.SimIFace.Route.AboutToPlanDelegate cb = Sims3.SimIFace.Route.AboutToPlanCallback;
                 if (cb == null || DestObjectInvalid()) return true;
@@ -418,7 +418,8 @@ namespace Ts3Fixes
                 // ts3native 0.36.239 [RouteAsync] WatchdogKind2: the PlanFromPoint START carries the watchdog tag (kProbe 0x10400, as
                 // OwnerTaskStart's kind 0), and ts3native starts an own kind-2 START without Kinds bit 2 only with it; it labels the
                 // job (v179 wdJob*). CheckIdle picks A1 only when ts3native answers q 9 (RouteFixes.cs WdA1Would).
-                bool wd = WdA1Here() && ForeignEligible();
+                bool a1 = WdA1Here(), spot = !a1 && kind == 2 && SpotAsyncHere();  // docs/616 spotasync: SafeSpot's check takes A1's tagged path
+                bool wd = (a1 || spot) && ForeignEligible();
                 // routableasync (docs/584 §3, default off; for an A/B with [RouteAsync] Kinds=2): a PlanFromPoint START only from
                 // EA's Sim.IsPointInLotSafelyRoutable (RoutableCacheHook, sInRoutableCheck; our SpotVerdict's calls go through it
                 // too) for an unseen NPC (UfWhy 0: never household, selected or unknown scope); every other PlanFromPoint stays
@@ -435,9 +436,10 @@ namespace Ts3Fixes
                 if (!own && !(ShortcutOn("asyncreplan") && ShortcutOn("asyncreplanforeign") && ForeignEligible())) return false;
                 PreCb(kind, ref pre, rtGate);
                 if (kind >= 2) { AsyncPoint(0, p.x); AsyncPoint(1, p.y); AsyncPoint(2, p.z); }
-                if (wd) { PatchCounters()[872]++; GetOption2(kProbe | (Sims3.SimIFace.Route.RouteOption2)0x10400UL); }
+                if (wd) { if (a1) PatchCounters()[872]++; GetOption2(kProbe | (Sims3.SimIFace.Route.RouteOption2)0x10400UL); }
                 bool started = GetOption2((Sims3.SimIFace.Route.RouteOption2)((own ? kArStart : kArStart | kArForeign) | (ulong)kind << 56));
-                if (wd) { if (started) PatchCounters()[873]++; }
+                if (wd && spot) SpotAsyncStarted(started);
+                else if (wd) { if (started) PatchCounters()[873]++; }
                 else if (!own)
                 {
                     int[] c = PatchCounters();

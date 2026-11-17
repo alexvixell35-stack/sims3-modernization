@@ -123,6 +123,7 @@ namespace Ts3Fixes
                 string src = sInWdCheck ? "watchdog" : sStuckIn ? "stuckcheck" : sInRoutableCheck && !sInOwnCheck ? "routable" : sInOwnCheck ? "spot"
                     : sUfInLeg ? "leg" : sim != null && sim.SimDescription != null && sim.SimDescription.IsPet ? "pet"
                     : proxy != null && proxy.Target != null ? proxy.Target.GetType().Name : "none";
+                if (src == "spot") { string sw = SpotWhoHere(); src += sw != null ? ":" + sw.Replace(", ", " ") : sInWdCheck ? "" : ":other"; }  // docs/616: SafeSpot's caller and lot
                 if (who != null) src += " " + who.FullName;
                 IScriptProxy tp = Simulator.GetProxy(Simulator.CurrentTask);
                 Sim ts = tp != null ? tp.Target as Sim : null;
