@@ -6989,6 +6989,38 @@
       "at": "2026-11-17T01:06:01.938Z",
       "worktree": "/home/<user>/dev/sims3-modernization",
       "pinned": true
+    },
+    {
+      "id": "fixes-3424",
+      "kind": "fixes",
+      "from": 3424,
+      "to": 3429,
+      "by": "s79",
+      "what": "spawnerskip: ObjectSpawner failing placement search skipped to EA's fallback",
+      "at": "2026-11-17T01:15:31.669Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3430",
+      "kind": "fixes",
+      "from": 3430,
+      "to": 3434,
+      "by": "s79",
+      "what": "maptagtaskalive: map tag visibility and controller tasks restart instead of ending",
+      "at": "2026-11-17T01:15:31.748Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "doc-610",
+      "kind": "doc",
+      "from": 610,
+      "to": 610,
+      "by": "s79",
+      "what": "spawner placement skip, map tag task",
+      "at": "2026-11-17T01:15:39.465Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

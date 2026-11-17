@@ -378,6 +378,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kSpeedLockOwner = false; // speedlockowner (docs/609 §5): build/buy exit unlocks the game speed only if its enter took the lock
         [Tunable] public static bool kAlarmZeroPeriod = false; // alarmzeroperiod (docs/609 §6): a repeating alarm period of 0 ticks or less counts as 1 tick (EA hangs), catch-up in one division
         [Tunable] public static bool kHeartBrokenBcast = false; // heartbrokenbcast (docs/609 §7): SocialCallback.AddHeartBroken disposes the heartbroken broadcaster a repeat breakup replaces (EA left it pulsing on the first ex)
+        [Tunable] public static bool kSpawnerSkip = false; // spawnerskip (docs/610 §2): a spawner whose placement search failed kSpawnerSkipFails times in a row takes EA's failure ending at once, full search every kSpawnerSkipRetry-th spawn or when its lot changes
+        [Tunable] public static int kSpawnerSkipFails = 3; // spawnerskip: full searches failed in a row before the skip arms
+        [Tunable] public static int kSpawnerSkipRetry = 8; // spawnerskip: every Nth spawn of an armed spawner runs the full search again (0 = only after a change)
+        [Tunable] public static bool kMapTagTaskAlive = false; // maptagtaskalive (docs/610 §3): the map tag visibility and controller tasks restart on a forced update or inactive toggle instead of ending until the next UI load
         [Tunable] public static bool kSarcMummyNpc = false; // sarcmummynpc (docs/607 §3): a reset or deleted Sarcophagus takes its tomb mummy out of NpcHousehold, as TombMummyDestroy does
         [Tunable] public static bool kPushWaitSkip = false; // pushwaitskip (docs/604 §2): RoutingComponent.PushSimsStatic's wait pass checks every pushed Sim once (EA steps twice and keeps the pusher idle an extra 10 sim-minutes)
         [Tunable] public static bool kDetailPriorityExact = false; // detailprioexact (docs/603 §3): Lot.CalculateDetailPriority gives EA's answer without building the household actor lists on every lot pass (exact, DetailPrio603.cs)
