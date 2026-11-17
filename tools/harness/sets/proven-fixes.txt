@@ -328,3 +328,5 @@ speedrecalclock
 speedlockowner
 alarmzeroperiod
 heartbrokenbcast
+spawnerskip
+maptagtaskalive
