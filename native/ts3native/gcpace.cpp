@@ -170,6 +170,11 @@ static int __cdecl GpInner(void* stop) {
     else if (now - g_gpLastLog >= g_gpLogMs) GpLog(k, now);
     return r;
 }
+#ifdef TS3A_TABLE
+// the EA-table build never installs GpInner (Steam layout only); keep it referenced so /W4 /WX (C4505) builds
+extern "C" void* g_gpInnerKeep;
+void* g_gpInnerKeep = (void*)&GpInner;
+#endif
 
 #ifndef TS3A_TABLE
 // 0xE49FB0..0xE4A041, the body GpRun reproduces (rel32 calls included: the Steam layout only)
