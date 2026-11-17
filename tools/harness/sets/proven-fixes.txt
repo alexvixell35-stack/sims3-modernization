@@ -273,8 +273,8 @@ woohootywait
 # built 2026-11-15, in-game off/on test pending (docs/575-577); move to the set once proven:
 #   petputdownwait puddlereach scarepriority
 #   trashpileimport catgymwatch badsecretkey traitlistenerremove portasknohome lecturebroadcaster residentspawnwalk midlifewishsave betrayednullsim topictestnull opptrackerrelisten traitremovenull homeworkcopyold laundrymoodeach partycleanupnull safelocunhide midlifeuiending nemesisnoromance
-# built 2026-11-17 (docs/607, TreasureSpawn74.cs), in-game off/on test pending:
-#   tspawninvdup sarcmummynpc
+# built 2026-11-17 (docs/608, WalkStyleLeak77.cs), in-game off/on test pending:
+#   megaphonerun dragoncurserun vhomewalk
 # PRs #452 #454 #456 #457 (2026-11-16, other sessions), default off, in-game off/on test pending:
 #   safespotpool spotcheck tagunseen unseenoutfitdefer
 # diagnostics (log only):

@@ -484,7 +484,10 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 2790-2792 | `PushWait604.cs` (`fixes-2790`, docs/604 §2), `pushwaitskip` | built 2026-11-16, default off: done Sims EA's double-step wait pass would have skipped (2790) / waiting calls on EA's body, switch off (2791) / errors, rethrown (2792) |
 | 3388-3390 | `TreasureSpawn74.cs` (`fixes-3388`, s74, docs/607 §2), `tspawninvdup` | built 2026-11-17, default off: extra treasure add-to-inventory subscriptions removed (3388) / extras seen with the switch off (3389) / errors (3390) |
 | 3391-3393 | `TreasureSpawn74.cs` (`fixes-3391`, s74, docs/607 §3), `sarcmummynpc` | built 2026-11-17, default off: tomb mummy descriptions removed from NpcHousehold at sarcophagus cleanup (3391) / left with the switch off (3392) / errors (3393) |
-| **2000+** | next free (1981-1999 taken; free spans 2016-2021, 2711-2721 minus PR rows, 2760-2789, 2797-2799; contributor range full, slots past 3393 need `--at` and `kCounterSlots` raised, now 3400) | reserve here  |
+| 3394-3397 | `WalkStyleLeak77.cs` (`fixes-3394`, s77, docs/608 §2), `megaphonerun` | built 2026-11-17, default off: WakeWithMegaphone Run requests moved onto its RouteAway (3394) / released, no route-away queued (3395) / left with the switch off (3396) / errors (3397) |
+| 3398-3401 | `WalkStyleLeak77.cs` (`fixes-3398`, s77, docs/608 §3), `dragoncurserun` | built 2026-11-17, default off: Phantasmal Curse Run requests moved onto the target's RouteAway (3398) / released (3399) / left with the switch off (3400) / errors (3401) |
+| 3402-3404 | `WalkStyleLeak77.cs` + `RouteFixes.cs` (`fixes-3402`, s77, docs/608 §4), `vhomewalk` | built 2026-11-17, default off: GoToVirtualHomeInternal walk-style requests released (3402) / left with the switch off (3403) / errors (3404) |
+| **2000+** | next free (1981-1999 taken; free spans 2016-2021, 2711-2721 minus PR rows, 2760-2789, 2797-2799; contributor range 2000-3999 since upstream #470, `kCounterSlots` 4000; slots past 3404 with `--at`) | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 

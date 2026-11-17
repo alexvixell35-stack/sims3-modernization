@@ -109,6 +109,7 @@ namespace Ts3Fixes
                 case "doorgen": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(DoorGenBuffHook), 2), EpLive(typeof(DoorGenBuffHook2), 2)), EpLive(typeof(DoorGenDescHook), 3)), EpLive(typeof(DoorGenDoorHook), 5)), EpLive(typeof(DoorGenFireHook), 2)), EpLive(typeof(DoorGenHouseholdHook), 4)), EpLive(typeof(DoorGenLotHook), 2)), EpLive(typeof(DoorGenOccultHook), 1)), EpLive(typeof(DoorGenResortHook), 6)), EpLive(typeof(DoorGenRoleHook), 2)), EpLive(typeof(DoorGenRoleTaskHook), 1)), EpLive(typeof(DoorGenSimHook), 1)), EpLive(typeof(DoorGenVipHook), 2));
                 case "doorlockowner": return EpLive(typeof(BDlHook), 2);
                 case "doorprivacynull": return EpLive(typeof(B12DpHook), 1, "sDpNeed", sDpNeed, typeof(bool), "sDpHandler", sDpHandler, null, "sDpNeed", sDpNeed, null);
+                case "dragoncurserun": return EpLive(typeof(WsCurseHook), 1);
                 case "dreamcleanup": return EpLive(typeof(DcHook), 1, "sDcRemoval", sDcRemoval, null);
                 case "dreamrootorphan": return EpLive(typeof(WlNode), 0, "sWlListener", sWlListener, null);
                 case "eanullguards": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatParkGoneHook), 1), EpLive(typeof(BookHandPutDownHook), 1)), EpLive(typeof(BookHandQueueHook), 1, "sBhActor", sBhActor, null)), EpLive(typeof(BribeHook), 1, "sBribeTable", sBribeTable, null)), EpLive(typeof(CarryHook), 1)), EpLive(typeof(ConvTurnHook), 1)), EpLive(typeof(FireworksFizzleHook), 0)), EpLive(typeof(GraduationAttendHook), 1)), EpLive(typeof(GraduationCityHallHook), 1)), EpLive(typeof(MotivesHook), 1)), EpLive(typeof(OutfitClearHook), 2)), EpLive(typeof(SwAbuseHook), 1)), EpLive(typeof(SwAdoptHook), 1)), EpLive(typeof(SwPetAdoptHook), 1)), EpLive(typeof(SwPutUpHook), 1)), EpLive(typeof(ThrowHook), 3)), EpLive(typeof(TopicHook), 4));
@@ -210,6 +211,7 @@ namespace Ts3Fixes
                 case "lunacysocials": return EpLive(typeof(LunacyHook), 0);
                 case "maildogchaser": return EpLive(typeof(BMdHook), 1, "sMdDog", sMdDog, null);
                 case "mapviewkeep": return EpLive(typeof(MapViewKeepHook), 0);
+                case "megaphonerun": return EpLive(typeof(WsMegaHook), 1);
                 case "meltalarm": return EpLive(typeof(B12MaHook), 1, "sMaAlarm", sMaAlarm, null, "sMaHours", sMaHours, typeof(float), "sMaHours", sMaHours, "static");
                 case "menumaven": return EpLive(typeof(MenuMavenHook), 1);
                 case "metricskillmissing": return EpLive(typeof(MetricSkillMissingHook), 3);
@@ -436,6 +438,7 @@ namespace Ts3Fixes
                 case "vehprotestcar": return EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(VlGetInBoatHook), 0, "sVlGiBoatSim", sVlGiBoatSim, null, "sVlGiBoatId", sVlGiBoatId, null), EpLive(typeof(VlGetInCarHook), 0, "sVlGiCarSim", sVlGiCarSim, null)), EpLive(typeof(VlGetVehicleHook), 1)), EpLive(typeof(VlParkHook), 1)), EpLive(typeof(VlProtestHook), 1));
                 case "vehseatdestroy": return EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(VlGetInBoatHook), 0, "sVlGiBoatSim", sVlGiBoatSim, null, "sVlGiBoatId", sVlGiBoatId, null), EpLive(typeof(VlGetInCarHook), 0, "sVlGiCarSim", sVlGiCarSim, null)), EpLive(typeof(VlGetVehicleHook), 1)), EpLive(typeof(VlParkHook), 1)), EpLive(typeof(VlProtestHook), 1));
                 case "venuememo": return EpJoin(EpLive(typeof(TuningMemoHook), 0), EpLive(typeof(VenueScoreHook), 0));
+                case "vhomewalk": return EpLive(typeof(VirtualHomeHook), 1);
                 case "viproomrefresh": return EpLive(typeof(VipRefreshHook), 1);
                 case "virtualhome": return EpLive(typeof(VirtualHomeHook), 1);
                 case "virtualhomeshare": return EpLive(typeof(BVhHook), 1, "sVhShare", sVhShare, typeof(float), "sVhShare", sVhShare, "static");

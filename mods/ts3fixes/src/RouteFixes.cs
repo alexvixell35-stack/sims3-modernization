@@ -68,7 +68,11 @@ namespace Ts3Fixes
                     Simulator.Sleep(uint.MaxValue);
                     return true;
                 }
-                return RunOrig();
+                // vhomewalk (docs/608 §4, WalkStyleLeak77.cs): EA's Run requests SimWalkStyle on the Sim and never takes it back
+                Sim.WalkStyle ws = SimWalkStyle;
+                int wsBefore = ws != Sim.WalkStyle.AutoSelect ? WsCount(Actor, ws) : -1;
+                try { return RunOrig(); }
+                finally { if (wsBefore >= 0) VhRelease(Actor, ws, wsBefore, ShortcutOn("vhomewalk")); }
             }
             public bool RunOrig() { return false; } // receives GoToVirtualHomeInternal.Run's original header
         }

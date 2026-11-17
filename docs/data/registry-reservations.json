@@ -6870,6 +6870,49 @@
       "what": "WA tomb and travel registries hunt (s74)",
       "at": "2026-11-16T23:56:38.732Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3394",
+      "kind": "fixes",
+      "from": 3394,
+      "to": 3397,
+      "by": "s77",
+      "what": "megaphonerun: WakeWithMegaphone Run request moved to its RouteAway",
+      "at": "2026-11-17T00:40:55.424Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3398",
+      "kind": "fixes",
+      "from": 3398,
+      "to": 3401,
+      "by": "s77",
+      "what": "dragoncurserun: BabyDragon PhantasmalCurse Run request moved to its RouteAway",
+      "at": "2026-11-17T00:40:55.502Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3402",
+      "kind": "fixes",
+      "from": 3402,
+      "to": 3404,
+      "by": "s77",
+      "what": "vhomewalk: GoToVirtualHomeInternal walk style released",
+      "at": "2026-11-17T00:40:55.578Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "doc-608",
+      "kind": "doc",
+      "from": 608,
+      "to": 608,
+      "by": "s77",
+      "what": "s77 hot-method walk-style leaks",
+      "at": "2026-11-17T00:40:55.656Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }
