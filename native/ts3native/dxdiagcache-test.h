@@ -1,7 +1,7 @@
 // TestDxDiagCache (dxdiagcache.cpp / dxdiagvram.h, docs/284): the replayed VRAM_DxDiag decision and the sidecar round trip.
 // Included by selftest.cpp.
 static void TestDxDiagCache() {
-    static_assert(offsetof(Ts3nCounters, ddcMode) == 0x6580 && offsetof(Ts3nCounters, ddcSavedMs) == 0x658C && sizeof(Ts3nCounters) == 6500 * 4,
+    static_assert(offsetof(Ts3nCounters, ddcMode) == 0x6580 && offsetof(Ts3nCounters, ddcSavedMs) == 0x658C && sizeof(Ts3nCounters) == 6660 * 4,
                   "counters v207 (docs/registry.md)");
     // ((MB + 4) << 20 & 0xFF800000) >> 20: rounds to 8 MB, wraps at 4096 (docs/37 §6)
     assert(DdcValueFromMem(L"4096 MB") == 0 && DdcValueFromMem(L"6144 MB") == 2048 && DdcValueFromMem(L"8031 MB") == 3936);

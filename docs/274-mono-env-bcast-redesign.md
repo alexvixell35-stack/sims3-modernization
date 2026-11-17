@@ -222,3 +222,41 @@ What can change list 0 [verified, decompiled]: the native per-lot query (`Querie
 Fix (in the probe, switch `envlistmemo`, default off, counts only): `ElGone` records the object and its lot(s) (cap 4096; overflow clears the memo); every probe call bumps those lots while `Objects.IsValid` is true, then once more via `Bump`'s next-tick repeat, and drops the entry. World quit / lot reset clears the list. Each wrong-hit line now carries the diff: `was <n>`, up to 3 `gone` and 3 `new` objects as `Type(room .. destroyed dying invalid child notinworld)`, or `reorder` (`ListMemo.WrongOld`, selftest case added). Cost: one `IsValid` per dying object per probe call (a few at a time) [inferred]; the hit rate drops on lots with a pending destroy.
 
 Queue `envlistmemo-dying-correct-1117.json` (BP + IP, 10 min each, `ts3fixes.package.envlistmemo-1117` on the master-1117c native set): FAIL on any wrong hit (`envlistmemo_hit_wrong<1`); read hit/calls (>= 40%) from the row. Pass: R1 apply build next (household / selected / unknown scope exempt via `Fixes.HouseholdExempt`, the apply's own correctness queue + ABBA). Fail: the diff names the kind; if it is not a dying object, the list changes through a native path with no managed event and R1 parks.
+
+**Result (2026-11-18, chain-1118a step 1, `envlistmemo-dying-correct-1117`): bp-dying FAIL, ip-dying not run.** BP 10 min (13.6 min job): calls 10,020, hit 7,243 (**72.3%**), `hit_wrong` **7** (0.1% of would-hits), miss_same 2,458, miss_diff 276, first 36, exc 0 [measured, job row]. The FAIL stopped the queue (`stopQueueOnFail`), so IP has no data; resume: `node tools/harness/queue.ts tools/harness/queues/envlistmemo-dying-correct-1117.json --from ip-dying`. Machine noise was high (other CPU 25%), which does not touch these counts.
+
+All 7 wrong-hit lines (`fixesApplied`) are list 0 on one lot (`..0336`, the same busy lot as 11-17), room 2 (5 lines, n 24, 25, 26, 27, 27) and room 11 (2 lines, n 19), and every one reads `was <n> reorder` with `was` = `n` [measured]:
+
+| Kind | Count |
+|---|---|
+| destroyed / pending-destroy object (`gone`/`new` with `destroyed`, `dying` or `invalid`) | 0 |
+| add or remove with no event (`gone`/`new`, live object) | 0 |
+| reorder only (same objects, same count, different order) | **7** |
+| other | 0 |
+
+Verdict: the dying-object cause (I-506-3) is **not** what is left: no line names a dying, destroyed or added object. The decision rule's park branch ("the lines don't show a destroyed object" = an unseen membership change) does not apply either, because the membership never changes; what is left is a different, narrower cause: **the order of the room list changes with the same objects in it**. `GetObjectsInRoom<GameObject>` keeps the order of the native lot walk (`Query_GetObjectsOnLot`), so the native lot vector reorders while no managed lot or room event fires for anything in that room [inferred: a remove-and-reinsert or swap-remove of some *other* object on the lot, e.g. one leaving another room or being parented to or from a Sim; not named by the data, because the diff logs only room-2/11 objects]. The 11-17 run (11 BP lines, no diff) may have mixed both kinds; the dying fix cannot be credited with removing any, since that run had no diff.
+
+Not parked. Fix estimate: (1) diag, ~30 min build + one 15-min BP job: on a wrong hit also log the first moved index with both objects' types (Sim or not, `child`) and the lot's events since the memo entry (count of `OnObjectLotUpdate` / parent changes for that lot), so the reordering path gets a name; (2) then either bump the lot on that path (if it is a managed event or a hookable call such as parent/unparent, ~1 h build + BP/IP rerun), or make the apply order-tolerant for unseen Sims only (set compare, `Fixes.HouseholdExempt` Sims always take the game's call; needs a static check that `CalculateSimEnvironmentScore` sums order-independently except float rounding, ~1 h). R1 stays dry until `hit_wrong` = 0 or the order-tolerant variant is proven.
+
+### 8.6 Is a reorder a wrong answer? Consumer check and the reorder diag (2026-11-18, branch `feature/envlistmemo-reorder-diag-1118`, built, NOT RUN)
+
+The memoized list has one consumer: `SimUpdate.CalculateSimEnvironmentScore` (the only caller of the probed list calls; its only call site is the `SimUpdate` tick, hooked by `EnvHook`) [verified, decompiled]. What its indoor loop over `GetObjectsInRoom<GameObject>(room)` does with each object, and whether order matters (ledger §513):
+
+| Use in the loop | Order-independent? |
+|---|---|
+| Positive scores go to a list, which `CalculateContributingObjectScore` sorts descending before the weighted sum; equal values are interchangeable | yes [verified] |
+| Negative scores: `negativeEnvironment += num` in list order (float32 through a `ref` param), then clamp | **no, rounding only**: float addition is not associative; differs by ulps when 3+ negative objects of mixed magnitude reorder [inferred] |
+| `roomPerceivedToHaveLight`, window flag (`flag2`), ComeAndSee count | yes (OR / count) [verified] |
+| Sims in the list: `DoSimEnvironmentUpdateInternal(..., ref foundEnemy, ref foundLover, ref reactionPlayed, ...)`: salute, pet, horse, Bonehilda, startle, enemy, lover and wave reactions are each gated on `!reactionPlayed` / `!foundEnemy` / `!foundLover`, so the **first** qualifying Sim in list order gets the reaction | **no, first-match** [verified] |
+| `SendObjectEnvironmentUpdateEvents` / `SendSimEnvironmentUpdateEvents` (saw dirty / broken object, Sim events) | same set of events, order follows the list; listeners that act once per event kind would see a different first object [inferred] |
+| Aromainators added from the lot-wide list (`objects2[k]`, `k < num3`): uses list 1's order (an EA quirk: the first `num3` of the lot list, not the ones outside the room) | list 1, never hit wrong [measured, §8.5] |
+
+Verdict: **order-dependent**. A reorder is a real wrong answer when the moved part changes the Sims' relative order (which Sim gets the reaction) and, at ulp level, when negative scorers move. So the dry gate stays element-by-element (`hit_wrong` counts reorders), and no set-compare change was made.
+
+Diag (switch `envlistmemo`, default off, counts only; no new counters): a reorder line now reads `was <n> reorder at <i> old <Type(...)> now <Type(...)> simorder moved|same ev <e> age <t>`: the first moved index with both objects (`ElDesc` now also marks `sim`), whether the Sims' subsequence order changed, the lot's `Bump` events (each lot/room/destroy/place event once, not the next-tick repeats; on a valid entry these can only be other-room events) and the ticks since the list was last seen equal (`ListMemo.WrongEv` / `WrongAge`, selftest cases added). Build `ts3fixes.package.envlistmemo-reorder-1118` (master tuning; master-1117c native set in the queue).
+
+Queue `envlistmemo-reorder-diag-1118.json` (BP + IP 10 min, Apex + bridge; RUN FIRST before any R1 fix; replaces the unrun `ip-dying` job, since this build keeps the dying bump): no FAIL on wrong hits (`stopQueueOnFail` off), gate = probe counters read back, exc 0, 0 script errors. Read the lines:
+
+- all `simorder same` with a non-Sim first moved object: only ulp rounding and event order differ; fit = **unseen-only reuse** (the memo's list is the game's own order from a few ticks ago, so the answer stays realistic; `Fixes.HouseholdExempt` / selected / unknown-scope Sims always take the game's call), ~1 h build + its own correctness queue.
+- `simorder moved`, or `ev` > 0 on every line: the reorder follows an event on another room of the lot (a remove-and-reinsert in the native lot vector, [inferred]); fit = **lot bump** on that event (bump the whole lot instead of the room for the event kind named, ~1 h build + BP/IP rerun), then `hit_wrong` = 0 again gates the exact apply.
+- `ev` 0 and `simorder moved`: the reorder has no managed event; R1 goes unseen-only (first rule) or parks.

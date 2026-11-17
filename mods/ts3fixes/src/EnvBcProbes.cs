@@ -113,7 +113,21 @@ namespace Ts3Fixes
             foreach (object o in old) if (k < 3 && !now.Contains(o)) { r += " gone " + ElDesc(o); k++; }
             int g = k; k = 0;
             foreach (object o in now) if (k < 3 && Array.IndexOf(old, o) < 0) { r += " new " + ElDesc(o); k++; }
-            return g + k == 0 ? r + " reorder" : r;
+            if (g + k != 0) return r;
+            // docs/274 §8.6 diag: the first moved index, whether the Sims' relative order changed (the scan's reaction gates
+            // are first-match over Sims, SimUpdate.DoSimEnvironmentUpdateInternal), and the lot's events since the list was last equal
+            int i = 0;
+            while (i < old.Length && i < now.Count && ReferenceEquals(old[i], now[i])) i++;
+            r += " reorder at " + i + (i < old.Length ? " old " + ElDesc(old[i]) : "") + (i < now.Count ? " now " + ElDesc(now[i]) : "");
+            int so = 0, sn = 0; bool simMoved = false;
+            for (; ; so++, sn++)
+            {
+                while (so < old.Length && !(old[so] is Sim)) so++;
+                while (sn < now.Count && !(now[sn] is Sim)) sn++;
+                if (so >= old.Length || sn >= now.Count) break;
+                if (!ReferenceEquals(old[so], now[sn])) { simMoved = true; break; }
+            }
+            return r + (simMoved ? " simorder moved" : " simorder same") + " ev " + sEl.WrongEv + " age " + sEl.WrongAge;
         }
 
         static string ElDesc(object o)
@@ -122,7 +136,7 @@ namespace Ts3Fixes
             if (go == null) return o == null ? "null" : o.GetType().Name;
             bool dying = false;
             foreach (ElDying d in sElDying) if (d.Id == go.ObjectId) dying = true;
-            return go.GetType().Name + "(room " + go.RoomId + (go.HasBeenDestroyed ? " destroyed" : "") + (dying ? " dying" : "")
+            return go.GetType().Name + "(room " + go.RoomId + (go is Sim ? " sim" : "") + (go.HasBeenDestroyed ? " destroyed" : "") + (dying ? " dying" : "")
                 + (Sims3.SimIFace.Objects.IsValid(go.ObjectId) ? "" : " invalid") + (go.Parent != null ? " child" : "")
                 + (go.InWorld ? "" : " notinworld") + ")";
         }

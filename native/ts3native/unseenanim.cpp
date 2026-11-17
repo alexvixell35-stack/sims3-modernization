@@ -476,42 +476,195 @@ typedef DWORD(__fastcall* AnFn1)(void* self, void* edx, DWORD a);
 static AnFn3 g_anAdv = (AnFn3)(uintptr_t)TS3A(0x00583D00);
 static AnFn2 g_anNot = (AnFn2)(uintptr_t)TS3A(0x00947590), g_anEval = (AnFn2)(uintptr_t)TS3A(0x005833C0);
 static AnFn1 g_anPub = (AnFn1)(uintptr_t)TS3A(0x00959670);
-static void AnAdd(LONG* c, LARGE_INTEGER t0) {  // c: n, us, maxUs
+// [AnimPhase] Split (docs/22 §6.1, counters v208 anx*): class of the pose call running now (sim thread; 7 = none / unknown)
+enum { ANX_HH, ANX_NPC_ON, ANX_NPC_NEAR, ANX_NPC_UNSEEN, ANX_OBJ_ON, ANX_OBJ_NEAR, ANX_OBJ_UNSEEN, ANX_NONE, ANX_N };
+static bool g_anxOn;
+static int g_anxCls = ANX_NONE;
+static void AnAdd(LONG* c, LARGE_INTEGER t0, int ph) {  // c: n, us, maxUs; ph: index into anxPhN
     const LONG us = UsSince(t0);
     InterlockedIncrement(&c[0]);
     InterlockedExchangeAdd(&c[1], us);
     Max(&c[2], us);
+    if (g_anxOn) {
+        InterlockedIncrement(&ts3native_counters.anxPhN[ph][g_anxCls]);
+        InterlockedExchangeAdd(&ts3native_counters.anxPhUs[ph][g_anxCls], us);
+    }
 }
 static DWORD __fastcall AnAdvHook(void* self, void* edx, DWORD dt, DWORD a, DWORD b) {
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     const DWORD r = g_anAdv(self, edx, dt, a, b);
-    AnAdd(&ts3native_counters.anAdvN, t0);
+    AnAdd(&ts3native_counters.anAdvN, t0, 0);
     return r;
 }
 static DWORD __fastcall AnNotHook(void* self, void* edx, DWORD a, DWORD b) {
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     const DWORD r = g_anNot(self, edx, a, b);
-    AnAdd(&ts3native_counters.anNotN, t0);
+    AnAdd(&ts3native_counters.anNotN, t0, 1);
     return r;
 }
 static DWORD __fastcall AnEvalHook(void* self, void* edx, DWORD a, DWORD b) {
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     const DWORD r = g_anEval(self, edx, a, b);
-    AnAdd(&ts3native_counters.anEvalN, t0);
+    AnAdd(&ts3native_counters.anEvalN, t0, 2);
     return r;
 }
 static DWORD __fastcall AnPubHook(void* self, void* edx, DWORD a) {
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     const DWORD r = g_anPub(self, edx, a);
-    AnAdd(&ts3native_counters.anPubN, t0);
+    AnAdd(&ts3native_counters.anPubN, t0, 3);
     return r;
 }
 
-// [AnimPhase] Enabled=1 (default 0, a test-run timer): all four sites or none
+// [AnimPhase] Split=1 (docs/22 §6.1, Rodney 2026-11-18 "what animates off camera, measure before building"): every call of rig
+// pose 0x940430 is timed by pose kind and by the actor's class (household / NPC / object x on screen / off screen within the camera
+// reach / unseen), the four phase timers above are added to that class, and clip event dispatches 0x568710 are counted. Measurement
+// only: each wrapper calls EA's callee with the same registers and arguments. Call sites [verified disassembly, Steam 1.67, this
+// note]: 0x571C3C, 0x571D20, 0x571DDC (in 0x571B90), 0x942CC6, 0x942CF1 (in the sub-step loop 0x942C50, called at 0x571B4D in
+// 0x571AD0) are all `mov ecx, actor; push float dt; call 0x940430` (thiscall, `ret 4`, eax unused; 0x940430 aligns its own frame).
+// 0x568A6C, 0x568B28, 0x56FA98 are `push edx(ptr); mov ecx, ...; call 0x568710` (thiscall, one argument, `ret 4` at 0x568756).
+// On screen = the game's frustum test with a 1 m sphere (as unseen.cpp UnObjClassBody); near = off screen within the camera reach
+// (unseen.cpp UnClassify, the "seen" rule); household = unseen.cpp AnxHousehold. A Sim of unknown scope counts as household.
+// 0x571C3C belongs to [UnseenAnim] when it is on: its pose calls then reach EA through AnxPose0 (g_aaPoseOrig), so the time is
+// the real call's, after its decimation. 0x571D20 / 0x571DDC belong to [UnseenRootMotion] when it is enabled: left out (anxReady bit 4).
+// TODO (docs/22 §6.1): drawn-pose (render-side) timer, site from probe-out/anim-offcamera-re-1118.md; counters anxSpare held.
+typedef void(__fastcall* AnxPoseFn)(void* actor, void* edx, float dt);
+static AnxPoseFn g_anxPoseOrig = (AnxPoseFn)(uintptr_t)TS3A(0x00940430);
+static AnFn1 g_anxClip = (AnFn1)(uintptr_t)TS3A(0x00568710);
+static LARGE_INTEGER g_anxCamAt;
+static int AnxClassBody(void* actor) {
+    __declspec(align(16)) float pos[4], sphere[4];
+    __try {
+        void* owner = actor ? *(void* const*)((const u8*)actor + 4) : NULL;
+        void* tc = owner ? g_unComp(owner, NULL, *g_unBitTransform) : NULL;
+        if (!tc) return ANX_NONE;
+        const bool sim = g_unComp(owner, NULL, *g_unBitSim) != NULL;
+        if (sim && AnxHousehold(owner)) return ANX_HH;
+        const float* p = g_unPos(tc, NULL, pos);
+        sphere[0] = p[0], sphere[1] = p[1] + 1.0f, sphere[2] = p[2], sphere[3] = 1.0f;
+        const void* fr = g_unFrustum();
+        const bool on = fr && g_unInFrustum(fr, NULL, sphere) != 0;
+        return (sim ? ANX_NPC_ON : ANX_OBJ_ON) + (on ? 0 : UnClassify(sphere, false) == 0 ? 1 : 2);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return ANX_NONE; }
+}
+static int (*g_anxClassOf)(void* actor) = AnxClassBody;  // selftest swaps it
+static void AnxPose(int kind, void* actor, void* edx, float dt) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    if ((t0.QuadPart - g_anxCamAt.QuadPart) * 20 > g_qpf.QuadPart) UnRefreshCamera(), g_anxCamAt = t0;  // reach: at most 20 reads/s
+    const int prev = g_anxCls, c = g_anxClassOf(actor);
+    g_anxCls = c;
+    QueryPerformanceCounter(&t0);
+    __try { g_anxPoseOrig(actor, edx, dt); } __finally {
+        g_anxCls = prev;
+        const LONG us = UsSince(t0);
+        InterlockedIncrement(&ts3native_counters.anxPoseN[kind][c]);
+        InterlockedExchangeAdd(&ts3native_counters.anxPoseUs[kind][c], us);
+    }
+}
+static void __fastcall AnxPose0(void* actor, void* edx, float dt) { AnxPose(0, actor, edx, dt); }
+static void __fastcall AnxPose1(void* actor, void* edx, float dt) { AnxPose(1, actor, edx, dt); }
+static void __fastcall AnxPose2(void* actor, void* edx, float dt) { AnxPose(2, actor, edx, dt); }
+static DWORD __fastcall AnxClipHook(void* self, void* edx, DWORD a) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const DWORD r = g_anxClip(self, edx, a);
+    const int out = g_anxCls == ANX_NONE ? 1 : 0;  // shortcut: an unclassified pose call's clip events count as outside
+    InterlockedIncrement(&ts3native_counters.anxClipN[out]);
+    InterlockedExchangeAdd(&ts3native_counters.anxClipUs[out], UsSince(t0));
+    return r;
+}
+// Part 2 (coordinator 2026-11-18, docs/22 §8: ~40 ms/s of the 0x571B90 pass had no timer). Sites [verified disassembly, Steam 1.67]:
+//   0x571BF3 `push dt; mov ecx, actor; call 0x942C00` (time step, thiscall, `ret 4` at 0x942C43), classed like a pose call;
+//   0x571E0F `call 0x577060` (= `mov ecx, 0x114F690; jmp 0x576FB0`, `ret` at 0x577058) and 0x571E1A `mov ecx, edi; call 0x571A50`
+//   (`ret` at 0x571AC5): the pass-end drains, no stack arguments;
+//   0x801E51 `push ebx; mov ecx, [edi+0x12C]; call 0x742710` (SACS event push to the EventQueue, `ret 4` at 0x742900);
+//   0xD81C5C `push dt; call 0x83CED0` (Locomotion_Update, `ret 4` at 0x83D383); owned by locowin.cpp when [RouteAsync] H2 /
+//   [LocoWindow] is on (shipped H2=1): then the timer rides behind it through g_g0wOrig.
+// 0x571BF3 belongs to [UnseenRootMotion] when that is enabled (left out, as 0x571D20 / 0x571DDC).
+typedef void(__fastcall* AnxVoidFn)(void* self, void* edx);
+static AnxPoseFn g_anxTsOrig = (AnxPoseFn)(uintptr_t)TS3A(0x00942C00);
+static AnxVoidFn g_anxDrain0 = (AnxVoidFn)(uintptr_t)TS3A(0x00577060), g_anxDrain1 = (AnxVoidFn)(uintptr_t)TS3A(0x00571A50);
+static AnFn1 g_anxEvOrig = (AnFn1)(uintptr_t)TS3A(0x00742710);
+static void Anx2Add(LONG* n, LONG* us, LARGE_INTEGER t0) { InterlockedIncrement(n); InterlockedExchangeAdd(us, UsSince(t0)); }
+static void __fastcall AnxTsHook(void* actor, void* edx, float dt) {
+    const int c = g_anxClassOf(actor);
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    g_anxTsOrig(actor, edx, dt);
+    Anx2Add(&ts3native_counters.anxTsN[c], &ts3native_counters.anxTsUs[c], t0);
+}
+static void __fastcall AnxDrain0Hook(void* self, void* edx) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    g_anxDrain0(self, edx);
+    Anx2Add(&ts3native_counters.anxDrainN[0], &ts3native_counters.anxDrainUs[0], t0);
+}
+static void __fastcall AnxDrain1Hook(void* self, void* edx) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    g_anxDrain1(self, edx);
+    Anx2Add(&ts3native_counters.anxDrainN[1], &ts3native_counters.anxDrainUs[1], t0);
+}
+static DWORD __fastcall AnxEvHook(void* self, void* edx, DWORD a) {
+    const int out = g_anxCls == ANX_NONE ? 1 : 0;
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const DWORD r = g_anxEvOrig(self, edx, a);
+    Anx2Add(&ts3native_counters.anxEvN[out], &ts3native_counters.anxEvUs[out], t0);
+    return r;
+}
+static LocoUpdateFn g_anxLocoOrig = (LocoUpdateFn)(uintptr_t)TS3A(0x0083CED0);
+static void __fastcall AnxLocoHook(void* self, void* edx, float dt) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    g_anxLocoOrig(self, edx, dt);
+    Anx2Add(&ts3native_counters.anxLocoPassN, &ts3native_counters.anxLocoPassUs, t0);
+}
+// part 2 groups; returns the anxReady bits 32 time step, 64 drains, 128 event push, 256 locomotion pass (512 = behind locowin)
+static LONG ApplyAnimSplit2(const wchar_t* ini) {
+    LONG ready = 0;
+    if (!GetPrivateProfileIntW(L"UnseenRootMotion", L"Enabled", 0, ini)) {
+        const CallSite ts[] = {{TS3A(0x00571BF3), TS3A(0x00942C00), (void*)AnxTsHook}};
+        if (PatchCalls("anim split: time step 0x942C00", ts, 1)) ready |= 32;
+    }
+    const CallSite dr[] = {{TS3A(0x00571E0F), TS3A(0x00577060), (void*)AnxDrain0Hook}, {TS3A(0x00571E1A), TS3A(0x00571A50), (void*)AnxDrain1Hook}};
+    if (PatchCalls("anim split: pass-end drains", dr, 2)) ready |= 64;
+    const CallSite ev[] = {{TS3A(0x00801E51), TS3A(0x00742710), (void*)AnxEvHook}};
+    if (PatchCalls("anim split: SACS event push 0x742710", ev, 1)) ready |= 128;
+    if (g_g0wOrig == (LocoUpdateFn)(uintptr_t)LOCO_UPDATE && ts3native_counters.g0wReady) g_g0wOrig = AnxLocoHook, ready |= 256 | 512;
+    else {
+        const CallSite lp[] = {{TS3A(0x00D81C5C), TS3A(0x0083CED0), (void*)AnxLocoHook}};
+        if (PatchCalls("anim split: locomotion pass 0x83CED0", lp, 1)) ready |= 256;
+    }
+    return ready;
+}
+
+// pose sites, clip sites, locomotion split; each site group all or nothing (PatchCalls); returns anxReady
+static LONG ApplyAnimSplit(const wchar_t* ini) {
+    LONG ready = 0;
+    CallSite pose[5];
+    int n = 0;
+    if (g_aaOn && g_aaPoseOrig == (AaPoseFn)(uintptr_t)AA_POSE) g_aaPoseOrig = AnxPose0, ready |= 4;  // ride behind [UnseenAnim]
+    else pose[n++] = {TS3A(0x00571C3C), TS3A(0x00940430), (void*)AnxPose0};
+    if (GetPrivateProfileIntW(L"UnseenRootMotion", L"Enabled", 0, ini)) ready |= 16;  // its sites: applied after this
+    else pose[n++] = {TS3A(0x00571D20), TS3A(0x00940430), (void*)AnxPose1}, pose[n++] = {TS3A(0x00571DDC), TS3A(0x00940430), (void*)AnxPose1};
+    pose[n++] = {TS3A(0x00942CC6), TS3A(0x00940430), (void*)AnxPose2};
+    pose[n++] = {TS3A(0x00942CF1), TS3A(0x00940430), (void*)AnxPose2};
+    if (PatchCalls("anim split: rig pose 0x940430 by kind and class", pose, n)) ready |= 1;
+    else if (ready & 4) g_aaPoseOrig = (AaPoseFn)(uintptr_t)AA_POSE, ready &= ~4;
+    const CallSite clip[] = {{TS3A(0x00568A6C), TS3A(0x00568710), (void*)AnxClipHook}, {TS3A(0x00568B28), TS3A(0x00568710), (void*)AnxClipHook},
+                             {TS3A(0x0056FA98), TS3A(0x00568710), (void*)AnxClipHook}};
+    if (PatchCalls("anim split: clip events 0x568710", clip, 3)) ready |= 2;
+    if (GetPrivateProfileIntW(L"UnseenProbe", L"Enabled", 0, ini)) g_anxLocoOn = true, ready |= 8;  // UnAgentThunk adds anxLoco*
+    g_anxOn = (ready & 1) != 0;
+    return ready | ApplyAnimSplit2(ini);
+}
+
+// [AnimPhase] Enabled=1 (default 0, a test-run timer): all four sites or none; Split=1 (default 0) adds ApplyAnimSplit
 static bool ApplyAnimPhase(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"AnimPhase", L"Enabled", 0, ini)) return false;
 #ifdef TS3A_TABLE
@@ -522,5 +675,13 @@ static bool ApplyAnimPhase(const wchar_t* ini) {
                               {TS3A(0x00940742), TS3A(0x005833C0), (void*)AnEvalHook}, {TS3A(0x0094118B), TS3A(0x00959670), (void*)AnPubHook}};
     if (!PatchCalls("anim phase timers in rig pose 0x940430 (advance, notify, evaluate, publish)", sites, 4)) return false;
     ts3native_counters.anReady = 1;
+    if (GetPrivateProfileIntW(L"AnimPhase", L"Split", 0, ini)) {
+        const LONG r = ts3native_counters.anxReady = ApplyAnimSplit(ini);
+        Log("%s anim split (docs/22 §6.1): anxReady %ld (pose sites %s, clip sites %s, 0x571C3C %s, locomotion %s, root-motion sites %s, "
+            "time step %s, drains %s, event push %s, locomotion pass %s)",
+            r & 1 ? "OK  " : "FAIL", r, r & 1 ? "on" : "off", r & 2 ? "on" : "off", r & 4 ? "behind [UnseenAnim]" : "own",
+            r & 8 ? "split" : "off ([UnseenProbe] off)", r & 16 ? "left to [UnseenRootMotion]" : "own", r & 32 ? "on" : "off",
+            r & 64 ? "on" : "off", r & 128 ? "on" : "off", r & 512 ? "behind loco window" : r & 256 ? "own" : "off");
+    }
     return true;
 }

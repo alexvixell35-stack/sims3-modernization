@@ -279,9 +279,51 @@ static DWORD g_anFakeSum;
 static DWORD __fastcall AnFake3(void* s, void* e, DWORD a, DWORD b, DWORD c) { return g_anFakeSum = (DWORD)(uintptr_t)s + (DWORD)(uintptr_t)e + a + b + c; }
 static DWORD __fastcall AnFake2(void* s, void* e, DWORD a, DWORD b) { return g_anFakeSum = (DWORD)(uintptr_t)s + (DWORD)(uintptr_t)e + a + b; }
 static DWORD __fastcall AnFake1(void* s, void* e, DWORD a) { return g_anFakeSum = (DWORD)(uintptr_t)s + (DWORD)(uintptr_t)e + a; }
+// [AnimPhase] Split (docs/22 §6.1): a pose call's phases and clip events go to its class; the class is restored after it
+static float g_anxFakeDt;
+static void __fastcall AnxFakePose(void* actor, void* edx, float dt) {
+    g_anxFakeDt = dt;
+    AnAdvHook(actor, edx, 1, 2, 3);
+    AnxClipHook(actor, edx, 4);
+}
+static int AnxFakeClass(void*) { return ANX_NPC_UNSEEN; }
+static void __fastcall AnxFakeTs(void*, void*, float dt) { g_anxFakeDt = dt; }
+static void* g_anxFakeVoid;
+static void __fastcall AnxFakeVoid(void* self, void*) { g_anxFakeVoid = self; }
+static void TestAnimSplit() {
+    Ts3nCounters& k = ts3native_counters;
+    const AnFn3 a0 = g_anAdv;
+    const AnFn1 c0 = g_anxClip;
+    const AnxPoseFn p0 = g_anxPoseOrig;
+    int (*const cl0)(void*) = g_anxClassOf;
+    g_anAdv = AnFake3, g_anxClip = AnFake1, g_anxPoseOrig = AnxFakePose, g_anxClassOf = AnxFakeClass, g_anxOn = true;
+    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+    const LONG pose = k.anxPoseN[1][ANX_NPC_UNSEEN], ph = k.anxPhN[0][ANX_NPC_UNSEEN], in = k.anxClipN[0], out = k.anxClipN[1];
+    AnxPose1((void*)0x10, NULL, 0.5f);
+    assert(g_anxFakeDt == 0.5f && k.anxPoseN[1][ANX_NPC_UNSEEN] == pose + 1 && k.anxPhN[0][ANX_NPC_UNSEEN] == ph + 1 && k.anxClipN[0] == in + 1);
+    assert(g_anxCls == ANX_NONE && AnxClipHook((void*)1, (void*)2, 3) == 6 && k.anxClipN[1] == out + 1);  // outside a pose call
+    const LONG none = k.anxPhN[0][ANX_NONE];
+    AnAdvHook((void*)1, (void*)2, 3, 4, 5);
+    assert(k.anxPhN[0][ANX_NONE] == none + 1);
+    // part 2: time step by class, event push inside / outside a pose call, pass-end drain and locomotion pass pass through
+    const AnxPoseFn t0 = g_anxTsOrig;
+    const AnFn1 e0 = g_anxEvOrig;
+    const AnxVoidFn d0 = g_anxDrain0;
+    const LocoUpdateFn l0 = g_anxLocoOrig;
+    g_anxTsOrig = AnxFakeTs, g_anxEvOrig = AnFake1, g_anxDrain0 = AnxFakeVoid, g_anxLocoOrig = AnxFakeTs;
+    const LONG ts = k.anxTsN[ANX_NPC_UNSEEN], evOut = k.anxEvN[1], dr = k.anxDrainN[0], lp = k.anxLocoPassN;
+    AnxTsHook((void*)0x10, NULL, 0.25f);
+    assert(g_anxFakeDt == 0.25f && k.anxTsN[ANX_NPC_UNSEEN] == ts + 1 && AnxEvHook((void*)1, (void*)2, 3) == 6 && k.anxEvN[1] == evOut + 1);
+    AnxDrain0Hook((void*)7, NULL);
+    AnxLocoHook((void*)0x10, NULL, 0.5f);
+    assert(g_anxFakeVoid == (void*)7 && k.anxDrainN[0] == dr + 1 && k.anxLocoPassN == lp + 1 && g_anxFakeDt == 0.5f);
+    g_anxTsOrig = t0, g_anxEvOrig = e0, g_anxDrain0 = d0, g_anxLocoOrig = l0;
+    g_anAdv = a0, g_anxClip = c0, g_anxPoseOrig = p0, g_anxClassOf = cl0, g_anxOn = false;
+    printf("anim split: pose call class reaches its phases and clip events, restored after the call\n");
+}
 static void TestAnimPhase() {
     static_assert(offsetof(Ts3nCounters, anReady) == 0x63A4 && offsetof(Ts3nCounters, anPubMaxUs) == 0x63D4 && offsetof(Ts3nCounters, anSpare) == 0x63D8 &&
-                      sizeof(Ts3nCounters) == 6500 * 4, "counters v201 (docs/registry.md)");
+                      sizeof(Ts3nCounters) == 6660 * 4, "counters v201 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const AnFn3 a0 = g_anAdv;
     const AnFn2 n0 = g_anNot, e0 = g_anEval;
@@ -303,4 +345,5 @@ static void TestAnimPhase() {
     assert(!ApplyAnimPhase(ini) && !k.anReady);  // no `call 0x583D00` at 0x940569 here
     DeleteFileW(ini);
     printf("anim phase: four timing wrappers pass registers and arguments through, count; install refuses without the game's calls\n");
+    TestAnimSplit();
 }

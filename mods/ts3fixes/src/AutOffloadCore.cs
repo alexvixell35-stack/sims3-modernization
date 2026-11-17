@@ -145,13 +145,14 @@ namespace Ts3Fixes
     {
         public const int kFirst = 0, kHit = 1, kHitWrong = 2, kMissSame = 3, kMissDiff = 4;
         const int kMaxLots = 1024, kMaxAgain = 4096;
-        sealed class LotGen { public int Gen; public readonly Dictionary<int, int> Room = new Dictionary<int, int>(); public readonly Dictionary<int, Entry> Memo = new Dictionary<int, Entry>(); }
-        sealed class Entry { public object[] Items; public int Gen, RoomGen; }
+        sealed class LotGen { public int Gen, Ev; public readonly Dictionary<int, int> Room = new Dictionary<int, int>(); public readonly Dictionary<int, Entry> Memo = new Dictionary<int, Entry>(); }
+        sealed class Entry { public object[] Items; public int Gen, RoomGen, Ev; public long Tick; }
         struct Again { public object Lot; public int Room; public long Tick; }
         readonly Dictionary<object, LotGen> mLots = new Dictionary<object, LotGen>();
         readonly List<Again> mAgain = new List<Again>();
         public int Lots { get { return mLots.Count; } }
         public object[] WrongOld;  // set by Check on kHitWrong
+        public int WrongEv; public long WrongAge;  // kHitWrong: Bump calls on the lot / ticks since the list was last seen equal (docs/274 §8.6)
 
         public void Clear() { mLots.Clear(); mAgain.Clear(); }
 
@@ -160,6 +161,8 @@ namespace Ts3Fixes
         public void Bump(object lot, int room, long tick)
         {
             if (lot == null) return;
+            LotGen lg;
+            if (mLots.TryGetValue(lot, out lg)) lg.Ev++;  // events only, not the next-tick repeats
             BumpNow(lot, room);
             if (mAgain.Count >= kMaxAgain) { Clear(); return; }
             Again a; a.Lot = lot; a.Room = room; a.Tick = tick;
@@ -208,12 +211,12 @@ namespace Ts3Fixes
             {
                 bool same = Same(e.Items, now), valid = e.Gen == g.Gen && e.RoomGen == rg;
                 cls = valid ? (same ? kHit : kHitWrong) : (same ? kMissSame : kMissDiff);
-                if (same) { e.Gen = g.Gen; e.RoomGen = rg; return cls; }
-                if (cls == kHitWrong) WrongOld = e.Items;  // the memo's list, so the caller can name the missed change
+                if (same) { e.Gen = g.Gen; e.RoomGen = rg; e.Ev = g.Ev; e.Tick = tick; return cls; }
+                if (cls == kHitWrong) { WrongOld = e.Items; WrongEv = g.Ev - e.Ev; WrongAge = tick - e.Tick; }  // the memo's list, so the caller can name the missed change
             }
             object[] items = new object[now.Count];
             now.CopyTo(items, 0);
-            e.Items = items; e.Gen = g.Gen; e.RoomGen = rg;
+            e.Items = items; e.Gen = g.Gen; e.RoomGen = rg; e.Ev = g.Ev; e.Tick = tick;
             return cls;
         }
 

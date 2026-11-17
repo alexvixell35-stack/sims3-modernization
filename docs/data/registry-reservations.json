@@ -5959,6 +5959,128 @@
       "what": "EA core-count probe and harness pin race",
       "at": "2026-11-17T12:31:38.179Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\ts3-wt-corecount-1117"
+    },
+    {
+      "id": "fixes-1158",
+      "kind": "fixes",
+      "from": 1158,
+      "to": 1181,
+      "by": "hhtoo-local3-1118",
+      "what": "autt2local driver: post gate codes, request/pair/H8 counters (docs/276 rank 5 piece 3)",
+      "at": "2026-11-17T19:04:05.959Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\hhtoo-local3-1118"
+    },
+    {
+      "id": "ledger-509",
+      "kind": "ledger",
+      "from": 509,
+      "to": 509,
+      "by": "hhtoo-local3-1118",
+      "what": "local request inputs read after B9 (hhtoo-local3 1118)",
+      "at": "2026-11-17T19:09:57.118Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\hhtoo-local3-1118"
+    },
+    {
+      "id": "fixes-1182",
+      "kind": "fixes",
+      "from": 1182,
+      "to": 1184,
+      "by": "hhtoo-local4-1118",
+      "what": "autt2local L4 local object rows: target rows added, requests capped, max rows per request (docs/276 rank 5 piece 4)",
+      "at": "2026-11-17T19:13:25.983Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\hhtoo-local4-1118"
+    },
+    {
+      "id": "fixes-1185",
+      "kind": "fixes",
+      "from": 1185,
+      "to": 1199,
+      "by": "hhtoo-local5-1118",
+      "what": "autt2local L5 Mode R: local A0-A5, walk-order misses, game C2 report (pairs/equal/test agree/top-1/order misses/game-only/cap) (docs/276 rank 5 piece 5)",
+      "at": "2026-11-17T19:20:52.316Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\hhtoo-local5-1118"
+    },
+    {
+      "id": "fixes-1200",
+      "kind": "fixes",
+      "from": 1200,
+      "to": 1227,
+      "by": "hhtoo-local6-1118",
+      "what": "autt2localact/autt2localdry HouseholdToo local exact path piece 6 (AutShadowLocalAct.cs)",
+      "at": "2026-11-17T19:35:11.981Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-510",
+      "kind": "ledger",
+      "from": 510,
+      "to": 510,
+      "by": "hhtoo-local6-1118",
+      "what": "hhtoo local piece 6 acting (pre-B9 post, C0 refill, local bands)",
+      "at": "2026-11-17T19:35:12.230Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-1228",
+      "kind": "fixes",
+      "from": 1228,
+      "to": 1229,
+      "by": "hhtoo-local6-1118",
+      "what": "autt2localact piece 6: drift>0 searches, stuck windows reclaimed",
+      "at": "2026-11-17T19:36:32.226Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v208",
+      "kind": "native",
+      "version": 208,
+      "from": 26000,
+      "to": 26511,
+      "by": "animsplit-1118",
+      "what": "[AnimPhase] Split: pose/phase time by Sim class + visibility + anim kind, clip events, locomotion household split (docs/22 §6)",
+      "at": "2026-11-17T20:05:00.832Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-511",
+      "kind": "ledger",
+      "from": 511,
+      "to": 511,
+      "by": "anim-offcamera-re-1118",
+      "what": "anim off-camera RE (docs/22 follow-up)",
+      "at": "2026-11-17T20:16:43.726Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\docs-anim-offcamera-re-1118"
+    },
+    {
+      "id": "ledger-512",
+      "kind": "ledger",
+      "from": 512,
+      "to": 512,
+      "by": "animsplit-1118",
+      "what": "anim split classes (docs/22 §6.1)",
+      "at": "2026-11-17T20:16:59.619Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v209",
+      "kind": "native",
+      "version": 209,
+      "from": 26512,
+      "to": 26639,
+      "by": "animsplit-1118",
+      "what": "[AnimPhase] Split part 2: time step 0x942C00 by class, pass-end drains, event push 0x742710, locomotion pass total (docs/22 §6.1)",
+      "at": "2026-11-17T20:33:34.132Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-513",
+      "kind": "ledger",
+      "from": 513,
+      "to": 513,
+      "by": "envlistmemo-reorder-diag-1118",
+      "what": "envlistmemo reorder order-dependence (docs/274 §8.6)",
+      "at": "2026-11-17T20:56:24.594Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
     }
   ]
 }

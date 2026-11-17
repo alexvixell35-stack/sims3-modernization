@@ -927,7 +927,7 @@ static void TestMonoJitClauseLazy() {
     static JtMeth m0, m1, mF, mP, mE;
     const LONG bodies0 = C.jitLazyBodies;
     static_assert(offsetof(Ts3nCounters, clOn) == 0x62A8 && offsetof(Ts3nCounters, clVerRuns) == 0x62BC && offsetof(Ts3nCounters, clSpare) == 0x62C0 &&
-                      sizeof(Ts3nCounters) == 6500 * 4, "counters v195 layout after v194 (docs/registry.md)");
+                      sizeof(Ts3nCounters) == 6660 * 4, "counters v195 layout after v194 (docs/registry.md)");
     g_jitClauseOk = true;  // JitOne's allow-list answer (tested below)
     g_jitClauseLazy = false;
     assert(make(m0, c0, 4, cl, 1) && C.jitLazyBodies == bodies0);  // ClauseLazy=0: as before
@@ -1279,7 +1279,7 @@ static void TestMonoJitBoundCall() {
     g_jtLen[0xEC] = 4;
     g_jitBc = (JitBoundStats*)&C.bcOn;
     static_assert(offsetof(Ts3nCounters, bcOn) == 0x6278 && offsetof(Ts3nCounters, bcSpare) == 0x62A0 && sizeof(JitBoundStats) == 12 * 4 &&
-                      sizeof(Ts3nCounters) == 6500 * 4, "counters v194 layout after the v193 hold (docs/registry.md)");
+                      sizeof(Ts3nCounters) == 6660 * 4, "counters v194 layout after the v193 hold (docs/registry.md)");
     const JitBoundEntryFn entry0 = g_jitBoundEntry;
     g_jitBoundEntry = JtE525C0, g_jitBoundInv[0] = (DWORD)(uintptr_t)JtBoundInv, g_jitBoundInv[1] = 0, C.bcOn = 1, g_jitBoundMask = 1;
     // the cache's class and target: a transformed instance method with an EA native body, no lazy body, one int result
@@ -1555,7 +1555,7 @@ static void TestMonoJit() {
     assert(JitTemplates(511) == 29);  // Groups bit 256: the nine C5 rows above and two float compares
     assert(g_opInfo[JT_RET].kind == K_RET && g_opInfo[JT_MYSTERY].kind == K_EXIT);
     {  // T4096 (docs/537 §26): MaxMethods clamp, the fallback to 2048 / 4096 KB when the asked region does not fit, and the counters' place
-        static_assert(offsetof(Ts3nCounters, jitTableFull) == 0x62CC && offsetof(Ts3nCounters, jitMethCap) == 0x62D0 && sizeof(Ts3nCounters) == 6500 * 4,
+        static_assert(offsetof(Ts3nCounters, jitTableFull) == 0x62CC && offsetof(Ts3nCounters, jitMethCap) == 0x62D0 && sizeof(Ts3nCounters) == 6660 * 4,
                       "counters v196 layout after the v189-v195 / v918 gap (docs/registry.md)");
         assert(JitMaxMethods(0) == 512 && JitMaxMethods(3000) == 3000 && JitMaxMethods(1 << 20) == JIT_METH_MAX);
         const size_t code0 = g_jitCodeBytes;

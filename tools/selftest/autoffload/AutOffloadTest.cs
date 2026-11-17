@@ -81,6 +81,12 @@ static class AutOffloadTest
         Check("memo order change unseen = wrong hit", m.Check(lot, 3, 0, ba, 1), ListMemo.kHitWrong);
         Check("wrong hit keeps the memo's list", m.WrongOld != null && m.WrongOld[0] == a ? 1 : 0, 1);
         Check("memo stores the game's list", m.Check(lot, 3, 0, ba, 1), ListMemo.kHit);
+        ListMemo md = new ListMemo();  // docs/274 §8.6 diag: events and age since the list was last seen equal
+        md.Check(lot, 3, 0, ab, 10); md.Check(lot, 3, 0, ab, 11);
+        md.Bump(lot, 4, 11); md.Bump(lot, 5, 12);
+        Check("memo wrong hit after other-room events", md.Check(lot, 3, 0, ba, 14), ListMemo.kHitWrong);
+        Check("memo wrong hit: lot events counted once each", md.WrongEv, 2);
+        Check("memo wrong hit: age from the last equal check", (int)md.WrongAge, 3);
         Check("memo lot-wide first", m.Check(lot, -1, 1, ab, 1), ListMemo.kFirst);
         m.Bump(lot, 4, 1);
         Check("memo other room bump keeps the room", m.Check(lot, 3, 0, ba, 1), ListMemo.kHit);

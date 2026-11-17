@@ -16,7 +16,7 @@ static bool __fastcall MatFind(void* self, void*, const void* key, void** out) {
     return hit;
 }
 static void TestMemAccess() {
-    static_assert(offsetof(Ts3nCounters, maOn) == 0x6354 && offsetof(Ts3nCounters, maLines) == 0x6378 && sizeof(Ts3nCounters) == 6500 * 4,
+    static_assert(offsetof(Ts3nCounters, maOn) == 0x6354 && offsetof(Ts3nCounters, maLines) == 0x6378 && sizeof(Ts3nCounters) == 6660 * 4,
                   "counters v199 layout after v919 (docs/registry.md)");
     // sketch: distinct counts within 3 standard errors (3 x 3.3%), duplicates add nothing, an empty sketch is 0
     {

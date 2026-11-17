@@ -184,6 +184,11 @@ static void UtFpFlush(bool pass);
 static bool (*g_unHoldSkip)(u8* agent, int c);
 // docs/202 §3.9.5 [UnseenGhost] (ghost.cpp GhAgentSkip): true = this agent's owner is a ghost, skip its update; NULL unless installed
 static bool (*g_unGhostSkip)(u8* agent);
+// docs/22 §6.1 [AnimPhase] Split (unseenanim.cpp): household class of a Sim for the measurement split. Household = in the fresh
+// held table (ts3fixes PushHeld: every active-household actor, plus riders / (dis)mounting Sims); no fresh table = household
+// (unknown scope counts as household). shortcut: an NPC rider or mount partner counts as household; exact ids would need their own push.
+static bool AnxHousehold(const void* owner) { return !g_utHeld.n || GetTickCount() - g_utHeld.at > 2000 || UtHeldObj(owner); }
+static bool g_anxLocoOn;  // [AnimPhase] Split=1 with [UnseenProbe]: locomotion time of Sims by household / seen NPC / unseen NPC
 
 static void __fastcall UnAgentThunk(void* agent, void* edx, float dt) {
     Ts3nCounters& k = ts3native_counters;
@@ -248,6 +253,11 @@ static void __fastcall UnAgentThunk(void* agent, void* edx, float dt) {
         InterlockedIncrement(&k.unAgents[c][kind]);
         InterlockedExchangeAdd(&k.unAgentUs[c][kind], us);
         Max(&k.unAgentMaxUs[c], us);
+        if (g_anxLocoOn && kind == 0) {
+            const int h = AnxHousehold(*(void* const*)((const u8*)agent + 4)) ? 0 : 1 + c;
+            InterlockedIncrement(&k.anxLocoN[h]);
+            InterlockedExchangeAdd(&k.anxLocoUs[h], us);
+        }
     }
     // EA's own visibility byte, recomputed at the update's entry (0x954240 -> 0x980E00: frustum test of 3x the model bounds,
     // off beyond 100x that radius); 0 = off screen, which picks OffScreenSimBrain + SimpleBody for a walking Sim
