@@ -88,6 +88,7 @@ namespace Ts3Fixes
                 int[] row = RflLot(lot);
                 row[slot]++;
                 if (!Sims3.Gameplay.GameStates.IsBuildBuyLikeState) return;
+                BtForget(lot);  // burnttilefloor: build/buy on this lot may have made a learned tile reachable (BurntTileFloor.cs)
                 row[slot + 2]++;
                 int now = System.Environment.TickCount;
                 if (unchecked(now - sRflBbAt) < 60000 && sRflBbAt != 0) return;
@@ -346,6 +347,7 @@ namespace Ts3Fixes
                 IScriptProxy f = r.Follower;
                 Sim sim = f != null ? f.Target as Sim : null;
                 if (sim == null) return;
+                if (!ok) BtPlanFailed(r, sim, res);  // burnttilefloor: learn MopBurnt tiles EA's planner finds no destination for (BurntTileFloor.cs)
                 if (sim.IsInActiveHousehold) PatchCounters()[866]++;  // fails per plan: same four hooks as the routefail lines (issue #304, kd-household-ab.ts)
                 bool show = InShowOff(sim);
                 if (show && sim == sSoChild) { sSoSeen = true; sSoPlans++; if (!ok) sSoPlanFails++; if (async) sSoAsync++; }

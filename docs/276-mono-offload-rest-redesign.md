@@ -248,10 +248,52 @@ Dropped: the `autofflot` apply, D10, D7 (and docs/208 §9.3 zombies, as before).
 
 ## 8. Household statement
 
-No household path changed; this is a document only. Every redesign above keeps the household rule:
+Ranks 1 and 3 are built (§9); no other household path changed. Every redesign above keeps the household rule:
 
 - Rank 1 makes the memo exact for every scope.
 - Rank 2 is measurement only.
 - Rank 3 is read-only.
 - Rank 4 is seen NPCs only.
 - Rank 5 is gated on `[Experimental] HouseholdToo=1` at docs/271 realistic-only sites (worker answers, exact path), never on teleports, skips or cuts.
+
+## 9. Built 2026-11-16: ranks 1 and 3 (branch `feature/hoursmemo-svprobe-1116`, NOT RUN)
+
+### 9.1 Rank 1: `kHoursMemo` exact
+
+- **Inputs of `Lot.GetHoursOfOperation`** [verified, decompiled `Lot.GetHoursOfOperation`, `Bartending.TryGetHoursOfOperation(Extended)`, `TryGetBarData`, `MetaAutonomyTuning.TryGetHoursOfOperation`]:
+  - the lot's `mLotType` and `mMetaAutonomyType` (venue type, bar data, tuning are looked up from them);
+  - static tuning tables;
+  - on a bar only: is a `BachelorParty` with `Lot == this` and `Started` in `Situation.sAllSituations`.
+- **Why no generation hook** [verified + inferred]:
+  - `Started` is the field `HostedSituation.IsStarted`, set only in `HouseParty.Start.Init` [verified: the only `IsStarted = true` in the HouseParty family].
+  - A party leaves the list in the private `Situation.Dispose(bool)`, which the finalizer thread also calls [verified].
+  - Hooking those means a field write site and a ~18-byte IL method that Mono may have inlined into `Dispose()` before our patch [inferred, ledger I-493-2].
+  - The live check is cheaper to get right: it reads the same inputs the game reads, at the same time.
+- **Design as built** (`ScriptHotSpots.cs` `HoursMemoHook`, `TickMemo.cs` `HoursMemo`):
+  - each entry keeps the venue key `(LotType << 16) ^ MetaAutonomyType`; another key is a miss (`hoursmemo_keymiss`);
+  - a bar entry (`Bartending.TryGetHoursOfOperation` true at the miss) keeps the bar's own hours; every bar hit runs the party check on the live list (index loop, no list copy) and puts in `Bartending.TimeOfPartyEnd` when it holds (`hoursmemo_barhits`);
+  - an answer that is not the bar formula on a bar (another mod rewrote the method) is not kept (`hoursmemo_nostore`): always a miss, still exact.
+- **Result:** the memo answers as the game for every caller and Sim, household included, so it needs no household exemption and no HouseholdToo.
+- **Verify:** `hoursmemoverify` now compares **every** hit with the game's method (`hoursmemo_checked`), returns the game's answer, counts `hoursmemo_mismatches` and logs the first 8 in `ts3fixes.applied`.
+- **Offline:** `tools/selftest/hotspots` models venue changes and parties that start or end mid-tick, checks every call against the model (50,000 steps, > 1,000 bar hits), and checks the foreign-answer refusal.
+- **Counters:** fixes-1069..1072 (`hoursmemo_checked`, `_barhits`, `_keymiss`, `_nostore`).
+- **Gap:** no agent action starts a bachelor party, so the party path is proven offline only; the game jobs show whether bar answers occur (`hoursmemo_barhits`).
+- **Queues:**
+  - correctness `tools/harness/queues/ts3fixes-hotspots.json` (promoted from the DRAFT): BP + IP, 10 min, repro `hours-memo`, verify on, Bin state apex. PASS = 0 mismatches, hits and checked >= 1000, 0 script errors.
+  - timing `tools/harness/queues/hoursmemo-timing-1116.json`: smoke + in-load ABBA `--ab hoursmemo` (5-min slices, both orders, BP + IP, rewind groups), verify off, needs a quiet machine.
+
+### 9.2 Rank 3: SV household search-rate probe (`hhsearchprobe`)
+
+- **Where:** `AutPushHook` (`Autonomy.ConsiderPerformingAutonomousAction`, patched when `kAutLive` is on, the default). It reads the queue head before the push and notes the search after the game's push.
+- **Scope:** household class as the L0 probe (`AutLocalProbeCore.Class`: household or unknown scope). Records are keyed by object id; no Sim reference is kept.
+- **Read-only:** it changes no result for anyone.
+- **Counters:** fixes-1073..1084:
+  - `hhsearch_n`, `_local` (`IsRunningLocalAutonomy`);
+  - outcome: `_push`, `_nopick`, `_busyuser` (picked, not pushed, user-directed head), `_busyauto` (autonomous head not beaten);
+  - loop signs: `_samedef` (same pick as the Sim's previous pick), `_shortgap` (< 2 sim-minutes since the Sim's previous search), `_nopushrun` (no push after a no push);
+  - `_sims_n`, `_maxpersim`, `_exc`.
+- **Per-Sim lines:** `hhsearch_sims` (counts, searches per sim-hour, top pick), rebuilt every 64 household searches.
+- **Switch:** `hhsearchprobe` is a test-only switch: `Fixes.ShortcutOn` returns false unless the harness turns it on (default off, as `autt2l0`).
+- **Offline:** `tools/selftest/autlocalprobe` (`HhSearchRec`).
+- **Queue:** `tools/harness/queues/hhsearch-sv-1116.json` (SV + BP) and a copy for Dalexlol's save. Extended the same day to the docs/277 §5 item list (docs/277 §7.2: scope, why enqueued, gap bins, lowest motive, lot, pairs). The decision rule is in the queue note.
+- **Existing fixes checked:** no NRaas mod memoises lot hours or limits household search repeats (grep of the NRaas source: only `Bartending.TryGetHoursOfOperation` callers in Career/Traffic); a web search found no Sims 3 fix at this level.

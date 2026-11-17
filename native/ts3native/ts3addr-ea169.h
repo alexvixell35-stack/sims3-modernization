@@ -845,6 +845,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00D614E0, 0x00000000},
     {0x00D61670, 0x00000000},
     {0x00D6FCB0, 0x00D6FC90},
+    {0x00D70800, 0x00000000},
     {0x00D70870, 0x00D70870},
     {0x00D70E00, 0x00D70DE0},
     {0x00D70FB2, 0x00D70F92},
@@ -904,7 +905,9 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00E49900, 0x00E49950},
     {0x00E49950, 0x00E499A0},
     {0x00E49A50, 0x00E49AA0},
+    {0x00E49AD9, 0x00000000},
     {0x00E49C80, 0x00E49CD0},
+    {0x00E4A022, 0x00000000},
     {0x00E4A050, 0x00E4A0A0},
     {0x00E4A0B0, 0x00E4A100},
     {0x00E4A120, 0x00E4A170},
@@ -914,6 +917,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00E4A20C, 0x00E4A25C},
     {0x00E4A219, 0x00E4A269},
     {0x00E4A2B0, 0x00E4A300},
+    {0x00E4A320, 0x00000000},
     {0x00E4A3F0, 0x00E4A440},
     {0x00E4A856, 0x00E4A8A6},
     {0x00E4A85D, 0x00E4A8AD},
@@ -921,6 +925,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00E4ABE0, 0x00E4AC30},
     {0x00E4AE30, 0x00E4AE80},
     {0x00E4B3F0, 0x00E4B440},
+    {0x00E4B480, 0x00000000},
     {0x00E4BA90, 0x00E4BAE0},
     {0x00E4BCE0, 0x00E4BD30},
     {0x00E4BDC0, 0x00E4BE10},
@@ -1397,6 +1402,9 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x011F2F9C, 0x0124D02C},
     {0x011F303C, 0x0124D0CC},
     {0x011F3054, 0x0124D0E4},
+    {0x011F3078, 0x00000000},
+    {0x011F3094, 0x00000000},
+    {0x011F309C, 0x00000000},
     {0x011F30A8, 0x0124D138},
     {0x011F30C4, 0x0124D154},
     {0x011F30D0, 0x0124D160},
@@ -1558,4 +1566,12 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x011F43E4 no-ea-1.69-address native/ts3native/satb.cpp:1477
 // unresolved: 0x011F4574 no-ea-1.69-address native/ts3native/satb.cpp:1477
 // unresolved: 0x011F45A0 no-ea-1.69-address native/ts3native/satb.cpp:1477
-constexpr int ts3addr_count = 1426;
+// unresolved: 0x00D70800 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] IdleGate, master-1117b)
+// unresolved: 0x00E49AD9 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] IdleGate, master-1117b)
+// unresolved: 0x00E4A022 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] IdleGate, master-1117b)
+// unresolved: 0x00E4A320 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] IdleGate, master-1117b)
+// unresolved: 0x00E4B480 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] IdleGate, master-1117b)
+// unresolved: 0x011F3078 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] IdleGate, master-1117b)
+// unresolved: 0x011F3094 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] IdleGate, master-1117b)
+// unresolved: 0x011F309C no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] IdleGate, master-1117b)
+constexpr int ts3addr_count = 1434;

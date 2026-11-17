@@ -25,6 +25,43 @@ static class AutLocalProbeTest
         Check(AutLocalProbeCore.Reason(false, false, false, false, false), AutLocalProbeCore.kROther, "none = on screen / hosted / cached");
         Check(AutLocalProbeCore.kReason + AutLocalProbeCore.kROther, 924, "last reason slot");
         Check(AutLocalProbeCore.kExc, AutLocalProbeCore.kLast, "slots end at the reservation's last slot");
+        // hhsearchprobe record (docs/276 §2.3 A, docs/277 §5): outcome, scope, enqueue reason, gaps, loop signs
+        int[] c = new int[1139];
+        HhSearchRec h = new HhSearchRec("A", false, true);
+        h.Note(c, HhSearchRec.kScopeHh, true, "Eat", true, HhSearchRec.kBusyNone, HhSearchRec.kRImmOk, "user/other|ok", null, 7UL, 0, true, 1000, 0f);
+        h.Note(c, HhSearchRec.kScopeHh, true, "Eat", false, HhSearchRec.kBusyUserHead, HhSearchRec.kR5to10, "Eat|ok", null, 7UL, 0, true, 1300, 1f);
+        h.Note(c, HhSearchRec.kScopeUnknown, false, null, false, HhSearchRec.kBusyNone, HhSearchRec.kROver60, "Eat|fail", "Hygiene<=-100", 7UL, 1, false, 2800, 1.5f);
+        h.Note(c, HhSearchRec.kScopeHh, true, "Sleep", false, HhSearchRec.kBusyAutoHead, HhSearchRec.kRNone, null, null, 7UL, 0, true, 30000, 10f);
+        Check(c[HhSearchRec.kN], 4, "hh searches");
+        Check(c[HhSearchRec.kLocal], 3, "hh local");
+        Check(c[HhSearchRec.kPush], 1, "hh pushed");
+        Check(c[HhSearchRec.kBusyUser], 1, "hh not queued, user head");
+        Check(c[HhSearchRec.kNoPick], 1, "hh no pick");
+        Check(c[HhSearchRec.kBusyAuto], 1, "hh not queued, autonomous head");
+        Check(c[HhSearchRec.kSameDef], 1, "hh same pick");
+        Check(c[HhSearchRec.kShortGap], 2, "hh short gap (sim-min)");
+        Check(c[HhSearchRec.kNoPushRun], 2, "hh no-push runs");
+        Check(c[HhSearchRec.kMaxPerSim], 4, "hh max per Sim");
+        Check(c[HhSearchRec.kScope + HhSearchRec.kScopeUnknown], 1, "hh unknown scope");
+        Check(c[HhSearchRec.kReason + HhSearchRec.kROver60], 1, "hh reason > 60");
+        Check(c[HhSearchRec.kNoPick60], 1, "hh no pick after > 60 sim-min empty");
+        Check(c[HhSearchRec.kGap + 0], 1, "gap 300 ms bin");
+        Check(c[HhSearchRec.kGap + 1], 1, "gap 1500 ms bin");
+        Check(c[HhSearchRec.kGap + 3], 1, "gap 27 s bin");
+        Check(c[HhSearchRec.kActiveLot], 3, "hh on active lot");
+        string line = h.Line(0x99UL);
+        Check(line.StartsWith("A desc=99 sel scope=0: n=4 local=3 push=1 nopick=1 notQueuedUser=1 notQueuedAuto=1") ? 1 : 0, 1, "hh line: " + line);
+        Check(line.Contains("pushed=[Eat(1)]") && line.Contains("lowestAtNoPick=[Hygiene<=-100(1)]") && line.Contains(">60=1") ? 1 : 0, 1, "hh line parts: " + line);
+        // EA's idle branch order (Sim.CanRunAutonomyImmediately, then the delay test)
+        Check(HhSearchRec.Reason(true, false, true, true, true, 0f), HhSearchRec.kRImmOk, "auto ok: immediate");
+        Check(HhSearchRec.Reason(true, false, true, false, false, 0f), HhSearchRec.kRImmFail, "auto failed, NPC: immediate");
+        Check(HhSearchRec.Reason(true, false, true, false, true, 70f), HhSearchRec.kROver60, "auto failed, selectable: delay path");
+        Check(HhSearchRec.Reason(false, false, true, true, true, 7f), HhSearchRec.kR5to10, "no local autonomy: delay path");
+        Check(HhSearchRec.Reason(true, true, false, true, true, 30f), HhSearchRec.kR10to60, "active Sim talking after a user action: delay path");
+        Check(HhSearchRec.Reason(true, false, false, true, true, -1f), HhSearchRec.kRLt5, "negative empty time");
+        Check(HhSearchRec.Scope(UnseenFallbackCore.kGone), HhSearchRec.kScopeGone, "scope gone");
+        Check(HhSearchRec.Scope(-1), HhSearchRec.kScopeUnknown, "scope -1 unknown");
+        Check(HhSearchRec.kLast, 1134, "hh slots end at the fixes-1115 reservation's last slot");
         Console.WriteLine(sFails == 0 ? "autlocalprobe selftest: ok" : "autlocalprobe selftest: " + sFails + " FAIL");
         Environment.Exit(sFails == 0 ? 0 : 1);
     }

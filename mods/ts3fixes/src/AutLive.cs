@@ -1212,6 +1212,7 @@ namespace Ts3Fixes
         {
             public static void AddHook(AutonomyT a)
             {
+                if (a != null && ShortcutOn("hhsearchprobe") && !OnWorker()) HhSearchEnqueued(a);  // docs/277 §5 item 3 (HhSearchProbe.cs), read-only
                 try
                 {
                     if (sLiveMode && a != null)
@@ -1231,7 +1232,11 @@ namespace Ts3Fixes
         {
             public bool PushHook(InteractionInstance best)
             {
+                // docs/276 §2.3 A household search-rate probe (HhSearchProbe.cs): queue head read before the push, note after
+                bool hhProbe = ShortcutOn("hhsearchprobe") && !OnWorker();
+                int hhBusy = hhProbe && best != null ? HhBusyKind((AutonomyT)(object)this) : HhSearchRec.kBusyNone;
                 bool r = PushOrig(best);
+                if (hhProbe) HhSearchNote((AutonomyT)(object)this, best, r, hhBusy);
                 // Mode 3 only: the hook is in every package since O6, and G8Note walks every Sim each sim-hour
                 try { if (sLiveMode) G8Note((AutonomyT)(object)this, best, r); } catch (Exception) { PatchCounters()[121]++; }
                 if (best != null && ReferenceEquals(best, sDirectInst))

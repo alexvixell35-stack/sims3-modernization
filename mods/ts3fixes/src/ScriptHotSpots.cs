@@ -118,14 +118,38 @@ namespace Ts3Fixes
 
         static bool sHoursMemoReady;
         static readonly HoursMemo sHours = new HoursMemo();
+        static int sHoursLogged;
 
-        // docs/74 §6.3, switch hoursmemo (tuning kHoursMemo). Lot.GetHoursOfOperation(ref open, ref close) is asked by
-        // IsOpenVenue (camera, autonomy, route plans, doors, venue visits) many times per tick per lot; each call reads the
-        // venue's meta-autonomy tuning and bar data and, on a bar, scans every live situation for a started bachelor party
-        // on the lot. The answer (and the hours when true) is kept per lot for one sim tick (TickStamp rules, nothing kept
-        // while paused); a hit writes the outputs only when the answer was true, as the game's method. Only difference: a
-        // bachelor party starting on that lot in the middle of a tick is seen one tick later; hoursmemoverify counts it.
-        // Counters: [85] memo hits, [86] misses (game's method run and stored), [87] verify mismatches.
+        // docs/74 §6.3, docs/276 §1.3, switch hoursmemo (tuning kHoursMemo). Lot.GetHoursOfOperation(ref open, ref close) is
+        // asked by IsOpenVenue (camera, autonomy, route plans, doors, venue visits) many times per tick per lot; each call reads
+        // the venue's meta-autonomy tuning and bar data and, on a bar, lists every live situation to look for a started
+        // bachelor party on the lot. The answer (and the hours when true) is kept per lot for one sim tick (TickStamp rules,
+        // nothing kept while paused); a hit writes the outputs only when the answer was true, as the game's method.
+        // Exact for every Sim and caller, household included [verified, decompiled GetHoursOfOperation, Bartending
+        // TryGetHoursOfOperation(Extended), MetaAutonomyTuning.TryGetHoursOfOperation]: the answer depends only on the lot
+        // type and meta-autonomy type (the entry's key: another key is a miss), static tuning, and, on a bar, whether a started
+        // BachelorParty is on the lot. That last input can change mid-tick (HouseParty.Start sets IsStarted, the party's
+        // Dispose drops it from Situation.sAllSituations), so a bar hit does the same check live, without the list copy.
+        // hoursmemoverify compares every hit with the game's method and returns the game's answer.
+        // Counters: [85] memo hits, [86] misses (game's method run and stored), [87] verify mismatches (first 8 logged in
+        // ts3fixes.applied), [1069] hits verified, [1070] bar hits with the live party check, [1071] misses because the lot's
+        // venue key changed within the tick, [1072] answers not kept (not the bar formula: another mod changed the method).
+        const int kCHoursChecked = 1069, kCHoursBar = 1070, kCHoursKey = 1071, kCHoursNoStore = 1072;
+
+        static int HoursKey(Lot lot) { return ((int)lot.LotType << 16) ^ (int)lot.GetMetaAutonomyType; }
+
+        // Bartending.TryGetHoursOfOperationExtended's party check on the live list: same order, same test, no copy
+        static bool BachelorStartedOn(Lot lot)
+        {
+            List<Sims3.Gameplay.Autonomy.Situation> all = Sims3.Gameplay.Autonomy.Situation.sAllSituations;
+            for (int i = 0; i < all.Count; i++)
+            {
+                Sims3.Gameplay.Situations.BachelorParty p = all[i] as Sims3.Gameplay.Situations.BachelorParty;
+                if (p != null && p.Lot == lot && p.Started) return true;
+            }
+            return false;
+        }
+
         public class HoursMemoHook
         {
             public bool HoursHook(ref float openHour, ref float closingHour)
@@ -133,27 +157,39 @@ namespace Ts3Fixes
                 if (OnWorker()) return HoursOrig(ref openHour, ref closingHour);  // docs/128 G-M3: no memo or stamp writes off the sim thread
                 if (!sHoursMemoReady || Paused() || !ShortcutOn("hoursmemo")) { sHours.Stamp.Reset(); return HoursOrig(ref openHour, ref closingHour); }
                 if (sHours.Stamp.Renew(Simulator.TicksElapsed(), null, System.Environment.TickCount)) sHours.Clear();
-                ulong id = ((Lot)(object)this).LotId;
+                Lot lot = (Lot)(object)this;
+                ulong id = lot.LotId;
+                int key = HoursKey(lot);
                 int[] c = PatchCounters();
                 float open = openHour, close = closingHour;
-                bool res;
-                if (sHours.TryGet(id, ref open, ref close, out res))
+                bool res, bar;
+                int got = sHours.TryGet(id, key, ref open, ref close, out res, out bar);
+                if (got == HoursMemo.kHit)
                 {
                     c[85]++;
-                    if (VerifyNow("hoursmemoverify"))
+                    if (bar && res) { c[kCHoursBar]++; if (BachelorStartedOn(lot)) close = Sims3.Gameplay.Skills.Bartending.TimeOfPartyEnd; }
+                    if (ShortcutOn("hoursmemoverify"))
                     {
+                        c[kCHoursChecked]++;
                         float gOpen = openHour, gClose = closingHour;
                         bool g = HoursOrig(ref gOpen, ref gClose);
-                        if (g != res || gOpen != open || gClose != close) c[87]++;
+                        if (g != res || gOpen != open || gClose != close)
+                        {
+                            c[87]++;
+                            if (sHoursLogged < 8) { sHoursLogged++; AppliedLog().Add("hoursmemo mismatch: lot " + id.ToString("x") + " key " + key.ToString("x") + " bar " + bar + " memo " + res + " " + open + "-" + close + " game " + g + " " + gOpen + "-" + gClose); }
+                        }
                         openHour = gOpen; closingHour = gClose;
                         return g;
                     }
                     openHour = open; closingHour = close;
                     return res;
                 }
+                if (got == HoursMemo.kKeyChanged) c[kCHoursKey]++;
                 c[86]++;
                 res = HoursOrig(ref openHour, ref closingHour);
-                sHours.Store(id, res, openHour, closingHour);
+                float bOpen = 0f, bClose = 0f;
+                bool barOk = Sims3.Gameplay.Skills.Bartending.TryGetHoursOfOperation(lot, ref bOpen, ref bClose);
+                if (!sHours.Store(id, key, res, openHour, closingHour, barOk, bOpen, bClose, Sims3.Gameplay.Skills.Bartending.TimeOfPartyEnd)) c[kCHoursNoStore]++;
                 return res;
             }
             public bool HoursOrig(ref float openHour, ref float closingHour) { return false; } // receives Lot.GetHoursOfOperation(ref float, ref float)'s original header

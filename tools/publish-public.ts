@@ -43,7 +43,10 @@ const SECRETS: [string, RegExp][] = [
   ['private key', /-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----/],
 ];
 const SHORTCUTS = ['GoHome', 'BuildingTrip', 'LotTrip', 'VirtualHome'];
-export const MARKER = join(ROOT, 'probe-out', 'publish-public-last.json');
+// the main checkout's probe-out: a queue run from a worktree reads the same marker (2026-11-16/17: each worktree had none, so
+// every worktree queue end re-synced as "no sync marker yet")
+const MAIN = (() => { try { return resolve(execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: ROOT, encoding: 'utf8', timeout: 30_000, stdio: ['ignore', 'pipe', 'ignore'] }).trim(), '..'); } catch { return ROOT; } })();
+export const MARKER = join(MAIN, 'probe-out', 'publish-public-last.json');
 const sha256 = (b: Buffer | string) => createHash('sha256').update(b).digest('hex');
 
 // --- pure checks (self-checked) ---
@@ -177,6 +180,8 @@ export function timeoutFor(cmd: string, args: string[]): number {
   if (cmd === 'git' && (args.includes('clone') || args.includes('push') || args.includes('--cached'))) return 600_000;
   if (cmd === 'gh' || (cmd === 'git' && args.some(x => ['fetch', 'pull'].includes(x)))) return 120_000;
   if (cmd === process.execPath) return 600_000;
+  // add / commit hash the whole mirror tree (thousands of files, AV scan on each new blob): 30 s timed out 3x on 2026-11-17
+  if (cmd === 'git' && args.some(x => ['add', 'commit', 'rm'].includes(x))) return 300_000;
   return 30_000;
 }
 const BIG = { maxBuffer: 1 << 30 };
@@ -335,7 +340,7 @@ function selfCheck(): void {
     const e = childEnv({ A: '1' }, 'tok');
     assert.equal(e.GIT_TERMINAL_PROMPT, '0'); assert.equal(e.GCM_INTERACTIVE, 'never'); assert.equal(e.GIT_CONFIG_VALUE_0, '');
     assert.match(e.GIT_CONFIG_VALUE_1!, /^AUTHORIZATION: basic /); assert.equal(childEnv({}, '').GIT_CONFIG_COUNT, undefined);
-    assert.equal(timeoutFor('git', ['clone', 'x']), 600_000); assert.equal(timeoutFor('git', ['fetch']), 120_000); assert.equal(timeoutFor('git', ['status']), 30_000); assert.equal(timeoutFor('gh', ['api']), 120_000);
+    assert.equal(timeoutFor('git', ['clone', 'x']), 600_000); assert.equal(timeoutFor('git', ['fetch']), 120_000); assert.equal(timeoutFor('git', ['status']), 30_000); assert.equal(timeoutFor('git', ['-c', 'core.autocrlf=false', 'add', '-A']), 300_000); assert.equal(timeoutFor('gh', ['api']), 120_000);
     assert.throws(() => execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},9e4)'], { timeout: 300, killSignal: 'SIGKILL' }), (x: any) => x.code === 'ETIMEDOUT');
   }
   const user = 'rod' + 'ne', pc = 'LAPTOP' + '-M15', pc2 = 'ALRPan' + 'tonial1', user2 = 'RPan' + 'tonial';

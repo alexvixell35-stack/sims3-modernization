@@ -1,3 +1,7 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+
 namespace Ts3Fixes
 {
     // docs/208: game-free compare rule of AutOffload.cs, so tools/selftest/autoffload can run it offline.
@@ -102,6 +106,120 @@ namespace Ts3Fixes
         {
             int s = Scope(why);
             return s == kScopeSeen ? kScopeApply : s;
+        }
+
+        // docs/274 R2 bcposdry: the ground-plane range scan of the per-tick Sim position table. Writes the indices of the
+        // entries within rq of (bx, bz) into at, in table order; returns the count (at most at.Length).
+        public static int Scan(float[] x, float[] z, int n, float bx, float bz, float rq, int[] at)
+        {
+            float rq2 = rq * rq;
+            int k = 0;
+            for (int i = 0; i < n && k < at.Length; i++)
+            {
+                float dx = x[i] - bx, dz = z[i] - bz;
+                if (dx * dx + dz * dz <= rq2) at[k++] = i;
+            }
+            return k;
+        }
+
+        // docs/274 R2: mine (the table answer) against the game's set. 0 = same members in the same order, 1 = same members
+        // in another order, 2 = members differ; missing = in the game's set only, extra = in mine only.
+        public static int SetDiff(object[] mine, int nm, object[] game, int ng, out int missing, out int extra)
+        {
+            missing = extra = 0;
+            for (int i = 0; i < ng; i++) if (Array.IndexOf(mine, game[i], 0, nm) < 0) missing++;
+            for (int i = 0; i < nm; i++) if (Array.IndexOf(game, mine[i], 0, ng) < 0) extra++;
+            if (missing + extra > 0 || nm != ng) return 2;
+            for (int i = 0; i < nm; i++) if (mine[i] != game[i]) return 1;
+            return 0;
+        }
+    }
+
+    // docs/274 R1 envlistmemo (dry): the validity rule of the env list memo, game-free. A lot is any object (the game's Lot);
+    // a list is the game's own result (List<T> or T[]), stored as a copy. An entry is valid while its lot's generation and,
+    // for a room list, its room's generation are unchanged. Check classifies each call against the stored entry and then
+    // stores the game's result, so the counts say what an apply would have done: hit (valid and equal), hit_wrong (valid but
+    // the game's list differs: the invalidation missed a change), miss_same / miss_diff (invalidated; the list was or was not
+    // the same, i.e. the oracle's repeat share).
+    public sealed class ListMemo
+    {
+        public const int kFirst = 0, kHit = 1, kHitWrong = 2, kMissSame = 3, kMissDiff = 4;
+        const int kMaxLots = 1024, kMaxAgain = 4096;
+        sealed class LotGen { public int Gen; public readonly Dictionary<int, int> Room = new Dictionary<int, int>(); public readonly Dictionary<int, Entry> Memo = new Dictionary<int, Entry>(); }
+        sealed class Entry { public object[] Items; public int Gen, RoomGen; }
+        struct Again { public object Lot; public int Room; public long Tick; }
+        readonly Dictionary<object, LotGen> mLots = new Dictionary<object, LotGen>();
+        readonly List<Again> mAgain = new List<Again>();
+        public int Lots { get { return mLots.Count; } }
+
+        public void Clear() { mLots.Clear(); mAgain.Clear(); }
+
+        // a membership change on the lot (room -1) or of one room: bump now, and once more at the first call of a later tick
+        // (the native lot list may change after the managed event within the same tick, docs/274 §5.1 [inferred])
+        public void Bump(object lot, int room, long tick)
+        {
+            if (lot == null) return;
+            BumpNow(lot, room);
+            if (mAgain.Count >= kMaxAgain) { Clear(); return; }
+            Again a; a.Lot = lot; a.Room = room; a.Tick = tick;
+            mAgain.Add(a);
+        }
+
+        void BumpNow(object lot, int room)
+        {
+            LotGen g;
+            if (!mLots.TryGetValue(lot, out g)) return;  // no entries yet: a later Again still covers the tick
+            if (room < 0) { g.Gen++; return; }
+            int r;
+            g.Room.TryGetValue(room, out r);
+            g.Room[room] = r + 1;
+        }
+
+        public void Tick(long tick)
+        {
+            if (mAgain.Count == 0) return;
+            int keep = 0;
+            for (int i = 0; i < mAgain.Count; i++)
+            {
+                if (mAgain[i].Tick < tick) BumpNow(mAgain[i].Lot, mAgain[i].Room);
+                else mAgain[keep++] = mAgain[i];
+            }
+            mAgain.RemoveRange(keep, mAgain.Count - keep);
+        }
+
+        // kind: which list (the caller's numbering, 0-3); room -1 = a lot-wide list (lot generation only)
+        public int Check(object lot, int room, int kind, IList now, long tick)
+        {
+            Tick(tick);
+            LotGen g;
+            if (!mLots.TryGetValue(lot, out g))
+            {
+                if (mLots.Count >= kMaxLots) Clear();
+                mLots[lot] = g = new LotGen();
+            }
+            int rg = 0;
+            if (room >= 0) g.Room.TryGetValue(room, out rg);
+            int key = room * 4 + kind;
+            Entry e;
+            int cls;
+            if (!g.Memo.TryGetValue(key, out e)) { g.Memo[key] = e = new Entry(); cls = kFirst; }
+            else
+            {
+                bool same = Same(e.Items, now), valid = e.Gen == g.Gen && e.RoomGen == rg;
+                cls = valid ? (same ? kHit : kHitWrong) : (same ? kMissSame : kMissDiff);
+                if (same) { e.Gen = g.Gen; e.RoomGen = rg; return cls; }
+            }
+            object[] items = new object[now.Count];
+            now.CopyTo(items, 0);
+            e.Items = items; e.Gen = g.Gen; e.RoomGen = rg;
+            return cls;
+        }
+
+        public static bool Same(object[] a, IList b)
+        {
+            if (a == null || b == null || a.Length != b.Count) return false;
+            for (int i = 0; i < a.Length; i++) if (!ReferenceEquals(a[i], b[i])) return false;
+            return true;
         }
     }
 }

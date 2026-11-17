@@ -237,3 +237,22 @@ Game runs listed separately: 2 jobs of ~10 min (Z1 + M1 verify, then per-arm ms/
 ## 8. Ledger
 
 docs/51 §490.
+
+## 9. Build (2026-11-16, branch `feature/z1-m1-inplace-1116`, NOT RUN)
+
+Z1 and M1 are built in `mods/ts3fixes/src/WriterMemos.cs`, rules in `TickMemo.cs` (`TableKeeper`, `AbsentMemo`), model checks in `tools/selftest/hotspots` (a mutated empty rule and a missing post-add bump both fail them). Both default off; no scope gate (exact for every Sim and lot). Ledger docs/51 §491.
+
+| Design | Switch (tuning) | Verify switch | Counters (fixes slots, agent names) |
+|---|---|---|---|
+| Z1 | `zdemptyout` (`kZombieDanceEmptyOut`, off) | `zdemptyoutverify`: the game's method also runs on every early-out; it must answer false and leave the table empty | 1064 `zdemptyout_stereo_calls`, 1065 `zdemptyout_stereo_empty`, 1066 `zdemptyout_timeout_calls`, 1067 `zdemptyout_timeout_empty`, 1068 `zdemptyout_mismatches` |
+| M1 | `decaymemo` (`kDecayMultMemo`, off) | `decaymemoverify`: the game's method also runs on every memo hit; it must return 1 | 1060 `decaymemo_hits`, 1061 `decaymemo_misses`, 1062 `decaymemo_mismatches`, 1063 `decaymemo_buffadds` |
+
+**M1 stamp proof [verified].** An IL scan of every method body in the ten game assemblies (`game-copy/assemblies`, 165,766 bodies) and in simler90's core copies (127,829 bodies) for every `ldfld` / `ldflda` / `stfld` of `GenericManager<BuffNames, BuffInstance, BuffInstance>.mValues` and of the open generic field: the only calls that add to a buff manager's table are the `Dictionary.Add` in the two private `BuffManager.AddBuff` overloads. The other sites read (`OnLoadFixup`, `HasElementFromOrigin`, `StoreBuffsForTravel`, `HasElement`, `GetElement`, `get_List`, `get_Count`), remove (`RemoveElement`), or store a new empty table (`.ctor`, `RemoveAllElements`). `get_List` hands out the read-only value collection; no site passes the table itself out. No string literal names `mValues` (no reflection on it in the game). `managed-callgraph.ts subtypes BuffManager`: no subclass, so `GetElement(ulong)` (virtual in `GenericManager`) is the base `TryGetValue` and absent = `!HasElement`. NRaas source: no buff `mValues` access (only the `SkillManager` and `TraitChipManager` tables). A load or travel gives a new manager object (a reference miss). Both add hooks bump the generation before and after the game's body, because `AddBuff(BuffInstance)` runs `OnAddition` before the `Add`. Not covered: a mod that writes the table by reflection or IL of its own, or replaces `AddBuff` wholesale; `decaymemoverify` counts both.
+
+**Z1 table writers [verified].** The same scan for `ZombieDanceTimeOut.mZombieDanceTimeOutOnLots`: written only by the private constructor; adds only in `GetTimeOutOnTheLot`, `ResetTimeOutOnTheLot`, `SetStereoOnTheLot`; removals in `PostWorldStartup`. So the reference is kept per `ZombieDanceTimeOut` instance and `Count` is asked per call. Callers: one each (`Lot.get_HasZombieDanceStereo`, `Lot.UpdateNumZombiesOnLot`).
+
+**Hook cost.** A switch read is a string-keyed dictionary lookup, about what Z1 saves, so both hooks re-read their two switches every 256 calls (a test flip takes effect within 256 calls; both paths are exact). Per call: `OnWorker()`, one counter, one reference compare and an `ICollection.Count` (Z1) or one property read (M1). The two `AddBuff` hooks are installed whenever the patch applies and bump the generation with the switch off too.
+
+**Not checked.** EA 1.69 IL of the hooked methods (no EA 1.69 assemblies in `game-copy`; the hooks fall through to the game's method for every non-empty or non-hit case, and the verify switches cover an EA correctness run). Installed third-party mod assemblies beyond simler90 and the NRaas source.
+
+**Queues.** `tools/harness/queues/z1-m1-correct-1116.json` (RUN FIRST: BP + IP, 10 min each, verify switches on, Z1 probe) and `z1-m1-timing-1116.json` (needs a quiet machine; smoke + in-load A/B per design and world; run only after the probe shows >= 80% empty on both worlds, or drop the two Z1 jobs). Build `ts3fixes.z1-m1-1116` + `ts3agent.z1-m1-1116` over native pair `master-1116b`.

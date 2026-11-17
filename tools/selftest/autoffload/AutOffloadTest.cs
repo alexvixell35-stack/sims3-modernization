@@ -1,6 +1,6 @@
 // Usage: node tools/selftest/autoffload/run.ts  (compiles this with mods/ts3fixes/src/AutOffloadCore.cs)
-// Offline self-check of AutOffloadCore.SeqClass (docs/208 broadcaster Mode R classes) and InsertTop (the env due pick,
-// docs/208 §8.1). Exit code 1 on failure.
+// Offline self-check of AutOffloadCore.SeqClass (docs/208 broadcaster Mode R classes), InsertTop (the env due pick,
+// docs/208 §8.1), ListMemo (docs/274 R1 envlistmemo validity) and Scan / SetDiff (docs/274 R2 bcposdry). Exit 1 on failure.
 using System;
 using Ts3Fixes;
 
@@ -70,10 +70,66 @@ static class AutOffloadTest
             if (w != UnseenFallbackCore.kSeen) Check("only 0 applies, code " + w, AutOffloadCore.Scope(w) == AutOffloadCore.kScopeApply ? 1 : 0, 0);
     }
 
+    // docs/274 R1 envlistmemo: validity rule (lot / room generations, the next-tick second bump)
+    static void ListMemoChecks()
+    {
+        ListMemo m = new ListMemo();
+        object lot = new object(), lot2 = new object(), a = new object(), b = new object();
+        object[] ab = { a, b }, ba = { b, a };
+        Check("memo first", m.Check(lot, 3, 0, ab, 1), ListMemo.kFirst);
+        Check("memo repeat hit", m.Check(lot, 3, 0, new System.Collections.Generic.List<object>(ab), 1), ListMemo.kHit);
+        Check("memo order change unseen = wrong hit", m.Check(lot, 3, 0, ba, 1), ListMemo.kHitWrong);
+        Check("memo stores the game's list", m.Check(lot, 3, 0, ba, 1), ListMemo.kHit);
+        Check("memo lot-wide first", m.Check(lot, -1, 1, ab, 1), ListMemo.kFirst);
+        m.Bump(lot, 4, 1);
+        Check("memo other room bump keeps the room", m.Check(lot, 3, 0, ba, 1), ListMemo.kHit);
+        m.Bump(lot, 3, 1);
+        Check("memo room bump = miss, same list", m.Check(lot, 3, 0, ba, 1), ListMemo.kMissSame);
+        Check("memo room bump keeps lot-wide lists", m.Check(lot, -1, 1, ab, 1), ListMemo.kHit);
+        Check("memo next tick: second bump", m.Check(lot, 3, 0, ab, 2), ListMemo.kMissDiff);
+        Check("memo then valid again", m.Check(lot, 3, 0, ab, 2), ListMemo.kHit);
+        Check("memo room 3's second bump did not touch lot-wide", m.Check(lot, -1, 1, ab, 2), ListMemo.kHit);
+        m.Bump(lot2, -1, 2);
+        Check("memo other lot bump", m.Check(lot, -1, 1, ab, 2), ListMemo.kHit);
+        m.Bump(lot, -1, 2);
+        Check("memo lot bump = miss on lot-wide", m.Check(lot, -1, 1, ab, 2), ListMemo.kMissSame);
+        Check("memo lot bump = miss on rooms", m.Check(lot, 3, 0, ab, 2), ListMemo.kMissSame);
+        Check("memo same tick: no second bump yet", m.Check(lot, 3, 0, ab, 2), ListMemo.kHit);
+        Check("memo later tick: second bump", m.Check(lot, 3, 0, ab, 5), ListMemo.kMissSame);
+        object lot3 = new object();
+        m.Bump(lot3, -1, 5);  // before the lot has entries: the stored entry of the same tick is still bumped next tick
+        Check("memo unseen lot first", m.Check(lot3, -1, 3, ab, 5), ListMemo.kFirst);
+        Check("memo unseen lot same tick", m.Check(lot3, -1, 3, ab, 5), ListMemo.kHit);
+        Check("memo unseen lot next tick", m.Check(lot3, -1, 3, ab, 6), ListMemo.kMissSame);
+        m.Clear();
+        Check("memo clear", m.Check(lot, 3, 0, ab, 7), ListMemo.kFirst);
+        Check("memo empty lists equal", m.Check(lot, 9, 2, new object[0], 7) + m.Check(lot, 9, 2, new object[0], 7), ListMemo.kFirst + ListMemo.kHit);
+    }
+
+    // docs/274 R2 bcposdry: the table range scan and the set compare
+    static void BcPosChecks()
+    {
+        float[] x = { 0f, 3f, 5f, 4f, -3f }, z = { 0f, 4f, 0f, 3.01f, -4f };
+        int[] at = new int[8];
+        int n = AutOffloadCore.Scan(x, z, 5, 0f, 0f, 5f, at);
+        Check("scan count (edge counts)", n, 4);
+        Check("scan order", at[0] == 0 && at[1] == 1 && at[2] == 2 && at[3] == 4 ? 1 : 0, 1);
+        Check("scan cap", AutOffloadCore.Scan(x, z, 5, 0f, 0f, 50f, new int[2]), 2);
+        object a = new object(), b = new object(), c = new object();
+        int miss, extra;
+        Check("set same order", AutOffloadCore.SetDiff(new object[] { a, b }, 2, new object[] { a, b }, 2, out miss, out extra), 0);
+        Check("set other order", AutOffloadCore.SetDiff(new object[] { b, a }, 2, new object[] { a, b }, 2, out miss, out extra), 1);
+        Check("set missing", AutOffloadCore.SetDiff(new object[] { a, null }, 1, new object[] { a, b }, 2, out miss, out extra) * 10 + miss * 3 + extra, 23);
+        Check("set extra", AutOffloadCore.SetDiff(new object[] { a, c }, 2, new object[] { a }, 1, out miss, out extra) * 10 + miss * 3 + extra, 21);
+        Check("set both empty", AutOffloadCore.SetDiff(new object[0], 0, new object[0], 0, out miss, out extra), 0);
+    }
+
     static int Main()
     {
         LotChecks();
         IcDiffChecks();
+        ListMemoChecks();
+        BcPosChecks();
         ScopeChecks();
         object a = new object(), b = new object(), c = new object();
         object[] w = { a, b, c }, r = { a, b, c }, swapped = { b, a, c }, other = { a, b, a };
@@ -98,7 +154,7 @@ static class AutOffloadTest
         n = AutOffloadCore.InsertTop(k, it, n, 3, 1.2f, e);
         Check("pick count", n, 3);
         Check("pick order", it[0] == e && it[1] == b && it[2] == c && k[0] == 1.2f && k[2] == 0.7f ? 1 : 0, 1);
-        Console.WriteLine(sFail == 0 ? "autoffload selftest: ok (39 + 31 scope cases)" : "autoffload selftest: " + sFail + " failed");
+        Console.WriteLine(sFail == 0 ? "autoffload selftest: ok (39 + 31 scope + 21 memo + 8 bcpos cases)" : "autoffload selftest: " + sFail + " failed");
         return sFail == 0 ? 0 : 1;
     }
 }

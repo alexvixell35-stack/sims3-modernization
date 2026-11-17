@@ -102,6 +102,7 @@ namespace Ts3Fixes
             ApplySocialReceiveFail();  // docs/546 §9, on
             ApplyPetFirePlan();  // docs/546 §10, off by default
             ApplySplashRoof();  // docs/546 §16, off by default (NPCs only)
+            ApplyBurntTileFloor();  // docs/277 §4.1, off by default (EA bug fix, all Sims: outcome as vanilla)
             ApplyShuffleboardBcast();  // docs/546 §17, off by default (leak; exact for every Sim)
             ApplyCookClickListener();  // docs/546 §17, off by default (leak; exact for every Sim)
             ApplyVipRoomRefresh();  // docs/555 §3, off by default (EA throw; exact for every Sim)
@@ -171,6 +172,7 @@ namespace Ts3Fixes
             ApplyScriptHotSpots();
             ApplyVenueMemo();
             ApplyExactMemos();  // lane L4 1115: permamemo, buffremovenoop, catnamecache (ExactMemos.cs), off by default
+            ApplyWriterMemos();  // docs/275 Z1 zdemptyout + M1 decaymemo (WriterMemos.cs), off by default
             ApplyDoorMirror();
             ApplyAutShadow();
             ApplyAutRoomMemo();  // docs/97 AM-1 H1-H3/H5 (AutRoomMemo.cs), off by default; after AutShadow (rides on its IsAllowedInRoom swap)
@@ -397,6 +399,7 @@ namespace Ts3Fixes
         // [994] deadrefcooking (DeadRefs.cs phase 14, docs/205 §4): CookingProcess ObjectDisposed handlers removed. [995-996] deadrefconvo (phase 15, docs/517 §4): gone conversation members removed / conversation visits skipped for a household member.
         // [997] takeariskguard (TakeARiskGuard.cs, docs/529 §4): Take a Risk liking updates skipped (null relationship, EA would throw).
         // [1014-1017] permamemo (ExactMemos.cs, docs/245 §5 H): hits / misses / verify mismatches / table clears. [1018-1019] buffremovenoop (docs/95 §5.5): early returns / calls passed on.
+        // [1060-1063] decaymemo (WriterMemos.cs, docs/275 M1): hits / misses / verify mismatches / buff adds seen. [1064-1068] zdemptyout (docs/275 Z1): HasStereo calls / of them empty table / UpdateTimeOut calls / of them empty table / verify mismatches.
         // [1020-1023] catnamecache (ExactMemos.cs, docs/96 B2): hits / misses / verify mismatches / clears. [1024-1037] AM-1 (AutRoomMemo.cs, docs/97 §7): pairs, segments, room memo hits / misses / verify mismatches, calls outside a pair, floods inside a pair, memo drops inside a pair, segment time buckets <1/1-2/2-5/5-10/>=10 ms, max segment us.
         // [2050] rewardgiver (RewardGiver.cs, docs/525): owner components SetRewardGiver added in place of EA's NullReferenceException.
         // [2054] leavejobdispose (LeaveJobDispose.cs, docs/529 §2): deferred job leaves done at once for a description being disposed at work.
@@ -536,6 +539,12 @@ namespace Ts3Fixes
         // [930-932] watchdogasync: A1 verdicts dropped as stale (H4Core.WdFresh), shadow sync re-checks run, shadow verdicts that differ
         // [969-984] replanlog (ReplanLog.cs, docs/261 §6 L1, ts3native [RouteAsync] ReplanLog=1): own Replans and ms, calls and ms
         // per scope (household, selected, seenNpc, unseen, unknown), bursts, call lines, lines dropped, would start but Kinds
+        // [1069-1072] hoursmemo exactness (ScriptHotSpots.cs, docs/276 §1.3): hits verified (hoursmemoverify), bar hits with the live
+        // bachelor-party check, misses because the lot's venue key changed within the tick, answers not kept (not the bar formula)
+        // [1073-1084] hhsearchprobe (HhSearchProbe.cs, HhSearchRec in AutLocalProbeCore.cs, docs/276 §2.3 A): household searches,
+        // local, pushed, no pick, not pushed under a user / autonomous head, same pick again, short gap, no-push runs, Sims, max per Sim, exceptions
+        // [1135-1138] burnttilefloor (BurntTileFloor.cs, docs/277 §4.1): burnt tiles left out (no floor), lists that lost one, lists left empty, errors
+        // [1115-1134] hhsearchprobe docs/277 §5: scope, why enqueued (immediate ok/fail, empty <5/5-10/10-60/>60 sim-min, none), gap ms bins, no pick after >60, L0 pairs, active lot, pets
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
@@ -616,6 +625,9 @@ namespace Ts3Fixes
                 case "autroommemo": return Instantiator.kAutonomyRoomMemo;  // exact memo, off (AutRoomMemo.cs, docs/97 §7 H2)
                 case "autslicetime": return Instantiator.kAutonomySliceTime;  // measure only, off (AutRoomMemo.cs, docs/97 §7 H5)
                 case "invcache": return Instantiator.kPortalInvocationCache;  // exact, off (ScriptHotSpots.cs, docs/115)
+                case "zdemptyout": return Instantiator.kZombieDanceEmptyOut;  // exact early-out, off (WriterMemos.cs, docs/275 Z1)
+                case "decaymemo": return Instantiator.kDecayMultMemo;  // exact memo, off (WriterMemos.cs, docs/275 M1)
+                case "zdemptyoutverify": case "decaymemoverify": return false; // verify switches: test runs only
                 case "permamemoverify": case "catnamecacheverify": case "autroommemoverify": case "invcacheverify": return false; // verify switches: test runs only
                 case "caneearly": return Instantiator.kCaneEarlyOut;
                 case "tooltipthrottle": return Instantiator.kTooltipThrottle;
@@ -630,6 +642,7 @@ namespace Ts3Fixes
                 // docs/208 §8 apply switches: unset read true here (default branch) while the agent showed them off
                 case "autoffenvapply": case "autoffbcastapply": case "autoffnoref": return false;
                 case "autoffunseen": return false; // docs/208 §10 unseen-only gate on the env / bcast apply (only acts with the apply switches)
+                case "envlistmemo": case "bcposdry": return false; // docs/274 R1 / R2 dry probes (EnvBcProbes.cs): counts only, test runs
                 case "autofftick": return false; // docs/206 §15 Mode R tick item: test runs only
                 case "autofft2": case "autofft2ic": case "autofflot": return false; // docs/208 §9 Mode R items (tier-2 rows, closest lot): test runs only
                 case "autt2inuse": case "autt2fire": case "autt2dragwarm": return false; // docs/219 §3.1 tier-2 P1 worker guards + drag pre-warm (AutShadow.cs): test runs only
@@ -637,6 +650,7 @@ namespace Ts3Fixes
                 case "autt2cewarm": case "autt2frontdoor": case "autt2suite": return false; // tier-2 P2 pre-warm and guards (AutShadow.cs): test runs only
                 case "autt2callpet": return false; // tier-2 P3 CallPet worker-owned picker list (AutShadow.cs): test runs only
                 case "autt2l0": return false;  // tier-2 L0 local-phase probe (AutLocalProbe.cs): measurement only, test runs
+                case "hhsearchprobe": return false;  // docs/276 §2.3 A household search-rate probe (HhSearchProbe.cs): measurement only, test runs
                 case "autlive": return IniUnseen(); // docs/124 §17 go-live consume ([AutShadow] Mode=3): test runs, or ini Unseen=1
                 case "autlivetune": return false; // docs/124 §3.1 tuning rule: drop a go-live result when an allow-listed pair's tuning fingerprint (AutLiveCore.TunFp) changed since the request (only acts with autlive); test runs only
                 case "autliveseen": case "autliveseendry": return false; // docs/124 §17.12: with autseengame, a proven seen NPC takes the exact go-live path (dry: compare only); household and unknown scope never; test runs only
@@ -767,6 +781,7 @@ namespace Ts3Fixes
                 case "socialreceivefail": return Instantiator.kSocialReceiveFail;
                 case "petfireplan": return Instantiator.kPetFirePlan;
                 case "splashroof": return Instantiator.kSplashRoof;
+                case "burnttilefloor": return Instantiator.kBurntTileFloor;
                 case "shuffleboardbcast": return Instantiator.kShuffleboardBcast;
                 case "cookclicklistener": return Instantiator.kCookClickListener;
                 case "viproomrefresh": return Instantiator.kVipRoomRefresh;

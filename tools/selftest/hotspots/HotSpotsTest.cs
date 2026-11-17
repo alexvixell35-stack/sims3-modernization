@@ -59,25 +59,41 @@ static class HotSpotsTest
         }
     }
 
-    // Model of Lot.GetHoursOfOperation: per lot and tick a fixed answer; the outputs are written only when it is true.
-    static bool Game(ulong lot, long tick, ref float open, ref float close)
+    // Model of Lot.GetHoursOfOperation (docs/276 §1.3): the answer depends on the lot's venue key, on whether that key is a
+    // bar (bar hours) and, on a bar, on a started bachelor party (closing hour = party end). Keys and parties change mid-tick.
+    const float kPartyEnd = 6f;
+    static int[] sKey = new int[30];
+    static bool[] sParty = new bool[30];
+    static bool IsBar(int key) { return key % 3 == 0; }
+    static bool Bar(int key, ref float open, ref float close) { if (!IsBar(key)) return false; open = key % 24; close = (key * 5) % 24 + 0.5f; return true; }
+    static bool Game(int lot, ref float open, ref float close)
     {
-        int h = (int)(lot * 7 + (ulong)(tick / 3)); // answers change every few ticks (a party starting, a venue changing)
-        if (h % 4 == 0) return false;
-        open = h % 24; close = (h * 5) % 24 + 0.5f;
+        int key = sKey[lot];
+        if (Bar(key, ref open, ref close)) { if (sParty[lot]) close = kPartyEnd; return true; }
+        if (key % 4 == 1) return false;
+        open = (key * 7) % 24; close = (key * 11) % 24 + 0.25f;
         return true;
     }
 
-    // The hook's logic around HoursMemo, without the game: same stamp, same hit and miss paths.
-    static bool Memo(HoursMemo m, ulong lot, long tick, int nowMs, ref float open, ref float close, out bool hit)
+    // The hook's logic around HoursMemo, without the game: same stamp, key, live party check, hit and miss paths.
+    static bool Memo(HoursMemo m, int lot, long tick, int nowMs, ref float open, ref float close, out bool hit)
     {
         if (m.Stamp.Renew(tick, null, nowMs)) m.Clear();
+        ulong id = (ulong)lot + 0x1000000000UL;
         float o = open, c = close;
-        bool res;
-        hit = m.TryGet(lot, ref o, ref c, out res);
-        if (hit) { open = o; close = c; return res; }
-        res = Game(lot, tick, ref open, ref close);
-        m.Store(lot, res, open, close);
+        bool res, bar;
+        int got = m.TryGet(id, sKey[lot], ref o, ref c, out res, out bar);
+        hit = got == HoursMemo.kHit;
+        if (hit)
+        {
+            if (bar && res && sParty[lot]) c = kPartyEnd;
+            if (res) { open = o; close = c; }
+            return res;
+        }
+        res = Game(lot, ref open, ref close);
+        float bo = 0f, bc = 0f;
+        bool barOk = Bar(sKey[lot], ref bo, ref bc);
+        m.Store(id, sKey[lot], res, open, close, barOk, bo, bc, kPartyEnd);
         return res;
     }
 
@@ -85,22 +101,34 @@ static class HotSpotsTest
     {
         Random r = new Random(87);
         HoursMemo m = new HoursMemo();
-        long tick = 0; int now = 0, hits = 0;
+        for (int i = 0; i < sKey.Length; i++) sKey[i] = r.Next(40);
+        long tick = 0; int now = 0, hits = 0, barHits = 0;
         for (int step = 0; step < 50000; step++)
         {
             if (r.Next(12) == 0) { tick++; now += 25; }
             if (r.Next(500) == 0) now += 150; // ticks stopped: the time cap must rebuild
-            ulong lot = (ulong)r.Next(30) + 0x1000000000UL;
+            int lot = r.Next(30);
+            if (r.Next(200) == 0) sKey[lot] = r.Next(40);        // venue changed mid-tick
+            if (r.Next(50) == 0) sParty[lot] = !sParty[lot];     // a bachelor party starts or ends mid-tick
             float inOpen = r.Next(3) == 0 ? -1f : (float)r.NextDouble(), inClose = (float)r.NextDouble() * 3f; // caller's values
             float go = inOpen, gc = inClose, mo = inOpen, mc = inClose;
             bool hit;
-            bool g = Game(lot, tick, ref go, ref gc);
+            bool g = Game(lot, ref go, ref gc);
             bool a = Memo(m, lot, tick, now, ref mo, ref mc, out hit);
-            if (hit) hits++;
+            if (hit) { hits++; if (IsBar(sKey[lot])) barHits++; }
             Check(g == a && go == mo && gc == mc, "hours memo at step " + step + " lot " + lot + " tick " + tick);
             if (sFails > 10) return;
         }
         Check(hits > 10000, "hours memo hits " + hits);
+        Check(barHits > 1000, "hours memo bar hits " + barHits);
+        // a foreign answer on a bar (not the bar formula) is not kept: the next ask is a miss again
+        HoursMemo f = new HoursMemo();
+        float fo = 0f, fc = 0f; bool fr, fb;
+        Check(!f.Store(1UL, 3, true, 9f, 10f, true, 8f, 10f, kPartyEnd), "foreign bar answer refused");
+        Check(f.TryGet(1UL, 3, ref fo, ref fc, out fr, out fb) == HoursMemo.kMiss, "refused answer is a miss");
+        Check(f.Store(1UL, 3, true, 8f, kPartyEnd, true, 8f, 10f, kPartyEnd), "bar answer with the party end kept");
+        Check(f.TryGet(1UL, 3, ref fo, ref fc, out fr, out fb) == HoursMemo.kHit && fb && fc == 10f, "bar entry keeps the bar's own close");
+        Check(f.TryGet(1UL, 4, ref fo, ref fc, out fr, out fb) == HoursMemo.kKeyChanged, "other key = key-changed miss");
     }
 
     static void GateRules()
@@ -377,6 +405,103 @@ static class HotSpotsTest
         e.Get(hs[4], k, 0, 1); Check(k[0] == 1, "invcache: newest kept");
     }
 
+    // docs/275 Z1 zdemptyout: random table adds (count step, reset, stereo set), PostWorldStartup removals, instance swaps
+    // (load / ClearStatics). The hook answers false / returns only on an empty table; answers and table state must match
+    // the game's method run on a copy.
+    sealed class ZdInfo { public float TimeOut; public bool Stereo; public bool StereoAlive; }
+    static bool ZdGameStereo(Dictionary<ulong, ZdInfo> t, ulong lot)
+    {
+        ZdInfo v;
+        if (t.TryGetValue(lot, out v) && v.Stereo) { if (v.StereoAlive) return true; v.Stereo = false; }
+        return false;
+    }
+    static void ZdGameUpdate(Dictionary<ulong, ZdInfo> t, ulong lot, float dt)
+    {
+        ZdInfo v;
+        if (t.TryGetValue(lot, out v)) { v.TimeOut -= dt; if (v.TimeOut < 0f) v.TimeOut = 0f; }
+    }
+    static void ZdModel()
+    {
+        Random r = new Random(275);
+        TableKeeper k = new TableKeeper();
+        object owner = new object();
+        Dictionary<ulong, ZdInfo> game = new Dictionary<ulong, ZdInfo>(), ours = new Dictionary<ulong, ZdInfo>();
+        int early = 0;
+        for (int step = 0; step < 40000 && sFails < 10; step++)
+        {
+            int op = r.Next(1000);
+            ulong lot = (ulong)r.Next(8);
+            if (op < 20) { ZdInfo a = new ZdInfo(), b = new ZdInfo(); a.TimeOut = b.TimeOut = 5f; a.Stereo = b.Stereo = r.Next(2) == 0; a.StereoAlive = b.StereoAlive = r.Next(2) == 0; if (!game.ContainsKey(lot)) { game.Add(lot, a); ours.Add(lot, b); } }
+            else if (op < 22) { game.Remove(lot); ours.Remove(lot); }
+            else if (op < 23) { owner = new object(); game = new Dictionary<ulong, ZdInfo>(); ours = new Dictionary<ulong, ZdInfo>(); } // new instance, new table
+            else if (op < 26) { game.Clear(); ours.Clear(); }
+            else
+            {
+                if (!k.Same(owner)) k.Keep(owner, ours);
+                bool empty = TableKeeper.Empty(k.Table);
+                if (empty) early++;
+                if (op < 500)
+                {
+                    bool g = ZdGameStereo(game, lot), o = empty ? false : ZdGameStereo(ours, lot);
+                    Check(g == o, "zdemptyout stereo at step " + step);
+                }
+                else
+                {
+                    float dt = (float)r.NextDouble();
+                    ZdGameUpdate(game, lot, dt);
+                    if (!empty) ZdGameUpdate(ours, lot, dt);
+                }
+                ZdInfo gi, oi;
+                Check(game.Count == ours.Count && (!game.TryGetValue(lot, out gi) || (ours.TryGetValue(lot, out oi) && gi.TimeOut == oi.TimeOut && gi.Stereo == oi.Stereo)), "zdemptyout table at step " + step);
+            }
+        }
+        Check(early > 3000 && early < 30000, "zdemptyout early-outs " + early);
+        Check(!TableKeeper.Empty(null), "zdemptyout: null table is never empty");
+        k.Clear();
+        Check(!k.Same(owner), "zdemptyout: Clear drops the owner");
+    }
+
+    // docs/275 M1 decaymemo: managers with random watched (3) and other buffs, adds bumping the generation before and after
+    // the body with a decay check possibly made inside it (OnAddition), removals without a bump, manager swaps (load, travel).
+    static void DecayModel()
+    {
+        Random r = new Random(2751);
+        AbsentMemo m = new AbsentMemo();
+        List<HashSet<int>> mgrs = new List<HashSet<int>>();
+        for (int i = 0; i < 4; i++) mgrs.Add(new HashSet<int>());
+        int gen = 0, hits = 0;
+        for (int step = 0; step < 60000 && sFails < 10; step++)
+        {
+            int op = r.Next(1000);
+            int mi = r.Next(mgrs.Count);
+            HashSet<int> bm = mgrs[mi];
+            int buff = r.Next(6); // 0-2 watched
+            if (op < 5)
+            {
+                gen++;
+                if (r.Next(2) == 0) DecayCall(m, bm, gen, ref hits, step); // check inside the body, before the Add
+                bm.Add(buff);
+                gen++;
+            }
+            else if (op < 40) bm.Remove(buff);
+            else if (op < 41) mgrs[mi] = new HashSet<int>(bm); // same buffs, new manager object
+            else DecayCall(m, op < 990 ? mgrs[0] : bm, gen, ref hits, step);
+        }
+        Check(hits > 15000, "decaymemo hits " + hits);
+        m.Clear();
+        Check(!m.Hit(mgrs[0], gen), "decaymemo: Clear drops the owner");
+        Check(!m.Hit(null, gen), "decaymemo: null owner never hits");
+    }
+    static void DecayCall(AbsentMemo m, HashSet<int> bm, int gen, ref int hits, int step)
+    {
+        float game = 1f;
+        for (int b = 0; b < 3; b++) if (bm.Contains(b)) game *= 0.5f + b;
+        float got;
+        if (m.Hit(bm, gen)) { got = 1f; hits++; }
+        else { got = game; m.Store(bm, gen, !bm.Contains(0) && !bm.Contains(1) && !bm.Contains(2)); }
+        Check(got == game, "decaymemo at step " + step);
+    }
+
     static int Main()
     {
         StampRules();
@@ -390,6 +515,8 @@ static class HotSpotsTest
         RoomModel();
         ScopeAndHistogram();
         InvCacheModel();
+        ZdModel();
+        DecayModel();
         Console.WriteLine(sFails == 0 ? "hotspots selftest: PASS" : "hotspots selftest: FAIL (" + sFails + ")");
         return sFails == 0 ? 0 : 1;
     }

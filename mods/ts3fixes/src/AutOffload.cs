@@ -188,6 +188,10 @@ namespace Ts3Fixes
             List<string> failed = new List<string>();
             sOffHooksOk = Hook(failed, typeof(SimUpdate), "CalculateSimEnvironmentScore", null, typeof(AutEnvHook), "EnvHook", "EnvOrig")
                 & Hook(failed, typeof(ReactionBroadcaster), "GetInRadiusSims", new Type[] { typeof(float) }, typeof(AutBcastHook), "RadiusHook", "RadiusOrig");
+            // docs/274 R1 envlistmemo: object start-up joins a lot with no event; build/buy exit can move rooms and portals
+            sElHooksOk = sOffHooksOk
+                & Hook(failed, typeof(LotManager), "PlaceObjectOnLot", new Type[] { typeof(IGameObject), typeof(ObjectGuid) }, typeof(ElHooks), "PlaceHook", "PlaceOrig")
+                & Hook(failed, typeof(LotManager), "ExitBuildBuyMode", Type.EmptyTypes, typeof(ElHooks), "ExitHook", "ExitOrig");
             sLotHookOk = Hook(failed, typeof(Camera), "GetClosestVisibleLot", new Type[] { typeof(Lot), typeof(Vector3).MakeByRefType() }, typeof(AutLotHook), "LotHook", "LotOrig");
             if (failed.Count > 0) AppliedLog().Add("AutOffload: not patched: " + string.Join(", ", failed.ToArray()));
             AppDomain.CurrentDomain.SetData("ts3fixes.autoffload.reasons", sOffReasons);
@@ -722,15 +726,24 @@ namespace Ts3Fixes
                 Vector3 sp = sim.Position;
                 float dx = sp.x - bp.x, dz = sp.z - bp.z;
                 if (dx * dx + dz * dz > rq2) continue;
-                if (sim.GetType() != typeof(Sim)) { OffAbort(r); return; }  // mod Sim subclasses: their overrides are not checked
-                if (sim.RabbitHoleCurrent != null || sim.SimDescription.IsBonehilda || !HasSpecies(q.Species, sim.SimDescription.Species)) continue;
-                if (TombRoomManager.IsObjectInATombRoom(sim) && sim.LotCurrent == b.LotCurrent && b.RoomId != sim.RoomId) continue;
-                if (q.RoomOnly && !Lot.AreInSameRoom(sim, b)) continue;
-                if (sim == b || !sim.CanReact(q.Level) || sim.Posture is SittingInVehicle) continue;
-                if (r.N >= kBcSims) { OffAbort(r); return; }
+                int k = BcKeep(q, b, sim);
+                if (k == 0) continue;
+                if (k < 0 || r.N >= kBcSims) { OffAbort(r); return; }
                 r.Sims[r.N] = sim;
                 r.Near[r.N++] = b.GetDistanceToObject(sim) <= q.R;
             }
+        }
+
+        // GetInRadiusSims's filters except line of sight and could-see (BcRebuild): 1 keep, 0 not a candidate, -1 a mod Sim
+        // subclass (its overrides are not checked). Shared by the worker driver and bcposdry (docs/274 R2).
+        static int BcKeep(BcReq q, IGameObject b, Sim sim)
+        {
+            if (sim.GetType() != typeof(Sim)) return -1;
+            if (sim.RabbitHoleCurrent != null || sim.SimDescription.IsBonehilda || !HasSpecies(q.Species, sim.SimDescription.Species)) return 0;
+            if (TombRoomManager.IsObjectInATombRoom(sim) && sim.LotCurrent == b.LotCurrent && b.RoomId != sim.RoomId) return 0;
+            if (q.RoomOnly && !Lot.AreInSameRoom(sim, b)) return 0;
+            if (sim == b || !sim.CanReact(q.Level) || sim.Posture is SittingInVehicle) return 0;
+            return 1;
         }
 
         // docs/219 §2: the four shared rows, through the game's own getters (the paths there end in these calls)
@@ -1369,7 +1382,14 @@ namespace Ts3Fixes
         {
             public void EnvHook()
             {
-                if (!sOffHooksOk || !ShortcutOn("autoffenv")) { EnvOrig(); return; }
+                if (!sOffHooksOk) { EnvOrig(); return; }
+                if (ShortcutOn("envlistmemo"))  // docs/274 R1 dry: counts only, before the game's own scan
+                {
+                    Sim ls = null;
+                    try { ls = fUpdSim.GetValue((SimUpdate)(object)this) as Sim; } catch (Exception) { }
+                    if (ls != null) EnvListProbe(ls);
+                }
+                if (!ShortcutOn("autoffenv")) { EnvOrig(); return; }
                 SimUpdate u = (SimUpdate)(object)this;
                 Sim s = null;
                 EnvRes a = null;
@@ -1435,7 +1455,22 @@ namespace Ts3Fixes
         {
             public Dictionary<ObjectGuid, Sim> RadiusHook(float pulseRadius)
             {
-                if (!sOffHooksOk || !ShortcutOn("autoffbcast")) return RadiusOrig(pulseRadius);
+                if (!sOffHooksOk) return RadiusOrig(pulseRadius);
+                if (!ShortcutOn("autoffbcast"))
+                {
+                    if (!ShortcutOn("bcposdry")) return RadiusOrig(pulseRadius);
+                    // docs/274 R2 dry: the table answer against the game's set; the game's set is returned
+                    int[] pc = PatchCounters();
+                    Dictionary<ObjectGuid, Sim> tab = null;
+                    try { tab = BcPosAnswer((ReactionBroadcaster)(object)this, pulseRadius, pc); }
+                    catch (Exception) { pc[cBp + 6]++; tab = null; }
+                    if (tab == null) return RadiusOrig(pulseRadius);
+                    sBpWatch.Restart();
+                    Dictionary<ObjectGuid, Sim> game = RadiusOrig(pulseRadius);
+                    long gameUs = sBpWatch.GetElapsedTime();
+                    try { BcPosCompare(tab, game, gameUs, pc); } catch (Exception) { pc[cBp + 6]++; }
+                    return game;
+                }
                 ReactionBroadcaster b = (ReactionBroadcaster)(object)this;
                 sBcRing[sOffBcRing] = b; sOffBcRing = (sOffBcRing + 1) % kOffRing;
                 bool apply = ShortcutOn("autoffbcastapply"), dry = ShortcutOn("autoffdry");

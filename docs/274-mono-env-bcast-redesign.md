@@ -159,4 +159,41 @@ Gains are sim-thread ms/s [inferred] from docs/129 samples and the shares above;
 - I-274-2 [inferred]: Mode R A2 comes from Sim position rows kept by events instead of refreshed at the cut (D1).
 - I-274-3 [inferred]: the env list results repeat often enough between membership changes for >= 40% hits (R1 gate).
 - I-274-4 [inferred]: a per-tick managed position table costs < 50% of the native range queries it replaces (R2 gate).
-- I-274-5 [inferred]: native per-lot object events cover add, remove, move and parent change for every object type the env scan lists (R1 validity).
+- I-274-5 [inferred]: native per-lot object events cover add, remove, move and parent change for every object type the env scan lists (R1 validity). Superseded by §8.1: no native per-lot counter exists; R1 uses managed events (I-495-1).
+
+## 8. Dry probes built (2026-11-16, branch feature/envlist-bcpos-probes-1116, NOT RUN)
+
+Both probes live in `mods/ts3fixes/src/EnvBcProbes.cs` (game-free rule in `AutOffloadCore.cs`: `ListMemo`, `Scan`, `SetDiff`; offline cases in `tools/selftest/autoffload`). Test switches, default off, no tuning. They only count: the game's own lists and broadcaster sets run and are used on every call, so no Sim (household, selected, seen or unseen) gets a different result. Counters 1091-1114 (docs/registry.md), agent keys `envlistmemo_*`, `bcposdry_*`. Queue: `tools/harness/queues/env-bcast-dry-probe-1116.json` (4-min BP smoke, then BP and IP 10 min each, both probes on, Bin state `apex-rewind`).
+
+### 8.1 R1 invalidation source: verdict
+
+The native per-lot object-change counter that §5.1 assumed does not exist [verified, `autshadow.cpp`]. `g_asListGen` is one global counter (object events 4/5/6 and world event `0x11`, `AsObjEv`, `AsWorldEvent`) and runs only with `[AutShadow]` on. The per-lot go-live watch (`AsGwTouch`, `ObjStale`) stamps a lot only on add and destroy: it misses lot moves (world event `0x11` carries no object, I-124-16) and every room change. So R1 uses **managed signals**, which are what the game's own lists depend on:
+
+| Signal | What it covers | Tag |
+|---|---|---|
+| `World.OnObjectLotUpdate` (world event `0x11`, `LotManager.UpdateObjectLot`) | every lot change and every room or level change of a script object. `GameObject.mRoomId` (the `RoomId` that `Lot.GetObjectsInRoom` filters on) is written only in `InternalOnSetRoomAndLevel`, which only `LotManager.AddObjectToLot` and `UpdateObjectLot` call | verified, decompiled |
+| `World.OnObjectPendingDestruction` | destroy (`RemoveObjectFromLot(destructed)`) | verified, decompiled |
+| `World.OnObjectPlacedInLot` | placement | verified (the event exists; RouteFailLog uses it) |
+| `LotManager.PlaceObjectOnLot` (hooked) | script object start-up: `GameObject` start-up calls it and it fires no event, so the object joins the lot silently | verified gap, covered by the hook |
+| `LotManager.ExitBuildBuyMode` (hooked) | walls and portals change room connections: full clear | conservative |
+| lot added, removed, bounds or type changed; world load finished or quit | full clear | verified events |
+
+Handler order: ours goes in front of LotManager's on `World.sOnObjectLotUpdateEventHandler` (set by reflection), so the object still carries its old lot (`InternalLotCurrent`) and room (`StaleRoomId`). A lot change bumps both lots. A room change bumps the old and the new room. A door, portal or room-connection object bumps its whole lot, because it is listed in every room it connects. Conservative extras: every bump is repeated at the first probe call of a later tick, because the native lot vector may change after the managed event within the same tick (destroy order, [inferred]); an event whose object has no managed object bumps the event's lot. What stays unproven is the native list's host filter (handle map, exclusion list `+0xBFC`, docs/122 §14.26) changing with no managed event [inferred rare, I-495-1]. `envlistmemo_hit_wrong` measures exactly that gap.
+
+### 8.2 What the probes count
+
+- `envlistmemo`: per env update (`scans`), before the game's scan, the scan's own list calls. Indoor: `GetObjectsInRoom<GameObject>(room)`, `GetObjects<IAromainator>()` and `GetObjectsInRoom<IAromainator>(room)`, unless the room is empty. Outdoor on a residential lot: `GetObjects<EnvironmentObject>()` for each lot in range. Each result is compared element by element (reference and order) with the memo entry:
+  - `first`: no entry yet;
+  - `hit`: valid and equal;
+  - `hit_wrong`: valid but different, i.e. an invalidation miss. The first 20 are logged as `EnvListMemo: wrong hit lot .. room .. list ..`;
+  - `miss_same`: invalidated but equal (what a finer rule could still add);
+  - `miss_diff`: invalidated and different;
+  - `list_ms` / `hit_ms`: time of all compared calls / of the would-hit calls (the upper bound of the saving).
+
+  The probe's own calls double the list cost while it is on, so it never belongs in a timing job.
+- `bcposdry`: counts every `GetInRadiusSims` call (`pulses`). The compare runs only for an unseen broadcaster with no household Sim on its lot or in range (`BcScopeOf`, the same rule as the autoffunseen pick). The table answer is built from one `LotManager.Actors` position table per tick: a ground-plane scan at radius + buffer + `kBcFoot`, the game's filters (`BcKeep`), then `BcRebuild` (line of sight, could-see, the reacting rule). It is compared with the game's set: `compared`, `set_eq`, `order_eq`, `missing`, `extra`. Cost counters: `tables`, `table_ms`, `scan_ms` (scope check + scan + filters + rebuild) and `game_ms` (the game's call on compared pulses). `aborts` counts a RoomCheck override, a mod Sim subclass, more than 64 candidates or more than 512 actors. `BcKeep` is the filter part of `BcCandidates`, now shared (same checks, same order). `autoffbcast` pre-empts it on the same pulse; the two are not run together.
+
+### 8.3 Gates
+
+- R1 apply only if `hit / calls >= 40%` on BP **and** IP and `hit_wrong = 0`; otherwise park. A wrong hit names the missed change first.
+- R2 apply only if `set_eq / compared >= 99%` and `table_ms + scan_ms <= 50% of game_ms`; otherwise park. `order_eq` is information only: R2 stays unseen-only either way.

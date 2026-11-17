@@ -231,3 +231,110 @@ Decision rule:
   - NRaas Overwatch has stuck-Sim and reset tools but no backoff for idle searches [community-reported, not checked here].
 - The test install contains NRaas ErrorTrap and LynMods (seen in managed stacks). Neither shows up inside the SV B9 caller
   split (§0), but a mod that leaves a household Sim with nothing to pick would only show up in the probe's §5 item 2/4.
+
+## 7. Built 2026-11-16 (branch `feature/hoursmemo-svprobe-1116`, NOT RUN)
+
+### 7.1 The `aut_l0_pairn_hh` "anomaly" (§1) is a report cut, not a counter bug [verified]
+
+- The results md writer (`tools/harness/queue.ts`, the row's verdict cell) cut every cell at 400 characters.
+- In the BP and SV rows the `ts3fixes activity:` list ends exactly at that limit, on `aut_l0_pairn_hh 0->3` and `0->316`. The full values were 397 and 3,163, the same as `aut_l0_n_hh`.
+- The IP row, where the list goes on past `aut_l0_pairn_hh 0->281` (= `n_hh` 281), shows the slot is right.
+- Fix: `mdCell` cuts at the last item boundary (", ", "; ", "<br>") and appends "[cut: full row in the jsonl]" (self-check cases in `queue.ts`). The pair figures of docs/276 (727 per search on SV) stand.
+
+### 7.2 Probe as built (`hhsearchprobe`, test-only switch)
+
+Hook points (all read-only; household Sims are only counted):
+- `AutonomyManager.Add` (`AutQueueHook`): why the Sim was enqueued. It reads the fields `Sim.DoInteraction`'s idle branch just read: `IsRunningLocalAutonomy` as `CanRunAutonomyImmediately` left it, `mLastInteractionWasAutonomous`, `mLastInteractionSucceeded`, `TimeSinceInteractionQueueBecameEmpty`. `ShouldRunLocalAutonomy` is not called, because its getter writes `IsRunningLocalAutonomy`.
+- `Autonomy.ConsiderPerformingAutonomousAction` (`AutPushHook`): every `RunAutonomy` search with `addToQueue` reaches it, with a pick or with null [verified, decompiled].
+- `L0Close` (with `autt2l0` on): the pair count of the same household search.
+
+§5 items, counters fixes-1073..1084 and 1115..1134, per-Sim lines `hhsearch_sims` (top 6 by count):
+
+| §5 item | Where |
+|---|---|
+| 1 actor | per-Sim line: name, SimDescriptionId, pet, selectable, scope; counters `hhsearch_scope_*`, `hhsearch_pets` |
+| 2 outcome | `hhsearch_nopick`, `_busyuser` + `_busyauto` (picked, not queued, by the queue head), `_push`; top 10 pushed picks per Sim |
+| 3 why enqueued | `hhsearch_why_immok`, `_immfail`, `_lt5`, `_5to10`, `_10to60`, `_over60`, `_none`; `hhsearch_nopick_over60` |
+| 4 last interaction | top 10 "previous autonomous pick or user/other, ok/fail" per Sim. EA keeps no name of the last interaction, so the previous autonomous pick stands in; a continuation such as `MopBurnt` shows as its parent `MopBurntTiles` [inferred] |
+| 5 gap | `hhsearch_gap_lt500ms`, `_lt2s`, `_lt10s`, `_ge10s`; `hhsearch_shortgap` (< 2 sim-min) |
+| 6 motive at no pick | lowest of Hunger, Energy, Bladder, Hygiene, Social, Fun, bucketed to 25, top 3 per Sim |
+| 7 lot and level | per-Sim last lot id and level; `hhsearch_activelot` |
+| 8 pairs | `hhsearch_pairs` / `hhsearch_pairn` beside `aut_l0_pairs_hh` / `aut_l0_n_hh` |
+
+- Queues: `tools/harness/queues/hhsearch-sv-1116.json` (SV-Spring + BP-Spring, 12 min each) and `hhsearch-dalexlol-1116.json` (the same two jobs for his machine and save).
+- Offline: `tools/selftest/autlocalprobe` (record, EA idle-branch order, scope, gaps).
+
+### 7.3 `burnttilefloor` as built (§4.1)
+
+- One hook: `Sim+MopBurntTiles+Definition.GetMoppableLocations(lot)`. Both `MopFloorDefintion.Test` and `MopFloor.Run` read the tile list through it [verified, decompiled].
+- Tiles above the ground floor with no solid floor (`level > 0 && !World.HasSolidFloor`, splashroof's floor rule) are left out; EA's order is kept otherwise.
+- Applies to every Sim: the visible outcome equals vanilla's (the tile is never mopped either way). The save is not written.
+- Not covered: a tile that has a floor but cannot be reached (another level with no stairs). If the Keaton tile is one, the repro's on arm still fails and the rule needs a reachability test [inferred risk; `BurntTileCheck list` prints level and floor per tile].
+- Not checked: that a reachable burnt tile is still mopped (no agent `SetBurnt` step yet).
+- Counters fixes-1135..1138 (`burnttile_dropped`, `_lists`, `_empty`, `_err`).
+- Repros `burnt-tile-floor-off` / `-on` force MopBurntTiles 3 times, 60 s apart, on the Keaton lot.
+- Queue `tools/harness/queues/burnttilefloor-sv-1116.json`: the off arm must show the routefail line for goal 1064.7,52.8,1243.2, the on arm must not.
+
+## 8. `burnttilefloor` design 2: EA's planner decides (2026-11-17, branch `bugfix/burnttile-reach-1117`, NOT RUN)
+
+### 8.1 Why design 1 missed [verified data, cause inferred]
+
+- `burnttilefloor-sv-1116` off arm (chain-1116d): the list step logged `burnt tiles 80, no floor 0`; the 12 tiles shown are all
+  L2 with a solid floor. The same job has 20 MopBurnt routefails, all at goal 1064.7,52.8,1243.2. Design 1's no-floor rule
+  (§7.3) matched no tile, so the on arm could never pass (ledger I-493-5 refuted).
+- Every MopBurnt plan in our logs (432 lines over all queue dirs) has that one goal and `FailedBecauseNoDestinationSpecified`,
+  431 async and 1 sync (`rebaseline-1116c` sv-apex-on-3): not our async planner [verified, counted].
+- EA flow [verified, decompiled]: `MopFloor.Run` pushes `Terrain.MopBurnt` for the first tile of `GetBurntTiles` (list order is
+  fixed, so always the same tile); `Mopping.Run` takes the nearest burnt tile in that tile's room and level;
+  `PuddleInteraction.RouteToPuddle` plans a `RadialRangeDestination` around it (min radius 1 m, max auto) with
+  `SetValidRooms(lot, {tile room})` and `ConstrainGoalsToSingleLevel`, and retries once with `CheckForFootprintsNearGoals` off.
+  Both plans end with no destination left after the room/level limits.
+- So the failing target is an L2 tile with a floor (the Sims stand at y 49.1-49.8 = L1 on a foundation lot, the goal is
+  y 52.8 = L2) whose room gives the planner no usable goal: most likely an upstairs room with no stairs link to the Sims'
+  level, or no free spot inside it [inferred, ledger I-497-1]. Not off-lot (the lot id resolves) and not floorless [verified].
+  The rerun2 list steps print room and world position of the first 12 tiles to name it.
+
+### 8.2 Design as built
+
+- Learn, don't guess: in `RouteFailLog.RflPlan` (runs after every Plan/Replan/PlanFromPoint/ReplanFromPoint), a failed plan
+  with result `FailedBecauseNoDestinationSpecified` whose Sim's current interaction is an **autonomous** `Terrain.MopBurnt`
+  and whose route has `CheckForFootprintsNearGoals` off (EA's last try) marks its goal tile (`GetLotLocation` +
+  `GetLotLocationAtFloor`, x/z/level) unreachable on that lot.
+- `GetMoppableLocations` hook (same as design 1) leaves learned tiles out, EA's order kept. Test answers false when only
+  learned tiles are left; Run goes to the next tile.
+- Forgotten: after 24 sim-hours, when build/buy adds or removes an object on that lot (`RflObjectEvent`, e.g. stairs), and at
+  world quit. Max 256 tiles per lot (the rest keep EA's behaviour). Nothing is written to the save.
+- Household rule: `Sim+MopBurntTiles` is only ever autonomous in EA code (solo ad; imaginary friend push with
+  `isAutonomous: true`) [verified]. A player click on a burnt tile runs `Terrain.MopBurnt` directly: never learned from (not
+  autonomous) and never filtered (other path). No Sim or no lot id = unknown scope: nothing learned. The outcome equals
+  vanilla's (EA's own planner already said no destination). Cost: one failed try per tile per 24 sim-hours instead of one per
+  ~5 sim-minutes per Sim.
+- Design 1's no-floor rule is removed (it matched nothing; a floorless tile also fails EA's planner and is learned the same way).
+- Counters: fixes-1135..1138 as before, plus fixes-1139 `burnttile_learned` (tiles learned) and fixes-1140 `burnttile_repeat`
+  (a NoDestination fail on an already learned tile: 0 = the memo held).
+- Harness: `BurntTileCheck list` prints levels, floor, learned unreachable and room + world position of the first 12;
+  `push` now queues MopBurntTiles autonomous (as EA does) and reports why a Sim was not queued (design 1's pushes queued
+  0 Sims in that job; cause not known, the counts will say).
+- Repros `burnt-tile-floor-off/-on` list before and after the tries. Queue
+  `tools/harness/queues/burnttilefloor-sv-1116-rerun2-1117.json` (supersedes rerun1): off arm = goal line >= 1, nothing
+  dropped or learned; on arm = goal lines <= 4 (one try: 2 plans x up to 2 Sims), learned >= 1, dropped >= 1, repeat 0, err 0.
+- Not checked: that a reachable burnt tile is still mopped (no agent `SetBurnt` step; unchanged from §7.3).
+
+### 8.3 rerun2 result and the memo length (2026-11-17)
+
+- `burnttilefloor-sv-1116-rerun2-1117` (chain-1117b): off arm PASS. On arm FAIL on the gate only: 6 routefail lines for goal
+  1064.7,52.8,1243.2 (want <= 4), while `burnttile_learned` 5, `burnttile_dropped` 555 in 311 lists, `burnttile_repeat` 0,
+  `burnttile_err` 0 [measured].
+- Learning works [verified]: the fallback plan's `CheckForFootprintsNearGoals` reads back off after the async plan (ledger
+  I-497-2), and no failure hit a tile while it was learned (repeat 0). The tile Run picks next was reachable for none of the
+  6 tiles seen (all L2 room 0: 1064.7, 1063.8, 1065.1, 1064.2, 1066.4, 1065.5), each failing once with 2 plans from one Sim.
+- Cause of the 6 lines [verified, counted]: the memo's 24 sim-hours. The harness runs at ultra speed: `SimClock.CurrentTicks`
+  in the `ufplan` lines grows 444 ticks/s = 11.8 sim-minutes per real second, so 24 sim-hours is ~122 s real. Every learned
+  tile failed again 122-155 s after it was learned (1064.7 at +0, +178, +306 s; 1063.8 at +27, +180, +335 s; the others the same).
+- Fix: memo 7 sim-days (`kBtMemoHours` 168; ~14 min real at ultra, ~2.8 h at speed 1). Still one try per tile per 7 sim-days
+  instead of one per ~5 sim-minutes per Sim. Build/buy object changes on the lot still forget at once; a wall or floor change
+  alone (not an object) waits for the expiry; a player click on the tile is never filtered. Gates unchanged: with the memo
+  holding, each tile gave exactly 2 lines from one Sim. Queue `burnttilefloor-sv-1116-rerun3-1117.json` (fixes
+  `burnttile-reach-1117b`, same agent).
+- Seen in the list step: all 80 burnt tiles are L2, room 0 at their world position, with a solid floor (ledger I-497-1: an
+  outdoor L2 floor, e.g. a deck or roof floor, with no route up; still inferred).

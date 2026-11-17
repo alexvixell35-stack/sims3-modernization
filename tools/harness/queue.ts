@@ -237,6 +237,7 @@ export function allowedCorrection(xml: string, allow: string[]): boolean {
   return lines.length > 0 && lines.every(l => res.some(r => r.test(l)));
 }
 import { EA_PACKAGE_LOCK } from '../dump-locks.ts';
+import { MARKER } from '../publish-public.ts';
 import { clickLines, dumpHungGame, GUARD_MS, logTail, type ModeSnap, modeExit, modeSnap, noSafeButton, PKG_ABBA, pkgAbba } from './game-alive.ts';
 import { BIN, EA_LAUNCHER, EA_URI, GAME_EXE, gameRunning, isSteamGame, killLeftovers, LAUNCH, logUntrackedGame, MACHINE, machineTag, relaunched, seenPids } from './game-exe.ts';
 import { checkCfg as checkFailFast, describe as describeFailFast, routingGuard, type FailFast } from './routing-failfast.ts';
@@ -285,8 +286,14 @@ const log = (m: string) => console.log(`${stamp()} queue: ${m}`);
 // Apex Radiance + RTX Remix bridge logs of one job (docs/67 §38): the bridge rewrites Bin/rtx-remix/logs at every launch and Apex
 // appends to its log, so keep both before the next launch: <prefix>-bridge32.log, -bridge64.log, -ApexRadiance_LOG.txt (from apexOff)
 const APEX_LOG = join(USER, 'Apex Radiance', 'ApexRadiance_LOG.txt'); // as turbo-compat.ts
+// apexProfiler (docs/280): Apex's frame profiler at load (Developer build only: the public build compiles it out and refuses
+// developer_mode); keys of ApexRadiance.toml set for the job and put back after it. Its Hitches.txt grows across sessions: the job's
+// part is kept from the size at launch; FrameTimeline.csv is taken by profile-world.ts for a camera_sweep window.
+const APEX_TOML = join(USER, 'Apex Radiance', 'ApexRadiance.toml'), APEX_HITCHES = join(USER, 'Apex Radiance', 'ApexRadiance_Hitches.txt');
+export const APEX_PROFILER_KEYS = { 'ui.developer_mode': true, 'qol.frame_profiler.start_at_load': true, 'qol.frame_profiler.write_file': true };
+export const APEX_PROFILER_STARTED = /\[FrameProfiler\] Timeline section \d+ starts/;
 const sizeOf = (f: string) => { try { return statSync(f).size; } catch { return 0; } };
-export function keepApexLogs(prefix: string, apexOff: number, bin = BIN, apexLog = APEX_LOG): string[] {
+export function keepApexLogs(prefix: string, apexOff: number, bin = BIN, apexLog = APEX_LOG, hitches = APEX_HITCHES, hitchesOff = -1): string[] {
   const kept: string[] = [];
   for (const b of ['bridge32.log', 'bridge64.log']) {
     const src = join(bin, 'rtx-remix', 'logs', b);
@@ -297,9 +304,10 @@ export function keepApexLogs(prefix: string, apexOff: number, bin = BIN, apexLog
     writeFileSync(`${prefix}-ApexRadiance_LOG.txt`, buf.subarray(buf.length >= apexOff ? apexOff : 0)); // shorter = rewritten: all of it
     kept.push('ApexRadiance_LOG.txt');
   }
+  if (hitchesOff >= 0 && sizeOf(hitches) > hitchesOff) { writeFileSync(`${prefix}-ApexRadiance_Hitches.txt`, readFileSync(hitches).subarray(hitchesOff)); kept.push('ApexRadiance_Hitches.txt'); }
   return kept;
 }
-let apexLogOff = 0; // Apex log size at the last launch
+let apexLogOff = 0, apexHitchesOff = -1; // Apex log / Hitches.txt size at the last launch (-1: no apexProfiler job)
 
 // ---------------------------------------------------------------- pure parts (covered by --self-check)
 // the "tested" source version: the release define only. ts3native.cpp's first define is the TS3N_RFTEST one ("0.36.189-rftest1",
@@ -312,7 +320,7 @@ function machineCols(tag: string) { return tag ? { head: ' machine |', sep: '---
 function machineField(tag: string): { machineTag?: string } { return tag ? { machineTag: tag } : {}; }
 type Job = { id: string; note?: string; asi: string; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; run: { repro?: string; saveReload?: string[]; script?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
-    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string }; rewindGames?: { n: number; profile: { minutes: number; seed?: number; fixesOn?: string; fixesOff?: string }; ab?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; crashHunt?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
+    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string }; rewindGames?: { n: number; profile: { minutes: number; seed?: number; fixesOn?: string; fixesOff?: string }; ab?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; apexProfiler?: boolean; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; crashHunt?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
   saveMatrix?: { fixes?: 'all' | 'shipped' }; regexCases?: Record<string, { match: string[]; noMatch: string[] }>; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; retryOf?: string; kcOf?: string; expectHang?: string; shadowCheck?: boolean; quitsGame?: boolean; skipIfMissing?: boolean; ourMods?: false; rewind?: false };
 
 function checkRegexCases(cases: Record<string, { match?: unknown; noMatch?: unknown }>, res: string[], at: string) {
@@ -328,8 +336,16 @@ function checkRegexCases(cases: Record<string, { match?: unknown; noMatch?: unkn
 }
 
 // every top-level job key queue.ts reads (Job type plus the optional extras); anything else is a typo or a profile key at the wrong level
-const JOB_KEYS = new Set(['id', 'quitsGame', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'regexCases', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'crashHunt', 'reuseSession', 'rewind', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm']);
+const JOB_KEYS = new Set(['id', 'quitsGame', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'apexProfiler', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'regexCases', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'crashHunt', 'reuseSession', 'rewind', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm']);
 // ---- vanilla mode (docs/236): what a job may not ask for without ts3native/ts3fixes, and the checks the row names as N/A
+// results md cell: at most `max` chars, cut at an item boundary (", " / "; " / "<br>") and marked, never inside a number
+// (docs/277 §1: the cut at 400 turned aut_l0_pairn_hh 397 / 3163 into "3" / "316"; full values stay in the jsonl row)
+export const mdCell = (x: string, max = 400) => {
+  const t = x.replace(/\|/g, '/').replace(/\r?\n/g, '<br>');
+  if (t.length <= max) return t;
+  const head = t.slice(0, max), at = Math.max(head.lastIndexOf(', '), head.lastIndexOf('; '), head.lastIndexOf('<br>'));
+  return `${at > 0 ? head.slice(0, at) : head} [cut: full row in the jsonl]`;
+};
 export const VANILLA_NA = ['asi build check', 'ts3fixes build check', 'ts3native.log version gate', 'ts3native.ini features', 'hook FAIL lines and route hook state', 'counter gate and /native counters', 'ts3fixes activity'];
 // "ourMods": false: a plain profile window or one repro (queue repros run --no-load, so no restart; its steps must not need ts3fixes); anything
 // that needs ts3native or ts3fixes, or restarts the game inside the job (cycle.ts would reinstall ts3fixes), is refused
@@ -428,6 +444,7 @@ export function parseQueue(json: unknown): Job[] {
     for (const k of Object.keys(j.defaultIni ?? {})) if (!/^\w+\.\w+$/.test(k)) throw new Error(`${at}: defaultIni key "${k}" must be Section.Key`);
     for (const k of Object.keys(j.s3ppIni ?? {})) if (!/^\w+\.\w+$/.test(k)) throw new Error(`${at}: s3ppIni key "${k}" must be Section.Key`);
     for (const k of Object.keys(j.s3ssToml ?? {})) if (!/^\w+(\.\w+)+$/.test(k)) throw new Error(`${at}: s3ssToml key "${k}" must be table.key (e.g. patches.LotStreamingOptimizations.enabled)`);
+    if (j.apexProfiler !== undefined && j.apexProfiler !== true) throw new Error(`${at}: apexProfiler is true or left out`);
     if (j.ourMods !== undefined) { // refused here, so a --dry-run shows it too
       if (j.ourMods !== false) throw new Error(`${at}: ourMods is false or left out`);
       const bad = ourModsRefusals(j); if (bad.length) throw new Error(`${at}: ourMods false refuses: ${bad.join(', ')}`);
@@ -1003,6 +1020,7 @@ export function routeHookState(ini: string, n: any): string {
 // post-run self check: [RouteAsync] on but no async job started = the async arm never ran ('' when fine)
 export function asyncIdle(ini: string, c0: any, c1: any): string {
   if (iniNum(ini, 'RouteAsync', 'Enabled') !== 1 || iniNum(ini, 'RouteAsync', 'Mode') < 1) return '';
+  if (c1?.error) c1 = null;  // an error reply ("script has been destroyed" after an early-gate stop) is no answer, not an asi without the counter
   if (!c1 || !('asyncStarted' in c1)) return `UNKNOWN: [RouteAsync] on but /native ${c1 ? 'has no asyncStarted' : 'did not answer'}: run void`; // docs/236: absent is never ok
   const d = Number(c1.asyncStarted) - Number(c0?.asyncStarted ?? 0);
   return d > 0 ? '' : `self check: [RouteAsync] on but ${d} async route jobs started (invokeHook ${c1.invokeHook ?? '?'}): async off, run void`;
@@ -1038,6 +1056,7 @@ export const ACTIVITY: { what: string; on: string[]; counters: string[]; fix?: s
     counters: ['stuckcheckcap_marked', 'stuckcheck_noplan', 'stuckcheck_notstuck', 'stuckcheck_rearmed', 'stuckcheck_reset'] })),
 ];
 export function featureIdle(ini: string, c0: any, c1: any): string[] {
+  if (c1?.error) c1 = null;  // as asyncIdle
   return ACTIVITY.filter(a => !a.fix && a.on.every(k => iniNum(ini, k.split('.')[0], k.split('.')[1]) >= 1)).flatMap(a => {
     const miss = c1 ? a.counters.filter(k => !(k in c1)) : a.counters; // docs/236: an absent counter is UNKNOWN, never ok (was: skipped)
     if (miss.length) return [`UNKNOWN: ${a.what} on but ${miss.join('+')} missing from /native${c1 ? ' (asi without the counter)' : ' (no answer)'}: run void`];
@@ -1285,6 +1304,11 @@ function publishMessage(sha: string, queueName: string, subjects: string[], cap 
   const more = subjects.length - cap;
   return `\u{1F4DD} Sync: local master ${sha} after queue ${queueName}\n\n${subjects.slice(0, cap).map(x => `- ${x}`).join('\n')}${more > 0 ? `\n- ... and ${more} more` : ''}\n`;
 }
+// the cause is gh's/git's own stderr on the row after "Command failed: <cmd>" (2026-11-17: only that first row was kept)
+function publishReason(rows: string[]): string {
+  const at = Math.max(rows.findIndex(l => /^publish-public:/.test(l)), 0);
+  return (rows.slice(at, at + 2).join(' | ').replace(/^publish-public: /, '') || 'unknown').slice(0, 400);
+}
 function publishAtEnd(queueName: string): void {
   const plan = publishPlan(process.env, !!values['no-publish'], !!values['dry-run']);
   const failed = join(OUT, 'publish-failed');
@@ -1294,7 +1318,7 @@ function publishAtEnd(queueName: string): void {
     const sha = git('rev-parse', '--short=8', 'master');
     let subjects: string[] = [];
     try {
-      const m = JSON.parse(readFileSync(join(ROOT, 'probe-out', 'publish-public-last.json'), 'utf8'));
+      const m = JSON.parse(readFileSync(MARKER, 'utf8'));
       subjects = git('log', '--format=%s', '-n', '200', `${m.sha}..master`).split(/\r?\n/).filter(Boolean);
     } catch { subjects = git('log', '--format=%s', '-n', '20', 'master').split(/\r?\n/).filter(Boolean); }
     const msg = join(OUT, 'publish-message.txt');
@@ -1307,7 +1331,7 @@ function publishAtEnd(queueName: string): void {
   } catch (e: any) {
     const text = `${e?.stderr ?? ''}\n${e?.message ?? e}`.split(plan.token).join('<token>');
     const rows = text.split(/\r?\n/).filter(Boolean);
-    const reason = rows.find(l => /^publish-public:/.test(l))?.replace(/^publish-public: /, '') ?? rows[0] ?? 'unknown';
+    const reason = publishReason(rows);
     log(`publish: FAILED: ${reason}`);
     try { writeFileSync(failed, `${new Date().toISOString()} ${reason}\n`); } catch { /* best effort */ }
   }
@@ -1323,6 +1347,16 @@ if (values['self-check']) {
       writeFileSync(al, 'old run;this run;');
       assert.deepEqual(keepApexLogs(join(d, 'j'), 8, bin, al), ['bridge32.log', 'ApexRadiance_LOG.txt']);
       assert.equal(readFileSync(join(d, 'j-bridge32.log'), 'utf8'), 'client');
+      // apexProfiler: the job's part of Hitches.txt (grows across sessions); -1 or no growth = not kept
+      const hf = join(d, 'hitches.txt'); writeFileSync(hf, 'old;new');
+      assert.deepEqual(keepApexLogs(join(d, 'h'), 0, join(d, 'none'), join(d, 'none.txt'), hf, 4), ['ApexRadiance_Hitches.txt']);
+      assert.equal(readFileSync(join(d, 'h-ApexRadiance_Hitches.txt'), 'utf8'), 'new');
+      assert.deepEqual(keepApexLogs(join(d, 'h2'), 0, join(d, 'none'), join(d, 'none.txt'), hf, 7), []);
+      assert.deepEqual(keepApexLogs(join(d, 'h3'), 0, join(d, 'none'), join(d, 'none.txt'), hf, -1), []);
+      // match: the LOG_INFO format of frame_profiler.cpp:3278 with the log's time/level prefix; noMatch: real Apex log lines
+      assert.ok(APEX_PROFILER_STARTED.test('05:56:45.506 [INFO] [FrameProfiler] Timeline section 1 starts (ApexRadiance_FrameTimeline.csv): time_s 0 = tick_ms 123456789'));
+      for (const l of ['05:56:45.506 [INFO] [Main] Loaded as ApexRadiance.asi', 'Apex Radiance Log - started 2026-11-17 05:56:45']) assert.ok(!APEX_PROFILER_STARTED.test(l));
+      assert.equal(mergeIni('[ui]\ndeveloper_mode = false\n', tomlSet(APEX_PROFILER_KEYS)), '[ui]\ndeveloper_mode=true\n\n[qol.frame_profiler]\nstart_at_load=true\nwrite_file=true\n');
       assert.equal(readFileSync(join(d, 'j-ApexRadiance_LOG.txt'), 'utf8'), 'this run;');
       assert.equal(existsSync(join(d, 'j-bridge64.log')), false);
       keepApexLogs(join(d, 'k'), 999, bin, al);
@@ -1341,6 +1375,9 @@ if (values['self-check']) {
     assert.equal(publishPlan({ GH_TOKEN: 't' }, false, false).run, true, 'GH_TOKEN alone');
     assert.equal(publishPlan({ PERSONAL_GITHUB_TOKEN: 'p', GH_TOKEN: 'g' }, false, false).token, 'p', 'personal token wins');
     assert.equal(publishPlan({}, false, false).run, false, 'no token');
+    assert.equal(publishReason(['(node) warning', 'publish-public: Command failed: gh api user -q .login', 'HTTP 401: Bad credentials (https://api.github.com/user)']), 'Command failed: gh api user -q .login | HTTP 401: Bad credentials (https://api.github.com/user)');
+    assert.equal(publishReason(['publish-public: git add timed out after 30 s']), 'git add timed out after 30 s');
+    assert.equal(publishReason([]), 'unknown');
     assert.equal(publishPlan({ PERSONAL_GITHUB_TOKEN: 't' }, true, false).run, false, '--no-publish');
     assert.equal(publishPlan({ PERSONAL_GITHUB_TOKEN: 't', TS3_NO_PUBLISH: '1' }, false, false).run, false, 'TS3_NO_PUBLISH=1');
     assert.equal(publishPlan({ PERSONAL_GITHUB_TOKEN: 't' }, false, true).run, false, 'dry run');
@@ -1561,6 +1598,8 @@ if (values['self-check']) {
   assert.deepEqual(featureIdle(fIni, { rgEntries: 5, usfDeferred: 1, rcDeferred: 2, rcWould: 0 }, { rgEntries: 5, usfDeferred: 7, rcDeferred: 2, rcWould: 0 }),
     ['self check: [RouteGate] Enforce on but rgEntries rose 0: feature idle, run void', 'self check: [RouteAsync] RefcountGuard on but rcDeferred+rcWould rose 0: feature idle, run void']);
   assert.deepEqual(iniFeaturesOn('[General]\nLog=1\n[RouteAsync]\nEnabled=1\nMode=1\n[WaterJps]\nEnabled=0\n[LotSinCos]\r\nEnabled = 1\r\n'), ['RouteAsync', 'LotSinCos']);
+  assert.match(asyncIdle(raOn, {}, { error: 'InvalidOperationError: script has been destroyed' }), /\/native did not answer: run void/);
+  assert.ok(featureIdle(fIni, {}, { error: 'x' }).every(l => l.endsWith('(no answer): run void')), 'an error reply is no answer');
   assert.deepEqual(featureIdle(fIni, {}, { rgEntries: 3 }), ['UNKNOWN: [Discourage] DeferFootprint on but usfDeferred missing from /native (asi without the counter): run void',
     'UNKNOWN: [RouteAsync] RefcountGuard on but rcDeferred+rcWould missing from /native (asi without the counter): run void'], 'docs/236: absent counters are UNKNOWN');
   const vIni = '[WaterJps]\nEnabled=1\nVerify=1\n[LotSinCos]\nEnabled=1\nVerify=0\n';
@@ -2114,6 +2153,8 @@ if (values['self-check']) {
     assert.throws(() => parseQueue([oj({ run: { profile: { minutes: 10, repros: ['r'] } } })]), /run.profile.repros/);
     assert.throws(() => parseQueue([oj({ reuseSession: true })]), /refuses: reuseSession/);
     assert.deepEqual(rowIni(parseQueue([oj({})])[0]), {}, 'no Light or call-site keys in the row of a run without ts3native');
+    assert.equal(mdCell('a 0->1, b 0->397', 14), 'a 0->1 [cut: full row in the jsonl]', 'md cell cut at an item boundary, not inside 397');
+    assert.equal(mdCell('x|y\nz'), 'x/y<br>z', 'md cell: pipes and newlines escaped, short text untouched');
     assert.ok(OURMODS_NA.length === VANILLA_NA.length - 1 && !OURMODS_NA.includes('ts3fixes activity'), 'ts3fixes activity is checked, not N/A');
     // a reply without ts3fixes (PatchHandlers.cs Patches): applied null, counters 0, rates -1, switches at their defaults
     const clean = { applied: null, gohome: true, gohome_runs: 0, unseenroute_c_hit_pm: -1, recent: null };
@@ -2297,7 +2338,7 @@ const sha = (p: string) => (existsSync(p) ? createHash('sha256').update(readFile
 // docs/170: jobs with the same key need the same game start (what is written before the launch); reuseOf null = reuse off
 const reuseOf = (j: Job): ReuseOpts | null => parseReuse(j.reuseSession);
 const keyOf = (j: Job) => stableKey({ asi: asiPath(j), sha: sha(asiPath(j)), ini: jobIni(j) ?? {}, fixes: j.fixes ?? null, fixesPackage: j.fixesPackage ?? null, save: saveFile(saveOf(j) ?? ''), content: j.content ?? 'as-is', ccSet: j.ccSet ?? null, ccLots: j.ccLots ?? null,
-  gameArgs: j.gameArgs ?? [], defaultIni: j.defaultIni ?? null, s3ppIni: j.s3ppIni ?? null, s3ssToml: j.s3ssToml ?? null, dxvkConf: j.dxvkConf ?? null, d3d9Dll: j.d3d9Dll ?? null, pin: pinConfig(j.pin) ?? null });
+  gameArgs: j.gameArgs ?? [], defaultIni: j.defaultIni ?? null, s3ppIni: j.s3ppIni ?? null, s3ssToml: j.s3ssToml ?? null, apexProfiler: j.apexProfiler ?? false, dxvkConf: j.dxvkConf ?? null, d3d9Dll: j.d3d9Dll ?? null, pin: pinConfig(j.pin) ?? null });
 const itemsOf = (j: Job): ReproItem[] | null => (j.run.profile?.repros ? reproItems(j.run.profile.repros) : null);
 // the next job may take over the running game: reuse on for it, same key, a profile run that can share a load
 const canTakeOver = (key: string, next?: Job) => !!next && !!reuseOf(next) && !reuseBlock(next) && keyOf(next) === key;
@@ -2436,6 +2477,7 @@ if (values['dry-run']) {
     if (j.d3d9Dll) console.log(`  3 Bin/d3d9.dll replaced by ${j.d3d9Dll}${existsSync(join(ROOT, j.d3d9Dll)) ? '' : '  ** MISSING **'}   (DXVK dll saved as d3d9.dll.dxvk-bak, put back and read back after the job)`);
     if (j.dxvkConf) console.log(`  3 Bin/dxvk.conf + ${Object.entries(j.dxvkConf).map(([k, v]) => `${k} = ${v}`).join(', ')}${existsSync(DXVK_CONF) ? '' : '  ** MISSING **'}   (put back after the job)`);
     if (j.s3ssToml) console.log(`  3 S3SS/S3SS.toml + ${Object.entries(j.s3ssToml).map(([k, v]) => `${k}=${v}`).join(', ')}${existsSync(S3SS_TOML) ? '' : '  ** MISSING **'}   (put back after the job)`);
+    if (j.apexProfiler) console.log(`  3 Apex Radiance/ApexRadiance.toml + ${Object.entries(APEX_PROFILER_KEYS).map(([k, v]) => `${k}=${v}`).join(', ')}${existsSync(APEX_TOML) ? '' : '  ** MISSING **'}   (put back after the job; Developer Apex build only)`);
     if (j.routingFailFast) console.log(`  5 ${describeFailFast(j.routingFailFast)}`);
     if (j.earlyGates) console.log(`  5 ${describeGates(j.earlyGates)}`);
     if (j.stopQueueOnFail || values['stop-on-fail']) console.log('  9 stopQueueOnFail: a FAIL row stops the queue (STOP: line)');
@@ -2778,6 +2820,7 @@ if (VANILLA && !values['dry-run']) {
   if (vp.length) { console.error(`vanilla mode: state check failed before any job: ${vp.join('; ')}`); process.exit(2); }
 }
 if (existsSync(S3SS_TOML)) copyFileSync(S3SS_TOML, join(BEFORE, 'S3SS.toml'));
+if (existsSync(APEX_TOML)) copyFileSync(APEX_TOML, join(BEFORE, 'ApexRadiance.toml'));
 const repoIni = readFileSync(REPO_INI, 'utf8');
 // iniBase: a job's own base ini (path from the repo root, e.g. a release zip's ts3native.ini) instead of the repo one; job.ini still merges over it
 const baseIni = (j: Job) => (j.iniBase ? readFileSync(resolve(ROOT, j.iniBase), 'utf8') : repoIni);
@@ -2787,7 +2830,7 @@ let prevCrashed = !!earlier.at(-1)?.crashed, stopWhy = '', exitCode = 0;
 const ledgerBlocks: string[] = [];  // mono ledger probe (docs/51, mono-ledger-report.ts): printed under the result table at the end
 // the running game and what its start changed; kept across jobs only when reuseSession lets the next job take it over (docs/170 §2)
 let d3d9Orig: Buffer | null = null; // DXVK d3d9.dll while a d3d9Dll job has the Bin swapped; not reset per job (a failed put-back must survive)
-let stopPin = () => {}, probe: ReturnType<typeof spawn> | undefined, applied = { install: [] as string[], uninstall: [] as string[] }, launched = false, defaultIniOrig: string | null = null, s3ppIniOrig: string | null = null, s3ssTomlOrig: string | null = null, dxvkConfOrig: string | null = null, stashed = false, ccInstalled = false, lotsInstalled = false;
+let stopPin = () => {}, probe: ReturnType<typeof spawn> | undefined, applied = { install: [] as string[], uninstall: [] as string[] }, launched = false, defaultIniOrig: string | null = null, s3ppIniOrig: string | null = null, s3ssTomlOrig: string | null = null, apexTomlOrig: string | null = null, dxvkConfOrig: string | null = null, stashed = false, ccInstalled = false, lotsInstalled = false;
 type Sess = { key: string; reuse: ReuseOpts | null; load: number; windows: number; logOff: number; base: WorldSnap | null; frames: string; carry?: string; rw?: ReturnType<typeof rewindSession>; rwUsed?: boolean };
 let sess: Sess | null = null, loads = 0;
 const logSize = () => { try { return statSync(LOG).size; } catch { return 0; } };
@@ -2828,7 +2871,7 @@ const startProbe = (j: Job) => {
   if (sc.status === 3) throw new Error(`${scOut[1]}; refused before the game started`); // FAIL, never PASS
   const pf =createWriteStream(join(OUT, `${queueName}-${date}-${j.id}-probe.log`), { flags: 'a' });
   const pr = probe = spawn('python', [join(ROOT, 'tools', 'probe', 'ts3probe.py'), 'serve', '--launch', '--port', values.port!, '--', ...launchArgs(j.gameArgs)], { cwd: ROOT });
-  apexLogOff = sizeOf(APEX_LOG);
+  apexLogOff = sizeOf(APEX_LOG); apexHitchesOff = j.apexProfiler ? sizeOf(APEX_HITCHES) : -1;
   pr.stdout?.pipe(pf); pr.stderr?.pipe(pf); launched = true;
   const clicksFile = noOurs(j) ? join(OUT, `${queueName}-${date}-${j.id}.clicks.log`) : '';
   if (clicksFile) process.env.TS3_CLICKS_LOG = clicksFile; // children (vanilla-steps.ts accept) read the accept lines from it
@@ -2932,12 +2975,13 @@ async function restoreStart(id: string, logFile: string): Promise<string[]> {
   if (defaultIniOrig !== null) try { writeFileSync(DEFAULT_INI, defaultIniOrig); } catch (e) { stopWhy ||= `could not put back Bin/Default.ini (${e}; copy in probe-out/queue/bin-before)`; }
   if (s3ppIniOrig !== null) try { writeFileSync(S3PP_INI, s3ppIniOrig); } catch (e) { stopWhy ||= `could not put back Bin/Sims3Performance.ini (${e}; copy in probe-out/queue/bin-before)`; }
   if (s3ssTomlOrig !== null) try { writeFileSync(S3SS_TOML, s3ssTomlOrig); } catch (e) { stopWhy ||= `could not put back S3SS/S3SS.toml (${e}; copy in probe-out/queue/bin-before)`; }
+  if (apexTomlOrig !== null) try { writeFileSync(APEX_TOML, apexTomlOrig); } catch (e) { stopWhy ||= `could not put back Apex Radiance/ApexRadiance.toml (${e}; copy in probe-out/queue/bin-before)`; }
   if (dxvkConfOrig !== null) try { writeFileSync(DXVK_CONF, dxvkConfOrig); } catch (e) { stopWhy ||= `could not put back Bin/dxvk.conf (${e}; copy in probe-out/queue/bin-before)`; }
-  for (const [p, orig] of [[DEFAULT_INI, defaultIniOrig], [S3PP_INI, s3ppIniOrig], [S3SS_TOML, s3ssTomlOrig], [DXVK_CONF, dxvkConfOrig]] as const) {
+  for (const [p, orig] of [[DEFAULT_INI, defaultIniOrig], [S3PP_INI, s3ppIniOrig], [S3SS_TOML, s3ssTomlOrig], [APEX_TOML, apexTomlOrig], [DXVK_CONF, dxvkConfOrig]] as const) {
     const why = orig === null ? '' : readBack(p, orig); // docs/236 #16: the next job must not start on a config we think we put back
     if (why) { stopWhy ||= why; errs.push(why); log(`${id}: ${why}`); }
   }
-  defaultIniOrig = s3ppIniOrig = s3ssTomlOrig = dxvkConfOrig = null;
+  defaultIniOrig = s3ppIniOrig = s3ssTomlOrig = apexTomlOrig = dxvkConfOrig = null;
   if (d3d9Orig !== null) { // the DXVK dll must never stay out of Bin: retry, read back, then drop the backup copy
     let why = 'not tried';
     for (let t = 0; t < 5 && why; t++) { try { writeFileSync(D3D9_DLL, d3d9Orig); why = readBack(D3D9_DLL, d3d9Orig); } catch (e) { why = String(e); } if (why) await new Promise(r => setTimeout(r, 2000)); }
@@ -3026,7 +3070,7 @@ for (const [n, j] of jobs.entries()) {
   row.session = reused ? { load: sess!.load, window: sess!.windows, line: `reused session (#${sess!.windows} since load)`, before: sess!.carry ?? null } : { line: 'fresh load' };
   row.start = reused ? 'reused session' : 'fresh';
   if (reused) log(`${j.id}: ${row.session.line}; game start steps skipped`);
-  else { stopPin = () => {}; probe = undefined; applied = { install: [], uninstall: [] }; launched = false; defaultIniOrig = s3ppIniOrig = s3ssTomlOrig = dxvkConfOrig = null; stashed = false; ccInstalled = false; lotsInstalled = false; lastBuild = null; }
+  else { stopPin = () => {}; probe = undefined; applied = { install: [], uninstall: [] }; launched = false; defaultIniOrig = s3ppIniOrig = s3ssTomlOrig = apexTomlOrig = dxvkConfOrig = null; stashed = false; ccInstalled = false; lotsInstalled = false; lastBuild = null; }
   let jobLogOff = 0, rwOffs: { sh: number; aut: number } | null = null; // rwOffs: Bin jsonl sizes at a rewound job's start (not truncated then)
   try {
     if (!noOurs(j) && !existsSync(asiPath(j))) throw new Error(`asi missing: ${j.asi} (refused before touching the game)`);
@@ -3095,6 +3139,10 @@ for (const [n, j] of jobs.entries()) {
     if (j.s3ssToml) {
       if (!existsSync(S3SS_TOML)) throw new Error('s3ssToml: S3SS/S3SS.toml missing (s3ss-config not installed)');
       s3ssTomlOrig = readFileSync(S3SS_TOML, 'utf8'); writeFileSync(S3SS_TOML, mergeIni(s3ssTomlOrig, tomlSet(j.s3ssToml)));
+    }
+    if (j.apexProfiler) {
+      if (!existsSync(APEX_TOML)) throw new Error('apexProfiler: Apex Radiance/ApexRadiance.toml missing (Bin state apex not set?)');
+      apexTomlOrig = readFileSync(APEX_TOML, 'utf8'); writeFileSync(APEX_TOML, mergeIni(apexTomlOrig, tomlSet(APEX_PROFILER_KEYS)));
     }
     if (j.d3d9Dll) {
       const src = join(ROOT, j.d3d9Dll);
@@ -3538,7 +3586,8 @@ for (const [n, j] of jobs.entries()) {
   // [AutShadow] records (go-live dry-diff / dry-sim-mis, docs/124 §17), truncated at job start (row.autshadowLog)
   const AUTSHADOW = join(BIN, 'autshadow.jsonl');
   if (launched && existsSync(AUTSHADOW) && statSync(AUTSHADOW).size > (rwOffs?.aut ?? 0)) try { copyFrom(AUTSHADOW, row.autshadowLog = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-autshadow.jsonl`), rwOffs?.aut); } catch (e) { log(`${j.id}: copy autshadow.jsonl: ${e}`); }
-  if (launched) try { const k = keepApexLogs(join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}`), apexLogOff); if (k.length) log(`${j.id}: kept ${k.join(', ')}`); } catch (e) { log(`${j.id}: copy bridge/Apex logs: ${e}`); }
+  if (launched) try { const ap = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}`), k = keepApexLogs(ap, apexLogOff, BIN, APEX_LOG, APEX_HITCHES, apexHitchesOff); if (k.length) log(`${j.id}: kept ${k.join(', ')}`);
+    if (j.apexProfiler) log(`${j.id}: Apex frame profiler ${existsSync(`${ap}-ApexRadiance_LOG.txt`) && APEX_PROFILER_STARTED.test(readFileSync(`${ap}-ApexRadiance_LOG.txt`, 'utf8')) ? 'ran (Timeline section line in the Apex log)' : 'did NOT start: no Timeline section line in the Apex log (public Apex build ignores developer_mode; needs the Developer build, docs/280)'}`); } catch (e) { log(`${j.id}: copy bridge/Apex logs: ${e}`); }
   let keep = mayKeep && (rwKeep || row.pass);
   if (rwKeep) row.session.next = `rewind for ${next.id}`;
   else if (keep) {
@@ -3583,7 +3632,7 @@ for (const [n, j] of jobs.entries()) {
   appendFileSync(jsonl, JSON.stringify(row) + '\n');
   clearJob();
   const cd = row.counters.delta ? Object.entries(row.counters.delta).map(([k, v]) => `${k} ${(v as number) > 0 ? '+' : ''}${v}`).join(', ') : '-';
-  const cell = (x: string) => x.replace(/\|/g, '/').replace(/\r?\n/g, '<br>').slice(0, 400);
+  const cell = (x: string) => mdCell(x);
   appendFileSync(md, `| ${j.id} | ${t0.slice(11, 16)} (${pht(t0)}) | ${row.minutes} | ${row.pass ? 'PASS' : row.knownCause ? '**VOID**' : row.na ? '**N/A**' : row.crashed ? '**CRASH**' : '**FAIL**'} | ${cell(row.verdict.join('<br>') || row.error || '-')} | ${row.exitCode ?? '-'} | ${memLine(row.memory.before)} -> ${memLine(row.memory.after)} | ${cell(cd || '-')} | ${cell([countsNote(row), `timing: ${timingText({ timing: row.timing, why: row.timingWhy })}`, buildLine(row.buildCheck), row.saveHashes.after && saveDrift(row.saveHashes.before, row.saveHashes.after).length ? 'BASELINE SAVE CHANGED' : '', row.session.line !== 'fresh load' || row.session.after ? [row.session.line, row.session.after, row.session.next].filter(Boolean).join('; ') : '',
     rwGroups.size || row.start !== 'fresh' ? `start: ${row.start}${row.startMs ? ` (${Math.round(row.startMs / 1000)} s)` : ''}${row.snapshot ? `; snapshot ${row.snapshot}` : ''}` : '', row.noiseNote, row.hangCapture, j.note, row.content !== 'as-is' ? `content ${row.content} (${row.contentMoved} moved)` : '', row.crashed ? row.crash.split('\n')[1]?.trim() : '', row.error && row.verdict.length ? row.error : ''].filter(Boolean).join('; ') || '')}${row.armMs ? `<br>${row.armMs.line}` : ''} |${machineCols(machineTag()).cell(MACHINE)}\n`);
   log(`${j.id}: ${row.pass ? 'PASS' : row.knownCause ? 'VOID' : row.na ? 'N/A' : row.crashed ? 'CRASH' : 'FAIL'} in ${row.minutes} min${row.pass || row.na ? '' : row.knownCause ? ` | ${row.verdict[0]}` : ` | ${(failText(row.verdict) || row.error || '').replace(/\s+/g, ' ').slice(0, 400)}`}`); // after "in N min": log greps match that prefix

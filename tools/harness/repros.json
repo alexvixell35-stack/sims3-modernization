@@ -1525,6 +1525,47 @@
     "expect": "lotAdds and lotSetActive > 0 during the pan; per-second lotAddMaxMs / pumpMaxMs tell whether lot streaming is a stutter source (a few ms: no, N16/E8 close; tens of ms: time-budgeted pump candidate); no script errors, the game window is never moved or focused"
   },
   {
+    "id": "camera-sweep",
+    "bug": "Camera-movement stutter (docs/278): frame times while the camera zooms, rotates and pans over a busy area, split per motion type; Apex camera-pan profile: lot room solve 0x006A8BA0 (CALL 0x00ADB9AD) leads 81% of moving hitches on a pan",
+    "fix": "measurement only: agent camera_sweep (fixed 180 s script, segment markers in epochMs + tickMs); profile-world.ts splits <tag>-<secs>-frames.csv per segment into <tag>-camsweep.json (camera-sweep-report.ts), plus Apex FrameTimeline.csv when the queue job sets apexProfiler (Developer Apex build)",
+    "save": "Baseline-BP-Spring",
+    "steps": [
+      {
+        "cmd": "camera",
+        "args": {},
+        "waitS": 60,
+        "note": "lead-in: the first 60 s of the window are the load minute (excluded); start pose, for the log"
+      },
+      {
+        "cmd": "camera_sweep",
+        "args": {},
+        "waitS": 182,
+        "note": "still 5 s, zoom smooth 30 s, zoom steps 30 s, rotate 30 s, rotate fast 20 s, still at pan start 5 s, pan 50 s, still 10 s (180 s)"
+      },
+      {
+        "cmd": "camera_sweep",
+        "args": {
+          "status": true
+        },
+        "waitS": 1,
+        "note": "segment markers (epochMs / tickMs start and end, camera sets, distance at the end) into <tag>-repro.jsonl"
+      },
+      {
+        "cmd": "camera_sweep",
+        "args": {
+          "stop": true
+        },
+        "optional": true
+      }
+    ],
+    "watch": {
+      "kind": "stuck",
+      "sims": [],
+      "minutes": 1
+    },
+    "expect": "PASS: camera sweep: 8 segments (every segment closed, none cut, frames in every moving segment); per-segment p99 / p99.9 / max, counts > 25 / 50 / 100 ms and Apex-rule hitches in the profile log and <tag>-camsweep.json; distEnd ~30 m (mid zoom) after zoom_smooth and zoom_steps; no script errors; the game window is never moved or focused"
+  },
+  {
     "id": "verify-moodlets",
     "bug": "Moodlet add/remove rebuilds the buff grid through UI ICs on the sim thread while the main thread draws the window tree (docs/43 M-UI5, docs/47 R1)",
     "fix": "measurement only (docs/51): run under profile-world.ts --repro with ts3native [Verify] (counters v21, vf*) and --mainstack main",
@@ -2681,7 +2722,7 @@
   {
     "id": "hours-memo",
     "bug": "Lot.GetHoursOfOperation (from IsOpenVenue: camera, autonomy, route plans, doors, venue visits) re-reads two tuning dictionaries and, on bars, scans all live situations for a bachelor party on every call: 1.09% of managed samples (docs/74 §6.3)",
-    "fix": "ts3fixes ScriptHotSpots.cs HoursMemoHook (switch hoursmemo, tuning kHoursMemo, default off): (answer, open, close) per lot for one sim tick, outputs written only on true as the game's method; nothing kept while paused. hoursmemoverify checks 1 answer in 8 against the game's",
+    "fix": "ts3fixes ScriptHotSpots.cs HoursMemoHook (switch hoursmemo, tuning kHoursMemo, default off): (answer, open, close) per lot for one sim tick, outputs written only on true as the game's method; nothing kept while paused. hoursmemoverify (docs/276 §1.3: venue key per entry, live bachelor-party check on bar hits, so exact mid-tick) checks every kept answer against the game's",
     "save": "Baseline-BP",
     "steps": [
       {
@@ -2747,7 +2788,7 @@
       "min": 1,
       "minutes": 2
     },
-    "expect": "switch on: hoursmemo_hits >> hoursmemo_misses (repeat questions in a tick); hoursmemo_mismatches 0 (a bachelor party started on a bar mid-tick is the only allowed cause; start one by hand on a bar lot to see it); venues open and close at the same hours as with the switch off; no script errors"
+    "expect": "switch on: hoursmemo_hits >> hoursmemo_misses (repeat questions in a tick); hoursmemo_mismatches 0 (exact since docs/276 §1.3: any mismatch is a bug; hoursmemo_checked = hits verified, hoursmemo_barhits = bar answers with the live party check); venues open and close at the same hours as with the switch off; no script errors"
   },
   {
     "id": "venue-memo",
@@ -67303,6 +67344,192 @@
     ]
   },
   {
+    "id": "burnt-tile-floor-off",
+    "bug": "Sim+MopBurntTiles offers and runs mopping for every burnt tile World.GetBurntTiles returns; on the SV-Spring Keaton lot all 432 MopBurnt plans in our logs (async and sync) aimed at goal 1064.7,52.8,1243.2 (an L2 tile with a solid floor, 3.0 m above the Sims' floor) and ended FailedBecauseNoDestinationSpecified; the tile stays burnt, so autonomy offers it again. The first design's no-floor test matched none of the 80 burnt tiles (docs/277 §3, §8)",
+    "fix": "ts3fixes BurntTileFloor.cs: burnttilefloor (default off, design 2, docs/277 §8): EA's own planner decides. When the last plan of an autonomous Terrain.MopBurnt (EA's fallback, footprint check off) ends FailedBecauseNoDestinationSpecified, its goal tile is learned as unreachable (24 sim-hours, forgotten on build/buy on that lot and at world quit) and left out of MopBurntTiles' GetMoppableLocations, so Test no longer offers it and Run goes to the next tile. Player-ordered MopBurnt is never learned from or filtered; unknown scope learns nothing; outcome as vanilla (the tile is never mopped either way). Check: BurntTileCheck (list, push, result)",
+    "save": "Baseline-SV-Spring",
+    "note": "Off arm. Needs the Keatons (active household) on their lot. 'push' queues EA's MopBurntTiles (autonomous, as EA pushes it) for every household human on the active lot and says why a Sim was not queued (forces the try; the Sims also try on their own every few sim-minutes). 'list' runs before and after the tries: burnt tiles, levels, solid floor, learned unreachable, first 12 with room and world position. The routefail line (routefaillog, on in release) names MopBurnt and the goal.",
+    "expect": "off: >= 1 routefail line 'MopBurnt target Terrain, Plan ... FailedBecauseNoDestinationSpecified ... goal 1064.7,52.8,1243.2'; burnttile_* stay 0; both 'list' steps show learned unreachable 0",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "burnttilefloor": false
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurntTileCheck",
+          "args": [
+            "list"
+          ]
+        },
+        "note": "burnt tiles on the active lot before the tries: levels, floor, learned unreachable (new criterion), first 12"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurntTileCheck",
+          "args": [
+            "push"
+          ]
+        },
+        "note": "try 1: queue MopBurntTiles",
+        "waitS": 60
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurntTileCheck",
+          "args": [
+            "push"
+          ]
+        },
+        "note": "try 2: queue MopBurntTiles",
+        "waitS": 60
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurntTileCheck",
+          "args": [
+            "push"
+          ]
+        },
+        "note": "try 3: queue MopBurntTiles",
+        "waitS": 60
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurntTileCheck",
+          "args": [
+            "list"
+          ]
+        },
+        "note": "burnt tiles after the tries: learned unreachable (the new criterion) and the tile still in the save"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurntTileCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "counters 1135-1140"
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "burnttilefloor": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "burnt-tile-floor-on",
+    "bug": "Sim+MopBurntTiles offers and runs mopping for every burnt tile World.GetBurntTiles returns; on the SV-Spring Keaton lot all 432 MopBurnt plans in our logs (async and sync) aimed at goal 1064.7,52.8,1243.2 (an L2 tile with a solid floor, 3.0 m above the Sims' floor) and ended FailedBecauseNoDestinationSpecified; the tile stays burnt, so autonomy offers it again. The first design's no-floor test matched none of the 80 burnt tiles (docs/277 §3, §8)",
+    "fix": "ts3fixes BurntTileFloor.cs: burnttilefloor (default off, design 2, docs/277 §8): EA's own planner decides. When the last plan of an autonomous Terrain.MopBurnt (EA's fallback, footprint check off) ends FailedBecauseNoDestinationSpecified, its goal tile is learned as unreachable (24 sim-hours, forgotten on build/buy on that lot and at world quit) and left out of MopBurntTiles' GetMoppableLocations, so Test no longer offers it and Run goes to the next tile. Player-ordered MopBurnt is never learned from or filtered; unknown scope learns nothing; outcome as vanilla (the tile is never mopped either way). Check: BurntTileCheck (list, push, result)",
+    "save": "Baseline-SV-Spring",
+    "note": "On arm. Needs the Keatons (active household) on their lot. 'push' queues EA's MopBurntTiles (autonomous, as EA pushes it) for every household human on the active lot and says why a Sim was not queued (forces the try; the Sims also try on their own every few sim-minutes). 'list' runs before and after the tries: burnt tiles, levels, solid floor, learned unreachable, first 12 with room and world position. The routefail line (routefaillog, on in release) names MopBurnt and the goal.",
+    "expect": "on: the goal-1064.7,52.8,1243.2 tile is learned after one try (<= 4 MopBurnt NoDestination routefail lines for that goal: 2 plans per try, 2 Sims), then no more; burnttile_learned >= 1, burnttile_dropped >= 1, burnttile_repeat 0, burnttile_err 0; the second 'list' shows learned unreachable >= 1 and the tile still burnt (save unchanged)",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "burnttilefloor": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurntTileCheck",
+          "args": [
+            "list"
+          ]
+        },
+        "note": "burnt tiles on the active lot before the tries: levels, floor, learned unreachable (new criterion), first 12"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurntTileCheck",
+          "args": [
+            "push"
+          ]
+        },
+        "note": "try 1: queue MopBurntTiles",
+        "waitS": 60
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurntTileCheck",
+          "args": [
+            "push"
+          ]
+        },
+        "note": "try 2: queue MopBurntTiles",
+        "waitS": 60
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurntTileCheck",
+          "args": [
+            "push"
+          ]
+        },
+        "note": "try 3: queue MopBurntTiles",
+        "waitS": 60
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurntTileCheck",
+          "args": [
+            "list"
+          ]
+        },
+        "note": "burnt tiles after the tries: learned unreachable (the new criterion) and the tile still in the save"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurntTileCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "counters 1135-1140"
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "burnttilefloor": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
     "id": "apartment-leave-farewell",
     "bug": "Sim.RoomChanged on a lot with virtual residential slots (Late Night apartment) calls VisitSituation.OnSimLeavingLot whenever a Sim walks on the same lot from a room that is not public (the household's unmarked apartment, or a hidden room) into a public one (PublicRoomMarker hallway/lobby), without checking that it is leaving. A visitor who only walks through the hallway gets the farewell ('time to leave' TNS or the party's leaving message) and is removed from the party as left early (liking change, -50 early-departure mood in the party score, no longer a guest), yet keeps visiting; its real departure later shows no farewell (docs/553)",
     "fix": "ts3fixes AptLeave.cs: aptleave (default off), NPCs only: that room-change call is skipped while the Sim is not leaving (current interaction targets this lot and is not GoHome/GoOutside, no GoHome/GoOutside queued, no visit leave reason, does not live on the lot). GoHome/GoOutside/commute calls are never touched; household Sims run EA's code. Check: ApartmentLeaveCheck (AptLeaveChecks.cs)",
@@ -69105,6 +69332,72 @@
       "minutes": 2
     },
     "expect": "switch on: permamemo_hits >> permamemo_misses, permamemo_mismatches 0, buffremovenoop_early > 0, catnamecache_mismatches 0 (hits only where something asks catalog names: Overwatch daily cleanup, inventory UI); moodlets of household Sims identical to the switch off; no script errors"
+  },
+  {
+    "id": "writer-memos",
+    "bug": "Lot.UpdateNumZombiesOnLot (every simulating lot, Supernatural installed) looks the lot up twice in ZombieDanceTimeOut's per-lot table, which is usually empty; Motive.GetCommodityDecayMultiplier asks every visible Sim's buff manager for three reward buffs on every motive decay step although almost no Sim has them (docs/275 §2.2, §4.1)",
+    "fix": "ts3fixes WriterMemos.cs (switches zdemptyout + zdemptyoutverify, decaymemo + decaymemoverify; tunings kZombieDanceEmptyOut, kDecayMultMemo, default off): Z1 answers HasStereoOnTheLot false / returns from UpdateTimeOutOnTheLots while the table is empty; M1 answers 1 for the same buff manager while none of the three buffs was there at the last check and no BuffManager.AddBuff ran since. Exact for every Sim and lot; the verify switches run the game's method on every early-out and count mismatches",
+    "save": "Baseline-BP-Spring",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "zdemptyout": true,
+          "zdemptyoutverify": true,
+          "decaymemo": true,
+          "decaymemoverify": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 5
+        },
+        "waitS": 5,
+        "note": "townies on the active lot: more high-LOD motive decay and buff adds"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 90,
+        "note": "lots simulate (zdemptyout_*_calls rise), motives decay (decaymemo_hits rise), buffs are added (decaymemo_buffadds)"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "zdemptyout": false,
+          "zdemptyoutverify": false,
+          "decaymemo": false,
+          "decaymemoverify": false
+        },
+        "waitS": 1
+      }
+    ],
+    "watch": {
+      "kind": "counter",
+      "counter": "decaymemo_hits",
+      "min": 1,
+      "minutes": 2
+    },
+    "expect": "switches on: decaymemo_hits >> decaymemo_misses, decaymemo_mismatches 0, decaymemo_buffadds > 0, zdemptyout_stereo_calls > 0, zdemptyout_mismatches 0; zdemptyout_stereo_empty / zdemptyout_stereo_calls is the Z1 probe (docs/275 §3.1 stop rule: under 0.8 = park Z1, consider Z2); every mismatch counter covers household and selected Sims too (no scope gate: exact); ts3fixes.applied lists ZombieDanceTimeOut.HasStereoOnTheLot, UpdateTimeOutOnTheLots, BuffManager.AddBuff (2) and Motive.GetCommodityDecayMultiplier; no script errors"
   },
   {
     "id": "event59-invcache",

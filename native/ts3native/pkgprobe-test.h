@@ -56,7 +56,7 @@ static __declspec(naked) void __cdecl PpRunStub(u8* m, u8* db, u8* stale) {
 #pragma warning(pop)
 
 static void TestPkgProbe() {
-    static_assert(offsetof(Ts3nCounters, ppMode) == 0x6314 && offsetof(Ts3nCounters, ppNoMgr) == 0x634C && sizeof(Ts3nCounters) == 6478 * 4,
+    static_assert(offsetof(Ts3nCounters, ppMode) == 0x6314 && offsetof(Ts3nCounters, ppNoMgr) == 0x634C && sizeof(Ts3nCounters) == 6494 * 4,
                   "counters v919 layout after v198 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     u8* const* const sMgrAt = g_ppMgrAt;

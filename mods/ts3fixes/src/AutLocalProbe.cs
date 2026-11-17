@@ -87,6 +87,7 @@ namespace Ts3Fixes
                 c[AutLocalProbeCore.kUs + k] += us;
                 c[AutLocalProbeCore.kPairSearches + k]++;
                 c[AutLocalProbeCore.kPairs + k] += pairs;
+                if (k == AutLocalProbeCore.kHh) HhSearchPairs(a, pairs);  // hhsearchprobe pairs per household search (HhSearchProbe.cs)
                 if (k == AutLocalProbeCore.kUnseen && s != null)
                 {
                     Sim act = Sim.ActiveActor;

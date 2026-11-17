@@ -1,0 +1,107 @@
+{
+ "note": "REPINNED to the master-1117b set (0.36.269-mb1117) from z1-m1-correct-1116.json. z1-m1-correct-1116 (RUN FIRST, before z1-m1-timing-1116; NOT RUN): docs/275 Z1 zdemptyout + M1 decaymemo correctness and Z1 empty-table probe, BP + IP, 10 min each, Bin state apex (apex-rewind when the chain has it; the two jobs differ in save, so each starts fresh). Its Z1 probe decides whether the timing queue runs for Z1 at all. Build ts3fixes.z1-m1-1116 + ts3agent.z1-m1-1116 (builds.json, branch feature/z1-m1-inplace-1116 on master 6b872296f) over the newest registered native pair master-1116b (0.36.266-mb1116, no native change in this lane). AGENT: install game-copy/ts3agent.package.z1-m1-1116 to build/ (or TS3_AGENT_PACKAGE); an older agent lacks the zdemptyout_* / decaymemo_* names and the fixesRequire rules fail as missing. Est ~30 min with loads.",
+ "rewind": "auto",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^ts3native 0.36.266-mb1116 ": {
+   "match": [
+    "ts3native 0.36.269-mb1117 2026-11-16 09:36:51"
+   ],
+   "noMatch": [
+    "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-writer-memos-verify",
+   "note": "CORRECTNESS + Z1 PROBE (10 min, verify mode on every early-out): Bridgeport. Pass: decaymemo_hits >= 1, decaymemo_mismatches 0, zdemptyout_*_calls >= 1, zdemptyout_mismatches 0, 0 script errors, switches read back (profile 'fixes on: ... (verified)'). Household untouched: both designs are exact for every Sim and lot, so the verify mismatch counters (they cover household and selected Sims, no scope gate) are the household check. Probe to read: zdemptyout_stereo_empty / zdemptyout_stereo_calls (docs/275 §3.1: under 0.8 = park Z1, build Z2 only if the table is rarely empty), decaymemo_hits / (hits + misses), decaymemo_buffadds per minute.",
+   "asi": "game-copy/ts3native.asi.master-1117b",
+   "iniBase": "game-copy/ts3native.ini.master-1117b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1117b",
+   "pinReason": "master-1117b set (0.36.269-mb1117, merge/master-1117b: all merged branches, switches as each queue sets them); was: ts3fixes.z1-m1-1116 + ts3agent.z1-m1-1116 (builds.json, branch feature/z1-m1-inplace-1116 on master 6b872296f) over the newest registered native pair master-1116b (0.36.266-mb1116, no native change in this lane). AGENT: install game-copy/ts3agent.package.z1-m1-1116 to build/ (or TS3_AGENT_PACKAGE); an older agent lacks the zdemptyout_* / decaymemo_* names and the fixesRequire rules fail as missing",
+   "save": "Baseline-BP-Spring",
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.266-mb1116 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 25,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "writer-memos",
+     "fixesOn": "zdemptyout,zdemptyoutverify,decaymemo,decaymemoverify",
+     "fixesReport": "decaymemo_,zdemptyout_",
+     "fixesRequire": "decaymemo_hits>=1,decaymemo_mismatches<1,decaymemo_buffadds>=1,zdemptyout_stereo_calls>=1,zdemptyout_timeout_calls>=1,zdemptyout_mismatches<1"
+    }
+   },
+   "earlyGates": [
+    {
+     "afterSec": 240,
+     "counter": "fixes:decaymemo_hits",
+     "op": ">=",
+     "value": 1,
+     "why": "no decay memo hit: Motive.GetCommodityDecayMultiplier or a BuffManager.AddBuff patch refused (ts3fixes.applied) or decaymemo not read back"
+    },
+    {
+     "afterSec": 240,
+     "counter": "fixes:zdemptyout_stereo_calls",
+     "op": ">=",
+     "value": 1,
+     "why": "no ZombieDanceTimeOut hook call: patch refused (ts3fixes.applied), Supernatural not installed (no ZombieDanceTimeOut instance) or zdemptyout not read back"
+    }
+   ]
+  },
+  {
+   "id": "ip-writer-memos-verify",
+   "note": "CORRECTNESS + Z1 PROBE (10 min, verify mode on every early-out): Isla Paradiso. Pass: decaymemo_hits >= 1, decaymemo_mismatches 0, zdemptyout_*_calls >= 1, zdemptyout_mismatches 0, 0 script errors, switches read back (profile 'fixes on: ... (verified)'). Household untouched: both designs are exact for every Sim and lot, so the verify mismatch counters (they cover household and selected Sims, no scope gate) are the household check. Probe to read: zdemptyout_stereo_empty / zdemptyout_stereo_calls (docs/275 §3.1: under 0.8 = park Z1, build Z2 only if the table is rarely empty), decaymemo_hits / (hits + misses), decaymemo_buffadds per minute.",
+   "asi": "game-copy/ts3native.asi.master-1117b",
+   "iniBase": "game-copy/ts3native.ini.master-1117b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1117b",
+   "pinReason": "master-1117b set (0.36.269-mb1117, merge/master-1117b: all merged branches, switches as each queue sets them); was: ts3fixes.z1-m1-1116 + ts3agent.z1-m1-1116 (builds.json, branch feature/z1-m1-inplace-1116 on master 6b872296f) over the newest registered native pair master-1116b (0.36.266-mb1116, no native change in this lane). AGENT: install game-copy/ts3agent.package.z1-m1-1116 to build/ (or TS3_AGENT_PACKAGE); an older agent lacks the zdemptyout_* / decaymemo_* names and the fixesRequire rules fail as missing",
+   "save": "Baseline-IP-Spring",
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.266-mb1116 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 25,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "writer-memos",
+     "fixesOn": "zdemptyout,zdemptyoutverify,decaymemo,decaymemoverify",
+     "fixesReport": "decaymemo_,zdemptyout_",
+     "fixesRequire": "decaymemo_hits>=1,decaymemo_mismatches<1,decaymemo_buffadds>=1,zdemptyout_stereo_calls>=1,zdemptyout_timeout_calls>=1,zdemptyout_mismatches<1"
+    }
+   },
+   "earlyGates": [
+    {
+     "afterSec": 240,
+     "counter": "fixes:decaymemo_hits",
+     "op": ">=",
+     "value": 1,
+     "why": "no decay memo hit: Motive.GetCommodityDecayMultiplier or a BuffManager.AddBuff patch refused (ts3fixes.applied) or decaymemo not read back"
+    },
+    {
+     "afterSec": 240,
+     "counter": "fixes:zdemptyout_stereo_calls",
+     "op": ">=",
+     "value": 1,
+     "why": "no ZombieDanceTimeOut hook call: patch refused (ts3fixes.applied), Supernatural not installed (no ZombieDanceTimeOut instance) or zdemptyout not read back"
+    }
+   ]
+  }
+ ]
+}

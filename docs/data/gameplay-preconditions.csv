@@ -57,6 +57,7 @@ spawn_sims,ContentHandlers,Live,none: debug `spawn` command; the game itself fil
 remove_sims,ContentHandlers,Any,none (cleanup of spawn_sims),harness,,handler,none
 camera,ContentHandlers,Live;Build;Buy;Map,moving the camera / map view click,natural,,handler + R-MODE-6,live
 camera_pan,ContentHandlers,Live;Build;Buy,panning the camera,natural,,handler,live
+camera_sweep,CameraSweepHandlers,Live;Build;Buy,zooming / rotating / panning the camera,natural,fast rotate (2 turns in 20 s) and 2.5 s zoom steps are quicker than most players (stress),handler,live
 look,ControlHandlers,Any,none (read),harness,,handler,none
 time,ControlHandlers,Any,none (read),harness,,handler,none
 set_speed,ControlHandlers,Live,speed buttons (pause / 1 / 2 / 3); skip only while the whole household sleeps or works,natural,speed skip: the game offers it only when every active Sim sleeps or is away,handler + R-MODE-4,none

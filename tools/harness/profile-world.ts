@@ -67,10 +67,13 @@
 // --camera-pan: a slow scripted camera pan through the agent's camera_pan (8 lots around the densest one, 120 s per pass, there
 // and back) for the whole window; no window focus, no input. Off by default: the camera decides which Sims are seen (EA LOD,
 // unseen throttles), so pan runs only compare with pan runs.
+// A --repro with a camera_sweep step (docs/280): at the end the frames csv is split per sweep segment (camera-sweep-report.ts) into
+// <tag>-camsweep.json + a PASS/FAIL line; Apex's FrameTimeline.csv (frame profiler, Developer build) is copied and split too when
+// it was written during the window.
 // Output: probe-out/profile/<tag>-{600-seconds.csv,600-hitches.jsonl,600.log,upkeep.log,managed.*,simstack.jsonl,mainstack.jsonl,stuck.json,houseboats.json,
 // rng.json (seed reply, sim minutes at window start and end), activity.jsonl (every Sim's interaction per 30 s check; rng-compare.ts, then lot, at home, community lot, lowest need, routing; gate2-report.ts)}.
 import { spawn } from 'node:child_process';
-import { appendFileSync, closeSync, createWriteStream, existsSync, mkdirSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, closeSync, copyFileSync, createWriteStream, existsSync, mkdirSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { classify } from './shadow-compare-report.ts';
 import { lastLockWaitLineInFile } from './lock-wait-line.ts';
@@ -90,6 +93,8 @@ import { mayBeStuck } from './stuck-rule.ts';
 import { captureHang, clockStep, hangDir, stuckRunning, watchGame } from './game-alive.ts';
 import { startMachineLoad, summarize } from './machine-load.ts';
 import { BIN, GAME_EXE } from './game-exe.ts';
+import { report as camSweepReport, segmentsOf, table as camSweepTable, verdict as camSweepVerdict } from './camera-sweep-report.ts';
+import { homedir } from 'node:os';
 
 const { values } = parseArgs({ options: { svcsplit: { type: 'boolean' }, tag: { type: 'string' }, minutes: { type: 'string', default: '10' }, ab: { type: 'string' }, fixedwork: { type: 'string' }, 'ab-on-first': { type: 'boolean' }, 'fixes-off': { type: 'string' }, 'fixes-on': { type: 'string' }, 'until-compares': { type: 'string' }, slice: { type: 'string', default: '2' }, taskstall: { type: 'string' }, seed: { type: 'string' }, repro: { type: 'string' }, mainstack: { type: 'string' }, inroom: { type: 'boolean' }, watchstalk: { type: 'boolean' }, 'watchstalk-worker': { type: 'boolean' }, livereads2: { type: 'boolean' }, f4b: { type: 'boolean' }, vres: { type: 'boolean' }, 'vres-dry': { type: 'string' }, 'no-samplers': { type: 'boolean' }, 'no-env': { type: 'boolean' }, 'quit-jobs': { type: 'boolean' }, 'no-env-guard': { type: 'boolean' }, 'no-prof': { type: 'boolean' }, 'no-frames': { type: 'boolean' }, 'camera-pan': { type: 'boolean' }, 'prof-opts': { type: 'string' }, travel: { type: 'string' }, 'fixes-require': { type: 'string' }, 'frame-lead': { type: 'string' }, 'hitch-tasks': { type: 'string' }, 'since-load': { type: 'string' }, 'frames-shared': { type: 'string' }, 'loop-rule': { type: 'string' }, story: { type: 'string' } } });
 if (!values.tag) throw new Error('--tag required');
@@ -665,6 +670,21 @@ if (reproEntry.stepsRequire) { // repro step answers (fixes-require.ts stepTally
   const fails = checkRequire(reproEntry.stepsRequire, stepTally(stepAnswers));
   console.log(`${stamp()} ${fails.length ? `FAIL: repro steps: ${fails.join('; ')}` : `PASS: repro steps ${reproEntry.stepsRequire}`}`);
   if (fails.length) process.exitCode = 1;
+}
+if (reproSteps.some(s => s.cmd === 'camera_sweep')) { // camera sweep split per segment (camera-sweep-report.ts, docs/280)
+  // Apex's frame profiler timeline (Developer build + queue apexProfiler): taken when written during this window
+  const apexTl = join(process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3'), 'Apex Radiance', 'ApexRadiance_FrameTimeline.csv');
+  const tl = existsSync(apexTl) && statSync(apexTl).mtimeMs >= t0 ? `${pre}-ApexRadiance_FrameTimeline.csv` : undefined;
+  if (tl) copyFileSync(apexTl, tl);
+  try {
+    const { segs, from } = segmentsOf(existsSync(`${pre}-repro.jsonl`) ? readFileSync(`${pre}-repro.jsonl`, 'utf8') : '');
+    const rows = camSweepReport(segs, readFileSync(`${pre}-${secs}-frames.csv`, 'utf8'), tl ? readFileSync(tl, 'utf8') : undefined);
+    writeFileSync(`${pre}-camsweep.json`, JSON.stringify({ from, segs, rows, apexTimeline: tl ?? null }, null, 1));
+    console.log(camSweepTable(rows));
+    const fails = camSweepVerdict(segs, from, rows);
+    console.log(`${stamp()} ${fails.length ? `FAIL: camera sweep: ${fails.join('; ')}` : `PASS: camera sweep: ${segs.length} segments${tl ? ', Apex timeline split' : ', no Apex timeline (profiler off or public build)'}`}`);
+    if (fails.length) process.exitCode = 1;
+  } catch (e) { console.log(`${stamp()} FAIL: camera sweep report: ${(e as Error).message}`); process.exitCode = 1; }
 }
 if (values['frame-lead']) { // main-thread repro pass rule (frame-lead.ts, docs/169): frames led by the target service, lot adds
   const r = checkTag(OUT, values.tag!, parseRule(values['frame-lead']));

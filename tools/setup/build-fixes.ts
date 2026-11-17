@@ -63,6 +63,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kAutonomyRoomMemo value="False" />
     <kAutonomySliceTime value="False" />
     <kPortalInvocationCache value="False" />
+    <kZombieDanceEmptyOut value="False" />
+    <kDecayMultMemo value="False" />
     <kAutLive value="True" />
     <kAutLiveGuard value="True" />
     <kAutLiveGuardOffPm value="1000" />
@@ -249,6 +251,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSocialFinish value="True" />
     <kSocialReceiveFail value="True" />
     <kPetFirePlan value="False" />
+    <kBurntTileFloor value="False" />
     <kSplashRoof value="False" />
     <kShuffleboardBcast value="True" />
     <kCookClickListener value="True" />

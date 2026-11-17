@@ -1,0 +1,481 @@
+{
+  "note": "gc-idle-gate-correct-1117 (PREPARED, NOT RUN; correctness, no timing): docs/281 §8 [GC] IdleGate. Build ts3native.asi.gcgate-1117 (0.36.268-gcgate1, feature/gc-idle-gate-1117 on master-1116c 68447d37). Needs feature/gc-idle-gate-1117 merged into the checkout queue.ts runs from (tools/probe/agent.js v205 gcg* counter names; without them the earlyGates read nothing). Bin state apex (or apex-rewind) via tools/turbo-compat.ts in the chain. Smoke first (5 min, stops the queue on fail), then pairs per world: gate on (IdleGate=1) and the off arm (IdleGate=2: hook installed, gate open, same counters). Rewound jobs carry the smoke counters: compare -native.json deltas (end minus start). Pass per pair: no crash, script errors 0, version + gate lines, no SKIP; on: gcgSkipped > 0, gcgForced(on) <= gcgForced(off) + 1, gcgBackoff 0 (1 = note), gcgHeapMaxKB(on) <= 1.10 x off; off: gcgSkipped 0. Household: the GC changes no Sim decision (docs/281 §6), so household / selected / unknown-scope exemptions do not apply; script errors 0 and the save-hash guard cover it. Read from each -native.json (end): gcgCalls, gcgSkipped, gcgRan, gcgCycles, gcgOutside, gcgForced, gcgForcedMs, gcgMs, gcgMaxUs, gcgThreshKB, gcgHeapMaxKB, gcgBackoff. Run: node tools/harness/queue.ts tools/harness/queues/gc-idle-gate-correct-1117.json",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-gcgate-smoke",
+      "note": "[est 9 min] SMOKE: BP 5 min gate on, stops the queue on fail. Proves the hook, the field reads (gcgSkipped > 0 by 4 min) and the counter names (gcg* in -native.json).",
+      "asi": "game-copy/ts3native.asi.gcgate-1117",
+      "iniBase": "game-copy/ts3native.ini.gcgate-1117",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+      "pinReason": "ts3native.asi.gcgate-1117 (builds.json, 0.36.268-gcgate1 = master-1116c + [GC] IdleGate, branch feature/gc-idle-gate-1117) with its ini and the master-1116c ts3fixes package (no managed change)",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "GC.IdleGate": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.268-gcgate1 ": 1,
+        "^GC idle gate: IdleGate=1 \\(gcgMode 1\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1
+      },
+      "logForbid": {
+        "^SKIP GC idle gate": 0,
+        "^gc idle gate: forced collection after a skipped tick": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "gcgReady",
+          "op": ">=",
+          "value": 3,
+          "why": "gate not installed (call site and forced thunk)"
+        },
+        {
+          "afterSec": 120,
+          "counter": "gcgCalls",
+          "op": ">",
+          "value": 0,
+          "why": "no per-tick GC call reached the gate"
+        },
+        {
+          "afterSec": 240,
+          "counter": "gcgSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "the gate never skipped (threshold or state fields wrong)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "gcgBackoff",
+          "op": "<=",
+          "value": 1,
+          "why": "two forced collections after skipped ticks: threshold too high"
+        }
+      ],
+      "regexCases": {
+        "^ts3native 0\\.36\\.268-gcgate1 ": {
+          "match": [
+            "ts3native 0.36.268-gcgate1 2026-11-17 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+          ]
+        },
+        "^GC idle gate: IdleGate=1 \\(gcgMode 1\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": {
+          "match": [
+            "GC idle gate: IdleGate=1 (gcgMode 1) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3"
+          ],
+          "noMatch": [
+            "GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3",
+            "GC idle gate: IdleGate=1 (gcgMode 1) IdleGateMB=64 IdleGateHeapPct=15 ready=0x1"
+          ]
+        },
+        "^SKIP GC idle gate": {
+          "match": [
+            "SKIP GC idle gate: call 0xD819AA goes to 0x12345678"
+          ],
+          "noMatch": [
+            "GC idle gate off (IdleGate=0)"
+          ]
+        },
+        "^gc idle gate: forced collection after a skipped tick": {
+          "match": [
+            "gc idle gate: forced collection after a skipped tick (heap 352 MB), threshold now 26368 KB (backoff 1)"
+          ],
+          "noMatch": [
+            "GC idle gate: IdleGate=1 (gcgMode 1) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3"
+          ]
+        }
+      },
+      "stopQueueOnFail": true
+    },
+    {
+      "id": "bp-gcgate-on",
+      "note": "[est 14 min] BP 10 min gate on (IdleGate=1, 64 MB / 15% of heap).",
+      "asi": "game-copy/ts3native.asi.gcgate-1117",
+      "iniBase": "game-copy/ts3native.ini.gcgate-1117",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+      "pinReason": "ts3native.asi.gcgate-1117 (builds.json, 0.36.268-gcgate1 = master-1116c + [GC] IdleGate, branch feature/gc-idle-gate-1117) with its ini and the master-1116c ts3fixes package (no managed change)",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "GC.IdleGate": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.268-gcgate1 ": 1,
+        "^GC idle gate: IdleGate=1 \\(gcgMode 1\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1
+      },
+      "logForbid": {
+        "^SKIP GC idle gate": 0,
+        "^gc idle gate: forced collection after a skipped tick": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "gcgReady",
+          "op": ">=",
+          "value": 3,
+          "why": "gate not installed (call site and forced thunk)"
+        },
+        {
+          "afterSec": 120,
+          "counter": "gcgCalls",
+          "op": ">",
+          "value": 0,
+          "why": "no per-tick GC call reached the gate"
+        },
+        {
+          "afterSec": 240,
+          "counter": "gcgSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "the gate never skipped (threshold or state fields wrong)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "gcgBackoff",
+          "op": "<=",
+          "value": 1,
+          "why": "two forced collections after skipped ticks: threshold too high"
+        }
+      ],
+      "regexCases": {
+        "^ts3native 0\\.36\\.268-gcgate1 ": {
+          "match": [
+            "ts3native 0.36.268-gcgate1 2026-11-17 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+          ]
+        },
+        "^GC idle gate: IdleGate=1 \\(gcgMode 1\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": {
+          "match": [
+            "GC idle gate: IdleGate=1 (gcgMode 1) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3"
+          ],
+          "noMatch": [
+            "GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3",
+            "GC idle gate: IdleGate=1 (gcgMode 1) IdleGateMB=64 IdleGateHeapPct=15 ready=0x1"
+          ]
+        },
+        "^SKIP GC idle gate": {
+          "match": [
+            "SKIP GC idle gate: call 0xD819AA goes to 0x12345678"
+          ],
+          "noMatch": [
+            "GC idle gate off (IdleGate=0)"
+          ]
+        },
+        "^gc idle gate: forced collection after a skipped tick": {
+          "match": [
+            "gc idle gate: forced collection after a skipped tick (heap 352 MB), threshold now 26368 KB (backoff 1)"
+          ],
+          "noMatch": [
+            "GC idle gate: IdleGate=1 (gcgMode 1) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-gcgate-off",
+      "note": "[est 14 min] BP 10 min off arm (IdleGate=2): compare gcgForced, gcgHeapMaxKB, gcgCycles with bp-gcgate-on.",
+      "asi": "game-copy/ts3native.asi.gcgate-1117",
+      "iniBase": "game-copy/ts3native.ini.gcgate-1117",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+      "pinReason": "ts3native.asi.gcgate-1117 (builds.json, 0.36.268-gcgate1 = master-1116c + [GC] IdleGate, branch feature/gc-idle-gate-1117) with its ini and the master-1116c ts3fixes package (no managed change)",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "GC.IdleGate": 2
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.268-gcgate1 ": 1,
+        "^GC idle gate: IdleGate=2 \\(gcgMode 0\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1
+      },
+      "logForbid": {
+        "^SKIP GC idle gate": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "gcgReady",
+          "op": ">=",
+          "value": 3,
+          "why": "gate not installed (call site and forced thunk)"
+        },
+        {
+          "afterSec": 120,
+          "counter": "gcgCalls",
+          "op": ">",
+          "value": 0,
+          "why": "no per-tick GC call reached the gate"
+        },
+        {
+          "afterSec": 60,
+          "counter": "gcgSkipped",
+          "op": "<=",
+          "value": 0,
+          "why": "off arm skipped a call (gcgMode not 0)"
+        }
+      ],
+      "regexCases": {
+        "^ts3native 0\\.36\\.268-gcgate1 ": {
+          "match": [
+            "ts3native 0.36.268-gcgate1 2026-11-17 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+          ]
+        },
+        "^GC idle gate: IdleGate=2 \\(gcgMode 0\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": {
+          "match": [
+            "GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3"
+          ],
+          "noMatch": [
+            "GC idle gate: IdleGate=1 (gcgMode 1) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3",
+            "GC idle gate off (IdleGate=0)"
+          ]
+        },
+        "^SKIP GC idle gate": {
+          "match": [
+            "SKIP GC idle gate: call 0xD819AA goes to 0x12345678"
+          ],
+          "noMatch": [
+            "GC idle gate off (IdleGate=0)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-gcgate-on",
+      "note": "[est 14 min] IP 10 min gate on.",
+      "asi": "game-copy/ts3native.asi.gcgate-1117",
+      "iniBase": "game-copy/ts3native.ini.gcgate-1117",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+      "pinReason": "ts3native.asi.gcgate-1117 (builds.json, 0.36.268-gcgate1 = master-1116c + [GC] IdleGate, branch feature/gc-idle-gate-1117) with its ini and the master-1116c ts3fixes package (no managed change)",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "ini": {
+        "GC.IdleGate": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.268-gcgate1 ": 1,
+        "^GC idle gate: IdleGate=1 \\(gcgMode 1\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1
+      },
+      "logForbid": {
+        "^SKIP GC idle gate": 0,
+        "^gc idle gate: forced collection after a skipped tick": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "gcgReady",
+          "op": ">=",
+          "value": 3,
+          "why": "gate not installed (call site and forced thunk)"
+        },
+        {
+          "afterSec": 120,
+          "counter": "gcgCalls",
+          "op": ">",
+          "value": 0,
+          "why": "no per-tick GC call reached the gate"
+        },
+        {
+          "afterSec": 240,
+          "counter": "gcgSkipped",
+          "op": ">",
+          "value": 0,
+          "why": "the gate never skipped (threshold or state fields wrong)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "gcgBackoff",
+          "op": "<=",
+          "value": 1,
+          "why": "two forced collections after skipped ticks: threshold too high"
+        }
+      ],
+      "regexCases": {
+        "^ts3native 0\\.36\\.268-gcgate1 ": {
+          "match": [
+            "ts3native 0.36.268-gcgate1 2026-11-17 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+          ]
+        },
+        "^GC idle gate: IdleGate=1 \\(gcgMode 1\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": {
+          "match": [
+            "GC idle gate: IdleGate=1 (gcgMode 1) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3"
+          ],
+          "noMatch": [
+            "GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3",
+            "GC idle gate: IdleGate=1 (gcgMode 1) IdleGateMB=64 IdleGateHeapPct=15 ready=0x1"
+          ]
+        },
+        "^SKIP GC idle gate": {
+          "match": [
+            "SKIP GC idle gate: call 0xD819AA goes to 0x12345678"
+          ],
+          "noMatch": [
+            "GC idle gate off (IdleGate=0)"
+          ]
+        },
+        "^gc idle gate: forced collection after a skipped tick": {
+          "match": [
+            "gc idle gate: forced collection after a skipped tick (heap 352 MB), threshold now 26368 KB (backoff 1)"
+          ],
+          "noMatch": [
+            "GC idle gate: IdleGate=1 (gcgMode 1) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-gcgate-off",
+      "note": "[est 14 min] IP 10 min off arm: compare with ip-gcgate-on.",
+      "asi": "game-copy/ts3native.asi.gcgate-1117",
+      "iniBase": "game-copy/ts3native.ini.gcgate-1117",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+      "pinReason": "ts3native.asi.gcgate-1117 (builds.json, 0.36.268-gcgate1 = master-1116c + [GC] IdleGate, branch feature/gc-idle-gate-1117) with its ini and the master-1116c ts3fixes package (no managed change)",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "ini": {
+        "GC.IdleGate": 2
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.268-gcgate1 ": 1,
+        "^GC idle gate: IdleGate=2 \\(gcgMode 0\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1
+      },
+      "logForbid": {
+        "^SKIP GC idle gate": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "gcgReady",
+          "op": ">=",
+          "value": 3,
+          "why": "gate not installed (call site and forced thunk)"
+        },
+        {
+          "afterSec": 120,
+          "counter": "gcgCalls",
+          "op": ">",
+          "value": 0,
+          "why": "no per-tick GC call reached the gate"
+        },
+        {
+          "afterSec": 60,
+          "counter": "gcgSkipped",
+          "op": "<=",
+          "value": 0,
+          "why": "off arm skipped a call (gcgMode not 0)"
+        }
+      ],
+      "regexCases": {
+        "^ts3native 0\\.36\\.268-gcgate1 ": {
+          "match": [
+            "ts3native 0.36.268-gcgate1 2026-11-17 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+          ]
+        },
+        "^GC idle gate: IdleGate=2 \\(gcgMode 0\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": {
+          "match": [
+            "GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3"
+          ],
+          "noMatch": [
+            "GC idle gate: IdleGate=1 (gcgMode 1) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3",
+            "GC idle gate off (IdleGate=0)"
+          ]
+        },
+        "^SKIP GC idle gate": {
+          "match": [
+            "SKIP GC idle gate: call 0xD819AA goes to 0x12345678"
+          ],
+          "noMatch": [
+            "GC idle gate off (IdleGate=0)"
+          ]
+        }
+      }
+    }
+  ]
+}

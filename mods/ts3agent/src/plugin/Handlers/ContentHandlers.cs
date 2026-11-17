@@ -35,6 +35,7 @@ namespace Ts3Agent
             Dispatcher.Register("remove_sims", RemoveSims);
             Dispatcher.Register("camera", CameraView);
             Dispatcher.Register("camera_pan", CameraPan);
+            Dispatcher.Register("camera_sweep", CameraSweep);
             Dispatcher.Register("camera_to_tagged", CameraToTagged);
         }
 

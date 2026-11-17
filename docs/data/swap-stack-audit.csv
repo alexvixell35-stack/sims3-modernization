@@ -5,6 +5,8 @@ AlLeaveHook.LeaveHook,VisitSituation,OnSimLeavingLot,AptLeave.cs,LeaveOrig,yes,V
 AutEnvHook.EnvHook,SimUpdate,CalculateSimEnvironmentScore,AutOffload.cs,EnvOrig,yes,SimUpdate::CalculateSimEnvironmentScore > Inventory::TurnOfMP3 > PortableMp3Player::StopMusic > Simulator::Sleep,AutOffload,"keep, stub remap (SavedStacks.cs)"
 AutBcastHook.RadiusHook,ReactionBroadcaster,GetInRadiusSims,AutOffload.cs,RadiusOrig,no,no path to a yield in 1 overload(s),AutOffload,"keep, stub remap (SavedStacks.cs)"
 AutLotHook.LotHook,Camera,GetClosestVisibleLot,AutOffload.cs,LotOrig,yes,Camera::GetClosestVisibleLot > Lot::IsOpenVenue > .. 11 .. > SACS::SACS_AcquireDriverImpl,docs/208 §9.2 dry check: the worker's pick against the game's next own pick. No apply: the game's result is,"keep, stub remap (SavedStacks.cs)"
+ElHooks.PlaceHook,LotManager,PlaceObjectOnLot,AutOffload.cs,PlaceOrig,yes,LotManager::PlaceObjectOnLot > LotManager::AddObjectToLot > .. 5 .. > StateMachineClient::RequestState,AutOffload,"keep, stub remap (SavedStacks.cs)"
+ElHooks.ExitHook,LotManager,ExitBuildBuyMode,AutOffload.cs,ExitOrig,yes,LotManager::ExitBuildBuyMode > Simulator::Sleep,AutOffload,"keep, stub remap (SavedStacks.cs)"
 AutLocHook.kLocHooks[i],Localization,LocalizeString,AutShadow.cs,kLocStubs[i],yes,Localization::LocalizeString > Localization::FillInTokens > .. 7 .. > Simulator::Sleep,"Localization.LocalizeString on the worker: the rooted empty string (no EAText, no FillInTokens RNG","keep, stub remap (SavedStacks.cs)"
 ArmFloodHook.FloodHook,Sim,RecalculateAllowedRooms,AutRoomMemo.cs,FloodOrig,yes,Sim::RecalculateAllowedRooms > Sim::RecalculateAllowedRooms > .. 11 .. > StateMachineClient::RequestState,docs/97 AM-1 (autroommemo / autslicetime): pair scope; flood count and room memo drops,"keep, stub remap (SavedStacks.cs)"
 ArmLotCacheHook.UsersHook,Lot,RefreshObjectCacheUsers,AutRoomMemo.cs,UsersOrig,no,no path to a yield in 1 overload(s),docs/97 AM-1 (autroommemo / autslicetime): pair scope; flood count and room memo drops,keep
@@ -387,6 +389,7 @@ SpatialCacheHook.DestroyHook,Simulator,DestroyObject,SpatialCache.cs,DestroyOrig
 SpatialCacheHook.GetObjectsHook,Sims3.SimIFace.Queries,GetObjects,SpatialCache.cs,GetObjectsOrig,no,no path to a yield in 4 overload(s),SpatialCache,keep
 SplashRoofRunHook.RunHook,Sim+AutonomousSplashInPuddle,Run,SplashRoof.cs,RunOrig,yes,Sim+AutonomousSplashInPuddle::Run > Sims3.Gameplay.Interactions.InteractionDefinition`3::CreateInstance > .. 5 .. > StateMachineClient::RequestState,SplashRoof,"keep, stub remap (SavedStacks.cs)"
 SplashRoofValidHook.ValidHook,Terrain.SplashInPuddle,IsPuddleValid,SplashRoof.cs,ValidOrig,no,no path to a yield in 2 overload(s),SplashRoof,keep
+BurntTileHook.LocHook,Sim+MopBurntTiles+Definition,GetMoppableLocations,BurntTileFloor.cs,LocOrig,no,no path to a yield (World.GetBurntTiles icall; reviewed by hand 2026-11-16),burnttilefloor (docs/277 §4.1): leaves out burnt tiles with no floor,keep
 SrHook.LoopHook,BedSleep,LoopHandler,SpoonReset.cs,LoopOrig,yes,BedSleep::LoopHandler > StateMachineClient::RequestState,SpoonReset,"keep, stub remap (SavedStacks.cs)"
 SlHook.CleanupHook,BoxOfDanger.DoTrick,Cleanup,StatueLine.cs,CleanupOrig,yes,BoxOfDanger+DoTrick::Cleanup > InteractionInstance::Cleanup > .. 2 .. > StateMachineClient::RequestState,---------- statueline,"keep, stub remap (SavedStacks.cs)"
 SlHook.LowHook,BoxOfDanger.DoTrick,LowLODPose,StatueLine.cs,LowOrig,yes,BoxOfDanger+DoTrick::LowLODPose > Simulator::Sleep,---------- statueline,"keep, stub remap (SavedStacks.cs)"
@@ -471,3 +474,8 @@ DoorGenVipHook.RemHook,ResortManager.VIPRoomData,RemoveGuest,DoorGen.cs,RemOrig,
 DoorGenDescHook.GenderHook,SimDescription,set_Gender,DoorGen.cs,GenderOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
 DoorGenDescHook.AgeHook,SimDescription,set_Age,DoorGen.cs,AgeOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
 DoorGenDescHook.PregHook,SimDescription,set_IsVisuallyPregnant,DoorGen.cs,PregOrig,no,no path to a yield in 1 overload(s),DoorGen,keep
+ZdHook.StereoHook,ZombieDanceTimeOut,HasStereoOnTheLot,WriterMemos.cs,StereoOrig,no,no path to a yield in 1 overload(s),docs/275 Z1 zdemptyout: zombie time-out lookups skipped while the table is empty,keep
+ZdHook.TimeOutHook,ZombieDanceTimeOut,UpdateTimeOutOnTheLots,WriterMemos.cs,TimeOutOrig,no,no path to a yield in 1 overload(s),docs/275 Z1 zdemptyout: zombie time-out lookups skipped while the table is empty,keep
+BuffAddHook.AddHook,BuffManager,AddBuff,WriterMemos.cs,AddOrig,yes,BuffManager::AddBuff > BuffManager::AddBuff > .. 2 .. > Simulator::Sleep,docs/275 M1 decaymemo: add generation bumped around every buff add,"keep, stub remap (SavedStacks.cs)"
+BuffAddHook.AddFullHook,BuffManager,AddBuff,WriterMemos.cs,AddFullOrig,yes,BuffManager::AddBuff > BuffManager::AddBuff > .. 2 .. > Simulator::Sleep,docs/275 M1 decaymemo: add generation bumped around every buff add,"keep, stub remap (SavedStacks.cs)"
+DecayMultHook.MultHook,Motive,GetCommodityDecayMultiplier,WriterMemos.cs,MultOrig,no,no path to a yield in 1 overload(s),docs/275 M1 decaymemo: decay multiplier 1 while the three reward buffs are absent,keep
