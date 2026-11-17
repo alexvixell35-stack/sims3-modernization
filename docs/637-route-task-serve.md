@@ -89,3 +89,16 @@ Expected: slow plans with 4-6+ polls drop toward 1-2 polls; the sim thread's blo
 `native/ts3native/taskserve.cpp`, `taskserve-test.h`, `ts3native.cpp` (`g_invPosted` / `g_invPostAt`, `HC_TASK`, export
 block, minute line, include and install), `hostcalls.cpp` (`HcPick` has no row for `HC_TASK`), `ts3native.ini`
 (`TaskServe=0`), `ts3addr-ea169.h` (5 unresolved rows: no EA 1.69 addresses, the patch logs SKIP there), docs/68 row.
+
+## In-game A/B (2026-11-17, Bridgeport, same save, 10 min routine each, all proven fixes on)
+
+| | TaskServe=0 (s78) | TaskServe=1 (s77) |
+|---|---|---|
+| plans in the last planwait minute | 1857 | 1551 |
+| mean wall per plan | 55 ms | 36 ms |
+| plans over 150 ms | 122 (6.6%) | 14 (0.9%) |
+| plans needing 4+ polls | 143 | 2 |
+| slow kind-0 plans (ufplansplit) in the session | 955 | 90 |
+| game hitches | 0 | 0 |
+
+`route task serve:` 62,465 task runs found a call posted, 62,392 served there, 0 refused. Verdict: works as designed; each route waits about one tick instead of one tick per door ask.
