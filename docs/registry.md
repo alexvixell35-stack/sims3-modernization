@@ -542,6 +542,9 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3550-3553 | `Alloc87Comparers.cs` (`fixes-3550`, s87, docs/625 §2), `enumcmpnobox` | built 2026-11-17, default off: comparers installed (3550) / restored (3551) / errors (3552) / Check answer mismatches (3553, must stay 0) |
 | 3554-3558 | `Alloc87Comparers.cs` (`fixes-3554`, s87, docs/625 §3), `alarmcmpnobox` | built 2026-11-17, default off: installed (3554) / restored (3555) / live mTimers swapped in place (3556) / errors (3557) / Check answer mismatches (3558, must stay 0) |
 | 3559-3579 | pinned (s87, `fixes-3559`) | spare of the s87 allocation builder (docs/625) |
+| 3580-3583 | `RhEntry627.cs` (`fixes-3580`, docs/627 §2), `routefailprobe` | built 2026-11-17, default off: NPC spot probes on the selected Sim tagged (3580) / counted as the Sim's route, switch off (3581) / errors (3582) / spare (3583) |
+| 3584-3587 | `RhEntry627.cs` (`fixes-3580`, docs/627 §4), `rhentryrelax` | built 2026-11-17, default off: unseen route-less rabbit hole arrivals (3584) / kept EA (3585) / beforeEntering refused (3586) / errors (3587) |
+| 3588-3599 | `RhEntry627.cs` (`fixes-3580`, docs/627 §4), `rhentryrelaxnear` | built 2026-11-17, default off: alternate-door entries (3588) / no slot or plan failed (3589) / on screen at action (3590) / entry refused (3591) / errors (3592) / spare (3593-3599) |
 | **2000+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

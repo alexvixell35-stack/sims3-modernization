@@ -110922,5 +110922,204 @@
         }
       }
     ]
+  },
+  {
+    "id": "routefailprobe-check",
+    "bug": "Sim.IsPointInLotSafelyRoutable spot probes that EA runs on the selected Sim for an NPC being placed (SimDescription.Instantiate, Service.CreateSim) fail with DestinationPortalLocked and are logged as that Sim's route failure (e.g. WorkInRabbitHole), docs/627 \u00a72",
+    "fix": "ts3fixes RhEntry627.cs: routefailprobe (default off), docs/627",
+    "save": "pure part needs no save",
+    "note": "RouteFailProbeCheck run checks the probe/tag decision with controls (own-spot check, Plan, plain PlanFromPoint); result shows counters 3580-3582 (3580 grows while NPCs spawn, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "routefailprobe": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RouteFailProbeCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RouteFailProbeCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "routefailprobe": true
+        },
+        "note": "then on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RouteFailProbeCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: fixed"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RouteFailProbeCheck",
+          "args": [
+            "result"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "rhentryrelax-check",
+    "bug": "RabbitHole.RouteNearEntranceAndEnterRabbitHole ends the interaction on one failed entry plan, also for unseen NPCs no camera can see (docs/627 \u00a73-4)",
+    "fix": "ts3fixes RhEntry627.cs: rhentryrelax (default off), docs/627",
+    "save": "pure part needs no save",
+    "note": "RhEntryRelaxCheck run checks the tier decision with controls (player, selected, on screen, non-route failure, beforeEntering ran, followers, near viewers with the sub-key off); result shows counters 3584-3587 and a live tier count.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhentryrelax": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhEntryRelaxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhEntryRelaxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rhentryrelax": true
+        },
+        "note": "then on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhEntryRelaxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: fixed"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhEntryRelaxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "rhentryrelaxnear-check",
+    "bug": "an off-screen NPC near viewers whose rabbit hole entry plan failed gives up although the same rabbit hole has other doors (ExitSlots), docs/627 \u00a74",
+    "fix": "ts3fixes RhEntry627.cs: rhentryrelaxnear (default off), docs/627",
+    "save": "pure part needs no save",
+    "note": "RhEntryRelaxNearCheck run checks the middle-tier decision (on-screen, selected, player, main switch off keep EA; far stays the unseen tier); result shows counters 3588-3592.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhentryrelaxnear": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhEntryRelaxNearCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhEntryRelaxNearCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rhentryrelaxnear": true,
+          "rhentryrelax": true
+        },
+        "note": "then on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhEntryRelaxNearCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: fixed"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhEntryRelaxNearCheck",
+          "args": [
+            "result"
+          ]
+        }
+      }
+    ]
   }
 ]

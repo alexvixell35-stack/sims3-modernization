@@ -36,13 +36,15 @@ namespace Ts3Fixes
             {
                 bool was = sInRoutableCheck;  // docs/202: unseenfbplan never marks these plans (a cut "false" sends the game to its safe-location logic)
                 sInRoutableCheck = true;
+                Vector3 rfpPrev;
+                bool rfpHad = RfpEnter(pos, out rfpPrev);  // routefailprobe (docs/627 §2): the spot this check plans from
                 try
                 {
                     Sim sim = (Sim)(object)this;
                     if (RsOwnPlan(sim)) return RsAdjust(sim, RoutableOrig(lot, pos), lot, pos);  // residentspawnslot (docs/582 B5 §8)
                     return RsAdjust(sim, RoutableCheck(lot, pos), lot, pos);  // residentspawnwalk too (docs/582 B8 §8)
                 }
-                finally { sInRoutableCheck = was; }
+                finally { sInRoutableCheck = was; RfpLeave(rfpHad, rfpPrev); }
             }
             bool RoutableCheck(Lot lot, Vector3 pos)
             {
