@@ -109156,6 +109156,81 @@
     ]
   },
   {
+    "id": "unseenloopskip_offscreen-check",
+    "bug": "an off-screen NPC near the viewers (not the far tier) runs an allow-listed autonomous loop to EA's tuned low-LOD cap; the tier-2 switch's own decision on a live Sim (the smallfix run read UnseenLoopSkipCheck, the main tier, in both arms), docs/632",
+    "fix": "ts3fixes LoopSkip632.cs: unseenloopskip_offscreen (default off, tier 2 of unseenloopskip), docs/632",
+    "save": "any live save with NPCs off screen near the household (else the pure decision stands in)",
+    "note": "UnseenLoopSkipOffscreenCheck run picks a non-household low-LOD NPC near the viewers and off screen now (World.IsObjectOnScreen false), preferring one in an allow-listed loop (else decided as TV.WatchTV), main switch taken as on, against EA's live tuned cap; controls: household / selected / on-screen Sims never get tier 2, pure tier rules; result shows the tier-2 reason counters 3723-3725 and actions 3701/3703.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenloopskip": true,
+          "unseenloopskip_offscreen": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenLoopSkipOffscreenCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenLoopSkipOffscreenCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenloopskip": true,
+          "unseenloopskip_offscreen": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenLoopSkipOffscreenCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenLoopSkipOffscreenCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenloopskip_offscreen": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
