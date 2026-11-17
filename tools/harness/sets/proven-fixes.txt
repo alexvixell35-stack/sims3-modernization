@@ -271,7 +271,7 @@ woohootywait
 # partyoutcome: the registry row proves partymotive only; partyoutcome stays idle beside the core mod (docs/554):
 #   partyoutcome
 # built 2026-11-17, in-game off/on test pending (docs/627, 628, 631); move to the set once proven:
-#   routefailprobe rhentryrelax rhentryrelaxnear unseenservice playerfirst zoomtier unseenloopskip
+#   rhentryrelaxnear unseenloopskip
 # built 2026-11-15, in-game off/on test pending (docs/575-577); move to the set once proven:
 #   
 #   trashpileimport catgymwatch badsecretkey traitlistenerremove portasknohome lecturebroadcaster residentspawnwalk midlifewishsave betrayednullsim topictestnull opptrackerrelisten traitremovenull homeworkcopyold laundrymoodeach partycleanupnull safelocunhide midlifeuiending nemesisnoromance
@@ -363,6 +363,11 @@ wishsubjectgone
 wishupdatelost
 socialworkerpromise
 buffsrcempty
+playerfirst
+routefailprobe
+rhentryrelax
+unseenservice
+zoomtier
 balancingballcareer
 bartendinghourlypay
 bodysculptorweight
