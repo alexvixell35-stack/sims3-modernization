@@ -397,6 +397,8 @@ namespace Ts3Fixes
         [Tunable] public static bool kSpoilBroadcast = false; // spoilbroadcast (docs/615 §1): PreparedFood.ForceSpoil disposes the disgust broadcaster it replaces at each spoil stage
         [Tunable] public static bool kWeatherStoneRelisten = false; // weatherstonerelisten (docs/615 §2): a successful weather stone summon removes a stale pending weather listener before adding its own
         [Tunable] public static bool kBirthdayAgeRecord = false; // birthdayagerecord (docs/615 §3): a birthday party records every guest who ages up, not only the first
+        [Tunable] public static bool kEnumCmpNoBox = false; // enumcmpnobox (docs/625 §2): EqualityComparer<T>.Default for CommodityKind, BuffNames, SkillNames is a non-boxing comparer with the same hash and equality (enum-keyed Dictionary / List.Contains)
+        [Tunable] public static bool kAlarmCmpNoBox = false; // alarmcmpnobox (docs/625 §3): EqualityComparer<AlarmHandle>.Default and the live AlarmManager.mTimers use a non-boxing comparer with EA's == and GetHashCode
         [Tunable] public static bool kSarcMummyNpc = false; // sarcmummynpc (docs/607 §3): a reset or deleted Sarcophagus takes its tomb mummy out of NpcHousehold, as TombMummyDestroy does
         [Tunable] public static bool kPushWaitSkip = false; // pushwaitskip (docs/604 §2): RoutingComponent.PushSimsStatic's wait pass checks every pushed Sim once (EA steps twice and keeps the pusher idle an extra 10 sim-minutes)
         [Tunable] public static bool kDetailPriorityExact = false; // detailprioexact (docs/603 §3): Lot.CalculateDetailPriority gives EA's answer without building the household actor lists on every lot pass (exact, DetailPrio603.cs)
