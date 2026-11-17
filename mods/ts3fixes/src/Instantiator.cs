@@ -412,6 +412,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kUnseenService = false; // unseenservice (docs/628): a Late Night bar drink, food or bartender chat between two unseen low-LOD NPCs completes at once with EA's end steps (no animation, no sync wait)
         [Tunable] public static bool kUnseenServiceOffscreen = false; // unseenservice_offscreen (docs/628): the same for NPCs off screen but within 80 m, re-checked at completion
         [Tunable] public static bool kBouncerPlace = false; // bouncerplace (docs/633): an unseen velvet-rope bouncer is placed on RoutingSlot_2 facing its way instead of routing there (WatchDoor Run / every 5-minute loop)
+        [Tunable] public static bool kUnseenPianist = false; // unseenpianist (docs/634): an unseen NPC pianist's PianistPerform loop passes every kUnseenLoopSkipStepMin (needs kUnseenLoopSkipStep), never ended early
+        [Tunable] public static bool kUnseenMusicWatch = false; // unseenmusicwatch (docs/634): an unseen NPC watching a piano (Piano+Watch) ends at kUnseenLoopSkipCapMin through EA's low-LOD end
+        [Tunable] public static bool kUnseenJam = false; // unseenjam (docs/634): an unseen NPC's Guitar+Jam loop passes every kUnseenLoopSkipStepMin (needs kUnseenLoopSkipStep), never ended early
+        [Tunable] public static bool kUnseenShow = false; // unseenshow (docs/634): an unseen NPC's ShowVenue+AutonomouslyAttendShow wait passes every kUnseenLoopSkipStepMin (needs kUnseenLoopSkipStep)
         [Tunable] public static bool kUnseenLoopSkip = false; // unseenloopskip (docs/632): an unseen NPC's allow-listed autonomous loop ends at kUnseenLoopSkipCapMin through EA's own low-LOD end (DoLoop)
         [Tunable] public static bool kUnseenLoopSkipOffscreen = false; // unseenloopskip_offscreen (docs/632): the same off screen but near (ZoomHidden, zoomtier), needs kUnseenLoopSkip
         [Tunable] public static float kUnseenLoopSkipCapMin = 30f; // docs/632 (b): lifetime cap in sim-minutes (EA: 420 day / 120 night), never longer than EA's
