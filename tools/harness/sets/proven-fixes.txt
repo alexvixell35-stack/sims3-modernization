@@ -271,7 +271,7 @@ woohootywait
 # partyoutcome: the registry row proves partymotive only; partyoutcome stays idle beside the core mod (docs/554):
 #   partyoutcome
 # built 2026-11-15, in-game off/on test pending (docs/575-577); move to the set once proven:
-#   petputdownwait puddlereach scarepriority
+#   
 #   trashpileimport catgymwatch badsecretkey traitlistenerremove portasknohome lecturebroadcaster residentspawnwalk midlifewishsave betrayednullsim topictestnull opptrackerrelisten traitremovenull homeworkcopyold laundrymoodeach partycleanupnull safelocunhide midlifeuiending nemesisnoromance
 # built 2026-11-17 (docs/611, LotCallbacks80.cs), in-game off/on test pending (r68 Check verdict bug, re-run on r69):
 
@@ -280,7 +280,7 @@ woohootywait
 # diagnostics (log only):
 #   socialreplanlog barorderlog routecauselog
 # built 2026-11-15, in-game off/on test pending (docs/587 §6-13, batches EP1-EP6 and store 1); move to the set once proven:
-#   displaycasereset mermaidsharknull jetpackflyherecleanup naniteroutefail springdanceclear nectarcopylevel10 harvesteatvfx buffetemptypick krakenfriendsailor mummycursetrait bullridercleanup broomtipperformer balancingballcareer elvisgnomeguard elvisgnomecap gourmetpetrecipe chipfamilycrystal chipcomponentorphan chipanycount nanitemerge consignmentlastday bartendinghourlypay influencefollowerbonus broomarenachoice fortunetellerscamodds consignmentskillcurve consignmentstockleak herbqualityfloor snackbowlslobvfx worldpondskatetest pingpongopponent mermaiddehydratelook meteormagnetorphan daycarelatealarm boxofmysterywoohoo bodysculptorweight nectarconsignvalue straygnometns
+#   displaycasereset 
 # built 2026-11-15, in-game off/on test pending (ufplansplit is log only; doorgen is default on since upstream #439):
 #   ufplansplit
 # new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:
@@ -361,3 +361,43 @@ wishsubjectgone
 wishupdatelost
 socialworkerpromise
 buffsrcempty
+balancingballcareer
+bartendinghourlypay
+bodysculptorweight
+boxofmysterywoohoo
+broomarenachoice
+broomtipperformer
+buffetemptypick
+bullridercleanup
+chipanycount
+chipcomponentorphan
+chipfamilycrystal
+consignmentlastday
+consignmentskillcurve
+consignmentstockleak
+daycarelatealarm
+elvisgnomecap
+elvisgnomeguard
+fortunetellerscamodds
+gourmetpetrecipe
+harvesteatvfx
+herbqualityfloor
+influencefollowerbonus
+jetpackflyherecleanup
+krakenfriendsailor
+mermaiddehydratelook
+mermaidsharknull
+meteormagnetorphan
+mummycursetrait
+nanitemerge
+naniteroutefail
+nectarconsignvalue
+nectarcopylevel10
+petputdownwait
+pingpongopponent
+puddlereach
+scarepriority
+snackbowlslobvfx
+springdanceclear
+straygnometns
+worldpondskatetest
