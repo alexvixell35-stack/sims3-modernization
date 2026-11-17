@@ -80,7 +80,8 @@ namespace Ts3Fixes
         {
             RoutingComponent rc = self as RoutingComponent;
             if (sSpreadReplaying || rc == null || !ShortcutOn("replanspread") || !GameStates.IsInWorld() || GameStates.IsWorldShuttingDown) return false;
-            if (sSpread.Add(rc)) PatchCounters()[134]++;
+            bool first = PfSpreadFirst(rc);  // docs/631 playerfirst: a player Sim's replan is replayed first
+            if (sSpread.Add(rc, first)) { PatchCounters()[134]++; if (first) PatchCounters()[3662]++; }
             if (!(sSpreadTask.IsValid && Simulator.GetTask(sSpreadTask) != null))
                 sSpreadTask = Simulator.AddObject(new LoopTask(SpreadReplay));
             return true;

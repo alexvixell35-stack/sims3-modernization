@@ -1336,6 +1336,13 @@ static void TestFallback() {
         WaitReady(kH1);
         assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == g_workerTid);
         Cancel(kH1);
+        // docs/631 PlayerFirst: off = oldest first; on = a marked job before an older unmarked one, oldest first within each
+        assert(PfBefore(0, 0, 1, 1, 2) && !PfBefore(0, 1, 2, 0, 1) && PfBefore(1, 1, 2, 0, 1) && !PfBefore(1, 0, 1, 1, 2));
+        assert(PfBefore(1, 1, 1, 1, 2) && PfBefore(1, 0, 1, 0, 2) && PfBefore(1, 1, 0xFFFFFFFF, 1, 0));  // seq wraps
+        PfSet(kH1);
+        assert(PfTake(kH1 + 1) == 0 && PfTake(kH1) == 0);  // used up by any START, its own or not
+        PfSet(kH1);
+        assert(PfTake(kH1) == 1 && PfTake(kH1) == 0);
         // J_PEND audit: household and unknown scope park, known unseen queues; CANCEL frees; a world closing and a Plan without READY plan here
         g_discDraining = true;
         rec = DiscRec{};
