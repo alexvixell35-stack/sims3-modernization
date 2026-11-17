@@ -40,12 +40,27 @@ namespace Ts3Fixes
         // small to see). Sims are never moved.
         // Counters: [3700-3701] (b) loops given the lower cap, tier 1 / tier 2 (once per instance), [3702-3703] (a) stepped
         // waits tier 1 / tier 2, [3704] allow-listed but out of scope, [3705] (b) asks for a class not on the list, [3706]
-        // asks off the actor's own task, [3707] errors, [3708] Check mismatches, [3709-3739] spare.
+        // asks off the actor's own task, [3707] errors, [3708] Check mismatches; out-of-scope reasons (3704 split): [3709]
+        // household / selected, [3710] high LOD by our re-check, [3711] not autonomous, [3712] partner out of scope, [3713-3722]
+        // UfWhy code 1-10 (3715 household, 3716 active lot, 3717 on screen, 3718 near viewers, 3719 held, 3720 social seen);
+        // [3723-3739] spare.
         internal const int kLsEnd = 1, kLsStep = 2;
         static readonly Dictionary<Type, int> sLsClasses = new Dictionary<Type, int>();
         static string sLsMissing = "";
         static bool sLsStepPatched;
         static InteractionInstance sLsLastCapped;
+        // EA's live low-LOD caps: the tuning XML sets them (Bridgeport r88: 360 day / 180 night, not the C# 420 / 120)
+        static readonly FieldInfo sLsDayField = typeof(Autonomy).GetField("kMaxTimeForLowLODInteractionDuringTheDay", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+        static readonly FieldInfo sLsNightField = typeof(Autonomy).GetField("kMaxTimeForLowLODInteractionDuringTheNight", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+        // unlisted classes that reached EA's low-LOD cap test (the Check lists the biggest), bounded
+        static readonly Dictionary<Type, int> sLsUnlisted = new Dictionary<Type, int>();
+        const int kLsWhyBase = 3712;  // 3712 + UfWhy code (1..10 -> 3713-3722) when the Sim is out of scope by UfWhy
+
+        static float LsField(FieldInfo f, float fallback)
+        {
+            try { object v = f == null ? null : f.GetValue(null); return v is float ? (float)v : fallback; }
+            catch (Exception) { return fallback; }
+        }
 
         static void LsAdd(Type t, int kind, string name, List<string> miss)
         {
@@ -65,6 +80,8 @@ namespace Ts3Fixes
             LsAdd(typeof(Stereo.DanceTogetherA), kLsEnd, "Stereo.DanceTogetherA", miss);
             LsAdd(typeof(HotTubBase.Relax), kLsEnd, "HotTubBase.Relax", miss);
             LsAdd(typeof(PoolTable).GetNestedType("PerformForTips", nested), kLsEnd, "PoolTable.PerformForTips", miss);
+            sLsMissing = string.Join(", ", miss.ToArray());
+            if (sLsDayField == null || sLsNightField == null) miss.Add("Autonomy.kMaxTimeForLowLODInteraction*");
             sLsMissing = string.Join(", ", miss.ToArray());
             if (sLsMissing.Length > 0) AppliedLog().Add("unseenloopskip: not found: " + sLsMissing);
             Patch(typeof(Autonomy), "get_MaxTimeForLowLODInteractionDuringTheDay", Type.EmptyTypes, typeof(LsCapHook), "DayHook", "DayOrig");
@@ -106,16 +123,19 @@ namespace Ts3Fixes
             return tier > 0 && (kind & kLsStep) != 0 && asked == defaultWait && step > asked ? step : asked;
         }
 
-        static int LsSimTier(Sim s, bool on, bool offOn)
+        // count: add the reason to the 3709-3723 breakdown (live asks only, not the Check's census)
+        static int LsSimTier(Sim s, bool on, bool offOn, bool count)
         {
-            if (s == null || s.HasBeenDestroyed) return 0;
-            if (IsPlayerSim(s)) return 0;  // cheap first: household / selectable / selected
+            int[] c = PatchCounters();
+            if (s == null || s.HasBeenDestroyed || IsPlayerSim(s)) { if (count) c[3709]++; return 0; }  // household / selectable / selected
             Autonomy a = s.Autonomy;
             bool lowLod = a != null && !a.IsSufficientlyOnScreenForHighLODSimulation;
-            if (!lowLod) return 0;
+            if (!lowLod) { if (count) c[3710]++; return 0; }
             int why = UfWhy(s);
             bool hidden = why != UnseenFallbackCore.kSeen && offOn && ZoomHidden(s);  // re-checks World.IsObjectOnScreen now
-            return LsTier(on, offOn, false, true, true, why, hidden);
+            int t = LsTier(on, offOn, false, true, true, why, hidden);
+            if (t == 0 && count && why >= 1 && why <= 10) c[kLsWhyBase + why]++;
+            return t;
         }
 
         // Live scope for the Sim running on this task: tier of the actor, and of a Sim target (a partner must be in scope too).
@@ -123,14 +143,23 @@ namespace Ts3Fixes
         {
             bool on = ShortcutOn("unseenloopskip");
             if (!on) return 0;
-            if (kind == 0) { PatchCounters()[3705]++; return 0; }
+            if (kind == 0)
+            {
+                PatchCounters()[3705]++;
+                Type ut = ia.GetType();
+                int n;
+                if (sLsUnlisted.TryGetValue(ut, out n)) sLsUnlisted[ut] = n + 1; else if (sLsUnlisted.Count < 256) sLsUnlisted[ut] = 1;
+                return 0;
+            }
             bool offOn = ShortcutOn("unseenloopskip_offscreen");
             bool auto = ia.Autonomous || ia.GetPriority().Level <= InteractionPriorityLevel.Autonomous;  // EA's DoLoop test
-            int t = auto ? LsSimTier(s, on, offOn) : 0;
+            if (!auto) { PatchCounters()[3711]++; PatchCounters()[3704]++; return 0; }
+            int t = LsSimTier(s, on, offOn, true);
             Sim partner = ia.Target as Sim;
             if (t > 0 && partner != null && partner != s)
             {
-                int pt = LsSimTier(partner, on, offOn);  // the weaker tier of the pair decides; a seen partner keeps EA
+                int pt = LsSimTier(partner, on, offOn, false);  // the weaker tier of the pair decides; a seen partner keeps EA
+                if (pt == 0) PatchCounters()[3712]++;
                 t = pt == 0 ? 0 : Math.Max(t, pt);
             }
             if (t == 0) PatchCounters()[3704]++;
@@ -208,13 +237,16 @@ namespace Ts3Fixes
         public static object UnseenLoopSkipCheck(string what)
         {
             string counters = B582Counters("unseenloopskip", 3700, new[] { "capped unseen", "capped offscreen", "stepped unseen", "stepped offscreen",
-                "listed, out of scope", "class not listed", "off own task", "errors", "check mismatches" }, sLsMissing);
+                "listed, out of scope", "class not listed", "off own task", "errors", "check mismatches",
+                "out: household", "out: high LOD", "out: not autonomous", "out: partner", "out: why1 notlive", "out: why2 gone", "out: why3 household",
+                "out: why4 active lot", "out: why5 on screen", "out: why6 near viewers", "out: why7 held", "out: why8 social seen", "out: why9", "out: why10" }, sLsMissing);
             if (what == "result") return counters;
             if (what != "run") return "unseenloopskip <run|result>";
             bool on = ShortcutOn("unseenloopskip"), offOn = ShortcutOn("unseenloopskip_offscreen");
             float cap = Instantiator.kUnseenLoopSkipCapMin;
-            bool eaBug = LsCapFor(LsTier(false, false, false, true, true, 0, true), kLsEnd, 420f, cap) == 420f;  // EA: 420 min
-            bool fixedPure = on && LsCapFor(LsTier(on, offOn, false, true, true, 0, true), kLsEnd, 420f, cap) == Math.Min(cap, 420f) && cap < 420f
+            float eaDay = LsField(sLsDayField, 420f), eaNight = LsField(sLsNightField, 120f);  // EA's live tuning
+            bool eaBug = LsCapFor(LsTier(false, false, false, true, true, 0, true), kLsEnd, eaDay, cap) == eaDay;  // EA: its own cap
+            bool fixedPure = on && LsCapFor(LsTier(on, offOn, false, true, true, 0, true), kLsEnd, eaDay, cap) == cap && cap < eaNight
                 && LsStepFor(LsTier(on, offOn, false, true, true, 0, true), kLsEnd | kLsStep, 1f, 1f, 10f) == 10f;
             bool controls = eaBug
                 && LsTier(true, true, true, true, true, 0, true) == 0         // household / selected
@@ -234,23 +266,27 @@ namespace Ts3Fixes
             try
             {
                 float day = Autonomy.MaxTimeForLowLODInteractionDuringTheDay, night = Autonomy.MaxTimeForLowLODInteractionDuringTheNight;
-                if (day < 400f || night < 100f) { liveOk = false; PatchCounters()[3708]++; }  // this task is no looping Sim: EA's values
+                if (day != eaDay || night != eaNight) { liveOk = false; PatchCounters()[3708]++; }  // this task is no looping Sim: EA's live values
                 int listed = 0, t1 = 0, t2 = 0;
                 foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
                 {
                     InteractionInstance ia = s == null ? null : s.CurrentInteraction;
                     if (ia == null || LsKind(ia.GetType()) == 0) continue;
                     listed++;
-                    int t = LsSimTier(s, true, true);
+                    int t = LsSimTier(s, true, true, false);
                     if (t == 1) t1++; else if (t == 2) t2++;
                 }
-                live = "getters day " + day + " night " + night + " (EA 420/120 off-scope), allow list " + sLsClasses.Count + " classes, step hook "
+                List<KeyValuePair<Type, int>> top = new List<KeyValuePair<Type, int>>(sLsUnlisted);
+                top.Sort(delegate(KeyValuePair<Type, int> x, KeyValuePair<Type, int> y) { return y.Value.CompareTo(x.Value); });
+                System.Text.StringBuilder ub = new System.Text.StringBuilder();
+                for (int i = 0; i < top.Count && i < 8; i++) ub.Append((i == 0 ? "" : ", ") + top[i].Key.FullName.Replace("Sims3.Gameplay.", "") + " " + top[i].Value);
+                live = "getters day " + day + " night " + night + " (EA tuning " + eaDay + "/" + eaNight + " off-scope), allow list " + sLsClasses.Count + " classes, step hook "
                     + (sLsStepPatched ? "in" : "not patched (kUnseenLoopSkipStep off)") + ", listed loops now " + listed + " (unseen " + t1 + ", off-screen " + t2 + ")"
-                    + ", cap " + cap + " min, step " + Instantiator.kUnseenLoopSkipStepMin + " min";
+                    + ", cap " + cap + " min, step " + Instantiator.kUnseenLoopSkipStepMin + " min, unlisted asks by class: " + (ub.Length > 0 ? ub.ToString() : "none");
             }
             catch (Exception e) { liveOk = false; live = "live probe threw " + (e.InnerException ?? e).GetType().Name; }
             return B582Line("unseenloopskip", on, "an unseen allow-listed autonomous loop ends at the cap through EA's low-LOD end", fixedPure && liveOk,
-                "EA ends at 420/120 min (" + eaBug + "), household / high LOD / user-directed / seen / active lot / held keep EA, off-screen tier only with unseenloopskip_offscreen ("
+                "EA ends at its tuned " + eaDay + "/" + eaNight + " min (" + eaBug + "), household / high LOD / user-directed / seen / active lot / held keep EA, off-screen tier only with unseenloopskip_offscreen ("
                 + offOn + "), unlisted classes keep EA, " + live, controls && liveOk, sLsMissing, counters);
         }
     }
