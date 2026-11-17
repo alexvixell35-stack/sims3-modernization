@@ -51,6 +51,16 @@ r93-combo. NOT RUN.
   SocialInteractionA/B waits are household Sims (`HH`). A failed SocialInteractionA costs 0.0 min.
 - Verdict: no stutter or lock (the waits are Sleep polls), and the long cases involve household Sims, which are off limits.
   No fix.
+- Re-check 2026-11-17 [verified, decompiled]: ZombifiedSocials.Run is the stock social path
+  (`BeginSocialInteraction(new SocialInteractionB.Definition(..."BeingEaten"), pairedSocial: true)` → SocialRouteA →
+  CreateSocialB with EA's priority raise), no zombie-only receiver push, priority or household test. Mars → Apollo:
+  B was queued (StartSync passed, Mars at Started), parked ~21 min behind the active Sim, then removed;
+  `InteractionQueue.CleanupInteraction` cancelled Mars (exit CanceledByScript), so "no link" is the state after EA's
+  cleanup (docs/546 §14, the parked-receiver case). Sugar → Mars: Mars was in the approach `DoRoute` 34-38 min (partner
+  "routing", step needroute), longer than the B side's `kSocialSyncGiveupTime` 30, then RouteFailed; autonomy picked
+  Sugar again. That is EA's approach-walk timeout, as intended. Unrelated, unreachable: the
+  `ChanceToAutonomouslyPerformBraaaiiinsSocial` property returns itself (no caller; CreateInstance reads the field).
+  EA as intended; nothing built, slots 3820-3829 unused.
 
 ## 4. Anything else
 
