@@ -38,15 +38,14 @@ namespace Ts3Fixes
         {
             public void UpdateHook(float simMinutesPassed)
             {
-                UpdateOrig(simMinutesPassed);
                 BuffManager bm = (BuffManager)(object)this;
-                // docs/622 §6 buffsrcempty (docs/620 F1b): drop the ref-count entries EA's walk emptied, as its id paths do
-                if (sBrmCountsF != null && SwOn(kSwBuffSrcEmpty) && !OnWorker())
-                {
-                    try { PatchCounters()[3505] += BseSweep(bm, true); }
-                    catch (ResetException) { throw; }
-                    catch (Exception) { PatchCounters()[3507]++; }
-                }
+                // docs/622 §6 buffsrcempty (docs/620 F1b): empty ref-count entries go before EA's walk reads them (saved or
+                // left by RemoveElement's TimeoutSources(0f); first time on in a world: every Sim) and after it (its timeouts)
+                bool bse = sBrmCountsF != null && SwOn(kSwBuffSrcEmpty) && !OnWorker();
+                if (bse) BseRun(bm, true);
+                else sBseWorld = null;  // switched on again later: one more world-wide pass
+                UpdateOrig(simMinutesPassed);
+                if (bse) BseRun(bm, false);
                 try
                 {
                     Sims3.Gameplay.Actors.Sim actor = sMdActor.GetValue(bm) as Sims3.Gameplay.Actors.Sim;

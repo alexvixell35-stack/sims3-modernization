@@ -12,6 +12,7 @@ using Sims3.Gameplay.EventSystem;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Interfaces;
 using Sims3.Gameplay.Utilities;
+using Sims3.SimIFace;
 using AutonomyT = Sims3.Gameplay.Autonomy.Autonomy;
 
 namespace Ts3Fixes
@@ -457,11 +458,39 @@ namespace Ts3Fixes
         // Every later UpdateBuffs sets any live copy of that buff to the empty list's MaxTimeout (float.MinValue) and removes
         // it: a later add without an id (Jukebox EnjoyingMusic after a Stereo one, StinkJuice Disgusted) lasts one update.
         // EA deletes the entry itself whenever its last source goes by id (RemoveElement(guid,id,inv), UnpauseBuff: Count == 0
-        // -> Remove). Fix: after EA's UpdateBuffs, entries with BuffActiveCount 0 are removed, as those two paths do. Readers of
+        // -> Remove). Every path that empties an entry [verified, ilspycmd: the only callers of TimeoutSources and
+        // BuffSourcesList.Remove]: (1) UpdateBuffs' TimeoutSources(minutes); (2) RemoveElement(guid,id,inv)'s TimeoutSources(0f)
+        // after a source is removed (it then re-adds over the empty entry); (3) load: mBuffCountList and BuffSourcesList are
+        // persisted, so saves carry entries emptied in earlier sessions. Only UpdateBuffs acts on an empty entry (the MaxTimeout
+        // kill). Fix: entries with BuffActiveCount 0 are removed, as EA's id paths do, before EA's UpdateBuffs (2, 3; the
+        // first time the switch is seen on in a world, every Sim's) and after it (1). Readers of
         // an empty vs a missing entry answer the same (BuffActiveCount 0, GetBuffSourceList empty, AddElementFromList only
         // after BuffActiveCount > 0 in BuffWarmed). All households (EA intent). Counters: [3505] entries dropped, [3506] empty
         // entries seen by the Check, [3507] errors.
         static readonly List<object> sBseDrop = new List<object>();  // sim thread only
+        static object sBseWorld;  // Household.ActiveHousehold of the last world-wide pass (new world or household: pass again)
+
+        // before: the Sim's own entries plus, once per world with the switch on, every Sim's; after: this walk's timeouts.
+        static void BseRun(BuffManager bm, bool before)
+        {
+            try
+            {
+                int[] c = PatchCounters();
+                if (before)
+                {
+                    object world = Household.ActiveHousehold;
+                    if (world != null && !ReferenceEquals(world, sBseWorld))
+                    {
+                        sBseWorld = world;
+                        foreach (Sim s in LotManager.Actors)
+                            if (s != null && s.BuffManager != null && !ReferenceEquals(s.BuffManager, bm)) c[3505] += BseSweep(s.BuffManager, true);
+                    }
+                }
+                c[3505] += BseSweep(bm, true);
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { PatchCounters()[3507]++; }
+        }
 
         static int BseSweep(BuffManager bm, bool drop)
         {
