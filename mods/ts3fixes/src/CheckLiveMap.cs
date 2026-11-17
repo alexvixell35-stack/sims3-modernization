@@ -365,6 +365,7 @@ namespace Ts3Fixes
                 case "socialfinish": return EpLive(typeof(SfHook), 1);
                 case "socialnoeffect": return EpLive(typeof(BSnHook), 1, "sSnEffect", sSnEffect, null);
                 case "socialworkeronlot": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatParkGoneHook), 1), EpLive(typeof(BookHandPutDownHook), 1)), EpLive(typeof(BookHandQueueHook), 1, "sBhActor", sBhActor, null)), EpLive(typeof(BribeHook), 1, "sBribeTable", sBribeTable, null)), EpLive(typeof(CarryHook), 1)), EpLive(typeof(ConvTurnHook), 1)), EpLive(typeof(FireworksFizzleHook), 0)), EpLive(typeof(GraduationAttendHook), 1)), EpLive(typeof(GraduationCityHallHook), 1)), EpLive(typeof(OutfitClearHook), 2)), EpLive(typeof(SwAbuseHook), 1)), EpLive(typeof(SwAdoptHook), 1)), EpLive(typeof(SwPetAdoptHook), 1)), EpLive(typeof(SwPutUpHook), 1)), EpLive(typeof(ThrowHook), 3)), EpLive(typeof(TopicHook), 4));
+                case "socialworkerpromise": return EpLive(typeof(W86MgrHook), 3);
                 case "spacesimpartner": return EpJoin(EpLive(typeof(SsHook), 1), EpLive(typeof(SsSimHook), 1));
                 case "spatialcache": return EpLive(typeof(SpatialCacheHook), 0);
                 case "spawncapcount": return EpLive(typeof(SpawnCapHook), 2);
@@ -408,6 +409,7 @@ namespace Ts3Fixes
                 case "talkoccupationchance": return EpLive(typeof(BTaoHook), 1);
                 case "teleportcommunitylot": return EpLive(typeof(BTcHook), 1);
                 case "tempforecast": return EpLive(typeof(B13TfHook), 1, "sTfMin", sTfMin, null, "sTfMin", sTfMin, "static", "sTfMax", sTfMax, null, "sTfMax", sTfMax, "static", "sTfWeight", sTfWeight, 1, "sTfGet", sTfGet, 2);
+                case "timeralarmleak": return EpLive(typeof(W86TimerHook), 2);
                 case "tipsnpcend": return EpLive(typeof(TneLoopHook), 1);
                 case "tooltipthrottle": return EpLive(typeof(TooltipThrottleHook), 0);
                 case "trainboost": return EpLive(typeof(TbHook), 1, "sTbShape", sTbShape, typeof(float), "sTbSkillMult", sTbSkillMult, typeof(float), "sTbSkillMult", sTbSkillMult, "static", "sTbShapeMult", sTbShapeMult, typeof(float), "sTbShapeMult", sTbShapeMult, "static");
@@ -484,6 +486,9 @@ namespace Ts3Fixes
                 case "wildflowertask": return EpLive(typeof(WildflowerTaskHook), 0, "sWfLots", sWfLots, null, "sWfLots", sWfLots, "static", "sWfClear", sWfClear, 0);
                 case "wildherdmother": return EpLive(typeof(WildHerdMotherHook), 0, "sWhMother", sWhMother, typeof(ulong), "sWhMother", sWhMother, null);
                 case "wildhorsegender": return EpLive(typeof(WildHorseGenderHook), 0);
+                case "wishfeedbackkeep": return EpLive(typeof(W86FeedbackHook), 1);
+                case "wishsubjectgone": return EpLive(typeof(W86MgrHook), 3);
+                case "wishupdatelost": return EpLive(typeof(W86MgrHook), 3);
                 case "woohootywait": return EpLive(typeof(WooHootyWaitHook), 0);
                 default: return "";
             }

@@ -397,6 +397,11 @@ namespace Ts3Fixes
         [Tunable] public static bool kSpoilBroadcast = false; // spoilbroadcast (docs/615 §1): PreparedFood.ForceSpoil disposes the disgust broadcaster it replaces at each spoil stage
         [Tunable] public static bool kWeatherStoneRelisten = false; // weatherstonerelisten (docs/615 §2): a successful weather stone summon removes a stale pending weather listener before adding its own
         [Tunable] public static bool kBirthdayAgeRecord = false; // birthdayagerecord (docs/615 §3): a birthday party records every guest who ages up, not only the first
+        [Tunable] public static bool kTimerAlarmLeak = false; // timeralarmleak (docs/623 §1): a wish timer node's alarm is removed when the node leaves play, and an orphan timer alarm ends at its next fire (EA's own kill path)
+        [Tunable] public static bool kWishFeedbackKeep = false; // wishfeedbackkeep (docs/623 §2): a live wish keeps its event listener when its feedback function throws (EventTracker dropped it for good)
+        [Tunable] public static bool kWishSubjectGone = false; // wishsubjectgone (docs/623 §3): a gone subject's promised wish gets EA's failure notice and sting; wishes kept after a death stay filed under the subject
+        [Tunable] public static bool kWishUpdateLost = false; // wishupdatelost (docs/623 §4): a SetToUpdate made while the wish drain runs that manager's Update is kept (EA's drain removed it)
+        [Tunable] public static bool kSocialWorkerPromise = false; // socialworkerpromise (docs/623 §5): a promised wish about a child taken by the social worker is removed (EA killed it but its timeout skips promised wishes)
         [Tunable] public static bool kSarcMummyNpc = false; // sarcmummynpc (docs/607 §3): a reset or deleted Sarcophagus takes its tomb mummy out of NpcHousehold, as TombMummyDestroy does
         [Tunable] public static bool kPushWaitSkip = false; // pushwaitskip (docs/604 §2): RoutingComponent.PushSimsStatic's wait pass checks every pushed Sim once (EA steps twice and keeps the pusher idle an extra 10 sim-minutes)
         [Tunable] public static bool kDetailPriorityExact = false; // detailprioexact (docs/603 §3): Lot.CalculateDetailPriority gives EA's answer without building the household actor lists on every lot pass (exact, DetailPrio603.cs)

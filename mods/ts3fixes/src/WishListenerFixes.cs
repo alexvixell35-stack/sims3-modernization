@@ -97,15 +97,26 @@ namespace Ts3Fixes
         {
             public void UpdateHook()
             {
-                List<object> woke = DcBeforeUpdate(this);  // dreamcleanup (DreamCleanup.cs): shared hook, one patch per method
-                if (!ShortcutOn("dnpupdateguard")) { UpdateOrig(); DcAfterUpdate(this, woke); return; }
-                try { UpdateOrig(); }
-                catch (Exception)
+                object w86Prev; bool w86PrevLost;
+                W86UpdateBegin(this, out w86Prev, out w86PrevLost);  // wishupdatelost (Wishes86.cs): shared hook, one patch per method
+                bool ok = false;
+                try
                 {
-                    int[] c = PatchCounters();
-                    c[2266]++; c[2267]++;
+                    List<object> woke = DcBeforeUpdate(this);  // dreamcleanup (DreamCleanup.cs): shared hook, one patch per method
+                    if (!ShortcutOn("dnpupdateguard")) UpdateOrig();
+                    else
+                    {
+                        try { UpdateOrig(); }
+                        catch (Exception)
+                        {
+                            int[] c = PatchCounters();
+                            c[2266]++; c[2267]++;
+                        }
+                    }
+                    DcAfterUpdate(this, woke);
+                    ok = true;
                 }
-                DcAfterUpdate(this, woke);
+                finally { W86UpdateEnd(this, w86Prev, w86PrevLost, ok); }
             }
             public void UpdateOrig() { }
         }
