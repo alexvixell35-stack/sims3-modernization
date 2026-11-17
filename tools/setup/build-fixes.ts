@@ -107,6 +107,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSpeedLockOwner value="True" />
     <kAlarmZeroPeriod value="True" />
     <kHeartBrokenBcast value="True" />
+    <kStairWaitEnd value="False" />
+    <kSimDisposeLink value="False" />
     <kWakeHooks value="False" />
     <kWakePark value="False" />
     <kWakePoll value="False" />

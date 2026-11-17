@@ -529,6 +529,8 @@ namespace Ts3Fixes
         [Tunable] public static bool kSpeedLockOwner = true; // speedlockowner (docs/609 §5): build/buy exit unlocks the game speed only if its enter took the lock
         [Tunable] public static bool kAlarmZeroPeriod = true; // alarmzeroperiod (docs/609 §6): a repeating alarm period of 0 ticks or less counts as 1 tick (EA hangs), catch-up in one division
         [Tunable] public static bool kHeartBrokenBcast = true; // heartbrokenbcast (docs/609 §7): SocialCallback.AddHeartBroken disposes the heartbroken broadcaster a repeat breakup replaces (EA left it pulsing on the first ex)
+        [Tunable] public static bool kStairWaitEnd = false; // stairwaitend (docs/612 §2): a stair traversal wait ends at EA's 30 sim-minute portal failsafe (elevator sibling) for NPCs; EA's loop had no deadline
+        [Tunable] public static bool kSimDisposeLink = false; // simdisposelink (docs/612 §3): Sim.Dispose of an unbound Sim keeps its description's link to the live Sim (EA unbound it: next Instantiate made a duplicate Sim)
         [Tunable] public static bool kEatOutsideCount = true;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)
         [Tunable] public static bool kQueueProximity = true;    // queueproximity (docs/597 §2): SimQueue OrderByProximity places a new Sim by squared distance on both sides (elevator lines)
         [Tunable] public static bool kSubRouteFail = true;    // subroutefail (docs/597 §3): no route-fail balloon/animation when SimQueue.TryReplacementInteraction pushed a substitute object
