@@ -1,0 +1,8 @@
+# 808: `safespotdedupe`, a SafeSpot retry that repeats an answer stops (default off)
+
+Answer: `SafeSpot` (the landing-spot search of the trip shortcuts) makes up to two tries from the lot's verified spots and three fresh tries from the same `near` point. `GlobalFunctions.FindGoodLocation` is deterministic for the same start, so a retry usually returns the spot the try before already turned down, or nothing again. With `safespotdedupe` on (tuning `kSafeSpotDedupe`, off by default) a fresh retry that finds exactly the same spot as the try before stops the fresh tries, and the second verified try is skipped when it would start from the same spot (one verified spot, or `spotspread` off). Townies only in practice: `SafeSpot` is reached from the shortcuts for unseen townies; no Sim is moved by this switch.
+
+- Counters, counted always (counting only): [3531] fresh retry found the same spot as the try before, [3532] another spot, [3533] none, [3534] a spot after none; with the switch on [3535] fresh tries stopped, [3536] second verified tries skipped.
+- Off (default): behaviour is EA's search as before (the counters add one distance test per fresh retry).
+
+Evidence [counters re-read from the ts3native logs of 156 local games, 2026-11-15/16, switch on, Bridgeport apartment, Sunset Valley, Twinbrook, Isla Paradiso]: a fresh retry found the same spot 15,440 times in all (0-310 a game) and another spot twice; none 13,580 times; 15,446 fresh tries stopped and 22,722 second verified tries skipped, about 38,000 `FindGoodLocation` calls fewer, about 240 a game. Not measured: the milliseconds saved (no SafeSpot ms counter compared) and the games with the switch off (no counters from them).

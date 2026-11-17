@@ -539,6 +539,7 @@ namespace Ts3Fixes
         // per scope (household, selected, seenNpc, unseen, unknown), bursts, call lines, lines dropped, would start but Kinds
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
+        // [3531-3536] SafeSpot repeat-search counters and safespotdedupe (Fixes.cs SafeSpot, docs/808)
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
         const int kCounterSlots = 4000;
@@ -817,6 +818,7 @@ namespace Ts3Fixes
                 case "trainboost": return Instantiator.kTrainBoost;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
                 case "safespotpool": return Instantiator.kSafeSpotPool;
+                case "safespotdedupe": return Instantiator.kSafeSpotDedupe;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
@@ -1117,10 +1119,20 @@ namespace Ts3Fixes
             int[] c = PatchCounters();
             // safespotpool (default off): spots in a pool or under the ground outdoors are refused, so the caller runs EA's trip
             bool noPool = ShortcutOn("safespotpool");
+            // safespotdedupe (default off; docs/808): the three fresh tries all search from the same `near`, and with one verified
+            // spot (or spotspread off) both verified tries start from the same spot, so a deterministic search repeats an answer this
+            // call already turned down. Counted (always, counting only): fresh retry found [3531] the same spot as the try before,
+            // [3532] another spot, [3533] none; [3534] a spot after none. With the switch on, such a repeat stops the fresh tries
+            // [3535], and the second verified try is skipped when it would start from the same spot [3536].
+            bool dedupe = ShortcutOn("safespotdedupe");
+            Sims3.SimIFace.Vector3 lastFresh = Sims3.SimIFace.Vector3.Invalid;
+            int freshTries = 0;
+            bool lastFound = false;
             for (int i = 0; i < 2 + 3; i++)
             {
                 bool fresh = i >= 2;
                 if (!fresh && v.Good.Count == 0) continue;
+                if (dedupe && i == 1 && (v.Good.Count == 1 || !spread)) { c[3536]++; continue; }
                 Sims3.SimIFace.Vector3 start = fresh ? near : v.Good[spread ? v.Next++ % v.Good.Count : v.Good.Count - 1];
                 if (noPool && !fresh && BelowGroundOutdoors(start)) { c[2701]++; continue; }
                 // A verified spot is itself an earlier FindGoodLocation result (a native placement search, hundreds of ms
@@ -1143,6 +1155,15 @@ namespace Ts3Fixes
                 }
                 c[91]++;
                 bool found = GlobalFunctions.FindGoodLocation(sim, new World.FindGoodLocationParams(start), out pos, out fwd);
+                if (fresh)
+                {
+                    bool same = found && lastFound && (pos - lastFresh).Length() < 0.001f;
+                    if (freshTries > 0) c[!found ? 3533 : !lastFound ? 3534 : same ? 3531 : 3532]++;
+                    freshTries++;
+                    lastFound = found;
+                    if (found) lastFresh = pos;
+                    if (same && dedupe) { c[3535]++; break; }
+                }
                 if (ShortcutOn("safespotyield") && !SafeSpotYield(sim, near)) break;
                 if (!found) continue;
                 if (noPool && BelowGroundOutdoors(pos)) { c[2700]++; continue; }
