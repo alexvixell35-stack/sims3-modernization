@@ -553,6 +553,7 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3670-3689 | `Responsive631.cs` (`fixes-3660`, docs/631 §3), `zoomtier` | built 2026-11-17, default off: tier-2 lifted by zoom (3670) / would lift, switch off (3671) / errors (3672) / spare (3673-3689) |
 | 3700-3739 | `LoopSkip632.cs` (`fixes-3700`, s90loop, docs/632), `unseenloopskip` + `unseenloopskip_offscreen` | built 2026-11-17, default off: (b) loops given the lower cap unseen / off-screen (3700-3701), (a) stepped waits unseen / off-screen (3702-3703), listed but out of scope (3704), class not listed (3705), off own task (3706), errors (3707), Check mismatches (3708, must stay 0), out-of-scope reasons household / high LOD / not autonomous / partner (3709-3712), UfWhy 1-10 (3713-3722), spare (3723-3739) |
 | 3700-3739 | pinned (s90loop, `fixes-3700`) | unseenloopskip: generic DoLoop early end / bigger steps for unseen NPCs |
+| 3740-3749 | `RouteSources.cs` (`fixes-3740`, docs/633), `bouncerplace` | built 2026-11-17, default off: loop routes replaced (3740) / Run arrivals placed (3741) / out of scope (3742) / slot seen (3743) / errors (3744) / Check mismatches (3745, must stay 0) / spare (3746-3749) |
 | **2000+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

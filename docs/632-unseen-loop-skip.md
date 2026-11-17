@@ -55,3 +55,9 @@ Not listed, stay EA: role and job loops (VelvetRopes.WatchDoor, ShowStage, Perfo
 - Never acted: 3700 = 0, 3704 = 906 (frozen early), 3705 = 3384. The only listed loops in the run's census are household Sims (hw-2.json: `HH Kirby: ReadBook`; WatchTV / PlayComputerGames also household), off camera and low LOD, so EA asks the cap and our household rule keeps EA (inferred: 3709 confirms it next run). No unseen NPC ran a listed loop: in this soak, `unseen 0, off-screen 0` in every census.
 - 3384 unlisted asks: no class breakdown in r88; the next run's Check prints the top 8.
 
+
+## 7. SwingSet.Swing added (2026-11-17, s88 census)
+
+- s88 (phase-20261117-1442 smallfix.txt) unlisted asks, on arm: VelvetRopes+WatchDoor 1453, Piano+PianistPerform 375, SwingSet+Swing 327, then rabbit hole visits. WatchDoor and PianistPerform are job loops and stay EA.
+- [verified, ilspycmd SwingSet+Swing.Run] `DoLoop(ExitReason.Default, LoopCallback, ...)`; EA's low-LOD branch adds Finished and returns true; the post-loop steps then run as for any end: UnregisterGroupTalk, stop swinging unless BePushed_SwingSet is next (AnimateSim Neutral, UpdateFootprint), EndCommodityUpdates, TryMovingToAnotherObject. The callback (PlayGroundObject.LoopCallback) reads mLifeTime only. Added as `kLsEnd` (8 classes), no step.
+- The Check now prints the top 15 unlisted classes.

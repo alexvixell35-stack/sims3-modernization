@@ -411,6 +411,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kMoodDriftNoAlloc = false; // mooddriftnoalloc (docs/622 §8): the mood drift pass sums buffs with a scratch array and a struct walk (no allocation)
         [Tunable] public static bool kUnseenService = false; // unseenservice (docs/628): a Late Night bar drink, food or bartender chat between two unseen low-LOD NPCs completes at once with EA's end steps (no animation, no sync wait)
         [Tunable] public static bool kUnseenServiceOffscreen = false; // unseenservice_offscreen (docs/628): the same for NPCs off screen but within 80 m, re-checked at completion
+        [Tunable] public static bool kBouncerPlace = false; // bouncerplace (docs/633): an unseen velvet-rope bouncer is placed on RoutingSlot_2 facing its way instead of routing there (WatchDoor Run / every 5-minute loop)
         [Tunable] public static bool kUnseenLoopSkip = false; // unseenloopskip (docs/632): an unseen NPC's allow-listed autonomous loop ends at kUnseenLoopSkipCapMin through EA's own low-LOD end (DoLoop)
         [Tunable] public static bool kUnseenLoopSkipOffscreen = false; // unseenloopskip_offscreen (docs/632): the same off screen but near (ZoomHidden, zoomtier), needs kUnseenLoopSkip
         [Tunable] public static float kUnseenLoopSkipCapMin = 30f; // docs/632 (b): lifetime cap in sim-minutes (EA: 420 day / 120 night), never longer than EA's

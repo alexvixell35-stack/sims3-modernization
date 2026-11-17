@@ -1169,6 +1169,7 @@ namespace Ts3Fixes
         // [3476-3478] spoilbroadcast (Scan85.cs, docs/615 §1): broadcasters disposed / leaked (off) / errors.
         // [3479-3481] weatherstonerelisten (Scan85.cs, docs/615 §2): stale listeners removed / stacked (off) / errors.
         // [3482-3484] birthdayagerecord (Scan85.cs, docs/615 §3): age-ups with listener kept / dropped (off) / errors.
+        // [3740-3745] bouncerplace (RouteSources.cs, docs/633): loop routes replaced / Run arrivals placed / out of scope / slot seen / errors / check mismatches; 3746-3749 spare.
         // [3700-3708] unseenloopskip (LoopSkip632.cs, docs/632): (b) capped unseen / offscreen, (a) stepped unseen / offscreen, listed out of scope, class not listed, off own task, errors, check mismatches; 3709-3739 spare.
         // [3600-3611] unseenservice (UnseenService88.cs, docs/628): unseen conv/drink/food served / off-screen tier the same / out of scope / precondition kept EA / off-screen re-check refused / RunBehavior false / errors / check mismatches; 3612-3619 spare.
         // [3490-3492] autmetarows (Hitch622.cs, AutShadow.cs AddObj, docs/622 §1): pair rows from the cache / rows computed / check mismatches.
@@ -1520,6 +1521,7 @@ namespace Ts3Fixes
                 case "alarmtime": case "boatreplanlog": case "owresettime": case "synctime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
                 case "legreplanskip": return Instantiator.kLegReplanSkip;
                 case "bouncerskip": return Instantiator.kBouncerSlotSkip;
+                case "bouncerplace": return Instantiator.kBouncerPlace;  // docs/633 (RouteSources.cs), unseen bouncer placed on its slot, off
                 case "idlememo": return Instantiator.kIdlePlanMemo;
                 case "stuckchecknear": return Instantiator.kStuckCheckNear;
                 case "failrepeat": return Instantiator.kFailRepeat;

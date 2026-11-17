@@ -108268,6 +108268,154 @@
     ]
   },
   {
+    "id": "bouncerplace-check",
+    "bug": "an unseen velvet-rope bouncer (VelvetRopes+WatchDoor) plans RouteToSlot(RoutingSlot_2) at Run and every 5 sim-min; 250+ failed or cut bouncer routes in phase-2026111* ts3native.log, docs/633",
+    "fix": "ts3fixes RouteSources.cs: bouncerplace (default off), docs/633",
+    "save": "pure part needs no save",
+    "note": "BouncerPlaceCheck run checks the placement decision (player, selected, seen, parented bouncer and a seen slot keep EA's route) and counts bouncers on WatchDoor now; result shows counters 3740-3745.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "bouncerplace": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BouncerPlaceCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BouncerPlaceCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bouncerplace": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BouncerPlaceCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BouncerPlaceCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "bouncerplace": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "unseenservice_offscreen-check",
+    "bug": "an off-screen Late Night bar order near viewers waits in EA's linked sync wait; the tier-2 sub-key's own decision (s89 read the main tier in both arms), docs/628",
+    "fix": "ts3fixes UnseenService88.cs: unseenservice_offscreen (default off, tier 2 of unseenservice), docs/628",
+    "save": "pure part needs no save",
+    "note": "UnseenServiceOffscreenCheck run tests the tier-2 decision with the main switch taken as on (unseen stays tier 1; on screen, player, main switch off keep EA); result shows counters 3603-3605.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenservice": true,
+          "unseenservice_offscreen": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenServiceOffscreenCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenServiceOffscreenCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenservice": true,
+          "unseenservice_offscreen": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenServiceOffscreenCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenServiceOffscreenCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenservice_offscreen": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
