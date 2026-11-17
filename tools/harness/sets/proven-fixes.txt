@@ -273,14 +273,14 @@ woohootywait
 # built 2026-11-15, in-game off/on test pending (docs/575-577); move to the set once proven:
 #   petputdownwait puddlereach scarepriority
 #   trashpileimport catgymwatch badsecretkey traitlistenerremove portasknohome lecturebroadcaster residentspawnwalk midlifewishsave betrayednullsim topictestnull opptrackerrelisten traitremovenull homeworkcopyold laundrymoodeach partycleanupnull safelocunhide midlifeuiending nemesisnoromance
-# built 2026-11-16 (docs/604 §2, PushWait604.cs), in-game off/on test pending:
-#   pushwaitskip
+# built 2026-11-17 (docs/607, TreasureSpawn74.cs), in-game off/on test pending:
+#   tspawninvdup sarcmummynpc
 # PRs #452 #454 #456 #457 (2026-11-16, other sessions), default off, in-game off/on test pending:
 #   safespotpool spotcheck tagunseen unseenoutfitdefer
 # diagnostics (log only):
 #   socialreplanlog barorderlog routecauselog
 # built 2026-11-15, in-game off/on test pending (docs/587 §6-13, batches EP1-EP6 and store 1); move to the set once proven:
-#   displaycasereset suatgradebonus mermaidsharknull jetpackflyherecleanup naniteroutefail springdanceclear nectarcopylevel10 harvesteatvfx buffetemptypick krakenfriendsailor mummycursetrait bullridercleanup broomtipperformer balancingballcareer elvisgnomeguard elvisgnomecap gourmetpetrecipe chipfamilycrystal chipcomponentorphan chipanycount nanitemerge consignmentlastday bartendinghourlypay influencefollowerbonus broomarenachoice fortunetellerscamodds consignmentskillcurve consignmentstockleak herbqualityfloor snackbowlslobvfx worldpondskatetest pingpongopponent mermaiddehydratelook meteormagnetorphan daycarelatealarm boxofmysterywoohoo bodysculptorweight nectarconsignvalue straygnometns
+#   displaycasereset mermaidsharknull jetpackflyherecleanup naniteroutefail springdanceclear nectarcopylevel10 harvesteatvfx buffetemptypick krakenfriendsailor mummycursetrait bullridercleanup broomtipperformer balancingballcareer elvisgnomeguard elvisgnomecap gourmetpetrecipe chipfamilycrystal chipcomponentorphan chipanycount nanitemerge consignmentlastday bartendinghourlypay influencefollowerbonus broomarenachoice fortunetellerscamodds consignmentskillcurve consignmentstockleak herbqualityfloor snackbowlslobvfx worldpondskatetest pingpongopponent mermaiddehydratelook meteormagnetorphan daycarelatealarm boxofmysterywoohoo bodysculptorweight nectarconsignvalue straygnometns
 # built 2026-11-15, in-game off/on test pending (ufplansplit is log only; doorgen is default on since upstream #439):
 #   ufplansplit
 # new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:

@@ -367,6 +367,8 @@ namespace Ts3Fixes
             ApplyPetHarvestVfx();   // docs/593 H1 B13 §17
             ApplySuatGradeBonus();   // docs/587 EP1 §2 (was inside the line above's comment, never called; docs/604 §5)
             ApplyPushWaitSkip();   // docs/604 §2 (PushWait604.cs)
+            ApplyTreasureSpawnInvDup();   // docs/607 §2 (TreasureSpawn74.cs)
+            ApplySarcMummyNpc();   // docs/607 §3 (TreasureSpawn74.cs)
             ApplyMermaidSharkNull();   // docs/587 EP1 §3
             ApplyJetpackFlyHereCleanup();   // docs/587 EP1 §4
             ApplyNaniteRouteFail();   // docs/587 EP1 §5
@@ -1099,6 +1101,8 @@ namespace Ts3Fixes
         // [2278-2280] moodpending (MoodPending.cs): ChangeMoodValue on a pending buff (also off) / mood moves skipped / errors.
         // [2272-2277] buyclearrecycle / buygridsweep (BuyCellRecycle.cs): cells at ShowCatalogGrid(false) (also off) / cached / errors / icons in other grids at Dispose (also off) / disposed / errors.
         // [2269-2271] buycellrecycle (BuyCellRecycle.cs): Buy catalog cells dropped by AddGridItem (also off) / returned to a cache / errors.
+        // [3388-3390] tspawninvdup (TreasureSpawn74.cs, docs/607 §2): extra treasure add-to-inventory subscriptions removed / seen with the switch off / errors.
+        // [3391-3393] sarcmummynpc (TreasureSpawn74.cs, docs/607 §3): tomb mummy descriptions removed from NpcHousehold at sarcophagus cleanup / left with the switch off / errors.
         // [2790-2792] pushwaitskip (PushWait604.cs, docs/604 §2): done Sims EA's double-step wait pass would have skipped / waiting calls on EA's body (switch off) / errors.
         // [2756-2759] detailprioexact (DetailPrio603.cs, docs/603 §3): exact answers / EA's body (null list or description, error) / check mismatches / errors.
         // [2260-2268] dreamrootorphan / blogorphan / dnpupdateguard (WishListenerFixes.cs): root listeners left by a thrown-away test (also off) / removed / errors / blog one-off listeners left (also off) / removed / errors / Update exceptions seen / swallowed / errors.
@@ -1143,9 +1147,9 @@ namespace Ts3Fixes
         // per scope (household, selected, seenNpc, unseen, unknown), bursts, call lines, lines dropped, would start but Kinds
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
-        // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 2799,
+        // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 2799, then reserved slots up to 3393 (s74),
         // docs/registry.md), so a new fix never needs the array resized by hand.
-        const int kCounterSlots = 2800;
+        const int kCounterSlots = 3400;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1627,6 +1631,8 @@ namespace Ts3Fixes
                 case "pondclearscan": return Instantiator.kPondClearScan;
                 case "soakedstat": return Instantiator.kSoakedStat;
                 case "hovertraintest": return Instantiator.kHoverTrainTest;
+                case "tspawninvdup": return Instantiator.kTreasureSpawnInvDup;  // docs/607 §2 (TreasureSpawn74.cs), EA bug fix, off
+                case "sarcmummynpc": return Instantiator.kSarcMummyNpc;  // docs/607 §3 (TreasureSpawn74.cs), EA bug fix, off
                 case "pushwaitskip": return Instantiator.kPushWaitSkip;  // docs/604 §2 (PushWait604.cs), EA bug fix, off
                 case "detailprioexact": return Instantiator.kDetailPriorityExact;  // docs/603 §3 (DetailPrio603.cs), exact, off
                 case "newcartest": return Instantiator.kNewCarTest;

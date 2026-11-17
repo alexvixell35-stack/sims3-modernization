@@ -6738,6 +6738,138 @@
       "what": "hot methods: ShortcutOn switch cache, detailprioexact",
       "at": "2026-11-16T23:10:11.902Z",
       "worktree": "/home/<user>/dev/s3m-hot"
+    },
+    {
+      "id": "fixes-2800",
+      "kind": "fixes",
+      "from": 2800,
+      "to": 2925,
+      "by": "alexvixell35-stack",
+      "what": "docs/582 + docs/580 batch (39 switches, PR post/batch582)",
+      "at": "2026-11-16T23:19:22.060Z",
+      "worktree": "/home/<user>/dev/s3m-b582"
+    },
+    {
+      "id": "fixes-2926",
+      "kind": "fixes",
+      "from": 2926,
+      "to": 2928,
+      "by": "alexvixell35-stack",
+      "what": "butlerpayalarm (ButlerPayAlarm.cs, docs/593 V1), in PR post/batch582",
+      "at": "2026-11-16T23:21:08.540Z",
+      "worktree": "/home/<user>/dev/s3m-b582"
+    },
+    {
+      "id": "fixes-2929",
+      "kind": "fixes",
+      "from": 2929,
+      "to": 2985,
+      "by": "alexvixell35-stack",
+      "what": "docs/588 story progression batch (19 switches, PR post/batch588)",
+      "at": "2026-11-16T23:29:00.534Z",
+      "worktree": "/home/<user>/dev/s3m-b588"
+    },
+    {
+      "id": "fixes-2986",
+      "kind": "fixes",
+      "from": 2986,
+      "to": 3063,
+      "by": "alexvixell35-stack",
+      "what": "docs/589 usage sweep batch (26 switches, PR post/batch589)",
+      "at": "2026-11-16T23:31:11.887Z",
+      "worktree": "/home/<user>/dev/s3m-b589"
+    },
+    {
+      "id": "fixes-3064",
+      "kind": "fixes",
+      "from": 3064,
+      "to": 3114,
+      "by": "alexvixell35-stack",
+      "what": "docs/590 usage sweep 2 batch (17 switches, PR post/batch590)",
+      "at": "2026-11-16T23:32:52.862Z",
+      "worktree": "/home/<user>/dev/s3m-b590"
+    },
+    {
+      "id": "fixes-3115",
+      "kind": "fixes",
+      "from": 3115,
+      "to": 3171,
+      "by": "alexvixell35-stack",
+      "what": "docs/591 usage sweep 3 batch (19 switches, PR post/batch591)",
+      "at": "2026-11-16T23:34:36.294Z",
+      "worktree": "/home/<user>/dev/s3m-b591"
+    },
+    {
+      "id": "fixes-3172",
+      "kind": "fixes",
+      "from": 3172,
+      "to": 3240,
+      "by": "alexvixell35-stack",
+      "what": "docs/592 + docs/593 batch (23 switches, PR post/batch592-593)",
+      "at": "2026-11-16T23:36:27.642Z",
+      "worktree": "/home/<user>/dev/s3m-b592"
+    },
+    {
+      "id": "fixes-3241",
+      "kind": "fixes",
+      "from": 3241,
+      "to": 3384,
+      "by": "alexvixell35-stack",
+      "what": "docs/587 EP + store batch (48 switches, PR post/ep-store-batch)",
+      "at": "2026-11-16T23:40:47.450Z",
+      "worktree": "/home/<user>/dev/s3m-post-ep"
+    },
+    {
+      "id": "fixes-3385",
+      "kind": "fixes",
+      "from": 3385,
+      "to": 3387,
+      "by": "alexvixell35-stack",
+      "what": "pushwaitskip (PushWaitSkip.cs), PR post/pushwaitskip",
+      "at": "2026-11-16T23:43:06.037Z",
+      "worktree": "/home/<user>/dev/s3m-post-push"
+    },
+    {
+      "id": "doc-606",
+      "kind": "doc",
+      "from": 606,
+      "to": 606,
+      "by": "alexvixell35-stack",
+      "what": "hot logic scan, pushwaitskip",
+      "at": "2026-11-16T23:43:09.228Z",
+      "worktree": "/home/<user>/dev/s3m-post-push"
+    },
+    {
+      "id": "fixes-3388",
+      "kind": "fixes",
+      "from": 3388,
+      "to": 3390,
+      "by": "s74",
+      "what": "tspawninvdup (TreasureSpawn74.cs, docs/607 WA tomb registries)",
+      "at": "2026-11-16T23:56:34.826Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3391",
+      "kind": "fixes",
+      "from": 3391,
+      "to": 3393,
+      "by": "s74",
+      "what": "sarcmummynpc (TreasureSpawn74.cs, WA tomb registries)",
+      "at": "2026-11-16T23:56:34.903Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "doc-607",
+      "kind": "doc",
+      "from": 607,
+      "to": 607,
+      "by": "s74",
+      "what": "WA tomb and travel registries hunt (s74)",
+      "at": "2026-11-16T23:56:38.732Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }
