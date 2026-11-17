@@ -13001,6 +13001,7 @@ static void TestP5() {
 #include "memdiag-test.h"   // TestMemDiag ([MemDiag], docs/190 phase 1, docs/191)
 #include "memaccess-test.h"  // TestMemAccess ([MemDiag] Access, docs/190 phase 2)
 #include "memexp-test.h"    // TestMemExp ([MemDiag] TypeGrowth, [GC] SqrtHeapLimit, docs/199)
+#include "gcpace-test.h"    // TestGcPace ([GC] CyclePace, PartialFreq, docs/624)
 #include "gcgrow-test.h"    // TestGcGrowLog ([GcGrowLog], [GC] BlackListCapKB, docs/232 Run 8l/8n)
 #include "allocsites-test.h"  // TestAllocSites ([MemDiag] AllocSites, docs/201)
 #include "crashreport-test.h"  // TestCrashReport ([CrashReport], docs/135)
@@ -14478,6 +14479,7 @@ int main() {
     TestMemDiag();
     TestMemAccess();
     TestMemExp();
+    TestGcPace();
     TestGcGrowLog();
     TestAllocSites();
     TestWatchpoint();

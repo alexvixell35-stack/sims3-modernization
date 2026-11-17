@@ -5796,6 +5796,7 @@ static void SlimWait();
 #include "heightcache.cpp"
 #include "gcthreads.cpp"
 #include "memexp.cpp"  // docs/199: [MemDiag] TypeGrowth, [GC] SqrtHeapLimit (off)
+#include "gcpace.cpp"  // docs/624: [GC] CyclePace, PartialFreq (off; after memexp.cpp / savewrite.cpp: PatchCalls)
 #include "gcgrow.cpp"  // docs/232 Run 8l/8n: [GcGrowLog] + [GC] BlackListCapKB (after memexp.cpp: g_mx; savewrite.cpp: PatchCalls)
 #ifdef TS3N_EA_PORT
 #include "imgguard.cpp"  // docs/232 Run 8d: [ImageGuard], EA build only (after savewrite.cpp: PatchCalls)
@@ -6174,6 +6175,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyHeightCache(ini) || keepLog;
         keepLog = ApplyGcThreadCheck(ini) || keepLog;
         keepLog = ApplyMemExp(ini) || keepLog;  // docs/199 (default off)
+        keepLog = ApplyGcPace(ini) || keepLog;  // docs/624: [GC] CyclePace / PartialFreq (default off)
         keepLog = ApplyGcGrowLog(ini) || keepLog;  // docs/232 Run 8l/8n: [GcGrowLog] log + [GC] BlackListCapKB (both off by default)
         keepLog = ApplyGcRootCheck(ini) || keepLog;  // docs/67 §22.4 (off): after ApplyMemExp, chains its GC_notify_event hook
         keepLog = ApplyThreadStack(ini) || keepLog;  // docs/66 §6: exe IAT CreateThread/_beginthreadex (default off)

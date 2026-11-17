@@ -765,6 +765,14 @@ Separate struct of `LONG`, not versioned (branch feat/route-ready-drain-1115, `[
 |---|---|
 | 0x00-0x2B | `mode` (ReadyDrain), `budgetUs` (ReadyDrainUs), `polls`, `served`, `saved` (polls saved), `budgetHits`, `maxUs`, `frameUs` (ReadyDrainFrameUs), `gapUs` (ReadyDrainGapUs), `frameHits`, `idleStops` |
 
+## ts3native `ts3native_gcpace` export (`GcPaceCounters` in `native/ts3native/gcpace.cpp`)
+
+Separate struct of `LONG`, not versioned (branch feat/gc-pace-1117, `[GC] CyclePace` / `PartialFreq`, docs/624). Append fields at the end only. `pace` and `partialFreq` are run-time switches (0 = EA's driver).
+
+| Offsets | Fields |
+|---|---|
+| 0x00-0x37 | `pace`, `partialFreq`, `ready`, `calls`, `started`, `full`, `partial`, `skipped`, `otherGcs`, `lastCycleUs`, `maxCycleUs`, `lastAllocKB`, `heapKB`, `thresholdKB` |
+
 ## ts3native `ts3native_doorgen` export (`DmxScriptGen` in `native/ts3native/ts3native.cpp`)
 
 Separate struct of `LONG`, not versioned (`[RouteSnap] DoorMemoX=3`, switch `doorgen`). No ts3fixes counter slot: native counts the bumps.
