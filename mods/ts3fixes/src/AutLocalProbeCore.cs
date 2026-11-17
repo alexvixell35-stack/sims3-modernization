@@ -33,6 +33,16 @@ namespace Ts3Fixes
             if (resort) return kRResort;
             return kROther;
         }
+
+        // autt2lcov (docs/276 rank 5 piece 1, needs autt2l0's window): C2 calls inside a counted local search split by the local
+        // allow-list (AutShadowLocalList, type name only), so the share a worker could take is known per class before L2-L7.
+        // Counters (docs/registry.md fixes-1145): [1145-1147] on-list pairs by class, [1148-1150] their C2 us, [1151-1153]
+        // off-list pairs, [1154-1156] their us, [1157] C2 calls of a go-live search inside the window (not timed).
+        public const int kCovOnN = 1145, kCovOnUs = 1148, kCovOffN = 1151, kCovOffUs = 1154, kCovLive = 1157, kCovLast = 1157;
+        public static int CovSlot(bool onList, bool us, int cls)
+        {
+            return (onList ? (us ? kCovOnUs : kCovOnN) : (us ? kCovOffUs : kCovOffN)) + cls;
+        }
     }
     // docs/276 §2.3 A + docs/277 §5, switch hhsearchprobe (HhSearchProbe.cs, measurement only, default off): is the household
     // autonomy search rate a retry loop or real demand? One record per household-class Sim (household or unknown scope, as the

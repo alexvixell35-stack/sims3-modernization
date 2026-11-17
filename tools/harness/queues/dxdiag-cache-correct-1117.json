@@ -5,7 +5,7 @@
  "jobs": [
   {
    "id": "menu-ddc-off",
-   "note": "[est 6 min] OFF arm (vanilla DxDiag query, ~60 s): records the DeviceConfig.log stable lines as the reference. row.startMs = launch to menu with the query.",
+   "note": "[est 6 min] OFF arm (vanilla DxDiag query, ~60 s): records the DeviceConfig.log stable lines as the reference. row.startMs = launch to menu with the query. Pin off: EA counts Cores over the process affinity mask (TS3W 0x6136c9 GetProcessAffinityMask, APIC ids per CPU), and the 5 s pinner may or may not have narrowed TS3W to CPUs 4-15 (6 cores) before that probe: DeviceConfig.log Cores 8 vs 6 is the harness race (chain-1117h step 1), not DxDiagCache",
    "asi": "game-copy/ts3native.asi.dxdiag-skip-1117",
    "iniBase": "game-copy/ts3native.ini.dxdiag-skip-1117",
    "fixesPackage": "game-copy/ts3fixes.package.master-1117b",
@@ -68,11 +68,12 @@
       "DxDiagCache: miss, probed and written -> 0 MB (mode 3, 2 device(s), sig 0011223344556677) in 61020 ms, ~0 ms saved"
      ]
     }
-   }
+   },
+   "pin": false
   },
   {
    "id": "menu-ddc-miss",
-   "note": "[est 6 min] ON, cache MISS (DxDiagCache=3: always probes and rewrites the sidecar). DeviceConfig.log must equal the off arm; startMs about the off arm.",
+   "note": "[est 6 min] ON, cache MISS (DxDiagCache=3: always probes and rewrites the sidecar). DeviceConfig.log must equal the off arm; startMs about the off arm. Pin off: EA counts Cores over the process affinity mask (TS3W 0x6136c9 GetProcessAffinityMask, APIC ids per CPU), and the 5 s pinner may or may not have narrowed TS3W to CPUs 4-15 (6 cores) before that probe: DeviceConfig.log Cores 8 vs 6 is the harness race (chain-1117h step 1), not DxDiagCache",
    "asi": "game-copy/ts3native.asi.dxdiag-skip-1117",
    "iniBase": "game-copy/ts3native.ini.dxdiag-skip-1117",
    "fixesPackage": "game-copy/ts3fixes.package.master-1117b",
@@ -144,11 +145,12 @@
       "DxDiagCache: miss, probed and written -> 0 MB (mode 3, 2 device(s), sig 0011223344556677) in 61020 ms, ~0 ms saved"
      ]
     }
-   }
+   },
+   "pin": false
   },
   {
    "id": "menu-ddc-hit",
-   "note": "[est 4 min] ON, cache HIT (DxDiagCache=1, reads the sidecar the miss arm wrote). DeviceConfig.log must equal the off arm; startMs ~60 s below the off arm (the gain).",
+   "note": "[est 4 min] ON, cache HIT (DxDiagCache=1, reads the sidecar the miss arm wrote). DeviceConfig.log must equal the off arm; startMs ~60 s below the off arm (the gain). Pin off: EA counts Cores over the process affinity mask (TS3W 0x6136c9 GetProcessAffinityMask, APIC ids per CPU), and the 5 s pinner may or may not have narrowed TS3W to CPUs 4-15 (6 cores) before that probe: DeviceConfig.log Cores 8 vs 6 is the harness race (chain-1117h step 1), not DxDiagCache",
    "asi": "game-copy/ts3native.asi.dxdiag-skip-1117",
    "iniBase": "game-copy/ts3native.ini.dxdiag-skip-1117",
    "fixesPackage": "game-copy/ts3fixes.package.master-1117b",
@@ -221,11 +223,12 @@
       "DxDiagCache: miss, probed and written -> 0 MB (mode 3, 2 device(s), sig 0011223344556677) in 61020 ms, ~0 ms saved"
      ]
     }
-   }
+   },
+   "pin": false
   },
   {
    "id": "menu-ddc-hit2",
-   "note": "[est 4 min] ON, cache HIT repeat (second hit launch: same answer and time, no rewrite).",
+   "note": "[est 4 min] ON, cache HIT repeat (second hit launch: same answer and time, no rewrite). Pin off: EA counts Cores over the process affinity mask (TS3W 0x6136c9 GetProcessAffinityMask, APIC ids per CPU), and the 5 s pinner may or may not have narrowed TS3W to CPUs 4-15 (6 cores) before that probe: DeviceConfig.log Cores 8 vs 6 is the harness race (chain-1117h step 1), not DxDiagCache",
    "asi": "game-copy/ts3native.asi.dxdiag-skip-1117",
    "iniBase": "game-copy/ts3native.ini.dxdiag-skip-1117",
    "fixesPackage": "game-copy/ts3fixes.package.master-1117b",
@@ -289,7 +292,8 @@
       "DxDiagCache: miss, probed and written -> 0 MB (mode 3, 2 device(s), sig 0011223344556677) in 61020 ms, ~0 ms saved"
      ]
     }
-   }
+   },
+   "pin": false
   },
   {
    "id": "bp-ddc-park1",

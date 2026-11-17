@@ -25,6 +25,8 @@ namespace Ts3Fixes
     // searches without the local phase, [918] us; [919-924] unseen non-household B8 reason (active lot, same lot as the
     // active Sim, daycare, resort, household, other = on screen / hosted guest / cached flag); [925] ms between the first
     // and the latest probed search; [926] nested B7 not timed; [927] exceptions.
+    // autt2lcov (default off, needs autt2l0): [1145-1157] C2 calls and us of each counted local search by local allow-list
+    // (AutLocalProbeCore.kCov*); the per-pair timer adds its own cost to the L0 us, so read L0 times from a run without it.
     public static partial class Fixes
     {
         static AutonomyT sL0Aut;   // the search inside its window (B7 entry .. B13 entry), else null
@@ -33,6 +35,11 @@ namespace Ts3Fixes
         static bool sL0Side;
         static StopWatch sL0Sw;
         static FieldInfo fL0Force, fL0OverLot;
+        // autt2lcov (docs/276 rank 5 piece 1, AutLocalProbeCore.kCov*): C2 time inside the window split by the local allow-list
+        static bool sL0Cov;
+        static int sCovOnN, sCovOnUs, sCovOffN, sCovOffUs;
+        static System.Collections.Generic.Dictionary<Type, bool> sCovTypes;
+        static System.Collections.Generic.Dictionary<string, bool> sCovNames;
 
         public class AutLocalHook
         {
@@ -61,11 +68,40 @@ namespace Ts3Fixes
                 }
                 sL0Side = (fL0Force != null && (bool)fL0Force.GetValue(a)) || (fL0OverLot != null && fL0OverLot.GetValue(a) != null);
                 sL0Pairs = 0;
+                sL0Cov = ShortcutOn("autt2lcov");
+                sCovOnN = sCovOnUs = sCovOffN = sCovOffUs = 0;
                 sL0Aut = a;
                 sL0T0 = sL0Sw.GetElapsedTime();
                 return true;
             }
             catch (Exception) { PatchCounters()[AutLocalProbeCore.kExc]++; sL0Aut = null; return false; }
+        }
+
+        // C2 of the windowed search (AutScoreHook): time the game's own call, then file it by the definition's type name. Read
+        // only: the same score is returned and nothing of the pair or the search changes, for every Sim.
+        // shortcut: type name only (no MVID / mod-guard check, unlike the AutShadow allow-list), so the on-list share is an upper
+        // bound; upgrade when L3 carries MVIDs.
+        static void L0CovAdd(InteractionObjectPair iop, uint t0)
+        {
+            int us = (int)unchecked(sL0Sw.GetElapsedTime() - t0);
+            try
+            {
+                bool on = false;
+                Sims3.Gameplay.Interactions.InteractionDefinition d = iop != null ? iop.InteractionDefinition : null;
+                if (d != null)
+                {
+                    if (sCovTypes == null)
+                    {
+                        sCovTypes = new System.Collections.Generic.Dictionary<Type, bool>();
+                        sCovNames = new System.Collections.Generic.Dictionary<string, bool>();
+                        foreach (string n in AutShadowLocalList.Names) sCovNames[n] = true;
+                    }
+                    Type t = d.GetType();
+                    if (!sCovTypes.TryGetValue(t, out on)) { on = sCovNames.ContainsKey(t.FullName); sCovTypes[t] = on; }
+                }
+                if (on) { sCovOnN++; sCovOnUs += us; } else { sCovOffN++; sCovOffUs += us; }
+            }
+            catch (Exception) { PatchCounters()[AutLocalProbeCore.kExc]++; }
         }
 
         // B13 entry (AutMetaHook) or B7 return: stop the clock, then classify (outside the timed part)
@@ -87,6 +123,11 @@ namespace Ts3Fixes
                 c[AutLocalProbeCore.kUs + k] += us;
                 c[AutLocalProbeCore.kPairSearches + k]++;
                 c[AutLocalProbeCore.kPairs + k] += pairs;
+                if (sL0Cov)
+                {
+                    c[AutLocalProbeCore.CovSlot(true, false, k)] += sCovOnN; c[AutLocalProbeCore.CovSlot(true, true, k)] += sCovOnUs;
+                    c[AutLocalProbeCore.CovSlot(false, false, k)] += sCovOffN; c[AutLocalProbeCore.CovSlot(false, true, k)] += sCovOffUs;
+                }
                 if (k == AutLocalProbeCore.kHh) HhSearchPairs(a, pairs);  // hhsearchprobe pairs per household search (HhSearchProbe.cs)
                 if (k == AutLocalProbeCore.kUnseen && s != null)
                 {

@@ -197,3 +197,18 @@ Handler order: ours goes in front of LotManager's on `World.sOnObjectLotUpdateEv
 
 - R1 apply only if `hit / calls >= 40%` on BP **and** IP and `hit_wrong = 0`; otherwise park. A wrong hit names the missed change first.
 - R2 apply only if `set_eq / compared >= 99%` and `table_ms + scan_ms <= 50% of game_ms`; otherwise park. `order_eq` is information only: R2 stays unseen-only either way.
+
+### 8.4 Probe results (2026-11-16, `env-bcast-dry-probe-1116`, chain-1117a, all 3 jobs PASS)
+
+Counters from the job rows (`probe-out/queue/env-bcast-dry-probe-1116-2026-11-16.jsonl` in the lane worktree; deltas over the job) [measured]. Timing invalid (noise, heavy samplers), so the ms columns are probe-side sums, not a gain.
+
+| Job | R1 calls | hit | hit rate | hit_wrong | miss_same / miss_diff | hit_ms (upper bound) | R2 compared | set_eq | table + scan ms vs game ms |
+|---|---|---|---|---|---|---|---|---|---|
+| bp-probe-smoke (4 min) | 7,978 | 5,630 | 70.6% | **3** | 2,140 / 171 | 786 | 26,777 | 99.77% | 930 + 3,052 vs 2,170 |
+| bp-probe (10 min) | 14,480 | 10,247 | 70.8% | **5** | 3,762 / 427 | 2,225 (~3.7 ms/s) | 49,202 | 99.82% | 2,456 + 7,116 vs 5,248 (182%) |
+| ip-probe (10 min) | 20,355 | 15,030 | 73.8% | **15** | 4,750 / 544 | 2,352 (~3.9 ms/s) | 55,142 | 99.80% | 2,380 + 5,195 vs 3,959 (191%) |
+
+Gate verdicts (§8.3):
+
+- **R1: not met.** The hit rate passes (>= 40% on both worlds), but `hit_wrong` is 5 (BP) and 15 (IP), not 0: the managed lot/room events miss some list change. Per the gate, the missed change gets named before any apply. The wrong-hit log lines (`EnvListMemo: wrong hit lot .. room .. list .. n ..`) never reached the job rows: `queue.ts fixesApplied` dropped them (no dotted method name). Fixed 2026-11-17 on `feature/mono-laneb-1117` (the filter keeps `EnvListMemo: wrong hit` lines, self-checked). Next: queue `envlistmemo-wronghit-1117` (BP + IP, 10 min each, `envlistmemo` only, master-1117c set) reads them from `fixesApplied`; then fix the invalidation once, rerun the same queue, and apply only at `hit_wrong = 0`. No R1 apply build until then.
+- **R2: parked.** `set_eq` passes (99.8%), but the table + scan cost is 182% / 191% of the game's own range queries against the 50% bar [measured; the probe pays the table build on every pulse it compares, so a lean apply could cost less, inferred]. I-274-4 failed.

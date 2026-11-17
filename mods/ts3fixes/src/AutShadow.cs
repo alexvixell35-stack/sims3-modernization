@@ -1673,7 +1673,15 @@ namespace Ts3Fixes
                     if (L != sLiveCur) LiveStat(kSC2Rehomed);
                     float ls = ScoreOrig(iop);
                     LiveScored(L, iop, ls);
+                    if (sL0Cov && sL0Aut != null && (object)this == (object)sL0Aut) PatchCounters()[AutLocalProbeCore.kCovLive]++;
                     return ls;
+                }
+                if (sL0Cov && sL0Aut != null && (object)this == (object)sL0Aut)  // autt2lcov (AutLocalProbe.cs): time + file, same score
+                {
+                    uint ct0 = sL0Sw.GetElapsedTime();
+                    float cs = ScoreOrig(iop);
+                    L0CovAdd(iop, ct0);
+                    return cs;
                 }
                 if (sGameAut == null || (object)this != sGameAut) return ScoreOrig(iop);
                 int t0 = AutShadowNative.PairT0();

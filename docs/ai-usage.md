@@ -2499,3 +2499,11 @@ Budget per usage window (PLAN.md "Action plan"): lanes G + M 30%, lane H 50%, of
 | 2026-11-17 | 17:18 | 5h -, 7d 39% | G | bp-rewind-pilot-a | |
 | 2026-11-17 | 17:25 | 5h -, 7d 40% | G | bp-rewind-pilot-b | |
 | 2026-11-17 | 17:32 | 5h -, 7d 40% | G | bp-rewind-pilot-c | |
+| 2026-11-17 | 19:56 | 5h -, 7d 44% | G | menu-ddc-off | |
+| 2026-11-17 | 19:57 | 5h -, 7d 44% | G | menu-ddc-miss | |
+| 2026-11-17 | 19:57 | 5h -, 7d 42% | G | menu-ddc-hit | |
+| 2026-11-17 | 19:58 | 5h -, 7d 44% | G | menu-ddc-hit2 | |
+| 2026-11-17 | 20:01 | 5h -, 7d 44% | G | bp-ddc-park1 | |
+| 2026-11-17 | 06:53 | 5h -, 7d 4% | G | bp-m2-motive-correct | |
+| 2026-11-17 | 07:10 | 5h -, 7d 6% | G | ip-m2-motive-correct | |
+| 2026-11-17 | 20:06 | 5h -, 7d 44% | G | bp-ddc-park2 | |

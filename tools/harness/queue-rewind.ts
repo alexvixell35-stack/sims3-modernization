@@ -95,8 +95,11 @@ export const PARK_ON = /^\[Rewind\] Park on: /m, OFFLINE_ON = /^\[Rewind\] Offli
 // ts3native patched combase's RPC cache idle wait to INFINITE (docs/270 §32): no settle wait before a snapshot
 export const COMBASE_KEPT = /^\[Rewind\] combase keepalive: patched /m;
 // '' when a snapshot may be taken in this game, else why not (the job then runs without one and the next job starts fresh)
-export function rewindReady(x: { exe: boolean; conf: string | null; bridgeRuns: boolean; log: string }): string {
+// exe 'stale': older than its sources (chain-1117g 11-17: a pre-merge exe answered the queue's "probe agent out" with its usage
+// line, refused the snapshot and left the route worker parked for the whole job: 0 async jobs, run void)
+export function rewindReady(x: { exe: boolean | 'stale'; conf: string | null; bridgeRuns: boolean; log: string }): string {
   if (!x.exe) return 'rewind-spike.exe missing (tools\\harness\\rewind\\build.cmd)';
+  if (x.exe === 'stale') return 'rewind-spike.exe older than tools\\harness\\rewind\\rewind-spike.cpp or its headers: run tools\\harness\\rewind\\build.cmd';
   if (x.conf === null || !REWIND_ON.test(x.conf)) return 'Bin state is not apex-rewind (no rewindMode = True in Bin\\bridge.conf)';
   if (!x.bridgeRuns) return 'NvRemixBridge.exe does not run';
   if (!PARK_ON.test(x.log)) return 'no "[Rewind] Park on" line in ts3native.log (asi without [Rewind]?)';
@@ -223,6 +226,7 @@ async function selfCheck() {
   const logOk = `ts3native 0.36.261-lanes1 2026-11-15 09:44:15\r\n${park}\r\n${off}\r\n`, conf = 'serverChannelMemSize = 72MB\r\n\r\nrewindMode = True\r\n';
   assert.equal(rewindReady({ exe: true, conf, bridgeRuns: true, log: logOk }), '');
   assert.match(rewindReady({ exe: false, conf, bridgeRuns: true, log: logOk }), /build\.cmd/);
+  assert.match(rewindReady({ exe: 'stale', conf, bridgeRuns: true, log: logOk }), /older than .*build\.cmd/);
   assert.match(rewindReady({ exe: true, conf: 'serverChannelMemSize = 72MB\n# rewindMode = True\n', bridgeRuns: true, log: logOk }), /apex-rewind/);
   assert.match(rewindReady({ exe: true, conf: null, bridgeRuns: true, log: logOk }), /apex-rewind/);
   assert.match(rewindReady({ exe: true, conf, bridgeRuns: false, log: logOk }), /NvRemixBridge/);

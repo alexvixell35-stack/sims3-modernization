@@ -1224,6 +1224,8 @@ namespace Ts3Fixes
                 case "autt2cewarm": case "autt2frontdoor": case "autt2suite": return false; // tier-2 P2 pre-warm and guards (AutShadow.cs): test runs only
                 case "autt2callpet": return false; // tier-2 P3 CallPet worker-owned picker list (AutShadow.cs): test runs only
                 case "autt2l0": return false;  // tier-2 L0 local-phase probe (AutLocalProbe.cs): measurement only, test runs
+                case "autt2lcov": return false;  // docs/276 rank 5 piece 1: local-phase C2 split by the local allow-list (AutLocalProbe.cs, needs autt2l0): measurement only, test runs
+                case "autt2local": return false;  // docs/276 rank 5 piece 2+: HouseholdToo local exact path (AutShadowLocalCore.cs); nothing reads it before piece 3, and it also needs [Experimental] HouseholdToo=1
                 case "hhsearchprobe": return false;  // docs/276 §2.3 A household search-rate probe (HhSearchProbe.cs): measurement only, test runs
                 case "autlive": return IniUnseen(); // docs/124 §17 go-live consume ([AutShadow] Mode=3): test runs, or ini Unseen=1
                 case "autlivetune": return false; // docs/124 §3.1 tuning rule: drop a go-live result when an allow-listed pair's tuning fingerprint (AutLiveCore.TunFp) changed since the request (only acts with autlive); test runs only

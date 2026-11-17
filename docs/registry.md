@@ -631,7 +631,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3442-3445 | `LotCallbacks80.cs` (`fixes-3442`, contributor range, docs/611 §4), `rummagebcast` | built 2026-11-17, default off, proven in game 2026-11-17 (one load off BROKEN / on FIXED, r69 force check): broadcasters disposed at Cleanup (3442) / stale ones disposed at create (3443) / left with the switch off (3444) / errors (3445) |
 | 3446-3449 | `StairDup82.cs` (`fixes-3446`, contributor range, docs/612 §2), `stairwaitend` | built 2026-11-17, default off, proven in game 2026-11-17 (one load off BROKEN / on FIXED, r70 force check): stair waits ended at 30 sim-min (3446) / past deadline with the switch off (3447) / past deadline kept by the household rule (3448) / errors (3449) |
 | 3450-3452 | `StairDup82.cs` (`fixes-3450`, contributor range, docs/612 §3), `simdisposelink` | built 2026-11-17, default off, proven in game 2026-11-17 (one load off BROKEN / on FIXED, r70 force check): description links kept over an unbound Sim's Dispose (3450) / unbound disposes with the switch off (3451) / errors (3452) |
-| **1141+** | next free | reserve here  |
+| 1145-1157 | reserved (hhtoo-local-1117, `fixes-1145`) | autt2lcov: household local-phase C2 coverage by local allow-list (docs/276 rank 5 piece 1) |
+| **1158+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 
@@ -865,6 +866,7 @@ v128 total: 5183 int32 (docs/189 §4 phase 4: v128 TakeForeign at 0x50DC after t
 | v203 | 0.36.263-jitfault1 feature/mono-jitfault-1115 (`native-v203`; after the v921 placeholder `resV921[64]` at 0x6424 (import-395-1115); 6477 int32) | 0x6524-0x6533 | [MonoJit] FaultRecover (`monojit.cpp` JitFrVeh, docs/537 §29): `frOn` handler installed, `frRecovered` faults resumed in EA's interpreter, `frPassed` faults ours passed on, `frTestCalls` FaultTest calls (test only) |
 | v204 | feature/householdtoo-1116 (`native-v204`; 6478 int32) | 0x6534-0x6537 | [Experimental] HouseholdToo (docs/271): `hhTooLift` household, selected or unknown-scope asks `HhExempt` let through (DoorMemoX memo); 0 with the flag off |
 | v205 | 0.36.268-gcgate1 feature/gc-idle-gate-1117 (`native-v205`; 6494 int32) | 0x6538-0x6577 | [GC] IdleGate (`gcgate.cpp`, docs/281 §8): `gcgMode` switch (`--ab gcidlegate`), `gcgReady` bits (1 call site, 2 forced thunk), `gcgCalls` per-tick calls, `gcgSkipped`, `gcgRan`, `gcgCycles` collections inside passed calls, `gcgOutside` collections between calls, `gcgForced` forced full collections (0xE4A320), `gcgForcedMs`, `gcgMs` ms in passed calls, `gcgMaxUs`, `gcgThreshKB`, `gcgHeapMaxKB` heap high-water, `gcgBackoff` threshold halvings, `gcgSpare[2]` |
+| v206 | feature/jit-hot-reserve-1117 0.36.273-hotres2, merged 11-17 (`native-v206`; after v205 gcg*, before v207 ddc*; 6500 int32) | 0x6578-0x657F | [MonoJit] HotReserve (`monojit.cpp`, docs/537 §32): `jitHotHeld` general compiles refused because the YRows reserve holds the room, `jitHotKB` reserve in force (KB; 0 = off or released) |
 | v207 | 0.36.270-ddc1 feature/dxdiag-skip-1117, merged in 0.36.271-mc1117 (`native-v207`; 6500 int32) | 0x6580-0x658F | [Startup] DxDiagCache (dxdiagcache.cpp): ddcMode, ddcPath, ddcMB, ddcSavedMs |
 | **v208** | next | after v207 (+0x6590) | reserve here |
 

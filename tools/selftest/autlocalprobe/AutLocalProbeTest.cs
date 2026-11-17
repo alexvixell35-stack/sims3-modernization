@@ -62,6 +62,14 @@ static class AutLocalProbeTest
         Check(HhSearchRec.Scope(UnseenFallbackCore.kGone), HhSearchRec.kScopeGone, "scope gone");
         Check(HhSearchRec.Scope(-1), HhSearchRec.kScopeUnknown, "scope -1 unknown");
         Check(HhSearchRec.kLast, 1134, "hh slots end at the fixes-1115 reservation's last slot");
+        // autt2lcov slots (fixes-1145..1157): 12 distinct class slots, then the live slot
+        System.Collections.Generic.HashSet<int> cov = new System.Collections.Generic.HashSet<int>();
+        for (int k = 0; k < 3; k++) for (int o = 0; o < 2; o++) for (int u = 0; u < 2; u++) cov.Add(AutLocalProbeCore.CovSlot(o == 1, u == 1, k));
+        Check(cov.Count, 12, "cov slots distinct");
+        Check(AutLocalProbeCore.CovSlot(true, false, AutLocalProbeCore.kHh), 1145, "cov first slot");
+        Check(AutLocalProbeCore.CovSlot(false, true, AutLocalProbeCore.kUnseen), 1156, "cov last class slot");
+        Check(cov.Contains(AutLocalProbeCore.kCovLive) ? 1 : 0, 0, "live slot apart");
+        Check(AutLocalProbeCore.kCovLast, 1157, "cov slots end at the fixes-1145 reservation's last slot");
         Console.WriteLine(sFails == 0 ? "autlocalprobe selftest: ok" : "autlocalprobe selftest: " + sFails + " FAIL");
         Environment.Exit(sFails == 0 ? 0 : 1);
     }

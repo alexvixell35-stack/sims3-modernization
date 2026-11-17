@@ -1066,7 +1066,7 @@ namespace MonoHostTest
 
     public static class JitCorpus
     {
-        public const int Count = 251;
+        public const int Count = 252;
         static readonly int[] I4 = { 0, 1, -1, 2, -2, 3, 7, -7, 16, 31, 32, 33, 0x7FFF, 0x8000, 0xFFFF, 0x10000, 0x3FFFFFFF, 0x40000000, int.MaxValue, int.MinValue, int.MinValue + 1, int.MaxValue - 1 };
         static readonly long[] I8 = { 0L, 1L, -1L, 2L, -2L, 7L, 0x7FFFFFFFL, 0x80000000L, -0x80000000L, 0xFFFFFFFFL, 0x100000000L, long.MaxValue, long.MinValue, long.MinValue + 1, -3037000500L, 3037000500L };
         static readonly int[] SH = { 0, 1, 7, 15, 16, 31, 32, 33, 63, 64, 65, -1, int.MinValue };
@@ -2798,6 +2798,11 @@ namespace MonoHostTest
                 case 250: // JitKRT.Throws / Caught (RetTeardown: divide by zero three compiled frames down, unwound with no handler, caught outside and in a compiled caller)
                 {
             try { h = M(h, JitKRT.Throws(1)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKRT.Throws(3)); } catch (Exception e) { h = X(h, e); } try { h = M(h, JitKRT.Caught(6)); } catch (Exception e) { h = X(h, e); }
+                    return h;
+                }
+                case 251: // Acc Motive.UpdateMotiveWithDecay (two finally clauses, buffs, deltas, throws through the finally, unlisted virtual targets)
+                {
+            for (int i = 0; i < 576; i++) try { h = M(h, JitAcc.MotiveDecayCase(i)); } catch (Exception e) { h = X(h, e); }
                     return h;
                 }
             }

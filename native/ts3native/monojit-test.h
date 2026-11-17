@@ -880,6 +880,22 @@ static void TestMonoJitCount() {
     assert(JtcFind("jitmat 1 ", " 0 Ns.S.ctor"));
     sprintf_s(want, "jitnew %d 0 1 0 1C Ns.S.ctor", nem);
     assert(JtcFind(want));
+    {  // docs/537 §31: a YRows method gets its uncapped summary line, only with YRows=1 (own name: the test methods share one)
+        static const JitRow yr = {"Ns.Cls.YRow", 1, {0}};
+        char keep[96];
+        strcpy_s(keep, g_jitMeth[fm].name), strcpy_s(g_jitMeth[fm].name, "Ns.Cls.YRow");
+        const JitRow* yp0 = g_jitYRowP;
+        const int yn0 = g_jitYRowCnt;
+        g_jitYRowP = &yr, g_jitYRowCnt = 1;
+        g_jtcN = 0;
+        JcnReportTo("test", JtcSink);
+        assert(!JtcFind("jitcount yrow "));
+        g_jitYRows = true, g_jtcN = 0;
+        JcnReportTo("test", JtcSink);
+        assert(JtcFind("jitcount yrow Ns.Cls.YRow: entries 2, ret exits 0, other exits 2, exit sites taken 1, call-exit sites taken 1"));
+        g_jitYRows = false, g_jitYRowP = yp0, g_jitYRowCnt = yn0;
+        strcpy_s(g_jitMeth[fm].name, keep);
+    }
 
     VirtualFree(g_jcn, 0, MEM_RELEASE), g_jcn = NULL;
     g_jtLen[0xF4] = 1;
@@ -1247,13 +1263,16 @@ static void __cdecl JtE525C0(DWORD frame, DWORD ctx) {  // EA's 0xE525C0 without
 }
 static void TestMonoJitBoundCall() {
     Ts3nCounters& C = ts3native_counters;
-    {   // count mode's target rows: one row a target, the fifth target onto the last row, 0 = the site's target
+    {   // count mode's target rows (bail census, docs/537 §23): one row a target, 0 = the site's target, targets past JCN_TGT on tOther
         static JitGuardSite s;
-        const u8* t[5] = {(const u8*)1, (const u8*)2, (const u8*)3, (const u8*)4, (const u8*)5};
+        const u8* t[JCN_TGT + 2];
+        for (int i = 0; i < JCN_TGT + 2; i++) t[i] = (const u8*)(uintptr_t)(i + 1);
         JcnGuardBail(&s, t[0]), JcnGuardBail(&s, t[0]), JcnGuardBail(&s, t[1]);
         s.rm = t[1], JcnGuardBail(&s, NULL);
-        JcnGuardBail(&s, t[2]), JcnGuardBail(&s, t[3]), JcnGuardBail(&s, t[4]);
+        for (int i = 2; i < JCN_TGT + 2; i++) JcnGuardBail(&s, t[i]);
+        JcnGuardBail(&s, t[JCN_TGT + 1]), JcnGuardBail(&s, t[3]);
         assert(s.tRm[0] == t[0] && s.tNoLazy[0] == 2 && s.tRm[1] == t[1] && s.tNoLazy[1] == 2 && s.tRm[3] == t[3] && s.tNoLazy[3] == 2);
+        assert(s.tRm[JCN_TGT - 1] == t[JCN_TGT - 1] && s.tNoLazy[JCN_TGT - 1] == 1 && s.tOther == 3);  // t[JCN_TGT] once, t[JCN_TGT + 1] twice
     }
     g_jitMode = 1, g_jitVerifyOn = 0, g_jitLazy = true, g_jitLeafOnly = false;  // guards need DirectLeaf=0
     g_jitForceJit = &g_jtForceByte, g_jitProxyClassP = (const void* const*)&g_jtProxy;
@@ -1885,12 +1904,62 @@ static void TestMonoJit() {
         JitPostPass(mT4.rm, &domain);
         assert(C.jitTableFull == tf0 + 1 && nOf("method table full") == tfR0 + 1 && C.jitRefused == ++refused && pT[0] == JT_LDC2);
         g_jitMethN = methN0;
+        // docs/537 §32 HotReserve: with a Y key pending, a general body leaves the reserve's room (code, method slot); the Y body
+        // may use it; "another thread" does not settle the key; once it compiled, the room is the general bodies' again
+        static JitRow hrow = {"Cls.Hot", 8, {0}};
+        memcpy(hrow.sha, sha, 32);
+        const JitRow* hyp0 = g_jitYRowP;
+        const int hyn0 = g_jitYRowCnt;
+        g_jitYRowP = &hrow, g_jitYRowCnt = 1, g_jitYRows = false;
+        JitHotInit(L"C:\\ts3native-selftest-no-such.ini");
+        assert(!g_jitHotPend && !g_jitHotBytes && !C.jitHotKB);  // YRows=0: no reserve
+        g_jitYRows = true;
+        JitHotInit(L"C:\\ts3native-selftest-no-such.ini");  // HotReserve defaults to 1
+        assert(g_jitHotPend == 1 && g_jitHotBytes >= 456u << 10 && g_jitHotBytes <= g_jitCodeBytes / 2 && C.jitHotKB == (LONG)(g_jitHotBytes >> 10));
+        const size_t hUsed0 = g_jitCodeUsed;
+        const LONG held0 = C.jitHotHeld, hfR0 = nOf("code region full (HotReserve)");
+        g_jitCodeUsed = (g_jitCodeBytes - g_jitHotBytes - 256) & ~(size_t)15;
+        static unsigned short pG[] = {JT_LDC2, JT_RET}, pH[] = {JT_LDC2, JT_RET};
+        static JtMeth mG, mH;
+        JtInit(mG, pG, 2);
+        JtInit(mH, pH, 2, "Hot");
+        JitPostPass(mG.rm, &domain);  // general: fits the region, not region minus the reserve
+        assert(C.jitHotHeld == held0 + 1 && nOf("code region full (HotReserve)") == hfR0 + 1 && C.jitRefused == ++refused && pG[0] == JT_LDC2);
+        g_jitMethN = g_jitMethCap - 1;  // the last slot is the Y key's
+        JitPostPass(mG.rm, &domain);
+        assert(C.jitHotHeld == held0 + 2 && nOf("method table full (HotReserve)") == 1 && C.jitRefused == ++refused && pG[0] == JT_LDC2);
+        g_jitMethN = methN0;
+        JitHotSettle("Ns.Cls.Hot", "another thread");
+        JitHotSettle("Ns.Cls.Other", NULL);
+        assert(g_jitHotPend == 1 && g_jitHotBytes);
+        JitPostPass(mH.rm, &domain);  // the Y body takes the reserve's room: compiled, reserve released
+        assert(pH[0] == JIT_OP && g_jitMethN == methN0 + 1 && !g_jitHotPend && !g_jitHotBytes && !C.jitHotKB && C.jitRefused == refused);
+        JitPostPass(mG.rm, &domain);  // general again
+        assert(pG[0] == JIT_OP && g_jitMethN == methN0 + 2 && C.jitHotHeld == held0 + 2 && C.jitRefused == refused);
+        compiled += 2;
+        g_jitCodeUsed = hUsed0;  // the two bodies sit at the region end; the rest of the selftest stays far below them
+        g_jitYRows = false, g_jitYRowP = hyp0, g_jitYRowCnt = hyn0;
     }
     g_jitUserN = 1, g_jitUser[0] = "Other.Thing";  // List= narrows
     assert(!JitListed("Ns.Cls.Meth") && JitListed("Ns.Other.Thing") == false);
     g_jitUser[0] = "Cls.Meth";
     assert(JitListed("Ns.Cls.Meth") && !JitListed("NsCls.Meth"));
     g_jitUserN = 0;
+    // docs/537 §31 YRows: the hand-checked Y rows are listed and their hash known only with [MonoJit] YRows=1 (default 0)
+    {
+        static JitRow yrow = {"Motive.UpdateMotiveWithDecay", 8, {0}};
+        memcpy(yrow.sha, sha, 32);
+        const JitRow* yp0 = g_jitYRowP;
+        const int yn0 = g_jitYRowCnt;
+        assert(!g_jitYRows && yn0 >= 1 && !strcmp(kJitYRows[0].key, "Motive.UpdateMotiveWithDecay") && kJitYRows[0].size == 5132);
+        g_jitYRowP = &yrow, g_jitYRowCnt = 1;
+        const char* full = "Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay";
+        assert(!JitListed(full) && !JitHashKnown(full, "UpdateMotiveWithDecay", 8, sha));
+        g_jitYRows = true;
+        assert(JitListed(full) && JitHashKnown(full, "UpdateMotiveWithDecay", 8, sha) && !JitHashKnown(full, "UpdateMotiveWithDecay", 9, sha));
+        assert(!JitListed("Sims3.Gameplay.Autonomy.Motive.Update") && !JitListed("XMotive.UpdateMotiveWithDecay"));
+        g_jitYRows = false, g_jitYRowP = yp0, g_jitYRowCnt = yn0;
+    }
     // an [IlPatch] spec's patched form counts as known, under that method's name only
     assert(JitHashKnown("X.Y.Z", kIlpSpecs[0].name, 1, kIlpSpecs[0].builds[0].patched) && !JitHashKnown("X.Y.Z", "NotThatName", 1, kIlpSpecs[0].builds[0].patched));
     *(BYTE**)(mP.rm + 8) = (BYTE*)16;  // a fault in the compiler: counted, no more compiles, the session goes on

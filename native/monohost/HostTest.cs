@@ -41,6 +41,9 @@ namespace MonoHostTest
 
     public static class HostTest
     {
+        // docs/537 §31: the M2 yield task (monohost-jit.cpp JitMotiveYieldTask)
+        public static int JitMotiveYield(int n) { return JitAcc.MotiveYieldTask(n); }
+        public static int JitMotiveStat(int k) { return JitAcc.MotiveStat(k); }
         // ---- docs/139: interpreter workload for the mint dispatch A/B. The game's own mscorlib does the work
         // (List/Dictionary generics, struct and interface enumerators, boxed Enum.Equals, GetType), the shapes add
         // monomorphic and two-type callvirt sites. The result is a checksum: every dispatch variant must return the same.

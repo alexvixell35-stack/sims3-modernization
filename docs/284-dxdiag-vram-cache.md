@@ -92,3 +92,5 @@ Per the clear-gain rule: propose `DxDiagCache=1` in the release ini once the que
 hit and (b) ~60 s less to the menu. The answer is the game's own by construction (same strings, same decision), so the risk is
 a stale sidecar; the key covers driver, GPU, RAM and OS changes. Mode 2 stays test-only (outside the bridge 0 means the sgr
 fallback, which can change presets on plain d3d9).
+
+Note (probe `0x6135E0`, docs/51 §508): `Cores:` in DeviceConfig.log depends on the process affinity at launch (EA sets and restores the mask while probing, racing the harness pin), so the menu-ddc jobs run `pin:false` and `devcfg-check.ts` should treat `Cores:` as unstable; nothing EA sizes depends on 6 vs 8.

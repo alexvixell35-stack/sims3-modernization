@@ -4,6 +4,7 @@
 //   node tools/harness/devcfg-check.ts --expect <tag>   exit 1 when the stable lines differ from <tag>.txt (diff printed)
 //   node tools/harness/devcfg-check.ts --self-check
 // Stable = every line except the ones that change between two starts of the same machine (free memory).
+// Cores (Rating + Machine info) is counted over the process affinity mask (TS3W 0x6136c9): run these jobs with "pin": false, or the 5 s pinner (CPUs 4-15 = 6 cores) races the probe.
 // TS3_USER: the Sims 3 Documents folder (default <home>\Documents\Electronic Arts\The Sims 3).
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';

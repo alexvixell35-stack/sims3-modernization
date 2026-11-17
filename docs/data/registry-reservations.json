@@ -5919,6 +5919,46 @@
       "what": "unseenoutfitdefer",
       "at": "2026-11-16T16:37:16.770Z",
       "worktree": "<scratchpad>"
+    },
+    {
+      "id": "ledger-506",
+      "kind": "ledger",
+      "from": 506,
+      "to": 506,
+      "by": "mono-laneb-1117",
+      "what": "B11 cut-riding drop + R1 wrong hits (lane B 1117)",
+      "at": "2026-11-17T11:46:00.879Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-1145",
+      "kind": "fixes",
+      "from": 1145,
+      "to": 1157,
+      "by": "hhtoo-local-1117",
+      "what": "autt2lcov: household local-phase C2 coverage by local allow-list (docs/276 rank 5 piece 1)",
+      "at": "2026-11-17T12:07:22.331Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\hhtoo-local-1117"
+    },
+    {
+      "id": "ledger-507",
+      "kind": "ledger",
+      "from": 507,
+      "to": 507,
+      "by": "lane-a-1117",
+      "what": "0xE525C0 bound-body call convention re-check (docs/537 §21.2 item, lane A 1117)",
+      "at": "2026-11-17T12:09:29.767Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-508",
+      "kind": "ledger",
+      "from": 508,
+      "to": 508,
+      "by": "ts3-wt-corecount-1117",
+      "what": "EA core-count probe and harness pin race",
+      "at": "2026-11-17T12:31:38.179Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\ts3-wt-corecount-1117"
     }
   ]
 }

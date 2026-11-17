@@ -251,6 +251,8 @@ import { drift, driftLine, failMode, logCopy, parseReuse, readSwitches, REUSE_DE
 import { bySaveGain, COMBASE_KEPT, groupBySave, parseRewindMode, SETTLE_S, queueRewind, REWIND_INI, rewindBlock, rewindGroups, rewindReady, rewindSession, rewindSummary, startLine, switchDiff } from './queue-rewind.ts';
 import { recordRefusals, REFUSALS } from './rewind-refusals.ts';
 import { EXE as REWIND_EXE, pidOf, REWIND_ON } from './rewind-smoke.ts';
+// rewind-spike.exe: false = missing, 'stale' = older than a source next to it (rewindReady refuses both)
+const rewindExe = (): boolean | 'stale' => !existsSync(REWIND_EXE) ? false : ['rewind-spike.cpp', 'rewind-toy.h', 'rewind-selftest.inl'].map(s => join(dirname(REWIND_EXE), '..', s)).some(s => existsSync(s) && statSync(s).mtimeMs > statSync(REWIND_EXE).mtimeMs) ? 'stale' : true;
 import { saveForeground } from './focus-game.ts';
 import { parseStory, smokeFails, storyFile } from './story-report.ts';
 import { clearJob, markJob, waitHold } from './hold.ts';
@@ -594,9 +596,9 @@ export function parseQueue(json: unknown): Job[] {
 }
 
 // ts3fixes.applied (agent `patches` .applied): the AutShadow / AutLedger lines and every refused patch, for the job row
-// (docs/51 §188: a refused hook used to leave no trace in the row)
+// (docs/51 §188: a refused hook used to leave no trace in the row); docs/274 §8.4: the R1 dry probe's wrong-hit lines
 export const fixesApplied = (applied: unknown): string[] => (Array.isArray(applied) ? applied.map(String) : [])
-  .filter(l => /^(Aut(Shadow|Ledger)\b|tuned: )/.test(l) || (/^[\w.+]+\.\w+: /.test(l) && !/: ok$/.test(l))).slice(0, 40);
+  .filter(l => /^(Aut(Shadow|Ledger)\b|tuned: |EnvListMemo: wrong hit )/.test(l) || (/^[\w.+]+\.\w+: /.test(l) && !/: ok$/.test(l))).slice(0, 40);
 
 // tuning-gated patches (ts3fixes Fixes.ApplyTuned, docs/124 §17.8): a tuning is on but its patch did not go in, so the switch
 // reads on while the code path is absent (golive-g7 round 1). Every profile/soak job with ts3fixes fails on such a line.
@@ -1051,7 +1053,8 @@ export function asyncIdle(ini: string, c0: any, c1: any): string {
 // that works makes its ticks short, so it drops out of the hitch lines. Judge by these counters.
 // record: counters only (before/after in the row and the verdict line), never a void or a note (docs/163 §10.1: stuck-check
 // outcomes 297-301 for reset parity on every job with stuckcheckown or stuckcheckcap on)
-export const ACTIVITY: { what: string; on: string[]; counters: string[]; fix?: string; when?: '3am' | 'load'; standDown?: RegExp; record?: boolean; after?: [string, string] }[] = [
+// margin: sim minutes after the event before an idle counter voids (default 10, eventCovered)
+export const ACTIVITY: { what: string; on: string[]; counters: string[]; fix?: string; when?: '3am' | 'load'; margin?: number; standDown?: RegExp; record?: boolean; after?: [string, string] }[] = [
   { what: '[RouteGate] Enforce', on: ['RouteGate.Enabled', 'RouteGate.Enforce'], counters: ['rgEntries'] },
   { what: '[Discourage] DeferFootprint', on: ['RouteAsync.Enabled', 'RouteAsync.Mode', 'Discourage.Enabled', 'Discourage.DeferFootprint'], counters: ['usfDeferred'] },
   { what: '[RouteAsync] RefcountGuard', on: ['RouteAsync.Enabled', 'RouteAsync.Mode', 'RouteAsync.RefcountGuard'], counters: ['rcDeferred', 'rcWould'] },
@@ -1060,7 +1063,9 @@ export const ACTIVITY: { what: string; on: string[]; counters: string[]; fix?: s
   { what: '[LotSinCos] Verify', on: ['LotSinCos.Enabled', 'LotSinCos.Verify'], counters: ['lscCallsK', 'lscHitsK'] },
   // docs/258 option C: plan answers or first-call learning; with --ab equalsfast the on arms carry it
   { what: '[EqualsFast]', on: ['EqualsFast.Enabled'], counters: ['eqHits', 'eqFtNew'] },
-  { what: 'ts3fixes overwatchchain', on: [], fix: 'overwatchchain', when: '3am', counters: ['owchain_alarms', 'owspread_types_run'], standDown: /^overwatchspread: .*\boff\b/ },
+  // margin 130 (judged from 05:10): from 11:53 every BP job ending <= 04:26 (993 sim min) read owchain_alarms 0, every one from 05:16 (1043) read 1
+  // (queue jsonl 10-25..11-17); bp-ddc-park1/2 (11-17, 04:18 / 03:51) and bp-m1112b-verify (11-13, 03:29) voided at margin 10
+  { what: 'ts3fixes overwatchchain', on: [], fix: 'overwatchchain', when: '3am', margin: 130, counters: ['owchain_alarms', 'owspread_types_run'], standDown: /^overwatchspread: .*\boff\b/ },
   // after: [switch, pass counter]: with easpreadlots on, EA's 3 AM venue cleanup arms the stuck checks (RunStuckCheckHelper.Init per Sim,
   // EaSpread.cs LotCleanupTask) only after its sliced lot pass, which counts easpread_lots_passes when it ends; slow-tick jobs
   // (MonoJit Mode=2 verify) passed 03:00 by 136-244 sim min with no check queued (bp-m1112b-jit 11-12, bp-jb-verify 11-13)
@@ -1130,7 +1135,7 @@ export function fixActivity(p0: any, p1: any, t0: any, t1: any, cfg: { fixesOn?:
       const left = end ? Number(t1?.minutes_total) - Number(end[1]) : NaN;
       if (left < 60) { notes.push(`${a.what}: not reached (venue cleanup ended at simmin ${end![1]}, ${Math.round(left)} sim min before the end; EA fires the stuck checks 20-60 sim min after arming)`); continue; }
     }
-    if (eventCovered(a.when!, t0, t1)) fails.push(`self check: ${a.what} on but ${a.counters.join('+')} ${a.when === 'load' ? 'is' : 'rose'} ${d} although sim time ${t0?.clock}+${Math.round(Number(t1?.minutes_total) - Number(t0?.minutes_total))} min covered ${a.when === '3am' ? '03:00' : 'the after-load pass'}: fix idle, run void`);
+    if (eventCovered(a.when!, t0, t1, a.margin)) fails.push(`self check: ${a.what} on but ${a.counters.join('+')} ${a.when === 'load' ? 'is' : 'rose'} ${d} although sim time ${t0?.clock}+${Math.round(Number(t1?.minutes_total) - Number(t0?.minutes_total))} min covered ${a.when === '3am' ? '03:00' : 'the after-load pass'}: fix idle, run void`);
     else notes.push(`${a.what}: not reached (sim ${t0?.clock ?? '?'} +${Math.round(Number(t1?.minutes_total) - Number(t0?.minutes_total)) || 0} min, no ${a.when === '3am' ? '03:00' : 'after-load pass'})`);
   }
   return { fails, notes, counters, lists };
@@ -1638,6 +1643,11 @@ if (values['self-check']) {
   const idleR = fixActivity(fx, fx, night[0], night[1]);
   assert.equal(idleR.fails.length, 2); assert.match(idleR.fails[0], /overwatchchain on but owchain_alarms\+owspread_types_run rose 0 .*03:00/);
   assert.deepEqual(idleR.counters.owchain_alarms, { before: 2, after: 2 });
+  // real rows: bp-ddc-park1 11-17 (11:53 +985, owchain 0->0) = not reached; 11:53 +1043 (bp-m1112b-verify 11-12 fired) still judged
+  const owOnly = { overwatchchain: true, owchain_alarms: 0, owspread_types_run: 0 }, bp = { minutes_total: 0, clock: '11:53' };
+  assert.deepEqual(fixActivity(owOnly, owOnly, bp, { minutes_total: 985 }).fails, []);
+  assert.match(fixActivity(owOnly, owOnly, bp, { minutes_total: 985 }).notes[0], /overwatchchain: not reached/);
+  assert.match(fixActivity(owOnly, owOnly, bp, { minutes_total: 1043 }).fails[0], /overwatchchain on but .* rose 0/);
   const dayR = fixActivity(fx, fx, { minutes_total: 0, clock: '09:00' }, { minutes_total: 120 });
   assert.deepEqual(dayR.fails, []); assert.equal(dayR.notes.length, 2); assert.match(dayR.notes[0], /not reached \(sim 09:00 \+120 min, no 03:00\)/);
   const noEt = { ...fx, etspread_passes: 0, applied: ['errortrapspread: ErrorTrap not loaded, off'] };
@@ -1923,6 +1933,8 @@ if (values['self-check']) {
     'AutLedger: ts3native Ledger=0 this load (off)', 'TooltipManager.Simulate at patch time: not started', 'Autonomy.CalculateScore: ok']),
     ['Localization.LocalizeString: already compiled', 'AutShadow: game assemblies = accepted set 1', 'AutLedger: ts3native Ledger=0 this load (off)']);
   assert.deepEqual(fixesApplied(null), []);
+  assert.deepEqual(fixesApplied(['EnvListMemo: wrong hit lot 12 room 3 list Sims n 4', 'EnvListMemo: on', 'EnvListMemoX: wrong hit lot 1']),
+    ['EnvListMemo: wrong hit lot 12 room 3 list Sims n 4']);
   assert.deepEqual(fixesApplied(['tuned: tuning-gated patches at app startup', 'tuned: kVenueMemo on: venue score hook patched']),
     ['tuned: tuning-gated patches at app startup', 'tuned: kVenueMemo on: venue score hook patched']);
   assert.deepEqual(tunedFails(['tuned: kVenueMemo on: venue score hook patched', 'tuned: kAutLive on: go-live B14 hook MISSING', 'GoHome.Run: ok']),
@@ -2946,7 +2958,7 @@ function noteRefusals(j: Job, c: string, op: { code: number; why: string[] }) {
 async function rwSnapshot(j: Job, row: any, logFile: string, deadline: number) {
   let bridgeRuns = true;
   try { pidOf('NvRemixBridge.exe'); } catch { bridgeRuns = false; }
-  const why = rewindReady({ exe: existsSync(REWIND_EXE), conf: existsSync(BRIDGE_CONF) ? readFileSync(BRIDGE_CONF, 'utf8') : null, bridgeRuns, log: existsSync(LOG) ? readFileSync(LOG, 'latin1') : '' });
+  const why = rewindReady({ exe: rewindExe(), conf: existsSync(BRIDGE_CONF) ? readFileSync(BRIDGE_CONF, 'utf8') : null, bridgeRuns, log: existsSync(LOG) ? readFileSync(LOG, 'latin1') : '' });
   if (why) { row.snapshot = `skipped: ${why}`; log(`${j.id}: rewind snapshot skipped: ${why} (the next job starts fresh)`); return; }
   const kept = existsSync(LOG) && COMBASE_KEPT.test(readFileSync(LOG, 'latin1'));  // docs/270 §32: combase patched: no idle-end wait; §36: busy-worker wait
   const rw = rewindSession(pidOf(GAME_EXE), { agent, get, log: m => log(`${j.id}: ${m}`), settleS: kept ? 0 : SETTLE_S, settleBusy: kept });
@@ -3306,7 +3318,7 @@ for (const [n, j] of jobs.entries()) {
       let bridgeRuns = true;
       try { pidOf('NvRemixBridge.exe'); } catch { bridgeRuns = false; }
       // the shared readiness check and snapshot/rewind ops of the queue's rewind reuse (queue-rewind.ts): one code path
-      const notReady = rewindReady({ exe: existsSync(REWIND_EXE), conf: existsSync(BRIDGE_CONF) ? readFileSync(BRIDGE_CONF, 'utf8') : null, bridgeRuns, log: existsSync(LOG) ? readFileSync(LOG, 'latin1') : '' });
+      const notReady = rewindReady({ exe: rewindExe(), conf: existsSync(BRIDGE_CONF) ? readFileSync(BRIDGE_CONF, 'utf8') : null, bridgeRuns, log: existsSync(LOG) ? readFileSync(LOG, 'latin1') : '' });
       if (notReady) throw new Error(`run.rewindGames: ${notReady}; refused, nothing run`);
       let s: ReturnType<typeof rewindSession> | null = null;
       const snap = async () => {
@@ -3462,7 +3474,8 @@ for (const [n, j] of jobs.entries()) {
     row.memory.after = afterRun?.mem ?? await get('memory');
     const c1 = afterRun?.native ?? await get('native');
     if (j.nativeRequire) row.nativeDelta = flatDelta(c0, c1);
-    const idle = j.run.menuMemory || j.run.matrix || noOurs(j) ? '' : asyncIdle(jobIniText, c0, c1); // the hook can still fail after the check: plans prove it ran
+    // no world loaded (save "menu", e.g. the dxdiag-cache menu arms 11-17): no route plan can run, so 0 async jobs is no void
+    const idle = j.run.menuMemory || j.run.matrix || noOurs(j) || !j.save || j.save === 'menu' ? '' : asyncIdle(jobIniText, c0, c1); // the hook can still fail after the check: plans prove it ran
     if (idle) { row.verdict.push(`FAIL: ${idle}`); row.selfCheckFail = idle; }
     // forced repro loops exercise one path: a default-on feature the job's own ini does not name may idle there (2026-10-25:
     // DeferFootprint voided the boat and Overwatch verify jobs), so it is a note; natural and bundle runs keep the void

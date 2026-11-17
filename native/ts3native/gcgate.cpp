@@ -18,6 +18,11 @@
 // Forced collection: in incremental mode GC_collect_or_expand 0xE4A120 (allocation out of free blocks, words allocated
 // > 0) calls 0xD70800 = `jmp 0xE4A320`, a full collection with GC_never_stop_func 0x5BFB90. The gate retargets that jmp
 // to GcgForced to count it, and backs the threshold off (halves it) when a forced one follows a skipped tick.
+// Hold (bugfix 11-17, smoke gcgSkipped=0 in 18368 calls): 0xE49FB0 calls 0xE49F10 (0xE49FB6), which clears the pending
+// flag when the lazy sweep is done and returns 1, and then starts the next mark in the SAME call. So between ticks mark
+// or pending is always set and the per-tick check alone never skips. GcgHold wraps that call and returns 0 ("cycle not
+// done") when the sweep just finished inside our per-tick call and less than T was allocated; the collector is then
+// idle (mark 0, pending 0) and GcgStep skips the next ticks until T is reached.
 
 // run (0) or skip (1) the per-tick call; *thresh = threshold in bytes. Pure: the selftest drives it with plain values.
 static int GcgDecide(DWORD mark, DWORD pending, DWORD inited, DWORD incr, DWORD dontGc, DWORD wordsAllocd, DWORD heap, DWORD capBytes,
@@ -33,11 +38,17 @@ static int GcgDecide(DWORD mark, DWORD pending, DWORD inited, DWORD incr, DWORD 
 typedef void(__cdecl* GcgVoidFn)();
 static MxStepFn g_gcgNext;      // what 0xD819AA called before us (0xE4A050, or MxStep with [GC] SqrtHeapLimit)
 static GcgVoidFn g_gcgForcedOrig;  // 0xE4A320
+static MxStepFn g_gcgHoldOrig;     // 0xE49F10
+static DWORD g_gcgTid;             // thread inside a per-tick call that GcgStep passed on (0 = none)
 static DWORD g_gcgCap = 64u << 20, g_gcgLastNo;
 static int g_gcgPct = 15, g_gcgBackoff, g_gcgLastSkipped, g_gcgSeen;
 static u64 g_gcgUs, g_gcgForcedUs;
 static const DWORD* const g_gcgMark = (const DWORD*)(uintptr_t)TS3A(0x011F3078);
 static const DWORD* const g_gcgPending = (const DWORD*)(uintptr_t)TS3A(0x011F2F94);
+// G2 (docs/281 §8.7): GC_n_attempts [0x11F2FB4], aborted stop-the-world finish attempts of the current mark: +1 at
+// 0xE49E6D when GC_stopped_mark 0xE49980 aborts, reset at 0xE49ACD (GC_finish_collection) and 0xE49E16; > 40
+// ([0x1194820]) forces the finish with GC_never_stop_func.
+static const LONG* const g_gcgAttempts = (const LONG*)(uintptr_t)TS3A(0x011F2FB4);
 static const DWORD* const g_gcgHookOn = (const DWORD*)(uintptr_t)TS3A(0x011F3094);
 static const GcgVoidFn* const g_gcgHook = (const GcgVoidFn*)(uintptr_t)TS3A(0x011F309C);
 static const GcgVoidFn g_gcgNotify = (GcgVoidFn)(uintptr_t)TS3A(0x00E4B480);
@@ -63,7 +74,13 @@ static int __cdecl GcgStep(void* stop) {
     g_gcgLastSkipped = 0;
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
+    g_gcgTid = GetCurrentThreadId();
+    const LONG a0 = *g_gcgAttempts;
     const int r = g_gcgNext(stop);
+    g_gcgTid = 0;
+    const LONG a1 = *g_gcgAttempts;
+    // gcgSpare_1 = aborted finish attempts in passed calls (one call tries at most once; a reset inside the call leaves a1)
+    k.gcgSpare[1] += a1 >= a0 ? a1 - a0 : a1;
     const LONG us = UsSince(t0);
     k.gcgRan++;
     k.gcgCycles += (LONG)(*g_mx.gcNo - no0);
@@ -71,6 +88,20 @@ static int __cdecl GcgStep(void* stop) {
     if (us > k.gcgMaxUs) k.gcgMaxUs = us;
     g_gcgLastNo = *g_mx.gcNo;
     return r;
+}
+
+// 0xE49FB6: the sweep-done check of 0xE49FB0. Holds the next cycle only inside the per-tick call (thread id), never for
+// a collection with GC_never_stop_func 0x5BFB90 (forced / full: 0xE4A0B0, 0xE4A320).
+static int __cdecl GcgHold(void* stop) {
+    const int r = g_gcgHoldOrig(stop);
+    Ts3nCounters& k = ts3native_counters;
+    if (!r || k.gcgMode != 1 || g_gcgTid != GetCurrentThreadId() || stop == (void*)(uintptr_t)TS3A(0x005BFB90)) return r;
+    DWORD t;
+    if (!GcgDecide(*g_gcgMark, *g_gcgPending, *(const DWORD*)(uintptr_t)GC_IS_INITIALIZED, *g_mx.incremental, *g_mx.dontGc,
+                   *g_mx.wordsAllocd, *g_mx.heapSize, g_gcgCap, g_gcgPct, g_gcgBackoff, &t))
+        return r;
+    k.gcgSkipped++, k.gcgSpare[0]++;  // gcgSpare_0 = cycles held at sweep end (each also counts as a skip)
+    return 0;                         // 0xE49FB0 returns 0, as for an unfinished cycle
 }
 
 static void __cdecl GcgForced() {
@@ -91,6 +122,7 @@ static void __cdecl GcgForced() {
 static const u8 kGcgInProgress[12] = {0x33, 0xC0, 0x39, 0x05, 0x78, 0x30, 0x1F, 0x01, 0x0F, 0x95, 0xC0, 0xC3};  // 0xE4C060
 static const u8 kGcgPendingSet[10] = {0xC7, 0x05, 0x94, 0x2F, 0x1F, 0x01, 0x01, 0x00, 0x00, 0x00};              // 0xE4A022
 static const u8 kGcgAllocdZero[6] = {0x89, 0x35, 0xC4, 0x25, 0x22, 0x01};                                       // 0xE49AD9
+static const u8 kGcgAttemptInc[6] = {0x89, 0x0D, 0xB4, 0x2F, 0x1F, 0x01};                                       // 0xE49E6D
 
 // [GC] IdleGate=1 installs the gate with gcgMode 1 (on); 2 installs it with gcgMode 0 (counters only, the per-tick call
 // always runs: the off arm). gcgMode is the run-time switch (--ab gcidlegate).
@@ -105,8 +137,9 @@ static bool ApplyGcIdleGate(const wchar_t* ini) {
     g_gcgPct = Clamp(GetPrivateProfileIntW(L"GC", L"IdleGateHeapPct", 15, ini), 1, 50);
     if (!Matches((void*)(uintptr_t)TS3A(0x00E4C060), kGcgInProgress, sizeof(kGcgInProgress)) ||
         !Matches((void*)(uintptr_t)TS3A(0x00E4A022), kGcgPendingSet, sizeof(kGcgPendingSet)) ||
-        !Matches((void*)(uintptr_t)TS3A(0x00E49AD9), kGcgAllocdZero, sizeof(kGcgAllocdZero))) {
-        Log("SKIP GC idle gate: Boehm state code differs (0xE4C060 / 0xE4A022 / 0xE49AD9)");
+        !Matches((void*)(uintptr_t)TS3A(0x00E49AD9), kGcgAllocdZero, sizeof(kGcgAllocdZero)) ||
+        !Matches((void*)(uintptr_t)TS3A(0x00E49E6D), kGcgAttemptInc, sizeof(kGcgAttemptInc))) {
+        Log("SKIP GC idle gate: Boehm state code differs (0xE4C060 / 0xE4A022 / 0xE49AD9 / 0xE49E6D)");
         return false;
     }
     // the forced-collection thunk 0xD70800: jmp 0xE4A320
@@ -122,6 +155,9 @@ static bool ApplyGcIdleGate(const wchar_t* ini) {
     g_gcgNext = (MxStepFn)(uintptr_t)cur;
     g_gcgForcedOrig = (GcgVoidFn)(uintptr_t)TS3A(0x00E4A320);
     const CallSite site = {TS3A(0x00D819AA), cur, (void*)GcgStep};
+    const CallSite hold = {TS3A(0x00E49FB6), TS3A(0x00E49F10), (void*)GcgHold};
+    g_gcgHoldOrig = (MxStepFn)(uintptr_t)TS3A(0x00E49F10);
+    if (!PatchCalls("GC idle gate cycle hold (0xE49FB6)", &hold, 1)) return false;
     if (!PatchCalls("per-tick GC_try_to_collect idle gate", &site, 1)) return false;
     const LONG rel = (LONG)((uintptr_t)GcgForced - (TS3A(0x00D70800) + 5));
     if (!Write(th + 1, &rel, 4)) Log("note: GC idle gate without the forced-collection count (0xD70800 not writable)");

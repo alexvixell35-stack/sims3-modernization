@@ -508,6 +508,12 @@ namespace Ts3Agent
                     "aut_l0_r_daycare", "aut_l0_r_resort", "aut_l0_r_household", "aut_l0_r_other", "aut_l0_span_ms", "aut_l0_nested", "aut_l0_exc" };
                 for (int i = 0; i < l0.Length; i++) r[l0[i]] = c[903 + i];
             }
+            if (c.Length > 1157) // AutLocalProbe.cs autt2lcov (docs/276 rank 5 piece 1): local-phase C2 by local allow-list, per class
+            {
+                string[] cov = { "aut_lcov_on_n_hh", "aut_lcov_on_n_seen", "aut_lcov_on_n_unseen", "aut_lcov_on_us_hh", "aut_lcov_on_us_seen", "aut_lcov_on_us_unseen",
+                    "aut_lcov_off_n_hh", "aut_lcov_off_n_seen", "aut_lcov_off_n_unseen", "aut_lcov_off_us_hh", "aut_lcov_off_us_seen", "aut_lcov_off_us_unseen", "aut_lcov_live" };
+                for (int i = 0; i < cov.Length; i++) r[cov[i]] = c[1145 + i];
+            }
             if (c.Length > 537) { r["autoff_tick_items"] = c[534]; r["autoff_tick_a0"] = c[535]; r["autoff_tick_a2"] = c[536]; r["autoff_tick_unfinished"] = c[537]; } // AutOffload.cs autofftick (docs/206 §15)
             if (c.Length > 490) // AutOffload.cs (docs/208 §8): ready store and the apply at the game's own call
             {

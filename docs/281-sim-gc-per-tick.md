@@ -111,7 +111,7 @@ addresses, so the EA build logs SKIP until ported.
 | others | `GC_heapsize [0x12225A0]`, `GC_gc_no [0x11F2F90]`, `GC_dont_gc [0x11F30A8]`, `GC_is_initialized [0x11F30D0]`, start hook `[0x11F3094]` / `[0x11F309C]` | `0xE4A1C6` (heap / free-space divisor), `0xE4A01B`, `0xE49F10`, `0xE4A064`, `0xE4A050` |
 | allocation never drives the GC | `GC_collect_a_little_inner 0xE49DA0` | one caller only, `0xE49F49` inside `0xE49F10` (call scan of `.text`) |
 | forced collection | `0xE4A120` -> `0xE4A1B4 call 0xD70800` = `jmp 0xE4A320` | in incremental mode an allocation that finds no free block with words allocated > 0 runs a full collection with `GC_never_stop_func 0x5BFB90` (`xor eax,eax; ret`); `0xD70800` has that one caller |
-| caller after the call | `0xD819AF` | return value unused; `[0x11F2F98]` (finish attempts) drives EA's budget +/-100 and is reset there, so a skipped tick leaves it unchanged |
+| caller after the call | `0xD819AF` | return value unused; `[0x11F2F98]` (EA's budget step: `GC_collect_a_little_inner` adds 1 when a mark needed >= 20 aborted finish attempts and subtracts 1 when it needed <= 10, clamped 20 / -20 at `[0x11947E8]` / `[0x11947EC]`) drives EA's budget and is reset there, so a skipped tick leaves it unchanged. The finish-attempt count itself is `GC_n_attempts [0x11F2FB4]` (§8.7) |
 
 ### 8.2 Design
 
@@ -154,3 +154,32 @@ between cycles: ~1.0 s per 13.7-17.2 s = **58-73 ms/s instead of ~120, about 45-
 cost stays set by the live set (more garbage per cycle adds sweep work, not mark work). Heap headroom: `T` plus the
 50-80 MB allocated during one cycle is ~105-135 MB of ~260 MB free on BP. A bigger `IdleGateMB` / `IdleGateHeapPct`
 gains more and leaves less headroom; tune only after the first A/B.
+
+### 8.6 Fix 11-17: hold the next cycle at sweep end (`bugfix/gc-idle-gate-hold-1117`)
+
+Smoke `gc-idle-gate-correct-1117-master-1117b` bp-gcgate-smoke FAILED: `gcgCalls 18368, gcgSkipped 0, gcgRan 18368,
+gcgCycles 208`. Cause [verified, `game-copy/Bin/TS3W.exe` Steam 1.67 disassembly]: `0xE4A050` calls `0xE49FB0`, which
+calls `0xE49F10` at `0xE49FB6`; `0xE49F10` clears pending (`0xE49F91`) and returns 1 when the lazy sweep is done, and
+`0xE49FB0` then starts the next mark (`0xE49980`) in the same call. Between per-tick calls mark or pending is therefore
+always set, so the §8.2 check never skips. Fix: `GcgHold` wraps the call at `0xE49FB6` (direct callers of `0xE49F10`:
+`0xE49FB6`, `0xE4A33B`; `0xE49FB0` has 7) and returns 0 ("cycle not done") when 0xE49F10 returned 1, the gate is on, the
+call runs inside a per-tick call that `GcgStep` passed on (same thread) and the stop function is not `GC_never_stop_func
+0x5BFB90` (forced / full collections untouched), and `GcgDecide` says skip. The collector is then idle and `GcgStep`
+skips the next ticks until `T` is allocated. Held cycles count in `gcgSkipped` and `gcgSpare_0`. Build
+`ts3native.asi.gchold1-1117` (0.36.269-gchold1); rerun `tools/harness/queues/gc-idle-gate-correct-1117-rerun1-1117.json`.
+
+### 8.7 G2 counter: aborted finish attempts (11-17, `0.36.272-gchold2`)
+
+Fields [verified, `game-copy/Bin/TS3W.exe` Steam 1.67 disassembly of `GC_collect_a_little_inner 0xE49DA0`]: `GC_n_attempts
+[0x11F2FB4]` counts the aborted stop-the-world finish attempts of the current mark. `0xE49E4C` calls `GC_stopped_mark
+0xE49980` with EA's stop function; on abort `0xE49E6D` stores `n + 1`. When `n > [0x1194820]` (40) the finish runs with
+`GC_never_stop_func 0x5BFB90` (`0xE49E2D`). It is reset at `0xE49ACD` (`GC_finish_collection`) and at `0xE49E16`
+(flag `[0x11F2FB8]`, set at `0xE49FEF`). One per-tick call tries the finish at most once (the loop breaks after
+`GC_stopped_mark`).
+
+`GcgStep` reads `[0x11F2FB4]` before and after each call it passes on and adds the increase to `gcgSpare_1` (when the
+count was reset inside the call it adds the value after the call). Finish attempts per cycle = `gcgSpare_1 / gcgCycles`;
+near 20-40 means G2 (a longer finish budget) is worth building. Counter only: no behaviour change, no counter layout
+change (v205 spare slot). The gate adds a byte check of `0xE49E6D` (`89 0D B4 2F 1F 01`) to its install checks.
+Shortcut: the mean only, not the per-cycle maximum; add a max slot if the mean is near the threshold. Read with
+`node tools/harness/wait-ab.ts <tag> --counters gcgSpare_1,gcgCycles,...`.

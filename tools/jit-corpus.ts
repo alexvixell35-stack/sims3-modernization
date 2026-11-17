@@ -929,6 +929,11 @@ export const ACCESSORS: [string, string, number, string][] = [
   ['ObjectComponent subclasses get_BaseType', 'BaseTypeCase', 37, 'ItemComponent.get_BaseType'],
   ['Enumerator..ctor Hashtable, SortedList, SortedList<,>, MatchCollection, LinkedList', 'EnumCtorCase', 5, 'Enumerator..ctor'],
 ];
+// docs/537 §31 M2: the class-Y rows jit-hot.ts admits by hand (Y_ADMIT), same shape as ACCESSORS; cases appended last so no older case moves
+export const Y_ACCESSORS: [string, string, number, string][] = [
+  ['Motive.UpdateMotiveWithDecay (two finally clauses, buffs, deltas, throws through the finally, unlisted virtual targets)', 'MotiveDecayCase', 576, 'Motive.UpdateMotiveWithDecay'],
+];
+const Y_CASES: Case[] = Y_ACCESSORS.map(([name, fn, n]) => ({ name: `Acc ${name}`, body: `for (int i = 0; i < ${n}; i++) ${T(`JitAcc.${fn}(i)`)}` }));
 const ACCESSOR_CASES: Case[] = ACCESSORS.map(([name, fn, n]) => ({ name: `Acc ${name}`, body: `for (int i = 0; i < ${n}; i++) ${T(`JitAcc.${fn}(i)`)}` }));
 // ---- docs/537 §20 B3: the value-type field, element and object ops of B1 (MONOHOST_JITVTOPS=1): stfld.vt, ldelem.any.vt,
 // stelem.any.vt, ldobj and stobj.vt over 1-, 7-, 12-, 20-byte structs and one holding references; null and bounds exits; generic
@@ -1458,7 +1463,7 @@ const CL_CASES: Case[] = [
   { name: 'JitKCL.Edges (C5 every 5-arg / 3-arg Array.Copy edge: argument throws, boxing, widening, both catch handlers, one rank-2 array both directions)', body: `int[,] g = new int[2, 3], g2 = new int[2, 2]; ${T('JitKCL.Edges(g, g2, 12)')}` },
 ];
 const CL_LIST = ['JitKCL.*'];
-export const cases = (): Case[] => [...kernelCases(), ...STMT_CASES, ...bclCases(), ...CLAUSE_CASES, ...LAZY_CASES, ...ACCESSOR_CASES, ...EXIT_CASES, ...VTOPS_CASES, ...NEWVT_CASES, ...C3_CASES, ...CL_CASES, ...RT_CASES];
+export const cases = (): Case[] => [...kernelCases(), ...STMT_CASES, ...bclCases(), ...CLAUSE_CASES, ...LAZY_CASES, ...ACCESSOR_CASES, ...EXIT_CASES, ...VTOPS_CASES, ...NEWVT_CASES, ...C3_CASES, ...CL_CASES, ...RT_CASES, ...Y_CASES];
 
 // ---- C# ----
 export function generate(): string {
@@ -1634,7 +1639,7 @@ ${cs.map((k, i) => `                case ${i}: // ${k.name}
 export function jitList(src: string): string {
   const m = /kJitList\[\] = \{([\s\S]*?)\};/.exec(src);
   if (!m) throw new Error('kJitList not found in monohost-jit.cpp');
-  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*', 'JitKX.*', 'JitKT.*', 'JitKTF.*', 'JitKCV.*', 'JitKI.*', 'JitKIN.*', 'JitIN.*', 'JitINS.*', 'JitIND.*', 'JitC5A.*', 'JitRKey.*', 'JitRKey2.*', 'JitTPt.*', 'JitTBig.*', ...ACCESSORS.map(a => a[3]), ...KA_LIST, ...VTOPS_LIST, ...C2_LIST, ...NEWVT_LIST, ...C3_LIST, ...CL_LIST, ...RT_LIST).join(',');
+  return [...m[1].replace(/\/\/[^\n]*/g, '').matchAll(/"([^"]+)"/g)].map(x => x[1]).concat('JitK.*', 'JitKO.*', 'JitKL.*', 'JitKLPt.*', 'JitKV.*', 'JitKV2.*', 'JitKV3.*', 'JitKX.*', 'JitKT.*', 'JitKTF.*', 'JitKCV.*', 'JitKI.*', 'JitKIN.*', 'JitIN.*', 'JitINS.*', 'JitIND.*', 'JitC5A.*', 'JitRKey.*', 'JitRKey2.*', 'JitTPt.*', 'JitTBig.*', ...ACCESSORS.map(a => a[3]), ...Y_ACCESSORS.map(a => a[3]), ...KA_LIST, ...VTOPS_LIST, ...C2_LIST, ...NEWVT_LIST, ...C3_LIST, ...CL_LIST, ...RT_LIST).join(',');
 }
 
 // ---- report ----
@@ -1702,7 +1707,7 @@ function selfCheck() {
   try { disk = readFileSync(OUT, 'utf8'); } catch { /* missing = stale */ }
   ok(disk.replace(/\r\n/g, '\n') === g.replace(/\r\n/g, '\n'), 'native/monohost/JitCorpus.cs is up to date (node tools/jit-corpus.ts --write)');
   const src = 'static const char* const kJitList[] = {\n    // c\n    "A.B", "C`2.D",\n    "E.F",\n};';
-  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*,JitKX.*,JitKT.*,JitKTF.*,JitKCV.*,JitKI.*,JitKIN.*,JitIN.*,JitINS.*,JitIND.*,JitC5A.*,JitRKey.*,JitRKey2.*,JitTPt.*,JitTBig.*,' + ACCESSORS.map(a => a[3]).join(',') + ',' + [...KA_LIST, ...VTOPS_LIST, ...C2_LIST, ...NEWVT_LIST, ...C3_LIST, ...CL_LIST, ...RT_LIST].join(','), 'kJitList parse');
+  ok(jitList(src) === 'A.B,C`2.D,E.F,JitK.*,JitKO.*,JitKL.*,JitKLPt.*,JitKV.*,JitKV2.*,JitKV3.*,JitKX.*,JitKT.*,JitKTF.*,JitKCV.*,JitKI.*,JitKIN.*,JitIN.*,JitINS.*,JitIND.*,JitC5A.*,JitRKey.*,JitRKey2.*,JitTPt.*,JitTBig.*,' + [...ACCESSORS, ...Y_ACCESSORS].map(a => a[3]).join(',') + ',' + [...KA_LIST, ...VTOPS_LIST, ...C2_LIST, ...NEWVT_LIST, ...C3_LIST, ...CL_LIST, ...RT_LIST].join(','), 'kJitList parse');
   const live = jitList(readFileSync(resolve(ROOT, 'native/monohost/monohost-jit.cpp'), 'utf8'));
   ok(live.split(',').length <= 256 && live.length < 8192, 'compile list fits monohost (g_jitNames[256], g_jitListBuf[8192])');
   ok(new Set(ACCESSORS.map(a => a[1])).size === ACCESSORS.length && ACCESSORS.every(a => /^\w+Case$/.test(a[1]) && a[2] > 0), 'accessor table');

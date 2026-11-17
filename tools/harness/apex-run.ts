@@ -152,6 +152,14 @@ async function main(v: Record<string, any>) {
   if (existsSync(apexPending)) fail(`Apex restore pending (${apexPending}): close TS3W.exe, then run.ps1 -Restore <its run dir>`);
   if (gameRunning()) fail(`${GAME_EXE} is running: close it first`);
   if (existsSync(summary)) fail(`${out} already has a run: pass another --tag`);
+  // the test agent is per checkout (ignored outputs/): a fresh Apex worktree has none and run.ps1 throws "No test agent" in 2 s
+  // (chain-1117g 11-17: all 9 GI steps on gi-merge-r4 / gi-s2-06 "runner exit 1, 0 min"); built from this checkout's agent source
+  const agentPkg = join(apex, 'outputs', 'ingame', 'agent', 'ApexTestAgent.package');
+  if (!existsSync(agentPkg)) {
+    console.log(`no ${agentPkg}: building it (node tools/ingame_runner/build_agent.mjs)`);
+    try { execFileSync('node', [join('tools', 'ingame_runner', 'build_agent.mjs'), '-GameBin', BIN], { cwd: apex, stdio: 'inherit', timeout: 600000 }); } catch (e) { fail(`test agent build failed in ${apex}: ${(e as Error).message.split('\n')[0]}`); }
+    if (!existsSync(agentPkg)) fail(`test agent build wrote no ${agentPkg}`);
+  }
 
   mkdirSync(before, { recursive: true });
   const say = (s: string) => { const l = `${new Date().toISOString().slice(0, 19)}Z ${s}`; console.log(l); appendFileSync(summary, l + '\n'); };
