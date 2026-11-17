@@ -362,7 +362,6 @@ wishupdatelost
 socialworkerpromise
 buffsrcempty
 groupchatpriority
-unseenloopskip_offscreen
 spotedgememo
 spotcut
 unseenservicewait
@@ -420,3 +419,5 @@ snackbowlslobvfx
 springdanceclear
 straygnometns
 worldpondskatetest
+# passed in game 2026-11-17 (s75) but kept OFF by choice: near off-screen Sims could be noticed and it rarely applies (docs/632):
+#   unseenloopskip_offscreen
