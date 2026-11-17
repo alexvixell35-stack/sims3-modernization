@@ -30,6 +30,7 @@ namespace Ts3Fixes
         // Sim with a parent (profile not exact). Our own checks (SpotVerdict, sInOwnCheck) pass straight through.
         // Sim has no use for a subclass here, so the hook is a plain class (as BroadcasterPulseHook).
         // Switch "routablecache" (default off). Counters: [65] cache hits, [66] plans run and recorded.
+        // Every EA call below goes through SemRoutable (docs/636 spotedgememo, SpotEdgeMemo.cs; EA's own call when off).
         public class RoutableCacheHook
         {
             public bool RoutableHook(Lot lot, Vector3 pos)
@@ -49,15 +50,15 @@ namespace Ts3Fixes
             bool RoutableCheck(Lot lot, Vector3 pos)
             {
                 Sim sim = (Sim)(object)this;
-                if (sInOwnCheck || lot == null || lot.IsWorldLot || !ShortcutOn("routablecache")) return RoutableOrig(lot, pos);
+                if (sInOwnCheck || lot == null || lot.IsWorldLot || !ShortcutOn("routablecache")) return SemRoutable(this, lot, pos);
                 RouteProfile p = ProfileOf(sim);
-                if (!p.Ok) return RoutableOrig(lot, pos);
+                if (!p.Ok) return SemRoutable(this, lot, pos);
                 SpotVerdicts v = Verdicts(lot);
                 VerdictKey key = KeyOf(p, pos);
                 int[] c = PatchCounters();
                 bool ok;
                 if (v.Cells.TryGetValue(key, out ok)) { c[65]++; return ok; }
-                ok = RoutableOrig(lot, pos);
+                ok = SemRoutable(this, lot, pos);
                 v.Cells[key] = ok;
                 c[66]++;
                 return ok;
