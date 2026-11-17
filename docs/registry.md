@@ -522,6 +522,16 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3482-3484 | pinned (s85, `fixes-3482`) | birthdayagerecord: BirthdayParty records every guest who ages up |
 | 3485-3488 | `Fixes.cs` SpotVerdict (`fixes-3485`, s86, docs/616), `spotasync` | built 2026-11-17, default off: checks answered by a job (3485) / their wall ms (3486) / eligible but planned sync (3487) / placements dropped after the wait (3488) |
 | 3489 | `Fixes.cs` SpotAsyncDone (`fixes-3489`, s86, docs/616), `spotasync` | built 2026-11-17: shadow mismatches with watchdogasyncshadow (expected 0) |
+| 3490-3492 | `Hitch622.cs` + `AutShadow.cs` AddObj (`fixes-3490`, s90, docs/622 §1), `autmetarows` | built 2026-11-17, default off: pair rows from the cache (3490) / rows computed (3491) / check mismatches (3492) |
+| 3493-3495 | `Hitch622.cs` + `Batch589cLogic.cs` BBrdHook (`fixes-3490`, docs/622 §2), `buffremovemerge` | built 2026-11-17, default off: no-op removes after one lookup (3493) / removes to EA's body (3494) / errors (3495) |
+| 3496-3498 | `Hitch622.cs` SwOn (`fixes-3490`, docs/622 §3), `swslots` | built 2026-11-17, default off: slot refills (3496) / check mismatches (3497) / check runs (3498) |
+| 3499-3501 | `RouteFixes.cs` StuckWatchdog (`fixes-3490`, docs/622 §4), `stuckwatchscan` | built 2026-11-17, default off: idle passes on the shared scan (3499) / on their own scan, switch off (3500) / check mismatches (3501) |
+| 3502-3504 | `Hitch622.cs` LeIdHook (`fixes-3490`, docs/622 §5), `lifeeventidfirst` | built 2026-11-17, default off: events returned before AllActors (3502) / events to EA's body (3503) / errors (3504) |
+| 3505-3507 | `Hitch622.cs` + `MoodDrift.cs` MdHook (`fixes-3490`, docs/622 §6), `buffsrcempty` | built 2026-11-17, default off: emptied ref-count entries dropped (3505) / empty entries seen by the check (3506) / errors (3507) |
+| 3508-3510 | `Hitch622.cs` BptHook (`fixes-3490`, docs/622 §7), `buffpausedtimeout` | built 2026-11-17, default off: paused re-adds given the tuned timeout (3508) / MinValue re-adds, switch off (3509) / errors (3510) |
+| 3511-3513 | `Hitch622.cs` + `MoodDrift.cs` MdHook (`fixes-3490`, docs/622 §8), `mooddriftnoalloc` | built 2026-11-17, default off: updates summed without allocation (3511) / check mismatches (3512) / reserved (3513) |
+| 3514-3519 | `fixes-3490` (docs/622) | free in the block |
+| 3490-3519 | pinned (s90, `fixes-3490`) | docs/622 script CPU hitch + moodlet fixes (autmetarows, buffremovemerge, swslots, stuckwatchscan, lifeeventidfirst, buffsrcempty, buffpausedtimeout, mooddriftnoalloc; 3514-3519 free in block) |
 | **2000+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

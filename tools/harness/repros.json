@@ -106523,6 +106523,654 @@
     ]
   },
   {
+    "id": "autmetarows-check",
+    "bug": "AutShadow TryRequest rebuilds every meta row per sampled search: GetType per ad (Mono icall, profile top self frame), allow-list probe, SfAllowed reflection (docs/617 §2)",
+    "fix": "ts3fixes Hitch622.cs: autmetarows (default off), docs/622 §1",
+    "save": "needs a loaded world (no save change)",
+    "note": "MetaRowsCheck run compares every public meta object and lot row (uncached vs cache, two passes); result shows counters 3490-3492 (3490 grows with autonomy searches, switch on). Needs a world with AutShadow ready.",
+    "expect": "off: 'verdict: BROKEN' (the old cost or EA bug). on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "autmetarows": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MetaRowsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: the old path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MetaRowsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "autmetarows": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MetaRowsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MetaRowsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "autmetarows": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "autmetarows": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "buffremovemerge-check",
+    "bug": "A no-op BuffManager.RemoveElement goes through BuffRemoveHook and BBrdHook: 3-4 dictionary probes, 2 reflection reads and an enumerator where EA does nothing (docs/617 §6, docs/620 O3)",
+    "fix": "ts3fixes Hitch622.cs: buffremovemerge (default off), docs/622 §2",
+    "save": "needs a loaded world (no save change)",
+    "note": "BuffRemoveMergeCheck run asks every Sim x every buff the merged no-op rule against EA state; result shows counters 3493-3495.",
+    "expect": "off: 'verdict: BROKEN' (the old cost or EA bug). on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "buffremovemerge": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffRemoveMergeCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: the old path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffRemoveMergeCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "buffremovemerge": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffRemoveMergeCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffRemoveMergeCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "buffremovemerge": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "buffremovemerge": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "swslots-check",
+    "bug": "ShortcutOn on per-tick hooks costs a string hash and probe per call (docs/617 §7)",
+    "fix": "ts3fixes Hitch622.cs: swslots (default off), docs/622 §3",
+    "save": "needs a loaded world (no save change)",
+    "note": "SwSlotsCheck run compares every slot with the uncached answer, flips a probe switch with a bump and times both paths; result shows counters 3496-3498.",
+    "expect": "off: 'verdict: BROKEN' (the old cost or EA bug). on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "swslots": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwSlotsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: the old path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwSlotsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "swslots": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwSlotsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwSlotsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "swslots": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "swslots": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "stuckwatchscan-check",
+    "bug": "StuckWatchdog runs two world Sim queries and allocates two dictionaries every 10 sim-minutes (docs/617 §8)",
+    "fix": "ts3fixes Hitch622.cs: stuckwatchscan (default off), docs/622 §4",
+    "save": "needs a loaded world (no save change)",
+    "note": "StuckWatchScanCheck run compares the shared scan with a fresh query; result shows counters 3499-3501 (3499 grows every 10 sim-minutes, switch on; 3500 with it off).",
+    "expect": "off: 'verdict: BROKEN' (the old cost or EA bug). on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "stuckwatchscan": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StuckWatchScanCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: the old path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StuckWatchScanCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "stuckwatchscan": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StuckWatchScanCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StuckWatchScanCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "stuckwatchscan": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "stuckwatchscan": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "lifeeventidfirst-check",
+    "bug": "LifeEventManager.ProcessLifeEvent builds Household.AllActors before checking that the event id has any life event (docs/617 §3)",
+    "fix": "ts3fixes Hitch622.cs: lifeeventidfirst (default off), docs/622 §5",
+    "save": "needs a loaded world (no save change)",
+    "note": "LifeEventIdFirstCheck run compares the skip answer with EA table lookups for every EventTypeId and checks AllActors purity; result shows counters 3502-3504.",
+    "expect": "off: 'verdict: BROKEN' (the old cost or EA bug). on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "lifeeventidfirst": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LifeEventIdFirstCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: the old path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LifeEventIdFirstCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "lifeeventidfirst": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LifeEventIdFirstCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LifeEventIdFirstCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "lifeeventidfirst": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "lifeeventidfirst": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "buffsrcempty-check",
+    "bug": "BuffManager keeps emptied mBuffCountList entries after a timed-out source, so a later id-less add of the same moodlet is removed on the next update (docs/620 F1b)",
+    "fix": "ts3fixes Hitch622.cs: buffsrcempty (default off), docs/622 §6",
+    "save": "needs a loaded world (no save change)",
+    "note": "BuffSrcEmptyCheck run counts empty ref-count entries on every Sim (off: leftovers, on: 0 after the next UpdateBuffs); result shows counters 3505-3507. Wait a sim-minute after the switch flips before run.",
+    "expect": "off: 'verdict: BROKEN' (the old cost or EA bug). on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "buffsrcempty": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffSrcEmptyCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: the old path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffSrcEmptyCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "buffsrcempty": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffSrcEmptyCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffSrcEmptyCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "buffsrcempty": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "buffsrcempty": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "buffpausedtimeout-check",
+    "bug": "RemoveElement(buff,id,inv) with only paused sources left re-adds the moodlet with timeout float.MinValue (docs/620 F1a)",
+    "fix": "ts3fixes Hitch622.cs: buffpausedtimeout (default off), docs/622 §7",
+    "save": "needs a loaded world (no save change)",
+    "note": "BuffPausedTimeoutCheck run checks the timeout rule with controls (StirCrazy minutes, -1, MaxValue kept); result shows counters 3508-3510.",
+    "expect": "off: 'verdict: BROKEN' (the old cost or EA bug). on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "buffpausedtimeout": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffPausedTimeoutCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: the old path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffPausedTimeoutCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "buffpausedtimeout": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffPausedTimeoutCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BuffPausedTimeoutCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "buffpausedtimeout": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "buffpausedtimeout": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "mooddriftnoalloc-check",
+    "bug": "MdHook allocates an int[], a ValueCollection and a boxed enumerator per Sim per UpdateBuffs (docs/618 §2.1)",
+    "fix": "ts3fixes Hitch622.cs: mooddriftnoalloc (default off), docs/622 §8",
+    "save": "needs a loaded world (no save change)",
+    "note": "MoodDriftNoAllocCheck run compares the struct-walk mood sums with the List walk on every Sim; result shows counters 3511-3513.",
+    "expect": "off: 'verdict: BROKEN' (the old cost or EA bug). on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "mooddriftnoalloc": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MoodDriftNoAllocCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: the old path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MoodDriftNoAllocCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "mooddriftnoalloc": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MoodDriftNoAllocCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MoodDriftNoAllocCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "mooddriftnoalloc": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "mooddriftnoalloc": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

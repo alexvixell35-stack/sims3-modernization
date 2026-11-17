@@ -391,6 +391,8 @@ namespace Ts3Fixes
             ApplySpoilBroadcast();   // docs/615 §1 (Scan85.cs)
             ApplyWeatherStoneRelisten();   // docs/615 §2 (Scan85.cs)
             ApplyBirthdayAgeRecord();   // docs/615 §3 (Scan85.cs)
+            ApplyLifeEventIdFirst();   // docs/622 §5 (Hitch622.cs)
+            ApplyBuffPausedTimeout();   // docs/622 §7 (Hitch622.cs)
             ApplyMegaphoneRun();   // docs/608 §2 (WalkStyleLeak77.cs)
             ApplyDragonCurseRun();   // docs/608 §3 (WalkStyleLeak77.cs)
             ApplyMermaidSharkNull();   // docs/587 EP1 §3
@@ -1151,6 +1153,15 @@ namespace Ts3Fixes
         // [3476-3478] spoilbroadcast (Scan85.cs, docs/615 §1): broadcasters disposed / leaked (off) / errors.
         // [3479-3481] weatherstonerelisten (Scan85.cs, docs/615 §2): stale listeners removed / stacked (off) / errors.
         // [3482-3484] birthdayagerecord (Scan85.cs, docs/615 §3): age-ups with listener kept / dropped (off) / errors.
+        // [3490-3492] autmetarows (Hitch622.cs, AutShadow.cs AddObj, docs/622 §1): pair rows from the cache / rows computed / check mismatches.
+        // [3493-3495] buffremovemerge (Hitch622.cs, Batch589cLogic.cs BBrdHook, docs/622 §2): no-op removes after one lookup / removes to EA's body / errors.
+        // [3496-3498] swslots (Hitch622.cs SwOn, docs/622 §3): slot refills / check mismatches / check runs.
+        // [3499-3501] stuckwatchscan (RouteFixes.cs StuckWatchdog, docs/622 §4): idle passes on the shared scan / on their own scan (off) / check mismatches.
+        // [3502-3504] lifeeventidfirst (Hitch622.cs, docs/622 §5): events returned before AllActors / events to EA's body / errors.
+        // [3505-3507] buffsrcempty (Hitch622.cs, MoodDrift.cs MdHook, docs/622 §6): emptied entries dropped / empty entries seen by the check / errors.
+        // [3508-3510] buffpausedtimeout (Hitch622.cs, docs/622 §7): re-adds given the tuned timeout / MinValue re-adds (off) / errors.
+        // [3511-3513] mooddriftnoalloc (Hitch622.cs, MoodDrift.cs MdHook, docs/622 §8): updates summed without allocation / check mismatches / reserved.
+        // [3514-3519] free (docs/622 block).
         // [3485-3489] spotasync (Fixes.cs SpotVerdict, docs/616): checks answered by a job (sync plans avoided) / their wall ms / eligible but planned sync / placements dropped after the wait / shadow mismatches.
         // [3391-3393] sarcmummynpc (TreasureSpawn74.cs, docs/607 §3): tomb mummy descriptions removed from NpcHousehold at sarcophagus cleanup / left with the switch off / errors.
         // [2790-2792] pushwaitskip (PushWait604.cs, docs/604 §2): done Sims EA's double-step wait pass would have skipped / waiting calls on EA's body (switch off) / errors.
@@ -1704,6 +1715,14 @@ namespace Ts3Fixes
                 case "spoilbroadcast": return Instantiator.kSpoilBroadcast;  // docs/615 §1 (Scan85.cs), EA bug fix, off
                 case "weatherstonerelisten": return Instantiator.kWeatherStoneRelisten;  // docs/615 §2 (Scan85.cs), EA bug fix, off
                 case "birthdayagerecord": return Instantiator.kBirthdayAgeRecord;  // docs/615 §3 (Scan85.cs), EA bug fix, off
+                case "autmetarows": return Instantiator.kAutMetaRows;  // docs/622 §1 (Hitch622.cs), exact speedup, off
+                case "buffremovemerge": return Instantiator.kBuffRemoveMerge;  // docs/622 §2 (Hitch622.cs), exact speedup, off
+                case "swslots": return Instantiator.kSwSlots;  // docs/622 §3 (Hitch622.cs), exact speedup, off
+                case "stuckwatchscan": return Instantiator.kStuckWatchScan;  // docs/622 §4 (RouteFixes.cs), exact speedup, off
+                case "lifeeventidfirst": return Instantiator.kLifeEventIdFirst;  // docs/622 §5 (Hitch622.cs), exact speedup, off
+                case "buffsrcempty": return Instantiator.kBuffSrcEmpty;  // docs/622 §6 (Hitch622.cs), EA bug fix, off
+                case "buffpausedtimeout": return Instantiator.kBuffPausedTimeout;  // docs/622 §7 (Hitch622.cs), EA bug fix, off
+                case "mooddriftnoalloc": return Instantiator.kMoodDriftNoAlloc;  // docs/622 §8 (Hitch622.cs), exact speedup, off
                 case "alarmzeroperiod": return Instantiator.kAlarmZeroPeriod;  // docs/609 §6 (GameSpeed78.cs), EA bug fix (hang guard), off
                 case "tspawninvdup": return Instantiator.kTreasureSpawnInvDup;  // docs/607 §2 (TreasureSpawn74.cs), EA bug fix, off
                 case "megaphonerun": return Instantiator.kMegaphoneRun;  // docs/608 §2 (WalkStyleLeak77.cs), EA bug fix, off

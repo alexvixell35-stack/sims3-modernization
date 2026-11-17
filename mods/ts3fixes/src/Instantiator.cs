@@ -396,6 +396,14 @@ namespace Ts3Fixes
         [Tunable] public static bool kDataDiscPutBack = false; // datadiscputback (docs/614 §5): DataDiscStorage add/dump-all puts a refused disc back and moves the rest (EA lost it)
         [Tunable] public static bool kSpoilBroadcast = false; // spoilbroadcast (docs/615 §1): PreparedFood.ForceSpoil disposes the disgust broadcaster it replaces at each spoil stage
         [Tunable] public static bool kWeatherStoneRelisten = false; // weatherstonerelisten (docs/615 §2): a successful weather stone summon removes a stale pending weather listener before adding its own
+        [Tunable] public static bool kAutMetaRows = false; // autmetarows (docs/622 §1): AutShadow request rows kept per meta object and ad (GetType, allow-list probe, SfAllowed), same rows
+        [Tunable] public static bool kBuffRemoveMerge = false; // buffremovemerge (docs/622 §2): BuffManager no-op removes return after one lookup (our two remove hooks merged)
+        [Tunable] public static bool kSwSlots = false; // swslots (docs/622 §3): per-tick hooks read their switches from a slot array refilled per switch-table generation
+        [Tunable] public static bool kStuckWatchScan = false; // stuckwatchscan (docs/622 §4): the stuck watchdog's two passes share one Sim scan and reuse their dictionaries
+        [Tunable] public static bool kLifeEventIdFirst = false; // lifeeventidfirst (docs/622 §5): LifeEventManager returns for event ids with no life event before building the household actor list
+        [Tunable] public static bool kBuffSrcEmpty = false; // buffsrcempty (docs/622 §6, docs/620 F1b): emptied moodlet ref-count entries are dropped after UpdateBuffs, so a later id-less add is not cut to one update
+        [Tunable] public static bool kBuffPausedTimeout = false; // buffpausedtimeout (docs/622 §7, docs/620 F1a): a paused-only moodlet re-add gets the tuned timeout instead of float.MinValue
+        [Tunable] public static bool kMoodDriftNoAlloc = false; // mooddriftnoalloc (docs/622 §8): the mood drift pass sums buffs with a scratch array and a struct walk (no allocation)
         [Tunable] public static bool kBirthdayAgeRecord = false; // birthdayagerecord (docs/615 §3): a birthday party records every guest who ages up, not only the first
         [Tunable] public static bool kSarcMummyNpc = false; // sarcmummynpc (docs/607 §3): a reset or deleted Sarcophagus takes its tomb mummy out of NpcHousehold, as TombMummyDestroy does
         [Tunable] public static bool kPushWaitSkip = false; // pushwaitskip (docs/604 §2): RoutingComponent.PushSimsStatic's wait pass checks every pushed Sim once (EA steps twice and keeps the pusher idle an extra 10 sim-minutes)

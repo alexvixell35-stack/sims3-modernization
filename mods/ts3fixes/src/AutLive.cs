@@ -464,11 +464,12 @@ namespace Ts3Fixes
             FlipCheck();
             int[] uk = PatchCounters();
             // docs/222 scope: the actor only; UfWhy 0 = unseen (never the active household or a selectable Sim)
-            bool unseenOn = sChooseOk && ShortcutOn("autunseen");
+            bool unseenOn = sChooseOk && SwOn(kSwAutUnseen);
+            bool seenGame = SwOn(kSwAutSeenGame);  // docs/622 §3: read once (was up to 4 ShortcutOn per search)
             int why0 = unseenOn ? SafeUfWhy(a.Actor) : -1;
             // docs/271 [Experimental] HouseholdToo=1: a live household Sim takes the seen-NPC exact path (same pick, worker-helped);
             // never the unseen direct path (AtPost reads why0, which stays kHousehold)
-            bool hhLift = unseenOn && !sLiveDry && why0 == UnseenFallbackCore.kHousehold && ShortcutOn("autseengame") && HouseholdLift(a.Actor);
+            bool hhLift = unseenOn && !sLiveDry && why0 == UnseenFallbackCore.kHousehold && seenGame && HouseholdLift(a.Actor);
             bool direct = AutLiveCore.Unseen.AtPost(unseenOn, sLiveDry, why0);
             // docs/222 §11.8 V6 test: a seen actor runs the game's own search, no post and no worker wait in the shared manager
             // docs/124 §17.12 autliveseen: with autseengame, a proven seen NPC may take the exact path (seenDry: compare only);
@@ -476,13 +477,13 @@ namespace Ts3Fixes
             int seenPath = AutLiveCore.Unseen.kSeenExact;
             if (unseenOn && !direct && !sLiveDry)
             {
-                seenPath = AutLiveCore.Unseen.SeenPath(ShortcutOn("autseengame"), ShortcutOn("autliveseen"), ShortcutOn("autliveseendry"),
+                seenPath = AutLiveCore.Unseen.SeenPath(seenGame, SwOn(kSwAutLiveSeen), SwOn(kSwAutLiveSeenDry),
                     HouseholdTooCore.SeenExactOk(why0, hhLift));
                 if (seenPath == AutLiveCore.Unseen.kSeenGame) { uk[kCSeenGameRun]++; return h.MetaOrig(c); }
-                if (ShortcutOn("autseengame") && UnseenFallbackCore.HouseholdScope(why0) && !hhLift) { uk[kCSeenHhPost]++; return h.MetaOrig(c); }  // tripwire (must stay 0)
+                if (seenGame && UnseenFallbackCore.HouseholdScope(why0) && !hhLift) { uk[kCSeenHhPost]++; return h.MetaOrig(c); }  // tripwire (must stay 0)
                 uk[kCUnSeenPost]++;
             }
-            bool seenExact = unseenOn && !direct && !sLiveDry && ShortcutOn("autseengame");
+            bool seenExact = unseenOn && !direct && !sLiveDry && seenGame;
             bool seenDry = seenExact && seenPath == AutLiveCore.Unseen.kSeenDry;
             if (!seenDry && !GuardAllow(direct)) return h.MetaOrig(c);
             LiveSearch L = null;
@@ -535,14 +536,14 @@ namespace Ts3Fixes
             {
                 sDirectPairs.Clear(); sDirectSeen.Clear(); sDirectInst = null; sDirectAut = null; L.Pace.Slice();
                 // docs/222 §11.8: each tick spent waiting for the worker already held the manager like one vanilla slice (>= 1 ms)
-                L.Pace.CreditMs = ShortcutOn("autunseenpacecredit") ? waited : 0;
+                L.Pace.CreditMs = SwOn(kSwAutPaceCredit) ? waited : 0;
             }
             BestScores bs = (BestScores)fBestScores.GetValue(a);
             AutLiveCore.Heap before = L.Dry ? Snapshot(L, bs) : null;
             L.ResumeFrame = L.SliceFrame = L.CmpSlice = AutShadowNative.Config(19);
-            L.LateOn = ShortcutOn("autlivelate"); L.LateOk = false;
+            L.LateOn = SwOn(kSwAutLiveLate); L.LateOk = false;
             // docs/222 §9: an unseen actor's Dry search (still unseen at the resume, as the direct path's snap-back) compared per pair
-            L.CmpOn = L.UnseenDry && ShortcutOn("autunseencmp") && AutLiveCore.Unseen.Stay(SafeUfWhy(a.Actor));
+            L.CmpOn = L.UnseenDry && SwOn(kSwAutUnseenCmp) && AutLiveCore.Unseen.Stay(SafeUfWhy(a.Actor));
             if (L.CmpOn) uk[kCUnCmpSearches]++;
             sLiveCur = L;
             LiveActive(L, true);  // cleared by LiveRelease

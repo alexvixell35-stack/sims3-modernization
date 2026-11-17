@@ -7266,6 +7266,28 @@
       "what": "spotasync shadow mismatches",
       "at": "2026-11-17T09:41:14.844Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3490",
+      "kind": "fixes",
+      "from": 3490,
+      "to": 3519,
+      "by": "s90",
+      "what": "docs/622 script CPU hitch + moodlet fixes (autmetarows, buffremovemerge, swslots, stuckwatchscan, lifeeventidfirst, buffsrcempty, buffpausedtimeout, mooddriftnoalloc; 3514-3519 free in block)",
+      "at": "2026-11-17T12:21:45.539Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3520",
+      "kind": "fixes",
+      "from": 3520,
+      "to": 3540,
+      "by": "s86w",
+      "what": "docs/623 wishes engine fixes: timeralarmleak, wishfeedbackkeep, wishsubjectgone, wishupdatelost, socialworkerpromise (3541-3549 free in block)",
+      "at": "2026-11-17T12:22:42.769Z",
+      "worktree": "/home/<user>/dev/sims3-modernization/.claude/worktrees/agent-ad8f987902f333b04",
+      "pinned": true
     }
   ]
 }

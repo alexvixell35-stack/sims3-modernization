@@ -107,11 +107,11 @@ namespace Ts3Fixes
             public void UpdateHook(float simMinutesPassed, Sim sim)
             {
                 try { UpdateBody(simMinutesPassed, sim); }
-                finally { if (ShortcutOn("buffbufcheck")) BbCheck(sim); }  // Autonomy.Update calls UpdateBuffs right after this
+                finally { if (SwOn(kSwBuffBufCheck)) BbCheck(sim); }  // Autonomy.Update calls UpdateBuffs right after this
             }
             void UpdateBody(float simMinutesPassed, Sim sim)
             {
-                if (!ShortcutOn("motivebuf") || !MbReady()) { UpdateOrig(simMinutesPassed, sim); return; }
+                if (!SwOn(kSwMotiveBuf) || !MbReady()) { UpdateOrig(simMinutesPassed, sim); return; }
                 int[] c = PatchCounters();
                 Dictionary<int, Motive> d;
                 MotiveChangedCallback changed;
@@ -125,7 +125,7 @@ namespace Ts3Fixes
                 try
                 {
                     foreach (KeyValuePair<int, Motive> kv in d) buf.Add(kv.Value);
-                    if (ShortcutOn("motivebufcheck")) MbCheck(d, buf, c);
+                    if (SwOn(kSwMotiveBufCheck)) MbCheck(d, buf, c);
                     c[2729]++;
                     for (int i = 0; i < buf.Count; i++)
                     {

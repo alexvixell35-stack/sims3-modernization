@@ -53,8 +53,11 @@ namespace Ts3Fixes
                 case "bubblepipeguard": return EpLive(typeof(BbHook), 0);
                 case "buffbufcheck": return EpLive(typeof(MotivesUpdateHook), 1, "sMbMotives", sMbMotives, null);
                 case "buffgrid": return EpLive(typeof(BuffGridHook), 0);
+                case "buffpausedtimeout": return EpLive(typeof(BptHook), 1);
                 case "buffremovedelayed": return EpLive(typeof(BBrdHook), 1);
+                case "buffremovemerge": return EpJoin(EpJoin(EpLive(typeof(BBrdHook), 1), EpLive(typeof(BuffParseHook), 0)), EpLive(typeof(BuffRemoveHook), 0, "sBrCountList", sBrCountList, null));
                 case "buffremovenoop": return EpJoin(EpLive(typeof(BuffParseHook), 0), EpLive(typeof(BuffRemoveHook), 0, "sBrCountList", sBrCountList, null));
+                case "buffsrcempty": return EpLive(typeof(MdHook), 1, "sMdTarget", sMdTarget, null, "sMdValues", sMdValues, null);
                 case "buffstate": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BsDownHook), 0, "sBsDownAlarm", sBsDownAlarm, null), EpLive(typeof(BsDragonHook), 0)), EpLive(typeof(BsFertHook), 1)), EpLive(typeof(BsHypHook), 2)), EpLive(typeof(BsQueasyHook), 0)), EpLive(typeof(BsVoodooHook), 0));
                 case "buffupdate": return EpLive(typeof(BuffUpdateHook), 1);
                 case "burglaridle": return EpLive(typeof(BiHook), 1);
@@ -204,6 +207,7 @@ namespace Ts3Fixes
                 case "leavejobdispose": return EpLive(typeof(LeaveJobDisposeHook), 1, "sLeaveOnExit", sLeaveOnExit, null, "sLeaveJobNow", sLeaveJobNow, 1);
                 case "lecturebroadcaster": return EpLive(typeof(BLbHook), 1, "sLbParams", sLbParams, null, "sLbParams", sLbParams, "static");
                 case "legreplanskip": return EpJoin(EpLive(typeof(BoatLegHook), 1), EpLive(typeof(VehicleLegHook), 1));
+                case "lifeeventidfirst": return EpLive(typeof(LeIdHook), 3);
                 case "lifeguardquit": return EpLive(typeof(B12LqHook), 1);
                 case "lifeguardsurvey": return EpLive(typeof(BLgHook), 1, "sLgAlarm", sLgAlarm, null, "sLgRemove", sLgRemove, 0);
                 case "lightcustom": return EpLive(typeof(B12LcHook), 2);
@@ -226,7 +230,8 @@ namespace Ts3Fixes
                 case "midlifeuiending": return EpLive(typeof(BMuHook), 1, "sMuOwner", sMuOwner, null, "sMuLength", sMuLength, typeof(float), "sMuLength", sMuLength, "static", "sMcDate", sMcDate, null);
                 case "midlifewishsave": return EpLive(typeof(BMcHook), 2, "sMcWishes", sMcWishes, typeof(uint), "sMcDate", sMcDate, null, "sMcWishes", sMcWishes, null);
                 case "minihomelot": return EpLive(typeof(MiniHomeLotHook), 1);
-                case "mooddrift": return EpLive(typeof(MdHook), 1, "sMdTarget", sMdTarget, null);
+                case "mooddrift": return EpLive(typeof(MdHook), 1, "sMdTarget", sMdTarget, null, "sMdValues", sMdValues, null);
+                case "mooddriftnoalloc": return EpLive(typeof(MdHook), 1, "sMdTarget", sMdTarget, null, "sMdValues", sMdValues, null);
                 case "moodidleflavor": return EpLive(typeof(BMiHook), 1);
                 case "moodpending": return EpLive(typeof(MpHook), 1);
                 case "moodtankreset": return EpLive(typeof(BMtHook), 1, "sMtPrev", sMtPrev, null);
