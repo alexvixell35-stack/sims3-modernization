@@ -106,6 +106,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSpeedRecalcLock value="True" />
     <kSpeedLockOwner value="True" />
     <kAlarmZeroPeriod value="True" />
+    <kSpoilBroadcast value="False" />
+    <kWeatherStoneRelisten value="False" />
+    <kBirthdayAgeRecord value="False" />
     <kHeartBrokenBcast value="True" />
     <kWakeHooks value="False" />
     <kWakePark value="False" />

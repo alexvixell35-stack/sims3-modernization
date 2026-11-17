@@ -528,6 +528,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kSpeedRecalcLock = true; // speedrecalclock (docs/609 §4): RecalculateGameSpeed keeps a held speed lock and does not persist the locked speed
         [Tunable] public static bool kSpeedLockOwner = true; // speedlockowner (docs/609 §5): build/buy exit unlocks the game speed only if its enter took the lock
         [Tunable] public static bool kAlarmZeroPeriod = true; // alarmzeroperiod (docs/609 §6): a repeating alarm period of 0 ticks or less counts as 1 tick (EA hangs), catch-up in one division
+        [Tunable] public static bool kSpoilBroadcast = false; // spoilbroadcast (docs/615 §1): PreparedFood.ForceSpoil disposes the disgust broadcaster it replaces at each spoil stage
+        [Tunable] public static bool kWeatherStoneRelisten = false; // weatherstonerelisten (docs/615 §2): a successful weather stone summon removes a stale pending weather listener before adding its own
+        [Tunable] public static bool kBirthdayAgeRecord = false; // birthdayagerecord (docs/615 §3): a birthday party records every guest who ages up, not only the first
         [Tunable] public static bool kHeartBrokenBcast = true; // heartbrokenbcast (docs/609 §7): SocialCallback.AddHeartBroken disposes the heartbroken broadcaster a repeat breakup replaces (EA left it pulsing on the first ex)
         [Tunable] public static bool kEatOutsideCount = true;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)
         [Tunable] public static bool kQueueProximity = true;    // queueproximity (docs/597 §2): SimQueue OrderByProximity places a new Sim by squared distance on both sides (elevator lines)

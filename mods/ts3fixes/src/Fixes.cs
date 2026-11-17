@@ -337,6 +337,9 @@ namespace Ts3Fixes
             ApplySpeedRecalcLock();   // docs/609 §4 (GameSpeed78.cs)
             ApplySpeedLockOwner();   // docs/609 §5 (GameSpeed78.cs)
             ApplyAlarmZeroPeriod();   // docs/609 §6 (GameSpeed78.cs); also carries the alarmtime stamp (HitchCause.cs)
+            ApplySpoilBroadcast();   // docs/615 §1 (Scan85.cs)
+            ApplyWeatherStoneRelisten();   // docs/615 §2 (Scan85.cs)
+            ApplyBirthdayAgeRecord();   // docs/615 §3 (Scan85.cs)
             ApplyHeartBrokenBcast();   // docs/609 §7 (GameSpeed78.cs)
             ApplyAwardKeep();  // docs/546 §11, off by default
             ApplyEventRouteRetry();  // docs/546 §11, docs/548, off by default (ceremonyspot, eventcrowdring, eventrouteretry)
@@ -905,6 +908,9 @@ namespace Ts3Fixes
         // [3411-3413] speedrecalclock (GameSpeed78.cs, docs/609 §4): recalculations kept the lock / lock cleared (off) / errors.
         // [3414-3416] speedlockowner (GameSpeed78.cs, docs/609 §5): build/buy exit unlocks skipped (lock not ours) / another holder released (off) / errors.
         // [3417-3420] alarmzeroperiod (GameSpeed78.cs, docs/609 §6): periods <= 0 as 1 tick / catch-ups by one division / repeating timers checked / errors.
+        // [3476-3478] spoilbroadcast (Scan85.cs, docs/615 §1): broadcasters disposed / leaked (off) / errors.
+        // [3479-3481] weatherstonerelisten (Scan85.cs, docs/615 §2): stale listeners removed / stacked (off) / errors.
+        // [3482-3484] birthdayagerecord (Scan85.cs, docs/615 §3): age-ups with listener kept / dropped (off) / errors.
         // [3421-3423] heartbrokenbcast (GameSpeed78.cs, docs/609 §7): replaced heartbroken broadcasters disposed / left registered (off) / errors.
         // [2269-2271] buycellrecycle (BuyCellRecycle.cs): Buy catalog cells dropped by AddGridItem (also off) / returned to a cache / errors.
         // [2793-2796] detailprioexact (DetailPrioExact.cs, docs/605 §3): exact answers / EA's body (null list or description, error) / check mismatches / errors.
@@ -1599,6 +1605,9 @@ namespace Ts3Fixes
                 case "speedskipnoactor": return Instantiator.kSpeedSkipNoActor;  // docs/609 §3 (GameSpeed78.cs), EA bug fix, off
                 case "speedrecalclock": return Instantiator.kSpeedRecalcLock;  // docs/609 §4 (GameSpeed78.cs), EA bug fix, off
                 case "speedlockowner": return Instantiator.kSpeedLockOwner;  // docs/609 §5 (GameSpeed78.cs), EA bug fix, off
+                case "spoilbroadcast": return Instantiator.kSpoilBroadcast;  // docs/615 §1 (Scan85.cs), EA bug fix, off
+                case "weatherstonerelisten": return Instantiator.kWeatherStoneRelisten;  // docs/615 §2 (Scan85.cs), EA bug fix, off
+                case "birthdayagerecord": return Instantiator.kBirthdayAgeRecord;  // docs/615 §3 (Scan85.cs), EA bug fix, off
                 case "heartbrokenbcast": return Instantiator.kHeartBrokenBcast;  // docs/609 §7 (GameSpeed78.cs), EA bug fix, off
                 case "alarmzeroperiod": return Instantiator.kAlarmZeroPeriod;  // docs/609 §6 (GameSpeed78.cs), EA bug fix (hang guard), off
                 case "birthroute": return Instantiator.kBirthRoute;
