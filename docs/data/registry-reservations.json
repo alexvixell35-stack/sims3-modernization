@@ -7064,6 +7064,38 @@
       "what": "LotManager callbacks, fireplace herb, rummage broadcaster",
       "at": "2026-11-17T01:38:11.730Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3446",
+      "kind": "fixes",
+      "from": 3446,
+      "to": 3449,
+      "by": "s82",
+      "what": "stairwaitend: StairsPortalComponent.OnPortalStart wait ends at EA's 30 sim-minute portal failsafe",
+      "at": "2026-11-17T02:09:55.973Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3450",
+      "kind": "fixes",
+      "from": 3450,
+      "to": 3452,
+      "by": "s82",
+      "what": "simdisposelink: Sim.Dispose of an unbound Sim keeps the description's live Sim link",
+      "at": "2026-11-17T02:09:56.044Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "doc-612",
+      "kind": "doc",
+      "from": 612,
+      "to": 612,
+      "by": "s82",
+      "what": "stair wait deadline, duplicate Sims (Sim.Dispose link)",
+      "at": "2026-11-17T02:10:06.731Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

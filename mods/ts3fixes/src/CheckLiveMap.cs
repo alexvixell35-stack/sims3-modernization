@@ -351,6 +351,7 @@ namespace Ts3Fixes
                 case "showstagethrowables": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatParkGoneHook), 1), EpLive(typeof(BookHandPutDownHook), 1)), EpLive(typeof(BookHandQueueHook), 1, "sBhActor", sBhActor, null)), EpLive(typeof(BribeHook), 1, "sBribeTable", sBribeTable, null)), EpLive(typeof(CarryHook), 1)), EpLive(typeof(ConvTurnHook), 1)), EpLive(typeof(FireworksFizzleHook), 0)), EpLive(typeof(GraduationAttendHook), 1)), EpLive(typeof(GraduationCityHallHook), 1)), EpLive(typeof(OutfitClearHook), 2)), EpLive(typeof(SwAbuseHook), 1)), EpLive(typeof(SwAdoptHook), 1)), EpLive(typeof(SwPetAdoptHook), 1)), EpLive(typeof(SwPutUpHook), 1)), EpLive(typeof(ThrowHook), 3)), EpLive(typeof(TopicHook), 4));
                 case "shroomslots": return EpLive(typeof(B13SsHook), 1, "sSsShrooms", sSsShrooms, typeof(int), "sSsHelped", sSsHelped, null, "sSsPost", sSsPost, 1, "sSsYielded", sSsYielded, null, "sSsYielded", sSsYielded, typeof(int), "sSsTimeout", sSsTimeout, 2);
                 case "shuffleboardbcast": return EpLive(typeof(SbHook), 2);
+                case "simdisposelink": return EpLive(typeof(SdlDisposeHook), 1);
                 case "simfestkeep": return EpLive(typeof(SimFestKeepHook), 1);
                 case "slavewakereason": return EpLive(typeof(SbSyncHook), 1, "sSbMaster", sSbMaster, null);
                 case "sneakoutlistener": return EpLive(typeof(SneakOutHook), 0, "sSoOwner", sSoOwner, null, "sSoGoing", sSoGoing, 0, "sSoFrom", sSoFrom, null, "sSoOn", sSoOn, null);
@@ -385,6 +386,7 @@ namespace Ts3Fixes
                 case "sprecheck": return EpLive(typeof(BSpTryHook), 1, "sRcUpdate", sRcUpdate, 0, "sRcDemo", sRcDemo, null, "sRcTarget", sRcTarget, typeof(float), "sRcTarget", sRcTarget, "static", "sRcMult", sRcMult, null, "sRcDrop", sRcDrop, typeof(float), "sRcDrop", sRcDrop, "static", "sRcNotify", sRcNotify, 1, "sRcTun", sRcTun, null, "sRcLast", sRcLast, null);
                 case "sprelcount": return EpLive(typeof(BSpCollectHook), 1, "sCoLot", sCoLot, null, "sCoHh", sCoHh, null, "sCoSim", sCoSim, null, "sCoAll", sCoAll, null);
                 case "sproommatejob": return EpLive(typeof(BSpRoommateHook), 1, "sRjSd", sRjSd, null);
+                case "stairwaitend": return EpLive(typeof(SwePortalHook), 1);
                 case "starlightreset": return EpJoin(EpLive(typeof(BSlHook), 1), EpLive(typeof(BSlUseHook), 1));
                 case "stations": return EpLive(typeof(StationsHook), 1);
                 case "statueline": return EpLive(typeof(SlHook), 0);
