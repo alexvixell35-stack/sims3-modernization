@@ -1170,7 +1170,7 @@ namespace Ts3Fixes
         // [3479-3481] weatherstonerelisten (Scan85.cs, docs/615 §2): stale listeners removed / stacked (off) / errors.
         // [3482-3484] birthdayagerecord (Scan85.cs, docs/615 §3): age-ups with listener kept / dropped (off) / errors.
         // [3750-3773] docs/634 families (LoopSkip632.cs), 6 slots each: unseenpianist 3750, unseenmusicwatch 3756, unseenjam 3762, unseenshow 3768: unseen / off-screen tier / out of scope / check mismatches (+4,+5 spare); 3774-3779 spare.
-        // [3780-3802] docs/635: unseenservicewait + unseenservice per-reason split (UnseenService88.cs, 3780-3795), spotbusydefer (3800-3802); 3796-3799, 3803-3819 spare.
+        // [3780-3802] docs/635: unseenservicewait + unseenservice per-reason split (UnseenService88.cs, 3780-3795), spotbusydefer (3800-3802), spotcut (3803-3805); 3796-3799, 3806-3819 spare.
         // [3740-3745] bouncerplace (RouteSources.cs, docs/633): loop routes replaced / Run arrivals placed / out of scope / slot seen / errors / check mismatches; 3746-3749 spare.
         // [3700-3708] unseenloopskip (LoopSkip632.cs, docs/632): (b) capped unseen / offscreen, (a) stepped unseen / offscreen, listed out of scope, class not listed, off own task, errors, check mismatches; 3709-3739 spare.
         // [3600-3611] unseenservice (UnseenService88.cs, docs/628): unseen conv/drink/food served / off-screen tier the same / out of scope / precondition kept EA / off-screen re-check refused / RunBehavior false / errors / check mismatches; 3612-3619 spare.
@@ -1511,6 +1511,7 @@ namespace Ts3Fixes
                 case "motivebuf": return false;  // proven-exact speedup, off until measured: motive updates snapshot into a pooled list (MotiveBuf.cs, docs/584 §5)
                 case "motivebufcheck": return false;
                 case "buffbufcheck": return false;
+                case "spotcut": return false;  // docs/635: a spotasync check's job gets the unseen-fallback MARK (deadline), a cut = no verdict
                 case "spotbusydefer": return false;  // docs/635: a spotasync check whose tagged START was refused answers no verdict (no sync plan behind the worker's lock)
                 case "unseenservicewait": return false;  // docs/635 (UnseenService88.cs): an unseen bar order waits for a server between orders instead of the linked hand-off
                 case "spotasync": return false;  // docs/616: SafeSpot's full routability check of an unseen NPC as a watchdog-tagged async job (needs [RouteAsync] WatchdogKind2=1 or Kinds bit 2; uncut)
@@ -2610,6 +2611,60 @@ namespace Ts3Fixes
         {
             return sSpotDeferred.Count > 0 && sSpotDeferred.Remove(task);
         }
+        // ---- docs/635 spotcut (default off) -------------------------------------------------------------------------------------
+        // s82 (phase-20261117-1648, r93, spotbusydefer + spotasync on): the Sun 12:47 PM hitch stayed (326 ms, tick 28768) in a
+        // new shape: no refused START, but Bart Hammer's spot:visit check of Bridgeport Eternal Rest Cemetery ran as a tagged job
+        // of 275 ms ("watchdog check, uncut: watchdog (KdUncutCeilMs), scope unseen"); the hitch frame spans that job and every
+        // task in it slept one poll of 341-356 ms. plandeadline.cpp exempts every watchdog-tagged job from KindDeadlines
+        // (UCW_WATCHDOG), so only the 30 s ceiling bounds it while the worker holds the routing lock. With the switch on, a
+        // spotasync check (unseen NPC only: H4Core.SpotAsync) also sends the [UnseenFallback] MARK before its START; ts3native
+        // then caps the job at the unseen-fallback deadline (ufUs, 220 ms less the learned overrun) like any unseen Sim's plan,
+        // and a cut check answers no verdict (null, not cached), as spotbusydefer does: the caller keeps EA's own trip.
+        // Counters: [3803] spot checks marked, [3804] cut (no verdict), [3805] check mismatches.
+        static readonly Dictionary<ulong, bool> sSpotCut = new Dictionary<ulong, bool>();  // task -> this check's job was cut
+        static bool SpotCutMark()
+        {
+            return SpotAsyncHere() && ShortcutOn("spotcut");
+        }
+        static void SpotCutNote()
+        {
+            PatchCounters()[3804]++;
+            if (sSpotCut.Count >= 64) sSpotCut.Clear();
+            sSpotCut[Simulator.CurrentTask.Value] = true;
+        }
+        static bool SpotCutTake(ulong task)
+        {
+            return sSpotCut.Count > 0 && sSpotCut.Remove(task);
+        }
+        // Pure: 0 = the job runs uncut and its verdict is cached (today), 1 = marked: cut at the unseen deadline, a cut = no verdict
+        internal static int SpotCutDecision(bool on, bool spotAsyncCheck)
+        {
+            return on && spotAsyncCheck ? 1 : 0;
+        }
+        // Pure: what SpotVerdict does with the answer: 0 cache it, 1 no verdict
+        internal static int SpotCutVerdict(bool marked, bool cut)
+        {
+            return marked && cut ? 1 : 0;
+        }
+        public static object SpotCutCheck(string what)
+        {
+            string counters = B582Counters("spotcut", 3803, new[] { "spot checks marked", "cut (no verdict)", "check mismatches" }, "");
+            if (what == "result") return counters;
+            if (what != "run") return "spotcut <run|result>";
+            bool on = ShortcutOn("spotcut");
+            bool eaBug = SpotCutDecision(false, true) == 0;   // off: the tagged job runs uncut (the hitch)
+            bool fixedPure = SpotCutDecision(on, true) == 1 && SpotCutVerdict(true, true) == 1;
+            bool controls = eaBug && SpotCutDecision(true, false) == 0     // not a spotasync check (household, A1, other plans): unchanged
+                && SpotCutVerdict(true, false) == 0                          // marked, not cut: the verdict is cached as today
+                && SpotCutVerdict(false, true) == 0
+                && !H4Core.SpotAsync(true, true, true, true, true, true, false);  // household never takes the spot async path
+            bool liveOk = sSpotCut.Count < 64;
+            if (!liveOk) PatchCounters()[3805]++;
+            return B582Line("spotcut", on, "a spotasync check's job is capped at the unseen-fallback deadline and a cut answers no verdict", fixedPure,
+                "today the tagged job is uncut (" + eaBug + "), other plans unchanged, a finished job's verdict cached as today, household never async; needs spotasync ("
+                + ShortcutOn("spotasync") + ") and ts3native [UnseenFallback]; pending cuts " + sSpotCut.Count, controls && liveOk, "", counters);
+        }
+
         // Pure: 0 = sync plan (EA / today), 1 = defer (no verdict now)
         internal static int SpotBusyDecision(bool on, bool spotAsyncCheck, bool startRefused)
         {
@@ -2691,7 +2746,7 @@ namespace Ts3Fixes
             SpotCtx sc;
             bool async = sSpotCtx.TryGetValue(task, out sc) && sc.AsyncOk && SpotAsyncWould(sim);
             int t0 = System.Environment.TickCount, starts = 0;
-            if (async) { sSpotAsyncTasks[task] = 0; sSpotDeferred.Remove(task); }
+            if (async) { sSpotAsyncTasks[task] = 0; sSpotDeferred.Remove(task); sSpotCut.Remove(task); }
             sInOwnCheck = true;
             try { ok = sim.IsPointInLotSafelyRoutable(lot, pos); }
             finally
@@ -2701,6 +2756,7 @@ namespace Ts3Fixes
             }
             bool deferred = async && SpotDeferTake(task);
             if (deferred) { c[3800]++; return null; }   // docs/635: no verdict, nothing cached; the caller takes EA's own trip
+            if (async && SpotCutTake(task)) return null;   // docs/635 spotcut: the job was cut, no verdict, nothing cached
             if (async) SpotAsyncDone(sim, lot, pos, ok, starts, unchecked(System.Environment.TickCount - t0));
             if (p.Ok) v.Cells[key] = ok;
             if (ok && addGood && p.Ok && v.Good.Count < kMaxGoodSpots) v.Good.Add(pos);

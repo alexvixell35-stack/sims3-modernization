@@ -365,6 +365,16 @@ namespace Ts3Fixes
             {
                 DoorMirror.SyncRoute(this, startPosition);
                 bool pre = false;
+                // docs/635 spotcut: a spotasync check's job carries the unseen-fallback MARK, so ts3native gives it the
+                // [UnseenFallback] job deadline instead of the watchdog tag's uncut KdUncutCeilMs (ts3native.cpp: a marked job's
+                // t_fbCapUs = ufUs whatever its tag); a cut check answers no verdict (SpotVerdict null, not cached)
+                bool spotMark = SpotCutMark() && UfSend(1);
+                if (spotMark) PatchCounters()[3803]++;
+                try { return PlanFromPointAsyncBody(startPosition, ref pre); }
+                finally { if (spotMark && UfSend(2)) SpotCutNote(); }
+            }
+            RoutePlanResult PlanFromPointAsyncBody(Vector3 startPosition, ref bool pre)
+            {
                 if (!AsyncKindStart(2, startPosition, ref pre))
                 {
                     // docs/635 spotbusydefer: a spotasync check whose tagged START was refused (the worker holds the routing lock
