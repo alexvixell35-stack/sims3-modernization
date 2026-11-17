@@ -7236,6 +7236,36 @@
       "what": "scan triage pass 2: spoil broadcaster, weather stone listener, birthday age-up record",
       "at": "2026-11-17T09:11:44.856Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3485",
+      "kind": "fixes",
+      "from": 3485,
+      "to": 3488,
+      "by": "s86",
+      "what": "spotasync: SafeSpot's own routability check as a watchdog-tagged async job + spot caller tag",
+      "at": "2026-11-17T09:40:31.385Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-616",
+      "kind": "doc",
+      "from": 616,
+      "to": 616,
+      "by": "s86",
+      "what": "spot verdict sync plan hitch (Bridgeport 12:46)",
+      "at": "2026-11-17T09:40:31.453Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3489",
+      "kind": "fixes",
+      "from": 3489,
+      "to": 3489,
+      "by": "s86",
+      "what": "spotasync shadow mismatches",
+      "at": "2026-11-17T09:41:14.844Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

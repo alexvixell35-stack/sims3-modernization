@@ -184,7 +184,7 @@ namespace Ts3Fixes
                 if (sim == null || sim.HasBeenDestroyed || !ShortcutOn("visitwalkfinish") || !sVwfTrips.TryGetValue(sim.ObjectId.Value, out cur) || !ReferenceEquals(cur, t)
                     || !VwfLotOk(sim, t.Lot) || !TownieUnseen(sim, null) || !FarFromViewers(t.Lot.Position)) { c[2727]++; return true; }
                 Vector3 pos, fwd;
-                if (!SafeSpot(sim, t.Lot, t.Lot.EntryPoint(), out pos, out fwd)) { c[2727]++; return true; }
+                if (!SafeSpot(sim, t.Lot, t.Lot.EntryPoint(), out pos, out fwd, "visitwalkfinish", true)) { c[2727]++; return true; }
                 string from = sim.LotCurrent != null ? sim.LotCurrent.Name : "street";
                 PlaceSim(sim, pos, fwd, "visitwalkfinish " + t.Lot.Name);
                 t.Finished = true;
