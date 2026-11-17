@@ -54,6 +54,330 @@
       "gohome"
     ]
   },
+    {
+      "id": "unseenpianist-check",
+      "bug": "an unseen NPC pianist (Piano+PianistPerform, a job loop) runs DoLoop's 1-minute pass for hours off camera; each pass only sends one kPlayedPiano IncrementalEvent with mDeltaTime (docs/634)",
+      "fix": "ts3fixes LoopSkip632.cs: unseenpianist (default off), docs/634; tier 2 with unseenloopskip_offscreen",
+      "save": "pure part needs no save; live census needs a world with the venue (Bridgeport)",
+      "note": "UnseenPianistCheck run checks the family decision (step: needs kUnseenLoopSkipStep for the live hook) with controls (household, high LOD, user-directed, seen, active lot, held keep EA); result shows the family counters.",
+      "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+      "steps": [
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenpianist": false
+          },
+          "note": "off first",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenPianistCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "waitS": 2,
+          "note": "off: EA's path"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenPianistCheck",
+            "args": [
+              "result"
+            ]
+          }
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenpianist": true
+          },
+          "note": "on",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenPianistCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "waitS": 2,
+          "note": "on: the fix"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenPianistCheck",
+            "args": [
+              "result"
+            ]
+          }
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenpianist": false
+          },
+          "note": "back to the default"
+        }
+      ],
+      "cleanup": [
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenpianist": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "unseenmusicwatch-check",
+      "bug": "an unseen NPC watching a piano (Piano+Watch) holds its 1-minute DoLoop until EA's 360/180-minute low-LOD end (docs/634)",
+      "fix": "ts3fixes LoopSkip632.cs: unseenmusicwatch (default off), docs/634; tier 2 with unseenloopskip_offscreen",
+      "save": "pure part needs no save; live census needs a world with the venue (Bridgeport)",
+      "note": "UnseenMusicWatchCheck run checks the family decision (end at kUnseenLoopSkipCapMin through EA's own low-LOD branch) with controls (household, high LOD, user-directed, seen, active lot, held keep EA); result shows the family counters.",
+      "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+      "steps": [
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenmusicwatch": false
+          },
+          "note": "off first",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenMusicWatchCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "waitS": 2,
+          "note": "off: EA's path"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenMusicWatchCheck",
+            "args": [
+              "result"
+            ]
+          }
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenmusicwatch": true
+          },
+          "note": "on",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenMusicWatchCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "waitS": 2,
+          "note": "on: the fix"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenMusicWatchCheck",
+            "args": [
+              "result"
+            ]
+          }
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenmusicwatch": false
+          },
+          "note": "back to the default"
+        }
+      ],
+      "cleanup": [
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenmusicwatch": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "unseenjam-check",
+      "bug": "an unseen NPC's Guitar+Jam runs DoLoop's 1-minute pass off camera; each pass only sends two delta events (kPlayedGuitar, kSimJammed) (docs/634)",
+      "fix": "ts3fixes LoopSkip632.cs: unseenjam (default off), docs/634; tier 2 with unseenloopskip_offscreen",
+      "save": "pure part needs no save; live census needs a world with the venue (Bridgeport)",
+      "note": "UnseenJamCheck run checks the family decision (step: needs kUnseenLoopSkipStep for the live hook) with controls (household, high LOD, user-directed, seen, active lot, held keep EA); result shows the family counters.",
+      "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+      "steps": [
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenjam": false
+          },
+          "note": "off first",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenJamCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "waitS": 2,
+          "note": "off: EA's path"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenJamCheck",
+            "args": [
+              "result"
+            ]
+          }
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenjam": true
+          },
+          "note": "on",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenJamCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "waitS": 2,
+          "note": "on: the fix"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenJamCheck",
+            "args": [
+              "result"
+            ]
+          }
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenjam": false
+          },
+          "note": "back to the default"
+        }
+      ],
+      "cleanup": [
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenjam": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "unseenshow-check",
+      "bug": "an unseen NPC inside a show venue (ShowVenue+AutonomouslyAttendShow, MetaRabbitHoleInteraction) waits in 1-minute DoLoop passes with no callback until EA's alarm ends the visit (docs/634)",
+      "fix": "ts3fixes LoopSkip632.cs: unseenshow (default off), docs/634; tier 2 with unseenloopskip_offscreen",
+      "save": "pure part needs no save; live census needs a world with the venue (Bridgeport)",
+      "note": "UnseenShowCheck run checks the family decision (step: needs kUnseenLoopSkipStep for the live hook) with controls (household, high LOD, user-directed, seen, active lot, held keep EA); result shows the family counters.",
+      "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+      "steps": [
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenshow": false
+          },
+          "note": "off first",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenShowCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "waitS": 2,
+          "note": "off: EA's path"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenShowCheck",
+            "args": [
+              "result"
+            ]
+          }
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenshow": true
+          },
+          "note": "on",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenShowCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "waitS": 2,
+          "note": "on: the fix"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenShowCheck",
+            "args": [
+              "result"
+            ]
+          }
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenshow": false
+          },
+          "note": "back to the default"
+        }
+      ],
+      "cleanup": [
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenshow": false
+          }
+        }
+      ]
+    },
   {
     "id": "bp-waylons-gohome",
     "bug": "Townies placed by the lot-visit shortcut at Waylon's Haunt later stand stuck in Go Home (bp-mod run)",

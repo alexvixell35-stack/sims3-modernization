@@ -1169,6 +1169,7 @@ namespace Ts3Fixes
         // [3476-3478] spoilbroadcast (Scan85.cs, docs/615 §1): broadcasters disposed / leaked (off) / errors.
         // [3479-3481] weatherstonerelisten (Scan85.cs, docs/615 §2): stale listeners removed / stacked (off) / errors.
         // [3482-3484] birthdayagerecord (Scan85.cs, docs/615 §3): age-ups with listener kept / dropped (off) / errors.
+        // [3750-3773] docs/634 families (LoopSkip632.cs), 6 slots each: unseenpianist 3750, unseenmusicwatch 3756, unseenjam 3762, unseenshow 3768: unseen / off-screen tier / out of scope / check mismatches (+4,+5 spare); 3774-3779 spare.
         // [3740-3745] bouncerplace (RouteSources.cs, docs/633): loop routes replaced / Run arrivals placed / out of scope / slot seen / errors / check mismatches; 3746-3749 spare.
         // [3700-3708] unseenloopskip (LoopSkip632.cs, docs/632): (b) capped unseen / offscreen, (a) stepped unseen / offscreen, listed out of scope, class not listed, off own task, errors, check mismatches; 3709-3739 spare.
         // [3600-3611] unseenservice (UnseenService88.cs, docs/628): unseen conv/drink/food served / off-screen tier the same / out of scope / precondition kept EA / off-screen re-check refused / RunBehavior false / errors / check mismatches; 3612-3619 spare.
@@ -1752,6 +1753,11 @@ namespace Ts3Fixes
                 case "unseenservice": return Instantiator.kUnseenService;  // docs/628 (UnseenService88.cs), unseen bar orders served at once, off
                 case "unseenloopskip": return Instantiator.kUnseenLoopSkip;  // docs/632 (LoopSkip632.cs), unseen allow-listed loops end early / step, off
                 case "unseenloopskip_offscreen": return Instantiator.kUnseenLoopSkipOffscreen;  // docs/632 tier 2 (off-screen near / zoomtier), off
+                case "unseenpianist": return Instantiator.kUnseenPianist;  // docs/634 (LoopSkip632.cs), unseen pianist loop stepped, off
+                case "unseenmusicwatch": return Instantiator.kUnseenMusicWatch;  // docs/634, unseen piano watcher ends at the cap, off
+                case "unseenjam": return Instantiator.kUnseenJam;  // docs/634, unseen guitar jam stepped, off
+                case "unseenshow": return Instantiator.kUnseenShow;  // docs/634, unseen show-venue visit stepped, off
+                case "unseenloopskip_offscreen_dup_removed": return false;  // docs/632 tier 2 (off-screen near / zoomtier), off
                 case "unseenservice_offscreen": return Instantiator.kUnseenServiceOffscreen;  // docs/628 tier 2 (off-screen, not far), off
                 case "birthdayagerecord": return Instantiator.kBirthdayAgeRecord;  // docs/615 §3 (Scan85.cs), EA bug fix, off
                 case "autmetarows": return Instantiator.kAutMetaRows;  // docs/622 §1 (Hitch622.cs), exact speedup, off

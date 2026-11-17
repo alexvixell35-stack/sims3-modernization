@@ -68,6 +68,45 @@ namespace Ts3Fixes
             if (t == null) miss.Add(name); else sLsClasses[t] = kind;
         }
 
+        // ---- docs/634 per-family switches ---------------------------------------------------------------------------------
+        // One switch per townie loop family, on the same machinery (tiers, scope, getters, step hook) but gated by its own
+        // switch instead of `unseenloopskip`; tier 2 still needs `unseenloopskip_offscreen`. A family class with its switch
+        // off is EA's (and counts as unlisted under `unseenloopskip`). Counters per family at base: [+0] unseen tier,
+        // [+1] off-screen tier (once per capped instance / per stepped wait), [+2] out of scope, [+3] Check mismatches.
+        static readonly string[] kLsFamSwitch = { "unseenpianist", "unseenmusicwatch", "unseenjam", "unseenshow" };
+        static readonly int[] kLsFamBase = { 3750, 3756, 3762, 3768 };
+        static readonly int[] kLsFamKind = { kLsStep, kLsEnd, kLsStep, kLsStep };
+        static readonly string[] kLsFamName = { "Piano.PianistPerform", "Piano.Watch", "Guitar.Jam", "ShowVenue.AutonomouslyAttendShow" };
+        static readonly Type[] sLsFamType = new Type[4];
+        static readonly Dictionary<Type, int> sLsFamily = new Dictionary<Type, int>();
+
+        static void LsAddFam(int fam, Type t, List<string> miss)
+        {
+            sLsFamType[fam] = t;
+            LsAdd(t, kLsFamKind[fam], kLsFamName[fam], miss);
+            if (t != null) sLsFamily[t] = fam;
+        }
+
+        static int LsFam(Type t)
+        {
+            int f;
+            return t != null && sLsFamily.TryGetValue(t, out f) ? f : -1;
+        }
+
+        // Any switch of the machinery on (generic or a family): the getters and the step hook look further only then.
+        static bool LsAnyOn()
+        {
+            if (ShortcutOn("unseenloopskip")) return true;
+            for (int i = 0; i < kLsFamSwitch.Length; i++) if (ShortcutOn(kLsFamSwitch[i])) return true;
+            return false;
+        }
+
+        // Counter slot for a tier-1 / tier-2 action or an out-of-scope ask: the family's own block, else the generic one.
+        static int LsSlot(int fam, int genericSlot, int famOffset)
+        {
+            return fam >= 0 ? kLsFamBase[fam] + famOffset : genericSlot;
+        }
+
         // The allow list (docs/632 §3). Exact types: subclasses (Violin/FairyHouse dances, ProSports/PoliceStation workouts)
         // have their own Run and stay EA's.
         static void ApplyUnseenLoopSkip()
@@ -85,6 +124,19 @@ namespace Ts3Fixes
             // group talk, stops swinging unless BePushed is next (AnimateSim Neutral, UpdateFootprint), EndCommodityUpdates,
             // TryMovingToAnotherObject. The callback reads mLifeTime only (playground move), so end only, no step.
             LsAdd(typeof(SwingSet).GetNestedType("Swing", nested), kLsEnd, "SwingSet.Swing", miss);
+            // docs/634 families, each behind its own switch [verified, ilspycmd]:
+            // Piano+PianistPerform (job loop, step only): PlayBandInstrument.PlayLoop sends one IncrementalEvent(kPlayedPiano,
+            // mDeltaTime) per pass; nothing else per pass. The loop keeps running (no early end).
+            LsAddFam(0, typeof(Piano).GetNestedType("PianistPerform", nested), miss);
+            // Piano+Watch (leisure, end only): WatchLoopBase plays a pending sweet-move reaction; TippingLoop (tips mode) rolls
+            // by lifetime, so no step. Post-loop: RemoveAlarm, RemoveWatcher, SongFinished(stop), listeners off, EndCommodityUpdates.
+            LsAddFam(1, typeof(Piano).GetNestedType("Watch", nested), miss);
+            // Guitar+Jam (leisure, step only): JamWithInstrument.PlayLoop = kPlayedGuitar IncrementalEvent + kSimJammed
+            // TimePassedOnLotEvent, both with mDeltaTime. No end: the jam controller holds partners.
+            LsAddFam(2, typeof(Guitar).GetNestedType("Jam", nested), miss);
+            // ShowVenue+AutonomouslyAttendShow (MetaRabbitHoleInteraction.Run, step only): DoLoop(Default) with no callback inside
+            // the venue; the visit ends by EA's TimerFinished alarm (an exit reason, ends the stepped wait on the same tick).
+            LsAddFam(3, typeof(ShowVenue).GetNestedType("AutonomouslyAttendShow", nested), miss);
             sLsMissing = string.Join(", ", miss.ToArray());
             if (sLsDayField == null || sLsNightField == null) miss.Add("Autonomy.kMaxTimeForLowLODInteraction*");
             sLsMissing = string.Join(", ", miss.ToArray());
@@ -104,7 +156,9 @@ namespace Ts3Fixes
         internal static int LsKind(Type t)
         {
             int k;
-            return t != null && sLsClasses.TryGetValue(t, out k) ? k : 0;
+            if (t == null || !sLsClasses.TryGetValue(t, out k)) return 0;
+            int fam = LsFam(t);
+            return ShortcutOn(fam >= 0 ? kLsFamSwitch[fam] : "unseenloopskip") ? k : 0;  // each class behind its own switch
         }
 
         // Pure: 0 = EA, 1 = unseen tier, 2 = off-screen tier. why = UfWhy (0 unseen, 5 on screen, 6 near viewers).
@@ -146,10 +200,9 @@ namespace Ts3Fixes
         // Live scope for the Sim running on this task: tier of the actor, and of a Sim target (a partner must be in scope too).
         static int LsLive(InteractionInstance ia, Sim s, int kind)
         {
-            bool on = ShortcutOn("unseenloopskip");
-            if (!on) return 0;
-            if (kind == 0)
+            if (kind == 0)  // not listed, or its switch off (LsKind)
             {
+                if (!ShortcutOn("unseenloopskip")) return 0;
                 PatchCounters()[3705]++;
                 Type ut = ia.GetType();
                 int n;
@@ -158,16 +211,17 @@ namespace Ts3Fixes
             }
             bool offOn = ShortcutOn("unseenloopskip_offscreen");
             bool auto = ia.Autonomous || ia.GetPriority().Level <= InteractionPriorityLevel.Autonomous;  // EA's DoLoop test
-            if (!auto) { PatchCounters()[3711]++; PatchCounters()[3704]++; return 0; }
-            int t = LsSimTier(s, on, offOn, true);
+            if (!auto) { PatchCounters()[3711]++; PatchCounters()[LsSlot(LsFam(ia.GetType()), 3704, 2)]++; return 0; }
+            int fam = LsFam(ia.GetType());
+            int t = LsSimTier(s, true, offOn, true);
             Sim partner = ia.Target as Sim;
             if (t > 0 && partner != null && partner != s)
             {
-                int pt = LsSimTier(partner, on, offOn, false);  // the weaker tier of the pair decides; a seen partner keeps EA
+                int pt = LsSimTier(partner, true, offOn, false);  // the weaker tier of the pair decides; a seen partner keeps EA
                 if (pt == 0) PatchCounters()[3712]++;
                 t = pt == 0 ? 0 : Math.Max(t, pt);
             }
-            if (t == 0) PatchCounters()[3704]++;
+            if (t == 0) PatchCounters()[LsSlot(fam, 3704, 2)]++;
             return t;
         }
 
@@ -181,14 +235,14 @@ namespace Ts3Fixes
         {
             try
             {
-                if (!ShortcutOn("unseenloopskip")) return ea;
+                if (!LsAnyOn()) return ea;
                 Sim s = LsTaskSim();
                 InteractionInstance ia = s == null ? null : s.CurrentInteraction;
                 if (ia == null) { PatchCounters()[3706]++; return ea; }
                 int kind = LsKind(ia.GetType());
                 int tier = LsLive(ia, s, kind);
                 float r = LsCapFor(tier, kind, ea, Instantiator.kUnseenLoopSkipCapMin);
-                if (r < ea && !object.ReferenceEquals(ia, sLsLastCapped)) { sLsLastCapped = ia; PatchCounters()[tier == 1 ? 3700 : 3701]++; }
+                if (r < ea && !object.ReferenceEquals(ia, sLsLastCapped)) { sLsLastCapped = ia; PatchCounters()[LsSlot(LsFam(ia.GetType()), tier == 1 ? 3700 : 3701, tier == 1 ? 0 : 1)]++; }
                 return r;
             }
             catch (ResetException) { throw; }
@@ -213,7 +267,7 @@ namespace Ts3Fixes
                 float w = simMinutes;
                 try
                 {
-                    if (simMinutes == Sim.kWaitForExitReasonDefaultTime && ShortcutOn("unseenloopskip"))
+                    if (simMinutes == Sim.kWaitForExitReasonDefaultTime && LsAnyOn())
                     {
                         Sim s = (Sim)(object)this;
                         if (Simulator.CurrentTask == s.ObjectId)
@@ -224,7 +278,7 @@ namespace Ts3Fixes
                             {
                                 int tier = LsLive(ia, s, kind);
                                 w = LsStepFor(tier, kind, simMinutes, Sim.kWaitForExitReasonDefaultTime, Instantiator.kUnseenLoopSkipStepMin);
-                                if (w != simMinutes) PatchCounters()[tier == 1 ? 3702 : 3703]++;
+                                if (w != simMinutes) PatchCounters()[LsSlot(LsFam(ia.GetType()), tier == 1 ? 3702 : 3703, tier == 1 ? 0 : 1)]++;
                             }
                         }
                     }
@@ -293,6 +347,63 @@ namespace Ts3Fixes
             return B582Line("unseenloopskip", on, "an unseen allow-listed autonomous loop ends at the cap through EA's low-LOD end", fixedPure && liveOk,
                 "EA ends at its tuned " + eaDay + "/" + eaNight + " min (" + eaBug + "), household / high LOD / user-directed / seen / active lot / held keep EA, off-screen tier only with unseenloopskip_offscreen ("
                 + offOn + "), unlisted classes keep EA, " + live, controls && liveOk, sLsMissing, counters);
+        }
+
+        // docs/634 family Checks: the family's pure decision for an unseen low-LOD autonomous NPC (off: EA's 1-minute pass /
+        // EA's 360/180-minute end, BROKEN; on: stepped / capped, FIXED). Controls: household / high LOD / user-directed / seen /
+        // active lot / held keep EA, the off-screen tier only with unseenloopskip_offscreen, a step family is never ended early
+        // (job loops keep running), an end family is never stepped. Live: class resolved, step hook in, loops of the class now.
+        public static object UnseenPianistCheck(string what) { return LsFamilyCheck(0, what, "an unseen pianist's play loop passes every step minutes (one kPlayedPiano delta event per pass), the job keeps running"); }
+        public static object UnseenMusicWatchCheck(string what) { return LsFamilyCheck(1, what, "an unseen townie watching a piano ends at the cap through EA's low-LOD end"); }
+        public static object UnseenJamCheck(string what) { return LsFamilyCheck(2, what, "an unseen guitar jam passes every step minutes (two delta events per pass), the jam keeps running"); }
+        public static object UnseenShowCheck(string what) { return LsFamilyCheck(3, what, "an unseen show-venue visit waits in step-minute passes (no callback), ends by EA's alarm"); }
+
+        static object LsFamilyCheck(int fam, string what, string desc)
+        {
+            string sw = kLsFamSwitch[fam];
+            int b = kLsFamBase[fam], kind = kLsFamKind[fam];
+            bool step = (kind & kLsStep) != 0;
+            string missing = sLsFamType[fam] == null ? kLsFamName[fam] : "";
+            string counters = B582Counters(sw, b, new[] { step ? "stepped unseen" : "capped unseen", step ? "stepped offscreen" : "capped offscreen", "out of scope", "check mismatches" }, missing);
+            if (what == "result") return counters;
+            if (what != "run") return sw + " <run|result>";
+            bool on = ShortcutOn(sw), offOn = ShortcutOn("unseenloopskip_offscreen");
+            float eaDay = LsField(sLsDayField, 420f), cap = Instantiator.kUnseenLoopSkipCapMin, stepMin = Instantiator.kUnseenLoopSkipStepMin;
+            int tierOn = LsTier(on, offOn, false, true, true, 0, true);
+            bool fixedNow = on && (step ? LsStepFor(tierOn, kind, 1f, 1f, stepMin) == stepMin && stepMin > 1f
+                                        : LsCapFor(tierOn, kind, eaDay, cap) == cap && cap < eaDay);
+            bool controls = (step ? LsStepFor(LsTier(false, false, false, true, true, 0, true), kind, 1f, 1f, 10f) == 1f   // off: EA's pass
+                                  : LsCapFor(LsTier(false, false, false, true, true, 0, true), kind, 420f, 30f) == 420f)
+                && LsTier(true, true, true, true, true, 0, true) == 0         // household / selected
+                && LsTier(true, true, false, false, true, 0, true) == 0       // high LOD
+                && LsTier(true, true, false, true, false, 0, true) == 0       // user-directed
+                && LsTier(true, true, false, true, true, 5, false) == 0       // on screen and big enough
+                && LsTier(true, false, false, true, true, 6, true) == 0       // off-screen tier needs unseenloopskip_offscreen
+                && LsTier(true, true, false, true, true, 4, true) == 0        // active lot
+                && LsTier(true, true, false, true, true, 7, true) == 0        // held
+                && (step ? LsCapFor(1, kind, 360f, 30f) == 360f               // a step family is never ended early
+                         : LsStepFor(1, kind, 1f, 1f, 10f) == 1f)             // an end family is never stepped
+                && LsStepFor(1, kind, 5f, 1f, 10f) == 5f;                     // only DoLoop's own 1-minute wait
+            if (!controls) PatchCounters()[b + 3]++;
+            int t1 = 0, t2 = 0, other = 0;
+            try
+            {
+                Type ty = sLsFamType[fam];
+                if (ty != null)
+                    foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                    {
+                        InteractionInstance ia = s == null ? null : s.CurrentInteraction;
+                        if (ia == null || ia.GetType() != ty) continue;
+                        int t = LsSimTier(s, true, true, false);
+                        if (t == 1) t1++; else if (t == 2) t2++; else other++;
+                    }
+            }
+            catch (Exception) { }
+            string live = "class " + (missing.Length == 0 ? "found" : "missing") + (step ? ", step " + stepMin + " min, step hook " + (sLsStepPatched ? "in" : "not patched (kUnseenLoopSkipStep off)") : ", cap " + cap + " min")
+                + ", loops now unseen " + t1 + " off-screen " + t2 + " EA " + other;
+            return B582Line(sw, on, desc, fixedNow,
+                "off as EA, household / high LOD / user-directed / seen / active lot / held keep EA, off-screen tier only with unseenloopskip_offscreen (" + offOn + "), "
+                + (step ? "never ended early" : "never stepped") + ", " + live, controls, missing, counters);
         }
     }
 }

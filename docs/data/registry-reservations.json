@@ -7417,6 +7417,24 @@
       "from": 633,
       "at": "2026-11-17T18:00:00.000Z",
       "worktree": "/home/<user>/dev/s3m-combo"
+    },
+    {
+      "id": "fixes-3750",
+      "kind": "fixes",
+      "from": 3750,
+      "to": 3779,
+      "by": "s91combo",
+      "what": "unseen townie loop families: unseenpianist, unseenmusicwatch, unseenjam, unseenshow (docs/634)",
+      "at": "2026-11-17T20:00:00.000Z",
+      "worktree": "/home/<user>/dev/s3m-combo",
+      "pinned": true
+    },
+    {
+      "id": "doc-634",
+      "kind": "doc",
+      "from": 634,
+      "at": "2026-11-17T20:00:00.000Z",
+      "worktree": "/home/<user>/dev/s3m-combo"
     }
   ]
 }
