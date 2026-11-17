@@ -6130,10 +6130,10 @@ static bool ApplyD3dMultithreaded(const wchar_t* ini) {
 
 #include "launcherfix.cpp"  // docs/255: [LauncherFix] EA launcher telemetry busy-wait (launcher host only)
 static bool g_otherHost;  // not TS3W.exe (the launcher also loads the ASI loader): no exit work at DLL_PROCESS_DETACH
-// docs/230: the build this asi's addresses belong to (PE timestamp + SizeOfImage), the same pair on Steam and EA
+// docs/230: the build this asi's addresses belong to (PE timestamp + SizeOfImage, appended sections allowed: Ts3HostImageOk)
 static bool HostBuildOk(const void* base) {
     const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)((const u8*)base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
-    return nt->FileHeader.TimeDateStamp == (DWORD)TS3A_HOST_PE && nt->OptionalHeader.SizeOfImage == (DWORD)TS3A_HOST_SIZE;
+    return Ts3HostImageOk(nt);
 }
 
 static void Run(HMODULE self) {

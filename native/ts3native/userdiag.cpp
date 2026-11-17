@@ -924,7 +924,7 @@ static bool ApplyUserDiag(const wchar_t* ini) {
     (void)steam;
     const u8* hb = (const u8*)GetModuleHandleW(NULL);
     const IMAGE_NT_HEADERS* hn = (const IMAGE_NT_HEADERS*)(hb + ((const IMAGE_DOS_HEADER*)hb)->e_lfanew);
-    const bool host = hn->FileHeader.TimeDateStamp == (DWORD)TS3A_HOST_PE && hn->OptionalHeader.SizeOfImage == (DWORD)TS3A_HOST_SIZE;
+    const bool host = Ts3HostImageOk(hn);
     Log("diag: edition %s, game exe file version %s, install class %s%s", host ? TS3A_HOST_NAME : "unknown", ver[0] ? ver : "?", kUdClass[cls],
         host ? " - supported" : " - UNSUPPORTED, this ts3native build supports " TS3A_HOST_NAME " only");
 #else

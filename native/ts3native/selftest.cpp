@@ -14348,17 +14348,32 @@ static void TestLauncherFix() {
     VirtualFree(m, 0, MEM_RELEASE);
 }
 
-// host build guard (HostBuildOk, docs/230): Steam 1.67 stamp + SizeOfImage pass; retail 1.67 (other layout) or either field off fails
+// host build guard (HostBuildOk, docs/230): Steam 1.67 stamp + SizeOfImage pass; a section appended after EA's image
+// (an import adder's `.addImp`) passes; retail 1.67 (an EA section past the Steam size), no EA section in the last page,
+// a smaller image or another stamp fail
 static void TestHostBuild() {
-    static u8 img[0x200];
+    static u8 img[0x400];
+    memset(img, 0, sizeof(img));
     ((IMAGE_DOS_HEADER*)img)->e_lfanew = 0x80;
     IMAGE_NT_HEADERS* nt = (IMAGE_NT_HEADERS*)(img + 0x80);
-    nt->FileHeader.TimeDateStamp = TS3A_HOST_PE, nt->OptionalHeader.SizeOfImage = TS3A_HOST_SIZE;
+    nt->FileHeader.SizeOfOptionalHeader = sizeof(IMAGE_OPTIONAL_HEADER);
+    IMAGE_SECTION_HEADER* s = IMAGE_FIRST_SECTION(nt);
+    const DWORD host = TS3A_HOST_SIZE;
+    s[0].VirtualAddress = 0x1000, s[0].Misc.VirtualSize = host - 0x3000;  // EA's code
+    s[1].VirtualAddress = host - 0x1000, s[1].Misc.VirtualSize = 0x468;   // EA's last section, in the last page
+    s[2].VirtualAddress = host, s[2].Misc.VirtualSize = 0x1B2000;         // appended (.addImp)
+    nt->FileHeader.TimeDateStamp = TS3A_HOST_PE, nt->OptionalHeader.SizeOfImage = host, nt->FileHeader.NumberOfSections = 2;
     assert(HostBuildOk(img));
-    nt->OptionalHeader.SizeOfImage = TS3A_HOST_SIZE + 0x1000;
-    assert(!HostBuildOk(img));
-    nt->OptionalHeader.SizeOfImage = TS3A_HOST_SIZE, nt->FileHeader.TimeDateStamp = TS3A_HOST_PE + 1;
-    assert(!HostBuildOk(img));
+    nt->OptionalHeader.SizeOfImage = host + 0x1B2000, nt->FileHeader.NumberOfSections = 3;
+    assert(HostBuildOk(img));                                             // appended section: same addresses
+    s[1].Misc.VirtualSize = 0x1468;
+    assert(!HostBuildOk(img));                                            // EA's section runs past the Steam size (retail)
+    s[1].Misc.VirtualSize = 0x468, s[1].VirtualAddress = host - 0x3000;
+    assert(!HostBuildOk(img));                                            // nothing of EA's in the last page
+    s[1].VirtualAddress = host - 0x1000, nt->OptionalHeader.SizeOfImage = host - 0x1000;
+    assert(!HostBuildOk(img));                                            // smaller image
+    nt->OptionalHeader.SizeOfImage = host + 0x1B2000, nt->FileHeader.TimeDateStamp = TS3A_HOST_PE + 1;
+    assert(!HostBuildOk(img));                                            // another stamp
 }
 
 // docs/270 §32: the combase keepalive pattern. Synthetic buffers (0, 1, 2 copies, wildcards free), then the system
