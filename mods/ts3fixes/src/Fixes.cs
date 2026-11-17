@@ -392,6 +392,7 @@ namespace Ts3Fixes
             ApplySpoilBroadcast();   // docs/615 §1 (Scan85.cs)
             ApplyWeatherStoneRelisten();   // docs/615 §2 (Scan85.cs)
             ApplyBirthdayAgeRecord();   // docs/615 §3 (Scan85.cs)
+            ApplyUnseenService();   // docs/628 (UnseenService88.cs)
             ApplyLifeEventIdFirst();   // docs/622 §5 (Hitch622.cs)
             ApplyBuffPausedTimeout();   // docs/622 §7 (Hitch622.cs)
             ApplyTimerAlarmLeak();   // docs/623 §1 (Wishes86.cs)
@@ -1164,6 +1165,7 @@ namespace Ts3Fixes
         // [3476-3478] spoilbroadcast (Scan85.cs, docs/615 §1): broadcasters disposed / leaked (off) / errors.
         // [3479-3481] weatherstonerelisten (Scan85.cs, docs/615 §2): stale listeners removed / stacked (off) / errors.
         // [3482-3484] birthdayagerecord (Scan85.cs, docs/615 §3): age-ups with listener kept / dropped (off) / errors.
+        // [3600-3611] unseenservice (UnseenService88.cs, docs/628): unseen conv/drink/food served / off-screen tier the same / out of scope / precondition kept EA / off-screen re-check refused / RunBehavior false / errors / check mismatches; 3612-3619 spare.
         // [3490-3492] autmetarows (Hitch622.cs, AutShadow.cs AddObj, docs/622 §1): pair rows from the cache / rows computed / check mismatches.
         // [3493-3495] buffremovemerge (Hitch622.cs, Batch589cLogic.cs BBrdHook, docs/622 §2): no-op removes after one lookup / removes to EA's body / errors.
         // [3496-3498] swslots (Hitch622.cs SwOn, docs/622 §3): slot refills / check mismatches / check runs.
@@ -1736,6 +1738,8 @@ namespace Ts3Fixes
                 case "datadiscputback": return Instantiator.kDataDiscPutBack;  // docs/614 §5 (Scan84.cs), EA bug fix, off
                 case "spoilbroadcast": return Instantiator.kSpoilBroadcast;  // docs/615 §1 (Scan85.cs), EA bug fix, off
                 case "weatherstonerelisten": return Instantiator.kWeatherStoneRelisten;  // docs/615 §2 (Scan85.cs), EA bug fix, off
+                case "unseenservice": return Instantiator.kUnseenService;  // docs/628 (UnseenService88.cs), unseen bar orders served at once, off
+                case "unseenservice_offscreen": return Instantiator.kUnseenServiceOffscreen;  // docs/628 tier 2 (off-screen, not far), off
                 case "birthdayagerecord": return Instantiator.kBirthdayAgeRecord;  // docs/615 §3 (Scan85.cs), EA bug fix, off
                 case "autmetarows": return Instantiator.kAutMetaRows;  // docs/622 §1 (Hitch622.cs), exact speedup, off
                 case "buffremovemerge": return Instantiator.kBuffRemoveMerge;  // docs/622 §2 (Hitch622.cs), exact speedup, off
