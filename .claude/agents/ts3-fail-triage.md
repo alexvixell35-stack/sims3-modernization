@@ -22,7 +22,7 @@ Read first: AGENTS.md, docs/TESTING.md (repro rules: teleport and force, never w
 - Write the rerun queue `tools/harness/queues/<name>-rerunN-<date>.json` and dry-run it (`node tools/harness/queue.ts <file> --dry-run`).
 
 ## Rules
-- Work in `.claude/worktrees/<branch-name>` on `bugfix/<kebab>-<mmdd>`; the main checkout stays on master; never `git stash`.
+- Work in `.claude/worktrees/<branch-name>` on `bugfix/<kebab>-<mmdd>` (`node tools/harness/cleanup.ts gate` before `git worktree add`); the main checkout stays on master; never `git stash`.
 - Do NOT run the game while a chain or job runs (`node tools/harness/track.ts status`). Static work and builds only.
 - Agent package changed: build `game-copy/ts3agent.package.<tag>` and say so.
 - `node tools/selftest-all.ts` 0 FAIL before committing (tools/harness/vanilla.ts --self-check fails while a game job runs: OK, say so).

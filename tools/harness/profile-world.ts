@@ -96,7 +96,7 @@ import { BIN, GAME_EXE } from './game-exe.ts';
 import { report as camSweepReport, segmentsOf, table as camSweepTable, verdict as camSweepVerdict } from './camera-sweep-report.ts';
 import { homedir } from 'node:os';
 
-const { values } = parseArgs({ options: { svcsplit: { type: 'boolean' }, tag: { type: 'string' }, minutes: { type: 'string', default: '10' }, ab: { type: 'string' }, fixedwork: { type: 'string' }, 'ab-on-first': { type: 'boolean' }, 'fixes-off': { type: 'string' }, 'fixes-on': { type: 'string' }, 'until-compares': { type: 'string' }, slice: { type: 'string', default: '2' }, taskstall: { type: 'string' }, seed: { type: 'string' }, repro: { type: 'string' }, mainstack: { type: 'string' }, inroom: { type: 'boolean' }, watchstalk: { type: 'boolean' }, 'watchstalk-worker': { type: 'boolean' }, livereads2: { type: 'boolean' }, f4b: { type: 'boolean' }, vres: { type: 'boolean' }, 'vres-dry': { type: 'string' }, 'no-samplers': { type: 'boolean' }, 'no-env': { type: 'boolean' }, 'quit-jobs': { type: 'boolean' }, 'no-env-guard': { type: 'boolean' }, 'no-prof': { type: 'boolean' }, 'no-frames': { type: 'boolean' }, 'camera-pan': { type: 'boolean' }, 'prof-opts': { type: 'string' }, travel: { type: 'string' }, 'fixes-require': { type: 'string' }, 'frame-lead': { type: 'string' }, 'hitch-tasks': { type: 'string' }, 'since-load': { type: 'string' }, 'frames-shared': { type: 'string' }, 'loop-rule': { type: 'string' }, story: { type: 'string' } } });
+const { values } = parseArgs({ options: { svcsplit: { type: 'boolean' }, tag: { type: 'string' }, minutes: { type: 'string', default: '10' }, ab: { type: 'string' }, fixedwork: { type: 'string' }, 'ab-on-first': { type: 'boolean' }, 'fixes-off': { type: 'string' }, 'fixes-on': { type: 'string' }, 'until-compares': { type: 'string' }, slice: { type: 'string', default: '2' }, taskstall: { type: 'string' }, seed: { type: 'string' }, repro: { type: 'string' }, mainstack: { type: 'string' }, inroom: { type: 'boolean' }, watchstalk: { type: 'boolean' }, 'watchstalk-worker': { type: 'boolean' }, livereads2: { type: 'boolean' }, f4b: { type: 'boolean' }, vres: { type: 'boolean' }, 'vres-dry': { type: 'string' }, 'no-samplers': { type: 'boolean' }, 'no-env': { type: 'boolean' }, 'quit-jobs': { type: 'boolean' }, 'no-env-guard': { type: 'boolean' }, 'no-prof': { type: 'boolean' }, 'no-frames': { type: 'boolean' }, 'camera-pan': { type: 'boolean' }, 'prof-opts': { type: 'string' }, travel: { type: 'string' }, 'fixes-require': { type: 'string' }, 'frame-lead': { type: 'string' }, 'hitch-tasks': { type: 'string' }, 'since-load': { type: 'string' }, 'frames-shared': { type: 'string' }, 'rewind-next': { type: 'boolean' }, 'loop-rule': { type: 'string' }, story: { type: 'string' } } });
 if (!values.tag) throw new Error('--tag required');
 const profOpts = values['prof-opts'] ? JSON.parse(values['prof-opts']) : {}; // fail before the game is touched on bad JSON
 if (values['vres-dry'] !== undefined && !/^[1-9]\d*$/.test(values['vres-dry'])) throw new Error('--vres-dry must be a positive integer');
@@ -350,11 +350,14 @@ const watchDone = side(values.watchstalk, 'watch-stalk.js', 'watchstalk', values
 const lr2Done = side(values.livereads2, 'live-reads2.js', 'livereads2');
 const f4bDone = side(values.f4b, 'f4b-reads.js', 'f4b');
 // frame-times.js lives in tools/harness; side() loads from tools/frida
-const framesOn = !values['no-frames'] && !values['no-prof'] && !values.watchstalk;
+// --rewind-next (docs/270 §37): no frames session at all, as in the rewound jobs (rewindGameProfile noFrames): a kept one refuses
+// the rewind (§36) and ending it crashed the game (bp-rewind-pilot-a 2026-11-17 00:26:05, Frida thread, 1 s after its last row)
+const framesOn = !values['no-frames'] && !values['no-prof'] && !values.watchstalk && !values['rewind-next'];
 // --frames-shared FILE (queue.ts, one per game load): the kept frames session writes the load's frames there; the first window of
 // the load starts it, later ones find it running (a second session would refuse the hooked prologue) and every window copies
 // its own span into <tag>-<secs>-frames.csv at the end (sliceFrames), so readers see one file per run as before
 const framesShared = values['frames-shared'];
+// kept in the game (79ec7db8e, after a crash at a frames unload); --rewind-next runs start none (above)
 const framesDone = side(framesOn && !(framesShared && existsSync(framesShared)), join('..', 'harness', 'frame-times.js'), 'frames', { out: (framesShared ?? `${pre}-${secs}-frames.csv`).replace(/\\/g, '/'), svcsplit: !!values.svcsplit }, true);
 // --camera-pan: the agent moves the camera from a sim-thread task (camera_pan), so the scripted pan stops while the sim is frozen;
 // a player's camera keeps moving then (docs/162 §4)
@@ -711,7 +714,9 @@ if (reproLoop && slices.length) { // the last firing's end snapshot, then the ar
   writeFileSync(`${pre}-ab.json`, JSON.stringify({ names: [`loop:${values.repro}`], loop: true, slices }, null, 1));
 }
 writeFileSync(`${pre}-stuck.json`, JSON.stringify(stuck, null, 1));
-if (stuck.length) await reproSave(ag, values.tag!, stuck);
+// no save in a run the next job rewinds: it writes files and makes window-system objects the rewind cannot put back (docs/270 §36)
+if (stuck.length && values['rewind-next']) console.log(`${stamp()} repro save skipped (--rewind-next: the game is rewound after this run); stuck Sims in ${pre}-stuck.json`);
+else if (stuck.length) await reproSave(ag, values.tag!, stuck);
 console.log(`${stamp()} stuck Sims: ${stuck.length}${stuck.length ? ` (${stuck.map(x => `${x.name}${x.shortcut ? ` [teleported: ${x.shortcut}]` : ''} on ${x.interaction}`).join('; ')})` : ''}`);
 if (boats0.length) {
   const boats1 = (await ag('houseboats')).result ?? [];

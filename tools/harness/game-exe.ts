@@ -6,6 +6,7 @@
 //   TS3_MACHINE      machine tag (default main): result rows/files of any other machine carry it and never mix with the main machine's (docs/TESTING.md)
 //   node tools/harness/game-exe.ts --self-check   no process is started
 //   node tools/harness/game-exe.ts --installed    base game + EP/SP folders found under the game root
+//   node tools/harness/game-exe.ts --vram         write or confirm <TS3_BIN>\ts3native-vram.ini (dxdiag-vram.exe, docs/284)
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -79,8 +80,19 @@ export function killLeftovers(): string[] {
   return found;
 }
 
+// docs/284: [Startup] DxDiagCache's sidecar <Bin>\ts3native-vram.ini, written once per machine key by dxdiag-vram.exe (one DxDiag
+// query outside the game, ~60 s, no game launch); a current sidecar returns at once. Never throws: without it the first launch
+// with DxDiagCache=1 probes and writes it itself. Returns the helper's last line (or why it did not run) for the caller's log.
+export const VRAM_HELPER = join(import.meta.dirname, '..', '..', 'native', 'ts3native', 'out', 'dxdiag-vram.exe');
+export function ensureVramSidecar(bin = BIN, helper = VRAM_HELPER): string {
+  if (!existsSync(helper)) return `dxdiag-vram: ${helper} not built (native\\ts3native\\build.cmd), the first DxDiagCache=1 launch probes`;
+  try { return execFileSync(helper, [bin], { timeout: 300_000, stdio: ['ignore', 'pipe', 'pipe'] }).toString().trim().split(/\r?\n/).pop() ?? ''; }
+  catch (e: any) { return `dxdiag-vram: failed (${e.status ?? e.code ?? e}): ${String(e.stdout ?? '').trim().split(/\r?\n/).pop() ?? ''}`; }
+}
+
 if (import.meta.main) {
   if (process.argv[2] === '--self-check') {
+    { const r = ensureVramSidecar(BIN, join(tmpdir(), 'no-such-dxdiag-vram.exe')); if (!/not built/.test(r)) throw new Error(`ensureVramSidecar without helper: ${r}`); }
     const assert = (await import('node:assert')).strict;
     assert.deepEqual(LEFTOVER_EXES('ea', 'Sims3Launcher.exe'), ['Sims3Launcher.exe', 'EALauncher.exe', 'TSLHelper.exe']);
     assert.deepEqual(LEFTOVER_EXES('direct', 'TS3W.exe'), ['TS3W.exe']);
@@ -118,5 +130,6 @@ if (import.meta.main) {
     } finally { rmSync(tmp, { recursive: true, force: true }); }
     console.log('self-check ok');
   } else if (process.argv[2] === '--installed') console.log(`${gameRoot()}: ${installedProducts().join(' ')}`);
-  else { console.error('usage: node tools/harness/game-exe.ts --self-check | --installed'); process.exit(2); }
+  else if (process.argv[2] === '--vram') console.log(ensureVramSidecar());
+  else { console.error('usage: node tools/harness/game-exe.ts --self-check | --installed | --vram'); process.exit(2); }
 }

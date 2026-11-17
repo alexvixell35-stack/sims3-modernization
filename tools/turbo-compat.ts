@@ -25,7 +25,7 @@ import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSyn
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { BIN } from './harness/game-exe.ts';
+import { BIN, ensureVramSidecar } from './harness/game-exe.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const USER = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3');
@@ -64,6 +64,8 @@ export const MANAGED = [...new Set([...Object.keys(STATES['apex-turbo-ual77'](''
 // Bin files absent from the snapshot that restore may delete (run outputs of Apex, the bridge, Turbo, the game)
 export const EXTRA_OK = /^(rtx-remix\/|\.trex\/|NvRemixBridge[^/]*$|bridge\.conf$|Turbo\.(asi|txt)$|ApexRadiance[^/]*$|Apex Radiance RTX Remix bridge\.txt$|imgui\.ini$|[^/]*\.(log|jsonl|dmp)$)/i;
 const IGNORE_DIFF = /^[^/]*\.(log|jsonl|dmp)$/i; // game and mod logs: changed by every run
+// docs/284: the DxDiagCache sidecar is a per-machine cache, kept across states and restores (never compared, never removed)
+export const KEEP_CACHE = /^ts3native-vram\.ini$/i;
 
 const sha = (p: string) => createHash('sha256').update(readFileSync(p)).digest('hex');
 const now = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(11, 19) + ' PHT';
@@ -188,19 +190,20 @@ function setState(dir: string, name: string) {
   if (bad.length) throw new Error(`state ${name}: read-back differs for ${bad.join(', ')}`);
   const apexLog = join(APEX_DOCS, 'ApexRadiance_LOG.txt');
   writeFileSync(join(dir, 'state.json'), JSON.stringify({ name, at: new Date().toISOString(), apexLogSize: existsSync(apexLog) ? statSync(apexLog).size : 0 }));
+  if (!DRY) say(`state ${name}: ${ensureVramSidecar()}`);  // docs/284: every Bin state, so no DxDiagCache=1 test launch probes
   say(`state ${name}: ${Object.keys(want).length} file(s) over the snapshot (${Object.keys(want).join(', ') || 'none'}); every managed file read back by sha256`);
 }
 
 function restore(dir: string): boolean {
   setState(dir, 'base');
   const snap = loadSnap(dir), cur = hashTree(BIN), problems: string[] = [];
-  for (const f of Object.keys(cur)) if (!(f in snap.files)) {
+  for (const f of Object.keys(cur)) if (!(f in snap.files) && !KEEP_CACHE.test(f)) {
     if (EXTRA_OK.test(f)) rmSync(join(BIN, f), { force: true }); else problems.push(`new file left in place: ${f}`);
   }
   for (const d of ['rtx-remix', '.trex']) if (existsSync(join(BIN, d)) && !Object.keys(snap.files).some(f => f.startsWith(`${d}/`))) rmSync(join(BIN, d), { recursive: true, force: true });
   const after = hashTree(BIN);
-  for (const [f, h] of Object.entries(snap.files)) if (!IGNORE_DIFF.test(f) && after[f] !== h) problems.push(`${f}: ${after[f] ? 'sha differs' : 'missing'}`);
-  for (const f of Object.keys(after)) if (!(f in snap.files) && !problems.some(p => p.endsWith(f))) problems.push(`new file: ${f}`);
+  for (const [f, h] of Object.entries(snap.files)) if (!IGNORE_DIFF.test(f) && !KEEP_CACHE.test(f) && after[f] !== h) problems.push(`${f}: ${after[f] ? 'sha differs' : 'missing'}`);
+  for (const f of Object.keys(after)) if (!(f in snap.files) && !KEEP_CACHE.test(f) && !problems.some(p => p.endsWith(f))) problems.push(`new file: ${f}`);
   if (snap.apexDocs) { // put Apex's Documents folder back as it was
     for (const f of existsSync(APEX_DOCS) ? walk(APEX_DOCS) : []) if (!(f in snap.apexDocs)) rmSync(join(APEX_DOCS, f), { force: true });
     cpSync(join(dir, 'apex-docs'), APEX_DOCS, { recursive: true });
@@ -343,6 +346,7 @@ function selfCheck() {
   assert.equal(pickZip([{ name: 'ApexRadiance.asi', digest: dg, browser_download_url: url }]), undefined);
   for (const f of ['rtx-remix/logs/bridge32.log', '.trex/x.dll', 'NvRemixBridge_d3d9.log', 'Turbo.txt', 'ts3native.log', 'imgui.ini', 'ApexRadiance_Crash.dmp']) assert.ok(EXTRA_OK.test(f), f);
   for (const f of ['TS3W.exe', 'Default.ini', 'Sims3Performance.ini', 'Gameplay/x.package', 'sub/ts3native.log']) assert.ok(!EXTRA_OK.test(f), f);
+  assert.ok(KEEP_CACHE.test('ts3native-vram.ini') && !KEEP_CACHE.test('ts3native.ini') && !KEEP_CACHE.test('sub/ts3native-vram.ini') && !EXTRA_OK.test('ts3native-vram.ini'));
   assert.ok(IGNORE_DIFF.test('ts3native.log') && !IGNORE_DIFF.test('wininet.dll') && !IGNORE_DIFF.test('rtx-remix/logs/bridge32.log'));
   const s: Sample = { t: 60, ws: 1, pv: 1, mn: 0, mx: 0, cls: 'High', nb: 0x10000000, nz: 0x200000, resp: true,
     th: [{ id: 1, b: 13, s: 0x401000 }, { id: 2, b: 4, s: 0x100B9230 }, { id: 3, b: 13, s: 0x10001000 }, { id: 5, b: 13, s: 0x10400000 }, { id: 4, b: 14, s: 0x100AAE30 }] };

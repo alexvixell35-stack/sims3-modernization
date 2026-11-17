@@ -20,6 +20,7 @@
 // Stops on Apex restore-pending (its backup not put back: run.ps1 -Restore), on --stop-on-crash, on 15 min without runner output.
 // Lights: alienfx-cli setall=0,0,0 every 30 s while TS3W.exe runs (as queue.ts; TS3_LIGHTS=on skips). Windows-only by nature.
 // status.ts shows these runs (run.json + runs.jsonl). Env: TS3_BIN, TS3_USER (Documents\Electronic Arts\The Sims 3), TS3_REPO.
+import { diskGate } from './cleanup.ts';
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -139,6 +140,7 @@ async function main(v: Record<string, any>) {
   if (isBisect(arms)) { console.error(BISECT_WARN); if (!v['ok-bisect']) process.exit(2); }
   const apex = resolve(v['apex-repo']), runPs1 = join(apex, 'tools', 'ingame_runner', 'run.ps1'), apexPending = join(apex, 'outputs', 'ingame', 'restore-pending.json');
   if (!existsSync(runPs1)) fail(`no ${runPs1}`);
+  if (!v['dry-run']) { const g = diskGate(); console.log(g.line); if (!g.ok) fail('refused: not enough free disk space (cleanup.ts gate, docs/283)'); }
   const db = loadDb(), src = v.release ? releasePair(db, [...new Set([HERE, ROOT])]) : v.ts3native ? { asi: resolve(v.ts3native), ini: resolve(v.ini), name: 'given' } : null;
   for (const f of src ? [src.asi, src.ini] : []) if (!existsSync(f)) fail(`missing ${f}`);
   const plan = armsPlan(arms, loads), tag = v.tag ?? `${new Date().toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-')}`;

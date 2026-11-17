@@ -197,6 +197,7 @@ struct Snap {
   std::map<ULONG_PTR, ULONG_PTR> ww;  // allocations with write watch: base -> end
   std::map<ULONG_PTR, std::pair<ULONG_PTR, std::string>> foreign;  // views shared with another process: base -> end, description
   std::vector<std::pair<HANDLE, ULONG>> poolMin;  // worker factories held at their thread count: our handle, the minimum to put back (docs/270 §25)
+  std::map<ULONG_PTR, std::string> sysViews;  // the window system's read-only views (win32k maps them into every GUI process): base -> what
   std::set<ULONG_PTR> audioViews;  // foreign views of the audio engine: other holder audiodg.exe, or one the tool cannot open with a sound module's object keeping the view (docs/270 §23)
 };
 struct Sess {
@@ -846,6 +847,47 @@ static bool stillSame(Sess& S, const View& v) {
   return same;
 }
 
+// The window system's shared read-only views in the target: server info and the USER handle table (user32's gSharedInfo,
+// 64-bit layout under WOW64: psi, aheList) and the desktop heap (pDeskInfo in each thread's 64-bit TEB CLIENTINFO, +0x800 +0x20).
+// win32k maps them and commits pages there when any process on the desktop makes windows; a rewind never restores them, so
+// pages committed there after the snapshot are not the target's memory. Only mapped, read-only views without a file and
+// without a section handle in the target count.
+static void systemViews(Sess& S, Snap& s, Result& r) {
+  std::vector<std::pair<ULONG64, const char*>> at;
+  for (auto& v : s.views) {
+    if (v.type != MEM_IMAGE || baseName(v.file) != "user32.dll") continue;
+    IMAGE_DOS_HEADER dos = rd<IMAGE_DOS_HEADER>(S.p, v.base);
+    IMAGE_NT_HEADERS32 nth = rd<IMAGE_NT_HEADERS32>(S.p, v.base + dos.e_lfanew);
+    if (dos.e_magic != IMAGE_DOS_SIGNATURE || nth.FileHeader.Machine != IMAGE_FILE_MACHINE_I386) continue;
+    IMAGE_EXPORT_DIRECTORY ed = rd<IMAGE_EXPORT_DIRECTORY>(S.p, v.base + nth.OptionalHeader.DataDirectory[0].VirtualAddress);
+    if (!ed.NumberOfNames || ed.NumberOfNames > 20000) continue;
+    std::vector<DWORD> names(ed.NumberOfNames), funcs(ed.NumberOfFunctions);
+    std::vector<WORD> ords(ed.NumberOfNames);
+    ReadProcessMemory(S.p, (void*)(v.base + ed.AddressOfNames), names.data(), names.size() * 4, nullptr);
+    ReadProcessMemory(S.p, (void*)(v.base + ed.AddressOfNameOrdinals), ords.data(), ords.size() * 2, nullptr);
+    ReadProcessMemory(S.p, (void*)(v.base + ed.AddressOfFunctions), funcs.data(), funcs.size() * 4, nullptr);
+    for (DWORD i = 0; i < ed.NumberOfNames; ++i) {
+      char nm[16]{};
+      ReadProcessMemory(S.p, (void*)(v.base + names[i]), nm, 15, nullptr);
+      if (strcmp(nm, "gSharedInfo") || ords[i] >= funcs.size()) continue;
+      ULONG64 si[2]{};
+      ReadProcessMemory(S.p, (void*)(v.base + funcs[ords[i]]), si, sizeof si, nullptr);
+      at.push_back({si[0], "server info"});
+      at.push_back({si[1], "USER handle table"});
+    }
+  }
+  for (auto& t : s.threads)
+    if (t.teb) at.push_back({rd<ULONG64>(S.p, t.teb + 0x800 + 0x20), "desktop heap"});
+  for (auto& [a, what] : at) {
+    MEMORY_BASIC_INFORMATION m{};
+    if (!a || a >= 0x100000000ull || !VirtualQueryEx(S.p, (void*)a, &m, sizeof m) || m.Type != MEM_MAPPED || m.AllocationProtect != PAGE_READONLY) continue;
+    const View* v = viewAt(s.views, (ULONG_PTR)m.AllocationBase);
+    if (!v || v->base != (ULONG_PTR)m.AllocationBase || !v->file.empty() || v->sec >= 0 || s.sysViews.count(v->base)) continue;
+    s.sysViews[v->base] = what;
+    r.add("viewsSystem", 1);
+  }
+}
+
 // ---------------------------------------------------------------- cooperation block
 static ULONG64 coopFind(DWORD pid) {
   HANDLE m = OpenFileMappingA(FILE_MAP_READ, FALSE, fmt("Local\\rewind-coop-%lu", pid).c_str());
@@ -1144,6 +1186,7 @@ static Result snapshot(Sess& S) {
   pinHandles(S, s, r);
   lap("handles");
   matchViews(S, s, r);
+  systemViews(S, s, r);
   lap("views");
   s.gdi = GetGuiResources(S.p, GR_GDIOBJECTS); s.user = GetGuiResources(S.p, GR_USEROBJECTS);
   if (S.coop) {
@@ -1354,6 +1397,46 @@ static void planThreads(Sess& S, Result& r, Plan& pl, std::vector<TS>& now) {
   }
 }
 
+// "Kind \name" of a pinned handle, for refusal and verify messages (a file name through fileOp: a query can block)
+static std::string handleWhat(const HRec& h) {
+  std::wstring n;
+  if (h.kind == L"File") { LONGLONG pos = 0; fileOp(h.pin, 2, pos, &n); }
+  else if (h.pin) {
+    unsigned char b[1200]{}; UNICODE_STRING* u = (UNICODE_STRING*)b;
+    if (NtQueryObject_(h.pin, 1, b, sizeof b - 2, nullptr) >= 0 && u->Buffer) n.assign(u->Buffer, u->Length / 2);
+  }
+  std::string k, a;  // names are ASCII in practice; enough for a log line
+  for (wchar_t c : h.kind) k += (char)(c < 128 ? c : '?');
+  for (wchar_t c : n) a += (char)(c < 128 ? c : '?');
+  return (k.empty() ? fmt("type %lu", h.type) : k) + (a.empty() ? "" : " " + a);
+}
+// What verify will check on a reinserted handle (type, access, object), tried before any change: one duplicate of the pin
+// into the target, read back, closed again. A rewind applied without this failed verify on the one reinserted handle and
+// ended the game (rewind-games-smoke-1116-1116c, handle 7a8/7ac, docs/270 §35). '' = it comes back as the snapshot's.
+static std::string reinsertProbe(Sess& S, const HRec& h) {
+  HANDLE got = nullptr;
+  if (!DuplicateHandle(GetCurrentProcess(), h.pin, S.p, &got, 0, (h.attrs & 2) != 0, DUPLICATE_SAME_ACCESS)) return fmt("cannot be duplicated back (error %lu)", GetLastError());
+  std::string why = "its duplicate is not in the handle list";
+  for (auto& e : handleList(S.p))
+    if (e.value == (ULONG_PTR)got)
+      why = e.type != h.type || e.access != h.access ? fmt("comes back as type %lu access %lx (snapshot type %lu access %lx)", e.type, e.access, h.type, h.access)
+          : !sameObject(S.p, e.value, h.pin) ? "its duplicate is not the snapshot's object" : "";
+  closeIn(S.p, (ULONG_PTR)got);
+  return why;
+}
+// Type and object name of a handle the target made after the snapshot (pinHandles' type lookup, then handleWhat), so a
+// refusal names it (docs/270 §36: 654/1c1c were only numbers)
+static std::string newHandleWhat(Sess& S, const HEnt& e) {
+  HRec h{e.value, e.access, e.attrs, e.type};
+  if (DuplicateHandle(S.p, (HANDLE)e.value, GetCurrentProcess(), &h.pin, 0, FALSE, DUPLICATE_SAME_ACCESS) && !S.kinds.count(e.type)) {
+    unsigned char b[1024]{};
+    if (NtQueryObject_(h.pin, 2, b, sizeof b, nullptr) >= 0) { UNICODE_STRING* u = (UNICODE_STRING*)b; S.kinds[e.type] = std::wstring(u->Buffer, u->Length / 2); }
+  }
+  if (S.kinds.count(e.type)) h.kind = S.kinds[e.type];
+  std::string w = handleWhat(h);
+  if (h.pin) CloseHandle(h.pin);
+  return w;
+}
 static void planRest(Sess& S, Result& r, Plan& pl, const std::vector<Reg>& now) {
   const Snap& s = S.s;
   // handles
@@ -1364,15 +1447,17 @@ static void planRest(Sess& S, Result& r, Plan& pl, const std::vector<Reg>& now) 
     auto it = cur.find(h.value);
     bool same = it != cur.end() && it->second.type == h.type && it->second.access == h.access && (!h.pin || sameObject(S.p, h.value, h.pin));
     if (same) { kept.insert(h.value); if (!h.pin) r.add("handlesUnverified", 1); continue; }
-    if (!h.pin) r.refuse(fmt("handle %zx (type %lu, cannot be duplicated) was closed after the snapshot", (size_t)h.value, h.type));
-    else pl.reinsert.push_back(&h);
+    if (!h.pin) { r.refuse(fmt("handle %zx (type %lu, cannot be duplicated) was closed after the snapshot", (size_t)h.value, h.type)); continue; }
+    std::string why = reinsertProbe(S, h);
+    if (why.empty()) pl.reinsert.push_back(&h);
+    else r.refuse(fmt("handle %zx (%s) was closed or replaced after the snapshot and would not come back as the snapshot's object: %s", (size_t)h.value, handleWhat(h).c_str(), why.c_str()));
   }
   for (auto& [o, hs] : pl.waitOn)
     for (DWORD h : hs)
       if (!kept.count(h)) r.refuse(fmt("thread %lu %s in %s on handle %lx, which is no longer the snapshot's object", o->tid, o->parked ? "is parked" : "waits", o->name.c_str(), h));
   for (auto& [v, e] : cur) {
     if (kept.count(v)) continue;
-    if (e.attrs & 1) r.refuse(fmt("handle %zx made after the snapshot is protected from close (window-system state of a thread)", (size_t)v));
+    if (e.attrs & 1) r.refuse(fmt("handle %zx (%s) made after the snapshot is protected from close (window-system state of a thread)", (size_t)v, newHandleWhat(S, e).c_str()));
     pl.closeHandles.push_back(v);
   }
   for (auto& h : s.handles) {
@@ -1404,7 +1489,19 @@ static void planRest(Sess& S, Result& r, Plan& pl, const std::vector<Reg>& now) 
   // pages committed inside a kept view cannot be taken back
   for (auto& g : s.regs)
     if (g.type != MEM_PRIVATE && g.state == MEM_RESERVE && keptViews.count(g.abase))
-      for (auto& c : now) if (c.state == MEM_COMMIT && c.base < g.base + g.size && g.base < c.base + c.size) { r.refuse(fmt("pages at %p were committed inside a mapped view after the snapshot", (void*)c.base)); break; }
+      for (auto& c : now) {
+        if (c.state != MEM_COMMIT || c.base >= g.base + g.size || g.base >= c.base + c.size) continue;
+        if (auto sv = s.sysViews.find(g.abase); sv != s.sysViews.end()) {
+          r.add("viewsSystemGrew", 1);
+          r.notes.push_back(fmt("pages at %p were committed after the snapshot in the window system's %s (read-only view %p, shared by every GUI "
+                                "process on the desktop): not the target's memory, left alone", (void*)c.base, sv->second.c_str(), (void*)g.abase));
+        } else {
+          const View* vw = viewAt(s.views, g.abase);
+          r.refuse(fmt("pages at %p were committed inside a mapped view after the snapshot (view %p +%zx, protection %lx, %ls)", (void*)c.base,
+                       (void*)g.abase, vw ? (size_t)vw->size : 0, vw ? vw->aprot : 0, vw && !vw->file.empty() ? vw->file.c_str() : L"no file"));
+        }
+        break;
+      }
   for (auto& v : nowViews)
     if (v.type == MEM_IMAGE && hasAny(baseName(v.file), S.o.forbid)) r.refuse("module " + baseName(v.file) + " is loaded (detach the probe first)");
   DWORD gdi = GetGuiResources(S.p, GR_GDIOBJECTS), user = GetGuiResources(S.p, GR_USEROBJECTS);
@@ -1441,6 +1538,7 @@ static bool restoreMemory(Sess& S, Result& r, std::string& err) {
   auto now = regions(S.p);
   size_t ni = 0;
   for (auto& g : s.regs) {
+    if (s.sysViews.count(g.abase)) continue;  // the window system's read-only view: win32k commits and decommits there, never restored
     // what is at this range now
     bool anyCommit = false, anyOther = false, uniform = true; DWORD p0 = 0; bool first = true;
     while (ni < now.size() && now[ni].base + now[ni].size <= g.base) ++ni;
@@ -1529,7 +1627,8 @@ static bool bridgeHandshake(HANDLE h) {
 }
 static bool verify(Sess& S, Result& r, const Plan& pl, std::string& err) {
   const Snap& s = S.s;
-  if (!sameMap(s.regs, regions(S.p), err)) return false;
+  auto mine = [&](std::vector<Reg> v) { v.erase(std::remove_if(v.begin(), v.end(), [&](const Reg& g) { return s.sysViews.count(g.abase) > 0; }), v.end()); return v; };  // the window system's views change on their own
+  if (!sameMap(mine(s.regs), mine(regions(S.p)), err)) return false;
   std::vector<unsigned char> buf;
   uint64_t h = 1;
   for (auto& g : s.regs) {
@@ -1545,10 +1644,14 @@ static bool verify(Sess& S, Result& r, const Plan& pl, std::string& err) {
   // handles: the same values, and the same objects where we hold a pin
   auto cur = handleList(S.p);
   if (cur.size() != s.handles.size()) { err = fmt("verify: %zu handles, %zu at the snapshot", cur.size(), s.handles.size()); return false; }
+  std::set<ULONG_PTR> back;
+  for (auto* rh : pl.reinsert) back.insert(rh->value);
   for (auto& hr : s.handles) {
-    bool ok = false;
-    for (auto& e : cur) ok |= e.value == hr.value && e.type == hr.type && e.access == hr.access;
-    if (!ok || (hr.pin && !sameObject(S.p, hr.value, hr.pin))) { err = fmt("verify: handle %zx is not the snapshot's object", (size_t)hr.value); return false; }
+    const HEnt* at = nullptr;
+    for (auto& e : cur) if (e.value == hr.value) at = &e;
+    std::string bad = !at ? "no handle at that value" : at->type != hr.type || at->access != hr.access ? fmt("type %lu access %lx, snapshot type %lu access %lx", at->type, at->access, hr.type, hr.access)
+                    : hr.pin && !sameObject(S.p, hr.value, hr.pin) ? "another object" : "";
+    if (!bad.empty()) { err = fmt("verify: handle %zx (%s, %s) is not the snapshot's object: %s", (size_t)hr.value, handleWhat(hr).c_str(), back.count(hr.value) ? "reinserted" : "kept by the plan", bad.c_str()); return false; }
     if (hr.disk && !(hr.access & (FILE_WRITE_DATA | FILE_APPEND_DATA))) {
       LONGLONG pos = 0;
       if (!fileOp(hr.pin, 0, pos) || pos != hr.pos) { err = fmt("verify: file handle %zx is at %lld, snapshot %lld", (size_t)hr.value, pos, hr.pos); return false; }
@@ -1882,20 +1985,48 @@ static int cycle(DWORD pid, DWORD runMs, int n, const Opt& o) {
   freeSnap(S.s);
   return r.code;
 }
+// A combase RPC cache worker idle in CRpcThread::WorkerLoop: WaitCoalesced on its own event plus the coalescing timer,
+// alertable, so WaitForMultipleObjectsEx(2, ..., alertable 1) (docs/270 §36) [verified, static, combase 10.0.26100.9818].
+// The worker's other WaitCoalesced user, the COM remote-object ping loop (CROIDTable worker), waits on its timer alone and
+// not alertable (count 1, alertable 0): the thread is lent to that loop while the process holds out-of-process COM proxies.
+static bool comIdleWait(const TS& t) { return t.kernel && t.name == "NtWaitForMultipleObjects" && t.sig[7] == 2 && t.sig[10] == 1; }
+static bool comPingWait(const TS& t) { return t.kernel && t.name == "NtWaitForMultipleObjects" && t.sig[7] == 1 && t.sig[10] == 0; }
+// Names a combase worker's wait in settle notes: the ping-loop shape (count 1, not alertable) is the §36 blocker.
+static std::string comWaitShape(const TS& t) {
+  if (!t.kernel || t.name != "NtWaitForMultipleObjects") return describe(t);
+  bool ping = comPingWait(t);
+  return fmt("in NtWaitForMultipleObjects count %lu alertable %lu%s", t.sig[7], t.sig[10], ping ? ", the remote-object ping loop" : "");
+}
 // Waits without a freeze until no live thread of the target starts in module mod, at most secs (docs/270 §32): combase's
 // RPC cache workers end after 30 s idle and cannot be kept alive one by one, so the snapshot is taken after they ended.
-static Result settle(Sess& S, unsigned secs, const std::string& mod) {
+// busy (combase kept alive by ts3native, docs/270 §36): waits instead until every such thread is in its idle wait; a worker
+// lent to the remote-object ping loop at the snapshot is back idle at the rewind, a different wait that refuses.
+static Result settle(Sess& S, unsigned secs, const std::string& mod, bool busy = false) {
   Result r; r.op = "settle";
   ULONGLONG t0 = GetTickCount64();
   auto views = viewsOf(S.p, regions(S.p));
-  double left = 0;
+  if (busy && S.stubs.empty()) loadStubs(S, views);
+  double left = 0, ping = 0;  // ping: of left, the threads lent to the remote-object ping loop
+  std::string last;
   for (;;) {
-    left = 0;
+    left = 0; ping = 0; last.clear();
     for (HANDLE th : threadHandles(S.p)) {
       ULONG64 st = 0;
       if (WaitForSingleObject(th, 0) == WAIT_TIMEOUT && NtQueryInformationThread_(th, 9, &st, sizeof st, nullptr) >= 0) {
         const View* v = viewAt(views, (DWORD)st);
-        left += v && v->type == MEM_IMAGE && baseName(v->file) == mod;
+        bool in = v && v->type == MEM_IMAGE && baseName(v->file) == mod;
+        if (in && busy) {  // a short suspend to read where it waits; the watchdog resumes it if this host dies meanwhile
+          TS t; DWORD prev = Wow64SuspendThread(th);
+          if (prev != (DWORD)-1) {
+            guard->n = 1; guard->tids[0] = GetThreadId(th); guard->phase = 1;
+            bool got = classify(S, {GetThreadId(th), th, prev}, t);
+            ResumeThread(th); guard->phase = 0; guard->n = 0;
+            in = !got || !comIdleWait(t);
+            if (in) last += fmt(" %lu (%s)", GetThreadId(th), got ? comWaitShape(t).c_str() : "context not read");
+            ping += in && got && comPingWait(t);
+          } else in = false;  // exiting
+        }
+        left += in;
       }
       CloseHandle(th);
     }
@@ -1903,7 +2034,28 @@ static Result settle(Sess& S, unsigned secs, const std::string& mod) {
     Sleep(500);
   }
   r.add("settleMs", (double)(GetTickCount64() - t0)); r.add("settleLeft", left);
-  if (left) r.notes.push_back(fmt("%.0f %s thread(s) still there after %u s: the snapshot is taken anyway (a rewind refuses if one ends)", left, mod.c_str(), secs));
+  if (busy) r.add("settlePing", ping);
+  if (left && busy) r.notes.push_back(fmt("%.0f %s thread(s) still out of their idle wait after %u s:%s; the snapshot is taken anyway (a rewind refuses if one is back idle)", left, mod.c_str(), secs, last.c_str()));
+  else if (left) r.notes.push_back(fmt("%.0f %s thread(s) still there after %u s: the snapshot is taken anyway (a rewind refuses if one ends)", left, mod.c_str(), secs));
+  return r;
+}
+// Waits without a freeze until no forbidden module (default frida-agent, --allow-module drops one) is mapped, at most secs
+// (docs/270 §36): after the probe detaches its agent unloads on its own thread a little later, and any other Frida session
+// keeps it loaded. The harness polled tasklist /M before, which lists only the 64-bit WOW64 modules of a 32-bit process and
+// so always said "unloaded after 0 s". Refused (code 2, nothing changed) when one is still loaded at the end.
+static Result gone(Sess& S, unsigned secs) {
+  Result r; r.op = "gone";
+  ULONGLONG t0 = GetTickCount64();
+  std::string left;
+  for (;;) {
+    left.clear();
+    for (auto& v : viewsOf(S.p, regions(S.p)))
+      if (v.type == MEM_IMAGE && hasAny(baseName(v.file), S.o.forbid)) { left = baseName(v.file); break; }
+    if (left.empty() || GetTickCount64() - t0 >= secs * 1000ull) break;
+    Sleep(200);
+  }
+  r.add("goneMs", (double)(GetTickCount64() - t0));
+  if (!left.empty()) r.refuse(fmt("module %s is still loaded %u s after the probe detached: another Frida session is in the game (a kept frames session?)", left.c_str(), secs));
   return r;
 }
 static int serve(DWORD pid, const Opt& o) {
@@ -1917,14 +2069,15 @@ static int serve(DWORD pid, const Opt& o) {
     else if (!strncmp(line, "rewind", 6)) { Result r = rewind(S, false); r.print(); code = r.code; }
     else if (!strncmp(line, "plan", 4)) { Result r = rewind(S, true); r.print(); code = r.code; }
     else if (sscanf_s(line, "ticks %u", &ticks) == 1) { Result r = rewind(S, false, ticks); r.print(); code = r.code; }
-    else if (sscanf_s(line, "settle %u", &ticks) == 1) {  // settle <s> [module], default combase.dll
-      char mod[64] = "combase.dll";
-      sscanf_s(line, "settle %*u %63s", mod, (unsigned)sizeof mod);
-      settle(S, ticks, mod).print();
+    else if (sscanf_s(line, "settle %u", &ticks) == 1) {  // settle <s> [module] [busy], default combase.dll
+      char mod[64] = "combase.dll", how[16] = "";
+      sscanf_s(line, "settle %*u %63s %15s", mod, (unsigned)sizeof mod, how, (unsigned)sizeof how);
+      settle(S, ticks, mod, !strcmp(how, "busy")).print();
     }
+    else if (sscanf_s(line, "gone %u", &ticks) == 1) gone(S, ticks).print();  // gone <s>: forbidden modules unloaded
     else if (!strncmp(line, "park", 4)) { Result r; r.op = "park"; parkWorker(S, r); r.print(); }  // held until the next op ends
     else if (!strncmp(line, "quit", 4)) break;
-    else printf("result {\"op\":\"?\",\"code\":1,\"why\":[\"commands: snapshot | rewind | plan | ticks <n> | settle <s> [module] | park | quit\"]}\n"), fflush(stdout);
+    else printf("result {\"op\":\"?\",\"code\":1,\"why\":[\"commands: snapshot | rewind | plan | ticks <n> | settle <s> [module] [busy] | gone <s> | park | quit\"]}\n"), fflush(stdout);
   }
   freeSnap(S.s);
   return code;

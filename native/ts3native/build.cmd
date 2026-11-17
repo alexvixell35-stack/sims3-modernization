@@ -23,6 +23,8 @@ cl /nologo /O2 /MT /W4 /WX /wd4505 /Fo%OUT%\ /Fe%OUT%\savecompress-test.exe save
 rem steerro-test maps the whole game image at 0x400000 (needs the exe; run by hand, docs/84 §3.6, §4.6); large address
 rem aware since docs/137: its fake worlds are never freed and 3000-case runs pass 2 GB
 cl /nologo /O2 /MT /W4 /WX /wd4505 /Fo%OUT%\ /Fe%OUT%\steerro-test.exe steerro-test.cpp kernel32.lib /link /BASE:0x20000000 /FIXED /DYNAMICBASE:NO /LARGEADDRESSAWARE || exit /b 1
+rem dxdiag-vram: the [Startup] DxDiagCache sidecar writer for harness setup (docs/284)
+cl /nologo /O2 /MT /W4 /WX /wd4505 /Fo%OUT%\ /Fe%OUT%\dxdiag-vram.exe dxdiag-vram.cpp kernel32.lib || exit /b 1
 %OUT%\selftest.exe || exit /b 1
 copy /y ts3native.ini %OUT%\ts3native.ini >nul
 del %OUT%\*.obj %OUT%\*.exp %OUT%\*.lib %OUT%\selftest.log 2>nul

@@ -12,6 +12,8 @@ node tools/harness/night-run.ts --queue-list a.json,b.json --resume  # every unf
 
 Rules: timing queues only when the machine is quiet (Rodney says when he uses it); Spotify is stopped only on night runs (`TS3_NIGHT=1`, set by night-run.ts) or with `queue.ts --close-spotify`, daytime runs leave his apps alone; other apps close only with `--close` on Rodney's go (needs lock or idle). Correctness tests may run in the daytime when they unblock work. Check progress with the ts3-status skill.
 
+Disk gate (docs/283): queue.ts, apex-run.ts and night-run.ts refuse to start below 15 GB free (auto `cleanup.ts all --apply` below 30 GB); a chain script starts with `node tools/harness/cleanup.ts gate || exit 1`.
+
 Rewind (docs/270 §30): queues with `"rewind": "auto"` start same-start jobs from a rewind instead of a fresh game start. The chain sets the Bin state the queue needs before it: `ST=$(node tools/harness/queue-rewind.ts state tools/harness/queues/<q>.json)` gives `apex-rewind` or `apex`, then `node tools/turbo-compat.ts state <snapshot dir> $ST` (bridge only, no DXVK arms). `node tools/harness/queue.ts <q> --dry-run` shows which jobs rewind; the md rows say `start: fresh | rewind (N ms) | rewind refused/failed -> fresh` and the end line the time saved.
 
 Main session: run this and decide only; hand log reads, triage and fixes to a sub-agent (AGENTS.md, "Main agent orchestrates").

@@ -16,7 +16,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { EXE, fridaLoaded, MODES, parseRow, REWIND_ON, serve, type Row } from './rewind-smoke.ts';
+import { EXE, GONE_S, MODES, parseRow, REWIND_ON, serve, type Row } from './rewind-smoke.ts';
 import type { Switches } from './session-reuse.ts';
 
 export type RewindMode = 'auto' | 'off';
@@ -107,7 +107,7 @@ export function rewindReady(x: { exe: boolean; conf: string | null; bridgeRuns: 
 // the agent's game speed names (time / game_state "speed") as set_speed arguments
 const SPEED: Record<string, string> = { Pause: 'pause', Normal: 'normal', Double: 'fast', Triple: 'ultra' };
 export const speedArg = (s: unknown) => SPEED[String(s)] ?? 'normal';
-export type Io = { agent: (cmd: string, args?: object) => Promise<any>; get: (path: string, timeoutMs?: number) => Promise<any>; log: (m: string) => void; settleS?: number };
+export type Io = { agent: (cmd: string, args?: object) => Promise<any>; get: (path: string, timeoutMs?: number) => Promise<any>; log: (m: string) => void; settleS?: number; settleBusy?: boolean };
 // code 0 = done and verified; 2 = refused before any change (game as it was); 3 = failed after a change or the game does not answer
 export type Op = { code: number; why: string[]; ms: number; row?: Row };
 // a rewind counts only with code 0 and, when the tool reports it, the memory hash equal to the snapshot's
@@ -122,6 +122,12 @@ export const switchDiff = (a: Switches, b: Switches): string[] => [
 export const FRESH_EST_MS = 120000, REWIND_EST_MS = 8000;
 // before each snapshot: wait up to this long for combase's RPC cache workers to end (30 s idle timeout, docs/270 §32)
 export const SETTLE_S = 40;
+// combase kept alive: wait up to this long for a cache worker lent to COM's remote-object ping loop to be back idle (docs/270 §36)
+export const BUSY_S = 60;
+// when only workers in the ping loop are left: wait up to this much longer. The loop runs ~5.3 min after the process released
+// its last out-of-process proxy (toy, TS3W's own DxDiag VRAM query at start-up and a WMI query: 321 s and 314-322 s), so the
+// snapshot after a fresh load waits until about 6.5 min after the launch (docs/270 §39)
+export const PING_S = 420;
 const sum = (x: number[]) => x.reduce((a, b) => a + b, 0);
 // dry run (plan) or end of a run (with rewinds/fresh: what happened, saved against this run's own fresh starts when it had any)
 export function rewindSummary(x: { groups: number; members: number; jobs: number; rewinds?: number[]; fresh?: number[]; refused?: number; failed?: number }): string {
@@ -134,7 +140,7 @@ export function rewindSummary(x: { groups: number; members: number; jobs: number
 export const startLine = (op: Op | null) => !op ? 'fresh' : op.code === 0 ? `rewind (${op.ms} ms)`
   : `${op.code === 2 ? 'rewind refused' : 'rewind failed'} -> fresh (${op.why.join('; ').slice(0, 200)})`;
 
-export function rewindSession(pid: number, io: Io, dep = { serve, loaded: fridaLoaded, settleMs: 1000 }) {
+export function rewindSession(pid: number, io: Io, dep = { serve, settleMs: 1000 }) {
   const s = dep.serve(pid, MODES['bridge-apply'].flags);
   let speed = 'normal', ap: string | undefined; // game speed and the autopilot's speed target before the snapshot (set_speed changes the target)
   const op = async (c: 'snapshot' | 'rewind'): Promise<Op> => {
@@ -143,6 +149,13 @@ export function rewindSession(pid: number, io: Io, dep = { serve, loaded: fridaL
     if (c === 'snapshot' && settleS > 0) { // combase's RPC cache workers end after 30 s idle: snapshot after they did (docs/270 §32)
       const st = await s.cmd(`settle ${settleS}`, settleS + 30);
       io.log(`rewind: settle ${Math.round((st.stats?.settleMs ?? 0) / 1000)} s, ${st.stats?.settleLeft ?? '?'} combase worker(s) left`);
+    } else if (c === 'snapshot' && io.settleBusy) {
+      for (const [secs, what] of [[BUSY_S, 'busy'], [PING_S, 'ping loop']] as const) {
+        const st = await s.cmd(`settle ${secs} combase.dll busy`, secs + 30), left = st.stats?.settleLeft;
+        io.log(`rewind: settle ${what} ${Math.round((st.stats?.settleMs ?? 0) / 1000)} s, ${left ?? '?'} combase worker(s) out of their idle wait${st.notes?.length ? ` (${st.notes.join('; ')})` : ''}`);
+        // only workers lent to the remote-object ping loop left (docs/270 §39): it ends a few minutes after the last proxy release
+        if (!left || st.stats?.settlePing !== left) break;
+      }
     }
     if (c === 'snapshot') { speed = speedArg((await io.agent('time'))?.result?.speed); ap = (await io.agent('autopilot'))?.result?.speed; }
     const p = await s.cmd('park', 30); // before the pause: a route job waits for script ticks (docs/270 §21); held until the op ends
@@ -151,11 +164,14 @@ export function rewindSession(pid: number, io: Io, dep = { serve, loaded: fridaL
     if (!ps?.ok) { await s.cmd('plan', 300); return { code: 2, why: [...why, `pause: ${ps?.error ?? 'no answer'}`], ms: Date.now() - t0 }; } // plan ends the park hold
     await new Promise(r => setTimeout(r, dep.settleMs));
     const d = await io.get('fridadetach', 60000);
-    let n = 0;
-    for (; n < 150 && dep.loaded(pid); n++) await new Promise(r => setTimeout(r, 200));
-    io.log(`rewind: probe agent out (${d?.detached ? `unloaded after ${n * 0.2} s` : `detach: ${d?.error ?? 'no answer'}`})`);
-    const row = await s.cmd(c, 300); // the tool's frida-agent module guard refuses when an agent is still in the game
-    const a = await io.get('fridaattach', 60000);
+    // the agent unloads a little after the detach; the tool reads the 32-bit module list (tasklist /M sees only WOW64's) and
+    // refuses when another Frida session keeps it loaded (docs/270 §36): then no op, the plan ends the park hold
+    const g = await s.cmd(`gone ${GONE_S}`, GONE_S + 30);
+    io.log(`rewind: probe agent out (${!d?.detached ? `detach: ${d?.error ?? 'no answer'}` : g.code ? g.why.join('; ') : `unloaded after ${((g.stats?.goneMs ?? 0) / 1000).toFixed(1)} s`})`);
+    if (g.code) await s.cmd('plan', 300);
+    const row = g.code ? { ...g, code: 2 } : await s.cmd(c, 300); // the tool's frida-agent module guard stays as the last check
+    // code 3: the tool ended the game (TerminateProcess); an attach then only adds STATUS_PROCESS_IS_TERMINATING noise (0xc000010a)
+    const a = row.code === 3 ? { attached: true } : await io.get('fridaattach', 60000);
     const ok = c === 'snapshot' ? row.code === 0 : rewindOk(row);
     if (row.code === 0 && !ok) row.why.push('memory hash differs from the snapshot');
     const code = ok ? 0 : row.code === 2 ? 2 : 3;
@@ -231,27 +247,56 @@ async function selfCheck() {
   assert.match(startLine({ code: 3, why: ended.why, ms: 900 }), /^rewind failed -> fresh \(no clear answer/);
   assert.deepEqual(['Pause', 'Normal', 'Double', 'Triple', undefined].map(speedArg), ['pause', 'normal', 'fast', 'ultra', 'normal']);
   // the op sequence on fakes: park, pause, detach, op, attach, speed back, game_state; and the fallback paths
-  const run = async (rows: Row[], o: { attach?: boolean; inWorld?: boolean; pause?: boolean; settleS?: number } = {}) => {
+  const run = async (rows: Row[], o: { attach?: boolean; inWorld?: boolean; pause?: boolean; settleS?: number; settleBusy?: boolean; gone?: Row } = {}) => {
     const calls: string[] = [];
-    const fake = (_pid: number, _f: string[]) => ({ cmd: async (c: string) => { calls.push(`tool ${c}`); return c === 'park' ? { op: 'park', code: 0, why: [] } : c.startsWith('settle') ? { op: 'settle', code: 0, why: [], stats: { settleMs: 31000, settleLeft: 0 } } : c === 'plan' ? { op: 'plan', code: 0, why: [] } : rows.shift()!; }, quit: async () => 0 });
-    const io: Io = { settleS: o.settleS, log: () => {}, get: async (p: string) => { calls.push(p); return p === 'fridadetach' ? { detached: true } : { attached: o.attach !== false }; },
+    const fake = (_pid: number, _f: string[]) => ({ cmd: async (c: string) => { calls.push(`tool ${c}`); return c === 'park' ? { op: 'park', code: 0, why: [] } : c.startsWith('settle') ? { op: 'settle', code: 0, why: [], stats: { settleMs: 31000, settleLeft: 0 } } : c.startsWith('gone') ? (o.gone ?? { op: 'gone', code: 0, why: [], stats: { goneMs: 400 } }) : c === 'plan' ? { op: 'plan', code: 0, why: [] } : rows.shift()!; }, quit: async () => 0 });
+    const io: Io = { settleS: o.settleS, settleBusy: o.settleBusy, log: () => {}, get: async (p: string) => { calls.push(p); return p === 'fridadetach' ? { detached: true } : { attached: o.attach !== false }; },
       agent: async (c: string, a?: any) => { calls.push(`${c}${a?.speed ? ` ${a.speed}` : ''}`); return c === 'time' ? { ok: true, result: { speed: 'Triple' } } : c === 'autopilot' ? { ok: true, result: { speed: 'none' } } : c === 'game_state' ? { ok: true, result: { in_world: o.inWorld !== false } } : { ok: c !== 'set_speed' || a.speed !== 'pause' || o.pause !== false, error: 'game speed is locked' }; } };
-    const s = rewindSession(1, io, { serve: fake as any, loaded: () => false, settleMs: 0 });
+    const s = rewindSession(1, io, { serve: fake as any, settleMs: 0 });
     return { snap: await s.snapshot(), rew: rows.length ? await s.rewind() : null, calls };
   };
   const snapRow = parseRow('result {"op":"snapshot","code":0,"why":[],"ms":{"park":150.3,"freeze":37.9,"copy":1645.7,"handles":5.1,"views":953.5,"resume":0.5},"stats":{}}')!;
   const a = await run([snapRow, good]);
   assert.deepEqual([a.snap.code, a.rew!.code], [0, 0]);
-  assert.deepEqual(a.calls.slice(0, 12), ['tool settle 40', 'time', 'autopilot', 'tool park', 'set_speed pause', 'fridadetach', 'tool snapshot', 'fridaattach', 'set_speed ultra', 'autopilot none', 'game_state', 'tool park'], 'speed and autopilot target read first, put back after');
+  assert.deepEqual(a.calls.slice(0, 13), ['tool settle 40', 'time', 'autopilot', 'tool park', 'set_speed pause', 'fridadetach', `tool gone ${GONE_S}`, 'tool snapshot', 'fridaattach', 'set_speed ultra', 'autopilot none', 'game_state', 'tool park'], 'speed and autopilot target read first, put back after');
   assert.deepEqual((await run([{ ...snapRow }, refused])).rew!.code, 2, 'refused: fresh, nothing changed');
   assert.ok(!(await run([{ ...snapRow }, good], { settleS: 0 })).calls.some(c => c.startsWith('tool settle')), 'combase patched: no settle');
+  const busy = (await run([{ ...snapRow }, good], { settleS: 0, settleBusy: true })).calls;
+  assert.deepEqual([busy[0], busy.filter(c => c.startsWith('tool settle')).length], [`tool settle ${BUSY_S} combase.dll busy`, 1], 'combase patched: settle until the cache workers are idle, before the snapshot only');
+  // a worker still out of its idle wait after BUSY_S: one more settle only when every one left is in the ping loop (docs/270 §39)
+  const settleRuns = async (rows: Row[]) => {
+    const calls: string[] = [], logs: string[] = [];
+    const fake = (_pid: number, _f: string[]) => ({ cmd: async (c: string) => { calls.push(c); return c.startsWith('settle') ? rows.shift()! : c.startsWith('gone') ? { op: 'gone', code: 0, why: [], stats: { goneMs: 1 } } : { op: c, code: 0, why: [] }; }, quit: async () => 0 });
+    const io: Io = { settleS: 0, settleBusy: true, log: m => logs.push(m), get: async (p: string) => p === 'fridadetach' ? { detached: true } : { attached: true },
+      agent: async (c: string) => c === 'game_state' ? { ok: true, result: { in_world: true } } : { ok: true, result: { speed: 'Normal' } } };
+    await rewindSession(1, io, { serve: fake as any, settleMs: 0 }).snapshot();
+    return { settles: calls.filter(c => c.startsWith('settle')), logs: logs.filter(l => l.startsWith('rewind: settle')) };
+  };
+  // the stats as the tool prints them (settle busy on the probe target after a DxDiag query, 2026-11-17)
+  const pingRow = parseRow('result {"op":"settle","code":0,"why":[],"notes":["1 combase.dll thread(s) still out of their idle wait after 60 s: 43344 (in NtWaitForMultipleObjects count 1 alertable 0, the remote-object ping loop); the snapshot is taken anyway (a rewind refuses if one is back idle)"],"ms":{},"stats":{"settleMs":60078,"settleLeft":1,"settlePing":1}}')!;
+  const idleRow: Row = { op: 'settle', code: 0, why: [], stats: { settleMs: 120000, settleLeft: 0, settlePing: 0 } } as any;
+  const otherRow: Row = { op: 'settle', code: 0, why: [], stats: { settleMs: 60000, settleLeft: 2, settlePing: 1 } } as any;
+  let sr = await settleRuns([pingRow, idleRow]);
+  assert.deepEqual(sr.settles, [`settle ${BUSY_S} combase.dll busy`, `settle ${PING_S} combase.dll busy`], 'ping loop only: wait longer');
+  assert.match(sr.logs[1], /^rewind: settle ping loop 120 s, 0 combase worker/);
+  sr = await settleRuns([otherRow]);
+  assert.deepEqual(sr.settles, [`settle ${BUSY_S} combase.dll busy`], 'another wait left: no longer wait (it would refuse anyway)');
+  sr = await settleRuns([{ ...idleRow, stats: { settleMs: 2000, settleLeft: 0, settlePing: 0 } } as any]);
+  assert.deepEqual(sr.settles.length, 1, 'idle at once: one settle');
   // ts3native log line formats (RewindCombaseKeep; offset as on combase 10.0.26100.9818)
   assert.ok(COMBASE_KEPT.test('[Rewind] combase keepalive: patched (combase 10.0.26100.9818, CRpcThread::WorkerLoop idle wait at +e78bf: 30 s -> INFINITE, this process only)'));
   assert.ok(!COMBASE_KEPT.test('[Rewind] combase keepalive: pattern not found, settle wait used (combase 10.0.26100.9818, 0 matches)'));
-  assert.deepEqual((await run([{ ...snapRow }, ended])).rew!.code, 3, 'ended: kill + fresh');
+  const e3 = await run([{ ...snapRow }, ended]);
+  assert.deepEqual(e3.rew!.code, 3, 'ended: kill + fresh');
+  assert.equal(e3.calls.filter(c => c === 'fridaattach').length, 1, 'ended: no probe attach to the ended game (only after the snapshot)');
   assert.deepEqual((await run([{ ...snapRow }, { ...good, stats: { hashEqual: 0 } }])).rew!.code, 3, 'hash differs: kill + fresh');
   assert.equal((await run([{ ...snapRow }], { attach: false })).snap.code, 3, 'probe not back: kill');
   assert.equal((await run([{ ...snapRow }], { inWorld: false })).snap.code, 3, 'game does not answer: kill');
+  // a Frida session left in the game (docs/270 §36, the kept frames session): refused before the op, park released, agent back
+  const still = parseRow('result {"op":"gone","code":2,"why":["module frida-agent.dll is still loaded 30 s after the probe detached: another Frida session is in the game (a kept frames session?)"],"notes":[],"ms":{},"stats":{"goneMs":30012}}')!;
+  const st = await run([{ ...snapRow }, good], { gone: still });
+  assert.deepEqual([st.snap.code, st.snap.why[0], st.calls.includes('tool snapshot'), st.calls.filter(c => c === 'tool plan').length, st.calls.includes('fridaattach')],
+    [2, still.why[0], false, 2, true], 'agent still loaded: refused (code 2) before the snapshot and the rewind, park ended by a plan, probe back');
   const np = await run([{ ...snapRow }], { pause: false });
   assert.deepEqual([np.snap.code, np.calls.includes('tool plan'), np.calls.includes('fridadetach')], [2, true, false], 'pause refused: park released by a plan, nothing detached');
   console.log('queue-rewind self-check ok (grouping, blocks, readiness on real lines, op order and every fallback path)');

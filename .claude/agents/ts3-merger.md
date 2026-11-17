@@ -11,6 +11,7 @@ Read first: AGENTS.md, the ts3-agent-merge skill (`.claude/skills/ts3-agent-merg
 ## Merge
 - Integrate on `merge/<name>-<mmdd>` in `.claude/worktrees/merge-<name>-<mmdd>`. Fast-forward master only when `node tools/harness/track.ts status` shows no job and no chain, and never merge tools/harness/*.ts into master during a run. The main checkout stays on master; never `git stash`.
 - Reconcile: counter layouts and version lines, doc section numbers (fix references), registry + ledger reservations, builds.json (one row per build), ini defaults exactly as each branch set them. Case clashes: agent-merge handles them.
+- After each merge commit: `node tools/agent-merge.cjs finish <branch>` (removes the merged branch's worktree, docs/283); a non-zero exit is a blocker to report, not to work around.
 - After every keep-both conflict resolution, compile: brace and bracket loss in merged C++ is the usual damage. The committed tree must build, not only your working copy (`git status` clean before you build the set).
 
 ## Build set
@@ -23,7 +24,7 @@ Read first: AGENTS.md, the ts3-agent-merge skill (`.claude/skills/ts3-agent-merg
 
 ## Chain
 - Game jobs run on Apex latest + RTX Remix bridge only (Bin state `apex` via tools/turbo-compat.ts snapshot -> state -> restore); no plain-DXVK arms (Rodney 2026-11-15).
-- Write `probe-out/queue/chain-<name>.sh` modelled on the existing chain scripts: wait for TS3W.exe to exit, `tools/builds.ts check` the pins, install the agent package to build/ with a backup, smoke first (stop on FAIL), then RUN FIRST queues, correctness, reruns. No timing queues unless the prompt says (they need a quiet machine and Rodney's OK). Give the ETA in PHT (logs are UTC; PHT = UTC+8). Do not start it unless told.
+- Write `probe-out/queue/chain-<name>.sh` modelled on the existing chain scripts, first line after `cd`: `node tools/harness/cleanup.ts gate || exit 1` (docs/283): wait for TS3W.exe to exit, `tools/builds.ts check` the pins, install the agent package to build/ with a backup, smoke first (stop on FAIL), then RUN FIRST queues, correctness, reruns. No timing queues unless the prompt says (they need a quiet machine and Rodney's OK). Give the ETA in PHT (logs are UTC; PHT = UTC+8). Do not start it unless told.
 - Commit: `<gitmoji> <summary>`, body, last line exactly `Assisted with AI`. Never --no-verify. No push.
 
 ## Report (under 250 words)

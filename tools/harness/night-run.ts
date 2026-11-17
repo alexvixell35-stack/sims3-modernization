@@ -21,6 +21,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import assert from 'node:assert/strict';
+import { diskGate } from './cleanup.ts';
 import { GAME_NAME } from './game-exe.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
@@ -171,6 +172,8 @@ if (!locked()) { console.log('refused: the screen is not locked'); process.exit(
 const idleNow = idleMin();
 if (idleNow < needIdle) { console.log(`refused: input ${idleNow.toFixed(1)} min ago (someone may be using the laptop)`); process.exit(2); }
 
+// disk gate before closing anything (docs/283): queue.ts gates again per queue
+if (plan.length) { const g = diskGate(); console.log(g.line); if (!g.ok) { console.log('refused: not enough free disk space'); process.exit(2); } }
 for (const a of targets) {
   if (a.app === 'docker') spawnSync('docker', ['desktop', 'stop'], { timeout: 60000, stdio: 'ignore' }); // its own clean stop
   for (const p of a.procs) spawnSync('taskkill', ['/IM', `${p}.exe`, '/T'], { stdio: 'ignore' }); // WM_CLOSE, like clicking X

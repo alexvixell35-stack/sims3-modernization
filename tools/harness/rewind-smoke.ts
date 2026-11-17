@@ -38,11 +38,11 @@ export const pidOf = (name: string): number => {  // not imported from rewind-ce
 };
 
 // `tasklist /M frida-agent* /FI "PID eq n"` output: a row while the probe's Frida agent is still loaded in the game
-export const fridaIn = (out: string) => TASK_ROW.test(out);
-export const fridaLoaded = (pid: number) =>
-  fridaIn(execFileSync('tasklist', ['/M', 'frida-agent*', '/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH'], { encoding: 'utf8', timeout: 30000 }));
+// after a probe detach: the tool's `gone <s>` waits until frida-agent.dll is unmapped (tasklist /M lists only the 64-bit WOW64
+// modules of a 32-bit process, so it always said "gone", docs/270 §36)
+export const GONE_S = 30;
 
-export type Row = { op: string; code: number; why: string[]; ms?: Record<string, number>; stats?: Record<string, number> };
+export type Row = { op: string; code: number; why: string[]; notes?: string[]; ms?: Record<string, number>; stats?: Record<string, number> };
 export const RESULT = /^result (\{.*\})\s*$/;
 export const parseRow = (line: string): Row | null => { const m = RESULT.exec(line); return m ? JSON.parse(m[1]) : null; };
 
@@ -101,8 +101,6 @@ async function selfCheck() {
   assert.ok(!MODES.strict.flags.some(f => /^--(allow-shared-views|allow-gui|plan-only)$/.test(f)), 'strict keeps the shared-view and window guards');
   assert.ok(['--allow-audio', '--reap-workers', '--recreate-views'].every(f => Object.values(MODES).every(m => m.flags.includes(f))), 'audio, workers, views allowed in all jobs');
   for (const [name, m] of Object.entries(MODES)) assert.equal(m.flags.includes('frida-agent'), m.op === 'plan', `${name}: the probe agent stays in only for plan ops`);
-  assert.equal(fridaIn('"TS3W.exe","61884","Console","1","1,812,344 K"\r\n'), true);
-  assert.equal(fridaIn('INFO: No tasks are running which match the specified criteria.\r\n'), false);
   for (const m of ['bridge-plan', 'bridge-apply']) assert.ok(!MODES[m].flags.some(f => /^--(no-coop|allow-shared-views|allow-gpu)$/.test(f)), `${m} uses the bridge client's block and keeps the guards`);
   // real refusal line of rewind-spike.cpp (GPU module guard) and one of another guard
   assert.ok(MODES['refuse-gpu'].expectRefuse!.test('module vulkan-1.dll is loaded: the GPU device sits in this process and is not rewound (run under the RTX Remix bridge)'));
@@ -168,10 +166,9 @@ async function main() {
   const op = async (c: string) => {
     if (mode.op === 'plan') return s.cmd(c, 300);
     const d = await probe('fridadetach');
-    let t = 0;
-    for (; t < 100 && fridaLoaded(pid); t++) await sleep(200);
-    console.log(`rewind-smoke: probe agent out of the game (${d.detached ? `unloaded after ${t * 0.2} s` : `detach: ${d.error}`})`);
-    const r = await s.cmd(c, 300);
+    const g = await s.cmd(`gone ${GONE_S}`, GONE_S + 30);
+    console.log(`rewind-smoke: probe agent out of the game (${!d.detached ? `detach: ${d.error}` : g.code ? g.why.join('; ') : `unloaded after ${((g.stats?.goneMs ?? 0) / 1000).toFixed(1)} s`})`);
+    const r = await s.cmd(c, 300); // still loaded: the op's module guard refuses it (code 2, nothing changed)
     const a = await probe('fridaattach');
     if (!a.attached) console.log(`rewind-smoke: probe attach after ${c}: ${a.error ?? JSON.stringify(a)}`);
     return r;

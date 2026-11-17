@@ -35,7 +35,7 @@ function mainQueueDir() {
     return join(dirname(common), 'probe-out', 'queue');
   } catch { return resolve(import.meta.dirname, '..', '..', 'probe-out', 'queue'); }
 }
-function realProcs(): Proc[] {
+export function realProcs(): Proc[] {
   const ps = `Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,CommandLine,@{n='S';e={$_.CreationDate.ToString('s')}} | ConvertTo-Json -Compress`;
   const out = execFileSync('powershell', ['-NoProfile', '-Command', ps], { timeout: 30000, maxBuffer: 64 << 20 }).toString();
   return (JSON.parse(out) as any[]).map(p => ({ pid: p.ProcessId, ppid: p.ParentProcessId, name: p.Name ?? '', cmd: p.CommandLine ?? '', start: p.S }));

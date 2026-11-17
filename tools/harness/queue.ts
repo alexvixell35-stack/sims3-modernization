@@ -199,6 +199,7 @@
 // At the end the Bin ts3native.asi and ts3native.ini found at the start are put back as a pair (copies in probe-out/queue/bin-before/;
 // until 2026-10-24 the asi came from native/ts3native/out/, which left an old build next to a job ini in Bin). The restored asi is
 // named from docs/data/builds.json; a WARN line says when it is not a release build. Windows-only by nature (TS3W.exe, taskkill).
+import { diskGate, sweepSaves } from './cleanup.ts';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { appendFileSync, copyFileSync, cpSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -333,6 +334,16 @@ function checkRegexCases(cases: Record<string, { match?: unknown; noMatch?: unkn
     for (const l of c.match as string[]) if (!r.test(l)) throw new Error(`${at}: regexCases /${re}/ does not match: ${l}`);
     for (const l of c.noMatch as string[]) if (r.test(l)) throw new Error(`${at}: regexCases /${re}/ matches a noMatch line: ${l}`);
   }
+}
+
+// A repinned queue that still requires the old build's version line FAILs a good run (mintpairs-1115-mm, z1-m1-*-master-1117b):
+// every logRequire /^ts3native .../ must match the version line of the pinned asi's builds.json entry.
+function versionPinMiss(j: { asi?: string; logRequire?: Record<string, number> }, builds: { name: string; version?: string }[]): string | undefined {
+  const v = builds.find(b => b.name === (j.asi ?? '').split(/[\\/]/).pop())?.version;
+  if (!v) return undefined;
+  const line = `ts3native ${v} 2026-01-01 00:00:00`;
+  const bad = Object.keys(j.logRequire ?? {}).find(re => /^\^ts3native /.test(re) && !new RegExp(re).test(line));
+  return bad && `logRequire /${bad}/ does not match the pinned asi's version line "${line}" (docs/data/builds.json)`;
 }
 
 // every top-level job key queue.ts reads (Job type plus the optional extras); anything else is a typo or a profile key at the wrong level
@@ -692,7 +703,10 @@ export const callSitesOffNote = (j: Job) => callSitesWanted(j) && fridaAttach(j)
 // Release tests run the shipped ini as is: no Light on a release asi (game-copy/ts3native.asi.rel*: release-check, -validate,
 // -vs-baseline, -reload, snap-release, tool-cost) or a job with "releaseDefaults": true
 export const releaseDefaults = (j: Job) => !!j.releaseDefaults || /ts3native\.asi\.rel\d/i.test(j.asi);
-export const lightIni = (j: Job): Record<string, number> => j.run.worldimage || releaseDefaults(j) ? {} : { 'CrashForensics.Light': 1 };
+// docs/284 (Rodney 2026-11-17): [Startup] DxDiagCache=1 in every harness job with these defaults (the sidecar comes from the Bin
+// state / setup, game-exe.ts ensureVramSidecar), so no test launch pays the ~60 s DxDiag query or starts COM's ping loop; a job sets
+// Startup.DxDiagCache 0 to run the game's own query (the correctness queue's off arm)
+export const lightIni = (j: Job): Record<string, number> => j.run.worldimage || releaseDefaults(j) ? {} : { 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1 };
 // the ini overrides a row records (job ini + the coverage key + Light; worldimage's filled-in paths stay out of the row)
 export const rowIni = (j: Job) => (j.ourMods === false ? {} : { ...callSitesIni(j), ...lightIni(j), ...j.ini }); // no ts3native: no ini tools
 const captureAbs = (ini: Job['ini']) => ini?.['MonoJit.CaptureFile'] ? { ...ini, 'MonoJit.CaptureFile': resolve(ROOT, String(ini['MonoJit.CaptureFile'])) } : ini;  // the game's cwd is Bin
@@ -1495,13 +1509,13 @@ if (values['self-check']) {
     assert.equal(fridaAttach(pj({ ini: { 'ProbeSnap.Enabled': 1 } })), '', 'ProbeSnap.Enabled forces --no-prof');
     assert.throws(() => pj({ callSites: true }), /second Frida agent \(stutter profiler\)/);
     assert.throws(() => pj({ noiseCheck: false, ini: { 'ProbeSnap.CallSites': 1 } }), /docs\/67/);
-    assert.deepEqual(rowIni(pj({ ini: { 'ProbeSnap.CallSites': 0 } })), { 'CrashForensics.Light': 1, 'ProbeSnap.CallSites': 0 });
+    assert.deepEqual(rowIni(pj({ ini: { 'ProbeSnap.CallSites': 0 } })), { 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'ProbeSnap.CallSites': 0 });
     assert.deepEqual(callSitesIni(cj({ callSites: false })), {});
     assert.deepEqual(callSitesIni(cj({ ini: { 'ProbeSnap.Enabled': 1 } })), {});
-    assert.deepEqual(rowIni(cj({ ini: { 'ProbeSnap.CallSites': 0 } })), { 'CrashForensics.Light': 1, 'ProbeSnap.CallSites': 0 });
-    assert.deepEqual(jobIni(cj({ ini: { 'Alloc.Enabled': 1 } })), { 'ProbeSnap.CallSites': 1, 'CrashForensics.Light': 1, 'Alloc.Enabled': 1 });
-    assert.deepEqual(jobIni(pj({})), { 'CrashForensics.Light': 1 }, 'docs/67 §18: timing jobs get Light too');
-    assert.deepEqual(rowIni(pj({ ini: { 'CrashForensics.Light': 0 } })), { 'CrashForensics.Light': 0 }, 'a job can drop it');
+    assert.deepEqual(rowIni(cj({ ini: { 'ProbeSnap.CallSites': 0 } })), { 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'ProbeSnap.CallSites': 0 });
+    assert.deepEqual(jobIni(cj({ ini: { 'Alloc.Enabled': 1 } })), { 'ProbeSnap.CallSites': 1, 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'Alloc.Enabled': 1 });
+    assert.deepEqual(jobIni(pj({})), { 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1 }, 'docs/67 §18: timing jobs get Light too');
+    assert.deepEqual(rowIni(pj({ ini: { 'CrashForensics.Light': 0, 'Startup.DxDiagCache': 0 } })), { 'CrashForensics.Light': 0, 'Startup.DxDiagCache': 0 }, 'a job can drop them');
     assert.equal(jobIni(pj({ asi: 'game-copy/ts3native.asi.rel015' })), undefined, 'release asi: shipped ini as is');
     assert.deepEqual(jobIni(cj({ releaseDefaults: true })), { 'ProbeSnap.CallSites': 1 }, 'releaseDefaults: no Light');
     assert.throws(() => cj({ releaseDefaults: 1 }), /releaseDefaults/);
@@ -1575,6 +1589,10 @@ if (values['self-check']) {
     assert.throws(() => rc({ '^save #\\d+ ok': { match: ['save #12 ok'], noMatch: ['save #3 ok'] } }), /matches a noMatch/);
     assert.throws(() => rc({ '^save #\\d+ ok': { match: ['save #12 ok'], noMatch: [] } }), /needs match and noMatch/);
     assert.throws(() => rc({}), /no case for/);
+    const pins = [{ name: 'ts3native.asi.master-1117b', version: '0.36.269-mb1117' }];
+    assert.match(versionPinMiss({ asi: 'game-copy/ts3native.asi.master-1117b', logRequire: { '^ts3native 0.36.266-mb1116 ': 1 } }, pins) ?? '', /does not match/);
+    assert.equal(versionPinMiss({ asi: 'game-copy/ts3native.asi.master-1117b', logRequire: { '^ts3native 0\\.36\\.269-mb1117 ': 1, '^gcsize: ': 20 } }, pins), undefined);
+    assert.equal(versionPinMiss({ asi: 'game-copy/ts3native.asi.unknown', logRequire: { '^ts3native 0.1 ': 1 } }, pins), undefined);
     assert.throws(() => rc({ '^save #\\d+ ok': { match: ['save #1 ok'], noMatch: ['x'] }, y: { match: ['y'], noMatch: ['x'] } }), /no logRequire/);
   }
   assert.throws(() => parseQueue([{ id: 'v', asi: 'x', save: 'S', routingFailFast: { ms: 300, scope: 'all' }, run: { profile: { minutes: 5, ab: 'unseenfb' } } }]), /scope "all" on an --ab/);
@@ -1894,7 +1912,7 @@ if (values['self-check']) {
     assert.throws(() => wj({}), /WorldImage.Enabled=1/);
     assert.throws(() => wj({ 'WorldImage.Enabled': 1, 'WorldImage.MaxCaptures': 1 }), /MaxCaptures/);
     assert.throws(() => wj({ 'WorldImage.Enabled': 1 }, { captures: 0 }), /captures/);
-    assert.deepEqual(jobIni({ id: 'x', asi: 'tested', run: { soak: { minutes: 1 } } }), { 'ProbeSnap.CallSites': 1, 'CrashForensics.Light': 1 }); // docs/133 §7, docs/67 §18
+    assert.deepEqual(jobIni({ id: 'x', asi: 'tested', run: { soak: { minutes: 1 } } }), { 'ProbeSnap.CallSites': 1, 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1 }); // docs/133 §7, docs/67 §18
     assert.equal(wi['CrashForensics.Light'], undefined, 'worldimage: no Light');
     assert.deepEqual(callSitesIni(wj({ 'WorldImage.Enabled': 1 })), {});
     const hd = wiHeader('worldimage 1\nthread 10 7ffd0000 a00000 9f0000 1 2 3 4 5 6 7 8 9 a\ntls 114c908 2 1 0\ntls 11f4160 5 0 0\nlock 11f43a8 ffffffff 0 0\nlock 11f4130 fffffffe 1 4242\nmodule 400000 e5a000 52dec247 TS3W.exe\nstats 900 2147483648 3 2500\n');
@@ -2371,6 +2389,8 @@ for (const j of jobs) {
     try { if (loopOfId(it.id)) checkLoop(loopOfId(it.id)); } catch (e: any) { console.error(`${j.id}: repro ${it.id}: ${e.message}`); process.exit(2); }
   }
   if (!saveOf(j)) { console.error(`${j.id}: no save`); process.exit(2); }
+  const pinMiss = versionPinMiss(j, BUILDS as { name: string; version?: string }[]);
+  if (pinMiss) { console.error(`${j.id}: ${pinMiss}`); process.exit(2); }
   if (j.fixesBuild && !BUILDS.some(b => b.name === j.fixesBuild && b.kind === 'ts3fixes')) { console.error(`${j.id}: fixesBuild ${j.fixesBuild} is not a ts3fixes entry in docs/data/builds.json (node tools/builds.ts list)`); process.exit(2); }
 }
 
@@ -2429,6 +2449,7 @@ if (values['dry-run']) {
     if (rwPrev) console.log(`  0 start: rewind to the snapshot after the load (rewind group ${rg}; refused or failed -> close + fresh load, row.start says which); steps 1-6 skipped`);
     else if (rwNext) console.log(`  0 start: fresh; after the load a rewind snapshot for the next job(s) of rewind group ${rg} (ini + ${Object.entries(REWIND_INI).map(([k, v]) => `${k}=${v}`).join(', ')}, callSites off)`);
     else if (REWIND === 'auto') console.log(`  0 start: fresh (no rewind: ${rewindBlock(j, VANILLA) || 'game start differs from its neighbours'})`);
+    if (rwNext) console.log(`  0 rewound after this job: profile-world --rewind-next (no frames session, no repro save; docs/270 §36-37)`);
     if (!rwPrev) console.log(`  0 session: ${reused ? `reuses the game of ${dryPrev} (window #${dryWin} since load, if its carry-over check passes: switches back to the load values, drift within ${JSON.stringify(ro)}); steps 1-6 skipped`
       : `fresh game start + load${ro && reuseBlock(j) ? ` (no reuse: ${reuseBlock(j)})` : ro && dryKey && key !== dryKey ? ' (game start differs from the job before)' : ro && dryKey ? ` (maxJobs ${ro.maxJobs} reached)` : ''}`}`);
     dryWin = (reused ? dryWin : 0) + (items?.length ?? 1); dryKey = ro && !reuseBlock(j) ? key : ''; dryPrev = j.id;
@@ -2772,6 +2793,8 @@ if (!values['dry-run']) {
     `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.ProcessId -ne ${process.pid} -and $_.ProcessId -ne ${Number(process.env.TS3_SMOKE_PARENT) || 0} -and $_.CommandLine -match 'harness[\\/]queue\.ts' -and $_.CommandLine -notmatch '--dry-run|--self-check' } | ForEach-Object { $_.ProcessId }`]).toString().trim();
   if (others) { console.error(`another queue is running (node PID ${others.split(/\s+/).join(', ')}): stop it first (taskkill /PID <pid> /T /F)`); process.exit(3); }
 }
+// disk gate (docs/283, 2026-11-17: C: at 0 bytes broke builds and runs mid-job): < 30 GB free runs cleanup.ts --apply, < 15 GB refuses here
+if (!values['dry-run'] && !process.env.TS3_SMOKE_PARENT) { const g = diskGate(); log(g.line); if (!g.ok) { log('STOP: not enough free disk space to start (cleanup.ts gate)'); process.exit(5); } }
 if (!values['dry-run']) saveForeground(); // the window to give focus back to once the game takes it (focus-game.ts)
 // apps a killed run left on the narrowed CPUs go back first; the same on any exit of this run (pin.ts)
 if (pinStatePending()) log(`pin: leftover from an earlier run: ${restorePins()}`);
@@ -2925,8 +2948,8 @@ async function rwSnapshot(j: Job, row: any, logFile: string, deadline: number) {
   try { pidOf('NvRemixBridge.exe'); } catch { bridgeRuns = false; }
   const why = rewindReady({ exe: existsSync(REWIND_EXE), conf: existsSync(BRIDGE_CONF) ? readFileSync(BRIDGE_CONF, 'utf8') : null, bridgeRuns, log: existsSync(LOG) ? readFileSync(LOG, 'latin1') : '' });
   if (why) { row.snapshot = `skipped: ${why}`; log(`${j.id}: rewind snapshot skipped: ${why} (the next job starts fresh)`); return; }
-  const kept = existsSync(LOG) && COMBASE_KEPT.test(readFileSync(LOG, 'latin1'));  // docs/270 §32: combase patched, no settle wait
-  const rw = rewindSession(pidOf(GAME_EXE), { agent, get, log: m => log(`${j.id}: ${m}`), settleS: kept ? 0 : SETTLE_S });
+  const kept = existsSync(LOG) && COMBASE_KEPT.test(readFileSync(LOG, 'latin1'));  // docs/270 §32: combase patched: no idle-end wait; §36: busy-worker wait
+  const rw = rewindSession(pidOf(GAME_EXE), { agent, get, log: m => log(`${j.id}: ${m}`), settleS: kept ? 0 : SETTLE_S, settleBusy: kept });
   const op = await rw.snapshot();
   row.snapshot = op.code === 0 ? `taken (${op.ms} ms)` : `${op.code === 2 ? 'refused' : 'failed'}: ${op.why.join('; ').slice(0, 200)}`;
   log(`${j.id}: rewind snapshot ${row.snapshot}`);
@@ -3227,7 +3250,8 @@ for (const [n, j] of jobs.entries()) {
     if (gate) throw new Error(`${gate}; refused, nothing run`);
     const fixRead = async () => ({ p: (await agent('patches'))?.result, t: (await agent('time'))?.result }); // ts3fixes rows of ACTIVITY
     const fx0 = !VANILLA && (j.run.profile || j.run.soak || j.ourMods === false) ? await fixRead() : null;
-    const items = itemsOf(j), args = j.run.profile && !items ? profileArgs(j, j.run.profile, profileTag(j), sessionFlags(j)) : runArgs(j);
+    // rewound after this run (docs/270 §36): no kept frames session and no repro save
+    const items = itemsOf(j), args = j.run.profile && !items ? profileArgs(j, j.run.profile, profileTag(j), [...sessionFlags(j), ...(rwNext && sess!.rw ? ['--rewind-next'] : [])]) : runArgs(j);
     let afterRun: { mem: any; native: any } | null = null;
     // early machine-load verdict (PLAN.md 2026-10-24): a timing run on a noisy machine stops ~2.5 min in instead of finishing void;
     // judged once, on the samples after the profiler's first minute. noiseCheck: false = correctness job, no timing read
@@ -3691,5 +3715,6 @@ for (const b of ledgerBlocks) appendFileSync(md, b);
 if (rwGroups.size && !values['dry-run']) { const l = rewindSummary({ ...rwRun, groups: new Set(rwGroups.values()).size, members: rwGroups.size, jobs: jobs.length }); log(l); appendFileSync(md, `\n${l}\n`); }
 if (stopWhy) appendFileSync(md, `\nStopped: ${stopWhy}.\n`);
 log(`results: ${jsonl}, ${md}`);
+if (!values['dry-run'] && !process.env.TS3_SMOKE_PARENT) log(`end sweep: ${sweepSaves()}`); // harness saves, dumps, frames older than 3 d (docs/283)
 publishAtEnd(queueName);
 process.exit(exitCode);

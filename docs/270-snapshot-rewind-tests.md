@@ -177,7 +177,12 @@ priorities. All handles duplicated into the host. States of events, semaphores a
   section mapped at the same base).
 - Refused: a view (or module) unmapped after the snapshot that has no section handle. Toy: `views`, "no section handle is left".
   `--recreate-views` maps a fresh pagefile section with the snapshot bytes instead (toy: same case); this is right only when no
-  one else maps that memory, which cannot be shown from outside [inferred]. Also refused: pages committed inside a kept view.
+  one else maps that memory, which cannot be shown from outside [inferred]. Also refused: pages committed inside a kept view,
+  except in the window system's read-only views (desktop heap from each thread's 64-bit TEB CLIENTINFO, server info and USER
+  handle table from user32's `gSharedInfo`; no file, no section handle in the target, stat `viewsSystem`): win32k commits
+  pages there when any process on the desktop makes windows (measured 2026-11-16: 600 windows made by the host committed
+  pages in both views of the toy; the inferred cause of the ~3% `refusals`/toy smoke flake, whose address was not logged). They are left out of the plan, memory
+  restore and region-map check; a note and `viewsSystemGrew` log each. Toy: `views`.
 - Refused at the snapshot: a writable pinned view whose section has a name or more handles than the target's own (shared with
   another process: IPC, a renderer bridge; the other side is not rewound). `--allow-shared-views` overrides. Toy: `refusals`
   (named section; and the real sound stack, which shares a section with the audio service). Not seen by this check: a section
@@ -1650,6 +1655,218 @@ format (§31 limit, Apex side); named pipes and change notifications (no profile
   of §33.1, so only new pairs are reported from now on.
 - Self-check on real reasons from the chain logs (match and non-match lines, the cut queue form, the new owner form),
   queue.ts self-check and selftest-all pass.
+
+## 34. Our memory worker in a different wait (2026-11-16, branch `bugfix/rewind-udmem-wait-1116`)
+
+### 34.1 Finding [verified: chain-1116c.out 15:12:51 UTC, master-1116c map]
+
+`rewind-pilot-1116-1116c` `bp-rewind-pilot-b`: "rewind refused -> fresh (thread 37132 is in NtWaitForSingleObject; at the
+snapshot it was in NtWaitForSingleObject; differs: timeout value; start ts3native.asi+ca8f0, returns to
+kernelbase.dll+1600c8". `ts3native.map.master-1116c`: RVA 0xca8f0 = `UdMemMain` (userdiag.cpp), the [UserDiag] /
+[MemDiag] memory worker. It waited `min(period - since, MdWorkerPoll())`, the time left to its next deadline, so every
+loop (and every wake by a memory-at sample) passed another timeout. Likely also the unnamed "different
+NtWaitForSingleObject wait" of §33.1 / §33.4 item 1 (71284, 57156, owner cut off) [inferred: same kind, owner not printed
+then].
+
+### 34.2 Fix (built, `ts3native.asi.rwud1116`, 0.36.268-rwud1116)
+
+`UdMemMain` now waits a fixed 1000 ms and keeps `last` in a global (`g_udMemLast`). The polls it runs (`MdWorkerPoll`,
+the memory-at line) are deadline checks, so they run up to 1 s late; periods are minutes or `RcRefPeriodSec`. Proof the
+wait is now the same call [verified: dumpbin of the new asi]: across the call esi holds `GetTickCount` and edi
+`WaitForSingleObject` (import pointers), ebx and ebp are unused, esp is the fixed loop depth, the arguments are the event
+global and 0x3E8, and kernelbase turns 1000 ms into the same relative due time. So the §16.2 rule takes it up again. No
+tool change. Left: if `last` moves between snapshot and rewind it is memory, put back by the rewind.
+
+Other own waits [verified: grep of native/ts3native]: every other ts3native wait or Sleep uses a constant or an ini value
+fixed at start (f5watch, route worker `g_rwTimeoutMs`, `[UserDiag]` watchdog, values, vcall, pkglock); none computes a
+remaining time. `CpMain` (§21.1) is off in rewind runs. Rerun: `tools/harness/queues/rewind-pilot-1116-rerun1-1116.json`
+(unproven in game until it runs).
+
+## 35. A reinserted handle failed verify: code 3 instead of a refusal (2026-11-16, branch `bugfix/rewind-reinsert-check-1116`)
+
+`rewind-games-smoke-1116-1116c` (chain-1116c step 5, BP, Bin state apex-rewind) PASSed only on reloads: both rewinds were
+applied and ended the game [verified: queue jsonl rows]:
+`verify: handle 7a8 is not the snapshot's object (target ended)` (15:33:12) and the same for `7ac` (15:37:49). Both rows:
+`hashEqual 1` (memory exact), `handlesReinserted 1`, `handlesClosed 41/42`, `workersReaped 12/15`.
+
+- **Gap [verified, source]:** `planRest` refuses a changed handle only when it has no pin; a pinned one goes to
+  `pl.reinsert` without any check that the duplicate comes back with the type, access and object `verify` asks for. Verify
+  runs after the irreversible phase, so a mismatch can only end the game (code 3).
+- **Which handle [unknown]:** the tool printed only the value. One reinserted handle and one failing handle in both rows
+  makes the reinserted handle the likely one [inferred]; a kernel worker-factory thread started during the apply (not
+  frozen) touching a handle is the other candidate [inferred]. Nothing ties it to ts3native.asi: no handle value or name
+  in our log; not ours unproven either way.
+- **0xc000010a on probe attach [verified, source]:** STATUS_PROCESS_IS_TERMINATING. `dirty()` calls `TerminateProcess`
+  before code 3; the harness then still attached Frida. Noise, not a second fault.
+- **Fix:** `reinsertProbe` duplicates each pin into the target once before any change, reads type/access back, compares the
+  object, closes it; a mismatch refuses (exit 2, game plays on) naming the handle (`handle 7a8 (<kind> <name>) was closed
+  or replaced after the snapshot and would not come back as the snapshot's object: ...`). Verify names kind, object name,
+  `reinserted` or `kept by the plan`, and which test failed, so a repeat identifies the handle (and tells the two causes
+  apart). queue-rewind.ts no longer attaches after a code 3. Selftest `files`: a faked snapshot access the duplicate
+  cannot match is refused, then the true one rewinds.
+- **Unproven:** if the cause is the race (a kept handle changed after the plan), this fix only names it; the next game run
+  says which.
+
+## 36. A COM cache worker lent to the remote-object ping loop at the snapshot (2026-11-17, branch `bugfix/rewind-com-roid-1117`)
+
+### 36.1 Finding [verified: chain-1117a-1-rewind-pilot-1116-rerun1-1116.out 21:08:26 UTC; static, SysWOW64 combase 10.0.26100.9818]
+
+`rewind-pilot-1116-rerun1-1116` `bp-rewind-pilot-c` (asi rwud1116, `[Rewind] combase keepalive: patched` in both logs) was
+refused: "thread 37136 is in NtWaitForMultipleObjects; at the snapshot it was in NtWaitForMultipleObjects; differs: esp
+181cfc2c->181cfc54 ebp 181cfdb8->181cfde0 ebx 0->1 arg1 1->2 arg2 181cfdf0->181cfe18 arg4 0->1; start combase.dll+123bf0,
+returns to kernelbase.dll+160f3f (snapshot kernelbase.dll+160f3f)". The snapshot was taken 25 s after the world load.
+
+- combase+123bf0 is the RPC cache worker entry (§32); it runs `CRpcThread::WorkerLoop` (+e77a1). kernelbase+160f3f is
+  the return from `NtWaitForMultipleObjects` inside `WaitForMultipleObjectsEx`.
+- combase calls `WaitForMultipleObjectsEx` (IAT +25d558) from one place only: `WaitCoalesced` (+e79da). WaitCoalesced
+  copies the caller's handles, adds its coalescing waitable timer and waits on count + 1 handles with the caller's
+  alertable flag. It has two callers:
+  - `WorkerLoop` idle wait (+e78d4): one handle (the worker's event), alertable 1 -> **2 handles, alertable**. This is
+    the wait at the rewind (arg1 2, arg4 1).
+  - +eab70 (+eabbe): no handles, period from global +25a42c, tolerance 0xfa0, alertable 0 -> **1 handle (the timer), not
+    alertable**. This is the wait at the snapshot (arg1 1, arg4 0). +eab70 is handed to the cache by
+    `QueueWork` (+82fc7, pops a free CRpcThread, sets fn/arg, SetEvent) from the sites at +b3ec3, +eb245 and +1e6a36,
+    which set the "worker running" flag +25a424 and the period (+25a42c = ping period / 6). It loops until its tables
+    are empty, then clears the flag and returns, and the thread goes back to the idle wait. This is COM's remote-object
+    ping / release worker (`CROIDTable::WorkerThreadLoop` shape [inferred: name]; it runs while the process holds
+    proxies to out-of-process COM objects).
+- Stack depth: arg2 (the handle array on WaitCoalesced's frame) and esp move by the same 0x28, the extra frame of +eab70
+  under WorkerLoop's `call edi` [inferred: arithmetic within one alignment slot].
+- So at the snapshot the worker was lent to the ping loop; between snapshot and rewind the process released its last
+  out-of-process proxy, the loop ended and the thread went idle. Not ours (combase, Windows). Who held the proxy: not
+  known (an out-of-process COM call during or right after the load). The same rewind also had ALPC port 7b8 replaced
+  (access 1f0001 -> 1f0000), consistent with that COM connection going away [inferred].
+- The tool's refusal is right: putting the memory back would set the ping flag and tables with no thread running the
+  loop (remote objects then time out on the server side).
+
+### 36.2 Fix (tool + queue, no asi change)
+
+- `rewind-spike settle <s> [module] busy`: waits until every live thread that starts in the module is in combase's idle
+  wait (`comIdleWait`: `NtWaitForMultipleObjects`, count 2, alertable 1), at most s seconds. Each such thread is
+  suspended briefly to read its context (watchdog-covered); the note names the threads still out of it and where they
+  wait. Without `busy` the command is unchanged (waits for threads to end, the unpatched case of §32).
+- queue.ts / queue-rewind.ts: when ts3native's log has `[Rewind] combase keepalive: patched`, the snapshot is preceded by
+  `settle 60 combase.dll busy` (`BUSY_S`), logged as `rewind: settle busy <n> s, <k> combase worker(s) out of their idle
+  wait`. The snapshot is still taken after 60 s (the rewind then refuses as before).
+- Self-checks: toy case `keepalive` (busy mode on no threads returns at once; on the toy's own non-idle threads it waits,
+  names them, the toy runs on; `comIdleWait` on the WorkerLoop, ping-loop and single-object shapes), full toy selftest
+  PASS, queue-rewind self-check (busy settle before the snapshot only).
+- Unproven: whether the ping loop ends within 60 s after a load (it ended within the 5.7 min between snapshot and rewind
+  here). If the proxy lives longer, the queue line says so and the owner of the COM proxy is the next thing to find.
+  The other refusals of the same rewind (frida-agent.dll still loaded, handles 654/1c1c made after the snapshot with
+  window-system state, GDI 170 -> 194 / USER 76 -> 86) are separate classes (§36.3).
+
+### 36.3 The other four refusals of the same rewind: ours (harness)
+
+1. **frida-agent.dll still loaded although the queue logged "unloaded after 0 s"** [verified]. Two harness faults:
+   - The wait never waited: `fridaLoaded` ran `tasklist /M frida-agent* /FI "PID eq <pid>"`. For a 32-bit process tasklist
+     (64-bit and the SysWOW64 copy alike) lists only the WOW64 modules (`ntdll.dll, wow64.dll, wow64base.dll, wow64win.dll,
+     wow64con.dll, wow64cpu.dll`, checked on a live 32-bit process), so it always said "gone".
+   - The holder: profile-world keeps its frames session (`frame-times.js`, `side(..., keep=true)`, `-t secs+86400`) in the game
+     for every profile run, not only with `--frames-shared` (79ec7db8e, after one crash at a frames unload). Job b's
+     `-frames.csv` and `-frames.log` were written until 21:08:27 UTC, the second the refused rewind ended the game
+     (`Process terminated`). The probe's own detach was fine.
+   - Fix: tool command `gone <s>` (no freeze; polls the target's image views for the forbidden modules every 200 ms; refuses,
+     code 2, naming the module). queue-rewind and rewind-smoke call `gone 30` after `fridadetach`; on a refusal queue-rewind
+     runs no op, ends the park hold with `plan`, attaches the probe again and the job starts fresh. queue.ts passes
+     `--rewind-next` to profile-world when the next job of the group rewinds: the frames session then ends with the run like
+     the other side sessions (the unload crash risk of 79ec7db8e is taken there; cause still unverified).
+2. **ALPC port 7b8 replaced** (access 1f0001 -> 1f0000) [inferred]: the COM connection that §36.1's ping loop served, dropped
+   when the process released its last out-of-process proxy. The busy settle (§36.2) takes the snapshot after the loop ended;
+   whether rpcrt4 has closed or reopened the port by then is not known. No own fix: a replaced ALPC port cannot be put back.
+3. **Handles 654/1c1c made after the snapshot, protected from close** [verified on the toy, inferred for the game]: toy
+   `threads`, new command `C_GUI_THREAD` (a thread made after the snapshot calls `GetForegroundWindow` and sleeps): the rewind
+   names `handle 26c (Event)` and `handle 270 (IoCompletion)` made after the snapshot, protected from close, and USER 4 -> 5.
+   So one new window-system thread brings two such handles, as 654 + 1c1c did. In the game the thread with user32 calls that
+   lived past job b is the kept frames session's (`frame-times.js` calls `GetForegroundWindow`); the probe agent's threads end
+   with its detach. Fix: item 1 (no kept session); the refusal now names the handle type and object name.
+4. **GDI 170 -> 194, USER 76 -> 86** [inferred, owner not proven]: USER +1 per new window-system thread (toy). Job b also
+   wrote a repro save after the profile (`repro save: Repro-...-bp-rewind-pilot-b-2107`, stuck Romeo Rake; most BP jobs write
+   one), against §33.3's rule that profile jobs do not save. With `--rewind-next` profile-world skips the repro save (stuck
+   Sims stay in `<tag>-stuck.json`). Rule: window-system growth keeps refusing; a count cannot show that no object of the
+   snapshot was destroyed, so there is no safe-to-ignore class. If the rerun still shows growth with neither the frames
+   session nor the save, the owner is the game's own UI or Apex, and the next step is a per-stage GUI count.
+- `rewind-refusals.ts` kinds `handle-replaced`, `gui-thread-handle`, `gui-objects`; `module-guard` also takes the `gone` form.
+- Self-checks: toy `keepalive` (`gone` returns at once with no forbidden module; with the toy's own image forbidden it refuses
+  after its time, names it, the toy runs on), toy `threads` (`C_GUI_THREAD`), queue-rewind (op order with `gone`; agent still
+  loaded: code 2 before the op, park ended, probe back), rewind-refusals on the chain-1117a lines.
+- Unproven until `rewind-pilot-1116-rerun2-1117` runs: that items 2 and 4 go away with the frames session and the save gone.
+
+## 37. Rerun2: the game crashed when the frames session ended (2026-11-17)
+
+`rewind-pilot-1116-rerun2-1117` (chain-1117d, Bin state apex-rewind): bp-rewind-pilot-a died at 00:26:05 UTC (harness saw
+it at 00:26:16), at the end of its 5 min profile and before any rewind op. No minidump, no ts3native crash file.
+
+- **Where** [verified, logs]: the first exception in the job's ts3native.log is `C0000005 at 0x4BB10607` (write to `0x1048`),
+  thread 27860, eip in no module, empty stack refs; ebp's return goes into `0x1E1A004A`. EA's xcpt report shows that block:
+  `53 56 57 8B 5C 24 10 8D 8B 18 00 00 00 51 FF 53 04 85 C0 ... 8D 93 22 02`, a remote-thread bootstrap stub
+  (`call [ebx+4]` on `ebx+0x18`, then a name at `+0x222`), with `ebx`/`esi` = `0x786B0000` (an `MZ` image). Later
+  exceptions on the same thread (`0x4BB1040A`, then S3SS+0x4E313 under EA's crash-report frames `0x4D7001`/`0x58D945`) are
+  crash handling (docs/539 §12.1 pattern).
+- **When** [verified]: the last `-300-frames.csv` row is 00:26:04.567 UTC, 0.9 s before; the frames session (`-t 300`,
+  ended with the run since §36's `--rewind-next`) never logged its dispose line. Same signature as the 2026-10-22 freeze-pan
+  crash (eip `0x409205EA` in no module, at a frames unload) that made 79ec7db8e keep the session.
+- **Who** [inferred]: the stub is a Frida injector bootstrap (LoadLibrary + GetProcAddress of the agent entry); the thread is
+  the frames agent's (or an agent loading while it unloads). Not ts3native (no fault in its code), not Apex (its
+  `ApexRadiance.asi+0xF89D8` first-chance AVs are the known handled ones, docs/270 §24), not the bridge (bridge64 only saw
+  the client exit), not the rewind tool (no op ran). Free address space was 1916 MB (not Error 12); physical load 93 % with
+  build agents running.
+- **/native UNKNOWN lines** [verified]: `-native.json` `before` has 6514 keys, `after` is null: the read after the crash.
+  ts3native was loaded and answering; the same holds for the 1116/1117c bp-ride-smoke lines.
+- **Fix**: `profile-world --rewind-next` starts no frames session (as `rewindGameProfile` already does for rewound jobs). The
+  frames session stays kept in every other run. Rerun: `rewind-pilot-1116-rerun3-1117` (noiseCheck false).
+
+## 38. Rerun3: the busy settle timed out; pilot-b's stuck clock was a minimized window (2026-11-17)
+
+`rewind-pilot-1116-rerun3-1117` (chain-1117e step 3): pilot-a PASS in 9.9 min, no crash at the profile end (§37 fix holds).
+pilot-b FAIL at 02:14:38 UTC, "sim clock stuck at day 15 11:53 for ~60 s".
+
+- **No rewind ran** [verified, chain out]: `start: rewind refused -> fresh (thread 41020 ... differs: esp 17f7fc2c->17f7fc54
+  ... ebx 0->1 arg1 1->2 ... start combase.dll+123bf0)`, the §36.1 shape (ping loop at the snapshot, idle wait at the
+  rewind). The busy settle (§36.2) had run its full 60 s at both snapshots: `settle busy 60 s, 1 combase worker(s) out of
+  their idle wait` at 02:02:21 (world loaded 02:00:26) and 02:13:20 (loaded 02:11:01). So §36.2's open question is answered:
+  the ping loop runs longer than ~2 min after a load, and ended within ~6 min (idle at the 02:08:36 rewind). Owner of the
+  out-of-process COM proxy still unknown; that is the next step (a longer settle only moves the cost).
+- **The stuck clock** [verified]: the fresh load's probe logged `game window minimized` at 02:09:59 UTC (events.jsonl) and
+  `clock_state` at the trip had `minimize_pause: true`, `pause_bits: 2`, `window.iconic: true` (docs/85 H5). The harness
+  minimizes only in the `clock-minimize-pause` repro, so it came from outside (light laptop use). Machine/noise: rerun
+  `rewind-pilot-1116-rerun4-1117`.
+
+## 39. Who holds the COM proxy: TS3W's own DxDiag VRAM query (2026-11-17, branch `bugfix/rewind-com-roid-1117`)
+
+### 39.1 Finding
+
+- **Owner** [verified on a probe target, inferred for the game]: TS3W.exe itself. `DeviceCaps_Probe 0x613CB0` calls
+  `VRAM_DxDiag 0x612640` at start-up (docs/37 §6) on every Windows run (only the Mac flag takes the DirectDraw path):
+  `CoInitialize(NULL)` (main thread, STA, never uninitialized), `CoCreateInstance(CLSID_DxDiagProvider, CLSCTX_INPROC_SERVER)`,
+  `Initialize({0x10, 0x6F, bAllowWHQLChecks FALSE})`, reads `DxDiag_DisplayDevices`, releases everything [verified: disassembly,
+  IAT slots 0xF95AAC/0xF95AA8]. The in-process provider gathers system data through WMI, out of process: the game has
+  `wbemprox.dll`, `wbemsvc.dll`, `fastprox.dll`, `wbemcomn.dll` loaded and no other module of the game, Apex, S3SS, S3PP,
+  MonoPatcher or ts3native references WMI (string scan of the Bin binaries; census `ts3w-bp-start.json` module list).
+- **Probe** (scratch 32-bit target with the game's exact calls, watched with `settle 2 combase.dll busy` every 10 s, 13 min,
+  2026-11-17): `dxdiag` mode: a combase worker enters the ping-loop wait (count 1, alertable 0) while `Initialize` runs (60 s on
+  this laptop), stays there after the release and is back in its idle wait **321 s after the release**. `wmi` mode (one
+  `Win32_Processor` query, released): same, back idle 314-322 s after. `none` mode (no COM): no worker out of idle at any poll.
+  So the loop outlives the last proxy by ~5.3 min (COM sends the OID releases with its pings, then the tables empty) [measured].
+- **Fits the game runs** [inferred]: rerun3 launched 01:58:22 UTC, menu 01:59:46 (DxDiag done about then), snapshot settle
+  ran out at 02:02:21 (busy), the 02:08:36 rewind found the worker idle: release + 5.3 min = about 02:05. rerun1's snapshot
+  25 s after the load was in the loop, its rewind 5.7 min later idle. Not the bridge (its IPC is shared memory + events), not
+  Steam, audio, XInput or the Frida agent (none of them needed: the probe reproduces the shape and duration with DxDiag alone).
+- Side finding: `IDxDiagProvider::Initialize` took 60 s on the probe; the game pays it on every launch (docs/37 C4, I-37-5).
+
+### 39.2 Fix (tool + queue, no asi change)
+
+- `rewind-spike settle ... busy` now names each worker's wait (`count N alertable A`, `the remote-object ping loop`) and reports
+  `settlePing` (how many of the workers still out of their idle wait are in the ping loop).
+- queue-rewind: after `settle 60 combase.dll busy`, when every worker left is in the ping loop it runs `settle 420 combase.dll
+  busy` (`PING_S`) and logs `rewind: settle ping loop <n> s, <k> combase worker(s) ...`. Any other wait left: no extra wait (it
+  refuses anyway). Cost: about 2.5 min once per rewind group after a fresh launch (snapshot ~6.5 min after the launch instead of
+  ~4); snapshots later than that do not wait. Self-check: queue-rewind (ping only -> second settle; mixed -> none; idle -> one).
+- Queue: `rewind-pilot-1116-rerun5-1117` (supersedes rerun4, which never ran; noiseCheck false).
+- Next, zero-cost (asi change, not built): under `[Rewind] Park=1` (test-only), skip `VRAM_DxDiag` and return 0, keeping its
+  `CoInitialize`. Under the bridge the game already reads 0 here (`DeviceConfig.log`: `Texture memory: 1024MB <<OVERRIDE>>`, the
+  sgr fallback), so the graphics presets stay the same; it also saves the ~60 s DxDiag init per launch. Needs a Steam/EA address
+  gate and one game run.
 
 ## Spike on the toy process, first version (2026-11-15, history)
 

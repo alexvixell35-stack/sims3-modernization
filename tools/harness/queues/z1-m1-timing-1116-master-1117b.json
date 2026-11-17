@@ -3,7 +3,7 @@
  "rewind": "auto",
  "stopQueueOnFail": true,
  "regexCases": {
-  "^ts3native 0.36.266-mb1116 ": {
+  "^ts3native 0\\.36\\.269-mb1117 ": {
    "match": [
     "ts3native 0.36.269-mb1117 2026-11-16 09:36:51"
    ],
@@ -24,7 +24,7 @@
    "noiseCheck": false,
    "scriptErrorsMax": 0,
    "logRequire": {
-    "^ts3native 0.36.266-mb1116 ": 1
+    "^ts3native 0\\.36\\.269-mb1117 ": 1
    },
    "gameArgs": [
     "-disablestoryprogression"
@@ -53,7 +53,7 @@
    "noiseCheck": false,
    "scriptErrorsMax": 0,
    "logRequire": {
-    "^ts3native 0.36.266-mb1116 ": 1
+    "^ts3native 0\\.36\\.269-mb1117 ": 1
    },
    "gameArgs": [
     "-disablestoryprogression"
@@ -82,7 +82,7 @@
    "noiseCheck": false,
    "scriptErrorsMax": 0,
    "logRequire": {
-    "^ts3native 0.36.266-mb1116 ": 1
+    "^ts3native 0\\.36\\.269-mb1117 ": 1
    },
    "gameArgs": [
     "-disablestoryprogression"
@@ -111,7 +111,7 @@
    "noiseCheck": false,
    "scriptErrorsMax": 0,
    "logRequire": {
-    "^ts3native 0.36.266-mb1116 ": 1
+    "^ts3native 0\\.36\\.269-mb1117 ": 1
    },
    "gameArgs": [
     "-disablestoryprogression"
@@ -141,7 +141,7 @@
    "noiseCheck": false,
    "scriptErrorsMax": 0,
    "logRequire": {
-    "^ts3native 0.36.266-mb1116 ": 1
+    "^ts3native 0\\.36\\.269-mb1117 ": 1
    },
    "gameArgs": [
     "-disablestoryprogression"

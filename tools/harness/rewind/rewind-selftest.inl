@@ -86,6 +86,27 @@ static void caseViews(const char* exe) {
   t.S.o.recreateViews = true;
   r = rewind(t.S, false);
   CHECK(ok(r) && r.stat("viewsRecreated") == 1 && t.audit());
+  // the window system's read-only views (desktop heap, USER handle table) grow when another process on the desktop makes
+  // windows: not the target's memory, so pages committed there after the snapshot do not stop a rewind
+  // (measured: 600 windows with 4000-character titles made by this host committed pages in both views of the toy). Growing
+  // them for real would raise the desktop's committed high-water mark at every run, so the snapshot is told a committed
+  // page there was only reserved.
+  Result a = snapshot(t.S);
+  std::set<std::string> kinds;
+  for (auto& [b, what] : t.S.s.sysViews) kinds.insert(what);
+  CHECK(ok(a) && kinds.count("desktop heap") && kinds.count("USER handle table"));
+  auto fakeReserved = [&](bool sys) -> Reg* {
+    for (auto& g : t.S.s.regs)
+      if (g.type == MEM_MAPPED && g.state == MEM_COMMIT && !writable(g.aprot) && (t.S.s.sysViews.count(g.abase) > 0) == sys) { g.state = MEM_RESERVE; return &g; }
+    return nullptr;
+  };
+  Reg* g = fakeReserved(true);
+  r = rewind(t.S, false);
+  CHECK(g && ok(r) && r.stat("viewsSystemGrew") == 1 && r.notes.size() == 1 && r.notes[0].find("window system's") != std::string::npos && t.audit());
+  if (g) g->state = MEM_COMMIT;
+  // any other read-only view still refuses
+  g = fakeReserved(false);
+  CHECK(g && refused(rewind(t.S, false), "committed inside a mapped view") && t.advancing());
 }
 static void caseFiles(const char* exe) {
   Toy t; if (!t.start(exe, "")) return;
@@ -97,6 +118,20 @@ static void caseFiles(const char* exe) {
   CHECK(t.cmd(C_FILE_CLOSE));
   r = rewind(t.S, false);
   CHECK(ok(r) && r.stat("handlesReinserted") == 1 && r.stat("handlesClosed") >= 3 && t.audit());
+  {  // a reinsert verify would reject is refused by the plan, game as it was (docs/270 §35): fake a snapshot access the
+     // duplicate cannot come back with
+    CHECK(t.cmd(C_FILE_CLOSE));
+    HRec* gone = nullptr;
+    for (auto& h : t.S.s.handles) if (h.pin && h.kind == L"File" && !sameObject(t.S.p, h.value, h.pin)) gone = &h;
+    CHECK(gone != nullptr);
+    if (gone) {
+      gone->access ^= FILE_READ_EA;
+      CHECK(refused(rewind(t.S, false), "would not come back") && t.advancing());
+      gone->access ^= FILE_READ_EA;
+      r = rewind(t.S, false);
+      CHECK(ok(r) && r.stat("handlesReinserted") == 1 && t.audit());
+    }
+  }
   if (s.stat("handlesNotPinned") > 0) {  // a handle kind that cannot be duplicated (ETW registration): closing it is refused
     CHECK(t.cmd(C_ETW_CLOSE));
     CHECK(refused(rewind(t.S, false), "cannot be duplicated") && t.advancing());
@@ -136,13 +171,21 @@ static void caseWaits(const char* exe) {
   t.S.o.retries = 3;
   CHECK(refused(rewind(t.S, false), "at the snapshot it was") && t.advancing());
   CHECK(t.cmd(C_UNBLOCK2) && ok(rewind(t.S, false)) && t.audit());
-  CHECK(t.cmd(C_SLEEPER_SPIN) && ok(snapshot(t.S)));  // snapshot with the sleeper running; then it sleeps again
-  wr<uint32_t>(t.S.p, t.st + offsetof(ToyState, sleeperSpin), 0);
-  Sleep(150);
-  r = rewind(t.S, false);         // a thread in a short Sleep takes the snapshot context when the Sleep returns
-  uint32_t spins = t.state().spinCount;
-  Sleep(200);
-  CHECK(ok(r) && r.stat("threadsSetLate") == 1 && t.state().sleeperSpin == 1 && t.state().spinCount != spins && t.audit());
+  // snapshot with the sleeper running; then it sleeps again. A loaded machine can leave the sleeper outside its short Sleep
+  // at the rewind (timing only): tried once more, with a note
+  bool late = false;
+  for (int tries = 0; tries < 2 && !late; ++tries) {
+    if (tries) printf("  note: sleeper not caught in its Sleep at the rewind (timing only), trying again\n");
+    CHECK(t.cmd(C_SLEEPER_SPIN) && ok(snapshot(t.S)));
+    wr<uint32_t>(t.S.p, t.st + offsetof(ToyState, sleeperSpin), 0);
+    Sleep(150);
+    r = rewind(t.S, false);         // a thread in a short Sleep takes the snapshot context when the Sleep returns
+    uint32_t spins = t.state().spinCount;
+    bool spun = false;
+    for (int i = 0; i < 50 && !spun; ++i, Sleep(100)) spun = t.state().spinCount != spins;
+    late = ok(r) && r.stat("threadsSetLate") == 1 && t.state().sleeperSpin == 1 && spun;
+  }
+  CHECK(late && t.audit());
   wr<uint32_t>(t.S.p, t.st + offsetof(ToyState, sleeperSpin), 0);
   Sleep(150);
   CHECK(ok(snapshot(t.S)));
@@ -158,6 +201,12 @@ static void caseThreads(const char* exe) {
   { Toy t; if (!t.start(exe, "")) return;
     CHECK(ok(snapshot(t.S)) && t.cmd(C_THREAD_NEW));
     CHECK(refused(rewind(t.S, false), "was made after the snapshot") && t.advancing()); }
+  { Toy t; if (!t.start(exe, "")) return;  // a thread made after the snapshot that turns into a window-system thread
+    CHECK(ok(snapshot(t.S)) && t.cmd(C_GUI_THREAD));
+    Result r = rewind(t.S, false); r.print();
+    CHECK(refused(r, "was made after the snapshot") && t.advancing());
+    for (auto& w : r.why)  // a protected handle it brings is named by type (docs/270 §36: 654/1c1c were numbers only)
+      if (w.find("protected from close") != std::string::npos) CHECK(w.find(") made after") != std::string::npos); }
   { Toy t; if (!t.start(exe, "")) return;
     CHECK(ok(snapshot(t.S)) && t.cmd(C_THREAD_EXIT));  // a game thread ends: refused, named by its start module
     CHECK(refused(rewind(t.S, false), "(start rewind-toy.exe+") && t.advancing()); }
@@ -184,8 +233,10 @@ static void caseThreads(const char* exe) {
   CHECK(t.cmd(C_TP) && t.state().tpRuns == runs + 1 && t.audit());
   // a pool worker inside a work item (docs/270 §21): the snapshot waits until it is idle again, or refuses naming it
   t.S.o.retries = 2;
-  CHECK(t.cmd(C_TP_SLEEP));
-  CHECK(refused(snapshot(t.S), "thread-pool worker inside a work item") && t.advancing());
+  // the work item sleeps 300 ms; a slow park on a loaded machine can outlast it (timing only): tried once more, with a note
+  bool busy = t.cmd(C_TP_SLEEP) && refused(snapshot(t.S), "thread-pool worker inside a work item");
+  if (!busy) { printf("  note: work item ended before the snapshot looked (timing only), trying again\n"); Sleep(400); busy = t.cmd(C_TP_SLEEP) && refused(snapshot(t.S), "thread-pool worker inside a work item"); }
+  CHECK(busy && t.advancing());
   t.S.o.retries = 40;
   Sleep(400);
   CHECK(t.cmd(C_TP_SLEEP));
@@ -216,6 +267,25 @@ static void caseKeepalive(const char* exe) {  // ts3native's [Rewind] keepalive 
   CHECK(r.stat("settleLeft") == 0 && r.stat("settleMs") < 1000);
   r = settle(t.S, 1, "mswsock.dll");  // still there: waits its time, names them, the target runs on
   CHECK(r.stat("settleLeft") >= 1 && r.stat("settleMs") >= 1000 && !r.notes.empty() && t.advancing());
+  // busy (docs/270 §36): the toy's own threads are not in combase's idle wait, so each counts, is named, and the target
+  // runs on after the short suspends; the idle-wait test itself on the two combase shapes (WorkerLoop / ROID ping loop)
+  r = settle(t.S, 5, "nosuch.dll", true);
+  CHECK(r.stat("settleLeft") == 0 && r.stat("settleMs") < 1000);
+  r = settle(t.S, 1, "rewind-toy.exe", true);
+  CHECK(r.stat("settleLeft") >= 1 && r.stat("settleMs") >= 1000 && r.notes.size() == 1 && r.notes[0].find("idle wait") != std::string::npos && r.stat("settlePing") == 0 && t.advancing());
+  TS idle; idle.kernel = true; idle.name = "NtWaitForMultipleObjects"; idle.sig[7] = 2; idle.sig[10] = 1;
+  TS roid = idle; roid.sig[7] = 1; roid.sig[10] = 0;
+  TS other = idle; other.name = "NtWaitForSingleObject";
+  CHECK(comIdleWait(idle) && !comIdleWait(roid) && !comIdleWait(other));
+  CHECK(comPingWait(roid) && !comPingWait(idle) && !comPingWait(other) && comWaitShape(roid).find("ping loop") != std::string::npos && comWaitShape(idle).find("ping loop") == std::string::npos);
+  // gone (docs/270 §36): no forbidden module returns at once; one that stays (the toy's own image) refuses after its time,
+  // names the module, changes nothing
+  r = gone(t.S, 5);
+  CHECK(r.code == 0 && r.stat("goneMs") < 1000);
+  auto forbid = t.S.o.forbid; t.S.o.forbid = {"rewind-toy"};
+  r = gone(t.S, 1);
+  CHECK(r.code == 2 && r.stat("goneMs") >= 1000 && r.why.size() == 1 && r.why[0].find("rewind-toy.exe is still loaded") != std::string::npos && t.advancing());
+  t.S.o.forbid = forbid;
 }
 static void caseMemory(const char* exe) {  // stack growth, protection changes, patched code, kernel object states
   Toy t; if (!t.start(exe, "")) return;
@@ -481,13 +551,22 @@ static void caseWatchdog(const char* exe) {
     Toy t; if (!t.start(exe, "")) return;
     char self[MAX_PATH]; GetModuleFileNameA(nullptr, self, MAX_PATH);
     std::string cmd = fmt("\"%s\" crashtest %lu %d", self, t.S.pid, phase);
-    STARTUPINFOA si{sizeof si}; PROCESS_INFORMATION pi{};
-    CHECK(CreateProcessA(nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi) != 0);
-    WaitForSingleObject(pi.hProcess, 10000);
-    CloseHandle(pi.hThread); CloseHandle(pi.hProcess);
-    Sleep(500);
-    if (phase == 1) CHECK(t.advancing());  // host died with the target only suspended: resumed
-    else CHECK(!t.alive());                // host died mid-rewind: the target is ended
+    // the second host exits 99 once it froze the toy and died; 1 = attach or freeze did not go through (a thread starting
+    // or ending mid-freeze): tried again, or the toy is never touched and the check below fails for the wrong reason
+    DWORD code = 0;
+    for (int tries = 0; tries < 3 && code != 99; ++tries) {
+      STARTUPINFOA si{sizeof si}; PROCESS_INFORMATION pi{};
+      CHECK(CreateProcessA(nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi) != 0);
+      WaitForSingleObject(pi.hProcess, 10000);
+      GetExitCodeProcess(pi.hProcess, &code);
+      CloseHandle(pi.hThread); CloseHandle(pi.hProcess);
+      if (code != 99) printf("  note: crashtest host exit %lu (try %d)\n", code, tries + 1);
+    }
+    CHECK(code == 99);
+    // the watchdog acts when it sees the host gone; it may be slow to get the CPU on a busy machine: wait up to 5 s
+    bool done = false;
+    for (int i = 0; i < 50 && !done; ++i, Sleep(100)) done = phase == 1 ? t.advancing() : !t.alive();
+    CHECK(done);  // phase 1: host died with the target only suspended: resumed; phase 2: host died mid-rewind: target ended
   }
 }
 

@@ -54,36 +54,45 @@ function run(args: string[], cwd = process.cwd()): number {
     if (!existsSync(w.path)) { console.log(`${yes ? '' : 'would '}prune missing ${w.path}`); if (yes) git(main, 'worktree', 'prune'); continue; }
     // shortcut: a running agent's fresh worktree with no edits yet still looks merged; name worktrees by path when agents are running
     if (all && (w.locked || git(w.path, 'status', '--porcelain'))) { console.log(`skip ${w.path}: ${w.locked ? 'locked' : 'uncommitted changes'} (name it by path to remove anyway)`); continue; }
-    const gc = join(w.path, 'game-copy');
-    // game-copy is either a link, or a real directory holding only links (e.g. assemblies -> main game-copy)
-    const kind = (() => { try { return lstatSync(gc).isSymbolicLink() ? 'link' : 'dir'; } catch { return 'none'; } })();
-    let gcLinks: string[] = [];
-    if (kind === 'link') gcLinks = [gc];
-    else if (kind === 'dir') {
-      const s = scan(gc);
-      if (s.files) { console.log(`REFUSED ${w.path}: game-copy is a real directory with ${s.files} real files (move them out by hand)`); fail++; continue; }
-      gcLinks = s.links;
-    }
-    const unverified = gcLinks.filter(p => !isLink(p));
-    if (unverified.length) { console.log(`REFUSED ${w.path}: not a verified reparse point: ${unverified.join(', ')}`); fail++; continue; }
-    const other = scan(w.path).links.filter(p => !gcLinks.some(g => norm(g) === norm(p)));
-    if (other.length) { console.log(`REFUSED ${w.path}: other links inside (${other.join(', ')})`); fail++; continue; }
-    const targets = gcLinks.map(l => { try { return realpathSync(l); } catch { return ''; } }); // '' = broken link
-    if (!yes) { console.log(`would ${gcLinks.map((l, i) => `unlink ${l} (-> ${targets[i] || 'broken'}), `).join('')}${kind === 'dir' ? `remove empty ${gc}, ` : ''}git worktree remove --force ${w.path}  [${w.branch}]`); continue; }
-    for (const [i, l] of gcLinks.entries()) {
-      try { unlinkSync(l); } catch { rmdirSync(l); } // both remove only the link entry, never the target
-      if (lexists(l) || (targets[i] && !existsSync(targets[i]))) { console.log(`STOP ${w.path}: removing ${l} did not leave its target alone`); return 1; }
-      console.log(`unlinked ${l} (target ${targets[i] || 'broken'} kept)`);
-    }
-    if (kind === 'dir') {
-      const s = scan(gc);
-      if (s.files || s.links.length) { console.log(`STOP ${w.path}: ${gc} not empty after unlinking`); return 1; }
-      rmSync(gc, { recursive: true });
-    }
-    git(main, 'worktree', 'remove', '--force', w.path);
-    console.log(`removed ${w.path}  [${w.branch}]`);
+    const r = removeWorktree(main, w, yes);
+    if (r === 'stop') return 1;
+    if (r === 'refused') fail++;
   }
   return fail ? 1 : 0;
+}
+
+// One worktree of the repo at `main`: unlink its game-copy link(s) (link only, verified), then `git worktree remove --force`.
+// Shared with tools/harness/cleanup.ts. 'refused' = left alone (real files or other links); 'stop' = a link removal touched its target.
+export function removeWorktree(main: string, w: { path: string; branch: string }, yes: boolean): 'ok' | 'refused' | 'stop' {
+  const gc = join(w.path, 'game-copy');
+  // game-copy is either a link, or a real directory holding only links (e.g. assemblies -> main game-copy)
+  const kind = (() => { try { return lstatSync(gc).isSymbolicLink() ? 'link' : 'dir'; } catch { return 'none'; } })();
+  let gcLinks: string[] = [];
+  if (kind === 'link') gcLinks = [gc];
+  else if (kind === 'dir') {
+    const s = scan(gc);
+    if (s.files) { console.log(`REFUSED ${w.path}: game-copy is a real directory with ${s.files} real files (move them out by hand)`); return 'refused'; }
+    gcLinks = s.links;
+  }
+  const unverified = gcLinks.filter(p => !isLink(p));
+  if (unverified.length) { console.log(`REFUSED ${w.path}: not a verified reparse point: ${unverified.join(', ')}`); return 'refused'; }
+  const other = scan(w.path).links.filter(p => !gcLinks.some(g => norm(g) === norm(p)));
+  if (other.length) { console.log(`REFUSED ${w.path}: other links inside (${other.join(', ')})`); return 'refused'; }
+  const targets = gcLinks.map(l => { try { return realpathSync(l); } catch { return ''; } }); // '' = broken link
+  if (!yes) { console.log(`would ${gcLinks.map((l, i) => `unlink ${l} (-> ${targets[i] || 'broken'}), `).join('')}${kind === 'dir' ? `remove empty ${gc}, ` : ''}git worktree remove --force ${w.path}  [${w.branch}]`); return 'ok'; }
+  for (const [i, l] of gcLinks.entries()) {
+    try { unlinkSync(l); } catch { rmdirSync(l); } // both remove only the link entry, never the target
+    if (lexists(l) || (targets[i] && !existsSync(targets[i]))) { console.log(`STOP ${w.path}: removing ${l} did not leave its target alone`); return 'stop'; }
+    console.log(`unlinked ${l} (target ${targets[i] || 'broken'} kept)`);
+  }
+  if (kind === 'dir') {
+    const s = scan(gc);
+    if (s.files || s.links.length) { console.log(`STOP ${w.path}: ${gc} not empty after unlinking`); return 'stop'; }
+    rmSync(gc, { recursive: true });
+  }
+  git(main, 'worktree', 'remove', '--force', w.path);
+  console.log(`removed ${w.path}  [${w.branch}]`);
+  return 'ok';
 }
 
 function selfCheck(): number {
@@ -122,5 +131,7 @@ function selfCheck(): number {
   return bad ? 1 : 0;
 }
 
-const argv = process.argv.slice(2);
-process.exit(argv.includes('--self-check') ? selfCheck() : run(argv));
+if (import.meta.main) {
+  const argv = process.argv.slice(2);
+  process.exit(argv.includes('--self-check') ? selfCheck() : run(argv));
+}

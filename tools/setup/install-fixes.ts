@@ -17,6 +17,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync,
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { ensureVramSidecar } from '../harness/game-exe.ts';
 
 type FileSpec = string | { from: string; to: string };
 type Fix = {
@@ -225,6 +226,7 @@ function generated(f: Fix, rec: Installed): boolean {
         const p = join(BIN, name);
         place(f, rec, p, () => copyFileSync(join(ROOT, 'native', 'ts3native', 'out', name), p));
       }
+      console.log(ensureVramSidecar(BIN));  // docs/284: [Startup] DxDiagCache sidecar, once per machine key (not a placed file: a cache, kept on uninstall)
       return true;
     }
     case 'stutter-fixes': {

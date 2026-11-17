@@ -4,6 +4,8 @@
 // docs/registry.md rows (keep both, next-free rows recomputed by tools/registry.ts fix-next, collisions printed), docs/51 ledger sections with a § number
 // ours already has (incoming ones renumbered after ours, skipping § numbers reserved with `registry.ts reserve ledger`; `ledger §N` / `docs/51 §N` fixed in the incoming branch's own lines). Anything else stays a conflict.
 // Fully resolved files are `git add`ed.   node tools/agent-merge.cjs [--self-check]
+// After the merge commit: node tools/agent-merge.cjs finish <branch>   (mandatory, docs/283) the branch must be in HEAD with no merge in progress, then
+// tools/harness/cleanup.ts worktrees --apply --branch <branch> --target HEAD removes its worktree; any blocker = exit 1 with the reason.
 const fs=require('fs'),path=require('path'),os=require('os'),{execSync,execFileSync}=require('child_process');
 function res(f,fn){if(!fs.existsSync(f))return 0;const t=fs.readFileSync(f,'utf8'),eol=t.includes('\r\n')?'\r\n':'\n';const L=t.split(/\r?\n/);let n=0,from=0;for(;;){const s=L.findIndex((l,i)=>i>=from&&l.startsWith('<<<<<<<'));if(s<0)break;const m=L.findIndex((l,i)=>i>s&&l==='=======');const e=L.findIndex((l,i)=>i>m&&l.startsWith('>>>>>>>'));if(m<0||e<0)break;let a=L.slice(s+1,m);const p=a.findIndex(l=>l.startsWith('|||||||'));if(p>=0)a=a.slice(0,p);const out=fn(a,L.slice(m+1,e),L,m,e);if(out){L.splice(s,e-s+1,...out);n++;from=s+out.length}else from=e+1}if(n){fs.writeFileSync(f,L.join(eol));console.log(f,'resolved',n)}return n}
 const id=l=>(l.match(/^\s*\| (M-[A-Z0-9]+|N\d+) \|/)||[])[1]??l;
@@ -75,6 +77,8 @@ function main(){
     if(!/^(<<<<<<<|>>>>>>>) /m.test(fs.readFileSync(f,'utf8')))git('add','--',f);
   }
   const left=conflicted();console.log(left.length?'STILL CONFLICTED: '+left.join(' '):'clean');
+  const mb=(()=>{try{return (fs.readFileSync(path.join(git('rev-parse','--absolute-git-dir'),'MERGE_MSG'),'utf8').match(/^Merge (?:remote-tracking )?branch '([^']+)'/)||[])[1]}catch{return ''}})();
+  if(mb)console.log(`after the merge commit: node tools/agent-merge.cjs finish ${mb}   (mandatory: removes its worktree, docs/283)`);
 }
 
 function selfCheck(){
@@ -123,6 +127,22 @@ function selfCheck(){
     ok(r('other.txt').includes('<<<<<<<')&&/STILL CONFLICTED: other\.txt$/m.test(out.trim()),`${style}: unknown conflict left alone, only it still conflicted`);
     fs.rmSync(d,{recursive:true,force:true});
   }
+  { const d=fs.mkdtempSync(path.join(os.tmpdir(),'agent-merge-finish-'));const g=(...a)=>execFileSync('git',['-c','user.name=t','-c','user.email=t@example.invalid',...a],{cwd:d,encoding:'utf8',stdio:['ignore','pipe','pipe']});
+    g('init','-q','-b','master');fs.writeFileSync(path.join(d,'a'),'a');g('add','-A');g('commit','-qm','a');g('checkout','-qb','side');fs.writeFileSync(path.join(d,'b'),'b');g('add','-A');g('commit','-qm','b');g('checkout','-q','master');
+    const r=require('child_process').spawnSync(process.execPath,[__filename,'finish','side'],{cwd:d,encoding:'utf8'});
+    ok(r.status===1&&/side is not merged into HEAD/.test(r.stderr),'finish refuses a branch not merged into HEAD');fs.rmSync(d,{recursive:true,force:true});
+    const re=/^Merge (?:remote-tracking )?branch '([^']+)'/;ok(("Merge branch 'bugfix/mandatory-cleanup-1117' into merge/master-1117c".match(re)||[])[1]==='bugfix/mandatory-cleanup-1117'&&!re.test("Merge commit 'abc123'"),'MERGE_MSG branch regex: real match + non-match'); }
   if(bad)process.exit(1);
 }
-process.argv.includes('--self-check')?selfCheck():main();
+// finish: merged + committed, then the branch's worktree goes (cleanup.ts: clean, pushed/merged, not used by a chain, junction-safe)
+function finish(b,cwd=process.cwd()){
+  const g=(...a)=>execFileSync('git',a,{cwd,encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:300000}).trim();
+  if(!b){console.error('usage: node tools/agent-merge.cjs finish <branch>');return 2}
+  if(fs.existsSync(path.join(g('rev-parse','--absolute-git-dir'),'MERGE_HEAD'))){console.error('finish: a merge is in progress: commit it first');return 1}
+  try{execFileSync('git',['merge-base','--is-ancestor',b,'HEAD'],{cwd,stdio:'ignore',timeout:300000})}catch{console.error(`finish: ${b} is not merged into HEAD (${g('rev-parse','--abbrev-ref','HEAD')})`);return 1}
+  const r=require('child_process').spawnSync(process.execPath,[path.join(__dirname,'harness','cleanup.ts'),'worktrees','--apply','--branch',b,'--target',g('rev-parse','HEAD')],{cwd,stdio:'inherit',timeout:1800000});
+  if(r.status!==0){console.error(`finish: worktree cleanup for ${b} failed (exit ${r.status ?? r.signal}): see the keep/REFUSED line above; fix it, then rerun finish`);return 1}
+  console.log(`finish: ${b} merged, worktree cleaned`);return 0
+}
+if(process.argv[2]==='finish')process.exit(finish(process.argv[3]));
+else process.argv.includes('--self-check')?selfCheck():main();

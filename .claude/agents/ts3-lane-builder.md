@@ -10,7 +10,7 @@ Read first: AGENTS.md, PLAN.md ("Where things stand", "Next tasks"), docs/index.
 
 ## Setup
 - Branch `feature/<lane>-<mmdd>` (or what the prompt names) from master; worktree `.claude/worktrees/<lane>-<mmdd>`. The main checkout stays on master; never `git stash`.
-- game-copy is a junction in worktrees: before removing a worktree, delete the junction with `cmd /c rmdir <path>`.
+- Before `git worktree add`: `node tools/harness/cleanup.ts gate`. game-copy is a junction in worktrees: remove worktrees only with `node tools/harness/cleanup.ts worktrees --apply --branch <b>` or `node tools/worktree-clean.ts <path> --yes` (unlink first, never follow).
 - Counter slots, doc numbers and ledger entries: reserve them through `tools/registry.ts` / `tools/agent-merge.cjs`, never pick by hand.
 
 ## Build rules

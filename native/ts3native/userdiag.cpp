@@ -277,16 +277,19 @@ static void UdMemAsk(const char* fmt, LONG n, const char* ev = NULL) {
     SetEvent(g_udMemEv);
 }
 static DWORD MdWorkerPoll();  // memdiag.cpp: runs a pending [MemDiag] self-test; ms until it wants the worker again
+// Rewind (docs/270 §34): the wait has a fixed 1 s timeout and `last` lives in memory, so a wait at a rewind is the same
+// call as at the snapshot. A timeout left until the next deadline differed per loop and refused every rewind. The polls
+// below are deadline checks, so a 1 s tick only makes them up to 1 s late (periods are minutes or RcRefPeriodSec).
+static DWORD g_udMemLast;
 static DWORD WINAPI UdMemMain(LPVOID) {
-    DWORD last = GetTickCount();
+    g_udMemLast = GetTickCount();
     for (;;) {
-        const DWORD since = GetTickCount() - last, md = MdWorkerPoll();
-        const DWORD wait = since >= g_udMemPeriodMs ? 0 : g_udMemPeriodMs - since;
-        WaitForSingleObject(g_udMemEv, wait < md ? wait : md);
+        MdWorkerPoll();
+        WaitForSingleObject(g_udMemEv, 1000);
         for (; g_udMemTail != g_udMemHead; InterlockedIncrement(&g_udMemTail))
             UdMemSample(g_udMemQ[g_udMemTail & 7], g_udMemQEv[g_udMemTail & 7][0] ? g_udMemQEv[g_udMemTail & 7] : NULL);
-        if (GetTickCount() - last >= g_udMemPeriodMs) {
-            last = GetTickCount();
+        if (GetTickCount() - g_udMemLast >= g_udMemPeriodMs) {
+            const DWORD last = g_udMemLast = GetTickCount();
             char what[48];
             sprintf_s(what, "diag: memory at %lu min", (last - g_udT0) / 60000);
             if (g_udWorlds) UdMemSample(what);  // play only: nothing before the first world load
