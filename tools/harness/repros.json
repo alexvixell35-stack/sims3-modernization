@@ -111121,5 +111121,167 @@
         }
       }
     ]
+  },
+  {
+    "id": "playerfirst-check",
+    "bug": "a player-ordered route job waits behind older townie jobs in ts3native's async route queue (171 household long jobs, mean 353 ms behind) and replanspread replays FIFO (docs/631 \u00a71)",
+    "fix": "ts3fixes Responsive631.cs: playerfirst (default off) + ts3native [RouteAsync] PlayerFirst=1, docs/631 \u00a72",
+    "save": "pure part needs no save",
+    "note": "PlayerFirstCheck run checks the mark decision and SpreadQueue order; 3660 grows only with ts3native PlayerFirst=1.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "playerfirst": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PlayerFirstCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PlayerFirstCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "playerfirst": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PlayerFirstCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PlayerFirstCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "playerfirst": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "playerfirst": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "zoomtier-check",
+    "bug": "an on-screen NPC too small to see (camera >= 250 m or map view) counts as seen, so tier-2 relaxed paths stay off (docs/631 \u00a73)",
+    "fix": "ts3fixes Responsive631.cs: zoomtier (default off), docs/631 \u00a73",
+    "save": "pure part needs no save",
+    "note": "ZoomTierCheck run checks the decision with controls and prints the live camera; 3670 grows with rhentryrelax + rhentryrelaxnear on while zoomed out.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "zoomtier": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ZoomTierCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ZoomTierCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "zoomtier": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ZoomTierCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ZoomTierCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "zoomtier": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "zoomtier": false
+        }
+      }
+    ]
   }
 ]

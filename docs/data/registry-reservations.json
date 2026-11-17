@@ -7361,6 +7361,26 @@
       "what": "rabbit hole portal-locked route fails (NPC spot probes) and relaxed entry for unseen Sims",
       "at": "2026-11-17T14:00:00.000Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3660",
+      "kind": "fixes",
+      "from": 3660,
+      "to": 3689,
+      "by": "s89",
+      "what": "playerfirst (player-ordered route jobs and replays first), zoomtier (on-screen but too small counts as off screen for tier 2)",
+      "at": "2026-11-17T15:00:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "doc-631",
+      "kind": "doc",
+      "from": 631,
+      "to": 631,
+      "by": "s89",
+      "what": "player-first route queue and the zoom tier",
+      "at": "2026-11-17T15:00:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

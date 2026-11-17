@@ -545,6 +545,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3580-3583 | `RhEntry627.cs` (`fixes-3580`, docs/627 §2), `routefailprobe` | built 2026-11-17, default off: NPC spot probes on the selected Sim tagged (3580) / counted as the Sim's route, switch off (3581) / errors (3582) / spare (3583) |
 | 3584-3587 | `RhEntry627.cs` (`fixes-3580`, docs/627 §4), `rhentryrelax` | built 2026-11-17, default off: unseen route-less rabbit hole arrivals (3584) / kept EA (3585) / beforeEntering refused (3586) / errors (3587) |
 | 3588-3599 | `RhEntry627.cs` (`fixes-3580`, docs/627 §4), `rhentryrelaxnear` | built 2026-11-17, default off: alternate-door entries (3588) / no slot or plan failed (3589) / on screen at action (3590) / entry refused (3591) / errors (3592) / spare (3593-3599) |
+| 3660-3669 | `Responsive631.cs` (`fixes-3660`, docs/631 §2), `playerfirst` | built 2026-11-17, default off: marks honoured by ts3native (3660) / not honoured (3661) / replays first (3662) / player routes, switch off (3663) / errors (3664) / spare (3665-3669) |
+| 3670-3689 | `Responsive631.cs` (`fixes-3660`, docs/631 §3), `zoomtier` | built 2026-11-17, default off: tier-2 lifted by zoom (3670) / would lift, switch off (3671) / errors (3672) / spare (3673-3689) |
 | **2000+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
@@ -887,7 +889,8 @@ ts3fixes `DiagSend(op, lo)` (`UserDiag.cs`): `Route.GetOption2` with optHi = `0x
 | 30-34 | `discourage.cpp` | docs/89 §18 repro footprint window (`TS3N_RFTEST` builds only) |
 | 35 | `gvro.cpp` | gvattr: the next plan's source class and scope (docs/250 §7.0) |
 | 36 | `DoorGen.cs` / `hostcalls.cpp` | doorgen: lo 1 arms DoorMemoX=3, lo 0 bumps the managed door-input generation |
-| **37+** | next free | add a row with the `case` |
+| 37 | `Responsive631.cs` | playerfirst: route lo is player-ordered, for its next START; answers 1 when `[RouteAsync] PlayerFirst=1` (docs/631) |
+| **38+** | next free | add a row with the `case` |
 
 ## ts3native `ts3native_readydrain` export (`ReadyDrainCounters` in `native/ts3native/ts3native.cpp`)
 
