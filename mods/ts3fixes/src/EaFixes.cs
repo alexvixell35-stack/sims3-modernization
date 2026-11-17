@@ -54,7 +54,6 @@ namespace Ts3Fixes
     //     [392] descriptions with no Naked and no Everyday outfit at the last count (no safe source to rebuild: counted, logged).
     public static partial class Fixes
     {
-        const BindingFlags kInstAll = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         static readonly FieldInfo sPrefNpc = typeof(Service).GetField("mPreferredServiceNpc", kInstAll);
         static readonly FieldInfo sSvcPool = typeof(Service).GetField("mPool", kInstAll);
         static readonly FieldInfo sBribeTable = typeof(VelvetRopes).GetField("mBribeDictionary", kInstAll);
@@ -101,8 +100,8 @@ namespace Ts3Fixes
             Patch(typeof(Sims3.Gameplay.Utilities.GreetingCardTakePhotoHelper), "SimDoneWithPhoto", typeof(PhotoSessionHook), "SimDoneHook", "SimDoneOrig");
             Patch(typeof(Sims3.Gameplay.Utilities.GreetingCardTakePhotoHelper), "SimMadeItInside", typeof(PhotoSessionHook), "MadeInsideHook", "MadeInsideOrig");
             Patch(typeof(Sims3.Gameplay.Objects.EggHuntController), "IsValidEggPosition", typeof(EggSpotHook), "ValidHook", "ValidOrig");
-            Patch(typeof(Sims3.Gameplay.Careers.School.GraduateInCityHall), "WaitingLoopDel", typeof(GraduationTableHook), "CityHallWaitHook", "CityHallWaitOrig");
-            Patch(typeof(Sims3.Gameplay.Careers.School.AttendGraduation), "WaitingLoopDel", typeof(GraduationTableHook), "AttendWaitHook", "AttendWaitOrig");
+            Patch(typeof(Sims3.Gameplay.Careers.School.GraduateInCityHall), "WaitingLoopDel", typeof(GraduationCityHallHook), "CityHallWaitHook", "CityHallWaitOrig");
+            Patch(typeof(Sims3.Gameplay.Careers.School.AttendGraduation), "WaitingLoopDel", typeof(GraduationAttendHook), "AttendWaitHook", "AttendWaitOrig");
             Patch(typeof(Sim), "UpdateJazzParameter", new Type[] { typeof(string), typeof(bool) }, typeof(JazzParamHook), "UpdateHook", "UpdateOrig");
             Patch(typeof(BuffManager), "UpdateBuffs", new Type[] { typeof(float) }, typeof(BuffUpdateHook), "UpdateHook", "UpdateOrig");
             Patch(typeof(Sims3.Gameplay.Objects.Vehicles.CarNpcManager), "DriveFromPointToMatrix", new Type[] { typeof(Sims3.Gameplay.Objects.Vehicles.Car), typeof(Vector3), typeof(Matrix44) }, typeof(CarNoRouteHook), "DriveHook", "DriveOrig");
@@ -124,6 +123,10 @@ namespace Ts3Fixes
             Patch(typeof(Sims3.Gameplay.PetSystems.PetPool), "ClearAllPets", typeof(PetPoolOrphanHook), "ClearHook", "ClearOrig");  // PetPoolOrphan.cs, docs/534
             Patch(typeof(Sims3.Gameplay.Socializing.Relationship), "GetInternal", new Type[] { typeof(SimDescription), typeof(SimDescription), typeof(bool), typeof(bool) }, typeof(RelTablesApartHook), "GetHook", "GetOrig");  // RelTablesApart.cs, docs/535
             Patch(typeof(Sims3.Gameplay.Objects.Decorations.DanceFloor), "FindAndRouteOntoADanceFloorWithFollower", typeof(DanceFloorDiagHook), "FindHook", "FindOrig");  // DanceFloorDiag.cs, docs/253
+            Patch(typeof(Sims3.Gameplay.Objects.Vehicles.BoatOwnable), "Park", new Type[] { typeof(Lot), typeof(Sim), typeof(bool) }, typeof(BoatParkGoneHook), "ParkHook", "ParkOrig");  // BoatParkGone.cs, docs/254
+            Patch(typeof(Sims3.Gameplay.Objects.Vehicles.Boat), "GetOut", new Type[] { typeof(Sim), typeof(Vector3), typeof(bool), typeof(bool), typeof(Sims3.Gameplay.Objects.Island.Houseboat), typeof(Vector3), typeof(bool), typeof(bool) }, typeof(BoatGetOutDiagHook), "GetOutHook", "GetOutOrig");  // BoatGetOutDiag.cs, docs/257 §7
+            Patch(typeof(Household), "SetLot", new Type[] { typeof(Lot) }, typeof(MiniHomeLotHook), "SetLotHook", "SetLotOrig");  // MiniHomeLot.cs, docs/266
+            ApplyVehicleLeaks();  // VehicleLeaks.cs, docs/544
         }
 
         // ---- ageupkeepoutfits (#100) ----
@@ -184,7 +187,7 @@ namespace Ts3Fixes
                     foreach (SimDescription d in Household.EverySimDescription())
                     {
                         if (d == null || !d.IsValidDescription || d.CreatedSim != null || d.AgingState == null || !d.AgingEnabled || d.Elder) continue;
-                        if (d.Household == null || d.Household == Household.ActiveHousehold || d.Household.IsSpecialHousehold) continue;
+                        if (IsPlayerDesc(d) || d.Household.IsSpecialHousehold) continue;  // townies only (PlayerSims.cs)
                         if (d.GetOutfitCount(OutfitCategories.Everyday) == 0) continue;
                         sAgeUpTarget = d;
                         int before = OutfitTotal(d);
@@ -264,7 +267,7 @@ namespace Ts3Fixes
 
             public SimDescription FindHook(Lot lot)
             {
-                Service s = (object)this as Service;
+                Service s = (object)this as Service; // `this` is really a Service
                 if (s != null && lot != null && lot.Household != null && sPrefNpc != null && sSvcPool != null && ShortcutOn("preferredservice"))
                 {
                     Dictionary<ulong, SimDescription> d = sPrefNpc.GetValue(s) as Dictionary<ulong, SimDescription>;

@@ -46,7 +46,8 @@ export function classify(all: Proc[], self = process.pid) {
   for (let p = self; p && !mine.has(p); p = byPid.get(p)?.ppid ?? 0) mine.add(p);
   const ps = all.filter(p => !mine.has(p.pid));
   const pids = new Set(all.map(p => p.pid));
-  const bashes = ps.filter(p => /^(bash|sh)(\.exe)?$/i.test(p.name) && CHAIN.test(p.cmd));
+  // a shell that only waits on a chain (an agent's `... track.ts wait-chain <chain>.sh`) is not that chain: counting it made waiters wait on each other forever
+  const bashes = ps.filter(p => /^(bash|sh)(\.exe)?$/i.test(p.name) && CHAIN.test(p.cmd) && !/\bwait-chain\b/.test(p.cmd));
   // nohup'd scripts show as a bash with a bash parent running the same script: keep the outermost
   const chains = bashes.filter(p => !bashes.some(q => q.pid === p.ppid)).map(p => ({ ...p, script: basename(CHAIN.exec(p.cmd)![1].replace(/\\/g, '/')) }));
   const queues = ps.filter(p => /^node(\.exe)?$/i.test(p.name) && p.pid !== self && /harness[\\/]queue\.ts/.test(p.cmd) && !/--self-check|--dry-run/.test(p.cmd))
@@ -177,6 +178,9 @@ if (import.meta.main) {
       // caller chain: bash 30 (cmd names the script) -> node 31 = self: neither listed
       const caller = [...ps, { pid: 30, ppid: 1, name: 'bash.exe', cmd: 'bash -c "node track.ts switch probe-out/queue/mono-loop.sh"' }, { pid: 31, ppid: 30, name: 'node.exe', cmd: 'node track.ts' }];
       assert.deepEqual(classify(caller, 31).chains.map(p => p.pid), [10], 'self and ancestors excluded');
+      // another process's shell waiting on the chain is not the chain (two waiters used to wait on each other forever)
+      const waiter = [...ps, { pid: 40, ppid: 1, name: 'bash.exe', cmd: 'bash -c "source x.sh && timeout 7000 node tools/harness/track.ts wait-chain probe-out/queue/chain-mono.sh"' }];
+      assert.deepEqual(classify(waiter, 0).chains.map(p => p.pid), [10], 'wait-chain shells are not chains');
       // stale job-running (dead pid) + stale main.lock (no build process)
       writeFileSync(join(d, 'job-running'), 'j1 777'); mkdirSync(join(d, 'main.lock'));
       assert.ok(status(e).some(l => /DEAD/.test(l)) && status(e).some(l => /main\.lock: .*STALE/.test(l)));

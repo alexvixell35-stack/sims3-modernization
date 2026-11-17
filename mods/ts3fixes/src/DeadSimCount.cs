@@ -107,7 +107,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sDsThrew) { sDsThrew = true; AppliedLog().Add("deadsimcount: pass threw " + e.Message); }
+                PassThrewOnce(ref sDsThrew, "deadsimcount", e);
             }
         }
 

@@ -31,23 +31,23 @@ typedef u8(__fastcall* UnInFrustumFn)(const void* fr, void* edx, const float* sp
 typedef float*(__cdecl* UnCamFn)(float* out);                                  // Camera_GetPosition / GetTarget ICs, 12 bytes
 typedef void*(__fastcall* UnFindFn)(void* mgr, void* edx, DWORD lo, DWORD hi);  // object by id 0x939560, ret 8
 
-static const DWORD UN_AGENT_CALL = 0x0083CF52, UN_AGENT = 0x00957210, UN_USF = 0x00833560;
+static const DWORD UN_AGENT_CALL = TS3A(0x0083CF52), UN_AGENT = TS3A(0x00957210), UN_USF = TS3A(0x00833560);
 static const u8 kUnUsfPrologue[] = {0x83, 0xEC, 0x10, 0x80, 0x7C, 0x24, 0x1C, 0x00};
 // game pointers; selftest swaps them for fakes
 static UnAgentFn g_unAgentOrig = (UnAgentFn)(uintptr_t)UN_AGENT;
 static UnUsfFn g_unUsfOrig;
-static UnCompFn g_unComp = (UnCompFn)(uintptr_t)0x00935770;
-static UnPosFn g_unPos = (UnPosFn)(uintptr_t)0x00959000;
-static UnFrustumFn g_unFrustum = (UnFrustumFn)(uintptr_t)0x0096B850;
-static UnInFrustumFn g_unInFrustum = (UnInFrustumFn)(uintptr_t)0x0068D130;
-static UnCamFn g_unCamPos = (UnCamFn)(uintptr_t)0x0073D410, g_unCamTgt = (UnCamFn)(uintptr_t)0x0073D480;
-static UnFindFn g_unFind = (UnFindFn)(uintptr_t)0x00939560;
-static AsRouteFn g_unRoute = (AsRouteFn)(uintptr_t)0x0074B2C0;  // RouteHandle_Lookup, as AsyncLosRoute
-static const DWORD* g_unBitTransform = (const DWORD*)(uintptr_t)0x011E9158;
-static const DWORD* g_unBitSim = (const DWORD*)(uintptr_t)0x011E90FC;
-static u8* const* g_unLocoSys = (u8* const*)(uintptr_t)0x011D9140;  // Locomotion_Update's ecx
-static void* const* g_unObjMgr = (void* const*)(uintptr_t)0x011DC350;
-static const u8* const* g_unRmSlot = (const u8* const*)(uintptr_t)0x011D40C4;
+static UnCompFn g_unComp = (UnCompFn)(uintptr_t)TS3A(0x00935770);
+static UnPosFn g_unPos = (UnPosFn)(uintptr_t)TS3A(0x00959000);
+static UnFrustumFn g_unFrustum = (UnFrustumFn)(uintptr_t)TS3A(0x0096B850);
+static UnInFrustumFn g_unInFrustum = (UnInFrustumFn)(uintptr_t)TS3A(0x0068D130);
+static UnCamFn g_unCamPos = (UnCamFn)(uintptr_t)TS3A(0x0073D410), g_unCamTgt = (UnCamFn)(uintptr_t)TS3A(0x0073D480);
+static UnFindFn g_unFind = (UnFindFn)(uintptr_t)TS3A(0x00939560);
+static AsRouteFn g_unRoute = (AsRouteFn)(uintptr_t)TS3A(0x0074B2C0);  // RouteHandle_Lookup, as AsyncLosRoute
+static const DWORD* g_unBitTransform = (const DWORD*)(uintptr_t)TS3A(0x011E9158);
+static const DWORD* g_unBitSim = (const DWORD*)(uintptr_t)TS3A(0x011E90FC);
+static u8* const* g_unLocoSys = (u8* const*)(uintptr_t)TS3A(0x011D9140);  // Locomotion_Update's ecx
+static void* const* g_unObjMgr = (void* const*)(uintptr_t)TS3A(0x011DC350);
+static const u8* const* g_unRmSlot = (const u8* const*)(uintptr_t)TS3A(0x011D40C4);
 
 static __declspec(thread) int t_unCls;  // 1 + class while this thread runs an agent update or a footprint update, else 0
 static __declspec(thread) u8* t_unAgent;    // the agent whose update this thread runs ([UnseenThrottle]), else NULL
@@ -255,7 +255,7 @@ static void __fastcall UnAgentThunk(void* agent, void* edx, float dt) {
 }
 
 static int UnKeyGroup(DWORD key, bool waits) {
-    return key == 0x0085FE10 ? UN_STEER : key == 0x00846D21 ? UN_AVOID : waits && key == 0x00833593 ? UN_FOOT : waits ? UN_OTHER : 2;
+    return key == TS3A(0x0085FE10) ? UN_STEER : key == TS3A(0x00846D21) ? UN_AVOID : waits && key == TS3A(0x00833593) ? UN_FOOT : waits ? UN_OTHER : 2;
 }
 
 // LockAcquireHook: a first (non-recursive) acquire of +0x918 on the sim thread, keyed as WaitNote
@@ -337,9 +337,9 @@ typedef float(__cdecl* UtRemainFn)(void* path, DWORD lo, DWORD hi);
 typedef unsigned __int64(__fastcall* UtCurFn)(void* part, void* edx);
 typedef float(__fastcall* UtLenFn)(void* path, void* edx);
 typedef float(__fastcall* UtProgFn)(void* path, void* edx, DWORD lo, DWORD hi);
-static const DWORD UT_LIST_CALL = 0x009573B7, UT_LIST = 0x0085FFE0;
+static const DWORD UT_LIST_CALL = TS3A(0x009573B7), UT_LIST = TS3A(0x0085FFE0);
 static UtListFn g_utOrig = (UtListFn)(uintptr_t)UT_LIST;
-static UtRemainFn g_utRemain = (UtRemainFn)(uintptr_t)0x008469F0;
+static UtRemainFn g_utRemain = (UtRemainFn)(uintptr_t)TS3A(0x008469F0);
 enum { UTW_OFF, UTW_NOAGENT, UTW_VISIBLE, UTW_EAON, UTW_STATE, UTW_LINKED, UTW_VIEWER, UTW_NOVIEW, UTW_AFTER, UTW_TURN,
        UTW_NEAR, UTW_PORTAL, UTW_PATH, UTW_N };
 // phase 2 only (utAvWhy / utRateWhy have UTW_N2 rows): not a Sim, short agent timer, new path, step cap, hash slot taken
@@ -711,7 +711,7 @@ static int UtTail(int held, bool* heldBit, DWORD id, u8* agent, void* path, floa
 // so a goal obstruction is noticed up to Every-1 ticks later (docs/143 §4 (c)) [inferred: no reader needs a per-tick
 // refresh of the record]. The behaviour's agent part is [behaviour+0xC] (the same `mov ecx,[esi+0xC]` feeds 0xC93970).
 typedef void(__fastcall* UtAvFn)(void* beh, void* edx, float dt);
-static const DWORD UT_AV_SLOT = 0x01026E10, UT_AV = 0x00847390;
+static const DWORD UT_AV_SLOT = TS3A(0x01026E10), UT_AV = TS3A(0x00847390);
 static UtAvFn g_utAvOrig = (UtAvFn)(uintptr_t)UT_AV;
 static float g_utAvNearM = 3.0f;
 static void* g_utAvPrev[512];  // as g_utPrev: agent pointer, bit 0 = a run reason held at its last call
@@ -1039,8 +1039,8 @@ static void ApplyUnseenThrottle(const wchar_t* ini) {
     if (GetPrivateProfileIntW(L"UnseenThrottle", L"Rate", 0, ini)) {
         g_utRateNearM = (float)GetPrivateProfileIntW(L"UnseenThrottle", L"RateNearM", 3, ini);
         // behaviour B's dt clamp, which the summed step relies on
-        const float* lo = (const float*)(uintptr_t)0x010434C4;
-        const float* hi = (const float*)(uintptr_t)0x00F9A5AC;
+        const float* lo = (const float*)(uintptr_t)TS3A(0x010434C4);
+        const float* hi = (const float*)(uintptr_t)TS3A(0x00F9A5AC);
         if (!Readable(lo, 4) || !Readable(hi, 4) || *lo != UT_MIN_STEP || *hi != UT_MAX_STEP) {
             Log("SKIP unseen throttle rate: behaviour B's step clamp is not [1/30, 0.5] at 0x010434C4 / 0x00F9A5AC");
         } else {

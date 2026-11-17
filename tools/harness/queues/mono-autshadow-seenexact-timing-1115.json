@@ -1,0 +1,197 @@
+{
+  "note": "mono-autshadow-seenexact-timing-1115 (lane autshadow, PREPARED, NOT RUN; TIMING, needs a quiet machine): docs/124 §17.12 autliveseen A/B on the BP crowd. Needs a quiet machine. --ab autliveseen flips the ts3fixes switch per 5-min slice (autseengame on in both arms: off = seen NPCs run the game search, on = the exact path). Judge (docs/124 §14.4 S4): sim busy ms/s off - on and the autonomy-search owner per arm (node tools/harness/sim-budget-report.ts), pooled over both orders; hitches with node tools/harness/hitch-ab.ts mono-autshadow-seenexact-timing-1115 (p99, p99.9, max, counts >= 300 / 1000 ms); it/s not down > 2%. Expected [inferred I-488-4]: ~+4.3 ms/s on the crowd. Needs the branch ts3agent (switch names autliveseen, autliveseendry; counters autliveseen_*): TS3_AGENT_PACKAGE=game-copy/ts3agent.package.mono-autshadow-1115. Run after mono-autshadow-seenexact-1115 PASSes (both jobs): node tools/harness/queue.ts tools/harness/queues/mono-autshadow-seenexact-timing-1115.json",
+  "stopQueueOnFail": true,
+  "regexCases": {
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": {
+      "match": [
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0 (docs/124 §17)"
+      ],
+      "noMatch": [
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=1 (docs/124 §17)"
+      ]
+    },
+    "autshadow satb: Satb=2 -> mode 2 ": {
+      "match": [
+        "OK   autshadow satb: Satb=2 -> mode 2 (act: concurrent worker, read redirect), 51 runtime icall entries wrapped"
+      ],
+      "noMatch": [
+        "OK   autshadow satb: Satb=1 -> mode 1 (shadow)"
+      ]
+    },
+    "OK   sim loop: .* runs at the end of every Simulate iteration": {
+      "match": [
+        "OK   sim loop: mono thread tick runs at the end of every Simulate iteration"
+      ],
+      "noMatch": [
+        "OK   sim loop: je at 0x00D81FFF -> SlpThunk, then 0x00D818C0 (every Simulate iteration)"
+      ]
+    },
+    "OK   mono thread P4": {
+      "match": [
+        "OK   mono thread P4: frame globals -> TLS 15/17 (fs:0xE4C/0xE54), blocks 0xF of 0xF"
+      ],
+      "noMatch": [
+        "OK   mono thread P3: sites 19"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-seen-ab-smoke",
+      "note": "measurement smoke 4 min, --ab autliveseen 1-min slices: both arms in the job log with the switch read back, autliveseen_posted grows only in on slices, noSamplers. A FAIL stops the queue.",
+      "asi": "game-copy/ts3native.asi.mono-autshadow-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-autshadow-1115",
+      "pinReason": "mono-autshadow-1115 (builds.json): feature/mono-autshadow-1115 = master aae8e1d6 + WorldIndex (native) + autliveseen (ts3fixes)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 159,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:autliveseen_hh_post",
+          "op": "==",
+          "value": 0,
+          "why": "household-scope actor on the seen-exact path (household rule): stop and triage"
+        }
+      ],
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "run": {
+        "profile": {
+          "minutes": 4,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "aut-live-crowd-view",
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autseengame,autunseenpacecredit",
+          "fixesOff": "autunseencmp,autliveseendry",
+          "fixesReport": "autliveseen_,g8_,autunseen_",
+          "fixesRequire": "autliveseen_hh_post<1,autunseen_exc<1",
+          "ab": "autliveseen",
+          "slice": 1
+        }
+      }
+    },
+    {
+      "id": "bp-seen-ab-crowd",
+      "note": "BP crowd 25 min, --ab autliveseen 5-min slices, off first. Needs a quiet machine. --ab autliveseen flips the ts3fixes switch per 5-min slice (autseengame on in both arms: off = seen NPCs run the game search, on = the exact path). Judge (docs/124 §14.4 S4): sim busy ms/s off - on and the autonomy-search owner per arm (node tools/harness/sim-budget-report.ts), pooled over both orders; hitches with node tools/harness/hitch-ab.ts mono-autshadow-seenexact-timing-1115 (p99, p99.9, max, counts >= 300 / 1000 ms); it/s not down > 2%. Expected [inferred I-488-4]: ~+4.3 ms/s on the crowd.",
+      "asi": "game-copy/ts3native.asi.mono-autshadow-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-autshadow-1115",
+      "pinReason": "mono-autshadow-1115 (builds.json): feature/mono-autshadow-1115 = master aae8e1d6 + WorldIndex (native) + autliveseen (ts3fixes)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 159,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:autliveseen_hh_post",
+          "op": "==",
+          "value": 0,
+          "why": "household-scope actor on the seen-exact path (household rule): stop and triage"
+        }
+      ],
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 50,
+      "run": {
+        "profile": {
+          "minutes": 25,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "aut-live-crowd-view",
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autseengame,autunseenpacecredit",
+          "fixesOff": "autunseencmp,autliveseendry",
+          "fixesReport": "autliveseen_,g8_,autunseen_",
+          "fixesRequire": "autliveseen_hh_post<1,autunseen_exc<1",
+          "ab": "autliveseen",
+          "slice": 5
+        }
+      }
+    },
+    {
+      "id": "bp-seen-ab-crowd-onfirst",
+      "note": "BP crowd 25 min, --ab autliveseen 5-min slices, on first. Needs a quiet machine. --ab autliveseen flips the ts3fixes switch per 5-min slice (autseengame on in both arms: off = seen NPCs run the game search, on = the exact path). Judge (docs/124 §14.4 S4): sim busy ms/s off - on and the autonomy-search owner per arm (node tools/harness/sim-budget-report.ts), pooled over both orders; hitches with node tools/harness/hitch-ab.ts mono-autshadow-seenexact-timing-1115 (p99, p99.9, max, counts >= 300 / 1000 ms); it/s not down > 2%. Expected [inferred I-488-4]: ~+4.3 ms/s on the crowd.",
+      "asi": "game-copy/ts3native.asi.mono-autshadow-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-autshadow-1115",
+      "pinReason": "mono-autshadow-1115 (builds.json): feature/mono-autshadow-1115 = master aae8e1d6 + WorldIndex (native) + autliveseen (ts3fixes)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 159,
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "autshadow.req",
+          "op": ">",
+          "value": 0,
+          "why": "worker never posted (no [AutShadow] request)"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:autliveseen_hh_post",
+          "op": "==",
+          "value": 0,
+          "why": "household-scope actor on the seen-exact path (household rule): stop and triage"
+        }
+      ],
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+        "autshadow satb: Satb=2 -> mode 2 ": 1
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 50,
+      "run": {
+        "profile": {
+          "minutes": 25,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "aut-live-crowd-view",
+          "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autseengame,autunseenpacecredit",
+          "fixesOff": "autunseencmp,autliveseendry",
+          "fixesReport": "autliveseen_,g8_,autunseen_",
+          "fixesRequire": "autliveseen_hh_post<1,autunseen_exc<1",
+          "ab": "autliveseen",
+          "slice": 5,
+          "abOnFirst": true
+        }
+      }
+    }
+  ]
+}

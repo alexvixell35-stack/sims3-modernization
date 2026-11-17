@@ -1,0 +1,233 @@
+{
+  "note": "PREPARED, NOT RUN (2026-11-15, lane mono-measure). D3 = docs/222 §11.5 bar G3 'whole stack' (never measured) as P3 'price what ships': the shipped stack (master ON defaults) against ourMods false (community layer only), separate-load ABBA per world (off-1, on-1, on-2, off-2; BP then IP), 10 min each, seed 12345, light tools only (noSamplers, no fixedwork / A/B switch: X4 needs ts3native, so it cannot run in the off arm). NEEDS A QUIET MACHINE (clean night): 8 jobs ~2 h with load gaps. Per-arm ms/s split: arm-ms.ts pools the -off-N / -on-N jobs of each world as one group (abbaOf) and prints script, route, animPose, locomotion ms/s per arm and on - off; read also Threaded ms/iter and it/s (hitch-ab.ts 'all' arm per job; the sim runs flat out, so a cost shows as fewer iterations as well as ms/s, docs/222 §11.5 fixed-work note). Report row: node tools/harness/arm-ms.ts mono-measure-g3stack-1115-<date>-bp-g3stack mono-measure-g3stack-1115-<date>-ip-g3stack --json -> the G3 row of docs/222 §11.5 (on - off ms/s and it/s per world; G3 passes for go-live when on - off <= 0 ms/s, and the release-number table gets 'stack cost vs community layer' from the same tags via release-numbers.ts --vanilla <off tags> --rel <on tags>). Household Sims: the on arm runs only shipped defaults (each already exempts the household); the off arm runs no mod code. Bin as found: the queue never changes Bin (no Apex unless it is installed; an Apex G3 pair needs the chain script the memdiag3 Apex job used). Start: node tools/harness/queue.ts tools/harness/queues/mono-measure-g3stack-1115.json (smoke runs first, >60 timing minutes).",
+  "jobs": [
+    {
+      "id": "bp-g3stack-off-1",
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 24,
+      "note": "[est 14 min] TIMING, NEEDS A QUIET MACHINE. G3 off arm 1, Bridgeport: ourMods false = the community layer without ts3native/ts3fixes (README Baseline; Bin as found, ts3agent stays). One arm per load (separate-load ABBA off,on,on,off).",
+      "asi": "none",
+      "ourMods": false
+    },
+    {
+      "id": "bp-g3stack-on-1",
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 24,
+      "note": "[est 14 min] TIMING, NEEDS A QUIET MACHINE. G3 on arm 1, Bridgeport: the stack that ships next = master build master-dalexlol-417-1115 with its own ini as is (releaseDefaults: no CrashForensics Light added) + master ts3fixes l3-convgone-1115, every default-ON switch on. One arm per load.",
+      "asi": "game-copy/ts3native.asi.master-dalexlol-417-1115",
+      "iniBase": "game-copy/ts3native.ini.master-dalexlol-417-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.l3-convgone-1115",
+      "pinReason": "master-dalexlol-417-1115 (builds.json, b9cddf2a, 0.36.261-lanes1) = current master native (no native/ change b9cddf2a..aae8e1d6) with its ini unchanged; ts3fixes l3-convgone-1115 = master ts3fixes. G3 prices this stack against ourMods false; repin to the release candidate when one is cut",
+      "releaseDefaults": true,
+      "minCounters": 1,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.261-lanes1 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.261-lanes1 ": {
+          "match": [
+            "ts3native 0.36.261-lanes1 2026-11-15 17:24:21"
+          ],
+          "noMatch": [
+            "prior log: ts3native 0.36.261-lanes1 2026-11-15 17:12:18",
+            "ts3native 0.36.247 2026-11-13 10:02:11"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-g3stack-on-2",
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 24,
+      "note": "[est 14 min] TIMING, NEEDS A QUIET MACHINE. G3 on arm 2, Bridgeport: the stack that ships next = master build master-dalexlol-417-1115 with its own ini as is (releaseDefaults: no CrashForensics Light added) + master ts3fixes l3-convgone-1115, every default-ON switch on. One arm per load.",
+      "asi": "game-copy/ts3native.asi.master-dalexlol-417-1115",
+      "iniBase": "game-copy/ts3native.ini.master-dalexlol-417-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.l3-convgone-1115",
+      "pinReason": "master-dalexlol-417-1115 (builds.json, b9cddf2a, 0.36.261-lanes1) = current master native (no native/ change b9cddf2a..aae8e1d6) with its ini unchanged; ts3fixes l3-convgone-1115 = master ts3fixes. G3 prices this stack against ourMods false; repin to the release candidate when one is cut",
+      "releaseDefaults": true,
+      "minCounters": 1,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.261-lanes1 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.261-lanes1 ": {
+          "match": [
+            "ts3native 0.36.261-lanes1 2026-11-15 17:24:21"
+          ],
+          "noMatch": [
+            "prior log: ts3native 0.36.261-lanes1 2026-11-15 17:12:18",
+            "ts3native 0.36.247 2026-11-13 10:02:11"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-g3stack-off-2",
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 24,
+      "note": "[est 14 min] TIMING, NEEDS A QUIET MACHINE. G3 off arm 2, Bridgeport: ourMods false = the community layer without ts3native/ts3fixes (README Baseline; Bin as found, ts3agent stays). One arm per load (separate-load ABBA off,on,on,off).",
+      "asi": "none",
+      "ourMods": false
+    },
+    {
+      "id": "ip-g3stack-off-1",
+      "save": "Baseline-IP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 24,
+      "note": "[est 14 min] TIMING, NEEDS A QUIET MACHINE. G3 off arm 1, Isla Paradiso: ourMods false = the community layer without ts3native/ts3fixes (README Baseline; Bin as found, ts3agent stays). One arm per load (separate-load ABBA off,on,on,off).",
+      "asi": "none",
+      "ourMods": false
+    },
+    {
+      "id": "ip-g3stack-on-1",
+      "save": "Baseline-IP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 24,
+      "note": "[est 14 min] TIMING, NEEDS A QUIET MACHINE. G3 on arm 1, Isla Paradiso: the stack that ships next = master build master-dalexlol-417-1115 with its own ini as is (releaseDefaults: no CrashForensics Light added) + master ts3fixes l3-convgone-1115, every default-ON switch on. One arm per load.",
+      "asi": "game-copy/ts3native.asi.master-dalexlol-417-1115",
+      "iniBase": "game-copy/ts3native.ini.master-dalexlol-417-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.l3-convgone-1115",
+      "pinReason": "master-dalexlol-417-1115 (builds.json, b9cddf2a, 0.36.261-lanes1) = current master native (no native/ change b9cddf2a..aae8e1d6) with its ini unchanged; ts3fixes l3-convgone-1115 = master ts3fixes. G3 prices this stack against ourMods false; repin to the release candidate when one is cut",
+      "releaseDefaults": true,
+      "minCounters": 1,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.261-lanes1 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.261-lanes1 ": {
+          "match": [
+            "ts3native 0.36.261-lanes1 2026-11-15 17:24:21"
+          ],
+          "noMatch": [
+            "prior log: ts3native 0.36.261-lanes1 2026-11-15 17:12:18",
+            "ts3native 0.36.247 2026-11-13 10:02:11"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-g3stack-on-2",
+      "save": "Baseline-IP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 24,
+      "note": "[est 14 min] TIMING, NEEDS A QUIET MACHINE. G3 on arm 2, Isla Paradiso: the stack that ships next = master build master-dalexlol-417-1115 with its own ini as is (releaseDefaults: no CrashForensics Light added) + master ts3fixes l3-convgone-1115, every default-ON switch on. One arm per load.",
+      "asi": "game-copy/ts3native.asi.master-dalexlol-417-1115",
+      "iniBase": "game-copy/ts3native.ini.master-dalexlol-417-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.l3-convgone-1115",
+      "pinReason": "master-dalexlol-417-1115 (builds.json, b9cddf2a, 0.36.261-lanes1) = current master native (no native/ change b9cddf2a..aae8e1d6) with its ini unchanged; ts3fixes l3-convgone-1115 = master ts3fixes. G3 prices this stack against ourMods false; repin to the release candidate when one is cut",
+      "releaseDefaults": true,
+      "minCounters": 1,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.261-lanes1 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.261-lanes1 ": {
+          "match": [
+            "ts3native 0.36.261-lanes1 2026-11-15 17:24:21"
+          ],
+          "noMatch": [
+            "prior log: ts3native 0.36.261-lanes1 2026-11-15 17:12:18",
+            "ts3native 0.36.247 2026-11-13 10:02:11"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-g3stack-off-2",
+      "save": "Baseline-IP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 24,
+      "note": "[est 14 min] TIMING, NEEDS A QUIET MACHINE. G3 off arm 2, Isla Paradiso: ourMods false = the community layer without ts3native/ts3fixes (README Baseline; Bin as found, ts3agent stays). One arm per load (separate-load ABBA off,on,on,off).",
+      "asi": "none",
+      "ourMods": false
+    }
+  ]
+}

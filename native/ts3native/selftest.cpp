@@ -2,6 +2,7 @@
 #define TS3NATIVE_NO_DLLMAIN
 #define TS3N_FAULTINJ  // docs/157: the P5 / P5b / P5c fault-injection hooks (p4.cpp, p5.cpp), test builds only
 #define TS3N_TEST_EXPECTED  // TestDetourCallRel: live bytes that differ from the literal, as on EA
+#define TS3N_EA_PORT  // the EA-port-only features (ts3addr.h): [ImageGuard], [EaCrashFixes] SimNoTexture, tested on dummies
 #include "ts3native.cpp"
 static void TestUfStrict();  // unseenfbc-test.h (docs/202 §3.1.1), run from the uf block
 #include <assert.h>
@@ -662,7 +663,7 @@ static void __fastcall TpPassChecked(void* self, void* edx, float dt) {
 }
 static void TestH2Threaded() {
     static_assert(offsetof(Ts3nCounters, h2Released) == 0x364C && offsetof(Ts3nCounters, h2PassLockN) == 0x3650 &&
-                  offsetof(Ts3nCounters, h2PassLockUs) == 0x3658 && offsetof(Ts3nCounters, h2ReleaseMaxUs) == 0x3660 && sizeof(Ts3nCounters) == 6112 * 4, "v85 layout after v84 (docs/registry.md)");
+                  offsetof(Ts3nCounters, h2PassLockUs) == 0x3658 && offsetof(Ts3nCounters, h2ReleaseMaxUs) == 0x3660 && sizeof(Ts3nCounters) == 6477 * 4, "v85 layout after v84 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const LONG wd0 = k.watchdogs;
     QueryPerformanceFrequency(&g_qpf);
@@ -989,6 +990,8 @@ static void TestA10() {
             return GetOptionHook(h, 0, kAsyncOptHi | kArHi | kArFgnHi | (DWORD)kind << 24, 1);
         };
         const int ownKinds = g_arOwnKinds;
+        LONG rf0[2][21];  // docs/247 §13.3 R1: kind 3 refusals by own / foreign and reason (v191)
+        memcpy(rf0, (const void*)k.arRf3, sizeof(rf0));
         for (int kind = 1; kind <= 3; kind++) {
             const int i = kind - 1;
             const float* pt = kind >= 2 ? p1 : NULL;
@@ -1015,6 +1018,21 @@ static void TestA10() {
             assert(!fstart(kH1, kind, pt) && k.afActive[i] == 1);
             g_arActive = 0;
             assert(!ArWould(kH1, 6) && ArWould(kH1, 5) && ArWould(kH1, 3) && !ArWould(kH1, 0));
+            {  // docs/261 L1: q 10 = ReplanLog, q 11 = Kinds bit 0, q 12 = arReady bit 0, unknown q 14 = 0; no counter moves
+                const LONG act = k.afActive[i];
+                g_rlOn = 0;
+                assert(!ArWould(kH1, 10));
+                g_rlOn = 1;
+                assert(ArWould(kH1, 10));
+                g_rlOn = 0;
+                const int ok0 = g_arOwnKinds;
+                g_arOwnKinds = 0;
+                assert(!ArWould(kH1, 11));
+                g_arOwnKinds = 1;
+                assert(ArWould(kH1, 11));
+                g_arOwnKinds = ok0;
+                assert(ArWould(kH1, 12) == ((k.arReady & 1) != 0) && !ArWould(kH1, 14) && k.afActive[i] == act);
+            }
             FakeTask(kNested, 7);
             assert(!ArWould(kH1, 5));
             assert(!fstart(kH1, kind, pt) && k.afNoYield[i] == 1);
@@ -1025,6 +1043,13 @@ static void TestA10() {
             k.afKinds = 0;
         }
         assert(!AsyncBusy() && g_async.state == A_IDLE);
+        // kind 3 only (kinds 1-2 counted nowhere here): 2 foreign refused while ForeignKinds / afMode were off, 1 own with Kinds=0,
+        // 1 foreign Active, 1 foreign NoYield; started STARTs are not counted
+        LONG drf = 0;
+        for (int r = 0; r < 2; r++)
+            for (int c = 0; c < 21; c++) drf += k.arRf3[r][c] - rf0[r][c];
+        assert(k.arRf3[1][RFB_FOREIGN] - rf0[1][RFB_FOREIGN] == 2 && k.arRf3[0][kRf3KindsOff] - rf0[0][kRf3KindsOff] == 1);
+        assert(k.arRf3[1][RFB_ACTIVE] - rf0[1][RFB_ACTIVE] == 1 && k.arRf3[1][RFB_NOYIELD] - rf0[1][RFB_NOYIELD] == 1 && drf == 5);
         memset(&k.afMode, 0, offsetof(Ts3nCounters, afActiveTrip) + 4 - offsetof(Ts3nCounters, afMode));
     }
 
@@ -1103,6 +1128,22 @@ static void __fastcall FbFakeApply(void* world, void*) {
     (*(u8**)((u8*)world + 0x95C))[0x10E] = 0;
 }
 static LONG __fastcall FbBusyAcquire(void*, void*, const DWORD* deadline) { assert(*deadline == 0); return -2; }
+// docs/247 §13.1 L FbApplyLog=1: the written-out 0x82C420 walk over fake lots (ids in +0x48, the second word +0x4C)
+static u8 g_fbLot[3][0x50];
+static const u8* g_fbLotVec[4] = {g_fbLot[0], NULL, g_fbLot[1], g_fbLot[2]};
+static const u8* g_fbLotRange[2] = {(const u8*)&g_fbLotVec[0], (const u8*)&g_fbLotVec[4]};
+static void* g_fbLotsWm;
+static LONG g_fbLotOrder;  // applied lot ids, one hex digit each, in call order
+static const u8* const* __fastcall FbFakeLots(void* wm, void*, int which) {
+    assert(wm == g_fbLotsWm && which == 0);
+    return g_fbLotRange;
+}
+static char __fastcall FbFakeLotPend(void*, void*, DWORD a, DWORD b) { return b == 0x77 && a != 1; }  // lot 1 has no update
+static void __fastcall FbFakeLotApply(void*, void*, void* lot) {
+    const DWORD a = *(const DWORD*)((u8*)lot + 0x48);
+    g_fbLotOrder = g_fbLotOrder << 4 | (LONG)a;
+    if (a == 3) Sleep(5);  // the slow lot
+}
 static u8* __cdecl FbCapIc(u8* out, DWORD handle) {  // stands in for a sim plan whose world A* hit the cap
     g_fbSeenCap = t_fbCapUs;
     if (t_fbCapUs) t_fbCapHit = 1;
@@ -1226,6 +1267,25 @@ static void TestFallback() {
     WaitReady(kH1);  // the worker took +0x918 for the job, so the START released it
     assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == g_workerTid);
     Cancel(kH1);
+    assert(k.fbApN == 1 && k.fbApLots == 0 && k.fbApLong == 0);  // timed always; the per-lot split only with FbApplyLog=1
+    {  // docs/247 §13.1 L: FbApplyLog=1 walks the lots itself: pending ones only, in vector order, NULL skipped, flag cleared
+        for (int i = 0; i < 3; i++) *(DWORD*)(g_fbLot[i] + 0x48) = i + 1, *(DWORD*)(g_fbLot[i] + 0x4C) = 0x77;
+        g_fbLotsWm = *(void**)(world + 0x964);
+        g_fbLots = FbFakeLots, g_fbLotPend = FbFakeLotPend, g_fbLotApply = FbFakeLotApply;
+        k.fbApLog = 1;
+        p[0x10E] = 1;
+        assert(Start(kH1) && k.fbPendApplied == 2 && k.fbApN == 2 && p[0x10E] == 0);
+        assert(g_fbLotOrder == 0x23 && k.fbApLots == 2 && k.fbApLotMaxUs >= 4000 && k.fbApMaxUs >= k.fbApLotMaxUs);
+        WaitReady(kH1);
+        Cancel(kH1);
+        p[0x10E] = 0;  // flag already clear: the walk does not even read the lot list
+        g_fbLotsWm = (void*)1;
+        assert(Start(kH1) && k.fbApN == 2);  // RtM1Allows passes, no apply
+        WaitReady(kH1);
+        Cancel(kH1);
+        k.fbApLog = 0;
+        k.fbPendApplied = 1;  // the counts below were written before this block
+    }
     p[0x10E] = 1;  // +0x918 busy: one try, nothing applied, refused as before
     g_fbAcq = FbBusyAcquire;
     assert(!Start(kH1) && k.fbPendBusy == 1 && k.fbPendApplied == 1 && p[0x10E] == 1 && g_rfbWhy == RFB_M1 + 3);
@@ -1475,7 +1535,7 @@ static void TestFallback() {
         Cancel(kH1);
         assert(GetOptionHook(kH1, 0x20000 | 0x100, kProbeHi, 1) == 0 && g_scTagH == 0);  // other optLo forms: not this channel
         // docs/250 §7.1 bit 10: the watchdog's idle check; a label only (no probe even with the cut bit, no sync mark), job time in v179
-        static_assert(offsetof(Ts3nCounters, wdJobN) == 0x5F18 && offsetof(Ts3nCounters, wdJobLong) == 0x5F24 && sizeof(Ts3nCounters) == 6112 * 4,
+        static_assert(offsetof(Ts3nCounters, wdJobN) == 0x5F18 && offsetof(Ts3nCounters, wdJobLong) == 0x5F24 && sizeof(Ts3nCounters) == 6477 * 4,
                       "counters v179 after the v913 gap (docs/registry.md)");
         const LONG wdN0 = k.wdJobN;
         assert(GetOptionHook(kH1, 0x10000 | 0x400 | 0x100, kProbeHi, 1) == 0);
@@ -1502,7 +1562,7 @@ static void TestFallback() {
     // docs/202 [UnseenFallback]: a MARK makes the route's next START a job under ufUs (worker deadline slot open); one START
     // per mark, a mark on another route or with ufMode 0 marks nothing; CUT? answers once; sync deadline choice; job end
     {
-        static_assert(offsetof(Ts3nCounters, ufMode) == 0x5360 && offsetof(Ts3nCounters, ufCutAsks) == 0x538C && sizeof(Ts3nCounters) == 6112 * 4,
+        static_assert(offsetof(Ts3nCounters, ufMode) == 0x5360 && offsetof(Ts3nCounters, ufCutAsks) == 0x538C && sizeof(Ts3nCounters) == 6477 * 4,
                       "counters v138 layout after v137 (docs/registry.md)");
         const LONG um0 = k.ufMode, uu0 = k.ufUs, ur0 = k.ufReady, pr0 = k.pdReady;
         // the 0.36.91 miss (sv-ufb-farcrowd-loop: a marked 402 ms sync plan, "world A* capped 0"): [UnseenFallback] alone,
@@ -1583,7 +1643,7 @@ static void TestFallback() {
     // 4c. docs/134 §11: the job cap is a deadline from the job's start, read every 4th cost call of either kind
     {
         static_assert(offsetof(Ts3nCounters, fbjcCapAtMaxUs) == 0x3604 && offsetof(Ts3nCounters, fbjcWaitHist) == 0x3634 &&
-                          sizeof(Ts3nCounters) == 6112 * 4, "counters v84 layout after v83 (docs/registry.md)");
+                          sizeof(Ts3nCounters) == 6477 * 4, "counters v84 layout after v83 (docs/registry.md)");
         const PlanLockedFn planSave = g_planOrig;
         const LONG readySave = k.budgetReady;
         g_planOrig = FbSlowSearch;
@@ -1706,6 +1766,8 @@ static void TestFallback() {
     g_fbAcq = (LockAcquireFn)(uintptr_t)0x004E16F0;
     g_fbRel = (FbRelFn)(uintptr_t)0x004E17B0;
     g_fbApply = (FbApplyFn)(uintptr_t)0x0082C420;
+    g_fbLots = (FbLotsFn)(uintptr_t)0x00C68960, g_fbLotPend = (FbLotPendFn)(uintptr_t)0x00631A60;
+    g_fbLotApply = (FbLotApplyFn)(uintptr_t)0x0082B590;
     g_routeIsActive = savedActive;
     g_rfbHandle = 0;
     memset(&k.rfbLogMs, 0, sizeof(LONG) * 8);
@@ -4026,7 +4088,7 @@ static void TestRouteSites() {
     reset();
     // gate site 16 (index 15, IC_World_FindPlacesOnShoreline, crash K) counts in v108, not in the v25 arrays
     static_assert(offsetof(Ts3nCounters, rgUnlocked3) == 0x45C4 && offsetof(Ts3nCounters, rgJob3) == 0x45C8 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "counters v108 layout after v107 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6477 * 4, "counters v108 layout after v107 (docs/registry.md)");
     assert(kRgSites[15].addr == 0x0078C440 && kRgSites[15].len == 6);
     k.rgUnlocked3 = k.rgJob3 = 0;
     RgEnter(15, &stack[20]);
@@ -4619,6 +4681,17 @@ static void TestDiscourage() {
     g_async.state = A_IDLE;  // WaitAsyncDone returns at once in the test
     DiscPoll();
     assert(g_discCount == 0 && k.discForced == 0);  // no job ran: a plain drain
+    // #408: a slot keeps nothing from the record that used it before (a kind 2 LostRemovalFix record's lr and lot)
+    g_disc[g_discHead].lr = true;
+    g_disc[g_discHead].lotLo = 7;
+    g_disc[g_discHead].lotHi = 8;
+    g_async.state = A_RUNNING;
+    DiscRemoveHook(world, NULL, g_dObjA);
+    assert(g_discCount == 1 && !g_disc[g_discHead].lr && g_disc[g_discHead].lotLo == 0 && g_disc[g_discHead].lotHi == 0);
+    g_async.state = A_IDLE;
+    g_dLogN = 0;
+    DiscPoll();
+    assert(g_discCount == 0 && g_dLogN == 1 && g_dLog[0] == 'a');
     // mode 0: never deferred
     k.discMode = 0;
     g_async.state = A_RUNNING;
@@ -4853,7 +4926,7 @@ static u8 __fastcall FakeUsfShould(void*, void*, void* obj) { assert(obj); retur
 static void TestFootprintDefer() {
     static_assert(offsetof(Ts3nCounters, usfReady) == 0x3174 && offsetof(Ts3nCounters, usfMode) == 0x3178 &&
                   offsetof(Ts3nCounters, usfApplied) == 0x31A4 && offsetof(Ts3nCounters, usfApplyInJob) == 0x31C4 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "v74 layout (without v52, v58)");
+                  sizeof(Ts3nCounters) == 6477 * 4, "v74 layout (without v52, v58)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
     memset((void*)&k.discDestroyMode, 0, offsetof(Ts3nCounters, discIdMismatch) + 4 - offsetof(Ts3nCounters, discDestroyMode));
@@ -5089,7 +5162,7 @@ static DWORD WINAPI F2JobEnd(void*) {  // the running job ends a little later (a
 static void TestFootprintDefer2() {
     static_assert(offsetof(Ts3nCounters, fp2Mode) == 0x3FB4 && offsetof(Ts3nCounters, fp2Deferred) == 0x3FBC &&
                   offsetof(Ts3nCounters, fp2Forced) == 0x3FDC && offsetof(Ts3nCounters, fp2ApplyInJob) == 0x3FE8 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "counters v94 layout after v92 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6477 * 4, "counters v94 layout after v92 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
     memset((void*)&k.discDestroyMode, 0, offsetof(Ts3nCounters, discIdMismatch) + 4 - offsetof(Ts3nCounters, discDestroyMode));
@@ -5236,10 +5309,12 @@ static void TestFootprintDefer2() {
     k.rgOwnerTid = (LONG)me;
     assert(PfRemoveSite(world, NULL, A, 1) == 1 && log("ZX") && g_discCount == 2);
     k.rgOwnerTid = 0;
-    const LONG forced0 = k.discForced;
+    const LONG forced0 = k.discForced, rd0 = k.dsN[DS_FP2READ], pf0 = k.dsN[DS_PF];
     CloseHandle(CreateThread(NULL, 0, F2JobEnd, NULL, 0, NULL));
     assert(PfRemoveSite(world, NULL, A, 1) == 1);
     assert(log("ZXfQX") && settled() && k.fp2Forced == 1 && k.discForced == forced0 + 1 && g_async.state == A_IDLE);
+    // docs/247 §13.4 C: that wait is the reader flush's (a native IC point, not ours), with its time
+    assert(k.dsN[DS_FP2READ] == rd0 + 1 && k.dsN[DS_PF] == pf0 && k.dsUs[DS_FP2READ] > 0 && k.dsN[DS_START] == 0 && k.dsN[DS_READY] == 0);
     g_xLogN = 0;
     g_async.state = A_RUNNING;
     UolHook(world, NULL, B);
@@ -5364,10 +5439,27 @@ static u8 __fastcall LrLotRemove(void*, void*, DWORD lotLo, DWORD lotHi, DWORD i
 }
 static DWORD WINAPI LrHoldThread(void*) { FpgHoldPoint(); return 0; }
 
+// the EA check before the LostRemovalFix patch: both callees must be direct calls inside UpdateObjectLot, else the fix stays off
+static void TestUolCalls() {
+    u8* const page = (u8*)VirtualAlloc(NULL, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    assert(page);
+    const DWORD fn = (DWORD)(uintptr_t)page, site = fn + 0x30, target = 0x8297C0;
+    u8* const p = (u8*)(uintptr_t)site;
+    p[0] = 0xE8;
+    *(LONG*)(p + 1) = (LONG)(target - (site + 5));
+    assert(UolCalls(fn, target));
+    assert(!UolCalls(fn, target + 0x10));  // a wrong row
+    p[0] = 0xE9;
+    assert(!UolCalls(fn, target));  // a jmp is no call
+    VirtualFree(page, 0, MEM_RELEASE);
+    assert(!UolCalls(fn, target));  // unreadable
+    printf("UolCalls: wrong row, jmp and unreadable code leave the lost removal fix off\n");
+}
+
 static void TestFp2LostRemoval() {
     static_assert(offsetof(Ts3nCounters, fp2lrMode) == 0x5DE8 && offsetof(Ts3nCounters, fp2lrOrderMiss) == 0x5E08 &&
                   offsetof(Ts3nCounters, fpgMode) == 0x5E0C && offsetof(Ts3nCounters, fpgHeld) == 0x5E34 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "counters v172 layout (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6477 * 4, "counters v172 layout (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
     memset((void*)&k.discDestroyMode, 0, offsetof(Ts3nCounters, discIdMismatch) + 4 - offsetof(Ts3nCounters, discDestroyMode));
@@ -5522,8 +5614,11 @@ static void TestFp2LostRemoval() {
     __declspec(align(16)) float pts[3][4] = {{1.5f}, {2}, {3}};
     u8* vec[3] = {(u8*)pts, (u8*)pts + 48, (u8*)pts + 48};
     DiscAddHook(world, NULL, A, vec, 0, 0, 0);
+    const LONG lrs0 = k.lrsN[0], lrsUs0 = k.lrsUs[0], lrFl0 = k.fp2lrFlushUs;
     CloseHandle(CreateThread(NULL, 0, F2JobEnd, NULL, 0, NULL));
     UofSite(world, NULL, A);
+    // docs/247 §13.4 C: called from here, not from EA's second site, so site [0]; its wait is the fp2lrFlushUs growth
+    assert(k.lrsN[0] == lrs0 + 1 && k.lrsN[1] == 0 && k.lrsUs[0] - lrsUs0 == k.fp2lrFlushUs - lrFl0 && k.lrsUs[0] > lrsUs0);
     assert(k.fp2lrOrderMiss == 3 && g_discCount == 2 && g_disc[g_discHead].idLo == 0xB && g_disc[(g_discHead + 1) % kDiscCap].add);
     DiscPoll();
     assert(g_discCount == 0 && k.fp2ApplyInJob == 0 && k.rgOwnerTid == 0);
@@ -5645,7 +5740,7 @@ static unsigned __int64 __cdecl FakePfKey(int kind, int type, DWORD idLo, DWORD 
 
 static void TestPrivateFpDefer() {
     static_assert(offsetof(Ts3nCounters, pfReady) == 0x473C && offsetof(Ts3nCounters, pfMode) == 0x4740 &&
-                  offsetof(Ts3nCounters, pfApplyInJob) == 0x476C && sizeof(Ts3nCounters) == 6112 * 4,
+                  offsetof(Ts3nCounters, pfApplyInJob) == 0x476C && sizeof(Ts3nCounters) == 6477 * 4,
                   "counters v113 layout after v112 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
@@ -5866,7 +5961,7 @@ static u8 __fastcall PdFakePlan(void* world, void*, int*, int*, int*, DWORD, DWO
 static void TestPlanDrain() {
     static_assert(offsetof(Ts3nCounters, sdReady) == 0x4588 && offsetof(Ts3nCounters, sdMode) == 0x458C &&
                   offsetof(Ts3nCounters, sdSkip) == 0x45A8 && offsetof(Ts3nCounters, sdFail) == 0x45BC &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "counters v107 layout after v106 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6477 * 4, "counters v107 layout after v106 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
     memset((void*)&k.discDestroyMode, 0, offsetof(Ts3nCounters, discIdMismatch) + 4 - offsetof(Ts3nCounters, discDestroyMode));
@@ -6118,7 +6213,7 @@ static void TestXformGuard() {
 static void TestDestroyPark() {
     static_assert(offsetof(Ts3nCounters, dpReady) == 0x31DC && offsetof(Ts3nCounters, dpMode) == 0x31E0 &&
                   offsetof(Ts3nCounters, dpParked) == 0x31E4 && offsetof(Ts3nCounters, dpKeptWait) == 0x31E8 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "v76 layout after v75 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6477 * 4, "v76 layout after v75 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     k.dpReady = k.dpMode = k.dpParked = k.dpKeptWait = 0;
     k.vfRtDestroyWaitUs = 0;
@@ -6360,6 +6455,8 @@ static void TestDestroyPark() {
 // The clone against the game's own code: steerro-test.exe (needs the exe). ---
 static int g_srLocoCalls;
 static void __fastcall FkLoco(u8*, void*, u8*, const void*, DWORD, const void*, DWORD) { g_srLocoCalls++; }
+// docs/250 §8: the game's call waits 7 ms for the job at the EditPath gather key
+static void __fastcall FkLocoWait(u8*, void*, u8*, const void*, DWORD, const void*, DWORD) { g_srLocoCalls++; g_w918Us += 7000; g_w918Key = 0x0085F6CB; }
 static u8 __fastcall FkS60(const u8*, void*, DWORD) { return 1; }
 static u8 __fastcall FkSFalse(const u8*, void*) { return 0; }
 static u8 __fastcall FkSTrue(const u8*, void*) { return 1; }
@@ -6775,9 +6872,45 @@ static void TestSteerRO() {
     CloseHandle(th);
     CloseHandle(held);
     CloseHandle(go);
+    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+    // docs/250 §8 [SteerRO] Retry (counters v175): SrRetry reruns TRY / TRIP only, at most 4 times, only while the job runs;
+    // counted by the clone's failing site (g_srPhase); the fallback's job wait by key, with the switch off too
+    {
+        static_assert(offsetof(Ts3nCounters, srrMode) == 0x5E94 && offsetof(Ts3nCounters, srrN) == 0x5E98 &&
+                          offsetof(Ts3nCounters, srrOk) == 0x5EA0 && offsetof(Ts3nCounters, srrFb) == 0x5EA8 &&
+                          offsetof(Ts3nCounters, srrFbWaitUs) == 0x5EB0 && offsetof(Ts3nCounters, srrMaxUs) == 0x5EBC &&
+                          offsetof(Ts3nCounters, ctCellSeen) == 0x5EC0,
+                      "counters v175 layout after v174 (docs/registry.md)");
+        memset((void*)&k.srrMode, 0, offsetof(Ts3nCounters, srrMaxUs) + 4 - offsetof(Ts3nCounters, srrMode));  // v175 only (v176+ follow it)
+        int runs = 0;
+        g_srPhase = 0;
+        assert(SrRetry(SR_FB_TRY, [&]() { return ++runs == 1 ? SR_FB_TRY : SR_OK; }) == SR_OK && runs == 2 && k.srrN[0] == 1 &&
+               k.srrOk[0] == 1 && k.srrFb[0] == 0);
+        runs = 0, g_srPhase = 1;
+        assert(SrRetry(SR_FB_TRIP, [&]() { runs++; return SR_FB_TRIP; }) == SR_FB_TRIP && runs <= 4 && k.srrN[1] == 1 && k.srrFb[1] == 1);
+        runs = 0;  // a state fallback from a rerun ends the loop: given up
+        assert(SrRetry(SR_FB_TRY, [&]() { runs++; return SR_FB_STATE; }) == SR_FB_STATE && runs == 1 && k.srrFb[1] == 2);
+        runs = 0, g_async.state = A_IDLE;  // the job ended: no rerun
+        assert(SrRetry(SR_FB_TRY, [&]() { runs++; return SR_OK; }) == SR_FB_TRY && runs == 0);
+        g_async.state = A_RUNNING;
+        assert(SrWaitSite(0x0085FE10) == 0 && SrWaitSite(0x0085F6CB) == 1 && SrWaitSite(0x0075A64C) == -1);
+        // the fallback's game call waited 7 ms at the gather key: booked on site 1
+        const LocoFn savedLoco = g_locoOrig;
+        g_locoOrig = FkLocoWait;
+        fwm[0x1CC] = 1;  // dirty lot index: a fallback that is not retried
+        k.srrMode = 1;
+        const LONG calls0 = g_srLocoCalls, n0 = k.srrN[0] + k.srrN[1];
+        LocoHook(agent, NULL, (u8*)idsv, NULL, 0, NULL, 0);
+        assert(g_srLocoCalls == calls0 + 1 && k.srrFbWaitUs[1] == 7000 && k.srrFbWaitUs[0] == 0 && k.srrN[0] + k.srrN[1] == n0);
+        fwm[0x1CC] = 0;
+        g_w918Us -= 7000;
+        g_locoOrig = savedLoco;
+        k.steerFb[SR_FB_DIRTY - 1]--;  // the dirty-index case below counts from its own zero
+        g_srLocoCalls--;
+        k.srrMode = 0;
+    }
     // QL free, no lot anywhere: the read-only answer is "nothing to add" without the game's call
     const LONG taken0 = k.steerTaken;
-    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     LocoHook(agent, NULL, (u8*)idsv, NULL, 0, NULL, 0);
     assert(g_srLocoCalls == 5 && k.steerTaken == taken0 + 1);
     // a dirty lot index: give up
@@ -8040,7 +8173,7 @@ static void TestAvoidRO() {
                       offsetof(Ts3nCounters, avShadow) == 0x31F4 && offsetof(Ts3nCounters, avSiteSkip) == 0x3204 &&
                       offsetof(Ts3nCounters, avFb) == 0x3208 && offsetof(Ts3nCounters, avUs) == 0x3230 &&
                       offsetof(Ts3nCounters, avTwSite) == 0x323C && offsetof(Ts3nCounters, avShadowRuns) == 0x3244 &&
-                      offsetof(Ts3nCounters, avSimWriteInRo) == 0x325C && sizeof(Ts3nCounters) == 6112 * 4,
+                      offsetof(Ts3nCounters, avSimWriteInRo) == 0x325C && sizeof(Ts3nCounters) == 6477 * 4,
                   "counters v74 layout (docs/registry.md)");
     using namespace av;
     Ts3nCounters& k = ts3native_counters;
@@ -8177,11 +8310,13 @@ static void TestAvoidRO() {
     static AvIn in;
     u64 id;
     bool none;
-    auto runA = [&](bool job, u8* pth = path, u8* ag = NULL) {
+    // pth has no default here: a default argument may not name a local (static) variable in standard C++ (clang-cl)
+    auto runAp = [&](bool job, u8* pth, u8* ag = NULL) {
         const int why = AvRunA(pth, ag ? ag : agentBase + 8, goal, ign, 1, job, &id, &in, &none);
         assert(t_qlShared == 0 && !t_inRo && g_srInClone == 0);
         return why;
     };
+    auto runA = [&](bool job) { return runAp(job, path); };
     assert(runA(false) == SR_OK && id == 0x705 && !none && ptU == 13.0f && ptV == 5.0f && optSeen == 0x42 && postureCalls == 1);
     assert(runA(true) == SR_FB_STATE && t_avJobEnd);  // a job answer needs the tripwire stubs armed
     TwArm(true);
@@ -8191,7 +8326,7 @@ static void TestAvoidRO() {
     fp[5][0x62] = 1;
     // no options object: 0x702 / 0x703 are not filtered (0x702 misses, 0x703 hits); agent NULL or 8: option word 0x100
     fp[3][0x60] = 1;
-    assert(runA(true, NULL) == SR_OK && id == 0x703);
+    assert(runAp(true, NULL) == SR_OK && id == 0x703);
     {
         const int pc = postureCalls;
         assert(AvRunA(NULL, NULL, goal, ign, 1, true, &id, &in, &none) == SR_OK && id == 0x703 && optSeen == 0x100 && postureCalls == pc);
@@ -8605,7 +8740,7 @@ static void TestProbeSnap() {
 static void TestCallSites() {
     static_assert(offsetof(Ts3nCounters, cpOn) == 0x517C && offsetof(Ts3nCounters, cpTrapUs) == 0x518C &&
                   offsetof(Ts3nCounters, cpLateMin) == 0x51A4 && offsetof(Ts3nCounters, plChunkMB) == 0x51CC &&
-                  offsetof(Ts3nCounters, rpSlimSpare) == 0x51F8 && sizeof(Ts3nCounters) == 0x5F80 && offsetof(Ts3nCounters, luOn) == 0x51FC, "v130 + v131 + v132 + v133 layout");
+                  offsetof(Ts3nCounters, rpSlimSpare) == 0x51F8 && sizeof(Ts3nCounters) == 0x6534 && offsetof(Ts3nCounters, luOn) == 0x51FC, "v130 + v131 + v132 + v133 layout");
     static_assert(sizeof(kVcCovSites) / sizeof(kVcCovSites[0]) == 2115, "coverage table = vcallsites5.h");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.vcReady, 0, 10 * sizeof(LONG));
@@ -11736,7 +11871,7 @@ static void TestP4DoorDump() {
 // the same ids is bit 2 only; a clone leaf without the entry is "only live"; box mode dumps a matched plan, outside it not
 static void TestP4LotDump() {
     static_assert(offsetof(Ts3nCounters, ldDumps) == 0x4B3C && offsetof(Ts3nCounters, ldObL) == 0x4B60 &&
-                      offsetof(Ts3nCounters, ldSpare) == 0x4B64 && sizeof(Ts3nCounters) == 6112 * 4,
+                      offsetof(Ts3nCounters, ldSpare) == 0x4B64 && sizeof(Ts3nCounters) == 6477 * 4,
                   "counters v121 layout after v120 (docs/registry.md)");
     assert(ts3native_counters.version == 912);
     struct Side {
@@ -12310,6 +12445,32 @@ static void TestP4() {
         g_asRoute = savedRoute, g_asRmSlot = savedSlot;
         k.asyncMode = savedMode, k.asyncReady = savedReady;
     }
+    // [Rewind] Park (docs/270 §19): while the rewind tool asks, no job starts (the plan runs inline, as with async off)
+    {
+        RwPark park = {};
+        const LONG savedMode = k.asyncMode, savedReady = k.asyncReady;
+        k.asyncMode = 1, k.asyncReady = 1;
+        g_rwPark = &park;
+        park.request = 1;
+        assert(AsyncStart(0x4C07) == 0 && park.held == 1 && !JobFor(0x4C07));
+        g_rwPark = NULL;
+        assert(!RewindHold());
+        assert(OffPatch(GetModuleHandleW(NULL)) == 0);  // [Rewind] Offline: selftest.exe imports no wininet, nothing written
+        {   // [Rewind] Offline stubs: the 18 TS3W.exe wininet imports (docs/270 §22), never InternetCrackUrlA
+            int left = -1;
+            assert(OffPatch(GetModuleHandleW(NULL), &left) == 0 && left == 0);
+            assert(sizeof kOffImports / sizeof kOffImports[0] == 18);
+            for (const auto& o : kOffImports) assert(strcmp(o.name, "InternetCrackUrlA") && o.fn);
+            SetLastError(0);
+            assert(Off8(1, 2, 3, 4, 5, 6, 7, 8) == 0 && GetLastError() == 12163);
+            SetLastError(0);
+            assert(Off5(1, 2, 3, 4, 5) == 0 && GetLastError() == 12163);
+            DWORD fl = 7;
+            assert(!OffConnected(&fl, 0) && fl == 0 && OffClose(nullptr) && OffErrorDlg(nullptr, nullptr, 0, 0, nullptr) == ERROR_CANCELLED);
+            assert(OffCallback(nullptr, nullptr) == nullptr && Off3(1, 2, 3) == 0 && Off4(1, 2, 3, 4) == 0);
+        }
+        k.asyncMode = savedMode, k.asyncReady = savedReady;
+    }
     // H20d: a portal IC (SetPortalCost) in the window is D5 family 9, always counted (no reader stub): M5 with nr 256
     {
         const LONG m5p = k.snM[5], bp = k.snNrBitPortal;
@@ -12596,10 +12757,10 @@ static void TestP5() {
     static_assert(offsetof(Ts3nCounters, m2Ready) == 0x2F70 && offsetof(Ts3nCounters, m2Take) == 0x2F74 &&
                   offsetof(Ts3nCounters, m2Fb) == 0x2F90 && offsetof(Ts3nCounters, m2VerM) == 0x2FDC &&
                   offsetof(Ts3nCounters, m2DoorHist) == 0x3000 && offsetof(Ts3nCounters, m2Guard) == 0x3024 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "counters v61 layout + v62 + v63 + v65 + v66 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6477 * 4, "counters v61 layout + v62 + v63 + v65 + v66 (docs/registry.md)");
     static_assert(offsetof(Ts3nCounters, p4QCut) == 0x30EC && offsetof(Ts3nCounters, p4QCutMiss) == 0x30F0 &&
                   offsetof(Ts3nCounters, p4WaitExt) == 0x30F4 && offsetof(Ts3nCounters, oiClone) == 0x30F8 &&
-                  offsetof(Ts3nCounters, rpHard) == 0x30FC && sizeof(Ts3nCounters) == 6112 * 4,
+                  offsetof(Ts3nCounters, rpHard) == 0x30FC && sizeof(Ts3nCounters) == 6477 * 4,
                   "counters v67 layout (docs/registry.md)");
     static_assert(offsetof(Ts3nCounters, rpOldAsk) == 0x310C && offsetof(Ts3nCounters, p4AcqBad) == 0x3110, "counters v68 layout (docs/registry.md)");
     static_assert(offsetof(Ts3nCounters, p4Obst) == 0x3114 && offsetof(Ts3nCounters, p4ObstBusy) == 0x3118,
@@ -12817,7 +12978,9 @@ static void TestP5() {
 #include "hitchattr-test.h"  // TestHitchAttr ([HitchAttr], docs/96 §9)
 #include "unseen-test.h"  // TestUnseen ([UnseenProbe], docs/143)
 #include "ghost-test.h"   // TestUnseenGhost ([UnseenGhost], docs/202 §3.9.5)
+#include "thumbstall-test.h"  // TestThumbLod ([ThumbStall] Actions 3 and 4, thumbstall.cpp)
 #include "unseenanim-test.h"  // TestUnseenAnim ([UnseenAnim], docs/144 §3.4)
+#include "stallwatch-test.h"  // TestStallWatch ([StallWatch], docs/67 §25)
 #include "unseenrm-test.h"  // TestUnseenRootMotion, TestUnseenRootMotion2 ([UnseenRootMotion] Mode 1 / Mode 2, docs/228)
 #include "unseentable-test.h"  // TestUnseenTable ([UnseenTable], docs/227 §6)
 #include "unseencost-test.h"  // TestUnseenCost ([UnseenCost] probe, docs/227)
@@ -12831,10 +12994,12 @@ static void TestP5() {
 #include "monojit-test.h"  // TestMonoJit ([MonoJit], docs/527 step 1)
 #include "mintfuse-test.h"  // TestMintFuse ([MintFuse] Sub, docs/139 §4)
 #include "autshadow-test.h"  // TestAutShadow ([AutShadow] part 1, docs/122 §13: T1, T2, T4)
+#include "autraces-test.h"  // TestAutRaces ([AutShadow] Races: R1b pre-warm, R2b/R3a witness, docs/data/races-handoff.md)
 #include "threadstack-test.h"  // TestThreadStack ([ThreadStack], docs/66 §6)
 #include "userdiag-test.h"  // TestUserDiag ([UserDiag], docs/188)
 #include "played-test.h"    // TestPlayed (played.cpp, docs/14 section 8.6)
 #include "memdiag-test.h"   // TestMemDiag ([MemDiag], docs/190 phase 1, docs/191)
+#include "memaccess-test.h"  // TestMemAccess ([MemDiag] Access, docs/190 phase 2)
 #include "memexp-test.h"    // TestMemExp ([MemDiag] TypeGrowth, [GC] SqrtHeapLimit, docs/199)
 #include "gcgrow-test.h"    // TestGcGrowLog ([GcGrowLog], [GC] BlackListCapKB, docs/232 Run 8l/8n)
 #include "allocsites-test.h"  // TestAllocSites ([MemDiag] AllocSites, docs/201)
@@ -12851,10 +13016,17 @@ static void TestP5() {
 #include "slotguard-test.h"  // TestSlotGuard ([SlotGuard], [UafCheck] Object frees, docs/539 §18)
 #include "float5free-test.h"  // TestFloat5Free ([Float5Free], docs/539 §19)
 #include "f5watch-test.h"  // TestFloat5Watch ([Float5Sticky], [Float5Watch], [UafCheck] TravelHold, docs/539 §21)
+#include "c2diag-test.h"      // TestCrash2Diag ([Crash2Diag], docs/259 §9)
 #include "monosig-test.h"     // TestMonoSigGuard ([MonoSigGuard], docs/539 §20)
+#include "bindertd-test.h"    // TestBinderTypeHandle ([Binder] TypeHandleDirect, docs/537 §20.3)
+#include "equalsfast-test.h"  // TestEqualsFast ([EqualsFast], docs/258 option C)
+#include "mintpairs-test.h"  // TestMintPairs ([MonoFast] PairCount, docs/139 §3)
 #include "s3sscompat-test.h"  // TestS3ssCompat ([S3SSCompat] StaleWriteGuard, docs/539 §22)
 #include "pkglock-test.h"  // TestPkgLock ([PkgLock], docs/539 §13.9)
+#include "pkgprobe-test.h"  // TestPkgProbe ([PkgProbe], docs/549 §4)
+#include "audiodup-test.h"  // TestAudioStateDup ([AudioStateDup], docs/549 §5)
 #include "eafix-test.h"   // TestEaCrashFixes ([EaCrashFixes] ConformActor + ThumbPose, docs/67 §26.4 / §27.5)
+#include "imgguard-test.h"  // TestImageGuard ([ImageGuard], docs/232 Run 8d, EA port)
 #include "wastar-test.h"  // TestWorldAStarRefs ([EaCrashFixes] WorldAStarRefs, docs/67 §30)
 #include "earlyout-test.h"  // TestEarlyOut ([RouteEarlyOut] probe, docs/142)
 #include "routephases-test.h"  // TestRouteJobPhases ([RouteJobPhases], docs/150 §7)
@@ -12933,7 +13105,7 @@ static void P6eUseFree() {  // nothing keeps g_rpUse: the consumer can drain
 static void TestP6Early(int* list, int* s, int* g, u8* opts, DWORD& seq) {
     static_assert(offsetof(Ts3nCounters, p6Early) == 0x4B7C && offsetof(Ts3nCounters, p6eRel) == 0x4B8C &&
                   offsetof(Ts3nCounters, p6eSkip) == 0x4B98 && offsetof(Ts3nCounters, p6eCopyUs) == 0x4BA8 &&
-                  offsetof(Ts3nCounters, p6eSpare) == 0x4BAC && sizeof(Ts3nCounters) == 6112 * 4,
+                  offsetof(Ts3nCounters, p6eSpare) == 0x4BAC && sizeof(Ts3nCounters) == 6477 * 4,
                   "counters v122 layout after v121 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     k.p6Plan = 1, k.p6Share = 1, k.p6Early = 1;
@@ -13040,7 +13212,7 @@ static void TestP6Kinds(int* list, int* s, int* g, u8* opts, DWORD& seq) {
     static_assert(offsetof(Ts3nCounters, p6All) == 0x503C && offsetof(Ts3nCounters, pkArmed) == 0x5040 &&
                   offsetof(Ts3nCounters, pkVerify) == 0x5080 && offsetof(Ts3nCounters, pkUntaken) == 0x50C0 &&
                   offsetof(Ts3nCounters, pkAfSkip) == 0x50D0 && offsetof(Ts3nCounters, pkSpare) == 0x50D8 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "counters v127 layout after the v123-v126 reservations (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6477 * 4, "counters v127 layout after the v123-v126 reservations (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const LONG early = k.p6Early, share = k.p6Share;
     k.p6Early = 0, k.p6Share = 1;
@@ -13105,7 +13277,7 @@ static void TestP6Kinds(int* list, int* s, int* g, u8* opts, DWORD& seq) {
 // a deadline; past the deadline BudgetStep walls the edges and the job counts as capped
 static void TestP6Foreign(int* list, int* s, int* g, u8* opts, DWORD& seq) {
     static_assert(offsetof(Ts3nCounters, p6fbOn) == 0x50DC && offsetof(Ts3nCounters, p6fbCloneCapped) == 0x50F0 &&
-                  offsetof(Ts3nCounters, p6fbSpare) == 0x50F4 && sizeof(Ts3nCounters) == 6112 * 4,
+                  offsetof(Ts3nCounters, p6fbSpare) == 0x50F4 && sizeof(Ts3nCounters) == 6477 * 4,
                   "counters v128 layout after the v123-v127 pad (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const LONG verify0 = g_p5Verify, ready0 = k.budgetReady, n0 = (LONG)g_p5N;
@@ -13181,7 +13353,7 @@ static void TestP6(int* list, int* s, int* g, u8* opts, DWORD& seq) {
                   offsetof(Ts3nCounters, p6BorrowMiss) == 0x4688 && offsetof(Ts3nCounters, p6ReAcqUs) == 0x46AC &&
                   offsetof(Ts3nCounters, p6jN) == 0x46B0 && offsetof(Ts3nCounters, p6jOut) == 0x4728 &&
                   offsetof(Ts3nCounters, p6jLines) == 0x4738 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "counters v112 layout after v111 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6477 * 4, "counters v112 layout after v111 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
     // (f1) TakeKinds 8 (default): a Route.Plan START is not armed; 9: it is, and its answer is the clone's
@@ -13674,7 +13846,7 @@ static void TestInsFreeInPlace() {
 static void TestRecsUnlocked() {
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, ulMode) == 0x4548 && offsetof(Ts3nCounters, ulFaults) == 0x4564 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "counters v105 layout after v104 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6477 * 4, "counters v105 layout after v104 (docs/registry.md)");
     static DWORD simTid;
     const DWORD* savedSim = g_rtSimTidSlot;
     simTid = GetCurrentThreadId();
@@ -13915,8 +14087,7 @@ static void TestDetourPublish() {
         assert(Write5(fn, code));  // original bytes back, atomically
         g_dtCalls = 0;
         while (g_dtCalls < 2) SwitchToThread();  // the spinner finished a call that began after the restore
-        VirtualFree(g_dtSlot, 0, MEM_RELEASE);
-        g_dtSlot = NULL;
+        g_dtSlot = NULL;  // a pool slot (TrampAlloc): never freed
         g_dtCalls = 0;
     }
     g_log = saved;
@@ -13925,6 +14096,36 @@ static void TestDetourPublish() {
     CloseHandle(th);
     VirtualFree(fn, 0, MEM_RELEASE);
     printf("detour publish order: %d installs under a spinning caller, slot set before the jmp\n", n);
+}
+
+// TrampAlloc (issue #40): trampolines are slots of a shared 64 KB RWX block, not one 64 KB reservation each
+static bool TaRwx(const u8* p, MEMORY_BASIC_INFORMATION* m) {
+    return VirtualQuery(p, m, sizeof(*m)) == sizeof(*m) && m->State == MEM_COMMIT && m->Protect == PAGE_EXECUTE_READWRITE;
+}
+static void TestTrampAlloc() {
+    u8* const a = TrampAlloc(32, "test a");
+    u8* const b = TrampAlloc(20, "test b");  // rounded up to 32
+    MEMORY_BASIC_INFORMATION m;
+    assert(a && b && a != b && (a + 32 <= b || b + 32 <= a) && !((uintptr_t)a & 15) && !((uintptr_t)b & 15));
+    assert(TaRwx(a, &m) && TaRwx(b, &m));
+    for (int i = 0; i < 32; i++) assert(a[i] == 0 && b[i] == 0);
+    a[0] = 0xB8, *(LONG*)(a + 1) = 5, a[5] = 0xC3;  // mov eax,5 ; ret
+    FlushInstructionCache(GetCurrentProcess(), a, 6);
+    assert(((int(__cdecl*)())(void*)a)() == 5);
+    // 2048 x 32 bytes fill exactly one block: wherever the current block stands, exactly one new block opens
+    const LONG blocks = g_trampBlocks;
+    const void* base = NULL;
+    u8* prev = NULL;
+    int bases = 0;
+    for (int i = 0; i < 2048; i++) {
+        u8* const p = TrampAlloc(32, "test n");
+        assert(p && !((uintptr_t)p & 15) && TaRwx(p, &m) && p[0] == 0);
+        if (m.AllocationBase != base) bases++, base = m.AllocationBase;
+        else assert(p == prev + 32);  // same block: back to back, no overlap
+        prev = p;
+    }
+    assert(g_trampBlocks == blocks + 1 && bases <= 2);
+    printf("trampoline pool: 2048 x 32 bytes in %d block(s) (%ld new), slots 16-aligned, RWX, zero-filled\n", bases, g_trampBlocks - blocks);
 }
 
 static void TestRemPatch() {
@@ -13986,7 +14187,7 @@ static void TestRemPatch() {
 // TestRemPatch's level-box / child stand-ins
 static void TestP5Covers() {
     static_assert(offsetof(Ts3nCounters, rpLockKeyForce) == 0x4568 && offsetof(Ts3nCounters, p5bWdEscalate) == 0x4578 &&
-                  offsetof(Ts3nCounters, p5StormRunMax) == 0x4584 && sizeof(Ts3nCounters) == 6112 * 4,
+                  offsetof(Ts3nCounters, p5StormRunMax) == 0x4584 && sizeof(Ts3nCounters) == 6477 * 4,
                   "counters v106 layout after v105 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     // the fake replay worlds above (TestSnapReplay .. TestInsFreeInPlace) ran with InsCheck 1: their inserts' differences
@@ -14168,6 +14369,7 @@ int main() {
     assert(((int(__cdecl*)())tramp)() == 42);
     TestDetourPublish();
     TestDetourCallRel();
+    TestTrampAlloc();
     TestRouteCache();
     TestRouteWorker();
     TestRouteBudget();
@@ -14251,6 +14453,8 @@ int main() {
     TestUnseen();
     TestUnseenGhost();
     TestUnseenAnim();
+    TestAnimPhase();
+    TestStallWatch();
     TestUnseenRootMotion();
     TestUnseenRootMotion2();
     TestUnseenTable();
@@ -14265,11 +14469,14 @@ int main() {
     TestMintCall();
     TestMintFuse();
     TestAutShadow();
+    TestAutRaces();
+    TestAutRacesR2c();
     TestThreadStack();
     TestCrashReport();
     TestUserDiag();
     TestPlayed();
     TestMemDiag();
+    TestMemAccess();
     TestMemExp();
     TestGcGrowLog();
     TestAllocSites();
@@ -14294,10 +14501,18 @@ int main() {
     TestSlotGuard();  // docs/539 §18
     TestFloat5Free();  // docs/539 §19
     TestFloat5Watch();  // docs/539 §21
+    TestCrash2Diag();  // docs/259 §9
     TestMonoSigGuard();  // docs/539 §20
+    TestBinderTypeHandle();  // docs/537 §20.3 E1
+    TestEqualsFast();  // docs/258 option C
+    TestMintPairs();  // docs/139 §3 pair census
     TestS3ssCompat();  // docs/539 §22
     TestEaCrashFixes();
+    TestImageGuard();
+    TestUolCalls();
     TestPkgLock();
+    TestPkgProbe();  // docs/549 §4
+    TestAudioStateDup();  // docs/549 §5
     TestWorldAStarRefs();
     TestIlPatch();
     TestMonoJit();
@@ -14314,10 +14529,14 @@ int main() {
     TestCellMemoProbe();
     TestReplanDedupe();
     TestPlanDeadline();
+    TestUncutCeil();   // docs/264: [RouteAsync] KdUncutCeilMs
     TestGate0Ro();
     TestRouteToObjRO();
     TestPlacementRO();
     TestGoalValidRO();
+    TestGvAttr();
+    TestGvAttrNoLater();  // docs/250 §13.3, §12.3 (v189)
+    TestGvUnseen();       // docs/250 §7.3 B2 (v189)
     TestFootstepRO();
     TestRouteToObjTail();
     TestIdleCheckRO();
@@ -14325,6 +14544,7 @@ int main() {
     TestMovedWaits();
     TestP6Waits();
     TestLauncherFix();
+    TestThumbLod();
     puts("selftest ok");
     return 0;
 }

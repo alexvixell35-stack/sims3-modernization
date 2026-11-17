@@ -56,12 +56,11 @@ namespace Ts3Fixes
             if (ErrorTrapSpreadCore.HasMarker(sEtType)) { sEtUpstream = true; return; } // logged with its version at world load
             Type inv = et.GetType("NRaas.CommonSpace.Helpers.Inventories");
             sEtLogger = inv == null ? null : inv.GetNestedType("Logger");
-            const BindingFlags st = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
             if (sEtLogger != null)
             {
-                sEtCheckAll = inv.GetMethod("CheckInventories", st, null, new Type[] { sEtLogger, sEtLogger, typeof(bool) }, null);
-                sEtCheck = inv.GetMethod("CheckInventory", st, null, new Type[] { sEtLogger, sEtLogger, typeof(string), typeof(Inventory), typeof(bool) }, null);
-                sEtGetName = inv.GetMethod("GetName", st, null, new Type[] { typeof(IGameObject) }, null);
+                sEtCheckAll = inv.GetMethod("CheckInventories", kStaticAll, null, new Type[] { sEtLogger, sEtLogger, typeof(bool) }, null);
+                sEtCheck = inv.GetMethod("CheckInventory", kStaticAll, null, new Type[] { sEtLogger, sEtLogger, typeof(string), typeof(Inventory), typeof(bool) }, null);
+                sEtGetName = inv.GetMethod("GetName", kStaticAll, null, new Type[] { typeof(IGameObject) }, null);
             }
             if (sEtType == null || sEtCheckAll == null || sEtCheckAll.ReturnType != typeof(void) || sEtCheck == null || sEtGetName == null || sEtGetName.ReturnType != typeof(string))
             {

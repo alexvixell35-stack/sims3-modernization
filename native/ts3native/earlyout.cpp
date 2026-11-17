@@ -16,7 +16,7 @@
 
 typedef DWORD(__fastcall* EoAsFn)(u8* c, void* e, const u8* R, const u8* G, const DWORD* s, const DWORD* g, DWORD m, u8* o, DWORD* b);
 static EoAsFn g_eoAsOrig;
-static const DWORD WORLD_ASTAR = 0x00676260;
+static const DWORD WORLD_ASTAR = TS3A(0x00676260);
 static const u8 kWorldAStarPrologue[] = {0x83, 0xEC, 0x3C, 0x53, 0x8B, 0x5C, 0x24, 0x58};  // sub esp,3Ch; push ebx; mov ebx,[esp+58h]
 static LONG g_eoLogUs = 200000;
 static DWORD g_eoMinute, g_eoLines, g_eoDropped;
@@ -27,9 +27,9 @@ typedef double(__cdecl* EoCostFn)(const u8* R, const u8* G, const DWORD* from, c
 // circle prepass: stdcall (R, opts, &start, &goal), sets the centre and opts+0xA0 = r^2, returns AL != 0 to run the circle pass
 typedef char(__stdcall* EoCircleFn)(const u8* R, u8* o, const DWORD* s, const DWORD* g);
 static DWORD g_eoCostFn[5] = {kCostFns[0], kCostFns[1], kCostFns[2], kCostFns[3], kCostFns[4]};  // modes 1-4, default (selftest: fakes)
-static EoCircleFn g_eoCircleFn = (EoCircleFn)(uintptr_t)0x00673600;
-static const float* g_eoRecipK = (const float*)(uintptr_t)0x0107A538;  // numerator of the 1/x slots (0x6763B8)
-static const DWORD* g_eoRetryTrespass = (const DWORD*)(uintptr_t)0x011587D0;  // FLT_MAX into trespass with flag 0x40 (0x676411)
+static EoCircleFn g_eoCircleFn = (EoCircleFn)(uintptr_t)TS3A(0x00673600);
+static const float* g_eoRecipK = (const float*)(uintptr_t)TS3A(0x0107A538);  // numerator of the 1/x slots (0x6763B8)
+static const DWORD* g_eoRetryTrespass = (const DWORD*)(uintptr_t)TS3A(0x011587D0);  // FLT_MAX into trespass with flag 0x40 (0x676411)
 static LONG g_eoShadowFirst = 32, g_eoShadowEvery = 16, g_eoMemoMinUs = 1000;
 static volatile LONG g_eoActN;  // proofs that reached the act path (shadow schedule)
 

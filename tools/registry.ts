@@ -16,17 +16,41 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 
 type Kind = 'fixes' | 'native' | 'ledger' | 'doc';
+// A reservation's stored worktree must not name the machine's user (AGENTS.md: no personal paths in commits).
+// Temp/scratchpad paths embed the user name in a folder name too (C--Users-<name>-...): stored as '<scratchpad>'.
+export const shownPath = (p: string): string => /\\AppData\\Local\\Temp\\|^\/tmp\//i.test(p) ? '<scratchpad>' :
+  p.replace(/^\/home\/[^/]+(?=\/|$)/, '/home/<user>').replace(/^([A-Za-z]:\\Users\\)[^\\]+/, '$1<user>');
 interface Res { id: string; kind: Kind; from: number; to: number; version?: number; by: string; what: string; at: string; worktree: string }
 interface Used { fixesMax: number; nativeVer: number; nativeEnd: number; cFixesMax: number; cNativeVer: number }
 
 // Contributor ranges (docs/registry.md "Contributor ranges"); maintainer numbers never enter them.
-export const CONTRIB = { doc: [500, 599], ledger: [900, 999], fixes: [2000, 2199], nativeV: 900 } as const;
+// fixes: 2000-2199 (full since the PR #368 import, 2026-11-12), then 2200-2799 (2400-2799 added 2026-11-14, PR #405: 2200-2399
+// was down to ~80 slots); FIX_BLOCK2 is where the second block starts.
+export const CONTRIB = { doc: [500, 599], ledger: [900, 999], fixes: [2000, 2799], nativeV: 900 } as const;
+export const FIX_BLOCK2 = 2200;
+// A contributor slot block never straddles 2199/2200: one that would starts at 2200.
+export const contribFixFrom = (max: number, n: number) => max < FIX_BLOCK2 && max + n >= FIX_BLOCK2 ? FIX_BLOCK2 : max + 1;
 const inR = (n: number, [a, b]: readonly [number, number] | readonly number[]) => n >= a && n <= b;
 export const isContribFix = (a: number) => a >= CONTRIB.fixes[0];
 export const isContribVer = (v: number) => v >= CONTRIB.nativeV;
 
 export const FIX_HEAD = '## ts3fixes counters';
 export const NAT_HEAD = '## ts3native counters (';
+export const UD_HEAD = '## ts3native UserDiag ops';
+// UserDiag ops (ts3fixes DiagSend -> userdiag.cpp UdTextMsg): every `case N:` in UdTextMsg needs a row in the UD_HEAD table,
+// and no op may have two rows. Returns the problems found.
+export const udRow = (l: string) => { const m = l.match(/^\| (\d+)(?:-(\d+))? \|/); return m ? [+m[1], +(m[2] ?? m[1])] : null; };
+export function udCheck(doc: string, cpp: string | null): string[] {
+  const L = doc.split(/\r?\n/), [s, e] = section(L, UD_HEAD), out: string[] = [], seen = new Map<number, number>();
+  if (s < 0) return cpp == null ? [] : ['docs/registry.md has no UserDiag ops table'];
+  for (let i = s; i < e; i++) { const r = udRow(L[i]); if (r) for (let op = r[0]; op <= r[1]; op++) seen.set(op, (seen.get(op) ?? 0) + 1); }
+  for (const [op, n] of seen) if (n > 1) out.push(`UserDiag op ${op} has ${n} rows`);
+  if (cpp != null) {
+    const b = cpp.indexOf('static u8 UdTextMsg('), body = b < 0 ? '' : cpp.slice(b, cpp.indexOf('\n}', b));
+    for (const m of body.matchAll(/case (\d+):/g)) if (!seen.has(+m[1])) out.push(`UserDiag op ${m[1]} (userdiag.cpp) has no row in docs/registry.md`);
+  }
+  return out;
+}
 const LEDGER = join('docs', '51-inference-ledger.md');
 export const ledgerMax = (text: string, contrib = false) => Math.max(contrib ? CONTRIB.ledger[0] - 1 : 0, ...[...text.matchAll(/^## (\d+)\./gm)].map(m => +m[1]).filter(n => inR(n, CONTRIB.ledger) === contrib));
 export const docMax = (names: string[], contrib = false) => Math.max(contrib ? CONTRIB.doc[0] - 1 : 0, ...names.map(f => +(f.match(/^(\d+)-.*\.md$/)?.[1] ?? -1)).filter(n => n >= 0 && inR(n, CONTRIB.doc) === contrib));
@@ -123,7 +147,7 @@ function reserveLedger(args: string[], c: boolean) {
     const res = loadRes(main), docs = [...new Set([join(wt, LEDGER), join(main, LEDGER)])].filter(existsSync);
     const n = Math.max(c ? CONTRIB.ledger[0] - 1 : 0, ...docs.map(d => ledgerMax(readFileSync(d, 'utf8'), c)), ...res.filter(r => r.kind === 'ledger' && inR(r.to, CONTRIB.ledger) === c).map(r => r.to)) + 1;
     if (c && n > CONTRIB.ledger[1]) throw new Error(`contributor ledger range ${CONTRIB.ledger.join('-')} is full`);
-    const r: Res = { id: `ledger-${n}`, kind: 'ledger', from: n, to: n, by, what, at: new Date().toISOString(), worktree: wt };
+    const r: Res = { id: `ledger-${n}`, kind: 'ledger', from: n, to: n, by, what, at: new Date().toISOString(), worktree: shownPath(wt) };
     saveRes(main, [...res, r]);
     console.log(`reserved docs/51 §${n} id=${r.id}: write it as "## ${n}. ..." (unused: node tools/registry.ts release ${r.id})`);
     return r;
@@ -137,7 +161,7 @@ function reserveDoc(args: string[], c: boolean) {
     const res = loadRes(main), dirs = [...new Set([join(wt, 'docs'), join(main, 'docs')])].filter(existsSync);
     const n = Math.max(c ? CONTRIB.doc[0] - 1 : 0, ...dirs.map(d => docMax(readdirSync(d), c)), ...res.filter(r => r.kind === 'doc' && inR(r.to, CONTRIB.doc) === c).map(r => r.to)) + 1;
     if (c && n > CONTRIB.doc[1]) throw new Error(`contributor doc range ${CONTRIB.doc.join('-')} is full`);
-    const r: Res = { id: `doc-${n}`, kind: 'doc', from: n, to: n, by, what, at: new Date().toISOString(), worktree: wt };
+    const r: Res = { id: `doc-${n}`, kind: 'doc', from: n, to: n, by, what, at: new Date().toISOString(), worktree: shownPath(wt) };
     saveRes(main, [...res, r]);
     console.log(`reserved docs/${n}-*.md id=${r.id} (unused: node tools/registry.ts release ${r.id})`);
     return r;
@@ -157,15 +181,16 @@ function reserve(args: string[], c: boolean) {
     const u = docs.map(d => scanDoc(readFileSync(d, 'utf8')));
     let fixesMax = Math.max(...u.map(x => c ? x.cFixesMax : x.fixesMax)), nativeVer = Math.max(...u.map(x => c ? x.cNativeVer : x.nativeVer)), nativeEnd = Math.max(...u.map(x => x.nativeEnd));
     for (const r of res) if (r.kind === 'fixes') { if (isContribFix(r.from) === c) fixesMax = Math.max(fixesMax, r.to); } else if (r.kind === 'native') { if (isContribVer(r.version!) === c) nativeVer = Math.max(nativeVer, r.version!); nativeEnd = Math.max(nativeEnd, r.to); }
+    if (c && kind === 'fixes') fixesMax = contribFixFrom(fixesMax, n) - 1;
     if (c && kind === 'fixes' && fixesMax + n > CONTRIB.fixes[1]) throw new Error(`contributor slot range ${CONTRIB.fixes.join('-')} has ${CONTRIB.fixes[1] - fixesMax} left, asked ${n}`);
     const at = new Date().toISOString();
     let r: Res, row: string;
     if (kind === 'fixes') {
-      r = { id: `fixes-${fixesMax + 1}`, kind, from: fixesMax + 1, to: fixesMax + n, by, what, at, worktree: wt };
+      r = { id: `fixes-${fixesMax + 1}`, kind, from: fixesMax + 1, to: fixesMax + n, by, what, at, worktree: shownPath(wt) };
       row = `| ${r.from === r.to ? r.from : `${r.from}-${r.to}`} | reserved (${by}, \`${r.id}\`) | ${what} |`;
     } else {
       const from = (nativeEnd + 4) & ~3;
-      r = { id: `native-v${nativeVer + 1}`, kind, version: nativeVer + 1, from, to: from + 4 * n - 1, by, what, at, worktree: wt };
+      r = { id: `native-v${nativeVer + 1}`, kind, version: nativeVer + 1, from, to: from + 4 * n - 1, by, what, at, worktree: shownPath(wt) };
       row = `| v${r.version} | reserved (${by}, \`${r.id}\`) | ${hex(r.from)}-${hex(r.to)} | ${what} |`;
     }
     saveRes(main, [...res, r]);
@@ -204,6 +229,8 @@ function list(args: string[]) {
 async function selfCheck() {
   const d = mkdtempSync(join(tmpdir(), 'registry-check-'));
   const ok = (c: unknown, m: string) => { if (!c) { console.error('FAIL', m); process.exitCode = 1; } else console.log('ok  ', m); };
+  ok(shownPath('C:\\Users\\<user>\\AppData\\Local\\Temp\\claude\\C--Users-bob-x\\s') === '<scratchpad>', 'shownPath: temp path stored as <scratchpad>');
+  ok(shownPath('C:\\Users\\<user>\\IdeaProjects\\x') === 'C:\\Users\\<user>\\IdeaProjects\\x', 'shownPath: home path keeps the rest, user masked');
   try {
     mkdirSync(join(d, 'docs'));
     writeFileSync(join(d, 'docs', 'registry.md'), [
@@ -255,6 +282,17 @@ async function selfCheck() {
     ok(mr.some(r => r.kind === 'fixes' && r.from === 285) && mr.some(r => r.kind === 'native' && r.version === 118) && mr.some(r => r.id === 'ledger-323'), 'maintainer reserves skip the contributor ranges (fixes 285, native v118, ledger 323)');
     ok(scanDoc(readFileSync(join(d, 'docs', 'registry.md'), 'utf8')).collisions.length === 0, 'doc has no collisions with contributor rows');
     ok(!existsSync(join(d, 'docs', 'registry.md.lock')), 'lock file removed');
+    // second contributor block: a block that would cross 2199/2200 starts at 2200; 2799 is the end (2400-2799 added 2026-11-14)
+    ok(contribFixFrom(2006, 5) === 2007 && contribFixFrom(2195, 5) === 2200 && contribFixFrom(2195, 4) === 2196 && contribFixFrom(2303, 3) === 2304, 'contributor fixes: blocks stay inside 2000-2199 or start at 2200');
+    ok(CONTRIB.fixes[1] === 2799, 'contributor fixes range ends at 2799');
+    const udDoc = [UD_HEAD, '', '| Op | Owner | Meaning |', '|---|---|---|', '| 0-2 | a | b |', '| 36 | c | d |', '| **37+** | next free | x |', ''].join('\n');
+    ok(udCheck(udDoc, 'static u8 UdTextMsg(DWORD lo) {\n case 0: case 36: return 1;\n}').length === 0, 'UserDiag ops: every case has a row');
+    ok(udCheck(udDoc, 'static u8 UdTextMsg(DWORD lo) {\n case 37: return 1;\n}')[0]?.includes('op 37'), 'UserDiag ops: a case without a row is reported');
+    ok(udCheck(udDoc + '| 36 | e | f |\n', null)[0]?.includes('op 36 has 2 rows'), 'UserDiag ops: a doubled op is reported');
+    // this checkout: userdiag.cpp against docs/registry.md
+    const here = resolve(dirname(new URL(import.meta.url).pathname), '..'), cpp = join(here, 'native', 'ts3native', 'userdiag.cpp');
+    const udReal = udCheck(readFileSync(join(here, 'docs', 'registry.md'), 'utf8'), existsSync(cpp) ? readFileSync(cpp, 'utf8') : null);
+    ok(udReal.length === 0, `UserDiag ops in this checkout${udReal.length ? ': ' + udReal.join('; ') : ''}`);
   } finally { rmSync(d, { recursive: true, force: true }); }
 }
 

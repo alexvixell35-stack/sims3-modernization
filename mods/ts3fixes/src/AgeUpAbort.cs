@@ -33,18 +33,26 @@ namespace Ts3Fixes
                 {
                     AgingState st = (AgingState)(object)this;
                     if (sAuTask == null || sAuDeferred == null) throw; // field not found: EA's exception goes on unchanged
-                    int d = AgeUpAbortCore.Decide(e, sAuTask.GetValue(st) == null, (bool)sAuDeferred.GetValue(st), ShortcutOn("ageupabort"));
-                    if (d == AgeUpAbortCore.kPass) throw;
-                    PatchCounters()[2037]++;
-                    if (d != AgeUpAbortCore.kCaught) throw;
-                    PatchCounters()[2038]++;
+                    bool taskNull = sAuTask.GetValue(st) == null, deferred = (bool)sAuDeferred.GetValue(st), on = ShortcutOn("ageupabort");
+                    int d = AgeUpAbortCore.Decide(e, taskNull, deferred, on);
                     SimDescription sd = sAuDesc != null ? sAuDesc.GetValue(st) as SimDescription : null;
+                    if (d != AgeUpAbortCore.kPass) PatchCounters()[2037]++;
+                    if (d != AgeUpAbortCore.kCaught)
+                    {
+                        // Diagnostic (bug-diag lifecycle, docs/512 §5): deferred already cleared with the task null = a second
+                        // instantiation of the same Sim waited on the same build and finished the age-up first; rethrown on purpose.
+                        if (sAuPassLines++ < 5) ShortcutLog("ageupabort rethrow: " + (sd != null ? sd.FullName : "a Sim") + ", " + e.GetType().Name
+                            + ", task null " + taskNull + ", deferred " + deferred + ", switch " + on + ", decision " + d + ", created " + (sd != null && sd.CreatedSim != null)
+                            + ", scope " + (sd == null ? "unknown" : sd.Household == null ? "no household" : sd.Household == Household.ActiveHousehold ? "household" : "townie"));
+                        throw;
+                    }
+                    PatchCounters()[2038]++;
                     if (sAuLines++ < 5) ShortcutLog("ageupabort: " + (sd != null ? sd.FullName : "a Sim") + ": the deferred age-up's outfit build was aborted while it was instantiated; created with its current outfit, age-up still deferred");
                 }
             }
             public void PreOrig(ref ResourceKey outfitKey) { } // receives AgingState.PreInstantiateSim's original header
         }
-        static int sAuLines;
+        static int sAuLines, sAuPassLines;
 
         // Agent checks for docs/512 (repro age-up-abort-check). The race of the report, built on a townie that is not
         // instantiated (so a lost race cannot age an instantiated Sim):

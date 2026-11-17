@@ -112,10 +112,10 @@ namespace Ts3Fixes
 
         // Runs every owner's units (built at its turn) a slice per tick: kMaxLotUnits units or kSliceUs, resuming mid-owner.
         // False when the world went away meanwhile. n[6] counts units that threw.
-        static bool RunUnits<K>(List<K> owners, PartnersOf<K, Job> unitsOf, int maxUnits, int[] n, ref int ticks, ref long maxUs, ref int mostUnits)
+        static bool RunUnits<K>(List<K> owners, PartnersOf<K, SpreadUnit> unitsOf, int maxUnits, int[] n, ref int ticks, ref long maxUs, ref int mostUnits)
         {
-            DailyPairPass<K, Job> pass = new DailyPairPass<K, Job>();
-            pass.Begin(owners, unitsOf, delegate(K owner, Job unit) { try { unit(); } catch (Exception) { n[6]++; } return true; }, delegate { });
+            DailyPairPass<K, SpreadUnit> pass = new DailyPairPass<K, SpreadUnit>();
+            pass.Begin(owners, unitsOf, delegate(K owner, SpreadUnit unit) { try { unit(); } catch (Exception) { n[6]++; } return true; }, delegate { });
             StopWatch w = EaWatch();
             while (true)
             {
@@ -145,9 +145,9 @@ namespace Ts3Fixes
         // n: [0..2] lots per kind, [3] velvet ropes reset, [4] NPCs seeded, [5] stuck checks armed, [6] steps that threw.
         // A lot's work as units, built at its turn: the game's per-lot step with Lot.MagicallyCleanUp opened up into
         // per-object units (AddCleanUpUnits), so a lot with many objects continues in the next tick.
-        static List<Job> LotUnits(Lot lot, Sim active, int[] n)
+        static List<SpreadUnit> LotUnits(Lot lot, Sim active, int[] n)
         {
-            List<Job> u = new List<Job>();
+            List<SpreadUnit> u = new List<SpreadUnit>();
             if (lot.HasBeenDestroyed) return u;
             int kind = LotKind(lot, active);
             n[kind]++;
@@ -214,7 +214,7 @@ namespace Ts3Fixes
         // per lot object, as the game's predicate query) and then cleaned one by one (an object destroyed meanwhile is
         // skipped); puddles and burnt tiles; unconscious cat prey; repairs (one unit per object); the season kick. A lot
         // with active jobs is left alone, as the game does. The object list is read at the lot's turn, where the game reads it.
-        static void AddCleanUpUnits(List<Job> u, Lot lot, bool repair)
+        static void AddCleanUpUnits(List<SpreadUnit> u, Lot lot, bool repair)
         {
             GameObject[] objects = lot.GetObjects<GameObject>();
             bool skip = false, home = false, junkyard = false, repairHome = false;
@@ -461,7 +461,7 @@ namespace Ts3Fixes
 
         // Runs body in our task (EA's own sleeps between the CAS steps then yield), counted. A second alarm while the
         // first build still runs takes the game's own path.
-        static void PetTask(Job body, string what)
+        static void PetTask(SpreadUnit body, string what)
         {
             int[] c = PatchCounters();
             c[184]++;

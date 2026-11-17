@@ -1,0 +1,151 @@
+# Semgrep rules for loop logic flaws in decompiled EA script code (docs/572 §loop pass). Our own rules; run on a local
+# decompile only (game-copy/ is git-ignored), through tools/static/gameplay-scan.sh (ranked summary).
+# Each rule names the gameplay symptom it hunts. Hits are candidates; confirm each in the decompiled code.
+rules:
+  # Removing from / adding to / clearing the list being walked: InvalidOperationException ("collection was modified"),
+  # which kills the interaction, alarm or event dispatch that ran it.
+  - id: foreach-mutates-own-list
+    languages: [csharp]
+    severity: ERROR
+    message: the foreach body changes the collection it walks and keeps looping (collection-modified exception)
+    patterns:
+      - pattern-either:
+          - pattern: foreach ($T $X in $L) { ... $L.Remove(...); ... }
+          - pattern: foreach ($T $X in $L) { ... $L.RemoveAt(...); ... }
+          - pattern: foreach ($T $X in $L) { ... $L.Add(...); ... }
+          - pattern: foreach ($T $X in $L) { ... $L.Clear(); ... }
+          - pattern: foreach ($T $X in $L) { ... $L.Insert(...); ... }
+      # tuned 2026-11-15 (docs/572 §loop): the mutation is followed by break / return in the same branch (safe)
+      - pattern-not: foreach ($T $X in $L) { ... if ($C) { ... $L.$MUT(...); ... break; } ... }
+      - pattern-not: foreach ($T $X in $L) { ... if ($C) { ... $L.$MUT(...); ... return ...; } ... }
+      - pattern-not: foreach ($T $X in $L) { ... if ($C) { ... $L.$MUT(...); ... return; } ... }
+      - pattern-not: foreach ($T $X in $L) { ... if ($C) { ... if ($D) { ... $L.$MUT(...); ... } ... break; } ... }
+      - pattern-not: foreach ($T $X in $L) { ... if ($C) { ... if ($D) { ... $L.$MUT(...); ... } ... return ...; } ... }
+  # Forward for-loop that removes at i without stepping back: skips the element after each removal.
+  - id: for-removeat-skips
+    languages: [csharp]
+    severity: WARNING
+    message: RemoveAt(i) in a forward loop without i-- skips the next element
+    patterns:
+      - pattern: for ($T $I = $S; $I < $L.Count; $I++) { ... $L.RemoveAt($I); ... }
+      - pattern-not: for ($T $I = $S; $I < $L.Count; $I++) { ... $L.RemoveAt($I); ... $I--; ... }
+      - pattern-not: for ($T $I = $S; $I < $L.Count; $I++) { ... $L.RemoveAt($I); ... break; ... }
+      - pattern-not: for ($T $I = $S; $I < $L.Count; $I++) { ... $L.RemoveAt($I); ... return ...; ... }
+  # Backward loop starting at Count (reads one past the end first).
+  - id: for-back-from-count
+    languages: [csharp]
+    severity: ERROR
+    message: backward loop starts at Count/Length (one past the end)
+    pattern-either:
+      - pattern: for ($T $I = $L.Count; $I >= $Z; $I--) $B
+      - pattern: for ($T $I = $L.Length; $I >= $Z; $I--) $B
+  # while (true) with no way out: no break, return, throw or exit-reason test in the body.
+  - id: while-true-no-exit
+    languages: [csharp]
+    severity: ERROR
+    message: while (true) loop with no break / return / throw in its body
+    patterns:
+      - pattern-either:
+          - pattern: while (true) { ... }
+          - pattern: do { ... } while (true);
+      - pattern-not: while (true) { ... break; ... }
+      - pattern-not: while (true) { ... return; ... }
+      - pattern-not: while (true) { ... return $R; ... }
+      - pattern-not: while (true) { ... throw $E; ... }
+      - pattern-not: while (true) { ... if (...) { ... break; ... } ... }
+      - pattern-not: while (true) { ... if (...) { ... return ...; ... } ... }
+      - pattern-not: while (true) { ... if (...) break; ... }
+      - pattern-not: while (true) { ... if (...) return ...; ... }
+      - pattern-not: do { ... break; ... } while (true);
+      - pattern-not: do { ... if (...) { ... break; ... } ... } while (true);
+      - pattern-not: do { ... if (...) { ... return ...; ... } ... } while (true);
+  # Sleep-wait whose condition never tests an exit reason, destruction, a timer or a counter: a Sim (or a script
+  # task) waits for something that may never happen (bowling start wait, docs/559 §3).
+  - id: sleep-wait-no-exit
+    languages: [csharp]
+    severity: WARNING
+    message: Simulator.Sleep wait loop whose condition has no exit-reason / destroyed / time / counter test
+    patterns:
+      - pattern-either:
+          - pattern: while ($C) { ... Simulator.Sleep(...); ... }
+          - pattern: do { ... Simulator.Sleep(...); ... } while ($C);
+      - metavariable-regex:
+          metavariable: $C
+          regex: ^(?![\s\S]*(ExitReason|HasBeenDestroyed|Destroyed|Count|Elapsed|Time|Ticks|num|Cancel|Exit|Timeout|InWorld|IsValid|i <|j <))[\s\S]*$
+      - pattern-not: while ($C) { ... break; ... }
+      - pattern-not: while ($C) { ... if (...) { ... break; ... } ... }
+      - pattern-not: while ($C) { ... if (...) break; ... }
+      - pattern-not: while ($C) { ... return ...; ... }
+      - pattern-not: while ($C) { ... if (...) { ... return ...; ... } ... }
+      - pattern-not: while ($C) { ... if (...) return ...; ... }
+  # Retry loop on a failing call with no cap (route / plan / add retried forever).
+  - id: retry-no-cap
+    languages: [csharp]
+    severity: WARNING
+    message: retry loop on a failing call with no counter or exit test
+    patterns:
+      - pattern-either:
+          - pattern: while (!$X.$M(...)) { ... }
+          - pattern: while (!$M(...)) { ... }
+      - pattern-not: while (!$X.$M(...)) { ... break; ... }
+      - pattern-not: while (!$X.$M(...)) { ... if (...) { ... break; ... } ... }
+      - pattern-not: while (!$X.$M(...)) { ... if (...) { ... return ...; ... } ... }
+      - pattern-not: while (!$X.$M(...)) { ... if (...) return ...; ... }
+      - pattern-not: while (!$X.$M(...)) { ... if (...) break; ... }
+      - pattern-not: while (!$M(...)) { ... break; ... }
+      - pattern-not: while (!$M(...)) { ... if (...) { ... break; ... } ... }
+      - pattern-not: while (!$M(...)) { ... if (...) { ... return ...; ... } ... }
+      - pattern-not: while (!$M(...)) { ... if (...) return ...; ... }
+      - pattern-not: while (!$M(...)) { ... if (...) break; ... }
+  # A loop whose body ends in an unconditional return of a constant: only the first item is ever handled
+  # (tuned 2026-11-15: returns of the loop variable / computed values are lookups and were 1500+ false hits).
+  - id: foreach-returns-first
+    languages: [csharp]
+    severity: WARNING
+    message: foreach body ends in an unconditional constant return (only the first item is handled)
+    pattern-either:
+      - pattern: foreach ($T $X in $L) { $S1; return true; }
+      - pattern: foreach ($T $X in $L) { $S1; return false; }
+      - pattern: foreach ($T $X in $L) { $S1; $S2; return true; }
+      - pattern: foreach ($T $X in $L) { $S1; $S2; return false; }
+      - pattern: foreach ($T $X in $L) { $S1; return ListenerAction.Remove; }
+      - pattern: foreach ($T $X in $L) { $S1; $S2; return; }
+      - pattern: foreach ($T $X in $L) { $S1; return; }
+  # Event listener that records an actor and removes itself: every later event of the kind is missed
+  # (BirthdayParty.OnAgeTransition, docs/571 §1).
+  - id: listener-records-then-removes
+    languages: [csharp]
+    severity: WARNING
+    message: listener records one actor then returns Remove (later events are missed)
+    pattern-either:
+      - pattern: |
+          $L.Add($X);
+          return ListenerAction.Remove;
+      - pattern: |
+          $L[$K] = $V;
+          return ListenerAction.Remove;
+  # Inner break that sets a found flag the outer loop never tests: the outer loop keeps going.
+  - id: inner-break-outer-continues
+    languages: [csharp]
+    severity: INFO
+    message: inner loop sets a flag and breaks, but the outer loop never tests the flag
+    patterns:
+      - pattern: |
+          foreach ($A $B in $C) { ... foreach ($D $E in $F) { ... $FLAG = true; break; } ... }
+      - pattern-not: |
+          foreach ($A $B in $C) { ... foreach ($D $E in $F) { ... } ... if ($FLAG) { ... } ... }
+      - pattern-not: |
+          foreach ($A $B in $C) { ... foreach ($D $E in $F) { ... } ... if ($FLAG) break; ... }
+      - pattern-not: |
+          foreach ($A $B in $C) { ... foreach ($D $E in $F) { ... } ... if (!$FLAG) { ... } ... }
+  # World-wide query inside a loop over Sims or lots: O(n^2) work per call (per tick when run from an update).
+  - id: getobjects-in-loop
+    languages: [csharp]
+    severity: INFO
+    message: world-wide GetObjects / AllLots walk inside a loop over Sims or lots (O(n^2))
+    pattern-either:
+      - pattern: foreach (Sim $S in $L) { ... Sims3.Gameplay.Queries.GetObjects<$T>(...); ... }
+      - pattern: foreach (Sim $S in $L) { ... Queries.GetObjects<$T>(...); ... }
+      - pattern: foreach (Sim $S in $L) { ... foreach (Lot $X in LotManager.AllLots) { ... } ... }
+      - pattern: foreach (Lot $S in LotManager.AllLots) { ... Queries.GetObjects<$T>(...); ... }
+      - pattern: foreach (SimDescription $S in $L) { ... foreach (SimDescription $X in Household.EveryHumanSimDescription()) { ... } ... }

@@ -34,6 +34,7 @@ namespace Ts3Fixes
             sDetailPrioReady = Patch(typeof(Lot), "CalculateDetailPriority", Type.EmptyTypes, typeof(DetailPriorityHook), "CalcHook", "CalcOrig");
             sCaneEarlyReady = Patch(typeof(Sims3.Gameplay.Objects.Cane), "SimRequiresCaneWalk", new Type[] { typeof(Sim), typeof(Sim.WalkStyle) }, typeof(CaneEarlyOutHook), "RequiresHook", "RequiresOrig");
             sHoursMemoReady = Patch(typeof(Lot), "GetHoursOfOperation", new Type[] { typeof(float).MakeByRefType(), typeof(float).MakeByRefType() }, typeof(HoursMemoHook), "HoursHook", "HoursOrig");
+            ApplyInvCache();
             ApplyWildflower();
             // docs/74 I-74-7: was the tooltip task already running when the patches went in? Logged for the first load.
             try
@@ -156,6 +157,54 @@ namespace Ts3Fixes
                 return res;
             }
             public bool HoursOrig(ref float openHour, ref float closingHour) { return false; } // receives Lot.GetHoursOfOperation(ref float, ref float)'s original header
+        }
+
+        // docs/115, switch invcache (tuning kPortalInvocationCache, default off) + invcacheverify. Lot.OnPortalPathPlan (World
+        // event 59, ~150 dispatches/s) calls GetInvocationList on the lot's handler field every dispatch: one clone per
+        // handler plus the array. The hook keeps the last 4 (field value -> list) pairs by reference (InvListCache) and
+        // dispatches exactly as the game: same args object, each handler in its own swallowing try/catch over a local
+        // array, Locked then Discouraged then Unlocked. Exact for every caller and Sim: only the two event accessors write
+        // the field and every change is a new reference (docs/105 I-105-10). Cleared at world load and when the switch is
+        // off. Off the sim thread: the game's method (docs/115 §4 condition). Counters: [99] dispatches from the kept list,
+        // [100] lists built, [101] verify mismatches (the fresh list is used).
+        static bool sInvReady, sInvUsed;
+        static FieldInfo sInvField;  // Lot.mOnPortalPathPlanHandler (private)
+        static readonly InvListCache sInv = new InvListCache();
+
+        static void ApplyInvCache()
+        {
+            sInvField = typeof(Lot).GetField("mOnPortalPathPlanHandler", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (sInvField == null) { AppliedLog().Add("invcache: Lot.mOnPortalPathPlanHandler not found, not patched"); return; }
+            sInvReady = Patch(typeof(Lot), "OnPortalPathPlan", new Type[] { typeof(Sim), typeof(Sims3.Gameplay.Abstracts.GameObject), typeof(int), typeof(int), typeof(bool) }, typeof(PortalInvCacheHook), "DispatchHook", "DispatchOrig");
+            if (sInvReady) World.OnWorldLoadFinishedEventHandler += delegate { InvClear(); };
+        }
+
+        static void InvClear() { if (sInvUsed) { sInv.Clear(); sInvUsed = false; } }
+
+        public class PortalInvCacheHook
+        {
+            public PortalLockedCallbackResults DispatchHook(Sim actor, Sims3.Gameplay.Abstracts.GameObject portalObj, int roomFrom, int roomTo, bool initialLocked)
+            {
+                if (!sInvReady || OnWorker()) return DispatchOrig(actor, portalObj, roomFrom, roomTo, initialLocked);
+                if (!ShortcutOn("invcache")) { InvClear(); return DispatchOrig(actor, portalObj, roomFrom, roomTo, initialLocked); }
+                Lot lot = (Lot)(object)this;
+                Delegate h = sInvField.GetValue(lot) as Delegate;
+                if (h == null) return PortalLockedCallbackResults.NoListeners;
+                int[] c = PatchCounters();
+                PortalPlanEventArgs e = new PortalPlanEventArgs(actor, portalObj, lot, roomFrom, roomTo, initialLocked); // before the list, as the game
+                sInvUsed = true;
+                Delegate[] list = sInv.Get(h, c, 99, 100);
+                if (VerifyNow("invcacheverify")) list = InvListCache.Check(h, list, c, 101);
+                for (int i = 0; i < list.Length; i++)
+                {
+                    PortalPathPlanHandler f = list[i] as PortalPathPlanHandler;
+                    try { f(e); } catch (Exception) { }
+                }
+                if (e.Locked) return PortalLockedCallbackResults.PortalLocked;
+                if (e.Discouraged) return PortalLockedCallbackResults.PortalDiscouraged;
+                return PortalLockedCallbackResults.PortalUnlocked;
+            }
+            public PortalLockedCallbackResults DispatchOrig(Sim actor, Sims3.Gameplay.Abstracts.GameObject portalObj, int roomFrom, int roomTo, bool initialLocked) { return PortalLockedCallbackResults.NoListeners; } // receives Lot.OnPortalPathPlan's original header
         }
 
         // docs/74 §6.1, switch detailprio (tuning kDetailPriorityCache). Every lot's Simulate pass hands the native world a

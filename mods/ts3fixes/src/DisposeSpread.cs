@@ -61,7 +61,7 @@ namespace Ts3Fixes
         {
             if (o == null || o.HasBeenDestroyed) return false;
             Sim s = o as Sim;
-            if (s != null && (s.IsSelectable || s.Household == Household.ActiveHousehold)) return false;
+            if (s != null && IsPlayerSim(s)) return false;  // household rule (PlayerSims.cs)
             if (!o.InWorld) return true;
             int b = s != null ? UtbBits(s) : -1;  // docs/227 §6 central table (Sims only; objects keep the old rule)
             if (b >= 0) return sUtbCheck ? UtbCompare(UtbUnseen(b), !UcOnScreen(o.ObjectId) && FarFromViewers(o.Position)) : UtbUnseen(b);

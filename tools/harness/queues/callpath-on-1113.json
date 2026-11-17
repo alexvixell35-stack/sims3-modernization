@@ -1,0 +1,251 @@
+{
+  "note": "callpath-on-1113 (2026-11-13, PREPARED, not run): correctness for [MonoFast] CallPath default ON (docs/139 §8, docs/data/results/2026-11-13-callpath-bench.md). Needs a build with the verify kill switch (game-copy/ts3native.asi.callpath1113 from feature/monofast-callpath-on). Jobs: CallPath=2 verify on BP, IP, SV (mismatch = stop, triage first), then the shipped-ini default job. Correctness only, daytime OK. Run: node tools/harness/queue.ts tools/harness/queues/callpath-on-1113.json --no-smoke",
+  "jobs": [
+    {
+      "id": "bp-callpath-verify",
+      "note": "BP Spring 10 min, seed 12345, CallPath=2 VerifyEvery=16, release ini defaults otherwise. Pass: no crash, scriptErrorsMax 0, mcReady 7, mcSwitch still 1 at the end (a mismatch would switch it off), mcVerified > 100000, mcMismatch 0, no MISMATCH line.",
+      "asi": "game-copy/ts3native.asi.callpath1113",
+      "minCounters": 912,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "regexCases": {
+        "^OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret\\.void 0x07 -> fast path \\(verify, switch 1\\)": {
+          "match": [
+            "OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret.void 0x07 -> fast path (verify, switch 1); every jump-table entry through the verify catch"
+          ],
+          "noMatch": [
+            "OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret.void 0x07 -> fast path (fast, switch 1)",
+            "SKIP mintcall: jump-table entry 0x0EA is 0x00E5493E, not the game's 0x00E5493E (another hook owns it)"
+          ]
+        },
+        "^mintcall verify MISMATCH": {
+          "match": [
+            "mintcall verify MISMATCH kind 2 rm 0x01234567 ip 0x0ABCDEF0: range 0 +0x4 at 0x0ABCDEF4 fast 0x00000001 stock 0x00000002"
+          ],
+          "noMatch": [
+            "OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret.void 0x07 -> fast path (verify, switch 1)"
+          ]
+        },
+        "^mintcall verify: fast path off for the session": {
+          "match": [
+            "mintcall verify: fast path off for the session (mismatch 1)"
+          ],
+          "noMatch": [
+            "mintcall verify MISMATCH kind 2 rm 0x01234567 ip 0x0ABCDEF0: range 0 +0x4 at 0x0ABCDEF4 fast 0x1 stock 0x2"
+          ]
+        },
+        "^SKIP mintcall": {
+          "match": [
+            "SKIP mintcall: EA code at 0x00E5493E (173 bytes) is not the stock Steam 1.67 bytes (another hook in the call path)"
+          ],
+          "noMatch": [
+            "OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret.void 0x07 -> fast path (fast, switch 1)"
+          ]
+        }
+      },
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "ini": {
+        "MonoFast.CallPath": 2,
+        "MonoFast.VerifyEvery": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "nativeRequire": "@mcReady>=7,@mcSwitch>=1,mcVerified>=100000,mcMismatch<=0",
+      "logRequire": {
+        "^OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret\\.void 0x07 -> fast path \\(verify, switch 1\\)": 1
+      },
+      "logForbid": {
+        "^mintcall verify MISMATCH": 0,
+        "^mintcall verify: fast path off for the session": 0,
+        "^SKIP mintcall": 0
+      }
+    },
+    {
+      "id": "ip-callpath-verify",
+      "note": "IP Spring 10 min, seed 12345, CallPath=2 VerifyEvery=16, release ini defaults otherwise. Pass: no crash, scriptErrorsMax 0, mcReady 7, mcSwitch still 1 at the end (a mismatch would switch it off), mcVerified > 100000, mcMismatch 0, no MISMATCH line.",
+      "asi": "game-copy/ts3native.asi.callpath1113",
+      "minCounters": 912,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "regexCases": {
+        "^OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret\\.void 0x07 -> fast path \\(verify, switch 1\\)": {
+          "match": [
+            "OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret.void 0x07 -> fast path (verify, switch 1); every jump-table entry through the verify catch"
+          ],
+          "noMatch": [
+            "OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret.void 0x07 -> fast path (fast, switch 1)",
+            "SKIP mintcall: jump-table entry 0x0EA is 0x00E5493E, not the game's 0x00E5493E (another hook owns it)"
+          ]
+        },
+        "^mintcall verify MISMATCH": {
+          "match": [
+            "mintcall verify MISMATCH kind 2 rm 0x01234567 ip 0x0ABCDEF0: range 0 +0x4 at 0x0ABCDEF4 fast 0x00000001 stock 0x00000002"
+          ],
+          "noMatch": [
+            "OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret.void 0x07 -> fast path (verify, switch 1)"
+          ]
+        },
+        "^mintcall verify: fast path off for the session": {
+          "match": [
+            "mintcall verify: fast path off for the session (mismatch 1)"
+          ],
+          "noMatch": [
+            "mintcall verify MISMATCH kind 2 rm 0x01234567 ip 0x0ABCDEF0: range 0 +0x4 at 0x0ABCDEF4 fast 0x1 stock 0x2"
+          ]
+        },
+        "^SKIP mintcall": {
+          "match": [
+            "SKIP mintcall: EA code at 0x00E5493E (173 bytes) is not the stock Steam 1.67 bytes (another hook in the call path)"
+          ],
+          "noMatch": [
+            "OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret.void 0x07 -> fast path (fast, switch 1)"
+          ]
+        }
+      },
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "ini": {
+        "MonoFast.CallPath": 2,
+        "MonoFast.VerifyEvery": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "nativeRequire": "@mcReady>=7,@mcSwitch>=1,mcVerified>=100000,mcMismatch<=0",
+      "logRequire": {
+        "^OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret\\.void 0x07 -> fast path \\(verify, switch 1\\)": 1
+      },
+      "logForbid": {
+        "^mintcall verify MISMATCH": 0,
+        "^mintcall verify: fast path off for the session": 0,
+        "^SKIP mintcall": 0
+      }
+    },
+    {
+      "id": "sv-callpath-verify",
+      "note": "SV Spring 10 min, seed 12345, CallPath=2 VerifyEvery=16, release ini defaults otherwise. Pass: no crash, scriptErrorsMax 0, mcReady 7, mcSwitch still 1 at the end (a mismatch would switch it off), mcVerified > 100000, mcMismatch 0, no MISMATCH line.",
+      "asi": "game-copy/ts3native.asi.callpath1113",
+      "minCounters": 912,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "regexCases": {
+        "^OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret\\.void 0x07 -> fast path \\(verify, switch 1\\)": {
+          "match": [
+            "OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret.void 0x07 -> fast path (verify, switch 1); every jump-table entry through the verify catch"
+          ],
+          "noMatch": [
+            "OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret.void 0x07 -> fast path (fast, switch 1)",
+            "SKIP mintcall: jump-table entry 0x0EA is 0x00E5493E, not the game's 0x00E5493E (another hook owns it)"
+          ]
+        },
+        "^mintcall verify MISMATCH": {
+          "match": [
+            "mintcall verify MISMATCH kind 2 rm 0x01234567 ip 0x0ABCDEF0: range 0 +0x4 at 0x0ABCDEF4 fast 0x00000001 stock 0x00000002"
+          ],
+          "noMatch": [
+            "OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret.void 0x07 -> fast path (verify, switch 1)"
+          ]
+        },
+        "^mintcall verify: fast path off for the session": {
+          "match": [
+            "mintcall verify: fast path off for the session (mismatch 1)"
+          ],
+          "noMatch": [
+            "mintcall verify MISMATCH kind 2 rm 0x01234567 ip 0x0ABCDEF0: range 0 +0x4 at 0x0ABCDEF4 fast 0x1 stock 0x2"
+          ]
+        },
+        "^SKIP mintcall": {
+          "match": [
+            "SKIP mintcall: EA code at 0x00E5493E (173 bytes) is not the stock Steam 1.67 bytes (another hook in the call path)"
+          ],
+          "noMatch": [
+            "OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret.void 0x07 -> fast path (fast, switch 1)"
+          ]
+        }
+      },
+      "save": "Baseline-SV-Spring",
+      "releaseDefaults": true,
+      "ini": {
+        "MonoFast.CallPath": 2,
+        "MonoFast.VerifyEvery": 16
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "nativeRequire": "@mcReady>=7,@mcSwitch>=1,mcVerified>=100000,mcMismatch<=0",
+      "logRequire": {
+        "^OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret\\.void 0x07 -> fast path \\(verify, switch 1\\)": 1
+      },
+      "logForbid": {
+        "^mintcall verify MISMATCH": 0,
+        "^mintcall verify: fast path off for the session": 0,
+        "^SKIP mintcall": 0
+      }
+    },
+    {
+      "id": "bp-callpath-default",
+      "note": "BP Spring 10 min on the shipped ini (CallPath=1 from ts3native.ini, no override): proves default ON reads back, fast path installed, no script errors, no crash. Fast calls are not counted in CallPath=1 (mcBail* are).",
+      "asi": "game-copy/ts3native.asi.callpath1113",
+      "minCounters": 912,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "regexCases": {
+        "^OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret\\.void 0x07 -> fast path \\(fast, switch 1\\)": {
+          "match": [
+            "OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret.void 0x07 -> fast path (fast, switch 1)"
+          ],
+          "noMatch": [
+            "OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret.void 0x07 -> fast path (verify, switch 1); every jump-table entry through the verify catch",
+            "SKIP mintcall: EA code at 0x00E5493E (173 bytes) is not the stock Steam 1.67 bytes (another hook in the call path)"
+          ]
+        },
+        "^SKIP mintcall": {
+          "match": [
+            "SKIP mintcall: EA code at 0x00E5493E (173 bytes) is not the stock Steam 1.67 bytes (another hook in the call path)"
+          ],
+          "noMatch": [
+            "OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret.void 0x07 -> fast path (fast, switch 1)"
+          ]
+        }
+      },
+      "save": "Baseline-BP-Spring",
+      "releaseDefaults": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "nativeRequire": "@mcReady>=3,@mcSwitch>=1",
+      "logRequire": {
+        "^OK   mintcall: call 0xEA, callvirt 0xEC, ret 0x06, ret\\.void 0x07 -> fast path \\(fast, switch 1\\)": 1
+      },
+      "logForbid": {
+        "^SKIP mintcall": 0
+      }
+    }
+  ]
+}

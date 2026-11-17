@@ -23,9 +23,9 @@
 // shortcut: counters written only by one thread use plain ++ (sim thread: add/remove/pump/sync/obj; main: score); a
 // lost update from an unexpected second thread only skews the stats.
 
-static const DWORD LS_ADD = 0x00ABD3C0, LS_REMOVE = 0x00ABD3E0, LS_PUMP = 0x0059A430, LS_SCORE = 0x00C6C290;
-static const DWORD LS_SET_ACTIVE = 0x00AC20E0, LS_SYNC = 0x007D98C0, LS_OBJ = 0x00ABFAC0;
-static const DWORD LS_ADD_FN = 0x00AC1130, LS_REMOVE_FN = 0x00AB4C00;
+static const DWORD LS_ADD = TS3A(0x00ABD3C0), LS_REMOVE = TS3A(0x00ABD3E0), LS_PUMP = TS3A(0x0059A430), LS_SCORE = TS3A(0x00C6C290);
+static const DWORD LS_SET_ACTIVE = TS3A(0x00AC20E0), LS_SYNC = TS3A(0x007D98C0), LS_OBJ = TS3A(0x00ABFAC0);
+static const DWORD LS_ADD_FN = TS3A(0x00AC1130), LS_REMOVE_FN = TS3A(0x00AB4C00);
 static const u8 kLsAdd[7] = {0x56, 0x8B, 0xF1, 0x0F, 0xB6, 0x4E, 0x19};          // push esi; mov esi,ecx; movzx ecx,[esi+0x19]
 static const u8 kLsRemove[7] = {0x56, 0x8B, 0xF1, 0x0F, 0xB6, 0x4E, 0x18};       // push esi; mov esi,ecx; movzx ecx,[esi+0x18]
 static const u8 kLsPump[8] = {0x53, 0x56, 0x8B, 0xF1, 0x57, 0x8D, 0x7E, 0x08};   // push ebx; push esi; mov esi,ecx; push edi; lea edi,[esi+8]
@@ -47,8 +47,8 @@ static LsSetActiveFn g_lsSetActiveOrig;
 static LsSyncFn g_lsSyncOrig;
 static LsObjFn g_lsObjOrig;
 // game globals; the selftest points them at its own
-static const DWORD* g_lsSimTid = (const DWORD*)(uintptr_t)0x011D8A8C;
-static const DWORD* g_lsMainTidSlot = (const DWORD*)(uintptr_t)0x011D8A88;
+static const DWORD* g_lsSimTid = (const DWORD*)(uintptr_t)TS3A(0x011D8A8C);
+static const DWORD* g_lsMainTidSlot = (const DWORD*)(uintptr_t)TS3A(0x011D8A88);
 static double g_lsUsPerTick;
 static LONG g_lsObjLogUs = 5000;
 

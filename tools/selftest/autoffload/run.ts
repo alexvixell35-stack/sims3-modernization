@@ -11,5 +11,6 @@ const out = join(ROOT, 'build', 'selftest');
 mkdirSync(out, { recursive: true });
 const exe = join(out, 'autoffload-test.exe');
 execFileSync(CSC, ['/nologo', '/optimize+', '/platform:x86', '/langversion:5', `/out:${exe}`,
-  join(import.meta.dirname, 'AutOffloadTest.cs'), join(ROOT, 'mods', 'ts3fixes', 'src', 'AutOffloadCore.cs')], { stdio: 'inherit' });
+  join(import.meta.dirname, 'AutOffloadTest.cs'), join(ROOT, 'mods', 'ts3fixes', 'src', 'AutOffloadCore.cs'),
+  join(ROOT, 'mods', 'ts3fixes', 'src', 'UnseenFallbackCore.cs'), join(ROOT, 'mods', 'ts3fixes', 'src', 'NoStartCore.cs')], { stdio: 'inherit' });
 execFileSync(exe, [], { stdio: 'inherit' });

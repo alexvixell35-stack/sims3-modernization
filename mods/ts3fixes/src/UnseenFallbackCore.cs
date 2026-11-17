@@ -7,7 +7,7 @@ namespace Ts3Fixes
     {
         // docs/202 §2: the first failing test of the scope rule, 0 = unseen (act). Order = the doc's table, so counters and
         // logs name the cheapest reason first.
-        public const int kSeen = 0, kNotLive = 1, kGone = 2, kHousehold = 3, kActiveLot = 4, kOnScreen = 5, kNearViewers = 6, kHeld = 7, kSocialSeen = 8, kGoalHousehold = 9;  // 9: from UfGoalWhy only, never Why or UfWhy
+        public const int kSeen = 0, kNotLive = 1, kGone = 2, kHousehold = 3, kActiveLot = 4, kOnScreen = 5, kNearViewers = 6, kHeld = 7, kSocialSeen = 8, kGoalHousehold = 9, kBirth = 10;  // 9: from UfGoalWhy only, 10: from UfBirthWhy only (birthroute, docs/558); never Why or UfWhy
         public static int Why(bool live, bool exists, bool household, bool activeLot, bool onScreen, bool far, bool held, bool targetSeen)
         {
             if (!live) return kNotLive;
@@ -29,7 +29,8 @@ namespace Ts3Fixes
 
         // docs/197 §7 KdSeenNpcCeilMs: the reasons that prove a known NPC the player sees. Household, not live, gone, -1 (a failed
         // check) and anything else stay on the household ceiling.
-        public static bool SeenNpc(int why) { return why >= kActiveLot && why <= kGoalHousehold; }
+        // kBirth (docs/558 birthroute): an unseen NPC's birth route (Pregnancy priority) gets the seen-NPC ceiling, never a cut.
+        public static bool SeenNpc(int why) { return why >= kActiveLot && why <= kBirth; }
         // the UserDiag op that tells native a route's scope: 11 unseen, 13 seen NPC, 10 household or unknown
         public static int KdScopeOp(int why) { return why == kSeen ? 11 : SeenNpc(why) ? 13 : 10; }
         // a kHeld Sim held only by the vehicle it sits in (not riding, carried-by or carrying, no household or selectable occupant)
@@ -115,6 +116,46 @@ namespace Ts3Fixes
         {
             float m = distM * kDetour / kWalkMPerSimMin;
             return m < kMinHoldMin ? kMinHoldMin : m > kMaxHoldMin ? kMaxHoldMin : m;
+        }
+
+        // docs/267 F1: the unseen teleport's goal (a cut plan never proved it reachable). 0 = the Sim may be placed there; else the
+        // refusal, also the offset of its counter. In order: a tomb or hidden room never; outdoor ground always (the pre-plan
+        // path's rule); indoors or raised only on a lot UfLotOpen passes; raised outdoor (deck, roof: stairs the flood does not
+        // see) never; an indoor room only when EA's allowed-room flood (HrReachesOutside, the Sim's own door rights) reaches
+        // outside; unknown (null, a portal threw) refuses.
+        public const int kTpOk = 0, kTpTombOrHidden = 1, kTpLotClosed = 2, kTpNoWayOut = 3, kTpRaised = 4;
+
+        // docs/584 §7 tpdoorrights: one door's verdict for F1's lot test, judged with the teleporting Sim's own door rights instead
+        // of "any lock closes the lot". lockType is CommonDoor.tLock as an int; oneWayRoom is CommonDoor.OneWayRoomDestinationId,
+        // which EA sets to kNoOneWayRoom (0x8FFF) on every door that is not one-way (its field initializer and
+        // SetLockTypeAndOwner(lock, owner)); upstream's "!= 0" read that sentinel as one-way, so every lot with a door was closed.
+        // simPasses = EA's CommonDoor.IsAllowedThrough(sim) (both directions); householdPasses = the lock's owner (or one owner
+        // on the list) is in the Sim's household; homeLot = the lot is that household's home. Returns kTpDoorClosed (the lot is
+        // closed), kTpDoorFree (no lock in the way), kTpDoorOwn (the Sim's own rights pass it) or kTpDoorHome (only its household's
+        // access passes it: a resident going home past a family member's locked room; the room flood still uses the Sim's rights).
+        public const int kNoOneWayRoom = 36863;
+        public const int kLockNobody = 0, kLockSelectedActor = 1, kLockSelectedHousehold = 2, kLockAnybody = 3, kLockPets = 4, kLockOwnerList = 5, kLockVipRoom = 6;
+        public const int kTpDoorClosed = -1, kTpDoorFree = 0, kTpDoorOwn = 1, kTpDoorHome = 2;
+        public static int TpDoor(int lockType, bool gendered, int oneWayRoom, bool simPasses, bool homeLot, bool householdPasses)
+        {
+            if (oneWayRoom != kNoOneWayRoom) return kTpDoorClosed;  // a real one-way room: never (upstream's rule, with EA's sentinel)
+            if (lockType == kLockAnybody && !gendered) return kTpDoorFree;
+            if (lockType == kLockNobody) return kTpDoorClosed;      // locked for everyone, residents too
+            if (simPasses) return kTpDoorOwn;
+            bool shared = lockType == kLockSelectedActor || lockType == kLockSelectedHousehold || lockType == kLockOwnerList;
+            return homeLot && householdPasses && shared && !gendered ? kTpDoorHome : kTpDoorClosed;
+        }
+        // upstream's rule (tpdoorrights off): any lock, a single-gender door or "one-way" (as upstream reads it) closes the lot
+        public static bool TpDoorUpstreamCloses(int lockType, bool gendered, int oneWayRoom) { return lockType != kLockAnybody || gendered || OneWay(oneWayRoom, false); }
+        // is the door one-way? sentinel true (tpdoorrights) = EA's test (!= 0x8FFF); false = upstream's "!= 0", true for every door
+        public static bool OneWay(int oneWayRoom, bool sentinel) { return sentinel ? oneWayRoom != kNoOneWayRoom : oneWayRoom != 0; }
+        public static int TpGoal(bool tombOrHidden, bool outdoorGround, bool openLot, bool roomOutside, bool? reachesOutside)
+        {
+            if (tombOrHidden) return kTpTombOrHidden;
+            if (outdoorGround) return kTpOk;
+            if (!openLot) return kTpLotClosed;
+            if (roomOutside) return kTpRaised;
+            return reachesOutside == true ? kTpOk : kTpNoWayOut;
         }
 
         // docs/202 §3.6.4 lot trips: 0 = no shortcut, 1 = place at once (the trip shortcuts as shipped), 2 = D's walk-time hold, then

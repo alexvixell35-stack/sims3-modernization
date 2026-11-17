@@ -49,6 +49,8 @@ const CSC = { why: 'Windows .NET Framework csc' };
 const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/harness/machine-load.ts': { why: 'Windows PowerShell counters' },
   'tools/harness/night-run.ts': { why: 'Windows session lock query' },
+  'tools/harness/rewind-census.ts': { why: 'Windows: censuses a 32-bit SysWOW64 ping toy process' },
+  'tools/harness/rewind-smoke.ts': { why: 'Windows + MSVC: builds tools/harness/rewind and runs its toy selftest (skips itself without MSVC)' },
   'tools/harness/layout-map.ts': CSC,
   'tools/harness/stove-repeat-core.ts': CSC,
   'tools/binder-bodies.ts': { why: 'game script assemblies', needs: 'game-copy/assemblies/mscorlib.dll' },
@@ -61,10 +63,12 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/doormirror/run.ts': CSC,
   'tools/selftest/easpread/run.ts': CSC,
   'tools/selftest/errortrapspread/run.ts': CSC,
+  'tools/selftest/eventcost/run.ts': CSC,
   'tools/selftest/farthestpick/run.ts': CSC,
   'tools/selftest/focusrules/run.ts': CSC,
   'tools/selftest/hotspots/run.ts': CSC,
   'tools/selftest/nostart/run.ts': CSC,
+  'tools/selftest/replanlog/run.ts': CSC,
   'tools/selftest/h4core/run.ts': CSC,
   'tools/selftest/overwatchnotice/run.ts': CSC,
   'tools/selftest/owprobe/run.ts': CSC,
@@ -82,8 +86,10 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/bookcarry/run.ts': CSC,
   'tools/selftest/bookhand/run.ts': CSC,
   'tools/selftest/ageupabort/run.ts': CSC,
+  'tools/selftest/boatgetoutdiag/run.ts': CSC,
   'tools/selftest/reftable/run.ts': { why: 'Windows csc + game ScriptCore.dll', needs: 'game-copy/assemblies/ScriptCore.dll' },
   'tools/selftest/replandefer/run.ts': CSC,
+  'tools/selftest/spawncap/run.ts': CSC,
   'tools/selftest/routesrc/run.ts': CSC,
   'tools/selftest/savercount/run.ts': CSC,
   'tools/selftest/screenfit/run.ts': CSC,
@@ -100,6 +106,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/savecleanup/run.ts': CSC,
   'tools/selftest/slicequeue/run.ts': CSC,
   'tools/selftest/menumaven/run.ts': CSC,
+  'tools/selftest/minihomelot/run.ts': CSC,
   'tools/selftest/typecache/run.ts': CSC,
   'tools/selftest/unseen/run.ts': CSC,
   'tools/selftest/unseenfb/run.ts': CSC,
@@ -174,7 +181,9 @@ const NO_SELF_CHECK: Record<string, string> = {
   'tools/setup/install-fixes.ts': 'installer: downloads into the game folder; its content health part is content-health.ts --self-test',
 };
 
-const TIMEOUT_S: Record<string, number> = {};
+const TIMEOUT_S: Record<string, number> = {
+  'tools/harness/rewind-smoke.ts': 300, // two cl builds + ~25 toy processes
+};
 
 // args that run the self-check, or undefined when the script has none
 export function selfCheckArgs(rel: string, src: string): string[] | undefined {

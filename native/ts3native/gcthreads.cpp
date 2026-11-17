@@ -7,7 +7,7 @@
 // them once its free list runs dry), note the first thread as the owner and count calls from any other thread.
 // shortcut: fast-path-only allocations are not seen; a thread that allocates often still shows up on its first refill.
 
-static const DWORD GT_ALLOCOBJ = 0x00E4A2B0, GT_ALLOCLARGE = 0x00E4BA90, GT_TABLE0 = 0x01221004;
+static const DWORD GT_ALLOCOBJ = TS3A(0x00E4A2B0), GT_ALLOCLARGE = TS3A(0x00E4BA90), GT_TABLE0 = TS3A(0x01221004);
 static const u8 kGtAllocObj[5] = {0x53, 0x8B, 0x5C, 0x24, 0x08};          // push ebx; mov ebx,[esp+8]
 static const u8 kGtAllocLarge[6] = {0x51, 0x53, 0x8B, 0x5C, 0x24, 0x0C};  // push ecx; push ebx; mov ebx,[esp+0xC]
 

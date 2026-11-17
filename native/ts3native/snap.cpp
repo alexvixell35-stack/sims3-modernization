@@ -69,11 +69,11 @@ static LONG g_spLogged;
 static const u8* g_spWorld;           // world of the current version
 
 // game entry points the cut calls (thiscall; the tests point them elsewhere)
-static LockAcquireFn g_spAcq = (LockAcquireFn)(uintptr_t)0x004E16F0;
+static LockAcquireFn g_spAcq = (LockAcquireFn)(uintptr_t)TS3A(0x004E16F0);
 typedef LONG(__fastcall* SpRelFn)(void* lock, void* edx);
-static SpRelFn g_spRel = (SpRelFn)(uintptr_t)0x004E17B0;
-static const u8* const* g_spWorldSlot = (const u8* const*)(uintptr_t)0x011D9128;  // routing world
-static const u8* const* g_spWmSlot = (const u8* const*)(uintptr_t)0x011ECBC4;     // world manager
+static SpRelFn g_spRel = (SpRelFn)(uintptr_t)TS3A(0x004E17B0);
+static const u8* const* g_spWorldSlot = (const u8* const*)(uintptr_t)TS3A(0x011D9128);  // routing world
+static const u8* const* g_spWmSlot = (const u8* const*)(uintptr_t)TS3A(0x011ECBC4);     // world manager
 static const u8* SpWorld() { return *g_spWorldSlot; }
 
 // --- images ---
@@ -683,7 +683,7 @@ static int StlClassify(const SnSite& s, const DWORD* slot, unsigned __int64* key
             case SL_W6:
                 // integration review (0.36.63): W6g (0x80CB40 / 0x806770, DoorRouting_AddDoorPortals) creates door portal
                 // objects lazily [docs/105]: a routing input with no proven nested lot-keyed leaf, so it stays world-level
-                if (s.at == 0x0080CB40 || s.at == 0x00806770) return SLW_W6;
+                if (s.at == TS3A(0x0080CB40) || s.at == TS3A(0x00806770)) return SLW_W6;
                 ts3native_counters.fplCov[0]++;
                 return SLW_W6 | SLW_COV;
             case SL_FPCORE: case SL_PRIVATE: case SL_FPREMOVE:

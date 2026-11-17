@@ -27,14 +27,22 @@ const TARGET_VARS: Record<string, string> = {
   'RefTable.cs:t': 'ScriptCore.ReferenceHashtable', 'CachedReflection.cs:pc': 'ScriptCore.PersistedClass',
   'CachedReflection.cs:db': 'ScriptCore.PersistedClassDB', 'FewerPlans.cs:helper': 'LotManager+RunStuckCheckHelper',
   'RouteSources.cs:watch': 'VelvetRopes+WatchDoor', 'PlayTrace.cs:flow': 'Sims3.UI.GameEntry.PlayFlowInWorldFlow',
-  'UiCaches.cs:bar': 'MotivesPanel+MotiveBar', 'UiCaches.cs:panel': 'MotivesPanel', 'EaVacation.cs:sVacBack': 'ParentsLeavingTownSituation+ParentsAreBack',
+  'UiCaches.cs:bar': 'MotivesPanel+MotiveBar', 'MapViewKeep.cs:mvc': 'Sims3.UI.Hud.MapViewController', 'UiCaches.cs:panel': 'MotivesPanel', 'EaVacation.cs:sVacBack': 'ParentsLeavingTownSituation+ParentsAreBack',
   'Fixes.cs:t': 'mod-subclass:VisitCommunityLot', 'typeof:AutonomyT': 'Sims3.Gameplay.Autonomy.Autonomy',
   'AutShadow.cs:soil': 'Sims3.Gameplay.Objects.Gardening.Soil', 'AutShadow.cs:hoop': 'Sims3.Store.Objects.BBallHoop+BBallHoopBall',
   'AutShadow.cs:arcade': 'Sims3.Store.Objects.BBallArcade+BBallArcadeBall', 'AutShadow.cs:skewer': 'Sims3.Store.Objects.ChocolateFountain+ChocolateFountainSkewer',
   'AutShadow.cs:cone': 'Sims3.Store.Objects.IceCreamMaker+IceCreamCone', 'AutShadow.cs:prop': 'Sims3.Store.Objects.GardenStation+GardenStationProp',
   'AutShadow.cs:drag': 'Sims3.Gameplay.UI.LiveDragHelperModel', 'AutShadow.cs:iop': 'Sims3.Gameplay.Autonomy.InteractionObjectPair',
+  'AutShadow.cs:ce': 'Sims3.Gameplay.TimeTravel.CauseEffectService', 'AutShadow.cs:cab': 'Sims3.Gameplay.Objects.Counters.Cabinetry',
+  'AutShadow.cs:swing': 'Sims3.Gameplay.Objects.Environment.SwingSet', 'AutShadow.cs:stall': 'Sims3.Gameplay.Objects.Pets.BoxStall',
+  'AutShadow.cs:sect': 'Sims3.Gameplay.Objects.Seating.ChairSectional', 'AutShadow.cs:cp': 'Sims3.Gameplay.Actors.Sim+CallPet+Definition',
   'ErrorTrapSpread.cs:inv': 'mod:ErrorTrap', 'OverwatchNotice.cs:reset': 'mod:Overwatch', 'OverwatchProbe.cs:sc': 'mod:Overwatch',
   'HitchCause.cs:sHcTimer': 'AlarmManager+Timer', 'HitchCause.cs:simReset': 'mod:Overwatch', 'HitchCause.cs:inst': 'mod:Overwatch', 'HitchCause.cs:cp': 'mod:Overwatch', 'HitchCause.cs:place': 'mod:Overwatch', 'OverwatchSpread.cs:sOwType': 'mod:Overwatch', 'OverwatchSpread.cs:alarmBase': 'mod:Overwatch', 'OverwatchStuck.cs:simEx': 'mod:Overwatch', 'OverwatchStuck.cs:simTypes': 'mod:Overwatch',
+  'SimFestKeep.cs:sSfPresent': 'ShowStage+EmceePresentSimFestAward', 'JoyrideCostume.cs:jd': 'GoForJoyride+Definition',
+  'JoyrideCostume.cs:rd': 'RouteAndGetToCostumeForJoyride+Definition', 'SyncWaitLog.cs:si': 'SocialInteraction',
+  'WeddingArchKeep.cs:sWaSlotRoute': 'WeddingArch+RouteToWeddingArchSlot', 'BoardingRefund.cs:sBsCarState': 'BoardingSchoolPickUpSituation+CreateCarAndRoute',
+  'SplashRoof.cs:ia': 'Sim+AutonomousSplashInPuddle', 'ShuffleboardBroadcast.cs:play': 'Shuffleboard+Play', 'CookClickListener.cs:cp': 'CookingProcess', 'ErrorTrapDerefDiag.cs:dm': 'mod:ErrorTrap', 'BubblePipeGuard.cs:sBbBlow': 'BubbleBar+BlowBubbles', 'PrivateEyeCase.cs:sPeMail': 'PrivateEyeInteractions+LookThroughMail', 'MoveInPartner.cs:sMipType': 'MoveInWithPartner', 'ReaperFlow.cs:sRfChessDef': 'GrimReaperSituation+ChessChallenge+Definition',
+  'BowlingLane.cs:sBlLane': 'BowlingLane', 'BowlingLane.cs:sBlBowl': 'BowlingLane+BowlInBowlingLane', 'CleanFlag.cs:pitPutAway': 'FirePit+PutAway',
 };
 // reviewed in docs/242: hooks that may have no stub
 const kNoStub = new Set<string>();

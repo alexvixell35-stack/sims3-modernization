@@ -1,0 +1,50 @@
+{
+  "note": "Arm (Rodney 2026-11-15): every rewind job runs on the PATCHED bridge copy, Bin state apex-rewind (game-copy/rewind-bridge-1115/install: latest Apex Radiance release + the bridge pair with patch 0015 + rewindMode = True in both bridge.conf; docs/270 §12.6), not on the stock bridge. The chain sets the state (tools/turbo-compat.ts state <dir> apex-rewind); queue.ts never does. Order (2026-11-15): this census runs first, then rewind-smoke-1115, then rewind-bridge-1115, all from probe-out/queue/chain-rewind-smoke-1115.sh after chain-mono-1115 (the older chain-rewind-census-1115.sh is replaced by it). Rewind census on the bridge arm: the 11-15 census (docs/270 §3) ran on a DXVK job, where TS3W holds the GPU device itself (nvoglv32 + d3d9 threads) and NvRemixBridge.exe was not running. This job repeats it on the baseline stack (latest Apex Radiance + RTX Remix bridge + the master-merge-1115 set) so both TS3W.exe and NvRemixBridge.exe get start/end snapshots. Bin state apex is set by a chain script with tools/turbo-compat.ts (snapshot / state apex / restore, as probe-out/queue/chain-turbo-apex-1114.sh); queue.ts never changes those files. The chain starts `node tools/harness/rewind-census.ts watch --log <this job's .out> --tag bridge-1115` in the background before the job: it snaps both processes at ready+130 s and ready+560 s (read-only: query + VM_READ, Toolhelp, VirtualQueryEx, NtQuerySystemInformation) and writes probe-out/rewind/bridge-1115-<name>-diff.json. Correctness only, not timing (the census reads ~1.8 GB of game memory twice, ~3-4 s each). node tools/harness/queue.ts tools/harness/queues/rewind-census-bridge-1115.json --no-smoke",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "ip-rewind-census-bridge",
+      "note": "[est 15 min] [natural play, no cheats] Bin state apex-rewind (patched bridge copy, rewindMode on and idle; set by the chain before this job). IP world, 10 min profile. Pass: no crash, 0 script errors, ts3native version and Apex compat line read back; the census diffs land in probe-out/rewind (judged by hand into docs/270 §3, not by queue.ts).",
+      "asi": "game-copy/ts3native.asi.master-merge-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+      "pinReason": "master-merge-1115 set (builds.json, 0.36.261-lanes1), the set the 11-15 DXVK census ran with, so the two censuses differ only in the renderer",
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0.36.261-lanes1 ": 1,
+        "^compat: Apex Radiance found ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.261-lanes1 ": {
+          "match": [
+            "ts3native 0.36.261-lanes1 2026-11-15 09:44:15"
+          ],
+          "noMatch": [
+            "ts3native 0.36.189 2026-11-07 09:44:15"
+          ]
+        },
+        "^compat: Apex Radiance found ": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: no Apex Radiance at start"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 30
+    }
+  ]
+}

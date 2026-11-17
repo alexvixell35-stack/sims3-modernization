@@ -1,0 +1,494 @@
+{
+  "note": "offload-unseen-apply-ab-1113 (P2 timing): per-switch in-load A/B of the apply behind autoffunseen. --ab works: autoffenvapply, autoffbcastapply and autoffunseen are runtime switches (AutOffload.cs ShortcutOn at the hook), so each job toggles in one load, no ABBA across loads needed. Arms: both (autoffenvapply,autoffbcastapply), env alone, bcast alone, each on BP and IP, both orders = 12 jobs x ~12.5 min = ~2.5 h + smoke ~8 min. Run ONLY after offload-unseen-apply-1113.json passes (stop rules there) and on a clean night (docs/TESTING.md clean-night rules: other CPU < 10%, no clock drop, else the job is void and repeated whole; close Spotify, java/IDE). Ship rule: ON only at net >= 3 ms/s on both worlds (both-arm), correctness PASS, it/s not down > 2%. Pair as in the correctness queue (install ts3agent.package.offunseen1113 first). Run: node tools/harness/queue.ts tools/harness/queues/offload-unseen-apply-ab-1113.json.",
+  "stopQueueOnFail": false,
+  "smoke": {
+    "id": "bp-off3ua-smoke",
+    "note": "Measurement smoke (5 min BP, 1-min slices): per-arm split in hitch-ab.ts, applied counters rise (fixesRequire), switch read-back.",
+    "asi": "game-copy/ts3native.asi.imp1113",
+    "iniBase": "game-copy/ts3native.ini.imp1113",
+    "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+    "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 90,
+    "ini": {
+      "HitchAttr.Enabled": 1,
+      "RouteSnap.Enabled": 1,
+      "RouteSnap.Count": 1,
+      "RouteSnap.AuditEvery": 0,
+      "AutShadow.Audit": 0,
+      "AutShadow.DumpOnMismatch": 0,
+      "AutShadow.ListAudit": 0
+    },
+    "logRequire": {
+      "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+      "OK   mono thread P4": 1
+    },
+    "run": {
+      "profile": {
+        "minutes": 5,
+        "seed": 12345,
+        "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+        "slice": 1,
+        "noSamplers": true,
+        "ab": "autoffenvapply,autoffbcastapply",
+        "fixesRequire": "autoff_env_applied>=1,autoff_bcast_applied>=1"
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 25
+  },
+  "jobs": [
+    {
+      "id": "bp-off3ua-both",
+      "note": "BP, --ab autoffenvapply,autoffbcastapply (runtime toggles), off,on,on,off, 2-min slices, warm-up out. autoffunseen on in both arms (gate under test), autoffnoref on, autoffdry off, Audit 0, no samplers. Judge: sim busy ms/s per arm (node tools/harness/sim-budget-report.ts per arm, pooled over both orders of the same arm and world) and hitch-ab.ts; apply share from the saved autoff_ counters. Ship rule: ON only at net >= 3 ms/s on BOTH worlds for the both-arm, correctness PASS; 0 to +3 stable stays opt-in; < -2% it/s off. env and bcast arms say which half carries it.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 2,
+          "noSamplers": true,
+          "ab": "autoffenvapply,autoffbcastapply"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-off3ua-both-onfirst",
+      "note": "BP, --ab autoffenvapply,autoffbcastapply (runtime toggles), on,off,off,on, 2-min slices, warm-up out. autoffunseen on in both arms (gate under test), autoffnoref on, autoffdry off, Audit 0, no samplers. Judge: sim busy ms/s per arm (node tools/harness/sim-budget-report.ts per arm, pooled over both orders of the same arm and world) and hitch-ab.ts; apply share from the saved autoff_ counters. Ship rule: ON only at net >= 3 ms/s on BOTH worlds for the both-arm, correctness PASS; 0 to +3 stable stays opt-in; < -2% it/s off. env and bcast arms say which half carries it.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 2,
+          "noSamplers": true,
+          "ab": "autoffenvapply,autoffbcastapply",
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-off3ua-both",
+      "note": "IP, --ab autoffenvapply,autoffbcastapply (runtime toggles), off,on,on,off, 2-min slices, warm-up out. autoffunseen on in both arms (gate under test), autoffnoref on, autoffdry off, Audit 0, no samplers. Judge: sim busy ms/s per arm (node tools/harness/sim-budget-report.ts per arm, pooled over both orders of the same arm and world) and hitch-ab.ts; apply share from the saved autoff_ counters. Ship rule: ON only at net >= 3 ms/s on BOTH worlds for the both-arm, correctness PASS; 0 to +3 stable stays opt-in; < -2% it/s off. env and bcast arms say which half carries it.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 2,
+          "noSamplers": true,
+          "ab": "autoffenvapply,autoffbcastapply"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-off3ua-both-onfirst",
+      "note": "IP, --ab autoffenvapply,autoffbcastapply (runtime toggles), on,off,off,on, 2-min slices, warm-up out. autoffunseen on in both arms (gate under test), autoffnoref on, autoffdry off, Audit 0, no samplers. Judge: sim busy ms/s per arm (node tools/harness/sim-budget-report.ts per arm, pooled over both orders of the same arm and world) and hitch-ab.ts; apply share from the saved autoff_ counters. Ship rule: ON only at net >= 3 ms/s on BOTH worlds for the both-arm, correctness PASS; 0 to +3 stable stays opt-in; < -2% it/s off. env and bcast arms say which half carries it.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 2,
+          "noSamplers": true,
+          "ab": "autoffenvapply,autoffbcastapply",
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-off3ua-env",
+      "note": "BP, --ab autoffenvapply (runtime toggles), off,on,on,off, 2-min slices, warm-up out. autoffunseen on in both arms (gate under test), autoffnoref on, autoffdry off, Audit 0, no samplers. Judge: sim busy ms/s per arm (node tools/harness/sim-budget-report.ts per arm, pooled over both orders of the same arm and world) and hitch-ab.ts; apply share from the saved autoff_ counters. Ship rule: ON only at net >= 3 ms/s on BOTH worlds for the both-arm, correctness PASS; 0 to +3 stable stays opt-in; < -2% it/s off. env and bcast arms say which half carries it.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 2,
+          "noSamplers": true,
+          "ab": "autoffenvapply"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-off3ua-env-onfirst",
+      "note": "BP, --ab autoffenvapply (runtime toggles), on,off,off,on, 2-min slices, warm-up out. autoffunseen on in both arms (gate under test), autoffnoref on, autoffdry off, Audit 0, no samplers. Judge: sim busy ms/s per arm (node tools/harness/sim-budget-report.ts per arm, pooled over both orders of the same arm and world) and hitch-ab.ts; apply share from the saved autoff_ counters. Ship rule: ON only at net >= 3 ms/s on BOTH worlds for the both-arm, correctness PASS; 0 to +3 stable stays opt-in; < -2% it/s off. env and bcast arms say which half carries it.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 2,
+          "noSamplers": true,
+          "ab": "autoffenvapply",
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-off3ua-env",
+      "note": "IP, --ab autoffenvapply (runtime toggles), off,on,on,off, 2-min slices, warm-up out. autoffunseen on in both arms (gate under test), autoffnoref on, autoffdry off, Audit 0, no samplers. Judge: sim busy ms/s per arm (node tools/harness/sim-budget-report.ts per arm, pooled over both orders of the same arm and world) and hitch-ab.ts; apply share from the saved autoff_ counters. Ship rule: ON only at net >= 3 ms/s on BOTH worlds for the both-arm, correctness PASS; 0 to +3 stable stays opt-in; < -2% it/s off. env and bcast arms say which half carries it.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 2,
+          "noSamplers": true,
+          "ab": "autoffenvapply"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-off3ua-env-onfirst",
+      "note": "IP, --ab autoffenvapply (runtime toggles), on,off,off,on, 2-min slices, warm-up out. autoffunseen on in both arms (gate under test), autoffnoref on, autoffdry off, Audit 0, no samplers. Judge: sim busy ms/s per arm (node tools/harness/sim-budget-report.ts per arm, pooled over both orders of the same arm and world) and hitch-ab.ts; apply share from the saved autoff_ counters. Ship rule: ON only at net >= 3 ms/s on BOTH worlds for the both-arm, correctness PASS; 0 to +3 stable stays opt-in; < -2% it/s off. env and bcast arms say which half carries it.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 2,
+          "noSamplers": true,
+          "ab": "autoffenvapply",
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-off3ua-bcast",
+      "note": "BP, --ab autoffbcastapply (runtime toggles), off,on,on,off, 2-min slices, warm-up out. autoffunseen on in both arms (gate under test), autoffnoref on, autoffdry off, Audit 0, no samplers. Judge: sim busy ms/s per arm (node tools/harness/sim-budget-report.ts per arm, pooled over both orders of the same arm and world) and hitch-ab.ts; apply share from the saved autoff_ counters. Ship rule: ON only at net >= 3 ms/s on BOTH worlds for the both-arm, correctness PASS; 0 to +3 stable stays opt-in; < -2% it/s off. env and bcast arms say which half carries it.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 2,
+          "noSamplers": true,
+          "ab": "autoffbcastapply"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-off3ua-bcast-onfirst",
+      "note": "BP, --ab autoffbcastapply (runtime toggles), on,off,off,on, 2-min slices, warm-up out. autoffunseen on in both arms (gate under test), autoffnoref on, autoffdry off, Audit 0, no samplers. Judge: sim busy ms/s per arm (node tools/harness/sim-budget-report.ts per arm, pooled over both orders of the same arm and world) and hitch-ab.ts; apply share from the saved autoff_ counters. Ship rule: ON only at net >= 3 ms/s on BOTH worlds for the both-arm, correctness PASS; 0 to +3 stable stays opt-in; < -2% it/s off. env and bcast arms say which half carries it.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 2,
+          "noSamplers": true,
+          "ab": "autoffbcastapply",
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-off3ua-bcast",
+      "note": "IP, --ab autoffbcastapply (runtime toggles), off,on,on,off, 2-min slices, warm-up out. autoffunseen on in both arms (gate under test), autoffnoref on, autoffdry off, Audit 0, no samplers. Judge: sim busy ms/s per arm (node tools/harness/sim-budget-report.ts per arm, pooled over both orders of the same arm and world) and hitch-ab.ts; apply share from the saved autoff_ counters. Ship rule: ON only at net >= 3 ms/s on BOTH worlds for the both-arm, correctness PASS; 0 to +3 stable stays opt-in; < -2% it/s off. env and bcast arms say which half carries it.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 2,
+          "noSamplers": true,
+          "ab": "autoffbcastapply"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-off3ua-bcast-onfirst",
+      "note": "IP, --ab autoffbcastapply (runtime toggles), on,off,off,on, 2-min slices, warm-up out. autoffunseen on in both arms (gate under test), autoffnoref on, autoffdry off, Audit 0, no samplers. Judge: sim busy ms/s per arm (node tools/harness/sim-budget-report.ts per arm, pooled over both orders of the same arm and world) and hitch-ab.ts; apply share from the saved autoff_ counters. Ship rule: ON only at net >= 3 ms/s on BOTH worlds for the both-arm, correctness PASS; 0 to +3 stable stays opt-in; < -2% it/s off. env and bcast arms say which half carries it.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 2,
+          "noSamplers": true,
+          "ab": "autoffbcastapply",
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    }
+  ]
+}
