@@ -2703,8 +2703,11 @@ const node = (args: string[], logFile: string, deadline: number, onLine?: (l: st
 async function closeGame(probePid?: number) {
   await get('detach', 10000); // detach first: killing a host mid-call can take the game down
   killTree(probePid);
-  if (gameRunning()) try { execFileSync('taskkill', ['/F', '/IM', GAME_EXE], { stdio: 'ignore' }); } catch { /* gone */ }
-  for (let i = 0; i < 60 && gameRunning(); i++) await sleep(1000);
+  // the kill is retried every 10 s: one kill did not take (2026-11-17), the game ran on for 2 min with the asi locked,
+  // and the Bin restore failed with EBUSY
+  const kill = () => { try { execFileSync('taskkill', ['/F', '/IM', GAME_EXE], { stdio: 'ignore' }); } catch { /* gone, or it failed: the loop tries again */ } };
+  kill();
+  for (let i = 0; i < 60 && gameRunning(); i++) { await sleep(1000); if (i % 10 === 9) kill(); }
   if (gameRunning()) log(`closeGame: ${GAME_EXE} still running after 60 s`);
   else { const left = killLeftovers(); if (left.length) log(`closeGame: leftovers killed: ${left.join('; ')}`); } // EA helpers of a hung launch (docs/236 round 4)
 }
