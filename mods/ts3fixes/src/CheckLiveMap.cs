@@ -15,7 +15,7 @@ namespace Ts3Fixes
                 case "ageupswap": return EpLive(typeof(AgeUpSwapHook), 1);
                 case "agingalarmcancel": return EpLive(typeof(BAcHook), 1, "sAcGrad", sAcGrad, null);
                 case "alarmkilllog": return EpLive(typeof(AkHook), 1, "sAkCallBack", sAkCallBack, null);
-                case "alarmtime": return EpJoin(EpJoin(EpLive(typeof(AzTimerHook), 1), EpLive(typeof(HcLotHook), 0)), EpLive(typeof(HcSpawnHook), 0));
+                case "alarmtime": return EpJoin(EpLive(typeof(AzTimerHook), 1), EpLive(typeof(HcLotHook), 0));
                 case "alarmzeroperiod": return EpLive(typeof(AzTimerHook), 1);
                 case "aptleave": return EpJoin(EpLive(typeof(AlLeaveHook), 1), EpLive(typeof(AlRoomHook), 1));
                 case "artsellnoartist": return EpLive(typeof(ArtSellHook), 1);
@@ -212,6 +212,7 @@ namespace Ts3Fixes
                 case "ltrhistorybits": return EpLive(typeof(BLtHook), 2, "sLtBits", sLtBits, null);
                 case "lunacysocials": return EpLive(typeof(LunacyHook), 0);
                 case "maildogchaser": return EpLive(typeof(BMdHook), 1, "sMdDog", sMdDog, null);
+                case "maptagtaskalive": return EpJoin(EpLive(typeof(MtkCtlHook), 1), EpLive(typeof(MtkVisHook), 0));
                 case "mapviewkeep": return EpLive(typeof(MapViewKeepHook), 0);
                 case "megaphonerun": return EpLive(typeof(WsMegaHook), 1);
                 case "meltalarm": return EpLive(typeof(B12MaHook), 1, "sMaAlarm", sMaAlarm, null, "sMaHours", sMaHours, typeof(float), "sMaHours", sMaHours, "static");

@@ -493,7 +493,9 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3414-3416 | `GameSpeed78.cs` (`fixes-3414`, s78, docs/609 §5), `speedlockowner` | built 2026-11-17, default off: build/buy exit unlocks skipped, lock not its own (3414) / another holder's lock released with the switch off (3415) / errors (3416) |
 | 3417-3420 | `GameSpeed78.cs` (`fixes-3417`, s78, docs/609 §6), `alarmzeroperiod` | built 2026-11-17, default off: repeating periods <= 0 treated as 1 tick (3417) / catch-ups by one division (3418) / repeating timers checked (3419) / errors (3420) |
 | 3421-3423 | `GameSpeed78.cs` (`fixes-3421`, s78, docs/609 §7), `heartbrokenbcast` | built 2026-11-17, default off: replaced heartbroken broadcasters disposed (3421) / left registered with the switch off (3422) / errors (3423) |
-| **2000+** | next free (1981-1999 taken; free spans 2016-2021, 2711-2721 minus PR rows, 2760-2789, 2797-2799; contributor range 2000-3999 since upstream #470, `kCounterSlots` 4000; slots past 3423 with `--at`) | reserve here  |
+| 3424-3429 | `SpawnerMapTag79.cs` (`fixes-3424`, s79, docs/610 §2), `spawnerskip` | built 2026-11-17, default off: spawns given EA's failure ending without the search (3424) / full searches while armed (3425) / streaks armed (3426) / errors (3427) / spawner searches (3428) / spawns placed by a search (3429) |
+| 3430-3434 | `SpawnerMapTag79.cs` (`fixes-3430`, s79, docs/610 §3), `maptagtaskalive` | built 2026-11-17, default off: visibility task restarts (3430) / visibility ends with the switch off (3431) / controller restarts (3432) / controller ends with the switch off (3433) / errors (3434) |
+| **2000+** | next free (1981-1999 taken; free spans 2016-2021, 2711-2721 minus PR rows, 2760-2789, 2797-2799; contributor range 2000-3999 since upstream #470, `kCounterSlots` 4000; slots past 3434 with `--at`) | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 
