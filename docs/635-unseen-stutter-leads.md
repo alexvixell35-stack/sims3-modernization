@@ -67,3 +67,26 @@ r93-combo. NOT RUN.
 - hitch-attr: the Sunday spot plan is the only game hitch in s84 (305 ms; the other 3 are harness hitches).
 - planwait: ~20% of plans per minute are sync (225-297 per minute), all short (none in the >= slow-plan ufplansplit lines
   for why 0). They are not attributed by scope yet: a lead for a scope split, not a fix.
+
+## 5. s82 follow-up: the Sunday hitch stayed with spotbusydefer (326 ms, tick 28768)
+
+- Run: phase-20261117-1648 (r93; spotasync, spotbusydefer and spotbusydefer's Check all on and passing).
+- Evidence [verified, log]: no START was refused this time. `route async: long job 275 ms, own START, IC kind 2, watchdog
+  check, uncut: watchdog (KdUncutCeilMs), scope unseen` ended at 59067075 ms. That is Bart Hammer's `spot:visit@Bridgeport
+  Eternal Rest Cemetery` check (341 ms, 1 poll); in s84 the same lot was checked for Armstrong Diesel. The hitch frame
+  (326 ms, ending at 59067106 ms) spans that job. Every task that ran in the frame (Bronson Littler, Mars Champion, Bart)
+  slept one poll of 341-356 ms.
+- What the sim thread blocked on [inferred]: not a sync plan (no `sync ... START refused` line) and not a counted job wait.
+  The native summary shows `own-job sim waits 0`, site waits (runplan / rtwait / disc) at most 57 ms, and ReadyDrain off.
+  There are no StallWatch lines in this run. The block covers the job's whole lifetime, and the worker holds world+0x918
+  for the whole job (rtsites.cpp), so the frame most likely waits on that lock at a site we do not count. Confirming the
+  site needs a StallWatch or Holders capture of +0x918 at tick ~28768.
+- Root cause [verified, source]: in plandeadline.cpp, KdJobBegin returns 0 (UCW_WATCHDOG) for every job with the watchdog
+  tag (`sc & 0x400`). spotasync borrows that tag to get its START accepted, so a spot check of a large lot runs with no
+  deadline except KdUncutCeilMs (30 s).
+- Fix `spotcut` (off): a spotasync check (unseen NPC only) also sends the [UnseenFallback] MARK (UfSend 1) before its
+  START. ts3native caps a marked job at ufUs (220 ms less the learned overrun) whatever its tag (ts3native.cpp, `t_ufJob`).
+  A cut check (UfSend 2) answers no verdict (null, not cached), as spotbusydefer does, and the caller keeps EA's own trip.
+  Counters: 3803 marked, 3804 cut, 3805 check mismatches. Check `SpotCutCheck`.
+- Limit: 220 ms keeps the frame under the 300 ms hitch line but not under 200 ms. A shorter cap for this case needs a
+  native per-tag deadline (spot checks tagged apart from A1); that is not built yet.

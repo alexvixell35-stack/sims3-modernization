@@ -298,6 +298,87 @@
       ]
     },
     {
+      "id": "spotcut-check",
+      "bug": "a spotasync check runs as a watchdog-tagged job that plandeadline.cpp leaves uncut (UCW_WATCHDOG, KdUncutCeilMs 30 s): Bridgeport's cemetery check took 275 ms and the frame stalled 326 ms (s82 Sun 12:47 PM; docs/635 §5)",
+      "fix": "ts3fixes RouteBackoff.cs + Fixes.cs: spotcut (default off, needs spotasync and ts3native [UnseenFallback]), docs/635 §5",
+      "save": "pure part needs no save",
+      "note": "SpotCutCheck run checks the mark decision (off: uncut job; on: marked, capped at the unseen-fallback deadline, cut = no verdict) with controls (other plans unchanged, uncut verdict cached, household never async); result shows counters 3803-3805.",
+      "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+      "steps": [
+        {
+          "cmd": "patches",
+          "args": {
+            "spotcut": false
+          },
+          "note": "off first",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SpotCutCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "waitS": 2,
+          "note": "off: EA's path"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SpotCutCheck",
+            "args": [
+              "result"
+            ]
+          }
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "spotcut": true
+          },
+          "note": "on",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SpotCutCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "waitS": 2,
+          "note": "on: the fix"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SpotCutCheck",
+            "args": [
+              "result"
+            ]
+          }
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "spotcut": false
+          },
+          "note": "back to the default"
+        }
+      ],
+      "cleanup": [
+        {
+          "cmd": "patches",
+          "args": {
+            "spotcut": false
+          }
+        }
+      ]
+    },
+    {
       "id": "unseenmusicwatch-check",
       "bug": "an unseen NPC watching a piano (Piano+Watch) holds its 1-minute DoLoop until EA's 360/180-minute low-LOD end (docs/634)",
       "fix": "ts3fixes LoopSkip632.cs: unseenmusicwatch (default off), docs/634; tier 2 with unseenloopskip_offscreen",
