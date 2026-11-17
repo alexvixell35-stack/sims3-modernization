@@ -649,8 +649,11 @@ namespace Ts3Agent
                 sIswInRun = false;
                 if (sIswRunErrors > 0) { row["se"] = sIswRunErrors; row["err"] = sIswRunError; }
                 if (Sims3.UI.UIManager.GetModalWindow() != null) row["dialog"] = true;
-                if (IswEndRun(gen, movers)) { row["reset"] = true; }
             }
+            // not in the finally: the game's Mono cannot yield there. IswEndRun's Simulator.Sleep threw NotSupportedException
+            // ("Attempting to yield in a non-yielding context") after every pushed row, and the catch in IswTargetRows then reset
+            // all actors (store sweep 2026-11-17: 108 of 485 rows).
+            if (IswEndRun(gen, movers)) { row["reset"] = true; }
         }
 
         // cancel; a Sim whose queue does not empty in 3 s is reset (EA's reset end state)
