@@ -279,8 +279,6 @@ woohootywait
 #   safespotpool spotcheck tagunseen unseenoutfitdefer
 # diagnostics (log only):
 #   socialreplanlog barorderlog routecauselog
-# built 2026-11-15, in-game off/on test pending (docs/587 §6-13, batches EP1-EP6 and store 1); move to the set once proven:
-#   displaycasereset 
 # built 2026-11-15, in-game off/on test pending (ufplansplit is log only; doorgen is default on since upstream #439):
 #   ufplansplit
 # new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:
@@ -361,6 +359,7 @@ wishsubjectgone
 wishupdatelost
 socialworkerpromise
 buffsrcempty
+displaycasereset
 groupchatpriority
 spotedgememo
 spotcut
