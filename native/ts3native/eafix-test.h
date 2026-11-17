@@ -503,6 +503,55 @@ static void TestEaCrashFixes() {
     VirtualFree(gcode, 0, MEM_RELEASE);
     g_gbBad = 0;
 
+    // ---- LotLevelPastEnd ----
+    // a fake lot: lowest level -1, a deque of 5 Groups that starts at entry 62 of its first block (so it spans two blocks)
+    {
+        static DWORD llBlk[2][64], *llNode[2] = {llBlk[0], llBlk[1]}, llId = 0x10, llGets;
+        alignas(4) static u8 llLot[0x400], llObj[0x60], llComp[0x40];
+        for (DWORD i = 0; i < 128; i++) llBlk[i / 64][i % 64] = 0xBAD00000 + i;  // entry 67 = the word past the table
+        for (DWORD i = 0; i < 5; i++) llBlk[(62 + i) / 64][(62 + i) % 64] = 0x6000 + i;
+        DWORD* q = (DWORD*)(llLot + 0x378);
+        q[0] = (DWORD)(uintptr_t)&llBlk[0][62], q[1] = (DWORD)(uintptr_t)llBlk[0], q[2] = (DWORD)(uintptr_t)(llBlk[0] + 64), q[3] = (DWORD)(uintptr_t)&llNode[0];
+        q[4] = (DWORD)(uintptr_t)&llBlk[1][3], q[5] = (DWORD)(uintptr_t)llBlk[1], q[6] = (DWORD)(uintptr_t)(llBlk[1] + 64), q[7] = (DWORD)(uintptr_t)&llNode[1];
+        *(LONG*)(llLot + 0x17C) = -1;
+        *(DWORD*)(llObj + 0x2C) = 0x10 | 0x4 | 0x1, *(u8**)(llObj + 0x34 + 2 * 4) = llComp;  // two components below the level's
+        assert(LlLevels(llLot) == 5);
+        struct LlT { static DWORD __fastcall Get(u8*, void*, u8*) { llGets++; return 0x77; } };  // the game's getter stand-in
+        const LlFn get0 = g_llGet;
+        const DWORD id0 = g_llIdLevel;
+        g_llGet = &LlT::Get, g_llIdLevel = (DWORD)(uintptr_t)&llId, g_llHits = 0;
+        const LONG in[] = {-5, -1, 0, 3, 0x7FFFFFFF};  // below the lowest (clamped), each end, "no level" = 0: the game's getter
+        for (LONG lv : in) { *(LONG*)(llComp + 0x18) = lv; assert(LlGroup(llLot, NULL, llObj) == 0x77); }
+        assert(llGets == 5 && g_llHits == 0);
+        *(LONG*)(llComp + 0x18) = 4;  // index 5 of 5 (a Bridgeport crash's ask): the top Group, not entry 67
+        assert(LlGroup(llLot, NULL, llObj) == 0x6004 && g_llHits == 1 && llGets == 5);
+        *(LONG*)(llComp + 0x18) = 3, *(DWORD*)(llComp + 0x2C) = 0x20;  // the +1 flag
+        assert(LlGroup(llLot, NULL, llObj) == 0x6004 && g_llHits == 2);
+        *(DWORD*)(llComp + 0x2C) = 0, *(LONG*)(llComp + 0x18) = 0x7FFFFFFE;  // far past; lv - lowest overflows: still a hit
+        assert(LlGroup(llLot, NULL, llObj) == 0x6004 && g_llHits == 3);
+        q[4] = q[0], q[5] = q[1], q[6] = q[2], q[7] = q[3];  // an empty table: the root Group (0)
+        *(LONG*)(llComp + 0x18) = 0;
+        assert(LlLevels(llLot) == 0 && LlGroup(llLot, NULL, llObj) == 0 && g_llHits == 4 && llGets == 5);
+        // no object, no level component, a null component: the game's getter (it answers 0 there)
+        *(DWORD*)(llObj + 0x2C) = 0x5;
+        assert(LlGroup(llLot, NULL, NULL) == 0x77 && LlGroup(llLot, NULL, llObj) == 0x77);
+        *(DWORD*)(llObj + 0x2C) = 0x15, *(u8**)(llObj + 0x34 + 2 * 4) = NULL;
+        assert(LlGroup(llLot, NULL, llObj) == 0x77 && llGets == 8 && g_llHits == 4);
+        // the patch: only over the game's getter bytes, once
+        u8* lcode = (u8*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+        memcpy(lcode, kLlHead, sizeof(kLlHead)), memcpy(lcode + 0x4D, kLlLow, sizeof(kLlLow));
+        memcpy(lcode + 0x66, kLlDeq, sizeof(kLlDeq)), memcpy(lcode + 0x79, kLlBlk, sizeof(kLlBlk));
+        static DWORD lslot;
+        lslot = (DWORD)(uintptr_t)lcode;
+        lcode[0x68] = 0x80;  // another deque offset: nothing written
+        assert(!LlPatch(&lslot) && lslot == (DWORD)(uintptr_t)lcode);
+        lcode[0x68] = 0x7C;
+        assert(LlPatch(&lslot) && lslot == (DWORD)(uintptr_t)&LlGroup);
+        assert(!LlPatch(&lslot));  // ours now
+        VirtualFree(lcode, 0, MEM_RELEASE);
+        g_llGet = get0, g_llIdLevel = id0, g_llHits = 0;
+    }
+
     // ---- GeomNoMaterial ----
     const DWORD gn0[3] = {g_gnSkip, g_gnCont, g_gnGet};
     u8* ncode = (u8*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
@@ -624,6 +673,7 @@ static void TestEaCrashFixes() {
            "called, patched sequence run; ThumbPose reference kept across the evaluation and released by the stub; "
            "ThumbPoseBones short holders dropped at all three stubs, matching / longer / other holders unchanged, sites patched once; "
            "GeomBoneIndex in-range bones unchanged, past-the-list indices answered 0, key printed, vtable slot patched once; "
+           "LotLevelPastEnd in-range levels on the game's getter, past-the-table levels answered the top Group, empty table 0, slot patched once; "
            "GeomNoMaterial meshes with a material unchanged, no material skipped, other types and null meshes unchanged, "
            "site patched once; "
            "MintDivGuard 18 normal div/rem cases on the game's path, INT_MIN / -1 to the overflow stub, INT_MIN %% -1 = 0, "

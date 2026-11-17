@@ -97,13 +97,15 @@ namespace Ts3Fixes
         {
             public void UpdateHook()
             {
-                if (!ShortcutOn("dnpupdateguard")) { UpdateOrig(); return; }
+                List<object> woke = DcBeforeUpdate(this);  // dreamcleanup (DreamCleanup.cs): shared hook, one patch per method
+                if (!ShortcutOn("dnpupdateguard")) { UpdateOrig(); DcAfterUpdate(this, woke); return; }
                 try { UpdateOrig(); }
                 catch (Exception)
                 {
                     int[] c = PatchCounters();
                     c[2266]++; c[2267]++;
                 }
+                DcAfterUpdate(this, woke);
             }
             public void UpdateOrig() { }
         }

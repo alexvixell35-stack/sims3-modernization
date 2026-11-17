@@ -53,6 +53,7 @@ namespace Ts3Fixes
             {
                 Sim me = (Sim)(object)this;
                 if (RfCannotSync(me, targetSim, desiredSynchLevel)) { SwLogEndedEarly(me, targetSim, desiredSynchLevel); return false; }
+                if (NbpCannotStart(me, targetSim, desiredSynchLevel)) return false;  // npcbusypartner (NpcBusyPartner.cs, docs/577 §4)
                 SwStat st = SwBegin(me, targetSim, desiredSynchLevel);  // null unless synctime is on (test)
                 if (st == null) return WaitOrig(targetSim, desiredSynchLevel, exitReasonInterrupt, giveupTime, loopCallback, notifySimMinutes, performSocializeWithTest);
                 bool r = false;

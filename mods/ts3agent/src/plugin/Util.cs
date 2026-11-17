@@ -15,6 +15,16 @@ namespace Ts3Agent
     {
         public static Dictionary<string, object> Obj() { return new Dictionary<string, object>(); }
 
+        // ts3fixes caches its ShortcutOn answers per switch-table generation (docs/605 §2): every write to
+        // "ts3fixes.switches" (and every reflect_set, which may change a tuning field) bumps "ts3fixes.switchgen".
+        public static void SwitchesChanged()
+        {
+            AppDomain d = AppDomain.CurrentDomain;
+            int[] g = d.GetData("ts3fixes.switchgen") as int[];
+            if (g == null || g.Length < 1) { g = new int[1]; d.SetData("ts3fixes.switchgen", g); }
+            unchecked { g[0]++; }
+        }
+
         public static string Id(ulong v) { return v.ToString(CultureInfo.InvariantCulture); }
 
         public static string Id(ObjectGuid g) { return g.Value.ToString(CultureInfo.InvariantCulture); }

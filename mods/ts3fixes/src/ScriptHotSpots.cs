@@ -255,7 +255,11 @@ namespace Ts3Fixes
         {
             public LotDetailPriority CalcHook()
             {
-                if (!sDetailPrioReady || Paused() || !ShortcutOn("detailprio")) { sDetailStamp.Reset(); return CalcOrig(); }
+                if (!sDetailPrioReady || !ShortcutOn("detailprio") || Paused())
+                {
+                    sDetailStamp.Reset();
+                    return ShortcutOn("detailprioexact") ? DpExactAnswer((Lot)(object)this) : CalcOrig();
+                }
                 Lot lot = (Lot)(object)this;
                 Household hh = Household.ActiveHousehold;
                 if (hh == null) return LotDetailPriority.None;
@@ -277,6 +281,17 @@ namespace Ts3Fixes
                     return g;
                 }
                 return p;
+            }
+
+            // detailprioexact: EA's answer without its two lists; a member list EA would throw on goes to EA's own body.
+            LotDetailPriority DpExactAnswer(Lot lot)
+            {
+                int r;
+                try { r = DpExact(lot); }
+                catch (Exception) { PatchCounters()[2796]++; r = -1; }
+                if (r < 0) { PatchCounters()[2794]++; return CalcOrig(); }
+                PatchCounters()[2793]++;
+                return (LotDetailPriority)r;
             }
             public LotDetailPriority CalcOrig() { return LotDetailPriority.None; } // receives Lot.CalculateDetailPriority's original header
         }

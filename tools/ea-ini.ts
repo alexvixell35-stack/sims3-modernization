@@ -47,6 +47,8 @@ export const KEY_ADDRS: Record<string, number[]> = {
     "ResourceCache.TrimEveryMin": [0x00FFE2F0],
     "EaCrashFixes.HeightsInfLoop": [0x0064CEBA, 0x0064CEC0, 0x0064CF55, 0x0064D275],
     "EaCrashFixes.BridgeHeightNaN": [0x00B745A0, 0x00C6133B, 0x00C61342, 0x00C6137B, 0x00C6A46B, 0x00C6A472, 0x00C6A4B3, 0x00C6A709, 0x00C6A710, 0x00C6A772],
+    "EaCrashFixes.LotLevelPastEnd": [0x00AB70B0, 0x010652D4],
+    "EaCrashFixes.FglStaleObject": [0x00B11A95, 0x00B11A9C, 0x00B11ABF],
 };
 const keyed = new Set(Object.values(KEY_ADDRS).flat());
 const unresolvedRows = (addrHdr: string) => [...addrHdr.matchAll(/^\/\/ unresolved: (\S+) \S+ (?:native\/ts3native\/)?([\w-]+\.(?:cpp|h))/gm)];

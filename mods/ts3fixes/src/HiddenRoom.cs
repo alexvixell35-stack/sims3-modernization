@@ -65,6 +65,17 @@ namespace Ts3Fixes
         // allowed-room cache. Null when a portal threw (unknown: callers do not act on it). Read-only.
         internal static bool? HrReachesOutside(Lot lot, int room, Sim sim, out int rooms)
         {
+            return HrWalkOut(lot, room, delegate (IPortalConnectionObject p, int from, int to) { return p.IsAllowedThrough(from, to, sim) == PortalRestriction.None; }, out rooms);
+        }
+
+        // Is a portal open from one room to the next? (HrWalkOut's rule: one Sim's IsAllowedThrough, or residentspawnwalk's
+        // resident rules, ResidentSpawnSlot.cs)
+        internal delegate bool HrPortalOpen(IPortalConnectionObject p, int from, int to);
+
+        // The room walk: breadth-first over the lot's portals from `room` through every open one; true when it reaches an
+        // outside room, false when it cannot, null on a throw.
+        internal static bool? HrWalkOut(Lot lot, int room, HrPortalOpen open, out int rooms)
+        {
             rooms = 0;
             if (LotManager.RoomIdIsOutside(room)) return true;
             Dictionary<int, bool> seen = new Dictionary<int, bool>();
@@ -83,7 +94,7 @@ namespace Ts3Fixes
                         foreach (int r in to)
                         {
                             if (r == 36863 || r == from || seen.ContainsKey(r)) continue;  // 36863: no room on that side
-                            if (p.IsAllowedThrough(from, r, sim) != PortalRestriction.None) continue;
+                            if (!open(p, from, r)) continue;
                             if (LotManager.RoomIdIsOutside(r)) return true;
                             seen[r] = true;
                             queue.Enqueue(r);

@@ -36,7 +36,12 @@ namespace Ts3Fixes
             {
                 bool was = sInRoutableCheck;  // docs/202: unseenfbplan never marks these plans (a cut "false" sends the game to its safe-location logic)
                 sInRoutableCheck = true;
-                try { return RoutableCheck(lot, pos); }
+                try
+                {
+                    Sim sim = (Sim)(object)this;
+                    if (RsOwnPlan(sim)) return RsAdjust(sim, RoutableOrig(lot, pos), lot, pos);  // residentspawnslot (docs/582 B5 §8)
+                    return RsAdjust(sim, RoutableCheck(lot, pos), lot, pos);
+                }
                 finally { sInRoutableCheck = was; }
             }
             bool RoutableCheck(Lot lot, Vector3 pos)

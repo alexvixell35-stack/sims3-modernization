@@ -76,6 +76,7 @@ namespace Ts3Fixes
         static readonly FieldInfo sBoatPrevCarried = typeof(BoatOwnable).GetField("mPreviousCarriedPassengers", kDrAll);
         static readonly FieldInfo sShoeThrown = typeof(HorseshoeCourt).GetField("mPlayersWhoHaveThrown", kDrAll);
         static readonly FieldInfo sShoeScores = typeof(HorseshoeCourt).GetField("mScores", kDrAll);
+        delegate void DrCancelAgingFn(AgingState state);
         static readonly MethodInfo sCancelAging = typeof(AgingManager).GetMethod("CancelAgingAlarmsForSim", kDrAll, null, new Type[] { typeof(AgingState) }, null);
         static readonly Dictionary<SimDescription, Relationship> sNoRelationships = new Dictionary<SimDescription, Relationship>();
 
@@ -366,7 +367,8 @@ namespace Ts3Fixes
             {
                 IList states = sAgingStates.GetValue(AgingManager.Singleton) as IList;
                 if (states == null || !states.Contains(s)) return;
-                if (sCancelAging != null) sCancelAging.Invoke(AgingManager.Singleton, new object[] { s });
+                // a delegate, not MethodInfo.Invoke: agingalarmcancel swaps CancelAgingAlarmsForSim (tools/selftest/swapinvoke)
+                if (sCancelAging != null) ((DrCancelAgingFn)Delegate.CreateDelegate(typeof(DrCancelAgingFn), AgingManager.Singleton, sCancelAging))(s);
                 states.Remove(s);
             }
             PatchCounters()[397]++;

@@ -2701,7 +2701,13 @@ struct Ts3nCounters {
     LONG rrcSampled;                       // +0x5C48, new compositors sampled for their event lists
     LONG rrcRegistry;                      // +0x5C4C, entries in the CAS compositor service's registry at the last line
     LONG rrcHookNs;                        // +0x5C50, our measured work per hooked call, ns (rounded)
-    LONG resv5C54[6];                      // +0x5C54, free
+    LONG resv5C54[1];                      // +0x5C54, free
+    // v922 [RouteAsync] CutOnWait (plandeadline.cpp, docs/850): 5 of the 6 free words at +0x5C54, the version field stays 912
+    volatile LONG cowMode;                 // +0x5C58, --ab cutonwait: 1 = a sim-thread wait on a running townie job (unseen, seen NPC) moves its deadline to its start + the scope's minimum run
+    volatile LONG cowAsks;                 // +0x5C5C, jobs a wait asked to end (one per job)
+    volatile LONG cowCut;                  // +0x5C60, of them, jobs that ended cut (capped)
+    LONG cowLateMaxUs;                     // +0x5C64, longest time from an ask to the end of the sim's wait, us
+    volatile LONG cowNpcCut;               // +0x5C68, of cowCut, seen-NPC jobs (scope 3)
     LONG jitDirect;                        // +0x5C6C, v909 [MonoJit] Direct (docs/537): 0 off, 1 leaf lazy bodies, 2 chains and guarded callvirt
     LONG jitLazyBodies;                    // +0x5C70, methods with a lazy body
     LONG jitLazySites;                     // +0x5C74, lazy call sites compiled
@@ -3402,6 +3408,19 @@ static __declspec(thread) float t_kdCamP[KD_CAM_PTS][2];
 static bool KdCamHold(LONGLONG now, LONGLONG* dl);
 static void KdCamPlanArgs(const int* starts, const int* goals);
 static void KdCamJobArm();
+// [RouteAsync] CutOnWait (docs/850; plandeadline.cpp CowJobBegin / CowAsk): the sim thread, about to wait for this worker job
+// (or for +0x918 while it runs), asked to end it: g_cowReq = the job's seq. From then on the worker's own deadline checks
+// use the job's start + its scope's minimum run (t_cowDl) when that is earlier than the job's deadline. Only the worker writes
+// its deadlines; the sim writes one LONG keyed by the seq, so an ask that lands after the job ended reaches no later job.
+static __declspec(thread) LONG t_cowSeq;     // worker: the running job's seq while a wait may end it, else 0
+static __declspec(thread) LONGLONG t_cowDl;  // worker: QPC of the earliest end an ask gives this job
+static volatile LONG g_cowReq;               // sim: the seq of the job it asked to end
+static __forceinline bool CowAsked() { return t_cowSeq && g_cowReq == t_cowSeq; }
+static __forceinline void PdCowApply(LONGLONG* dl) {  // t_kdCam 2: held in view at its first cut, runs to its ceiling
+    if (!CowAsked() || t_kdCam == 2) return;
+    if (t_fbDeadline > t_cowDl) t_fbDeadline = t_cowDl;
+    if (*dl > t_cowDl) *dl = t_cowDl;
+}
 static const float kWall = 1e9f;  // >= the planner's 1e8 blocked-edge constant at 0x00FEF678
 
 static void BudgetCap(Budget& b) {
@@ -3424,6 +3443,7 @@ static int __cdecl BudgetStep(DWORD costArg5) {
     if (b.dl && (b.calls++ & 3) == 0) {
         LARGE_INTEGER n;
         QueryPerformanceCounter(&n);
+        PdCowApply(&b.dl);  // [RouteAsync] CutOnWait
         if (n.QuadPart >= b.dl && !KdCamHold(n.QuadPart, &b.dl)) {
             BudgetCap(b);
             return costArg5 == 1;
@@ -3795,6 +3815,12 @@ static u8* CallIc(int kind, u8* out, DWORD handle, const float* pt) {
     return CallIcRaw(kind, out, handle, pt);
 }
 enum { SW_RUNPLAN, SW_RTWAIT, SW_DISC, SW_COLLECT, SW_DROP, SW_OTHER, SW_N };  // docs/183: sim job wait sites (swN etc.)
+// [RouteAsync] CutOnWait (plandeadline.cpp): one sim-thread wait's ask. SW_LOCK = the +0x918 pump (not a job-wait site: no sw counters)
+enum { SW_LOCK = SW_N };
+struct CowWait { LONG seq, scope; LONGLONG at, jobT0; DWORD handle; int site; };
+static void CowAsk(int site, CowWait* w);
+static void CowDone(CowWait* w);
+static bool CowPoll();
 static void WaitAsyncDone(int site = SW_OTHER);
 // P5c (p5c.cpp, [RouteSnap] FreeLock=1, docs/94 §22.11): the sim may own the job's +0x918 inside a window; it never waits for
 // the job holding it (P5cHandBegin / P5cHandEnd around a wait, P5cPlanHere in RunPlan, P5cNrEnter at the D2 entries)
@@ -4220,6 +4246,9 @@ static void KdScopeSet(DWORD handle, LONG scope, LONG ia = 0);
 static void RfJobNote(const AsyncJob* j, bool capped, LONG us, const JobSplit& s, LONG capUs, int cutMask);
 static void KdStuckMark(DWORD handle);
 static LONG ScProbeUs();              // the stuck-check probe's deadline: KindDeadlines' probe kind, else PlanDeadlineMs
+static void CowJobBegin(const AsyncJob* j, LONGLONG t0);  // plandeadline.cpp ([RouteAsync] CutOnWait)
+static void CowJobEnd(bool capped);
+static void ReadCutOnWait(const wchar_t* ini);
 
 // Worker side: runs every queued job, oldest first. Each job: the whole original route IC of its kind (IC_Route_Plan, or
 // with A10 Replan / PlanFromPoint / ReplanFromPosition: start points, Route_PlanCommon, Route_PlanLocked, result mapping)
@@ -4332,6 +4361,7 @@ static void ServeAsync() {
         // deadline; PdSkip reads fbjdMode per call (runtime switch)
         if (t_fbDeadline && ((k.fbjdReady & 3) || ((t_scProbe || kdUs > 0 || t_ufJob || t_ucJob) && (k.pdReady & 6))))
             InterlockedExchange((volatile LONG*)&g_pdWkTid, (LONG)GetCurrentThreadId());
+        CowJobBegin(j, t0.QuadPart);  // [RouteAsync] CutOnWait: may a sim wait end this job early (townie scopes only)?
         RjpJobBegin(j->fb ? 2 : j->kind ? 1 : 0);  // [RouteJobPhases] (routephases.cpp): own START, own A10, foreign
         t_hcJob = ++g_hcJobSeq;                     // hostcalls.cpp: door keys and the memo are per job
         t_hcScope = j->uf ? 2 : j->kdScope;         // hostcalls.cpp: DoorMemoX answers only unseen / seen-NPC jobs
@@ -4366,6 +4396,7 @@ static void ServeAsync() {
         P4LiveEnd(j);
         SetX87(cw);
         _mm_setcsr(csr);
+        CowJobEnd(capped);  // before the release: a waiting sim reads whether the asked job ended cut
         LockReleaseHook(j->lock, NULL);
         MwJobEnd(j->seq);
         P6wJobEnd(j->seq, us);
@@ -4835,17 +4866,24 @@ static void WaitAsyncDone(int site) {
     const DWORD handle = g_async.handle;
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
-    for (DWORD s = 0; g_async.state == A_RUNNING;) {
+    CowWait cow = {};
+    for (DWORD s = 0, next = GetTickCount() + 2000; g_async.state == A_RUNNING;) {
+        CowAsk(site, &cow);  // [RouteAsync] CutOnWait
         HANDLE h[2] = {g_asyncDone, g_invReady};
-        const DWORD w = WaitForMultipleObjects(2, h, FALSE, 2000);
+        // CutOnWait: the worker says whether a job may be asked a moment after A_RUNNING; until then look again every 5 ms
+        const DWORD tmo = CowPoll() ? 5 : 2000;
+        const DWORD w = WaitForMultipleObjects(2, h, FALSE, tmo);
         if (w == WAIT_OBJECT_0 + 1) ServeInvoke(HC_ASYNCDONE);
-        else if (w == WAIT_TIMEOUT) {
+        // the 2 s watchdog line also comes while the 5 ms polls run (a job that stays undecided must not hide a stuck wait)
+        else if (w == WAIT_TIMEOUT && (tmo == 2000 || (LONG)(GetTickCount() - next) >= 0)) {
+            next = GetTickCount() + 2000;
             s += 2;
             InterlockedIncrement(&ts3native_counters.watchdogs);
             Log("route async: thread %lu waited %lu s for the job of route %08lX, still waiting", GetCurrentThreadId(), s, g_async.handle);
         }
     }
     P5cHandEnd(hand);
+    CowDone(&cow);
     if (waits) SwNote(site, UsSince(t0), yieldable, handle, own);
 }
 
@@ -5703,7 +5741,9 @@ static LONG LockAcquireAsync(void* lock, void* edx, const DWORD* deadline, DWORD
     DWORD lwHandle = 0;  // docs/264 §4.2: the last job seen running during this wait, and its fields
     char lwJob[160] = "";
     DWORD ownHandle = 0;
+    CowWait cow = {};
     for (DWORD start = GetTickCount(), next = 2000;;) {
+        if (hold) CowAsk(SW_LOCK, &cow);  // [RouteAsync] CutOnWait: a +0x918 wait behind a townie's job asks too (CutOnWaitLock)
         fb = fb || (g_async.state == A_RUNNING && g_jobFb);
         if (hold && g_async.state == A_RUNNING && g_async.handle != lwHandle) lwHandle = g_async.handle, RunJobText(lwJob, sizeof(lwJob));  // docs/264 §4.2
         if (!own && g_async.state == A_RUNNING && g_jobOwn) own = true, ownHandle = g_async.handle;
@@ -5735,6 +5775,7 @@ static LONG LockAcquireAsync(void* lock, void* edx, const DWORD* deadline, DWORD
         }
     }
     if (hold) RgOffSimDrop();
+    CowDone(&cow);
     const LONG waited = UsSince(t0);
     if (hold && waited >= 1000000) {  // docs/264 §4.2 (issue #338): the busy line starts at 2 s; every wait >= 1 s gets one line, 20 a minute
         static DWORD lwMinute, lwLines;
@@ -5925,6 +5966,8 @@ static void SlimWait();
 #include "mintcall.cpp"  // docs/139 §8 [MonoFast] CallPath (before autshadow.cpp: Satb chains over its callvirt entry)
 #define MF_CTR ts3native_counters
 #include "mintfuse.cpp"  // docs/139 §4 [MintFuse] Sub
+static_assert(offsetof(Ts3nCounters, cowMode) == 0x5C58 && offsetof(Ts3nCounters, cowNpcCut) == 0x5C68 && offsetof(Ts3nCounters, jitDirect) == 0x5C6C,
+              "v922 [RouteAsync] CutOnWait layout (5 of the 6 free words at +0x5C54)");
 static_assert(offsetof(Ts3nCounters, mfReady) == 0x5C98 && offsetof(Ts3nCounters, mfInner) == 0x5CA4, "v164 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, mcSwitch) == 0x54E0 && offsetof(Ts3nCounters, mcSpare) == 0x5514, "v143 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, mdOn) == 0x5520 && offsetof(Ts3nCounters, mdSpare) == 0x552C, "v144 layout (docs/registry.md)");
@@ -6148,10 +6191,10 @@ static bool ApplyD3dMultithreaded(const wchar_t* ini) {
 
 #include "launcherfix.cpp"  // docs/255: [LauncherFix] EA launcher telemetry busy-wait (launcher host only)
 static bool g_otherHost;  // not TS3W.exe (the launcher also loads the ASI loader): no exit work at DLL_PROCESS_DETACH
-// docs/230: the build this asi's addresses belong to (PE timestamp + SizeOfImage), the same pair on Steam and EA
+// docs/230: the build this asi's addresses belong to (PE timestamp + SizeOfImage, appended sections allowed: Ts3HostImageOk)
 static bool HostBuildOk(const void* base) {
     const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)((const u8*)base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
-    return nt->FileHeader.TimeDateStamp == (DWORD)TS3A_HOST_PE && nt->OptionalHeader.SizeOfImage == (DWORD)TS3A_HOST_SIZE;
+    return Ts3HostImageOk(nt);
 }
 
 static void Run(HMODULE self) {
@@ -6319,6 +6362,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyLotGridMiss(ini) || keepLog;  // docs/67 §31.8
         keepLog = ApplyHeightsInfLoop(ini) || keepLog;  // docs/67 §36: off by default
         keepLog = ApplyBridgeHeightNaN(ini) || keepLog;  // docs/67 §37: off by default
+        keepLog = ApplyFglStaleObject(ini) || keepLog;  // docs/67 §41: off by default
         keepLog = ApplyProbeValues(ini) || keepLog;  // after every behaviour section: it counts inside their stubs or skips
         keepLog = ApplyRouteSnap(ini) || keepLog;  // after [ProbeValues]: counts inside its, [SteerRO]'s and [RouteGate]'s stubs
         InstallLotRemoveGuard(ini);                 // after [RouteSnap]: its stub at 0x635700 runs the same guard

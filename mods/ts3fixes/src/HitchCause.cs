@@ -19,8 +19,8 @@ namespace Ts3Fixes
     // has none of these swaps. Runtime switches, all off: alarmtime, boatreplanlog, owresettime.
     //
     // alarmtime: which alarm or lot update made a long Lot.Simulate pass. AlarmManager.Simulate reaches a yield (an inline alarm
-    // may sleep, docs/141), so it is not swapped: its leaf AlarmManager.Timer.get_YieldRequired, which it reads once just before
-    // each callback, stamps the alarm, and the next stamp closes the one before. Not PriorityQueue.RemoveAt: bp-hitch-cause timed 0, it is
+    // may sleep, docs/141), so it is not swapped: its leaf AlarmManager.Timer.get_YieldRequired (swapped by GameSpeed78.cs AzTimerHook,
+    // shared with alarmzeroperiod), which it reads once just before each callback, stamps the alarm, and the next stamp closes the one before. Not PriorityQueue.RemoveAt: bp-hitch-cause timed 0, it is
     // an EA binder body (docs/130 D17, docs/220), and the void hook did not match its object return (a header swap hands callers the hook's signature).
     // AlarmWillYield-marked alarms run in an AlarmOneShot task: only their dispatch is timed here. The rest of the pass is stamped by the
     // leaves Lot.UpdateDoorPrivacy and Lot.UpdateDetailPriority (neither yields, swap-stack-audit). After them come the display
@@ -62,7 +62,8 @@ namespace Ts3Fixes
             sHcCallBack = sHcTimer != null ? sHcTimer.GetField("CallBack") : null;
             sHcDue = sHcTimer != null ? sHcTimer.GetField("AlarmDateAndTime") : null;
             // each on its own: one refused target must not take the others with it, Patch logs which one
-            bool ok = sHcCallBack != null && sHcDue != null && Patch(sHcTimer, "get_YieldRequired", Type.EmptyTypes, typeof(HcTimerHook), "YieldHook", "YieldOrig");
+            // Timer.get_YieldRequired is swapped by GameSpeed78.cs (AzTimerHook, alarmzeroperiod), which calls HcAlarmDue when alarmtime is on
+            bool ok = sHcCallBack != null && sHcDue != null;
             ok &= Patch(typeof(Lot), "UpdateDoorPrivacy", Type.EmptyTypes, typeof(HcLotHook), "DoorHook", "DoorOrig");
             ok &= Patch(typeof(Lot), "UpdateDetailPriority", Type.EmptyTypes, typeof(HcLotHook), "DetailHook", "DetailOrig");
             // here, before the first world load compiles it
@@ -210,17 +211,6 @@ namespace Ts3Fixes
             }
             catch (Exception) { }
             return SrcNowUs();
-        }
-
-        // same signature as the target: a header swap hands callers the hook's
-        public class HcTimerHook
-        {
-            public bool YieldHook()
-            {
-                if (ShortcutOn("alarmtime")) HcAlarmDue(this);
-                return YieldOrig();
-            }
-            public bool YieldOrig() { return false; } // receives Timer.get_YieldRequired's original header
         }
 
         public class HcLotHook

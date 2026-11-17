@@ -105,3 +105,13 @@ No new bug was confirmed, so no new switch.
 - Script to native hand-off: every script test of a plan result uses `Succeeded()` or compares to
   `Succeeded` / `FailedBecauseDestinationPortalLocked`. None treats a failure code as success.
 - InferSharp on Sims3GameplaySystems: not run (TS3W.exe running).
+
+## 7. `spotcheck`: a teleport whose landing spot is in view walks (2026-11-16, built, default off)
+
+Answer: the GoHome and lot-trip teleport shortcuts judge the destination lot as out of view, but not the exact spot `SafeSpot` picks on it. With `spotcheck` on (tuning `kSpotCheck`, off by default), a spot that is in view makes the Sim walk (GoHome) or take EA's own trip (lot trips) instead.
+
+- Cause [verified: seencheck log lines, Twinbrook games cb1 and tbp1]: `Unseen(Actor, Target)` and `TripGate` judge the lot's centre or position. `SafeSpot` returns a random outdoor point anywhere on the lot, up to about 45 m from the centre on a 64 m lot. Before the fix, 4-5 teleports per game landed 65-90 m from the household or the camera, inside the view.
+- Fix: after `SafeSpot` answers, `UfGoalUnseen(pos)` (the point, Sim-sized, and its lot not in view) must also hold. Otherwise GoHome runs EA's walk and the lot trip returns false.
+- Scope: both sites are behind the existing gates (`Unseen` for GoHome, `TownieUnseen` for the lot trips), which exclude household, selected and unknown-scope Sims. The switch only turns a teleport into EA's own walk or trip; it adds no teleport. Off: no extra call.
+- Counters: [2702] GoHome spots in view, walked; [2703] lot-trip spots in view, game's own trip.
+- Evidence [verified: ts3native.log, natural-play games, not in-load A/Bs; other switches on]: about 150-165 teleports per Twinbrook game turned into walks (counters 72-93 GoHome and 69-76 lot trips per Twinbrook game, 1-5 in Bridgeport). The seencheck counters (a teleport whose start or destination was in view when re-judged) are 0 in every dumped game since, against 4-5 per game before. Correctness, not speed: more walks can cost route plans, and no timing claim is made.
