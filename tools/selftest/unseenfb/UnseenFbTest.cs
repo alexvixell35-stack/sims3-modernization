@@ -30,6 +30,54 @@ static class UnseenFbTest
         }
         Check(UnseenFallbackCore.Cell(-0.5f) == -1 && UnseenFallbackCore.Cell(3.99f) == 3, "cell floor");
 
+        // docs/267 F1 teleport goal: tomb/hidden first, outdoor ground passes, indoors needs an open lot and a way out
+        Check(UfPreCore.TpGoal(true, true, true, false, true) == UfPreCore.kTpTombOrHidden, "tp: tomb or hidden room refuses before anything");
+        Check(UfPreCore.TpGoal(false, true, false, true, null) == UfPreCore.kTpOk, "tp: outdoor ground passes on any lot");
+        Check(UfPreCore.TpGoal(false, false, false, false, true) == UfPreCore.kTpLotClosed, "tp: indoors on a closed lot refuses");
+        Check(UfPreCore.TpGoal(false, false, true, true, true) == UfPreCore.kTpRaised, "tp: raised outdoor (deck, roof) refuses");
+        Check(UfPreCore.TpGoal(false, false, true, false, true) == UfPreCore.kTpOk, "tp: indoor room with a way out passes");
+        Check(UfPreCore.TpGoal(false, false, true, false, false) == UfPreCore.kTpNoWayOut, "tp: sealed or locked room refuses");
+        Check(UfPreCore.TpGoal(false, false, true, false, null) == UfPreCore.kTpNoWayOut, "tp: unknown flood refuses");
+        for (int m = 0; m < 48; m++)
+        {
+            bool th = (m & 1) != 0, og = (m & 2) != 0, ol = (m & 4) != 0, ro = (m & 8) != 0;
+            bool? re = (m >> 4) == 0 ? (bool?)null : (m >> 4) == 1 ? (bool?)false : true;
+            bool ok = !th && (og || (ol && !ro && re == true));
+            Check((UfPreCore.TpGoal(th, og, ol, ro, re) == UfPreCore.kTpOk) == ok, "tp: rule mask " + m);
+        }
+
+        // docs/584 §7 tpdoorrights: real door-lock cases (CommonDoor.tLock, EA's one-way sentinel 0x8FFF)
+        const int NW = UfPreCore.kNoOneWayRoom;
+        Check(UfPreCore.TpDoorUpstreamCloses(UfPreCore.kLockAnybody, false, NW), "door: upstream closes an unlocked door (reads the no-one-way sentinel as one-way)");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, false, NW, true, false, false) == UfPreCore.kTpDoorFree, "door: unlocked ordinary door is free");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, false, 7, true, true, true) == UfPreCore.kTpDoorClosed, "door: real one-way room closes, even at home");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedHousehold, false, NW, true, true, true) == UfPreCore.kTpDoorOwn, "door: front door locked to the family passes its resident");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedHousehold, false, NW, false, false, false) == UfPreCore.kTpDoorClosed, "door: front door locked to the family closes for a visitor");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedActor, false, NW, false, true, true) == UfPreCore.kTpDoorHome, "door: sibling's locked bedroom passes on household access at home");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedActor, false, NW, false, false, true) == UfPreCore.kTpDoorClosed, "door: household access counts only on the home lot");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedActor, false, NW, false, true, false) == UfPreCore.kTpDoorClosed, "door: a lock owned outside the household closes");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockOwnerList, false, NW, true, false, false) == UfPreCore.kTpDoorOwn, "door: owner-list door passes a listed Sim");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockNobody, false, NW, true, true, true) == UfPreCore.kTpDoorClosed, "door: locked for everyone closes, residents too");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockPets, false, NW, true, false, false) == UfPreCore.kTpDoorOwn, "door: no-pets door passes a human");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockPets, false, NW, false, true, true) == UfPreCore.kTpDoorClosed, "door: no-pets door closes for a pet, even at home");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockVipRoom, false, NW, false, true, true) == UfPreCore.kTpDoorClosed, "door: VIP room closes without the Sim's own right");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, true, NW, true, false, false) == UfPreCore.kTpDoorOwn, "door: single-gender door passes a Sim of that gender");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, true, NW, false, true, true) == UfPreCore.kTpDoorClosed, "door: single-gender door closes for the other gender, even at home");
+        // the same sentinel in UfPreLot / UfLotLocked (UfDoorOneWay): off keeps upstream's "!= 0", on uses EA's 0x8FFF
+        Check(UfPreCore.OneWay(NW, false) && UfPreCore.OneWay(12, false) && !UfPreCore.OneWay(0, false), "oneway: upstream reads every ordinary door (0x8FFF) as one-way");
+        Check(!UfPreCore.OneWay(NW, true) && UfPreCore.OneWay(12, true) && UfPreCore.OneWay(0, true), "oneway: EA's sentinel: only a real destination room is one-way");
+        Check(!UfPreCore.TpDoorUpstreamCloses(UfPreCore.kLockAnybody, false, 0) && UfPreCore.TpDoorUpstreamCloses(UfPreCore.kLockAnybody, false, NW), "oneway: upstream lot test closes on the sentinel");
+        for (int lk = 0; lk <= 6; lk++)
+            for (int m = 0; m < 32; m++)
+            {
+                bool g = (m & 1) != 0, own = (m & 2) != 0, home = (m & 4) != 0, hh = (m & 8) != 0; int ow = (m & 16) != 0 ? 3 : NW;
+                int v = UfPreCore.TpDoor(lk, g, ow, own, home, hh);
+                // never laxer than the Sim's own rights except on its home lot through a household-owned lock; never opens "nobody" or one-way
+                bool ok = v == UfPreCore.kTpDoorClosed || (v == UfPreCore.kTpDoorFree && lk == UfPreCore.kLockAnybody && !g) || (v == UfPreCore.kTpDoorOwn && own)
+                    || (v == UfPreCore.kTpDoorHome && home && hh && !own);
+                Check(ok && ((lk != UfPreCore.kLockNobody && ow == NW) || v == UfPreCore.kTpDoorClosed), "door: rule mask " + lk + "/" + m);
+            }
+
         // limiter
         UfLimiter u = new UfLimiter();
         object r;
@@ -219,7 +267,8 @@ static class UnseenFbTest
         Check(UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kActiveLot) && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kOnScreen) && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kNearViewers)
             && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kHeld) && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kSocialSeen), "seen NPC ceiling: the five proving reasons");
         Check(!UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kHousehold) && !UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kNotLive) && !UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kGone)
-            && !UnseenFallbackCore.SeenNpc(-1) && !UnseenFallbackCore.SeenNpc(0) && !UnseenFallbackCore.SeenNpc(10), "household, not live, gone, failed check, unseen, unknown values: never the NPC ceiling");
+            && !UnseenFallbackCore.SeenNpc(-1) && !UnseenFallbackCore.SeenNpc(0) && !UnseenFallbackCore.SeenNpc(11), "household, not live, gone, failed check, unseen, unknown values: never the NPC ceiling");
+        Check(UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kBirth) && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kBirth) == 13 && !UnseenFallbackCore.SeenButMovable(UnseenFallbackCore.kBirth), "birth route (docs/558): seen NPC scope, never cut, never a D-leave");
         Check(UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kSeen) == 11 && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kHeld) == 13 && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kGoalHousehold) == 13
             && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kHousehold) == 10 && UnseenFallbackCore.KdScopeOp(-1) == 10 && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kGone) == 10, "scope op: unseen 11, seen NPC 13, household and unknown 10");
         Check(UnseenFallbackCore.KdHeldUnseen(true, false, false) && !UnseenFallbackCore.KdHeldUnseen(false, false, false)

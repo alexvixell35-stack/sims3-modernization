@@ -1,0 +1,68 @@
+{
+ "note": "master-smoke-1115-mm: copy of master-smoke-1115.json, repinned to master-mono-1115 (0.36.264-mono1). master-merge-1115 smoke: repinned 2026-11-15 to the master-merge-1115 set (builds.json, master 5d5a581f, 0.36.261-lanes1: asi + ini + ts3fixes from one build; agent game-copy/ts3agent.package.master-merge-1115 installed to build/ by chain-reruns-1115.sh). One 5 min BP job, correctness only. Pass = no crash, no hang, version, LostRemovalFix, GhostSweep=2, removal first mode 1 read back.",
+ "jobs": [
+  {
+   "id": "bp-master-mono-1115-smoke",
+   "note": "[natural play, no cheats] master-mono-1115 (0.36.264-mono1) smoke, Baseline-BP-Spring: version, LostRemovalFix, GhostSweep=2 and RemovalFirst=1 read back in the log.",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.master-merge-1115, ts3native.ini.master-merge-1115, ts3fixes.package.master-merge-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "stopQueueOnFail": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "logRequire": {
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "removal first: mode 1": 1,
+    "^ts3native 0.36.264-mono1 ": 1
+   },
+   "save": "Baseline-BP-Spring",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 5
+    }
+   },
+   "timeoutMin": 15,
+   "regexCases": {
+    "^ts3native 0.36.264-mono1 ": {
+     "match": [
+      "ts3native 0.36.264-mono1 2026-11-15 09:44:15"
+     ],
+     "noMatch": [
+      "ts3native 0.36.189 2026-11-07 09:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "removal first: mode 1": {
+     "match": [
+      "footprint removal first: mode 1 parked 0 capped 0 max ticks 0"
+     ],
+     "noMatch": [
+      "footprint removal first: mode 0 parked 0 capped 0 max ticks 0"
+     ]
+    }
+   }
+  }
+ ]
+}

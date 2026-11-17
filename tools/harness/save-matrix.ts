@@ -3,6 +3,8 @@
 //   --direct: university / future skip the queued trip interaction (agent `direct: true`; future: out and back); default the real queued trip
 //   --stay: travel case only goes out and stays (no save away, no trip back) and leaves the save fixes as they are; for
 //     profile-world.ts --travel, which runs a repro in the destination world after this exits (docs/117 §2.11)
+//     A vacation trip is then 5 days, not 2: a 2-day trip ended during the 10 min ep-wa-tomb repro at x3 (2026-11-15 fr/cn/eg:
+//     EA's trip-end timer sent the household home to Bridgeport mid-repro and the destination world's Sims, spawn_sims ones too, unloaded)
 //   --trips N: travel case repeats the round trip (out, save away, back, save home) N times (default 1)
 //   --clear-recovery: vacation trip 1 also sends clear_recovery (for callers that run one trip per call after an earlier vacation)
 //   --mem-marks: travel case brackets the trips with [MemDiag] samples (agent mem_mark / mem_gc, docs/191; repro
@@ -917,7 +919,7 @@ const CASES: Case[] = [
     // Default the real queued trip (moving van / portal Travel) after prepTrip; --direct skips the interaction (agent direct: true)
     const uni = values.to === 'university', fut = values.to === 'future', direct = !!values.direct && (uni || fut);
     const trip = uni ? ['travel_university', { days: 2, direct }] as const
-      : fut ? ['travel_future', { prepare: true, direct }] as const : ['travel_vacation', { world: values.to, days: 2 }] as const;
+      : fut ? ['travel_future', { prepare: true, direct }] as const : ['travel_vacation', { world: values.to, days: values.stay ? 5 : 2 }] as const;
     const route = direct ? 'direct (no interaction)' : uni ? 'queued moving van' : fut ? 'queued portal Travel' : 'queued car on the world lot';
     log(`trip route: ${trip[0]} ${route}`);
     checks.push({ name: 'trip route', status: 'info', why: `${trip[0]}: ${route}` });

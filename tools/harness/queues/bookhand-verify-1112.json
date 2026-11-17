@@ -1,0 +1,34 @@
+{
+  "note": "bookhand-verify-1112 (2026-11-12): does ts3fixes bookhand (kBookHand, BookHand.cs, docs/251; default OFF) fix EA's 'left an object in the Sim's hand with no carry state machine' (BookGeneral) on the release pair rc1111d? One ON job, repro book-hand-check (turns bookhand + bookhanddiag on at runtime via its patches step; fixesOn reads them back), Baseline-BP. No OFF control: try 3 (stress, clips stopped in Exit) forces the stuck state, so bookhand_seen>=1 proves it occurred; if seen is 0, add the off arm from book-hand.json (book-hand-check-off). est ~14 min (8 min repro + load/exit). Pass: repro steps pass, bookhand_seen>=1 and bookhand_fixed>=1, scriptErrorsMax 0. node tools/harness/queue.ts tools/harness/queues/bookhand-verify-1112.json --no-publish",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-bookhand-verify-1112",
+      "note": "[est 14 min] Correctness, ON arm on rc1111d: repro book-hand-check. Pass: steps pass (expect on: no probe finds a stuck book), bookhand_seen>=1 and bookhand_fixed>=1 (the fix acted), 0 script errors (none 'no carry state machine').",
+      "asi": "game-copy/ts3native.asi.rc1111d",
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "pinReason": "pair rc1111d (docs/data/builds.json, Sat 11-14 release): asi game-copy/ts3native.asi.rc1111d (0.36.240, f05a9fd6 = rc1111 0.36.239 + [LauncherFix], launcher host only) + ini game-copy/ts3native.ini.rc1111d (9b5222c0 = rc1111 ini a0f698b9 + [LauncherFix] Enabled=1; asi/ini re-pinned 2026-11-11 from rc1111) + ts3fixes game-copy/ts3fixes.package.rc1111c (2187507e, tuning 3bee114e = rc1111 code + boatparkgone ON; re-pinned 2026-11-11 from rc1111 b903aa9d) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 8,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "book-hand-check",
+          "fixesOn": "bookhand,bookhanddiag",
+          "fixesRequire": "bookhand_seen>=1,bookhand_fixed>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "logRequire": {
+        "^ts3native 0.36.240 ": 1
+      }
+    }
+  ]
+}

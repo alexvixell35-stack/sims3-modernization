@@ -36,6 +36,7 @@ namespace Ts3Agent
             Dispatcher.Register("mem_gc", MemGc);                // MemHandlers.cs (docs/191 module 2)
             Dispatcher.Register("catalog_loop", CatalogLoop);
             Dispatcher.Register("buy_sell_loop", BuySellLoop);
+            Dispatcher.Register("place_cancel_loop", PlaceCancelLoop);  // MemHandlers.cs (docs/192 #1)
             Dispatcher.Register("bb_cc_cycle", BbCcCycle);       // MemStressHandlers.cs (docs/200)
             Dispatcher.Register("et_lot_cycle", EtLotCycle);
             Dispatcher.Register("build_cc_cycle", BuildCcCycle);  // BuildCcHandlers.cs (docs/200 §6)
@@ -155,6 +156,7 @@ namespace Ts3Agent
             foreach (Sim s in SpawnedInWorld())
             {
                 Vector3 p = s.Position;
+                if (p.x == 0f && p.y == 0f && p.z == 0f) continue;  // exactly (0,0,0): unplaced or resetting Sim, no world position (release-verify-1113g false positive)
                 if ((p - cam).Length() < 100f || (p - tgt).Length() < 100f || World.IsObjectOnScreen(s)) continue;  // seen: not this check's case
                 object parent = s.Parent;
                 Sim horse = parent as Sim;
@@ -584,7 +586,28 @@ namespace Ts3Agent
                 Lot home = Household.ActiveHouseholdLot;
                 return home != null ? home.GetCenterPosition() : pos;
             }
-            throw new McpException("to must be pond, ocean, far, far2, island or home");
+            if (to == "sealed") return SealedPoint(s);
+            throw new McpException("to must be pond, ocean, far, far2, island, home or sealed");
+        }
+
+        // "sealed" (docs/264 §3, issue #338 forcing repro): a spot nobody can reach, so a plan to it floods the start's whole
+        // area. The first spot failing Sim.IsPointInLotSafelyRoutable (enclosed room, fenced corner; no pool tiles) on the
+        // nearest non-world lot that is not the active household's, as sim_strand samples; found once per lot (UnroutableSpots).
+        // Callers must not pass it through WalkableClick, which would swap it for a reachable spot.
+        static bool IsSealed(Args a) { return a.Has("to") && string.Equals(a.Str("to").Trim(), "sealed", StringComparison.OrdinalIgnoreCase); }
+
+        static Vector3 SealedPoint(Sim s)
+        {
+            List<Lot> lots = new List<Lot>();
+            foreach (Lot l in LotManager.AllLots) if (l != null && !l.IsWorldLot && l != Household.ActiveHouseholdLot) lots.Add(l);
+            Vector3 from = s.Position;
+            lots.Sort(delegate(Lot x, Lot y) { return (x.GetCenterPosition() - from).LengthSqr().CompareTo((y.GetCenterPosition() - from).LengthSqr()); });
+            for (int i = 0; i < lots.Count && i < 8; i++)
+            {
+                List<Vector3> spots = UnroutableSpots(s, lots[i], 60, 1);
+                if (spots.Count > 0) return spots[0];
+            }
+            return Vector3.Invalid;
         }
 
         // "island": the community lot whose straight line from the Sim crosses the most sea (samples every 10 m, at least
@@ -834,6 +857,20 @@ namespace Ts3Agent
             r["sim"] = victim.FullName;
             r["routing"] = routing;
             r["death"] = dt.ToString();
+            // home: true (spawned Sims only): EA's CanBeKilled lets a non-selectable Sim die only on a lot where a
+            // selectable Sim is, so the victim is first stood next to the active Sim.
+            if (a.Bool("home", false) && !a.Has("sim") && !victim.CanBeKilled())
+            {
+                Sim act = Sim.ActiveActor;
+                if (act != null && !act.HasBeenDestroyed && act.LotCurrent != null && !act.LotCurrent.IsWorldLot)
+                {
+                    Vector3 p = act.Position + new Vector3(1.5f, 0f, 1.5f);
+                    victim.SetPosition(p);
+                    victim.InteractionQueue.CancelAllInteractions();
+                    r["moved_home"] = true;
+                }
+            }
+            r["can_be_killed"] = victim.CanBeKilled();
             r["killed"] = victim.Kill(dt);
             return r;
         }

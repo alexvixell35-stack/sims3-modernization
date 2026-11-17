@@ -35,6 +35,10 @@ namespace Ts3Fixes
         // "expired" check must not apply (the opportunity's own timeout listener ends the rest).
         public static bool ExpiryApplies(long exportedTicks) { return exportedTicks != 0; }
 
+        // vaclistenerpad: the import reads ListenerStates[n] once per listener it makes (at most one per tuned event); the
+        // stored array is a fixed 3. Length to pad to, or -1 when the array already covers every event.
+        public static int PadLength(int have, int events) { return events > have ? events : -1; }
+
         public const int kRepairNone = 0, kRepairBringBack = 1, kRepairEnd = 2;
 
         // Load repair for a trip whose parents are away. pickedUp = ParentsAreGettingPickedUp; pickupAlive = an adult still has

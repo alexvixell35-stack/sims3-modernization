@@ -328,9 +328,9 @@ namespace Ts3Fixes
         // One inventory as units, built at its turn: one per item (Overwatch's order, each found again in its stack), then
         // the stack clean-up for the stacks seen at the turn (missing or left empty). An exception leaves the rest of that
         // inventory as it is, as Overwatch does; an owner destroyed while we slept ends it.
-        static List<Job> OwInventoryUnits(Inventory inv, int[] n)
+        static List<SpreadUnit> OwInventoryUnits(Inventory inv, int[] n)
         {
-            List<Job> u = new List<Job>();
+            List<SpreadUnit> u = new List<SpreadUnit>();
             IGameObject owner = inv.Owner;
             if (owner != null && owner.HasBeenDestroyed) return u;
             bool failed = false;

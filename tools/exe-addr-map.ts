@@ -28,7 +28,8 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { scan } from "./hook-sites.ts";
 import { fuzzyMask, fieldDiffs, groupDiffs, groupLine, mapVtables, shiftRuns, type Pe, type FieldDiff } from "./exe-port-diff.ts";
-import { scanText, sourceFiles } from "./addr-codemod.ts";
+import { scanText, sourceFiles, dataRanges, generated } from "./addr-codemod.ts";
+import { decode } from "./x86-len.ts";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CAP = 256;       // max bytes on each side of the address
@@ -114,11 +115,12 @@ function mapSite(r: Pe, o: Pe, s: Site): Row {
 }
 
 // shapes: [before, after] growth; centered first, then one side only (a change right at the site)
-function shapes(r: Pe, o: Pe, rva: number, sec: [number, number], row: Row, m: Uint8Array, mb: number): boolean {
-    for (const [b0, a0] of [[8, 16], [0, 24], [24, 0]]) {
+// span: bytes the window must always cover (an xref's whole instruction); sh: [before, after] start shapes
+function shapes(r: Pe, o: Pe, rva: number, sec: [number, number], row: Row, m: Uint8Array, mb: number, span: [number, number] = [rva, rva], sh: number[][] = [[8, 16], [0, 24], [24, 0]]): boolean {
+    for (const [b0, a0] of sh) {
         let b = b0, a = a0, cands: number[] | null = null, last: number[] = [];
         for (;;) {
-            const lo = Math.max(sec[0], rva - b), hi = Math.min(sec[1], rva + a);
+            const lo = Math.max(sec[0], Math.min(rva - b, span[0])), hi = Math.min(sec[1], Math.max(rva + a, span[1]));
             const c = cands === null ? search(r, o, lo, hi, m, mb) : cands.map((x) => x + (lo - row.lo)).filter((x) => verify(r, o, lo, hi, x, m, mb));
             if (c.length === 0) break;
             cands = c; last = c; row.lo = lo; row.hi = hi;
@@ -185,6 +187,73 @@ export function mapAll(r: Pe, o: Pe, sites: Site[]): { rows: Row[]; refs: RefVot
     return { rows, refs };
 }
 
+// ---- data address resolver: Steam xrefs voted into the other image (docs/68 §7) ----
+type Xref = { ip: number; op: number; kind: "abs" | "rel" };  // RVAs: instruction start, operand dword position
+const XCAP = 64, XDONE = 3;  // xrefs kept per address; stop once one candidate has this many votes and no dissent
+
+// every instruction in the code sections whose disp32/imm32 is one of `want` (or, for code addresses, whose rel32 reaches it)
+export function findXrefs(r: Pe, want: Set<number>): Map<number, Xref[]> {
+    const out = new Map<number, Xref[]>(), add = (a: number, x: Xref) => { const l = out.get(a) ?? []; if (l.length < XCAP) l.push(x); out.set(a, l); };
+    for (const [a, b] of r.exec) for (let p = a; p + 4 <= b; p++) {
+        const v = r.img.readUInt32LE(p);
+        if (want.has(v)) {  // the containing instruction: the closest start whose disp32/imm32 sits exactly at p
+            for (let s = p - 1; s >= Math.max(a, p - 10); s--) {
+                const d = decode(r.img, s, b);
+                if (d && s + d.len >= p + 4 && ((d.dispSize === 4 && s + d.dispOff === p) || (d.immSize === 4 && s + d.immOff === p))) { add(v, { ip: s, op: p, kind: "abs" }); break; }
+            }
+        }
+        const op = r.img[p - 1];
+        if ((op === 0xe8 || op === 0xe9) && p > a) { const t = r.base + p + 4 + r.img.readInt32LE(p); if (want.has(t)) add(t, { ip: p - 1, op: p, kind: "rel" }); }
+    }
+    return out;
+}
+
+// the other image's address for the operand of the instruction at xref `x`, or null; how = window kind
+function xrefVote(r: Pe, o: Pe, x: Xref): { va: number; how: string } | null {
+    const sec = sectionOf(r, x.ip)!, lo = Math.max(sec[0], x.ip - CAP), hi = Math.min(sec[1], x.ip + CAP);
+    const d = decode(r.img, x.ip, sec[1]);
+    if (!d) return null;
+    const span: [number, number] = [x.ip, x.ip + d.len], sh = [[16, 32], [0, 48], [48, 0]];
+    const abs = r.mask.slice(lo, hi);  // plus absolute addresses inside the image (the Steam exe has no .reloc)
+    for (let i = lo; i + 4 <= hi; i++) { const v = r.img.readUInt32LE(i); if (v >= r.base && v < r.base + r.img.length) abs.fill(1, i - lo, i - lo + 4); }
+    const blank = (): Row => ({ ref: 0, new: null, kind: "", count: 0, lo: 0, hi: 0, cands: [], funcOff: "", label: "", where: "" });
+    let row = blank(), how = "";
+    if (shapes(r, o, x.ip, sec, row, abs, lo, span, sh) && row.count === 1) how = row.kind;
+    else {
+        const fz = fuzzyMask(r, lo, hi, x.ip); abs.forEach((v, i) => { if (v) fz[i] = 1; });
+        row = blank();
+        if (shapes(r, o, x.ip, sec, row, fz, lo, span, sh) && row.count === 1) how = "fuzzy";
+    }
+    if (!how) return null;
+    const ip = row.cands[0], e = decode(o.img, ip, o.img.length);
+    if (!e || e.len !== d.len || e.op !== d.op || e.dispOff !== d.dispOff || e.immOff !== d.immOff || e.relOff !== d.relOff) return null;
+    const p = ip + (x.op - x.ip), va = x.kind === "rel" ? o.base + p + 4 + o.img.readInt32LE(p) : o.img.readUInt32LE(p);
+    return va >= o.base && va < o.base + o.img.length ? { va, how } : null;
+}
+
+// per address: every Steam xref votes for the operand found at the same place in the other image
+// (win: >= 2 votes and more than twice the runner-up, or the only candidate from an exact/masked window); else xref-conflict / xref-none
+export function xrefAll(r: Pe, o: Pe, sites: Site[]): Row[] {
+    const xs = findXrefs(r, new Set(sites.map((s) => s.va)));
+    return sites.map((s) => {
+        const row: Row = { ref: s.va, new: null, kind: "xref-none", count: 0, lo: 0, hi: 0, cands: [], funcOff: "", label: s.label, where: s.where };
+        const votes = new Map<number, { n: number; good: number }>();
+        const top = () => [...votes].sort((a, b) => b[1].n - a[1].n);
+        for (const x of xs.get(s.va) ?? []) {
+            const v = xrefVote(r, o, x);
+            if (v) { const c = votes.get(v.va) ?? { n: 0, good: 0 }; c.n++; if (v.how !== "fuzzy") c.good++; votes.set(v.va, c); }
+            const t = top();
+            if (t.length === 1 && t[0][1].n >= XDONE) break;
+        }
+        const t = top();
+        if (!t.length) return row;
+        const [va, c] = t[0], rest = t.slice(1).reduce((n, [, y]) => n + y.n, 0);
+        if (t.length === 1 ? c.n >= 2 || c.good >= 1 : c.n >= 2 && c.n > 2 * t[1][1].n) { row.new = va; row.kind = "xref"; row.count = c.n; if (rest) row.label = `${s.label} dissent ${rest}`.trim(); }
+        else { row.kind = "xref-conflict"; row.count = c.n; row.label = `${s.label} votes ${t.map(([a, y]) => hex(a) + ":" + y.n).join(" ")}`.trim(); }
+        return row;
+    });
+}
+
 const hex = (a: number | null | undefined) => (a === null || a === undefined ? "" : "0x" + a.toString(16).toUpperCase().padStart(8, "0"));
 
 export function defaultSites(): Site[] {
@@ -200,6 +269,24 @@ export function readAddrs(text: string): Site[] {
         const [a, ...rest] = l.split(/[\s,]+/);
         return { va: parseInt(a, 16), label: rest.join(" "), where: `line ${i + 1}` };
     }).filter((s) => !isNaN(s.va));
+}
+
+// data addresses no matched window reads (not-code sites without a ref row, and with sources = true every address our native
+// sources name that has no row at all): resolve them by Steam xrefs (xrefAll) and put the result into `rows`
+function addXrefs(r: Pe, o: Pe, rows: Row[], refs: RefVote[], refPath: string, sources: boolean) {
+    const t0 = Date.now(), known = new Set([...rows.map((x) => x.ref), ...refs.map((x) => x.ref)]), todo = new Map<number, Site>();
+    for (const x of rows) if (x.kind === "not-code" && x.new === null) todo.set(x.ref, { va: x.ref, label: x.label, where: x.where });
+    if (sources && existsSync(refPath)) {
+        const data = dataRanges(refPath);
+        for (const f of sourceFiles()) {
+            const text = readFileSync(join(repo, "native", "ts3native", f), "utf8");
+            if (!generated(text)) for (const s of scanText(text, f, data)) if ((s.kind === "wrap" || s.kind === "wrapped") && !known.has(s.addr) && !todo.has(s.addr)) todo.set(s.addr, { va: s.addr, label: "", where: `native/ts3native/${f}:${s.line}` });
+        }
+    }
+    const xs = xrefAll(r, o, [...todo.values()].sort((a, b) => a.va - b.va));
+    for (const x of xs) { const i = rows.findIndex((y) => y.ref === x.ref); if (i >= 0) rows[i] = x; else rows.push(x); }
+    const n = (k: string, f = (_: Row) => true) => xs.filter((x) => x.kind === k && f(x)).length;
+    console.log(`xrefs: ${xs.length} addresses, resolved ${n("xref")} (votes>=2: ${n("xref", (x) => x.count >= 2)}, single: ${n("xref", (x) => x.count < 2)}), conflicts ${n("xref-conflict")}, none ${n("xref-none")}, ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 }
 
 // struct offset groups and vtable slot shifts (tools/exe-port-diff.ts): one summary line each plus problem rows;
@@ -284,6 +371,9 @@ function selfCheck(refPath?: string) {
     ref[0x2000] = 0xe8; ref.writeInt32LE(0x800 - 0x2005, 0x2001);
     // 26 x `mov eax,[ecx+disp32]` at 0x2B84; the one at 0x2BFC (site) reads +0x918
     for (let k = 0; k < 26; k++) Buffer.from([0x8b, 0x81, 0, 0, 0, 0]).copy(ref, 0x2b84 + 6 * k), ref.writeUInt32LE(k === 20 ? 0x918 : 0x100 + 4 * k, 0x2b86 + 6 * k);
+    // xrefs: D1 0x407108 read by two instructions, D2 0x407118 by two that disagree in `other`, D3 0x407128 by one, D4 0x407138 by none
+    const xr = (off: number, a: number, modrm = false) => { ref[off] = modrm ? 0x8b : 0xa1; if (modrm) ref[off + 1] = 0x0d; ref.writeUInt32LE(a, off + (modrm ? 2 : 1)); };
+    xr(0x1c00, 0x407108); xr(0x2e00, 0x407108, true); xr(0x3e00, 0x407118); xr(0x4e00, 0x407118); xr(0x5c00, 0x407128);
     // other: 0x40 bytes inserted at 0x1000, 0x80 bytes changed around 0x5800 (site there = missing),
     // .data one page up (pointers relocated)
     const ins = 0x40;
@@ -291,6 +381,8 @@ function selfCheck(refPath?: string) {
     const shift = (o: number) => (o >= 0x1000 ? o + ins : o);
     ptrs.forEach((p, i) => other.writeUInt32LE(0x408000 + i * 16, shift(p)));
     other.writeInt32LE(0x800 - shift(0x2005), shift(0x2001));
+    other.writeUInt32LE(0x408108, shift(0x1c00) + 1); other.writeUInt32LE(0x408108, shift(0x2e00) + 2);
+    other.writeUInt32LE(0x408118, shift(0x3e00) + 1); other.writeUInt32LE(0x408180, shift(0x4e00) + 1); other.writeUInt32LE(0x408128, shift(0x5c00) + 1);
     for (let i = 0x57c0; i < 0x5840; i++) other[shift(i)] ^= 0x5a;
     other.writeUInt32LE(0x91c, shift(0x2b86 + 6 * 20)); other.writeUInt32LE(0x348, shift(0x2b86 + 6 * 18));  // field offsets moved on both sides of the site
     const otherFull = Buffer.concat([other, Buffer.alloc(0x1000, 0xcc)]);  // pushes .data one page up
@@ -317,6 +409,11 @@ function selfCheck(refPath?: string) {
     ok(alone.kind === "ambiguous" && alone.count === 2, "duplicated block without neighbours = ambiguous 2");
     ok(mapAll(r, o, [{ va: 0x407010, label: "", where: "" }, ...sites]).rows[0].new === 0x408010, "--addrs data address answered from refs");
     ok(readAddrs("# c\n0x401000 Foo bar\n\n00402000,x").map((s) => s.va).join() === [0x401000, 0x402000].join(), "readAddrs");
+    const xs = xrefAll(r, o, [0x407108, 0x407118, 0x407128, 0x407138].map((a) => ({ va: a, label: "", where: "" })));
+    ok(xs[0].kind === "xref" && xs[0].new === 0x408108 && xs[0].count === 2, `xref two votes: ${xs[0].kind} ${hex(xs[0].new)} ${xs[0].count}`);
+    ok(xs[1].kind === "xref-conflict" && xs[1].new === null && xs[1].label.includes("0x00408118:1") && xs[1].label.includes("0x00408180:1"), `xref conflict: ${xs[1].kind} ${xs[1].label}`);
+    ok(xs[2].kind === "xref" && xs[2].new === 0x408128 && xs[2].count === 1, `xref single masked vote ${xs.map((x) => x.kind + hex(x.new) + x.count)}`);
+    ok(xs[3].kind === "xref-none", "xref none");
     console.log("exe-addr-map self-check: synthetic ok");
     const real = refPath ?? join(repo, "game-copy", "bin", "TS3W.exe");
     if (!existsSync(real)) { console.log("exe-addr-map self-check: real exe absent, skipped"); return; }
@@ -330,13 +427,14 @@ function selfCheck(refPath?: string) {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-    const { values: v } = parseArgs({ options: { ref: { type: "string" }, other: { type: "string" }, addrs: { type: "string" }, out: { type: "string" }, all: { type: "boolean" }, "self-check": { type: "boolean" } } });
+    const { values: v } = parseArgs({ options: { ref: { type: "string" }, other: { type: "string" }, addrs: { type: "string" }, out: { type: "string" }, all: { type: "boolean" }, "self-check": { type: "boolean" }, xrefs: { type: "boolean" } }, allowNegative: true });
     if (v["self-check"]) selfCheck(v.ref);
     else {
-        if (!v.other) { console.error("usage: node tools/exe-addr-map.ts --other <exe> [--ref <Steam TS3W.exe>] [--addrs file] [--out file.csv|.json] [--all]"); process.exit(2); }
+        if (!v.other) { console.error("usage: node tools/exe-addr-map.ts --other <exe> [--ref <Steam TS3W.exe>] [--addrs file] [--out file.csv|.json] [--all] [--no-xrefs]"); process.exit(2); }
         const r = parsePe(readFileSync(v.ref ?? join(repo, "game-copy", "bin", "TS3W.exe"))), o = parsePe(readFileSync(v.other));
         const sites = v.addrs ? readAddrs(readFileSync(v.addrs, "utf8")) : defaultSites();
         const { rows, refs } = mapAll(r, o, sites);
+        if (v.xrefs ?? true) addXrefs(r, o, rows, refs, v.ref ?? join(repo, "game-copy", "bin", "TS3W.exe"), !v.addrs);
         const out = v.out ?? join(repo, "out", "exe-addr-map", basename(v.other).replace(/\.\w+$/, "") + ".csv");
         mkdirSync(dirname(out), { recursive: true });
         if (out.endsWith(".json")) writeFileSync(out, JSON.stringify({ sites: rows.map(({ lo, hi, cands, ...x }) => ({ ...x, window: hi - lo })), refs }, null, 1));

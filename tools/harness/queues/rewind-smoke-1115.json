@@ -1,0 +1,159 @@
+{
+  "note": "Arm (Rodney 2026-11-15): every rewind job runs on the PATCHED bridge copy, Bin state apex-rewind (game-copy/rewind-bridge-1115/install: latest Apex Radiance release + the bridge pair with patch 0015 + rewindMode = True in both bridge.conf; docs/270 §12.6), not on the stock bridge. The chain sets the state (tools/turbo-compat.ts state <dir> apex-rewind); queue.ts never does. The override job is dropped (Rodney 2026-11-15). Jobs 1-3 pass --renderer bridge-rewind: FAIL at once unless NvRemixBridge.exe runs and Bin\\bridge.conf has rewindMode = True. No plain-DXVK job (Rodney 2026-11-15: every game test runs on Apex + the RTX Remix bridge; the in-process GPU guard is proved by the toy selftest only, case refusals). Flags (Rodney 2026-11-15): every job passes --allow-audio --reap-workers --recreate-views. RUN FIRST after chain-reruns-1115 (docs/270 §10). Game smoke of the rewind tool (tools/harness/rewind, test-only, game-copy test install only). Before the queue: tools\\harness\\rewind\\build.cmd (builds out\\rewind-spike.exe, toy selftest must say PASS). Each job loads Baseline-BP-Spring and runs tools/harness/rewind-smoke.ts, which pauses the game through the agent, drives `rewind-spike serve` on TS3W.exe and plays on 20 s to see the game still answers. Jobs go from harmless to invasive, the queue stops at the first FAIL: (1) plan: nothing is written into the game, lists what a rewind would do and every reason it would refuse; (2) plan-probe: plus the one-byte view probe; (3) strict: a real snapshot and rewind with the shared-view and window guards on (audio, workers, unpinned views allowed), a refusal is a valid result. Sound: devices stay open (mute only), so --allow-audio is passed; a real sound-off is open research (docs/270 §7). Probe: queue.ts always attaches the Frida probe, so the jobs pass --allow-module frida-agent; a clean rewind job needs the probe detached (docs/270 §9). Correctness only, no timing. Rows: probe-out/rewind/smoke-1115-<mode>.jsonl, judged by hand into docs/270 §10. node tools/harness/queue.ts tools/harness/queues/rewind-smoke-1115.json --no-smoke",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-rewind-plan",
+      "note": "[est 6 min] Bin state apex-rewind (patched bridge copy, rewindMode on). [natural play, no cheats] Plan only, no view probe: threads are suspended for the checks, handles duplicated, memory read; nothing is written. 2 plans, 20 s of play before each. Pass: tool exit 0 or 2, game answers after, 0 script errors.",
+      "asi": "game-copy/ts3native.asi.rewind-park2-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "ini": { "Rewind.Park": 1, "Rewind.Offline": 1 },
+      "callSites": false,
+      "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+      "pinReason": "rewind-park2-1115 (builds.json, 0.36.261-lanes1) = master-merge-1115, the set the 11-15 census ran with (docs/270 §3), + #408 + [Rewind] Park / Offline on (docs/270 §19-§20; Offline covers 18 of 19 wininet imports, §22)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0.36.261-lanes1 ": 1,
+        "^compat: Apex Radiance found ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.261-lanes1 ": {
+          "match": [
+            "ts3native 0.36.261-lanes1 2026-11-15 09:44:15"
+          ],
+          "noMatch": [
+            "ts3native 0.36.189 2026-11-07 09:44:15"
+          ]
+        },
+        "^compat: Apex Radiance found ": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: no Apex Radiance at start"
+          ]
+        }
+      },
+      "run": {
+        "script": [
+          "rewind-smoke.ts",
+          "--mode",
+          "plan",
+          "--tag",
+          "smoke-1115",
+          "--renderer",
+          "bridge-rewind"
+        ]
+      },
+      "timeoutMin": 20
+    },
+    {
+      "id": "bp-rewind-plan-probe",
+      "note": "[est 6 min] Bin state apex-rewind (patched bridge copy, rewindMode on). [natural play, no cheats] Plan only, with the view probe: the last byte of each pagefile-backed writable view is flipped and put back while the game is suspended, to tell which section handle it maps. Pass as job 1; viewsPinned / viewsAnonNotPinned are the numbers to read.",
+      "asi": "game-copy/ts3native.asi.rewind-park2-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "ini": { "Rewind.Park": 1, "Rewind.Offline": 1 },
+      "callSites": false,
+      "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+      "pinReason": "rewind-park2-1115 (builds.json, 0.36.261-lanes1) = master-merge-1115, the set the 11-15 census ran with (docs/270 §3), + #408 + [Rewind] Park / Offline on (docs/270 §19-§20; Offline covers 18 of 19 wininet imports, §22)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0.36.261-lanes1 ": 1,
+        "^compat: Apex Radiance found ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.261-lanes1 ": {
+          "match": [
+            "ts3native 0.36.261-lanes1 2026-11-15 09:44:15"
+          ],
+          "noMatch": [
+            "ts3native 0.36.189 2026-11-07 09:44:15"
+          ]
+        },
+        "^compat: Apex Radiance found ": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: no Apex Radiance at start"
+          ]
+        }
+      },
+      "run": {
+        "script": [
+          "rewind-smoke.ts",
+          "--mode",
+          "plan-probe",
+          "--tag",
+          "smoke-1115",
+          "--renderer",
+          "bridge-rewind"
+        ]
+      },
+      "timeoutMin": 20
+    },
+    {
+      "id": "bp-rewind-strict",
+      "note": "[est 6 min] Bin state apex-rewind (patched bridge copy, rewindMode on). [natural play, no cheats] Real snapshot and rewind, every guard on (only the probe module allowed). Expected: refused at the snapshot (sound devices open, maybe shared views); then nothing is changed and the game plays on. If it is not refused: 2 rewinds, each checked equal to the snapshot. Pass: tool exit 0 or 2, game answers after, 0 script errors. On this arm the tool still runs with --no-coop (it does not use the bridge client's block), so the bridge channel views are expected to refuse it; the rewind that the bridge server follows is job bp-rewind-bridge-apply of rewind-bridge-1115.",
+      "asi": "game-copy/ts3native.asi.rewind-park2-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "ini": { "Rewind.Park": 1, "Rewind.Offline": 1 },
+      "callSites": false,
+      "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+      "pinReason": "rewind-park2-1115 (builds.json, 0.36.261-lanes1) = master-merge-1115, the set the 11-15 census ran with (docs/270 §3), + #408 + [Rewind] Park / Offline on (docs/270 §19-§20; Offline covers 18 of 19 wininet imports, §22)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0.36.261-lanes1 ": 1,
+        "^compat: Apex Radiance found ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.261-lanes1 ": {
+          "match": [
+            "ts3native 0.36.261-lanes1 2026-11-15 09:44:15"
+          ],
+          "noMatch": [
+            "ts3native 0.36.189 2026-11-07 09:44:15"
+          ]
+        },
+        "^compat: Apex Radiance found ": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: no Apex Radiance at start"
+          ]
+        }
+      },
+      "run": {
+        "script": [
+          "rewind-smoke.ts",
+          "--mode",
+          "strict",
+          "--tag",
+          "smoke-1115",
+          "--renderer",
+          "bridge-rewind"
+        ]
+      },
+      "timeoutMin": 20
+    }
+  ]
+}

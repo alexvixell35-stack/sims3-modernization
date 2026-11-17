@@ -1,6 +1,6 @@
 # Release checklist
 
-How a release goes out. Current: **v0.1.4** (background routing on by default), published 2026-10-20 (PR #55, tag v0.1.4).
+How a release goes out. Current: **v0.2.12** (Steam asi/ini rc1111g + ts3fixes rel0211b, tag on public branch `release/rc-1111g`; EA app zip added from the EA laptop), 2026-11-13; details docs/release-notes/v0.2.12-dev.md. Before it v0.2.11 (rc1111d + rc1111e, public `release/v0.2.11`, docs/release-notes/v0.2.11-dev.md). The sections below are older releases' records.
 
 ## v0.1.4 release build
 
@@ -72,7 +72,7 @@ Estimate for the suggested v0.1.5 set (slotenabledro, unseenthrottle, stuckcheck
 
 ## Release wrap-up in parallel (Rodney 2026-10-24)
 
-Once the last test of the release check is green: compute the numbers once (hitch tables per run, soak, test table), then write in parallel (agents for the README table and the test/dev-notes tables, the main session for the player notes and the public-copy prep), then one read-through for plain wording and matching numbers before the commit. Never start this while a timing run is still going (the number crunching adds load); text-only work may start earlier. Release ETAs count the wrap-up at its parallel length (~20 min after the last green test: ~5 min numbers, ~10 min parallel writing, ~5 min read-through), not the serial sum.
+Once the last test of the release check is green: compute the numbers once (hitch tables per run, soak, test table), then write in parallel (agents for the README table and the test/dev-notes tables, the main session for the player notes and the public-copy prep), then one read-through for plain wording and matching numbers before the commit. The numbers step also prints the watch rows for the dev notes: `node tools/harness/satb-giveups.ts <release queue tag prefix> --row` (satb give-ups by reason per run, handoff #9 watch item; a new top reason or a jump against the last release goes to triage). Never start this while a timing run is still going (the number crunching adds load); text-only work may start earlier. Release ETAs count the wrap-up at its parallel length (~20 min after the last green test: ~5 min numbers, ~10 min parallel writing, ~5 min read-through), not the serial sum.
 
 ## CI-skipped selftests
 

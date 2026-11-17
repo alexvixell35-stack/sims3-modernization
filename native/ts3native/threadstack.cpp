@@ -17,8 +17,8 @@
 // MSVCR80's _beginthreadex hands initflag on to CreateThread [inferred from the VC8 CRT source]; the "reserved" readout
 // in the log (TEB StackBase - DeallocationStack) checks it per thread.
 
-static const DWORD TS_IAT_CREATETHREAD = 0x00F95244, TS_IAT_BEGINTHREADEX = 0x00F955D0;
-static const DWORD TS_EATHREAD_ENTRY = 0x004E2E30, TS_EATHREAD_ENTRY_RUNNABLE = 0x004E30A0;
+static const DWORD TS_IAT_CREATETHREAD = TS3A(0x00F95244), TS_IAT_BEGINTHREADEX = TS3A(0x00F955D0);
+static const DWORD TS_EATHREAD_ENTRY = TS3A(0x004E2E30), TS_EATHREAD_ENTRY_RUNNABLE = TS3A(0x004E30A0);
 
 typedef HANDLE(WINAPI* TsCreateThreadFn)(LPSECURITY_ATTRIBUTES, SIZE_T, LPTHREAD_START_ROUTINE, LPVOID, DWORD, LPDWORD);
 typedef uintptr_t(__cdecl* TsBeginThreadExFn)(void*, unsigned, unsigned(__stdcall*)(void*), void*, unsigned, unsigned*);

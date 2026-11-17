@@ -21,11 +21,11 @@
 //     matching record only, so a private bit on JobThread0 + main would serialise all culls on one thread. #13 removes frame
 //     jobs from the sim pump as a side effect; jqSimRenderJobs checks it.
 
-static const DWORD JQ_VTBL_RUNJOBS = 0x00FD97C8, JQ_RUNJOBS = 0x0059A430, JQ_EXECUTE = 0x00599720, JQ_INIT_PUSH = 0x005992DD;
+static const DWORD JQ_VTBL_RUNJOBS = TS3A(0x00FD97C8), JQ_RUNJOBS = TS3A(0x0059A430), JQ_EXECUTE = TS3A(0x00599720), JQ_INIT_PUSH = TS3A(0x005992DD);
 static const u8 kJqExecPrologue[7] = {0x53, 0x55, 0x56, 0x8B, 0x74, 0x24, 0x10};  // push ebx; push ebp; push esi; mov esi,[esp+10h]
 static const u8 kJqInitPush[6] = {0x6A, 0x01, 0x8B, 0xCE, 0xFF, 0xD2};             // push 1; mov ecx,esi; call edx
-static const DWORD kJqRenderFns[5] = {0x006F3C30, 0x006EEB30, 0x006EDA60, 0x006EEB50, 0x006F3C50};
-static const DWORD* g_jqSimTid = (const DWORD*)(uintptr_t)0x011D8A8C;  // sim thread id (game global, 0 until set)
+static const DWORD kJqRenderFns[5] = {TS3A(0x006F3C30), TS3A(0x006EEB30), TS3A(0x006EDA60), TS3A(0x006EEB50), TS3A(0x006F3C50)};
+static const DWORD* g_jqSimTid = (const DWORD*)(uintptr_t)TS3A(0x011D8A8C);  // sim thread id (game global, 0 until set)
 
 typedef DWORD(__fastcall* JqRunJobsFn)(void* jm, void* edx, u8* rec, DWORD deadline, DWORD nonblock);
 static JqRunJobsFn g_jqRunJobsOrig;

@@ -15,13 +15,13 @@ Branch `feature/tier2-enablers`. Status file for the agents building the shared-
 | # | IC | Piece | State |
 |---|---|---|---|
 | 7 | `World_GetTilesWithFloorFeaturesImpl` 0x796260 | E2 (`AK_ARRAY`, sz 8, AO_CUT) | built, `Tier2IcNew` bit 0 |
-| 14 | `World_GetPondInfo` 0x78BC70 | E1 | still refused (124 B out, lot path not read) |
+| 14 | `World_GetPondInfo` 0x78BC70 | `AS_OF_BIG` (lane L8) | built 2026-11-15, `Tier2IcNew` bit 5 (128 B out; lot path read) |
 | 15 | `World_FindPondRepresentativePositions` 0x792630 | E1 (`AS_OF_TRUE`, `AS_OF_ARR`, AO_WORLD) | built, `Tier2IcNew` bit 1 |
 | 16 | `World_GetLotLocationAtFloorImpl` 0x7850F0 | E1 (`AS_OF_DIFF`, mask 0xDFF, AO_WORLD) | built, `Tier2IcNew` bit 2 |
 | 21 | `World_GetWorldToHouseboatDisplayPositionImpl` 0x788920 | E1 (`AS_OF_TRUE`, AO_CUT) | built, `Tier2IcNew` bit 3 |
 | - | `World_GetHouseboatDisplayToWorldPositionImpl` 0x788A20 | E1 (`AS_OF_TRUE`, AO_CUT) | built, `Tier2HouseboatRow`; household-owned houseboat lots abort before the call |
 | 2, 4 (+18 retro) | surface types | E3 (`AS_OF_LVL1` / `AS_OF_LVLA`) | built, `Tier2IcNew` bit 4 (#18 retro not done) |
-| 20 | `World_LotGetDisplayLevelInfoImpl` | struct mask | not in this lane |
+| 20 | `World_LotGetDisplayLevelInfoImpl` | `AS_OF_DIFF` struct mask (lane L8) | built 2026-11-15, `Tier2IcNew` bit 6; #18 retro gate built (`Tier2RoomGate`) |
 
 ## Facts (disassembly, Steam 1.67 `TS3W.exe`, capstone)
 
@@ -69,3 +69,7 @@ Branch `feature/tier2-enablers`. Status file for the agents building the shared-
 - Household: the native rows only answer worker calls (the worker's own household rules apply unchanged); the dry reads `IcG5` / `IcG6` skip lots owned by the active household; the gate itself changes no Sim state (skip = no answer, the worker aborts).
 - Next step: merge `feature/tier2-e3` into master (after `feature/tier2-enablers`; expect `docs/data/builds.json` / `PLAN.md` / `tier2-ic-rows.json` conflicts, `tools/agent-merge.cjs`), then run `tier2-ic-rows.json` job `bp-t2e3-dry` (pair `tier2e3-1108`; gate 0 `autoff_t2ic_mis` over slots 0-21, read `autshadow level gate` skip/fill lines for I-463-2 and `[RouteGate]` waits for I-463-1). Optional later: an IP arm with `Tier2IcNew=31` once `bp-t2e-dry` passed.
 - Open: #18 retro, I-463-1..3.
+
+## Status P5 (2026-11-08, branch `feature/tier2-p5-rows`, pair `tier2p5-1108`, ts3native 0.36.213, not merged, not run)
+
+- Two rows appended after P6 in `kAsDesc` (`AS_NT2IC` 25, `AS_NT2E` 10): E bits 8-9 = `[AutShadow] Tier2SlotRows`. The actor gate is now the descriptor flag `AS_OF_HH` (P6 + P5), so new rows may go after P6 without touching the gate. Managed `kIcV` 25 (`IcG8` slots 23-24). Details: docs/data/tier2-rows35-handoff.md status log, ledger §466.

@@ -6,7 +6,8 @@
 // and a job claimed while the level is kept: the caller's collect (WaitJobDone) drops it and the job runs (no deadlock).
 // Included by selftest.cpp after h2ic-test.h.
 static CRITICAL_SECTION* g_rcTLock;  // the M1 lock (g_rgLock)
-static DWORD g_rcTVec[2];            // the caller's hit vector (begin, end)
+static DWORD g_rcTVec[2];
+static DWORD* g_rcTVecAddr = g_rcTVec;  // pushed as a value: clang-cl 23 crashes on `push offset <global>`            // the caller's hit vector (begin, end)
 static int g_rcTCase, g_rcTQueries;
 static LONG g_rcTHeld;                // recursion count seen inside the caller after its queries
 static void __cdecl RcTEnter(DWORD ret) {  // the query's acquire and rtsites.cpp's RT_STEER key
@@ -67,7 +68,7 @@ static __declspec(naked) void RcTCaller() {  // cdecl, no arguments: ebp frame, 
         push edi
         mov esi, g_rcTQueries
     again:
-        push offset g_rcTVec
+        push g_rcTVecAddr
         push 0
         push 0
         call RcTQuery
@@ -90,7 +91,7 @@ static __declspec(noinline) void RcTRun(int which, int queries) {  // one frame 
 static void TestRcGuard() {
     static_assert(offsetof(Ts3nCounters, rcMode) == 0x44D4 && offsetof(Ts3nCounters, rcByFn) == 0x44E0 &&
                   offsetof(Ts3nCounters, rcPass) == 0x4510 && offsetof(Ts3nCounters, rcDropped) == 0x4530 &&
-                  offsetof(Ts3nCounters, rcWould) == 0x4544 && sizeof(Ts3nCounters) == 6112 * 4,
+                  offsetof(Ts3nCounters, rcWould) == 0x4544 && sizeof(Ts3nCounters) == 6477 * 4,
                   "counters v104 layout after v103 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset((void*)&k.rcMode, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, rcMode));

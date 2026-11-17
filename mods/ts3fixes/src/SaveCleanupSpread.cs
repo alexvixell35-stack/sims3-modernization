@@ -201,11 +201,12 @@ namespace Ts3Fixes
         static bool OutsideActive(SimDescription d)
         {
             if (d == null || !d.IsValidDescription) return false;
-            Household active = Household.ActiveHousehold;
-            if (active == null || d.Household == active || d.IsPlayableGhost) return false;
+            if (Household.ActiveHousehold == null || d.IsPlayableGhost) return false;
+            // household rule (PlayerSims.cs), with one deliberate exception: a dead description without a household (a grave)
+            // is trimmed although its scope is "unknown"; an alive household-less one stays (IsPlayerDesc)
+            if (!(d.IsDead && d.Household == null) && IsPlayerDesc(d)) return false;
             if (d.CreatedSim != null && (d.CreatedSim.IsSelectable || d.CreatedSim.HasBeenDestroyed)) return false;
-            if (GameStates.IsIdTravelling(d.SimDescriptionId) || d.IsEnrolledInBoardingSchool()) return false;
-            return d.IsDead || d.Household != null;
+            return !GameStates.IsIdTravelling(d.SimDescriptionId) && !d.IsEnrolledInBoardingSchool();
         }
 
         // 2: per-Sim history; returns how many entries went.
@@ -340,7 +341,6 @@ namespace Ts3Fixes
         static string AggressiveCounts()
         {
             int npcSnaps = 0, history = 0, buried = 0, cleanable = 0, outfits = 0, quietPairs = 0;
-            Household active = Household.ActiveHousehold;
             sPlayedNear = BuildPlayedNear();
             string played = "played households " + sPlayed.Count + (sPlayedStoreReady ? " (store " + sPlayedKey + ")" : " (store unavailable: aggressive tier off)")
                 + ", Sims within " + Instantiator.kPlayedGenerations + " generations " + sPlayedNear.Count;
@@ -362,9 +362,9 @@ namespace Ts3Fixes
             }
             foreach (KeyValuePair<SimDescription, Dictionary<SimDescription, Relationship>> kv in Relationship.sAllRelationships)
             {
-                if (!NpcForCleanup(kv.Key, active) || kv.Value == null) continue;
+                if (!NpcForCleanup(kv.Key) || kv.Value == null) continue;
                 foreach (KeyValuePair<SimDescription, Relationship> inner in kv.Value)
-                    if (inner.Key != null && kv.Key.SimDescriptionId < inner.Key.SimDescriptionId && NpcForCleanup(inner.Key, active) && PlayedGen(kv.Key) < 0 && PlayedGen(inner.Key) < 0 && QuietFriendPair(inner.Value, kv.Key, inner.Key)) quietPairs++;
+                    if (inner.Key != null && kv.Key.SimDescriptionId < inner.Key.SimDescriptionId && NpcForCleanup(inner.Key) && PlayedGen(kv.Key) < 0 && PlayedGen(inner.Key) < 0 && QuietFriendPair(inner.Value, kv.Key, inner.Key)) quietPairs++;
             }
             return "count: npc pictures " + npcSnaps + " (keep " + Instantiator.kAggressiveSnapshotKeep + " each), read-book entries " + history
                 + ", buried " + buried + " (removable outfits " + outfits + ", cleanable " + cleanable + (OverwatchLoaded() ? ", Overwatch loaded: cleanse off" : "") + ")"
