@@ -47,4 +47,11 @@ Not listed, stay EA: role and job loops (VelvetRopes.WatchDoor, ShowStage, Perfo
 
 ## 5. Counters
 
-3700-3701 (b) loops capped tier 1 / 2 (once per instance), 3702-3703 (a) stepped waits tier 1 / 2, 3704 listed but out of scope, 3705 class not listed, 3706 off own task, 3707 errors, 3708 Check mismatches (must stay 0).
+3700-3701 (b) loops capped tier 1 / 2 (once per instance), 3702-3703 (a) stepped waits tier 1 / 2, 3704 listed but out of scope, 3705 class not listed, 3706 off own task, 3707 errors, 3708 Check mismatches (must stay 0). 3704 split by reason: 3709 household / selected, 3710 high LOD (our re-check), 3711 not autonomous, 3712 partner out of scope, 3713-3722 UfWhy code 1-10 (3715 household, 3716 active lot, 3717 on screen, 3718 near viewers, 3719 held, 3720 social seen). The Check also lists the 8 unlisted classes that ask EA's cap most.
+
+## 6. r88 (phase-20261117-1411, Bridgeport): UNEXPECTED off and on
+
+- Live getters read 360 day / 180 night: EA's tuning XML sets `kMaxTimeForLowLODInteractionDuringTheDay/Night`, so the C# 420/120 initialisers are not the live EA value. The Check now reads both fields by reflection and tests the pure decisions and the getters against them (that caused controls ok=False and the 3708 mismatches).
+- Never acted: 3700 = 0, 3704 = 906 (frozen early), 3705 = 3384. The only listed loops in the run's census are household Sims (hw-2.json: `HH Kirby: ReadBook`; WatchTV / PlayComputerGames also household), off camera and low LOD, so EA asks the cap and our household rule keeps EA (inferred: 3709 confirms it next run). No unseen NPC ran a listed loop: in this soak, `unseen 0, off-screen 0` in every census.
+- 3384 unlisted asks: no class breakdown in r88; the next run's Check prints the top 8.
+
