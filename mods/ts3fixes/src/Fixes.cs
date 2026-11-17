@@ -381,6 +381,8 @@ namespace Ts3Fixes
             ApplyRummageBcast();   // docs/611 §4 (LotCallbacks80.cs)
             ApplyStairWaitEnd();   // docs/612 §2 (StairDup82.cs)
             ApplySimDisposeLink();   // docs/612 §3 (StairDup82.cs)
+            ApplyRhExitUnseen();   // docs/613 §2 (StuckJobs83.cs)
+            ApplyTipsNpcEnd();   // docs/613 §3 (StuckJobs83.cs)
             ApplyMegaphoneRun();   // docs/608 §2 (WalkStyleLeak77.cs)
             ApplyDragonCurseRun();   // docs/608 §3 (WalkStyleLeak77.cs)
             ApplyMermaidSharkNull();   // docs/587 EP1 §3
@@ -1131,6 +1133,8 @@ namespace Ts3Fixes
         // [3442-3445] rummagebcast (LotCallbacks80.cs, docs/611 §4): disposed at Cleanup / stale disposed at create / left (off) / errors.
         // [3446-3449] stairwaitend (StairDup82.cs, docs/612 §2): stair waits ended at 30 sim-min / past deadline (off) / past deadline household kept / errors.
         // [3450-3452] simdisposelink (StairDup82.cs, docs/612 §3): links kept / unbound disposes (off) / errors.
+        // [3453-3456] rhexitunseen (StuckJobs83.cs, docs/613 §2): exit waits skipped / unseen NPC waits (off) / household or seen kept / errors.
+        // [3457-3460] tipsnpcend (StuckJobs83.cs, docs/613 §3): tips loops ended at low-LOD cap / past cap (off) / past cap household or seen kept / errors.
         // [3391-3393] sarcmummynpc (TreasureSpawn74.cs, docs/607 §3): tomb mummy descriptions removed from NpcHousehold at sarcophagus cleanup / left with the switch off / errors.
         // [2790-2792] pushwaitskip (PushWait604.cs, docs/604 §2): done Sims EA's double-step wait pass would have skipped / waiting calls on EA's body (switch off) / errors.
         // [2756-2759] detailprioexact (DetailPrio603.cs, docs/603 §3): exact answers / EA's body (null list or description, error) / check mismatches / errors.
@@ -1672,6 +1676,8 @@ namespace Ts3Fixes
                 case "rummagebcast": return Instantiator.kRummageBcast;  // docs/611 §4 (LotCallbacks80.cs), EA bug fix, off
                 case "stairwaitend": return Instantiator.kStairWaitEnd;  // docs/612 §2 (StairDup82.cs), EA bug fix, off
                 case "simdisposelink": return Instantiator.kSimDisposeLink;  // docs/612 §3 (StairDup82.cs), EA bug fix, off
+                case "rhexitunseen": return Instantiator.kRhExitUnseen;  // docs/613 §2 (StuckJobs83.cs), EA bug fix, off
+                case "tipsnpcend": return Instantiator.kTipsNpcEnd;  // docs/613 §3 (StuckJobs83.cs), EA bug fix, off
                 case "alarmzeroperiod": return Instantiator.kAlarmZeroPeriod;  // docs/609 §6 (GameSpeed78.cs), EA bug fix (hang guard), off
                 case "tspawninvdup": return Instantiator.kTreasureSpawnInvDup;  // docs/607 §2 (TreasureSpawn74.cs), EA bug fix, off
                 case "megaphonerun": return Instantiator.kMegaphoneRun;  // docs/608 §2 (WalkStyleLeak77.cs), EA bug fix, off

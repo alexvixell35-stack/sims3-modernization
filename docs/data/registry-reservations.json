@@ -7096,6 +7096,38 @@
       "what": "stair wait deadline, duplicate Sims (Sim.Dispose link)",
       "at": "2026-11-17T02:10:06.731Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3453",
+      "kind": "fixes",
+      "from": 3453,
+      "to": 3456,
+      "by": "s83",
+      "what": "rhexitunseen: an unseen NPC leaving a rabbit hole skips EA's NPC exit pacing wait (kNpcExitFreq)",
+      "at": "2026-11-17T08:25:18.393Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3457",
+      "kind": "fixes",
+      "from": 3457,
+      "to": 3460,
+      "by": "s83",
+      "what": "tipsnpcend: an unseen NPC Perform For Tips ends at EA's low-LOD interaction cap",
+      "at": "2026-11-17T08:25:18.471Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "doc-613",
+      "kind": "doc",
+      "from": 613,
+      "to": 613,
+      "by": "s83",
+      "what": "stuck interactions: rabbit hole exit pacing, NPC perform for tips",
+      "at": "2026-11-17T08:25:32.837Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

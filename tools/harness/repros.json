@@ -108553,5 +108553,167 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "rhexitunseen-check",
+    "bug": "RabbitHole.AnimateExitRabbitHole makes every non-selectable Sim wait until kNpcExitFreq (15 sim-min) has passed since the last Sim left that rabbit hole: one NPC out per 15 sim-min, so 5-10 unseen NPCs at Steve's Business Complex stood 50-314 sim-min in InRabbitHolePosture with Go Home / Eat Out current (docs/613 §2)",
+    "fix": "ts3fixes StuckJobs83.cs: rhexitunseen (default off), docs/613 §2",
+    "save": "any save with a rabbit hole and an NPC off the active lot (live replay); pure part needs none",
+    "note": "RhExitUnseenCheck run checks the skip decision with controls (seen NPC, household Sim, EA's own selectable/school skips kept) and calls the swapped CanSimSkipExitWait on a world rabbit hole with an unseen NPC (off false, on true) and the selected Sim (EA answer both ways); prints Sims inside rabbit holes; result shows counters (3453 grows when an unseen NPC leaves a rabbit hole, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhexitunseen": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhExitUnseenCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhExitUnseenCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rhexitunseen": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhExitUnseenCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.RhExitUnseenCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rhexitunseen": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhexitunseen": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "tipsnpcend-check",
+    "bug": "NPCShowManager pushes the NPC tips performer's PerformerPerformForTips at CriticalNPCBehavior (not autonomous), so DoLoop's low-LOD cap (420 day / 120 night sim-min) never applies; its only end is the Fatigued buff, which a low-LOD Sim never gets (no motive updates), and LoopHandler clears queued exit reasons after each trick: Perform For Tips 316-589 sim-min with a queued interaction never run (docs/613 §3)",
+    "fix": "ts3fixes StuckJobs83.cs: tipsnpcend (default off), docs/613 §3",
+    "save": "any save with an NPC off the active lot (live decision); pure part needs none",
+    "note": "TipsNpcEndCheck run checks the end decision with controls (under the cap, seen Sim, household Sim) and replays it on a world unseen NPC with EA's live cap; prints Sims performing for tips; result shows counters (3457 grows when an unseen NPC tips loop passes the cap, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "tipsnpcend": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TipsNpcEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TipsNpcEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "tipsnpcend": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TipsNpcEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TipsNpcEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "tipsnpcend": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "tipsnpcend": false
+        }
+      }
+    ]
   }
 ]

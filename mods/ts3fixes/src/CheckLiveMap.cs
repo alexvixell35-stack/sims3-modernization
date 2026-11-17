@@ -316,6 +316,7 @@ namespace Ts3Fixes
                 case "resortweddingalarm": return EpLive(typeof(ResortWeddingHook), 0, "sRwAlarm", sRwAlarm, null);
                 case "resumetns": return EpLive(typeof(ResumeTnsHook), 0, "sRtDegree", sRtDegree, null);
                 case "rewardgiver": return EpLive(typeof(RewardGiverHook), 1, "sObjComponents", sObjComponents, null);
+                case "rhexitunseen": return EpLive(typeof(RhxSkipHook), 1);
                 case "rolenullguard": return EpJoin(EpJoin(EpJoin(EpLive(typeof(BRnDrinkHook), 1), EpLive(typeof(BRnSnackHook), 1)), EpLive(typeof(BRnSocialHook), 1)), EpLive(typeof(BRnWaiterHook), 2));
                 case "roleunprotect": return EpLive(typeof(B12RuHook), 1, "sRuSim", sRuSim, null, "sRuFlag", sRuFlag, typeof(bool), "sRuFlag", sRuFlag, null);
                 case "romancecooldown": return EpLive(typeof(B12RcHook), 1, "sRcStc", sRcStc, null, "sRcStc", sRcStc, "static");
@@ -401,6 +402,7 @@ namespace Ts3Fixes
                 case "talkoccupationchance": return EpLive(typeof(BTaoHook), 1);
                 case "teleportcommunitylot": return EpLive(typeof(BTcHook), 1);
                 case "tempforecast": return EpLive(typeof(B13TfHook), 1, "sTfMin", sTfMin, null, "sTfMin", sTfMin, "static", "sTfMax", sTfMax, null, "sTfMax", sTfMax, "static", "sTfWeight", sTfWeight, 1, "sTfGet", sTfGet, 2);
+                case "tipsnpcend": return EpLive(typeof(TneLoopHook), 1);
                 case "tooltipthrottle": return EpLive(typeof(TooltipThrottleHook), 0);
                 case "trainboost": return EpLive(typeof(TbHook), 1, "sTbShape", sTbShape, typeof(float), "sTbSkillMult", sTbSkillMult, typeof(float), "sTbSkillMult", sTbSkillMult, "static", "sTbShapeMult", sTbShapeMult, typeof(float), "sTbShapeMult", sTbShapeMult, "static");
                 case "trainsimgone": return EpLive(typeof(BTgHook), 1);
