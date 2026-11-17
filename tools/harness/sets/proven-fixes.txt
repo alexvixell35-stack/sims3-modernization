@@ -342,3 +342,6 @@ putdownsurfaceuse
 swiperestore
 unicornspawnfail
 datadiscputback
+spoilbroadcast
+weatherstonerelisten
+birthdayagerecord
