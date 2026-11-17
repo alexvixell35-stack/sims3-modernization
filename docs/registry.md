@@ -507,6 +507,9 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3467-3469 | `Scan84.cs` (`fixes-3467`, s84, docs/614 §3), `swiperestore` | built 2026-11-17, default off: objects restored (3467) / lost with the switch off (3468) / errors (3469) |
 | 3470-3472 | `Scan84.cs` (`fixes-3470`, s84, docs/614 §4), `unicornspawnfail` | built 2026-11-17, default off: failed spawns ended (3470) / left invisible with the switch off (3471) / errors (3472) |
 | 3473-3475 | `Scan84.cs` (`fixes-3473`, s84, docs/614 §5), `datadiscputback` | built 2026-11-17, default off: discs put back (3473) / lost because the put-back was refused (3474) / errors (3475) |
+| 3476-3478 | `Scan85.cs` (`fixes-3476`, s85, docs/615 §1), `spoilbroadcast` | built 2026-11-17, default off: broadcasters disposed (3476) / leaked with the switch off (3477) / errors (3478) |
+| 3479-3481 | `Scan85.cs` (`fixes-3479`, s85, docs/615 §2), `weatherstonerelisten` | built 2026-11-17, default off: stale listeners removed (3479) / stacked with the switch off (3480) / errors (3481) |
+| 3482-3484 | `Scan85.cs` (`fixes-3482`, s85, docs/615 §3), `birthdayagerecord` | built 2026-11-17, default off: age-ups with the listener kept (3482) / dropped with the switch off (3483) / errors (3484) |
 | 3453-3456 | pinned (s83, `fixes-3453`) | rhexitunseen: an unseen NPC leaving a rabbit hole skips EA's NPC exit pacing wait (kNpcExitFreq) |
 | 3457-3460 | pinned (s83, `fixes-3457`) | tipsnpcend: an unseen NPC Perform For Tips ends at EA's low-LOD interaction cap |
 | 3461-3463 | pinned (s84, `fixes-3461`) | barputdownwait: bartender put-down helper Wait completes inline when the anim event never fired |
@@ -514,6 +517,9 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3467-3469 | pinned (s84, `fixes-3467`) | swiperestore: SwipeSomething failed family-inventory add restores the stolen object |
 | 3470-3472 | pinned (s84, `fixes-3470`) | unicornspawnfail: UnicornSpawn with no spawn spot ends like EA's despawn |
 | 3473-3475 | pinned (s84, `fixes-3473`) | datadiscputback: DataDiscStorage move puts a refused disc back |
+| 3476-3478 | pinned (s85, `fixes-3476`) | spoilbroadcast: PreparedFood.ForceSpoil disposes the disgust broadcaster it replaces |
+| 3479-3481 | pinned (s85, `fixes-3479`) | weatherstonerelisten: WeatherStone success summon drops a still-pending weather listener before adding |
+| 3482-3484 | pinned (s85, `fixes-3482`) | birthdayagerecord: BirthdayParty records every guest who ages up |
 | **2000+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

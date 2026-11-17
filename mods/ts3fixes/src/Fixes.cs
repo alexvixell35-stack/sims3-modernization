@@ -388,6 +388,9 @@ namespace Ts3Fixes
             ApplySwipeRestore();   // docs/614 §3 (Scan84.cs)
             ApplyUnicornSpawnFail();   // docs/614 §4 (Scan84.cs)
             ApplyDataDiscPutBack();   // docs/614 §5 (Scan84.cs)
+            ApplySpoilBroadcast();   // docs/615 §1 (Scan85.cs)
+            ApplyWeatherStoneRelisten();   // docs/615 §2 (Scan85.cs)
+            ApplyBirthdayAgeRecord();   // docs/615 §3 (Scan85.cs)
             ApplyMegaphoneRun();   // docs/608 §2 (WalkStyleLeak77.cs)
             ApplyDragonCurseRun();   // docs/608 §3 (WalkStyleLeak77.cs)
             ApplyMermaidSharkNull();   // docs/587 EP1 §3
@@ -1145,6 +1148,9 @@ namespace Ts3Fixes
         // [3467-3469] swiperestore (Scan84.cs, docs/614 §3): restores / lost (off) / errors.
         // [3470-3472] unicornspawnfail (Scan84.cs, docs/614 §4): failed spawns ended / left invisible (off) / errors.
         // [3473-3475] datadiscputback (Scan84.cs, docs/614 §5): discs put back / lost (put-back refused) / errors.
+        // [3476-3478] spoilbroadcast (Scan85.cs, docs/615 §1): broadcasters disposed / leaked (off) / errors.
+        // [3479-3481] weatherstonerelisten (Scan85.cs, docs/615 §2): stale listeners removed / stacked (off) / errors.
+        // [3482-3484] birthdayagerecord (Scan85.cs, docs/615 §3): age-ups with listener kept / dropped (off) / errors.
         // [3391-3393] sarcmummynpc (TreasureSpawn74.cs, docs/607 §3): tomb mummy descriptions removed from NpcHousehold at sarcophagus cleanup / left with the switch off / errors.
         // [2790-2792] pushwaitskip (PushWait604.cs, docs/604 §2): done Sims EA's double-step wait pass would have skipped / waiting calls on EA's body (switch off) / errors.
         // [2756-2759] detailprioexact (DetailPrio603.cs, docs/603 §3): exact answers / EA's body (null list or description, error) / check mismatches / errors.
@@ -1693,6 +1699,9 @@ namespace Ts3Fixes
                 case "swiperestore": return Instantiator.kSwipeRestore;  // docs/614 §3 (Scan84.cs), EA bug fix, off
                 case "unicornspawnfail": return Instantiator.kUnicornSpawnFail;  // docs/614 §4 (Scan84.cs), EA bug fix, off
                 case "datadiscputback": return Instantiator.kDataDiscPutBack;  // docs/614 §5 (Scan84.cs), EA bug fix, off
+                case "spoilbroadcast": return Instantiator.kSpoilBroadcast;  // docs/615 §1 (Scan85.cs), EA bug fix, off
+                case "weatherstonerelisten": return Instantiator.kWeatherStoneRelisten;  // docs/615 §2 (Scan85.cs), EA bug fix, off
+                case "birthdayagerecord": return Instantiator.kBirthdayAgeRecord;  // docs/615 §3 (Scan85.cs), EA bug fix, off
                 case "alarmzeroperiod": return Instantiator.kAlarmZeroPeriod;  // docs/609 §6 (GameSpeed78.cs), EA bug fix (hang guard), off
                 case "tspawninvdup": return Instantiator.kTreasureSpawnInvDup;  // docs/607 §2 (TreasureSpawn74.cs), EA bug fix, off
                 case "megaphonerun": return Instantiator.kMegaphoneRun;  // docs/608 §2 (WalkStyleLeak77.cs), EA bug fix, off

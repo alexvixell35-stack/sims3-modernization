@@ -7193,6 +7193,49 @@
       "what": "scan triage real hits: bar put-down wait, put-down surface use, swipe, unicorn spawn, data discs",
       "at": "2026-11-17T08:50:02.378Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3476",
+      "kind": "fixes",
+      "from": 3476,
+      "to": 3478,
+      "by": "s85",
+      "what": "spoilbroadcast: PreparedFood.ForceSpoil disposes the disgust broadcaster it replaces",
+      "at": "2026-11-17T09:11:44.690Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3479",
+      "kind": "fixes",
+      "from": 3479,
+      "to": 3481,
+      "by": "s85",
+      "what": "weatherstonerelisten: WeatherStone success summon drops a still-pending weather listener before adding",
+      "at": "2026-11-17T09:11:44.758Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3482",
+      "kind": "fixes",
+      "from": 3482,
+      "to": 3484,
+      "by": "s85",
+      "what": "birthdayagerecord: BirthdayParty records every guest who ages up",
+      "at": "2026-11-17T09:11:44.828Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "doc-615",
+      "kind": "doc",
+      "from": 615,
+      "to": 615,
+      "by": "s85",
+      "what": "scan triage pass 2: spoil broadcaster, weather stone listener, birthday age-up record",
+      "at": "2026-11-17T09:11:44.856Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }
