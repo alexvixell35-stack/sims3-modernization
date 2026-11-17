@@ -108183,6 +108183,91 @@
     ]
   },
   {
+    "id": "unseenloopskip-check",
+    "bug": "EA ends an unseen low-LOD NPC's autonomous DoLoop only after 420 sim-min by day / 120 at night; meanwhile the loop runs its pass every sim-minute and holds the object (TV, book, hot tub, pool table, stereo, workout machine) others queue behind (docs/632)",
+    "fix": "ts3fixes LoopSkip632.cs: unseenloopskip (+ unseenloopskip_offscreen, kUnseenLoopSkipStep), default off, docs/632",
+    "save": "a world with a Late Night bar and NPC customers (Bridgeport); pure part needs no save",
+    "note": "UnseenLoopSkipCheck run checks the scope / cap / step decisions with controls (household, high LOD, user-directed, seen, active lot, held, unlisted class, never longer than EA) and the live getters, allow list and step hook; result shows counters 3700-3708 (3700 grows with the switch on while listed NPC loops run off camera).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenloopskip": false,
+          "unseenloopskip_offscreen": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenLoopSkipCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenLoopSkipCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenloopskip": true,
+          "unseenloopskip_offscreen": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenLoopSkipCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenLoopSkipCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenloopskip": false,
+          "unseenloopskip_offscreen": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenloopskip": false,
+          "unseenloopskip_offscreen": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

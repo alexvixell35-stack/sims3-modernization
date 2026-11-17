@@ -7381,6 +7381,24 @@
       "what": "player-first route queue and the zoom tier",
       "at": "2026-11-17T15:00:00.000Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3700",
+      "kind": "fixes",
+      "from": 3700,
+      "to": 3739,
+      "by": "s90loop",
+      "what": "unseenloopskip: unseen NPCs' allow-listed DoLoop interactions end at a lower low-LOD cap / step in bigger passes",
+      "at": "2026-11-17T16:00:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "doc-632",
+      "kind": "doc",
+      "from": 632,
+      "at": "2026-11-17T16:00:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }
