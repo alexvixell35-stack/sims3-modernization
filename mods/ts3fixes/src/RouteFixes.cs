@@ -205,7 +205,7 @@ namespace Ts3Fixes
         class StuckWatchdog : Task
         {
             struct Seen { public Vector3 Pos; public long Since; }
-            readonly Dictionary<ulong, Seen> mSeen = new Dictionary<ulong, Seen>();
+            Dictionary<ulong, Seen> mSeen = new Dictionary<ulong, Seen>(), mSeenSpare = new Dictionary<ulong, Seen>();
             struct Reset { public long At; public Vector3 Pos; public int Count; }
             readonly Dictionary<ulong, Reset> mLastReset = new Dictionary<ulong, Reset>();
 
@@ -214,8 +214,22 @@ namespace Ts3Fixes
                 uint wait = (uint)SimClock.ConvertToTicks(kWatchMinutes, TimeUnit.Minutes);
                 while (true)
                 {
-                    try { if (ShortcutOn("watchdog")) Check(); } catch (Exception) { mSeen.Clear(); }
-                    try { if (ShortcutOn("watchdog") && ShortcutOn("watchdogidle")) CheckIdle(); } catch (Exception) { mStill.Clear(); }
+                    // docs/622 §4 stuckwatchscan: both passes walk one world scan (Check resets or fades, it destroys nothing, and
+                    // no yield runs between the two; destroyed Sims are skipped in the shared one) and reuse their dictionaries.
+                    bool shared = ShortcutOn("stuckwatchscan");
+                    Sim[] sims = null;
+                    try { if (ShortcutOn("watchdog")) { sims = Sims3.Gameplay.Queries.GetObjects<Sim>(); Check(sims, shared); } } catch (Exception) { mSeen.Clear(); }
+                    try
+                    {
+                        if (ShortcutOn("watchdog") && ShortcutOn("watchdogidle"))
+                        {
+                            bool reuse = shared && sims != null;
+                            CheckIdle(reuse ? sims : Sims3.Gameplay.Queries.GetObjects<Sim>(), reuse, shared);
+                            PatchCounters()[reuse ? 3499 : 3500]++;
+                        }
+                    }
+                    catch (Exception) { mStill.Clear(); }
+                    sims = null;  // no world's Sims held over the sleep
                     Simulator.Sleep(wait);
                 }
             }
@@ -267,18 +281,22 @@ namespace Ts3Fixes
             // Cur is weak: a strong ref kept the old world's interaction (and through it a Sim) alive after travel until the next pass.
             struct Still { public Vector3 Pos; public WeakReference Cur; public long Since, OkAt; }
             static bool SameCur(WeakReference w, InteractionInstance i) { return w == null ? i == null : i != null && object.ReferenceEquals(w.Target, i); }
-            readonly Dictionary<ulong, Still> mStill = new Dictionary<ulong, Still>();
+            Dictionary<ulong, Still> mStill = new Dictionary<ulong, Still>(), mStillSpare = new Dictionary<ulong, Still>();
+            readonly List<Sim> mQueue = new List<Sim>();
 
-            void CheckIdle()
+            // sims: the round's world scan (reused: shared with Check, destroyed Sims skipped); spare: reuse the dictionaries
+            void CheckIdle(Sim[] sims, bool reused, bool spare)
             {
                 long now = SimClock.CurrentTicks;
                 long idle = SimClock.ConvertToTicks(kIdleMinutes, TimeUnit.Minutes), failSpan = SimClock.ConvertToTicks(kRouteFailMinutes, TimeUnit.Minutes);
                 int[] c = PatchCounters();
-                List<Sim> queue = new List<Sim>();
-                Dictionary<ulong, Still> keep = new Dictionary<ulong, Still>();
-                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                List<Sim> queue = spare ? mQueue : new List<Sim>();
+                queue.Clear();
+                Dictionary<ulong, Still> keep = spare ? mStillSpare : new Dictionary<ulong, Still>();
+                keep.Clear();
+                foreach (Sim s in sims)
                 {
-                    if (s == null || s.SimDescription == null || !s.InWorld) continue;
+                    if (s == null || (reused && s.HasBeenDestroyed) || s.SimDescription == null || !s.InWorld) continue;
                     if (UfInTransit(s)) continue;  // docs/202 §3.7: a D walk-time hold (unseenfbpre) stands still by design
                     ulong id = s.ObjectId.Value;
                     RouteFails f;
@@ -315,8 +333,12 @@ namespace Ts3Fixes
                     if (lot.IsRoomHidden(s.RoomId)) { if (Act(s, now, 47, "reset (hidden room)")) keep.Remove(id); continue; }
                     if (s.Posture == s.Standing && (st.OkAt == 0 || now - st.OkAt > kDayTicks)) queue.Add(s);
                 }
-                mStill.Clear();
-                foreach (KeyValuePair<ulong, Still> kv in keep) mStill[kv.Key] = kv.Value;
+                if (spare) { mStillSpare = mStill; mStill = keep; mStillSpare.Clear(); }  // same contents as the copy below
+                else
+                {
+                    mStill.Clear();
+                    foreach (KeyValuePair<ulong, Still> kv in keep) mStill[kv.Key] = kv.Value;
+                }
                 if (mLastReset.Count > 1024) mLastReset.Clear();
 
                 // the route checks: one full plan per tick at most, re-validated after every yield
@@ -443,12 +465,13 @@ namespace Ts3Fixes
                 return true;
             }
 
-            void Check()
+            void Check(Sim[] sims, bool spare)
             {
                 long now = SimClock.CurrentTicks;
                 long goHome = SimClock.ConvertToTicks(kStuckGoHomeMinutes, TimeUnit.Minutes), routing = SimClock.ConvertToTicks(kStuckRoutingMinutes, TimeUnit.Minutes);
-                Dictionary<ulong, Seen> keep = new Dictionary<ulong, Seen>();
-                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                Dictionary<ulong, Seen> keep = spare ? mSeenSpare : new Dictionary<ulong, Seen>();
+                keep.Clear();
+                foreach (Sim s in sims)
                 {
                     InteractionInstance cur = s.CurrentInteraction;
                     if (cur == null) continue;
@@ -481,8 +504,12 @@ namespace Ts3Fixes
                     }
                     keep[id] = seen;
                 }
-                mSeen.Clear();
-                foreach (KeyValuePair<ulong, Seen> kv in keep) mSeen[kv.Key] = kv.Value;
+                if (spare) { mSeenSpare = mSeen; mSeen = keep; mSeenSpare.Clear(); }  // same contents as the copy below
+                else
+                {
+                    mSeen.Clear();
+                    foreach (KeyValuePair<ulong, Seen> kv in keep) mSeen[kv.Key] = kv.Value;
+                }
                 if (mLastReset.Count > 1024) mLastReset.Clear();
             }
         }

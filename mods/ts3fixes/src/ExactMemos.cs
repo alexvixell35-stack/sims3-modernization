@@ -130,7 +130,9 @@ namespace Ts3Fixes
         {
             public void RemoveHook(BuffNames guid)
             {
-                if (sBuffRemoveReady && !OnWorker() && ShortcutOn("buffremovenoop"))
+                // docs/622 §2 buffremovemerge: the RemoveElement(ulong, bool) hook does the one-lookup no-op test
+                if (BrmReady() && SwOn(kSwBrMerge) && !OnWorker()) { RemoveOrig(guid); return; }
+                if (sBuffRemoveReady && !OnWorker() && SwOn(kSwBuffRemoveNoop))
                 {
                     BuffManager bm = (BuffManager)(object)this;
                     // GenericManager.HasElement(ulong) = mValues.ContainsKey: the test the base RemoveElement makes

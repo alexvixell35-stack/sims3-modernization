@@ -711,6 +711,7 @@ namespace Ts3Fixes
             Census();
             ApplyIlOwners();
             sImplVerdict.Clear();
+            MetaRowsNewGen();  // docs/622 §1: every kept AddObj row was computed under the old guard state
             return true;
         }
 
@@ -943,6 +944,7 @@ namespace Ts3Fixes
                 // Mode R reads it again at the cut (AutReference, docs/122 §14.18); this read serves Mode W.
                 sGardening = Sim.NumSimsDoingGardening;
                 AutShadowNative.AddRow(actor.ObjectId.Value, 1);
+                sMetaRowsOn = SwOn(kSwMetaRows);  // docs/622 §1 autmetarows
                 if ((bool)mCanFullMeta.Invoke(a, null))
                 {
                     foreach (IMetaObject m in AutonomyT.PublicMetaObjects) AddObj(q, m);
@@ -1030,7 +1032,8 @@ namespace Ts3Fixes
             int o = q.Objs++;
             q.Obj[o] = m;
             q.Start[o] = q.Pairs;
-            q.ObjImpl[o] = ImplVerdict(m.GetType());
+            MetaRow row = sMetaRowsOn ? MetaRowGet(m) : null;  // docs/622 §1: same verdicts, kept per object and ad index
+            q.ObjImpl[o] = row != null ? row.Impl : ImplVerdict(m.GetType());
             AutShadowNative.AddRow(m.ObjectId.Value, 0);
             Lot lot = m as Lot ?? m.LotCurrent;
             if (lot != null)
@@ -1043,18 +1046,27 @@ namespace Ts3Fixes
             if (m is BakeSaleTable) q.BakeSales.Add(m.Position);
             ArrayList ads = m.MetaAds;
             if (ads == null) return;
+            int[] c = row != null ? PatchCounters() : null;
             for (int i = 0; i < ads.Count && q.Pairs < kMaxPairs; i++)
             {
                 InteractionObjectPair iop = ads[i] as InteractionObjectPair;
                 if (iop == null) continue;
-                int p = q.Pairs++, k;
+                int p = q.Pairs++;
                 q.Pair[p] = iop;
                 q.PairObj[p] = o;
-                q.Def[p] = iop.InteractionDefinition != null && sDefIndex.TryGetValue(iop.InteractionDefinition.GetType(), out k) ? (sDefGuardHit[k] ? -2 : k) : -1;
+                InteractionDefinition def = iop.InteractionDefinition;
+                if (row != null)
+                {
+                    bool hit;
+                    q.Def[p] = MetaRowDef(row, i, def, out hit);
+                    c[hit ? 3490 : 3491]++;
+                }
+                else q.Def[p] = MetaDefVerdict(def);
                 // G-M2 (docs/128 §4): the tuning's scoring function, read here on the sim thread (only LoadTuning writes it)
                 InteractionTuning tun = iop.Tuning;
                 q.Acb[p] = tun != null && tun.AlwaysChooseBest;
-                if (q.Def[p] >= 0 && tun != null && tun.ScoringFunction != null && !SfAllowed(tun.ScoringFunction)) { q.Def[p] = -3; PatchCounters()[122]++; }
+                if (q.Def[p] >= 0 && tun != null && tun.ScoringFunction != null && !(row != null ? MetaRowSf(row, i, tun.ScoringFunction) : SfAllowed(tun.ScoringFunction)))
+                { q.Def[p] = -3; PatchCounters()[122]++; }
                 q.PairIndex[iop] = p;
             }
         }

@@ -54,6 +54,11 @@ export function scan(files: Map<string, string>) {
   for (const s of files.values()) for (const m of s.matchAll(/\bclass (\w+)[^{;]*\{/g)) {
     const [a, b] = block(s, m.index!); classBody.set(m[1], s.slice(a, b));
   }
+  // docs/622 §3: SwOn(kSwX) asks the switch its slot names (static readonly int kSwX = SwSlot("name"))
+  const slot = new Map<string, string>();
+  for (const s of files.values()) for (const m of s.matchAll(/\b(kSw\w+) = SwSlot\("(\w+)"\)/g)) slot.set(m[1], m[2]);
+  const names = (t: string) => new Set([...[...t.matchAll(/ShortcutOn\("(\w+)"\)/g)].map((x) => x[1]),
+    ...[...t.matchAll(/\bSwOn\((kSw\w+)\)/g)].map((x) => slot.get(x[1])).filter((x): x is string => !!x)]);
   const hooks = new Map<string, Hook>();
   for (const [f, s] of files) {
     if (SKIP.test(f)) continue;
@@ -62,7 +67,7 @@ export function scan(files: Map<string, string>) {
       const [a, b] = block(s, m.index!);
       const body = s.slice(a + 1, b - 1);
       const seg = s.slice(m.index!, n + 1 < applies.length ? applies[n + 1].index! : s.length);
-      const segSw = new Set([...seg.matchAll(/ShortcutOn\("(\w+)"\)/g)].map((x) => x[1]));
+      const segSw = names(seg);
       const lines = body.split('\n');
       let depth = 0, prev = '';
       for (const line of lines) {
@@ -73,7 +78,7 @@ export function scan(files: Map<string, string>) {
           for (const cls of types) {
             const h = hooks.get(cls) ?? { cls, swaps: 0, switches: new Set<string>(), handles: [] };
             if (top) h.swaps++;
-            const own = new Set([...(classBody.get(cls) ?? '').matchAll(/ShortcutOn\("(\w+)"\)/g)].map((x) => x[1]));
+            const own = names(classBody.get(cls) ?? '');
             for (const w of own.size ? own : segSw) h.switches.add(w);
             hooks.set(cls, h);
           }

@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
+using Sims3.SimIFace;
 using Sims3.Gameplay.ActorSystems;
 
 namespace Ts3Fixes
@@ -37,20 +39,32 @@ namespace Ts3Fixes
             public void UpdateHook(float simMinutesPassed)
             {
                 UpdateOrig(simMinutesPassed);
+                BuffManager bm = (BuffManager)(object)this;
+                // docs/622 §6 buffsrcempty (docs/620 F1b): drop the ref-count entries EA's walk emptied, as its id paths do
+                if (sBrmCountsF != null && SwOn(kSwBuffSrcEmpty) && !OnWorker())
+                {
+                    try { PatchCounters()[3505] += BseSweep(bm, true); }
+                    catch (ResetException) { throw; }
+                    catch (Exception) { PatchCounters()[3507]++; }
+                }
                 try
                 {
-                    BuffManager bm = (BuffManager)(object)this;
                     Sims3.Gameplay.Actors.Sim actor = sMdActor.GetValue(bm) as Sims3.Gameplay.Actors.Sim;
                     if (actor == null || actor.HasBeenDestroyed || actor.MoodManager == null) return;
                     int[] target = sMdTarget.GetValue(actor.MoodManager) as int[];
                     if (target == null) return;
-                    int[] sum = new int[target.Length];
-                    foreach (BuffInstance bi in bm.List)
+                    // docs/622 §8 mooddriftnoalloc: scratch array and struct walk over mValues (sim thread), else EA's List walk
+                    Dictionary<ulong, BuffInstance> vals = sMdValues != null && SwOn(kSwMdNoAlloc) && !OnWorker() ? sMdValues.GetValue(bm) as Dictionary<ulong, BuffInstance> : null;
+                    int[] sum;
+                    if (vals != null)
                     {
-                        if (bi == null) continue;
-                        int ax = (int)bi.mAxisEffected;
-                        if (ax >= 0 && ax < sum.Length) sum[ax] += bi.mEffectValue;
+                        if (sMdScratch.Length != target.Length) sMdScratch = new int[target.Length];
+                        sum = sMdScratch;
+                        Array.Clear(sum, 0, sum.Length);
+                        PatchCounters()[3511]++;
                     }
+                    else sum = new int[target.Length];
+                    MdSum(bm, vals, sum);
                     int diff = 0;
                     for (int i = 0; i < sum.Length; i++) diff += Math.Abs(target[i] - sum[i]);
                     if (diff == 0) return;
