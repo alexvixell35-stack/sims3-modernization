@@ -27,8 +27,8 @@ interface Used { fixesMax: number; nativeVer: number; nativeEnd: number; cFixesM
 
 // Contributor ranges (docs/registry.md "Contributor ranges"); maintainer numbers never enter them.
 // fixes: 2000-2199 (full since the PR #368 import, 2026-11-12), then 2200-2799 (2400-2799 added 2026-11-14, PR #405: 2200-2399
-// was down to ~80 slots); FIX_BLOCK2 is where the second block starts.
-export const CONTRIB = { doc: [500, 599], ledger: [900, 999], fixes: [2000, 2799], nativeV: 900 } as const;
+// was down to ~80 slots), 2800-3999 (added 2026-11-17, upstream #470; kCounterSlots 4000; docs 600-899 likewise); FIX_BLOCK2 is where the second block starts.
+export const CONTRIB = { doc: [500, 899], ledger: [900, 999], fixes: [2000, 3999], nativeV: 900 } as const;
 export const FIX_BLOCK2 = 2200;
 // A contributor slot block never straddles 2199/2200: one that would starts at 2200.
 export const contribFixFrom = (max: number, n: number) => max < FIX_BLOCK2 && max + n >= FIX_BLOCK2 ? FIX_BLOCK2 : max + 1;
@@ -308,7 +308,7 @@ async function selfCheck() {
     ok(!existsSync(join(d, 'docs', 'registry.md.lock')), 'lock file removed');
     // second contributor block: a block that would cross 2199/2200 starts at 2200; 2799 is the end (2400-2799 added 2026-11-14)
     ok(contribFixFrom(2006, 5) === 2007 && contribFixFrom(2195, 5) === 2200 && contribFixFrom(2195, 4) === 2196 && contribFixFrom(2303, 3) === 2304, 'contributor fixes: blocks stay inside 2000-2199 or start at 2200');
-    ok(CONTRIB.fixes[1] === 2799, 'contributor fixes range ends at 2799');
+    ok(CONTRIB.fixes[1] === 3999, 'contributor fixes range ends at 3999');
     const udDoc = [UD_HEAD, '', '| Op | Owner | Meaning |', '|---|---|---|', '| 0-2 | a | b |', '| 36 | c | d |', '| **37+** | next free | x |', ''].join('\n');
     ok(udCheck(udDoc, 'static u8 UdTextMsg(DWORD lo) {\n case 0: case 36: return 1;\n}').length === 0, 'UserDiag ops: every case has a row');
     ok(udCheck(udDoc, 'static u8 UdTextMsg(DWORD lo) {\n case 37: return 1;\n}')[0]?.includes('op 37'), 'UserDiag ops: a case without a row is reported');
