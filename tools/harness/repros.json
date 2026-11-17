@@ -104640,6 +104640,168 @@
     ]
   },
   {
+    "id": "stairwaitend-check",
+    "bug": "Stairs+StairsPortalComponent.OnPortalStart sleeps in a Sleep(10) loop until the native stair callback (HandleStairsCompleted) or WakeAll clears mbSleeping; no deadline (the start minute is stored and never read), unlike the elevator sibling (30 sim-minute failsafe, SetObjectToReset) (docs/612 §2)",
+    "fix": "ts3fixes StairDup82.cs: stairwaitend (default off), docs/612 §2",
+    "save": "any save with a staircase in the world (live replay); pure part needs none",
+    "note": "StairWaitEndCheck run checks the 30 sim-minute decision with controls (29.9 min, awake entry, household Sim untouched) and replays the end step on a dummy wait entry in a world staircase (removed after), asserting the swap is live; prints stair waits asleep now; result shows the counters (3446 grows when an NPC stair wait passes 30 sim-minutes, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "stairwaitend": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairWaitEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairWaitEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "stairwaitend": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairWaitEndCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairWaitEndCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "stairwaitend": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "stairwaitend": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "simdisposelink-check",
+    "bug": "Sim.Dispose sets its SimDescription.CreatedSim to null even when the description is bound to another live Sim (EA itself counts the disposed one as destroyed), so the live Sim is unbound and the next SimDescription.Instantiate creates a duplicate Sim object (docs/612 §3)",
+    "fix": "ts3fixes StairDup82.cs: simdisposelink (default off), docs/612 §3",
+    "save": "any save with at least two NPC Sims in the world (live replay); pure part needs none",
+    "note": "SimDisposeLinkCheck run checks the keep-link decision with controls (bound, dead or no-description untouched), replays the raw link steps on a world NPC description (no Dispose, no household event, restored after) and prints a duplicate census (unbound live Sims, descriptions with two Sim objects, ids held by two descriptions); result shows the counters (3450 grows when an unbound Sim is disposed, switch on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "simdisposelink": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimDisposeLinkCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimDisposeLinkCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "simdisposelink": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimDisposeLinkCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimDisposeLinkCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "simdisposelink": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "simdisposelink": false
+        }
+      }
+    ]
+  },
+  {
     "id": "rummagebcast-check",
     "bug": "TrashcanOutside+Rummage.Cleanup does not destroy the can's rummage ReactionBroadcaster, so a Sim reset mid-rummage leaves it registered (RummagingSim never cleared: passers-by keep queueing RummageReaction) and the next rummage overwrites it without disposing (docs/611 §4)",
     "fix": "ts3fixes LotCallbacks80.cs: rummagebcast (default off), docs/611 §4",

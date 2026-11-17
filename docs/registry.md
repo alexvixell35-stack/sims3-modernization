@@ -498,7 +498,9 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3435-3438 | `LotCallbacks80.cs` (`fixes-3435`, s80, docs/611 §2), `lotmgrcallbacks` | built 2026-11-17, default off: stacked copies removed at PreWorldLoad (3435) / stacked copies seen with the switch off (3436) / copies removed at Shutdown (3437) / errors (3438) |
 | 3439-3441 | `LotCallbacks80.cs` (`fixes-3439`, s80, docs/611 §3), `fireplaceherb` | built 2026-11-17, default off: burning herbs removed before a new one (3439) / left with the switch off (3440) / errors (3441) |
 | 3442-3445 | `LotCallbacks80.cs` (`fixes-3442`, s80, docs/611 §4), `rummagebcast` | built 2026-11-17, default off: broadcasters disposed at Cleanup (3442) / stale ones disposed at create (3443) / left with the switch off (3444) / errors (3445) |
-| **2000+** | next free (1981-1999 taken; free spans 2016-2021, 2711-2721 minus PR rows, 2760-2789, 2797-2799; contributor range 2000-3999 since upstream #470, `kCounterSlots` 4000; slots past 3445 with `--at`) | reserve here  |
+| 3446-3449 | `StairDup82.cs` (`fixes-3446`, s82, docs/612 §2), `stairwaitend` | built 2026-11-17, default off: stair waits ended at 30 sim-min (3446) / past deadline with the switch off (3447) / past deadline kept by the household rule (3448) / errors (3449) |
+| 3450-3452 | `StairDup82.cs` (`fixes-3450`, s82, docs/612 §3), `simdisposelink` | built 2026-11-17, default off: description links kept over an unbound Sim's Dispose (3450) / unbound disposes with the switch off (3451) / errors (3452) |
+| **2000+** | next free (1981-1999 taken; free spans 2016-2021, 2711-2721 minus PR rows, 2760-2789, 2797-2799; contributor range 2000-3999 since upstream #470, `kCounterSlots` 4000; slots past 3452 with `--at`) | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 
