@@ -1,6 +1,6 @@
 # 636. Spot edge memo: fewer goals for the lot routability check
 
-Status: static, built into r96-combo (`ts3fixes.r96-combo.package`), NOT RUN. Switch `spotedgememo` (default off).
+Status: static, built into r96-combo (memo only, running in s79) and r97-combo (+ seed, memo across sim-days), NOT RUN. Switch `spotedgememo` (default off).
 
 ## 1. Finding
 
@@ -32,19 +32,28 @@ our SpotVerdict (and the spotasync job), routablecache misses and EA's own calle
 - Exactness [inferred]: a multi-goal plan succeeds when any goal is reachable. The one theoretical gap is the planner's
   abort budget (`FailedBecausePlannerAborted`): an 8-goal plan could abort where a 1-goal plan succeeds; not seen.
   So household Sims use it too (proven-exact speedups stay); no HouseholdToo gate is needed (no worker path added).
-- Invalidation: the memo lives in the lot's `SpotVerdicts`, so it drops with them (one sim-day, household change, lot
-  moved, clock went back = another save or world). The verdict cache has no build/buy hook; for the memo a stale entry
-  can only cost a fallback plan, never a wrong answer, since a memo success is a live plan.
+- Invalidation (r96; r97 below): no build/buy hook is needed; a stale entry can only cost a fallback plan, never a
+  wrong answer, since a memo success is a live plan.
 - spotcut / spotbusydefer: when a memo plan's job was cut or deferred, the check returns false without the fallback
   plan (SpotVerdict discards that verdict as "no verdict" anyway).
 - Cost: a spot EA would reject now pays the memo plan plus EA's full plan (both fail). The verdict caches limit repeats.
 
-Counters 3806-3811: memo hits, misses (no memo), fallbacks (memo plan failed), ms saved estimate (the lot's last
-full-call ms minus the memo plan's ms, per hit), goals learned, check mismatches (must stay 0).
+- Seed (r97): with no memo for the profile yet, the check first plans one goal, the edge midpoint nearest the lot's street
+  side ([verified, ilspycmd] `Lot.LotEntryPnts[0]`: EA's road-nearest point between an edge midpoint and the lot center,
+  sorted by `World.FindPlaceOnRoad` distance; else `Lot.EntryPoint()`, front door or mailbox slot; no seed when EA fell back
+  to the lot position). Success = true and the goal is remembered (exact, as a memo hit); failure = EA's full call. A lot
+  stops seeding after 2 misses.
+- Memo storage (r97): its own per-lot dictionary (`SemLot`, at most 512 lots, then cleared), kept across sim-days. Dropped
+  on world load start or quit, lot added or removed, the clock going back (another save), or when the lot's position or
+  corners changed (moved or replaced). Up to 2 goals per profile (`SemAdd`); a miss keeps the mask and adds the new goal.
+
+Counters 3806-3813: memo hits, misses (no memo), fallbacks (memo plan failed), ms saved estimate (the lot's last
+full-call ms minus the memo plan's ms, per hit), goals learned, check mismatches (memo or seed true where EA said false;
+must stay 0), seed hits, seed misses.
 
 ## 3. Test
 
 Repro `spotedgememo-check` (tools/harness/repros.json): `SpotEdgeMemoCheck run` off then on. It picks a Sim on an
 eligible lot spot (a lot named Cemetery first), runs EA's call with the memo bypassed, then the memo route to the goal
-EA reached. FIXED needs the memo to plan fewer than 8 goals with the same verdict; pure controls: off or no memo = EA's
-call, memo failure = EA's call. Then `probe` (hypothesis data) and `result`. Pending in tools/harness/sets/proven-fixes.txt.
+EA reached, then the seed goal (a seed true where EA said false counts as a mismatch). FIXED needs the memo to plan fewer than 8 goals with the same verdict; pure controls: off or no memo = EA's
+call, memo failure = EA's call, the street-side edge pick on a test square. Then `probe` (hypothesis data) and `result`. Pending in tools/harness/sets/proven-fixes.txt.

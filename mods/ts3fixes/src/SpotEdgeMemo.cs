@@ -23,10 +23,65 @@ namespace Ts3Fixes
     // deferred (spotcut / spotbusydefer) returns false without the fallback plan: SpotVerdict discards that verdict anyway.
     // Counters: [3806] memo hits (true from the memo plan), [3807] misses (no memo: EA's full call), [3808] fallbacks (memo plan
     // failed: EA's full call), [3809] ms saved estimate (the lot's last full-call ms minus the memo plan's ms, per hit),
-    // [3810] goals learned, [3811] check mismatches (memo true where EA said false; must stay 0).
+    // [3810] goals learned, [3811] check mismatches (memo or seed true where EA said false; must stay 0), [3812] seed hits (no memo
+    // yet: the 1-goal plan to the street-side edge midpoint succeeded, true), [3813] seed misses (EA's full call followed).
+    // Seed: with no memo for the profile, the check first plans to the edge midpoint nearest the lot's street side (Lot.LotEntryPnts[0],
+    // else Lot.EntryPoint); exact for the same reason as a memo hit. A lot's seed stops after 2 misses. The memo is its own per-lot
+    // dictionary (SemLot, up to 512 lots), kept across sim-days.
     public static partial class Fixes
     {
         sealed class SemEntry { public int Mask; public int FullMs; }
+        // Per-lot hints, kept across sim-days (a stale goal costs one extra plan, never a wrong answer): dropped on world load or
+        // quit, lot added or removed, the clock going back (another save), or when the lot moved or its corners changed (replaced).
+        sealed class SemLot { public Vector3 LotPos, Corner0, Corner2; public int Seed = -2, SeedFails; public readonly Dictionary<VerdictKey, SemEntry> Edge = new Dictionary<VerdictKey, SemEntry>(new VerdictKeyComparer()); }
+        static readonly Dictionary<ulong, SemLot> sSemLots = new Dictionary<ulong, SemLot>();
+        const int kSemMaxLots = 512, kSemMaxSeedFails = 2;
+        static long sSemTick = -1;
+        static void SemForget(object sender, EventArgs e) { sSemLots.Clear(); }
+        static void SemHookWorld()
+        {
+            World.OnWorldLoadStartedEventHandler += SemForget;
+            World.OnWorldQuitEventHandler += SemForget;
+            World.OnLotAddedEventHandler += SemForget;
+            World.OnLotRemovedEventHandler += SemForget;
+        }
+        static SemLot SemLotOf(Lot lot)
+        {
+            long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+            if (now < sSemTick) sSemLots.Clear();
+            sSemTick = now;
+            Vector3 c0 = lot.Corners[0], c2 = lot.Corners[2];
+            SemLot m;
+            if (sSemLots.TryGetValue(lot.LotId, out m) && (lot.Position - m.LotPos).Length() <= 0.5f && (c0 - m.Corner0).Length() <= 0.5f
+                && (c2 - m.Corner2).Length() <= 0.5f) return m;
+            if (sSemLots.Count >= kSemMaxLots) sSemLots.Clear();
+            m = new SemLot();
+            m.LotPos = lot.Position; m.Corner0 = c0; m.Corner2 = c2;
+            sSemLots[lot.LotId] = m;
+            return m;
+        }
+
+        // The seed goal: the edge midpoint nearest the lot's street side (Lot.LotEntryPnts[0], EA's road-nearest entry point
+        // between an edge midpoint and the lot center), else the front door or mailbox (Lot.EntryPoint); -1 = none
+        static int SemSeedOf(Lot lot, Vector3[] centers)
+        {
+            Vector3[] entry = lot.LotEntryPnts;
+            Vector3 at = entry != null && entry.Length > 0 ? entry[0] : lot.EntryPoint();
+            if (at == Vector3.Invalid || (at - lot.Position).Length() < 0.01f) return -1;  // EA's fallback: the lot position, no side
+            return SemNearestEdge(centers, at);
+        }
+        // Pure: the edge midpoint (odd index) nearest `at` in x/z
+        internal static int SemNearestEdge(Vector3[] centers, Vector3 at)
+        {
+            int best = -1;
+            float bestD = float.MaxValue;
+            for (int i = 1; i < centers.Length; i += 2)
+            {
+                float dx = centers[i].x - at.x, dz = centers[i].z - at.z, d = dx * dx + dz * dz;
+                if (d < bestD) { bestD = d; best = i; }
+            }
+            return best;
+        }
         // task -> the last PlanFromPoint result inside an armed full call (RouteBackoffHook.PlanFromPointHook)
         static readonly Dictionary<ulong, RoutePlanResult> sSemCap = new Dictionary<ulong, RoutePlanResult>();
         static bool sSemBypass;  // SpotEdgeMemoCheck: EA's own call, no memo
@@ -93,11 +148,17 @@ namespace Ts3Fixes
 
         // Pure: goals the check plans first (8 = EA's full call)
         internal static int SemGoals(bool on, int mask) { return on && (mask & 0xFF) != 0 ? SemBits(mask & 0xFF) : 8; }
-        // Pure: 0 = EA's full call, 1 = memo true (no full call), 2 = memo failed: EA's full call answers
         // Pure: add goal idx to the memo, at most 2 goals per lot (front and side gate; more would bring
         // back the flood toward goals this spot can't reach). Past 2, start over from the goal just reached.
         internal static int SemAdd(int mask, int idx) { int m = mask | (1 << idx); return SemBits(m & 0xFF) > 2 ? 1 << idx : m; }
+        // Pure: 0 = EA's full call, 1 = memo true (no full call), 2 = memo failed: EA's full call answers
         internal static int SemNext(bool on, int mask, bool memoOk) { return !on || (mask & 0xFF) == 0 ? 0 : memoOk ? 1 : 2; }
+
+        // spotcut / spotbusydefer: this check's job was cut or deferred, SpotVerdict answers no verdict, so no second plan
+        static bool SemNoVerdict(ulong task)
+        {
+            return (sSpotCut.Count > 0 && sSpotCut.ContainsKey(task)) || (sSpotDeferred.Count > 0 && sSpotDeferred.ContainsKey(task));
+        }
 
         // RoutableCacheHook's EA call: the memo route first when on
         static bool SemRoutable(RoutableCacheHook h, Lot lot, Vector3 pos)
@@ -109,11 +170,11 @@ namespace Ts3Fixes
             RouteProfile p = ProfileOf(sim);
             if (!p.Ok) return h.RoutableOrig(lot, pos);
             int[] c = PatchCounters();
-            SpotVerdicts v = Verdicts(lot);
+            SemLot m = SemLotOf(lot);
             VerdictKey key = KeyOf(p, Vector3.Zero);
             key.Cell = 0;
             SemEntry e;
-            v.Edge.TryGetValue(key, out e);
+            m.Edge.TryGetValue(key, out e);
             ulong task = Simulator.CurrentTask.Value;
             if (e != null && e.Mask != 0)
             {
@@ -124,9 +185,27 @@ namespace Ts3Fixes
                 c[3808]++;
                 // keep the learned goals: the full call below adds the one this spot reaches (up to 2, see SemAdd)
                 // spotcut / spotbusydefer: this check answers no verdict (SpotVerdict null), so no second plan
-                if ((sSpotCut.Count > 0 && sSpotCut.ContainsKey(task)) || (sSpotDeferred.Count > 0 && sSpotDeferred.ContainsKey(task))) return false;
+                if (SemNoVerdict(task)) return false;
             }
-            else c[3807]++;
+            else
+            {
+                c[3807]++;
+                // seed (no memo for this profile yet): one goal, the street-side edge midpoint; success = true, as a memo hit
+                if (m.Seed == -2) m.Seed = SemSeedOf(lot, centers);
+                if (m.Seed >= 0 && m.SeedFails < kSemMaxSeedFails)
+                {
+                    if (SemPlan(sim, centers, radius, 1 << m.Seed, pos).mType == RoutePlanResultType.Succeeded)
+                    {
+                        c[3812]++;
+                        if (e == null) { e = new SemEntry(); m.Edge[key] = e; }
+                        e.Mask = SemAdd(e.Mask, m.Seed);
+                        return true;
+                    }
+                    c[3813]++;
+                    m.SeedFails++;
+                    if (SemNoVerdict(task)) return false;
+                }
+            }
             bool full;
             int t1 = System.Environment.TickCount;
             RoutePlanResult r;
@@ -139,7 +218,7 @@ namespace Ts3Fixes
                 int idx = SemMatch(centers, radius, r.mDestination);
                 if (idx >= 0)
                 {
-                    if (e == null) { e = new SemEntry(); v.Edge[key] = e; }
+                    if (e == null) { e = new SemEntry(); m.Edge[key] = e; }
                     if ((e.Mask & (1 << idx)) == 0) c[3810]++;
                     e.Mask = SemAdd(e.Mask, idx);
                     e.FullMs = unchecked(System.Environment.TickCount - t1);
@@ -151,9 +230,17 @@ namespace Ts3Fixes
         // SpotEdgeMemoCheck run: on a real lot (a Sim's own spot, Bridgeport's cemetery first), EA's 8-goal call vs the memo
         // route to the goal EA's plan reached: fewer goals, same verdict. probe: every goal alone (ms, result) and EA's plan
         // distance vs the straight distance, for the docs/636 hypothesis (a failed goal floods the lot: probe hitches).
+        // Pure test lot: corners (0,0) (0,10) (10,10) (10,0) in EA's goal order (corner i, then the midpoint of edge i..i+1)
+        static Vector3[] SemSquare()
+        {
+            Vector3[] k = { new Vector3(0f, 0f, 0f), new Vector3(0f, 0f, 10f), new Vector3(10f, 0f, 10f), new Vector3(10f, 0f, 0f) };
+            Vector3[] c = new Vector3[8];
+            for (int i = 0; i < 4; i++) { c[2 * i] = k[i]; c[2 * i + 1] = (k[i] + k[(i + 1) % 4]) * 0.5f; }
+            return c;
+        }
         public static object SpotEdgeMemoCheck(string what)
         {
-            string counters = B582Counters("spotedgememo", 3806, new[] { "memo hits", "misses", "fallbacks", "ms saved est", "goals learned", "check mismatches" }, "");
+            string counters = B582Counters("spotedgememo", 3806, new[] { "memo hits", "misses", "fallbacks", "ms saved est", "goals learned", "check mismatches", "seed hits", "seed misses" }, "");
             if (what == "result") return counters;
             if (what != "run" && what != "probe") return "spotedgememo <run|probe|result>";
             bool on = ShortcutOn("spotedgememo");
@@ -200,6 +287,15 @@ namespace Ts3Fixes
                 }
                 else if (eaOk) live += ", reached goal not matched (dest " + r.mDestination + ")";
                 else live += " (EA false: the memo never answers false, nothing to compare)";
+                int seed = SemSeedOf(lot, centers);
+                if (seed >= 0)
+                {
+                    t0 = System.Environment.TickCount;
+                    bool seedOk = SemPlan(sim, centers, radius, 1 << seed, pos).mType == RoutePlanResultType.Succeeded;
+                    live += "; seed goal " + seed + " " + seedOk + " in " + unchecked(System.Environment.TickCount - t0) + " ms";
+                    if (seedOk && !eaOk) { PatchCounters()[3811]++; liveOk = false; }
+                }
+                else live += "; no seed (no street side)";
                 if (what == "probe" && centers != null)
                 {
                     live += "; per goal:";
@@ -214,7 +310,8 @@ namespace Ts3Fixes
                 if (eaOk && idx >= 0 && !liveOk) PatchCounters()[3811]++;
             }
             bool controls = SemGoals(false, 0x1) == 8 && SemGoals(true, 0) == 8 && SemNext(false, 0x1, true) == 0 && SemNext(true, 0, true) == 0
-                && SemNext(true, 0x1, false) == 2 && SemNext(true, 0x1, true) == 1 && liveOk && PatchCounters()[3811] == 0;
+                && SemNext(true, 0x1, false) == 2 && SemNext(true, 0x1, true) == 1 && liveOk
+                && SemNearestEdge(SemSquare(), new Vector3(2.5f, 0f, 5f)) == 1 && SemNearestEdge(SemSquare(), new Vector3(5f, 0f, 8f)) == 3 && PatchCounters()[3811] == 0;
             return B582Line("spotedgememo", on, "the check plans only the goals a full plan reached, same verdict", liveFewer && liveOk,
                 "off / no memo = EA's 8-goal call, memo failure = EA's full call; live: " + live, controls, "", counters);
         }

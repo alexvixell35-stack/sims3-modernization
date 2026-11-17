@@ -15,6 +15,7 @@ namespace Ts3Fixes
         static void ApplyFewerPlans()
         {
             Patch(typeof(Sim), "IsPointInLotSafelyRoutable", typeof(RoutableCacheHook), "RoutableHook", "RoutableOrig");
+            SemHookWorld();  // docs/636 spotedgememo: drop the per-lot memo on world load / quit and lot add / remove
             Type helper = typeof(LotManager).GetNestedType("RunStuckCheckHelper", BindingFlags.NonPublic);
             if (helper == null) { AppliedLog().Add("LotManager.RunStuckCheckHelper: not found, skipped"); return; }
             Patch(helper, "RunStuckCheck", typeof(StuckCheckBusyHook), "RunHook", "RunOrig");
