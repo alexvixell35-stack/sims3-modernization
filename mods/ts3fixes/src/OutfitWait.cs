@@ -449,6 +449,8 @@ namespace Ts3Fixes
                     foreach (Sim c in Sims3.Gameplay.Queries.GetObjects<Sim>())
                         if (dead && IsPlayerSim(c)) continue;  // the dead test only on NPCs (PlayerSims.cs)
                         else if (c.InWorld && c.SimDescription != null && sSimActiveSoh.GetValue(c) == null && Array.IndexOf(kinds, c.CurrentOutfitCategory) >= 0
+                            // with another category to change into: a household pet has one only (2026-11-17: the check took the dog and never started)
+                            && Array.Exists(kinds, delegate(OutfitCategories k) { return k != c.CurrentOutfitCategory && c.SimDescription.GetOutfitCount(k) > 0; })
                             && (sim == null || (c.Household == Household.ActiveHousehold && sim.Household != Household.ActiveHousehold))) sim = c;
                     if (sim == null) return "no Sim in the world in a normal outfit without an outfit helper";
                     OutfitCategories cur = sim.CurrentOutfitCategory, pick = OutfitCategories.None;
