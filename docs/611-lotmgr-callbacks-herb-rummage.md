@@ -77,3 +77,11 @@ the reset Cleanup step); also counts cans holding a broadcaster whose rummager i
 
 `PreWorldLoad`, `Shutdown` and `Rummage.Cleanup` can reach a yield: stubbed (SavedStacks remap). `AddHerb` and
 `RummageBroadcasterCreate` cannot.
+
+## 6. r68 in game, r69 Check fix
+
+r68 (`phase-20261117-0145`): `lotmgrcallbacks` off BROKEN / on FIXED. `fireplaceherb` and `rummagebcast` came out UNEXPECTED
+with the switch off. Cause: the two Checks passed `eaBug` (true) as the "fixed now" value in the off arm, so off read as
+fixed. The swaps are gated by the switch and the off replay did keep the leaked broadcaster [verified, source]. r69 passes
+`fixedPure && liveOk` as heartbrokenbcast does (off: false, so BROKEN). Live counters were 0 because no real overlapping herb
+or reset rummage happened, and the replay restores the counters on purpose. Both stay pending until r69 runs.

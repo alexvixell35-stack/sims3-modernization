@@ -332,7 +332,7 @@ namespace Ts3Fixes
                     try { sFphBcast.SetValue(fp, null); } catch (Exception) { }
                 }
             }
-            return B582Line("fireplaceherb", on, "a second herb removes the burning one first", (on ? fixedPure : eaBug) && liveOk && sFphMissing.Length == 0,
+            return B582Line("fireplaceherb", on, "a second herb removes the burning one first", fixedPure && liveOk && sFphMissing.Length == 0,
                 "EA leaves it (" + eaBug + "), no herb untouched, " + live, controls && liveOk, sFphMissing, counters);
         }
 
@@ -469,7 +469,7 @@ namespace Ts3Fixes
                 tuning = p != null ? ", tuning TimeDuration " + p.TimeDuration : ", tuning unreadable";
             }
             catch (Exception) { tuning = ", tuning unreadable"; }
-            return B582Line("rummagebcast", on, "a reset rummage disposes the can's broadcaster", (on ? fixedPure : eaBug) && liveOk && sRmbMissing.Length == 0,
+            return B582Line("rummagebcast", on, "a reset rummage disposes the can's broadcaster", fixedPure && liveOk && sRmbMissing.Length == 0,
                 "EA leaves it (" + eaBug + "), another Sim's rummage and no broadcaster untouched, " + live + ", leaked now " + leaked + tuning, controls && liveOk, sRmbMissing, counters);
         }
     }
