@@ -94,6 +94,9 @@ namespace Ts3Fixes
         // Pure: goals the check plans first (8 = EA's full call)
         internal static int SemGoals(bool on, int mask) { return on && (mask & 0xFF) != 0 ? SemBits(mask & 0xFF) : 8; }
         // Pure: 0 = EA's full call, 1 = memo true (no full call), 2 = memo failed: EA's full call answers
+        // Pure: add goal idx to the memo, at most 4 goals per lot (several gates on big lots; more would bring
+        // back the flood toward goals this spot can't reach). Past 4, start over from the goal just reached.
+        internal static int SemAdd(int mask, int idx) { int m = mask | (1 << idx); return SemBits(m & 0xFF) > 4 ? 1 << idx : m; }
         internal static int SemNext(bool on, int mask, bool memoOk) { return !on || (mask & 0xFF) == 0 ? 0 : memoOk ? 1 : 2; }
 
         // RoutableCacheHook's EA call: the memo route first when on
@@ -119,7 +122,7 @@ namespace Ts3Fixes
                 int ms = unchecked(System.Environment.TickCount - t0);
                 if (SemNext(true, e.Mask, ok) == 1) { c[3806]++; if (e.FullMs > ms) c[3809] += e.FullMs - ms; return true; }
                 c[3808]++;
-                e.Mask = 0;  // relearn from the full call
+                // keep the learned goals: the full call below adds the one this spot reaches (up to 4, see SemAdd)
                 // spotcut / spotbusydefer: this check answers no verdict (SpotVerdict null), so no second plan
                 if ((sSpotCut.Count > 0 && sSpotCut.ContainsKey(task)) || (sSpotDeferred.Count > 0 && sSpotDeferred.ContainsKey(task))) return false;
             }
@@ -138,7 +141,7 @@ namespace Ts3Fixes
                 {
                     if (e == null) { e = new SemEntry(); v.Edge[key] = e; }
                     if ((e.Mask & (1 << idx)) == 0) c[3810]++;
-                    e.Mask |= 1 << idx;
+                    e.Mask = SemAdd(e.Mask, idx);
                     e.FullMs = unchecked(System.Environment.TickCount - t1);
                 }
             }
