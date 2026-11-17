@@ -110922,5 +110922,89 @@
         }
       }
     ]
+  },
+  {
+    "id": "unseenservice-check",
+    "bug": "Late Night bar orders (BarAdvanced OrderDrink / OrderFood / OrderConversation) hold customer and bartender in linked sync waits (server side float.MaxValue) for 15-30 sim-min each, one customer at a time, also for NPCs nobody can see: MakeConversation 567 sim-min x34, OrderDrink 346 x30, OrderFood 99 x16 (phase-20261117-1237, docs/628)",
+    "fix": "ts3fixes UnseenService88.cs: unseenservice (default off) + unseenservice_offscreen (tier 2, default off), docs/628",
+    "save": "a world with a Late Night bar and NPC customers (Bridgeport); pure part needs no save",
+    "note": "UnseenServiceCheck run checks the scope decision with controls (player, residential, owned venue, high LOD, seen, tier-2 switch) and maps each order to EA's server type on a live bar; result shows counters 3600-3611 (3600-3605 grow with the switch on while NPCs order at bars off camera).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenservice": false,
+          "unseenservice_offscreen": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenServiceCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenServiceCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenservice": true,
+          "unseenservice_offscreen": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenServiceCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenServiceCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenservice": false,
+          "unseenservice_offscreen": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "spoilbroadcast": false
+        }
+      }
+    ]
   }
 ]

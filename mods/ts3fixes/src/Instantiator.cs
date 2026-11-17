@@ -404,6 +404,8 @@ namespace Ts3Fixes
         [Tunable] public static bool kBuffSrcEmpty = false; // buffsrcempty (docs/622 §6, docs/620 F1b): emptied moodlet ref-count entries are dropped after UpdateBuffs, so a later id-less add is not cut to one update
         [Tunable] public static bool kBuffPausedTimeout = false; // buffpausedtimeout (docs/622 §7, docs/620 F1a): a paused-only moodlet re-add gets the tuned timeout instead of float.MinValue
         [Tunable] public static bool kMoodDriftNoAlloc = false; // mooddriftnoalloc (docs/622 §8): the mood drift pass sums buffs with a scratch array and a struct walk (no allocation)
+        [Tunable] public static bool kUnseenService = false; // unseenservice (docs/628): a Late Night bar drink, food or bartender chat between two unseen low-LOD NPCs completes at once with EA's end steps (no animation, no sync wait)
+        [Tunable] public static bool kUnseenServiceOffscreen = false; // unseenservice_offscreen (docs/628): the same for NPCs off screen but within 80 m, re-checked at completion
         [Tunable] public static bool kBirthdayAgeRecord = false; // birthdayagerecord (docs/615 §3): a birthday party records every guest who ages up, not only the first
         [Tunable] public static bool kTimerAlarmLeak = false; // timeralarmleak (docs/623 §1): a wish timer node's alarm is removed when the node leaves play, and an orphan timer alarm ends at its next fire (EA's own kill path)
         [Tunable] public static bool kWishFeedbackKeep = false; // wishfeedbackkeep (docs/623 §2): a live wish keeps its event listener when its feedback function throws (EventTracker dropped it for good)

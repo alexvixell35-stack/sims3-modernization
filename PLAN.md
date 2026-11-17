@@ -29,6 +29,8 @@ Approved 2026-10-10. Rewritten 2026-10-12 with everything found so far (read thi
 
 **Wishes engine fixes (2026-11-17, docs/623, r76-wishes, static, NOT RUN):** built default-off `timeralarmleak` (3520-3524), `wishfeedbackkeep` (3525-3528), `wishsubjectgone` (3529-3533), `wishupdatelost` (3534-3537), `socialworkerpromise` (3538-3540) from docs/619 findings 1-6; each Check forces its case (off BROKEN, on FIXED). Next: run the five `-check` repros off then on.
 
+**Unseen bar service (2026-11-17, docs/628, r81-svc, static, NOT RUN):** built default-off `unseenservice` (3600-3611) + tier 2 `unseenservice_offscreen`: unseen NPC bar orders (conversation, one drink, one plate) complete at the queue head with EA's end steps. Next: run `unseenservice-check` off then on in Bridgeport, then a wait-report A/B on the bar rows.
+
 **Scan triage pass 2 (2026-11-17, docs/615, r73, static, NOT RUN):** built default-off `spoilbroadcast` (3476-3478), `weatherstonerelisten` (3479-3481), `birthdayagerecord` (3482-3484); SnakeCharmingBasket and RideBroomArena hits false in IL. Next: run r73 with the s85 pairs.
 
 **Allocation cuts (2026-11-17, docs/625, r77-alloc, static, NOT RUN):** built default-off `enumcmpnobox` (3550-3553; non-boxing `EqualityComparer<T>.Default` for CommodityKind/BuffNames/SkillNames) and `alarmcmpnobox` (3554-3558; AlarmHandle, live `mTimers` swapped in place); save check passed (no comparer is persisted). HasAnyElement params arrays skipped (docs/625 §4). Next: run the two Checks off/on, then a gc-rate A/B.
