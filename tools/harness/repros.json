@@ -109707,5 +109707,167 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "enumcmpnobox-check",
+    "bug": "EqualityComparer<T>.Default for enums is mscorlib's DefaultComparer: 3 boxes per key compare, 2 per hash, on every CommodityKind/BuffNames/SkillNames Dictionary lookup and List.Contains (docs/618 #1 #5, docs/625 §2)",
+    "fix": "ts3fixes Alloc87Comparers.cs: enumcmpnobox (default off), docs/625 §2",
+    "save": "pure part needs no save (any loaded world for the live AlarmManagers)",
+    "note": "EnumCmpNoBoxCheck run counts bytes per (hit + miss lookup + List.Contains) through GC_words_allocd for each type and compares EA's and our hash/equality/key order; counters 3550-3553 (3553 must stay 0).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "enumcmpnobox": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EnumCmpNoBoxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's comparer"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EnumCmpNoBoxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "enumcmpnobox": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EnumCmpNoBoxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.EnumCmpNoBoxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "enumcmpnobox": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "enumcmpnobox": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "alarmcmpnobox-check",
+    "bug": "AlarmManager.mTimers Dictionary<AlarmHandle,..> uses DefaultComparer (AlarmHandle has no IEquatable): boxes on every alarm add/remove/lookup (docs/618 #2, docs/625 §3)",
+    "fix": "ts3fixes Alloc87Comparers.cs: alarmcmpnobox (default off), docs/625 §3",
+    "save": "pure part needs no save (any loaded world for the live AlarmManagers)",
+    "note": "AlarmCmpNoBoxCheck run counts bytes per call, compares EA's and our answers, and reports live mTimers on our comparer; counters 3554-3558 (3558 must stay 0).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "alarmcmpnobox": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AlarmCmpNoBoxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's comparer"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AlarmCmpNoBoxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "alarmcmpnobox": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AlarmCmpNoBoxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AlarmCmpNoBoxCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "alarmcmpnobox": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "alarmcmpnobox": false
+        }
+      }
+    ]
   }
 ]
