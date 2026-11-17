@@ -183,3 +183,20 @@ near 20-40 means G2 (a longer finish budget) is worth building. Counter only: no
 change (v205 spare slot). The gate adds a byte check of `0xE49E6D` (`89 0D B4 2F 1F 01`) to its install checks.
 Shortcut: the mean only, not the per-cycle maximum; add a max slot if the mean is near the threshold. Read with
 `node tools/harness/wait-ab.ts <tag> --counters gcgSpare_1,gcgCycles,...`.
+
+### 8.8 Timing result `gc-idle-gate-time-1117` (2026-11-17, build `0.36.272-gchold2`, chain-1118b step 2): RERUN, stays off
+
+In-load ABBA (300 s warm-up on, then off / on / on / off), 25 min per world, `--ab gcidlegate`; both jobs PASS correctness (0 script errors, no forbidden log lines). Timing is **invalid**: noise medium (other apps 24-25% of game CPUs, clock 3927-4099 MHz), fewer than 4 iterations per arm (1 off / 2 on), and `sv-gcgate-ab` is VOID (profiler cut short, 1099 of 1500 s). Numbers are indicative only [measured, not decision grade].
+
+| World | sim ms/s off / on | on - off | p99 / p99.9 ms off / on | max ms off / on | >=200 / >=300 / >=1000 per 10 min off / on | it/s off / on |
+|---|---|---|---|---|---|---|
+| BP | 258.6 / 251.2 | -7.4 (-3%) | 89 / 175 vs 113 / 326 | 9686 / 9335 | 21.4 / 21.4 / 21.4 vs 35.6 / 24.2 / 21.4 | 54.2 / 38.4 |
+| SV (VOID) | 180.7 / 168.6 | -12.2 (-7%) | 70 / 5326 vs 52 / 322 | 8411 / 7924 | 60.5 / 50.0 / 44.7 vs 60.7 / 46.8 / 41.6 | 66.1 / 76.1 |
+
+- Profiler `gcMark` ms/s: BP 6.8 off / 4.9 on, SV 9.0 off / 9.8 on (no clear change); sum is script + route + animPose + locomotion, lower is better.
+- Gate counters (`gcg*` deltas per arm slice): skipped calls on = 8489 of 17511 and 5507 of 14706 (BP), 19002 of 30636 and 18831 of 30551 (SV); off = 4 of 15810 and 0 of 22099 (BP/SV, the off arm hook runs the gate open). `gcgMs` (GC time inside the hooked call) off ~85 ms/s vs on ~56 ms/s (BP), ~138 vs ~70 ms/s (SV) [measured, unit not cross-checked against `gcMark`; the two disagree, so treat as upper bound].
+- Forced full collections (`gcgForced`): BP 7 in the last off slice (1972 ms), 0 in the on slices; SV 0. Threshold 54-55 MB, no backoff.
+- G2 (`gcgSpare_1 / gcgCycles`): 40-55 aborted finish attempts per cycle in both arms, over the 40 limit, so a longer finish budget (G2) is worth building [measured].
+- BP hitches got worse with the gate on (>=200 ms 21.4 -> 35.6 per 10 min, p99.9 175 -> 326 ms); SV hitches slightly fewer. Single run each, max ~8-9 s stalls are load/repro driven in both arms.
+
+Verdict: sim ms/s gain is -7 and -12 ms/s in the right direction but not consistent proof (invalid timing, BP hitches up), so no default ON; `[GC] IdleGate=0` stays. Rerun on a quiet machine with >= 4 iterations per arm (two ABBA blocks) and a profiler that survives the full 1500 s on SV (`gc-idle-gate-time-1117` -> `-rerun1`); read BP hitches at >=200 ms first. Next code step regardless: G2 finish budget.

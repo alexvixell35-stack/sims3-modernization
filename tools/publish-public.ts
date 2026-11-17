@@ -264,6 +264,10 @@ export function publish(o: Opts): { clone: string; commit: string } {
 
   step('node tools/check-docs-code.ts');
   run(process.execPath, ['tools/check-docs-code.ts'], clone);
+  if (existsSync(join(clone, 'native/ts3native/ts3addr-ea169.h'))) { // the self-check fixture has no native tree
+    step('node tools/ts3addr-check.ts (EA 1.69 address table covers every TS3A literal, ts3addr_count matches)');
+    run(process.execPath, ['tools/ts3addr-check.ts'], clone);
+  }
   if (stripped.length) {
     step('selftest-all --ci of tools/harness in the stripped tree');
     run(process.execPath, ['tools/selftest-all.ts', '--ci', '--only', 'tools/harness/*.ts'], clone);
