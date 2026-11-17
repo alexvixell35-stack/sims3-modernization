@@ -6232,7 +6232,18 @@ static bool g_otherHost;  // not TS3W.exe (the launcher also loads the ASI loade
 // docs/230: the build this asi's addresses belong to (PE timestamp + SizeOfImage), the same pair on Steam and EA
 static bool HostBuildOk(const void* base) {
     const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)((const u8*)base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
-    return nt->FileHeader.TimeDateStamp == (DWORD)TS3A_HOST_PE && nt->OptionalHeader.SizeOfImage == (DWORD)TS3A_HOST_SIZE;
+    if (nt->FileHeader.TimeDateStamp != (DWORD)TS3A_HOST_PE) return false;
+    if (nt->OptionalHeader.SizeOfImage == (DWORD)TS3A_HOST_SIZE) return true;
+    // An import-adding patcher (e.g. an ASI loader's ".addImp") appends sections after the original image: every address
+    // below TS3A_HOST_SIZE is unchanged. Accept that layout only: a larger image whose original sections all end at or
+    // before TS3A_HOST_SIZE and whose extra sections all start at or after it.
+    if (nt->OptionalHeader.SizeOfImage < (DWORD)TS3A_HOST_SIZE) return false;
+    const IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);
+    for (WORD i = 0; i < nt->FileHeader.NumberOfSections; i++) {
+        DWORD va = sec[i].VirtualAddress, end = va + sec[i].Misc.VirtualSize;
+        if (va < (DWORD)TS3A_HOST_SIZE && end > (DWORD)TS3A_HOST_SIZE) return false;
+    }
+    return true;
 }
 
 static void Run(HMODULE self) {
