@@ -130,8 +130,17 @@ StinkJuice) after an id add (Stereo, smelly objects) lasts one update.
 (`BuffActiveCount` 0, `GetBuffSourceList` empty; `AddElementFromList`'s only caller, `BuffWarmed.OnRemoval`, tests
 `BuffActiveCount > 0` first) [verified].
 
-**Fix.** In `MdHook` (already on `UpdateBuffs`), after EA's body: entries with `BuffActiveCount == 0` are removed. One
-`FieldInfo` read and a count test per Sim update; the key walk runs only when the Sim has entries. All households.
+**Paths that empty an entry** [verified, ilspycmd: the only callers of `TimeoutSources` and `BuffSourcesList.Remove`]:
+(1) `UpdateBuffs`' `TimeoutSources(minutes)`; (2) `RemoveElement(guid, id, inv)`'s `TimeoutSources(0f)` after a source is
+removed (it re-adds over the emptied entry); (3) load: `mBuffCountList` and `BuffSourcesList` are persisted, so saves carry
+entries emptied in earlier sessions. `RemoveElement` by id and `UnpauseBuff` delete at `Count == 0`, and travel
+(`StoreBuffsForTravel`) leaves the list as it is. Only `UpdateBuffs` acts on an empty entry (the `MaxTimeout` kill).
+
+**Fix.** In `MdHook` (already on `UpdateBuffs`): entries with `BuffActiveCount == 0` are removed before EA's body (paths 2
+and 3; the first time the switch is seen on in a world, or after a household change, every Sim in `LotManager.Actors` is
+swept once) and after it (path 1). r78 (first build) swept only after EA's body: on-arm census 22 empty entries left on
+Sims not updated since the flip (saved leftovers), verdict UNEXPECTED. One `FieldInfo` read and a count test per sweep;
+the key walk runs only when the Sim has entries. All households.
 
 **Switch / counters.** `buffsrcempty`: [3505] entries dropped, [3506] empty entries seen by the Check, [3507] errors.
 
