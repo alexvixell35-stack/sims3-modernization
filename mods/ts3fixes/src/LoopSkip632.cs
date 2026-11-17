@@ -11,6 +11,7 @@ using Sims3.Gameplay.Objects.Environment;
 using Sims3.Gameplay.Objects.Electronics;
 using Sims3.Gameplay.Objects.HobbiesSkills;
 using Sims3.Gameplay.Objects.Plumbing;
+using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
 
 namespace Ts3Fixes
@@ -44,12 +45,16 @@ namespace Ts3Fixes
         // asks off the actor's own task, [3707] errors, [3708] Check mismatches; out-of-scope reasons (3704 split): [3709]
         // household / selected, [3710] high LOD by our re-check, [3711] not autonomous, [3712] partner out of scope, [3713-3722]
         // UfWhy code 1-10 (3715 household, 3716 active lot, 3717 on screen, 3718 near viewers, 3719 held, 3720 social seen);
-        // [3723-3739] spare.
+        // tier-2 reasons (`unseenloopskip_offscreen`'s own, live asks): [3723] near (UfWhy 5/6) but on screen now, kept EA,
+        // [3724] near and off screen but the off-screen switch off, kept EA, [3725] UnseenLoopSkipOffscreenCheck mismatches;
+        // [3726-3739] spare.
         internal const int kLsEnd = 1, kLsStep = 2;
         static readonly Dictionary<Type, int> sLsClasses = new Dictionary<Type, int>();
         static string sLsMissing = "";
         static bool sLsStepPatched;
-        static InteractionInstance sLsLastCapped;
+        // (b) counts once per capped instance: the getter is read on every pass, so with two capped loops alternating a
+        // last-instance compare counted every pass. Bounded; cleared when full (a recount after 256 loops is harmless).
+        static readonly Dictionary<InteractionInstance, bool> sLsCapped = new Dictionary<InteractionInstance, bool>();
         // EA's live low-LOD caps: the tuning XML sets them (Bridgeport r88: 360 day / 180 night, not the C# 420 / 120)
         static readonly FieldInfo sLsDayField = typeof(Autonomy).GetField("kMaxTimeForLowLODInteractionDuringTheDay", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
         static readonly FieldInfo sLsNightField = typeof(Autonomy).GetField("kMaxTimeForLowLODInteractionDuringTheNight", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
@@ -137,7 +142,6 @@ namespace Ts3Fixes
             // ShowVenue+AutonomouslyAttendShow (MetaRabbitHoleInteraction.Run, step only): DoLoop(Default) with no callback inside
             // the venue; the visit ends by EA's TimerFinished alarm (an exit reason, ends the stepped wait on the same tick).
             LsAddFam(3, typeof(ShowVenue).GetNestedType("AutonomouslyAttendShow", nested), miss);
-            sLsMissing = string.Join(", ", miss.ToArray());
             if (sLsDayField == null || sLsNightField == null) miss.Add("Autonomy.kMaxTimeForLowLODInteraction*");
             sLsMissing = string.Join(", ", miss.ToArray());
             if (sLsMissing.Length > 0) AppliedLog().Add("unseenloopskip: not found: " + sLsMissing);
@@ -191,10 +195,30 @@ namespace Ts3Fixes
             bool lowLod = a != null && !a.IsSufficientlyOnScreenForHighLODSimulation;
             if (!lowLod) { if (count) c[3710]++; return 0; }
             int why = UfWhy(s);
-            bool hidden = why != UnseenFallbackCore.kSeen && offOn && ZoomHidden(s);  // re-checks World.IsObjectOnScreen now
+            bool near = why == UnseenFallbackCore.kOnScreen || why == UnseenFallbackCore.kNearViewers;
+            bool hidden = near && offOn && ZoomHidden(s);  // re-checks World.IsObjectOnScreen now (only where tier 2 can apply)
             int t = LsTier(on, offOn, false, true, true, why, hidden);
-            if (t == 0 && count && why >= 1 && why <= 10) c[kLsWhyBase + why]++;
+            if (t == 0 && count)
+            {
+                if (why >= 1 && why <= 10) c[kLsWhyBase + why]++;
+                if (near) c[offOn || UcOnScreen(s) ? 3723 : 3724]++;  // tier-2 reasons: seen on screen / switch off
+            }
             return t;
+        }
+
+        // A Sim target must be in scope too: the weaker tier of the pair decides, a seen partner keeps EA.
+        static int LsPairTier(int t, Sim s, InteractionInstance ia, bool offOn, bool count)
+        {
+            Sim partner = ia == null ? null : ia.Target as Sim;
+            if (t == 0 || partner == null || partner == s) return t;
+            int pt = LsSimTier(partner, true, offOn, false);
+            if (pt == 0 && count) PatchCounters()[3712]++;
+            return pt == 0 ? 0 : Math.Max(t, pt);
+        }
+
+        static bool LsAuto(InteractionInstance ia)
+        {
+            return ia.Autonomous || ia.GetPriority().Level <= InteractionPriorityLevel.Autonomous;  // EA's DoLoop test
         }
 
         // Live scope for the Sim running on this task: tier of the actor, and of a Sim target (a partner must be in scope too).
@@ -210,17 +234,9 @@ namespace Ts3Fixes
                 return 0;
             }
             bool offOn = ShortcutOn("unseenloopskip_offscreen");
-            bool auto = ia.Autonomous || ia.GetPriority().Level <= InteractionPriorityLevel.Autonomous;  // EA's DoLoop test
-            if (!auto) { PatchCounters()[3711]++; PatchCounters()[LsSlot(LsFam(ia.GetType()), 3704, 2)]++; return 0; }
             int fam = LsFam(ia.GetType());
-            int t = LsSimTier(s, true, offOn, true);
-            Sim partner = ia.Target as Sim;
-            if (t > 0 && partner != null && partner != s)
-            {
-                int pt = LsSimTier(partner, true, offOn, false);  // the weaker tier of the pair decides; a seen partner keeps EA
-                if (pt == 0) PatchCounters()[3712]++;
-                t = pt == 0 ? 0 : Math.Max(t, pt);
-            }
+            if (!LsAuto(ia)) { PatchCounters()[3711]++; PatchCounters()[LsSlot(fam, 3704, 2)]++; return 0; }
+            int t = LsPairTier(LsSimTier(s, true, offOn, true), s, ia, offOn, true);
             if (t == 0) PatchCounters()[LsSlot(fam, 3704, 2)]++;
             return t;
         }
@@ -242,7 +258,12 @@ namespace Ts3Fixes
                 int kind = LsKind(ia.GetType());
                 int tier = LsLive(ia, s, kind);
                 float r = LsCapFor(tier, kind, ea, Instantiator.kUnseenLoopSkipCapMin);
-                if (r < ea && !object.ReferenceEquals(ia, sLsLastCapped)) { sLsLastCapped = ia; PatchCounters()[LsSlot(LsFam(ia.GetType()), tier == 1 ? 3700 : 3701, tier == 1 ? 0 : 1)]++; }
+                if (r < ea && !sLsCapped.ContainsKey(ia))
+                {
+                    if (sLsCapped.Count >= 256) sLsCapped.Clear();
+                    sLsCapped[ia] = true;
+                    PatchCounters()[LsSlot(LsFam(ia.GetType()), tier == 1 ? 3700 : 3701, tier == 1 ? 0 : 1)]++;
+                }
                 return r;
             }
             catch (ResetException) { throw; }
@@ -347,6 +368,94 @@ namespace Ts3Fixes
             return B582Line("unseenloopskip", on, "an unseen allow-listed autonomous loop ends at the cap through EA's low-LOD end", fixedPure && liveOk,
                 "EA ends at its tuned " + eaDay + "/" + eaNight + " min (" + eaBug + "), household / high LOD / user-directed / seen / active lot / held keep EA, off-screen tier only with unseenloopskip_offscreen ("
                 + offOn + "), unlisted classes keep EA, " + live, controls && liveOk, sLsMissing, counters);
+        }
+
+        // UnseenLoopSkipOffscreenCheck run: the tier-2 switch's own decision on a live Sim (the smallfix run read the main
+        // tier's Check, so its verdict followed unseenloopskip). Picks a non-household low-LOD NPC that UfWhy calls near
+        // (on screen by the table / within reach of the viewers, i.e. not the far tier) and that is off screen now
+        // (ZoomHidden: !World.IsObjectOnScreen), preferring one in an allow-listed autonomous loop; with none in a listed
+        // loop the pick is decided as if in TV.WatchTV (end only). The main switch is taken as on (the verdict follows the
+        // sub-key): unseenloopskip_offscreen off keeps EA's tuned low-LOD cap (BROKEN), on gives the cap / step (FIXED).
+        // EA's cap is the live tuning (day or night by EA's own LowLOD hours), not the C# default. Controls: no household /
+        // selected Sim and no Sim on screen now gets the off-screen tier (with both switches taken as on), plus the pure
+        // tier rules. Read-only (nothing is pushed or moved). With no near off-screen NPC the pure decision stands in.
+        public static object UnseenLoopSkipOffscreenCheck(string what)
+        {
+            int[] c = PatchCounters();
+            string counters = B582Counters("unseenloopskip_offscreen", 3723, new[] { "near, on screen now (EA)", "near off screen, switch off (EA)", "check mismatches" }, sLsMissing)
+                + "; tier-2 actions: capped offscreen 3701=" + c[3701] + ", stepped offscreen 3703=" + c[3703];
+            if (what == "result") return counters;
+            if (what != "run") return "unseenloopskip_offscreen <run|result>";
+            bool mainOn = ShortcutOn("unseenloopskip"), offOn = ShortcutOn("unseenloopskip_offscreen");
+            float cap = Instantiator.kUnseenLoopSkipCapMin, stepMin = Instantiator.kUnseenLoopSkipStepMin;
+            float eaDay = LsField(sLsDayField, 420f), eaNight = LsField(sLsNightField, 120f);  // EA's live tuning
+            bool pureCtl = LsTier(true, true, true, true, true, UnseenFallbackCore.kNearViewers, true) == 0   // household / selected
+                && LsTier(true, true, false, true, true, UnseenFallbackCore.kOnScreen, false) == 0              // on screen now
+                && LsTier(true, false, false, true, true, UnseenFallbackCore.kNearViewers, true) == 0           // sub-key off: EA
+                && LsTier(false, true, false, true, true, UnseenFallbackCore.kNearViewers, true) == 0           // main switch off
+                && LsTier(true, true, false, true, true, UnseenFallbackCore.kSeen, true) == 1                   // far stays tier 1
+                && LsTier(true, true, false, true, true, UnseenFallbackCore.kActiveLot, true) == 0
+                && LsTier(true, true, false, false, true, UnseenFallbackCore.kNearViewers, true) == 0;          // high LOD
+            Sim pick = null;
+            InteractionInstance pickIa = null;
+            int players = 0, shown = 0, near = 0, listedNear = 0, ctlBad = 0, mainShown = 0;
+            string live, pickText;
+            bool liveOk = sLsMissing.Length == 0, fixedNow, eaBug;
+            try
+            {
+                bool day = SimClock.IsTimeBetweenTimes(Autonomy.LowLODBeginDayTime, Autonomy.LowLODEndDayTime);
+                float eaNow = day ? eaDay : eaNight;
+                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                {
+                    if (s == null || s.HasBeenDestroyed) continue;
+                    bool player = IsPlayerSim(s), hiddenNow = ZoomHidden(s);
+                    int tBoth = LsSimTier(s, true, true, false);  // the widest arm: both switches on
+                    if (player) { players++; if (tBoth != 0) ctlBad++; continue; }
+                    if (!hiddenNow)
+                    {
+                        shown++;
+                        if (tBoth == 2) ctlBad++;      // the off-screen tier never takes a Sim on screen now
+                        else if (tBoth == 1) mainShown++;  // main tier (UfWhy table) on a Sim on screen now: reported, not this switch's
+                        continue;
+                    }
+                    if (tBoth != 2) continue;  // far tier (1), high LOD, active lot, held: not this switch's case
+                    near++;
+                    InteractionInstance ia = s.CurrentInteraction;
+                    Type it = ia == null ? null : ia.GetType();
+                    bool listed = it != null && sLsClasses.ContainsKey(it) && LsFam(it) < 0 && LsAuto(ia);
+                    if (listed) listedNear++;
+                    if (pick == null || (listed && pickIa == null)) { pick = s; pickIa = listed ? ia : null; }
+                }
+                int kind = pickIa != null ? sLsClasses[pickIa.GetType()] : kLsEnd;  // stand-in: TV.WatchTV (end only)
+                int tLive, tOff;
+                if (pick != null)
+                {
+                    tOff = LsPairTier(LsSimTier(pick, true, false, false), pick, pickIa, false, false);
+                    tLive = LsPairTier(LsSimTier(pick, true, offOn, false), pick, pickIa, offOn, false);
+                    pickText = "picked " + (pick.SimDescription != null ? pick.SimDescription.FullName : "?") + " (UfWhy " + UfWhy(pick) + ", off screen now "
+                        + !UcOnScreen(pick) + ") in " + (pickIa != null ? pickIa.GetType().Name + " (listed)" : (pick.CurrentInteraction != null ? pick.CurrentInteraction.GetType().Name : "idle") + ", decided as TV.WatchTV");
+                }
+                else
+                {
+                    tOff = LsTier(true, false, false, true, true, UnseenFallbackCore.kNearViewers, true);
+                    tLive = LsTier(true, offOn, false, true, true, UnseenFallbackCore.kNearViewers, true);
+                    pickText = "no near off-screen NPC now, pure decision (near viewers, off screen)";
+                }
+                float capOff = LsCapFor(tOff, kind, eaNow, cap), capLive = LsCapFor(tLive, kind, eaNow, cap);
+                float stepLive = LsStepFor(tLive, kind, Sim.kWaitForExitReasonDefaultTime, Sim.kWaitForExitReasonDefaultTime, stepMin);
+                eaBug = tOff == 0 && capOff == eaNow;
+                fixedNow = tLive == 2 && (capLive < eaNow || stepLive > Sim.kWaitForExitReasonDefaultTime);
+                live = pickText + ": tier with the sub-key off " + tOff + " (cap " + capOff + "), now " + tLive + " (cap " + capLive + ", pass " + stepLive + " min); EA "
+                    + (day ? "day" : "night") + " cap " + eaNow + " (tuning " + eaDay + "/" + eaNight + "), our cap " + cap + "; census: near off-screen NPCs " + near
+                    + " (in a listed loop " + listedNear + "), household / selected " + players + ", on screen now " + shown + " (main tier on them " + mainShown + "), control misses " + ctlBad;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception e) { liveOk = false; fixedNow = false; eaBug = false; live = "live probe threw " + (e.InnerException ?? e).GetType().Name; }
+            bool controls = pureCtl && eaBug && ctlBad == 0 && liveOk;
+            if (!controls) c[3725]++;
+            return B582Line("unseenloopskip_offscreen", offOn, "a near, off-screen NPC's allow-listed loop gets the off-screen tier's cap / step", fixedNow && liveOk,
+                "the sub-key off keeps EA's cap (" + eaBug + "), household / selected / on screen / main switch off / active lot / high LOD keep EA, far stays tier 1"
+                + " (pure " + pureCtl + "); live needs unseenloopskip (" + mainOn + "); " + live, controls, sLsMissing, counters);
         }
 
         // docs/634 family Checks: the family's pure decision for an unseen low-LOD autonomous NPC (off: EA's 1-minute pass /
