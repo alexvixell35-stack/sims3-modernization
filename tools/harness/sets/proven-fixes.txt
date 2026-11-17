@@ -333,3 +333,5 @@ maptagtaskalive
 lotmgrcallbacks
 fireplaceherb
 rummagebcast
+stairwaitend
+simdisposelink
