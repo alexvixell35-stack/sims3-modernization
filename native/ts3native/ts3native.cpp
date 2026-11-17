@@ -3658,6 +3658,7 @@ struct AsyncJob {
     LONG kdScope;     // docs/197 §7: 0 unknown, 1 seen household side, 2 unseen (UfWhy 0), 3 seen NPC, from ts3fixes right before START
     u64 rfGoal;       // docs/197 §7: hash of the route's destinations at START (routefail retry: same request?)
     LONG rfIa;        // docs/226: routefail interaction id from ts3fixes' scope op (RfIaName), 0 = unknown
+    LONG pf;          // docs/631 [RouteAsync] PlayerFirst: 1 = a route the player ordered (ts3fixes playerfirst, UserDiag op 37)
 };
 // docs/134: 32 slots; with [RouteAsync] FallbackAsync off only the first kJobsBase are handed out (QueueFull as before)
 static const int kJobs = 32, kJobsBase = 8;
@@ -3665,6 +3666,25 @@ static const DWORD kDoneKeepMs = 5000;  // a Sim collects within a tick or two; 
 static AsyncSlot g_async;
 static AsyncJob g_jobs[kJobs];
 static DWORD g_jobSeq;  // sim thread only
+// docs/631 [RouteAsync] PlayerFirst (default 0): the worker runs a queued job marked by ts3fixes playerfirst (a household or
+// selected Sim's route, or one of a user-directed interaction: UserDiag op 37 right before its START) before older unmarked
+// ones; among marked and among unmarked jobs it stays oldest first. Each job is the same IC call on the same START snapshot
+// (its world lock, its RtQuietWorld check at claim), so only the order of the worker's jobs changes, never a job's answer.
+// No starvation: a household has at most 8 Sims and a route has one job at a time, so an unmarked job waits at most 8 more jobs.
+static LONG g_pfMode;                   // the ini switch
+static DWORD g_pfH;                     // sim thread: route of the last op 37, good for its next START only
+static volatile LONG g_pfJumps, g_pfAhead;  // worker: marked jobs run ahead of an older unmarked one / unmarked jobs passed
+static void PfSet(DWORD handle) { g_pfH = handle; }
+static LONG PfTake(DWORD handle) {
+    const LONG r = handle && g_pfH == handle ? 1 : 0;
+    g_pfH = 0;
+    return r;
+}
+// does queued job a run before queued job b? (EA order and PlayerFirst=0: oldest START first)
+static bool PfBefore(LONG mode, LONG aPf, DWORD aSeq, LONG bPf, DWORD bSeq) {
+    if (mode == 1 && aPf != bPf) return aPf != 0;
+    return (LONG)(aSeq - bSeq) < 0;
+}
 #include "crashev.h"  // docs/186 §8: [CrashForensics] OurEvents ring (CeRec), recorded by the feature files below
 // routegate.cpp / rtsites.cpp: guarded routing calls open now on threads other than the worker (gate leaves, quadtree
 // mutators, destroys, saves). The worker does not start a job while > 0: it sets A_RUNNING, then reads this, and backs
@@ -4239,8 +4259,19 @@ static void ServeAsync() {
     static const DWORD kInfinite = 0xFFFFFFFF;
     for (;;) {
         AsyncJob* j = NULL;
+        const LONG pfMode = g_pfMode;
+        int passed = 0;  // PlayerFirst: unmarked queued jobs older than the marked one picked
         for (int i = 0; i < kJobs; i++)
-            if (g_jobs[i].state == J_QUEUED && (!j || (LONG)(g_jobs[i].seq - j->seq) < 0)) j = &g_jobs[i];
+            if (g_jobs[i].state == J_QUEUED && (!j || PfBefore(pfMode, g_jobs[i].pf, g_jobs[i].seq, j->pf, j->seq))) j = &g_jobs[i];
+        if (j && pfMode == 1 && j->pf)
+            for (int i = 0; i < kJobs; i++)
+                passed += g_jobs[i].state == J_QUEUED && !g_jobs[i].pf && (LONG)(g_jobs[i].seq - j->seq) < 0;
+        if (passed) {
+            const LONG n = InterlockedIncrement(&g_pfJumps);
+            InterlockedExchangeAdd(&g_pfAhead, passed);
+            if ((n & (n - 1)) == 0)  // 1, 2, 4, ...: a trail, not a line per job
+                Log("route async: PlayerFirst: job %08lX ran ahead of %d older queued job(s); jumps %ld, jobs passed %ld", j->handle, passed, n, g_pfAhead);
+        }
         if (!j) {
             g_p4Phase = 2;
             P4ShadowIdle();  // a shadow parked behind the job that just ran (0.34.1)
@@ -5332,6 +5363,7 @@ static u8 AsyncStartBody(DWORD handle, int kind, const float* pt, bool foreign) 
     j->rfGoal = j->kdId ? RfGoal(handle) : 0;
     j->rfIa = RfIaPeek(handle);  // before KdScopeTake: the same answer
     j->kdScope = KdScopeTake(handle);
+    j->pf = PfTake(handle);  // docs/631: before J_QUEUED, the worker reads it to pick
     j->uf = UfTake(handle) ? 1 : 0;  // docs/202: the MARK is used up by the job it marks (a refused START leaves it to the sync IC)
     j->ufCut = j->ufCutView = 0;
     // docs/89 §18: a route not known unseen (household, unknown scope) does not plan past a queued removal; READY queues it

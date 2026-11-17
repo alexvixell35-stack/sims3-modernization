@@ -1156,6 +1156,8 @@ namespace Ts3Fixes
         // [3580-3583] routefailprobe (RhEntry627.cs, docs/627 §2): probe plans tagged / counted as the Sim's (off) / errors / spare.
         // [3584-3587] rhentryrelax (RhEntry627.cs, docs/627 §4): unseen arrivals / kept EA / beforeEntering refused / errors.
         // [3588-3592] rhentryrelaxnear (RhEntry627.cs, docs/627 §4): alternate-slot entries / no slot or plan failed / on screen at action / entry refused / errors. [3593-3599] spare.
+        // [3660-3664] playerfirst (Responsive631.cs, docs/631 §2): marks honoured / not honoured / replays first / player routes, switch off / errors. [3665-3669] spare.
+        // [3670-3672] zoomtier (Responsive631.cs, docs/631 §3): tier-2 lifted by zoom / would lift, switch off / errors. [3673-3689] spare.
         // [3457-3460] tipsnpcend (StuckJobs83.cs, docs/613 §3): tips loops ended at low-LOD cap / past cap (off) / past cap household or seen kept / errors.
         // [3461-3463] barputdownwait (Scan84.cs, docs/614 §1): finished inline / hangs entered (off) / errors.
         // [3464-3466] putdownsurfaceuse (Scan84.cs, docs/614 §2): releases / leaks (off) / errors.
@@ -1732,6 +1734,8 @@ namespace Ts3Fixes
                 case "routefailprobe": return Instantiator.kRouteFailProbe;  // docs/627 §2 (RhEntry627.cs), log attribution fix, off
                 case "rhentryrelax": return Instantiator.kRhEntryRelax;  // docs/627 §4 (RhEntry627.cs), unseen NPC relaxed rabbit hole entry, off
                 case "rhentryrelaxnear": return Instantiator.kRhEntryRelaxNear;  // docs/627 §4 (RhEntry627.cs), middle tier sub-key, off
+                case "playerfirst": return Instantiator.kPlayerFirst;  // docs/631 §2 (Responsive631.cs), player-ordered routes and replays first, off
+                case "zoomtier": return Instantiator.kZoomTier;  // docs/631 §3 (Responsive631.cs), on-screen but too small counts as off screen for tier 2, off
                 case "tipsnpcend": return Instantiator.kTipsNpcEnd;  // docs/613 §3 (StuckJobs83.cs), EA bug fix, off
                 case "barputdownwait": return Instantiator.kBarPutDownWait;  // docs/614 §1 (Scan84.cs), EA bug fix, off
                 case "putdownsurfaceuse": return Instantiator.kPutDownSurfaceUse;  // docs/614 §2 (Scan84.cs), EA bug fix, off

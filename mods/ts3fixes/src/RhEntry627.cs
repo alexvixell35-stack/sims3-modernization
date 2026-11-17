@@ -165,7 +165,10 @@ namespace Ts3Fixes
                 if (a.HasExitReason(ExitReason.Default)) { a.AddExitReason(ExitReason.RouteFailed); return false; }
                 bool onScreen = UcOnScreen(a);
                 bool far = !onScreen && TownieUnseen(a, null);
-                int tier = RheTier(true, ShortcutOn("rhentryrelaxnear"), player, selected, onScreen, far, routeFailed, acted, alone);
+                // docs/631 zoomtier: on screen but too small (camera >= kZoomTierMeters or map view) counts as off screen for
+                // the middle tier only; the unseen tier keeps the real on-screen test
+                bool tier2Seen = onScreen && !ZoomHidden(a);
+                int tier = RheTier(true, ShortcutOn("rhentryrelaxnear"), player, selected, tier2Seen, far, routeFailed, acted, alone);
                 bool ok = tier == kRheUnseen ? Arrive(a, proxy, beforeEntering, meta) : tier == kRheNear && AltSlot(a, proxy, beforeEntering, meta);
                 if (!ok && !a.HasExitReason(ExitReason.Default)) a.AddExitReason(ExitReason.RouteFailed);  // EA's failure as it was
                 return ok;
@@ -200,7 +203,7 @@ namespace Ts3Fixes
                 foreach (Slot s in proxy.ExitSlots)
                     if (!proxy.EnterSlots.Contains(s) && !alt.Contains(s) && proxy.SlotToSlotInfo.ContainsKey(s)) alt.Add(s);
                 if (alt.Count == 0) { c[3589]++; return false; }
-                if (UcOnScreen(a)) { c[3590]++; return false; }
+                if (!ZoomHidden(a)) { c[3590]++; return false; }  // docs/631: the shared tier-2 test (off screen, or zoomtier)
                 Route route = a.CreateRoute();
                 route.SetRouteMetaType(meta);
                 foreach (Slot s in proxy.EnterSlots) route.AddObjectToIgnoreForRoute(proxy.SlotToSlotInfo[s].Footprint.ObjectId);
