@@ -349,7 +349,8 @@ namespace Ts3Fixes
             ApplyLottoTooltip();   // docs/592 S8 B12 §41
             ApplyTraitIconDislike();   // docs/592 S9 B12 §42
             ApplyRoleUnprotect();   // docs/592 S11 B12 §43
-            ApplyPutDownPlaced();   // docs/592 S13 B12 §44            ApplyDisplayCaseReset();   // docs/587 EP1 §1
+            ApplyPutDownPlaced();   // docs/592 S13 B12 §44
+            ApplyDisplayCaseReset();   // docs/587 EP1 §1
             ApplyNullSituation();   // docs/593 V2 B13 §1
             ApplyLightningWeights();   // docs/593 L1 B13 §2
             ApplyPlantDormantFlip();   // docs/593 G1 B13 §3
