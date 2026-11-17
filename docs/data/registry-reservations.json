@@ -7298,6 +7298,49 @@
       "what": "wishes engine fixes from docs/619: timer alarms, kept listeners, subject-gone notice, lost SetToUpdate, social-worker promises",
       "at": "2026-11-17T12:22:42.769Z",
       "worktree": "/home/<user>/dev/sims3-modernization"
+    },
+    {
+      "id": "fixes-3550",
+      "kind": "fixes",
+      "from": 3550,
+      "to": 3553,
+      "by": "s87",
+      "what": "enumcmpnobox: non-boxing EqualityComparer<T>.Default for CommodityKind/BuffNames/SkillNames",
+      "at": "2026-11-17T12:00:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3554",
+      "kind": "fixes",
+      "from": 3554,
+      "to": 3558,
+      "by": "s87",
+      "what": "alarmcmpnobox: non-boxing AlarmHandle comparer, live mTimers swapped in place",
+      "at": "2026-11-17T12:00:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "fixes-3559",
+      "kind": "fixes",
+      "from": 3559,
+      "to": 3579,
+      "by": "s87",
+      "what": "s87 alloc builder spare (docs/625)",
+      "at": "2026-11-17T12:00:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization",
+      "pinned": true
+    },
+    {
+      "id": "doc-625",
+      "kind": "doc",
+      "from": 625,
+      "to": 625,
+      "by": "s87",
+      "what": "non-boxing comparers: enum keys and AlarmHandle; HasAnyElement skipped",
+      "at": "2026-11-17T12:00:00.000Z",
+      "worktree": "/home/<user>/dev/sims3-modernization"
     }
   ]
 }

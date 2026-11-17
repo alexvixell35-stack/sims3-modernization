@@ -539,6 +539,9 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3514-3519 | `fixes-3490` (docs/622) | free in the block |
 | 3490-3519 | pinned (s90, `fixes-3490`) | docs/622 script CPU hitch + moodlet fixes (autmetarows, buffremovemerge, swslots, stuckwatchscan, lifeeventidfirst, buffsrcempty, buffpausedtimeout, mooddriftnoalloc; 3514-3519 free in block) |
 | 3520-3540 | pinned (s86w, `fixes-3520`) | docs/623 wishes engine fixes: timeralarmleak, wishfeedbackkeep, wishsubjectgone, wishupdatelost, socialworkerpromise (3541-3549 free in block) |
+| 3550-3553 | `Alloc87Comparers.cs` (`fixes-3550`, s87, docs/625 §2), `enumcmpnobox` | built 2026-11-17, default off: comparers installed (3550) / restored (3551) / errors (3552) / Check answer mismatches (3553, must stay 0) |
+| 3554-3558 | `Alloc87Comparers.cs` (`fixes-3554`, s87, docs/625 §3), `alarmcmpnobox` | built 2026-11-17, default off: installed (3554) / restored (3555) / live mTimers swapped in place (3556) / errors (3557) / Check answer mismatches (3558, must stay 0) |
+| 3559-3579 | pinned (s87, `fixes-3559`) | spare of the s87 allocation builder (docs/625) |
 | **2000+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
