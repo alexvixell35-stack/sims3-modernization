@@ -75094,6 +75094,168 @@
     ]
   },
   {
+    "id": "tspawninvdup-check",
+    "bug": "TreasureSpawnPoint.SetupEventListening adds the treasure's OnAddToInventoryEvent handler without removing it first; OnStartup plus the OnTravelComplete pass leave two copies on every vacation arrival, so picking the treasure up fires the tomb RemovedItem trigger twice and later inventory moves fire it again (docs/607 §2)",
+    "fix": "ts3fixes TreasureSpawn74.cs: tspawninvdup (default off), docs/607 §2",
+    "save": "any world (pure check); in-play counters need a World Adventures world (Egypt tomb)",
+    "note": "TreasureSpawnInvDupCheck 'run' compares EA's subscription count with ours after a load and travel passes (pure) and asserts the swap and members are live; 'result' shows the counters (3388 grows on arrival in a WA world with treasure spawners).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "tspawninvdup": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TreasureSpawnInvDupCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TreasureSpawnInvDupCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "tspawninvdup": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TreasureSpawnInvDupCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TreasureSpawnInvDupCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "tspawninvdup": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "tspawninvdup": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "sarcmummynpc-check",
+    "bug": "Sarcophagus.CommonCleanup (Dispose, DoReset) destroys the tomb mummy Sim but leaves its SimDescription in Household.NpcHousehold, unlike TombMummyDestroy (docs/607 §3)",
+    "fix": "ts3fixes TreasureSpawn74.cs: sarcmummynpc (default off), docs/607 §3",
+    "save": "any world (pure check); in-play counters need a World Adventures world (Egypt tomb)",
+    "note": "SarcMummyNpcCheck 'run' checks the cleanup decision with controls (pure) and asserts the swap and members are live; 'result' shows the counters (3391 grows when a sarcophagus with its mummy out is reset or deleted in an Egypt tomb).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "sarcmummynpc": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SarcMummyNpcCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SarcMummyNpcCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "sarcmummynpc": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SarcMummyNpcCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SarcMummyNpcCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "sarcmummynpc": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "sarcmummynpc": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
