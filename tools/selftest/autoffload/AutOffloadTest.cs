@@ -79,6 +79,7 @@ static class AutOffloadTest
         Check("memo first", m.Check(lot, 3, 0, ab, 1), ListMemo.kFirst);
         Check("memo repeat hit", m.Check(lot, 3, 0, new System.Collections.Generic.List<object>(ab), 1), ListMemo.kHit);
         Check("memo order change unseen = wrong hit", m.Check(lot, 3, 0, ba, 1), ListMemo.kHitWrong);
+        Check("wrong hit keeps the memo's list", m.WrongOld != null && m.WrongOld[0] == a ? 1 : 0, 1);
         Check("memo stores the game's list", m.Check(lot, 3, 0, ba, 1), ListMemo.kHit);
         Check("memo lot-wide first", m.Check(lot, -1, 1, ab, 1), ListMemo.kFirst);
         m.Bump(lot, 4, 1);

@@ -38,6 +38,11 @@ namespace Ts3Fixes
         static StopWatch sElWatch;
         static long sElUsAll, sElUsHit;
         static int sElWrongLogged;
+        // docs/274 §8.5: objects past OnObjectPendingDestruction that still exist (native destroy is deferred [inferred]); their
+        // lots are bumped at every probe call until Objects.IsValid turns false, then once more at the next tick (Bump)
+        struct ElDying { public ObjectGuid Id; public Lot Lot; }
+        const int kElDyingMax = 4096;
+        static readonly List<ElDying> sElDying = new List<ElDying>();
 
         static void EnvListProbe(Sim s)
         {
@@ -46,10 +51,15 @@ namespace Ts3Fixes
             {
                 if (!sElSubscribed && !ElSubscribe()) return;
                 c[cEl + 7]++;
+                long tick = Simulator.TicksElapsed();
+                for (int i = sElDying.Count - 1; i >= 0; i--)
+                {
+                    sEl.Bump(sElDying[i].Lot, -1, tick);
+                    if (!Sims3.SimIFace.Objects.IsValid(sElDying[i].Id)) sElDying.RemoveAt(i);
+                }
                 if (s.RabbitHoleEnvironmentScore != float.MinValue) return;  // the game scans nothing
                 Lot lot = s.LotCurrent;
                 if (lot == null) return;
-                long tick = Simulator.TicksElapsed();
                 if (sElWatch == null) sElWatch = StopWatch.Create(StopWatch.TickStyles.Microseconds);
                 if (s.IsOutside)
                 {
@@ -90,8 +100,31 @@ namespace Ts3Fixes
             if (cls == ListMemo.kHitWrong && sElWrongLogged < kElWrongLog)
             {
                 sElWrongLogged++;
-                AppliedLog().Add("EnvListMemo: wrong hit lot " + lot.LotId + " room " + room + " list " + kind + " n " + now.Count);
+                AppliedLog().Add("EnvListMemo: wrong hit lot " + lot.LotId + " room " + room + " list " + kind + " n " + now.Count + ElDiff(sEl.WrongOld, now));
             }
+        }
+
+        // what the missed change was: up to 3 objects gone from / new in the list, or a pure reorder
+        static string ElDiff(object[] old, IList now)
+        {
+            if (old == null) return "";
+            string r = " was " + old.Length;
+            int k = 0;
+            foreach (object o in old) if (k < 3 && !now.Contains(o)) { r += " gone " + ElDesc(o); k++; }
+            int g = k; k = 0;
+            foreach (object o in now) if (k < 3 && Array.IndexOf(old, o) < 0) { r += " new " + ElDesc(o); k++; }
+            return g + k == 0 ? r + " reorder" : r;
+        }
+
+        static string ElDesc(object o)
+        {
+            GameObject go = o as GameObject;
+            if (go == null) return o == null ? "null" : o.GetType().Name;
+            bool dying = false;
+            foreach (ElDying d in sElDying) if (d.Id == go.ObjectId) dying = true;
+            return go.GetType().Name + "(room " + go.RoomId + (go.HasBeenDestroyed ? " destroyed" : "") + (dying ? " dying" : "")
+                + (Sims3.SimIFace.Objects.IsValid(go.ObjectId) ? "" : " invalid") + (go.Parent != null ? " child" : "")
+                + (go.InWorld ? "" : " notinworld") + ")";
         }
 
         // once per world (again after a quit): our lot-update handler in front of LotManager's, the rest appended
@@ -160,11 +193,21 @@ namespace Ts3Fixes
             {
                 long tick = Simulator.TicksElapsed();
                 PatchCounters()[cEl + 8]++;
-                sEl.Bump(ElLotOf(a.LotId), -1, tick);
+                Lot el = ElLotOf(a.LotId);
+                sEl.Bump(el, -1, tick);
+                ElDie(a.ObjectId, el);
                 IGameObject o = a.ObjectId.ObjectFromId<IGameObject>();
-                if (o != null) sEl.Bump(o.InternalLotCurrent, -1, tick);
+                if (o != null && o.InternalLotCurrent != el) { sEl.Bump(o.InternalLotCurrent, -1, tick); ElDie(a.ObjectId, o.InternalLotCurrent); }
             }
             catch (Exception) { PatchCounters()[cEl + 6]++; sEl.Clear(); }
+        }
+
+        static void ElDie(ObjectGuid id, Lot lot)
+        {
+            if (lot == null) return;
+            if (sElDying.Count >= kElDyingMax) { PatchCounters()[cEl + 6]++; sEl.Clear(); return; }  // shortcut: overflow loses this object's later bumps; never seen (destroys finish within ticks)
+            ElDying d; d.Id = id; d.Lot = lot;
+            sElDying.Add(d);
         }
 
         static void ElPlaced(object sender, EventArgs e)
@@ -178,6 +221,7 @@ namespace Ts3Fixes
         static void ElReset(object sender, EventArgs e)
         {
             sEl.Clear();
+            sElDying.Clear();
             PatchCounters()[cEl + 9]++;
             if (e is Sims3.SimIFace.World.OnWorldQuitEventArgs) sElSubscribed = false;  // next world: in front of LotManager again
         }

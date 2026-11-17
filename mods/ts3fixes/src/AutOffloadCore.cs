@@ -151,6 +151,7 @@ namespace Ts3Fixes
         readonly Dictionary<object, LotGen> mLots = new Dictionary<object, LotGen>();
         readonly List<Again> mAgain = new List<Again>();
         public int Lots { get { return mLots.Count; } }
+        public object[] WrongOld;  // set by Check on kHitWrong
 
         public void Clear() { mLots.Clear(); mAgain.Clear(); }
 
@@ -208,6 +209,7 @@ namespace Ts3Fixes
                 bool same = Same(e.Items, now), valid = e.Gen == g.Gen && e.RoomGen == rg;
                 cls = valid ? (same ? kHit : kHitWrong) : (same ? kMissSame : kMissDiff);
                 if (same) { e.Gen = g.Gen; e.RoomGen = rg; return cls; }
+                if (cls == kHitWrong) WrongOld = e.Items;  // the memo's list, so the caller can name the missed change
             }
             object[] items = new object[now.Count];
             now.CopyTo(items, 0);

@@ -140,7 +140,7 @@ addresses, so the EA build logs SKIP until ported.
 
 - `tools/harness/queues/gc-idle-gate-correct-1117.json`: smoke (BP 5 min, gate on, stops the queue on fail), then BP and
   IP pairs of 10 min, gate on (`IdleGate=1`) vs off arm (`IdleGate=2`). Pass: no crash, script errors 0, version and gate
-  lines, `gcgSkipped > 0` (on) / `0` (off), forced on <= off + 1, `gcgBackoff` 0, heap high-water on <= 1.10 x off.
+  lines, `gcgSkipped > 0` (on) / `0` (off), forced on <= off + 1, `gcgBackoff` <= 1 (1 = note: the designed backoff, one log line allowed; 2+ = FAIL), heap high-water on <= 1.10 x off.
 - `tools/harness/queues/gc-idle-gate-time-1117.json` (**needs quiet machine**): BP and SV, 25 min in one load,
   `--ab gcidlegate`, 5-min slices = 10 min per arm ABBA. Read: `node tools/harness/wait-ab.ts <tag> --counters
   gcgMs,gcgForcedMs,gcgForced,gcgCycles,gcgSkipped,gcgCalls` (option added for this) and `profile-compare.mjs` for hitch
