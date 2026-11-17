@@ -63,25 +63,28 @@ static void TestTaskServe() {
     assert(g_tsRuns == 4 && t.checks == 3 && t.skipped == 3 && t.served == 0 && g_invPosted && !g_tsPosterDone);
     // 3. on, owner, job running: served right after the task run, on this thread, with the task id cleared around it
     // (EA's guard), the id back after; the poster gets the call's own result
+    // Proxy sets g_invPosted just before SetEvent(g_invReady): a task run in that window finds no event and leaves the call to
+    // the next run (as in game), so run tasks until the poster is answered
     g_hostTid = 0;
-    TsRun();
+    while (!g_tsPosterDone) TsRun();
     WaitForSingleObject(h, INFINITE);
     CloseHandle(h);
-    assert(g_tsRuns == 5 && t.served == 1 && !g_invPosted && g_tsPosterDone && g_tsPosterResult == 1 + 2 + 3 + 4);
+    assert(g_tsRuns >= 5 && t.served == 1 && !g_invPosted && g_tsPosterDone && g_tsPosterResult == 1 + 2 + 3 + 4);
     assert(g_hostTid == GetCurrentThreadId() && g_hostIdSeen == 0 && *(DWORD*)(g_fakeHost + 0xBD0) == 7);
     assert(t.maxQueueUs >= 0 && t.queueUs >= 0);
     // 4. nothing posted: a task run costs one flag read, nothing counted
+    const LONG checks = t.checks;
     TsRun();
-    assert(g_tsRuns == 6 && t.checks == 4 && t.served == 1);
+    assert(t.checks == checks && t.served == 1);
     // 5. the flag is cleared by any serve site: a READY-style serve takes the call, the next task run finds nothing
     h = TsPost();
-    assert(WaitForSingleObject(g_invReady, 0) == WAIT_OBJECT_0);
+    assert(WaitForSingleObject(g_invReady, INFINITE) == WAIT_OBJECT_0);  // the post's SetEvent may follow the flag
     ServeInvoke(HC_READY);
     WaitForSingleObject(h, INFINITE);
     CloseHandle(h);
     assert(!g_invPosted && g_tsPosterDone);
     TsRun();
-    assert(t.checks == 4 && t.served == 1);
+    assert(t.checks == checks && t.served == 1);
 
     CloseHandle(g_invReady);
     CloseHandle(g_invDone);
