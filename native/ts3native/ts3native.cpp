@@ -6239,11 +6239,13 @@ static bool HostBuildOk(const void* base) {
     // before TS3A_HOST_SIZE and whose extra sections all start at or after it.
     if (nt->OptionalHeader.SizeOfImage < (DWORD)TS3A_HOST_SIZE) return false;
     const IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);
+    bool appended = false;
     for (WORD i = 0; i < nt->FileHeader.NumberOfSections; i++) {
         DWORD va = sec[i].VirtualAddress, end = va + sec[i].Misc.VirtualSize;
         if (va < (DWORD)TS3A_HOST_SIZE && end > (DWORD)TS3A_HOST_SIZE) return false;
+        if (va >= (DWORD)TS3A_HOST_SIZE) appended = true;
     }
-    return true;
+    return appended;
 }
 
 static void Run(HMODULE self) {

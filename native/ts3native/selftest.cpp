@@ -14355,7 +14355,8 @@ static void TestLauncherFix() {
     VirtualFree(m, 0, MEM_RELEASE);
 }
 
-// host build guard (HostBuildOk, docs/230): Steam 1.67 stamp + SizeOfImage pass; retail 1.67 (other layout) or either field off fails
+// host build guard (HostBuildOk, docs/230): Steam 1.67 stamp + SizeOfImage pass, or the same stamp with sections appended
+// after the original image (import adders); retail 1.67 (other layout), a straddling section or either field off fails
 static void TestHostBuild() {
     static u8 img[0x200];
     ((IMAGE_DOS_HEADER*)img)->e_lfanew = 0x80;
@@ -14363,7 +14364,18 @@ static void TestHostBuild() {
     nt->FileHeader.TimeDateStamp = TS3A_HOST_PE, nt->OptionalHeader.SizeOfImage = TS3A_HOST_SIZE;
     assert(HostBuildOk(img));
     nt->OptionalHeader.SizeOfImage = TS3A_HOST_SIZE + 0x1000;
+    assert(!HostBuildOk(img));  // larger, no sections: not the appended-import layout
+    // an import adder's layout: the original sections end at TS3A_HOST_SIZE, one more starts there (.addImp) -> ok
+    nt->FileHeader.SizeOfOptionalHeader = sizeof(IMAGE_OPTIONAL_HEADER), nt->FileHeader.NumberOfSections = 2;
+    IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);
+    sec[0].VirtualAddress = 0x1000, sec[0].Misc.VirtualSize = TS3A_HOST_SIZE - 0x1000;
+    sec[1].VirtualAddress = TS3A_HOST_SIZE, sec[1].Misc.VirtualSize = 0x1000;
+    assert(HostBuildOk(img));
+    sec[0].Misc.VirtualSize = TS3A_HOST_SIZE;  // an original section running past TS3A_HOST_SIZE: other layout
     assert(!HostBuildOk(img));
+    sec[0].Misc.VirtualSize = TS3A_HOST_SIZE - 0x1000, sec[1].VirtualAddress = 0x2000;  // nothing appended
+    assert(!HostBuildOk(img));
+    nt->FileHeader.NumberOfSections = 0;
     nt->OptionalHeader.SizeOfImage = TS3A_HOST_SIZE, nt->FileHeader.TimeDateStamp = TS3A_HOST_PE + 1;
     assert(!HostBuildOk(img));
 }
