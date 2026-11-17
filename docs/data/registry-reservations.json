@@ -7435,6 +7435,24 @@
       "from": 634,
       "at": "2026-11-17T20:00:00.000Z",
       "worktree": "/home/<user>/dev/s3m-combo"
+    },
+    {
+      "id": "fixes-3780",
+      "kind": "fixes",
+      "from": 3780,
+      "to": 3819,
+      "by": "s93combo",
+      "what": "unseen stutter leads: unseenservicewait + bar per-reason counters, spotbusydefer (docs/635)",
+      "at": "2026-11-17T21:00:00.000Z",
+      "worktree": "/home/<user>/dev/s3m-combo",
+      "pinned": true
+    },
+    {
+      "id": "doc-635",
+      "kind": "doc",
+      "from": 635,
+      "at": "2026-11-17T21:00:00.000Z",
+      "worktree": "/home/<user>/dev/s3m-combo"
     }
   ]
 }

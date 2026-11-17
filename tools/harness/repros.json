@@ -136,6 +136,168 @@
       ]
     },
     {
+      "id": "unseenservicewait-check",
+      "bug": "an unseen Late Night bar order behind another order falls to EA's linked hand-off: BartenderInteraction.Cleanup pushes IdleTend only when the queue is empty, so unseenservice's IdleTend-only server test never passes with a line (s84: 70 OrderDrink waits, 787 sim-min; docs/635)",
+      "fix": "ts3fixes UnseenService88.cs: unseenservicewait (default off, needs unseenservice), docs/635",
+      "save": "pure part needs no save; live census needs a world with a staffed bar (Bridgeport)",
+      "note": "UnseenServiceWaitCheck run checks the wait decision (off: hand-off; on: wait for the server between orders, then serve) with controls (seen / busy server / cap keep EA, IdleTend idle in both arms); live census of bar servers; result shows the per-reason counters 3780-3795.",
+      "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+      "steps": [
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenservicewait": false
+          },
+          "note": "off first",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenServiceWaitCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "waitS": 2,
+          "note": "off: EA's path"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenServiceWaitCheck",
+            "args": [
+              "result"
+            ]
+          }
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenservicewait": true
+          },
+          "note": "on",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenServiceWaitCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "waitS": 2,
+          "note": "on: the fix"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnseenServiceWaitCheck",
+            "args": [
+              "result"
+            ]
+          }
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenservicewait": false
+          },
+          "note": "back to the default"
+        }
+      ],
+      "cleanup": [
+        {
+          "cmd": "patches",
+          "args": {
+            "unseenservicewait": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "spotbusydefer-check",
+      "bug": "a spotasync routability check whose tagged START is refused (the worker runs another job) plans sync and waits on world+0x918 for that job: the Sun 12:47 PM 305 ms hitch (s84 spot:rabbithole, sync 284 ms START refused; docs/635)",
+      "fix": "ts3fixes Fixes.cs + RouteBackoff.cs: spotbusydefer (default off, needs spotasync), docs/635",
+      "save": "pure part needs no save",
+      "note": "SpotBusyDeferCheck run checks the defer decision (off: sync plan; on: no verdict now) with controls (non-spot plans and accepted STARTs unchanged, household never async); result shows counters 3800-3802.",
+      "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+      "steps": [
+        {
+          "cmd": "patches",
+          "args": {
+            "spotbusydefer": false
+          },
+          "note": "off first",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SpotBusyDeferCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "waitS": 2,
+          "note": "off: EA's path"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SpotBusyDeferCheck",
+            "args": [
+              "result"
+            ]
+          }
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "spotbusydefer": true
+          },
+          "note": "on",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SpotBusyDeferCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "waitS": 2,
+          "note": "on: the fix"
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SpotBusyDeferCheck",
+            "args": [
+              "result"
+            ]
+          }
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "spotbusydefer": false
+          },
+          "note": "back to the default"
+        }
+      ],
+      "cleanup": [
+        {
+          "cmd": "patches",
+          "args": {
+            "spotbusydefer": false
+          }
+        }
+      ]
+    },
+    {
       "id": "unseenmusicwatch-check",
       "bug": "an unseen NPC watching a piano (Piano+Watch) holds its 1-minute DoLoop until EA's 360/180-minute low-LOD end (docs/634)",
       "fix": "ts3fixes LoopSkip632.cs: unseenmusicwatch (default off), docs/634; tier 2 with unseenloopskip_offscreen",
