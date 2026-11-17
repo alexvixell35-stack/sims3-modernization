@@ -194,6 +194,7 @@ namespace Ts3Fixes
             ApplyCompaction();  // docs/204: hooks only with ts3native [Compaction] Enabled=1 or 2
             ApplyCasTrimKeep();  // docs/539: hooks only with [CasTrim] save hooks in native
             ApplyUnseenOutfitDefer();  // issue #451, off by default (UnseenOutfitDefer.cs)
+            ApplyUnseenOutfitNoSpin();  // docs/809, off by default, needs unseenoutfitdefer (UnseenOutfitNoSpin.cs)
         }
 
         // Patches that go in only when a tuning is on (docs/124 §17.8): Apply cannot read tunings (C# defaults there), so these
@@ -540,6 +541,9 @@ namespace Ts3Fixes
         // per scope (household, selected, seenNpc, unseen, unknown), bursts, call lines, lines dropped, would start but Kinds
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
+        // [3537-3546] unseenoutfitnospin (UnseenOutfitNoSpin.cs, docs/809): 3537 spin changes taken, 3538-3544 refused by reason (helper started or
+        // active, no change, posture / age / animation, form / ghost / age test / no stored outfit, category not safe, pending / open / fresh,
+        // seen or near), 3545 taken whose set then ran at once, 3546 checks that threw
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
         const int kCounterSlots = 4000;
@@ -900,6 +904,7 @@ namespace Ts3Fixes
                 case "dancefloorlistdiag": return false;  // diagnostics only (DanceFloorDiag.cs, docs/253 §7)
                 case "boatgetoutdiag": return Instantiator.kBoatGetOutDiag;  // diagnostics only, off (BoatGetOutDiag.cs, docs/257 §7)
                 case "boatgetoutguard": return Instantiator.kBoatGetOutGuard;  // EA bug fix, off until the boat-getout-stress queue (BoatGetOutDiag.cs, docs/257 §9)
+                case "unseenoutfitnospin": return Instantiator.kUnseenOutfitNoSpin;
                 case "unseenoutfitdefer": return Instantiator.kUnseenOutfitDefer;  // issue #451, off (UnseenOutfitDefer.cs, docs/586)
                 case "boatparkgone": return Instantiator.kBoatParkGone;  // EA bug fix, on by default (BoatParkGone.cs, docs/257)
                 case "deadrefcooking": return Instantiator.kDeadRefCooking;  // EA bug fix, off (DeadRefs.cs phase 14, docs/205 §4)

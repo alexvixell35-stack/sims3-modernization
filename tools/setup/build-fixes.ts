@@ -213,6 +213,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kDanceFloorListGuard value="True" />
     <kBoatGetOutDiag value="False" />
     <kBoatGetOutGuard value="False" />
+    <kUnseenOutfitNoSpin value="False" />
     <kUnseenOutfitDefer value="False" />
     <kBoatParkGone value="True" />
     <kDeadRefCooking value="False" />
