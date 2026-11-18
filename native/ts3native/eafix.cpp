@@ -800,6 +800,160 @@ static bool ApplySimNoTextureAtlas(const wchar_t* ini) {
 }
 #endif
 
+// ---- SlaveUnlink + DeadSlaveTrip (2026-11-18, docs/143 §8.11, ledger I-212-16) ----
+// A route with slaves (BoatWaterScooter.IsSlaveRoute adds its Driver; other boats, strollers, led horses alike) reaches
+// native as Route.Start(..., slave ids, ...); the master agent's entity (agent+8) keeps raw slave entity pointers: count
+// +0xC, vector +0x10..+0x14, flag byte +0x20, written only by SetSlaves 0x83A650 thiscall(part; arr, count, flag) ret 0xC,
+// whose only setting caller is 0x955809 (the other four pass 0,0,0) [verified]. The agent destructor 0x9562F0 ends in the
+// entity base destructor 0x839E60 (call at 0x956426, its only caller besides the abstract base's own) and neither removes the
+// dying entity from a master's list [verified], so a slave destroyed while its master's list still names it leaves a
+// dangling pointer: the master's next ObstacleAvoidance calls slot +0x18 of the base vtable 0x1022E78 = the purecall thunk
+// 0xF7E8AC (crash at 0x58D996 from 0x85F1A8, 2026-10-21 / 11-17 / 11-18 on Isla Paradiso).
+// SlaveUnlink: record each list at 0x955809; when a listed entity is destroyed, take it off its master's list before the
+// destructor runs (the last one through the game's own SetSlaves(0,0,0), what EA does at route end, 0x858BAE / 0x84B3F1;
+// SetSlaves(0,..) only resets end, count and flag, no calls). Lists whose slaves live on are unchanged. DeadSlaveTrip (test queues only): at the four avoidance reads of slave 0 (0x847490, 0x847C57, 0x85E88B,
+// 0x85F18F; each tests the result for null) a slave whose vtable slot +0x18 is the purecall thunk is logged and answered null.
+typedef void(__fastcall* SlSetFn)(u8* part, void* edx, u8** arr, DWORD n, DWORD flag);
+typedef void(__fastcall* SlDtorFn)(u8* part, void* edx);
+typedef u8*(__fastcall* SlGetFn)(u8* part, void* edx, int i);
+static const DWORD SL_SET = TS3A(0x0083A650), SL_SET_SITE = TS3A(0x00955809), SL_DTOR = TS3A(0x00839E60),
+                   SL_DTOR_SITE = TS3A(0x00956426), SL_GET = TS3A(0x00839CA0), SL_PURECALL = TS3A(0x00F7E8AC);
+static const DWORD kSlTripSites[4] = {TS3A(0x00847490), TS3A(0x00847C57), TS3A(0x0085E88B), TS3A(0x0085F18F)};
+static SlSetFn g_slSet = (SlSetFn)(uintptr_t)SL_SET;  // selftest swaps the three
+static SlDtorFn g_slDtor = (SlDtorFn)(uintptr_t)SL_DTOR;
+static SlGetFn g_slGet = (SlGetFn)(uintptr_t)SL_GET;
+// Own export block (counters layout unchanged, docs/registry.md): switches, lists recorded, masters cleared, table full,
+// tripwire hits.
+struct SlaveLinkCounters { volatile LONG unlinkOn, tripOn, sets, unlinks, overflow, tripHits; };
+extern "C" __declspec(dllexport) SlaveLinkCounters ts3native_slavelink = {0, 0, 0, 0, 0, 0};
+struct SlPair { u8* master; u8* slave; DWORD mPartVt, mLo, mHi, mVt, sLo, sHi, sVt; };
+enum { SL_CAP = 64 };
+static SlPair g_slPairs[SL_CAP];
+static volatile LONG g_slBusy;
+
+static void SlOwner(const u8* part, DWORD* lo, DWORD* hi, DWORD* vt) {  // owner = agent+4 = part-4; id at owner+8
+    *lo = *hi = *vt = 0;
+    __try {
+        const u8* o = *(const u8* const*)(part - 4);
+        if (o) *vt = *(const DWORD*)o, *lo = *(const DWORD*)(o + 8), *hi = *(const DWORD*)(o + 0xC);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+}
+static int SlIndexIn(const u8* master, const u8* slave, DWORD partVt) {  // slave's index in master's live list, or -1
+    __try {
+        if (*(const DWORD*)master != partVt) return -1;  // master freed (its memory reused): not the list we recorded
+        const LONG n = *(const LONG*)(master + 0xC);
+        u8* const* b = *(u8* const* const*)(master + 0x10);
+        u8* const* e = *(u8* const* const*)(master + 0x14);
+        for (LONG i = 0; i < n && b + i < e; i++)
+            if (b[i] == slave) return (int)i;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    return -1;
+}
+static void SlLock() { while (InterlockedCompareExchange(&g_slBusy, 1, 0)) YieldProcessor(); }
+static void SlUnlock() { InterlockedExchange(&g_slBusy, 0); }
+static void SlForget(const u8* master) {
+    for (int i = 0; i < SL_CAP; i++)
+        if (g_slPairs[i].master == master) g_slPairs[i].master = NULL;
+}
+
+static void __fastcall SlSetHook(u8* part, void*, u8** arr, DWORD n, DWORD flag) {
+    g_slSet(part, NULL, arr, n, flag);
+    SlLock();
+    SlForget(part);
+    if (arr && (LONG)n > 0) {
+        ts3native_slavelink.sets++;
+        DWORD mLo, mHi, mVt;
+        SlOwner(part, &mLo, &mHi, &mVt);
+        const DWORD partVt = *(const DWORD*)part;
+        for (DWORD i = 0; i < n; i++) {
+            if (!arr[i]) continue;
+            int f = -1;
+            for (int j = 0; j < SL_CAP && f < 0; j++)
+                if (!g_slPairs[j].master) f = j;
+            for (int j = 0; j < SL_CAP && f < 0; j++)  // full: reuse a pair its master no longer lists
+                if (SlIndexIn(g_slPairs[j].master, g_slPairs[j].slave, g_slPairs[j].mPartVt) < 0) f = j;
+            if (f < 0) { ts3native_slavelink.overflow++; continue; }
+            SlPair& p = g_slPairs[f];
+            p.master = part, p.slave = arr[i], p.mPartVt = partVt, p.mLo = mLo, p.mHi = mHi, p.mVt = mVt;
+            SlOwner(arr[i], &p.sLo, &p.sHi, &p.sVt);
+        }
+    }
+    SlUnlock();
+}
+
+static void __fastcall SlDtorHook(u8* part, void*) {
+    SlLock();
+    SlForget(part);  // a master going away: its slaves hold no pointer back
+    for (int i = 0; i < SL_CAP; i++) {
+        SlPair p = g_slPairs[i];
+        if (!p.master || p.slave != part) continue;
+        g_slPairs[i].master = NULL;
+        const int at = SlIndexIn(p.master, part, p.mPartVt);
+        if (at < 0) continue;  // EA cleared or replaced that list already
+        // Take this one entry out (SetSlaves keeps end == begin + count); the last one goes the game's own way, SetSlaves(0,0,0).
+        LONG n = 0;
+        __try {
+            n = *(LONG*)(p.master + 0xC);
+            u8** b = *(u8***)(p.master + 0x10);
+            for (LONG j = at; j + 1 < n; j++) b[j] = b[j + 1];
+            if (n > 1) *(LONG*)(p.master + 0xC) = n - 1, *(u8***)(p.master + 0x14) = b + (n - 1);
+        } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
+        if (n <= 1) g_slSet(p.master, NULL, NULL, 0, 0);
+        const LONG k = InterlockedIncrement(&ts3native_slavelink.unlinks);
+        if (k <= 16 || (k & (k - 1)) == 0) {
+            char st[600];
+            if (FbStackText(st, sizeof(st), 12) <= 0) strcpy_s(st, "none");
+            Log("ea fix: SlaveUnlink #%ld: entity %p (owner %08lX%08lX vt %08lX) destroyed while slave %d of %ld of master %p "
+                "(owner %08lX%08lX vt %08lX): taken off the master's slave list; script stack: %s",
+                k, part, p.sHi, p.sLo, p.sVt, at, n, p.master, p.mHi, p.mLo, p.mVt, st);
+        }
+    }
+    SlUnlock();
+    g_slDtor(part, NULL);
+}
+
+static bool SlDead(const u8* s) {  // destructor ran: base vtable, pure slot +0x18; unreadable counts too (the call would fault)
+    __try { return (*(const DWORD* const*)s)[6] == SL_PURECALL; } __except (EXCEPTION_EXECUTE_HANDLER) { return true; }
+}
+static u8* __fastcall SlTripGet(u8* part, void*, int i) {
+    u8* s = g_slGet(part, NULL, i);
+    if (!s || !SlDead(s)) return s;
+    const LONG k = InterlockedIncrement(&ts3native_slavelink.tripHits);
+    if (k <= 16 || (k & (k - 1)) == 0) {
+        DWORD mLo, mHi, mVt, sVt = 0;
+        SlOwner(part, &mLo, &mHi, &mVt);
+        __try { sVt = *(const DWORD*)s; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        Log("ea fix: DeadSlaveTrip #%ld: master %p (owner %08lX%08lX vt %08lX) slave %d %p has a destroyed entity's vtable %08lX: "
+            "answered null (the game would call its pure slot)", k, part, mHi, mLo, mVt, i, s, sVt);
+    }
+    return NULL;
+}
+
+static bool ApplySlaveLink(const wchar_t* ini) {
+    bool keep = false;
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP ea fix SlaveUnlink / DeadSlaveTrip: no EA 1.69 address, docs/232 §8"); return false; }
+#endif
+    if (GetPrivateProfileIntW(L"EaCrashFixes", L"SlaveUnlink", 0, ini)) {
+        if (FpCallOk(SL_SET_SITE, SL_SET) && FpCallOk(SL_DTOR_SITE, SL_DTOR) && FpRedirect(SL_SET_SITE, (const void*)&SlSetHook) &&
+            FpRedirect(SL_DTOR_SITE, (const void*)&SlDtorHook)) {
+            ts3native_slavelink.unlinkOn = 1, keep = true;
+            Log("OK   ea fix: SlaveUnlink (docs/143 §8.11): a destroyed slave (a boat's driver, a stroller, a led horse) is taken "
+                "off its master's slave list before it is freed");
+        } else Log("SKIP ea fix: SlaveUnlink: calls at 0x%08X / 0x%08X differ: not installed", SL_SET_SITE, SL_DTOR_SITE);
+    }
+    if (GetPrivateProfileIntW(L"EaCrashFixes", L"DeadSlaveTrip", 0, ini)) {
+        bool ok = true;
+        for (int i = 0; i < 4; i++) ok = ok && FpCallOk(kSlTripSites[i], SL_GET);
+        for (int i = 0; i < 4 && ok; i++) ok = FpRedirect(kSlTripSites[i], (const void*)&SlTripGet);
+        if (ok) {
+            ts3native_slavelink.tripOn = 1, keep = true;
+            Log("OK   ea fix: DeadSlaveTrip (TEST TRIPWIRE, docs/143 §8.11): avoidance skips and logs a destroyed slave 0");
+        } else Log("SKIP ea fix: DeadSlaveTrip: a call to 0x%08X differs: not installed", SL_GET);
+    }
+    return keep;
+}
+
 static bool ApplyEaCrashFixes(const wchar_t* ini) {
     bool keep = ApplyConformActor(ini);
     ApplyThumbPose(ini);
@@ -808,6 +962,7 @@ static bool ApplyEaCrashFixes(const wchar_t* ini) {
     keep = ApplyLotLevelPastEnd(ini) || keep;
     keep = ApplyGeomNoMaterial(ini) || keep;
     keep = ApplyMintDivGuard(ini) || keep;
+    keep = ApplySlaveLink(ini) || keep;
 #ifdef TS3N_EA_PORT
     keep = ApplySimNoTexture(ini) || keep;
     keep = ApplySimNoTextureAtlas(ini) || keep;

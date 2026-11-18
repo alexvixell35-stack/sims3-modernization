@@ -187,6 +187,80 @@ static __declspec(naked) void StThunk() {
     }
 }
 
+// 2026-11-15 (tbpro-dm1 crash 0x4E5A0B, malloc_consolidate unlinking a "free" next chunk whose size word was 0): log
+// only, a fault inside EA's GeneralAllocator (0x4E3D00-0x4E9000). For each register that points into memory, the 32 dwords from
+// reg-0x20 (chunk layout, alloc.cpp: prev-size, size|bits, then user bytes; a fast-bin chunk keeps its old user+0 dword, so an
+// .rdata value there is the vtable of the object freed into it). ".rdata" marks exe vtable-range values (CfVtOk).
+static void CfHeapNb(const CONTEXT* c) {
+    const struct { const char* n; DWORD v; } regs[] = {{"eax", c->Eax}, {"ebx", c->Ebx}, {"ecx", c->Ecx}, {"edx", c->Edx},
+                                                       {"esi", c->Esi}, {"edi", c->Edi}, {"ebp", c->Ebp}};
+    for (const auto& g : regs) {
+        if (g.v < 0x10000 || g.v >= 0xFFFE0000) continue;  // LAA: heap above 2 GB too; the __try below covers bad pointers
+        DWORD w[32];
+        bool ok = true;
+        __try { for (int i = 0; i < 32; i++) w[i] = *(const volatile DWORD*)(uintptr_t)(g.v - 0x20 + 4 * i); }
+        __except (EXCEPTION_EXECUTE_HANDLER) { ok = false; }
+        if (!ok) { Log("crash forensics: heap nb %s 0x%08lX: unreadable", g.n, g.v); continue; }
+        char line[32 * 12 + 16], *p = line;
+        for (int i = 0; i < 32; i++) p += sprintf_s(p, line + sizeof(line) - p, i == 8 ? " |%08lX%s" : " %08lX%s", w[i], CfVtOk(w[i]) ? "v" : "");
+        Log("crash forensics: heap nb %s 0x%08lX (from -0x20, v = .rdata):%s", g.n, g.v, line);
+    }
+}
+
+// n (<= 16) dwords from a, ".rdata" values marked v (CfVtOk), or why not
+static void CfWords(const char* tag, DWORD a, int n) {
+    if (a < 0x10000 || a >= 0xFFFE0000) { Log("crash forensics: %s 0x%08lX: not a heap address", tag, a); return; }
+    DWORD w[16];
+    bool ok = true;
+    if (n > 16) n = 16;
+    __try { for (int i = 0; i < n; i++) w[i] = *(const volatile DWORD*)(uintptr_t)(a + 4 * i); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { ok = false; }
+    if (!ok) { Log("crash forensics: %s 0x%08lX: unreadable", tag, a); return; }
+    char line[16 * 12 + 8], *p = line;
+    for (int i = 0; i < n; i++) p += sprintf_s(p, line + sizeof(line) - p, " %08lX%s", w[i], CfVtOk(w[i]) ? "v" : "");
+    Log("crash forensics: %s 0x%08lX (v = .rdata):%s", tag, a, line);
+}
+
+// 2026-11-17 (bg2 IP crash): EA's pure-call handler (XcptPure). The known caller is ObstacleAvoidance_B 0x85D980,
+// `call [vt+18h]` at 0x85F1A8 on 0x839CA0(part, 0) = the part's first group-linked agent (docs/143 §8.11). The handler and
+// MSVCR80's _purecall keep ebp, so ebp is still the caller's frame; when it is 0x85D980's (return 0x847503), the part, the
+// updated agent (arg 2) and the first 4 linked agents are logged: the destroyed one shows its base-class vtable, the others
+// who it was linked to. Register neighbourhoods (CfHeapNb) for any caller. g_cfPureAgent0 = linked agent 0 (selftest).
+static DWORD g_cfPureAgent0;
+static void CfPureCall(const CONTEXT* c) {
+    CfHeapNb(c);
+    DWORD fp = c->Ebp, ret = 0, part = 0, a2 = 0, a3 = 0;
+    __try {
+        ret = *(const DWORD*)(uintptr_t)(fp + 4);
+        part = *(const DWORD*)(uintptr_t)(fp + 8);
+        a2 = *(const DWORD*)(uintptr_t)(fp + 12);
+        a3 = *(const DWORD*)(uintptr_t)(fp + 16);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("crash forensics: pure call: ebp 0x%08lX unreadable", fp); return; }
+    const bool avoid = ret == TS3A(0x00847503);
+    Log("crash forensics: pure call: ebp 0x%08lX frame returns to 0x%08lX%s, args %08lX %08lX %08lX", fp, ret,
+        avoid ? " (ObstacleAvoidance -> ObstacleAvoidance_B 0x85D980)" : "", part, a2, a3);
+    if (!avoid) return;
+    CfWords("pure call: part", part, 12);
+    CfWords("pure call: updated agent (arg 2)", a2, 16);
+    DWORD n = 0, b = 0, e = 0;
+    __try {
+        n = *(const DWORD*)(uintptr_t)(part + 0xC);
+        b = *(const DWORD*)(uintptr_t)(part + 0x10);
+        e = *(const DWORD*)(uintptr_t)(part + 0x14);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    Log("crash forensics: pure call: part 0x%08lX linked count %ld, vector %08lX..%08lX", part, (LONG)n, b, e);
+    char d[200], t[48];
+    for (DWORD i = 0; i < 4 && b && b + 4 * i < e; i++) {
+        DWORD ag = 0;
+        __try { ag = *(const DWORD*)(uintptr_t)(b + 4 * i); } __except (EXCEPTION_EXECUTE_HANDLER) { break; }
+        if (i == 0) g_cfPureAgent0 = ag;
+        sprintf_s(t, "pure call: linked agent %lu", i);
+        CfWords(t, ag, 16);
+        CfDescribe(ag, d, sizeof(d));
+        Log("crash forensics: pure call: linked agent %lu 0x%08lX: %s", i, ag, d);
+    }
+}
+
 // the dump: one line of P5 state, the fault and register addresses against the ring, then the ring tail
 static void CfOnFault(const EXCEPTION_POINTERS* x) {
     // TS3W.exe .text only: every run has 3 handled first-chance AVs at start-up in other modules (queue logs 2026-10-24);
@@ -200,18 +274,20 @@ static void CfOnFault(const EXCEPTION_POINTERS* x) {
     // docs/254 R2: only with eip in TS3W.exe or MSVCR80.dll, so a foreign AV storm (Apex issue 55) skips the 1 KB stack copy
     if (x->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && CfOsGate(eip)) CtOsFault(x->ContextRecord);
     const bool wild = XcptWild(x->ExceptionRecord->ExceptionCode);  // C0000096 too (2026-11-02 drain crash wrote no dump)
+    const bool pure = XcptPure(x->ExceptionRecord);  // eip 0x58D996, inside TS3W.exe
     if (!g_cfOn || (!wild && (eip < TS3A(0x00401000) || eip >= TS3A(0x00F95000))) || InterlockedIncrement(&g_cfDumpN) > 4) return;
     Ts3nCounters& k = ts3native_counters;
     InterlockedIncrement(&k.cfDumps);
     const EXCEPTION_RECORD* r = x->ExceptionRecord;
     const CONTEXT* c = x->ContextRecord;
-    const DWORD at = wild ? eip : r->NumberParameters > 1 ? (DWORD)r->ExceptionInformation[1] : 0;
+    const DWORD at = wild ? eip : pure ? 0 : r->NumberParameters > 1 ? (DWORD)r->ExceptionInformation[1] : 0;
     char d[200];
     CfDescribe(at, d, sizeof(d));
     Log("crash forensics: DUMP %s (%s 0x%08lX) at eip 0x%08lX thread %lu; P5 state: route job %s, g_rpPhase 0x%lX, "
         "g_rpUse holder %lu, RecsUnlocked %ld, held lot %08lX%08lX, replay head %lu tail %lu, P4 job armed %ld kind %d mode %d; "
         "heap check %s, bad frees %ld, guard hits %ld/%ld",
-        wild ? "illegal instruction" : "access violation", wild ? "exec" : r->NumberParameters > 0 && r->ExceptionInformation[0] ? "write" : "read", at, c->Eip, GetCurrentThreadId(),
+        wild ? "illegal instruction" : pure ? "EA pure call" : "access violation",
+        wild ? "exec" : pure ? "vcall" : r->NumberParameters > 0 && r->ExceptionInformation[0] ? "write" : "read", at, c->Eip, GetCurrentThreadId(),
         g_async.state == A_RUNNING ? "running" : "idle", g_rpPhase, g_cfUseTid, g_rpRecsUnlocked, (DWORD)(g_rpHoldKey >> 32),
         (DWORD)g_rpHoldKey, g_rpHead, g_rpTail, g_p4Job.armed, g_p4Job.kind, g_p4Job.mode, g_cfHeap ? "on" : "off", k.cfHeapBad,
         k.cfBad[0], k.cfBad[1]);
@@ -233,6 +309,8 @@ static void CfOnFault(const EXCEPTION_POINTERS* x) {
             Log("crash forensics: %s 0x%08lX: %s", g.n, g.v, d);
         }
     if (at >= 0x10000 && CfFind(at, &e)) InterlockedIncrement(&k.cfRingHit);
+    if (eip >= TS3A(0x004E3D00) && eip < TS3A(0x004E9000)) CfHeapNb(c);  // 2026-11-15: a fault inside EA's allocator (heap corruption)
+    if (pure) CfPureCall(c);
     LARGE_INTEGER q;
     QueryPerformanceCounter(&q);
     const LONG top = g_cfSeq;

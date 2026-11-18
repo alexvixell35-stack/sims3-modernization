@@ -286,6 +286,104 @@ static int GntCase(void* slot, void* builder) {
     return (int)g_gntKind;
 }
 
+// ---- SlaveUnlink + DeadSlaveTrip: fakes with the game's SetSlaves / base destructor / get-slave semantics ----
+static u8** TslSt(u8* part) { return (u8**)(part + 0x30); }  // each fake master's slave vector storage, inside its part
+static LONG g_tslDtors;
+static DWORD g_tslLive[8], g_tslDead[8];
+static void __fastcall TslSet(u8* part, void*, u8** arr, DWORD n, DWORD flag) {  // 0x83A650: copy in, or end = begin
+    if (arr && (LONG)n > 0) {
+        part[0x20] = (u8)flag, *(LONG*)(part + 0xC) = (LONG)n, *(u8***)(part + 0x10) = TslSt(part);
+        for (DWORD i = 0; i < n; i++) TslSt(part)[i] = arr[i];
+        *(u8***)(part + 0x14) = TslSt(part) + n;
+    } else *(u8***)(part + 0x14) = *(u8***)(part + 0x10), *(LONG*)(part + 0xC) = 0, part[0x20] = 0;
+}
+static void __fastcall TslDtor(u8* part, void*) { g_tslDtors++, *(DWORD*)part = (DWORD)(uintptr_t)g_tslDead; }  // 0x839E60: base vt
+static u8* __fastcall TslGet(u8* part, void*, int i) {  // 0x839CA0
+    u8** b = *(u8***)(part + 0x10);
+    return i < *(LONG*)(part + 0xC) && b + i < *(u8***)(part + 0x14) ? b[i] : NULL;
+}
+static void TestSlaveLink() {
+    SlaveLinkCounters& c = ts3native_slavelink;
+    const SlSetFn s0 = g_slSet;
+    const SlDtorFn d0 = g_slDtor;
+    const SlGetFn g0 = g_slGet;
+    g_slSet = &TslSet, g_slDtor = &TslDtor, g_slGet = &TslGet;
+    memset(g_slPairs, 0, sizeof(g_slPairs)), c.sets = c.unlinks = c.overflow = c.tripHits = 0, g_tslDtors = 0;
+    g_tslLive[6] = 0x00401000, g_tslDead[6] = SL_PURECALL;
+    alignas(8) static u8 ag[5][0x60], own[5][0x10];  // agents M, A, B, X, N; part = agent+8, owner = agent+4, id at owner+8
+    u8* p[5];
+    for (int i = 0; i < 5; i++) {
+        memset(ag[i], 0, sizeof(ag[i]));
+        p[i] = ag[i] + 8, *(DWORD*)p[i] = (DWORD)(uintptr_t)g_tslLive, *(u8**)(ag[i] + 4) = own[i];
+        *(DWORD*)(own[i] + 8) = 0x100 + i, *(DWORD*)(own[i] + 0xC) = 0xA0000000;
+    }
+    u8 *m = p[0], *a = p[1], *b = p[2], *x = p[3];
+    auto relive = [&]() { for (int i = 1; i < 5; i++) *(DWORD*)p[i] = (DWORD)(uintptr_t)g_tslLive; };
+    u8* two[2] = {a, b};
+    // two slaves (a boat's driver and passenger): the first destroyed leaves the second listed, the last clears the list
+    SlSetHook(m, NULL, two, 2, 1);
+    assert(c.sets == 1 && *(LONG*)(m + 0xC) == 2 && m[0x20] == 1);
+    SlDtorHook(a, NULL);
+    assert(g_tslDtors == 1 && c.unlinks == 1 && *(LONG*)(m + 0xC) == 1 && TslSt(m)[0] == b && *(u8***)(m + 0x14) == TslSt(m) + 1 &&
+           m[0x20] == 1);
+    assert(SlTripGet(m, NULL, 0) == b && c.tripHits == 0);  // a live slave passes the tripwire
+    SlDtorHook(b, NULL);
+    assert(g_tslDtors == 2 && c.unlinks == 2 && *(LONG*)(m + 0xC) == 0 && *(u8***)(m + 0x14) == TslSt(m) && m[0x20] == 0);
+    // an entity on no list: only the destructor
+    SlDtorHook(x, NULL);
+    assert(g_tslDtors == 3 && c.unlinks == 2);
+    // the list EA cleared itself (route end), or replaced by a new route without that slave: unchanged
+    relive();
+    SlSetHook(m, NULL, two, 2, 1);
+    TslSet(m, NULL, NULL, 0, 0);
+    SlDtorHook(a, NULL);
+    assert(c.unlinks == 2 && *(LONG*)(m + 0xC) == 0);
+    relive();
+    SlSetHook(m, NULL, two, 2, 1);
+    SlSetHook(m, NULL, &x, 1, 1);
+    SlDtorHook(a, NULL);
+    assert(c.sets == 4 && c.unlinks == 2 && *(LONG*)(m + 0xC) == 1 && TslSt(m)[0] == x);
+    // the master destroyed first, or its memory reused (another vtable): the slave's later destruction writes nothing
+    relive();
+    SlSetHook(m, NULL, two, 2, 1);
+    SlDtorHook(m, NULL);
+    *(DWORD*)m = (DWORD)(uintptr_t)g_tslLive;
+    SlDtorHook(a, NULL);
+    assert(c.unlinks == 2 && *(LONG*)(m + 0xC) == 2);
+    relive();
+    SlSetHook(m, NULL, two, 2, 1);
+    *(DWORD*)m = 0x12345678;
+    SlDtorHook(b, NULL);
+    assert(c.unlinks == 2 && *(LONG*)(m + 0xC) == 2);
+    *(DWORD*)m = (DWORD)(uintptr_t)g_tslLive;
+    // a full table: pairs whose master no longer lists them are reused; none free counts overflow
+    TslSet(m, NULL, NULL, 0, 0);
+    memset(g_slPairs, 0, sizeof(g_slPairs));
+    for (int i = 0; i < SL_CAP; i++) g_slPairs[i].master = m, g_slPairs[i].slave = x, g_slPairs[i].mPartVt = 0x12345678;
+    relive();
+    SlSetHook(p[4], NULL, &a, 1, 0);
+    assert(c.overflow == 0);
+    for (int i = 0; i < SL_CAP; i++) g_slPairs[i].master = p[4], g_slPairs[i].slave = a, g_slPairs[i].mPartVt = *(DWORD*)p[4];
+    SlSetHook(m, NULL, &b, 1, 0);
+    assert(c.overflow == 1);
+    memset(g_slPairs, 0, sizeof(g_slPairs));
+    // tripwire: a destroyed slave 0 (the crash: base vtable, slot +0x18 the purecall thunk) and an unreadable one answer null
+    TslSet(m, NULL, two, 2, 1);
+    relive();
+    *(DWORD*)a = (DWORD)(uintptr_t)g_tslDead;
+    assert(SlTripGet(m, NULL, 0) == NULL && c.tripHits == 1);
+    assert(SlTripGet(m, NULL, 1) == b && SlTripGet(m, NULL, 2) == NULL && c.tripHits == 1);
+    u8* page = (u8*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    VirtualFree(page, 0, MEM_RELEASE);
+    TslSt(m)[0] = page;
+    assert(SlTripGet(m, NULL, 0) == NULL && c.tripHits == 2);
+    g_slSet = s0, g_slDtor = d0, g_slGet = g0;
+    memset(g_slPairs, 0, sizeof(g_slPairs)), c.sets = c.unlinks = c.overflow = c.tripHits = 0;
+    printf("EaCrashFixes: SlaveUnlink a destroyed slave taken off its master's list (one of two kept, the last through SetSlaves(0)), "
+           "unlisted / EA-cleared / replaced lists and destroyed or reused masters unchanged, full table reuses stale pairs; "
+           "DeadSlaveTrip live slaves passed, destroyed / unreadable slave answered null: ok\n");
+}
+
 static void TestEaCrashFixes() {
     static_assert(offsetof(Ts3nCounters, caOn) == 0x5480 && offsetof(Ts3nCounters, caSkip) == 0x5484 &&
                       offsetof(Ts3nCounters, caOther) == 0x5490 && offsetof(Ts3nCounters, caOverflow) == 0x549C &&
@@ -678,4 +776,5 @@ static void TestEaCrashFixes() {
            "site patched once; "
            "MintDivGuard 18 normal div/rem cases on the game's path, INT_MIN / -1 to the overflow stub, INT_MIN %% -1 = 0, "
            "table patched once: ok\n");
+    TestSlaveLink();
 }
