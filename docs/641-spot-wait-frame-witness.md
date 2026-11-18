@@ -59,3 +59,15 @@ Check: `spotwait: frame-bound` lines at the 11:27 AM stall (expected: frame-boun
 ## Starlight 11:27 AM hitch, stall stacks (2026-11-18, s105, asi aa011899 `StallWatch.StallMs=250`)
 
 The sampler was live (`stall watch ... after 250 ms ..., poll 83 ms`) and logged sub-second sim-thread stalls during load, yet logged nothing at the 589 ms hitch (Sun 11:26 AM) or the 562 ms one (8:32 AM). Simulate iterations kept finishing, so the time went outside the sim thread's Simulate loop: inferred to be the main thread (likely the ShowStage / SimFest asset setup; the first `routefail job: ... Tend target ShowStageLarge` follows each time). Next step if it is worth chasing: a main-thread sampler; the sim-thread one cannot see it.
+
+## Addendum: Isla Paradiso night with ms stall stacks (s106, phase-20261118-0404)
+
+asi aa011899, `StallMs=250 EveryMs=100 Lines=4`, r103 package, unseenboatland off. 9 game hitches (300-384 ms), 7 of them at
+Sun. 11:16-11:34 PM. **No sim-thread stall line at any of the 11 PM hitches** (verified: interleaved hitchwatch and stall
+lines in log order). The only stall near the night window is 276 ms at Mon. 1:02 AM: RouteGate site 7 "Q reset (clear
+path)" 0x61E420 (stub `RgStub7` -> RgEnter -> spin/backoff on the gate lock) waiting for a running async route job (known
+gate wait, one event).
+
+Caveat (inferred): hitchwatch measures the gap between two ticks of a script task, so a 300-380 ms gap can be two
+consecutive sim iterations of ~150-190 ms each, under the 250 ms stall threshold. Next: s107 repeats with `StallMs=150`
+(the floor) before concluding the IP night hitches are off the sim thread.
