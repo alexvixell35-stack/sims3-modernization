@@ -301,14 +301,14 @@ static class EaSpreadTest
             lots.Add(objs);
         }
         List<int> order = new List<int>();
-        DailyPairPass<List<Obj>, Job> pass = new DailyPairPass<List<Obj>, Job>();
+        DailyPairPass<List<Obj>, SpreadUnit> pass = new DailyPairPass<List<Obj>, SpreadUnit>();
         pass.Begin(lots, delegate(List<Obj> lot)
         {
-            List<Job> u = new List<Job>();
+            List<SpreadUnit> u = new List<SpreadUnit>();
             EaSpreadCore.AddFindThenAct<Obj>(u, lot, delegate(Obj o) { return o.Dirty; },
                 delegate(Obj o) { o.Acts++; o.Cleaned = true; order.Add(o.Id); }, delegate(Obj o) { return !o.Gone; });
             return u;
-        }, delegate(List<Obj> lot, Job unit) { unit(); return true; }, delegate { });
+        }, delegate(List<Obj> lot, SpreadUnit unit) { unit(); return true; }, delegate { });
         int slices = 0, units;
         bool done = false;
         while (!done)

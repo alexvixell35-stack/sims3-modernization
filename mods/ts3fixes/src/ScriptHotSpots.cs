@@ -255,10 +255,10 @@ namespace Ts3Fixes
         {
             public LotDetailPriority CalcHook()
             {
-                if (!sDetailPrioReady || !ShortcutOn("detailprio") || Paused())
+                if (!sDetailPrioReady || !SwOn(kSwDetailPrio) || Paused())
                 {
                     sDetailStamp.Reset();
-                    return ShortcutOn("detailprioexact") ? DpExactAnswer((Lot)(object)this) : CalcOrig();
+                    return SwOn(kSwDetailPrioExact) ? DpExactAnswer((Lot)(object)this) : CalcOrig();
                 }
                 Lot lot = (Lot)(object)this;
                 Household hh = Household.ActiveHousehold;

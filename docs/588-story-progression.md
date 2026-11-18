@@ -1,9 +1,6 @@
 # 588: EA story progression, a full hand-read
 
-> Posted upstream with the switches listed under "In-game results" at the end. Sections on other leads or switches are kept as research notes; those switches are not part of this change.
-
-
-Date: 2026-11-15. Static analysis first; the fixes built from it are proven in game (results at the end).
+Date: 2026-11-15. Static analysis only; nothing was built or run.
 
 **Scope:**
 - every type in `Sims3.Gameplay.StoryProgression` (53 files, about 13k lines), all managers and actions;
@@ -179,32 +176,3 @@ User rule (2026-11-15): "fix, make it as EA intended, even for our household". N
 - C7 Genetics: needs a caller with no parents (none in EA code); the inverted IsFemale test has no effect.
 - P2 service pool cap: returning null when full needs every FindSimForAssignment override to retry; a wrong cap means a service never arrives.
 - P3 FakeMetaAutonomy pool: EA set the cap to int.MaxValue, so a cap is not EA's intent; the per-tick cost is a perf design of its own.
-
-## In-game results (Bridgeport combined soaks, each switch off then on in one load)
-
-Switches of this doc that are posted in this change, with the runs where the check read off BROKEN and on FIXED (`smallfix.txt` of each run).
-
-| Switch | Off | On | Runs off BROKEN / on FIXED | Runs (phase-…) |
-|---|---|---|---|---|
-| `agingalarmcancel` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `celebalarmnull` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `disposevirtualslot` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `hhcleanupdup` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `petpoolghost` | BROKEN | FIXED | 1 | 20261116-0505 |
-| `spbucketindex` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `spclonedict` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `spcollectnull` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `spcreatemovein` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `spjobatwork` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `splotdensity` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `splotlookup` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `spoccultpick` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `sppensionprompt` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `sprecheck` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `sprelcount` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `sproommatejob` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `virtualhomeshare` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `virtualmoveindup` | BROKEN | FIXED | 1 | 20261116-0234 |
-
-- [verified] The verdicts, controls ok and members found in the runs listed.
-- [inferred] How often each case happens in normal play: the checks call the same decision functions as the hooks.

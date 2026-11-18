@@ -35,10 +35,22 @@ namespace Ts3Fixes
     // A11 (TendGarden<T> is generic), B17/A12 rest (one-line leads without notes).
     public static partial class Fixes
     {
+        delegate bool B12BoolFn();
 
+        static FieldInfo B12F(Type t, string n) { return t == null ? null : t.GetField(n, kB11All); }
+        static MethodInfo B12M(Type t, string n, params Type[] a) { return t == null ? null : t.GetMethod(n, kB11All, null, a, null); }
 
         // Live-path assert for the checks: the hook's own swap is in place (Fixes.Patch recorded it in sPatched).
 
+        // A check line from the hook's own decision, with the live-path assert folded into "members found".
+        static object B12Check(string what, string name, int first, string[] cw, string missing, string fixedText, bool fixedPure, string ctlText, bool controls)
+        {
+            string counters = B582Counters(name, first, cw, missing);
+            if (what == "result") return counters;
+            if (what != "run") return name + " <run|result>";
+            bool on = ShortcutOn(name);
+            return B582Line(name, on, fixedText, on && fixedPure, ctlText, controls, missing, counters);
+        }
 
         // ---- B12 §1 protestexit (docs/590 B2) ------------------------------------------------------------------------
         // [verified, decompiled] ImprovedProtestSituation.CancelNPCProtest calls CleanUp + Dispose on the root only; the
@@ -840,24 +852,5 @@ namespace Ts3Fixes
 
             public void LoopOrig(StateMachineClient smc, InteractionInstance.LoopData ld) { }
         }
-
-        // live paths of the checks (CheckVerdict.cs CkLive): hook swaps in place, reflection handles usable
-        static readonly int sLive_bouncerrole = LiveAdd("bouncerrole", () => EpLive(typeof(B12BrHook), 3, "sBrDist", sBrDist, typeof(float), "sBrDist", sBrDist, "static"));
-        static readonly int sLive_compositionnull = LiveAdd("compositionnull", () => EpLive(typeof(B12CnHook), 2));
-        static readonly int sLive_copyhomeworkfx = LiveAdd("copyhomeworkfx", () => EpLive(typeof(B12ChHook), 1, "sChCast", sChCast, null, "sChDestroy", sChDestroy, 0));
-        static readonly int sLive_fearfaintundo = LiveAdd("fearfaintundo", () => EpLive(typeof(B12FfHook), 1, "sFfJig", sFfJig, null));
-        static readonly int sLive_foodtraygrill = LiveAdd("foodtraygrill", () => EpLive(typeof(B12FtgHook), 1));
-        static readonly int sLive_frolicexit = LiveAdd("frolicexit", () => EpLive(typeof(B12FeHook), 1, "sFeSustained", sFeSustained, typeof(long)));
-        static readonly int sLive_gohereboatlist = LiveAdd("gohereboatlist", () => EpLive(typeof(B12GbHook), 1, "sGbBoat", sGbBoat, null, "sGbTrain", sGbTrain, null));
-        static readonly int sLive_igloolookats = LiveAdd("igloolookats", () => EpLive(typeof(B12IlHook), 1, "sIlIgloo", sIlIgloo, null));
-        static readonly int sLive_jogterrain = LiveAdd("jogterrain", () => EpLive(typeof(B12JtHook), 1, "sJtDest", sJtDest, null, "sJtRoad", sJtRoad, typeof(bool), "sJtLast", sJtLast, typeof(float), "sJtLast", sJtLast, null, "sJtTime", sJtTime, null, "sJtTime", sJtTime, typeof(float)));
-        static readonly int sLive_lifeguardquit = LiveAdd("lifeguardquit", () => EpLive(typeof(B12LqHook), 1));
-        static readonly int sLive_lotprune = LiveAdd("lotprune", () => EpLive(typeof(B12LpHook), 1, "sLpMap", sLpMap, null, "sLpMap", sLpMap, "static", "sLpCount", sLpCount, "get"));
-        static readonly int sLive_petdreamtimer = LiveAdd("petdreamtimer", () => EpLive(typeof(B12PdHook), 1, "sPdTimer", sPdTimer, typeof(float), "sPdTimer", sPdTimer, null, "sPdFreq", sPdFreq, typeof(float), "sPdFreq", sPdFreq, "static"));
-        static readonly int sLive_protestexit = LiveAdd("protestexit", () => EpLive(typeof(B12PeHook), 1));
-        static readonly int sLive_shoodef = LiveAdd("shoodef", () => EpLive(typeof(B12SdHook), 1));
-        static readonly int sLive_spelltargetend = LiveAdd("spelltargetend", () => EpLive(typeof(B12StHook), 1));
-        static readonly int sLive_tricksocials = LiveAdd("tricksocials", () => EpLive(typeof(B12MtHook), 1));
-        static readonly int sLive_werewolffind = LiveAdd("werewolffind", () => EpLive(typeof(B12WhHook), 3, "sWhValue", sWhValue, typeof(int), "sWhValue", sWhValue, null));
     }
 }

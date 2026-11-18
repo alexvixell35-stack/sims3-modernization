@@ -1,8 +1,5 @@
 # 582: broad RE batch 3 (Generations, Pets, Island Paradise, Supernatural, Seasons, Late Night, services)
 
-> Posted upstream with the switches listed under "In-game results" at the end. Sections on other leads or switches are kept as research notes; those switches are not part of this change.
-
-
 2026-11-15. Static only. The EA code was read in `game-copy/decompiled`, which stays local. Built, not yet run in game (in-game off/on test pending).
 
 **How the leads were found.**
@@ -29,15 +26,15 @@
 
 | § | Switch | Slots | Scope | Status |
 |---|---|---|---|---|
-| 1 | `vehiclefxhelper` | 2808-2810 | any vehicle (cosmetic, leak) | verified |
-| 2 | `prankditchempty` | 2811-2813 | prankster (household or NPC) | verified |
-| 3 | `serviceassignexit` | 2814-2817 | service bookkeeping; **household-visible**: the preferred service Sim can return | verified, + load sweep |
-| 4 | `serviceshowalarm` | 2818-2820 | NPC service Sims | verified |
+| 1 | `vehiclefxhelper` | 1118-1120 | any vehicle (cosmetic, leak) | verified |
+| 2 | `prankditchempty` | 1121-1123 | prankster (household or NPC) | verified |
+| 3 | `serviceassignexit` | 1124-1127 | service bookkeeping; **household-visible**: the preferred service Sim can return | verified, + load sweep |
+| 4 | `serviceshowalarm` | 1128-1130 | NPC service Sims | verified |
 | 5 | ~~`ridingjumpwins`~~ | (released) | removed: simler90 core fixes the same line | [simler90 fixes it] |
-| 6 | `maildogchaser` | 2821-2823 | **household-visible**: the dog no longer chases at every delivery | verified |
-| 7 | `lifeguardsurvey` | 2824-2826 | household lifeguard's leftover alarm | verified, + load sweep |
-| 8 | `moonriselistener` | 2827-2829 | mostly NPC fairies and werewolves (leak) | leak verified, gameplay effect inferred |
-| 9 | `holidaylights` | 2830-2833 | world (NPC homes), alarm leak | verified, + load sweep |
+| 6 | `maildogchaser` | 1134-1136 | **household-visible**: the dog no longer chases at every delivery | verified |
+| 7 | `lifeguardsurvey` | 1137-1139 | household lifeguard's leftover alarm | verified, + load sweep |
+| 8 | `moonriselistener` | 1140-1142 | mostly NPC fairies and werewolves (leak) | leak verified, gameplay effect inferred |
+| 9 | `holidaylights` | 1143-1146 | world (NPC homes), alarm leak | verified, + load sweep |
 
 ## §1 vehiclefxhelper: orphaned tire and hover effect helpers
 
@@ -252,14 +249,14 @@ Every batch 3 and batch 4 hook targets a method that simler90 leaves byte-identi
 
 | § | Switch | Slots | Scope | Status |
 |---|---|---|---|---|
-| B4 §1 | `doorlockowner` | 2834-2838 | **household-visible**: a door locked to a gone Sim opens, or is re-pointed to a resident | verified, + load pass |
-| B4 §2 | `elevatorkitten` | 2839-2841 | kittens and puppies (any household): the route fails at planning, not at the doors | verified |
-| B4 §3 | `elevatorresetriders` | 2842-2844 | **household-visible**: riders get EA's failsafe reset at once instead of after 30 frozen minutes | verified |
-| B4 §3b | `elevatorridertimeout` | 2858-2860 | **household-visible**: each rider's failsafe counts from its own arrival | verified |
-| B4 §4 | `elevatorsavedlog` | 2845-2848 | log only | REA E4 unconfirmed; this logs it |
-| B4 §5 | `starlightreset` | 2849-2851 | **household-visible**: the selected Sim is no longer reset | verified |
-| B4 §6 | `moondiallistener` | 2852-2854 | deleted moon dials (leak) | verified |
-| B4 §7 | `snublistener` | 2855-2857 | destroyed Sims (leak) | verified |
+| B4 §1 | `doorlockowner` | 1147-1151 | **household-visible**: a door locked to a gone Sim opens, or is re-pointed to a resident | verified, + load pass |
+| B4 §2 | `elevatorkitten` | 1152-1154 | kittens and puppies (any household): the route fails at planning, not at the doors | verified |
+| B4 §3 | `elevatorresetriders` | 1155-1157 | **household-visible**: riders get EA's failsafe reset at once instead of after 30 frozen minutes | verified |
+| B4 §3b | `elevatorridertimeout` | 1171-1173 | **household-visible**: each rider's failsafe counts from its own arrival | verified |
+| B4 §4 | `elevatorsavedlog` | 1158-1161 | log only | REA E4 unconfirmed; this logs it |
+| B4 §5 | `starlightreset` | 1162-1164 | **household-visible**: the selected Sim is no longer reset | verified |
+| B4 §6 | `moondiallistener` | 1165-1167 | deleted moon dials (leak) | verified |
+| B4 §7 | `snublistener` | 1168-1170 | destroyed Sims (leak) | verified |
 
 ### B4 §1 doorlockowner: doors stay locked to a dead or moved-out Sim
 
@@ -392,16 +389,16 @@ It changes none of the other methods below (`docs/data/mod-method-diff.csv` and 
 
 | § | Lead | Switch | Slots | Scope | Status |
 |---|---|---|---|---|---|
-| B5 §1 | 1 | `rolenullguard` | 2861-2863 | barista or waiter with no role: the menu or test answers "no" instead of throwing | verified; simler90 partial |
-| B5 §2 | 2 | `homeworkskillbonus` | 2864-2866 | **household-visible**: the homework-skill bonus applies below level 10 | verified |
-| B5 §3 | 3 | `horseranchchallenge` | 2867-2869 | **household-visible**: "visit a horse ranch" is hidden for households with no horse | verified |
-| B5 §4 | 4 | `digsiteemptypick` | 2870-2872 | **household-visible**: an empty dig no longer uses up the site | verified |
-| B5 §5 | 6 | `oppchainworld` | 2873-2875 | **household-visible**: adventure chain history is cleared from the world change (category test fixed 2026-11-15) | verified (intent: the repeated `opportunity4` test) |
-| B5 §6 | 9 | `teleportcommunitylot` | 2876-2878 | **household-visible** (menu): no "Teleport to community lot" when no lot is valid | verified |
-| B5 §7 | 11 | `photosubjectstars` | 2879-2881 | UI: the photo journal stars use float division | verified |
-| B5 §8 | Apollo lead | `residentspawnslot` | 2882-2885 | NPC spawn placement: an apartment resident's door slot is judged with the resident's door rights, not the selected Sim's | verified (code); live count pending |
-| B5 §9 | 7 | `talkoccupationchance` | 2886-2888 | **household-visible** (menu): the Unemployment entry's chance is 1/(count+1) as a float | verified |
-| B5 §10 | 8 | `shelldoorsummon` | 2889-2891 | Showtime: the summoned proprietor's exit is queued only after its teleport | verified |
+| B5 §1 | 1 | `rolenullguard` | 1174-1176 | barista or waiter with no role: the menu or test answers "no" instead of throwing | verified; simler90 partial |
+| B5 §2 | 2 | `homeworkskillbonus` | 1177-1179 | **household-visible**: the homework-skill bonus applies below level 10 | verified |
+| B5 §3 | 3 | `horseranchchallenge` | 1180-1182 | **household-visible**: "visit a horse ranch" is hidden for households with no horse | verified |
+| B5 §4 | 4 | `digsiteemptypick` | 1183-1185 | **household-visible**: an empty dig no longer uses up the site | verified |
+| B5 §5 | 6 | `oppchainworld` | 1186-1188 | **household-visible**: adventure chain history is cleared from the world change (category test fixed 2026-11-15) | verified (intent: the repeated `opportunity4` test) |
+| B5 §6 | 9 | `teleportcommunitylot` | 1189-1191 | **household-visible** (menu): no "Teleport to community lot" when no lot is valid | verified |
+| B5 §7 | 11 | `photosubjectstars` | 1192-1194 | UI: the photo journal stars use float division | verified |
+| B5 §8 | Apollo lead | `residentspawnslot` | 1195-1198 | NPC spawn placement: an apartment resident's door slot is judged with the resident's door rights, not the selected Sim's | verified (code); live count pending |
+| B5 §9 | 7 | `talkoccupationchance` | 1199-1201 | **household-visible** (menu): the Unemployment entry's chance is 1/(count+1) as a float | verified |
+| B5 §10 | 8 | `shelldoorsummon` | 1202-1204 | Showtime: the summoned proprietor's exit is queued only after its teleport | verified |
 
 **How each fix works.**
 - **B5 §1.** The no-role test is `role == null && role.RoleGivingObject == null`, which dereferences the null role. Our hooks run before EA's code on four methods: `BaristaBar.BuyDrinkFromBar/BuySnackFromBar.Definition.AddInteractions`, `FutureFoodSynthesizer+OrderFoodOnWaiter+Definition.AddInteractions` and `.Test`. A target with a null role gets EA's own "no": nothing added, or Test false. A role with no giver already gets EA's "no" without throwing, so that case is left alone. `FutureFoodSynthesizer.TestIfSocialValid` has the same test, but it sits behind `HasActiveRole`, so a null role cannot reach it; not hooked.
@@ -484,10 +481,10 @@ Live confirmation:
 
 | § | Lead | Switch | Slots | Scope | Status |
 |---|---|---|---|---|---|
-| B6 §1 | P1 | `disposebase` | 2892-2894 | **household-visible**: five object types run `GameObject.Dispose` | verified (IL, all five) |
-| B6 §2 | P2 | `boardingschoolmoney` | 2895-2897 | **household-visible** (funds): the boarding-school phone-call amounts come from the tuned ranges | verified |
-| B6 §3 | P3 | `freshclothingresume` | 2898-2901 | **household-visible** (moodlet): Fresh Clothing resumes after a swim or shower | verified code; effect inferred |
-| B6 §4 | P5 | `twinbellyshape` | 2902-2904 | **household-visible** (cosmetic): the belly shrinks per baby with twins and triplets | verified |
+| B6 §1 | P1 | `disposebase` | 1205-1207 | **household-visible**: five object types run `GameObject.Dispose` | verified (IL, all five) |
+| B6 §2 | P2 | `boardingschoolmoney` | 1208-1210 | **household-visible** (funds): the boarding-school phone-call amounts come from the tuned ranges | verified |
+| B6 §3 | P3 | `freshclothingresume` | 1211-1214 | **household-visible** (moodlet): Fresh Clothing resumes after a swim or shower | verified code; effect inferred |
+| B6 §4 | P5 | `twinbellyshape` | 1215-1217 | **household-visible** (cosmetic): the belly shrinks per baby with twins and triplets | verified |
 | - | P4 | not built | - | mermaid `AskedToRehydrate` | see below |
 | - | P6 | skipped | - | zombie property recursion | no caller in EA or NRaas |
 
@@ -557,12 +554,12 @@ Live confirmation:
 
 | § | Lead | Switch | Slots | Scope | Status |
 |---|---|---|---|---|---|
-| B7 §1 | T1 | `boatstaleswimmer` | 2905-2907 | **household-visible**: a boat waits for its swimmers again | verified |
-| B7 §2 | T2 | `oppcategoryprotect` | 2908-2910 | NPC culling only | verified; trigger inferred |
+| B7 §1 | T1 | `boatstaleswimmer` | 1218-1220 | **household-visible**: a boat waits for its swimmers again | verified |
+| B7 §2 | T2 | `oppcategoryprotect` | 1221-1223 | NPC culling only | verified; trigger inferred |
 | - | T3 | already fixed | - | `viproomrefresh` (docs/555 §3) runs EA's loop over a copy | not repeated |
-| B7 §3 | T4a | `nocommercialcar` | 2911-2913 | ambient traffic | verified |
-| B7 §4 | T4b | `scavengernolot` | 2914-2916 | **household-visible**: the accept completes in a world with no community lots | verified |
-| B7 §5 | NRaas #42 | `partylotlistener` | 2917-2919 | **household-visible**: the selected Sim's lot changes reach every other listener again | verified; NRaas fixes the saved state at load |
+| B7 §3 | T4a | `nocommercialcar` | 1224-1226 | ambient traffic | verified |
+| B7 §4 | T4b | `scavengernolot` | 1227-1229 | **household-visible**: the accept completes in a world with no community lots | verified |
+| B7 §5 | NRaas #42 | `partylotlistener` | 1230-1232 | **household-visible**: the selected Sim's lot changes reach every other listener again | verified; NRaas fixes the saved state at load |
 
 **How each fix works.**
 - **B7 §1.** `OnRouteStarted` loops over the read-only key view of `mPassengersInTheWater`. When a passenger's Sim is gone, it removes that key and carries on, so the next step throws. As a result, base `OnRouteStarted` and the re-board wait are skipped.
@@ -598,7 +595,7 @@ Repros `<switch>-check`: `boatstaleswimmer`, `oppcategoryprotect`, `nocommercial
 
 ## Batch 8 (REA tranche 4, docs/584 §7; coverage sweep, docs/586; CD30 spawn walk)
 
-2026-11-15. Static only. Code: `Batch582gLogic.cs`, checks `Batch582gChecks.cs`; §8 in `ResidentSpawnSlot.cs`. Slots 1233-1257. All switches off by default. simler90 UPDATE242 changes none of these methods (its `Secrets.cs` has the same key bug), and none was hooked before (`docs/data/swap-stack-audit.csv`).
+2026-11-15. Static only. Code: `Batch582gLogic.cs`, checks `Batch582gChecks.cs`; §8 in `ResidentSpawnSlot.cs`. Slots 3545-3650. All switches off by default. simler90 UPDATE242 changes none of these methods (its `Secrets.cs` has the same key bug), and none was hooked before (`docs/data/swap-stack-audit.csv`).
 
 | § | Lead | Switch | Slots | Scope | Status |
 |---|---|---|---|---|---|
@@ -606,7 +603,7 @@ Repros `<switch>-check`: `boatstaleswimmer`, `oppcategoryprotect`, `nocommercial
 | B8 §2 | coverage #1 | `catgymwatch` | 1237-1239 | **household-visible**: passers-by now watch a cat on the jungle gym | verified |
 | B8 §3 | coverage #3 | `badsecretkey` | 1240-1242 | **household-visible**: the bad relationship secret text shows | verified |
 | B8 §4 | coverage 2 #1 | `traitlistenerremove` | 1243-1245 | **household-visible**: a lost trait stops reacting | verified |
-| B8 §5 | coverage 2 #2 | `weddinglistener` | 2920-2922 | stale state only | verified |
+| B8 §5 | coverage 2 #2 | `weddinglistener` | 1246-1248 | stale state only | verified |
 | B8 §6 | runtime R1 | `portasknohome` | 1249-1251 | **household-visible**: a homeless Sim's social menu builds | verified, runtime x2 |
 | B8 §7 | runtime R2 / #13 | `lecturebroadcaster` | 1252-1254 | **household-visible**: one lecture pulse, not one per lecture given | verified, tuning read |
 | B8 §8 | CD30 reach | `residentspawnwalk` | 1255-1257 | NPC spawn placement only | verified (code + live reach) |
@@ -643,16 +640,16 @@ Repros `<switch>-check`: `boatstaleswimmer`, `oppcategoryprotect`, `nocommercial
 
 ### Batch 8 tests (in game, off then on)
 
-Repros `<switch>-check` for all eight switches, and `dreamcleanup-check` again. Live confirmation: `residentspawnwalk` [1256] with the switch off on CD30 (Apollo Bloom), then the resident at his own door with it on.
+Repros `<switch>-check` for all eight switches, and `dreamcleanup-check` again. Live confirmation: `residentspawnwalk` [3649] with the switch off on CD30 (Apollo Bloom), then the resident at his own door with it on.
 
-## Batch 8b (coverage sweep, docs/586 §4-§5)
+## Batch 8b (coverage sweep, docs/639 §4-§5)
 
-2026-11-15. Static only. Code: `Batch582hLogic.cs`, checks `Batch582hChecks.cs`, slots 1258-1272 (below the EP batch range 1400-1499). All switches off by default. simler90 UPDATE242 changes none of these methods; none was hooked before.
+2026-11-15. Static only. Code: `Batch582hLogic.cs`, checks `Batch582hChecks.cs`, slots 3651-3692 (below the EP batch range 1400-1499). All switches off by default. simler90 UPDATE242 changes none of these methods; none was hooked before.
 
 | § | Lead | Switch | Slots | Scope | Status |
 |---|---|---|---|---|---|
 | B8b §1 | coverage #2 | `midlifewishsave` | 1258-1260 | **household-visible**: the crisis ending after a trip | verified omission; travel effect inferred |
-| B8b §2 | coverage #4 | `innerbeautyonce` | 2923-2925 | **household-visible**: one notice per mean social | verified |
+| B8b §2 | coverage #4 | `innerbeautyonce` | 1261-1263 | **household-visible**: one notice per mean social | verified |
 | B8b §3 | coverage 2 #3 | `betrayednullsim` | 1264-1266 | **household-visible**: notice and break-up instead of a throw | verified null path; reach inferred low |
 | B8b §4 | coverage 2 #4 | `topictestnull` | 1267-1269 | **household-visible**: topic lists build | verified code; reach inferred |
 | B8b §5 | coverage 2 #5 | `opptrackerrelisten` | 1270-1272 | **household-visible**: completion listener once | verified double add; effect inferred |
@@ -705,7 +702,7 @@ The user's rule: every EA method we replaced or read for batches 3-8b, and its d
 
 ## Batch 9 (review queue, Imminent Nemesis)
 
-2026-11-15. Static only. Code: `Batch582iLogic.cs`, checks `Batch582iChecks.cs`, slots 1273-1293. All default off. simler90 UPDATE242 changes none of these methods.
+2026-11-15. Static only. Code: `Batch582iLogic.cs`, checks `Batch582iChecks.cs`, slots 3693-3834. All default off. simler90 UPDATE242 changes none of these methods.
 
 | § | Switch | Slots | Scope | Status |
 |---|---|---|---|---|
@@ -741,61 +738,3 @@ The user's rule: every EA method we replaced or read for batches 3-8b, and its d
 - Elevator StateMachineClient release: EA's pattern everywhere.
 
 **Lecture (lecturebroadcaster), not changed:** EA starts the broadcaster in the social's `peau` (after-update) callback, once the speech animation has ended, so the effect is meant to outlast the speech. User decision 2026-11-15: keep EA's lingering (never-ending) effect, de-dupe only.
-
-## In-game results (Bridgeport combined soaks, each switch off then on in one load)
-
-Switches of this doc that are posted in this change, with the runs where the check read off BROKEN and on FIXED (`smallfix.txt` of each run).
-
-| Switch | Off | On | Runs off BROKEN / on FIXED | Runs (phase-…) |
-|---|---|---|---|---|
-| `boardingschoolmoney` | BROKEN | FIXED | 2 | 20261115-2218, 20261116-0234 |
-| `boatstaleswimmer` | BROKEN | FIXED | 2 | 20261115-2218, 20261116-0234 |
-| `digsiteemptypick` | BROKEN | FIXED | 4 | 20261115-2043, 20261116-0104, 20261116-0234 … |
-| `disposebase` | BROKEN | FIXED | 2 | 20261115-2218, 20261116-0234 |
-| `doorlockowner` | BROKEN | FIXED | 4 | 20261115-2043, 20261116-0104, 20261116-0234 … |
-| `dreamcleanup` | BROKEN | FIXED | 2 | 20261116-0104, 20261116-2253 |
-| `elevatorkitten` | BROKEN | FIXED | 2 | 20261115-2043, 20261116-0234 |
-| `elevatorresetriders` | BROKEN | FIXED | 2 | 20261115-2043, 20261116-0234 |
-| `elevatorridertimeout` | BROKEN | FIXED | 4 | 20261115-2043, 20261116-0104, 20261116-0234 … |
-| `elevatorsavedlog` | BROKEN | FIXED | 2 | 20261115-2043, 20261116-0234 |
-| `freshclothingresume` | BROKEN | FIXED | 4 | 20261115-2218, 20261116-0104, 20261116-0234 … |
-| `holidaylights` | BROKEN | FIXED | 4 | 20261115-2043, 20261116-0104, 20261116-0234 … |
-| `homeworkskillbonus` | BROKEN | FIXED | 2 | 20261115-2218, 20261116-0234 |
-| `horseranchchallenge` | BROKEN | FIXED | 2 | 20261115-2043, 20261116-0234 |
-| `innerbeautyonce` | BROKEN | FIXED | 2 | 20261116-0104, 20261116-2253 |
-| `lifeguardsurvey` | BROKEN | FIXED | 4 | 20261115-2043, 20261116-0104, 20261116-0234 … |
-| `maildogchaser` | BROKEN | FIXED | 2 | 20261115-2043, 20261116-0234 |
-| `moondiallistener` | BROKEN | FIXED | 2 | 20261115-2043, 20261116-0234 |
-| `moonriselistener` | BROKEN | FIXED | 2 | 20261115-2043, 20261116-0234 |
-| `nocommercialcar` | BROKEN | FIXED | 2 | 20261115-2218, 20261116-0234 |
-| `oppcategoryprotect` | BROKEN | FIXED | 2 | 20261115-2218, 20261116-0234 |
-| `oppchainworld` | BROKEN | FIXED | 4 | 20261115-2043, 20261116-0104, 20261116-0234 … |
-| `partylotlistener` | BROKEN | FIXED | 2 | 20261115-2218, 20261116-0234 |
-| `photosubjectstars` | BROKEN | FIXED | 2 | 20261115-2043, 20261116-0234 |
-| `prankditchempty` | BROKEN | FIXED | 2 | 20261115-2043, 20261116-0234 |
-| `residentspawnslot` | BROKEN | FIXED | 4 | 20261115-2218, 20261116-0104, 20261116-0234 … |
-| `rolenullguard` | BROKEN | FIXED | 4 | 20261115-2043, 20261116-0104, 20261116-0234 … |
-| `sandwichalarm` | BROKEN | FIXED | 4 | 20261115-2043, 20261116-0104, 20261116-0234 … |
-| `scavengernolot` | BROKEN | FIXED | 2 | 20261115-2218, 20261116-0234 |
-| `serviceassignexit` | BROKEN | FIXED | 4 | 20261115-2043, 20261116-0104, 20261116-0234 … |
-| `serviceshowalarm` | BROKEN | FIXED | 4 | 20261115-2043, 20261116-0104, 20261116-0234 … |
-| `shelldoorsummon` | BROKEN | FIXED | 2 | 20261115-2218, 20261116-0234 |
-| `snublistener` | BROKEN | FIXED | 2 | 20261115-2043, 20261116-0234 |
-| `starlightreset` | BROKEN | FIXED | 2 | 20261115-2043, 20261116-0234 |
-| `talkoccupationchance` | BROKEN | FIXED | 4 | 20261115-2218, 20261116-0104, 20261116-0234 … |
-| `teleportcommunitylot` | BROKEN | FIXED | 2 | 20261115-2043, 20261116-0234 |
-| `twinbellyshape` | BROKEN | FIXED | 4 | 20261115-2218, 20261116-0104, 20261116-0234 … |
-| `vehiclefxhelper` | BROKEN | FIXED | 2 | 20261115-2043, 20261116-0234 |
-| `weddinglistener` | BROKEN | FIXED | 2 | 20261116-0104, 20261116-2253 |
-| `butlerpayalarm` | BROKEN | FIXED | 1 | 20261116-0234 |
-
-- [verified] The verdicts, controls ok and members found in the runs listed.
-- [inferred] How often each case happens in normal play: the checks call the same decision functions as the hooks.
-
-### `butlerpayalarm` (docs/593 V1, `ButlerPayAlarm.cs`)
-
-[verified, decompiled; trigger inferred] `ButlerSituation.OnArriveOnLot` adds a persisted weekly PayButler alarm owned by
-the butler; only `EndService` removes it. A butler situation that ends another way (fired, quit, exited) keeps the alarm,
-and it charges the household every week. Fix: `serviceshowalarm`'s `ServiceSituation.CleanUp` hook (one swap per method)
-removes it after EA's CleanUp. It ships with this batch because it shares that hook; the rest of docs/593 is posted
-separately. Counters 2926-2928.

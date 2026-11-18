@@ -133,14 +133,14 @@ namespace Ts3Fixes
             public bool IntoHook(Sim a, Sim target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback)
             {
                 bool ea = IntoOrig(a, target, isAutonomous, ref greyedOutTooltipCallback);
-                return OwAfterTest(ea, a, isAutonomous, 2149);
+                return OwAfterTest(ea, a, isAutonomous, 1943);
             }
             public bool IntoOrig(Sim a, Sim target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; } // Sim+ChangeIntoOuterwear+Definition.Test
 
             public bool OutHook(Sim a, Sim target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback)
             {
                 bool ea = OutOrig(a, target, isAutonomous, ref greyedOutTooltipCallback);
-                return OwAfterTest(ea, a, isAutonomous, 2150);
+                return OwAfterTest(ea, a, isAutonomous, 1944);
             }
             public bool OutOrig(Sim a, Sim target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; } // Sim+ChangeOutOfOuterwear+Definition.Test
 
@@ -148,7 +148,7 @@ namespace Ts3Fixes
             public bool TodHook(Sim a, Sim target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback)
             {
                 bool ea = TodOrig(a, target, isAutonomous, ref greyedOutTooltipCallback);
-                return OwAfterTest(ea, target, isAutonomous, 2151);
+                return OwAfterTest(ea, target, isAutonomous, 1945);
             }
             public bool TodOrig(Sim a, Sim target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; } // ChangeToddlerClothes+ChangeToddlerClothesDefinition.Test
         }

@@ -1,6 +1,6 @@
 # 611: LotManager world callbacks, fireplace herb, trash rummage broadcaster
 
-2026-11-17, static, r68 / r69; all three fixes proven in game by their force checks (§6). Three default-off ts3fixes switches in `mods/ts3fixes/src/LotCallbacks80.cs`, from the
+2026-11-17, static, r68, s80, NOT RUN. Three default-off ts3fixes switches in `mods/ts3fixes/src/LotCallbacks80.cs`, from the
 IP / wish / listener triage (233 hits, 3 real). RE with tools only: `ilspycmd` on `game-copy/assemblies/*.dll`
 (`LotManager`, `World`, both `LoadSaveManager`s, `Fireplace`, `BonFire`, `TrashcanOutside`), a script diff of every
 `+=` / `Delegate.Combine` in `PreWorldLoad` against every `-=` / `Delegate.Remove` in `Shutdown`, and grep over the
@@ -18,7 +18,7 @@ alarm (EA's RemoveHerb then AddHerb), the same EA bug fix `bonfirespice` ships f
 
 ## 1. Triage
 
-Lead file: the IP triage notes of this pass (local scratch). Item 2's BonFire half (`SpiceHitFire` overwrite) was already fixed by
+Lead file: the s80 IP triage notes (local scratch). Item 2's BonFire half (`SpiceHitFire` overwrite) was already fixed by
 `bonfirespice` (docs/561 §6, default on: no herb returns, a burning herb is removed first); only the Fireplace twin was open.
 
 ## 2. lotmgrcallbacks [verified, ilspycmd LotManager + World + LoadSaveManager]
@@ -78,15 +78,10 @@ the reset Cleanup step); also counts cans holding a broadcaster whose rummager i
 `PreWorldLoad`, `Shutdown` and `Rummage.Cleanup` can reach a yield: stubbed (SavedStacks remap). `AddHerb` and
 `RummageBroadcasterCreate` cannot.
 
-## 6. In game
+## 6. r68 in game, r69 Check fix
 
-r68 (`phase-20261117-0145`): `lotmgrcallbacks` off BROKEN / on FIXED. The replay of a second world load gave each of the six
-callbacks 2 copies with the switch off and 1 with it on. `fireplaceherb` and `rummagebcast` came out UNEXPECTED with the
-switch off, because the two Checks passed `eaBug` (true) as the "fixed now" value in the off arm. The swaps are gated by
-the switch, and the off replay did keep the leaked broadcaster [verified, source]. r69 passes `fixedPure && liveOk`, as
-heartbrokenbcast does.
-
-r69 (`phase-20261117-0155`): `fireplaceherb` and `rummagebcast` off BROKEN / on FIXED, controls ok. Live replays: the first
-herb is still registered with the switch off and disposed with it on; the can's rummage broadcaster is still registered
-with the switch off and disposed with it on. Live counters were 0, because no real overlapping herb or reset rummage
-happened, and the replay restores the counters on purpose.
+r68 (`phase-20261117-0145`): `lotmgrcallbacks` off BROKEN / on FIXED. `fireplaceherb` and `rummagebcast` came out UNEXPECTED
+with the switch off. Cause: the two Checks passed `eaBug` (true) as the "fixed now" value in the off arm, so off read as
+fixed. The swaps are gated by the switch and the off replay did keep the leaked broadcaster [verified, source]. r69 passes
+`fixedPure && liveOk` as heartbrokenbcast does (off: false, so BROKEN). Live counters were 0 because no real overlapping herb
+or reset rummage happened, and the replay restores the counters on purpose. Both stay pending until r69 runs.

@@ -15,6 +15,7 @@ namespace Ts3Fixes
         static void ApplyFewerPlans()
         {
             Patch(typeof(Sim), "IsPointInLotSafelyRoutable", typeof(RoutableCacheHook), "RoutableHook", "RoutableOrig");
+            SemHookWorld();  // docs/636 spotedgememo: drop the per-lot memo on world load / quit and lot add / remove
             Type helper = typeof(LotManager).GetNestedType("RunStuckCheckHelper", BindingFlags.NonPublic);
             if (helper == null) { AppliedLog().Add("LotManager.RunStuckCheckHelper: not found, skipped"); return; }
             Patch(helper, "RunStuckCheck", typeof(StuckCheckBusyHook), "RunHook", "RunOrig");
@@ -30,32 +31,35 @@ namespace Ts3Fixes
         // Sim with a parent (profile not exact). Our own checks (SpotVerdict, sInOwnCheck) pass straight through.
         // Sim has no use for a subclass here, so the hook is a plain class (as BroadcasterPulseHook).
         // Switch "routablecache" (default off). Counters: [65] cache hits, [66] plans run and recorded.
+        // Every EA call below goes through SemRoutable (docs/636 spotedgememo, SpotEdgeMemo.cs; EA's own call when off).
         public class RoutableCacheHook
         {
             public bool RoutableHook(Lot lot, Vector3 pos)
             {
                 bool was = sInRoutableCheck;  // docs/202: unseenfbplan never marks these plans (a cut "false" sends the game to its safe-location logic)
                 sInRoutableCheck = true;
+                Vector3 rfpPrev;
+                bool rfpHad = RfpEnter(pos, out rfpPrev);  // routefailprobe (docs/627 §2): the spot this check plans from
                 try
                 {
                     Sim sim = (Sim)(object)this;
                     if (RsOwnPlan(sim)) return RsAdjust(sim, RoutableOrig(lot, pos), lot, pos);  // residentspawnslot (docs/582 B5 §8)
-                    return RsAdjust(sim, RoutableCheck(lot, pos), lot, pos);
+                    return RsAdjust(sim, RoutableCheck(lot, pos), lot, pos);  // residentspawnwalk too (docs/582 B8 §8)
                 }
-                finally { sInRoutableCheck = was; }
+                finally { sInRoutableCheck = was; RfpLeave(rfpHad, rfpPrev); }
             }
             bool RoutableCheck(Lot lot, Vector3 pos)
             {
                 Sim sim = (Sim)(object)this;
-                if (sInOwnCheck || lot == null || lot.IsWorldLot || !ShortcutOn("routablecache")) return RoutableOrig(lot, pos);
+                if (sInOwnCheck || lot == null || lot.IsWorldLot || !ShortcutOn("routablecache")) return SemRoutable(this, lot, pos);
                 RouteProfile p = ProfileOf(sim);
-                if (!p.Ok) return RoutableOrig(lot, pos);
+                if (!p.Ok) return SemRoutable(this, lot, pos);
                 SpotVerdicts v = Verdicts(lot);
                 VerdictKey key = KeyOf(p, pos);
                 int[] c = PatchCounters();
                 bool ok;
                 if (v.Cells.TryGetValue(key, out ok)) { c[65]++; return ok; }
-                ok = RoutableOrig(lot, pos);
+                ok = SemRoutable(this, lot, pos);
                 v.Cells[key] = ok;
                 c[66]++;
                 return ok;

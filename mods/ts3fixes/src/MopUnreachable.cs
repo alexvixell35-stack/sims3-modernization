@@ -14,7 +14,7 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // mopunreachable (tuning kMopUnreachable, off; docs/578 §3b, s58 lead: MopPuddle #3 by route-plan time, 96 s, household-visible
+    // mopunreachable (tuning kMopUnreachable, off; s58 lead: MopPuddle #3 by route-plan time, 96 s, household-visible
     // routefails NoPathToDestination / DestinationPortalLocked).
     //
     // [verified, decompiled] Terrain.Mopping.Run loops `GetClosestPuddle; MopTile; if (HasExitReason) break`. MopTile adds
@@ -29,7 +29,7 @@ namespace Ts3Fixes
     // plays the route-fail reaction. The run ends RouteFailed (and shows the last blocker) only when nothing was mopped,
     // as EA's run does. A tile that was mopped at but is still dirty without an exit reason is not tried again (EA would
     // loop on it). (2): the skipped puddles are remembered per Sim (lot, puddle + burnt count, sim-minute, locations), with
-    // these rules: another lot, a changed count or 30 sim-minutes drop the memo. While it holds,
+    // puddlereach's rules: another lot, a changed count or 30 sim-minutes drop the memo. While it holds,
     // MopFloor.IsLocationMoppableBySim answers false for those locations, so MopFloor's Test stops offering a mop whose
     // only puddles are unreachable and its Run picks a reachable one. Every Sim, household included: outcomes are EA's
     // with the unreachable tries removed.
@@ -56,7 +56,7 @@ namespace Ts3Fixes
 
         static void ApplyMopUnreachable()
         {
-            string miss = RlNames("Terrain+Mopping.mJig", sMuJig, "MopFloor.IsLocationMoppableBySim", sMuMoppable);
+            string miss = SpNames("Terrain+Mopping.mJig", sMuJig, "MopFloor.IsLocationMoppableBySim", sMuMoppable);
             if (miss.Length > 0) { AppliedLog().Add("mopunreachable: not found: " + miss); return; }
             Patch(typeof(Terrain.Mopping), "Run", Type.EmptyTypes, typeof(MopRunHook), "RunHook", "RunOrig");
             Patch(typeof(Sim.MopFloor), "IsLocationMoppableBySim", new Type[] { typeof(Sim), typeof(Lot), typeof(LotLocation) }, typeof(MopFloorHook), "MoppableHook", "MoppableOrig");
@@ -78,7 +78,7 @@ namespace Ts3Fixes
         // Pure: does the fixed run end RouteFailed? Only when it mopped nothing and skipped an unreachable tile.
         internal static bool MuEndsFailed(int mopped, int unreachable) { return mopped == 0 && unreachable > 0; }
 
-        // Pure: withhold a memo'd location (same lot, same count, younger than the expiry).
+        // Pure: withhold a memo'd location (puddlereach's rules: same lot, same count, younger than the expiry).
         internal static bool MuWithhold(bool on, bool hasMemo, bool sameLot, int countNow, int countAtMemo, float ageMin, bool locInMemo)
         {
             return on && hasMemo && locInMemo && sameLot && countNow > 0 && countNow == countAtMemo && ageMin >= 0f && ageMin < kMuExpiryMin;
@@ -89,8 +89,6 @@ namespace Ts3Fixes
         {
             return on && closestValid && (hx != cx || hz != cz || hl != cl);
         }
-
-        static float MuNow() { return SimClock.ElapsedTime(TimeUnit.Minutes); }  // sim-minutes, for the memo expiry
 
         static bool MuSameLoc(LotLocation a, LotLocation b) { return a.mX == b.mX && a.mZ == b.mZ && a.mLevel == b.mLevel; }
 
@@ -108,13 +106,13 @@ namespace Ts3Fixes
                 ulong id = actor.SimDescription.SimDescriptionId;
                 if (!sMuMemo.ContainsKey(id) && sMuMemo.Count >= kMuMax)
                 {
-                    float now = MuNow();
+                    float now = PrNow();
                     List<ulong> drop = new List<ulong>();
                     foreach (KeyValuePair<ulong, MuMemo> kv in sMuMemo) if (now - kv.Value.At >= kMuExpiryMin) drop.Add(kv.Key);
                     if (drop.Count == 0) sMuMemo.Clear();  // all fresh: start over rather than grow (a memo only saves tries)
                     foreach (ulong k in drop) sMuMemo.Remove(k);
                 }
-                MuMemo m = new MuMemo { Lot = lot, Count = MuCount(lot), At = MuNow() };
+                MuMemo m = new MuMemo { Lot = lot, Count = MuCount(lot), At = PrNow() };
                 m.Locs.AddRange(locs);
                 sMuMemo[id] = m;
             }
@@ -192,7 +190,6 @@ namespace Ts3Fixes
                     Occupation.SimCompletedTask(actor, TaskId.MopPuddle, null);
                     succeeded = true;
                     mopped++;
-                    skipped.Add(vector);  // mopped: never picked again, so the loop ends even if a tile stays listed
                 }
                 if (unreachable.Count > 0)
                 {
@@ -276,7 +273,7 @@ namespace Ts3Fixes
                         if (inMemo)
                         {
                             bool sameLot = m.Lot == targetLot.LotId;
-                            if (!MuWithhold(true, true, sameLot, sameLot ? MuCount(m.Lot) : -1, m.Count, MuNow() - m.At, true))
+                            if (!MuWithhold(true, true, sameLot, sameLot ? MuCount(m.Lot) : -1, m.Count, PrNow() - m.At, true))
                                 sMuMemo.Remove(actor.SimDescription.SimDescriptionId);  // stale: EA decides again
                             else if (ShortcutOn("mopunreachable")) { PatchCounters()[2769]++; return false; }
                             else if (!m.Counted) { m.Counted = true; PatchCounters()[2770]++; }
@@ -322,7 +319,7 @@ namespace Ts3Fixes
         // mopped, and the memo drops on another lot, a changed count, the expiry or an unlisted location. Read-only.
         public static object MopUnreachableCheck(string what)
         {
-            string counters = RlCounters("mopunreachable", 2766, new[] { "puddles skipped in a run", "runs that mopped after a skip", "runs ended on an unreachable puddle with others left (switch off)", "locations withheld by the memo", "memo cases seen with the switch off", "errors" }, "");
+            string counters = B582Counters("mopunreachable", 2766, new[] { "puddles skipped in a run", "runs that mopped after a skip", "runs ended on an unreachable puddle with others left (switch off)", "locations withheld by the memo", "memo cases seen with the switch off", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "mopunreachable <run|result>";
             bool on = ShortcutOn("mopunreachable");
@@ -331,21 +328,21 @@ namespace Ts3Fixes
                 && MuEndsFailed(0, 2) && !MuEndsFailed(1, 2) && !MuEndsFailed(0, 0)
                 && !MuWithhold(true, true, false, 4, 4, 5f, true) && !MuWithhold(true, true, true, 3, 4, 5f, true)
                 && !MuWithhold(true, true, true, 4, 4, 31f, true) && !MuWithhold(true, true, true, 4, 4, 5f, false) && !MuWithhold(true, false, true, 4, 4, 5f, true);
-            string missing = RlNames("Terrain+Mopping.mJig", sMuJig, "MopFloor.IsLocationMoppableBySim", sMuMoppable);
-            return RlLine("mopunreachable", on, "unreachable puddle skipped and remembered", fixedNow, "mopped / cancel / off / end rule / memo expiry as EA=" + controls, controls, missing, counters);
+            string missing = SpNames("Terrain+Mopping.mJig", sMuJig, "MopFloor.IsLocationMoppableBySim", sMuMoppable);
+            return B582Line("mopunreachable", on, "unreachable puddle skipped and remembered", fixedNow, "mopped / cancel / off / end rule / memo expiry as EA=" + controls, controls, missing, counters);
         }
 
         // PetPuddleTileCheck run: a pet hit on tile (1,1) whose closest puddle is (3,1) uses (3,1). Controls: same tile,
         // other level, no closest puddle, switch off. Read-only.
         public static object PetPuddleTileCheck(string what)
         {
-            string counters = RlCounters("petpuddletile", 2772, new[] { "hits moved to the puddle used", "hits that dried another puddle (switch off)", "errors" }, "");
+            string counters = B582Counters("petpuddletile", 2772, new[] { "hits moved to the puddle used", "hits that dried another puddle (switch off)", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "petpuddletile <run|result>";
             bool on = ShortcutOn("petpuddletile");
             bool fixedNow = PtUseClosest(on, true, 1, 1, 0, 3, 1, 0);
             bool controls = !PtUseClosest(true, true, 1, 1, 0, 1, 1, 0) && PtUseClosest(true, true, 1, 1, 0, 1, 1, 1) && !PtUseClosest(true, false, 1, 1, 0, 3, 1, 0) && !PtUseClosest(false, true, 1, 1, 0, 3, 1, 0);
-            return RlLine("petpuddletile", on, "pet uses and removes the same puddle", fixedNow, "same tile / level / none / off as EA=" + controls, controls, "", counters);
+            return B582Line("petpuddletile", on, "pet uses and removes the same puddle", fixedNow, "same tile / level / none / off as EA=" + controls, controls, "", counters);
         }
     }
 }

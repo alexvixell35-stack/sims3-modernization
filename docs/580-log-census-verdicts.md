@@ -1,8 +1,5 @@
 # 580: Log-census batch (docs/579-log-issues.md): root causes, verdicts and routecauselog
 
-> Posted upstream with the switches listed under "In-game results" at the end. Sections on other leads or switches are kept as research notes; those switches are not part of this change.
-
-
 Follow-up to the log census in `docs/579-log-issues.md` (cleanup branch, `tools/harness/log-issues.ts`, 152 logs).
 It takes each listed lead to a root cause or to the data still needed. Run data: `phase-20261115-1146` (all switches on)
 and `-0523` (all off), `leak-*.json` snapshots. "[verified, decompiled]" marks EA code that was read; "[measured]"
@@ -246,13 +243,13 @@ Proposed root fix (`scarepriority`, off by default):
   social does.
 - Optionally apply the same rule to StaticShock and SimBeLuredToBag.
 
-**Built (2026-11-15):** `scarepriority` (`ScarePriority.cs`, tuning `kScarePriority`, off; counters 1106 raised, 1107 seen
+**Built (2026-11-15):** `scarepriority` (`ScarePriority.cs`, tuning `kScarePriority`, off; counters 3541 raised, 1107 seen
 with the switch off, 1108 errors). It hooks `SetupJazzGraph` of `Sim+Scare`, `Sim+StaticShock` and
 `Sim+ScareWithMegaPhone` (all three run `BaseScare.Run`) and, after EA's body, raises the linked receiver to
 `NonCriticalNPCBehavior` when it is still in the target's queue, not its head, and `Autonomous`. Check
 `ScarePriorityCheck` (repro `scarepriority-check`), controls: a player-ordered head and a MustRun head are kept, an
 already raised or player-directed receiver is unchanged, a receiver no longer queued or already the head is unchanged,
-and an unraised receiver keeps EA's wait. Not tested in game yet. Counter 1107 in an off run gives the number of scares
+and an unraised receiver keeps EA's wait. Not tested in game yet. Counter 3542 in an off run gives the number of scares
 the switch would change.
 
 ## §15 `outfitwaitpoll` household rule (2026-11-15)
@@ -265,7 +262,7 @@ Change (`OutfitWait.cs`, `OutfitWaitCore.PollAllowed`): at each wake past the 60
 the minute delay. A live Sim that `IsPlayerSim` calls the player's (household, selected, selectable, or unknown scope)
 keeps EA's per-tick loop. An NPC's wait is polled as before. A gone Sim's wait is also polled as before, so the issue #40
 dead-wait end still runs. The check is read at every wake, so a Sim that joins the household mid-wait goes back to EA's
-loop. Counter [1109] counts waits kept on EA's loop by this rule, once per wait. A household Sim's stale wait is no longer
+loop. Counter [3544] counts waits kept on EA's loop by this rule, once per wait. A household Sim's stale wait is no longer
 marked or logged as stale ([680-682], [2003-2013] now count NPC and gone-Sim waits only).
 
 Checks: `OutfitWaitCheck("scope")` (pure): a household Sim past the mark sleeps 1 tick. Controls: an NPC and a gone Sim
@@ -281,7 +278,7 @@ sleep a sim-minute with the switch on, and nothing changes before the mark. Self
    and overwrites the handle without removing the one it holds. If a second show starts before the first show's one-shot
    fires, the first one-shot re-adds the alarm after the start removed it, and the handle is overwritten again. The
    orphan repeats daily and is saved (`AlwaysPersisted`). It only resets the board graphic. Fix: `SandwichAlarm.cs`
-   removes the held handle before EA's body (counters 2800 removed, 2801 seen with the switch off, 2802 errors; check
+   removes the held handle before EA's body (counters 2800 removed, 1111 seen with the switch off, 1112 errors; check
    `SandwichAlarmCheck`). Saved duplicates: at world load (switch on) each theatre keeps the `ResetSandwichBoards`
    alarm whose handle it holds (or, if that handle is stale, the first one, which becomes the held one) and removes its other
    `ResetSandwichBoards` alarms; other callbacks and other theatres are untouched (counter 2803). Not in the hourly sweep:
@@ -347,7 +344,7 @@ Fixes the two §17 defects in the wish manager's clean-up index (`mPotentialRemo
    needed only for entries already in a save.
 
 Both parts act where the stale entry is made (root cause), not in a later sweep. No listener, timer, panel list, promise or score is touched, so which wishes appear, and when, stays EA's. Counters 2804
-unfiled, 2805 woken nodes filed, 2806 either case seen with the switch off, 2807 errors. Check `DreamCleanupCheck` (pure,
+unfiled, 1115 woken nodes filed, 1116 either case seen with the switch off, 1117 errors. Check `DreamCleanupCheck` (pure,
 on a model manager). Controls: a Sim-subject node is left to EA, a promised node is not filed, no double filing, a node
 with no subject key or still asleep is not filed, and the model's listener count, panel list and promise slot are
 identical before and after. Not run in game. The §17 census (`stale_removal`) shows whether it matters in a save.
@@ -371,15 +368,3 @@ Rule (user): fix where the bad state is created; sweeps only for state already i
 Re-check against the rule: `sandwichalarm` acts in `ResetSandwichBoardFromPlayerConcert`, the call that makes the orphan
 (root); its world-load pass only removes duplicates already saved. `dreamcleanup` acts in `RemoveActiveNode` and right
 after the `Update` wake, where the stale entries are made (root); nothing in it is a sweep.
-
-## In-game results (Bridgeport combined soaks, each switch off then on in one load)
-
-Switches of this doc that are posted in this change, with the runs where the check read off BROKEN and on FIXED (`smallfix.txt` of each run).
-
-| Switch | Off | On | Runs off BROKEN / on FIXED | Runs (phase-…) |
-|---|---|---|---|---|
-| `dreamcleanup` | BROKEN | FIXED | 2 | 20261116-0104, 20261116-2253 |
-| `sandwichalarm` | BROKEN | FIXED | 4 | 20261115-2043, 20261116-0104, 20261116-0234 … |
-
-- [verified] The verdicts, controls ok and members found in the runs listed.
-- [inferred] How often each case happens in normal play: the checks call the same decision functions as the hooks.

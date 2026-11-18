@@ -1,13 +1,13 @@
 # 594. Seasons (EP8) hunt: scanner queue, hot paths, log (2026-11-16)
 
-Static + RE, then proven in game (s61, s62; results at the end). Six switches built (default off): §1-2, then §3-6 from the hot-path leads (Built (2)); the rest verified false positives or leads.
+Static + RE only, nothing run in game. Six switches built (default off): §1-2, then §3-6 from the hot-path leads (Built (2)); the rest verified false positives or leads.
 Already built for Seasons before this pass (not repeated): tempforecast, holidaylights, hauntedumbrella, snowfightjoinwait,
 trickortreatalarm, npcseasonalparty, splashroof, puddlereach, mopunreachable, petpuddletile, seasonimposter /
 seasonmarkercache / easpreadlots (docs/44, docs/74, docs/147), lightning lead (docs/593).
 
 ## Built
 
-### §1 `initstacktrace` (fixes 2128-2131, `InitStackTraceCheck`, repro `initstacktrace-check`) — lag, every Sim
+### §1 `initstacktrace` (fixes 1922-1925, `InitStackTraceCheck`, repro `initstacktrace-check`) — lag, every Sim
 - [verified, IL of Sims3GameplaySystems.dll, EA and simler90 UPDATE242] `InteractionInstance.Init` stores
   `new StackTrace(4, true)` in `mInitStackTrace`; `OnAddedToQueue` stores `new StackTrace(1, true)` in `mAddedStackTrace`.
   The only reader is `LogDebugInfo`, `[Conditional("EA_DEBUG")]` / `[Conditional("EA_DEBUGRELEASE")]`, so every call is
@@ -24,18 +24,18 @@ seasonmarkercache / easpreadlots (docs/44, docs/74, docs/147), lightning lead (d
   walk and one instance in game (`timing:` field) to size the gain.
 - Root cause left alone: the throwaway instance itself (Id increments are observable, so skipping it is not exact).
 
-### §2 `weatherstonelistener` (fixes 2132-2134, `WeatherStoneListenerCheck`, repro `weatherstonelistener-check`) — bug, rare
+### §2 `weatherstonelistener` (fixes 1926-1928, `WeatherStoneListenerCheck`, repro `weatherstonelistener-check`) — bug, rare
 - [verified, decompiled] `WeatherStone` holds the summon's `kWeatherStarted` / `kWeatherStopped` listener in
   `mWeatherChangedEventListener`; only the callbacks remove it. `Dispose` does not, so a stone destroyed mid-summon
   (`SetToDestroy`, build/buy delete) leaves a listener that keeps it alive and runs `AnimateChangeWeatherStoneState` on the
   disposed stone. Fix: remove it before EA's `Dispose`. Household-visible only through the stone (player summons).
 
-## Built (2): the hot-path leads (2026-11-16, default off, proven in game s62)
+## Built (2): the hot-path leads (2026-11-16, r49, default off, NOT RUN)
 All four act on household Sims too: an EA bug fix or a proven-exact reorder, no skip or throttle. Code:
 `mods/ts3fixes/src/SeasonsHunt594b.cs`; checks print `verdict:` BROKEN (off) / FIXED (on), `controls ok`, `members found`;
-live-path asserts registered with `LiveAdd` (`CheckVerdict.cs`); repros `<switch>-check`.
+live-path asserts in `CheckLiveMap.cs`; repros `<switch>-check`.
 
-### §3 `weathermanagerthrow` (fixes 2135-2137, `WeatherManagerThrowCheck`) — bug, kills Seasons for the session
+### §3 `weathermanagerthrow` (fixes 1929-1931, `WeatherManagerThrowCheck`) — bug, kills Seasons for the session
 - [verified, decompiled] `SeasonsManager.Simulate` runs Progress, Temperature, Weather, TerrainCover and Tree `Update` in one
   loop inside `try { } catch (ResetException) { }`: any other throw ends the script, so weather, temperature, snow, ponds and
   leaves freeze until the next load. `RainEvent.PutOutFires` (every 10 sim-min of rain) extinguishes each unsheltered fire,
@@ -56,7 +56,7 @@ live-path asserts registered with `LiveAdd` (`CheckVerdict.cs`); repros `<switch
 - Same unguarded dictionary outside this loop (not reached from Simulate, left): `ExtinguishBase` line ~265, `FireDamage.Begin`
   (guarded by `Firefighter.Instance != null`).
 
-### §4 `rainsheltercheap` (fixes 2138-2141, `RainShelterCheapCheck`) — exact speedup
+### §4 `rainsheltercheap` (fixes 1932-1935, `RainShelterCheapCheck`) — exact speedup
 - [verified, decompiled] The same pass tests every Sim and every Soil with `IsShelteredFromPrecipitation` (native
   `GetLotAtPoint` + `HasAnyRoofOrFloorAbovePos`) before the cheap test: `IsSimOnFire` (buff lookup) / `Soil.OnSprinkled`'s
   own condition (plant in the Plant slot with `WaterLevel < 100`). Both tests are pure and nothing runs between them, so the
@@ -65,7 +65,7 @@ live-path asserts registered with `LiveAdd` (`CheckVerdict.cs`); repros `<switch
 - How often: once per 10 sim-minutes of rain; cost is 2 natives per Sim and Soil in the world. `result` prints one shelter
   test vs one on-fire test in us and the Sim/Soil counts. `run` compares both predicates on every live Sim and Soil.
 
-### §5 `pondclearscan` (fixes 2142-2145, `PondClearScanCheck`) — exact speedup
+### §5 `pondclearscan` (fixes 1936-1939, `PondClearScanCheck`) — exact speedup
 - [verified, decompiled] `TerrainCoverManager.UpdatePondFreezing` returns early on every SeasonsManager tick while
   `mPondState == TryingToMelt`, the melt rate is > 0 and `AllPondsClear()` is false; each call is a world
   `GetObjects<LotPond>` before the one-field world-pond test.
@@ -73,7 +73,7 @@ live-path asserts registered with `LiveAdd` (`CheckVerdict.cs`); repros `<switch
   `Simulator.GetProxy(ObjectId) != null` [inferred = in GetObjects; `run` compares with EA's scan live]); EA's scan only when
   neither is in use. How often: every Seasons tick (per sim frame) only while ponds try to melt with a skater on them.
 
-### §6 `soakedstat` (fixes 2146-2148, `SoakedStatCheck`) — bug, persisted stat (opt-in)
+### §6 `soakedstat` (fixes 1940-1942, `SoakedStatCheck`) — bug, persisted stat (opt-in)
 - [verified, decompiled] `SimTemperature.AddSimTemperatureBuffsIfNecessary` re-adds Soaked (`Origin.FromRain`) to every Sim
   outside in rain on each environment update (every 2 sim-min), and `BuffSoaked.OnReAddition` increments TombStats "times
   soaked" each time: ~30 per hour of rain. First soak still counts (`OnAddition`); a rain re-add does not; other re-adds (a
@@ -110,20 +110,3 @@ dynamic-challenge listeners are rebuilt per load; Roslyn IDISP / ReSharper hits 
 - `BuffSoaked.OnReAddition` increments TombStats "times soaked" on every rain re-add (cosmetic).
 - Log (phase-20261116-0234): besides MopPuddle, only 3 household `AutonomousSplashInPuddle` NoDestination fails
   (puddlereach) and 3 `SnowWaterFightWait` NPC route fails; nothing new.
-
-## In-game results (Bridgeport, 2026-11-16, one load per session, each check switch off then on)
-
-| Switch | Session (run) | Off | On | Measured |
-|---|---|---|---|---|
-| `initstacktrace` | s61 (phase-20261116-1303) | BROKEN | FIXED | stack walk 2 us, one instance 37-46 us; on arm: 71 `Init` / 45 `OnAddedToQueue` walks skipped |
-| `weatherstonelistener` | s61 | BROKEN | FIXED | no stone summoned in the run (counters 0) |
-| `weathermanagerthrow` | s62 (phase-20261116-1409) | BROKEN | FIXED | dictionary live in Bridgeport (no throw to skip) |
-| `rainsheltercheap` | s62 | BROKEN | FIXED | live Sims / Soil answer as EA 115-121 of 115-121; shelter test 1-2 us, on-fire test 0-1 us |
-| `pondclearscan` | s62 | BROKEN | FIXED | same answer as EA's scan; world scan 558-573 us vs shortcut 0 us |
-| `soakedstat` | s62 | BROKEN | FIXED | no rain in the arm (counters 0) |
-
-- [verified] Each verdict, controls ok and members found, from the check lines in the run's `smallfix.txt`.
-- [verified] The timings in the table (the checks' `timing:` fields, one sample each).
-- [inferred] The live effect of `weatherstonelistener`, `weathermanagerthrow` and `soakedstat`: the run had no case
-  (counters 0). The checks test the same decision the hooks call, plus the live path (swaps in place, handles usable).
-- `initstacktrace` is exact but small: 2 us per walk.

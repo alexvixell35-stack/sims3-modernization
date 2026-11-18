@@ -35,10 +35,9 @@ namespace Ts3Fixes
                 if (!sTuiTried)
                 {
                     sTuiTried = true;
-                    const BindingFlags kS = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static;
                     Type t = typeof(UIManager).Assembly.GetType("Sims3.UI.TinyUIFixForTS3UIEventRegistrationEvents");
-                    FieldInfo reg = t == null ? null : t.GetField("eventRegistrationEventRegistry", kS);
-                    FieldInfo mgr = typeof(UIManager).GetField("gUIMgr", kS);
+                    FieldInfo reg = t == null ? null : t.GetField("eventRegistrationEventRegistry", kStaticAll);
+                    FieldInfo mgr = typeof(UIManager).GetField("gUIMgr", kStaticAll);
                     sTuiReg = reg == null ? null : reg.GetValue(null) as IDictionary;
                     sTuiMgr = mgr == null ? null : mgr.GetValue(null) as IUIManager;
                     AppliedLog().Add("tinyuieventreg: " + (sTuiReg == null ? "no Tiny UI Fix registry (pass off)" : sTuiMgr == null ? "no UIManager.gUIMgr (pass off)" : "ok"));
@@ -62,7 +61,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sTuiThrew) { sTuiThrew = true; AppliedLog().Add("tinyuieventreg: pass threw " + e.Message); }
+                PassThrewOnce(ref sTuiThrew, "tinyuieventreg", e);
             }
         }
     }

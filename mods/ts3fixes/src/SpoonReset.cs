@@ -28,16 +28,16 @@ namespace Ts3Fixes
     //
     // Counters: [2536] pairs released after the partner was gone, [2537] errors. Check: SpoonResetChecks.cs.
     // The same hook runs spoonslavechecks (docs/543 §1, SpoonSlaveChecks.cs): EA's per-sleeper checks for a live pair's slave.
+    // The same hook runs spoonslavechecks (docs/597 §1, SleepQueue597.cs): EA's per-sleeper checks for a live pair's slave.
     public static partial class Fixes
     {
-        const BindingFlags kSrAll = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        static readonly FieldInfo sSrMasterI = typeof(BedSleep).GetField("mSpooningMasterInteraction", kSrAll);
-        static readonly FieldInfo sSrSlaveI = typeof(BedSleep).GetField("mSpooningSlaveInteraction", kSrAll);
-        static readonly FieldInfo sSrIsSlave = typeof(BedSleep).GetField("mSpooningSlave", kSrAll);
-        static readonly FieldInfo sSrIsMaster = typeof(BedSleep).GetField("mSpooningMaster", kSrAll);
-        static readonly FieldInfo sSrSpooning = typeof(BedSleep).GetField("mSpooning", kSrAll);
-        static readonly FieldInfo sSrSmc = typeof(BedSleep).GetField("mSpooningStateMachine", kSrAll);
-        static readonly MethodInfo sSrClear = typeof(BedSleep).GetMethod("ClearSpooningContext", kSrAll, null, Type.EmptyTypes, null);
+        static readonly FieldInfo sSrMasterI = typeof(BedSleep).GetField("mSpooningMasterInteraction", kInstAll);
+        static readonly FieldInfo sSrSlaveI = typeof(BedSleep).GetField("mSpooningSlaveInteraction", kInstAll);
+        static readonly FieldInfo sSrIsSlave = typeof(BedSleep).GetField("mSpooningSlave", kInstAll);
+        static readonly FieldInfo sSrIsMaster = typeof(BedSleep).GetField("mSpooningMaster", kInstAll);
+        static readonly FieldInfo sSrSpooning = typeof(BedSleep).GetField("mSpooning", kInstAll);
+        static readonly FieldInfo sSrSmc = typeof(BedSleep).GetField("mSpooningStateMachine", kInstAll);
+        static readonly MethodInfo sSrClear = typeof(BedSleep).GetMethod("ClearSpooningContext", kInstAll, null, Type.EmptyTypes, null);
 
         static void ApplySpoonReset()
         {

@@ -279,6 +279,16 @@ static int __cdecl UtbIcPosUnseen(void* q) {
     return UfSphereUnseen(f);
 }
 
+// EnvOrderNative::LotPrint(ulong lot) (docs/274 §11, ts3fixes envlistmemoexact): the print of the id sequence the walker
+// 0x7499B0 would push for (lot, room -1) right now (AsLotPrintGame: the lot vector in order, then the world-lot objects
+// whose component names the lot [verified reads, docs/122 §14.26]). Equal print = same ids in the same order. 0 = could
+// not read (the caller takes the game's own call). Reads only; sim thread (called from the env scan hook).
+static unsigned __int64 __cdecl EoIcLotPrint(DWORD lo, DWORD hi) {
+    AsU64 p[2];
+    if (!g_asLotPrint(lo | (AsU64)hi << 32, p)) return 0;
+    return p[0] ? p[0] : 1;
+}
+
 // viewer channel code 25: 1 = the ICs are registered (ts3fixes may call Fetch, Bits and PosUnseen); 26: 1 = Check is on (ts3fixes compares too)
 static u8 UtbReadyMsg(DWORD code) { return code == 26 ? (ts3native_counters.utbCheck ? 1 : 0) : g_utbIcOk ? 1 : 0; }
 
@@ -288,6 +298,7 @@ static void __cdecl UtbPump() {
         g_asAddIc("Ts3Fixes.UnseenTableNative::Fetch", (const void*)UtbIcFetch);
         g_asAddIc("Ts3Fixes.UnseenTableNative::PosUnseen", (const void*)UtbIcPosUnseen);
         g_asAddIc("Ts3Fixes.UnseenTableNative::Bits", (const void*)UtbIcBits);
+        g_asAddIc("Ts3Fixes.EnvOrderNative::LotPrint", (const void*)EoIcLotPrint);  // docs/274 §11: inert until ts3fixes envlistmemoexact calls it
         g_utbIcOk = true;
         ts3native_counters.utbReady |= 2;
     }

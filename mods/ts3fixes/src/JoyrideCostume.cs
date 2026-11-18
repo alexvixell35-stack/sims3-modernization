@@ -32,10 +32,9 @@ namespace Ts3Fixes
     {
         static void ApplyJoyrideCostume()
         {
-            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
             Type cb = typeof(GreyedOutTooltipCallback).MakeByRefType();
             Type[] testArgs = { typeof(Sim), typeof(MultiSeatObject), typeof(bool), cb };
-            Type jd = typeof(GoForJoyride).GetNestedType("Definition", all), rd = typeof(RouteAndGetToCostumeForJoyride).GetNestedType("Definition", all);
+            Type jd = typeof(GoForJoyride).GetNestedType("Definition", kAnyAll), rd = typeof(RouteAndGetToCostumeForJoyride).GetNestedType("Definition", kAnyAll);
             if (jd == null || rd == null) { AppliedLog().Add("joyridecostume: Definition types not found"); return; }
             Patch(typeof(ImaginationHelper), "GetSimOutfitForActor", new Type[] { typeof(SimDescription), typeof(ImaginationHelper.ImaginationUniformType) },
                 typeof(JcHelperHook), "GetHook", "GetOrig");

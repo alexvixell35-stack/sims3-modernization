@@ -171,21 +171,21 @@ namespace Ts3Fixes
 
         static void ApplyAutOffload()
         {
-            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
             try
             {
-                fUpdSim = typeof(SimUpdate).GetField("mSim", all);
-                fEnvTime = typeof(SimUpdate).GetField("mTimePassedEnvironment", all);
-                fBcReacting = typeof(ReactionBroadcaster).GetField("mSimsReacting", all);
-                FieldInfo buf = typeof(ReactionBroadcaster).GetField("kBroadcasterRadiusBuffer", all);
-                mDoSimEnv = typeof(SimUpdate).GetMethod("DoSimEnvironmentUpdateInternal", all);
-                mSendObjEnv = typeof(SimUpdate).GetMethod("SendObjectEnvironmentUpdateEvents", all);
+                fUpdSim = typeof(SimUpdate).GetField("mSim", kAnyAll);
+                fEnvTime = typeof(SimUpdate).GetField("mTimePassedEnvironment", kAnyAll);
+                fBcReacting = typeof(ReactionBroadcaster).GetField("mSimsReacting", kAnyAll);
+                FieldInfo buf = typeof(ReactionBroadcaster).GetField("kBroadcasterRadiusBuffer", kAnyAll);
+                mDoSimEnv = typeof(SimUpdate).GetMethod("DoSimEnvironmentUpdateInternal", kAnyAll);
+                mSendObjEnv = typeof(SimUpdate).GetMethod("SendObjectEnvironmentUpdateEvents", kAnyAll);
                 if (fUpdSim == null || fEnvTime == null || fBcReacting == null || buf == null || mDoSimEnv == null || mSendObjEnv == null)
                     throw new MissingMemberException("private member not found");
                 sBcBuffer = (float)buf.GetValue(null);
             }
             catch (Exception e) { AppliedLog().Add("AutOffload: off: " + e.Message); return; }
             List<string> failed = new List<string>();
+            ExNoteEnvSwap(typeof(SimUpdate).GetMethod("CalculateSimEnvironmentScore", kAnyAll));  // docs/274 §11.8 stand-down: a mod's swap before ours
             sOffHooksOk = Hook(failed, typeof(SimUpdate), "CalculateSimEnvironmentScore", null, typeof(AutEnvHook), "EnvHook", "EnvOrig")
                 & Hook(failed, typeof(ReactionBroadcaster), "GetInRadiusSims", new Type[] { typeof(float) }, typeof(AutBcastHook), "RadiusHook", "RadiusOrig");
             // docs/274 R1 envlistmemo: object start-up joins a lot with no event; build/buy exit can move rooms and portals
@@ -1398,6 +1398,18 @@ namespace Ts3Fixes
             public void EnvHook()
             {
                 if (!sOffHooksOk) { EnvOrig(); return; }
+                if (ShortcutOn("envscancost"))  // docs/274 §11: time of the whole hook (the game's scan and what is switched on) by scope; counts only
+                {
+                    long ct = EnvCostStart();
+                    try { EnvRun(); } finally { EnvCostEnd((SimUpdate)(object)this, ct); }
+                    return;
+                }
+                EnvRun();
+            }
+
+            // called on a SimUpdate, as EnvHook and EnvOrig are
+            public void EnvRun()
+            {
                 if (ShortcutOn("envlistmemo"))  // docs/274 R1 dry: counts only, before the game's own scan
                 {
                     Sim ls = null;
@@ -1406,6 +1418,12 @@ namespace Ts3Fixes
                 }
                 if (!ShortcutOn("autoffenv"))
                 {
+                    if (ShortcutOn("envlistmemoexact"))  // docs/274 §11 R1 exact: every Sim, the game's own method, its room lists from the memo
+                    {
+                        bool armed = EnvListExactBegin((SimUpdate)(object)this);
+                        try { EnvOrig(); } finally { if (armed) EnvListExactEnd(); }
+                        return;
+                    }
                     if (!ShortcutOn("envlistmemoapply") || !EnvListApply((SimUpdate)(object)this)) EnvOrig();  // docs/274 §9 R1 apply, unseen NPCs only
                     return;
                 }

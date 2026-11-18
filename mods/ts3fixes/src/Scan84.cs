@@ -15,7 +15,7 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // Scan triage 1117 real hits (docs/614): five EA bugs where an object, a surface or a Sim is left in a state EA's own
+    // Scan triage 1117 real hits (docs/614, s84): five EA bugs where an object, a surface or a Sim is left in a state EA's own
     // code next to it never leaves it in. All default off; each built from the EA code beside the bug.
     public static partial class Fixes
     {
@@ -446,11 +446,5 @@ namespace Ts3Fixes
             return B582Line("datadiscputback", on, "a refused disc goes back and the rest move", fixedNow && sDdpMissing.Length == 0,
                 "EA: lost " + (on ? "n/a" : lost.ToString()) + " moved " + dst.Count + "; all accepted same as EA=" + allOk + ", unremovable disc stops=" + stop, controls, sDdpMissing, counters);
         }
-    
-        static readonly int sLive_barputdownwait = LiveAdd("barputdownwait", () => EpLive(typeof(BpwWaitHook), 1, "sBpwDone", sBpwDone, typeof(bool), "sBpwHandler", sBpwHandler, null));
-        static readonly int sLive_putdownsurfaceuse = LiveAdd("putdownsurfaceuse", () => EpLive(typeof(PduSurfaceHook), 1));
-        static readonly int sLive_swiperestore = LiveAdd("swiperestore", () => EpLive(typeof(SwrRunHook), 1, "sSwrObj", sSwrObj, null, "sSwrFinal", sSwrFinal, null, "sSwrParent", sSwrParent, null, "sSwrSlot", sSwrSlot, null));
-        static readonly int sLive_unicornspawnfail = LiveAdd("unicornspawnfail", () => EpLive(typeof(UsfRunHook), 1));
-        static readonly int sLive_datadiscputback = LiveAdd("datadiscputback", () => EpJoin(EpLive(typeof(DdpAddHook), 1), EpLive(typeof(DdpDumpHook), 1)));
     }
 }

@@ -433,9 +433,5 @@ namespace Ts3Fixes
             }
             catch (Exception e) { return "timing: threw " + e.GetType().Name; }
         }
-
-
-        // live path of the check (CheckVerdict.cs CkLive): hook swaps in place
-        static readonly int sLive_newcartest = LiveAdd("newcartest", () => EpJoin(EpLive(typeof(NcCarHook), 0), EpLive(typeof(NcTestHook), 2)));
     }
 }

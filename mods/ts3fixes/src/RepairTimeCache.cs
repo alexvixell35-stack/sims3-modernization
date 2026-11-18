@@ -33,6 +33,19 @@ namespace Ts3Fixes
     {
         static readonly FieldInfo sRtcTime = typeof(RepairableComponent).GetField("mRepairTime", BindingFlags.Instance | BindingFlags.NonPublic);
         static readonly Dictionary<RepairableComponent, Sim> sRtcWho = new Dictionary<RepairableComponent, Sim>();
+        static int sRtcPruneAt = 256;  // next size that triggers a prune
+
+        // Drops the notes of destroyed objects or Sims. A dropped note answers like a destroyed Sim's (not known), so when
+        // the prune runs does not change any answer. The next prune waits until the table doubles past what is left (at
+        // least 256), so a table of live notes is no longer rescanned on every call.
+        static void RtcPrune()
+        {
+            List<RepairableComponent> gone = null;
+            foreach (KeyValuePair<RepairableComponent, Sim> kv in sRtcWho)
+                if (kv.Key.Owner == null || kv.Key.Owner.HasBeenDestroyed || kv.Value == null || kv.Value.HasBeenDestroyed) (gone ?? (gone = new List<RepairableComponent>())).Add(kv.Key);
+            if (gone != null) foreach (RepairableComponent g in gone) sRtcWho.Remove(g);
+            sRtcPruneAt = Math.Max(256, sRtcWho.Count * 2);
+        }
 
         static void ApplyRepairTimeCache()
         {
@@ -85,13 +98,7 @@ namespace Ts3Fixes
                         if (act == 1) PatchCounters()[2553]++;
                         if (computed && actor is Sim) sRtcWho[comp] = (Sim)actor;
                     }
-                    if (sRtcWho.Count > 256)
-                    {
-                        List<RepairableComponent> gone = new List<RepairableComponent>();
-                        foreach (KeyValuePair<RepairableComponent, Sim> kv in sRtcWho)
-                            if (kv.Key.Owner == null || kv.Key.Owner.HasBeenDestroyed || kv.Value == null || kv.Value.HasBeenDestroyed) gone.Add(kv.Key);
-                        foreach (RepairableComponent g in gone) sRtcWho.Remove(g);
-                    }
+                    if (sRtcWho.Count > sRtcPruneAt) RtcPrune();
                 }
                 catch (Exception) { PatchCounters()[2555]++; }
                 return r;

@@ -437,7 +437,7 @@ namespace Ts3Fixes
                 B582Alarms(AlarmManager.Global, keys, cbs);
                 for (int i = 0; i < keys.Count; i++)
                 {
-                    Sims3.Gameplay.Careers.Job j = cbs[i].Target as Sims3.Gameplay.Careers.Job;
+                    Job j = cbs[i].Target as Job;
                     if (cbs[i].Method.Name != "CheckLifeguardEvents" || j == null || !sLgSurvey.IsInstanceOfType(j)) continue;
                     bool over = j.Occupation == null || !object.ReferenceEquals(j.Occupation.CurrentJob, j);
                     if (LgRemove(true, true, true, over)) { AlarmManager.Global.RemoveAlarm(keys[i]); PatchCounters()[2824]++; }
@@ -618,45 +618,5 @@ namespace Ts3Fixes
             }
             public static void ApplyOrig() { } // receives HolidayHouseLights.ApplyLightsToWorld's original body
         }
-
-        // live paths of the checks (CheckVerdict.cs CkLive): hook swaps in place, reflection handles usable
-        static readonly int sLive_boardingschoolmoney = LiveAdd("boardingschoolmoney", () => EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BDbBubbleHook), 1), EpLive(typeof(BDbFogHook), 1)), EpLive(typeof(BDbJunkHook), 1)), EpLive(typeof(BDbPetBedHook), 1)), EpLive(typeof(BDbRegisterHook), 1)));
-        static readonly int sLive_boatstaleswimmer = LiveAdd("boatstaleswimmer", () => EpLive(typeof(BBsHook), 1, "sBsWater", sBsWater, null));
-        static readonly int sLive_digsiteemptypick = LiveAdd("digsiteemptypick", () => EpLive(typeof(BDsHook), 1, "sDsLeft", sDsLeft, null, "sDsLeft", sDsLeft, typeof(int)));
-        static readonly int sLive_disposebase = LiveAdd("disposebase", () => EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BDbBubbleHook), 1), EpLive(typeof(BDbFogHook), 1)), EpLive(typeof(BDbJunkHook), 1)), EpLive(typeof(BDbPetBedHook), 1)), EpLive(typeof(BDbRegisterHook), 1)));
-        static readonly int sLive_doorlockowner = LiveAdd("doorlockowner", () => EpLive(typeof(BDlHook), 2));
-        static readonly int sLive_dreamcleanup = LiveAdd("dreamcleanup", () => EpLive(typeof(DcHook), 1, "sDcRemoval", sDcRemoval, null));
-        static readonly int sLive_elevatorkitten = LiveAdd("elevatorkitten", () => EpLive(typeof(BEkHook), 1));
-        static readonly int sLive_elevatorresetriders = LiveAdd("elevatorresetriders", () => EpLive(typeof(BErHook), 1));
-        static readonly int sLive_elevatorridertimeout = LiveAdd("elevatorridertimeout", () => EpLive(typeof(BE2Hook), 1, "sErAssigned", sErAssigned, null));
-        static readonly int sLive_freshclothingresume = LiveAdd("freshclothingresume", () => EpLive(typeof(BFcHook), 1, "sFcMap", sFcMap, null));
-        static readonly int sLive_holidaylights = LiveAdd("holidaylights", () => EpLive(typeof(BHlHook), 1, "sHlAlarm", sHlAlarm, null, "sHlAlarm", sHlAlarm, "static", "sHlWith", sHlWith, null, "sHlWith", sHlWith, "static", "sHlLots", sHlLots, null, "sHlLots", sHlLots, "static", "sHlPulse", sHlPulse, typeof(int), "sHlPulse", sHlPulse, "static", "sHlPulse", sHlPulse, null));
-        static readonly int sLive_homeworkskillbonus = LiveAdd("homeworkskillbonus", () => EpLive(typeof(BHwHook), 1, "sHwIsOld", sHwIsOld, typeof(bool), "sHwCopyOld", sHwCopyOld, typeof(float), "sHwCopyOld", sHwCopyOld, "static", "sHwCopy", sHwCopy, typeof(float), "sHwCopy", sHwCopy, "static", "sHwK", sHwK, typeof(float), "sHwK", sHwK, "static"));
-        static readonly int sLive_horseranchchallenge = LiveAdd("horseranchchallenge", () => EpLive(typeof(BHrHook), 1));
-        static readonly int sLive_innerbeautyonce = LiveAdd("innerbeautyonce", () => EpLive(typeof(BIbHook), 1));
-        static readonly int sLive_lifeguardsurvey = LiveAdd("lifeguardsurvey", () => EpLive(typeof(BLgHook), 1, "sLgAlarm", sLgAlarm, null, "sLgRemove", sLgRemove, 0));
-        static readonly int sLive_maildogchaser = LiveAdd("maildogchaser", () => EpLive(typeof(BMdHook), 1, "sMdDog", sMdDog, null));
-        static readonly int sLive_moondiallistener = LiveAdd("moondiallistener", () => EpLive(typeof(BMdlHook), 1, "sMdlListener", sMdlListener, null));
-        static readonly int sLive_moonriselistener = LiveAdd("moonriselistener", () => EpJoin(EpLive(typeof(BMrFairyHook), 1), EpLive(typeof(BMrWolfHook), 1)));
-        static readonly int sLive_nocommercialcar = LiveAdd("nocommercialcar", () => EpLive(typeof(BNcHook), 1, "sNcCar", sNcCar, null));
-        static readonly int sLive_oppcategoryprotect = LiveAdd("oppcategoryprotect", () => EpLive(typeof(BOaHook), 1, "sOaShared", sOaShared, null, "sOaShared", sOaShared, "static", "sOaValues", sOaValues, null));
-        static readonly int sLive_oppchainworld = LiveAdd("oppchainworld", () => EpLive(typeof(BOcHook), 1, "sOcReqWorld", sOcReqWorld, 0));
-        static readonly int sLive_partylotlistener = LiveAdd("partylotlistener", () => EpJoin(EpLive(typeof(BPlHappenHook), 1), EpLive(typeof(BPlWaitHook), 1)));
-        static readonly int sLive_photosubjectstars = LiveAdd("photosubjectstars", () => EpLive(typeof(BPsHook), 1));
-        static readonly int sLive_prankditchempty = LiveAdd("prankditchempty", () => EpLive(typeof(BPdHook), 1, "sPdDoor", sPdDoor, null));
-        static readonly int sLive_residentspawnslot = LiveAdd("residentspawnslot", () => EpLive(typeof(BRsHook), 1));
-        static readonly int sLive_rolenullguard = LiveAdd("rolenullguard", () => EpJoin(EpJoin(EpJoin(EpLive(typeof(BRnDrinkHook), 1), EpLive(typeof(BRnSnackHook), 1)), EpLive(typeof(BRnSocialHook), 1)), EpLive(typeof(BRnWaiterHook), 2)));
-        static readonly int sLive_sandwichalarm = LiveAdd("sandwichalarm", () => EpLive(typeof(SaHook), 1, "sSaShow", sSaShow, null, "sSaHandle", sSaHandle, null));
-        static readonly int sLive_scavengernolot = LiveAdd("scavengernolot", () => EpLive(typeof(BScHook), 1));
-        static readonly int sLive_serviceassignexit = LiveAdd("serviceassignexit", () => EpLive(typeof(BSeHook), 1));
-        static readonly int sLive_serviceshowalarm = LiveAdd("serviceshowalarm", () => EpLive(typeof(BSsHook), 1, "sSsShow", sSsShow, null, "sSsDestroy", sSsDestroy, typeof(bool), "sSsMakeVisible", sSsMakeVisible, 0));
-        static readonly int sLive_shelldoorsummon = LiveAdd("shelldoorsummon", () => EpLive(typeof(BSdHook), 1));
-        static readonly int sLive_snublistener = LiveAdd("snublistener", () => EpLive(typeof(BSnlHook), 1));
-        static readonly int sLive_starlightreset = LiveAdd("starlightreset", () => EpJoin(EpLive(typeof(BSlHook), 1), EpLive(typeof(BSlUseHook), 1)));
-        static readonly int sLive_talkoccupationchance = LiveAdd("talkoccupationchance", () => EpLive(typeof(BTaoHook), 1));
-        static readonly int sLive_teleportcommunitylot = LiveAdd("teleportcommunitylot", () => EpLive(typeof(BTcHook), 1));
-        static readonly int sLive_twinbellyshape = LiveAdd("twinbellyshape", () => EpLive(typeof(BPgSetHook), 1));
-        static readonly int sLive_vehiclefxhelper = LiveAdd("vehiclefxhelper", () => EpLive(typeof(BVfHook), 2));
-        static readonly int sLive_weddinglistener = LiveAdd("weddinglistener", () => EpLive(typeof(BWlHook), 1, "sWlList", sWlList, null));
     }
 }

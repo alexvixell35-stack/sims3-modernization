@@ -1,0 +1,18 @@
+{
+ "about": "tools/release/dogfood.ts (docs/279 \"Dogfood\"): ini keys merged under every correctness job's own ini by tools/harness/queue.ts",
+ "generated": "2026-11-18",
+ "source": "master + release plan §1 ON + blocked off",
+ "ini": {
+  "RouteSnap.DoorMemoX": "-1"
+ },
+ "excluded": [
+  "EqualsFast.Enabled",
+  "EqualsFast.SmallEnums",
+  "GC.IdleGate",
+  "MonoJit.YRows",
+  "Startup.DxDiagCache",
+  "Experimental.HouseholdToo",
+  "save-data tunables (savedata-fixes)"
+ ],
+ "tunablesNotApplied": []
+}

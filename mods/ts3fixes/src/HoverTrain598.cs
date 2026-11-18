@@ -377,9 +377,5 @@ namespace Ts3Fixes
             }
             catch (Exception e) { return "timing: threw " + e.GetType().Name; }
         }
-
-
-        // live path of the check (CheckVerdict.cs CkLive): hook swaps in place
-        static readonly int sLive_hovertraintest = LiveAdd("hovertraintest", () => EpJoin(EpJoin(EpLive(typeof(HtRunHook), 1), EpLive(typeof(HtStationHook), 0)), EpLive(typeof(HtTestHook), 1)));
     }
 }

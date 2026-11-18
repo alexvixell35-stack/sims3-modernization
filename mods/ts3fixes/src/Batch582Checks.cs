@@ -13,8 +13,8 @@ namespace Ts3Fixes
         {
             int[] c = PatchCounters();
             string miss = EpJoin(sVfMissing, CkLive("vehiclefxhelper"));
-            string counters = "vehiclefxhelper: destroyed before re-create 2808=" + c[2808] + ", seen with switch off 2809=" + c[2809] + ", errors 2810=" + c[2810]
-                + "; " + CkMembers(miss);
+            string counters = "vehiclefxhelper: destroyed before re-create 1118=" + c[2808] + ", seen with switch off 1119=" + c[2809] + ", errors 1120=" + c[2810]
+                + "; " + GlMembers(miss);
             if (what == "result") return counters;
             if (what != "run") return "vehiclefxhelper <run|result>";
             bool on = ShortcutOn("vehiclefxhelper");
@@ -23,10 +23,22 @@ namespace Ts3Fixes
             bool controls = ctlNone;
             return "vehiclefxhelper check (switch " + (on ? "on" : "off") + "): held helper destroyed before the re-create=" + fixedNow
                 + "; control: no helper held unchanged=" + ctlNone + "; controls ok=" + controls
-                + "; verdict: " + CkVerdict(on, fixedNow, controls, miss.Length == 0) + "; " + counters;
+                + "; verdict: " + GlVerdict(on, fixedNow, controls, miss.Length == 0) + "; " + counters;
         }
 
+        static string B582Counters(string name, int first, string[] what, string missing)
+        {
+            int[] c = PatchCounters();
+            System.Text.StringBuilder b = new System.Text.StringBuilder(name + ":");
+            for (int i = 0; i < what.Length; i++) b.Append((i == 0 ? " " : ", ") + what[i] + " " + (first + i) + "=" + c[first + i]);
+            return b.Append("; ").Append(GlMembers(EpJoin(missing, CkLive(name)))).ToString();
+        }
 
+        static string B582Line(string name, bool on, string fixedText, bool fixedNow, string ctlText, bool controls, string missing, string counters)
+        {
+            return name + " check (switch " + (on ? "on" : "off") + "): " + fixedText + "=" + fixedNow + "; control: " + ctlText + "; controls ok=" + controls
+                + "; verdict: " + GlVerdict(on, fixedNow, controls, EpJoin(missing, CkLive(name)).Length == 0) + "; " + counters;
+        }
 
         // PrankDitchEmptyCheck run: the empty-prankee throw ends Run as EA's null pick does.
         //   Controls: another ArgumentException rethrown; somebody at home (not the empty-list case) rethrown.

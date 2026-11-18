@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay.ActiveCareer.ActiveCareers;
 
@@ -24,7 +25,6 @@ namespace Ts3Fixes
     {
         static readonly Type sGwStylist = typeof(Stylist.MakeoverSituation).GetNestedType("WaitAround", BindingFlags.NonPublic | BindingFlags.Public);
         static readonly Type sGwSinger = typeof(SingerCareer.WaitForSingagramSituation).GetNestedType("WaitAround", BindingFlags.NonPublic | BindingFlags.Public);
-        const BindingFlags kGwFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
         static void ApplyGigWaitLeave()
         {
@@ -41,15 +41,24 @@ namespace Ts3Fixes
         }
 
         // Runs EA's WaitedTooLong() on the state; when it says so, EA's Parent.ForceLeaveJob() and true.
+        // The members are looked up once per state / parent type (two state types, a few parent types).
+        static readonly Dictionary<Type, MethodInfo> sGwWaited = new Dictionary<Type, MethodInfo>(), sGwLeave = new Dictionary<Type, MethodInfo>();
+        static readonly Dictionary<Type, FieldInfo> sGwParent = new Dictionary<Type, FieldInfo>();
+
         static bool GwLeaveIfDue(object state)
         {
             Type t = state.GetType();
-            MethodInfo waited = t.GetMethod("WaitedTooLong", kGwFlags);
-            FieldInfo parentField = t.GetField("Parent", kGwFlags);
+            MethodInfo waited;
+            FieldInfo parentField;
+            if (!sGwWaited.TryGetValue(t, out waited)) sGwWaited[t] = waited = t.GetMethod("WaitedTooLong", kInstAll);
+            if (!sGwParent.TryGetValue(t, out parentField)) sGwParent[t] = parentField = t.GetField("Parent", kInstAll);
             if (waited == null || parentField == null) return false;
             if (!GwStop(true, (bool)waited.Invoke(state, null))) return false;
             object parent = parentField.GetValue(state);
-            MethodInfo leave = parent == null ? null : parent.GetType().GetMethod("ForceLeaveJob", kGwFlags);
+            if (parent == null) return false;
+            Type pt = parent.GetType();
+            MethodInfo leave;
+            if (!sGwLeave.TryGetValue(pt, out leave)) sGwLeave[pt] = leave = pt.GetMethod("ForceLeaveJob", kInstAll);
             if (leave == null) return false;
             leave.Invoke(parent, null);
             return true;

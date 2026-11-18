@@ -1,7 +1,7 @@
 # 605. Hot managed methods without a hook: verdicts, `detailprioexact`, ShortcutOn cache
 
 Written 2026-11-16 (UTC). Static only (decompiled EA code, Mono 2 `mscorlib` via ilspycmd), no game run. Input:
-`docs/data/compile-candidates.csv` (docs/207: sampled sim-thread self time, ms/s, BP + IP + SV summed). A local test package
+`docs/data/compile-candidates.csv` (docs/207: sampled sim-thread self time, ms/s, BP + IP + SV summed). Package **r62**
 (`ts3fixes-on-kHitchCauseHooks`). Tags: [verified] decompiled code or our source, [measured] the CSV, [inferred] reasoning.
 
 **Caveat on the input [measured].** Each row is 2-6 samples per world (one sample is about 0.43 ms/s), so every figure
@@ -59,9 +59,9 @@ A/B: `reflect_set Ts3Fixes.Fixes.sSwCacheOff true` (the set bumps the generation
 **Expected gain [inferred]:** most of the 2.7 ms/s self time, plus ShortcutOn's share of `Dictionary.GetPrev` and the string
 compare frames: ~2.5-3.5 ms/s.
 
-## 3. Built: `detailprioexact` (2026-11-16; proven in game, §4)
+## 3. Built: `detailprioexact` (2026-11-16, static, NOT RUN)
 
-Switch `detailprioexact` (tuning `kDetailPriorityExact`), default off; `DetailPrioExact.cs` + the existing `DetailPriorityHook`
+Switch `detailprioexact` (tuning `kDetailPriorityExact`), default off; `DetailPrio603.cs` + the existing `DetailPriorityHook`
 (`ScriptHotSpots.cs`); counters 2793-2796; repro `detailprioexact-check`.
 
 **What EA does [verified, decompiled].** `Lot.Simulate` calls `UpdateDetailPriority` → `CalculateDetailPriority` on every
@@ -80,7 +80,7 @@ same answer for every Sim, household included. With `detailprio` (the per-tick l
 
 **Check.** `DetailPrioExactCheck run`: every lot answered three ways in one tick: EA's body over the same public members
 (reference), our scan, and the hooked private method through a bound delegate (as `Lot.Simulate` calls it); a difference
-counts 2795. Controls: home lot = Home, each member's lot outside a rabbit hole = PlayerSim, one lot with no member = None,
+counts 2758. Controls: home lot = Home, each member's lot outside a rabbit hole = PlayerSim, one lot with no member = None,
 on both paths. `members found` includes the EpLive assert (`DetailPriorityHook` swap in). `result`: counters and a `timing:`
 line (EA body vs exact scan, ns per lot pass). Off → BROKEN, on → FIXED.
 
@@ -96,23 +96,3 @@ Counters: [2793] exact answers, [2794] EA's body (null list or description, erro
   situations, UI) are the larger share; a census of them is the next static pass.
 - `Lot.GetObjectCacheVersion<T>` / `RuntimeTypeHandle.get_Value` (7.4 ms/s, docs/207 §3): a per-`T` static cache of
   `typeof(T)` is not possible from a hook; native side only.
-
-## 4. In-game results (2026-11-16, Bridgeport)
-
-**`detailprioexact`** (repro `detailprioexact-check`, switch off then on in one load):
-
-| | Off | On |
-|---|---|---|
-| verdict | BROKEN (every lot answered by EA's body) | FIXED |
-| lots compared | 83 | 83 |
-| differ from EA | 0 | 0 |
-| hook answered from the exact scan | 0 | 83 (119 exact answers in the run) |
-| check mismatches (2795) / errors (2796) | 0 / 0 | 0 / 0 |
-| cost per lot pass | EA body 8202 ns, exact scan 3363 ns | EA body 7498 ns, exact scan 3267 ns |
-
-- [verified] The verdicts, the controls and the counters above.
-- [measured, one load] About 4-5 us less per lot pass. The total depends on how many lots simulate each tick [inferred].
-
-**ShortcutOn answer cache** (always on; repro `switchcache-check`):
-- [verified] `SwitchCacheCheck`: PASS. It checked 698 names: 1,396 cached answers compared with the slow path, 0 mismatches. The override flip (set with a generation bump, overwritten without one, bumped, removed) was ok.
-- [measured] 516 ns per call on the slow path, 279 ns per call cached. The profiler had measured ShortcutOn at 2.7 ms/s of sim-thread self time.

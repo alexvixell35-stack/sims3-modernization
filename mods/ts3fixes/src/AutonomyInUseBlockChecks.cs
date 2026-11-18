@@ -17,7 +17,7 @@ namespace Ts3Fixes
             string last = "";
             for (int k = 0; k < sAibLast.Length; k++) if (sAibLast[k] != null) last += (last.Length == 0 ? "" : ", ") + sAibLast[k];
             return "autonomyinuseblock: taken objects blocked 2693=" + c[2693] + ", seen with switch off 2694=" + c[2694]
-                + ", errors 2695=" + c[2695] + "; last: " + (last.Length == 0 ? "none" : last) + "; " + CkMembers(missing);
+                + ", errors 2695=" + c[2695] + "; last: " + (last.Length == 0 ? "none" : last) + "; " + GlMembers(missing);
         }
 
         // AutonomyInUseBlockCheck run: an autonomous action whose Run() returned false (no exit reason) because another Sim
@@ -43,7 +43,7 @@ namespace Ts3Fixes
                 && !AibShouldBlock(on, false, true, true, false, false, true, true, true)
                 && !AibShouldBlock(on, false, true, true, false, false, true, false, false);
             return "autonomyinuseblock check (switch " + (on ? "on" : "off") + "): taken object blocked=" + fixedNow
-                + "; controls ok=" + controls + "; verdict: " + CkVerdict(on, fixedNow, controls, missing.Length == 0) + "; " + counters;
+                + "; controls ok=" + controls + "; verdict: " + GlVerdict(on, fixedNow, controls, missing.Length == 0) + "; " + counters;
         }
 
         // PrivacyCensus list: read-only. Every live PrivacySituation: type, lot, room, its Sim's state and head interaction.

@@ -156,6 +156,10 @@ namespace Ts3Fixes
                     else if (!ShortcutOn("nocommercialcar")) { PatchCounters()[2912]++; car = null; }
                 }
                 catch (Exception) { PatchCounters()[2913]++; car = null; }
+                // re-entry with no car (af4 2026-11-17, 6 NREs): ErrorTrap's ScriptProxy runs Simulate again after a handled script
+                // error (EA's own DisplayScriptError returns false, so EA never re-runs) and EA's finally already set mCar null; EA's
+                // first line then throws on every re-run. A driver with no car has nothing left to do: end the task.
+                if (car == null && ShortcutOn("nocommercialcar") && sNcCar.GetValue(this) == null) return;
                 if (car == null) { SimOrig(); return; }
                 PatchCounters()[2911]++;
                 try

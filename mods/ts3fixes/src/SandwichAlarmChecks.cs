@@ -11,8 +11,8 @@ namespace Ts3Fixes
         public static object SandwichAlarmCheck(string what)
         {
             int[] c = PatchCounters();
-            string counters = "sandwichalarm: stale handles removed 2800=" + c[2800] + ", seen with switch off 2801=" + c[2801] + ", errors 2802=" + c[2802] + ", saved duplicates removed at load 2803=" + c[2803]
-                + "; " + CkMembers(sSaMissing);
+            string counters = "sandwichalarm: stale handles removed 1110=" + c[2800] + ", seen with switch off 1111=" + c[2801] + ", errors 1112=" + c[2802] + ", saved duplicates removed at load 1113=" + c[2803]
+                + "; " + GlMembers(sSaMissing);
             if (what == "result") return counters;
             if (what != "run") return "sandwichalarm <run|result>";
             bool on = ShortcutOn("sandwichalarm");
@@ -33,7 +33,7 @@ namespace Ts3Fixes
             return "sandwichalarm check (switch " + (on ? "on" : "off") + "): held daily handle removed before the re-add=" + fixedNow
                 + "; load sweep removes the 2 extra of 3=" + sweepOk + "; one-shot skipped during a player show=" + midShow + "; control: no show / movie run EA=" + ctlNoShow + "; control: no handle held unchanged=" + ctlNone
                 + ", single alarm untouched=" + ctlSingle + ", other alarm types untouched=" + ctlOtherCb + ", other theatre untouched=" + ctlOtherTheatre + ", stale held handle keeps one=" + ctlStale + "; controls ok=" + controls
-                + "; verdict: " + CkVerdict(on, fixedNow, controls, sSaMissing.Length == 0) + "; " + counters;
+                + "; verdict: " + GlVerdict(on, fixedNow, controls, sSaMissing.Length == 0) + "; " + counters;
         }
     }
 }

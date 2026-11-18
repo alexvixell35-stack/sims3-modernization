@@ -26,6 +26,7 @@ namespace Ts3Fixes
     // ReactionInteraction.OneShotReaction, the carpool pickup Run are the same in both builds).
     public static partial class Fixes
     {
+        const BindingFlags kB11All = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
         // ---- B11 §1 eatpostonce (U1) ------------------------------------------------------------------------------------
         // [verified, decompiled] EatHeldFood.Run calls Food.PostEat at its end (no return between PreEat and that call),
@@ -547,33 +548,5 @@ namespace Ts3Fixes
                 return true;
             }
         }
-
-        // live paths of the checks (CheckVerdict.cs CkLive): hook swaps in place, reflection handles usable
-        static readonly int sLive_bathcleanup = LiveAdd("bathcleanup", () => EpLive(typeof(BBcHook), 0, "sBcInBath", sBcInBath, null));
-        static readonly int sLive_bathsituationfx = LiveAdd("bathsituationfx", () => EpLive(typeof(BBsfTubHook), 1, "sBsFx", sBsFx, null));
-        static readonly int sLive_buffremovedelayed = LiveAdd("buffremovedelayed", () => EpLive(typeof(BBrdHook), 1));
-        static readonly int sLive_cancelposturedef = LiveAdd("cancelposturedef", () => EpLive(typeof(BCpHook), 1));
-        static readonly int sLive_carpoolschoolskip = LiveAdd("carpoolschoolskip", () => EpLive(typeof(BCsHook), 1, "sCsData", sCsData, null));
-        static readonly int sLive_computergametype = LiveAdd("computergametype", () => EpLive(typeof(BCgtHook), 1, "sCgType", sCgType, null));
-        static readonly int sLive_distressgate = LiveAdd("distressgate", () => EpLive(typeof(BDgHook), 1, "sDgSim", sDgSim, null));
-        static readonly int sLive_eatpostonce = LiveAdd("eatpostonce", () => EpLive(typeof(BEpHook), 3));
-        static readonly int sLive_facialidleweight = LiveAdd("facialidleweight", () => EpLive(typeof(BFiHook), 1, "sFiSim", sFiSim, null));
-        static readonly int sLive_fightbroadcastend = LiveAdd("fightbroadcastend", () => EpLive(typeof(BFbHook), 1));
-        static readonly int sLive_fridgetestnull = LiveAdd("fridgetestnull", () => EpLive(typeof(BFtHook), 1));
-        static readonly int sLive_goodbyepure = LiveAdd("goodbyepure", () => EpLive(typeof(BGbHook), 1));
-        static readonly int sLive_guitargnomeboost = LiveAdd("guitargnomeboost", () => EpLive(typeof(BGgHook), 1));
-        static readonly int sLive_ltrhistorybits = LiveAdd("ltrhistorybits", () => EpLive(typeof(BLtHook), 2, "sLtBits", sLtBits, null));
-        static readonly int sLive_moodidleflavor = LiveAdd("moodidleflavor", () => EpLive(typeof(BMiHook), 1));
-        static readonly int sLive_moodtankreset = LiveAdd("moodtankreset", () => EpLive(typeof(BMtHook), 1, "sMtPrev", sMtPrev, null));
-        static readonly int sLive_motivemultonce = LiveAdd("motivemultonce", () => EpLive(typeof(BMmHook), 1, "sMmRelax", sMmRelax, typeof(float), "sMmRelax", sMmRelax, "static", "sMmSwim", sMmSwim, typeof(float), "sMmSwim", sMmSwim, "static", "sMmSootheMax", sMmSootheMax, typeof(float), "sMmSootheMax", sMmSootheMax, "static", "sMmSoothe", sMmSoothe, typeof(float), "sMmSoothe", sMmSoothe, "static"));
-        static readonly int sLive_photofunds = LiveAdd("photofunds", () => EpLive(typeof(BPhHook), 2));
-        static readonly int sLive_reactioncopy = LiveAdd("reactioncopy", () => EpLive(typeof(BRcHook), 1));
-        static readonly int sLive_reactiongrumpy = LiveAdd("reactiongrumpy", () => EpLive(typeof(BRgHook), 1, "sRgType", sRgType, null));
-        static readonly int sLive_socialnoeffect = LiveAdd("socialnoeffect", () => EpLive(typeof(BSnHook), 1, "sSnEffect", sSnEffect, null));
-        static readonly int sLive_stereoupgrade = LiveAdd("stereoupgrade", () => EpJoin(EpJoin(EpLive(typeof(BSuDanceHook), 1), EpLive(typeof(BSuSpeakerHook), 1)), EpLive(typeof(BSuUpHook), 1)));
-        static readonly int sLive_trainsimgone = LiveAdd("trainsimgone", () => EpLive(typeof(BTgHook), 1));
-        static readonly int sLive_tvdisclistener = LiveAdd("tvdisclistener", () => EpLive(typeof(BTdHook), 1, "sTdListener", sTdListener, null));
-        static readonly int sLive_tvsyncalarm = LiveAdd("tvsyncalarm", () => EpJoin(EpLive(typeof(BTsMsHook), 1), EpLive(typeof(BTsTvHook), 1)));
-        static readonly int sLive_tvwatchskill = LiveAdd("tvwatchskill", () => EpLive(typeof(BTwHook), 2, "sTwList", sTwList, null));
     }
 }

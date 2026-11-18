@@ -76,11 +76,13 @@ namespace Ts3Fixes
             public bool PutHook(bool sendHome)
             {
                 Sim s = (Sim)(object)this;
-                if (!ShortcutOn("hiddenroomspawn") || !IsNpcSim(s)) return PutOrig(sendHome);
+                bool hr = ShortcutOn("hiddenroomspawn") && IsNpcSim(s);
+                // safelocunhide (Batch582iLogic.cs, docs/582 B9 §5): any Sim; the copy below is EA's with the fallback unhide
+                if (!hr && !ShortcutOn("safelocunhide")) return PutOrig(sendHome);
                 Vector3 pos, fwd;
                 bool found;
                 try { found = s.AttemptToFindSafeLocation(sendHome, out pos, out fwd); }
-                catch (Exception) { PatchCounters()[2390]++; return PutOrig(sendHome); }
+                catch (Exception) { PatchCounters()[2390]++; return PutOrig(sendHome); }  // (EA's own call, which throws the same way)
                 if (found)
                 {
                     s.SetPosition(pos);
@@ -96,10 +98,14 @@ namespace Ts3Fixes
                 if (lot == null || lot.IsWorldLot) return true;
                 bool repicked = false;
                 Vector3 p = lot.Position;
-                try { p = HrResetFallback(s, lot, true, out repicked); }
-                catch (Exception) { PatchCounters()[2390]++; }
+                if (hr)
+                {
+                    try { p = HrResetFallback(s, lot, true, out repicked); }
+                    catch (Exception) { PatchCounters()[2390]++; }
+                }
                 if (repicked) { PatchCounters()[2387]++; ShortcutLog(s.FullName + " -> hiddenroomspawn: reset fallback moved off the lot centre (hidden or closed room) on " + lot.Name); }
                 s.SetPosition(p);
+                SuAfterFallback(s);  // counts [3827] when safelocunhide is off
                 s.SimRoutingComponent.ForceUpdateDynamicFootprint();
                 return true;
             }

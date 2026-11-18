@@ -27,6 +27,7 @@ seed_rng,HarnessHandlers,Any,none (fixed RNG seed for A/B),harness,,handler,none
 test_env,HarnessHandlers,Live,none: season and weather follow the calendar (Seasons options set lengths only; Weather Stone changes weather in game),cheat,mode realistic only undoes winter cold and a near full moon; mode fixed forces season/weather/moon,handler + R-EP-3 (community-reported),none
 quiet_ui,HarnessHandlers,Any,Options > memories off; dismissing notifications,natural,,handler,none
 autopilot,HarnessHandlers,Live,none (harness: keeps speed and answers dialogs),harness,,handler,none
+weather,HarnessHandlers,Live,none: read only; set forces season/weather (Weather Stone changes weather in game),cheat,Seasons (EP8) installed; set: forced season/weather (docs/599),handler,live
 dialog_expect,AutopilotHandlers,Any,none (harness: tells the autopilot to leave the next dialog to auto_dialog),harness,,handler,none
 build_mode,BuildHandlers,Live;Build,Build button,natural,active household has a home lot; on = Build on the home lot; clock stops (R-MODE-2),handler + R-MODE-2,none
 pick,BuildHandlers,Any,none (read),harness,,handler,none
@@ -268,7 +269,9 @@ aut_census,AutCensusHandlers,MainMenu;Live,"none (harness census of autonomy tes
 object_types,AutCensusHandlers,Live,none (read: game objects by type and in/out of world),harness,,handler,none
 doors,DoorHandlers,Live,none (read: doors and their lock types on a lot),harness,an active household with a home lot or a lot id,handler,none
 hitch_watch,HitchWatchHandlers,Live,none (harness sim task: stamps each tick and records Sim states around hitches; read),harness,start:true inside the world,handler,none
+sim_health,SimHealthHandlers,Any,none (read; a harness sim task samples interaction ends between calls; watch:false stops it),harness,,handler,none
 household_routine,HitchWatchHandlers,Live,pie-menu clicks: one routine action (meal / outfit / shower / social / TV / ...) queued per household Sim and pet that is idle,natural,an active household with a home lot; a Sim with more than one queued interaction is left alone,handler,none
+tick_stats,HitchWatchHandlers,Live,none (harness: sim tick time stats; read),harness,,handler,none
 ilp_remote_chat_check,DesignedReproHandlers,Live,none: one forced phone-chat round between two uncontrolled Sims with the target's Everyday outfits hidden for that call (docs/506 B80),cheat,uncontrolled Sims only,handler,live
 ilp_scavenger_check,DesignedReproHandlers,Live,none: removes loose gems/metals/insect jigs on community lots first; scavenger opportunity OnAdded on unattached clones with yielding disabled (docs/506 B87),cheat,,handler,live
 velvet_bouncer,DesignedReproHandlers,Live,none: puts the club bouncer at the velvet rope and pushes WatchDoor (EA's own calls),stress,night hours; a velvet-rope venue (BP clubs),handler,live

@@ -1,0 +1,316 @@
+{
+  "note": "gc-markhelpers-time-1118 (PREPARED, NOT LAUNCHED; TIMING, needs quiet machine: Spotify, IDE and java closed, other CPU < 10%): docs/287 §7 [GC] MarkHelpers on vs off in one load, plus a vanilla-marker load per world. Run only after gc-subtimers-measure-1118 passed its gate (mark >= 60% of gcgMs on BP and SV), gc-markhelpers-correct-1118 passed and P4 MarkHelpersVerify was clean. queue.ts runs its smoke first. Bin state apex via tools/turbo-compat.ts. Read per AB job: node tools/harness/wait-ab.ts <tag> --counters gcgMs,gcgForcedMs,gcgCycles,gcgSpare_1,g5HelperUs (per arm: gcgMs / gcgCycles, (gcgMs + gcgForcedMs) per s); node tools/profile-compare.mjs <tag>:on <tag>:off for hitch p99 / p99.9 / max. Vanilla jobs: same counters over the whole load (MarkHelpers=0 = EA bytes). Pass: gcgMs per cycle on < off, (gcgMs + gcgForcedMs) /s on <= off - 10, hitch p99.9 and max on not worse than off beyond noise, CPU clock per side within 3%; off arm vs vanilla shows the atomic-bit cost. Household: as the correctness queue (no Sim decision). Run: node tools/harness/queue.ts tools/harness/queues/gc-markhelpers-time-1118.json",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.283-g5p3 ": {
+      "match": [
+        "ts3native 0.36.283-g5p3 2026-11-18 21:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.282-dlx540 2026-11-18 12:00:00"
+      ]
+    },
+    "^GC idle gate: IdleGate=1 \\(gcgMode 1\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": {
+      "match": [
+        "GC idle gate: IdleGate=1 (gcgMode 1) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3"
+      ],
+      "noMatch": [
+        "GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3",
+        "GC idle gate off (IdleGate=0)"
+      ]
+    },
+    "^OK   GC mark helpers: MarkHelpers=2 \\(threads 2\\) MinSplit=64 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites \\(0xE49FDF chained after SubTimers\\)$": {
+      "match": [
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF chained after SubTimers)"
+      ],
+      "noMatch": [
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF direct)",
+        "SKIP GC mark helpers: mark-bit site differs at 0x00E4C5F9, nothing written"
+      ]
+    },
+    "^OK   GC mark helpers: MarkHelpers=2 \\(threads 2\\) MinSplit=64 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites \\(0xE49FDF direct\\)$": {
+      "match": [
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF direct)"
+      ],
+      "noMatch": [
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF chained after SubTimers)",
+        "GC mark helpers off (MarkHelpers=0)"
+      ]
+    },
+    "^GC mark helpers off \\(MarkHelpers=0\\)$": {
+      "match": [
+        "GC mark helpers off (MarkHelpers=0)"
+      ],
+      "noMatch": [
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF direct)"
+      ]
+    },
+    "^(SKIP|FAIL) GC (mark helpers|idle gate|sub-timers)": {
+      "match": [
+        "SKIP GC mark helpers: mark-bit site differs at 0x00E4C5F9, nothing written",
+        "FAIL GC mark helpers: helper overflow pending after the mark ended (g5Anomaly 1)",
+        "SKIP GC idle gate: call 0xD819AA goes to 0x12345678",
+        "FAIL GC sub-timers: VirtualProtect at 0x00E49DF2 (err 5)"
+      ],
+      "noMatch": [
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF chained after SubTimers)",
+        "GC mark helpers off (MarkHelpers=0)",
+        "GC mark helpers: 3 helper faults this session, g5Mode latched 0 (serial marker, patches stay)"
+      ]
+    },
+    "^GC mark helpers: \\d+ helper faults this session": {
+      "match": [
+        "GC mark helpers: 3 helper faults this session, g5Mode latched 0 (serial marker, patches stay)"
+      ],
+      "noMatch": [
+        "OK   GC mark helpers: MarkHelpers=2 (threads 2) MinSplit=64 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites (0xE49FDF chained after SubTimers)"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-g5-ab",
+      "note": "[est 30 min] Baseline-BP-Spring, MarkHelpers=2 IdleGate=1, 25 min in-load ABBA (5-min slices, 10 min per arm), --ab gcmarkhelpers flips g5Mode (0x68A8): off = serial marker through the same atomic sites.",
+      "asi": "game-copy/ts3native.asi.gcmark-p3-1118",
+      "iniBase": "game-copy/ts3native.ini.gcmark-p3-1118",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "ts3native.asi.gcmark-p3-1118 (0.36.283-g5p3: [GC] MarkHelpers P3 live wiring, docs/287 §7, counters v214 g5*) with its own ini and ts3fixes.package.master-1117c",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": true,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 45,
+      "ini": {
+        "GC.MarkHelpers": 2,
+        "GC.IdleGate": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 25,
+          "slice": 5,
+          "ab": "gcmarkhelpers"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.283-g5p3 ": 1,
+        "^GC idle gate: IdleGate=1 \\(gcgMode 1\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^OK   GC mark helpers: MarkHelpers=2 \\(threads 2\\) MinSplit=64 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites \\(0xE49FDF direct\\)$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) GC (mark helpers|idle gate|sub-timers)": 0,
+        "^GC mark helpers: \\d+ helper faults this session": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "g5Ready",
+          "op": ">=",
+          "value": 1,
+          "why": "mark helpers not installed (SKIP / FAIL line in ts3native.log)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5Fallback",
+          "op": "<=",
+          "value": 0,
+          "why": "install fallback (byte mismatch, thread or write failure)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5HelperAv",
+          "op": "<=",
+          "value": 0,
+          "why": "a helper faulted inside GC_mark_from"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5Anomaly",
+          "op": "<=",
+          "value": 0,
+          "why": "I1 broken: helper flag after the mark ended, or entries at the mark-done growth"
+        },
+        {
+          "afterSec": 150,
+          "counter": "g5Windows",
+          "op": ">",
+          "value": 0,
+          "why": "no helper window opened (0xE49F49 not reached with a mark running, or g5Mode 0)"
+        }
+      ]
+    },
+    {
+      "id": "sv-g5-ab",
+      "note": "[est 30 min] Baseline-SV-Spring, MarkHelpers=2 IdleGate=1, 25 min in-load ABBA (5-min slices, 10 min per arm), --ab gcmarkhelpers flips g5Mode (0x68A8): off = serial marker through the same atomic sites.",
+      "asi": "game-copy/ts3native.asi.gcmark-p3-1118",
+      "iniBase": "game-copy/ts3native.ini.gcmark-p3-1118",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "ts3native.asi.gcmark-p3-1118 (0.36.283-g5p3: [GC] MarkHelpers P3 live wiring, docs/287 §7, counters v214 g5*) with its own ini and ts3fixes.package.master-1117c",
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": true,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 45,
+      "ini": {
+        "GC.MarkHelpers": 2,
+        "GC.IdleGate": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 25,
+          "slice": 5,
+          "ab": "gcmarkhelpers"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.283-g5p3 ": 1,
+        "^GC idle gate: IdleGate=1 \\(gcgMode 1\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^OK   GC mark helpers: MarkHelpers=2 \\(threads 2\\) MinSplit=64 g5Mode=1: 8 mark-bit sites lock bts, 2 lock or, overflow deferral 0xE4C390, 6 call sites \\(0xE49FDF direct\\)$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) GC (mark helpers|idle gate|sub-timers)": 0,
+        "^GC mark helpers: \\d+ helper faults this session": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "g5Ready",
+          "op": ">=",
+          "value": 1,
+          "why": "mark helpers not installed (SKIP / FAIL line in ts3native.log)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5Fallback",
+          "op": "<=",
+          "value": 0,
+          "why": "install fallback (byte mismatch, thread or write failure)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5HelperAv",
+          "op": "<=",
+          "value": 0,
+          "why": "a helper faulted inside GC_mark_from"
+        },
+        {
+          "afterSec": 60,
+          "counter": "g5Anomaly",
+          "op": "<=",
+          "value": 0,
+          "why": "I1 broken: helper flag after the mark ended, or entries at the mark-done growth"
+        },
+        {
+          "afterSec": 150,
+          "counter": "g5Windows",
+          "op": ">",
+          "value": 0,
+          "why": "no helper window opened (0xE49F49 not reached with a mark running, or g5Mode 0)"
+        }
+      ]
+    },
+    {
+      "id": "bp-g5-vanilla",
+      "note": "[est 14 min] Baseline-BP-Spring 10 min, MarkHelpers=0 IdleGate=1: the vanilla-marker arm (nothing patched), compare gcgMs per cycle with the in-load arms.",
+      "asi": "game-copy/ts3native.asi.gcmark-p3-1118",
+      "iniBase": "game-copy/ts3native.ini.gcmark-p3-1118",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "ts3native.asi.gcmark-p3-1118 (0.36.283-g5p3: [GC] MarkHelpers P3 live wiring, docs/287 §7, counters v214 g5*) with its own ini and ts3fixes.package.master-1117c",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": true,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "ini": {
+        "GC.MarkHelpers": 0,
+        "GC.IdleGate": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.283-g5p3 ": 1,
+        "^GC idle gate: IdleGate=1 \\(gcgMode 1\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^GC mark helpers off \\(MarkHelpers=0\\)$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) GC (mark helpers|idle gate|sub-timers)": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 60,
+          "counter": "g5Ready",
+          "op": "<=",
+          "value": 0,
+          "why": "helpers installed on the vanilla arm"
+        }
+      ]
+    },
+    {
+      "id": "sv-g5-vanilla",
+      "note": "[est 14 min] Baseline-SV-Spring 10 min, MarkHelpers=0 IdleGate=1: the vanilla-marker arm (nothing patched), compare gcgMs per cycle with the in-load arms.",
+      "asi": "game-copy/ts3native.asi.gcmark-p3-1118",
+      "iniBase": "game-copy/ts3native.ini.gcmark-p3-1118",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "ts3native.asi.gcmark-p3-1118 (0.36.283-g5p3: [GC] MarkHelpers P3 live wiring, docs/287 §7, counters v214 g5*) with its own ini and ts3fixes.package.master-1117c",
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": true,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "ini": {
+        "GC.MarkHelpers": 0,
+        "GC.IdleGate": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.283-g5p3 ": 1,
+        "^GC idle gate: IdleGate=1 \\(gcgMode 1\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^GC mark helpers off \\(MarkHelpers=0\\)$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) GC (mark helpers|idle gate|sub-timers)": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 60,
+          "counter": "g5Ready",
+          "op": "<=",
+          "value": 0,
+          "why": "helpers installed on the vanilla arm"
+        }
+      ]
+    }
+  ]
+}

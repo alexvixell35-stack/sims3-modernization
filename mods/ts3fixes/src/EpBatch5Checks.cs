@@ -106,7 +106,7 @@ namespace Ts3Fixes
         {
             bool on = ShortcutOn("rubbleuselist");
             return Ep4Check("rubbleuselist", 3322, new[] { "Sims taken off a pile's use list", "left on with switch off", "errors" }, EpLive(typeof(BEp5RuHook), 1), what,
-                "still on -> removed", EpCuRemove(on, true), "not on -> left", !EpCuRemove(on, false) && !EpCuRemove(false, true));
+                "still on -> removed", CuRemove(on, true), "not on -> left", !CuRemove(on, false) && !CuRemove(false, true));
         }
 
         // BackpackLotLeakCheck run: an in-use backpack drops its handler; a dead one drops itself. Control: a live idle one.

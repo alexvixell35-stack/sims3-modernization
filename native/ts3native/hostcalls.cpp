@@ -77,8 +77,10 @@ static void HcPick(InvokeJob& v, int site) {
     v.tPick = HcNow();
     g_hcPending = 0;
     const LONG q = HcUs(v.tPick - v.tPost);
-    InterlockedIncrement(&k.hcN[site]);
-    InterlockedExchangeAdd(&k.hcQueueUs[site], q);
+    if (site < HC_SITES) {  // HC_TASK (taskserve.cpp, docs/637) has no row: its own export counts it
+        InterlockedIncrement(&k.hcN[site]);
+        InterlockedExchangeAdd(&k.hcQueueUs[site], q);
+    }
     Max(&k.hcQueueMaxUs, q);
     const LONGLONG sl = HcSleepOverlap(v.tPost, v.tPick);
     if (sl) InterlockedExchangeAdd(&k.hcQueueSleepUs, HcUs(sl));

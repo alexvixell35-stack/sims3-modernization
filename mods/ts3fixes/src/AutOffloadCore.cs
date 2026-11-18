@@ -146,7 +146,7 @@ namespace Ts3Fixes
         public const int kFirst = 0, kHit = 1, kHitWrong = 2, kMissSame = 3, kMissDiff = 4;
         const int kMaxLots = 1024, kMaxAgain = 4096;
         sealed class LotGen { public int Gen, Ev; public readonly Dictionary<int, int> Room = new Dictionary<int, int>(); public readonly Dictionary<int, Entry> Memo = new Dictionary<int, Entry>(); }
-        sealed class Entry { public object[] Items; public int Gen, RoomGen, Ev; public long Tick; }
+        sealed class Entry { public object[] Items; public int Gen, RoomGen, Ev; public long Tick; public ulong Print; }
         struct Again { public object Lot; public int Room; public long Tick; }
         readonly Dictionary<object, LotGen> mLots = new Dictionary<object, LotGen>();
         readonly List<Again> mAgain = new List<Again>();
@@ -216,7 +216,7 @@ namespace Ts3Fixes
             }
             object[] items = new object[now.Count];
             now.CopyTo(items, 0);
-            e.Items = items; e.Gen = g.Gen; e.RoomGen = rg; e.Ev = g.Ev; e.Tick = tick;
+            e.Items = items; e.Gen = g.Gen; e.RoomGen = rg; e.Ev = g.Ev; e.Tick = tick; e.Print = 0;  // no print: never an exact hit
             return cls;
         }
 
@@ -231,6 +231,40 @@ namespace Ts3Fixes
             int rg = 0;
             if (room >= 0) g.Room.TryGetValue(room, out rg);
             return e.Gen == g.Gen && e.RoomGen == rg ? e.Items : null;
+        }
+
+        // docs/274 §11 exact reuse (envlistmemoexact): as Get, and the lot's native order print (the ids the game's lot walk
+        // would push now, in order; 0 = none) must equal the print stored with the list. The generations cover the managed
+        // inputs (room ids, lot membership events); the print covers the native order, whatever changed it.
+        public object[] GetExact(object lot, int room, int kind, long tick, ulong print)
+        {
+            Tick(tick);
+            LotGen g;
+            Entry e;
+            if (print == 0 || !mLots.TryGetValue(lot, out g) || !g.Memo.TryGetValue(room * 4 + kind, out e) || e.Items == null || e.Print != print) return null;
+            int rg = 0;
+            if (room >= 0) g.Room.TryGetValue(room, out rg);
+            return e.Gen == g.Gen && e.RoomGen == rg ? e.Items : null;
+        }
+
+        // the game's own list, just built, with the print read before it was built
+        public void Put(object lot, int room, int kind, IList now, long tick, ulong print)
+        {
+            Tick(tick);
+            LotGen g;
+            if (!mLots.TryGetValue(lot, out g))
+            {
+                if (mLots.Count >= kMaxLots) Clear();
+                mLots[lot] = g = new LotGen();
+            }
+            int rg = 0;
+            if (room >= 0) g.Room.TryGetValue(room, out rg);
+            int key = room * 4 + kind;
+            Entry e;
+            if (!g.Memo.TryGetValue(key, out e)) g.Memo[key] = e = new Entry();
+            object[] items = new object[now.Count];
+            now.CopyTo(items, 0);
+            e.Items = items; e.Gen = g.Gen; e.RoomGen = rg; e.Ev = g.Ev; e.Tick = tick; e.Print = print;
         }
 
         // same objects, same count, other order (a reorder, docs/274 §8.5-§8.6)

@@ -1,6 +1,6 @@
 # 596. Seasons weather: outfits, rain, snow (2026-11-16)
 
-Static + decompiled read, then proven in game (s64, results at the end). Two switches built (default off): §1-2. The rest are leads or ruled
+Static + decompiled read, r51, nothing run in game. Two switches built (default off): §1-2. The rest are leads or ruled
 out (§3-5). Earlier Seasons work is not repeated here: docs/594 (initstacktrace, weatherstonelistener, weathermanagerthrow,
 rainsheltercheap, pondclearscan, soakedstat), docs/571 (snowfightjoinwait, hauntedumbrella), docs/578 / s58 (puddlereach,
 splashroof, mopunreachable, petpuddletile), docs/593 (lightning), docs/224 (outfitwaitpoll).
@@ -13,10 +13,10 @@ one household Sim on one route (phase-20261115-2043): a route-fail lead for docs
 ## Built
 
 Code: `mods/ts3fixes/src/SeasonsWeather596.cs`; checks print `verdict:` BROKEN (off) / FIXED (on), `controls ok`,
-`members found`; live-path asserts registered with `LiveAdd` (`CheckVerdict.cs`); repros `<switch>-check`. Both act on household Sims (EA bug
+`members found`; live-path asserts in `CheckLiveMap.cs`; repros `<switch>-check`. Both act on household Sims (EA bug
 fixes; user-directed picks keep EA's answer).
 
-### §1 `outerwearautoloop` (fixes 2149-2153, `OuterwearAutoLoopCheck`) — bug, autonomy loop, household-visible
+### §1 `outerwearautoloop` (fixes 1943-1947, `OuterwearAutoLoopCheck`) — bug, autonomy loop, household-visible
 - [verified, decompiled] The Tests of `Sim.ChangeIntoOuterwear` (cold <= 32 F, outside), `Sim.ChangeOutOfOuterwear` and
   the autonomous branch of `ChangeToddlerClothes` (toddler outside, <= 55 F) do not test the guards that make Run a no-op.
   Run goes through `Sim.GetOutfitForClothingChange` (TemperatureTooCold / RemovingOuterwear), which answers "no change"
@@ -34,7 +34,7 @@ fixes; user-directed picks keep EA's answer).
   `GetOutfitForClothingChange(TemperatureTooCold)` answer (pure for that reason).
 - How often: per autonomy pass that scores these interactions (cold weather, Sim outside, EA's Test passed).
 
-### §2 `outerwearrestore` (fixes 2154-2156, `OuterwearRestoreCheck`) — bug, wrong outfit kept, household-visible
+### §2 `outerwearrestore` (fixes 1948-1950, `OuterwearRestoreCheck`) — bug, wrong outfit kept, household-visible
 - [verified, decompiled] Every path into outerwear (GoingOutside, GoingToOutsideRoom, GoingOffLot, GoingToWork,
   GoingToSchool) stores the outfit to go back to in `Sim.OutfitCategoryToUseWhenSpinOutOfOuterwear`; RemovingOuterwear
   reads and clears it. TemperatureTooCold (`ChangeIntoOuterwear`) does not store it, so taking the coat off later gives
@@ -80,14 +80,3 @@ confirm it is too small to matter (one decision per door crossing per Sim).
 - Snow / ponds / leaves / umbrella / snowball fight / puddles: covered by the earlier builds listed above; DeepSnow,
   Snowman, SnowAngel listeners and VFX are removed in Dispose / Cleanup (docs/594 scanner queue). Lead for docs/595:
   the MakeSnowman Replan with no destination (above).
-
-## In-game results (s64, Bridgeport, 2026-11-16, run phase-20261116-1426, switch off then on)
-
-| Switch | Off | On | Measured |
-|---|---|---|---|
-| `outerwearautoloop` | BROKEN | FIXED | sticky answer same as EA 89/89; our refusals are refusals EA makes too (0/0); GoingOutside decision 2 us, our test 0-1 us |
-| `outerwearrestore` | BROKEN | FIXED | controls (already in outerwear / no change / off) store nothing |
-
-- [verified] The verdicts, controls and timings from the check lines in the run's `smallfix.txt`.
-- [inferred] A live loop or a live restore in that run: the temperature was 67-68 F, so no outerwear change happened
-  (counters 0).

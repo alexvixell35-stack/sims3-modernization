@@ -28,7 +28,7 @@ namespace Ts3Fixes
 {
     // EP batch 5b (docs/587 §11.2): tranche 4 (120 scanner-ranked EP types, 4 read-only agents; usage rank exhausted).
     // Every switch off by default; all household-visible. Checks: EpBatch5Checks.cs. Three counter slots each:
-    // fixed / seen with the switch off / errors. Slots 3301-3324 (fixes-1500) and 3325-3333 (fixes-1600).
+    // fixed / seen with the switch off / errors. Slots 3301-3324 (fixes-1500) and 1600-1608 (fixes-1600).
     //   hayscattertime        [3301] HayBale.OnScattered: scatter time never reset
     //   hauntedgnomeinv       [3304] HauntedGnome.OnLoad / SpawnGhost: ghosts and fear from a gnome in an inventory
     //   houdinignomeleak      [3307] MagicGnomeHoudini.SpawnHoudini(pos, fwd): orphan gnome on a failed placement
@@ -456,7 +456,7 @@ namespace Ts3Fixes
                     if (actor == null || pile == null || pile.HasBeenDestroyed) return;
                     bool on = ShortcutOn("rubbleuselist");
                     bool still = pile.IsActorUsingMe(actor);
-                    if (EpCuRemove(on, still)) { pile.RemoveFromUseList(actor); PatchCounters()[3322]++; }
+                    if (CuRemove(on, still)) { pile.RemoveFromUseList(actor); PatchCounters()[3322]++; }
                     else if (!on && still) PatchCounters()[3323]++;
                 }
                 catch (ResetException) { throw; }

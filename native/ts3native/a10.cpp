@@ -70,8 +70,9 @@ static void InstallA10(const wchar_t* ini) {
         if (g_arOrig[kind]) k.arReady |= 1 << (kind - 1);  // a kind without its detour is refused at START
     }
     g_arOwnKinds = kinds;
+    g_arOwnGate = kinds ? 1 : 0;  // docs/288 §4: always with Kinds, no switch (household rule)
     k.afKinds = fkinds & k.arReady;
     g_arWdKind2 = wd2 && (k.arReady & 2) ? 1 : 0;
-    Log("route async A10: Kinds=%d KindsMode=%ld ForeignKinds=%d ForeignKindsMode=%ld, hooked mask %ld, WatchdogKind2=%d", kinds,
-        k.arMode, fkinds, k.afMode, k.arReady, g_arWdKind2);
+    Log("route async A10: Kinds=%d KindsMode=%ld ForeignKinds=%d ForeignKindsMode=%ld, hooked mask %ld, WatchdogKind2=%d, own gate %s", kinds,
+        k.arMode, fkinds, k.afMode, k.arReady, g_arWdKind2, g_arOwnGate ? "unseen routes only, Mode 1 needs H2Ic + RefcountGuard" : "none (Kinds=0)");
 }

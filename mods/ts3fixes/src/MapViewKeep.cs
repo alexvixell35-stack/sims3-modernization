@@ -30,22 +30,20 @@ namespace Ts3Fixes
 
         static void ApplyMapViewKeep()
         {
-            const BindingFlags kS = BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public;
-            const BindingFlags kI = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
             Type mvc = typeof(HudController).Assembly.GetType("Sims3.UI.Hud.MapViewController");
             if (mvc == null) { AppliedLog().Add("mapviewkeep: MapViewController not found, skipped"); return; }
-            FieldInfo mgr = typeof(UIManager).GetField("gUIMgr", kS);
-            MapViewKeepHook.sInstance = mvc.GetField("sInstance", kS);
-            MapViewKeepHook.sLayout = mvc.GetField("sLayout", kS);
-            MapViewKeepHook.sLast = mvc.GetField("sLastFilterType", kS);
-            MapViewKeepHook.sGrid = mvc.GetField("mSortGrid", kI);
-            MapViewKeepHook.sBack = mvc.GetField("mSortGridBackground", kI);
-            MapViewKeepHook.sOpen = mvc.GetField("mOpenSortButton", kI);
-            MapViewKeepHook.sSel = mvc.GetField("mLastSelectedNameButton", kI);
-            MapViewKeepHook.sHi = mvc.GetField("mLastHighlightedNameButton", kI);
-            MapViewKeepHook.sSelect = mvc.GetMethod("SelectFilter", kI);
-            MapViewKeepHook.sFilter = typeof(MapTagController).GetProperty("MapTagFilter", kI);
-            MapViewKeepHook.sWinH = typeof(WindowBase).GetField("mWinHandle", kI);
+            FieldInfo mgr = typeof(UIManager).GetField("gUIMgr", kStaticAll);
+            MapViewKeepHook.sInstance = mvc.GetField("sInstance", kStaticAll);
+            MapViewKeepHook.sLayout = mvc.GetField("sLayout", kStaticAll);
+            MapViewKeepHook.sLast = mvc.GetField("sLastFilterType", kStaticAll);
+            MapViewKeepHook.sGrid = mvc.GetField("mSortGrid", kInstAll);
+            MapViewKeepHook.sBack = mvc.GetField("mSortGridBackground", kInstAll);
+            MapViewKeepHook.sOpen = mvc.GetField("mOpenSortButton", kInstAll);
+            MapViewKeepHook.sSel = mvc.GetField("mLastSelectedNameButton", kInstAll);
+            MapViewKeepHook.sHi = mvc.GetField("mLastHighlightedNameButton", kInstAll);
+            MapViewKeepHook.sSelect = mvc.GetMethod("SelectFilter", kInstAll);
+            MapViewKeepHook.sFilter = typeof(MapTagController).GetProperty("MapTagFilter", kInstAll);
+            MapViewKeepHook.sWinH = typeof(WindowBase).GetField("mWinHandle", kInstAll);
             MapViewKeepHook.sMgr = mgr == null ? null : mgr.GetValue(null) as IUIManager;
             bool fields = MapViewKeepHook.sInstance != null && MapViewKeepHook.sLayout != null && MapViewKeepHook.sLast != null && MapViewKeepHook.sGrid != null
                 && MapViewKeepHook.sBack != null && MapViewKeepHook.sOpen != null && MapViewKeepHook.sSel != null && MapViewKeepHook.sHi != null

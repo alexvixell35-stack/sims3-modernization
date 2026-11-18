@@ -1,6 +1,6 @@
-# 615: scan triage pass 2: spoil broadcaster, weather stone listener, birthday age-up record
+# 615: scan triage pass 2: spoil broadcaster, weather stone listener, birthday age-up record (s85)
 
-2026-11-17, static (ilspycmd IL of game-copy/assemblies), r73; all three fixes proven in game by their force checks (§5).
+2026-11-17, static (ilspycmd IL of game-copy/assemblies), r73, built, NOT RUN.
 
 Input: the five pass-2 hits of the 2026-11-17 scan triage. Each was checked in IL before building: three are real and
 built default off, two are false (§4). Code: `mods/ts3fixes/src/Scan85.cs`; repros `<switch>-check`; EpLive rows;
@@ -42,13 +42,3 @@ also releases the listener of a party where nobody aged up, EA's own leak). Hous
 | RideBroomArena route fail, broom invisible | fail path parks (`BroomStand.ParkBroom` FadeIn) or `Inventory.TryToAdd` (`World.ObjectSetOpacity(1)`) | false |
 | WeatherStone duplicate weather listener | no remove before the add; reset path reaches it; docs/594 §2 covers Dispose only | real, `weatherstonerelisten` |
 | BirthdayParty only first age-up recorded | returns Remove after the first add | real, `birthdayagerecord` |
-
-## 5. In-game result
-
-r73 (`phase-20261117-0915`), one load, force checks: all three off BROKEN / on FIXED, controls ok, members found, error
-counters 0.
-- `spoilbroadcast`: EA leaks one broadcaster per spoil stage; the first stage and an unreplaced broadcaster are kept.
-- `weatherstonerelisten`: EA stacks the weather listener; other stone states and no held listener are kept.
-- `birthdayagerecord`: EA drops the listener after the first age-up; a non-guest is kept, and an ended party releases it.
-
-No real spoil, weather summon or birthday age-up happened in that load, so the action counters stayed 0.

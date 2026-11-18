@@ -12,7 +12,7 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // LotManager world callbacks, fireplace herb and trash rummage broadcaster fixes (docs/611). All default off; EA bug
+    // LotManager world callbacks, fireplace herb and trash rummage broadcaster fixes (docs/611, s80). All default off; EA bug
     // fixes as EA wrote the code next to each bug. Household rule: each fix only drops what EA itself stopped using (a
     // duplicate copy of a callback EA meant to hold once, a broadcaster or effect nothing references any more), so the
     // result for household Sims is EA's intended one and there is no exemption (as heartbrokenbcast, docs/609 §7).
@@ -472,9 +472,5 @@ namespace Ts3Fixes
             return B582Line("rummagebcast", on, "a reset rummage disposes the can's broadcaster", fixedPure && liveOk && sRmbMissing.Length == 0,
                 "EA leaves it (" + eaBug + "), another Sim's rummage and no broadcaster untouched, " + live + ", leaked now " + leaked + tuning, controls && liveOk, sRmbMissing, counters);
         }
-    
-        static readonly int sLive_lotmgrcallbacks = LiveAdd("lotmgrcallbacks", () => EpLive(typeof(LmcLoadHook), 2));
-        static readonly int sLive_fireplaceherb = LiveAdd("fireplaceherb", () => EpLive(typeof(FphAddHook), 1));
-        static readonly int sLive_rummagebcast = LiveAdd("rummagebcast", () => EpJoin(EpLive(typeof(RmbCleanupHook), 1), EpLive(typeof(RmbCreateHook), 1)));
     }
 }

@@ -12,7 +12,7 @@ namespace Ts3Fixes
         {
             string missing = ((sIuActor == null ? "InteractionQueue.mActor " : "")
                 + (typeof(InteractionQueue).GetMethod("OnReset") == null ? "InteractionQueue.OnReset" : "")).Trim();
-            string counters = OuCounters("resetinusefree", 2689, "items freed after a reset", missing);
+            string counters = PhCounters("resetinusefree", 2689, "items freed after a reset", missing);
             if (what == "result") return counters;
             if (what != "run") return "resetinusefree <run|result>";
             bool on = ShortcutOn("resetinusefree");
@@ -21,7 +21,7 @@ namespace Ts3Fixes
             bool controls = ctlToddler && ctlFree;
             return "resetinusefree check (switch " + (on ? "on" : "off") + "): item freed after the reset=" + fixedNow
                 + "; control: toddler left alone=" + ctlToddler + ", item not in use untouched=" + ctlFree + "; controls ok=" + controls
-                + "; verdict: " + CkVerdict(on, fixedNow, controls, missing.Length == 0) + "; " + counters;
+                + "; verdict: " + GlVerdict(on, fixedNow, controls, missing.Length == 0) + "; " + counters;
         }
 
         // PutDownInUseCheck run: a put-down on a surface cut after the in-use mark (item still in the inventory, in use).
@@ -31,7 +31,7 @@ namespace Ts3Fixes
             string missing = (typeof(PutDown).GetMethod("Cleanup") == null ? "PutDown.Cleanup " : "")
                 + (sIuVoodooPutDown == null ? "VoodooDoll+PutDown" : "");
             missing = missing.Trim();
-            string counters = OuCounters("putdowninuse", 2691, "put-downs repaired", missing);
+            string counters = PhCounters("putdowninuse", 2691, "put-downs repaired", missing);
             if (what == "result") return counters;
             if (what != "run") return "putdowninuse <run|result>";
             bool on = ShortcutOn("putdowninuse");
@@ -40,7 +40,7 @@ namespace Ts3Fixes
             bool controls = ctlDone && ctlGround;
             return "putdowninuse check (switch " + (on ? "on" : "off") + "): cut put-down repaired=" + fixedNow
                 + "; control: finished put-down=" + ctlDone + ", ground put-down=" + ctlGround + "; controls ok=" + controls
-                + "; verdict: " + CkVerdict(on, fixedNow, controls, missing.Length == 0) + "; " + counters;
+                + "; verdict: " + GlVerdict(on, fixedNow, controls, missing.Length == 0) + "; " + counters;
         }
     }
 }

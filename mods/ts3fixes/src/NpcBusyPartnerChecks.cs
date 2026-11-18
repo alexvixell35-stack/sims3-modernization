@@ -17,7 +17,7 @@ namespace Ts3Fixes
                 + (typeof(InteractionQueue).GetMethod("HasInteraction", new Type[] { typeof(Sims3.Gameplay.Interactions.InteractionInstance) }) == null ? "InteractionQueue.HasInteraction " : "")
                 + (sSwCorePatched ? "" : "WaitForSynchronizationLevelWithSim hook")).Trim();
             int[] c = PatchCounters();
-            string counters = "npcbusypartner: waits ended 2696=" + c[2696] + ", seen with switch off 2697=" + c[2697] + ", errors 2698=" + c[2698] + "; " + CkMembers(missing);
+            string counters = "npcbusypartner: waits ended 2696=" + c[2696] + ", seen with switch off 2697=" + c[2697] + ", errors 2698=" + c[2698] + "; " + GlMembers(missing);
             if (what == "result") return counters;
             if (what != "run") return "npcbusypartner <run|result>";
             bool on = ShortcutOn("npcbusypartner");
@@ -31,7 +31,7 @@ namespace Ts3Fixes
             return "npcbusypartner check (switch " + (on ? "on" : "off") + "): NPC wait on a queued partner ended=" + fixedNow
                 + "; control: household waiter=" + ctlHhWaiter + ", household partner=" + ctlHhPartner + ", partner started=" + ctlStarted
                 + ", partner at level=" + ctlAtLevel + ", other level=" + ctlLevel + "; controls ok=" + controls
-                + "; verdict: " + CkVerdict(on, fixedNow, controls, missing.Length == 0) + "; " + counters;
+                + "; verdict: " + GlVerdict(on, fixedNow, controls, missing.Length == 0) + "; " + counters;
         }
     }
 }

@@ -35,9 +35,8 @@ namespace Ts3Fixes
 
         static void ApplyBandJam()
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            sBjSound = typeof(JamController).GetField("mSoundArray", inst);
-            sBjStop = typeof(JamController).GetMethod("StopSoundArray", inst);
+            sBjSound = typeof(JamController).GetField("mSoundArray", kInstAll);
+            sBjStop = typeof(JamController).GetMethod("StopSoundArray", kInstAll);
             Patch(typeof(JamController), "SetSweetMove", typeof(BjHook), "SweetHook", "SweetOrig");
             if (sBjSound == null || sBjStop == null) AppliedLog().Add("bandjam: JamController sound members not found, sound part not patched");
             else

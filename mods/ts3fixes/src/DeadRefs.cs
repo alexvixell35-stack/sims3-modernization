@@ -57,27 +57,26 @@ namespace Ts3Fixes
     //   Not built (docs/205 §4): adoption pool pets, Service.mPreferredServiceNpc (= preferredservice, #86).
     public static partial class Fixes
     {
-        const BindingFlags kDrAll = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        static readonly FieldInfo sAgingStates = typeof(AgingManager).GetField("AgingStates", kDrAll);
-        static readonly FieldInfo sAgingDesc = typeof(AgingState).GetField("SimDescription", kDrAll);
-        static readonly FieldInfo sAlarmIndex = typeof(AlarmManager).GetField("mGameObjectIndex", kDrAll);
-        static readonly FieldInfo sLastReact = typeof(LookAtManager).GetField("mLastReactTime", kDrAll);
-        static readonly FieldInfo sSimTopics = typeof(SocialComponent).GetField("mActiveTopics", kDrAll);
-        static readonly FieldInfo sUnforgettable = typeof(SimActiveTopics).GetField("mUnforgettableTopics", kDrAll);
-        static readonly FieldInfo sLastTalking = typeof(SocialComponent).GetField("mLastTalkingTo", kDrAll);
-        static readonly FieldInfo sPusher = typeof(SimRoutingComponent).GetField("mPusherSim", kDrAll);
-        static readonly FieldInfo sReservedVehicle = typeof(Sim).GetField("ReservedVehicle", kDrAll);
-        static readonly FieldInfo sPregDad = typeof(Pregnancy).GetField("mDad", kDrAll);
-        static readonly MethodInfo sPregCheckDad = typeof(Pregnancy).GetMethod("CheckForDad", kDrAll);
-        static readonly FieldInfo sFisher = typeof(Fish).GetField("mFishingSim", kDrAll);
-        static readonly FieldInfo sCarPrev = typeof(CarOwnable).GetField("mPreviousPassengers", kDrAll);
-        static readonly FieldInfo sCarPrevCarried = typeof(CarOwnable).GetField("mPreviousCarriedPassengers", kDrAll);
-        static readonly FieldInfo sBoatPrev = typeof(BoatOwnable).GetField("mPreviousPassengers", kDrAll);
-        static readonly FieldInfo sBoatPrevCarried = typeof(BoatOwnable).GetField("mPreviousCarriedPassengers", kDrAll);
-        static readonly FieldInfo sShoeThrown = typeof(HorseshoeCourt).GetField("mPlayersWhoHaveThrown", kDrAll);
-        static readonly FieldInfo sShoeScores = typeof(HorseshoeCourt).GetField("mScores", kDrAll);
+        static readonly FieldInfo sAgingStates = typeof(AgingManager).GetField("AgingStates", kInstAll);
+        static readonly FieldInfo sAgingDesc = typeof(AgingState).GetField("SimDescription", kInstAll);
+        static readonly FieldInfo sAlarmIndex = typeof(AlarmManager).GetField("mGameObjectIndex", kInstAll);
+        static readonly FieldInfo sLastReact = typeof(LookAtManager).GetField("mLastReactTime", kInstAll);
+        static readonly FieldInfo sSimTopics = typeof(SocialComponent).GetField("mActiveTopics", kInstAll);
+        static readonly FieldInfo sUnforgettable = typeof(SimActiveTopics).GetField("mUnforgettableTopics", kInstAll);
+        static readonly FieldInfo sLastTalking = typeof(SocialComponent).GetField("mLastTalkingTo", kInstAll);
+        static readonly FieldInfo sPusher = typeof(SimRoutingComponent).GetField("mPusherSim", kInstAll);
+        static readonly FieldInfo sReservedVehicle = typeof(Sim).GetField("ReservedVehicle", kInstAll);
+        static readonly FieldInfo sPregDad = typeof(Pregnancy).GetField("mDad", kInstAll);
+        static readonly MethodInfo sPregCheckDad = typeof(Pregnancy).GetMethod("CheckForDad", kInstAll);
+        static readonly FieldInfo sFisher = typeof(Fish).GetField("mFishingSim", kInstAll);
+        static readonly FieldInfo sCarPrev = typeof(CarOwnable).GetField("mPreviousPassengers", kInstAll);
+        static readonly FieldInfo sCarPrevCarried = typeof(CarOwnable).GetField("mPreviousCarriedPassengers", kInstAll);
+        static readonly FieldInfo sBoatPrev = typeof(BoatOwnable).GetField("mPreviousPassengers", kInstAll);
+        static readonly FieldInfo sBoatPrevCarried = typeof(BoatOwnable).GetField("mPreviousCarriedPassengers", kInstAll);
+        static readonly FieldInfo sShoeThrown = typeof(HorseshoeCourt).GetField("mPlayersWhoHaveThrown", kInstAll);
+        static readonly FieldInfo sShoeScores = typeof(HorseshoeCourt).GetField("mScores", kInstAll);
         delegate void DrCancelAgingFn(AgingState state);
-        static readonly MethodInfo sCancelAging = typeof(AgingManager).GetMethod("CancelAgingAlarmsForSim", kDrAll, null, new Type[] { typeof(AgingState) }, null);
+        static readonly MethodInfo sCancelAging = typeof(AgingManager).GetMethod("CancelAgingAlarmsForSim", kInstAll, null, new Type[] { typeof(AgingState) }, null);
         static readonly Dictionary<SimDescription, Relationship> sNoRelationships = new Dictionary<SimDescription, Relationship>();
 
         static AlarmHandle sDeadRefAlarm = AlarmHandle.kInvalidHandle;
@@ -624,8 +623,8 @@ namespace Ts3Fixes
         // As EA's ImportContent would at the next load: a gone Sim becomes the live instance of its description when there
         // is one; a reward giver with no live instance drops the component (RemoveComponent disposes it, which takes the
         // Return To Owner interaction away); a theft with no live instance is left, the stolen state belongs to it. [2047].
-        static readonly FieldInfo sOwnerOwner = typeof(ObjectOwnerComponent).GetField("mOwner", kDrAll);
-        static readonly FieldInfo sOwnerThief = typeof(ObjectOwnerComponent).GetField("mThief", kDrAll);
+        static readonly FieldInfo sOwnerOwner = typeof(ObjectOwnerComponent).GetField("mOwner", kInstAll);
+        static readonly FieldInfo sOwnerThief = typeof(ObjectOwnerComponent).GetField("mThief", kInstAll);
 
         static void OwnerHolders(GameObject o)
         {
@@ -728,8 +727,8 @@ namespace Ts3Fixes
         // is saved with the object, so a deleted description, or a relationship nobody holds, stays reachable from the object
         // (a load-time graph reset then resets the car). Such handlers leave the invocation list; run at disposal they would
         // only remove the relationship from a list that no longer has it, or from a deleted description's list. [2048].
-        static readonly FieldInfo sObjDisposed = typeof(GameObject).GetField("ObjectDisposed", kDrAll);
-        static readonly FieldInfo sRelDesc = typeof(GameObjectRelationship).GetField("mSimDesc", kDrAll);
+        static readonly FieldInfo sObjDisposed = typeof(GameObject).GetField("ObjectDisposed", kInstAll);
+        static readonly FieldInfo sRelDesc = typeof(GameObjectRelationship).GetField("mSimDesc", kInstAll);
 
         static bool RelGone(GameObjectRelationship r)
         {
@@ -818,8 +817,8 @@ namespace Ts3Fixes
         // celebrity broadcaster starts) keeps mWaitingToReact, the Sims who rolled a reaction to the celebrity and have not
         // reacted yet. A reactor reset or destroyed before its reaction never leaves (only the reaction's own end removes it),
         // and the list is saved with the Sim. Gone reactors leave through EA's own RemoveSimFromWaitingToReactList. [2049].
-        static readonly FieldInfo sSimCelebrity = typeof(Sim).GetField("mCelebrity", kDrAll);
-        static readonly FieldInfo sCelebWaiting = typeof(Celebrity).GetField("mWaitingToReact", kDrAll);
+        static readonly FieldInfo sSimCelebrity = typeof(Sim).GetField("mCelebrity", kInstAll);
+        static readonly FieldInfo sCelebWaiting = typeof(Celebrity).GetField("mWaitingToReact", kInstAll);
 
         static List<Sim> CelebWaiting(Sim s)
         {
@@ -896,9 +895,9 @@ namespace Ts3Fixes
         // simler90's core]. A handler goes when its process no longer names this object, or when the process is dead (no
         // owner, or its owner object destroyed; then ObjectClickedOn is cleared as EA's handler would at disposal). A process
         // that names no object also loses its state listener. No Sim is touched. [994] handlers.
-        static readonly MethodInfo sCpAddListeners = typeof(CookingProcess).GetMethod("AddObjectListeners", kDrAll);
+        static readonly MethodInfo sCpAddListeners = typeof(CookingProcess).GetMethod("AddObjectListeners", kInstAll);
         delegate void CpAddFn(); // CookClickListener.cs swaps AddObjectListeners: MethodInfo.Invoke with a target would throw (swapinvoke selftest)
-        static readonly FieldInfo sCpStateListener = typeof(CookingProcess).GetField("mStateChangedListener", kDrAll);
+        static readonly FieldInfo sCpStateListener = typeof(CookingProcess).GetField("mStateChangedListener", kInstAll);
 
         // shortcut: a live owner whose CookingProcess is another process still counts as live; tighten if load scans show such handlers
         static bool CpDead(CookingProcess cp)
@@ -999,10 +998,10 @@ namespace Ts3Fixes
         // turn and talked-last fields move to a live member, their topical-socials keys go; the live member's own later leave
         // is then EA's normal empty-conversation exit. Household rule: a conversation with any household, selected or
         // unknown-scope live member stays as EA has it. [995] members removed, [996] conversation visits skipped (household).
-        static readonly FieldInfo sConvMembers = typeof(Conversation).GetField("mMembers", kDrAll);
-        static readonly FieldInfo sConvTurn = typeof(Conversation).GetField("mWhoseTurn", kDrAll);
-        static readonly FieldInfo sConvTalked = typeof(Conversation).GetField("mWhoTalkedLast", kDrAll);
-        static readonly FieldInfo sConvTopical = typeof(Conversation).GetField("mTopicalSocialsAlreadyUsed", kDrAll);
+        static readonly FieldInfo sConvMembers = typeof(Conversation).GetField("mMembers", kInstAll);
+        static readonly FieldInfo sConvTurn = typeof(Conversation).GetField("mWhoseTurn", kInstAll);
+        static readonly FieldInfo sConvTalked = typeof(Conversation).GetField("mWhoTalkedLast", kInstAll);
+        static readonly FieldInfo sConvTopical = typeof(Conversation).GetField("mTopicalSocialsAlreadyUsed", kInstAll);
 
         static List<Sim> ConvMembers(Sim s)
         {
@@ -1163,8 +1162,8 @@ namespace Ts3Fixes
                 }
                 case "aging":
                 {
-                    ConstructorInfo ctor = typeof(AgingState).GetConstructor(kDrAll, null, new Type[] { typeof(SimDescription) }, null);
-                    MethodInfo valid = typeof(AgingManager).GetMethod("IsAgingStateValid", kDrAll);
+                    ConstructorInfo ctor = typeof(AgingState).GetConstructor(kInstAll, null, new Type[] { typeof(SimDescription) }, null);
+                    MethodInfo valid = typeof(AgingManager).GetMethod("IsAgingStateValid", kInstAll);
                     if (ctor == null || valid == null || AgingManager.Singleton == null) return "aging: not found";
                     object state = ctor.Invoke(new object[] { new SimDescription() });
                     // swapped method: a delegate, not MethodInfo.Invoke (see EaFixes PrefRemoveFn)

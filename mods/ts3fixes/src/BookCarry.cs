@@ -67,11 +67,14 @@ namespace Ts3Fixes
 
         // The machine's engine driver handle (StateMachineClient.mDriver.mHandle): nonzero while the engine still runs the
         // machine, 0 once Dispose released it. IsValid is no test of that: it asks whether the event queue is valid.
+        static readonly FieldInfo sBcDriver = typeof(StateMachineClient).GetField("mDriver", kInstAll);
+        static FieldInfo sBcHandle;  // mDriver's mHandle, looked up again only when the driver's type changes
+        static Type sBcHandleType;
         static long BcHandle(StateMachineClient m)
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-            object d = typeof(StateMachineClient).GetField("mDriver", inst).GetValue(m);
-            return Convert.ToInt64(d.GetType().GetField("mHandle", inst).GetValue(d));
+            object d = sBcDriver.GetValue(m);
+            if (d.GetType() != sBcHandleType) { sBcHandleType = d.GetType(); sBcHandle = sBcHandleType.GetField("mHandle", kInstAll); }
+            return Convert.ToInt64(sBcHandle.GetValue(d));
         }
 
         static Sim BcSim(string name)

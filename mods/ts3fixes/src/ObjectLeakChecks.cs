@@ -85,11 +85,10 @@ namespace Ts3Fixes
 
         static List<ReactionBroadcaster> SbOnLot(Lot l)
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             List<ReactionBroadcaster> r = new List<ReactionBroadcaster>();
-            FieldInfo sdf = typeof(Lot).GetField("mSavedData", inst);
+            FieldInfo sdf = typeof(Lot).GetField("mSavedData", kInstAll);
             object sd = sdf == null ? null : sdf.GetValue(l);
-            FieldInfo rf = sd == null ? null : sd.GetType().GetField("mReactions", inst);
+            FieldInfo rf = sd == null ? null : sd.GetType().GetField("mReactions", kInstAll);
             List<ReactionBroadcaster> rx = rf == null ? null : rf.GetValue(sd) as List<ReactionBroadcaster>;
             if (rx != null) foreach (ReactionBroadcaster b in rx) if (b != null) r.Add(b);
             return r;
@@ -97,11 +96,10 @@ namespace Ts3Fixes
 
         static string SbRun()
         {
-            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
             Type play = typeof(Shuffleboard).GetNestedType("Play", BindingFlags.Public | BindingFlags.NonPublic);
-            FieldInfo teams = typeof(Shuffleboard).GetField("mTeams", all);
-            MethodInfo trigger = play == null ? null : play.GetMethod("TriggerReactions", all);
-            FieldInfo single = play == null ? null : play.GetField("Singleton", all);
+            FieldInfo teams = typeof(Shuffleboard).GetField("mTeams", kAnyAll);
+            MethodInfo trigger = play == null ? null : play.GetMethod("TriggerReactions", kAnyAll);
+            FieldInfo single = play == null ? null : play.GetField("Singleton", kAnyAll);
             if (trigger == null || single == null || teams == null || sSbBcast == null) return "verdict: N/A (Shuffleboard+Play members not found)";
             Shuffleboard board = null;
             Lot active = Sim.ActiveActor != null ? Sim.ActiveActor.LotCurrent : null;

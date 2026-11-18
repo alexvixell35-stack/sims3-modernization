@@ -32,12 +32,10 @@ namespace Ts3Fixes
 
         static void ApplyBuyIconLeak()
         {
-            const BindingFlags st = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            sBilDict = typeof(UIManager).GetField("mCustomControlInstanceDict", st);
-            sBilDeregister = typeof(UIManager).GetMethod("DeRegisterAllEvents", st, null, new Type[] { typeof(WindowBase) }, null);
-            sBilHandle = typeof(WindowBase).GetProperty("WinHandle", inst);
-            sBilDisposed = typeof(WindowBase).GetProperty("Disposed", inst);
+            sBilDict = typeof(UIManager).GetField("mCustomControlInstanceDict", kStaticAll);
+            sBilDeregister = typeof(UIManager).GetMethod("DeRegisterAllEvents", kStaticAll, null, new Type[] { typeof(WindowBase) }, null);
+            sBilHandle = typeof(WindowBase).GetProperty("WinHandle", kInstAll);
+            sBilDisposed = typeof(WindowBase).GetProperty("Disposed", kInstAll);
             if (sBilDict == null || sBilDeregister == null || sBilHandle == null || sBilDisposed == null)
             {
                 AppliedLog().Add("buyiconleak: members not found, not patched");

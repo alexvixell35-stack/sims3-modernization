@@ -100,8 +100,8 @@ namespace Ts3Fixes
             Patch(typeof(Sims3.Gameplay.Utilities.GreetingCardTakePhotoHelper), "SimDoneWithPhoto", typeof(PhotoSessionHook), "SimDoneHook", "SimDoneOrig");
             Patch(typeof(Sims3.Gameplay.Utilities.GreetingCardTakePhotoHelper), "SimMadeItInside", typeof(PhotoSessionHook), "MadeInsideHook", "MadeInsideOrig");
             Patch(typeof(Sims3.Gameplay.Objects.EggHuntController), "IsValidEggPosition", typeof(EggSpotHook), "ValidHook", "ValidOrig");
-            Patch(typeof(Sims3.Gameplay.Careers.School.GraduateInCityHall), "WaitingLoopDel", typeof(GraduationTableHook), "CityHallWaitHook", "CityHallWaitOrig");
-            Patch(typeof(Sims3.Gameplay.Careers.School.AttendGraduation), "WaitingLoopDel", typeof(GraduationTableHook), "AttendWaitHook", "AttendWaitOrig");
+            Patch(typeof(Sims3.Gameplay.Careers.School.GraduateInCityHall), "WaitingLoopDel", typeof(GraduationCityHallHook), "CityHallWaitHook", "CityHallWaitOrig");
+            Patch(typeof(Sims3.Gameplay.Careers.School.AttendGraduation), "WaitingLoopDel", typeof(GraduationAttendHook), "AttendWaitHook", "AttendWaitOrig");
             Patch(typeof(Sim), "UpdateJazzParameter", new Type[] { typeof(string), typeof(bool) }, typeof(JazzParamHook), "UpdateHook", "UpdateOrig");
             Patch(typeof(BuffManager), "UpdateBuffs", new Type[] { typeof(float) }, typeof(BuffUpdateHook), "UpdateHook", "UpdateOrig");
             Patch(typeof(Sims3.Gameplay.Objects.Vehicles.CarNpcManager), "DriveFromPointToMatrix", new Type[] { typeof(Sims3.Gameplay.Objects.Vehicles.Car), typeof(Vector3), typeof(Matrix44) }, typeof(CarNoRouteHook), "DriveHook", "DriveOrig");
@@ -117,6 +117,12 @@ namespace Ts3Fixes
             Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "MetricTitle", typeof(MetricSkillMissingHook), "TitleHook", "TitleOrig");  // MetricSkillMissing.cs, docs/532
             Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "MetricDescription", typeof(MetricSkillMissingHook), "DescHook", "DescOrig");  // MetricSkillMissing.cs, docs/532
             if (sFwWatch != null) Patch(sFwWatch, "LoopDel", typeof(FireworksFizzleHook), "LoopHook", "LoopOrig");  // FireworksFizzle.cs, docs/533
+            if (sFwWatch != null) Patch(sFwWatch, "Run", Type.EmptyTypes, typeof(FireworksWatchLateHook), "RunHook", "RunOrig");  // FireworksWatchLate.cs
+            Patch(typeof(Sims3.Gameplay.Roles.RoleManager), "VerifyRoleGivingObjectRoles", typeof(RoleNullPurgeHook), "VerifyHook", "VerifyOrig");  // RoleNullPurge.cs
+            Patch(typeof(ScriptCore.ScriptProxy), "OnScriptError", typeof(ErrorTrapLoopHook), "ErrHook", "ErrOrig");  // ErrorTrapLoop.cs
+            Patch(typeof(Sims3.Gameplay.Socializing.SocialInteractionA), "GetStateMachine", Type.EmptyTypes, typeof(SocialNoEffectHook), "GsmHook", "GsmOrig");  // SocialNoEffectGuard.cs
+            Patch(typeof(Sims3.Gameplay.Objects.SnowWaterFight), "ControllerCallback", typeof(FightStayCapHook), "ControllerHook", "ControllerOrig");  // FightStayCap.cs
+            Patch(typeof(Sims3.Gameplay.Actors.Sim), "LoopIdle", Type.EmptyTypes, typeof(LoopIdleBridgeHook), "IdleHook", "IdleOrig");  // LoopIdleBridge.cs
             Patch(typeof(CarrySystem), "PutDown", new Type[] { typeof(Sim), typeof(Sims3.Gameplay.ObjectComponents.SurfaceType), typeof(bool) }, typeof(BookHandPutDownHook), "PutDownHook", "PutDownOrig");  // BookHand.cs, docs/251
             Patch(typeof(InteractionQueue), "PutDownCarriedObjects", typeof(BookHandQueueHook), "PdcoHook", "PdcoOrig");  // BookHand.cs, docs/251
             Patch(typeof(Sims3.Gameplay.PetSystems.PetPool), "RandomRemovePet", typeof(PetPoolOrphanHook), "RandomHook", "RandomOrig");  // PetPoolOrphan.cs, docs/534

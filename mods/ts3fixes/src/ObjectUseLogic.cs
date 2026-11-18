@@ -252,13 +252,5 @@ namespace Ts3Fixes
             }
             catch (Exception) { PatchCounters()[2684]++; }
         }
-
-        // live paths of the checks (CheckVerdict.cs CkLive): hook swaps in place, reflection handles usable
-        static readonly int sLive_handsetreset = LiveAdd("handsetreset", () => EpLive(typeof(HandsetResetHook), 1, "sOuSetState", sOuSetState, 1));
-        static readonly int sLive_flowersinuse = LiveAdd("flowersinuse", () => EpLive(typeof(FlowersInUseHook), 1));
-        static readonly int sLive_chestuselist = LiveAdd("chestuselist", () => EpLive(typeof(ChestUseListHook), 0));
-        static readonly int sLive_resetinusefree = LiveAdd("resetinusefree", () => EpJoin(EpJoin(EpLive(typeof(PutDownInUseHook), 1), EpLive(typeof(ResetInUseHook), 1, "sIuActor", sIuActor, null)), EpLive(typeof(VoodooPutDownInUseHook), 0)));
-        static readonly int sLive_putdowninuse = LiveAdd("putdowninuse", () => EpJoin(EpLive(typeof(PutDownInUseHook), 1), EpLive(typeof(VoodooPutDownInUseHook), 0)));
-        static readonly int sLive_autonomyinuseblock = LiveAdd("autonomyinuseblock", () => EpLive(typeof(AibHook), 1, "sAibHeadActive", sAibHeadActive, typeof(bool)));
     }
 }

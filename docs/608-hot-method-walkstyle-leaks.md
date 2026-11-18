@@ -1,18 +1,17 @@
 # 608: Hot-method pass 3 and walk-style requests EA never releases
 
-2026-11-17, static, r65; all three fixes proven in game by their force checks (§6). Next round of the hot-logic hunt
-(docs/606, PR #497): the most-called gameplay methods that the earlier passes (docs/586, 587, 604, 607; some are in
-open PRs such as #495 and #515) do not name. The hot
+2026-11-17, static, r65, s77, NOT RUN. Next round of the docs/604 hot-logic hunt: the most-called gameplay methods that
+docs/639, 587, 604 and 607 (and the shopping / Showtime / tourist / celebrity passes inside 604) do not name. The hot
 methods themselves are clean again; reading what the hottest routing getter (`SimRoutingComponent.UpdateWalkStyle`)
 returns led to three walk-style leaks, built as default-off EA fixes. Scan output stays in
-`game-copy/analysis/hotlogic/` (local only; it quotes EA names and line numbers).
+`game-copy/analysis/hotlogic/s77/` (it quotes EA names and line numbers).
 
 ## 1. Ranking and tools
 
 - **Rank.** `docs/data/compile-candidates.csv` + `docs/data/jit-hot.csv` (EA assemblies, sampled ms/s), and the
   callcensus lines of every `~/dev/ts3-runs/phase-2026111*/ts3native.log`: only 18 methods are censused and all 18
-  are covered by the docs/604 pass (`BuffManager.HasAnyElement` 13.7 M calls, `ActionData.Test` 0.8 M, ...). Methods whose
-  `Type.Method` is named in docs/586/587/603/604/607 were dropped. The 46 uncovered methods taken (by ms/s): 
+  are covered by docs/604 (`BuffManager.HasAnyElement` 13.7 M calls, `ActionData.Test` 0.8 M, ...). Methods whose
+  `Type.Method` is named in docs/639/587/603/604/607 were dropped. The 46 uncovered methods taken (by ms/s): 
   `SimUpdate.Simulate`, `SimClock.ElapsedTimeInMinutes`, `GameObject.GetComponent`, `InteractionObjectPair.Equals`,
   `MetaAutonomyManager.GetTuning`, `Bartending.TryGetHoursOfOperationExtended`, `SimRoutingComponent.UpdateWalkStyle`,
   `MetaAutonomyTuning.IsSomeActiveHouseholdSimAtTheVenue`, `Sim.DoInteraction`, `GameObject.SetCommodityInteractionMap`,
@@ -52,7 +51,7 @@ highest-priority style with a count above zero is the Sim's style on every route
 `Actor.RequestWalkStyle(Run)`, then `Actor.RouteAway(...)` (a `Terrain.RouteAway` continuation; the tunable comment
 says "distance to run away from the bed after doing the wake") and never unrequests. The waker, usually a
 household Sim, runs on every route from then on, across save and load, until something resets the table (NRaas
-Reset Walk).
+Reset Walk). docs/597 §1 read this method for the wake logic and missed the request.
 
 Fix as EA intended (`WalkStyleLeak77.cs`, `WsMegaHook`, switch `megaphonerun`): after EA's `Run` (in `finally`), if the
 Sim's Run count went up, the request moves onto the RouteAway that `Run` queued (the first `Terrain.RouteAway` in the
@@ -87,7 +86,7 @@ shortcut path never requests. Switch `vhomewalk`, counters 3402-3404.
 - `MegaphoneRunCheck`, `DragonCurseRunCheck`, `VirtualHomeWalkCheck` (`run` / `result`): the pure decision
   (`WsMovePure`, `VhLeft`) with controls (no EA request: nothing moved) plus a live pass on the selected Sim: EA's
   Sim-level Run request, then the fix's step onto a RouteAway made by `CreateRouteAway` (not queued) or the release; the
-  check takes its own request back in both arms. Off: BROKEN (one Run left), on: FIXED. `LiveAdd` probes assert
+  check takes its own request back in both arms. Off: BROKEN (one Run left), on: FIXED. `CheckLiveMap.cs` rows assert
   the swaps (`WsMegaHook` 1, `WsCurseHook` 1, `VirtualHomeHook` 1). Repros `megaphonerun-check`, `dragoncurserun-check`,
   `vhomewalk-check`.
 - In-play triggers (not built): megaphone wake on a sleeping Sim, then send the waker somewhere and read
@@ -95,12 +94,9 @@ shortcut path never requests. Switch `vhomewalk`, counters 3402-3404.
 - `tools/static/gameplay-scan.sh`: the unreleased-walk-style grep filtered per file (a file with any Unrequest was
   skipped, and `SimRoutingComponent.RequestWalkStyle` receivers were dropped), which hid §2 and §3; it now lists every
   direct call site (~50 lines; posture pairs such as swimming and ghost walk release elsewhere).
-- Gates: build `--on kHitchCauseHooks`, refs-resolve-check, reflect-members-check, fix-repro-check, swap-stack-audit,
-  selftest-all.
-
-## 6. In-game result
-
-Force checks, one load, package r65 (`MegaphoneRunCheck`, `DragonCurseRunCheck`, `VirtualHomeWalkCheck`): switch off
-BROKEN, switch on FIXED for all three, controls ok, members and swaps live, error counters 0. The live pass on the
-selected Sim left one Run request after the route-away with the switch off and none with it on. In-play counter
-evidence still needs a megaphone wake, a Phantasmal Curse and a busted Bridgeport party with apartment guests.
+- `tools/registry.ts`: contributor ranges as upstream #470 (fixes 2000-3999, docs 500-899); `kCounterSlots` 4000.
+- `tools/harness/sets/proven-fixes.txt`: tspawninvdup / sarcmummynpc were in the set and still in the excluded block
+  (the r64 proven commit); the excluded line now lists this batch.
+- Gates: build `--on kHitchCauseHooks`, check-live-map `--check`, refs-resolve-check, reflect-members-check,
+  fix-repro-check, swap-stack-audit, registry self-check, selftest-all (remaining failures: Windows csc / ping runners,
+  machine-load, night-run, unchanged).

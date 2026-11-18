@@ -1,9 +1,6 @@
 # 591. Usage sweep 3 (ranks 201-378 and callees of ranks 21-100)
 
-> Posted upstream with the switches listed under "In-game results" at the end. Sections on other leads or switches are kept as research notes; those switches are not part of this change.
-
-
-Date: 2026-11-16. Static read; the fixes built from it are proven in game (end of this doc). Follows docs/589 and docs/590. `*.Mimics.*` types were skipped because they have no code of their own.
+Date: 2026-11-16. Static read, nothing built. Follows docs/589 and docs/590. `*.Mimics.*` types were skipped because they have no code of their own.
 
 Every item was checked against ts3fixes (src, docs, proven-fixes, ilpatch-convert) and simler90 UPDATE242 (docs/data/mod-method-diff.csv plus an ilspycmd diff at the flagged sites). V = verified in code, I = inferred, HH = household-visible.
 
@@ -64,58 +61,3 @@ Dropped because they are already fixed:
 ## Batch 12
 
 Built 2026-11-16, all default off, NOT RUN: see docs/590 "Batch 12" for the switch table and the leads not built.
-
-## Built fixes (from the docs/590 batch table)
-
-EA bug fixes as EA intended, household included. Each switch is a ts3fixes Mono swap with a pure decision, a `<Name>Check`
-(the hook's own handles, a live-path assert, controls) and a `<switch>-check` repro; 3 slots each (fixed / seen with the
-switch off / errors). All default off.
-
-| § | lead | switch | slots | fix |
-|---|---|---|---|---|
-| 18 | 591 C1 | `awkwardscience` | 3115-3117 | the Socially Awkward science gain bonus applies to Science only |
-| 19 | 591 C2 | `chessdefeated` | 3118-3120 | the highest-ranking defeated chess opponent is the strongest one, stored with its rank |
-| 20 | 591 C4 | `privacyothers` | 3121-3123 | a Sim who left a private room's lot gets a new room check when it comes back |
-| 21 | 591 C5 | `gigmaster` | 3124-3126 | Gig Master completes at the number of gigs its text names |
-| 22 | 591 C6, 592 S4 | `intmultiple` | 3127-3129 | RandomUtil.GetIntMultiple can return its top multiple (sales up to 80%, idles up to 30 min) |
-| 23 | 591 C7 | `doorprivacynull` | 3130-3132 | a privacy situation with no sync target no longer strips the privacy of later doors |
-| 24 | 591 R1 | `leafburnfail` | 3133-3135 | a leaf pile whose fire never started is usable again |
-| 25 | 591 R2 | `catchpreyodds` | 3136-3138 | snakes and turtles are a sure catch only with Slither Stalker, like lizards |
-| 26 | 591 R3 | `picnicants` | 3139-3141 | a packed picnic basket loses its ant alarm and the ant effect is disposed |
-| 27 | 591 R5 | `loyaldoglay` | 3142-3144 | a Loyal dog's lie-down near its human targets the dog so its test passes |
-| 28 | 591 R6 | `visitlisteners` | 3145-3147 | a removed visit host's listeners are not re-added after a load |
-| 29 | 591 R7 | `sciencefxstop` | 3148-3150 | a science outcome's old effect set is stopped before a new one starts |
-| 30 | 591 R9 | `daycareliking` | 3151-3153 | daycare experience uses the child's real liking for the owner |
-| 31 | 591 R10 | `kegbreakage` | 3154-3156 | the juice kegger breakage multiplier applies only at a juice kegger party |
-| 32 | 591 R11 | `romancecooldown` | 3157-3159 | the bad-date cooldown in a group of three or more lasts hours, not minutes |
-| 33 | 591 R12 | `lightcustom` | 3160-3162 | a room or house custom light level copies the chosen level |
-| 34 | 591 R13 | `eatpreycancel` | 3163-3165 | a cancelled or failed prey eat keeps the prey and re-enables its interactions |
-| 35 | 591 R16 | `meltalarm` | 3166-3168 | an ice sculpture with no known artist melts without a throw and a restart replaces its melt alarm |
-| 36 | 591 R21 | `newspaperdef` | 3169-3171 | reading the newspaper autonomously no longer renames the newspaper menu root |
-
-## In-game results (Bridgeport combined soaks, each switch off then on in one load)
-
-| Switch | Off | On | Runs off BROKEN / on FIXED | Runs (phase-…) |
-|---|---|---|---|---|
-| `awkwardscience` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `catchpreyodds` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `chessdefeated` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `daycareliking` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `doorprivacynull` | BROKEN | FIXED | 1 | 20261116-0505 |
-| `eatpreycancel` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `gigmaster` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `intmultiple` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `kegbreakage` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `leafburnfail` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `lightcustom` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `loyaldoglay` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `meltalarm` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `newspaperdef` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `picnicants` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `privacyothers` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `romancecooldown` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `sciencefxstop` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `visitlisteners` | BROKEN | FIXED | 1 | 20261116-0234 |
-
-- [verified] The verdicts, controls ok and members found in the runs listed (`smallfix.txt` of each run).
-- [inferred] How often each case happens in normal play: the checks call the same decision functions as the hooks.

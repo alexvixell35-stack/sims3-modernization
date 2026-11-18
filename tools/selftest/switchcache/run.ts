@@ -2,11 +2,10 @@
 // same-text misses, the half-full cap, null / empty names, and the probe lengths of every real switch name (the
 // ShortcutOn literals and the case labels of the slow path, read from the source).
 //   node tools/selftest/switchcache/run.ts
-import { execFileSync } from 'node:child_process';
+import { execFileSync, CSC } from '../csc-shim.ts';
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-const CSC = 'C:/Windows/Microsoft.NET/Framework/v4.0.30319/csc.exe';
 const ROOT = resolve(import.meta.dirname, '..', '..', '..');
 const SRC = join(ROOT, 'mods', 'ts3fixes', 'src');
 const out = join(ROOT, 'build', 'selftest');

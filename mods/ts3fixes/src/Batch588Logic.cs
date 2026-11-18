@@ -32,6 +32,12 @@ namespace Ts3Fixes
         static readonly FieldInfo sSpErrCurve = sSpHist == null ? null : sSpHist.GetField("mErrorCurve", kInstAll);
         static readonly FieldInfo sSpTuning = typeof(Demographics.Demographic).GetField("mTuning", kInstAll);
 
+        static string SpNames(params object[] pairs)
+        {
+            string s = "";
+            for (int i = 0; i + 1 < pairs.Length; i += 2) if (pairs[i + 1] == null) s += pairs[i] + " ";
+            return s.Trim();
+        }
 
         // ---- B10 §1 sprelcount (tuning kSpRelCount) / §2 spcollectnull (tuning kSpCollectNull) ----------------------------
         // [verified, decompiled] Demographics.Collect builds every histogram with the incremental Add(SimDescription). For
@@ -1176,26 +1182,5 @@ namespace Ts3Fixes
             public void DeflectHook() { if (!CaRemove((CelebrityManager)(object)this, sCaDeflect)) DeflectOrig(); }
             public void DeflectOrig() { }
         }
-
-        // live paths of the checks (CheckVerdict.cs CkLive): hook swaps in place, reflection handles usable
-        static readonly int sLive_agingalarmcancel = LiveAdd("agingalarmcancel", () => EpLive(typeof(BAcHook), 1, "sAcGrad", sAcGrad, null));
-        static readonly int sLive_celebalarmnull = LiveAdd("celebalarmnull", () => EpLive(typeof(BCaHook), 2));
-        static readonly int sLive_disposevirtualslot = LiveAdd("disposevirtualslot", () => EpLive(typeof(BDvHook), 1));
-        static readonly int sLive_hhcleanupdup = LiveAdd("hhcleanupdup", () => EpLive(typeof(BHhCleanupHook), 1, "sHdNpc", sHdNpc, null, "sHdNpc", sHdNpc, "static", "sHdLotHome", sHdLotHome, null, "sHdTourist", sHdTourist, null, "sHdTourist", sHdTourist, "static"));
-        static readonly int sLive_petpoolghost = LiveAdd("petpoolghost", () => EpLive(typeof(BPgHook), 1, "sPpgIds", sPpgIds, null));
-        static readonly int sLive_spbucketindex = LiveAdd("spbucketindex", () => EpLive(typeof(BSpHistHook), 1, "sSpErrCurve", sSpErrCurve, null, "sSpTuning", sSpTuning, null, "sSpBucketIndex", sSpBucketIndex, 1));
-        static readonly int sLive_spclonedict = LiveAdd("spclonedict", () => EpJoin(EpLive(typeof(BSpBigHook), 2), EpLive(typeof(BSpSmallHook), 2)));
-        static readonly int sLive_spcollectnull = LiveAdd("spcollectnull", () => EpLive(typeof(BSpCollectHook), 1, "sCoLot", sCoLot, null, "sCoHh", sCoHh, null, "sCoSim", sCoSim, null, "sCoAll", sCoAll, null));
-        static readonly int sLive_spcreatemovein = LiveAdd("spcreatemovein", () => EpLive(typeof(BSpComboHook), 1, "sCmSpec", sCmSpec, null, "sCmLot", sCmLot, typeof(ulong)));
-        static readonly int sLive_spjobatwork = LiveAdd("spjobatwork", () => EpLive(typeof(BSpAssignHook), 1));
-        static readonly int sLive_splotdensity = LiveAdd("splotdensity", () => EpLive(typeof(BSpDensityHook), 3));
-        static readonly int sLive_splotlookup = LiveAdd("splotlookup", () => EpJoin(EpJoin(EpLive(typeof(BSpBigHook), 2), EpLive(typeof(BSpHorseHook), 1, "sLlStalls", sLlStalls, null, "sLlStalls", sLlStalls, typeof(uint))), EpLive(typeof(BSpSmallHook), 2)));
-        static readonly int sLive_spoccultpick = LiveAdd("spoccultpick", () => EpLive(typeof(BSpOccultHook), 1));
-        static readonly int sLive_sppensionprompt = LiveAdd("sppensionprompt", () => EpLive(typeof(BSpAcquireHook), 2));
-        static readonly int sLive_sprecheck = LiveAdd("sprecheck", () => EpLive(typeof(BSpTryHook), 1, "sRcUpdate", sRcUpdate, 0, "sRcDemo", sRcDemo, null, "sRcTarget", sRcTarget, typeof(float), "sRcTarget", sRcTarget, "static", "sRcMult", sRcMult, null, "sRcDrop", sRcDrop, typeof(float), "sRcDrop", sRcDrop, "static", "sRcNotify", sRcNotify, 1, "sRcTun", sRcTun, null, "sRcLast", sRcLast, null));
-        static readonly int sLive_sprelcount = LiveAdd("sprelcount", () => EpLive(typeof(BSpCollectHook), 1, "sCoLot", sCoLot, null, "sCoHh", sCoHh, null, "sCoSim", sCoSim, null, "sCoAll", sCoAll, null));
-        static readonly int sLive_sproommatejob = LiveAdd("sproommatejob", () => EpLive(typeof(BSpRoommateHook), 1, "sRjSd", sRjSd, null));
-        static readonly int sLive_virtualhomeshare = LiveAdd("virtualhomeshare", () => EpLive(typeof(BVhHook), 1, "sVhShare", sVhShare, typeof(float), "sVhShare", sVhShare, "static"));
-        static readonly int sLive_virtualmoveindup = LiveAdd("virtualmoveindup", () => EpLive(typeof(BVmHook), 1));
     }
 }

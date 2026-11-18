@@ -71,6 +71,12 @@ namespace Ts3Agent
 
         static void RunAsync(string label, Work work)
         {
+            // the start too: a task that never returns (abip 2026-11-18: one leads ~700 hitches a run, label unknown) shows here
+            lock (sAsyncLog)
+            {
+                sAsyncLog.Add(SimClock.CurrentTime().ToString() + " " + label + " started");
+                if (sAsyncLog.Count > 30) sAsyncLog.RemoveAt(0);
+            }
             Simulator.AddObject(new Sims3.Gameplay.OneShotFunctionTask(delegate
             {
                 string result;

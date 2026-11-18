@@ -9,7 +9,7 @@ using Sims3.Store.Objects;
 
 namespace Ts3Fixes
 {
-    // Walk-style requests EA leaves set on the Sim (docs/608). All default off; EA bug fixes, for every Sim.
+    // Walk-style requests EA leaves set on the Sim (docs/608, s77). All default off; EA bug fixes, for every Sim.
     //
     // SimRoutingComponent keeps one request count per walk style; the highest-priority style with a count above zero is
     // the Sim's walk style on every route (UpdateWalkStyle). InteractionInstance.RequestWalkStyle counts through a
@@ -233,9 +233,5 @@ namespace Ts3Fixes
             catch (Exception e) { missing = "threw " + e.GetType().Name; }
             return B582Line("vhomewalk", on, "an apartment Sim sent home walks again after the trip", fixedNow, ctl, controls, missing, counters);
         }
-    
-        static readonly int sLive_megaphonerun = LiveAdd("megaphonerun", () => EpLive(typeof(WsMegaHook), 1));
-        static readonly int sLive_dragoncurserun = LiveAdd("dragoncurserun", () => EpLive(typeof(WsCurseHook), 1));
-        static readonly int sLive_vhomewalk = LiveAdd("vhomewalk", () => EpLive(typeof(VirtualHomeHook), 1));
     }
 }

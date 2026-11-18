@@ -35,24 +35,22 @@ namespace Ts3Fixes
 
         static void ApplyCasPuckLeak()
         {
-            const BindingFlags st = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             Type dd = typeof(DownloadDashboard);
-            sCplDashRemove = dd.GetMethod("remove_DashboardStateUpdate", st);
-            sCplDashField = dd.GetField("DashboardStateUpdate", st);
+            sCplDashRemove = dd.GetMethod("remove_DashboardStateUpdate", kStaticAll);
+            sCplDashField = dd.GetField("DashboardStateUpdate", kStaticAll);
             sCplDashType = sCplDashRemove != null ? sCplDashRemove.GetParameters()[0].ParameterType : null;
-            sCplDashHandler = typeof(CASPuck).GetMethod("OnDashboardStateUpdated", inst, null, Type.EmptyTypes, null);
-            sCplOptHandler = typeof(CASPuck).GetMethod("OnOptionsChanged", inst, null, Type.EmptyTypes, null);
+            sCplDashHandler = typeof(CASPuck).GetMethod("OnDashboardStateUpdated", kInstAll, null, Type.EmptyTypes, null);
+            sCplOptHandler = typeof(CASPuck).GetMethod("OnOptionsChanged", kInstAll, null, Type.EmptyTypes, null);
             if (sCplDashRemove != null && sCplDashType != null && sCplDashHandler != null && sCplOptHandler != null)
                 Patch(typeof(CASPuck), "Dispose", Type.EmptyTypes, typeof(CplHook), "DisposeHook", "DisposeOrig");
             else AppliedLog().Add("caspuckevents: members not found, not patched");
 
             Type fs = typeof(CASFamilyScreen);
-            sFclSingleton = fs.GetField("gSingleton", st);
-            sFclThumb = fs.GetField("mDragCursorThumb", inst);
-            sFclInvalid = fs.GetField("mDragInvalidCursorThumb", inst);
-            sFclCursorId = fs.GetField("kDragCursorID", st);
-            sFclInvalidId = fs.GetField("kInvalidDragCursorID", st);
+            sFclSingleton = fs.GetField("gSingleton", kStaticAll);
+            sFclThumb = fs.GetField("mDragCursorThumb", kInstAll);
+            sFclInvalid = fs.GetField("mDragInvalidCursorThumb", kInstAll);
+            sFclCursorId = fs.GetField("kDragCursorID", kStaticAll);
+            sFclInvalidId = fs.GetField("kInvalidDragCursorID", kStaticAll);
             if (sFclSingleton != null && sFclThumb != null && sFclInvalid != null && sFclCursorId != null && sFclInvalidId != null && sBilDict != null)
                 Patch(fs, "Unload", Type.EmptyTypes, typeof(CplHook), "FamUnloadHook", "FamUnloadOrig");
             else AppliedLog().Add("famcursorleak: members not found, not patched");

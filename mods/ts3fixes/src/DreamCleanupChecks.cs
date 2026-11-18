@@ -27,8 +27,8 @@ namespace Ts3Fixes
         static object DreamCleanupCheckRun(string what)
         {
             int[] c = PatchCounters();
-            string counters = "dreamcleanup: unfiled 2804=" + c[2804] + ", woken filed 2805=" + c[2805] + ", seen with switch off 2806=" + c[2806]
-                + ", errors 2807=" + c[2807] + "; " + CkMembers(sDcMissing);
+            string counters = "dreamcleanup: unfiled 1114=" + c[2804] + ", woken filed 1115=" + c[2805] + ", seen with switch off 1116=" + c[2806]
+                + ", errors 1117=" + c[2807] + "; " + GlMembers(sDcMissing);
             if (what == "result") return counters;
             if (what != "run") return "dreamcleanup <run|result>";
             bool on = ShortcutOn("dreamcleanup");
@@ -71,7 +71,7 @@ namespace Ts3Fixes
                 + "; control: live-object node left to EA=" + ctlObjLive + ", Sim-subject node left to EA=" + ctlSim + ", kept-in-index removal left alone=" + ctlFlag + ", promised node not filed=" + ctlPromised
                 + ", no double filing=" + ctlTwice + ", no subject key not filed=" + ctlNoKey + ", still sleeping not filed=" + ctlStillAsleep
                 + ", listeners / panel / promise identical=" + ctlSame + "; controls ok=" + controls
-                + "; verdict: " + CkVerdict(on, fixedNow, controls, sDcMissing.Length == 0) + "; " + counters;
+                + "; verdict: " + GlVerdict(on, fixedNow, controls, sDcMissing.Length == 0) + "; " + counters;
         }
     }
 }

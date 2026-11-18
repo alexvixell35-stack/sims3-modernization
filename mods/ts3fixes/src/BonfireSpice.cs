@@ -32,9 +32,8 @@ namespace Ts3Fixes
 
         static void ApplyBonfireSpice()
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            sBfHerb = typeof(BonFire.SpiceItUp).GetField("mHerb", inst);
-            sBfBurnout = typeof(BonFire).GetField("mHerbBurnoutHandle", inst);
+            sBfHerb = typeof(BonFire.SpiceItUp).GetField("mHerb", kInstAll);
+            sBfBurnout = typeof(BonFire).GetField("mHerbBurnoutHandle", kInstAll);
             if (sBfHerb == null || sBfBurnout == null) { AppliedLog().Add("bonfirespice: BonFire members not found, not patched"); return; }
             Patch(typeof(BonFire.SpiceItUp), "Run", typeof(BfRunHook), "RunHook", "RunOrig");
             Patch(typeof(BonFire), "SpiceHitFire", typeof(BfFireHook), "HitHook", "HitOrig");

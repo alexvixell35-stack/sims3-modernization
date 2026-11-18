@@ -18,17 +18,13 @@ namespace Ts3Fixes
 {
     // EP batch 6 (docs/587 §12): tranche 5 (scanner rank, the next 120 unread EP types) and parked EP5 items. Every switch
     // off by default; all household-visible. Checks: EpBatch6Checks.cs. Three counter slots each: fixed / seen with the
-    // switch off / errors. Slots from 3334 (block fixes-1600).
+    // switch off / errors. Slots from 1609 (block fixes-1600).
     //   floorswitchuselist   [3334] FloorSwitch+StandOn.Cleanup: base cleanup skipped, Sim left on the switch's use list
     //   donationbuffchance   [3337] BuffGiggleFits / BuffPlasmaticPlatitudes: inverted percent roll (85% instead of 15%)
     //   vampirefruitsnack    [3340] VampireFruit.EatEffects: Sanguine Snack needs > Outstanding instead of >=
     //   fallenrockcollected  [3343] FallenRock.RockTimeoutCallback: an imported meteorite's untracked timer destroys it
     public static partial class Fixes
     {
-        // Pure: drop the actor from the object's use list only when the switch is on and EA's Cleanup left it there (the
-        // same rule as ObjectUseLogic.cs CuRemove, chestuselist; a copy so this batch builds on its own).
-        internal static bool EpCuRemove(bool on, bool stillOnUseList) { return on && stillOnUseList; }
-
         static void ApplyEpBatch6()
         {
             ApplyFloorSwitchUseList(); ApplyDonationBuffChance(); ApplyVampireFruitSnack(); ApplyFallenRockCollected();
@@ -57,7 +53,7 @@ namespace Ts3Fixes
                     if (actor == null || plate == null || plate.HasBeenDestroyed) return;
                     bool on = ShortcutOn("floorswitchuselist");
                     bool still = plate.IsActorUsingMe(actor);
-                    if (EpCuRemove(on, still)) { plate.RemoveFromUseList(actor); PatchCounters()[3334]++; }
+                    if (CuRemove(on, still)) { plate.RemoveFromUseList(actor); PatchCounters()[3334]++; }
                     else if (!on && still) PatchCounters()[3335]++;
                 }
                 catch (ResetException) { throw; }

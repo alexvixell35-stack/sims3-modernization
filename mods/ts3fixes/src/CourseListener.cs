@@ -31,9 +31,8 @@ namespace Ts3Fixes
 
         static void ApplyCourseListener()
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            sClSchedule = typeof(AcademicCareer).GetField("mCourseSchedule", inst);
-            sClListener = typeof(AcademicCareer.CourseCreationSpec).GetField("mRabbitHoleDisposed", inst);
+            sClSchedule = typeof(AcademicCareer).GetField("mCourseSchedule", kInstAll);
+            sClListener = typeof(AcademicCareer.CourseCreationSpec).GetField("mRabbitHoleDisposed", kInstAll);
             if (sClSchedule == null || sClListener == null) AppliedLog().Add("courselistener: AcademicCareer members not found, not patched");
             else
             {

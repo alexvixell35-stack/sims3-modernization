@@ -214,15 +214,14 @@ namespace Ts3Fixes
             sLiveMargin = AutShadowNative.Config(15) / 1000f;
             sLiveMaxWait = AutShadowNative.Config(16);
             sLiveDry = AutShadowNative.Config(18) != 0;
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-            fInterrupted = typeof(AutonomyT).GetField("mAutonomySearchWasInterrupted", inst);
-            fInspection = typeof(AutonomyT).GetField("IsRunningAutonomyForInspectionWindow", inst);
-            fBestScores = typeof(AutonomyT).GetField("mBestScores", inst);
+            fInterrupted = typeof(AutonomyT).GetField("mAutonomySearchWasInterrupted", kInstAll);
+            fInspection = typeof(AutonomyT).GetField("IsRunningAutonomyForInspectionWindow", kInstAll);
+            fBestScores = typeof(AutonomyT).GetField("mBestScores", kInstAll);
             FieldInfo fTimer = typeof(AutonomyT).GetField("sUpdateTimer", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
             sMetaTimer = fTimer != null ? fTimer.GetValue(null) as StopWatch : null;
             Type mt = typeof(Sims3.Gameplay.Autonomy.AutonomyManager);
             fMgrInstance = mt.GetField("sInstance", BindingFlags.Static | BindingFlags.NonPublic);
-            fMgrHigh = mt.GetField("mAutonomyQueueHighLOD", inst); fMgrLow = mt.GetField("mAutonomyQueueLowLOD", inst);
+            fMgrHigh = mt.GetField("mAutonomyQueueHighLOD", kInstAll); fMgrLow = mt.GetField("mAutonomyQueueLowLOD", kInstAll);
             if (fMgrHigh == null || fMgrLow == null) fMgrInstance = null;
             if (fInterrupted == null || fInspection == null || fBestScores == null)
             {
@@ -465,11 +464,12 @@ namespace Ts3Fixes
             FlipCheck();
             int[] uk = PatchCounters();
             // docs/222 scope: the actor only; UfWhy 0 = unseen (never the active household or a selectable Sim)
-            bool unseenOn = sChooseOk && ShortcutOn("autunseen");
+            bool unseenOn = sChooseOk && SwOn(kSwAutUnseen);
+            bool seenGame = SwOn(kSwAutSeenGame);  // docs/622 §3: read once (was up to 4 ShortcutOn per search)
             int why0 = unseenOn ? SafeUfWhy(a.Actor) : -1;
             // docs/271 [Experimental] HouseholdToo=1: a live household Sim takes the seen-NPC exact path (same pick, worker-helped);
             // never the unseen direct path (AtPost reads why0, which stays kHousehold)
-            bool hhLift = unseenOn && !sLiveDry && why0 == UnseenFallbackCore.kHousehold && ShortcutOn("autseengame") && HouseholdLift(a.Actor);
+            bool hhLift = unseenOn && !sLiveDry && why0 == UnseenFallbackCore.kHousehold && seenGame && HouseholdLift(a.Actor);
             bool direct = AutLiveCore.Unseen.AtPost(unseenOn, sLiveDry, why0);
             // docs/222 §11.8 V6 test: a seen actor runs the game's own search, no post and no worker wait in the shared manager
             // docs/124 §17.12 autliveseen: with autseengame, a proven seen NPC may take the exact path (seenDry: compare only);
@@ -477,13 +477,13 @@ namespace Ts3Fixes
             int seenPath = AutLiveCore.Unseen.kSeenExact;
             if (unseenOn && !direct && !sLiveDry)
             {
-                seenPath = AutLiveCore.Unseen.SeenPath(ShortcutOn("autseengame"), ShortcutOn("autliveseen"), ShortcutOn("autliveseendry"),
+                seenPath = AutLiveCore.Unseen.SeenPath(seenGame, SwOn(kSwAutLiveSeen), SwOn(kSwAutLiveSeenDry),
                     HouseholdTooCore.SeenExactOk(why0, hhLift));
                 if (seenPath == AutLiveCore.Unseen.kSeenGame) { uk[kCSeenGameRun]++; return h.MetaOrig(c); }
-                if (ShortcutOn("autseengame") && UnseenFallbackCore.HouseholdScope(why0) && !hhLift) { uk[kCSeenHhPost]++; return h.MetaOrig(c); }  // tripwire (must stay 0)
+                if (seenGame && UnseenFallbackCore.HouseholdScope(why0) && !hhLift) { uk[kCSeenHhPost]++; return h.MetaOrig(c); }  // tripwire (must stay 0)
                 uk[kCUnSeenPost]++;
             }
-            bool seenExact = unseenOn && !direct && !sLiveDry && ShortcutOn("autseengame");
+            bool seenExact = unseenOn && !direct && !sLiveDry && seenGame;
             bool seenDry = seenExact && seenPath == AutLiveCore.Unseen.kSeenDry;
             if (!seenDry && !GuardAllow(direct)) return h.MetaOrig(c);
             LiveSearch L = null;
@@ -536,14 +536,14 @@ namespace Ts3Fixes
             {
                 sDirectPairs.Clear(); sDirectSeen.Clear(); sDirectInst = null; sDirectAut = null; L.Pace.Slice();
                 // docs/222 §11.8: each tick spent waiting for the worker already held the manager like one vanilla slice (>= 1 ms)
-                L.Pace.CreditMs = ShortcutOn("autunseenpacecredit") ? waited : 0;
+                L.Pace.CreditMs = SwOn(kSwAutPaceCredit) ? waited : 0;
             }
             BestScores bs = (BestScores)fBestScores.GetValue(a);
             AutLiveCore.Heap before = L.Dry ? Snapshot(L, bs) : null;
             L.ResumeFrame = L.SliceFrame = L.CmpSlice = AutShadowNative.Config(19);
-            L.LateOn = ShortcutOn("autlivelate"); L.LateOk = false;
+            L.LateOn = SwOn(kSwAutLiveLate); L.LateOk = false;
             // docs/222 §9: an unseen actor's Dry search (still unseen at the resume, as the direct path's snap-back) compared per pair
-            L.CmpOn = L.UnseenDry && ShortcutOn("autunseencmp") && AutLiveCore.Unseen.Stay(SafeUfWhy(a.Actor));
+            L.CmpOn = L.UnseenDry && SwOn(kSwAutUnseenCmp) && AutLiveCore.Unseen.Stay(SafeUfWhy(a.Actor));
             if (L.CmpOn) uk[kCUnCmpSearches]++;
             sLiveCur = L;
             LiveActive(L, true);  // cleared by LiveRelease
@@ -1237,6 +1237,7 @@ namespace Ts3Fixes
                 int hhBusy = hhProbe && best != null ? HhBusyKind((AutonomyT)(object)this) : HhSearchRec.kBusyNone;
                 bool r = PushOrig(best);
                 if (hhProbe) HhSearchNote((AutonomyT)(object)this, best, r, hhBusy);
+                if (ShortcutOn("autlastsearch")) LastSearchNote(((AutonomyT)(object)this).Actor, best, r);
                 // Mode 3 only: the hook is in every package since O6, and G8Note walks every Sim each sim-hour
                 try { if (sLiveMode) G8Note((AutonomyT)(object)this, best, r); } catch (Exception) { PatchCounters()[121]++; }
                 if (best != null && ReferenceEquals(best, sDirectInst))
@@ -1247,6 +1248,43 @@ namespace Ts3Fixes
                 return r;
             }
             public bool PushOrig(InteractionInstance best) { return false; } // receives Autonomy.ConsiderPerformingAutonomousAction's original header
+        }
+
+        // autlastsearch (log only, default off; docs/584 §4): each Sim's last autonomy search that reached the push decision
+        // (RunAutonomy -> ConsiderPerformingAutonomousAction, every search with a queue to add to) and its result, for the
+        // census's idle question (ts3agent SimHealthHandlers: last_search, last_search_min). AppDomain data
+        // "ts3fixes.lastsearch": SimDescriptionId -> "ticks|result", result "pushed <interaction>" (EA queued its pick), "kept
+        // <head>" (a pick lost to the running head interaction) or "none" (no pick: nothing scored). Read only: the push is EA's.
+        static Dictionary<ulong, string> sLastSearch;
+        // the definition's type (as the census's "definition" field), no localized name lookup per search
+        static string LsName(InteractionInstance i)
+        {
+            if (i == null) return "?";
+            object d = i.InteractionDefinition;
+            return d != null ? d.GetType().FullName : i.GetType().FullName;
+        }
+        static void LastSearchNote(Sim actor, InteractionInstance best, bool pushed)
+        {
+            try
+            {
+                if (actor == null || actor.SimDescription == null) return;
+                if (sLastSearch == null)
+                {
+                    sLastSearch = AppDomain.CurrentDomain.GetData("ts3fixes.lastsearch") as Dictionary<ulong, string>;
+                    if (sLastSearch == null) { sLastSearch = new Dictionary<ulong, string>(); AppDomain.CurrentDomain.SetData("ts3fixes.lastsearch", sLastSearch); }
+                }
+                string what;
+                if (best == null) what = "none";
+                else if (pushed) what = "pushed " + LsName(best);
+                else
+                {
+                    InteractionInstance head = actor.InteractionQueue != null ? actor.InteractionQueue.GetHeadInteraction() : null;
+                    what = "kept " + LsName(head) + " over " + LsName(best);
+                }
+                if (sLastSearch.Count >= 4096) sLastSearch.Clear();  // bounded; the census reads the latest only
+                sLastSearch[actor.SimDescription.SimDescriptionId] = Sims3.Gameplay.Utilities.SimClock.CurrentTicks + "|" + what;
+            }
+            catch (Exception) { PatchCounters()[kCUnExc]++; }
         }
 
         // ---- docs/222 unseen-direct ----

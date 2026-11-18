@@ -9,7 +9,7 @@ namespace Ts3Fixes
         {
             bool on = ShortcutOn("floorswitchuselist");
             return Ep4Check("floorswitchuselist", 3334, new[] { "Sims taken off a floor switch's use list", "left on with switch off", "errors" }, EpLive(typeof(BEp6FsHook), 1), what,
-                "still on -> removed", EpCuRemove(on, true), "not on -> left", !EpCuRemove(on, false) && !EpCuRemove(false, true));
+                "still on -> removed", CuRemove(on, true), "not on -> left", !CuRemove(on, false) && !CuRemove(false, true));
         }
 
         // DonationBuffChanceCheck run: roll 10 with 15% fires, roll 50 does not. Control: off is EA's inverse.

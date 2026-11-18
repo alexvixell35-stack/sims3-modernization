@@ -300,6 +300,7 @@ namespace Ts3Agent
             // is the node still held by its owner's DreamsAndPromisesManager, or only by the event tracker?
             Dictionary<string, int> dream = new Dictionary<string, int>(), dreamOwners = new Dictionary<string, int>(), dreamOrphans = new Dictionary<string, int>();
             Dictionary<object, Dictionary<object, bool>> dreamMgrs = new Dictionary<object, Dictionary<object, bool>>();
+            Dictionary<string, int> dreamByTrigger = new Dictionary<string, int>(), dreamGoneSubject = new Dictionary<string, int>(), dreamGlobal = new Dictionary<string, int>();
             foreach (KeyValuePair<ulong, Dictionary<ulong, List<EventListener>>> ev in all)
             {
                 if (ev.Value == null) continue;
@@ -319,7 +320,10 @@ namespace Ts3Agent
                         DelegateListener dl = l as DelegateListener;
                         if (dl != null) LcBump(byDelegate, LcMethod(dl.Delegate));
                         if (dl != null && dl.Delegate != null && dl.Delegate.Target != null && dl.Delegate.Target.GetType().Name == "ActiveDreamNode")
-                            LcDreamListener(dl.Delegate.Target, dream, dreamMgrs, dreamOwners, dreamOrphans);
+                        {
+                            LcDreamListener(dl.Delegate.Target, dream, dreamMgrs, dreamOwners, dreamOrphans, dreamByTrigger, dreamGoneSubject);
+                            if (kv.Key == 0) LcBump(dreamGlobal, evName);  // docs/580 §17: third-party wish listeners hear every Sim's event
+                        }
                         if (so == null) noOwner++;
                         bool g = (so != null && LcGone(so)) || (l.TargetObject != null && l.TargetObject.HasBeenDestroyed);
                         Sim s = so as Sim;
@@ -358,16 +362,87 @@ namespace Ts3Agent
             Dictionary<string, object> dr = Util.Obj();
             dr["state"] = LcTop(dream, 8); dr["by_owner"] = LcTop(dreamOwners, top); dr["orphans_by_node"] = LcTop(dreamOrphans, top);
             dr["managers"] = dreamMgrs.Count;
+            dr["by_trigger"] = LcTop(dreamByTrigger, top);  // docs/579 §1: which wish triggers the listener growth comes from
+            dr["subject_gone_by_trigger"] = LcTop(dreamGoneSubject, top);  // wishes about a Sim with no SimDescription / MiniSimDescription left
+            dr["nodes_by_manager"] = LcDreamNodes(dreamMgrs);
+            dr["global_by_event"] = LcTop(dreamGlobal, top);  // listeners with no owner key (IsSatisfiableByThirdParty): run for every Sim's event  // docs/580 §17: node kinds per manager (log-only)
             r["dream_listeners"] = dr;
             return r;
         }
 
+        // docs/580 §17: per DreamsAndPromisesManager, its active nodes by kind. displayed = in the wish panel list,
+        // shown = in mDreamNodes (offered, maybe not in the top 3), promised = a promise slot, hidden = active but not offered
+        // (the tree frontier that listens for its trigger); hidden splits into never_times_out (root node or SatisfyTime 0)
+        // and timed. past_display = hidden nodes whose TimeActive passed the DisplayTime (the wish left the panel, the node
+        // stays until SatisfyTime). dup = active nodes with the same primitive and subject as another. no_listener = active
+        // nodes with no event listener. sleeping = repeatable nodes waiting to come back. stale_removal = entries of
+        // mPotentialRemovalNodes no longer active (EA's RemoveActiveNode drops only Sim / OutOfWorldSim / Object subjects,
+        // AddActiveNode also adds Pet / SimOrPet ones).
+        static Dictionary<string, object> LcDreamNodes(Dictionary<object, Dictionary<object, bool>> mgrs)
+        {
+            Dictionary<string, object> outp = Util.Obj();
+            foreach (object mgr in mgrs.Keys)
+            {
+                Dictionary<string, int> c = new Dictionary<string, int>();
+                try
+                {
+                    Sim owner = LcGet(mgr, "mActor") as Sim;
+                    IList active = LcGet(mgr, "mActiveNodes") as IList;
+                    IList shown = LcGet(mgr, "mDreamNodes") as IList, displayed = LcGet(mgr, "mDisplayedDreamNodes") as IList;
+                    IList sleeping = LcGet(mgr, "mSleepingNodes") as IList;
+                    IEnumerable promised = LcGet(mgr, "mPromiseNodes") as IEnumerable;
+                    IDictionary removal = LcGet(mgr, "mPotentialRemovalNodes") as IDictionary;
+                    Dictionary<object, bool> prom = new Dictionary<object, bool>();
+                    if (promised != null) foreach (object x in promised) if (x != null) prom[x] = true;
+                    Dictionary<string, int> seen = new Dictionary<string, int>();
+                    Dictionary<object, bool> act = new Dictionary<object, bool>();
+                    if (active != null) foreach (object o in active)
+                    {
+                        Sims3.Gameplay.DreamsAndPromises.ActiveDreamNode n = o as Sims3.Gameplay.DreamsAndPromises.ActiveDreamNode;
+                        if (o != null) act[o] = true;
+                        if (n == null) { LcBump(c, o == null ? "null" : "other " + o.GetType().Name); continue; }
+                        LcBump(c, "active");
+                        if (displayed != null && displayed.Contains(n)) LcBump(c, "displayed");
+                        else if (prom.ContainsKey(n)) LcBump(c, "promised");
+                        else if (shown != null && shown.Contains(n)) LcBump(c, "shown");
+                        else
+                        {
+                            Sims3.Gameplay.DreamsAndPromises.DreamNodeInstance ni = n.NodeInstance;
+                            bool never = ni == null || ni.IsRootNode || ni.SatisfyTime == 0f;
+                            LcBump(c, never ? "hidden never_times_out" : "hidden timed");
+                            if (ni != null && n.TimeActive > ni.DisplayTime && ni.DisplayTime > 0f) LcBump(c, "hidden past_display");
+                        }
+                        if (LcGet(n, "mEventListener") == null) LcBump(c, "no_listener");
+                        string key = "?";
+                        try
+                        {
+                            Sims3.Gameplay.DreamsAndPromises.ActiveNodeBase.NodeSubject sub = n.Subject;
+                            key = (n.NodeInstance != null ? n.NodeInstance.PrimitiveId.ToString() : "?") + "|" + (sub == null ? "none" : sub.mType + ":" + sub.mSimDescriptionId + ":" + (sub.mObject != null ? sub.mObject.GetHashCode().ToString() : ""));
+                        }
+                        catch (Exception) { }
+                        int k; seen.TryGetValue(key, out k); seen[key] = k + 1;
+                        if (k >= 1) LcBump(c, "dup");
+                    }
+                    if (sleeping != null) c["sleeping"] = sleeping.Count;
+                    if (removal != null) foreach (object v in removal.Values)
+                    {
+                        IEnumerable l = v as IEnumerable;
+                        if (l != null) foreach (object x in l) if (x != null && !act.ContainsKey(x) && (sleeping == null || !sleeping.Contains(x))) LcBump(c, "stale_removal");
+                    }
+                    outp[(owner != null ? owner.FullName : "?") + (owner != null && owner.SimDescription != null && !owner.SimDescription.IsHuman ? " (" + owner.SimDescription.Species + ")" : "")] = c;
+                }
+                catch (Exception e) { LcBump(c, "error " + e.GetType().Name); outp["?" + outp.Count] = c; }
+            }
+            return outp;
+        }
+
         // one ActiveDreamNode listener: held by the owner's manager (any of its node collections), or not
         static void LcDreamListener(object node, Dictionary<string, int> state, Dictionary<object, Dictionary<object, bool>> mgrs,
-            Dictionary<string, int> owners, Dictionary<string, int> orphans)
+            Dictionary<string, int> owners, Dictionary<string, int> orphans, Dictionary<string, int> byTrigger, Dictionary<string, int> goneSubject)
         {
             try
             {
+                LcDreamSubject(node as Sims3.Gameplay.DreamsAndPromises.ActiveDreamNode, byTrigger, goneSubject);
                 Sim owner = LcGet(node, "mOwner") as Sim;
                 if (owner == null) { LcBump(state, "no owner"); return; }
                 bool hh = owner.SimDescription != null && owner.SimDescription.Household == Household.ActiveHousehold;
@@ -401,6 +476,22 @@ namespace Ts3Agent
                 }
             }
             catch (Exception e) { LcBump(state, "error " + e.GetType().Name); }
+        }
+
+        // docs/579 §1: the wish's trigger event, and whether its subject Sim still exists anywhere (a leak only if not)
+        static void LcDreamSubject(Sims3.Gameplay.DreamsAndPromises.ActiveDreamNode n, Dictionary<string, int> byTrigger, Dictionary<string, int> goneSubject)
+        {
+            if (n == null) return;
+            string trig = "?";
+            try { trig = n.NodeInstance != null ? n.NodeInstance.TriggerEvent.ToString() : "no instance"; } catch (Exception) { }
+            LcBump(byTrigger, trig);
+            try
+            {
+                Sims3.Gameplay.DreamsAndPromises.ActiveNodeBase.NodeSubject sub = n.Subject;
+                if (sub == null || sub.mType != Sims3.Gameplay.DreamsAndPromises.DreamNodePrimitive.InputSubjectType.Sim || sub.mSimDescriptionId == 0) return;
+                if (SimDescription.Find(sub.mSimDescriptionId) == null && MiniSimDescription.Find(sub.mSimDescriptionId) == null) LcBump(goneSubject, trig);
+            }
+            catch (Exception e) { LcBump(goneSubject, "error " + e.GetType().Name); }
         }
 
         // 3. objects: every GameObject by type and by place

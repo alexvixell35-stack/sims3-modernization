@@ -10,7 +10,7 @@ using AutonomyT = Sims3.Gameplay.Autonomy.Autonomy;
 
 namespace Ts3Fixes
 {
-    // Stuck NPC interactions from the wait census (docs/613): rabbit hole exit pacing and NPC Perform For Tips. Both
+    // Stuck NPC interactions from the s83 wait census (docs/613): rabbit hole exit pacing and NPC Perform For Tips. Both
     // default off; EA bug fixes built from EA's own rule next to each bug. Household Sims keep EA's behaviour (IsPlayerSim:
     // these are skips/cuts, so the experimental HouseholdToo lift never applies).
     public static partial class Fixes
@@ -28,7 +28,7 @@ namespace Ts3Fixes
         // only queues the town. Fix as EA did for school: CanSimSkipExitWait is also true for an NPC that is not high LOD
         // (EA's own Autonomy.IsSufficientlyOnScreenForHighLODSimulation: not on the active lot, not with the player, not on
         // screen). Exit slots stay reserved by EA's GetExitSlot, so two Sims never share a door slot.
-        // Counters: [3453] exit waits skipped, [3454] unused since r72 (off arm runs EA only), [3455] household or
+        // Counters: [3453] exit waits skipped, [3454] unused since s84 (off arm runs EA only), [3455] household or
         // seen Sims kept on EA's wait (switch on), [3456] errors.
         static string sRhxMissing = "";
 
@@ -64,7 +64,7 @@ namespace Ts3Fixes
                 if (ea) return true;
                 try
                 {
-                    // switch off: EA's answer only, no extra game calls (r72: the off arm runs nothing but EA's body)
+                    // switch off: EA's answer only, no extra game calls (s84: the off arm runs nothing but EA's body)
                     if (sRhxMissing.Length > 0 || sim == null || !ShortcutOn("rhexitunseen")) return false;
                     bool player = IsPlayerSim(sim), unseen = !player && RhxUnseen(sim);
                     if (RhxSkip(true, false, unseen, player)) { PatchCounters()[3453]++; return true; }
@@ -148,7 +148,7 @@ namespace Ts3Fixes
         // behind is wiped too (census: Perform For Tips 316-589 sim-min still with queue 2, motives frozen). Fix as EA
         // intended: an NPC performer that is not high LOD ends its tips loop at EA's own low-LOD cap (Finished, as DoLoop's
         // cap does), then Run takes EA's normal ending (stop, wait for tips, TNS).
-        // Counters: [3457] tips loops ended at the low-LOD cap, [3458] unused since r72 (off arm runs EA only), [3459] past the cap
+        // Counters: [3457] tips loops ended at the low-LOD cap, [3458] unused since s84 (off arm runs EA only), [3459] past the cap
         // kept by the household rule or a seen Sim (switch on), [3460] errors.
         static string sTneMissing = "";
 
@@ -181,7 +181,7 @@ namespace Ts3Fixes
                 {
                     PerformanceCareer.PerformerPerformForTips self = (object)this as PerformanceCareer.PerformerPerformForTips;
                     Sim a = self == null ? null : self.Actor;
-                    if (a != null && sTneMissing.Length == 0 && ShortcutOn("tipsnpcend"))   // off: EA's body only (r72)
+                    if (a != null && sTneMissing.Length == 0 && ShortcutOn("tipsnpcend"))   // off: EA's body only (s84)
                     {
                         float cap = TneCap();
                         if (ld.mLifeTime > cap)
@@ -242,8 +242,5 @@ namespace Ts3Fixes
                 "EA never ends it (" + eaBug + "), under cap / seen / household kept, " + live + ", performing for tips now " + performing
                 + " (unseen NPCs " + performingUnseen + ")", controls && liveOk, sTneMissing, counters);
         }
-    
-        static readonly int sLive_rhexitunseen = LiveAdd("rhexitunseen", () => EpLive(typeof(RhxSkipHook), 1));
-        static readonly int sLive_tipsnpcend = LiveAdd("tipsnpcend", () => EpLive(typeof(TneLoopHook), 1));
     }
 }

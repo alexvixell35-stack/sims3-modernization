@@ -215,7 +215,7 @@ namespace Ts3Fixes
         {
             public void DoorHook()
             {
-                if (!ShortcutOn("alarmtime")) { DoorOrig(); return; }
+                if (!SwOn(kSwAlarmTime)) { DoorOrig(); return; }
                 uint t = HcDoorStart((Lot)(object)this);
                 DoorOrig();
                 sHcDoorUs = unchecked(SrcNowUs() - t);
@@ -224,7 +224,7 @@ namespace Ts3Fixes
 
             public void DetailHook()
             {
-                if (!ShortcutOn("alarmtime")) { DetailOrig(); return; }
+                if (!SwOn(kSwAlarmTime)) { DetailOrig(); return; }
                 uint t = SrcNowUs();
                 DetailOrig();
                 sHcDetailUs = unchecked(SrcNowUs() - t);

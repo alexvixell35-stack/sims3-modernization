@@ -336,18 +336,17 @@ namespace Ts3Fixes
 
         static void ApplyAutShadow()
         {
-            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
             try
             {
-                fLotsKnown = typeof(AutonomyT).GetField("mLotsKnownAbout", all);
-                fAllowedRooms = typeof(Sim).GetField("mAllowedRooms", all);
-                fRoomCallbacks = typeof(Lot).GetField("mRoomRestrictionCheckCallbacks", all);
-                fDatingRecords = typeof(OnlineDatingManager).GetField("mActiveRecords", all);
+                fLotsKnown = typeof(AutonomyT).GetField("mLotsKnownAbout", kAnyAll);
+                fAllowedRooms = typeof(Sim).GetField("mAllowedRooms", kAnyAll);
+                fRoomCallbacks = typeof(Lot).GetField("mRoomRestrictionCheckCallbacks", kAnyAll);
+                fDatingRecords = typeof(OnlineDatingManager).GetField("mActiveRecords", kAnyAll);
                 Type rec = typeof(OnlineDatingManager).GetNestedType("OnlineDatingRecord", BindingFlags.NonPublic);
-                fAcceptedDates = rec != null ? rec.GetField("mAcceptedDates", all) : null;
-                mCanAnyMeta = typeof(AutonomyT).GetMethod("CanRunAnyMetaAutonomy", all);
-                mCanFullMeta = typeof(AutonomyT).GetMethod("CanRunFullMetaAutonomy", all);
-                fPostureList = typeof(Sims3.Gameplay.ActorSystems.Posture).GetField("mInteractions", all);
+                fAcceptedDates = rec != null ? rec.GetField("mAcceptedDates", kAnyAll) : null;
+                mCanAnyMeta = typeof(AutonomyT).GetMethod("CanRunAnyMetaAutonomy", kAnyAll);
+                mCanFullMeta = typeof(AutonomyT).GetMethod("CanRunFullMetaAutonomy", kAnyAll);
+                fPostureList = typeof(Sims3.Gameplay.ActorSystems.Posture).GetField("mInteractions", kAnyAll);
                 sNoPostureList = new List<InteractionObjectPair>();
                 if (fLotsKnown == null || fAllowedRooms == null || fRoomCallbacks == null || fDatingRecords == null
                     || fAcceptedDates == null || mCanAnyMeta == null || mCanFullMeta == null || fPostureList == null)
@@ -729,6 +728,7 @@ namespace Ts3Fixes
             Census();
             ApplyIlOwners();
             sImplVerdict.Clear();
+            MetaRowsNewGen();  // docs/622 §1: every kept AddObj row was computed under the old guard state
             return true;
         }
 
@@ -961,6 +961,7 @@ namespace Ts3Fixes
                 // Mode R reads it again at the cut (AutReference, docs/122 §14.18); this read serves Mode W.
                 sGardening = Sim.NumSimsDoingGardening;
                 AutShadowNative.AddRow(actor.ObjectId.Value, 1);
+                sMetaRowsOn = SwOn(kSwMetaRows);  // docs/622 §1 autmetarows
                 if ((bool)mCanFullMeta.Invoke(a, null))
                 {
                     foreach (IMetaObject m in AutonomyT.PublicMetaObjects) AddObj(q, m);
@@ -1048,7 +1049,8 @@ namespace Ts3Fixes
             int o = q.Objs++;
             q.Obj[o] = m;
             q.Start[o] = q.Pairs;
-            q.ObjImpl[o] = ImplVerdict(m.GetType());
+            MetaRow row = sMetaRowsOn ? MetaRowGet(m) : null;  // docs/622 §1: same verdicts, kept per object and ad index
+            q.ObjImpl[o] = row != null ? row.Impl : ImplVerdict(m.GetType());
             AutShadowNative.AddRow(m.ObjectId.Value, 0);
             Lot lot = m as Lot ?? m.LotCurrent;
             if (lot != null)
@@ -1061,18 +1063,27 @@ namespace Ts3Fixes
             if (m is BakeSaleTable) q.BakeSales.Add(m.Position);
             ArrayList ads = m.MetaAds;
             if (ads == null) return;
+            int[] c = row != null ? PatchCounters() : null;
             for (int i = 0; i < ads.Count && q.Pairs < kMaxPairs; i++)
             {
                 InteractionObjectPair iop = ads[i] as InteractionObjectPair;
                 if (iop == null) continue;
-                int p = q.Pairs++, k;
+                int p = q.Pairs++;
                 q.Pair[p] = iop;
                 q.PairObj[p] = o;
-                q.Def[p] = iop.InteractionDefinition != null && sDefIndex.TryGetValue(iop.InteractionDefinition.GetType(), out k) ? (sDefGuardHit[k] ? -2 : k) : -1;
+                InteractionDefinition def = iop.InteractionDefinition;
+                if (row != null)
+                {
+                    bool hit;
+                    q.Def[p] = MetaRowDef(row, i, def, out hit);
+                    c[hit ? 3490 : 3491]++;
+                }
+                else q.Def[p] = MetaDefVerdict(def);
                 // G-M2 (docs/128 §4): the tuning's scoring function, read here on the sim thread (only LoadTuning writes it)
                 InteractionTuning tun = iop.Tuning;
                 q.Acb[p] = tun != null && tun.AlwaysChooseBest;
-                if (q.Def[p] >= 0 && tun != null && tun.ScoringFunction != null && !SfAllowed(tun.ScoringFunction)) { q.Def[p] = -3; PatchCounters()[122]++; }
+                if (q.Def[p] >= 0 && tun != null && tun.ScoringFunction != null && !(row != null ? MetaRowSf(row, i, tun.ScoringFunction) : SfAllowed(tun.ScoringFunction)))
+                { q.Def[p] = -3; PatchCounters()[122]++; }
                 q.PairIndex[iop] = p;
             }
         }
@@ -1918,7 +1929,6 @@ namespace Ts3Fixes
 
         static void T2P1Hooks(List<string> failed)
         {
-            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
             Type[] tt = new Type[AutShadowCore.kT2InUseTypes.Length];
             int present = 0;
             for (int i = 0; i < tt.Length; i++)
@@ -1935,10 +1945,10 @@ namespace Ts3Fixes
                 & (cone == null || Hook(failed, cone, "get_InUse", null, typeof(AutInUseHook), "ConeHook", "ConeOrig"))
                 & (prop == null || Hook(failed, prop, "get_InUse", null, typeof(AutInUseHook), "PropHook", "PropOrig"));
             sT2InUseHooked = allIn && present > 0;  // one unpatched present override = the switch stays off
-            fFires = typeof(Sims3.Gameplay.Controllers.FireManager).GetField("mFires", all);
+            fFires = typeof(Sims3.Gameplay.Controllers.FireManager).GetField("mFires", kAnyAll);
             if (fFires == null) failed.Add("FireManager.mFires");
             else sT2FireHooked = Hook(failed, typeof(Sims3.Gameplay.Controllers.FireManager), "HasOnlyLeafPileFires", null, typeof(AutFireHook), "FireHook", "FireOrig");
-            fDragSingleton = typeof(Sims3.Gameplay.UI.LiveDragHelperModel).GetField("gSingleton", all);
+            fDragSingleton = typeof(Sims3.Gameplay.UI.LiveDragHelperModel).GetField("gSingleton", kAnyAll);
             if (fDragSingleton == null) failed.Add("LiveDragHelperModel.gSingleton");
         }
 
@@ -2020,17 +2030,16 @@ namespace Ts3Fixes
         // every H7-H10 site takes an explicit abort branch for it first (uncounted). H8 and H10 answer only for the
         // request's own autonomy, whose actor is that NPC; any other Sim's autonomy aborts.
         static bool sT2DragHooked, sT2CacheHooked, sT2TuningHooked, sT2LodHooked;
-        static FieldInfo fDragCached, fDragCache, fUseCached, fHighLod, fLodTick, fReqTuning, fTuning, fTargetType, fTuningMember;
+        static FieldInfo fDragCached, fDragCache, fUseCached, fHighLod, fLodTick, fReqTuning, fTargetType, fTuningMember;
 
         static void T2HHooks(List<string> failed)
         {
-            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
             Type drag = typeof(Sims3.Gameplay.UI.LiveDragHelperModel), iop = typeof(InteractionObjectPair);
-            fDragCached = drag.GetField("sTopDraggedObjectCached", all); fDragCache = drag.GetField("sTopDraggedObjectCache", all);
-            fUseCached = typeof(AutonomyT).GetField("mUseCachedValues", all);
-            fHighLod = typeof(AutonomyT).GetField("mbHighLOD", all); fLodTick = typeof(AutonomyT).GetField("mLODCheckTick", all);
-            fReqTuning = iop.GetField("sRequiresTuningCache", all); fTargetType = iop.GetField("mTargetType", all);
-            fTuningMember = iop.GetField("mTuning", all);
+            fDragCached = drag.GetField("sTopDraggedObjectCached", kAnyAll); fDragCache = drag.GetField("sTopDraggedObjectCache", kAnyAll);
+            fUseCached = typeof(AutonomyT).GetField("mUseCachedValues", kAnyAll);
+            fHighLod = typeof(AutonomyT).GetField("mbHighLOD", kAnyAll); fLodTick = typeof(AutonomyT).GetField("mLODCheckTick", kAnyAll);
+            fReqTuning = iop.GetField("sRequiresTuningCache", kAnyAll); fTargetType = iop.GetField("mTargetType", kAnyAll);
+            fTuningMember = iop.GetField("mTuning", kAnyAll);
             if (fDragCached == null || fDragCache == null) failed.Add("LiveDragHelperModel.sTopDraggedObjectCache*");
             else sT2DragHooked = Hook(failed, drag, "get_CachedTopDraggedObject", null, typeof(AutDragHook), "CachedHook", "CachedOrig")
                 & Hook(failed, drag, "get_TopDraggedObject", null, typeof(AutDragHook), "TopHook", "TopOrig");
@@ -2168,16 +2177,15 @@ namespace Ts3Fixes
 
         static void T2P2Hooks(List<string> failed)
         {
-            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
             Type ce = typeof(Sims3.Gameplay.TimeTravel.CauseEffectService);
-            fCeData = ce.GetField("sPersistableData", all);
+            fCeData = ce.GetField("sPersistableData", kAnyAll);
             if (fCeData == null) failed.Add("CauseEffectService.sPersistableData");
             else sT2CeHooked = Hook(failed, ce, "IfNecessaryAllocatePersistableData", null, typeof(AutCeHook), "CeHook", "CeOrig");
             sT2DoorHooked = Hook(failed, typeof(Lot), "FindFrontDoor", null, typeof(AutFrontDoorHook), "DoorHook", "DoorOrig");
             Type cab = typeof(Sims3.Gameplay.Objects.Counters.Cabinetry), swing = typeof(Sims3.Gameplay.Objects.Environment.SwingSet),
                 stall = typeof(Sims3.Gameplay.Objects.Pets.BoxStall), sect = typeof(Sims3.Gameplay.Objects.Seating.ChairSectional);
-            fCabSuite = cab.GetField("mBuildBuySuite", all); fSwingSuite = swing.GetField("mBuyModeSuite", all);
-            fStallSuite = stall.GetField("mBuyModeSuite", all); fSectSuite = sect.GetField("mBuildBuySuite", all);
+            fCabSuite = cab.GetField("mBuildBuySuite", kAnyAll); fSwingSuite = swing.GetField("mBuyModeSuite", kAnyAll);
+            fStallSuite = stall.GetField("mBuyModeSuite", kAnyAll); fSectSuite = sect.GetField("mBuildBuySuite", kAnyAll);
             if (fCabSuite == null || fSwingSuite == null || fStallSuite == null || fSectSuite == null) failed.Add("BuyModeSuite fields");
             else sT2SuiteHooked = Hook(failed, cab, "get_BuyModeSuite", null, typeof(AutSuiteHook), "CabHook", "CabOrig")
                 & Hook(failed, swing, "get_BuyModeSuite", null, typeof(AutSuiteHook), "SwingHook", "SwingOrig")
@@ -2310,9 +2318,8 @@ namespace Ts3Fixes
 
         static void T2P3Hooks(List<string> failed)
         {
-            const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-            Type cp = typeof(Sim.CallPet).GetNestedType("Definition", all);
-            fPickerList = cp != null ? cp.GetField("mSimPickerList", all) : null;
+            Type cp = typeof(Sim.CallPet).GetNestedType("Definition", kAnyAll);
+            fPickerList = cp != null ? cp.GetField("mSimPickerList", kAnyAll) : null;
             if (fPickerList == null) { failed.Add("Sim+CallPet+Definition.mSimPickerList"); return; }
             sT2CallPetHooked = Hook(failed, cp, "Test", new Type[] { typeof(Sim), typeof(Sim), typeof(bool), typeof(GreyedOutTooltipCallback).MakeByRefType() },
                 typeof(AutCallPetHook), "TestHook", "TestOrig");

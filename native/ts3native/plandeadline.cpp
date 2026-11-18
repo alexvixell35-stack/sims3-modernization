@@ -118,6 +118,7 @@ static LONG g_kdScope, g_kdScopeIa;
 // sim thread (UdTextMsg): this route's scope, good for its next START only; ia = the routefail interaction id sent with it (RfIaName)
 static void KdScopeSet(DWORD handle, LONG scope, LONG ia) { g_kdScopeH = handle, g_kdScope = scope, g_kdScopeIa = ia, ts3native_counters.kdScopeN++; }
 static LONG RfIaPeek(DWORD handle) { return handle && g_kdScopeH == handle ? g_kdScopeIa : 0; }  // START, before KdScopeTake
+static LONG KdScopePeek(DWORD handle) { return handle && g_kdScopeH == handle ? g_kdScope : 0; }  // docs/288 §4
 static LONG KdScopeTake(DWORD handle) {
     const LONG s = handle && g_kdScopeH == handle ? g_kdScope : 0;
     g_kdScopeH = 0;
@@ -130,6 +131,10 @@ static __declspec(thread) bool t_kdSeen, t_kdNpc;  // this sync plan's scope was
 // never farther than the 3D distance of UfSphereUnseen, so it can only hold more than that rule. In view or no fresh snapshot = no cut:
 // the job or plan runs on to the NPC ceiling (scope 2 is never household). One test per job or plan, at its first cut; a hold is not retested.
 // Stale: 1 s, above every kind deadline (backoff doubled = 500 ms), because the sim stops publishing while it waits on the job's +0x918.
+// "Held" = not cut: the job or plan simply runs on, as a seen NPC's does under KdExemptSeen (same KdSeenNpcCeilMs, same exempt
+// records); nothing waits on the sim thread that a seen Sim's job would not make it wait for. Mode 2 = mode 1, plus: if that
+// ceiling still cuts it, VIEW? (0x83 optLo 4, asked by ts3fixes after CUT? answered 1) answers 1, so ts3fixes skips its unseen-only
+// recovery (teleport, no-retry window, not-a-failure) as for a seen NPC's ceiling cut. Older ts3fixes never asks.
 static const LONG kKdCamStaleMs = 1000;
 static void UfCamFresh();
 static bool KdCamRead(KdCamSnap* out) {
@@ -164,15 +169,16 @@ static void KdCamPlanArgs(const int* starts, const int* goals) {
     for (; s && s + 64 <= e && n < KD_CAM_PTS; s += 64) t_kdCamP[n][0] = *(const float*)s, t_kdCamP[n][1] = *(const float*)(s + 8), n++;
     t_kdCamN = n;
 }
-static void KdCamJobArm() { t_kdCam = t_fbDeadline && t_kdJobScope == 2 ? 1 : 0, t_kdCamN = 0, t_kdCamNote = 0; }
+static void KdCamJobArm() { t_kdCam = t_fbDeadline && t_kdJobScope == 2 ? 1 : 0, t_kdCamN = 0, t_kdCamNote = 0, t_kdCamView = 0; }
 // past a deadline (BudgetStep, PdWorkerSkip, PdSkip): false = cut as ever; true = no cut, *dl = the deadline now in force
 static bool KdCamHold(LONGLONG now, LONGLONG* dl) {
     if (!t_kdCam) return false;
     if (t_kdCam == 2) return *dl = t_kdCamDl, now < t_kdCamDl;
     Ts3nCounters& k = ts3native_counters;
-    const bool act = k.kdCamMode == 1;
+    const bool act = k.kdCamMode >= 1, viewAsk = k.kdCamMode == 2;
     const LONGLONG t0 = t_pd.open ? t_pd.t0 : t_jobT0, ceil = t0 + (LONGLONG)k.kdNpcCeilUs * g_qpf.QuadPart / 1000000;
     if (!t_kdCamN) {  // before the IC's first plan: no points yet, the next cut point asks again; the ceiling still holds
+        if (viewAsk) t_kdCamView = 1;  // untestable counts as in view, also for the cut at the ceiling
         if (act && now < ceil) return true;
         t_kdCam = 0;
         return false;
@@ -182,9 +188,10 @@ static bool KdCamHold(LONGLONG now, LONGLONG* dl) {
     if (act && t_pd.open) UfCamFresh();  // a sync plan: the sim publishes nothing while it plans, and this is the sim
     KdCamSnap c;
     const bool fresh = KdCamRead(&c) && (now - c.at) * 1000 < kKdCamStaleMs * g_qpf.QuadPart;
-    if (fresh && !KdCamInView(c, t_kdCamP, t_kdCamN)) return false;
+    if (fresh && !KdCamInView(c, t_kdCamP, t_kdCamN)) { t_kdCamView = 0; return false; }  // unseen after all: recovery as ever
     if (!fresh) InterlockedIncrement(&k.kdCamStale);
     t_kdCamNote = fresh ? (act ? 1 : 3) : (act ? 2 : 4);
+    if (viewAsk) t_kdCamView = 1;  // a later ceiling cut of this job or plan answers VIEW? 1
     if (!act) { if (fresh) InterlockedIncrement(&k.kdCamWould); return false; }
     if (fresh) InterlockedIncrement(&k.kdCamHeld);
     if (now >= ceil) return false;
@@ -243,7 +250,9 @@ static void ReadKindDeadlines(const wchar_t* ini) {
     k.kdExMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdExemptSeen", 1, ini), 0, 1);
     k.kdCeilUs = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdSeenCeilMs", 10000, ini), 1000, 60000) * 1000;
     k.kdNpcCeilUs = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdSeenNpcCeilMs", 2000, ini), 1000, 60000) * 1000;
-    k.kdCamMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdCutCamRecheck", 0, ini), 0, 1);
+    k.kdCamMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdCutCamRecheck", 0, ini), 0, 2);
+    g_pfMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"PlayerFirst", 0, ini), 0, 1);  // docs/631
+    if (g_pfMode) Log("route async: PlayerFirst=1: queued jobs of player-ordered routes (ts3fixes playerfirst) run first (docs/631)");
     g_kdUfCap = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdUnseenForeignCap", 0, ini), 0, 2);
     if (g_kdUfCap) Log("route async: KdUnseenForeignCap=%d: %s jobs of unseen followers keep the doubled deadline at backoff level 2 (docs/197 §7)",
                        g_kdUfCap, g_kdUfCap == 2 ? "foreign and own" : "foreign");
@@ -574,6 +583,12 @@ static void ReadPlanDeadline(const wchar_t* ini) {
     k.owReady = GetPrivateProfileIntW(L"RouteAsync", L"OwnJobWait", 0, ini) ? 1 : 0;          // docs/178 T4 (observe only)
     k.jyMode = GetPrivateProfileIntW(L"RouteAsync", L"JobYield", 0, ini) ? 1 : 0;             // docs/183 (runtime switch)
     k.rwMode = GetPrivateProfileIntW(L"RouteAsync", L"WorkerWait", 0, ini) ? 1 : 0;           // docs/203 §6 (runtime switch)
+    ts3native_readydrain.mode = GetPrivateProfileIntW(L"RouteAsync", L"ReadyDrain", 0, ini) ? 1 : 0;  // ts3native.cpp ReadyDrain
+    ts3native_readydrain.budgetUs = Clamp((LONG)GetPrivateProfileIntW(L"RouteAsync", L"ReadyDrainUs", 2000, ini), 100, 10000);
+    ts3native_readydrain.frameUs = Clamp((LONG)GetPrivateProfileIntW(L"RouteAsync", L"ReadyDrainFrameUs", 3000, ini), 0, 20000);
+    ts3native_readydrain.gapUs = Clamp((LONG)GetPrivateProfileIntW(L"RouteAsync", L"ReadyDrainGapUs", 300, ini), 50, 5000);
+    if (ts3native_readydrain.mode) Log("route async: ReadyDrain=1, budget %ld us per READY poll, %ld us per frame, gap %ld us",
+                                       ts3native_readydrain.budgetUs, ts3native_readydrain.frameUs, ts3native_readydrain.gapUs);
     ReadKindDeadlines(ini);                                                                    // docs/197
     ReadCutOnWait(ini);                                                                        // docs/850 [RouteAsync] CutOnWait
     ReadUnseenFallback(ini);                                                                   // docs/202 (unseenfb.cpp)
@@ -585,7 +600,7 @@ static LONGLONG PdNow() { LARGE_INTEGER q; QueryPerformanceCounter(&q); return q
 
 // sim thread, a session just opened: a known unseen plan's first cut asks the camera. handle 0 = non-IC plan: the plan ts3fixes runs
 static void KdCamSyncArm(DWORD handle) {
-    t_kdCam = !t_pd.ceil && (t_ufSess || (g_kdScopeH && (!handle || g_kdScopeH == handle) && g_kdScope == 2)) ? 1 : 0, t_kdCamN = 0, t_kdCamNote = 0;
+    t_kdCam = !t_pd.ceil && (t_ufSess || (g_kdScopeH && (!handle || g_kdScopeH == handle) && g_kdScope == 2)) ? 1 : 0, t_kdCamN = 0, t_kdCamNote = 0, t_kdCamView = 0;
 }
 
 static void PdOpen(int entry, LONG us) {

@@ -33,6 +33,11 @@ namespace Ts3Fixes
     // R22/R23 (one-line leads without notes).
     public static partial class Fixes
     {
+        static FieldInfo B12FUp(Type t, string n)
+        {
+            for (; t != null; t = t.BaseType) { FieldInfo f = t.GetField(n, kB11All | BindingFlags.DeclaredOnly); if (f != null) return f; }
+            return null;
+        }
 
         // ---- B12 §18 awkwardscience (docs/591 C1) --------------------------------------------------------------------
         // [verified, decompiled] Skill.ComputeSkillGainMod adds TraitTuning.SociallyAwkwardScienceSkillGainMod to every
@@ -901,26 +906,5 @@ namespace Ts3Fixes
 
             public InteractionInstance ReadOrig(Sim s) { return null; }
         }
-
-        // live paths of the checks (CheckVerdict.cs CkLive): hook swaps in place, reflection handles usable
-        static readonly int sLive_awkwardscience = LiveAdd("awkwardscience", () => EpLive(typeof(B12AsHook), 1, "sAsOwner", sAsOwner, null));
-        static readonly int sLive_catchpreyodds = LiveAdd("catchpreyodds", () => EpLive(typeof(B12CpHook), 1, "sCpSkill", sCpSkill, null, "sCpAdjust", sCpAdjust, 2, "sCpChance", sCpChance, null, "sCpChance", sCpChance, "static"));
-        static readonly int sLive_chessdefeated = LiveAdd("chessdefeated", () => EpLive(typeof(B12CdHook), 1, "sCdRank", sCdRank, typeof(int), "sCdBest", sCdBest, typeof(int), "sCdWho", sCdWho, null, "sCdBest", sCdBest, null, "sCdFind", sCdFind, 0));
-        static readonly int sLive_daycareliking = LiveAdd("daycareliking", () => EpLive(typeof(B12DlHook), 1));
-        static readonly int sLive_doorprivacynull = LiveAdd("doorprivacynull", () => EpLive(typeof(B12DpHook), 1, "sDpNeed", sDpNeed, typeof(bool), "sDpHandler", sDpHandler, null, "sDpNeed", sDpNeed, null));
-        static readonly int sLive_eatpreycancel = LiveAdd("eatpreycancel", () => EpLive(typeof(B12EpHook), 2, "sEpDestroy", sEpDestroy, typeof(bool), "sEpDestroy", sEpDestroy, null));
-        static readonly int sLive_gigmaster = LiveAdd("gigmaster", () => EpLive(typeof(B12GmHook), 1, "sGmNeed", sGmNeed, typeof(int), "sGmNeed", sGmNeed, "static"));
-        static readonly int sLive_intmultiple = LiveAdd("intmultiple", () => EpLive(typeof(B12ImHook), 1));
-        static readonly int sLive_kegbreakage = LiveAdd("kegbreakage", () => EpLive(typeof(B12KbHook), 1, "sKbChance", sKbChance, 0, "sKbDorm", sKbDorm, typeof(float), "sKbDorm", sKbDorm, "static"));
-        static readonly int sLive_leafburnfail = LiveAdd("leafburnfail", () => EpLive(typeof(B12LbHook), 1, "sLbFlag", sLbFlag, typeof(bool), "sLbFlag", sLbFlag, null));
-        static readonly int sLive_lightcustom = LiveAdd("lightcustom", () => EpLive(typeof(B12LcHook), 2));
-        static readonly int sLive_loyaldoglay = LiveAdd("loyaldoglay", () => EpLive(typeof(B12LdHook), 1, "sLdLast", sLdLast, null, "sLdAlarm", sLdAlarm, null));
-        static readonly int sLive_meltalarm = LiveAdd("meltalarm", () => EpLive(typeof(B12MaHook), 1, "sMaAlarm", sMaAlarm, null, "sMaHours", sMaHours, typeof(float), "sMaHours", sMaHours, "static"));
-        static readonly int sLive_newspaperdef = LiveAdd("newspaperdef", () => EpLive(typeof(B12NdHook), 1));
-        static readonly int sLive_picnicants = LiveAdd("picnicants", () => EpLive(typeof(B12PaHook), 3, "sPaFx", sPaFx, null));
-        static readonly int sLive_privacyothers = LiveAdd("privacyothers", () => EpLive(typeof(B12PoHook), 1));
-        static readonly int sLive_romancecooldown = LiveAdd("romancecooldown", () => EpLive(typeof(B12RcHook), 1, "sRcStc", sRcStc, null, "sRcStc", sRcStc, "static"));
-        static readonly int sLive_sciencefxstop = LiveAdd("sciencefxstop", () => EpLive(typeof(B12SfHook), 1, "sSfSet", sSfSet, null, "sSfStop", sSfStop, 0));
-        static readonly int sLive_visitlisteners = LiveAdd("visitlisteners", () => EpLive(typeof(B12VlHook), 1, "sVlMap", sVlMap, null));
     }
 }

@@ -61,7 +61,7 @@ namespace Ts3Fixes
     // Counters kOd+0 .. kOd+18 (slots 2570-2588): see the block in Fixes.cs.
     public static partial class Fixes
     {
-        const int kOd = 2570;
+        const int kOd = 1981;
         const int kOdDeferred = kOd, kOdReplaced = kOd + 1, kOdAppSeen = kOd + 2, kOdAppSel = kOd + 3, kOdAppDelayed = kOd + 4,
             kOdAppFlush = kOd + 5, kOdGone = kOd + 6, kOdEaSet = kOd + 7, kOdModel = kOd + 8, kOdWaiting = kOd + 9, kOdMost = kOd + 10,
             kOdNotFresh = kOd + 11, kOdNotOpen = kOd + 12, kOdNotCat = kOd + 13, kOdThrew = kOd + 14, kOdNotNear = kOd + 15,

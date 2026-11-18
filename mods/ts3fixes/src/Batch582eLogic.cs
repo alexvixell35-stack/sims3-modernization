@@ -203,7 +203,10 @@ namespace Ts3Fixes
                 }
                 catch (Exception) { PatchCounters()[2901]++; what = kFcEa; }
                 if (what == kFcSkip) { PatchCounters()[2899]++; return; }
-                AddOrig(actor);
+                bool lmFlag;
+                bool lm = LmBefore(actor, out lmFlag);  // laundrymoodeach (Batch582iLogic.cs, docs/582 B9 §3)
+                try { AddOrig(actor); }
+                finally { if (lm) LmAfter(actor, lmFlag); }
                 if (what != kFcResume) return;
                 try
                 {

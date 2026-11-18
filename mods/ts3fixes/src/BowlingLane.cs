@@ -49,19 +49,18 @@ namespace Ts3Fixes
 
         static void ApplyBowlingLane()
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             // bowlinglane: BowlingLane is internal to Sims3GameplayObjects
             sBlLane = typeof(SpaceSimulator).Assembly.GetType("Sims3.Gameplay.Objects.HobbiesSkills.BowlingLane");
             sBlBowl = sBlLane == null ? null : sBlLane.GetNestedType("BowlInBowlingLane", BindingFlags.NonPublic | BindingFlags.Public);
             if (sBlLane != null)
             {
-                sBlIds = sBlLane.GetField("mBowlingSimIDs", inst);
-                sBlCur = sBlLane.GetField("mCurrentSimID", inst);
-                sBlRestart = sBlLane.GetField("mRestartGame", inst);
-                sBlWatchers = sBlLane.GetField("mWatchers", inst);
-                sBlStop = sBlLane.GetMethod("StopBowling", inst);
+                sBlIds = sBlLane.GetField("mBowlingSimIDs", kInstAll);
+                sBlCur = sBlLane.GetField("mCurrentSimID", kInstAll);
+                sBlRestart = sBlLane.GetField("mRestartGame", kInstAll);
+                sBlWatchers = sBlLane.GetField("mWatchers", kInstAll);
+                sBlStop = sBlLane.GetMethod("StopBowling", kInstAll);
             }
-            if (sBlBowl != null) sBlRestartGame = sBlBowl.GetMethod("RestartGame", inst);
+            if (sBlBowl != null) sBlRestartGame = sBlBowl.GetMethod("RestartGame", kInstAll);
             if (sBlIds == null || sBlCur == null || sBlRestart == null || sBlStop == null || sBlRestartGame == null)
                 AppliedLog().Add("bowlinglane: BowlingLane members not found, not patched");
             else

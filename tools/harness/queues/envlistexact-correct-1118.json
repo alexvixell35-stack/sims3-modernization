@@ -1,0 +1,163 @@
+{
+ "note": "envlistexact-correct-1118 (branch feature/r1x-1118, PREPARED, NOT RUN, correctness, dry-run checked; est ~45 min game time): docs/274 §11. envlistmemoexact serves the env scan room lists (GameObject, IAromainator) from the memo for EVERY Sim (household and selected included) inside the game own CalculateSimEnvironmentScore, valid only at an equal native order print (EnvOrderNative.LotPrint) and unchanged managed generations; envlistmemoverify lists live on every 4th full reuse and compares. Gate (FAIL): envlistexact_reuse>=1,envlistexact_verify>=1,envlistexact_verify_diff<1,envlistexact_exc<1,envlistexact_refresh_seen<1,envlistexact_fb_noprint<1,envlistexact_standdown<1,envscancost_calls_household>=1 over the whole run (reuse > 0, 0 verify differences; a difference logs EnvListMemo: wrong hit exact ... in fixesApplied, turns that lot off and sends player Sims to the game call), envscancost_calls_household>=1 = household Sims went through the hook, 0 script errors. Read: reuse/(reuse+capture), fb_* split, foreign (expect 0), envscancost_us_* vs envscancost-measure-1118. exc>=1 with an EnvListMemo.Exact: off: line = the game Mono refused our IObjectCache class (ledger I-518-4). Apex + bridge (Bin state apex). Agent: game-copy/ts3agent.package.r1x-1118.",
+ "rewind": "auto",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-elexact",
+   "note": "BP 10 min, envlistmemoexact + envlistmemoverify + envscancost on: gate envlistexact_reuse>=1,envlistexact_verify>=1,envlistexact_verify_diff<1,envlistexact_exc<1,envlistexact_refresh_seen<1,envlistexact_fb_noprint<1,envlistexact_standdown<1,envscancost_calls_household>=1, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.r1x-1118",
+   "iniBase": "game-copy/ts3native.ini.r1x-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.r1x-1118",
+   "pinReason": "ts3native.asi.r1x-1118 (0.36.284-exact1 = master 06351e330 + EnvOrderNative::LotPrint IC, reads only) + ts3native.ini.r1x-1118 + ts3fixes.package.r1x-1118 (feature/r1x-1118: docs/274 §11 envlistmemoexact + envscancost, default off); agent game-copy/ts3agent.package.r1x-1118 (envlistexact_* / envscancost_* keys) installed by the chain",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "^ts3native 0\\.36\\.284-exact1 ": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "envlistmemoexact,envlistmemoverify,envscancost",
+     "fixesOff": "envlistmemoapply,envlistmemo",
+     "fixesRequire": "envlistexact_reuse>=1,envlistexact_verify>=1,envlistexact_verify_diff<1,envlistexact_exc<1,envlistexact_refresh_seen<1,envlistexact_fb_noprint<1,envlistexact_standdown<1,envscancost_calls_household>=1",
+     "fixesReport": "envlistexact_,envscancost_"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 40,
+   "scriptErrorsMax": 0,
+   "regexCases": {
+    "^ts3native 0\\.36\\.284-exact1 ": {
+     "match": [
+      "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.283-g5p3 2026-11-18 17:40:00",
+      "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+     ]
+    },
+    "OK   sim loop: .* runs at the end of every Simulate iteration": {
+     "match": [
+      "OK   sim loop: hook 0x00C3B2F0 runs at the end of every Simulate iteration"
+     ],
+     "noMatch": [
+      "FAIL sim loop: hook not installed"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-elexact",
+   "note": "IP 10 min, envlistmemoexact + envlistmemoverify + envscancost on: gate envlistexact_reuse>=1,envlistexact_verify>=1,envlistexact_verify_diff<1,envlistexact_exc<1,envlistexact_refresh_seen<1,envlistexact_fb_noprint<1,envlistexact_standdown<1,envscancost_calls_household>=1, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.r1x-1118",
+   "iniBase": "game-copy/ts3native.ini.r1x-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.r1x-1118",
+   "pinReason": "ts3native.asi.r1x-1118 (0.36.284-exact1 = master 06351e330 + EnvOrderNative::LotPrint IC, reads only) + ts3native.ini.r1x-1118 + ts3fixes.package.r1x-1118 (feature/r1x-1118: docs/274 §11 envlistmemoexact + envscancost, default off); agent game-copy/ts3agent.package.r1x-1118 (envlistexact_* / envscancost_* keys) installed by the chain",
+   "save": "Baseline-IP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "^ts3native 0\\.36\\.284-exact1 ": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "envlistmemoexact,envlistmemoverify,envscancost",
+     "fixesOff": "envlistmemoapply,envlistmemo",
+     "fixesRequire": "envlistexact_reuse>=1,envlistexact_verify>=1,envlistexact_verify_diff<1,envlistexact_exc<1,envlistexact_refresh_seen<1,envlistexact_fb_noprint<1,envlistexact_standdown<1,envscancost_calls_household>=1",
+     "fixesReport": "envlistexact_,envscancost_"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 40,
+   "scriptErrorsMax": 0,
+   "regexCases": {
+    "^ts3native 0\\.36\\.284-exact1 ": {
+     "match": [
+      "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.283-g5p3 2026-11-18 17:40:00",
+      "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+     ]
+    },
+    "OK   sim loop: .* runs at the end of every Simulate iteration": {
+     "match": [
+      "OK   sim loop: hook 0x00C3B2F0 runs at the end of every Simulate iteration"
+     ],
+     "noMatch": [
+      "FAIL sim loop: hook not installed"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sv-elexact",
+   "note": "SV 10 min, envlistmemoexact + envlistmemoverify + envscancost on: gate envlistexact_reuse>=1,envlistexact_verify>=1,envlistexact_verify_diff<1,envlistexact_exc<1,envlistexact_refresh_seen<1,envlistexact_fb_noprint<1,envlistexact_standdown<1,envscancost_calls_household>=1, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.r1x-1118",
+   "iniBase": "game-copy/ts3native.ini.r1x-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.r1x-1118",
+   "pinReason": "ts3native.asi.r1x-1118 (0.36.284-exact1 = master 06351e330 + EnvOrderNative::LotPrint IC, reads only) + ts3native.ini.r1x-1118 + ts3fixes.package.r1x-1118 (feature/r1x-1118: docs/274 §11 envlistmemoexact + envscancost, default off); agent game-copy/ts3agent.package.r1x-1118 (envlistexact_* / envscancost_* keys) installed by the chain",
+   "save": "Baseline-SV-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "^ts3native 0\\.36\\.284-exact1 ": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "envlistmemoexact,envlistmemoverify,envscancost",
+     "fixesOff": "envlistmemoapply,envlistmemo",
+     "fixesRequire": "envlistexact_reuse>=1,envlistexact_verify>=1,envlistexact_verify_diff<1,envlistexact_exc<1,envlistexact_refresh_seen<1,envlistexact_fb_noprint<1,envlistexact_standdown<1,envscancost_calls_household>=1",
+     "fixesReport": "envlistexact_,envscancost_"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 40,
+   "scriptErrorsMax": 0,
+   "regexCases": {
+    "^ts3native 0\\.36\\.284-exact1 ": {
+     "match": [
+      "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.283-g5p3 2026-11-18 17:40:00",
+      "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+     ]
+    },
+    "OK   sim loop: .* runs at the end of every Simulate iteration": {
+     "match": [
+      "OK   sim loop: hook 0x00C3B2F0 runs at the end of every Simulate iteration"
+     ],
+     "noMatch": [
+      "FAIL sim loop: hook not installed"
+     ]
+    }
+   }
+  }
+ ]
+}

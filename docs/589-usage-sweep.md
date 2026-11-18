@@ -1,11 +1,8 @@
 # 589: Usage sweep (the code Sims use most, read for bugs)
 
-> Posted upstream with the switches listed under "In-game results" at the end. Sections on other leads or switches are kept as research notes; those switches are not part of this change.
+Date: 2026-11-16. Static analysis only; nothing was built or run.
 
-
-Date: 2026-11-16. Static analysis first; the fixes built from it are proven in game (results at the end).
-
-The user asked for this sweep: "a lot of game areas are untouched, especially the ones Sims use most". The earlier sweeps (docs/586, docs/588) ranked types by scanner hits. This one ranks them by how much our own runs actually use them, and then hand-reads the most-used code for bugs.
+The user asked for this sweep: "a lot of game areas are untouched, especially the ones Sims use most". The earlier sweeps (docs/639, docs/588) ranked types by scanner hits. This one ranks them by how much our own runs actually use them, and then hand-reads the most-used code for bugs.
 
 ## 1. Usage ranking
 
@@ -155,32 +152,32 @@ The user: "fix all of these", as EA intended, household included. Every lead bel
 
 | Lead | Switch | Check | Slots | File | What the fix does |
 |---|---|---|---|---|---|
-| U1 | `eatpostonce` | `EatPostOnceCheck` | 2986-2988 | Batch589Logic.cs | a finished eat is not posted a second time by EatHeldFood.Cleanup (kEatIEdible, Stuffed, food-truck rolls once) |
-| U2 | `motivemultonce` | `MotiveMultOnceCheck` | 2989-2991 | Batch589Logic.cs | the Carefree / LaidbackLemon / EfficientChip multiplier is applied once per motive update, not per matching delta |
-| U3 | `fightbroadcastend` | `FightBroadcastEndCheck` | 2992-2994 | Batch589Logic.cs | a fight's reaction broadcaster ends with the social when the fight never reaches AfterFight |
-| U4 | `reactioncopy` | `ReactionCopyCheck` | 2995-2997 | Batch589Logic.cs | each nearby Sim starts a one-shot reaction from the caller's reaction, not an earlier Sim's trait reaction |
-| U5 | `carpoolschoolskip` | `CarpoolSchoolSkipCheck` | 2998-3000 | Batch589Logic.cs | a school child skipping the bus (horse, own lot) goes to school instead of crashing the pickup |
-| U6 | `tvsyncalarm` | `TvSyncAlarmCheck` | 3001-3003 | Batch589bLogic.cs | a TV channel change resets the sync-event alarm handles so viewer reactions re-arm |
-| U7 | `photofunds` | `PhotoFundsCheck` | 3004-3006 | Batch589bLogic.cs | a phone photo with short funds takes the funds instead of adding them |
-| U8 | `ltrhistorybits` | `LtrHistoryBitsCheck` | 3007-3009 | Batch589bLogic.cs | a forced relationship change keeps the friendship history bits |
-| U9 | `goodbyepure` | `GoodbyePureCheck` | 3010-3012 | Batch589bLogic.cs | building the goodbye pie menu no longer removes SoCold or despawns a Haunted ghost |
-| U10 | `bathcleanup` | `BathCleanupCheck` | 3013-3015 | Batch589bLogic.cs | a queued second bath's cleanup leaves the bather's duck alarm and footprint alone |
-| U11 | `tvwatchskill` | `TvWatchSkillCheck` | 3016-3018 | Batch589bLogic.cs | a WatchTV that never started does not stop the Sim's channel skill gain |
-| U12 | `computergametype` | `ComputerGameTypeCheck` | 3019-3021 | Batch589bLogic.cs | an autonomous computer game's random pick is not kept in the shared definition |
-| U13 | `moodtankreset` | `MoodTankResetCheck` | 3022-3024 | Batch589bLogic.cs | a recovered mood clears the remembered angry tank so the next angry mood tanks again |
-| U14 | `reactiongrumpy` | `ReactionGrumpyCheck` | 3025-3027 | Batch589bLogic.cs | a Grumpy Sim's non-positive reaction type is set instead of staying Angry |
-| U15 | `trainsimgone` | `TrainSimGoneCheck` | 3028-3030 | Batch589bLogic.cs | training with the trainee gone ends instead of throwing |
-| U16 | `stereoupgrade` | `StereoUpgradeCheck` | 3031-3033 | Batch589bLogic.cs | a speaker upgrade does not start music on a silent stereo; a dance pair's end dismisses only its own dancers |
-| U17 | `buffremovedelayed` | `BuffRemoveDelayedCheck` | 3034-3036 | Batch589cLogic.cs | removing a buff with a pending delayed add also removes the live buff |
-| U19 | `tvdisclistener` | `TvDiscListenerCheck` | 3037-3039 | Batch589cLogic.cs | a new home-movie disc replaces the old disc's disposed-listener |
-| U21 | `fridgetestnull` | `FridgeTestNullCheck` | 3040-3042 | Batch589cLogic.cs | opening a fridge with no inventory component is tested without a throw |
-| U22 | `cancelposturedef` | `CancelPostureDefCheck` | 3043-3045 | Batch589cLogic.cs | cancelling a posture does not queue a second stand-up when one is at the head |
-| U23 | `facialidleweight` | `FacialIdleWeightCheck` | 3046-3048 | Batch589cLogic.cs | buff and trait facial idles share their chance as floats (7+ idles no longer weigh 0) |
-| U10 | `bathsituationfx` | `BathSituationFxCheck` | 3049-3051 | Batch589dLogic.cs | a bath's privacy situation is not exited twice and the old bubble effect is disposed |
-| U18 | `socialnoeffect` | `SocialNoEffectCheck` | 3052-3054 | Batch589dLogic.cs | social starts with no matching rule are counted (the fix is ts3native ilp_socialnoeffect) |
-| U20 | `guitargnomeboost` | `GuitarGnomeBoostCheck` | 3055-3057 | Batch589dLogic.cs | guitar play takes off every Elvis gnome boost it added |
-| U23 | `distressgate` | `DistressGateCheck` | 3058-3060 | Batch589dLogic.cs | the higher-priority distress test finds buff distress too |
-| U23 | `moodidleflavor` | `MoodIdleFlavorCheck` | 3061-3063 | Batch589dLogic.cs | MoodIdle continuation rows join their flavour instead of being dropped |
+| U1 | `eatpostonce` | `EatPostOnceCheck` | 1351-1353 | Batch589Logic.cs | a finished eat is not posted a second time by EatHeldFood.Cleanup (kEatIEdible, Stuffed, food-truck rolls once) |
+| U2 | `motivemultonce` | `MotiveMultOnceCheck` | 1354-1356 | Batch589Logic.cs | the Carefree / LaidbackLemon / EfficientChip multiplier is applied once per motive update, not per matching delta |
+| U3 | `fightbroadcastend` | `FightBroadcastEndCheck` | 1357-1359 | Batch589Logic.cs | a fight's reaction broadcaster ends with the social when the fight never reaches AfterFight |
+| U4 | `reactioncopy` | `ReactionCopyCheck` | 1360-1362 | Batch589Logic.cs | each nearby Sim starts a one-shot reaction from the caller's reaction, not an earlier Sim's trait reaction |
+| U5 | `carpoolschoolskip` | `CarpoolSchoolSkipCheck` | 1363-1365 | Batch589Logic.cs | a school child skipping the bus (horse, own lot) goes to school instead of crashing the pickup |
+| U6 | `tvsyncalarm` | `TvSyncAlarmCheck` | 1366-1368 | Batch589bLogic.cs | a TV channel change resets the sync-event alarm handles so viewer reactions re-arm |
+| U7 | `photofunds` | `PhotoFundsCheck` | 1369-1371 | Batch589bLogic.cs | a phone photo with short funds takes the funds instead of adding them |
+| U8 | `ltrhistorybits` | `LtrHistoryBitsCheck` | 1372-1374 | Batch589bLogic.cs | a forced relationship change keeps the friendship history bits |
+| U9 | `goodbyepure` | `GoodbyePureCheck` | 1375-1377 | Batch589bLogic.cs | building the goodbye pie menu no longer removes SoCold or despawns a Haunted ghost |
+| U10 | `bathcleanup` | `BathCleanupCheck` | 1378-1380 | Batch589bLogic.cs | a queued second bath's cleanup leaves the bather's duck alarm and footprint alone |
+| U11 | `tvwatchskill` | `TvWatchSkillCheck` | 1381-1383 | Batch589bLogic.cs | a WatchTV that never started does not stop the Sim's channel skill gain |
+| U12 | `computergametype` | `ComputerGameTypeCheck` | 1384-1386 | Batch589bLogic.cs | an autonomous computer game's random pick is not kept in the shared definition |
+| U13 | `moodtankreset` | `MoodTankResetCheck` | 1387-1389 | Batch589bLogic.cs | a recovered mood clears the remembered angry tank so the next angry mood tanks again |
+| U14 | `reactiongrumpy` | `ReactionGrumpyCheck` | 1390-1392 | Batch589bLogic.cs | a Grumpy Sim's non-positive reaction type is set instead of staying Angry |
+| U15 | `trainsimgone` | `TrainSimGoneCheck` | 1393-1395 | Batch589bLogic.cs | training with the trainee gone ends instead of throwing |
+| U16 | `stereoupgrade` | `StereoUpgradeCheck` | 1396-1398 | Batch589bLogic.cs | a speaker upgrade does not start music on a silent stereo; a dance pair's end dismisses only its own dancers |
+| U17 | `buffremovedelayed` | `BuffRemoveDelayedCheck` | 1700-1702 | Batch589cLogic.cs | removing a buff with a pending delayed add also removes the live buff |
+| U19 | `tvdisclistener` | `TvDiscListenerCheck` | 1703-1705 | Batch589cLogic.cs | a new home-movie disc replaces the old disc's disposed-listener |
+| U21 | `fridgetestnull` | `FridgeTestNullCheck` | 1706-1708 | Batch589cLogic.cs | opening a fridge with no inventory component is tested without a throw |
+| U22 | `cancelposturedef` | `CancelPostureDefCheck` | 1709-1711 | Batch589cLogic.cs | cancelling a posture does not queue a second stand-up when one is at the head |
+| U23 | `facialidleweight` | `FacialIdleWeightCheck` | 1712-1714 | Batch589cLogic.cs | buff and trait facial idles share their chance as floats (7+ idles no longer weigh 0) |
+| U10 | `bathsituationfx` | `BathSituationFxCheck` | 1715-1717 | Batch589dLogic.cs | a bath's privacy situation is not exited twice and the old bubble effect is disposed |
+| U18 | `socialnoeffect` | `SocialNoEffectCheck` | 1718-1720 | Batch589dLogic.cs | social starts with no matching rule are counted (the fix is ts3native ilp_socialnoeffect) |
+| U20 | `guitargnomeboost` | `GuitarGnomeBoostCheck` | 1721-1723 | Batch589dLogic.cs | guitar play takes off every Elvis gnome boost it added |
+| U23 | `distressgate` | `DistressGateCheck` | 1724-1726 | Batch589dLogic.cs | the higher-priority distress test finds buff distress too |
+| U23 | `moodidleflavor` | `MoodIdleFlavorCheck` | 1727-1729 | Batch589dLogic.cs | MoodIdle continuation rows join their flavour instead of being dropped |
 
 **ts3native IL patches** (`[IlPatch] Enabled=1` plus the key; specs filled for ea-1.67 and simler90-242, `native/ts3native/ilpatch-specs.h` regenerated; needs a ts3native build):
 
@@ -212,39 +209,3 @@ The user: "fix all of these", as EA intended, household included. Every lead bel
 - `bathcleanup` + `bathsituationfx` hooked TakeBath.Cleanup twice: now one swap (`BBcHook`, `ApplyTakeBathCleanup`) that calls `BsfBeforeCleanup`.
 - State that could outlive a world (Sim-keyed eat marks, mood ids, photo note) is cleared at world quit (`Batch589WorldQuit`); `sMiPatched` (unused) removed.
 - Checked and unchanged: the Motive copy (EA's Carefree / LaidbackLemon `else if`, riding benefit after the multiplier), OneShotReaction (no caller passes a null ignore list), GetGoodbyeSocial (only caller builds the socials list; OnHug does the removal when the hug happens), GetFacialMoodIdles, ParseMoodIdleData, Guitar.Play.Run (EA adds the boosts before base.Run and removes none when it throws). No loops without an exit: the carpool waits are EA's, capped by kExtraMinutesToWait.
-
-## In-game results (Bridgeport combined soaks, each switch off then on in one load)
-
-Switches of this doc that are posted in this change, with the runs where the check read off BROKEN and on FIXED (`smallfix.txt` of each run).
-
-| Switch | Off | On | Runs off BROKEN / on FIXED | Runs (phase-…) |
-|---|---|---|---|---|
-| `bathcleanup` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `bathsituationfx` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `buffremovedelayed` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `cancelposturedef` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `carpoolschoolskip` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `computergametype` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `distressgate` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `eatpostonce` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `facialidleweight` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `fightbroadcastend` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `fridgetestnull` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `goodbyepure` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `guitargnomeboost` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `ltrhistorybits` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `moodidleflavor` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `moodtankreset` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `motivemultonce` | BROKEN | FIXED | 1 | 20261116-0505 |
-| `photofunds` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `reactioncopy` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `reactiongrumpy` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `socialnoeffect` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `stereoupgrade` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `trainsimgone` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `tvdisclistener` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `tvsyncalarm` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `tvwatchskill` | BROKEN | FIXED | 1 | 20261116-0234 |
-
-- [verified] The verdicts, controls ok and members found in the runs listed.
-- [inferred] How often each case happens in normal play: the checks call the same decision functions as the hooks.

@@ -43,7 +43,7 @@ namespace Ts3Fixes
         static int sRflMinute = -1, sRflInMinute, sRflTotal;
         class RflCmd { public WeakReference Ia;  // weak (issue #40): an ended command kept its interaction and Sim reachable
             public int Id, Attempts, Fails, Near, Lines; public uint Route, T0; public Vector3 Goal; public string Last; }
-        class RflRow { public string Name; public int Seen, Unseen; public bool Household; }
+        class RflRow { public string Name; public int Seen, Unseen, Locked; public bool Household; }  // Locked: FailedBecauseDestinationPortalLocked (the agent's sim_health reads the rows)
         static readonly Dictionary<ulong, RflCmd> sRflCmds = new Dictionary<ulong, RflCmd>();  // by Sim object id
         static readonly Dictionary<ulong, RflRow> sRflSims = new Dictionary<ulong, RflRow>();
         static readonly Dictionary<ulong, int[]> sRflLots = new Dictionary<ulong, int[]>();    // fails, added, removed, added and removed in build/buy
@@ -98,7 +98,7 @@ namespace Ts3Fixes
             catch (Exception) { }
         }
 
-        static void RflCount(Sim sim)
+        static void RflCount(Sim sim, RoutePlanResultType result)
         {
             bool seen = UfWhy(sim) != 0, hh = sim.IsInActiveHousehold;
             sRflFails++;
@@ -118,6 +118,7 @@ namespace Ts3Fixes
                 sRflSims[id] = r;
             }
             if (seen) r.Seen++; else r.Unseen++;
+            if (result == RoutePlanResultType.FailedBecauseDestinationPortalLocked) r.Locked++;
             int now = System.Environment.TickCount;
             if (sRflSummaryAt == 0) sRflSummaryAt = now;
             if (unchecked(now - sRflSummaryAt) >= 900000) RflSummary("15 min");
@@ -236,6 +237,8 @@ namespace Ts3Fixes
             return sRflTypeIds[t] = sRflTypeIds.Count + 1;
         }
 
+        static readonly Dictionary<Type, FieldInfo> sRflHitField = new Dictionary<Type, FieldInfo>();
+
         static void RflCmdStart(RflCmd c, Sim sim, Vector3 goal)
         {
             InteractionInstance ia = c.Ia.Target as InteractionInstance;
@@ -248,7 +251,9 @@ namespace Ts3Fixes
                 + ", from " + RflLoc(sim.Position));
             var rc = sim.SimRoutingComponent;  // EA's own route-end event (no DoRoute swap, docs/537); -= first, one subscription a Sim
             if (rc != null) { rc.OnRouteActionsFinished -= RflCmdEnd; rc.OnRouteActionsFinished += RflCmdEnd; }
-            FieldInfo f = ia.GetType().GetField("Hit", BindingFlags.Public | BindingFlags.Instance);  // InteractionGameObjectHit<,>.Hit: where the player clicked
+            FieldInfo f;  // InteractionGameObjectHit<,>.Hit: where the player clicked (looked up once per interaction type)
+            Type it = ia.GetType();
+            if (!sRflHitField.TryGetValue(it, out f)) sRflHitField[it] = f = it.GetField("Hit", BindingFlags.Public | BindingFlags.Instance);
             string click = "no click point";
             if (f != null && f.FieldType == typeof(GameObjectHit))
             {
@@ -348,6 +353,9 @@ namespace Ts3Fixes
                 Sim sim = f != null ? f.Target as Sim : null;
                 if (sim == null) return;
                 if (!ok) BtPlanFailed(r, sim, res);  // burnttilefloor: learn MopBurnt tiles EA's planner finds no destination for (BurntTileFloor.cs)
+                if (!ok) SrlReplan(r, sim, kind, res);  // socialreplanlog (SocialReplanLog.cs, docs/577 §2), logging only
+                if (!ok) RclPlan(r, sim, kind, res);  // routecauselog (RouteCauseLog.cs, docs/580), logging only
+                if (!ok && RfpPlan(sim, kind, res, r, t0)) return;  // routefailprobe (RhEntry627.cs, docs/627 §2): an NPC spot probe, not this Sim's route
                 if (sim.IsInActiveHousehold) PatchCounters()[866]++;  // fails per plan: same four hooks as the routefail lines (issue #304, kd-household-ab.ts)
                 bool show = InShowOff(sim);
                 if (show && sim == sSoChild) { sSoSeen = true; sSoPlans++; if (!ok) sSoPlanFails++; if (async) sSoAsync++; }
@@ -357,7 +365,7 @@ namespace Ts3Fixes
                 if (cmd != null) RflCmdPlan(cmd, r, sim, what, res, t0);
                 if (ok && !show) return;
                 if (!ShortcutOn("routefaillog")) return;
-                if (!ok) RflCount(sim);
+                if (!ok) RflCount(sim, res.mType);
                 if (!show && !sim.IsInActiveHousehold) return;
                 RflLine(show, sim, what + " blocker " + res.mBlockerType + RflBlocker(res.mBlockerObjectId), r.GetApproximateOriginalDestination(), t0, r.Handle, cmd);
             }

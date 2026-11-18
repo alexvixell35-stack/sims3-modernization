@@ -1,0 +1,56 @@
+# Proven gameplay fixes: every default-off ts3fixes switch whose fix is proven in game (off BROKEN / on FIXED, or measured
+# off/on), and that fixes EA gameplay / bugs. Evidence: a docs/registry.md row "proven in game", a PLAN.md / docs entry "proven
+# in game" / "verified in game", a phasesoak verdict pair (switch false BROKEN, true FIXED; ~/dev/ts3-runs phase-*/phase.txt,
+# 2026-11-14/15), or a fix-repro-check.ts "measured off/on" note (socialfinish, socialreceivefail).
+# Excluded below: measurement, diagnostics, test-only, perf experiments, regressions and fixes not proven yet.
+# One switch per line; `node tools/harness/proven-fixes.ts` checks the file and prints it for EARLYFIX / `ag patches`.
+# Built 2026-11-15 from the 207 default-off switches (Fixes.cs ShortcutOn names -> Instantiator k* = false).
+woohootywait
+
+# Built 2026-11-15 from the 215 default-off switches (+8 docs/575-577, soak verdicts BROKEN/FIXED) (Fixes.cs ShortcutOn names -> Instantiator k* = false).
+# +23 2026-11-15: phase-20261115-2043 smallfix.txt, off BROKEN / on FIXED with controls ok (docs/582 batches 3-5, docs/575-577 sandwichalarm).
+# +13 2026-11-15: phase-20261115-2218 smallfix.txt (s56), off BROKEN / on FIXED (docs/582 batches 5b-7, residentspawnslot).
+
+# ---- excluded (default off, not in the set), by reason
+# perf experiments / sim-thread offload and caching (not EA gameplay fixes):
+#   autlivelate cachedreflection caneearly casmemo detailprio disposespread doormirror drivertaskasync failrepeat farthestsorted
+#   hoursmemo idlememo legreplanskip preplancb replandefer replanspread routablecache safespotcap safespotreuse safespotyield
+#   seasonimposter seasonimpostercold seasonmarkercache spatialcache stuckcheckbusy stuckcheckcap stuckchecknear stuckcheckown
+#   tooltipthrottle unseenbroadcast unseencars unseenenv unseenfbfinish unseenfbloopbreak unseenfbsites unseenfbtrip
+#   unseenfbtriphold unseenmotives unseenpark unseenroute venuememo wakepark wakepoll
+# measurement / diagnostics / test aids:
+#   autunseencmp boatgetoutdiag bookhanddiag deadsimcount routesrc wildflowerprobe
+# test-only, registry says test (vehicle leak tests, age-up swap, dead-Sim hollowing, joyride costume):
+#   ageupswap deadsimhollow vehfrankentaxi vehgetinleak vehparkreserve vehprotestcar vehseatdestroy
+# leak / save-data fixes, opt-in until measured (changes save data or not proven in game):
+#   attractionalarm casuihandlers deadrefguards deadrefsweep familyinvghost firepitchair preferredservice relremovesafe
+#   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim spouseunlink
+# gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
+#   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap
+#   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
+#   vacexitreturn vacexport vacimportfix vaclistenernull vacreturnskip vacstoreguard vacteendelete
+# combo pieces: first in-game check only, not marked proven (docs/551):
+#   combovenue
+# ceremonyspot: the bug is verified in game, the fix has no recorded off/on verdict:
+# partyoutcome: the registry row proves partymotive only; partyoutcome stays idle beside the core mod (docs/554):
+#   partyoutcome
+# built 2026-11-15, in-game off/on test pending (docs/575-577); move to the set once proven:
+#   
+#   trashpileimport catgymwatch badsecretkey traitlistenerremove portasknohome lecturebroadcaster residentspawnwalk midlifewishsave betrayednullsim topictestnull opptrackerrelisten traitremovenull homeworkcopyold laundrymoodeach partycleanupnull safelocunhide midlifeuiending nemesisnoromance
+# built 2026-11-17 (docs/611, LotCallbacks80.cs), in-game off/on test pending (r68 Check verdict bug, re-run on r69):
+
+# PRs #452 #454 #456 #457 (2026-11-16, other sessions), default off, in-game off/on test pending:
+# diagnostics (log only):
+#   socialreplanlog barorderlog routecauselog
+# built 2026-11-15, in-game off/on test pending (ufplansplit is log only; doorgen is default on since upstream #439):
+#   ufplansplit
+# new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:
+#   permamemo buffremovenoop catnamecache autroommemo autslicetime invcache vaclistenerpad spawncapcount deadrefcooking deadrefconvo
+sarcmummynpc
+# 2026-11-18 (Rodney: Dalexlol switches with his in-game repro go ON): 56 set switches + takeariskguard moved to default ON
+# (docs/data/results/2026-11-18-dalexlol-repro-switches-on.md). Still off: woohootywait (wait cap with no household
+# exemption, PhoneLogic.cs) and sarcmummynpc (removes a persisted NpcHousehold description: save-data change, opt-in).
+# passed in game 2026-11-17 (s75) but kept OFF by choice: near off-screen Sims could be noticed and it rarely applies (docs/632):
+#   unseenloopskip_offscreen
+# maintainer switches added on master, not reviewed for this set (merge 2026-11-18):
+#   zdemptyout decaymemo burnttilefloor

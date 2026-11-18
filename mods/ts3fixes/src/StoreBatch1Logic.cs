@@ -13,7 +13,7 @@ namespace Ts3Fixes
 {
     // Store batch 1 (docs/587 §13): hand read of Sims3StoreObjects (79 files, 5 read-only agents). Every switch off by
     // default; all household-visible. Checks: StoreBatch1Checks.cs. Three counter slots each: fixed / seen with the
-    // switch off / errors. Slots from 3346 (block fixes-1600).
+    // switch off / errors. Slots from 1621 (block fixes-1600).
     //   spellbooksummonload  [3346] SpellBook+CastingStore.ImportContent: the Summon spell (enum 0) is skipped on import
     //   chocfountaingeyser   [3349] ChocolateFountain.FountainFilled: a new repeating geyser alarm on every fill
     //   hypnotrickrelease    [3352] Hypnotizer+PerformTrick.Run: the volunteer's route lock is never cleared

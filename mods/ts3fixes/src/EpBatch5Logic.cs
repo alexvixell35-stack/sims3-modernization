@@ -35,7 +35,7 @@ namespace Ts3Fixes
     public static partial class Fixes
     {
         static readonly string[] kOsFam = { "chemistryvfx", "dartboardvfx", "wardrobewandvfx", "petdroolvfx", "timeportalvfx", "haystackvfx" };
-        static readonly int[] kOsSlot = { 3283, 3286, 3289, 3292, 3295, 3298 };
+        static readonly int[] kOsSlot = { 1557, 1560, 1563, 1566, 1569, 1572 };
         static int sOsOpen;
         static VisualEffect sOsLast;
         static string sOsMissing = "";

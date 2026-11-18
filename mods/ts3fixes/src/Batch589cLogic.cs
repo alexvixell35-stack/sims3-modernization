@@ -9,12 +9,13 @@ using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Objects.Appliances;
 using Sims3.Gameplay.Objects.Electronics;
 using Sims3.Gameplay.UI;
+using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
     // Batch 11c (docs/589 usage sweep, U17, U19, U21-U23): EA bug fixes in the Sim core and everyday objects. All default
-    // off; all reach the household (as EA intended). Slots 3034-3048 (fixes-1700: 2986-1399 is full, 1400-1699 is the EP
+    // off; all reach the household (as EA intended). Slots 3034-3048 (fixes-1700: 1351-1399 is full, 1400-1699 is the EP
     // agent's). simler90 UPDATE242 leaves BuffManager, TV's disc code, Fridge_OpenFridge, Posture and IdleManager as EA.
     public static partial class Fixes
     {
@@ -32,6 +33,7 @@ namespace Ts3Fixes
             sBrdMissing = SpNames("BuffManager.mDelayedBuffs", sBrdDelayed);
             if (sBrdMissing.Length > 0) { AppliedLog().Add("buffremovedelayed: not found: " + sBrdMissing); return; }
             Patch(typeof(BuffManager), "RemoveElement", new Type[] { typeof(ulong), typeof(bool) }, typeof(BBrdHook), "RemoveHook", "RemoveOrig");
+            sBrdReady = EpSwapCount(typeof(BBrdHook)) > 0;  // docs/622 §2 buffremovemerge needs this swap
         }
 
         // Pure: did EA's call return early with the buff still live (fix runs the removal again)?
@@ -51,8 +53,23 @@ namespace Ts3Fixes
             public void RemoveHook(ulong guid, bool clearRefCounts)
             {
                 BuffManager bm = (BuffManager)(object)this;
-                bool live = false, pending = false;
-                try { live = bm.HasElement((BuffNames)guid) && BrPending(bm, guid); pending = live; } catch (Exception) { }
+                bool live = false, pending = false, merged = false;
+                // docs/622 §2 buffremovemerge: one HasElement first; a no-op returns, an absent buff runs EA's body once
+                if (BrmReady() && SwOn(kSwBrMerge) && !OnWorker())
+                {
+                    try
+                    {
+                        ListSorted<BuffTimer> delayed;
+                        int r = BrmPath(bm, guid, clearRefCounts, out delayed);
+                        if (r == 0) { PatchCounters()[3493]++; return; }
+                        PatchCounters()[3494]++;
+                        if (r == 1) { RemoveOrig(guid, clearRefCounts); return; }
+                        live = pending = BrmPending(delayed, guid);
+                        merged = true;
+                    }
+                    catch (Exception) { PatchCounters()[3495]++; }
+                }
+                if (!merged) try { live = bm.HasElement((BuffNames)guid) && BrPending(bm, guid); pending = live; } catch (Exception) { }
                 RemoveOrig(guid, clearRefCounts);
                 if (!live) return;
                 try

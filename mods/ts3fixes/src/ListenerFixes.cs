@@ -33,9 +33,8 @@ namespace Ts3Fixes
 
         static void ApplyListenerFixes()
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            sLfObjListener = typeof(DreamsAndPromisesManager).GetField("mObjectDestroyedListener", inst);
-            sLfObjDelegate = typeof(DreamsAndPromisesManager).GetMethod("ObjectDestroyedDelegate", inst, null, new Type[] { typeof(Event) }, null);
+            sLfObjListener = typeof(DreamsAndPromisesManager).GetField("mObjectDestroyedListener", kInstAll);
+            sLfObjDelegate = typeof(DreamsAndPromisesManager).GetMethod("ObjectDestroyedDelegate", kInstAll, null, new Type[] { typeof(Event) }, null);
             if (sLfObjListener != null && sLfObjDelegate != null)
             {
                 Patch(typeof(DreamsAndPromisesManager), "CreateFromExportData", new Type[] { typeof(Sim), typeof(DnPExportData) }, typeof(LfDnp), "ExportHook", "ExportOrig");

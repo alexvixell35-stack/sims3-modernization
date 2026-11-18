@@ -1,9 +1,6 @@
 # 587. Expansion and stuff pack function sweep (2026-11-15)
 
-> Posted upstream with the switches listed under "In-game results" at the end. Sections on other leads or switches are kept as research notes; those switches are not part of this change.
-
-
-Static only: decompiled scripts plus shipped tuning XML, no game run, nothing built. This is the EP/SP half of the docs/586 coverage sweep (upstream issue #422 makes EP/SP fixes the contributor's track). A parallel pass reads the base-game types from the same map, so the two passes do not overlap.
+Static only: decompiled scripts plus shipped tuning XML, no game run, nothing built. This is the EP/SP half of the docs/639 coverage sweep (upstream issue #422 makes EP/SP fixes the contributor's track). A parallel pass reads the base-game types from the same map, so the two passes do not overlap.
 
 ## 1. Method
 
@@ -121,9 +118,9 @@ Inferred and rarer (listed for the fix agent, not ranked):
 - Rerun `ep-pack-classify.py` after the next sweep. The CSV rows for these 150 types now read `hand-read=yes`, `read-in` += `docs/587`, with `rank` cleared.
 - Pack types still uncovered after this pass: about 2,650. `ep-pack-classify.py` lists them in rank order.
 
-## 6. Batch EP1: built (2026-11-15; `suatgradebonus` and `cattoypickerrel` are proven and posted, results at the end; the rest are not part of this change)
+## 6. Batch EP1: built (2026-11-15, branch `feat/ep-batch1-1115`, NOT RUN)
 
-Sources: `mods/ts3fixes/src/EpBatch1aLogic.cs` (§1-§10), `EpBatch1bLogic.cs` (§12-§20), `EpBatch1Checks.cs`. Counter slots: `suatgradebonus` 3241-3243 and `cattoypickerrel` 3244-3246 (contributor range, this change); the other EP1 switches are not posted yet. Every switch is off by default. Each has a pure `Ts3Fixes.Fixes.<Name>Check("run"|"result")` and a repro `<switch>-check` in `tools/harness/repros.json` (off: `verdict: BROKEN`, on: `verdict: FIXED`). Swap rows are in `docs/data/swap-stack-audit.csv`; every hook has a stub.
+Sources: `mods/ts3fixes/src/EpBatch1aLogic.cs` (§1-§10), `EpBatch1bLogic.cs` (§12-§20), `EpBatch1Checks.cs`. Counter slots 3835-3898 (pinned block `fixes-3835`, `docs/registry.md`; 1466-1499 kept for EP batch 2). Every switch is off by default. Each has a pure `Ts3Fixes.Fixes.<Name>Check("run"|"result")` and a repro `<switch>-check` in `tools/harness/repros.json` (off: `verdict: BROKEN`, on: `verdict: FIXED`). Swap rows are in `docs/data/swap-stack-audit.csv`; every hook has a stub.
 
 The user rule for this batch was to fix loop, order and logic defects in every EA function read for a fix. Extras found that way are marked **RE**.
 
@@ -162,9 +159,9 @@ Verification:
 
 Next: one off/on run of the 22 repros.
 
-## 7. Batch EP2: built (2026-11-15; not game-tested yet and not part of this change)
+## 7. Batch EP2: built (2026-11-15, same branch, NOT RUN)
 
-Source: `EpBatch2Logic.cs` and `EpBatch2Checks.cs`. Slots 1466-1477, inside the same pinned block. Every switch is off by default. The file follows the same pattern as §6: a check, a repro and audit rows for each switch.
+Source: `EpBatch2Logic.cs` and `EpBatch2Checks.cs`. Slots 3899-3910, inside the same pinned block. Every switch is off by default. The file follows the same pattern as §6: a check, a repro and audit rows for each switch.
 
 | § | Switch | Check | What changes | Evidence |
 |---|---|---|---|---|
@@ -185,7 +182,7 @@ Not fixed, found by RE:
 
 A fix needs either a copy of Run, which uses the private AttendingKissingBooth posture and five private members, or a hook on `Sim.RouteToSlot`, a hot routing method used everywhere. Re-running Run after a false return is not safe: its other false paths would kick a non-selectable attendant out on the retry. Cost and risk outweigh two extra route plans per attend.
 
-## 8. Tranche 2 and batch EP3: built (2026-11-15; not game-tested yet and not part of this change)
+## 8. Tranche 2 and batch EP3: built (2026-11-15, same branch, NOT RUN)
 
 **Tranche 2.** The next 150 ranked EP/SP types from `ep-pack-classify.py` were read by hand, plus 10 rarer inferred leads from tranche 1. EA's `StoryProgression` namespace was skipped (owned by the story-progression work). Every confirmed lead was checked against simler90 UPDATE242 (none of the built ones is fixed there) and against the shipped tuning where a [Tunable] default mattered.
 
@@ -193,7 +190,7 @@ Inferred leads from tranche 1:
 - CONFIRMED: DaycareWorkdaySituation late-parent alarm (built as 8.10); FutureDescendantService size-0 household (parked, below).
 - DROPPED: GeneSplicingExperiment.OnEpicSuccess (EP9 object always exists); TreasureComponent.GetAdventureTreasureInternal (keys validated by the caller and all present in shipped XML); Bird.FinalizeDeath null owner lot (world lot only, no normal-play path); PhilanthropistRecordData listener; AcademicCareer.SetNewProfessor; SoccerGoal; Houseboat autopilot; BuffEmbracingTheFuture (no reachable defect).
 
-**Batch EP3.** Source: `EpBatch3Logic.cs` and `EpBatch3Checks.cs`. Slots 1478-1498 (`fixes-1400`) and 1500-1520 (`fixes-1500`). Every switch is off by default, with a pure check, a repro and audit rows, as in §6.
+**Batch EP3.** Source: `EpBatch3Logic.cs` and `EpBatch3Checks.cs`. Slots 3911-3931 (`fixes-3835`) and 1500-1520 (`fixes-3932`). Every switch is off by default, with a pure check, a repro and audit rows, as in §6.
 
 | § | Switch | Check | What changes | Evidence |
 |---|---|---|---|---|
@@ -224,7 +221,7 @@ Parked, with reasons:
 - Party chair count (`num == Length` pays only with exactly one chair): which objects count as "chair" is inferred. The OnOver bonus order is unclear.
 - Low or cosmetic: ClubLight Clamp result discarded; DaycareTransportSituation; CounterIsland.PlaceSnackBowl charge order; Dresser.PutOnUniform helper leak; VomitPile.Eat roll; MarineLifeStateWander PostPlanCallback; Fireplace mLitFireFX; PutInInventory null SimOwner.
 
-## 9. Copies of yielding methods, and batch EP4a (2026-11-16, same branch, in-game results at the end)
+## 9. Copies of yielding methods, and batch EP4a (2026-11-16, same branch, NOT RUN)
 
 **Is a full copy of a yielding Run safe? Yes.** It is as safe as any wrapper around a yielding method, which ts3fixes already has many of.
 - EA's Run methods are not iterators. They yield through `Simulator.Sleep`, routes and animations inside the Sim's own task, so a copy keeps its yields just by calling the same members.
@@ -253,7 +250,7 @@ Parked, with reasons:
 
 A save made with the switch on loads unchanged with it off. All five fixes are household-visible.
 
-## 10. Tranche 3 and batch EP4b (2026-11-16, in-game results at the end)
+## 10. Tranche 3 and batch EP4b (2026-11-16, NOT RUN)
 
 **Tranche 3.** 146 EP types were read by hand:
 - first, the 40 EP types in `docs/data/usage-rank-1115.csv` (real-use rank) not read before;
@@ -282,9 +279,9 @@ Parked or dropped:
   - 18 sites that start a VisualEffect and drop it (fix: `SubmitOneShotEffect`). SnackBowl is already 8.5.
   - The Consignment reputation fallback name (cosmetic).
 
-## 11. Batch EP5: scan pass 4 effects and tranche 4 (2026-11-16, in-game results at the end)
+## 11. Batch EP5: scan pass 4 effects and tranche 4 (2026-11-16, NOT RUN)
 
-Slots 3283-3333 (contributor range). Every switch is off by default and household-visible. Each `<switch>-check` repro runs the pure decision off, then on (`tools/harness/repros.json`).
+Slots 3283-3324 (`fixes-3932`) and 1600-1608 (new pinned block `fixes-3325`, 1600-1699). Every switch is off by default and household-visible. Each `<switch>-check` repro runs the pure decision off, then on (`tools/harness/repros.json`).
 
 ### 11.1 Effects started and dropped (docs/583 §8.1 P4-2)
 
@@ -336,9 +333,9 @@ Dropped or parked:
 - `EyeOfHorus_Teleport`, `KeystonePanel` and `JumpOffObject`: narrow races, or reach not shown.
 - About 95 other types had nothing reachable. They are listed in the agents' notes, not here.
 
-## 12. Tranche 5 and batch EP6 (2026-11-16, in-game results at the end)
+## 12. Tranche 5 and batch EP6 (2026-11-16, NOT RUN)
 
-Tranche 5 covers the next 120 unread EP types by scanner rank, read by four read-only agents. Filters: at least 4 methods, no interfaces, tooltips or markers, no store content and no StoryProgression. All ranks are 0 now, so the types are ordered by method count. Three leads were confirmed, one was found by grepping their siblings, and one parked lead was built. Slots 3334-3345 (contributor range). Every switch is off and household-visible, and none is fixed in simler90 UPDATE242.
+Tranche 5 covers the next 120 unread EP types by scanner rank, read by four read-only agents. Filters: at least 4 methods, no interfaces, tooltips or markers, no store content and no StoryProgression. All ranks are 0 now, so the types are ordered by method count. Three leads were confirmed, one was found by grepping their siblings, and one parked lead was built. Slots 3334-3345 (`fixes-3325`). Every switch is off and household-visible, and none is fixed in simler90 UPDATE242.
 
 | § | Switch | Check | What changes | Evidence |
 |---|---|---|---|---|
@@ -356,9 +353,9 @@ Dropped or parked:
 - NPC party host types and `KissingBoothAttendant.EndRole`: NPC-only, or the same as their siblings.
 - About 105 types had nothing reachable.
 
-## 13. Store content and store batch 1 (2026-11-16, in-game results at the end)
+## 13. Store content and store batch 1 (2026-11-16, NOT RUN)
 
-Sims3StoreObjects (79 decompiled files, namespace `Sims3.Store.Objects`) was read in full by five read-only agents; each lead below was then checked in the decompile, and against the shipped tuning where a value matters. simler90 ships no Store build, so there is no community diff. The other store DLLs are not covered: per docs/557 §1 the duplicate StoreObjects types in the store repacks never load. Slots 3346-3384 (contributor range). Every switch is off and household-visible.
+Sims3StoreObjects (79 decompiled files, namespace `Sims3.Store.Objects`) was read in full by five read-only agents; each lead below was then checked in the decompile, and against the shipped tuning where a value matters. simler90 ships no Store build, so there is no community diff. The other store DLLs are not covered: per docs/557 §1 the duplicate StoreObjects types in the store repacks never load. Slots 3346-3384 (`fixes-3325`). Every switch is off and household-visible.
 
 | § | Switch | Check | What changes | Evidence |
 |---|---|---|---|---|
@@ -378,7 +375,7 @@ Sims3StoreObjects (79 decompiled files, namespace `Sims3.Store.Objects`) was rea
 
 Parked (verified code, needs a copy of a yielding method or more reach evidence): `FVShoppingRegister.SellConsignedItems` doubles every sale and adds the Gardener bonus as a whole number (lowers player income when fixed); `AutonomousBuyItem` never picks index 0; `TreeOfProsperity.EvaluateAOE` keeps a stale Sim list and over-applies boosts; `SurfArea.Surf.Run` dequeues the head instead of itself; `WishingWell.StealCoins` cooldown never enforced; `DeepFryerVegas` Continue Cooking on a done fryer restarts, and `OnDoneEating` takes any meal; `DanceFloorStore.GetBestSlowDancePartner` filters on `Parent != null`; `RoutineMachine.TeleportToGym.DoTeleport` never queues the visit; `TeppanyakiGrill.InUse` compares an instance with a definition, and `TGCook` leaks a food container; `PinballMachine`/`BBallArcade.Dispose` call `Destroy` instead of `base.Dispose`; `MovieScreen` leaves room lights dim on reset; `FountainOfYouth` rare failure can remove a hidden trait; Teppanyaki and other `Cleanup`s skip base. Part-4 leads (WoodFireOven listener, CowPlant broadcaster, Tablet catalog name, IceCreamMaker flavours, StasisChamber jig, Blackjack) were not verified in this pass.
 
-## 14. Review pass over EP1-EP6 and store batch 1 (2026-11-16, in-game results at the end)
+## 14. Review pass over EP1-EP6 and store batch 1 (2026-11-16, NOT RUN)
 
 Three read-only agents re-read every replaced EA method and our hook in full; each finding was checked in the decompile before the change. Fixed (no new switches or slots):
 
@@ -406,61 +403,3 @@ Open (inferred or needing a copy): `chipanycount` chain test can misfire with tw
 ### 14.1 Live-path checks (2026-11-16)
 
 hypnotrickrelease's Check passed while the live hook threw on every run, because checks tested the pure decision with constants. Every EP1-EP6 and store hook now calls its own decision function with the live values, and every Check adds `EpLive` (mods/ts3fixes/src/EpLiveCheck.cs) to its members verdict. EpLive confirms the hook class's swaps are in place (count from `sPatched`) and that each reflection handle is usable as the hook uses it: value type, getter or setter, argument count, a real static read. 86 of 87 checks had the constant gap. Real bugs found on the way: cattoypickerrel (an early return outside the rule, and a Check that was always UNEXPECTED with the switch off), gourmetpetrecipe (Household read before the switch), coopeggquality (stale tuning array reference), backpacklotleak (EA skipped on an error with the switch off), consignmentlastday (empty price table), worldpondskatetest (`true` on error), saunatubclear (null actor). Checks of whole-method copies (mermaidsharknull, gourmetpetrecipe, houdinignomeleak, the dogswimslots/fragmentreconstruct/businessplannerrun copies and others) can prove only swaps and handles; their effect needs the game run. The other §14 open items are deferred.
-
-## In-game results (Bridgeport combined soaks, each switch off then on in one load)
-
-Switches of this doc that are posted in this change, with the runs where the check read off BROKEN and on FIXED (`smallfix.txt` of each run).
-
-| Switch | Off | On | Runs off BROKEN / on FIXED | Runs (phase-…) |
-|---|---|---|---|---|
-| `backpacklotleak` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `bubblingspringsreset` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `businessplannerrun` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `cattoypickerrel` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `chemistryvfx` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `chocfountaingeyser` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `coopeggquality` | BROKEN | FIXED | 1 | 20261116-0505 |
-| `dartboardvfx` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `dogswimaroundlist` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `dogswimslots` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `donationbuffchance` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `equestriantrophyname` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `fallenrockcollected` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `floorswitchuselist` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `fragmentreconstruct` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `futuredescendantsize0` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `fvstandskillcurve` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `harvesterunripe` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `hauntedgnomeinv` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `hayscattertime` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `haystackvfx` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `hottubseatposture` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `houdinignomeleak` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `hypnotrickrelease` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `junglegymexitqueue` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `labobjectpush` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `ovenmenunull` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `petdroolvfx` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `playpentalkcast` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `pokerdeadplayer` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `roulettehackreset` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `rubbleuselist` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `saunatubclear` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `showstagefxend` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `slotmachinedefs` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `soakedpetselfreact` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `spellbooksummonload` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `streetartmasterboost` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `tagbagsurfaceleak` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `teenpartybreakup` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `timeportalvfx` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `treewishingwell` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `tutorballoonalarm` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `vampirefruitsnack` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `voodoofairyfadein` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `wardrobewandvfx` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `wildhorselot` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `suatgradebonus` | BROKEN | FIXED | 2 | 20261116-0104, forcep73-1116-2318 |
-
-- [verified] The verdicts, controls ok and members found in the runs listed.
-- [inferred] How often each case happens in normal play: the checks call the same decision functions as the hooks.

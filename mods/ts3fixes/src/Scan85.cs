@@ -9,7 +9,7 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // Scan triage 1117 pass 2 real hits (docs/615). Two of the five pass-2 hits were false in the IL check
+    // Scan triage 1117 pass 2 real hits (docs/615, s85). Two of the five pass-2 hits were false in the IL check
     // (SnakeCharmingBasket: Charm.Cleanup re-adds the basket at opacity 1; RideBroomArena: BroomStand.ParkBroom fades the
     // broom in and Inventory.TryToAdd sets opacity 1), see docs/615 §4. All default off.
     public static partial class Fixes
@@ -191,8 +191,5 @@ namespace Ts3Fixes
             return B582Line("birthdayagerecord", on, "the listener stays for every guest who ages up", fixedPure,
                 "EA drops it after the first (" + eaBug + "), non-guest keeps, ended party releases it", controls, "", counters);
         }
-    
-        static readonly int sLive_birthdayagerecord = LiveAdd("birthdayagerecord", () => EpLive(typeof(BapAgeHook), 1));
-        static readonly int sLive_spoilbroadcast = LiveAdd("spoilbroadcast", () => EpLive(typeof(SpbSpoilHook), 1, "sSpbField", sSpbField, null));
     }
 }

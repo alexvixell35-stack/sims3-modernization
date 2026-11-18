@@ -52,6 +52,7 @@ function parseInit(t: string, p: number): { node: Node; end: number } {
             while (/\s/.test(t[p])) p++;
             if (t[p] === "}" || p >= t.length) return { node: out, end: p + 1 };
             const r = parseInit(t, p);
+            if (r.end <= p) return { node: out, end: p };  // no progress (a stray ';' or ')'): stop instead of looping forever
             out.push(r.node); p = r.end;
             while (/\s/.test(t[p])) p++;
             if (t[p] === ",") p++;

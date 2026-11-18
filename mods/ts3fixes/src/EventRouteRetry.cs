@@ -368,7 +368,7 @@ namespace Ts3Fixes
             away.y = 0f;
             if (away.LengthSqr() < 0.0001f) away = -jig.ForwardVector;
             Vector3 pos, fwd;
-            if (!SafeSpot(s, lot, jig.Position + away.Normalize() * (kEvrKeepOut + 1f), out pos, out fwd)) return;
+            if (!SafeSpot(s, lot, jig.Position + away.Normalize() * (kEvrKeepOut + 1f), out pos, out fwd, "ceremony", false)) return;
             Vector3 anchor, anchorFwd;
             bool anchorMoved;
             if (!EvrAnchor(hall, ShortcutOn("ceremonyspot"), out anchor, out anchorFwd, out anchorMoved)) anchor = jig.Position;

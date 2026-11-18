@@ -406,6 +406,14 @@ function selfCheck(): void {
       assert.throws(() => publicStrip(d), /banned text left in:\s+a\.ts/, 'banned hit refused');
     } finally { rmSync(d, { recursive: true, force: true }); }
   }
+  if (existsSync(join(import.meta.dirname, 'public-strip.json'))) { // private only: the strip list is not in the public tree; repros.json strip rule: pretty-printed gif_* steps go, other steps stay, result is JSON (after trailing comma fix)
+    const cfg = JSON.parse(readFileSync(join(import.meta.dirname, 'public-strip.json'), 'utf8')) as { edits: { file: string; replace: [string, string][] }[] };
+    const re = new RegExp(cfg.edits.find(e => e.file === 'tools/harness/repros.json')!.replace[0][0], 'gm');
+    const pretty = '[\n  {\n    "cmd": "gi' + 'f_begin",\n    "args": {\n      "label": "a {arm}, \\"q\\""\n    },\n    "waitS": 0\n  },\n  {\n    "cmd": "stove_wall_goto",\n    "args": {}\n  },\n  {\n    "cmd": "gi' + 'f_end",\n    "args": { "name": "w" }\n  }\n]\n';
+    const out = pretty.replace(re, '');
+    assert.ok(!out.includes('gi' + 'f_') && out.includes('stove_wall_goto'), 'pretty gif steps removed, others kept');
+    assert.equal(JSON.parse(out.replace(/,\s*]/g, ']')).length, 1, 'result is JSON');
+  }
   assert.equal(leftovers(`${pc}`).length, 1, 'leftover found');
   assert.ok(!isText(Buffer.from([65, 0, 66])) && isText(Buffer.from('abc')), 'binary detection');
 

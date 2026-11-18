@@ -1,5 +1,5 @@
 #!/bin/bash
-# Gameplay logic scan of the decompiled EA script assemblies (docs/559). Runs our semgrep rule sets plus two greps that
+# Gameplay logic scan of the decompiled EA script assemblies (docs/559; loop rules docs/572). Runs our semgrep rule sets plus two greps that
 # semgrep's C# parser misses, then prints a ranked summary (rule severity, then hits per file). Results stay local.
 #   tools/static/gameplay-scan.sh [out-dir]      (default game-copy/analysis/gameplay-scan)
 # Needs: semgrep in ~/.local/share/venvs/ts3/bin, a decompile in game-copy/decompiled (ilspycmd, docs/557).
@@ -11,6 +11,7 @@ mkdir -p "$out"
 src=("$repo/game-copy/decompiled/Sims3GameplaySystems" "$repo/game-copy/decompiled/Sims3GameplayObjects")
 sg=${SEMGREP:-$HOME/.local/share/venvs/ts3/bin/semgrep}
 nice -n 10 "$sg" --config "$repo/tools/static/ea-gameplay-logic.semgrep.yml" --config "$repo/tools/static/ea-script-logic.semgrep.yml" \
+  --config "$repo/tools/static/ea-loop-logic.semgrep.yml" \
   --metrics=off --no-git-ignore -j 2 --max-memory 2500 --timeout 20 --json -o "$out/semgrep.json" "${src[@]}" > "$out/semgrep.log" 2>&1 || true
 # greps: inclusive RandomUtil.GetInt(Count) indexing (semgrep misses it inside do/while), and sleep-wait loops whose
 # condition has no exit-reason / destroyed / counter test (uncancellable waits: bowling start wait, docs/559 §3)

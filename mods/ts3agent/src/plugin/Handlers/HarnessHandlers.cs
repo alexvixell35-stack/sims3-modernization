@@ -70,6 +70,7 @@ namespace Ts3Agent
             Dispatcher.Register("queues", Queues);
             Dispatcher.Register("seed_rng", SeedRng);
             Dispatcher.Register("test_env", TestEnv);
+            Dispatcher.Register("weather", WeatherCmd);  // gated live-only in GateHandlers
             RegisterFreshWorld();
             Dispatcher.Register("quiet_ui", QuietUi);
             Dispatcher.Register("autopilot", Autopilot);
@@ -671,7 +672,7 @@ namespace Ts3Agent
                 try { PlayFlowModel.Singleton.PlayExisting(lotId); } catch (Exception) { }
                 const BindingFlags np = BindingFlags.NonPublic | BindingFlags.Instance;
                 PlayFlowModel m = PlayFlowModel.Singleton;
-                BoolFuncWithParam masked = (BoolFuncWithParam)Delegate.CreateDelegate(typeof(BoolFuncWithParam), m, typeof(PlayFlowModel).GetMethod("ActivateSimScreenMaskedFunc", np));
+                BoolFuncWithParam masked = (BoolFuncWithParam)Delegate.CreateDelegate(typeof(BoolFuncWithParam), m, typeof(PlayFlowModel).GetMethod("ActivateSimScreenMaskedFunc", np, null, new Type[] { typeof(object) }, null));
                 BoolFuncWithParam loaded = (BoolFuncWithParam)Delegate.CreateDelegate(typeof(BoolFuncWithParam), m, typeof(PlayFlowModel).GetMethod("LotsLoadedFunc", np));
                 BoolFuncWithParam unmasked = (BoolFuncWithParam)Delegate.CreateDelegate(typeof(BoolFuncWithParam), m, typeof(PlayFlowModel).GetMethod("ScreenUnmaskedFunc", np));
                 Sims3.UI.GameEntry.MiniLoad.Show(true, lotId, masked, loaded, unmasked, new Tuple(hh, hh.LotHome));
@@ -755,6 +756,75 @@ namespace Ts3Agent
                 mB = x ^ y ^ (x >> 17) ^ (y >> 26);
                 return (mB + y >> 11) * (1.0 / 9007199254740992.0);
             }
+        }
+
+        // weather (docs/599): force one weather through EA's own Seasons API (SeasonsManager.ForceRequest*, the calls the
+        // weather cheats and test_env use) or read the current state. Live mode only (GateHandlers). EA ramps the running
+        // event down first (WeatherManager.ForceRequestWeather -> RequestStop), so the new weather shows after a short ramp.
+        //   weather {"set":"clear|rain|heavyrain|snow|blizzard|hail|fog","hours":N}   optional "season":"winter|spring|summer|fall"
+        //                                                                               (ForceRequestSeason first: snow only builds up in cold)
+        //   weather {"get":true}   weather, intensity, temperature, season, snow level, terrain, puddle flag and the
+        //                          WeatherControl floats sent to the renderer every tick (snow / wet / frost amounts)
+        static object WeatherCmd(Args a)
+        {
+            if (!GameUtils.IsInstalled(ProductVersion.EP8)) throw new McpException("weather needs Seasons (EP8)");
+            const BindingFlags kPriv = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+            object sm = typeof(Sims3.Gameplay.Seasons.SeasonsManager).GetField("sInstance", kPriv).GetValue(null);
+            if (sm == null) throw new McpException("no SeasonsManager in this world");
+            Dictionary<string, object> r = Util.Obj();
+            if (a.Has("set"))
+            {
+                string set = a.Str("set").ToLowerInvariant();
+                float hours = (float)a.Double("hours", 6);
+                if (a.Has("season"))
+                {
+                    Season season = (Season)Enum.Parse(typeof(Season), a.Str("season"), true);
+                    Sims3.Gameplay.Seasons.SeasonsManager.ForceRequestSeason(season);
+                    r["season_set"] = season.ToString();
+                }
+                switch (set)
+                {
+                    case "clear": Sims3.Gameplay.Seasons.SeasonsManager.ForceRequestWeather(Weather.Sunny, hours); break;
+                    case "rain": Sims3.Gameplay.Seasons.SeasonsManager.ForceRequestRainWithIntensity(PrecipitationIntensity.Moderate, hours); break;
+                    case "heavyrain": Sims3.Gameplay.Seasons.SeasonsManager.ForceRequestRainWithIntensity(PrecipitationIntensity.Heavy, hours); break;
+                    case "snow": Sims3.Gameplay.Seasons.SeasonsManager.ForceRequestSnowWithIntensity(PrecipitationIntensity.Moderate, hours); break;
+                    case "blizzard": Sims3.Gameplay.Seasons.SeasonsManager.ForceRequestSnowWithIntensity(PrecipitationIntensity.Heavy, hours); break;
+                    case "hail": Sims3.Gameplay.Seasons.SeasonsManager.ForceRequestWeather(Weather.Hail, hours); break;
+                    case "fog": Sims3.Gameplay.Seasons.SeasonsManager.ForceRequestWeather(Weather.Fog, hours); break;
+                    default: throw new McpException("set: clear|rain|heavyrain|snow|blizzard|hail|fog, not " + set);
+                }
+                r["set"] = set;
+                r["hours"] = hours;
+            }
+            r["weather"] = Sims3.Gameplay.Seasons.SeasonsManager.CurrentWeather.ToString();
+            r["forced"] = Sims3.Gameplay.Seasons.SeasonsManager.ForcedWeather.ToString();
+            PrecipitationIntensity pi;
+            if (Sims3.Gameplay.Seasons.SeasonsManager.IsRaining(out pi) || Sims3.Gameplay.Seasons.SeasonsManager.IsSnowing(out pi)) r["intensity"] = pi.ToString();
+            r["temperature"] = Math.Round(Sims3.Gameplay.Seasons.SeasonsManager.Temperature, 1);
+            r["season"] = Sims3.Gameplay.Seasons.SeasonsManager.CurrentSeason.ToString();
+            r["snow_level"] = Sims3.Gameplay.Seasons.SeasonsManager.CurrentSnowLevel.ToString();
+            r["terrain"] = Sims3.Gameplay.Seasons.SeasonsManager.CurrentWeatherTerrainType.ToString();
+            r["road_wet"] = Sims3.Gameplay.Seasons.SeasonsManager.IsRoadWet;
+            r["outdoor_puddles_blocked"] = Sims3.Gameplay.Seasons.SeasonsManager.DisallowOutdoorPuddles;
+            // TerrainCoverManager's 0-100 levels (private; the float sent on is level / 100)
+            object tcm = sm.GetType().GetField("mTerrainCoverManager", kPriv).GetValue(sm);
+            foreach (string f in new[] { "mSnowLevelValue", "mWetLevel", "mFrostLevel", "mSnowTrackDepth" })
+            {
+                FieldInfo fi = tcm.GetType().GetField(f, kPriv);
+                if (fi != null) r[f.Substring(1)] = Math.Round(Convert.ToDouble(fi.GetValue(tcm)), 2);
+            }
+            Sims3.SimIFace.Weather.WeatherSettings ws = Sims3.SimIFace.Weather.WeatherControl.Settings;
+            Dictionary<string, object> sent = Util.Obj();
+            sent["precip_type"] = ws.PrecipitationType.ToString();
+            sent["precip_strength"] = Math.Round(ws.PrecipitationStrength, 3);
+            sent["snow_thickness"] = Math.Round(ws.SnowThicknessAmount, 3);
+            sent["wet"] = Math.Round(ws.WetAmount, 3);
+            sent["frost"] = Math.Round(ws.FrostAmount, 3);
+            sent["snow_melting"] = ws.IsSnowMelting;
+            sent["precip_fog"] = Math.Round(ws.PrecipitationFogStrength, 3);
+            sent["wind"] = Math.Round(ws.WindStrength, 3);
+            r["sent"] = sent;
+            return r;
         }
 
         // test_env: world conditions that skew measurements, corrected without making runs unrealistic (Rodney, 2026-10-17:

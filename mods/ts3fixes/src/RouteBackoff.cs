@@ -130,8 +130,10 @@ namespace Ts3Fixes
                     : ForeignEligible() && PreCb(0, ref pre) && GetOption2((Sims3.SimIFace.Route.RouteOption2)kArStart);
                 if (!started)
                 {
+                    int ts = UfSyncStart();
                     StepAside();
                     if (!GvuDefer(0, out r)) r = PlanOrig();
+                    UfSyncEnd(ts);
                 }
                 else
                 {
@@ -254,7 +256,10 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 c[56]++;
                 RflAsyncMark(); // routefaillog: this plan waits on a ts3native job
-                for (int i = 0; !GetOption2(kAsyncReady); i++)
+                ulong splitTask = Simulator.CurrentTask.Value;
+                bool splitOn = sUfSplits.ContainsKey(splitTask);
+                int t0 = System.Environment.TickCount, i = 0;
+                for (; !GetOption2(kAsyncReady); i++)
                 {
                     // shortcut: a fixed cap (~10-20 s real time); past it the plan waits natively and is then made
                     // again synchronously. Upgrade to a time-based cap if long searches ever reach it.
@@ -262,6 +267,10 @@ namespace Ts3Fixes
                     c[57]++;
                     Simulator.Sleep(0);
                 }
+                // ufplansplit (log only): this task's entry (other Sims' plans ran during the polls; they keep their own)
+                UfSplit su;
+                if (splitOn && sUfSplits.TryGetValue(splitTask, out su))
+                { su.WaitStart = t0; su.WaitMs = unchecked(System.Environment.TickCount - t0); su.Polls = i; su.Seen = true; sUfSplits[splitTask] = su; }
             }
 
             // docs/185 §5: the original Plan/Replan runs Route.AboutToPlanCallback only after the async job (it is called after
@@ -278,9 +287,11 @@ namespace Ts3Fixes
             // The watchdog's A1 job (WdA1Here) always takes the pre-call: its verdict is acted on (OkAt skips the Sim a sim-day), and
             // without the callback the job missed locked/forbidden doors, closed venues and tombs the sync check applies
             // (wdasync-fix2-1110: shadow mismatch A1 True vs sync False on residential lots).
-            bool PreCb(int kind, ref bool pre)
+            bool PreCb(int kind, ref bool pre) { return PreCb(kind, ref pre, false); }
+            // force: routableasync's job takes the pre-call as the watchdog's A1 does (same check, same door / tomb rules)
+            bool PreCb(int kind, ref bool pre, bool force)
             {
-                if (pre || !(ShortcutOn("preplancb") || WdA1Here())) return true;
+                if (pre || !(force || ShortcutOn("preplancb") || WdA1Here() || SpotAsyncHere())) return true;
                 pre = true;
                 Sims3.SimIFace.Route.AboutToPlanDelegate cb = Sims3.SimIFace.Route.AboutToPlanCallback;
                 if (cb == null || DestObjectInvalid()) return true;
@@ -328,7 +339,7 @@ namespace Ts3Fixes
             {
                 DoorMirror.SyncRoute(this, Vector3.Invalid);
                 bool pre = false;
-                if (!AsyncKindStart(1, Vector3.Origin, ref pre)) { RoutePlanResult d; return GvuDefer(1, out d) ? d : ReplanOrig(); }
+                if (!AsyncKindStart(1, Vector3.Origin, ref pre)) { RoutePlanResult d; int ts = UfSyncStart(); if (!GvuDefer(1, out d)) d = ReplanOrig(); UfSyncEnd(ts); return d; }
                 try
                 {
                     AsyncWait();
@@ -347,6 +358,7 @@ namespace Ts3Fixes
                 RouteSrcCall src = RouteSrcBegin(this, 2, startPosition);
                 RoutePlanResult r = UfPlan(2, startPosition);
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
+                SemCapture(r);  // docs/636 spotedgememo: which goal EA's full routability plan reached
                 RflPlan(this, 2, rflT0, r);
                 return r;
             }
@@ -354,7 +366,23 @@ namespace Ts3Fixes
             {
                 DoorMirror.SyncRoute(this, startPosition);
                 bool pre = false;
-                if (!AsyncKindStart(2, startPosition, ref pre)) { RoutePlanResult d; return GvuDefer(2, out d) ? d : PlanFromPointOrig(startPosition); }
+                // docs/635 spotcut: a spotasync check's job carries the unseen-fallback MARK, so ts3native gives it the
+                // [UnseenFallback] job deadline instead of the watchdog tag's uncut KdUncutCeilMs (ts3native.cpp: a marked job's
+                // t_fbCapUs = ufUs whatever its tag); a cut check answers no verdict (SpotVerdict null, not cached)
+                bool spotMark = SpotCutMark() && UfSend(1);
+                if (spotMark) PatchCounters()[3803]++;
+                try { return PlanFromPointAsyncBody(startPosition, ref pre); }
+                finally { if (spotMark && UfSend(2)) SpotCutNote(); }
+            }
+            RoutePlanResult PlanFromPointAsyncBody(Vector3 startPosition, ref bool pre)
+            {
+                if (!AsyncKindStart(2, startPosition, ref pre))
+                {
+                    // docs/635 spotbusydefer: a spotasync check whose tagged START was refused (the worker holds the routing lock
+                    // for another job) answers "no verdict now" instead of a sync plan that waits on that lock on the sim thread
+                    if (SpotBusyDeferNow()) return FailFast(RoutePlanResultType.FailedBecauseNoPathToDestination);
+                    RoutePlanResult d; int ts = UfSyncStart(); if (!GvuDefer(2, out d)) d = PlanFromPointOrig(startPosition); UfSyncEnd(ts); return d;
+                }
                 try
                 {
                     AsyncWait();
@@ -381,7 +409,7 @@ namespace Ts3Fixes
                 UbCountReplan();  // docs/248
                 DoorMirror.SyncRoute(this, fromPt);
                 bool pre = false;
-                if (!AsyncKindStart(3, fromPt, ref pre)) { RoutePlanResult d; return GvuDefer(3, out d) ? d : ReplanFromPointOrig(fromPt); }
+                if (!AsyncKindStart(3, fromPt, ref pre)) { RoutePlanResult d; int ts = UfSyncStart(); if (!GvuDefer(3, out d)) d = ReplanFromPointOrig(fromPt); UfSyncEnd(ts); return d; }
                 try
                 {
                     AsyncWait();
@@ -407,14 +435,28 @@ namespace Ts3Fixes
                 // ts3native 0.36.239 [RouteAsync] WatchdogKind2: the PlanFromPoint START carries the watchdog tag (kProbe 0x10400, as
                 // OwnerTaskStart's kind 0), and ts3native starts an own kind-2 START without Kinds bit 2 only with it; it labels the
                 // job (v179 wdJob*). CheckIdle picks A1 only when ts3native answers q 9 (RouteFixes.cs WdA1Would).
-                bool wd = WdA1Here() && ForeignEligible();
+                bool a1 = WdA1Here(), spot = !a1 && kind == 2 && SpotAsyncHere();  // docs/616 spotasync: SafeSpot's check takes A1's tagged path
+                bool wd = (a1 || spot) && ForeignEligible();
+                // routableasync (docs/584 §3, default off; for an A/B with [RouteAsync] Kinds=2): a PlanFromPoint START only from
+                // EA's Sim.IsPointInLotSafelyRoutable (RoutableCacheHook, sInRoutableCheck; our SpotVerdict's calls go through it
+                // too) for an unseen NPC (UfWhy 0: never household, selected or unknown scope); every other PlanFromPoint stays
+                // sync, as with Kinds=0. [2736] STARTs let through, [2737] refused here, [2738] let through but not started.
+                bool rtGate = kind == 2 && !wd && ShortcutOn("routableasync");
+                if (rtGate)
+                {
+                    Sims3.Gameplay.Actors.Sim rs = proxy != null ? proxy.Target as Sims3.Gameplay.Actors.Sim : null;
+                    if (!sInRoutableCheck || sInWdCheck || rs == null || rs.SimDescription == null || rs.SimDescription.IsPet || UfWhy(rs) != 0)
+                    { PatchCounters()[2737]++; return false; }
+                    PatchCounters()[2736]++;
+                }
                 bool own = wd || AsyncEligible(proxy != null ? proxy.Target as Sims3.Gameplay.Actors.Sim : null, "asyncreplan");
                 if (!own && !(ShortcutOn("asyncreplan") && ShortcutOn("asyncreplanforeign") && ForeignEligible())) return false;
-                PreCb(kind, ref pre);
+                PreCb(kind, ref pre, rtGate);
                 if (kind >= 2) { AsyncPoint(0, p.x); AsyncPoint(1, p.y); AsyncPoint(2, p.z); }
-                if (wd) { PatchCounters()[872]++; GetOption2(kProbe | (Sims3.SimIFace.Route.RouteOption2)0x10400UL); }
+                if (wd) { if (a1) PatchCounters()[872]++; GetOption2(kProbe | (Sims3.SimIFace.Route.RouteOption2)0x10400UL); }
                 bool started = GetOption2((Sims3.SimIFace.Route.RouteOption2)((own ? kArStart : kArStart | kArForeign) | (ulong)kind << 56));
-                if (wd) { if (started) PatchCounters()[873]++; }
+                if (wd && spot) { SpotAsyncStarted(started); if (!started) SpotStartRefused(); }
+                else if (wd) { if (started) PatchCounters()[873]++; }
                 else if (!own)
                 {
                     int[] c = PatchCounters();
@@ -422,6 +464,7 @@ namespace Ts3Fixes
                     if (started) c[247]++;
                 }
                 if (!started) StepAside();  // the kind's sync plan follows
+                if (rtGate && !started) PatchCounters()[2738]++;
                 return started;
             }
 

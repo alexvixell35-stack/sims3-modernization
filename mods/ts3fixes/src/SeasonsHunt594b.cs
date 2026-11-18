@@ -56,11 +56,10 @@ namespace Ts3Fixes
             public float HoursElapsed;
         }
 
-        static readonly Type sRfRain = B13Nested(typeof(SeasonsManager), "WeatherManager", "RainEvent");  // before the handles below (field order)
         static readonly Type sRfUpdateData = B13Nested(typeof(SeasonsManager), "UpdateData");
-        static readonly FieldInfo sRfNextField = sRfRain == null ? null : sRfRain.GetField("mNextPutOutFiresTime", BindingFlags.Instance | BindingFlags.NonPublic);
-        static readonly MethodInfo sRfSchedule = sRfRain == null ? null : sRfRain.GetMethod("SchedulePutOutFires", BindingFlags.Instance | BindingFlags.NonPublic, null, new Type[] { typeof(DateAndTime) }, null);
-        static readonly MethodInfo sRfTarget = sRfRain == null || sRfUpdateData == null ? null : sRfRain.GetMethod("PutOutFires", BindingFlags.Instance | BindingFlags.NonPublic, null, new Type[] { sRfUpdateData }, null);
+        static readonly FieldInfo sRfNextField = sLwRain == null ? null : sLwRain.GetField("mNextPutOutFiresTime", BindingFlags.Instance | BindingFlags.NonPublic);
+        static readonly MethodInfo sRfSchedule = sLwRain == null ? null : sLwRain.GetMethod("SchedulePutOutFires", BindingFlags.Instance | BindingFlags.NonPublic, null, new Type[] { typeof(DateAndTime) }, null);
+        static readonly MethodInfo sRfTarget = sLwRain == null || sRfUpdateData == null ? null : sLwRain.GetMethod("PutOutFires", BindingFlags.Instance | BindingFlags.NonPublic, null, new Type[] { sRfUpdateData }, null);
         static readonly MethodInfo sSsTarget = typeof(BuffSoaked).GetMethod("OnReAddition", BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
         static string sRfMissing = "";
 
@@ -78,10 +77,10 @@ namespace Ts3Fixes
 
         static void ApplyRainFires()
         {
-            sRfMissing = EpJoin(SpNames("SeasonsManager+WeatherManager+RainEvent", sRfRain, "RainEvent.mNextPutOutFiresTime", sRfNextField,
+            sRfMissing = EpJoin(SpNames("SeasonsManager+WeatherManager+RainEvent", sLwRain, "RainEvent.mNextPutOutFiresTime", sRfNextField,
                 "RainEvent.SchedulePutOutFires", sRfSchedule, "RainEvent.PutOutFires(UpdateData)", sRfTarget), RfLayout()).Trim();
             if (sRfMissing.Length > 0) { AppliedLog().Add("weathermanagerthrow/rainsheltercheap: not found: " + sRfMissing); return; }
-            Patch(sRfRain, "PutOutFires", new Type[] { sRfUpdateData }, typeof(RfHook), "PutOutHook", "PutOutOrig");
+            Patch(sLwRain, "PutOutFires", new Type[] { sRfUpdateData }, typeof(RfHook), "PutOutHook", "PutOutOrig");
         }
 
         static void ApplyPondClearScan()

@@ -40,8 +40,7 @@ namespace Ts3Fixes
             Patch(typeof(HouseParty), "RemoveGuest", typeof(PfRemoveHook), "RemoveHook", "RemoveOrig");
         }
 
-        const BindingFlags kPfAll = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-        static FieldInfo PfField(Type t, string name) { return t.GetField(name, kPfAll); }
+        static FieldInfo PfField(Type t, string name) { return t.GetField(name, kAnyAll); }
         static readonly FieldInfo sPfScore = PfField(typeof(HouseParty), "mTotalPartyScore");
         static readonly FieldInfo sPfGuests = PfField(typeof(HouseParty), "mNumberOfGuests");
         static readonly FieldInfo sPfMotives = PfField(typeof(HouseParty.Happening), "partyMotives");

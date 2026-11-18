@@ -1,9 +1,6 @@
 # 592. Usage sweep 4: base classes and shared helpers
 
-> Posted upstream with the switches listed under "In-game results" at the end. Sections on other leads or switches are kept as research notes; those switches are not part of this change.
-
-
-Date: 2026-11-16. Static read; the fixes built from it are proven in game (end of this doc). Follows docs/589-591.
+Date: 2026-11-16. Static read, nothing built. Follows docs/589-591.
 
 **Scope:**
 - The bases every interaction inherits: InteractionInstance, InteractionQueue, Interaction<,>, SocialInteraction/SocialComponent, Situation, Role/RoleData/RoleManager, Posture, CarrySystem, and the Sim exit-reason and use-list code.
@@ -105,37 +102,4 @@ Tidy items:
 
 ## Batch 12
 
-Built 2026-11-16, all default off: the switch table and the in-game results are at the end of this doc; docs/590 "Batch 12" lists the leads not built.
-
-## Built fixes (from the docs/590 batch table)
-
-EA bug fixes as EA intended, household included. Each switch is a ts3fixes Mono swap with a pure decision, a `<Name>Check`
-(the hook's own handles, a live-path assert, controls) and a `<switch>-check` repro; 3 slots each (fixed / seen with the
-switch off / errors). All default off.
-
-| § | lead | switch | slots | fix |
-|---|---|---|---|---|
-| 37 | 592 S2 | `leaveconvnull` | 3172-3174 | leaving a conversation the Sim never joined does not count as a social |
-| 38 | 592 S3 | `vacationalarms` | 3175-3177 | alarms on vacation arrival are not shifted twice |
-| 39 | 592 S5 | `cleanupvfx` | 3178-3180 | an interaction's named effects are disposed at its cleanup in a live game (also in the djcleanup copy) |
-| 40 | 592 S6 | `lookatcopy` | 3181-3183 | asking for a room's look-at objects without Sims no longer removes the Sims from the registry |
-| 41 | 592 S8 | `lottotooltip` | 3184-3186 | the lotto 'not available' tooltip shows the real start hour |
-| 42 | 592 S9 | `traiticondislike` | 3187-3189 | pie-menu entries that lower a trait motive show the dislike icon |
-| 43 | 592 S11 | `roleunprotect` | 3190-3192 | a townie removed from an inactive role loses the role's story-progression protection |
-| 44 | 592 S13 | `putdownplaced` | 3193-3195 | putting an object on a surface fires the placed event, not removed |
-
-## In-game results (Bridgeport combined soaks, each switch off then on in one load)
-
-| Switch | Off | On | Runs off BROKEN / on FIXED | Runs (phase-…) |
-|---|---|---|---|---|
-| `cleanupvfx` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `leaveconvnull` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `lookatcopy` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `lottotooltip` | BROKEN | FIXED | 1 | 20261116-0505 |
-| `putdownplaced` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `roleunprotect` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `traiticondislike` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `vacationalarms` | BROKEN | FIXED | 1 | 20261116-0234 |
-
-- [verified] The verdicts, controls ok and members found in the runs listed (`smallfix.txt` of each run).
-- [inferred] How often each case happens in normal play: the checks call the same decision functions as the hooks.
+Built 2026-11-16, all default off, NOT RUN: see docs/590 "Batch 12" for the switch table and the leads not built.

@@ -1,6 +1,6 @@
-# 614: scan triage real hits: bar put-down wait, put-down surface use, swipe, unicorn spawn, data discs
+# 614: scan triage real hits: bar put-down wait, put-down surface use, swipe, unicorn spawn, data discs (s84)
 
-2026-11-17, static (ilspycmd decompiles of game-copy/assemblies), r72; all five fixes proven in game by their force checks (§8).
+2026-11-17, static (ilspycmd decompiles of game-copy/assemblies), r72, built, NOT RUN.
 
 Input: the 2026-11-17 static scan triage (top 5 "real" hits). Each was confirmed in the decompiled IL before building;
 all five held. Every switch is default off, has a pure Check (off BROKEN / on FIXED with controls), a repro in
@@ -59,20 +59,9 @@ disc stayed behind; a disc EA cannot remove still ends the move. No yield in eit
 | UnicornSpawn, unicorn left invisible | FadeOut before the only false return | real, `unicornspawnfail` |
 | DataDiscStorage, disc lost on failed move | removed before a failable add | real, `datadiscputback` |
 
-## 7. r71 empty checks
+## 7. r71 empty checks (s83 follow-up)
 
 r71 loaded (build 32ac68f8, 460 switches off), but the game crashed before the phase ran: native ACCESS_VIOLATION at
 0x370F8B72 (sim thread; virtual call through a heap vtable at 0x91AD01), so every agent reply was empty, not only the two
 docs/613 checks. Cause not proven; per AGENTS rules it counts as ours until a rerun shows otherwise. r72 trims the docs/613
-hooks' off arm to EA's body only (no extra game calls with the switch off). r72 ran clean (§8).
-
-## 8. In-game result
-
-r72 (`phase-20261117-0857`), one load, force checks: all five off BROKEN / on FIXED, controls ok, members found, error
-counters 0.
-- `barputdownwait`: with the switch on, the live replay's Wait returned although the handler never fired (success False).
-  With it off, the replay is skipped, because EA's Wait would never return.
-- `putdownsurfaceuse`, `swiperestore`, `unicornspawnfail`: pure checks with controls; no failing put-down, swipe or spawn
-  happened in play.
-- `datadiscputback`: one refused disc: EA loses 1 and moves 1; ours moves 2 and loses none. "All accepted" is the same as
-  EA, and an unremovable disc stops the move.
+hooks' off arm to EA's body only (no extra game calls with the switch off). Needs a rerun plus 2 clean runs.

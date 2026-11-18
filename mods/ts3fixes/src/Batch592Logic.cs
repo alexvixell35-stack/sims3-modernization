@@ -352,6 +352,10 @@ namespace Ts3Fixes
         {
             public static bool PutHook(Sim sim, ISurface surface, SurfaceType type, bool forceRoute, bool requireChair, bool playRouteFail)
             {
+                // bookhand (BookHand.cs): the carry machine can go null after CarrySystem.PutDown's own guard ran (the routing to
+                // a surface yields); PutDownOnSurface then throws at CarryStateMachine.SetParameter. Same fix, same switch, same counters.
+                try { if (sim != null) BhAt(sim, BookHandCore.PutDownWouldThrow(BhStuck(sim), sim.LotCurrent == null), "CarrySystem.PutDownOnSurface"); }
+                catch (Exception) { }  // the guard never stops EA's put-down
                 IGameObject held = sim == null ? null : sim.GetObjectInRightHand();
                 bool track = held != null && surface != null && !(held is ICarryDestroyOnPutDown);
                 if (track) sPpPending[held] = true;
@@ -376,30 +380,5 @@ namespace Ts3Fixes
 
             public void TriggerOrig(SurfaceSlot slot, IGameObject item, SurfaceAddOn.Action action) { }
         }
-
-        // live paths of the checks (CheckVerdict.cs CkLive): hook swaps in place, reflection handles usable
-        static readonly int sLive_cleanupvfx = LiveAdd("cleanupvfx", () => EpLive(typeof(B12CvHook), 1, "sCvList", sCvList, null));
-        static readonly int sLive_firefightercount = LiveAdd("firefightercount", () => EpLive(typeof(B13FcHook), 1, "sFcMax", sFcMax, 0));
-        static readonly int sLive_harvestextras = LiveAdd("harvestextras", () => EpLive(typeof(B13HeHook), 2, "sHeHarvest", sHeHarvest, 3, "sHeManip", sHeManip, 2, "sHeJournal", sHeJournal, 3));
-        static readonly int sLive_harvestregion = LiveAdd("harvestregion", () => EpLive(typeof(B13HrHook), 1));
-        static readonly int sLive_leaveconvnull = LiveAdd("leaveconvnull", () => EpLive(typeof(B12LvHook), 1));
-        static readonly int sLive_lightningweights = LiveAdd("lightningweights", () => EpLive(typeof(B13LwHook), 1, "sLwWeights", sLwWeights, null, "sLwWeights", sLwWeights, "static"));
-        static readonly int sLive_lookatcopy = LiveAdd("lookatcopy", () => EpLive(typeof(B12LaHook), 1));
-        static readonly int sLive_lottotooltip = LiveAdd("lottotooltip", () => EpLive(typeof(B12LtHook), 1, "sLtStart", sLtStart, typeof(float), "sLtStart", sLtStart, "static", "sLtEnd", sLtEnd, typeof(float), "sLtEnd", sLtEnd, "static", "sLtLoc", sLtLoc, 2));
-        static readonly int sLive_mountfishcost = LiveAdd("mountfishcost", () => EpLive(typeof(B13MfHook), 1, "sMfCost", sMfCost, typeof(int), "sMfCost", sMfCost, null));
-        static readonly int sLive_nullsituation = LiveAdd("nullsituation", () => EpLive(typeof(B13NsHook), 2));
-        static readonly int sLive_oppfailcharge = LiveAdd("oppfailcharge", () => EpLive(typeof(B13OfHook), 1));
-        static readonly int sLive_petharvestvfx = LiveAdd("petharvestvfx", () => EpLive(typeof(B13PvHook), 2));
-        static readonly int sLive_plantdormantflip = LiveAdd("plantdormantflip", () => EpLive(typeof(B13PfHook), 1, "sPfLeafless", sPfLeafless, 0, "sPfFrost", sPfFrost, typeof(float), "sPfFrost", sPfFrost, "static", "sPfLeaves", sPfLeaves, typeof(float), "sPfLeaves", sPfLeaves, "static", "sPfDormant", sPfDormant, typeof(bool), "sPfDormant", sPfDormant, null, "sPfFrosted", sPfFrosted, 0, "sPfDelete", sPfDelete, 0));
-        static readonly int sLive_plantdormanttime = LiveAdd("plantdormanttime", () => EpLive(typeof(B13PtHook), 1, "sPfDormant", sPfDormant, typeof(bool), "sPtLast", sPtLast, null));
-        static readonly int sLive_putdownplaced = LiveAdd("putdownplaced", () => EpJoin(EpLive(typeof(B12PpHook), 1), EpLive(typeof(B12PpTrigger), 1)));
-        static readonly int sLive_repairmanskill = LiveAdd("repairmanskill", () => EpLive(typeof(B13RsHook), 1, "sRsMin", sRsMin, typeof(int), "sRsMin", sRsMin, "static", "sRsMax", sRsMax, typeof(int), "sRsMax", sRsMax, "static"));
-        static readonly int sLive_roleunprotect = LiveAdd("roleunprotect", () => EpLive(typeof(B12RuHook), 1, "sRuSim", sRuSim, null, "sRuFlag", sRuFlag, typeof(bool), "sRuFlag", sRuFlag, null));
-        static readonly int sLive_roundupreturn = LiveAdd("roundupreturn", () => EpLive(typeof(B13RuHook), 1));
-        static readonly int sLive_shroomslots = LiveAdd("shroomslots", () => EpLive(typeof(B13SsHook), 1, "sSsShrooms", sSsShrooms, typeof(int), "sSsHelped", sSsHelped, null, "sSsPost", sSsPost, 1, "sSsYielded", sSsYielded, null, "sSsYielded", sSsYielded, typeof(int), "sSsTimeout", sSsTimeout, 2));
-        static readonly int sLive_tempforecast = LiveAdd("tempforecast", () => EpLive(typeof(B13TfHook), 1, "sTfMin", sTfMin, null, "sTfMin", sTfMin, "static", "sTfMax", sTfMax, null, "sTfMax", sTfMax, "static", "sTfWeight", sTfWeight, 1, "sTfGet", sTfGet, 2));
-        static readonly int sLive_traiticondislike = LiveAdd("traiticondislike", () => EpLive(typeof(B12TiHook), 1));
-        static readonly int sLive_vacationalarms = LiveAdd("vacationalarms", () => EpLive(typeof(B12VaHook), 1, "sVaSingle", sVaSingle, null, "sVaSingle", sVaSingle, "static", "sVaMake", sVaMake, 0, "sVaHour", sVaHour, typeof(float), "sVaHour", sVaHour, "static"));
-        static readonly int sLive_wellstealcooldown = LiveAdd("wellstealcooldown", () => EpLive(typeof(B13WsHook), 1, "sWsLast", sWsLast, null, "sWsCool", sWsCool, typeof(float), "sWsCool", sWsCool, "static"));
     }
 }

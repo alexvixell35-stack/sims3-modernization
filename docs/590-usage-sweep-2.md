@@ -1,9 +1,6 @@
 # 590. Usage sweep 2 (ranks 101-200 and top-20 callees)
 
-> Posted upstream with the switches listed under "In-game results" at the end. Sections on other leads or switches are kept as research notes; those switches are not part of this change.
-
-
-Date: 2026-11-16. Static read; the docs/590 fixes are built and proven in game (results at the end). Follows docs/589. Ranking from `docs/data/usage-rank-1115.csv`.
+Date: 2026-11-16. Static read, nothing built. Follows docs/589. Ranking from `docs/data/usage-rank-1115.csv`.
 
 Every item was checked against ts3fixes, proven-fixes and simler90 UPDATE242 (ilspycmd diff of both DLLs). Unless noted, simler90 matches EA and no ts3fixes switch touches the site. "V" = verified in code, "I" = inferred. "HH" = household can see it.
 
@@ -56,54 +53,54 @@ VelvetRopes Enum.GetValues cache; MetaAutonomyManager CalculateTotalDesiredNumSi
 
 ## Batch 12 (built 2026-11-16, all default off, NOT RUN)
 
-EA bug fixes as EA intended, household included (user rule "fix all"), from docs/590, docs/591 and docs/592. Each switch is a ts3fixes Mono swap with a pure decision, a `<Name>Check` (the hook's own handles, a live-path assert, controls) and a `<switch>-check` repro. The docs/590 part: slots 3064-3114 (3 each: fixed / seen with the switch off / errors), code `mods/ts3fixes/src/Batch590Logic.cs`, checks `Batch590Checks.cs`; docs/591 and docs/592 are posted separately. Every switch is household-visible.
+EA bug fixes as EA intended, household included (user rule "fix all"), from docs/590, docs/591 and docs/592. Each switch is a ts3fixes Mono swap with a pure decision, a `<Name>Check` (the hook's own handles, a live-path assert, controls) and a `<switch>-check` repro. Slots 3064-3195 (`fixes-3064`, 3 each: fixed / seen with the switch off / errors). Code: `mods/ts3fixes/src/Batch590Logic.cs`, `Batch591Logic.cs`, `Batch592Logic.cs`, checks `Batch12Checks.cs`. Every switch is household-visible.
 
 | § | lead | switch | slots | fix |
 |---|---|---|---|---|
-| 1 | 590 B2 | `protestexit` | 3064-3066 | a cancelled NPC protest ends with Exit(), so the child protest's lot-change handler is removed |
-| 2 | 590 B3 | `jogterrain` | 3067-3069 | a fatigued jogger's walk back is created on the terrain instead of throwing every minute |
-| 3 | 590 B4 | `lifeguardquit` | 3070-3072 | a lifeguard who quit mid-survey stops the loop instead of throwing in RescueCheck |
-| 4 | 590 B5 | `frolicexit` | 3073-3075 | any critical motive ends a fairy frolic, not only the last one in the list |
-| 5 | 590 B6 | `shoodef` | 3076-3078 | the Dislikes Children shoo uses its own definition instead of writing into the shared shoo Singleton |
-| 6 | 590 B8 | `igloolookats` | 3079-3081 | an igloo builder's look-ats are turned back on after the build |
-| 7 | 590 B10 | `gohereboatlist` | 3082-3084 | a deleted Sim leaves the go-here boat and hover-train lists |
-| 8 | 590 B12 | `bouncerrole` | 3085-3087 | the bouncer notices sneakers within the tuned radius (squared) and ropes without a bouncer role do not throw |
-| 9 | 590 B13 | `tricksocials` | 3088-3090 | a magician trick that ends early turns the watcher's socials back on |
-| 10 | 590 B13 | `fearfaintundo` | 3091-3093 | a Fear of Humans faint that ends early restarts the robot and removes its jig |
-| 11 | 590 B14 | `lotprune` | 3094-3096 | the player's lot-popularity map drops deleted, residential and no-longer-visited lots |
-| 12 | 590 B15 | `werewolffind` | 3097-3099 | a werewolf hunt with no metal or gem in range finds nothing instead of throwing, and an insect adds to the hunt value |
-| 13 | 590 A2 | `copyhomeworkfx` | 3100-3102 | a homework copy cut short removes its cheating broadcaster |
-| 14 | 590 A3 | `spelltargetend` | 3103-3105 | a spell's target stops waiting when the cast ends |
-| 15 | 590 A6 | `foodtraygrill` | 3106-3108 | a food tray whose grill step fails is put down and a failed grill push no longer throws |
-| 16 | 590 A7, 591 C8 | `compositionnull` | 3109-3111 | singing and band composition imports skip missing keys and unknown compositions |
-| 17 | 590 A10 | `petdreamtimer` | 3112-3114 | a sleeping pet's dream balloon timer resets after a dream of its human too |
-| 18 | 591 C1 | `awkwardscience` | (docs/591, posted separately) | the Socially Awkward science gain bonus applies to Science only |
-| 19 | 591 C2 | `chessdefeated` | (docs/591, posted separately) | the highest-ranking defeated chess opponent is the strongest one, stored with its rank |
-| 20 | 591 C4 | `privacyothers` | (docs/591, posted separately) | a Sim who left a private room's lot gets a new room check when it comes back |
-| 21 | 591 C5 | `gigmaster` | (docs/591, posted separately) | Gig Master completes at the number of gigs its text names |
-| 22 | 591 C6, 592 S4 | `intmultiple` | (docs/591, posted separately) | RandomUtil.GetIntMultiple can return its top multiple (sales up to 80%, idles up to 30 min) |
-| 23 | 591 C7 | `doorprivacynull` | (docs/591, posted separately) | a privacy situation with no sync target no longer strips the privacy of later doors |
-| 24 | 591 R1 | `leafburnfail` | (docs/591, posted separately) | a leaf pile whose fire never started is usable again |
-| 25 | 591 R2 | `catchpreyodds` | (docs/591, posted separately) | snakes and turtles are a sure catch only with Slither Stalker, like lizards |
-| 26 | 591 R3 | `picnicants` | (docs/591, posted separately) | a packed picnic basket loses its ant alarm and the ant effect is disposed |
-| 27 | 591 R5 | `loyaldoglay` | (docs/591, posted separately) | a Loyal dog's lie-down near its human targets the dog so its test passes |
-| 28 | 591 R6 | `visitlisteners` | (docs/591, posted separately) | a removed visit host's listeners are not re-added after a load |
-| 29 | 591 R7 | `sciencefxstop` | (docs/591, posted separately) | a science outcome's old effect set is stopped before a new one starts |
-| 30 | 591 R9 | `daycareliking` | (docs/591, posted separately) | daycare experience uses the child's real liking for the owner |
-| 31 | 591 R10 | `kegbreakage` | (docs/591, posted separately) | the juice kegger breakage multiplier applies only at a juice kegger party |
-| 32 | 591 R11 | `romancecooldown` | (docs/591, posted separately) | the bad-date cooldown in a group of three or more lasts hours, not minutes |
-| 33 | 591 R12 | `lightcustom` | (docs/591, posted separately) | a room or house custom light level copies the chosen level |
-| 34 | 591 R13 | `eatpreycancel` | (docs/591, posted separately) | a cancelled or failed prey eat keeps the prey and re-enables its interactions |
-| 35 | 591 R16 | `meltalarm` | (docs/591, posted separately) | an ice sculpture with no known artist melts without a throw and a restart replaces its melt alarm |
-| 36 | 591 R21 | `newspaperdef` | (docs/591, posted separately) | reading the newspaper autonomously no longer renames the newspaper menu root |
-| 37 | 592 S2 | `leaveconvnull` | (docs/592, posted separately) | leaving a conversation the Sim never joined does not count as a social |
-| 38 | 592 S3 | `vacationalarms` | (docs/592, posted separately) | alarms on vacation arrival are not shifted twice |
-| 39 | 592 S5 | `cleanupvfx` | (docs/592, posted separately) | an interaction's named effects are disposed at its cleanup in a live game (also in the djcleanup copy) |
-| 40 | 592 S6 | `lookatcopy` | (docs/592, posted separately) | asking for a room's look-at objects without Sims no longer removes the Sims from the registry |
-| 41 | 592 S8 | `lottotooltip` | (docs/592, posted separately) | the lotto 'not available' tooltip shows the real start hour |
-| 42 | 592 S9 | `traiticondislike` | (docs/592, posted separately) | pie-menu entries that lower a trait motive show the dislike icon |
-| 43 | 592 S11 | `roleunprotect` | (docs/592, posted separately) | a townie removed from an inactive role loses the role's story-progression protection |
-| 44 | 592 S13 | `putdownplaced` | (docs/592, posted separately) | putting an object on a surface fires the placed event, not removed |
+| 1 | 590 B2 | `protestexit` | 1730-1732 | a cancelled NPC protest ends with Exit(), so the child protest's lot-change handler is removed |
+| 2 | 590 B3 | `jogterrain` | 1733-1735 | a fatigued jogger's walk back is created on the terrain instead of throwing every minute |
+| 3 | 590 B4 | `lifeguardquit` | 1736-1738 | a lifeguard who quit mid-survey stops the loop instead of throwing in RescueCheck |
+| 4 | 590 B5 | `frolicexit` | 1739-1741 | any critical motive ends a fairy frolic, not only the last one in the list |
+| 5 | 590 B6 | `shoodef` | 1742-1744 | the Dislikes Children shoo uses its own definition instead of writing into the shared shoo Singleton |
+| 6 | 590 B8 | `igloolookats` | 1745-1747 | an igloo builder's look-ats are turned back on after the build |
+| 7 | 590 B10 | `gohereboatlist` | 1748-1750 | a deleted Sim leaves the go-here boat and hover-train lists |
+| 8 | 590 B12 | `bouncerrole` | 1751-1753 | the bouncer notices sneakers within the tuned radius (squared) and ropes without a bouncer role do not throw |
+| 9 | 590 B13 | `tricksocials` | 1754-1756 | a magician trick that ends early turns the watcher's socials back on |
+| 10 | 590 B13 | `fearfaintundo` | 1757-1759 | a Fear of Humans faint that ends early restarts the robot and removes its jig |
+| 11 | 590 B14 | `lotprune` | 1760-1762 | the player's lot-popularity map drops deleted, residential and no-longer-visited lots |
+| 12 | 590 B15 | `werewolffind` | 1763-1765 | a werewolf hunt with no metal or gem in range finds nothing instead of throwing, and an insect adds to the hunt value |
+| 13 | 590 A2 | `copyhomeworkfx` | 1766-1768 | a homework copy cut short removes its cheating broadcaster |
+| 14 | 590 A3 | `spelltargetend` | 1769-1771 | a spell's target stops waiting when the cast ends |
+| 15 | 590 A6 | `foodtraygrill` | 1772-1774 | a food tray whose grill step fails is put down and a failed grill push no longer throws |
+| 16 | 590 A7, 591 C8 | `compositionnull` | 1775-1777 | singing and band composition imports skip missing keys and unknown compositions |
+| 17 | 590 A10 | `petdreamtimer` | 1778-1780 | a sleeping pet's dream balloon timer resets after a dream of its human too |
+| 18 | 591 C1 | `awkwardscience` | 1781-1783 | the Socially Awkward science gain bonus applies to Science only |
+| 19 | 591 C2 | `chessdefeated` | 1784-1786 | the highest-ranking defeated chess opponent is the strongest one, stored with its rank |
+| 20 | 591 C4 | `privacyothers` | 1787-1789 | a Sim who left a private room's lot gets a new room check when it comes back |
+| 21 | 591 C5 | `gigmaster` | 1790-1792 | Gig Master completes at the number of gigs its text names |
+| 22 | 591 C6, 592 S4 | `intmultiple` | 1793-1795 | RandomUtil.GetIntMultiple can return its top multiple (sales up to 80%, idles up to 30 min) |
+| 23 | 591 C7 | `doorprivacynull` | 1796-1798 | a privacy situation with no sync target no longer strips the privacy of later doors |
+| 24 | 591 R1 | `leafburnfail` | 1799-1801 | a leaf pile whose fire never started is usable again |
+| 25 | 591 R2 | `catchpreyodds` | 1802-1804 | snakes and turtles are a sure catch only with Slither Stalker, like lizards |
+| 26 | 591 R3 | `picnicants` | 1805-1807 | a packed picnic basket loses its ant alarm and the ant effect is disposed |
+| 27 | 591 R5 | `loyaldoglay` | 1808-1810 | a Loyal dog's lie-down near its human targets the dog so its test passes |
+| 28 | 591 R6 | `visitlisteners` | 1811-1813 | a removed visit host's listeners are not re-added after a load |
+| 29 | 591 R7 | `sciencefxstop` | 1814-1816 | a science outcome's old effect set is stopped before a new one starts |
+| 30 | 591 R9 | `daycareliking` | 1817-1819 | daycare experience uses the child's real liking for the owner |
+| 31 | 591 R10 | `kegbreakage` | 1820-1822 | the juice kegger breakage multiplier applies only at a juice kegger party |
+| 32 | 591 R11 | `romancecooldown` | 1823-1825 | the bad-date cooldown in a group of three or more lasts hours, not minutes |
+| 33 | 591 R12 | `lightcustom` | 1826-1828 | a room or house custom light level copies the chosen level |
+| 34 | 591 R13 | `eatpreycancel` | 1829-1831 | a cancelled or failed prey eat keeps the prey and re-enables its interactions |
+| 35 | 591 R16 | `meltalarm` | 1832-1834 | an ice sculpture with no known artist melts without a throw and a restart replaces its melt alarm |
+| 36 | 591 R21 | `newspaperdef` | 1835-1837 | reading the newspaper autonomously no longer renames the newspaper menu root |
+| 37 | 592 S2 | `leaveconvnull` | 1838-1840 | leaving a conversation the Sim never joined does not count as a social |
+| 38 | 592 S3 | `vacationalarms` | 1841-1843 | alarms on vacation arrival are not shifted twice |
+| 39 | 592 S5 | `cleanupvfx` | 1844-1846 | an interaction's named effects are disposed at its cleanup in a live game (also in the djcleanup copy) |
+| 40 | 592 S6 | `lookatcopy` | 1847-1849 | asking for a room's look-at objects without Sims no longer removes the Sims from the registry |
+| 41 | 592 S8 | `lottotooltip` | 1850-1852 | the lotto 'not available' tooltip shows the real start hour |
+| 42 | 592 S9 | `traiticondislike` | 1853-1855 | pie-menu entries that lower a trait motive show the dislike icon |
+| 43 | 592 S11 | `roleunprotect` | 1856-1858 | a townie removed from an inactive role loses the role's story-progression protection |
+| 44 | 592 S13 | `putdownplaced` | 1859-1861 | putting an object on a surface fires the placed event, not removed |
 
 Also: our `djcleanup` copy of InteractionInstance.Cleanup (DjBoothCleanup.cs) repeated EA's inverted effect-list test; it now follows `cleanupvfx` (`CvDispose`).
 
@@ -123,30 +120,3 @@ As in docs/587 §14.1: a batch Check used to prove only its pure decision with c
 - The tool's gate lists batch Checks whose pure decision no hook calls (a parallel copy). Hooks fixed to call their decision: agingalarmcancel (`AcLeaves`), artsellnoartist (`AsCompletes`), moodidleflavor (`MiFlavor`; also a Fulfilled-sentinel bug that dropped rows following a Fulfilled row), spcollectnull (`SpCollectSkips`), spcreatemovein (`SpSpecAdds`), splotdensity (`SpDensityCounts`), sprelcount (new `SpOwnOnly`, shared with the Check). Counter-only checks (whole-method copies, IL patches: bathsituationfx, computergametype, distressgate, fightbroadcastend, goodbyepure, moodtankreset, socialnoeffect, trainsimgone, tvdisclistener, tvsyncalarm, tvwatchskill) can prove only their swaps and handles; their effect needs the game run.
 - Proven switches that had the gap (no live-path assert; artsellnoartist also a parallel decision): the 44 in Batch574/582* checks: artsellnoartist gotoworkstale movingflag promoteshift royaltyorphan sandscoins splitpartner tombmusic wildherdmother holidaylights lifeguardsurvey maildogchaser moonriselistener prankditchempty serviceassignexit serviceshowalarm vehiclefxhelper doorlockowner elevatorkitten elevatorresetriders elevatorridertimeout elevatorsavedlog moondiallistener snublistener starlightreset digsiteemptypick homeworkskillbonus horseranchchallenge oppchainworld photosubjectstars rolenullguard teleportcommunitylot residentspawnslot shelldoorsummon talkoccupationchance boardingschoolmoney disposebase freshclothingresume twinbellyshape boatstaleswimmer nocommercialcar oppcategoryprotect partylotlistener scavengernolot.
 - Self-checks on Linux: `tools/selftest/csc-shim.ts` runs the offline C# self-checks with TS3_CSC (Roslyn plus .NET reference assemblies, run through `dotnet`). Still Windows-only: rewind-census, night-run, machine-load (ping.exe / PowerShell).
-
-## In-game results (Bridgeport combined soaks, each switch off then on in one load)
-
-Switches of this doc that are posted in this change, with the runs where the check read off BROKEN and on FIXED (`smallfix.txt` of each run).
-
-| Switch | Off | On | Runs off BROKEN / on FIXED | Runs (phase-…) |
-|---|---|---|---|---|
-| `bouncerrole` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `compositionnull` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `copyhomeworkfx` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `fearfaintundo` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `foodtraygrill` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `frolicexit` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `gohereboatlist` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `igloolookats` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `jogterrain` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `lifeguardquit` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `lotprune` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `petdreamtimer` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `protestexit` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `shoodef` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `spelltargetend` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `tricksocials` | BROKEN | FIXED | 1 | 20261116-0234 |
-| `werewolffind` | BROKEN | FIXED | 1 | 20261116-0234 |
-
-- [verified] The verdicts, controls ok and members found in the runs listed.
-- [inferred] How often each case happens in normal play: the checks call the same decision functions as the hooks.

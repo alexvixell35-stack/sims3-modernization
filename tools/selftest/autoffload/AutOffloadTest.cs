@@ -81,6 +81,26 @@ static class AutOffloadTest
         Check("memo order change unseen = wrong hit", m.Check(lot, 3, 0, ba, 1), ListMemo.kHitWrong);
         Check("wrong hit keeps the memo's list", m.WrongOld != null && m.WrongOld[0] == a ? 1 : 0, 1);
         Check("memo stores the game's list", m.Check(lot, 3, 0, ba, 1), ListMemo.kHit);
+        ListMemo mx = new ListMemo();  // docs/274 §11 exact reuse: generations and the native order print
+        Check("exact: nothing stored", mx.GetExact(lot, 3, 0, 1, 77UL) == null ? 1 : 0, 1);
+        mx.Put(lot, 3, 0, ab, 1, 77UL);
+        Check("exact: same print = the stored list", mx.GetExact(lot, 3, 0, 1, 77UL) != null && mx.GetExact(lot, 3, 0, 1, 77UL)[1] == b ? 1 : 0, 1);
+        Check("exact: other print (native order changed) = none", mx.GetExact(lot, 3, 0, 1, 78UL) == null ? 1 : 0, 1);
+        Check("exact: no print = none", mx.GetExact(lot, 3, 0, 1, 0UL) == null ? 1 : 0, 1);
+        Check("exact: other room / kind = none", mx.GetExact(lot, 4, 0, 1, 77UL) == null && mx.GetExact(lot, 3, 2, 1, 77UL) == null ? 1 : 0, 1);
+        mx.Bump(lot, 4, 1);
+        Check("exact: other room bump keeps it", mx.GetExact(lot, 3, 0, 1, 77UL) != null ? 1 : 0, 1);
+        mx.Bump(lot, 3, 1);
+        Check("exact: room bump drops it, same print", mx.GetExact(lot, 3, 0, 1, 77UL) == null ? 1 : 0, 1);
+        mx.Put(lot, 3, 0, ba, 1, 77UL);
+        Check("exact: stored again in the bump's tick", mx.GetExact(lot, 3, 0, 1, 77UL) != null ? 1 : 0, 1);
+        Check("exact: the next-tick second bump drops it", mx.GetExact(lot, 3, 0, 2, 77UL) == null ? 1 : 0, 1);
+        mx.Put(lot, 3, 0, ba, 2, 77UL);
+        mx.Bump(lot, -1, 2);
+        Check("exact: lot bump drops it", mx.GetExact(lot, 3, 0, 2, 77UL) == null ? 1 : 0, 1);
+        mx.Put(lot, 3, 0, ba, 5, 77UL);
+        mx.Check(lot, 3, 0, ab, 5);  // the dry probe stores another list: it carries no print
+        Check("exact: a list stored without a print is never an exact hit", mx.GetExact(lot, 3, 0, 5, 77UL) == null ? 1 : 0, 1);
         ListMemo md = new ListMemo();  // docs/274 §8.6 diag: events and age since the list was last seen equal
         md.Check(lot, 3, 0, ab, 10); md.Check(lot, 3, 0, ab, 11);
         md.Bump(lot, 4, 11); md.Bump(lot, 5, 12);

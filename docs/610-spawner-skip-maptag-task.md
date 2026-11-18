@@ -1,7 +1,7 @@
 # 610: Spawner placement skip and map tag task restart
 
-2026-11-17, static, r67; both fixes proven in game by their force checks (§5). Two default-off ts3fixes switches in `mods/ts3fixes/src/SpawnerMapTag79.cs`, plus a
-tool-only scan of the other targets of this pass (§4). RE with tools only: `ilspycmd` (C# and `-il`) on `game-copy/assemblies/*.dll`,
+2026-11-17, static, r67, s79, NOT RUN. Two default-off ts3fixes switches in `mods/ts3fixes/src/SpawnerMapTag79.cs`, plus a
+tool-only scan of the other s79 targets (§4). RE with tools only: `ilspycmd` (C# and `-il`) on `game-copy/assemblies/*.dll`,
 `node tools/managed-callgraph.ts callers`, the Roslyn walker (`tools/static/hot-logic-walker --files`, 209 files: every
 `PlaceAtGoodLocation` / `FindGoodLocation*` caller plus the elevator, stair, ladder and portal component files), `ast-grep`
 (loops around a good-location search) and semgrep (`ea-gameplay-logic`, `ea-loop-logic`).
@@ -95,13 +95,3 @@ shows whether the task still runs and a pass ran since.
   `TubeElevator` climb loop ends only on exit reason or reaching the level (semgrep `retry-no-cap`): lead only.
 - Distance: no straight-line "closest" pick in these files that the walker flagged (REPEATCALL hits are re-queries in
   wait loops, intended).
-
-## 5. In-game result
-
-Force checks, one load, package r67 (`phase-20261117-0127`): both switches off BROKEN, on FIXED, controls ok, members
-found, error counters 0.
-- `spawnerskip`: a failing spawner (SeedSpawnerRare3) runs 440 searches for 40 spawns with EA's body and 77 with the switch
-  on, placed 0 both ways; a succeeding spawner is unchanged (40 searches, 40 placed). Live: 31 / 33 spawner searches, all
-  placed by search; no streak armed in that load.
-- `maptagtaskalive`: forced update and inactive toggle keep the task (passes 10/10 on, EA 0/2); no event: 10/10 both ways.
-  Live: the visibility task ended 13 times with the switch off (3431) during the load.

@@ -673,7 +673,8 @@ static const LONG kUdUfPlanLines = 30000;  // ufplan: disk guard (~3 MB); ts3fix
 static bool UdHitchLine(const char* s) {
     static const char* const kPrefixes[] = {"boatreplan:", "gangway:", "owreset:", "alarmtime:", "lotpass:", "syncwait",
                                             "socialfinish:", "socialreceivefail:", "hourlypass:", "spawnplace:",
-                                            "replanlog"};  // replanlog: docs/261 L1, ts3fixes caps its own (2000 lines a session)
+                                            "replanlog",   // replanlog: docs/261 L1, ts3fixes caps its own (2000 lines a session)
+                                            "ufplansplit:", "planwait:"};  // ufplansplit fell under the shared 400 before (the A/B arms got ~100 lines each)
     for (const char* p : kPrefixes)
         if (!strncmp(s, p, strlen(p))) return true;
     return false;
@@ -693,8 +694,9 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
         case 7: return CpOp(lo);    // compaction.cpp: [Compaction] verdict and steps (docs/204)
         case 8: return (u8)g_asLiveUnseen;  // autshadow-run.cpp: [AutShadow] Unseen=1 (docs/222); no icalls when [AutShadow] is off
         case 10: case 11: KdScopeSet(lo, ((hi >> 16) & 0xFF) == 10 ? 1 : 2, hi & 0xFFFF); return 1;  // docs/197 §7: UfWhy of route lo, before its START or sync plan; hi 0-15: its routefail interaction id (docs/226)
-        case 12: KdScopeClear(lo); GvaPlanEnd(); return 1;  // docs/197 §7: route lo's plan is over (docs/250 §7.0: gvattr's plan end)
+        case 12: KdScopeClear(lo); GvaPlanEnd(); if (g_pfH == lo) g_pfH = 0; return 1;  // docs/631: a sync plan's PlayerFirst mark ends with it too  // docs/197 §7: route lo's plan is over (docs/250 §7.0: gvattr's plan end)
         case 35: return GvaSrcMsg(lo);  // docs/250 §7.0 (gvro.cpp): the next plan's source class and scope, or "gvattr on?"
+        case 37: PfSet(lo); return g_pfMode == 1 ? 1 : 0;  // docs/631 [RouteAsync] PlayerFirst: route lo is the player's (ts3fixes playerfirst), before its START; 1 = honoured
         case 36: return DmxScriptOp(lo);  // hostcalls.cpp: DoorMemoX=3 managed door-input generation (ts3fixes DoorGen.cs)
         case 13: KdScopeSet(lo, 3, hi & 0xFFFF); return 1;  // docs/197 §7: a seen NPC (KdSeenNpcCeilMs); an old package never sends it
         case 14: case 15: case 16: case 17: case 18: case 19: return CtOp((hi >> 16) & 0xFF, lo);

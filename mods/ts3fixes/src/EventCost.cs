@@ -23,7 +23,7 @@ namespace Ts3Fixes
         {
             public void ProcessEventHook(Event e)
             {
-                if (e == null || !ShortcutOn("eventcost")) { ProcessEventOrig(e); return; }
+                if (e == null || !SwOn(kSwEventCost)) { ProcessEventOrig(e); return; }
                 ulong id = (ulong)e.Id;
                 long saved = EventCostCore.Enter();
                 uint t0 = SrcNowUs();

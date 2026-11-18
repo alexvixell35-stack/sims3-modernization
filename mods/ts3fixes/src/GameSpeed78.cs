@@ -15,7 +15,7 @@ using Gameflow = Sims3.Gameplay.Gameflow;
 
 namespace Ts3Fixes
 {
-    // Game speed, speed lock and repeating-alarm fixes (docs/609). All default off; EA bug fixes as EA wrote the code
+    // Game speed, speed lock and repeating-alarm fixes (docs/609, s78). All default off; EA bug fixes as EA wrote the code
     // next to each bug. Household rule: these are the game clock and the speed buttons, which EA meant to behave this way in
     // every household (the player's own included), so there is no household exemption: the result is what EA intended.
     // heartbrokenbcast (§7) touches household Sims too: it only disposes a broadcaster EA itself stopped referencing.
@@ -589,12 +589,5 @@ namespace Ts3Fixes
             return B582Line("heartbrokenbcast", on, "a repeat breakup disposes the replaced heartbroken broadcaster", fixedPure && liveOk && sHbMissing.Length == 0,
                 "EA leaves it registered (" + eaBug + "), first breakup and unchanged broadcaster untouched, " + live, controls && liveOk, sHbMissing, counters);
         }
-    
-        static readonly int sLive_speedskiplevel = LiveAdd("speedskiplevel", () => EpLive(typeof(GfSpeedHook), 1));
-        static readonly int sLive_speedskipnoactor = LiveAdd("speedskipnoactor", () => EpLive(typeof(GfSpeedHook), 1));
-        static readonly int sLive_speedrecalclock = LiveAdd("speedrecalclock", () => EpLive(typeof(GfRecalcHook), 1, "sGfSetSpeed", sGfSetSpeed, 2));
-        static readonly int sLive_speedlockowner = LiveAdd("speedlockowner", () => EpLive(typeof(BbLockHook), 3, "sBbOn", sBbOn, typeof(bool), "sBbOn", sBbOn, "static"));
-        static readonly int sLive_alarmzeroperiod = LiveAdd("alarmzeroperiod", () => EpLive(typeof(AzTimerHook), 1));
-        static readonly int sLive_heartbrokenbcast = LiveAdd("heartbrokenbcast", () => EpLive(typeof(HbBcastHook), 1));
     }
 }

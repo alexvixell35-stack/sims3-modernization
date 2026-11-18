@@ -11,7 +11,7 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // Stair wait deadline and Sim.Dispose description link (docs/612). Both default off; EA bug fixes as EA wrote the
+    // Stair wait deadline and Sim.Dispose description link (docs/612, s82). Both default off; EA bug fixes as EA wrote the
     // code next to each bug.
     public static partial class Fixes
     {
@@ -305,8 +305,5 @@ namespace Ts3Fixes
             return B582Line("simdisposelink", on, "an unbound Sim's Dispose keeps the live Sim's link", fixedPure && liveOk && sSdlMissing.Length == 0,
                 "EA unbinds (" + eaBug + "), bound/dead/no-description untouched, " + live + ", " + census, controls && liveOk, sSdlMissing, counters);
         }
-    
-        static readonly int sLive_stairwaitend = LiveAdd("stairwaitend", () => EpLive(typeof(SwePortalHook), 1));
-        static readonly int sLive_simdisposelink = LiveAdd("simdisposelink", () => EpLive(typeof(SdlDisposeHook), 1));
     }
 }

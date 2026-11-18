@@ -1,6 +1,6 @@
 # 576: saved delegates to swapped methods; objects stuck "in use"; locked and stuck Sims
 
-2026-11-15. Static only. Built; §2-§3 proven in game (results at the end). §1 `swapdelegates` is not part of that change. The EA code was read in `game-copy/decompiled`, which stays local. Native code was read in the Ghidra project `game-copy/ghidra/TS3`, at 3G and under nice.
+2026-11-15. Static only. Built, NOT RUN. The EA code was read in `game-copy/decompiled`, which stays local. Native code was read in the Ghidra project `game-copy/ghidra/TS3`, at 3G and under nice.
 
 ## §1 swapdelegates: a saved delegate to a swapped method loads as null (our bug, every switch off)
 
@@ -161,17 +161,3 @@ These steps are verified in the decompiled code:
 - **In game:**
   - Save on Spooky Day before 19:00 and reload: trick-or-treaters arrive.
   - Reset a Sim during a counter put-down: the item can be dragged and the counter can be used; counters 2689 and 2691.
-
-## In-game result, docs/575 §2-§5 and this doc §2-§3 (Bridgeport, two combined soaks, each switch off then on: phase-20261115-1321 and phase-20261116-0234)
-
-| Switch | Off | On |
-|---|---|---|
-| `handsetreset` (docs/575 §2) | BROKEN | FIXED |
-| `flowersinuse` (docs/575 §3) | BROKEN | FIXED |
-| `uselistprune` (docs/575 §4) | BROKEN | FIXED |
-| `chestuselist` (docs/575 §5) | BROKEN | FIXED |
-| `resetinusefree` | BROKEN | FIXED |
-| `putdowninuse` | BROKEN | FIXED |
-
-- [verified] The verdicts, controls ok and members found, in both runs (the runs' `smallfix.txt`).
-- [inferred] How often each case happens in normal play: the checks run the same decision functions as the hooks.

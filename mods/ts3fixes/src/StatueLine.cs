@@ -30,8 +30,7 @@ namespace Ts3Fixes
 
         static void ApplyStatueLine()
         {
-            const BindingFlags stat = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-            sSlLine = typeof(BoxOfDanger).GetField("mStatueLine", stat);
+            sSlLine = typeof(BoxOfDanger).GetField("mStatueLine", kStaticAll);
             if (sSlLine == null) AppliedLog().Add("statueline: BoxOfDanger.mStatueLine not found, not patched");
             else
             {

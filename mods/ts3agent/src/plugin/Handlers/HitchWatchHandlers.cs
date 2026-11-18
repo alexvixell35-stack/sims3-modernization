@@ -34,6 +34,95 @@ namespace Ts3Agent
         static void RegisterHitchWatch()
         {
             Dispatcher.Register("hitch_watch", HitchWatch);
+            Dispatcher.Register("tick_stats", TickStats);
+        }
+
+        // tick_stats (docs/599, read only): the sim-iteration interval as hitch_watch sees it (one stamp per tick of a task
+        // that sleeps 0, so the gap is one full scheduler pass), but every tick, not only gaps >= min_ms: count, average, p50,
+        // p95, p99, max and ticks per wall second over a window. Histogram of 0.1 ms bins to 2 s (above: one overflow bin,
+        // counted at its real value in avg and max). Frame (render-thread) time is not visible from script: frame-times.js.
+        //   tick_stats {"start":true}   clears and starts      tick_stats {}   stats since start or the last reset
+        //   tick_stats {"reset":true}   stats, then clears (one window per call)   tick_stats {"stop":true}
+        public class TsTask : Task
+        {
+            internal static TsTask sCur;
+            internal bool Running = true;
+            const int kBins = 20000;  // 0.1 ms each
+            readonly int[] mBins = new int[kBins + 1];
+            long mN, mLast, mWin0;
+            double mSum, mMax;
+            long mSim0;
+
+            public override void Simulate()
+            {
+                while (Running)
+                {
+                    long now = DateTime.UtcNow.Ticks;
+                    lock (mBins)
+                    {
+                        if (mLast != 0)
+                        {
+                            double ms = (now - mLast) / (double)TimeSpan.TicksPerMillisecond;
+                            int b = (int)(ms * 10);
+                            mBins[b < 0 ? 0 : b > kBins ? kBins : b]++;
+                            mN++; mSum += ms; if (ms > mMax) mMax = ms;
+                        }
+                        else { mWin0 = now; mSim0 = Sims3.Gameplay.Utilities.SimClock.CurrentTicks; }
+                        mLast = now;
+                    }
+                    Simulator.Sleep(0);
+                }
+                Simulator.DestroyObject(ObjectId);
+            }
+
+            double Pct(double q)
+            {
+                long want = (long)Math.Ceiling(q * mN), acc = 0;
+                for (int i = 0; i <= kBins; i++) { acc += mBins[i]; if (acc >= want) return i >= kBins ? mMax : (i + 0.5) / 10.0; }
+                return mMax;
+            }
+
+            internal Dictionary<string, object> Stats(bool reset)
+            {
+                Dictionary<string, object> r = Util.Obj();
+                lock (mBins)
+                {
+                    double wallS = mLast > mWin0 ? (mLast - mWin0) / (double)TimeSpan.TicksPerSecond : 0;
+                    r["ticks"] = mN;
+                    r["wall_s"] = Math.Round(wallS, 1);
+                    r["ticks_per_s"] = wallS > 0 ? Math.Round(mN / wallS, 2) : 0;
+                    r["avg_ms"] = mN > 0 ? Math.Round(mSum / mN, 2) : 0;
+                    r["p50_ms"] = mN > 0 ? Pct(0.50) : 0;
+                    r["p95_ms"] = mN > 0 ? Pct(0.95) : 0;
+                    r["p99_ms"] = mN > 0 ? Pct(0.99) : 0;
+                    r["max_ms"] = Math.Round(mMax, 1);
+                    try { r["sim_minutes"] = Math.Round(Sims3.Gameplay.Utilities.SimClock.ConvertFromTicks(Sims3.Gameplay.Utilities.SimClock.CurrentTicks - mSim0, Sims3.Gameplay.Utilities.TimeUnit.Minutes), 1); } catch (Exception) { }
+                    if (reset)
+                    {
+                        Array.Clear(mBins, 0, mBins.Length);
+                        mN = 0; mSum = 0; mMax = 0; mWin0 = mLast;
+                        try { mSim0 = Sims3.Gameplay.Utilities.SimClock.CurrentTicks; } catch (Exception) { }
+                    }
+                }
+                return r;
+            }
+        }
+
+        static object TickStats(Args a)
+        {
+            TsTask t = TsTask.sCur;
+            if (a.Bool("stop", false) && t != null) { t.Running = false; TsTask.sCur = null; Dictionary<string, object> s = t.Stats(false); s["running"] = false; return s; }
+            if (a.Bool("start", false))
+            {
+                if (t != null) t.Running = false;
+                t = new TsTask();
+                TsTask.sCur = t;
+                Simulator.AddObject(t);
+            }
+            if (t == null) { Dictionary<string, object> n = Util.Obj(); n["running"] = false; return n; }
+            Dictionary<string, object> r = t.Stats(a.Bool("reset", false));
+            r["running"] = t.Running;
+            return r;
         }
 
         // Agent time on the sim thread. Mailbox.Poll runs each command inside one sim tick, so a command's span is exact;

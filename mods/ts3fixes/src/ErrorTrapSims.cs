@@ -96,7 +96,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sEtSimsThrew) { sEtSimsThrew = true; AppliedLog().Add("errortrapsims: pass threw " + e.Message); }
+                PassThrewOnce(ref sEtSimsThrew, "errortrapsims", e);
             }
         }
 
@@ -133,7 +133,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sEtLookupThrew) { sEtLookupThrew = true; AppliedLog().Add("errortraplookup: pass threw " + e.Message); }
+                PassThrewOnce(ref sEtLookupThrew, "errortraplookup", e);
             }
         }
 
@@ -207,7 +207,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sEtCtlThrew) { sEtCtlThrew = true; AppliedLog().Add("errortrapctl: pass threw " + e.Message); }
+                PassThrewOnce(ref sEtCtlThrew, "errortrapctl", e);
             }
         }
 

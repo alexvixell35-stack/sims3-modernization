@@ -324,7 +324,7 @@ function machineField(tag: string): { machineTag?: string } { return tag ? { mac
 type Job = { id: string; note?: string; asi: string; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; run: { repro?: string; saveReload?: string[]; script?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
     profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string }; rewindGames?: { n: number; profile: { minutes: number; seed?: number; fixesOn?: string; fixesOff?: string }; ab?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; apexProfiler?: boolean; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; crashHunt?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
-  saveMatrix?: { fixes?: 'all' | 'shipped' }; regexCases?: Record<string, { match: string[]; noMatch: string[] }>; fixesBuild?: string; fixesPackage?: string; iniBase?: string; pinReason?: string; rerunOf?: string; retryOf?: string; kcOf?: string; expectHang?: string; shadowCheck?: boolean; quitsGame?: boolean; skipIfMissing?: boolean; ourMods?: false; rewind?: false };
+  saveMatrix?: { fixes?: 'all' | 'shipped' }; regexCases?: Record<string, { match: string[]; noMatch: string[] }>; fixesBuild?: string; fixesPackage?: string; iniBase?: string; dogfood?: boolean; pinReason?: string; rerunOf?: string; retryOf?: string; kcOf?: string; expectHang?: string; shadowCheck?: boolean; quitsGame?: boolean; skipIfMissing?: boolean; ourMods?: false; rewind?: false };
 
 function checkRegexCases(cases: Record<string, { match?: unknown; noMatch?: unknown }>, res: string[], at: string) {
   for (const re of res) if (!cases[re]) throw new Error(`${at}: regexCases has no case for /${re}/`);
@@ -349,7 +349,7 @@ function versionPinMiss(j: { asi?: string; logRequire?: Record<string, number> }
 }
 
 // every top-level job key queue.ts reads (Job type plus the optional extras); anything else is a typo or a profile key at the wrong level
-const JOB_KEYS = new Set(['id', 'quitsGame', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'apexProfiler', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'regexCases', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'crashHunt', 'reuseSession', 'rewind', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm']);
+const JOB_KEYS = new Set(['id', 'dogfood', 'quitsGame', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'apexProfiler', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'regexCases', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'crashHunt', 'reuseSession', 'rewind', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm']);
 // ---- vanilla mode (docs/236): what a job may not ask for without ts3native/ts3fixes, and the checks the row names as N/A
 // results md cell: at most `max` chars, cut at an item boundary (", " / "; " / "<br>") and marked, never inside a number
 // (docs/277 §1: the cut at 400 turned aut_l0_pairn_hh 397 / 3163 into "3" / "316"; full values stay in the jsonl row)
@@ -546,6 +546,7 @@ export function parseQueue(json: unknown): Job[] {
     if (j.fixesPackage !== undefined && (typeof j.fixesPackage !== 'string' || !j.fixesPackage || j.fixesBuild !== undefined || !(j.run?.profile || j.run?.soak || j.run?.repro || j.run?.script || j.run?.matrix || j.run?.rewindGames)))
       throw new Error(`${at}: fixesPackage must be a path, only on profile/soak/repro/script/matrix/rewindGames jobs, not with fixesBuild`);
     if (j.iniBase !== undefined && (typeof j.iniBase !== 'string' || !j.iniBase)) throw new Error(`${at}: iniBase must be a path from the repo root`);
+    if (j.dogfood !== undefined && typeof j.dogfood !== 'boolean') throw new Error(`${at}: dogfood must be true or false`);
     if (j.pinReason !== undefined && (typeof j.pinReason !== 'string' || !j.pinReason.trim())) throw new Error(`${at}: pinReason must be a non-empty text (why this job pins its asi/package)`);
     if (fridaAttach(j) && (j.callSites || Number(j.ini?.['ProbeSnap.CallSites']))) throw new Error(`${at}: ProbeSnap.CallSites with a second Frida agent (${fridaAttach(j)}): int3 traps + agent attach crashed the game (docs/67 §7); set run.profile.noProf (and drop the side probe) or callSites false`);
     if (j.timeoutMin !== undefined && !(j.timeoutMin > 0)) throw new Error(`${at}: timeoutMin must be > 0`);
@@ -708,9 +709,25 @@ export const releaseDefaults = (j: Job) => !!j.releaseDefaults || /ts3native\.as
 // docs/284 (Rodney 2026-11-17): [Startup] DxDiagCache=1 in every harness job with these defaults (the sidecar comes from the Bin
 // state / setup, game-exe.ts ensureVramSidecar), so no test launch pays the ~60 s DxDiag query or starts COM's ping loop; a job sets
 // Startup.DxDiagCache 0 to run the game's own query (the correctness queue's off arm)
-export const lightIni = (j: Job): Record<string, number> => j.run.worldimage || releaseDefaults(j) ? {} : { 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1 };
+// Rodney 2026-11-18: [PkgLock] Mode=1 Detect=1 too (docs/539 §13.9: EA's package-lock world-load deadlock, 3 queue retries on
+// 11-18), same in every arm; no Sim effect (resource system). A job's own PkgLock keys win (pkg-abba proof's Mode 0 arm)
+export const lightIni = (j: Job): Record<string, number> => j.run.worldimage || releaseDefaults(j) ? {}
+  : { 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1 };
+// docs/279 "Dogfood" (Rodney 2026-11-18): every correctness job (not a timing job) runs the v0.3.0 release-candidate ON set:
+// tools/harness/dogfood.json (tools/release/dogfood.ts: the keys where that set differs from the repo ini) under the job's own ini.
+// Merged over the job's base ini too (queues pin iniBase = their master build's ini). Not for timing jobs, a release / rc /
+// old-version base ini (ini.rc*, ini.rel*, asi-v0xx/: already a shipped set; old-version arms are mostly timing anyway), release tests, worldimage, no-ts3native runs, or "dogfood": false
+const DOGFOOD_FILE = join(ROOT, 'tools', 'harness', 'dogfood.json');
+export const DOGFOOD: { id: string; ini: Record<string, string | number> } | null = existsSync(DOGFOOD_FILE) ? (() => {
+  const d = JSON.parse(readFileSync(DOGFOOD_FILE, 'utf8'));
+  return { id: `${d.source} ${createHash('sha256').update(JSON.stringify(d.ini)).digest('hex').slice(0, 8)}`, ini: d.ini ?? {} };
+})() : null;
+export const dogfoodOn = (j: Job) => !!DOGFOOD && j.dogfood !== false && !isTimingJob(j) && !/(ini\.(rc|rel)|asi-v\d)/i.test(j.iniBase ?? '') && !j.run.worldimage && !releaseDefaults(j) && j.ourMods !== false;
+export const dogfoodIni = (j: Job) => (dogfoodOn(j) ? DOGFOOD!.ini : {});
+// the row's base (natural-hits.ts counts runs per base)
+export const rowBase = (j: Job) => (j.ourMods === false ? 'none' : dogfoodOn(j) ? `dogfood ${DOGFOOD!.id}${j.iniBase ? ` over ${j.iniBase}` : ''}` : j.iniBase ? `iniBase ${j.iniBase}` : releaseDefaults(j) ? 'release' : 'repo');
 // the ini overrides a row records (job ini + the coverage key + Light; worldimage's filled-in paths stay out of the row)
-export const rowIni = (j: Job) => (j.ourMods === false ? {} : { ...callSitesIni(j), ...lightIni(j), ...j.ini }); // no ts3native: no ini tools
+export const rowIni = (j: Job) => (j.ourMods === false ? {} : { ...callSitesIni(j), ...dogfoodIni(j), ...lightIni(j), ...j.ini }); // no ts3native: no ini tools
 const captureAbs = (ini: Job['ini']) => ini?.['MonoJit.CaptureFile'] ? { ...ini, 'MonoJit.CaptureFile': resolve(ROOT, String(ini['MonoJit.CaptureFile'])) } : ini;  // the game's cwd is Bin
 export const jobIni = (j: Job): Record<string, string | number | boolean> | undefined => !j.run.worldimage ? captureAbs(Object.keys(rowIni(j)).length ? rowIni(j) : j.ini)
   : { 'WorldImage.OutDir': join(GAME_COPY, 'worldimage'), 'WorldImage.Helper': join(ROOT, 'native', 'worldimage', 'out', 'worldimage.exe'), ...j.ini,
@@ -1102,6 +1119,14 @@ export function eventCovered(when: '3am' | 'load', t0: any, t1: any, margin = 10
 // profile-world.ts restores the switches before p1 is read, so a --fixes-on switch reads off there (docs/163 §10.2)
 // cfg.report: comma prefixes (profile.fixesReport + fixesOn names): matching `patches` keys are recorded too (counters: numbers,
 // lists: arrays as read at the end), so a job shows why a fix did not act (docs/202 §3.6.3: D reject counters, refused callers)
+// natural-hit census (tools/release/natural-hits.ts, docs/279 "Natural evidence"): every ts3fixes switch the agent's `patches` reply says
+// is on, and every numeric `patches` key that rose over the job (missing before = from 0); compact, so every row carries it
+export function patchCensus(p0: any, p1: any): { on: string[]; rose: Record<string, number> } | null {
+  if (!p1 || typeof p1 !== 'object') return null;
+  const rose: Record<string, number> = {};
+  for (const [k, v] of Object.entries(p1)) if (typeof v === 'number') { const d = v - (typeof p0?.[k] === 'number' ? p0[k] : 0); if (d > 0) rose[k] = d; }
+  return { on: Object.keys(p1).filter(k => p1[k] === true).sort(), rose };
+}
 export function fixActivity(p0: any, p1: any, t0: any, t1: any, cfg: { fixesOn?: string; fixesOff?: string; report?: string } = {}) {
   const fails: string[] = [], notes: string[] = [], counters: Record<string, { before: number | null; after: number }> = {}, lists: Record<string, unknown[]> = {};
   const pre = cfg.report?.split(',').filter(Boolean) ?? [];
@@ -1522,13 +1547,28 @@ if (values['self-check']) {
     assert.equal(fridaAttach(pj({ ini: { 'ProbeSnap.Enabled': 1 } })), '', 'ProbeSnap.Enabled forces --no-prof');
     assert.throws(() => pj({ callSites: true }), /second Frida agent \(stutter profiler\)/);
     assert.throws(() => pj({ noiseCheck: false, ini: { 'ProbeSnap.CallSites': 1 } }), /docs\/67/);
-    assert.deepEqual(rowIni(pj({ ini: { 'ProbeSnap.CallSites': 0 } })), { 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'ProbeSnap.CallSites': 0 });
+    assert.deepEqual(rowIni(pj({ ini: { 'ProbeSnap.CallSites': 0 } })), { 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1, 'ProbeSnap.CallSites': 0 });
     assert.deepEqual(callSitesIni(cj({ callSites: false })), {});
     assert.deepEqual(callSitesIni(cj({ ini: { 'ProbeSnap.Enabled': 1 } })), {});
-    assert.deepEqual(rowIni(cj({ ini: { 'ProbeSnap.CallSites': 0 } })), { 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'ProbeSnap.CallSites': 0 });
-    assert.deepEqual(jobIni(cj({ ini: { 'Alloc.Enabled': 1 } })), { 'ProbeSnap.CallSites': 1, 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'Alloc.Enabled': 1 });
-    assert.deepEqual(jobIni(pj({})), { 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1 }, 'docs/67 §18: timing jobs get Light too');
-    assert.deepEqual(rowIni(pj({ ini: { 'CrashForensics.Light': 0, 'Startup.DxDiagCache': 0 } })), { 'CrashForensics.Light': 0, 'Startup.DxDiagCache': 0 }, 'a job can drop them');
+    assert.deepEqual(rowIni(cj({ ini: { 'ProbeSnap.CallSites': 0 } })), { ...DOGFOOD?.ini, 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1, 'ProbeSnap.CallSites': 0 });
+    assert.deepEqual(jobIni(cj({ ini: { 'Alloc.Enabled': 1 } })), { ...DOGFOOD?.ini, 'ProbeSnap.CallSites': 1, 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1, 'Alloc.Enabled': 1 });
+    assert.deepEqual(jobIni(pj({})), { 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1 }, 'docs/67 §18: timing jobs get Light too');
+    assert.deepEqual(rowIni(pj({ ini: { 'CrashForensics.Light': 0, 'Startup.DxDiagCache': 0 } })), { 'CrashForensics.Light': 0, 'Startup.DxDiagCache': 0, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1 }, 'a job can drop them');
+    assert.deepEqual(rowIni(pj({ ini: { 'PkgLock.Mode': 0, 'PkgLock.ReproWiden': 50 } }))['PkgLock.Mode'], 0, 'the pkg-abba off arm keeps Mode 0');
+    assert.deepEqual(rowIni(pj({ releaseDefaults: true })), {}, 'release tests run the shipped ini (no PkgLock overlay)');
+    // docs/279 "Dogfood": correctness jobs only, job keys win, no own iniBase, opt-out
+    const nc = (o: object) => pj({ noiseCheck: false, ...o });
+    assert.equal(isTimingJob(pj({})), true); assert.equal(dogfoodOn(pj({})), false, 'timing jobs keep master defaults');
+    assert.equal(dogfoodOn(nc({})), !!DOGFOOD); assert.equal(dogfoodOn(cj({})), !!DOGFOOD, 'soak/script jobs are correctness');
+    assert.equal(dogfoodOn(nc({ iniBase: 'game-copy/ts3native.ini.master-1117c' })), !!DOGFOOD, 'a master pin still gets it');
+    assert.equal(dogfoodOn(nc({ iniBase: 'game-copy/ts3native.ini.rc-1119' })), false); assert.equal(dogfoodOn(nc({ iniBase: 'game-copy/asi-v024/ts3native.ini' })), false); assert.equal(dogfoodOn(nc({ pinReason: 'branch build' })), !!DOGFOOD); assert.equal(dogfoodOn(nc({ dogfood: false })), false);
+    assert.equal(rowBase(pj({})), 'repo'); assert.equal(rowBase(nc({ iniBase: 'x.ini.rel0211b' })), 'iniBase x.ini.rel0211b');
+    if (DOGFOOD) {
+      assert.equal(rowBase(nc({})), `dogfood ${DOGFOOD.id}`);
+      for (const [k, v] of Object.entries(DOGFOOD.ini)) assert.equal(rowIni(nc({}))[k], v);
+      for (const k of Object.keys(DOGFOOD.ini)) assert.equal(rowIni(nc({ ini: { [k]: 42 } }))[k], 42, 'the job (an A/B arm) sets its own value');
+    }
+    assert.throws(() => parseQueue([{ id: 'd', asi: 'tested', save: 'S', dogfood: 1, run: { soak: { minutes: 1 } } }]), /dogfood must be true or false/);
     assert.equal(jobIni(pj({ asi: 'game-copy/ts3native.asi.rel015' })), undefined, 'release asi: shipped ini as is');
     assert.deepEqual(jobIni(cj({ releaseDefaults: true })), { 'ProbeSnap.CallSites': 1 }, 'releaseDefaults: no Light');
     assert.throws(() => cj({ releaseDefaults: 1 }), /releaseDefaults/);
@@ -1648,6 +1688,8 @@ if (values['self-check']) {
   const fx = { overwatchchain: true, stuckcheckasync: true, errortrapspread: true, owchain_alarms: 2, owspread_types_run: 40, stuckcheckasync_queued: 10, stuckcheckasync_run: 10, etspread_passes: 1 };
   const night = [{ minutes_total: 0, clock: '01:00' }, { minutes_total: 300, clock: '06:00' }];
   assert.deepEqual(fixActivity(fx, { ...fx, owchain_alarms: 3, stuckcheckasync_run: 22 }, night[0], night[1]).fails, []);
+  assert.deepEqual(patchCensus({ a_n: 2, b_n: 5, on1: true }, { a_n: 5, b_n: 5, c_n: 1, on1: true, off1: false, applied: ['x'], l: [1] }), { on: ['on1'], rose: { a_n: 3, c_n: 1 } });
+  assert.equal(patchCensus({}, null), null);
   const idleR = fixActivity(fx, fx, night[0], night[1]);
   assert.equal(idleR.fails.length, 2); assert.match(idleR.fails[0], /overwatchchain on but owchain_alarms\+owspread_types_run rose 0 .*03:00/);
   assert.deepEqual(idleR.counters.owchain_alarms, { before: 2, after: 2 });
@@ -1930,7 +1972,7 @@ if (values['self-check']) {
     assert.throws(() => wj({}), /WorldImage.Enabled=1/);
     assert.throws(() => wj({ 'WorldImage.Enabled': 1, 'WorldImage.MaxCaptures': 1 }), /MaxCaptures/);
     assert.throws(() => wj({ 'WorldImage.Enabled': 1 }, { captures: 0 }), /captures/);
-    assert.deepEqual(jobIni({ id: 'x', asi: 'tested', run: { soak: { minutes: 1 } } }), { 'ProbeSnap.CallSites': 1, 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1 }); // docs/133 §7, docs/67 §18
+    assert.deepEqual(jobIni({ id: 'x', asi: 'tested', run: { soak: { minutes: 1 } } }), { ...DOGFOOD?.ini, 'ProbeSnap.CallSites': 1, 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1 }); // docs/133 §7, docs/67 §18
     assert.equal(wi['CrashForensics.Light'], undefined, 'worldimage: no Light');
     assert.deepEqual(callSitesIni(wj({ 'WorldImage.Enabled': 1 })), {});
     const hd = wiHeader('worldimage 1\nthread 10 7ffd0000 a00000 9f0000 1 2 3 4 5 6 7 8 9 a\ntls 114c908 2 1 0\ntls 11f4160 5 0 0\nlock 11f43a8 ffffffff 0 0\nlock 11f4130 fffffffe 1 4242\nmodule 400000 e5a000 52dec247 TS3W.exe\nstats 900 2147483648 3 2500\n');
@@ -2511,7 +2553,7 @@ if (values['dry-run']) {
     console.log(`  2 save guard: ${Object.entries(hashSaves(SAVES, guardedSaves(s))).map(([k, v]) => `${k} ${v}`).join(', ')} hashed before and after; a change FAILs the job and stops the queue`);
     const ji = jobIni(j);
     if (callSitesOffNote(j)) console.log(`  3 ${callSitesOffNote(j)}`);
-    if (!noOurs(j)) console.log(`  3 Bin/ts3native.ini = ${j.iniBase ? `iniBase ${j.iniBase}` : 'repo ini'}${Object.keys(ji ?? {}).length ? ` + ${Object.entries(ji!).map(([k, v]) => `${k}=${v}`).join(', ')}` : ' (unchanged)'}`);
+    if (!noOurs(j)) console.log(`  3 Bin/ts3native.ini = ${j.iniBase ? `iniBase ${j.iniBase}` : dogfoodOn(j) ? `repo ini, dogfood base (${DOGFOOD!.id})` : 'repo ini'}${Object.keys(ji ?? {}).length ? ` + ${Object.entries(ji!).map(([k, v]) => `${k}=${v}`).join(', ')}` : ' (unchanged)'}`);
     if (j.run.worldimage && !existsSync(String(ji!['WorldImage.Helper']))) console.log(`  3 ** helper MISSING: build native\\worldimage\\build.cmd; the job refuses before touching the game **`);
     if (j.defaultIni) console.log(`  3 Bin/Default.ini + ${Object.entries(j.defaultIni).map(([k, v]) => `${k}=${v}`).join(', ')}   (put back after the job)`);
     if (j.s3ppIni) console.log(`  3 Bin/Sims3Performance.ini + ${Object.entries(j.s3ppIni).map(([k, v]) => `${k}=${v}`).join(', ')}   (put back after the job)`);
@@ -2711,8 +2753,11 @@ const node = (args: string[], logFile: string, deadline: number, onLine?: (l: st
 async function closeGame(probePid?: number) {
   await get('detach', 10000); // detach first: killing a host mid-call can take the game down
   killTree(probePid);
-  if (gameRunning()) try { execFileSync('taskkill', ['/F', '/IM', GAME_EXE], { stdio: 'ignore' }); } catch { /* gone */ }
-  for (let i = 0; i < 60 && gameRunning(); i++) await sleep(1000);
+  // the kill is retried every 10 s: one kill did not take (2026-11-17), the game ran on for 2 min with the asi locked,
+  // and the Bin restore failed with EBUSY
+  const kill = () => { try { execFileSync('taskkill', ['/F', '/IM', GAME_EXE], { stdio: 'ignore' }); } catch { /* gone, or it failed: the loop tries again */ } };
+  kill();
+  for (let i = 0; i < 60 && gameRunning(); i++) { await sleep(1000); if (i % 10 === 9) kill(); }
   if (gameRunning()) log(`closeGame: ${GAME_EXE} still running after 60 s`);
   else { const left = killLeftovers(); if (left.length) log(`closeGame: leftovers killed: ${left.join('; ')}`); } // EA helpers of a hung launch (docs/236 round 4)
 }
@@ -3090,7 +3135,7 @@ for (const [n, j] of jobs.entries()) {
   const sections = [...new Set(Object.keys(j.ini ?? {}).map(k => k.split('.')[0]))];
   const s = saveOf(j)!;
   log(`== ${j.id} (${n + 1}/${jobs.length})${j.note ? `: ${j.note}` : ''}; log ${logFile}`);
-  const row: any = { time: t0, ...machineField(machineTag()), queue: queueName, build, job: j.id, note: j.note ?? null, asi: j.asi, asiSha: sha(asiPath(j)), ini: rowIni(j), fixes: j.fixes ?? null,
+  const row: any = { time: t0, ...machineField(machineTag()), queue: queueName, build, job: j.id, base: rowBase(j), note: j.note ?? null, asi: j.asi, asiSha: sha(asiPath(j)), ini: rowIni(j), fixes: j.fixes ?? null,
     save: s, content: j.content ?? 'as-is', contentMoved: 0, run: j.run, gameArgs: j.gameArgs ?? [], defaultIni: j.defaultIni ?? null, s3ppIni: j.s3ppIni ?? null, s3ssToml: j.s3ssToml ?? null, dxvkConf: j.dxvkConf ?? null, profileTag: j.run.profile ? profileTag(j) : null, exitCode: null, verdict: [], pass: false, crashed: false, crash: null, timedOut: false, memory: {}, counters: {}, error: null };
   const pin = pinConfig(j.pin, process.env, undefined, isTimingJob(j)), machineFile = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-machine.jsonl`);
   const sweepFile = machineFile.replace(/-machine\.jsonl$/, '-sweep.json');
@@ -3505,6 +3550,7 @@ for (const [n, j] of jobs.entries()) {
     } else if (fx0) {
       const fx1 = await fixRead(), fa = fixActivity(fx0.p, fx1.p, fx0.t, fx1.t, jobFixesCfg(j.run.profile ?? scriptFixesCfg(j.run.script)));
       row.fixActivity = { simStart: fx0.t?.clock, simMinutes: Number(fx1.t?.minutes_total) - Number(fx0.t?.minutes_total), counters: fa.counters, lists: fa.lists, notes: fa.notes };
+      row.fixCensus = patchCensus(fx0.p, fx1.p);
       // 0->0 counters stay in the row only (a fixesReport prefix can match ~30 gates)
       const cs = Object.entries(fa.counters).filter(([, v]) => v.after || v.before).map(([k, v]) => `${k} ${v.before ?? '?'}->${v.after}`).join(', ');
       const ls = Object.entries(fa.lists).map(([k, v]) => `${k} [${v.slice(0, 12).join(' | ')}${v.length > 12 ? ` | +${v.length - 12}` : ''}]`).join('; ');

@@ -152,8 +152,13 @@ def err(r):
 
 def game_up():
     if os.name == "nt":
-        out = subprocess.run(["tasklist"], capture_output=True, text=True).stdout
-        return re.search(r"^TS3W\.exe", out, re.M | re.I) is not None
+        # a failed tasklist (empty list under load) is not a missing game: one such read ended a drip 5 min early
+        for _ in range(3):
+            p = subprocess.run(["tasklist"], capture_output=True, text=True)
+            if p.returncode == 0 and ".exe" in p.stdout:  # any process row: the list was read
+                return re.search(r"^TS3W\.exe", p.stdout, re.M | re.I) is not None
+            time.sleep(2)
+        return True
     # Linux/Wine: the game process shows its Windows path in the process list (C:\...\TS3W.exe)
     out = subprocess.run(["ps", "-eo", "args"], capture_output=True, text=True).stdout
     return re.search(r"^[A-Z]:\\.*\\TS3W\.exe\b", out, re.M | re.I) is not None

@@ -28,8 +28,7 @@ namespace Ts3Fixes
 
         static void ApplyBirdTvNull()
         {
-            const BindingFlags stat = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-            sBirdRadius = typeof(MinorPetBirdLarge).GetField("kRadiusToCheckForTvReactions", stat);
+            sBirdRadius = typeof(MinorPetBirdLarge).GetField("kRadiusToCheckForTvReactions", kStaticAll);
             if (sBirdRadius == null) AppliedLog().Add("birdtvnull: kRadiusToCheckForTvReactions not found, not patched");
             else Patch(typeof(MinorPetBirdLarge), "ShouldReactToTv", typeof(BirdHook), "ReactHook", "ReactOrig");
         }

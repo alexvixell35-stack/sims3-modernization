@@ -33,11 +33,10 @@ namespace Ts3Fixes
                 if (!sCelebTried)
                 {
                     sCelebTried = true;
-                    const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
                     Type t = typeof(CelebrityManager);
-                    sCelebAct = t.GetField("mCelebrityActivityEventListener", inst);
-                    sCelebDis = t.GetField("mDisgracefulActionEventListener", inst);
-                    sCelebUnreg = t.GetMethod("UnregisterCelebrityEvents", inst, null, Type.EmptyTypes, null);
+                    sCelebAct = t.GetField("mCelebrityActivityEventListener", kInstAll);
+                    sCelebDis = t.GetField("mDisgracefulActionEventListener", kInstAll);
+                    sCelebUnreg = t.GetMethod("UnregisterCelebrityEvents", kInstAll, null, Type.EmptyTypes, null);
                     if (sCelebAct == null || sCelebDis == null || sCelebUnreg == null) sCelebUnreg = null;
                     AppliedLog().Add("celebritydeadsim: " + (sCelebUnreg != null ? "ok" : "CelebrityManager differs from the known build, off"));
                 }
@@ -53,15 +52,19 @@ namespace Ts3Fixes
                     {
                         CelebrityManager m = d == null ? null : d.CelebrityManager;
                         if (m == null) continue;
-                        if (!CelebHoldsDeadSim(d, sCelebAct.GetValue(m) as EventListener) && !CelebHoldsDeadSim(d, sCelebDis.GetValue(m) as EventListener)) continue;
-                        sCelebUnreg.Invoke(m, null);
-                        c[2072]++;
+                        try
+                        {
+                            if (!CelebHoldsDeadSim(d, sCelebAct.GetValue(m) as EventListener) && !CelebHoldsDeadSim(d, sCelebDis.GetValue(m) as EventListener)) continue;
+                            sCelebUnreg.Invoke(m, null);
+                            c[2072]++;
+                        }
+                        catch (Exception e) { PassThrewOnce(ref sCelebThrew, "celebritydeadsim", e); }  // one bad manager skips only itself
                     }
                 }
             }
             catch (Exception e)
             {
-                if (!sCelebThrew) { sCelebThrew = true; AppliedLog().Add("celebritydeadsim: pass threw " + e.Message); }
+                PassThrewOnce(ref sCelebThrew, "celebritydeadsim", e);
             }
         }
 
@@ -91,11 +94,10 @@ namespace Ts3Fixes
                 if (!sSeasTried)
                 {
                     sSeasTried = true;
-                    const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
                     Type mt = typeof(Sims3.Gameplay.Autonomy.Motives);
-                    FieldInfo f = typeof(EventTracker).GetField("mListeners", inst);
-                    sMotSim = mt.GetField("mSim", inst);
-                    sMotSeasonL = mt.GetField("mSeasonsChangedEventListener", inst);
+                    FieldInfo f = typeof(EventTracker).GetField("mListeners", kInstAll);
+                    sMotSim = mt.GetField("mSim", kInstAll);
+                    sMotSeasonL = mt.GetField("mSeasonsChangedEventListener", kInstAll);
                     sEvtListeners = f != null && sMotSim != null && sMotSeasonL != null && typeof(IDictionary).IsAssignableFrom(f.FieldType) ? f : null;
                     AppliedLog().Add("seasonsdeadsim: " + (sEvtListeners != null ? "ok" : "EventTracker or Motives differs from the known build, off"));
                 }
@@ -135,7 +137,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sSeasThrew) { sSeasThrew = true; AppliedLog().Add("seasonsdeadsim: pass threw " + e.Message); }
+                PassThrewOnce(ref sSeasThrew, "seasonsdeadsim", e);
             }
         }
 
@@ -161,12 +163,12 @@ namespace Ts3Fixes
                     if (IsPlayerSim(s)) continue;
                     List<Sim> l = s.SimsReactedToGhost;
                     if (l == null || l.Count == 0) continue;
-                    c[2075] += l.RemoveAll(delegate (Sim x) { return x == null || EtSimGone(x); });
+                    c[2075] += l.RemoveAll(sSimGonePred);
                 }
             }
             catch (Exception e)
             {
-                if (!sGhostThrew) { sGhostThrew = true; AppliedLog().Add("ghostreactdeadsim: pass threw " + e.Message); }
+                PassThrewOnce(ref sGhostThrew, "ghostreactdeadsim", e);
             }
         }
         // dreamnodedeadsim (issue #40; errortrapsims' hourly alarm, own switch; not save data): ActiveDreamNode.ResetListener
@@ -188,14 +190,13 @@ namespace Ts3Fixes
             try
             {
                 if (!ShortcutOn("dreamnodedeadsim")) return;
-                const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
                 if (!sDnpTried)
                 {
                     sDnpTried = true;
-                    FieldInfo f = typeof(EventTracker).GetField("mListeners", inst);
+                    FieldInfo f = typeof(EventTracker).GetField("mListeners", kInstAll);
                     sDnpEvt = f != null && typeof(IDictionary).IsAssignableFrom(f.FieldType) ? f : null;
-                    sDnpActive = typeof(Sims3.Gameplay.DreamsAndPromises.DreamsAndPromisesManager).GetField("mActiveNodes", inst);
-                    sSimDnp = typeof(Sim).GetField("mDreamsAndPromisesManager", inst);
+                    sDnpActive = typeof(Sims3.Gameplay.DreamsAndPromises.DreamsAndPromisesManager).GetField("mActiveNodes", kInstAll);
+                    sSimDnp = typeof(Sim).GetField("mDreamsAndPromisesManager", kInstAll);
                     AppliedLog().Add("dreamnodedeadsim: " + (sDnpEvt != null && sDnpActive != null && sSimDnp != null ? "ok" : "EventTracker or DreamsAndPromisesManager differs from the known build, off"));
                 }
                 if (sDnpEvt == null || sDnpActive == null || sSimDnp == null) return;
@@ -239,7 +240,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sDnpThrew) { sDnpThrew = true; AppliedLog().Add("dreamnodedeadsim: pass threw " + e.Message); }
+                PassThrewOnce(ref sDnpThrew, "dreamnodedeadsim", e);
             }
         }
         // overwatchdeadsim (issue #40; errortrapsims' hourly alarm, own switch; not save data): NRaas Overwatch's stuck check
@@ -271,8 +272,7 @@ namespace Ts3Fixes
                             sd = a.GetType("NRaas.OverwatchSpace.Alarms.StuckCheck+StuckSimData");
                             break;
                         }
-                    const BindingFlags st = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
-                    FieldInfo t1 = sc == null ? null : sc.GetField("sData", st), t2 = sc == null ? null : sc.GetField("sRouteData", st);
+                    FieldInfo t1 = sc == null ? null : sc.GetField("sData", kStaticAll), t2 = sc == null ? null : sc.GetField("sRouteData", kStaticAll);
                     FieldInfo li = sd == null ? null : sd.GetField("mLastInteraction", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                     bool ok = t1 != null && t2 != null && li != null && typeof(IDictionary).IsAssignableFrom(t1.FieldType) && typeof(IDictionary).IsAssignableFrom(t2.FieldType);
                     if (ok) { sOwTables = new FieldInfo[] { t1, t2 }; sOwLastIa = li; }
@@ -307,7 +307,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sOwThrew) { sOwThrew = true; AppliedLog().Add("overwatchdeadsim: pass threw " + e.Message); }
+                PassThrewOnce(ref sOwThrew, "overwatchdeadsim", e);
             }
         }
 

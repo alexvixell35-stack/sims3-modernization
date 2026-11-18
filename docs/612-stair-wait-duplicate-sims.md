@@ -1,6 +1,6 @@
 # 612: stair wait deadline, duplicate Sims (Sim.Dispose link)
 
-2026-11-17, static, r70; both fixes proven in game by their force checks (§4). Two default-off ts3fixes switches in `mods/ts3fixes/src/StairDup82.cs`. RE with tools
+2026-11-17, static, r70, s82, NOT RUN. Two default-off ts3fixes switches in `mods/ts3fixes/src/StairDup82.cs`. RE with tools
 only: `ilspycmd -il` on `game-copy/assemblies/Sims3GameplaySystems.dll` (`Stairs+StairsPortalComponent`,
 `ElevatorInterior+ElevatorPortalComponent`, `Sim`), grep over the decompiled tree for every `CreatedSim = ...` write, every
 `new SimInitParameters` and every `SetSimDescription` caller, NRaas ErrorTrap / Overwatch source (`game-copy/nraas-src`) as the
@@ -13,7 +13,7 @@ map of known duplicate causes.
 
 ## 1. Sources
 
-- Stair lead: docs/610 §4 leads (PR #524; semgrep `sleep-wait-no-exit`).
+- Stair lead: docs/610 leads (semgrep `sleep-wait-no-exit`).
 - Duplicate Sims: no doc covered it. NRaas map [community]: ErrorTrap treats a `Sim` whose `SimDescription.CreatedSim` is
   neither null nor itself as an orphan (DereferenceManager "immediate" rule), drops zero-reference `SimDescription`s
   (DereferenceSimDescription) and re-creates missing Sims (`CheckRecovery`: description living in world with
@@ -83,10 +83,6 @@ Counters: [3450] links kept, [3451] unbound disposes with the switch off, [3452]
 
 ## 4. Test
 
-Force checks `stairwaitend StairWaitEndCheck` and `simdisposelink SimDisposeLinkCheck`, one load, package r70
-(`ts3fixes-on-kHitchCauseHooks`): both switch off BROKEN, switch on FIXED, controls ok, members found, error counters 0.
-- `stairwaitend`: live replay on a staircase: the wait is still asleep past 30 sim-minutes with the switch off and ends
-  (result False) with it on; no real stair wait was asleep at the time (0 both ways).
-- `simdisposelink`: live replay on a Sim: EA's path would unbind the live Sim with the switch off; with it on, EA's set is a
-  no-op and the link is restored. Census both ways: 0 unbound live Sims, 0 descriptions with two Sim objects, 0 ids held
-  by two descriptions.
+Pairs (s82-pairs): `stairwaitend StairWaitEndCheck`, `simdisposelink SimDisposeLinkCheck`. Expect off BROKEN / on FIXED with
+controls ok. Package r70 (`ts3fixes-on-kHitchCauseHooks`). Not in `proven-fixes.txt` (in-game passes only); the
+proven-fixes self-check names both as unlisted until a run decides.

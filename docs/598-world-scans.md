@@ -1,4 +1,4 @@
-# 598. World and lot object scans in "hot" EA methods: frequency census, two memos built
+# 598. World and lot object scans in "hot" EA methods: frequency census (nothing built)
 
 Written 2026-11-16 (UTC). Static only: decompiled EA script code, no game run. Input: a grep of 172
 `GetObjects<T>()` calls (world or lot) inside methods with hot-sounding names (Update, Callback, Test, Run).
@@ -57,7 +57,7 @@ fires > ~1,000 times per sim-hour. Estimated upper bound today: 40 NPCs × 12 pa
 Nothing built, so 0 ms. The largest exact gains found (resort double scan, route-callback door scans) total well
 under 10 ms per sim-hour, against pondclearscan's ~1 s per sim-hour while its condition holds.
 
-## 5. Built: `hovertraintest` (2026-11-16, proven in game, §7)
+## 5. Built: `hovertraintest` (2026-11-16, static, NOT RUN)
 
 Asked for by Rodney (hover trains are rarely used). Switch `hovertraintest` (tuning `kHoverTrainTest`), default off;
 `HoverTrain598.cs`; counters 2157-2162; repro `hovertraintest-check`; package r56.
@@ -101,17 +101,17 @@ increment with wrap, not a loop: it always exits and the list has no duplicates.
 after the closest one (it gets two of the N draws).
 
 **Proof.** `HoverTrainTestCheck run`: the memo's answer (stored by NPC tests before the check) against EA's query in the
-same tick; a difference counts 2160 (must be 0). Synthetic controls on a private memo: 0, 1, 2, 3 stations, a placement
+same tick; a difference counts 1974 (must be 0). Synthetic controls on a private memo: 0, 1, 2, 3 stations, a placement
 (forget → recount lists one more), a removal (stored station gone → EA asked again), one going while fewer than 2 stored.
 `result`: counters and a `timing:` line (EA query µs vs memo answer µs, stations, world object count). The repro runs it off,
 on after 60 s of ultra speed, in buy mode, and after a placement.
 
 Counters: [2157] tests answered from the memo, [2158] tests that ran EA's query (switch off: every gated test, so the off
 arm measures the call rate this doc asked for), [2159] forgets, [2160] check mismatches, [2161] Run throws avoided,
-[2162] errors. Gain: up to the §3 estimate (~240 ms per sim-hour [inferred]); the off arm's 2158 and the timing line give the
+[2162] errors. Gain: up to the §3 estimate (~240 ms per sim-hour [inferred]); the off arm's 1972 and the timing line give the
 real figure.
 
-## 6. Second sweep: Test-like methods with world queries; built `newcartest` (2026-11-16, proven in game, §7)
+## 6. Second sweep: Test-like methods with world queries; built `newcartest` (2026-11-16, static, NOT RUN)
 
 Input: the cheap scan of Test-like methods with `GetObjects` / `CountObjects` / `GetRabbitHolesOfType` / `AllLots`
 (brief s70). Static only (decompiled EA code, `OriginalSocialDataEP4.xml` for the social wiring).
@@ -156,7 +156,7 @@ cars included, so inventory moves change nothing; the check compares memo vs EA 
 **Check.** `NewCarTestCheck run`: for every Sim in the world, both tests from the memo against EA's own test (the stubs) in
 the same tick; differences count 2750 (must be 0). Synthetic controls: no / old / new / aged-out / gone / added car, clock
 back, tuning changed. `result`: counters and a `timing:` line (EA test µs vs memo µs, car count, new cars kept). Live assert:
-the live path (`LiveAdd`, `CheckVerdict.cs`: car hook, 2 test swaps).
+`CheckLiveMap` `newcartest` (2 car swaps, 2 test swaps).
 
 Counters: [2747] answered from the memo, [2748] EA tests (switch off: every call, the call rate), [2749] forgets,
 [2750] check mismatches, [2751] errors, [2752] ImportContent forgets. Gain [inferred, unmeasured]: one world car query
@@ -174,14 +174,3 @@ the proxy targets the object and is unregistered (the start-to-`AddObjectImpl` g
 a kept one is skipped by the liveness test, so the answer stays exact. The check's live line now lists why each pending car
 is pending (target, id, GetProxy / PreInit, in world, in inventory). With EA true for nearly everyone the memo answers "yes" at
 the first live kept car of the actor's home lot; the liveness lookup now runs only after the owner-lot field matches.
-
-## 7. In-game results (Bridgeport, 2026-11-16, forced check runs, switch off then on in one load)
-
-| Switch | Off | On | Answers vs EA | Timing (one sample of 20) |
-|---|---|---|---|---|
-| `hovertraintest` | BROKEN | FIXED | memo answer = EA's (same=True), check mismatches 0 | EA query 448-487 us, memo answer 20-21 us |
-| `newcartest` | BROKEN | FIXED | 178 (off) / 200 (on) memo answers on 89 / 100 live Sims, differ 0, check mismatches 0 | EA test 1289-1812 us, memo answer 4 us |
-
-- [verified] Verdicts, controls ok, members found, answers equal to EA's and the timings, from the checks' result lines.
-- [inferred] The saving per sim-hour (§3-4 estimate). Bridgeport has no hover-train station, so the hovertrain memo
-  answers "fewer than 2" there.

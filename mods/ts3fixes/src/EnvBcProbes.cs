@@ -299,6 +299,7 @@ namespace Ts3Fixes
             {
                 long tick = Simulator.TicksElapsed();
                 PatchCounters()[cEl + 8]++;
+                ExOnLotEvent();
                 IGameObject o = a.ObjectId.ObjectFromId<IGameObject>();
                 Lot nl = ElLotOf(a.LotId), ol = o != null ? o.InternalLotCurrent : null;
                 if (o == null || ol != nl) { sEl.Bump(nl, -1, tick); sEl.Bump(ol, -1, tick); return; }
@@ -346,6 +347,7 @@ namespace Ts3Fixes
         {
             sEl.Clear();
             sElDying.Clear();
+            ExOnLotEvent();
             PatchCounters()[cEl + 9]++;
             if (e is Sims3.SimIFace.World.OnWorldQuitEventArgs) sElSubscribed = false;  // next world: in front of LotManager again
         }
@@ -354,6 +356,7 @@ namespace Ts3Fixes
         {
             public static void PlaceHook(IGameObject gameObject, ObjectGuid objectId)
             {
+                ExOnLotEvent();
                 PlaceOrig(gameObject, objectId);
                 if (!sElSubscribed || gameObject == null) return;
                 try { PatchCounters()[cEl + 8]++; sEl.Bump(gameObject.InternalLotCurrent, -1, Simulator.TicksElapsed()); }

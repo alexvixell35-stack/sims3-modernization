@@ -1,7 +1,5 @@
 # 577: autonomy re-picking taken objects, what makes Sims wait, pets/occult stuck states, privacy locks
 
-§1 `autonomyinuseblock` and §4 `npcbusypartner` are built and proven in game (results at the end). `socialreplanlog` (§2, log only) is not in the PR that adds them.
-
 Date: 2026-11-15. Static work (decompiled scripts, deterministic scans) plus the wait census of
 `phase-20261115-1146` (all-on) vs `phase-20261115-0523` (all-off), Bridgeport, read with
 `tools/harness/wait-report.ts` (cleanup branch). Built, not run in game.
@@ -208,13 +206,3 @@ Scans:
 - the receiver's route ignore list;
 - both Sims' positions;
 - the initiator's route destination.
-
-## In-game result (Bridgeport, two combined soaks, each switch off then on: phase-20261115-1321 and phase-20261116-0234)
-
-| Switch | Off | On |
-|---|---|---|
-| `autonomyinuseblock` | BROKEN | FIXED |
-| `npcbusypartner` | BROKEN | FIXED |
-
-- [verified] The verdicts, controls ok and members found, in both runs (the runs' `smallfix.txt`).
-- [inferred] How often each case happens in normal play: the checks run the same decision functions as the hooks.

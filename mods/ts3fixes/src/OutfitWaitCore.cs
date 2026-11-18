@@ -10,6 +10,13 @@ namespace Ts3Fixes
             return on && waited >= staleAfter ? minute : 1u;
         }
 
+        // Household rule (docs/580 §15): a live Sim of the player (household, selected, selectable or unknown scope) keeps
+        // EA's per-tick loop; only an NPC's wait, or a wait whose Sim is gone (issue #40), is read once per sim-minute.
+        public static bool PollAllowed(bool simLive, bool playerSim)
+        {
+            return !simLive || !playerSim;
+        }
+
         // issue #40: a stale wait ends when its helper's Sim is gone (null or destroyed), unless the waiting task belongs to
         // another Sim (that Sim keeps EA's loop: a live Sim is never changed).
         public static bool EndDead(bool simGone, bool waiterIsOtherSim)

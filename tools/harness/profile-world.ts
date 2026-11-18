@@ -582,7 +582,9 @@ async function checkStuck() {
     simSeen.set(sim.id, e);
     if (!e.reported && mayBeStuck(sim.interaction, !!sim.routing, !!sim.in_transit) && e.checks >= (sim.routing ? 3 : 6)) {
       e.reported = true;
-      stuck.push({ ...sim, checks: e.checks, shortcut: moved[sim.name] ?? false });
+      // the Sim's state when first flagged (ts3fixes StuckProbe.cs; an older package answers with an error, kept as is)
+      const pr = await ag('reflect_call', { path: 'Ts3Fixes.Fixes.StuckProbe', args: [sim.name] });
+      stuck.push({ ...sim, checks: e.checks, shortcut: moved[sim.name] ?? false, probe: pr?.ok ? pr.result : `probe failed: ${pr?.error ?? '?'}` });
     }
   }
 }
@@ -714,6 +716,8 @@ if (reproLoop && slices.length) { // the last firing's end snapshot, then the ar
   writeFileSync(`${pre}-ab.json`, JSON.stringify({ names: [`loop:${values.repro}`], loop: true, slices }, null, 1));
 }
 writeFileSync(`${pre}-stuck.json`, JSON.stringify(stuck, null, 1));
+// the agent's async tasks, started and ended (a "started" with no "->" line ran past the end; abip 2026-11-18 hitch confound)
+await ag('async_log').then(r => writeFileSync(`${pre}-asynclog.json`, JSON.stringify(r?.result ?? r, null, 1))).catch(() => {});
 // no save in a run the next job rewinds: it writes files and makes window-system objects the rewind cannot put back (docs/270 §36)
 if (stuck.length && values['rewind-next']) console.log(`${stamp()} repro save skipped (--rewind-next: the game is rewound after this run); stuck Sims in ${pre}-stuck.json`);
 else if (stuck.length) await reproSave(ag, values.tag!, stuck);

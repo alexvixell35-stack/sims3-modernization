@@ -102,6 +102,11 @@ namespace Ts3Fixes
         static float[] sLwPristine;
         static string sLwM13 = "";
 
+        static Type B13Nested(Type t, params string[] names)
+        {
+            foreach (string n in names) { if (t == null) return null; t = t.GetNestedType(n, BindingFlags.Public | BindingFlags.NonPublic); }
+            return t;
+        }
 
         static void ApplyLightningWeights()
         {
@@ -444,6 +449,11 @@ namespace Ts3Fixes
         static readonly FieldInfo sWsCool = sWsWell == null ? null : B12F(sWsWell, "kStealCoinsCooldownMinutes");
         static string sWsM13 = "";
 
+        static Type B13StoreType(string name)
+        {
+            foreach (Assembly a in AppDomain.CurrentDomain.GetAssemblies()) { Type t = a.GetType(name); if (t != null) return t; }
+            return null;
+        }
 
         static void ApplyWellStealCooldown()
         {
@@ -704,6 +714,39 @@ namespace Ts3Fixes
             }
 
             public void InitOrig(PoliceSituation parent) { }
+        }
+
+        // ---- B13 §16 butlerpayalarm (docs/593 V1) --------------------------------------------------------------------
+        // [verified, decompiled; trigger inferred] ButlerSituation.OnArriveOnLot adds a persisted weekly PayButler alarm
+        // owned by the butler; only EndService removes it. A butler situation that ends another way (fired, quit, the
+        // situation exited) keeps the alarm on a Sim with a virtual home, and it charges the household every week. Fix:
+        // ServiceSituation.CleanUp (the serviceshowalarm swap, which calls ButlerCleanUp after EA's CleanUp) removes it.
+        // Counters: [2926] alarms removed, [2927] left (switch off), [2928] errors.
+        static readonly FieldInfo sBpAlarm = B12F(typeof(ButlerSituation), "mPayButlerAlarm");
+        static string sBpM13 = "";
+
+        static void ApplyButlerPayAlarm()
+        {
+            sBpM13 = SpNames("ButlerSituation.mPayButlerAlarm", sBpAlarm);
+            if (sBpM13.Length > 0) AppliedLog().Add("butlerpayalarm: not found: " + sBpM13);
+        }
+
+        internal static bool BpRemove(bool isButler, bool armed) { return isButler && armed; }
+
+        // Called by BSsHook.CleanHook (Batch582Logic.cs) after ServiceSituation.CleanUp.
+        static void ButlerCleanUp(ServiceSituation ss)
+        {
+            if (sBpAlarm == null || !(ss is ButlerSituation)) return;
+            try
+            {
+                AlarmHandle h = (AlarmHandle)sBpAlarm.GetValue(ss);
+                if (!BpRemove(true, h != AlarmHandle.kInvalidHandle)) return;
+                if (!ShortcutOn("butlerpayalarm")) { PatchCounters()[2927]++; return; }
+                if (ss.Worker != null) ss.Worker.RemoveAlarm(h); else AlarmManager.Global.RemoveAlarm(h);
+                sBpAlarm.SetValue(ss, AlarmHandle.kInvalidHandle);
+                PatchCounters()[2926]++;
+            }
+            catch (Exception) { PatchCounters()[2928]++; }
         }
 
         // ---- B13 §17 petharvestvfx (docs/593 H1) ---------------------------------------------------------------------

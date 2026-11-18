@@ -1,6 +1,6 @@
-# 613: stuck NPC interactions: rabbit hole exit pacing, NPC Perform For Tips
+# 613: stuck NPC interactions: rabbit hole exit pacing, NPC Perform For Tips (s83)
 
-2026-11-17, static (ilspycmd decompiles of game-copy/assemblies, census of 6 Bridgeport sessions), r71 / r72; both fixes proven in game by their force checks (§5).
+2026-11-17, static (ilspycmd decompiles of game-copy/assemblies, census of 6 Bridgeport sessions), r71, built, NOT RUN.
 
 Input: `tools/harness/wait-report.ts` ranking over phase-20261117-0008, -20261116-2349, -2318, -2233, -2218, -2212
 (`health.jsonl` per-Sim census). Extra census passes for this doc: per-Sim motive freeze between snapshots (energy and
@@ -69,18 +69,11 @@ switch on), 3460 errors.
 | Sleep Until Fully Rested / Work Until End of Shift queue behind | intended | household Sims (untouched) / work shift |
 
 Earlier docs: none of docs/575-612 covers §2 or §3 (no `kNpcExitFreq`, `CanSimSkipExitWait`, `PerformForTips` or
-low-LOD cap hits in docs or mods). `outfitwaitend` (docs/601, not on `main`) and `stairwaitend` (docs/612, PR #525) are the same shape (an NPC wait
+low-LOD cap hits in docs or mods). `outfitwaitend` (docs/601) and `stairwaitend` (docs/612) are the same shape (an NPC wait
 with no end for an unseen Sim) but different methods. NRaas (ErrorTrap `DerefPerformanceCareerPerformerPerformForTips`,
 `DerefInRabbitHolePosture`) only cleans references; no reset rule for these.
 
 ## 5. Status
 
-r71 crashed (native access violation one second after the first check, cause not proven; docs/614 §7). r72 hardened both
-hooks so the switch-off arm runs only EA's body, with no extra game calls. r72 (`phase-20261117-0857`) ran clean: both
-force checks off BROKEN / on FIXED, controls ok, members found, error counters 0.
-- `rhexitunseen`: live replay at the Hospital with an unseen NPC: skip False with the switch off, True with it on; the
-  player Sim keeps EA's answer both ways. One real exit wait was skipped with the switch on (3453 = 1).
-- `tipsnpcend`: live decision on an unseen NPC (cap 360 sim-min): past the cap ends False off / True on; under the cap
-  kept both ways. No NPC was performing for tips at the time.
-
-Next: a natural-play arm at Bridgeport evening with both on (Go Home InRabbitHolePosture census).
+Built r71 (`~/dev/ts3-runs/pkg/ts3fixes.r71.package`), pairs in s83-pairs. Not added to proven-fixes. Next: the two
+check repros off then on; a natural-play arm at Bridgeport evening with both on (Go Home InRabbitHolePosture census).

@@ -25,9 +25,8 @@ namespace Ts3Fixes
     // Counters: [2566] boosts undone after an unwound session, [2567] errors. Check: TrainBoostChecks.cs.
     public static partial class Fixes
     {
-        const BindingFlags kTbStatic = BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public;
-        static readonly FieldInfo sTbSkillMult = typeof(AthleticGameObject.TrainSim).GetField("kAthleticSkillMultiplierOfTrainedSim", kTbStatic);
-        static readonly FieldInfo sTbShapeMult = typeof(AthleticGameObject.TrainSim).GetField("kBodyShapeMultiplierOfTrainedSim", kTbStatic);
+        static readonly FieldInfo sTbSkillMult = typeof(AthleticGameObject.TrainSim).GetField("kAthleticSkillMultiplierOfTrainedSim", kStaticAll);
+        static readonly FieldInfo sTbShapeMult = typeof(AthleticGameObject.TrainSim).GetField("kBodyShapeMultiplierOfTrainedSim", kStaticAll);
         static readonly FieldInfo sTbShape = typeof(SimDescription).GetField("mShapeDeltaMultiplier", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
 
         static void ApplyTrainBoost()

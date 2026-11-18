@@ -9,9 +9,21 @@
 static void TestUnseenTable() {
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, utbReady) == 0x5690 && offsetof(Ts3nCounters, utbListCap) == 0x56CC &&
-                  sizeof(Ts3nCounters) == 6696 * 4, "counters v149 + v152 layout (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6722 * 4, "counters v149 + v152 layout (docs/registry.md)");
     static Ts3nCounters saved;
     memcpy(&saved, &k, sizeof(k));
+    {  // EnvOrderNative::LotPrint (docs/274 §11): the walker print of the lot; 0 only for a failed read
+        static AsU64 s_eoP;
+        static bool s_eoOk;
+        g_asLotPrint = [](AsU64 lot, AsU64* p) { p[0] = s_eoP ^ lot, p[1] = 0; return s_eoOk; };
+        s_eoP = 0x1234567800000000ull, s_eoOk = true;
+        assert(EoIcLotPrint(7, 0) == (0x1234567800000000ull ^ 7) && EoIcLotPrint(7, 1) == (0x1234567900000000ull ^ 7));  // ulong lot = lo, hi
+        s_eoP = 7;
+        assert(EoIcLotPrint(7, 0) == 1);  // a print of 0 still reads as "have a print"
+        s_eoOk = false;
+        assert(EoIcLotPrint(7, 0) == 0);  // failed read: the caller takes the game's call
+        g_asLotPrint = AsLotPrintGame;
+    }
     const UnCompFn compSave = g_unComp;
     const UnPosFn posSave = g_unPos;
     const UnFrustumFn frSave = g_unFrustum;

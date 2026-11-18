@@ -9,7 +9,7 @@ using Sims3.UI;
 
 namespace Ts3Fixes
 {
-    // Spawner placement and map tag task fixes (docs/610). Both default off. Household rule: spawners and map tags are
+    // Spawner placement and map tag task fixes (docs/610, s79). Both default off. Household rule: spawners and map tags are
     // world and UI systems with no Sim in them; the end states are the ones EA itself produces, so there is no exemption.
     public static partial class Fixes
     {
@@ -442,7 +442,5 @@ namespace Ts3Fixes
                 "EA ends on both (" + eaForceEnds + "/" + eaToggleEnds + "), no event: same passes " + p4 + "/" + p5 + ", dead controller never restarts, " + live,
                 controls && liveOk, sMtkMissing, counters);
         }
-    
-        static readonly int sLive_maptagtaskalive = LiveAdd("maptagtaskalive", () => EpJoin(EpLive(typeof(MtkCtlHook), 1), EpLive(typeof(MtkVisHook), 0)));
     }
 }

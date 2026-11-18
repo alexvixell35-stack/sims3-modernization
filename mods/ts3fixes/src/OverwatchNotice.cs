@@ -44,17 +44,15 @@ namespace Ts3Fixes
                 return;
             }
             sOwNoticeTried = true;
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            const BindingFlags st = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
             Type reset = ow.GetType("NRaas.OverwatchSpace.Alarms.StuckCheck+ResetTask"), common = ow.GetType("NRaas.Common"),
                 stored = ow.GetType("NRaas.Common+StoredNotice");
-            sOwnSim = reset == null ? null : reset.GetField("mSim", inst);
-            sOwnSuffix = reset == null ? null : reset.GetField("mSuffix", inst);
-            sOwnPerform = reset == null ? null : reset.GetMethod("Perform", st, null, new Type[] { typeof(Sim), typeof(Vector3), typeof(string) }, null);
-            sOwnNotices = common == null ? null : common.GetField("sNotices", st);
+            sOwnSim = reset == null ? null : reset.GetField("mSim", kInstAll);
+            sOwnSuffix = reset == null ? null : reset.GetField("mSuffix", kInstAll);
+            sOwnPerform = reset == null ? null : reset.GetMethod("Perform", kStaticAll, null, new Type[] { typeof(Sim), typeof(Vector3), typeof(string) }, null);
+            sOwnNotices = common == null ? null : common.GetField("sNotices", kStaticAll);
             sOwnText = stored == null ? null : stored.GetField("mText");
-            sOwnLocalize = common == null ? null : common.GetMethod("Localize", st, null, new Type[] { typeof(string), typeof(bool), typeof(object[]) }, null);
-            sOwnNotify = common == null || stored == null ? null : common.GetMethod("Notify", st, null, new Type[] { stored }, null);
+            sOwnLocalize = common == null ? null : common.GetMethod("Localize", kStaticAll, null, new Type[] { typeof(string), typeof(bool), typeof(object[]) }, null);
+            sOwnNotify = common == null || stored == null ? null : common.GetMethod("Notify", kStaticAll, null, new Type[] { stored }, null);
             if (sOwnSim == null || sOwnSim.FieldType != typeof(Sim) || sOwnSuffix == null || sOwnSuffix.FieldType != typeof(string)
                 || sOwnNotices == null || stored == null || sOwnNotices.FieldType != typeof(List<>).MakeGenericType(stored)
                 || sOwnText == null || sOwnText.FieldType != typeof(string) || sOwnLocalize == null || sOwnLocalize.ReturnType != typeof(string)

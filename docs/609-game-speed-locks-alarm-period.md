@@ -1,6 +1,6 @@
 # 609: Game speed, speed lock, repeating-alarm and heartbroken-broadcaster fixes
 
-2026-11-17, static, r66; all six fixes proven in game by their force checks (§8). Six EA bugs in `Sims3.Gameplay.Gameflow` (speed setting and the speed lock),
+2026-11-17, static, r66, s78, NOT RUN. Six EA bugs in `Sims3.Gameplay.Gameflow` (speed setting and the speed lock),
 `LotManager` build/buy, `AlarmManager` and `SocialCallback.AddHeartBroken`, built as default-off ts3fixes switches in
 `mods/ts3fixes/src/GameSpeed78.cs`. Each one is fixed the way the EA code next to it already works. RE was done with
 tools only: `ilspycmd` on `game-copy/assemblies/*.dll` for the bodies, `node tools/managed-callgraph.ts callers` for
@@ -19,7 +19,7 @@ applies to household Sims: it only disposes a broadcaster that EA's own code had
 | `alarmzeroperiod` | 3417-3420 | `AlarmManager.Timer.get_YieldRequired` (AzTimerHook, shared with the alarmtime stamp) | `AlarmZeroPeriodCheck`, `alarmzeroperiod-check` |
 | `heartbrokenbcast` | 3421-3423 | `SocialCallback.AddHeartBroken` (HbBcastHook) | `HeartBrokenBcastCheck`, `heartbrokenbcast-check` |
 
-Every Check has a pure part with controls (off BROKEN, on FIXED) plus the EpLive swap and member asserts (`LiveAdd`). The alarm
+Every Check has a pure part with controls (off BROKEN, on FIXED) plus the EpLive swap and member asserts. The alarm
 Check also runs the fix on a private Timer that is never queued. The heartbroken Check replays EA's overwrite on the
 selected Sim with two broadcasters, and disposes both afterwards.
 
@@ -139,11 +139,3 @@ references it, so this is the same as disposing it just before the assignment.
 
 `AddHeartBroken` can reach `Simulator.Sleep` (BuffManager.AddElement), so its swap keeps a stub. `managed-callgraph`
 lists no direct callers, because it is a social callback bound by name.
-
-## 8. In-game result
-
-Force checks, one load, package r66: all six switch off BROKEN, switch on FIXED, controls ok, members and swaps live,
-error counters 0. The alarm check's private 1 s timer gave next = now both ways; with the switch on the live hook had
-checked 5 repeating timers (3419) and found no period <= 0 and no catch-up. The heartbroken replay left the old
-broadcaster registered with the switch off and disposed it with the switch on. The load path (`InternalFixLoadAlarms`,
-§6.3) is not covered.

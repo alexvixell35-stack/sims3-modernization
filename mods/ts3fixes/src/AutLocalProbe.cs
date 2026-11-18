@@ -70,9 +70,8 @@ namespace Ts3Fixes
             {
                 if (sL0Sw == null)
                 {
-                    const BindingFlags all = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-                    fL0Force = typeof(AutonomyT).GetField("mForceRunLocalAutonomy", all);
-                    fL0OverLot = typeof(AutonomyT).GetField("mOverriddenLocalAutonomyLot", all);
+                    fL0Force = typeof(AutonomyT).GetField("mForceRunLocalAutonomy", kInstAll);
+                    fL0OverLot = typeof(AutonomyT).GetField("mOverriddenLocalAutonomyLot", kInstAll);
                     sL0Sw = StopWatch.Create(StopWatch.TickStyles.Microseconds);
                     sL0Sw.Restart();
                     sL0First = System.Environment.TickCount;

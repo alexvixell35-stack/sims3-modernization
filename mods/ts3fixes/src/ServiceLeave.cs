@@ -42,8 +42,7 @@ namespace Ts3Fixes
     // mailbox, [2520] states with no delay found, [2521] errors. Check: ServiceLeaveChecks.cs.
     public static partial class Fixes
     {
-        const BindingFlags kSlAll = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        static readonly MethodInfo sSlRepoOut = typeof(RepomanSituation.Leave).GetMethod("OnRouteOutOfHouse", kSlAll);
+        static readonly MethodInfo sSlRepoOut = typeof(RepomanSituation.Leave).GetMethod("OnRouteOutOfHouse", kInstAll);
 
         static void ApplyServiceLeave()
         {
@@ -86,7 +85,7 @@ namespace Ts3Fixes
         {
             for (; t != null; t = t.BaseType)
             {
-                FieldInfo f = t.GetField(name, kSlAll | BindingFlags.DeclaredOnly);
+                FieldInfo f = t.GetField(name, kInstAll | BindingFlags.DeclaredOnly);
                 if (f != null) return f;
             }
             return null;
@@ -95,7 +94,7 @@ namespace Ts3Fixes
         {
             for (; t != null; t = t.BaseType)
             {
-                MethodInfo m = t.GetMethod(name, kSlAll | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
+                MethodInfo m = t.GetMethod(name, kInstAll | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
                 if (m != null) return m;
             }
             return null;
@@ -107,7 +106,7 @@ namespace Ts3Fixes
             object tuning = tf == null ? null : tf.GetValue(state);
             if (tuning != null)
             {
-                FieldInfo d = tuning.GetType().GetField(prop, kSlAll);
+                FieldInfo d = tuning.GetType().GetField(prop, kInstAll);
                 if (d != null && d.FieldType == typeof(float)) return (float)d.GetValue(tuning);
             }
             for (Type t = svc == null ? null : svc.GetType(); t != null; t = t.BaseType)

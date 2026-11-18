@@ -24,11 +24,11 @@ Never deferred (EA's call runs at once), counter in brackets:
 | case | slot |
 |---|---|
 | household / selected / unknown-scope Sim, seen townie, not live mode, travelling, saving, world gone | none |
-| a Sim's first set after `SimDescription.Instantiate` | 2581 |
-| a delayed swap of that Sim is open (between `CASUtilsSetOutfitInGameObjectDelayed` / `SetModelInGameObjectDelayed` and `CompleteDelayedModelSwap` / `AbortDelayedModelSwap`) | 2582 |
-| a call that is not a Sim's outfit path (`mPendingOutfitInfo` empty and not `RefreshCurrentOutfit`: robot setup, thumbnails, pie-menu heads) | 2583 |
-| the new key's or the shown key's category is not in the safe set (below) | 2583 |
-| the Sim is within 40 m of being seen (a camera pan or a mass change must not show old outfits) | 2585 |
+| a Sim's first set after `SimDescription.Instantiate` | 1992 |
+| a delayed swap of that Sim is open (between `CASUtilsSetOutfitInGameObjectDelayed` / `SetModelInGameObjectDelayed` and `CompleteDelayedModelSwap` / `AbortDelayedModelSwap`) | 1993 |
+| a call that is not a Sim's outfit path (`mPendingOutfitInfo` empty and not `RefreshCurrentOutfit`: robot setup, thumbnails, pie-menu heads) | 1994 |
+| the new key's or the shown key's category is not in the safe set (below) | 1994 |
+| the Sim is within 40 m of being seen (a camera pan or a mass change must not show old outfits) | 1996 |
 
 Delayed sets (the spin path: `SwitchToOutfitWithSpin`, `SwitchToOutfitWithHiding`, `SwitchToOutfitDelayed`, CAS previews) are never
 deferred: they wait for their own ready callback.
@@ -52,18 +52,18 @@ Every entry ends in one of these:
 
 | end | slot |
 |---|---|
-| the Sim is seen (sweep every 125 ms, up to 128 Sims checked and 12 applied a tick, seen Sims first: a seen Sim goes on within 250 ms) | 2572 |
-| the Sim is selected or no longer a townie | 2573 |
-| the Sim comes within the 40 m margin | 2586 |
-| before a delayed outfit set or delayed model set of that Sim (EA would have built it before that call) | 2574 |
-| flush: switch turned off, not live mode (build/buy, CAS, edit town), travelling, or a save (`OptionsModel.SaveGame` hook in `DisposeSpread.cs` applies every waiting outfit before the file is written) | 2575 |
-| the Sim is gone (destroyed), or the world quits | 2576 |
-| EA's own set of the same Sim runs and replaces it | 2577 |
-| a non-delayed whole-model set | 2578 |
-| the apply threw (no retry, entry gone) | 2584 |
+| the Sim is seen (sweep every 125 ms, up to 128 Sims checked and 12 applied a tick, seen Sims first: a seen Sim goes on within 250 ms) | 1983 |
+| the Sim is selected or no longer a townie | 1984 |
+| the Sim comes within the 40 m margin | 1997 |
+| before a delayed outfit set or delayed model set of that Sim (EA would have built it before that call) | 1985 |
+| flush: switch turned off, not live mode (build/buy, CAS, edit town), travelling, or a save (`OptionsModel.SaveGame` hook in `DisposeSpread.cs` applies every waiting outfit before the file is written) | 1986 |
+| the Sim is gone (destroyed), or the world quits | 1987 |
+| EA's own set of the same Sim runs and replaces it | 1988 |
+| a non-delayed whole-model set | 1989 |
+| the apply threw (no retry, entry gone) | 1995 |
 
-2570 deferred, 2571 of those replacing a waiting entry, 2579 waiting now, 2580 most waiting, 2587 worst seen-to-apply time in ms (an
-upper bound: from the last check that found the Sim unseen), 2588 seen applies later than 250 ms.
+1981 deferred, 1982 of those replacing a waiting entry, 1990 waiting now, 1991 most waiting, 1998 worst seen-to-apply time in ms (an
+upper bound: from the last check that found the Sim unseen), 1999 seen applies later than 250 ms.
 
 A Sim the camera jumps to (portrait click) can show the old outfit for one sweep tick plus the build, then changes as EA's
 WithoutSpin changes do (an instant swap).

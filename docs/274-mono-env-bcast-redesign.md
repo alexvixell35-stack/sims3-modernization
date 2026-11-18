@@ -294,3 +294,105 @@ Salvage ideas (not built; each needs its own dry numbers first):
 - Scan cost: `scan_ms` includes `BcRebuild` (line of sight, could-see), which the game's own set also needs; compare against `game_ms` plus the game's rebuild, not the query alone (the gate may have been unfair by that share [inferred]); re-measure with the split.
 - Cache per broadcaster across pulses while no Sim moved more than a margin (pulse 37.5 ticks): reuse the candidate set, re-check distance only.
 - Fold into R3 (fix the bcast worker, §5 rank 3) only if the unseen bcast share grows (docs/286 unseen LOD work may change it).
+
+## 11. R1 exact: every Sim, the game's own scan, validity by the native order print (2026-11-18, branch `feature/r1x-1118`, built, NOT RUN)
+
+Rodney 11-18 ~17:00 PHT: "build it now". §9's unseen-only apply had reuse 0 (unseen NPCs do not run indoor env scans, §2.2), while the dry memo hits 65-67% over all Sims. So R1 has to serve household and seen Sims, which is only allowed when the reused list is the game's list exactly.
+
+### 11.1 Where the order comes from, and who writes it (static RE, Steam 1.67)
+
+List 0 is `Lot.GetObjectsInRoom<GameObject>(room)`: a managed filter over `Queries.GetObjects(typeof(T), lotId)` (room -1), which is the walker `0x7499B0`: the lot's own vector in order, then the world lot's vector (`[mgr+0xB0] +0x14`) filtered to objects whose world component names the lot (docs/122 §14.26, docs/127) [verified].
+
+| Writer | What it does to the order | Reached from | Managed signal |
+|---|---|---|---|
+| `0xC71340` (vtable slot `+0x74` of the three container classes; no direct calls) | appends at the end; refuses an object that has an owner | add `0xAA8FB0` / `0xACDFC0`, add at x,z `0xC6E1C0`, create `0xC6E7F0` | event 0x15 [verified] |
+| `0xC70150(obj, destroy)` | order-keeping erase (`0x5C0970`), owner cleared | slot `+0x3C` (`0xAA8FF0`, `0xACE060`), failed grid adds, unload loops `0xC71310` / `0xC71A90` | event 0xA before the erase on the `+0x3C` path [verified] |
+| **`0xC8AF30`**, the world component's container setter | `old->remove(obj)` then `new->add(obj)`: the object is re-appended at the end of the new container, its slotted children too. A parented object is forced into the world lot. When the component lot does not change (the carried item stays "on" the same lot) it skips `0xC8ADD0`, so **no world event 0x11 reaches managed code** | `0xC8B140` (lot at the object's position, or the world lot) from `Objects_SetPosition` IC `0x744E30`, `0x95A360`, `0xD26040`, `0xCFEE30`, `0xD06120`; `World_MoveObjectToObjectManager` IC `0x789420` | none in that case [verified] |
+| component lot `+8` writers `0xC8ADD0`, `0xC8A3B0` | an object can stay in the world-lot vector while its component lot changes: the per-lot subsequence changes with no vector write | lot add `0xAB4630`, `0x834537`, `0xC8AF30` | 0xF and 0x11 (0x11 only with the object flag `+0x2C & [0x11E90F8]`) [verified] |
+
+No sort, swap or insert exists on these vectors [verified: call and pointer scan]. This names the §8.5-§9 reorders: picking a plate up moves it from the lot vector to the end of the world-lot vector with its component lot unchanged, so the list keeps its members and count, every later entry shifts, and nothing managed fires (`ev 0`); putting it down appends it to the lot vector. That the 20 measured lines are this path is [inferred] (same shape: carried child items, Sims' relative order kept). Managed side: `GameObject.RoomId` is a plain read of `mRoomId`, written only in `InternalOnSetRoomAndLevel` [verified]; doors and room connectors are listed by their room connections. Not read: which events the eight writers of the component room `+0x20` send (the list does not use that field; it uses the managed `mRoomId`). EA 1.69 / retail 1.67: the build reads only through addresses that already have rows in both tables (`0x935770`, `0x11ECF08`, `0xC62D40`, `0x11ECBC4`; `tools/ts3addr-check.ts`); the writer addresses above are not used by code, so they have no rows [not mapped].
+
+### 11.2 Design: read the order at use time, do not hook the writers
+
+Hooking the writers and bumping a per-lot version is feasible (thiscall, lot id at container `+0x48`; a world-lot write would bump every lot), but each hook sits on a hot native path, the prologues are not checked yet, and a missed writer would be a silent wrong answer. The order source can be mirrored exactly instead: `EnvOrderNative.LotPrint(lot)` (ts3native 0.36.284, registered with the `[UnseenTable]` ICs, reads only) returns the FNV print of the id sequence the walker would push right now, using `AsLotPrintGame`, the print the autonomy shadow has used since docs/122 §14.17 (same reads as the walker, selftested, mapped on all three editions). A memo list is reused only when the print now equals the print taken just before the list was built. Any writer, known or not, changes the print.
+
+What the print does not see, and what covers it:
+
+| Input of the list | Covered by |
+|---|---|
+| native id order and membership | the print (a 64-bit hash: an unequal sequence with an equal print is possible in theory, ~2^-64 a compare) |
+| managed `RoomId` of each object | `OnObjectLotUpdate` generations (§8.1; sole writer verified) |
+| host filter (handle map, exclusion list, docs/122 §14.26) | script object start-up hook, pending-destruction bumps and the dying list (§8.1, §8.5) [inferred complete, I-518-2] |
+| door / room-connector connections | lot-wide bump when such an object moves, full clear on build/buy exit and lot changes [inferred complete, I-518-3] |
+
+So the result is exact for the native order (the cause of every wrong hit measured so far) and rests on two inferred-complete managed rules for the rest; the sampled verify is what checks those two in every test job.
+
+### 11.3 How the list gets into the game's own scan
+
+§9 ran the scan through our replica (`EnvScore` then `EnvApply`), which scores first and sends events after; the game interleaves them per object. That is realistic, not vanilla, so it cannot serve household Sims. The exact path keeps `SimUpdate.CalculateSimEnvironmentScore` itself and only answers its two room-list calls:
+
+- `Lot.GetObjectsInRoom<T>` first looks in the lot's per-type cache table (`mObjectCaches`, EA's `ObjectCache` mechanism; EA registers only `IPortalConnectionObject` [verified]). For the head of one scan `EnvListExactBegin` puts our cache (`ElCache`, implements EA's private `Lot.IObjectCache`) under `GameObject` and `IAromainator`.
+- The scan's own call (same room) gets a fresh `List<T>` copy of the memo list (the game appends aromainators to it), once. Our cache takes itself out of the table before it answers; every other call, and a memo miss, runs EA's own code (a miss keeps a copy with the print, so nothing is listed twice). `EnvListExactEnd` removes whatever is left.
+- The lot-wide `GetObjects<IAromainator>()` stays live (no cache table on that path).
+- Between our check and the scan's list calls the game only reads (`BuffManager.HasElement`, `Lot.GetEnvironmentScore`, `GetInformationAboutRoom`) [verified by reading]. Scans that would send the puddle / burnt-tile event first, lots of a class other than `Lot`, outdoor, rabbit hole and empty rooms, and lots where someone else already caches these two types take the game's call.
+- A lot-update or object start-up event while our cache is in a table removes it first (`ExOnLotEvent`), so `Lot.RefreshObjectCachesIfNecessary` never sees our keys; a `Refresh` reaching our cache anyway turns the switch off for the session (`refresh_seen`).
+- Threads: the game only reads a lot's cache table; we write it. The ts3native script worker (AutShadow Mode >= 1, with `Satb=2` concurrent with the next tick) may run managed code that reads such a table, so a scan takes the game's call while the worker has a job (`fb_worker`; `AutShadowNative.Config(4)`). Jobs are dispatched by the sim thread between ticks, so an idle worker stays idle for the scan head [verified in `autshadow-run.cpp`: dispatch in the sim pump]. With `autoffenv` on (the worker's own env replica) the exact path does not act at all.
+- Build: csc cannot name a private nested interface, so `build-fixes.ts` compiles against a reference copy of `Sims3GameplaySystems.dll` with that one TypeDef's visibility bits set to nested public (`tools/setup/publicize.ts`, one byte, `build/ref/`, never shipped). The game's Mono is expected not to check type visibility [community-reported, I-518-4, not tested here]; a type-load failure is caught at first use and turns the switch off (`exc`, log line).
+
+### 11.4 Household rule
+
+**Rodney 2026-11-18 ~18:00 PHT: "Use the reused list. [...] We manage risks for it. Turn it on for household Sims."** So household, selected and unknown-scope Sims (unknown counts as household) use the reused list with no per-reuse verify; the sampled verify (every 4th reuse; always on with `envlistmemoexact`, not tied to `envlistmemoverify`, so timing arms and any ON build pay and keep it) and the per-lot kill on the first difference stay. Accepted residual (Rodney: "we manage risks for it"): the sample is per process, so a stale list can reach a household Sim on up to 3 reuses before a difference is seen. Household, selected and unknown-scope Sims are included: the scan is the game's code and the list is the game's list under §11.2. Explicit fallback in code: after the first sampled verify difference anywhere in the session, `IsPlayerSim` Sims and Sims of household or unknown scope take the game's call (`fb_player`), and the lot where it happened is off for every Sim (`lot_off`). `HouseholdToo` plays no part.
+
+### 11.5 Switches, counters, verify
+
+- `envlistmemoexact` (test switch, default off; acts when `autoffenv` is off, before `envlistmemoapply`).
+- Sampled verify (always with `envlistmemoexact` since 2026-11-18; `envlistmemoverify` now drives only the §9 apply path): every 4th full reuse also lists live before the scan and compares element by element; a difference logs `EnvListMemo: wrong hit exact lot .. room .. list .. n .. <diff> (lot off for the session)` and the scan lists live.
+- `envscancost` (test switch, default off, counts only): calls and microseconds of the whole env scan hook by scope.
+- Counters 1241-1254, 1261, 1262 `envlistexact_*`: `scans`, `reuse` (both lists from the memo), `capture` (listed by the game, copy kept), `fb_notindoor`, `fb_puddle`, `fb_lot`, `fb_noprint` (no IC or failed read), `exc`, `verify`, `verify_diff`, `fb_player`, `lot_off`, `foreign` (our cache met a call that was not the scan's, or was removed by an event), `refresh_seen`; 1261 `fb_worker`; 1262 `standdown` (§11.8). 1255-1260 `envscancost_calls_{household,seen,unseen}`, `envscancost_us_{household,seen,unseen}` (household = `IsPlayerSim`, household or unknown scope).
+
+### 11.6 Cost and expected gain [inferred]
+
+Per indoor scan the game makes three native walks plus two managed filter loops over the lot's objects (`hit_ms` upper bound 3.7-3.9 ms/s over all three lists, §8.4). A reuse replaces two walks and both loops by one print walk (~34 us a lot, docs/122 §14.17) and two small list copies; the lot-wide aromainator walk stays. Expected 1.5-2.5 ms/s on BP / IP at the 65% dry hit rate, less whatever share of hits the print now turns into misses (lots where things are carried around). `envscancost-measure-1118` gives the scan's total per scope first; the timing queue decides.
+
+### 11.7 Builds and queues (dry-run checked, NOT RUN)
+
+Builds: `ts3native.asi.r1x-1118` + `ts3native.ini.r1x-1118` (0.36.284-exact1 = master 0.36.283-g5p3 + the IC), `ts3fixes.package.r1x-1118`, `ts3agent.package.r1x-1118` (reader names).
+
+- **RUN FIRST** `envscancost-measure-1118.json` (BP, IP, SV 10 min, `envscancost` only): env scan ms/s and calls/s per scope, the ceiling for any env-list work.
+- `envlistexact-correct-1118.json` (correctness, BP + IP + SV 10 min, exact + verify + cost on): FAIL unless `envlistexact_reuse >= 1`, `verify >= 1`, `verify_diff < 1`, `exc < 1`, `refresh_seen < 1`, `fb_noprint < 1`, `envscancost_calls_household >= 1` (household Sims went through the hook), 0 script errors. Chain `probe-out/queue/chain-r1x-1118.sh`.
+- `envlistexact-time-1118.json` (timing, needs quiet machine): BP + IP 45 min ABBAABBA `--ab envlistmemoexact`, verify, cost and the dry probe off, smoke first. Valid only after the correctness PASS. Ship rule: ON at a clean 3-5 ms/s; < 1.5 ms/s = park.
+
+Follow-up if the print walk eats the gain: a per-lot version bumped by hooks on `0xC71340`, `0xC70150`, `0xC8ADD0` / `0xC8A3B0` (no walk at use time), checked against the print in test runs.
+
+### 11.8 What we touch, who else does, stand-down
+
+API (Sims3GameplaySystems, decompiled 1.67 read for names and visibility only) [verified]:
+
+| What | Visibility | How we use it |
+|---|---|---|
+| `Sims3.Gameplay.Core.Lot` | public class (EA subclass `WorldLot`, skipped by the exact type check) | `GetObjectsInRoom<T>(int)` public, called as EA does |
+| `Lot.IObjectCache` | **private nested interface** (`Version`, `GetObjectsInRoom<T>`, `Refresh`, `RefreshUsers`); EA's only implementer is private nested `Lot.ObjectCache<T>` | `ElCache` implements it (compiled against a publicized reference copy, §11.3) |
+| `Lot.mObjectCaches` | private instance field `Dictionary<Type, IObjectCache>` | read by reflection; our two keys put in for the scan head and taken out after |
+| `Lot.CacheRoomObjects<T>`, `RefreshObjectCaches*` | public; EA registers only `IPortalConnectionObject` (one call), refreshes from `GameObject` / `LotManager` | a refresh reaching our cache turns the switch off (`refresh_seen`) |
+| `Sims3.Gameplay.Actors.SimUpdate.CalculateSimEnvironmentScore()` | private instance void | header swapped by `AutEnvHook` (AutOffload) and stacked by `EnvScoreHook` (UnseenThrottle); the exact path runs the game's body |
+| `EnvOrderNative.LotPrint(ulong)` | our ts3native IC, reads only | the order print, §11.2 |
+
+So it is internal API: a private interface and field of EA's script assembly that no public mod API exposes. Other mods (survey 2026-11-18):
+
+| Who | Finding | Confidence |
+|---|---|---|
+| NRaas (source, read only) | only calls `Lot.GetObjectsInRoom<T>` (Instantiation, StoryProgression, Vector, Ani, GoHere, Woohooer); nothing names `mObjectCaches`, `IObjectCache`, `CacheRoomObjects`, `RefreshObjectCaches` or `CalculateSimEnvironmentScore`; ErrorTrap only names `SimUpdate` in log text | verified (grep); a call landing inside our scan head is inferred unlikely (same thread, between our check and the scan's own calls, §11.3) |
+| simler90 core mod (replaces SGS / SGO, same names) | no changed method on `SimUpdate` or `Lot`'s cache members (`docs/data/mod-method-diff.csv`, UPDATE242 Steam); same private names, so the reflection still binds | verified Steam 242; EA-app build inferred |
+| compat matrix / test mods (`docs/COMPATIBILITY.md`, 163 compat-mods packages) | no entry, no name hit | verified, weak: most packages compressed |
+| Apex Radiance, S3SS, S3PP | no hook on the env score, the managed cache or the native walker `0x7499B0` | verified (grep of docs/148, docs/187, `apex-hooks.csv`); native code cannot reach the managed table [inferred] |
+
+Known conflicting assemblies: none found, so `EnvListExactCore.ConflictMods` is empty by survey (ledger I-518-8); a name goes there when a `stand down:` line or a report names one.
+
+Stand-down (`EnvListExactCore.Why`, self-check `tools/selftest/envlistexact`): the exact path turns off for the session, logs `EnvListMemo.Exact: stand down: <mod> (<what>)` once and counts 1262 `envlistexact_standdown` when
+
+- a `ConflictMods` assembly is loaded (read at the first scan);
+- `CalculateSimEnvironmentScore`'s header was another class's before our swap (read in `ApplyAutOffload`, `L3Ok`, the G-M4 check) or is another class's now (every scan, `OwnSwap` / `L3Ok`); the line names that class's assembly;
+- a lot's cache table holds an object of an assembly other than EA's and ours (every scan, 1-3 entries).
+
+A `GameObject` / `IAromainator` key that is EA's own (none known) still takes the game's call for that scan (`fb_lot`); we only insert our keys when absent, so nothing of anyone else's is overwritten. Not checked: a swap of the generic `Lot.GetObjectsInRoom<T>` (no mod found that does it; `shortcut:` in the code).
+

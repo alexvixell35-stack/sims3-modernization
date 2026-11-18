@@ -18,7 +18,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.279-gcsub1"  // feature/gc-offload-1118: [GC] SubTimers (docs/287 §2, v211 gct* in the held slot, default 0); before: 0.36.278-offloada1 feature/offload-a-1118: [LotStream] Thumb=1 CreateThumbnailTexture timer (counters v212, default 0); before: feature/unseen-measure-1118: docs/286 §5 measurement (sub-us carry timers, own-check timers, loco thunk split, Rate=1 household table + catch-up counters, v210); before:  feature/retail-167-port-1118: retail 1.67 table on master (docs/273 §8; Steam asi code unchanged); before: feature/animsplit-1118: [AnimPhase] Split (docs/22 §6.1, counters v208 anx*, default 0); before: bugfix/jit-yrow-swap-alias-1117: Y keys also match ts3fixes swap stubs (Motive.DecayOrig), HotReserve 300 s deadline; master 0.36.272-gchold2 + feature/jit-hot-reserve-1117: [MonoJit] YRows (M2 Motive.UpdateMotiveWithDecay, default 0) + HotReserve (docs/537 §32, default 1, acts only with YRows=1)
+#define TS3NATIVE_VERSION "0.36.285-g5p4"  // feature/gc-markhelpers-p4-1118: [GC] MarkHelpersVerify (docs/287 §8, default 0; g5VerifySub / g5VerifySkip in v214 spares); on 0.36.284-exact1 (feature/r1x-1118)
 #endif
 
 typedef unsigned char u8;
@@ -417,7 +417,7 @@ static void ApplyGc(const wchar_t* ini) {
 }
 
 // --- Phase 2: negative cache for failed route plans (docs/11 Q5, docs/15 phase 2) ---
-// Counters for test tools: Frida `Module.findExportByName('ts3native.asi', 'ts3native_counters')`, read 6696 int32 (v212 [LotStream] Thumb thumb* at 0x6890 after v211 [GC] SubTimers gct* at 0x6850 (docs/287 §2); v210 unseen measure un/anx/aa/utRate at 0x6810 (docs/286 §5); v209 [AnimPhase] Split part 2 anx* at 0x6790; v208 [AnimPhase] Split anx* at 0x6590 (docs/22 §6.1); v207 [Startup] DxDiagCache ddc* at 0x6580 (docs/284); v206 [MonoJit] HotReserve jitHot* at 0x6578 (docs/537 §32); v205 [GC] IdleGate gcg* at 0x6538 (docs/281 §8); v204 [Experimental] HouseholdToo hhTooLift at 0x6534 (docs/271); v203 [MonoJit] FaultRecover fr* at 0x6524 after the v921 placeholder resV921[64] at 0x6424 (docs/537 §29); v201 [AnimPhase] an* at 0x63A4 and v202 [Compat] ap* / [StallWatch] ss* at 0x63E4 after v200 (lane L9, docs/22 §6, docs/148 §7, docs/67 §25); v200 [MemDiag] AllocSitesOwners ao* at 0x637C after v199 (docs/190 phase 3); v199 [MemDiag] Access ma* at 0x6354 after v919 (docs/190 phase 2); v919 [AudioStateDup] ad* / [PkgProbe] pp* at 0x6304 after v198, contributor block, docs/549; v198 [RouteAsync] KdUncutCeilMs kdUncut* at 0x62F4 after the v196/v197 placeholder resV196_197[10] at 0x62CC (docs/264); v918 [EaCrashFixes] BridgeHeightNaN bhnHits at 0x62C8 after the v195 placeholder, contributor block, version field stays 912; v195 placeholder resV195[8] at 0x62A8 after v194, held for [MonoJit] ClauseLazy guards (feature/monojit-clauselazy-guards); v194 [MonoJit] BoundCall bc* at 0x6278 after v193, v193 [Crash2Diag] c2* at 0x6258 after v192, v192 drain / LostRemovalFix waits by site ds* lrs* at 0x6178 after v191, v191 ReplanFromPosition START refusals arRf3 at 0x60C8 after v190, v190 FbApplyPending fbAp* at 0x60A8 after v189, v189 [GoalValidRO] UnseenDefer gvu* + gvattr diagnostics at 0x6018 after v188, v188 [MonoJit] R1 jitFull* / jitRegionKB and [Binder] TypeHandleDirect tdOn at 0x6008 after v187, v187 [AutShadow] Races R2c r2c* at 0x5FD0 after v186, v186 [EqualsFast] eq* at 0x5F90 after v185, v185 [AutShadow] Satb struct this sb* at 0x5F80 after v184, v184 [MonoSigGuard] msg* at 0x5F70 after v183, v183 [UafCheck] delayed-free quarantine uaf* at 0x5F58 after v182, v182 [CasTrim] realm shape check rl* at 0x5F48 after v181, v181 [CasTrim] WriteTrap tr* at 0x5F38 after v180, v180 [CasTrim] outfit save string check os* at 0x5F28 after v179, v179 watchdog-check job time wd* at 0x5F18 after v913, v913 [LotPool] Trim lp* at 0x5EF8 after v178, contributor block, v178 [CasTrim] ModelBuilder check mb* at 0x5EE8, v177 [PkgLock] pk* at 0x5EC8, v176 [CasTrim] CellGuard ctCellSeen / ctCellSkip at 0x5EC0 after v175, v175 [SteerRO] Retry srr* at 0x5E94, v174 [GoalValidRO] Attr gva* at 0x5E4C (docs/250 §7.0, §8), v173 [UnseenFallback] HostLate and [HitchAttr] JobNameMs at 0x5E38, v172 [Discourage] LostRemovalFix and GhostSweep at 0x5DE8, v171 [CasTrim] Mode 3 / 4 and docs/539 probes at 0x5D80, v169 [UnseenAnim] held table kdAaHeld* at 0x5D68 after the gap held for v167-v168, v165 [RouteAsync] KdExemptSeen kd* at 0x5D18, version field stays 912; v912 [CasTrim] ct* at 0x5CF0, v164 [MintFuse] Sub mf* at 0x5C98 in the block held for it, version field stays 912; v911 [MonoJit] Inline, Wide jitInlined at 0x5CE0, v910 [MonoJit] jit* at 0x5CA8, v909 [MonoJit] jitDirect at 0x5C6C, contributor block, docs/527, docs/537; v908 [MemDiag] RcRefCallers rrc* at 0x5C34 after v907, contributor block; v907 [IlPatch] ilp* at 0x5C14 after v906, contributor block; v906 [IdleCheckRO] SiteCLoopJump icJumpMode / icJumped at 0x5C0C after v905, contributor block; v905 [IdleCheckRO] SiteCLoop icLoop* at 0x5BD8 after v904, contributor block; v904 [Discourage] DestroyParkDx dx* at 0x5BCC after v903, contributor block; v903 [IdleCheckRO] SiteC ic* at 0x5B84 after v902, contributor block; v902 [RouteToObjRO] Tail rtoTail* at 0x5B78 after v901, contributor block; v901 [FootstepRO] fs* at 0x5B30 after v163, contributor block; v163 [GC] BlackListCapKB window gcLenientN / gcSwitchSec at 0x5B28 after v162, version field 163; v162 [GC] BlackListCapKB gc* at 0x5B10 after v161, version field 162; v161 [GcGrowLog] gw* at 0x5AE8 after v160, version field 161; v160 [SaveSlim] slimFails after v159, version field 160; v159 [UnseenRootMotion] Mode 2 SacsHold=3 bound-actor classes rm2SacsCls after v158, version field 159; v158 [UnseenRootMotion] Mode 1 walk-1 rescan rmSlW1Late after v157, version field 158; v157 [UnseenRootMotion] Mode 2 SacsHold + SACS driver / actor histograms after v156, version field 157; v156 [UnseenAnim] aaSlotReset / aaStale + [UnseenRootMotion] rmSlMissHold after v155, version field 156; v155 [UnseenRootMotion] Mode 2 script camera IC hooks after v154, version field 155; v154 [UnseenRootMotion] Mode 2 coarse unseen Sims after v153, version field 154; v153 [UnseenRootMotion] Mode 1 late starts after v152, version field 153; v152 [UnseenTable] lazy rows after v151, version field 152; v151 [UnseenRootMotion] after v150, version field 151; v147 [UnseenAnim] after v146, version field 147; v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs after v145, version field 146; v145 [UnseenGhost] after v144; v144 [EaCrashFixes] MintDivGuard after v143, version field 144; v143 [MonoFast] CallPath after v142, version field 143; v142 [RouteAsync] WorkerWait after v141; v141 [EaCrashFixes] after v140, version field 141; v140 [UnseenFallback] FinishWalk holds after v139, version field 140; v139 [UnseenFallback] C1-C4 site fallbacks after v138, version field 139; v138 [UnseenFallback] after v137, version field 138; v137 [MemDiag] TypeGrowth + [GC] SqrtHeapLimit after v136 [ResourceCache] trim, version field 137; v135 PlanDeadlineMs sync-path exemptions after v134, version field 135; v134 [RouteAsync] KindDeadlines after v133; v133 [RouteSnap] LotUseReadout after v132; v132 [RouteSnap] PoolChunkMB / EpochHeap after v131; v129 [RouteSnap] StaleLotFp after reserved v126-v128, version field 129; v125 [RouteSnap] StaleLot after reserved v123 / v124, version field 125; v119 [IdleCheckRO] after v118, version field 119; v118 [GoalValidRO] slots kept, other branch; v117 CrashForensics ObjResLog after v116, version field 117; v116 CrashForensics EffectLog after v115, version field 116; v115 CrashForensics DrawGuards / OurEvents after v114, version field 115; v114 CrashForensics after v113, version field 114; v113 DeferPrivateFp after v112, version field 113; v112 P6 take kinds + Mode=2 cut sharing + per-job phase split after v111, version field 112; v111 watchpoint constructor-pair count + follow + replay audit rebase hold after v110, version field 111; v110 [Watchpoint] lot arm + child z / parent +0x30 writer probes after v109, version field 110; v109 job yield + sim job waits by site after v108, version field 109; v108 gate site 16 after v107; v107 PlanDrain after v106; v106 P5 steps 2-4 after v105 (layout of merge eaef8a1b; zeros without it); v105 RecsUnlocked after v104, version field 105; v104 refcount guard after v103; v103 job deadline + own waits + goal-step split after v102; v102 goal split + GoalGen D1 + H2 IC window after v101, version field 102; v101 foreign kinds after v100; v100 placement RO after v99; v99 plan deadline + fail memo after v98; v98 lock holders after v97; v97 sync plan phases after v96; v96 host-call split + DoorMemo after v93; v93 route-to-object RO appended after v95 at the 2026-10-22 0325 merge, version field stays 95; v95 F-G held-out count after v94, v94 design U phase 2 after v92, v92 route allocator sites after v91, v91 [Gate0RO] after v90, v90 replan dedupe after v88, all at the 2026-10-22 integration merge; version field 95; v88 cell memo probe appended after v89; v89 tail unlock; v87 route job phases; v86; v77 AvoidRO before v78, v79 unseen probe + throttle after v78, v80 unseen throttle phase 2, v81 foreign job cap, v83 unseen diagnostics, v84 foreign job split, v85 H2 counters, v86 acting early-out, no v52, v58 or v82 fields in this build).
+// Counters for test tools: Frida `Module.findExportByName('ts3native.asi', 'ts3native_counters')`, read 6722 int32 (v214 [GC] MarkHelpers g5* at 0x68A8 after v213 A10 own Kinds gate arScopeRefused / arPrereqRefused at 0x68A0 (docs/288 §4) (docs/287 §6); v212 [LotStream] Thumb thumb* at 0x6890 after v211 [GC] SubTimers gct* at 0x6850 (docs/287 §2); v210 unseen measure un/anx/aa/utRate at 0x6810 (docs/286 §5); v209 [AnimPhase] Split part 2 anx* at 0x6790; v208 [AnimPhase] Split anx* at 0x6590 (docs/22 §6.1); v207 [Startup] DxDiagCache ddc* at 0x6580 (docs/284); v206 [MonoJit] HotReserve jitHot* at 0x6578 (docs/537 §32); v205 [GC] IdleGate gcg* at 0x6538 (docs/281 §8); v204 [Experimental] HouseholdToo hhTooLift at 0x6534 (docs/271); v203 [MonoJit] FaultRecover fr* at 0x6524 after the v921 placeholder resV921[64] at 0x6424 (docs/537 §29); v201 [AnimPhase] an* at 0x63A4 and v202 [Compat] ap* / [StallWatch] ss* at 0x63E4 after v200 (lane L9, docs/22 §6, docs/148 §7, docs/67 §25); v200 [MemDiag] AllocSitesOwners ao* at 0x637C after v199 (docs/190 phase 3); v199 [MemDiag] Access ma* at 0x6354 after v919 (docs/190 phase 2); v919 [AudioStateDup] ad* / [PkgProbe] pp* at 0x6304 after v198, contributor block, docs/549; v198 [RouteAsync] KdUncutCeilMs kdUncut* at 0x62F4 after the v196/v197 placeholder resV196_197[10] at 0x62CC (docs/264); v918 [EaCrashFixes] BridgeHeightNaN bhnHits at 0x62C8 after the v195 placeholder, contributor block, version field stays 912; v195 placeholder resV195[8] at 0x62A8 after v194, held for [MonoJit] ClauseLazy guards (feature/monojit-clauselazy-guards); v194 [MonoJit] BoundCall bc* at 0x6278 after v193, v193 [Crash2Diag] c2* at 0x6258 after v192, v192 drain / LostRemovalFix waits by site ds* lrs* at 0x6178 after v191, v191 ReplanFromPosition START refusals arRf3 at 0x60C8 after v190, v190 FbApplyPending fbAp* at 0x60A8 after v189, v189 [GoalValidRO] UnseenDefer gvu* + gvattr diagnostics at 0x6018 after v188, v188 [MonoJit] R1 jitFull* / jitRegionKB and [Binder] TypeHandleDirect tdOn at 0x6008 after v187, v187 [AutShadow] Races R2c r2c* at 0x5FD0 after v186, v186 [EqualsFast] eq* at 0x5F90 after v185, v185 [AutShadow] Satb struct this sb* at 0x5F80 after v184, v184 [MonoSigGuard] msg* at 0x5F70 after v183, v183 [UafCheck] delayed-free quarantine uaf* at 0x5F58 after v182, v182 [CasTrim] realm shape check rl* at 0x5F48 after v181, v181 [CasTrim] WriteTrap tr* at 0x5F38 after v180, v180 [CasTrim] outfit save string check os* at 0x5F28 after v179, v179 watchdog-check job time wd* at 0x5F18 after v913, v913 [LotPool] Trim lp* at 0x5EF8 after v178, contributor block, v178 [CasTrim] ModelBuilder check mb* at 0x5EE8, v177 [PkgLock] pk* at 0x5EC8, v176 [CasTrim] CellGuard ctCellSeen / ctCellSkip at 0x5EC0 after v175, v175 [SteerRO] Retry srr* at 0x5E94, v174 [GoalValidRO] Attr gva* at 0x5E4C (docs/250 §7.0, §8), v173 [UnseenFallback] HostLate and [HitchAttr] JobNameMs at 0x5E38, v172 [Discourage] LostRemovalFix and GhostSweep at 0x5DE8, v171 [CasTrim] Mode 3 / 4 and docs/539 probes at 0x5D80, v169 [UnseenAnim] held table kdAaHeld* at 0x5D68 after the gap held for v167-v168, v165 [RouteAsync] KdExemptSeen kd* at 0x5D18, version field stays 912; v912 [CasTrim] ct* at 0x5CF0, v164 [MintFuse] Sub mf* at 0x5C98 in the block held for it, version field stays 912; v911 [MonoJit] Inline, Wide jitInlined at 0x5CE0, v910 [MonoJit] jit* at 0x5CA8, v909 [MonoJit] jitDirect at 0x5C6C, contributor block, docs/527, docs/537; v908 [MemDiag] RcRefCallers rrc* at 0x5C34 after v907, contributor block; v907 [IlPatch] ilp* at 0x5C14 after v906, contributor block; v906 [IdleCheckRO] SiteCLoopJump icJumpMode / icJumped at 0x5C0C after v905, contributor block; v905 [IdleCheckRO] SiteCLoop icLoop* at 0x5BD8 after v904, contributor block; v904 [Discourage] DestroyParkDx dx* at 0x5BCC after v903, contributor block; v903 [IdleCheckRO] SiteC ic* at 0x5B84 after v902, contributor block; v902 [RouteToObjRO] Tail rtoTail* at 0x5B78 after v901, contributor block; v901 [FootstepRO] fs* at 0x5B30 after v163, contributor block; v163 [GC] BlackListCapKB window gcLenientN / gcSwitchSec at 0x5B28 after v162, version field 163; v162 [GC] BlackListCapKB gc* at 0x5B10 after v161, version field 162; v161 [GcGrowLog] gw* at 0x5AE8 after v160, version field 161; v160 [SaveSlim] slimFails after v159, version field 160; v159 [UnseenRootMotion] Mode 2 SacsHold=3 bound-actor classes rm2SacsCls after v158, version field 159; v158 [UnseenRootMotion] Mode 1 walk-1 rescan rmSlW1Late after v157, version field 158; v157 [UnseenRootMotion] Mode 2 SacsHold + SACS driver / actor histograms after v156, version field 157; v156 [UnseenAnim] aaSlotReset / aaStale + [UnseenRootMotion] rmSlMissHold after v155, version field 156; v155 [UnseenRootMotion] Mode 2 script camera IC hooks after v154, version field 155; v154 [UnseenRootMotion] Mode 2 coarse unseen Sims after v153, version field 154; v153 [UnseenRootMotion] Mode 1 late starts after v152, version field 153; v152 [UnseenTable] lazy rows after v151, version field 152; v151 [UnseenRootMotion] after v150, version field 151; v147 [UnseenAnim] after v146, version field 147; v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs after v145, version field 146; v145 [UnseenGhost] after v144; v144 [EaCrashFixes] MintDivGuard after v143, version field 144; v143 [MonoFast] CallPath after v142, version field 143; v142 [RouteAsync] WorkerWait after v141; v141 [EaCrashFixes] after v140, version field 141; v140 [UnseenFallback] FinishWalk holds after v139, version field 140; v139 [UnseenFallback] C1-C4 site fallbacks after v138, version field 139; v138 [UnseenFallback] after v137, version field 138; v137 [MemDiag] TypeGrowth + [GC] SqrtHeapLimit after v136 [ResourceCache] trim, version field 137; v135 PlanDeadlineMs sync-path exemptions after v134, version field 135; v134 [RouteAsync] KindDeadlines after v133; v133 [RouteSnap] LotUseReadout after v132; v132 [RouteSnap] PoolChunkMB / EpochHeap after v131; v129 [RouteSnap] StaleLotFp after reserved v126-v128, version field 129; v125 [RouteSnap] StaleLot after reserved v123 / v124, version field 125; v119 [IdleCheckRO] after v118, version field 119; v118 [GoalValidRO] slots kept, other branch; v117 CrashForensics ObjResLog after v116, version field 117; v116 CrashForensics EffectLog after v115, version field 116; v115 CrashForensics DrawGuards / OurEvents after v114, version field 115; v114 CrashForensics after v113, version field 114; v113 DeferPrivateFp after v112, version field 113; v112 P6 take kinds + Mode=2 cut sharing + per-job phase split after v111, version field 112; v111 watchpoint constructor-pair count + follow + replay audit rebase hold after v110, version field 111; v110 [Watchpoint] lot arm + child z / parent +0x30 writer probes after v109, version field 110; v109 job yield + sim job waits by site after v108, version field 109; v108 gate site 16 after v107; v107 PlanDrain after v106; v106 P5 steps 2-4 after v105 (layout of merge eaef8a1b; zeros without it); v105 RecsUnlocked after v104, version field 105; v104 refcount guard after v103; v103 job deadline + own waits + goal-step split after v102; v102 goal split + GoalGen D1 + H2 IC window after v101, version field 102; v101 foreign kinds after v100; v100 placement RO after v99; v99 plan deadline + fail memo after v98; v98 lock holders after v97; v97 sync plan phases after v96; v96 host-call split + DoorMemo after v93; v93 route-to-object RO appended after v95 at the 2026-10-22 0325 merge, version field stays 95; v95 F-G held-out count after v94, v94 design U phase 2 after v92, v92 route allocator sites after v91, v91 [Gate0RO] after v90, v90 replan dedupe after v88, all at the 2026-10-22 integration merge; version field 95; v88 cell memo probe appended after v89; v89 tail unlock; v87 route job phases; v86; v77 AvoidRO before v78, v79 unseen probe + throttle after v78, v80 unseen throttle phase 2, v81 foreign job cap, v83 unseen diagnostics, v84 foreign job split, v85 H2 counters, v86 acting early-out, no v52, v58 or v82 fields in this build).
 struct Ts3nCounters {
     LONG version;      // layout version, 4
     LONG enabled;      // 1 when the Route_PlanLocked detour is installed
@@ -2778,7 +2778,7 @@ struct Ts3nCounters {
     LONG kdCeilNpc;                        // +0x5D4C, jobs and sync plans cut at it, also counted in kdCeilCut ("KD NPC CEILING CUT" lines)
     LONG kdCutNpc;                         // +0x5D50, KindDeadlines cuts of a seen NPC (scope 3), not in kdCutSeen, which is now the household side only
     // v168 (0.36.186, docs/197 §7, plandeadline.cpp): [RouteAsync] KdCutCamRecheck
-    volatile LONG kdCamMode;               // +0x5D54, switch (native_set kdcutcamrecheck / --ab kdcutcamrecheck, start value KdCutCamRecheck): 1 = a route known unseen in view at its cut runs on
+    volatile LONG kdCamMode;               // +0x5D54, switch (native_set kdcutcamrecheck / --ab kdcutcamrecheck, start value KdCutCamRecheck): 1 = a route known unseen in view at its cut runs on; 2 = as 1, and a ceiling cut after that answers VIEW? 1 (no unseen recovery)
     LONG kdCamChecks;                      // +0x5D58, cuts of a route known unseen tested against the camera (either mode)
     LONG kdCamHeld;                        // +0x5D5C, mode 1: in view, cut held to the NPC ceiling
     LONG kdCamStale;                       // +0x5D60, no fresh snapshot (either mode; mode 1 holds them too)
@@ -3182,13 +3182,53 @@ struct Ts3nCounters {
     // v212 (offload-a-1118, [LotStream] Thumb=1, lotstream.cpp): CreateThumbnailTexture 0xD5D910 on the sim thread
     LONG thumbCalls, thumbUs, thumbMaxUs;   // +0x6890, sim-thread calls, their time (us), longest
     LONG thumbOffSim;                       // +0x689C, calls on any other thread (not timed)
+    // v213 (offload-a2-1118, docs/288 §4): own-task [RouteAsync] Kinds STARTs refused by the unseen-only gate (ArOwnGateOk)
+    LONG arScopeRefused;                    // +0x68A0, the route was not known unseen (household, selected, seen NPC, unknown, no answer)
+    LONG arPrereqRefused;                   // +0x68A4, KindsMode 1 without H2Ic (7 slots, Mode 1) + RefcountGuard (Mode 1)
+    // v214 (gc-markhelpers-p2-1118, [GC] MarkHelpers P2, gcmark.cpp, docs/287 §6): helper pool library; nothing installed in P2
+    LONG g5Mode;                            // +0x68A8, run-time switch (later --ab gcmarkhelpers): 0 = G5ParMarkFrom hands back and runs serially
+    LONG g5Ready, g5Threads;                // +0x68AC, G5Init started helpers / helpers alive
+    LONG g5Windows, g5WindowUs;             // +0x68B4, windows opened (G5WindowEnter) and their coordinator time
+    LONG g5HelperUs;                        // +0x68BC, helper time inside windows (sum over helpers)
+    LONG g5Donated, g5Taken, g5HandBack;    // +0x68C0, chunks into the pool / helper takes / coordinator takes (pool + parked private)
+    LONG g5SimWaits, g5SimWaitUs;           // +0x68CC, coordinator waits under invariant I1 (empty stack, work outside) and their time
+    LONG g5PrivOverflow;                    // +0x68D4, helper fn calls that raised the overflow flag (state 5)
+    LONG g5HelperAv;                        // +0x68D8, helper access violations (stack dropped, coordinator rescans)
+    LONG g5Fallback;                        // +0x68DC, helper / pool creation failures (later: byte mismatches, latches)
+    LONG g5VerifyN, g5VerifyBad;            // +0x68E0, [GC] MarkHelpersVerify cycles / mismatches (P4)
+    LONG g5PoolHigh, g5Resets;              // +0x68E8, deepest pool (entries), G5Reset calls
+    // P3 (gc-markhelpers-p3-1118, docs/287 §7) takes three spares:
+    LONG g5StateApply;                      // +0x68F0, coordinator writes of state 5 for a helper overflow / fault (G5ApplyLk)
+    LONG g5GrowDrop;                        // +0x68F4, mark-stack growths that dropped entries outside the game's stack (state 5 site: exact)
+    LONG g5Anomaly;                         // +0x68F8, I1 broken: helper flag after the mark ended, or entries at the mark-done growth (must stay 0)
+    // P4 (gc-markhelpers-p4-1118, docs/287 §8, [GC] MarkHelpersVerify) takes two spares:
+    LONG g5VerifySub;                       // +0x68FC, checks where the serial mark set a bit the cycle's marks lack (missed object or a root that differs)
+    LONG g5VerifySkip;                      // +0x6900, checks not done (mark not idle, no memory, time limit, fault)
+    LONG g5Spare;                           // +0x6904
 };
+// [RouteAsync] ReadyDrain (default 0, docs: issue "why off-screen plans take 500-800 ms"): on the READY poll of the job the worker
+// runs now, serve every managed call it posts within a small budget (not one per poll), and answer "done" in the same poll when
+// the job ended meanwhile. Same calls, same order, same thread (the job's owner); only sooner. Own exported block, so the
+// counters layout (docs/registry.md) is unchanged: polls that drained, calls served past the first, polls answered done by
+// the drain (a frame each, saved), budget ends with the job still running.
+// Frame guard: the spin is shared per sim-thread frame (approximated as a 33 ms wall window: the owner has no frame counter
+// here) up to frameUs; past it a poll only serves calls already queued (no spin) and frameHits counts the window once. The
+// spin also stops gapUs after the last served call (the job is computing, not calling back: not near its end).
+struct ReadyDrainCounters { volatile LONG mode, budgetUs, polls, served, saved, budgetHits; LONG maxUs; volatile LONG frameUs, gapUs, frameHits, idleStops; };
 // [RouteSnap] DoorMemoX=3 (hostcalls.cpp): the managed door-input generation ts3fixes DoorGen.cs bumps through UserDiag op 36
 // + why the cross-job memo missed (any DoorMemoX mode): no row for the key, a row of another generation / delegate set, a row past
 // DoorMemoXMs, and live answers that are not "unlocked" (never stored)
 // + exempt: acting-mode (1, 3) asks of a household, selected or unknown-scope job (only unseen and seen-NPC jobs use the memo)
 struct DmxScriptGen { volatile LONG gen, armed, bumps, unarmedAsks, missCold, missGen, missAge, notUnlocked, exempt; };
 extern "C" __declspec(dllexport) DmxScriptGen ts3native_doorgen = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+extern "C" __declspec(dllexport) ReadyDrainCounters ts3native_readydrain = {0, 2000, 0, 0, 0, 0, 0, 3000, 300, 0, 0};
+// [RouteAsync] TaskServe (default 0, taskserve.cpp, docs/637): after every script task run (the four call sites of
+// ScriptHost_RunTask 0xD7F000) the job owner serves the managed call the route worker has posted, instead of leaving it for
+// the waiting task's next READY poll a sim tick later. Own exported block (counters layout unchanged): mode (ini, runtime),
+// ready (call sites patched), checks (task runs that found a call posted), served, skipped (posted but not servable here:
+// not the owner, inside a served call, no running job), queueUs / maxQueueUs (post -> pick-up of the calls served here).
+struct TaskServeCounters { volatile LONG mode, ready, checks, served, skipped, queueUs; LONG maxQueueUs; };
+extern "C" __declspec(dllexport) TaskServeCounters ts3native_taskserve = {0, 0, 0, 0, 0, 0, 0};
 extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {912,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -3352,6 +3392,16 @@ static void MaybeLogCounters(ULONGLONG now) {
     if (c.eoReady) EoLogCounters();
     if (c.mwReady || c.gvReady || c.ikReady) MwLogCounters();  // docs/178 §9
     if (c.p6wReady) P6wLogCounters();  // docs/189 phase 0
+    if (ts3native_readydrain.mode)
+        Log("route ready drain: budget %ld us, frame %ld us, gap %ld us, polls %ld, calls served past the first %ld, done in the same "
+            "poll %ld, budget ends %ld, idle stops %ld, frames at the frame budget %ld, max %ld us", ts3native_readydrain.budgetUs,
+            ts3native_readydrain.frameUs, ts3native_readydrain.gapUs, ts3native_readydrain.polls, ts3native_readydrain.served,
+            ts3native_readydrain.saved, ts3native_readydrain.budgetHits, ts3native_readydrain.idleStops, ts3native_readydrain.frameHits,
+            ts3native_readydrain.maxUs);
+    if (ts3native_taskserve.ready)  // docs/637
+        Log("route task serve: mode %ld, task runs with a call posted %ld, served %ld (queue %ld ms, max %ld us), not servable there %ld",
+            ts3native_taskserve.mode, ts3native_taskserve.checks, ts3native_taskserve.served, ts3native_taskserve.queueUs / 1000,
+            ts3native_taskserve.maxQueueUs, ts3native_taskserve.skipped);
     if (c.dmxMode == 3 || ts3native_doorgen.armed)
         Log("door memo x mode 3: armed %ld, managed input bumps %ld, asks before arming %ld, hits %ld miss %ld inval %ld shadow %ld "
             "mismatch %ld, household / unknown asks not answered from it %ld", ts3native_doorgen.armed, ts3native_doorgen.bumps, ts3native_doorgen.unarmedAsks, c.dmxHit, c.dmxMiss,
@@ -3359,6 +3409,12 @@ static void MaybeLogCounters(ULONGLONG now) {
     if (c.dmxMode)
         Log("door memo x misses: no row %ld, other generation %ld, older than DoorMemoXMs %ld; live answers not unlocked (not stored) %ld",
             ts3native_doorgen.missCold, ts3native_doorgen.missGen, ts3native_doorgen.missAge, ts3native_doorgen.notUnlocked);
+    if (c.hcReady & 1)  // [RouteJobPhases] HostSplit=1 (hostcalls.cpp): per serve site n / queue ms; serve, return, nested ms
+        Log("route host calls: pump918 %ld/%ld pumpOther %ld/%ld ready %ld/%ld asyncDone %ld/%ld jobDone %ld/%ld runPlan %ld/%ld, "
+            "queue max %ld ms, serve %ld ms (max %ld), return %ld ms, nested %ld ms", c.hcN[0], c.hcQueueUs[0] / 1000, c.hcN[1],
+            c.hcQueueUs[1] / 1000, c.hcN[2], c.hcQueueUs[2] / 1000, c.hcN[3], c.hcQueueUs[3] / 1000, c.hcN[4], c.hcQueueUs[4] / 1000,
+            c.hcN[5], c.hcQueueUs[5] / 1000, c.hcQueueMaxUs / 1000, c.hcServeUs / 1000, c.hcServeMaxUs / 1000, c.hcReturnUs / 1000,
+            c.hcNestedUs / 1000);
     if (c.workerReady || c.asyncReady)
         Log("route plans: off %ld (fails %ld) on %ld (fails %ld) hostCalls %ld", c.planOffCalls, c.planOffFails, c.planOnCalls, c.planOnFails, c.hostCalls);
     static LONG xcptSkipLogged;  // docs/172 §7: repeats per logged address, only when the total moved
@@ -3481,6 +3537,7 @@ static __declspec(thread) LONG t_fbjdCut[3];
 // camera, 2 in view: t_kdCamDl is its deadline now. Points = x, z of the plan's start and goals, copied at Route_PlanLocked (they die with it)
 enum { KD_CAM_PTS = 9 };
 static __declspec(thread) LONG t_kdCam, t_kdCamN, t_kdCamNote;
+static __declspec(thread) LONG t_kdCamView;  // KdCutCamRecheck=2: this job / plan was seen in view (or untestable) at its first cut
 static __declspec(thread) LONGLONG t_kdCamDl;
 static __declspec(thread) float t_kdCamP[KD_CAM_PTS][2];
 static bool KdCamHold(LONGLONG now, LONGLONG* dl);
@@ -3608,6 +3665,7 @@ static DWORD g_scSyncH;  // route handle of the last own START with a stuck-chec
 struct AsyncJob;
 static DWORD g_ufH;     // docs/202: route handle of the last UnseenFallback MARK (sim thread only), taken by its next START or sync IC
 static DWORD g_ufCutH;  // docs/202: route handle whose marked plan or job was cut, read once by CUT?
+static DWORD g_ufCutViewH;  // KdCutCamRecheck=2: that cut came in view (or no fresh camera), read once by VIEW? (optLo 4)
 static __declspec(thread) bool t_ufSess, t_pdHitLast;
 static __declspec(thread) LONG t_ufJob;
 static __declspec(thread) bool t_ucJob;  // docs/264 (issue #338): this job runs under KdUncutCeilMs, the only deadline it has
@@ -3744,9 +3802,11 @@ struct AsyncJob {
     u64 kdId;         // docs/197: the route's follower (route +0x40/+0x44) read at START with KindDeadlines on, 0 = unknown
     LONG uf;          // docs/202: 1 = an unseen Sim's route (UnseenFallback MARK right before its START): ufUs deadline
     LONG ufCut;       // docs/202: that job was cut (worker, before J_DONE); IcCollect hands it to the CUT? answer
+    LONG ufCutView;   // KdCutCamRecheck=2: that cut came in view (worker); IcCollect hands it to the VIEW? answer
     LONG kdScope;     // docs/197 §7: 0 unknown, 1 seen household side, 2 unseen (UfWhy 0), 3 seen NPC, from ts3fixes right before START
     u64 rfGoal;       // docs/197 §7: hash of the route's destinations at START (routefail retry: same request?)
     LONG rfIa;        // docs/226: routefail interaction id from ts3fixes' scope op (RfIaName), 0 = unknown
+    LONG pf;          // docs/631 [RouteAsync] PlayerFirst: 1 = a route the player ordered (ts3fixes playerfirst, UserDiag op 37)
 };
 // docs/134: 32 slots; with [RouteAsync] FallbackAsync off only the first kJobsBase are handed out (QueueFull as before)
 static const int kJobs = 32, kJobsBase = 8;
@@ -3754,6 +3814,25 @@ static const DWORD kDoneKeepMs = 5000;  // a Sim collects within a tick or two; 
 static AsyncSlot g_async;
 static AsyncJob g_jobs[kJobs];
 static DWORD g_jobSeq;  // sim thread only
+// docs/631 [RouteAsync] PlayerFirst (default 0): the worker runs a queued job marked by ts3fixes playerfirst (a household or
+// selected Sim's route, or one of a user-directed interaction: UserDiag op 37 right before its START) before older unmarked
+// ones; among marked and among unmarked jobs it stays oldest first. Each job is the same IC call on the same START snapshot
+// (its world lock, its RtQuietWorld check at claim), so only the order of the worker's jobs changes, never a job's answer.
+// No starvation: a household has at most 8 Sims and a route has one job at a time, so an unmarked job waits at most 8 more jobs.
+static LONG g_pfMode;                   // the ini switch
+static DWORD g_pfH;                     // sim thread: route of the last op 37, good for its next START only
+static volatile LONG g_pfJumps, g_pfAhead;  // worker: marked jobs run ahead of an older unmarked one / unmarked jobs passed
+static void PfSet(DWORD handle) { g_pfH = handle; }
+static LONG PfTake(DWORD handle) {
+    const LONG r = handle && g_pfH == handle ? 1 : 0;
+    g_pfH = 0;
+    return r;
+}
+// does queued job a run before queued job b? (EA order and PlayerFirst=0: oldest START first)
+static bool PfBefore(LONG mode, LONG aPf, DWORD aSeq, LONG bPf, DWORD bSeq) {
+    if (mode == 1 && aPf != bPf) return aPf != 0;
+    return (LONG)(aSeq - bSeq) < 0;
+}
 #include "crashev.h"  // docs/186 §8: [CrashForensics] OurEvents ring (CeRec), recorded by the feature files below
 // routegate.cpp / rtsites.cpp: guarded routing calls open now on threads other than the worker (gate leaves, quadtree
 // mutators, destroys, saves). The worker does not start a job while > 0: it sets A_RUNNING, then reads this, and backs
@@ -3948,6 +4027,10 @@ static InvokeFn g_invokeOrig;
 struct InvokeJob { void* a[4]; void* self; void* result; LONGLONG tPost, tPick, tDone, nested; };
 static InvokeJob* volatile g_invJob;
 static HANDLE g_invReady, g_invDone;
+// docs/637 [RouteAsync] TaskServe: 1 from Proxy's post until a serve site picks the call up (ServeInvoke clears it first), so
+// the between-tasks check reads a flag and makes no wait call while nothing is posted; g_invPostAt = the post's QPC (mode on)
+static volatile LONG g_invPosted;
+static volatile LONGLONG g_invPostAt;
 
 // Host delegate call (docs/18 "Crash: async route assert"): MonoScriptHost vtable slot 0x108B7C4 -> 0xD75FA0, thiscall, hidden
 // out pointer + 3 args, ret 10h, returns out. It boxes the callback arguments (mono_value_box), clears the running task's
@@ -3991,7 +4074,8 @@ static void ServePlan() {
 }
 
 // [RouteJobPhases] HostSplit (hostcalls.cpp, docs/159 §5): serve sites, stamps; t_hcJob = the job the worker runs (0 = none)
-enum { HC_PUMP918, HC_PUMPOTHER, HC_READY, HC_ASYNCDONE, HC_JOBDONE, HC_RUNPLAN, HC_SITES };
+// HC_TASK: [RouteAsync] TaskServe (taskserve.cpp, docs/637), between two script task runs; outside the hcN rows (layout kept)
+enum { HC_PUMP918, HC_PUMPOTHER, HC_READY, HC_ASYNCDONE, HC_JOBDONE, HC_RUNPLAN, HC_SITES, HC_TASK = HC_SITES };
 static __declspec(thread) LONG t_hcJob;
 // DoorMemoX: the running job's scope (kdScope from ts3fixes UfWhy, 2 when marked uf): 0 unknown, 1 household or unknown, 2 unseen, 3 seen NPC
 static __declspec(thread) LONG t_hcScope;
@@ -4004,6 +4088,7 @@ static void HcWake(InvokeJob& v);
 // Caller side: runs the worker's managed call on this (Mono-attached) thread. site = HC_* (who picked it up)
 static void ServeInvoke(int site) {
     InvokeJob& v = *g_invJob;
+    g_invPosted = 0;  // docs/637: before the call runs; the worker posts its next call only after g_invDone
     if (v.tPost) HcPick(v, site);
     static void* seen[8];  // first distinct MonoMethod pointers, logged once each, to name the callbacks later
     static int nSeen;
@@ -4054,6 +4139,8 @@ static void* Proxy(InvokeJob& v) {
     const bool rjp = RjpHostBegin((DWORD*)&t0);  // [RouteJobPhases]: the wait is phase host, nested plans its children
     HcPost(v);                                   // HostSplit: post stamp (worker in a job only)
     LONGLONG ufAt = t_ufJob ? HcNow() : 0;
+    if (ts3native_taskserve.mode) g_invPostAt = HcNow();  // docs/637: queue time of a call TaskServe picks up
+    InterlockedExchange(&g_invPosted, 1);
     SetEvent(g_invReady);
     HANDLE h[2] = {g_invDone, g_jobReady};
     while (WaitForMultipleObjects(2, h, FALSE, INFINITE) == WAIT_OBJECT_0 + 1) {  // a plan from inside the call
@@ -4320,6 +4407,7 @@ static u64 KdFollower(DWORD handle);  // sim thread, at START
 static u64 RfGoal(DWORD handle);      // sim thread, at START: destinations hash for routefail retry
 static LONG RfIaPeek(DWORD handle);   // sim thread, at START: the routefail interaction id ts3fixes sent with the scope (docs/226)
 static LONG KdScopeTake(DWORD handle);
+static LONG KdScopePeek(DWORD handle);  // sim thread, at START: the scope ts3fixes sent for this route, 0 = none (not taken)
 static void KdScopeSet(DWORD handle, LONG scope, LONG ia = 0);
 static void RfJobNote(const AsyncJob* j, bool capped, LONG us, const JobSplit& s, LONG capUs, int cutMask);
 static void KdStuckMark(DWORD handle);
@@ -4337,8 +4425,19 @@ static void ServeAsync() {
     static const DWORD kInfinite = 0xFFFFFFFF;
     for (;;) {
         AsyncJob* j = NULL;
+        const LONG pfMode = g_pfMode;
+        int passed = 0;  // PlayerFirst: unmarked queued jobs older than the marked one picked
         for (int i = 0; i < kJobs; i++)
-            if (g_jobs[i].state == J_QUEUED && (!j || (LONG)(g_jobs[i].seq - j->seq) < 0)) j = &g_jobs[i];
+            if (g_jobs[i].state == J_QUEUED && (!j || PfBefore(pfMode, g_jobs[i].pf, g_jobs[i].seq, j->pf, j->seq))) j = &g_jobs[i];
+        if (j && pfMode == 1 && j->pf)
+            for (int i = 0; i < kJobs; i++)
+                passed += g_jobs[i].state == J_QUEUED && !g_jobs[i].pf && (LONG)(g_jobs[i].seq - j->seq) < 0;
+        if (passed) {
+            const LONG n = InterlockedIncrement(&g_pfJumps);
+            InterlockedExchangeAdd(&g_pfAhead, passed);
+            if ((n & (n - 1)) == 0)  // 1, 2, 4, ...: a trail, not a line per job
+                Log("route async: PlayerFirst: job %08lX ran ahead of %d older queued job(s); jumps %ld, jobs passed %ld", j->handle, passed, n, g_pfAhead);
+        }
         if (!j) {
             g_p4Phase = 2;
             P4ShadowIdle();  // a shadow parked behind the job that just ran (0.34.1)
@@ -5261,7 +5360,7 @@ static u8* IcCollect(int kind, u8* out, DWORD handle, const float* pt, const voi
     if (done && collect) {
         memcpy(out, j->result, sizeof(j->result));
         InterlockedIncrement(&k.asyncCollected);
-        if (j->uf && j->ufCut) g_ufCutH = handle;  // docs/202: the C# caller asks CUT? right after this IC returns
+        if (j->uf && j->ufCut) g_ufCutH = handle, g_ufCutViewH = j->ufCutView ? handle : 0;  // docs/202: the C# caller asks CUT? (then VIEW?) right after this IC returns
         if (kind) {
             InterlockedIncrement(&k.arCollected[kind - 1]);
             InterlockedExchangeAdd(&k.arJobUs[kind - 1], j->us);
@@ -5439,8 +5538,9 @@ static u8 AsyncStartBody(DWORD handle, int kind, const float* pt, bool foreign) 
     j->rfGoal = j->kdId ? RfGoal(handle) : 0;
     j->rfIa = RfIaPeek(handle);  // before KdScopeTake: the same answer
     j->kdScope = KdScopeTake(handle);
+    j->pf = PfTake(handle);  // docs/631: before J_QUEUED, the worker reads it to pick
     j->uf = UfTake(handle) ? 1 : 0;  // docs/202: the MARK is used up by the job it marks (a refused START leaves it to the sync IC)
-    j->ufCut = 0;
+    j->ufCut = j->ufCutView = 0;
     // docs/89 §18: a route not known unseen (household, unknown scope) does not plan past a queued removal; READY queues it
     j->rf = !park && j->kdScope != 2 && !j->uf && DiscRfStart();
     if (j->rf) park = true;
@@ -5626,10 +5726,30 @@ static u8 ArRf3(int idx, bool fgn, DWORD handle, u8 r, int why = -1) {
     InterlockedIncrement(&ts3native_counters.arRf3[fgn ? 1 : 0][why]);
     return r;
 }
+static bool ReadyDrain(AsyncJob* j);  // [RouteAsync] ReadyDrain, below
+// docs/288 §4: own-task [RouteAsync] Kinds STARTs (kinds 1-3, not WatchdogKind2's tagged one) start only for a route known unseen
+// (ts3fixes scope 2, sent right before the START), and with KindsMode 1 only while H2Ic (all 7 slots, Mode 1) and RefcountGuard
+// (Mode 1) guard the footprint races a job opens (docs/177 §4/§7). Household, selected, seen-NPC, unknown and no-answer routes
+// plan synchronously (vanilla). [Experimental] HouseholdToo lifts the scope part (the worker runs the game's own IC: realistic,
+// docs/271), never the guard part. Set by InstallA10 whenever Kinds has a bit; 0 = ungated (selftest's A10 cases only).
+// The scope is peeked, not taken: a refused START's sync plan still needs it (KdSyncCeilUs), and ts3fixes clears it at every
+// plan end (UfPlan finally, op 12), so a later START of the route never reads a stale unseen answer.
+static int g_arOwnGate;
+static bool ArOwnGateOk(DWORD handle) {
+    Ts3nCounters& k = ts3native_counters;
+    if (!g_arOwnGate) return true;
+    if (k.arMode == 1 && (k.hxReady != 7 || k.hxMode != 1 || !k.rcReady || k.rcMode != 1)) {
+        InterlockedIncrement(&k.arPrereqRefused);
+        return false;
+    }
+    if (KdScopePeek(handle) == 2 || !HhExempt(true)) return true;
+    InterlockedIncrement(&k.arScopeRefused);
+    return false;
+}
 static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD options2) {
     if ((u8)options2 && optHi == kWouldHi) return ArWould(handle, optLo);
     if ((u8)options2 && optHi == kJobBusyHi && !optLo) return JyBusy();  // docs/183
-    if ((u8)options2 && optHi == 0x83000000 && (optLo == 1 || optLo == 2)) return UfMsg(handle, optLo);  // docs/202
+    if ((u8)options2 && optHi == 0x83000000 && (optLo == 1 || optLo == 2 || optLo == 4)) return UfMsg(handle, optLo);  // docs/202; 4 = VIEW? (KdCutCamRecheck=2)
     if ((u8)options2 && optHi == 0x83000000 && (optLo & 0xFFFF00FF) == 3) return GvuMsg(handle, optLo >> 8 & 0xFF);  // docs/250 §7.3 B2 DEFER?
     if ((u8)options2 && (optHi & 0xFF00FFFF) == 0x83000000 && (optHi >> 16 & 0xFF) >= 3) return UfCamMsg(optLo, optHi);  // docs/202 §2.1
     if ((u8)options2 && optHi == kProbeHi && (!optLo || optLo >> 16 == 1)) return ScProbeMark(handle, optLo);  // docs/163 §10
@@ -5675,6 +5795,10 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
             g_collect = 0;
             if (wdTagged) g_scTagH = 0;
             return ArRf3(idx, fgn, handle, AsyncRefuse(handle, RFB_NOSTART, idx, false), kRf3KindsOff);
+        } else if (!wd2 && !ArOwnGateOk(handle)) {  // docs/288 §4: unseen routes only, guards on
+            g_collect = 0;
+            if (wdTagged) g_scTagH = 0;
+            return ArRf3(idx, fgn, handle, AsyncRefuse(handle, RFB_NOSTART, idx, false));
         }
         float pt[3];
         memcpy(pt, g_arPt, sizeof(pt));
@@ -5698,7 +5822,7 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
     }
     if (j && (j->state == J_QUEUED || j->state == J_RUNNING)) {
         if (WaitForSingleObject(g_invReady, 0) == WAIT_OBJECT_0) ServeInvoke(HC_READY);  // keep the running job moving
-        return 0;
+        if (!ReadyDrain(j)) return 0;
     }
     if (j && j->state == J_SKIPPED) {  // not planned (world changed): the plan runs synchronously
         InterlockedExchange(&j->state, J_FREE);
@@ -5707,6 +5831,47 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
     }
     g_collect = j ? handle : 0;
     return 1;
+}
+
+// [RouteAsync] ReadyDrain (see ReadyDrainCounters): called by READY after its one serve, owner thread only. Drains only the job
+// the worker is running now (a queued job posts nothing yet); spins with Sleep(0) between checks, never blocks on an event the
+// other waits use. true = the job is DONE / SKIPPED now: READY goes on and reports it.
+static bool ReadyDrain(AsyncJob* j) {
+    ReadyDrainCounters& d = ts3native_readydrain;
+    if (!d.mode || j->state != J_RUNNING || g_async.state != A_RUNNING || g_async.handle != j->handle) return false;
+    static LARGE_INTEGER s_win;  // owner thread only: start of the current frame window
+    static LONG s_winUs;         // spin time used in it
+    static bool s_winHit;
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    if (!s_win.QuadPart || UsSince(s_win) >= 33000) s_win = t0, s_winUs = 0, s_winHit = false;
+    const bool spin = s_winUs < d.frameUs;
+    if (!spin && !s_winHit) s_winHit = true, InterlockedIncrement(&d.frameHits);
+    InterlockedIncrement(&d.polls);
+    LONG lastServeUs = 0;
+    bool result = false;
+    for (;;) {
+        bool served = false;
+        if (WaitForSingleObject(g_invReady, 0) == WAIT_OBJECT_0) {
+            ServeInvoke(HC_READY);
+            InterlockedIncrement(&d.served);
+            served = true;
+        }
+        const LONG st = j->state;
+        const LONG us = UsSince(t0);
+        if (served) lastServeUs = us;
+        if (st == J_DONE || st == J_SKIPPED) { InterlockedIncrement(&d.saved); result = true; break; }
+        if (st != J_RUNNING) break;      // dropped or reused meanwhile: the poll answers "not yet", as before
+        if (served) continue;            // a call was waiting: look for the next one at once (queued calls, no spin)
+        if (!spin) break;                // frame budget used: queued calls only
+        if (us - lastServeUs >= d.gapUs) { InterlockedIncrement(&d.idleStops); break; }  // computing, not calling back
+        if (us >= d.budgetUs || s_winUs + us >= d.frameUs) { InterlockedIncrement(&d.budgetHits); break; }
+        Sleep(0);
+    }
+    const LONG used = UsSince(t0);
+    s_winUs += used;
+    Max(&d.maxUs, used);
+    return result;
 }
 
 // Every Lock_Acquire in the game passes through here; only the job owner's waits during a job are changed (INFINITE and
@@ -6009,6 +6174,8 @@ static void SlimWait();
 #include "gcgrow.cpp"  // docs/232 Run 8l/8n: [GcGrowLog] + [GC] BlackListCapKB (after memexp.cpp: g_mx; savewrite.cpp: PatchCalls)
 #include "dxdiagcache.cpp"  // docs/284: [Startup] DxDiagCache, cached start-up VRAM answer (default 0)
 #include "gcgate.cpp"  // docs/281 §8: [GC] IdleGate (default off; after memexp.cpp: g_mx, MxStep; savewrite.cpp: PatchCalls)
+#include "gcmark.cpp"  // docs/287 §6-§7: [GC] MarkHelpers helper pool + live wiring (default 0: nothing created or patched)
+
 #ifdef TS3N_EA_PORT
 #include "imgguard.cpp"  // docs/232 Run 8d: [ImageGuard], EA build only (after savewrite.cpp: PatchCalls)
 #endif
@@ -6026,6 +6193,7 @@ static void SlimWait();
 #include "slotro.cpp"
 #include "gate0ro.cpp"
 #include "locowin.cpp"
+#include "taskserve.cpp"  // docs/637: [RouteAsync] TaskServe (after savewrite.cpp: PatchCalls; after hostcalls.cpp: HcNow)
 #include "goalgen.cpp"  // docs/177 §3: [GoalGen] SameRing (D1)
 #include "rcguard.cpp"  // docs/177 §7: [RouteAsync] RefcountGuard
 #include "p10.cpp"
@@ -6066,12 +6234,12 @@ static_assert(offsetof(Ts3nCounters, aoReady) == 0x56D0 && offsetof(Ts3nCounters
 static_assert(offsetof(Ts3nCounters, rmReady) == 0x5830 && offsetof(Ts3nCounters, rmK) == 0x5840 && offsetof(Ts3nCounters, rmTailN) == 0x5890 &&
               offsetof(Ts3nCounters, rmZoneN) == 0x58C0 && offsetof(Ts3nCounters, rmDeltaN) == 0x5900 &&
               offsetof(Ts3nCounters, rmSlFallback) == 0x5928 && offsetof(Ts3nCounters, rmSpare) == 0x5944 &&
-              sizeof(Ts3nCounters) == 6696 * 4, "v151 layout (docs/registry.md)");
+              sizeof(Ts3nCounters) == 6722 * 4, "v151 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, utbRowCalc) == 0x5950 && offsetof(Ts3nCounters, utbForced) == 0x5960, "v152 layout (docs/registry.md)");
-static_assert(offsetof(Ts3nCounters, rmSlIns) == 0x5964 && offsetof(Ts3nCounters, rmSlCandFull) == 0x5980 && sizeof(Ts3nCounters) == 6696 * 4,
+static_assert(offsetof(Ts3nCounters, rmSlIns) == 0x5964 && offsetof(Ts3nCounters, rmSlCandFull) == 0x5980 && sizeof(Ts3nCounters) == 6722 * 4,
               "v153 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, gwMode) == 0x5AE8 && offsetof(Ts3nCounters, gwXmlMaxKB) == 0x5B0C && offsetof(Ts3nCounters, gcCapKB) == 0x5B10 &&
-                  offsetof(Ts3nCounters, gcExpandStreakMax) == 0x5B20 && offsetof(Ts3nCounters, gcSwitchSec) == 0x5B2C && sizeof(Ts3nCounters) == 6696 * 4,
+                  offsetof(Ts3nCounters, gcExpandStreakMax) == 0x5B20 && offsetof(Ts3nCounters, gcSwitchSec) == 0x5B2C && sizeof(Ts3nCounters) == 6722 * 4,
               "v161 + v162 + v163 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, fsReady) == 0x5B30 && offsetof(Ts3nCounters, fsMode) == 0x5B34 && offsetof(Ts3nCounters, fsNearDiff) == 0x5B74,
               "v901 [FootstepRO] layout");
@@ -6086,21 +6254,22 @@ static_assert(offsetof(Ts3nCounters, icJumpMode) == 0x5C0C && offsetof(Ts3nCount
 static_assert(offsetof(Ts3nCounters, ilpOn) == 0x5C14 && offsetof(Ts3nCounters, ilpFaults) == 0x5C30, "v907 [IlPatch] layout");
 static_assert(offsetof(Ts3nCounters, rrcOn) == 0x5C34 && offsetof(Ts3nCounters, rrcHookNs) == 0x5C50, "v908 [MemDiag] RcRefCallers layout");
 static_assert(offsetof(Ts3nCounters, maOn) == 0x6354 && offsetof(Ts3nCounters, maLines) == 0x6378, "v199 [MemDiag] Access layout");
-static_assert(offsetof(Ts3nCounters, aoOn) == 0x637C && offsetof(Ts3nCounters, aoUntrKB) == 0x63A0 && sizeof(Ts3nCounters) == 6696 * 4, "v200 [MemDiag] AllocSitesOwners layout");
-static_assert(offsetof(Ts3nCounters, resV921) == 0x6424 && offsetof(Ts3nCounters, frOn) == 0x6524 && offsetof(Ts3nCounters, frTestCalls) == 0x6530 && sizeof(Ts3nCounters) == 6696 * 4, "v203 [MonoJit] FaultRecover layout (docs/registry.md)");
-static_assert(offsetof(Ts3nCounters, hhTooLift) == 0x6534 && sizeof(Ts3nCounters) == 6696 * 4, "v204 [Experimental] HouseholdToo layout (docs/registry.md)");
-static_assert(offsetof(Ts3nCounters, gcgMode) == 0x6538 && offsetof(Ts3nCounters, gcgSpare) == 0x6570 && sizeof(Ts3nCounters) == 6696 * 4, "v205 [GC] IdleGate layout (docs/registry.md)");
-static_assert(offsetof(Ts3nCounters, anxReady) == 0x6590 && offsetof(Ts3nCounters, anxPhUs) == 0x66D4 && offsetof(Ts3nCounters, anxLocoUs) == 0x6770 && offsetof(Ts3nCounters, anxSpare) == 0x677C && sizeof(Ts3nCounters) == 6696 * 4, "v208 [AnimPhase] Split layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, aoOn) == 0x637C && offsetof(Ts3nCounters, aoUntrKB) == 0x63A0 && sizeof(Ts3nCounters) == 6722 * 4, "v200 [MemDiag] AllocSitesOwners layout");
+static_assert(offsetof(Ts3nCounters, resV921) == 0x6424 && offsetof(Ts3nCounters, frOn) == 0x6524 && offsetof(Ts3nCounters, frTestCalls) == 0x6530 && sizeof(Ts3nCounters) == 6722 * 4, "v203 [MonoJit] FaultRecover layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, hhTooLift) == 0x6534 && sizeof(Ts3nCounters) == 6722 * 4, "v204 [Experimental] HouseholdToo layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, gcgMode) == 0x6538 && offsetof(Ts3nCounters, gcgSpare) == 0x6570 && sizeof(Ts3nCounters) == 6722 * 4, "v205 [GC] IdleGate layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, anxReady) == 0x6590 && offsetof(Ts3nCounters, anxPhUs) == 0x66D4 && offsetof(Ts3nCounters, anxLocoUs) == 0x6770 && offsetof(Ts3nCounters, anxSpare) == 0x677C && sizeof(Ts3nCounters) == 6722 * 4, "v208 [AnimPhase] Split layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, anxTsN) == 0x6790 && offsetof(Ts3nCounters, anxEvN) == 0x67E0 && offsetof(Ts3nCounters, anxLocoPassUs) == 0x67F4 && offsetof(Ts3nCounters, anxSpare2) == 0x67F8, "v209 [AnimPhase] Split part 2 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, unThunkN) == 0x6810 && offsetof(Ts3nCounters, aaPreUs) == 0x6830 && offsetof(Ts3nCounters, utRateCatchUpUs) == 0x6838 && offsetof(Ts3nCounters, v210Spare) == 0x683C, "v210 unseen measure layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, gctReady) == 0x6850 && offsetof(Ts3nCounters, gctStopN) == 0x6860 && offsetof(Ts3nCounters, gctSweepN) == 0x6878 && offsetof(Ts3nCounters, gctClearUs) == 0x688C && offsetof(Ts3nCounters, thumbCalls) == 0x6890 && offsetof(Ts3nCounters, thumbOffSim) == 0x689C, "v212 [LotStream] Thumb layout (docs/registry.md)");
-static_assert(offsetof(Ts3nCounters, jitHotHeld) == 0x6578 && offsetof(Ts3nCounters, jitHotKB) == 0x657C && sizeof(Ts3nCounters) == 6696 * 4, "v206 [MonoJit] HotReserve layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, arScopeRefused) == 0x68A0 && offsetof(Ts3nCounters, arPrereqRefused) == 0x68A4 && offsetof(Ts3nCounters, g5Mode) == 0x68A8 && offsetof(Ts3nCounters, g5Donated) == 0x68C0 && offsetof(Ts3nCounters, g5VerifyN) == 0x68E0 && offsetof(Ts3nCounters, g5StateApply) == 0x68F0 && offsetof(Ts3nCounters, g5VerifySub) == 0x68FC && offsetof(Ts3nCounters, g5Spare) == 0x6904 && sizeof(Ts3nCounters) == 6722 * 4, "v214 [GC] MarkHelpers layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, jitHotHeld) == 0x6578 && offsetof(Ts3nCounters, jitHotKB) == 0x657C && sizeof(Ts3nCounters) == 6722 * 4, "v206 [MonoJit] HotReserve layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, jitOn) == 0x5CA8 && offsetof(Ts3nCounters, jitCodeKB) == 0x5CDC, "v910 [MonoJit] layout");
 static_assert(offsetof(Ts3nCounters, jitInlined) == 0x5CE0 && offsetof(Ts3nCounters, jitWideNo) == 0x5CEC, "v911 [MonoJit] Inline, Wide layout");
 static_assert(offsetof(Ts3nCounters, jitDirect) == 0x5C6C && offsetof(Ts3nCounters, jitTrapUnknown) == 0x5C94, "v909 [MonoJit] Direct, Trap layout");
 static_assert(offsetof(Ts3nCounters, ctMode) == 0x5CF0 && offsetof(Ts3nCounters, ctOtherThread) == 0x5D14, "v912 [CasTrim] layout");
 static_assert(offsetof(Ts3nCounters, pkMode) == 0x5EC8 && offsetof(Ts3nCounters, pkDeferMax) == 0x5EE4, "v177 [PkgLock] layout");
-static_assert(offsetof(Ts3nCounters, adMode) == 0x6304 && offsetof(Ts3nCounters, ppMode) == 0x6314 && offsetof(Ts3nCounters, ppSpare) == 0x6350 && sizeof(Ts3nCounters) == 6696 * 4, "v919 [AudioStateDup] / [PkgProbe] layout");
+static_assert(offsetof(Ts3nCounters, adMode) == 0x6304 && offsetof(Ts3nCounters, ppMode) == 0x6314 && offsetof(Ts3nCounters, ppSpare) == 0x6350 && sizeof(Ts3nCounters) == 6722 * 4, "v919 [AudioStateDup] / [PkgProbe] layout");
 static_assert(offsetof(Ts3nCounters, fbApN) == 0x60A8 && offsetof(Ts3nCounters, fbApSpare) == 0x60C4, "v190 FbApplyPending layout");
 static_assert(offsetof(Ts3nCounters, arRf3) == 0x60C8 && offsetof(Ts3nCounters, arRf3Spare) == 0x6170, "v191 arRf3 layout");
 static_assert(offsetof(Ts3nCounters, dsN) == 0x6178 && offsetof(Ts3nCounters, lrsN) == 0x6238 && offsetof(Ts3nCounters, dsSpare) == 0x6250 &&
@@ -6373,6 +6542,7 @@ static void Run(HMODULE self) {
         InstallSlotRo(ini);
         InstallGate0Ro(ini);  // docs/152 §G1: after SteerRO and AvoidRO (reads their ready state for the log)
         InstallLocoWindow(ini);
+        InstallTaskServe(ini);  // docs/637: after InstallAsync (g_async.owner, the invoke events)
         InstallH2Ic(ini);     // docs/177 §4: the same start hold around the script ICs that write footprint refcounts
         InstallGoalGen(ini);  // docs/177 §3: D1, the duplicate ring of a radius route
         InstallRefcountGuard(ini);  // docs/177 §7: after the steering frames (InstallRtSites) and AvoidRO's A-site
@@ -6408,6 +6578,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyGcThreadCheck(ini) || keepLog;
         keepLog = ApplyMemExp(ini) || keepLog;  // docs/199 (default off)
         keepLog = ApplyGcIdleGate(ini) || keepLog;  // docs/281 §8 (default off): after ApplyMemExp, chains its MxStep call-site retarget
+        keepLog = ApplyGcMarkHelpers(ini) || keepLog;  // docs/287 §7 (default off): after ApplyGcIdleGate, chains SubTimers' 0xE49FDF
         ApplyDxDiagCache(ini);  // docs/284 (default off): before DeviceCaps_Probe runs
         keepLog = ApplyGcGrowLog(ini) || keepLog;  // docs/232 Run 8l/8n: [GcGrowLog] log + [GC] BlackListCapKB (both off by default)
         keepLog = ApplyGcRootCheck(ini) || keepLog;  // docs/67 §22.4 (off): after ApplyMemExp, chains its GC_notify_event hook

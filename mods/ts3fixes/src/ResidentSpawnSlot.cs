@@ -101,7 +101,7 @@ namespace Ts3Fixes
         internal static bool RsDecide(bool on, bool ok, int locked, bool allPass) { return ok || (on && locked > 0 && allPass); }
 
         // Wiring from FewerPlans' IsPointInLotSafelyRoutable hook: the selected Sim's verdict, re-judged for a resident:
-        // locked doors by residentspawnslot.
+        // locked doors by residentspawnslot, any other failure by residentspawnwalk (below).
         internal static bool RsAdjust(Sim sim, bool ok, Lot lot, Vector3 pos)
         {
             SimDescription d = RsResident();
@@ -121,7 +121,59 @@ namespace Ts3Fixes
                 }
             }
             catch (Exception) { PatchCounters()[2885]++; }
-            return false;  // any other failure: EA's verdict stands (residentspawnwalk, not in this change)
+            return RsWalk(sim, d, lot, pos);
+        }
+
+        // ---- residentspawnwalk (tuning kResidentSpawnWalk, default off; docs/582 B8 §8) ----
+        // [verified, decompiled + live HiddenRoomCheck reach on CD30 (Founders Peace), 2026-11-15] The other way EA's
+        // spawn-slot test fails for a resident: the plan from the slot (on an upper level) to the lot's corners rides the
+        // elevator, and ElevatorDoors.IsAllowedThrough asks CanTravelInElevator of the plan's Sim, the SELECTED Sim: not on
+        // its home lot, not greeted, not an NPC, so only ground-level elevators are open to it (DoorRestriction, not a door
+        // lock: LockedDoorsDuringPlan stays empty and residentspawnslot never sees it). The resident, an NPC of that lot,
+        // may ride any elevator in a public residential room (EA's NPC branch). Live: room 10 on level 1 of CD30 reaches
+        // outside for the resident and an NPC, not for the selected Sim; EA put the resident at the lot corner.
+        // Fix: a failed check is re-judged by the room walk (HiddenRoom.cs HrWalkOut) from the point's room with the
+        // resident's rules: a portal the selected Sim may pass is open; an ElevatorDoors is open when EA's NPC branch
+        // opens it (public residential room, adult human); a Door is open when the resident passes its lock
+        // (RsDoorPasses: hidden rooms, one-way, Nobody / VIPRoom and own-rule doors block); any other portal is closed.
+        // Reaching an outside room accepts the point; EA's own public-residential test on the slot still follows. Only
+        // where the NPC appears changes; never for a resident of the active household. Counters: [3648] points accepted by
+        // the walk, [3649] would accept with the switch off, [3650] errors.
+        // Pure: is an elevator open to the resident? (EA's CanTravelInElevator for a non-service NPC of a virtual lot)
+        internal static bool RsElevatorOpen(bool virtualLot, bool publicResidentialRoom, bool adultHuman)
+        {
+            return adultHuman && (!virtualLot || publicResidentialRoom);
+        }
+        // Pure: the walk's verdict. ok: EA's; reaches: the walk reached outside for the resident.
+        internal static bool RsWalkDecide(bool on, bool ok, bool household, bool reaches)
+        {
+            return ok || (on && !household && reaches);
+        }
+
+        static bool RsWalk(Sim sel, SimDescription d, Lot lot, Vector3 pos)
+        {
+            try
+            {
+                if (lot == null || lot.IsWorldLot) return false;
+                bool household = d.Household != null && d.Household == Household.ActiveHousehold;
+                if (household) return false;
+                bool adultHuman = d.IsHuman && d.TeenOrAbove;
+                int rooms;
+                bool? reaches = HrWalkOut(lot, World.GetRoomId(pos), delegate (IPortalConnectionObject p, int from, int to)
+                {
+                    if (p.IsAllowedThrough(from, to, sel) == PortalRestriction.None) return true;
+                    ElevatorDoors e = p as ElevatorDoors;
+                    if (e != null) return RsElevatorOpen(e.LotCurrent != null && e.LotCurrent.HasVirtualResidentialSlots, e.IsInPublicResidentialRoom, adultHuman);
+                    Door door = p as Door;
+                    return door != null && RsDoorPasses(door, d);
+                }, out rooms);
+                if (reaches == null) { PatchCounters()[3650]++; return false; }
+                if (!reaches.Value) return false;
+                bool on = ShortcutOn("residentspawnwalk");
+                PatchCounters()[on ? 3648 : 3649]++;
+                return RsWalkDecide(on, false, false, true);
+            }
+            catch (Exception) { PatchCounters()[3650]++; return false; }
         }
 
         // Wiring from FewerPlans: with the switch on and a resident being placed, the selected Sim's check skips the verdict
