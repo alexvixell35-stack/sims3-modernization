@@ -55,3 +55,7 @@ Counters: [3860] waits >= 250 ms, [3861] frame-bound, [3862] job-bound, [3863] f
 Package `ts3fixes.r104-spot.package`. Starlight Shores, Sunday 11:00 AM-12:00 PM, `spotwaitattr` and `ufplansplit` on.
 Check: `spotwait: frame-bound` lines at the 11:27 AM stall (expected: frame-bound, longest poll ~ the hitchwatch ms),
 `spotwaitattr_job` near 0, and `ufplansplit` kind 2 dist now a few m `(sim N m away)`.
+
+## Starlight 11:27 AM hitch, stall stacks (2026-11-18, s105, asi aa011899 `StallWatch.StallMs=250`)
+
+The sampler was live (`stall watch ... after 250 ms ..., poll 83 ms`) and logged sub-second sim-thread stalls during load, yet logged nothing at the 589 ms hitch (Sun 11:26 AM) or the 562 ms one (8:32 AM). Simulate iterations kept finishing, so the time went outside the sim thread's Simulate loop: inferred to be the main thread (likely the ShowStage / SimFest asset setup; the first `routefail job: ... Tend target ShowStageLarge` follows each time). Next step if it is worth chasing: a main-thread sampler; the sim-thread one cannot see it.
