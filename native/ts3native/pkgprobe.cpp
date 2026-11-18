@@ -38,9 +38,9 @@
 //   slot_chain refuses only a slot that holds another value]. Our jmps sit inside EA's bodies, which Apex calls through.
 // Household rule: not applicable (resource system, no Sim decision).
 
-static const DWORD PP_RESOLVE = 0x007D80E0, PP_REGISTER = 0x004B2D00, PP_REPOS = 0x004B2EC0;
-static const DWORD PP_RF_AT = 0x004B2E78, PP_RF_BACK = 0x004B2E7E, PP_RF_SKIP = 0x004B2EA4;
-static const DWORD PP_MGR_GLOBAL = 0x011C78D8, PP_VT_A = 0x00FB2DA0, PP_VT_B = 0x00FFE250;
+static const DWORD PP_RESOLVE = TS3A_R(0x007D80E0), PP_REGISTER = TS3A_R(0x004B2D00), PP_REPOS = TS3A_R(0x004B2EC0);
+static const DWORD PP_RF_AT = TS3A_R(0x004B2E78), PP_RF_BACK = TS3A_R(0x004B2E7E), PP_RF_SKIP = TS3A_R(0x004B2EA4);
+static const DWORD PP_MGR_GLOBAL = TS3A_R(0x011C78D8), PP_VT_A = TS3A_R(0x00FB2DA0), PP_VT_B = TS3A_R(0x00FFE250);
 static const DWORD PP_RESOLVE_LEN = 0xBE, PP_RESOLVE_FNV = 0x98A9D373;  // FNV-1a 32 of 0x7D80E0..0x7D819D (ends in ret)
 // sub esp,10h; push esi; mov esi,[esp+1Ch]
 static const u8 kPpResolve[8] = {0x83, 0xEC, 0x10, 0x56, 0x8B, 0x74, 0x24, 0x1C};
@@ -59,8 +59,8 @@ typedef DWORD(__fastcall* PpReposFn)(u8* mgr, void* edx, u8* db, LONG prio);
 
 // game entries; selftest swaps the first three
 static u8* const* g_ppMgrAt = (u8* const*)(uintptr_t)PP_MGR_GLOBAL;
-static PpFallbackFn g_ppFallback = (PpFallbackFn)(uintptr_t)0x007D7580;
-static PpDifferFn g_ppDiffer = (PpDifferFn)(uintptr_t)0x0054DD80;
+static PpFallbackFn g_ppFallback = (PpFallbackFn)(uintptr_t)TS3A_R(0x007D7580);
+static PpDifferFn g_ppDiffer = (PpDifferFn)(uintptr_t)TS3A_R(0x0054DD80);
 static PpRegisterFn g_ppRegister;  // trampolines
 static PpReposFn g_ppRepos;
 static DWORD g_ppRfBack = PP_RF_BACK, g_ppRfSkip = PP_RF_SKIP;  // the RemoveFix stub's exits (selftest swaps them)

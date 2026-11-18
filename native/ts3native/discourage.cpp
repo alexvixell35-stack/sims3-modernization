@@ -777,8 +777,8 @@ static void InstallPrivateFpDefer(const wchar_t* ini) {
     Log("OK   private footprint deferral (IC RemovePrivateFootprint 0x75465E -> 0x82A0C0; docs/89 §14)");
 }
 
-#ifdef TS3N_EA_PORT
-// past the detour bytes, inside UpdateObjectLot: a direct call to the target (v0.2.10 EA, 55a098af; EA build + selftest only)
+#if defined(TS3N_EA_PORT) || defined(TS3A_RETAIL)
+// past the detour bytes, inside UpdateObjectLot: a direct call to the target (v0.2.10 EA, 55a098af; EA and retail builds + selftest only)
 static bool UolCalls(DWORD fn, DWORD target) {
     const DWORD from = fn + 0x10, to = fn + 0x50;
     if (!Readable((const void*)(uintptr_t)from, to - from + 5)) return false;

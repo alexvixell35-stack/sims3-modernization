@@ -938,7 +938,7 @@ static __declspec(naked) void CowFindStub() {
 }
 static const u8 kCowFindPro[] = {0x51, 0x53, 0x8B, 0x5C, 0x24, 0x2C};  // push ecx; push ebx; mov ebx,[esp+2Ch]
 static void CowFindInstall() {
-    g_cowFindOrig = InstallDetour("ClosestWaypoints_Find (cut on wait)", 0x0065BB90, kCowFindPro, sizeof(kCowFindPro), (void*)CowFindStub, &g_cowFindOrig);
+    g_cowFindOrig = InstallDetour("ClosestWaypoints_Find (cut on wait)", TS3A_R(0x0065BB90), kCowFindPro, sizeof(kCowFindPro), (void*)CowFindStub, &g_cowFindOrig);
     Log("%s cut on wait: ClosestWaypoints_Find 0x65BB90 answers none past the moved deadline of a job a sim wait asked to end",
         g_cowFindOrig ? "OK  " : "FAIL");
 }

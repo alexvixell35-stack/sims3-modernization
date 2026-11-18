@@ -68,7 +68,13 @@
 static const DWORD TS_SITE = TS3A(0x00D5A9C8), TS_KEEP = TS3A(0x00D5A9D2), TS_GO = TS3A(0x00D5A9DD), TS_ABORT = TS3A(0x00D5AA25);
 // inline asm takes no constexpr: its five addresses are literals per build, tied to the table by the static_assert (as mintcall.cpp).
 // EA 1.69: no rows yet (docs/232 §8), so 0 there; ApplyThumbStall / ApplyThumbCallers SKIP on EA and the stubs never run.
-#ifdef TS3A_TABLE
+#if defined(TS3A_TABLE) && defined(TS3A_RETAIL)  // retail 1.67 (docs/273)
+#define TS_ASM_KEEP 0x00D5AB12
+#define TS_ASM_ABORT 0x00D5AB65
+#define TS_ASM_GO 0x00D5AB1D
+#define TC_ASM_CALL 0x0044C4F0
+#define TC_ASM_RET 0x005A88E9
+#elif defined(TS3A_TABLE)
 #define TS_ASM_KEEP 0
 #define TS_ASM_ABORT 0
 #define TS_ASM_GO 0

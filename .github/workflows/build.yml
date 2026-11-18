@@ -27,6 +27,23 @@ jobs:
             native/ts3native/out/ts3native.asi
             native/ts3native/out/ts3native.ini
 
+  # Retail (disc / non-Steam) TS3W.exe 1.67 build (docs/273): Steam code and features with /DTS3A_TABLE /DTS3A_RETAIL, addresses
+  # from ts3addr-retail167.h (every row checked against the retail exe by tools/retail-port-check.ts, run locally: the exe
+  # is not in the repo). Ships with the unchanged Steam ini: the one ini address ([ThreadStack] Skip) is translated in code.
+  native-retail167:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ts3native-retail167.asi (/DTS3A_TABLE /DTS3A_RETAIL)
+        shell: cmd
+        run: native\ts3native\build-retail.cmd
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ts3native-retail167
+          path: |
+            native/ts3native/out-retail/ts3native-retail167.asi
+            native/ts3native/ts3native.ini
+
   # EA app 1.69.47 build (docs/228): the same sources with /DTS3A_TABLE take their addresses from the committed
   # native/ts3native/ts3addr-ea169.h. No selftest.exe (not compile-checked under the table). The EA ini is the Steam ini with
   # every section off except the allowlist, and an allowlisted section's source file must not have a 0 (unresolved) row.

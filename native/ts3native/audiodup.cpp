@@ -28,7 +28,7 @@
 // Household rule: not applicable (audio bookkeeping, no Sim decision).
 // Log: the first 16 duplicates (key, value, caller, thread), then one line at every power of two.
 
-static const DWORD AD_ADD = 0x00862CC0;
+static const DWORD AD_ADD = TS3A_R(0x00862CC0);
 // push ebp; mov ebp,esp; and esp,-16; sub esp,0x18  (9 bytes, no relative operand, no branch into them)
 static const u8 kAdAddPro[9] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0, 0x83, 0xEC, 0x18};
 static const DWORD AD_BUCKETS = 0x44, AD_NBUCKETS = 53, AD_NODE_KEYLO = 0x08, AD_NODE_KEYHI = 0x0C, AD_NODE_BYTES = 48;

@@ -16,7 +16,7 @@
 //   node tools/harness/pin.ts --restore-affinity  puts back what a dead run left moved (pin + sweep state files)
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { availableParallelism, tmpdir } from 'node:os';
+import { cpus, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GAME_EXE, GAME_NAME, MACHINE } from './game-exe.ts';
 
@@ -26,7 +26,7 @@ export const DEFAULT_APPS = ['chrome', 'msedge', 'firefox', 'brave', 'opera', 'v
   'Teams', 'ms-teams', 'Spotify', 'Discord', 'Code', 'idea64', 'java'];
 const PRIORITIES = ['Normal', 'AboveNormal', 'High']; // never RealTime: it can starve input and the disk
 const STATE = join(tmpdir(), 'ts3-harness-pin-state.jsonl');
-const N = availableParallelism();
+const N = cpus().length; // all logical CPUs: availableParallelism() follows this process's affinity, and the timing sweep puts the harness on 0-3
 
 // "4-15" or "0-3,8,10-11" -> bit mask; throws on syntax, empty set or a CPU >= n
 export function cpuMask(spec: string, n = N): bigint {

@@ -18,7 +18,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.275-animsplit1"  // feature/animsplit-1118: [AnimPhase] Split (docs/22 §6.1, counters v208 anx*, default 0); before: bugfix/jit-yrow-swap-alias-1117: Y keys also match ts3fixes swap stubs (Motive.DecayOrig), HotReserve 300 s deadline; master 0.36.272-gchold2 + feature/jit-hot-reserve-1117: [MonoJit] YRows (M2 Motive.UpdateMotiveWithDecay, default 0) + HotReserve (docs/537 §32, default 1, acts only with YRows=1)
+#define TS3NATIVE_VERSION "0.36.276-retail1"  // feature/retail-167-port-1118: retail 1.67 table on master (docs/273 §8; Steam asi code unchanged); before: feature/animsplit-1118: [AnimPhase] Split (docs/22 §6.1, counters v208 anx*, default 0); before: bugfix/jit-yrow-swap-alias-1117: Y keys also match ts3fixes swap stubs (Motive.DecayOrig), HotReserve 300 s deadline; master 0.36.272-gchold2 + feature/jit-hot-reserve-1117: [MonoJit] YRows (M2 Motive.UpdateMotiveWithDecay, default 0) + HotReserve (docs/537 §32, default 1, acts only with YRows=1)
 #endif
 
 typedef unsigned char u8;
@@ -63,7 +63,11 @@ static bool Readable(const void* p, size_t n) {
 }
 
 #ifdef TS3A_TABLE
+#ifdef TS3A_RETAIL
+#include "ts3bytes-retail167.h"  // same, retail 1.67 (docs/273)
+#else
 #include "ts3bytes-ea169.h"  // ts3bytes_rows[] sorted by (addr, len), ts3bytes_pool[], ts3bytes_count (tools/patch-bytes-check.ts --table)
+#endif
 // EA build: the bytes the game itself has at an already translated site replace the caller's Steam literal (they differ
 // only in rel32 / absolute-pointer operands, docs/68 7.3). Same address and length required, else the literal stays.
 // set around a check whose literal already holds this build's bytes with a changed operand (gcgrow.cpp GcCapWindow): no swap
@@ -5848,7 +5852,7 @@ static int ReadRouteAsync(const wchar_t* ini) {
     ts3native_counters.fbjcCapUs = jobCapMs > 0 ? Clamp(jobCapMs, 50, 60000) * 1000 : 0;
     ts3native_counters.fbjcMode = ts3native_counters.fbjcCapUs ? 1 : 0;
     ts3native_counters.fbApLog = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"FbApplyLog", 0, ini), 0, 1);  // docs/247 §13.1 L
-#ifdef TS3A_TABLE
+#if defined(TS3A_TABLE) && !defined(TS3A_RETAIL)  // retail 1.67 has the rows (docs/273)
     if (ts3native_counters.fbApLog) Log("SKIP route async FbApplyLog ([RouteAsync] FbApplyLog): no EA 1.69 address, docs/232 §8");
     ts3native_counters.fbApLog = 0;
 #endif
@@ -6269,7 +6273,9 @@ static void Run(HMODULE self) {
     GetLocalTime(&st);
     Log("ts3native " TS3NATIVE_VERSION " %04d-%02d-%02d %02d:%02d:%02d", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
     if (!strncmp(priorLog, "ts3native ", 10)) Log("prior log: %s", priorLog);
-#ifdef TS3A_TABLE
+#if defined(TS3A_TABLE) && defined(TS3A_RETAIL)
+    Log("release: " TS3NATIVE_VERSION " retail");  // own line: log parsers read the header version as digits; never a stale release name
+#elif defined(TS3A_TABLE)
     Log("release: " TS3NATIVE_VERSION " EA");  // own line: log parsers read the header version as digits; never a stale release name
 #endif
     // file name only: players send this log (docs/188 privacy); PE timestamp + SizeOfImage name the build (Steam 1.67
@@ -6431,7 +6437,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyMintPairs(ini) || keepLog;  // docs/139 §3: dispatch head 0xE544D5 (no other owner), diagnostics only
         g_asJobState = &g_async.state;  // E3 level gate: no lot-table lookup while a job runs (autshadow.cpp AsLevelGate)
         keepLog = ApplyAutShadow(ini) || keepLog;  // docs/122 part 1: guard thunks after every other table owner (routesnap)
-#ifdef TS3A_TABLE
+#if defined(TS3A_TABLE) && !defined(TS3A_RETAIL)
         keepLog = ApplyEaDiag(ini) || keepLog;  // docs/234: EA 1.69.47 product/entitlement gate, log only (default off)
 #endif
         ApexStartLate();  // zzApexRadiance.asi loads after us (its lines reach the log only while it stays open)

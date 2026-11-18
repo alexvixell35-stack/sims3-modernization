@@ -3335,7 +3335,7 @@ static int AsInstallGuards(DWORD* lo, DWORD* hi, DWORD imgLo, DWORD imgHi, DWORD
     for (DWORD* p = lo + 1; p < hi; p++) {
         const DWORD name = *p, fn = p[-1];
         if (name < imgLo || name >= imgHi || !AsIsName((const char*)(uintptr_t)name, imgHi)) continue;
-#ifdef TS3A_TABLE
+#if defined(TS3A_TABLE) && !defined(TS3A_RETAIL)
         // EA 1.69.47: mono's corlib icall tables (class-start u16s 0x010FF678, class names, method names, functions up to
         // 0x01100BDC) are not IC slots, but the u16 pair at 0x010FF6BC reads as {0x00ED00CD in .text, "ScriptCore.World::
         // World_SetObjectHighlightImpl"}; a thunk there broke the class table and mono_icall_init faulted at 0xE824B2 [verified]

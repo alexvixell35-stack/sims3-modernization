@@ -26,16 +26,18 @@
 #endif
 
 // inline asm takes no constexpr, so the three addresses it holds are literals per build; the asserts tie them to the table
-#ifdef TS3A_TABLE
+#if defined(TS3A_TABLE) && defined(TS3A_RETAIL)
+#define MC_ASM_TABLE 0x00E59B70
+#define MC_ASM_REMOTING 0x01221EC0
+#define MC_ASM_FORCEJIT 0x00E5666D
+#elif defined(TS3A_TABLE)
 #define MC_ASM_TABLE 0x00E598D0
 #define MC_ASM_REMOTING 0x0127B240
 #define MC_ASM_FORCEJIT 0x00E563CD
-#define MC_FNV(steam, ea) ea
 #else
 #define MC_ASM_TABLE 0x00E59880
 #define MC_ASM_REMOTING 0x01220EC0
 #define MC_ASM_FORCEJIT 0x00E5637D
-#define MC_FNV(steam, ea) steam
 #endif
 static_assert(MC_ASM_TABLE == TS3A(0x00E59880) && MC_ASM_REMOTING == TS3A(0x01220EC0) && MC_ASM_FORCEJIT == TS3A(0x00E5637D), "mintcall asm literals");
 static const DWORD MC_TABLE = TS3A(0x00E59880), MC_HEAD = TS3A(0x00E544D5), MC_NOP = 0x1C1;
@@ -47,11 +49,11 @@ static const DWORD MC_EA[4] = {TS3A(0x00E591FF), TS3A(0x00E59236), TS3A(0x00E549
 // values on stack" print (our ret bails on that case and EA's then returns either way), and its on-demand ForceJIT
 // (0xE5637D `jne` -> `90 90`: transform on every call) is tested per call (byte 0x75 expected): calls go to EA then.
 static const struct { DWORD at, n, fnv, fnv2; } kMcCode[5] = {
-    {TS3A(0x00E5493E), 0xAD, MC_FNV(0x51DF97BD, 0xFF2CE6AE), 0},           // call / con.call
-    {TS3A(0x00E549EB), 0x160, MC_FNV(0x65BD44CB, 0x402BED6F), 0},          // callvirt family
-    {TS3A(0x00E56287), 0x1C2, MC_FNV(0x3D55ED25, 0x6B91BBD0), 0},          // common push
-    {TS3A(0x00E591FF), 0x60, MC_FNV(0x41B1FFB3, 0x62AC1218), MC_FNV(0x6B9C5C8D, 0x5B810F46)},  // ret / ret.void / ret.vt (2nd: MonoPatcher's 0xE59218 patch)
-    {TS3A(0x00E543C7), 0x127, MC_FNV(0x86DC9168, 0x8C91C7A8), 0},          // frame return + dispatch head
+    {TS3A(0x00E5493E), 0xAD, TS3A_PICK(0x51DF97BD, 0xFF2CE6AE, 0x312CB54D), 0},           // call / con.call
+    {TS3A(0x00E549EB), 0x160, TS3A_PICK(0x65BD44CB, 0x402BED6F, 0x79F060E0), 0},          // callvirt family
+    {TS3A(0x00E56287), 0x1C2, TS3A_PICK(0x3D55ED25, 0x6B91BBD0, 0x00441C61), 0},          // common push
+    {TS3A(0x00E591FF), 0x60, TS3A_PICK(0x41B1FFB3, 0x62AC1218, 0x1CABBFBA), TS3A_PICK(0x6B9C5C8D, 0x5B810F46, 0x8F095038)},  // ret / ret.void / ret.vt (2nd: MonoPatcher's 0xE59218 patch)
+    {TS3A(0x00E543C7), 0x127, TS3A_PICK(0x86DC9168, 0x8C91C7A8, 0xA397A140), 0},          // frame return + dispatch head
 };
 static DWORD g_mcEaRet = TS3A(0x00E591FF), g_mcEaRetVoid = TS3A(0x00E59236), g_mcEaCall = TS3A(0x00E5493E), g_mcEaCallvirt = TS3A(0x00E549EB);
 static DWORD g_mcHead = MC_HEAD;

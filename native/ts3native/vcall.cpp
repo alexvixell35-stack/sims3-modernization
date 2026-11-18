@@ -409,6 +409,13 @@ static bool ApplyCallSites(const wchar_t* ini) {
 
 // [ProbeSnap] Enabled=1: table built now, armed DelaySec later on its own thread; else CallSites=1 (coverage)
 static bool ApplyProbeSnap(const wchar_t* ini) {
+#ifdef TS3A_TABLE
+    // vcallsites*.h are raw Steam 1.67 sites (2-7 byte checks only): never armed on another build (docs/273)
+    if (GetPrivateProfileIntW(L"ProbeSnap", L"Enabled", 0, ini) || GetPrivateProfileIntW(L"ProbeSnap", L"CallSites", 0, ini)) {
+        Log("SKIP probe snap: its call-site tables hold Steam 1.67 addresses, not " TS3A_HOST_NAME " ones");
+        return false;
+    }
+#endif
     if (!GetPrivateProfileIntW(L"ProbeSnap", L"Enabled", 0, ini)) {
         if (ApplyCallSites(ini)) return true;
         Log("probe snap off (Enabled=0, CallSites=0)");

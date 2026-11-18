@@ -120,7 +120,12 @@ static void TsParseSkip(const wchar_t* s) {
         wchar_t* end;
         const unsigned long v = wcstoul(s, &end, 16);
         if (end == s) { s++; continue; }
+#ifdef TS3A_RETAIL
+        // the shipped ini names Steam's SimulatorThread_Proc; retail has it at 0x76B530 (docs/273, tools/retail-port-check.ts)
+        if (v) g_tsSkip[g_tsSkipN++] = v == 0x76B470 ? 0x76B530 : (DWORD)v;
+#else
         if (v) g_tsSkip[g_tsSkipN++] = (DWORD)v;
+#endif
         s = end;
     }
 }

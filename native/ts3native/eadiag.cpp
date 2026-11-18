@@ -16,7 +16,7 @@
 //   The answered entitlements: eastl rb-tree at service+0x78 (anchor; begin = [service+0x7C]), node +0 right, +4 left,
 //   +8 parent (0x4E0CF0 = increment), node+0x48 = eastl string {begin, end} compared with the offer id by 0x5B8000.
 // Included by ts3native.cpp.
-#ifdef TS3A_TABLE
+#if defined(TS3A_TABLE) && !defined(TS3A_RETAIL)  // EA 1.69.47 only (raw EA addresses)
 static void* g_edLookupJmp;  // 0xA421F0 trampoline
 static void* g_edWaitJmp;    // 0x596999
 static void* g_edLoopJmp;    // 0x5969C2

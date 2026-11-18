@@ -117,7 +117,7 @@ static void ApplyRcTrim(const wchar_t* ini) {
     g_rtOn = GetPrivateProfileIntW(L"ResourceCache", L"TrimAfterCleanup", 0, ini) > 0;
     const int every = GetPrivateProfileIntW(L"ResourceCache", L"TrimEveryMin", 0, ini);
     g_rtEveryMs = every > 0 ? (DWORD)(every < 600 ? every : 600) * 60000 : 0;
-#ifdef TS3A_TABLE
+#if defined(TS3A_TABLE) && !defined(TS3A_RETAIL)  // retail 1.67 has the rows (docs/273)
     if (g_rtOn || g_rtEveryMs) Log("SKIP rctrim ([ResourceCache] TrimAfterCleanup / TrimEveryMin): no EA 1.69 address, docs/232 §8");
     g_rtOn = false, g_rtEveryMs = 0;
 #endif

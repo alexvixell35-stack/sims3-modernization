@@ -3094,6 +3094,7 @@ for (const [n, j] of jobs.entries()) {
     save: s, content: j.content ?? 'as-is', contentMoved: 0, run: j.run, gameArgs: j.gameArgs ?? [], defaultIni: j.defaultIni ?? null, s3ppIni: j.s3ppIni ?? null, s3ssToml: j.s3ssToml ?? null, dxvkConf: j.dxvkConf ?? null, profileTag: j.run.profile ? profileTag(j) : null, exitCode: null, verdict: [], pass: false, crashed: false, crash: null, timedOut: false, memory: {}, counters: {}, error: null };
   const pin = pinConfig(j.pin, process.env, undefined, isTimingJob(j)), machineFile = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-machine.jsonl`);
   const sweepFile = machineFile.replace(/-machine\.jsonl$/, '-sweep.json');
+  process.env.TS3_SWEEP_ON = pin?.sweep ? '1' : '0'; // machine-load.ts in children (profile-world.ts): rule figures from the apps on the game CPUs
   if (pin) process.env.TS3_GAME_CPUS = pin.cpus; // child samplers (profile-world.ts) split by the same set
   row.pin = describePin(pin);
   if (j.rerunOf) row.rerunOf = j.rerunOf;

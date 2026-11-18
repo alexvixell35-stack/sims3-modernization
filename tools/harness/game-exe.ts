@@ -10,7 +10,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 
 export const MACHINE = process.env.TS3_MACHINE || 'main';
 export const machineTag = (m = MACHINE) => (m === 'main' ? '' : m); // '' on the main machine: its file names and labels stay unchanged
@@ -20,11 +20,22 @@ export const GAME_NAME = GAME_EXE.replace(/\.exe$/i, ''); // PowerShell Get-Proc
 export const BIN = process.env.TS3_BIN ?? 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\The Sims 3\\Game\\Bin';
 // Installed products from the game root (<TS3_BIN>/../..), same on Steam and the EA app: base game + every EPnn/SPnn folder that holds GameData.
 // The "Installed" line in ScriptError xml is written by the game itself (not by the harness) from its own check; the HKLM Uninstall keys list the same set.
+// Retail (disc) installs put each pack in a sibling folder of the game root instead ("<root> World Adventures" next to
+// "<root>", docs/273): those count too, named by the pack code below.
 export const gameRoot = (bin = BIN) => resolve(bin, '..', '..');
+// shortcut: name keys of the retail sibling folders, not checked on a real disc install; an unknown name is listed as the folder name
+const PACK_NAMES: [RegExp, string][] = [[/world adventures/i, 'EP01'], [/ambitions/i, 'EP02'], [/late night/i, 'EP03'], [/generations/i, 'EP04'],
+  [/pets/i, 'EP05'], [/showtime/i, 'EP06'], [/supernatural/i, 'EP07'], [/seasons/i, 'EP08'], [/university/i, 'EP09'], [/island paradise/i, 'EP10'],
+  [/into the future/i, 'EP11'], [/high.?end loft/i, 'SP01'], [/fast lane/i, 'SP02'], [/outdoor living/i, 'SP03'], [/town life/i, 'SP04'],
+  [/master suite/i, 'SP05'], [/katy perry|sweet treats/i, 'SP06'], [/diesel/i, 'SP07'], [/70s|80s|90s/i, 'SP08'], [/movie/i, 'SP09']];
 export const installedProducts = (bin = BIN): string[] => {
   const root = gameRoot(bin);
   if (!existsSync(root)) return [];
-  return ['BaseGame', ...readdirSync(root).filter(d => /^(EP|SP)\d+$/i.test(d) && existsSync(join(root, d, 'GameData'))).sort()];
+  const parent = dirname(root), base = basename(root) + ' ';
+  const siblings = readdirSync(parent).filter(d => d.startsWith(base) && existsSync(join(parent, d, 'GameData')))
+    .map(d => PACK_NAMES.find(([re]) => re.test(d.slice(base.length)))?.[1] ?? d);
+  const own = readdirSync(root).filter(d => /^(EP|SP)\d+$/i.test(d) && existsSync(join(root, d, 'GameData')));
+  return ['BaseGame', ...new Set([...own, ...siblings].sort())];
 };
 export const LAUNCH = process.env.TS3_LAUNCH ?? 'direct';
 export const EA_URI = process.env.TS3_EA_URI ?? 'origin2://game/launch/?offerIds=sims3_dd,1002441,70384_CE,70384_Unrevised';
@@ -127,6 +138,14 @@ if (import.meta.main) {
         assert.deepEqual(installedProducts(join(tmp, root, 'Game', 'Bin')), ['BaseGame', 'EP01', 'EP11', 'SP08'], root);
       }
       assert.deepEqual(installedProducts(join(tmp, 'none', 'Game', 'Bin')), [], 'missing root');
+      // retail (disc): each pack a sibling folder of the base game's, with its own GameData (Game\Bin alone is not a pack)
+      const ret = join(tmp, 'retail');
+      mkdirSync(join(ret, 'The Sims 3', 'Game', 'Bin'), { recursive: true });
+      for (const d of ['The Sims 3 World Adventures', 'The Sims 3 Into the Future', 'The Sims 3 70s, 80s, & 90s Stuff', 'The Sims 3 Unknown Pack'])
+        mkdirSync(join(ret, d, 'GameData'), { recursive: true });
+      mkdirSync(join(ret, 'The Sims 3 Ambitions', 'Game', 'Bin'), { recursive: true });
+      mkdirSync(join(ret, 'The Sims 2', 'GameData'), { recursive: true });
+      assert.deepEqual(installedProducts(join(ret, 'The Sims 3', 'Game', 'Bin')), ['BaseGame', 'EP01', 'EP11', 'SP08', 'The Sims 3 Unknown Pack'], 'retail siblings');
     } finally { rmSync(tmp, { recursive: true, force: true }); }
     console.log('self-check ok');
   } else if (process.argv[2] === '--installed') console.log(`${gameRoot()}: ${installedProducts().join(' ')}`);

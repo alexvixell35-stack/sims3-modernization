@@ -30,14 +30,13 @@
 
 static const DWORD JIT_OP = 0x1A9, JIT_EA_UNIMPLEMENTED = TS3A(0x00E596C2);
 #ifdef TS3A_TABLE
-// EA app 1.69.47: the interpreter range is the same code moved (8fb8e487); the bytes that differ are per build (JIT_B)
+// EA app 1.69.47 / retail 1.67: the interpreter range is the same code moved (8fb8e487, docs/273); the bytes that differ are
+// per build (TS3A_PICK)
 static const DWORD JIT_PE_STAMP = TS3A_HOST_PE;  // the exe gate (with Ts3HostImageOk)
 #define JIT_EXE_NAME TS3A_HOST_NAME
-#define JIT_B(steam, ea) ea
 #else
 static const DWORD JIT_PE_STAMP = 0x52DEC247;  // the exe gate with Ts3HostImageOk: Steam 1.67 (docs/527 §4.1)
 #define JIT_EXE_NAME "Steam 1.67"
-#define JIT_B(steam, ea) steam
 #endif
 // game addresses the selftest points elsewhere
 static DWORD* g_jitTableP = (DWORD*)(uintptr_t)TS3A(0x00E59880);                  // the mint jump table
@@ -778,10 +777,10 @@ static DWORD JitIcallFn(const unsigned short* ip, const u8* callerRm) {
 // do not allocate, so a lazy body may run them. A null this or a bad dimension exits before any change: EA's call path throws.
 // EA's icall return leaves the result slot's high dword as the word above the arguments ([esi+4], as EmitIcall).
 static const u8 kPureGetLength[] = {0x56, 0x8B, 0x74, 0x24, 0x08, 0x57, 0x8B, 0x7C, 0x24, 0x10, 0x85, 0xFF, 0x7C, 0x0C, 0x8B, 0x06, 0x8B, 0x08, 0x0F, 0xB6,
-    0x51, 0x10, 0x3B, 0xFA, 0x7C, 0x0E, 0xE8, 0xC1, 0xD2, 0xFF, 0xFF, 0x50, 0xE8, JIT_B(0x0B, 0x1B), 0x79, 0x02, 0x00, 0x83, 0xC4, 0x04, 0x8B, 0x46, 0x04, 0x85,
+    0x51, 0x10, 0x3B, 0xFA, 0x7C, 0x0E, 0xE8, TS3A_PICK(0xC1, 0xC1, 0xB1), 0xD2, 0xFF, 0xFF, 0x50, 0xE8, TS3A_PICK(0x0B, 0x1B, 0x0B), 0x79, 0x02, 0x00, 0x83, 0xC4, 0x04, 0x8B, 0x46, 0x04, 0x85,
     0xC0, 0x75, 0x06, 0x8B, 0x46, 0x08, 0x5F, 0x5E, 0xC3, 0x8B, 0x04, 0xF8};
 static const u8 kPureGetLower[] = {0x56, 0x8B, 0x74, 0x24, 0x0C, 0x85, 0xF6, 0x57, 0x8B, 0x7C, 0x24, 0x0C, 0x7C, 0x0C, 0x8B, 0x07, 0x8B, 0x08, 0x0F, 0xB6,
-    0x51, 0x10, 0x3B, 0xF2, 0x7C, 0x0E, 0xE8, 0x81, 0xD2, 0xFF, 0xFF, 0x50, 0xE8, JIT_B(0xCB, 0xDB), 0x78, 0x02, 0x00, 0x83, 0xC4, 0x04, 0x8B, 0x47, 0x04, 0x85,
+    0x51, 0x10, 0x3B, 0xF2, 0x7C, 0x0E, 0xE8, TS3A_PICK(0x81, 0x81, 0x71), 0xD2, 0xFF, 0xFF, 0x50, 0xE8, TS3A_PICK(0xCB, 0xDB, 0xCB), 0x78, 0x02, 0x00, 0x83, 0xC4, 0x04, 0x8B, 0x47, 0x04, 0x85,
     0xC0, 0x75, 0x03, 0x5F, 0x5E, 0xC3, 0x8B, 0x44, 0xF0, 0x04, 0x5F, 0x5E, 0xC3};
 static const u8 kPureGetRank[] = {0x8B, 0x44, 0x24, 0x04, 0x8B, 0x08, 0x8B, 0x11, 0x0F, 0xB6, 0x42, 0x10, 0xC3};
 static bool JitPureIcallsOk() {
@@ -808,7 +807,7 @@ static int JitPureIcall(const unsigned short* ip, DWORD op, const u8* callerRm) 
 // SatbRtFastCopy in the slot) runs as before. No allocation, no frame read, no reference stored; the destination range goes to
 // JitSatbStore first (sim side of a span, as SatbRtFastCopy logs it). Compiled code runs only on the sim thread (JitEnter), so the
 // wrapper's worker-side patch never applies here.
-static const DWORD kFastCopyFnv = JIT_B(0x555A37B8, 0x0FFE50AD);  // FNV-1a of EA's 641 bytes 0xE7A070..0xE7A2F0 (EA app: 0xE7A0C0, same code, operands moved)
+static const DWORD kFastCopyFnv = TS3A_PICK(0x555A37B8, 0x0FFE50AD, 0x5633837F);  // FNV-1a of EA's 641 bytes 0xE7A070..0xE7A2F0 (EA app: 0xE7A0C0, same code, operands moved)
 static bool JitFastCopyOk() {
     const DWORD slot = *(const DWORD*)(uintptr_t)TS3A(0x010B58CC);
     return McFnv((const u8*)(uintptr_t)TS3A(0x00E7A070), 0x281) == kFastCopyFnv && (slot == TS3A(0x00E7A070) || slot == (DWORD)(uintptr_t)SatbRtFastCopy);
@@ -3211,7 +3210,7 @@ static bool ApplyMonoJit(const wchar_t* ini) {
     if (g_jitCallExit && !g_jitPureIcalls) Log("jit: CallExit: the Array icall bytes differ, pure icalls stay EA calls");
     g_jitNewVt = GetPrivateProfileIntW(L"MonoJit", L"NewVt", 0, ini) != 0;  // docs/537 §20 B2b (needs Direct=1)
     g_jitBc = (JitBoundStats*)&C.bcOn;  // docs/537 §22: BoundCall=1 (needs Direct=1, DirectLeaf=0 for guards), BoundCallMask = kJitBound rows
-#ifdef TS3A_TABLE
+#if defined(TS3A_TABLE) && !defined(TS3A_RETAIL)  // retail 1.67 has the rows (docs/273)
     if (GetPrivateProfileIntW(L"MonoJit", L"BoundCall", 0, ini)) Log("SKIP jit BoundCall ([MonoJit] BoundCall, monojit-bound.h rows): no EA 1.69 address, docs/232 §8");
     if (!ts3a_noaddr && GetPrivateProfileIntW(L"MonoJit", L"BoundCall", 0, ini)) {
 #else

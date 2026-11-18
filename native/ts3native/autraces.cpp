@@ -217,7 +217,7 @@ static void ArCut() {
 
 static void ApplyAutRaces(const wchar_t* ini) {
     g_arOn = GetPrivateProfileIntW(L"AutShadow", L"Races", 0, ini) & 7;
-#ifdef TS3A_TABLE
+#if defined(TS3A_TABLE) && !defined(TS3A_RETAIL)  // retail 1.67 has every row (docs/273)
     // bits 0 (R1b pre-warm, kArPw) and 1 (R2b/R3a witness, kArWit) read globals with no EA row; bit 2 (R2c gate) is mapped
     if (g_arOn & 3) Log("SKIP autshadow races bits 0-1 ([AutShadow] Races %d, R1b / R2b / R3a): no EA 1.69 address, docs/232 §8; bit 2 stays", g_arOn);
     g_arOn &= 4;

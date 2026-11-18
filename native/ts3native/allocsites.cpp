@@ -991,6 +991,11 @@ static bool ApplyAllocSites(const wchar_t* ini) {
     for (const wchar_t* m : g_apexModules)
         if (HMODULE h = GetModuleHandleW(m)) g_asApexBase = (DWORD)(uintptr_t)h;  // shortcut: zzApexRadiance.asi loaded after us is not known
     g_asOwn = GetPrivateProfileIntW(L"MemDiag", L"AllocSitesOwners", 0, ini) != 0;
+#ifdef TS3A_RETAIL
+    // kAsOwn holds raw Steam 1.67 ranges; the retail linker ordered functions differently, so the ranges do not carry over
+    if (g_asOwn) Log("SKIP allocsites owners ([MemDiag] AllocSitesOwners): its owner ranges are Steam 1.67 ones, not " TS3A_HOST_NAME " (docs/273)");
+    g_asOwn = false;
+#endif
     int ver = 0;
     for (const AsOwnRow& r : kAsOwn) ver += r.ver;
     ts3native_counters.aoOn = (g_asOwn ? 1 : 0) | (g_asApexMode ? 2 : 0) | (g_asApexBase ? 4 : 0);
