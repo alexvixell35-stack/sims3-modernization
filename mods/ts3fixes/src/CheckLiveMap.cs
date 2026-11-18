@@ -43,6 +43,7 @@ namespace Ts3Fixes
                 case "boatgetoutdiag": return EpLive(typeof(BoatGetOutDiagHook), 1);
                 case "boatgetoutguard": return EpLive(typeof(BoatGetOutDiagHook), 1);
                 case "boatstaleswimmer": return EpLive(typeof(BBsHook), 1, "sBsWater", sBsWater, null);
+                case "boattaximemo": return EpLive(typeof(RouteBackoffHook), 4);
                 case "bonfirespice": return EpJoin(EpLive(typeof(BfFireHook), 1), EpLive(typeof(BfRunHook), 1));
                 case "bookcarry": return EpLive(typeof(BookCarryHook), 1);
                 case "bouncerplace": return EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatLegHook), 1), EpLive(typeof(BouncerHook), 1)), EpLive(typeof(BouncerRunHook), 1)), EpLive(typeof(VehicleLegHook), 1));
