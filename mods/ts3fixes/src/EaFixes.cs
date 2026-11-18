@@ -121,7 +121,6 @@ namespace Ts3Fixes
             Patch(typeof(Sims3.Gameplay.Objects.Vehicles.Boat), "RouteBoatToLandOnWayToPosition", typeof(BoatRouteNullHook), "RouteHook", "RouteOrig");  // BoatRouteNull.cs
             Patch(typeof(Sim.SwitchOutfitHelper), "Init", new Type[] { typeof(Sim), typeof(OutfitCategories), typeof(int) }, typeof(OutfitMissingHook), "InitHook", "InitOrig");  // OutfitMissing.cs
             Patch(typeof(Sim), "SetObjectToReset", typeof(OverwatchResetGoneHook), "ResetHook", "ResetOrig");  // OneOffGuards.cs (Sim's own override, DeclaredOnly)
-            Patch(typeof(Sims3.Gameplay.PetObjects.PlayFetchJig.PlayFetchHumanInteraction), "ThrowLoop", typeof(FetchAbortHook), "ThrowHook", "ThrowOrig");  // OneOffGuards.cs
             if (sFwWatch != null) Patch(sFwWatch, "Run", Type.EmptyTypes, typeof(FireworksWatchLateHook), "RunHook", "RunOrig");  // FireworksWatchLate.cs
             Patch(typeof(Sims3.Gameplay.Roles.RoleManager), "VerifyRoleGivingObjectRoles", typeof(RoleNullPurgeHook), "VerifyHook", "VerifyOrig");  // RoleNullPurge.cs
             Patch(typeof(ScriptCore.ScriptProxy), "OnScriptError", typeof(ErrorTrapLoopHook), "ErrHook", "ErrOrig");  // ErrorTrapLoop.cs

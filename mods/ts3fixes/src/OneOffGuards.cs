@@ -25,13 +25,6 @@ namespace Ts3Fixes
     // SimDescription.mHousehold is Household.NpcHousehold (a special household: both methods return at once, so no baby
     // or pet motives, what a Sim with no household should get), and null again after. The pet case stays eanullguards'
     // (EaFixes.cs MotivesHook). Counters [3988] created with the stand-in, [3989] seen with the switch off (EA throws).
-    //
-    // fetchabort [verified path, inferred cause]: PlayFetchHumanInteraction.ThrowLoop hands the stick to the dog with
-    // PetCarrySystem.EnterWhileHolding, whose RequestState("x", "Carry") on the dog's carry machine throws
-    // SacsAbortException when the dog was interrupted mid-throw (2026-11-18 02:57); nothing catches it and the thrower is
-    // reset. Fix: that exception ends the game the way ThrowLoop's own no-dog branch does (ExitReason.Finished): Run's loop
-    // ends and its tail plays Exit, destroys the stick and finishes the dog's side. Counters [3990] fetch games ended,
-    // [3991] seen with the switch off (EA's exception goes on).
     public static partial class Fixes
     {
         public class OverwatchResetGoneHook
@@ -57,21 +50,6 @@ namespace Ts3Fixes
         static bool MnhApplies(Sim sim)
         {
             return sim != null && sim.Household == null && sim.SimDescription != null && !sim.SimDescription.IsPet && sMnhHousehold != null && Household.NpcHousehold != null;
-        }
-
-        public class FetchAbortHook
-        {
-            public void ThrowHook()
-            {
-                try { ThrowOrig(); }
-                catch (SacsAbortException)
-                {
-                    if (!ShortcutOn("fetchabort")) { PatchCounters()[3991]++; throw; }
-                    ((PlayFetchJig.PlayFetchHumanInteraction)(object)this).Actor.AddExitReason(ExitReason.Finished);
-                    PatchCounters()[3990]++;
-                }
-            }
-            public void ThrowOrig() { } // receives PlayFetchJig.PlayFetchHumanInteraction.ThrowLoop's original body
         }
     }
 }

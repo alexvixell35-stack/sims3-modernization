@@ -940,7 +940,7 @@ namespace Ts3Fixes
         // [3977-3979] outfitmissing (OutfitMissing.cs): SwitchOutfitHelper.Init for a missing outfit (pregnant Sims' special outfits) made no-change / seen with the switch off (EA throws) / guard errors.
         // [3980-3982] ageupdupinst (AgeUpDupInst.cs, #553): second instantiations during a deferred age-up answered with the first call's Sim / seen with the switch off (EA throws) / no Sim made (rethrown).
         // [3983-3985] overwatchrelretry (OwRelRetry.cs): Overwatch CleanupRelationships re-runs after "out of sync" / seen with the switch off / still failing after 50 runs.
-        // [3986-3991] OneOffGuards.cs: overwatchresetgone destroyed Sims skipped in a reset / seen off; motivesnohousehold CreateMotives with the NpcHousehold stand-in / seen off; fetchabort fetch games ended on SacsAbortException / seen off.
+        // [3986-3991] OneOffGuards.cs: overwatchresetgone destroyed Sims skipped in a reset / seen off; motivesnohousehold CreateMotives with the NpcHousehold stand-in / seen off; 3990-3991 spare (fetchabort withdrawn).
         // [2062-2064] petpoolorphan (PetPoolOrphan.cs, issue #166 build 52, docs/534): pets dropped from a pool with no household and no family links disposed / left (a Sim in the world) / Dispose threw.
         // [2065] reltablesapart (RelTablesApart.cs, issue #166 build 14, docs/535): relationship pairs whose two tables had come apart, rejoined with the other side's relationship.
         // [2067-2068] errortrapsims (ErrorTrapSims.cs): dead Sim objects dropped from NRaas ErrorTrap's CheckSim.mInited, keys left after the last pass. [2069-2071] unused.
@@ -2586,7 +2586,6 @@ namespace Ts3Fixes
                 case "ageupdupinst": return Instantiator.kAgeUpDupInst;
                 case "overwatchresetgone": return Instantiator.kOverwatchResetGone;
                 case "motivesnohousehold": return Instantiator.kMotivesNoHousehold;
-                case "fetchabort": return Instantiator.kFetchAbort;
                 case "overwatchrelretry": return Instantiator.kOverwatchRelRetry;
                 case "fireworkswatchlate": return Instantiator.kFireworksWatchLate;
                 case "rolenullpurge": return Instantiator.kRoleNullPurge;
