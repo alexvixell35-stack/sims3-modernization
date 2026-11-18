@@ -352,6 +352,10 @@ namespace Ts3Fixes
         {
             public static bool PutHook(Sim sim, ISurface surface, SurfaceType type, bool forceRoute, bool requireChair, bool playRouteFail)
             {
+                // bookhand (BookHand.cs): the carry machine can go null after CarrySystem.PutDown's own guard ran (the routing to
+                // a surface yields); PutDownOnSurface then throws at CarryStateMachine.SetParameter. Same fix, same switch, same counters.
+                try { if (sim != null) BhAt(sim, BookHandCore.PutDownWouldThrow(BhStuck(sim), sim.LotCurrent == null), "CarrySystem.PutDownOnSurface"); }
+                catch (Exception) { }  // the guard never stops EA's put-down
                 IGameObject held = sim == null ? null : sim.GetObjectInRightHand();
                 bool track = held != null && surface != null && !(held is ICarryDestroyOnPutDown);
                 if (track) sPpPending[held] = true;

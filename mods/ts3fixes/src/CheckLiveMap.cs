@@ -134,6 +134,7 @@ namespace Ts3Fixes
                 case "elevatorkitten": return EpLive(typeof(BEkHook), 1);
                 case "elevatorresetriders": return EpLive(typeof(BErHook), 1);
                 case "elevatorridertimeout": return EpLive(typeof(BE2Hook), 1, "sErAssigned", sErAssigned, null);
+                case "errortraploop": return EpLive(typeof(ErrorTrapLoopHook), 1);
                 case "etderefdiag": return EpLive(typeof(EtdHook), 1);
                 case "eventcost": return EpLive(typeof(EcHook), 1);
                 case "eventcrowdring": return EpJoin(EpLive(typeof(CeremonySpotHook), 1), EpLive(typeof(EventCrowdRingHook), 1));
@@ -148,11 +149,13 @@ namespace Ts3Fixes
                 case "fearfaintundo": return EpLive(typeof(B12FfHook), 1, "sFfJig", sFfJig, null);
                 case "fieldtripadult": return EpLive(typeof(FtaHook), 2, "sFtaSchoolLot", sFtaSchoolLot, null, "sFtaFailed", sFtaFailed, null, "sFtaCarpool", sFtaCarpool, typeof(bool), "sFtaCarpool", sFtaCarpool, null);
                 case "fightbroadcastend": return EpLive(typeof(BFbHook), 1);
+                case "fightstaycap": return EpLive(typeof(FightStayCapHook), 1);
                 case "filtergridleak": return EpLive(typeof(FglHook), 0);
                 case "firefightercount": return EpLive(typeof(B13FcHook), 1, "sFcMax", sFcMax, 0);
                 case "firepitchair": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatParkGoneHook), 1), EpLive(typeof(BookHandPutDownHook), 1)), EpLive(typeof(BookHandQueueHook), 1, "sBhActor", sBhActor, null)), EpLive(typeof(BribeHook), 1, "sBribeTable", sBribeTable, null)), EpLive(typeof(CarryHook), 1)), EpLive(typeof(ConvTurnHook), 1)), EpLive(typeof(FireworksFizzleHook), 0)), EpLive(typeof(GraduationAttendHook), 1)), EpLive(typeof(GraduationCityHallHook), 1)), EpLive(typeof(OutfitClearHook), 2)), EpLive(typeof(SwAbuseHook), 1)), EpLive(typeof(SwAdoptHook), 1)), EpLive(typeof(SwPetAdoptHook), 1)), EpLive(typeof(SwPutUpHook), 1)), EpLive(typeof(ThrowHook), 3)), EpLive(typeof(TopicHook), 4));
                 case "fireplaceherb": return EpLive(typeof(FphAddHook), 1);
                 case "firetrapcount": return EpJoin(EpLive(typeof(FtcJobHook), 1, "sFtcSpec", sFtcSpec, null, "sFtcPositions", sFtcPositions, null), EpLive(typeof(FtcSitHook), 2));
+                case "fireworkswatchlate": return EpLive(typeof(FireworksWatchLateHook), 0);
                 case "flowersinuse": return EpLive(typeof(FlowersInUseHook), 1);
                 case "foodtraygrill": return EpLive(typeof(B12FtgHook), 1);
                 case "freshclothingresume": return EpLive(typeof(BFcHook), 1, "sFcMap", sFcMap, null);
@@ -216,6 +219,7 @@ namespace Ts3Fixes
                 case "lightningweights": return EpLive(typeof(B13LwHook), 1, "sLwWeights", sLwWeights, null, "sLwWeights", sLwWeights, "static");
                 case "littercap": return EpLive(typeof(LitterCapHook), 1);
                 case "lookatcopy": return EpLive(typeof(B12LaHook), 1);
+                case "loopidlebridge": return EpLive(typeof(LoopIdleBridgeHook), 1, "sLiIdling", sLiIdling, null);
                 case "lotmgrcallbacks": return EpLive(typeof(LmcLoadHook), 2);
                 case "lotprune": return EpLive(typeof(B12LpHook), 1, "sLpMap", sLpMap, null, "sLpMap", sLpMap, "static", "sLpCount", sLpCount, "get");
                 case "lottotooltip": return EpLive(typeof(B12LtHook), 1, "sLtStart", sLtStart, typeof(float), "sLtStart", sLtStart, "static", "sLtEnd", sLtEnd, typeof(float), "sLtEnd", sLtEnd, "static", "sLtLoc", sLtLoc, 2);
@@ -331,6 +335,7 @@ namespace Ts3Fixes
                 case "rhentryrelaxnear": return EpLive(typeof(RheEnterHook), 1);
                 case "rhexitunseen": return EpLive(typeof(RhxSkipHook), 1);
                 case "rolenullguard": return EpJoin(EpJoin(EpJoin(EpLive(typeof(BRnDrinkHook), 1), EpLive(typeof(BRnSnackHook), 1)), EpLive(typeof(BRnSocialHook), 1)), EpLive(typeof(BRnWaiterHook), 2));
+                case "rolenullpurge": return EpLive(typeof(RoleNullPurgeHook), 1);
                 case "roleunprotect": return EpLive(typeof(B12RuHook), 1, "sRuSim", sRuSim, null, "sRuFlag", sRuFlag, typeof(bool), "sRuFlag", sRuFlag, null);
                 case "romancecooldown": return EpLive(typeof(B12RcHook), 1, "sRcStc", sRcStc, null, "sRcStc", sRcStc, "static");
                 case "roundupreturn": return EpLive(typeof(B13RuHook), 1);
@@ -372,7 +377,7 @@ namespace Ts3Fixes
                 case "snowfightjoinwait": return EpLive(typeof(SnowFightHook), 0);
                 case "snublistener": return EpLive(typeof(BSnlHook), 1);
                 case "socialfinish": return EpLive(typeof(SfHook), 1);
-                case "socialnoeffect": return EpLive(typeof(BSnHook), 1, "sSnEffect", sSnEffect, null);
+                case "socialnoeffect": return EpJoin(EpLive(typeof(BSnHook), 1, "sSnEffect", sSnEffect, null), EpLive(typeof(SocialNoEffectHook), 1, "sSnEffect", sSnEffect, null));
                 case "socialworkeronlot": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatParkGoneHook), 1), EpLive(typeof(BookHandPutDownHook), 1)), EpLive(typeof(BookHandQueueHook), 1, "sBhActor", sBhActor, null)), EpLive(typeof(BribeHook), 1, "sBribeTable", sBribeTable, null)), EpLive(typeof(CarryHook), 1)), EpLive(typeof(ConvTurnHook), 1)), EpLive(typeof(FireworksFizzleHook), 0)), EpLive(typeof(GraduationAttendHook), 1)), EpLive(typeof(GraduationCityHallHook), 1)), EpLive(typeof(OutfitClearHook), 2)), EpLive(typeof(SwAbuseHook), 1)), EpLive(typeof(SwAdoptHook), 1)), EpLive(typeof(SwPetAdoptHook), 1)), EpLive(typeof(SwPutUpHook), 1)), EpLive(typeof(ThrowHook), 3)), EpLive(typeof(TopicHook), 4));
                 case "socialworkerpromise": return EpLive(typeof(W86MgrHook), 3);
                 case "spacesimpartner": return EpJoin(EpLive(typeof(SsHook), 1), EpLive(typeof(SsSimHook), 1));

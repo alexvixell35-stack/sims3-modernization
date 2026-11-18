@@ -176,6 +176,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kInvNotYet value="True" />
     <kMetricSkillMissing value="True" />
     <kFireworksFizzle value="True" />
+    <kFireworksWatchLate value="False" />
+    <kRoleNullPurge value="False" />
+    <kErrorTrapLoop value="False" />
+    <kFightStayCap value="False" />
+    <kLoopIdleBridge value="False" />
     <kBookHand value="True" />
     <kBookHandDiag value="False" />
     <kPetPoolOrphan value="True" />

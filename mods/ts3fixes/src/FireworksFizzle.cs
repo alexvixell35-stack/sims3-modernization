@@ -59,33 +59,9 @@ namespace Ts3Fixes
             if (what != "expect broken" && what != "expect fixed") return "fireworksfizzle <expect broken|expect fixed>";
             Sim sim = Sim.ActiveActor;
             if (sim == null) throw new InvalidOperationException("fireworksfizzle check: no active Sim");
-            // the instance names EA sells fireworks by: the Shopping XML's FireworkBundles table, MedatorNames "name:EPx,..."
-            // (FireworksBundle.ParseMedatorNameAndPV); the first one that makes a FireworksBase is used
-            FireworksBase fw = null;
-            string tried = "";
-            XmlDbData x = XmlDbData.ReadData("Shopping");
-            XmlDbTable tb = null;
-            if (x != null && x.Tables != null) x.Tables.TryGetValue("FireworkBundles", out tb);
-            if (tb != null)
-                foreach (XmlDbRow row in tb.Rows)
-                {
-                    string[] names;
-                    ParserFunctions.ParseCommaSeparatedString(row["MedatorNames"], out names);
-                    if (names != null)
-                        foreach (string nv in names)
-                        {
-                            if (fw != null) break;
-                            string[] p = nv.Split(':');
-                            ProductVersion pv;
-                            if (p.Length < 2 || !ParserFunctions.TryParseEnum<ProductVersion>(p[1], out pv, ProductVersion.EP8) || !GameUtils.IsInstalled(pv)) continue;
-                            tried += p[0] + " ";
-                            IGameObject o = GlobalFunctions.CreateObjectOutOfWorld(p[0], pv);
-                            fw = o as FireworksBase;
-                            if (fw == null && o != null) o.Destroy();
-                        }
-                    if (fw != null) break;
-                }
-            if (fw == null) throw new InvalidOperationException("fireworksfizzle check: no FireworksBase from the FireworkBundles names (" + (tb == null ? "no table" : "tried " + tried) + ")");
+            string tried;
+            FireworksBase fw = FwMakeOutOfWorld(out tried);
+            if (fw == null) throw new InvalidOperationException("fireworksfizzle check: no FireworksBase from the FireworkBundles names (" + tried + ")");
             bool hadFinished = sim.HasExitReason(ExitReason.Finished);
             string threw = "nothing";
             bool finished, failState;
@@ -115,6 +91,37 @@ namespace Ts3Fixes
                                               : on && threw == "nothing" && finished && failState;
             if (!ok) throw new InvalidOperationException("fireworksfizzle " + what + ": wrong outcome; " + line);
             return "as expected; " + line;
+        }
+
+        // The instance names EA sells fireworks by: the Shopping XML's FireworkBundles table, MedatorNames "name:EPx,..."
+        // (FireworksBundle.ParseMedatorNameAndPV); the first one that makes a FireworksBase is returned, out of world.
+        static FireworksBase FwMakeOutOfWorld(out string tried)
+        {
+            FireworksBase fw = null;
+            tried = "";
+            XmlDbData x = XmlDbData.ReadData("Shopping");
+            XmlDbTable tb = null;
+            if (x != null && x.Tables != null) x.Tables.TryGetValue("FireworkBundles", out tb);
+            if (tb == null) { tried = "no table"; return null; }
+            foreach (XmlDbRow row in tb.Rows)
+            {
+                string[] names;
+                ParserFunctions.ParseCommaSeparatedString(row["MedatorNames"], out names);
+                if (names != null)
+                    foreach (string nv in names)
+                    {
+                        if (fw != null) break;
+                        string[] p = nv.Split(':');
+                        ProductVersion pv;
+                        if (p.Length < 2 || !ParserFunctions.TryParseEnum<ProductVersion>(p[1], out pv, ProductVersion.EP8) || !GameUtils.IsInstalled(pv)) continue;
+                        tried += p[0] + " ";
+                        IGameObject o = GlobalFunctions.CreateObjectOutOfWorld(p[0], pv);
+                        fw = o as FireworksBase;
+                        if (fw == null && o != null) o.Destroy();
+                    }
+                if (fw != null) break;
+            }
+            return fw;
         }
     }
 }

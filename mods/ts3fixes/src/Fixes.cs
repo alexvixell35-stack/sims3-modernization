@@ -719,6 +719,15 @@ namespace Ts3Fixes
         // [2058] invnotyet (InvNotYet.cs, issue #166 build 13, docs/531): objects TryAddObjectToInventory destroyed and refused for a Sim with no inventory yet.
         // [2059-2060] metricskillmissing (MetricSkillMissing.cs, issue #166 build 94, docs/532): skill metric titles / descriptions given an empty skill name, values answered Map0 (neutral), for a skill with no static skill.
         // [2061] fireworksfizzle (FireworksFizzle.cs, issue #166 build 23, docs/533): fireworks watchers finished on a fizzle without EA's LaunchFailure state request.
+        // [2778-2779] errortraploop (ErrorTrapLoop.cs): ErrorTrap re-run loops ended (same error 3 times on one non-Sim task) / errors.
+        // [2784] errortraploop (ErrorTrapLoop.cs, diagnostic): OnScriptError hook calls with a re-run answer and the switch on.
+        // [2783] tagunseen (TagUnseen.cs): Tag players sent out at the no-route cap (120 sim min of laps with no route).
+        // [2788] watchdog (RouteFixes.cs NotePlanResult): failed plans of a bouncer in VelvetRopes+WatchDoor, not counted for "route plans failing".
+        // [2785-2787] socialnoeffect guard (SocialNoEffectGuard.cs): socials with no rule ended at GetStateMachine / no rule with the switch off (EA throws) / errors.
+        // [2775-2777] rolenullpurge (RoleNullPurge.cs): null role lists removed / null Roles removed / errors, before EA's VerifyRoleGivingObjectRoles.
+        // [2797-2799] loopidlebridge (LoopIdleBridge.cs): stale bridges (host reset, no C++ driver) dropped in Sim.LoopIdle / seen with the switch off (EA throws) / guard errors.
+        // [2719-2721] fightstaycap (FightStayCap.cs): Sims released from a snow/water fight after 120 sim min / hook errors / fight members not found.
+        // [2780-2782] fireworkswatchlate (FireworksWatchLate.cs): late watchers sent through LoopWatch before Exit / members not found (EA's Run used) / EA's Run threw SacsErrorException (switch off).
         // [2062-2064] petpoolorphan (PetPoolOrphan.cs, issue #166 build 52, docs/534): pets dropped from a pool with no household and no family links disposed / left (a Sim in the world) / Dispose threw.
         // [2065] reltablesapart (RelTablesApart.cs, issue #166 build 14, docs/535): relationship pairs whose two tables had come apart, rejoined with the other side's relationship.
         // [2067-2068] errortrapsims (ErrorTrapSims.cs): dead Sim objects dropped from NRaas ErrorTrap's CheckSim.mInited, keys left after the last pass. [2069-2071] unused.
@@ -2093,6 +2102,11 @@ namespace Ts3Fixes
                 case "invnotyet": return Instantiator.kInvNotYet;
                 case "metricskillmissing": return Instantiator.kMetricSkillMissing;
                 case "fireworksfizzle": return Instantiator.kFireworksFizzle;
+                case "fireworkswatchlate": return Instantiator.kFireworksWatchLate;
+                case "rolenullpurge": return Instantiator.kRoleNullPurge;
+                case "errortraploop": return Instantiator.kErrorTrapLoop;
+                case "fightstaycap": return Instantiator.kFightStayCap;
+                case "loopidlebridge": return Instantiator.kLoopIdleBridge;
                 case "bookhand": return Instantiator.kBookHand;
                 case "bookhanddiag": return Instantiator.kBookHandDiag;
                 case "petpoolorphan": return Instantiator.kPetPoolOrphan;
