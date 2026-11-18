@@ -42464,7 +42464,9 @@
         "args": {
           "ageupkeepoutfits": true,
           "deadrefguards": true,
-          "deadrefsweep": true
+          "deadrefsweep": true,
+          "deadrefconvo": true,
+          "ghostreactdeadsim": true
         },
         "waitS": 1
       },
@@ -100572,7 +100574,7 @@
   {
     "id": "woohootywait-check",
     "bug": "The WooHooty-text invitee can wait forever for the texter (docs/573 §4)",
-    "fix": "ts3fixes PhoneLogic.cs: woohootywait (default off), docs/573 §4",
+    "fix": "ts3fixes PhoneLogic.cs: woohootywait (default on since 2026-11-18, docs/289), docs/573 §4",
     "save": "any world (pure check)",
     "note": "WooHootyWaitCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
     "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",

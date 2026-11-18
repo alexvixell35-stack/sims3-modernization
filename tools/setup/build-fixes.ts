@@ -237,7 +237,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kDnpObjKeys value="True" />
     <kRelTablesApart value="True" />
     <kAsyncJigSync value="True" />
-    <kDeadRefSweep value="False" />
+    <kDeadRefSweep value="True" />
     <kVacExport value="False" />
     <kVacStoreGuard value="False" />
     <kVacReturnSkip value="False" />
@@ -253,8 +253,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBoatGetOutGuard value="False" />
     <kUnseenOutfitDefer value="True" />
     <kBoatParkGone value="True" />
-    <kDeadRefCooking value="False" />
-    <kDeadRefConvo value="False" />
+    <kDeadRefCooking value="True" />
+    <kDeadRefConvo value="True" />
     <kTakeARiskGuard value="True" />
     <kMiniHomeLot value="True" />
     <kVehParkReserve value="False" />
@@ -266,11 +266,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kCasRowLeak value="True" />
     <kCompositorLeak value="True" />
     <kGenealogyCycle value="True" />
-    <kSpouseUnlink value="False" />
-    <kRelRemoveSafe value="False" />
-    <kFamilyInvGhost value="False" />
+    <kSpouseUnlink value="True" />
+    <kRelRemoveSafe value="True" />
+    <kFamilyInvGhost value="True" />
     <kSellCursorLeak value="True" />
-    <kAttractionAlarm value="False" />
+    <kAttractionAlarm value="True" />
     <kUncleGuard value="True" />
     <kMoodDrift value="True" />
     <kDnpDisposeListener value="True" />
@@ -587,7 +587,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kPhoneLoadReset value="True" />
     <kPhoneCallSchedule value="True" />
     <kPhoneCallRearm value="True" />
-    <kWooHootyWait value="False" />
+    <kWooHootyWait value="True" />
     <kInviteCallReply value="True" />
     <kGradVisitors value="True" />
     <kResumeTns value="True" />
@@ -730,7 +730,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSocialWorkerPromise value="True" />
     <kEnumCmpNoBox value="True" />
     <kAlarmCmpNoBox value="True" />
-    <kSarcMummyNpc value="False" />
+    <kSarcMummyNpc value="True" />
   </Current_Tuning>
 </base>
 `;

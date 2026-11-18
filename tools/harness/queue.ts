@@ -326,10 +326,10 @@ type Job = { id: string; note?: string; asi: string; ini?: Record<string, string
     profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string }; rewindGames?: { n: number; profile: { minutes: number; seed?: number; fixesOn?: string; fixesOff?: string }; ab?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; apexProfiler?: boolean; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; crashHunt?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
   saveMatrix?: { fixes?: 'all' | 'shipped' }; regexCases?: Record<string, { match: string[]; noMatch: string[] }>; fixesBuild?: string; fixesPackage?: string; iniBase?: string; dogfood?: boolean; pinReason?: string; rerunOf?: string; retryOf?: string; kcOf?: string; expectHang?: string; shadowCheck?: boolean; quitsGame?: boolean; skipIfMissing?: boolean; ourMods?: false; rewind?: false };
 
-function checkRegexCases(cases: Record<string, { match?: unknown; noMatch?: unknown }>, res: string[], at: string) {
-  for (const re of res) if (!cases[re]) throw new Error(`${at}: regexCases has no case for /${re}/`);
+function checkRegexCases(cases: Record<string, { match?: unknown; noMatch?: unknown }>, res: string[], at: string, requireAll = true) {
+  if (requireAll) for (const re of res) if (!cases[re]) throw new Error(`${at}: regexCases has no case for /${re}/`);
   for (const [re, c] of Object.entries(cases)) {
-    if (!res.includes(re)) throw new Error(`${at}: regexCases /${re}/ is no logRequire / logForbid key`);
+    if (requireAll && !res.includes(re)) throw new Error(`${at}: regexCases /${re}/ is no logRequire / logForbid key`);
     const ok = (l: unknown) => Array.isArray(l) && l.length > 0 && l.every(x => typeof x === 'string');
     if (!ok(c.match) || !ok(c.noMatch)) throw new Error(`${at}: regexCases /${re}/ needs match and noMatch lists of >= 1 line`);
     const r = new RegExp(re);
@@ -443,6 +443,9 @@ export function parseQueue(json: unknown): Job[] {
   const seen = new Set<string>();
   if (!Array.isArray(json)) parseRewindMode((json as any).rewind, 'queue rewind');
   if (!Array.isArray(json) && (json as any).rewindGroupBySave !== undefined && typeof (json as any).rewindGroupBySave !== 'boolean') throw new Error('queue rewindGroupBySave must be true or false');
+  // queue-level regexCases were never tested: an unescaped "(gcgMode 0)" key FAILed bp-gcsub-smoke (gc-subtimers-measure-1118).
+  // Lines only: queue-level cases also cover regexes outside logRequire/logForbid (earlyGates, older keys).
+  if (!Array.isArray(json) && (json as any).regexCases !== undefined) checkRegexCases((json as any).regexCases, [], 'queue', false);
   for (const [i, j] of jobs.entries()) {
     const at = `job ${i + 1}${j?.id ? ` (${j.id})` : ''}`;
     if (typeof j?.id !== 'string' || !/^[\w.-]+$/.test(j.id)) throw new Error(`${at}: id must be letters, digits, . _ -`);
@@ -1434,6 +1437,11 @@ if (values['self-check']) {
     { id: 'c', asi: 'tested', save: 'menu', run: { menuMemory: { waitS: 30 } } }]);
   assert.equal(ok.length, 3);
   assert.equal(parseQueue({ jobs: [{ id: 'm', asi: 'tested', save: 'S', run: { matrix: ['--cases', 'control'] } }] })[0].id, 'm');
+  // queue-level regexCases: real gcsub ts3native.log line vs the unescaped-paren key that FAILed bp-gcsub-smoke
+  const gcLine = 'GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3', gcNo = 'GC idle gate off (IdleGate=0)';
+  const qrc = (re: string) => parseQueue({ regexCases: { [re]: { match: [gcLine], noMatch: [gcNo] } }, jobs: [{ id: 'g', asi: 'tested', save: 'S', logRequire: { [re]: 1 }, run: { soak: { minutes: 1 } } }] });
+  assert.equal(qrc('^GC idle gate: IdleGate=2 \\(gcgMode 0\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$')[0].id, 'g');
+  assert.throws(() => qrc('^GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$'), /does not match/);
   const pq = parseQueue({ pin: false, jobs: [{ id: 'p', asi: 'tested', save: 'S', run: { soak: { minutes: 1 } } }, { id: 'q', asi: 'tested', save: 'S', pin: { cpus: '2-3' }, run: { soak: { minutes: 1 } } }] });
   assert.equal(pq[0].pin, false); assert.deepEqual(pq[1].pin, { cpus: '2-3' }); // queue-level default, job wins
   // timing sweep (pin.ts): on for timing jobs, pin.sweep true forces it on a noiseCheck-false profile job, non-boolean refused

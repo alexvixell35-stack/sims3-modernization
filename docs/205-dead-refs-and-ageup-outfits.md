@@ -178,7 +178,7 @@ save pass us, [410] passes refused or stopped, and items that threw. Agent names
 | --- | --- | --- | --- |
 | `ageupkeepoutfits` | `kAgeUpKeepOutfits` | off | keeps outfits that EA would remove |
 | `deadrefguards` | `kDeadRefGuards` | off | no (fewer re-added keys reach the next save) |
-| `deadrefsweep` | `kDeadRefSweep` | off | yes |
+| `deadrefsweep` | `kDeadRefSweep` | **ON since 2026-11-18** (Rodney; gate: save matrix PASS, a FAIL turns it off; ~23 ms per hourly pass, 2026-11-03 measurement) | yes |
 
 ## 4. Not built
 
@@ -203,3 +203,5 @@ The matrix's byte-identical cases do not apply: these switches change the save b
 save chain (ErrorTrap load scans, "SimDescription Removed" per load) is the end-to-end measure; we have no such save.
 
 Run: `node tools/harness/queue.ts tools/harness/queues/deadrefs-ageup.json` (after building ts3fixes and ts3agent).
+
+**2026-11-18 (Rodney):** `deadrefconvo` and `deadrefcooking` are default ON too, with `deadrefsweep`, in the save-matrix bundle (docs/289 §6); a matrix FAIL turns the culprit off.

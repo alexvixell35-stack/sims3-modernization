@@ -9,8 +9,8 @@ namespace Ts3Fixes
 {
     // hiddenroomspawn (docs/552 §2 and §10, off by default): prevention of the hidden-room trap at the three EA placements
     // that pick a spot with no room or route check (every other EA placement checks IsPointInLotSafelyRoutable, and the
-    // scans measured 0 of ~120 FGL landings in problem rooms getting past that check). NPCs only (PlayerSims.cs IsNpcSim);
-    // household and selected Sims keep EA's code. A spot is bad when it lies in a hidden room (Lot.IsRoomHidden) or, with a
+    // scans measured 0 of ~120 FGL landings in problem rooms getting past that check). Every Sim, household too (docs/289:
+    // Rodney 2026-11-18; it acts only when EA's spot is bad, where vanilla traps the Sim). A spot is bad when it lies in a hidden room (Lot.IsRoomHidden) or, with a
     // Sim to ask, in a room it has no allowed way outside from (HiddenRoom.cs HrReachesOutside).
     //   reset  Sim.AttemptToPutInSafeLocation: when EA's own search (AttemptToFindSafeLocation) finds nothing, EA puts the Sim
     //          at Lot.Position (home lot, else the current lot: the lot centre on the ground floor). If that is bad, the
@@ -76,7 +76,7 @@ namespace Ts3Fixes
             public bool PutHook(bool sendHome)
             {
                 Sim s = (Sim)(object)this;
-                bool hr = ShortcutOn("hiddenroomspawn") && IsNpcSim(s);
+                bool hr = ShortcutOn("hiddenroomspawn");  // every Sim, household too (docs/289, Rodney 2026-11-18): acts only when the spot is bad (HrSpotBad)
                 // safelocunhide (Batch582iLogic.cs, docs/582 B9 §5): any Sim; the copy below is EA's with the fallback unhide
                 if (!hr && !ShortcutOn("safelocunhide")) return PutOrig(sendHome);
                 Vector3 pos, fwd;
@@ -143,7 +143,7 @@ namespace Ts3Fixes
                 if (s == null || !ShortcutOn("hiddenroomspawn")) return s;
                 try
                 {
-                    if (!IsNpcSim(s) || !HrSpotBad(s.Position, s)) return s;
+                    if (!HhAuditCore.HrActs(true, HrSpotBad(s.Position, s))) return s;  // every Sim, household too (docs/289)
                     Lot near = (d != null ? d.VirtualLotHome : null) ?? lot;
                     Vector3 alt = Service.GetPositionInRandomLot(near);
                     if (alt == Vector3.Invalid) return s;

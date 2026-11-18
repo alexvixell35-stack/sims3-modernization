@@ -169,7 +169,7 @@ function reserveDoc(args: string[], c: boolean) {
   if (!what) throw new Error('usage: reserve doc --for <topic> [--by <who>]');
   return withLock(join(main, 'docs', 'registry.md.lock'), () => {
     const res = loadRes(main), dirs = [...new Set([join(wt, 'docs'), join(main, 'docs')])].filter(existsSync);
-    const max = Math.max(c ? CONTRIB.doc[0][0] - 1 : 0, ...dirs.map(d => docMax(readdirSync(d), c)), ...res.filter(r => r.kind === 'doc' && inRanges(r.to, CONTRIB.doc) === c).map(r => r.to));
+    const max = Math.max(c ? CONTRIB.doc[0][0] - 1 : 0, ...dirs.map(d => docMax(readdirSync(d), c)), ...res.filter(r => r.kind === 'doc').map(r => r.to ?? r.from).filter(n => Number.isFinite(n) && inRanges(n, CONTRIB.doc) === c));
     const n = c ? contribFrom(CONTRIB.doc, max) : max + 1;
     if (n < 0) throw new Error(`contributor doc ranges ${rangesText(CONTRIB.doc)} are full`);
     const r: Res = { id: `doc-${n}`, kind: 'doc', from: n, to: n, by, what, at: new Date().toISOString(), worktree: shownPath(wt) };

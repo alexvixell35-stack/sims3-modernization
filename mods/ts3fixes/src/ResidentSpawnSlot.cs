@@ -189,19 +189,18 @@ namespace Ts3Fixes
         // Review 2026-11-15: EA tests the resident's own door slot with `lot.LotLocationIsPublicResidential`, the CALLER's
         // lot (a phone invite passes the inviter's lot, also Annex / School / ShowStage), although the slot is on the
         // resident's VirtualLotHome, so an invited resident never spawns at its own door. `lot` is used nowhere else once
-        // VirtualLotHome is set, so with the switch on the method receives VirtualLotHome. Never for the active household.
+        // VirtualLotHome is set, so with the switch on the method receives VirtualLotHome. Every Sim, household too (docs/289, Rodney 2026-11-18).
         // Counted in [2882] / [2883].
-        internal static bool RsUseHome(bool on, bool hasHome, bool sameLot, bool household) { return on && hasHome && !sameLot && !household; }
+        internal static bool RsUseHome(bool on, bool hasHome, bool sameLot) { return HhAuditCore.RsUseHome(on, hasHome, sameLot); }
         static Lot RsTestLot(SimDescription d, Lot lot)
         {
             try
             {
                 Lot home = d == null ? null : d.VirtualLotHome;
-                bool household = d != null && d.Household != null && d.Household == Household.ActiveHousehold;
-                if (home == null || home == lot || household || sRsMissing.Length > 0) return lot;
+                if (home == null || home == lot || sRsMissing.Length > 0) return lot;
                 bool on = ShortcutOn("residentspawnslot");
                 PatchCounters()[on ? 2882 : 2883]++;
-                return RsUseHome(on, true, false, false) ? home : lot;
+                return RsUseHome(on, true, false) ? home : lot;
             }
             catch (Exception) { PatchCounters()[2885]++; return lot; }
         }

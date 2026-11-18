@@ -1,6 +1,6 @@
 # 552. Hidden rooms: Sims that cannot leave (apartments)
 
-**In-game status:** `hiddenroomnpc`, `hiddenroomspawn`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15.
+**In-game status:** `hiddenroomnpc`, `hiddenroomspawn`: proven in game 2026-11-14/15, Bridgeport, off BROKEN / on FIXED; all-on soak clean 2026-11-15. 2026-11-18 (Rodney, docs/289): `hiddenroomspawn` now acts for household and unknown-scope Sims too (both sites; only when the spot is bad); built as ts3fixes.package.hh-exempt-audit-1118b, NOT RUN.
 
 2026-11-14, static audit of the 1.67 script code (Sims3GameplaySystems, decompiled locally), check and fix built (in-game status above).
 Player report (a project dev): "if there are hidden rooms on the ground floor, Sims tend to get stuck. The game likes to
@@ -176,7 +176,7 @@ The trap status now follows the Sim through its description and says where it is
 **Rescue sooner.** `hiddenroomnpc` now acts on the first pass when the Sim has a failed route plan (≤ 10 sim-min after
 it tries to leave), still at most two tries per sim-day; the 2-pass rule stays for a Sim with no recorded failure.
 
-**Prevention: `hiddenroomspawn` (HiddenRoomSpawn.cs, default off, NPCs only; counters [2387-2390]).** A second switch,
+**Prevention: `hiddenroomspawn` (HiddenRoomSpawn.cs, every Sim since 2026-11-18; counters [2387-2390]).** A second switch,
 not part of `hiddenroomnpc`: it changes EA placement code (three hooks, swap-stack rows added) where `hiddenroomnpc` only
 sweeps, so each can be A/B-tested and turned off alone. A spot is bad when it is in a hidden room or (with a Sim) in a
 room it has no allowed way out of (`HrReachesOutside`).
@@ -192,7 +192,7 @@ room it has no allowed way out of (`HrReachesOutside`).
   `GetPositionInRandomLot(lot)` starts from `lot.EntryPoint()` too (verified), so the "else" option differs only when the
   entry point is itself bad.
 
-Household and selected Sims keep EA's code in all three. Repro `hidden-room-spawn`: `HiddenRoomCheck fallback <lot>`
+Household and selected Sims keep EA's code in the third (the sweep); the reset fallback and the new-Sim hook act for every Sim since 2026-11-18 (docs/289). Repro `hidden-room-spawn`: `HiddenRoomCheck fallback <lot>`
 computes the reset fallback (EA vs the hook's own function), calls the hooked corners search, and replays CreateSim's
 elevator spot, off then on, read-only (expected on Trawler Lodge: off `-> BROKEN`, on `-> FIXED`). Repro
 `hidden-room-trap` now traps in each arm at normal speed and checks ~20 sim-min later, before watchdog [49]'s window

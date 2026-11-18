@@ -26,7 +26,7 @@
     "SKIP unseen probe agent update: call at 0x0083CF52 is not a call to 0x00957210, nothing written"
    ]
   },
-  "^OK   anim split (docs/22 §6.1): anxReady d+ (pose sites on, .*time step on, .*locomotion pass (own|behind loco window))": {
+  "^OK   anim split \\(docs/22 §6.1\\): anxReady \\d+ \\(pose sites on, .*time step on, .*locomotion pass (own|behind loco window)\\)": {
    "match": [
     "OK   anim split (docs/22 §6.1): anxReady 1007 (pose sites on, clip sites on, 0x571C3C behind [UnseenAnim], locomotion split, root-motion sites own, time step on, drains on, event push on, locomotion pass behind loco window)"
    ],
@@ -81,7 +81,7 @@
    "^ts3native 0.36.277-unseenmeas1 ": 1,
    "^OK   unseen throttle rate: unseen walking Sims' agent update every 4 ticks": 1,
    "^OK   unseen probe: agent updates split visible / unseen": 1,
-   "^OK   anim split (docs/22 §6.1): anxReady d+ (pose sites on, .*time step on, .*locomotion pass (own|behind loco window))": 1
+   "^OK   anim split \\(docs/22 §6.1\\): anxReady \\d+ \\(pose sites on, .*time step on, .*locomotion pass (own|behind loco window)\\)": 1
   },
   "logForbid": {
    "^(SKIP|FAIL) (unseen throttle rate|unseen probe|anim split)": 0

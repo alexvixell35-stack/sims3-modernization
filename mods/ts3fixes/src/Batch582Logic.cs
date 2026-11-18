@@ -285,8 +285,7 @@ namespace Ts3Fixes
         // Pure: show the worker before CleanUp? (EA's destroy test inverted: destroy, alive, service household, no virtual home)
         internal static bool SsShowAtCleanUp(bool on, bool pending, bool destroy, bool alive, bool serviceHousehold, bool virtualHome)
         {
-            bool destroyed = destroy && alive && serviceHousehold && !virtualHome;
-            return on && pending && alive && !destroyed;
+            return HhAuditCore.SsShowAtCleanUp(on, pending, destroy, alive, serviceHousehold, virtualHome);
         }
 
         // Pure: skip EA's re-arm?
@@ -327,8 +326,8 @@ namespace Ts3Fixes
                         bool alive = !w.HasBeenDestroyed;
                         bool svcHh = w.Household != null && w.Household.IsServiceNpcHousehold;
                         bool vh = w.SimDescription != null && w.SimDescription.VirtualLotHome != null;
-                        bool hh = w.Household != null && w.Household == Household.ActiveHousehold;
-                        bool show = !hh && SsShowAtCleanUp(true, true, (bool)sSsDestroy.GetValue(ss), alive, svcHh, vh);
+                        // no household exemption (docs/289): EA never shows a worker whose alarm CleanUp removed, whoever it is
+                        bool show = SsShowAtCleanUp(true, true, (bool)sSsDestroy.GetValue(ss), alive, svcHh, vh);
                         if (show)
                         {
                             if (ShortcutOn("serviceshowalarm"))

@@ -98,7 +98,7 @@ export const EXEMPT: Record<string, string> = {
   gcidlegate: 'GC timing experiment, not a hitch fix: on vs off in one load (queues/gc-idle-gate-time-1117.json, docs/281 §8); natural allocation drives it, no Sim decision changes, correctness pairs in gc-idle-gate-correct-1117.json',
   doormirror: 'dead end as built: never run; door answers went through the P5 host-call proxy instead (docs/94 §19.1, docs/116); only comes back with docs/159 H4',
   errortrapsims: DEADSIM, errortraplookup: DEADSIM, errortrapctl: DEADSIM, celebritydeadsim: DEADSIM, seasonsdeadsim: DEADSIM,
-  ghostreactdeadsim: DEADSIM, dreamnodedeadsim: DEADSIM, overwatchdeadsim: DEADSIM, casuihandlers: DEADSIM, simrefsdeadsim: DEADSIM,
+  dreamnodedeadsim: DEADSIM, overwatchdeadsim: DEADSIM, casuihandlers: DEADSIM, simrefsdeadsim: DEADSIM,
   outfitwaitsaved: DEADSIM,
   tinyuieventreg: 'opt-in, Dalexlol CAS UI leak stress (#40: the CAS open/close stress runs read its sweep counters)',
   customctlsweep: 'opt-in, Dalexlol CAS UI leak stress (#40: the CAS open/close stress runs read its sweep counters)',

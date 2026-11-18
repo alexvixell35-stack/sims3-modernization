@@ -5,7 +5,6 @@
 # Excluded below: measurement, diagnostics, test-only, perf experiments, regressions and fixes not proven yet.
 # One switch per line; `node tools/harness/proven-fixes.ts` checks the file and prints it for EARLYFIX / `ag patches`.
 # Built 2026-11-15 from the 207 default-off switches (Fixes.cs ShortcutOn names -> Instantiator k* = false).
-woohootywait
 
 # Built 2026-11-15 from the 215 default-off switches (+8 docs/575-577, soak verdicts BROKEN/FIXED) (Fixes.cs ShortcutOn names -> Instantiator k* = false).
 # +23 2026-11-15: phase-20261115-2043 smallfix.txt, off BROKEN / on FIXED with controls ok (docs/582 batches 3-5, docs/575-577 sandwichalarm).
@@ -23,8 +22,8 @@ woohootywait
 # test-only, registry says test (vehicle leak tests, age-up swap, dead-Sim hollowing, joyride costume):
 #   ageupswap deadsimhollow vehfrankentaxi vehgetinleak vehparkreserve vehprotestcar vehseatdestroy
 # leak / save-data fixes, opt-in until measured (changes save data or not proven in game):
-#   attractionalarm casuihandlers deadrefguards deadrefsweep familyinvghost firepitchair preferredservice relremovesafe
-#   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim spouseunlink
+#   casuihandlers deadrefguards firepitchair preferredservice
+#   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim
 # gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
 #   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap
 #   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
@@ -45,10 +44,10 @@ woohootywait
 # built 2026-11-15, in-game off/on test pending (ufplansplit is log only; doorgen is default on since upstream #439):
 #   ufplansplit
 # new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:
-#   permamemo buffremovenoop catnamecache autroommemo autslicetime invcache vaclistenerpad spawncapcount deadrefcooking deadrefconvo
-sarcmummynpc
+#   permamemo buffremovenoop catnamecache autroommemo autslicetime invcache vaclistenerpad spawncapcount
+# 2026-11-18 (Rodney, save-matrix bundle, docs/289 §6): deadrefsweep deadrefconvo deadrefcooking sarcmummynpc spouseunlink relremovesafe familyinvghost attractionalarm moved to default ON (gate: save matrix PASS).
 # 2026-11-18 (Rodney: Dalexlol switches with his in-game repro go ON): 56 set switches + takeariskguard moved to default ON
-# (docs/data/results/2026-11-18-dalexlol-repro-switches-on.md). Still off: woohootywait (wait cap with no household
+# (docs/data/results/2026-11-18-dalexlol-repro-switches-on.md). Still off then, ON since docs/289 (ceiling on an endless EA wait): woohootywait (wait cap with no household
 # exemption, PhoneLogic.cs) and sarcmummynpc (removes a persisted NpcHousehold description: save-data change, opt-in).
 # passed in game 2026-11-17 (s75) but kept OFF by choice: near off-screen Sims could be noticed and it rarely applies (docs/632):
 #   unseenloopskip_offscreen

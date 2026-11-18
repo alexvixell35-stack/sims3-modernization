@@ -11,7 +11,7 @@
         "ts3native 0.36.277-unseenmeas1 2026-11-18 08:30:00"
       ]
     },
-    "^GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": {
+    "^GC idle gate: IdleGate=2 \\(gcgMode 0\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": {
       "match": [
         "GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3"
       ],
@@ -72,7 +72,7 @@
       "nativeRequire": "@gctReady>=1,gcgReady>=3,gctMarkN>=1,gctStopN>=1,gctFinN>=1,gctSweepN>=1,gcgSkipped<=0",
       "logRequire": {
         "^ts3native 0.36.279-gcsub1 ": 1,
-        "^GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^GC idle gate: IdleGate=2 \\(gcgMode 0\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
         "^OK   GC sub-timers: 10 call sites$": 1
       },
       "logForbid": {
@@ -133,7 +133,7 @@
       "nativeRequire": "@gctReady>=1,gcgReady>=3,gctMarkN>=1,gctStopN>=1,gctFinN>=1,gctSweepN>=1,gcgSkipped<=0",
       "logRequire": {
         "^ts3native 0.36.279-gcsub1 ": 1,
-        "^GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^GC idle gate: IdleGate=2 \\(gcgMode 0\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
         "^OK   GC sub-timers: 10 call sites$": 1
       },
       "logForbid": {
@@ -193,7 +193,7 @@
       "nativeRequire": "@gctReady>=1,gcgReady>=3,gctMarkN>=1,gctStopN>=1,gctFinN>=1,gctSweepN>=1,gcgSkipped<=0",
       "logRequire": {
         "^ts3native 0.36.279-gcsub1 ": 1,
-        "^GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^GC idle gate: IdleGate=2 \\(gcgMode 0\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
         "^OK   GC sub-timers: 10 call sites$": 1
       },
       "logForbid": {
@@ -253,7 +253,7 @@
       "nativeRequire": "@gctReady>=1,gcgReady>=3,gctMarkN>=1,gctStopN>=1,gctFinN>=1,gctSweepN>=1,gcgSkipped<=0",
       "logRequire": {
         "^ts3native 0.36.279-gcsub1 ": 1,
-        "^GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^GC idle gate: IdleGate=2 \\(gcgMode 0\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
         "^OK   GC sub-timers: 10 call sites$": 1
       },
       "logForbid": {

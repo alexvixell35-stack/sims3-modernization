@@ -24,7 +24,7 @@ namespace Ts3Fixes
 {
     // EA fields that keep disposed SimDescriptions and destroyed Sims, so the object graph behind them goes into every save
     // (issue #91, docs/205). Holders read in the decompiled game code [verified] unless marked; the per-holder counts are the
-    // reporter's [community]. Two switches, both default off:
+    // reporter's [community]. Two switches, both default ON since 2026-11-18 (save-matrix bundle):
     //   deadrefguards: Relationship.Get(SimDescription) makes no new entry for an invalid description (it re-adds one for any
     //     description asked about, e.g. from Dispose's own later steps after RemoveSimDescriptionRelationships); an existing
     //     entry is still returned, so EA's removal walks see it. AgingManager.IsAgingStateValid is false for an invalid
@@ -996,8 +996,8 @@ namespace Ts3Fixes
         // last live member leaves later, RemoveSim's one-member exit takes the gone Sim as the partner and throws [verified:
         // Conversation.RemoveSim, the same in simler90's core]. Gone members leave the list and the discourage region, the
         // turn and talked-last fields move to a live member, their topical-socials keys go; the live member's own later leave
-        // is then EA's normal empty-conversation exit. Household rule: a conversation with any household, selected or
-        // unknown-scope live member stays as EA has it. [995] members removed, [996] conversation visits skipped (household).
+        // is then EA's normal empty-conversation exit. Household too since 2026-11-18 (docs/289): a conversation with a
+        // household live member is cleaned like any other. [995] members removed, [996] unused since 2026-11-18 (household too, docs/289).
         static readonly FieldInfo sConvMembers = typeof(Conversation).GetField("mMembers", kInstAll);
         static readonly FieldInfo sConvTurn = typeof(Conversation).GetField("mWhoseTurn", kInstAll);
         static readonly FieldInfo sConvTalked = typeof(Conversation).GetField("mWhoTalkedLast", kInstAll);
@@ -1015,11 +1015,10 @@ namespace Ts3Fixes
             List<Sim> m = ConvMembers(s);
             if (m == null) return;
             Conversation cv = s.SocialComponent.Conversation;
-            List<Sim> gone = new List<Sim>(); bool household = false;
-            foreach (Sim x in m) { if (SimGone(x)) gone.Add(x); else if (IsPlayerSim(x)) household = true; }
+            List<Sim> gone = new List<Sim>();
+            foreach (Sim x in m) { if (HhAuditCore.DeadHolderDrop(true, SimGone(x))) gone.Add(x); }  // household members too (docs/289)
             if (gone.Count == 0) return;
             int[] c = PatchCounters();
-            if (household) { c[996]++; return; }
             foreach (Sim x in gone)
             {
                 try { if (cv.DiscourageRegion != null) cv.DiscourageRegion.RemoveMember(x); } catch (Exception) { } // a destroyed Sim's id may be cleared already

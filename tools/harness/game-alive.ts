@@ -135,11 +135,23 @@ export function watchGame(onDeath?: () => void) {
 export const GUARD_MS = 30000;
 export type GameSample = { running: boolean; answering: boolean; error?: string; mark: string };
 
+// committed MB of a hung game still wobbles by ~1 MB (bp-elexact 2026-11-18: 1301.6/1302.6 every 30 s for 10 min, the guard
+// never fired); a commit change under COMMIT_JITTER_MB with every other field equal is no progress (pure)
+export const COMMIT_JITTER_MB = 3;
+export function sameMark(a: string, b: string | null): boolean {
+  if (b === null) return false;
+  if (a === b) return true;
+  const x = a.split('|'), y = b.split('|');
+  return x.length === y.length && x.length > 2 && x[2] !== '' && y[2] !== ''
+    && x.every((v, i) => i === 2 || v === y[i]) && Math.abs(Number(x[2]) - Number(y[2])) < COMMIT_JITTER_MB;
+}
+
 // one guard step (pure, covered by --self-check): '' while progressing, else why this sample is a miss once misses >= 2
 export function stallStep(st: { last: string | null; misses: number }, s: GameSample, liveOnly = false): string {
+  const still = sameMark(s.mark, st.last);
   const why = !s.running ? `${GAME_EXE} process gone` : liveOnly ? '' : !s.answering ? `probe not answering (${s.error ?? '?'})`
-    : s.mark === st.last ? 'nothing moved (agent heartbeat, world flag, committed MB, ts3native.log)' : '';
-  if (s.answering) st.last = s.mark;
+    : still ? 'nothing moved (agent heartbeat, world flag, committed MB, ts3native.log)' : '';
+  if (s.answering && !still) st.last = s.mark; // kept while still: slow commit growth adds up past the jitter band
   st.misses = why ? st.misses + 1 : 0;
   return st.misses >= 2 ? why : '';
 }
@@ -406,6 +418,14 @@ if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-
   assert.equal(stallStep(st, smp('2|true|900|10|')), ''); assert.equal(st.misses, 0); // progress resets
   assert.equal(stallStep(st, smp('', true, false)), ''); assert.match(stallStep(st, smp('', true, false)), /probe not answering/);
   assert.equal(stallStep(st, smp('3|true|900|10|')), ''); assert.equal(st.misses, 0); // probe back and moving
+  const jt = { last: null as string | null, misses: 0 }; // bp-elexact 2026-11-18 marks: commit 1302/1303 alternating, nothing else moving
+  assert.equal(stallStep(jt, smp('|false|1302|87850|')), ''); assert.equal(stallStep(jt, smp('|false|1303|87850|')), '');
+  assert.match(stallStep(jt, smp('|false|1302|87850|')), /nothing moved/, 'a 1 MB commit wobble is no progress');
+  const cr = { last: null as string | null, misses: 0 };
+  assert.equal(stallStep(cr, smp('|false|1300|10|')), ''); assert.equal(stallStep(cr, smp('|false|1302|10|')), ''); // one miss
+  assert.equal(stallStep(cr, smp('|false|1304|10|')), ''); assert.equal(cr.misses, 0, 'creep past the band from the last moving sample is progress');
+  assert.equal(stallStep(cr, smp('|false|1304|11|')), ''); assert.equal(cr.misses, 0, 'log growth is progress');
+  assert.equal(sameMark('|false|1302|10|', '|false||10|'), false, 'no commit reading: plain compare');
   const lo = { last: null as string | null, misses: 0 };
   assert.equal(stallStep(lo, smp('a'), true), ''); assert.equal(stallStep(lo, smp('a'), true), ''); assert.equal(stallStep(lo, smp('a'), true), ''); // liveOnly ignores the mark
   assert.equal(stallStep(lo, smp('a', false), true), ''); assert.match(stallStep(lo, smp('a', false), true), /process gone/);
