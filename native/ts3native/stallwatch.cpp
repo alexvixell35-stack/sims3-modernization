@@ -15,7 +15,7 @@
 
 static volatile LONG g_ssTick;  // GetTickCount at the end of the last Simulate iteration, 0 = none yet
 static volatile DWORD g_ssSimTid;
-static DWORD g_ssStallMs = 5000, g_ssEveryMs = 10000;
+static DWORD g_ssStallMs = 5000, g_ssEveryMs = 10000, g_ssPollMs = 1000;  // StallMs/EveryMs (ms, optional) override StallS/EveryS for sub-second hitches
 static LONG g_ssLines = 6;
 static const DWORD SS_SIM_LO = TS3A(0x00D81840), SS_SIM_HI = TS3A(0x00D82110);  // MonoScriptHost_Simulate (simloop.cpp)
 
@@ -89,13 +89,13 @@ static void SsCheck(DWORD now, bool (*capture)(DWORD, char*, size_t, bool*)) {
     k.ssLines++;
     Max(&k.ssMaxMs, (LONG)age);
     const char* ph = g_udPhase;
-    Log("stall watch: sim thread %lu: no Simulate iteration finished for %lu s (%ld/%ld)%s%s: %s", g_ssSimTid, age / 1000, s.lines, g_ssLines,
+    Log("stall watch: sim thread %lu: no Simulate iteration finished for %lu ms (%ld/%ld)%s%s: %s", g_ssSimTid, age, s.lines, g_ssLines,
         ph ? ", save phase " : "", ph ? ph : "", line);
 }
 
 static DWORD WINAPI SsMain(LPVOID) {
     for (;;) {
-        Sleep(1000);
+        Sleep(g_ssPollMs);
         SsCheck(GetTickCount(), SsCapture);
     }
 }
@@ -112,12 +112,19 @@ static bool ApplyStallWatch(const wchar_t* ini) {
     g_ssStallMs = (DWORD)(stallS < 2 ? 2 : stallS > 120 ? 120 : stallS) * 1000;
     g_ssEveryMs = (DWORD)(everyS < 2 ? 2 : everyS > 300 ? 300 : everyS) * 1000;
     g_ssLines = lines < 1 ? 1 : lines > 30 ? 30 : lines;
+    const int stallMs = (int)GetPrivateProfileIntW(L"StallWatch", L"StallMs", 0, ini);  // sub-second sampling (0 = use StallS)
+    const int everyMs = (int)GetPrivateProfileIntW(L"StallWatch", L"EveryMs", 0, ini);
+    if (stallMs > 0) {
+        g_ssStallMs = (DWORD)(stallMs < 150 ? 150 : stallMs > 120000 ? 120000 : stallMs);
+        g_ssPollMs = g_ssStallMs / 3 < 1000 ? (g_ssStallMs / 3 < 25 ? 25 : g_ssStallMs / 3) : 1000;
+    }
+    if (everyMs > 0) g_ssEveryMs = (DWORD)(everyMs < 50 ? 50 : everyMs > 300000 ? 300000 : everyMs);
     if (!SimLoopAdd(SsIterate, "stall watch: iteration stamp")) { Log("SKIP stall watch: no Simulate iteration hook"); return false; }
     HANDLE t = CreateThread(NULL, 64 * 1024, SsMain, NULL, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
     if (!t) { Log("FAIL stall watch: thread (err %lu)", GetLastError()); return false; }
     CloseHandle(t);
     ts3native_counters.ssReady = 1;
-    Log("OK   stall watch (docs/67 §25): sim thread stack logged after %lu s without a finished Simulate iteration, every %lu s, up to %ld lines",
-        g_ssStallMs / 1000, g_ssEveryMs / 1000, g_ssLines);
+    Log("OK   stall watch (docs/67 §25): sim thread stack logged after %lu ms without a finished Simulate iteration, every %lu ms, poll %lu ms, up to %ld lines",
+        g_ssStallMs, g_ssEveryMs, g_ssPollMs, g_ssLines);
     return true;
 }
