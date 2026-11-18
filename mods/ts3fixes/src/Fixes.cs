@@ -723,6 +723,12 @@ namespace Ts3Fixes
         // [2058] invnotyet (InvNotYet.cs, issue #166 build 13, docs/531): objects TryAddObjectToInventory destroyed and refused for a Sim with no inventory yet.
         // [2059-2060] metricskillmissing (MetricSkillMissing.cs, issue #166 build 94, docs/532): skill metric titles / descriptions given an empty skill name, values answered Map0 (neutral), for a skill with no static skill.
         // [2061] fireworksfizzle (FireworksFizzle.cs, issue #166 build 23, docs/533): fireworks watchers finished on a fizzle without EA's LaunchFailure state request.
+        // [3992-3994] fightorphanwait (FightOrphan.cs): snow/water fight Waits the fight no longer holds (or whose fight / controller alarm is gone) ended after two hourly passes / left per pass (switch off) / errors.
+        // [3995-3997] poolnolane (PoolNoLane.cs): autonomous GetInPool / DoggyGetInPool offers refused for a pool with no enabled Inside lane / would have been refused (switch off) / errors.
+        // [3998-3999] spare (contributor range).
+        // [4000-4003] venuepicktime (VenuePickTime.cs, logging only): venue arrival picks timed / picks whose searches took >= 200 ms / ms in those searches / errors.
+        // [4004-4006] venuepickfast (VenuePickTime.cs, timing only, NPCs only): yields before a venue arrival motive search / searches not yielded (not the Sim's own task, no yield context, a player Sim) / errors.
+        // [4007-4016] autonomyfailcooldown (AutonomyFailCooldown.cs): autonomous offers refused in a cooldown / would have been refused (switch off) / route failures recorded / cooldowns started / route failures of household, selected or unknown-scope Sims not recorded / errors / continuation route failures recorded on their pusher / all-targets cooldowns started / route failures not counted after a locked door / route failures of a Hidden (script-pushed) head not recorded.
         // [2778-2779] errortraploop (ErrorTrapLoop.cs): ErrorTrap re-run loops ended (same error 3 times on one non-Sim task) / errors.
         // [2784] errortraploop (ErrorTrapLoop.cs, diagnostic): OnScriptError hook calls with a re-run answer and the switch on.
         // [2783] tagunseen (TagUnseen.cs): Tag players sent out at the no-route cap (120 sim min of laps with no route).
@@ -1512,7 +1518,7 @@ namespace Ts3Fixes
         // game's call (actor / other Sim out of scope, not indoor, seq overflow), errors, verify checks, differences, reorder-only differences
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
-        const int kCounterSlots = 4000;
+        const int kCounterSlots = 4200;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2372,6 +2378,11 @@ namespace Ts3Fixes
                 case "invnotyet": return Instantiator.kInvNotYet;
                 case "metricskillmissing": return Instantiator.kMetricSkillMissing;
                 case "fireworksfizzle": return Instantiator.kFireworksFizzle;
+                case "fightorphanwait": return Instantiator.kFightOrphanWait;
+                case "poolnolane": return Instantiator.kPoolNoLane;
+                case "autonomyfailcooldown": return Instantiator.kAutonomyFailCooldown;
+                case "venuepicktime": return Instantiator.kVenuePickTime;
+                case "venuepickfast": return Instantiator.kVenuePickFast;
                 case "fireworkswatchlate": return Instantiator.kFireworksWatchLate;
                 case "rolenullpurge": return Instantiator.kRoleNullPurge;
                 case "errortraploop": return Instantiator.kErrorTrapLoop;

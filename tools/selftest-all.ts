@@ -83,6 +83,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/jazzparam/run.ts': CSC,
   'tools/selftest/buffupdate/run.ts': CSC,
   'tools/selftest/carnoroute/run.ts': CSC,
+  'tools/selftest/autonomyfailcooldown/run.ts': CSC,
   'tools/selftest/dancefloorlistdiag/run.ts': CSC,
   'tools/selftest/autlocalprobe/run.ts': CSC,
   'tools/selftest/autshadowlocal/run.ts': CSC,

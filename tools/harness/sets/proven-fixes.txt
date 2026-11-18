@@ -53,3 +53,5 @@
 #   unseenloopskip_offscreen
 # maintainer switches added on master, not reviewed for this set (merge 2026-11-18):
 #   zdemptyout decaymemo burnttilefloor
+# built 2026-11-18 (autonomy quality PR), soak counters only, no forced off/on verdict yet; venuepicktime is logging only:
+#   fightorphanwait poolnolane autonomyfailcooldown venuepicktime venuepickfast

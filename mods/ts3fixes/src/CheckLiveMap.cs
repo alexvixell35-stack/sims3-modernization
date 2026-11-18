@@ -301,6 +301,7 @@ namespace Ts3Fixes
                 case "plantdormanttime": return EpLive(typeof(B13PtHook), 1, "sPfDormant", sPfDormant, typeof(bool), "sPtLast", sPtLast, null);
                 case "plumbotfacelistener": return EpLive(typeof(PlumbotFaceHook), 0, "sPfOwner", sPfOwner, null);
                 case "pondclearscan": return EpLive(typeof(PcsHook), 1);
+                case "poolnolane": return EpLive(typeof(PoolNoLaneHook), 0);
                 case "portaladaptorleak": return EpLive(typeof(PortalAdaptorHook), 1);
                 case "portasknohome": return EpLive(typeof(BPtHook), 1);
                 case "portraitpose": return EpLive(typeof(PpHook), 1, "sPpPaintee", sPpPaintee, null, "sPpPainter", sPpPainter, null);
@@ -484,6 +485,8 @@ namespace Ts3Fixes
                 case "vehprotestcar": return EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(VlGetInBoatHook), 0, "sVlGiBoatSim", sVlGiBoatSim, null, "sVlGiBoatId", sVlGiBoatId, null), EpLive(typeof(VlGetInCarHook), 0, "sVlGiCarSim", sVlGiCarSim, null)), EpLive(typeof(VlGetVehicleHook), 1)), EpLive(typeof(VlParkHook), 1)), EpLive(typeof(VlProtestHook), 1));
                 case "vehseatdestroy": return EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(VlGetInBoatHook), 0, "sVlGiBoatSim", sVlGiBoatSim, null, "sVlGiBoatId", sVlGiBoatId, null), EpLive(typeof(VlGetInCarHook), 0, "sVlGiCarSim", sVlGiCarSim, null)), EpLive(typeof(VlGetVehicleHook), 1)), EpLive(typeof(VlParkHook), 1)), EpLive(typeof(VlProtestHook), 1));
                 case "venuememo": return EpJoin(EpLive(typeof(TuningMemoHook), 0), EpLive(typeof(VenueScoreHook), 0));
+                case "venuepickfast": return EpLive(typeof(VenuePickHook), 1);
+                case "venuepicktime": return EpLive(typeof(VenuePickHook), 1);
                 case "vhomewalk": return EpLive(typeof(VirtualHomeHook), 1);
                 case "viproomrefresh": return EpLive(typeof(VipRefreshHook), 1);
                 case "virtualhome": return EpLive(typeof(VirtualHomeHook), 1);

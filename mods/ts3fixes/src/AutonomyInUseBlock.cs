@@ -73,6 +73,7 @@ namespace Ts3Fixes
             public void DeQueueHook(bool succeeded)
             {
                 if (DpOn()) DpStartNote(((InteractionQueue)(object)this).GetHeadInteraction());  // dormantprobe (DormantProbe.cs, docs/630)
+                AfcDeQueue((InteractionQueue)(object)this, succeeded);  // autonomyfailcooldown (AutonomyFailCooldown.cs)
                 if (!succeeded)
                 {
                     try

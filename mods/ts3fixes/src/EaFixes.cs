@@ -116,6 +116,9 @@ namespace Ts3Fixes
             Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "FindMetricValue", typeof(MetricSkillMissingHook), "ValueHook", "ValueOrig");  // MetricSkillMissing.cs, docs/532
             Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "MetricTitle", typeof(MetricSkillMissingHook), "TitleHook", "TitleOrig");  // MetricSkillMissing.cs, docs/532
             Patch(typeof(Sims3.Gameplay.Careers.MetricSkillX), "MetricDescription", typeof(MetricSkillMissingHook), "DescHook", "DescOrig");  // MetricSkillMissing.cs, docs/532
+            ApplyPoolNoLane();  // PoolNoLane.cs
+            ApplyAutonomyFailCooldown();  // AutonomyFailCooldown.cs
+            ApplyVenuePickTime();  // VenuePickTime.cs
             if (sFwWatch != null) Patch(sFwWatch, "LoopDel", typeof(FireworksFizzleHook), "LoopHook", "LoopOrig");  // FireworksFizzle.cs, docs/533
             if (sFwWatch != null) Patch(sFwWatch, "Run", Type.EmptyTypes, typeof(FireworksWatchLateHook), "RunHook", "RunOrig");  // FireworksWatchLate.cs
             Patch(typeof(Sims3.Gameplay.Roles.RoleManager), "VerifyRoleGivingObjectRoles", typeof(RoleNullPurgeHook), "VerifyHook", "VerifyOrig");  // RoleNullPurge.cs

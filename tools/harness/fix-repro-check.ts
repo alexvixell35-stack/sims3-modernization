@@ -148,6 +148,11 @@ export const EXEMPT: Record<string, string> = {
   motivebuf: 'Dalexlol #540: default off, not proven in game yet (routableasync held, #469); no forced repro',
   visitcar: 'Dalexlol docs/584 §1 unseen visit trips: judged by his harness evidence, no forced repro',
   visitwalkfinish: 'Dalexlol docs/584 §1 unseen visit trips: judged by his harness evidence, no forced repro',
+  // alexvixell35-stack autonomy quality PR (2026-11-18): soak counters, no forced trigger yet
+  poolnolane: 'EA bug fix (PoolNoLane.cs): needs a pool whose Inside lane slots are all disabled; no forced trigger yet, judged by soak counters 3995-3997',
+  autonomyfailcooldown: 'route-failure cooldown for NPC autonomy (AutonomyFailCooldown.cs): needs an NPC whose route to one object keeps failing; judged by soak counters 4007-4016 and its routefail lines, no forced repro',
+  venuepicktime: DIAG + ' (VenuePickTime.cs: venue arrival pick timing, logging only)',
+  venuepickfast: 'timing only (VenuePickTime.cs): one yield before each venue arrival motive search of an NPC; judged by venuepicktime in soaks, no forced repro',
 };
 
 // Every ts3fixes switch (a ShortcutOn("x") call or a SwDefault case in mods/ts3fixes/src) must be in the agent's names list,

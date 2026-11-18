@@ -110448,6 +110448,176 @@
     ]
   },
   {
+    "id": "ip-fight-orphan",
+    "bug": "SnowWaterFightWait idles in DoLoop until the fight's 1-minute ControllerCallback gives it an exit reason; a Sim in Wait that the fight no longer holds in PlayerSlots gets none: with NumPlayers 0 and the Sim still on the use list the callback returns every minute for good (townies Matthew Mango etl13 af18-ip-31363, Doug Rodel etl7 abip2-oo, Isla Paradiso beaches, 'Wait for opponents' to the end of the run)",
+    "fix": "ts3fixes FightOrphan.cs fightorphanwait (default off): hourly pass (ErrorTrapSims' alarm) notes a non-household Wait that is orphaned (fight gone, controller alarm gone, or Sim not in its slots) and ends the same Wait at the next pass with ExitReason.CanceledByScript (EA's own leave path: Exit, QuitFight, RouteAway). Counters [3992] ended, [3993] left (switch off), [3994] errors",
+    "save": "Baseline-IP",
+    "switches": [
+      "fightorphanwait"
+    ],
+    "fixesRequire": "slot3992>=1",
+    "note": "Causes the orphan on purpose. Two townie NPCs (pick_sims townies, re-checked by the agent: never the active household, a selectable Sim or unknown scope) are set up as setup_sims does (teleport, motives, autonomy off) on the community lot with the most IBeachObjects (EA's beach rule) and start a water balloon fight by EA's PlayWith.Run path (CreateAndPlaceFightArea + a JoinSingleton Wait each). Once both idle in Wait between throws, fight_orphan op orphan does what the inferred real cause does (IdleLoop's Move writing over a joiner's slot): picked:1's PlayerSlots entry is cleared, picked:2 is cancelled (QuitFight frees its slot and use-list entry). Vanilla then never ends picked:1's Wait (status orphaned true). 130 sim-minutes at ultra cover two hourly passes: noted at the first, ended at the second. agent command fight_orphan (FightOrphanHandlers.cs, agent build 11-18). Job window >= 15 min.",
+    "expect": "start: lot with beach_objects > 0, both Waits queued; orphan done true ('cleared from slot N, 1 other(s) cancelled'); status orphaned true, others_out true, num_players 0; after the ultra wait status freed true (picked:1 out of SnowWaterFightWait); slot3992 >= 1, slot3994 absent (0); 0 script errors",
+    "area": "fights",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fightorphanwait": true
+        },
+        "waitS": 1,
+        "note": "the fix on, read back"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "count": 2,
+          "age": "youngadult,adult",
+          "townies": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "fight_orphan",
+        "args": {
+          "op": "start",
+          "lot": "Sparkling Sands Beach"
+        },
+        "waitS": 5,
+        "note": "beach lot (named: no IP community lot counts an IBeachObject, 11-18 run), teleport, water balloon fight, both Waits queued"
+      },
+      {
+        "cmd": "fight_orphan",
+        "args": {
+          "op": "orphan"
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "fight_orphan",
+          "args": {
+            "op": "orphan"
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 240
+        },
+        "note": "acts once both idle in this fight's Wait (between throws); done false = not settled, polled"
+      },
+      {
+        "cmd": "fight_orphan",
+        "args": {
+          "op": "status"
+        },
+        "waitS": 5,
+        "until": {
+          "cmd": "fight_orphan",
+          "args": {
+            "op": "status"
+          },
+          "all": [
+            {
+              "path": "orphaned",
+              "equals": true
+            },
+            {
+              "path": "others_out",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        },
+        "note": "the vanilla stuck state: picked:1 in a Wait the fight does not hold, picked:2 gone"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitUntil": {
+          "simMinutes": 130
+        },
+        "maxS": 420,
+        "note": "two hourly FightOrphanPass runs (ErrorTrapSims' alarm): noted at the first, ended at the second"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "fight_orphan",
+        "args": {
+          "op": "status"
+        },
+        "waitS": 1,
+        "until": {
+          "cmd": "fight_orphan",
+          "args": {
+            "op": "status"
+          },
+          "all": [
+            {
+              "path": "freed",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 120
+        },
+        "note": "the fix ended picked:1's Wait (EA's Exit / QuitFight / RouteAway)"
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:1",
+          "enabled": true
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:2",
+          "enabled": true
+        },
+        "waitS": 1,
+        "optional": true
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:1",
+          "enabled": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:2",
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

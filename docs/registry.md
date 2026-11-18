@@ -47,7 +47,7 @@ The public repo lags the private one, so contributor PRs (currently alexvixell35
 |---|---|---|
 | `docs/NNN-*.md` | 500-599, then 600-899 (added 2026-11-17) | below 500 |
 | docs/51 inference ledger `## N.` | §900-999, then §1000-1499 (added 2026-11-17) | below 900 |
-| ts3fixes counter slots | 2000-2199 (full), 2200-2799 (2400-2799 added 2026-11-14), 2800-3999 (added 2026-11-17; `kCounterSlots` = 4000) | below 2000 |
+| ts3fixes counter slots | 2000-2199 (full), 2200-2799 (2400-2799 added 2026-11-14), 2800-3999 (added 2026-11-17, full), 4000-4199 (added 2026-11-19; `kCounterSlots` = 4200) | below 2000 |
 | ts3native counter version blocks | v900+ | below v900 |
 
 `node tools/registry.ts reserve --contributor <doc|ledger|fixes|native> ...` hands out the next free number of the range (same arguments as the normal `reserve`; without `--contributor` the ranges are skipped). Blocks are used in order, and a slot run never straddles a block end (2199/2200, 2799/2800): one that would not fit starts at the next block. ts3native version strings (`TS3NATIVE_VERSION`, changelog headings) are assigned by the maintainers at merge: a contributor PR writes "next version" and does not change the define. `tools/pr-preflight.ts` flags numbers outside the ranges and a changed version string (`--maintainer` turns that check off).
@@ -731,6 +731,11 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 1261 | `EnvListExact.cs` (r1x-1118, `fixes-1261`, docs/274 §11), `envlistmemoexact` | built 2026-11-18, default off, NOT RUN: scans sent to the game's call because the ts3native script worker had a job (agent `envlistexact_fb_worker`) |
 | 1262 | `EnvListExact.cs` (r1x-1118, `fixes-1262`, docs/274 §11.8), `envlistmemoexact` | built 2026-11-18, default off, NOT RUN: stand-downs (known conflicting assembly, another mod's swap of `CalculateSimEnvironmentScore`, another mod's cache in a lot's table; agent `envlistexact_standdown`) |
 | 1263 | reserved (save-ip-portable-1119, `fixes-1263`) | swaps refused: would move saved task frames (docs/293) |
+| 3992-3994 | `FightOrphan.cs` (`fixes-3992`, contributor range), `fightorphanwait` | built 2026-11-18, default off; fired once in repro ip-fight-orphan (2026-11-18): snow/water fight Waits whose fight no longer holds the Sim ended after two hourly passes (3992) / left per pass with the switch off (3993) / errors (3994) |
+| 3995-3997 | `PoolNoLane.cs` (`fixes-3995`, contributor range), `poolnolane` | built 2026-11-18, default off, NPCs only: autonomous GetInPool / DoggyGetInPool offers refused for a pool with no enabled Inside lane (3995) / would have been refused, switch off (3996) / errors (3997) |
+| 4000-4003 | `VenuePickTime.cs` (`fixes-4000`, contributor range), `venuepicktime` | built 2026-11-18, default off, logging only: venue arrival picks timed (4000) / picks whose searches took >= 200 ms (4001) / ms in those searches (4002) / errors (4003) |
+| 4004-4006 | `VenuePickTime.cs` (`fixes-4004`, contributor range), `venuepickfast` | built 2026-11-18, default off, NPCs only: yields before a venue arrival motive search (4004) / searches not yielded: not the Sim's own task, no yield context, a player Sim (4005) / errors (4006) |
+| 4007-4016 | `AutonomyFailCooldown.cs` (`fixes-4007`, contributor range), `autonomyfailcooldown` | built 2026-11-18, default off: autonomous offers refused in a cooldown (4007) / would have been refused, switch off (4008) / route failures recorded (4009) / cooldowns started (4010) / route failures of household, selected or unknown-scope Sims not recorded (4011) / errors (4012) / continuation failures recorded on their pusher (4013) / all-targets cooldowns started (4014) / failures not counted after a locked door (4015) / failures of a Hidden head not recorded (4016) |
 | **1264+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

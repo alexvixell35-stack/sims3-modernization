@@ -205,6 +205,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kLeaveJobDispose value="True" />
     <kInvNotYet value="True" />
     <kMetricSkillMissing value="True" />
+    <kFightOrphanWait value="False" />
+    <kPoolNoLane value="False" />
+    <kAutonomyFailCooldown value="False" />
+    <kVenuePickTime value="False" />
+    <kVenuePickFast value="False" />
     <kFireworksFizzle value="True" />
     <kFireworksWatchLate value="True" />
     <kRoleNullPurge value="True" />
