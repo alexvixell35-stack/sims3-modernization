@@ -516,7 +516,7 @@ namespace Ts3Fixes
                         int after = 0;
                         d[ulong.MaxValue - 1] = sim;
                         d[ulong.MaxValue - 2] = sim;
-                        try { ((PrefRemoveFn)Delegate.CreateDelegate(typeof(PrefRemoveFn), s, remove))(sim); } // swapped: see PrefRemoveFn
+                        try { ((PrefRemoveFn)Fixes.Bind(typeof(PrefRemoveFn), s, remove))(sim); } // swapped: see PrefRemoveFn
                         finally
                         {
                             foreach (SimDescription v in d.Values) if (v == sim) after++;

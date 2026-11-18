@@ -8428,6 +8428,300 @@
       "what": "EnvListExact stand-down count (envlistexact_standdown)",
       "at": "2026-11-18T09:59:14.620Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\r1x-1118"
+    },
+    {
+      "id": "ledger-519",
+      "kind": "ledger",
+      "from": 519,
+      "to": 519,
+      "by": "hh-exempt-audit-1118",
+      "what": "household exemption audit",
+      "at": "2026-11-18T11:09:44.947Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\hh-exempt-audit-1118"
+    },
+    {
+      "id": "doc-289",
+      "kind": "doc",
+      "from": 289,
+      "to": 289,
+      "by": "hh-exempt-audit-1118",
+      "what": "household exemption audit (unneeded exemptions)",
+      "at": "2026-11-18T11:10:09.391Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\hh-exempt-audit-1118"
+    },
+    {
+      "id": "ledger-520",
+      "kind": "ledger",
+      "from": 520,
+      "to": 520,
+      "by": "sims-3-modernization",
+      "what": "generational GC P0a (docs/290)",
+      "at": "2026-11-18T12:04:25.802Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-521",
+      "kind": "ledger",
+      "from": 521,
+      "to": 521,
+      "by": "sims-3-modernization",
+      "what": "generational GC P0b write barrier census (docs/290 §4)",
+      "at": "2026-11-18T12:05:34.080Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v215",
+      "kind": "native",
+      "version": 215,
+      "from": 26888,
+      "to": 27015,
+      "by": "gengc-1118",
+      "what": "[GC] Generational / GenStats / GenVerify gen* (gcgen.cpp, docs/290 §7)",
+      "at": "2026-11-18T12:13:30.728Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\gengc-1118"
+    },
+    {
+      "id": "ledger-522",
+      "kind": "ledger",
+      "from": 522,
+      "to": 522,
+      "by": "gengc-1118",
+      "what": "generational GC build: minor cycles, verify (docs/290 §9)",
+      "at": "2026-11-18T12:30:36.303Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\gengc-1118"
+    },
+    {
+      "id": "ledger-523",
+      "kind": "ledger",
+      "from": 523,
+      "to": 523,
+      "by": "lane-GB",
+      "what": "gengc-b4-sweep-finalize",
+      "at": "2026-11-18T12:33:07.165Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\gengc-b4-1118"
+    },
+    {
+      "id": "ledger-524",
+      "kind": "ledger",
+      "from": 524,
+      "to": 524,
+      "by": "bugfix-load-diag-r2-1118",
+      "what": "r1x-1118 load stall: ToInWorldState.Startup never returns",
+      "at": "2026-11-18T13:36:25.175Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\bugfix-load-diag-r2-1118"
+    },
+    {
+      "id": "native-v216",
+      "kind": "native",
+      "version": 216,
+      "from": 27016,
+      "to": 27079,
+      "by": "lane-CW",
+      "what": "[GC] GenCards gcc* (gccard.cpp, docs/290 §11): card table, write-watch merge, mode-2 counters, verify scan",
+      "at": "2026-11-18T13:38:22.390Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\gccard-w-1118"
+    },
+    {
+      "id": "ledger-525",
+      "kind": "ledger",
+      "from": 525,
+      "to": 525,
+      "by": "lane-CW",
+      "what": "gccard lane W+V: card table, write-watch union, verify scan (docs/290 §11)",
+      "at": "2026-11-18T13:49:22.241Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\gccard-w-1118"
+    },
+    {
+      "id": "ledger-526",
+      "kind": "ledger",
+      "from": 526,
+      "to": 526,
+      "by": "CMJ",
+      "what": "gccard lanes M + J: mint card stubs, compiled card marks (docs/290 §12)",
+      "at": "2026-11-18T13:50:48.773Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\gccard-mj-1118"
+    },
+    {
+      "id": "ledger-527",
+      "kind": "ledger",
+      "from": 527,
+      "to": 527,
+      "by": "CRE",
+      "what": "gccard lanes R+E runtime and EA native card marks",
+      "at": "2026-11-18T13:50:50.897Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\gccard-re-1118"
+    },
+    {
+      "id": "doc-291",
+      "kind": "doc",
+      "from": 291,
+      "to": 291,
+      "by": "s3mm-compat-1118",
+      "what": "S3MM (Sims3MonoModder) static compat",
+      "at": "2026-11-18T13:56:45.024Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-528",
+      "kind": "ledger",
+      "from": 528,
+      "to": 528,
+      "by": "s3mm-compat-1118",
+      "what": "S3MM compat",
+      "at": "2026-11-18T13:56:45.288Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v217",
+      "kind": "native",
+      "version": 217,
+      "from": 27080,
+      "to": 27111,
+      "by": "jit-yieldbodies-1118",
+      "what": "[MonoJit] YieldBodies jitYb* (monojit.cpp, docs/537 §34): yield-body rows compiled, entries, positions run, exits, yield-op exits",
+      "at": "2026-11-18T14:19:34.364Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\jit-yieldbodies-1118"
+    },
+    {
+      "id": "ledger-529",
+      "kind": "ledger",
+      "from": 529,
+      "to": 529,
+      "by": "jit-yieldbodies-1118",
+      "what": "J9 YieldBodies: yield save / resume vs 0x1A9 words, R-0 run split",
+      "at": "2026-11-18T14:19:34.632Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\jit-yieldbodies-1118"
+    },
+    {
+      "id": "ledger-530",
+      "kind": "ledger",
+      "from": 530,
+      "to": 530,
+      "by": "sims-3-modernization",
+      "what": "transform no-IL-header crash 0xE6463F (loadcycle-3, 2026-11-18)",
+      "at": "2026-11-18T14:27:24.308Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-531",
+      "kind": "ledger",
+      "from": 531,
+      "to": 531,
+      "by": "ja-1118",
+      "what": "J5 LazyRetVt get_Current gain (docs/537 §34)",
+      "at": "2026-11-18T14:52:30.765Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\ja-1118"
+    },
+    {
+      "id": "doc-292",
+      "kind": "doc",
+      "from": 292,
+      "to": 292,
+      "by": "static-re",
+      "what": "mostly-copying compaction feasibility",
+      "at": "2026-11-18T14:56:14.459Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\docs-compaction-feasibility-1118"
+    },
+    {
+      "id": "ledger-532",
+      "kind": "ledger",
+      "from": 532,
+      "to": 532,
+      "by": "static-re",
+      "what": "mostly-copying compaction feasibility",
+      "at": "2026-11-18T14:56:14.726Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\docs-compaction-feasibility-1118"
+    },
+    {
+      "id": "ledger-533",
+      "kind": "ledger",
+      "from": 533,
+      "to": 533,
+      "by": "sims-3-modernization",
+      "what": "World load never starts: every hook swapped twice (double Apply, was master §525, clashed with lane CW)",
+      "at": "2026-11-18T14:56:44.278Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v218",
+      "kind": "native",
+      "version": 218,
+      "from": 27112,
+      "to": 27143,
+      "by": "jit-ybclauses-1118",
+      "what": "[MonoJit] YieldBodiesClauses jitYbc* (monojit.cpp, docs/537 §35): clause yield bodies compiled, handler positions left to EA, split sites, splits run",
+      "at": "2026-11-18T15:00:27.744Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\jit-ybclauses-1118"
+    },
+    {
+      "id": "ledger-534",
+      "kind": "ledger",
+      "from": 534,
+      "to": 534,
+      "by": "jit-ybclauses-1118",
+      "what": "J9 YieldBodiesClauses: EA clause search / leave / endfinally read inv+0x1C, yield in try",
+      "at": "2026-11-18T15:00:28.096Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\jit-ybclauses-1118"
+    },
+    {
+      "id": "ledger-535",
+      "kind": "ledger",
+      "from": 535,
+      "to": 535,
+      "by": "crash-class-audit-1118",
+      "what": "crash-class audit: delegate binding to abstract methods (Fixes.Bind)",
+      "at": "2026-11-18T15:40:09.549Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\crash-class-audit-1118"
+    },
+    {
+      "id": "ledger-536",
+      "kind": "ledger",
+      "from": 536,
+      "to": 536,
+      "by": "crash-class-audit-1118",
+      "what": "crash-class audit: A,B,A double swap guard + static gates",
+      "at": "2026-11-18T15:40:10.043Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\crash-class-audit-1118"
+    },
+    {
+      "id": "ledger-537",
+      "kind": "ledger",
+      "from": 537,
+      "to": 537,
+      "by": "crash-class-audit-1118",
+      "what": "crash-class audit: native no-IL-header guards",
+      "at": "2026-11-18T15:40:10.466Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\crash-class-audit-1118"
+    },
+    {
+      "id": "doc-293",
+      "kind": "doc",
+      "from": 293,
+      "to": 293,
+      "by": "save-ip-portable-1119",
+      "what": "save frame layout portability (inlined swap targets, saved-frame guard)",
+      "at": "2026-11-18T17:50:59.874Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\save-ip-portable-1119"
+    },
+    {
+      "id": "ledger-538",
+      "kind": "ledger",
+      "from": 538,
+      "to": 538,
+      "by": "save-ip-portable-1119",
+      "what": "save frame layout: EA inliner, TaskFrame ip, SetTaskContext",
+      "at": "2026-11-18T17:51:00.114Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\save-ip-portable-1119"
+    },
+    {
+      "id": "fixes-1263",
+      "kind": "fixes",
+      "from": 1263,
+      "to": 1263,
+      "by": "save-ip-portable-1119",
+      "what": "swaps refused: would move saved task frames (docs/293)",
+      "at": "2026-11-18T17:53:39.212Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\save-ip-portable-1119"
     }
   ]
 }

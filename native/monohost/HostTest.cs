@@ -889,6 +889,21 @@ namespace MonoHostTest
         public int Next(int x) { B ^= x; return B; }
     }
     public struct CBig { public long P, Q; public double R; }
+    // docs/293 SF-roundtrip: two callers with the same IL around a static field getter. The host transforms LayA with the
+    // getter as it is (EA inlines it: ldsfld), gives the getter ChanceBig's body the way a ts3fixes swap does, then
+    // transforms LayB (a call): the code after the site moves by one word.
+    public static class LayoutCase
+    {
+        static float sChance = 50f;
+        public static int Calls;
+        public static float Chance { get { return sChance; } }
+        public static float ChanceBig() { Calls++; return Calls > 3 ? 100f : sChance; }
+        static bool Loop(int reason) { Calls += reason; return Calls > 0; }
+        static void End(bool ok) { if (ok) Calls++; }
+        public static bool LayA() { bool car = Chance > 10f; bool ok = Loop(car ? 7 : 3); End(ok); return ok; }
+        public static bool LayB() { bool car = Chance > 10f; bool ok = Loop(car ? 7 : 3); End(ok); return ok; }
+    }
+
     public static class CallTest
     {
         public static int Depth;

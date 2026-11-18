@@ -16040,7 +16040,7 @@
     "bug": "[GC] heap settings had no forced repro (every frame allocates; no loop drives allocation hard)",
     "fix": "[GC] InitialHeapMB / GrowthStepMB (no runtime switch: on only)",
     "save": "Baseline-BP-Spring",
-    "note": "UNVERIFIED (static only, 2026-10-22): never run. Release-check forced loop (docs/170 §5): per firing Sim, object and CAS create/destroy churn through the GC and EA heaps (alloc-dupfree in loop form): 5 Sims spawned and removed, 20 EA objects placed and removed, CAS open/close. Ends on quiet (no sim iteration >= 100 ms for 3 s). 2026-10-23 (docs/170 §6, instances per firing): 8 Sims and 30 EA objects per firing (a household of 8 and a big build session), count = objects placed (place_objects tracked), stop at 90 objects = 3 firings (was 6 firings of 5 Sims + 20 objects).",
+    "note": "UNVERIFIED (static only, 2026-10-22): never run. Release-check forced loop (docs/170 §5): per firing Sim, object and CAS create/destroy churn through the GC and EA heaps (alloc-dupfree in loop form): 5 Sims spawned and removed, 20 EA objects placed and removed, CAS open/close. Ends on quiet (no sim iteration >= 100 ms for 3 s). 2026-10-23 (docs/170 §6, instances per firing): 8 Sims and 30 EA objects per firing (a household of 8 and a big build session), count = objects placed (place_objects tracked), stop at 90 objects = 3 firings (was 6 firings of 5 Sims + 20 objects). 2026-11-19 (rc-1119a bp-rcr-alloc-churn-rc1119 FAIL: no reply to the single 30-object place_objects, the agent reply timeout; same as ua1-churn-loop): 6 calls of 5 objects, residential/community lots alternating, counted by placed (tracked is cumulative across calls).",
     "expect": "no crash, gcForeignAllocs 0 (when the GC thread check is in the build), commit growth flat across firings (read the row's VAS before -> after)",
     "steps": [
       {
@@ -16071,16 +16071,107 @@
           "setup": false,
           "args": {
             "filter": "ea",
-            "count": 30
+            "count": 5,
+            "lot": "residential"
           },
-          "waitS": 40,
+          "waitS": 15,
           "waitUntil": {
             "quiet": 3000
           },
-          "minS": 5,
-          "maxS": 40,
+          "minS": 1,
+          "maxS": 15,
           "count": {
-            "result": "tracked"
+            "result": "placed"
+          }
+        },
+        {
+          "cmd": "place_objects",
+          "setup": false,
+          "args": {
+            "filter": "ea",
+            "count": 5,
+            "lot": "community"
+          },
+          "waitS": 15,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 1,
+          "maxS": 15,
+          "count": {
+            "result": "placed"
+          }
+        },
+        {
+          "cmd": "place_objects",
+          "setup": false,
+          "args": {
+            "filter": "ea",
+            "count": 5,
+            "lot": "residential"
+          },
+          "waitS": 15,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 1,
+          "maxS": 15,
+          "count": {
+            "result": "placed"
+          }
+        },
+        {
+          "cmd": "place_objects",
+          "setup": false,
+          "args": {
+            "filter": "ea",
+            "count": 5,
+            "lot": "community"
+          },
+          "waitS": 15,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 1,
+          "maxS": 15,
+          "count": {
+            "result": "placed"
+          }
+        },
+        {
+          "cmd": "place_objects",
+          "setup": false,
+          "args": {
+            "filter": "ea",
+            "count": 5,
+            "lot": "residential"
+          },
+          "waitS": 15,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 1,
+          "maxS": 15,
+          "count": {
+            "result": "placed"
+          }
+        },
+        {
+          "cmd": "place_objects",
+          "setup": false,
+          "args": {
+            "filter": "ea",
+            "count": 5,
+            "lot": "community"
+          },
+          "waitS": 15,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 1,
+          "maxS": 15,
+          "count": {
+            "result": "placed"
           }
         },
         {
@@ -42507,7 +42598,22 @@
           "name": "DeadRefs-BP-1"
         },
         "waitS": 30,
-        "note": "new save; deadrefsweep_max_save_us small, deadrefsweep_refused 0"
+        "note": "new save; deadrefsweep_max_save_us small, deadrefsweep_refused 0; until saved (2026-11-19 rc-1119a bp-save-bundle-cc: a fixed 30 s wait sent the next save_game while a 37 s cc-2k save was still writing: previous request still pending)",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "save_in_progress",
+              "equals": false
+            },
+            {
+              "path": "modal",
+              "equals": false
+            }
+          ],
+          "everyS": 1,
+          "maxS": 180
+        }
       },
       {
         "cmd": "save_game",
@@ -42515,7 +42621,22 @@
           "name": "DeadRefs-BP-1"
         },
         "waitS": 30,
-        "note": "overwrite 1 (.backup = the previous file)"
+        "note": "overwrite 1 (.backup = the previous file); until saved (2026-11-19 rc-1119a bp-save-bundle-cc: a fixed 30 s wait sent the next save_game while a 37 s cc-2k save was still writing: previous request still pending)",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "save_in_progress",
+              "equals": false
+            },
+            {
+              "path": "modal",
+              "equals": false
+            }
+          ],
+          "everyS": 1,
+          "maxS": 180
+        }
       },
       {
         "cmd": "save_game",
@@ -42523,7 +42644,22 @@
           "name": "DeadRefs-BP-1"
         },
         "waitS": 30,
-        "note": "overwrite 2"
+        "note": "overwrite 2; until saved (2026-11-19 rc-1119a bp-save-bundle-cc: a fixed 30 s wait sent the next save_game while a 37 s cc-2k save was still writing: previous request still pending)",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "save_in_progress",
+              "equals": false
+            },
+            {
+              "path": "modal",
+              "equals": false
+            }
+          ],
+          "everyS": 1,
+          "maxS": 180
+        }
       },
       {
         "cmd": "save_game",
@@ -42554,7 +42690,22 @@
           "name": "DeadRefs-BP-2"
         },
         "waitS": 30,
-        "note": "back-to-back 2"
+        "note": "back-to-back 2; until saved (2026-11-19 rc-1119a bp-save-bundle-cc: a fixed 30 s wait sent the next save_game while a 37 s cc-2k save was still writing: previous request still pending)",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "save_in_progress",
+              "equals": false
+            },
+            {
+              "path": "modal",
+              "equals": false
+            }
+          ],
+          "everyS": 1,
+          "maxS": 180
+        }
       },
       {
         "cmd": "set_speed",
@@ -42569,7 +42720,22 @@
           "name": "DeadRefs-BP-3"
         },
         "waitS": 30,
-        "note": "unpaused at speed 3 (ultra)"
+        "note": "unpaused at speed 3 (ultra); until saved (2026-11-19 rc-1119a bp-save-bundle-cc: a fixed 30 s wait sent the next save_game while a 37 s cc-2k save was still writing: previous request still pending)",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "save_in_progress",
+              "equals": false
+            },
+            {
+              "path": "modal",
+              "equals": false
+            }
+          ],
+          "everyS": 1,
+          "maxS": 180
+        }
       },
       {
         "cmd": "load_save",
@@ -42634,7 +42800,22 @@
           "name": "DeadRefs-BP-5"
         },
         "waitS": 30,
-        "note": "save after reload"
+        "note": "save after reload; until saved (2026-11-19 rc-1119a bp-save-bundle-cc: a fixed 30 s wait sent the next save_game while a 37 s cc-2k save was still writing: previous request still pending)",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "save_in_progress",
+              "equals": false
+            },
+            {
+              "path": "modal",
+              "equals": false
+            }
+          ],
+          "everyS": 1,
+          "maxS": 180
+        }
       }
     ],
     "watch": {
@@ -56420,6 +56601,27 @@
         "cmd": "save_game",
         "args": {
           "name": "SgIdle"
+        },
+        "waitS": 30
+      }
+    ],
+    "expect": "the save is written"
+  },
+  {
+    "id": "sp-saveidle-vanilla-1119",
+    "bug": "save portability arm E (docs/293): a save written without our mods, Sims parked mid-interaction",
+    "fix": "none: evidence run, makes the save save-portability-1119 sp-e-vanilla-new reads",
+    "save": "Baseline-BP-Spring",
+    "note": "sim-gone-saveidle with a scratch name of its own (SavePort-Van-1119): SgIdle exists on disk from older builds, so a failed save here would let arm E pass on the stale file. Delete the save after the queue.",
+    "steps": [
+      {
+        "cmd": "game_state",
+        "waitS": 20
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SavePort-Van-1119"
         },
         "waitS": 30
       }

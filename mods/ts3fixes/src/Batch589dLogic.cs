@@ -200,7 +200,7 @@ namespace Ts3Fixes
                     foreach (BuffInstance b in sim.BuffManager.List)
                     {
                         if (b.GetDistressIdlePriority() != desiredPriority) continue;
-                        if (should == null) should = (DgShouldFn)Delegate.CreateDelegate(typeof(DgShouldFn), this, sDgShould);
+                        if (should == null) should = (DgShouldFn)Fixes.Bind(typeof(DgShouldFn), this, sDgShould);
                         if (!should(desiredPriority, b)) continue;
                         if (!ShortcutOn("distressgate")) { PatchCounters()[3059]++; return r; }
                         PatchCounters()[3058]++;

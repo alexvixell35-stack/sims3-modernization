@@ -179,6 +179,40 @@ static void TestIlPatch() {
         g_ilpNext = IlpTestXformOk;
         ret = IlpXform(rm, NULL);
         assert(ret == NULL && g_ilpTestPost == 1 && g_ilpTestSeen.calls == 4 && g_ilpTestPostAfter == 4);
+        // no IL header (docs/51 §530): an exception to the caller, EA's transform and the post-pass skipped; icall flags pass through
+        static BYTE s_exc;
+        void* (__cdecl* exc0)() = g_ilpNoHdrExc;
+        const LONG nohdr0 = g_ilpNoHdrLogged;
+        g_ilpNoHdrLogged = 64;  // no log line (its frame walk reads the live interpreter)
+        g_ilpNoHdrExc = []() -> void* { return &s_exc; };
+        g_ilpHeader = [](BYTE*) -> BYTE* { return NULL; };
+        ret = IlpXform(rm, NULL);
+        assert(ret == &s_exc && g_ilpTestSeen.calls == 4 && g_ilpTestPost == 1);
+        *(WORD*)(mm + 2) = 0x1000;  // internal call: EA's own path, no header read there
+        ret = IlpXform(rm, NULL);
+        assert(ret == NULL && g_ilpTestSeen.calls == 5 && g_ilpTestPost == 2);
+        *(WORD*)(mm + 2) = 0;
+        g_ilpNoHdrExc = []() -> void* { return NULL; };  // no exception object: EA's transform as before
+        ret = IlpXform(rm, NULL);
+        assert(ret == NULL && g_ilpTestSeen.calls == 6);
+        // ApplyIlpGuard's config (docs/51 §537): Satb on, [IlPatch] nothing armed, [MonoJit] off: Satb's cold site 0 is the only
+        // client; it still runs first, and the guard still turns a header-less method into the exception
+        {
+            static LONG s_cold;
+            void (*cold0)(int, DWORD) = g_ilpColdEnter;
+            const bool a2 = g_ilpArmed[2];
+            g_ilpArmed[2] = false, g_ilpPost = NULL, s_cold = 0;
+            g_ilpColdEnter = [](int site, DWORD) { if (site == 0) s_cold++; };
+            g_ilpNoHdrExc = []() -> void* { return &s_exc; };
+            ret = IlpXform(rm, NULL);
+            assert(ret == &s_exc && s_cold == 1 && g_ilpTestSeen.calls == 6);  // guard: EA's transform not called
+            g_ilpHeader = IlpTestHeader;
+            ret = IlpXform(rm, NULL);
+            assert(ret == NULL && s_cold == 2 && g_ilpTestSeen.calls == 7);    // a method with a header: EA's transform, unchanged
+            g_ilpHeader = [](BYTE*) -> BYTE* { return NULL; };
+            g_ilpColdEnter = cold0, g_ilpArmed[2] = a2;
+        }
+        g_ilpNoHdrExc = exc0, g_ilpNoHdrLogged = nohdr0, g_ilpHeader = IlpTestHeader;
         g_ilpPost = NULL;
         g_ilpArmed[2] = armed0; g_ilpLogged[2] = logged0;
         P = P0;

@@ -176,13 +176,13 @@ namespace Ts3Fixes
 
                     ActiveTimerNode b = new ActiveTimerNode(sim, inst, null);
                     AlarmHandle hb = (AlarmHandle)sW86TAlarm.GetValue(b); made.Add(hb);
-                    ((AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), b, sW86TCallback))();
+                    ((AlarmTimerCallback)Fixes.Bind(typeof(AlarmTimerCallback), b, sW86TCallback))();
                     bool fireRemoved = W86AlarmAlive(hb) == false && b.WasKilled;
 
                     ActiveTimerNode l = new ActiveTimerNode(sim, inst, null);
                     AlarmHandle hl = (AlarmHandle)sW86TAlarm.GetValue(l); made.Add(hl);
                     sW86TInst.SetValue(l, null);  // as after a load: mNodeInstance is not saved
-                    ((AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), l, sW86TCallback))();
+                    ((AlarmTimerCallback)Fixes.Bind(typeof(AlarmTimerCallback), l, sW86TCallback))();
                     bool loadGuard = !W86AlarmAlive(hl) && l.WasKilled;
                     controls = controls && aBefore && loadGuard;
                     fixedNow = leaveRemoved && fireRemoved;
@@ -331,7 +331,7 @@ namespace Ts3Fixes
                         sW86FListener.SetValue(n, stand);
                         sW86FWrapper.SetValue(null, Delegate.CreateDelegate(typeof(DreamsAndPromisesFeedbackFunctionWrapperDelegate),
                             typeof(Fixes).GetMethod("W86ThrowingWrapper", kW86All)));
-                        ProcessEventDelegate run = (ProcessEventDelegate)Delegate.CreateDelegate(typeof(ProcessEventDelegate), n, sW86FRun);
+                        ProcessEventDelegate run = (ProcessEventDelegate)Fixes.Bind(typeof(ProcessEventDelegate), n, sW86FRun);
                         bool threw = false, kept = false;
                         try { kept = run(new Event(EventTypeId.kEventNone)) == ListenerAction.Keep; }
                         catch (ResetException) { throw; }
@@ -574,7 +574,7 @@ namespace Ts3Fixes
                         Type listType = sDcRemoval.FieldType.GetGenericArguments()[1];
                         DcIndexAdd(index, key, p, listType);
                         DcIndexAdd(index, key, k, listType);
-                        ((ProcessEventDelegate)Delegate.CreateDelegate(typeof(ProcessEventDelegate), m, sW86MDestroyed))(ev);
+                        ((ProcessEventDelegate)Fixes.Bind(typeof(ProcessEventDelegate), m, sW86MDestroyed))(ev);
                         bool notice = sW86DryNotices > notices0;
                         bool keptFiled = DcIndexHas(index, key, k);
                         bool eaRule = isDead && !active.Contains(p) && !W86Promised(m, p) && active.Contains(k);
@@ -810,7 +810,7 @@ namespace Ts3Fixes
                         active.Add(p); active.Add(u);
                         ((ActiveDreamNode[])sW86MPromise.GetValue(m))[1] = p;
                         p.PromiseDream();
-                        ((ProcessEventDelegate)Delegate.CreateDelegate(typeof(ProcessEventDelegate), m, sW86MChild))(new Event(EventTypeId.kChildTakenBySocialWorker, null, sim));
+                        ((ProcessEventDelegate)Fixes.Bind(typeof(ProcessEventDelegate), m, sW86MChild))(new Event(EventTypeId.kChildTakenBySocialWorker, null, sim));
                         bool freed = !active.Contains(p) && !W86Promised(m, p);
                         bool eaRule = p.WasKilled && u.WasKilled && active.Contains(u);
                         fixedNow = freed;

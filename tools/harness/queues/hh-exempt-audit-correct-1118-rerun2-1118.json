@@ -1,0 +1,48 @@
+{
+  "note": "hh-exempt-audit-correct-1118-rerun2-1118 (correctness, not timing): the RC job bp-hh-exempt-audit on the detector native 0.36.286-nohdr1. The RC set died twice ~2 min in-world at 0xE6463F (interpreter transform, method with no IL header). Read in ts3native.log: \"il transform: no IL header: <method> ...\" names the method before the fault.",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-hh-exempt-audit",
+      "note": "BP 10 min on release defaults + the two Check repros; counters reported.",
+      "asi": "game-copy/ts3native.asi.nohdr1-1118",
+      "iniBase": "game-copy/ts3native.ini.gcmark-p4-1118",
+      "fixesPackage": "game-copy/ts3fixes.package.loadfix-1118",
+      "pinReason": "ts3native.asi.nohdr1-1118 (0.36.286-nohdr1: master native + the no-IL-header log line) + ts3native.ini.gcmark-p4-1118 (no ini key changed) + ts3fixes.package.loadfix-1118",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "repros": [
+            "woohootywait-check",
+            "serviceshowalarm-check"
+          ],
+          "fixesReport": "exitcbsweep_"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.286-nohdr1 ": 1
+      },
+      "timeoutMin": 40,
+      "scriptErrorsMax": 0,
+      "regexCases": {
+        "^ts3native 0.36.286-nohdr1 ": {
+          "match": [
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.285-g5p4 2026-11-18 22:13:18",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    }
+  ]
+}

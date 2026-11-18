@@ -491,7 +491,7 @@ namespace Ts3Fixes
                 }
                 catch (Exception) { PatchCounters()[3144]++; }
                 // EA re-arms at the end in every case
-                sLdAlarm.SetValue(p, dog.AddAlarm(TraitTuning.LoyalDogLayDownTimer, TimeUnit.Minutes, (AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), p, sLdSelf), "loyal dog laydown alarm", AlarmType.AlwaysPersisted));
+                sLdAlarm.SetValue(p, dog.AddAlarm(TraitTuning.LoyalDogLayDownTimer, TimeUnit.Minutes, (AlarmTimerCallback)Fixes.Bind(typeof(AlarmTimerCallback), p, sLdSelf), "loyal dog laydown alarm", AlarmType.AlwaysPersisted));
             }
 
             public void LayOrig() { }
@@ -868,7 +868,7 @@ namespace Ts3Fixes
                     if (!MaMelts(artist != null, skill != null && skill.IsIcePersonality())) return;
                     GameObject o = sc.Owner;
                     if (old != AlarmHandle.kInvalidHandle) o.RemoveAlarm(old);
-                    AlarmTimerCallback cb = (AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), sc, now ? sMaInstant : sMaStage);
+                    AlarmTimerCallback cb = (AlarmTimerCallback)Fixes.Bind(typeof(AlarmTimerCallback), sc, now ? sMaInstant : sMaStage);
                     sMaAlarm.SetValue(sc, now ? o.AddAlarm(1f, TimeUnit.Minutes, cb, "Ice Sculpture Melt Stage", AlarmType.AlwaysPersisted)
                         : o.AddAlarm((float)sMaHours.GetValue(null), TimeUnit.Hours, cb, "Ice Sculpture Melt Stage", AlarmType.AlwaysPersisted));
                     PatchCounters()[3166]++;

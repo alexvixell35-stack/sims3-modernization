@@ -3385,6 +3385,7 @@ static bool AsInstallFmt(DWORD at) {
 // [AutShadow] Enabled=1 (DllMain, after every other section: routesnap's slot stubs are in the tables by then)
 static bool ApplyAutShadow(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"AutShadow", L"Enabled", 0, ini)) { Log("autonomy shadow disabled (Enabled=0)"); return false; }
+    if (S3mmStandsDown("[AutShadow] (worker, Satb)")) return false;
     if (!AsAlloc()) { Log("FAIL autonomy shadow: no memory for the snapshot tables"); return false; }
     wchar_t guard[16];
     GetPrivateProfileStringW(L"AutShadow", L"Guard", L"all", guard, 16, ini);

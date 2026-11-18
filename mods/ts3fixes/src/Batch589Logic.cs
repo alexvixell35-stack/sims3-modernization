@@ -404,9 +404,9 @@ namespace Ts3Fixes
                 CarpoolWithDriver car = self.Target;
                 CarpoolManager.CarpoolData data = (CarpoolManager.CarpoolData)sCsData.GetValue(me);
                 List<Sim> riders = (List<Sim>)sCsRiders.GetValue(me);
-                CsVoidFn honk = (CsVoidFn)Delegate.CreateDelegate(typeof(CsVoidFn), me, sCsHonk);
-                CsSkipFn skip = (CsSkipFn)Delegate.CreateDelegate(typeof(CsSkipFn), me, sCsSkip);
-                InteractionInstance.InsideLoopFunction loop = (InteractionInstance.InsideLoopFunction)Delegate.CreateDelegate(typeof(InteractionInstance.InsideLoopFunction), me, sCsLoop);
+                CsVoidFn honk = (CsVoidFn)Fixes.Bind(typeof(CsVoidFn), me, sCsHonk);
+                CsSkipFn skip = (CsSkipFn)Fixes.Bind(typeof(CsSkipFn), me, sCsSkip);
+                InteractionInstance.InsideLoopFunction loop = (InteractionInstance.InsideLoopFunction)Fixes.Bind(typeof(InteractionInstance.InsideLoopFunction), me, sCsLoop);
                 bool schoolBus = data.CarType == CarNpcManager.NpcCars.CarBusSchool;
                 Lot lot = LotManager.GetLot(data.StartLotId);
                 Lot lot2 = LotManager.GetLot(data.DestLotId);
@@ -494,7 +494,7 @@ namespace Ts3Fixes
                 }
                 float timeToLeave = SimClock.HoursUntil(data.DropoffTime) * 60f;
                 sCsTimeToLeave.SetValue(me, timeToLeave);
-                sCsHonkAlarm.SetValue(me, actor.AddAlarm(timeToLeave / 2f, TimeUnit.Minutes, (AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), me, sCsHonk), "Carpool honk reminder", AlarmType.DeleteOnReset));
+                sCsHonkAlarm.SetValue(me, actor.AddAlarm(timeToLeave / 2f, TimeUnit.Minutes, (AlarmTimerCallback)Fixes.Bind(typeof(AlarmTimerCallback), me, sCsHonk), "Carpool honk reminder", AlarmType.DeleteOnReset));
                 sCsStart.SetValue(me, SimClock.ElapsedTime(TimeUnit.Minutes));
                 self.DoLoop(ExitReason.Default, loop, null);
                 float start = SimClock.ElapsedTime(TimeUnit.Minutes);

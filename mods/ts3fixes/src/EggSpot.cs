@@ -59,7 +59,7 @@ namespace Ts3Fixes
             MethodInfo valid = typeof(EggHuntController).GetMethod("IsValidEggPosition", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
             if (valid == null) throw new InvalidOperationException("eggspot: EggHuntController.IsValidEggPosition not found");
             EggHuntController c = (EggHuntController)FormatterServices.GetUninitializedObject(typeof(EggHuntController));
-            EggValidFn check = (EggValidFn)Delegate.CreateDelegate(typeof(EggValidFn), c, valid);
+            EggValidFn check = (EggValidFn)Fixes.Bind(typeof(EggValidFn), c, valid);
             int c0 = PatchCounters()[2029];
             foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
             {

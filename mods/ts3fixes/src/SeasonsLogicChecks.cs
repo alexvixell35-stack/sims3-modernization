@@ -77,10 +77,10 @@ namespace Ts3Fixes
             if (missing.Length > 0) return "hauntedumbrella check: verdict: UNEXPECTED; " + counters;
             object walking = FormatterServices.GetUninitializedObject(sHuEnter);
             sHuFlag.SetValue(walking, true);
-            bool umbrella = ((SlBoolFn)Delegate.CreateDelegate(typeof(SlBoolFn), walking, m))();
+            bool umbrella = ((SlBoolFn)Fixes.Bind(typeof(SlBoolFn), walking, m))();
             object panic = FormatterServices.GetUninitializedObject(sHuEnter);
             sHuFlag.SetValue(panic, false);
-            bool panicUmbrella = ((SlBoolFn)Delegate.CreateDelegate(typeof(SlBoolFn), panic, m))();
+            bool panicUmbrella = ((SlBoolFn)Fixes.Bind(typeof(SlBoolFn), panic, m))();
             bool ctlPanic = on ? !panicUmbrella : panicUmbrella;  // off: EA's inverted answer lets the panicking Sim open one
             bool ctlDecision = !HuAnswer(true, false);
             bool controls = ctlPanic && ctlDecision;

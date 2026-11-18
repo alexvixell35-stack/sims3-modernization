@@ -98,7 +98,7 @@ namespace Ts3Fixes
             // no closures here: a Sim saved while a route step sleeps keeps this frame (docs/242), so it stays in the hook's class
             for (int i = 0; i < floors.Length; i++)
             {
-                if (((DfRouteFn)Delegate.CreateDelegate(typeof(DfRouteFn), floors[i], sDfRoute))(actor, follower)) return floors[i];
+                if (((DfRouteFn)Fixes.Bind(typeof(DfRouteFn), floors[i], sDfRoute))(actor, follower)) return floors[i];
                 if (!noted && DanceFloorDiagCore.WouldThrow(false, ver0, DfVersion(list)))
                 {
                     noted = true;
@@ -138,7 +138,7 @@ namespace Ts3Fixes
                         for (int i = DanceFloorDiagCore.ResumeAt(steps); i < items0.Length; i++)
                         {
                             c[895]++;
-                            if (((DfRouteFn)Delegate.CreateDelegate(typeof(DfRouteFn), items0[i], sDfRoute))(actor, follower)) { end = "guard floor " + DfItem(items0[i]); return items0[i]; }
+                            if (((DfRouteFn)Fixes.Bind(typeof(DfRouteFn), items0[i], sDfRoute))(actor, follower)) { end = "guard floor " + DfItem(items0[i]); return items0[i]; }
                         }
                         end = "guard null";
                         return null;
@@ -146,7 +146,7 @@ namespace Ts3Fixes
                     if (!more) { end = "null"; break; }
                     DanceFloor item = e.Current;
                     int g0 = GC.CollectionCount(0), a0 = c[56], ms0 = Environment.TickCount;
-                    bool routed = ((DfRouteFn)Delegate.CreateDelegate(typeof(DfRouteFn), item, sDfRoute))(actor, follower);
+                    bool routed = ((DfRouteFn)Fixes.Bind(typeof(DfRouteFn), item, sDfRoute))(actor, follower);
                     int ms = Environment.TickCount - ms0, g1 = GC.CollectionCount(0), async = c[56] - a0;
                     steps++;
                     c[895]++;

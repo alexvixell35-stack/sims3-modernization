@@ -100,7 +100,7 @@ namespace Ts3Fixes
                 PatchCounters()[3546]++;
                 tp.TrashPileAge = TrashPile.PileAge.Old;
                 AgeOrig();                          // EA: age alarm, then Fresh->Old (broadcaster, stink, Elder alarm)
-                ((TpStepFn)Delegate.CreateDelegate(typeof(TpStepFn), tp, sTpToAncient))();  // EA: Old->Ancient
+                ((TpStepFn)Fixes.Bind(typeof(TpStepFn), tp, sTpToAncient))();  // EA: Old->Ancient
             }
             public void AgeOrig() { } // receives TrashPile.CreateAlarmAndStartAgeEffects
         }

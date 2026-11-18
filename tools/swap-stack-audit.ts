@@ -204,8 +204,64 @@ async function recompute(): Promise<void> {
   console.log(`swap-stack-audit: ${rows.length} swaps, yes ${n('yes')}, no ${n('no')}, mod ${n('mod')}, unresolved ${n('?')}`);
 }
 
+// Apply calls listed more than once in Fixes.cs: a second run swaps every hook of that fix again, and a stub then holds the
+// hook's body and calls itself (2026-11-18: a merge listed 204 calls twice, no world load started)
+export function dupApplies(text: string): string[] {
+  const n = new Map<string, number>();
+  for (const m of text.matchAll(/^\s+(Apply[A-Za-z0-9_]+\((?:false|true)?\));/gm)) n.set(m[1], (n.get(m[1]) ?? 0) + 1);
+  return [...n].filter(([, c]) => c > 1).map(([k, c]) => `${k} is called ${c} times in Fixes.cs (every hook of it would be swapped twice)`);
+}
+
+// The same hook swapped onto the same method by two identical Patch calls (A,B,A included; Fixes.Patch also refuses it at run time)
+export function dupPatches(patches: Patch[]): string[] {
+  const n = new Map<string, string[]>();
+  // keyed by hook.replacement: overloads of one method (DoorGen's SetLockTypeAndOwner pair) use one replacement each
+  for (const p of patches) { const k = `${p.hook} on ${p.target}.${p.method}`; n.set(k, [...(n.get(k) ?? []), p.file]); }
+  return [...n].filter(([, f]) => f.length > 1).map(([k, f]) => `${k} is patched ${f.length} times (${f.join(', ')}): the second swap is refused at run time, drop one`);
+}
+
+// An Apply method called from more than one place must return early on a second call (`if (sX...) return;` near its top) or
+// carry `// reapply-safe: <why>`: a second run swaps its hooks again (2026-11-18 load stall). Calls through `Fixes.` count.
+export function reapplyUnguarded(files: Record<string, string>): string[] {
+  const calls = new Map<string, string[]>(), body = new Map<string, string>();
+  for (const [f, raw] of Object.entries(files)) {
+    const t = raw.replace(/\/\/(?! reapply-safe).*$/gm, '');
+    for (const m of t.matchAll(/static\s+(?:void|bool)\s+(Apply\w+)\s*\([^)]*\)\s*\{/g)) body.set(m[1], t.slice(m.index + m[0].length, m.index + m[0].length + 800));
+    for (const m of t.matchAll(/(?<!\w)(?:Fixes\.)?(Apply\w+)\s*\((?:false|true)?\)/g)) {
+      if (/(?:void|bool)\s+$/.test(t.slice(Math.max(0, m.index - 8), m.index))) continue;
+      calls.set(m[1], [...(calls.get(m[1]) ?? []), f]);
+    }
+  }
+  return [...calls].filter(([k, f]) => f.length > 1 && body.has(k) && !/if \(!?s\w+[^;{}]*\) return;|\/\/ reapply-safe/.test(body.get(k)!))
+    .map(([k, f]) => `${k} is called from ${f.length} places (${f.join(', ')}) with no early return for a second call: add a guard or // reapply-safe`);
+}
+
+// Delegate.CreateDelegate(type, target, method) binds the exact method: on an abstract/interface method the game dies at
+// 0x00E6463F (docs/51 §531). ts3fixes uses Fixes.Bind (DelegateBind.cs); ts3agent lines need `bind-ok` (method reviewed concrete).
+// shortcut: line-based (a call split over lines, e.g. Wishes86.cs W86 wrapper, is not seen) and two-argument open-instance
+// delegates are not checked (none in the tree on 2026-11-18); parse whole files if either appears.
+export function rawDelegates(text: string, file: string, marker: boolean): string[] {
+  const out: string[] = [], K = 'Delegate.CreateDelegate(';
+  text.split(/\r?\n/).forEach((l, i) => {
+    const at = l.indexOf(K); if (at < 0 || l.slice(0, at).includes('//')) return;
+    let d = 1, j = at + K.length; for (; j < l.length && d; j++) { if (l[j] === '(') d++; else if (l[j] === ')') d--; }
+    const a = splitArgs(l.slice(at + K.length, d ? l.length : j - 1));
+    if (a.length < 3 || a[1] === 'null' || (marker && l.includes('bind-ok'))) return;
+    out.push(`${file}:${i + 1} instance delegate through Delegate.CreateDelegate: use Fixes.Bind${marker ? ' or mark // bind-ok' : ''}`);
+  });
+  return out;
+}
+
+const AGENT_SRC = join(ROOT, 'mods', 'ts3agent', 'src');
+function csFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? csFiles(join(dir, e.name)) : e.name.endsWith('.cs') ? [join(dir, e.name)] : []);
+}
+
 function runGate(): number {
-  const bad = gate(sourcePatches(SRC), parseCsv(readFileSync(CSV, 'utf8')));
+  const fixes = Object.fromEntries(readdirSync(SRC).filter((f) => f.endsWith('.cs')).map((f) => [f, readFileSync(join(SRC, f), 'utf8')]));
+  const bad = [...gate(sourcePatches(SRC), parseCsv(readFileSync(CSV, 'utf8'))), ...dupApplies(fixes['Fixes.cs']), ...dupPatches(sourcePatches(SRC)), ...reapplyUnguarded(fixes),
+    ...Object.entries(fixes).filter(([f]) => f !== 'DelegateBind.cs').flatMap(([f, t]) => rawDelegates(t, f, false)),
+    ...csFiles(AGENT_SRC).flatMap((f) => rawDelegates(readFileSync(f, 'utf8'), f.slice(AGENT_SRC.length + 1), true))];
   for (const b of bad) console.log(`FAIL ${b}`);
   if (!bad.length) console.log('swap-stack-audit: every swap is in the table, every yielding swap has a stub');
   return bad.length ? 1 : 0;
@@ -229,6 +285,20 @@ function selfCheck(): void {
   assert.match(gate([p[2]], [row(p[2])])[0], /swap with no stub/);                 // nor one with no stub
   assert.match(gate([], [row(p[0])])[0], /stale row/);
   assert.match(gate(p.slice(0, 1), [{ ...row(p[0]), stub: 'Other' }])[0], /stub changed/);
+  assert.deepEqual(dupApplies('    ApplyA();\n    ApplyB(false);   // x\n    // ApplyA();\n    ApplyB(true);\n'), []);  // commented out and other arguments do not count
+  assert.match(dupApplies('    ApplyA();\n    ApplyB();\n    ApplyA();   // again\n')[0], /^ApplyA\(\) is called 2 times/);
+  const aba = parsePatches('Patch(typeof(T), "M", typeof(A), "H", "O");\nPatch(typeof(T), "M", typeof(B), "H", "O");\nPatch(typeof(T), "M", typeof(A), "H", "O");', 'X.cs');
+  assert.match(dupPatches(aba)[0], /^A\.H on T\.M is patched 2 times/);   // A,B,A
+  assert.deepEqual(dupPatches(aba.slice(0, 2)), []);                     // A,B stacked is fine
+  const callers = { 'A.cs': 'static void ApplyX() {\n  Patch(x);\n}\nvoid R() { ApplyX(); }', 'B.cs': 'void Q() { Fixes.ApplyX(); }' };
+  assert.match(reapplyUnguarded(callers)[0], /^ApplyX is called from 2 places/);
+  assert.deepEqual(reapplyUnguarded({ ...callers, 'A.cs': callers['A.cs'].replace('{\n', '{\n  if (sXDone) return;\n') }), []);
+  assert.deepEqual(reapplyUnguarded({ ...callers, 'A.cs': callers['A.cs'].replace('{\n', '{ // reapply-safe: per-type set\n') }), []);
+  assert.deepEqual(reapplyUnguarded({ 'A.cs': callers['A.cs'] }), []);  // one caller
+  assert.match(rawDelegates('  F f = (F)Delegate.CreateDelegate(typeof(F), ia, sM);', 'X.cs', false)[0], /^X\.cs:1 instance delegate/);
+  assert.deepEqual(rawDelegates('  F f = (F)Delegate.CreateDelegate(typeof(F), sStatic);\n  // Delegate.CreateDelegate(typeof(F), a, b)\n  G g = (G)Delegate.CreateDelegate(typeof(G), null, m);', 'X.cs', false), []);
+  assert.deepEqual(rawDelegates('  F f = (F)Delegate.CreateDelegate(typeof(F), h, exec);  // bind-ok: concrete', 'X.cs', true), []);
+  assert.equal(rawDelegates('  F f = (F)Delegate.CreateDelegate(typeof(F), h, exec);  // bind-ok: concrete', 'X.cs', false).length, 1);
   assert.equal(runGate(), 0, 'repo gate');
   console.log('swap-stack-audit self-check ok');
 }

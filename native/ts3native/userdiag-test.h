@@ -201,7 +201,7 @@ static void TestUserDiag() {
     put(L"Saves\\A.sims3\\x.nhd", pkg, 100);
     UdModsLines(user);
     UdSavesLine(user);
-    UdBinLines(tmp);  // read-only: nothing to list there is fine
+    UdBinLines(user);  // the test's own folder, not the shared temp folder: a stray *.orig / *.asi there is not ours
     UdGpuLines();
     UdPacksLine();
     UdtLog(buf, sizeof(buf), h);

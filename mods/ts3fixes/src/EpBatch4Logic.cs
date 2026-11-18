@@ -185,7 +185,7 @@ namespace Ts3Fixes
                     object info = sFrInfo.GetValue(Target, null);
                     required = (int)sFrRequired.GetValue(info);
                     dropDistance = (float)sFrDrop.GetValue(info);
-                    test = (ItemTestFunction)Delegate.CreateDelegate(typeof(ItemTestFunction), Target, sFrTest);
+                    test = (ItemTestFunction)Fixes.Bind(typeof(ItemTestFunction), Target, sFrTest);
                     list = Actor.Inventory.FindAll<FragmentedObject>(true, test);   // read only: EA's own first query
                     t = list.IndexOf(Target);
                 }
@@ -235,7 +235,7 @@ namespace Ts3Fixes
                             {
                                 EnterStateMachine("solo_generic", "Enter", "x");
                                 SetParameter("AnimationName", "a_fragment_pieceTogether_x");
-                                AddOneShotScriptEventHandler(1001u, (SacsEventHandler)Delegate.CreateDelegate(typeof(SacsEventHandler), this, sFrSound));
+                                AddOneShotScriptEventHandler(1001u, (SacsEventHandler)Fixes.Bind(typeof(SacsEventHandler), this, sFrSound));
                                 AnimateSim("Play Animation");
                                 AnimateSim("Exit");
                             }
@@ -316,8 +316,8 @@ namespace Ts3Fixes
                             InteractionDefinition def = pick.GetRandomLabInteractionForAssociatedDegree(s.Major);
                             if (def != null)
                             {
-                                Callback done = (Callback)Delegate.CreateDelegate(typeof(Callback), s, sLbDone);
-                                Callback fail = (Callback)Delegate.CreateDelegate(typeof(Callback), s, sLbFail);
+                                Callback done = (Callback)Fixes.Bind(typeof(Callback), s, sLbDone);
+                                Callback fail = (Callback)Fixes.Bind(typeof(Callback), s, sLbFail);
                                 s.ForceSituationSpecificInteraction(pick, sim, def, null, done, fail, new InteractionPriority(InteractionPriorityLevel.UserDirected, 1f));
                                 PatchCounters()[3253]++;
                             }
@@ -460,7 +460,7 @@ namespace Ts3Fixes
                     wait = RandomUtil.GetFloat(BpTune(3), BpTune(4));
                     num = BpTune(5);
                     rb = new ReactionBroadcaster(Target, (ReactionBroadcasterParams)sBpParams.GetValue(null),
-                        (ReactionBroadcaster.BroadcastCallback)Delegate.CreateDelegate(typeof(ReactionBroadcaster.BroadcastCallback), this, sBpBroadcast));
+                        (ReactionBroadcaster.BroadcastCallback)Fixes.Bind(typeof(ReactionBroadcaster.BroadcastCallback), this, sBpBroadcast));
                 }
                 sBpWait.SetValue(this, wait);
                 DoTimedLoop(wait, ExitReason.Default);

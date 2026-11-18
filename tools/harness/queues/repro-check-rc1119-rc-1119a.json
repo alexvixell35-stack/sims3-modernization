@@ -1,0 +1,780 @@
+{
+  "note": "repro-check-rc1119-rc-1119a (2026-11-19): repro-check-rc1119 repinned to the RC set rc-1119a (0.36.292-rc1119a) for chain-rc-1119a. [previous] repro-check-rc1119-rc-1118n (2026-11-18): repro-check-rc1119 repinned to the RC set rc-1118n (0.36.287-rc1118n, master 767d87408) for chain-rc-1118n. [source note] repro-check-rc1119 (2026-11-18 plan): repro-check-release.json repinned from asi 0331 to placeholder rc-1119 (asi + iniBase + ts3fixes). [source note] Release-check forced loops (docs/170 §5, ledger §275): one 5-6 min correctness job per new forced-loop repro (the needs-repro features and the loop forms of the plain repros). Repro-check measurement ini with every switch the loops flip installed; pass = no crash and the repro fired its events (nativeRequire / fixesRequire). A loop that ends at the window with its rule not met is fine here (5 min is shorter than a release-check run); 0 firings is not. Not timing runs; daytime OK. Run before release-check.ts relies on these repros.",
+  "jobs": [
+    {
+      "id": "bp-rcr-route-gate-crowd-rc1119",
+      "note": "route-gate-crowd-loop (routegate, tailunlock, h2, optsinit): 30+ async Go Here plans per firing with object add/destroy, 6 route-mode plans + Replan, a camera pan and a build/buy enter/exit under running jobs. Pass: no crash, asyncStarted >= 20, rgEntries >= 1, tuWins >= 1, h2Released >= 1, tuTrip 0. Rule: perArm 2 firings = one ABBA cycle (30+ plans per firing, docs/170 §6).",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 98,
+      "nativeRequire": "asyncStarted>=20,rgEntries>=1,tuWins>=1,h2Released>=1,tuTrip.0<=0,tuTrip.1<=0,tuTrip.2<=0",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "AvoidRO.Enabled": 1,
+        "AvoidRO.Mode": 1,
+        "AvoidRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DestroyPark": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "repro": "route-gate-crowd-loop",
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 26,
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-rcr-save-write-rc1119",
+      "note": "save-write-loop (savewrite, decompress): CAS open/close, build/buy open/close and a real save to RC-SaveLoop per firing (the same name: worker backup from the second save). Pass: no crash, saveCount >= 3, decompressCalls >= 1, decompressFails 0, decompressMismatches 0; the RC-SaveLoop save loads (check by hand or in the next matrix run).",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 98,
+      "nativeRequire": "saveCount>=3,decompressCalls>=1,decompressFails<=0,decompressMismatches<=0",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "AvoidRO.Enabled": 1,
+        "AvoidRO.Mode": 1,
+        "AvoidRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DestroyPark": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "repro": "save-write-loop",
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 26,
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-rcr-alloc-churn-rc1119",
+      "note": "alloc-churn-loop (gc): Sim, object and CAS create/destroy churn per firing. Pass: no crash, gcForeignAllocs 0; read commit MB before -> after.",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 98,
+      "nativeRequire": "gcForeignAllocs<=0",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "AvoidRO.Enabled": 1,
+        "AvoidRO.Mode": 1,
+        "AvoidRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DestroyPark": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "repro": "alloc-churn-loop",
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 26,
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-rcr-unseen-crowd-rc1119",
+      "note": "unseen-crowd-loop (unseenthrottle, unseenenv, unseenmotives, unseenbroadcast): 20 Sims walk out of view and back, ABBA on [UnseenThrottle] + the three ts3fixes switches. No cameraPan (it would make the walkers seen). Pass: no crash, utSkipped >= 1, unseen_env_skipped + motive + broadcast skips >= 1 each, unseen_motive_critical 0. If the script counters stay 0, the unseen high-LOD share is 0 in this set-up [inferred I-170-50]: report, do not tune the loop to pass.",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 98,
+      "nativeRequire": "utSkipped>=1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "AvoidRO.Enabled": 1,
+        "AvoidRO.Mode": 1,
+        "AvoidRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DestroyPark": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "repro": "unseen-crowd-loop",
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "fixesRequire": "unseen_env_skipped>=1,unseen_motive_skipped>=1,unseen_broadcast_skipped>=1,unseen_motive_critical<=0",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 26,
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-rcr-route-legs-rc1119",
+      "note": "ip-route-legs-loop (legreplanskip, idlememo): IP crowd across the water and back, ABBA on the two ts3fixes switches. Pass: no crash, legreplanskip_skipped >= 1, idlememo_skipped >= 1. 2026-10-23: cap 16 min (4 firings per arm at 30-90 s need it; 6 min ran out after 3); legreplanskip never acted in this crowd-across-water scene (0 skips), so it is no longer required here: D1 needs its own trigger.",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 98,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "AvoidRO.Enabled": 1,
+        "AvoidRO.Mode": 1,
+        "AvoidRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DestroyPark": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1
+      },
+      "run": {
+        "profile": {
+          "profOpts": {
+            "tasks": false
+          },
+          "seed": 12345,
+          "minutes": 16,
+          "repro": "ip-route-legs-loop",
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "fixesRequire": "idlememo_skipped>=1",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 28,
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-rcr-winter-pond-rc1119",
+      "note": "winter-pond-loop (waterjps): frozen pond crossing per firing, ABBA on waterjps. Needs noEnv. Pass: no crash, waterJpsMismatches 0.",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 98,
+      "nativeRequire": "waterJpsMismatches<=0",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "AvoidRO.Enabled": 1,
+        "AvoidRO.Mode": 1,
+        "AvoidRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DestroyPark": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "repro": "winter-pond-loop",
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "noEnv": true,
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 26,
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-rcr-pet-guard-rc1119",
+      "note": "pet-guard-loop (discourage, deferfootprint): guard/cancel per firing under running route jobs with the destroy gate off around the cancel (dead-id sweep each firing), plus one plain guard/cancel with the gate on first; ABBA on deferfootprint, one cycle. Pass: no crash, discApplied >= 1, discDeadSweep >= 2, discIdMismatch 0; read discDestroyApplied (the plain one-off; timing-dependent, not required).",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 98,
+      "nativeRequire": "discApplied>=1,discDeadSweep>=2,discIdMismatch<=0",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "AvoidRO.Enabled": 1,
+        "AvoidRO.Mode": 1,
+        "AvoidRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DestroyPark": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "repro": "pet-guard-loop",
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 26,
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-rcr-object-churn-rc1119",
+      "note": "object-churn-loop (destroypark): 10 objects placed and destroyed under running jobs per firing, ABBA on destroypark. Pass: no crash, dpParked >= 1.",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 98,
+      "nativeRequire": "dpParked>=1",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "AvoidRO.Enabled": 1,
+        "AvoidRO.Mode": 1,
+        "AvoidRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DestroyPark": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "repro": "object-churn-loop",
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 26,
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sv-rcr-diner-crowd-rc1119",
+      "note": "diner-crowd-loop (slotenabledro, avoidro): the crowd arrives at Hogan's diner per firing, ABBA on both. Pass: no crash, slTaken >= 1, slShadowMismatch 0, avTripAv 0, avSimWriteInRo 0. 2026-10-23: Hogan diner and its Sims are Sunset Valley (repro ran on the BP save); avTripAv dropped from the rule: T-AV counts worker entries into 0x81D090/0x85FF30 (44144 in 4 min = ~7 per job, every job tail; a clone drops only when one overlaps it: avFbTrip 1 in that run, AvoidRO answered ~160 of ~160 in-job calls, docs/175 §3).",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 98,
+      "nativeRequire": "slTaken>=1,slShadowMismatch<=0,avShadowMismatch<=0,avSimWriteInRo<=0",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "AvoidRO.Enabled": 1,
+        "AvoidRO.Mode": 1,
+        "AvoidRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DestroyPark": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "repro": "diner-crowd-loop",
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 26,
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-rcr-candidate-loops-rc1119",
+      "note": "candidate-loops-loop (farthestsorted, indoorcap, safespotcap): the probe per firing, 20 firings ABBA (~1 min). Pass: no crash, the stop line, farthest_calls >= 1, indoorcap_calls >= 1; farthest lot id equal in every answer.",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 98,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "AvoidRO.Enabled": 1,
+        "AvoidRO.Mode": 1,
+        "AvoidRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DestroyPark": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "repro": "candidate-loops-loop",
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "fixesRequire": "farthest_calls>=1,indoorcap_calls>=1",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 26,
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-rcr-replan-buildbuy-rc1119",
+      "note": "replan-buildbuy-loop (replandefer, replanspread): two waves with a build/buy enter/exit each per firing, ABBA. Pass: no crash, replanspread_exceptions 0, replanspread_held >= 1.",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 98,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "AvoidRO.Enabled": 1,
+        "AvoidRO.Mode": 1,
+        "AvoidRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DestroyPark": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "repro": "replan-buildbuy-loop",
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "fixesRequire": "replanspread_exceptions<=0,replanspread_held>=1",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 26,
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    }
+  ]
+}

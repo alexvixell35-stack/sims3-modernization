@@ -79,7 +79,7 @@ namespace Ts3Fixes
                     if (!on) continue;
                     sBilDeregister.Invoke(null, new object[] { w });
                     dict.Remove(h);
-                    ((Action<bool>)Delegate.CreateDelegate(typeof(Action<bool>), w, sCesBaseDispose))(false);
+                    ((Action<bool>)Fixes.Bind(typeof(Action<bool>), w, sCesBaseDispose))(false);
                     c[2301]++;
                 }
                 catch (Exception) { c[2303]++; }
@@ -110,7 +110,7 @@ namespace Ts3Fixes
                     if (!on) continue;
                     sBilDeregister.Invoke(null, new object[] { w });
                     dict.Remove(h);
-                    ((Action<bool>)Delegate.CreateDelegate(typeof(Action<bool>), w, sCesBaseDispose))(false);
+                    ((Action<bool>)Fixes.Bind(typeof(Action<bool>), w, sCesBaseDispose))(false);
                     c[2301]++;
                 }
                 catch (Exception) { c[2303]++; }

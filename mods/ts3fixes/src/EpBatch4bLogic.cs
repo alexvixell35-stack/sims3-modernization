@@ -418,7 +418,7 @@ namespace Ts3Fixes
                     bool on = ShortcutOn("tutorballoonalarm");
                     if (t.BalloonAlarm == AlarmHandle.kInvalidHandle && !TuAlarmAtCreate(on))
                     {
-                        AlarmTimerCallback cb = (AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), t, sTuShow);
+                        AlarmTimerCallback cb = (AlarmTimerCallback)Fixes.Bind(typeof(AlarmTimerCallback), t, sTuShow);
                         t.BalloonAlarm = AlarmManager.Global.AddAlarmRepeating((float)sTuFirst.GetValue(null), TimeUnit.Minutes, cb, (float)sTuEvery.GetValue(null), TimeUnit.Minutes, "ShowSkillBalloon", AlarmType.AlwaysPersisted, null);
                     }
                 }

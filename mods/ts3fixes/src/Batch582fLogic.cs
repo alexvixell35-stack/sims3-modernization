@@ -259,7 +259,7 @@ namespace Ts3Fixes
                 NpcParty p = parentF.GetValue(self) as NpcParty;
                 if (!PlStale(p != null, p != null && p.Host != null)) return false;
                 if (!ShortcutOn("partylotlistener")) { PatchCounters()[2918]++; return false; }
-                Sim.OnLotChangedEvent -= (Sim.OnLotChanged)Delegate.CreateDelegate(typeof(Sim.OnLotChanged), self, m);
+                Sim.OnLotChangedEvent -= (Sim.OnLotChanged)Fixes.Bind(typeof(Sim.OnLotChanged), self, m);
                 PatchCounters()[2917]++;
                 return true;
             }

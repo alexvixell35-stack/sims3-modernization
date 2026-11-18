@@ -733,7 +733,7 @@ static void McRestoreStock(bool stock) {
 // VerifyEvery=<n> (verify mode: every n-th eligible call runs both ways; default 16). true = installed (keep the log).
 static bool ApplyMintCall(const wchar_t* ini) {
     const int path = GetPrivateProfileIntW(L"MonoFast", L"CallPath", 0, ini);
-    if (path <= 0) return false;
+    if (path <= 0 || S3mmStandsDown("[MonoFast] CallPath")) return false;
     MC_CTR.mcSwitch = 1;
     const int every = GetPrivateProfileIntW(L"MonoFast", L"VerifyEvery", 16, ini);
     return McInstall(path >= 2 ? 2 : 1, (DWORD)(every > 0 ? every : 1)) > 0;

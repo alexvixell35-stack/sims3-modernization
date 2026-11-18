@@ -94,7 +94,7 @@ namespace Ts3Fixes
                     if (sFajMapTag == null || !(bool)sFajMapTag.GetValue(j)) continue;
                     ActiveFireFighter.sActiveJob = j;
                     if (j.HasBeenSetup && sFajMinute != null)
-                        Sims3.Gameplay.UI.Responder.Instance.SimMinuteChanged += (VoidEventHandler)Delegate.CreateDelegate(typeof(VoidEventHandler), j, sFajMinute);
+                        Sims3.Gameplay.UI.Responder.Instance.SimMinuteChanged += (VoidEventHandler)Fixes.Bind(typeof(VoidEventHandler), j, sFajMinute);
                     break;
                 }
             }

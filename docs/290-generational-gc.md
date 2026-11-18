@@ -99,6 +99,8 @@ Writers of mark words in the Boehm range `0xE48E80`-`0xE51E80` [verified scan fo
 mark sites and `0xE4CE44` (docs/287, I-516-10), the clear in `0xE4C0F0`, the sweep's free-bit mask `0xE500DA`, and
 `GC_set_mark_bit` / `GC_clear_mark_bit` helpers. Nothing else clears marks per cycle [inferred from this scan, I-520-1].
 
+Full read of the sweep, the free-bit and stamp rules, every mark-bit reader and writer and `GC_finalize`: §8.
+
 ## 2. Cost model
 
 ### 2.1 Where the time goes today
@@ -227,8 +229,8 @@ full mark reaches is unmarked.
 | # | Question | How |
 |---|---|---|
 | 1 | dirty pages and rescued objects per read (decides the gain) | counter on `0xE4EFB0` / `0xE4D120`, one 10-min BP job |
-| 2 | sweep behaviour under sticky marks with EA's stamp skip and free bits (blocks never swept, objects born old) | read `0xE4FF00`-`0xE50380` fully; toy-heap selftest |
-| 3 | finalization (`GC_finalize 0xE4AE60`) with sticky marks: no object finalized while reachable | follows from the mark invariant; cover in verify mode |
+| 2 | sweep behaviour under sticky marks with EA's stamp skip and free bits (blocks never swept, objects born old) | **answered, §8.1-§8.3, §8.8**: no change to the sweep; born-old objects exist and are safe |
+| 3 | finalization (`GC_finalize 0xE4AE60`) with sticky marks: no object finalized while reachable | **answered, §8.4, §8.8**: no change; old objects are finalized in full cycles only. Two EA weak-reference hazards found, §8.6 |
 | 4 | Apex VirtualAlloc hooks keep `MEM_WRITE_WATCH` | log GetWriteWatch failures (EA already warns) |
 | 5 | Mono descriptor rules (which classes are typed) | read `0xEA1490` callers' class setup; only needed for moving |
 | 6 | EA 1.69 / retail addresses | `tools/port-run.ts` as for docs/287 |
@@ -364,3 +366,185 @@ A mix that would *not* be sound: trusting cards on pages where a hooked writer w
 3. Classification of the 154 runtime `memcpy` sites and of the binder bodies' reference stores from their own code (`binder-bodies.py` knows the store sites; it does not yet say reference or scalar).
 4. Stores in `mintfuse` / `mintpairs` / `mintcall` templates that bypass the jump table.
 5. Whether `0xE5725E` and `0xE5A583` can target a marked heap object or only stack / fresh memory.
+
+## 8. Sweep, free bits, stamp and finalization under sticky marks (lane GB, brief B4, 2026-11-18)
+
+Static read (Capstone) of the sweep `0xE4FF00`-`0xE50460`, `GC_free 0xE4BEB0`, the header setup, `GC_finalize
+0xE4AE60`, the cycle finish `0xE49F10` / `0xE49DA0` and every reader and writer of a mark bit. Everything in this
+section is [verified] in the disassembly unless tagged. Ledger §523. Answers §6 #2 and #3: **EA's sweep and
+finalization need no change for a minor cycle**; the rules the minor cycle must follow are in §8.5.
+
+### 8.1 Function map
+
+| Function | Address | What EA's build does |
+|---|---|---|
+| finish the previous collection | `0xE49F10` | called first by `GC_try_to_collect_inner`: runs `GC_collect_a_little_inner` until the mark is done (aborts when the stop function fires), then, if the sweep flag `[0x11F2F94]` is set: `GC_finish_collection` once (guard `[0x11947E4]` != -1) and `GC_reclaim_all(stop_func, 0)`; returns 1 only when the sweep is complete |
+| mark end inside the incremental step | `0xE49EDF`-`0xE49EF2` | `GC_gc_no` + 1, `[0x11F2F94]` = 1, return. **No `GC_finish_collection` here**: it runs on the next entry of `0xE49F10`, which may be a later tick (§8.6) |
+| mark end inside the cycle start | `0xE4A01B` | `GC_gc_no` + 1, flag, `GC_finish_collection` at once |
+| `GC_finish_collection` | `0xE49A50` | notify 3, `GC_finalize`, `GC_start_reclaim(0)`, heap bookkeeping (`GC_is_full_gc` branch `0xE49A71`), notify 4. No free-list or reclaim-list clear, no `GC_clear_fl_marks` (EA's free bits replace them) |
+| `GC_start_reclaim` | `0xE502F0` | only `GC_apply_to_all_blocks(GC_reclaim_block)`. Free lists and reclaim lists are **not** cleared (Boehm 6.6 clears both): free lists live across cycles |
+| `GC_reclaim_block` | `0xE50160` | stamp `+0x18` == `GC_gc_no`: return (`0xE5017F`). Large (> 0x200 words): marked -> keep, else `GC_freehblk 0xE49730`. Small: push on the kind's reclaim list (`+4` link). The Boehm "block empty -> free now" test is gone |
+| `GC_reclaim_small_nonempty_block` | `0xE50070` | stamp == `GC_gc_no`: return (`0xE500B6`). Else mark word &= ~free word for the whole block (`0xE500D6`-`0xE500E6`). No mark left and the size's free list not empty: unlink this block's free-list entries (`0xE4FF00`, count from `0xE4FEB0`), `GC_freehblk`. Otherwise `hb_last_reclaimed` (`+0x16`) and the reclaim proper (`0xE4FF90`) |
+| reclaim variants | `0xE4F3D0` (clear), `0xE4F8E0` (uninit), size-specialised `0xE4F4A0`, `0xE4F620`, `0xE4F970`, `0xE4FAE0`, `0xE4FD40` | a slot goes on the free list only when its mark bit **and** its free bit are 0; its free bit is then set (`0xE4F440`, `0xE4F947`). Mark bits are never written. Uncollectable kinds: all marks set again afterwards (`0xE50059` -> `0xE4C0B0`). Read in full: `0xE4F3D0`, `0xE4F8E0` and the first step of `0xE4F4A0`; the other size-specialised ones by their free-bit references and stores only [inferred same rule, I-523-3] |
+| `GC_continue_reclaim` | `0xE50310` (caller `0xE4A2D9`, allocation) | sweeps blocks of one size from the reclaim list until the free list is non-empty |
+| `GC_reclaim_all` | `0xE50380` (one caller, `0xE49F81`, `ignore_old` = 0) | sweeps every listed block, polls the stop function per block |
+| `GC_free` | `0xE4BEB0`, 16 call sites (host `0xD70DC5`, `0xD714C5`, `0xD71810`, `0xD71AAB`, `0xD71B47`, `0xD71BC6`, `0xD80AD3`, `0xD80B0A`, `0xD80B3A`, `0xD80B4D`; collector `0xE4AC4C` (unregister link), `0xE4F35F`; Mono `0xE52E34`, `0xE52E47`, `0xE52E5A`, `0xE53EA5`) | small: clear the body, push on the free list, set the free bit. Large: `GC_freehblk`. **Mark bit and stamp untouched** |
+| allocation touch | `0xE4C1E0` (5 callers: `0xE4BC7E`, `0xE4BDFD`, `0xE4BE6E`, `0xE4BFDA`, `0xE50E53`) | clear the free bit, stamp = `GC_gc_no`. **Mark bit untouched** |
+| header setup (new or reused block) | `0xE48FFE`, `0xE49004`, `0xE4901D` | marks zeroed (`0xE4C070`), free bits zeroed (`0xE4C090`), `+0x16` and stamp = `GC_gc_no` |
+| `GC_new_hblk` | `0xE4E80D`, `0xE4E860` | uncollectable: all marks set; every slot's free bit set while the free list is built |
+
+### 8.2 What the stamp and the free bits mean
+
+- Stamp == `GC_gc_no` means "allocated into (or created, or marks cleared) since the last mark end". `GC_gc_no` moves
+  only at a mark end, so such a block holds objects the last mark never saw. The sweep skips it (both entry points)
+  and `GC_finalize` treats its objects as live (§8.4). The block is swept in the next cycle unless allocated into again.
+- `GC_clear_marks` stamps every block too (`0xE4C11A`). No reader runs between a cycle start and its mark end (reclaim
+  lists are empty then, §8.1 row 1), so that stamp changes nothing; a minor cycle that skips it loses nothing.
+  Readers of the stamp: `0xE4AEF3`, `0xE4AF9F`, `0xE4B0D3`, `0xE500B6`, `0xE5017F`; no other compare of `+0x18` in
+  `0xE48E80`-`0xE51E80` [verified scan, same heuristic limit as I-520-1].
+- Free bit = "this slot is on a free list". The marker never marks such a slot and never rescues one: free-bit tests
+  at the mark sites (`0xE4C5F0`, `0xE4C78E`, `0xE4C8D7`, `0xE4CD18`, `0xE4CE30`, typed `0xE506B0`, `0xE50854`,
+  `0xE509C0`, `0xE50B3A`) and in the push-marked loops (`0xE4CF21`, `0xE4D056`). So a pointer to a freed slot keeps
+  nothing alive and a free list is never traced.
+- A mark bit can outlive its object in one way only: `GC_free` of a marked object. The bit goes away when the sweep
+  next visits the block (the mask), unless the slot is reused first: then the new object is **born marked**.
+
+### 8.3 Mark-bit writers and readers (`0xE48E80`-`0xE51E80` and the host callers)
+
+| Site | Kind | Under sticky marks |
+|---|---|---|
+| 8 mark sites + `0xE4CE44` (docs/287 §3) | set | unchanged |
+| `GC_set_mark_bit 0xE4C140`: `GC_finalize` (`0xE4AFF6`, `0xE4B0C7`, `0xE4B186`, `0xE4B19F`, `0xE4B2A6`, `0xE4B2BF`), uncollectable allocation `0xE4C02A`, `0xE4D980`, tail call `0xE4F2CB` | set | unchanged |
+| `GC_set_hdr_marks 0xE4C0B0` (`0xE4E80D`, `0xE50059`) | set all, uncollectable blocks | unchanged |
+| `GC_clear_marks` walk `0xE4C0F0` | clear all but uncollectable | full cycles only: this is what ends an old object's life |
+| sweep mask `0xE500DA` | clear, free slots only | unchanged |
+| `GC_clear_mark_bit 0xE4C190` (`0xE4AF1E`, `0xE4B3A2`) | clear, the collector's own link-table entry after a weak link is dropped | works as in Boehm's own partial mode: the entry is swept in this cycle |
+| header setup `0xE4C070` | clear, new or reused block | unchanged |
+| `GC_is_marked 0xE4C230`: `GC_finalize` (`0xE4AEE7`, `0xE4AF8F`, `0xE4B00F`, `0xE4B0AE`, `0xE4B1E9`, `0xE4B309`) | read | §8.4 |
+| reclaim variants, `0xE50160` (large) | read | old garbage is kept: intended |
+| push-marked loops, state 1 / state 5 | read | this is the rescue |
+| EA heap walk `0xE4A3F0` -> `0xE4A350` (marked and not free), host callback `0xD70280` -> `0xD70110` (`GC_is_marked` at `0xD70132`); one caller `0xD7047A` | read | the caller runs `GC_gcollect 0xE4A0B0` (stop function `0x5BFB90`) at `0xD70470` first. With forced collections kept full the walk sees exact marks |
+
+### 8.4 Finalization and weak links
+
+`GC_finalize 0xE4AE60`, tables: links `[0x11F3030]` (count `[0x11F3034]`, log size `[0x1194840]`), finalizable
+`[0x11F3038]` (count `[0x11F3040]`), queue `GC_finalize_now [0x11F303C]`. `GC_java_finalization [0x119483C]` is 1 in
+the image and has no writer. The only finalizer registration with callers is `GC_register_finalizer_no_order
+0xE4AE30` (Mono, 3 sites); its mark proc is the empty function `0xC0FD60`. Weak links: Mono wrapper `0xE696C0` ->
+`GC_general_register_disappearing_link 0xE4AAC0`, removal `0xE696E0` -> `0xE4ABE0`.
+
+| Step | Code | Rule |
+|---|---|---|
+| 1 clear weak links | `0xE4AEB0`-`0xE4AF49` | target not marked **and** its block's stamp != `GC_gc_no` (EA's addition, `0xE4AEF3`): zero the link, drop the entry |
+| 2 mark from finalizable objects | `0xE4AF60`-`0xE4B03C` | same two tests; calls the entry's mark proc, which is empty for every registered finalizer, so nothing is marked |
+| 3 queue | `0xE4B060`-`0xE4B1C5`, `0xE4B32E` | not marked and stamp != `GC_gc_no`: move to the queue. Not marked but stamped: mark the object and what it reaches, keep it registered (`0xE4B0EF`-`0xE4B19F`) |
+| 4 keep queued objects | `0xE4B1D8`-`0xE4B2CC` | every queued object and everything it reaches is marked |
+| 5 drop links whose holder died | `0xE4B2E0`.. | holder = `GC_base` of the link address; not marked: drop the entry. No stamp test here |
+
+Under sticky marks:
+
+- An object marked in an earlier cycle stays marked through minor cycles, so its finalizer is not queued and weak
+  links to it are not cleared until the next **full** cycle. There it is unmarked like any dead object and steps 1 / 3
+  run as today. Nothing else can end its life: §8.3 lists every clear.
+- A queued object is marked by step 4, so it is old from then on. After its finalizer ran it is freed by the next
+  full cycle (today: by the next cycle). Resurrection needs nothing special: the store that resurrects it dirties a
+  page or a root.
+- Young objects (never marked) are finalized and their weak links cleared in the minor cycle in which they die,
+  exactly as in a full cycle.
+- The collector's own table entries and tables are heap objects reached from roots that are pushed in every cycle
+  (`0xE4A9A0`); a new entry is linked by a write into the table or a neighbour entry, which dirties that page.
+
+So no weak link is cleared and no finalizer queued for an old object in a minor cycle, and nothing is lost: the full
+cycle does it. The cost is latency (bounded by the full-cycle policy) and that `GC.Collect` must stay a full cycle.
+Script-visible difference: a weak reference to a dead old object keeps returning that (intact) object until the next
+full cycle instead of the next cycle, and its finalizer runs that much later. Whether any script uses a weak
+reference as a liveness signal is not checked [inferred harmless, I-523-5].
+
+### 8.5 Rules for the minor cycle (lane GA)
+
+| # | Rule | Why |
+|---|---|---|
+| 1 | Minor only when `GC_objects_are_marked [0x11F3080]` != 0; else full | after a mark-stack overflow the state-5 handler (`0xE4D3B0`) rescans all marked objects only if this flag is set; with 0 it would push uncollectable objects and roots only, and young objects reachable only through old ones would be freed. Writers: 0 in `GC_clear_marks` (`0xE4C27F`), 1 in `GC_mark_from` (`0xE4C40A`) and after the root push (`0xE4D2F9`), `0xE4D008`. It stays 1 across minors; assert it |
+| 2 | Never read or reset the write watch outside `GC_initiate_gc`: no extra `0xE4EFB0` call, no `ResetWriteWatch`, no GetWriteWatch with the reset flag on a GC section; a verify pass must leave `0x1227714` as it found it | each read resets the watch, and only a state-1 rescue consumes the bits. A read whose bits are dropped loses old -> young stores (toy test, §8.8). An aborted finish attempt is fine: the rescue continues on the same bitmap and the next attempt reads again |
+| 3 | The full-cycle bound (`GenFullEvery`) is a correctness bound: finalizers and weak links of old objects fire only in a full cycle. Forced collections (stop function `0x5BFB90`: `GC_gcollect`, heap exhaustion, the heap walk) stay full, and a full cycle runs the real `GC_clear_marks` | §8.4, §8.3 last row |
+| 4 | Do not use `GC_is_full_gc [0x11F2FB8]` or `GC_need_full_gc [0x11F2FA4]` as policy inputs; keep your own "this cycle is minor" flag and your own heap-size baseline, written at notify 4 of each full cycle (`[0x12225A0]` - `[0x12225B4]`, the value `0xE49A79` uses) | EA uses `[0x11F2FB8]` as a "first mark end of this cycle" flag: `0xE49FEF` sets it to 1 at every cycle start, and `0xE49E03`-`0xE49E16` clear it (and `GC_n_attempts [0x11F2FB4]`) the first time the incremental mark stack runs empty. So `GC_finish_collection` sees 1 only when the cycle's first stopped mark completed (`0xE4A01B` path) and takes the "full" branch (`GC_need_full_gc` = 0, baseline = now) for a minor cycle too, while a full cycle that ran incrementally takes the other branch and never moves the baseline: `GC_need_full_gc` would then stay 1 and every cycle would be full. Leave the flag itself alone (the attempt counter needs it) |
+| 5 | Do not stamp blocks and do not touch free bits in a minor cycle | §8.2 |
+| 6 | Sweep and `GC_finalize`: no hook, no change | §8.1, §8.4 |
+| 7 | Born-marked objects are legal | §8.2: a marked slot freed with `GC_free` and reused before a sweep visit. The new object's page is dirty (the allocation or `GC_free` wrote it), so state 1 rescans it; it lives until the next full cycle |
+| 8 | Verify mode (full mark after a minor): one class of miss is not a collector bug: a live old object on a clean page that still holds the address of a slot which was `GC_free`d and reused. The full mark follows the stale address, the minor does not; the program holds no valid reference there. Log for each miss the block kind and whether the holder's page was dirty; a miss is FAIL until shown to be this class | toy test config "stale", §8.8 |
+| 9 | With `[GC] MarkHelpers` or `SubTimers` on, chain; the three skipped calls must be skipped as a set | §5.1 |
+
+### 8.6 Two EA hazards found on the way (present with full cycles, not caused by minors)
+
+Both need a weak reference whose target the last mark found dead. The code paths are [verified], including the read:
+`mono_gchandle_get_target 0xE78A70` jumps to `0xE69700` for weak handles, which returns the complement of the slot
+(0 when cleared) with no lock, no mark and no test of the collector state. How often the game does this is
+[inferred, I-523-1].
+
+1. **Weak read between mark end and `GC_finalize`.** When the mark ends inside the per-tick step (`0xE49EDF`), the
+   stop function is polled next (`0xE49F5A`); if the budget is spent, `GC_finish_collection` waits for a later
+   call. Scripts run in between. A script that reads a weak reference to a dying object gets the object (the link is
+   still set), stores it, and the deferred `GC_finalize` then clears the link and the sweep frees the object while it
+   is referenced. EA protected allocations in this window (the stamp) but not weak reads.
+2. **Weak link kept, referents swept.** Step 1 keeps the link when the dead target's block is stamped (someone
+   allocated into that block after the mark end). The target survives this cycle, but the objects it points to are
+   swept if their blocks are not stamped. A later read of the weak reference returns an object with dangling fields.
+   Step 3 handles the same case for finalizable objects by marking from the object; step 1 does not.
+
+Not exposed [inferred, I-523-2]: step 5 has no stamp test, so a link stored inside a heap
+object allocated in the window would lose its registration; Mono's weak handle slots come from the host allocator
+`0xD70A10` (table growth at `0xE7892C`), not from a `GC_malloc` entry.
+
+Minor cycles do not add exposure: both hazards need an unmarked target, and old targets stay marked. Possible fix,
+not built (own default-off switch, EA bug fix): in step 1 mark from an unmarked target in a stamped block instead of
+only skipping it (as `0xE4B0EF` does), and run `GC_finish_collection` in the same step as the mark end at `0xE49EDF`
+(cost: `GC_finalize` and the block walk of `GC_start_reclaim` land in that step). Effort: ~1-2 h build plus one
+correctness job; decision for Rodney.
+
+### 8.7 Notes for the gain gate (I-520-2)
+
+- The sweep writes into every block where it reclaims a slot (free-list link, body clear), and allocation and
+  `GC_free` write too. Those pages are dirty at the next read, so the next minor cycle rescans all marked objects of
+  every block that lost or gained an object since the last cycle. The dirty share is therefore at least the share of
+  blocks with churn, not only blocks with pointer stores [inferred from the code; number open, I-520-2].
+- A block is returned to the block allocator only when it has no mark left. Old garbage keeps its block until a full
+  cycle, so block reuse across sizes and kinds drops between full cycles.
+- Born-marked objects and objects kept by dead old holders on dirty pages are extra floating garbage until the next
+  full cycle.
+
+### 8.8 Toy-heap selftest (`native/ts3native/gcgen-toy-test.h`, `TestGenGcToyHeap`)
+
+Host-side model, no game code: blocks of 16 slots with stamp, mark bits, free bits and a kind (pointer-free, normal,
+uncollectable); free lists that persist; the rules of §8.1-§8.4 for allocation, `GC_free`, the marker (free-bit test,
+state-1 rescue of marked objects on dirty pages, overflow -> rescan of all marked objects), 1-3 stopped-mark attempts
+per cycle with the mutator running between them, the window between mark end and `GC_finalize`, weak links, no-order
+finalizers with resurrection, lazy sweep with stamp skip, free-bit mask and empty-block release. A full cycle clears
+marks and stamps; a minor cycle does neither. Ground truth uses generation-tagged pointers, so a pointer to a
+freed-and-reused slot does not count as a reference.
+
+Checks: C1 every reachable object is marked at mark end (and, without stale pointers, the minor mark is a superset
+of a conservative full mark); C2 the sweep never frees a reachable object; C3 no weak link is cleared while its
+target is reachable, none is left pointing at a swept slot; C4 no finalizer is queued for a reachable object and no
+finalizable object is swept unqueued; C5 after a full cycle no dead object still waits for its finalizer or weak
+link.
+
+Scenarios (deterministic): old -> young store on a clean page with and without the dirty bit; young garbage freed by
+a minor, old garbage only by the full; `GC_free` of an old object with reuse (born marked) and without (mask); an
+allocation after the mark end with and without the stamp skip; mark-stack overflow in a minor; finalizer and weak
+link of an old and of a young object.
+
+Randomized (seeded, about 2 s in total) [measured, standalone run 2026-11-18]: all-full baseline, 40 seeds
+(validates the model: 0 errors); sticky marks with a full every 4 cycles, 150 seeds: 9,600 minor and 2,700 full
+cycles, 501,935 slots swept, 21,197 born-marked objects, 39,478 finalizers, 54,573 links cleared, 4,180 blocks
+released, 0 errors; mark stack of 6 entries, 60 seeds; stale `GC_free`, 100 seeds (1 stale-pointer miss, rule 8, 0
+real ones); no window with a full every 16, 60 seeds.
+
+Faults that must be caught, and are: a store that fails to dirty its page (2% of stores, 40 seeds: 11 errors, first
+at C1), an extra dirty read (rule 2: 99 errors), a sweep without the stamp skip (243), never a full cycle (dead old
+objects keep waiting, rule 3), and EA's weak-read hazards of §8.6 (reproduced with full cycles only: 78 errors; the
+default mutator skips reads of dying targets so that every remaining error belongs to the sticky-mark change).
+
+Not modelled: large objects (same rules: mark bit 0, stamp skip at `0xE5017F`), typed descriptors, the collector's
+own table entries as heap objects, black lists, the 64K-bit dirty bitmap aliasing (only adds dirty pages), threads.
+The model is a reading of the disassembly, not the game's code: it proves the rules are consistent, the live verify
+mode (B3) proves the game follows them.

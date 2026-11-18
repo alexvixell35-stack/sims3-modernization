@@ -3161,6 +3161,13 @@ for (const [n, j] of jobs.entries()) {
     appendFileSync(md, `| ${j.id} | ${t0.slice(11, 16)} (${pht(t0)}) | 0 | **N/A** | ${row.verdict[0].replace(/\|/g, '/')} | - | - | - | - |${machineCols(machineTag()).cell(MACHINE)}\n`);
     log(`${j.id}: ${row.verdict[0]}`); clearJob(); continue;
   }
+  // 2026-11-19 rc-1119a bp-save-bundle-big: BigSave-LR was not in Saves/; the game's load-error dialog and a 600 s wait read as a save-path FAIL
+  if (!sess && s !== 'menu' && (j.run.profile || j.run.repro) && hashSave(join(SAVES, /\.sims3$/i.test(s) ? s : `${s}.sims3`)) === 'missing') {
+    row.verdict = [`N/A: save ${s} missing in Saves/ (copy it back, then rerun)`]; row.end = t0; row.minutes = 0; row.na = naRow(row);
+    appendFileSync(jsonl, JSON.stringify(row) + '\n');
+    appendFileSync(md, `| ${j.id} | ${t0.slice(11, 16)} (${pht(t0)}) | 0 | **N/A** | ${row.verdict[0].replace(/\|/g, '/')} | - | - | - | - |${machineCols(machineTag()).cell(MACHINE)}\n`);
+    log(`${j.id}: ${row.verdict[0]}`); clearJob(); continue;
+  }
   const guarded = guardedSaves(s);
   row.saveHashes = { before: hashSaves(SAVES, guarded) };
   let stopLoad: (() => Promise<void>) | null = null, iniUsed: string | undefined, stopSweep = () => {};

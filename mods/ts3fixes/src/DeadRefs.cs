@@ -367,7 +367,7 @@ namespace Ts3Fixes
                 IList states = sAgingStates.GetValue(AgingManager.Singleton) as IList;
                 if (states == null || !states.Contains(s)) return;
                 // a delegate, not MethodInfo.Invoke: agingalarmcancel swaps CancelAgingAlarmsForSim (tools/selftest/swapinvoke)
-                if (sCancelAging != null) ((DrCancelAgingFn)Delegate.CreateDelegate(typeof(DrCancelAgingFn), AgingManager.Singleton, sCancelAging))(s);
+                if (sCancelAging != null) ((DrCancelAgingFn)Fixes.Bind(typeof(DrCancelAgingFn), AgingManager.Singleton, sCancelAging))(s);
                 states.Remove(s);
             }
             PatchCounters()[397]++;
@@ -968,8 +968,8 @@ namespace Ts3Fixes
                 foreach (Sims3.Gameplay.Objects.Appliances.Fridge f in Sims3.Gameplay.Queries.GetObjects<Sims3.Gameplay.Objects.Appliances.Fridge>()) if (!f.HasBeenDestroyed && f.LotCurrent != null) { host = f; break; }
                 if (host == null) throw new InvalidOperationException("cooking seed: no fridge in the world");
                 CookingProcess a = new CookingProcess(), b = new CookingProcess();
-                a.ObjectClickedOn = host; ((CpAddFn)Delegate.CreateDelegate(typeof(CpAddFn), a, sCpAddListeners))(); a.ObjectClickedOn = null;
-                b.ObjectClickedOn = host; ((CpAddFn)Delegate.CreateDelegate(typeof(CpAddFn), b, sCpAddListeners))();
+                a.ObjectClickedOn = host; ((CpAddFn)Fixes.Bind(typeof(CpAddFn), a, sCpAddListeners))(); a.ObjectClickedOn = null;
+                b.ObjectClickedOn = host; ((CpAddFn)Fixes.Bind(typeof(CpAddFn), b, sCpAddListeners))();
                 sCkObj = host; sCkA = a; sCkB = b;
                 return "cooking seed: two processes on " + host.GetType().Name + " " + host.ObjectId.Value + ", one let go, one dead";
             }
@@ -1166,7 +1166,7 @@ namespace Ts3Fixes
                     if (ctor == null || valid == null || AgingManager.Singleton == null) return "aging: not found";
                     object state = ctor.Invoke(new object[] { new SimDescription() });
                     // swapped method: a delegate, not MethodInfo.Invoke (see EaFixes PrefRemoveFn)
-                    return "aging: valid " + ((AgingValidFn)Delegate.CreateDelegate(typeof(AgingValidFn), AgingManager.Singleton, valid))((AgingState)state);
+                    return "aging: valid " + ((AgingValidFn)Fixes.Bind(typeof(AgingValidFn), AgingManager.Singleton, valid))((AgingState)state);
                 }
                 case "sweep": sDeadRefObjDue = true; return "sweep: started " + DeadRefSweepStart() + " (" + (DeadRefUnsafe(false) ?? "safe") + ")";
                 case "savepass": return DeadRefSavePass();

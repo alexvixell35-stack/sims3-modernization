@@ -3153,7 +3153,7 @@ static void JitCaptureOn(const wchar_t* ini) {
 // DirectLeaf=1 leaves only, Trap=1 the reader trap (TrapEvery=<n>), Inline=1|2 tiny callees at compiled call sites, Wide=1 the S5 templates and methods with clauses, Capture=1 argument samples to CaptureFile=<path> (docs/537 §17; CaptureFirst, CaptureReservoir, CaptureDepth, CaptureObjs, CaptureBytes, CaptureObjMax, CaptureBudgetUs, CaptureMaxMb). true = installed (keep the log). After every other code
 // patch, before [AutShadow] (docs/527 §4.1), and only on the Steam 1.67 exe (EA build: EA app 1.69.47).
 static bool ApplyMonoJit(const wchar_t* ini) {
-    if (!GetPrivateProfileIntW(L"MonoJit", L"Enabled", 0, ini)) return false;
+    if (!GetPrivateProfileIntW(L"MonoJit", L"Enabled", 0, ini) || S3mmStandsDown("[MonoJit]")) return false;
     Ts3nCounters& C = ts3native_counters;
     const int mode = GetPrivateProfileIntW(L"MonoJit", L"Mode", 1, ini);
     if (mode != 1 && mode != 2) { Log("SKIP mono jit: Mode=%d (1 compiled, 2 verify)", mode); return false; }

@@ -70,7 +70,7 @@ static int RunChild() {
     }
     ResumeThread(pi.hThread);
     DWORD rc = 2;
-    if (WaitForSingleObject(pi.hProcess, GetEnvironmentVariableA("MONOHOST_JIT", NULL, 0) || GetEnvironmentVariableA("MONOHOST_EQFAST", NULL, 0) ? 900000 : 120000) == WAIT_TIMEOUT) {  // fail fast: init takes seconds
+    if (WaitForSingleObject(pi.hProcess, GetEnvironmentVariableA("MONOHOST_JIT", NULL, 0) || GetEnvironmentVariableA("MONOHOST_EQFAST", NULL, 0) || GetEnvironmentVariableA("MONOHOST_LAYOUT", NULL, 0) ? 900000 : 120000) == WAIT_TIMEOUT) {  // fail fast: init takes seconds
         printf("child timed out after 120 s\n");
         TerminateProcess(pi.hProcess, 4);
     }
@@ -1045,6 +1045,7 @@ static bool Write(void* addr, const void* bytes, size_t n) {
 static void* InstallDetour(const char*, DWORD, const u8*, size_t, void*) { return NULL; }
 template <class F> static void* InstallDetour(const char*, DWORD, const u8*, size_t, void*, F*) { return NULL; }
 static int Clamp(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }  // ts3native.cpp's (QuitStop ini read)
+static bool S3mmStandsDown(const char*) { return false; }  // s3mm.cpp (docs/291): no other mod in the host
 #include "../ts3native/uaftag.h"  // UafTagSet in MtWorkerMain ([UafCheck] free tags; only a thread-local write here)
 #include "../ts3native/simloop.cpp"  // the per-iteration hook ApplyMonoThread adds (the host never runs Simulate)
 #include "../ts3native/monothread.cpp"
@@ -2006,12 +2007,144 @@ static bool EqQuickRun() {
     return true;
 }
 
+
+// MONOHOST_LAYOUT=<file> (selftest mode, docs/293): transform every method LayoutDump.cs lists (all loaded assemblies,
+// closed generic bases included) and write "name <tab> words <tab> code words" per method, then stop. Two runs under
+// different feature switches (MONOHOST_MINTFUSE, _MINTCALL, _JIT, ...) diff into "which switch moves instruction
+// boundaries": the saved coroutine frames keep a raw word index (TaskFrame.mIPOffset). Columns 4 and 5: the callee's
+// inline shape (below) and the runtime's own method name (JitMethodName, what ts3native logs).
+//
+// The callee shapes EA's transform inlines at a call site instead of emitting a call [verified, capstone of GenerateCode
+// 0xE5DE08-0xE5E3A9]: 1 = body starts with ret (the arguments are popped), 2 = ldsfld; ret, 3 = ldarg.0; ldfld; ret,
+// 4 = ldarg.0; ldarg.1; stfld; ret, 5 = volatile. ldsfld; ret, 6 = ldsfld; ldfld; ret. 0 = a call is emitted.
+// ts3fixes ports the same test (Fixes.InlineShape): a swap of such a method moves its callers' instruction boundaries.
+static int LayoutInlShape(void* m) {
+    __try {
+        const u8* hdr = ((const u8*(__cdecl*)(void*))(uintptr_t)0xE85390)(m);
+        const u8* sig = ((const u8*(__cdecl*)(void*))(uintptr_t)0xE85040)(m);
+        if (!hdr || !sig) return 0;
+        const u8* il = *(const u8* const*)(hdr + 4);
+        if (il[0] == 0x2A) return 1;
+        if (*(const unsigned short*)(hdr + 0x10) || (*(const DWORD*)(hdr + 0xC) & 0x7FFF)) return 0;
+        const DWORD size = *(const DWORD*)hdr, pc = *(const unsigned short*)(sig + 4);
+        if (size == 6 && pc == 0 && il[0] == 0x7E && il[5] == 0x2A) return 2;
+        if (size == 7 && pc == 0 && il[0] == 2 && il[1] == 0x7B && il[6] == 0x2A) return 3;
+        if (size == 8 && pc == 1 && il[0] == 2 && il[1] == 3 && il[2] == 0x7D && il[7] == 0x2A) return 4;
+        if (size == 8 && pc == 0 && il[0] == 0xFE && il[1] == 0x13 && il[2] == 0x7E && il[7] == 0x2A) return 5;
+        if (size == 11 && pc == 0 && il[0] == 0x7E && il[5] == 0x7B && il[10] == 0x2A) return 6;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    return 0;
+}
+
+#include "../ts3native/saveframes-core.h"
+static int LayoutLen(const unsigned short* p) { return *p == 0xE8 ? JitSwitchLen(p) : JitLen(p); }
+// SF-roundtrip (docs/293): the bug class and the guard on code EA's own transform makes. Layout A = the getter inlined
+// (what the game without the mod builds), layout B = the getter called (what a swap of the getter gives). A frame parked
+// behind a call saves its return index; loaded under the other layout that index is inside an instruction, and
+// SfClassify must give the other layout's index for the same call back, in both directions.
+static void LayoutRoundTrip(void* domain) {
+    void* k = Cls(Served("MonoHostTest.dll"), "MonoHostTest", "LayoutCase");
+    u8* getter = (u8*)Meth(k, "get_Chance", 0);
+    u8* big = (u8*)Meth(k, "ChanceBig", 0);
+    void* ma = Meth(k, "LayA", 0);
+    void* mb = Meth(k, "LayB", 0);
+    if (!Check("SF-methods", getter && big && ma && mb, "LayoutCase methods %p %p %p %p", getter, big, ma, mb)) return;
+    static DWORD fakeCtx[64];
+    fakeCtx[0] = (DWORD)(uintptr_t)domain;
+    void* ctx = TlsGetValue(*(DWORD*)(uintptr_t)0x11F4160);
+    if (!ctx) ctx = fakeCtx;
+    const int shGetter = LayoutInlShape(getter), shBig = LayoutInlShape(big);
+    u8* ra = (u8*)((RuntimeMethodFn)(uintptr_t)0xE51F20)(ma);
+    void* ea = *(void**)ra ? NULL : ((void*(__cdecl*)(u8*, void*))(uintptr_t)0xE643B0)(ra, ctx);
+    u8 saved[40];
+    memcpy(saved, getter, 40);
+    memcpy(getter, big, 0x18);                       // ts3fixes SwapMethod: the header without the name word
+    memcpy(getter + 0x1C, big + 0x1C, 40 - 0x1C);
+    u8* rb = (u8*)((RuntimeMethodFn)(uintptr_t)0xE51F20)(mb);
+    void* eb = *(void**)rb ? NULL : ((void*(__cdecl*)(u8*, void*))(uintptr_t)0xE643B0)(rb, ctx);
+    memcpy(getter, saved, 40);
+    const unsigned short* ca = *(const unsigned short* const*)ra;
+    const unsigned short* cb = *(const unsigned short* const*)rb;
+    const int wa = ca ? *(const unsigned short*)(ra + 0x3A) : 0, wb = cb ? *(const unsigned short*)(rb + 0x3A) : 0;
+    if (!Check("SF-transform", !ea && !eb && ca && cb, "both callers transformed (%d and %d words)", wa, wb)) return;
+    // the return index of each direct call (0xEA), in code order
+    int ra_[8], rb_[8], na = 0, nb = 0;
+    for (int i = 0, n; i < wa && (n = LayoutLen(ca + i)) > 0; i += n) if (ca[i] == 0xEA && na < 8) ra_[na++] = i + n;
+    for (int i = 0, n; i < wb && (n = LayoutLen(cb + i)) > 0; i += n) if (cb[i] == 0xEA && nb < 8) rb_[nb++] = i + n;
+    Check("SF-shape", shGetter == 2 && shBig == 0 && ca[0] == 0x66 && cb[0] == 0xEA,
+          "the static getter is inlined (shape %d, first word %04X = ldsfld), the swapped one is called (shape %d, first word %04X = call)", shGetter, ca[0], shBig, cb[0]);
+    Check("SF-moved", wb == wa - 1 && na == 2 && nb == 3 && rb_[1] == ra_[0] - 1 && rb_[2] == ra_[1] - 1,
+          "the swap makes the caller one word shorter (%d -> %d words); call returns A %d %d, B %d %d %d", wa, wb, ra_[0], ra_[1], rb_[0], rb_[1], rb_[2]);
+    int ok = 0, fixed;
+    bool after;
+    for (int c = 0; c < 2 && na == 2 && nb == 3; c++) {
+        // saved under A (the game without the mod), loaded under B; then saved under B, loaded under A
+        ok += SfClassify(cb, wb, ra_[c], LayoutLen, &fixed, &after) == 1 && fixed == rb_[c + 1];
+        ok += SfClassify(ca, wa, rb_[c + 1], LayoutLen, &fixed, &after) == 1 && fixed == ra_[c];
+        // the same layout on both sides: untouched
+        ok += SfClassify(ca, wa, ra_[c], LayoutLen, &fixed, &after) == 0 && after && fixed == ra_[c];
+        ok += SfClassify(cb, wb, rb_[c + 1], LayoutLen, &fixed, &after) == 0 && after && fixed == rb_[c + 1];
+    }
+    Check("SF-roundtrip", ok == 8, "%d of 8: a frame saved under one layout resumes at the same call under the other (A -> B, B -> A), and is left alone under its own", ok);
+}
+
+static bool LayoutRun(void* domain) {
+    char path[MAX_PATH];
+    if (!GetEnvironmentVariableA("MONOHOST_LAYOUT", path, MAX_PATH)) return false;
+    void* k = Cls(Served("MonoHostTest.dll"), "MonoHostTest", "LayoutDump");
+    void* exc = NULL; DWORD code = 0;
+    const int n = I32(SafeInvoke(Meth(k, "Collect", 0), NULL, NULL, &exc, &code));
+    FILE* f = NULL;
+    fopen_s(&f, path, "w");
+    if (!Check("LAYOUT-collect", k && n > 1000 && !exc && !code && f, "%d methods listed (exception %p, fault %08lX) -> %s", n, exc, code, path)) return true;
+    void* mh = Meth(k, "Handle", 1);
+    void* mn = Meth(k, "Name", 1);
+    // the transform reads its ThreadContext only to run a .cctor of a class not initialised yet (0xE64402: +0xC / +0x10
+    // saved around the class init); outside the interpreter this thread has none, so a zeroed one with the domain at +0
+    static DWORD fakeCtx[64];
+    fakeCtx[0] = (DWORD)(uintptr_t)domain;
+    void* ctx = TlsGetValue(*(DWORD*)(uintptr_t)0x11F4160);
+    if (!ctx) ctx = fakeCtx;
+    char skip[200] = "";  // MONOHOST_LAYOUT_SKIP=<substring>: a method whose transform never returns in the host
+    GetEnvironmentVariableA("MONOHOST_LAYOUT_SKIP", skip, sizeof(skip));
+    int done = 0, bad = 0;
+    for (int i = 0; i < n; i++) {
+        void* args[1] = {&i};
+        char name[400];
+        Narrow(SafeInvoke(mn, NULL, args, &exc, &code), name, sizeof(name));
+        void* boxed = SafeInvoke(mh, NULL, args, &exc, &code);
+        void* m = boxed ? *(void**)((u8*)boxed + 4) : NULL;
+        u8* rm = NULL;
+        void* texc = NULL; DWORD tcode = 0, teip = 0;
+        if (skip[0] && strstr(name, skip)) { fprintf(f, "%s\t-1\tskipped\n", name); continue; }
+        __try {
+            rm = m ? (u8*)((RuntimeMethodFn)(uintptr_t)0xE51F20)(m) : NULL;
+            if (rm && !*(void**)rm) texc = ((void*(__cdecl*)(u8*, void*))(uintptr_t)0xE643B0)(rm, ctx);
+        } __except (tcode = GetExceptionCode(), teip = (DWORD)(uintptr_t)GetExceptionInformation()->ExceptionRecord->ExceptionAddress, EXCEPTION_EXECUTE_HANDLER) {}
+        const unsigned short* c = rm && !texc && !tcode ? *(const unsigned short* const*)rm : NULL;
+        if (!c) { bad++; fprintf(f, "%s\t-1\t%s %08lX\n", name, tcode ? "fault" : texc ? "exception" : "nocode", teip); continue; }
+        const int words = *(const unsigned short*)(rm + 0x3A);
+        char jn[256] = "";
+        JitMethodName(rm, jn, sizeof(jn));
+        fprintf(f, "%s\t%d\t", name, words);
+        for (int w = 0; w < words; w++) fprintf(f, "%04X", c[w]);
+        fprintf(f, "\t%d\t%s\n", LayoutInlShape(m), jn);
+        fflush(f);  // a transform that never returns then shows as the last line
+        done++;
+    }
+    fclose(f);
+    Check("LAYOUT-dump", done > 1000, "%d methods transformed and written, %d without code", done, bad);
+    return true;
+}
+
 static int SelfTest(void* domain) {
     if (EqQuickRun()) return g_fail;
     if (JitQuickRun()) return 0;
     int rc = M13(domain);
     MintDump("m13");  // docs/139: the .cctor sweep = EA script code; the rest is HostTest code
     if (!rc) rc = M14();
+    if (!rc) LayoutRoundTrip(domain);  // docs/293
+    if (!rc && LayoutRun(domain)) return g_fail;
     if (!rc) rc = McTests();  // docs/139 §8, before M1.5 (its exception task makes the pool state M5-arena-dedupe checks)
     if (!rc) rc = M15();
     JitAtomic(false);  // docs/207 verify: M5 installs P3 detours on the GC entry points

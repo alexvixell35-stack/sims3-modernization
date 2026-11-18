@@ -109,7 +109,7 @@ namespace Ts3Fixes
                                     // what the override ends with after its unhooking.
                                     Array gw = sCrlGridWins != null ? sCrlGridWins.GetValue(row) as Array : null;
                                     if (gw != null && gw.Length > 0 && gw.GetValue(0) == null && sCrlBaseDispose != null)
-                                        ((Action<bool>)Delegate.CreateDelegate(typeof(Action<bool>), row, sCrlBaseDispose))(false);
+                                        ((Action<bool>)Fixes.Bind(typeof(Action<bool>), row, sCrlBaseDispose))(false);
                                     else row.Dispose();
                                     c[2221]++;
                                 }

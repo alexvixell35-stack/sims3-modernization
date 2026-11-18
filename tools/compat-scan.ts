@@ -157,6 +157,11 @@ export function typeFindings(types: ModType[], replaced: string[], patched: Reso
   return out;
 }
 
+/** ASI plugins ts3native knows by name: a stand-down instead of an unknown verdict. */
+export function asiFinding(file: string): Finding | undefined {
+  if (/^sims3monomodder\.asi$/i.test(basename(file))) return { kind: 'named', text: 'ts3native detects Sims3MonoModder.asi and stands down [MonoJit], [MonoFast] CallPath, [AutShadow] (docs/291 §6)', feature: 'S3mmStandDown', switches: ['[Compat] S3mmStandDown'] };
+  return undefined;
+}
 type Unit = { extras?: string[]; size?: number; mod: string; file: string; kind: Set<string>; asms: { name: string; mvid: string }[]; findings: Finding[]; unknown?: string; keys: Set<string> };
 const keyOf = (e: { type: number; group: number; inst: bigint }) => `${e.type.toString(16).padStart(8, '0')}:${e.group.toString(16).padStart(8, '0')}:${e.inst.toString(16).padStart(16, '0')}`;
 
@@ -302,13 +307,21 @@ function run() {
       const u: Unit = { mod: basename(f, extname(f)), file: label(root, f), kind: new Set(), asms: [], findings: [], keys: new Set() };
       if (OURS.test(u.mod)) continue;
       if (ext === '.rar' || ext === '.7z') { u.unknown = `${ext.slice(1)} archive: unpack needed`; }
-      else if (ext === '.asi') { u.kind.add('asi'); u.unknown = 'ASI: native hooks, compare its sites with node tools/hook-sites.ts and docs/68'; }
+      else if (ext === '.asi') {
+        u.kind.add('asi');
+        const k = asiFinding(f);
+        if (k) u.findings.push(k); else u.unknown = 'ASI: native hooks, compare its sites with node tools/hook-sites.ts and docs/68';
+      }
       else if (ext === '.zip') {
         try {
           for (const [n, b] of unzip(readFileSync(f))) {
             const e = extname(n).toLowerCase();
             if (e === '.package') addPackage(u, b, n);
-            else if (e === '.asi') { u.kind.add('asi'); u.unknown = 'ASI inside: native hooks, compare with hook-sites.ts / docs/68'; }
+            else if (e === '.asi') {
+              u.kind.add('asi');
+              const k = asiFinding(n);
+              if (k) u.findings.push(k); else u.unknown = 'ASI inside: native hooks, compare with hook-sites.ts / docs/68';
+            }
             else if (e === '.rar' || e === '.7z' || e === '.zip') u.unknown = `nested ${e.slice(1)} (${n}): unpack needed`;
           }
         } catch (e) { u.unknown = `zip not readable here (${(e as Error).message})`; }
@@ -416,6 +429,7 @@ function selfCheck() {
   assert(modExtras('OldMod_v1', 10, [], kb).join() === 'outdated: pre-1.67 (docs/x)', 'known-bad by name');
   assert(modExtras('fine', 10, ['0333406c:00000000:0000000000000007'], kb).join() === 'known-bad: breaks saves', 'known-bad by key');
   assert(modExtras('fine', 10, [], kb).length === 0 && modExtras('x', 3 * GB, [], []).join().includes('over 2 GB') && modExtras('x', 4 * GB, [], []).join().includes('unreadable'), 'no match / size limits');
+  assert(asiFinding('Bin/Sims3MonoModder.asi')?.feature === 'S3mmStandDown' && asiFinding('sims3monomodder.ASI') && !asiFinding('Sims3MonoModder.asi.bak') && !asiFinding('xSims3MonoModder.asi'), 'known ASI by name');
   // package index from disk and from a zip, stored and deflated
   const pkg = writePackage([{ type: 0x0333406c, group: 0, instance: 7n, data: Buffer.from('<x/>') }, { type: TYPE_S3SA, group: 0, instance: fnv64('A'), data: Buffer.from('not an assembly') }]);
   const tmp = mkdtempSync(join(tmpdir(), 'compat-sc-'));

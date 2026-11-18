@@ -119,7 +119,7 @@ namespace Ts3Fixes
                 {
                     System.Reflection.MethodInfo m = typeof(RabbitHole).GetMethod("CanSimSkipExitWait", kInstAll, null, new Type[] { typeof(Sim) }, null);
                     // through a delegate: MethodInfo.Invoke with a target throws on a swapped method (swapinvoke selftest)
-                    RhxSkipFn fn = (RhxSkipFn)Delegate.CreateDelegate(typeof(RhxSkipFn), hole, m);
+                    RhxSkipFn fn = (RhxSkipFn)Fixes.Bind(typeof(RhxSkipFn), hole, m);
                     bool got = fn(npc);
                     bool ea = npc.IsSelectable || hole is Sims3.Gameplay.Objects.RabbitHoles.SchoolRabbitHole;
                     Sim player = Sims3.Gameplay.Core.PlumbBob.SelectedActor;

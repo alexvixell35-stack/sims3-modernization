@@ -13211,6 +13211,7 @@ static void TestP5() {
 #include "dxdiagcache-test.h"  // TestDxDiagCache ([Startup] DxDiagCache, docs/284)
 #include "gcgate-test.h"    // TestGcIdleGate ([GC] IdleGate, docs/281 §8)
 #include "gcmark-test.h"    // TestGcMarkHelpers ([GC] MarkHelpers P2 helper pool, docs/287 §6)
+#include "gcgen-toy-test.h"  // TestGenGcToyHeap ([GC] Generational: sticky-mark model of EA's sweep / finalize, docs/290 §8.8)
 #include "memexp-test.h"    // TestMemExp ([MemDiag] TypeGrowth, [GC] SqrtHeapLimit, docs/199)
 #include "gcgrow-test.h"    // TestGcGrowLog ([GcGrowLog], [GC] BlackListCapKB, docs/232 Run 8l/8n)
 #include "allocsites-test.h"  // TestAllocSites ([MemDiag] AllocSites, docs/201)
@@ -13218,6 +13219,8 @@ static void TestP5() {
 #include "watchpt-test.h"  // TestWatchpoint ([Watchpoint], docs/157 §8)
 #include "crashfx-test.h"  // TestCrashForensics ([CrashForensics], docs/157 §11.7)
 #include "apex-test.h"  // TestApex ([Compat] ApexStandDown, docs/148 §7)
+#include "saveframes-test.h"  // TestSavedFrames ([EaCrashFixes] SavedFrameGuard, docs/293)
+#include "s3mm-test.h"  // TestS3mm ([Compat] S3mmStandDown, Satb act refusal, docs/291 §6)
 #include "compaction-test.h"  // TestCompaction ([Compaction], docs/204)
 #include "saveslim-test.h"  // TestSaveSlim ([SaveSlim], docs/15 phase 11)
 #include "rctrim-test.h"  // TestRcTrim ([ResourceCache] TrimAfterCleanup, docs/198 §6)
@@ -14765,6 +14768,7 @@ int main() {
     TestMemExp();
     TestGcIdleGate();
     TestGcMarkHelpers();
+    TestGenGcToyHeap();
     TestDxDiagCache();
     TestGcGrowLog();
     TestAllocSites();
@@ -14774,6 +14778,8 @@ int main() {
     TestCrashForensicsFx();    // docs/186 §9
     TestCrashForensicsObjRes();  // docs/186 §10
     TestApex();
+    TestS3mm();
+    TestSavedFrames();
     TestCompaction();
     TestRcTrim();
     TestLotPoolTrim();

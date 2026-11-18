@@ -124,7 +124,7 @@ namespace Ts3Fixes
         static void CcUnhookDisposed(CcEntry e)
         {
             if (e.Hooked == null || ReferenceEquals(e.Hooked, e.P.ObjectClickedOn)) return;
-            e.Hooked.ObjectDisposed -= (GameObject.ObjectDisposedEvent)Delegate.CreateDelegate(typeof(GameObject.ObjectDisposedEvent), e.P, sCcOnDisposed);
+            e.Hooked.ObjectDisposed -= (GameObject.ObjectDisposedEvent)Fixes.Bind(typeof(GameObject.ObjectDisposedEvent), e.P, sCcOnDisposed);
             e.Hooked = null;
             PatchCounters()[2413]++;
         }
@@ -203,7 +203,7 @@ namespace Ts3Fixes
         delegate void CcClearFn();
         internal static void CcClear(CookingProcess p)
         {
-            ((CcClearFn)Delegate.CreateDelegate(typeof(CcClearFn), p, sCcClear))();
+            ((CcClearFn)Fixes.Bind(typeof(CcClearFn), p, sCcClear))();
         }
 
         internal static bool CcHasStateListener(CookingProcess p)

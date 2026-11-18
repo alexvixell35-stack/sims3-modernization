@@ -1142,8 +1142,8 @@ namespace Ts3Fixes
         // list would not have them).
         static void EnvApply(SimUpdate u, Sim s, EnvRes a)
         {
-            DoSimEnvFn doSim = (DoSimEnvFn)Delegate.CreateDelegate(typeof(DoSimEnvFn), u, mDoSimEnv);
-            SendObjEnvFn sendObj = (SendObjEnvFn)Delegate.CreateDelegate(typeof(SendObjEnvFn), u, mSendObjEnv);
+            DoSimEnvFn doSim = (DoSimEnvFn)Fixes.Bind(typeof(DoSimEnvFn), u, mDoSimEnv);
+            SendObjEnvFn sendObj = (SendObjEnvFn)Fixes.Bind(typeof(SendObjEnvFn), u, mSendObjEnv);
             float pos = a.Pos, neg = a.Neg;
             bool outside = false, window = false, foundEnemy = false, foundLover = false, reactionPlayed = false, attracted = false, servo = false;
             Lot lot = s.LotCurrent, home = s.LotHome;

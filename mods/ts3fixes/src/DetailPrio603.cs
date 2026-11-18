@@ -76,7 +76,7 @@ namespace Ts3Fixes
         static LotDetailPriority DpHooked(Lot lot)
         {
             if (sDpCalc == null) sDpCalc = typeof(Lot).GetMethod("CalculateDetailPriority", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null, Type.EmptyTypes, null);
-            return ((DpCalcFn)Delegate.CreateDelegate(typeof(DpCalcFn), lot, sDpCalc))();
+            return ((DpCalcFn)Fixes.Bind(typeof(DpCalcFn), lot, sDpCalc))();
         }
 
         // Controls on the household itself: its home lot is Home; the lot of each member outside a rabbit hole (not the

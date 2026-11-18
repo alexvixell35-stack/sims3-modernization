@@ -567,8 +567,8 @@ namespace Ts3Fixes
                 if (had || !on) { if (!had) PatchCounters()[3033]++; UpgradeOrig(oldUpgrade, newUpgrade); return; }
                 try
                 {
-                    ((SuVoidFn)Delegate.CreateDelegate(typeof(SuVoidFn), s, sSuReset))();
-                    if (SuRebuild(on, had)) ((SuVoidFn)Delegate.CreateDelegate(typeof(SuVoidFn), s, sSuSet))();
+                    ((SuVoidFn)Fixes.Bind(typeof(SuVoidFn), s, sSuReset))();
+                    if (SuRebuild(on, had)) ((SuVoidFn)Fixes.Bind(typeof(SuVoidFn), s, sSuSet))();
                     PatchCounters()[3031]++;
                 }
                 catch (Exception) { UpgradeOrig(oldUpgrade, newUpgrade); }

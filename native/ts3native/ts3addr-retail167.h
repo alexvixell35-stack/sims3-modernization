@@ -931,6 +931,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00D81FF6, 0x00D82486},
     {0x00D82110, 0x00D825A0},
     {0x00D83000, 0x00D83400},
+    {0x00D84360, 0x00000000},
     {0x00D89930, 0x00D89D60},
     {0x00D89BF0, 0x00D8A020},
     {0x00D89C60, 0x00D8A090},
@@ -1053,6 +1054,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00E525C0, 0x00E528B0},
     {0x00E529A0, 0x00E52C90},
     {0x00E52B60, 0x00E52E50},
+    {0x00E52B90, 0x00000000},
     {0x00E53070, 0x00E53360},
     {0x00E53130, 0x00E53420},
     {0x00E53220, 0x00E53510},
@@ -1060,9 +1062,11 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00E534E0, 0x00E537D0},
     {0x00E53542, 0x00E53832},
     {0x00E53550, 0x00E53840},
+    {0x00E535E0, 0x00000000},
     {0x00E53740, 0x00E53A30},
     {0x00E53EB0, 0x00E541A0},
     {0x00E53EBD, 0x00E541AD},
+    {0x00E5404D, 0x00000000},
     {0x00E543C7, 0x00E546B7},
     {0x00E54453, 0x00E54743},
     {0x00E544D5, 0x00E547C5},
@@ -1564,7 +1568,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x01234360, 0x01235360},
     {0x01234374, 0x01235374},
 };
-constexpr int ts3addr_count = 1559;
+constexpr int ts3addr_count = 1563;
 // unresolved: 0x005A2C00 xref-none native/ts3native/allocsites-owners.h:16 (+1)
 // unresolved: 0x005BF1FB xref-none native/ts3native/vcallsites3.h:5
 // unresolved: 0x0060AA00 xref-none native/ts3native/allocsites-owners.h:16 (+1)
@@ -1583,3 +1587,7 @@ constexpr int ts3addr_count = 1559;
 // unresolved: 0x010FF678 xref-none native/ts3native/autshadow.cpp:3342
 // unresolved: 0x01100BDC xref-none native/ts3native/autshadow.cpp:3342
 // unresolved: 0x01221EC0 xref-none native/ts3native/mintcall.cpp:31
+// unresolved: 0x00D84360 no-retail-1.67-address native/ts3native/saveframes.cpp (2026-11-19, docs/293 §6: not ported yet)
+// unresolved: 0x00E52B90 no-retail-1.67-address native/ts3native/saveframes.cpp (2026-11-19, docs/293 §6: not ported yet)
+// unresolved: 0x00E535E0 no-retail-1.67-address native/ts3native/yielddiag.cpp (2026-11-19, docs/293 §6: not ported yet)
+// unresolved: 0x00E5404D no-retail-1.67-address native/ts3native/yielddiag.cpp (2026-11-19, docs/293 §6: not ported yet)

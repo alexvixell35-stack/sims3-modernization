@@ -485,7 +485,7 @@ namespace Ts3Fixes
 
         static void BpUnsubscribe(Backpack b)
         {
-            Sim.OnLotChangedEvent -= (Sim.OnLotChanged)Delegate.CreateDelegate(typeof(Sim.OnLotChanged), b, sBpOnLot);
+            Sim.OnLotChangedEvent -= (Sim.OnLotChanged)Fixes.Bind(typeof(Sim.OnLotChanged), b, sBpOnLot);
         }
 
         public class BEp5BpHook

@@ -10,7 +10,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { focusGame, giveFocusBack } from './focus-game.ts';
-import { launchGuard, stallGuard } from './game-alive.ts';
+import { captureHang, hangDir, launchGuard, stallGuard } from './game-alive.ts';
 import { BIN, GAME_EXE, killLeftovers } from './game-exe.ts';
 import { defaultSpec, problems, vanilla } from './vanilla.ts';
 
@@ -168,10 +168,24 @@ if (values.save) {
   if (!r.ok) throw new Error(`load_save: ${r.error}`);
   // The agent sets the mailbox's world-loaded flag in OnWorldLoadFinished; /agentstatus reads it without a round trip.
   // Dialogs once in the world are the autopilot's job; every 10 s also try a modal that blocks the load itself.
+  // Load never started (2026-11-18, r1x set, 3 of 3): the sim ticks and the agent answers at the menu, so the stall guard sees no
+  // hang and the job only ends at the 600 s cap with no capture. Once, 120 s after load_save, when game_state answers (a real load
+  // keeps the sim busy) and is not in a world: the RunAsync result (async_log: did the transition run or throw), EA's state
+  // machine (a pending NextState nobody takes, paused, shut down) and the hang capture (stacks, managed stack). Log only.
+  let snapAt = Date.now() + 120000, snapped = false; // then one try per 30 s: no answer during a real load
+  const snap = async (cmd: string, args?: object) => JSON.stringify(await agent(cmd, args).catch((e: unknown) => ({ error: String(e) }))).slice(0, 2000);
   let waits = 0;
   await agent('dialog_expect', { seconds: 60 }); // a modal blocking the load: the autopilot leaves it to the accept below (ts3agent 03e2bfe)
   await until('world loaded', 600, async () => {
     if ((await get('agentstatus', 5000)).worldLoaded === true) return true;
+    if (!snapped && Date.now() > snapAt) {
+      snapAt = Date.now() + 30000;
+      const gs = await agent('game_state');
+      if (gs.ok && gs.result?.in_world === false) {
+        snapped = true;
+        log(`load not started after 120 s, sim alive: game_state ${JSON.stringify(gs.result)}; async_log ${await snap('async_log')}; state machine ${await snap('reflect_get', { path: 'Sims3.Gameplay.GameStates.sSingleton.mStateMachine', depth: 3 })}; ${await captureHang(hangDir(), { port: Number(values.port) }).catch(e => `hang capture failed: ${e}`)}`);
+      }
+    }
     if (++waits % 20 === 0) { await agent('dialog_expect', { seconds: 60 }); const d = await agent('auto_dialog', { accept: true }); if (d.ok && d.result.open) log(`dialog "${d.result.title}" -> ${d.result.clicked}`); } // accept: a modal blocking the load we asked for (docs/236 #3)
     return false;
   }, 500, loadGuard);

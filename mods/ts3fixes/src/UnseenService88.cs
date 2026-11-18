@@ -62,6 +62,19 @@ namespace Ts3Fixes
         static readonly MethodInfo sSvcRunBehavior = typeof(BarAdvanced.BarInteraction).GetMethod("RunBehavior", kInstAll, null, Type.EmptyTypes, null);
         static readonly MethodInfo sSvcRunOrder = typeof(BarAdvanced.BarInteraction).GetMethod("RunOrderBehavior", kInstAll, null, Type.EmptyTypes, null);
         delegate bool SvcRunOrderFn();  // RunOrderBehavior through a delegate: MethodInfo.Invoke throws on a swapped method
+        // BarInteraction.RunOrderBehavior is abstract. A delegate made from the abstract MethodInfo is not dispatched to the
+        // override by the game's interpreter: it transforms the abstract method itself, which has no IL header, and the game
+        // dies at 0xE6463F (2026-11-18, 3 of 3 BP runs ~2 min after load). So: the override declared on the instance's own
+        // class chain, null when there is none.
+        static MethodInfo SvcRunOrderOf(Type t)
+        {
+            for (; t != null; t = t.BaseType)
+            {
+                MethodInfo m = t.GetMethod("RunOrderBehavior", kInstAll | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
+                if (m != null) return m.IsAbstract ? null : m;
+            }
+            return null;
+        }
         static readonly MethodInfo sSvcUseIngr = typeof(BarAdvanced).GetMethod("UseIngredients", kInstAll);
         static readonly MethodInfo sSvcCreateDrink = typeof(BarAdvanced).GetMethod("CreateDrink", kInstAll);
         static readonly Type sSvcOrderFood = typeof(BarAdvanced).GetNestedType("OrderFood", BindingFlags.Public | BindingFlags.NonPublic);
@@ -257,7 +270,9 @@ namespace Ts3Fixes
                 }
                 else
                 {
-                    ((SvcRunOrderFn)Delegate.CreateDelegate(typeof(SvcRunOrderFn), ia, sSvcRunOrder))();   // EA: hands description / recipe to the server's instance (a delegate: barorderlog swaps RunOrderBehavior, see PrefRemoveFn)
+                    MethodInfo runOrder = SvcRunOrderOf(ia.GetType());
+                    if (runOrder == null) throw new InvalidOperationException("no RunOrderBehavior body on " + ia.GetType().Name);
+                    ((SvcRunOrderFn)Fixes.Bind(typeof(SvcRunOrderFn), ia, runOrder))();   // EA: hands description / recipe to the server's instance (a delegate: barorderlog swaps RunOrderBehavior, see PrefRemoveFn)
                     mk.BeginCommodityUpdates();
                     GameObject made;
                     if (kind == kSvcDrink)

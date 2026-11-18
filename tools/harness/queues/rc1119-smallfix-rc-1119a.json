@@ -1,0 +1,221 @@
+{
+  "note": "rc1119-smallfix-rc-1119a (2026-11-19): rc1119-smallfix repinned to the RC set rc-1119a (0.36.292-rc1119a) for chain-rc-1119a. [previous] rc1119-smallfix-rc-1118n (2026-11-18): rc1119-smallfix repinned to the RC set rc-1118n (0.36.287-rc1118n, master 767d87408) for chain-rc-1118n. [source note] rc1119-smallfix (2026-11-18, v0.3.0 plan, Thu 11-19 daytime after rc1119-smoke): one repro job per small fix that ships ON only if it passes: pkglock ([PkgLock] Mode=1, forced pkg-abba repro, PASS = no hang), bouncerskip (bouncerskip_skipped>=1), takeariskguard (takeariskguard_skips>=1), menumaven (menumaven_reads>=3, menumaven_done>=1). Missing repros (not in this queue): mooddrift, moodpending, weddingcleanup: their counters (slots 2251-2253, 2278-2280, 1058-1059) have no ts3agent patches names, so no fixesRequire is possible until the Thu ts3agent build adds them; see the plan. Correctness only, daytime OK.",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-pkg-abba-m1-rc1119",
+      "note": "[rc1119-smallfix: one repro for pkglock on the rc set (Rodney 2026-11-18: ON only if it passes); copy of pkglock-abba-proof.json bp-pkg-abba-m1-1] repro ON arm run 1: Mode=1 + ReproWiden=50 + Detect=1, the same 30 menu reads. PASS = 30 of 30 reads, ReproWiden defer line (deferred >= 1 in the window), no ABBA line, BP loads, 4 min, save",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0, Sat 11-21; probe-out/release-030-plan.md): Thu 11-19 after the build replace nothing here but register the rc files in builds.json; --dry-run]",
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "PkgLock.Mode": 1,
+        "PkgLock.Detect": 1,
+        "PkgLock.ReproWiden": 50
+      },
+      "agentArm": "pkg_abba_repro",
+      "logRequire": {
+        "^OK   pkglock: \\[PkgLock\\] Mode=1 Detect=1 ReproWiden=50": 1,
+        "^pkglock: ReproWiden defer: tid \\d+ owns O\\+0x48 .*Mode 1 idle close deferred": 1,
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "logForbid": {
+        "\\[PkgLock\\] ABBA:": 0,
+        "^SKIP pkglock": 0
+      },
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "repro": "pkg-abba"
+      },
+      "timeoutMin": 15,
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        },
+        "^OK   pkglock: \\[PkgLock\\] Mode=1 Detect=1 ReproWiden=50": {
+          "match": [
+            "OK   pkglock: [PkgLock] Mode=1 Detect=1 ReproWiden=50 TEST ONLY (docs/539 §13.9): package idle close tries the database lock first, defers when a reader holds it"
+          ],
+          "noMatch": [
+            "OK   pkglock: [PkgLock] Mode=0 Detect=1 ReproWiden=50 TEST ONLY (docs/539 §13.9): package idle close unchanged (EA order)",
+            "OK   pkglock: [PkgLock] Mode=1 Detect=0 ReproWiden=0 (docs/539 §13.9): package idle close tries the database lock first, defers when a reader holds it"
+          ]
+        },
+        "^pkglock: ReproWiden defer: tid \\d+ owns O\\+0x48 .*Mode 1 idle close deferred": {
+          "match": [
+            "pkglock: ReproWiden defer: tid 21232 owns O+0x48 (O=4E6AF6A0), Mode 1 idle close deferred"
+          ],
+          "noMatch": [
+            "pkglock: ReproWiden defer: tid 21232 owns O+0x48 (O=4E6AF6A0), Mode 2 idle close deferred",
+            "[PkgLock] ABBA: tid 21232 owns O+0x48"
+          ]
+        },
+        "^SKIP pkglock": {
+          "match": [
+            "SKIP pkglock: [PkgLock] Mode=3 unknown (0, 1, 2)"
+          ],
+          "noMatch": [
+            "OK   pkglock: [PkgLock] Mode=1 Detect=1 ReproWiden=50 TEST ONLY (docs/539 §13.9): package idle close tries the database lock first, defers when a reader holds it"
+          ]
+        },
+        "\\[PkgLock\\] ABBA:": {
+          "match": [
+            "[PkgLock] ABBA: tid 21232 holds O+0xC0, waits O+0x48 owned by tid 4120 (O=4E6AF6A0, in close for 3000 ms, Mode 1)"
+          ],
+          "noMatch": [
+            "pkglock: ReproWiden defer: tid 21232 owns O+0x48 (O=4E6AF6A0), Mode 1 idle close deferred"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-bouncerskip-loop-rc1119",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 14,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "bp-bouncerskip-loop"
+        }
+      },
+      "fixesRequire": "routesrc_bouncer_at_slot>=40,bouncerskip_skipped>=1",
+      "timeoutMin": 30,
+      "note": "[rc1119-smallfix: one repro for bouncerskip on the rc set (Rodney 2026-11-18: ON only if it passes); copy of l10-repros-1115.json bp-bouncerskip-loop] Pass: >= 20 at-slot loops per arm, bouncerskip_skipped rises only on the on arms (= their at-slot count), velvet_bouncer watching true every firing, patches readback bouncerskip on/off per arm, 0 script errors. velvet_bouncer never watching in 180 s = setup FAIL (no bouncer: read its why / lots).",
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0, Sat 11-21; probe-out/release-030-plan.md): Thu 11-19 after the build replace nothing here but register the rc files in builds.json; --dry-run]",
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-takeariskguard-check-rc1119",
+      "note": "[rc1119-smallfix: one repro for takeariskguard on the rc set (Rodney 2026-11-18: ON only if it passes); copy of lane-l3-1115-deadrefs-rerun-1115b.json bp-takeariskguard-check] Correctness (10 min): repro takeariskguard-check. Pass: expect throws (off) and expect guarded (on) both pass; 0 script errors besides the off arm caught throws",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0, Sat 11-21; probe-out/release-030-plan.md): Thu 11-19 after the build replace nothing here but register the rc files in builds.json; --dry-run]",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "takeariskguard-check",
+          "fixesRequire": "takeariskguard_skips>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 18,
+      "earlyGates": [
+        {
+          "afterSec": 480,
+          "counter": "fixes:takeariskguard_skips",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm skipped nothing: hook not applied or the check failed"
+        }
+      ],
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-menumaven-check-rc1119",
+      "note": "[rc1119-smallfix: one repro for menumaven on the rc set (Rodney 2026-11-18: ON only if it passes); copy of menu-maven.json bp-menumaven-check] Correctness (5 min): repro menumaven-all-recipes-check. Pass: off IsMenuMaven True at the tuned count; on False at the tuned count, True with every recipe that counts, False after one is removed",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0, Sat 11-21; probe-out/release-030-plan.md): Thu 11-19 after the build replace nothing here but register the rc files in builds.json; --dry-run]",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "menumaven-all-recipes-check",
+          "fixesRequire": "menumaven_reads>=3,menumaven_done>=1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 20,
+      "earlyGates": [
+        {
+          "afterSec": 150,
+          "counter": "fixes:menumaven_reads",
+          "op": ">=",
+          "value": 1,
+          "why": "the on arm answered no IsMenuMaven call 2.5 min in: hook not installed or the check failed"
+        }
+      ],
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      }
+    }
+  ]
+}

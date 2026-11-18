@@ -219,13 +219,13 @@ namespace Ts3Fixes
                 InterfaceMapping map = option.GetType().GetInterfaceMap(sOwPerform.DeclaringType);
                 for (int i = 0; i < map.InterfaceMethods.Length; i++)
                     if (map.InterfaceMethods[i] == sOwPerform)
-                        return (OwPerformFn)Delegate.CreateDelegate(typeof(OwPerformFn), option, map.TargetMethods[i]);
+                        return (OwPerformFn)Fixes.Bind(typeof(OwPerformFn), option, map.TargetMethods[i]);
             }
             catch (Exception e) { OwLog(OwName(option) + ": no interface map (" + e.Message + ")"); }
             try
             {
                 MethodInfo m = option.GetType().GetMethod("PerformAlarm", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
-                if (m != null) return (OwPerformFn)Delegate.CreateDelegate(typeof(OwPerformFn), option, m);
+                if (m != null) return (OwPerformFn)Fixes.Bind(typeof(OwPerformFn), option, m);
             }
             catch (Exception e) { OwLog(OwName(option) + ": no delegate (" + e.Message + ")"); }
             return null;

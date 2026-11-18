@@ -55,6 +55,7 @@ The file is in our test install, so every game test of ours ran with it loaded.
 ### Real overlap, can't test here
 
 - **simler90 + fixes** (a player's own build): we have no copy.
+- **Sims3MonoModder (S3MM, ASI)** (added 2026-11-18, source read, docs/291): shares the Mono call paths with our JIT, fast call path and AutShadow. ts3native stands those three down by itself when `Sims3MonoModder.asi` is installed (`[Compat] S3mmStandDown=1`, default); not tested together in game yet.
 
 ### Not scanned yet
 

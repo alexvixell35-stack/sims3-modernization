@@ -63,7 +63,7 @@ namespace Ts3Fixes
             if (t.CurrentState != FireworksBase.FireworkState.Finished)
             {
                 w.AnimateSim(t.CurrentState == FireworksBase.FireworkState.Lit ? "LoopAnticipate" : "LoopWatch");
-                InteractionInstance.InsideLoopFunction loop = (InteractionInstance.InsideLoopFunction)Delegate.CreateDelegate(typeof(InteractionInstance.InsideLoopFunction), w, sFwLoopDel);
+                InteractionInstance.InsideLoopFunction loop = (InteractionInstance.InsideLoopFunction)Fixes.Bind(typeof(InteractionInstance.InsideLoopFunction), w, sFwLoopDel);
                 flag = w.DoLoop(ExitReason.Default, loop, w.mCurrentStateMachine, 0.3f);
             }
             else

@@ -1,0 +1,94 @@
+{
+  "note": "rc1119-smoke-rc-1119a (2026-11-19): rc1119-smoke repinned to the RC set rc-1119a (0.36.292-rc1119a) for chain-rc-1119a. [previous] rc1119-smoke-rc-1118n (2026-11-18): rc1119-smoke repinned to the RC set rc-1118n (0.36.287-rc1118n, master 767d87408) for chain-rc-1118n. [source note] rc1119-smoke (2026-11-18 plan): first game run of the rc-1119 set, before release-verify / repro-check / apex compat. Copy of master-smoke-1117c repinned to placeholder rc-1119. Pass = no crash, no hang, version, LostRemovalFix, GhostSweep=2, removal first mode 1 read back, 0 script errors. [source note] master-smoke-1117c: smoke of the master-1117c set (0.36.271-mc1117): master a7ceaa3e with the Dalexlol batch #452-#518 imported and its 232 ts3fixes switches ON (2fb19b7e9) + harness merges; first game run of that batch on our machine. Pass = no crash, no hang, version, LostRemovalFix, GhostSweep=2, removal first mode 1 read back, 0 script errors. Run by probe-out/queue/chain-1117g.sh (stop on FAIL). Was: master-smoke-1116c: copy of master-smoke-1115-mm.json repinned to master-1116c (0.36.267-mc1116), run by probe-out/queue/chain-1116c.sh. Was: master-smoke-1115-mm: copy of master-smoke-1115.json, repinned to master-mono-1115 (0.36.264-mono1). master-merge-1115 smoke: repinned 2026-11-15 to the master-merge-1115 set (builds.json, master 5d5a581f, 0.36.261-lanes1: asi + ini + ts3fixes from one build; agent game-copy/ts3agent.package.master-merge-1115 installed to build/ by chain-reruns-1115.sh). One 5 min BP job, correctness only. Pass = no crash, no hang, version, LostRemovalFix, GhostSweep=2, removal first mode 1 read back.",
+  "jobs": [
+    {
+      "id": "bp-rc1119-smoke",
+      "note": "[docs/293: the RC set must load Baseline-BP-Spring with 0 saved-frame repairs (vanilla layout) and no crash] [rc-1119 set smoke, version 0.36.287-rc1118n] [natural play, no cheats] master-1117c (0.36.271-mc1117) smoke, Baseline-BP-Spring: Dalexlol batch switches ON; version, LostRemovalFix, GhostSweep=2 and RemovalFirst=1 read back, 0 script errors.",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^OK   lost removal fix": 1,
+        "ghost census at world load: GhostSweep=2": 1,
+        "removal first: mode 1": 1,
+        "^ts3native 0\\.36\\.292-rc1119a ": 1,
+        "^OK   saved frame guard": 1
+      },
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 5
+        }
+      },
+      "timeoutMin": 15,
+      "regexCases": {
+        "^OK   lost removal fix": {
+          "match": [
+            "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+          ],
+          "noMatch": [
+            "SKIP lost removal fix: off"
+          ]
+        },
+        "ghost census at world load: GhostSweep=2": {
+          "match": [
+            "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+          ],
+          "noMatch": [
+            "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+          ]
+        },
+        "removal first: mode 1": {
+          "match": [
+            "footprint removal first: mode 1 parked 0 capped 0 max ticks 0"
+          ],
+          "noMatch": [
+            "footprint removal first: mode 0 parked 0 capped 0 max ticks 0"
+          ]
+        },
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        },
+        "^OK   saved frame guard": {
+          "match": [
+            "OK   saved frame guard: a saved task frame inside an instruction is repaired or its stack dropped at load ([EaCrashFixes] SavedFrameGuard=1)"
+          ],
+          "noMatch": [
+            "OK   detour saved frame guard (TaskControl_SetTaskContext 0xD84360) at 0x00D84360",
+            "saved frame guard: 561 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 0 boundaries that follow no call (left alone)"
+          ]
+        },
+        "^ea fix: SavedFrameGuard: frame": {
+          "match": [
+            "ea fix: SavedFrameGuard: frame 6 of 10 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009), set to the call return at word 117"
+          ],
+          "noMatch": [
+            "saved frame guard: 561 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 0 boundaries that follow no call (left alone)"
+          ]
+        }
+      },
+      "scriptErrorsMax": 0,
+      "logForbid": {
+        "^ea fix: SavedFrameGuard: frame": 0
+      }
+    }
+  ],
+  "rewind": "auto"
+}

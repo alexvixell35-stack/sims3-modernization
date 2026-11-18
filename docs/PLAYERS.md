@@ -154,6 +154,8 @@ Which mods overlap with ours (static code scan, not in-game tests): [COMPATIBILI
 
 If you use NRaas Overwatch and notice a half-second freeze about once per game day, turn off City Hall > NRaas > Overwatch > Settings > Clean up Inventory. That nightly job looks up the name of every inventory item; with it off, broken or orphaned inventory items are no longer removed. The setting is saved per save game.
 
+Sims3MonoModder (S3MM): when `Sims3MonoModder.asi` is installed, ts3native switches its Mono compiler (`[MonoJit]`), fast call path (`[MonoFast] CallPath`) and the AutShadow speed-up off by itself (`[Compat] S3mmStandDown=1`, docs/291), so S3MM's hooks and hot reload keep working. Not tested together in game yet.
+
 Tiny UI Fix is not supported yet in this release: with it installed, the Mono speed-up (AutShadow) may switch itself off. The game still works; you just don't get that speed-up.
 
 Tested together with Apex Radiance and its RTX Remix bridge (the recommended setup), DXVK (legacy, smoke test only), Sims 3 Settings Setter, NRaas (ErrorTrap, Overwatch), the Smooth Patch and the Sims 3 Performance Patch. If something looks wrong, remove our files first and see if it goes away, then [open an issue](https://github.com/rodneypantonial/sims3-modernization/issues) with what you saw.

@@ -730,7 +730,8 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 1241-1260 | `EnvListExact.cs` (r1x-1118, `fixes-1241`, docs/274 §11), `envlistmemoexact` / `envscancost` (+ `envlistmemoverify`) | built 2026-11-18, default off, NOT RUN: exact env list reuse for every Sim inside the game's scan: 1241 scans, 1242 reuse, 1243 capture, 1244 fb_notindoor, 1245 fb_puddle, 1246 fb_lot, 1247 fb_noprint, 1248 exc, 1249 verify, 1250 verify_diff, 1251 fb_player, 1252 lot_off, 1253 foreign, 1254 refresh_seen (agent `envlistexact_*`); env scan cost by scope: 1255-1257 calls household / seen / unseen, 1258-1260 us household / seen / unseen (agent `envscancost_*`) |
 | 1261 | `EnvListExact.cs` (r1x-1118, `fixes-1261`, docs/274 §11), `envlistmemoexact` | built 2026-11-18, default off, NOT RUN: scans sent to the game's call because the ts3native script worker had a job (agent `envlistexact_fb_worker`) |
 | 1262 | `EnvListExact.cs` (r1x-1118, `fixes-1262`, docs/274 §11.8), `envlistmemoexact` | built 2026-11-18, default off, NOT RUN: stand-downs (known conflicting assembly, another mod's swap of `CalculateSimEnvironmentScore`, another mod's cache in a lot's table; agent `envlistexact_standdown`) |
-| **1263+** | next free | reserve here  |
+| 1263 | reserved (save-ip-portable-1119, `fixes-1263`) | swaps refused: would move saved task frames (docs/293) |
+| **1264+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
 

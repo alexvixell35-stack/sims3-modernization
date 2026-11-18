@@ -902,6 +902,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00D81FF6, 0x00D823B6},
     {0x00D82110, 0x00000000},
     {0x00D83000, 0x00D83330},
+    {0x00D84360, 0x00000000},
     {0x00D89930, 0x00D89CB0},
     {0x00D89BF0, 0x00D89F70},
     {0x00D89C60, 0x00D89FE0},
@@ -1024,6 +1025,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00E525C0, 0x00E52610},
     {0x00E529A0, 0x00E529F0},
     {0x00E52B60, 0x00E52BB0},
+    {0x00E52B90, 0x00000000},
     {0x00E53070, 0x00E530C0},
     {0x00E53130, 0x00E53180},
     {0x00E53220, 0x00E53270},
@@ -1031,9 +1033,11 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00E534E0, 0x00E53530},
     {0x00E53542, 0x00E53592},
     {0x00E53550, 0x00E535A0},
+    {0x00E535E0, 0x00000000},
     {0x00E53740, 0x00E53790},
     {0x00E53EB0, 0x00E53F00},
     {0x00E53EBD, 0x00E53F0D},
+    {0x00E5404D, 0x00000000},
     {0x00E543C7, 0x00E54417},
     {0x00E54453, 0x00E544A3},
     {0x00E544D5, 0x00E54525},
@@ -1683,7 +1687,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x00D7FB53 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D7FE01 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D800FC no-ea-1.69-address native/ts3native/taskserve.cpp
-constexpr int ts3addr_count = 1512;
+constexpr int ts3addr_count = 1516;
 
 
 // unresolved: 0x00568710 no-ea-1.69-address native/ts3native/unseenanim.cpp ([AnimPhase] Split, merge 6942a6e3a)
@@ -1733,3 +1737,7 @@ constexpr int ts3addr_count = 1512;
 // unresolved: 0x01234340 no-ea-1.69-address native/ts3native/gcmark.cpp ([GC] MarkHelpersVerify, gc-markhelpers-p4-1118)
 // unresolved: 0x01234350 no-ea-1.69-address native/ts3native/gcmark.cpp ([GC] MarkHelpersVerify, gc-markhelpers-p4-1118)
 // unresolved: 0x01234358 no-ea-1.69-address native/ts3native/gcmark.cpp ([GC] MarkHelpersVerify, gc-markhelpers-p4-1118)
+// unresolved: 0x00D84360 no-ea-1.69-address native/ts3native/saveframes.cpp (2026-11-19, docs/293 §6: not ported yet)
+// unresolved: 0x00E52B90 no-ea-1.69-address native/ts3native/saveframes.cpp (2026-11-19, docs/293 §6: not ported yet)
+// unresolved: 0x00E535E0 no-ea-1.69-address native/ts3native/yielddiag.cpp (2026-11-19, docs/293 §6: not ported yet)
+// unresolved: 0x00E5404D no-ea-1.69-address native/ts3native/yielddiag.cpp (2026-11-19, docs/293 §6: not ported yet)

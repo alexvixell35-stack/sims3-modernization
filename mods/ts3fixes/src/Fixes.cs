@@ -168,210 +168,6 @@ namespace Ts3Fixes
             ApplySculptPose();    // docs/568 §3 (SculptPose.cs)
             ApplyTrainBoost();    // docs/569 §1 (TrainBoost.cs)
             ApplyEatOutsideCount();    // docs/569 §2 (EatOutsideCount.cs)
-            ApplyTagUnseen();          // docs/60 §3 (TagUnseen.cs), off by default
-            ApplyQueueProximity();   // docs/597 §2 (SleepQueue597.cs)
-            ApplySubRouteFail();   // docs/597 §3 (SleepQueue597b.cs)
-            ApplyMopUnreachable();   // docs/578 §3b (MopUnreachable.cs)
-            ApplyPetPuddleTile();   // docs/578 §3b (MopUnreachable.cs)
-            ApplyInitStackTrace();   // docs/594 §1 (SeasonsHunt594.cs)
-            ApplyWeatherStoneListener();   // docs/594 §2 (SeasonsHunt594.cs)
-            ApplyRainFires();   // docs/594 §3-4 weathermanagerthrow + rainsheltercheap (SeasonsHunt594b.cs)
-            ApplyPondClearScan();   // docs/594 §5 (SeasonsHunt594b.cs)
-            ApplySoakedStat();   // docs/594 §6 (SeasonsHunt594b.cs)
-            ApplyOuterwearAutoLoop();   // docs/596 §1 (SeasonsWeather596.cs)
-            ApplyOuterwearRestore();   // docs/596 §2 (SeasonsWeather596.cs)
-            ApplyHoverTrainTest();   // docs/598 §5 (HoverTrain598.cs)
-            ApplyNewCarTest();   // docs/598 §6 (NewCar598.cs)
-            ApplyPetWakeBed();   // docs/543 §4 (PetWakeBed.cs); spoonslavechecks rides spoonreset's SrHook (SpoonReset.cs)
-            ApplySlaveWakeReason();   // docs/543 §5 (PetWakeBed.cs)
-            ApplyObjectUseLogic();   // docs/575 §2-5 (ObjectUseLogic.cs)
-            ApplyInUseLogic();       // docs/576 §2-3 (InUseLogic.cs)
-            ApplyAutonomyInUseBlock(); // docs/577 §1 (AutonomyInUseBlock.cs)
-            ApplyNpcBusyPartner();   // docs/577 §4 (NpcBusyPartner.cs)
-            ApplyButlerPayAlarm();   // docs/593 V1 B13 §16
-            ApplySandwichAlarm();   // docs/580 §16 (SandwichAlarm.cs)
-            ApplyDreamCleanup();   // docs/580 §18 (DreamCleanup.cs), memory only
-            ApplyVehicleFxHelper();   // docs/582 §1 (Batch582Logic.cs)
-            ApplyPrankDitchEmpty();   // docs/582 §2
-            ApplyServiceAssignExit();   // docs/582 §3
-            ApplyServiceShowAlarm();   // docs/582 §4
-            ApplyMailDogChaser();   // docs/582 §6
-            ApplyLifeguardSurvey();   // docs/582 §7
-            ApplyMoonRiseListener();   // docs/582 §8
-            ApplyHolidayLights();   // docs/582 §9
-            ApplyDoorLockOwner();   // docs/582 B4 §1
-            ApplyElevatorKitten();   // docs/582 B4 §2
-            ApplyElevatorResetRiders();   // docs/582 B4 §3
-            ApplyStarLightReset();   // docs/582 B4 §5
-            ApplyMoonDialListener();   // docs/582 B4 §6
-            ApplySnubListener();   // docs/582 B4 §7
-            ApplyElevatorRiderTimeout();   // docs/582 B4 §3b
-            ApplyRoleNullGuard();   // docs/582 B5 §1
-            ApplyHomeworkSkillBonus();   // docs/582 B5 §2
-            ApplyHorseRanchChallenge();   // docs/582 B5 §3
-            ApplyDigSiteEmptyPick();   // docs/582 B5 §4
-            ApplyOppChainWorld();   // docs/582 B5 §5
-            ApplyTeleportCommunityLot();   // docs/582 B5 §6
-            ApplyPhotoSubjectStars();   // docs/582 B5 §7
-            ApplyResidentSpawnSlot();   // docs/582 B5 §8
-            ApplyTalkOccupationChance();   // docs/582 B5 §9
-            ApplyShellDoorSummon();   // docs/582 B5 §10
-            ApplyDisposeBase();   // docs/582 B6 §1
-            ApplyFreshClothingResume();   // docs/582 B6 §3
-            ApplyTwinBellyShape();   // docs/582 B6 §4
-            ApplyBoatStaleSwimmer();   // docs/582 B7 §1
-            ApplyOppCategoryProtect();   // docs/582 B7 §2
-            ApplyNoCommercialCar();   // docs/582 B7 §3
-            ApplyScavengerNoLot();   // docs/582 B7 §4
-            ApplyPartyLotListener();   // docs/582 B7 §5
-            ApplyWeddingListener();   // docs/582 B8 §5
-            ApplyInnerBeautyOnce();   // docs/582 B8b §2
-            ApplySpRelCount();   // docs/588 B10 §1-2
-            ApplySpCloneDict();   // docs/588 B10 §3
-            ApplySpLotLookup();   // docs/588 B10 §4
-            ApplySpBucketIndex();   // docs/588 B10 §5
-            ApplySpCreateMoveIn();   // docs/588 B10 §6
-            ApplySpLotDensity();   // docs/588 B10 §7
-            ApplySpRoommateJob();   // docs/588 B10 §8
-            ApplySpOccultPick();   // docs/588 B10 §9
-            ApplySpJobAtWork();   // docs/588 B10 §10
-            ApplySpRecheck();   // docs/588 B10 §11
-            ApplySpPensionPrompt();   // docs/588 B10 §12
-            ApplyHhCleanupDup();   // docs/588 B10 §13
-            ApplyVirtualHomeShare();   // docs/588 B10 §14
-            ApplyCelebAlarmNull();   // docs/588 B10 §15
-            ApplyDisposeVirtualSlot();   // docs/588 B10 §16
-            ApplyAgingAlarmCancel();   // docs/588 B10 §17
-            ApplyVirtualMoveInDup();   // docs/588 B10 §18
-            ApplyPetPoolGhost();   // docs/588 B10 §19
-            ApplyEatPostOnce();   // docs/589 B11 §1
-            ApplyMotiveMultOnce();   // docs/589 B11 §2
-            ApplyFightBroadcastEnd();   // docs/589 B11 §3
-            ApplyReactionCopy();   // docs/589 B11 §4
-            ApplyCarpoolSchoolSkip();   // docs/589 B11 §5
-            ApplyTvSyncAlarm();   // docs/589 B11 §6
-            ApplyPhotoFunds();   // docs/589 B11 §7
-            ApplyLtrHistoryBits();   // docs/589 B11 §8
-            ApplyGoodbyePure();   // docs/589 B11 §9
-            ApplyBathCleanup();   // docs/589 B11 §10
-            ApplyTvWatchSkill();   // docs/589 B11 §11
-            ApplyComputerGameType();   // docs/589 B11 §12
-            ApplyMoodTankReset();   // docs/589 B11 §13
-            ApplyReactionGrumpy();   // docs/589 B11 §14
-            ApplyTrainSimGone();   // docs/589 B11 §15
-            ApplyStereoUpgrade();   // docs/589 B11 §16
-            ApplyBuffRemoveDelayed();   // docs/589 B11 §17
-            ApplyTvDiscListener();   // docs/589 B11 §18
-            ApplyFridgeTestNull();   // docs/589 B11 §19
-            ApplyCancelPostureDef();   // docs/589 B11 §20
-            ApplyFacialIdleWeight();   // docs/589 B11 §21
-            ApplyBathSituationFx();   // docs/589 B11 §22
-            ApplySocialNoEffect();   // docs/589 B11 §23
-            ApplyGuitarGnomeBoost();   // docs/589 B11 §24
-            ApplyDistressGate();   // docs/589 B11 §25
-            ApplyMoodIdleFlavor();   // docs/589 B11 §26
-            ApplyProtestExit();   // docs/590 B2 B12 §1
-            ApplyJogTerrain();   // docs/590 B3 B12 §2
-            ApplyLifeguardQuit();   // docs/590 B4 B12 §3
-            ApplyFrolicExit();   // docs/590 B5 B12 §4
-            ApplyShooDef();   // docs/590 B6 B12 §5
-            ApplyIglooLookats();   // docs/590 B8 B12 §6
-            ApplyGoHereBoatList();   // docs/590 B10 B12 §7
-            ApplyBouncerRole();   // docs/590 B12 B12 §8
-            ApplyTrickSocials();   // docs/590 B13 B12 §9
-            ApplyFearFaintUndo();   // docs/590 B13 B12 §10
-            ApplyLotPrune();   // docs/590 B14 B12 §11
-            ApplyWerewolfFind();   // docs/590 B15 B12 §12
-            ApplyCopyHomeworkFx();   // docs/590 A2 B12 §13
-            ApplySpellTargetEnd();   // docs/590 A3 B12 §14
-            ApplyFoodTrayGrill();   // docs/590 A6 B12 §15
-            ApplyCompositionNull();   // docs/590 A7, 591 C8 B12 §16
-            ApplyPetDreamTimer();   // docs/590 A10 B12 §17
-            ApplyAwkwardScience();   // docs/591 C1 B12 §18
-            ApplyChessDefeated();   // docs/591 C2 B12 §19
-            ApplyPrivacyOthers();   // docs/591 C4 B12 §20
-            ApplyGigMaster();   // docs/591 C5 B12 §21
-            ApplyIntMultiple();   // docs/591 C6, 592 S4 B12 §22
-            ApplyDoorPrivacyNull();   // docs/591 C7 B12 §23
-            ApplyLeafBurnFail();   // docs/591 R1 B12 §24
-            ApplyCatchPreyOdds();   // docs/591 R2 B12 §25
-            ApplyPicnicAnts();   // docs/591 R3 B12 §26
-            ApplyLoyalDogLay();   // docs/591 R5 B12 §27
-            ApplyVisitListeners();   // docs/591 R6 B12 §28
-            ApplyScienceFxStop();   // docs/591 R7 B12 §29
-            ApplyDaycareLiking();   // docs/591 R9 B12 §30
-            ApplyKegBreakage();   // docs/591 R10 B12 §31
-            ApplyRomanceCooldown();   // docs/591 R11 B12 §32
-            ApplyLightCustom();   // docs/591 R12 B12 §33
-            ApplyEatPreyCancel();   // docs/591 R13 B12 §34
-            ApplyMeltAlarm();   // docs/591 R16 B12 §35
-            ApplyNewspaperDef();   // docs/591 R21 B12 §36
-            ApplyLeaveConvNull();   // docs/592 S2 B12 §37
-            ApplyVacationAlarms();   // docs/592 S3 B12 §38
-            ApplyCleanupVfx();   // docs/592 S5 B12 §39
-            ApplyLookAtCopy();   // docs/592 S6 B12 §40
-            ApplyLottoTooltip();   // docs/592 S8 B12 §41
-            ApplyTraitIconDislike();   // docs/592 S9 B12 §42
-            ApplyRoleUnprotect();   // docs/592 S11 B12 §43
-            ApplyPutDownPlaced();   // docs/592 S13 B12 §44
-            ApplyDisplayCaseReset();   // docs/587 EP1 §1
-            ApplyNullSituation();   // docs/593 V2 B13 §1
-            ApplyLightningWeights();   // docs/593 L1 B13 §2
-            ApplyPlantDormantFlip();   // docs/593 G1 B13 §3
-            ApplyPlantDormantTime();   // docs/593 G2 B13 §4
-            ApplyHarvestExtras();   // docs/593 H2, H5 B13 §5
-            ApplyShroomSlots();   // docs/593 H3 B13 §6
-            ApplyHarvestRegion();   // docs/593 H4 B13 §7
-            ApplyWellStealCooldown();   // docs/593 B2b B13 §8
-            ApplyOppFailCharge();   // docs/593 O1 B13 §9
-            ApplyTempForecast();   // docs/593 T1 B13 §10
-            ApplyMountFishCost();   // docs/593 F1 B13 §11
-            ApplyFirefighterCount();   // docs/593 V8 B13 §13
-            ApplyRepairmanSkill();   // docs/593 V9 B13 §14
-            ApplyRoundUpReturn();   // docs/593 V3 B13 §15
-            ApplyPetHarvestVfx();   // docs/593 H1 B13 §17
-            ApplySuatGradeBonus();   // docs/587 EP1 §2
-            ApplyCatToyPickerRel();   // docs/587 EP1 §17
-            ApplyDogSwimSlots();   // docs/587 EP4 §9.1
-            ApplyFragmentReconstruct();   // docs/587 EP4 §9.2
-            ApplyLabObjectPush();   // docs/587 EP4 §9.3
-            ApplyBusinessPlannerRun();   // docs/587 EP4 §9.4
-            ApplyFutureDescendantSize0();   // docs/587 EP4 §9.5
-            ApplyJungleGymExitQueue();   // docs/587 EP4 §10.1
-            ApplyWildHorseLot();   // docs/587 EP4 §10.2
-            ApplyHarvesterUnripe();   // docs/587 EP4 §10.3
-            ApplyHotTubSeatPosture();   // docs/587 EP4 §10.4
-            ApplyTeenPartyBreakUp();   // docs/587 EP4 §10.5
-            ApplyDogSwimAroundList();   // docs/587 EP4 §10.6
-            ApplyTutorBalloonAlarm();   // docs/587 EP4 §10.7
-            ApplyOneShotVfx();   // docs/587 EP5 §11.1
-            ApplyEpBatch5b();   // docs/587 EP5 §11.2
-            ApplyEpBatch6();   // docs/587 EP6 §12.1
-            ApplyStoreBatch1();   // docs/587 store §13
-            ApplyMegaphoneRun();   // docs/608 §2 (WalkStyleLeak77.cs)
-            ApplyDragonCurseRun();   // docs/608 §3 (WalkStyleLeak77.cs)
-            ApplySpeedSkipLevel();   // docs/609 §2-3 (GameSpeed78.cs): speedskiplevel, speedskipnoactor
-            ApplySpeedRecalcLock();   // docs/609 §4 (GameSpeed78.cs)
-            ApplySpeedLockOwner();   // docs/609 §5 (GameSpeed78.cs)
-            ApplyAlarmZeroPeriod();   // docs/609 §6 (GameSpeed78.cs); also carries the alarmtime stamp (HitchCause.cs)
-            ApplySpoilBroadcast();   // docs/615 §1 (Scan85.cs)
-            ApplyWeatherStoneRelisten();   // docs/615 §2 (Scan85.cs)
-            ApplyBirthdayAgeRecord();   // docs/615 §3 (Scan85.cs)
-            ApplyHeartBrokenBcast();   // docs/609 §7 (GameSpeed78.cs)
-            ApplyRhExitUnseen();   // docs/613 §2 (StuckJobs83.cs)
-            ApplyTipsNpcEnd();   // docs/613 §3 (StuckJobs83.cs)
-            ApplyBarPutDownWait();   // docs/614 §1 (Scan84.cs)
-            ApplyPutDownSurfaceUse();   // docs/614 §2 (Scan84.cs)
-            ApplySwipeRestore();   // docs/614 §3 (Scan84.cs)
-            ApplyUnicornSpawnFail();   // docs/614 §4 (Scan84.cs)
-            ApplyDataDiscPutBack();   // docs/614 §5 (Scan84.cs)
-            ApplySpawnerSkip();   // docs/610 §2 (SpawnerMapTag79.cs); also carries the alarmtime spawn timing (HitchCause.cs)
-            ApplyMapTagTaskAlive();   // docs/610 §3 (SpawnerMapTag79.cs)
-            ApplyLotMgrCallbacks();   // docs/611 §2 (LotCallbacks80.cs)
-            ApplyFireplaceHerb();   // docs/611 §3 (LotCallbacks80.cs)
-            ApplyRummageBcast();   // docs/611 §4 (LotCallbacks80.cs)
-            ApplyStairWaitEnd();   // docs/612 §2 (StairDup82.cs)
-            ApplySimDisposeLink();   // docs/612 §3 (StairDup82.cs)
             ApplyFireActiveJob();    // docs/570 §1 (FireActiveJob.cs)
             ApplyFireTrapCount();    // docs/570 §5 (FireTrapCount.cs)
             ApplyGenerationsLogic(); // docs/571 §1-4 (GenerationsLogic.cs)
@@ -2656,10 +2452,68 @@ namespace Ts3Fixes
                 throw new InvalidOperationException(what + " " + h.Name + " returns " + h.ReturnType.Name + ", original returns " + t.ReturnType.Name + ": not patched");
         }
 
+        // docs/293: the callee bodies the game's IL transform inlines at a call site instead of emitting a call (GenerateCode
+        // 0xE5DE08-0xE5E3A9 [verified, capstone]; tested on the body alone: no exception clause and no local unless it
+        // starts with ret). 1 = starts with ret (the arguments are popped), 2 = ldsfld; ret, 3 = ldarg.0; ldfld; ret,
+        // 4 = ldarg.0; ldarg.1; stfld; ret, 5 = volatile. ldsfld; ret, 6 = ldsfld; ldfld; ret; 0 = a call.
+        internal static int InlineShape(byte[] il, bool localsOrClauses, int paramCount)
+        {
+            if (il == null || il.Length == 0) return 0;
+            if (il[0] == 0x2A) return 1;
+            if (localsOrClauses) return 0;
+            int n = il.Length;
+            if (n == 6 && paramCount == 0 && il[0] == 0x7E && il[5] == 0x2A) return 2;
+            if (n == 7 && paramCount == 0 && il[0] == 2 && il[1] == 0x7B && il[6] == 0x2A) return 3;
+            if (n == 8 && paramCount == 1 && il[0] == 2 && il[1] == 3 && il[2] == 0x7D && il[7] == 0x2A) return 4;
+            if (n == 8 && paramCount == 0 && il[0] == 0xFE && il[1] == 0x13 && il[2] == 0x7E && il[7] == 0x2A) return 5;
+            if (n == 11 && paramCount == 0 && il[0] == 0x7E && il[5] == 0x7B && il[10] == 0x2A) return 6;
+            return 0;
+        }
+
+        // Pure: does replacing a body of this shape by one the transform calls (or the reverse) change the length of the
+        // callers' code? Not for an instance field getter or setter of a non-struct type: ldfld / stfld take 2 words, as a
+        // call does (struct fields take 4). Every other inlined shape differs from the 2-word call.
+        internal static bool InlineShapeMovesLayout(int shape, bool structField)
+        {
+            return shape != 0 && ((shape != 3 && shape != 4) || structField);
+        }
+
+        static bool IsStructType(Type t) { return t != null && t.IsValueType && !t.IsPrimitive && !t.IsEnum; }
+
+        // 0 = swapping this method's body leaves its callers' code layout alone, else its inline shape. A saved task frame
+        // holds a raw word index into its method's code (ScriptCore.TaskFrame.mIPOffset, guarded only by an IL checksum), so
+        // a swap that turns an inlined call site into a call, or back, makes saves resume inside an instruction: in the
+        // game without this mod, in a build with another set of hooks, and a vanilla save here (the McCall+0x42 crash of
+        // 2026-11-19: Lot.get_ChanceOfGoingToCommunityLotByCar, one word in MetaRabbitHoleInteraction.Run).
+        static int SwapMovesLayout(MethodInfo m)
+        {
+            try
+            {
+                MethodBody b = m.GetMethodBody();
+                if (b == null) return 0;
+                ParameterInfo[] ps = m.GetParameters();
+                int shape = InlineShape(b.GetILAsByteArray(), b.LocalVariables.Count != 0 || b.ExceptionHandlingClauses.Count != 0, ps.Length);
+                bool structField = shape == 3 ? IsStructType(m.ReturnType) : shape == 4 && IsStructType(ps[0].ParameterType);
+                return InlineShapeMovesLayout(shape, structField) ? shape : 0;
+            }
+            catch (Exception) { return 0; }  // no readable body: nothing the transform could inline
+        }
+
+        // Why m has no IL body to swap (abstract, pinvoke, icall / runtime / native implementation), null when it has one.
+        internal static string NoBody(MethodInfo m)
+        {
+            if (m == null) return null;
+            if (m.IsAbstract) return m.Name + " is abstract";
+            if ((m.Attributes & MethodAttributes.PinvokeImpl) != 0) return m.Name + " is pinvoke";
+            if ((m.GetMethodImplementationFlags() & (MethodImplAttributes.InternalCall | MethodImplAttributes.Runtime | MethodImplAttributes.Native)) != 0) return m.Name + " has no IL (icall/runtime)";
+            return null;
+        }
+
         // Swaps that went in, per hook class. A method swapped by two hooks (HitchCause's and a fix's on Lot.UpdateDoorPrivacy,
         // PetPoolOrphan's and petpoolghost's on PetPool.RandomRemovePet) chains: the later hook's stub receives the earlier
         // hook's body. sPatched maps the method to the later hook only, so the live-path asserts count here (s58).
         static readonly Dictionary<Type, int> sSwapsByHook = new Dictionary<Type, int>();
+        static readonly Dictionary<IntPtr, List<Type>> sHooksOn = new Dictionary<IntPtr, List<Type>>();  // every hook swapped onto a method (PATCHED TWICE guard)
 
         static bool Patch(Type target, string method, Type[] args, Type hook, string replacement, string stub)
         {
@@ -2668,11 +2522,26 @@ namespace Ts3Fixes
             {
                 MethodInfo t = args == null ? target.GetMethod(method, all) : target.GetMethod(method, all, null, args, null), r = hook.GetMethod(replacement, all);
                 if (Compiled(t)) throw new InvalidOperationException("already compiled");
+                // the same hook on the same method twice (an Apply call listed twice, 2026-11-18): the stub would then hold the hook's
+                // body and call itself (StackOverflowException on the first call; Gameflow.SetGameSpeed killed every world load)
+                // also A,B,A: sPatched keeps only the last hook, so every hook ever swapped onto the method is checked
+                List<Type> onIt;
+                if (!sHooksOn.TryGetValue(t.MethodHandle.Value, out onIt)) sHooksOn[t.MethodHandle.Value] = onIt = new List<Type>();
+                if (onIt.Contains(hook)) throw new InvalidOperationException("PATCHED TWICE by " + hook.Name + ", second swap refused");
                 // a swapped body keeps the hook's signature: a void hook for a method that returns a value makes every
                 // caller's pop/use of the result underflow Mono's transform (transform.c:1170 `td.sp >= td.stack`, int3 at
                 // 0x58D9B6: the game dies on the first call, buycellrecycle v1/v2 2026-11-11), so refuse such pairs
                 PatchSigCheck(t, r, "hook");
+                // docs/293: never move the callers' saved frame offsets (counter [1263] = swaps refused for it)
+                int moved = SwapMovesLayout(t);
+                if (moved != 0) { PatchCounters()[1263]++; throw new InvalidOperationException("REFUSED: the game inlines this method at its call sites (shape " + moved + "), a hook would move saved task frames (docs/293)"); }
+                moved = SwapMovesLayout(r);
+                if (moved != 0) { PatchCounters()[1263]++; throw new InvalidOperationException("REFUSED: the hook body " + r.Name + " would be inlined at the call sites (shape " + moved + "), that would move saved task frames (docs/293)"); }
                 if (stub != null) PatchSigCheck(t, hook.GetMethod(stub, all), "stub");
+                // a body-less method (abstract, pinvoke, icall) on either side of a swap: EA's transform reads its NULL IL header
+                // and the game dies at 0x00E6463F (docs/51 I-530-3); refuse the pair
+                string nb = NoBody(t) ?? NoBody(r) ?? (stub != null ? NoBody(hook.GetMethod(stub, all)) : null);
+                if (nb != null) throw new InvalidOperationException(nb + ": not patched");
                 Type sdOwner = t.DeclaringType;  // docs/576 §1: the class the save must name (SwapMethod moves the class word)
                 string swName = AutShadowCore.MemberName(t);  // G-M6: callers' IL hashes name t as before the swap
                 if (swName != null) AutShadowCore.SwapNames[t.MethodHandle.Value] = swName;
@@ -2680,6 +2549,7 @@ namespace Ts3Fixes
                 SwapMethod(t, r);
                 sStubs.Add(t);  // docs/242: a frame in the hook's body saves as the hook's class, which often cannot find it again
                 int nSw; sSwapsByHook.TryGetValue(hook, out nSw); sSwapsByHook[hook] = nSw + 1;  // per hook: sPatched keeps only the last hook of a stacked swap (s58)
+                onIt.Add(hook);
                 sPatched[t.MethodHandle.Value] = hook;  // docs/128 G-M4: our own swap, accepted by the closure sweep (by MonoMethod: GetMethods hands out other MethodInfo objects)
                 AppliedLog().Add(target.Name + "." + method + ": ok");
                 SdRecord(hook, sdOwner, t, r, stub != null ? hook.GetMethod(stub, all) : null);  // docs/576 §1 swapdelegates
@@ -3543,7 +3413,7 @@ namespace Ts3Fixes
 
         // at tuning time and again at world load (script mods may load after us); Run must not be compiled yet (Patch checks)
         internal static void ApplyTripSubclasses()
-        {
+        { // reapply-safe: each subclass once (sVclSubPatched)
             const BindingFlags inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
             string ours = typeof(Fixes).Assembly.GetName().Name;
             foreach (Assembly a in AppDomain.CurrentDomain.GetAssemblies())

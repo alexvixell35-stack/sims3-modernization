@@ -77,7 +77,7 @@ namespace Ts3Fixes
                         EventInfo ev = typeof(IHudModel).GetEvent(pairs[i]);
                         MethodInfo h = panel.GetType().GetMethod(pairs[i + 1], BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
                         if (ev == null || h == null) { c[2109]++; continue; }
-                        ev.RemoveEventHandler(model, Delegate.CreateDelegate(ev.EventHandlerType, panel, h));
+                        ev.RemoveEventHandler(model, Fixes.Bind(ev.EventHandlerType, panel, h));
                     }
                     c[2108]++;
                 }

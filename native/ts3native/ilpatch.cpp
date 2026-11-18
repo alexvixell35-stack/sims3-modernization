@@ -344,8 +344,50 @@ static void* IlpTransformPatched(int si, BYTE* rm, void* ctx, BYTE* hdr, bool fi
     } else InterlockedIncrement(&ts3native_counters.ilpReused);
     return r;
 }
+// Crash 2026-11-18 (loadcycle-3, docs/51 §530): EA's transform faulted at 0x00E6463F (cmp word [header+8]) on the sim thread
+// for a managed method with no IL header (not icall/native/runtime, iflags & 0x1003 = 0: abstract, pinvoke or a damaged
+// MonoMethod). This names the method and the interpreter frames above it before EA's code reads NULL+8. The header call is
+// the one EA's transform makes first (0xE643CB), so it adds no new reads.
+// Guard (0.36.288-hdrguard1, docs/51 §530): such a method gets a NullReferenceException back instead of EA's transform. The
+// transform's return is the caller's exception [verified, TS3W 1.67 disassembly]: EA's own cctor-failure path returns one
+// (setjmp 0xE64416, return at 0xE64440); both ves_exec sites store it in frame->ex and take the frame-return/exception path
+// (0xE547A3 jne 0xE543C7, 0xE5638F/0xE5639D jne 0xE543C7); 0xE52C1C stores it in frame->ex, 0xE52B7E's caller 0xD836B5 treats
+// non-NULL as failure. Methods with a header, or icall/native/runtime ones, never reach it.
+typedef const char*(__cdecl* IlpNameFn)(DWORD method, int signature);
+static const IlpNameFn g_ilpName = (IlpNameFn)(uintptr_t)TS3A(0x00E72010);  // mono_method_full_name (satb.cpp's g_satbMethodName)
+static void*(__cdecl* g_ilpNoHdrExc)() = (void*(__cdecl*)())(uintptr_t)TS3A(0x00E770E0);  // mono_get_exception_null_reference (autshadow's g_asNewExc)
+static volatile LONG g_ilpNoHdrLogged;
+static const char* IlpName(DWORD mm) {
+    __try { return mm ? g_ilpName(mm, 1) : NULL; } __except (EXCEPTION_EXECUTE_HANDLER) { return NULL; }
+}
+// true = no IL header and not icall/native/runtime: EA's transform would AV at 0x00E6463F
+static bool IlpNoHeaderCheck(BYTE* rm) {
+    DWORD mm = 0, tok = 0; WORD fl = 0, ifl = 0;
+    __try {
+        mm = rm ? *(DWORD*)(rm + 8) : 0;
+        if (!mm) return false;
+        fl = *(WORD*)(uintptr_t)mm; ifl = *(WORD*)(uintptr_t)(mm + 2);
+        if (ifl & 0x1003) return false;  // icall / native / runtime: EA's transform takes the 0xE64498 path, never the header read
+        if (g_ilpHeader((BYTE*)(uintptr_t)mm)) return false;
+        tok = *(DWORD*)(uintptr_t)(mm + 4);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    if (InterlockedIncrement(&g_ilpNoHdrLogged) > 32) return true;
+    DWORD f[3] = {0, 0, 0};
+    AsLgFrames(f, 3);
+    const char* n0 = IlpName(f[0]); const char* n1 = IlpName(f[1]); const char* n2 = IlpName(f[2]);
+    const char* nm = IlpName(mm);
+    Log("il transform: no IL header: %s (MonoMethod %08lX flags 0x%04X iflags 0x%04X token %08lX, runtime method %08lX, thread %lu); "
+        "frames %s < %s < %s; NullReferenceException to the caller instead of EA's transform (it reads NULL+8 at 0x00E6463F)",
+        nm ? nm : "?", mm, fl, ifl, tok, (DWORD)(uintptr_t)rm, GetCurrentThreadId(), n0 ? n0 : "-", n1 ? n1 : "-", n2 ? n2 : "-");
+    return true;
+}
 static void* IlpTransform(BYTE* rm, void* ctx) {
     if (g_ilpColdEnter) g_ilpColdEnter(0, (DWORD)(uintptr_t)rm);
+    if (IlpNoHeaderCheck(rm)) {
+        void* ex = NULL;
+        __try { ex = g_ilpNoHdrExc(); } __except (EXCEPTION_EXECUTE_HANDLER) { ex = NULL; }
+        if (ex) return ex;  // no exception object: EA's transform, as before
+    }
     const int si = rm ? IlpMatch(rm) : -1;
     if (si < 0) return g_ilpNext(rm, ctx);
     IlpPatched& P = g_ilpPatched[si];
@@ -370,7 +412,27 @@ static void* IlpTransform(BYTE* rm, void* ctx) {
     if (!ok) return g_ilpNext(rm, ctx);
     return IlpTransformPatched(si, rm, ctx, hdr, first);
 }
+static volatile LONG g_ydOn;  // [MonoDiag] YieldDiag (yielddiag.cpp, log only): repeat transforms with another code layout
+static void YdRetransform(BYTE* rm, const unsigned short* old, int oldWords, const unsigned short* oldAt);
+static int YdKeep(const BYTE* rm, unsigned short* old, const unsigned short** at) {
+    __try {
+        *at = *(const unsigned short* const*)rm;
+        if (!*at) return -1;
+        const int w = *(const unsigned short*)(rm + 0x3A);
+        memcpy(old, *at, (w < 2048 ? w : 2048) * 2);
+        return w;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; }
+}
 static void* __cdecl IlpXform(BYTE* rm, void* ctx) {
+    if (g_ydOn && rm) {
+        unsigned short old[2048];
+        const unsigned short* at = NULL;
+        const int ow = YdKeep(rm, old, &at);
+        void* r = IlpTransform(rm, ctx);
+        if (!r && g_ilpPost) g_ilpPost(rm, ctx);
+        if (!r && ow >= 0) YdRetransform(rm, old, ow, at);
+        return r;
+    }
     void* r = IlpTransform(rm, ctx);
     if (!r && rm && g_ilpPost) g_ilpPost(rm, ctx);
     return r;
@@ -395,4 +457,17 @@ static bool ApplyIlPatch(const wchar_t* ini) {
     ts3native_counters.ilpArmed = armed;
     Log("OK   il patch (docs/506 §2, docs/526): %d of %d fixes armed; each is applied at the first transform of its method, on an exact body hash only", armed, kIlpSpecN);
     return true;  // keep the log open for the apply / skip lines
+}
+
+// The no-IL-header guard (docs/51 I-537-hdr4) in every configuration, not only when [IlPatch] or [MonoJit] installed the
+// detour: a managed delegate on a body-less method crashes EA's transform whatever else is on, and with [AutShadow] Satb on
+// alone, Satb's own cold detour owned 0xE643B0 without the guard. Called after ApplyIlPatch and before [MonoJit] / Satb, so
+// both find g_ilpNext and become clients (Satb site 0 then logs no caller address / ebx, as with [IlPatch] on). Cost per
+// transform (once per method): EA's own header call plus a name compare. Crash guard: on unless [IlPatch] HeaderGuard=0.
+static bool ApplyIlpGuard(const wchar_t* ini) {
+    if (g_ilpNext) return false;  // [IlPatch] owns it already, guard included
+    if (!GetPrivateProfileIntW(L"IlPatch", L"HeaderGuard", 1, ini)) { Log("il transform guard: off ([IlPatch] HeaderGuard=0)"); return false; }
+    if (!IlpHook()) { Log("SKIP il transform guard: the transform prologue differs (another mod owns 0xE643B0)"); return false; }
+    Log("OK   il transform guard (docs/51 §537): a method with no IL header gets a NullReferenceException, not EA's AV at 0x00E6463F");
+    return false;
 }

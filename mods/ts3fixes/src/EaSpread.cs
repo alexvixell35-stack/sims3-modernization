@@ -306,7 +306,7 @@ namespace Ts3Fixes
 
         static void SeasonTimer(Lot lot, float time, TimeUnit unit, string name)
         {
-            AlarmTimerCallback change = (AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), lot, sChangeSeason);
+            AlarmTimerCallback change = (AlarmTimerCallback)Fixes.Bind(typeof(AlarmTimerCallback), lot, sChangeSeason);
             AlarmHandle h = lot.AlarmManager.AddAlarm(time, unit, change, name, AlarmType.DeleteOnReset, lot);
             sSeasonTimer.SetValue(lot, h);
             lot.AlarmManager.AlarmWillYield(h);

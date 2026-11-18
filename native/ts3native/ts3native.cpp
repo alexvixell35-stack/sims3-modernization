@@ -18,7 +18,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.285-g5p4"  // feature/gc-markhelpers-p4-1118: [GC] MarkHelpersVerify (docs/287 §8, default 0; g5VerifySub / g5VerifySkip in v214 spares); on 0.36.284-exact1 (feature/r1x-1118)
+#define TS3NATIVE_VERSION "0.36.293-m1119s"  // merge/rc1119-saves-1119: master 0.36.292-rc1119a + bugfix/crash-class-audit-1118 (0.36.288-hdrguard2: ApplyIlpGuard in every config, no-IL-header transform returns NullReferenceException instead of the AV at 0xE6463F, docs/51 §530) + bugfix/rc1119a-fail-triage-1119 (harness only)
 #endif
 
 typedef unsigned char u8;
@@ -304,7 +304,61 @@ static void XcptRefs(const CONTEXT* c, char* refs, int cap, int max) {
 static int FbName(char* d, int room, DWORD method);   // below (LogFallbackStack names)
 static int FbStackText(char* d, int room, int frames);
 static bool GrFaultText(const CONTEXT* c, char* d, int room);  // gcroots.cpp: the task line (docs/67 §22.4)
+// round 2 (mcname2): the words around the fault say which op pushed the bad receiver. One line each, guarded:
+// code = 28 transformed-code words before ip + 6 from it, stack = dwords from first argument - 0x20 to sp + 8,
+// frame = 12 dwords of the frame record [ebp-8] (+0 parent, +4 rm, +8 return slot, +0xC this, +0x14 args), locals = 16 dwords at [ebp-0xC].
+static void McFaultDump(const CONTEXT* c) {
+    char b[700]; int n;
+    __try {
+        const WORD* ip = (const WORD*)(uintptr_t)c->Edi;
+        n = sprintf_s(b, "mono fault: code before ip:");
+        for (int i = -28; i < 6; i++) n += sprintf_s(b + n, sizeof(b) - n, i == 0 ? " |%04X" : " %04X", ip[i]);
+        Log("  %s", b);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("  mono fault: code unreadable"); }
+    __try {
+        const DWORD* sp = (const DWORD*)(uintptr_t)(c->Ecx - 0x20);
+        n = sprintf_s(b, "mono fault: eval stack from %08lX:", (DWORD)(uintptr_t)sp);
+        for (int i = 0; sp + i < (const DWORD*)(uintptr_t)(c->Esi + 8) && i < 24; i++) n += sprintf_s(b + n, sizeof(b) - n, " %08lX", sp[i]);
+        Log("  %s", b);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("  mono fault: eval stack unreadable"); }
+    __try {
+        const DWORD* fr = *(const DWORD* const*)(uintptr_t)(c->Ebp - 8);
+        n = sprintf_s(b, "mono fault: frame record %08lX:", (DWORD)(uintptr_t)fr);
+        for (int i = 0; i < 12; i++) n += sprintf_s(b + n, sizeof(b) - n, " %08lX", fr[i]);
+        const DWORD* par = (const DWORD*)(uintptr_t)fr[0];
+        n += sprintf_s(b + n, sizeof(b) - n, "; parent %08lX:", (DWORD)(uintptr_t)par);
+        for (int i = 0; par && i < 8; i++) n += sprintf_s(b + n, sizeof(b) - n, " %08lX", par[i]);
+        Log("  %s", b);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("  mono fault: frame record unreadable"); }
+    __try {
+        const DWORD* lo = *(const DWORD* const*)(uintptr_t)(c->Ebp - 0xC);
+        n = sprintf_s(b, "mono fault: locals %08lX:", (DWORD)(uintptr_t)lo);
+        for (int i = 0; i < 16; i++) n += sprintf_s(b + n, sizeof(b) - n, " %08lX", lo[i]);
+        n += sprintf_s(b + n, sizeof(b) - n, "; c-frame [ebp-0x48] %08lX [ebp-0x50] %08lX [ebp-0x54] %08lX [ebp-0x14] %08lX",
+                       *(const DWORD*)(uintptr_t)(c->Ebp - 0x48), *(const DWORD*)(uintptr_t)(c->Ebp - 0x50),
+                       *(const DWORD*)(uintptr_t)(c->Ebp - 0x54), *(const DWORD*)(uintptr_t)(c->Ebp - 0x14));
+        Log("  %s", b);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("  mono fault: locals unreadable"); }
+}
+static bool McFaultEip(DWORD eip);  // below mintcall.cpp: eip in our call / callvirt handlers (they run in EA's interpreter frame)
 static bool MonoFaultText(const CONTEXT* c, char* d, int room) {
+    // Crash 2026-11-19 (rc-1118n, ts3native+0x4862): McCall makes EA's remoting read (0xE549BA) of the receiver first, so a bad
+    // receiver faults in our module and this line stayed silent. Same frame: name the caller, the callee (ebx) and the il offset.
+    if (McFaultEip(c->Eip)) {
+        char caller[120] = "?", callee[120] = "?", st[1100] = "unreadable";
+        DWORD rm = 0, code = 0;
+        __try {
+            rm = *(const DWORD*)(uintptr_t)(c->Ebp - 0x10);
+            if (rm) { FbName(caller, sizeof(caller), *(const DWORD*)(uintptr_t)(rm + 8)); code = *(const DWORD*)(uintptr_t)rm; }
+        } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        __try { FbName(callee, sizeof(callee), *(const DWORD*)(uintptr_t)(c->Ebx + 8)); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        if (FbStackText(st, sizeof(st), 16) <= 0) strcpy_s(st, "unreadable");
+        sprintf_s(d, room, "mono fault: call handler: in %s (rm %08lX, ip +0x%lX of the transformed code), callee %s (rm %08lX; valid for a call, "
+                  "a callvirt reads it later), receiver %08lX, first argument at %08lX; script stack: %s",
+                  caller, rm, code ? c->Edi - code : 0, callee, c->Ebx, c->Edx, c->Ecx, st);
+        McFaultDump(c);
+        return true;
+    }
     if (c->Eip < TS3A(0x00E51000) || c->Eip >= TS3A(0x00E5A600)) return false;
     char caller[120] = "?", callee[120] = "-", st[1100] = "unreadable";
     DWORD rm = 0, obj = 0, vt = 0, kl = 0;
@@ -3319,6 +3373,7 @@ static void KdLogCounters();   // plandeadline.cpp (docs/197)
 static void UfLogCounters();   // unseenfb.cpp (docs/202)
 static void AgLogCounters();   // monothread-m5.cpp: [ArenaGuard] (docs/67 §22.2)
 static void GrLogCounters();   // gcroots.cpp: [GcRootCheck] (docs/67 §22.4)
+static void SfLogCounters();   // saveframes.cpp (docs/293)
 static void AtLogCounters();   // arenatail.cpp: [ArenaGuard] TailPad, [GcRootCheck] TailWatch (docs/67 §22.7)
 static void UfcLogCounters();  // unseenfbc.cpp (docs/202 §3.4)
 
@@ -3375,6 +3430,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     if (c.ufReady) UfLogCounters();  // docs/202
     AgLogCounters();  // docs/67 §22.2 (logs only with [ArenaGuard] on)
     GrLogCounters();  // docs/67 §22.4 (logs only with [GcRootCheck] on)
+    SfLogCounters();  // docs/293 (saveframes.cpp)
     AtLogCounters();  // docs/67 §22.7 (logs only with TailPad or TailWatch on)
     if (c.ufcReady) UfcLogCounters();  // docs/202 §3.4
     if (c.asyncReady)  // docs/183: n / ms / yieldable per site
@@ -6161,6 +6217,7 @@ static void SlimNote(const unsigned char* info);
 static void SlimStart(DWORD r);
 static void SlimWait();
 #include "apex.cpp"
+#include "s3mm.cpp"  // docs/291 §6: [Compat] S3mmStandDown (before mintcall, monojit, autshadow)
 #include "savewrite.cpp"
 #include "decompress.cpp"
 #include "saveslim.cpp"  // docs/15 phase 11: [SaveSlim] (after savewrite.cpp and decompress.cpp)
@@ -6211,6 +6268,11 @@ static void SlimWait();
 #include "routesnap.cpp"
 #define MC_CTR ts3native_counters
 #include "mintcall.cpp"  // docs/139 §8 [MonoFast] CallPath (before autshadow.cpp: Satb chains over its callvirt entry)
+// the two naked handlers are ~0x110 / ~0x100 bytes; the range only gates a guarded log line (MonoFaultText)
+static bool McFaultEip(DWORD eip) {
+    const DWORD a = (DWORD)(uintptr_t)(void*)McCall, b = (DWORD)(uintptr_t)(void*)McCallvirt;
+    return (eip >= a && eip < a + 0x110) || (eip >= b && eip < b + 0x100);
+}
 #define MF_CTR ts3native_counters
 #include "mintfuse.cpp"  // docs/139 §4 [MintFuse] Sub
 static_assert(offsetof(Ts3nCounters, cowMode) == 0x5C58 && offsetof(Ts3nCounters, cowNpcCut) == 0x5C68 && offsetof(Ts3nCounters, jitDirect) == 0x5C6C,
@@ -6277,6 +6339,8 @@ static_assert(offsetof(Ts3nCounters, dsN) == 0x6178 && offsetof(Ts3nCounters, lr
 #include "ilpatch.cpp"    // docs/506 §2, docs/526: [IlPatch] mid-method core fixes at the IL transform (before autshadow.cpp: satb.cpp's cold site 0 is its client)
 #include "autshadow.cpp"
 #include "monojit.cpp"  // docs/527: [MonoJit] the method compiler (after autshadow.cpp: its stores call Satb; before crashreport.cpp: it names compiled methods)
+#include "saveframes.cpp"  // docs/293: [EaCrashFixes] SavedFrameGuard, a saved task frame inside an instruction is repaired or dropped at load
+#include "yielddiag.cpp"  // [MonoDiag] YieldDiag (log only): resume ips and repeat transforms, detector for the McCall+0x42 crash
 #include "mintpairs.cpp"  // docs/139 §3: [MonoFast] PairCount, the in-game mint pair census (TEST-RUN TOOL, default off; needs simloop.cpp)
 #include "gcroots.cpp"  // docs/67 §22.4: Crash S task-rooting line + [GcRootCheck] (after autshadow.cpp: autledger's g_lgCtx; memexp.cpp: g_mx)
 #include "snap.cpp"
@@ -6514,6 +6578,7 @@ static void Run(HMODULE self) {
         SeedWaitKeys();
         InstallXcptLog(ini);
         ApexDetect(ini);  // docs/148 §7: before every install (stand-downs, crash report line)
+        S3mmDetect(ini);  // docs/291 §6: before [MonoFast], [MonoJit], [AutShadow]
         RewindParkInit(ini);  // before the route worker starts
         RewindOfflineInit(ini);  // before the game's online code runs
         InstallCrashReport(ini, log);
@@ -6542,6 +6607,8 @@ static void Run(HMODULE self) {
         InstallSlotRo(ini);
         InstallGate0Ro(ini);  // docs/152 §G1: after SteerRO and AvoidRO (reads their ready state for the log)
         InstallLocoWindow(ini);
+        InstallYieldDiag(ini);
+        InstallSavedFrameGuard(ini);  // docs/293
         InstallTaskServe(ini);  // docs/637: after InstallAsync (g_async.owner, the invoke events)
         InstallH2Ic(ini);     // docs/177 §4: the same start hold around the script ICs that write footprint refcounts
         InstallGoalGen(ini);  // docs/177 §3: D1, the duplicate ring of a radius route
@@ -6647,6 +6714,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyVerify(ini) || keepLog;  // last: probes skip whatever another section already hooked
         P5Snapshot();                           // P5 M2-1: the code bytes of every site the clone run passes, after every install
         keepLog = ApplyIlPatch(ini) || keepLog;    // docs/506 §2: the transform-entry detour, before Satb (its cold site 0 then registers as a client)
+        ApplyIlpGuard(ini);                        // docs/51 §537: the same detour for the no-IL-header guard when [IlPatch] did not install it
         keepLog = ApplyMintFuse(ini) || keepLog;   // docs/139 §4: matcher call 0xE5C8CA, before MonoScriptHost_Init transforms anything
         keepLog = ApplyMintCall(ini) || keepLog;   // docs/139 §8: after every code patch (checks EA's call path bytes), before Satb
         keepLog = ApplyMonoJit(ini) || keepLog;    // docs/527 §4.1: after every code patch, before [AutShadow]
