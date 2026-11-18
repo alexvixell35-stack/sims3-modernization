@@ -260,7 +260,7 @@ namespace Ts3Fixes
                 RflAsyncMark(); // routefaillog: this plan waits on a ts3native job
                 ulong splitTask = Simulator.CurrentTask.Value;
                 bool splitOn = sUfSplits.ContainsKey(splitTask);
-                int t0 = System.Environment.TickCount, i = 0;
+                int t0 = System.Environment.TickCount, i = 0, tp = t0, maxPoll = 0;
                 for (; !GetOption2(kAsyncReady); i++)
                 {
                     // shortcut: a fixed cap (~10-20 s real time); past it the plan waits natively and is then made
@@ -268,11 +268,13 @@ namespace Ts3Fixes
                     if (i >= kAsyncMaxPolls) { c[58]++; StepAside(); break; }
                     c[57]++;
                     Simulator.Sleep(0);
+                    // ufplansplit / spotwaitattr (docs/641): the longest single poll = the longest game frame this task slept through
+                    if (splitOn) { int now = System.Environment.TickCount; if (unchecked(now - tp) > maxPoll) maxPoll = unchecked(now - tp); tp = now; }
                 }
                 // ufplansplit (log only): this task's entry (other Sims' plans ran during the polls; they keep their own)
                 UfSplit su;
                 if (splitOn && sUfSplits.TryGetValue(splitTask, out su))
-                { su.WaitStart = t0; su.WaitMs = unchecked(System.Environment.TickCount - t0); su.Polls = i; su.Seen = true; sUfSplits[splitTask] = su; }
+                { su.WaitStart = t0; su.WaitMs = unchecked(System.Environment.TickCount - t0); su.Polls = i; su.MaxPollMs = maxPoll; su.Seen = true; sUfSplits[splitTask] = su; }
             }
 
             // docs/185 §5: the original Plan/Replan runs Route.AboutToPlanCallback only after the async job (it is called after
