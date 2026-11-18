@@ -68,6 +68,18 @@
     "probe-out/20261109-023214/events.jsonl",
     "<Documents>/Electronic Arts/The Sims 3/ScriptError_*__11-17-2026__00-15-32__7FDC6D42.xml (through BoatGetOutDiagHook, rebaseline-1116c ip-apex-on-1, NPC Tania Collins, active household Dregg)"
    ]
+  },
+  {
+   "id": "ea-aging-preinstantiate-nre",
+   "exception": "System.NullReferenceException",
+   "frames": ["AgingState:PreInstantiateSim", "SimDescription:Instantiate"],
+   "why": "EA AgingState.PreInstantiateSim throws NullReferenceException (ldfld.u1 at IL 0x17) while SimDescription.Instantiate creates a Sim with a deferred age-up; the Sim is then not created. Same offset in all-EA stacks before the ageupabort hook existed (2026-11-01) [verified: probe-out 20261012-205047 and 20261017-224726 events.jsonl, no Ts3Fixes frame; 42 probe-out runs carry this frame]. Since ageupabort (docs/512, ON) the stack runs through Ts3Fixes.Fixes+AgeUpAbortHook:PreInstantiateSim over EA's body renamed PreOrig: the hook only rethrows (its catch case returns normally, no script error), i.e. the docs/512 §5 cases it leaves to EA on purpose (deferred flag already cleared by a second Instantiate, or task not null) [verified code, AgeUpAbort.cs; which case is inferred: the recent-log rethrow line is not exported by the harness]. Seen 2026-11-18 12:07 PHT (hoursmemo-timing-1116-master-1117b ip-hoursmemo-ab-onfirst, NPC Kaelee Kalani of household Yee, active household Dregg, off-screen instantiation by LynMods VisitCommunityLotLabLecture through VclSubHook0); no hours-memo frame.",
+   "first_seen": "2026-10-12",
+   "evidence": [
+    "probe-out/20261012-205047/events.jsonl",
+    "probe-out/20261017-224726/events.jsonl",
+    "<Documents>/Electronic Arts/The Sims 3/ScriptError_*__11-18-2026__12-07-15__E3B750DE.xml (through AgeUpAbortHook, NPC Kaelee Kalani, active household Dregg)"
+   ]
   }
  ]
 }

@@ -1,0 +1,180 @@
+{
+  "note": "RERUN1 of hoursmemo-timing-1116-master-1117b (11-18; original: on-off sim ms/s -9.7/-5.0 BP, -7.2/-7.6 IP = ON faster in all 4 pairs, but run-verdict marks every job timing INVALID: noise medium, 1-2 iterations per arm, < 4). Same builds/arms (master-1117b set, agent hoursmemo-svprobe-1116 via TS3_AGENT_PACKAGE). Change: 45 min per world = 5-min slices, warm-up + TWO ABBA blocks (off,on,on,off,off,on,on,off) = 4 off + 4 on slices (>= 4 iterations per arm, 20 min per arm), timeoutMin 65; the -onfirst order-control jobs are dropped (ABBAABBA is balanced). Plus bp-hoursmemo-verify (hoursmemo + hoursmemoverify on, 6 min) so mismatch counters exist for this build (timing jobs run verify off). Verdict rule: >= 3-5 ms/s consistent gain on a VALID timing + 0 mismatches = kHoursMemo ON; else stays OFF. Hit rate BP ~23% (134,867 hits / 451,905 misses). Run: node tools/harness/queue.ts tools/harness/queues/hoursmemo-timing-1118-rerun1.json",
+  "rewind": "auto",
+  "regexCases": {
+    "^ts3native 0\\.36\\.269-mb1117 ": {
+      "match": [
+        "ts3native 0.36.269-mb1117 2026-11-16 22:30:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.266-mb1116 2026-11-16 17:40:00",
+        "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+      ]
+    }
+  },
+  "smoke": {
+    "id": "bp-hoursmemo-ab-smoke",
+    "note": "Measurement smoke 4 min, --ab hoursmemo 1-min slices: both arms in the job log with the switch read back, hoursmemo_hits grows only in on slices, verify off, noSamplers. A FAIL stops the queue.",
+    "asi": "game-copy/ts3native.asi.master-1117b",
+    "iniBase": "game-copy/ts3native.ini.master-1117b",
+    "fixesPackage": "game-copy/ts3fixes.package.master-1117b",
+    "pinReason": "master-1117b set (0.36.269-mb1117, merge/master-1117b: all merged branches, switches as each queue sets them); was: feature/hoursmemo-svprobe-1116 (builds.json ts3fixes.package.hoursmemo-svprobe-1116 + ts3agent.package.hoursmemo-svprobe-1116) on the master-1116c asi + ini (0.36.267-mc1116); the agent must be the branch agent: install game-copy/ts3agent.package.hoursmemo-svprobe-1116 (TS3_AGENT_PACKAGE) before the queue (hoursmemo_checked/_barhits/_keymiss/_nostore, hhsearch_* keys)",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 159,
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "logRequire": {
+      "^ts3native 0\\.36\\.269-mb1117 ": 1,
+      "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+      "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+    },
+    "noiseCheck": false,
+    "scriptErrorsMax": 0,
+    "timeoutMin": 29,
+    "run": {
+      "profile": {
+        "minutes": 4,
+        "seed": 12345,
+        "noSamplers": true,
+        "fixesOff": "hoursmemoverify",
+        "fixesReport": "hoursmemo_",
+        "fixesRequire": "hoursmemo_hits>=1000",
+        "ab": "hoursmemo",
+        "slice": 1
+      }
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-hoursmemo-ab",
+      "note": "BP 45 min in-load ABBAABBA (5-min slices after warm-up, 20 min per arm, 4 iterations per arm), --ab hoursmemo, verify off. Judge: sim busy ms/s off - on pooled (sim-budget-report.ts), hitches hitch-ab.ts; LOWER ms/s is better, so on - off < 0 = ON faster.",
+      "asi": "game-copy/ts3native.asi.master-1117b",
+      "iniBase": "game-copy/ts3native.ini.master-1117b",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117b",
+      "pinReason": "master-1117b set (0.36.269-mb1117, merge/master-1117b: all merged branches, switches as each queue sets them); was: feature/hoursmemo-svprobe-1116 (builds.json ts3fixes.package.hoursmemo-svprobe-1116 + ts3agent.package.hoursmemo-svprobe-1116) on the master-1116c asi + ini (0.36.267-mc1116); the agent must be the branch agent: install game-copy/ts3agent.package.hoursmemo-svprobe-1116 (TS3_AGENT_PACKAGE) before the queue (hoursmemo_checked/_barhits/_keymiss/_nostore, hhsearch_* keys)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.269-mb1117 ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "noiseCheck": true,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 65,
+      "run": {
+        "profile": {
+          "minutes": 45,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOff": "hoursmemoverify",
+          "fixesReport": "hoursmemo_",
+          "fixesRequire": "hoursmemo_hits>=1000",
+          "ab": "hoursmemo",
+          "slice": 5
+        }
+      }
+    },
+    {
+      "id": "ip-hoursmemo-ab",
+      "note": "IP 45 min in-load ABBAABBA (5-min slices after warm-up, 20 min per arm, 4 iterations per arm).",
+      "asi": "game-copy/ts3native.asi.master-1117b",
+      "iniBase": "game-copy/ts3native.ini.master-1117b",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117b",
+      "pinReason": "master-1117b set (0.36.269-mb1117, merge/master-1117b: all merged branches, switches as each queue sets them); was: feature/hoursmemo-svprobe-1116 (builds.json ts3fixes.package.hoursmemo-svprobe-1116 + ts3agent.package.hoursmemo-svprobe-1116) on the master-1116c asi + ini (0.36.267-mc1116); the agent must be the branch agent: install game-copy/ts3agent.package.hoursmemo-svprobe-1116 (TS3_AGENT_PACKAGE) before the queue (hoursmemo_checked/_barhits/_keymiss/_nostore, hhsearch_* keys)",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.269-mb1117 ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "noiseCheck": true,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 65,
+      "run": {
+        "profile": {
+          "minutes": 45,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOff": "hoursmemoverify",
+          "fixesReport": "hoursmemo_",
+          "fixesRequire": "hoursmemo_hits>=1000",
+          "ab": "hoursmemo",
+          "slice": 5
+        }
+      }
+    },
+    {
+      "id": "bp-hoursmemo-verify",
+      "note": "hoursmemo correctness on the timing build set: BP 6 min, hoursmemo + hoursmemoverify on, repro hours-memo; PASS = hoursmemo_hits/checked >= 1000, hoursmemo_mismatches 0 (verify compares every hit with the game method, household included).",
+      "asi": "game-copy/ts3native.asi.master-1117b",
+      "iniBase": "game-copy/ts3native.ini.master-1117b",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117b",
+      "pinReason": "master-1117b set (0.36.269-mb1117, merge/master-1117b: all merged branches, switches as each queue sets them); was: feature/hoursmemo-svprobe-1116 (builds.json ts3fixes.package.hoursmemo-svprobe-1116 + ts3agent.package.hoursmemo-svprobe-1116) on the master-1116c asi + ini (0.36.267-mc1116); the agent must be the branch agent: install game-copy/ts3agent.package.hoursmemo-svprobe-1116 (TS3_AGENT_PACKAGE) before the queue (hoursmemo_checked/_barhits/_keymiss/_nostore, hhsearch_* keys)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.269-mb1117 ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:hoursmemo_hits",
+          "op": ">",
+          "value": 0,
+          "why": "memo never hit: switch, hook (ts3fixes.applied) or package"
+        },
+        {
+          "afterSec": 200,
+          "counter": "fixes:hoursmemo_mismatches",
+          "op": "==",
+          "value": 0,
+          "why": "memo answer differs from the game (household rule): stop and triage the ts3fixes.applied mismatch lines"
+        }
+      ],
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "hours-memo",
+          "fixesOn": "hoursmemo,hoursmemoverify",
+          "fixesReport": "hoursmemo_",
+          "fixesRequire": "hoursmemo_hits>=1000,hoursmemo_checked>=1000,hoursmemo_mismatches<1"
+        }
+      }
+    }
+  ]
+}

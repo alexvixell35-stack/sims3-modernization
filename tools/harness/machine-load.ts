@@ -19,7 +19,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
-import { cpuMask, gameCpus, maskCpus } from './pin.ts';
+import { BRIDGE_NAME, cpuMask, gameCpus, maskCpus } from './pin.ts';
 import { GAME_NAME } from './game-exe.ts';
 
 // PERF_DIPS: samples under the drop line that make a run NOT comparable; one is a boost dip of a quiet machine, not a slower
@@ -34,7 +34,7 @@ const NOISE = { highOg: 10, highG3d: 30, medOg: 3, medOo: 50, medGpu: 10 };
 export const OG_OTHER_MIN = 5;
 // Apex Radiance's RTX Remix bridge renders for TS3W out of process (Apex arms, 2026-11-15): its CPU (bridge, % of machine) and
 // GPU 3D (g3dBridge) are the game's own work, so they leave other / og / g3dOther and get their own fields
-export const BRIDGE_NAME = 'NvRemixBridge';
+export { BRIDGE_NAME }; // defined in pin.ts (the timing sweep pins it to the game CPUs)
 
 const script = (file: string, everyS: number, cpus: string | null) => {
   const game = cpus ? cpuMask(cpus) : 0n, rest = ((1n << BigInt(availableParallelism())) - 1n) & ~game;
@@ -124,7 +124,7 @@ export function readLive(file: string, read: (f: string) => string = f => readFi
 }
 
 // rows of a machine file; a line the sampler is still writing is skipped (queue.ts reads the file mid-run); null = unreadable
-const rowsOf = (file: string, read?: (f: string) => string): any[] | null => {
+export const rowsOf = (file: string, read?: (f: string) => string): any[] | null => {
   if (!existsSync(file)) return [];
   const t = readLive(file, read);
   return t === null ? null : t.trim().split(/\r?\n/).filter(Boolean).flatMap(l => { try { return [JSON.parse(l)]; } catch { return []; } });

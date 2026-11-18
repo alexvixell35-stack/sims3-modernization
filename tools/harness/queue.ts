@@ -259,8 +259,8 @@ import { clearJob, markJob, waitHold } from './hold.ts';
 import { pending as modsPending, restoreMods, snapshotMods } from './mods-restore.ts';
 import { dayFails } from './story-day.ts';
 import { load as loadRun, type Run } from './freeze-report.ts';
-import { describePin, gameCpus, pinConfig, pinStatePending, restorePins, startPinner, type PinOpts } from './pin.ts';
-import { earlyNoise, startMachineLoad, summarize as loadSummary } from './machine-load.ts';
+import { describePin, gameCpus, pinConfig, pinStatePending, restorePins, restoreSweep, startPinner, startSweep, sweepNote, sweepStatePending, type PinOpts } from './pin.ts';
+import { earlyNoise, rowsOf, startMachineLoad, summarize as loadSummary } from './machine-load.ts';
 import { jsonlRows, queueFile, rowTiming, timingText } from './run-verdict.ts';
 import { loadRun as hitchRun, runIters, toolCosts, toolsOn, withBaseIni } from './hitch-ab.ts';
 import { mergeFile as mergeCallsites } from '../callsite-db.ts';
@@ -1411,6 +1411,14 @@ if (values['self-check']) {
   assert.equal(parseQueue({ jobs: [{ id: 'm', asi: 'tested', save: 'S', run: { matrix: ['--cases', 'control'] } }] })[0].id, 'm');
   const pq = parseQueue({ pin: false, jobs: [{ id: 'p', asi: 'tested', save: 'S', run: { soak: { minutes: 1 } } }, { id: 'q', asi: 'tested', save: 'S', pin: { cpus: '2-3' }, run: { soak: { minutes: 1 } } }] });
   assert.equal(pq[0].pin, false); assert.deepEqual(pq[1].pin, { cpus: '2-3' }); // queue-level default, job wins
+  // timing sweep (pin.ts): on for timing jobs, pin.sweep true forces it on a noiseCheck-false profile job, non-boolean refused
+  const sw = (pin: unknown, extra = {}) => parseQueue({ pin, jobs: [{ id: 't', asi: 'tested', save: 'S', ...extra, run: { profile: { minutes: 5 } } }] })[0];
+  if (pinConfig(undefined)) { // machines with rest CPUs only (CI runners have <= 8)
+    assert.equal(pinConfig(sw(undefined).pin, process.env, undefined, isTimingJob(sw(undefined)))!.sweep, true);
+    const nc = sw(undefined, { noiseCheck: false }); assert.equal(pinConfig(nc.pin, process.env, undefined, isTimingJob(nc))!.sweep, false);
+    assert.throws(() => sw({ sweep: 'yes' }), /pin: sweep must be true or false/); // validated after the small-machine exit
+    const ns = sw({ sweep: true }, { noiseCheck: false }); assert.equal(pinConfig(ns.pin, process.env, undefined, isTimingJob(ns))!.sweep, true);
+  }
   // docs/170: reuseSession (queue-level default, job wins) and profile.repros
   const rq = parseQueue({ reuseSession: { maxJobs: 3 }, jobs: [{ id: 'r1', asi: 'tested', save: 'S', run: { profile: { minutes: 5, repros: ['a', { id: 'b', minutes: 3, nativeRequire: 'x>=1' }] } } },
     { id: 'r2', asi: 'tested', save: 'S', reuseSession: false, run: { profile: { minutes: 5 } } }] });
@@ -2518,7 +2526,7 @@ if (values['dry-run']) {
     if (j.fixes?.install?.length) console.log(`  4 node tools/setup/install-fixes.ts install --only ${j.fixes.install.join(',')}   (uninstalled after the job)`);
     if (j.fixes?.uninstall?.length) console.log(`  4 node tools/setup/install-fixes.ts uninstall --only ${j.fixes.uninstall.join(',')}   (reinstalled after the job)`);
     console.log(`  5 python tools/probe/ts3probe.py serve --launch -- ${launchArgs(j.gameArgs).join(' ')}   (child, killed at job end)${LAUNCH === 'ea' ? `; TS3_LAUNCH=ea: ${EA_LAUNCHER} ${EA_URI}, then waits for ${GAME_EXE} (game args are not passed)` : ''}`);
-    console.log(`  5 ${describePin(pinConfig(j.pin))}; machine load every 30 s -> ${queueName}-<date>-${j.id}-machine.jsonl (noise verdict in the note)${j.run.profile ? (j.noiseCheck === false ? '; early noise check off (noiseCheck false)' : '; early noise check ~2.5 min in: other CPU >= 10% or clock drop stops the job; noisy -> rerun once as ' + (j.rerunOf ? 'none (this is the rerun)' : `${j.id}-rerun`) + ' at the end') : ''}`);
+    console.log(`  5 ${describePin(pinConfig(j.pin, process.env, undefined, isTimingJob(j)))}; machine load every 30 s -> ${queueName}-<date>-${j.id}-machine.jsonl (noise verdict in the note)${j.run.profile ? (j.noiseCheck === false ? '; early noise check off (noiseCheck false)' : '; early noise check ~2.5 min in: other CPU >= 10% or clock drop stops the job; noisy -> rerun once as ' + (j.rerunOf ? 'none (this is the rerun)' : `${j.id}-rerun`) + ' at the end') : ''}`);
     if (storyCopy(j, s) !== s) console.log(`  6 copy Saves/${saveFile(s)} -> Saves/${saveFile(storyCopy(j, s))}   (story scratch copy, replaced each job; the Baseline file is only read)`);
     console.log(`  6 ${s === 'menu' ? 'wait for the main menu (agent ping)' : `node tools/harness/cycle.ts --save ${saveFile(storyCopy(j, s))}`}`);
     }
@@ -2810,8 +2818,9 @@ if (!values['dry-run'] && !process.env.TS3_SMOKE_PARENT) { const g = diskGate();
 if (!values['dry-run']) saveForeground(); // the window to give focus back to once the game takes it (focus-game.ts)
 // apps a killed run left on the narrowed CPUs go back first; the same on any exit of this run (pin.ts)
 if (pinStatePending()) log(`pin: leftover from an earlier run: ${restorePins()}`);
+if (sweepStatePending()) log(`sweep: leftover from an earlier run: ${restoreSweep()}`);
 process.on('exit', () => { // a throw outside the job's try, a signal: with the game closed nothing has to wait for the next queue start
-  if (pinStatePending()) restorePins(); clearJob();
+  if (pinStatePending()) restorePins(); if (sweepStatePending()) restoreSweep(); clearJob();
   try { if (existsSync(ourModsMf()) && !gameRunning()) log(`restored ts3native + ts3fixes on exit: ${vanillaRestore(ourModsSpec())} files`); } catch (e) { console.error(`ts3native + ts3fixes left in the stash: ${e}; run --restore-content`); }
   // a throw or signal before the end restore: Mods packages back now when the game is closed, else the next queue start / track.ts stop does it
   try { if (!values['dry-run'] && !VANILLA && modsPending(MODS_BEFORE)) log(gameRunning() ? `Mods packages left as the job installed them (${GAME_EXE} running): node tools/harness/mods-restore.ts restore` : `on exit: ${restoreMods(MODS_BEFORE).line}`); } catch (e) { console.error(`Mods restore on exit failed: ${e}`); }
@@ -3083,7 +3092,8 @@ for (const [n, j] of jobs.entries()) {
   log(`== ${j.id} (${n + 1}/${jobs.length})${j.note ? `: ${j.note}` : ''}; log ${logFile}`);
   const row: any = { time: t0, ...machineField(machineTag()), queue: queueName, build, job: j.id, note: j.note ?? null, asi: j.asi, asiSha: sha(asiPath(j)), ini: rowIni(j), fixes: j.fixes ?? null,
     save: s, content: j.content ?? 'as-is', contentMoved: 0, run: j.run, gameArgs: j.gameArgs ?? [], defaultIni: j.defaultIni ?? null, s3ppIni: j.s3ppIni ?? null, s3ssToml: j.s3ssToml ?? null, dxvkConf: j.dxvkConf ?? null, profileTag: j.run.profile ? profileTag(j) : null, exitCode: null, verdict: [], pass: false, crashed: false, crash: null, timedOut: false, memory: {}, counters: {}, error: null };
-  const pin = pinConfig(j.pin), machineFile = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-machine.jsonl`);
+  const pin = pinConfig(j.pin, process.env, undefined, isTimingJob(j)), machineFile = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-machine.jsonl`);
+  const sweepFile = machineFile.replace(/-machine\.jsonl$/, '-sweep.json');
   if (pin) process.env.TS3_GAME_CPUS = pin.cpus; // child samplers (profile-world.ts) split by the same set
   row.pin = describePin(pin);
   if (j.rerunOf) row.rerunOf = j.rerunOf;
@@ -3099,7 +3109,7 @@ for (const [n, j] of jobs.entries()) {
   }
   const guarded = guardedSaves(s);
   row.saveHashes = { before: hashSaves(SAVES, guarded) };
-  let stopLoad: (() => Promise<void>) | null = null, iniUsed: string | undefined;
+  let stopLoad: (() => Promise<void>) | null = null, iniUsed: string | undefined, stopSweep = () => {};
   // docs/170 §2: sess is still set only when the job before kept its game for this one (same key, reuse on, carry-over check ok)
   const reused = !!sess;
   row.session = reused ? { load: sess!.load, window: sess!.windows, line: `reused session (#${sess!.windows} since load)`, before: sess!.carry ?? null } : { line: 'fresh load' };
@@ -3204,6 +3214,7 @@ for (const [n, j] of jobs.entries()) {
     startProbe(j);
     stopPin = startPinner(pin); // waits for TS3W.exe, then keeps it (and the apps) on their CPUs
     stopLoad = startMachineLoad(machineFile, 30, pin?.cpus ?? gameCpus());
+    stopSweep = startSweep(pin, sweepFile, machineFile); // timing jobs: every other process off the game CPUs (pin.ts)
     if (s === 'menu') {
       let up = false, misses = 0, nextCheck = Date.now() + GUARD_MS;
       const end = Math.min(deadline, Date.now() + 300000);
@@ -3233,6 +3244,7 @@ for (const [n, j] of jobs.entries()) {
     row.startMs = Date.now() - Date.parse(t0); rwRun.fresh.push(row.startMs);
     } else {
       stopLoad = startMachineLoad(machineFile, 30, pin?.cpus ?? gameCpus());
+      stopSweep = startSweep(pin, sweepFile, machineFile);
       if (sess!.rw) await rwStart(j, row, logFile, deadline); // docs/270 §30
     } // ---- end of game start and load
     sess!.reuse = reuseOf(j); // this job's limits decide whether the next one may take the game over
@@ -3535,6 +3547,12 @@ for (const [n, j] of jobs.entries()) {
   // a machine-load failure never ends the queue (2026-11-15: EBUSY here killed ilpatch-b80-b87 mid-job)
   if (stopLoad) try { await stopLoad(); const ml = loadSummary(machineFile); Object.assign(row, { machine: ml.line, noise: ml.noise, noiseNote: ml.short, machineLog: machineFile }); log(`${j.id}: ${ml.line}`); if (/unread/.test(ml.short)) (row.verdict ??= []).push('note: machine load unread'); }
     catch (e) { Object.assign(row, { machine: `machine load unread: ${(e as Error).message ?? e}`, noise: 'unknown', machineLog: machineFile }); (row.verdict ??= []).push('note: machine load unread'); log(`${j.id}: machine load unread: ${(e as Error).message ?? e}`); }
+  // timing sweep: everything it moved goes back now (also on a failed job); the count + og before/after joins the machine line
+  if (pin?.sweep) try {
+    stopSweep(); stopSweep = () => {};
+    const sn = `${sweepNote(sweepFile, rowsOf(machineFile) ?? [])}; restore: ${restoreSweep() || 'nothing recorded'}`;
+    row.sweep = sn; if (row.machine) row.machine += `; ${sn}`; log(`${j.id}: ${sn}`);
+  } catch (e) { log(`${j.id}: sweep restore failed: ${(e as Error).message ?? e} (node tools/harness/pin.ts --restore-affinity)`); }
   if (stall && !row.error?.includes(stall)) row.error = [row.error, stall].filter(Boolean).join('; ');
   stall = '';
   // a fresh EA crash report also counts (2026-11-04: the game died while a read-back FAIL closed it, so closedByUs was set
