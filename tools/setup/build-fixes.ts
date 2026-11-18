@@ -206,6 +206,13 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kInvNotYet value="True" />
     <kMetricSkillMissing value="True" />
     <kFireworksFizzle value="True" />
+    <kBoatRouteNull value="False" />
+    <kOutfitMissing value="False" />
+    <kAgeUpDupInst value="False" />
+    <kOverwatchResetGone value="False" />
+    <kMotivesNoHousehold value="False" />
+    <kFetchAbort value="False" />
+    <kOverwatchRelRetry value="False" />
     <kFireworksWatchLate value="True" />
     <kRoleNullPurge value="True" />
     <kErrorTrapLoop value="True" />

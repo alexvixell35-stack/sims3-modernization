@@ -936,6 +936,11 @@ namespace Ts3Fixes
         // [2797-2799] loopidlebridge (LoopIdleBridge.cs): stale bridges (host reset, no C++ driver) dropped in Sim.LoopIdle / seen with the switch off (EA throws) / guard errors.
         // [2719-2721] fightstaycap (FightStayCap.cs): Sims released from a snow/water fight after 120 sim min / hook errors / fight members not found.
         // [2780-2782] fireworkswatchlate (FireworksWatchLate.cs): late watchers sent through LoopWatch before Exit / members not found (EA's Run used) / EA's Run threw SacsErrorException (switch off).
+        // [3974-3976] boatroutenull (BoatRouteNull.cs): Boat.RouteBoatToLandOnWayToPosition false for a boat with no RoutingComponent / seen with the switch off (EA throws) / errors.
+        // [3977-3979] outfitmissing (OutfitMissing.cs): SwitchOutfitHelper.Init for a missing outfit (pregnant Sims' special outfits) made no-change / seen with the switch off (EA throws) / guard errors.
+        // [3980-3982] ageupdupinst (AgeUpDupInst.cs, #553): second instantiations during a deferred age-up answered with the first call's Sim / seen with the switch off (EA throws) / no Sim made (rethrown).
+        // [3983-3985] overwatchrelretry (OwRelRetry.cs): Overwatch CleanupRelationships re-runs after "out of sync" / seen with the switch off / still failing after 50 runs.
+        // [3986-3991] OneOffGuards.cs: overwatchresetgone destroyed Sims skipped in a reset / seen off; motivesnohousehold CreateMotives with the NpcHousehold stand-in / seen off; fetchabort fetch games ended on SacsAbortException / seen off.
         // [2062-2064] petpoolorphan (PetPoolOrphan.cs, issue #166 build 52, docs/534): pets dropped from a pool with no household and no family links disposed / left (a Sim in the world) / Dispose threw.
         // [2065] reltablesapart (RelTablesApart.cs, issue #166 build 14, docs/535): relationship pairs whose two tables had come apart, rejoined with the other side's relationship.
         // [2067-2068] errortrapsims (ErrorTrapSims.cs): dead Sim objects dropped from NRaas ErrorTrap's CheckSim.mInited, keys left after the last pass. [2069-2071] unused.
@@ -2576,6 +2581,13 @@ namespace Ts3Fixes
                 case "invnotyet": return Instantiator.kInvNotYet;
                 case "metricskillmissing": return Instantiator.kMetricSkillMissing;
                 case "fireworksfizzle": return Instantiator.kFireworksFizzle;
+                case "boatroutenull": return Instantiator.kBoatRouteNull;
+                case "outfitmissing": return Instantiator.kOutfitMissing;
+                case "ageupdupinst": return Instantiator.kAgeUpDupInst;
+                case "overwatchresetgone": return Instantiator.kOverwatchResetGone;
+                case "motivesnohousehold": return Instantiator.kMotivesNoHousehold;
+                case "fetchabort": return Instantiator.kFetchAbort;
+                case "overwatchrelretry": return Instantiator.kOverwatchRelRetry;
                 case "fireworkswatchlate": return Instantiator.kFireworksWatchLate;
                 case "rolenullpurge": return Instantiator.kRoleNullPurge;
                 case "errortraploop": return Instantiator.kErrorTrapLoop;
