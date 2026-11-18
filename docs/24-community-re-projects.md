@@ -349,3 +349,13 @@ GitHub facts verified (repo pages, commit trailers); Nexus items are search snip
 | Nexus "AI Lighting ... POPULATION with DEEPSEEK" | [snippet] | Fork of LazyDuchess population mod; low |
 
 Policy: Nexus Mods requires AI disclosure labels (AI Generated / AI Media / AI Assisted) since 2026-11-03, existing mods by 2027-01-02, no ban (GamingOnLinux, PC Gamer; secondary). Our Nexus page needs the "AI Assisted" label. No MTS AI rule found. The Sims Resource rejects AI-generated uploads.
+
+## Added 2026-11-18 (prior art for Dalexlol's switches, docs/285)
+Checked for existing fixes of the 376 Dalexlol switches; nothing reused, no code taken:
+- simler90's Gameplay Core Mod UPDATE242 (https://modthesims.info/d/659969, local changed-method list `docs/data/mod-method-diff.csv`): only mod with same-method fixes: `Sim+WakeWithMegaphone.Run` (= `megaphonerun`), and [inferred] `AcademicCareer.RemoveProfessor`, `Phone+RandomInvitationCall.OnAnswered`, `KrakenManager.KrakenAttackEndAlarmCallback`.
+- NRaas Overwatch / ErrorTrap / Consigner / Woohooer / StoryProgression / GoHere (source clone, read only): load-time and nightly cleanups of the leftovers, or own replacements of the EA path (docs/285 §3).
+- Plumbot Fixes Mod, Max_53 (https://modthesims.info/d/678484, core mod, separate simler90 build): plumbot lifetime wish, frozen fun/social motives, lost trait chips; no overlap with `plumbotfacelistener` / `sentiencename` / `efficientchip`.
+- Opportunity phone call fix, nikel23 (https://modthesims.info/d/560635, tuning): ITF opportunity call weight 500 -> 5 and a bad FutureWorld tag; no overlap with the phone switches.
+- LittleMsSam's elevator fix for toddlers and dogs (via https://modthesims.info/d/611299): Sims 4 only, not `elevatorkitten`.
+- EA forum "Sims 3 - Common Game Fixing Mods - Hero Approved" (https://forums.ea.com/discussions/the-sims-3-technical-issues-en/re-sims-3---common-game-fixing-mods---hero-approved/8291750): 403 to scripts; read by hand for any single-bug fix we missed.
+- No published fix found for: phone busy after load / call schedule, Seasick stuck, wild-horse mare ratio, consignment day 5, PermaZombie at the new moon after a load (forum threads only).
