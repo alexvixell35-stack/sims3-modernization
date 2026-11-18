@@ -279,7 +279,8 @@ const clockGuard = (async () => {
     console.log(`${stamp()} FAIL: ${why} (fail-fast guard)`);
     // pause bits, game dt, speed and window state at the trip (docs/85 §6: minimize pause = bit 2, device pause = bit 4)
     const cs = await ag('clock_state');
-    console.log(`${stamp()} clock_state at the trip: ${JSON.stringify(cs.ok ? cs.result : cs.error)}`);
+    // speed_locked: a Pause lock someone never released (st1 sweep 2026-11-17: Pause, no dialog, autopilot not blocked)
+    console.log(`${stamp()} clock_state at the trip: ${JSON.stringify(cs.ok ? cs.result : cs.error)}, speed_locked ${t?.speed_locked ?? '?'}`);
     // which modal holds the clock (title, buttons) and whether a world switch is under way (story-smoke 2026-10-23)
     const pd = await ag('pending_dialogs').catch(() => null), gs = await ag('game_state').catch(() => null);
     console.log(`${stamp()} at the trip: dialog ${JSON.stringify(pd?.ok ? pd.result : pd?.error).slice(0, 400)}; sub_state ${gs?.result?.sub_state ?? '?'}, world ${gs?.result?.load_file ?? '?'}`);
@@ -539,7 +540,8 @@ const reproStep = async (s: any) => {
   return r;
 };
 const reproRun = (async () => {
-  // fixed waitS or adaptive waitUntil, then until; after the window end the steps stop at the first until (repro-loop.ts runSteps)
+  // fixed waitS or adaptive waitUntil, then until; every wait ends at the window end, then the steps stop at the first until /
+  // waitUntil (repro-loop.ts runSteps)
   await runSteps(reproSteps, { ag, step: reproStep, sleep, now: Date.now, halted: () => stopped || Date.now() >= at(secs), log: l => console.log(`${stamp()} ${l}`) })
     .catch((e: Error) => reproFail(`repro ${e.message}`));
   if (story) await story.run({ ag, sleep, halted: () => stopped || Date.now() >= at(secs), pre }).catch(e => reproFail(e.message)); // household creation failed: stop the job

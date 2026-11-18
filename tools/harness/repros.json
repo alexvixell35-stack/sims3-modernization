@@ -110448,6 +110448,260 @@
     ]
   },
   {
+    "id": "ip-boat-raw-dispose2",
+    "bug": "EA pure-call BREAKPOINT 0x58D996: a destroyed slave (driver / passenger) left on its vehicle master slave list (docs/143 s8.11)",
+    "fix": "ts3native [EaCrashFixes] SlaveUnlink=1; tripwire DeadSlaveTrip=1",
+    "save": "Baseline-IP",
+    "note": "2026-11-18, second try of ip-boat-raw-dispose. That one never had a rider: every crowd_go Go Here to 'island' (Port Pyre's centre 948.4,508.1, 2 m under sea level) failed FailedBecauseNoDestinationSpecified (etl14e: 50 of 50 plans per arm), in_vehicle 0 at all 10 checks, its riding lists held only walkers. Now crowd_go moves a lot-centre goal to a walkable spot on the lot (agent 2026-11-18, as go_here), the boat shortcuts are off for this repro (unseenboat would wait and place an unseen NPC at the goal; D's pre / arrive / relaxed / leave / plan / teleport paths could skip the ride too), and each of 4 rounds polls every 1 s with remove_sims ridingOnly (raw dispose in place of spawned Sims whose Parent is a Vehicle, never the active household) until riding.length >= 1 (an agent older than 2026-11-18 has no riding key without raw, so it times out instead of passing on walkers), then 15 s for the master's avoidance to touch the dangling slave, then a safe remove_sims for the rest. A round with no rider in 180 s FAILs the job: not triggered (the crossing went by land), not a fix result.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenboat": false,
+          "unseenboatstart": false,
+          "unseenfbpre": false,
+          "unseenfbarrive": false,
+          "unseenroute": false,
+          "unseenfbleave": false,
+          "unseenfbplan": false,
+          "unseenfbteleport": false
+        },
+        "waitS": 1,
+        "note": "boat ride shortcuts off: every crossing is a real ride"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "island"
+        },
+        "waitS": 5,
+        "note": "round 1: Go Here to a walkable spot on the island lot (boat, water taxi or swim)"
+      },
+      {
+        "cmd": "unseen_water_check",
+        "args": {},
+        "optional": true,
+        "note": "round 1: crowd before the poll; the until disposes the first riders in place",
+        "until": {
+          "cmd": "remove_sims",
+          "args": {
+            "ridingOnly": true
+          },
+          "all": [
+            {
+              "path": "riding.length",
+              "atLeast": 1
+            }
+          ],
+          "everyS": 1,
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "unseen_water_check",
+        "args": {},
+        "optional": true,
+        "waitS": 15,
+        "note": "round 1: 15 s with the dangling slave link (no-fix arm: the pure call comes here)"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10,
+        "note": "round 1: the rest, safe path (riders reset first)"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "island"
+        },
+        "waitS": 5,
+        "note": "round 2: Go Here to a walkable spot on the island lot (boat, water taxi or swim)"
+      },
+      {
+        "cmd": "unseen_water_check",
+        "args": {},
+        "optional": true,
+        "note": "round 2: crowd before the poll; the until disposes the first riders in place",
+        "until": {
+          "cmd": "remove_sims",
+          "args": {
+            "ridingOnly": true
+          },
+          "all": [
+            {
+              "path": "riding.length",
+              "atLeast": 1
+            }
+          ],
+          "everyS": 1,
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "unseen_water_check",
+        "args": {},
+        "optional": true,
+        "waitS": 15,
+        "note": "round 2: 15 s with the dangling slave link (no-fix arm: the pure call comes here)"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10,
+        "note": "round 2: the rest, safe path (riders reset first)"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "island"
+        },
+        "waitS": 5,
+        "note": "round 3: Go Here to a walkable spot on the island lot (boat, water taxi or swim)"
+      },
+      {
+        "cmd": "unseen_water_check",
+        "args": {},
+        "optional": true,
+        "note": "round 3: crowd before the poll; the until disposes the first riders in place",
+        "until": {
+          "cmd": "remove_sims",
+          "args": {
+            "ridingOnly": true
+          },
+          "all": [
+            {
+              "path": "riding.length",
+              "atLeast": 1
+            }
+          ],
+          "everyS": 1,
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "unseen_water_check",
+        "args": {},
+        "optional": true,
+        "waitS": 15,
+        "note": "round 3: 15 s with the dangling slave link (no-fix arm: the pure call comes here)"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10,
+        "note": "round 3: the rest, safe path (riders reset first)"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "island"
+        },
+        "waitS": 5,
+        "note": "round 4: Go Here to a walkable spot on the island lot (boat, water taxi or swim)"
+      },
+      {
+        "cmd": "unseen_water_check",
+        "args": {},
+        "optional": true,
+        "note": "round 4: crowd before the poll; the until disposes the first riders in place",
+        "until": {
+          "cmd": "remove_sims",
+          "args": {
+            "ridingOnly": true
+          },
+          "all": [
+            {
+              "path": "riding.length",
+              "atLeast": 1
+            }
+          ],
+          "everyS": 1,
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "unseen_water_check",
+        "args": {},
+        "optional": true,
+        "waitS": 15,
+        "note": "round 4: 15 s with the dangling slave link (no-fix arm: the pure call comes here)"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10,
+        "note": "round 4: the rest, safe path (riders reset first)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      }
+    ],
+    "expect": "every round: 'until met' line with removed ['riding Boat... <id>'] (a spawned Sim disposed in its boat). No-fix arm: BREAKPOINT 0x58D996 within ~15 s of a riding dispose (repro found). Fix arm: no crash, ts3native.log 'ea fix: SlaveUnlink #n' >= 1 (one per disposed rider or more), DeadSlaveTrip 0. A 180 s until timeout = not triggered (N/A), not a fix verdict",
+    "area": "boats",
+    "switches": []
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
