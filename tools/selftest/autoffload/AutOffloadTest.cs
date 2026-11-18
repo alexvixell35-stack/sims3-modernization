@@ -111,6 +111,25 @@ static class AutOffloadTest
         m.Clear();
         Check("memo clear", m.Check(lot, 3, 0, ab, 7), ListMemo.kFirst);
         Check("memo empty lists equal", m.Check(lot, 9, 2, new object[0], 7) + m.Check(lot, 9, 2, new object[0], 7), ListMemo.kFirst + ListMemo.kHit);
+        // docs/274 R1 apply: Get returns the valid memo list only
+        ListMemo mg = new ListMemo();
+        Check("get: nothing stored", mg.Get(lot, 3, 0, 1) == null ? 1 : 0, 1);
+        mg.Check(lot, 3, 0, ab, 1);
+        object[] got = mg.Get(lot, 3, 0, 1);
+        Check("get: stored list, game order", got != null && got.Length == 2 && got[0] == a ? 1 : 0, 1);
+        Check("get: other kind not stored", mg.Get(lot, 3, 2, 1) == null ? 1 : 0, 1);
+        mg.Bump(lot, 4, 1);
+        Check("get: other room bump keeps it", mg.Get(lot, 3, 0, 1) != null ? 1 : 0, 1);
+        mg.Bump(lot, 3, 1);
+        Check("get: room bump = null", mg.Get(lot, 3, 0, 1) == null ? 1 : 0, 1);
+        mg.Check(lot, 3, 0, ab, 1);
+        Check("get: valid after the live list is stored", mg.Get(lot, 3, 0, 1) != null ? 1 : 0, 1);
+        Check("get: next-tick repeat bump = null", mg.Get(lot, 3, 0, 2) == null ? 1 : 0, 1);
+        mg.Check(lot, -1, 1, ab, 2); mg.Bump(lot, -1, 2);
+        Check("get: lot bump = null on lot-wide", mg.Get(lot, -1, 1, 2) == null ? 1 : 0, 1);
+        Check("sameset: reorder", ListMemo.SameSet(new object[] { a, b }, ba) ? 1 : 0, 1);
+        Check("sameset: other object", ListMemo.SameSet(new object[] { a, a }, ba) ? 1 : 0, 0);
+        Check("sameset: other count", ListMemo.SameSet(new object[] { a }, ba) ? 1 : 0, 0);
     }
 
     // docs/274 R2 bcposdry: the table range scan and the set compare

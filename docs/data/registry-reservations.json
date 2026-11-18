@@ -6081,6 +6081,109 @@
       "what": "envlistmemo reorder order-dependence (docs/274 §8.6)",
       "at": "2026-11-17T20:56:24.594Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-285",
+      "kind": "doc",
+      "from": 285,
+      "to": 285,
+      "by": "prior-art-agent",
+      "what": "Dalexlol switches prior art (community fixes, NRaas, simler90)",
+      "at": "2026-11-18T01:57:50.334Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\dalexlol-prior-art-1118"
+    },
+    {
+      "id": "doc-286",
+      "kind": "doc",
+      "from": 286,
+      "to": 286,
+      "by": "unseen-anim-lod-1118",
+      "what": "unseen NPC animation and locomotion LOD design",
+      "at": "2026-11-18T07:25:08.720Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-514",
+      "kind": "ledger",
+      "from": 514,
+      "to": 514,
+      "by": "unseen-anim-lod-1118",
+      "what": "unseen NPC anim/loco LOD design",
+      "at": "2026-11-18T07:25:08.930Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v210",
+      "kind": "native",
+      "version": 210,
+      "from": 26640,
+      "to": 26703,
+      "by": "unseen-measure-1118",
+      "what": "[UnseenProbe]/[AnimPhase] own-check + loco thunk timers, Rate=1 household + catch-up counters (docs/286 §5)",
+      "at": "2026-11-18T07:31:46.502Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\unseen-measure-1118"
+    },
+    {
+      "id": "fixes-1230",
+      "kind": "fixes",
+      "from": 1230,
+      "to": 1240,
+      "by": "envlistmemo-apply-1118",
+      "what": "docs/274 R1 envlistmemoapply: unseen-only env list reuse + sampled verify",
+      "at": "2026-11-18T07:52:58.238Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-515",
+      "kind": "ledger",
+      "from": 515,
+      "to": 515,
+      "by": "envlistmemo-apply-1118",
+      "what": "docs/274 R1 apply unseen-only reuse",
+      "at": "2026-11-18T07:52:58.510Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v211",
+      "kind": "native",
+      "version": 211,
+      "from": 26704,
+      "to": 26767,
+      "by": "laneB-gc-1118",
+      "what": "[GC] SubTimers gct* mark/stopped-mark/sweep/finalize split (gcgate.cpp)",
+      "at": "2026-11-18T08:02:38.790Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-287",
+      "kind": "doc",
+      "from": 287,
+      "to": 287,
+      "by": "laneB-gc-1118",
+      "what": "GC mark helpers G5 (lane B offload)",
+      "at": "2026-11-18T08:02:39.181Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-516",
+      "kind": "ledger",
+      "from": 516,
+      "to": 516,
+      "by": "laneB-gc-1118",
+      "what": "GC mark helpers G5 + sub-timers",
+      "at": "2026-11-18T08:02:39.573Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "native-v212",
+      "kind": "native",
+      "version": 212,
+      "from": 26768,
+      "to": 26783,
+      "by": "offload-a-1118",
+      "what": "[LotStream] Thumb: thumbnail texture create+fill 0xD5D910 timer (thumbCalls, thumbUs, thumbMaxUs, thumbOffSim)",
+      "at": "2026-11-18T08:09:02.143Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\offload-a-1118"
     }
   ]
 }

@@ -1,0 +1,768 @@
+{
+  "knownNotFailures": [
+    {
+      "id": "routegate-transition-routing",
+      "regex": "\\[Transition routing\\] Pattern not found",
+      "why": "ts3native RouteGate hooks BuildRoutingData before Apex starts, so the TransitionCalls observer stands down with an ERROR on Apex heads without #113. Not an Apex failure.",
+      "match": "[ERROR] [Transition routing] Pattern not found",
+      "nonMatch": "[ERROR] [RoomSolveShare] The room solve call could not be put back"
+    },
+    {
+      "id": "runner-close-timeout",
+      "regex": "the game did not close and was ended",
+      "why": "Runner note when the game is still running after the close wait (runner, bridge or game; #112 adds a hang dump). Not a failure of the PR under test.",
+      "match": "the game did not close and was ended (hang-*.dmp)",
+      "nonMatch": "game closed while waiting for live mode (exit code 1)"
+    }
+  ],
+  "prs": {
+    "89": {
+      "title": "tools: add rewind mode to the RTX Remix bridge",
+      "head": "a0e71ca7",
+      "build": "public",
+      "bridge": "pr-artifact",
+      "jobs": [
+        {
+          "job": "native/remix-bridge/test-rewind.cmd",
+          "kitJob": null,
+          "variants": [],
+          "run": "cd <pr89>\\native\\remix-bridge && package.ps1 && test-rewind.cmd   (offline; build.cmd first; #106 patch 0010 must be in)"
+        },
+        {
+          "job": "tools/ingame_runner/jobs/smoke.json",
+          "kitJob": "jobs/pr89-smoke.json",
+          "variants": [
+            "saved"
+          ],
+          "run": "1..10 | ForEach-Object { ./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <4.0.2 ApexRadiance.asi> -Job tools/ingame_runner/jobs/smoke.json -Save 'West Arbor' -OutDir <out>\\pr89-off-$_ }   (PR bridge pair in <GAME_BIN>, no rewindMode line)"
+        },
+        {
+          "job": "tools/ingame_runner/jobs/smoke.json",
+          "kitJob": "jobs/pr89-smoke.json",
+          "variants": [
+            "saved"
+          ],
+          "run": "./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <4.0.2 ApexRadiance.asi> -Job tools/ingame_runner/jobs/smoke.json -Save 'West Arbor' -OutDir <out>\\pr89-on   (after adding rewindMode = True to Game\\Bin\\bridge.conf and Game\\Bin\\.trex\\bridge.conf; remove both lines afterwards)"
+        }
+      ],
+      "pass": [
+        {
+          "regex": "^rewind tests passed$",
+          "why": "last line of test-rewind.cmd",
+          "match": "rewind tests passed",
+          "nonMatch": "rewind tests failed"
+        },
+        {
+          "regex": "\\[Config\\] Settings loaded from ApexRadiance\\.toml",
+          "why": "smoke job expect",
+          "match": "[Config] Settings loaded from ApexRadiance.toml",
+          "nonMatch": "[Config] Settings saved"
+        },
+        {
+          "regex": "\\[Patches\\] \\d+ features:",
+          "why": "smoke job expect",
+          "match": "[Patches] 62 features: AmbientOcclusion, LotLightingMotion",
+          "nonMatch": "[Patches] features: none"
+        },
+        {
+          "regex": "\\[Rewind\\] Rewind mode is on",
+          "why": "bridge32.log of the rewindMode=True run (exactly one line; bridge64.log must have no [Rewind] line)",
+          "match": "[Rewind] Rewind mode is on. Cooperation block: ts3w",
+          "nonMatch": "[Rewind] Rewind mode is off"
+        }
+      ],
+      "fail": [
+        {
+          "regex": "ACCESS_VIOLATION reading 0x00000000 at d3d9\\.dll\\+0x2D4B4",
+          "why": "GetBackBuffer on a destroyed swap chain at device creation (the patch 0016 case, now folded into #106)",
+          "match": "ACCESS_VIOLATION reading 0x00000000 at d3d9.dll+0x2D4B4",
+          "nonMatch": "ACCESS_VIOLATION reading 0x00000000 at d3d9.dll+0x1000"
+        },
+        {
+          "regex": "ApexRadiance_Crash\\.txt",
+          "why": "a crash report was written (any crash fails the run)",
+          "match": "Crash report written: ApexRadiance_Crash.txt",
+          "nonMatch": "[Patches] 62 features:"
+        }
+      ],
+      "manual": [
+        "test-rewind.cmd exit code 0 and test_rewind_server 93 ok on d3d9.dll and on DXVK (needs meson, ninja, Python, a GPU desktop session).",
+        "Mode-off start loop: 10 of 10 starts reach live mode and close; play and picture as with the 4.0.2 bridge.",
+        "Mode on: bridge64.log has no [Rewind] line.",
+        "The rewind itself needs a host tool that restores the process; the snapshot/rewind 20-round run (NvRemixBridge.exe working set and VRAM flat per round) cannot be done without it. Skip it and say so."
+      ],
+      "ours": "Offline (our run, a0e71ca): test_rewind_server 93 ok on d3d9.dll and DXVK, test_rewind_device incl. the park-without-host case; no in-game rewind run yet. loinyx reported (11-18): test-rewind 93 ok on both servers with #106 cherry-picked.",
+      "sendBack": "Build result, test-rewind.cmd last lines, starts passed of 10 (mode off), the [Rewind] lines of bridge32.log and bridge64.log from the mode-on run, any crash with last log lines. Merge #106 first."
+    },
+    "91": {
+      "title": "fix: consistent lock order between D3D9Hooks and PostScene at start-up",
+      "head": "0a209879",
+      "build": "developer",
+      "bridge": "installed",
+      "jobs": [
+        {
+          "job": "tools/ingame_runner/jobs/smoke.json",
+          "kitJob": "jobs/pr91-smoke.json",
+          "variants": [
+            "saved"
+          ],
+          "run": "1..20 | ForEach-Object { ./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <pr91>\\Release\\ApexRadiance.asi -Job tools/ingame_runner/jobs/smoke.json -Save 'West Arbor' -OutDir <out>\\pr91-start-$_ }"
+        }
+      ],
+      "pass": [
+        {
+          "regex": "\\[Config\\] Settings loaded from ApexRadiance\\.toml",
+          "why": "smoke job expect",
+          "match": "[Config] Settings loaded from ApexRadiance.toml",
+          "nonMatch": "[Config] Settings saved"
+        },
+        {
+          "regex": "\\[Patches\\] \\d+ features:",
+          "why": "smoke job expect",
+          "match": "[Patches] 62 features: AmbientOcclusion, LotLightingMotion",
+          "nonMatch": "[Patches] features: none"
+        }
+      ],
+      "fail": [
+        {
+          "regex": "no (log|progress|mailbox)",
+          "why": "runner stop reasons of a hung start",
+          "match": "start stopped: no progress for 60 s",
+          "nonMatch": "[Config] Settings loaded from ApexRadiance.toml"
+        },
+        {
+          "regex": "ApexRadiance_Crash\\.txt",
+          "why": "a crash report was written (any crash fails the run)",
+          "match": "Crash report written: ApexRadiance_Crash.txt",
+          "nonMatch": "[Patches] 62 features:"
+        }
+      ],
+      "manual": [
+        "20 of 20 starts reach live mode and close.",
+        "If a start hangs (no progress for 60 s before live mode): save a full dump of that TS3W.exe by PID first (procdump -ma <pid>), then let the runner end it; send the thread stacks in D3D9Hooks / PostScene / _Mtx_lock.",
+        "Optional: the same loop with the released 4.0.2 asi for the base hang rate."
+      ],
+      "ours": "none yet in game (hang seen about once in 20 starts). loinyx reported (11-18): 20/20 starts, no hang.",
+      "sendBack": "Starts passed of 20, time per start, any hang with stacks, build result and selftest counts."
+    },
+    "94": {
+      "title": "perf: share one room solve budget per frame across lots while moving",
+      "head": "2fc4b266",
+      "build": "developer",
+      "bridge": "installed",
+      "jobs": [
+        {
+          "job": "tools/room_solve_share_test/run.ps1",
+          "kitJob": null,
+          "variants": [],
+          "run": "./tools/room_solve_share_test/run.ps1   (offline)"
+        },
+        {
+          "job": "tools/ingame_runner/jobs/room-solve-share-pan.json",
+          "kitJob": "jobs/pr94-room-solve-share-pan.json",
+          "variants": [
+            "off",
+            "on"
+          ],
+          "run": "./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <pr94>\\Release\\ApexRadiance.asi -Job tools/ingame_runner/jobs/room-solve-share-pan.json -Save 'West Arbor' -Variant off -OutDir <out>\\pr94-off ; then the same with -Variant on -OutDir <out>\\pr94-on"
+        }
+      ],
+      "pass": [
+        {
+          "regex": "Shared room solve time: Off",
+          "why": "off variant: Frame Profiler line",
+          "match": "Shared room solve time: Off",
+          "nonMatch": "Shared room solve time: 12 solves in the lot pass"
+        },
+        {
+          "regex": "Shared room solve time: \\d+ solves in the lot pass, \\d+ ran, [1-9]\\d* waited a frame",
+          "why": "on variant: waited > 0",
+          "match": "Shared room solve time: 410 solves in the lot pass, 380 ran, 30 waited a frame (2 after waiting 8+ frames), 12 frames with a wait; longest wait 4 frames",
+          "nonMatch": "Shared room solve time: 410 solves in the lot pass, 410 ran, 0 waited a frame"
+        },
+        {
+          "regex": "longest wait (\\d|[12]\\d|30) frames",
+          "why": "on variant: longest wait <= 30 frames",
+          "match": "12 frames with a wait; longest wait 4 frames; most per frame",
+          "nonMatch": "longest wait 31 frames"
+        },
+        {
+          "regex": "\\[RoomSolveShare\\] On:",
+          "why": "on variant job expect (in the off variant this line is a FAIL)",
+          "match": "[RoomSolveShare] On: shared 4 ms per frame",
+          "nonMatch": "[RoomSolveShare] Off (Off)"
+        },
+        {
+          "regex": "\\[RtOutdoorLamps\\] Active lot tracker",
+          "why": "job expect",
+          "match": "[RtOutdoorLamps] Active lot tracker on",
+          "nonMatch": "[RtOutdoorLamps] Inactive"
+        }
+      ],
+      "fail": [
+        {
+          "regex": "\\[(RoomSolveShare|LotLightingMotion|RtOutdoorLamps)\\].*(could not|left off|left as it is)",
+          "why": "job fail",
+          "match": "[RoomSolveShare] The room solve call could not be put back; the gate stays in place",
+          "nonMatch": "[RoomSolveShare] On: shared 4 ms per frame"
+        },
+        {
+          "regex": "\\[RoomSolveShare\\] On:",
+          "why": "off variant only: must not appear",
+          "match": "[RoomSolveShare] On: shared 4 ms per frame",
+          "nonMatch": "[RoomSolveShare] Off (Off)"
+        }
+      ],
+      "manual": [
+        "ApexRadiance_FrameTimeline.csv: room_solve_waited > 0 only on rows with apex_moving = 1.",
+        "Lights after the stop (F8 at the end of the job) match between off and on.",
+        "Report how the game closed."
+      ],
+      "ours": "Offline room_solve_share_test only (5 seeds, SlotChecks: 90 live levels, 26 without a slot); runner selftest 445 / 0. No in-game run yet; loinyx got partial results on f430242 (substitute save).",
+      "sendBack": "The profiler line for both variants, the timeline check, the F8 pair after the stop, how the game closed. Run order: #94, then #101, then #98."
+    },
+    "96": {
+      "title": "tools: add a developer read-back benchmark and its runner job",
+      "head": "5cff1264",
+      "build": "developer",
+      "bridge": "installed",
+      "jobs": [
+        {
+          "job": "tools/ingame_runner/jobs/readback-bench.json",
+          "kitJob": "jobs/pr96-readback-bench.json",
+          "variants": [],
+          "run": "./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <pr96>\\Release\\ApexRadiance.asi -Job tools/ingame_runner/jobs/readback-bench.json -Save 'West Arbor' -OutDir <out>\\pr96"
+        }
+      ],
+      "pass": [
+        {
+          "regex": "\\[ReadbackBench\\] Armed:",
+          "why": "job expect",
+          "match": "[ReadbackBench] Armed: 60 samples of 6 cases, one case every 4 frames, 20 s after a world is shown",
+          "nonMatch": "[ReadbackBench] Not started"
+        },
+        {
+          "regex": "\\[ReadbackBench\\] Done:",
+          "why": "job expect",
+          "match": "[ReadbackBench] Done: first GetData already signalled 0 of 60",
+          "nonMatch": "[ReadbackBench] Armed: 60 samples"
+        }
+      ],
+      "fail": [
+        {
+          "regex": "\\[ReadbackBench\\] (Aborted|Could not|Not started)",
+          "why": "job fail",
+          "match": "[ReadbackBench] Aborted: device reset",
+          "nonMatch": "[ReadbackBench] Done: first GetData"
+        }
+      ],
+      "manual": [
+        "Copy ReadbackBench-<pid>.csv from the Apex Radiance Diagnostics folder into <out>\\pr96 and send the median table (GetRenderTargetData 1x1 and 1024x1024, back buffer, StretchRect, LockRect after a signalled query, event-query wait). Say which backend (bridge with DXVK server, or other).",
+        "A second run on another backend is welcome."
+      ],
+      "ours": "Our medians under the bridge: GetRenderTargetData 1x1 2.86 ms, 1024x1024 6.18 ms, back buffer 5.14 ms; StretchRect 0.002 ms; LockRect after a signalled query 0.003 ms; event-query wait 3.10 ms. Offline selftest 453 / 0 on 5cff126; not run in game on this head.",
+      "sendBack": "Run verdict, the csv, the median table, the backend used. Rerun on 5cff126 (was tested on 0feeb05)."
+    },
+    "97": {
+      "title": "perf: cache outdoor object light picks by draw in developer builds",
+      "head": "6e994a0a",
+      "build": "developer",
+      "bridge": "installed",
+      "jobs": [
+        {
+          "job": "tools/ingame_runner/jobs/draw-light-cache.json",
+          "kitJob": "jobs/pr97-draw-light-cache.json",
+          "variants": [
+            "check"
+          ],
+          "run": "./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <pr97>\\Release\\ApexRadiance.asi -Job tools/ingame_runner/jobs/draw-light-cache.json -Save 'West Arbor' -OutDir <out>\\pr97-check"
+        },
+        {
+          "job": "(scratch from the test request) draw-light-cache-ab",
+          "kitJob": "jobs/pr97-draw-light-cache-ab.json",
+          "variants": [
+            "off",
+            "on"
+          ],
+          "run": "./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <pr97>\\Release\\ApexRadiance.asi -Job <KIT>\\jobs\\pr97-draw-light-cache-ab.json -Save 'West Arbor' -AB -Profiler Frames -OutDir <out>\\pr97-ab"
+        }
+      ],
+      "pass": [
+        {
+          "regex": "\\[DevBuild\\] Per-draw light switches: draw_light_cache on, lazy_shader_restore on, draw_light_cache_check on",
+          "why": "job expect",
+          "match": "[DevBuild] Per-draw light switches: draw_light_cache on, lazy_shader_restore on, draw_light_cache_check on",
+          "nonMatch": "[DevBuild] Per-draw light switches: draw_light_cache off, lazy_shader_restore off, draw_light_cache_check off"
+        },
+        {
+          "regex": "of it the outdoor objects' world matrix, lamp pick and gates",
+          "why": "job expect",
+          "match": "3.1 ms per frame, of it the outdoor objects' world matrix, lamp pick and gates",
+          "nonMatch": "the outdoor objects were skipped"
+        },
+        {
+          "regex": "object draw cache: [1-9]\\d* reused, \\d+ computed, \\d+ not used, [1-9]\\d* checked, 0 differed",
+          "why": "job expect",
+          "match": "object draw cache: 5120 reused, 311 computed, 40 not used, 5120 checked, 0 differed",
+          "nonMatch": "object draw cache: 0 reused, 311 computed, 40 not used, 0 checked, 0 differed"
+        },
+        {
+          "regex": "lazy shader restore: \\d+ left bound, [1-9]\\d* reused, \\d+ put back, [1-9]\\d* checked, 0 differed",
+          "why": "job expect",
+          "match": "lazy shader restore: 90 left bound, 4210 reused, 12 put back, 4210 checked, 0 differed",
+          "nonMatch": "lazy shader restore: 90 left bound, 4210 reused, 12 put back, 4210 checked, 3 differed"
+        }
+      ],
+      "fail": [
+        {
+          "regex": "object draw cache: \\d+ reused, \\d+ computed, \\d+ not used, \\d+ checked, [1-9]\\d* differed",
+          "why": "job fail",
+          "match": "object draw cache: 5120 reused, 311 computed, 40 not used, 5120 checked, 2 differed",
+          "nonMatch": "object draw cache: 5120 reused, 311 computed, 40 not used, 5120 checked, 0 differed"
+        },
+        {
+          "regex": "lazy shader restore: \\d+ left bound, \\d+ reused, \\d+ put back, \\d+ checked, [1-9]\\d* differed",
+          "why": "job fail",
+          "match": "lazy shader restore: 90 left bound, 4210 reused, 12 put back, 4210 checked, 3 differed",
+          "nonMatch": "lazy shader restore: 90 left bound, 4210 reused, 12 put back, 4210 checked, 0 differed"
+        },
+        {
+          "regex": "Object draw cache: a kept answer differs",
+          "why": "job fail",
+          "match": "Object draw cache: a kept answer differs from the fresh one",
+          "nonMatch": "object draw cache: 5120 reused"
+        }
+      ],
+      "manual": [
+        "Correctness job first (0 differed), then one ABBA set (-AB runs off, on, on, off); A/B table from results.md as in the test request.",
+        "Pictures: no wrong-light frames with the cache on."
+      ],
+      "ours": "Offline only: tools/deferred_shader_sites_check.py (42 reads checked), selftest 456 / 0, Developer + Public build on 6e994a0. Not verified in game.",
+      "sendBack": "Check-mode verdict with the two counter lines, the A/B table, noise note. Rerun on 6e994a0 (was tested on ded0ea3)."
+    },
+    "98": {
+      "title": "performance: skip the mouse re-pick while nothing changed",
+      "head": "48192535",
+      "build": "developer",
+      "bridge": "installed",
+      "jobs": [
+        {
+          "job": "tools/ingame_runner/jobs/pick-skip-when-still.json",
+          "kitJob": "jobs/pr98-pick-skip-when-still.json",
+          "variants": [
+            "off",
+            "on"
+          ],
+          "run": "./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <pr98>\\Release\\ApexRadiance.asi -Job tools/ingame_runner/jobs/pick-skip-when-still.json -Save 'West Arbor' -Variant off -OutDir <out>\\pr98-off ; then -Variant on -OutDir <out>\\pr98-on   (use 150 % desktop scaling)"
+        },
+        {
+          "job": "tools/ingame_runner/jobs/pick-skip-clicks.json",
+          "kitJob": "jobs/pr98-pick-skip-clicks.json",
+          "variants": [
+            "off",
+            "on"
+          ],
+          "run": "node tools/ingame_runner/build_agent.mjs -GameBin <GAME_BIN>   (once), then ./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <pr98>\\Release\\ApexRadiance.asi -Job tools/ingame_runner/jobs/pick-skip-clicks.json -Save 'West Arbor' -Variant off -OutDir <out>\\pr98-clicks-off ; then -Variant on -OutDir <out>\\pr98-clicks-on"
+        }
+      ],
+      "pass": [
+        {
+          "regex": "\\[PickReadback\\] Skip when still: on",
+          "why": "on variant job expect (the off variant must not log it)",
+          "match": "[PickReadback] Skip when still: on (re-picks wait while nothing changed, every 4th update while the camera moves)",
+          "nonMatch": "[PickReadback] Skip when still: off"
+        },
+        {
+          "regex": "\\[PickReadback\\] Last \\d+ s: \\d+ picks, [1-9]\\d* skipped with nothing changed",
+          "why": "on variant job expect",
+          "match": "[PickReadback] Last 10 s: 140 picks, 220 skipped with nothing changed, 0 skipped while the camera moved",
+          "nonMatch": "[PickReadback] Last 10 s: 140 picks, 0 skipped with nothing changed"
+        },
+        {
+          "regex": "\\[PickReadback\\] Last \\d+ s: \\d+ picks, \\d+ skipped with nothing changed, [1-9]\\d* skipped while the camera moved",
+          "why": "pick-skip-when-still on: skips while the camera moved",
+          "match": "[PickReadback] Last 10 s: 140 picks, 220 skipped with nothing changed, 35 skipped while the camera moved",
+          "nonMatch": "[PickReadback] Last 10 s: 140 picks, 220 skipped with nothing changed, 0 skipped while the camera moved"
+        },
+        {
+          "regex": "\\[PickReadback\\] Last \\d+ s: .*[1-9]\\d* clicks held for a new pick \\(\\d+ ms, 0 timed out\\)",
+          "why": "pick-skip-clicks on: clicks held, none timed out",
+          "match": "[PickReadback] Last 10 s: 140 picks, 220 skipped with nothing changed, 0 skipped while the camera moved, 6 read-backs 9.0 ms, 3 clicks held for a new pick (40 ms, 0 timed out), 1 picked for a mode or viewport change",
+          "nonMatch": "[PickReadback] Last 10 s: 140 picks, 3 clicks held for a new pick (40 ms, 2 timed out)"
+        }
+      ],
+      "fail": [
+        {
+          "regex": "\\d+ clicks held for a new pick \\(\\d+ ms, [1-9]\\d* timed out\\)",
+          "why": "pick-skip-clicks on fail",
+          "match": "3 clicks held for a new pick (600 ms, 2 timed out)",
+          "nonMatch": "3 clicks held for a new pick (40 ms, 0 timed out)"
+        },
+        {
+          "regex": "\\[PickReadback\\] Last \\d+ s:",
+          "why": "off variant only: must not appear",
+          "match": "[PickReadback] Last 10 s: 140 picks, 0 skipped with nothing changed",
+          "nonMatch": "[PickReadback] Skip when still: off"
+        },
+        {
+          "regex": "ApexRadiance_Crash\\.txt",
+          "why": "a crash report was written (any crash fails the run)",
+          "match": "Crash report written: ApexRadiance_Crash.txt",
+          "nonMatch": "[Patches] 62 features:"
+        }
+      ],
+      "manual": [
+        "pick-skip-clicks: every expect_pick passes (same picks off and on) and every click lands on its target in both variants (hover-pick checks); report the desktop scaling.",
+        "A/B metric (pick-skip-when-still with -AB -Profiler Frames, uncapped: add screen fps_limit 0 and background_fps_limit 0 to a scratch copy): frame time p50/p99 of the measured pan and the [ExtraHooks] GetRenderTargetData callers line for TS3W.exe+0x2DFF4A, off vs on.",
+        "Include the [PickReadback] Last N s lines from one on load.",
+        "Latest ask: each job with -Variant off, then -Variant on (off arm twice first, per the 11-17 11:28 comment)."
+      ],
+      "ours": "pick-skip-when-still on: 1 of 1 pass (11-17, before the DPI and replay fixes, at 100 % scaling). Offline selftest 486 / 0 on 170f281; head 48192535 is a rebase on main 4.0.4 (not built locally).",
+      "sendBack": "Verdict per load, the click/hover lines that failed, desktop scaling, the [PickReadback] lines of one on load."
+    },
+    "99": {
+      "title": "ao: add fewer directions when far and smooth flat surfaces options",
+      "head": "1135b52a",
+      "build": "developer",
+      "bridge": "installed",
+      "jobs": [
+        {
+          "job": "tools/ingame_runner/jobs/ao-adaptive-ab.json (base: released 4.0.2 asi)",
+          "kitJob": "jobs/pr99-ao-adaptive-ab.json",
+          "variants": [
+            "on"
+          ],
+          "run": "./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <4.0.2 ApexRadiance.asi> -Job <KIT>\\jobs\\pr99-ao-adaptive-ab.json -Save 'West Arbor' -OutDir <out>\\pr99-pics\\base"
+        },
+        {
+          "job": "tools/ingame_runner/jobs/ao-adaptive-ab.json + zoomSlices, blendNormals (PR)",
+          "kitJob": "jobs/pr99-ao-adaptive-ab-pr.json",
+          "variants": [
+            "on"
+          ],
+          "run": "./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <pr99>\\Release\\ApexRadiance.asi -Job <KIT>\\jobs\\pr99-ao-adaptive-ab-pr.json -Save 'West Arbor' -OutDir <out>\\pr99-pics\\pr"
+        },
+        {
+          "job": "(scratch from the test request) ao-pr99-ab",
+          "kitJob": "jobs/pr99-ao-pr99-ab.json",
+          "variants": [
+            "off",
+            "on"
+          ],
+          "run": "./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <pr99>\\Release\\ApexRadiance.asi -Job <KIT>\\jobs\\pr99-ao-pr99-ab.json -Save 'West Arbor' -AB -Profiler Frames -OutDir <out>\\pr99-ab"
+        }
+      ],
+      "pass": [
+        {
+          "regex": "\\[AO\\] GPU ms: mean \\d+\\.\\d+, max \\d+\\.\\d+ over \\d+ samples \\(\\d+ slices",
+          "why": "new every-10-s line from 1135b52 (no line = timestamp queries return no data under the bridge)",
+          "match": "[AO] GPU ms: mean 3.82, max 5.10 over 240 samples (6 slices)",
+          "nonMatch": "[AO] enabled"
+        }
+      ],
+      "fail": [],
+      "manual": [
+        "Pictures far/mid/near, base vs PR: does Smooth flat surfaces soften anything it should not (contact shade under furniture, corners)? Keep every F8 screenshot.",
+        "In-game AO GPU ms: our offline numbers are 8.4 -> 3.8 ms at 150 m (High, 4K, laptop GPU). Read the [AO] GPU ms lines of the off and on loads (or a screenshot of the AO card at the end of each load); a missing line means no timestamp data under the bridge.",
+        "A/B table from results.md."
+      ],
+      "ours": "Offline only: AO pass 8.4 ms -> 3.8 ms at 150 m (High, 4K, laptop GPU); the [AO] GPU ms log line was added in 1135b52 and checked offline (tools/gameplay_stability_test). Not run in game.",
+      "sendBack": "F8 pairs, the [AO] GPU ms lines per variant (or the AO card number), the A/B table, your view on smooth flat surfaces."
+    },
+    "101": {
+      "title": "performance: frame deadline for deferrable work while the camera moves",
+      "head": "b62fa95b",
+      "build": "developer",
+      "bridge": "installed",
+      "jobs": [
+        {
+          "job": "(scratch from the test request) deadline-sweep",
+          "kitJob": "jobs/pr101-deadline-sweep.json",
+          "variants": [
+            "off"
+          ],
+          "run": "./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <pr101>\\Release\\ApexRadiance.asi -Job <KIT>\\jobs\\pr101-deadline-sweep.json -Save 'West Arbor' -OutDir <out>\\pr101-sweep ; then python tools/deadline_slicing_pretest.py <out>\\pr101-sweep\\ApexRadiance_FrameTimeline.csv"
+        }
+      ],
+      "pass": [
+        {
+          "regex": "\\[DeadlineSlicing\\] \\d+ of \\d+ frames moving",
+          "why": "on-load counter line every 10 s from b62fa95 (also on Off)",
+          "match": "[DeadlineSlicing] 310 of 1200 frames moving; finalize slice lowered 40; scene drain shortened 12 / past the deadline 3",
+          "nonMatch": "[DeadlineSlicing] On: while the camera moves"
+        }
+      ],
+      "fail": [],
+      "manual": [
+        "Pre-test gate (deadline_slicing_pretest.py): deferrable time beside an item > 15 ms of >= 2 ms on >= 20 % of moving frames >= 25 ms. Only if it clears: E2 A/B (same job with the Frame Profiler removed, variants off/on for patches.DeadlineSlicing enabled, last wait 8 min measure true, -AB -Profiler Frames).",
+        "Feature page pass: fewer moving frames >= 25 ms outside noise, scene and lot backlogs drained within 1.5 s after the camera stops, no new pop-in. Post the [DeadlineSlicing] counter line of an on load.",
+        "Timeline: with report_every_s = 0 and start_at_load = true the whole load is one section of ApexRadiance_FrameTimeline.csv."
+      ],
+      "ours": "Offline: tools/lot_streaming_test checks the counter text and the 10 s clock. No in-game run; the counter line was missing on the older head (our bug, fixed in b62fa95).",
+      "sendBack": "Pre-test script output, the timeline csv, and if E2 ran the A/B table and the [DeadlineSlicing] line of an on load. Run order: #94, #101, #98."
+    },
+    "103": {
+      "title": "lighting: close two light leaks in the lamp proxy reference",
+      "head": "ae1430f9",
+      "build": "developer",
+      "bridge": "installed",
+      "jobs": [
+        {
+          "job": "tools/rt_lamps_test/run.ps1",
+          "kitJob": null,
+          "variants": [],
+          "run": "./tools/rt_lamps_test/run.ps1 -Leak   (offline)"
+        }
+      ],
+      "pass": [],
+      "fail": [],
+      "manual": [
+        "Offline pass: the proxy leak check passes for lamps 0, 0.5, 1 and 5 mm under the ceiling, in the reference and in the GPU cube shadows (send the -Leak output tail).",
+        "In game, optional, picture only: at night find a two-story house with a flush ceiling lamp on the ground floor and a dark room right above it (lights off); use floor 2, look down into that room, F8 on the released build and on ae1430f9 from the same camera. Expected: no lamp light on the upper floor with this head. Unverified in game (found in synthetic scenes). Name the lot."
+      ],
+      "ours": "Offline rt_lamps_test -Leak: 680270 checks, 0 failures (dc01a92); selftest 445 / 0. Run F on the earlier head: nothing else changed. Not verified in game on 234cd64 / ae1430f9.",
+      "sendBack": "The -Leak output tail and, if you find a scene, the F8 pair with the lot name."
+    },
+    "105": {
+      "title": "ao: add steady count, edge blur, open-surface and still-camera options",
+      "head": "bbf8b59c",
+      "build": "developer",
+      "bridge": "installed",
+      "jobs": [
+        {
+          "job": "tools/ingame_runner/jobs/ao-adaptive-ab.json (off arm)",
+          "kitJob": "jobs/pr105-ao-adaptive-ab.json",
+          "variants": [
+            "on"
+          ],
+          "run": "./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <pr105>\\Release\\ApexRadiance.asi -Job <KIT>\\jobs\\pr105-ao-adaptive-ab.json -Save 'West Arbor' -OutDir <out>\\pr105-pics\\off"
+        },
+        {
+          "job": "ao-adaptive-ab.json + zoomSlices, zoomHysteresis, edgeBlur, blockSlices (on arm)",
+          "kitJob": "jobs/pr105-ao-adaptive-ab-on.json",
+          "variants": [
+            "on"
+          ],
+          "run": "./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <pr105>\\Release\\ApexRadiance.asi -Job <KIT>\\jobs\\pr105-ao-adaptive-ab-on.json -Save 'West Arbor' -OutDir <out>\\pr105-pics\\on"
+        },
+        {
+          "job": "(scratch from the test request) ao-pr105-ab",
+          "kitJob": "jobs/pr105-ao-pr105-ab.json",
+          "variants": [
+            "off",
+            "on"
+          ],
+          "run": "./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <pr105>\\Release\\ApexRadiance.asi -Job <KIT>\\jobs\\pr105-ao-pr105-ab.json -Save 'West Arbor' -AB -Profiler Frames -OutDir <out>\\pr105-ab"
+        }
+      ],
+      "pass": [
+        {
+          "regex": "\\[AO\\] GPU ms: mean \\d+\\.\\d+, max \\d+\\.\\d+ over \\d+ samples \\(\\d+ slices",
+          "why": "only once #99 is merged into this branch or it is rebased on 1135b52",
+          "match": "[AO] GPU ms: mean 3.82, max 5.10 over 240 samples (6 slices)",
+          "nonMatch": "[AO] enabled"
+        }
+      ],
+      "fail": [],
+      "manual": [
+        "Latest ask (bbf8b59 rerun): G1 pictures at High (far/mid/near) off vs on, and G3 timing A/B. G2 (Low, Refine while the camera is still off/on: qualidade = 0, temporalStill false/true, 0.1 min longer wait before each F8): look for flicker on thin outlines, trails behind walking Sims and leaves in the wind.",
+        "Check the log for a failed option shader or target: a failure must turn only that option off (logged) and the default AO pass must still run. Also the log line with the MB the option targets add.",
+        "A/B table from results.md."
+      ],
+      "ours": "Offline: tools/ao_options_check 130 checks, 0 failed; selftest 445 / 0; Developer + Public build on bbf8b59. Fallbacks not exercised in game.",
+      "sendBack": "F8 sets (off/on, and Low off/on if G2 ran), the A/B table, any log line about an option turned off."
+    },
+    "106": {
+      "title": "bridge: Reset succeeds on a DXVK server with patch 0010",
+      "head": "c39eddd1",
+      "build": "public",
+      "bridge": "pr-artifact",
+      "jobs": [],
+      "pass": [
+        {
+          "regex": "Command processing loop finished",
+          "why": "bridge64.log of the present-null-quit job: ends with this line",
+          "match": "Command processing loop finished",
+          "nonMatch": "Command processing loop started"
+        }
+      ],
+      "fail": [
+        {
+          "regex": "device still has alive losable resources",
+          "why": "bridge64.log: a failed Reset (the bug this fixes; the 4.0.2 bridge may show it)",
+          "match": "device still has alive losable resources: Remaining resources: 1",
+          "nonMatch": "Reset completed"
+        },
+        {
+          "regex": "Server did not acknowledge device destruction",
+          "why": "bridge32.log",
+          "match": "Server did not acknowledge device destruction",
+          "nonMatch": "Server acknowledged device destruction"
+        }
+      ],
+      "manual": [
+        "Run H by hand, PR bridge first, then the 4.0.2 bridge: fullscreen, load the save, change resolution twice, Alt-Tab out and back 3 times (about 5 s out), play 1 min, save, quit. Pass: no crash, no hang or black screen, picture comes back each time, no failed Reset. The 4.0.2 bridge may fail at the first Reset (useful to confirm).",
+        "Job present-null-quit (named in the 11-17 11:28 comment, not in the PR head job folder at c39eddd1): if available, expected: runner Closed = quit, no crash report, NvRemixBridge.exe gone.",
+        "Offline: test_device_refcount_device, test_sent_state_device, test_query_event_device (loinyx: 13/15 with #107 on top; the two read/write apps crash only when started alone).",
+        "After pulling a head that changes patches: rmdir /s /q native\\remix-bridge\\src before build.cmd, or the old patches stay in."
+      ],
+      "ours": "Offline: test_device_refcount_device, test_sent_state_device, test_query_event_device pass. No in-game run yet.",
+      "sendBack": "Build result, offline test pass/fail per app, Run H verdict per Bin state with the bridge64.log lines. Merge this before #89, #107 and #108."
+    },
+    "107": {
+      "title": "bridge: keep the vertex input while a state block records",
+      "head": "e9b5af9e",
+      "build": "public",
+      "bridge": "pr-artifact",
+      "jobs": [
+        {
+          "job": "tools/ingame_runner/jobs/smoke.json",
+          "kitJob": "jobs/pr107-smoke.json",
+          "variants": [
+            "saved"
+          ],
+          "run": "./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <4.0.2 ApexRadiance.asi> -Job tools/ingame_runner/jobs/smoke.json -Save 'West Arbor' -OutDir <out>\\pr107-<state>   (PR bridge, then 4.0.2 bridge; covers step 1 of Run 2)"
+        }
+      ],
+      "pass": [
+        {
+          "regex": "\\[Config\\] Settings loaded from ApexRadiance\\.toml",
+          "why": "smoke job expect",
+          "match": "[Config] Settings loaded from ApexRadiance.toml",
+          "nonMatch": "[Config] Settings saved"
+        },
+        {
+          "regex": "\\[Patches\\] \\d+ features:",
+          "why": "smoke job expect",
+          "match": "[Patches] 62 features: AmbientOcclusion, LotLightingMotion",
+          "nonMatch": "[Patches] features: none"
+        }
+      ],
+      "fail": [
+        {
+          "regex": "ApexRadiance_Crash\\.txt",
+          "why": "a crash report was written (any crash fails the run)",
+          "match": "Crash report written: ApexRadiance_Crash.txt",
+          "nonMatch": "[Patches] 62 features:"
+        }
+      ],
+      "manual": [
+        "Build: patches 0001 to 0014 apply on top and both halves build. Rebuild after rmdir /s /q native\\remix-bridge\\src. Merge #106 first or retest on top of it.",
+        "Bridge unit tests through the built pair (as test-rewind.cmd on #89): meson x86 test apps via test_remix_api_bridge_app.py; post pass/fail per app. test_remix_api_read/write need a file path and crash alone (also on stock 4.0.2); run them through test_remix_api.py.",
+        "Play smoke per Bin state: 5 min normal speed, Build and Buy mode, place and delete an object, CAS from a mirror; F8 at the same 3 camera positions in both states. Pass: no spikes or missing meshes (wrong vertex layout), same pictures, no new error lines in bridge32.log / bridge64.log."
+      ],
+      "ours": "loinyx ran the series (11-17): with #107 on top of #106, sent_state_device, shared_heap_upload_device, device_refcount_device pass on a DXVK server and on system d3d9: 13/15; the two device crashes on stock 4.0.2 are the #106 present-null case.",
+      "sendBack": "Pass/fail per test app, play-smoke verdict per Bin state, F8 pairs, new error lines."
+    },
+    "108": {
+      "title": "bridge: idle copy fixes from the upstream review",
+      "head": "a05770fb",
+      "build": "public",
+      "bridge": "pr-artifact",
+      "jobs": [
+        {
+          "job": "(scratch from the test request) idle-mem",
+          "kitJob": "jobs/pr108-idle-mem.json",
+          "variants": [
+            "run"
+          ],
+          "run": "./tools/ingame_runner/run.ps1 -GameBin <GAME_BIN> -Asi <4.0.2 ApexRadiance.asi> -Job <KIT>\\jobs\\pr108-idle-mem.json -Save 'West Arbor' -OutDir <out>\\pr108-<state>   (start the memory sampler from the test request in a second PowerShell first; PR bridge, then 4.0.2 bridge; enable perfLogIntervalFrames for the BridgePerf lines)"
+        }
+      ],
+      "pass": [
+        {
+          "regex": "bufMismatch=0\\b",
+          "why": "BridgePerf line: pool 24 stays 0 all the way",
+          "match": "client frames=600 freedMB=210 fetches=14 bufFreedMB=30 bufFetches=2 bufMismatch=0",
+          "nonMatch": "client frames=600 bufMismatch=3"
+        }
+      ],
+      "fail": [
+        {
+          "regex": "fetching the freed copy of .* failed",
+          "why": "bridge32.log",
+          "match": "[LockableBuffer] fetching the freed copy of vertex buffer [0x1234] failed: no response from server",
+          "nonMatch": "[LockableBuffer] fetched copy ok"
+        },
+        {
+          "regex": "Dropped the late response",
+          "why": "bridge32.log (should not appear in a healthy run)",
+          "match": "Dropped the late response for UID 42",
+          "nonMatch": "Accepted the response"
+        },
+        {
+          "regex": "fetched copy of .* differs from the freed one",
+          "why": "bridge32.log (first 20 are logged)",
+          "match": "[LockableBuffer] fetched copy of vertex buffer [0x1234] differs from the freed one: hr 0x00000000",
+          "nonMatch": "[LockableBuffer] fetched copy of vertex buffer [0x1234] matches"
+        }
+      ],
+      "manual": [
+        "bridge.conf must have client.freeIdleManagedCopiesSec and client.freeIdleBufferCopiesSec set (not 0); same file for both states.",
+        "Memory: PR bridge client commit (ts3w_private_mb) no higher than 4.0.2 beyond noise over the 10 min play (expected: slightly less freed, since MANAGED levels too large for one server response and write-only buffers keep their copy); no crash, no lock failures in bridge32.log.",
+        "BridgePerf field names: freedMB (pool 16), fetches (17), bufFreedMB (20), bufFetches (21), bufMismatch (24). fetches and bufFetches reset every window; freedMB and bufFreedMB are running levels.",
+        "Run 2: PR bridge, fullscreen, change resolution twice and Alt-Tab 3 times: picture back each time, no crash or hang, no server exit in bridge64.log.",
+        "Merge #106 first; the bridge app tests crash at the first Present without it. Rebuild after rmdir /s /q native\\remix-bridge\\src."
+      ],
+      "ours": "Offline: new test_idle_copy_device (meson idle_copy_device) plus sent_state_device, query_event_device, shared_heap_upload_device pass; the old client code fails the new test. Not run in game.",
+      "sendBack": "The memory csv per state, the BridgePerf lines (pools 16/17/20/21 moving, bufMismatch), any [LockableBuffer] differs line, the Run 2 verdict."
+    },
+    "111": {
+      "title": "lighting: add real-time global illumination for testing",
+      "head": "5918ff47",
+      "build": "developer",
+      "bridge": "installed",
+      "jobs": [
+        {
+          "job": "tools/ingame_runner/jobs/gi-pixel-smoke.json, gi-indirect-smoke.json",
+          "kitJob": null,
+          "variants": [],
+          "run": "HOLD: do not run. A test request will be posted with the head, jobs, pass lines and our numbers."
+        }
+      ],
+      "pass": [],
+      "fail": [],
+      "manual": [
+        "On hold: head 5918ff47 conflicts with main 4.0.4 (tools/rt_lamps_test/run.ps1) and our in-game check is still running. The previous head failed gi-indirect-smoke on variant on: the [RealtimeGI] Counters ... indirect=atlas atlasReady=... line was missing in 2 of 2 loads."
+      ],
+      "ours": "none yet (in-game check of 5918ff47 running).",
+      "sendBack": "Nothing yet."
+    },
+    "112": {
+      "title": "tools: a hang dump when the game does not close after a run",
+      "head": "964991ac",
+      "build": "public",
+      "bridge": "n/a",
+      "jobs": [],
+      "pass": [],
+      "fail": [],
+      "manual": [
+        "Passed per loinyx (selftest 445/0, the dump function writes a dump of a test process); the in-game path was not reached.",
+        "What to check: when a load ends with \"the game did not close and was ended (hang-*.dmp)\", hang-*.dmp files for TS3W.exe and NvRemixBridge.exe are in the load folder; send them with the run if a close hangs again."
+      ],
+      "ours": "none yet",
+      "sendBack": "Only if a close hangs: the hang-*.dmp files and the notes line."
+    },
+    "113": {
+      "title": "framework: transition routing stands down without an error when hooked",
+      "head": "1ea7d2be",
+      "build": "public",
+      "bridge": "n/a",
+      "jobs": [],
+      "pass": [],
+      "fail": [
+        {
+          "regex": "\\[ERROR\\]",
+          "why": "after #113 the routing line is a warning: any other [ERROR] line still fails a run",
+          "match": "[ERROR] [RoomSolveShare] The room solve call could not be put back",
+          "nonMatch": "[WARN] [Transition routing] Pattern not found"
+        }
+      ],
+      "manual": [
+        "Passed per loinyx (0 [ERROR] lines, the one expected WARN, smoke passes). With the ts3native RouteGate on (Sites=1) the Transition routing line is a warning instead of an ERROR."
+      ],
+      "ours": "none yet",
+      "sendBack": "Nothing pending."
+    }
+  }
+}

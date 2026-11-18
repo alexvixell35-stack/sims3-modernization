@@ -49,14 +49,9 @@ namespace Ts3Fixes
             int[] c = PatchCounters();
             try
             {
-                if (!sElSubscribed && !ElSubscribe()) return;
+                if (!ElPrep()) return;
                 c[cEl + 7]++;
                 long tick = Simulator.TicksElapsed();
-                for (int i = sElDying.Count - 1; i >= 0; i--)
-                {
-                    sEl.Bump(sElDying[i].Lot, -1, tick);
-                    if (!Sims3.SimIFace.Objects.IsValid(sElDying[i].Id)) sElDying.RemoveAt(i);
-                }
                 if (s.RabbitHoleEnvironmentScore != float.MinValue) return;  // the game scans nothing
                 Lot lot = s.LotCurrent;
                 if (lot == null) return;
@@ -85,6 +80,121 @@ namespace Ts3Fixes
                 ElCount(c, lot, room, 2, ar, tick);
             }
             catch (Exception) { c[cEl + 6]++; }
+        }
+
+        // the memo's events (subscribed once per world) and the dying-object bumps (docs/274 §8.5), before any memo read
+        static bool ElPrep()
+        {
+            if (!sElSubscribed && !ElSubscribe()) return false;
+            long tick = Simulator.TicksElapsed();
+            for (int i = sElDying.Count - 1; i >= 0; i--)
+            {
+                sEl.Bump(sElDying[i].Lot, -1, tick);
+                if (!Sims3.SimIFace.Objects.IsValid(sElDying[i].Id)) sElDying.RemoveAt(i);
+            }
+            return true;
+        }
+
+        // ---- envlistmemoapply (docs/274 §9): the memo's lists in an unseen NPC's env scan ----
+        // Only when the actor and every other Sim in the scan are unseen NPCs (Scope 0 = unseen, not household, not selected,
+        // not on the camera lot; IsPlayerSim as the explicit household / selected / unknown-scope exemption). HouseholdToo never
+        // lifts it: a memo hit can be a reorder of the game's list (§8.5-§8.6), so the answer is realistic, not vanilla.
+        // Indoor only (the lists the probe measured); outdoor, rabbit hole, empty room and every out-of-scope Sim take the
+        // game's own call. A memo miss lists live, stores, and runs the same replica (EnvScore + EnvApply, docs/208 §8.2).
+        // envlistmemoverify (test switch): every 4th reuse lists live too, counts differences (reorders apart) and uses the
+        // live lists on a difference. Counters 1230-1240.
+        const int cEa = 1230;
+        static readonly EnvRes sElEnv = new EnvRes();
+        static int sElVerifyN;
+        static bool sElBusy;
+
+        static IList ElList(Lot lot, int room, int kind)
+        {
+            if (kind == 0) return lot.GetObjectsInRoom<GameObject>(room);
+            if (kind == 1) return lot.GetObjects<IAromainator>();
+            return lot.GetObjectsInRoom<IAromainator>(room);
+        }
+
+        // the memo's list, or the live one stored into the memo; kind 1 is lot-wide
+        static object[] ElGet(Lot lot, int room, int kind, long tick, ref bool reuse)
+        {
+            int r = kind == 1 ? -1 : room;
+            object[] m = sEl.Get(lot, r, kind, tick);
+            if (m != null) return m;
+            reuse = false;
+            sEl.Check(lot, r, kind, ElList(lot, room, kind), tick);
+            return sEl.Get(lot, r, kind, tick);
+        }
+
+        static bool ElSimOk(Sim o)
+        {
+            return !IsPlayerSim(o) && AutOffloadCore.Scope(SafeUfWhy(o)) == AutOffloadCore.kScopeApply;
+        }
+
+        // true = the scan ran here (the game's method is not called); false = the caller runs the game's own method
+        static bool EnvListApply(SimUpdate u)
+        {
+            if (sElBusy) return false;  // shortcut: one static answer; a re-entered env scan (no such path known) takes the game's call
+            int[] c = PatchCounters();
+            Sim s = null;
+            EnvRes a = sElEnv;
+            a.SeqN = 0;
+            sElBusy = true;
+            try
+            {
+                try
+                {
+                    s = fUpdSim.GetValue(u) as Sim;
+                    if (s == null) return false;
+                    c[cEa]++;
+                    if (!ElSimOk(s)) { c[cEa + 3]++; return false; }
+                    Lot lot = s.LotCurrent;
+                    int room = s.RoomId;
+                    if (lot == null || s.RabbitHoleEnvironmentScore != float.MinValue || s.IsOutside
+                        || Sims3.SimIFace.World.GetInformationAboutRoom(lot.LotId, room).roomData.sizeInTileQuadrants == 0) { c[cEa + 5]++; return false; }
+                    if (!ElPrep()) { c[cEa + 7]++; return false; }
+                    long tick = Simulator.TicksElapsed();
+                    bool reuse = true;
+                    object[] l0 = ElGet(lot, room, 0, tick, ref reuse), l1 = ElGet(lot, room, 1, tick, ref reuse), l2 = ElGet(lot, room, 2, tick, ref reuse);
+                    if (l0 == null || l1 == null || l2 == null) { c[cEa + 7]++; return false; }
+                    if (reuse && ShortcutOn("envlistmemoverify") && (++sElVerifyN & 3) == 0)
+                    {
+                        c[cEa + 8]++;
+                        bool diff = false, reorder = true;
+                        for (int k = 0; k < 3; k++)
+                        {
+                            int r = k == 1 ? -1 : room;
+                            IList now = ElList(lot, room, k);
+                            if (sEl.Check(lot, r, k, now, tick) != ListMemo.kHitWrong) continue;
+                            diff = true;
+                            if (!ListMemo.SameSet(sEl.WrongOld, now)) reorder = false;
+                            if (sElWrongLogged < kElWrongLog)
+                            {
+                                sElWrongLogged++;
+                                AppliedLog().Add("EnvListMemo: wrong hit verify lot " + lot.LotId + " room " + r + " list " + k + " n " + now.Count + ElDiff(sEl.WrongOld, now));
+                            }
+                        }
+                        if (diff)
+                        {
+                            c[cEa + 9]++;
+                            if (reorder) c[cEa + 10]++;
+                            l0 = sEl.Get(lot, room, 0, tick); l1 = sEl.Get(lot, -1, 1, tick); l2 = sEl.Get(lot, room, 2, tick);  // the live lists, just stored
+                        }
+                    }
+                    EnvScore(s, a, false, l0, l1, l2.Length);
+                    if (a.SeqOver) { c[cEa + 6]++; return false; }
+                    for (int i = 0; i < a.SeqN; i++)
+                    {
+                        Sim o = a.Seq[i] as Sim;
+                        if (o != null && o != s && !ElSimOk(o)) { c[cEa + 4]++; return false; }  // its reactions to the actor would run from our list
+                    }
+                    c[reuse ? cEa + 1 : cEa + 2]++;
+                }
+                catch (Exception) { c[cEa + 7]++; return false; }
+                EnvApply(u, s, a);  // exceptions propagate as the game's own would
+                return true;
+            }
+            finally { Array.Clear(a.Seq, 0, a.SeqN); a.SeqN = 0; a.Lot = null; sElBusy = false; }  // no object kept alive by the static answer
         }
 
         static void ElCount(int[] c, Lot lot, int room, int kind, IList now, long tick)

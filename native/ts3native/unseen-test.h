@@ -37,7 +37,7 @@ static void TestUnseen() {
                   offsetof(Ts3nCounters, unEaOff) == 0x33C0 &&
                   offsetof(Ts3nCounters, utMode) == 0x33C8 && offsetof(Ts3nCounters, utWhy) == 0x33E0 &&
                   offsetof(Ts3nCounters, utPathUs) == 0x3414 && offsetof(Ts3nCounters, utViewerBad) == 0x3420 &&
-                  sizeof(Ts3nCounters) == 6660 * 4, "counters v79 layout after v78 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6696 * 4, "counters v79 layout after v78 (docs/registry.md)");
     assert(k.version == 912);
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     // swap every game pointer for a fake
@@ -365,7 +365,7 @@ static void TestUnseenThrottle2() {
                   offsetof(Ts3nCounters, utRateCalls) == 0x34D0 && offsetof(Ts3nCounters, utRateWhy) == 0x34D8 &&
                   offsetof(Ts3nCounters, utRateCatchUp) == 0x3520 && offsetof(Ts3nCounters, utRateDropped) == 0x3528 &&
                   offsetof(Ts3nCounters, utSnap) == 0x352C && offsetof(Ts3nCounters, utSnapMaxMs) == 0x353C &&
-                  sizeof(Ts3nCounters) == 6660 * 4 && UTW_N2 <= 18 && UTF_N <= 12, "counters v80 layout after v79 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6696 * 4 && UTW_N2 <= 18 && UTF_N <= 12, "counters v80 layout after v79 (docs/registry.md)");
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     // fakes as TestUnseen and TestUnseenThrottle
     const UnAgentFn agentSave = g_unAgentOrig;
@@ -395,6 +395,10 @@ static void TestUnseenThrottle2() {
     k.utEvery = 4, g_utNeedViewers = true, g_utOn = true;
     const float far1[1][3] = {{1000, 0, 1000}};
     UtPush(far1, 1, 1);  // a fresh household table, far away
+    // docs/286 §3.1: a fresh held table without the test Sim (an empty or stale one makes every Sim household: no skip)
+    const auto heldSave = g_utHeld;
+    auto otherHeld = [] { assert(UtMsg(12, 0) && UtMsg(13, 0xDEAD) && UtMsg(14, 0xBEEF) && UtMsg(15, 1) && g_utHeld.n == 1); };
+    otherHeld();
     static void* pathVt[0x130 / 4];
     static void* partVt[8];
     pathVt[0x12C / 4] = (void*)UtFakeLen, pathVt[0xA4 / 4] = (void*)UtFakeProg, partVt[0x10 / 4] = (void*)UtFakeCur;
@@ -439,6 +443,7 @@ static void TestUnseenThrottle2() {
     for (int i = 0; i < 400; i++) runFor(1, 0.01f + 0.2875f * (float)((i * 7919) % 100) / 100.0f, &owed);
     assert(g_ut2Max <= UT_MAX_STEP + 1e-6f && fabsf(g_ut2Sum + rs.debt - owed) < 1e-3f);
     assert(k.utRateWhy[UTW_CAP] > b.utRateWhy[UTW_CAP]);
+    assert(k.utRateCatchUp > b.utRateCatchUp && k.utRateCatchUpUs > b.utRateCatchUpUs && k.utRateHh == b.utRateHh);  // owed time summed
 
     // 2. the visible switch: a skipped (owing) Sim that comes into view runs that same pass with dt + its debt, classed visible
     g_ut2Sum = 0, owed = 0;
@@ -482,11 +487,12 @@ static void TestUnseenThrottle2() {
         assert(rs.debt > 0 && ((DWORD)k.unPasses + 1) % 4 != 0);
     };
     auto expectRun = [&](int why) {
-        const LONG n = k.utRateWhy[why];
+        LONG& cnt = why == UTW_HH ? k.utRateHh : k.utRateWhy[why];  // the household hold has its own counter
+        const LONG n = cnt;
         const float owe = rs.debt;
         r0 = g_ut2Runs;
         UnAgentThunk(agent, NULL, 0.04f);
-        assert(g_ut2Runs == r0 + 1 && k.utRateWhy[why] == n + 1 && rs.debt == 0 && fabsf(g_ut2Dt - (0.04f + owe)) < 1e-6f);
+        assert(g_ut2Runs == r0 + 1 && cnt == n + 1 && rs.debt == 0 && fabsf(g_ut2Dt - (0.04f + owe)) < 1e-6f);
     };
     prep(), agent[0xC8] = 1, expectRun(UTW_EAON), agent[0xC8] = 0;
     prep(), *(DWORD*)(agent + 0x94) = 4, expectRun(UTW_STATE), *(DWORD*)(agent + 0x94) = 1;
@@ -509,10 +515,13 @@ static void TestUnseenThrottle2() {
         prep();
         assert(UtMsg(12, 0) && UtMsg(13, hlo) && UtMsg(14, hhi) && UtMsg(15, 1) && g_utHeld.n == 1);
         assert(!UtMsg(13, 0) && UtMsg(12, 0) && !UtMsg(15, 3));  // out of order / count mismatch refused, table kept
-        expectRun(UTW_LINKED);
+        expectRun(UTW_HH);  // docs/286: the household-table test comes first (a held horse or rider counts as household)
         assert(UtMsg(12, 0) && UtMsg(15, 0) && g_utHeld.n == 0);
         g_utHeld.at = 0;
+        otherHeld();
     }
+    // docs/286 §3.1: no fresh table = unknown scope = household: runs every pass (stale table)
+    prep(), g_utHeld.at = GetTickCount() - 10000, expectRun(UTW_HH), otherHeld();
     // a debt left over a pass without a call is dropped (the agent left the list meanwhile)
     prep();
     k.unPasses += 3;  // UtRateStep directly: no new pass from the thunk
@@ -676,8 +685,18 @@ static void TestUnseenThrottle2() {
     k.utEvery = everySave, k.unPasses = passSave, k.rgOwnerTid = ownerSave;
     k.utAvMode = k.utFpMode = k.utRateMode = 0;
     g_utOn = onSave, g_utNeedViewers = needSave, g_utRateOn = rateSave, g_utFpOn = fpSave, g_utFpNext = NULL, g_utFpN = 0;
-    g_utView.at = 0, g_utView.n = 0, g_utInOpen = false;
+    g_utView.at = 0, g_utView.n = 0, g_utInOpen = false, g_utHeld = heldSave;
     g_unCam.ok = false, g_unCam.at.QuadPart = 0;
+    {  // docs/286 §3.2: UsTk carries the sub-us rest per field: 1000 calls of ~0.5 us sum exactly; a floored call adds 0
+        if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+        const LONGLONG t = g_qpf.QuadPart / 2000000 > 0 ? g_qpf.QuadPart / 2000000 : 1;
+        const LONG save = k.v210Spare[0];
+        LONG sum = 0;
+        for (int i = 0; i < 1000; i++) sum += UsTk(&k.v210Spare[0], t);
+        assert(sum == (LONG)(1000 * t * 1000000 / g_qpf.QuadPart) && (t * 1000000 >= g_qpf.QuadPart || t * 1000000 / g_qpf.QuadPart == 0));
+        g_usRest[((uintptr_t)&k.v210Spare[0] - (uintptr_t)&k) / 4] = 0, k.v210Spare[0] = save;
+        assert(k.unThunkN > b.unThunkN && k.unThunkUs >= 0);  // the whole-thunk timer counted every outer call
+    }
     memset(g_utRate, 0, sizeof(g_utRate)), memset(g_utAvPrev, 0, sizeof(g_utAvPrev)), memset(g_unLast, 0, sizeof(g_unLast));
     memset(g_utFpLast, 0, sizeof(g_utFpLast));
     printf("UnseenThrottle phase 2: rate (1 run in 4, summed step = sum of max(dt, 1/30), cap 0.5 s, visible switch runs the "
@@ -696,7 +715,7 @@ static void TestUnseenDiag() {
                   offsetof(Ts3nCounters, utListNotices) == 0x3578 && offsetof(Ts3nCounters, utRpN) == 0x357C &&
                   offsetof(Ts3nCounters, utRpUs) == 0x3594 && offsetof(Ts3nCounters, utRpLong) == 0x35AC &&
                   offsetof(Ts3nCounters, utRpPart) == 0x35C4 && offsetof(Ts3nCounters, utRpPartMs) == 0x35E4 &&
-                  sizeof(Ts3nCounters) == 6660 * 4, "counters v83 layout after v81 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6696 * 4, "counters v83 layout after v81 (docs/registry.md)");
     const UnCompFn compSave = g_unComp;
     const UnPosFn posSave = g_unPos;
     const UnFrustumFn frSave = g_unFrustum;

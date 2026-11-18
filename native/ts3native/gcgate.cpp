@@ -118,6 +118,95 @@ static void __cdecl GcgForced() {
     }
 }
 
+// [GC] SubTimers (docs/287 §2; default 0; counters v211 gct*): the GC step split by retargeting Boehm's own call sites.
+// Sites [verified, game-copy TS3W.exe Steam 1.67: capstone + rel32 scan of .text; all cdecl, stack args, and no caller reads
+// ecx / edx after the call]; the set is disjoint (no site runs inside another's target):
+//   mark     0xE49DF2 GC_collect_a_little_inner -> GC_mark_some 0xE4D460 (the incremental steps)
+//   stop     0xE49E32 / 0xE49E4C (forced finish, finish attempt) / 0xE49FF9 (full collection) -> GC_stopped_mark 0xE49980
+//   finalize 0xE49A63 GC_finish_collection -> GC_finalize 0xE4AE60 (incl. its three finalizer-reachability mark loops)
+//   sweep    0xE49A69 -> GC_start_reclaim 0xE502F0; 0xE49F81 -> GC_reclaim_all 0xE50380 (lazy, abortable)
+//   clear    0xE49FDF GC_try_to_collect_inner -> GC_clear_marks 0xE4C270 (cycle start, walks every block)
+//   run      0xE4A05F / 0xE4A0A6 GC_try_to_collect -> GC_notify_or_invoke_finalizers 0xE4B480
+// Not timed: allocation-time sweep (GC_allocobj 0xE4A2D9 -> GC_continue_reclaim 0xE50310) and EA's finalizer drain in
+// MonoScriptHost_Simulate (0xD81A09 / 0xD81A30, next to S3SS's finalizer-throttle patch bytes): both outside the GC step.
+// Index [0] = the thread is inside the per-tick call GcgStep passed on, [1] = any other caller (forced, explicit, worker).
+typedef int(__cdecl* GctFn0)();
+typedef int(__cdecl* GctFn1)(void*);
+typedef int(__cdecl* GctFn2)(void*, int);
+static GctFn1 g_gctMarkSome, g_gctStopped, g_gctStartReclaim;
+static GctFn0 g_gctFinalize, g_gctClear, g_gctNotify;
+static GctFn2 g_gctReclaimAll;
+static void GctAdd(LONG* us, LARGE_INTEGER t0) {
+    const LONGLONG tk = TicksSince(t0);
+    us += g_gcgTid == GetCurrentThreadId() ? 0 : 1;
+    *us += UsTk(us, tk);
+}
+static int __cdecl GctMark(void* a) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const int r = g_gctMarkSome(a);
+    ts3native_counters.gctMarkN++, GctAdd(ts3native_counters.gctMarkUs, t0);
+    return r;
+}
+static int __cdecl GctStop(void* stop) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const int r = g_gctStopped(stop);
+    ts3native_counters.gctStopN++, GctAdd(ts3native_counters.gctStopUs, t0);
+    return r;
+}
+static int __cdecl GctFin() {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const int r = g_gctFinalize();
+    ts3native_counters.gctFinN++, GctAdd(ts3native_counters.gctFinUs, t0);
+    return r;
+}
+static int __cdecl GctStart(void* a) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const int r = g_gctStartReclaim(a);
+    ts3native_counters.gctSweepN++, GctAdd(ts3native_counters.gctSweepUs, t0);
+    return r;
+}
+static int __cdecl GctReclaim(void* stop, int ignoreOld) {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const int r = g_gctReclaimAll(stop, ignoreOld);
+    ts3native_counters.gctSweepN++, GctAdd(ts3native_counters.gctSweepUs, t0);
+    return r;
+}
+static int __cdecl GctClear() {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const int r = g_gctClear();
+    Ts3nCounters& k = ts3native_counters;
+    k.gctClearUs += UsTk(&k.gctClearUs, TicksSince(t0));
+    return r;
+}
+static int __cdecl GctRun() {
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const int r = g_gctNotify();
+    Ts3nCounters& k = ts3native_counters;
+    k.gctRunN++, k.gctRunUs += UsTk(&k.gctRunUs, TicksSince(t0));
+    return r;
+}
+static void ApplyGcSubTimers() {
+    const DWORD markSome = TS3A(0x00E4D460), stopped = TS3A(0x00E49980), fin = TS3A(0x00E4AE60), startReclaim = TS3A(0x00E502F0),
+                reclaimAll = TS3A(0x00E50380), clear = TS3A(0x00E4C270), notify = TS3A(0x00E4B480);
+    g_gctMarkSome = (GctFn1)(uintptr_t)markSome, g_gctStopped = (GctFn1)(uintptr_t)stopped, g_gctStartReclaim = (GctFn1)(uintptr_t)startReclaim;
+    g_gctFinalize = (GctFn0)(uintptr_t)fin, g_gctClear = (GctFn0)(uintptr_t)clear, g_gctNotify = (GctFn0)(uintptr_t)notify;
+    g_gctReclaimAll = (GctFn2)(uintptr_t)reclaimAll;
+    const CallSite sites[] = {
+        {TS3A(0x00E49DF2), markSome, (void*)GctMark},      {TS3A(0x00E49E32), stopped, (void*)GctStop},
+        {TS3A(0x00E49E4C), stopped, (void*)GctStop},       {TS3A(0x00E49FF9), stopped, (void*)GctStop},
+        {TS3A(0x00E49A63), fin, (void*)GctFin},            {TS3A(0x00E49A69), startReclaim, (void*)GctStart},
+        {TS3A(0x00E49F81), reclaimAll, (void*)GctReclaim}, {TS3A(0x00E49FDF), clear, (void*)GctClear},
+        {TS3A(0x00E4A05F), notify, (void*)GctRun},         {TS3A(0x00E4A0A6), notify, (void*)GctRun}};
+    if (PatchCalls("GC sub-timers", sites, _countof(sites))) ts3native_counters.gctReady = 1;
+}
+
 // EA 1.69: the byte checks below embed Steam 1.67 data addresses, so that build logs SKIP until the gate is ported.
 static const u8 kGcgInProgress[12] = {0x33, 0xC0, 0x39, 0x05, 0x78, 0x30, 0x1F, 0x01, 0x0F, 0x95, 0xC0, 0xC3};  // 0xE4C060
 static const u8 kGcgPendingSet[10] = {0xC7, 0x05, 0x94, 0x2F, 0x1F, 0x01, 0x01, 0x00, 0x00, 0x00};              // 0xE4A022
@@ -128,7 +217,9 @@ static const u8 kGcgAttemptInc[6] = {0x89, 0x0D, 0xB4, 0x2F, 0x1F, 0x01};       
 // always runs: the off arm). gcgMode is the run-time switch (--ab gcidlegate).
 static bool ApplyGcIdleGate(const wchar_t* ini) {
     Ts3nCounters& k = ts3native_counters;
-    const int mode = GetPrivateProfileIntW(L"GC", L"IdleGate", 0, ini);
+    int mode = GetPrivateProfileIntW(L"GC", L"IdleGate", 0, ini);
+    const int sub = GetPrivateProfileIntW(L"GC", L"SubTimers", 0, ini);
+    if (!mode && sub) mode = 2;  // the sub-timers need the per-tick wrapper (thread tag, whole-step time): gate installed open
     if (!mode) { Log("GC idle gate off (IdleGate=0)"); return false; }
 #ifdef TS3A_TABLE
     if (ts3a_noaddr) { Log("SKIP GC idle gate ([GC] IdleGate): no EA 1.69 address, docs/232 §8"); return false; }
@@ -166,5 +257,6 @@ static bool ApplyGcIdleGate(const wchar_t* ini) {
     k.gcgMode = mode == 1 ? 1 : 0;
     Log("GC idle gate: IdleGate=%d (gcgMode %ld) IdleGateMB=%lu IdleGateHeapPct=%d%s ready=0x%lX", mode, k.gcgMode, g_gcgCap >> 20, g_gcgPct,
         cur == TS3A(0x00E4A050) ? "" : " (chained after SqrtHeapLimit timing)", k.gcgReady);
+    if (sub) ApplyGcSubTimers();
     return true;
 }

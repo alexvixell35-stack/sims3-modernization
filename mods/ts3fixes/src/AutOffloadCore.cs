@@ -220,6 +220,28 @@ namespace Ts3Fixes
             return cls;
         }
 
+        // docs/274 R1 apply (envlistmemoapply): the memo's list when it is still valid (no bump since it was stored or last
+        // seen equal), else null; the caller then lists live and stores through Check
+        public object[] Get(object lot, int room, int kind, long tick)
+        {
+            Tick(tick);
+            LotGen g;
+            Entry e;
+            if (!mLots.TryGetValue(lot, out g) || !g.Memo.TryGetValue(room * 4 + kind, out e) || e.Items == null) return null;
+            int rg = 0;
+            if (room >= 0) g.Room.TryGetValue(room, out rg);
+            return e.Gen == g.Gen && e.RoomGen == rg ? e.Items : null;
+        }
+
+        // same objects, same count, other order (a reorder, docs/274 §8.5-§8.6)
+        public static bool SameSet(object[] a, IList b)
+        {
+            if (a == null || b == null || a.Length != b.Count) return false;
+            foreach (object o in a) if (!b.Contains(o)) return false;
+            foreach (object o in b) if (Array.IndexOf(a, o) < 0) return false;  // shortcut: set, not multiset; the game's lists hold each object once
+            return true;
+        }
+
         public static bool Same(object[] a, IList b)
         {
             if (a == null || b == null || a.Length != b.Count) return false;

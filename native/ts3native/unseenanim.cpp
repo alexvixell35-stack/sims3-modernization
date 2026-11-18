@@ -82,10 +82,8 @@ static LONG AaRun(void* actor, void* edx, float dt, int cls) {
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     g_aaPoseOrig(actor, edx, dt);
-    const LONG us = UsSince(t0);
     InterlockedIncrement(&k.aaN[cls]);
-    InterlockedExchangeAdd(&k.aaUs[cls], us);
-    return us;
+    return UsAdd(&k.aaUs[cls], TicksSince(t0));  // docs/286 §3.2: carried sub-us sum
 }
 
 static bool AaNearVisibleBody(const float* p) {
@@ -302,9 +300,16 @@ static void AaObj(void* actor, void* edx, float dt, void* owner) {
     if (sample) AoSample(b, &o, us);
 }
 
+// docs/286 §5: our Sim checks in AaPoseThunk (class, held table, slot, hold rule), from entry to EA's call or the skip
+static void AaChk(const LARGE_INTEGER& t0) {
+    InterlockedIncrement(&ts3native_counters.aaChkN);
+    UsAdd(&ts3native_counters.aaChkUs, TicksSince(t0));
+}
 static void __fastcall AaPoseThunk(void* actor, void* edx, float dt) {
     Ts3nCounters& k = ts3native_counters;
     if (GetCurrentThreadId() != g_aaTid) { g_aaPoseOrig(actor, edx, dt); return; }
+    LARGE_INTEGER tc;
+    QueryPerformanceCounter(&tc);
     void* owner = NULL;
     DWORD lo = 0, hi = 0;
     bool sim = false;
@@ -339,6 +344,7 @@ static void __fastcall AaPoseThunk(void* actor, void* edx, float dt) {
             AaEvAdd(c == 0 ? AAE_SNAP : k.aaMode != 1 ? AAE_FLUSHOFF : AAE_OWEDRUN, actor, lo, hi, owed, false);
         }
         if (mine) s->owed = 0;
+        AaChk(tc);
         AaRun(actor, edx, dt + owed, c == 1 ? 1 : 0);
         return;
     }
@@ -349,11 +355,13 @@ static void __fastcall AaPoseThunk(void* actor, void* edx, float dt) {
         InterlockedIncrement(&k.aaSkipped);
         AaEvAdd(AAE_SKIP, actor, lo, hi, s->owed, false);
         Max(&k.aaDebtMaxUs, (LONG)(s->owed * 1e6f));
+        AaChk(tc);
         return;
     }
     if (why >= 0) InterlockedIncrement(&k.aaHold[why]);
     if (owed > 0) InterlockedIncrement(&k.aaOwedRuns), AaEvAdd(AAE_OWEDRUN, actor, lo, hi, owed, false);
     if (mine) s->owed = 0;
+    AaChk(tc);
     AaRun(actor, edx, dt + owed, 1);
 }
 
@@ -376,14 +384,16 @@ static void __fastcall AaPassThunk(void* list, void* edx, float dt) {
     k.aaVisSims = g_aaVis[g_aaCur].n;
     g_aaCur ^= 1;
     g_aaVis[g_aaCur].n = 0, g_aaVis[g_aaCur].full = false;
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
     const bool rmSample = g_rmOn && RmPassBegin(dt);
     if (g_aoOn || g_aoStats || rmSample) AoWalk();  // Objects: this pass's agent grid (positions before the pass)
     UnRefreshCamera();  // the locomotion pass refreshes it too; the anim pass must not depend on [UnseenProbe] being on
-    LARGE_INTEGER t0;
+    UsAdd(&k.aaPreUs, TicksSince(t0));  // docs/286 §5: our pass-start work
     QueryPerformanceCounter(&t0);
     if (g_rmOn) RmPassClock(t0);
     g_aaPassOrig(list, edx, dt);
-    InterlockedExchangeAdd(&k.aaPassUs, UsSince(t0));
+    UsAdd(&k.aaPassUs, TicksSince(t0));
     if (g_rmOn) RmPassEnd();
 }
 
@@ -481,13 +491,12 @@ enum { ANX_HH, ANX_NPC_ON, ANX_NPC_NEAR, ANX_NPC_UNSEEN, ANX_OBJ_ON, ANX_OBJ_NEA
 static bool g_anxOn;
 static int g_anxCls = ANX_NONE;
 static void AnAdd(LONG* c, LARGE_INTEGER t0, int ph) {  // c: n, us, maxUs; ph: index into anxPhN
-    const LONG us = UsSince(t0);
+    const LONGLONG tk = TicksSince(t0);  // docs/286 §3.2: carried sub-us sums
     InterlockedIncrement(&c[0]);
-    InterlockedExchangeAdd(&c[1], us);
-    Max(&c[2], us);
+    Max(&c[2], UsAdd(&c[1], tk));
     if (g_anxOn) {
         InterlockedIncrement(&ts3native_counters.anxPhN[ph][g_anxCls]);
-        InterlockedExchangeAdd(&ts3native_counters.anxPhUs[ph][g_anxCls], us);
+        UsAdd(&ts3native_counters.anxPhUs[ph][g_anxCls], tk);
     }
 }
 static DWORD __fastcall AnAdvHook(void* self, void* edx, DWORD dt, DWORD a, DWORD b) {
@@ -557,12 +566,13 @@ static void AnxPose(int kind, void* actor, void* edx, float dt) {
     if ((t0.QuadPart - g_anxCamAt.QuadPart) * 20 > g_qpf.QuadPart) UnRefreshCamera(), g_anxCamAt = t0;  // reach: at most 20 reads/s
     const int prev = g_anxCls, c = g_anxClassOf(actor);
     g_anxCls = c;
+    InterlockedIncrement(&ts3native_counters.anxOwnN[0]);  // docs/286 §5: our camera read + class, outside every EA timer
+    UsAdd(&ts3native_counters.anxOwnUs[0], TicksSince(t0));
     QueryPerformanceCounter(&t0);
     __try { g_anxPoseOrig(actor, edx, dt); } __finally {
         g_anxCls = prev;
-        const LONG us = UsSince(t0);
         InterlockedIncrement(&ts3native_counters.anxPoseN[kind][c]);
-        InterlockedExchangeAdd(&ts3native_counters.anxPoseUs[kind][c], us);
+        UsAdd(&ts3native_counters.anxPoseUs[kind][c], TicksSince(t0));
     }
 }
 static void __fastcall AnxPose0(void* actor, void* edx, float dt) { AnxPose(0, actor, edx, dt); }
@@ -574,7 +584,7 @@ static DWORD __fastcall AnxClipHook(void* self, void* edx, DWORD a) {
     const DWORD r = g_anxClip(self, edx, a);
     const int out = g_anxCls == ANX_NONE ? 1 : 0;  // shortcut: an unclassified pose call's clip events count as outside
     InterlockedIncrement(&ts3native_counters.anxClipN[out]);
-    InterlockedExchangeAdd(&ts3native_counters.anxClipUs[out], UsSince(t0));
+    UsAdd(&ts3native_counters.anxClipUs[out], TicksSince(t0));
     return r;
 }
 // Part 2 (coordinator 2026-11-18, docs/22 §8: ~40 ms/s of the 0x571B90 pass had no timer). Sites [verified disassembly, Steam 1.67]:
@@ -589,10 +599,12 @@ typedef void(__fastcall* AnxVoidFn)(void* self, void* edx);
 static AnxPoseFn g_anxTsOrig = (AnxPoseFn)(uintptr_t)TS3A(0x00942C00);
 static AnxVoidFn g_anxDrain0 = (AnxVoidFn)(uintptr_t)TS3A(0x00577060), g_anxDrain1 = (AnxVoidFn)(uintptr_t)TS3A(0x00571A50);
 static AnFn1 g_anxEvOrig = (AnFn1)(uintptr_t)TS3A(0x00742710);
-static void Anx2Add(LONG* n, LONG* us, LARGE_INTEGER t0) { InterlockedIncrement(n); InterlockedExchangeAdd(us, UsSince(t0)); }
+static void Anx2Add(LONG* n, LONG* us, LARGE_INTEGER t0) { InterlockedIncrement(n); UsAdd(us, TicksSince(t0)); }
 static void __fastcall AnxTsHook(void* actor, void* edx, float dt) {
-    const int c = g_anxClassOf(actor);
     LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    const int c = g_anxClassOf(actor);
+    Anx2Add(&ts3native_counters.anxOwnN[1], &ts3native_counters.anxOwnUs[1], t0);  // docs/286 §5: our class per time-step call
     QueryPerformanceCounter(&t0);
     g_anxTsOrig(actor, edx, dt);
     Anx2Add(&ts3native_counters.anxTsN[c], &ts3native_counters.anxTsUs[c], t0);

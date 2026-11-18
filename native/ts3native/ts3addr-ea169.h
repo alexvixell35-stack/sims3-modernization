@@ -922,14 +922,25 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00E498B0, 0x00E49900},
     {0x00E49900, 0x00E49950},
     {0x00E49950, 0x00E499A0},
+    {0x00E49980, 0x00000000},
     {0x00E49A50, 0x00E49AA0},
+    {0x00E49A63, 0x00000000},
+    {0x00E49A69, 0x00000000},
     {0x00E49AD9, 0x00000000},
     {0x00E49C80, 0x00E49CD0},
+    {0x00E49DF2, 0x00000000},
+    {0x00E49E32, 0x00000000},
+    {0x00E49E4C, 0x00000000},
     {0x00E49E6D, 0x00000000},
     {0x00E49F10, 0x00000000},
+    {0x00E49F81, 0x00000000},
     {0x00E49FB6, 0x00000000},
+    {0x00E49FDF, 0x00000000},
+    {0x00E49FF9, 0x00000000},
     {0x00E4A022, 0x00000000},
     {0x00E4A050, 0x00E4A0A0},
+    {0x00E4A05F, 0x00000000},
+    {0x00E4A0A6, 0x00000000},
     {0x00E4A0B0, 0x00E4A100},
     {0x00E4A120, 0x00E4A170},
     {0x00E4A1D8, 0x00E4A228},
@@ -945,6 +956,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00E4AAC0, 0x00E4AB10},
     {0x00E4ABE0, 0x00E4AC30},
     {0x00E4AE30, 0x00E4AE80},
+    {0x00E4AE60, 0x00000000},
     {0x00E4B3F0, 0x00E4B440},
     {0x00E4B480, 0x00000000},
     {0x00E4BA90, 0x00E4BAE0},
@@ -954,7 +966,9 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00E4BEB0, 0x00E4BF00},
     {0x00E4BF90, 0x00E4BFE0},
     {0x00E4C060, 0x00E4C0B0},
+    {0x00E4C270, 0x00000000},
     {0x00E4CEE0, 0x00E4CF30},
+    {0x00E4D460, 0x00000000},
     {0x00E4D520, 0x00E4D570},
     {0x00E4D9DC, 0x00E4DA2C},
     {0x00E4D9F0, 0x00E4DA40},
@@ -963,6 +977,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00E4E450, 0x00E4E4A0},
     {0x00E4EC40, 0x00E4EC90},
     {0x00E4EF90, 0x00E4EFE0},
+    {0x00E502F0, 0x00000000},
     {0x00E50380, 0x00E503D0},
     {0x00E50DE0, 0x00E50E30},
     {0x00E51000, 0x00E51050},
@@ -1608,7 +1623,22 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x00E49F10 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] IdleGate hold + G2, master-1117c)
 // unresolved: 0x00E49FB6 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] IdleGate hold + G2, master-1117c)
 // unresolved: 0x011F2FB4 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] IdleGate hold + G2, master-1117c)
-constexpr int ts3addr_count = 1457;
+// unresolved: 0x00E4D460 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
+// unresolved: 0x00E49980 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
+// unresolved: 0x00E4AE60 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
+// unresolved: 0x00E502F0 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
+// unresolved: 0x00E4C270 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
+// unresolved: 0x00E49DF2 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
+// unresolved: 0x00E49E32 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
+// unresolved: 0x00E49E4C no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
+// unresolved: 0x00E49FF9 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
+// unresolved: 0x00E49A63 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
+// unresolved: 0x00E49A69 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
+// unresolved: 0x00E49F81 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
+// unresolved: 0x00E49FDF no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
+// unresolved: 0x00E4A05F no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
+// unresolved: 0x00E4A0A6 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
+constexpr int ts3addr_count = 1472;
 
 // unresolved: 0x00568710 no-ea-1.69-address native/ts3native/unseenanim.cpp ([AnimPhase] Split, merge 6942a6e3a)
 // unresolved: 0x00568A6C no-ea-1.69-address native/ts3native/unseenanim.cpp ([AnimPhase] Split, merge 6942a6e3a)

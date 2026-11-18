@@ -616,7 +616,11 @@ namespace Ts3Fixes
         // helpers (CalculateObjectEnvironmentScore, CalculateContributingObjectScore). Skipped, as they write: Sim
         // reactions (DoSimEnvironmentUpdateInternal), environment events, every buff and motive write after the scan; the
         // Sims and objects they apply to are recorded in r.Seq for the apply (docs/208 §8.2).
-        static void EnvScore(Sim s, EnvRes r, bool worker)
+        static void EnvScore(Sim s, EnvRes r, bool worker) { EnvScore(s, r, worker, null, null, 0); }
+
+        // memo != null (docs/274 R1 apply, inside only): the room's GameObject list, the lot's aromainators and the room's
+        // aromainator count come from the env list memo (EnvBcProbes.cs), in the game's order, instead of the three live calls
+        static void EnvScore(Sim s, EnvRes r, bool worker, object[] memoRoom, object[] memoAro, int memoAroRoom)
         {
             r.Pos = r.Neg = 0f; r.Flags = 0; r.Num = 0; r.SeqN = 0; r.SeqOver = false; r.Puddle = r.Burnt = r.Size = 0; r.Covered = 0f;
             Lot lot = s.LotCurrent, home = s.LotHome;
@@ -671,10 +675,21 @@ namespace Ts3Fixes
                     neg += (float)info.roomData.puddleCount * EnvironmentScore.PenaltyPerPuddleInRoom;
                     neg += (float)info.roomData.burntTileCount * EnvironmentScore.PenaltyPerBurntTileInRoom;
                     if (info.roomData.sizeInTileQuadrants == 0) { r.Pos = pos; r.Neg = neg; r.Flags = flags | 8; return; }
-                    List<GameObject> inRoom = lot.GetObjectsInRoom<GameObject>(s.RoomId);
-                    IAromainator[] aro = lot.GetObjects<IAromainator>();
-                    int extra = aro.Length - lot.GetObjectsInRoom<IAromainator>(s.RoomId).Count;
-                    for (int k = 0; k < extra; k++) inRoom.Add((GameObject)aro[k]);
+                    List<GameObject> inRoom;
+                    if (memoRoom == null)
+                    {
+                        inRoom = lot.GetObjectsInRoom<GameObject>(s.RoomId);
+                        IAromainator[] aro = lot.GetObjects<IAromainator>();
+                        int extra = aro.Length - lot.GetObjectsInRoom<IAromainator>(s.RoomId).Count;
+                        for (int k = 0; k < extra; k++) inRoom.Add((GameObject)aro[k]);
+                    }
+                    else
+                    {
+                        int extra = memoAro.Length - memoAroRoom;
+                        inRoom = new List<GameObject>(memoRoom.Length + Math.Max(extra, 0));
+                        foreach (object o in memoRoom) inRoom.Add((GameObject)o);
+                        for (int k = 0; k < extra; k++) inRoom.Add((GameObject)memoAro[k]);
+                    }
                     foreach (GameObject o in inRoom)
                     {
                         Sim so = o as Sim;
@@ -1389,7 +1404,11 @@ namespace Ts3Fixes
                     try { ls = fUpdSim.GetValue((SimUpdate)(object)this) as Sim; } catch (Exception) { }
                     if (ls != null) EnvListProbe(ls);
                 }
-                if (!ShortcutOn("autoffenv")) { EnvOrig(); return; }
+                if (!ShortcutOn("autoffenv"))
+                {
+                    if (!ShortcutOn("envlistmemoapply") || !EnvListApply((SimUpdate)(object)this)) EnvOrig();  // docs/274 §9 R1 apply, unseen NPCs only
+                    return;
+                }
                 SimUpdate u = (SimUpdate)(object)this;
                 Sim s = null;
                 EnvRes a = null;

@@ -1001,6 +1001,8 @@ namespace Ts3Fixes
         // Test agree, top 1 valid / agree), game C2 order misses, game-only pairs, game records capped
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
+        // [1230-1240] envlistmemoapply / envlistmemoverify (EnvBcProbes.cs EnvListApply, docs/274 §9): scans tried, memo reuse, live listed,
+        // game's call (actor / other Sim out of scope, not indoor, seq overflow), errors, verify checks, differences, reorder-only differences
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
         const int kCounterSlots = 4000;
@@ -1222,6 +1224,7 @@ namespace Ts3Fixes
                 case "autoffenvapply": case "autoffbcastapply": case "autoffnoref": return false;
                 case "autoffunseen": return false; // docs/208 §10 unseen-only gate on the env / bcast apply (only acts with the apply switches)
                 case "envlistmemo": case "bcposdry": return false; // docs/274 R1 / R2 dry probes (EnvBcProbes.cs): counts only, test runs
+                case "envlistmemoapply": case "envlistmemoverify": return false; // docs/274 §9 R1 apply (unseen NPCs only) + sampled verify: test runs
                 case "autofftick": return false; // docs/206 §15 Mode R tick item: test runs only
                 case "autofft2": case "autofft2ic": case "autofflot": return false; // docs/208 §9 Mode R items (tier-2 rows, closest lot): test runs only
                 case "autt2inuse": case "autt2fire": case "autt2dragwarm": return false; // docs/219 §3.1 tier-2 P1 worker guards + drag pre-warm (AutShadow.cs): test runs only

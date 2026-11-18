@@ -68,6 +68,8 @@ export const EXEMPT: Record<string, string> = {
   autt2l0: 'measurement probe (tier-2 L0, AutLocalProbe.cs): times the local phase per actor class, changes no result; run by tier2-local-l0.json, not a fix',
   autt2lcov: 'measurement probe (docs/276 rank 5 piece 1, AutLocalProbe.cs, needs autt2l0): splits local-phase C2 time by the local allow-list, changes no result; run by hhtoo-local-cov-1117.json, not a fix',
   envlistmemo: 'dry probe (docs/274 R1, EnvBcProbes.cs): compares a lot/room list memo with the game env lists, changes no result; run by env-bcast-dry-probe-1116.json, not a fix',
+  envlistmemoapply: 'Mono speed, not a hitch fix (docs/274 §9 R1 apply, EnvBcProbes.cs): reuses env lists for unseen NPCs only; correctness by envlistmemo-apply-correct-1118.json (sampled verify, envlistapply_verify_diff 0), timing by envlistmemo-apply-time-1118.json',
+  envlistmemoverify: DIAG,
   bcposdry: 'dry probe (docs/274 R2, EnvBcProbes.cs): compares a per-tick position-table bcast set with the game set, changes no result; run by env-bcast-dry-probe-1116.json, not a fix',
   autofftick: OFFLOAD,
   jit: 'Mono speed, not a hitch fix: no repro makes script calls more frequent than plain play; correctness by jit-verify.json (Mode=2) and the selftest TestMonoJit, timing by jit-ab.json once jit-verify passed (docs/527 §5)',

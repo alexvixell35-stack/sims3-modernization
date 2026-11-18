@@ -11,7 +11,7 @@ static bool SwFakeCapture(DWORD, char* out, size_t cap, bool* inSim) {
 static DWORD WINAPI SwSleeper(LPVOID) { Sleep(3000); return 0; }
 static void TestStallWatch() {
     static_assert(offsetof(Ts3nCounters, apFound) == 0x63E4 && offsetof(Ts3nCounters, ssReady) == 0x6404 && offsetof(Ts3nCounters, ssSpare) == 0x6418 &&
-                      sizeof(Ts3nCounters) == 6660 * 4, "counters v202 (docs/registry.md)");
+                      sizeof(Ts3nCounters) == 6696 * 4, "counters v202 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const LONG st0 = k.ssStalls, ln0 = k.ssLines;
     g_ssSt = {};

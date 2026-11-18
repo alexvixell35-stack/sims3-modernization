@@ -260,3 +260,37 @@ Queue `envlistmemo-reorder-diag-1118.json` (BP + IP 10 min, Apex + bridge; RUN F
 - all `simorder same` with a non-Sim first moved object: only ulp rounding and event order differ; fit = **unseen-only reuse** (the memo's list is the game's own order from a few ticks ago, so the answer stays realistic; `Fixes.HouseholdExempt` / selected / unknown-scope Sims always take the game's call), ~1 h build + its own correctness queue.
 - `simorder moved`, or `ev` > 0 on every line: the reorder follows an event on another room of the lot (a remove-and-reinsert in the native lot vector, [inferred]); fit = **lot bump** on that event (bump the whole lot instead of the room for the event kind named, ~1 h build + BP/IP rerun), then `hit_wrong` = 0 again gates the exact apply.
 - `ev` 0 and `simorder moved`: the reorder has no managed event; R1 goes unseen-only (first rule) or parks.
+
+## 9. R1 apply built: unseen-only env list reuse (2026-11-18, branch `feature/envlistmemo-apply-1118`, built, NOT RUN)
+
+Rodney 11-18 ~16:00 PHT: "Build R1, park R2." The reorder diag (`anim-split-envreorder-1118`, BP + IP) settled §8.6's decision list [measured]: BP calls 15,447, hit 10,014 (65%), `hit_wrong` 6; IP calls 21,906, hit 14,751 (67%), `hit_wrong` 14; exc 0. All 20 wrong hits are list 0, `was n reorder` (same count), `simorder same`, `ev 0`, age 20-107 ticks; the first moved object is always a held child object (PlumbBob 14x or a Sim slot 6x, replaced by a carried Plate / Pot / Bowl / PlateServing / FoodProp), index 20-34 of n 23-38. So it is the **unseen-only reuse** branch: no managed event explains the reorders (a lot bump would not catch them), the Sims' relative order never changed, and a reused list is the game's own order from a few ticks earlier.
+
+**What it does** (`envlistmemoapply`, test switch, default off; `EnvBcProbes.cs` `EnvListApply`, hook branch in `AutOffload.cs` `EnvHook` when `autoffenv` is off):
+
+- Scope first, before any list work: the actor must be `Scope(SafeUfWhy) == 0` (unseen, not household, not selected, not on the camera lot; a failed read = unknown = household) **and** not `IsPlayerSim` (the explicit household / selected / unknown-scope exemption). Every other Sim in the scan must pass the same test (stricter than `autoffunseen`'s `OtherScope`, which lets seen NPCs through): their reactions to the actor run from our list. Any miss = the game's own `CalculateSimEnvironmentScore`.
+- **HouseholdToo never lifts it.** A memo hit can be a reorder, so the answer is realistic, not vanilla; docs/271 allows the flag only where the household result stays exact or proven realistic for controlled Sims, and a different first-match reaction for a controlled Sim is not. `Fixes.HouseholdExempt` is therefore not used here (it lifts under the flag); `IsPlayerSim` is.
+- Indoor only (lists 0-2, the ones the probe measured; ~29 of the 40 list samples in docs/129 §2.1). Outdoor, rabbit hole, empty room = the game's call.
+- Lists: `ListMemo.Get` returns the memo list while it is valid (same lot / room generation as §8.1, dying-object bumps of §8.5 kept). A miss lists live once, stores through `Check`, and continues with the fresh list (no double list cost). The scan then runs through the existing sim-thread replica (`EnvScore` with the memo lists, then `EnvApply`, docs/208 §8.2): per-object scores, events, reactions and every buff / motive write live, in the list's order. `SeqOver` (more than `kEnvSeq` items) = the game's call.
+- Not handled: the reorder cause. Hooking carried-item slot moves (`ParentToSlot` / `UnParent` overloads and the carry system's native parenting) is not cheap and `ev 0` shows no managed signal to hang it on; under the unseen-only rule a reorder only changes event order and float rounding for unseen NPCs [inferred, I-515-1].
+
+**Verify** (`envlistmemoverify`, test switch, default off): every 4th full reuse also lists live and compares element by element; a difference counts `verify_diff` (and `verify_reorder` when the objects are the same), logs `EnvListMemo: wrong hit verify lot .. room .. list .. n ..` with the §8.6 diff (kept by `queue.ts fixesApplied`), and the scan uses the live lists.
+
+**Counters 1230-1240** (agent keys `envlistapply_*`): `scans`, `reuse` (all three lists from the memo), `live` (one or more listed live), `fb_actor` (household / selected / unknown / seen actor), `fb_other` (another Sim in the scan out of scope), `fb_notindoor`, `fb_seqover`, `exc`, `verify`, `verify_diff`, `verify_reorder`. Gate per §8.3: `reuse / (reuse + live) >= 40%` on BP and IP, `verify_diff = 0`.
+
+**Selftest**: `ListMemo.Get` (valid, other-room bump keeps it, room / lot bump and the next-tick repeat drop it) and `ListMemo.SameSet` cases in `tools/selftest/autoffload`.
+
+**Queues** (dry-run checked):
+
+- `envlistmemo-apply-correct-1118.json` (correctness, BP + IP 10 min, apply + verify on): FAIL unless `envlistapply_reuse >= 1`, `verify >= 1`, `verify_diff < 1`, `exc < 1`, `fb_actor >= 1` (the household / seen path was exercised), 0 script errors. Chain `probe-out/queue/chain-r1-1118.sh` (not launched; daytime / correctness slot).
+- `envlistmemo-apply-time-1118.json` (timing, needs quiet machine): BP + IP 45 min in-load ABBAABBA, `--ab envlistmemoapply`, verify and the dry probe off, smoke first; appended as the last step of `chain-night-1118.sh` (`TIMING=1`). Valid only after the correctness PASS. Ship rule: ON at a clean 3-5 ms/s; < 1.5 ms/s = park (§5 stop rule). Expected [inferred]: the unseen share of indoor env scans times ~3.7-3.9 ms/s (`hit_ms` upper bound, §8.4), less the replica's own cost; with indoor unseen scans rare (§2.3: EA scans mostly high-LOD Sims) the gain may be small, which is what the timing must show.
+
+## 10. R2 parked (2026-11-18)
+
+Rodney 11-18: "park R2". The dry probe (§8.4) failed the cost gate on every job: `table_ms + scan_ms` = 182% (BP) / 191% (IP) of `game_ms`, smoke 930 + 3,052 vs 2,170 ms, against the 50% bar; `set_eq` 99.8% passed. I-274-4 failed [measured]. Why it costs more than the query it replaces: the managed scan runs the game's filters, line-of-sight and could-see rebuild (`BcKeep` + `BcRebuild`) per pulse on top of the range test, while the native query is one C++ quadtree walk; the table is rebuilt every tick it is used.
+
+Salvage ideas (not built; each needs its own dry numbers first):
+
+- Native table: export positions from `[UnseenTable]`'s per-tick rows (already built natively) instead of ~60 managed `Position` reads per tick; cuts `table_ms`, not `scan_ms`.
+- Scan cost: `scan_ms` includes `BcRebuild` (line of sight, could-see), which the game's own set also needs; compare against `game_ms` plus the game's rebuild, not the query alone (the gate may have been unfair by that share [inferred]); re-measure with the split.
+- Cache per broadcaster across pulses while no Sim moved more than a margin (pulse 37.5 ticks): reuse the candidate set, re-check distance only.
+- Fold into R3 (fix the bcast worker, §5 rank 3) only if the unseen bcast share grows (docs/286 unseen LOD work may change it).

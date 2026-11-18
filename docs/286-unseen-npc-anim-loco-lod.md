@@ -135,6 +135,28 @@ One job set, BP + IP + SV, 10 min each, release ini, `[UnseenProbe]` on, `[AnimP
 Correctness for (a) after the gate: repro `unseen-rm-snapback` / `unseen_snapback` (`utSnap`, `utSnapMaxMs`), stuck
 check pair, `unseen-water-cause`. Effort: one agent ~45 min for the held-table test and the counters; jobs ~3 x 12 min.
 
+### 5.1 Built 2026-11-18 (feature/unseen-measure-1118, ts3native 0.36.277-unseenmeas1, counters v210 at 0x6810; NOT RUN)
+- **Sub-us sums** [verified code]: `UsTk` / `UsAdd` (ts3native.cpp, next to `UsSince`) keep each counter field's floored rest
+  (1e6 x QPC ticks mod qpf) and carry it into the next call, so a 0.6 us call adds 0.6 us on average, not 0. Used by every
+  per-call timer of the anim / locomotion passes: `aaUs`, `aaPassUs`, `an*Us` + `anxPhUs`, `anxPoseUs`, `anxClipUs`, `anxTsUs`,
+  `anxDrainUs`, `anxEvUs`, `anxLocoPassUs`, `unAgentUs`, `anxLocoUs`. Readers unchanged (still us). Selftest: 1000 calls of
+  ~0.5 us sum exactly. Shortcut: the rest is not atomic (two threads on one field may lose < 1 us; counts never).
+- **Own-check timers**: `anxOwnN/Us[0]` AnxPose's camera read + classifier, `[1]` the time-step wrapper's classifier
+  ([AnimPhase] Split); `aaChkN/Us` AaPoseThunk's Sim checks (class, held table, slot, hold rule) up to EA's call or the skip
+  ([UnseenAnim]); `aaPreUs` the anim pass start (AoWalk + camera), n = `aaPasses`.
+- **Locomotion pass split**: `unThunkN/Us` = whole `0x83CF52` thunk (ours + EA). EA's agent updates = sum `unAgentUs`; our
+  checks = `unThunkUs - sum unAgentUs` (also holds the rare untimed c < 0 calls, `unSkipped`); the pass outside agent updates =
+  `anxLocoPassUs - unThunkUs` (needs Split=1). The four EA sub-timers of item 2 (0x839F70, 0x9573B7, 0x833560, +0x68) are not
+  built: they need new internal call sites; `unFpUs` already times 0x833560 with [UnseenProbe] Footprint=1.
+- **Rate=1**: household-table test first in `UtRateWhy` (`AnxHousehold`, the [UnseenAnim] / AnimPhase predicate: in the fresh
+  held table, or no fresh table = household) -> runs every pass, counted in `utRateHh` (no utRateWhy row); HouseholdToo never
+  lifts it. `utRateCatchUpUs` sums the owed time run in catch-ups (count `utRateCatchUp`, max `utRateDebtMaxUs`). Skipped vs run:
+  `utRateSkipped / utRateCalls`; goal / door bands: `utRateWhy_10` (RateNearM) / `utRateWhy_11` (PortalM). Rate stays default 0.
+  Selftest `TestUnseenThrottle2`: a held-table Sim and a stale table both run every pass (utRateHh), catch-up us counted.
+- **Queue** `tools/harness/queues/unseen-rate-ab-1118.json` (TIMING, needs a quiet machine; last step of chain-night-1118):
+  smoke = counter smoke (BP 10 min, 2-min slices, Split=1, every v210 counter > 0); then BP / IP / SV 27 min in-load ABBA
+  (3-min slices, 4 x 3 min per arm), `--ab unseenrate`, List=0, [AnimPhase] off. Gate as item 1 above.
+
 ## 6. Open
 
 - I-514-3: share of unseen updates that Rate may skip (bands, idle agents) on today's build.

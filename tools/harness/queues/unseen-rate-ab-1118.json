@@ -1,0 +1,282 @@
+{
+ "note": "unseen-rate-ab-1118 (docs/286 §5, ledger §514; Rodney 11-18 measure before build): [UnseenThrottle] Rate=1 off/on in one load (--ab unseenrate, in-load ABBA) on BP, IP, SV, asi unseen-measure-1118 (0.36.277-unseenmeas1, counters v210: sub-us carried timers, unThunk*, anxOwn*, aaChk*, utRateHh household-table hold, utRateCatchUpUs). Rate keeps the household exemption (held table first; no fresh table = household) on both arms. List=0 isolates Rate from phase 1. TIMING: needs a quiet machine (other CPU < 10%). Smoke = the counter smoke: BP 10 min, 2-min slices, [AnimPhase] Split=1 on top (all new counters must read back > 0, incl. the anim-pass own-check timers and the BP loco-pass split anxLocoPassUs - unThunkUs). Build gate (docs/286 §5): skipped share utRateSkipped/utRateCalls >= 40% and on-arm unAgentUs_1_0 drop >= 8 ms/s on 2 of 3 worlds. Read: node tools/harness/wait-ab.ts <tag> --counters unAgentUs_1_0,unAgents_1_0,utRateCalls,utRateSkipped,utRateHh,utRateCatchUpUs,unThunkUs; node tools/profile-compare.mjs <tag>:on <tag>:off. Run: node tools/harness/queue.ts tools/harness/queues/unseen-rate-ab-1118.json",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^ts3native 0.36.277-unseenmeas1 ": {
+   "match": [
+    "ts3native 0.36.277-unseenmeas1 2026-11-18 08:30:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.276-retail1 2026-11-18 16:30:00"
+   ]
+  },
+  "^OK   unseen throttle rate: unseen walking Sims' agent update every 4 ticks": {
+   "match": [
+    "OK   unseen throttle rate: unseen walking Sims' agent update every 4 ticks, summed step <= 0.5 s (goal 3 m, portal 3 m)"
+   ],
+   "noMatch": [
+    "SKIP unseen throttle rate: behaviour B's step clamp is not [1/30, 0.5] at 0x010434C4 / 0x00F9A5AC"
+   ]
+  },
+  "^OK   unseen probe: agent updates split visible / unseen": {
+   "match": [
+    "OK   unseen probe: agent updates split visible / unseen, ready 0x7 (footprint on, plans on, keyed lock on)"
+   ],
+   "noMatch": [
+    "SKIP unseen probe agent update: call at 0x0083CF52 is not a call to 0x00957210, nothing written"
+   ]
+  },
+  "^OK   anim split (docs/22 §6.1): anxReady d+ (pose sites on, .*time step on, .*locomotion pass (own|behind loco window))": {
+   "match": [
+    "OK   anim split (docs/22 §6.1): anxReady 1007 (pose sites on, clip sites on, 0x571C3C behind [UnseenAnim], locomotion split, root-motion sites own, time step on, drains on, event push on, locomotion pass behind loco window)"
+   ],
+   "noMatch": [
+    "FAIL anim split (docs/22 §6.1): anxReady 1006 (pose sites off, clip sites on, 0x571C3C own, locomotion split, root-motion sites own, time step on, drains on, event push on, locomotion pass behind loco window)"
+   ]
+  },
+  "^(SKIP|FAIL) (unseen throttle rate|unseen probe|anim split)": {
+   "match": [
+    "SKIP unseen throttle rate: behaviour B's step clamp is not [1/30, 0.5] at 0x010434C4 / 0x00F9A5AC",
+    "FAIL anim split (docs/22 §6.1): anxReady 10 (pose sites off)"
+   ],
+   "noMatch": [
+    "OK   unseen throttle rate: unseen walking Sims' agent update every 4 ticks, summed step <= 0.5 s (goal 3 m, portal 3 m)"
+   ]
+  }
+ },
+ "smoke": {
+  "note": "[est 15 min] counter smoke: BP 10 min, 2-min slices (warm-up + ABBA), --ab unseenrate, + [AnimPhase] Enabled=1 Split=1 so every new v210 counter reads back",
+  "asi": "game-copy/ts3native.asi.unseen-measure-1118",
+  "iniBase": "game-copy/ts3native.ini.unseen-measure-1118",
+  "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+  "pinReason": "feature/unseen-measure-1118 (builds.json ts3native.asi.unseen-measure-1118 sha256 57214b153844 + ini 6ec91bf3dcb5: master 0.36.276-retail1 + docs/286 §5 measurement, counters v210) with ts3fixes.package.master-1117c (managed side unchanged: viewer + held-table push UnseenViewers.cs)",
+  "releaseDefaults": true,
+  "save": "Baseline-BP-Spring",
+  "gameArgs": [
+   "-disablestoryprogression"
+  ],
+  "minCounters": 912,
+  "noiseCheck": true,
+  "shadowCheck": false,
+  "scriptErrorsMax": 0,
+  "timeoutMin": 25,
+  "ini": {
+   "UnseenProbe.Enabled": 1,
+   "UnseenThrottle.Enabled": 1,
+   "UnseenThrottle.List": 0,
+   "UnseenThrottle.Rate": 1,
+   "AnimPhase.Enabled": 1,
+   "AnimPhase.Split": 1
+  },
+  "run": {
+   "profile": {
+    "seed": 12345,
+    "minutes": 10,
+    "slice": 2,
+    "ab": "unseenrate"
+   }
+  },
+  "nativeRequire": "@ut2Ready>=8,utRateCalls>=1,utRateSkipped>=1,utRateCatchUp>=1,utRateCatchUpUs>=1,unThunkN>=1,unThunkUs>=1,anxOwnN_0>=1,anxOwnN_1>=1,aaChkN>=1,aaPreUs>=1,anxLocoPassN>=1,unAgents_1_0>=1",
+  "logRequire": {
+   "^ts3native 0.36.277-unseenmeas1 ": 1,
+   "^OK   unseen throttle rate: unseen walking Sims' agent update every 4 ticks": 1,
+   "^OK   unseen probe: agent updates split visible / unseen": 1,
+   "^OK   anim split (docs/22 §6.1): anxReady d+ (pose sites on, .*time step on, .*locomotion pass (own|behind loco window))": 1
+  },
+  "logForbid": {
+   "^(SKIP|FAIL) (unseen throttle rate|unseen probe|anim split)": 0
+  },
+  "earlyGates": [
+   {
+    "afterSec": 120,
+    "counter": "utRateCalls",
+    "op": ">",
+    "value": 0,
+    "why": "Rate=1 not reached (no unseen agent update through the rule)"
+   },
+   {
+    "afterSec": 120,
+    "counter": "unThunkN",
+    "op": ">",
+    "value": 0,
+    "why": "agent thunk timer silent (old asi or probe site missing)"
+   }
+  ]
+ },
+ "jobs": [
+  {
+   "id": "bp-unseenrate-ab",
+   "note": "[est 35 min] BP 27 min in-load ABBA (3-min slices: warm-up + off,on,on,off,off,on,on,off = 4 x 3 min per arm), --ab unseenrate, [AnimPhase] off (light tools only). Read per arm: unAgentUs_1_0 / unAgents_1_0 (unseen Sim update ms/s, us per update), utRateSkipped / utRateCalls, utRateWhy_10 (near goal) / utRateWhy_11 (portal) / utRateWhy_15 (new path) / utRateWhy_16 (cap), utRateHh, utRateCatchUp + utRateCatchUpUs, utRateDebtMaxUs, utRateDropped, unThunkUs - sum(unAgentUs) (our checks), ms/s of the sim thread.",
+   "asi": "game-copy/ts3native.asi.unseen-measure-1118",
+   "iniBase": "game-copy/ts3native.ini.unseen-measure-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+   "pinReason": "feature/unseen-measure-1118 (builds.json ts3native.asi.unseen-measure-1118 sha256 57214b153844 + ini 6ec91bf3dcb5: master 0.36.276-retail1 + docs/286 §5 measurement, counters v210) with ts3fixes.package.master-1117c (managed side unchanged: viewer + held-table push UnseenViewers.cs)",
+   "releaseDefaults": true,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 912,
+   "noiseCheck": true,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 45,
+   "ini": {
+    "UnseenProbe.Enabled": 1,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 0,
+    "UnseenThrottle.Rate": 1,
+    "AnimPhase.Enabled": 0
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 27,
+     "slice": 3,
+     "ab": "unseenrate"
+    }
+   },
+   "nativeRequire": "@ut2Ready>=8,utRateCalls>=1,unThunkN>=1",
+   "logRequire": {
+    "^ts3native 0.36.277-unseenmeas1 ": 1,
+    "^OK   unseen throttle rate: unseen walking Sims' agent update every 4 ticks": 1,
+    "^OK   unseen probe: agent updates split visible / unseen": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (unseen throttle rate|unseen probe|anim split)": 0
+   },
+   "earlyGates": [
+    {
+     "afterSec": 120,
+     "counter": "utRateCalls",
+     "op": ">",
+     "value": 0,
+     "why": "Rate=1 not reached (no unseen agent update through the rule)"
+    },
+    {
+     "afterSec": 120,
+     "counter": "unThunkN",
+     "op": ">",
+     "value": 0,
+     "why": "agent thunk timer silent (old asi or probe site missing)"
+    }
+   ]
+  },
+  {
+   "id": "ip-unseenrate-ab",
+   "note": "[est 35 min] IP 27 min in-load ABBA (3-min slices: warm-up + off,on,on,off,off,on,on,off = 4 x 3 min per arm), --ab unseenrate, [AnimPhase] off (light tools only). Read per arm: unAgentUs_1_0 / unAgents_1_0 (unseen Sim update ms/s, us per update), utRateSkipped / utRateCalls, utRateWhy_10 (near goal) / utRateWhy_11 (portal) / utRateWhy_15 (new path) / utRateWhy_16 (cap), utRateHh, utRateCatchUp + utRateCatchUpUs, utRateDebtMaxUs, utRateDropped, unThunkUs - sum(unAgentUs) (our checks), ms/s of the sim thread.",
+   "asi": "game-copy/ts3native.asi.unseen-measure-1118",
+   "iniBase": "game-copy/ts3native.ini.unseen-measure-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+   "pinReason": "feature/unseen-measure-1118 (builds.json ts3native.asi.unseen-measure-1118 sha256 57214b153844 + ini 6ec91bf3dcb5: master 0.36.276-retail1 + docs/286 §5 measurement, counters v210) with ts3fixes.package.master-1117c (managed side unchanged: viewer + held-table push UnseenViewers.cs)",
+   "releaseDefaults": true,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 912,
+   "noiseCheck": true,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 45,
+   "ini": {
+    "UnseenProbe.Enabled": 1,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 0,
+    "UnseenThrottle.Rate": 1,
+    "AnimPhase.Enabled": 0
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 27,
+     "slice": 3,
+     "ab": "unseenrate"
+    }
+   },
+   "nativeRequire": "@ut2Ready>=8,utRateCalls>=1,unThunkN>=1",
+   "logRequire": {
+    "^ts3native 0.36.277-unseenmeas1 ": 1,
+    "^OK   unseen throttle rate: unseen walking Sims' agent update every 4 ticks": 1,
+    "^OK   unseen probe: agent updates split visible / unseen": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (unseen throttle rate|unseen probe|anim split)": 0
+   },
+   "earlyGates": [
+    {
+     "afterSec": 120,
+     "counter": "utRateCalls",
+     "op": ">",
+     "value": 0,
+     "why": "Rate=1 not reached (no unseen agent update through the rule)"
+    },
+    {
+     "afterSec": 120,
+     "counter": "unThunkN",
+     "op": ">",
+     "value": 0,
+     "why": "agent thunk timer silent (old asi or probe site missing)"
+    }
+   ]
+  },
+  {
+   "id": "sv-unseenrate-ab",
+   "note": "[est 35 min] SV 27 min in-load ABBA (3-min slices: warm-up + off,on,on,off,off,on,on,off = 4 x 3 min per arm), --ab unseenrate, [AnimPhase] off (light tools only). Read per arm: unAgentUs_1_0 / unAgents_1_0 (unseen Sim update ms/s, us per update), utRateSkipped / utRateCalls, utRateWhy_10 (near goal) / utRateWhy_11 (portal) / utRateWhy_15 (new path) / utRateWhy_16 (cap), utRateHh, utRateCatchUp + utRateCatchUpUs, utRateDebtMaxUs, utRateDropped, unThunkUs - sum(unAgentUs) (our checks), ms/s of the sim thread.",
+   "asi": "game-copy/ts3native.asi.unseen-measure-1118",
+   "iniBase": "game-copy/ts3native.ini.unseen-measure-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+   "pinReason": "feature/unseen-measure-1118 (builds.json ts3native.asi.unseen-measure-1118 sha256 57214b153844 + ini 6ec91bf3dcb5: master 0.36.276-retail1 + docs/286 §5 measurement, counters v210) with ts3fixes.package.master-1117c (managed side unchanged: viewer + held-table push UnseenViewers.cs)",
+   "releaseDefaults": true,
+   "save": "Baseline-SV-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 912,
+   "noiseCheck": true,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 45,
+   "ini": {
+    "UnseenProbe.Enabled": 1,
+    "UnseenThrottle.Enabled": 1,
+    "UnseenThrottle.List": 0,
+    "UnseenThrottle.Rate": 1,
+    "AnimPhase.Enabled": 0
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 27,
+     "slice": 3,
+     "ab": "unseenrate"
+    }
+   },
+   "nativeRequire": "@ut2Ready>=8,utRateCalls>=1,unThunkN>=1",
+   "logRequire": {
+    "^ts3native 0.36.277-unseenmeas1 ": 1,
+    "^OK   unseen throttle rate: unseen walking Sims' agent update every 4 ticks": 1,
+    "^OK   unseen probe: agent updates split visible / unseen": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (unseen throttle rate|unseen probe|anim split)": 0
+   },
+   "earlyGates": [
+    {
+     "afterSec": 120,
+     "counter": "utRateCalls",
+     "op": ">",
+     "value": 0,
+     "why": "Rate=1 not reached (no unseen agent update through the rule)"
+    },
+    {
+     "afterSec": 120,
+     "counter": "unThunkN",
+     "op": ">",
+     "value": 0,
+     "why": "agent thunk timer silent (old asi or probe site missing)"
+    }
+   ]
+  }
+ ]
+}

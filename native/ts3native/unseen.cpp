@@ -190,7 +190,7 @@ static bool (*g_unGhostSkip)(u8* agent);
 static bool AnxHousehold(const void* owner) { return !g_utHeld.n || GetTickCount() - g_utHeld.at > 2000 || UtHeldObj(owner); }
 static bool g_anxLocoOn;  // [AnimPhase] Split=1 with [UnseenProbe]: locomotion time of Sims by household / seen NPC / unseen NPC
 
-static void __fastcall UnAgentThunk(void* agent, void* edx, float dt) {
+static void UnAgentBody(void* agent, void* edx, float dt) {
     Ts3nCounters& k = ts3native_counters;
     if (t_unCls) { g_unAgentOrig(agent, edx, dt); return; }  // nested (never seen): the outer update owns the attribution
     g_unSimTid = GetCurrentThreadId();
@@ -249,19 +249,29 @@ static void __fastcall UnAgentThunk(void* agent, void* edx, float dt) {
         t_unAgent = NULL;
         t_utWatchRun = false;
         t_unKind = 0, t_unRider = false;
-        const LONG us = UsSince(t0);
+        const LONGLONG tk = TicksSince(t0);  // docs/286 §3.2: carried sub-us sums
+        const LONG us = UsAdd(&k.unAgentUs[c][kind], tk);
         InterlockedIncrement(&k.unAgents[c][kind]);
-        InterlockedExchangeAdd(&k.unAgentUs[c][kind], us);
         Max(&k.unAgentMaxUs[c], us);
         if (g_anxLocoOn && kind == 0) {
             const int h = AnxHousehold(*(void* const*)((const u8*)agent + 4)) ? 0 : 1 + c;
             InterlockedIncrement(&k.anxLocoN[h]);
-            InterlockedExchangeAdd(&k.anxLocoUs[h], us);
+            UsAdd(&k.anxLocoUs[h], tk);
         }
     }
     // EA's own visibility byte, recomputed at the update's entry (0x954240 -> 0x980E00: frustum test of 3x the model bounds,
     // off beyond 100x that radius); 0 = off screen, which picks OffScreenSimBrain + SimpleBody for a walking Sim
     __try { if (!((const u8*)agent)[0xC8]) InterlockedIncrement(&k.unEaOff[c]); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+}
+// docs/286 §5: the whole thunk (our class / rate / hold checks + EA's update), so the locomotion pass splits into EA's update
+// (unAgentUs), our own work (unThunkUs - unAgentUs) and the pass outside agent updates (anxLocoPassUs - unThunkUs)
+static void __fastcall UnAgentThunk(void* agent, void* edx, float dt) {
+    if (t_unCls) { UnAgentBody(agent, edx, dt); return; }  // nested: inside the outer call's time
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    UnAgentBody(agent, edx, dt);
+    InterlockedIncrement(&ts3native_counters.unThunkN);
+    UsAdd(&ts3native_counters.unThunkUs, TicksSince(t0));
 }
 
 static int UnKeyGroup(DWORD key, bool waits) {
@@ -354,6 +364,7 @@ enum { UTW_OFF, UTW_NOAGENT, UTW_VISIBLE, UTW_EAON, UTW_STATE, UTW_LINKED, UTW_V
        UTW_NEAR, UTW_PORTAL, UTW_PATH, UTW_N };
 // phase 2 only (utAvWhy / utRateWhy have UTW_N2 rows): not a Sim, short agent timer, new path, step cap, hash slot taken
 enum { UTW_KIND = UTW_N, UTW_TIMER, UTW_NEWPATH, UTW_CAP, UTW_SLOT, UTW_N2 };
+enum { UTW_HH = UTW_N2 };  // Rate only: held by the household table (own counter utRateHh, no utRateWhy row)
 static bool g_utOn;
 static bool g_utNeedViewers = true;
 static bool g_aaOn;  // [UnseenAnim] installed (unseenanim.cpp): it reads the household table below too
@@ -792,6 +803,8 @@ static int UtRateWhy(u8* agent, int c, int kind, const float* pos, UtRateSlot& s
     DWORD id = 0;
     void* path = NULL;
     __try {
+        // docs/286 §3.1: a household Sim never skips (same predicate as [UnseenAnim] / AnimPhase: no fresh held table = household)
+        if (held < 0 && AnxHousehold(*(void* const*)(agent + 4))) held = UTW_HH;
         if (held < 0) {
             const u8* part = agent + 8;
             const float period = *(const float*)(agent + 0xE0);
@@ -840,12 +853,13 @@ static bool UtRateStep(u8* agent, int c, int kind, const float* pos, float dt, f
         UtDgSkip(UT_DG_RATE, UtOwner(agent));
         return false;
     }
-    k.utRateWhy[why]++;
+    if (why == UTW_HH) k.utRateHh++; else k.utRateWhy[why]++;
     if (why == UTW_VISIBLE && s.debt > 0) UtSnapNote(3, (DWORD)(s.debt * 1000.0f + 0.5f));
     if (s.debt > 0) {
         if (d + s.debt <= UT_MAX_STEP) *step = d + s.debt;
         else *pre = s.debt;  // a dt spike after skips: the owed time as its own update first, then this pass's dt
         Max(&k.utRateDebtMaxUs, (LONG)((*pre > 0 ? *pre : *step) * 1e6f));
+        k.utRateCatchUpUs += (LONG)(s.debt * 1e6f);
         s.debt = 0;
         k.utRateCatchUp++;
     }

@@ -15,6 +15,9 @@
 //   optional SyncWait=1: 0x7D98C0 (thiscall, selector, async; ret 8) when async == 0 and the target thread
 //     ([0x11D8A8C] for selector 1, [0x11D8A88] for 0) is not the caller: the caller waits (docs/28 §5.3 item 2)
 //   optional ObjScene=1: 0xABFAC0 (thiscall on the lot, 3 args, ret 0xC) per object: ms histogram, slow ones logged
+//   optional Thumb=1 (offload inventory candidate 5, counters v212): ThumbnailManager_CreateThumbnailTexture 0xD5D910
+//     (thiscall, 5 args, ret 0x14 [verified asm]; D3D CreateTexture + Lock/fill/Unlock per level, docs/43 §1): calls and
+//     time on the sim thread, calls on any other thread. Tells whether the thumbnail fill is worth moving off the sim thread.
 // Per event (add, remove, slow obj) one JSON line in <asi>-lotstream.jsonl: {t (UTC ms), kind, lot, lotId, objs, ms,
 // passMs (the enclosing pump pass, null outside one)}. Events inside a pass are buffered and written when it ends, so the
 // write is never inside a timed span. Runtime switch ts3native_counters.lsMode (+0x2C8): 0 = hooks pass straight through.
@@ -25,13 +28,14 @@
 
 static const DWORD LS_ADD = TS3A(0x00ABD3C0), LS_REMOVE = TS3A(0x00ABD3E0), LS_PUMP = TS3A(0x0059A430), LS_SCORE = TS3A(0x00C6C290);
 static const DWORD LS_SET_ACTIVE = TS3A(0x00AC20E0), LS_SYNC = TS3A(0x007D98C0), LS_OBJ = TS3A(0x00ABFAC0);
-static const DWORD LS_ADD_FN = TS3A(0x00AC1130), LS_REMOVE_FN = TS3A(0x00AB4C00);
+static const DWORD LS_ADD_FN = TS3A(0x00AC1130), LS_REMOVE_FN = TS3A(0x00AB4C00), LS_THUMB = TS3A(0x00D5D910);
 static const u8 kLsAdd[7] = {0x56, 0x8B, 0xF1, 0x0F, 0xB6, 0x4E, 0x19};          // push esi; mov esi,ecx; movzx ecx,[esi+0x19]
 static const u8 kLsRemove[7] = {0x56, 0x8B, 0xF1, 0x0F, 0xB6, 0x4E, 0x18};       // push esi; mov esi,ecx; movzx ecx,[esi+0x18]
 static const u8 kLsPump[8] = {0x53, 0x56, 0x8B, 0xF1, 0x57, 0x8D, 0x7E, 0x08};   // push ebx; push esi; mov esi,ecx; push edi; lea edi,[esi+8]
 static const u8 kLsScore[6] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0};              // push ebp; mov ebp,esp; and esp,-16
 static const u8 kLsSetActive[5] = {0x53, 0x8A, 0x5C, 0x24, 0x08};                // push ebx; mov bl,[esp+8]
 static const u8 kLsSync[6] = {0x51, 0x53, 0x56, 0x57, 0x8B, 0xF1};               // push ecx/ebx/esi/edi; mov esi,ecx
+static const u8 kLsThumb[6] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8};             // push ebp; mov ebp,esp; and esp,-8
 static const u8 kLsObj[10] = {0x83, 0xEC, 0x0C, 0x83, 0xB9, 0x64, 0x03, 0x00, 0x00, 0x00};  // sub esp,0xC; cmp [ecx+0x364],0
 
 typedef DWORD(__fastcall* LsExecFn)(u8* call, void* edx);
@@ -40,6 +44,8 @@ typedef DWORD(__fastcall* LsScoreFn)(void* wm, void* edx, DWORD a, DWORD b, DWOR
 typedef DWORD(__fastcall* LsSetActiveFn)(u8* lot, void* edx, DWORD on);
 typedef DWORD(__fastcall* LsSyncFn)(void* call, void* edx, DWORD selector, DWORD async);
 typedef DWORD(__fastcall* LsObjFn)(u8* lot, void* edx, DWORD a, DWORD b, DWORD c);
+typedef DWORD(__fastcall* LsThumbFn)(void* tm, void* edx, DWORD a, DWORD b, DWORD c, DWORD d, DWORD e);
+static LsThumbFn g_lsThumbOrig;
 static LsExecFn g_lsAddOrig, g_lsRemoveOrig;
 static LsPumpFn g_lsPumpOrig;
 static LsScoreFn g_lsScoreOrig;
@@ -209,6 +215,19 @@ static DWORD __fastcall LsObjHook(u8* lot, void* edx, DWORD a, DWORD b, DWORD c)
     return r;
 }
 
+static DWORD __fastcall LsThumbHook(void* tm, void* edx, DWORD a, DWORD b, DWORD c, DWORD d, DWORD e) {
+    Ts3nCounters& k = ts3native_counters;
+    if (k.lsMode != 1) return g_lsThumbOrig(tm, edx, a, b, c, d, e);
+    if (GetCurrentThreadId() != *g_lsSimTid) { InterlockedIncrement(&k.thumbOffSim); return g_lsThumbOrig(tm, edx, a, b, c, d, e); }
+    const LONGLONG t0 = LsNow();
+    const DWORD r = g_lsThumbOrig(tm, edx, a, b, c, d, e);
+    const LONG us = LsUs(t0, LsNow());
+    k.thumbCalls++;
+    k.thumbUs += us;
+    LsMax(k.thumbMaxUs, us);
+    return r;
+}
+
 static bool LsOpenLog(const wchar_t* path) {
     g_lsLog = CreateFileW(path, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (g_lsLog == INVALID_HANDLE_VALUE) Log("lot stream: cannot create %ls (err %lu), no event log", path, GetLastError());
@@ -216,7 +235,7 @@ static bool LsOpenLog(const wchar_t* path) {
 }
 
 // [LotStream] Enabled=1 hooks; Mode = start value of lsMode; Log=1 writes the event file; SyncWait=1 / ObjScene=1 add the
-// optional hooks; ObjLogMs = objScene calls at least this slow go to the event file.
+// optional hooks (Thumb=1 the thumbnail texture timer); ObjLogMs = objScene calls at least this slow go to the event file.
 static bool ApplyLotStream(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"LotStream", L"Enabled", 0, ini)) { Log("lot stream disabled (Enabled=0)"); return false; }
     if (ApexStandsDown(AXF_LOT, "[LotStream]", "lot streaming sites")) return false;
@@ -257,6 +276,9 @@ static bool ApplyLotStream(const wchar_t* ini) {
     if (GetPrivateProfileIntW(L"LotStream", L"ObjScene", 0, ini) &&
         (g_lsObjOrig = (LsObjFn)InstallDetour("UpdateObjectSceneNode (lot stream objScene)", LS_OBJ, kLsObj, sizeof(kLsObj), (void*)LsObjHook, &g_lsObjOrig)) != NULL)
         ready |= 64;
+    if (GetPrivateProfileIntW(L"LotStream", L"Thumb", 0, ini) &&
+        (g_lsThumbOrig = (LsThumbFn)InstallDetour("CreateThumbnailTexture (lot stream thumb)", LS_THUMB, kLsThumb, sizeof(kLsThumb), (void*)LsThumbHook, &g_lsThumbOrig)) != NULL)
+        ready |= 128;
     ts3native_counters.lsReady = ready;
     Log("%s lot stream: ready 0x%lX (Mode=%ld, event log %s, ObjLogMs=%ld)", (ready & 31) == 31 ? "OK  " : "FAIL", ready,
         ts3native_counters.lsMode, g_lsLog != INVALID_HANDLE_VALUE ? "on" : "off", g_lsObjLogUs / 1000);

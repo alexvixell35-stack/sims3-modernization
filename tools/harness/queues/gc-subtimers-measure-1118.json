@@ -1,0 +1,287 @@
+{
+  "note": "gc-subtimers-measure-1118 (PREPARED, NOT RUN; RUN FIRST for docs/287: measurement + correctness in one, no A/B). Needs feature/gc-offload-1118 merged into the checkout queue.ts runs from (tools/probe/agent.js v211 gct* names). Bin state apex (or apex-rewind) via tools/turbo-compat.ts in the chain. Each job runs vanilla GC pacing with ten Boehm call sites retargeted to timers. Read from each -native.json (end minus start): gcgMs, gcgForcedMs, gcgCycles, gctMarkUs_0/_1, gctStopUs_0/_1, gctFinUs_0/_1, gctSweepUs_0/_1, gctClearUs, gctRunUs and the N counts. Per-tick shares: mark = (gctMarkUs_0 + gctStopUs_0) / (gcgMs * 1000); finalize = gctFinUs_0 / ..; sweep = gctSweepUs_0 / ..; other = the rest (gcgMs includes gctRunUs and gctClearUs). GATE (docs/287 §2.3): the mark helpers are worth timing only if mark >= 60% of gcgMs on BP and SV; record the three shares per world in docs/287 §2.4. Correctness pass per job: no crash, script errors 0, version + gate-open + sub-timer lines, no SKIP / FAIL, gcgSkipped 0. Household: the timers change no GC or Sim decision, so household / selected / unknown-scope exemptions do not apply; script errors 0 and the save-hash guard cover it. Light enough for any time of day (shares, not ms/s deltas); rerun a job if other CPU >= 10%. Run: node tools/harness/queue.ts tools/harness/queues/gc-subtimers-measure-1118.json",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0.36.279-gcsub1 ": {
+      "match": [
+        "ts3native 0.36.279-gcsub1 2026-11-18 17:30:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.277-unseenmeas1 2026-11-18 08:30:00"
+      ]
+    },
+    "^GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": {
+      "match": [
+        "GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3"
+      ],
+      "noMatch": [
+        "GC idle gate: IdleGate=1 (gcgMode 1) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3",
+        "GC idle gate off (IdleGate=0)"
+      ]
+    },
+    "^OK   GC sub-timers: 10 call sites$": {
+      "match": [
+        "OK   GC sub-timers: 10 call sites"
+      ],
+      "noMatch": [
+        "SKIP GC sub-timers: call at 0x00E49DF2 is not a call to 0x00E4D460, nothing written",
+        "OK   GC idle gate cycle hold (0xE49FB6): 1 call sites"
+      ]
+    },
+    "^(SKIP|FAIL) GC (idle gate|sub-timers)": {
+      "match": [
+        "SKIP GC sub-timers: call at 0x00E49DF2 is not a call to 0x00E4D460, nothing written",
+        "SKIP GC idle gate: call 0xD819AA goes to 0x12345678",
+        "FAIL GC sub-timers: VirtualProtect at 0x00E49DF2 (err 5)"
+      ],
+      "noMatch": [
+        "OK   GC sub-timers: 10 call sites",
+        "GC idle gate off (IdleGate=0)"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-gcsub-smoke",
+      "note": "[est 9 min] SMOKE: BP 5 min, stops the queue on fail. Proves the ten sites, the v211 counter names and the open gate.",
+      "asi": "game-copy/ts3native.asi.gcsub-1118",
+      "iniBase": "game-copy/ts3native.ini.gcsub-1118",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "ts3native.asi.gcsub-1118 (0.36.279-gcsub1: master 59b1cabe6 (0.36.278-offloada1) + [GC] SubTimers, counters v211, docs/287 §2) with its own ini and ts3fixes.package.master-1117c",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "ini": {
+        "GC.SubTimers": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5,
+          "noSamplers": true
+        }
+      },
+      "nativeRequire": "@gctReady>=1,gcgReady>=3,gctMarkN>=1,gctStopN>=1,gctFinN>=1,gctSweepN>=1,gcgSkipped<=0",
+      "logRequire": {
+        "^ts3native 0.36.279-gcsub1 ": 1,
+        "^GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^OK   GC sub-timers: 10 call sites$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) GC (idle gate|sub-timers)": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "gctReady",
+          "op": ">=",
+          "value": 1,
+          "why": "sub-timer call sites not retargeted"
+        },
+        {
+          "afterSec": 150,
+          "counter": "gctMarkN",
+          "op": ">",
+          "value": 0,
+          "why": "no incremental mark step timed (agent.js without v211 names, or site wrong)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "gcgSkipped",
+          "op": "<=",
+          "value": 0,
+          "why": "gate not open (gcgMode not 0): the measurement must not change GC pacing"
+        }
+      ],
+      "stopQueueOnFail": true
+    },
+    {
+      "id": "bp-gcsub",
+      "note": "[est 14 min] Baseline-BP-Spring 10 min, [GC] SubTimers=1 (gate installed open, no GC decision changes).",
+      "asi": "game-copy/ts3native.asi.gcsub-1118",
+      "iniBase": "game-copy/ts3native.ini.gcsub-1118",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "ts3native.asi.gcsub-1118 (0.36.279-gcsub1: master 10f33f91c + [GC] SubTimers, counters v211, docs/287 §2) with its own ini and ts3fixes.package.master-1117c",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "ini": {
+        "GC.SubTimers": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "nativeRequire": "@gctReady>=1,gcgReady>=3,gctMarkN>=1,gctStopN>=1,gctFinN>=1,gctSweepN>=1,gcgSkipped<=0",
+      "logRequire": {
+        "^ts3native 0.36.279-gcsub1 ": 1,
+        "^GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^OK   GC sub-timers: 10 call sites$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) GC (idle gate|sub-timers)": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "gctReady",
+          "op": ">=",
+          "value": 1,
+          "why": "sub-timer call sites not retargeted"
+        },
+        {
+          "afterSec": 150,
+          "counter": "gctMarkN",
+          "op": ">",
+          "value": 0,
+          "why": "no incremental mark step timed (agent.js without v211 names, or site wrong)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "gcgSkipped",
+          "op": "<=",
+          "value": 0,
+          "why": "gate not open (gcgMode not 0): the measurement must not change GC pacing"
+        }
+      ]
+    },
+    {
+      "id": "sv-gcsub",
+      "note": "[est 14 min] Baseline-SV-Spring 10 min, [GC] SubTimers=1 (gate installed open, no GC decision changes).",
+      "asi": "game-copy/ts3native.asi.gcsub-1118",
+      "iniBase": "game-copy/ts3native.ini.gcsub-1118",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "ts3native.asi.gcsub-1118 (0.36.279-gcsub1: master 10f33f91c + [GC] SubTimers, counters v211, docs/287 §2) with its own ini and ts3fixes.package.master-1117c",
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "ini": {
+        "GC.SubTimers": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "nativeRequire": "@gctReady>=1,gcgReady>=3,gctMarkN>=1,gctStopN>=1,gctFinN>=1,gctSweepN>=1,gcgSkipped<=0",
+      "logRequire": {
+        "^ts3native 0.36.279-gcsub1 ": 1,
+        "^GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^OK   GC sub-timers: 10 call sites$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) GC (idle gate|sub-timers)": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "gctReady",
+          "op": ">=",
+          "value": 1,
+          "why": "sub-timer call sites not retargeted"
+        },
+        {
+          "afterSec": 150,
+          "counter": "gctMarkN",
+          "op": ">",
+          "value": 0,
+          "why": "no incremental mark step timed (agent.js without v211 names, or site wrong)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "gcgSkipped",
+          "op": "<=",
+          "value": 0,
+          "why": "gate not open (gcgMode not 0): the measurement must not change GC pacing"
+        }
+      ]
+    },
+    {
+      "id": "ip-gcsub",
+      "note": "[est 14 min] Baseline-IP-Spring 10 min, [GC] SubTimers=1 (gate installed open, no GC decision changes).",
+      "asi": "game-copy/ts3native.asi.gcsub-1118",
+      "iniBase": "game-copy/ts3native.ini.gcsub-1118",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "ts3native.asi.gcsub-1118 (0.36.279-gcsub1: master 10f33f91c + [GC] SubTimers, counters v211, docs/287 §2) with its own ini and ts3fixes.package.master-1117c",
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "ini": {
+        "GC.SubTimers": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "nativeRequire": "@gctReady>=1,gcgReady>=3,gctMarkN>=1,gctStopN>=1,gctFinN>=1,gctSweepN>=1,gcgSkipped<=0",
+      "logRequire": {
+        "^ts3native 0.36.279-gcsub1 ": 1,
+        "^GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^OK   GC sub-timers: 10 call sites$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) GC (idle gate|sub-timers)": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "gctReady",
+          "op": ">=",
+          "value": 1,
+          "why": "sub-timer call sites not retargeted"
+        },
+        {
+          "afterSec": 150,
+          "counter": "gctMarkN",
+          "op": ">",
+          "value": 0,
+          "why": "no incremental mark step timed (agent.js without v211 names, or site wrong)"
+        },
+        {
+          "afterSec": 60,
+          "counter": "gcgSkipped",
+          "op": "<=",
+          "value": 0,
+          "why": "gate not open (gcgMode not 0): the measurement must not change GC pacing"
+        }
+      ]
+    }
+  ]
+}
