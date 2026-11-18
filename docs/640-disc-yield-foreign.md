@@ -76,3 +76,7 @@ or the age ceiling may now wait instead.
 - In game (IP, night, `unseenboatland` on as in phase-20261117-2211): first one run with the switch off and this build to read the
   drain points of the `sim waited ... at disc` lines; then off / on. Pass: on arm has no `sim waited >= 300 ms at disc ... drain
   point START|A10 START|READY` lines, `disc yield` totals > 0, `parked capped` near 0, no rise of `swMaxUs` / other drain points.
+
+## In-game result (2026-11-18, s101 off / s102 on, Isla Paradiso, asi 4ff453a1)
+
+Not proven; keep off. Off: 3 game hitches up to Sun 11:24 PM, 3 disc waits. On: 12 hitches to Mon 1:23 AM (8 by 11:24 PM), 2 disc waits; yields START 1, A10 START 3, READY 13, parked capped 0. Every remaining disc wait names `drain point fp2 reader`, which this switch does not cover, and most IP night hitches have no disc wait at all: they sit next to kind-3 boat jobs, so the sim thread blocks elsewhere while the job holds the world lock. Next: stall-watch stacks (StallMs=250) on an IP night run (s104).
