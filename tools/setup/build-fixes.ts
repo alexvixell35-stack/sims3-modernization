@@ -214,6 +214,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kMetricSkillMissing value="True" />
     <kFireworksFizzle value="True" />
     <kBoatRouteNull value="False" />
+    <kBoatTrip value="False" />
+    <kBoatPlace value="False" />
+    <kBoatPlaceMaxM value="24" />
+    <kRetryScope value="False" />
+    <kBoatLandStuck value="False" />
     <kOutfitMissing value="True" />
     <kAgeUpDupInst value="False" />
     <kOverwatchResetGone value="False" />

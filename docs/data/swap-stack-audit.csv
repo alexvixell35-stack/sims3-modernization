@@ -591,6 +591,7 @@ VhHook.LoopHook,OccultVampire.VampireHunt,LoopDel,VampireHuntGlow.cs,LoopOrig,ye
 VlParkHook.PickHook,Vehicle,GetClosestUnreservedParkingSpace,VehicleLeaks.cs,PickOrig,no,no path to a yield in 1 overload(s),VehicleLeaks,keep
 VlGetInCarHook.PerformHook,sVlGiCarType,PerformAction,VehicleLeaks.cs,PerformOrig,?,not found in the index: sVlGiCarType::PerformAction,VehicleLeaks,"keep, stub remap (SavedStacks.cs)"
 VlGetInBoatHook.PerformHook,sVlGiBoatType,PerformAction,VehicleLeaks.cs,PerformOrig,?,not found in the index: sVlGiBoatType::PerformAction,VehicleLeaks,"keep, stub remap (SavedStacks.cs)"
+BoatPlaceHook.PlaceAtHook,Vehicle,PlaceAt,VehicleLeaks.cs,PlaceAtOrig,yes,Vehicle::PlaceAt > Vehicle::PlaceVehicleAt > .. 2 .. > StateMachineClient::RequestState,boatplace / boattrip: a townie boat placed on open water outside the lot,"keep, stub remap (SavedStacks.cs)"
 VlGetVehicleHook.GetHook,Sim,GetVehicle,VehicleLeaks.cs,GetOrig,yes,Sim::GetVehicle > CarNpcManager::CreateNpcCarWithDriver > .. 2 .. > StateMachineClient::RequestState,VehicleLeaks,"keep, stub remap (SavedStacks.cs)"
 VlFrankHook.CleanupHook,sVlFrankIntro,Cleanup,VehicleLeaks.cs,CleanupOrig,?,not found in the index: sVlFrankIntro::Cleanup,VehicleLeaks,"keep, stub remap (SavedStacks.cs)"
 VlProtestHook.InitHook,ImprovedProtestSituation.ProtestOutcomeBrokenUpByPolice,Init,VehicleLeaks.cs,InitOrig,yes,ImprovedProtestSituation+ProtestOutcomeBrokenUpByPolice::Init > Situation::Exit > .. 2 .. > StateMachineClient::RequestState,VehicleLeaks,"keep, stub remap (SavedStacks.cs)"
@@ -1192,6 +1193,7 @@ FpYieldHook.CanTurnHook,Terrain,CanTurnInPlace,JobYieldRoad.cs,CanTurnOrig,yes,F
 FpYieldHook.ModHook,Terrain,ModifyRouteForSpecies,JobYieldRoad.cs,ModOrig,yes,FpYieldHook::ModHook > RouteBackoffHook::FpStepAside > RouteBackoffHook::StepAside > Simulator::Sleep,JobYieldRoad,"keep, stub remap (SavedStacks.cs)"
 AgeUpDupInstHook.InstHook,SimDescription,Instantiate,EaFixes.cs,InstOrig,yes,SimDescription::Instantiate > SimDescription::Instantiate > .. 4 .. > Simulator::Sleep,EaFixes,"keep, stub remap (SavedStacks.cs)"
 BoatRouteNullHook.RouteHook,Sims3.Gameplay.Objects.Vehicles.Boat,RouteBoatToLandOnWayToPosition,EaFixes.cs,RouteOrig,yes,Boat::RouteBoatToLandOnWayToPosition > GameObject::DoRoute > .. 2 .. > StateMachineClient::RequestState,EaFixes,"keep, stub remap (SavedStacks.cs)"
+BoatLandStuckHook.RunHook,Boat.GetOutOfBoat,Run,BoatLandStuck.cs,RunOrig,yes,Boat+GetOutOfBoat::Run > Simulator::Sleep,boatlandstuck: a failed GetOutOfBoat.Run ends with EA's Boat.GetOut for an NPC,"keep, stub remap (SavedStacks.cs)"
 OutfitMissingHook.InitHook,Sim.SwitchOutfitHelper,Init,EaFixes.cs,InitOrig,yes,Sim+SwitchOutfitHelper::Init > Sim::GetCategoryAndIndexToUse > .. 3 .. > Simulator::Sleep,EaFixes,"keep, stub remap (SavedStacks.cs)"
 OverwatchResetGoneHook.ResetHook,Sim,SetObjectToReset,EaFixes.cs,ResetOrig,no,no path to a yield in 1 overload(s),EaFixes,keep
 OwRelRetryHook.LoadHook,t,OnDelayedWorldLoadFinished,OwRelRetry.cs,LoadOrig,?,not found in the index: t::OnDelayedWorldLoadFinished,OwRelRetry,"keep, stub remap (SavedStacks.cs)"

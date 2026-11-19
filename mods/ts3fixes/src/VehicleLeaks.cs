@@ -52,6 +52,7 @@ namespace Ts3Fixes
             Patch(typeof(Vehicle), "GetClosestUnreservedParkingSpace", new Type[] { typeof(ParkingSpace[]), typeof(IUsesParkingSpace) }, typeof(VlParkHook), "PickHook", "PickOrig");  // S1
             if (sVlGiCarType != null) Patch(sVlGiCarType, "PerformAction", Type.EmptyTypes, typeof(VlGetInCarHook), "PerformHook", "PerformOrig");  // S2
             if (sVlGiBoatType != null) Patch(sVlGiBoatType, "PerformAction", Type.EmptyTypes, typeof(VlGetInBoatHook), "PerformHook", "PerformOrig");  // S2
+            if (sVlGiBoatType != null) Patch(typeof(Vehicle), "PlaceAt", new Type[] { typeof(Vector3), typeof(Vector3), typeof(Sim) }, typeof(BoatPlaceHook), "PlaceAtHook", "PlaceAtOrig");  // boatplace / boattrip (BoatPlace.cs, BoatTrip.cs, default off)
             Patch(typeof(Sim), "GetVehicle", new Type[] { typeof(Lot), typeof(bool) }, typeof(VlGetVehicleHook), "GetHook", "GetOrig");  // S2: the vehicle the get-in got
             if (sVlFrankIntro != null) Patch(sVlFrankIntro, "Cleanup", Type.EmptyTypes, typeof(VlFrankHook), "CleanupHook", "CleanupOrig");  // S4
             Patch(typeof(ImprovedProtestSituation.ProtestOutcomeBrokenUpByPolice), "Init", new Type[] { typeof(ImprovedProtestSituation) }, typeof(VlProtestHook), "InitHook", "InitOrig");  // S5
@@ -71,6 +72,7 @@ namespace Ts3Fixes
             sVlGiActive.Clear();
             sVlGiGot.Clear();
             sVlGiArmed = false;
+            BtWorldLoad();  // boattrip (BoatTrip.cs)
             if (sVlDestroyedListener != null) EventTracker.RemoveListener(sVlDestroyedListener);
             sVlDestroyedListener = EventTracker.AddListener(EventTypeId.kSimDestroyed, OnVlSimDestroyed);
             if (AlarmManager.Global == null) return;
@@ -82,6 +84,7 @@ namespace Ts3Fixes
         {
             try { VlParkPass(); } catch (Exception e) { VlThrew("vehparkreserve", e); }
             try { VlProtestPass(); } catch (Exception e) { VlThrew("vehprotestcar", e); }
+            try { BtSweep(); } catch (Exception e) { VlThrew("boattrip", e); }  // boattrip's leftover-boat sweep (BoatTrip.cs): also when no boat plan triggers it
         }
 
         // One ts3native.log line ("ts3fixes: <line>") and one agent recent line; at most 200 per switch and session.

@@ -13292,6 +13292,7 @@ static void TestP5() {
 #include "asklent-test.h"      // TestAskLent ([RouteSnap] AskLent + DoorMemoX, docs/189 phase 3)
 #include "tailunlock-test.h"  // TestTailUnlock ([RouteAsync] TailUnlock, docs/150 §11)
 #include "cellmemo-test.h"  // TestCellMemoProbe ([CellMemoProbe], docs/150 §12)
+#include "boatprobe-test.h"  // TestBoatProbe ([BoatProbe], ts3fixes boatplace / boattrip)
 #include "replandedupe-test.h"  // TestReplanDedupe ([RouteAsync] ReplanDedupe, docs/150 §13)
 #include "plandeadline-test.h"  // TestPlanDeadline ([RouteAsync] PlanDeadlineMs / FailMemo, docs/164 §7)
 #include "taskserve-test.h"  // TestTaskServe ([RouteAsync] TaskServe, docs/637)
@@ -14862,6 +14863,7 @@ int main() {
     TestAskLent();
     TestTailUnlock();
     TestCellMemoProbe();
+    TestBoatProbe();
     TestReplanDedupe();
     TestPlanDeadline();
     TestTaskServe();  // docs/637

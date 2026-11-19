@@ -733,6 +733,8 @@ namespace Ts3Fixes
         // [2719-2721] fightstaycap (FightStayCap.cs): Sims released from a snow/water fight after 120 sim min / hook errors / fight members not found.
         // [2780-2782] fireworkswatchlate (FireworksWatchLate.cs): late watchers sent through LoopWatch before Exit / members not found (EA's Run used) / EA's Run threw SacsErrorException (switch off).
         // [3982-3984] boatroutenull (BoatRouteNull.cs): Boat.RouteBoatToLandOnWayToPosition false for a boat with no RoutingComponent / seen with the switch off (EA throws) / errors.
+        // [4070-4074] boattrip (BoatTrip.cs): boats placed or moved to an open-water cell / trip starts that took a boat start, a walk or another shore / boat plans a step 1-4 answered / trips where every step failed / leftover boats released, parked or footprint off.
+        // [4075] boatplace (BoatPlace.cs): boats placed on an open-water cell outside the lot. [4076] retryscope (RetryScope.cs): scope answers sent again before boattrip's sync plans. [4077] boatlandstuck (BoatLandStuck.cs): Sims put ashore by Boat.GetOut after a failed GetOutOfBoat.Run.
         // [3985-3987] outfitmissing (OutfitMissing.cs): SwitchOutfitHelper.Init for a missing outfit (pregnant Sims' special outfits) made no-change / seen with the switch off (EA throws) / guard errors.
         // [3988-3990] ageupdupinst (AgeUpDupInst.cs, #553): second instantiations during a deferred age-up answered with the first call's Sim / seen with the switch off (EA throws) / no Sim made (rethrown).
         // [3991-3993] overwatchrelretry (OwRelRetry.cs): Overwatch CleanupRelationships re-runs after "out of sync" / seen with the switch off / still failing after 50 runs.
@@ -1519,7 +1521,7 @@ namespace Ts3Fixes
         // game's call (actor / other Sim out of scope, not indoor, seq overflow), errors, verify checks, differences, reorder-only differences
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
-        const int kCounterSlots = 4000;
+        const int kCounterSlots = 4200;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2386,6 +2388,10 @@ namespace Ts3Fixes
                 case "metricskillmissing": return Instantiator.kMetricSkillMissing;
                 case "fireworksfizzle": return Instantiator.kFireworksFizzle;
                 case "boatroutenull": return Instantiator.kBoatRouteNull;
+                case "boattrip": return Instantiator.kBoatTrip;
+                case "boatplace": return Instantiator.kBoatPlace;
+                case "retryscope": return Instantiator.kRetryScope;
+                case "boatlandstuck": return Instantiator.kBoatLandStuck;
                 case "outfitmissing": return Instantiator.kOutfitMissing;
                 case "ageupdupinst": return Instantiator.kAgeUpDupInst;
                 case "overwatchresetgone": return Instantiator.kOverwatchResetGone;

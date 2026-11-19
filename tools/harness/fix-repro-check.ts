@@ -153,6 +153,11 @@ export const EXEMPT: Record<string, string> = {
   overwatchresetgone: 'Dalexlol #564: default off, never fired yet (destroyed Sim with no proxy in SetObjectToReset); no forced repro',
   motivesnohousehold: 'Dalexlol #564: default off, not testable on his PC (Sim with no household); no forced repro',
   overwatchrelretry: 'Dalexlol #564: ON, one natural hit in his play, retry passed; load-time race, no forced repro',
+  // boat trips PR (2026-11-19): townie boat routing, judged by his natural-play counters; no forced repro
+  boattrip: 'Dalexlol boat trips PR: default off, townie boat trips (BoatTrip.cs), natural Isla Paradiso play only; no forced repro',
+  boatplace: 'Dalexlol boat trips PR: default off, townie boat placement off lot water (BoatPlace.cs), natural play only; no forced repro',
+  retryscope: 'Dalexlol boat trips PR: default off, scope answer re-sent for boattrip sync plans (RetryScope.cs), natural play only; no forced repro',
+  boatlandstuck: 'Dalexlol boat trips PR: default off, EA GetOutOfBoat.Run stuck-seated fix (BoatLandStuck.cs), natural play only; no forced repro',
   jobyieldroad: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
   jobyieldroadow: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
   jobyieldspawn: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',

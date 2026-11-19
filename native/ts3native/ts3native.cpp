@@ -5728,6 +5728,7 @@ static u8 ScProbeMark(DWORD handle, DWORD lo = 0) {
     return 1;
 }
 static u8 UdTextMsg(DWORD lo, DWORD hi);   // userdiag.cpp: ts3fixes text channel (optHi top byte 0x87 = bits 63 + 58 + 57 + 56, docs/188)
+static u8 BpMsg(DWORD lo, DWORD hi);   // boatprobe.cpp: ts3fixes boatplace / boattrip water-grid question (optHi top byte 0x89)
 // docs/247 §9 (ts3fixes boatreplanlog): would a foreign ReplanFromPoint START pass this check now? Same tests as the foreign
 // branch of GetOptionHook and AsyncStart, no side effect. GetOption2 with optHi 0x88000000 (no RouteOption2 name, so the game
 // and older ts3native answer false), optLo = question.
@@ -5812,6 +5813,7 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
     if ((u8)options2 && (optHi & 0xFF000000) == 0x84000000) return SpDoorMsg(optLo, optHi);
     if ((u8)options2 && (optHi & 0xFF000000) == 0x82000000) return UtViewerMsg(optLo, optHi);
     if ((u8)options2 && (optHi & 0xFF000000) == 0x87000000) return UdTextMsg(optLo, optHi);  // docs/188
+    if ((u8)options2 && (optHi & 0xFF00FFFF) == 0x89000000) return BpMsg(optLo, optHi);  // boatprobe.cpp (read only)
     if ((u8)options2 && (optHi & ~(kArKindHi | kArPtHi | kArFgnHi)) == (kAsyncOptHi | kArHi) &&
         !((optHi & kArFgnHi) && ((optHi & kArPtHi) || !(optHi & kArKindHi)))) {  // foreign bit: kind 1-3 STARTs only
         const int idx = (int)(optHi >> 24) & 3;
@@ -6226,6 +6228,7 @@ static void SlimWait();
 #include "savecompress.cpp"
 #include "footprint.cpp"
 #include "heightcache.cpp"
+#include "boatprobe.cpp"  // [BoatProbe]: water-grid answers and probe lines for ts3fixes boatplace / boattrip (read only)
 #include "gcthreads.cpp"
 #include "memexp.cpp"  // docs/199: [MemDiag] TypeGrowth, [GC] SqrtHeapLimit (off)
 #include "gcgrow.cpp"  // docs/232 Run 8l/8n: [GcGrowLog] + [GC] BlackListCapKB (after memexp.cpp: g_mx; savewrite.cpp: PatchCalls)

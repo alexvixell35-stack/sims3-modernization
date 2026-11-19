@@ -40,6 +40,7 @@ namespace Ts3Fixes
                 StuckCheckPlanned(r.mType == RoutePlanResultType.Succeeded); // docs/163 §10 stuck-check outcome counters (FewerPlans.cs)
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
                 RflPlan(this, 0, rflT0, r);
+                if (ShortcutOn("boattrip")) { try { r = BtAfter(0, Vector3.Invalid, r, rflT0); } finally { KdRescopeEnd(); } }  // boattrip (BoatTrip.cs) + retryscope (RetryScope.cs)
                 return r;
             }
 
@@ -372,6 +373,7 @@ namespace Ts3Fixes
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
                 SemCapture(r);  // docs/636 spotedgememo: which goal EA's full routability plan reached
                 RflPlan(this, 2, rflT0, r);
+                if (ShortcutOn("boattrip")) { try { r = BtAfter(2, startPosition, r, rflT0); } finally { KdRescopeEnd(); } }  // boattrip (BoatTrip.cs) + retryscope (RetryScope.cs)
                 return r;
             }
             RoutePlanResult PlanFromPointAsync(Vector3 startPosition)
