@@ -71,3 +71,14 @@ gate wait, one event).
 Caveat (inferred): hitchwatch measures the gap between two ticks of a script task, so a 300-380 ms gap can be two
 consecutive sim iterations of ~150-190 ms each, under the 250 ms stall threshold. Next: s107 repeats with `StallMs=150`
 (the floor) before concluding the IP night hitches are off the sim thread.
+
+## Addendum: IP night at the 150 ms floor (s107, phase-20261118-2356)
+
+Same setup as s106 with `StallMs=150 EveryMs=50 Lines=3`. Game hitches 312-388 ms at Sun. 10:51, 11:02, 11:11 and 11:16 PM.
+**Zero sim-thread stall lines in the whole 10:45-11:20 PM window** (log lines 1850-2060), so no single Simulate iteration
+reached 150 ms there. A 300-390 ms gap between hitchwatch task ticks with every iteration under 150 ms means the hitchwatch
+task skipped at least two iterations, i.e. the script scheduler's time slice was used up by other managed tasks for 2-3
+iterations in a row (inferred), or the frame wait between iterations ran long. Either way it is not a native sim-thread
+stall that a stack can show. Next tool, if this is chased: a managed per-iteration task census (which Mono tasks ran in the
+iterations of the gap), not more stall stacks. Stall lines elsewhere in the run: RouteGate site 7 waits again (174-192 ms),
+plus long iterations at load and exit (519-1285 ms) outside play.
