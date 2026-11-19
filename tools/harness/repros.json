@@ -69079,7 +69079,7 @@
     "bug": "docs/642 §7: an NPC dropped on shore ~15-22 m from its DOCKED houseboat's gangway at a spot with no walkable path: after every plan home EA's CheckAndUpdateForHouseboats -> EnterHouseboatThroughGangway plans PlanToPointFromPoint to the gangway's RoutingSlot_0 with water and boat planning off, no path (~650 ms); GoHome.Run fails, autonomy picks GoHome again, no give-up",
     "fix": "ts3fixes houseboatgangwayrescue (HouseboatGangwayRescue.cs): the no-path gangway leg marks the NPC (4040); after GoHome fails, EA's Houseboat.PlaceSimAtEntrance places it on the houseboat (4041), at most once per sim-hour; refused 4042 (reasons 4044-4049), errors 4043; household / selected / unknown scope exempt",
     "save": "Baseline-IP",
-    "note": "Forced. houseboat_leg_repro mode docked (default) picks NPCs living on a Docked houseboat with a port gangway, sends each by EA's Teleport Me Here to the nearest world-lot coastal spot 80-480 m off that is not connected by land, then EA's MakeSimGoHome (own boat if usable, else EA's boat planning); watches waitS 150 s: boat, get-out spot and its gangway distance, first gangway leg, rescue fired. A get-out with no failed gangway leg (first_gangway_leg Succeeded or none) = not triggered on this save: N/A, not FAIL. 2026-11-19 phase-1523: the old fixed-shore placement never failed (all spots walked). Needs an active household.",
+    "note": "Forced. houseboat_leg_repro mode docked (default) picks NPCs living on a Docked houseboat with a port gangway, sends each by EA's Teleport Me Here to the nearest world-lot coastal spot 80-480 m off that is not connected by land, then EA's MakeSimGoHome (own boat if usable, else EA's boat planning); watches waitS 150 s: boat, get-out spot and its gangway distance, first gangway leg, rescue fired. A get-out with no failed gangway leg (first_gangway_leg Succeeded or none) = not triggered on this save: N/A, not FAIL. 2026-11-19 phase-1523: the old fixed-shore placement never failed (all spots walked); phase-1608: unseen NPCs were put home by the unseen shortcuts (no boat), so the run is SEEN: camera follows the first Sim, shortcutsOff forces gohome / unseenboat* / unseenfb* / unseenroute off for the run and restores them. start_needs_boat true = the start is not land-connected (wanted). Needs an active household.",
     "steps": [
       {
         "cmd": "patches",
@@ -69095,7 +69095,8 @@
           "start": true,
           "mode": "docked",
           "sims": 2,
-          "waitS": 150
+          "waitS": 150,
+          "shortcutsOff": true
         },
         "waitS": 170,
         "note": "teleport to a far coast, MakeSimGoHome, watch the boat trip home 150 s"

@@ -74,9 +74,51 @@ namespace Ts3Agent
         static string sHlrMode = "docked";
         static int sHlrWaitS = 150;
         static readonly Dictionary<Sim, HlrSim> sHlrDockedWatch = new Dictionary<Sim, HlrSim>();
+        // docked mode runs the Sim SEEN (2026-11-19 phase-1608: unseen, the NPCs were put home by the unseen shortcuts in 0.2-5 s, no
+        // boat trip): the camera follows the first Sim, and with shortcutsOff (default true) these ts3fixes switches are forced off
+        // for the run (the same ts3fixes.switches override as `patches`), restored at the end or on stop
+        static readonly string[] kHlrShortcuts = { "gohome", "unseenboat", "unseenboatstart", "unseenboatland", "unseenfbteleport", "unseenfbpre", "unseenfbtrip", "unseenfbarrive", "unseenroute" };
+        static Dictionary<string, int> sHlrPrior;  // switch -> 1 on, 0 off, -1 unset before the run
+        static bool sHlrCamera, sHlrShortcutsOff = true;
+
+        static void HlrShortcutsOff()
+        {
+            if (sHlrPrior != null) return;
+            Dictionary<string, bool> sw = HlrSwitches();
+            sHlrPrior = new Dictionary<string, int>();
+            bool v;
+            foreach (string n in kHlrShortcuts) { sHlrPrior[n] = sw.TryGetValue(n, out v) ? (v ? 1 : 0) : -1; sw[n] = false; }
+            Util.SwitchesChanged();
+            DiagLine("houseboat_leg_repro: unseen shortcuts off for the run: " + string.Join(", ", kHlrShortcuts));
+        }
+
+        static void HlrShortcutsRestore()
+        {
+            if (sHlrPrior == null) return;
+            Dictionary<string, bool> sw = HlrSwitches();
+            foreach (KeyValuePair<string, int> kv in sHlrPrior) { if (kv.Value < 0) sw.Remove(kv.Key); else sw[kv.Key] = kv.Value == 1; }
+            sHlrPrior = null;
+            Util.SwitchesChanged();
+            DiagLine("houseboat_leg_repro: unseen shortcuts restored");
+        }
+
+        static void HlrCameraOff()
+        {
+            if (!sHlrCamera) return;
+            sHlrCamera = false;
+            try { CameraController.DisableObjectFollow(); } catch (Exception) { }
+        }
+
+        static Dictionary<string, bool> HlrSwitches()
+        {
+            AppDomain dom = AppDomain.CurrentDomain;
+            Dictionary<string, bool> sw = dom.GetData("ts3fixes.switches") as Dictionary<string, bool>;
+            if (sw == null) { sw = new Dictionary<string, bool>(); dom.SetData("ts3fixes.switches", sw); }
+            return sw;
+        }
 
         // houseboat_leg_repro {start: true, mode?: "docked" | "undock", sims?: 2, tries?: 4 (undock), undock?: true (undock mode),
-        //   waitS?: 150 (docked: seconds to watch the trip home)} | {result: true} | {stop: true}
+        //   waitS?: 150 (docked: seconds to watch the trip home), shortcutsOff?: true (docked: unseen shortcuts off for the run)} | {result: true} | {stop: true}
         static object HouseboatLegRepro(Args a)
         {
             RequireLive();
@@ -88,6 +130,7 @@ namespace Ts3Agent
                 sHlrMode = a.Str("mode", "docked");
                 if (sHlrMode != "docked" && sHlrMode != "undock") throw new McpException("houseboat_leg_repro: mode is docked (default) or undock, not " + sHlrMode);
                 sHlrWaitS = Math.Max(5, (int)a.Long("waitS", 150));
+                sHlrShortcutsOff = a.Bool("shortcutsOff", true);
                 sHlrUndock = null; sHlrUndockInfo = null;
                 sHlrSims = sHlrMode == "docked" ? HlrPickDocked((int)a.Long("sims", 2)) : HlrPick((int)a.Long("sims", 2), a.Bool("undock", true));
                 sHlrDone = false; sHlrError = null;
@@ -109,7 +152,7 @@ namespace Ts3Agent
                 if (sHlrUndock != null) r["undock"] = "pending: " + HlrHbName(sHlrUndock) + " (" + sHlrUndock.CurrentStatus + ")";
                 return r;
             }
-            if (a.Has("stop")) { sHlrGen++; HlrUnhook(); r["stopped"] = true; return r; }
+            if (a.Has("stop")) { sHlrGen++; HlrUnhook(); HlrShortcutsRestore(); HlrCameraOff(); r["stopped"] = true; return r; }
             Dictionary<string, object> ctr = Util.Obj();
             string[] cn = { "recorded", "answered", "answered_ms", "exempt_or_error" };
             for (int k = 0; k < 4; k++) { int v = HlrCtr(k); ctr[cn[k] + "_" + (3870 + k)] = v < 0 ? -1 : v - sHlrBase[k]; }
@@ -123,7 +166,9 @@ namespace Ts3Agent
                 Dictionary<string, object> o = Util.Obj();
                 o["sim"] = h.S.FullName; o["scope"] = h.Scope; o["houseboat"] = h.HbName; o["houseboat_status"] = h.HbStatus; o["resident"] = h.Resident;
                 o["spot"] = h.Spot != Vector3.Invalid ? Math.Round(h.Spot.x, 1) + "," + Math.Round(h.Spot.z, 1) : null;
-                o["probe_failed"] = h.ProbeFailed; o["probes"] = h.Probes; o["plans"] = h.Plans; o["error"] = h.Error;
+                if (sHlrMode == "docked") o["start_needs_boat"] = h.ProbeFailed;  // docked: start not connected by land (true = wanted)
+                else o["probe_failed"] = h.ProbeFailed;
+                o["probes"] = h.Probes; o["plans"] = h.Plans; o["error"] = h.Error;
                 if (sHlrMode == "docked")
                 {
                     o["start_gangway_m"] = Math.Round(h.GangwayM, 1); o["gohome_pushed"] = h.Pushed; o["boat"] = h.Boat;
@@ -422,6 +467,7 @@ namespace Ts3Agent
 
         static void HlrRunDocked(int gen)
         {
+            if (sHlrShortcutsOff) HlrShortcutsOff();
             HlrHook();
             try
             {
@@ -480,7 +526,7 @@ namespace Ts3Agent
                         + ", first gangway leg " + (h.FirstLeg ?? "none") + ", rescued " + h.Rescued);
                 }
             }
-            finally { HlrUnhook(); }
+            finally { HlrUnhook(); HlrShortcutsRestore(); HlrCameraOff(); }
             string s = "";
             for (int k = 0; k < 4; k++) { int v = HlrCtr(k); s += (k > 0 ? ", " : "") + "[" + (3870 + k) + "] +" + (v < 0 ? -1 : v - sHlrBase[k]); }
             for (int k = 0; k < 10; k++) { int v = HlrGr(k); s += ", [" + (4040 + k) + "] +" + (v < 0 ? -1 : v - sHlrGrBase[k]); }
@@ -505,10 +551,24 @@ namespace Ts3Agent
             while (gen == sHlrGen && (s.Position - spot).Length() > 3f && unchecked(System.Environment.TickCount - t0) < 10000) Simulator.Sleep(10);
             h.GangwayM = (s.Position - h.Gangway).Length();
             h.ProbeFailed = !Terrain.ArePointsConnectedByLand(s.Position, h.Hb.Position);  // "probe_failed" = the start needs a boat
+            if (h == sHlrSims[0])  // SEEN: the camera on the first Sim, following it for the whole trip
+            {
+                Vector3 p = s.Position;
+                try
+                {
+                    if (CameraController.IsMapViewModeEnabled()) Sims3.Gameplay.Core.Camera.ToggleMapView();
+                    CameraController.SetPositionAndTarget(new Vector3(p.x, p.y + 12f, p.z - 12f), p);
+                    CameraController.EnableObjectFollow(s.ObjectId.Value, Vector3.Zero);
+                    sHlrCamera = true;
+                }
+                catch (Exception e) { DiagLine("houseboat_leg_repro: camera error " + e.GetType().Name); }
+                Simulator.Sleep(1);
+            }
             h.Pushed = Sim.MakeSimGoHome(s, true);
             Lot at = s.LotCurrent;
             DiagLine("houseboat_leg_repro: " + s.FullName + " (" + h.Scope + ") at " + (int)s.Position.x + "," + (int)s.Position.z + " (lot " + (at != null ? at.Name : "none")
-                + "), " + Math.Round(h.GangwayM) + " m from " + h.HbName + "'s gangway, land-connected " + !h.ProbeFailed + ", MakeSimGoHome " + h.Pushed);
+                + "), " + Math.Round(h.GangwayM) + " m from " + h.HbName + "'s gangway, land-connected " + !h.ProbeFailed + ", camera " + (sHlrCamera && h == sHlrSims[0] ? "following" : "elsewhere")
+                + ", MakeSimGoHome " + h.Pushed);
         }
 
         static void HlrRun(int gen, int tries)

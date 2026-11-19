@@ -205,7 +205,13 @@ the rider (the gangway leg follows a successful kind-3 boat replan). So the dock
 Docked houseboat goes by EA's Teleport Me Here to the nearest world-lot coastal land spot (80-480 m) not connected by land to the
 houseboat, then EA's `Sim.MakeSimGoHome(sim, true)` (its own boat when usable there, else GoHome's boat planning). The result
 watches `waitS` (150) s: the boat, the get-out spot and its distance to the gangway, the first gangway leg (boat and water
-planning off inside `CheckAndUpdateForHouseboats`: result, ms, Sim position), whether the rescue fired, the lot reached. Expected:
+planning off inside `CheckAndUpdateForHouseboats`: result, ms, Sim position), whether the rescue fired, the lot reached.
+Second version (phase-20261119-1608, combo f0f8943a): every NPC was home in 0.2-5 s with no boat and no get-out: unseen, the
+unseen shortcuts (GoHome shortcut, unseenboat, unseen-fallback teleports) placed them [inferred from the timing]. The run is now
+SEEN: the camera follows the first Sim (`EnableObjectFollow`) from before `MakeSimGoHome`, and `shortcutsOff` (default true)
+forces `gohome`, `unseenboat`, `unseenboatstart`, `unseenboatland`, `unseenfbteleport`, `unseenfbpre`, `unseenfbtrip`,
+`unseenfbarrive` and `unseenroute` off through `ts3fixes.switches` for the run, restored at the end or on stop. The docked result
+field `start_needs_boat` (was `probe_failed` in v2) is true when the start is not connected by land, which is the wanted case. Expected:
 OFF: a get-out ~15-22 m off, the first gangway leg FailedBecauseNoPathToDestination ~650 ms, `reached_home` false, 4040-4049 +0.
 ON: 4040 +1 per Sim, 4041 +1 after its first failed GoHome, the `placed at` line, `reached_home` true; no new exceptions. A trip
 whose get-out spot walks to the gangway is not triggered on that save: N/A, not FAIL. For natural runs the `houseboatlegmemo`
