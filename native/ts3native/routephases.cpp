@@ -443,6 +443,9 @@ static void** RjpOwner(int i) {
         if (void** o = RtOwnerAt(at)) return o;
         return at == TS3A(0x0063D2F0) && g_lpJmp[LP_ROOMFIRST] ? &g_lpJmp[LP_ROOMFIRST] : NULL;
     }
+    // docs/644 §8 CandidateSplit (plancand.cpp): cell A* (own detour, or after the plan deadline stub, RJS_CELL below) and LotPlan
+    if (i == RJS_CELL || i == RJS_LOTLEG)
+        if (void** o = PccOwnerAt(kRjpSites[i].at)) return o;
     switch (i) {
         case RJS_PLAN: return (void**)&g_planOrig;
         case RJS_LOCK: return (void**)&g_lockOrig;
