@@ -125,6 +125,8 @@ static LONG KdScopeTake(DWORD handle) {
     return s;
 }
 static void KdScopeClear(DWORD handle) { if (g_kdScopeH == handle) g_kdScopeH = 0; }  // the plan is over: not an answer for a later plan
+// docs/662 §4 KindsUnseen, at START before KdScopeTake: ts3fixes answered unseen (op 11) for this very route
+static bool KdScopeUnseen(DWORD handle) { return handle && g_kdScopeH == handle && g_kdScope == 2; }
 static __declspec(thread) bool t_kdSeen, t_kdNpc;  // this sync plan's scope was known (log only); it is a seen NPC's
 // docs/197 §7 [RouteAsync] KdCutCamRecheck: a cut of a route known unseen tests its start and goals against the camera of the last sim
 // pass, because the scope was read once, at START. The worker may not call the frustum query, so this is the reach rule only, in xz:

@@ -91,3 +91,45 @@ our own checks. Tests: selftest `stuttersweep`; repro `watchdogbusydefer-check`.
 The stuck-check drain's own probes (460 async plans, 166 s of job time) are left as they are: the existing opt-in
 `stuckchecknear` (same verdict, nearest point first, fewer failed floods, docs/163 §3) is the decision-identical saving;
 `stuckcheckcap` changes when a reset can happen and stays out. Turning `kStuckCheckNear` on is a tuning-only A/B.
+
+## 4. `[RouteAsync] KindsUnseen`: own-task replans of unseen NPCs as A10 jobs (native, default 0) [verified code, compile only]
+
+**What is left sync (§1).** 550 `ufplansplit` lines in the 29 logs are kinds 1-3, `sync ... (START refused), why 0`; they led
+94 hitches >= 200 ms (45 s): ReplanFromPoint 31 / 17.3 s, PlanFromPoint 29 / 16.5 s, Replan 34 / 11.7 s. ts3fixes already
+sends the own START and, as the first thing in every plan, the route's scope (`UfPlanBody` -> UserDiag op 11 for UfWhy 0).
+ts3native refused them only because `Kinds=0` (rejected in docs/136 for moved waits across **all** Sims).
+
+**Build** (ts3native, `a10.cpp` + `ts3native.cpp` `A10StartBody`, `plandeadline.cpp` `KdScopeUnseen`):
+- ini `[RouteAsync] KindsUnseen` (bits as `Kinds`: 1 Replan, 2 PlanFromPoint, 4 ReplanFromPosition; default 0, shipped ini
+  documents it at 0). A kind in it is hooked (as `ForeignKinds` / `WatchdogKind2` hook theirs).
+- Gate: an own START of such a kind passes the kind gate only when ts3fixes' scope answer for **this route** is unseen
+  (`g_kdScopeH == handle && g_kdScope == 2`, before `KdScopeTake`). No answer, household / seen (1), seen NPC (3) and another
+  route's answer stay refused `NoStart` and plan sync exactly as today. `HhExempt` is the gate, so `[Experimental]
+  HouseholdToo=1` lifts it (a worker-computed answer, docs/271 realistic-only).
+- `ArPass`: a kind hooked only for `KindsUnseen` / `WatchdogKind2` (not in `Kinds` / `ForeignKinds`) sends every call that
+  READY did not arm and that meets no job of its route straight to the game's IC (the old `ArWdPass`, generalised): household
+  Replans keep today's unhooked path (no `SyncIc`, no `SyncCapMs`). Kind 3 is a `ForeignKinds` kind in the release ini, so its
+  path is unchanged.
+- After the gate everything is A10's (docs/87, docs/176): NoYield, Active (route being followed), M1, queue, D drains, H2,
+  CANCEL, collect checks; the worker runs the whole original IC, so the answer is the game's own planner's.
+- Log: `route async: KindsUnseen: own kind N START of unseen route ... passes the kind gate (passes a b c, not unseen d e f)`
+  at the 1st, 2nd, 4th, 8th ... pass of each kind, 24 lines a session at most. Counts also land in the existing `arStarted[]` /
+  `arRefused[]` / `arRf3` counters (no new counter layout).
+- Selftest `TestA10` case 13b (no answer / household / seen NPC / other route refused, unseen starts and collects, `ArPass`
+  both ways, kind 2 not in the mask refused, HouseholdToo lift counted).
+
+**Known difference from the sync plan [inferred].** The job is an own A10 job, so `KindDeadlines` applies (`KdOwnReplanMs` /
+`KdOwnPlanFromPointMs` / `KdOwnReplanFromPositionMs` = 250 ms, doubled after a cut, uncut on the third try, docs/197). The sync
+kind-1 / kind-2 plans today have no IC session (unhooked) and only `PlanDeadlineMs`' Route_PlanLocked session, which often
+has no exit (docs/643 §1). So a job of an unseen route that runs past 250 ms is cut where the sync plan ran on; the
+follower's backoff makes the second retry 500 ms and the third uncut. Unseen Sims only (the household rule allows cuts for
+them); jobs that end under 250 ms (most: the sync median is ~20 ms, docs/247 §13.3) give the identical route.
+
+**Expected:** up to the 94 hitches / 45 s of §1 leave the sim thread, minus refusals A10 keeps (Active for a followed route,
+M1, queue full) and minus the moved waits: a job holds `+0x918` on the worker, and sim takers wait behind it unless
+TailUnlock / P5 lending admit them (docs/176 §6). Measure with the repro `ip-kindsunseen-crowd` (two loads, ini 0 vs 7) and
+`hitch-ab.ts`; the household lines (`why 3`) must stay sync.
+
+**Build checks:** `clang-cl` compiles `ts3native.cpp` and `selftest.cpp` (i686, xwin). The selftest exe cannot run here: built
+with clang it faults in `TestRouteCache` (clang x86 SEH does not catch the deliberate faults inside `__try`), before `TestA10`.
+Run `native/ts3native/build.cmd` (MSVC) before any game run.
