@@ -681,7 +681,30 @@ static bool UdHitchLine(const char* s) {
 }
 static const DWORD kUdTextHi = 0x87000000;  // 0x86000000 exact = the stuck-check PROBE mark (docs/163 §10)
 static int g_udTxtN;
-static LONG g_udTxtLines;
+static LONG g_udTxtLines;  // all "other" lines this session (disk guard kUdTxtTotal)
+// Other lines: one cap per prefix (text up to the first ':' or 24 chars) so one chatty sender (ufplansplit, callcensus,
+// syncwait) cannot drop every later fix's lines. Fixed table, no allocation; keys past kUdKeyMax share one bucket.
+static const int kUdKeyMax = 64, kUdKeyLen = 24;
+static const LONG kUdTxtTotal = 50000;
+static LONG g_udPerKey = 400;  // [UserDiag] LinesPerPrefix
+static char g_udKey[kUdKeyMax][kUdKeyLen + 1];
+static LONG g_udKeyLines[kUdKeyMax + 1];  // [kUdKeyMax] = overflow bucket
+static int g_udKeys;
+static void UdOtherLine(const char* t) {
+    int n = 0;
+    while (n < kUdKeyLen && t[n] && t[n] != ':') n++;
+    int k = 0;
+    while (k < g_udKeys && (strncmp(g_udKey[k], t, n) || g_udKey[k][n])) k++;
+    if (k == g_udKeys && k < kUdKeyMax) memcpy(g_udKey[k], t, n), g_udKey[k][n] = 0, g_udKeys++;
+    const LONG c = g_udKeyLines[k];
+    if (c <= g_udPerKey) g_udKeyLines[k]++;  // saturates one past the cap: the capped line is logged once
+    if (g_udTxtLines >= kUdTxtTotal) {
+        if (g_udTxtLines == kUdTxtTotal) g_udTxtLines++, Log("ts3fixes: other lines capped at %ld in total (later ones dropped)", kUdTxtTotal);
+        return;
+    }
+    if (c < g_udPerKey) g_udTxtLines++, Log("ts3fixes: %s", t);
+    else if (c == g_udPerKey) Log("ts3fixes: %s lines capped at %ld", k < kUdKeyMax ? g_udKey[k] : "(overflow keys)", g_udPerKey);
+}
 static void MdMark(const char* tag);  // memdiag.cpp
 static void MsLine(const char* line);  // memdiag.cpp: [MemDiag] suspect counters from ts3fixes
 static u8 MsOp(int op);                // memdiag.cpp: ops 3-5 (on / sample wanted / self-test wanted)
@@ -752,8 +775,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
                 g_udTxtN = 0;
                 return 1;
             }
-            if (g_udTxtLines++ < 400) Log("ts3fixes: %s", g_udTxt);  // cap: a looping sender cannot fill the disk
-            else if (g_udTxtLines == 401) Log("ts3fixes: other lines capped at 400 (later ones dropped)");
+            UdOtherLine(g_udTxt);  // per-prefix cap + total disk guard: a looping sender cannot fill the disk or starve others
             if (!strncmp(g_udTxt, "world:", 6)) UdWorldLoad(), UafVerifyAll("world load"), F5wEvent("world load", g_udWorlds);  // F5wEvent: docs/539 §21
             else if (!strcmp(g_udTxt, "world quit")) InterlockedIncrement(&g_udQuits), GcCapWindow(false, "world quit"), UafVerifyAll("world quit"), F5wEvent("world quit", g_udQuits);  // gcgrow.cpp: lenient on the load screen
             else if (!strncmp(g_udTxt, "mem: ", 5)) MdMark(g_udTxt + 5);  // [MemDiag] event mark (ts3agent mem_mark)
@@ -913,6 +935,8 @@ static bool ApplyUserDiag(const wchar_t* ini) {
     wcscpy_s(g_udIni, ini);
     const int lowMB = (int)GetPrivateProfileIntW(L"UserDiag", L"LowSpaceMB", 256, ini);
     g_udLowMB = lowMB < 64 ? 64 : lowMB > 1024 ? 1024 : (DWORD)lowMB;
+    const int perKey = (int)GetPrivateProfileIntW(L"UserDiag", L"LinesPerPrefix", 400, ini);
+    g_udPerKey = perKey < 10 ? 10 : perKey > 10000 ? 10000 : perKey;
     wchar_t exe[MAX_PATH];
     GetModuleFileNameW(NULL, exe, MAX_PATH);
     if (!g_crExe[0]) wcscpy_s(g_crExe, exe);  // scrubber needles (crashreport.cpp fills them only with [CrashReport] on)

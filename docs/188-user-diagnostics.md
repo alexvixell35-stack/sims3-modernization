@@ -117,3 +117,5 @@ and once per load `diag: memsus types: n=10837 kinds=310 ms=12.50 top=Sim:265,..
 - **issues:** unsupported or changed exe, save results other than 0, saves over 60 s or with long waits, a largest free block under 300 MB (docs/66), a previous session that crashed, no LAA, no or old ts3fixes, exceptions inside ts3native, overlapping add-ons and mods, and every issue of the doctor report.
 
 The self-check (`--self-check`) runs on made-up log lines in the 0.36.148 shapes and a zip built in memory; no player data.
+
+**2026-11-19:** `ts3fixes:` lines without a dedicated cap used to share one 400-line session cap, which `ufplansplit:` / `callcensus` / `syncwait` / `socialfinish` filled in every run, dropping later fix lines. Now each prefix (text up to the first `:`, max 24 chars; 64 prefixes, later ones share one bucket) has its own cap `[UserDiag] LinesPerPrefix=400` (10-10000), with a 50000-line total guard; one `ts3fixes: <prefix> lines capped at N` line per capped prefix. `world:` / `world quit` / `mem:` handling runs regardless of caps.
