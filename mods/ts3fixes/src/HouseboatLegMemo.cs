@@ -24,7 +24,7 @@ namespace Ts3Fixes
     public static partial class Fixes
     {
         static readonly HouseboatLegMemoCore sHlm = new HouseboatLegMemoCore();
-        static int sHlmMinute = -1, sHlmLogged;
+        static int sHlmMinute = -1, sHlmLogged, sHlmStacks;
 
         static void HlmLog(string s)
         {
@@ -118,9 +118,29 @@ namespace Ts3Fixes
                         + " endboat " + GetOption2(Sims3.SimIFace.Route.RouteOption2.EndAsBoat)
                         + " deep " + GetOption2(Sims3.SimIFace.Route.RouteOption2.DestinationMustBeInDeepWater)
                         + " noland " + GetOption2(Sims3.SimIFace.Route.RouteOption2.DisablePlanningOnLand)
-                        + ", goal " + (HlmGoal() == Vector3.Origin ? "none" : "set") + ", follower " + (t != null ? t.GetType().Name : "null") + (sim != null ? " " + sim.FullName + (HouseholdExempt(sim) ? " exempt" : " npc") : ""));
+                        + ", goal " + (HlmGoal() == Vector3.Origin ? "none" : "set") + ", follower " + (t != null ? t.GetType().Name : "null") + (sim != null ? " " + sim.FullName + (HouseholdExempt(sim) ? " exempt" : " npc") : "")
+                        + ", depth " + Sims3.Gameplay.Objects.Island.Houseboat.sHouseboatStackDepth + ", posture " + (sim != null && sim.Posture != null ? sim.Posture.GetType().Name : "-")
+                        + (sHlmStacks++ < 20 ? ", at " + HlmStack() : ""));
                 }
                 catch (Exception ex) { HlmLog("skip error " + ex.GetType().Name); }
+            }
+
+            // the game frames above UfPlan (Ts3Fixes frames left out), 12 at most: which EA code planned this leg
+            static string HlmStack()
+            {
+                System.Text.StringBuilder b = new System.Text.StringBuilder();
+                System.Diagnostics.StackTrace st = new System.Diagnostics.StackTrace(1, false);
+                for (int i = 0, n = 0; i < st.FrameCount && n < 12; i++)
+                {
+                    System.Reflection.MethodBase m = st.GetFrame(i).GetMethod();
+                    if (m == null) continue;
+                    Type t = m.DeclaringType;
+                    if (t != null && t.Namespace == "Ts3Fixes") continue;
+                    if (b.Length > 0) b.Append(" < ");
+                    b.Append((t != null ? t.Name : "?") + "." + m.Name);
+                    n++;
+                }
+                return b.ToString();
             }
 
             // after the plan ran (leg != 0 from HlmPre): record a no-path failure that no Sim or vehicle blocked, and no cut
