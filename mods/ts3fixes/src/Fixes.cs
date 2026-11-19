@@ -1519,7 +1519,7 @@ namespace Ts3Fixes
         // game's call (actor / other Sim out of scope, not indoor, seq overflow), errors, verify checks, differences, reorder-only differences
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
-        const int kCounterSlots = 4000;
+        const int kCounterSlots = 4200;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {

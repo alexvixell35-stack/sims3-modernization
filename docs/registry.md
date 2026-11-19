@@ -47,7 +47,7 @@ The public repo lags the private one, so contributor PRs (currently alexvixell35
 |---|---|---|
 | `docs/NNN-*.md` | 500-599, then 600-899 (added 2026-11-17) | below 500 |
 | docs/51 inference ledger `## N.` | §900-999, then §1000-1499 (added 2026-11-17) | below 900 |
-| ts3fixes counter slots | 2000-2199 (full), 2200-2799 (2400-2799 added 2026-11-14), 2800-3999 (added 2026-11-17; `kCounterSlots` = 4000) | below 2000 |
+| ts3fixes counter slots | 2000-2199 (full), 2200-2799 (2400-2799 added 2026-11-14), 2800-3999 (added 2026-11-17, full), 4000-4089 (added 2026-11-19; `kCounterSlots` = 4200; 4090-4199 hold fork-local test counters) | below 2000 |
 | ts3native counter version blocks | v900+ | below v900 |
 
 `node tools/registry.ts reserve --contributor <doc|ledger|fixes|native> ...` hands out the next free number of the range (same arguments as the normal `reserve`; without `--contributor` the ranges are skipped). Blocks are used in order, and a slot run never straddles a block end (2199/2200, 2799/2800): one that would not fit starts at the next block. ts3native version strings (`TS3NATIVE_VERSION`, changelog headings) are assigned by the maintainers at merge: a contributor PR writes "next version" and does not change the define. `tools/pr-preflight.ts` flags numbers outside the ranges and a changed version string (`--maintainer` turns that check off).
