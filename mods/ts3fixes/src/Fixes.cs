@@ -1298,6 +1298,7 @@ namespace Ts3Fixes
         // [3944-3946] bodysculptorweight (EpBatch3Logic.cs, docs/587 EP3 §8.12): weights corrected / mirrored with switch off / errors.
         // [3947-3949] nectarconsignvalue (EpBatch3Logic.cs, docs/587 EP3 §8.13): values re-rolled / minimum with switch off / errors.
         // [3950-3952] straygnometns (EpBatch3Logic.cs, docs/587 EP3 §8.14): runs with right notice / stale notices with switch off / errors.
+        // [4036-4039] RouteFixes.cs watchdog: watchdogocean Sims in EA's ocean play loop not route-checked / seen with the switch off; watchdogfailcap rule-49 resets refused after 2 with no successful plan since / seen with the switch off.
         // [3247-3249] dogswimslots (EpBatch4Logic.cs, docs/587 EP4 §9.1): loops skipped, no free slot / would throw with switch off / errors.
         // [3250-3252] fragmentreconstruct (EpBatch4Logic.cs, docs/587 EP4 §9.2): Target picked first / extra fragment used with switch off / errors.
         // [3253-3255] labobjectpush (EpBatch4Logic.cs, docs/587 EP4 §9.3): lot objects pushed / idle students with switch off / errors.
@@ -1512,7 +1513,7 @@ namespace Ts3Fixes
         // game's call (actor / other Sim out of scope, not indoor, seq overflow), errors, verify checks, differences, reorder-only differences
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
-        const int kCounterSlots = 4000;
+        const int kCounterSlots = 4200;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1688,6 +1689,8 @@ namespace Ts3Fixes
                 case "failreplan": return Instantiator.kNoRouteFailWalkOffscreen;
                 case "watchdog": return Instantiator.kStuckWatchdog;
                 case "watchdogidle": return Instantiator.kStuckWatchdogIdle;
+                case "watchdogocean": return Instantiator.kStuckWatchdogOcean;
+                case "watchdogfailcap": return Instantiator.kStuckWatchdogFailCap;
                 case "backoff": return Instantiator.kRouteFailureBackoff;
                 case "stations": return Instantiator.kNoStationDetourOffscreen;
                 case "portaladaptorleak": return Instantiator.kPortalAdaptorLeak;

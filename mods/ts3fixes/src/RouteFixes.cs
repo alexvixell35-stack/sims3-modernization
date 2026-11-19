@@ -14,7 +14,9 @@ namespace Ts3Fixes
     // replans switched off, [30] route-fail walks skipped, [31] stuck Sims reset or faded by the watchdog, [32] station
     // detours skipped. Watchdog home kinds: [33] none or virtual (faded), [34] shell apartment, [35] house; [36] second
     // resets in one sim-day. Watchdog idle cases (switch watchdogidle): [46] unroutable spot, [47] hidden room, [48] stationary,
-    // [49] route plans failing, [50] routability verdicts asked, [51] route-fail Sims tracked.
+    // [49] route plans failing, [50] routability verdicts asked, [51] route-fail Sims tracked. Switch watchdogocean: [4036] Sims
+    // in EA's ocean play loop not route-checked / [4037] seen with the switch off. Switch watchdogfailcap: [4038] rule-49 resets
+    // refused after 2 with no successful plan since / [4039] seen with the switch off.
     public static partial class Fixes
     {
         static void ApplyRouteFixes()
@@ -124,6 +126,14 @@ namespace Ts3Fixes
         // interaction and result, and how many of the failures were hbfailmemo answers; written after the reset's moved line.
         struct RouteFails { public Vector3 Pos; public long First; public int Count, Memo; public string Last; }
         static readonly Dictionary<ulong, RouteFails> sRouteFails = new Dictionary<ulong, RouteFails>();
+        // watchdogfailcap [4038-4039]: "route plans failing" resets per Sim (object id) with no successful plan since the first of them.
+        // Appaloosa Plains: a townie horse was reset 2 times every sim-day (9-10 resets a run) and failed the same way after each
+        // reset. A third such reset is refused (the Sim stays where it is; [48] still applies). In memory only, capped at 1024.
+        // Successes in the first kFailResetGrace after a reset do not count: the reset's own placement plans from the Sim's new
+        // spot succeed and would clear the entry every time (H4Core.WdFailResetClears).
+        struct FailReset { public int Count; public long At; }
+        static readonly Dictionary<ulong, FailReset> sFailResets = new Dictionary<ulong, FailReset>();
+        static readonly long kFailResetGrace = SimClock.ConvertToTicks(5f, TimeUnit.Minutes);
         // per task (the shape of PR #306's flag): this check's plan can sleep on its route job, and another Sim's result must still reach
         // NotePlanResult. docs/616: a set of tasks, not one slot: with spotasync several Sims' SafeSpot checks can sleep at once, and
         // one slot let the second check's end clear the first's cover (its later plans counted as the Sim's own route fails and
@@ -175,6 +185,12 @@ namespace Ts3Fixes
             if (ok)
             {
                 if (sRouteFails.Count > 0) sRouteFails.Remove(follower.ObjectId.Value);
+                if (sFailResets.Count > 0)
+                {
+                    FailReset fr = new FailReset();
+                    if (sFailResets.TryGetValue(follower.ObjectId.Value, out fr) && H4Core.WdFailResetClears(SimClock.CurrentTicks, fr.At, kFailResetGrace))
+                        sFailResets.Remove(follower.ObjectId.Value);
+                }
                 if (ShortcutOn("idlememo") || ShortcutOn("routesrc"))
                 {
                     Sim s = follower.Target as Sim;
@@ -291,6 +307,31 @@ namespace Ts3Fixes
             // Cur is weak: a strong ref kept the old world's interaction (and through it a Sim) alive after travel until the next pass.
             struct Still { public Vector3 Pos; public WeakReference Cur; public long Since, OkAt; }
             static bool SameCur(WeakReference w, InteractionInstance i) { return w == null ? i == null : i != null && object.ReferenceEquals(w.Target, i); }
+
+            // watchdogocean [4036-4037]: EA's ocean play stands the Sim in the surf for its whole loop, a spot the routability check
+            // calls unroutable (Isla Paradiso runs: 5-13 [46] "idle on unroutable spot" resets a run in GoAndPlayInOcean at the
+            // beach) [measured]. GoAndPlayInOcean runs PlayInOcean nested (RunInteraction), so the current interaction stays the same for the
+            // route in and the loop. PlayInOcean.Run adds the private Terrain.JoinOcean pair to the Sim right after StandardEntry and
+            // PlayInOcean.Cleanup removes it [verified, decompiled], so the pair is the exact "in its play loop" test. Such a Sim is
+            // not route-checked; a stuck one still meets [48] after a sim-day.
+            static InteractionDefinition sJoinOcean;
+            static bool sJoinOceanLooked;
+            static bool InOceanPlay(Sim s)
+            {
+                InteractionInstance cur = s.CurrentInteraction;
+                if (!(cur is Terrain.GoAndPlayInOcean || cur is Terrain.PlayInOcean)) return false;
+                if (!sJoinOceanLooked)
+                {
+                    sJoinOceanLooked = true;
+                    Type t = typeof(Terrain).GetNestedType("JoinOcean", System.Reflection.BindingFlags.NonPublic);
+                    System.Reflection.FieldInfo f = t == null ? null : t.GetField("Singleton", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                    sJoinOcean = f == null ? null : f.GetValue(null) as InteractionDefinition;
+                }
+                if (sJoinOcean == null || s.Interactions == null) return false;
+                foreach (Sims3.Gameplay.Autonomy.InteractionObjectPair iop in s.Interactions)
+                    if (iop != null && object.ReferenceEquals(iop.InteractionDefinition, sJoinOcean)) return true;
+                return false;
+            }
             Dictionary<ulong, Still> mStill = new Dictionary<ulong, Still>(), mStillSpare = new Dictionary<ulong, Still>();
             readonly List<Sim> mQueue = new List<Sim>();
 
@@ -316,10 +357,25 @@ namespace Ts3Fixes
                     {
                         sRouteFails.Remove(id);
                         if (household) { c[2066]++; DiagLine("watchdog: household Sim " + s.FullName + " route plans failing " + f.Count + ", no reset"); continue; }
-                        if (Act(s, now, 49, "reset (route plans failing)"))
+                        FailReset fr = new FailReset();
+                        sFailResets.TryGetValue(id, out fr);
+                        bool capped = H4Core.WdFailCapRefuses(fr.Count);
+                        if (capped && ShortcutOn("watchdogfailcap"))
                         {
-                            MovedSims()[s.FullName] = MovedSims()[s.FullName] + " | last " + f.Last + ", memo " + f.Memo + "/" + f.Count;
-                            continue;
+                            if (++c[4038] <= 10)
+                                DiagLine("watchdog: " + s.FullName + " route plans failing again after " + fr.Count + " resets with no successful plan since, no reset (last "
+                                    + f.Last + ", " + f.Count + " fails)");
+                        }
+                        else
+                        {
+                            if (capped) c[4039]++;
+                            if (Act(s, now, 49, "reset (route plans failing)"))
+                            {
+                                if (sFailResets.Count >= 1024) sFailResets.Clear();
+                                sFailResets[id] = new FailReset { Count = fr.Count + 1, At = now };
+                                MovedSims()[s.FullName] = MovedSims()[s.FullName] + " | last " + f.Last + ", memo " + f.Memo + "/" + f.Count;
+                                continue;
+                            }
                         }
                     }
                     if (household || s.Parent != null || s.SimInRabbitHolePosture) continue;
@@ -345,7 +401,11 @@ namespace Ts3Fixes
                     bool unseen = TownieUnseen(s, null, true);  // docs/267 F2: a hidden-room NPC keeps the unseen idle timer (its rescue below)
                     if (still < (unseen ? idle : kDayTicks) || s.IsRouting || lot == null || lot.IsWorldLot) continue;
                     if (lot.IsRoomHidden(s.RoomId)) { if (Act(s, now, 47, "reset (hidden room)")) keep.Remove(id); continue; }
-                    if (s.Posture == s.Standing && (st.OkAt == 0 || now - st.OkAt > kDayTicks)) queue.Add(s);
+                    if (s.Posture == s.Standing && (st.OkAt == 0 || now - st.OkAt > kDayTicks))
+                    {
+                        if (InOceanPlay(s)) { if (ShortcutOn("watchdogocean")) { c[4036]++; continue; } c[4037]++; }
+                        queue.Add(s);
+                    }
                 }
                 if (spare) { mStillSpare = mStill; mStill = keep; mStillSpare.Clear(); }  // same contents as the copy below
                 else

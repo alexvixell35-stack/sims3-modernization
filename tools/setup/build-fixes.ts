@@ -32,6 +32,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kNoRouteFailWalkOffscreen value="True" />
     <kStuckWatchdog value="True" />
     <kStuckWatchdogIdle value="True" />
+    <kStuckWatchdogOcean value="False" />
+    <kStuckWatchdogFailCap value="False" />
     <kRouteFailureBackoff value="True" />
     <kSaveCleanup value="False" />
     <kSnapshotCap value="0" />

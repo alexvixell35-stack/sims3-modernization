@@ -60,6 +60,20 @@ namespace Ts3Fixes
             return !(horse && onWorldLot);
         }
 
+        // Watchdog [49] repeat cap (switch watchdogfailcap): a Sim reset twice for failing route plans with no successful plan
+        // since is not reset a third time; the reset did not fix what makes its plans fail ([48] still applies).
+        public static bool WdFailCapRefuses(int resetsSinceOk)
+        {
+            return resetsSinceOk >= 2;
+        }
+
+        // A successful plan clears that count only once the grace after the last reset is over (the reset's own placement plans
+        // succeed from the new spot); a reset stamp in the future (clock reset, load) clears it too.
+        public static bool WdFailResetClears(long now, long resetAt, long grace)
+        {
+            return now - resetAt >= grace || resetAt > now;
+        }
+
         // docs/616 spotasync: SafeSpot's own routability check (SpotVerdict's full check, the trip shortcuts' placement test) sent
         // as an own-task PlanFromPoint job with the watchdog's tag, so ts3native's [RouteAsync] WatchdogKind2 starts it (uncut: the
         // tagged job takes no KindDeadlines cut, so the verdict is the planner's own) and the Sim's task sleeps until READY instead

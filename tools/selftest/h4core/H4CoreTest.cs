@@ -58,6 +58,12 @@ static class H4CoreTest
         Check(H4Core.WdStationaryResets(false, true), "human on terrain a day: reset");
         Check(H4Core.WdStationaryResets(true, false), "horse on a lot a day: reset");
         Check(!H4Core.WdStationaryResets(true, true), "horse grazing on terrain: left alone");
+        // watchdogfailcap: the third rule-49 reset with no successful plan since is refused; a success clears after the grace
+        Check(!H4Core.WdFailCapRefuses(0) && !H4Core.WdFailCapRefuses(1), "first and second route-fail resets run");
+        Check(H4Core.WdFailCapRefuses(2) && H4Core.WdFailCapRefuses(3), "third route-fail reset refused");
+        Check(!H4Core.WdFailResetClears(104, 100, 5), "success inside the grace (the reset's own placement): kept");
+        Check(H4Core.WdFailResetClears(105, 100, 5) && H4Core.WdFailResetClears(500, 100, 5), "success after the grace: cleared");
+        Check(H4Core.WdFailResetClears(50, 100, 5), "reset stamp in the future (load): cleared");
         // docs/616 spotasync: only a full check of an unseen NPC in its own yielding task that ts3native would start goes async
         Check(H4Core.SpotAsync(true, true, true, true, true, false, false), "spotasync: unseen NPC, own task, would start: async");
         Check(!H4Core.SpotAsync(false, true, true, true, true, false, false), "spotasync off: sync as today");
