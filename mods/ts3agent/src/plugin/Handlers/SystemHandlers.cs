@@ -28,6 +28,7 @@ namespace Ts3Agent
             RegisterThumbCensus(); // ThumbCensusHandlers.cs
             RegisterBoatGone(); // BoatGoneHandlers.cs
             RegisterBoatGetOutStress(); // BoatGetOutStressHandlers.cs
+            RegisterBoatNoPathRepro(); // BoatNoPathReproHandlers.cs, docs/851
             RegisterSimHealth(); // SimHealthHandlers.cs: soak health census
             RegisterInteractionSweep(); // InteractionSweepHandlers.cs, docs/268
         }

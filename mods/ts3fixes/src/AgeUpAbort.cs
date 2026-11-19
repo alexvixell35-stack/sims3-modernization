@@ -44,6 +44,8 @@ namespace Ts3Fixes
                         if (sAuPassLines++ < 5) ShortcutLog("ageupabort rethrow: " + (sd != null ? sd.FullName : "a Sim") + ", " + e.GetType().Name
                             + ", task null " + taskNull + ", deferred " + deferred + ", switch " + on + ", decision " + d + ", created " + (sd != null && sd.CreatedSim != null)
                             + ", scope " + (sd == null ? "unknown" : sd.Household == null ? "no household" : sd.Household == Household.ActiveHousehold ? "household" : "townie"));
+                        // the #553 case (another instantiation finished this age-up): AgeUpDupInst.cs answers it in Instantiate
+                        if (e is NullReferenceException && taskNull && !deferred) sAuDupDesc = sd;
                         throw;
                     }
                     PatchCounters()[2038]++;
