@@ -150,4 +150,4 @@ after a sim-hour. ON arm: one `placed` line, the pet on its home lot within a mi
 keep walking; no new exceptions or stuck Sims. Self-check: `tools/selftest/petlonghome` (gate order, distance and trip-age
 rules, unseen checks, trip table).
 
-**Unicorns (2026-11-19):** unicorns, wild horses and other pet-pool animals (strays) are never placed; only a pet with a real household heading to its own home lot (`lot == LotHome`) is. GoToLot to any other lot keeps EA's walk.
+**Unicorns (2026-11-19):** unicorns and strays are never placed. A wild horse on a long unseen GoToLot is placed at that lot (same unseen and distance rules); otherwise only a pet with a real household heading to its own home lot (`lot == LotHome`) is. GoToLot to any other lot keeps EA's walk.

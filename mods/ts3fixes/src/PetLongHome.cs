@@ -44,7 +44,11 @@ namespace Ts3Fixes
             if (d == null || !d.IsPet) return;
             // unicorns, wild horses and other pet-pool animals (strays) keep EA's walk: their trips are EA's spawn/summon
             // behaviour, not a walk home; only a pet heading to its own home lot is placed
-            if (d.IsUnicorn || WildHorses.IsWildHorse(d) || d.Household == null || d.Household.IsPetHousehold || lot != d.LotHome) return;
+            // wild horses (not unicorns) may also be placed at the lot their herd walks to: the herd's long walks and failed
+            // routes cost route time, and an unseen herd arriving early changes nothing the player sees
+            bool wildHorse = !d.IsUnicorn && WildHorses.IsWildHorse(d);
+            if (!wildHorse && (d.IsUnicorn || d.Household == null || d.Household.IsPetHousehold || lot != d.LotHome)) return;
+            if (wildHorse && via != "gotolot") return;
             int[] c = PatchCounters();
             try
             {
