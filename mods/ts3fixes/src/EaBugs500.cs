@@ -66,8 +66,8 @@ namespace Ts3Fixes
                 Patch(typeof(PlaypenClassic).GetNestedType("PlaySocial", kSbNested), "Run", Type.EmptyTypes, typeof(E500SocialHook), "RunHook", "RunOrig");
             }
             Patch(typeof(VoodooDoll).GetNestedType("Bind", kSbNested), "RunFromInventory", Type.EmptyTypes, typeof(E500BindHook), "RunHook", "RunOrig");
-            Patch(typeof(SaunaClassic.CuddleSeatedWooHooSauna).GetNestedType("Definition", kSbNested), "Test",
-                new Type[] { typeof(Sim), typeof(Sim), typeof(bool), typeof(GreyedOutTooltipCallback).MakeByRefType() }, typeof(E500SaunaHook), "TestHook", "TestOrig");
+            // one line: check-live-map.ts reads Patch calls line by line
+            Patch(typeof(SaunaClassic.CuddleSeatedWooHooSauna).GetNestedType("Definition", kSbNested), "Test", new Type[] { typeof(Sim), typeof(Sim), typeof(bool), typeof(GreyedOutTooltipCallback).MakeByRefType() }, typeof(E500SaunaHook), "TestHook", "TestOrig");
             sE5LotSpot = typeof(Lot).GetField("mBestRouteIntoLotLocation", kInstAll);
             if (sE5LotSpot == null) AppliedLog().Add("lotentrypet: not found: Lot.mBestRouteIntoLotLocation");
             else Patch(typeof(Lot), "PlanRouteIntoLot", new Type[] { typeof(Route), typeof(bool), typeof(Sim) }, typeof(E500LotEntryHook), "PlanHook", "PlanOrig");   // horselotentry (EaBugs500b.cs) shares this hook
@@ -81,10 +81,11 @@ namespace Ts3Fixes
             return p == null ? null : p.mPlaypen;
         }
 
-        // one mark after an aborted run: cleared with the switch on, counted either way
-        static void E5Clear(PlaypenClassic pen, FieldInfo f, object clearValue, FieldInfo f2, object clear2)
+        // one mark after an aborted run: cleared with the switch on, counted either way. Callers pass ShortcutOn("playpenflags")
+        // so tools/static/check-live-map.ts ties each playpen hook class to playpenflags alone.
+        static void E5Clear(bool on, PlaypenClassic pen, FieldInfo f, object clearValue, FieldInfo f2, object clear2)
         {
-            if (ShortcutOn("playpenflags"))
+            if (on)
             {
                 f.SetValue(pen, clearValue);
                 if (f2 != null) f2.SetValue(pen, clear2);
@@ -108,8 +109,8 @@ namespace Ts3Fixes
                     {
                         try
                         {
-                            if (Eb500Core.PpClearId((ulong)sE5Pick1.GetValue(pen), id)) E5Clear(pen, sE5Pick1, 0UL, null, null);
-                            if (Eb500Core.PpClearId((ulong)sE5Pick2.GetValue(pen), id)) E5Clear(pen, sE5Pick2, 0UL, null, null);
+                            if (Eb500Core.PpClearId((ulong)sE5Pick1.GetValue(pen), id)) E5Clear(ShortcutOn("playpenflags"), pen, sE5Pick1, 0UL, null, null);
+                            if (Eb500Core.PpClearId((ulong)sE5Pick2.GetValue(pen), id)) E5Clear(ShortcutOn("playpenflags"), pen, sE5Pick2, 0UL, null, null);
                         }
                         catch (Exception) { PatchCounters()[4019]++; }
                     }
@@ -135,7 +136,7 @@ namespace Ts3Fixes
                         try
                         {
                             if (Eb500Core.PpClearOutside((bool)sE5Playing.GetValue(pen), (ulong)sE5Outside.GetValue(pen), adult))
-                                E5Clear(pen, sE5Playing, false, sE5Outside, 0UL);
+                                E5Clear(ShortcutOn("playpenflags"), pen, sE5Playing, false, sE5Outside, 0UL);
                         }
                         catch (Exception) { PatchCounters()[4019]++; }
                     }
@@ -158,7 +159,7 @@ namespace Ts3Fixes
                     // unaffected (the mark only holds followers) and clears it again at its end
                     if (!done && pen != null)
                     {
-                        try { if (Eb500Core.PpClearSync(atEntry, (bool)sE5Sync.GetValue(pen))) E5Clear(pen, sE5Sync, false, null, null); }
+                        try { if (Eb500Core.PpClearSync(atEntry, (bool)sE5Sync.GetValue(pen))) E5Clear(ShortcutOn("playpenflags"), pen, sE5Sync, false, null, null); }
                         catch (Exception) { PatchCounters()[4019]++; }
                     }
                 }
