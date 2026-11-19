@@ -6,9 +6,12 @@
 //  1. [RouteJobPhases] CandidateSplit=1, observe only: the planner's helpers timed per PlanHierarchical call (self time and
 //     calls), any thread: closest waypoints 0x65BB90 (three tiers of 0x6595B0), same land component 0x65DF90 (two closest-
 //     waypoint searches), same water body 0x650D80, LotEdgePortals_Choose 0x65BC20, LotEdgePortals_Gather 0x654CC0, the shore
-//     helper 0x6443A0 and LotSearch_Entry 0x640E00. A helper called outside an open PlanHierarchical frame passes untimed.
-//     "rest" = PlanHierarchical's own self time: its code plus everything not hooked here (world A*, cell A*, water, lot legs,
-//     allocator); run with SyncPlans=1 for those. One line per call >= CandidateSplitLogMs (default 100), 20 a minute.
+//     helper 0x6443A0, LotSearch_Entry 0x640E00, and (docs/644 §8) the two searches under them: QuadTreeCellAStar 0x61E500
+//     (reached through LotPlan 0x6410B0 -> 0x63F6E0 -> 0x632630 and LotSearch -> 0x633FA0 -> 0x632E40) and LotPlan itself,
+//     whose inclusive time is also split by its call site in 0x65E0D0 (the lot legs of the planner's loops). A helper called
+//     outside an open PlanHierarchical frame passes untimed. "rest" = PlanHierarchical's own self time: its code plus what is
+//     not hooked here (world A*, water, allocator); SyncPlans=1 gives world / water. One line per call >= CandidateSplitLogMs
+//     (default 100), 20 a minute; every 60 s the 8 slowest calls since the last counter line ("route candidate top").
 //  2. [RouteAsync] CandidateCut=1: past the plan's deadline (the PdPlanBegin / IC session of plandeadline.cpp, or a worker job's
 //     t_fbDeadline on the g_pdWkTid slot), a helper called from one of the listed planner sites answers "not found" at once.
 //     Only a router whose scope is known unseen (2) or seen NPC (3); household, selected and unknown (0) never: counted as
@@ -20,6 +23,12 @@
 //       0x65BB90 from 0x65F731, 0x65FA0E, 0x65FB55, 0x65FC97: AL 0 and the out vector (arg 8) end = begin, as 0x6595B0's own
 //         first write leaves it; every caller there hands it a fresh empty vector and frees it after; ret 0x2C.
 //     Calls of the same helpers from elsewhere (inside 0x65BC20 / 0x65DF90, scripts) are never cut.
+//     docs/644 §8, the cell A* loop: the deadline stub at 0x61E500's entry cuts only searches that start past the deadline; one
+//     that is running goes on to its node cap (the measured overrun). CandidateCut also replaces the loop's node-cap test at
+//     0x61E76E (9 bytes: mov ecx,[esp+18h] / cmp [edi+24h],ecx / jae 0x61E7D9) by a stub that runs that test unchanged, then
+//     every 32nd expansion reads the same deadline and scope rule; a cut jumps to 0x61E59C, the function's own "no start node /
+//     open list empty" exit: it frees the two local vectors, releases the current and best node references (ebx / esi, null
+//     tested there), [this+0x1C] = -1, AL 0, ret 0x18. Every caller already takes AL 0 (the entry stub's exit gives the same).
 //  3. [RouteAsync] WaterGoalCheck: WaterPath_Plan 0x671930 answers "no path" without the search 0x620560 when that search
 //     cannot succeed: the start cell is water in the boat tier's grid and the goal cell is not (plancand-rule.h). Exact (the
 //     game's answer is the same failure, only sooner), so every scope. 2 = shadow: the search runs; a would-reject whose search
@@ -41,7 +50,7 @@ struct PlanCandCounters {
 };
 extern "C" __declspec(dllexport) PlanCandCounters ts3native_plancand = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-enum { PCC_PH, PCC_CLOSEST, PCC_SAMELAND, PCC_SAMEWATER, PCC_CHOOSE, PCC_GATHER, PCC_SHORE, PCC_LOTSEARCH, PCC_N };
+enum { PCC_PH, PCC_CLOSEST, PCC_SAMELAND, PCC_SAMEWATER, PCC_CHOOSE, PCC_GATHER, PCC_SHORE, PCC_LOTSEARCH, PCC_CELL, PCC_LOTPLAN, PCC_N };
 struct PccSite { DWORD at; u8 len; u8 pro[8]; const char* name; bool cut; };
 // prologues: whole instructions, no relative operand (Steam 1.67); 0x65E0D0 / 0x640E00 equal kRjpSites' (docs/150 §7)
 static const PccSite kPccSites[PCC_N] = {
@@ -53,7 +62,20 @@ static const PccSite kPccSites[PCC_N] = {
     {TS3A(0x00654CC0), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, "gather", false},
     {TS3A(0x006443A0), 8, {0x8B, 0x44, 0x24, 0x18, 0xD9, 0x44, 0x24, 0x14}, "shore", false},
     {TS3A(0x00640E00), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF8}, "lotSearch", false},
+    // = kRjpSites' / kPdCellPro: with the plan deadline stub on 0x61E500 we take its trampoline pointer (g_pdOrig[0]) instead
+    {TS3A(0x0061E500), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, "cell", false},
+    {TS3A(0x006410B0), 8, {0x8B, 0x44, 0x24, 0x34, 0xD9, 0x44, 0x24, 0x10}, "lotPlan", false},
 };
+// LotPlan's call sites in 0x65E0D0 (return addresses), for the per-leg split; slot PCC_LPN = any other caller (0x656A70's,
+// called from 0x6611A1 / 0x661308, and callers outside the planner)
+// PCC_IN(fn, off): an address inside a function the EA table maps, as its Steam 1.67 offset. No new table rows (the EA port
+// skips this whole file: ts3a_noaddr), and every byte written there is checked first (Matches), so a moved body only SKIPs.
+#define PCC_IN(fn, off) ((uint32_t)(TS3A(fn) + (off)))
+enum { PCC_LPN = 7 };
+static const uint32_t kPccLpRets[PCC_LPN] = {PCC_IN(0x0065E0D0, 0x2F7),  PCC_IN(0x0065E0D0, 0x1051), PCC_IN(0x0065E0D0, 0x14B7),
+                                             PCC_IN(0x0065E0D0, 0x26C9), PCC_IN(0x0065E0D0, 0x29F3), PCC_IN(0x0065E0D0, 0x2CB8),
+                                             PCC_IN(0x0065E0D0, 0x39D0)};
+static const char* const kPccLpNames[PCC_LPN + 1] = {"65E3C2", "65F11C", "65F582", "660794", "660ABE", "660D83", "661A9B", "other"};
 // cut sites: the return addresses of the calls inside 0x65E0D0 (0 = unused)
 static const uint32_t kPccRets[PCC_N][4] = {
     {0},
@@ -61,24 +83,37 @@ static const uint32_t kPccRets[PCC_N][4] = {
     {TS3A(0x0065F3DF)},
     {0},
     {TS3A(0x0065EF77), TS3A(0x0065F420)},
-    {0}, {0}, {0},
+    {0}, {0}, {0}, {0}, {0},
 };
 static void* g_pccNext[PCC_N];  // our trampoline, or what an owner's pointer held (RJP takes our place in it later)
 static bool g_pccSplit;         // CandidateSplit (ini, install time)
 static LONG g_pccLogUs = 100000;
 
 // ---- split timing (per thread) ----
-struct PccFr { const void* mark; int site; LONGLONG t0, child; };
+// sub = LotPlan's call-site slot (kPccLpRets, PCC_LPN = other) or -1: its inclusive time (cell A* under it included)
+struct PccFr { const void* mark; int site, sub; LONGLONG t0, child; };
 struct PccTh {
     int n, ph;  // frames, open PlanHierarchical frames
     PccFr f[32];
-    LONGLONG self[PCC_N];
-    LONG calls[PCC_N], cuts;
+    LONGLONG self[PCC_N], lp[PCC_LPN + 1];
+    LONG calls[PCC_N], lpN[PCC_LPN + 1], cuts;
 };
 static __declspec(thread) PccTh t_pcc;
 static volatile LONG64 g_pccTotUs[PCC_N];
 static volatile LONG g_pccTotN[PCC_N], g_pccPh;
 static volatile LONG g_pccMinute, g_pccLinesMin;
+
+// the slowest PlanHierarchical calls (>= CandidateSplitLogMs) since the last 60 s counter line
+enum { PCC_TOPN = 8 };
+struct PccTop {
+    LONG us, scope, cuts;
+    DWORD code, route;
+    bool worker;
+    LONG selfUs[PCC_N], calls[PCC_N], lpUs[PCC_LPN + 1], lpN[PCC_LPN + 1];
+};
+static SRWLOCK g_pccTopLock = SRWLOCK_INIT;
+static PccTop g_pccTop[PCC_TOPN];
+static int g_pccTopN;
 
 static bool PccLineOk() {  // 20 lines a minute over all threads (log only; a race lets one or two more through)
     const DWORD now = GetTickCount();
@@ -90,7 +125,7 @@ static bool PccLineOk() {  // 20 lines a minute over all threads (log only; a ra
 static LONG PccUs(LONGLONG ticks) { return (LONG)(ticks * 1000000 / g_qpf.QuadPart); }
 
 // mark = an address in the hook's frame; frames at or below it were left by an unwind (dropped, their time stays in the parent)
-static bool PccEnter(int site, const void* mark) {
+static bool PccEnter(int site, const void* mark, int sub = -1) {
     if (!g_pccSplit) return false;
     PccTh& t = t_pcc;
     while (t.n && t.f[t.n - 1].mark <= mark) {
@@ -99,17 +134,40 @@ static bool PccEnter(int site, const void* mark) {
     if (site != PCC_PH && !t.ph) return false;  // outside a planner call (script callers): untimed
     if (t.n == 32) return false;
     if (site == PCC_PH && !t.ph) {
-        memset(t.self, 0, sizeof(t.self));
-        memset(t.calls, 0, sizeof(t.calls));
+        memset(t.self, 0, sizeof(t.self)), memset(t.lp, 0, sizeof(t.lp));
+        memset(t.calls, 0, sizeof(t.calls)), memset(t.lpN, 0, sizeof(t.lpN));
         t.cuts = 0;
     }
     PccFr& f = t.f[t.n++];
-    f.mark = mark, f.site = site, f.child = 0;
+    f.mark = mark, f.site = site, f.sub = sub, f.child = 0;
     if (site == PCC_PH) t.ph++;
     LARGE_INTEGER q;
     QueryPerformanceCounter(&q);
     f.t0 = q.QuadPart;
     return true;
+}
+
+// "cell 12/3, lotPlan 2/1, ...; lot legs by call 65F11C 140/1, ..." (ms/calls; legs only where called)
+static int PccFmt(char* b, int room, const LONG* selfUs, const LONG* calls, const LONG* lpUs, const LONG* lpN) {
+    int at = 0;
+    for (int i = 1; i < PCC_N && at < room; i++)
+        at += sprintf_s(b + at, room - at, "%s%s %ld/%ld", i > 1 ? ", " : "", kPccSites[i].name, selfUs[i] / 1000, calls[i]);
+    bool any = false;
+    for (int i = 0; i <= PCC_LPN && at < room; i++) {
+        if (!lpN[i]) continue;
+        at += sprintf_s(b + at, room - at, "%s%s %ld/%ld", any ? ", " : " (self ms/calls); lot legs by call ", kPccLpNames[i], lpUs[i] / 1000, lpN[i]);
+        any = true;
+    }
+    if (at < room) at += sprintf_s(b + at, room - at, any ? " (incl. ms/calls)" : " (self ms/calls); no lot legs");
+    return at;
+}
+
+static void PccTopLog(const PccTop& e, int rank, int n) {
+    char b[700];
+    PccFmt(b, sizeof(b), e.selfUs, e.calls, e.lpUs, e.lpN);
+    Log("route candidate top %d/%d: PlanHierarchical %ld ms code %lu, %s, route %08lX, scope %s: %s; rest %ld ms "
+        "(own code + world A*, water, allocator); cut %ld", rank, n, e.us / 1000, e.code, e.worker ? "worker job" : "sync", e.route,
+        KdScopeTag(e.scope), b, e.selfUs[PCC_PH] / 1000, e.cuts);
 }
 
 static LONG PccScopeNow(bool* worker);
@@ -120,16 +178,30 @@ static void PccPhEnd(const PccTh& t, LONGLONG incl, DWORD code) {
     const LONG us = PccUs(incl);
     if (us < g_pccLogUs) return;
     InterlockedIncrement(&ts3native_plancand.splitLong);
-    if (!PccLineOk()) return;
+    PccTop e;
     bool worker = false;
-    const LONG scope = PccScopeNow(&worker);
-    char b[400];
-    int at = 0;
-    for (int i = 1; i < PCC_N; i++)
-        at += sprintf_s(b + at, sizeof(b) - at, "%s%s %ld/%ld", i > 1 ? ", " : "", kPccSites[i].name, PccUs(t.self[i]) / 1000, t.calls[i]);
-    Log("route candidate split: PlanHierarchical %ld ms code %lu, %s, route %08lX, scope %s: %s (self ms/calls); rest %ld ms "
-        "(own code + world A*, cell A*, water, lot legs); cut %ld", us / 1000, code, worker ? "worker job" : "sync",
-        worker ? g_async.handle : (t_pd.open ? t_pd.handle : 0), KdScopeTag(scope), b, PccUs(t.self[PCC_PH]) / 1000, t.cuts);
+    e.us = us, e.code = code, e.cuts = t.cuts;
+    e.scope = PccScopeNow(&worker);
+    e.worker = worker;
+    e.route = worker ? g_async.handle : (t_pd.open ? t_pd.handle : 0);
+    for (int i = 0; i < PCC_N; i++) e.selfUs[i] = PccUs(t.self[i]), e.calls[i] = t.calls[i];
+    for (int i = 0; i <= PCC_LPN; i++) e.lpUs[i] = PccUs(t.lp[i]), e.lpN[i] = t.lpN[i];
+    AcquireSRWLockExclusive(&g_pccTopLock);
+    int slot = g_pccTopN < PCC_TOPN ? g_pccTopN++ : -1;
+    if (slot < 0) {  // full: replace the fastest kept call if this one is slower (one pass, 8 entries)
+        int lo = 0;
+        for (int i = 1; i < PCC_TOPN; i++)
+            if (g_pccTop[i].us < g_pccTop[lo].us) lo = i;
+        if (g_pccTop[lo].us < us) slot = lo;
+    }
+    if (slot >= 0) g_pccTop[slot] = e;
+    ReleaseSRWLockExclusive(&g_pccTopLock);
+    if (!PccLineOk()) return;
+    char b[700];
+    PccFmt(b, sizeof(b), e.selfUs, e.calls, e.lpUs, e.lpN);
+    Log("route candidate split: PlanHierarchical %ld ms code %lu, %s, route %08lX, scope %s: %s; rest %ld ms "
+        "(own code + world A*, water, allocator); cut %ld", us / 1000, code, worker ? "worker job" : "sync", e.route,
+        KdScopeTag(e.scope), b, e.selfUs[PCC_PH] / 1000, t.cuts);
 }
 
 static void PccLeave(const void* mark, DWORD r) {
@@ -147,8 +219,29 @@ static void PccLeave(const void* mark, DWORD r) {
     const LONGLONG incl = q.QuadPart - f.t0;
     t.self[f.site] += incl - f.child;
     t.calls[f.site]++;
+    if (f.sub >= 0 && f.sub <= PCC_LPN) t.lp[f.sub] += incl, t.lpN[f.sub]++;
     if (t.n) t.f[t.n - 1].child += incl;
     if (f.site == PCC_PH && --t.ph == 0) PccPhEnd(t, incl, r);
+}
+
+// the 8 slowest calls kept since the last call, slowest first; the list starts empty again
+static void PccTopFlush() {
+    PccTop top[PCC_TOPN];
+    AcquireSRWLockExclusive(&g_pccTopLock);
+    const int n = g_pccTopN;
+    memcpy(top, g_pccTop, sizeof(PccTop) * n);
+    g_pccTopN = 0;
+    ReleaseSRWLockExclusive(&g_pccTopLock);
+    for (int i = 1; i < n; i++) {  // insertion sort, slowest first
+        const PccTop e = top[i];
+        int j = i;
+        for (; j > 0 && top[j - 1].us < e.us; j--) top[j] = top[j - 1];
+        top[j] = e;
+    }
+    for (int i = 0; i < n; i++) {
+        PccTopLog(top[i], i + 1, n);
+        InterlockedIncrement(&ts3native_plancand.lines);
+    }
 }
 
 // ---- candidate cut ----
@@ -185,9 +278,9 @@ static bool PccPast(LONG* scope, LONGLONG* t0, bool* worker, LONGLONG* now) {
     return false;
 }
 
-static bool PccCut(int site, DWORD ret) {
+// past the deadline and a cuttable scope: the plan is marked cut and true is returned (ret = the call named in the log line)
+static bool PccCutNow(int site, DWORD ret) {
     PlanCandCounters& c = ts3native_plancand;
-    if (c.cutMode != 1 || !PccRetIn(ret, kPccRets[site], 4)) return false;
     LONG scope = 0;
     LONGLONG t0 = 0, now = 0;
     bool worker = false;
@@ -214,6 +307,55 @@ static bool PccCut(int site, DWORD ret) {
         Log("route candidate cut: %s after %ld ms, scope %s; %s, route %08lX, call 0x%08lX", kPccSites[site].name,
             PccUs(now - t0) / 1000, KdScopeTag(scope), worker ? "worker job" : "sync plan", worker ? g_async.handle : t_pd.handle, ret);
     return true;
+}
+static bool PccCut(int site, DWORD ret) {
+    if (ts3native_plancand.cutMode != 1 || !PccRetIn(ret, kPccRets[site], 4)) return false;
+    return PccCutNow(site, ret);
+}
+
+// ---- cell A* loop (docs/644 §8): the node-cap test at 0x61E76E, then the deadline every 32nd expansion ----
+static DWORD g_pccCellBack, g_pccCellCap, g_pccCellFail;  // 0x61E777 (next test), 0x61E7D9 (node cap), 0x61E59C (no path)
+static __declspec(thread) LONG t_pccCellTick;
+static bool g_pccCellLoop;
+// eax / ecx / edx and the flags are dead at all three targets (each writes them before a read), so the C call may clobber them
+static int __cdecl PccCellLoopCut() {
+    if (++t_pccCellTick & 31) return 0;
+    if (ts3native_plancand.cutMode != 1) return 0;
+    return PccCutNow(PCC_CELL, PCC_IN(0x0061E500, 0x26E)) ? 1 : 0;
+}
+static __declspec(naked) void PccCellLoopStub() {
+    __asm {
+        mov ecx, dword ptr [esp + 0x18]  // the game's node cap (0xFA00 or 0x40002), esp as at 0x61E76E (jumped here, nothing pushed)
+        cmp dword ptr [edi + 0x24], ecx
+        jae cap
+        call PccCellLoopCut
+        test eax, eax
+        jnz cut
+        jmp dword ptr [g_pccCellBack]
+    cap:
+        jmp dword ptr [g_pccCellCap]
+    cut:
+        jmp dword ptr [g_pccCellFail]
+    }
+}
+static void PccInstallCellLoop() {
+    static const u8 kWant[9] = {0x8B, 0x4C, 0x24, 0x18, 0x39, 0x4F, 0x24, 0x73, 0x62};
+    // the exits' own bytes: 0x61E7D9 test ebx,ebx; 0x61E59C lea ecx,[esp+30h]
+    static const u8 kCap[2] = {0x85, 0xDB}, kFail[4] = {0x8D, 0x4C, 0x24, 0x30};
+    const DWORD at = PCC_IN(0x0061E500, 0x26E);
+    u8* p = (u8*)(uintptr_t)at;
+    if (!at || !Matches(p, kWant, sizeof(kWant)) || !Matches((const void*)(uintptr_t)PCC_IN(0x0061E500, 0x2D9), kCap, sizeof(kCap)) ||
+        !Matches((const void*)(uintptr_t)PCC_IN(0x0061E500, 0x9C), kFail, sizeof(kFail))) {
+        Log("SKIP route candidate cut: cell A* loop test at 0x%08lX differs (or its exits do), entry cut only", at);
+        return;
+    }
+    g_pccCellBack = PCC_IN(0x0061E500, 0x277), g_pccCellCap = PCC_IN(0x0061E500, 0x2D9), g_pccCellFail = PCC_IN(0x0061E500, 0x9C);
+    u8 j[9] = {0xE9, 0, 0, 0, 0, 0x90, 0x90, 0x90, 0x90};
+    const LONG rel = (LONG)((uintptr_t)PccCellLoopStub - (at + 5));
+    memcpy(j + 1, &rel, 4);
+    g_pccCellLoop = Write(p, j, sizeof(j));
+    Log("%s route candidate cut: cell A* loop deadline at 0x%08lX (every 32nd expansion, exit 0x%08lX)", g_pccCellLoop ? "OK  " : "FAIL",
+        at, g_pccCellFail);
 }
 
 // ---- hooks: thiscall entries as __fastcall (edx unused, same stack and callee cleanup); EAX passed back whole ----
@@ -263,8 +405,26 @@ static DWORD __fastcall PccShoreHook(void* self, void* edx, DWORD a1, DWORD a2, 
 static DWORD __fastcall PccLotSearchHook(void* self, void* edx, DWORD a1, DWORD a2, DWORD a3, DWORD a4, DWORD a5, DWORD a6) {
     PCC_TIMED(PCC_LOTSEARCH, ((Pcc6Fn)g_pccNext[PCC_LOTSEARCH])(self, edx, a1, a2, a3, a4, a5, a6));
 }
-static void* const kPccHooks[PCC_N] = {(void*)PccPhHook, (void*)PccClosestHook, (void*)PccSameLandHook, (void*)PccSameWaterHook,
-                                       (void*)PccChooseHook, (void*)PccGatherHook, (void*)PccShoreHook, (void*)PccLotSearchHook};
+static DWORD __fastcall PccCellHook(void* self, void* edx, DWORD a1, DWORD a2, DWORD a3, DWORD a4, DWORD a5, DWORD a6) {
+    PCC_TIMED(PCC_CELL, ((Pcc6Fn)g_pccNext[PCC_CELL])(self, edx, a1, a2, a3, a4, a5, a6));
+}
+// LotPlan 0x6410B0: thiscall, 13 stack args (ret 0x34; float args pass through as their bits)
+typedef DWORD(__fastcall* Pcc13Fn)(void*, void*, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD);
+static DWORD __fastcall PccLotPlanHook(void* self, void* edx, DWORD a1, DWORD a2, DWORD a3, DWORD a4, DWORD a5, DWORD a6, DWORD a7,
+                                       DWORD a8, DWORD a9, DWORD a10, DWORD a11, DWORD a12, DWORD a13) {
+    const DWORD ret = PCC_RET;
+    int sub = PCC_LPN;
+    for (int i = 0; i < PCC_LPN; i++)
+        if (kPccLpRets[i] == ret) sub = i;
+    const void* const mark = _AddressOfReturnAddress();
+    const bool on = PccEnter(PCC_LOTPLAN, mark, sub);
+    const DWORD r = ((Pcc13Fn)g_pccNext[PCC_LOTPLAN])(self, edx, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13);
+    if (on) PccLeave(mark, r);
+    return r;
+}
+static void* const kPccHooks[PCC_N] = {(void*)PccPhHook,   (void*)PccClosestHook, (void*)PccSameLandHook, (void*)PccSameWaterHook,
+                                       (void*)PccChooseHook, (void*)PccGatherHook,  (void*)PccShoreHook,    (void*)PccLotSearchHook,
+                                       (void*)PccCellHook,   (void*)PccLotPlanHook};
 
 // ---- water goal check ----
 typedef DWORD(__fastcall* WgcFn)(void*, void*, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD);
@@ -340,6 +500,12 @@ static void InstallPlanCand(const wchar_t* ini) {
         for (int i = 0; i < PCC_N; i++) {
             if (!split && !kPccSites[i].cut) continue;
             want++;
+            if (i == PCC_CELL && g_pdOrig[0]) {  // the plan deadline stub owns the entry: we run after it (its skip exit first)
+                g_pccNext[i] = g_pdOrig[0];
+                InterlockedExchangePointer(&g_pdOrig[0], kPccHooks[i]);
+                hooked++;
+                continue;
+            }
             char name[80];
             sprintf_s(name, "%s (candidate %s)", kPccSites[i].name, split ? "split" : "cut");
             if (InstallDetour(name, kPccSites[i].at, kPccSites[i].pro, kPccSites[i].len, kPccHooks[i], &g_pccNext[i])) hooked++;
@@ -351,6 +517,7 @@ static void InstallPlanCand(const wchar_t* ini) {
         Log("%s route candidate %s: %d of %d helper sites hooked; CandidateCut=%d (mode %ld: past the plan's deadline, unseen and seen-NPC "
             "routers only), split lines >= %ld ms", hooked == want ? "OK  " : "PART", split ? "split + cut" : "cut", hooked, want, cut,
             c.cutMode, g_pccLogUs / 1000);
+        if (c.cutMode == 1) PccInstallCellLoop();
         if (cut && !ts3native_counters.pdReady && !g_kdIni && !g_ufIni)
             Log("route candidate cut: no plan deadline is on (PlanDeadlineMs, KindDeadlines, UnseenFallback, FbJobDeadline): nothing to cut at");
     }
@@ -374,12 +541,13 @@ static void InstallPlanCand(const wchar_t* ini) {
 static void PccLogCounters() {
     const PlanCandCounters& c = ts3native_plancand;
     if (!c.ready) return;
-    Log("route candidate: cut mode %ld plans %ld calls %ld exempt %ld; water goal check mode %ld rejects %ld mismatch %ld; split calls %ld long %ld",
-        c.cutMode, c.cutPlans, c.cutCalls, c.cutExempt, c.wgcMode, c.wgcReject, c.wgcMismatch, g_pccPh, c.splitLong);
+    Log("route candidate: cut mode %ld plans %ld calls %ld exempt %ld; water goal check mode %ld rejects %ld mismatch %ld; split calls %ld long %ld; cell A* loop cut %s",
+        c.cutMode, c.cutPlans, c.cutCalls, c.cutExempt, c.wgcMode, c.wgcReject, c.wgcMismatch, g_pccPh, c.splitLong, g_pccCellLoop ? "on" : "off");
     if (!g_pccSplit) return;
     char b[400];
     int at = 0;
     for (int i = 1; i < PCC_N; i++)
         at += sprintf_s(b + at, sizeof(b) - at, "%s%s %lld/%ld", i > 1 ? ", " : "", kPccSites[i].name, (long long)(g_pccTotUs[i] / 1000), g_pccTotN[i]);
     Log("route candidate split totals: %s (self ms/calls); PlanHierarchical rest %lld ms over %ld calls", b, (long long)(g_pccTotUs[PCC_PH] / 1000), g_pccTotN[PCC_PH]);
+    PccTopFlush();  // docs/644 §8: the 8 slowest calls of the last minute, with their lot legs by call site
 }

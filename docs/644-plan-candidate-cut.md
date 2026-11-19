@@ -118,3 +118,69 @@ EA 1.69: the new addresses are `0` rows in `ts3addr-ea169.h`; the section logs S
 - Return-address gating relies on the Steam 1.67 call sites; another hook that calls these helpers from C would not be cut
   (only timed).
 - Scope for a non-IC session (handle 0) is the pending `g_kdScope` answer, as `KdSyncCeilUs` uses it.
+
+## 8. Run 1 and the cell A* loop cut
+
+2026-11-19, IP, ~20 min, CandidateCut=1, CandidateSplit=1, SyncPlans=1, NoPathMemo=2 [measured]:
+
+- 3 cuts (`route candidate: cut mode 1 plans 3 calls 3 exempt 0`), WaterGoalCheck=2: 1 reject, mismatch 0.
+- Split totals: closestWps 258 ms / 4558, choose 83, gather 476, shore 1604 / 159892, lotSearch 10801 / 4534; "rest" 147,049
+  ms over 13,589 calls. 278 lines >= 100 ms: 211 unseen worker jobs with code 0 (100-355 ms, every helper ~0), 13 code 5.
+- The ten SyncPlans lines of the same run: 270-306 ms each, `cell=253..288`, `cand=16..17`, world / lotleg / water 0. The
+  phases there are exclusive, so the sync plans' time is cell A* `0x61E500`.
+- UnseenFallback: overrun past the cut p99 80 ms sync / 114 ms job, all cell A* (`cell 80/114`, world and water -1).
+
+Where cell A* sits [verified, E8 call graph of `.text`]: it is not called from `0x65E0D0` directly. LotPlan `0x6410B0` (from
+`0x65E3C2`, `0x65F11C`, `0x65F582`, `0x660794`, `0x660ABE`, `0x660D83`, `0x661A9B`, and through `0x656A70` from `0x6611A1` /
+`0x661308`) -> `0x63F6E0` -> `0x632630` -> `0x61E500` (call `0x632C1A`); LotSearch `0x640E00` (from `0x65EB8E`, `0x65ECDE`,
+`0x65EDE5`) -> `0x633FA0` -> `0x632E40` -> `0x61E500` (call `0x633594`). So "rest" was cell A* under LotPlan plus world A* and
+own code, and lotSearch's self time had its cell A* inside. [inferred: the worker jobs' rest is the same cell A* as the sync
+plans'; the new split proves it.] The planner's own loops (`0x65F2E0`..`0x65F84B` candidate loop, the goal loops) call
+helpers that each have a deadline exit already (choose / sameLand / closestWps here, world A* cost stubs, cell A* and water
+entry stubs), so a back-edge exit there would save only the loop's own bookkeeping; what runs on past the deadline is one cell
+A* search already started (bounded only by its node cap 0xFA00, or 0x40002 with route flag 0x100000).
+
+### 8.1 Split, part 2 (CandidateSplit=1)
+
+- Two more timed sites: `cell` (cell A* `0x61E500`: after the plan deadline stub through `g_pdOrig[0]` when it is on, else own
+  detour) and `lotPlan` (LotPlan `0x6410B0`, own detour, 8 bytes). Self times as before, so lotSearch and lotPlan no longer
+  include the cell A* under them; "rest" is now own code + world A* + water + allocator.
+- Lot legs by call site: LotPlan's inclusive time (cell A* under it included) per return address in `0x65E0D0` (the seven
+  sites above, named by call address; `other` = through `0x656A70` or outside the planner).
+- Per line: `route candidate split: PlanHierarchical N ms code C, ...: closestWps a/b, ..., cell a/b, lotPlan a/b (self
+  ms/calls); lot legs by call 65F11C a/b, ... (incl. ms/calls); rest R ms ...`.
+- Every 60 s, after the totals line, the 8 slowest calls (>= CandidateSplitLogMs) since the last one, slowest first, not
+  rate-limited: `route candidate top i/n: PlanHierarchical ...` (same fields).
+
+### 8.2 Cut, part 2: the cell A* loop (CandidateCut=1)
+
+Loop of `0x61E500` [verified disassembly, Steam 1.67]: head `0x61E640`, pop the best open node into esi (ref counted), the
+goal test, best-so-far ebx update, then the node-cap test `0x61E76E: mov ecx,[esp+18h]; cmp [edi+24h],ecx; jae 0x61E7D9`,
+expansion (vtable `+0x1C`, `+0x10`, `0x72C920`, `0x66BFD0`, `+0x2C`), back-edge `0x61E7D3 jge 0x61E640` while the open count
+`[[edi+18h]+18h] >= 0`. Exits: `0x61E7D9` (ebx = 0 -> `0x61E59C`, else the path to ebx, AL 1: the goal and node-cap result) and
+`0x61E59C`: `[edi+1Ch] = -1`, frees the two local vectors (`0x61BAB0` on `[esp+30h]` + free `[esp+40h]`, `0x61BCE0` on
+`[esp+20h]` + free), releases ebx and esi (each null tested), AL 0, `ret 0x18`. The same exit the loop takes when it ends with
+no best node.
+
+The patch: the 9 bytes at `0x61E76E` become `jmp stub; nop x4` (no branch targets `0x61E76F`-`0x61E776` [verified scan]). The
+stub runs the replaced test unchanged (cap -> `0x61E7D9`), then calls `PccCellLoopCut`: every 32nd expansion on that thread the
+same rule as the other cut sites (`PccCutNow`: the session's or worker job's deadline, `KdCamHold`, scope 2 / 3 only, household,
+selected and unknown never); a cut jumps to `0x61E59C`, else on to `0x61E777`. eax / ecx / edx and the flags are written before
+any read at all three targets, so the C call may clobber them; esp is untouched (jumped, not called).
+
+What the plan sees: cell A* AL 0 with `[this+0x24]` = nodes expanded so far and `[this+0x1C]` = -1, the same as the entry
+stub's skip exit (AL 0, count 0) that the deadline already uses on every later search (docs/164 §7 D3): LotPlan_Inner takes its
+code-5 path, LotSearch its not-found, PlanHierarchical ends 5 [verified for the entry exit; the count differs only, and no
+caller of `0x61E500` was seen reading `[this+0x24]` after AL 0 (inferred)]. The open list is left as the goal exit leaves it;
+the next search starts with `0x61E360` (read as its reset [inferred]). The plan is marked cut as at the other sites (worker `t_fbCapHit` / `t_jobCapAt`,
+sync `t_pd.capped`), first cut per plan logged `route candidate cut: cell after N ms ... call 0x0061E76E`.
+
+Cost with CandidateCut=1: one call and one TLS increment per expansion, a clock read every 32nd (a plan with no open session
+returns after the thread compare). The 60 s line adds `cell A* loop cut on|off`.
+
+Not done, and why: a deadline exit at a back-edge of `0x65E0D0` itself. Its loops' calls are cut already, and run 1 shows no
+time in its own code that the split could see; if the new top lines show a large `rest` with no lot leg or cell time, that is
+the next place (the candidate loop back-edge `0x65F84B`, exit through `0x65FE58`).
+
+EA 1.69: no new table rows; the new addresses are offsets inside `0x61E500` / `0x65E0D0` (`PCC_IN`), and the EA port skips
+the whole file (`ts3a_noaddr`).

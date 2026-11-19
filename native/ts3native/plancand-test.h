@@ -125,6 +125,24 @@ static void TestCandidateSplit() {
     assert(t.calls[PCC_GATHER] == 0 && t.calls[PCC_SAMELAND] == 1);
     PccLeave(frame + 60, 5);
     assert(t.ph == 0 && t.n == 0 && g_pccPh == savedPh + 1);
+    // docs/644 §8: a lot leg's inclusive time goes to its call-site slot, the cell A* under it to cell's self time; every
+    // call >= the log setting is kept in the top list (8 at most), which the counter flush empties
+    g_pccLogUs = 1;
+    g_pccTopN = 0;
+    for (int k = 0; k < 10; k++) {
+        assert(PccEnter(PCC_PH, frame + 60));
+        assert(PccEnter(PCC_LOTPLAN, frame + 40, 1));
+        assert(PccEnter(PCC_CELL, frame + 20));
+        Sleep(1);
+        PccLeave(frame + 20, 0);
+        PccLeave(frame + 40, 0);
+        assert(t.lpN[1] == 1 && t.calls[PCC_CELL] == 1 && t.lp[1] >= t.self[PCC_CELL] && t.self[PCC_LOTPLAN] < t.lp[1]);
+        PccLeave(frame + 60, 5);
+        assert(g_pccTopN == (k < PCC_TOPN ? k + 1 : PCC_TOPN));
+    }
+    for (int i = 0; i < g_pccTopN; i++) assert(g_pccTop[i].lpN[1] == 1 && g_pccTop[i].calls[PCC_CELL] == 1 && g_pccTop[i].code == 5);
+    PccTopFlush();
+    assert(g_pccTopN == 0);
     g_pccSplit = saved, g_pccLogUs = savedLog;
 }
 
