@@ -14,9 +14,17 @@
 //   - stall watch samples (`stall watch: sim thread ...: eip X, stack scan (n): ...`, [StallWatch] StallMs=150 EveryMs=50):
 //     TS3W frames named from game-copy/analysis/functions.csv (Ghidra ExportFunctions, local) and the
 //     tools/ghidra/symbols CSVs, leaf = first TS3W frame;
-//   - GC count (`gc +N` of the hitchwatch line), P5c release / park lines, other line kinds.
-// The cause is the largest measured wait that covers >= 50% of the hitch: sync plan, job wait, lock wait; else GC when
-// gc > 0, else the stall-watch leaf when sampled, else "unknown". Then callers x phases are ranked by stall ms.
+//   - GC count (`gc +N` of the hitchwatch line), P5c release / park lines, other line kinds;
+//   - the native per-frame split (`hitch: frame N ms (#n), cause C: sync ... unknown U, at T ms`, [HitchAttr] HitchMs,
+//     docs/666 §5): the largest such frame in the window, its cause class and ms by part;
+//   - `route lock wait: sim waited N ms on +0x918 (key K, ...), held by H; job ...` ([HitchAttr] RouteLockMs);
+//   - deep stall watch lines ([StallWatch] StackKB / Names / MainThread / Managed): frames `TS3W+0xRVA[Name+0xOFF]^*n`
+//     (name from the asi's table, ^ = frame-pointer chain, *n = repeats), `more frames` lines, `main thread` samples and the
+//     sim thread's `script stack` (managed frames); `, managed caller A < B` on sync plan lines (LogFallbackCaller).
+// The cause is the largest measured wait that covers >= 50% of the hitch: sync plan, job wait, lock wait; else the native
+// frame's cause class when a `hitch:` line covers >= 50% of it; else GC when gc > 0, else the stall-watch leaf when
+// sampled, else "unknown". Then callers x phases are ranked by stall ms. A log with `hitch:` lines and no hitchwatch
+// lines (no ts3fixes hitch_watch) is read with the native frames as its hitches.
 import { spawn } from 'node:child_process';
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { createInterface } from 'node:readline';
@@ -42,7 +50,11 @@ function loadSymbols(): { fns: Fn[]; named: Sym[] } {
   return { fns, named: named.sort((a, b) => a.at - b.at) };
 }
 let SYMS: { fns: Fn[]; named: Sym[] } | null = null;
+// a deep stall-watch frame token without its marks: `TS3W+0x25E0F0[Name+0x20]^*3` -> `TS3W+0x25E0F0[Name+0x20]`
+export const bareFrame = (t: string) => t.replace(/(\^)?(\*\d+)?$/, '');
 export function nameOf(frame: string): string {
+  const b = frame.match(/^[^\[]+\[~?(.+)\+0x[0-9A-F]+\]$/i);   // named by the asi ([StallWatch] Names=1)
+  if (b) return b[1];
   const m = frame.match(/^TS3W\+0x([0-9A-F]+)$/i);
   if (!m) return frame.replace(/\+0x[0-9A-F]+$/i, '');            // other modules: module name only
   SYMS ??= loadSymbols();
@@ -64,6 +76,9 @@ export type Hitch = {
   jobWaits: { ms: number; site: string; route: string; own: boolean }[];
   lockWaits: { ms: number; at: string; holder: string; from: string }[];
   splits: Split[]; samples: string[][]; p5c: number; kinds: Map<string, number>; flags: Set<string>;
+  frame?: Frame;            // the largest native `hitch:` frame of the window
+  mainSamples: string[][];  // stall watch samples of the main thread
+  scripts: string[][];      // stall watch script stacks of the sim thread (innermost first)
   perf?: string[][];  // sampled sim-thread stacks (perf, leaf first, `TS3W+0xRVA` / module names) in the hitch window
   perfMain?: string[][]; perfHz?: number;
   cause?: string; caller?: string; covered?: number; jobCaller?: string;
@@ -88,6 +103,18 @@ export function parseSyncPhases(l: string): Split | null {
   return { route: m[3], ms: +m[1], mode: 'sync', scope: m[2], phases, src: 'syncphases' };
 }
 
+// [HitchAttr] HitchMs (hitchsum.cpp HsLine): one sim frame's ms split and cause class
+export type Frame = { ms: number; n: number; cause: string; at: number; parts: Map<string, number>; sync: Map<string, number>; lockHolder: string; job250: number; gcN: number };
+export function parseFrame(l: string): Frame | null {
+  const m = l.match(/^hitch: frame (\d+) ms \(#(\d+)\), cause ([\w\/-]+): sync (\d+) \(n=\d+((?: \w+=\d+)*)\), jobwait (\d+) \(.*?\), lock918 (\d+) \(n=\d+ max=\d+ key [0-9A-F]+ holder (.+?) \d+ job250=(\d+) insync=\d+\), otherlock (\d+) \(.*?\), gc (-?\d+) \(\+(-?\d+)\), limiter (-?\d+), cpu (-?\d+), unknown (\d+), at (\d+) ms/);
+  if (!m) return null;
+  const sync = new Map<string, number>();
+  for (const p of m[5].matchAll(/(\w+)=(\d+)/g)) sync.set(p[1], +p[2]);
+  const parts = new Map<string, number>([['sync', +m[4]], ['jobwait', +m[6]], ['lock918', +m[7]], ['otherlock', +m[10]], ['gc', +m[11]], ['limiter', +m[13]], ['cpu', +m[14]], ['unknown', +m[15]]]);
+  return { ms: +m[1], n: +m[2], cause: m[3], at: +m[16], parts, sync, lockHolder: m[8], job250: +m[9], gcN: +m[12] };
+}
+const stallFrames = (s: string) => s.trim().split(/\s+/).filter(t => t && !t.startsWith('...')).map(bareFrame);
+
 const kindOf = (l: string) => l.replace(/^ts3fixes: /, 'ts3fixes:').replace(/[0-9A-Fa-fx]{6,}|\d+/g, '#').split(/[:(,]/).slice(0, 2).join(':').slice(0, 60);
 
 // context flags of a window (several per hitch): what else ran in that frame, for hitches no measured wait covers
@@ -102,7 +129,9 @@ const FLAGS: [string, RegExp][] = [
   ['callcensus dump', /ts3fixes: callcensus:/],
   ['Go Here cmd (routecauselog)', /ts3fixes: gohere /],
   ['routefail', /routefail/],
-  ['stall watch sample', /stall watch: sim thread/],
+  ['stall watch sample', /stall watch: sim thread \d+: /],
+  ['stall watch sample without a Simulate frame', /stall watch: sim thread \d+: .*?, no Simulate frame/],
+  ['+0x918 wait logged (route lock wait)', /^route lock wait: sim waited/],
   ['GC heap grow', /GC growth step|GC black-list/],
   ['save', /save phase|ts3fixes: save|UserDiag save/],
 ];
@@ -112,8 +141,11 @@ export function parseLog(text: string, log: string, minMs: number, allAgents: bo
   const ts: (number | null)[] = L.map(l => { const m = l.match(/, at (\d+) ms\b/); return m ? +m[1] : null; });
   const stamped: number[] = []; ts.forEach((t, i) => { if (t !== null) stamped.push(i); });
   const hitches: Hitch[] = []; let harness = 0;
+  // no ts3fixes hitchwatch in this log: the native `hitch:` frames are the hitches
+  const native = !L.some(l => /hitchwatch: \d+ ms, tick/.test(l));
   for (let i = 0; i < L.length; i++) {
-    const m = L[i].match(/hitchwatch: (\d+) ms, tick (\d+), .*?gc \+(\d+), agent (.+?), at (\d+) ms/);
+    let m = L[i].match(/hitchwatch: (\d+) ms, tick (\d+), .*?gc \+(\d+), agent (.+?), at (\d+) ms/);
+    if (!m && native) { const f = parseFrame(L[i]); if (f) m = ['', `${f.ms}`, `${f.n}`, `${Math.max(0, f.gcN)}`, '-', `${f.at}`] as unknown as RegExpMatchArray; }
     if (!m || +m[1] < minMs) continue;
     if (m[4] !== '-' && !allAgents) { harness++; continue; }
     const ms = +m[1], at = +m[5];
@@ -123,23 +155,42 @@ export function parseLog(text: string, log: string, minMs: number, allAgents: bo
     while (k0 < k1) { const mid = (k0 + k1) >> 1; if (stamped[mid] <= i) k0 = mid + 1; else k1 = mid; }
     for (let k = k0 - 1; k >= 0 && stamped[k] >= lo; k--) if (stamped[k] < i && ts[stamped[k]]! <= at - ms - 30) { lo = stamped[k] + 1; break; }
     for (let k = k0; k < stamped.length && stamped[k] < hi; k++) if (ts[stamped[k]]! > at + 30) { hi = stamped[k]; break; }
-    const h: Hitch = { log, ms, at, tick: +m[2], gc: +m[3], agent: m[4], plans: [], ufsync: [], jobWaits: [], lockWaits: [], splits: [], samples: [], p5c: 0, kinds: new Map(), flags: new Set() };
+    const h: Hitch = { log, ms, at, tick: +m[2], gc: +m[3], agent: m[4], plans: [], ufsync: [], jobWaits: [], lockWaits: [], splits: [], samples: [], p5c: 0, kinds: new Map(), flags: new Set(), mainSamples: [], scripts: [] };
+    let lastSample: string[] | null = null;
     for (let j = lo; j < hi; j++) {
       const l = L[j]; let x;
+      if (/^hitch: frame /.test(l)) {  // a frame that ends inside the hitch (or is it): the largest one
+        const f = parseFrame(l);
+        if (f && f.at >= at - ms - 30 && f.at - f.ms <= at + 30 && (!h.frame || f.ms > h.frame.ms)) h.frame = f;
+        continue;
+      }
       if (j === i || /hitchwatch:/.test(l)) continue;
       for (const [f, re] of FLAGS) if (re.test(l)) h.flags.add(f);
       if ((x = l.match(/ufplansplit: .*?wait \d+ \(\d+ polls, longest (\d+)\)/)) && +x[1] * 2 >= ms) h.flags.add('async plan slept through it');
-      if ((x = l.match(/route async: sync plan (\d+) ms, IC (\w+), reason (\w+).*?route ([0-9A-F]+)/))) h.plans.push({ ms: +x[1], ic: x[2], reason: x[3], route: x[4], stack: null });
+      if ((x = l.match(/route async: sync plan (\d+) ms, IC (\w+), reason (\w+).*?route ([0-9A-F]+)/))) {
+        const mc = l.match(/, managed caller (.+?)(?: \[compiled .*\])?$/);   // [RouteAsync] LogFallbackCaller
+        h.plans.push({ ms: +x[1], ic: x[2], reason: x[3], route: x[4], stack: mc && mc[1] !== '?' ? mc[1].split(' < ') : null });
+      }
       else if ((x = l.match(/route async: script stack of route ([0-9A-F]+) \(innermost first\): (.*)/))) { const p = h.plans.find(q => q.route === x![1]); if (p) p.stack = x[2].split(' < '); }
       else if ((x = l.match(/ufplansplit: kind (\d+) \d+ ms, sync (\d+) ms.*?why (-?\d+)(?:, src ([^,]+))?/))) h.ufsync.push({ ms: +x[2], kind: x[1], why: x[3], src: (x[4] ?? '').replace(/^(\S+) .*?( in .*)?$/, '$1$2') });  // drop the Sim's name
       else if ((x = l.match(/route jobs: sim waited (\d+) ms for a job at (\w+) \(route ([0-9A-F]+), (own|foreign) job/))) h.jobWaits.push({ ms: +x[1], site: x[2], route: x[3], own: x[4] === 'own' });
       else if ((x = l.match(/route jobs: sim waited (\d+) ms behind an own job \(route ([0-9A-F]+)/))) h.jobWaits.push({ ms: +x[1], site: 'behind-own', route: x[2], own: true });
       else if ((x = l.match(/lock holders: sim waited (\d+) ms on lock \w+ \(at (0x[0-9A-F]+)\), held by (\w+) \d+ from (0x[0-9A-F]+)/))) h.lockWaits.push({ ms: +x[1], at: x[2], holder: x[3], from: x[4] });
       else if ((x = l.match(/route async: sim waited (\d+) ms on lock \w+ \(route lock\)/))) h.lockWaits.push({ ms: +x[1], at: 'route-lock', holder: 'job', from: '-' });
+      else if ((x = l.match(/^route lock wait: sim waited (\d+) ms on \+0x918 \(key ([0-9A-F]+), [^)]*\), held by (.+?) ?\d*; (.*), at \d+ ms/))) {
+        // the >= 1 s "route async: sim waited" line of the same wait is dropped (one wait, one row)
+        const dup = h.lockWaits.findIndex(w => w.at === 'route-lock' && Math.abs(w.ms - +x![1]) <= 1);
+        if (dup >= 0) h.lockWaits.splice(dup, 1);
+        const j2 = x[4].match(/^job route [0-9A-F]+ seq \d+ (.+?) IC kind (\d+) ended in the wait after (\d+) ms/);
+        h.lockWaits.push({ ms: +x[1], at: `+0x918 key ${x[2]}`, holder: x[3].startsWith('nobody') ? 'lent window' : x[3], from: j2 ? `${j2[1]} job IC kind ${j2[2]} ${+j2[3] >= 250 ? '>= 250 ms' : '< 250 ms'}` : 'no job ended' });
+      }
       else if ((x = l.match(/route async: long job (\d+) ms, (.*?), IC kind (\d+), route ([0-9A-F]+), arm \S+, scope ([^,\s]+)/))) h.jobCaller ??= `long job ${x[2]} IC kind ${x[3]} scope ${x[5]}`;
       else if (/route candidate (split|top \d+\/\d+): PlanHierarchical/.test(l)) { const s = parseSplit(l); if (s) h.splits.push(s); }
       else if (/route phases: sync plan \d+ ms/.test(l)) { const s = parseSyncPhases(l); if (s) h.splits.push(s); }
-      else if ((x = l.match(/stall watch: sim thread \d+: no Simulate iteration finished for \d+ ms.*?: eip (\S+), stack scan \(\d+\): (.*)/))) h.samples.push([x[1].replace(/,$/, ''), ...x[2].trim().split(/\s+/)]);
+      else if ((x = l.match(/stall watch: sim thread \d+: no Simulate iteration finished for \d+ ms.*?: eip (\S+), stack scan \(\d+\): (.*)/))) h.samples.push(lastSample = [x[1].replace(/,$/, ''), ...stallFrames(x[2])]);
+      else if ((x = l.match(/stall watch: main thread \d+ while the sim thread stalls \d+ ms: .*?eip (\S+), stack scan \(\d+\): (.*)/))) h.mainSamples.push(lastSample = [x[1].replace(/,$/, ''), ...stallFrames(x[2])]);
+      else if ((x = l.match(/stall watch: (?:sim|main) thread \d+ more frames \(from #\d+\): (.*)/))) lastSample?.push(...stallFrames(x[1]));
+      else if ((x = l.match(/stall watch: sim thread \d+ script stack \(innermost first\): (.*)/))) h.scripts.push(x[1].split(' < '));
       else if (/^P5c (park|final release)/.test(l)) h.p5c++;
       else { const k = kindOf(l); if (k) h.kinds.set(k, (h.kinds.get(k) ?? 0) + 1); }
     }
@@ -169,6 +220,14 @@ export function classify(h: Hitch): void {
     } else {
       const w = [...h.lockWaits].sort((a, b) => b.ms - a.ms)[0]; h.caller = `lock at ${w.at} held by ${w.holder} from ${w.from}`;
     }
+  } else if (h.frame && h.frame.ms * 2 >= h.ms) {
+    // the asi's own split of the frame ([HitchAttr] HitchMs): its cause class, with what names it
+    const f = h.frame, c = f.cause;
+    h.cause = `frame: ${c}`; h.covered = f.ms;
+    h.caller = c === 'lock918' ? `+0x918 held by ${f.lockHolder}${f.job250 * 2 >= f.ms ? ', worker job >= 250 ms' : ''}`
+      : c === 'sim-cpu' || c === 'off-cpu' || c === 'mixed' || c === 'unknown'
+        ? (h.scripts.length ? `script ${stackCaller(h.scripts[0])}` : h.samples.length ? leaf(h.samples[0]) : 'not sampled') + (c === 'off-cpu' && h.mainSamples.length ? `, main in ${leaf(h.mainSamples[0])}` : '')
+        : c === 'gc' ? `gc +${f.gcN}` : c;
   } else if (h.gc > 0) { h.cause = 'GC'; h.caller = `gc +${h.gc}`; }
   else if (h.perfHz && onCpu(h) < 0.5) { h.cause = 'sim thread off CPU (waiting)'; h.caller = `main busy in ${mainLeaf(h)}`; }
   else if (h.perf?.length) { h.cause = 'sim on CPU (perf)'; h.caller = perfLeaf(h); }
@@ -188,6 +247,7 @@ export function phasesOf(h: Hitch): Map<string, number> {
   const byRoute = new Map<string, Split[]>();
   for (const s of sp) { const k = s.route === '00000000' ? `${s.src}:${byRoute.size}` : s.route; byRoute.set(k, [...(byRoute.get(k) ?? []), s]); }
   const out = new Map<string, number>();
+  if (!sp.length && h.frame && h.frame.cause.startsWith('sync-plan')) return new Map([...h.frame.sync].filter(([k]) => k !== 'lock'));  // no split line: the frame's
   for (const g of byRoute.values()) {
     const use = g.some(s => s.src === 'cand') ? g.filter(s => s.src === 'cand') : g;
     for (const s of use) for (const [k, v] of s.phases) out.set(k, (out.get(k) ?? 0) + v);
@@ -283,6 +343,24 @@ export function report(hs: Hitch[], harness: number, opt: { top: number; perHitc
     o.push('', '## Sampled TS3W functions anywhere in the top 8 frames (inclusive)', '', '| function | samples | s |', '|---|---|---|');
     for (const [k, n, s] of rank(fr, r => r.k, r => r.ms).slice(0, opt.top)) o.push(`| ${k} | ${n} | ${(s / 1000).toFixed(1)} |`);
   }
+  const fr0 = hs.filter(h => h.frame);
+  if (fr0.length) {
+    o.push('', `## Native frame split ("hitch:" lines, [HitchAttr] HitchMs): ${fr0.length} of ${hs.length} hitches have one`, '', '| frame cause | hitches | frame s |', '|---|---|---|');
+    for (const [k, n, s] of rank(fr0, h => h.frame!.cause, h => h.frame!.ms)) o.push(`| ${k} | ${n} | ${(s / 1000).toFixed(1)} |`);
+    const parts = new Map<string, number>(); let all = 0, j250 = 0, n250 = 0;
+    for (const h of fr0) { all += h.frame!.ms; j250 += h.frame!.job250; if (h.frame!.job250 * 2 >= h.frame!.ms) n250++; for (const [k, v] of h.frame!.parts) if (k !== 'cpu' && v > 0) parts.set(k, (parts.get(k) ?? 0) + v); }
+    o.push('', `Frame ms by part (of ${all}): ${fmtPh(parts)}. +0x918 behind a worker job >= 250 ms: ${j250} ms, >= 50% of the frame in ${n250} hitches.`);
+    const sc = hs.flatMap(h => h.scripts.map(s => ({ k: stackCaller(s), ms: h.ms / h.scripts.length })));
+    if (sc.length) {
+      o.push('', '## Sampled script stacks (stall watch Managed), hitch ms shared over its samples', '', '| managed caller | samples | s |', '|---|---|---|');
+      for (const [k, n, s] of rank(sc, r => r.k, r => r.ms).slice(0, opt.top)) o.push(`| ${k} | ${n} | ${(s / 1000).toFixed(1)} |`);
+    }
+  }
+  const ms0 = hs.flatMap(h => h.mainSamples.map(s => ({ k: leaf(s), ms: h.ms / h.mainSamples.length })));
+  if (ms0.length) {
+    o.push('', '## Main thread leaves while the sim thread stalled (stall watch MainThread)', '', '| leaf | samples | s |', '|---|---|---|');
+    for (const [k, n, s] of rank(ms0, r => r.k, r => r.ms).slice(0, opt.top)) o.push(`| ${k} | ${n} | ${(s / 1000).toFixed(1)} |`);
+  }
   const np = hs.filter(h => h.cause !== 'sync plan');
   if (np.length) {
     o.push('', `## Context flags of the ${np.length} hitches with no sync plan (a hitch counts under every flag it has)`, '', '| flag | hitches | s |', '|---|---|---|');
@@ -335,7 +413,38 @@ async function selfCheck(): Promise<boolean> {
   writeFileSync(pf, 'Simulator  4242 1.700000: \n\t  4a94ec (/x/TS3W.exe)\n\t  e2ede (/x/TS3W.exe)\n\nTS3W.exe  4200 1.800000: \n\t  7f00 (/x/ntdll.so)\n\nSimulator  4242 2.500000: \n\t  4a94ec (/x/TS3W.exe)\n');
   const n = await attachPerf([b], pf, 10, 0); rmSync(dir, { recursive: true });
   const okPerf = n === 2 && b.perf!.length === 1 && b.perf![0][0] === 'TS3W+0xA94EC' && b.perfMain![0][0] === 'ntdll.so' && Math.abs(onCpu(b) - 1 / 3) < 1e-9 && b.cause === 'lock wait';
-  const ok = ok0 && okPerf;
+  // docs/666 §5 lines, copied from the asi's selftest output (hitchsum-test.h) and its format strings
+  const FR = 'hitch: frame 1000 ms (#3), cause sync-plan/world: sync 700 (n=1 world=600 water=0 post=0 insert=0 cell=0 lot=40 lock=10 other=50), jobwait 100 (n=2 max=80 at disc route 00001A2B insync=0), lock918 0 (n=0 max=0 key 00000000 holder - 0 job250=0 insync=0), otherlock 0 (n=0 insync=0), gc 0 (+1), limiter 16, cpu 800, unknown 184, at 5000 ms';
+  const fr = parseFrame(FR);
+  const okFrame = !!fr && fr.ms === 1000 && fr.n === 3 && fr.cause === 'sync-plan/world' && fr.sync.get('world') === 600 && fr.sync.get('lot') === 40 && fr.parts.get('jobwait') === 100
+    && fr.parts.get('unknown') === 184 && fr.parts.get('limiter') === 16 && fr.gcN === 1 && fr.at === 5000 && fr.lockHolder === '-'
+    && parseFrame('hitch: frame 900 ms (#4), cause off-cpu: sync 0 (n=0 world=0 water=0 post=0 insert=0 cell=0 lot=0 lock=0 other=0), jobwait 0 (n=0 max=0 at runplan route 00000000 insync=0), lock918 0 (n=0 max=0 key 00000000 holder - 0 job250=0 insync=0), otherlock 0 (n=0 insync=0), gc -1 (+0), limiter -1, cpu -1, unknown 900, at 7 ms')!.parts.get('limiter') === -1
+    && parseFrame('hitchwatch: frame 5 ms') === null && parseFrame('route lock wait: sim waited 312 ms on +0x918') === null;
+  const t2 = [
+    'route async: sync plan 150 ms, IC Plan, reason NoStart, entry nojob, route 2519BFE1, caller 3F7D2227 (0 lines rate-limited before), managed caller ScriptCore.Route.Route_Plan < RouteBackoffHook.Plan < Sims3.SimIFace.Route.PlanToPoint < RunStuckCheckHelper.RunOrig [compiled Ns.Cls.Meth +0x1A]',
+    'route lock wait: sim waited 312 ms on +0x918 (key 0085FE10, job pump), held by route worker 4321; job route 1A2B3C4D seq 77 foreign IC kind 0 ended in the wait after 410 ms (>= 250 ms: yes), at 9000 ms',
+    'hitch: frame 480 ms (#1), cause lock918: sync 0 (n=0 world=0 water=0 post=0 insert=0 cell=0 lot=0 lock=0 other=0), jobwait 0 (n=0 max=0 at runplan route 00000000 insync=0), lock918 312 (n=1 max=312 key 0085FE10 holder route worker 4321 job250=312 insync=0), otherlock 0 (n=0 insync=0), gc 0 (+0), limiter 16, cpu 100, unknown 152, at 9100 ms',
+    'ts3fixes: hitchwatch: 500 ms, tick 5, Sun. at 10:26 PM, gc +0, agent -, at 9120 ms',
+    'stall watch: sim thread 9: no Simulate iteration finished for 180 ms (1/8), no Simulate frame: deep 64 KB, 5 hits, 4 unique, Simulate hit #5: eip 0x004E16F5[Lock_Acquire+0x5], stack scan (4): TS3W+0x25E0F0[PathPlanner_PlanHierarchical+0x20]*2 0x00500020 ...(+4) TS3W+0x100030^',
+    'stall watch: sim thread 9 more frames (from #4): TS3W+0x981860[MonoScriptHost_Simulate+0x20]^',
+    'stall watch: sim thread 9 script stack (innermost first): ScriptCore.Route.Route_Plan < Sims3.Gameplay.Autonomy.Autonomy.RunAutonomy',
+    'stall watch: main thread 7 while the sim thread stalls 180 ms: deep 8 KB, 3 hits, 3 unique, no Simulate hit: eip ntdll+0xD410, stack scan (2): kernelbase+0x61EF1 TS3W+0xE16F5[Lock_Acquire+0x5]',
+    'hitch: frame 700 ms (#2), cause off-cpu: sync 0 (n=0 world=0 water=0 post=0 insert=0 cell=0 lot=0 lock=0 other=0), jobwait 0 (n=0 max=0 at runplan route 00000000 insync=0), lock918 0 (n=0 max=0 key 00000000 holder - 0 job250=0 insync=0), otherlock 0 (n=0 insync=0), gc 0 (+0), limiter 16, cpu 40, unknown 684, at 9900 ms',
+    'ts3fixes: hitchwatch: 720 ms, tick 6, Sun. at 10:26 PM, gc +0, agent -, at 9910 ms',
+  ].join('\n');
+  const r2 = parseLog(t2, 'y', 200, false).hitches, [c, d] = r2;
+  const okNew = r2.length === 2 && c.cause === 'lock wait' && c.lockWaits.length === 1 && c.caller === 'lock at +0x918 key 0085FE10 held by route worker from foreign job IC kind 0 >= 250 ms'
+    && c.frame?.cause === 'lock918' && c.frame.job250 === 312 && c.frame.lockHolder === 'route worker' && c.plans[0].stack?.length === 4 && c.plans[0].stack[3] === 'RunStuckCheckHelper.RunOrig'
+    && d.cause === 'frame: off-cpu' && d.frame?.ms === 700 && d.samples.length === 1 && d.samples[0].length === 5 && d.samples[0][1] === 'TS3W+0x25E0F0[PathPlanner_PlanHierarchical+0x20]'
+    && d.samples[0][3] === 'TS3W+0x100030' && nameOf(d.samples[0][4]) === 'MonoScriptHost_Simulate' && leaf(d.samples[0]) === 'Lock_Acquire < PathPlanner_PlanHierarchical'
+    && d.flags.has('stall watch sample without a Simulate frame') && d.scripts.length === 1 && d.mainSamples.length === 1 && leaf(d.mainSamples[0]) === 'ntdll < Lock_Acquire'
+    && d.caller!.startsWith('script ') && d.caller!.endsWith(', main in ntdll < Lock_Acquire')
+    && bareFrame('TS3W+0x1^*12') === 'TS3W+0x1' && nameOf('jit+0x1234[Ns.Cls.Meth+0x1A]') === 'Ns.Cls.Meth' && nameOf('TS3W+0x1[~Foo_Bar+0x2]') === 'Foo_Bar';
+  // a log without hitchwatch lines: the native frames are the hitches
+  const r3 = parseLog(t2.split('\n').filter(l => !l.includes('hitchwatch')).join('\n'), 'z', 200, false).hitches;
+  const okNative = r3.length === 2 && r3[0].ms === 480 && r3[0].cause === 'lock wait' && r3[1].ms === 700 && r3[1].cause === 'frame: off-cpu' && report(r3, 0, { top: 5, perHitch: true }).some(l => l.startsWith('## Native frame split'));
+  const ok = ok0 && okPerf && okFrame && okNew && okNative;
+  if (!ok) console.log(JSON.stringify({ ok0, okPerf, okFrame, okNew, okNative, c: [c?.cause, c?.caller, c?.lockWaits], d: [d?.cause, d?.caller, d?.samples, d?.mainSamples] }));
   console.log(ok ? 'route-stutter-report self-check ok' : `route-stutter-report self-check FAILED ${JSON.stringify(hitches.map(h => [h.cause, h.caller, [...phasesOf(h)]]))}`);
   return ok;
 }
