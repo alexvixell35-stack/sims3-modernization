@@ -197,13 +197,17 @@ the jig's `RoutingSlot_2`, `SetPosition` / `SetForward`; `RouteOntoHouseboat` th
 `houseboatgangwayrescue: <name> placed at <houseboat lot>, after <N> ms of failed legs (<k> legs, from x,z, lot now <lot>)`, or
 `houseboatgangwayrescue: refused, <name>: <reason> (<detail>)`. Each capped at 10 lines a minute; counters are the measure.
 
-**Proof (repro `ip-houseboat-gangway-rescue`, Baseline-IP, off arm then on arm):** `houseboat_leg_repro {start, mode: "docked"}`
-(the default mode; `mode: "undock"` keeps §6's boat-leg repro) picks NPCs living on a Docked houseboat with a port gangway, tries
-world-lot land spots 15-22 m (17 m ring first) off the gangway's `RoutingSlot_0` that are connected by land to the houseboat,
-probes each with the gangway leg as EA builds it (`PlanToPointFromPoint`, water and boat planning off; probes run outside
-`CheckAndUpdateForHouseboats`, so neither switch sees them), stands the Sim on the first no-path spot and pushes GoHome, then
-watches `waitS` (90) seconds. Expected: OFF: `probe_failed` true, legs seen with `boat` and `water` false and
-FailedBecauseNoPathToDestination ~650 ms, `reached_home` false, GoHome still failing, 4040-4049 +0. ON (`houseboatlegmemo` and
-`houseboatgangwayrescue` on): 4040 +1 per Sim, then after the first failed GoHome 4041 +1, the `placed at` line, `reached_home`
-true; no new exceptions. A probe that never fails (`probe_failed` false) means the save has no such spot near that houseboat:
-the job is N/A, not FAIL.
+**Proof (repro `ip-houseboat-gangway-rescue`, Baseline-IP, off arm then on arm, <= 3 min each):**
+`houseboat_leg_repro {start, mode: "docked"}` (the default; `mode: "undock"` keeps §6's boat-leg repro). First version
+(phase-20261119-1523, combo a5876c43): standing the NPC on shore 15-22 m off the gangway did NOT reproduce: every spot planned to
+the gangway (Succeeded, 6-90 ms) and both NPCs walked home. In natural runs the stranding spot is where EA's boat trip home drops
+the rider (the gangway leg follows a successful kind-3 boat replan). So the docked mode now runs that flow: each NPC owner of a
+Docked houseboat goes by EA's Teleport Me Here to the nearest world-lot coastal land spot (80-480 m) not connected by land to the
+houseboat, then EA's `Sim.MakeSimGoHome(sim, true)` (its own boat when usable there, else GoHome's boat planning). The result
+watches `waitS` (150) s: the boat, the get-out spot and its distance to the gangway, the first gangway leg (boat and water
+planning off inside `CheckAndUpdateForHouseboats`: result, ms, Sim position), whether the rescue fired, the lot reached. Expected:
+OFF: a get-out ~15-22 m off, the first gangway leg FailedBecauseNoPathToDestination ~650 ms, `reached_home` false, 4040-4049 +0.
+ON: 4040 +1 per Sim, 4041 +1 after its first failed GoHome, the `placed at` line, `reached_home` true; no new exceptions. A trip
+whose get-out spot walks to the gangway is not triggered on that save: N/A, not FAIL. For natural runs the `houseboatlegmemo`
+`recorded` / `skip` lines and the `houseboatgangwayrescue: marked` line of a gangway leg now carry the Sim position, the plan
+start and the gangway slot (`sim x,z, gangway x,z (d m, status)`), so each stranding spot is logged exactly.

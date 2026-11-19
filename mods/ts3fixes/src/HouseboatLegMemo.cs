@@ -128,6 +128,7 @@ namespace Ts3Fixes
                         + " noland " + GetOption2(Sims3.SimIFace.Route.RouteOption2.DisablePlanningOnLand)
                         + ", goal " + (HlmGoal() == Vector3.Origin ? "none" : "set") + ", follower " + (t != null ? t.GetType().Name : "null") + (sim != null ? " " + sim.FullName + (HouseholdExempt(sim) ? " exempt" : " npc") : "")
                         + ", depth " + Sims3.Gameplay.Objects.Island.Houseboat.sHouseboatStackDepth + ", posture " + (sim != null && sim.Posture != null ? sim.Posture.GetType().Name : "-")
+                        + (sim != null && HgrLegSim() != null && Sims3.Gameplay.Objects.Island.Houseboat.sHouseboatStackDepth > 0 ? ", gangway leg" + HgrWhere(sim) : "")
                         + (sHlmStacks++ < 20 ? ", at " + HlmStack() : ""));
                 }
                 catch (Exception ex) { HlmLog("skip error " + ex.GetType().Name); }
@@ -158,7 +159,7 @@ namespace Ts3Fixes
                 if (leg == 0 || r.mType != RoutePlanResultType.FailedBecauseNoPathToDestination) return;
                 if (cut || r.mBlockerType == RouteBlockerType.Sim || r.mBlockerType == RouteBlockerType.Vehicle)
                 {
-                    if (memo) HlmLog("skip record " + ms + " ms, " + (cut ? "cut" : "blocker " + r.mBlockerType));
+                    if (memo) { Sim ls = HgrLegSim(); HlmLog("skip record " + ms + " ms, " + (cut ? "cut" : "blocker " + r.mBlockerType) + (ls != null ? ", gangway leg, start " + HgrXz(start) + HgrWhere(ls) : "")); }
                     return;
                 }
                 if (rescue) { Sim gs = HgrLegSim(); if (gs != null) HgrNote(gs, ms); }
@@ -170,8 +171,9 @@ namespace Ts3Fixes
                     long life = SimClock.ConvertToTicks(Instantiator.kHouseboatLegMemoHours, TimeUnit.Hours);
                     sHlm.Record(leg, start.x, start.y, start.z, g.x, g.y, g.z, SimClock.CurrentTicks, life, ms);
                     c[3870]++;
-                    HlmLog("recorded, router " + leg.ToString("X") + ", boat leg " + ms + " ms no path, goal " + (int)g.x + "," + (int)g.z
-                        + ", " + Instantiator.kHouseboatLegMemoHours + " sim-h");
+                    Sim ls = HgrLegSim();
+                    HlmLog("recorded, router " + leg.ToString("X") + ", " + (ls != null ? "gangway" : "boat") + " leg " + ms + " ms no path, goal " + (int)g.x + "," + (int)g.z
+                        + ", " + Instantiator.kHouseboatLegMemoHours + " sim-h" + (ls != null ? ", start " + HgrXz(start) + HgrWhere(ls) : ""));
                 }
                 catch (Exception ex) { c[3873]++; HlmLog("error " + ex.GetType().Name); }
             }
