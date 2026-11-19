@@ -112722,5 +112722,249 @@
         }
       }
     ]
+  },
+  {
+    "id": "pet-arrive-point",
+    "bug": "docs/656 §3.1: an NPC animal's GoHome first plans to the lot's cached point just inside the front door (Lot.PlanRouteIntoLot); horses (any non-barn door), strays (ungreeted lot) and pets at a pet-locked door cannot pass it, so that full-length plan fails PortalLocked (routecause GoHome PortalLocked 65 lines, 'locked doors 0', OFF runs 2026-11-15..19), and an animal that validates a lot first clears the point for every Sim after it",
+    "fix": "ts3fixes petarrivepoint (PetArrivePoint.cs): for a non-exempt NPC animal the front door refuses (EA's CommonDoor.IsAllowedThrough), PlanRouteIntoLot runs only EA's mailbox / PlanToLotEx tail; 4170 skipped, 4171 of those on an unvalidated lot, 4172 exempt, 4173 errors",
+    "save": "Baseline-BP",
+    "note": "Forced. spawn_horse puts NPC horses into townie households; pet_repro mode arrive picks an NPC horse whose home front door refuses it, sets it down (setup_sims, autonomy off) at the entry of a lot 60-250 m away and pushes EA's GoHome. routecauselog is on in both arms for the OFF evidence. No such horse = not triggered: N/A, not FAIL. Needs Pets (EP5).",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "routecauselog": true,
+          "petarrivepoint": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "spawn_horse",
+        "args": {
+          "count": 2
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "mode": "arrive",
+          "start": true,
+          "seconds": 240
+        },
+        "waitS": 250,
+        "note": "GoHome of an NPC horse whose front door refuses it"
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "result": true
+        },
+        "note": "reached home, counter deltas 4170-4180"
+      }
+    ],
+    "expect": "OFF: a 'routecause: <horse> npc, GoHome, Plan FailedBecauseDestinationPortalLocked' line for the picked horse, 4170 +0; ON: 4170 >= 1, a 'petarrivepoint: <horse> (Horse) -> <lot>: front door closed to it' line, no PortalLocked GoHome routecause line for that horse; reached the same in both arms or better ON; no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "pet-stray-leave",
+    "bug": "docs/656 §3.2: a stray's visit ends only when its StrayPet buff times out (BuffStrayPet.OnTimeout -> MakeSimGoHome); a stray that never got the buff or lost it sits and stands on the lot for days and counts against EA's kMaxStraysInWorld (6), so new stray visits stop",
+    "fix": "ts3fixes strayleave (StrayLeave.cs): EA's hourly StrayPetHelper first gives a non-exempt instantiated stray without the buff for kStrayLeaveHours EA's own MakeSimGoHome; 4174 sent, 4175 seen without the buff, 4176 exempt, 4177 errors",
+    "save": "Baseline-BP",
+    "note": "Forced. pet_repro mode stray takes a stray from EA's pool, sends it with EA's StrayPets.SendStrayToLot to the active household's lot, cancels its StrayGoToLot (the buff is never added) and sets it on that lot with buffs cleared. kStrayLeaveHours is set to 1 in both arms so two hourly alarms fall in the window at ultra speed. No stray left in the pool = not triggered: N/A, not FAIL. Needs Pets (EP5) and an active household.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "strayleave": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_set",
+        "args": {
+          "path": "Ts3Fixes.Instantiator.kStrayLeaveHours",
+          "value": 1
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "mode": "stray",
+          "start": true,
+          "seconds": 420
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 420,
+        "note": "about 3 sim-hours: two or more StrayPetHelper alarms"
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "result": true
+        },
+        "note": "left, stray_buff, counter deltas 4174-4177"
+      }
+    ],
+    "expect": "OFF: left false for the whole window, stray_buff false, 4174 +0; ON: 4175 +1 then 4174 +1, a 'strayleave: <stray> ... EA's MakeSimGoHome pushed' line, left true (GoToVirtualHome or de-instantiated); no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      },
+      {
+        "cmd": "reflect_set",
+        "args": {
+          "path": "Ts3Fixes.Instantiator.kStrayLeaveHours",
+          "value": 3
+        }
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "pet-long-visit",
+    "bug": "docs/656 §3.3: owned NPC pets walk alone to community lots for many sim-hours (health.jsonl: Minnie Cat 'Visit Eugi's' 2203 sim-min, Snowshoe Cat 'Visit Buena Vista Resort' 1793, Cookie Horse 'Visit Bridgeport Sports Zone' 1106); petlonghome covers only GoHome / GoToLot and the human trip shortcuts refuse pets",
+    "fix": "ts3fixes petlongvisit (PetLongHome.cs): an unseen owned NPC pet on a long VisitCommunityLot walk is placed on the target lot like petlonghome (SafeSpot, unseen pet and lot); 4179 placed, 4180 refused, 4078 exempt, 4079 errors",
+    "save": "Baseline-BP",
+    "note": "Forced. pet_repro mode visit picks an owned NPC pet (not a stray or pool animal), sets it at the entry of a lot >= 250 m from the active Sim and pushes EA's VisitCommunityLot to a community lot 200-1500 m away and >= 250 m from the active Sim. The camera must stay with the active Sim (unseen rule). No pet or lot pair = not triggered: N/A, not FAIL.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petlongvisit": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "mode": "visit",
+          "start": true,
+          "seconds": 240
+        },
+        "waitS": 250
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "result": true
+        },
+        "note": "reached, reached_s, counter deltas 4179-4180"
+      }
+    ],
+    "expect": "OFF: the pet walks (reached false or late), 4179 +0; ON: 4179 +1 within the first minute, a 'petlonghome: placed <pet> ... via visit' line, reached true early; household pets untouched; no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "pet-long-home",
+    "bug": "docs/645 §4 / docs/656 §3.3: owned NPC pets walk home on foot for 10-35 sim-hours (Tigger Cat 2110 sim-min, Majora Cat 1777, Lucky Coyle 816); the human trip shortcuts refuse pets",
+    "fix": "ts3fixes petlonghome (PetLongHome.cs): an unseen NPC pet on a long GoHome is placed on its home lot (SafeSpot, unseen pet and lot); 4076 placed, 4077 refused, 4078 exempt, 4079 errors; with kPetLongHomeNoSpotMinutes > 0 a failed spot search is remembered (4178)",
+    "save": "Baseline-BP",
+    "note": "Forced. pet_repro mode home picks an owned NPC pet whose home lot is >= 250 m from the active Sim, sets it at a lot 200-1500 m from home (also >= 250 m from the active Sim) and pushes EA's GoHome. The camera must stay with the active Sim (unseen rule). No pet or lot pair = not triggered: N/A, not FAIL.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petlonghome": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "mode": "home",
+          "start": true,
+          "seconds": 240
+        },
+        "waitS": 250
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "result": true
+        },
+        "note": "reached, reached_s, petlonghome_placed_4076"
+      }
+    ],
+    "expect": "OFF: the pet walks (reached false or late), petlonghome_placed_4076 +0; ON: petlonghome_placed_4076 +1 within the first minute, a 'petlonghome: placed <pet> ... via gohome' line, reached true early; household pets untouched; no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
   }
 ]
