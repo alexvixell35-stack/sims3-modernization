@@ -934,6 +934,49 @@ static void TestA10() {
         memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
     }
 
+    // 11a2. [RouteAsync] ClosestWpsCut (contributor 2026-11-13): CowFindSkip, no wait's ask, cuts only past the deadline of a job
+    // whose route is known unseen, counts only in mode 0; never seen NPC / household / unknown scope, before the deadline or
+    // without one; a KD kind with FbJobDeadline's mode off takes it too (the bg5-tbpro job's shape), no deadline owner never
+    {
+        ClosestWpsCounters& cw = ts3native_closestwps;
+        const LONGLONG dl0 = t_fbDeadline;
+        const LONG sc0 = t_kdJobScope, fm0 = k.fbjdMode, w0 = cw.would, c0 = cw.cuts;
+        assert(!CowAsked() && !t_kdCam);
+        t_fbDeadline = 1;
+        t_kdJobScope = 2;
+        k.fbjdMode = 1;
+        cw.mode = 0;
+        assert(!CowFindSkip() && cw.would == w0 + 1 && cw.cuts == c0);
+        cw.mode = 1;
+        assert(CowFindSkip() == 1 && cw.cuts == c0 + 1);
+        t_kdJobScope = 3;
+        assert(!CowFindSkip());  // seen NPC, no ask: never
+        t_kdJobScope = 1;
+        assert(!CowFindSkip());  // household side: never
+        t_kdJobScope = 0;
+        assert(!CowFindSkip());  // unknown scope counts as household
+        t_kdJobScope = 2;
+        t_fbDeadline = PdNow() + g_qpf.QuadPart;
+        assert(!CowFindSkip());  // before the deadline
+        t_fbDeadline = 0;
+        assert(!CowFindSkip());  // no deadline
+        {
+            const int kk0 = t_kdKind;
+            const LONG sp0 = t_scProbe, uj0 = t_ufJob;
+            k.fbjdMode = 0, t_scProbe = 0, t_ufJob = 0;
+            t_kdKind = 5;  // a KD kind + 1
+            t_fbDeadline = 1;
+            assert(CowFindSkip() == 1 && cw.cuts == c0 + 2);
+            t_kdKind = 0;
+            assert(!CowFindSkip());  // no KD kind, no FbJobDeadline mode, no probe or unseen-fallback job
+            t_kdKind = kk0, t_scProbe = sp0, t_ufJob = uj0;
+        }
+        t_fbDeadline = dl0;
+        t_kdJobScope = sc0;
+        k.fbjdMode = fm0;
+        cw.mode = cw.cuts = cw.would = 0;
+    }
+
     // 11b. [RouteAsync] CutOnWait (docs/850): scope gate at the job's start (unseen and seen NPC only), one ask per job by site,
     // the deadline moves to start + the scope's minimum run and never later than it was, the asked job's ClosestWaypoints_Find
     // exit (asked jobs only), stale asks, counters. This thread plays the worker slot and the sim thread in turn.

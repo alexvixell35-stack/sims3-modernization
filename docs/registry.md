@@ -1110,6 +1110,14 @@ Separate struct of `LONG`, not versioned (`[RouteAsync] TaskServe`, docs/637, ta
 |---|---|
 | 0x00-0x1B | `mode` (TaskServe, runtime switch), `ready` (call sites patched), `checks` (task runs with a call posted), `served`, `skipped` (posted but not servable there), `queueUs`, `maxQueueUs` (post -> pick-up of the calls served there) |
 
+## ts3native `ts3native_closestwps` export (`ClosestWpsCounters` in `native/ts3native/ts3native.cpp`)
+
+Separate struct of `LONG`, not versioned (`[RouteAsync] ClosestWpsCut`, plandeadline.cpp `CowFindSkip`, contributor 2026-11-20). Append fields at the end only. No ts3fixes counter slot (native only). Logged in the minute counter line "closest waypoint cut:".
+
+| Offsets | Fields |
+|---|---|
+| 0x00-0x0B | `mode` (1 = cut, 0 = count only; set at install from the ini), `cuts` (ClosestWaypoints_Find calls answered "no waypoint" past the deadline of a job whose route is known unseen, no wait's ask), `would` (the same calls with mode 0) |
+
 ## ts3native `ts3native_doorgen` export (`DmxScriptGen` in `native/ts3native/ts3native.cpp`)
 
 Separate struct of `LONG`, not versioned (`[RouteSnap] DoorMemoX=3`, switch `doorgen`). No ts3fixes counter slot: native counts the bumps.

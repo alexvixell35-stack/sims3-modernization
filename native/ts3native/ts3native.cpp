@@ -3283,6 +3283,9 @@ extern "C" __declspec(dllexport) ReadyDrainCounters ts3native_readydrain = {0, 2
 // not the owner, inside a served call, no running job), queueUs / maxQueueUs (post -> pick-up of the calls served here).
 struct TaskServeCounters { volatile LONG mode, ready, checks, served, skipped, queueUs; LONG maxQueueUs; };
 extern "C" __declspec(dllexport) TaskServeCounters ts3native_taskserve = {0, 0, 0, 0, 0, 0, 0};
+// [RouteAsync] ClosestWpsCut (plandeadline.cpp CowFindSkip): mode 1 = cut, 0 = count only (set at install); cuts; would (count only)
+struct ClosestWpsCounters { volatile LONG mode, cuts, would; };
+extern "C" __declspec(dllexport) ClosestWpsCounters ts3native_closestwps = {0, 0, 0};
 extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {912,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -3454,6 +3457,9 @@ static void MaybeLogCounters(ULONGLONG now) {
             ts3native_readydrain.frameUs, ts3native_readydrain.gapUs, ts3native_readydrain.polls, ts3native_readydrain.served,
             ts3native_readydrain.saved, ts3native_readydrain.budgetHits, ts3native_readydrain.idleStops, ts3native_readydrain.frameHits,
             ts3native_readydrain.maxUs);
+    if (ts3native_closestwps.cuts || ts3native_closestwps.would)  // [RouteAsync] ClosestWpsCut
+        Log("closest waypoint cut: mode %ld, ClosestWaypoints_Find calls answered none %ld, would have been (count only) %ld",
+            ts3native_closestwps.mode, ts3native_closestwps.cuts, ts3native_closestwps.would);
     if (ts3native_taskserve.ready)  // docs/637
         Log("route task serve: mode %ld, task runs with a call posted %ld, served %ld (queue %ld ms, max %ld us), not servable there %ld",
             ts3native_taskserve.mode, ts3native_taskserve.checks, ts3native_taskserve.served, ts3native_taskserve.queueUs / 1000,

@@ -50,6 +50,7 @@ static void* g_pdOrig[2];          // trampolines: [0] cell A*, [1] water ([Rout
 static volatile DWORD g_pdTid;     // the sim's id while its session has a deadline (the entry stubs' thread compare), else 0
 static int g_fmIni;                // [RouteAsync] FailMemo as read
 static int g_fbjdIni;              // [RouteAsync] FbJobDeadline as read (docs/178 T1)
+static int g_cwIni;                // [RouteAsync] ClosestWpsCut as read (0 off, 1 cut, 2 count only)
 struct PdSess {
     bool open;
     int entry;                     // 0 IC, 1 Route_PlanLocked
@@ -580,6 +581,7 @@ static void ReadPlanDeadline(const wchar_t* ini) {
     k.pdMode = k.pdUs || k.pdOwnUs ? 1 : 0;
     g_fmIni = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"FailMemo", 0, ini), 0, 2);
     g_fbjdIni = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"FbJobDeadline", 0, ini), 0, 1);  // docs/178 T1
+    g_cwIni = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"ClosestWpsCut", 0, ini), 0, 2);    // CowFindSkip below
     k.owReady = GetPrivateProfileIntW(L"RouteAsync", L"OwnJobWait", 0, ini) ? 1 : 0;          // docs/178 T4 (observe only)
     k.jyMode = GetPrivateProfileIntW(L"RouteAsync", L"JobYield", 0, ini) ? 1 : 0;             // docs/183 (runtime switch)
     k.rwMode = GetPrivateProfileIntW(L"RouteAsync", L"WorkerWait", 0, ini) ? 1 : 0;           // docs/203 §6 (runtime switch)
@@ -915,16 +917,26 @@ static __declspec(naked) void PdWaterStub() {
 // a cut job keeps paying it for every remaining candidate. Past the moved deadline of a job a sim wait asked to end (CowAsked:
 // unseen or seen NPC only) the call returns AL = 0 at once: "no waypoint", which EA returns when no waypoint passes. All 8
 // callers [verified disassembly, Steam 1.67] either test AL (0x65C401, 0x65D4CC, 0x65DFE5, 0x65E045, 0x65FA0E, 0x65FB55,
-// 0x65FC97) or read an output vector they emptied just before the call (0x65F731), so nothing stale is read. Every job no
+// 0x65D4CC, 0x65DFE5, 0x65E045, 0x65FA0E, 0x65FB55, 0x65FC97) or read an output vector they emptied just before the call
 // wait asked, and every other thread, runs the game's function unchanged.
+// [RouteAsync] ClosestWpsCut (contributor 2026-11-13, default 0): the same exit, without a wait's ask, past the deadline of a
+// worker job whose route is known unseen (t_kdJobScope 2; household, selected, seen and unknown-scope jobs never). Such a job
+// is cut at its world A* but still runs this search for every remaining candidate: a local test build (trace3 + tr1, 6 Isla
+// Paradiso games) had 84 sim-thread waits (103 s) on unseen foreign jobs capped at 400 ms that ran 1.0-2.3 s, one (bg5-tbpro)
+// 8.4 s in this call from PlanHierarchical 0x65FC97 after its cut at 250 ms. 1 = cut (ts3native_closestwps.cuts), 2 = count
+// only (would); the detour is installed for CutOnWait=1 or ClosestWpsCut 1 / 2.
 static void* g_cowFindOrig;
 static int __cdecl CowFindSkip() {
     Ts3nCounters& k = ts3native_counters;
-    if (!CowAsked() || !t_fbDeadline || (k.fbjdMode != 1 && !t_scProbe && !t_kdKind && !t_ufJob)) return 0;
+    const bool cow = CowAsked();  // CutOnWait: a job a sim wait asked to end (unseen or seen NPC)
+    if (!t_fbDeadline || (t_kdJobScope != 2 && !cow) || (k.fbjdMode != 1 && !t_scProbe && !t_kdKind && !t_ufJob)) return 0;
     const LONGLONG now = PdNow();
     PdCowApply(&t_fbDeadline);
     if (now < t_fbDeadline || KdCamHold(now, &t_fbDeadline)) return 0;
+    ClosestWpsCounters& cw = ts3native_closestwps;
+    if (cw.mode != 1 && !cow) { InterlockedIncrement(&cw.would); return 0; }
     if (t_jobT0 && !t_jobCapAt) t_jobCapAt = now;
+    if (!cow) InterlockedIncrement(&cw.cuts);
     return 1;
 }
 static __declspec(naked) void CowFindStub() {
@@ -953,9 +965,11 @@ static __declspec(naked) void CowFindStub() {
 }
 static const u8 kCowFindPro[] = {0x51, 0x53, 0x8B, 0x5C, 0x24, 0x2C};  // push ecx; push ebx; mov ebx,[esp+2Ch]
 static void CowFindInstall() {
-    g_cowFindOrig = InstallDetour("ClosestWaypoints_Find (cut on wait)", TS3A_R(0x0065BB90), kCowFindPro, sizeof(kCowFindPro), (void*)CowFindStub, &g_cowFindOrig);
-    Log("%s cut on wait: ClosestWaypoints_Find 0x65BB90 answers none past the moved deadline of a job a sim wait asked to end",
-        g_cowFindOrig ? "OK  " : "FAIL");
+    g_cowFindOrig = InstallDetour("ClosestWaypoints_Find (cut on wait, closest waypoint cut)", TS3A_R(0x0065BB90), kCowFindPro, sizeof(kCowFindPro), (void*)CowFindStub, &g_cowFindOrig);
+    ts3native_closestwps.mode = g_cowFindOrig && g_cwIni == 1 ? 1 : 0;
+    Log("%s cut on wait: ClosestWaypoints_Find 0x65BB90 answers none past the moved deadline of a job a sim wait asked to end "
+        "(CutOnWait %ld) and, ClosestWpsCut mode %ld (ini %d, 2 = count only), past the deadline of a job whose route is known unseen",
+        g_cowFindOrig ? "OK  " : "FAIL", ts3native_counters.cowMode, ts3native_closestwps.mode, g_cwIni);
 }
 
 static const u8 kPdCellPro[] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0};         // push ebp; mov ebp,esp; and esp,-16
@@ -976,7 +990,7 @@ static void InstallPlanDeadline() {
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     if (k.pdUs || k.pdOwnUs || g_fbjdIni || g_kdIni || g_ufIni) {
         PdInstallAt(TS3A(0x0061E500), TS3A(0x00671930));
-        if (k.cowMode) CowFindInstall();  // docs/850 [RouteAsync] CutOnWait=1 (the runtime switch alone asks without this exit)
+        if (k.cowMode || g_cwIni) CowFindInstall();  // docs/850 [RouteAsync] CutOnWait=1 (the runtime switch alone asks without this exit), ClosestWpsCut
         if (g_kdIni) KdInstalled();  // docs/197
         if (g_ufIni) UfInstalled();  // docs/202
         if (g_fbjdIni) {  // docs/178 T1: the worker slot of the same stubs; the deadline is FbJobCapMs's (t_fbDeadline)
