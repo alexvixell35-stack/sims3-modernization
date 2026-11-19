@@ -13014,6 +13014,7 @@ static void TestP5() {
 #include "autraces-test.h"  // TestAutRaces ([AutShadow] Races: R1b pre-warm, R2b/R3a witness, docs/data/races-handoff.md)
 #include "threadstack-test.h"  // TestThreadStack ([ThreadStack], docs/66 §6)
 #include "userdiag-test.h"  // TestUserDiag ([UserDiag], docs/188)
+#include "nopathmemo-test.h"  // TestNoPathMemo ([RouteAsync] NoPathMemo table, docs/643)
 #include "played-test.h"    // TestPlayed (played.cpp, docs/14 section 8.6)
 #include "memdiag-test.h"   // TestMemDiag ([MemDiag], docs/190 phase 1, docs/191)
 #include "memaccess-test.h"  // TestMemAccess ([MemDiag] Access, docs/190 phase 2)
@@ -14562,6 +14563,7 @@ int main() {
     TestThreadStack();
     TestCrashReport();
     TestUserDiag();
+    TestNoPathMemo();
     TestPlayed();
     TestMemDiag();
     TestMemAccess();

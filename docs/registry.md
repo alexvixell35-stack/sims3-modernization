@@ -563,6 +563,7 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3860-3863 | pinned (claude, `fixes-3860`) | docs/641 spotwaitattr: slow spot/watchdog PlanFromPoint waits split frame-bound vs job-bound (waits >= 250 ms, frame-bound, job-bound, frame-bound ms) |
 | 3870-3873 | `HouseboatLegMemo.cs` (`fixes-3870`, docs/642 §6), `houseboatlegmemo` | built 2026-11-19, default off: NPC houseboat boat-leg no-path plans recorded, repeats answered, ms those answers stand for, exempt/errors |
 | 3864-3869 | pinned (claude, `fixes-3864`) | docs/642 boattaximemo: NPC rider's BoatTaxi no-path memo (recorded, boat off on rider route, land ok, stranded plans answered, ms answered, refused/errors) |
+| 4000-4003 | `nopathmemo.cpp` (native, docs/643), `[RouteAsync] NoPathMemo` | built 2026-11-19, default off, NOT RUN. Native only: the values live in the `ts3native_nopathmemo` export (+0x08 recorded, +0x0C served, +0x10 ms the answers stand for, +0x14 invalidated, table below); ts3fixes never writes these slots (its array stays `int[4000]`). 4004-4039 held for this feature |
 | **2000+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.
@@ -923,6 +924,17 @@ Separate struct of `LONG`, not versioned (`[RouteAsync] TaskServe`, docs/637, ta
 | Offsets | Fields |
 |---|---|
 | 0x00-0x1B | `mode` (TaskServe, runtime switch), `ready` (call sites patched), `checks` (task runs with a call posted), `served`, `skipped` (posted but not servable there), `queueUs`, `maxQueueUs` (post -> pick-up of the calls served there) |
+
+## ts3native `ts3native_nopathmemo` export (`NoPathMemoCounters` in `native/ts3native/nopathmemo.cpp`)
+
+Separate struct of `LONG`, not versioned (`[RouteAsync] NoPathMemo`, docs/643). Append fields at the end only. Slot numbers 4000-4003 in the ts3fixes table name the first four counters for test tools.
+
+| Offsets | Fields |
+|---|---|
+| 0x00-0x07 | `mode` (NoPathMemo, runtime switch: 0 off, 1 water / boat requests, 2 every request of an NPC router), `ready` (1 installed; bit 1 + bit 2 = world version and sim clock seen) |
+| 0x08-0x17 | `recorded` (4000), `served` (4001), `servedMs` (4002, ms of the recorded plans the answers stand for), `invalidated` (4003, a world version moved or another routing world) |
+| 0x18-0x27 | `expired` (TTL passed or the sim clock went back), `evicted` (LRU), `dropped` (the same request ran and did not fail with no path), `exempt` (household, selected or unknown scope) |
+| 0x28-0x3F | `notRecorded[4]` (failures not recorded: cut, Sim blocker, world not quiet or moved, other status), `refused` (no world version, no sim clock, not the live world, key read fault), `ttlMin` (NoPathMemoMinutes) |
 
 ## ts3native `ts3native_doorgen` export (`DmxScriptGen` in `native/ts3native/ts3native.cpp`)
 

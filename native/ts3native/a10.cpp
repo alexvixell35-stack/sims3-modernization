@@ -28,7 +28,9 @@ static __declspec(noinline) u8* __cdecl ArPlanFromPointHook(u8* out, DWORD handl
     if (g_p10On) P10Enter(2, (DWORD*)_AddressOfReturnAddress());
     const float pt[3] = {x, y, z};
     // docs/250 §7.1 WatchdogKind2: hooked only for the watchdog's own STARTs, every call that is not collecting a job of this
-    // route goes to the game's IC directly, as with no detour (no SyncIc: no caps, deadlines or timing on it)
+    // route goes to the game's IC directly, as with no detour. No SyncIc: no IC-level session, SyncCapMs cap, UnseenFallback
+    // MARK or IC timing. Its Route_PlanLocked still gets PlanDeadlineMs' own session (default 300 ms) through CallPlan ->
+    // CallPlanBudget -> PdPlanBegin, and [RouteAsync] NoPathMemo (docs/643) sees it in CallPlan.
     if (ArWdPass(handle)) {
         InterlockedIncrement(&ts3native_counters.arWdPass);
         return ((IcPointFn)g_arOrig[2])(out, handle, x, y, z);

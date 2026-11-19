@@ -733,7 +733,8 @@ static bool ApplyRouteSnap(const wchar_t* ini) {
     // [PlanRepeat] (planrepeat.cpp) and [RouteAsync] ReplanDedupe (replandedupe.cpp) read these counters as their world version
     if (!GetPrivateProfileIntW(L"RouteSnap", L"Count", 0, ini) && !GetPrivateProfileIntW(L"RouteSnap", L"Enabled", 0, ini) &&
         !GetPrivateProfileIntW(L"PlanRepeat", L"Enabled", 0, ini) && !GetPrivateProfileIntW(L"RouteAsync", L"ReplanDedupe", 0, ini) &&
-        !GetPrivateProfileIntW(L"RouteAsync", L"FailMemo", 0, ini)) {  // docs/164 §7 D5 reads them too
+        !GetPrivateProfileIntW(L"RouteAsync", L"FailMemo", 0, ini) &&  // docs/164 §7 D5 reads them too
+        !GetPrivateProfileIntW(L"RouteAsync", L"NoPathMemo", 0, ini)) {  // docs/643: its world version
         Log("route snapshot counters off (Count=0)");
         return false;
     }

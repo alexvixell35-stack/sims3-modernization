@@ -137,7 +137,9 @@ a houseboat (Fantasea), stranded ~17 m off it.
 - **Why sync [verified, code]:** own-task kind 2 with `[RouteAsync] Kinds=0`: `A10StartBody` refuses NoStart (ts3native.cpp
   ~5620, `kRf3KindsOff`); only the watchdog-tagged kind 2 passes (`WatchdogKind2`). With WatchdogKind2=1 and no Kinds bit 2,
   `ArPlanFromPointHook` sends every other PlanFromPoint straight to the game IC (`ArWdPass`, a10.cpp:32), so no `SyncIc`: the
-  UnseenFallback MARK is never taken, no unseen session, no `UfLockGate`.
+  UnseenFallback MARK is never taken, no unseen session, no `UfLockGate`. **Correction (2026-11-19):** the plan is not
+  deadline-free. Its Route_PlanLocked goes through `CallPlan -> CallPlanBudget -> PdPlanBegin` and gets PlanDeadlineMs' own
+  300 ms session (entry "Route_PlanLocked (no IC)", the `route deadline: sync plan` lines below) [verified, code + log].
 - **Why no cut [code + inferred]:** only PlanDeadlineMs' generic session at Route_PlanLocked (`PdPlanBegin`, entry "no IC") is
   open. Its exits are entry checks (cell A* entry, `WaterPath_Plan` 0x671930 entry) and the world A* cost stubs; a pure water
   JPS that started before the deadline runs to its end. All counts 0 = the time is inside one water leg that exhausts the
@@ -152,3 +154,5 @@ no path without a Sim/vehicle blocker is recorded for `kHouseboatLegMemoHours` (
 never extend. Counters 3870 recorded, 3871 answered, 3872 ms answered stand for, 3873 exempt/errors; log `houseboatlegmemo:
 recorded|answered`. Self-check `node tools/selftest/houseboatlegmemo/run.ts`. Expected in the same IP run with it on: each
 repeat of those kind 2 legs ~0 ms (the outer plan keeps its own cost), ~20-25 hitches of 0.6 s gone.
+
+Native follow-up below every caller (boat riders, houseboat legs, watchdog plans): docs/643 `[RouteAsync] NoPathMemo`.
