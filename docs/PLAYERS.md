@@ -156,6 +156,8 @@ If you use NRaas Overwatch and notice a half-second freeze about once per game d
 
 Sims3MonoModder (S3MM): when `Sims3MonoModder.asi` is installed, ts3native switches its Mono compiler (`[MonoJit]`), fast call path (`[MonoFast] CallPath`) and the AutShadow speed-up off by itself (`[Compat] S3mmStandDown=1`, docs/291), so S3MM's hooks and hot reload keep working. Not tested together in game yet.
 
+S3MM's profiler is **not compatible** with ts3native. S3MM starts its profiler every time, even if you never open the panel, and it hooks the same Mono functions as ts3native: depending on which mod loads first this can crash the game, it clashes with one of our checks (`[Verify]`), and its numbers are wrong while our Mono speed-ups run. S3MM has no setting to switch the profiler off yet (we asked the author for one). Until it has: if you want the most stable game, don't use S3MM together with ts3native; if you use both, keep `[Compat] S3mmStandDown=1` (the default), ignore S3MM's profiler numbers, and remove S3MM first if the game crashes at start. The rest of S3MM works with the stand-down. We don't ship or install S3MM.
+
 Tiny UI Fix is not supported yet in this release: with it installed, the Mono speed-up (AutShadow) may switch itself off. The game still works; you just don't get that speed-up.
 
 Tested together with Apex Radiance and its RTX Remix bridge (the recommended setup), DXVK (legacy, smoke test only), Sims 3 Settings Setter, NRaas (ErrorTrap, Overwatch), the Smooth Patch and the Sims 3 Performance Patch. If something looks wrong, remove our files first and see if it goes away, then [open an issue](https://github.com/rodneypantonial/sims3-modernization/issues) with what you saw.

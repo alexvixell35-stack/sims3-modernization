@@ -310,19 +310,31 @@ namespace Ts3Fixes
         // mSimsRouting and mSimsToPutInCar, not from mSimsToPutInBoat / mSimsToPutInHoverTrain; the boat and hover-train
         // callbacks then push GetIn interactions on the deleted Sim. Fix: it leaves both lists too. Counters: [3082] Sims
         // dropped, [3083] left in a list (switch off), [3084] errors.
+        // Second site (2026-11-19, RC bp-save-bundle-ip ErrorTrap "UNHANDLED Reference ... GoToPointState mSimsToPutInBoat"):
+        // [verified, decompiled] Situation.NotifyParticipantDeleted reaches only the live child chain, and SetState / Exit
+        // run CleanUp on the old state, so a Sim deleted after its GoToPointState was left never reaches the hook above, while
+        // the old state stays alive through the leader's OnPreBoatFollowRoute / OnPreHoverTrainFollowRoute delegates. Every
+        // reader of the two lists (PreBoatRouteCallback, PreHoverTrainRouteCallback) returns at once when Parent.Child != this,
+        // which is always true after CleanUp, so emptying both lists there is exact. GoToPointState declares no CleanUp: the
+        // swap goes on GoHereWithChildSituation.CleanUp and passes the other child states through. Same switch and counters.
         static readonly Type sGbState = typeof(GoHereWithSituation).GetNestedType("GoToPointState", BindingFlags.Public | BindingFlags.NonPublic);
+        static readonly Type sGbChild = typeof(GoHereWithSituation).GetNestedType("GoHereWithChildSituation", BindingFlags.Public | BindingFlags.NonPublic);
         static readonly FieldInfo sGbBoat = B12F(sGbState, "mSimsToPutInBoat");
         static readonly FieldInfo sGbTrain = B12F(sGbState, "mSimsToPutInHoverTrain");
         static string sGbM12 = "";
 
         static void ApplyGoHereBoatList()
         {
-            sGbM12 = SpNames("GoHereWithSituation+GoToPointState", sGbState, "mSimsToPutInBoat", sGbBoat, "mSimsToPutInHoverTrain", sGbTrain);
+            sGbM12 = SpNames("GoHereWithSituation+GoToPointState", sGbState, "GoHereWithChildSituation", sGbChild, "mSimsToPutInBoat", sGbBoat, "mSimsToPutInHoverTrain", sGbTrain);
             if (sGbM12.Length > 0) { AppliedLog().Add("gohereboatlist: not found: " + sGbM12); return; }
             Patch(sGbState, "OnParticipantDeleted", new Type[] { typeof(Sim) }, typeof(B12GbHook), "DeletedHook", "DeletedOrig");
+            Patch(sGbChild, "CleanUp", Type.EmptyTypes, typeof(B12GbHook), "CleanUpHook", "CleanUpOrig");
         }
 
         internal static bool GbRemove(bool inBoat, bool inTrain) { return inBoat || inTrain; }
+
+        // Pure: entries to drop when a go-here child state is cleaned up (only a GoToPointState holds the two lists).
+        internal static int GbCleanCount(bool isGoToPoint, int boat, int train) { return isGoToPoint ? boat + train : 0; }
 
         public class B12GbHook
         {
@@ -342,6 +354,25 @@ namespace Ts3Fixes
             }
 
             public void DeletedOrig(Sim participant) { }
+
+            public void CleanUpHook()
+            {
+                CleanUpOrig();
+                try
+                {
+                    bool gtp = sGbState.IsInstanceOfType(this);
+                    List<Sim> boat = gtp ? sGbBoat.GetValue(this) as List<Sim> : null, train = gtp ? sGbTrain.GetValue(this) as List<Sim> : null;
+                    int n = GbCleanCount(gtp, boat != null ? boat.Count : 0, train != null ? train.Count : 0);
+                    if (n == 0) return;
+                    if (!ShortcutOn("gohereboatlist")) { PatchCounters()[3083] += n; return; }
+                    if (boat != null) boat.Clear();
+                    if (train != null) train.Clear();
+                    PatchCounters()[3082] += n;
+                }
+                catch (Exception) { PatchCounters()[3084]++; }
+            }
+
+            public void CleanUpOrig() { }
         }
 
         // ---- B12 §8 bouncerrole (docs/590 B12) -----------------------------------------------------------------------

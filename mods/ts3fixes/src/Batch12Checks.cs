@@ -58,7 +58,7 @@ namespace Ts3Fixes
         public static object GoHereBoatListCheck(string what)
         {
             bool f = false, c = false;
-            try {  f = GbRemove(true, false) && GbRemove(false, true); c = !GbRemove(false, false); } catch (Exception) { }
+            try {  f = GbRemove(true, false) && GbRemove(false, true); c = !GbRemove(false, false) && GbCleanCount(false, 2, 1) == 0; f = f && GbCleanCount(true, 2, 1) == 3; } catch (Exception) { }
             return B12Check(what, "gohereboatlist", 1748, new string[] { "Sims dropped", "left in a list (switch off)", "errors" }, sGbM12, "boat and train entries dropped", f, "not listed untouched", c);
         }
 

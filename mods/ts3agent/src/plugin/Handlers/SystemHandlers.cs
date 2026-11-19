@@ -23,6 +23,7 @@ namespace Ts3Agent
             RegisterAlarmAudit(); // AlarmAuditHandlers.cs, docs/546 row 5
             RegisterDoors(); // DoorHandlers.cs, docs/546 §8
             RegisterHoldSims(); // HoldSimsHandlers.cs
+            RegisterTombMummy(); // TombMummyHandlers.cs, docs/607 §3 in-game repro
             RegisterOutfitStress(); // OutfitStressHandlers.cs
             RegisterThumbCensus(); // ThumbCensusHandlers.cs
             RegisterBoatGone(); // BoatGoneHandlers.cs

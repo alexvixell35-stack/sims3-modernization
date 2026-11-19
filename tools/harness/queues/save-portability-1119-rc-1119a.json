@@ -5,7 +5,7 @@
    "id": "sp-save-new",
    "note": "[docs/293 save step, NEW set] Baseline-BP-Spring (11:00, 5 diners parked in MetaRabbitHoleInteraction.Run at the vanilla word 118), new native + NEW ts3fixes (layout-moving swaps refused): quit-cycle.ts saves at once (--minutes 0) as SavePort-New-1119, quits to desktop; pass = save written, clean exit, no guard repair (vanilla layout), 0 script errors. Feeds arms A, B, D; stops the queue on FAIL so no reload job reads a missing or stale save.",
    "asi": "game-copy/ts3native.asi.rc-1119a",
-   "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (0.36.292-rc1119a): NEW = asi/ini/ts3fixes game-copy/*.rc-1119a; OLD hook set = ts3fixes.package.rc-1118n (5 layout-moving swaps); regexCases match lines from the save-frames-smoke-1119 logs] [docs/293 2026-11-19: asi game-copy/ts3native.asi.sfguard1-1119 (bugfix/save-ip-portable-1119), ini + agent = RC set rc-1118n, ts3fixes per job: sfguard1-1119 = NEW set, rc-1118n = the old hook set (5 layout-moving swaps)]",
+   "pinReason": "[2026-11-19 rerun1: the 60 s counter line \"saved frame guard: N frames checked at load\" is dropped from the two save jobs: they quit ~45 s after the world load, before the next periodic counter dump (rc-1119a sp-save-new: the only dump came before the load and read 0). The 10 min reload jobs keep it; the guard being on is proven by the OK line, its load-time check by rc1119-smoke (561 frames on this save)] [repinned 2026-11-19 to RC set rc-1119a (0.36.292-rc1119a): NEW = asi/ini/ts3fixes game-copy/*.rc-1119a; OLD hook set = ts3fixes.package.rc-1118n (5 layout-moving swaps); regexCases match lines from the save-frames-smoke-1119 logs] [docs/293 2026-11-19: asi game-copy/ts3native.asi.sfguard1-1119 (bugfix/save-ip-portable-1119), ini + agent = RC set rc-1118n, ts3fixes per job: sfguard1-1119 = NEW set, rc-1118n = the old hook set (5 layout-moving swaps)]",
    "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
    "iniBase": "game-copy/ts3native.ini.rc-1119a",
    "releaseDefaults": true,
@@ -21,8 +21,7 @@
    "logRequire": {
     "^ts3native 0\\.36\\.292-rc1119a ": 1,
     "^OK   saved frame guard": 1,
-    "^OK   yield diag": 1,
-    "^saved frame guard: [1-9]\\d* frames checked at load": 1
+    "^OK   yield diag": 1
    },
    "logForbid": {
     "ea fix: SavedFrameGuard:": 0,
@@ -67,15 +66,6 @@
      ],
      "noMatch": [
       "SKIP yield diag (resume cell free call 0xE5404D): call at 0x00E5404D is not a call to 0x00E535E0, nothing written"
-     ]
-    },
-    "^saved frame guard: [1-9]\\d* frames checked at load": {
-     "match": [
-      "saved frame guard: 95 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)"
-     ],
-     "noMatch": [
-      "saved frame guard: 0 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)",
-      "saved frame guard disabled (SavedFrameGuard=0)"
      ]
     },
     "ea fix: SavedFrameGuard:": {
@@ -322,7 +312,7 @@
    "id": "sp-save-oldpkg",
    "note": "[docs/293 save step, old hook set] Baseline-BP-Spring under new native + old package rc-1118n: the guard repairs the diners 118 -> 117 at load (as save-frames-smoke bp-sfguard-repair), then quit-cycle.ts saves at once as SavePort-OldPkg-1119 (the moved layout: word 117) and quits. Risk: rc-1118n's unseenloopskip cap can end the diners' DoLoop seconds after the load; then the save holds no Run frame and arm C FAILs its repair line (honest, not hollow). Stops the queue on FAIL.",
    "asi": "game-copy/ts3native.asi.rc-1119a",
-   "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (0.36.292-rc1119a): NEW = asi/ini/ts3fixes game-copy/*.rc-1119a; OLD hook set = ts3fixes.package.rc-1118n (5 layout-moving swaps); regexCases match lines from the save-frames-smoke-1119 logs] [docs/293 2026-11-19: asi game-copy/ts3native.asi.sfguard1-1119 (bugfix/save-ip-portable-1119), ini + agent = RC set rc-1118n, ts3fixes per job: sfguard1-1119 = NEW set, rc-1118n = the old hook set (5 layout-moving swaps)]",
+   "pinReason": "[2026-11-19 rerun1: the 60 s counter line \"saved frame guard: N frames checked at load\" is dropped from the two save jobs: they quit ~45 s after the world load, before the next periodic counter dump (rc-1119a sp-save-new: the only dump came before the load and read 0). The 10 min reload jobs keep it; the guard being on is proven by the OK line, its load-time check by rc1119-smoke (561 frames on this save)] [repinned 2026-11-19 to RC set rc-1119a (0.36.292-rc1119a): NEW = asi/ini/ts3fixes game-copy/*.rc-1119a; OLD hook set = ts3fixes.package.rc-1118n (5 layout-moving swaps); regexCases match lines from the save-frames-smoke-1119 logs] [docs/293 2026-11-19: asi game-copy/ts3native.asi.sfguard1-1119 (bugfix/save-ip-portable-1119), ini + agent = RC set rc-1118n, ts3fixes per job: sfguard1-1119 = NEW set, rc-1118n = the old hook set (5 layout-moving swaps)]",
    "fixesPackage": "game-copy/ts3fixes.package.rc-1118n",
    "iniBase": "game-copy/ts3native.ini.rc-1119a",
    "releaseDefaults": true,
@@ -339,7 +329,6 @@
     "^ts3native 0\\.36\\.292-rc1119a ": 1,
     "^OK   saved frame guard": 1,
     "^OK   yield diag": 1,
-    "^saved frame guard: [1-9]\\d* frames checked at load": 1,
     "SavedFrameGuard: .*MetaRabbitHoleInteraction.*set to the call return at word 117": 1
    },
    "logForbid": {
@@ -385,15 +374,6 @@
      ],
      "noMatch": [
       "SKIP yield diag (resume cell free call 0xE5404D): call at 0x00E5404D is not a call to 0x00E535E0, nothing written"
-     ]
-    },
-    "^saved frame guard: [1-9]\\d* frames checked at load": {
-     "match": [
-      "saved frame guard: 95 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)"
-     ],
-     "noMatch": [
-      "saved frame guard: 0 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 3 boundaries that follow no call (left alone)",
-      "saved frame guard disabled (SavedFrameGuard=0)"
      ]
     },
     "SavedFrameGuard: .*MetaRabbitHoleInteraction.*set to the call return at word 117": {

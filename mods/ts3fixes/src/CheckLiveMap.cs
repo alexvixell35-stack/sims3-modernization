@@ -171,7 +171,7 @@ namespace Ts3Fixes
                 case "gigpullaudience": return EpLive(typeof(GigPullHook), 0);
                 case "gigwaitleave": return EpJoin(EpLive(typeof(GwSingerHook), 0), EpLive(typeof(GwStylistHook), 0));
                 case "goalhhexempt": return EpLive(typeof(RouteBackoffHook), 4);
-                case "gohereboatlist": return EpLive(typeof(B12GbHook), 1, "sGbBoat", sGbBoat, null, "sGbTrain", sGbTrain, null);
+                case "gohereboatlist": return EpLive(typeof(B12GbHook), 2, "sGbBoat", sGbBoat, null, "sGbTrain", sGbTrain, null);
                 case "goodbyepure": return EpLive(typeof(BGbHook), 1);
                 case "gotoworkstale": return EpLive(typeof(GoToWorkStaleHook), 1);
                 case "gradvisitors": return EpLive(typeof(GradVisitorHook), 0);

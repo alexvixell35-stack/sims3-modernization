@@ -55,7 +55,7 @@ The file is in our test install, so every game test of ours ran with it loaded.
 ### Real overlap, can't test here
 
 - **simler90 + fixes** (a player's own build): we have no copy.
-- **Sims3MonoModder (S3MM, ASI)** (added 2026-11-18, source read, docs/291): shares the Mono call paths with our JIT, fast call path and AutShadow. ts3native stands those three down by itself when `Sims3MonoModder.asi` is installed (`[Compat] S3mmStandDown=1`, default); not tested together in game yet.
+- **Sims3MonoModder (S3MM, ASI)** (added 2026-11-18, source read, docs/291): shares the Mono call paths with our JIT, fast call path and AutShadow. ts3native stands those three down by itself when `Sims3MonoModder.asi` is installed (`[Compat] S3mmStandDown=1`, default); not tested together in game yet. **S3MM's profiler is not compatible with ts3native:** S3MM always installs it at start and it hooks Mono functions we also hook, so a crash depends on which mod loads first, it overlaps our `[Verify]` probe, and its numbers are wrong under our JIT. S3MM has no setting to turn it off yet (we proposed one upstream). The rest of S3MM works with the stand-down. We do not ship or install S3MM.
 
 ### Not scanned yet
 

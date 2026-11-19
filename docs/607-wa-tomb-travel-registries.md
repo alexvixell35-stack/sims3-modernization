@@ -57,6 +57,18 @@ down or changes worlds, and only for a description still in `NpcHousehold` (neve
 yield (`Sim.Destroy`), so the swap keeps its stub and has a swap-stack-audit row. Check `SarcMummyNpcCheck` (pure, with
 controls: no mummy, not in NpcHousehold, world going away). Repro `sarcmummynpc-check`; in play it needs an Egypt tomb.
 
+In-game repro + save matrix (2026-11-19, Rodney: ON for v0.3.0 once it is repro'd in Egypt and saves still work; NOT RUN):
+repro `sarcmummy-egypt-save`, queue `tools/harness/queues/sarcmummy-egypt-save-1119.json` (one job, Baseline-BP +
+`profile.travel egypt`, ~30 min with the trip). The agent command `tomb_mummy` (`TombMummyHandlers.cs`, test only) works on
+the sarcophagus nearest the selected Sim: `spawn` calls EA's `TombMummyCreate` (the LookInside path) and remembers the
+mummy's `SimDescriptionId` per tag, `reset` is the player's Reset Object (`SetObjectToReset` -> `DoReset` -> `CommonCleanup`),
+`state` reports `mummy_out`, `<tag>_in_npc(_no_sim)`, counters 3391-3393, the switch and `hh_same` (household ids unchanged).
+Order: release default read back ON; ON arm (id leaves NpcHousehold, 3391 grows, 3393 0); save, quit to menu, load (no stale
+entry, mummy spawns and is removed again); OFF arm (id stays without a Sim, 3392 grows: EA bug reproduced); save an old
+save with that leftover; ON, quit to menu, load it (loads, sarcophagus works). The fix has no load cleanup: a leftover saved
+before it ran stays in NpcHousehold (`off_in_npc_no_sim` after that load, logged only) `[inferred: from the code, the run
+shows it]`. Job gates: 0 script errors, release defaults, `saved frame guard` ran at 3 loads, no `ea fix: SavedFrameGuard:`.
+
 ## 4. Leads checked and dropped
 
 - `TombObjectData.DeactivateTrigger` returns only the last link's result (`result =`, not `|=`); only `LogicGate`'s

@@ -35,7 +35,7 @@ static void S3mmDetect(const wchar_t* ini) {
     g_s3mmFound = S3mmProbe();
     if (!g_s3mmFound) return;
     Log("compat: S3MM detected, %s (%s%s%s; [Compat] S3mmStandDown=%d, docs/291)",
-        g_s3mmStandDown ? "standing down [MonoJit], [MonoFast] CallPath, [AutShadow]" : "not standing down",
+        g_s3mmStandDown ? "standing down [MonoJit], [MonoFast] CallPath, [AutShadow], [Verify] 0xE59FD0" : "not standing down",
         (g_s3mmFound & 1) ? "module loaded" : "", g_s3mmFound == 3 ? ", " : "", (g_s3mmFound & 2) ? "file found" : "", g_s3mmStandDown ? 1 : 0);
 }
 

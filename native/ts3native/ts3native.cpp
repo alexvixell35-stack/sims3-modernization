@@ -18,7 +18,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.293-m1119s"  // merge/rc1119-saves-1119: master 0.36.292-rc1119a + bugfix/crash-class-audit-1118 (0.36.288-hdrguard2: ApplyIlpGuard in every config, no-IL-header transform returns NullReferenceException instead of the AV at 0xE6463F, docs/51 §530) + bugfix/rc1119a-fail-triage-1119 (harness only)
+#define TS3NATIVE_VERSION "0.36.295-rc1119b"  // RC set rc-1119b (v0.3.0 final candidate): master 0.36.293-m1119s + bugfix/gohere-gotopoint-boatlist-1119 (ts3fixes) + bugfix/verify-s3mm-standdown-1119 ([Verify] S3MM stand-down at 0xE59FD0) + docs/s3mm-profiler-incompatible-1119 (harness); 0.36.294 is taken by feature/keep-options-gpu-1119
 #endif
 
 typedef unsigned char u8;

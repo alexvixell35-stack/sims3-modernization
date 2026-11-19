@@ -6,6 +6,8 @@ Question (Discord, relayed): is ts3native + ts3fixes compatible with S3MM, and d
 
 Short answer: **not safe together with master's defaults; mostly fine with v0.2.11 defaults on Steam, with one unsafe case.** Nothing patches the same bytes in a way that breaks at install on Steam 1.67, but there are three semantic conflicts (one is our bug) and one build-specific trap on non-Steam exes. A stand-down is needed before v0.3.0 turns `[MonoJit]` and `[MonoFast] CallPath` on.
 
+**S3MM's profiler is not compatible with ts3native** (decision 2026-11-19, §11). The rest of S3MM stays compatible with the stand-down (§9). S3MM has no setting to turn its profiler off (it always installs at start); we proposed one upstream (`Profiler = false` in `S3MM.toml`, not opened yet). We never install S3MM ourselves: test runs and our installer refuse it.
+
 ## 1. Sources
 
 - **S3MM:** https://github.com/sims3fiend/Sims3MonoModder, GPL-3.0, `main` at `1b20dea` (2026-11-15), two commits past tag `1.3.0-beta` (`d363c80`, 2026-08-30; 19 files differ). Source read in a scratch clone outside the repo; nothing copied. File names below are S3MM's.
@@ -51,7 +53,7 @@ Install time: everything below is written in `DllMain` except MonoThread P3/P4, 
 
 ### 4.1 Same bytes: `0xE525C0` (Satb binder vs S3MM profiler)
 
-The only address both detour in the default configuration. `0xE59FD0` is shared only with `[Verify]` (off).
+The only address both detour in the default configuration. `0xE59FD0` is shared only with `[Verify]` (off): coordinated since 2026-11-19 (§6, `[Verify]` stands down there when S3MM is found; if S3MM hooked first the prologue check skips the probe).
 
 - **We write first** (expected: S3MM does its work on a thread, we install in `DllMain`; exact order [inferred], see open questions). S3MM's pattern for `0xE525C0` no longer matches, it falls back to the Steam address [verified by simulation: with a jump at `0xE525C0` exactly that pattern fails], and Detours attaches on top of our jump. Chain: S3MM, then ours, then EA. Works on Steam [inferred: Detours relocates a leading relative jump].
 - **S3MM writes first.** `DetourCore` sees foreign bytes and skips (`ts3native.cpp:198`). **Our bug:** Satb then stays in act mode with the worker running and no binder guard; the count of installed native hooks only feeds the log (`satb.cpp:1985`, `autshadow-run.cpp:962`) [verified]. Unsafe on its own, with any foreign hook at this address.
@@ -91,7 +93,7 @@ OK = no conflict found; degraded = wrong or missing data, no crash; conflict = a
 |---|---|---|---|---|
 | Start-up, address scan, Steam 1.67 | OK [verified scan] | OK | OK | OK |
 | Start-up, retail / EA exe | **crash risk** (4.1) [verified retail, inferred EA] | OK | OK | OK |
-| Profiler (always installed) | OK if we install first; **crash risk** if S3MM is first (unguarded Satb, 4.1) [verified code path] | OK [verified: native bodies still pass `0xE525C0`] | degraded: missing calls and time [verified] | OK |
+| Profiler (always installed) | **not compatible** (§11). Was: OK if we install first; **crash risk** if S3MM is first (unguarded Satb, 4.1) [verified code path] | **not compatible** (§11). Was: OK [verified: native bodies still pass `0xE525C0`] | **not compatible** (§11): degraded, missing calls and time [verified] | **not compatible** (§11): `0xE59FD0` also hooked by our `[Verify]` probe, uncoordinated |
 | Hooks from mods loaded at start | open (4.5) [inferred] | **crash risk** only if S3MM's recovered fault occurs (4.3) [inferred] | mostly OK; conflict for already-transformed targets (4.4) [inferred] | OK |
 | Hot reload, late mod scan, unhook | open (4.5) | as above | **conflict** (hook skipped) and **crash risk** (4.4) [verified code, inferred effect] | OK |
 | Exception log and crash handler | OK | recovery no longer reached for callvirt (4.3) | OK: our handlers pass on what is not ours [verified] | OK |
@@ -126,7 +128,7 @@ Steam 1.67, Apex + bridge, S3MM `main` build plus its example mod, master pair.
 Native selftest only; no game run, no S3MM install on the test machine.
 
 - **Satb act refusal (6.1, our bug):** `SatbInstall` (satb.cpp) now installs the native-writer detours (binder bodies `0xE525C0`, static set / address / get `0xD89BF0` / `0xD89C60` / `0xD89CD0`) before act mode goes live and refuses act when any of the four is not in (`g_satbNatMask`): `REFUSE autshadow satb act: the <site> detour is not installed (foreign bytes: another mod hooks it, docs/291 §4.1); Satb off, the worker never runs concurrently`, `satbMode` -1, the existing `FAIL autshadow satb: Satb=2 -> mode 0 (off)` line follows. Any foreign hook counts, not only S3MM's. The AutShadow worker then runs as with `Satb=0` (the sim waits for it). Selftest `TestS3mm`: fake code pages with the game's prologues, one with a foreign `jmp` at the binder site: 3 of 4 installed, foreign bytes untouched, act refused; all four good: act allowed [verified, selftest].
-- **`[Compat] S3mmStandDown=1` (default 1, 6.2; s3mm.cpp):** found = `Sims3MonoModder.asi` loaded at our `DllMain` (GetModuleHandle) or the file in Bin, `scripts\` or `plugins\`. Then `[MonoJit]`, `[MonoFast] CallPath` and the whole `[AutShadow]` (worker and Satb) do not install. Log: one `compat: S3MM detected, standing down [MonoJit], [MonoFast] CallPath, [AutShadow] (module loaded, file found; [Compat] S3mmStandDown=1, docs/291)` line, then `compat: stood down for S3MM: <module> not installed (docs/291 §6)` per switch that was on. `S3mmStandDown=0` logs `not standing down` and installs everything (tests only). Not detected: a renamed ASI (no byte probe; shortcut noted in s3mm.cpp). `[MonoThread]` stays (its P3/P4 have no jobs without AutShadow).
+- **`[Compat] S3mmStandDown=1` (default 1, 6.2; s3mm.cpp):** found = `Sims3MonoModder.asi` loaded at our `DllMain` (GetModuleHandle) or the file in Bin, `scripts\` or `plugins\`. Then `[MonoJit]`, `[MonoFast] CallPath` and the whole `[AutShadow]` (worker and Satb) do not install. Log: one `compat: S3MM detected, standing down [MonoJit], [MonoFast] CallPath, [AutShadow] (module loaded, file found; [Compat] S3mmStandDown=1, docs/291)` line, then `compat: stood down for S3MM: <module> not installed (docs/291 §6)` per switch that was on. `S3mmStandDown=0` logs `not standing down` and installs everything (tests only). Not detected: a renamed ASI (no byte probe; shortcut noted in s3mm.cpp). `[MonoThread]` stays (its P3/P4 have no jobs without AutShadow). 2026-11-19: `[Verify]` also skips its `0xE59FD0` invokeState probe (log `compat: stood down for S3MM: [Verify] invokeState probe at 0xE59FD0 not installed (docs/291 §6)`, counted like the others; the detect line now ends `..., [AutShadow], [Verify] 0xE59FD0`); an S3MM detour already at the address fails the existing prologue check (`SKIP verify invokeState: prologue ... differs`). Coordinated, not yet seen live (no S3MM install).
 - Household rule: not applicable (the stand-down only disables modules).
 - `tools/compat-scan.ts`: a `Sims3MonoModder.asi` in the scanned folders is a named finding (`S3mmStandDown`) instead of "unknown ASI".
 - No queue: a live check needs S3MM installed; §7 is the plan. A queue that checks the line uses the regex `^.*compat: S3MM detected, standing down \[MonoJit\], \[MonoFast\] CallPath, \[AutShadow\]` (match: the line above; non-match: `compat: S3MM detected, not standing down (...; [Compat] S3mmStandDown=0, docs/291)`).
@@ -138,3 +140,19 @@ Native selftest only; no game run, no S3MM install on the test machine.
 - Satb and unknown icalls on the worker (I-528-6).
 - EA 1.69: S3MM's patterns could not be run against the on-disk exe.
 - `mint_verifier.cpp` and `persist_bridge.cpp` were only skimmed; the persist bridge registers mod statics with the game's save persistence, which is S3MM's own save footprint, not ours.
+
+## 11. Profiler: not compatible (2026-11-19)
+
+Decision: S3MM's profiler is **not compatible** with ts3native. Before this, the §5 row said: "OK if we install first; **crash risk** if S3MM is first (unguarded Satb, 4.1)" for AutShadow, "OK" for CallPath, "degraded: missing calls and time" for the JIT; docs/COMPATIBILITY.md and docs/PLAYERS.md did not name the profiler, and docs/data/compat-matrix.csv has no S3MM row.
+
+Why:
+- It installs at start whether or not the panel is ever opened: detours on `0xE59FD0` (invoke), `0xE525C0`, `0xE52630`, `0xEA3140`, `0xE82680` and writes to Mono's profiler globals (§2). Which mod's detour lands first depends on load order (4.1, I-528-1).
+- `0xE59FD0` is also our `[Verify]` probe's site; the two are not coordinated (conflict scanner). Stand-down for `[Verify]` is on `bugfix/verify-s3mm-standdown-1119`.
+- Under our JIT and fast call path its numbers are wrong (4.6). The stand-down turns those off, but any switch set back on by hand brings it back.
+- Not tested in game together.
+
+No setting turns it off: S3MM 1b20dea reads only `ToggleKey`, `Theme`, `FontSize`, `Verbose`, `LogHookInvocations`, `PersistAutoRegister`, `StartupToast`, toast layout from `Documents\Electronic Arts\The Sims 3\S3MM\S3MM.toml` (`src/util/config.cpp`); `MainWindow::Initialize` calls `MonoProfiler::Initialize` unconditionally [verified source]. We never patch or unhook another mod's code, so the route is upstream: a `Profiler` TOML flag (default `true`, S3MM behaviour unchanged) that skips `MonoProfiler::Initialize` when `false`. Branch `profiler-config-toggle` on our fork, PR not opened (Rodney decides). Once it ships, `Profiler = false` is the required setting for players using both, and our installer (which already writes S3SS's config) can write it.
+
+Player advice until then: S3MM's profiler cannot be switched off. Do not use S3MM together with ts3native if you need a stable game; if you do use both, keep ts3native's default `[Compat] S3mmStandDown=1`, do not trust S3MM's profiler numbers, and remove S3MM first if the game crashes at start.
+
+We never install S3MM: `queue.ts` and `turbo-compat.ts` refuse to start when a file matching `/monomodder|s3mm/i` is in `Game\Bin` or its `Plugins`, `asi` or `scripts` folders (`s3mmFiles`, game-exe.ts); `install-fixes.ts` refuses to copy such a file.

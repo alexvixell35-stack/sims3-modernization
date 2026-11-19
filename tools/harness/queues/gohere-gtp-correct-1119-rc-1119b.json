@@ -1,0 +1,43 @@
+{
+  "note": "rc-1119b (2026-11-19): release candidate v0.3.0 set rc-1119b (0.36.295-rc1119b), chain-release-verify-rc1119b. gohereboatlist correctness on the release set [previous] gohere-gtp-correct-1119 (2026-11-19, bugfix/gohere-gotopoint-boatlist-1119, ledger §539): correctness of the gohereboatlist second swap (GoHereWithChildSituation.CleanUp empties a GoToPointState's boat and hover-train lists). No in-game repro of the real case (a boat go-here whose follower is deleted after the state left); this job proves both swaps apply on the rc-1119b asi (not refused by the docs/293 layout guard; EpLive gohereboatlist expects 2 swaps) and the pure check reads off BROKEN / on FIXED, with 0 script errors. Household untouched: the check is read-only. The real check is the next bp-save-bundle-ip rerun with this package (0 mSimsToPutInBoat ErrorTrap entries). BP 10 min, daytime OK.",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-gohere-gtp-check",
+      "note": "Correctness (10 min): repro gohereboatlist-check (off: BROKEN, on: FIXED, switch set and read back by the repro steps); pass = steps pass, 0 script errors, ts3native version read back.",
+      "asi": "game-copy/ts3native.asi.rc-1119b",
+      "iniBase": "game-copy/ts3native.ini.rc-1119b",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+      "pinReason": "[repinned 2026-11-19 to release candidate rc-1119b (0.36.295-rc1119b): asi/ini/ts3fixes/agent game-copy/*.rc-1119b] rc-1119b asi/ini (the RC chain's set) + ts3fixes.package.gohere-gtp-1119 (builds.json, commit 11e998eb3)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "gohereboatlist-check"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.295-rc1119b ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.295-rc1119b ": {
+          "match": [
+            "ts3native 0.36.295-rc1119b 2026-11-19 14:10:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.293-m1119s 2026-11-19 05:01:02",
+            "ts3native 0.36.292-rc1119a 2026-11-19 02:34:18"
+          ]
+        }
+      },
+      "scriptErrorsMax": 0,
+      "timeoutMin": 18
+    }
+  ]
+}

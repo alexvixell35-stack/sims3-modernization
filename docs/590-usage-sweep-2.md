@@ -17,7 +17,7 @@ Every item was checked against ts3fixes, proven-fixes and simler90 UPDATE242 (il
 | B7 | VelvetRopes Export/Import | Bribe amount written and read under the celeb-level key 177446789 (bribe key is 177446815); one value overwrites the other | Use 177446815 with fallback read | V | yes |
 | B8 | Terrain MakeIgloo | Look-ats disabled, never re-enabled | Re-enable in Cleanup | V | yes |
 | B9 | Protest CalculateOutcomeFromScore | Victory whenever organizer is null | Treat as fail/none | V | yes |
-| B10 | GoHereWithSituation OnParticipantDeleted | Deleted Sim stays in mSimsToPutInBoat/HoverTrain | Remove from both | V | yes |
+| B10 | GoHereWithSituation OnParticipantDeleted | Deleted Sim stays in mSimsToPutInBoat/HoverTrain | Remove from both; also empty both at GoHereWithChildSituation.CleanUp (2026-11-19: a Sim deleted after the state left is never notified, ledger §539) | V | yes |
 | B11 | BarAdvanced OrderRound/Pizza/BirthdayCake; Bartending OpenTab | Charged with no refund on failure; tab never closed; sOpenBarTabs not saved | Refund on failure; close tabs | V | yes |
 | B12 | VelvetRopes ShouldBouncerNoticeSneaker; AskToGetIn / BribeBouncer | Squared distance vs plain tunable; null CurrentRole | Square the tunable; null guard | V | yes |
 | B13 | MagicianSocialTricks.Run; FearOfHumansFaint | DisableSocialsOnSim / SetShutDown never undone | Undo in Cleanup | V | yes |

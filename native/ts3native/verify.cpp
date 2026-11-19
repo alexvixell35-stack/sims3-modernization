@@ -676,7 +676,10 @@ static bool ApplyVerify(const wchar_t* ini) {
             sprintf_s(what, "[Verify] probe %s", p.name);
             if (ApexStandsDown(ApexVerifySite(p.at), what, "its entry")) wanted[i] = false;
         }
-        if ((p.group & g_vfGroups) && !wanted[i]) Log("verify %s off (ThreadedObjects=0: S3PP's stage profiler owns 0x%08X)", p.name, p.at);
+        // S3MM's profiler detours 0xE59FD0 too (docs/291 §6): stand down; a profiler that hooked first fails the prologue check below
+        bool s3mmOff = false;
+        if (wanted[i] && p.at == TS3A(0x00E59FD0) && S3mmStandsDown("[Verify] invokeState probe at 0xE59FD0")) wanted[i] = false, s3mmOff = true;
+        if ((p.group & g_vfGroups) && !wanted[i] && !s3mmOff) Log("verify %s off (ThreadedObjects=0: S3PP's stage profiler owns 0x%08X)", p.name, p.at);
         ok[i] = wanted[i] && Matches((const void*)(uintptr_t)p.at, p.pro, p.len);
         owner[i] = wanted[i] && !ok[i] && p.pair == VF_NONE ? VfOwnerSlot(p.at) : NULL;
         if (owner[i]) Log("verify %s: counted inside the stub that owns 0x%08X", p.name, p.at);

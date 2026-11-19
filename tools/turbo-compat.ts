@@ -26,7 +26,7 @@ import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSyn
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { BIN, ensureVramSidecar } from './harness/game-exe.ts';
+import { BIN, ensureVramSidecar, s3mmFiles } from './harness/game-exe.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const USER = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3');
@@ -221,6 +221,7 @@ const loadSnap = (dir: string) => JSON.parse(readFileSync(join(dir, 'snapshot.js
 function setState(dir: string, name: string) {
   if (!STATES[name]) throw new Error(`unknown state ${name} (${Object.keys(STATES).join(', ')})`);
   if (!DRY && gamePids().length) throw new Error('TS3W.exe runs');
+  if (s3mmFiles().length) throw new Error(`Sims3MonoModder (S3MM) in the game folder: ${s3mmFiles().join(', ')}; we never install it (docs/291), remove it first`);
   const snap = loadSnap(dir), want = STATES[name](join(dir, 'apex-unz'));
   for (const f of MANAGED) { // back to the snapshot first
     const p = join(BIN, f);

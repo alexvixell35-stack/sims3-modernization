@@ -110448,6 +110448,637 @@
     ]
   },
   {
+    "id": "sarcmummy-egypt-save",
+    "bug": "Sarcophagus.CommonCleanup (Dispose, DoReset) destroys the tomb mummy Sim but leaves its SimDescription in Household.NpcHousehold, unlike TombMummyDestroy (docs/607 §3); the leftover is saved with the vacation world",
+    "fix": "ts3fixes TreasureSpawn74.cs: sarcmummynpc (ON in the v0.3.0 release set rc-1119b), docs/607 §3",
+    "save": "Baseline-BP + profile.travel egypt (save-matrix travel case --stay, 5 days): Al Simhara",
+    "area": "save-matrix",
+    "note": "In-game repro + save matrix (Rodney 2026-11-19: 'repro it in Egypt, save and make sure saves are still working'). Needs the ts3agent with tomb_mummy (TombMummyHandlers.cs). Repro rules: the active traveller is teleported next to the nearest sarcophagus (setup_sims; tomb_mummy and @type: pick the sarcophagus nearest the selected Sim), the mummy is forced through EA's own TombMummyCreate (the LookInside path) and the sarcophagus reset with the player's Reset Object (SetObjectToReset -> DoReset -> CommonCleanup); no waiting for events. Order: release default read back (sarcmummynpc ON), ON arm (spawn, reset: the mummy's id leaves NpcHousehold, c3391 grows, c3393 0), save SarcMummy-On, quit to the main menu, load it (no stale on-arm entry, hh_same, mummy spawns again and is removed again), OFF arm in the same world (spawn, reset with the switch off: the id stays in NpcHousehold without a Sim, c3392 grows = EA bug reproduced), save SarcMummy-OldOff (an old save with a leftover), switch back ON, quit to menu, load SarcMummy-OldOff (loads, the off leftover is only logged: the fix does not clean entries left before it ran, docs/607 §3), the sarcophagus still works with ON. Every check is an until on tomb_mummy (30 s progress, fail fast). Household untouched: hh_same (the active household's SimDescriptionIds equal those at the first call) in every check.",
+    "expect": "PASS: every until met; 0 script errors; saved frame guard lines in ts3native.log",
+    "stepsRequire": "travel_state.on_vacation>=2",
+    "steps": [
+      {
+        "cmd": "travel_state",
+        "args": {},
+        "waitS": 1,
+        "note": "log: world and vacation days left"
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "waitS": 1,
+        "note": "release default read-back: sarcmummynpc ON in the rc set (no session override before this)",
+        "until": {
+          "cmd": "patches",
+          "all": [
+            {
+              "path": "sarcmummynpc",
+              "equals": true
+            }
+          ],
+          "everyS": 2,
+          "maxS": 10
+        }
+      },
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "count": 1,
+          "age": "youngadult,adult,elder"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "one local NPC to stand at the sarcophagus too (never the household)"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "active"
+          ],
+          "near": "@type:Sarcophagus"
+        },
+        "waitS": 5,
+        "note": "load-bearing setup: the traveller to the nearest sarcophagus (tomb_mummy works on the sarcophagus nearest the selected Sim)"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1"
+          ],
+          "near": "@type:Sarcophagus"
+        },
+        "waitS": 3,
+        "optional": true
+      },
+      {
+        "cmd": "tomb_mummy",
+        "args": {
+          "action": "state"
+        },
+        "waitS": 1,
+        "note": "baseline: sarcophagus found, hh_same recorded",
+        "until": {
+          "cmd": "tomb_mummy",
+          "args": {
+            "action": "state"
+          },
+          "all": [
+            {
+              "path": "mummy_out",
+              "equals": false
+            },
+            {
+              "path": "hh_same",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 30
+        }
+      },
+      {
+        "cmd": "tomb_mummy",
+        "args": {
+          "action": "spawn",
+          "tag": "on"
+        },
+        "waitS": 3,
+        "note": "ON arm: EA's TombMummyCreate (NpcHousehold.Add + Instantiate + MummyExitSarcophagus)",
+        "until": {
+          "cmd": "tomb_mummy",
+          "args": {
+            "action": "state"
+          },
+          "all": [
+            {
+              "path": "mummy_out",
+              "equals": true
+            },
+            {
+              "path": "mummy_in_npc",
+              "equals": true
+            },
+            {
+              "path": "on_in_npc",
+              "equals": 1
+            }
+          ],
+          "everyS": 3,
+          "maxS": 30
+        }
+      },
+      {
+        "cmd": "tomb_mummy",
+        "args": {
+          "action": "reset"
+        },
+        "waitS": 3,
+        "note": "ON arm: Reset Object on the sarcophagus while its mummy is out",
+        "until": {
+          "cmd": "tomb_mummy",
+          "args": {
+            "action": "state"
+          },
+          "all": [
+            {
+              "path": "mummy_out",
+              "equals": false
+            },
+            {
+              "path": "on_in_npc",
+              "equals": 0
+            },
+            {
+              "path": "c3391",
+              "atLeast": 1
+            },
+            {
+              "path": "c3393",
+              "equals": 0
+            },
+            {
+              "path": "hh_same",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 30
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "waitS": 1,
+        "pausesClock": true
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SarcMummy-On"
+        },
+        "waitS": 5,
+        "note": "save 1: ON arm, no leftover; optional only for the reply (the game may not answer while it unloads or saves): its until gates the step",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "save_in_progress",
+              "equals": false
+            }
+          ],
+          "everyS": 3,
+          "maxS": 300
+        },
+        "optional": true
+      },
+      {
+        "cmd": "main_menu",
+        "waitS": 5,
+        "note": "quit to the main menu; optional only for the reply (the game may not answer while it unloads or saves): its until gates the step",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": false
+            }
+          ],
+          "everyS": 3,
+          "maxS": 600
+        },
+        "optional": true
+      },
+      {
+        "cmd": "load_save",
+        "args": {
+          "file": "SarcMummy-On.sims3"
+        },
+        "waitS": 10,
+        "note": "reload the ON save from the menu; optional only for the reply (the game may not answer while it unloads or saves): its until gates the step",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            },
+            {
+              "path": "load_file",
+              "equals": "SarcMummy-On.sims3"
+            },
+            {
+              "path": "sub_state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 900
+        },
+        "optional": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 5,
+        "pausesClock": false
+      },
+      {
+        "cmd": "travel_state",
+        "args": {},
+        "waitS": 1,
+        "note": "still on vacation in Al Simhara after the reload"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "active"
+          ],
+          "near": "@type:Sarcophagus"
+        },
+        "waitS": 5,
+        "note": "back at the sarcophagus (the Sim may have moved before the save)"
+      },
+      {
+        "cmd": "tomb_mummy",
+        "args": {
+          "action": "state"
+        },
+        "waitS": 1,
+        "note": "after reload: no stale on-arm mummy in NpcHousehold, household the same",
+        "until": {
+          "cmd": "tomb_mummy",
+          "args": {
+            "action": "state"
+          },
+          "all": [
+            {
+              "path": "on_in_npc",
+              "equals": 0
+            },
+            {
+              "path": "mummy_out",
+              "equals": false
+            },
+            {
+              "path": "hh_same",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 30
+        }
+      },
+      {
+        "cmd": "tomb_mummy",
+        "args": {
+          "action": "spawn",
+          "tag": "reload"
+        },
+        "waitS": 3,
+        "note": "the sarcophagus still spawns its mummy after the reload",
+        "until": {
+          "cmd": "tomb_mummy",
+          "args": {
+            "action": "state"
+          },
+          "all": [
+            {
+              "path": "mummy_out",
+              "equals": true
+            },
+            {
+              "path": "reload_in_npc",
+              "equals": 1
+            }
+          ],
+          "everyS": 3,
+          "maxS": 30
+        }
+      },
+      {
+        "cmd": "tomb_mummy",
+        "args": {
+          "action": "reset"
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "tomb_mummy",
+          "args": {
+            "action": "state"
+          },
+          "all": [
+            {
+              "path": "mummy_out",
+              "equals": false
+            },
+            {
+              "path": "reload_in_npc",
+              "equals": 0
+            },
+            {
+              "path": "c3391",
+              "atLeast": 1
+            },
+            {
+              "path": "c3393",
+              "equals": 0
+            }
+          ],
+          "everyS": 3,
+          "maxS": 30
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "sarcmummynpc": false
+        },
+        "waitS": 1,
+        "note": "OFF arm (session override)",
+        "until": {
+          "cmd": "patches",
+          "all": [
+            {
+              "path": "sarcmummynpc",
+              "equals": false
+            }
+          ],
+          "everyS": 2,
+          "maxS": 10
+        }
+      },
+      {
+        "cmd": "tomb_mummy",
+        "args": {
+          "action": "spawn",
+          "tag": "off"
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "tomb_mummy",
+          "args": {
+            "action": "state"
+          },
+          "all": [
+            {
+              "path": "mummy_out",
+              "equals": true
+            },
+            {
+              "path": "off_in_npc",
+              "equals": 1
+            }
+          ],
+          "everyS": 3,
+          "maxS": 30
+        }
+      },
+      {
+        "cmd": "tomb_mummy",
+        "args": {
+          "action": "reset"
+        },
+        "waitS": 3,
+        "note": "OFF arm: EA bug reproduced = the mummy's description stays in NpcHousehold without a Sim, c3392 grows",
+        "until": {
+          "cmd": "tomb_mummy",
+          "args": {
+            "action": "state"
+          },
+          "all": [
+            {
+              "path": "mummy_out",
+              "equals": false
+            },
+            {
+              "path": "off_in_npc_no_sim",
+              "equals": 1
+            },
+            {
+              "path": "c3392",
+              "atLeast": 1
+            },
+            {
+              "path": "hh_same",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 30
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "waitS": 1,
+        "pausesClock": true
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "SarcMummy-OldOff"
+        },
+        "waitS": 5,
+        "note": "save 2: an old save (switch off) that carries the leftover; optional only for the reply (the game may not answer while it unloads or saves): its until gates the step",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "save_in_progress",
+              "equals": false
+            }
+          ],
+          "everyS": 3,
+          "maxS": 300
+        },
+        "optional": true
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "sarcmummynpc": true
+        },
+        "waitS": 1,
+        "note": "back ON before the old save loads",
+        "until": {
+          "cmd": "patches",
+          "all": [
+            {
+              "path": "sarcmummynpc",
+              "equals": true
+            }
+          ],
+          "everyS": 2,
+          "maxS": 10
+        }
+      },
+      {
+        "cmd": "main_menu",
+        "waitS": 5,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": false
+            }
+          ],
+          "everyS": 3,
+          "maxS": 600
+        },
+        "optional": true,
+        "note": "optional only for the reply (the game may not answer while it unloads or saves): its until gates the step"
+      },
+      {
+        "cmd": "load_save",
+        "args": {
+          "file": "SarcMummy-OldOff.sims3"
+        },
+        "waitS": 10,
+        "note": "old save with a leftover loads with the switch ON; optional only for the reply (the game may not answer while it unloads or saves): its until gates the step",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            },
+            {
+              "path": "load_file",
+              "equals": "SarcMummy-OldOff.sims3"
+            },
+            {
+              "path": "sub_state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 900
+        },
+        "optional": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 5,
+        "pausesClock": false
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "active"
+          ],
+          "near": "@type:Sarcophagus"
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "tomb_mummy",
+        "args": {
+          "action": "state"
+        },
+        "waitS": 1,
+        "note": "log only: off_in_npc_no_sim 1 = the pre-existing leftover stays (no load cleanup in the fix); 0 = something cleaned it",
+        "until": {
+          "cmd": "tomb_mummy",
+          "args": {
+            "action": "state"
+          },
+          "all": [
+            {
+              "path": "mummy_out",
+              "equals": false
+            },
+            {
+              "path": "hh_same",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 30
+        }
+      },
+      {
+        "cmd": "tomb_mummy",
+        "args": {
+          "action": "spawn",
+          "tag": "old"
+        },
+        "waitS": 3,
+        "note": "the sarcophagus works in the old save with ON",
+        "until": {
+          "cmd": "tomb_mummy",
+          "args": {
+            "action": "state"
+          },
+          "all": [
+            {
+              "path": "mummy_out",
+              "equals": true
+            },
+            {
+              "path": "old_in_npc",
+              "equals": 1
+            }
+          ],
+          "everyS": 3,
+          "maxS": 30
+        }
+      },
+      {
+        "cmd": "tomb_mummy",
+        "args": {
+          "action": "reset"
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "tomb_mummy",
+          "args": {
+            "action": "state"
+          },
+          "all": [
+            {
+              "path": "mummy_out",
+              "equals": false
+            },
+            {
+              "path": "old_in_npc",
+              "equals": 0
+            },
+            {
+              "path": "c3393",
+              "equals": 0
+            },
+            {
+              "path": "hh_same",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 30
+        }
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 5,
+        "optional": true
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

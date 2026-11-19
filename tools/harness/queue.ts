@@ -240,7 +240,7 @@ export function allowedCorrection(xml: string, allow: string[]): boolean {
 import { EA_PACKAGE_LOCK } from '../dump-locks.ts';
 import { MARKER } from '../publish-public.ts';
 import { clickLines, dumpHungGame, GUARD_MS, logTail, type ModeSnap, modeExit, modeSnap, noSafeButton, PKG_ABBA, pkgAbba } from './game-alive.ts';
-import { BIN, EA_LAUNCHER, EA_URI, GAME_EXE, gameRunning, isSteamGame, killLeftovers, LAUNCH, logUntrackedGame, MACHINE, machineTag, relaunched, seenPids } from './game-exe.ts';
+import { BIN, s3mmFiles, EA_LAUNCHER, EA_URI, GAME_EXE, gameRunning, isSteamGame, killLeftovers, LAUNCH, logUntrackedGame, MACHINE, machineTag, relaunched, seenPids } from './game-exe.ts';
 import { checkCfg as checkFailFast, describe as describeFailFast, routingGuard, type FailFast } from './routing-failfast.ts';
 import { checkRequire, flatDelta, parseRequire, startupDeltaLint } from './fixes-require.ts';
 import { parseHitchTasks } from './hitch-tasks.ts';
@@ -2867,6 +2867,7 @@ if (!values['dry-run']) {
   if (others) { console.error(`another queue is running (node PID ${others.split(/\s+/).join(', ')}): stop it first (taskkill /PID <pid> /T /F)`); process.exit(3); }
 }
 // disk gate (docs/283, 2026-11-17: C: at 0 bytes broke builds and runs mid-job): < 30 GB free runs cleanup.ts --apply, < 15 GB refuses here
+{ const s3 = s3mmFiles(); if (s3.length) { log(`STOP: Sims3MonoModder (S3MM) found in the game folder: ${s3.join(', ')}. We never install it (its profiler is not compatible with ts3native, docs/291); remove it, then start again`); process.exit(5); } }
 if (!values['dry-run'] && !process.env.TS3_SMOKE_PARENT) { const g = diskGate(); log(g.line); if (!g.ok) { log('STOP: not enough free disk space to start (cleanup.ts gate)'); process.exit(5); } }
 if (!values['dry-run']) saveForeground(); // the window to give focus back to once the game takes it (focus-game.ts)
 // apps a killed run left on the narrowed CPUs go back first; the same on any exit of this run (pin.ts)

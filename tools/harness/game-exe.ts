@@ -8,7 +8,7 @@
 //   node tools/harness/game-exe.ts --installed    base game + EP/SP folders found under the game root
 //   node tools/harness/game-exe.ts --vram         write or confirm <TS3_BIN>\ts3native-vram.ini (dxdiag-vram.exe, docs/284)
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 
@@ -18,6 +18,13 @@ export const machineTag = (m = MACHINE) => (m === 'main' ? '' : m); // '' on the
 export const GAME_EXE = process.env.TS3_EXE ?? 'TS3W.exe';
 export const GAME_NAME = GAME_EXE.replace(/\.exe$/i, ''); // PowerShell Get-Process / Windows counters name
 export const BIN = process.env.TS3_BIN ?? 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\The Sims 3\\Game\\Bin';
+// We never install Sims3MonoModder (S3MM): its profiler is not compatible with ts3native (docs/291). Test runs refuse a Bin that holds it;
+// the installer refuses to copy a file with such a name. Folders: Bin and the ASI loader's plugin folders.
+export const S3MM_RE = /monomodder|s3mm/i;
+export const s3mmFiles = (bin = BIN): string[] => ['', 'Plugins', 'plugins', 'asi', 'scripts'].flatMap(d => {
+  const p = join(bin, d);
+  return existsSync(p) ? readdirSync(p).filter(f => S3MM_RE.test(f)).map(f => join(p, f)) : [];
+}).filter((f, i, a) => a.findIndex(x => x.toLowerCase() === f.toLowerCase()) === i); // Windows: Plugins and plugins are one folder
 // Installed products from the game root (<TS3_BIN>/../..), same on Steam and the EA app: base game + every EPnn/SPnn folder that holds GameData.
 // The "Installed" line in ScriptError xml is written by the game itself (not by the harness) from its own check; the HKLM Uninstall keys list the same set.
 // Retail (disc) installs put each pack in a sibling folder of the game root instead ("<root> World Adventures" next to
@@ -147,6 +154,14 @@ if (import.meta.main) {
       mkdirSync(join(ret, 'The Sims 2', 'GameData'), { recursive: true });
       assert.deepEqual(installedProducts(join(ret, 'The Sims 3', 'Game', 'Bin')), ['BaseGame', 'EP01', 'EP11', 'SP08', 'The Sims 3 Unknown Pack'], 'retail siblings');
     } finally { rmSync(tmp, { recursive: true, force: true }); }
+    { const b = mkdtempSync(join(tmpdir(), 'ts3-s3mm-')); // S3MM guard: Bin and plugin folders, any case; other ASIs pass
+      try {
+        mkdirSync(join(b, 'Plugins')); for (const f of ['ts3native.asi', 'Sims3SettingsSetter.asi', 'd3d9.dll']) writeFileSync(join(b, f), '');
+        assert.deepEqual(s3mmFiles(b), []);
+        writeFileSync(join(b, 'Plugins', 'Sims3MonoModder.asi'), ''); writeFileSync(join(b, 'S3MM.toml'), '');
+        assert.deepEqual(s3mmFiles(b).map(f => basename(f)).sort(), ['S3MM.toml', 'Sims3MonoModder.asi']);
+        assert.ok(S3MM_RE.test('sims3monomodder.ASI') && !S3MM_RE.test('S3SS.asi') && !S3MM_RE.test('Sims3SettingsSetter.asi'));
+      } finally { rmSync(b, { recursive: true, force: true }); } }
     console.log('self-check ok');
   } else if (process.argv[2] === '--installed') console.log(`${gameRoot()}: ${installedProducts().join(' ')}`);
   else if (process.argv[2] === '--vram') console.log(ensureVramSidecar());
