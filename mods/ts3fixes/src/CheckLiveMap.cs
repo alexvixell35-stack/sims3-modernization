@@ -11,6 +11,7 @@ namespace Ts3Fixes
             switch (sw)
             {
                 case "ageupabort": return EpLive(typeof(AgeUpAbortHook), 1, "sAuTask", sAuTask, null, "sAuDeferred", sAuDeferred, typeof(bool), "sAuDesc", sAuDesc, null);
+                case "ageupdupinst": return EpLive(typeof(AgeUpDupInstHook), 1);
                 case "ageupkeepoutfits": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(AgeUpOutfitHook), 1, "sSbtFailed", sSbtFailed, typeof(bool), "sSbtNew", sSbtNew, null, "sSbtDesc", sSbtDesc, null, "sSbtFailure", sSbtFailure, null), EpLive(typeof(BoatParkGoneHook), 1)), EpLive(typeof(BookHandPutDownHook), 1)), EpLive(typeof(BookHandQueueHook), 1, "sBhActor", sBhActor, null)), EpLive(typeof(BribeHook), 1, "sBribeTable", sBribeTable, null)), EpLive(typeof(CarryHook), 1)), EpLive(typeof(ConvTurnHook), 1)), EpLive(typeof(FireworksFizzleHook), 0)), EpLive(typeof(GraduationAttendHook), 1)), EpLive(typeof(GraduationCityHallHook), 1)), EpLive(typeof(OutfitClearHook), 2)), EpLive(typeof(SwAbuseHook), 1)), EpLive(typeof(SwAdoptHook), 1)), EpLive(typeof(SwPetAdoptHook), 1)), EpLive(typeof(SwPutUpHook), 1)), EpLive(typeof(ThrowHook), 3)), EpLive(typeof(TopicHook), 4));
                 case "ageupswap": return EpLive(typeof(AgeUpSwapHook), 1);
                 case "agingalarmcancel": return EpLive(typeof(BAcHook), 1, "sAcGrad", sAcGrad, null);
@@ -42,7 +43,9 @@ namespace Ts3Fixes
                 case "boardingschoolmoney": return EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BDbBubbleHook), 1), EpLive(typeof(BDbFogHook), 1)), EpLive(typeof(BDbJunkHook), 1)), EpLive(typeof(BDbPetBedHook), 1)), EpLive(typeof(BDbRegisterHook), 1));
                 case "boatgetoutdiag": return EpLive(typeof(BoatGetOutDiagHook), 1);
                 case "boatgetoutguard": return EpLive(typeof(BoatGetOutDiagHook), 1);
+                case "boatroutenull": return EpLive(typeof(BoatRouteNullHook), 1);
                 case "boatstaleswimmer": return EpLive(typeof(BBsHook), 1, "sBsWater", sBsWater, null);
+                case "boattaximemo": return EpLive(typeof(RouteBackoffHook), 4);
                 case "bonfirespice": return EpJoin(EpLive(typeof(BfFireHook), 1), EpLive(typeof(BfRunHook), 1));
                 case "bookcarry": return EpLive(typeof(BookCarryHook), 1);
                 case "bouncerplace": return EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatLegHook), 1), EpLive(typeof(BouncerHook), 1)), EpLive(typeof(BouncerRunHook), 1)), EpLive(typeof(VehicleLegHook), 1));
@@ -70,6 +73,7 @@ namespace Ts3Fixes
                 case "callcensus": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(CcActionData), 1), EpLive(typeof(CcAutonomy), 1)), EpLive(typeof(CcBar), 1)), EpLive(typeof(CcBuffs), 1)), EpLive(typeof(CcQueue), 1)), EpLive(typeof(CcSinging), 1)), EpLive(typeof(CcSocial), 2)), EpLive(typeof(CcStatic), 12)), EpLive(typeof(CcTraits), 1)), EpLive(typeof(CcTv), 1));
                 case "cancelposturedef": return EpLive(typeof(BCpHook), 1);
                 case "caneearly": return EpLive(typeof(CaneEarlyOutHook), 0);
+                case "careerskillnull": return EpLive(typeof(CareerSkillNullHook), 1);
                 case "carnoroute": return EpLive(typeof(CarNoRouteHook), 1);
                 case "carpoolschoolskip": return EpLive(typeof(BCsHook), 1, "sCsData", sCsData, null);
                 case "casfiltergrid": return EpLive(typeof(CesHook), 0, "sBilDict", sBilDict, null, "sBilDict", sBilDict, "static", "sCfgSingleton", sCfgSingleton, null, "sCfgSingleton", sCfgSingleton, "static");
@@ -123,7 +127,7 @@ namespace Ts3Fixes
                 case "dragoncurserun": return EpLive(typeof(WsCurseHook), 1);
                 case "dreamcleanup": return EpLive(typeof(DcHook), 1, "sDcRemoval", sDcRemoval, null);
                 case "dreamrootorphan": return EpLive(typeof(WlNode), 0, "sWlListener", sWlListener, null);
-                case "eanullguards": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatParkGoneHook), 1), EpLive(typeof(BookHandPutDownHook), 1)), EpLive(typeof(BookHandQueueHook), 1, "sBhActor", sBhActor, null)), EpLive(typeof(BribeHook), 1, "sBribeTable", sBribeTable, null)), EpLive(typeof(CarryHook), 1)), EpLive(typeof(ConvTurnHook), 1)), EpLive(typeof(FireworksFizzleHook), 0)), EpLive(typeof(GraduationAttendHook), 1)), EpLive(typeof(GraduationCityHallHook), 1)), EpLive(typeof(MotivesHook), 1)), EpLive(typeof(OutfitClearHook), 2)), EpLive(typeof(SwAbuseHook), 1)), EpLive(typeof(SwAdoptHook), 1)), EpLive(typeof(SwPetAdoptHook), 1)), EpLive(typeof(SwPutUpHook), 1)), EpLive(typeof(ThrowHook), 3)), EpLive(typeof(TopicHook), 4));
+                case "eanullguards": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatParkGoneHook), 1), EpLive(typeof(BookHandPutDownHook), 1)), EpLive(typeof(BookHandQueueHook), 1, "sBhActor", sBhActor, null)), EpLive(typeof(BribeHook), 1, "sBribeTable", sBribeTable, null)), EpLive(typeof(CarryHook), 1)), EpLive(typeof(ConvTurnHook), 1)), EpLive(typeof(FireworksFizzleHook), 0)), EpLive(typeof(GraduationAttendHook), 1)), EpLive(typeof(GraduationCityHallHook), 1)), EpLive(typeof(MotivesHook), 1, "sMnhHousehold", sMnhHousehold, null)), EpLive(typeof(OutfitClearHook), 2)), EpLive(typeof(SwAbuseHook), 1)), EpLive(typeof(SwAdoptHook), 1)), EpLive(typeof(SwPetAdoptHook), 1)), EpLive(typeof(SwPutUpHook), 1)), EpLive(typeof(ThrowHook), 3)), EpLive(typeof(TopicHook), 4));
                 case "easpreaddecay": return EpLive(typeof(DecayHook), 0);
                 case "easpreaddecayverify": return EpLive(typeof(DecayHook), 0);
                 case "easpreadlots": return EpLive(typeof(LotCleanupHook), 0);
@@ -164,6 +168,7 @@ namespace Ts3Fixes
                 case "freshclothingresume": return EpLive(typeof(BFcHook), 1, "sFcMap", sFcMap, null);
                 case "fridgetestnull": return EpLive(typeof(BFtHook), 1);
                 case "frolicexit": return EpLive(typeof(B12FeHook), 1, "sFeSustained", sFeSustained, typeof(long));
+                case "frontstageowner": return EpLive(typeof(FrontStageOwnerHook), 1);
                 case "genealogycycle": return EpLive(typeof(GgHook), 4, "sGgAnc", sGgAnc, null);
                 case "geniebanish": return EpLive(typeof(GbHook), 0);
                 case "ghostspawnargs": return EpLive(typeof(GsHook), 1);
@@ -208,6 +213,8 @@ namespace Ts3Fixes
                 case "invnotyet": return EpLive(typeof(InvNotYetHook), 1);
                 case "jazzparam": return EpLive(typeof(JazzParamHook), 1);
                 case "jetpackflyingbuff": return EpLive(typeof(JetpackBuffHook), 1);
+                case "jobyieldroad": return EpJoin(EpLive(typeof(RoadOffScreenHook), 1), EpLive(typeof(TrafficCreateHook), 1));
+                case "jobyieldroadow": return EpLive(typeof(TrafficCreateHook), 1);
                 case "jogterrain": return EpLive(typeof(B12JtHook), 1, "sJtDest", sJtDest, null, "sJtRoad", sJtRoad, typeof(bool), "sJtLast", sJtLast, typeof(float), "sJtLast", sJtLast, null, "sJtTime", sJtTime, null, "sJtTime", sJtTime, typeof(float));
                 case "joyridecostume": return EpJoin(EpLive(typeof(JcJoyrideHook), 1), EpLive(typeof(JcRouteHook), 1));
                 case "kegbreakage": return EpLive(typeof(B12KbHook), 1, "sKbChance", sKbChance, 0, "sKbDorm", sKbDorm, typeof(float), "sKbDorm", sKbDorm, "static");
@@ -252,6 +259,7 @@ namespace Ts3Fixes
                 case "motivebuf": return EpLive(typeof(MotivesUpdateHook), 1, "sMbMotives", sMbMotives, null);
                 case "motivebufcheck": return EpLive(typeof(MotivesUpdateHook), 1, "sMbMotives", sMbMotives, null);
                 case "motivemultonce": return EpLive(typeof(BMmHook), 1, "sMmRelax", sMmRelax, typeof(float), "sMmRelax", sMmRelax, "static", "sMmSwim", sMmSwim, typeof(float), "sMmSwim", sMmSwim, "static", "sMmSootheMax", sMmSootheMax, typeof(float), "sMmSootheMax", sMmSootheMax, "static", "sMmSoothe", sMmSoothe, typeof(float), "sMmSoothe", sMmSoothe, "static");
+                case "motivesnohousehold": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatParkGoneHook), 1), EpLive(typeof(BookHandPutDownHook), 1)), EpLive(typeof(BookHandQueueHook), 1, "sBhActor", sBhActor, null)), EpLive(typeof(BribeHook), 1, "sBribeTable", sBribeTable, null)), EpLive(typeof(CarryHook), 1)), EpLive(typeof(ConvTurnHook), 1)), EpLive(typeof(FireworksFizzleHook), 0)), EpLive(typeof(GraduationAttendHook), 1)), EpLive(typeof(GraduationCityHallHook), 1)), EpLive(typeof(MotivesHook), 1, "sMnhHousehold", sMnhHousehold, null)), EpLive(typeof(OutfitClearHook), 2)), EpLive(typeof(SwAbuseHook), 1)), EpLive(typeof(SwAdoptHook), 1)), EpLive(typeof(SwPetAdoptHook), 1)), EpLive(typeof(SwPutUpHook), 1)), EpLive(typeof(ThrowHook), 3)), EpLive(typeof(TopicHook), 4));
                 case "mountfishcost": return EpLive(typeof(B13MfHook), 1, "sMfCost", sMfCost, typeof(int), "sMfCost", sMfCost, null);
                 case "moveinpartner": return EpLive(typeof(MipHook), 1, "sMipSim", sMipSim, typeof(ulong), "sMipCanRemove", sMipCanRemove, 1, "sMipSim", sMipSim, null);
                 case "namecache": return EpLive(typeof(NameCacheHook), 0);
@@ -271,8 +279,10 @@ namespace Ts3Fixes
                 case "opptrackerrelisten": return EpLive(typeof(BOtHook), 1);
                 case "outerwearautoloop": return EpLive(typeof(OwTestHook), 3);
                 case "outerwearrestore": return EpLive(typeof(OwRunHook), 1);
+                case "outfitmissing": return EpLive(typeof(OutfitMissingHook), 1, "sSohNoChange", sSohNoChange, null);
                 case "outfitwaitend": return EpLive(typeof(OutfitWaitHook), 1, "sSohDisposed", sSohDisposed, typeof(bool), "sSohStarted", sSohStarted, typeof(bool), "sSohNoChange", sSohNoChange, typeof(bool), "sSohReady", sSohReady, typeof(bool), "sSohSim", sSohSim, null, "sSohAborted", sSohAborted, null);
                 case "outfitwaitpoll": return EpJoin(EpLive(typeof(OutfitWaitHook), 1, "sSohDisposed", sSohDisposed, typeof(bool), "sSohStarted", sSohStarted, typeof(bool), "sSohNoChange", sSohNoChange, typeof(bool), "sSohReady", sSohReady, typeof(bool), "sSohSim", sSohSim, null, "sSohAborted", sSohAborted, null), EpLive(typeof(SwapCbHook), 1));
+                case "overwatchresetgone": return EpLive(typeof(OverwatchResetGoneHook), 1);
                 case "owresettime": return EpJoin(EpLive(typeof(HcInstHook), 0), EpLive(typeof(HcTailHook), 0));
                 case "partycleanupnull": return EpLive(typeof(BPcHapHook), 1, "sPcMotives", sPcMotives, null);
                 case "partylotlistener": return EpJoin(EpLive(typeof(BPlHappenHook), 1), EpLive(typeof(BPlWaitHook), 1));
@@ -419,6 +429,7 @@ namespace Ts3Fixes
                 case "stereoupgrade": return EpJoin(EpJoin(EpLive(typeof(BSuDanceHook), 1), EpLive(typeof(BSuSpeakerHook), 1)), EpLive(typeof(BSuUpHook), 1));
                 case "stuckcheckasync": return EpLive(typeof(StuckCheckBusyHook), 1);
                 case "stuckcheckbusy": return EpLive(typeof(StuckCheckBusyHook), 1);
+                case "stuckhbskip": return EpLive(typeof(StuckCheckBusyHook), 1);
                 case "subroutefail": return EpJoin(EpLive(typeof(SrfPlayHook), 1), EpLive(typeof(SrfTryHook), 1));
                 case "swiperestore": return EpLive(typeof(SwrRunHook), 1, "sSwrObj", sSwrObj, null, "sSwrFinal", sSwrFinal, null, "sSwrParent", sSwrParent, null, "sSwrSlot", sSwrSlot, null);
                 case "synctime": return EpLive(typeof(SfHook), 1);
@@ -438,6 +449,7 @@ namespace Ts3Fixes
                 case "trickortreatalarm": return EpLive(typeof(TrickOrTreatHook), 1);
                 case "tricksocials": return EpLive(typeof(B12MtHook), 1);
                 case "tspawninvdup": return EpLive(typeof(TspHook), 1);
+                case "turnjigskip": return EpLive(typeof(FpYieldHook), 3);
                 case "tvdisclistener": return EpLive(typeof(BTdHook), 1, "sTdListener", sTdListener, null);
                 case "tvsyncalarm": return EpJoin(EpLive(typeof(BTsMsHook), 1), EpLive(typeof(BTsTvHook), 1));
                 case "tvwatchskill": return EpLive(typeof(BTwHook), 2, "sTwList", sTwList, null);

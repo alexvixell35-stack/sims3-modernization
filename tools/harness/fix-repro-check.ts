@@ -158,6 +158,11 @@ export const EXEMPT: Record<string, string> = {
   jobyieldspawn: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
   jobyieldfp: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
   jobyieldready: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
+  // contributor PR post/ea-guards-skips-1120: natural-play evidence only, no forced repro
+  frontstageowner: 'contributor: default off, fired in natural play (3 games, unowned stage kits); no forced repro',
+  careerskillnull: 'contributor: default off, fired in natural play (11 games, skills the game could not add); no forced repro',
+  stuckhbskip: 'contributor: default off, fired in natural play (Isla Paradiso houseboats, 28 games); no forced repro',
+  turnjigskip: 'contributor: default off, performance skip for unseen townies, fired in natural play (91 games); no forced repro',
 };
 
 // Every ts3fixes switch (a ShortcutOn("x") call or a SwDefault case in mods/ts3fixes/src) must be in the agent's names list,

@@ -218,6 +218,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kAgeUpDupInst value="False" />
     <kOverwatchResetGone value="False" />
     <kMotivesNoHousehold value="False" />
+    <kFrontStageOwner value="False" />
+    <kCareerSkillNull value="False" />
+    <kStuckHbSkip value="False" />
+    <kTurnJigSkip value="False" />
     <kOverwatchRelRetry value="True" />
     <kFireworksWatchLate value="True" />
     <kRoleNullPurge value="True" />

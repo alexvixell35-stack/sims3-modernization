@@ -85,6 +85,21 @@ namespace Ts3Fixes
                     PatchCounters()[67]++;
                     return;
                 }
+                // stuckhbskip (contributor 2026-11-13, default off): on a houseboat the check's random lot points (any level 0-4, sea or
+                // lot terrain) are no goals in boat lot space, so nearly every plan fails (11-13: 113-236 probes a game, 85-90%
+                // NoDestination, 3-20 s of plans, all townies on the same boat), and 3 failed rounds reset a Sim that is not stuck. A
+                // townie on a houseboat that is not the household's lot ends the check as after a success (no re-arm; EA re-arms it
+                // each night). Household, selected and no-household Sims keep EA's check (YieldTownie, the shared household rule); the
+                // watchdog and Overwatch still catch a Sim really stuck. Counter: [4055] checks skipped.
+                if (ShortcutOn("stuckhbskip") && YieldTownie(sim))
+                {
+                    Lot on = sim.LotCurrent;
+                    if (on != null && on.IsHouseboatLot() && on != Household.ActiveHouseholdLot)
+                    {
+                        PatchCounters()[4055]++;
+                        return;
+                    }
+                }
                 // docs/202 §5.6 (4): an unseen Sim's check only re-arms (phase B), so do it here, not through the async queue:
                 // queued + drained, every re-arm counted as a queued check (4,343 vs 769 in v020-natural IP) and cost a drain tick
                 if (ShortcutOn("unseenfbstuck") && UfStuckDefer(this, sim)) return;

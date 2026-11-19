@@ -123,6 +123,8 @@ namespace Ts3Fixes
             Patch(typeof(Sim), "SetObjectToReset", typeof(OverwatchResetGoneHook), "ResetHook", "ResetOrig");  // OneOffGuards.cs (Sim's own override, DeclaredOnly)
             if (sFwWatch != null) Patch(sFwWatch, "Run", Type.EmptyTypes, typeof(FireworksWatchLateHook), "RunHook", "RunOrig");  // FireworksWatchLate.cs
             Patch(typeof(Sims3.Gameplay.Roles.RoleManager), "VerifyRoleGivingObjectRoles", typeof(RoleNullPurgeHook), "VerifyHook", "VerifyOrig");  // RoleNullPurge.cs
+            Patch(typeof(Sims3.Gameplay.Objects.Misc.FrontStageKit), "GetOwner", typeof(FrontStageOwnerHook), "GetOwnerHook", "GetOwnerOrig");  // EaNullGuards.cs, frontstageowner
+            Patch(typeof(Sims3.Gameplay.Careers.Career), "GiveCareerLevelSkills", typeof(CareerSkillNullHook), "GiveHook", "GiveOrig");  // EaNullGuards.cs, careerskillnull
             Patch(typeof(ScriptCore.ScriptProxy), "OnScriptError", typeof(ErrorTrapLoopHook), "ErrHook", "ErrOrig");  // ErrorTrapLoop.cs
             Patch(typeof(Sims3.Gameplay.Socializing.SocialInteractionA), "GetStateMachine", Type.EmptyTypes, typeof(SocialNoEffectHook), "GsmHook", "GsmOrig");  // SocialNoEffectGuard.cs
             Patch(typeof(Sims3.Gameplay.Objects.SnowWaterFight), "ControllerCallback", typeof(FightStayCapHook), "ControllerHook", "ControllerOrig");  // FightStayCap.cs

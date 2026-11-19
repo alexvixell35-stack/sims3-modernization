@@ -737,6 +737,8 @@ namespace Ts3Fixes
         // [3988-3990] ageupdupinst (AgeUpDupInst.cs, #553): second instantiations during a deferred age-up answered with the first call's Sim / seen with the switch off (EA throws) / no Sim made (rethrown).
         // [3991-3993] overwatchrelretry (OwRelRetry.cs): Overwatch CleanupRelationships re-runs after "out of sync" / seen with the switch off / still failing after 50 runs.
         // [3994-3997] OneOffGuards.cs: overwatchresetgone destroyed Sims skipped in a reset / seen off; motivesnohousehold CreateMotives with the NpcHousehold stand-in / seen off.
+        // [4052] frontstageowner (EaNullGuards.cs): unowned FrontStageKits answered null in GetOwner. [4053-4054] careerskillnull (EaNullGuards.cs): skills EA could not add skipped in GiveCareerLevelSkills / household or unknown owners left to EA.
+        // [4055] stuckhbskip (FewerPlans.cs): townie stuck checks on a non-household houseboat ended as after a success. [4056-4057] turnjigskip (JobYieldRoad.cs FpYieldHook): top-level turn-in-place checks by unseen townie boats or animals / of them skipped.
         // [2062-2064] petpoolorphan (PetPoolOrphan.cs, issue #166 build 52, docs/534): pets dropped from a pool with no household and no family links disposed / left (a Sim in the world) / Dispose threw.
         // [2065] reltablesapart (RelTablesApart.cs, issue #166 build 14, docs/535): relationship pairs whose two tables had come apart, rejoined with the other side's relationship.
         // [2067-2068] errortrapsims (ErrorTrapSims.cs): dead Sim objects dropped from NRaas ErrorTrap's CheckSim.mInited, keys left after the last pass. [2069-2071] unused.
@@ -2390,6 +2392,10 @@ namespace Ts3Fixes
                 case "ageupdupinst": return Instantiator.kAgeUpDupInst;
                 case "overwatchresetgone": return Instantiator.kOverwatchResetGone;
                 case "motivesnohousehold": return Instantiator.kMotivesNoHousehold;
+                case "frontstageowner": return Instantiator.kFrontStageOwner;
+                case "careerskillnull": return Instantiator.kCareerSkillNull;
+                case "stuckhbskip": return Instantiator.kStuckHbSkip;
+                case "turnjigskip": return Instantiator.kTurnJigSkip;
                 case "overwatchrelretry": return Instantiator.kOverwatchRelRetry;
                 case "fireworkswatchlate": return Instantiator.kFireworksWatchLate;
                 case "rolenullpurge": return Instantiator.kRoleNullPurge;

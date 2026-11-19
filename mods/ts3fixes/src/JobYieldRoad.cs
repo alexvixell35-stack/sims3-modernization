@@ -68,6 +68,7 @@ namespace Ts3Fixes
                 typeof(SpawnPlaceHook), "PlaceHook", "PlaceOrig");
             Patch(typeof(Terrain), "CanTurnInPlace", typeof(FpYieldHook), "CanTurnHook", "CanTurnOrig");
             Patch(typeof(Terrain), "ModifyRouteForSpecies", typeof(FpYieldHook), "ModHook", "ModOrig");
+            Patch(typeof(Terrain), "PreModifyRouteForSpecies", typeof(FpYieldHook), "PreHook", "PreOrig");  // turnjigskip only
         }
 
         public class RoadOffScreenHook
@@ -113,13 +114,59 @@ namespace Ts3Fixes
             public void PlaceOrig(ref IGameObject retObj, bool deleteObjOnFailure, FindGoodLocationBooleans booleanConstraints) { } // receives ObjectSpawner.TryPlaceSpawnedObjectInWorld(ref IGameObject, bool, FindGoodLocationBooleans)'s original header
         }
 
+        // turnjigskip (contributor 2026-11-14, default off). EA's turn-in-place checks run around the routes of boats (any Sim
+        // sitting in a boat), horses, deer and adult dogs (Terrain.ShouldSkipTurnJigChecks exempts everyone else):
+        // PreModifyRouteForSpecies (AboutToPlanRouteCallback, before the plan) and CanTurnInPlace each create a test jig object,
+        // switch the Sim's dynamic footprint off and on, test the placement and destroy the jig; every footprint change and the
+        // destroy can make the sim thread wait for a running route job; ModifyRouteForSpecies (at the start of every such route)
+        // replans on the sim thread when the Sim cannot turn in place. Nobody sees an unseen townie turn, so with the switch on
+        // such a Sim (YieldTownie, UfWhy 0; in a boat only when nobody of the household is in or on it, VlWho) gets EA's own
+        // skip answers: the route unchanged, "can turn in place", no change. Top-level calls only (CanTurnInPlace inside
+        // ModifyRouteForSpecies is part of its outer call). Counters: [4056] top-level calls by an unseen townie boat or animal
+        // (either switch value), [4057] of them skipped (switch on).
         public class FpYieldHook
         {
             static int sDepth;  // CanTurnInPlace runs inside ModifyRouteForSpecies: only the outer call asks
 
+            // turnjigskip: true = answer with EA's skip (counted); false = EA's checks
+            static bool TjSkip(Sim s)
+            {
+                if (sDepth > 0 || s == null) return false;
+                try
+                {
+                    SittingInBoat sb = s.Posture as SittingInBoat;
+                    if (sb == null && (s.SimDescription == null || s.SimDescription.Species == Sims3.SimIFace.CAS.CASAgeGenderFlags.Human)) return false;
+                    if (!YieldTownie(s) || UfWhy(s) != 0) return false;
+                    if (sb != null)
+                    {
+                        Boat b = sb.Container as Boat;
+                        if (b == null) return false;
+                        bool hh, other;
+                        VlWho(b, null, out hh, out other);
+                        if (hh) return false;  // household rule: any household, selected or unknown-scope Sim in or on the boat
+                    }
+                }
+                catch (Exception) { return false; }  // on any doubt EA's checks run
+                int[] c = PatchCounters();
+                c[4056]++;
+                if (!ShortcutOn("turnjigskip")) return false;
+                c[4057]++;
+                return true;
+            }
+
+            public static Route PreHook(Route r, Sim routingSim)
+            {
+                if (TjSkip(routingSim)) return r;  // EA's skip answer: the route as it is
+                sDepth++;
+                try { return PreOrig(r, routingSim); }
+                finally { sDepth--; }
+            }
+            public static Route PreOrig(Route r, Sim routingSim) { return r; }  // receives Terrain.PreModifyRouteForSpecies's original header
+
             public static bool CanTurnHook(Route r, Sim routingSim)
             {
                 if (sDepth == 0) RouteBackoffHook.FpStepAside(routingSim);  // may sleep: outside every try, a task reset passes through as in EA's own waits
+                if (TjSkip(routingSim)) return true;  // turnjigskip: EA's skip answer, turns in place with no jig
                 sDepth++;
                 try { return CanTurnOrig(r, routingSim); }
                 finally { sDepth--; }
@@ -129,6 +176,7 @@ namespace Ts3Fixes
             public static void ModHook(Route r, Sim routingSim)
             {
                 if (sDepth == 0) RouteBackoffHook.FpStepAside(routingSim);
+                if (TjSkip(routingSim)) return;  // turnjigskip: EA's skip answer, the route unchanged
                 sDepth++;
                 try { ModOrig(r, routingSim); }
                 finally { sDepth--; }
