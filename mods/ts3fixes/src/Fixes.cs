@@ -87,6 +87,7 @@ namespace Ts3Fixes
             ApplyOverwatchSpread(false);
             ApplyOverwatchNotice(false);
             ApplyOverwatchProbe(false);
+            ApplyOwElevIdle(false);   // docs/654
             ApplyErrorTrapSpread(false);
             ApplyPortalAdaptorLeak();
             ApplyCasGrid();
@@ -880,6 +881,7 @@ namespace Ts3Fixes
         // [4094-4097] paparazzicooldown (PaparazziCooldown.cs, docs/648): NPC paparazzo loop callbacks skipped while both Sims are unseen (stretched route checks) / follows refused by the re-follow cooldown / follows left to EA for an exempt paparazzo or celebrity / errors. [4098-4099] free.
         // [4120-4129] objfailmemo (ObjFailMemo.cs, docs/650; 4110-4119 belong to another branch): NPC (Sim, object) route failures counted / pairs blocked / autonomous candidates refused / exempt (household, selected, unknown scope) / errors / failures left to other switches (Sim, Terrain, Lot targets, GetInPool, DisposeOutside, EmptyTrash) / 4126-4129 spare
         // [4140-4142] socialunlinkend (SocialUnlinkEnd.cs, docs/650 §3; 4130-4139 belong to another branch): NPC receiver sync waits ended at once (B unlinked, starter gone) / exempt receivers left to EA (household, selected, unknown scope) / errors; 4143-4149 spare.
+        // [4150-4155] owelevidle (OwElevIdle.cs, docs/654): idle elevator entries dropped before Overwatch's CleanupElevators (reset avoided) / riding entries left to Overwatch / exempt idle entries left to Overwatch / idle entries seen with the switch off / errors / passes; 4156-4159 spare.
         // [4130-4139] dishpilecap (DishPileCap.cs, docs/652; 4110-4129 left to other agent blocks): dirty dishes removed with EA's nightly throw-away / lots capped / over-cap lots left alone (household home or venue, household Sim there, in view) / dishes skipped (used, held, not needing cleaning) / dishes near a viewer / errors / passes / dirty dishes on the biggest lot / dirty dishes in the world / lots over the cap (last three: last pass, any switch state).
         // [4100-4109] npcstallend (NpcStallEnd.cs, docs/649; 4090-4099 left to feat/npcloops-c): NPC stalls ended with EA's cancel / exempt (household, selected, unknown scope) / skipped (allowed kind or busy) / errors / cancels that did not take / left to outfitwaitend (outfit wait) / cleared outfit waits ended (OutfitWait.cs) / passes; 4108-4109 spare.
         // [4110-4111] eaalarmguard (EaAlarmGuard.cs, docs/650 §1): EA bodies under our hooks on repeating alarms that threw, caught so the alarm stays: NPC show (NPCShowManager.CreateNPCShow) / others (plant growth, venue cleanup, relationship decay, consignment magic hour, Elvis gnome).
@@ -1270,9 +1272,9 @@ namespace Ts3Fixes
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 2799, then 2800-3999 (upstream #470; s74 3388-3393, s77 3394-3404),
-        // then the contributor block 4000-4089, then 4090-4129 (4090-4099 npcloops-c, 4100-4109 npcstallend, 4110-4119 another branch, 4120-4129 objfailmemo, 4130-4139 another branch, 4140-4149 socialunlinkend), docs/registry.md), so a new fix
+        // then the contributor block 4000-4089, then 4090-4129 (4090-4099 npcloops-c, 4100-4109 npcstallend, 4110-4119 another branch, 4120-4129 objfailmemo, 4130-4139 another branch, 4140-4149 socialunlinkend, 4150-4159 owelevidle), docs/registry.md), so a new fix
         // never needs the array resized by hand.
-        const int kCounterSlots = 4150;
+        const int kCounterSlots = 4160;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1608,6 +1610,7 @@ namespace Ts3Fixes
                 case "picnicexit": return Instantiator.kPicnicExit;
                 case "poolfailmemo": return Instantiator.kPoolFailMemo;
                 case "objfailmemo": return Instantiator.kObjFailMemo;  // off (ObjFailMemo.cs, docs/650)
+                case "owelevidle": return Instantiator.kOwElevIdle;  // off (OwElevIdle.cs, docs/654)
                 case "socialunlinkend": return Instantiator.kSocialUnlinkEnd;  // off (SocialUnlinkEnd.cs, docs/650 §3)
                 case "petstartleskip": return Instantiator.kPetStartleSkip;
                 case "petlonghome": return Instantiator.kPetLongHome;
