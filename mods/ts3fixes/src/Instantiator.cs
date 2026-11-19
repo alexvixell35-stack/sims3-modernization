@@ -175,6 +175,10 @@ namespace Ts3Fixes
         [Tunable] public static float kPaparazziCooldownHours = 2f;    // paparazzicooldown: sim-hours before the same paparazzo may follow the same celebrity again (0 = no cooldown)
         [Tunable] public static bool kNpcStallEnd = false;             // npcstallend (docs/649): an NPC that kept one interaction instance within 1 m for kNpcStallEndHours gets one EA cancel of it (allowed kinds, busy, outfit waits and the household left alone); also lets outfitwaitend end cleared-cause outfit waits
         [Tunable] public static float kNpcStallEndHours = 3f;          // npcstallend: sim-hours without progress before the cancel (1..1000, else 3)
+        [Tunable] public static bool kObjFailMemo = false;             // objfailmemo (docs/650): an NPC whose plans to one object failed (no path / no destination / locked portal) kObjFailMemoFails times within kObjFailMemoWindowHours is refused that object in autonomy for kObjFailMemoHours
+        [Tunable] public static int kObjFailMemoFails = 2;             // objfailmemo: failed attempts (interaction instances) before the block (1..100, else 2)
+        [Tunable] public static float kObjFailMemoWindowHours = 2f;    // objfailmemo: sim-hours from the first counted failure in which the attempts count
+        [Tunable] public static float kObjFailMemoHours = 1f;          // objfailmemo: sim-hours a block lasts
         [Tunable] public static bool kPosturePopCycle = false;   // opt-in until verified: a posture pop that EA would turn into a two-posture loop (Compatible branch) runs the setter's unwind instead (issue #89, PosturePop.cs)
         [Tunable] public static bool kUnseenFallbackPre = true;       // on, same as the shipped tuning (2026-11-14); was: opt-in until verified: an unseen townie's own walk to an unseen lot goal is held for the walk time, then placed at the goal (no search; docs/202 §3.5)
         [Tunable] public static bool kPrePlanCallback = false;     // opt-in until measured: Route.AboutToPlanCallback runs before an async START, the job's locked-door list survives the original plan's second callback (RouteBackoff.cs PreCb, docs/185 §5)

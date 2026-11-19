@@ -104,6 +104,7 @@ namespace Ts3Fixes
             public void PairHook(InteractionObjectPair iop)
             {
                 if (!sArmPairReady || OnWorker()) { PairOrig(iop); return; }
+                if (OfmRefuse((Sims3.Gameplay.Autonomy.Autonomy)(object)this, iop)) return;  // objfailmemo (ObjFailMemo.cs, docs/650): blocked (NPC, object) pair
                 ArmSwitches();
                 if (!sArmMemoOn && !sArmSliceOn) { PairOrig(iop); return; }
                 int[] c = PatchCounters();

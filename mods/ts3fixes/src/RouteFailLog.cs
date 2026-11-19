@@ -357,6 +357,7 @@ namespace Ts3Fixes
                 if (!ok) PssPlan(sim, res);  // petstartleskip (PetStartleSkip.cs, docs/645 §3)
                 if (!ok) { TofPlan(sim, res); WlsPlan(sim, res); }  // trashoutsidefallback / wildlotskip (docs/646): note no-path plans
                 if (!ok && RfpPlan(sim, kind, res, r, t0)) return;  // routefailprobe (RhEntry627.cs, docs/627 §2): an NPC spot probe, not this Sim's route
+                if (!ok) OfmPlan(sim, res);  // objfailmemo (ObjFailMemo.cs, docs/650): (NPC, object) no-path memo
                 if (sim.IsInActiveHousehold) PatchCounters()[866]++;  // fails per plan: same four hooks as the routefail lines (issue #304, kd-household-ab.ts)
                 bool show = InShowOff(sim);
                 if (show && sim == sSoChild) { sSoSeen = true; sSoPlans++; if (!ok) sSoPlanFails++; if (async) sSoAsync++; }
