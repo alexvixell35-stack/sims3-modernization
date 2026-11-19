@@ -110746,6 +110746,78 @@
     ]
   },
   {
+    "id": "ip-neighbourmemo-crowd",
+    "bug": "docs/663 §2: the in-room cell A* is 18.8% of PlanHierarchical time on 2026-11-19 (216,685 ms over 287,458 cell searches, 11 runs) and 44.4% near hitches; every search re-expands the same cells, and QuadCell_Neighbours 0x66B9C0 rebuilds the same neighbour list each time (climb, mirror, table find per side)",
+    "fix": "ts3native [RouteSpeed] NeighbourMemo (default 0): per-thread memo (cell, Q) -> neighbour list until Q's table clear 0x61C020 or a quadtree / lot-structure write ([RouteSnap] writer rows); served answer = the same cells, order and references (docs/663 §4)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED (static + compile check + host / selftest code, 2026-11-19): never run. Job ini must have [RouteSpeed] NeighbourMemo=2 (shadow: hooks installed, the game's function always runs) and [RouteJobPhases] Enabled=1 CandidateSplit=1 (per-phase ms incl. the new world / water / post / insert sites); [RouteSnap] counting is turned on by the NeighbourMemo key. Arms flip the runtime mode by export (native_set neighbourmemo: off = 0, on = 1 serve). Read per arm: 'route candidate split' totals (cell ms per call, rest, world, water, post, insert), the 'route speed: neighbour memo' line (hits, stores, saved ~ms) and, in a shadow-only pass first, mismatch 0. Same crowd as ip-kindsunseen-crowd (unseen townies across the island: boats, gangways, lot legs).",
+    "expect": "shadow pass: nmChecks > 0 and nmMismatch 0, no NEIGHBOUR MEMO MISMATCH line. on arms: nmHits > 0, cell ms per call below the off arms (expected 15-35% of cell time), route results (ufplansplit codes, stuck Sims) unchanged; no crash",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "neighbourmemo": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 off, 1 serve"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "to": "far"
+          },
+          "waitS": 180,
+          "note": "unseen townies route across the island; 3 minutes = 3 counter lines per arm"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "neighbourmemo": 2
+        },
+        "note": "back to shadow (the ini value)"
+      }
+    ]
+  },
+  {
     "id": "ip-kindsunseen-crowd",
     "bug": "own-task Replan / PlanFromPoint / ReplanFromPoint plans of unseen NPCs (UfWhy 0) run synchronously on the sim thread because the release ini has [RouteAsync] Kinds=0 (refused NoStart): 29 phase logs of 2026-11-19, 94 hitches >= 200 ms (45 s) led by such a sync plan (docs/662 §1)",
     "fix": "ts3native [RouteAsync] KindsUnseen (bits as Kinds, default 0): own STARTs of those kinds start as A10 jobs only for routes ts3fixes scoped unseen right before the START; household / seen / unknown stay sync (docs/662 §4)",
