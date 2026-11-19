@@ -706,8 +706,10 @@ static void MdMark(const char* tag);  // memdiag.cpp
 static void MsLine(const char* line);  // memdiag.cpp: [MemDiag] suspect counters from ts3fixes
 static u8 MsOp(int op);                // memdiag.cpp: ops 3-5 (on / sample wanted / self-test wanted)
 static u8 CtOp(int op, DWORD lo);      // castrim.cpp: ops 14-19, the save sweep's keep list and pump (docs/539 §6)
+static void NpmScopeNote(int op, DWORD handle);  // nopathmemo.cpp: route scopes by handle (docs/643)
 static u8 UdTextMsg(DWORD lo, DWORD hi) {
     if (!g_udOn) return 0;
+    NpmScopeNote((hi >> 16) & 0xFF, lo);
     switch ((hi >> 16) & 0xFF) {
         case 3: case 4: case 5: return MsOp((hi >> 16) & 0xFF);
         case 6: return PlAnswer();  // played.cpp: store ready / household played (docs/14 section 8.6)

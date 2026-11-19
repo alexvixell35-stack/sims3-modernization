@@ -13044,6 +13044,34 @@ static __declspec(noinline) void NpmTRun() {
         pop edi
     }
 }
+// NpmScope with a nested plan (docs/643): the outer route's scope survives the inner route's ops 11 / 12 on the one slot
+static u8 g_npmTRoute[2][0x200];
+static u8* __fastcall NpmTOrRoute(const void*, void*, DWORD h) { return h == 0x25000011 ? g_npmTRoute[0] : h == 0x25000012 ? g_npmTRoute[1] : NULL; }
+static void TestNoPathMemoScope() {
+    u8* const* savedSlot = g_orRmSlot;
+    const OrRouteFn savedRoute = g_orRoute;
+    const LONG savedOn = g_npmOn;
+    static u8* rm = g_npmTRoute[0];
+    g_orRmSlot = &rm, g_orRoute = NpmTOrRoute, g_npmOn = 1;
+    for (int i = 0; i < 2; i++) *(DWORD*)(g_npmTRoute[i] + 0x40) = 0x777, *(DWORD*)(g_npmTRoute[i] + 0x44) = 0x1;  // one Sim, two routes
+    const u8* outer = g_npmTRoute[0];
+    DWORD h;
+    int kind;
+    bool via;
+    NpmScopeNote(11, 0x25000011), KdScopeSet(0x25000011, 2);  // outer plan: unseen
+    assert(NpmScope(0x777, 1, outer, &h, &kind, &via) == 2 && h == 0x25000011 && !via);
+    NpmScopeNote(10, 0x25000012), KdScopeSet(0x25000012, 1);  // inner plan (another route of the Sim) overwrites the slot
+    assert(NpmScope(0x777, 1, g_npmTRoute[1], &h, &kind, &via) == 1 && !via);
+    assert(NpmScope(0x777, 1, outer, &h, &kind, &via) == 2 && h == 0x25000011 && via);  // the slot names the inner route
+    NpmScopeNote(12, 0x25000012), KdScopeClear(0x25000012);  // inner plan over: slot 0
+    assert(NpmScope(0x777, 1, outer, &h, &kind, &via) == 2 && via);
+    assert(NpmScope(0x778, 1, outer, &h, &kind, &via) == 0);  // another follower: unknown
+    assert(NpmScope(0x777, 1, g_npmTRoute[1], &h, &kind, &via) == 0);  // the inner route is over: unknown
+    NpmScopeNote(12, 0x25000011);
+    assert(NpmScope(0x777, 1, outer, &h, &kind, &via) == 0);  // outer over: unknown
+    g_orRmSlot = savedSlot, g_orRoute = savedRoute, g_npmOn = savedOn;
+    printf("selftest nopathmemo: nested plan scope ok\n");
+}
 static void TestNoPathMemoStub() {
     g_npmPcBack = (DWORD)(uintptr_t)NpmTBack;
     t_npmServed = false;
@@ -14608,6 +14636,7 @@ int main() {
     TestUserDiag();
     TestNoPathMemo();
     TestNoPathMemoStub();
+    TestNoPathMemoScope();
     TestPlayed();
     TestMemDiag();
     TestMemAccess();
