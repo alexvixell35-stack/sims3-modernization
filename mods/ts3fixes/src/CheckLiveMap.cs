@@ -297,6 +297,7 @@ namespace Ts3Fixes
                 case "plantdormanttime": return EpLive(typeof(B13PtHook), 1, "sPfDormant", sPfDormant, typeof(bool), "sPtLast", sPtLast, null);
                 case "plumbotfacelistener": return EpLive(typeof(PlumbotFaceHook), 0, "sPfOwner", sPfOwner, null);
                 case "pondclearscan": return EpLive(typeof(PcsHook), 1);
+                case "poolfailmemo": return EpLive(typeof(PoolFailMemoHook), 1);
                 case "portaladaptorleak": return EpLive(typeof(PortalAdaptorHook), 1);
                 case "portasknohome": return EpLive(typeof(BPtHook), 1);
                 case "portraitpose": return EpLive(typeof(PpHook), 1, "sPpPaintee", sPpPaintee, null, "sPpPainter", sPpPainter, null);
