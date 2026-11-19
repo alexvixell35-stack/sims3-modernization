@@ -267,14 +267,14 @@ namespace Ts3Fixes
         {
             public Dictionary<string, List<StoreItem>> DictHook(Sim sim) { StDrop(1, null, false); return DictOrig(sim); }
             public Dictionary<string, List<StoreItem>> DictOrig(Sim sim) { return null; } // PotionShopConsignmentRegister.ItemDictionary
-            public static void MagicHook() { StDrop(1, null, true); MagicOrig(); }
+            public static void MagicHook() { StDrop(1, null, true); try { MagicOrig(); } catch (ResetException) { throw; } catch (Exception e) { EaAlarmThrew("PotionShopConsignmentRegister.OnMagicHourAlarm", 4111, e); } }  // daily alarm (docs/651 §1)
             public static void MagicOrig() { } // PotionShopConsignmentRegister.OnMagicHourAlarm
         }
         public class BEp3St2
         {
             public Dictionary<string, List<StoreItem>> DictHook(Sim sim) { StDrop(2, null, false); return DictOrig(sim); }
             public Dictionary<string, List<StoreItem>> DictOrig(Sim sim) { return null; } // BotShopRegister.ItemDictionary
-            public static void MagicHook() { StDrop(2, null, true); MagicOrig(); }
+            public static void MagicHook() { StDrop(2, null, true); try { MagicOrig(); } catch (ResetException) { throw; } catch (Exception e) { EaAlarmThrew("BotShopRegister.OnMagicHourAlarm", 4111, e); } }  // daily alarm (docs/651 §1)
             public static void MagicOrig() { } // BotShopRegister.OnMagicHourAlarm
         }
 

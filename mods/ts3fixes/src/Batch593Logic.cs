@@ -216,7 +216,9 @@ namespace Ts3Fixes
         {
             public void EvalHook()
             {
-                EvalOrig();
+                try { EvalOrig(); }  // daily per-plant alarm (docs/651 §1)
+                catch (ResetException) { throw; }
+                catch (Exception e) { EaAlarmThrew("Plant.EvaluatePlantGrowth", 4111, e); return; }
                 try
                 {
                     Plant p = (Plant)(object)this;

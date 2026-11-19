@@ -488,6 +488,7 @@ namespace Ts3Fixes
             ApplyAutOffload();
             ApplyReplanDefer();
             ApplyUnseenThrottle();
+            ApplyStreetParkingListen();   // docs/650 §4 (StreetParkingListen.cs; its spot part rides on UnseenThrottle's hook)
             ApplyEaSpread();
             ApplySeasonMarkerCache();
             ApplyRouteSources();
@@ -880,6 +881,10 @@ namespace Ts3Fixes
         // [4120-4129] objfailmemo (ObjFailMemo.cs, docs/650; 4110-4119 belong to another branch): NPC (Sim, object) route failures counted / pairs blocked / autonomous candidates refused / exempt (household, selected, unknown scope) / errors / failures left to other switches (Sim, Terrain, Lot targets, GetInPool, DisposeOutside, EmptyTrash) / 4126-4129 spare
         // [4140-4142] socialunlinkend (SocialUnlinkEnd.cs, docs/650 §3; 4130-4139 belong to another branch): NPC receiver sync waits ended at once (B unlinked, starter gone) / exempt receivers left to EA (household, selected, unknown scope) / errors; 4143-4149 spare.
         // [4100-4109] npcstallend (NpcStallEnd.cs, docs/649; 4090-4099 left to feat/npcloops-c): NPC stalls ended with EA's cancel / exempt (household, selected, unknown scope) / skipped (allowed kind or busy) / errors / cancels that did not take / left to outfitwaitend (outfit wait) / cleared outfit waits ended (OutfitWait.cs) / passes; 4108-4109 spare.
+        // [4110-4111] eaalarmguard (EaAlarmGuard.cs, docs/650 §1): EA bodies under our hooks on repeating alarms that threw, caught so the alarm stays: NPC show (NPCShowManager.CreateNPCShow) / others (plant growth, venue cleanup, relationship decay, consignment magic hour, Elvis gnome).
+        // [4112-4114] unseenservice cleanup (UnseenService88.cs, docs/650 §2): made glasses / plates destroyed after a failed service / commodity updates ended after a throw / failed services logged by step.
+        // [4115-4116] alarmcmpnobox start (Alloc87Comparers.cs, docs/650 §3): rehomes put off with no world loaded / mTimers swapped at world load.
+        // [4117-4119] streetparkinglisten (StreetParkingListen.cs, docs/650 §4): duplicate CarDeletedEventDelegate listeners not kept (repeat grants) / spots freed for a deleted car that is not a CarNpc / errors.
         // [3870-3873] houseboatlegmemo (HouseboatLegMemo.cs, docs/642 §6): NPC houseboat boat-leg no-path plans recorded / repeats answered / ms of the recorded plans those answers stand for / exempt (household, selected, unknown scope, no Sim or boat router) or errors.
         // [4062-4069] boatroamcap (BoatRoamCap.cs, docs/642 §9): NPC BoatAround runs capped (no roam) / ReturnToShore pushed / returns failed (precheck, push, run or never ran; EA roams) / exempt runs / errors / returns that reached the shore / service, role or AlarmOneShot-task boating logged / caps by night or low motive.
         // [3860-3863] spotwaitattr (SpotWaitAttr.cs, docs/641): kind-2 lot-edge check waits >= 250 ms / frame-bound (one poll >= 80 % of the wait) / job-bound / frame-bound ms.
@@ -1595,6 +1600,7 @@ namespace Ts3Fixes
                 case "shuffleboardnpccap": return Instantiator.kShuffleboardNpcCap;  // off (ShuffleboardNpcCap.cs, docs/647)
                 case "paparazzicooldown": return Instantiator.kPaparazziCooldown;  // off (PaparazziCooldown.cs, docs/648)
                 case "npcstallend": return Instantiator.kNpcStallEnd;
+                case "streetparkinglisten": return Instantiator.kStreetParkingListen;
                 case "houseboatgangwayrescue": return Instantiator.kHouseboatGangwayRescue;
                 case "boatroamcap": return Instantiator.kBoatRoamCap;  // off (BoatRoamCap.cs, docs/642 §9)
                 case "picnicexit": return Instantiator.kPicnicExit;
