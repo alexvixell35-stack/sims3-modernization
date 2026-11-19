@@ -231,6 +231,7 @@ namespace Ts3Agent
             for (int i = 2700; i < 2800 && i < c.Length; i++) r["slot" + i] = c[i]; // raw slots for the 27xx switches with no named export (docs/registry.md)
             for (int i = 3052; i < 3055 && i < c.Length; i++) r["slot" + i] = c[i]; // socialnoeffect
             for (int i = 3992; i < 4017 && i < c.Length; i++) r["slot" + i] = c[i]; // fightorphanwait 3992-3994, poolnolane 3995-3997, venuepicktime 4000-4003, venuepickfast 4004-4006, autonomyfailcooldown 4007-4016
+            for (int i = 4050; i < 4052 && i < c.Length; i++) r["slot" + i] = c[i]; // autonomyfailcooldown follow-up: search type None not recorded 4050, NPC pianist breaks 4051
             if (c.Length > 835) { r["alarmtime_timed"] = c[826]; r["alarmtime_lines"] = c[827]; r["alarmtime_passes"] = c[828]; r["boatreplan_lines"] = c[829]; r["boatreplan_could"] = c[830]; r["boatreplan_unseen"] = c[831]; r["owreset_lines"] = c[832]; r["hitchcause_capped"] = c[833]; r["boatreplan_seen_ms"] = c[834]; r["boatreplan_unseen_ms"] = c[835]; } // HitchCause.cs, docs/247 §9
             if (c.Length > 866) r["routefaillog_household_plans"] = c[866]; // RouteFailLog.cs RflPlan
             if (c.Length > 689) { r["routefaillog_routefail"] = c[687]; r["routefaillog_showoff"] = c[688]; r["routefaillog_capped"] = c[689]; } // RouteFailLog.cs, docs/226

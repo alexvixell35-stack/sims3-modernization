@@ -66,11 +66,28 @@ namespace Ts3Fixes
     //   8 times PortalLocked (+1 PlanFromPoint NoPath fallback), the bathroom door locked for privacy while another Sim was in,
     //   and the cooldown refused their only toilet for 120 sim-minutes (bladder risk). A lock clears on its own; a door that
     //   stays locked keeps EA's behaviour (no cooldown), the same as before this fix.
+    // - Not from an autonomy search (2026-11-18 [4050]): EA labels an instance's origin by its AutonomySearchType, None for
+    //   script, situation, reaction and continuation pushes (InteractionInstanceParameters.GetDisplayInfo); autonomy's picks
+    //   carry the search running when they were made (Autonomy.RunAutonomy sets Autonomy, FindBestAction Generic, ...)
+    //   [verified, decompiled]. A failed head with search type None records no row: its offer is never scored, so a cooldown
+    //   refuses nothing. etl14h af18-bp-31361-n: townie Brigid Steele started 97 cooldowns on one GrandPiano, all
+    //   PianistPerform, pushed Autonomous with RequiredNPCBehavior priority by Piano.PushRoleStartingInteraction from
+    //   Pianist.SimulateRole (RoleManagerTask) [verified, decompiled]. A head pushed while its Sim's own search was yielded
+    //   inherits that search type and still counts (rare; the old behaviour).
+    // - Pianist re-push loop (2026-11-18 [4051], NPCs only): Pianist.SimulateRole re-pushes PianistPerform on every role
+    //   pass while the pianist is on the lot and not on a break, with no memory of a failed route. Brigid's first plan each
+    //   visit failed FailedBecauseDestinationPortalLocked (dh 72 m, the lounge on a tower) and the later runs failed at once
+    //   with no plan line, ~194 failed runs in 27 min. When an NPC's role-pushed PianistPerform ends with a failed route (no
+    //   cancel), EA's own Pianist.TakeABreak (the AskToTakeBreak social's call) pauses the re-push for kAfcPianistBreakMin
+    //   sim-minutes; the next role pass retries. Household and selected Sims are never touched (IsPlayerSim); gated by this
+    //   switch.
     // In memory only (never saved), capped, cleared at world quit and load.
     // Counters [4007] autonomous offers refused, [4008] would have been refused (switch off), [4009] route failures recorded,
     // [4010] cooldowns started, [4011] route failures of a household, selected or unknown-scope Sim not recorded, [4012] errors, [4013] route failures of a
     // continuation recorded on its pusher, [4014] all-targets cooldowns started ("... on all targets for ..." line), [4015]
-    // route failures not counted after a locked door, [4016] route failures of a Hidden (script-pushed) head not recorded.
+    // route failures not counted after a locked door, [4016] route failures of a Hidden (script-pushed) head not recorded,
+    // [4050] route failures of a head not made by an autonomy search (search type None) not recorded, [4051] NPC pianist
+    // breaks after a failed PianistPerform route.
     // One "routefail autonomyfailcooldown:" line per new cooldown (first kAfcLines): the
     // "routefail" prefix has its own ts3native cap (userdiag.cpp); plain lines share one 400-line cap that play/nearvenue/
     // iaoutcome lines use up early (etl14d j: capped at log line 1709, first cooldown at 19041, 0 lines). Self-test:
@@ -79,6 +96,7 @@ namespace Ts3Fixes
     {
         const float kAfcWinMin = 60f, kAfcLenMin = 120f;
         const int kAfcSims = 256, kAfcRowsPerSim = 16, kAfcLines = 200;
+        const float kAfcPianistBreakMin = 30f;
         // Sim object id -> rows
         static readonly Dictionary<ulong, List<AfcRow>> sAfcRows = new Dictionary<ulong, List<AfcRow>>();
         // Sim object id -> per-definition rows (failed targets, all-targets cooldown); same caps as sAfcRows
@@ -193,10 +211,13 @@ namespace Ts3Fixes
                 ulong sid = a.ObjectId.Value;
                 AfcPusher pu = null;
                 bool ofPusher = i.PushedAsContinuation && sAfcPusher.Count > 0 && sAfcPusher.TryGetValue(sid, out pu) && pu != null && pu.Group == i.GroupId;
-                bool own = AfcRow.OwnRow(i.Autonomous, i.Hidden, ok);
+                bool rf = !ok && (planFail || a.HasExitReason(ExitReason.RouteFailed));
+                if (rf && i.Autonomous && !i.Cancelled && !a.HasExitReason(ExitReason.CancelExternal)) AfcRoleBreak(a, i);
+                bool unscored = rf && i.Autonomous && !i.Hidden && !AfcFromSearch(i);  // a script push: autonomy never scored it
+                bool own = AfcRow.OwnRow(i.Autonomous, i.Hidden || unscored, ok);
                 if (!own && !ofPusher)
                 {
-                    if (i.Autonomous && !ok && (planFail || a.HasExitReason(ExitReason.RouteFailed))) PatchCounters()[4016]++;  // a Hidden script push: no offer to refuse
+                    if (rf && i.Autonomous) PatchCounters()[unscored ? 4050 : 4016]++;  // a Hidden or search-less script push: no offer to refuse
                     return;
                 }
                 IGameObject t = i.Target;
@@ -206,7 +227,7 @@ namespace Ts3Fixes
                 int row = AfcRow.Row(ok, own, ofPusher, contQueued, t is Terrain);
                 if (row == AfcRow.kWait)
                 {
-                    if (!ofPusher && i.Autonomous && !i.Hidden && t != null && d != null && !(t is Terrain))
+                    if (!ofPusher && i.Autonomous && !i.Hidden && t != null && d != null && !(t is Terrain) && AfcFromSearch(i))
                     {
                         if (sAfcPusher.Count >= kAfcSims) sAfcPusher.Clear();
                         AfcPusher np = new AfcPusher();
@@ -282,6 +303,30 @@ namespace Ts3Fixes
                 }
             }
             catch (Exception) { PatchCounters()[4012]++; }
+        }
+
+        // made by an autonomy search (EA's origin label, header); an unreadable instance counts as one (the old behaviour)
+        static bool AfcFromSearch(InteractionInstance i)
+        {
+            try { return i.GetInteractionParameters().AutonomySearchType != AutonomySearchType.None; }
+            catch (Exception) { return true; }
+        }
+
+        // NPC pianist whose role-pushed PianistPerform route failed: EA's Pianist.TakeABreak stops SimulateRole's re-push (header)
+        static int sAfcPianistLogged = 0;
+        static void AfcRoleBreak(Sim a, InteractionInstance i)
+        {
+            if (i.GetType().Name != "PianistPerform" || i.GetType().FullName != "Sims3.Gameplay.Objects.HobbiesSkills.Piano+PianistPerform") return;
+            if (!ShortcutOn("autonomyfailcooldown") || IsPlayerSim(a)) return;
+            Sims3.Gameplay.Roles.Pianist p = a.SimDescription != null ? a.SimDescription.AssignedRole as Sims3.Gameplay.Roles.Pianist : null;
+            if (p == null || p.IsOnBreak()) return;
+            p.TakeABreak(SimClock.ConvertToTicks(kAfcPianistBreakMin, TimeUnit.Minutes));
+            PatchCounters()[4051]++;
+            if (sAfcPianistLogged < 20)
+            {
+                sAfcPianistLogged++;
+                DiagLine("routefail afcpianist: " + a.FullName + " townie, PianistPerform route failed, role re-push paused for " + kAfcPianistBreakMin + " sim-minutes (Pianist.TakeABreak)");
+            }
         }
 
         // the definition's distinct failed targets (AfcDefRow); true = an all-targets cooldown started
