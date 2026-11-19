@@ -70,5 +70,33 @@ namespace Ts3Fixes
         }
 
         public void Done(ulong pet) { mTrips.Remove(pet); }
+
+        // docs/656 §4.3 no-spot memo (kPetLongHomeNoSpotMinutes, 0 = off as before): a (lot, species class) whose SafeSpot
+        // search found no spot is refused without a new search until `until`. Each search is a PlanFromPoint per candidate
+        // (s130 ON arm: 180-500 ms ufplan lines "src spot:petlonghome@..."), and a wild-horse herd asks once per member.
+        readonly Dictionary<ulong, Trip> mNoSpot = new Dictionary<ulong, Trip>();  // Lot = until, From = noted at
+        public int NoSpotCount { get { return mNoSpot.Count; } }
+
+        public static ulong NoSpotKey(ulong lot, int speciesClass) { return unchecked(lot * 8UL + (ulong)(speciesClass & 7)); }
+
+        // live while noted <= now < until; a clock that went back drops the entry
+        public bool NoSpotLive(ulong key, long now)
+        {
+            Trip t;
+            if (!mNoSpot.TryGetValue(key, out t)) return false;
+            if (t.From <= now && now < (long)t.Lot) return true;
+            mNoSpot.Remove(key);
+            return false;
+        }
+
+        public void NoSpotNote(ulong key, long now, long life)
+        {
+            if (life <= 0) return;
+            if (mNoSpot.Count >= kMax) mNoSpot.Clear();
+            Trip t;
+            t.From = now;
+            t.Lot = (ulong)(now + life);
+            mNoSpot[key] = t;
+        }
     }
 }

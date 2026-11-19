@@ -1616,6 +1616,7 @@ namespace Ts3Fixes
                 case "petlonghome": return Instantiator.kPetLongHome;
                 case "petarrivepoint": return Instantiator.kPetArrivePoint;  // off (PetArrivePoint.cs, docs/656 §4.1)
                 case "strayleave": return Instantiator.kStrayLeave;          // off (StrayLeave.cs, docs/656 §4.2)
+                case "petlongvisit": return Instantiator.kPetLongVisit;      // off (PetLongHome.cs, docs/656 §4.3)
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;
                 case "seasonimpostercold": return Instantiator.kSeasonImposterCold;
@@ -3072,6 +3073,7 @@ namespace Ts3Fixes
         {
             public bool RunHook()
             {
+                if (mFollowers == null || mFollowers.Count == 0) PlhBefore(Actor, Target, null, "visit");  // petlongvisit (PetLongHome.cs, docs/656 §4.3)
                 if ((mFollowers == null || mFollowers.Count == 0) && ShortcutToLot(Actor, Target, "visit", 7))
                     mFollowers = new List<Sims3.Gameplay.Actors.Sim>();
                 Sims3.Gameplay.Actors.Sim actor = Actor;

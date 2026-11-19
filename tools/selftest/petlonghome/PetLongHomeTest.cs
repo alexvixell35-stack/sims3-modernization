@@ -53,6 +53,23 @@ static class PetLongHomeTest
         t.TripMinutes(9999, 50, 0, perMin);
         Check(t.Count == 1, "full table: cleared, new trip kept");
 
+        // docs/656 §4.3 no-spot memo: per (lot, species class), live from noted to until, clock back drops it, bounded
+        PetLongHomeCore n = new PetLongHomeCore();
+        ulong horseLot = PetLongHomeCore.NoSpotKey(77, 1), catLot = PetLongHomeCore.NoSpotKey(77, 2);
+        Check(horseLot != catLot && PetLongHomeCore.NoSpotKey(78, 1) != horseLot, "keys: lot and species class apart");
+        Check(!n.NoSpotLive(horseLot, 100), "nothing noted: search");
+        n.NoSpotNote(horseLot, 100, 0);
+        Check(n.NoSpotCount == 0, "life 0 (switch value 0): nothing noted, as before");
+        n.NoSpotNote(horseLot, 100, 600);
+        Check(n.NoSpotLive(horseLot, 100) && n.NoSpotLive(horseLot, 699), "noted: refused without a search inside the window");
+        Check(!n.NoSpotLive(catLot, 200), "a cat at the same lot still searches");
+        Check(!n.NoSpotLive(horseLot, 700) && n.NoSpotCount == 0, "window over: entry gone, search again");
+        n.NoSpotNote(horseLot, 1000, 600);
+        Check(!n.NoSpotLive(horseLot, 900) && n.NoSpotCount == 0, "clock went back: dropped");
+        for (ulong i = 0; n.NoSpotCount < PetLongHomeCore.kMax; i++) n.NoSpotNote(PetLongHomeCore.NoSpotKey(1000 + i, 1), 0, 10);
+        n.NoSpotNote(PetLongHomeCore.NoSpotKey(5000, 1), 0, 10);
+        Check(n.NoSpotCount == 1, "full memo: cleared, new entry kept");
+
         Console.WriteLine(sFails == 0 ? "petlonghome selftest: ok" : "petlonghome selftest: " + sFails + " FAIL");
         Environment.Exit(sFails == 0 ? 0 : 1);
     }
