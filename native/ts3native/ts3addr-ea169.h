@@ -300,6 +300,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x0065FDAA, 0x00660E6A},
     {0x00663B20, 0x00664BF0},
     {0x00663E20, 0x00664EF0},
+    {0x00664370, 0x00000000},
     {0x006643E0, 0x00665470},
     {0x006653A0, 0x00666490},
     {0x00665C50, 0x00666F20},
@@ -1601,4 +1602,5 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x0065F420 no-ea-1.69-address native/ts3native/plancand.cpp
 // unresolved: 0x0061BCE0 no-ea-1.69-address native/ts3native/routespeed.cpp
 // unresolved: 0x0066B9C0 no-ea-1.69-address native/ts3native/routespeed.cpp
-constexpr int ts3addr_count = 1449;
+// unresolved: 0x00664370 no-ea-1.69-address native/ts3native/cellindex.cpp
+constexpr int ts3addr_count = 1450;
