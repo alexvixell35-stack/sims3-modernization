@@ -69125,6 +69125,54 @@
     ]
   },
   {
+    "id": "ip-boat-roam-cap",
+    "bug": "docs/642 §9: an NPC driving a boat on a world lot stays in EA's Boat.BoatAround loop for many sim hours, overnight too (IP phase-20261119-1139/1243/1345: one Sim every ~2 sim-hours from 10 PM to the next afternoon, another 50 roam plans in a session); each run a CreateRoamingBoatPath plan ~150-275 ms plus a plan back; BoatAround's Test has no exit and ReturnToShore is apparently never picked",
+    "fix": "ts3fixes boatroamcap (BoatRoamCap.cs): a non-exempt NPC driver's BoatAround after kBoatRoamCapRoams (3) roams or kBoatRoamCapHours (2) of streak, at night (23-6) or with low energy / bladder does not roam (4062) and EA's ReturnToShore is pushed as its continuation (4063); a return that cannot run or fails lets EA roam with a 1 sim-hour back-off (4064); exempt 4065, errors 4066, shore reached 4067, service / role / AlarmOneShot boating logged 4068, night or motive caps 4069",
+    "save": "Baseline-IP",
+    "note": "Forced. boat_roam_repro picks NPCs (known non-active household, teen or older human, home lot), gives each its own speed boat off the nearest shore owned by its home lot (BoatOwnable, so ReturnToShore can run), sets it on the shore with autonomy off, EA's Board Boat as driver, then pushes BoatAround at autonomous priority whenever it is idle at the helm (EA's GoBoating needs a map-view click). Watches `seconds` (300). A Sim that never boards = not triggered: N/A, not FAIL. Needs an active household.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "boatroamcap": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "boat_roam_repro",
+        "args": {
+          "start": true,
+          "sims": 1,
+          "seconds": 300
+        },
+        "waitS": 320,
+        "note": "board, then BoatAround while idle at the helm for 300 s"
+      },
+      {
+        "cmd": "boat_roam_repro",
+        "args": {
+          "result": true
+        },
+        "note": "per Sim: BoatAround runs (roams), ReturnToShore runs, ashore; counter deltas 4062-4069"
+      }
+    ],
+    "expect": "OFF: roams grow for the whole window, returns 0, ashore false, 4062-4069 +0; ON: roams stop at 3 (or 0-1 at night), returns 1, ashore true, 4062 +1 and 4063 +1 and 4067 +1 per Sim, 'boatroamcap: <name> back to shore after N roams / H sim-h' line; no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "boat_roam_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
     "id": "ip-houseboat-leg-memo",
     "bug": "docs/642 §6: an NPC stranded ~17 m off its houseboat (houseboat not Docked) gets EA's EnterHouseboatThroughBoat boat leg (PostPlanRouteCallback -> CheckAndUpdateForHouseboats, PlanFromPoint EndAsBoat + DestinationMustBeInDeepWater (+ DisablePlanningOnLand)) planned again after every plan home, ~600 ms each, always no path (IP phase-20261119-0746: Britta Colombo 18x)",
     "fix": "ts3fixes houseboatlegmemo (HouseboatLegMemo.cs): the leg's first no-path plan is recorded (3870), repeats from the same start to the same goal are answered at once (3871, ms 3872); household / selected / unknown scope exempt (3873)",

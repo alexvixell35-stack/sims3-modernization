@@ -142,6 +142,14 @@ namespace Ts3Fixes
         [Tunable] public static bool kHouseboatLegMemo = false;        // houseboatlegmemo (docs/642 §6): an NPC's houseboat boat-leg PlanFromPoint (EnterHouseboatThroughBoat) that found no path is answered from the same start and goal without searching
         [Tunable] public static float kHouseboatLegMemoHours = 2f;     // houseboatlegmemo: sim-hours an entry lives
         [Tunable] public static bool kHouseboatGangwayRescue = false;  // houseboatgangwayrescue (docs/642 §7): an NPC whose gangway leg to its Docked houseboat found no path is placed at the houseboat's entrance (EA's PlaceSimAtEntrance) after GoHome fails, at most once per sim-hour
+        [Tunable] public static bool kBoatRoamCap = false;             // boatroamcap (docs/642 §9): a non-exempt NPC driver's Boat.BoatAround run after a long streak, at night or with low energy / bladder does not roam: EA's ReturnToShore is pushed instead (EA's roam when that cannot run)
+        [Tunable] public static float kBoatRoamCapHours = 2f;          // boatroamcap: sim-hours since the streak's first BoatAround before the next run is capped (0 = off)
+        [Tunable] public static int kBoatRoamCapRoams = 3;             // boatroamcap: roams done before the next run is capped (0 = off)
+        [Tunable] public static float kBoatRoamCapGapHours = 4f;       // boatroamcap: a BoatAround later than this after the last one starts a new streak
+        [Tunable] public static float kBoatRoamCapBackoffHours = 1f;   // boatroamcap: after a failed return, EA roams this long before the next try
+        [Tunable] public static int kBoatRoamCapNightFrom = 23;        // boatroamcap: night window start hour (caps from the first run)
+        [Tunable] public static int kBoatRoamCapNightTo = 6;           // boatroamcap: night window end hour (exclusive; equal to NightFrom = no night window)
+        [Tunable] public static float kBoatRoamCapMotive = -50f;       // boatroamcap: energy or bladder below this caps
         [Tunable] public static bool kPosturePopCycle = false;   // opt-in until verified: a posture pop that EA would turn into a two-posture loop (Compatible branch) runs the setter's unwind instead (issue #89, PosturePop.cs)
         [Tunable] public static bool kUnseenFallbackPre = true;       // on, same as the shipped tuning (2026-11-14); was: opt-in until verified: an unseen townie's own walk to an unseen lot goal is held for the walk time, then placed at the goal (no search; docs/202 §3.5)
         [Tunable] public static bool kPrePlanCallback = false;     // opt-in until measured: Route.AboutToPlanCallback runs before an async START, the job's locked-door list survives the original plan's second callback (RouteBackoff.cs PreCb, docs/185 §5)
