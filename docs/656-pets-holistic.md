@@ -1,0 +1,210 @@
+# 656. NPC pets and animals: system map, measured cost, shared roots, fix set
+
+2026-11-19 (UTC). Static (decompiled script code of the 1.67 game assemblies, read only, never in git) plus the OFF / sweep logs of
+`~/dev/ts3-runs/phase-2026111[0-9]-*` (health.jsonl, ts3native(-full).log). Branch `feat/pets-holistic`. Built, all new
+switches default off, **NOT RUN**. Slots 4170-4199, `kCounterSlots` 4200. Package tag `pets`.
+
+Switches: `petarrivepoint` (§4.1), `strayleave` (§4.2), `petlongvisit` and the petlonghome no-spot memo (§4.3). Agent repro
+`pet_repro` (§6). Earlier pet switches stay as they were: `petstartleskip`, `petlonghome` (docs/645), `wildlotskip`
+(docs/646), `wildhorselot`, `petpoolghost`, `petpoolorphan` and the batch pet fixes.
+
+## 1. System map [verified, decompiled unless marked]
+
+**Who the animals are.** Cats, dogs and horses of households (owned pets; `SimDescription.IsPet`), and pet-pool animals in
+`PetPoolManager` pools (`PetPoolType`: StrayCat, StrayDog, AdoptCat/Dog/Horse, WildHorse, Unicorn, Deer, Raccoon), each
+made by its `*Creator` class and living in the pet household. Pool animals have no `LotHome`; their "home" is
+`GoToVirtualHome` (walk off and de-instantiate).
+
+**Strays** (`StrayPets`): an hourly global alarm (`StrayPetHelper`) picks a lot (the active household's lot after
+`kActiveHouseholdMaxTimeBetweenVisists` hours or by chance, else a random lot) and, while fewer than `kMaxStraysInWorld` (6)
+strays are instantiated, instantiates one off screen (`SendStrayToLot`) and pushes `StrayGoToLot` -> `GoToLot`. On
+arrival (`OnGoToLotSuccess`) the stray gets the `StrayPet` buff for 30-90 sim-minutes; `BuffStrayPet.OnTimeout` calls
+`Sim.MakeSimGoHome` (-> `GoToVirtualHome`). That timeout is the **only** exit of a stray's visit: meta-autonomy's own
+go-home in `Autonomy` runs only when the search picked nothing, and a pet always has Sit On Ground.
+
+**Wild horses** (`WildHorsePool`, `WildHorses`): a herd led by one horse; `HerdBehaviorCallback` (repeating alarm) picks the
+next lot with `WildHorses.FindGoodLot` (weights, no reachability test) and pushes `GoToLot` on the herd. **NPC animals**
+(deer, raccoon; `NPCAnimal` role): `SimulateRole` picks `GetRandomLotToVisit` (weighted by `ScoreLot`, no reachability test)
+while on the street. **Unicorns** (`UnicornPool`): EA's own spawn and summon behaviour; this doc leaves them alone.
+
+**Owned NPC pets**: autonomy (pet commodities, `PetSittingOnGroundPosture` idles), `GoHome`, `VisitCommunityLot` (on their
+own or as followers: `FollowerMeetUpAtPoint`, `PetFollowSimAround`), `PetStartle` (`PetStartleBehavior.StartlePet`,
+startled by TVs, stereos, showers ...), socials between pets (`SocialInteractionA/B`, `PetInitateSocial`), horse riding and
+leading (`Terrain.RideHere`, `HorseManager.NpcShouldRideHorse` adds the horse as a GoHome follower), `ReactToFire`, `Jump`.
+
+**Portal rules per species** (the heart of it):
+
+| Portal | Refuses | Source |
+|---|---|---|
+| Doors and gates (`CommonDoor.IsAllowedThrough`) | horses at every door that is not a barn door, and at gates that are not `GateDouble` / `IElectronicGate` with `CanLargeAnimalUse`; strays at every door of a lot that has not greeted them (`IsStray && !IsGreetedOnLot`); pets at a door locked "Pets"; plus the lock owner rules | CommonDoor.cs |
+| Stairs (`Stairs.IsAllowedThrough`) | puppies, kittens, horses, wild animals | Stairs.cs |
+| Elevators (`ElevatorDoors`) | horses, toddlers, wild animals | ElevatorDoors.cs (also docs/580 §11, `PetHomeCensus`) |
+| Box stalls, horse jumps, fire poles | their own tests | `Sim.OnPortalPathPlan` |
+
+`Sim.OnPortalPathPlan` adds only **Door** portals to `SimRoutingComponent.LockedDoorsDuringPlan`. So a PortalLocked plan that
+failed on stairs, an elevator or a stall shows `locked doors 0` in our `routecause:` lines; that is why most pet lines
+read "PortalLocked, locked doors 0" (§2).
+
+**Lot arrival** (`Lot.PlanRouteIntoLot`, used by `GoHome.Run` and by `RouteToFrontDoorOrMailbox` when the Sim wants to be
+inside): first a plan to the lot's cached `mBestRouteIntoLotLocation`, validated once per lot for whoever asks first. On a
+lot without apartment slots that point is a routing slot of the front door **inside** the house; if the validating plan
+fails, EA sets the point Invalid for every Sim after it (`BestRouteIntoLotLocationValidated` stays true until build mode).
+Then `PlanToMailbox` (horses with the wider 0-5 m `kMailboxHorseRouteMin/Max`, preferring far from origin) and
+`PlanToLotEx` (entry points in room 0, then `PlanToLotCore`). `GoToLot.Run` for a residential lot uses
+`RouteToFrontDoorOrMailbox(wantToBeOutside: true)` (outside of the front door), else `PlanToLotEx`.
+
+**Placement on reset** (`Sim.AttemptToFindSafeLocation`, `FindRoutablePointInsideNearFrontDoor`, Overwatch
+`InstantiateAtHome`): the home lot's front door, checked for routability from the spot (the Sim's own route, so species
+aware), with the mailbox as an unchecked last resort.
+
+**Our own NPC machinery and animals** [verified, source]: `UnseenFallback.UfPreSim` refuses pets (no unseen plan cuts;
+pet plans show as `ufplan ... src pet`), `GoHomeHook.Unseen` and `ShortcutToLot` refuse any Sim whose household has pets
+(docs/645 §4), so animals get only `petlonghome` (GoHome to the home lot, wild-horse GoToLot), `petstartleskip`,
+`wildlotskip`, `wildhorselot`. The watchdog's "stationary a sim-day" reset (RouteFixes.cs counter 48) spares horses on the
+world lot only.
+
+## 2. Measured cost, OFF (household runs only; no-household runs skipped)
+
+Scripts (scratch, not in git): `measure.py` (ufplan / routefail / routecause by species), `health.py` and `still2.py`
+(health.jsonl), `rc.py` (routecause), `track.py` (one pet's trajectory).
+
+**Slow plans (ufplan >= 150 ms) whose follower is an animal** [measured]:
+
+| World | pet plans | pet ms | all ms | share | >= 300 ms |
+|---|---|---|---|---|---|
+| Bridgeport | 923 | 224 340 | 51 303 132 | 0.4 % | 158 |
+| Isla Paradiso | 698 | 192 544 | 70 253 608 | 0.3 % | 209 |
+| Starlight Shores | 176 | 44 954 | 249 242 | 18 % | 29 |
+| Moonlight Falls | 79 | 18 518 | 66 192 | 28 % | 16 |
+| Twinbrook (s130 OFF arm) | 19 | 4 145 | 15 681 | 26 % | 3 |
+| Twinbrook (s130 ON arm) | 27 | 6 590 | 11 043 | 60 % | 5 |
+
+In the big-town saves pets are a small slice; in the quieter worlds they are a quarter of the slow plans, led by wild
+horses (Starlight 35.5 s, Moonlight 11.8 s, "Wild Horse" alone). The s130 ON arm shows petlonghome's own cost: about 1.3 s
+of `src spot:petlonghome@<lot>` SafeSpot plans (180-500 ms each), one per herd member, 15 of them refused "no safe spot"
+(§4.3).
+
+**Failed route jobs (native `routefail job`) of animals**, top by ms: Bridgeport dog GoHome NoPath 6.6 s (7), horse
+GoHome PortalLocked 3.6 s (70), dog SocialInteractionB 5.6 s (162), horse FollowerMeetUpAtPoint 2.0 s (64), dog / horse
+PetStartle 2.6 s (24); Appaloosa Plains horse ReactToFire PortalLocked 1.9 s (29), horse Jump NoPath 2.3 s (8); Isla
+Paradiso cat / dog GoHome NoPath (260 jobs, 1.1 s).
+
+**Why they fail** (`routecause:` lines of animals, all runs, 194 lines): PortalLocked in 185. GoHome 74, GoToLot 62
+(Meeko / Meeka Raccoon, wild horses), VisitCommunityLot 22, FollowerMeetUpAtPoint 11 (horses), PetFollowSimAround 8,
+PetStartle 6, RouteAway 7. `locked doors 0` in 180 of them: the refusing portal is not a locked door but a species rule
+(§1: a horse at a house door, stairs for horses, kittens, puppies and wild animals).
+
+**Symptoms** [measured, health.jsonl, 2026-11-10..19 household runs]:
+
+- Standing still > 12 h with no interaction: **71 %** of (run, NPC pet) pairs vs 23.5 % of NPC humans. Almost all with no
+  route failures in the window: they run 5-6 short interactions per sample (Sit On Ground, Stand), in one place (CC Cat
+  83 h, Dink Cat 76 h, Mothball Lionheart 81 h). Owned pets at their own home: EA's NPC pet autonomy, no route cost.
+  Strays without the StrayPet buff: never leave (§3.2).
+- Route-locked snapshots: Twinbrook Wild Horse 80, Meeko Raccoon 49, Meeka 17, deer 22; Appaloosa wild horse 26. By
+  interaction: horses with no head interaction on lot terrain 191 (between interactions, failing again and again).
+- Long walks > 6 h: 119 (Go Home 64, Go to Lot 19, Visit Buena Vista Resort 18, Visit other lots 15): Minnie Cat "Visit
+  Eugi's" 2203 sim-min, Tigger Cat Go Home 2110, Meeko Raccoon Go to Lot 1860, Snowshoe Cat Visit Buena Vista 1793,
+  Majora Cat Go Home 1777, Cookie Horse Visit Bridgeport Sports Zone 1106.
+- Cookie Horse (Bridgeport 1115-2218): home lot Cliff Cottage up a cliff (y 86.6). GoHome PortalLocked; at 5:30 Overwatch
+  `InstantiateAtHome` puts it on its home lot; from there every route out fails ("routefail summary: Cookie Horse townie
+  seen 140"), the top route-failer of the session; our watchdog resets it each sim-day to the same lot.
+
+## 3. Shared roots
+
+**Root A: animal destinations and placements are chosen with human reachability [verified, decompiled].** The portal rules
+are species-specific (§1 table), but every picker of a goal or a spot for an animal ignores them: the lot arrival point
+(an inside slot of the front door, cached per lot for everyone), `FindGoodLot` / `GetRandomLotToVisit` (no reachability),
+the startle flee, `PlanToLotCore`, `InstantiateAtHome` / resets (the home lot, whatever its stairs), and even which
+households get a horse (a cliff lot or apartment). The planner then answers PortalLocked after a full-length plan,
+uncut (animals are outside our unseen cuts), and the animal retries. Each symptom of the brief is a case of it:
+horses `route_locked` (stairs and doors), startled pets fleeing through pet-locked doors, wild animals picking lots
+reachable only by stairs, GoHome's first plan aiming inside a house a horse or a stray cannot enter, and Cookie Horse put
+back on a home it can never leave.
+
+- §3.1 (fixed by `petarrivepoint`): `PlanRouteIntoLot`'s first plan for an animal the front door refuses is a guaranteed
+  PortalLocked plan, and when that animal is the first to ask on a lot, EA throws away the point for every human after it.
+- §3.4 (open): a horse whose home lot is reachable only through stairs, an elevator or a door; EA's reset places it there.
+
+**Root B: an animal's trip has no exit except its timer or its route [verified].** Humans have our shortcuts, cuts and
+deadlines; animals only EA's timers. §3.2: a stray leaves only by its buff's timeout, so a stray that never got the buff
+or lost it (resets clear buffs; NRaas GoHere notes that EA's StrayGoToLot failure callback can fire at once, `StrayGoToLotEx`
+[community]) stays for days and blocks new strays (`kMaxStraysInWorld`). §3.3: pets' own `VisitCommunityLot` walks have no
+shortcut at all (petlonghome covers GoHome / GoToLot only).
+
+## 4. Fix set (all default off; household, selected and unknown-scope animals exempt via `HouseholdExempt` / `IsPlayerSim`)
+
+### 4.1 `petarrivepoint` (`PetArrivePoint.cs`, rule `PetArrivePointCore`, slots 4170-4173)
+
+`Lot.PlanRouteIntoLot(Route, bool, Sim)` hooked. For a non-human, non-exempt actor on a lot without apartment slots whose
+front door EA's `CommonDoor.IsAllowedThrough(actor)` refuses, and with something to skip (a cached point, or a lot not yet
+validated), only EA's own tail runs: `SetValidRooms(lot, null)`, `PlanToMailbox` (private, by reflection) with EA's
+distances (horse ones for a horse), then `PlanToLotEx` when `planToLotAsFallback`. The lot's cache is never touched: an
+unvalidated lot stays for the next Sim to validate. No teleport, the same EA plans minus one that cannot succeed through
+that door. [inferred] the inside point could still be reached through another door the animal may use; for an NPC animal
+the mailbox / lot goal is then taken instead, which is where EA ends after a failed first plan anyway.
+Counters: 4170 inside points skipped, 4171 of those on an unvalidated lot, 4172 exempt, 4173 errors. Log
+`petarrivepoint: <animal> (<species>) -> <lot>: front door closed to it, inside point skipped|not validated by it, EA's mailbox / lot plan <result>` (10 a minute).
+
+### 4.2 `strayleave` (`StrayLeave.cs`, rule `StrayLeaveCore`, slots 4174-4177; `kStrayLeaveHours` 3)
+
+`StrayPets.StrayPetHelper` (EA's hourly alarm) hooked; before EA's body each instantiated stray is looked at: no StrayPet
+buff, not leaving or on a trip (GoHome, GoToVirtualHome, GoToLot, StrayGoToLot, ReactToStrayGnome current or queued), not
+in a social, not held, for `kStrayLeaveHours` sim-hours -> EA's `Sim.MakeSimGoHome(sim, false)`, exactly what the buff's
+timeout does. A walk, no teleport. A failed walk home waits a whole window again. Counters: 4174 sent home, 4175 strays
+seen without the buff, 4176 exempt, 4177 errors. Log `strayleave: <stray> (<species>) on <lot>: no StrayPet buff for H sim-h, EA's MakeSimGoHome pushed`.
+
+### 4.3 `petlonghome` additions: `petlongvisit` and the no-spot memo (`PetLongHome.cs`, slots 4178-4180)
+
+- `petlongvisit` (`kPetLongVisit`): `VisitCommunityLotHook` calls `PlhBefore(..., "visit")` when the visit has no
+  followers. An owned NPC pet (not a stray, wild horse, unicorn or pet-pool animal) going to a community lot gets
+  petlonghome's rule: long trip (> `kPetLongHomeMeters` or > `kPetLongHomeHours`), unseen pet and lot, SafeSpot, PlaceSim;
+  resorts, diving lots, houseboats, apartment shells and the active household's lot keep the walk. 4179 placed, 4180
+  refused; exempt 4078 and errors 4079 shared with docs/645.
+- No-spot memo (`kPetLongHomeNoSpotMinutes`, default 0 = search every time as before): a (lot, horse / other) whose
+  SafeSpot found nothing is refused without a new search for that many sim-minutes. One search per herd member at a lot
+  with no spot is what cost the s130 ON arm 1.3 s. 4178 searches saved.
+
+### 4.4 Not changed, and why
+
+- Owned NPC pets idling at home for days (§2): EA's pet autonomy; no route cost, nothing broken a player sees.
+- Root A §3.4, horses whose home is unreachable (Cookie Horse): needs a placement policy (where to put a horse whose
+  home lot has no horse path) and a check of the lot's stairs / door graph; EA's reset and Overwatch put it back. Lead
+  for the next round: on an NPC horse's GoHome PortalLocked at its own lot, remember the lot and let `petlonghome` /
+  resets use the mailbox spot after a species routability check. `PetHomeCensus` (docs/580 §11) lists such horses.
+- Startle flee (`petstartleskip`), wild lot picks (`wildlotskip`, `wildhorselot`): already address the same root at the
+  pick; kept as they are. Their repros are still missing (`fix-repro-check.ts` lists petstartleskip).
+- Pet socials (dog SocialInteractionB 162 failed jobs in Bridgeport) and horse FollowerMeetUpAtPoint / ReactToFire
+  PortalLocked: same root (goal behind stairs or a door), not fixed here; the `objfailmemo` / `poolfailmemo` pattern is the
+  natural place.
+- `routecause:` should name stairs / elevator refusals too (today only doors are listed): a log-only follow-up.
+
+## 5. Unicorns
+
+No new switch touches a unicorn: `petarrivepoint` only changes a plan an animal cannot complete (unicorns have no home
+lot with a front door; a unicorn that had one would get EA's own mailbox plan), `strayleave` reads only the stray pools,
+`petlongvisit` refuses unicorns.
+
+## 6. Repro (`pet_repro`, `PetReproHandlers.cs`; entries in `tools/harness/repros.json`)
+
+`pet_repro {mode, start: true, seconds} | {result: true} | {stop: true}`; result: pet, lot, current interaction, reached /
+left and when, counter deltas 4170-4180 and 4076. Same steps in both arms, only the `patches` switch differs (`$on`):
+
+| Repro id | Mode | OFF | ON |
+|---|---|---|---|
+| `pet-arrive-point` | arrive: `spawn_horse`, an NPC horse whose home front door refuses it, set at a lot 60-250 m away, EA's GoHome (routecauselog on) | `routecause: <horse> npc, GoHome, Plan FailedBecauseDestinationPortalLocked` | 4170 >= 1, `petarrivepoint:` line, no such routecause line |
+| `pet-stray-leave` | stray: EA's SendStrayToLot to the active lot, StrayGoToLot cancelled (no buff), `kStrayLeaveHours` 1 by `reflect_set`, ultra speed 420 s | left false | 4175 +1, 4174 +1, `strayleave:` line, left true |
+| `pet-long-visit` | visit: an owned NPC pet at a lot >= 250 m from the active Sim, EA's VisitCommunityLot to a far community lot | walks | 4179 +1, `petlonghome: placed ... via visit` |
+| `pet-long-home` | home: the same, EA's GoHome to its far home lot (petlonghome, docs/645 §4) | walks | 4076 +1, `petlonghome: placed ... via gohome` |
+
+Run as an off/on pair: `node tools/harness/queue.ts` with a job per arm (`fixesOff` / `fixesOn`, or the repro's `$on`
+resolved per arm), BP save; a pick that finds nothing is "not triggered" (N/A), not FAIL.
+
+## 7. Tests
+
+Offline: `TS3_CSC=~/.local/bin/ts3-csc node tools/selftest/petarrivepoint/run.ts`, `.../strayleave/run.ts`,
+`.../petlonghome/run.ts` (with the no-spot memo cases) pass. Build: `node tools/setup/build-fixes.ts --tag pets`
+(refs-resolve-check 0 unresolved, check-live-map ok), `node tools/harness/build-agent.ts`; `fix-repro-check.ts` covers
+the three new switches (routecauselog's exemption dropped: `pet-arrive-point` turns it on).
+
+References: NRaas GoHere `StrayGoToLotEx` / `RouteStrayToLot` (stray visit callbacks) read for behaviour only; nothing
+ported.
