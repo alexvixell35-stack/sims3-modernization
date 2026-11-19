@@ -994,7 +994,9 @@ namespace Ts3Agent
                 withSims += LcCount(LcGet(sd, "mBroadcastersWithSims"));
                 if (rx == null || rx.Count == 0) continue;
                 lots++;
-                if (rx.Count > maxLot) maxLot = rx.Count;
+                // docs/652: name the biggest lot and the active household's home, so a pile is placed without a second census
+                if (rx.Count > maxLot) { maxLot = rx.Count; r["max_lot"] = (l.Name ?? "?") + " 0x" + l.LotId.ToString("X") + (l == Household.ActiveHouseholdLot ? " (active home)" : ""); }
+                if (l == Household.ActiveHouseholdLot) r["active_home"] = rx.Count;
                 foreach (ReactionBroadcaster b in rx)
                 {
                     if (b == null) continue;

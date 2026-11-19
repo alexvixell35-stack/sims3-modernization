@@ -152,6 +152,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kWildLotSkip value="False" />
     <kWildLotSkipHours value="6" />
     <kWildLotSkipWalkHours value="8" />
+    <kDishPileCap value="False" />
+    <kDishPileCapPerLot value="10" />
+    <kDishPileCapBudget value="20" />
     <kNpcStallEnd value="False" />
     <kNpcStallEndHours value="3" />
     <kStreetParkingListen value="False" />

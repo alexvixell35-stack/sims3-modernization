@@ -880,6 +880,7 @@ namespace Ts3Fixes
         // [4094-4097] paparazzicooldown (PaparazziCooldown.cs, docs/648): NPC paparazzo loop callbacks skipped while both Sims are unseen (stretched route checks) / follows refused by the re-follow cooldown / follows left to EA for an exempt paparazzo or celebrity / errors. [4098-4099] free.
         // [4120-4129] objfailmemo (ObjFailMemo.cs, docs/650; 4110-4119 belong to another branch): NPC (Sim, object) route failures counted / pairs blocked / autonomous candidates refused / exempt (household, selected, unknown scope) / errors / failures left to other switches (Sim, Terrain, Lot targets, GetInPool, DisposeOutside, EmptyTrash) / 4126-4129 spare
         // [4140-4142] socialunlinkend (SocialUnlinkEnd.cs, docs/650 §3; 4130-4139 belong to another branch): NPC receiver sync waits ended at once (B unlinked, starter gone) / exempt receivers left to EA (household, selected, unknown scope) / errors; 4143-4149 spare.
+        // [4130-4139] dishpilecap (DishPileCap.cs, docs/652; 4110-4129 left to other agent blocks): dirty dishes removed with EA's nightly throw-away / lots capped / over-cap lots left alone (household home or venue, household Sim there, in view) / dishes skipped (used, held, not needing cleaning) / dishes near a viewer / errors / passes / dirty dishes on the biggest lot / dirty dishes in the world / lots over the cap (last three: last pass, any switch state).
         // [4100-4109] npcstallend (NpcStallEnd.cs, docs/649; 4090-4099 left to feat/npcloops-c): NPC stalls ended with EA's cancel / exempt (household, selected, unknown scope) / skipped (allowed kind or busy) / errors / cancels that did not take / left to outfitwaitend (outfit wait) / cleared outfit waits ended (OutfitWait.cs) / passes; 4108-4109 spare.
         // [4110-4111] eaalarmguard (EaAlarmGuard.cs, docs/650 §1): EA bodies under our hooks on repeating alarms that threw, caught so the alarm stays: NPC show (NPCShowManager.CreateNPCShow) / others (plant growth, venue cleanup, relationship decay, consignment magic hour, Elvis gnome).
         // [4112-4114] unseenservice cleanup (UnseenService88.cs, docs/650 §2): made glasses / plates destroyed after a failed service / commodity updates ended after a throw / failed services logged by step.
@@ -1601,6 +1602,7 @@ namespace Ts3Fixes
                 case "paparazzicooldown": return Instantiator.kPaparazziCooldown;  // off (PaparazziCooldown.cs, docs/648)
                 case "npcstallend": return Instantiator.kNpcStallEnd;
                 case "streetparkinglisten": return Instantiator.kStreetParkingListen;
+                case "dishpilecap": return Instantiator.kDishPileCap;
                 case "houseboatgangwayrescue": return Instantiator.kHouseboatGangwayRescue;
                 case "boatroamcap": return Instantiator.kBoatRoamCap;  // off (BoatRoamCap.cs, docs/642 §9)
                 case "picnicexit": return Instantiator.kPicnicExit;
