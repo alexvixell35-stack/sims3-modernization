@@ -47,7 +47,7 @@ The public repo lags the private one, so contributor PRs (currently alexvixell35
 |---|---|---|
 | `docs/NNN-*.md` | 500-599, then 600-899 (added 2026-11-17) | below 500 |
 | docs/51 inference ledger `## N.` | §900-999, then §1000-1499 (added 2026-11-17) | below 900 |
-| ts3fixes counter slots | 2000-2199 (full), 2200-2799 (2400-2799 added 2026-11-14), 2800-3999 (added 2026-11-17; `kCounterSlots` = 4000) | below 2000 |
+| ts3fixes counter slots | 2000-2199 (full), 2200-2799 (2400-2799 added 2026-11-14), 2800-3999 (added 2026-11-17, full), 4000-4199 (added 2026-11-19; `kCounterSlots` = 4200) | below 2000 |
 | ts3native counter version blocks | v900+ | below v900 |
 
 `node tools/registry.ts reserve --contributor <doc|ledger|fixes|native> ...` hands out the next free number of the range (same arguments as the normal `reserve`; without `--contributor` the ranges are skipped). Blocks are used in order, and a slot run never straddles a block end (2199/2200, 2799/2800): one that would not fit starts at the next block. ts3native version strings (`TS3NATIVE_VERSION`, changelog headings) are assigned by the maintainers at merge: a contributor PR writes "next version" and does not change the define. `tools/pr-preflight.ts` flags numbers outside the ranges and a changed version string (`--maintainer` turns that check off).
@@ -731,6 +731,11 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 1261 | `EnvListExact.cs` (r1x-1118, `fixes-1261`, docs/274 §11), `envlistmemoexact` | built 2026-11-18, default off, NOT RUN: scans sent to the game's call because the ts3native script worker had a job (agent `envlistexact_fb_worker`) |
 | 1262 | `EnvListExact.cs` (r1x-1118, `fixes-1262`, docs/274 §11.8), `envlistmemoexact` | built 2026-11-18, default off, NOT RUN: stand-downs (known conflicting assembly, another mod's swap of `CalculateSimEnvironmentScore`, another mod's cache in a lot's table; agent `envlistexact_standdown`) |
 | 1263 | reserved (save-ip-portable-1119, `fixes-1263`) | swaps refused: would move saved task frames (docs/293) |
+| 4017-4019 | `EaBugs500.cs` (`fixes-4017`, contributor range, docs/500), `playpenflags` | built 2026-11-19, default off, not run in game: playpen busy marks (pick-up, outside play, sync) cleared after TakeOut / PlayWithOutsideSim / PlaySocial ends by an exception or reset (4017) / left set, switch off (4018) / errors (4019) |
+| 4020-4022 | `EaBugs500.cs` (`fixes-4020`, contributor range, docs/500), `voodoobindwait` | built 2026-11-19, default off, not run in game: voodoo Bind waits for a sleeping Sim ended on cancel or a destroyed sleeper (4020) / sleeping-target binds on EA's uncancellable wait, switch off (4021) / errors, unused (4022) |
+| 4023-4025 | `EaBugs500.cs` (`fixes-4023`, contributor range, docs/500), `saunawoohoopreg` | built 2026-11-19, default off, not run in game: sauna WooHoo test refused for a visibly pregnant target (4023) / offered, switch off (4024) / unused (4025) |
+| 4026-4029 | `EaBugs500.cs` (`fixes-4026`, contributor range, docs/500), `lotentrypet` | built 2026-11-19, default off: Lot.PlanRouteIntoLot caches left unvalidated after a non-human's failed door plan (4026) / validated, switch off (4027) / errors (4028) / lots unvalidated at world load, validated with no spot (4029) |
+| 4030-4035 | `EaBugs500b.cs` (`fixes-4030`, contributor range, docs/500 §6), `horselotentry` | built 2026-11-19, default off, non-player horses only: doomed horse door plans in Lot.PlanRouteIntoLot skipped, EA's fallback run at once (4030) / seen, switch off (4031) / mispredicted in the off arm, must stay 0 (4032) / errors (4033) / ms in PlanRouteIntoLot for doomed calls, off arm (4034) / on arm (4035) |
 | **1264+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

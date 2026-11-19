@@ -114263,5 +114263,410 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "playpenflags-check",
+    "bug": "A playpen busy mark (pick-up, outside play, toddler sync) stays set after a reset or exception mid-run, so the toddler and later adults wait for good (household-visible) (docs/500)",
+    "fix": "ts3fixes EaBugs500.cs: playpenflags (default off), docs/500",
+    "save": "any world (pure check)",
+    "note": "PlaypenFlagsCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "playpenflags": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PlaypenFlagsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PlaypenFlagsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "playpenflags": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PlaypenFlagsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PlaypenFlagsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "playpenflags": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "playpenflags": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "voodoobindwait-check",
+    "bug": "Voodoo Bind on a sleeping Sim waits uncancellably until the Sim wakes (household-visible) (docs/500)",
+    "fix": "ts3fixes EaBugs500.cs: voodoobindwait (default off), docs/500",
+    "save": "any world (pure check)",
+    "note": "VoodooBindWaitCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "voodoobindwait": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VoodooBindWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VoodooBindWaitCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "voodoobindwait": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VoodooBindWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VoodooBindWaitCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "voodoobindwait": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "voodoobindwait": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "saunawoohoopreg-check",
+    "bug": "Sauna WooHoo is offered on a visibly pregnant target: EA tests the actor twice (household-visible) (docs/500)",
+    "fix": "ts3fixes EaBugs500.cs: saunawoohoopreg (default off), docs/500",
+    "save": "any world (pure check)",
+    "note": "SaunaWooHooPregCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "saunawoohoopreg": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SaunaWooHooPregCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SaunaWooHooPregCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "saunawoohoopreg": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SaunaWooHooPregCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SaunaWooHooPregCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "saunawoohoopreg": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "saunawoohoopreg": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "lotentrypet-check",
+    "bug": "A horse's or pet's failed door plan validates Lot.PlanRouteIntoLot's cache, so every later Sim plans to the mailbox (household-visible) (docs/500)",
+    "fix": "ts3fixes EaBugs500.cs: lotentrypet (default off), docs/500",
+    "save": "any world (pure check)",
+    "note": "LotEntryPetCheck 'run' evaluates the fix's decision with controls (read-only); 'result' shows the counters and members found.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "lotentrypet": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotEntryPetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotEntryPetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "lotentrypet": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotEntryPetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotEntryPetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "lotentrypet": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "lotentrypet": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "horselotentry-check",
+    "bug": "A horse on the ground plans Lot.PlanRouteIntoLot's door route to a door spot off the ground (foundation house) on every GoHome; the plan always fails (Stairs and doors refuse horses) before EA's mailbox fallback (docs/500 §6)",
+    "fix": "ts3fixes EaBugs500b.cs: horselotentry (default off), docs/500 §6",
+    "save": "any world (pure check)",
+    "note": "HorseLotEntryCheck 'run' evaluates the skip decision with controls (read-only); 'result' shows the counters (4030-4035) and members found. Game repro (not in this entry): Appaloosa Plains, a non-household horse runs GoHome to a foundation house; off: slot 4031 rises, 4032 stays 0; on: slot 4030 rises, the horse still ends at the mailbox.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "horselotentry": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HorseLotEntryCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HorseLotEntryCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "horselotentry": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HorseLotEntryCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HorseLotEntryCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "horselotentry": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "horselotentry": false
+        }
+      }
+    ]
   }
 ]

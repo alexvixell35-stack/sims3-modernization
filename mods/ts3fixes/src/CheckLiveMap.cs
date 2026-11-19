@@ -190,6 +190,7 @@ namespace Ts3Fixes
                 case "homeworkcopyold": return EpLive(typeof(BHcHook), 1, "sHcMine", sHcMine, null, "sHwCopy", sHwCopy, typeof(float), "sHwCopy", sHwCopy, "static", "sHwCopyOld", sHwCopyOld, typeof(float), "sHwCopyOld", sHwCopyOld, "static");
                 case "homeworkhelp": return EpLive(typeof(HwhHook), 1);
                 case "homeworkskillbonus": return EpLive(typeof(BHwHook), 1, "sHwIsOld", sHwIsOld, typeof(bool), "sHwCopyOld", sHwCopyOld, typeof(float), "sHwCopyOld", sHwCopyOld, "static", "sHwCopy", sHwCopy, typeof(float), "sHwCopy", sHwCopy, "static", "sHwK", sHwK, typeof(float), "sHwK", sHwK, "static");
+                case "horselotentry": return EpJoin(EpJoin(EpJoin(EpLive(typeof(E500LotEntryHook), 0), EpLive(typeof(E500OutsideHook), 0)), EpLive(typeof(E500SocialHook), 0)), EpLive(typeof(E500TakeOutHook), 0, "sE5Pick1", sE5Pick1, typeof(ulong)));
                 case "horseranchchallenge": return EpLive(typeof(BHrHook), 1);
                 case "horsetraitscore": return EpLive(typeof(HorseTraitHook), 0, "sHtHorse", sHtHorse, null, "sHtType", sHtType, null, "sHtScore", sHtScore, 2);
                 case "hottubwoohoofx": return EpLive(typeof(HtWoohooHook), 1, "sHtFlag", sHtFlag, typeof(bool), "sHtFx", sHtFx, null);
@@ -224,6 +225,7 @@ namespace Ts3Fixes
                 case "littercap": return EpLive(typeof(LitterCapHook), 1);
                 case "lookatcopy": return EpLive(typeof(B12LaHook), 1);
                 case "loopidlebridge": return EpLive(typeof(LoopIdleBridgeHook), 1, "sLiIdling", sLiIdling, null);
+                case "lotentrypet": return EpJoin(EpJoin(EpJoin(EpLive(typeof(E500LotEntryHook), 0), EpLive(typeof(E500OutsideHook), 0)), EpLive(typeof(E500SocialHook), 0)), EpLive(typeof(E500TakeOutHook), 0, "sE5Pick1", sE5Pick1, typeof(ulong)));
                 case "lotmgrcallbacks": return EpLive(typeof(LmcLoadHook), 2);
                 case "lotprune": return EpLive(typeof(B12LpHook), 1, "sLpMap", sLpMap, null, "sLpMap", sLpMap, "static", "sLpCount", sLpCount, "get");
                 case "lottotooltip": return EpLive(typeof(B12LtHook), 1, "sLtStart", sLtStart, typeof(float), "sLtStart", sLtStart, "static", "sLtEnd", sLtEnd, typeof(float), "sLtEnd", sLtEnd, "static", "sLtLoc", sLtLoc, 2);
@@ -299,6 +301,7 @@ namespace Ts3Fixes
                 case "picniccamera": return EpLive(typeof(PcHook), 1);
                 case "plantdormantflip": return EpLive(typeof(B13PfHook), 1, "sPfLeafless", sPfLeafless, 0, "sPfFrost", sPfFrost, typeof(float), "sPfFrost", sPfFrost, "static", "sPfLeaves", sPfLeaves, typeof(float), "sPfLeaves", sPfLeaves, "static", "sPfDormant", sPfDormant, typeof(bool), "sPfDormant", sPfDormant, null, "sPfFrosted", sPfFrosted, 0, "sPfDelete", sPfDelete, 0);
                 case "plantdormanttime": return EpLive(typeof(B13PtHook), 1, "sPfDormant", sPfDormant, typeof(bool), "sPtLast", sPtLast, null);
+                case "playpenflags": return EpJoin(EpJoin(EpLive(typeof(E500OutsideHook), 0), EpLive(typeof(E500SocialHook), 0)), EpLive(typeof(E500TakeOutHook), 0, "sE5Pick1", sE5Pick1, typeof(ulong)));
                 case "plumbotfacelistener": return EpLive(typeof(PlumbotFaceHook), 0, "sPfOwner", sPfOwner, null);
                 case "pondclearscan": return EpLive(typeof(PcsHook), 1);
                 case "portaladaptorleak": return EpLive(typeof(PortalAdaptorHook), 1);
@@ -352,6 +355,7 @@ namespace Ts3Fixes
                 case "sandscoins": return EpLive(typeof(SandsCoinsHook), 0, "sScFlag", sScFlag, typeof(bool), "sScWeights", sScWeights, null, "sScWeights", sScWeights, "static", "sScLocalize", sScLocalize, 3, "sScFlag", sScFlag, null);
                 case "sandwichalarm": return EpLive(typeof(SaHook), 1, "sSaShow", sSaShow, null, "sSaHandle", sSaHandle, null);
                 case "sarcmummynpc": return EpLive(typeof(SmHook), 1, "sSmMummy", sSmMummy, null);
+                case "saunawoohoopreg": return EpJoin(EpJoin(EpLive(typeof(E500OutsideHook), 0), EpLive(typeof(E500SocialHook), 0)), EpLive(typeof(E500TakeOutHook), 0, "sE5Pick1", sE5Pick1, typeof(ulong)));
                 case "savedstacks": return EpLive(typeof(SavedStackHook), 1);
                 case "scarepriority": return EpJoin(EpJoin(EpLive(typeof(SpMegaHook), 0), EpLive(typeof(SpScareHook), 0)), EpLive(typeof(SpShockHook), 0));
                 case "scavengernolot": return EpLive(typeof(BScHook), 1);
@@ -494,6 +498,7 @@ namespace Ts3Fixes
                 case "visitlisteners": return EpLive(typeof(B12VlHook), 1, "sVlMap", sVlMap, null);
                 case "visittoolate": return EpLive(typeof(VtlHook), 1);
                 case "visitwalkfinish": return EpLive(typeof(VisitCarHook), 1);
+                case "voodoobindwait": return EpJoin(EpJoin(EpJoin(EpLive(typeof(E500BindHook), 1), EpLive(typeof(E500OutsideHook), 0)), EpLive(typeof(E500SocialHook), 0)), EpLive(typeof(E500TakeOutHook), 0, "sE5Pick1", sE5Pick1, typeof(ulong)));
                 case "wakepark": return EpLive(typeof(WpLotHook), 0);
                 case "wakepoll": return EpLive(typeof(WpLotHook), 0);
                 case "wakeprobe": return EpLive(typeof(WpLotHook), 0);

@@ -256,6 +256,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kDeadRefCooking value="True" />
     <kDeadRefConvo value="True" />
     <kTakeARiskGuard value="True" />
+    <kPlaypenFlags value="False" />
+    <kVoodooBindWait value="False" />
+    <kSaunaWooHooPreg value="False" />
+    <kLotEntryPet value="False" />
+    <kHorseLotEntry value="False" />
     <kMiniHomeLot value="True" />
     <kVehParkReserve value="False" />
     <kVehGetInLeak value="False" />
