@@ -510,6 +510,7 @@ namespace Ts3Fixes
             ApplyPicnicExit();         // docs/645 §1 (PicnicExit.cs), off by default
             ApplyPoolFailMemo();       // docs/645 §2 (PoolFailMemo.cs), off by default
             ApplyPetStartleSkip();     // docs/645 §3 (PetStartleSkip.cs), off by default
+            ApplyPetArrivePoint();     // docs/656 §4.1 (PetArrivePoint.cs), off by default
         }
 
         // Patches that go in only when a tuning is on (docs/124 §17.8): Apply cannot read tunings (C# defaults there), so these
@@ -873,6 +874,7 @@ namespace Ts3Fixes
         // [3841-3844] groupchatpriority (GroupChatPriority.cs, docs/638 §3): GroupChatB receivers raised / seen with switch off / errors / spare.
         // [3864-3869] boattaximemo (BoatTaxiMemo.cs, docs/642): boat (any Boat subclass) no-path failures recorded / rider routes planned with the boat off / of those, succeeded / stranded boat plans answered / ms of the recorded plans those answers stand for / refused (household, selected, unknown) or errors.
         // [4070-4079] contributor block of docs/645 (npc loops): [4070-4071] picnicexit (PicnicExit.cs, §1): finished picnics exited / skipped (Sims present or cleanup pending); [4072-4073] poolfailmemo (PoolFailMemo.cs, §2): NPC GetInPool no-path / no-destination fails recorded / autonomous GetInPool tests refused; [4074-4075] petstartleskip (PetStartleSkip.cs, §3): NPC pets recorded after a PortalLocked startle flee route / startles skipped; [4076-4077] petlonghome (PetLongHome.cs, §4): unseen NPC pets / horses placed on the lot of a long GoHome / GoToLot walk / refused (seen, lot seen, no spot, lot kind); [4078] exempt (household, selected, unknown scope) and [4079] errors are shared by the docs/645 switches.
+        // [4170-4199] docs/656 (pets): [4170-4173] petarrivepoint (PetArrivePoint.cs, §4.1): inside front-door points skipped for NPC animals the door refuses / of those on a lot not validated yet / exempt / errors; [4174-4177] strayleave (StrayLeave.cs, §4.2): strays sent home / seen without the StrayPet buff / exempt / errors; [4178] petlonghome no-spot memo searches saved, [4179-4180] petlongvisit placed / refused (PetLongHome.cs, §4.3); 4181-4199 spare.
         // [4040-4049] houseboatgangwayrescue (HouseboatGangwayRescue.cs, docs/642 §7): NPC Sims marked by a no-path gangway leg to their Docked houseboat / placed by EA's PlaceSimAtEntrance after GoHome failed / refused / errors; refusals: exempt / no, another or undocked houseboat / once-per-hour rule / busy / on the lot, far or stale / no spot.
         // [4080-4084] trashoutsidefallback (TrashOutsideFallback.cs, docs/646 §2): NPC DisposeOutside on a lot whose outdoor can had no path: EA's non-forced disposal / bags put down (EA's failure remembered, or nothing else takes it) / EmptyTrash picks refused / exempt (household, selected, unknown scope) / errors (and bags put down after a call).
         // [4085-4089] wildlotskip (WildLotSkip.cs, docs/646 §3): wild horse / NPC animal (animal, lot) pairs remembered after a PortalLocked or NoPath GoToLot / picks drawn again without them / every weighted lot remembered (EA's pick kept) / long GoToLot walks cancelled / exempt or errors.
@@ -1270,9 +1272,9 @@ namespace Ts3Fixes
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 2799, then 2800-3999 (upstream #470; s74 3388-3393, s77 3394-3404),
-        // then the contributor block 4000-4089, then 4090-4129 (4090-4099 npcloops-c, 4100-4109 npcstallend, 4110-4119 another branch, 4120-4129 objfailmemo, 4130-4139 another branch, 4140-4149 socialunlinkend), docs/registry.md), so a new fix
+        // then the contributor block 4000-4089, then 4090-4129 (4090-4099 npcloops-c, 4100-4109 npcstallend, 4110-4119 another branch, 4120-4129 objfailmemo, 4130-4139 another branch, 4140-4149 socialunlinkend, 4150-4169 other branches, 4170-4199 docs/656 pets), docs/registry.md), so a new fix
         // never needs the array resized by hand.
-        const int kCounterSlots = 4150;
+        const int kCounterSlots = 4200;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1611,6 +1613,7 @@ namespace Ts3Fixes
                 case "socialunlinkend": return Instantiator.kSocialUnlinkEnd;  // off (SocialUnlinkEnd.cs, docs/650 §3)
                 case "petstartleskip": return Instantiator.kPetStartleSkip;
                 case "petlonghome": return Instantiator.kPetLongHome;
+                case "petarrivepoint": return Instantiator.kPetArrivePoint;  // off (PetArrivePoint.cs, docs/656 §4.1)
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;
                 case "seasonimpostercold": return Instantiator.kSeasonImposterCold;

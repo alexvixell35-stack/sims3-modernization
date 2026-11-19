@@ -278,6 +278,7 @@ namespace Ts3Fixes
                 case "partyoutcome": return EpLive(typeof(PfOutcomeHook), 2);
                 case "permamemo": return EpJoin(EpLive(typeof(BuffParseHook), 0), EpLive(typeof(PermaMemoHook), 0));
                 case "permazombiemoon": return EpLive(typeof(PermaZombieHook), 1);
+                case "petarrivepoint": return EpLive(typeof(PetArriveHook), 1);
                 case "petdreamtimer": return EpLive(typeof(B12PdHook), 1, "sPdTimer", sPdTimer, typeof(float), "sPdTimer", sPdTimer, null, "sPdFreq", sPdFreq, typeof(float), "sPdFreq", sPdFreq, "static");
                 case "petfireplan": return EpLive(typeof(PetFirePlanHook), 1);
                 case "petharvestvfx": return EpLive(typeof(B13PvHook), 2);
