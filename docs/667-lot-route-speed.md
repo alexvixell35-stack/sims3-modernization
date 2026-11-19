@@ -66,6 +66,14 @@ interaction and LotPlan call site, joins each worker plan with its job line, and
 - **Fail share:** 140 of 503 slow plans end in code 5 (33.7% of the time). Of the 92 failed worker plans with a job line, **92
   were cut at their job deadline** (`cut (UnseenFallback ...)`, deadline 220 ms). They are not searches that found no path.
 
+**Bridgeport, preliminary** (the s140 Bridgeport session was still running; a snapshot of its live log after about 15 min,
+22,887 calls, 136,061 ms) [measured]: lotPlan 60,608 ms (44.5%), post 26,681 ms (19.6%), lotSearch 16,355 ms (12.0%), cell
+14,669 ms (10.8%), world 6,392 ms, water 5 ms. Slow plans: 116, all on the worker; household or seen 7 plans, 923 ms (5.4%).
+22 of the 23 failed worker plans with a job line were deadline cuts. LotPlan site `65E3C2`: 7,250 ms in 58 calls. No slow
+sync plan and no failed plan of the §3 shape in the snapshot. So the lot phases are the same wait there, larger in share,
+and the failed-flood pattern of §3 is an Isla Paradiso (boat and houseboat) pattern so far. Rerun the tool on the full
+Bridgeport log when the run has copied it.
+
 ## 2. Root cause of the lot phases: the managed door ask [verified]
 
 **The call chain** [verified, decompile of `0x640E00`, `0x63EC40`, `0x6410B0`, `0x632460`; docs/92, docs/159]:
