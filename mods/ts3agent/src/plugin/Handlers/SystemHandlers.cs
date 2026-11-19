@@ -32,6 +32,7 @@ namespace Ts3Agent
             RegisterHouseboatLegRepro(); // HouseboatLegReproHandlers.cs, docs/642 §6
             RegisterBoatRoamRepro(); // BoatRoamReproHandlers.cs, docs/642 §9
             RegisterPetRepro(); // PetReproHandlers.cs, docs/656 §6
+            RegisterRouteStorm(); // RouteStormHandlers.cs, docs/667
             RegisterSimHealth(); // SimHealthHandlers.cs: soak health census
             RegisterInteractionSweep(); // InteractionSweepHandlers.cs, docs/268
             RegisterTriggerBattery(); // TriggerBatteryHandlers.cs, docs/653
