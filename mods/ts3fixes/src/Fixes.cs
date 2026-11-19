@@ -233,6 +233,7 @@ namespace Ts3Fixes
             ApplyMoonDialListener();   // docs/582 B4 §6
             ApplySnubListener();   // docs/582 B4 §7
             ApplyElevatorRiderTimeout();   // docs/582 B4 §3b
+            ApplyElevatorLightRig();   // docs/658 §7.1 (ElevatorLightRig.cs), off by default; after elevatorresetriders (chains on OnReset)
             ApplyRoleNullGuard();   // docs/582 B5 §1
             ApplyHomeworkSkillBonus();   // docs/582 B5 §2
             ApplyHorseRanchChallenge();   // docs/582 B5 §3
@@ -516,6 +517,11 @@ namespace Ts3Fixes
             ApplyStrayLeave();         // docs/656 §4.2 (StrayLeave.cs), off by default
             ApplyBarCloseOrphan();     // docs/661 §3.1 (BarCloseOrphan.cs), off by default
             ApplyVenueIntensity();     // docs/661 §3.2 (VenueIntensity.cs), off by default
+            ApplyCasPropagate();       // docs/658 §6.1-6.2 (CasPropagate.cs), off by default
+            ApplyCasDefaultSkin();     // docs/658 §6.3 (CasDefaultSkin.cs), off by default (logs the pick)
+            ApplyCasOccultLog();       // docs/658 §6.4 (CasOccultLog.cs), off by default
+            ApplyCasTintReset();       // docs/658 §6.6 (CasTintReset.cs), off by default, unconfirmed
+            ApplyOptionsNoopApply();   // docs/658 §7.3 (OptionsNoopApply.cs), off by default (logs no-op sets)
         }
 
         // Patches that go in only when a tuning is on (docs/124 §17.8): Apply cannot read tunings (C# defaults there), so these
@@ -880,6 +886,7 @@ namespace Ts3Fixes
         // [3864-3869] boattaximemo (BoatTaxiMemo.cs, docs/642): boat (any Boat subclass) no-path failures recorded / rider routes planned with the boat off / of those, succeeded / stranded boat plans answered / ms of the recorded plans those answers stand for / refused (household, selected, unknown) or errors.
         // [4070-4079] contributor block of docs/645 (npc loops): [4070-4071] picnicexit (PicnicExit.cs, §1): finished picnics exited / skipped (Sims present or cleanup pending); [4072-4073] poolfailmemo (PoolFailMemo.cs, §2): NPC GetInPool no-path / no-destination fails recorded / autonomous GetInPool tests refused; [4074-4075] petstartleskip (PetStartleSkip.cs, §3): NPC pets recorded after a PortalLocked startle flee route / startles skipped; [4076-4077] petlonghome (PetLongHome.cs, §4): unseen NPC pets / horses placed on the lot of a long GoHome / GoToLot walk / refused (seen, lot seen, no spot, lot kind); [4078] exempt (household, selected, unknown scope) and [4079] errors are shared by the docs/645 switches.
         // [4170-4199] docs/656 (pets): [4170-4173] petarrivepoint (PetArrivePoint.cs, §4.1): inside front-door points skipped for NPC animals the door refuses / of those on a lot not validated yet / exempt / errors; [4174-4177] strayleave (StrayLeave.cs, §4.2): strays sent home / seen without the StrayPet buff / exempt / errors; [4178] petlonghome no-spot memo searches saved, [4179-4180] petlongvisit placed / refused (PetLongHome.cs, §4.3).
+        // [4200-4219] docs/658 (CAS audit fixes): [4200-4203] caspropagateoutfits (CasPropagate.cs, §6.1): outfits EA dropped for age / gender / current index realigned / CareerOutfitIndex realigned / errors; [4204-4206] caspropagateextra (§6.2): outfits rebuilt / left (age / gender) / errors; [4207-4209] casdefaultskin (CasDefaultSkin.cs, §6.3): LoadDB runs / default changed / errors; [4210-4212] casoccultlog (CasOccultLog.cs, §6.4): occult change exceptions / werewolf age rebuilds that threw / errors; [4213-4214] castintreset (CasTintReset.cs, §6.6): stale HighlightIndex cleared / errors; [4215-4217] elevatorlightrig (ElevatorLightRig.cs, §7.1): rigs cleared / seen with the switch off / errors; [4218-4219] optionsnoopapply (OptionsNoopApply.cs, §7.3): no-op graphics sets found (skipped with the switch on) / errors.
         // [4181-4195] unseenboatwide (UnseenBoatWide.cs, docs/248 §12): gate passes per relaxed rule: household lot visitor / indoor or raised goal / goal with no verdict / group / followers / child with a parent / unknown colours resolved to a crossing; unknown colours resolved to one land area (exact); owned boat left parked; party members placed; parties refused; no street side or mailbox spot; errors; shortcuts with a wide rule (subset of 839); members left (no spot). 4196-4199 spare.
         // [4040-4049] houseboatgangwayrescue (HouseboatGangwayRescue.cs, docs/642 §7): NPC Sims marked by a no-path gangway leg to their Docked houseboat / placed by EA's PlaceSimAtEntrance after GoHome failed / refused / errors; refusals: exempt / no, another or undocked houseboat / once-per-hour rule / busy / on the lot, far or stale / no spot.
         // [4080-4084] trashoutsidefallback (TrashOutsideFallback.cs, docs/646 §2): NPC DisposeOutside on a lot whose outdoor can had no path: EA's non-forced disposal / bags put down (EA's failure remembered, or nothing else takes it) / EmptyTrash picks refused / exempt (household, selected, unknown scope) / errors (and bags put down after a call).
@@ -1628,6 +1635,13 @@ namespace Ts3Fixes
                 case "strayleave": return Instantiator.kStrayLeave;          // off (StrayLeave.cs, docs/656 §4.2)
                 case "barcloseorphan": return Instantiator.kBarCloseOrphan;  // off (BarCloseOrphan.cs, docs/661 §3.1)
                 case "venueintensity": return Instantiator.kVenueIntensity;  // off (VenueIntensity.cs, docs/661 §3.2)
+                case "caspropagateoutfits": return Instantiator.kCasPropagateOutfits;  // off (CasPropagate.cs, docs/658 §6.1)
+                case "caspropagateextra": return Instantiator.kCasPropagateExtra;  // off (CasPropagate.cs, docs/658 §6.2)
+                case "casdefaultskin": return Instantiator.kCasDefaultSkin;  // off (CasDefaultSkin.cs, docs/658 §6.3)
+                case "casoccultlog": return Instantiator.kCasOccultLog;  // off (CasOccultLog.cs, docs/658 §6.4)
+                case "castintreset": return Instantiator.kCasTintReset;  // off (CasTintReset.cs, docs/658 §6.6, UNCONFIRMED)
+                case "elevatorlightrig": return Instantiator.kElevatorLightRig;  // off (ElevatorLightRig.cs, docs/658 §7.1)
+                case "optionsnoopapply": return Instantiator.kOptionsNoopApply;  // off (OptionsNoopApply.cs, docs/658 §7.3)
                 case "petlongvisit": return Instantiator.kPetLongVisit;      // off (PetLongHome.cs, docs/656 §4.3)
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;
