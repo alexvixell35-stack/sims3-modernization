@@ -35,6 +35,21 @@ namespace Ts3Fixes
         // ---- §3 alarmcmpnobox: rehome the live AlarmManagers now? Only with a world (no world: at world load) ----
         public static bool A87RehomeNow(bool worldUp) { return worldUp; }
 
+        // ---- §4 streetparkinglisten ----
+        public const int kSplRestore = 0, kSplDropOld = 1;
+
+        // The car's old stored listener after EA's GetParkingSpotForCar. done: EA returned (no throw); newStored: EA stored a
+        // listener for the car (a grant); result: EA's answer (false only when a hook freed the car again, e.g. unseencars).
+        public static int SplAfter(bool done, bool newStored, bool result)
+        {
+            if (!done) return newStored ? kSplDropOld : kSplRestore;
+            if (newStored) return kSplDropOld;   // repeat grant: EA's new listener is the stored one
+            return result ? kSplRestore : kSplDropOld;   // spot-0 answer keeps the old; a freed car needs none
+        }
+
+        // Does the delete handler free this car's spots? EA: only a CarNpc. Fixed: any Car.
+        public static bool SplFrees(bool on, bool isCar, bool isCarNpc) { return on ? isCar : isCarNpc; }
+
         // ---- §2 unseenservice: steps of one instant service, in order ----
         public const int kSvcStepStart = 0, kSvcStepOrder = 1, kSvcStepCommodity = 2, kSvcStepCreate = 3, kSvcStepPlace = 4, kSvcStepPour = 5,
             kSvcStepBehavior = 6, kSvcStepDone = 7, kSvcStepScope = 8;

@@ -49,3 +49,24 @@ Not guarded: one-shot alarm callbacks (AlarmManager removes them after the call 
 **Fix:** the flag is set right after `Set`. The rehome runs only while a world is loaded (`GameStates.IsInWorld`, not shutting down, `AlarmManager.Global` present). Otherwise it is put off ([4115]). On world load, `Alloc87WorldLoad` (added to Instantiator's `OnWorldLoadFinished` chain next to the other `*WorldLoad` calls) swaps the live managers' `mTimers.hcp` to the comparer of the switch's current state ([4116], also added to [3556]). `A87Rehome` swaps only EA's instance and ours into each other, so running it twice is harmless.
 
 **Counters:** [4115] rehomes put off with no world loaded, [4116] mTimers swapped at world load.
+
+## §4 streetparkinglisten: EA's StreetParking listener leak (default off)
+
+**Existing coverage [verified, grep]:** two places of ours touch StreetParking. `unseencars` (UnseenThrottle.cs `ParkingSpotHook` on `GetParkingSpotForCar`: grants turned down for unseen driverless cars, followed by `FreeParkingSpotForCar`) and the carpool path in Batch589Logic.cs (frees the spot after a drive). Neither touches the listener. The new switch rides on the same `GetParkingSpotForCar` hook (one patch per method), wrapping its whole body.
+
+**EA bug [verified, decompiled `StreetParking.GetParkingSpotForCar` / `FreeParkingSpotForCar` / `CarDeletedEventDelegate`]:**
+- Every grant runs `EventTracker.AddListener(kEventObjectDisposed, CarDeletedEventDelegate, null, car)`. The listener is stored in `mObjectIdToEventListenerDictionary` only when the car has no entry yet. `FreeParkingSpotForCar` removes only the stored listener, so each repeat grant leaks one listener: `CarDeletedEventDelegate` 23 -> 112 in phase-20261116-0612 (leakfit).
+- `CarDeletedEventDelegate` frees `e.TargetObject as CarNpc`. A deleted car of any other Car type keeps its spots, so spots stay held. When none of the ten is free, EA hands out spot 0 (without reserving it) and cars stack there.
+
+**Fix (switch on):** before EA's body, the car's stored listener is taken out of the dictionary, so EA stores the new one. Afterwards (`OwnBugsCore.SplAfter`):
+- EA stored a new listener (repeat grant): the old one is removed from EventTracker.
+- EA returned false after a hook freed the car (unseencars): the old one is removed too, since the car has no spots.
+- No grant (EA's spot-0 answer) or EA threw: the old one goes back.
+
+This leaves exactly one stored listener per car that holds spots, which is what EA's code means. The delete handler frees the spots of any deleted `Car` (`SplFrees`), and returns EA's `Keep`. No Sim is involved. A household car's spot is picked and held as EA does it; the only change is that its spots are freed when the car object is deleted, as EA's handler means to do.
+
+**Counters:** [4117] duplicate listeners not kept, [4118] spots freed for a deleted car that is not a CarNpc, [4119] errors. Agent `patches`: `streetparkinglisten_*`; switch `streetparkinglisten` (kStreetParkingListen, default False).
+
+## Checks
+
+`node tools/selftest/ownbugs/run.ts`: the pure rules of §1-§4 (first frame and log cap, service steps and cleanup, rehome only with a world, listener settle and delete-handler scope, leak model). Package built with `build-fixes.ts --tag ownbugs`; `build-agent.ts` builds. Not run in game.

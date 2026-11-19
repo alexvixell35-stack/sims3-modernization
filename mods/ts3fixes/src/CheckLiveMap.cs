@@ -419,6 +419,7 @@ namespace Ts3Fixes
                 case "statueline": return EpLive(typeof(SlHook), 0);
                 case "steadygigmiss": return EpLive(typeof(SteadyGigHook), 1, "sFtcSpec", sFtcSpec, null);
                 case "stereoupgrade": return EpJoin(EpJoin(EpLive(typeof(BSuDanceHook), 1), EpLive(typeof(BSuSpeakerHook), 1)), EpLive(typeof(BSuUpHook), 1));
+                case "streetparkinglisten": return EpLive(typeof(SplDelHook), 1);
                 case "stuckcheckasync": return EpLive(typeof(StuckCheckBusyHook), 1);
                 case "stuckcheckbusy": return EpLive(typeof(StuckCheckBusyHook), 1);
                 case "subroutefail": return EpJoin(EpLive(typeof(SrfPlayHook), 1), EpLive(typeof(SrfTryHook), 1));
