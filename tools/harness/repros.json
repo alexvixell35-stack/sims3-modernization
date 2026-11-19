@@ -69075,6 +69075,54 @@
     ]
   },
   {
+    "id": "ip-houseboat-leg-memo",
+    "bug": "docs/642 §6: an NPC stranded ~17 m off its houseboat (houseboat not Docked) gets EA's EnterHouseboatThroughBoat boat leg (PostPlanRouteCallback -> CheckAndUpdateForHouseboats, PlanFromPoint EndAsBoat + DestinationMustBeInDeepWater (+ DisablePlanningOnLand)) planned again after every plan home, ~600 ms each, always no path (IP phase-20261119-0746: Britta Colombo 18x)",
+    "fix": "ts3fixes houseboatlegmemo (HouseboatLegMemo.cs): the leg's first no-path plan is recorded (3870), repeats from the same start to the same goal are answered at once (3871, ms 3872); household / selected / unknown scope exempt (3873)",
+    "save": "Baseline-IP",
+    "note": "Forced. houseboat_leg_repro picks NPCs (known non-active household, houseboat residents first), a houseboat away from its dock (error if all are Docked: the gangway branch runs instead), places each 17-30 m off the houseboat's RoutingSlot_0 on the world lot (sea spots first, then land), probes each spot with EA's own leg (switch forced off for the probe) and keeps the first that finds no path, then plans the Sim's own route to the houseboat `tries` times (Plan / ReplanFromPoint). Needs an active household.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "houseboatlegmemo": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "start": true,
+          "sims": 2,
+          "tries": 4
+        },
+        "waitS": 90,
+        "note": "probe spots, then 4 plans home per Sim"
+      },
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "result": true
+        },
+        "note": "per Sim: probes, per try kind/result/ms, legs seen, counter deltas 3870-3873"
+      }
+    ],
+    "expect": "OFF: every try sees a leg (EndAsBoat DeepWater) FailedBecauseNoPathToDestination with full ms, counters 0; ON: try 1 leg recorded (3870 +1 per Sim), later tries no leg callback and 3871 +1 each (answered, ~0 ms), 'houseboatlegmemo: recorded|answered' lines; probe_failed true for each Sim; no crash",
+    "cleanup": [
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
     "id": "ip-bridge-height-load",
     "bug": "docs/67 \u00a736/\u00a737 (#384, Dalexlol PR #394): an Isla Paradiso bridge answers NaN, +-inf or 2.26e34 from 0xB745A0; the height queries keep it, post pass 16 halves an infinite segment forever and the game freezes (world load or play; footstep lot search on a NaN point)",
     "fix": "[EaCrashFixes] HeightsInfLoop + BridgeHeightNaN (ini only, no runtime switch: one job per arm). Contributor repro (his harness, docs/data/results/2026-11-13-bridge-height-nan.md): IP seed 777, off = world-load freeze, on = nh2 / sm1 / in1 pass with 8 BridgeHeightNaN hits each",
