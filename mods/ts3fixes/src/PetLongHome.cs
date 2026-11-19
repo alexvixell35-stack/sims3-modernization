@@ -1,4 +1,5 @@
 using System;
+using Sims3.Gameplay.PetSystems;
 using System.Collections.Generic;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.CAS;
@@ -41,6 +42,9 @@ namespace Ts3Fixes
             if (sim == null || lot == null || !ShortcutOn("petlonghome")) return;
             SimDescription d = sim.SimDescription;
             if (d == null || !d.IsPet) return;
+            // unicorns, wild horses and other pet-pool animals (strays) keep EA's walk: their trips are EA's spawn/summon
+            // behaviour, not a walk home; only a pet heading to its own home lot is placed
+            if (d.IsUnicorn || WildHorses.IsWildHorse(d) || d.Household == null || d.Household.IsPetHousehold || lot != d.LotHome) return;
             int[] c = PatchCounters();
             try
             {

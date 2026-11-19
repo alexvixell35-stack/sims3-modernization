@@ -60,8 +60,27 @@ namespace Ts3Fixes
 
         static bool WlsWild(SimDescription d, out bool horse)
         {
-            horse = d != null && WildHorses.IsWildHorse(d);
-            return horse || (d != null && d.AssignedRole is NPCAnimal);
+            horse = false;
+            if (d == null || d.IsUnicorn) return false;  // a unicorn (and its summons) keeps EA's behaviour
+            horse = WildHorses.IsWildHorse(d);
+            return horse || d.AssignedRole is NPCAnimal;
+        }
+
+        // a unicorn on (or heading to) the lot: its Summon Wild Horses pushes GoToLot on the whole herd (OccultUnicorn)
+        static bool WlsUnicornAt(Lot lot)
+        {
+            if (lot == null) return false;
+            List<SimDescription> us = PetPoolManager.GetPetsByType(PetPoolType.Unicorn);
+            if (us == null) return false;
+            foreach (SimDescription u in us)
+            {
+                Sim c = u != null ? u.CreatedSim : null;
+                if (c == null) continue;
+                if (c.LotCurrent == lot) return true;
+                InteractionInstance ui = c.CurrentInteraction;
+                if (ui != null && ui.Target == lot) return true;
+            }
+            return false;
         }
 
         static string WlsLotName(Lot l) { return l == null ? "?" : "0x" + l.LotId.ToString("X") + " (" + l.Name + ")"; }
@@ -197,6 +216,7 @@ namespace Ts3Fixes
                 bool horse;
                 if (!WlsWild(s.SimDescription, out horse) || WlsExempt(s)) return;
                 Lot lot = ii.Target as Lot;
+                if (horse && WlsUnicornAt(lot)) return;  // a herd a unicorn summoned keeps EA's walk
                 float h = Instantiator.kWildLotSkipWalkHours;
                 long max = SimClock.ConvertToTicks(h > 0f ? h : 8f, TimeUnit.Hours), now = SimClock.CurrentTicks;
                 long from = sWls.WalkFrom(id);

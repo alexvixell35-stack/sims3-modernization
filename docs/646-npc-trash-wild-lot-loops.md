@@ -106,3 +106,5 @@ Log (at most 10 per real minute, 300 per session):
   NoPath` repeats on the tower lot; ON: one `lot remembered` line per lot, then fallbacks / refused picks, no repeats), and
   Twinbrook / Appaloosa Plains for the wild horses (OFF: GoToLot result 18 repeats; ON: `skipped, drew` lines, fewer
   result 18 lines). No repro entry yet.
+
+**Unicorns (2026-11-19):** a unicorn is never treated as wild (`IsUnicorn` returns false from WlsWild), and the long-walk guard leaves a wild-horse herd alone while a unicorn is on, or heading to, its target lot (EA's Summon Wild Horses pushes GoToLot on the whole herd).

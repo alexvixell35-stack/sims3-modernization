@@ -149,3 +149,5 @@ from a far community lot, camera elsewhere) is still walking (`health.jsonl` "Go
 after a sim-hour. ON arm: one `placed` line, the pet on its home lot within a minute, 4076 +1; household pets and pets in view
 keep walking; no new exceptions or stuck Sims. Self-check: `tools/selftest/petlonghome` (gate order, distance and trip-age
 rules, unseen checks, trip table).
+
+**Unicorns (2026-11-19):** unicorns, wild horses and other pet-pool animals (strays) are never placed; only a pet with a real household heading to its own home lot (`lot == LotHome`) is. GoToLot to any other lot keeps EA's walk.
