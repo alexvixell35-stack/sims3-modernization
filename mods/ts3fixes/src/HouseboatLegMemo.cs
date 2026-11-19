@@ -44,16 +44,18 @@ namespace Ts3Fixes
             }
 
             // EnterHouseboatThroughBoat's leg options (the only EA PlanFromPoint that sets all three), or
-            // EnterHouseboatThroughLadder's leg: PlanToSlotFromPoint(RoutingSlot_0) with no boat options, run only for a swimming
-            // Sim inside CheckAndUpdateForHouseboats (Houseboat.sHouseboatStackDepth > 0)
+            // EnterHouseboatThroughGangway's leg (docked houseboat, start connected by land): water and boat planning both
+            // turned off on a fresh route, planned inside CheckAndUpdateForHouseboats (Houseboat.sHouseboatStackDepth > 0).
+            // SetRouteOptions turns boat planning on for every child-or-older human, so a Sim route with both off at that
+            // depth is the gangway leg. s122/s123: every slow stranded-NPC leg had all boat options off.
             bool HlmLegRoute()
             {
                 if (GetOption2(Sims3.SimIFace.Route.RouteOption2.EnablePlanningAsBoat))
                     return GetOption2(Sims3.SimIFace.Route.RouteOption2.EndAsBoat) && GetOption2(Sims3.SimIFace.Route.RouteOption2.DestinationMustBeInDeepWater);
                 if (Sims3.Gameplay.Objects.Island.Houseboat.sHouseboatStackDepth == 0) return false;
+                if (GetOption(Sims3.SimIFace.Route.RouteOption.EnableWaterPlanning)) return false;
                 IScriptProxy f = Follower;
-                Sim sim = f != null ? f.Target as Sim : null;
-                return sim != null && sim.Posture is Sims3.Gameplay.Pools.SwimmingInPool;
+                return f != null && f.Target is Sim;
             }
 
             // the router's id, or 0 = not ours (no Sim or boat follower) / exempt (household, selected, unknown scope)
