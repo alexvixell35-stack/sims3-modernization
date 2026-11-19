@@ -158,6 +158,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kDishPileCapBudget value="20" />
     <kNpcStallEnd value="False" />
     <kNpcStallEndHours value="3" />
+    <kBarCloseOrphan value="False" />
     <kStreetParkingListen value="False" />
     <kPosturePopCycle value="False" />
     <kOverwatchIgnoreStuckProbes value="True" />

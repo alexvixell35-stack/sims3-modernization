@@ -29,6 +29,7 @@ namespace Ts3Fixes
                 case "badsecretkey": return EpLive(typeof(BSxHook), 1);
                 case "bakesaleseller": return EpLive(typeof(BakeSaleHook), 3, "sBstNpc", sBstNpc, null);
                 case "bandjam": return EpLive(typeof(BjHook), 1);
+                case "barcloseorphan": return EpLive(typeof(BarCloseOrphanHook), 1);
                 case "barorderlog": return EpLive(typeof(BarOrderLogHook), 1);
                 case "barputdownwait": return EpLive(typeof(BpwWaitHook), 1, "sBpwDone", sBpwDone, typeof(bool), "sBpwHandler", sBpwHandler, null);
                 case "bathcleanup": return EpLive(typeof(BBcHook), 0, "sBcInBath", sBcInBath, null);
