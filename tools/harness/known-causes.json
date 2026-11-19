@@ -9,6 +9,7 @@
    "module": "d3d9.dll",
    "rva": "0x2d4b4",
    "upstream": "fixed by our bridge patch 0016, https://github.com/loinyx/Sims3-ApexRadiance/pull/89",
+   "testInstall": "in Apex main as patch 0010 (PR 106), not in release 4.0.6; tests since 2026-11-19 use the fork test install ours/test-integration-1119 a69a1bbc (tools/turbo-compat.ts FORK, probe-out/apex-latest-switch-1119.md)",
    "doc": "docs/270 §29",
    "cases": {
     "match": [
@@ -32,6 +33,7 @@
    "owner": "Apex Radiance 4.0.1, ABBA on two of its own mutexes with the main thread in Device_Present",
    "cycleModules": "ApexRadiance.asi",
    "upstream": "https://github.com/loinyx/Sims3-ApexRadiance/issues/90",
+   "testInstall": "fixed in Apex main 0a209879, not in release 4.0.6; tests since 2026-11-19 use the fork asi of ours/test-integration-1119 a69a1bbc (tools/turbo-compat.ts FORK)",
    "doc": "docs/67 §38",
    "cases": {
     "match": [

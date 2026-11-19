@@ -12,8 +12,9 @@
 //                                                  into <dir>/<arm>/ and grep the lines that matter into summary.txt
 //   node tools/turbo-compat.ts restore <dir>       state base, Apex Documents folder back, Bin files not in the snapshot removed
 //                                                  (known Apex/bridge/Turbo outputs only), whole-Bin sha256 compare; exit 1 on a diff
-//   node tools/turbo-compat.ts install-copy        rewind arm (docs/270 §12): copy of the latest Apex release in game-copy/rewind-bridge-1115/install
-//                                                  with our patched bridge pair and rewindMode = True; state name apex-rewind uses it
+//   node tools/turbo-compat.ts install-copy [--build]  rewind arm (docs/270 §12): game-copy/rewind-bridge-1119/install = Apex release
+//                                                  files + our fork's FORK branch (pair, conf, CI asi), rewindMode = True; state
+//                                                  apex-rewind uses it; --build first checks out FORK.sha, rebuilds + tests the pair on one CPU
 //   node tools/turbo-compat.ts --self-check
 // TURBO_COMPAT_DRY=1 with TS3_BIN/TS3_USER on copies: dry run of snapshot/state/restore while a game runs.
 // Windows-only by nature (game Bin, 32-bit Windows PowerShell for the WOW64 thread walk). Turbo files never come from the web
@@ -46,9 +47,12 @@ export const ALL_ON = ['# TS3 Turbo Engine Configuration (all on, turbo-apex-111
   'Janeladeborda = 1', 'MenuKey = 118', 'AutoClean = 1', 'ThreadPriorityBoost = 1', 'CpuTopologyOpt = 1', 'SmartRamManager = 1', 'PreFaultMemory = 1',
   'InstalacaoValida = 1'];
 
-// docs/270 §12: the rewind arm. The patched pair is built from Apex's own bridge source at this release plus patch 0015
-// (tools/harness/rewind/bridge-patch/README.md); a newer Apex release needs a rebuild first.
-const REWIND = join(GC, 'rewind-bridge-1115'), REWIND_BUILT_ON = 'v4.0.6';
+// docs/270 §12 + probe-out/apex-latest-switch-1119.md: the test install (Bin state apex-rewind) = the Apex release files of
+// REWIND_BUILT_ON, with the bridge pair, bridge/dxvk conf and public asi of our fork's integration branch (Apex main + our
+// open bug-fix PRs; Rodney 11-19 "use our Apex fork so we don't crash"). Pair built locally in REWIND/apex-repo, asi = the CI
+// artifact of that commit. Upstream main moved: rebase the branch in the fork, update FORK.sha, run install-copy --build.
+const REWIND = join(GC, 'rewind-bridge-1119'), REWIND_BUILT_ON = 'v4.0.6';
+export const FORK = { remote: 'https://github.com/rodneypantonial/Sims3-ApexRadiance.git', branch: 'ours/test-integration-1119', sha: 'a69a1bbc3d206bc15d56254c9fbe997ef5b4a64e' };
 type Src = string | null; // file to copy into Bin, null = absent
 export const STATES: Record<string, (unz: string) => Record<string, Src>> = {
   base: () => ({}),
@@ -135,19 +139,65 @@ async function fetchApex(dir: string) {
 }
 
 // ------------------------------------------------------------------------------------------------ snapshot / state / restore
-// A copy of the latest Apex release's files in game-copy/rewind-bridge-1115/install/apex-unz, with our patched bridge pair
-// and rewindMode = True in both bridge.conf. Apex's zip and anything Apex installed stay untouched.
-async function installCopy() {
-  const dir = join(REWIND, 'install'), unz = join(dir, 'apex-unz'), out = join(REWIND, 'apex-repo', 'native', 'remix-bridge', 'out');
+// --build: clone/checkout FORK.sha in REWIND/apex-repo, fresh bridge source, build.cmd + test-rewind.cmd pinned to one CPU
+// (a timing chain may run), log REWIND/build-<sha8>.log. Windows only (MSVC, cmd).
+function buildFork() {
+  const repo = join(REWIND, 'apex-repo'), rb = join(repo, 'native', 'remix-bridge'), venv = join(REWIND, 'venv', 'Scripts');
+  const git = (...a: string[]) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8', timeout: 300000 }).trim();
+  if (!existsSync(join(repo, '.git'))) execFileSync('git', ['clone', '-q', '--filter=blob:limit=2m', '-b', FORK.branch, FORK.remote, repo], { timeout: 600000 });
+  git('fetch', '-q', FORK.remote, FORK.branch);
+  git('checkout', '-q', '--detach', FORK.sha);
+  rmSync(join(rb, 'src'), { recursive: true, force: true }); // patches may have changed: refetch + apply
+  if (!existsSync(join(venv, 'meson.exe'))) {
+    execFileSync('python', ['-m', 'venv', join(REWIND, 'venv')], { timeout: 120000 });
+    execFileSync(join(venv, 'python.exe'), ['-m', 'pip', 'install', '-q', '--disable-pip-version-check', 'meson', 'ninja'], { timeout: 300000 });
+  }
+  // the server test on DXVK needs Apex's DXVK next to the package; the release copy has it
+  const dxvk = join(REWIND, 'install', 'apex-unz', '.trex', 'd3d9vk_x64.dll');
+  if (existsSync(dxvk)) { mkdirSync(join(rb, 'out', 'package', '.trex'), { recursive: true }); copyFileSync(dxvk, join(rb, 'out', 'package', '.trex', 'd3d9vk_x64.dll')); }
+  const log = join(REWIND, `build-${FORK.sha.slice(0, 8)}.log`);
+  say(`build: ${FORK.branch} ${FORK.sha.slice(0, 8)} -> ${rb}\\out (one CPU, log ${log})`);
+  // start /affinity 1: ninja's jobs share one core, so a running timing job keeps its CPUs
+  execFileSync('cmd', ['/d', '/c', `start "" /wait /low /affinity 1 cmd /d /c "cd /d "${rb}" && set "PATH=${venv};%PATH%" && call build.cmd && call test-rewind.cmd > "${log}" 2>&1"`],
+    { stdio: 'inherit', timeout: 3600000, windowsVerbatimArguments: true });
+  if (!/rewind tests passed/.test(readFileSync(log, 'utf8'))) throw new Error(`build: offline rewind tests did not pass, see ${log}`);
+  say('build: pair built, rewind tests passed');
+}
+
+// The CI's public asi of FORK.sha (Apex's "Windows build and CPU checks" artifact; upstream runs it on main, the fork on pushes)
+function forkAsi(): string {
+  const d = join(REWIND, `asi-${FORK.sha.slice(0, 8)}`), f = join(d, `ApexRadiance-public-${FORK.sha}`, 'Public', 'ApexRadiance.asi');
+  if (existsSync(f)) return f;
+  const env = { ...process.env, ...(process.env.PERSONAL_GITHUB_TOKEN ? { GH_TOKEN: process.env.PERSONAL_GITHUB_TOKEN } : {}) };
+  for (const r of [APEX_REPO, 'rodneypantonial/Sims3-ApexRadiance']) {
+    const id = execFileSync('gh', ['run', 'list', '-R', r, '--commit', FORK.sha, '--workflow', 'build.yml', '--status', 'success', '-L', '1', '--json', 'databaseId', '--jq', '.[0].databaseId // ""'], { encoding: 'utf8', env, timeout: 60000 }).trim();
+    if (!id) continue;
+    execFileSync('gh', ['run', 'download', id, '-R', r, '-n', `ApexRadiance-public-${FORK.sha}`, '-D', join(d, `ApexRadiance-public-${FORK.sha}`)], { env, timeout: 300000 });
+    if (existsSync(f)) return f;
+  }
+  throw new Error(`install-copy: no green CI build of ${FORK.sha.slice(0, 8)} with a public asi in ${APEX_REPO} or the fork`);
+}
+
+// game-copy/rewind-bridge-1119/install/apex-unz: the Apex release files, our fork's pair, conf and asi, rewindMode = True in both
+// bridge.conf. Apex's zip and anything Apex installed stay untouched.
+async function installCopy(build: boolean) {
+  const dir = join(REWIND, 'install'), unz = join(dir, 'apex-unz'), rb = join(REWIND, 'apex-repo', 'native', 'remix-bridge'), out = join(rb, 'out');
   const pair = ['d3d9.dll', '.trex/NvRemixBridge.exe'];
-  for (const p of pair) if (!existsSync(join(out, p))) throw new Error(`install-copy: ${join(out, p)} missing: build it first (tools/harness/rewind/bridge-patch/README.md)`);
+  if (build) buildFork();
+  const head = execFileSync('git', ['-C', join(REWIND, 'apex-repo'), 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  if (head !== FORK.sha) throw new Error(`install-copy: ${REWIND}/apex-repo is at ${head.slice(0, 8)}, FORK.sha is ${FORK.sha.slice(0, 8)}: run install-copy --build`);
+  for (const p of pair) if (!existsSync(join(out, p))) throw new Error(`install-copy: ${join(out, p)} missing: run install-copy --build`);
+  const asi = forkAsi();
   mkdirSync(dir, { recursive: true });
   await fetchApex(dir);
   const tag = JSON.parse(readFileSync(join(dir, 'apex.json'), 'utf8')).tag;
-  if (tag !== REWIND_BUILT_ON) throw new Error(`install-copy: the latest Apex release is ${tag}, the patched bridge pair was built on ${REWIND_BUILT_ON}: rebuild it on the new release and update REWIND_BUILT_ON`);
+  if (tag !== REWIND_BUILT_ON) throw new Error(`install-copy: the latest Apex release is ${tag}, the install copy was made on ${REWIND_BUILT_ON}: check the fork branch has it (rebase), then update REWIND_BUILT_ON`);
   for (const p of pair) copyFileSync(join(out, p), join(unz, p));
-  for (const c of ['bridge.conf', '.trex/bridge.conf']) appendFileSync(join(unz, c), '\r\nrewindMode = True\r\n');
-  say(`install-copy: ${unz} = Apex ${tag} + patched d3d9.dll ${sha(join(unz, pair[0])).slice(0, 12)}, NvRemixBridge.exe ${sha(join(unz, pair[1])).slice(0, 12)}, rewindMode = True`);
+  copyFileSync(asi, join(unz, 'ApexRadiance.asi'));
+  copyFileSync(join(rb, 'conf', 'dxvk.conf'), join(unz, 'dxvk.conf'));
+  for (const c of ['bridge.conf', '.trex/bridge.conf']) { copyFileSync(join(rb, 'conf', 'bridge.conf'), join(unz, c)); appendFileSync(join(unz, c), '\r\nrewindMode = True\r\n'); }
+  writeFileSync(join(dir, 'fork.json'), JSON.stringify({ ...FORK, release: tag, asi: sha(join(unz, 'ApexRadiance.asi')), d3d9: sha(join(unz, pair[0])), server: sha(join(unz, pair[1])) }, null, 1));
+  say(`install-copy: ${unz} = Apex ${tag} files + fork ${FORK.branch} ${FORK.sha.slice(0, 8)}: asi ${sha(join(unz, 'ApexRadiance.asi')).slice(0, 12)}, d3d9.dll ${sha(join(unz, pair[0])).slice(0, 12)}, NvRemixBridge.exe ${sha(join(unz, pair[1])).slice(0, 12)}, rewindMode = True`);
 }
 
 async function snapshot(dir: string) {
@@ -337,7 +387,7 @@ function selfCheck() {
   assert.ok(MANAGED.includes('wininet.dll') && MANAGED.includes('d3d9.dll') && MANAGED.includes('.trex/NvRemixBridge.exe') && MANAGED.includes('ts3native.asi'));
   assert.deepEqual(Object.keys(STATES.turbo('u')), ['Turbo.asi']);
   assert.ok(Object.keys(STATES['apex-rewind']('u')).every(k => MANAGED.includes(k)), 'restore knows every file of the rewind arm');
-  assert.ok(STATES['apex-rewind']('u')['ApexRadiance.asi']!.includes('rewind-bridge-1115'), 'the rewind arm takes its files from the install copy');
+  assert.ok(STATES['apex-rewind']('u')['ApexRadiance.asi']!.includes('rewind-bridge-1119'), 'the rewind arm takes its files from the install copy');
   assert.equal(STATES['apex-turbo-ual77']('u')['wininet.dll'], SRC.ual77.path);
   assert.ok(!('wininet.dll' in STATES['apex-turbo']('u')), 'arm 2 keeps our loader');
   const dg = `sha256:${'a'.repeat(64)}`, url = 'https://x/y';
@@ -362,12 +412,12 @@ function selfCheck() {
 }
 
 const { values: v, positionals: [cmd, dir, arg] } = parseArgs({ allowPositionals: true, options: {
-  'all-on': { type: 'boolean' }, f7: { type: 'boolean' }, 'max-min': { type: 'string' }, 'self-check': { type: 'boolean' } } });
+  'all-on': { type: 'boolean' }, build: { type: 'boolean' }, f7: { type: 'boolean' }, 'max-min': { type: 'string' }, 'self-check': { type: 'boolean' } } });
 if (v['self-check']) selfCheck();
 else if (cmd === 'snapshot' && dir) await snapshot(resolve(dir));
-else if (cmd === 'install-copy') await installCopy();
+else if (cmd === 'install-copy') await installCopy(!!v.build);
 else if (cmd === 'state' && dir && arg) setState(resolve(dir), arg);
 else if (cmd === 'monitor' && dir && arg) monitor(resolve(dir), arg, { allOn: !!v['all-on'], f7: !!v.f7, maxMin: Number(v['max-min'] ?? 40) });
 else if (cmd === 'collect' && dir && arg) collect(resolve(dir), arg);
 else if (cmd === 'restore' && dir) process.exit(restore(resolve(dir)) ? 0 : 1);
-else { console.error('usage: node tools/turbo-compat.ts snapshot|restore <dir> | state <dir> <base|apex|apex-turbo|apex-turbo-ual77|turbo> (or apex-rewind) | install-copy | monitor <dir> <arm> [--all-on] [--f7] | collect <dir> <arm> | --self-check'); process.exit(2); }
+else { console.error('usage: node tools/turbo-compat.ts snapshot|restore <dir> | state <dir> <base|apex|apex-turbo|apex-turbo-ual77|turbo> (or apex-rewind) | install-copy [--build] | monitor <dir> <arm> [--all-on] [--f7] | collect <dir> <arm> | --self-check'); process.exit(2); }
