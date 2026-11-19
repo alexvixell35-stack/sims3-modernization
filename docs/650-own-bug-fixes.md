@@ -39,3 +39,13 @@ Not guarded: one-shot alarm callbacks (AlarmManager removes them after the call 
 - Scope, tiers and household rules are unchanged (household, selected and selectable Sims are tier 0 = EA's hand-off).
 
 **Counters:** [4112] made objects destroyed after a failed service, [4113] commodity updates ended after a throw, [4114] failed services logged by step. [3610] keeps its meaning (errors).
+
+## §3 alarmcmpnobox: switched on by earlyfix at startup, it never counted as on
+
+**Evidence [user's tally of 54 runs]:** with the switch turned on at app startup (earlyfix, `ApplyTuned` -> `Alloc87Sync`), the counters read installed=1, errors=1, rehomed=0. Turned on at world load, it rehomes 83 managers with no error.
+
+**Cause [verified, code]:** `Alloc87Sync` called `sA87Alarm.Set(on)`, then `A87Rehome(on)`, and set `sA87AlarmOn = on` only after both. With no world loaded, `A87Rehome` / `A87Managers` throws (AlarmManager.Global and LotManager.AllLots are not there yet). So `Set` had already installed our comparer, but the flag stayed false. Every later Sync saw `on != sA87AlarmOn`, called `Set` again and rehomed (on world load: works). But if the switch was turned off while the flag was false (`on == sA87AlarmOn`, both false), nothing ran, and our comparer stayed in `EqualityComparer<AlarmHandle>._default`. That is exact, but it is not EA's comparer as the switch promises.
+
+**Fix:** the flag is set right after `Set`. The rehome runs only while a world is loaded (`GameStates.IsInWorld`, not shutting down, `AlarmManager.Global` present). Otherwise it is put off ([4115]). On world load, `Alloc87WorldLoad` (added to Instantiator's `OnWorldLoadFinished` chain next to the other `*WorldLoad` calls) swaps the live managers' `mTimers.hcp` to the comparer of the switch's current state ([4116], also added to [3556]). `A87Rehome` swaps only EA's instance and ours into each other, so running it twice is harmless.
+
+**Counters:** [4115] rehomes put off with no world loaded, [4116] mTimers swapped at world load.

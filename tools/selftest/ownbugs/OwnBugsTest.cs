@@ -32,6 +32,9 @@ static class OwnBugsTest
         Check(!OwnBugsCore.SvcDestroyMade(false, false, OwnBugsCore.kSvcStepCreate), "nothing made, nothing destroyed");
         Check(OwnBugsCore.SvcDestroyMade(true, false, OwnBugsCore.kSvcStepCommodity), "made, throw before place: destroyed");
 
+        // §3 alarmcmpnobox: no rehome without a world (deferred to world load)
+        Check(!OwnBugsCore.A87RehomeNow(false) && OwnBugsCore.A87RehomeNow(true), "rehome only with a world");
+
         if (sFails > 0) { Console.WriteLine("ownbugs: " + sFails + " failed"); Environment.Exit(1); }
         Console.WriteLine("ownbugs: all checks passed");
     }

@@ -32,6 +32,9 @@ namespace Ts3Fixes
         // Log the n-th line (0-based) of a capped log?
         public static bool LogMore(int n, int cap) { return n >= 0 && n < cap; }
 
+        // ---- §3 alarmcmpnobox: rehome the live AlarmManagers now? Only with a world (no world: at world load) ----
+        public static bool A87RehomeNow(bool worldUp) { return worldUp; }
+
         // ---- §2 unseenservice: steps of one instant service, in order ----
         public const int kSvcStepStart = 0, kSvcStepOrder = 1, kSvcStepCommodity = 2, kSvcStepCreate = 3, kSvcStepPlace = 4, kSvcStepPour = 5,
             kSvcStepBehavior = 6, kSvcStepDone = 7, kSvcStepScope = 8;
