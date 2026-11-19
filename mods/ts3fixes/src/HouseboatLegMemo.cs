@@ -43,11 +43,17 @@ namespace Ts3Fixes
                 return g == Vector3.Invalid || float.IsNaN(g.x) || float.IsInfinity(g.x) ? Vector3.Origin : g;
             }
 
-            // EnterHouseboatThroughBoat's leg options (the only EA PlanFromPoint that sets all three)
+            // EnterHouseboatThroughBoat's leg options (the only EA PlanFromPoint that sets all three), or
+            // EnterHouseboatThroughLadder's leg: PlanToSlotFromPoint(RoutingSlot_0) with no boat options, run only for a swimming
+            // Sim inside CheckAndUpdateForHouseboats (Houseboat.sHouseboatStackDepth > 0)
             bool HlmLegRoute()
             {
-                return GetOption2(Sims3.SimIFace.Route.RouteOption2.EnablePlanningAsBoat) && GetOption2(Sims3.SimIFace.Route.RouteOption2.EndAsBoat)
-                    && GetOption2(Sims3.SimIFace.Route.RouteOption2.DestinationMustBeInDeepWater);
+                if (GetOption2(Sims3.SimIFace.Route.RouteOption2.EnablePlanningAsBoat))
+                    return GetOption2(Sims3.SimIFace.Route.RouteOption2.EndAsBoat) && GetOption2(Sims3.SimIFace.Route.RouteOption2.DestinationMustBeInDeepWater);
+                if (Sims3.Gameplay.Objects.Island.Houseboat.sHouseboatStackDepth == 0) return false;
+                IScriptProxy f = Follower;
+                Sim sim = f != null ? f.Target as Sim : null;
+                return sim != null && sim.Posture is Sims3.Gameplay.Pools.SwimmingInPool;
             }
 
             // the router's id, or 0 = not ours (no Sim or boat follower) / exempt (household, selected, unknown scope)
