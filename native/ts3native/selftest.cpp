@@ -13069,6 +13069,13 @@ static void TestNoPathMemoScope() {
     assert(NpmScope(0x777, 1, g_npmTRoute[1], &h, &kind, &via) == 0);  // the inner route is over: unknown
     NpmScopeNote(12, 0x25000011);
     assert(NpmScope(0x777, 1, outer, &h, &kind, &via) == 0);  // outer over: unknown
+    // docs/643 §7 player command marks (op 39): this route and follower only, until the route's op 12
+    assert(!NpmIsCmd(outer, 0x777, 1));
+    NpmScopeNote(39, 0x25000011);
+    assert(NpmIsCmd(outer, 0x777, 1) && !NpmIsCmd(outer, 0x778, 1) && !NpmIsCmd(g_npmTRoute[1], 0x777, 1));
+    NpmScopeNote(39, 0x25000011);  // marked twice: one record, one op 12 ends it
+    NpmScopeNote(12, 0x25000011);
+    assert(!NpmIsCmd(outer, 0x777, 1));
     g_orRmSlot = savedSlot, g_orRoute = savedRoute, g_npmOn = savedOn;
     printf("selftest nopathmemo: nested plan scope ok\n");
 }
@@ -14635,6 +14642,7 @@ int main() {
     TestCrashReport();
     TestUserDiag();
     TestNoPathMemo();
+    TestNoPathMemoFuzzy();
     TestNoPathMemoStub();
     TestNoPathMemoScope();
     TestPlayed();

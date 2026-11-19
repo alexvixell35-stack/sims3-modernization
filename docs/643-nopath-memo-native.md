@@ -1,7 +1,8 @@
 # 643. Native no-path memo for NPC water and boat plans (`[RouteAsync] NoPathMemo`)
 
 2026-11-19. Source: Isla Paradiso logs (docs/642 §6), ts3native code, Steam 1.67 disassembly. Built (`nopathmemo.cpp`), default
-off, NOT RUN. Counters: `ts3native_nopathmemo` export, slots 4000-4003 (docs/registry.md).
+off, NOT RUN. Counters: `ts3native_nopathmemo` export, slots 4000-4003 (docs/registry.md). §7: fuzzy match and household scope
+(`npmfuzzy`, `npmhousehold`, slots 4240-4243).
 
 ## 1. Problem [verified, log + code]
 
@@ -199,3 +200,116 @@ Proof on the next run: the counter line's `slow NPC plans N (by route handle M)`
 `NoPathMemoMinMs`), `scope by route handle`, the ` (scope by route handle)` tag on `recorded` / `served` lines, and the capped
 `route nopath memo: not recorded route %08X kind K scope S, N ms: <reason>` lines (cut by an exit, a Sim blocker, world not
 quiet or version moved, path status N; -1 = empty out list).
+
+## 7. Fuzzy match and household scope (`NoPathMemoFuzzy`, `NoPathMemoHousehold`; ts3fixes `npmfuzzy`, `npmhousehold`)
+
+2026-11-19, built, default off, NOT RUN. Code: `nopathmemo-core.h` (fuzzy table), `nopathmemo.cpp`, `userdiag.cpp` (ops 38 /
+39), ts3fixes `NoPathMemoSwitches.cs`.
+
+### 7.1 Evidence [verified, log]
+
+Appaloosa Plains run phase-20261119-2045 (`ts3native-full.log` lines 12985-13029):
+- Two hitches of 1056 ms and 1014 ms (hitchwatch, ticks 461641 and 461901, 260 ticks and 1.9 s apart).
+- Before the first: 10 `recorded` / `miss` pairs in one tick, all scope 3 (seen NPC), kind -1 (sync plan on the sim thread),
+  95-101 ms each, every one `nearest entry of this follower 0.00 m away, destination differs, agent same, options xor 0 0 0 0`.
+  Each names another route handle: a new Route object per try.
+- The second burst is not in the log: the `miss` / `recorded` lines are capped at 10 a real minute and the 1.9 s gap is inside
+  the same minute. Same pattern [inferred].
+- Which follower: the memo lines did not print it (they do now, `fuzzy served ... follower`). The brief names
+  `2B9900416E8D4F90`: Skedaddle Darnell, a townie horse (routecause `npc`, routefail `seen npc`), not a household pet
+  [verified, log lines 2027-2044, 14332]. Its FollowerMeetUpAtPoint plans in the same log fail with
+  FailedBecauseDestinationPortalLocked toward goals 0.6-0.9 m apart (`goal 758.5,52.2,637.5` / `759.2,52.2,636.9`).
+
+### 7.2 What drives the retries [verified, decompiled Sims3GameplaySystems]
+
+`FollowerMeetUpAtPoint` (a `GoHereWithHoldingInteraction`, made by `GoHereWithSituation.ReserveFollowers` with the leader's
+priority + 2) runs the loop in `GoHereWithHoldingInteraction.Run`:
+- Per meeting point, up to `GoHereWithSituation.kNumberOfTimesToRoute` (3) tries. Each try is `Actor.CreateRoute()`, one or
+  two `RadialRangeDestination`s around the meeting point (`AddRouteDest`: radius `kMinFollowerRadius` 1 m to
+  `kMaxFollowerRadius` 3.5 m, x1.5 with a boat; a horse or a large group gets the full 360° ring), `SetValidRooms(lot, [room])`
+  from the meeting point, `DoRouteFail = false`, then `route.Plan()` (sync).
+- After a failed try that ends more than 3.5 m from the point, the meeting point moves `1.5 x 0.3 m` (0.45 m) in a random
+  direction and the next try starts.
+- When all tries fail, `routeCompleteDelegate(false)` and `RouteFailed`; the situation hands out a new meeting point around
+  the leader and the loop runs again.
+
+So every try has new destination records (a new Route, a new centre) and the exact key of §2 can never repeat: `destination
+differs` on every line. The exact key also hashes the destination set's valid-rooms vector pointers (`+0x20/+0x24`), which are
+per Route object; that is fine for the same route's retries (§2), but means even an identical request on a new Route is a new
+key.
+
+### 7.3 Rule
+
+Fuzzy entries are recorded next to every exact record (same gate: NPC scope or §7.4, no cut, no Sim blocker, quiet world, at
+least `NoPathMemoMinMs`), in a separate 64-entry LRU table, when `fuzzy` is on and the plan had goal points. A later plan is
+answered with EA's FailedBecauseNoPathToDestination (16, the §2 stub) when an entry matches all of:
+- the same follower and the same request shape (`fkey`): routing world, follower, agent class, the four RouteOption words, the
+  destination count and each destination's type (vtable), the destination set's flag `+0x30`, its valid rooms (the room ids,
+  not the vector pointers) and their lot `+0x38/+0x3C` (docs/92 route fields [verified]). That is the same room and lot when
+  the script set them;
+- a start within 0.5 m (`NPM_FZ_START_M`);
+- a goal centroid (mean of the `goals` records, the points Route_PlanCommon generated for this try) within R = 1.0 m in xz
+  (`NPM_FZ_GOAL_M`) and 0.5 m in height (`NPM_FZ_DY_M`: same level), and a goal spread (largest xz distance of a goal point
+  from the centroid) within 1.0 m of the recorded one (the same ring size);
+- inside `NoPathMemoFuzzyMinutes` (default 10 = 375 sim ticks) of the recorded plan, the same static world version (and
+  footprint version for a request that reads footprints), the world quiet, the out list empty, the stub in: the §2 rules.
+
+Why these numbers:
+- R = 1 m: one EA step moves the centre 0.45 m; two steps up to 0.9 m; the logged goals of consecutive tries are 0.6-0.9 m
+  apart. 1 m is also the ring's own minimum radius, so the new ring overlaps the failed one almost entirely. Only real plans
+  record: an answer never extends the reach, so a chain of answers cannot drift more than 1 m from a plan EA really ran.
+- TTL 10 sim-minutes: covers the second burst (260 ticks after the first), short against the exact memo's 120.
+- Start 0.5 m: the bursts started 0.00 m apart; a moved follower searches again.
+
+Never after a success: any plan of that follower that does not fail with no path (success, another failure, a Sim blocker,
+an empty out list), on any path through `CallPlan` (also exempt, refused, not-PlanCommon and non-water plans), drops all its
+fuzzy entries (`NpmFzNote`). A cut plan is not a success and keeps them. World changes drop entries as for the exact memo: the
+[RouteSnap] static version (lot routing, quad tree / LotGraph builds, water grid, lot updates, routing IC epochs: a build-mode edit
+rebuilds lot routing; whether a door lock change moves it is not checked [open]), another routing world (clears the table), the sim clock going back. Switching `fuzzy` or the
+memo off clears the table (successes would go unseen).
+
+### 7.4 Household, selected and unknown scope
+
+`household` (NoPathMemoHousehold / `npmhousehold`) lets scope 0 / 1 plans record and be answered, exact and fuzzy: the answer
+is the same type EA gave for the same request a moment before (approved by the user 2026-11-19). Except player commands:
+ts3fixes marks a route with UserDiag op 39 (right after the scope op, only with `npmhousehold` on) when its Sim is the
+selected or a selectable Sim and its current interaction is UserDirected, not autonomous and not a `FollowerMeetUpAtPoint`
+(a follower's situation interaction, which carries the leader's priority). NpmPlan checks the mark against this plan's route
+object and follower (`NpmIsCmd`, 8 records, cleared by the route's op 12 or after 120 s); a marked plan always searches
+(`cmdExempt`). `[Experimental] HouseholdToo=1` still lifts the old exemption as before, but never a marked command.
+
+### 7.5 Wiring
+
+- ts3native.ini `[RouteAsync]`: `NoPathMemoFuzzy=0`, `NoPathMemoHousehold=0` (start values of the runtime switches at
+  `ts3native_nopathmemo +0x64 / +0x68`), `NoPathMemoFuzzyMinutes=10` (1-60). All need `NoPathMemo` 1 or 2.
+- ts3fixes `npmfuzzy`, `npmhousehold` (`Instantiator.kNpmFuzzy` / `kNpmHousehold`, default False, tuning XML in
+  build-fixes.ts, ts3agent `patches` names): UfPlanBody sends UserDiag op 38 (`lo` bit 0 fuzzy, bit 1 household) when the
+  switch state changed since the last send; the answer (1 = memo installed) counts [4240] / [4241]. ts3fixes then owns the
+  runtime switches (the ini values are only the start). Op 39 marks count [4242]; errors [4243]. Check:
+  `reflect_call Ts3Fixes.Fixes.NpmCheck run` (flag encoding and the command rule with controls).
+- Counters (registry.md): export `+0x64..+0x9B` (fuzzy, household, fzTtlMin, fzRecorded, fzServed, fzServedMs, fzFar,
+  fzDropped, fzStale, fzEvicted, hhLifted, hhServed, cmdExempt, optMsgs).
+- Log: `route nopath memo: fuzzy served route %08X kind K scope S follower G, goal D m and start D m from a recorded no-path
+  plan, stands for N ms` (in the `served` cap), `recorded ... (+fuzzy)`, `exempt ... (player command)`, a second minute line
+  `route nopath memo: fuzzy F household H: fuzzy recorded ...`, and `ts3fixes switches npmfuzzy F npmhousehold H` on a change.
+
+### 7.6 What differs from vanilla
+
+As §3, for the fuzzy answers also: a retry toward a goal within 1 m of a goal EA just failed to reach gets the failure without
+its own search. If that nearby goal was in fact reachable (a wall or door between two rings 1 m apart, same room and lot), the
+follower takes the failure path of `GoHereWithHoldingInteraction.Run` one try early: the meeting point moves on or the
+situation gives a new one (EA's own path after a failed try). With `household` on this can happen to a household pet or Sim's
+automatic route, never to a marked player command.
+
+### 7.7 Build and test
+
+- Built 2026-11-19 on Linux: clang-cl + xwin (`ts3native.asi`, Steam table; `/DTS3A_TABLE /EHsc /Zs` clean), ts3fixes and
+  ts3agent packages with Roslyn. A clang-built asi must not run in the game (x86 SEH limit); CI's MSVC build is the game build.
+- `TestNoPathMemoFuzzy` (`nopathmemo-test.h`): key without the destination records, goal radius (0.45 m and 0.85 m hit, 1.2 m
+  far), level, spread, start (0.4 m hit, 0.6 m far), follower and shape, nearest recorded goal, refresh in place, TTL per
+  record, static / footprint versions, clock back, follower drop, the 64-entry bound. `TestNoPathMemoScope` also checks the
+  op 39 marks. Passed under Wine, as a plain program and in the selftest build run in isolation (the full clang-built selftest
+  stops at an older test at a direct memory fault, the known SEH limit, before these).
+- In game (to do), the same save, `NoPathMemo=2`, `npmfuzzy` off then on: count hitchwatch >= 500 ms, the `miss ... destination
+  differs` lines and `fuzzy served` lines; `fzServed` should grow by ~9 per burst and `fzDropped` by one per follower success.
+  `npmhousehold` as a second arm: `hhServed` grows, `cmdExempt` grows with Go Here clicks, no player command in `served` lines.

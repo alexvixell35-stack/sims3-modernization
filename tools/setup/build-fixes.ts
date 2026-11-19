@@ -148,6 +148,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenBoatLandRatio value="0.5" />
     <kBoatTaxiMemo value="False" />
     <kBoatTaxiMemoHours value="4" />
+    <kNpmFuzzy value="False" />
+    <kNpmHousehold value="False" />
     <kTrashOutsideFallback value="False" />
     <kTrashOutsideFallbackHours value="4" />
     <kWildLotSkip value="False" />

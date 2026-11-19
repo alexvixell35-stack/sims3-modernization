@@ -707,6 +707,8 @@ static void MsLine(const char* line);  // memdiag.cpp: [MemDiag] suspect counter
 static u8 MsOp(int op);                // memdiag.cpp: ops 3-5 (on / sample wanted / self-test wanted)
 static u8 CtOp(int op, DWORD lo);      // castrim.cpp: ops 14-19, the save sweep's keep list and pump (docs/539 §6)
 static void NpmScopeNote(int op, DWORD handle);  // nopathmemo.cpp: route scopes by handle (docs/643)
+static u8 NpmOptMsg(DWORD lo);  // nopathmemo.cpp: op 38, ts3fixes npmfuzzy / npmhousehold (docs/643 §7)
+static u8 NpmCmdMsg();         // nopathmemo.cpp: op 39, the route is the selected Sim's own command (docs/643 §7)
 static u8 UdTextMsg(DWORD lo, DWORD hi) {
     if (!g_udOn) return 0;
     NpmScopeNote((hi >> 16) & 0xFF, lo);
@@ -719,6 +721,8 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
         case 12: KdScopeClear(lo); GvaPlanEnd(); if (g_pfH == lo) g_pfH = 0; return 1;  // docs/631: a sync plan's PlayerFirst mark ends with it too  // docs/197 §7: route lo's plan is over (docs/250 §7.0: gvattr's plan end)
         case 35: return GvaSrcMsg(lo);  // docs/250 §7.0 (gvro.cpp): the next plan's source class and scope, or "gvattr on?"
         case 37: PfSet(lo); return g_pfMode == 1 ? 1 : 0;  // docs/631 [RouteAsync] PlayerFirst: route lo is the player's (ts3fixes playerfirst), before its START; 1 = honoured
+        case 38: return NpmOptMsg(lo);  // docs/643 §7: ts3fixes npmfuzzy (bit 0) / npmhousehold (bit 1); 1 = the memo took them
+        case 39: return NpmCmdMsg();    // docs/643 §7: route lo is the selected Sim's own command (noted above); 1 = NoPathMemoHousehold on
         case 36: return DmxScriptOp(lo);  // hostcalls.cpp: DoorMemoX=3 managed door-input generation (ts3fixes DoorGen.cs)
         case 13: KdScopeSet(lo, 3, hi & 0xFFFF); return 1;  // docs/197 §7: a seen NPC (KdSeenNpcCeilMs); an old package never sends it
         case 14: case 15: case 16: case 17: case 18: case 19: return CtOp((hi >> 16) & 0xFF, lo);

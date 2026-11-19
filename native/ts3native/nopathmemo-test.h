@@ -94,3 +94,91 @@ static void TestNoPathMemo() {
     assert(NpmTabClear(&t) == NPM_ENTRIES && NpmTabLive(&t) == 0);
     printf("selftest nopathmemo: key, start tolerance, TTL, invalidation, eviction, nearest ok\n");
 }
+
+// docs/643 §7 fuzzy match: FollowerMeetUpAtPoint's tries, a new RadialRange around a meeting point moved 0.45 m per try
+static NpmReq NpmTFz(uint64_t foll, uint64_t shape, float sx, float sz, float gx, float gy, float gz, float ring) {
+    NpmReq r = NpmTReq(foll, 0xC0FFEE + (uint64_t)(gx * 1000), sx, sz);  // the exact destination hash differs every try
+    // 17 goal points on a ring of radius `ring` around (gx, gy, gz), 64-byte records as Route_PlanCommon's goals
+    static uint8_t recs[17 * 64];
+    memset(recs, 0, sizeof(recs));
+    for (int i = 0; i < 17; i++) {
+        float* p = (float*)(recs + i * 64);
+        const float a = 6.2831853f * (float)i / 17.0f;
+        p[0] = gx + ring * cosf(a), p[1] = gy, p[2] = gz + ring * sinf(a);
+    }
+    NpmGoalGeom(recs, 17, 64, &r);
+    r.fkey = NpmFuzzyKey(r, 0x1234, shape);
+    return r;
+}
+
+static void TestNoPathMemoFuzzy() {
+    static NpmFzTable t;
+    NpmFzClear(&t);
+    const uint64_t ttl = NpmTtlTicks(10);  // 375 ticks: the second burst of the 2026-11-19 log came 260 ticks after the first
+    int32_t ms = -1;
+    float gm = -1, sm = -1;
+    int d = 0;
+    assert(ttl == 375);
+
+    // goal geometry: centroid of the ring is its centre, spread its radius
+    const NpmReq a = NpmTFz(1, 0x51, 10.0f, 20.0f, 30.0f, 5.0f, 40.0f, 3.5f);
+    assert(a.gn == 17 && fabsf(a.gc[0] - 30.0f) < 0.01f && fabsf(a.gc[2] - 40.0f) < 0.01f && fabsf(a.gr - 3.5f) < 0.05f);
+    NpmReq none = a;
+    none.gn = 0;
+    assert(NpmFzLook(&t, none, 100, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_MISS && NpmFzPut(&t, none, 100, 7, 9, false, 1) == 0);
+    assert(NpmFzLive(&t) == 0);  // no goal points: never recorded or answered
+
+    // the key ignores the destination records, not the follower, request shape (rooms, lot, types) or options
+    assert(NpmTFz(1, 0x51, 10, 20, 31, 5, 40, 3.5f).fkey == a.fkey && NpmTFz(1, 0x51, 10, 20, 31, 5, 40, 3.5f).key != a.key);
+    assert(NpmTFz(2, 0x51, 10, 20, 30, 5, 40, 3.5f).fkey != a.fkey && NpmTFz(1, 0x52, 10, 20, 30, 5, 40, 3.5f).fkey != a.fkey);
+    NpmReq o = a;
+    o.opts[0] = 4;
+    assert(NpmFuzzyKey(o, 0x1234, 0x51) != a.fkey);
+
+    // EA's next tries: meeting point 0.45 m on (hit), 0.85 m diagonal (hit), 1.2 m (far), another level 3 m up (far)
+    assert(NpmFzLook(&t, a, 100, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_MISS);
+    assert(NpmFzPut(&t, a, 100, 7, 9, false, 97) == 0 && NpmFzLive(&t) == 1);
+    assert(NpmFzLook(&t, NpmTFz(1, 0x51, 10, 20, 30.45f, 5, 40, 3.5f), 101, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_HIT && ms == 97);
+    assert(fabsf(gm - 0.45f) < 0.02f && sm < 0.01f);
+    assert(NpmFzLook(&t, NpmTFz(1, 0x51, 10, 20, 30.6f, 5, 40.6f, 3.5f), 101, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_HIT);
+    assert(NpmFzLook(&t, NpmTFz(1, 0x51, 10, 20, 31.2f, 5, 40, 3.5f), 101, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_FAR);
+    assert(NpmFzLook(&t, NpmTFz(1, 0x51, 10, 20, 30.2f, 8, 40, 3.5f), 101, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_FAR);
+    // a ring of another size (spread 1.2 m off), a start 0.6 m away (far) or 0.4 m (hit), another follower, another shape
+    assert(NpmFzLook(&t, NpmTFz(1, 0x51, 10, 20, 30.2f, 5, 40, 2.3f), 101, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_FAR);
+    assert(NpmFzLook(&t, NpmTFz(1, 0x51, 10.6f, 20, 30.2f, 5, 40, 3.5f), 101, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_FAR);
+    assert(NpmFzLook(&t, NpmTFz(1, 0x51, 10.4f, 20, 30.2f, 5, 40, 3.5f), 101, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_HIT);
+    assert(NpmFzLook(&t, NpmTFz(2, 0x51, 10, 20, 30.2f, 5, 40, 3.5f), 101, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_MISS);
+    assert(NpmFzLook(&t, NpmTFz(1, 0x52, 10, 20, 30.2f, 5, 40, 3.5f), 101, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_MISS);
+
+    // the nearest recorded goal answers; a second real failure 0.9 m on extends the reach only by its own record
+    assert(NpmFzPut(&t, NpmTFz(1, 0x51, 10, 20, 30.9f, 5, 40, 3.5f), 110, 7, 9, false, 98) == 0 && NpmFzLive(&t) == 2);
+    assert(NpmFzLook(&t, NpmTFz(1, 0x51, 10, 20, 31.2f, 5, 40, 3.5f), 111, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_HIT && ms == 98);
+    assert(fabsf(gm - 0.3f) < 0.02f);
+    // the same start and goal again refreshes in place
+    assert(NpmFzPut(&t, NpmTFz(1, 0x51, 10, 20, 30.9f, 5, 40, 3.5f), 120, 7, 9, false, 99) == 0 && NpmFzLive(&t) == 2);
+
+    // TTL from each record's own plan; a world version change drops entries on the way (static always, footprints if dyn)
+    assert(NpmFzLook(&t, a, 100 + ttl - 1, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_HIT && ms == 97);
+    assert(NpmFzLook(&t, a, 100 + ttl, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_HIT && ms == 99 && d == 1);  // first expired, second in
+    assert(NpmFzLive(&t) == 1);
+    assert(NpmFzLook(&t, a, 130, ttl, 8, 9, &ms, &gm, &sm, &d) == NPM_MISS && d == 1 && NpmFzLive(&t) == 0);  // a rebuild
+    NpmFzPut(&t, a, 200, 7, 9, true, 97);
+    assert(NpmFzLook(&t, a, 201, ttl, 7, 10, &ms, &gm, &sm, &d) == NPM_MISS && d == 1);  // footprints moved, request reads them
+    NpmFzPut(&t, a, 200, 7, 9, false, 97);
+    assert(NpmFzLook(&t, a, 201, ttl, 7, 10, &ms, &gm, &sm, &d) == NPM_HIT);              // footprints moved, not read
+    assert(NpmFzLook(&t, a, 199, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_MISS && d == 1);   // clock went back
+
+    // a plan of that follower that did not fail with no path drops every entry of that follower, no other
+    NpmFzPut(&t, a, 300, 7, 9, false, 97);
+    NpmFzPut(&t, NpmTFz(1, 0x52, 10, 20, 30, 5, 40, 3.5f), 300, 7, 9, false, 97);
+    NpmFzPut(&t, NpmTFz(2, 0x51, 10, 20, 30, 5, 40, 3.5f), 300, 7, 9, false, 97);
+    assert(NpmFzLive(&t) == 3 && NpmFzDropFoll(&t, 1) == 2 && NpmFzLive(&t) == 1);
+    assert(NpmFzLook(&t, NpmTFz(1, 0x51, 10, 20, 30.2f, 5, 40, 3.5f), 301, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_MISS);
+    assert(NpmFzLook(&t, NpmTFz(2, 0x51, 10, 20, 30.2f, 5, 40, 3.5f), 301, ttl, 7, 9, &ms, &gm, &sm, &d) == NPM_HIT);
+
+    // bounded: a flood never holds more than the table (LRU), and clear empties it
+    for (int i = 0; i < 3 * NPM_FZ_ENTRIES; i++) NpmFzPut(&t, NpmTFz(100 + (uint64_t)i, 0x51, 0, 0, 0, 0, 0, 1), 400, 7, 9, false, 1);
+    assert(NpmFzLive(&t) == NPM_FZ_ENTRIES);
+    assert(NpmFzClear(&t) == NPM_FZ_ENTRIES && NpmFzLive(&t) == 0);
+    printf("selftest nopathmemo: fuzzy key, goal radius, start, level, spread, TTL, versions, follower drop, bound ok\n");
+}
