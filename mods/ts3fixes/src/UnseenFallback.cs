@@ -958,6 +958,7 @@ namespace Ts3Fixes
                         }
                     if (btm && !btmAnswered) BtmPost(r, unchecked(System.Environment.TickCount - t0));
                     if (hlmLeg != 0) HlmPost(hlmLeg, p, r, unchecked(System.Environment.TickCount - t0), last.Cut);
+                    else if (kind == 2 && ShortcutOn("houseboatlegmemo")) HlmMiss(r, unchecked(System.Environment.TickCount - t0));
                 }
                 finally { sUfPlanDepth.Exit(task); DiagSend(12, Handle); }  // docs/197 §7: this plan's scope ends here
                 UrLearn ln;

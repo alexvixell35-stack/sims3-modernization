@@ -91,6 +91,24 @@ namespace Ts3Fixes
                 catch (Exception) { c[3873]++; leg = 0; return false; }
             }
 
+            // a slow kind-2 no-path plan HlmPre did not take: log why (options, follower, scope), so a silent skip shows in the log
+            void HlmMiss(RoutePlanResult r, int ms)
+            {
+                if (ms < 300 || r.mType != RoutePlanResultType.FailedBecauseNoPathToDestination) return;
+                try
+                {
+                    IScriptProxy f = Follower;
+                    object t = f != null ? f.Target : null;
+                    Sim sim = t as Sim;
+                    HlmLog("skip " + ms + " ms, opts boat " + GetOption2(Sims3.SimIFace.Route.RouteOption2.EnablePlanningAsBoat)
+                        + " endboat " + GetOption2(Sims3.SimIFace.Route.RouteOption2.EndAsBoat)
+                        + " deep " + GetOption2(Sims3.SimIFace.Route.RouteOption2.DestinationMustBeInDeepWater)
+                        + " noland " + GetOption2(Sims3.SimIFace.Route.RouteOption2.DisablePlanningOnLand)
+                        + ", follower " + (t != null ? t.GetType().Name : "null") + (sim != null ? " " + sim.FullName + (HouseholdExempt(sim) ? " exempt" : " npc") : ""));
+                }
+                catch (Exception ex) { HlmLog("skip error " + ex.GetType().Name); }
+            }
+
             // after the plan ran (leg != 0 from HlmPre): record a no-path failure that no Sim or vehicle blocked, and no cut
             void HlmPost(ulong leg, Vector3 start, RoutePlanResult r, int ms, bool cut)
             {
