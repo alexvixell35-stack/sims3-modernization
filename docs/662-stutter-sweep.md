@@ -133,3 +133,32 @@ TailUnlock / P5 lending admit them (docs/176 §6). Measure with the repro `ip-ki
 **Build checks:** `clang-cl` compiles `ts3native.cpp` and `selftest.cpp` (i686, xwin). The selftest exe cannot run here: built
 with clang it faults in `TestRouteCache` (clang x86 SEH does not catch the deliberate faults inside `__try`), before `TestA10`.
 Run `native/ts3native/build.cmd` (MSVC) before any game run.
+
+## 5. Object destroy / release ("P5c final release" near hitches): characterised, no fix [measured; type names verified]
+
+The lines come from `p5c.cpp` `P5cObjLog` ([CrashForensics] on, first 4096 parks and 4096 final releases a session): a destroy
+while a route job runs parks one reference (design G, `[Discourage] DestroyPark` / P5c window) and the last Release runs on
+the sim thread at the next no-job flush point (START / READY polls, save, closing).
+
+- 29 logs: ~111,000 parked + released objects (22 of 29 logs hit the 4096-line cap, so late-session ones are not logged).
+- Resource type of the key (`+0x18..+0x24`): **0x2DA18F83 = `kEffectsObjectResourceID` (VFX effect objects) 81%**;
+  0x319E4F1D = OBJD game objects 19% (top instances 0x37F, 0x0098B3B5, 0x8FE, 0x0098DB49); 0x02DC343F 1.4%. Top effect
+  instances 0x71DDDE5B (35k), 0xAEC39CA4 (13k), 0x3876EF4A (6k), 0x17FF8C1F (4k).
+- Park age (destroy -> final release): p50 38 ms, p90 128 ms, max 11.3 s (a job that long).
+- **Not denser in hitches:** release lines per log line are 0.21 inside hitch windows (40 lines before to 10 after a
+  >= 200 ms hitch) against 0.32 over the whole logged span. The first ranking's "P5c near the hitch" is co-location: effect
+  objects are created and destroyed all the time (~3,800 a session), so most windows hold some.
+
+No fix: nothing shows the release itself is slow, and the destroy work is EA's own (moved to the flush point, not added).
+To decide it, the next run would need a time stamp per `P5cFlush` (count and us) in the hitch frame; not built.
+
+## 6. Left, and why
+
+- **Household (why 3) sync plans:** 7 hitches / 2.5 s. `KindsUnseen` keeps them sync; an exact path for them needs proof
+  the job equals the sync plan under every cut, which A10 cannot give while `KindDeadlines` cuts own jobs (§4).
+- **Seen NPCs (why 4-8) sync plans:** 18 hitches / 9 s. Same mechanism as §4; a second mask (scope 3) is a one-line
+  extension once §4 is measured. Not built, so the first A/B reads unseen only.
+- **Kind 0 sync plans (M1Pending / Los):** 8 hitches / 3.8 s; not a kind gate, A10's own refusals.
+- **Async victims (~245 hitches / ~95 s):** the frame cause is elsewhere (lock-holder waits behind worker jobs, boats, pets,
+  harness). These logs had no `HitchAttr` frame keys; the docs/247 §13.4 C/J1 per-site drain counters are the next step.
+- **Stuck-check probes:** 460 async drain plans; the decision-identical saving is the existing opt-in `stuckchecknear` (§3).
