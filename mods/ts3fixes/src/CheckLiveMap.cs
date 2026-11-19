@@ -276,6 +276,7 @@ namespace Ts3Fixes
                 case "partylotlistener": return EpJoin(EpLive(typeof(BPlHappenHook), 1), EpLive(typeof(BPlWaitHook), 1));
                 case "partymotive": return EpLive(typeof(PfRemoveHook), 1, "sPfMotives", sPfMotives, null);
                 case "partyoutcome": return EpLive(typeof(PfOutcomeHook), 2);
+                case "perfjobmissedlistener": return EpLive(typeof(PjmHook), 1);
                 case "permamemo": return EpJoin(EpLive(typeof(BuffParseHook), 0), EpLive(typeof(PermaMemoHook), 0));
                 case "permazombiemoon": return EpLive(typeof(PermaZombieHook), 1);
                 case "petdreamtimer": return EpLive(typeof(B12PdHook), 1, "sPdTimer", sPdTimer, typeof(float), "sPdTimer", sPdTimer, null, "sPdFreq", sPdFreq, typeof(float), "sPdFreq", sPdFreq, "static");

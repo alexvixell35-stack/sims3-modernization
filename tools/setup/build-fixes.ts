@@ -268,6 +268,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSocialFinish value="True" />
     <kSocialReceiveFail value="True" />
     <kSocialUnlinkEnd value="False" />
+    <kPerfJobMissedListener value="False" />
     <kPetFirePlan value="False" />
     <kSplashRoof value="False" />
     <kShuffleboardBcast value="True" />
