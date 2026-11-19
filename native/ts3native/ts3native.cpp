@@ -5515,12 +5515,31 @@ static const DWORD kArFgnHi = 0x20000000;
 static DWORD g_arPt[3], g_arPtSet;  // sim thread only
 static int g_arOwnKinds = 7;        // [RouteAsync] Kinds: kinds whose own-task STARTs may start (InstallA10; selftest keeps 7)
 static int g_arWdKind2;             // [RouteAsync] WatchdogKind2 (docs/250 §7.1): own PlanFromPoint STARTs tagged as the watchdog's check may start
-// WatchdogKind2 with kind 2 in neither Kinds nor ForeignKinds: a PlanFromPoint call that READY did not arm and that meets no job of
-// its route runs the game's IC directly (a10.cpp), exactly as unhooked. Sim thread only.
-static bool ArWdPass(DWORD handle) {
-    return g_arWdKind2 && !((g_arOwnKinds | ts3native_counters.afKinds) & 2) && g_collect != handle &&
+// docs/662 §4 [RouteAsync] KindsUnseen (default 0; bits as Kinds): own-task STARTs of these kinds pass the kind gate only for a
+// route ts3fixes scoped unseen right before its START (UserDiag op 11: UfWhy 0, never household, selected or unknown scope;
+// [Experimental] HouseholdToo lifts it through HhExempt: the job runs the game's whole IC, a worker-computed answer). Every
+// other own START of the kind stays refused (NoStart, sync as with Kinds=0). Sim thread only.
+static int g_arUnseenKinds;
+static volatile LONG g_arUnseenPass[3], g_arUnseenNot[3], g_arUnseenLines;  // gate passes / own STARTs of these kinds not unseen (log only)
+static bool KdScopeUnseen(DWORD handle);  // plandeadline.cpp: ts3fixes sent scope 2 (unseen) for this route's coming START
+static bool HhExempt(bool hh);
+static bool ArUnseenPass(DWORD handle, int idx) {
+    if (idx < 1 || idx > 3 || !(g_arUnseenKinds >> (idx - 1) & 1)) return false;
+    if (HhExempt(!KdScopeUnseen(handle))) { InterlockedIncrement(&g_arUnseenNot[idx - 1]); return false; }
+    const LONG n = InterlockedIncrement(&g_arUnseenPass[idx - 1]);
+    if ((n & (n - 1)) == 0 && InterlockedIncrement(&g_arUnseenLines) <= 24)  // 1, 2, 4, 8, ... per kind: a capped trail
+        Log("route async: KindsUnseen: own kind %d START of unseen route %08lX passes the kind gate (passes %ld %ld %ld, not unseen %ld %ld %ld)",
+            idx, handle, g_arUnseenPass[0], g_arUnseenPass[1], g_arUnseenPass[2], g_arUnseenNot[0], g_arUnseenNot[1], g_arUnseenNot[2]);
+    return true;
+}
+// a kind hooked only for WatchdogKind2 (kind 2) or KindsUnseen and in neither Kinds nor ForeignKinds: a call that READY did not
+// arm and that meets no job of its route runs the game's IC directly (a10.cpp), exactly as unhooked (no SyncIc). Sim thread only.
+static bool ArPass(int kind, DWORD handle) {
+    const int bit = 1 << (kind - 1), extra = g_arUnseenKinds | (g_arWdKind2 ? 2 : 0);
+    return (extra & bit) && !((g_arOwnKinds | ts3native_counters.afKinds) & bit) && g_collect != handle &&
            !(GetCurrentThreadId() == g_async.owner && JobFor(handle));
 }
+static bool ArWdPass(DWORD handle) { return ArPass(2, handle); }
 
 static u8 SpDoorMsg(DWORD lo, DWORD hi);  // snap.cpp: door mirror channel (RouteOption bits 63 + 58)
 static u8 UtViewerMsg(DWORD lo, DWORD hi);  // unseen.cpp: active-household viewer channel (RouteOption bits 63 + 57)
@@ -5627,7 +5646,7 @@ static u8 A10StartBody(DWORD handle, DWORD optHi, int idx) {
             if (wdTagged) g_scTagH = 0;
             return ArRf3(idx, fgn, handle, RfbRefuse(handle, RFB_FOREIGN));
         }
-    } else if (!(g_arOwnKinds >> (idx - 1) & 1) && !wd2) {
+    } else if (!(g_arOwnKinds >> (idx - 1) & 1) && !wd2 && !ArUnseenPass(handle, idx)) {  // docs/662 §4 KindsUnseen
         g_collect = 0;
         if (wdTagged) g_scTagH = 0;
         return ArRf3(idx, fgn, handle, AsyncRefuse(handle, RFB_NOSTART, idx, false), kRf3KindsOff);

@@ -222,6 +222,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kDnpObjKeys value="True" />
     <kRelTablesApart value="True" />
     <kAsyncJigSync value="True" />
+    <kStuckTaskFlag value="True" />
+    <kWatchdogBusyDefer value="True" />
     <kDeadRefSweep value="False" />
     <kVacExport value="False" />
     <kVacStoreGuard value="False" />

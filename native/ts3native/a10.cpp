@@ -21,6 +21,7 @@
 static __declspec(noinline) u8* __cdecl ArReplanHook(u8* out, DWORD handle) {
     const void* ret = _ReturnAddress();
     if (g_p10On) P10Enter(1, (DWORD*)_AddressOfReturnAddress());  // P10 tags it here: its own stub is not installed then
+    if (ArPass(1, handle)) return ((IcPlanFn)g_arOrig[1])(out, handle);  // docs/662 §4: hooked only for KindsUnseen, not this route's job
     return IcCollect(1, out, handle, NULL, ret);
 }
 static __declspec(noinline) u8* __cdecl ArPlanFromPointHook(u8* out, DWORD handle, float x, float y, float z) {
@@ -41,6 +42,7 @@ static __declspec(noinline) u8* __cdecl ArReplanFromPositionHook(u8* out, DWORD 
     const void* ret = _ReturnAddress();
     if (g_p10On) P10Enter(3, (DWORD*)_AddressOfReturnAddress());
     const float pt[3] = {x, y, z};
+    if (ArPass(3, handle)) return ((IcPointFn)g_arOrig[3])(out, handle, x, y, z);  // docs/662 §4: hooked only for KindsUnseen
     return IcCollect(3, out, handle, pt, ret);
 }
 static void* const kArHooks[4] = {NULL, (void*)ArReplanHook, (void*)ArPlanFromPointHook, (void*)ArReplanFromPositionHook};
@@ -56,24 +58,29 @@ static const int kArBuilt = 7;  // the Kinds bits this build hooks (ts3fixes hoo
 // gate only when tagged as the watchdog's idle check (ts3fixes watchdogasync A1, ScProbeMark bit 10 for the same route; A1
 // never picks a household, selected or unknown-scope Sim). With kind 2 in neither Kinds nor ForeignKinds, every other call
 // of that IC goes straight to the game (ArWdPass, counted arWdPass).
+// [RouteAsync] KindsUnseen (docs/662 §4, default 0): the same bits for own-task STARTs of routes ts3fixes scoped unseen (UfWhy 0)
+// right before the START; household, selected and unknown scope stay refused (NoStart, sync). A kind hooked only for it passes
+// every other call straight to the game (ArPass), so household plans of that IC keep today's path exactly.
 // Needs the async path (InstallAsync). Before InstallP10, which then leaves the hooked ICs to these detours.
 static void InstallA10(const wchar_t* ini) {
     Ts3nCounters& k = ts3native_counters;
     const int kinds = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"Kinds", 0, ini), 0, 7);
     const int fkinds = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"ForeignKinds", 0, ini), 0, 7);
     const int wd2 = GetPrivateProfileIntW(L"RouteAsync", L"WatchdogKind2", 0, ini) ? 2 : 0;
-    if (!kinds && !fkinds && !wd2) { Log("route async A10 off (Kinds=0, ForeignKinds=0)"); return; }
+    const int ukinds = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KindsUnseen", 0, ini), 0, 7);
+    if (!kinds && !fkinds && !wd2 && !ukinds) { Log("route async A10 off (Kinds=0, ForeignKinds=0)"); return; }
     if (!k.asyncReady || !g_icPlanOrig) { Log("SKIP route async A10: needs the async route path"); return; }
     k.arMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KindsMode", 1, ini), 0, 1);
     k.afMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"ForeignKindsMode", 1, ini), 0, 1);
     for (int kind = 1; kind <= 3; kind++) {
-        if (!((kinds | fkinds | wd2) & kArBuilt & (1 << (kind - 1)))) continue;
+        if (!((kinds | fkinds | wd2 | ukinds) & kArBuilt & (1 << (kind - 1)))) continue;
         g_arOrig[kind] = InstallDetour(kP10Name[kind], kP10Ic[kind], kP10Pro[kind], sizeof(kP10Pro[kind]), kArHooks[kind], &g_arOrig[kind]);
         if (g_arOrig[kind]) k.arReady |= 1 << (kind - 1);  // a kind without its detour is refused at START
     }
     g_arOwnKinds = kinds;
     k.afKinds = fkinds & k.arReady;
     g_arWdKind2 = wd2 && (k.arReady & 2) ? 1 : 0;
-    Log("route async A10: Kinds=%d KindsMode=%ld ForeignKinds=%d ForeignKindsMode=%ld, hooked mask %ld, WatchdogKind2=%d", kinds,
-        k.arMode, fkinds, k.afMode, k.arReady, g_arWdKind2);
+    g_arUnseenKinds = ukinds & ~kinds & k.arReady;  // a kind in Kinds already starts for every scope
+    Log("route async A10: Kinds=%d KindsMode=%ld ForeignKinds=%d ForeignKindsMode=%ld, hooked mask %ld, WatchdogKind2=%d, KindsUnseen=%d (docs/662)", kinds,
+        k.arMode, fkinds, k.afMode, k.arReady, g_arWdKind2, g_arUnseenKinds);
 }

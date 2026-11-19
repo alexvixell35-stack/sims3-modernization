@@ -1054,6 +1054,58 @@ static void TestA10() {
         memset(&k.afMode, 0, offsetof(Ts3nCounters, afActiveTrip) + 4 - offsetof(Ts3nCounters, afMode));
     }
 
+    // 13b. docs/662 §4 [RouteAsync] KindsUnseen (release shape Kinds=0 ForeignKinds=4): an own START of a kind in KindsUnseen
+    // starts only for a route ts3fixes scoped unseen (op 11) right before it; no answer, household / seen (1), seen NPC (3) and
+    // another route's answer stay refused; a kind hooked only for it passes non-job calls straight to the game (no SyncIc)
+    {
+        const int ownKinds = g_arOwnKinds;
+        g_arOwnKinds = 0;
+        k.afKinds = 4;
+        g_arUnseenKinds = 1;  // Replan
+        const LONG st0 = k.arStarted[0], sync0 = k.arSyncN[0];
+        assert(!ArStart(kH1, 1, NULL) && !JobFor(kH1));  // no scope answer = unknown = household
+        KdScopeSet(kH1, 1);
+        assert(!ArStart(kH1, 1, NULL) && !JobFor(kH1));
+        KdScopeSet(kH1, 3);
+        assert(!ArStart(kH1, 1, NULL) && !JobFor(kH1));
+        KdScopeSet(kH2, 2);
+        assert(!ArStart(kH1, 1, NULL) && !JobFor(kH1) && k.arStarted[0] == st0);
+        assert(g_arUnseenNot[0] >= 4 && g_arUnseenPass[0] == 0);
+        // refused: the IC call goes to the game directly, as with Kinds=0 and nothing hooked
+        assert(ArPass(1, kH1) && ArCollect(1, out, kH1, NULL) == out && ArSync(out, 1) && k.arSyncN[0] == sync0);
+        KdScopeSet(kH1, 2);
+        g_icSleepMs = 10;
+        assert(ArStart(kH1, 1, NULL) && k.arStarted[0] == st0 + 1 && JobFor(kH1) && g_arUnseenPass[0] == 1);
+        assert(!ArPass(1, kH1));  // its job is there: the IC collects it
+        WaitReady(kH1);
+        assert(ArCollect(1, out, kH1, NULL) == out && ArFromJob(out, kH1, 1, NULL));
+        Cancel(kH1);
+        g_icSleepMs = 0;
+        // kind 2 not in KindsUnseen: refused even when unseen; kind 3 is a ForeignKinds kind: never passed through
+        KdScopeSet(kH1, 2);
+        assert(!ArStart(kH1, 2, p1) && !JobFor(kH1));
+        KdScopeClear(kH1);
+        assert(!ArPass(3, kH1) && !ArPass(2, kH1));
+        // [Experimental] HouseholdToo lifts the exemption (worker-computed answer), counted
+        const LONG lift0 = k.hhTooLift;
+        g_hhToo = 1;
+        KdScopeSet(kH1, 1);
+        g_icSleepMs = 5;
+        assert(ArStart(kH1, 1, NULL) && JobFor(kH1) && k.hhTooLift == lift0 + 1);
+        WaitReady(kH1);
+        assert(ArCollect(1, out, kH1, NULL) == out && ArFromJob(out, kH1, 1, NULL));
+        Cancel(kH1);
+        g_icSleepMs = 0;
+        g_hhToo = 0;
+        KdScopeClear(kH1);
+        g_arUnseenKinds = 0;
+        assert(!ArPass(1, kH1));
+        g_arOwnKinds = ownKinds;
+        k.afKinds = 0;
+        g_arUnseenPass[0] = g_arUnseenNot[0] = 0;
+        assert(!AsyncBusy() && g_async.state == A_IDLE);
+    }
+
     // 14. docs/250 §7.1 [RouteAsync] WatchdogKind2 (release shape Kinds=0 ForeignKinds=4): an own PlanFromPoint START starts
     // only with the switch on and the watchdog tag (ScProbeMark bit 10) on its route; every other kind-2 call runs the game's IC
     // directly (arWdPass), with no SyncIc (arSyncN unchanged)
