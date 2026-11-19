@@ -9,21 +9,25 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // docs/642 boattaximemo (default off). An NPC whose route EA gives a water leg gets a per-trip BoatTaxi when it has no
-    // boat of its own (Sim.GetNpcBoat: always for pets and tourists). GetInBoatRouteAction seats the rider as the taxi's
-    // driver and replans the same route with the taxi as follower (kind 3). When that replan finds no path, the route
-    // fails and nothing takes the rider out again: every later route of the rider starts as a boat from the same spot
-    // (SimRoutingComponent: a Sim whose parent is an IBoat plans with the boat as follower), fails, and EA's route-fail
-    // behaviour replans it toward the blocker (radial goal, ~2 s in the candidate phase). Twinbrook, one dog, all night.
-    // This memo: after a taxi plan with an NPC rider fails with no path (blocked by neither a Sim nor a vehicle), the pair
-    // (rider, destination: lot or 4 m cell) is remembered for kBoatTaxiMemoHours sim-hours with the taxi's spot.
+    // docs/642 boattaximemo (default off). Every boat a Sim rides comes from GetInBoatRouteAction on a route planned with
+    // EnablePlanningAsBoat: Sim.GetBoatForGetInBoatRouteAction gives an owned usable boat (GetOwnedAndUsableBoat), else for
+    // an NPC GetNpcBoat (a BoatTaxi for pets and tourists, else a generated BoatOwnable), else a BoatTaxi. The action seats
+    // the rider as the boat's driver and replans the same route with the boat as follower (kind 3). Any Boat subclass
+    // (owned sail/speed/fishing boats, water scooters, the taxi) is handled alike below. When that replan finds no path,
+    // the route fails and nothing takes the rider out again: every later route of the rider starts as a boat from the same
+    // spot (SimRoutingComponent: a Sim whose parent is an IBoat plans with the boat as follower), fails, and EA's route-fail
+    // behaviour replans it toward the blocker (radial goal, ~2 s in the candidate phase). Twinbrook: one dog in a taxi all
+    // night; next run every sail/speed/fishing boat plan (39, 0.2-0.8 s each, none succeeded).
+    // This memo: after a boat plan with an NPC rider fails with no path (blocked by neither a Sim nor a vehicle), the pair
+    // (rider, destination: lot or 4 m cell) is remembered for kBoatTaxiMemoHours sim-hours with the boat's spot.
     //   - the rider's own route to that destination plans with the boat off (EnablePlanningAsBoat, the stray rule): walk
-    //     or car, or EA's ordinary failure; it never boards a taxi that already failed there.
-    //   - a taxi plan for that rider and destination from the remembered spot (0.5 m, the stranded case) answers the
+    //     or car, or EA's ordinary failure; with the boat leg gone no GetInBoatRouteAction runs, so no boat of any kind.
+    //   - a boat plan for that rider and destination from the remembered spot (0.5 m, the stranded case) answers the
     //     recorded no-path failure without searching; no blocker, so the route-fail replan is skipped too.
     // Any occupant household, selected or of unknown scope (IsPlayerSim, never lifted by HouseholdToo: a skip): untouched.
     // Successes are never memoed; an answered plan does not extend its entry (after the hours a real plan proves it again).
-    // Counters [3864-3869], see Fixes.cs.
+    // Counters [3864-3869], see Fixes.cs; log lines "boattaximemo: recorded|answered|boat off <BoatType> ..." with a running
+    // per-type hit count (answered + boat off).
     public static partial class Fixes
     {
         struct BtmKey : IEquatable<BtmKey>
@@ -47,12 +51,23 @@ namespace Ts3Fixes
             public long From, Until;
             public Vector3 Start;
             public int Ms;
+            public string Type;  // the boat's class name, for the hit log
         }
 
         const int kBtmMax = 128;
         static readonly Dictionary<BtmKey, BtmEntry> sBtm = new Dictionary<BtmKey, BtmEntry>();
         static object sBtmLandRoute;  // the rider route BtmPre turned the boat off for (its result is counted in BtmPost)
         static int sBtmMinute = -1, sBtmLogged;
+        static readonly Dictionary<string, int> sBtmHits = new Dictionary<string, int>();
+
+        // one memo hit for this boat type: its running total
+        static int BtmHit(string type)
+        {
+            int n;
+            sBtmHits.TryGetValue(type, out n);
+            sBtmHits[type] = ++n;
+            return n;
+        }
 
         static void BtmLog(string s)
         {
@@ -82,9 +97,9 @@ namespace Ts3Fixes
         }
 
         // true = some occupant is household, selected or of unknown scope (no occupant at all = unknown)
-        static bool BtmTaxiExempt(BoatTaxi taxi)
+        static bool BtmBoatExempt(Boat boat)
         {
-            Sim[] occ = taxi.Occupants;
+            Sim[] occ = boat.Occupants;
             if (occ == null || occ.Length == 0) return true;
             for (int i = 0; i < occ.Length; i++)
                 if (occ[i] == null || IsPlayerSim(occ[i])) return true;
@@ -95,8 +110,8 @@ namespace Ts3Fixes
 
         public partial class RouteBackoffHook
         {
-            // before the plan (UfPlan). true = r is the answer (stranded taxi, proven failing); false = plan as usual
-            // (with the boat off when the rider's own route goes where its taxi failed)
+            // before the plan (UfPlan). true = r is the answer (stranded boat, proven failing); false = plan as usual
+            // (with the boat off when the rider's own route goes where its boat failed)
             bool BtmPre(out RoutePlanResult r, out bool answered)
             {
                 r = default(RoutePlanResult);
@@ -119,17 +134,21 @@ namespace Ts3Fixes
                         SetOption2(Sims3.SimIFace.Route.RouteOption2.EnablePlanningAsBoat, false);
                         sBtmLandRoute = this;
                         c[3865]++;
+                        BtmLog("boat off " + e.Type + " #" + BtmHit(e.Type) + ", " + sim.FullName + ", dest " + (int)d.x + "," + (int)d.z);
                         return false;
                     }
-                    BoatTaxi taxi = t as BoatTaxi;
-                    Sim rider = taxi != null ? taxi.Driver : null;
+                    Boat boat = t as Boat;
+                    Sim rider = boat != null ? boat.Driver : null;
                     if (rider == null) return false;
                     Vector3 dt = GetApproximateOriginalDestination();
                     if (!BtmDest(dt) || !BtmLive(new BtmKey(rider.ObjectId.Value, dt), out e)) return false;
-                    if ((taxi.Position - e.Start).LengthSqr() > 0.25f) return false;  // the taxi moved: not the proven start
-                    if (BtmTaxiExempt(taxi)) { c[3869]++; return false; }
+                    if ((boat.Position - e.Start).LengthSqr() > 0.25f) return false;  // the boat moved: not the proven start
+                    if (BtmBoatExempt(boat)) { c[3869]++; return false; }
                     c[3867]++;
                     c[3868] += e.Ms;
+                    string type = boat.GetType().Name;
+                    BtmLog("answered " + type + " #" + BtmHit(type) + ", " + rider.FullName + ", stands for " + e.Ms + " ms, dest "
+                        + (int)dt.x + "," + (int)dt.z);
                     r = FailFast(RoutePlanResultType.FailedBecauseNoPathToDestination);
                     answered = true;
                     return true;
@@ -137,7 +156,7 @@ namespace Ts3Fixes
                 catch (Exception) { c[3869]++; return false; }
             }
 
-            // after the plan (not after an answered one): count the boat-off route, record a taxi's no-path failure
+            // after the plan (not after an answered one): count the boat-off route, record a boat's no-path failure
             void BtmPost(RoutePlanResult r, int ms)
             {
                 int[] c = PatchCounters();
@@ -152,9 +171,9 @@ namespace Ts3Fixes
                     if (r.mType != RoutePlanResultType.FailedBecauseNoPathToDestination
                         || r.mBlockerType == RouteBlockerType.Sim || r.mBlockerType == RouteBlockerType.Vehicle) return;
                     IScriptProxy f = Follower;
-                    BoatTaxi taxi = f != null ? f.Target as BoatTaxi : null;
-                    Sim rider = taxi != null ? taxi.Driver : null;
-                    if (rider == null || BtmTaxiExempt(taxi)) return;
+                    Boat boat = f != null ? f.Target as Boat : null;
+                    Sim rider = boat != null ? boat.Driver : null;
+                    if (rider == null || BtmBoatExempt(boat)) return;
                     Vector3 d = GetApproximateOriginalDestination();
                     if (!BtmDest(d)) return;
                     if (sBtm.Count >= kBtmMax) BtmPrune();
@@ -162,11 +181,12 @@ namespace Ts3Fixes
                     BtmEntry e = new BtmEntry();
                     e.From = now;
                     e.Until = now + SimClock.ConvertToTicks(Instantiator.kBoatTaxiMemoHours, TimeUnit.Hours);
-                    e.Start = taxi.Position;
+                    e.Start = boat.Position;
                     e.Ms = ms;
+                    e.Type = boat.GetType().Name;
                     sBtm[new BtmKey(rider.ObjectId.Value, d)] = e;
                     c[3864]++;
-                    BtmLog("recorded " + rider.FullName + ", taxi plan " + ms + " ms no path, dest " + (int)d.x + "," + (int)d.z
+                    BtmLog("recorded " + e.Type + ", " + rider.FullName + ", boat plan " + ms + " ms no path, dest " + (int)d.x + "," + (int)d.z
                         + ", " + Instantiator.kBoatTaxiMemoHours + " sim-h");
                 }
                 catch (Exception) { c[3869]++; }

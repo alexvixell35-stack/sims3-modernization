@@ -1,7 +1,8 @@
-# 642. BoatTaxi no-path memo (`boattaximemo`)
+# 642. Boat no-path memo (`boattaximemo`, any Boat subclass)
 
 2026-11-18. Source: Twinbrook run `phase-20261118-0557` (`ts3native-full.log`, `src BoatTaxi` lines), decompiled
-Sims3GameplaySystems. Built, default off, NOT RUN. Package r105-boattaxi. Counters 3864-3869.
+Sims3GameplaySystems. Built, default off, NOT RUN. Package r105-boattaxi (taxi only), r106-boatmemo (every Boat
+subclass, §4). Counters 3864-3869.
 
 ## 1. What the log shows [verified, log]
 
@@ -70,9 +71,11 @@ Tunables `kBoatTaxiMemo` (false), `kBoatTaxiMemoHours` (4 sim-hours). Hooked in 
   stranded NPC taxi's repeat plan from the same spot (answered failure, no route-fail replan). Not fixed: the rider
   stays stranded until EA's 3 AM stuck check resets it, as in vanilla (taking it out of the taxi is a possible follow-up).
 
-Counters: [3864] taxi no-path failures recorded, [3865] rider routes planned with the boat off, [3866] of those
-succeeded, [3867] stranded taxi plans answered, [3868] ms of the recorded plans those answers stand for, [3869]
-refused (household, selected, unknown) or errors. Log line `boattaximemo: recorded ...` (10 a minute).
+Counters: [3864] boat no-path failures recorded, [3865] rider routes planned with the boat off, [3866] of those
+succeeded, [3867] stranded boat plans answered, [3868] ms of the recorded plans those answers stand for, [3869]
+refused (household, selected, unknown) or errors. Log lines (10 a minute in all): `boattaximemo: recorded <BoatType>, <rider>, boat plan N ms ...`,
+`boattaximemo: answered <BoatType> #n, <rider>, stands for N ms ...` and `boattaximemo: boat off <BoatType> #n, <rider>, ...`
+(`#n` = running hits for that boat type, answered + boat off).
 Agent: switch `boattaximemo`, counters `boattaximemo_*`.
 
 Expected in the Twinbrook night: the first taxi failure is still paid (~0.4 s + one route-fail pair at most); later
@@ -83,3 +86,25 @@ pairs (~10 x 2.3 s) become answered plans, and the dog's next GoHome from land w
 Twinbrook overnight with the switch off then on (same save): `src BoatTaxi` lines with `ufplan` >= 1 s per night and
 hitchwatch >= 1.5 s, plus `boattaximemo_answered` > 0 and no new household-Sim lines. Repro entry still to add
 (`tools/harness/repros.json`): seat an NPC dog with a home across Twinbrook water and push GoHome.
+
+## 4. All boats (r106-boatmemo, 2026-11-19)
+
+Next Twinbrook run `phase-20261119-0056` (`ufplansplit ... src Boat`): 39 plans, all kind 0 and
+FailedBecauseNoPathToDestination, 200-760 ms each, 0 successes: BoatSailBoat x24 (one rider), BoatSpeedBoat x11 (one
+rider), BoatSpeedFishingBoat x4 (one rider). The previous run had BoatTaxi x22. Isla Paradiso (`phase-20261118-2356`):
+boat routes almost all succeed. Same shape as §1: a seated rider replanning from the same spot (kind 0 = the
+`Parent is IBoat` route of §2.5).
+
+How a boat gets into a route [verified, decompiled]: only `GetInBoatRouteAction`, which runs on a route planned with
+`EnablePlanningAsBoat`. It calls `Sim.GetBoatForGetInBoatRouteAction`: `GetOwnedAndUsableBoat` (an owned boat or water
+scooter, also for household Sims) -> for an NPC `GetNpcBoat` (BoatTaxi for pets and tourists; else a generated
+`BoatOwnable`: water scooter for paper delivery, speed boat for mermaids and services, weighted pick otherwise) -> else
+`Vehicle.CreateTaxiBoat`. Every kind is seated with `PutInDriver` (or passenger) and becomes the route's follower.
+So turning `EnablePlanningAsBoat` off on the rider's route (§3) already keeps every boat kind away.
+
+Change: record and answer now take any `Boat` follower (was `BoatTaxi`), same rules: NPC driver, every occupant passes
+`IsPlayerSim` = false, failures only, 0.5 m start match. The entry keeps the boat's class name for the log lines above.
+Check in a run: `grep "boattaximemo:" ts3native-full.log` (recorded / answered / boat off per type) and counters
+`boattaximemo_*` (3867 answered, 3868 ms saved). Expected Twinbrook: one recorded line per stranded (rider, boat,
+destination), then `answered BoatSailBoat #n` etc. for the repeats.
+
