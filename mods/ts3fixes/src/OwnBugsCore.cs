@@ -31,5 +31,27 @@ namespace Ts3Fixes
 
         // Log the n-th line (0-based) of a capped log?
         public static bool LogMore(int n, int cap) { return n >= 0 && n < cap; }
+
+        // ---- §2 unseenservice: steps of one instant service, in order ----
+        public const int kSvcStepStart = 0, kSvcStepOrder = 1, kSvcStepCommodity = 2, kSvcStepCreate = 3, kSvcStepPlace = 4, kSvcStepPour = 5,
+            kSvcStepBehavior = 6, kSvcStepDone = 7, kSvcStepScope = 8;
+        static readonly string[] kSvcStepNames = { "start", "RunOrderBehavior", "commodity updates", "create", "ParentToSlot", "pour", "RunBehavior", "done", "scope or preconditions" };
+
+        public static string SvcStepName(int step)
+        {
+            return step >= 0 && step < kSvcStepNames.Length ? kSvcStepNames[step] : "step " + step;
+        }
+
+        // End commodity updates in the finally? Only those begun and not ended (EA's own End ran on the normal path).
+        public static bool SvcEndUpdates(bool begunNotEnded) { return begunNotEnded; }
+
+        // Destroy the made glass or plate in the finally? A failure before the customer's RunBehavior took over leaves
+        // nothing behind (placed or not: EA's hand-off follows and needs the slot empty); once RunBehavior ran, the object
+        // is EA's (picked up, eaten, faded).
+        public static bool SvcDestroyMade(bool made, bool placed, int step)
+        {
+            if (!made || step == kSvcStepDone) return false;
+            return !placed || step < kSvcStepBehavior;
+        }
     }
 }

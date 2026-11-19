@@ -21,6 +21,17 @@ static class OwnBugsTest
         Check(OwnBugsCore.Brief(null, null) == "? at ?", "brief of nothing");
         Check(OwnBugsCore.LogMore(0, 24) && OwnBugsCore.LogMore(23, 24) && !OwnBugsCore.LogMore(24, 24) && !OwnBugsCore.LogMore(-1, 24), "log cap");
 
+        // §2 unseenservice cleanup rules
+        Check(OwnBugsCore.SvcStepName(OwnBugsCore.kSvcStepPlace) == "ParentToSlot" && OwnBugsCore.SvcStepName(OwnBugsCore.kSvcStepScope) == "scope or preconditions"
+            && OwnBugsCore.SvcStepName(99) == "step 99", "step names");
+        Check(OwnBugsCore.SvcEndUpdates(true) && !OwnBugsCore.SvcEndUpdates(false), "end only updates still open");
+        Check(OwnBugsCore.SvcDestroyMade(true, false, OwnBugsCore.kSvcStepPlace), "unplaced glass destroyed");
+        Check(OwnBugsCore.SvcDestroyMade(true, true, OwnBugsCore.kSvcStepPour), "placed glass whose pour threw destroyed (slot left empty for EA)");
+        Check(!OwnBugsCore.SvcDestroyMade(true, true, OwnBugsCore.kSvcStepBehavior), "RunBehavior owns the placed object");
+        Check(!OwnBugsCore.SvcDestroyMade(true, true, OwnBugsCore.kSvcStepDone), "served object kept");
+        Check(!OwnBugsCore.SvcDestroyMade(false, false, OwnBugsCore.kSvcStepCreate), "nothing made, nothing destroyed");
+        Check(OwnBugsCore.SvcDestroyMade(true, false, OwnBugsCore.kSvcStepCommodity), "made, throw before place: destroyed");
+
         if (sFails > 0) { Console.WriteLine("ownbugs: " + sFails + " failed"); Environment.Exit(1); }
         Console.WriteLine("ownbugs: all checks passed");
     }

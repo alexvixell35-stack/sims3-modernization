@@ -25,3 +25,17 @@
 Not guarded: one-shot alarm callbacks (AlarmManager removes them after the call anyway), and our own spread tasks (`LotCleanupTask`, `DecayTask`), which already run our code. EA callbacks that alarmkilllog lists under EA's own name (EvilMagicGnomeUtil.TryToMailEvilGnome 74, PotionShopConsignmentRegister.OnDailyAlarm 74, LunarCycleManager.TriggerLunarEvents 69, UnicornPool.SpawnAlarmCallBack 67, MagicGnomeFall / Winter) are not under a hook of ours and are out of scope here.
 
 **Counters:** [4110] NPC show throws caught, [4111] other guarded alarm callbacks' throws caught. Agent `patches`: `eaalarmguard_npcshow_caught`, `eaalarmguard_other_caught`.
+
+## §2 unseenservice: drinks never served; failure step logged, cleanup in a finally
+
+**Evidence [verified, fix_counters in leak-*.json, 15 runs phase-20261115..19 with the switch on]:** conversations served 289 + 29 (tier 1 / tier 2), food 92 + 10, **drinks 0 + 0**, errors [3610] 186. phase-20261117-1703: 65 conversations, 24 food, 0 drinks, 35 errors. phase-20261117-1537: 23 + 6 tier 2, 0 drinks, 8 errors. So every in-scope OrderDrink that reached `SvcServe` failed. Each one fell back to EA's linked hand-off, which is the slow path the fix was meant to skip. The ~30-40 % error share is the drink share of the orders.
+
+**Cause [inferred, decompiled; the new log confirms it on the next run]:** the drink path did not keep EA's order. `Bartending.CreateGlassOutOfWorld` makes the glass with `CreateObjectOutOfWorld` (not in the world). `SvcServe` then called `Glass.OnPoured()` on that glass (geometry state, drink and fizz effects parented to the glass's FX joint), then `ShouldMakeFlamingDrink`, then `ParentToSlot` to the destination. EA never pours a glass that is out of the world. `MakeDrink` pours in the server's hand (the glass is in the world after `CreateDrinksAndSetActors` parents it to the hand). `CreateRoundsOfDrinks` calls `OnPoured` only after the tray is placed. Food worked because `Recipe.CreateFinishedFood` uses `CreateObject(..., Vector3.OutOfWorld)`, which is an in-world object, and nothing is poured. There was also no record of which step failed: a `ParentToSlot` false and a throw both just counted [3610].
+
+**Fix:**
+- The drink is placed first, with `ParentToSlot(dest, slot, ref returnCode)` (`EnsureConsistencyWithParent` adds it to the world). It is poured and set on fire after that, as in EA.
+- Every step is named (`OwnBugsCore.kSvcStep*`). The first 16 failures are logged as `unseenservice: <conversation|drink|food> failed at <step>: <type> at <first frame>` (the reflection wrapper is unwrapped to EA's inner exception), or `ParentToSlot <return code>` / `nothing made`. Errors outside `SvcServe` (scope, preconditions) are logged with step `scope or preconditions`.
+- A `finally` ends commodity updates that were begun but not ended (`EndCommodityUpdates(false)`, [4113]). It also destroys a glass or plate that was made but never reached the slot, or that was placed while a later step before the customer's `RunBehavior` threw ([4112]). EA's hand-off that follows then finds the slot empty. Once `RunBehavior` has run, the object is EA's to handle. The server's instance is always unlinked (as before).
+- Scope, tiers and household rules are unchanged (household, selected and selectable Sims are tier 0 = EA's hand-off).
+
+**Counters:** [4112] made objects destroyed after a failed service, [4113] commodity updates ended after a throw, [4114] failed services logged by step. [3610] keeps its meaning (errors).
