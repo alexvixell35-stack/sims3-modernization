@@ -433,6 +433,7 @@ namespace Ts3Fixes
                 case "trainsimgone": return EpLive(typeof(BTgHook), 1);
                 case "traiticondislike": return EpLive(typeof(B12TiHook), 1);
                 case "traitlistenerremove": return EpLive(typeof(BTlHook), 1);
+                case "trashoutsidefallback": return EpJoin(EpLive(typeof(TofPutHook), 1), EpLive(typeof(TofTestHook), 1));
                 case "trashpileimport": return EpLive(typeof(BTpHook), 1, "sTpAlarm", sTpAlarm, null, "sTpBroad", sTpBroad, null);
                 case "trickortreatalarm": return EpLive(typeof(TrickOrTreatHook), 1);
                 case "tricksocials": return EpLive(typeof(B12MtHook), 1);
@@ -508,6 +509,7 @@ namespace Ts3Fixes
                 case "wildflowertask": return EpLive(typeof(WildflowerTaskHook), 0, "sWfLots", sWfLots, null, "sWfLots", sWfLots, "static", "sWfClear", sWfClear, 0);
                 case "wildherdmother": return EpLive(typeof(WildHerdMotherHook), 0, "sWhMother", sWhMother, typeof(ulong), "sWhMother", sWhMother, null);
                 case "wildhorsegender": return EpLive(typeof(WildHorseGenderHook), 0);
+                case "wildlotskip": return EpJoin(EpLive(typeof(WlsAnimalHook), 2), EpLive(typeof(WlsHerdHook), 1));
                 case "wishfeedbackkeep": return EpLive(typeof(W86FeedbackHook), 1);
                 case "wishsubjectgone": return EpLive(typeof(W86MgrHook), 3);
                 case "wishupdatelost": return EpLive(typeof(W86MgrHook), 3);

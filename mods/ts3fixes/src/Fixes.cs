@@ -210,6 +210,8 @@ namespace Ts3Fixes
             ApplyRouteCauseLog();   // docs/580 (RouteCauseLog.cs), logging only
             ApplyScarePriority();   // docs/580 §14 (ScarePriority.cs)
             ApplyGroupChatPriority();   // docs/638 §3 (GroupChatPriority.cs)
+            ApplyTrashOutsideFallback();   // docs/646 §2 (TrashOutsideFallback.cs)
+            ApplyWildLotSkip();   // docs/646 §3 (WildLotSkip.cs; FindGoodLot rides wildhorselot's BEp4WhHook)
             ApplySandwichAlarm();   // docs/580 §16 (SandwichAlarm.cs)
             ApplyDreamCleanup();   // docs/580 §18 (DreamCleanup.cs), memory only
             ApplyVehicleFxHelper();   // docs/582 §1 (Batch582Logic.cs)
@@ -869,6 +871,8 @@ namespace Ts3Fixes
         // [3864-3869] boattaximemo (BoatTaxiMemo.cs, docs/642): boat (any Boat subclass) no-path failures recorded / rider routes planned with the boat off / of those, succeeded / stranded boat plans answered / ms of the recorded plans those answers stand for / refused (household, selected, unknown) or errors.
         // [4070-4079] contributor block of docs/645 (npc loops): [4070-4071] picnicexit (PicnicExit.cs, §1): finished picnics exited / skipped (Sims present or cleanup pending); [4072-4073] poolfailmemo (PoolFailMemo.cs, §2): NPC GetInPool no-path / no-destination fails recorded / autonomous GetInPool tests refused; [4074-4075] petstartleskip (PetStartleSkip.cs, §3): NPC pets recorded after a PortalLocked startle flee route / startles skipped; [4076-4077] petlonghome (PetLongHome.cs, §4): unseen NPC pets / horses placed on the lot of a long GoHome / GoToLot walk / refused (seen, lot seen, no spot, lot kind); [4078] exempt (household, selected, unknown scope) and [4079] errors are shared by the docs/645 switches.
         // [4040-4049] houseboatgangwayrescue (HouseboatGangwayRescue.cs, docs/642 §7): NPC Sims marked by a no-path gangway leg to their Docked houseboat / placed by EA's PlaceSimAtEntrance after GoHome failed / refused / errors; refusals: exempt / no, another or undocked houseboat / once-per-hour rule / busy / on the lot, far or stale / no spot.
+        // [4080-4084] trashoutsidefallback (TrashOutsideFallback.cs, docs/646 §2): NPC DisposeOutside on a lot whose outdoor can had no path: EA's non-forced disposal / bags put down (EA's failure remembered, or nothing else takes it) / EmptyTrash picks refused / exempt (household, selected, unknown scope) / errors (and bags put down after a call).
+        // [4085-4089] wildlotskip (WildLotSkip.cs, docs/646 §3): wild horse / NPC animal (animal, lot) pairs remembered after a PortalLocked or NoPath GoToLot / picks drawn again without them / every weighted lot remembered (EA's pick kept) / long GoToLot walks cancelled / exempt or errors.
         // [3870-3873] houseboatlegmemo (HouseboatLegMemo.cs, docs/642 §6): NPC houseboat boat-leg no-path plans recorded / repeats answered / ms of the recorded plans those answers stand for / exempt (household, selected, unknown scope, no Sim or boat router) or errors.
         // [4062-4069] boatroamcap (BoatRoamCap.cs, docs/642 §9): NPC BoatAround runs capped (no roam) / ReturnToShore pushed / returns failed (precheck, push, run or never ran; EA roams) / exempt runs / errors / returns that reached the shore / service, role or AlarmOneShot-task boating logged / caps by night or low motive.
         // [3860-3863] spotwaitattr (SpotWaitAttr.cs, docs/641): kind-2 lot-edge check waits >= 250 ms / frame-bound (one poll >= 80 % of the wait) / job-bound / frame-bound ms.
@@ -1578,6 +1582,8 @@ namespace Ts3Fixes
                 case "unseenboatgenboat": return Instantiator.kUnseenBoatGenBoat;
                 case "boattaximemo": return Instantiator.kBoatTaxiMemo;
                 case "houseboatlegmemo": return Instantiator.kHouseboatLegMemo;
+                case "trashoutsidefallback": return Instantiator.kTrashOutsideFallback;
+                case "wildlotskip": return Instantiator.kWildLotSkip;
                 case "houseboatgangwayrescue": return Instantiator.kHouseboatGangwayRescue;
                 case "boatroamcap": return Instantiator.kBoatRoamCap;  // off (BoatRoamCap.cs, docs/642 §9)
                 case "picnicexit": return Instantiator.kPicnicExit;

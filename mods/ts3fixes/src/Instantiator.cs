@@ -158,6 +158,11 @@ namespace Ts3Fixes
         [Tunable] public static bool kPetLongHome = false;             // petlonghome (docs/645 §4): an unseen NPC pet or horse on a long GoHome / GoToLot walk is placed on the lot like the human trip shortcuts
         [Tunable] public static float kPetLongHomeMeters = 150f;       // petlonghome: straight distance (m) above which the trip counts as long
         [Tunable] public static float kPetLongHomeHours = 2f;          // petlonghome: or the trip to that lot began more than this many sim-hours ago (0 = distance only)
+        [Tunable] public static bool kTrashOutsideFallback = false;    // trashoutsidefallback (docs/646 §2): an NPC whose DisposeOutside found no path to the lot's outdoor can gets EA's non-forced disposal on that lot for a while, and autonomy stops picking EmptyTrash on its indoor cans
+        [Tunable] public static float kTrashOutsideFallbackHours = 4f; // trashoutsidefallback: sim-hours a lot stays remembered
+        [Tunable] public static bool kWildLotSkip = false;             // wildlotskip (docs/646 §3): wild horses and NPC animals (raccoon, deer) skip a lot their GoToLot could not reach lately (EA's weights over the rest), and a GoToLot walk past kWildLotSkipWalkHours is cancelled
+        [Tunable] public static float kWildLotSkipHours = 6f;          // wildlotskip: sim-hours an (animal, lot) pair stays remembered
+        [Tunable] public static float kWildLotSkipWalkHours = 8f;      // wildlotskip: sim-hours one GoToLot may run before the guard cancels it
         [Tunable] public static bool kPosturePopCycle = false;   // opt-in until verified: a posture pop that EA would turn into a two-posture loop (Compatible branch) runs the setter's unwind instead (issue #89, PosturePop.cs)
         [Tunable] public static bool kUnseenFallbackPre = true;       // on, same as the shipped tuning (2026-11-14); was: opt-in until verified: an unseen townie's own walk to an unseen lot goal is held for the walk time, then placed at the goal (no search; docs/202 §3.5)
         [Tunable] public static bool kPrePlanCallback = false;     // opt-in until measured: Route.AboutToPlanCallback runs before an async START, the job's locked-door list survives the original plan's second callback (RouteBackoff.cs PreCb, docs/185 §5)
