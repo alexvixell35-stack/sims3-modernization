@@ -48,7 +48,7 @@ export const ALL_ON = ['# TS3 Turbo Engine Configuration (all on, turbo-apex-111
 
 // docs/270 §12: the rewind arm. The patched pair is built from Apex's own bridge source at this release plus patch 0015
 // (tools/harness/rewind/bridge-patch/README.md); a newer Apex release needs a rebuild first.
-const REWIND = join(GC, 'rewind-bridge-1115'), REWIND_BUILT_ON = 'v4.0.1';
+const REWIND = join(GC, 'rewind-bridge-1115'), REWIND_BUILT_ON = 'v4.0.6';
 type Src = string | null; // file to copy into Bin, null = absent
 export const STATES: Record<string, (unz: string) => Record<string, Src>> = {
   base: () => ({}),
