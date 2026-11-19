@@ -59395,6 +59395,117 @@
     ]
   },
   {
+    "id": "ip-unseen-boat-wide",
+    "bug": "docs/248 §12: unseenboat refuses most unseen NPC crossings (phase-20261119-1837, IP 20 min: candidates 614, shortcuts 85; rj_goal 123, rj_sim 109, rj_route 100, rj_unknown 19, rj_owned 3), so they still take a boat and cost a sync kind-3 boat replan (128 logged >= 150 ms, 27 s)",
+    "fix": "ts3fixes unseenboatwide (UnseenBoatWide.cs): relaxes household-lot visitor, indoor / raised / no-verdict goals (street side or mailbox), groups and followers (party moved), children with a parent, unknown colours (entry probes) and owned boats (left parked); counters 4181-4195",
+    "save": "Baseline-IP",
+    "note": "Off/on arm on Baseline-IP: same steps as ip-unseen-boat-loop (crowd_visit_lot island, crowd_go home / island / home, Linda Scott out and home), unseenboat on in both arms, only unseenboatwide differs. Compare unseenboat_rj_* and unseenboat_shortcuts between arms; ON must show unseenboatwide_shortcuts >= 1 and unseenboatwide_errors 0. crowd_go legs are Go Here (UfPreSim deny) and stay exact in both arms.",
+    "fixesRequire": "unseenboat_shortcuts>=1,unseenboatwide_errors<=0",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "unseen_water_watch",
+        "args": {
+          "start": true
+        },
+        "note": "samples every 15 ticks: unseen Sims in a vehicle / boat, in water, stranded"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenboat": true,
+          "unseenboatwide": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_visit_lot",
+        "args": {
+          "lot": "island"
+        },
+        "waitS": 150,
+        "note": "leg 1: a real lot trip across the sea, the fix's case, from the spawn spots away from the camera (Go Here is refused by UfPreSim and stays exact)"
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home"
+        },
+        "waitS": 150,
+        "note": "leg 2: back across the water to the active lot"
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "island"
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home"
+        },
+        "waitS": 150
+      },
+      {
+        "cmd": "sim_visit_lot",
+        "args": {
+          "sim": "Linda Scott",
+          "lot": "far"
+        },
+        "waitS": 90,
+        "note": "houseboat case: out"
+      },
+      {
+        "cmd": "sim_go_home",
+        "args": {
+          "sim": "Linda Scott"
+        },
+        "waitS": 90,
+        "note": "home to the houseboat, unseenboat_houseboat grows"
+      },
+      {
+        "cmd": "unseen_water_watch",
+        "args": {
+          "result": true,
+          "require": true,
+          "min_engaged": 3,
+          "stop": true
+        },
+        "note": "FAILS unless >= 3 Sims were at once in a vehicle or in water while unseen and none was stranded"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 5
+      }
+    ],
+    "expect": "no crash; OFF: unseenboatwide_* all 0; ON: unseenboatwide_shortcuts >= 1, unseenboatwide_errors 0, fewer unseenboat_rj_goal + rj_sim + rj_owned + rj_unknown than OFF, no stranded Sim, no Sim in the water or left in a boat, unseenboatstart_left_dirty 0",
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenboat": false,
+          "unseenboatwide": false
+        }
+      }
+    ]
+  },
+  {
     "id": "ip-houseboat-leave-loop",
     "bug": "docs/247 §11.3: Sims starting a route on a houseboat stayed exact: no land colour at the hidden houseboat lot, so rj_unknown, then a boat get-in and a sync boat replan per trip",
     "fix": "ts3fixes unseenboatstart (UnseenBoat.cs, docs/248 §10): unseen townie on a houseboat, docked or at sea, deck or cabin: no boat, wait the boat's real distance, placed at the goal or the goal lot's street side; a moving boat, its driver, the player's boat, an owned boat, a seen Sim, boat or goal stay exact",
