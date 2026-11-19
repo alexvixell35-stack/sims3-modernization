@@ -10,7 +10,9 @@
 //     (reached through LotPlan 0x6410B0 -> 0x63F6E0 -> 0x632630 and LotSearch -> 0x633FA0 -> 0x632E40) and LotPlan itself,
 //     whose inclusive time is also split by its call site in 0x65E0D0 (the lot legs of the planner's loops). A helper called
 //     outside an open PlanHierarchical frame passes untimed. "rest" = PlanHierarchical's own self time: its code plus what is
-//     not hooked here (world A*, water, allocator); SyncPlans=1 gives world / water. One line per call >= CandidateSplitLogMs
+//     not hooked here (allocator, the planner's smaller helpers). docs/663 §3 splits the old "rest" further: world A* 0x676260
+//     (after [RouteEarlyOut]'s stub when it is on), WaterPath_Plan 0x671930 (after the plan deadline / water goal check stubs),
+//     the path-node post pass 0x64E380 and PathNodes_Insert 0x629140, each self time. One line per call >= CandidateSplitLogMs
 //     (default 100), 20 a minute; every 60 s the 8 slowest calls since the last counter line ("route candidate top").
 //  2. [RouteAsync] CandidateCut=1: past the plan's deadline (the PdPlanBegin / IC session of plandeadline.cpp, or a worker job's
 //     t_fbDeadline on the g_pdWkTid slot), a helper called from one of the listed planner sites answers "not found" at once.
@@ -50,7 +52,8 @@ struct PlanCandCounters {
 };
 extern "C" __declspec(dllexport) PlanCandCounters ts3native_plancand = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-enum { PCC_PH, PCC_CLOSEST, PCC_SAMELAND, PCC_SAMEWATER, PCC_CHOOSE, PCC_GATHER, PCC_SHORE, PCC_LOTSEARCH, PCC_CELL, PCC_LOTPLAN, PCC_N };
+enum { PCC_PH, PCC_CLOSEST, PCC_SAMELAND, PCC_SAMEWATER, PCC_CHOOSE, PCC_GATHER, PCC_SHORE, PCC_LOTSEARCH, PCC_CELL, PCC_LOTPLAN,
+       PCC_WORLD, PCC_WATER, PCC_POST, PCC_INSERT, PCC_N };
 struct PccSite { DWORD at; u8 len; u8 pro[8]; const char* name; bool cut; };
 // prologues: whole instructions, no relative operand (Steam 1.67); 0x65E0D0 / 0x640E00 equal kRjpSites' (docs/150 §7)
 static const PccSite kPccSites[PCC_N] = {
@@ -65,6 +68,12 @@ static const PccSite kPccSites[PCC_N] = {
     // = kRjpSites' / kPdCellPro: with the plan deadline stub on 0x61E500 we take its trampoline pointer (g_pdOrig[0]) instead
     {TS3A(0x0061E500), 6, {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0}, "cell", false},
     {TS3A(0x006410B0), 8, {0x8B, 0x44, 0x24, 0x34, 0xD9, 0x44, 0x24, 0x10}, "lotPlan", false},
+    // docs/663 §3 (= kRjpSites' bytes; ret 0x1C / 0x24 / 0x14 / 8 checked): world A* (owner [RouteEarlyOut] g_eoAsOrig when on),
+    // water (owner the plan deadline stub g_pdOrig[1] or the water goal check; installed after it), post pass, path insert
+    {TS3A(0x00676260), 8, {0x83, 0xEC, 0x3C, 0x53, 0x8B, 0x5C, 0x24, 0x58}, "world", false},
+    {TS3A(0x00671930), 7, {0x8B, 0x44, 0x24, 0x24, 0x83, 0xEC, 0x50}, "water", false},
+    {TS3A(0x0064E380), 7, {0x80, 0x3D, 0x4C, 0x82, 0x15, 0x01, 0x00}, "post", false},  // absolute operand only
+    {TS3A(0x00629140), 5, {0x83, 0xEC, 0x08, 0x53, 0x55}, "insert", false},
 };
 // LotPlan's call sites in 0x65E0D0 (return addresses), for the per-leg split; slot PCC_LPN = any other caller (0x656A70's,
 // called from 0x6611A1 / 0x661308, and callers outside the planner)
@@ -83,7 +92,7 @@ static const uint32_t kPccRets[PCC_N][4] = {
     {TS3A(0x0065F3DF)},
     {0},
     {TS3A(0x0065EF77), TS3A(0x0065F420)},
-    {0}, {0}, {0}, {0}, {0},
+    {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0},
 };
 static void* g_pccNext[PCC_N];  // our trampoline, or what an owner's pointer held (RJP takes our place in it later)
 static bool g_pccSplit;         // CandidateSplit (ini, install time)
@@ -166,7 +175,7 @@ static void PccTopLog(const PccTop& e, int rank, int n) {
     char b[700];
     PccFmt(b, sizeof(b), e.selfUs, e.calls, e.lpUs, e.lpN);
     Log("route candidate top %d/%d: PlanHierarchical %ld ms code %lu, %s, route %08lX, scope %s: %s; rest %ld ms "
-        "(own code + world A*, water, allocator); cut %ld", rank, n, e.us / 1000, e.code, e.worker ? "worker job" : "sync", e.route,
+        "(own code + allocator + unhooked helpers); cut %ld", rank, n, e.us / 1000, e.code, e.worker ? "worker job" : "sync", e.route,
         KdScopeTag(e.scope), b, e.selfUs[PCC_PH] / 1000, e.cuts);
 }
 
@@ -200,7 +209,7 @@ static void PccPhEnd(const PccTh& t, LONGLONG incl, DWORD code) {
     char b[700];
     PccFmt(b, sizeof(b), e.selfUs, e.calls, e.lpUs, e.lpN);
     Log("route candidate split: PlanHierarchical %ld ms code %lu, %s, route %08lX, scope %s: %s; rest %ld ms "
-        "(own code + world A*, water, allocator); cut %ld", us / 1000, code, worker ? "worker job" : "sync", e.route,
+        "(own code + allocator + unhooked helpers); cut %ld", us / 1000, code, worker ? "worker job" : "sync", e.route,
         KdScopeTag(e.scope), b, e.selfUs[PCC_PH] / 1000, t.cuts);
 }
 
@@ -422,9 +431,27 @@ static DWORD __fastcall PccLotPlanHook(void* self, void* edx, DWORD a1, DWORD a2
     if (on) PccLeave(mark, r);
     return r;
 }
+typedef DWORD(__fastcall* Pcc2Fn)(void*, void*, DWORD, DWORD);
+typedef DWORD(__fastcall* Pcc5Fn)(void*, void*, DWORD, DWORD, DWORD, DWORD, DWORD);
+typedef DWORD(__fastcall* Pcc7Fn)(void*, void*, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD);
+typedef DWORD(__fastcall* Pcc9Fn)(void*, void*, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD);
+static DWORD __fastcall PccWorldHook(void* self, void* edx, DWORD a1, DWORD a2, DWORD a3, DWORD a4, DWORD a5, DWORD a6, DWORD a7) {
+    PCC_TIMED(PCC_WORLD, ((Pcc7Fn)g_pccNext[PCC_WORLD])(self, edx, a1, a2, a3, a4, a5, a6, a7));
+}
+static DWORD __fastcall PccWaterHook(void* self, void* edx, DWORD a1, DWORD a2, DWORD a3, DWORD a4, DWORD a5, DWORD a6, DWORD a7, DWORD a8,
+                                     DWORD a9) {
+    PCC_TIMED(PCC_WATER, ((Pcc9Fn)g_pccNext[PCC_WATER])(self, edx, a1, a2, a3, a4, a5, a6, a7, a8, a9));
+}
+static DWORD __fastcall PccPostHook(void* self, void* edx, DWORD a1, DWORD a2, DWORD a3, DWORD a4, DWORD a5) {
+    PCC_TIMED(PCC_POST, ((Pcc5Fn)g_pccNext[PCC_POST])(self, edx, a1, a2, a3, a4, a5));
+}
+static DWORD __fastcall PccInsertHook(void* self, void* edx, DWORD a1, DWORD a2) {
+    PCC_TIMED(PCC_INSERT, ((Pcc2Fn)g_pccNext[PCC_INSERT])(self, edx, a1, a2));
+}
 static void* const kPccHooks[PCC_N] = {(void*)PccPhHook,   (void*)PccClosestHook, (void*)PccSameLandHook, (void*)PccSameWaterHook,
                                        (void*)PccChooseHook, (void*)PccGatherHook,  (void*)PccShoreHook,    (void*)PccLotSearchHook,
-                                       (void*)PccCellHook,   (void*)PccLotPlanHook};
+                                       (void*)PccCellHook,   (void*)PccLotPlanHook, (void*)PccWorldHook,     (void*)PccWaterHook,
+                                       (void*)PccPostHook,   (void*)PccInsertHook};
 
 // ---- water goal check ----
 typedef DWORD(__fastcall* WgcFn)(void*, void*, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD);
@@ -499,7 +526,14 @@ static void InstallPlanCand(const wchar_t* ini) {
         int hooked = 0, want = 0;
         for (int i = 0; i < PCC_N; i++) {
             if (!split && !kPccSites[i].cut) continue;
+            if (i == PCC_WATER) continue;  // after the water goal check below (it may need the entry's own bytes)
             want++;
+            if (i == PCC_WORLD && g_eoAsOrig) {  // [RouteEarlyOut] owns the entry: we run after its stub (its request scope first)
+                g_pccNext[i] = (void*)g_eoAsOrig;
+                InterlockedExchangePointer((void* volatile*)&g_eoAsOrig, kPccHooks[i]);
+                hooked++;
+                continue;
+            }
             if (i == PCC_CELL && g_pdOrig[0]) {  // the plan deadline stub owns the entry: we run after it (its skip exit first)
                 g_pccNext[i] = g_pdOrig[0];
                 InterlockedExchangePointer(&g_pdOrig[0], kPccHooks[i]);
@@ -534,6 +568,18 @@ static void InstallPlanCand(const wchar_t* ini) {
         if (g_wgcNext) c.ready |= 4, c.wgcMode = wgc;
         Log("%s water goal check: WaterGoalCheck=%d (%s), %s", g_wgcNext ? "OK  " : "FAIL", wgc, wgc == 2 ? "shadow, search still runs" : "reject",
             g_wgcOwn ? "own detour" : g_wgcNext ? "after the plan deadline stub" : "0x671930 bytes differ and no known owner");
+    }
+    if (g_pccSplit) {  // docs/663 §3: the water site last: after the deadline stub, else after the water goal check, else our own
+        const PccSite& w = kPccSites[PCC_WATER];
+        void** owner = g_pdOrig[1] ? &g_pdOrig[1] : g_wgcOwn && g_wgcNext ? &g_wgcNext : NULL;
+        if (owner) {
+            g_pccNext[PCC_WATER] = *owner;
+            InterlockedExchangePointer(owner, kPccHooks[PCC_WATER]);
+        } else if (Matches((const void*)(uintptr_t)w.at, w.pro, w.len)) {
+            InstallDetour("water (candidate split)", w.at, w.pro, w.len, kPccHooks[PCC_WATER], &g_pccNext[PCC_WATER]);
+        }
+        Log("%s route candidate split water: %s", g_pccNext[PCC_WATER] ? "OK  " : "SKIP",
+            g_pccNext[PCC_WATER] ? (owner ? "inside its owner's stub" : "own detour") : "0x671930 bytes differ and no known owner");
     }
 }
 

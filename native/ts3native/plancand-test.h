@@ -143,6 +143,22 @@ static void TestCandidateSplit() {
     for (int i = 0; i < g_pccTopN; i++) assert(g_pccTop[i].lpN[1] == 1 && g_pccTop[i].calls[PCC_CELL] == 1 && g_pccTop[i].code == 5);
     PccTopFlush();
     assert(g_pccTopN == 0);
+    // docs/663 §3: world / water / post / insert are timed sites of their own (self time, nested under the planner frame)
+    g_pccLogUs = 0x7FFFFFFF;
+    assert(PccEnter(PCC_PH, frame + 60));
+    const int extra[4] = {PCC_WORLD, PCC_WATER, PCC_POST, PCC_INSERT};
+    for (int i = 0; i < 4; i++) {
+        assert(PccEnter(extra[i], frame + 40));
+        PccLeave(frame + 40, 0);
+        assert(t.calls[extra[i]] == 1);
+    }
+    PccLeave(frame + 60, 0);
+    {
+        char b[700];
+        LONG zu[PCC_N] = {0}, zn[PCC_N] = {0}, lu[PCC_LPN + 1] = {0}, ln[PCC_LPN + 1] = {0};
+        PccFmt(b, sizeof(b), zu, zn, lu, ln);
+        assert(strstr(b, "world 0/0") && strstr(b, "water 0/0") && strstr(b, "post 0/0") && strstr(b, "insert 0/0"));
+    }
     g_pccSplit = saved, g_pccLogUs = savedLog;
 }
 

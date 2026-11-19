@@ -446,6 +446,11 @@ static void** RjpOwner(int i) {
     // docs/644 §8 CandidateSplit (plancand.cpp): cell A* (own detour, or after the plan deadline stub, RJS_CELL below) and LotPlan
     if (i == RJS_CELL || i == RJS_LOTLEG)
         if (void** o = PccOwnerAt(kRjpSites[i].at)) return o;
+    // docs/663 §3: the split's world / water / post / insert sites (own detour or chained inside the owner's pointer). World
+    // with [RouteEarlyOut] on keeps g_eoAsOrig (below; the split sits after us there). shortcut: with RouteEarlyOut off and
+    // SyncPlans=1, SypLoopOf sees the split hook's return address, not the planner loop's (loop column "other")
+    if ((i == RJS_WORLD && !g_eoAsOrig) || i == RJS_WATER || i == RJS_POST || i == RJS_INSERT)
+        if (void** o = PccOwnerAt(kRjpSites[i].at)) return o;
     switch (i) {
         case RJS_PLAN: return (void**)&g_planOrig;
         case RJS_LOCK: return (void**)&g_lockOrig;
