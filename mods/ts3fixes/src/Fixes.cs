@@ -2201,6 +2201,7 @@ namespace Ts3Fixes
                 case "reltablesapart": return Instantiator.kRelTablesApart;
                 case "ageupswap": return Instantiator.kAgeUpSwap;
                 case "asyncjigsync": return Instantiator.kAsyncJigSync;
+                case "stucktaskflag": return Instantiator.kStuckTaskFlag;  // docs/662 §2: the stuck check's flag per task (FewerPlans.cs)
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;
                 case "savecleanupaggressive": return Instantiator.kSaveCleanupAggressive;
                 case "vacexport": return Instantiator.kVacExport;

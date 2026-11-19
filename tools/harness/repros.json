@@ -113723,5 +113723,86 @@
         }
       }
     ]
+  },
+  {
+    "id": "stucktaskflag-check",
+    "bug": "our stuck-check wrapper (StuckCheckRun) kept a global 'stuck check runs' flag while its probe plans slept on route jobs, so every other Sim's plan in that window counted as a stuck-check probe: no unseen MARK, no goalhhexempt / birthroute scope, 'src stuckcheck' in ufplan lines (29 runs 2026-11-19: 760 such plans, 300 s, 150 >= 300 ms; docs/662 §2)",
+    "fix": "ts3fixes FewerPlans.cs + StutterSweepCore.cs: stucktaskflag (tuning kStuckTaskFlag, default on: bug fix in our own wrapper), docs/662 §2",
+    "save": "pure part needs no save",
+    "note": "StuckTaskFlagCheck run checks the flag decision (off: another task reads the flag; on: only the check's task) with controls (the check's own task keeps its tag, no check = no tag); result shows counter 4240. In play: ufplansplit lines with 'src stuckcheck' must all be in a non-object (drain) or the alarm task.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "stucktaskflag": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StuckTaskFlagCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: the old path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StuckTaskFlagCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "stucktaskflag": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StuckTaskFlagCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StuckTaskFlagCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "stucktaskflag": true
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "stucktaskflag": true
+        }
+      }
+    ]
   }
 ]
