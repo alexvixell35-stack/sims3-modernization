@@ -13,10 +13,12 @@ counts are shared and the log lines say which switch they came from:
 | 4071 | picnicexit | finished picnics skipped (a Sim holds a role, or the situation's cleanup interaction is still queued) |
 | 4072 | poolfailmemo | NPC GetInPool plans that failed with no path / no destination, recorded |
 | 4073 | poolfailmemo | autonomous GetInPool tests refused |
+| 4074 | petstartleskip | NPC pets recorded after a startle flee route failed with PortalLocked |
+| 4075 | petstartleskip | startles skipped |
 | 4078 | all four | exempt: a household, selected or unknown-scope Sim met (HouseholdExempt or IsPlayerSim), nothing changed |
 | 4079 | all four | errors (caught; EA's code ran unchanged) |
 
-Agent `patches` read-back: `picnicexit_exited`, `picnicexit_skipped`, `poolfailmemo_recorded`, `poolfailmemo_refused`, `npcloops_exempt`, `npcloops_errors`.
+Agent `patches` read-back: `picnicexit_exited`, `picnicexit_skipped`, `poolfailmemo_recorded`, `poolfailmemo_refused`, `petstartleskip_recorded`, `petstartleskip_skipped`, `npcloops_exempt`, `npcloops_errors`.
 Every log line is capped at 10 a minute per switch; the counters are the measure.
 
 ## 1. Finished picnics never leave the situation list: `picnicexit` (`PicnicExit.cs`)
@@ -80,3 +82,32 @@ clock that went back (another save) drops it. Household, selected and unknown-sc
 `refused` lines instead of new GetInPool route fails for an hour; 4072 / 4073 grow, the GetInPool routefail count drops,
 no new exceptions, household Sims' GetInPool unchanged. Self-check: `tools/selftest/poolfailmemo` (recorded results,
 autonomous-only refusal, exemption, life window, bounded table).
+
+## 3. Startled pets flee into pet-locked doors again and again: `petstartleskip` (`PetStartleSkip.cs`)
+
+**Root cause [verified, decompiled + logs]:** every pet startle goes through
+`PetStartleBehavior.StartlePet(Sim, StartleType, Origin, GameObject, bool ignoreCooldown, PetStartleReactionType,
+InteractionPriority)` (CheckForStartle from TVs, stereos, showers, dishwashers, toilets, washers; litter boxes, horse jumps,
+water troughs). It pushes `Sim.PetStartle`, whose run-away route (CatDogCoward, HorsePanic, deer) can lead through a door
+locked for pets: the plan fails with `FailedBecauseDestinationPortalLocked` (`routecause: <pet> npc, PetStartle, Plan
+FailedBecauseDestinationPortalLocked, ...`). After EA's per-pet cooldown (`GetStartleCooldownTime`) the next noise pushes the
+same startle and the same failing flee (OFF runs [log analysis of the sweep]: Bridgeport 321 in 40 runs, Isla Paradiso 251,
+Twinbrook 174; `routefail job: ... PetStartle` results in the sweep: 1445 x 10, 350 x 16, 90 x 18, 15 x 1).
+`ReactToDisturbance.NoiseBroadcastCallback` (:127) only stops a second startle while one is queued.
+
+**Fix (default off):** `RouteFailLog.RflPlan` calls `PssPlan` for failed plans: when the Sim is a pet, its current
+interaction is `Sim.PetStartle` and the result is PortalLocked (18), the pet is remembered for `kPetStartleSkipMinutes` (30)
+sim-minutes. `StartlePet` (the 7-argument funnel, `PetStartleSkipHook`) then returns at once for that pet, as EA itself does
+inside its cooldown. Forced startles always run: `ignoreCooldown`, Electrocution, GrimReaperAppear, Fire, Meteor. Only the
+PortalLocked case is recorded (the brief's evidence); NoPath / NoDestination startle fails are left to EA. Household, selected
+and unknown-scope pets (`HouseholdExempt` or `IsPlayerSim`) are never recorded and never skipped (4078). A skip does not
+extend the window. Rule: `PetStartleSkipCore`.
+
+**Log:** `petstartleskip: recorded <pet> (<species>), flee route PortalLocked, startles skipped 30 sim-min` and
+`petstartleskip: skipped <pet>, <StartleType>`.
+
+**Proof:** OFF arm on a lot with a pet door locked for NPC pets and a startle source (TV / stereo turned on near an NPC pet):
+repeated `routefail job: ... PetStartle ... result 18` for the same follower. ON arm: one `recorded` line, then `skipped` lines
+and no new PetStartle PortalLocked fails for that pet for 30 sim-minutes; 4074 / 4075 grow, household pets unchanged, no new
+exceptions. Self-check: `tools/selftest/petstartleskip` (PortalLocked only, pets only, forced and exempt startles run, life
+window, bounded table).

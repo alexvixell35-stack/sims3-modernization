@@ -281,6 +281,7 @@ namespace Ts3Fixes
                 case "petpoolghost": return EpLive(typeof(BPgHook), 1, "sPpgIds", sPpgIds, null);
                 case "petpoolorphan": return EpLive(typeof(PetPoolOrphanHook), 2);
                 case "petpuddletile": return EpLive(typeof(PetPuddleHook), 2);
+                case "petstartleskip": return EpLive(typeof(PetStartleSkipHook), 1);
                 case "petwakebed": return EpLive(typeof(PwCleanupHook), 1, "sPwBed", sPwBed, null);
                 case "phonecallrearm": return EpLive(typeof(PhCallRearmHook), 0, "sPhInterval", sPhInterval, typeof(int), "sPhInterval", sPhInterval, "static");
                 case "phonecallschedule": return EpLive(typeof(PhCallScheduleHook), 0, "sPhWindow", sPhWindow, typeof(int), "sPhWindow", sPhWindow, "static", "sPhAlarm", sPhAlarm, null);

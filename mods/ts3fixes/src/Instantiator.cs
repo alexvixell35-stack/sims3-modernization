@@ -145,6 +145,8 @@ namespace Ts3Fixes
         [Tunable] public static bool kPicnicExit = false;              // picnicexit (docs/645 §1): a finished picnic (EA CleanUpPicnic state, basket released) with no Sim and no queued cleanup is exited (EA never exits it)
         [Tunable] public static bool kPoolFailMemo = false;            // poolfailmemo (docs/645 §2): an NPC whose GetInPool plan found no path / no destination is refused that pool for autonomous picks for kPoolFailMemoHours
         [Tunable] public static float kPoolFailMemoHours = 1f;         // poolfailmemo: sim-hours an entry lives
+        [Tunable] public static bool kPetStartleSkip = false;          // petstartleskip (docs/645 §3): an NPC pet whose startle flee route hit a pet-locked door (PortalLocked) skips further startles for kPetStartleSkipMinutes
+        [Tunable] public static float kPetStartleSkipMinutes = 30f;    // petstartleskip: sim-minutes an entry lives
         [Tunable] public static bool kPosturePopCycle = false;   // opt-in until verified: a posture pop that EA would turn into a two-posture loop (Compatible branch) runs the setter's unwind instead (issue #89, PosturePop.cs)
         [Tunable] public static bool kUnseenFallbackPre = true;       // on, same as the shipped tuning (2026-11-14); was: opt-in until verified: an unseen townie's own walk to an unseen lot goal is held for the walk time, then placed at the goal (no search; docs/202 §3.5)
         [Tunable] public static bool kPrePlanCallback = false;     // opt-in until measured: Route.AboutToPlanCallback runs before an async START, the job's locked-door list survives the original plan's second callback (RouteBackoff.cs PreCb, docs/185 §5)

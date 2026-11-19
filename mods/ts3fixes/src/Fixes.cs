@@ -503,6 +503,7 @@ namespace Ts3Fixes
             ApplyTagUnseen();          // docs/60 §3 (TagUnseen.cs), off by default
             ApplyPicnicExit();         // docs/645 §1 (PicnicExit.cs), off by default
             ApplyPoolFailMemo();       // docs/645 §2 (PoolFailMemo.cs), off by default
+            ApplyPetStartleSkip();     // docs/645 §3 (PetStartleSkip.cs), off by default
         }
 
         // Patches that go in only when a tuning is on (docs/124 §17.8): Apply cannot read tunings (C# defaults there), so these
@@ -865,7 +866,7 @@ namespace Ts3Fixes
         // [1106-1108] scarepriority (ScarePriority.cs, docs/580 §14): receivers raised / seen with switch off / errors.
         // [3841-3844] groupchatpriority (GroupChatPriority.cs, docs/638 §3): GroupChatB receivers raised / seen with switch off / errors / spare.
         // [3864-3869] boattaximemo (BoatTaxiMemo.cs, docs/642): boat (any Boat subclass) no-path failures recorded / rider routes planned with the boat off / of those, succeeded / stranded boat plans answered / ms of the recorded plans those answers stand for / refused (household, selected, unknown) or errors.
-        // [4070-4079] contributor block of docs/645 (npc loops): [4070-4071] picnicexit (PicnicExit.cs, §1): finished picnics exited / skipped (Sims present or cleanup pending); [4072-4073] poolfailmemo (PoolFailMemo.cs, §2): NPC GetInPool no-path / no-destination fails recorded / autonomous GetInPool tests refused; [4078] exempt (household, selected, unknown scope) and [4079] errors are shared by the docs/645 switches.
+        // [4070-4079] contributor block of docs/645 (npc loops): [4070-4071] picnicexit (PicnicExit.cs, §1): finished picnics exited / skipped (Sims present or cleanup pending); [4072-4073] poolfailmemo (PoolFailMemo.cs, §2): NPC GetInPool no-path / no-destination fails recorded / autonomous GetInPool tests refused; [4074-4075] petstartleskip (PetStartleSkip.cs, §3): NPC pets recorded after a PortalLocked startle flee route / startles skipped; [4078] exempt (household, selected, unknown scope) and [4079] errors are shared by the docs/645 switches.
         // [4040-4049] houseboatgangwayrescue (HouseboatGangwayRescue.cs, docs/642 §7): NPC Sims marked by a no-path gangway leg to their Docked houseboat / placed by EA's PlaceSimAtEntrance after GoHome failed / refused / errors; refusals: exempt / no, another or undocked houseboat / once-per-hour rule / busy / on the lot, far or stale / no spot.
         // [3870-3873] houseboatlegmemo (HouseboatLegMemo.cs, docs/642 §6): NPC houseboat boat-leg no-path plans recorded / repeats answered / ms of the recorded plans those answers stand for / exempt (household, selected, unknown scope, no Sim or boat router) or errors.
         // [3860-3863] spotwaitattr (SpotWaitAttr.cs, docs/641): kind-2 lot-edge check waits >= 250 ms / frame-bound (one poll >= 80 % of the wait) / job-bound / frame-bound ms.
@@ -1578,6 +1579,7 @@ namespace Ts3Fixes
                 case "houseboatgangwayrescue": return Instantiator.kHouseboatGangwayRescue;
                 case "picnicexit": return Instantiator.kPicnicExit;
                 case "poolfailmemo": return Instantiator.kPoolFailMemo;
+                case "petstartleskip": return Instantiator.kPetStartleSkip;
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;
                 case "seasonimpostercold": return Instantiator.kSeasonImposterCold;
