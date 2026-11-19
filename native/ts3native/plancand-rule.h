@@ -1,4 +1,4 @@
-// docs/643: the pure decisions of plancand.cpp ([RouteAsync] CandidateCut, WaterGoalCheck). No Windows types and no game
+// docs/644: the pure decisions of plancand.cpp ([RouteAsync] CandidateCut, WaterGoalCheck). No Windows types and no game
 // memory here, so the rules also build and run as a plain host test (selftest's TestPlanCand runs them in the plugin build).
 #pragma once
 #include <stdint.h>
@@ -42,7 +42,7 @@ static inline int WgcTier(uint32_t flags) {
 }
 
 // true = the game's search 0x620560 cannot succeed: the start cell is water in the chosen grid (so every jump is a water step,
-// docs/643 §4), start != goal, and the goal cell is not water there. Every case the game rejects by itself, or where the
+// docs/644 §4), start != goal, and the goal cell is not water there. Every case the game rejects by itself, or where the
 // answer is not certain, returns false (the game runs as before).
 static inline bool WgcWouldReject(const WgcView& v, uint32_t s, uint32_t g) {
     if (s > v.cells || g > v.cells || !v.body || !v.grid || !v.bodyW) return false;

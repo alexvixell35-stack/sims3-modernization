@@ -1,4 +1,4 @@
-// docs/643: the candidate phase of PathPlanner_PlanHierarchical 0x65E0D0. Included by ts3native.cpp right after plandeadline.cpp
+// docs/644: the candidate phase of PathPlanner_PlanHierarchical 0x65E0D0. Included by ts3native.cpp right after plandeadline.cpp
 // (PdSess, g_pdOrig, KdCamHold), installed right after InstallPlanDeadline and before [RouteJobPhases] (RjpOwner chains through
 // PccOwnerAt / g_wgcNext where our detours sit).
 //
@@ -12,7 +12,7 @@
 //  2. [RouteAsync] CandidateCut=1: past the plan's deadline (the PdPlanBegin / IC session of plandeadline.cpp, or a worker job's
 //     t_fbDeadline on the g_pdWkTid slot), a helper called from one of the listed planner sites answers "not found" at once.
 //     Only a router whose scope is known unseen (2) or seen NPC (3); household, selected and unknown (0) never: counted as
-//     exempt. Sites (return addresses into 0x65E0D0), every not-found path checked in the disassembly (docs/643 §3):
+//     exempt. Sites (return addresses into 0x65E0D0), every not-found path checked in the disassembly (docs/644 §3):
 //       0x65BC20 from 0x65EF72 (start-lot exits; AL 0 -> 0x65F3C2 -> 0x65EB97, return 5) and 0x65F41B (goal-lot loop; AL 0 ->
 //         0x65F697 -> closest-waypoint fallback -> 0x65F910 -> 0x65EBD6, return 5): the game's own early exit 0x65CAC0 writes
 //         nothing and returns AL 0, ret 0x20;
@@ -284,7 +284,7 @@ static bool WgcLoad(const u8* w, const u8* route, WgcView* v) {
     return true;
 }
 
-// args as 0x671930 reads them (docs/643 §4): a2 route, a3 start cell, a6 goal cell, a9 out vector
+// args as 0x671930 reads them (docs/644 §4): a2 route, a3 start cell, a6 goal cell, a9 out vector
 static DWORD __fastcall WgcHook(void* self, void* edx, DWORD a1, DWORD a2, DWORD a3, DWORD a4, DWORD a5, DWORD a6, DWORD a7, DWORD a8, DWORD a9) {
     PlanCandCounters& c = ts3native_plancand;
     const LONG mode = c.wgcMode;
@@ -331,7 +331,7 @@ static void InstallPlanCand(const wchar_t* ini) {
     const int wgc = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"WaterGoalCheck", 0, ini), 0, 2);
     if (!split && !cut && !wgc) { Log("route candidate cut off (CandidateCut=0, WaterGoalCheck=0, [RouteJobPhases] CandidateSplit=0)"); return; }
 #ifdef TS3A_TABLE
-    if (ts3a_noaddr) { Log("SKIP route candidate cut / split / water goal check: no EA 1.69 address, docs/643"); return; }
+    if (ts3a_noaddr) { Log("SKIP route candidate cut / split / water goal check: no EA 1.69 address, docs/644"); return; }
 #endif
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     g_pccLogUs = Clamp(GetPrivateProfileIntW(L"RouteJobPhases", L"CandidateSplitLogMs", 100, ini), 1, 60000) * 1000;

@@ -1,4 +1,4 @@
-// docs/643 plancand.cpp: the scope rule, the call-site gate, the water goal check on hand-made grids (pure, plancand-rule.h),
+// docs/644 plancand.cpp: the scope rule, the call-site gate, the water goal check on hand-made grids (pure, plancand-rule.h),
 // WgcHook on a fake water map with a fake next (modes off / reject / shadow, out vector, counters), and the split frames
 // (self time, nesting, unwound frames). Included by selftest.cpp.
 static int g_wgcFakeRuns;

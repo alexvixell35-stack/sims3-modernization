@@ -60,7 +60,7 @@ struct PdSess {
     DWORD handle;
     bool ceil;                     // docs/197 §7: runs under KdSeenCeilMs instead of the caps below
     LONG wouldUs;                  // that plan's old cap (us), <= 0 = none
-    LONG scope;                    // docs/643: the router's scope at the session's open (KdScopeTag; 0 unknown = household)
+    LONG scope;                    // docs/644: the router's scope at the session's open (KdScopeTag; 0 unknown = household)
 };
 static __declspec(thread) PdSess t_pd;
 static DWORD g_pdMinute, g_pdLinesMin;
@@ -688,7 +688,7 @@ static LONG PdIcUs(int why, bool scLast) {
     InterlockedIncrement(&k.pdOwnExempt);  // pdMode 1 with pdOwnUs 0: pdUs is set
     return -1;
 }
-// docs/643 (plancand.cpp CandidateCut): the scope this session's plan was asked with, read as KdSyncCeilUs reads it; a marked
+// docs/644 (plancand.cpp CandidateCut): the scope this session's plan was asked with, read as KdSyncCeilUs reads it; a marked
 // UnseenFallback session is unseen. Read once at the open, so a later answer for another route cannot change it mid-plan.
 static LONG PdScopeAt(DWORD handle) {
     if (t_ufSess) return 2;

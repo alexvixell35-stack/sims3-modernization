@@ -13057,7 +13057,7 @@ static void TestP5() {
 #include "replandedupe-test.h"  // TestReplanDedupe ([RouteAsync] ReplanDedupe, docs/150 §13)
 #include "plandeadline-test.h"  // TestPlanDeadline ([RouteAsync] PlanDeadlineMs / FailMemo, docs/164 §7)
 #include "taskserve-test.h"  // TestTaskServe ([RouteAsync] TaskServe, docs/637)
-#include "plancand-test.h"  // TestPlanCand ([RouteAsync] CandidateCut / WaterGoalCheck, CandidateSplit, docs/643)
+#include "plancand-test.h"  // TestPlanCand ([RouteAsync] CandidateCut / WaterGoalCheck, CandidateSplit, docs/644)
 #include "discyield-test.h"  // TestDiscYield ([RouteAsync] DiscYieldForeign, docs/640)
 #include "gate0ro-test.h"     // TestGate0Ro ([Gate0RO], docs/152 §G1)
 #include "rtotail-test.h"  // TestRouteToObjTail ([RouteToObjRO] Tail); its stubs serve rtoro-test.h
@@ -14619,7 +14619,7 @@ int main() {
     TestReplanDedupe();
     TestPlanDeadline();
     TestTaskServe();  // docs/637
-    TestPlanCand();   // docs/643
+    TestPlanCand();   // docs/644
     TestUncutCeil();   // docs/264: [RouteAsync] KdUncutCeilMs
     TestGate0Ro();
     TestRouteToObjRO();

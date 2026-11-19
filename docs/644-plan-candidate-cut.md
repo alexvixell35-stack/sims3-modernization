@@ -1,4 +1,4 @@
-# 643: planner candidate phase: split timing, deadline cut, water goal check
+# 644: planner candidate phase: split timing, deadline cut, water goal check
 
 2026-11-19, static (disassembly of the Steam 1.67 exe with capstone, Ghidra decompiles of `0x65E0D0`, `0x65BB90`, `0x6595B0`,
 `0x65BC20`, `0x654CC0`, `0x65DF90`, `0x650D80`, `0x6443A0`, `0x671930`, `0x620560`; none committed), built, **NOT RUN**.
