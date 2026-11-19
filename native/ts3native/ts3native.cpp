@@ -3222,6 +3222,7 @@ static void AgLogCounters();   // monothread-m5.cpp: [ArenaGuard] (docs/67 §22.
 static void GrLogCounters();   // gcroots.cpp: [GcRootCheck] (docs/67 §22.4)
 static void AtLogCounters();   // arenatail.cpp: [ArenaGuard] TailPad, [GcRootCheck] TailWatch (docs/67 §22.7)
 static void UfcLogCounters();  // unseenfbc.cpp (docs/202 §3.4)
+static void PccLogCounters();  // plancand.cpp (docs/644)
 
 static void DiscRfLog();  // discourage.cpp (docs/89 §18)
 static void MaybeLogCounters(ULONGLONG now) {
@@ -3294,6 +3295,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     NpmLogCounters();  // docs/643: one line when [RouteAsync] NoPathMemo is on
     if (c.mwReady || c.gvReady || c.ikReady) MwLogCounters();  // docs/178 §9
     if (c.p6wReady) P6wLogCounters();  // docs/189 phase 0
+    PccLogCounters();  // docs/644 (nothing until a part is on)
     if (ts3native_readydrain.mode)
         Log("route ready drain: budget %ld us, frame %ld us, gap %ld us, polls %ld, calls served past the first %ld, done in the same "
             "poll %ld, budget ends %ld, idle stops %ld, frames at the frame budget %ld, max %ld us", ts3native_readydrain.budgetUs,
@@ -6244,6 +6246,7 @@ static void RewindOfflineInit(const wchar_t* ini) {
 #include "earlyout.cpp"
 #include "plandeadline.cpp"  // docs/164 §7: [RouteAsync] PlanDeadlineMs / FailMemo (routephases.cpp takes its trampolines)
 #include "nopathmemo.cpp"    // docs/643: [RouteAsync] NoPathMemo (after earlyout.cpp: CallPlanEo; after plandeadline.cpp: g_kdScope*)
+#include "plancand.cpp"      // docs/644: [RouteAsync] CandidateCut / WaterGoalCheck, [RouteJobPhases] CandidateSplit (after plandeadline.cpp)
 #include "unseenfb.cpp"      // docs/202: [UnseenFallback] (after plandeadline.cpp: PdSess, the exits)
 #include "unseenfbc.cpp"     // docs/202 §3.4: [UnseenFallback] Sites C1-C4 (after unseen.cpp, rtoro.cpp, fgro.cpp)
 #include "ghost.cpp"         // docs/202 §3.9.5: [UnseenGhost] (after unseenfbc.cpp: agent site, 0x833560 layers)
@@ -6435,6 +6438,7 @@ static void Run(HMODULE self) {
         InstallP10(ini);
         InstallReplanDedupe(ini);  // docs/150 §13: after A10 (its collect detours) and P10 (probe stubs keep their ICs)
         InstallPlanDeadline();     // docs/164 §7: after the plan detour, the cost stubs and InstallAsync (SyncIc); before [RouteJobPhases]
+        InstallPlanCand(ini);      // docs/644: after InstallPlanDeadline (chains into its water stub); before [RouteJobPhases]
         keepLog = ApplySaveWrite(ini) || keepLog;
         ApplySaveFlush(ini);
         ApplySaveSlim(ini);  // after [SaveFlush] (shares its load-copy hook when that is on)

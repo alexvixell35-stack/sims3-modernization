@@ -450,7 +450,8 @@ static void** RjpOwner(int i) {
         case RJS_LOTGRAPH: return g_rgTramp[3] ? &g_rgTramp[3] : &g_lpJmp[LP_LOTGRAPH];
         case RJS_PENDING: return RtOwnerAt(kRjpSites[RJS_PENDING].at);
         case RJS_CELL: return &g_pdOrig[0];  // docs/164 §7 [RouteAsync] PlanDeadlineMs entry stubs (plandeadline.cpp)
-        case RJS_WATER: return &g_pdOrig[1];
+        case RJS_WATER: return g_pdOrig[1] || !WgcOwner() ? &g_pdOrig[1] : WgcOwner();  // docs/644: WaterGoalCheck's own detour
+        case RJS_CAND: case RJS_LOTSEARCH: return PccOwnerAt(kRjpSites[i].at);         // docs/644 CandidateSplit (plancand.cpp)
         case RJS_GSTEP: return g_rgTramp[10] ? &g_rgTramp[10] : NULL;  // [RouteGate] goal step (coarse) entry stub
         case RJS_GEDIT: return g_avTwTramp[1] ? &g_avTwTramp[1] : NULL;  // [AvoidRO] T-AV wrapper
         default: return NULL;
