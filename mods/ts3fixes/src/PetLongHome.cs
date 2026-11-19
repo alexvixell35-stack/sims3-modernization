@@ -30,6 +30,10 @@ namespace Ts3Fixes
     // walk to a community lot (VisitCommunityLotHook; health.jsonl: Minnie Cat "Visit Eugi's" 2203 sim-min, Snowshoe Cat
     // "Visit Buena Vista Resort" 1793, Cookie Horse "Visit Bridgeport Sports Zone" 1106), counted in [4179] placed and
     // [4180] refused. Strays, wild horses, unicorns and pet-pool animals keep EA's visit walk.
+    // docs/656 §4.5 herd spot share (also only with kPetLongHomeNoSpotMinutes > 0): a spot SafeSpot just verified for a
+    // (lot, species class) is handed to the next pet of that class for the same life (cheap checks only: still on the lot,
+    // unseen; [4196]); a pet whose search would start while another task's search of the same key runs waits for it in
+    // its own task ([4197]); a search that ended with its unseen gate gone is not noted as "no spot" ([4198]).
     public static partial class Fixes
     {
         static readonly PetLongHomeCore sPlh = new PetLongHomeCore();
@@ -88,12 +92,47 @@ namespace Ts3Fixes
                 Vector3 entry = lot.EntryPoint();
                 bool petUnseen = TownieUnseen(sim, null);
                 bool goalUnseen = petUnseen && FarFromViewers(lot.Position) && FarFromViewers(entry) && UfGoalUnseen(entry);
-                ulong nsKey = PetLongHomeCore.NoSpotKey(lot.LotId, d.IsHorse ? 1 : 2);
+                ulong nsKey = PetLongHomeCore.NoSpotKey(lot.LotId, PetLongHomeCore.SpeciesClass(d.IsHorse, d.IsLittleDog, d.IsADogSpecies));
                 long nsLife = SimClock.ConvertToTicks(Instantiator.kPetLongHomeNoSpotMinutes, TimeUnit.Minutes);
+                // herd spot share (docs/656 §4.5, nsLife > 0 only): wait for a search of the same (lot, class) running in another
+                // task (this is the pet's own interaction task; MayYield), then take its answer instead of a search of our own
+                if (petUnseen && goalUnseen && nsLife > 0 && sPlh.Busy(nsKey, now, SimClock.ConvertToTicks(30f, TimeUnit.Minutes))
+                    && Simulator.CurrentTask == sim.ObjectId && MayYield())
+                {
+                    c[4197]++;
+                    for (int w = 0; w < 40 && sPlh.Busy(nsKey, SimClock.CurrentTicks, SimClock.ConvertToTicks(30f, TimeUnit.Minutes)); w++) Simulator.Sleep(1);
+                    if (sim.HasBeenDestroyed || !sim.InWorld) return;
+                    now = SimClock.CurrentTicks;
+                    petUnseen = TownieUnseen(sim, null);
+                    goalUnseen = petUnseen && FarFromViewers(lot.Position) && FarFromViewers(entry) && UfGoalUnseen(entry);
+                }
                 bool remembered = petUnseen && goalUnseen && nsLife > 0 && sPlh.NoSpotLive(nsKey, now);
                 if (remembered) c[4178]++;
                 Vector3 pos = Vector3.Invalid, fwd = Vector3.Invalid;
-                bool spot = petUnseen && goalUnseen && !remembered && SafeSpot(sim, lot, entry, out pos, out fwd, "petlonghome", true) && UfGoalUnseen(pos);
+                bool spot = false, shared = false;
+                float[] gv = new float[6];
+                if (petUnseen && goalUnseen && !remembered && nsLife > 0 && sPlh.GoodGet(nsKey, now, gv))
+                {
+                    // cheap checks only (no plan): still on this lot and unseen; the spot passed SafeSpot's routability check
+                    pos = new Vector3(gv[0], gv[1], gv[2]); fwd = new Vector3(gv[3], gv[4], gv[5]);
+                    if (LotManager.GetLotAtPoint(pos) == lot && UfGoalUnseen(pos)) { spot = shared = true; c[4196]++; }
+                    else sPlh.GoodDrop(nsKey);
+                }
+                if (!spot && petUnseen && goalUnseen && !remembered)
+                {
+                    if (nsLife > 0) sPlh.Begin(nsKey, now);
+                    try { spot = SafeSpot(sim, lot, entry, out pos, out fwd, "petlonghome", true) && UfGoalUnseen(pos); }
+                    finally { if (nsLife > 0) sPlh.End(nsKey); }
+                    now = SimClock.CurrentTicks;
+                    if (spot && nsLife > 0) sPlh.GoodNote(nsKey, now, nsLife, pos.x, pos.y, pos.z, fwd.x, fwd.y, fwd.z);
+                    // the search may have waited on its job: only a search that still had its unseen gate counts as "no spot"
+                    if (!spot && (sim.HasBeenDestroyed || !TownieUnseen(sim, null) || !FarFromViewers(entry)))
+                    {
+                        if (nsLife > 0) c[4198]++;
+                        petUnseen = !sim.HasBeenDestroyed && TownieUnseen(sim, null);
+                        goalUnseen = petUnseen && FarFromViewers(entry);
+                    }
+                }
                 int post = PetLongHomeCore.Post(petUnseen, goalUnseen, spot);
                 if (post != PetLongHomeCore.kOk)
                 {
@@ -109,7 +148,7 @@ namespace Ts3Fixes
                 c[placedSlot]++;
                 ShortcutLog(sim.FullName + " => " + lot.Name + " (petlonghome " + via + " from " + from + ")");
                 PlhLog("placed " + sim.FullName + " (" + d.Species + ") at " + lot.Name + " via " + via + ", " + (int)dist + " m away, trip "
-                    + (int)tripMin + " sim-min");
+                    + (int)tripMin + " sim-min" + (shared ? ", herd spot shared" : ""));
             }
             catch (Exception ex) { c[4079]++; PlhLog("error " + ex.GetType().Name); }
         }

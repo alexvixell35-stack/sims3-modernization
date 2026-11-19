@@ -70,6 +70,37 @@ static class PetLongHomeTest
         n.NoSpotNote(PetLongHomeCore.NoSpotKey(5000, 1), 0, 10);
         Check(n.NoSpotCount == 1, "full memo: cleared, new entry kept");
 
+        // herd spot share (docs/656 §4.5)
+        PetLongHomeCore g = new PetLongHomeCore();
+        ulong hk = PetLongHomeCore.NoSpotKey(90, PetLongHomeCore.SpeciesClass(true, false, false));
+        float[] v = new float[6];
+        Check(!g.GoodGet(hk, 0, v), "no spot shared yet");
+        g.GoodNote(hk, 100, 0, 1, 2, 3, 0, 0, 1);
+        Check(!g.GoodGet(hk, 100, v) && g.GoodCount == 0, "life 0: nothing shared, as before");
+        g.NoSpotNote(hk, 90, 600);
+        g.GoodNote(hk, 100, 600, 1, 2, 3, 0, 0, 1);
+        Check(g.GoodGet(hk, 150, v) && v[0] == 1 && v[2] == 3 && v[5] == 1, "next herd member gets the verified spot and facing");
+        Check(!g.NoSpotLive(hk, 150), "a found spot clears the no-spot entry");
+        g.NoSpotNote(hk, 160, 600);
+        Check(!g.NoSpotLive(hk, 170), "a late 'no spot' from a parallel search loses to the shared spot");
+        Check(!g.GoodGet(hk, 700, v) && g.GoodCount == 0, "shared spot expires");
+        g.GoodNote(hk, 1000, 600, 1, 2, 3, 0, 0, 1);
+        Check(!g.GoodGet(hk, 900, v), "clock went back: dropped");
+        g.GoodNote(hk, 0, 600, 1, 2, 3, 0, 0, 1); g.GoodDrop(hk);
+        Check(!g.GoodGet(hk, 1, v), "dropped spot (failed the cheap checks) is gone");
+        Check(PetLongHomeCore.SpeciesClass(true, false, false) != PetLongHomeCore.SpeciesClass(false, true, true)
+            && PetLongHomeCore.SpeciesClass(false, true, true) != PetLongHomeCore.SpeciesClass(false, false, true)
+            && PetLongHomeCore.SpeciesClass(false, false, true) != PetLongHomeCore.SpeciesClass(false, false, false), "horse, little dog, dog, cat apart");
+        // a search in flight
+        Check(!g.Busy(hk, 0, 100), "nothing running");
+        g.Begin(hk, 10);
+        Check(g.Busy(hk, 50, 100), "running in another task: wait");
+        Check(!g.Busy(hk, 200, 100), "stale (task killed mid-search): not waited on, entry gone");
+        g.Begin(hk, 300); g.End(hk);
+        Check(!g.Busy(hk, 310, 100), "ended: not running");
+        g.Begin(hk, 500);
+        Check(!g.Busy(hk, 400, 100), "clock went back: not running");
+
         Console.WriteLine(sFails == 0 ? "petlonghome selftest: ok" : "petlonghome selftest: " + sFails + " FAIL");
         Environment.Exit(sFails == 0 ? 0 : 1);
     }

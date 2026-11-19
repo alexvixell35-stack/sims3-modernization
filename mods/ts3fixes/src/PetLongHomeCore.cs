@@ -91,12 +91,71 @@ namespace Ts3Fixes
 
         public void NoSpotNote(ulong key, long now, long life)
         {
-            if (life <= 0) return;
+            if (life <= 0 || GoodLive(key, now)) return;  // another member of the herd found a spot meanwhile: that answer wins
             if (mNoSpot.Count >= kMax) mNoSpot.Clear();
             Trip t;
             t.From = now;
             t.Lot = (ulong)(now + life);
             mNoSpot[key] = t;
         }
+
+        // docs/656 §4.5 herd spot share (same life as the no-spot memo; 0 = off). s136 (Appaloosa Plains): a wild-horse herd's
+        // members each ran their own SafeSpot search on the same lot at the same time (spotasync lets one search wait on its
+        // job while the next member starts), one 150-400 ms plan per member, and a member whose search ended without a spot
+        // (also an unseen gate that failed during the wait) noted "no spot" while the others were placed, so later members
+        // walked (16 of the ON arm's 28 Wild Horse walk plans followed a "(remembered)" refusal). Good: a spot that was just
+        // verified and used for (lot, species class) is handed to the next member until it expires; Busy: a search for the
+        // key is running in another task (started < staleTicks ago), so a member waits for its answer instead of searching.
+        struct Spot { public long From, Until; public float X, Y, Z, FX, FY, FZ; }
+        readonly Dictionary<ulong, Spot> mGood = new Dictionary<ulong, Spot>();
+        readonly Dictionary<ulong, long> mBusy = new Dictionary<ulong, long>();
+        public int GoodCount { get { return mGood.Count; } }
+
+        public bool GoodLive(ulong key, long now)
+        {
+            Spot t;
+            if (!mGood.TryGetValue(key, out t)) return false;
+            if (t.From <= now && now < t.Until) return true;
+            mGood.Remove(key);
+            return false;
+        }
+
+        // the spot as x, y, z, fx, fy, fz (6 floats) when live
+        public bool GoodGet(ulong key, long now, float[] v)
+        {
+            if (v == null || v.Length < 6 || !GoodLive(key, now)) return false;
+            Spot t = mGood[key];
+            v[0] = t.X; v[1] = t.Y; v[2] = t.Z; v[3] = t.FX; v[4] = t.FY; v[5] = t.FZ;
+            return true;
+        }
+
+        // a verified spot: kept for `life`, and it clears that key's no-spot entry
+        public void GoodNote(ulong key, long now, long life, float x, float y, float z, float fx, float fy, float fz)
+        {
+            if (life <= 0) return;
+            if (mGood.Count >= kMax) mGood.Clear();
+            Spot t;
+            t.From = now; t.Until = now + life; t.X = x; t.Y = y; t.Z = z; t.FX = fx; t.FY = fy; t.FZ = fz;
+            mGood[key] = t;
+            mNoSpot.Remove(key);
+        }
+
+        // a bad spot (the placement found it unusable): drop it
+        public void GoodDrop(ulong key) { mGood.Remove(key); }
+
+        public bool Busy(ulong key, long now, long staleTicks)
+        {
+            long at;
+            if (!mBusy.TryGetValue(key, out at)) return false;
+            if (at <= now && now - at < staleTicks) return true;
+            mBusy.Remove(key);  // stale (a task killed mid-search) or the clock went back
+            return false;
+        }
+
+        public void Begin(ulong key, long now) { if (mBusy.Count >= kMax) mBusy.Clear(); mBusy[key] = now; }
+        public void End(ulong key) { mBusy.Remove(key); }
+
+        // species classes for the memo keys: horses, big dogs, little dogs, cats (each its own route profile)
+        public static int SpeciesClass(bool horse, bool littleDog, bool dog) { return horse ? 1 : littleDog ? 3 : dog ? 2 : 4; }
     }
 }

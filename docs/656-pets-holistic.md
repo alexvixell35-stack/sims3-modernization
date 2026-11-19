@@ -164,6 +164,29 @@ seen without the buff, 4176 exempt, 4177 errors. Log `strayleave: <stray> (<spec
   SafeSpot found nothing is refused without a new search for that many sim-minutes. One search per herd member at a lot
   with no spot is what cost the s130 ON arm 1.3 s. 4178 searches saved.
 
+### 4.5 Herd spot share (`PetLongHome.cs`, slots 4196-4198; only with `kPetLongHomeNoSpotMinutes` > 0)
+
+s136 (Appaloosa Plains, phase-20261119-2045, household Fox, memo 60): pet slow plans did not drop (OFF 56 / 12.4 s, ON
+63 / 13.9 s). **What the "pet Wild Horse" plans are** [verified, decompiled `WildHorsePool.HerdBehaviorCallback` + log]:
+the herd alarm (every `kHerdBehaviorFrequency` 120 sim-min) picks a lot with `WildHorses.FindGoodLot` and pushes EA's
+`GoToLot` on **every** herd member (each plans its own 450-880 m walk, 150-400 ms; three in one tick at line 817), plus
+`GoToLot` to the leader's lot for members elsewhere and `RouteToWildHorse` (30-60 m) near the leader. Who covers them:
+`wildlotskip` / `wildhorselot` only change which lot is picked (unreachable ones), `petarrivepoint` only
+`Lot.PlanRouteIntoLot` (GoHome; the herd's GoToLot does not use it), `petlonghome` places them (via gotolot) when its spot
+search finds a spot. In the ON arm 23 of the 28 Wild Horse walk plans followed a petlonghome refusal "no safe spot", 16 of
+them "(remembered)", while other members of the same herd were placed on the same lot (Cinnamon Crest Falls, Water
+Treatment, Wolfson's). Cause [verified, log order + SafeSpot source]: the members' searches overlap (spotasync lets one
+search wait on its job while the next member starts its own on the same lot), so each member pays a 150-400 ms check
+("spot:petlonghome" 9 / 2.0 s), and a member whose search ended without a spot (the unseen gate failing during the wait
+also returns false) noted "no spot" while the others succeeded; the later members then walked.
+
+Fix (bug fix, same placement rule): a spot SafeSpot just verified for (lot, species class) is handed to the next pet of
+that class while the memo life lasts, after cheap checks only (still on that lot, unseen; 4196); a pet whose search would
+start while another task's search of the same key runs waits for it in its own task (up to 40 sim-ticks, then re-checks
+its unseen gates; 4197); a failed search whose unseen gate is gone afterwards is not noted as "no spot" (4198); a found
+spot clears and beats a parallel "no spot". Species classes are now horse, big dog, little dog, cat. Herd members share
+one spot (they stand together; EA's RouteToWildHorse spreads them). Self-test cases in `tools/selftest/petlonghome`.
+
 ### 4.4 Not changed, and why
 
 - Owned NPC pets idling at home for days (§2): EA's pet autonomy; no route cost, nothing broken a player sees.
