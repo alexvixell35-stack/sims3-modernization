@@ -25,8 +25,12 @@
 // static world version did not move during the plan. Key: routing world, agent class, the four RouteOption words, follower
 // ObjectGuid, start and goal points in 0.5 m cells (RouteKey, the phase-2 cache's key).
 // Answer: an identical request within TTL sim-minutes (NoPathMemoMinutes, default 120; SimClock ticks, 37.5 per sim-minute)
-// returns 0 before the lock without searching, the planner's own pre-lock failure (docs/11 Q5): mType Failed with no blocker,
-// so no fail-path replan runs either. Only when the out list is empty, the world is quiet and [RouteSnap]'s static version
+// returns 0 before the lock without searching, with the result type the recorded plan had: FailedBecauseNoPathToDestination
+// (16), no blocker. Route_PlanCommon maps a 0 with an empty out list to Failed (2) (its local result's default); the one je
+// that takes that branch (0x760F2F) is retargeted to NpmPcStub, which writes 16 into that local result when this thread's
+// plan was answered here, then goes on to the copy-out at 0x76156D (NpmPcInstall). So only plans from Route_PlanCommon's
+// call site (return 0x760DE6: Plan, Replan, PlanFromPoint, ReplanFromPosition) are answered, and only with the stub in.
+// No blocker: GetRouteFailPath plans nothing (docs/11 Q5). Only when the out list is empty, the world is quiet and [RouteSnap]'s static version
 // (lot routing / quad tree / LotGraph builds, water grid builds and marks, lot updates, IC epochs: PrVersions) equals the
 // recorded one; a request that reads dynamic footprints (BlockedByPeople / BlockedByDynamicFootprints) also needs the
 // footprint version unchanged (FailMemo's rule, replandedupe.cpp). An answer never extends its entry; a success of the same
@@ -36,7 +40,7 @@
 
 struct NoPathMemoCounters {
     volatile LONG mode;   // +0x00 runtime switch: 0 off, 1 water / boat requests, 2 every request of an NPC router
-    LONG ready;           // +0x04 1 = installed (world version and sim clock readable at the first plan: bit 1 / bit 2)
+    LONG ready;           // +0x04 1 = installed; bit 1 + bit 2 = world version and sim clock seen; bit 3 = result stub in (answers on)
     LONG recorded;        // +0x08 slot 4000: failed no-path plans recorded
     LONG served;          // +0x0C slot 4001: identical plans answered from the memo
     LONG servedMs;        // +0x10 slot 4002: ms of the recorded plans those answers stand for
@@ -143,6 +147,41 @@ static int NpmFailKind(const int* outList, DWORD guidLo, DWORD guidHi) {
     return 0;
 }
 
+// Route_PlanCommon 0x7606E0 after its Route_PlanLocked call (0x760DE1, returns to 0x760DE6) [verified disassembly, Steam 1.67]:
+// 0x760F2D `cmp [edi],edi` (out list empty?); 0x760F2F `je 0x76156D` = the empty-list branch, which copies the local result
+// [esp+0x78] (0x48 bytes, rep movs at 0x761581) to the caller's out. The non-empty branch instead calls 0x752620 with that same
+// [esp+0x78], which writes type 16 for path status 7/8 (docs/93 §2.1). esp is the same at 0x760F2F and 0x761581.
+static const DWORD kNpmPcSite = TS3A(0x00760F2D), kNpmPcBack = TS3A(0x0076156D), kNpmPlanRet = TS3A(0x00760DE6);
+static const u8 kNpmPcBytes[4] = {0x39, 0x3F, 0x0F, 0x84};  // cmp [edi],edi; je rel32
+static DWORD g_npmPcBack;
+static void __cdecl NpmPcFix(DWORD* res) {
+    if (!t_npmServed) return;
+    t_npmServed = false;
+    res[0] = 16;  // FailedBecauseNoPathToDestination; blocker id / type / location keep the default's zeros
+}
+static __declspec(naked) void NpmPcStub() {
+    __asm {
+        pushad
+        pushfd
+        lea eax, [esp + 0x24 + 0x78]  // the site's esp + 0x78 (pushad 0x20 + pushfd 4)
+        push eax
+        call NpmPcFix
+        add esp, 4
+        popfd
+        popad
+        jmp dword ptr [g_npmPcBack]
+    }
+}
+static bool NpmPcInstall() {
+    u8* site = (u8*)(uintptr_t)kNpmPcSite;
+    if (!Matches(site, kNpmPcBytes, sizeof(kNpmPcBytes))) return false;
+    u8* rel = site + sizeof(kNpmPcBytes);
+    if ((DWORD)(uintptr_t)(rel + 4) + (DWORD)*(const LONG*)rel != kNpmPcBack) return false;
+    g_npmPcBack = kNpmPcBack;
+    const LONG nrel = (LONG)((DWORD)(uintptr_t)NpmPcStub - (DWORD)(uintptr_t)(rel + 4));
+    return Write(rel, &nrel, 4);
+}
+
 static bool NpmLineOk(int which) {
     const LONG minute = (LONG)(GetTickCount() / 60000);
     if (InterlockedExchange(&g_npmMinute, minute) != minute) g_npmLines[0] = g_npmLines[1] = 0;
@@ -197,15 +236,18 @@ static u8 NpmPlan(void* world, void* edx, int* outList, int* starts, int* goals,
         g_npmWorld = world;
     }
     look = NpmTabLook(&g_npmTab, key, now, g_npmTtl, sver0, ver0, &ms);
-    if (look == NPM_HIT && (!quiet || (const int*)(uintptr_t)outList[0] != outList)) look = -1;  // the plan runs; the entry stays
+    // the plan runs and the entry stays: world not quiet, out list not empty, or a caller whose answer would not read 16
+    if (look == NPM_HIT && (!quiet || (const int*)(uintptr_t)outList[0] != outList || !(c.ready & 8) || t_npmRet != kNpmPlanRet))
+        look = -1;
     ReleaseSRWLockExclusive(&g_npmLock);
     if (look == NPM_INVALID) InterlockedIncrement(&c.invalidated);
     else if (look == NPM_EXPIRED) InterlockedIncrement(&c.expired);
     if (look == NPM_HIT) {
         InterlockedIncrement(&c.served);
         InterlockedExchangeAdd(&c.servedMs, ms);
+        t_npmServed = true;  // NpmPcStub: Route_PlanCommon's empty-list branch reports 16, not 2
         if (NpmLineOk(1)) Log("route nopath memo: served route %08lX kind %d scope %ld, stands for %ld ms", handle, kind, scope, (LONG)ms);
-        return 0;  // the planner's pre-lock failure: out list untouched, Failed with no blocker (docs/11 Q5)
+        return 0;  // out list untouched; Route_PlanCommon reports FailedBecauseNoPathToDestination with no blocker
     }
     NpmCutSnap cut;
     NpmCutBefore(cut);
@@ -247,6 +289,13 @@ static void ReadNoPathMemo(const wchar_t* ini) {
     c.mode = mode;
     c.ready = 1;
     g_npmOn = 1;
+    if (NpmPcInstall()) {
+        c.ready |= 8;
+        Log("OK   route nopath memo: je at 0x%08X -> NpmPcStub (answers read FailedBecauseNoPathToDestination)", kNpmPcSite + 2);
+    } else {
+        Log("SKIP route nopath memo: bytes at 0x%08X differ (not the Steam 1.67 Route_PlanCommon): record only, nothing answered",
+            kNpmPcSite);
+    }
     Log("route nopath memo: NoPathMemo=%d NoPathMemoMinutes=%ld (%lu sim ticks), %d entries; needs the Route_PlanLocked detour "
         "and the [RouteSnap] counters (turned on by this key)", mode, c.ttlMin, (DWORD)g_npmTtl, NPM_ENTRIES);
 }

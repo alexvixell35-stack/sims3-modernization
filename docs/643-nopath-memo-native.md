@@ -68,8 +68,29 @@ hold:
 - A request that reads dynamic footprints (BlockedByPeople `4` / BlockedByDynamicFootprints `0x1000`) also needs the
   footprint version unchanged (FailMemo's rule, replandedupe.cpp).
 
-The answer is `return 0` before the lock: the planner's own pre-lock failure, mType Failed with no blocker (docs/11 Q5). With no
-blocker, `GetRouteFailPath` plans nothing either.
+The answer is `return 0` before the lock, and the caller sees the result type the recorded plan had:
+FailedBecauseNoPathToDestination (16), with no blocker. With no blocker, `GetRouteFailPath` plans nothing either.
+
+How the 16 is produced [verified disassembly, Steam 1.67]:
+- `Route_PlanCommon 0x7606E0` calls Route_PlanLocked at `0x760DE1` (returns to `0x760DE6`).
+- Route_PlanLocked returns 0 and the out list is empty. `0x760F2D cmp [edi],edi; 0x760F2F je 0x76156D` takes the empty-list
+  branch. That branch copies PlanCommon's local result `[esp+0x78]` (0x48 bytes, `rep movs` at `0x761581`) to the caller.
+  The local result's default type is Failed (2).
+- With a path in the list, PlanCommon instead calls `0x752620` on that same `[esp+0x78]`. For status 7/8 it writes type 16
+  and the blocker fields.
+- NoPathMemo retargets the rel32 of that one `je` to `NpmPcStub`. The stub runs `NpmPcFix([esp+0x78])`: when this thread's
+  Route_PlanLocked was answered by the memo (`t_npmServed`, read once), it writes 16 into the result type. The stub then goes
+  on to `0x76156D`.
+- So the caller gets type 16 with zero blocker fields, the same as a vanilla no-path failure without a blocker.
+
+Guards:
+- `PlanLockedHook` stores its return address (`t_npmRet`) and clears `t_npmServed` on every call.
+- A memo hit is answered only when the stub is in (`ready` bit 3) and the plan came from PlanCommon's call site. Those are the
+  four route ICs: Plan, Replan, PlanFromPoint, ReplanFromPosition.
+- Other callers of Route_PlanLocked (the road plans `0xC7C6E3` / `0xC7C9D5`) always search.
+- If the site bytes differ, the memo only records and never answers (`SKIP route nopath memo: bytes at ...`).
+- Selftest `TestNoPathMemoStub` runs the stub on a fake frame. It checks that type 16 comes only after a served answer and only
+  once, and that the registers, esp and the jump target are kept.
 
 Other rules:
 - An answer never extends its entry.
@@ -88,10 +109,13 @@ per sim-minute (docs/04a).
 
 ## 3. What differs from vanilla
 
-Only for an NPC router, the second and later identical plans inside the TTL return Failed (2) without a blocker at once,
-instead of FailedBecauseNoPathToDestination (16) after the full search. EA's houseboat leg callers read only `Succeeded()`
-(docs/642 §6). For other callers, the difference is the skipped route-fail replan toward a blocker, which boattaximemo already
-accepts (docs/642 §3). If the world could have opened a path, the plan runs again: a static rebuild, a lot update, a water grid
+Only for an NPC router, the second and later identical plans inside the TTL return FailedBecauseNoPathToDestination (16) at
+once, instead of after the full search. That keeps the stranding visible to `houseboatlegmemo` and `houseboatgangwayrescue`,
+which act on a NoPath result. Three things differ from vanilla:
+- There is no blocker. The recorded plan may have named an Object, Sea or Terrain blocker, but never a Sim one.
+- The route holds no path, so `GetNumPaths` is 0 instead of 1 (docs/93 §3 P3) and PlanCommon's EditPath tail does not run on
+  a failed path.
+- The route-fail replan toward a blocker is skipped, which boattaximemo already accepts (docs/642 §3). If the world could have opened a path, the plan runs again: a static rebuild, a lot update, a water grid
 change or the TTL.
 
 Not covered: a plan whose start moves by a 0.5 m cell or more each try (a new key). The first failure is still paid.

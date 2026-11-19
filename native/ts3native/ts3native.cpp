@@ -4765,10 +4765,15 @@ static bool PrBegin(PrTok& t, const void* world, const int* starts, const int* g
                     DWORD guidLo, DWORD guidHi);
 static void PrEnd(bool on, const PrTok& t, const int* outList, u8 r);
 
+// docs/643 [RouteAsync] NoPathMemo (nopathmemo.cpp): the return address of this thread's current Route_PlanLocked, and whether
+// the memo answered it (read once by the PlanCommon result stub, NpmPcFix)
+static __declspec(thread) DWORD t_npmRet;
+static __declspec(thread) bool t_npmServed;
 // noinline: P10 reads this frame's own return slot (selftest calls it directly)
 static __declspec(noinline) u8 __fastcall PlanLockedHook(void* world, void* edx, int* outList, int* starts, int* goals,
                                                          DWORD agent, DWORD doPlan, u8* opts, int* out1, int* out2,
                                                          DWORD guidLo, DWORD guidHi) {
+    t_npmRet = (DWORD)(uintptr_t)_ReturnAddress(), t_npmServed = false;  // docs/643 NoPathMemo: which caller, a fresh answer
     if (t_p6.act) t_p6.plans++;  // P6 split: planner calls per job (count only)
     if (t_kdCam == 1) KdCamPlanArgs(starts, goals);
     if (t_p4Cap) return P4LivePlan(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);

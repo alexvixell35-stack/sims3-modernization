@@ -13015,6 +13015,48 @@ static void TestP5() {
 #include "threadstack-test.h"  // TestThreadStack ([ThreadStack], docs/66 §6)
 #include "userdiag-test.h"  // TestUserDiag ([UserDiag], docs/188)
 #include "nopathmemo-test.h"  // TestNoPathMemo ([RouteAsync] NoPathMemo table, docs/643)
+// NpmPcStub (nopathmemo.cpp) on a fake Route_PlanCommon frame: the local result at the site's esp + 0x78 reads 16 only after a
+// served answer, every register and esp come back, and the stub goes on to g_npmPcBack
+static volatile DWORD g_npmTOut, g_npmTEsp0, g_npmTEsp1, g_npmTEdi;
+static __declspec(naked) void NpmTBack() {
+    __asm {
+        mov eax, [esp + 0x78]
+        mov g_npmTOut, eax
+        mov g_npmTEdi, edi
+        add esp, 0x100
+        mov g_npmTEsp1, esp
+        ret
+    }
+}
+static __declspec(naked) void NpmTEnter() {
+    __asm {
+        sub esp, 0x100
+        mov dword ptr [esp + 0x78], 2
+        jmp NpmPcStub
+    }
+}
+static __declspec(noinline) void NpmTRun() {
+    __asm {
+        push edi
+        mov g_npmTEsp0, esp
+        mov edi, 0x12345678
+        call NpmTEnter
+        pop edi
+    }
+}
+static void TestNoPathMemoStub() {
+    g_npmPcBack = (DWORD)(uintptr_t)NpmTBack;
+    t_npmServed = false;
+    NpmTRun();
+    assert(g_npmTOut == 2 && g_npmTEdi == 0x12345678 && g_npmTEsp1 == g_npmTEsp0 - 4);  // not served: Route_PlanCommon's 2
+    t_npmServed = true;
+    NpmTRun();
+    assert(g_npmTOut == 16 && !t_npmServed && g_npmTEdi == 0x12345678 && g_npmTEsp1 == g_npmTEsp0 - 4);
+    NpmTRun();
+    assert(g_npmTOut == 2);  // read once
+    g_npmPcBack = 0;
+    printf("selftest nopathmemo: result stub ok\n");
+}
 #include "played-test.h"    // TestPlayed (played.cpp, docs/14 section 8.6)
 #include "memdiag-test.h"   // TestMemDiag ([MemDiag], docs/190 phase 1, docs/191)
 #include "memaccess-test.h"  // TestMemAccess ([MemDiag] Access, docs/190 phase 2)
@@ -14564,6 +14606,7 @@ int main() {
     TestCrashReport();
     TestUserDiag();
     TestNoPathMemo();
+    TestNoPathMemoStub();
     TestPlayed();
     TestMemDiag();
     TestMemAccess();

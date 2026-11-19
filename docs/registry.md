@@ -931,7 +931,7 @@ Separate struct of `LONG`, not versioned (`[RouteAsync] NoPathMemo`, docs/643). 
 
 | Offsets | Fields |
 |---|---|
-| 0x00-0x07 | `mode` (NoPathMemo, runtime switch: 0 off, 1 water / boat requests, 2 every request of an NPC router), `ready` (1 installed; bit 1 + bit 2 = world version and sim clock seen) |
+| 0x00-0x07 | `mode` (NoPathMemo, runtime switch: 0 off, 1 water / boat requests, 2 every request of an NPC router), `ready` (1 installed; bit 1 + bit 2 = world version and sim clock seen; bit 3 = Route_PlanCommon result stub in, answers on) |
 | 0x08-0x17 | `recorded` (4000), `served` (4001), `servedMs` (4002, ms of the recorded plans the answers stand for), `invalidated` (4003, a world version moved or another routing world) |
 | 0x18-0x27 | `expired` (TTL passed or the sim clock went back), `evicted` (LRU), `dropped` (the same request ran and did not fail with no path), `exempt` (household, selected or unknown scope) |
 | 0x28-0x3F | `notRecorded[4]` (failures not recorded: cut, Sim blocker, world not quiet or moved, other status), `refused` (no world version, no sim clock, not the live world, key read fault), `ttlMin` (NoPathMemoMinutes) |
