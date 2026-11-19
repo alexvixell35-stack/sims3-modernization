@@ -84,7 +84,7 @@ namespace Ts3Fixes
                 if (lot == Household.ActiveHouseholdLot) kind = "active household's lot";
                 else if (!HouseboatOk(lot) || lot.BuildableShells.Length > 0) kind = "houseboat or apartment";
                 else if (lot.CommercialLotSubType == CommercialLotSubType.kEP10_Resort || lot.CommercialLotSubType == CommercialLotSubType.kEP10_Diving) kind = "resort or diving lot";
-                if (kind != null) { c[refusedSlot]++; PlhLog("refused " + sim.FullName + " -> " + lot.Name + ": " + kind); return; }
+                if (kind != null) { c[refusedSlot]++; PlhLog("refused " + sim.FullName + " (" + d.Species + ") -> " + lot.Name + ": " + kind + ", " + (int)dist + " m, via " + via); return; }
                 Vector3 entry = lot.EntryPoint();
                 bool petUnseen = TownieUnseen(sim, null);
                 bool goalUnseen = petUnseen && FarFromViewers(lot.Position) && FarFromViewers(entry) && UfGoalUnseen(entry);

@@ -199,6 +199,25 @@ left and when, counter deltas 4170-4180 and 4076. Same steps in both arms, only 
 Run as an off/on pair: `node tools/harness/queue.ts` with a job per arm (`fixesOff` / `fixesOn`, or the repro's `$on`
 resolved per arm), BP save; a pick that finds nothing is "not triggered" (N/A), not FAIL.
 
+### 6.1 First run, s133 (Bridgeport, phase-20261119-1902): the repro stressed nothing; reworked
+
+- arrive: no pick in either arm (no NPC horse at a home whose front door refuses it, with a lot 60-250 m away, even after
+  `spawn_horse`). In the ON arm `petarrivepoint` never fired, also not on Cyan Horse's own GoHome PortalLocked to Still Water
+  (4170-4172 all 0): EA's `Decide` inputs there are unknown (most likely the lot was already validated with no point, the
+  case EA itself skips, or `FindFrontDoor` is a gate). The step now builds its case (§6 header comment): a horse with a
+  refusing front door, else a cat or dog behind EA's Pets lock on its own front door, the lot's point marked unvalidated,
+  40-145 m from home; `before` / `after` report the hook's inputs (validated, has_point, front door type, door_allows, lock).
+- home: `reached_s` 0 in both arms because the timer started before Teleport Me Here ran (the OFF tick saw Cyan Horse still at
+  home; the ON arm's 0 s was a real petlonghome placement, 503 m). `reached` latches, so the end lot (Marina Field) differed.
+  Now: push and timer only once the pet stands at the start spot (30 s setup limit, else error), plus `on_target_now`,
+  `push_dist_m` and `jumped_s` (first move > 30 m between samples = a placement).
+- visit: Cupid Horse 295 m, 26 s (horses gallop), ON refused "lot seen". Now cats and dogs first, 400-1500 m, both lots >= 300 m
+  from the camera target and the active Sim. Counters stay global (4180 +2 came from other pets); `jumped_s` is per pet.
+- Pennie Belle placed 4 times at Still Water via gohome (744, 728, 735, 605 m): day 3 20.5 h, day 5 10.4 h, day 5 21.8 h, day 6
+  23.7 h, socials at home in between. A daily trip out and back, not a loop; no cooldown added.
+- `refused Riley Muse -> Terpsichore Studios: houseboat or apartment`: a pet (the hook returns earlier for non-pets); the line
+  now carries species, distance and via like the other refusals.
+
 ## 7. Tests
 
 Offline: `TS3_CSC=~/.local/bin/ts3-csc node tools/selftest/petarrivepoint/run.ts`, `.../strayleave/run.ts`,
