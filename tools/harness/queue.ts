@@ -2027,6 +2027,13 @@ if (values['self-check']) {
   assert.deepEqual(routelockSummary({ since: 1, g11: null }), { since: 1, g11: null });
   assert.equal(routelockSummary(null), null);
 
+  // KILLED: the guard's own taskkill + the xcpt EA wrote 1 s later (sv-gcgate-ab 2026-11-19: kill 23:16:32, report 23:16:33.785)
+  const k0 = Date.parse('2026-11-19T23:16:32.600Z'), why = 'self check: ts3native hook failed, run void (FAIL door memo x: a memo answer differed from the live ask in mode 1: DoorMemoX off for this session) for ~60 s (fail-fast guard)';
+  assert.equal(killedByHarness({ at: k0, why }, Date.parse('2026-11-19T23:16:33.785Z')), why); // 1 s after our kill
+  assert.equal(killedByHarness({ at: k0, why }, 0), why); // no report: game gone by our kill
+  assert.equal(killedByHarness({ at: k0, why }, k0 + 30000), ''); // 30 s later: a crash of its own
+  assert.equal(killedByHarness({ at: k0, why }, k0 - 20000), ''); // report before our kill: it crashed first
+  assert.equal(killedByHarness(null, k0), ''); // no kill of ours: CRASH stays
   assert.equal(crashStop(false, 3, true), '');
   assert.equal(crashStop(true, 0, false), '');
   assert.equal(crashStop(true, 1, false), 'same job crashed twice');
@@ -2644,7 +2651,16 @@ let jobGuard: (() => string) | null = null, stall = '';
 // sessions just detach. Not a crash: the job's row reads guardClosed. (2026-11-06 al260: the mode guard killed the child alone
 // after "household -> none", and the paused game ended 4 s later with 0xC0000409.)
 let guardClosed = false;
-const stopGameFirst = () => { if (gameRunning()) { guardClosed = true; try { execFileSync('taskkill', ['/F', '/IM', GAME_EXE], { stdio: 'ignore' }); } catch { /* gone */ } } };
+// 2026-11-19 sv-gcgate-ab: the fail-fast guard killed the game after a ts3native self-check FAIL and EA wrote an xcpt ('?  at ?', no
+// stack) 1 s later; the job was filed CRASH. A kill the harness started with a guard/stall reason owns an xcpt within 10 s after it:
+// that row reads KILLED (row.killed = the reason), not CRASH. Same pattern as the 10-18 f4b and travel rows (not reclassified).
+let harnessKill: { at: number; why: string } | null = null;
+const noteKill = (why: string) => { if (why) harnessKill = { at: Date.now(), why }; };
+export function killedByHarness(kill: { at: number; why: string } | null, xcptMs: number, windowMs = 10000): string {
+  if (!kill) return '';
+  return xcptMs === 0 || (xcptMs >= kill.at - 2000 && xcptMs - kill.at <= windowMs) ? kill.why : '';
+}
+const stopGameFirst = () => { if (gameRunning()) { guardClosed = true; noteKill(stall); try { execFileSync('taskkill', ['/F', '/IM', GAME_EXE], { stdio: 'ignore' }); } catch { /* gone */ } } };
 // set while a timing (profile) job's child runs: '' = fine or not judged yet, else the early noise verdict (stops the child at once)
 let noiseGuard: (() => string) | null = null;
 // set while a routingFailFast job's profile runs: '' or the FAIL reason (stops the child at once, like noiseGuard)
@@ -2746,7 +2762,7 @@ function run(cmd: string, args: string[], logFile: string, deadline: number, onL
       if (mx) { modeGuard = null; stall ||= mx; on(Buffer.from(`FAIL: ${mx}; child stopped\n`)); stopGameFirst(); killTree(p.pid); return; }
       const why = jobGuard!();
       misses = why ? misses + 1 : 0;
-      if (misses >= 2) { stall ||= `${why} for ~${2 * GUARD_MS / 1000} s (fail-fast guard)`; on(Buffer.from(`FAIL: ${stall}; child stopped\n${dumpHungGame('fail-fast guard')}\n`)); killTree(p.pid); }
+      if (misses >= 2) { stall ||= `${why} for ~${2 * GUARD_MS / 1000} s (fail-fast guard)`; on(Buffer.from(`FAIL: ${stall}; child stopped\n${dumpHungGame('fail-fast guard')}\n`)); noteKill(stall); killTree(p.pid); }
     }, GUARD_MS);
     p.on('error', e => on(Buffer.from(`spawn failed: ${e}\n`)));
     p.on('close', (code, signal) => { clearTimeout(t); if (g) clearInterval(g); f.end(); res({ code, signal, out, timedOut }); });
@@ -2763,16 +2779,16 @@ async function closeGame(probePid?: number) {
   killTree(probePid);
   // the kill is retried every 10 s: one kill did not take (2026-11-17), the game ran on for 2 min with the asi locked,
   // and the Bin restore failed with EBUSY
-  const kill = () => { try { execFileSync('taskkill', ['/F', '/IM', GAME_EXE], { stdio: 'ignore' }); } catch { /* gone, or it failed: the loop tries again */ } };
+  const kill = () => { if (gameRunning()) noteKill(stall); try { execFileSync('taskkill', ['/F', '/IM', GAME_EXE], { stdio: 'ignore' }); } catch { /* gone, or it failed: the loop tries again */ } };
   kill();
   for (let i = 0; i < 60 && gameRunning(); i++) { await sleep(1000); if (i % 10 === 9) kill(); }
   if (gameRunning()) log(`closeGame: ${GAME_EXE} still running after 60 s`);
   else { const left = killLeftovers(); if (left.length) log(`closeGame: leftovers killed: ${left.join('; ')}`); } // EA helpers of a hung launch (docs/236 round 4)
 }
 // an EA crash report (xcpt*.txt) written since the job started
-const freshCrashReport = (since: string) => {
-  try { return readdirSync(USER).some(n => /^xcpt .*\.txt$/i.test(n) && statSync(join(USER, n)).mtime >= new Date(since)); }
-  catch { return false; }
+const crashReportMs = (since: string): number => {
+  try { return Math.max(0, ...readdirSync(USER).filter(n => /^xcpt .*\.txt$/i.test(n)).map(n => statSync(join(USER, n)).mtimeMs).filter(m => m >= new Date(since).getTime())); }
+  catch { return 0; }
 };
 // docs/236 #19: ScriptError_*.xml newer than `since` in dir; a failed readdir or stat is a problem, never "0 new" (an unstat-able file counts as new)
 export function newScriptErrors(dir: string, since: number): { files: string[]; problem: string } {
@@ -3620,9 +3636,12 @@ for (const [n, j] of jobs.entries()) {
   stall = '';
   // a fresh EA crash report also counts (2026-11-04: the game died while a read-back FAIL closed it, so closedByUs was set
   // and the job showed as FAIL; the queue's two-crashes stop then missed it)
-  row.crashed = launched && !closedByUs && !guardClosed && !j.quitsGame && !gameRunning() || // quitsGame: gone by design; its script's 'game died' line counts
-    row.verdict.some((v: string) => /game died/.test(v)) ||
-    launched && freshCrashReport(t0);
+  const xcptMs = launched ? crashReportMs(t0) : 0, killedWhy = killedByHarness(harnessKill, xcptMs);
+  harnessKill = null;
+  row.killed = killedWhy; // our own guard/stall kill (and the xcpt it caused): KILLED, not CRASH
+  row.crashed = row.verdict.some((v: string) => /game died/.test(v)) ||
+    !killedWhy && (launched && !closedByUs && !guardClosed && !j.quitsGame && !gameRunning() || // quitsGame: gone by design; its script's 'game died' line counts
+    xcptMs > 0);
   guardClosed = false;
   if (row.crashed) { row.crash = triage(t0); log(`${j.id}: game crashed\n${row.crash}`); await logUntrackedGame(s => log(`${j.id}: ${s}`)); } // EA only: names game processes this run never saw (docs/236 #20)
   let jobLogText = ''; try { jobLogText = readFileSync(logFile).subarray(logOff).toString(); } catch { /* no job log */ }
@@ -3751,9 +3770,9 @@ for (const [n, j] of jobs.entries()) {
   clearJob();
   const cd = row.counters.delta ? Object.entries(row.counters.delta).map(([k, v]) => `${k} ${(v as number) > 0 ? '+' : ''}${v}`).join(', ') : '-';
   const cell = (x: string) => mdCell(x);
-  appendFileSync(md, `| ${j.id} | ${t0.slice(11, 16)} (${pht(t0)}) | ${row.minutes} | ${row.pass ? 'PASS' : row.knownCause ? '**VOID**' : row.na ? '**N/A**' : row.crashed ? '**CRASH**' : '**FAIL**'} | ${cell(row.verdict.join('<br>') || row.error || '-')} | ${row.exitCode ?? '-'} | ${memLine(row.memory.before)} -> ${memLine(row.memory.after)} | ${cell(cd || '-')} | ${cell([countsNote(row), `timing: ${timingText({ timing: row.timing, why: row.timingWhy })}`, buildLine(row.buildCheck), row.saveHashes.after && saveDrift(row.saveHashes.before, row.saveHashes.after).length ? 'BASELINE SAVE CHANGED' : '', row.session.line !== 'fresh load' || row.session.after ? [row.session.line, row.session.after, row.session.next].filter(Boolean).join('; ') : '',
-    rwGroups.size || row.start !== 'fresh' ? `start: ${row.start}${row.startMs ? ` (${Math.round(row.startMs / 1000)} s)` : ''}${row.snapshot ? `; snapshot ${row.snapshot}` : ''}` : '', row.noiseNote, row.hangCapture, j.note, row.content !== 'as-is' ? `content ${row.content} (${row.contentMoved} moved)` : '', row.crashed ? row.crash.split('\n')[1]?.trim() : '', row.error && row.verdict.length ? row.error : ''].filter(Boolean).join('; ') || '')}${row.armMs ? `<br>${row.armMs.line}` : ''} |${machineCols(machineTag()).cell(MACHINE)}\n`);
-  log(`${j.id}: ${row.pass ? 'PASS' : row.knownCause ? 'VOID' : row.na ? 'N/A' : row.crashed ? 'CRASH' : 'FAIL'} in ${row.minutes} min${row.pass || row.na ? '' : row.knownCause ? ` | ${row.verdict[0]}` : ` | ${(failText(row.verdict) || row.error || '').replace(/\s+/g, ' ').slice(0, 400)}`}`); // after "in N min": log greps match that prefix
+  appendFileSync(md, `| ${j.id} | ${t0.slice(11, 16)} (${pht(t0)}) | ${row.minutes} | ${row.pass ? 'PASS' : row.knownCause ? '**VOID**' : row.na ? '**N/A**' : row.killed ? '**KILLED**' : row.crashed ? '**CRASH**' : '**FAIL**'} | ${cell(row.verdict.join('<br>') || row.error || '-')} | ${row.exitCode ?? '-'} | ${memLine(row.memory.before)} -> ${memLine(row.memory.after)} | ${cell(cd || '-')} | ${cell([countsNote(row), `timing: ${timingText({ timing: row.timing, why: row.timingWhy })}`, buildLine(row.buildCheck), row.saveHashes.after && saveDrift(row.saveHashes.before, row.saveHashes.after).length ? 'BASELINE SAVE CHANGED' : '', row.session.line !== 'fresh load' || row.session.after ? [row.session.line, row.session.after, row.session.next].filter(Boolean).join('; ') : '',
+    rwGroups.size || row.start !== 'fresh' ? `start: ${row.start}${row.startMs ? ` (${Math.round(row.startMs / 1000)} s)` : ''}${row.snapshot ? `; snapshot ${row.snapshot}` : ''}` : '', row.noiseNote, row.hangCapture, j.note, row.content !== 'as-is' ? `content ${row.content} (${row.contentMoved} moved)` : '', row.crashed ? row.crash.split('\n')[1]?.trim() : '', row.killed ? `killed by the harness: ${row.killed}` : '', row.error && row.verdict.length ? row.error : ''].filter(Boolean).join('; ') || '')}${row.armMs ? `<br>${row.armMs.line}` : ''} |${machineCols(machineTag()).cell(MACHINE)}\n`);
+  log(`${j.id}: ${row.pass ? 'PASS' : row.knownCause ? 'VOID' : row.na ? 'N/A' : row.killed ? 'KILLED' : row.crashed ? 'CRASH' : 'FAIL'} in ${row.minutes} min${row.pass || row.na ? '' : row.knownCause ? ` | ${row.verdict[0]}` : ` | ${(failText(row.verdict) || row.error || '').replace(/\s+/g, ' ').slice(0, 400)}`}`); // after "in N min": log greps match that prefix
   if (!row.pass && !row.na && !row.knownCause) exitCode = 1;
 
   const earlierCrashes = earlier.filter(r => r.job === j.id && r.crashed).length;

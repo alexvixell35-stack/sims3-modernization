@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.CAS;
+using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.PetObjects;
 using Sims3.SimIFace;
@@ -24,7 +25,7 @@ namespace Ts3Fixes
     // Overwatch's FixInvisible, 2026-11-17 19:17) throws in Sim.OnCreation and gets no motives. Fix: for that call only,
     // SimDescription.mHousehold is Household.NpcHousehold (a special household: both methods return at once, so no baby
     // or pet motives, what a Sim with no household should get), and null again after. The pet case stays eanullguards'
-    // (EaFixes.cs MotivesHook). Counters [3996] created with the stand-in, [3997] seen with the switch off (EA throws).
+    // (EaFixes.cs MotivesHook). Household rule: only a Sim of known scope (active household exists, not selected, not selectable) gets the stand-in, else vanilla (MnhApplies). Counters [3996] created with the stand-in, [3997] seen with the switch off (EA throws).
     public static partial class Fixes
     {
         public class OverwatchResetGoneHook
@@ -49,7 +50,12 @@ namespace Ts3Fixes
         // called by EaFixes.cs MotivesHook for a human with no household; true when it ran EA's CreateMotives itself
         static bool MnhApplies(Sim sim)
         {
-            return sim != null && sim.Household == null && sim.SimDescription != null && !sim.SimDescription.IsPet && sMnhHousehold != null && Household.NpcHousehold != null;
+            if (!(sim != null && sim.Household == null && sim.SimDescription != null && !sim.SimDescription.IsPet && sMnhHousehold != null && Household.NpcHousehold != null)) return false;
+            // household rule (CLAUDE.md): a household-less Sim is IsPlayerSim's unknown scope, so it needs a known scope here: an active
+            // household must exist (no selected Sim = every scope unknown) and the Sim is neither the selected nor a selectable one
+            // (selectable needs a household, so only a stale answer could say so). Anything else gets EA's vanilla throw.
+            try { return Household.ActiveHousehold != null && !sim.HasBeenDestroyed && sim != PlumbBob.SelectedActor && !sim.IsSelectable; }
+            catch (Exception) { return false; }
         }
     }
 }

@@ -1,5 +1,5 @@
 {
- "note": "routableasync-ab-1119 (PREPARED, NOT RUN, for next week's chain; repin first). Rodney 2026-11-19: [RouteAsync] Kinds=2 + routableasync ON in master (PR #469, docs/584 §3) on Dalexlol's soak evidence (13 jobs, 12 PASS, 0 stuck; 17-job soak 11-19 clean), no A/B yet. Correctness: BP/IP/SV 10 min each, gates arStartedPlanFromPoint >= 1, arScopeRefused >= 1, arPrereqRefused < 1, hhTooLift < 1, 0 script errors; read unseen-NPC reset placements (moved lines) and ufplan `src routable` lines. Timing: BP/IP/SV 27 min in-load ABBA --ab asyncreplan (Kinds flips at runtime through arMode, so no separate loads); read route + rtLock + rtOtherLock + rtJob ms/s, sim ms/s, hitch p99 / max per arm. Regression (correctness FAIL, hitch regression or net main-thread loss beyond ~2% per the offload rule) = back to Kinds=0 (and H2Ic=0, KdOwnPlanFromPointMs=250).",
+ "note": "routableasync-ab-1119 (PREPARED, NOT RUN, for next week's chain; repin first; timing jobs need quiet machine: Spotify, IDE and java closed, other CPU < 10%). Rodney 2026-11-19: [RouteAsync] Kinds=2 + routableasync ON in master (PR #469, docs/584 §3) on Dalexlol's soak evidence (13 jobs, 12 PASS, 0 stuck; 17-job soak 11-19 clean), no A/B yet. Correctness: BP/IP/SV 10 min each, gates arStartedPlanFromPoint >= 1, arScopeRefused >= 1, arPrereqRefused < 1, hhTooLift < 1, 0 script errors; read unseen-NPC reset placements (moved lines) and ufplan `src routable` lines. Timing: BP/IP/SV 27 min in-load ABBA --ab asyncreplan (Kinds flips at runtime through arMode, so no separate loads); read route + rtLock + rtOtherLock + rtJob ms/s, sim ms/s, hitch p99 / max per arm. Regression (correctness FAIL, hitch regression or net main-thread loss beyond ~2% per the offload rule) = back to Kinds=0 (and H2Ic=0, KdOwnPlanFromPointMs=250).",
  "stopQueueOnFail": false,
  "regexCases": {
   "^route async A10: Kinds=2 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1, own gate unseen routes only": {
@@ -242,7 +242,7 @@
    "logForbid": {
     "^(SKIP|FAIL|PART) (route async A10|H2 IC window|refcount guard)": 0
    },
-   "note": "BP 27 min, 3-min slices, in-load ABBA --ab asyncreplan (arMode 0 = shadow: Kinds=2 START checks run, plans sync = the Kinds=0 behaviour plus the check cost; 1 = async)",
+   "note": "TIMING, needs quiet machine. BP 27 min, 3-min slices, in-load ABBA --ab asyncreplan (arMode 0 = shadow: Kinds=2 START checks run, plans sync = the Kinds=0 behaviour plus the check cost; 1 = async)",
    "noiseCheck": true,
    "timeoutMin": 45,
    "run": {
@@ -287,7 +287,7 @@
    "logForbid": {
     "^(SKIP|FAIL|PART) (route async A10|H2 IC window|refcount guard)": 0
    },
-   "note": "IP 27 min, 3-min slices, in-load ABBA --ab asyncreplan (arMode 0 = shadow: Kinds=2 START checks run, plans sync = the Kinds=0 behaviour plus the check cost; 1 = async)",
+   "note": "TIMING, needs quiet machine. IP 27 min, 3-min slices, in-load ABBA --ab asyncreplan (arMode 0 = shadow: Kinds=2 START checks run, plans sync = the Kinds=0 behaviour plus the check cost; 1 = async)",
    "noiseCheck": true,
    "timeoutMin": 45,
    "run": {
@@ -332,7 +332,7 @@
    "logForbid": {
     "^(SKIP|FAIL|PART) (route async A10|H2 IC window|refcount guard)": 0
    },
-   "note": "SV 27 min, 3-min slices, in-load ABBA --ab asyncreplan (arMode 0 = shadow: Kinds=2 START checks run, plans sync = the Kinds=0 behaviour plus the check cost; 1 = async)",
+   "note": "TIMING, needs quiet machine. SV 27 min, 3-min slices, in-load ABBA --ab asyncreplan (arMode 0 = shadow: Kinds=2 START checks run, plans sync = the Kinds=0 behaviour plus the check cost; 1 = async)",
    "noiseCheck": true,
    "timeoutMin": 45,
    "run": {

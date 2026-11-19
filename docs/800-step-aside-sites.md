@@ -27,6 +27,7 @@ Bridgeport apartment save, runs fs1 (none of the five on) against ji1 / ji2 / jj
 
 ## 4. Risks
 
+- No conflict, no guard [verified, read]: JOBBUSY returns in the GetOption2 hook (ts3native.cpp `JyBusy`, before the READY path that calls `ReadyDrain`), and both serve calls only on the owner thread through `ServeInvoke` (`WaitForSingleObject(g_invReady, 0)` makes a call served once); `ReadyDrain` returns at once unless the job is `J_RUNNING`. So the two cannot double-drain or race: `jobyieldready` just starves `ReadyDrain` of polls while a job runs.
 - With ReadyDrain on (PR #468) `jobyieldready` skips the READY polls that ReadyDrain drains in. In run gm7 (Bridgeport apartment save, 2026-11-16) ReadyDrain saw only 6 polls with `jobyieldready` on. His 2026-11-19 17-job soak (Apex + bridge, all PASS, ReadyDrain on, all five switches on) checked the pair: `jobyieldready` skipped 228,640 READY polls, no problems; both are ON.
 - `jobyieldready` has no Sim scope (same as `jobyield`'s own `StepAside`): the skipped poll is timing only, the same drain runs, but a household Sim's plan goes through it too.
 - The sleeps hold the asking task a few ticks longer (capped at 10 s by `StepAside`); a task reset passes through as in EA's own waits.
