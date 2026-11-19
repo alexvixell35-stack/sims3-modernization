@@ -118,6 +118,17 @@ namespace Ts3Fixes
         [Tunable] public static bool kOverwatchStuckNoticeSummary = false; // opt-in until tried: NRaas Overwatch's per-Sim stuck-reset notices held, one summary per 2 sim-hours (OverwatchNotice.cs, docs/145 §13)
         [Tunable] public static bool kOverwatchIgnoreStuckProbes = true; // NRaas Overwatch's Stuck Check V2 does not count the game's own stuck-check probe plans as the Sim's route failures (no double resets; OverwatchProbe.cs, docs/163 §9)
         [Tunable] public static bool kSpotCheck = true;           // opt-in: a GoHome / lot-trip teleport whose landing spot is in view walks instead (Fixes.cs, docs/560 §7)
+        [Tunable] public static bool kHouseboatLegMemo = false;        // houseboatlegmemo (docs/857 §2): an NPC's houseboat boat-leg PlanFromPoint (EnterHouseboatThroughBoat) that found no path is answered from the same start and goal without searching
+        [Tunable] public static float kHouseboatLegMemoHours = 2f;     // houseboatlegmemo: sim-hours an entry lives
+        [Tunable] public static bool kHouseboatGangwayRescue = false;  // houseboatgangwayrescue (docs/857 §3): an NPC whose gangway leg to its Docked houseboat found no path is placed at the houseboat's entrance (EA's PlaceSimAtEntrance) after GoHome fails, at most once per sim-hour
+        [Tunable] public static bool kBoatRoamCap = false;             // boatroamcap (docs/857 §4): a non-exempt NPC driver's Boat.BoatAround run after a long streak, at night or with low energy / bladder does not roam: EA's ReturnToShore is pushed instead (EA's roam when that cannot run)
+        [Tunable] public static float kBoatRoamCapHours = 2f;          // boatroamcap: sim-hours since the streak's first BoatAround before the next run is capped (0 = off)
+        [Tunable] public static int kBoatRoamCapRoams = 3;             // boatroamcap: roams done before the next run is capped (0 = off)
+        [Tunable] public static float kBoatRoamCapGapHours = 4f;       // boatroamcap: a BoatAround later than this after the last one starts a new streak
+        [Tunable] public static float kBoatRoamCapBackoffHours = 1f;   // boatroamcap: after a failed return, EA roams this long before the next try
+        [Tunable] public static int kBoatRoamCapNightFrom = 23;        // boatroamcap: night window start hour (caps from the first run)
+        [Tunable] public static int kBoatRoamCapNightTo = 6;           // boatroamcap: night window end hour (exclusive; equal to NightFrom = no night window)
+        [Tunable] public static float kBoatRoamCapMotive = -50f;       // boatroamcap: energy or bladder below this caps
         [Tunable] public static bool kSafeSpotPool = true;        // opt-in: SafeSpot never answers a pool or below-ground outdoor cell (Fixes.cs BelowGroundOutdoors, docs/74 §13)
         [Tunable] public static bool kSafeSpotYield = false;       // opt-in until measured: SafeSpot sleeps one tick after each FindGoodLocation in the Sim's own task (Fixes.cs SafeSpotYield, docs/74 §11 (b))
         [Tunable] public static bool kStuckCheckCap = false;      // opt-in until verified: with stuckcheckown, the stuck check's probe jobs of rounds 1-2 are cut at ts3native's PlanDeadlineMs like a foreign sync plan (FewerPlans.cs, RouteBackoff.cs OwnerTaskStart, docs/163 §10)

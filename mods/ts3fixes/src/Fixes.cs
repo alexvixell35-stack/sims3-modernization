@@ -139,6 +139,7 @@ namespace Ts3Fixes
             ApplyPhotoBoothFunds();   // docs/561 §2 (PhotoBoothFunds.cs)
             ApplyShellLighting();     // docs/561 §5 (ShellLighting.cs)
             ApplyBonfireSpice();      // docs/561 §6 (BonfireSpice.cs)
+            ApplyBoatRoamCap();       // docs/857 §4, off by default (BoatRoamCap.cs)
             ApplyDjBoothCleanup();    // docs/561 §7 (DjBoothCleanup.cs)
             ApplyVampireHuntGlow();   // docs/561 §7 (VampireHuntGlow.cs)
             ApplyHotTubWoohooFx();    // docs/561 §7 (HotTubWoohooFx.cs)
@@ -1082,6 +1083,9 @@ namespace Ts3Fixes
         // [3972-3973] socialreplanlog (SocialReplanLog.cs, docs/577 §2): partner-blocked receiver replans / lines dropped by the 300 cap.
         // [3974-3975] barorderlog (BarOrderLog.cs, docs/578 §1): conversations timed / lines dropped by the 300 cap.
         // [3976-3978] petputdownwait (PetPutDownWait.cs, docs/578 §2): pet waits ended / seen with switch off / errors.
+        // [3982-3985] houseboatlegmemo (HouseboatLegMemo.cs, docs/857 §2): NPC houseboat boat-leg no-path plans recorded / repeats answered / ms of the recorded plans those answers stand for / exempt (household, selected, unknown scope, no Sim or boat router) or errors.
+        // [4040-4049] houseboatgangwayrescue (HouseboatGangwayRescue.cs, docs/857 §3): NPC Sims marked by a no-path gangway leg to their Docked houseboat / placed by EA's PlaceSimAtEntrance after GoHome failed / refused / errors; refusals: exempt / no, another or undocked houseboat / once-per-hour rule / busy / on the lot, far or stale / no spot.
+        // [4062-4069] boatroamcap (BoatRoamCap.cs, docs/857 §4): NPC BoatAround runs capped (no roam) / ReturnToShore pushed / returns failed (precheck, push, run or never ran; EA roams) / exempt runs / errors / returns that reached the shore / service, role or AlarmOneShot-task boating logged / caps by night or low motive.
         // [3979-3981] puddlereach (PuddleReach.cs, docs/578 §3): splash tests withheld after a failed run / seen with switch off / errors.
         // [2709-2710] routecauselog (RouteCauseLog.cs, docs/580): lines / dropped by the caps.
         // [3541-3543] scarepriority (ScarePriority.cs, docs/580 §14): receivers raised / seen with switch off / errors.
@@ -1510,9 +1514,9 @@ namespace Ts3Fixes
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
         // [1230-1240] envlistmemoapply / envlistmemoverify (EnvBcProbes.cs EnvListApply, docs/274 §9): scans tried, memo reuse, live listed,
         // game's call (actor / other Sim out of scope, not indoor, seq overflow), errors, verify checks, differences, reorder-only differences
-        // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
-        // docs/registry.md), so a new fix never needs the array resized by hand.
-        const int kCounterSlots = 4000;
+        // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, then
+        // the contributor block 4000-4089, docs/registry.md), so a new fix never needs the array resized by hand.
+        const int kCounterSlots = 4090;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2332,6 +2336,9 @@ namespace Ts3Fixes
                 case "coopeggquality": return Instantiator.kCoopEggQuality;
                 case "safespotpool": return Instantiator.kSafeSpotPool;
                 case "spotcheck": return Instantiator.kSpotCheck;
+                case "houseboatlegmemo": return Instantiator.kHouseboatLegMemo;              // off (HouseboatLegMemo.cs, docs/857 §2)
+                case "houseboatgangwayrescue": return Instantiator.kHouseboatGangwayRescue;  // off (HouseboatGangwayRescue.cs, docs/857 §3)
+                case "boatroamcap": return Instantiator.kBoatRoamCap;                        // off (BoatRoamCap.cs, docs/857 §4)
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
@@ -2574,7 +2581,7 @@ namespace Ts3Fixes
                 {
                     if (sCounters == null) sCounters = PatchCounters();
                     sCounters[0]++;
-                    if (!ShortcutOn("gohome") || !Unseen(Actor, Target)) return RunOrig();
+                    if (!ShortcutOn("gohome") || !Unseen(Actor, Target)) return HgrRun(RunOrig());
                     // a Sim shortcut twice within 10 sim-minutes is in some loop the game drives: let it walk
                     ulong id = Actor.SimDescription.SimDescriptionId;
                     long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
@@ -2582,22 +2589,20 @@ namespace Ts3Fixes
                     if (sLastShortcut.TryGetValue(id, out last) && now - last < kLoopTicks)
                     {
                         sCounters[3]++;
-                        return RunOrig();
+                        return HgrRun(RunOrig());
                     }
                     Sims3.SimIFace.Vector3 pos, fwd;
                     if (!SafeSpot(Actor, Target, Target.GetRandomPosition(false, true), out pos, out fwd, "gohome", true))
                     {
                         sCounters[2]++;
-                        return RunOrig();
+                        return HgrRun(RunOrig());
                     }
                     // spotcheck (default off): Unseen(Actor, Target) judged the home lot, but the spot is a random outdoor point
-                    // anywhere on it (up to ~45 m from the centre on a 64 m lot): one in view = the Sim walks
-                    if (ShortcutOn("spotcheck") && !UfGoalUnseen(pos)) { sCounters[2702]++; return RunOrig(); }
-                    // spotcheck (default off): Unseen(Actor, Target) judged the home lot, but the spot is a random outdoor point
-                    // anywhere on it (up to ~45 m from the centre on a 64 m lot): one in view = the Sim walks
-                    if (ShortcutOn("spotcheck") && !UfGoalUnseen(pos)) { sCounters[2713]++; return RunOrig(); }
+                    // anywhere on it (up to ~45 m from the centre on a 64 m lot): one in view = the Sim walks.
+                    // (A merged copy of this check counted into 2713, which docs/registry.md never gave spotcheck; 2702 is its slot.)
+                    if (ShortcutOn("spotcheck") && !UfGoalUnseen(pos)) { sCounters[2702]++; return HgrRun(RunOrig()); }
                     // docs/202 §3.6.4 unseenfbtriphold: D's walk-time hold first; given up = the game's own trip
-                    if (UfPreCore.TripMode(false, false, ShortcutOn("unseenfbtriphold")) == 2 && !UfTripHold(Actor, Target, pos)) return RunOrig();
+                    if (UfPreCore.TripMode(false, false, ShortcutOn("unseenfbtriphold")) == 2 && !UfTripHold(Actor, Target, pos)) return HgrRun(RunOrig());
                     sLastShortcut[id] = now;
                     ShortcutLog(Actor.FullName + " -> " + Target.Name + " from " + (Actor.LotCurrent != null ? Actor.LotCurrent.Name : "street"));
                     // same lead-in as GoHome.Run
@@ -2614,6 +2619,13 @@ namespace Ts3Fixes
                 finally { if (ghBefore >= 0) GhWalkRelease(Actor, WalkStyle, ghBefore); }
             }
             public bool RunOrig() { return false; } // receives GoHome.Run's original header
+            // houseboatgangwayrescue (HouseboatGangwayRescue.cs): EA's GoHome.Run gave up; a Sim marked by a no-path gangway leg
+            // is placed on its houseboat here, in its own task after Run, never inside the routing callback
+            bool HgrRun(bool ok)
+            {
+                if (!ok && sHgr.Count > 0 && ShortcutOn("houseboatgangwayrescue")) HgrAfterGoHome(Actor, Target, this);
+                return ok;
+            }
             static readonly Dictionary<ulong, long> sLastShortcut = new Dictionary<ulong, long>();
             static readonly long kLoopTicks = Sims3.Gameplay.Utilities.SimClock.ConvertToTicks(10f, Sims3.Gameplay.Utilities.TimeUnit.Minutes);
 

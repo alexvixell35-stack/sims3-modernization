@@ -930,9 +930,12 @@ namespace Ts3Fixes
                 else if (hadOuter) sUfSplits.Remove(task);
                 RoutePlanResult r;
                 sUfPlanDepth.Enter(task);  // §3.9.6: > 1 in this task = a plan inside another plan's callback (PostPlan / AboutToPlan)
+                ulong hlmLeg = 0;  // houseboatlegmemo (HouseboatLegMemo.cs): a houseboat boat leg to record after its plan
+                bool hlm = kind == 2 && ShortcutOn("houseboatlegmemo"), hgr = kind == 2 && ShortcutOn("houseboatgangwayrescue");  // HouseboatGangwayRescue.cs
                 try
                 {
-                    if (!UfPlanBody(kind, p, ref last, out r))
+                    if ((hlm || hgr) && HlmPre(p, out r, out hlmLeg, hlm, hgr)) { }  // a stranded NPC's proven no-path houseboat leg, answered
+                    else if (!UfPlanBody(kind, p, ref last, out r))
                         switch (kind)  // UfInner, inlined
                         {
                             case 0: r = PlanBackoff(); break;
@@ -940,6 +943,8 @@ namespace Ts3Fixes
                             case 2: r = PlanFromPointAsync(p); break;
                             default: r = ReplanFromPointAsync(p); break;
                         }
+                    if (hlmLeg != 0) HlmPost(hlmLeg, p, r, unchecked(System.Environment.TickCount - t0), last.Cut, hlm, hgr);
+                    else if (hlm) HlmMiss(r, unchecked(System.Environment.TickCount - t0));
                 }
                 finally { sUfPlanDepth.Exit(task); DiagSend(12, Handle); }  // docs/197 §7: this plan's scope ends here
                 UrLearn ln;

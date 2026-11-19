@@ -30,6 +30,8 @@ namespace Ts3Agent
             RegisterBoatGetOutStress(); // BoatGetOutStressHandlers.cs
             RegisterSimHealth(); // SimHealthHandlers.cs: soak health census
             RegisterInteractionSweep(); // InteractionSweepHandlers.cs, docs/268
+            RegisterHouseboatLegRepro(); // HouseboatLegReproHandlers.cs, docs/857 §2-§3
+            RegisterBoatRoamRepro(); // BoatRoamReproHandlers.cs, docs/857 §4
         }
 
         static object Ping(Args a)

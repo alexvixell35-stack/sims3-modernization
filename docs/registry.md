@@ -47,7 +47,7 @@ The public repo lags the private one, so contributor PRs (currently alexvixell35
 |---|---|---|
 | `docs/NNN-*.md` | 500-599, then 600-899 (added 2026-11-17) | below 500 |
 | docs/51 inference ledger `## N.` | §900-999, then §1000-1499 (added 2026-11-17) | below 900 |
-| ts3fixes counter slots | 2000-2199 (full), 2200-2799 (2400-2799 added 2026-11-14), 2800-3999 (added 2026-11-17; `kCounterSlots` = 4000) | below 2000 |
+| ts3fixes counter slots | 2000-2199 (full), 2200-2799 (2400-2799 added 2026-11-14), 2800-3999 (added 2026-11-17), 4000-4089 (added 2026-11-19 by PR post/boatfixes-1119; `kCounterSlots` = 4090) | below 2000 |
 | ts3native counter version blocks | v900+ | below v900 |
 
 `node tools/registry.ts reserve --contributor <doc|ledger|fixes|native> ...` hands out the next free number of the range (same arguments as the normal `reserve`; without `--contributor` the ranges are skipped). Blocks are used in order, and a slot run never straddles a block end (2199/2200, 2799/2800): one that would not fit starts at the next block. ts3native version strings (`TS3NATIVE_VERSION`, changelog headings) are assigned by the maintainers at merge: a contributor PR writes "next version" and does not change the define. `tools/pr-preflight.ts` flags numbers outside the ranges and a changed version string (`--maintainer` turns that check off).
@@ -731,6 +731,10 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 1261 | `EnvListExact.cs` (r1x-1118, `fixes-1261`, docs/274 §11), `envlistmemoexact` | built 2026-11-18, default off, NOT RUN: scans sent to the game's call because the ts3native script worker had a job (agent `envlistexact_fb_worker`) |
 | 1262 | `EnvListExact.cs` (r1x-1118, `fixes-1262`, docs/274 §11.8), `envlistmemoexact` | built 2026-11-18, default off, NOT RUN: stand-downs (known conflicting assembly, another mod's swap of `CalculateSimEnvironmentScore`, another mod's cache in a lot's table; agent `envlistexact_standdown`) |
 | 1263 | reserved (save-ip-portable-1119, `fixes-1263`) | swaps refused: would move saved task frames (docs/293) |
+| 3980-3981 | `PuddleReach.cs` (`puddlereach`, docs/578 §3) | already used in code on main with no row here (3979 too); recorded with `fixes-3980` so no one takes them again |
+| 3982-3985 | `HouseboatLegMemo.cs` (`fixes-3980`, contributor range, docs/857 §2; 3870-3873 on the contributor combo branch), `houseboatlegmemo` | built 2026-11-19, default off, proven in game 2026-11-19 (s128 Isla Paradiso, off BROKEN / on FIXED): NPC houseboat boat-leg / gangway-leg no-path plans recorded / repeats answered / ms of the recorded plans those answers stand for / exempt or errors |
+| 4040-4049 | `HouseboatGangwayRescue.cs` (contributor block 4000-4089, docs/857 §3), `houseboatgangwayrescue` | built 2026-11-19, default off, proven in game 2026-11-19 (s128 Isla Paradiso, off BROKEN / on FIXED): NPCs marked by a no-path gangway leg to their Docked houseboat / placed by EA's PlaceSimAtEntrance after GoHome failed / refused / errors; refusals exempt / no, another or undocked houseboat / once per sim-hour / busy / on the lot, far or stale / no spot |
+| 4062-4069 | `BoatRoamCap.cs` (contributor block 4000-4089, docs/857 §4), `boatroamcap` | built 2026-11-19, default off, proven in game 2026-11-19 (s128 Isla Paradiso, off BROKEN / on FIXED): NPC BoatAround runs capped (no roam) / ReturnToShore pushed / returns failed (EA roams) / exempt / errors / returns that reached the shore / service, role or AlarmOneShot-task boating logged / caps by night or low motive |
 | **1264+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

@@ -42,6 +42,7 @@ namespace Ts3Fixes
                 case "boardingschoolmoney": return EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BDbBubbleHook), 1), EpLive(typeof(BDbFogHook), 1)), EpLive(typeof(BDbJunkHook), 1)), EpLive(typeof(BDbPetBedHook), 1)), EpLive(typeof(BDbRegisterHook), 1));
                 case "boatgetoutdiag": return EpLive(typeof(BoatGetOutDiagHook), 1);
                 case "boatgetoutguard": return EpLive(typeof(BoatGetOutDiagHook), 1);
+                case "boatroamcap": return EpJoin(EpLive(typeof(BrcRunHook), 1), EpLive(typeof(BrcShoreHook), 1));
                 case "boatstaleswimmer": return EpLive(typeof(BBsHook), 1, "sBsWater", sBsWater, null);
                 case "bonfirespice": return EpJoin(EpLive(typeof(BfFireHook), 1), EpLive(typeof(BfRunHook), 1));
                 case "bookcarry": return EpLive(typeof(BookCarryHook), 1);
@@ -195,6 +196,8 @@ namespace Ts3Fixes
                 case "hottubwoohoofx": return EpLive(typeof(HtWoohooHook), 1, "sHtFlag", sHtFlag, typeof(bool), "sHtFx", sHtFx, null);
                 case "hoursmemo": return EpLive(typeof(HoursMemoHook), 0);
                 case "hoursmemoverify": return EpLive(typeof(HoursMemoHook), 0);
+                case "houseboatgangwayrescue": return EpLive(typeof(RouteBackoffHook), 4);
+                case "houseboatlegmemo": return EpLive(typeof(RouteBackoffHook), 4);
                 case "hovertraintest": return EpJoin(EpJoin(EpLive(typeof(HtRunHook), 1), EpLive(typeof(HtStationHook), 0)), EpLive(typeof(HtTestHook), 1));
                 case "hsgradkeep": return EpJoin(EpLive(typeof(HsGradKeepHook), 0), EpLive(typeof(UniGradKeepHook), 0));
                 case "hudunsub": return EpLive(typeof(HudUnsubHook), 0);

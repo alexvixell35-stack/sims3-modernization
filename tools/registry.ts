@@ -25,11 +25,11 @@ interface Used { fixesMax: number; nativeVer: number; nativeEnd: number; cFixesM
 
 // Contributor ranges (docs/registry.md "Contributor ranges"); maintainer numbers never enter them.
 // Each kind is a list of blocks, handed out in order. fixes: 2000-2199 (full since the PR #368 import, 2026-11-12), 2200-2799
-// (2400-2799 added 2026-11-14, PR #405), 2800-3999 (added 2026-11-17 for ~150 more fixes; ts3fixes kCounterSlots = 4000);
+// (2400-2799 added 2026-11-14, PR #405), 2800-3999 (added 2026-11-17 for ~150 more fixes), 4000-4089 (added 2026-11-19; ts3fixes kCounterSlots = 4090);
 // docs 600-899 and ledger §1000-1499 added 2026-11-17 too.
 type Ranges = readonly (readonly [number, number])[];
 export const CONTRIB = {
-  doc: [[500, 599], [600, 899]], ledger: [[900, 999], [1000, 1499]], fixes: [[2000, 2199], [2200, 2799], [2800, 3999]], nativeV: 900,
+  doc: [[500, 599], [600, 899]], ledger: [[900, 999], [1000, 1499]], fixes: [[2000, 2199], [2200, 2799], [2800, 3999], [4000, 4089]], nativeV: 900,
 } as const satisfies { doc: Ranges; ledger: Ranges; fixes: Ranges; nativeV: number };
 export const inRanges = (n: number, rs: Ranges) => rs.some(([a, b]) => n >= a && n <= b);
 export const rangesText = (rs: Ranges) => rs.map(([a, b]) => `${a}-${b}`).join(', ');
@@ -299,7 +299,8 @@ async function selfCheck() {
     // contributor blocks: a run that would cross a block end starts at the next block; past the last block = full
     ok(contribFixFrom(2006, 5) === 2007 && contribFixFrom(2195, 5) === 2200 && contribFixFrom(2195, 4) === 2196 && contribFixFrom(2303, 3) === 2304, 'contributor fixes: blocks stay inside 2000-2199 or start at 2200');
     ok(contribFixFrom(2796, 3) === 2797 && contribFixFrom(2796, 4) === 2800 && contribFixFrom(2799, 1) === 2800, 'contributor fixes: 2799/2800 never straddled (2797-2799 fits, 4 slots start at 2800)');
-    ok(contribFixFrom(3997, 2) === 3998 && contribFixFrom(3997, 3) === -1 && contribFixFrom(3999, 1) === -1, 'contributor fixes: 3999 is the end, a run past it is full (-1)');
+    ok(contribFixFrom(3997, 2) === 3998 && contribFixFrom(3997, 3) === 4000 && contribFixFrom(3999, 1) === 4000, 'contributor fixes: 3999/4000 never straddled (a run that does not fit starts at 4000)');
+    ok(contribFixFrom(4087, 2) === 4088 && contribFixFrom(4087, 3) === -1 && contribFixFrom(4089, 1) === -1, 'contributor fixes: 4089 is the end, a run past it is full (-1)');
     ok(contribFrom(CONTRIB.doc, 585) === 586 && contribFrom(CONTRIB.doc, 598) === 599 && contribFrom(CONTRIB.doc, 599) === 600 && contribFrom(CONTRIB.doc, 899) === -1, 'contributor docs: 586, then 599, then 600; full after 899');
     ok(contribFrom(CONTRIB.ledger, 947) === 948 && contribFrom(CONTRIB.ledger, 999) === 1000 && contribFrom(CONTRIB.ledger, 1499) === -1, 'contributor ledger: §999 -> §1000; full after §1499');
     ok(inRanges(650, CONTRIB.doc) && !inRanges(499, CONTRIB.doc) && !inRanges(900, CONTRIB.doc) && inRanges(1200, CONTRIB.ledger) && !inRanges(899, CONTRIB.ledger), 'inRanges: block bounds');

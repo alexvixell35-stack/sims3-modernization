@@ -111079,6 +111079,155 @@
     ]
   },
   {
+    "id": "ip-houseboat-leg-memo",
+    "bug": "docs/857 §2: an NPC stranded ~17 m off its houseboat (houseboat not Docked) gets EA's EnterHouseboatThroughBoat boat leg (PostPlanRouteCallback -> CheckAndUpdateForHouseboats, PlanFromPoint EndAsBoat + DestinationMustBeInDeepWater (+ DisablePlanningOnLand)) planned again after every plan home, ~600 ms each, always no path (IP phase-20261119-0746: Britta Colombo 18x)",
+    "fix": "ts3fixes houseboatlegmemo (HouseboatLegMemo.cs): the leg's first no-path plan is recorded (3982), repeats from the same start to the same goal are answered at once (3983, ms 3984); household / selected / unknown scope exempt (3985)",
+    "save": "Baseline-IP",
+    "note": "Forced. houseboat_leg_repro picks NPCs (known non-active household, houseboat residents first), a houseboat away from its dock; with all Docked (Baseline-IP, phase-20261119-1005) undock (default on) moves one whose residents are all NPCs (never the active household's) off its port with EA's Houseboat.LeavePort (driver null, ends StationaryAtSea; status before/after in result.undock), error only if none qualifies (a Docked one takes the gangway, not the boat leg), places each 17-30 m off the houseboat's RoutingSlot_0 on the world lot (sea spots first, then land), probes each spot with EA's own leg (switch forced off for the probe) and keeps the first that finds no path, then plans the Sim's own route to the houseboat `tries` times (Plan / ReplanFromPoint). Needs an active household. Proven in game 2026-11-19 (s128, docs/857 §1) through the docked mode of ip-houseboat-gangway-rescue (both switches on): the gangway leg recorded once (3982 +1) and its repeats answered (3983 +2, standing for 2278 ms of plans; the answered plans took 1-3 ms instead of ~1.1 s), 0 errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "houseboatlegmemo": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "start": true,
+          "sims": 2,
+          "tries": 4,
+          "mode": "undock",
+          "undock": true
+        },
+        "waitS": 150,
+        "note": "probe spots, then 4 plans home per Sim"
+      },
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "result": true
+        },
+        "note": "per Sim: probes, per try kind/result/ms, legs seen, counter deltas 3982-3985"
+      }
+    ],
+    "expect": "OFF: every try sees a leg (EndAsBoat DeepWater) FailedBecauseNoPathToDestination with full ms, counters 0; ON: try 1 leg recorded (3982 +1 per Sim), later tries no leg callback and 3983 +1 each (answered, ~0 ms), 'houseboatlegmemo: recorded|answered' lines; probe_failed true for each Sim; no crash",
+    "cleanup": [
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "ip-houseboat-gangway-rescue",
+    "bug": "docs/857 §3: an NPC dropped on shore ~15-22 m from its DOCKED houseboat's gangway at a spot with no walkable path: after every plan home EA's CheckAndUpdateForHouseboats -> EnterHouseboatThroughGangway plans PlanToPointFromPoint to the gangway's RoutingSlot_0 with water and boat planning off, no path (~650 ms); GoHome.Run fails, autonomy picks GoHome again, no give-up",
+    "fix": "ts3fixes houseboatgangwayrescue (HouseboatGangwayRescue.cs): the no-path gangway leg marks the NPC (4040); after GoHome fails, EA's Houseboat.PlaceSimAtEntrance places it on the houseboat (4041), at most once per sim-hour; refused 4042 (reasons 4044-4049), errors 4043; household / selected / unknown scope exempt",
+    "save": "Baseline-IP",
+    "note": "Forced. houseboat_leg_repro mode docked (default) picks NPCs living on a Docked houseboat with a port gangway, sends each by EA's Teleport Me Here to the nearest world-lot coastal spot 80-480 m off that is not connected by land, then EA's MakeSimGoHome (own boat if usable, else EA's boat planning); watches waitS 150 s: boat, get-out spot and its gangway distance, first gangway leg, rescue fired. A get-out with no failed gangway leg (first_gangway_leg Succeeded or none) = not triggered on this save: N/A, not FAIL. 2026-11-19 phase-1523: the old fixed-shore placement never failed (all spots walked); phase-1608: unseen NPCs were put home by the unseen shortcuts (no boat), so the run is SEEN: camera follows the first Sim, shortcutsOff forces gohome / unseenboat* / unseenfb* / unseenroute off for the run and restores them. start_needs_boat true = the start is not land-connected (wanted). Needs an active household. Proven in game 2026-11-19 (s128, Isla Paradiso, one load off then on, docs/857 §1): OFF Rubisel Ichtaca dropped 16.5 m from the gangway, gangway leg FailedBecauseNoPathToDestination 1118 ms and repeats (~1.1 s each), reached_home false after 150 s, counters +0; ON the same Sim marked (4040 +1), placed by EA's PlaceSimAtEntrance (4041 +1), reached_home true at 5.4 s, 0 errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "houseboatlegmemo": "$on",
+          "houseboatgangwayrescue": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "start": true,
+          "mode": "docked",
+          "sims": 2,
+          "waitS": 150,
+          "shortcutsOff": true
+        },
+        "waitS": 170,
+        "note": "teleport to a far coast, MakeSimGoHome, watch the boat trip home 150 s"
+      },
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "result": true
+        },
+        "note": "per Sim: boat, get_out + get_out_gangway_m, first_gangway_leg (result, ms, Sim position), rescued, reached_home, plans seen; counter deltas 3982-3985 and 4040-4049"
+      }
+    ],
+    "expect": "OFF: boat set, get_out ~15-22 m from the gangway, first_gangway_leg FailedBecauseNoPathToDestination ~650 ms, repeats, reached_home false, 4040-4049 +0; ON: 4040 +1 per Sim, 4041 +1 per Sim after its first failed GoHome, 'houseboatgangwayrescue: <name> placed at <lot>, after N ms of failed legs' lines, reached_home true; no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "ip-boat-roam-cap",
+    "bug": "docs/857 §4: an NPC driving a boat on a world lot stays in EA's Boat.BoatAround loop for many sim hours, overnight too (IP phase-20261119-1139/1243/1345: one Sim every ~2 sim-hours from 10 PM to the next afternoon, another 50 roam plans in a session); each run a CreateRoamingBoatPath plan ~150-275 ms plus a plan back; BoatAround's Test has no exit and ReturnToShore is apparently never picked",
+    "fix": "ts3fixes boatroamcap (BoatRoamCap.cs): a non-exempt NPC driver's BoatAround after kBoatRoamCapRoams (3) roams or kBoatRoamCapHours (2) of streak, at night (23-6) or with low energy / bladder does not roam (4062) and EA's ReturnToShore is pushed as its continuation (4063); a return that cannot run or fails lets EA roam with a 1 sim-hour back-off (4064); exempt 4065, errors 4066, shore reached 4067, service / role / AlarmOneShot boating logged 4068, night or motive caps 4069",
+    "save": "Baseline-IP",
+    "note": "Forced. boat_roam_repro picks NPCs (known non-active household, teen or older human, home lot), gives each its own speed boat off the nearest shore owned by its home lot (BoatOwnable, so ReturnToShore can run), sets it on the shore with autonomy off, EA's Board Boat as driver, then pushes BoatAround at autonomous priority whenever it is idle at the helm (EA's GoBoating needs a map-view click). Watches `seconds` (300). A Sim that never boards = not triggered: N/A, not FAIL. Needs an active household. Proven in game 2026-11-19 (s128, Isla Paradiso, docs/857 §1): OFF 28 BoatAround roams in under 3 min, 0 returns, still in the boat; ON 2 roams, then EA's ReturnToShore (4062 +1, 4063 +1), ashore (4067 +1), 0 errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "boatroamcap": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "boat_roam_repro",
+        "args": {
+          "start": true,
+          "sims": 1,
+          "seconds": 300
+        },
+        "waitS": 320,
+        "note": "board, then BoatAround while idle at the helm for 300 s"
+      },
+      {
+        "cmd": "boat_roam_repro",
+        "args": {
+          "result": true
+        },
+        "note": "per Sim: BoatAround runs (roams), ReturnToShore runs, ashore; counter deltas 4062-4069"
+      }
+    ],
+    "expect": "OFF: roams grow for the whole window, returns 0, ashore false, 4062-4069 +0; ON: roams stop at 3 (or 0-1 at night), returns 1, ashore true, 4062 +1 and 4063 +1 and 4067 +1 per Sim, 'boatroamcap: <name> back to shore after N roams / H sim-h' line; no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "boat_roam_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
