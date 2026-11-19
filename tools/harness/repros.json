@@ -112722,5 +112722,92 @@
         }
       }
     ]
+  },
+  {
+    "id": "owelevidle-check",
+    "bug": "NRaas Overwatch's nightly CleanupElevators destroys and re-makes at home every Sim in an elevator's assigned list, also NPCs whose entry outlived their ride (asleep at home at 05:00); ~10 resets a night, 50-85 ms each (docs/655)",
+    "fix": "ts3fixes OwElevIdle.cs: owelevidle (default off), docs/655",
+    "save": "Bridgeport after at least one sim-day of play (elevator towers; NRaas Overwatch installed)",
+    "note": "census is read-only; run calls Overwatch's own CleanupElevators.PerformAlarm (our pass first). Turn owresettime on to see the owreset Perform lines of the Sims Overwatch still resets.",
+    "expect": "census before: idle > 0. on + run: dropped == that idle count, owreset Perform lines only for riding or exempt Sims; census after: idle 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "owelevidle": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
+          "args": [
+            "census"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: idle entries Overwatch would reset"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "owelevidle": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: Overwatch's cleanup with idle entries dropped first"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
+          "args": [
+            "census"
+          ]
+        },
+        "waitS": 2,
+        "note": "after: idle 0"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "owelevidle": false
+        },
+        "note": "cleanup",
+        "waitS": 1
+      }
+    ]
   }
 ]

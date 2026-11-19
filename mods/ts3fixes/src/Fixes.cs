@@ -87,6 +87,7 @@ namespace Ts3Fixes
             ApplyOverwatchSpread(false);
             ApplyOverwatchNotice(false);
             ApplyOverwatchProbe(false);
+            ApplyOwElevIdle(false);   // docs/654
             ApplyErrorTrapSpread(false);
             ApplyPortalAdaptorLeak();
             ApplyCasGrid();
@@ -881,6 +882,7 @@ namespace Ts3Fixes
         // [4094-4097] paparazzicooldown (PaparazziCooldown.cs, docs/648): NPC paparazzo loop callbacks skipped while both Sims are unseen (stretched route checks) / follows refused by the re-follow cooldown / follows left to EA for an exempt paparazzo or celebrity / errors. [4098-4099] free.
         // [4120-4129] objfailmemo (ObjFailMemo.cs, docs/650; 4110-4119 belong to another branch): NPC (Sim, object) route failures counted / pairs blocked / autonomous candidates refused / exempt (household, selected, unknown scope) / errors / failures left to other switches (Sim, Terrain, Lot targets, GetInPool, DisposeOutside, EmptyTrash) / 4126-4129 spare
         // [4140-4142] socialunlinkend (SocialUnlinkEnd.cs, docs/650 §3; 4130-4139 belong to another branch): NPC receiver sync waits ended at once (B unlinked, starter gone) / exempt receivers left to EA (household, selected, unknown scope) / errors; 4143-4149 spare.
+        // [4150-4155] owelevidle (OwElevIdle.cs, docs/654): idle elevator entries dropped before Overwatch's CleanupElevators (reset avoided) / riding entries left to Overwatch / exempt idle entries left to Overwatch / idle entries seen with the switch off / errors / passes; 4156-4159 spare.
         // [4130-4139] dishpilecap (DishPileCap.cs, docs/652; 4110-4129 left to other agent blocks): dirty dishes removed with EA's nightly throw-away / lots capped / over-cap lots left alone (household home or venue, household Sim there, in view) / dishes skipped (used, held, not needing cleaning) / dishes near a viewer / errors / passes / dirty dishes on the biggest lot / dirty dishes in the world / lots over the cap (last three: last pass, any switch state).
         // [4160-4163] perfjobmissedlistener (PerfJobMissedListener.cs, docs/654 §1; 4150-4159 and 4170-4179 belong to other branches): stale PerformanceCareer.OnJobMissed listeners removed / stale listeners seen with the switch off (per sweep) / errors / sweeps; 4164-4169 spare.
         // [4100-4109] npcstallend (NpcStallEnd.cs, docs/649; 4090-4099 left to feat/npcloops-c): NPC stalls ended with EA's cancel / exempt (household, selected, unknown scope) / skipped (allowed kind or busy) / errors / cancels that did not take / left to outfitwaitend (outfit wait) / cleared outfit waits ended (OutfitWait.cs) / passes; 4108-4109 spare.
@@ -1610,6 +1612,7 @@ namespace Ts3Fixes
                 case "picnicexit": return Instantiator.kPicnicExit;
                 case "poolfailmemo": return Instantiator.kPoolFailMemo;
                 case "objfailmemo": return Instantiator.kObjFailMemo;  // off (ObjFailMemo.cs, docs/650)
+                case "owelevidle": return Instantiator.kOwElevIdle;  // off (OwElevIdle.cs, docs/654)
                 case "socialunlinkend": return Instantiator.kSocialUnlinkEnd;  // off (SocialUnlinkEnd.cs, docs/650 §3)
                 case "perfjobmissedlistener": return Instantiator.kPerfJobMissedListener;  // off (PerfJobMissedListener.cs, docs/654 §1)
                 case "petstartleskip": return Instantiator.kPetStartleSkip;
