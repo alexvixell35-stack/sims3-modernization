@@ -1303,6 +1303,9 @@ namespace Ts3Fixes
         // [3944-3946] bodysculptorweight (EpBatch3Logic.cs, docs/587 EP3 §8.12): weights corrected / mirrored with switch off / errors.
         // [3947-3949] nectarconsignvalue (EpBatch3Logic.cs, docs/587 EP3 §8.13): values re-rolled / minimum with switch off / errors.
         // [3950-3952] straygnometns (EpBatch3Logic.cs, docs/587 EP3 §8.14): runs with right notice / stale notices with switch off / errors.
+        // [4058-4061, 4084-4089] UnseenFallback.cs docs/202 §3.10 (all default off, townies only): unseenfbghost medium-tier decisions (4058) / G3 recoveries refused, no async start or colour not proven (4059), its walk in the reserved 542-549;
+        //   unseenhouseboatview sightings asked at the shown spot (4060) / answered otherwise than the hidden-spot rule (4061); unseenfbnosync asked / recovered / refused (4084-4086);
+        //   safespotplanyield (Fixes.cs SafeSpot) yields after a verdict plan / given up after the yield / not yielded, no yield context (4087-4089).
         // [1264-1269] boattaximemo (BoatTaxiMemo.cs, docs/851): boat (any Boat subclass) no-path failures recorded / rider routes planned with the boat off / of those, succeeded / stranded boat plans answered / ms of the recorded plans those answers stand for / refused (household, selected, unknown) or errors.
         // [3247-3249] dogswimslots (EpBatch4Logic.cs, docs/587 EP4 §9.1): loops skipped, no free slot / would throw with switch off / errors.
         // [3250-3252] fragmentreconstruct (EpBatch4Logic.cs, docs/587 EP4 §9.2): Target picked first / extra fragment used with switch off / errors.
@@ -1519,7 +1522,7 @@ namespace Ts3Fixes
         // game's call (actor / other Sim out of scope, not indoor, seq overflow), errors, verify checks, differences, reorder-only differences
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
-        const int kCounterSlots = 4000;
+        const int kCounterSlots = 4200;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1833,6 +1836,7 @@ namespace Ts3Fixes
                 case "overwatchstuckslice": return Instantiator.kOverwatchStuckSlice;
                 case "seasonmarkercache": return Instantiator.kSeasonMarkerCache;
                 case "safespotyield": return Instantiator.kSafeSpotYield;
+                case "safespotplanyield": return Instantiator.kSafeSpotPlanYield;
                 case "disposespread": return Instantiator.kDisposeSpread;
                 case "overwatchstucknotice": return Instantiator.kOverwatchStuckNoticeSummary;
                 case "preplancb": return Instantiator.kPrePlanCallback;
@@ -1841,6 +1845,9 @@ namespace Ts3Fixes
                 case "unseenfbstuck": return Instantiator.kUnseenFallbackStuck;
                 case "unseenfbplan": return Instantiator.kUnseenFallbackPlan;
                 case "unseenfbteleport": return Instantiator.kUnseenFallbackTeleport;
+                case "unseenfbghost": return Instantiator.kUnseenFallbackGhost;
+                case "unseenfbnosync": return Instantiator.kUnseenFallbackNoSync;
+                case "unseenhouseboatview": return Instantiator.kUnseenHouseboatView;
                 case "unseenfbsites": return Instantiator.kUnseenFallbackSites;
                 case "unseenfbpre": return Instantiator.kUnseenFallbackPre;
                 case "unseenfbarrive": return Instantiator.kUnseenFallbackArrive;
@@ -2788,8 +2795,13 @@ namespace Ts3Fixes
                 if (!found) continue;
                 if (noPool && BelowGroundOutdoors(pos)) { c[2700]++; continue; }
                 if (verify && (pos - start).Length() > 0.5f) c[92]++;
+                int plans0 = c[39];
                 long tk = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
-                if (LotManager.GetLotAtPoint(pos) != lot || SpotVerdict(sim, lot, v, prof, pos, fresh, false, true) != true) continue;
+                bool good = LotManager.GetLotAtPoint(pos) == lot && SpotVerdict(sim, lot, v, prof, pos, fresh, false, true) == true;
+                // safespotplanyield: the verdict's IsPointInLotSafelyRoutable plan and the next FindGoodLocation (or the caller's
+                // placement) no longer share one sim slice; after the yield the Sim must still be there and unseen
+                if (c[39] != plans0 && ShortcutOn("safespotplanyield") && !SafeSpotYield(sim, near, 4087)) break;
+                if (!good) continue;
                 // spotasync (docs/616): the check may have slept on its job; place only if the caller's unseen gate still holds
                 bool yielded = Sims3.Gameplay.Utilities.SimClock.CurrentTicks != tk && ShortcutOn("spotasync");  // other yields keep today's rule
                 if (!H4Core.SpotPlaceAfter(yielded, !sim.HasBeenDestroyed && sim.InWorld, yielded && TownieUnseen(sim, null), yielded && FarFromViewers(near)))
@@ -2817,13 +2829,15 @@ namespace Ts3Fixes
         // only in the Sim's own task (both hook callers, RabbitHoleHook.EnterHook and GoHomeHook.Run, and the lot trips run
         // in its interaction) and where a Sleep is safe (MayYield, RouteBackoff.cs). The Sim has not moved yet, so the yield
         // changes no outcome; after it the Sim must still be there and unseen, else false = the caller runs the game's trip.
-        static bool SafeSpotYield(Sims3.Gameplay.Actors.Sim sim, Sims3.SimIFace.Vector3 near)
+        // ctr: first of the caller's three counters (yields, given up after the yield, not yielded): 276 safespotyield, 4087 safespotplanyield
+        static bool SafeSpotYield(Sims3.Gameplay.Actors.Sim sim, Sims3.SimIFace.Vector3 near) { return SafeSpotYield(sim, near, 276); }
+        static bool SafeSpotYield(Sims3.Gameplay.Actors.Sim sim, Sims3.SimIFace.Vector3 near, int ctr)
         {
             int[] c = PatchCounters();
-            if (Simulator.CurrentTask != sim.ObjectId || !MayYield()) { c[278]++; return true; }
-            c[276]++;
+            if (Simulator.CurrentTask != sim.ObjectId || !MayYield()) { c[ctr + 2]++; return true; }
+            c[ctr]++;
             Simulator.Sleep(0);
-            if (sim.HasBeenDestroyed || !TownieUnseen(sim, null) || !FarFromViewers(near)) { c[277]++; return false; }
+            if (sim.HasBeenDestroyed || !TownieUnseen(sim, null) || !FarFromViewers(near)) { c[ctr + 1]++; return false; }
             return true;
         }
 
@@ -3183,6 +3197,7 @@ namespace Ts3Fixes
             if (sim.Posture != sim.Standing || sim.IsInRidingPosture || sim.IsInBeingRiddenPosture) return false;
             // docs/267 F2: Late Night hidden rooms too (allowHidden), same EA lookup as the tomb-only one
             if (Sims3.Gameplay.Controllers.TombRoomManager.IsObjectInATombOrHiddenRoom(sim, !hiddenOk)) return false;
+            if (ShortcutOn("unseenhouseboatview")) { int hv = UfHbvTownie(sim); if (hv >= 0) return hv == 1; }  // docs/202 §3.10: a Sim on a foreign houseboat is judged where its boat shows
             int b = UtbBits(sim);  // docs/227 §6 central table
             if (b >= 0) return sUtbCheck ? UtbCompare(UtbUnseen(b), !UcOnScreen(sim) && FarFromViewers(sim.Position)) : UtbUnseen(b);
             if (UcOnScreen(sim)) return false;

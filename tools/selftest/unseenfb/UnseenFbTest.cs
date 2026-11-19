@@ -387,6 +387,7 @@ static class UnseenFbTest
         Check(UfFinishCore.Step(true, true, false, 30, 20) == UfFinishCore.kGiveUp, "finish: seen at the finish check");
 
         PostureChecks();
+        GhostChecks();
 
         if (fails > 0) { Console.WriteLine("unseenfb selftest FAILED: " + fails); Environment.Exit(1); }
         Console.WriteLine("unseenfb selftest ok");
@@ -415,6 +416,89 @@ static class UnseenFbTest
         if (!(guard && UnseenFallbackCore.IsPop(sCur, sCur != null ? sCur.Prev : null, value)) && compatible) value.Prev = sCur;
         sCur = value;  // unwind: the target is below, already linked
     }
+    // docs/202 §3.10: tiers, hysteresis, polyline, hand-off point, progress, steps, snap, no-loop
+    static void GhostChecks()
+    {
+        const float R = UfGhostCore.kSimMediumM, G = UfGhostCore.kGoalMediumM;
+        Check(UfGhostCore.Tier(false, false, 0f, 0f, R, G) == UfGhostCore.kSeen && UfGhostCore.Tier(false, true, 0f, 0f, R, G) == UfGhostCore.kSeen, "tier: not unseen = seen, whatever the distance");
+        Check(UfGhostCore.Tier(true, false, R, 1e9f, R, G) == UfGhostCore.kMedium, "tier: Sim at the radius = medium");
+        Check(UfGhostCore.Tier(true, false, R + 1f, 1e9f, R, G) == UfGhostCore.kFar, "tier: Sim past the radius = far");
+        Check(UfGhostCore.Tier(true, false, 1e9f, G, R, G) == UfGhostCore.kMedium && UfGhostCore.Tier(true, false, 1e9f, G + 1f, R, G) == UfGhostCore.kFar, "tier: goal near the view = medium");
+        // hysteresis: a medium Sim stays medium out to 1.2 x, a far Sim needs the plain radius; a Sim on the border does not flip
+        Check(UfGhostCore.Tier(true, true, R * 1.1f, 1e9f, R, G) == UfGhostCore.kMedium, "tier: medium Sim just past the radius stays medium");
+        Check(UfGhostCore.Tier(true, false, R * 1.1f, 1e9f, R, G) == UfGhostCore.kFar, "tier: far Sim just past the radius stays far");
+        Check(UfGhostCore.Tier(true, true, R * 1.21f, 1e9f, R, G) == UfGhostCore.kFar, "tier: medium Sim past 1.2 x leaves");
+        int t = UfGhostCore.kFar, flips = 0;
+        for (int i = 0; i < 100; i++)
+        {
+            int n = UfGhostCore.Tier(true, t == UfGhostCore.kMedium, R + (i % 2 == 0 ? -5f : 5f), 1e9f, R, G);  // jitter +-5 m around the radius
+            if (i > 0 && n != t) flips++;
+            t = n;
+        }
+        Check(flips <= 1, "tier: jitter around the radius flips at most once (" + flips + ")");
+        Check(Math.Abs(UfGhostCore.HDist(0f, 0f, 3f, 4f) - 5f) < 0.001f, "horizontal distance");
+
+        // unseenfbnosync tier gate: only an unseen Sim with a known household outside the active one has a tier; the recovery runs for medium and far only
+        Check(UfGhostCore.UnseenForTier(false, true, false), "gate: townie with a household is unseen input");
+        Check(!UfGhostCore.UnseenForTier(true, true, false) && !UfGhostCore.UnseenForTier(false, true, true) && !UfGhostCore.UnseenForTier(false, false, false) && !UfGhostCore.UnseenForTier(true, false, true), "gate: selectable, active household, no household = never unseen");
+        Check(UfGhostCore.NoSyncTier(UfGhostCore.kMedium) && UfGhostCore.NoSyncTier(UfGhostCore.kFar) && !UfGhostCore.NoSyncTier(UfGhostCore.kSeen), "gate: no-sync recovery for medium and far only");
+        for (int m = 0; m < 8; m++)
+        {
+            bool sel = (m & 1) != 0, hh = (m & 2) != 0, act = (m & 4) != 0;
+            int tier = UfGhostCore.Tier(UfGhostCore.UnseenForTier(sel, hh, act), false, 1f, 1f, UfGhostCore.kSimMediumM, UfGhostCore.kGoalMediumM);
+            Check(UfGhostCore.NoSyncTier(tier) == (!sel && hh && !act), "gate: exhaustive over selectable / has household / active " + m);
+        }
+
+        // unseenhouseboatview
+        Check(HbvCore.Applies(true, false, false) && !HbvCore.Applies(false, false, false) && !HbvCore.Applies(true, true, false) && !HbvCore.Applies(true, false, true), "hbv: foreign houseboat lots only, not the household's or the camera's");
+        Check(HbvCore.Why(true, true) == UnseenFallbackCore.kOnScreen && HbvCore.Why(true, false) == UnseenFallbackCore.kOnScreen, "hbv: EA's on-screen byte wins");
+        Check(HbvCore.Why(false, false) == UnseenFallbackCore.kNearViewers && HbvCore.Why(false, true) == 0, "hbv: the position test at the shown position decides the rest");
+        Check(HbvCore.Class(0, true) == 1 && HbvCore.Class(0, false) == 2 && HbvCore.Class(UnseenFallbackCore.kNearViewers, true) == 0 && HbvCore.Class(UnseenFallbackCore.kOnScreen, false) == 0, "hbv: counter classes");
+
+        // hbv at TownieUnseen / UfSimSeen: seen = (Why != 0), exhaustive over the two inputs
+        for (int m = 0; m < 4; m++)
+        {
+            bool on = (m & 1) != 0, camUnseen = (m & 2) != 0;
+            Check((HbvCore.Why(on, camUnseen) != 0) == (on || !camUnseen), "hbv: site rule seen = on screen or the shown position fails the position test, case " + m);
+        }
+
+        // polyline: a point every <= 2.5 m, start and end always, shape refusal at more than 1 in 4 bad
+        Check(UfGhostCore.Points(0f) == 2 && UfGhostCore.Points(2.5f) == 2 && UfGhostCore.Points(2.6f) == 3 && UfGhostCore.Points(100f) == 41, "polyline: point count");
+        int ok = 0;
+        for (int i = 0; i < UfGhostCore.kShapeSamples; i++) { int x = UfGhostCore.ShapeIndex(i, UfGhostCore.kShapeSamples, 41); if (x > 0 && x < 40) ok++; }
+        Check(ok == UfGhostCore.kShapeSamples, "polyline: shape samples are interior points");
+        Check(UfGhostCore.ShapeIndex(0, 12, 41) < UfGhostCore.ShapeIndex(11, 12, 41), "polyline: shape samples ascend");
+        Check(UfGhostCore.ShapeOk(3, 12) && !UfGhostCore.ShapeOk(4, 12) && UfGhostCore.ShapeOk(0, 12), "polyline: 3 of 12 bad ok, 4 refused");
+
+        // hand-off point H: 8-15 m before the goal; too close to the start is skipped; the list ends
+        Check(UfGhostCore.HandOffM(100f, 0) == 92f && UfGhostCore.HandOffM(100f, 3) == 85f && UfGhostCore.HandOffM(100f, 4) == -1f && UfGhostCore.HandOffM(100f, -1) == -1f, "H: 8, 10, 12, 15 m before the goal");
+        Check(UfGhostCore.HandOffM(20f, 0) == 12f && UfGhostCore.HandOffM(20f, 3) == 5f && UfGhostCore.HandOffM(19f, 3) == 0f, "H: a candidate under 5 m from the start is skipped");
+
+        // virtual progress
+        Check(UfGhostCore.Frac(0f, 10f) == 0f && UfGhostCore.Frac(5f, 10f) == 0.5f && UfGhostCore.Frac(11f, 10f) == 1f && UfGhostCore.Frac(1f, 0f) == 1f && UfGhostCore.Frac(-1f, 10f) == 0f, "progress: share of the hold");
+        Check(UfGhostCore.IndexAt(0f, 41) == 0 && UfGhostCore.IndexAt(1f, 41) == 40 && UfGhostCore.IndexAt(0.5f, 41) == 20 && UfGhostCore.IndexAt(2f, 41) == 40 && UfGhostCore.IndexAt(0.3f, 2) == 0 && UfGhostCore.IndexAt(0.7f, 2) == 1, "progress: polyline point reached");
+
+        // step spacing: every sim-minute near the camera, every 5 far away
+        Check(UfGhostCore.StepEveryMin(150f) == 1f && UfGhostCore.StepEveryMin(150.1f) == 5f, "steps: spacing by camera distance");
+        Check(UfGhostCore.StepDue(1f, 0f, 100f) && !UfGhostCore.StepDue(0.9f, 0f, 100f) && !UfGhostCore.StepDue(4.9f, 0f, 300f) && UfGhostCore.StepDue(5f, 0f, 300f) && UfGhostCore.StepDue(7f, 2f, 300f) && !UfGhostCore.StepDue(6f, 2f, 300f), "steps: due");
+        int steps = 0;
+        float last = 0f;
+        for (float el = 0.5f; el <= 60f; el += 0.5f) if (UfGhostCore.StepDue(el, last, 300f)) { steps++; last = el; }
+        Check(steps == 12, "steps: 60 sim-min far = 12 steps (" + steps + ")");
+
+        // snap: onto the virtual point when it is good ground, else stay on the last placed point; the jump is bounded by the steps since
+        Check(UfGhostCore.SnapIndex(10, true, 6) == 10 && UfGhostCore.SnapIndex(10, false, 6) == 6 && UfGhostCore.SnapIndex(4, true, 6) == 6, "snap: virtual point or last placed");
+        Check(UfGhostCore.SnapJumpM(10, 6) == 10f && UfGhostCore.SnapJumpM(6, 6) == 0f, "snap: jump size");
+
+        // no-loop: a failed or cut last leg blocks the next ghost for 10 s of wall time only
+        UfGhostGuard gg = new UfGhostGuard();
+        Check(!gg.Blocked(1, 5000), "no-loop: fresh Sim may ghost");
+        gg.Mark(1, 5000);
+        Check(gg.Blocked(1, 5000) && gg.Blocked(1, 5000 + UfGhostGuard.kNoLoopMs) && !gg.Blocked(1, 5001 + UfGhostGuard.kNoLoopMs) && !gg.Blocked(2, 5000), "no-loop: window per Sim");
+        for (ulong k = 10; k < 10 + UfGhostGuard.kMaxSims + 5; k++) gg.Mark(k, 1);
+        Check(gg.Blocked(10 + UfGhostGuard.kMaxSims + 4, 1), "no-loop: bounded table keeps the newest entry");
+    }
+
     static void PostureChecks()
     {
         for (int g = 0; g < 2; g++)

@@ -131,6 +131,7 @@ namespace Ts3Fixes
                     : ForeignEligible() && PreCb(0, ref pre) && GetOption2((Sims3.SimIFace.Route.RouteOption2)kArStart);
                 if (!started)
                 {
+                    if (ReferenceEquals(sUfMarked, this) && UfNoSync(sim, out r)) return r;  // unseenfbnosync (docs/202 §3.10): a marked unseen plan about to run on the sim thread
                     int ts = UfSyncStart();
                     StepAside();
                     if (!GvuDefer(0, out r)) r = PlanOrig();

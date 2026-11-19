@@ -47289,6 +47289,104 @@
     }
   },
   {
+    "id": "unseenfbghost-walk-across",
+    "bug": "docs/202 §3.10: unseen townies near the camera that skip routing (unseenroute hold + place) jump when the hold ends; far ones plan routes nobody sees. Does the three-tier ghost (unseenfbghost: far = hold + place at a hand-off point, medium = ghost walk in coarse steps) keep them walking near the view and cut the routing of far ones?",
+    "fix": "ts3fixes unseenfbghost (UnseenFallback.cs UfCutRecover / UfGhostCut, docs/202 §3.10), default off.",
+    "save": "Baseline-IP-Spring",
+    "note": "The unseenroute-walk-across repro with the loop arm on unseenfbghost instead of unseenroute (the local runs kept unseenroute on in both arms through the queue's fixesOn). 30 spawned townies only; household untouched.",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 90,
+        "note": "away from the household and the camera"
+      }
+    ],
+    "expect": "no crash, 0 watchdog lines, no stuck Sim, no Sim placed on another island it could not reach; on arms: unseenfbghost_holds / _shortcuts and unseenfbghost_medium move, unseenfbghost_lastfail stays small; off arms: normal plans",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "patches",
+          "setup": true,
+          "args": {
+            "unseenfbghost": "$on"
+          },
+          "waitS": 1,
+          "note": "arm (three-tier ghost)"
+        },
+        {
+          "cmd": "crowd_do",
+          "setup": false,
+          "args": {
+            "lot": "farobj",
+            "object": "Sculpture|Statue|Fountain|Painting|Art",
+            "interaction": "View|Admire|Swing"
+          },
+          "waitS": 30,
+          "note": "fire: unseen own-task View plans (ViewObjects / ViewPlant RouteToPointRadialRange) far -> far2",
+          "waitUntil": {
+            "quiet": 4000
+          },
+          "minS": 6,
+          "maxS": 30,
+          "count": {
+            "result": "sent"
+          }
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "to": "far",
+            "cancel": true
+          },
+          "waitS": 60,
+          "note": "back to far (ends the sit or the hold)"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 30
+      },
+      "maxMinutes": 14
+    }
+  },
+  {
     "id": "unseenroute-snapback",
     "bug": "docs/202 §3.9 / docs/161 / docs/163: unseen Sims own 68-97% of route-plan time in >= 300 ms routing hitches; D (unseenfbpre) never acted because gate 332 refused every child-or-older route (EnablePlanningAsBoat is set on all of them with Island Paradise installed, kit run issue #135) and the exactness proofs (verdict fill, known colour, lot kind) refused the rest",
     "fix": "ts3fixes unseenroute (UnseenFallback.cs UfPre relaxed + UfSnap, docs/202 §3.9): an unseen townie's own followed plan to an unseen outdoor goal plans nothing: hold for the travel time (walk, or the fast-leg estimate when the route may drive / take the subway / hover train / a boat), place at the goal, short exact plan from there; snap-back mid-trip when the goal turns seen. Safety rules unchanged",

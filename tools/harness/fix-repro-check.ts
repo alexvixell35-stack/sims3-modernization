@@ -150,6 +150,9 @@ export const EXEMPT: Record<string, string> = {
   visitwalkfinish: 'Dalexlol docs/584 §1 unseen visit trips: judged by his harness evidence, no forced repro',
   // 2026-11-20 merge of Dalexlol #564: switches without a forced repro (his in-game results or never fired yet)
   boatroutenull: 'Dalexlol #564: default off, never fired yet (Boat.RouteBoatToLandOnWayToPosition false); no forced repro',
+  unseenfbnosync: 'Dalexlol (docs/202 §3.10): default off; acts only when ts3native refuses the async START of a marked unseen plan (queue state), which no repro can force; natural-play counters only (unseenfbnosync_asked / _recovered / _refused)',
+  unseenhouseboatview: 'Dalexlol (docs/202 §3.10): default off; a scope-rule change for townies on foreign houseboats (Isla Paradiso), no bug to force; natural-play counters on 31 IP games (unseenhouseboatview_asked / _changed)',
+  safespotplanyield: 'Dalexlol (docs/202 §3.10): default off; a one-tick yield after a SafeSpot verdict plan (sim-thread slice split, not an EA bug); natural-play counters only (safespotplanyield_yields / _given_up)',
   overwatchresetgone: 'Dalexlol #564: default off, never fired yet (destroyed Sim with no proxy in SetObjectToReset); no forced repro',
   motivesnohousehold: 'Dalexlol #564: default off, not testable on his PC (Sim with no household); no forced repro',
   overwatchrelretry: 'Dalexlol #564: ON, one natural hit in his play, retry passed; load-time race, no forced repro',

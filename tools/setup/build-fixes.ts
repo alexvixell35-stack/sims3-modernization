@@ -158,6 +158,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSpotCheck value="True" />
     <kSafeSpotPool value="True" />
     <kSafeSpotYield value="False" />
+    <kSafeSpotPlanYield value="False" />
     <kDisposeSpread value="False" />
     <kOverwatchStuckNoticeSummary value="False" />
     <kPrePlanCallback value="False" />
@@ -165,6 +166,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenFallbackStuck value="True" />
     <kUnseenFallbackPlan value="True" />
     <kUnseenFallbackTeleport value="True" />
+    <kUnseenFallbackGhost value="False" />
+    <kUnseenFallbackNoSync value="False" />
+    <kUnseenHouseboatView value="False" />
+    <kUnseenGhostMediumM value="200" />
+    <kUnseenGhostGoalM value="120" />
     <kUnseenFallbackSites value="False" />
     <kUnseenFallbackPre value="True" />
     <kUnseenFallbackArrive value="True" />
