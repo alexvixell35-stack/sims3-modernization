@@ -491,6 +491,7 @@ namespace Ts3Fixes
                 case "vehparkreserve": return EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(VlGetInBoatHook), 0, "sVlGiBoatSim", sVlGiBoatSim, null, "sVlGiBoatId", sVlGiBoatId, null), EpLive(typeof(VlGetInCarHook), 0, "sVlGiCarSim", sVlGiCarSim, null)), EpLive(typeof(VlGetVehicleHook), 1)), EpLive(typeof(VlParkHook), 1)), EpLive(typeof(VlProtestHook), 1));
                 case "vehprotestcar": return EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(VlGetInBoatHook), 0, "sVlGiBoatSim", sVlGiBoatSim, null, "sVlGiBoatId", sVlGiBoatId, null), EpLive(typeof(VlGetInCarHook), 0, "sVlGiCarSim", sVlGiCarSim, null)), EpLive(typeof(VlGetVehicleHook), 1)), EpLive(typeof(VlParkHook), 1)), EpLive(typeof(VlProtestHook), 1));
                 case "vehseatdestroy": return EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(VlGetInBoatHook), 0, "sVlGiBoatSim", sVlGiBoatSim, null, "sVlGiBoatId", sVlGiBoatId, null), EpLive(typeof(VlGetInCarHook), 0, "sVlGiCarSim", sVlGiCarSim, null)), EpLive(typeof(VlGetVehicleHook), 1)), EpLive(typeof(VlParkHook), 1)), EpLive(typeof(VlProtestHook), 1));
+                case "venueintensity": return EpLive(typeof(VenueIntensityHook), 1);
                 case "venuememo": return EpJoin(EpLive(typeof(TuningMemoHook), 0), EpLive(typeof(VenueScoreHook), 0));
                 case "vhomewalk": return EpLive(typeof(VirtualHomeHook), 1);
                 case "viproomrefresh": return EpLive(typeof(VipRefreshHook), 1);

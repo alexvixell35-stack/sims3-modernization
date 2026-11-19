@@ -113238,5 +113238,86 @@
         }
       }
     ]
+  },
+  {
+    "id": "venueintensity-check",
+    "bug": "docs/661 §3.2: MetaAutonomyTuning.GetIntensity reads IsDowntownWorld() ? Intensity : Intensity_Downtown [IL IL_0072-IL_0088], the columns swapped: every venue, park, pool, graveyard, rabbit hole and pond is weighted for NPCs with the other world's value wherever the Venues XML columns differ",
+    "fix": "ts3fixes venueintensity (VenueIntensity.cs): for a non-exempt NPC the two fields are swapped around EA's own GetIntensity body when the right column is set and differs (LotGameplayCore.ShouldSwap); each venue type's columns logged once; 4236 types logged, 4237 swapped, 4238 exempt, 4239 errors",
+    "save": "any world (Bridgeport = downtown, Isla Paradiso / Sunset Valley = not)",
+    "note": "Forced. VenueIntensityCheck run compares the hooked GetIntensity(null, npc) with EA's body for the columns as loaded and swapped, for each venue type whose columns differ. No such type = N/A (the Venues XML agrees with itself in this install): the fix then never changes anything. Run in one downtown and one non-downtown world.",
+    "expect": "off: 'verdict: BROKEN' (hook == ea != right) or N/A. on: 'verdict: FIXED' (hook == right), 'venueintensity: <type> Intensity a, Intensity_Downtown b' lines; no new exceptions",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "venueintensity": false
+        },
+        "waitS": 1,
+        "note": "off first"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VenueIntensityCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VenueIntensityCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "venueintensity": true
+        },
+        "waitS": 1,
+        "note": "on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VenueIntensityCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VenueIntensityCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "venueintensity": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "venueintensity": false
+        }
+      }
+    ]
   }
 ]
