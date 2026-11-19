@@ -21,7 +21,7 @@ The public repo lags the private one, so contributor PRs (currently alexvixell35
 |---|---|---|
 | `docs/NNN-*.md` | 500-599 | below 500 |
 | docs/51 inference ledger `## N.` | §900-999 | below 900 |
-| ts3fixes counter slots | 2000-2199 (full), 2200-2799 (2400-2799 added 2026-11-14) | below 2000 |
+| ts3fixes counter slots | 2000-2199 (full), 2200-2799 (2400-2799 added 2026-11-14), then 4000-4089 (2026-11-19, `kCounterSlots` 4090; `tools/registry.ts` CONTRIB still ends at 3999) | below 2000 |
 | ts3native counter version blocks | v900+ | below v900 |
 
 `node tools/registry.ts reserve --contributor <doc|ledger|fixes|native> ...` hands out the next free number of the range (same arguments as the normal `reserve`; without `--contributor` the ranges are skipped). ts3native version strings (`TS3NATIVE_VERSION`, changelog headings) are assigned by the maintainers at merge: a contributor PR writes "next version" and does not change the define. `tools/pr-preflight.ts` flags numbers outside the ranges and a changed version string (`--maintainer` turns that check off).
@@ -562,6 +562,7 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3864-3869 | `BoatTaxiMemo.cs` (`fixes-3864`, docs/642), `boattaximemo` | built 2026-11-18 (any Boat since 2026-11-19), default off: boat no-path failures recorded, rider routes with the boat off, of those succeeded, stranded boat plans answered, ms those answers stand for, refused/errors |
 | 3860-3863 | pinned (claude, `fixes-3860`) | docs/641 spotwaitattr: slow spot/watchdog PlanFromPoint waits split frame-bound vs job-bound (waits >= 250 ms, frame-bound, job-bound, frame-bound ms) |
 | 3870-3873 | `HouseboatLegMemo.cs` (`fixes-3870`, docs/642 §6), `houseboatlegmemo` | built 2026-11-19, default off: NPC houseboat boat-leg no-path plans recorded, repeats answered, ms those answers stand for, exempt/errors |
+| 4040-4049 | `HouseboatGangwayRescue.cs` (`fixes-4040`, contributor block 4000-4089, docs/642 §7), `houseboatgangwayrescue` | built 2026-11-19, default off: NPCs marked by a no-path gangway leg to their Docked houseboat / placed by EA's PlaceSimAtEntrance after GoHome failed / refused / errors; refusals exempt / no, another or undocked houseboat / once per sim-hour / busy / on the lot, far or stale / no spot; `kCounterSlots` 4090. 4000-4039 and 4050-4089 left to the native NoPathMemo work |
 | 3864-3869 | pinned (claude, `fixes-3864`) | docs/642 boattaximemo: NPC rider's BoatTaxi no-path memo (recorded, boat off on rider route, land ok, stranded plans answered, ms answered, refused/errors) |
 | 4000-4003 | `nopathmemo.cpp` (native, docs/643), `[RouteAsync] NoPathMemo` | built 2026-11-19, default off, NOT RUN. Native only: the values live in the `ts3native_nopathmemo` export (+0x08 recorded, +0x0C served, +0x10 ms the answers stand for, +0x14 invalidated, table below); ts3fixes never writes these slots (its array stays `int[4000]`). 4004-4039 held for this feature |
 | **2000+** | next free | reserve here  |
