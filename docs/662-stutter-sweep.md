@@ -69,3 +69,25 @@ the 4 sync hitches (2.3 s) plus whatever the MARK cuts off the async jobs' `+0x9
 
 Tests: `node tools/selftest/stuttersweep/run.ts`; repro `stucktaskflag-check` (pure decision with controls). In play: every
 `src stuckcheck` line is in the drain or alarm task; `fixes:stucktaskflag_other_tasks` > 0 on nights with a stuck check.
+
+## 3. `watchdogbusydefer`: a refused A1 watchdog check no longer plans on the sim thread [verified code, measured]
+
+**Cost.** The watchdog's idle check (`CheckIdle` -> `SpotVerdict` -> `IsPointInLotSafelyRoutable`) goes out as an own-task
+tagged job when ts3native would start it (A1, `watchdogasync`, `WdA1Would` q 1/5/7/9). A START that ts3native still refuses
+(the worker runs another job: M1 lock test, queue full) fell through `PlanFromPointAsyncBody` to a sync plan, which waits on
+`+0x918` for the running job. Measured: 543 slow watchdog plans in 29 runs, 536 async, **7 sync 151-312 ms** (one 337 ms hitch).
+`watchdoglockskip` (off) only skips when a job runs *before* the check; spotbusydefer (docs/635) covers the spot checks only.
+
+**Fix** (tuning `kWatchdogBusyDefer`, switch `watchdogbusydefer`, **default on**): the refused A1 START answers
+`FailFast` inside the check and `SpotVerdict` returns null (no verdict, nothing cached), the same "no verdict now" the per-tick
+budget already gives; `CheckIdle` retries in a later tick (up to 4 tries a pass, then the next pass). The verdict is the
+planner's own, later. Cap: a Sim deferred `kWdDeferMax` = 8 times in a row plans sync as before, so a START that stays refused
+cannot hold a verdict off (`StutterSweepCore.WdBusyDefer`). A1 never picks a household, selected or unknown-scope Sim.
+Counters **[4241]** refused A1 STARTs, **[4242]** checks deferred, **[4243]** cap reached.
+
+**Expected:** the 7 sync watchdog plans (1.3 s, 1 hitch of 337 ms) become deferrals. Small; it closes the last sync path of
+our own checks. Tests: selftest `stuttersweep`; repro `watchdogbusydefer-check`.
+
+The stuck-check drain's own probes (460 async plans, 166 s of job time) are left as they are: the existing opt-in
+`stuckchecknear` (same verdict, nearest point first, fewer failed floods, docs/163 §3) is the decision-identical saving;
+`stuckcheckcap` changes when a reset can happen and stays out. Turning `kStuckCheckNear` on is a tuning-only A/B.

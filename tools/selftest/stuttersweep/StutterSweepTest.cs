@@ -19,6 +19,15 @@ static class StutterSweepTest
         Check(!StutterSweepCore.StuckInTask(true, true, 0, 0), "per task: no run task recorded = nobody");
         Check(StutterSweepCore.StuckLeak(true, run, other) && !StutterSweepCore.StuckLeak(true, run, run) && !StutterSweepCore.StuckLeak(false, run, other), "leak count only for other tasks inside a check");
 
+        // §3 watchdogbusydefer
+        Check(!StutterSweepCore.WdBusyDefer(false, true, true, 0), "switch off: the refused START plans sync (old path)");
+        Check(StutterSweepCore.WdBusyDefer(true, true, true, 0), "on: a refused A1 START defers");
+        Check(!StutterSweepCore.WdBusyDefer(true, true, false, 0), "an accepted START is never deferred");
+        Check(!StutterSweepCore.WdBusyDefer(true, false, true, 0), "a plan that is not the A1 check is never deferred");
+        Check(StutterSweepCore.WdBusyDefer(true, true, true, StutterSweepCore.kWdDeferMax - 1), "below the cap: still deferred");
+        Check(!StutterSweepCore.WdBusyDefer(true, true, true, StutterSweepCore.kWdDeferMax), "at the cap: sync again, so a verdict always comes");
+        Check(!StutterSweepCore.WdBusyDefer(true, true, true, -1), "bad count: no defer");
+
         if (sFails > 0) { Console.WriteLine("stuttersweep: " + sFails + " FAILED"); Environment.Exit(1); }
         Console.WriteLine("stuttersweep: all checks passed");
     }

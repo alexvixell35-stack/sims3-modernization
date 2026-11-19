@@ -113804,5 +113804,86 @@
         }
       }
     ]
+  },
+  {
+    "id": "watchdogbusydefer-check",
+    "bug": "the watchdog's async idle check (A1, watchdogasync) whose tagged PlanFromPoint START ts3native refuses (the worker runs another job) plans sync on the sim thread and waits on world+0x918 for that job (29 runs 2026-11-19: 7 sync watchdog plans 151-312 ms, 1 hitch; docs/662 §3)",
+    "fix": "ts3fixes StutterSweep.cs + RouteBackoff.cs + Fixes.cs SpotVerdict: watchdogbusydefer (tuning kWatchdogBusyDefer, default on), docs/662 §3",
+    "save": "pure part needs no save",
+    "note": "WatchdogBusyDeferCheck run checks the defer decision (off: sync plan; on: no verdict now, retried later) with controls (accepted STARTs and other plans unchanged, sync again at the cap of 8 deferrals in a row); result shows counters 4241-4243. A1 never picks a household, selected or unknown-scope Sim (H4Core.WdRoute).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "watchdogbusydefer": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WatchdogBusyDeferCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: the old path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WatchdogBusyDeferCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "watchdogbusydefer": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WatchdogBusyDeferCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WatchdogBusyDeferCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "watchdogbusydefer": true
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "watchdogbusydefer": true
+        }
+      }
+    ]
   }
 ]

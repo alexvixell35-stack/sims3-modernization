@@ -16,5 +16,16 @@ namespace Ts3Fixes
         }
         // the plan read the global flag but runs in another task: the case the switch fixes (counter 4240)
         public static bool StuckLeak(bool checkOn, ulong runTask, ulong curTask) { return checkOn && runTask != curTask; }
+
+        // docs/662 §3 watchdogbusydefer: the watchdog's A1 idle check (CheckIdle -> SpotVerdict, never a household, selected or
+        // unknown-scope Sim: H4Core.WdRoute) whose tagged PlanFromPoint START ts3native refused (the worker runs another job, queue
+        // full) used to plan sync on the sim thread, waiting on +0x918 for that job. true = answer "no verdict now" instead (the
+        // check retries in a later tick, as past SpotVerdict's per-tick budget), so the verdict is still the planner's own, later.
+        // A Sim deferred kWdDeferMax times in a row plans sync as before, so a START that stays refused cannot hold a verdict off.
+        public const int kWdDeferMax = 8;
+        public static bool WdBusyDefer(bool on, bool a1Check, bool startRefused, int defersInARow)
+        {
+            return on && a1Check && startRefused && defersInARow >= 0 && defersInARow < kWdDeferMax;
+        }
     }
 }

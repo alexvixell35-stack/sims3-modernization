@@ -2202,6 +2202,7 @@ namespace Ts3Fixes
                 case "ageupswap": return Instantiator.kAgeUpSwap;
                 case "asyncjigsync": return Instantiator.kAsyncJigSync;
                 case "stucktaskflag": return Instantiator.kStuckTaskFlag;  // docs/662 §2: the stuck check's flag per task (FewerPlans.cs)
+                case "watchdogbusydefer": return Instantiator.kWatchdogBusyDefer;  // docs/662 §3: a refused A1 watchdog START answers no verdict now (StutterSweep.cs)
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;
                 case "savecleanupaggressive": return Instantiator.kSaveCleanupAggressive;
                 case "vacexport": return Instantiator.kVacExport;
@@ -2842,7 +2843,9 @@ namespace Ts3Fixes
             SpotCtx sc;
             bool async = sSpotCtx.TryGetValue(task, out sc) && sc.AsyncOk && SpotAsyncWould(sim);
             int t0 = System.Environment.TickCount, starts = 0;
+            bool wdA1 = sWdA1Task != 0 && sWdA1Task == task;  // docs/662 §3: the watchdog's A1 check (its refused START may defer)
             if (async) { sSpotAsyncTasks[task] = 0; sSpotDeferred.Remove(task); sSpotCut.Remove(task); }
+            else if (wdA1) sSpotDeferred.Remove(task);
             sInOwnCheck = true;
             try { ok = sim.IsPointInLotSafelyRoutable(lot, pos); }
             finally
@@ -2850,8 +2853,9 @@ namespace Ts3Fixes
                 sInOwnCheck = false;
                 if (async) { sSpotAsyncTasks.TryGetValue(task, out starts); sSpotAsyncTasks.Remove(task); }
             }
-            bool deferred = async && SpotDeferTake(task);
-            if (deferred) { c[3800]++; return null; }   // docs/635: no verdict, nothing cached; the caller takes EA's own trip
+            bool deferred = (async || wdA1) && SpotDeferTake(task);
+            if (deferred) { c[async ? 3800 : 4242]++; return null; }   // docs/635: no verdict, nothing cached; the caller takes EA's own trip (docs/662 §3: the watchdog retries)
+            if (wdA1) WdDeferDone(sim);
             if (async && SpotCutTake(task)) return null;   // docs/635 spotcut: the job was cut, no verdict, nothing cached
             if (async) SpotAsyncDone(sim, lot, pos, ok, starts, unchecked(System.Environment.TickCount - t0));
             if (p.Ok) v.Cells[key] = ok;
