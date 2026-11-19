@@ -138,6 +138,7 @@ namespace Ts3Fixes
             ApplyPhotoBoothFunds();   // docs/561 §2 (PhotoBoothFunds.cs)
             ApplyShellLighting();     // docs/561 §5 (ShellLighting.cs)
             ApplyBonfireSpice();      // docs/561 §6 (BonfireSpice.cs)
+            ApplyBoatRoamCap();       // docs/642 §9, off by default (BoatRoamCap.cs)
             ApplyDjBoothCleanup();    // docs/561 §7 (DjBoothCleanup.cs)
             ApplyVampireHuntGlow();   // docs/561 §7 (VampireHuntGlow.cs)
             ApplyHotTubWoohooFx();    // docs/561 §7 (HotTubWoohooFx.cs)
@@ -865,6 +866,7 @@ namespace Ts3Fixes
         // [3864-3869] boattaximemo (BoatTaxiMemo.cs, docs/642): boat (any Boat subclass) no-path failures recorded / rider routes planned with the boat off / of those, succeeded / stranded boat plans answered / ms of the recorded plans those answers stand for / refused (household, selected, unknown) or errors.
         // [4040-4049] houseboatgangwayrescue (HouseboatGangwayRescue.cs, docs/642 §7): NPC Sims marked by a no-path gangway leg to their Docked houseboat / placed by EA's PlaceSimAtEntrance after GoHome failed / refused / errors; refusals: exempt / no, another or undocked houseboat / once-per-hour rule / busy / on the lot, far or stale / no spot.
         // [3870-3873] houseboatlegmemo (HouseboatLegMemo.cs, docs/642 §6): NPC houseboat boat-leg no-path plans recorded / repeats answered / ms of the recorded plans those answers stand for / exempt (household, selected, unknown scope, no Sim or boat router) or errors.
+        // [4062-4069] boatroamcap (BoatRoamCap.cs, docs/642 §9): NPC BoatAround runs capped (no roam) / ReturnToShore pushed / returns failed (precheck, push, run or never ran; EA roams) / exempt runs / errors / returns that reached the shore / service, role or AlarmOneShot-task boating logged / caps by night or low motive.
         // [3860-3863] spotwaitattr (SpotWaitAttr.cs, docs/641): kind-2 lot-edge check waits >= 250 ms / frame-bound (one poll >= 80 % of the wait) / job-bound / frame-bound ms.
         // [3845-3853] unseenboatland (UnseenBoatLand.cs, docs/639): land plans tried / land kept / boat may be much shorter (EA plan) / land plan failed or swims (EA plan) / refused: not one land component / refused: household, selected, unknown scope, seen, water posture or interaction, owned boat / land plan ms / of it ms followed by EA's plan / errors.
         // [1110-1112] sandwichalarm (SandwichAlarm.cs, docs/580 §16): stale handles removed / seen with switch off / errors.
@@ -1573,6 +1575,7 @@ namespace Ts3Fixes
                 case "boattaximemo": return Instantiator.kBoatTaxiMemo;
                 case "houseboatlegmemo": return Instantiator.kHouseboatLegMemo;
                 case "houseboatgangwayrescue": return Instantiator.kHouseboatGangwayRescue;
+                case "boatroamcap": return Instantiator.kBoatRoamCap;  // off (BoatRoamCap.cs, docs/642 §9)
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;
                 case "seasonimpostercold": return Instantiator.kSeasonImposterCold;

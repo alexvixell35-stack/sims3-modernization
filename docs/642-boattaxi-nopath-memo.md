@@ -235,3 +235,60 @@ the refusal itself is not yet seen in a log; check counter 844 vs 4060].
 Any other boat (bought, reserved, temporary, a household's) still counts. EA would put that boat back in the inventory after
 the trip anyway, so skipping the trip loses nothing. Counters [4060] generated boats ignored, [4061] errors.
 
+
+## 9. NPC boat roaming without an exit: `boatroamcap` (`BoatRoamCap.cs`, default off, 2026-11-19, NOT RUN)
+
+Contributor slots 4062-4069 (contributor block 4000-4089; 4040-4049 and 4060-4061 are taken, 4050-4059 is ts3native plancand).
+
+**Finding [verified, IP logs phase-20261119-1139 / -1243 / -1345 `ufplansplit: kind 0 ... src Boat<type> <name> ... dist ?`]:**
+NPCs driving a boat on a world lot plan boat routes from the boat for many sim hours: 165 such lines in the three sessions,
+73 of them for one Sim (50 in one session), 13 for one that went out every ~2 sim-hours from Sunday 10 PM to Monday afternoon.
+Each plan is ~150-275 ms on the single route worker. [inferred: these are `Boat.BoatAround` roams plus their return plan; the
+`dist ?` open-ended roaming path and the two-plan pattern fit `CreateRoamingBoatPath` + `PlanToPointRadialRange` and nothing
+else that a driver plans repeatedly.] The service NPC seen boating in an AlarmOneShot task was reported from other logs; it is
+not in these three.
+
+**Code path [verified, decompiled Boat.cs]:** `BoatAround.Definition.Test` only asks that the Sim drives the boat, the boat's
+routing component is not routing, and the boat's lot is a world lot. `Run` plans a roaming path (`kPathLengthTuningRoaming`)
+from the boat, drives it, then plans back to within 10 m of the start and drives that. Nothing in it ends the outing.
+`Boat.ReturnToShore` (Test: the Sim drives the boat) is EA's exit: posture `SittingInBoat` of this boat, the boat a
+`BoatOwnable`, its `PreviousLot()` (else the Sim's `LotHome`), the nearest shore point to that lot's entrance (private
+`GetLotPositionForRoute`, `World.GetNearestSwimmingPoint`), `RouteBoatToLandOnWayToPosition`, then `GetOut`. [inferred: autonomy
+never picks it for these NPCs; no return or get-out follows the logged streaks.]
+
+**Fix (ts3fixes only, default off):** `Fixes.Patch` swaps `Boat.BoatAround.Run` (`BrcRunHook`) and `Boat.ReturnToShore.Run`
+(`BrcShoreHook`, bookkeeping only), the same body swap the other `*Hook` classes use.
+- Before EA's BoatAround body, for a non-exempt NPC driver, `BoatRoamCapCore.Check` keeps its streak (first run's sim tick,
+  roams EA ran, boat). A new streak starts with another boat, a gap over `kBoatRoamCapGapHours` (4), a clock that went back, or
+  a return that reached the shore.
+- Capped when the streak has `kBoatRoamCapRoams` (3) roams or `kBoatRoamCapHours` (2) since its first run, in the night window
+  `kBoatRoamCapNightFrom`..`kBoatRoamCapNightTo` (23..6; EA's `SimClock.IsNightTime` starts at sunset, which would cap evening
+  sails), or with energy or bladder below `kBoatRoamCapMotive` (-50).
+- Capped: ReturnToShore's own early exits are checked first (posture, `BoatOwnable`, lot, EA's `GetLotPositionForRoute` not
+  `Vector3.Invalid`), then `ReturnToShore.Singleton.CreateInstance(boat, sim, run priority, autonomous, cancellable)` goes in as
+  the run's continuation (`TryPushAsContinuation`), and the run returns true without roaming. EA's ReturnToShore then drives to
+  the shore and gets out (a generated NPC boat goes back to the inventory by EA's own Park).
+- Fallback to EA: an early exit, a refused push, a ReturnToShore that returns false, or one that never ran (the next BoatAround
+  still finds it pending) lets EA's roam run, and the next try waits `kBoatRoamCapBackoffHours` (1). Never a teleport, never a
+  deleted boat.
+- Household rule: `Fixes.HouseholdExempt` and `IsPlayerSim` (this cuts an interaction: HouseholdToo never lifts it, docs/271);
+  unknown scope and the selected Sim count as household; a boat with any household occupant is exempt too.
+- Service / role diagnostics: a driver with `Service`, `CreatedByService` or `AssignedRole`, or a run from an `AlarmOneShot`
+  task, gets one line per Sim per sim-hour, capped or not.
+- Counters [4062] runs capped (no roam), [4063] ReturnToShore pushed, [4064] returns failed (precheck, push, run, never ran),
+  [4065] exempt runs, [4066] errors, [4067] returns that reached the shore, [4068] service / role / alarm-task boating logged,
+  [4069] caps by night or low motive (of 4062). Agent `patches` read-back: `boatroamcap_*`.
+- Self-check `TS3_CSC=<csc> node tools/selftest/boatroamcap/run.ts` (night window, rule order and thresholds, streak counting,
+  pushed / reached / failed / lost returns, back-off, resets by boat, gap and clock, bounded table).
+
+**Log lines** (10 a minute): `boatroamcap: <name> back to shore after N roams / H sim-h (<streak|night|low motive>, <boat
+type>, <time>)`; `boatroamcap: <name> not sent to shore (<why>) after N roams / H sim-h; EA roams`; `boatroamcap: <name>
+ReturnToShore failed; EA roams, next try in 1 sim-h`; `boatroamcap: <name> still boating after the pushed return; ...`;
+`boatroamcap: service/role NPC <name> (<service|role>) boating in <boat type>, in <task>, <time>`.
+
+**Proof (repro `ip-boat-roam-cap`, Baseline-IP, off arm then on arm):** `boat_roam_repro {start, sims: 1, seconds: 300}` gives a
+picked NPC its own speed boat off the nearest shore (owned by its home lot, as `boat_getout_stress`), sets it on the shore with
+autonomy off, boards it as driver with EA's Board Boat, then pushes BoatAround at autonomous priority whenever it is idle at
+the helm (EA's GoBoating needs a map-view click, so it cannot be pushed from script). `{result}` gives per Sim the BoatAround
+runs, ReturnToShore runs, `ashore`, and the 4062-4069 deltas. Expected OFF: roams grow for the whole window, no return, 4062-4069
++0. ON: roams stop at 3 (0-1 at night), one ReturnToShore, `ashore` true, 4062 / 4063 / 4067 +1, the `back to shore` line.

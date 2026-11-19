@@ -29,6 +29,7 @@ namespace Ts3Agent
             RegisterBoatGetOutStress(); // BoatGetOutStressHandlers.cs
             RegisterBoatNoPathRepro(); // BoatNoPathReproHandlers.cs, docs/642
             RegisterHouseboatLegRepro(); // HouseboatLegReproHandlers.cs, docs/642 §6
+            RegisterBoatRoamRepro(); // BoatRoamReproHandlers.cs, docs/642 §9
             RegisterSimHealth(); // SimHealthHandlers.cs: soak health census
             RegisterInteractionSweep(); // InteractionSweepHandlers.cs, docs/268
         }
