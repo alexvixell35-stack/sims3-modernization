@@ -15,10 +15,12 @@ counts are shared and the log lines say which switch they came from:
 | 4073 | poolfailmemo | autonomous GetInPool tests refused |
 | 4074 | petstartleskip | NPC pets recorded after a startle flee route failed with PortalLocked |
 | 4075 | petstartleskip | startles skipped |
+| 4076 | petlonghome | unseen NPC pets / horses placed on the lot of a long GoHome / GoToLot walk |
+| 4077 | petlonghome | refused after the long-trip gate: pet seen, lot seen, no safe spot, or a lot kind the shortcuts skip |
 | 4078 | all four | exempt: a household, selected or unknown-scope Sim met (HouseholdExempt or IsPlayerSim), nothing changed |
 | 4079 | all four | errors (caught; EA's code ran unchanged) |
 
-Agent `patches` read-back: `picnicexit_exited`, `picnicexit_skipped`, `poolfailmemo_recorded`, `poolfailmemo_refused`, `petstartleskip_recorded`, `petstartleskip_skipped`, `npcloops_exempt`, `npcloops_errors`.
+Agent `patches` read-back: `picnicexit_exited`, `picnicexit_skipped`, `poolfailmemo_recorded`, `poolfailmemo_refused`, `petstartleskip_recorded`, `petstartleskip_skipped`, `petlonghome_placed`, `petlonghome_refused`, `npcloops_exempt`, `npcloops_errors`.
 Every log line is capped at 10 a minute per switch; the counters are the measure.
 
 ## 1. Finished picnics never leave the situation list: `picnicexit` (`PicnicExit.cs`)
@@ -111,3 +113,39 @@ repeated `routefail job: ... PetStartle ... result 18` for the same follower. ON
 and no new PetStartle PortalLocked fails for that pet for 30 sim-minutes; 4074 / 4075 grow, household pets unchanged, no new
 exceptions. Self-check: `tools/selftest/petstartleskip` (PortalLocked only, pets only, forced and exempt startles run, life
 window, bounded table).
+
+## 4. NPC pets walk home for a whole day: `petlonghome` (`PetLongHome.cs`)
+
+**What the runs show [verified, health.jsonl + logs]:** NPC pets and horses walk home on foot at pet speed (about 1 m a
+sim-minute) for 10-35 sim-hours: Tigger Cat 2110 min (Bridgeport), Majora Cat 1777 min (Sunset Valley), Lucky Coyle 816 min
+(Isla Paradiso, a real pet, not a harness spawn). health.jsonl samples of NPC pets whose interaction had run over 300
+sim-minutes in the sweep: "Go Home" 113 cat, 52 dog, 13 horse; "Go to Lot" 33 (wild horses). Only the 5:30 Overwatch reset
+(`owreset`) ends those walks.
+
+**Why our shortcuts never helped [verified, code]:** `GoHomeHook.UnseenBody` and `ShortcutToLot` refuse any Sim whose
+household has pets (`sim.Household.Pets.Count > 0`, meant to keep a human's horse with it), which is every owned pet itself.
+
+**Fix (default off):** at the start of `GoHome.Run` and `GoToLot.Run` (`GoHomeHook.RunHook`, `GoToLotHook.RunHook`, before the
+human shortcuts) `PlhBefore` runs for pets only (`SimDescription.IsPet`: cats, dogs, horses). Gates, in order
+(`PetLongHomeCore.Pre`): not exempt (`HouseholdExempt` or `IsPlayerSim`: a pet of the active household, the selected Sim or a
+Sim of unknown scope is never touched, 4078), not held (`UfHeld`: carried, ridden, riding, carrying; or any parent, e.g. a
+leash jig), no followers, not already on the lot, and a long trip: straight distance > `kPetLongHomeMeters` (150 m) or this
+trip (same pet, same lot) first seen more than `kPetLongHomeHours` (2) sim-hours ago. Then the lot kind (the active
+household's lot, houseboats, apartment shells, resorts and diving lots keep EA's walk) and the unseen checks the trip
+shortcuts use (`PetLongHomeCore.Post`): `TownieUnseen` for the pet, `FarFromViewers` for the lot and its entry plus
+`UfGoalUnseen(entry)`, `SafeSpot(sim, lot, lot.EntryPoint(), ...)` on the target lot (its home lot; for an owned pet the owner
+household's lot, which is never the active one here) and `UfGoalUnseen` for the spot. Then `PlaceSim`, the same placement the
+human trip shortcuts use, and EA's Run walks the last metres as usual.
+
+The trip-age rule only sees a new Run: one uninterrupted Run is judged at its start, where a walk that would last over two
+hours at pet speed is already more than ~120-150 m. Rule: `PetLongHomeCore`.
+
+**Log:** `petlonghome: placed <pet> (<species>) at <lot> via gohome|gotolot, <m> m away, trip <min> sim-min` and
+`petlonghome: refused <pet> (<species>) -> <lot>: pet seen|lot seen|no safe spot, ...` (or the lot kind). Placements also go to
+the shortcut log and `MovedSims`.
+
+**Proof:** OFF arm: an unseen NPC pet sent home from a lot > 150 m away (agent: push GoHome on a non-active household's pet
+from a far community lot, camera elsewhere) is still walking (`health.jsonl` "Go Home", interaction_min growing, routing true)
+after a sim-hour. ON arm: one `placed` line, the pet on its home lot within a minute, 4076 +1; household pets and pets in view
+keep walking; no new exceptions or stuck Sims. Self-check: `tools/selftest/petlonghome` (gate order, distance and trip-age
+rules, unseen checks, trip table).

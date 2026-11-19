@@ -147,6 +147,9 @@ namespace Ts3Fixes
         [Tunable] public static float kPoolFailMemoHours = 1f;         // poolfailmemo: sim-hours an entry lives
         [Tunable] public static bool kPetStartleSkip = false;          // petstartleskip (docs/645 §3): an NPC pet whose startle flee route hit a pet-locked door (PortalLocked) skips further startles for kPetStartleSkipMinutes
         [Tunable] public static float kPetStartleSkipMinutes = 30f;    // petstartleskip: sim-minutes an entry lives
+        [Tunable] public static bool kPetLongHome = false;             // petlonghome (docs/645 §4): an unseen NPC pet or horse on a long GoHome / GoToLot walk is placed on the lot like the human trip shortcuts
+        [Tunable] public static float kPetLongHomeMeters = 150f;       // petlonghome: straight distance (m) above which the trip counts as long
+        [Tunable] public static float kPetLongHomeHours = 2f;          // petlonghome: or the trip to that lot began more than this many sim-hours ago (0 = distance only)
         [Tunable] public static bool kPosturePopCycle = false;   // opt-in until verified: a posture pop that EA would turn into a two-posture loop (Compatible branch) runs the setter's unwind instead (issue #89, PosturePop.cs)
         [Tunable] public static bool kUnseenFallbackPre = true;       // on, same as the shipped tuning (2026-11-14); was: opt-in until verified: an unseen townie's own walk to an unseen lot goal is held for the walk time, then placed at the goal (no search; docs/202 §3.5)
         [Tunable] public static bool kPrePlanCallback = false;     // opt-in until measured: Route.AboutToPlanCallback runs before an async START, the job's locked-door list survives the original plan's second callback (RouteBackoff.cs PreCb, docs/185 §5)
