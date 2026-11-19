@@ -1569,6 +1569,7 @@ namespace Ts3Fixes
                 case "unseenboat": return Instantiator.kUnseenBoat;
                 case "unseenboatstart": return Instantiator.kUnseenBoatStart;
                 case "unseenboatland": return Instantiator.kUnseenBoatLand;
+                case "unseenboatgenboat": return Instantiator.kUnseenBoatGenBoat;
                 case "boattaximemo": return Instantiator.kBoatTaxiMemo;
                 case "houseboatlegmemo": return Instantiator.kHouseboatLegMemo;
                 case "houseboatgangwayrescue": return Instantiator.kHouseboatGangwayRescue;

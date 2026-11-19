@@ -153,7 +153,7 @@ namespace Ts3Fixes
                 if (lw != null) return UbNo(c, 842, lw);
                 if (UfWhy(sim) != 0 || !TownieUnseen(sim, null) || !UfGoalUnseen(dest) || !UbBoatUnseen(sim.LotCurrent) || !UbBoatUnseen(goal)) return UbNo(c, 846, "seen");
                 bool temporary = false;
-                if (sim.GetOwnedAndUsableBoat(sim.LotCurrent, false, null, ref temporary) != null || temporary) return UbNo(c, 844, "owned boat");
+                if (UbOwnsBoat(sim)) return UbNo(c, 844, "owned boat");
                 if (goal != null && goal == Household.ActiveHouseholdLot) return UbNo(c, 847, "goal household lot");
                 if (leave && !UbCore.FarEnough(UbTripM(sim.LotCurrent, start, goal, dest))) return UbNo(c, 847, "short trip");
                 if (trip == UbCore.kHouseboat)
@@ -312,6 +312,36 @@ namespace Ts3Fixes
                 }
                 ShortcutLog(sim.FullName + " => " + (trip == UbCore.kHouseboat ? "houseboat" : "route goal") + " (unseenboat, " + (int)dist + " m, held " + (int)minutes + " sim-min)");
             }
+        }
+    }
+}
+
+namespace Ts3Fixes
+{
+    public static partial class Fixes
+    {
+        // docs/642 §8 unseenboatgenboat (default off): EA's BoatOwnable.Park puts a boat it generated for an NPC trip
+        // (GeneratedOwnableForNpc) into the driver's inventory instead of mooring it (BoatOwnable.cs:389-406), and
+        // GetOwnedAndUsableBoat then returns it, so after its first boat trip every NPC counts as owning a boat and unseenboat /
+        // unseenboatland refuse it for good ("owned boat"). With the switch on, such a boat (generated for an NPC, in that NPC's own
+        // inventory, NPC not household, selected or of unknown scope) is not "its own boat"; any other boat still is.
+        // [4060] generated boats ignored, [4061] errors.
+        static bool UbOwnsBoat(Sim sim)
+        {
+            bool temporary = false;
+            Boat b = sim.GetOwnedAndUsableBoat(sim.LotCurrent, false, null, ref temporary);
+            if (temporary) return true;
+            if (b == null) return false;
+            if (!ShortcutOn("unseenboatgenboat")) return true;
+            try
+            {
+                BoatOwnable o = b as BoatOwnable;
+                if (o == null || !o.GeneratedOwnableForNpc || !sim.IsNPC || sim.Household == null || HouseholdExempt(sim)) return true;
+                if (sim.Inventory == null || !sim.Inventory.Contains(o)) return true;
+                PatchCounters()[4060]++;
+                return false;
+            }
+            catch (Exception) { PatchCounters()[4061]++; return true; }
         }
     }
 }

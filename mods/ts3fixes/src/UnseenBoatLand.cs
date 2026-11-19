@@ -99,8 +99,7 @@ namespace Ts3Fixes
                 if (UfWhy(sim) != 0 || !TownieUnseen(sim, null)) return true;
                 if (sim.Posture != null && UbCore.WaterPosture(sim.Posture.GetType().Name)) return true;
                 if (sim.CurrentInteraction != null && UbCore.Denied(sim.CurrentInteraction.GetType().FullName)) return true;  // Boat Here, sail, fish, ...
-                bool temporary = false;
-                return sim.GetOwnedAndUsableBoat(sim.LotCurrent, false, null, ref temporary) != null || temporary;  // its own boat must come along
+                return UbOwnsBoat(sim);  // its own boat must come along (a generated NPC boat in its inventory: not, with unseenboatgenboat)
             }
         }
     }

@@ -211,3 +211,21 @@ ON: 4040 +1 per Sim, 4041 +1 after its first failed GoHome, the `placed at` line
 whose get-out spot walks to the gangway is not triggered on that save: N/A, not FAIL. For natural runs the `houseboatlegmemo`
 `recorded` / `skip` lines and the `houseboatgangwayrescue: marked` line of a gangway leg now carry the Sim position, the plan
 start and the gangway slot (`sim x,z, gangway x,z (d m, status)`), so each stranding spot is logged exactly.
+
+## 8. Generated NPC boats block the unseen boat skip: `unseenboatgenboat` (default off, 2026-11-19, NOT RUN)
+
+**Finding [IP logs phase-20261119-0746 / -1139 / -1243 + decompiled]:** NPC boat trips that succeed cost far more than the
+no-path failures: 429-521 logged boat plans of ~150-330 ms per ~55 min session (98-117 s of rider-task wait; the single route
+worker is busy that long, so other Sims' plans queue behind it). Every boat trip is two plans by EA design (the rider's kind-0
+plan with a boat leg, then `GetInBoatRouteAction` swaps the follower to the boat and replans the whole trip, kind 3). Most riders
+are unseen. `unseenboat` should skip those trips, but refuses an NPC that owns a boat (`UnseenBoat.cs`, counter 844), and
+`Sim.GetBoatForGetInBoatRouteAction` -> `GetNpcBoat` makes a boat for an NPC that has none (`GeneratedOwnableForNpc`), which
+`BoatOwnable.Park` then puts into the driver's inventory instead of mooring it (BoatOwnable.cs:389-406). After its first boat
+trip every NPC "owns" a boat, so unseenboat (and unseenboatland's "own boat must come along") refuse it for good [inferred:
+the refusal itself is not yet seen in a log; check counter 844 vs 4060].
+
+**Fix:** with `unseenboatgenboat` on, `UbOwnsBoat` does not count a boat that EA generated for an NPC
+(`GeneratedOwnableForNpc`) and that sits in that NPC's own inventory, for a non-household, non-selected NPC of known scope.
+Any other boat (bought, reserved, temporary, a household's) still counts. EA would put that boat back in the inventory after
+the trip anyway, so skipping the trip loses nothing. Counters [4060] generated boats ignored, [4061] errors.
+
