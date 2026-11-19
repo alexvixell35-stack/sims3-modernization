@@ -152,3 +152,54 @@ no path without a Sim/vehicle blocker is recorded for `kHouseboatLegMemoHours` (
 never extend. Counters 3870 recorded, 3871 answered, 3872 ms answered stand for, 3873 exempt/errors; log `houseboatlegmemo:
 recorded|answered`. Self-check `node tools/selftest/houseboatlegmemo/run.ts`. Expected in the same IP run with it on: each
 repeat of those kind 2 legs ~0 ms (the outer plan keeps its own cost), ~20-25 hitches of 0.6 s gone.
+
+## 7. Houseboat gangway rescue: `houseboatgangwayrescue` (`HouseboatGangwayRescue.cs`, default off, 2026-11-19, NOT RUN)
+
+Contributor slots 4040-4049 (the contributor block 4000-4089; 4000-4039 and 4050-4089 are left to the native NoPathMemo work
+taking slots in the same block). Builds on §6: `houseboatlegmemo` since e681da64 also recognizes EnterHouseboatThroughGangway's
+leg (Sim follower, water and boat planning off, inside `CheckAndUpdateForHouseboats`).
+
+**Root cause [verified, decompiled + IP logs s122/s123]:** an NPC rides a boat home to its DOCKED houseboat and the boat drops
+it on shore ~15-22 m from the gangway, at a spot with no walkable path to it. After every plan of its route home,
+`SimRoutingComponent.CheckAndUpdateForHouseboats` calls `EnterHouseboatThroughGangway`: when start and houseboat are connected by
+land it turns water and boat planning off on a new route and runs `PlanToPointFromPoint(start, gangway RoutingSlot_0)`, which
+fails after ~650 ms; the outer route is left as it was. `GoHome.Run` then tries `PlanRouteIntoLot`, `PlanToLot`, `PlanToLot` with
+water (three `DoRouteWithFollowers`, each with EA's replans) and returns false; autonomy picks GoHome again. Nothing gives up.
+EA's own way onto a houseboat for a Sim with no boat is `Houseboat.PlaceSimAtEntrance(sim)` (`RouteOntoHouseboat.Run`, the
+gangway portal's no-boat branch; also used by `Boat.GetOut*` and the pet adoption social worker): `FindGoodLocationNearby` around
+the jig's `RoutingSlot_2`, `SetPosition` / `SetForward`; `RouteOntoHouseboat` then turns `EnableWaterPlanning`,
+`EnablePlanningAsBoat`, `DestinationMustBeInDeepWater` and `EndAsBoat` off on the Sim's current route.
+
+**Fix (ts3fixes only, default off):**
+- Mark: `HlmPost` (a gangway leg that ran, was not cut and found no path without a Sim/vehicle blocker) or `HlmPre` (an answered
+  one) notes the Sim (`HouseboatGangwayRescueCore.Note`): its home houseboat (`LotHome` is a houseboat lot) must be Docked; the
+  mark sums the legs' ms and count. Works with `houseboatlegmemo` off too: then UfPlan only watches the leg (no record, no answer).
+- Rescue, never inside the routing callback: in `GoHomeHook` right after EA's `GoHome.Run` returned false, in the Sim's own task.
+  Only when GoHome's target is that houseboat's lot, it is still Docked (gangway and jig present), the Sim is not on that lot, is
+  within 40 m of the gangway, still not exempt, standing, not riding / carried / carrying / parented (`UfHeld`, as the unseen
+  teleport), not in a tomb or hidden room, not cancelled (`Canceled`, `HigherPriorityNext`, `UserCanceled`), and its running
+  interaction is this GoHome. Then EA's `PlaceSimAtEntrance(sim)` and `RouteOntoHouseboat`'s route-option cleanup. GoHome's own
+  result (false, NumFail already counted by EA) is returned unchanged; the Sim is home, so autonomy has no reason to pick it again.
+- At most one rescue per Sim per sim-hour (a mark is not taken inside the hour; a mark older than an hour is dropped).
+- Household rule: `Fixes.HouseholdExempt` and `IsPlayerSim` (a teleport: HouseholdToo never lifts it, docs/271); unknown scope =
+  household. Exempt routers are never marked (HlmRouter returns 0 for them), and the check runs again at rescue time.
+- Counters 4040 marked, 4041 rescued, 4042 refused, 4043 errors; refusal reasons 4044 exempt, 4045 no / another / undocked
+  houseboat, 4046 once-per-hour rule, 4047 busy, 4048 on the lot / far / stale mark, 4049 PlaceSimAtEntrance found no spot. Agent
+  `patches` read-back: `houseboatgangwayrescue_*`.
+- Self-check `node tools/selftest/houseboatgangwayrescue/run.ts` (marking, sums, once per hour, clock going back, exemption at mark
+  and rescue time, refusals that drop or keep the mark, bounded table).
+
+**Log lines:** `houseboatgangwayrescue: marked <name>, houseboat <lot>, gangway leg <ms> ms no path`, then
+`houseboatgangwayrescue: <name> placed at <houseboat lot>, after <N> ms of failed legs (<k> legs, from x,z, lot now <lot>)`, or
+`houseboatgangwayrescue: refused, <name>: <reason> (<detail>)`. Each capped at 10 lines a minute; counters are the measure.
+
+**Proof (repro `ip-houseboat-gangway-rescue`, Baseline-IP, off arm then on arm):** `houseboat_leg_repro {start, mode: "docked"}`
+(the default mode; `mode: "undock"` keeps §6's boat-leg repro) picks NPCs living on a Docked houseboat with a port gangway, tries
+world-lot land spots 15-22 m (17 m ring first) off the gangway's `RoutingSlot_0` that are connected by land to the houseboat,
+probes each with the gangway leg as EA builds it (`PlanToPointFromPoint`, water and boat planning off; probes run outside
+`CheckAndUpdateForHouseboats`, so neither switch sees them), stands the Sim on the first no-path spot and pushes GoHome, then
+watches `waitS` (90) seconds. Expected: OFF: `probe_failed` true, legs seen with `boat` and `water` false and
+FailedBecauseNoPathToDestination ~650 ms, `reached_home` false, GoHome still failing, 4040-4049 +0. ON (`houseboatlegmemo` and
+`houseboatgangwayrescue` on): 4040 +1 per Sim, then after the first failed GoHome 4041 +1, the `placed at` line, `reached_home`
+true; no new exceptions. A probe that never fails (`probe_failed` false) means the save has no such spot near that houseboat:
+the job is N/A, not FAIL.

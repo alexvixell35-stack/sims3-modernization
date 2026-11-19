@@ -4,6 +4,7 @@ using Sims3.Gameplay;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.CAS;
 using Sims3.Gameplay.Core;
+using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Objects.Island;
 using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
@@ -25,6 +26,12 @@ namespace Ts3Agent
     // failed"). Then `tries` plans of the Sim's own route to the houseboat (Plan, then ReplanFromPoint / Plan in turn), each through
     // ScriptCore.Route, so the real EA chain runs the leg each time. Per try: the outer kind, result and ms, the leg(s) the
     // callbacks saw (options, result, ms; an answered leg makes no callback) and the 3870-3873 deltas of that try.
+    // That is mode "undock" (the boat leg). The default mode "docked" (docs/642 §7, houseboatgangwayrescue) repros the case seen in
+    // play: an NPC owner of a DOCKED houseboat (port gangway, jig) left on shore ~17 m (15-22 m) from the gangway's RoutingSlot_0
+    // at a world-lot land spot connected by land to the houseboat (so EA turns water and boat planning off) whose test plan to
+    // the slot, built as EnterHouseboatThroughGangway builds it (PlanToPointFromPoint, water and boat planning off), finds no path;
+    // then a GoHome is pushed (High priority, autonomous) and the result polls for `waitS` seconds: whether the Sim reached its
+    // houseboat lot, GoHome still queued, the legs the callbacks saw, the 3870-3873 and 4040-4049 deltas.
     public static partial class Handlers
     {
         static void RegisterHouseboatLegRepro()
@@ -33,7 +40,9 @@ namespace Ts3Agent
         }
 
         class HlrSim { public Sim S; public Houseboat Hb; public string Scope, Error, HbName, HbStatus; public bool Resident; public Vector3 Spot = Vector3.Invalid;
-            public List<object> Probes = new List<object>(), Plans = new List<object>(); public bool ProbeFailed; }
+            public List<object> Probes = new List<object>(), Plans = new List<object>(); public bool ProbeFailed;
+            // docked mode: the GoHome outcome
+            public bool Pushed, Home; public int HomeMs = -1; public string LotAfter; public float GangwayM = -1f; }
 
         static int sHlrGen;
         static bool sHlrDone;
@@ -55,8 +64,15 @@ namespace Ts3Agent
         static Dictionary<string, object> sHlrUndockInfo;
 
         static int HlrCtr(int k) { int[] c = BgsCounters(); return c != null && c.Length > 3873 ? c[3870 + k] : -1; }
+        // houseboatgangwayrescue 4040-4049 (docs/642 §7)
+        static readonly string[] kHlrGr = { "marked", "rescued", "refused", "errors", "refused_exempt", "refused_houseboat", "refused_hour", "refused_busy", "refused_lot_far_stale", "refused_nospot" };
+        static readonly int[] sHlrGrBase = new int[10];
+        static int HlrGr(int k) { int[] c = BgsCounters(); return c != null && c.Length > 4049 ? c[4040 + k] : -1; }
+        static string sHlrMode = "docked";
+        static int sHlrWaitS = 90;
 
-        // houseboat_leg_repro {start: true, sims?: 2, tries?: 4, undock?: true} | {result: true} | {stop: true}
+        // houseboat_leg_repro {start: true, mode?: "docked" | "undock", sims?: 2, tries?: 4 (undock), undock?: true (undock mode),
+        //   waitS?: 90 (docked: seconds to watch the GoHome)} | {result: true} | {stop: true}
         static object HouseboatLegRepro(Args a)
         {
             RequireLive();
@@ -65,15 +81,20 @@ namespace Ts3Agent
             {
                 sHlrGen++;
                 int gen = sHlrGen, tries = Math.Max(1, (int)a.Long("tries", 4));
+                sHlrMode = a.Str("mode", "docked");
+                if (sHlrMode != "docked" && sHlrMode != "undock") throw new McpException("houseboat_leg_repro: mode is docked (default) or undock, not " + sHlrMode);
+                sHlrWaitS = Math.Max(5, (int)a.Long("waitS", 90));
                 sHlrUndock = null; sHlrUndockInfo = null;
-                sHlrSims = HlrPick((int)a.Long("sims", 2), a.Bool("undock", true));
+                sHlrSims = sHlrMode == "docked" ? HlrPickDocked((int)a.Long("sims", 2)) : HlrPick((int)a.Long("sims", 2), a.Bool("undock", true));
                 sHlrDone = false; sHlrError = null;
                 for (int k = 0; k < 4; k++) sHlrBase[k] = HlrCtr(k);
-                DiagLine("houseboat_leg_repro: start, " + sHlrSims.Count + " sims, tries " + tries + ", houseboatlegmemo " + ModOn("houseboatlegmemo")
+                for (int k = 0; k < 10; k++) sHlrGrBase[k] = HlrGr(k);
+                DiagLine("houseboat_leg_repro: start, mode " + sHlrMode + ", " + sHlrSims.Count + " sims, tries " + tries + ", houseboatlegmemo " + ModOn("houseboatlegmemo")
+                    + ", houseboatgangwayrescue " + ModOn("houseboatgangwayrescue")
                     + ", active household " + (Household.ActiveHousehold != null ? Household.ActiveHousehold.Name : "none"));
                 Simulator.AddObject(new OneShotFunctionTask(delegate
                 {
-                    try { HlrRun(gen, tries); }
+                    try { if (sHlrMode == "docked") HlrRunDocked(gen); else HlrRun(gen, tries); }
                     catch (Exception e) { sHlrError = e.GetType().Name + ": " + e.Message; DiagLine("houseboat_leg_repro: error " + sHlrError); }
                     finally { if (gen == sHlrGen) sHlrDone = true; }
                 }));
@@ -88,7 +109,9 @@ namespace Ts3Agent
             Dictionary<string, object> ctr = Util.Obj();
             string[] cn = { "recorded", "answered", "answered_ms", "exempt_or_error" };
             for (int k = 0; k < 4; k++) { int v = HlrCtr(k); ctr[cn[k] + "_" + (3870 + k)] = v < 0 ? -1 : v - sHlrBase[k]; }
+            for (int k = 0; k < 10; k++) { int v = HlrGr(k); ctr[kHlrGr[k] + "_" + (4040 + k)] = v < 0 ? -1 : v - sHlrGrBase[k]; }
             r["done"] = sHlrDone; r["error"] = sHlrError; r["counters"] = ctr; r["houseboatlegmemo"] = ModOn("houseboatlegmemo");
+            r["houseboatgangwayrescue"] = ModOn("houseboatgangwayrescue"); r["mode"] = sHlrMode;
             r["active_household"] = Household.ActiveHousehold != null ? Household.ActiveHousehold.Name : null;
             List<object> rows = new List<object>();
             foreach (HlrSim h in sHlrSims)
@@ -97,6 +120,11 @@ namespace Ts3Agent
                 o["sim"] = h.S.FullName; o["scope"] = h.Scope; o["houseboat"] = h.HbName; o["houseboat_status"] = h.HbStatus; o["resident"] = h.Resident;
                 o["spot"] = h.Spot != Vector3.Invalid ? Math.Round(h.Spot.x, 1) + "," + Math.Round(h.Spot.z, 1) : null;
                 o["probe_failed"] = h.ProbeFailed; o["probes"] = h.Probes; o["plans"] = h.Plans; o["error"] = h.Error;
+                if (sHlrMode == "docked")
+                {
+                    o["gangway_m"] = Math.Round(h.GangwayM, 1); o["gohome_pushed"] = h.Pushed; o["reached_home"] = h.Home; o["home_ms"] = h.HomeMs;
+                    o["lot_after"] = h.LotAfter ?? (h.S.LotCurrent != null ? h.S.LotCurrent.Name : null);
+                }
                 rows.Add(o);
             }
             r["sims"] = rows;
@@ -209,7 +237,9 @@ namespace Ts3Agent
             o["end_as_boat"] = r.GetOption2(Route.RouteOption2.EndAsBoat);
             o["deep_water"] = r.GetOption2(Route.RouteOption2.DestinationMustBeInDeepWater);
             o["no_land"] = r.GetOption2(Route.RouteOption2.DisablePlanningOnLand);
-            sHlrLegs.Add(o);
+            o["boat"] = r.GetOption2(Route.RouteOption2.EnablePlanningAsBoat);  // off with water off too = the gangway leg (docked mode)
+            o["water"] = r.GetOption(Route.RouteOption.EnableWaterPlanning);
+            if (sHlrLegs.Count < 200) sHlrLegs.Add(o);
         }
 
         static void HlrHook()
@@ -301,6 +331,132 @@ namespace Ts3Agent
                 + o["status_before"] + " -> " + o["status_after"] + ", moved " + o["moved_m"] + " m" + (o.ContainsKey("error") ? ", error " + o["error"] : ""));
             foreach (HlrSim h in sHlrSims) if (h.Hb == hb) h.HbStatus = hb.CurrentStatus.ToString();
             if (hb.CurrentStatus == Houseboat.Status.Docked) throw new McpException("undock: " + o["houseboat"] + " still Docked after LeavePort (" + ok + ")");
+        }
+
+        // docked mode: NPCs (as setup_sims picks them) whose home is a Docked houseboat with a port gangway and a jig
+        static List<HlrSim> HlrPickDocked(int n)
+        {
+            string seen = "";
+            foreach (Houseboat hb in HlrHouseboats()) seen += (seen.Length > 0 ? ", " : "") + HlrHbName(hb) + " " + hb.CurrentStatus;
+            List<HlrSim> picks = new List<HlrSim>();
+            foreach (Sim s in new List<Sim>(LotManager.Actors))
+            {
+                if (picks.Count >= n) break;
+                if (!BgsNpc(s) || s.HasBeenDestroyed || !s.InWorld || s.Parent != null) continue;
+                SimDescription d = s.SimDescription;
+                if (d == null || !d.IsHuman || !d.TeenOrAbove || d.IsPregnant) continue;
+                Lot home = s.LotHome;
+                Houseboat hb = home != null && home.IsHouseboatLot() ? home.GetHouseboat() : null;
+                if (hb == null || hb.CurrentStatus != Houseboat.Status.Docked || hb.GetPortGangway() == null || hb.GetHouseboatJig() == null) continue;
+                HlrSim h = new HlrSim();
+                h.S = s; h.Resident = true; h.Hb = hb; h.HbName = HlrHbName(hb); h.HbStatus = hb.CurrentStatus.ToString(); h.Scope = BnpScope(s);
+                picks.Add(h);
+            }
+            if (picks.Count == 0) throw new McpException("houseboat_leg_repro docked: no NPC (known non-active household, teen or older human) lives on a Docked houseboat with a port gangway; houseboats: "
+                + (seen.Length > 0 ? seen : "none") + " (mode undock repros the boat leg instead)");
+            return picks;
+        }
+
+        // land spots on the world lot 15-22 m off the gangway's RoutingSlot_0 (17 m ring first), connected by land to the houseboat
+        static List<Vector3> HlrShoreCandidates(Houseboat hb, Vector3 slot)
+        {
+            List<Vector3> all = new List<Vector3>();
+            float[] radii = { 17f, 15f, 19f, 22f };
+            foreach (float rad in radii)
+                for (int i = 0; i < 16 && all.Count < 48; i++)
+                {
+                    double ang = i * Math.PI / 8;
+                    Vector3 p = new Vector3(slot.x + rad * (float)Math.Cos(ang), 0f, slot.z + rad * (float)Math.Sin(ang));
+                    Lot lot = LotManager.GetLotAtPoint(p);
+                    if (lot != null && !lot.IsWorldLot) continue;
+                    if ((TerrainType)World.GetTerrainType(p.x, p.z, 0) == TerrainType.WorldSea) continue;
+                    p.y = World.GetTerrainHeight(p.x, p.z);
+                    if (!Terrain.ArePointsConnectedByLand(p, hb.Position)) continue;  // else EA leaves water planning on
+                    all.Add(p);
+                }
+            return all;
+        }
+
+        static void HlrRunDocked(int gen)
+        {
+            HlrHook();
+            try
+            {
+                for (int i = 0; i < sHlrSims.Count && gen == sHlrGen; i++)
+                {
+                    HlrSim h = sHlrSims[i];
+                    try { HlrDockedPlace(h); }
+                    catch (Exception e) { h.Error = e.GetType().Name + ": " + e.Message; DiagLine("houseboat_leg_repro: " + h.S.FullName + " error " + h.Error); }
+                }
+                // watch every pushed GoHome at once; legs of all picked Sims go to the first Sim's list (one watched Sim at a time)
+                int t0 = System.Environment.TickCount, left = 0;
+                foreach (HlrSim h in sHlrSims) if (h.Pushed) left++;
+                if (sHlrSims.Count > 0) { sHlrWatch = sHlrSims[0].S; sHlrOuter = null; sHlrLegs = sHlrSims[0].Plans; }
+                while (left > 0 && gen == sHlrGen && unchecked(System.Environment.TickCount - t0) < sHlrWaitS * 1000)
+                {
+                    Simulator.Sleep(10);
+                    foreach (HlrSim h in sHlrSims)
+                    {
+                        if (!h.Pushed || h.Home) continue;
+                        Lot hl = h.Hb.GetHouseboatLot();
+                        if (hl != null && h.S.LotCurrent != null && h.S.LotCurrent.LotId == hl.LotId)
+                        {
+                            h.Home = true; h.HomeMs = unchecked(System.Environment.TickCount - t0); h.LotAfter = hl.Name; left--;
+                            DiagLine("houseboat_leg_repro: " + h.S.FullName + " on " + hl.Name + " after " + h.HomeMs + " ms");
+                        }
+                    }
+                }
+                foreach (HlrSim h in sHlrSims)
+                {
+                    if (!h.Pushed) continue;
+                    if (!h.Home) h.LotAfter = h.S.LotCurrent != null ? h.S.LotCurrent.Name : "none";
+                    bool queued = false;
+                    foreach (InteractionInstance ii in h.S.InteractionQueue.InteractionList) if (ii is GoHome) queued = true;
+                    DiagLine("houseboat_leg_repro: " + h.S.FullName + (h.Home ? " reached home in " + h.HomeMs + " ms" : " NOT home after " + sHlrWaitS + " s, on " + h.LotAfter)
+                        + ", GoHome queued " + queued);
+                }
+            }
+            finally { HlrUnhook(); }
+            string s = "";
+            for (int k = 0; k < 4; k++) { int v = HlrCtr(k); s += (k > 0 ? ", " : "") + "[" + (3870 + k) + "] +" + (v < 0 ? -1 : v - sHlrBase[k]); }
+            for (int k = 0; k < 10; k++) { int v = HlrGr(k); s += ", [" + (4040 + k) + "] +" + (v < 0 ? -1 : v - sHlrGrBase[k]); }
+            DiagLine("houseboat_leg_repro: done (docked), counters " + s);
+        }
+
+        // probe shore spots with EnterHouseboatThroughGangway's leg (no probe is planned inside CheckAndUpdateForHouseboats, so
+        // neither houseboatlegmemo nor the rescue sees it), stand the Sim on the first no-path spot, push GoHome
+        static void HlrDockedPlace(HlrSim h)
+        {
+            Sim s = h.S;
+            SetupSimsAt(new List<Sim> { s }, null, s.Position, false, true, true, false);  // cancel, motives, autonomy off; no teleport
+            Vector3 slot = h.Hb.GetPortGangway().GetPositionOfSlot(Slot.RoutingSlot_0);
+            List<Vector3> cands = HlrShoreCandidates(h.Hb, slot);
+            if (cands.Count == 0) throw new McpException("no world-lot land spot 15-22 m off " + h.HbName + "'s gangway connected by land");
+            foreach (Vector3 c in cands)
+            {
+                Route route = s.CreateRoute();
+                route.SetOption(Route.RouteOption.EnableWaterPlanning, false);
+                route.SetOption2(Route.RouteOption2.EnablePlanningAsBoat, false);
+                int t0 = System.Environment.TickCount;
+                RoutePlanResult res = route.PlanToPointFromPoint(c, slot);
+                int ms = unchecked(System.Environment.TickCount - t0);
+                Dictionary<string, object> o = Util.Obj();
+                o["spot"] = Math.Round(c.x, 1) + "," + Math.Round(c.z, 1); o["m"] = Math.Round((c - slot).Length(), 1); o["result"] = res.mType.ToString(); o["ms"] = ms;
+                o["blocker"] = res.mBlockerType.ToString();
+                h.Probes.Add(o);
+                DiagLine("houseboat_leg_repro: " + s.FullName + " gangway probe " + o["spot"] + " (" + o["m"] + " m) " + res.mType + " " + ms + " ms, blocker " + res.mBlockerType);
+                if (res.mType == RoutePlanResultType.FailedBecauseNoPathToDestination && res.mBlockerType != RouteBlockerType.Sim && res.mBlockerType != RouteBlockerType.Vehicle)
+                { h.Spot = c; h.ProbeFailed = true; break; }
+                Simulator.Sleep(0);
+            }
+            if (h.Spot == Vector3.Invalid) h.Spot = cands[0];
+            HlrPlace(s, h.Spot);
+            Simulator.Sleep(1);
+            h.GangwayM = (s.Position - slot).Length();
+            InteractionInstance gh = GoHome.Singleton.CreateInstance(s.LotHome, s, new InteractionPriority(InteractionPriorityLevel.High), true, true);
+            h.Pushed = gh != null && s.InteractionQueue.Add(gh);
+            DiagLine("houseboat_leg_repro: " + s.FullName + " (" + h.Scope + ") on shore at " + (int)h.Spot.x + "," + (int)h.Spot.z + ", " + Math.Round(h.GangwayM, 1)
+                + " m from " + h.HbName + "'s gangway" + (h.ProbeFailed ? " (probe: no path)" : " (probe never failed)") + ", GoHome pushed " + h.Pushed);
         }
 
         static void HlrRun(int gen, int tries)

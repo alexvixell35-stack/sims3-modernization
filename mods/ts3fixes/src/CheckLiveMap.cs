@@ -189,6 +189,7 @@ namespace Ts3Fixes
                 case "horsetraitscore": return EpLive(typeof(HorseTraitHook), 0, "sHtHorse", sHtHorse, null, "sHtType", sHtType, null, "sHtScore", sHtScore, 2);
                 case "hottubwoohoofx": return EpLive(typeof(HtWoohooHook), 1, "sHtFlag", sHtFlag, typeof(bool), "sHtFx", sHtFx, null);
                 case "hoursmemo": return EpLive(typeof(HoursMemoHook), 0);
+                case "houseboatgangwayrescue": return EpLive(typeof(RouteBackoffHook), 4);
                 case "houseboatlegmemo": return EpLive(typeof(RouteBackoffHook), 4);
                 case "hovertraintest": return EpJoin(EpJoin(EpLive(typeof(HtRunHook), 1), EpLive(typeof(HtStationHook), 0)), EpLive(typeof(HtTestHook), 1));
                 case "hsgradkeep": return EpJoin(EpLive(typeof(HsGradKeepHook), 0), EpLive(typeof(UniGradKeepHook), 0));

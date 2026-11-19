@@ -863,6 +863,7 @@ namespace Ts3Fixes
         // [1106-1108] scarepriority (ScarePriority.cs, docs/580 §14): receivers raised / seen with switch off / errors.
         // [3841-3844] groupchatpriority (GroupChatPriority.cs, docs/638 §3): GroupChatB receivers raised / seen with switch off / errors / spare.
         // [3864-3869] boattaximemo (BoatTaxiMemo.cs, docs/642): boat (any Boat subclass) no-path failures recorded / rider routes planned with the boat off / of those, succeeded / stranded boat plans answered / ms of the recorded plans those answers stand for / refused (household, selected, unknown) or errors.
+        // [4040-4049] houseboatgangwayrescue (HouseboatGangwayRescue.cs, docs/642 §7): NPC Sims marked by a no-path gangway leg to their Docked houseboat / placed by EA's PlaceSimAtEntrance after GoHome failed / refused / errors; refusals: exempt / no, another or undocked houseboat / once-per-hour rule / busy / on the lot, far or stale / no spot.
         // [3870-3873] houseboatlegmemo (HouseboatLegMemo.cs, docs/642 §6): NPC houseboat boat-leg no-path plans recorded / repeats answered / ms of the recorded plans those answers stand for / exempt (household, selected, unknown scope, no Sim or boat router) or errors.
         // [3860-3863] spotwaitattr (SpotWaitAttr.cs, docs/641): kind-2 lot-edge check waits >= 250 ms / frame-bound (one poll >= 80 % of the wait) / job-bound / frame-bound ms.
         // [3845-3853] unseenboatland (UnseenBoatLand.cs, docs/639): land plans tried / land kept / boat may be much shorter (EA plan) / land plan failed or swims (EA plan) / refused: not one land component / refused: household, selected, unknown scope, seen, water posture or interaction, owned boat / land plan ms / of it ms followed by EA's plan / errors.
@@ -1246,8 +1247,8 @@ namespace Ts3Fixes
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 2799, then 2800-3999 (upstream #470; s74 3388-3393, s77 3394-3404),
-        // docs/registry.md), so a new fix never needs the array resized by hand.
-        const int kCounterSlots = 4000;
+        // then the contributor block 4000-4089, docs/registry.md), so a new fix never needs the array resized by hand.
+        const int kCounterSlots = 4090;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1570,6 +1571,7 @@ namespace Ts3Fixes
                 case "unseenboatland": return Instantiator.kUnseenBoatLand;
                 case "boattaximemo": return Instantiator.kBoatTaxiMemo;
                 case "houseboatlegmemo": return Instantiator.kHouseboatLegMemo;
+                case "houseboatgangwayrescue": return Instantiator.kHouseboatGangwayRescue;
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;
                 case "seasonimpostercold": return Instantiator.kSeasonImposterCold;
@@ -2224,7 +2226,7 @@ namespace Ts3Fixes
                 {
                     if (sCounters == null) sCounters = PatchCounters();
                     sCounters[0]++;
-                    if (!ShortcutOn("gohome") || !Unseen(Actor, Target)) return RunOrig();
+                    if (!ShortcutOn("gohome") || !Unseen(Actor, Target)) return HgrRun(RunOrig());
                     // a Sim shortcut twice within 10 sim-minutes is in some loop the game drives: let it walk
                     ulong id = Actor.SimDescription.SimDescriptionId;
                     long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
@@ -2232,19 +2234,19 @@ namespace Ts3Fixes
                     if (sLastShortcut.TryGetValue(id, out last) && now - last < kLoopTicks)
                     {
                         sCounters[3]++;
-                        return RunOrig();
+                        return HgrRun(RunOrig());
                     }
                     Sims3.SimIFace.Vector3 pos, fwd;
                     if (!SafeSpot(Actor, Target, Target.GetRandomPosition(false, true), out pos, out fwd, "gohome", true))
                     {
                         sCounters[2]++;
-                        return RunOrig();
+                        return HgrRun(RunOrig());
                     }
                     // spotcheck (default off): Unseen(Actor, Target) judged the home lot, but the spot is a random outdoor point
                     // anywhere on it (up to ~45 m from the centre on a 64 m lot): one in view = the Sim walks
-                    if (ShortcutOn("spotcheck") && !UfGoalUnseen(pos)) { sCounters[2713]++; return RunOrig(); }
+                    if (ShortcutOn("spotcheck") && !UfGoalUnseen(pos)) { sCounters[2713]++; return HgrRun(RunOrig()); }
                     // docs/202 §3.6.4 unseenfbtriphold: D's walk-time hold first; given up = the game's own trip
-                    if (UfPreCore.TripMode(false, false, ShortcutOn("unseenfbtriphold")) == 2 && !UfTripHold(Actor, Target, pos)) return RunOrig();
+                    if (UfPreCore.TripMode(false, false, ShortcutOn("unseenfbtriphold")) == 2 && !UfTripHold(Actor, Target, pos)) return HgrRun(RunOrig());
                     sLastShortcut[id] = now;
                     ShortcutLog(Actor.FullName + " -> " + Target.Name + " from " + (Actor.LotCurrent != null ? Actor.LotCurrent.Name : "street"));
                     // same lead-in as GoHome.Run
@@ -2261,6 +2263,13 @@ namespace Ts3Fixes
                 finally { if (ghBefore >= 0) GhWalkRelease(Actor, WalkStyle, ghBefore); }
             }
             public bool RunOrig() { return false; } // receives GoHome.Run's original header
+            // docs/642 §7 houseboatgangwayrescue: EA's GoHome.Run gave up; a Sim marked by a no-path gangway leg is placed on its
+            // houseboat here, in its own task after Run, never inside the routing callback (HouseboatGangwayRescue.cs)
+            bool HgrRun(bool ok)
+            {
+                if (!ok && sHgr.Count > 0 && ShortcutOn("houseboatgangwayrescue")) HgrAfterGoHome(Actor, Target, this);
+                return ok;
+            }
             static readonly Dictionary<ulong, long> sLastShortcut = new Dictionary<ulong, long>();
             static readonly long kLoopTicks = Sims3.Gameplay.Utilities.SimClock.ConvertToTicks(10f, Sims3.Gameplay.Utilities.TimeUnit.Minutes);
 

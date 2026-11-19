@@ -69075,6 +69075,56 @@
     ]
   },
   {
+    "id": "ip-houseboat-gangway-rescue",
+    "bug": "docs/642 §7: an NPC dropped on shore ~15-22 m from its DOCKED houseboat's gangway at a spot with no walkable path: after every plan home EA's CheckAndUpdateForHouseboats -> EnterHouseboatThroughGangway plans PlanToPointFromPoint to the gangway's RoutingSlot_0 with water and boat planning off, no path (~650 ms); GoHome.Run fails, autonomy picks GoHome again, no give-up",
+    "fix": "ts3fixes houseboatgangwayrescue (HouseboatGangwayRescue.cs): the no-path gangway leg marks the NPC (4040); after GoHome fails, EA's Houseboat.PlaceSimAtEntrance places it on the houseboat (4041), at most once per sim-hour; refused 4042 (reasons 4044-4049), errors 4043; household / selected / unknown scope exempt",
+    "save": "Baseline-IP",
+    "note": "Forced. houseboat_leg_repro mode docked (default) picks NPCs living on a Docked houseboat with a port gangway, probes world-lot land spots 15-22 m off the gangway (connected by land) with the gangway leg as EA builds it, stands each Sim on the first no-path spot and pushes GoHome, then watches waitS. probe_failed false on every Sim = no such spot in this save: N/A, not FAIL. Needs an active household.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "houseboatlegmemo": "$on",
+          "houseboatgangwayrescue": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "start": true,
+          "mode": "docked",
+          "sims": 2,
+          "waitS": 90
+        },
+        "waitS": 150,
+        "note": "probe shore spots, push GoHome, watch 90 s"
+      },
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "result": true
+        },
+        "note": "per Sim: probes, gangway_m, legs seen (boat/water off = gangway leg), reached_home, lot_after; counter deltas 3870-3873 and 4040-4049"
+      }
+    ],
+    "expect": "OFF: probe_failed true, gangway legs (boat false, water false) FailedBecauseNoPathToDestination ~650 ms repeat, reached_home false, 4040-4049 +0; ON: 4040 +1 per Sim, 4041 +1 per Sim after its first failed GoHome, 'houseboatgangwayrescue: <name> placed at <lot>, after N ms of failed legs' lines, reached_home true; no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
     "id": "ip-houseboat-leg-memo",
     "bug": "docs/642 §6: an NPC stranded ~17 m off its houseboat (houseboat not Docked) gets EA's EnterHouseboatThroughBoat boat leg (PostPlanRouteCallback -> CheckAndUpdateForHouseboats, PlanFromPoint EndAsBoat + DestinationMustBeInDeepWater (+ DisablePlanningOnLand)) planned again after every plan home, ~600 ms each, always no path (IP phase-20261119-0746: Britta Colombo 18x)",
     "fix": "ts3fixes houseboatlegmemo (HouseboatLegMemo.cs): the leg's first no-path plan is recorded (3870), repeats from the same start to the same goal are answered at once (3871, ms 3872); household / selected / unknown scope exempt (3873)",
@@ -69094,7 +69144,8 @@
           "start": true,
           "sims": 2,
           "tries": 4,
-            "undock": true
+          "mode": "undock",
+          "undock": true
         },
         "waitS": 150,
         "note": "probe spots, then 4 plans home per Sim"

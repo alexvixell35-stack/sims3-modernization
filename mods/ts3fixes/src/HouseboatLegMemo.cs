@@ -21,6 +21,8 @@ namespace Ts3Fixes
     // Household, selected or unknown-scope routers (Fixes.HouseholdExempt; a boat by every occupant, none aboard = unknown):
     // never recorded, never answered. Successes are never memoed; an answer does not extend its entry.
     // Counters [3870] recorded, [3871] answered, [3872] ms of the recorded plans those answers stand for, [3873] exempt or errors.
+    // §7 houseboatgangwayrescue (HouseboatGangwayRescue.cs) shares HlmPre / HlmPost: a gangway leg recorded or answered here marks
+    // the NPC for a rescue after GoHome fails; with the memo off and the rescue on, legs are only seen, never recorded or answered.
     public static partial class Fixes
     {
         static readonly HouseboatLegMemoCore sHlm = new HouseboatLegMemoCore();
@@ -81,8 +83,10 @@ namespace Ts3Fixes
                 return boat.ObjectId.Value;
             }
 
-            // before a kind-2 plan (UfPlan). true = r is the recorded failure; *leg = this is a boat leg of a non-exempt router
-            bool HlmPre(Vector3 start, out RoutePlanResult r, out ulong leg)
+            // before a kind-2 plan (UfPlan). true = r is the recorded failure; *leg = this is a boat leg of a non-exempt router.
+            // memo = houseboatlegmemo on (answer and count), rescue = houseboatgangwayrescue on (an answered gangway leg marks the Sim,
+            // HouseboatGangwayRescue.cs); with the memo off, only *leg is set, so HlmPost can mark a gangway leg after the plan
+            bool HlmPre(Vector3 start, out RoutePlanResult r, out ulong leg, bool memo, bool rescue)
             {
                 r = default(RoutePlanResult);
                 leg = 0;
@@ -92,8 +96,9 @@ namespace Ts3Fixes
                     if (!HlmLegRoute()) return false;
                     string name;
                     ulong id = HlmRouter(out name);
-                    if (id == 0) { c[3873]++; return false; }
+                    if (id == 0) { if (memo) c[3873]++; return false; }  // exempt routers are never marked for the rescue either
                     leg = id;
+                    if (!memo) return false;
                     Vector3 g = HlmGoal();
                     HouseboatLegMemoCore.Entry e;
                     if (!sHlm.Hit(id, start.x, start.y, start.z, g.x, g.y, g.z, SimClock.CurrentTicks, out e)) return false;
@@ -102,9 +107,10 @@ namespace Ts3Fixes
                     HlmLog("answered, " + name + ", stands for " + e.Ms + " ms, goal " + (int)g.x + "," + (int)g.z);
                     r = FailFast(RoutePlanResultType.FailedBecauseNoPathToDestination);
                     leg = 0;  // answered: nothing to record after
+                    if (rescue) { Sim gs = HgrLegSim(); if (gs != null) HgrNote(gs, 0); }
                     return true;
                 }
-                catch (Exception) { c[3873]++; leg = 0; return false; }
+                catch (Exception) { if (memo) c[3873]++; leg = 0; return false; }
             }
 
             // a slow kind-2 no-path plan HlmPre did not take: log why (options, follower, scope), so a silent skip shows in the log
@@ -146,14 +152,17 @@ namespace Ts3Fixes
             }
 
             // after the plan ran (leg != 0 from HlmPre): record a no-path failure that no Sim or vehicle blocked, and no cut
-            void HlmPost(ulong leg, Vector3 start, RoutePlanResult r, int ms, bool cut)
+            // memo / rescue as in HlmPre: record the memo entry, mark the Sim of a gangway leg (HouseboatGangwayRescue.cs)
+            void HlmPost(ulong leg, Vector3 start, RoutePlanResult r, int ms, bool cut, bool memo, bool rescue)
             {
                 if (leg == 0 || r.mType != RoutePlanResultType.FailedBecauseNoPathToDestination) return;
                 if (cut || r.mBlockerType == RouteBlockerType.Sim || r.mBlockerType == RouteBlockerType.Vehicle)
                 {
-                    HlmLog("skip record " + ms + " ms, " + (cut ? "cut" : "blocker " + r.mBlockerType));
+                    if (memo) HlmLog("skip record " + ms + " ms, " + (cut ? "cut" : "blocker " + r.mBlockerType));
                     return;
                 }
+                if (rescue) { Sim gs = HgrLegSim(); if (gs != null) HgrNote(gs, ms); }
+                if (!memo) return;
                 int[] c = PatchCounters();
                 try
                 {
