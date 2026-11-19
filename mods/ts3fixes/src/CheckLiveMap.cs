@@ -282,6 +282,7 @@ namespace Ts3Fixes
                 case "petpoolghost": return EpLive(typeof(BPgHook), 1, "sPpgIds", sPpgIds, null);
                 case "petpoolorphan": return EpLive(typeof(PetPoolOrphanHook), 2);
                 case "petpuddletile": return EpLive(typeof(PetPuddleHook), 2);
+                case "petstartleskip": return EpLive(typeof(PetStartleSkipHook), 1);
                 case "petwakebed": return EpLive(typeof(PwCleanupHook), 1, "sPwBed", sPwBed, null);
                 case "phonecallrearm": return EpLive(typeof(PhCallRearmHook), 0, "sPhInterval", sPhInterval, typeof(int), "sPhInterval", sPhInterval, "static");
                 case "phonecallschedule": return EpLive(typeof(PhCallScheduleHook), 0, "sPhWindow", sPhWindow, typeof(int), "sPhWindow", sPhWindow, "static", "sPhAlarm", sPhAlarm, null);
@@ -293,10 +294,12 @@ namespace Ts3Fixes
                 case "photosubjectstars": return EpLive(typeof(BPsHook), 1);
                 case "picnicants": return EpLive(typeof(B12PaHook), 3, "sPaFx", sPaFx, null);
                 case "picniccamera": return EpLive(typeof(PcHook), 1);
+                case "picnicexit": return EpLive(typeof(PicnicExitHook), 1);
                 case "plantdormantflip": return EpLive(typeof(B13PfHook), 1, "sPfLeafless", sPfLeafless, 0, "sPfFrost", sPfFrost, typeof(float), "sPfFrost", sPfFrost, "static", "sPfLeaves", sPfLeaves, typeof(float), "sPfLeaves", sPfLeaves, "static", "sPfDormant", sPfDormant, typeof(bool), "sPfDormant", sPfDormant, null, "sPfFrosted", sPfFrosted, 0, "sPfDelete", sPfDelete, 0);
                 case "plantdormanttime": return EpLive(typeof(B13PtHook), 1, "sPfDormant", sPfDormant, typeof(bool), "sPtLast", sPtLast, null);
                 case "plumbotfacelistener": return EpLive(typeof(PlumbotFaceHook), 0, "sPfOwner", sPfOwner, null);
                 case "pondclearscan": return EpLive(typeof(PcsHook), 1);
+                case "poolfailmemo": return EpLive(typeof(PoolFailMemoHook), 1);
                 case "portaladaptorleak": return EpLive(typeof(PortalAdaptorHook), 1);
                 case "portasknohome": return EpLive(typeof(BPtHook), 1);
                 case "portraitpose": return EpLive(typeof(PpHook), 1, "sPpPaintee", sPpPaintee, null, "sPpPainter", sPpPainter, null);

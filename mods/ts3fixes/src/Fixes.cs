@@ -502,6 +502,9 @@ namespace Ts3Fixes
             ApplyCasTrimKeep();  // docs/539: hooks only with [CasTrim] save hooks in native
             ApplyUnseenOutfitDefer();  // issue #451, off by default (UnseenOutfitDefer.cs)
             ApplyTagUnseen();          // docs/60 §3 (TagUnseen.cs), off by default
+            ApplyPicnicExit();         // docs/645 §1 (PicnicExit.cs), off by default
+            ApplyPoolFailMemo();       // docs/645 §2 (PoolFailMemo.cs), off by default
+            ApplyPetStartleSkip();     // docs/645 §3 (PetStartleSkip.cs), off by default
         }
 
         // Patches that go in only when a tuning is on (docs/124 §17.8): Apply cannot read tunings (C# defaults there), so these
@@ -864,6 +867,7 @@ namespace Ts3Fixes
         // [1106-1108] scarepriority (ScarePriority.cs, docs/580 §14): receivers raised / seen with switch off / errors.
         // [3841-3844] groupchatpriority (GroupChatPriority.cs, docs/638 §3): GroupChatB receivers raised / seen with switch off / errors / spare.
         // [3864-3869] boattaximemo (BoatTaxiMemo.cs, docs/642): boat (any Boat subclass) no-path failures recorded / rider routes planned with the boat off / of those, succeeded / stranded boat plans answered / ms of the recorded plans those answers stand for / refused (household, selected, unknown) or errors.
+        // [4070-4079] contributor block of docs/645 (npc loops): [4070-4071] picnicexit (PicnicExit.cs, §1): finished picnics exited / skipped (Sims present or cleanup pending); [4072-4073] poolfailmemo (PoolFailMemo.cs, §2): NPC GetInPool no-path / no-destination fails recorded / autonomous GetInPool tests refused; [4074-4075] petstartleskip (PetStartleSkip.cs, §3): NPC pets recorded after a PortalLocked startle flee route / startles skipped; [4076-4077] petlonghome (PetLongHome.cs, §4): unseen NPC pets / horses placed on the lot of a long GoHome / GoToLot walk / refused (seen, lot seen, no spot, lot kind); [4078] exempt (household, selected, unknown scope) and [4079] errors are shared by the docs/645 switches.
         // [4040-4049] houseboatgangwayrescue (HouseboatGangwayRescue.cs, docs/642 §7): NPC Sims marked by a no-path gangway leg to their Docked houseboat / placed by EA's PlaceSimAtEntrance after GoHome failed / refused / errors; refusals: exempt / no, another or undocked houseboat / once-per-hour rule / busy / on the lot, far or stale / no spot.
         // [3870-3873] houseboatlegmemo (HouseboatLegMemo.cs, docs/642 §6): NPC houseboat boat-leg no-path plans recorded / repeats answered / ms of the recorded plans those answers stand for / exempt (household, selected, unknown scope, no Sim or boat router) or errors.
         // [4062-4069] boatroamcap (BoatRoamCap.cs, docs/642 §9): NPC BoatAround runs capped (no roam) / ReturnToShore pushed / returns failed (precheck, push, run or never ran; EA roams) / exempt runs / errors / returns that reached the shore / service, role or AlarmOneShot-task boating logged / caps by night or low motive.
@@ -1576,6 +1580,10 @@ namespace Ts3Fixes
                 case "houseboatlegmemo": return Instantiator.kHouseboatLegMemo;
                 case "houseboatgangwayrescue": return Instantiator.kHouseboatGangwayRescue;
                 case "boatroamcap": return Instantiator.kBoatRoamCap;  // off (BoatRoamCap.cs, docs/642 §9)
+                case "picnicexit": return Instantiator.kPicnicExit;
+                case "poolfailmemo": return Instantiator.kPoolFailMemo;
+                case "petstartleskip": return Instantiator.kPetStartleSkip;
+                case "petlonghome": return Instantiator.kPetLongHome;
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;
                 case "seasonimpostercold": return Instantiator.kSeasonImposterCold;
@@ -2223,6 +2231,7 @@ namespace Ts3Fixes
             static int[] sCounters;
             public bool RunHook()
             {
+                PlhBefore(Actor, Target, SimFollowers, "gohome");  // docs/645 §4 petlonghome (PetLongHome.cs): pets only, off by default
                 // docs/560 gohomewalk: EA requests WalkStyle on the Sim and never unrequests it
                 int ghBefore = -1;
                 if (WalkStyle != Sims3.Gameplay.Actors.Sim.WalkStyle.AutoSelect && ShortcutOn("gohomewalk")) ghBefore = GhWalkCount(Actor, WalkStyle);
@@ -3009,6 +3018,7 @@ namespace Ts3Fixes
             public bool RunHook()
             {
                 Sims3.Gameplay.Actors.Sim sim = Actor as Sims3.Gameplay.Actors.Sim;
+                PlhBefore(sim, Target, Followers, "gotolot");  // docs/645 §4 petlonghome (PetLongHome.cs): pets only, off by default
                 if (sim != null && (Followers == null || Followers.Count == 0)) ShortcutToLot(sim, Target, "gotolot", 13);
                 return RunOrig();
             }
