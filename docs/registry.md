@@ -561,6 +561,7 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 3860-3863 | `SpotWaitAttr.cs` (`fixes-3860`, docs/641), `spotwaitattr` | built 2026-11-18, default off, log only: kind-2 lot-edge check waits >= 250 ms, frame-bound, job-bound, frame-bound ms |
 | 3864-3869 | `BoatTaxiMemo.cs` (`fixes-3864`, docs/642), `boattaximemo` | built 2026-11-18 (any Boat since 2026-11-19), default off: boat no-path failures recorded, rider routes with the boat off, of those succeeded, stranded boat plans answered, ms those answers stand for, refused/errors |
 | 3860-3863 | pinned (claude, `fixes-3860`) | docs/641 spotwaitattr: slow spot/watchdog PlanFromPoint waits split frame-bound vs job-bound (waits >= 250 ms, frame-bound, job-bound, frame-bound ms) |
+| 3870-3873 | `HouseboatLegMemo.cs` (`fixes-3870`, docs/642 §6), `houseboatlegmemo` | built 2026-11-19, default off: NPC houseboat boat-leg no-path plans recorded, repeats answered, ms those answers stand for, exempt/errors |
 | 3864-3869 | pinned (claude, `fixes-3864`) | docs/642 boattaximemo: NPC rider's BoatTaxi no-path memo (recorded, boat off on rider route, land ok, stranded plans answered, ms answered, refused/errors) |
 | **2000+** | next free | reserve here  |
 

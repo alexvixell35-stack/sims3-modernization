@@ -119,3 +119,36 @@ The Twinbrook sweep save has no active household, so every Sim there is of unkno
 | on | 274-278 ms, no path (recorded) | 0 ms each, answered | 3864 +4, 3867 +6, 3868 +1644, 3869 +0 |
 
 The dog's route had a path (Succeeded every try) and was left alone; the active household (Collins) was untouched. BtmPost now logs why a boat's no-path plan is not recorded (`boattaximemo: skip <type>, blocker | no driver | exempt rider | no destination`).
+
+## 6. Houseboat boat-leg memo: `houseboatlegmemo` (`HouseboatLegMemo.cs`, default off, 2026-11-19, NOT RUN)
+
+Log: Isla Paradiso phase-20261119-0746 (combo HEAD, TaskServe/PlayerFirst/RouteJobPhases/DoorMemo/KdCutCamRecheck=2). The
+largest repeat hitch pattern (40 plans >= 300 ms): `ufplansplit: kind 2 ~600-680 ms, sync (START refused), why 0, result
+FailedBecauseNoPathToDestination, dist 17 (sim 0 m away), <NPC> on ,` nested in a kind 3 (dist ~1194) or kind 0 plan of the
+same Sim, with `route deadline: sync plan ... failed, ... past its deadline, entry Route_PlanLocked (no IC); world A* capped 0,
+cell skipped 0, water skipped 0`. Britta Colombo 18x, Rubisel Ichtaca 6x, Linda Scott, Akoni Kahale (dist 22): NPCs whose home is
+a houseboat (Fantasea), stranded ~17 m off it.
+
+- **Caller [verified, decompiled]:** `SimRoutingComponent.PostPlanRouteCallback` -> `CheckAndUpdateForHouseboats` ->
+  `EnterHouseboatThroughBoat` (router farther than `kBoatToHouseboatMaxRadius` 15 m from `RoutingSlot_0`): a new route,
+  `EnablePlanningAsBoat`, `EndAsBoat`, `DestinationMustBeInDeepWater` (+ `DisablePlanningOnLand` in the same water body), a
+  5-15 m `RadialRangeDestination`, `PlanFromPoint(startPos)`; on failure it returns false and the outer route stays as planned.
+  It runs after every plan of that route (PostPlan sits in ScriptCore `Route.Plan*` after the IC), so each try home repeats it.
+- **Why sync [verified, code]:** own-task kind 2 with `[RouteAsync] Kinds=0`: `A10StartBody` refuses NoStart (ts3native.cpp
+  ~5620, `kRf3KindsOff`); only the watchdog-tagged kind 2 passes (`WatchdogKind2`). With WatchdogKind2=1 and no Kinds bit 2,
+  `ArPlanFromPointHook` sends every other PlanFromPoint straight to the game IC (`ArWdPass`, a10.cpp:32), so no `SyncIc`: the
+  UnseenFallback MARK is never taken, no unseen session, no `UfLockGate`.
+- **Why no cut [code + inferred]:** only PlanDeadlineMs' generic session at Route_PlanLocked (`PdPlanBegin`, entry "no IC") is
+  open. Its exits are entry checks (cell A* entry, `WaterPath_Plan` 0x671930 entry) and the world A* cost stubs; a pure water
+  JPS that started before the deadline runs to its end. All counts 0 = the time is inside one water leg that exhausts the
+  reachable grid (no-path boat plan; inferred from the options and the steady ~600 ms, not phase-split: SyncPlans=0).
+- **No memo catches it:** UfPlanBody's no-retry window records only cut plans; `boattaximemo` skips Sim followers with
+  `EndAsBoat`/`DestinationMustBeInDeepWater` and records only Boat followers; FailMemo (off) and DoorMemo are Plan IC / door only.
+
+Fix (ts3fixes only): in `UfPlan`, a kind-2 plan with all three leg options from a non-exempt router (Sim, or a Boat whose
+occupants all pass `Fixes.HouseholdExempt`; none aboard = unknown = exempt) is looked up by (router, start 0.5 m, goal 0.5 m).
+A hit answers `FailFast(FailedBecauseNoPathToDestination)` (EA reads only `Succeeded()`); a plan that ran, was not cut and found
+no path without a Sim/vehicle blocker is recorded for `kHouseboatLegMemoHours` (2) sim-hours. Successes never memoed, answers
+never extend. Counters 3870 recorded, 3871 answered, 3872 ms answered stand for, 3873 exempt/errors; log `houseboatlegmemo:
+recorded|answered`. Self-check `node tools/selftest/houseboatlegmemo/run.ts`. Expected in the same IP run with it on: each
+repeat of those kind 2 legs ~0 ms (the outer plan keeps its own cost), ~20-25 hitches of 0.6 s gone.
