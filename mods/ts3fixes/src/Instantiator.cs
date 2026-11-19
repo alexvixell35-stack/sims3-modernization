@@ -163,6 +163,13 @@ namespace Ts3Fixes
         [Tunable] public static bool kWildLotSkip = false;             // wildlotskip (docs/646 §3): wild horses and NPC animals (raccoon, deer) skip a lot their GoToLot could not reach lately (EA's weights over the rest), and a GoToLot walk past kWildLotSkipWalkHours is cancelled
         [Tunable] public static float kWildLotSkipHours = 6f;          // wildlotskip: sim-hours an (animal, lot) pair stays remembered
         [Tunable] public static float kWildLotSkipWalkHours = 8f;      // wildlotskip: sim-hours one GoToLot may run before the guard cancels it
+        [Tunable] public static bool kShuffleboardNpcCap = false;      // shuffleboardnpccap (docs/647): when every player is a non-exempt NPC, a shuffleboard streak ends at a round start after kShuffleboardNpcCapGames games, kShuffleboardNpcCapHours or (a round done) at night, by EA's quit path; ended Sims skip autonomous re-joins for kShuffleboardNpcCapCooldownHours
+        [Tunable] public static int kShuffleboardNpcCapGames = 2;        // shuffleboardnpccap: games (of EA's kNumberOfRounds rounds; a solo Sim's rounds count too) before the cap (0 = off)
+        [Tunable] public static float kShuffleboardNpcCapHours = 3f;     // shuffleboardnpccap: sim-hours since the streak's first round start before the cap (0 = off; a solo Sim never reaches EA's game over)
+        [Tunable] public static float kShuffleboardNpcCapGapHours = 1f;  // shuffleboardnpccap: a round start later than this after the board's last one begins a new streak
+        [Tunable] public static int kShuffleboardNpcCapNightFrom = 23;   // shuffleboardnpccap: night window start hour (caps after one round)
+        [Tunable] public static int kShuffleboardNpcCapNightTo = 6;      // shuffleboardnpccap: night window end hour (exclusive; equal to NightFrom = no night window)
+        [Tunable] public static float kShuffleboardNpcCapCooldownHours = 2f;  // shuffleboardnpccap: sim-hours an ended Sim's autonomous Join tests fail (0 = none)
         [Tunable] public static bool kPosturePopCycle = false;   // opt-in until verified: a posture pop that EA would turn into a two-posture loop (Compatible branch) runs the setter's unwind instead (issue #89, PosturePop.cs)
         [Tunable] public static bool kUnseenFallbackPre = true;       // on, same as the shipped tuning (2026-11-14); was: opt-in until verified: an unseen townie's own walk to an unseen lot goal is held for the walk time, then placed at the goal (no search; docs/202 §3.5)
         [Tunable] public static bool kPrePlanCallback = false;     // opt-in until measured: Route.AboutToPlanCallback runs before an async START, the job's locked-door list survives the original plan's second callback (RouteBackoff.cs PreCb, docs/185 §5)

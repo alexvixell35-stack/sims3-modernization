@@ -372,6 +372,7 @@ namespace Ts3Fixes
                 case "showstagethrowables": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatParkGoneHook), 1), EpLive(typeof(BookHandPutDownHook), 1)), EpLive(typeof(BookHandQueueHook), 1, "sBhActor", sBhActor, null)), EpLive(typeof(BribeHook), 1, "sBribeTable", sBribeTable, null)), EpLive(typeof(CarryHook), 1)), EpLive(typeof(ConvTurnHook), 1)), EpLive(typeof(FireworksFizzleHook), 0)), EpLive(typeof(GraduationAttendHook), 1)), EpLive(typeof(GraduationCityHallHook), 1)), EpLive(typeof(OutfitClearHook), 2)), EpLive(typeof(SwAbuseHook), 1)), EpLive(typeof(SwAdoptHook), 1)), EpLive(typeof(SwPetAdoptHook), 1)), EpLive(typeof(SwPutUpHook), 1)), EpLive(typeof(ThrowHook), 3)), EpLive(typeof(TopicHook), 4));
                 case "shroomslots": return EpLive(typeof(B13SsHook), 1, "sSsShrooms", sSsShrooms, typeof(int), "sSsHelped", sSsHelped, null, "sSsPost", sSsPost, 1, "sSsYielded", sSsYielded, null, "sSsYielded", sSsYielded, typeof(int), "sSsTimeout", sSsTimeout, 2);
                 case "shuffleboardbcast": return EpLive(typeof(SbHook), 2);
+                case "shuffleboardnpccap": return EpLive(typeof(SncPlayHook), 1);
                 case "simdisposelink": return EpLive(typeof(SdlDisposeHook), 1);
                 case "simfestkeep": return EpLive(typeof(SimFestKeepHook), 1);
                 case "slavewakereason": return EpLive(typeof(SbSyncHook), 1, "sSbMaster", sSbMaster, null);
