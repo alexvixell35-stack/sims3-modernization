@@ -1635,6 +1635,7 @@ namespace Ts3Fixes
                 case "strayleave": return Instantiator.kStrayLeave;          // off (StrayLeave.cs, docs/656 §4.2)
                 case "barcloseorphan": return Instantiator.kBarCloseOrphan;  // off (BarCloseOrphan.cs, docs/661 §3.1)
                 case "venueintensity": return Instantiator.kVenueIntensity;  // off (VenueIntensity.cs, docs/661 §3.2)
+                case "minirelset": return Instantiator.kMiniRelSet;  // off (AlgoSweep665.cs, docs/665 §3.1), exact speedup
                 case "caspropagateoutfits": return Instantiator.kCasPropagateOutfits;  // off (CasPropagate.cs, docs/658 §6.1)
                 case "caspropagateextra": return Instantiator.kCasPropagateExtra;  // off (CasPropagate.cs, docs/658 §6.2)
                 case "casdefaultskin": return Instantiator.kCasDefaultSkin;  // off (CasDefaultSkin.cs, docs/658 §6.3)

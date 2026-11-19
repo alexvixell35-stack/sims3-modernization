@@ -113723,5 +113723,86 @@
         }
       }
     ]
+  },
+  {
+    "id": "minirelset-check",
+    "bug": "docs/665 §3.1: Relationship.GetMiniRelationships dedups its result with List.Contains inside the loop over the Sim's relationships (O(n*n) per call; callcensus 54,109 calls, 12.5-32.8 us mean by run over 699 sim-h)",
+    "fix": "ts3fixes minirelset (AlgoSweep665.cs, default off): one walk with a reference set, same list in the same order; 4233 answered by our path, 4234 to EA's body while on, 4235 errors",
+    "save": "needs a loaded world (no save change)",
+    "note": "Forced. MiniRelSetCheck run compares EA's body with our path for up to 400 Sims (count and object per index), times both, then calls the hooked method once. Exact speedup: 'BROKEN' off only means the O(n*n) path is in use.",
+    "expect": "off: 'verdict: BROKEN' (lists that differ 0). on: 'verdict: FIXED' (lists that differ 0, hooked call via our path=True, 4233 +N); no new exceptions",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "minirelset": false
+        },
+        "waitS": 1,
+        "note": "off first"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniRelSetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniRelSetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "minirelset": true
+        },
+        "waitS": 1,
+        "note": "on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniRelSetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniRelSetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "minirelset": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "minirelset": false
+        }
+      }
+    ]
   }
 ]
