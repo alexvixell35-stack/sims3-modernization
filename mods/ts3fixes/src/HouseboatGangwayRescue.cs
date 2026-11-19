@@ -57,6 +57,23 @@ namespace Ts3Fixes
             return l != null ? l.Name : "?";
         }
 
+        static string HgrXz(Vector3 p) { return Math.Round(p.x, 1) + "," + Math.Round(p.z, 1); }
+
+        // ", sim x,z, gangway x,z (d m)" for log lines on a gangway leg: the exact stranding spot of natural runs
+        static string HgrWhere(Sim sim)
+        {
+            try
+            {
+                Vector3 p = sim.Position;
+                Houseboat hb = HgrHome(sim);
+                Gangway gw = hb != null ? hb.GetPortGangway() : null;
+                if (gw == null) return ", sim " + HgrXz(p) + ", no home gangway";
+                Vector3 g = gw.GetPositionOfSlot(Slot.RoutingSlot_0);
+                return ", sim " + HgrXz(p) + ", gangway " + HgrXz(g) + " (" + Math.Round((p - g).Length(), 1) + " m, " + hb.CurrentStatus + ")";
+            }
+            catch (Exception ex) { return ", where error " + ex.GetType().Name; }
+        }
+
         static void HgrRefused(int why, string name, string detail)
         {
             int[] c = PatchCounters();
@@ -88,7 +105,7 @@ namespace Ts3Fixes
                 if (w == HouseboatGangwayRescueCore.kMarked)
                 {
                     c[4040]++;
-                    HgrLog("marked " + sim.FullName + ", houseboat " + HgrLotName(hb) + ", gangway leg " + ms + " ms no path");
+                    HgrLog("marked " + sim.FullName + ", houseboat " + HgrLotName(hb) + ", gangway leg " + ms + " ms no path" + HgrWhere(sim));
                 }
                 else if (w != HouseboatGangwayRescueCore.kAdded) HgrRefused(w, exempt ? null : sim.FullName, null);
             }
@@ -119,7 +136,7 @@ namespace Ts3Fixes
                 bool exempt = HgrExempt(sim);
                 Houseboat hb = !exempt && target != null && target.IsHouseboatLot() ? target.GetHouseboat() : null;
                 Lot hbLot = hb != null ? hb.GetHouseboatLot() : null;
-                Sims3.Gameplay.Objects.Island.Gangway gw = hb != null ? hb.GetPortGangway() : null;
+                Gangway gw = hb != null ? hb.GetPortGangway() : null;
                 bool docked = hbLot != null && gw != null && hb.CurrentStatus == Houseboat.Status.Docked && hb.GetHouseboatJig() != null;
                 bool onLot = hbLot != null && sim.LotCurrent != null && sim.LotCurrent.LotId == hbLot.LotId;
                 bool far = docked && (sim.Position - gw.GetPositionOfSlot(Slot.RoutingSlot_0)).Length() > kHgrNearM;
