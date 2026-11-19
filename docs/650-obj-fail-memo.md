@@ -2,7 +2,7 @@
 
 2026-11-19. Source: OFF / sweep runs `phase-2026111*` (`ts3native*.log`, `routefail job:` and `routefail:` lines,
 `syncwait` / `socialreceivefail` lines), decompiled Sims3GameplaySystems. §1 built, default off, NOT RUN. Managed only
-(ts3fixes), package tag `objfail`. §2 is an investigation only (no code).
+(ts3fixes), package tag `objfail`. §2 is an investigation; §3 `socialunlinkend` was built from it (default off, NOT RUN, tag `socialunlink`).
 
 ## 1. `objfailmemo` (slots 4120-4129, `kCounterSlots` 4130)
 
@@ -99,4 +99,71 @@ is the Receiver, its current interaction is a `SocialInteractionB` whose `Linked
 running on the partner, and the partner's `SynchronizationTarget` is not this Sim, end the wait at once through
 `OnWaitForSynchronizationLevelWithSimFailed` + false (the giveup's own result, sooner). EA bug fix with an unchanged
 outcome, so every Sim, like socialreceivefail; counters from a new reservation. Root-cause alternative (bigger): copy
-A's exit reason to B on A's early-return paths.
+A's exit reason to B on A's early-return paths. Built as §3 (scope narrowed to non-exempt NPC receivers and a null link).
+
+## 3. `socialunlinkend` (slots 4140-4149, `kCounterSlots` 4150)
+
+Built 2026-11-19, default off (`kSocialUnlinkEnd` false), NOT RUN. Managed only (ts3fixes), package tag `socialunlink`.
+The B-side case of §2.
+
+### Problem
+
+Logs [measured, B-side `syncwait` fail lines `in SocialInteractionB, partner in none (no link)`, phase-2026111*, 3409
+lines]: 1464 Routed waits (142 at 0 min, 348 < 1, 709 1-5, 265 5-29 sim-min) and 1945 Committed waits (1477 at 0 min,
+468 < 1). Most Committed ones follow a failed Routed wait at 0.0 min (SynchronizationFailed already set).
+
+EA code [verified, decompiled; settles the §2 inference]:
+- `InteractionQueue.CleanupInteraction(A)` sets `A.LinkedInteractionInstance = null` (clearing B's side too) and calls
+  `CancelInteraction(B, false)` (reason CanceledByScript). `CancelNthInteraction` adds that reason to the actor only when
+  B is running **and** the head is locked or a transition is set; otherwise `RemoveInteraction` takes B off the list and
+  runs `CleanupInteraction(B)` → `B.Cleanup()` (slave interaction, social jig destroyed, listeners removed) while B's
+  script is still inside `ReceiveSocialInteraction`. No exit reason reaches the wait.
+- `IsAtSynchronizationLevelWith(A, Routed/Committed)` needs `A.SynchronizationTarget` = the waiting Sim and an Initiator
+  role; A's `ClearSynchronizationData` left Completed/None/null, so the wait cannot succeed. It ends by the 30 sim-min
+  giveup, an exit reason or a failed `CanSocializeWithSyncCheck` (hence the spread of measured times).
+
+### Fix
+
+In the wait hook `SocialReceiveFail.cs` owns (`Sim.WaitForSynchronizationLevelWithSim`, 7 args; the 3-arg overload that
+`ReceiveSocialInteraction` calls forwards to it), right after the socialreceivefail check: `SueCannotSync`
+(`SocialUnlinkEnd.cs`, rule `SocialUnlinkEndCore.Decide`). The wait fails at once when all hold:
+- desired level Routed or Committed (Started / Completed waits are left alone);
+- the waiting Sim is the Receiver, its `SynchronizationTarget` is the wait's target, and its running interaction
+  (`InteractionQueue.RunningInteraction`, since a removed B is off the list; else the head) is a `SocialInteractionB`
+  whose `Target` is that partner;
+- that B's `LinkedInteractionInstance` is null;
+- the partner's `SynchronizationTarget` is not the waiting Sim, and neither its current nor its transition interaction
+  targets it.
+
+The failure is the vanilla one: `SynchronizationSleeping` set as on entry, `OnWaitForSynchronizationLevelWithSimFailed`
+(adds SynchronizationFailed to the receiver only, since the partner's target is not it), return false.
+
+B-side cleanup after that is EA's normal failure path, the same as after the giveup [verified, decompiled]:
+`ReceiveSocialInteraction` goes on to its Committed wait, which stops at the first check on SynchronizationFailed (part of
+`ExitReason.Default`) → CanceledByExitReason, false. `SocialInteractionB.Run` adds RouteFailed; `CopyExitReasonToLinkedInteraction`,
+`WaitForMasterInteractionToFinish` (no sync target, no PostLoop) and `WaitForSyncComplete` are no-ops without a link.
+Posture: `EnterSocializingPosture` runs only on success, so none was entered. Animation state machine:
+`ReceiveSocialInteraction` and the setup helpers it calls create none. Social jig: destroyed by `SocialInteraction.Cleanup`
+when B was removed (or at B's normal end).
+
+Scope: non-exempt NPC receivers only; `HouseholdExempt || IsPlayerSim` receivers (household, selected, unknown scope) are
+counted and left to EA. The partner is never touched.
+
+Possible difference [inferred, not seen]: within the 30 minutes the old partner could start a new social aimed at this Sim
+and take the Initiator role with it as target; the vanilla wait could then succeed on the stale B. The fix ends the stale
+wait first and leaves the new social to its own B.
+
+Log, capped at 10 a minute: `socialunlinkend: <Sim> -> <partner>, <level>, partner in <interaction> (no link): wait ended at once`.
+
+| slot | meaning |
+|---|---|
+| 4140 | receiver waits ended at once |
+| 4141 | exempt receivers left to EA (household, selected, unknown scope) |
+| 4142 | errors (caught; EA's wait ran) |
+| 4143-4149 | spare |
+
+Agent `patches` switch `socialunlinkend`; read-back `socialunlinkend_ended`, `_exempt`, `_errors`. Tuning
+`kSocialUnlinkEnd` (TUNING_XML False). Self-check: `node tools/selftest/socialunlinkend/run.ts`.
+
+Test plan: Isla Paradiso and Twinbrook OFF/ON pair with `synctime` on; expect B-side `(no link)` Routed fail lines with
+minutes > 0 to drop to ~0 for NPC receivers, 4140 > 0, household receivers unchanged, no new stuck Sims or exceptions.

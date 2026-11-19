@@ -30,6 +30,7 @@ namespace Ts3Fixes
     //
     // This file also owns the two hooks it shares with the synctime test log (SyncWaitLog.cs): a method can be patched
     // once, so the wait and receive hooks run the fix first and then call the test log's helpers when synctime is on.
+    // The wait hook also runs socialunlinkend (SocialUnlinkEnd.cs, docs/650 §3), the receiver-side case.
     public static partial class Fixes
     {
         // ---- shared hooks (installed once, by whichever of socialreceivefail / the synctime test log comes first) ----
@@ -53,6 +54,7 @@ namespace Ts3Fixes
             {
                 Sim me = (Sim)(object)this;
                 if (RfCannotSync(me, targetSim, desiredSynchLevel)) { SwLogEndedEarly(me, targetSim, desiredSynchLevel); return false; }
+                if (SueCannotSync(me, targetSim, desiredSynchLevel)) return false;  // socialunlinkend (SocialUnlinkEnd.cs, docs/650 §3)
                 if (NbpCannotStart(me, targetSim, desiredSynchLevel)) return false;  // npcbusypartner (NpcBusyPartner.cs, docs/577 §4)
                 SyncLoopCallbackFunction ppw = PpwCallback(me, targetSim, desiredSynchLevel, loopCallback);  // petputdownwait (PetPutDownWait.cs, docs/578 §2)
                 if (ppw != null) { loopCallback = ppw; notifySimMinutes = 1f; }

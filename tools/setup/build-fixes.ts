@@ -263,6 +263,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kEtDerefDiag value="True" />
     <kSocialFinish value="True" />
     <kSocialReceiveFail value="True" />
+    <kSocialUnlinkEnd value="False" />
     <kPetFirePlan value="False" />
     <kSplashRoof value="False" />
     <kShuffleboardBcast value="True" />

@@ -179,6 +179,7 @@ namespace Ts3Fixes
         [Tunable] public static int kObjFailMemoFails = 2;             // objfailmemo: failed attempts (interaction instances) before the block (1..100, else 2)
         [Tunable] public static float kObjFailMemoWindowHours = 2f;    // objfailmemo: sim-hours from the first counted failure in which the attempts count
         [Tunable] public static float kObjFailMemoHours = 1f;          // objfailmemo: sim-hours a block lasts
+        [Tunable] public static bool kSocialUnlinkEnd = false;         // socialunlinkend (docs/650 §3): an NPC receiver whose SocialInteractionB lost its link (starter gone, not syncing with or aiming at it) ends its Routed / Committed sync wait at once, as the 30 min giveup would
         [Tunable] public static bool kPosturePopCycle = false;   // opt-in until verified: a posture pop that EA would turn into a two-posture loop (Compatible branch) runs the setter's unwind instead (issue #89, PosturePop.cs)
         [Tunable] public static bool kUnseenFallbackPre = true;       // on, same as the shipped tuning (2026-11-14); was: opt-in until verified: an unseen townie's own walk to an unseen lot goal is held for the walk time, then placed at the goal (no search; docs/202 §3.5)
         [Tunable] public static bool kPrePlanCallback = false;     // opt-in until measured: Route.AboutToPlanCallback runs before an async START, the job's locked-door list survives the original plan's second callback (RouteBackoff.cs PreCb, docs/185 §5)
