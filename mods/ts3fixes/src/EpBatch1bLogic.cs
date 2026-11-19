@@ -259,10 +259,17 @@ namespace Ts3Fixes
                     home = a != null && a.LotHome != null;
                     gnomes = home ? a.LotHome.GetObjects<MagicGnomeElvis>().Length : 0;
                 }
-                catch (Exception) { PatchCounters()[1444]++; CreateOrig(); return; }
+                catch (Exception) { PatchCounters()[1444]++; CreateGuarded(); return; }
                 if (!home) { PatchCounters()[guard ? 1442 : 1443]++; }
                 else if (gnomes > 0) { PatchCounters()[cap ? 1445 : 1446]++; }
-                if (EgSpawnRuns(guard, cap, home, gnomes)) CreateOrig();
+                if (EgSpawnRuns(guard, cap, home, gnomes)) CreateGuarded();
+            }
+            // daily alarm (docs/650 §1): a throw in EA's body would drop it for good
+            static void CreateGuarded()
+            {
+                try { CreateOrig(); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { EaAlarmThrew("MagicGnomeElvis.TryToCreateElvisGnome", 4111, e); }
             }
             public static void CreateOrig() { } // MagicGnomeElvis.TryToCreateElvisGnome
 

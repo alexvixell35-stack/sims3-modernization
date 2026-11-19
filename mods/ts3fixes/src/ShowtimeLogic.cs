@@ -126,7 +126,10 @@ namespace Ts3Fixes
                     }
                 }
                 catch (Exception) { PatchCounters()[2601]++; }
-                CreateOrig();
+                // EA's body throws now and then (docs/650 §1); uncaught, AlarmManager drops the daily alarm for good
+                try { CreateOrig(); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { EaAlarmThrew("NPCShowManager.CreateNPCShow", 4110, e); }
             }
             public static void CreateOrig() { }
         }

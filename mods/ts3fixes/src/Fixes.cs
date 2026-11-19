@@ -878,6 +878,7 @@ namespace Ts3Fixes
         // [4090-4093] shuffleboardnpccap (ShuffleboardNpcCap.cs, docs/647): NPC shuffleboard Plays ended at a capped round start / round starts left to EA for an exempt player / errors / autonomous re-joins refused during the cooldown.
         // [4094-4097] paparazzicooldown (PaparazziCooldown.cs, docs/648): NPC paparazzo loop callbacks skipped while both Sims are unseen (stretched route checks) / follows refused by the re-follow cooldown / follows left to EA for an exempt paparazzo or celebrity / errors. [4098-4099] free.
         // [4100-4109] npcstallend (NpcStallEnd.cs, docs/649; 4090-4099 left to feat/npcloops-c): NPC stalls ended with EA's cancel / exempt (household, selected, unknown scope) / skipped (allowed kind or busy) / errors / cancels that did not take / left to outfitwaitend (outfit wait) / cleared outfit waits ended (OutfitWait.cs) / passes; 4108-4109 spare.
+        // [4110-4111] eaalarmguard (EaAlarmGuard.cs, docs/650 §1): EA bodies under our hooks on repeating alarms that threw, caught so the alarm stays: NPC show (NPCShowManager.CreateNPCShow) / others (plant growth, venue cleanup, relationship decay, consignment magic hour, Elvis gnome).
         // [3870-3873] houseboatlegmemo (HouseboatLegMemo.cs, docs/642 §6): NPC houseboat boat-leg no-path plans recorded / repeats answered / ms of the recorded plans those answers stand for / exempt (household, selected, unknown scope, no Sim or boat router) or errors.
         // [4062-4069] boatroamcap (BoatRoamCap.cs, docs/642 §9): NPC BoatAround runs capped (no roam) / ReturnToShore pushed / returns failed (precheck, push, run or never ran; EA roams) / exempt runs / errors / returns that reached the shore / service, role or AlarmOneShot-task boating logged / caps by night or low motive.
         // [3860-3863] spotwaitattr (SpotWaitAttr.cs, docs/641): kind-2 lot-edge check waits >= 250 ms / frame-bound (one poll >= 80 % of the wait) / job-bound / frame-bound ms.
@@ -1262,9 +1263,9 @@ namespace Ts3Fixes
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 2799, then 2800-3999 (upstream #470; s74 3388-3393, s77 3394-3404),
-        // then the contributor block 4000-4089, then 4090-4109 (4090-4099 npcloops-c, 4100-4109 npcstallend), docs/registry.md), so a new fix
-        // never needs the array resized by hand.
-        const int kCounterSlots = 4110;
+        // then the contributor block 4000-4089, then 4090-4109 (4090-4099 npcloops-c, 4100-4109 npcstallend), then 4110-4119 (docs/650 own-bug fixes),
+        // docs/registry.md), so a new fix never needs the array resized by hand.
+        const int kCounterSlots = 4120;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
