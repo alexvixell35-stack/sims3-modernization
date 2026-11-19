@@ -230,12 +230,20 @@ namespace Ts3Agent
             for (int i = l.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); T t = l[i]; l[i] = l[j]; l[j] = t; }
         }
 
-        static bool StormStillQueued(Sim s)
+        // Drops pushes that left their Sim's queue (ran, failed, cancelled; Sim gone) and returns the Sims that still have one:
+        // one pass over the pushes, so the list stays bounded by what is queued now.
+        static Dictionary<Sim, bool> StormPrune()
         {
-            foreach (KeyValuePair<Sim, InteractionInstance> kv in sStormInst)
-                if (kv.Key == s)
-                    foreach (InteractionInstance ii in s.InteractionQueue.InteractionList) if (ii == kv.Value) return true;
-            return false;
+            Dictionary<Sim, bool> busy = new Dictionary<Sim, bool>();
+            sStormInst.RemoveAll(delegate(KeyValuePair<Sim, InteractionInstance> kv)
+            {
+                Sim s = kv.Key;
+                if (s == null || s.HasBeenDestroyed || s.InteractionQueue == null) return true;
+                foreach (InteractionInstance ii in s.InteractionQueue.InteractionList)
+                    if (ii == kv.Value) { busy[s] = true; return false; }
+                return true;
+            });
+            return busy;
         }
 
         // One wave: count pushes spread round-robin over kinds; each Sim at most once per wave and never while an
@@ -245,7 +253,7 @@ namespace Ts3Agent
             int wave = ++sStormWaves;
             Random rng = new Random(seed * 7919 + wave);
             StormTargets(false);
-            sStormInst.RemoveAll(kv => kv.Key == null || kv.Key.HasBeenDestroyed);
+            Dictionary<Sim, bool> busy = StormPrune();
             List<Sim> humans = StormCandidates(false, hh), pets = kinds.Contains("pets") ? StormCandidates(true, hh) : new List<Sim>();
             StormShuffle(humans, rng); StormShuffle(pets, rng);
             ShLookUp();
@@ -264,7 +272,7 @@ namespace Ts3Agent
                     int i = kind == "pets" ? pi++ : hi++;
                     if (i >= pool.Count) break;
                     Sim c = pool[i];
-                    if (taken.ContainsKey(c) || StormStillQueued(c)) continue;
+                    if (taken.ContainsKey(c) || busy.ContainsKey(c)) continue;
                     s = c; break;
                 }
                 if (s == null) { misses++; StormAdd(failed, kind); fails.Add(kind + ": no free Sim"); continue; }
