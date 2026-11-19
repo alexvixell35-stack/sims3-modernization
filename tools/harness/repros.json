@@ -69079,7 +69079,7 @@
     "bug": "docs/642 §6: an NPC stranded ~17 m off its houseboat (houseboat not Docked) gets EA's EnterHouseboatThroughBoat boat leg (PostPlanRouteCallback -> CheckAndUpdateForHouseboats, PlanFromPoint EndAsBoat + DestinationMustBeInDeepWater (+ DisablePlanningOnLand)) planned again after every plan home, ~600 ms each, always no path (IP phase-20261119-0746: Britta Colombo 18x)",
     "fix": "ts3fixes houseboatlegmemo (HouseboatLegMemo.cs): the leg's first no-path plan is recorded (3870), repeats from the same start to the same goal are answered at once (3871, ms 3872); household / selected / unknown scope exempt (3873)",
     "save": "Baseline-IP",
-    "note": "Forced. houseboat_leg_repro picks NPCs (known non-active household, houseboat residents first), a houseboat away from its dock (error if all are Docked: the gangway branch runs instead), places each 17-30 m off the houseboat's RoutingSlot_0 on the world lot (sea spots first, then land), probes each spot with EA's own leg (switch forced off for the probe) and keeps the first that finds no path, then plans the Sim's own route to the houseboat `tries` times (Plan / ReplanFromPoint). Needs an active household.",
+    "note": "Forced. houseboat_leg_repro picks NPCs (known non-active household, houseboat residents first), a houseboat away from its dock; with all Docked (Baseline-IP, phase-20261119-1005) undock (default on) moves one whose residents are all NPCs (never the active household's) off its port with EA's Houseboat.LeavePort (driver null, ends StationaryAtSea; status before/after in result.undock), error only if none qualifies (a Docked one takes the gangway, not the boat leg), places each 17-30 m off the houseboat's RoutingSlot_0 on the world lot (sea spots first, then land), probes each spot with EA's own leg (switch forced off for the probe) and keeps the first that finds no path, then plans the Sim's own route to the houseboat `tries` times (Plan / ReplanFromPoint). Needs an active household.",
     "steps": [
       {
         "cmd": "patches",
@@ -69093,9 +69093,10 @@
         "args": {
           "start": true,
           "sims": 2,
-          "tries": 4
+          "tries": 4,
+            "undock": true
         },
-        "waitS": 90,
+        "waitS": 150,
         "note": "probe spots, then 4 plans home per Sim"
       },
       {

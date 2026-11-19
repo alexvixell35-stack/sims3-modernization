@@ -46,9 +46,17 @@ namespace Ts3Agent
         static List<object> sHlrLegs;
         static readonly Dictionary<Route, int> sHlrT0 = new Dictionary<Route, int>();
 
+        // undock (default on): with every houseboat Docked, one whose residents are all NPCs (never the active household's) leaves
+        // its port with EA's own Houseboat.LeavePort (the first step of every Helm move: MoveToPort, GoCruising, AbandonPort,
+        // RouteToSlot): the dock footprint, a boat route to a 0-10 m radial goal off the gangway's lead slot, DoRoute, which ends
+        // StationaryAtSea [verified, decompiled Houseboat.cs LeavePort / DoRoute]. Driver null (no Sim at the helm, no route-fail
+        // animation). Not moved back: the test session is never saved.
+        static Houseboat sHlrUndock;
+        static Dictionary<string, object> sHlrUndockInfo;
+
         static int HlrCtr(int k) { int[] c = BgsCounters(); return c != null && c.Length > 3873 ? c[3870 + k] : -1; }
 
-        // houseboat_leg_repro {start: true, sims?: 2, tries?: 4} | {result: true} | {stop: true}
+        // houseboat_leg_repro {start: true, sims?: 2, tries?: 4, undock?: true} | {result: true} | {stop: true}
         static object HouseboatLegRepro(Args a)
         {
             RequireLive();
@@ -57,7 +65,8 @@ namespace Ts3Agent
             {
                 sHlrGen++;
                 int gen = sHlrGen, tries = Math.Max(1, (int)a.Long("tries", 4));
-                sHlrSims = HlrPick((int)a.Long("sims", 2));
+                sHlrUndock = null; sHlrUndockInfo = null;
+                sHlrSims = HlrPick((int)a.Long("sims", 2), a.Bool("undock", true));
                 sHlrDone = false; sHlrError = null;
                 for (int k = 0; k < 4; k++) sHlrBase[k] = HlrCtr(k);
                 DiagLine("houseboat_leg_repro: start, " + sHlrSims.Count + " sims, tries " + tries + ", houseboatlegmemo " + ModOn("houseboatlegmemo")
@@ -72,6 +81,7 @@ namespace Ts3Agent
                 List<object> names = new List<object>();
                 foreach (HlrSim h in sHlrSims) names.Add(h.S.FullName + ", " + h.Scope + ", houseboat " + h.HbName + " (" + h.HbStatus + (h.Resident ? ", home" : "") + ")");
                 r["sims"] = names;
+                if (sHlrUndock != null) r["undock"] = "pending: " + HlrHbName(sHlrUndock) + " (" + sHlrUndock.CurrentStatus + ")";
                 return r;
             }
             if (a.Has("stop")) { sHlrGen++; HlrUnhook(); r["stopped"] = true; return r; }
@@ -90,6 +100,7 @@ namespace Ts3Agent
                 rows.Add(o);
             }
             r["sims"] = rows;
+            r["undock"] = sHlrUndockInfo;
             return r;
         }
 
@@ -105,16 +116,44 @@ namespace Ts3Agent
             return l;
         }
 
-        static List<HlrSim> HlrPick(int n)
+        static string HlrHbName(Houseboat hb) { Lot l = hb.GetHouseboatLot(); return l != null ? l.Name : "?"; }
+
+        // a Docked houseboat whose residents are all NPCs (no active-household, selectable or selected member), with a port gangway
+        // (LeavePort needs it to move); residents among the NPC picks first, then any NPC-owned one, then an empty one
+        static Houseboat HlrUndockPick(List<Houseboat> all, List<Sim> npcs)
+        {
+            Houseboat best = null;
+            int bestRank = -1;
+            foreach (Houseboat hb in all)
+            {
+                if (hb.CurrentStatus != Houseboat.Status.Docked || hb.GetPortGangway() == null) continue;
+                Lot lot = hb.GetHouseboatLot();
+                Household h = lot != null ? lot.Household : null;
+                if (h != null && h == Household.ActiveHousehold) continue;
+                bool npcOnly = true, picked = false;
+                if (h != null)
+                    foreach (SimDescription d in h.AllSimDescriptions)
+                    {
+                        Sim s = d != null ? d.CreatedSim : null;
+                        if (d == null || (s != null && (s.IsSelectable || s == PlumbBob.SelectedActor))) { npcOnly = false; break; }
+                        if (s != null && npcs.Contains(s)) picked = true;
+                    }
+                if (!npcOnly) continue;
+                int rank = picked ? 2 : h != null ? 1 : 0;
+                if (rank > bestRank) { bestRank = rank; best = hb; }
+            }
+            return best;
+        }
+
+        static List<HlrSim> HlrPick(int n, bool undock)
         {
             List<Houseboat> all = HlrHouseboats(), sea = new List<Houseboat>();
             string seen = "";
             foreach (Houseboat hb in all)
             {
-                seen += (seen.Length > 0 ? ", " : "") + hb.GetHouseboatLot().Name + " " + hb.CurrentStatus;
+                seen += (seen.Length > 0 ? ", " : "") + HlrHbName(hb) + " " + hb.CurrentStatus;
                 if (hb.CurrentStatus != Houseboat.Status.Docked) sea.Add(hb);
             }
-            if (sea.Count == 0) throw new McpException("houseboat_leg_repro: no houseboat away from its dock (a Docked one takes the gangway, not the boat leg); houseboats: " + (seen.Length > 0 ? seen : "none"));
             List<Sim> npcs = new List<Sim>();
             foreach (Sim s in new List<Sim>(LotManager.Actors))
             {
@@ -123,6 +162,13 @@ namespace Ts3Agent
                 if (d == null || !d.IsHuman || !d.TeenOrAbove || d.IsPregnant) continue;
                 npcs.Add(s);
             }
+            if (sea.Count == 0 && undock)
+            {
+                sHlrUndock = HlrUndockPick(all, npcs);
+                if (sHlrUndock != null) sea.Add(sHlrUndock);
+            }
+            if (sea.Count == 0) throw new McpException("houseboat_leg_repro: no houseboat away from its dock (a Docked one takes the gangway, not the boat leg)"
+                + (undock ? " and none to undock (all NPC residents, a port gangway)" : ", undock off") + "; houseboats: " + (seen.Length > 0 ? seen : "none"));
             // residents of a houseboat at sea first, then any NPC with the next houseboat at sea
             List<HlrSim> picks = new List<HlrSim>();
             for (int pass = 0; pass < 2 && picks.Count < n; pass++)
@@ -235,8 +281,31 @@ namespace Ts3Agent
             return all;
         }
 
+        static void HlrUndockRun()
+        {
+            Houseboat hb = sHlrUndock;
+            Dictionary<string, object> o = Util.Obj();
+            sHlrUndockInfo = o;
+            Vector3 p0 = hb.Position;
+            o["houseboat"] = HlrHbName(hb); o["status_before"] = hb.CurrentStatus.ToString(); o["at_before"] = (int)p0.x + "," + (int)p0.z;
+            Lot lot = hb.GetHouseboatLot();
+            o["household"] = lot != null && lot.Household != null ? lot.Household.Name : null;
+            int t0 = System.Environment.TickCount;
+            bool ok = false;
+            try { ok = hb.LeavePort(null); }
+            catch (Exception e) { o["error"] = e.GetType().Name + ": " + e.Message; }
+            Vector3 p1 = hb.Position;
+            o["leave_port"] = ok; o["ms"] = unchecked(System.Environment.TickCount - t0);
+            o["status_after"] = hb.CurrentStatus.ToString(); o["at_after"] = (int)p1.x + "," + (int)p1.z; o["moved_m"] = Math.Round((p1 - p0).Length(), 1);
+            DiagLine("houseboat_leg_repro: undock " + o["houseboat"] + " (household " + (o["household"] ?? "none") + ") LeavePort " + ok + " in " + o["ms"] + " ms, "
+                + o["status_before"] + " -> " + o["status_after"] + ", moved " + o["moved_m"] + " m" + (o.ContainsKey("error") ? ", error " + o["error"] : ""));
+            foreach (HlrSim h in sHlrSims) if (h.Hb == hb) h.HbStatus = hb.CurrentStatus.ToString();
+            if (hb.CurrentStatus == Houseboat.Status.Docked) throw new McpException("undock: " + o["houseboat"] + " still Docked after LeavePort (" + ok + ")");
+        }
+
         static void HlrRun(int gen, int tries)
         {
+            if (sHlrUndock != null) HlrUndockRun();
             HlrHook();
             try
             {
