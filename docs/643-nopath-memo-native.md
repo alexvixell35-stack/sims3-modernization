@@ -42,8 +42,14 @@ the exemption, because the answer is a cached real failure.
   `HlmLegRoute`). The kind-2 legs measured in §1 are the gangway leg [inferred from s122/s123, docs/642 §6], so Mode 1 alone
   leaves them out.
 
-**Key:** routing world, agent class, all four RouteOption words, follower ObjectGuid, and the start and goal points in 0.5 m
-cells (`RouteKey`, the phase-2 cache's key, docs/11 Q5).
+**Key** (`NpmReqOf`, since the first in-game run, §6): routing world, follower ObjectGuid, agent class, all four RouteOption
+words and the route's destination set. The route is `outList - 0xE0` (Route_PlanCommon's call `0x760DCA lea edi,[esi+0xE0]`
+[verified disassembly]); its destination set at `+0x144` is hashed as ReplanDedupe does (list `+0x18`, first 0x40 bytes of each
+destination, words `+0x20..+0x40`). That is the destination EA asked for, the same on every retry; the `goals` argument holds
+the goal points Route_PlanCommon's candidate step generates for each try and is not used. The start is not in the key: the
+entry keeps the recorded first start point and a request matches only when its start is within 1 m of it (`NPM_FAR`
+otherwise: the plan runs and the entry stays). Only plans from Route_PlanCommon's call site are looked at (`notPlanCommon`
+counts the rest), which also means nothing is recorded on a build whose PlanCommon addresses are unmapped (EA 1.69 table).
 
 **Record** after the plan, when all of these hold:
 - Route_PlanLocked returned 0 and the first path's status is 7/8 (FailedBecauseNoPathToDestination, docs/93 §2.1).
@@ -56,6 +62,8 @@ cells (`RouteKey`, the phase-2 cache's key, docs/11 Q5).
   so it is recorded.
 - The world was quiet before the plan (`RtQuietWorld`: no pending lot updates) and [RouteSnap]'s static version did not move
   during the plan.
+- The plan took at least `NoPathMemoMinMs` (default 50). Cheaper failures are counted as `cheap`: answering them saves little,
+  and in the first run they filled the table (217 evictions).
 
 The entry stores the plan's sim tick, both world versions and the plan's ms.
 
@@ -118,25 +126,33 @@ which act on a NoPath result. Three things differ from vanilla:
 - The route-fail replan toward a blocker is skipped, which boattaximemo already accepts (docs/642 §3). If the world could have opened a path, the plan runs again: a static rebuild, a lot update, a water grid
 change or the TTL.
 
-Not covered: a plan whose start moves by a 0.5 m cell or more each try (a new key). The first failure is still paid.
+Not covered: a plan whose start moves by more than 1 m each try, and a retry toward a rebuilt destination set (a new key).
+The first failure is still paid.
 
 ## 4. Settings, counters, log
 
 - `ts3native.ini [RouteAsync]`:
   - `NoPathMemo=0`: 0 off, 1 water / boat, 2 every request of an NPC router. The key also turns on the [RouteSnap] counters.
   - `NoPathMemoMinutes=120`: 1-1440.
+  - `NoPathMemoMinMs=50`: 0-60000, the record threshold.
 - Needs the Route_PlanLocked detour (the key installs it) and the routing lock learned by [RouteGate] (`g_rgLock`). Without
   them, plans are counted as `refused` and run as vanilla.
 - `ts3native_nopathmemo` export:
   - `mode` at +0x00 is the runtime switch.
   - Slots 4000 recorded, 4001 served, 4002 ms the answers stand for, 4003 invalidated.
-  - Then expired, evicted, dropped, exempt, not recorded by reason, refused (docs/registry.md).
+  - Then expired, evicted, dropped, exempt, not recorded by reason, refused, and from +0x40 minMs, cheap, misses, tooFar,
+    notPlanCommon, exemptSlow (docs/registry.md).
 - Log lines, 10 a minute each:
   - `route nopath memo: recorded route %08X kind K scope S, N ms`
   - `route nopath memo: served route %08X kind K scope S, stands for N ms`
+  - `route nopath memo: miss route %08X kind K, N ms: nearest entry of this follower D m away, destination same|differs,
+    agent same|differs, options xor A B C D, recorded M ms` (or `no entry of this follower`): a recordable failure that found
+    no entry of its key or one too far. It names the key part that changed between EA's retries.
+  - `route nopath memo: exempt route %08X kind K scope S, N ms no path`: an exempt plan >= `NoPathMemoMinMs` that failed with
+    no path, to show which slow failures the scope rule keeps out.
   - `kind` is the job's IC kind on the worker, the [ProbeP10] IC on the sim thread, or -1 when not known.
   - Plus one counter line a minute: `route nopath memo: mode ... recorded ... served ...`.
-- Unit test: `TestNoPathMemo` (`nopathmemo-test.h`, in selftest) covers key, TTL, invalidation, eviction and clearing. It only
+- Unit test: `TestNoPathMemo` (`nopathmemo-test.h`, in selftest) covers key, start tolerance, TTL, invalidation, eviction, the nearest-entry lookup and clearing. It only
   needs the pure table, so it also builds as a plain C++ program.
 
 ## 5. Test
@@ -152,3 +168,19 @@ Expected:
   per answer.
 - No line has a household Sim's route. Check that `exempt` grows while the household plays.
 - Clear regression rules: AGENTS.md.
+
+## 6. First in-game run (2026-11-19, Isla Paradiso, Mode 2, ~20 min) [verified, log]
+
+Counter line at the end: `recorded 514 served 0 (0 ms) invalidated 24 expired 17 evicted 217 dropped 0 live 256, exempt 1524,
+not recorded: cut 14 sim blocker 57 world moved 34 other 3`. Why no repeat matched:
+- Key drift [inferred from code; the `miss` lines of the next run will show it]: the old key (`RouteKey`) hashed the exact start
+  points and the per-try goal points. The follower moves between EA's retries and the candidate step's goal points differ per
+  try, so a retry was a new key. Fixed by the key above.
+- The table was full of cheap failures: of the logged `recorded` lines (capped at 10 a minute) only 4 took >= 50 ms, most 0-7 ms; with 256 entries, 217 live
+  entries were evicted. Fixed by `NoPathMemoMinMs`.
+- Invalidations (24) and expiries (17) are too few to explain 0 answers.
+- The slow repeats seen in `ufplansplit` (~300 ms sync plans 60 ticks apart, e.g. on Sparkling Sands) mostly did not reach the
+  table: their `route deadline: sync plan ... failed` lines show `route 00000000`, so the plan had no scope and was exempt
+  (unknown counts as household). The sync plan after a START refused without a job seems to run after `KdScopeTake` cleared
+  the scope [inferred, not yet verified]. The new `exempt` lines count and name these plans; widening the scope is a separate
+  change. The kind-0 job plans of 240-530 ms seen were cut by KindDeadlines (`why 0 cut`) and stay unrecorded by design.

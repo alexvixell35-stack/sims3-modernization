@@ -22,8 +22,12 @@
 // no path in the list names a Sim blocker (record kind 0x14 with an id other than the follower; RouteBlockerType Vehicle is
 // never produced natively [verified 0x752620, docs/93 §2.2]), no exit cut the plan (PlanDeadlineMs / UnseenFallback session
 // skips and caps, SyncCapMs, the worker's job deadlines, a budget cap), the world was quiet (no pending lot updates) and the
-// static world version did not move during the plan. Key: routing world, agent class, the four RouteOption words, follower
-// ObjectGuid, start and goal points in 0.5 m cells (RouteKey, the phase-2 cache's key).
+// static world version did not move during the plan, and the plan took at least NoPathMemoMinMs (default 50: cheap failures
+// would evict the slow ones). Key (NpmReqOf): routing world, follower ObjectGuid, agent class, the four RouteOption words and
+// the route's destination set; the start is matched within 1 m of the recorded one. The first in-game run (Isla Paradiso,
+// 2026-11-19: recorded 514, served 0) keyed start and goal points in 0.5 m cells (RouteKey): the follower drifts between
+// tries and the candidate step's goal points differ per try, so no retry matched. Capped `miss` lines name the key part
+// that differs from the nearest entry of the same follower; `exempt` lines name slow no-path plans the scope rule kept out.
 // Answer: an identical request within TTL sim-minutes (NoPathMemoMinutes, default 120; SimClock ticks, 37.5 per sim-minute)
 // returns 0 before the lock without searching, with the result type the recorded plan had: FailedBecauseNoPathToDestination
 // (16), no blocker. Route_PlanCommon maps a 0 with an empty out list to Failed (2) (its local result's default); the one je
@@ -52,6 +56,12 @@ struct NoPathMemoCounters {
     LONG notRecorded[4];  // +0x28 failures not recorded: 0 cut, 1 Sim blocker, 2 world not quiet / version moved, 3 other status
     LONG refused;         // +0x38 eligible requests not looked up: no world version, no sim clock, not the live world, key read fault
     LONG ttlMin;          // +0x3C NoPathMemoMinutes
+    LONG minMs;           // +0x40 NoPathMemoMinMs: failures that took less are not recorded
+    LONG cheap;           // +0x44 recordable failures under minMs (not recorded)
+    LONG misses;          // +0x48 recorded failures that found no entry of their key, or one too far (the miss lines)
+    LONG tooFar;          // +0x4C look-ups whose entry's start was more than 1 m away (the plan ran)
+    LONG notPlanCommon;   // +0x50 eligible plans not from Route_PlanCommon's call site (road plans): run as vanilla
+    LONG exemptSlow;      // +0x54 exempt plans that took >= minMs and failed with no path (the exempt lines)
 };
 extern "C" __declspec(dllexport) NoPathMemoCounters ts3native_nopathmemo = {};
 
@@ -59,7 +69,8 @@ static NpmTable g_npmTab;
 static SRWLOCK g_npmLock = SRWLOCK_INIT;
 static const void* g_npmWorld;  // the routing world the table belongs to (g_npmLock)
 static uint64_t g_npmTtl;
-static volatile LONG g_npmMinute, g_npmLines[2];
+static volatile LONG g_npmMinute, g_npmLines[4];  // per minute: recorded, served, exempt, miss lines
+static const float kNpmStartM = 1.0f;  // a retry's start within this of the recorded one is the same request
 
 // SimClock.sSimTickCnt: MonoScriptHost_Simulate stores it through [this + 0xC24] (0xD81D43), this = the script host interface
 // [0x11D4BBC] (host + 8, vtable 0x108B690 whose slot 8 is Simulate 0xD81840) [verified disassembly, Steam 1.67]. Two dword
@@ -184,8 +195,59 @@ static bool NpmPcInstall() {
 
 static bool NpmLineOk(int which) {
     const LONG minute = (LONG)(GetTickCount() / 60000);
-    if (InterlockedExchange(&g_npmMinute, minute) != minute) g_npmLines[0] = g_npmLines[1] = 0;
+    if (InterlockedExchange(&g_npmMinute, minute) != minute) g_npmLines[0] = g_npmLines[1] = g_npmLines[2] = g_npmLines[3] = 0;
     return InterlockedIncrement(&g_npmLines[which]) <= 10;  // 10 lines a minute each, like boattaximemo / houseboatlegmemo
+}
+
+// the request of a plan from Route_PlanCommon's call site: route = outList - 0xE0 (0x760DCA `lea edi,[esi+0xE0]; push edi`)
+// [verified disassembly, Steam 1.67]. Destination set = the route's +0x144 container, hashed as ReplanDedupe does (its list
+// +0x18, node = destination + 4, first 0x40 bytes of each destination, then the container's words +0x20..+0x40): the
+// destination EA asked for, the same on every retry, while the goal points Route_PlanCommon's candidate step generates for each
+// try (the `goals` argument) are not. Start = the first start point (x, y, z). false = no key (no route, no destination set).
+static bool NpmReqOf(void* world, const int* outList, const int* starts, DWORD agent, const u8* opts, DWORD guidLo, DWORD guidHi,
+                     NpmReq* r) {
+    memset(r, 0, sizeof(*r));
+    __try {
+        const u8* route = (const u8*)outList - 0xE0;
+        if (*(const DWORD*)(route + 0x40) != guidLo || *(const DWORD*)(route + 0x44) != guidHi) return false;
+        const u8* ds = *(const u8* const*)(route + 0x144);
+        if (!ds) return false;
+        u64 g = 0xCBF29CE484222325ull;
+        const u8* head = ds + 0x18;
+        const u8* n = *(const u8* const*)head;
+        for (int i = 0; n && n != head && i < 16; i++, n = *(const u8* const*)n)
+            for (int w = 0; w < 16; w++) g = Fnv(g, ((const DWORD*)(n - 4))[w]);
+        for (DWORD off = 0x20; off < 0x40; off += 4) g = Fnv(g, *(const DWORD*)(ds + off));
+        r->goal = g;
+        const float* s = (const float*)(uintptr_t)starts[0];
+        if (!s || starts[1] == starts[0]) return false;
+        r->start[0] = s[0], r->start[1] = s[1], r->start[2] = s[2];
+        for (int i = 0; i < 4; i++) r->opts[i] = ((const DWORD*)(opts + 0x28))[i];
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+    r->foll = (u64)guidHi << 32 | guidLo, r->agent = agent;
+    r->key = NpmReqKey(*r, (uint64_t)(uintptr_t)world);
+    return true;
+}
+
+// capped diagnostic for a recordable failure that found no entry of its key: the nearest entry of the same follower and what
+// differs (destination set, options, agent, start distance), so a key part that changes between EA's retries shows in the log
+static void NpmMissLine(DWORD handle, int kind, const NpmReq& q, LONG planMs) {
+    NpmEntry e;
+    bool have = false;
+    AcquireSRWLockShared(&g_npmLock);
+    const NpmEntry* n = NpmTabNearest(&g_npmTab, q.foll, q.start);
+    if (n) e = *n, have = true;
+    ReleaseSRWLockShared(&g_npmLock);
+    if (!have) {
+        Log("route nopath memo: miss route %08lX kind %d, %ld ms: no entry of this follower", handle, kind, planMs);
+        return;
+    }
+    const uint32_t ox[4] = {e.req.opts[0] ^ q.opts[0], e.req.opts[1] ^ q.opts[1], e.req.opts[2] ^ q.opts[2], e.req.opts[3] ^ q.opts[3]};
+    Log("route nopath memo: miss route %08lX kind %d, %ld ms: nearest entry of this follower %.2f m away, destination %s, agent %s, "
+        "options xor %08X %08X %08X %08X, recorded %ld ms", handle, kind, planMs, sqrtf(NpmDist2(e.req.start, q.start)),
+        e.req.goal == q.goal ? "same" : "differs", e.req.agent == q.agent ? "same" : "differs", ox[0], ox[1], ox[2], ox[3], (LONG)e.ms);
 }
 
 static u8 NpmPlan(void* world, void* edx, int* outList, int* starts, int* goals, DWORD agent, DWORD doPlan, u8* opts,
@@ -204,23 +266,33 @@ static u8 NpmPlan(void* world, void* edx, int* outList, int* starts, int* goals,
     }
     if (!mode || !(water || mode == 2) || !outList || !starts || !goals || !doPlan || !(guidLo | guidHi))
         return CallPlanEo(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
+    if (t_npmRet != kNpmPlanRet) {  // not Route_PlanCommon's call (road plans): its answer could not read 16, never memoed
+        InterlockedIncrement(&c.notPlanCommon);
+        return CallPlanEo(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
+    }
     DWORD handle;
     int kind;
     const LONG scope = NpmScope(guidLo, guidHi, &handle, &kind);
+    LARGE_INTEGER t0;
     if (HhExempt(scope != 2 && scope != 3)) {
         InterlockedIncrement(&c.exempt);
-        return CallPlanEo(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
+        QueryPerformanceCounter(&t0);
+        const u8 r0 = CallPlanEo(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
+        const LONG ms0 = UsSince(t0) / 1000;
+        // which slow no-path plans the scope rule keeps out (log only): household / selected / unknown scope, or a scope answer
+        // that belongs to another follower's route
+        if (!r0 && ms0 >= c.minMs && NpmFailKind(outList, guidLo, guidHi) == 0) {
+            InterlockedIncrement(&c.exemptSlow);
+            if (NpmLineOk(2)) Log("route nopath memo: exempt route %08lX kind %d scope %ld, %ld ms no path", handle, kind, scope, ms0);
+        }
+        return r0;
     }
-    uint64_t now = 0, key = 0;
+    uint64_t now = 0;
+    NpmReq q;
     const bool live = g_rgLock && g_rgLock == (u8*)world + 0x918;  // the game's routing world, not a P5 clone
     const bool verOk = (ts3native_counters.snReady & 5) == 5, tickOk = NpmSimTick(&now);
     if (verOk && tickOk && !(c.ready & 6)) InterlockedOr(&c.ready, 6);
-    bool keyed = live && verOk && tickOk;
-    if (keyed) {
-        __try { key = Fnv(RouteKey(starts, goals, agent, opts, guidLo, guidHi), (DWORD)(uintptr_t)world); }
-        __except (EXCEPTION_EXECUTE_HANDLER) { keyed = false; }
-    }
-    if (!keyed) {
+    if (!live || !verOk || !tickOk || !NpmReqOf(world, outList, starts, agent, opts, guidLo, guidHi, &q)) {
         InterlockedIncrement(&c.refused);
         return CallPlanEo(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
     }
@@ -235,13 +307,13 @@ static u8 NpmPlan(void* world, void* edx, int* outList, int* starts, int* goals,
         if (n) InterlockedExchangeAdd(&c.invalidated, n);
         g_npmWorld = world;
     }
-    look = NpmTabLook(&g_npmTab, key, now, g_npmTtl, sver0, ver0, &ms);
-    // the plan runs and the entry stays: world not quiet, out list not empty, or a caller whose answer would not read 16
-    if (look == NPM_HIT && (!quiet || (const int*)(uintptr_t)outList[0] != outList || !(c.ready & 8) || t_npmRet != kNpmPlanRet))
-        look = -1;
+    look = NpmTabLook(&g_npmTab, q, now, g_npmTtl, sver0, ver0, kNpmStartM, &ms);
+    // the plan runs and the entry stays: world not quiet, out list not empty, or no result stub (the answer would read 2)
+    if (look == NPM_HIT && (!quiet || (const int*)(uintptr_t)outList[0] != outList || !(c.ready & 8))) look = -1;
     ReleaseSRWLockExclusive(&g_npmLock);
     if (look == NPM_INVALID) InterlockedIncrement(&c.invalidated);
     else if (look == NPM_EXPIRED) InterlockedIncrement(&c.expired);
+    else if (look == NPM_FAR) InterlockedIncrement(&c.tooFar);
     if (look == NPM_HIT) {
         InterlockedIncrement(&c.served);
         InterlockedExchangeAdd(&c.servedMs, ms);
@@ -251,7 +323,6 @@ static u8 NpmPlan(void* world, void* edx, int* outList, int* starts, int* goals,
     }
     NpmCutSnap cut;
     NpmCutBefore(cut);
-    LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     const u8 r = CallPlanEo(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
     const LONG planMs = UsSince(t0) / 1000;
@@ -262,16 +333,24 @@ static u8 NpmPlan(void* world, void* edx, int* outList, int* starts, int* goals,
     const int why = wasCut ? 0 : fk == 1 ? 1 : fk == 2 ? 3 : !quiet || sver1 != sver0 ? 2 : -1;
     if (why >= 0) {
         if (!r) InterlockedIncrement(&c.notRecorded[why]);
-        if (look == NPM_MISS || look == -1) {  // a plan of a memoed request that did not fail the memoed way: the memo is wrong now
+        if (why != 0) {  // a plan of a memoed request that did not fail the memoed way: the memo is wrong now
             AcquireSRWLockExclusive(&g_npmLock);
-            const int d = g_npmWorld == world && why != 0 ? NpmTabDrop(&g_npmTab, key) : 0;
+            const int d = g_npmWorld == world ? NpmTabDrop(&g_npmTab, q.key) : 0;
             ReleaseSRWLockExclusive(&g_npmLock);
             if (d) InterlockedIncrement(&c.dropped);
         }
         return r;
     }
+    if (planMs < c.minMs) {  // a cheap failure: answering it saves little, and recording it would evict the slow ones
+        InterlockedIncrement(&c.cheap);
+        return r;
+    }
+    if (look == NPM_MISS || look == NPM_FAR) {
+        InterlockedIncrement(&c.misses);
+        if (NpmLineOk(3)) NpmMissLine(handle, kind, q, planMs);
+    }
     AcquireSRWLockExclusive(&g_npmLock);
-    const int ev = g_npmWorld == world ? NpmTabPut(&g_npmTab, key, now, sver1, ver1, dyn, planMs) : 0;
+    const int ev = g_npmWorld == world ? NpmTabPut(&g_npmTab, q, now, sver1, ver1, dyn, planMs) : 0;
     ReleaseSRWLockExclusive(&g_npmLock);
     if (ev) InterlockedIncrement(&c.evicted);
     InterlockedIncrement(&c.recorded);
@@ -285,6 +364,7 @@ static void ReadNoPathMemo(const wchar_t* ini) {
     const int mode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"NoPathMemo", 0, ini), 0, 2);
     c.ttlMin = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"NoPathMemoMinutes", 120, ini), 1, 24 * 60);
     g_npmTtl = NpmTtlTicks(c.ttlMin);
+    c.minMs = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"NoPathMemoMinMs", 50, ini), 0, 60000);
     if (!mode) { Log("route nopath memo off (NoPathMemo=0)"); return; }
     c.mode = mode;
     c.ready = 1;
@@ -296,8 +376,9 @@ static void ReadNoPathMemo(const wchar_t* ini) {
         Log("SKIP route nopath memo: bytes at 0x%08X differ (not the Steam 1.67 Route_PlanCommon): record only, nothing answered",
             kNpmPcSite);
     }
-    Log("route nopath memo: NoPathMemo=%d NoPathMemoMinutes=%ld (%lu sim ticks), %d entries; needs the Route_PlanLocked detour "
-        "and the [RouteSnap] counters (turned on by this key)", mode, c.ttlMin, (DWORD)g_npmTtl, NPM_ENTRIES);
+    Log("route nopath memo: NoPathMemo=%d NoPathMemoMinutes=%ld (%lu sim ticks) NoPathMemoMinMs=%ld, %d entries, start within "
+        "%.1f m; needs the Route_PlanLocked detour and the [RouteSnap] counters (turned on by this key)", mode, c.ttlMin,
+        (DWORD)g_npmTtl, c.minMs, NPM_ENTRIES, kNpmStartM);
 }
 
 static void NpmLogCounters() {
@@ -307,7 +388,8 @@ static void NpmLogCounters() {
     const int live = NpmTabLive(&g_npmTab);
     ReleaseSRWLockShared(&g_npmLock);
     Log("route nopath memo: mode %ld ready %ld recorded %ld served %ld (%ld ms) invalidated %ld expired %ld evicted %ld dropped %ld "
-        "live %d, exempt %ld, not recorded: cut %ld sim blocker %ld world moved %ld other %ld, refused %ld", c.mode, c.ready,
-        c.recorded, c.served, c.servedMs, c.invalidated, c.expired, c.evicted, c.dropped, live, c.exempt, c.notRecorded[0],
-        c.notRecorded[1], c.notRecorded[2], c.notRecorded[3], c.refused);
+        "live %d, exempt %ld (slow no path %ld), not recorded: cut %ld sim blocker %ld world moved %ld other %ld cheap %ld, "
+        "refused %ld, misses %ld far %ld, not PlanCommon %ld", c.mode, c.ready, c.recorded, c.served, c.servedMs, c.invalidated,
+        c.expired, c.evicted, c.dropped, live, c.exempt, c.exemptSlow, c.notRecorded[0], c.notRecorded[1], c.notRecorded[2],
+        c.notRecorded[3], c.cheap, c.refused, c.misses, c.tooFar, c.notPlanCommon);
 }
