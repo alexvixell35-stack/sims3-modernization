@@ -3945,6 +3945,18 @@ static __declspec(thread) int t_p5bSite;     // routegate.cpp / p5b.cpp (0.34.2)
 enum { HA_LOCK, HA_OTHERLOCK, HA_JOB, HA_PLANWAIT, HA_N };
 static void HaNote(DWORD key, LONG us, int cls);  // hitchattr.cpp ([HitchAttr], per-frame sim waits)
 static void RjnWait(DWORD key, LONG us, DWORD handle);  // hitchattr.cpp ([HitchAttr] JobNameMs, docs/247 §12.4)
+// [HitchAttr] HitchMs / RouteLockMs / JobWaitLogMs (hitchsum.cpp, docs/666 §5), log only: the sim frame's waits and sync plans
+// behind the "hitch:" line, and the +0x918 wait line. Off (default): one test of these globals at each call site.
+static volatile LONG g_hsOn, g_hsLockLogUs;                    // HitchMs set / RouteLockMs in us
+static LONG g_hsJobLogUs = 300000, g_hsJobLinesPerMin = 20;    // JobWaitLogMs in us / JobWaitLinesPerMin (SwNote's line)
+static void HsJob(int site, LONG us, DWORD handle);
+static void HsOtherLock(LONG us);
+static void HsGc(LONG us);
+static void HsSync(const LONG* ph, LONG us);
+static void HsSyncMs(LONG ms);
+static void HsJobEnd(DWORD handle, DWORD seq, LONG us, LONG kind, LONG who);
+static void HsLock(DWORD key, LONG us, LONGLONG t0, DWORD holder, bool pump);
+static LONG HsLockTimed(void* lock, void* edx, const DWORD* deadline, DWORD key);
 // docs/250: every owner-thread job wait HaNote sees (lock, plan wait, job), summed always (owner thread only, plain writes),
 // with the key of the last one; gvro.cpp ([GoalValidRO] Attr) and steerro.cpp ([SteerRO] Retry) read differences of it
 static LONG g_w918Us;
@@ -4632,6 +4644,7 @@ static void ServeAsync() {
         SetX87(cw);
         _mm_setcsr(csr);
         CowJobEnd(capped);  // before the release: a waiting sim reads whether the asked job ended cut
+        if (g_hsOn | g_hsLockLogUs) HsJobEnd(j->handle, j->seq, us, j->kind, j->fb ? 1 : j->af ? 2 : 0);  // docs/666: before the release
         LockReleaseHook(j->lock, NULL);
         MwJobEnd(j->seq);
         P6wJobEnd(j->seq, us);
@@ -5067,12 +5080,13 @@ static void SwNote(int site, LONG us, bool yieldable, DWORD handle, bool own) {
     InterlockedExchangeAdd(&k.swUs[site], us);
     Max(&k.swMaxUs, us);
     if (yieldable) InterlockedIncrement(&k.swYieldable[site]);
-    if (us < 300000) return;
+    if (g_hsOn) HsJob(site, us, handle);  // docs/666: the frame's job-wait sum
+    if (us < g_hsJobLogUs) return;         // [HitchAttr] JobWaitLogMs (300)
     static const char* const kSite[SW_N] = {"runplan", "rtwait", "disc", "collect", "drop", "other"};
     static DWORD minute, lines;
     const DWORD now = GetTickCount();
     if (now - minute >= 60000) minute = now, lines = 0;
-    if (lines++ >= 20) return;
+    if (lines++ >= (DWORD)g_hsJobLinesPerMin) return;
     InterlockedIncrement(&k.swLines);
     Log("route jobs: sim waited %ld ms for a job at %s (route %08lX, %s job, task could yield %s)", us / 1000, kSite[site], handle,
         own ? "own" : "foreign", yieldable ? "yes" : "no");
@@ -5257,8 +5271,23 @@ static void RfbStackLine(DWORD handle) {
 }
 
 // kind 0 adds to the v35 counters; A10 kinds only log (v35 stays Route.Plan's)
+// [RouteAsync] LogFallbackCaller=N (docs/666 §5): the sync plan lines name their managed caller themselves: the innermost N
+// script frames (the frame records name a method whether [MonoJit] compiled it or not) and, when the IC's return address
+// lies in [MonoJit] code, that compiled method (", managed caller A < B [compiled M +0x1A]"). 0 = off.
+static LONG g_fbCaller;
+static bool FbJitName(DWORD a, char* out, int n);  // hitchsum.cpp (after monojit.cpp)
+static void RfbCallerText(char* d, int room, const void* ret) {
+    d[0] = 0;
+    if (!g_fbCaller || room < 200) return;
+    int n = sprintf_s(d, room, ", managed caller ");
+    if (FbStackText(d + n, room - n - 120, g_fbCaller) <= 0) strcpy_s(d + n, room - n, "?");
+    n = (int)strlen(d);
+    char jm[112];
+    if (ret && FbJitName((DWORD)(uintptr_t)ret, jm, sizeof(jm))) _snprintf_s(d + n, room - n, _TRUNCATE, " [compiled %s]", jm);
+}
 static void RfbNote(int why, LONG ms, const char* entry, DWORD handle, const void* ret, int kind = 0) {
     Ts3nCounters& k = ts3native_counters;
+    if (g_hsOn) HsSyncMs(ms);  // docs/666: the frame's sync plan time when no SyncPlans session splits it
     if (!kind) {
         const int g = why >= RFB_NOYIELD && why < RFB_RUNNING ? 0 : why >= RFB_RUNNING && why <= RFB_UNSTARTED ? 1 : 2;
         InterlockedExchangeAdd(&k.rfbMs[g], ms);
@@ -5271,8 +5300,10 @@ static void RfbNote(int why, LONG ms, const char* entry, DWORD handle, const voi
     if (now - g_rfbMinute >= 60000) { g_rfbMinute = now; g_rfbLines = 0; }
     if (g_rfbLines >= (DWORD)kRfbLinesPerMin) { g_rfbDropped++; return; }
     g_rfbLines++;
-    Log("route async: sync plan %ld ms, IC %s, reason %s, entry %s, route %08lX, caller %p (%lu lines rate-limited before)%s", ms,
-        kArIcName[kind], kRfbName[why], entry, handle, ret, g_rfbDropped, t_fbCapHit ? ", capped (SyncCapMs)" : "");
+    char mc[420];
+    RfbCallerText(mc, sizeof(mc), ret);
+    Log("route async: sync plan %ld ms, IC %s, reason %s, entry %s, route %08lX, caller %p (%lu lines rate-limited before)%s%s", ms,
+        kArIcName[kind], kRfbName[why], entry, handle, ret, g_rfbDropped, t_fbCapHit ? ", capped (SyncCapMs)" : "", mc);
     g_rfbDropped = 0;
     RfbStackLine(handle);
 }
@@ -6017,13 +6048,18 @@ static LONG LockAcquireAsync(void* lock, void* edx, const DWORD* deadline, DWORD
     static const DWORD kTry = 0;
     if (*deadline == 0 || GetCurrentThreadId() != g_async.owner || !AsyncBusy()) {
         // v85: a +0x918 wait inside the locomotion pass with no job at all (who else holds it: EA threads, sync worker plans)
-        if (*deadline == 0 || lock != g_rgLock || !H2InPass()) return P5bLock(lock, edx, deadline);
+        if (*deadline == 0 || lock != g_rgLock) return P5bLock(lock, edx, deadline);
+        // docs/666: with HitchMs / RouteLockMs the sim / main thread's acquire is timed (the same single call)
+        if (!H2InPass()) return (g_hsOn | g_hsLockLogUs) ? HsLockTimed(lock, edx, deadline, key) : P5bLock(lock, edx, deadline);
         LONG r = P5bLock(lock, edx, &kTry);
         if (r != -2) return r;
+        const DWORD h2Holder = (g_hsOn | g_hsLockLogUs) ? LockOwnerTid(lock) : 0;
         LARGE_INTEGER t0;
         QueryPerformanceCounter(&t0);
         r = P5bLock(lock, edx, deadline);
-        H2LockWait(false, UsSince(t0));
+        const LONG h2Us = UsSince(t0);
+        H2LockWait(false, h2Us);
+        if (g_hsOn | g_hsLockLogUs) HsLock(key, h2Us, t0.QuadPart, h2Holder, false);
         return r;
     }
     const int p6wSite = t_p5bSite;  // [P6Waits]: before P5bLock, which clears it on a gate-0 miss
@@ -6032,6 +6068,7 @@ static LONG LockAcquireAsync(void* lock, void* edx, const DWORD* deadline, DWORD
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     const DWORD mwTok = MwSeqNow();
+    const DWORD hsHolder = (g_hsOn | g_hsLockLogUs) && lock == g_rgLock ? LockOwnerTid(lock) : 0;  // docs/666: who holds +0x918
     LONG serveN = 0, serveUs = 0;  // [P6Waits]: the job's host calls served inside this wait
     const bool h2Running = g_async.state == A_RUNNING;  // v85 split: a running job vs one queued / held by the window
     InterlockedIncrement(&ts3native_counters.asyncPumpWaits);
@@ -6086,6 +6123,10 @@ static LONG LockAcquireAsync(void* lock, void* edx, const DWORD* deadline, DWORD
             Log("route async: sim waited %ld ms on lock %p (route lock), last job seen route %08lX: %s", waited / 1000, lock, lwHandle, lwHandle ? lwJob : "none");
     }
     InterlockedExchangeAdd(&ts3native_counters.asyncPumpUs, waited);
+    if (g_hsOn | g_hsLockLogUs) {  // docs/666: the frame's lock sums and the "route lock wait:" line
+        if (hold) HsLock(key, waited, t0.QuadPart, hsHolder, true);
+        else if (!g_hoOn) HsOtherLock(waited);  // with Holders on, HoAcquire counts it
+    }
     WaitNote(key, waited, mwTok);
     HaNote(key, waited, hold ? HA_LOCK : HA_OTHERLOCK);
     if (hold && serveN) InterlockedExchangeAdd(&ts3native_counters.p6wServeN, serveN), InterlockedExchangeAdd(&ts3native_counters.p6wServeUs, serveUs);
@@ -6113,6 +6154,8 @@ static int ReadRouteAsync(const wchar_t* ini) {
     const int capMs = GetPrivateProfileIntW(L"RouteAsync", L"SyncCapMs", 0, ini);
     ts3native_counters.fbCapUs = capMs > 0 ? Clamp(capMs, 50, 60000) * 1000 : 0;
     g_fbStackFrames = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"LogFallbackStack", 0, ini), 0, 16);
+    g_fbCaller = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"LogFallbackCaller", 0, ini), 0, 8);  // docs/666 §5
+    if (g_fbCaller) Log("route async: LogFallbackCaller=%ld: sync plan lines name their managed caller", g_fbCaller);
     ts3native_counters.fbRetryMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"M1Retry", 0, ini), 0, 1);
     const int jobCapMs = GetPrivateProfileIntW(L"RouteAsync", L"FbJobCapMs", 0, ini);  // docs/134 §10
     ts3native_counters.fbjcCapUs = jobCapMs > 0 ? Clamp(jobCapMs, 50, 60000) * 1000 : 0;
@@ -6479,6 +6522,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "float5free.cpp"  // docs/539 §19: [Float5Free] float-5 pointers at EA Free / deque dtor 0x727E10, CRASH-TRIAGE (needs uafcheck.cpp, slotguard.cpp)
 #include "f5watch.cpp"     // docs/539 §21: [Float5Sticky] / [Float5Watch] float-5 writer catch, CRASH-TRIAGE (needs uafcheck, slotguard, float5free, watchpt, crashev)
 #include "stallwatch.cpp"  // docs/67 §25: [StallWatch] sim stall sampler (needs crashreport.cpp, castrim.cpp, simloop.cpp, userdiag.cpp)
+#include "hitchsum.cpp"    // docs/666 §5: [HitchAttr] HitchMs / RouteLockMs / JobWaitLogMs (needs stallwatch.cpp, hitchattr.cpp, syncphases.cpp, memexp.cpp)
 #include "c2diag.cpp"      // docs/259 §9: [Crash2Diag] route destination list lifetime detector, CRASH-TRIAGE (after autshadow.cpp: g_arGate; values.cpp: PvSwClass)
 #include "monosig.cpp"     // docs/539 §20: [MonoSigGuard] EA bug, delegate signature param_count before params[0] at 0xD70F90 (release ini on)
 #include "bindertd.cpp"    // docs/537 §20.3 E1: [Binder] TypeHandleDirect, GetTypeFromHandle's EA body reads the handle (no n2m call)
@@ -6713,6 +6757,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyUnseenTable(ini) || keepLog;  // docs/227 §6: no call sites; a sim-pump callback and the UnObjClass hook
         keepLog = ApplyRouteJobPhases(ini) || keepLog;  // docs/150 §7: after every owner of a phase site (observe only)
         keepLog = ApplyCellMemoProbe(ini) || keepLog;   // docs/150 §12: after [RouteJobPhases] (its job window and cell A* frame)
+        keepLog = ApplyHitchSum(ini) || keepLog;        // docs/666 §5: after [RouteJobPhases] (SyncPlans) and [HitchAttr] Holders (log only, off)
         InstallRouteSpeed(ini);  // docs/663: after [RouteSnap] (tree-write sequence) and [RouteGate] (the Q table clear stub)
         keepLog = ApplyHostCalls(ini) || keepLog;       // docs/159: after [RouteJobPhases] (rjpReady) and P4 / [ProbeValues] (door chain)
         keepLog = ApplyVerify(ini) || keepLog;  // last: probes skip whatever another section already hooked
