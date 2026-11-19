@@ -98,6 +98,7 @@ namespace Ts3Fixes
                     foreach (Sim s in drop)  // after the walk: UnregisterSim changes the dictionary
                     {
                         pc.UnregisterSim(s);
+                        ElrAfter(pc, s, true, "owelevidle's idle drop");  // docs/658 §7.1 elevatorlightrig: OnEnterElevator set the CAS rig
                         c[4150]++;
                         OeiLog(s.FullName + ", elevator " + ei.ObjectId + ": idle entry dropped, no Overwatch reset");
                     }
