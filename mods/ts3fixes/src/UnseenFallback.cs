@@ -299,12 +299,12 @@ namespace Ts3Fixes
             return UfCamAsk(3, p.x) && UfCamAsk(4, p.y) && UfCamAsk(5, p.z) && UfCamAsk(6, r);
         }
         // unseenhouseboatview (default off): -1 = does not apply (not a houseboat lot, the active household's lot, the camera's lot, or no display
-        // mapping: the old rules decide); else 0 = unseen, kOnScreen / kNearViewers = seen. Counters (the four counted sites together): [4060] asked,
-        // [4061] answered otherwise than the old rule. The old rule's answer (80 m / reach at the hidden position, the lot circle) is computed
-        // only for [4061]. First 20 lines "ufhbview:".
+        // mapping: the old rules decide); else 0 = unseen, kOnScreen / kNearViewers = seen. Counters (the four counted sites together): [4084] asked,
+        // [4085] answered otherwise than the old rule. The old rule's answer (80 m / reach at the hidden position, the lot circle) is computed
+        // only for [4085]. First 20 lines "ufhbview:".
         static int sUfHbvLogged, sUfHbvLogged2;
         // unseenhouseboatview at the other sites (TownieUnseenBody, UfSimSeen, UfGoalUnseen, UfLotSeen): the same rule, EA's on-screen byte for a Sim, then the
-        // scope rule's position test (camera frustum / reach and the 80 m household-viewer rule) at the shown position. Counters [4060] / [4061] as above. First 40 lines "ufhbview:" (shared).
+        // scope rule's position test (camera frustum / reach and the 80 m household-viewer rule) at the shown position. Counters [4084] / [4085] as above. First 40 lines "ufhbview:" (shared).
         static bool UfHbvShown(Sim s, out Vector3 shown)
         {
             shown = Vector3.Invalid;
@@ -325,11 +325,11 @@ namespace Ts3Fixes
             Vector3 shown;
             if (!UfHbvShown(sim, out shown)) return -1;
             int[] c = PatchCounters();
-            c[4060]++;
+            c[4084]++;
             bool seen = HbvCore.Why(UcOnScreen(sim), UfPosUnseen(shown, kUfSimRadiusM)) != 0;
             int b = UtbBits(sim);
             bool oldUnseen = b >= 0 ? UtbUnseen(b) : !UcOnScreen(sim) && FarFromViewers(sim.Position);
-            if (oldUnseen == seen) { c[4061]++; UfHbvLog("TownieUnseen", sim.FullName + " on '" + sim.LotCurrent.Name + "', shown " + V(shown) + ", " + (seen ? "seen" : "unseen") + " (old " + (oldUnseen ? "unseen" : "seen") + ")"); }
+            if (oldUnseen == seen) { c[4085]++; UfHbvLog("TownieUnseen", sim.FullName + " on '" + sim.LotCurrent.Name + "', shown " + V(shown) + ", " + (seen ? "seen" : "unseen") + " (old " + (oldUnseen ? "unseen" : "seen") + ")"); }
             return seen ? 0 : 1;
         }
         static bool UfHbvSimSeen(Sim t, out bool seen)
@@ -338,11 +338,11 @@ namespace Ts3Fixes
             Vector3 shown;
             if (!UfHbvShown(t, out shown)) return false;
             int[] c = PatchCounters();
-            c[4060]++;
+            c[4084]++;
             seen = HbvCore.Why(UcOnScreen(t), UfPosUnseen(shown, kUfSimRadiusM)) != 0;
             int b = CameraController.IsMapViewModeEnabled() ? -1 : UtbBits(t);
             bool old = b < 0 ? UcOnScreen(t) || !UfPosUnseen(t.Position, kUfSimRadiusM) : (b & (kUtbOnScreen | kUtbReach | kUtbViewer)) != 0;
-            if (old != seen) { c[4061]++; UfHbvLog("UfSimSeen", t.FullName + " on '" + t.LotCurrent.Name + "', shown " + V(shown) + ", " + (seen ? "seen" : "unseen") + " (old " + (old ? "seen" : "unseen") + ")"); }
+            if (old != seen) { c[4085]++; UfHbvLog("UfSimSeen", t.FullName + " on '" + t.LotCurrent.Name + "', shown " + V(shown) + ", " + (seen ? "seen" : "unseen") + " (old " + (old ? "seen" : "unseen") + ")"); }
             return true;
         }
         // goal point on a houseboat lot (hidden coordinates): -1 = not applicable, 1 = unseen, 0 = seen
@@ -352,13 +352,13 @@ namespace Ts3Fixes
             Vector3 shown;
             if (gl == null || !HbvCore.Applies(gl.IsHouseboatLot(), gl == Household.ActiveHouseholdLot, gl == UfCameraLot()) || !World.GetWorldToHouseboatDisplayPosition(gl.LotId, goal, out shown)) return -1;
             int[] c = PatchCounters();
-            c[4060]++;
+            c[4084]++;
             bool unseen = UfPosUnseen(shown, kUfSimRadiusM) && !UfLotSeen(gl);
             Vector3 lc;
             float lr;
             UfLotShape(gl, Sims3.Gameplay.Utilities.SimClock.CurrentTicks, out lc, out lr);
             bool oldUnseen = UfPosUnseen(goal, kUfSimRadiusM) && UfPosUnseen(lc, lr);
-            if (oldUnseen != unseen) { c[4061]++; UfHbvLog("UfGoalUnseen", "goal on '" + gl.Name + "', hidden " + V(goal) + ", shown " + V(shown) + ", " + (unseen ? "unseen" : "seen") + " (old " + (oldUnseen ? "unseen" : "seen") + ")"); }
+            if (oldUnseen != unseen) { c[4085]++; UfHbvLog("UfGoalUnseen", "goal on '" + gl.Name + "', hidden " + V(goal) + ", shown " + V(shown) + ", " + (unseen ? "unseen" : "seen") + " (old " + (oldUnseen ? "unseen" : "seen") + ")"); }
             return unseen ? 1 : 0;
         }
         static int UfHbvSeen(Sim s)
@@ -366,7 +366,7 @@ namespace Ts3Fixes
             Lot lot = s.LotCurrent;
             if (lot == null || !HbvCore.Applies(lot.IsHouseboatLot(), lot == Household.ActiveHouseholdLot, lot == UfCameraLot())) return -1;
             int[] c = PatchCounters();
-            c[4060]++;
+            c[4084]++;
             Vector3 shown;
             if (!World.GetWorldToHouseboatDisplayPosition(lot.LotId, s.Position, out shown)) return -1;
             bool onScreen = UcOnScreen(s);
@@ -376,7 +376,7 @@ namespace Ts3Fixes
             UfLotShape(lot, Sims3.Gameplay.Utilities.SimClock.CurrentTicks, out lc, out lr);
             bool oldSeen = onScreen || !UfPosUnseen(s.Position, kUfSimRadiusM) || !UfPosUnseen(lc, lr);
             int k = HbvCore.Class(why, oldSeen);
-            if (k == 1) c[4061]++;
+            if (k == 1) c[4085]++;
             if (sUfHbvLogged < 20)
             {
                 sUfHbvLogged++;
@@ -935,7 +935,6 @@ namespace Ts3Fixes
                 int t = UfGhostCore.Tier(true, prev, UfCamDist(sim.Position), gd, Instantiator.kUnseenGhostMediumM, Instantiator.kUnseenGhostGoalM);
                 if (sUfMedium.Count >= 512) sUfMedium.Clear();
                 sUfMedium[id] = t == UfGhostCore.kMedium;
-                if (t == UfGhostCore.kMedium) PatchCounters()[4058]++;  // medium-tier decisions, all sites
                 if (sUfTierLogged < 80)
                 {
                     sUfTierLogged++;
@@ -972,7 +971,6 @@ namespace Ts3Fixes
             f.y = 0f;
             PlaceSim(sim, p, f.LengthSqr() > 0.01f ? f / f.Length() : sim.ForwardVector, "unseenfbghost step");
             g.LastStep = idx;
-            PatchCounters()[548]++;
             return true;
         }
         // camera turned to the Sim: onto its virtual point (the jump is at most the steps since the last placement)
@@ -987,7 +985,6 @@ namespace Ts3Fixes
                 PlaceSim(sim, g.P[si], f.LengthSqr() > 0.01f ? f / f.Length() : sim.ForwardVector, "unseenfbghost snap");
                 g.LastStep = si;
             }
-            PatchCounters()[544]++;
         }
         static string sUfHoldWhy;  // why the last UfHold ended (docs/202 §3.9 snap-back reads "seen or moved")
         static bool UfHold(Sim sim, Vector3 dest, float minutes) { return UfHold(sim, dest, minutes, null); }
@@ -1001,7 +998,7 @@ namespace Ts3Fixes
             Sims3.Gameplay.Interactions.InteractionInstance cur = sim.CurrentInteraction;
             Vector3 at = sim.Position;
             long begin = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
-            if (g != null) { c[542]++; if ((int)minutes > c[549]) c[549] = (int)minutes; }
+            if (g != null) c[4058]++;  // unseenfbghost: holds with a ghost line
             ulong id = sim.ObjectId.Value;
             var holds = UfHolds();
             holds[id] = until;
@@ -1685,7 +1682,7 @@ namespace Ts3Fixes
             // unseenfbnosync (default off): a marked kind-0 plan of an unseen Sim that was about to run on the sim thread (ts3native refused the
             // async START) skips that search: the G3 recovery runs instead (far: hold, place at H; medium: ghost) with its proof gates; false =
             // not done, the plan runs as today. Never for seen, household or no-household Sims (UfTierOf), nor a nested call (sUfMarked
-            // is cleared first, so the recovery's own plan cannot come back here). Counters [4084] asked, [4085] recovered, [4086] refused.
+            // is cleared first, so the recovery's own plan cannot come back here). Counters [4086] asked, [4087] recovered (refused = asked - recovered).
             // Only UfOwnStartRefused's case can pass UfCutProof's async test, so every other plan (jig pending was 27 of the first 40 in
             // ghost4) is refused on that cheap test, before any camera, scope, colour or lot call.
             bool UfNoSync(Sim sim, out RoutePlanResult r)
@@ -1693,15 +1690,14 @@ namespace Ts3Fixes
                 r = default(RoutePlanResult);
                 if (sim == null || !ShortcutOn("unseenfbnosync")) return false;
                 int[] c = PatchCounters();
-                c[4084]++;
+                c[4086]++;
                 if (!UfOwnStartRefused(sim) || sUfGhostGuard.Blocked(sim.ObjectId.Value, System.Environment.TickCount)
-                    || !UfGhostCore.UnseenForTier(sim.IsSelectable, sim.Household != null, sim.Household == Household.ActiveHousehold)) { c[4086]++; return false; }
+                    || !UfGhostCore.UnseenForTier(sim.IsSelectable, sim.Household != null, sim.Household == Household.ActiveHousehold)) return false;
                 Vector3 dest = GetApproximateOriginalDestination();
                 int tier = UfTierOf(sim, dest, "nosync");
-                if (!UfGhostCore.NoSyncTier(tier) || UfWhy(sim) != 0 || !MayYield() || !UfCutProof(sim, dest)) { c[4086]++; return false; }
+                if (!UfGhostCore.NoSyncTier(tier) || UfWhy(sim) != 0 || !MayYield() || !UfCutProof(sim, dest)) return false;
                 sUfMarked = null;
-                if (UfGhostCut(sim, dest, out r, tier == UfGhostCore.kMedium && ShortcutOn("unseenfbghost"))) { c[4085]++; return true; }
-                c[4086]++;
+                if (UfGhostCut(sim, dest, out r, tier == UfGhostCore.kMedium && ShortcutOn("unseenfbghost"))) { c[4087]++; return true; }
                 return false;
             }
 
@@ -1725,14 +1721,14 @@ namespace Ts3Fixes
             // PlanBackoffBody), (2) the flood colours prove start and goal are one component (a goal in another component is a full-map
             // search that fails: that is what a cut plan usually is). No SafeSpot verdict is asked: the Sim is placed at H (outdoor routable ground,
             // 8-15 m before the goal) and the last leg is a real plan, so a failure is an ordinary route failure. Anything else: the cut stands.
-            // Counter [4059] refused (no async start, or colour not proven).
+            // Counter [4061] refused (no async start, or colour not proven).
             bool UfCutProof(Sim sim, Vector3 dest)
             {
                 int[] c = PatchCounters();
                 string why = null;
                 Lot goalLot = LotManager.GetLotAtPoint(dest);
-                if (!AsyncEligible(sim, "asyncroute")) { c[4059]++; why = "no async start"; }
-                else if (UfSameComponent(sim, sim.Position, dest, goalLot) <= 0) { c[4059]++; why = "colour not proven"; }
+                if (!AsyncEligible(sim, "asyncroute")) { c[4061]++; why = "no async start"; }
+                else if (UfSameComponent(sim, sim.Position, dest, goalLot) <= 0) { c[4061]++; why = "colour not proven"; }
                 if (why != null && sUfTierLogged < 160) { sUfTierLogged++; DiagLine("ufghost: cut refused, " + sim.FullName + ", " + why); }
                 return why == null;
             }
@@ -1758,12 +1754,11 @@ namespace Ts3Fixes
                     h.y = World.GetTerrainHeight(h.x, h.z);
                     if ((h - start).Length() >= UfGhostCore.kMinLegM && UfOutdoorGround(h) && IsPointRoutable(h) && UfGoalUnseen(h)) return true;
                 }
-                PatchCounters()[545]++;
                 h = Vector3.Invalid;
                 return false;
             }
             // the ghost's line S -> H: the Sim starts outdoors on the ground (constraint 1), the line's interior samples are outdoor routable
-            // ground (constraint 2); null = no ghost (counter 546), the caller keeps the stand-still hold or plans normally
+            // ground (constraint 2); null = no ghost, the caller keeps the stand-still hold or plans normally
             UfGhostLine UfGhostLineTo(Vector3 s, Vector3 h)
             {
                 Vector3[] p = UfGhostPolyline(s, h);
@@ -1773,7 +1768,7 @@ namespace Ts3Fixes
                     Vector3 q = p[UfGhostCore.ShapeIndex(i, UfGhostCore.kShapeSamples, p.Length)];
                     if (!UfOutdoorGround(q) || !IsPointRoutable(q)) bad++;
                 }
-                if (!UfGhostCore.ShapeOk(bad, UfGhostCore.kShapeSamples)) { PatchCounters()[546]++; return null; }
+                if (!UfGhostCore.ShapeOk(bad, UfGhostCore.kShapeSamples)) return null;
                 UfGhostLine g = new UfGhostLine();
                 g.P = p;
                 g.Routable = delegate(Vector3 q) { return IsPointRoutable(q); };
@@ -1783,8 +1778,8 @@ namespace Ts3Fixes
             void UfGhostDone(Sim sim, RoutePlanResult r, bool cut)
             {
                 int[] c = PatchCounters();
-                c[543]++;
-                if (cut || r.mType != RoutePlanResultType.Succeeded) { c[547]++; sUfGhostGuard.Mark(sim.ObjectId.Value, System.Environment.TickCount); }
+                c[4059]++;
+                if (cut || r.mType != RoutePlanResultType.Succeeded) { c[4060]++; sUfGhostGuard.Mark(sim.ObjectId.Value, System.Environment.TickCount); }
             }
             // G3 medium: ghost to H, place, and plan the last leg (marked: a cut leg is cut again by phase A, never ghosted again)
             bool UfGhostCut(Sim sim, Vector3 dest, out RoutePlanResult r, bool ghost)

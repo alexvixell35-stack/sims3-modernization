@@ -423,9 +423,8 @@ namespace Ts3Agent
                 for (int i = 0; i < vn.Length; i++) r[vn[i]] = c[466 + i];
             }
             if (c.Length > 541) { r["autliveguard_windows"] = c[538]; r["autliveguard_skipwindows"] = c[539]; r["autliveguard_skipped"] = c[540]; r["autliveguard_ratio_pm"] = c[541]; } // AutLive.cs cost guard (docs/124 §17.10)
-            if (c.Length > 549) { r["unseenfbghost_holds"] = c[542]; r["unseenfbghost_shortcuts"] = c[543]; r["unseenfbghost_snapped"] = c[544]; r["unseenfbghost_no_spot"] = c[545]; r["unseenfbghost_rj_shape"] = c[546]; r["unseenfbghost_lastfail"] = c[547]; r["unseenfbghost_steps"] = c[548]; r["unseenfbghost_max_min"] = c[549]; } // D-ghost walk (UnseenFallback.cs, docs/202 §3.10)
-            if (c.Length > 4061) { r["unseenfbghost_medium"] = c[4058]; r["unseenfbghost_g3_refused"] = c[4059]; r["unseenhouseboatview_asked"] = c[4060]; r["unseenhouseboatview_changed"] = c[4061]; } // unseenfbghost tiers and G3 refusals, unseenhouseboatview (docs/202 §3.10)
-            if (c.Length > 4089) { r["unseenfbnosync_asked"] = c[4084]; r["unseenfbnosync_recovered"] = c[4085]; r["unseenfbnosync_refused"] = c[4086]; r["safespotplanyield_yields"] = c[4087]; r["safespotplanyield_given_up"] = c[4088]; r["safespotplanyield_not_yielded"] = c[4089]; } // unseenfbnosync (RouteBackoff.cs), safespotplanyield (Fixes.cs SafeSpot)
+            if (c.Length > 4061) { r["unseenfbghost_holds"] = c[4058]; r["unseenfbghost_shortcuts"] = c[4059]; r["unseenfbghost_lastfail"] = c[4060]; r["unseenfbghost_g3_refused"] = c[4061]; } // unseenfbghost (UnseenFallback.cs, docs/202 §3.10)
+            if (c.Length > 4089) { r["unseenhouseboatview_asked"] = c[4084]; r["unseenhouseboatview_changed"] = c[4085]; r["unseenfbnosync_asked"] = c[4086]; r["unseenfbnosync_recovered"] = c[4087]; r["safespotplanyield_yields"] = c[4088]; r["safespotplanyield_given_up"] = c[4089]; } // unseenhouseboatview, unseenfbnosync (RouteBackoff.cs), safespotplanyield (Fixes.cs SafeSpot), docs/202 §3.10
             if (c.Length > 574) // AutLive.cs autlivelate (docs/217 L1) and G8 counters (docs/124 §8)
             {
                 string[] ln = { "autlivelate_slices", "autlivelate_ref_age", "autlivelate_ref_epoch", "autlivelate_ref_state", "autlivelate_ref_lot",

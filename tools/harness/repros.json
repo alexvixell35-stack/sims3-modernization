@@ -47332,7 +47332,7 @@
         "note": "away from the household and the camera"
       }
     ],
-    "expect": "no crash, 0 watchdog lines, no stuck Sim, no Sim placed on another island it could not reach; on arms: unseenfbghost_holds / _shortcuts and unseenfbghost_medium move, unseenfbghost_lastfail stays small; off arms: normal plans",
+    "expect": "no crash, 0 watchdog lines, no stuck Sim, no Sim placed on another island it could not reach; on arms: unseenfbghost_holds and _shortcuts move, unseenfbghost_lastfail stays small; off arms: normal plans",
     "loop": {
       "steps": [
         {
