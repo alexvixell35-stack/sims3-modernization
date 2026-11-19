@@ -35,6 +35,14 @@ namespace Ts3Fixes
 
         public partial class RouteBackoffHook
         {
+            // the leg's goal for the memo key: a radial-range leg that found no path has no original destination (Invalid):
+            // then the key is router + start alone (the leg always aims at the router's own houseboat slot)
+            Vector3 HlmGoal()
+            {
+                Vector3 g = GetApproximateOriginalDestination();
+                return g == Vector3.Invalid || float.IsNaN(g.x) || float.IsInfinity(g.x) ? Vector3.Origin : g;
+            }
+
             // EnterHouseboatThroughBoat's leg options (the only EA PlanFromPoint that sets all three)
             bool HlmLegRoute()
             {
@@ -78,7 +86,7 @@ namespace Ts3Fixes
                     ulong id = HlmRouter(out name);
                     if (id == 0) { c[3873]++; return false; }
                     leg = id;
-                    Vector3 g = GetApproximateOriginalDestination();
+                    Vector3 g = HlmGoal();
                     HouseboatLegMemoCore.Entry e;
                     if (!sHlm.Hit(id, start.x, start.y, start.z, g.x, g.y, g.z, SimClock.CurrentTicks, out e)) return false;
                     c[3871]++;
@@ -104,7 +112,7 @@ namespace Ts3Fixes
                         + " endboat " + GetOption2(Sims3.SimIFace.Route.RouteOption2.EndAsBoat)
                         + " deep " + GetOption2(Sims3.SimIFace.Route.RouteOption2.DestinationMustBeInDeepWater)
                         + " noland " + GetOption2(Sims3.SimIFace.Route.RouteOption2.DisablePlanningOnLand)
-                        + ", follower " + (t != null ? t.GetType().Name : "null") + (sim != null ? " " + sim.FullName + (HouseholdExempt(sim) ? " exempt" : " npc") : ""));
+                        + ", goal " + (HlmGoal() == Vector3.Origin ? "none" : "set") + ", follower " + (t != null ? t.GetType().Name : "null") + (sim != null ? " " + sim.FullName + (HouseholdExempt(sim) ? " exempt" : " npc") : ""));
                 }
                 catch (Exception ex) { HlmLog("skip error " + ex.GetType().Name); }
             }
@@ -112,13 +120,16 @@ namespace Ts3Fixes
             // after the plan ran (leg != 0 from HlmPre): record a no-path failure that no Sim or vehicle blocked, and no cut
             void HlmPost(ulong leg, Vector3 start, RoutePlanResult r, int ms, bool cut)
             {
-                if (leg == 0 || cut || r.mType != RoutePlanResultType.FailedBecauseNoPathToDestination
-                    || r.mBlockerType == RouteBlockerType.Sim || r.mBlockerType == RouteBlockerType.Vehicle) return;
+                if (leg == 0 || r.mType != RoutePlanResultType.FailedBecauseNoPathToDestination) return;
+                if (cut || r.mBlockerType == RouteBlockerType.Sim || r.mBlockerType == RouteBlockerType.Vehicle)
+                {
+                    HlmLog("skip record " + ms + " ms, " + (cut ? "cut" : "blocker " + r.mBlockerType));
+                    return;
+                }
                 int[] c = PatchCounters();
                 try
                 {
-                    Vector3 g = GetApproximateOriginalDestination();
-                    if (g == Vector3.Invalid || g == Vector3.Origin) return;
+                    Vector3 g = HlmGoal();
                     long life = SimClock.ConvertToTicks(Instantiator.kHouseboatLegMemoHours, TimeUnit.Hours);
                     sHlm.Record(leg, start.x, start.y, start.z, g.x, g.y, g.z, SimClock.CurrentTicks, life, ms);
                     c[3870]++;
