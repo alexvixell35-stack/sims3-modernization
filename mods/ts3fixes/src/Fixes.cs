@@ -1278,9 +1278,9 @@ namespace Ts3Fixes
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 2799, then 2800-3999 (upstream #470; s74 3388-3393, s77 3394-3404),
-        // then the contributor block 4000-4089, then 4090-4129 (4090-4099 npcloops-c, 4100-4109 npcstallend, 4110-4119 another branch, 4120-4129 objfailmemo, 4130-4139 another branch, 4140-4149 socialunlinkend, 4150-4169 other branches, 4170-4199 docs/656 pets), docs/registry.md), so a new fix
+        // then the contributor block 4000-4089, then 4090-4129 (4090-4099 npcloops-c, 4100-4109 npcstallend, 4110-4119 another branch, 4120-4129 objfailmemo, 4130-4139 another branch, 4140-4149 socialunlinkend, 4150-4169 other branches, 4170-4199 docs/656 pets, 4200-4219 other branches, 4220-4249 docs/661 lot gameplay), docs/registry.md), so a new fix
         // never needs the array resized by hand.
-        const int kCounterSlots = 4200;
+        const int kCounterSlots = 4250;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
