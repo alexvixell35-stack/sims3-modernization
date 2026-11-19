@@ -505,6 +505,7 @@ namespace Ts3Fixes
                 case "wildflowertask": return EpLive(typeof(WildflowerTaskHook), 0, "sWfLots", sWfLots, null, "sWfLots", sWfLots, "static", "sWfClear", sWfClear, 0);
                 case "wildherdmother": return EpLive(typeof(WildHerdMotherHook), 0, "sWhMother", sWhMother, typeof(ulong), "sWhMother", sWhMother, null);
                 case "wildhorsegender": return EpLive(typeof(WildHorseGenderHook), 0);
+                case "wildlotskip": return EpJoin(EpLive(typeof(WlsAnimalHook), 2), EpLive(typeof(WlsHerdHook), 1));
                 case "wishfeedbackkeep": return EpLive(typeof(W86FeedbackHook), 1);
                 case "wishsubjectgone": return EpLive(typeof(W86MgrHook), 3);
                 case "wishupdatelost": return EpLive(typeof(W86MgrHook), 3);
