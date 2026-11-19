@@ -1,4 +1,4 @@
-# 667: route storm, short forced-routing test arms
+# 668: route storm, short forced-routing test arms
 
 Date: 2026-11-19. Status: built, first runs queued (s141-s143).
 
@@ -56,7 +56,11 @@ which).
   - game hitches >= 150 ms (count / ms) and >= 500 ms;
   - slow plans (`ufplan` lines) and those >= 300 ms;
   - plans and fails per minute, from the cumulative `route plans` lines;
-  - storm waves and pushes, and `hitch: frame` causes.
+  - storm waves and pushes, and `hitch: frame` causes;
+  - `host ms`: the sum of the `host N/M` column of the `route candidate split` lines, which is the managed door asks under
+    the planner (docs/667 §2);
+  - `mism n/f/l`: the NeighbourMemo and FloodMemo shadow mismatches (the largest `mismatch N` of the minute lines), plus the
+    count of `MEMO MISMATCH` lines. All three must be 0 before a memo serves.
 
   With `--report` it also prints the per-hitch cause rows of route-stutter-report.ts by phase. Last of all it prints the last
   fix-counter lines (nopath memo, route speed, height cache, KindsUnseen).
@@ -67,7 +71,7 @@ which).
 |---|---|---|---|
 | s141 | Isla Paradiso | boat fixes off (EARLYFIX `:false`) -> `fixon` -> on, one load | 4 + 4 min, kinds boat x2, lot, home, meet, nopath, pets, seed 141 |
 | s142 | IP, then Bridgeport | measurement only, CI asi 44634118056 with the upgraded profiler keys, perf | 5 + 5 min, all kinds, seed 142 |
-| s143 | Isla Paradiso | two loads, A all off, B on: KindsUnseen=1, NeighbourMemo=2 (shadow), HeightCache on, NoPathMemoFuzzy + Household (npmfuzzy, npmhousehold), stucktaskflag, watchdogbusydefer | 4 min each, all kinds, seed 143 |
+| s143 | Isla Paradiso | two loads, A all off, B on: KindsUnseen=1, NeighbourMemo=2 (shadow), HeightCache on, NoPathMemoFuzzy + Household (npmfuzzy, npmhousehold), stucktaskflag, watchdogbusydefer, and the docs/667 §5 door-ask levers TaskServe=1, DoorMemo=1, DoorMemoX=3 + doorgen, FloodMemo=2 (shadow, only if the asi has it); asi = the newest `native/ci-*` at run time | 4 min each, all kinds, seed 143 |
 
 s143 needs two loads because KindsUnseen and `[HeightCache]` have no runtime switch (docs/662 §4, docs/663 §3). Both arms keep
 `NoPathMemo=1`, which the fuzzy and household memo needs (docs/643 §7.5).

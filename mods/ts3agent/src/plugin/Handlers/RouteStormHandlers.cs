@@ -11,7 +11,7 @@ using Sims3.SimIFace;
 
 namespace Ts3Agent
 {
-    // route_storm (docs/667): forces routing hard so a routing test needs ~4 min per arm instead of 12-15 min of idle play.
+    // route_storm (docs/668): forces routing hard so a routing test needs ~4 min per arm instead of 12-15 min of idle play.
     // It picks resident NPC Sims already in the world (never the active household unless household: true; no babies or
     // toddlers; pets and horses only for kind "pets") and pushes the game's own NON-user-directed route interactions, the
     // way EA's autonomy and situations push them, so every plan goes through the same code paths as natural play:
