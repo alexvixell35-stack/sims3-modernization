@@ -65,6 +65,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/easpread/run.ts': CSC,
   'tools/selftest/errortrapspread/run.ts': CSC,
   'tools/selftest/eventcost/run.ts': CSC,
+  'tools/selftest/algosweep/run.ts': CSC,
   'tools/selftest/farthestpick/run.ts': CSC,
   'tools/selftest/focusrules/run.ts': CSC,
   'tools/selftest/hotspots/run.ts': CSC,
