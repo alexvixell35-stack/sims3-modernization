@@ -69026,6 +69026,55 @@
     ]
   },
   {
+    "id": "ip-boat-nopath-memo",
+    "bug": "docs/642: an NPC Sim or pet seated as Driver of a BoatTaxi whose boat route has no path stays aboard and replans the same failing plan over and over (Twinbrook: horses and a dog, ~2 s plans, hitches)",
+    "fix": "ts3fixes boattaximemo (BoatTaxiMemo.cs): the first no-path boat plan of an NPC rider is recorded (3864), the repeats from the same spot are answered at once (3867, ms saved 3868); household / selected / unknown scope untouched (skip line 'exempt rider')",
+    "save": "Baseline-IP",
+    "note": "Forced. boat_nopath_repro picks NPCs (known non-active household) plus one NPC horse or dog, teleports each to the nearest shore of the active Sim (setup_sims rules), seats it as Driver of a BoatTaxi (Vehicle.CreateTaxiBoat + PutInDriver, GetInBoatRouteAction's path) and plans its boat route to the farthest lot with pedestrian planning off (boatOnly), then Replan / ReplanFromPoint for `tries`. Needs an active household: with none every Sim is unknown scope and the memo skips all (result active_household null).",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "boattaximemo": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "boat_nopath_repro",
+        "args": {
+          "start": true,
+          "sims": 2,
+          "pet": true,
+          "tries": 4
+        },
+        "waitS": 60,
+        "note": "teleport, seat, 4 plans per rider"
+      },
+      {
+        "cmd": "boat_nopath_repro",
+        "args": {
+          "result": true
+        },
+        "note": "per rider: plan results + ms; counters 3864-3869"
+      }
+    ],
+    "expect": "OFF: every try FailedBecauseNoPathToDestination with full plan ms, counters 0; ON: recorded_3864 = riders, answered_3867 = riders x (tries - 1), later tries ~0 ms, 'boattaximemo: recorded|answered BoatTaxi' lines; no crash",
+    "cleanup": [
+      {
+        "cmd": "boat_nopath_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
     "id": "ip-bridge-height-load",
     "bug": "docs/67 \u00a736/\u00a737 (#384, Dalexlol PR #394): an Isla Paradiso bridge answers NaN, +-inf or 2.26e34 from 0xB745A0; the height queries keep it, post pass 16 halves an infinite segment forever and the game freezes (world load or play; footstep lot search on a NaN point)",
     "fix": "[EaCrashFixes] HeightsInfLoop + BridgeHeightNaN (ini only, no runtime switch: one job per arm). Contributor repro (his harness, docs/data/results/2026-11-13-bridge-height-nan.md): IP seed 777, off = world-load freeze, on = nh2 / sm1 / in1 pass with 8 BridgeHeightNaN hits each",

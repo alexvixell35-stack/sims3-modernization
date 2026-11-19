@@ -108,3 +108,14 @@ Check in a run: `grep "boattaximemo:" ts3native-full.log` (recorded / answered /
 `boattaximemo_*` (3867 answered, 3868 ms saved). Expected Twinbrook: one recorded line per stranded (rider, boat,
 destination), then `answered BoatSailBoat #n` etc. for the repeats.
 
+
+## In-game result (forced repro, Isla Paradiso, 2026-11-19)
+
+The Twinbrook sweep save has no active household, so every Sim there is of unknown scope and exempt: the Twinbrook A/B runs (s108-s114) could not show the memo and are void. Forced repro `ip-boat-nopath-memo` (agent `boat_nopath_repro`, two NPC Sims plus one NPC dog as BoatTaxi drivers, farthest lot, boat-only planning, 4 tries each), one session, switch off then on:
+
+| Arm | Try 1 (Plan) | Tries 2-4 (Replan / ReplanFromPoint) | Counters |
+|---|---|---|---|
+| off | 207-247 ms, no path | 1115-2130 ms each, no path | all 0 |
+| on | 274-278 ms, no path (recorded) | 0 ms each, answered | 3864 +4, 3867 +6, 3868 +1644, 3869 +0 |
+
+The dog's route had a path (Succeeded every try) and was left alone; the active household (Collins) was untouched. BtmPost now logs why a boat's no-path plan is not recorded (`boattaximemo: skip <type>, blocker | no driver | exempt rider | no destination`).

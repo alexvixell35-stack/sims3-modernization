@@ -168,14 +168,23 @@ namespace Ts3Fixes
                         if (r.mType == RoutePlanResultType.Succeeded) c[3866]++;
                         return;
                     }
-                    if (r.mType != RoutePlanResultType.FailedBecauseNoPathToDestination
-                        || r.mBlockerType == RouteBlockerType.Sim || r.mBlockerType == RouteBlockerType.Vehicle) return;
+                    if (r.mType != RoutePlanResultType.FailedBecauseNoPathToDestination) return;
                     IScriptProxy f = Follower;
                     Boat boat = f != null ? f.Target as Boat : null;
-                    Sim rider = boat != null ? boat.Driver : null;
-                    if (rider == null || BtmBoatExempt(boat)) return;
+                    if (boat == null) return;
+                    string skip = null;  // why a boat's no-path plan is not recorded (logged: a silent skip hid the s111/s113 misses)
+                    Sim rider = boat.Driver;
                     Vector3 d = GetApproximateOriginalDestination();
-                    if (!BtmDest(d)) return;
+                    if (r.mBlockerType == RouteBlockerType.Sim || r.mBlockerType == RouteBlockerType.Vehicle) skip = "blocker " + r.mBlockerType
+                        + (rider != null && r.mBlockerObjectId == rider.ObjectId.Value ? " (the rider)" : r.mBlockerObjectId == boat.ObjectId.Value ? " (the boat)" : "");
+                    else if (rider == null) skip = "no driver (" + (boat.Occupants != null ? boat.Occupants.Length : -1) + " aboard)";
+                    else if (BtmBoatExempt(boat)) skip = "exempt rider " + rider.FullName;
+                    else if (!BtmDest(d)) skip = "no destination";
+                    if (skip != null)
+                    {
+                        BtmLog("skip " + boat.GetType().Name + ", " + skip + ", plan " + ms + " ms");
+                        return;
+                    }
                     if (sBtm.Count >= kBtmMax) BtmPrune();
                     long now = SimClock.CurrentTicks;
                     BtmEntry e = new BtmEntry();
@@ -189,7 +198,7 @@ namespace Ts3Fixes
                     BtmLog("recorded " + e.Type + ", " + rider.FullName + ", boat plan " + ms + " ms no path, dest " + (int)d.x + "," + (int)d.z
                         + ", " + Instantiator.kBoatTaxiMemoHours + " sim-h");
                 }
-                catch (Exception) { c[3869]++; }
+                catch (Exception ex) { c[3869]++; BtmLog("error " + ex.GetType().Name); }
             }
         }
     }
