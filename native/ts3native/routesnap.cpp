@@ -147,6 +147,13 @@ static volatile LONG g_snOn;
 // and replay writes included (before their early returns); g_snTreeRows = such rows hooked or counted inside another stub
 static volatile LONG g_snTreeSeq;
 static LONG g_snTreeRows;
+// docs/667 [RouteSpeed] FloodMemo: bumped on every routing data write it can see, any thread, clone and replay writes
+// included: each writer row except the two polygon cache "ensure" entries (W6a / W6b: called on every read, they fill a
+// lazy cache through the other W6 rows, which do count), Footprint_SetEnabled, and (SnIcEnter) every routing IC except the
+// four plan starts. The other source rows (World_FireEvent and the P1b frames) only attribute writes that then pass a
+// writer row themselves.
+static volatile LONG g_snWriteSeq;
+static inline bool SnWriteRow(int i, int leaf) { return (leaf != SL_SRC && i != SN_W6B && i != SN_W6B - 1) || i == SN_FPEN; }
 static inline bool SnTreeRow(int leaf) {
     return leaf == SL_W1 || leaf == SL_W2 || leaf == SL_W3 || leaf == SL_W4 || leaf == SL_W5 || leaf == SL_REMOVELOT || leaf == SL_APPLYLOT;
 }
@@ -529,6 +536,7 @@ static void __cdecl SnEnter(int i, DWORD* slot) {
     Ts3nCounters& k = ts3native_counters;
     const SnSite& s = kSn[i];
     if (SnTreeRow(s.leaf)) InterlockedIncrement(&g_snTreeSeq);  // docs/663: first, so clone and replay writes count too
+    if (SnWriteRow(i, s.leaf)) InterlockedIncrement(&g_snWriteSeq);  // docs/667: likewise
     if (t_rpReplay) return;  // the replay consumer replaying on its clone (replay.cpp RpDrain)
     if (t_snapRun) {  // P4 clone run (docs/94 §12.4.3): no counting; a writer leaf makes its lot worker-dirty, an event trips
         if (i == SN_WEV) P4Abort(P4_AB_EVENT);
@@ -646,6 +654,7 @@ static void __cdecl SnEnter(int i, DWORD* slot) {
 
 static void P4VarTrip(DWORD handle);  // p4.cpp
 static void __cdecl SnIcEnter(int i, DWORD* slot) {
+    if (i < SN_IC_START) InterlockedIncrement(&g_snWriteSeq);  // docs/667: a routing IC that is not a plan start, any thread
     if (t_snapRun) return;  // P4 clone run: pass through
     Ts3nCounters& k = ts3native_counters;
     InterlockedIncrement(&k.snIc[i]);
@@ -743,7 +752,8 @@ static bool ApplyRouteSnap(const wchar_t* ini) {
         !GetPrivateProfileIntW(L"PlanRepeat", L"Enabled", 0, ini) && !GetPrivateProfileIntW(L"RouteAsync", L"ReplanDedupe", 0, ini) &&
         !GetPrivateProfileIntW(L"RouteAsync", L"FailMemo", 0, ini) &&  // docs/164 §7 D5 reads them too
         !GetPrivateProfileIntW(L"RouteAsync", L"NoPathMemo", 0, ini) &&  // docs/643: its world version
-        !GetPrivateProfileIntW(L"RouteSpeed", L"NeighbourMemo", 0, ini)) {  // docs/663: its tree-write sequence
+        !GetPrivateProfileIntW(L"RouteSpeed", L"NeighbourMemo", 0, ini) &&  // docs/663: its tree-write sequence
+        !GetPrivateProfileIntW(L"RouteSpeed", L"FloodMemo", 0, ini)) {  // docs/667: its write sequence
         Log("route snapshot counters off (Count=0)");
         return false;
     }

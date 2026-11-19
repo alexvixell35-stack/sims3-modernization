@@ -53,7 +53,7 @@ struct PlanCandCounters {
 extern "C" __declspec(dllexport) PlanCandCounters ts3native_plancand = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 enum { PCC_PH, PCC_CLOSEST, PCC_SAMELAND, PCC_SAMEWATER, PCC_CHOOSE, PCC_GATHER, PCC_SHORE, PCC_LOTSEARCH, PCC_CELL, PCC_LOTPLAN,
-       PCC_WORLD, PCC_WATER, PCC_POST, PCC_INSERT, PCC_N };
+       PCC_WORLD, PCC_WATER, PCC_POST, PCC_INSERT, PCC_HOST, PCC_N };
 struct PccSite { DWORD at; u8 len; u8 pro[8]; const char* name; bool cut; };
 // prologues: whole instructions, no relative operand (Steam 1.67); 0x65E0D0 / 0x640E00 equal kRjpSites' (docs/150 §7)
 static const PccSite kPccSites[PCC_N] = {
@@ -74,6 +74,10 @@ static const PccSite kPccSites[PCC_N] = {
     {TS3A(0x00671930), 7, {0x8B, 0x44, 0x24, 0x24, 0x83, 0xEC, 0x50}, "water", false},
     {TS3A(0x0064E380), 7, {0x80, 0x3D, 0x4C, 0x82, 0x15, 0x01, 0x00}, "post", false},  // absolute operand only
     {TS3A(0x00629140), 5, {0x83, 0xEC, 0x08, 0x53, 0x55}, "insert", false},
+    // docs/667 §2: no hook of its own (at 0). A managed call made under the planner (the door ask of 0x64F4D3 and others) is
+    // timed from ts3native.cpp's host-call hook: on the worker that is the wait for the sim thread to run it (Proxy), on the
+    // sim thread the script itself. Before this site that time sat in the caller's self time (lotSearch / lotPlan / cell).
+    {0, 0, {0}, "host", false},
 };
 // LotPlan's call sites in 0x65E0D0 (return addresses), for the per-leg split; slot PCC_LPN = any other caller (0x656A70's,
 // called from 0x6611A1 / 0x661308, and callers outside the planner)
@@ -155,6 +159,11 @@ static bool PccEnter(int site, const void* mark, int sub = -1) {
     f.t0 = q.QuadPart;
     return true;
 }
+
+// docs/667 §2: the host-call hook's frame (ts3native.cpp HostCallHook / InvokeHook), any thread; false outside a planner call
+static void PccLeave(const void* mark, DWORD r);
+static bool PccHostEnter(const void* mark) { return PccEnter(PCC_HOST, mark); }
+static void PccHostLeave(const void* mark) { PccLeave(mark, 0); }
 
 // "cell 12/3, lotPlan 2/1, ...; lot legs by call 65F11C 140/1, ..." (ms/calls; legs only where called)
 static int PccFmt(char* b, int room, const LONG* selfUs, const LONG* calls, const LONG* lpUs, const LONG* lpN) {
@@ -327,17 +336,28 @@ static DWORD g_pccCellBack, g_pccCellCap, g_pccCellFail;  // 0x61E777 (next test
 static __declspec(thread) LONG t_pccCellTick;
 static bool g_pccCellLoop;
 // eax / ecx / edx and the flags are dead at all three targets (each writes them before a read), so the C call may clobber them
-static int __cdecl PccCellLoopCut() {
+// docs/667 [RouteSpeed] FloodMemo (floodmemo.cpp) shares the stub: FmPop sees every popped node (esi) first; 1 = this search
+// is a proven failure, leave through the same exit. A deadline cut tells it the flood did not run to its end (FmAbort).
+static int FmPop(DWORD node);
+static void FmAbort();
+static void FmCellEnter(void* q, DWORD x, DWORD startSet);
+static void FmCellLeave(void* q, DWORD al);
+static int __cdecl PccCellLoopCut(DWORD node) {
+    if (FmPop(node)) return 1;
     if (++t_pccCellTick & 31) return 0;
     if (ts3native_plancand.cutMode != 1) return 0;
-    return PccCutNow(PCC_CELL, PCC_IN(0x0061E500, 0x26E)) ? 1 : 0;
+    if (!PccCutNow(PCC_CELL, PCC_IN(0x0061E500, 0x26E))) return 0;
+    FmAbort();
+    return 1;
 }
 static __declspec(naked) void PccCellLoopStub() {
     __asm {
         mov ecx, dword ptr [esp + 0x18]  // the game's node cap (0xFA00 or 0x40002), esp as at 0x61E76E (jumped here, nothing pushed)
         cmp dword ptr [edi + 0x24], ecx
         jae cap
+        push esi                         // the node popped this turn (cdecl keeps esi / edi / ebx)
         call PccCellLoopCut
+        add esp, 4
         test eax, eax
         jnz cut
         jmp dword ptr [g_pccCellBack]
@@ -363,8 +383,8 @@ static void PccInstallCellLoop() {
     const LONG rel = (LONG)((uintptr_t)PccCellLoopStub - (at + 5));
     memcpy(j + 1, &rel, 4);
     g_pccCellLoop = Write(p, j, sizeof(j));
-    Log("%s route candidate cut: cell A* loop deadline at 0x%08lX (every 32nd expansion, exit 0x%08lX)", g_pccCellLoop ? "OK  " : "FAIL",
-        at, g_pccCellFail);
+    Log("%s route candidate cut: cell A* loop stub at 0x%08lX (deadline every 32nd expansion, flood memo pops; exit 0x%08lX)",
+        g_pccCellLoop ? "OK  " : "FAIL", at, g_pccCellFail);
 }
 
 // ---- hooks: thiscall entries as __fastcall (edx unused, same stack and callee cleanup); EAX passed back whole ----
@@ -414,8 +434,15 @@ static DWORD __fastcall PccShoreHook(void* self, void* edx, DWORD a1, DWORD a2, 
 static DWORD __fastcall PccLotSearchHook(void* self, void* edx, DWORD a1, DWORD a2, DWORD a3, DWORD a4, DWORD a5, DWORD a6) {
     PCC_TIMED(PCC_LOTSEARCH, ((Pcc6Fn)g_pccNext[PCC_LOTSEARCH])(self, edx, a1, a2, a3, a4, a5, a6));
 }
+// a1 = X (lot search context), a2 = the start set: docs/667 [RouteSpeed] FloodMemo looks at both before and after the search
 static DWORD __fastcall PccCellHook(void* self, void* edx, DWORD a1, DWORD a2, DWORD a3, DWORD a4, DWORD a5, DWORD a6) {
-    PCC_TIMED(PCC_CELL, ((Pcc6Fn)g_pccNext[PCC_CELL])(self, edx, a1, a2, a3, a4, a5, a6));
+    FmCellEnter(self, a1, a2);
+    const void* const mark = _AddressOfReturnAddress();
+    const bool on = PccEnter(PCC_CELL, mark);
+    const DWORD r = ((Pcc6Fn)g_pccNext[PCC_CELL])(self, edx, a1, a2, a3, a4, a5, a6);
+    if (on) PccLeave(mark, r);
+    FmCellLeave(self, r);
+    return r;
 }
 // LotPlan 0x6410B0: thiscall, 13 stack args (ret 0x34; float args pass through as their bits)
 typedef DWORD(__fastcall* Pcc13Fn)(void*, void*, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD);
@@ -516,16 +543,19 @@ static void InstallPlanCand(const wchar_t* ini) {
     const bool split = GetPrivateProfileIntW(L"RouteJobPhases", L"CandidateSplit", 0, ini) != 0;
     const int cut = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"CandidateCut", 0, ini), 0, 1);
     const int wgc = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"WaterGoalCheck", 0, ini), 0, 2);
-    if (!split && !cut && !wgc) { Log("route candidate cut off (CandidateCut=0, WaterGoalCheck=0, [RouteJobPhases] CandidateSplit=0)"); return; }
+    // docs/667: [RouteSpeed] FloodMemo needs the cell A* entry hook and the loop stub (InstallFloodMemo checks both later)
+    const bool flood = GetPrivateProfileIntW(L"RouteSpeed", L"FloodMemo", 0, ini) != 0;
+    if (!split && !cut && !wgc && !flood) { Log("route candidate cut off (CandidateCut=0, WaterGoalCheck=0, [RouteJobPhases] CandidateSplit=0)"); return; }
 #ifdef TS3A_TABLE
     if (ts3a_noaddr) { Log("SKIP route candidate cut / split / water goal check: no EA 1.69 address, docs/644"); return; }
 #endif
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     g_pccLogUs = Clamp(GetPrivateProfileIntW(L"RouteJobPhases", L"CandidateSplitLogMs", 100, ini), 1, 60000) * 1000;
-    if (split || cut) {
+    if (split || cut || flood) {
         int hooked = 0, want = 0;
         for (int i = 0; i < PCC_N; i++) {
-            if (!split && !kPccSites[i].cut) continue;
+            if (!kPccSites[i].at) continue;  // host: timed from the host-call hook
+            if (!split && !kPccSites[i].cut && !(flood && i == PCC_CELL)) continue;
             if (i == PCC_WATER) continue;  // after the water goal check below (it may need the entry's own bytes)
             want++;
             if (i == PCC_WORLD && g_eoAsOrig) {  // [RouteEarlyOut] owns the entry: we run after its stub (its request scope first)
@@ -551,7 +581,7 @@ static void InstallPlanCand(const wchar_t* ini) {
         Log("%s route candidate %s: %d of %d helper sites hooked; CandidateCut=%d (mode %ld: past the plan's deadline, unseen and seen-NPC "
             "routers only), split lines >= %ld ms", hooked == want ? "OK  " : "PART", split ? "split + cut" : "cut", hooked, want, cut,
             c.cutMode, g_pccLogUs / 1000);
-        if (c.cutMode == 1) PccInstallCellLoop();
+        if (c.cutMode == 1 || (flood && g_pccNext[PCC_CELL])) PccInstallCellLoop();
         if (cut && !ts3native_counters.pdReady && !g_kdIni && !g_ufIni)
             Log("route candidate cut: no plan deadline is on (PlanDeadlineMs, KindDeadlines, UnseenFallback, FbJobDeadline): nothing to cut at");
     }

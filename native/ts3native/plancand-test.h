@@ -158,7 +158,18 @@ static void TestCandidateSplit() {
         LONG zu[PCC_N] = {0}, zn[PCC_N] = {0}, lu[PCC_LPN + 1] = {0}, ln[PCC_LPN + 1] = {0};
         PccFmt(b, sizeof(b), zu, zn, lu, ln);
         assert(strstr(b, "world 0/0") && strstr(b, "water 0/0") && strstr(b, "post 0/0") && strstr(b, "insert 0/0"));
+        assert(strstr(b, "insert 0/0, host 0/0"));  // docs/667 §2: the last column
     }
+    // docs/667 §2: a managed call under lotSearch is the "host" frame: its time leaves lotSearch's self time; outside a
+    // planner call the host-call hook times nothing
+    assert(!PccHostEnter(frame + 10));
+    assert(PccEnter(PCC_PH, frame + 60) && PccEnter(PCC_LOTSEARCH, frame + 40) && PccHostEnter(frame + 20));
+    Sleep(2);
+    PccHostLeave(frame + 20);
+    PccLeave(frame + 40, 0);
+    assert(t.calls[PCC_HOST] == 1 && t.calls[PCC_LOTSEARCH] == 1 && t.self[PCC_HOST] > t.self[PCC_LOTSEARCH]);
+    PccLeave(frame + 60, 0);
+    assert(kPccSites[PCC_HOST].at == 0 && !kPccHooks[PCC_HOST] && !PccOwnerAt(0));
     g_pccSplit = saved, g_pccLogUs = savedLog;
 }
 
@@ -167,5 +178,5 @@ static void TestPlanCand() {
     TestWaterGoalRule();
     TestWaterGoalHook();
     TestCandidateSplit();
-    printf("plan cand: OK (scope rule, call sites, water goal check, split frames)\n");
+    printf("plan cand: OK (scope rule, call sites, water goal check, split frames, host frame)\n");
 }
