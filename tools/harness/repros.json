@@ -112613,5 +112613,49 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "dish-pile-census",
+    "bug": "docs/652: dirty Plate/Bowl servings pile up on one lot in Isla Paradiso night runs (91-179 dirty broadcasters, one lot 203)",
+    "fix": "ts3fixes dishpilecap (DishPileCap.cs): above kDishPileCapPerLot dirty dishes on an unseen lot with no household tie get EA's nightly throw-away early (Lot.DoesObjectNeedCleaning + ThrowAwayImmediately), counters 4130-4139; the active household's home is never touched",
+    "save": "Baseline-IP",
+    "area": "objects",
+    "note": "UNVERIFIED (static only, 2026-11-19): never run. Measurement first: dish_census names the pile lot and whether EA's 3 AM cleanup skips it (nightly_cleanup). Natural play needs sim-days to pile; run it after an IP night queue's idle phase or call it per snapshot.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "dishpilecap": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "dish_census",
+        "args": {
+          "top": 8
+        },
+        "note": "per-lot dishes, nightly_cleanup verdict, history"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 600,
+        "note": "a few sim-hours: hourly passes"
+      },
+      {
+        "cmd": "dish_census",
+        "args": {
+          "top": 8
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "counters 4130-4139"
+      }
+    ],
+    "expect": "OFF: dishpilecap_removed 0, the biggest pile is the active home (nightly_cleanup 'skipped: active Sim's home'), other lots <= cap after a 3 AM; ON: same on the home lot (never touched), lots over the cap elsewhere drop to the cap when unseen"
   }
 ]
