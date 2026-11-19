@@ -173,6 +173,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenRouteRelaxed value="False" />
     <kUnseenBoat value="True" />
     <kUnseenBoatStart value="True" />
+    <kBoatTaxiMemo value="True" />
+    <kBoatTaxiMemoHours value="4" />
     <kPosturePopCycle value="False" />
     <kOverwatchIgnoreStuckProbes value="True" />
     <kSeasonImposter value="False" />

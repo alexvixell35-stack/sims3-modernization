@@ -930,9 +930,11 @@ namespace Ts3Fixes
                 else if (hadOuter) sUfSplits.Remove(task);
                 RoutePlanResult r;
                 sUfPlanDepth.Enter(task);  // §3.9.6: > 1 in this task = a plan inside another plan's callback (PostPlan / AboutToPlan)
+                bool btm = ShortcutOn("boattaximemo"), btmAnswered = false;  // docs/851 (BoatTaxiMemo.cs)
                 try
                 {
-                    if (!UfPlanBody(kind, p, ref last, out r))
+                    if (btm && BtmPre(out r, out btmAnswered)) { }  // a stranded NPC boat's proven no-path plan, answered
+                    else if (!UfPlanBody(kind, p, ref last, out r))
                         switch (kind)  // UfInner, inlined
                         {
                             case 0: r = PlanBackoff(); break;
@@ -940,6 +942,7 @@ namespace Ts3Fixes
                             case 2: r = PlanFromPointAsync(p); break;
                             default: r = ReplanFromPointAsync(p); break;
                         }
+                    if (btm && !btmAnswered) BtmPost(r, unchecked(System.Environment.TickCount - t0));
                 }
                 finally { sUfPlanDepth.Exit(task); DiagSend(12, Handle); }  // docs/197 §7: this plan's scope ends here
                 UrLearn ln;

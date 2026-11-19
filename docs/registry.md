@@ -731,6 +731,7 @@ Source of truth: the comment block above `PatchCounters()` in `mods/ts3fixes/src
 | 1261 | `EnvListExact.cs` (r1x-1118, `fixes-1261`, docs/274 §11), `envlistmemoexact` | built 2026-11-18, default off, NOT RUN: scans sent to the game's call because the ts3native script worker had a job (agent `envlistexact_fb_worker`) |
 | 1262 | `EnvListExact.cs` (r1x-1118, `fixes-1262`, docs/274 §11.8), `envlistmemoexact` | built 2026-11-18, default off, NOT RUN: stand-downs (known conflicting assembly, another mod's swap of `CalculateSimEnvironmentScore`, another mod's cache in a lot's table; agent `envlistexact_standdown`) |
 | 1263 | reserved (save-ip-portable-1119, `fixes-1263`) | swaps refused: would move saved task frames (docs/293) |
+| 3974-3979 | `BoatTaxiMemo.cs` (`fixes-3974`, contributor range, docs/851), `boattaximemo` | built 2026-11-18 (any Boat since 2026-11-19), default on, proven in game 2026-11-19 (forced repro `ip-boat-nopath-memo`, Isla Paradiso, off BROKEN / on FIXED): boat no-path failures recorded (3974) / rider routes with the boat off (3975) / of those succeeded (3976) / stranded boat plans answered (3977) / ms those answers stand for (3978) / refused (household, selected, unknown) or errors (3979) |
 | **1264+** | next free | reserve here  |
 
 Adding slots: raise the array size in **both** `Fixes.cs` (`PatchCounters`, `new int[122]`) and `PatchHandlers.cs` (`?? new int[122]`), extend the `Fixes.cs` comment block, and read the new slots in `PatchHandlers.cs` behind `if (c.Length > N)` so an older mod build still answers.

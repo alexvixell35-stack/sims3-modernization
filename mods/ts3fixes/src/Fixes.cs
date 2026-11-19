@@ -1298,6 +1298,7 @@ namespace Ts3Fixes
         // [3944-3946] bodysculptorweight (EpBatch3Logic.cs, docs/587 EP3 §8.12): weights corrected / mirrored with switch off / errors.
         // [3947-3949] nectarconsignvalue (EpBatch3Logic.cs, docs/587 EP3 §8.13): values re-rolled / minimum with switch off / errors.
         // [3950-3952] straygnometns (EpBatch3Logic.cs, docs/587 EP3 §8.14): runs with right notice / stale notices with switch off / errors.
+        // [3974-3979] boattaximemo (BoatTaxiMemo.cs, docs/851): boat (any Boat subclass) no-path failures recorded / rider routes planned with the boat off / of those, succeeded / stranded boat plans answered / ms of the recorded plans those answers stand for / refused (household, selected, unknown) or errors.
         // [3247-3249] dogswimslots (EpBatch4Logic.cs, docs/587 EP4 §9.1): loops skipped, no free slot / would throw with switch off / errors.
         // [3250-3252] fragmentreconstruct (EpBatch4Logic.cs, docs/587 EP4 §9.2): Target picked first / extra fragment used with switch off / errors.
         // [3253-3255] labobjectpush (EpBatch4Logic.cs, docs/587 EP4 §9.3): lot objects pushed / idle students with switch off / errors.
@@ -1842,6 +1843,7 @@ namespace Ts3Fixes
                 case "unseenroute": return Instantiator.kUnseenRouteRelaxed;
                 case "unseenboat": return Instantiator.kUnseenBoat;
                 case "unseenboatstart": return Instantiator.kUnseenBoatStart;
+                case "boattaximemo": return Instantiator.kBoatTaxiMemo;
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;
                 case "seasonimpostercold": return Instantiator.kSeasonImposterCold;
