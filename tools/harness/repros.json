@@ -109540,6 +109540,1050 @@
     ]
   },
   {
+    "id": "dish-pile-census",
+    "bug": "docs/652: dirty Plate/Bowl servings pile up on one lot in Isla Paradiso night runs (91-179 dirty broadcasters, one lot 203)",
+    "fix": "ts3fixes dishpilecap (DishPileCap.cs): above kDishPileCapPerLot dirty dishes on an unseen lot with no household tie get EA's nightly throw-away early (Lot.DoesObjectNeedCleaning + ThrowAwayImmediately), counters 4130-4139; the active household's home is never touched",
+    "save": "Baseline-IP",
+    "area": "objects",
+    "note": "UNVERIFIED (static only, 2026-11-19): never run. Measurement first: dish_census names the pile lot and whether EA's 3 AM cleanup skips it (nightly_cleanup). Natural play needs sim-days to pile; run it after an IP night queue's idle phase or call it per snapshot.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "dishpilecap": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "dish_census",
+        "args": {
+          "top": 8
+        },
+        "note": "per-lot dishes, nightly_cleanup verdict, history"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 600,
+        "note": "a few sim-hours: hourly passes"
+      },
+      {
+        "cmd": "dish_census",
+        "args": {
+          "top": 8
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "counters 4130-4139"
+      }
+    ],
+    "expect": "OFF: dishpilecap_removed 0, the biggest pile is the active home (nightly_cleanup 'skipped: active Sim's home'), other lots <= cap after a 3 AM; ON: same on the home lot (never touched), lots over the cap elsewhere drop to the cap when unseen"
+  },
+  {
+    "id": "trigger-battery",
+    "bug": "Fixes with counters that stayed 0 in every valid fixes-ON phase run (docs/653): their live hooks were never reached in play",
+    "fix": "ts3agent TriggerBatteryHandlers.cs trigger_battery: speedrecalc, speedskip, heartbroken, doorlock, inuse, putdown, gohome, elevator, speedlock (docs/653 §3)",
+    "save": "any world in live mode with an active household; elevator needs a non-home lot with an elevator on two levels (Bridgeport); doorlock an all-NPC household of 2+; heartbroken an NPC couple",
+    "note": "Only uncontrolled NPCs (DrNpc), the one farthest from the camera; speed triggers change no Sim; speedlock enters and leaves build mode on the home lot. status lists per trigger result, own-slot deltas and other slots that moved.",
+    "expect": "status rows: fired true for every trigger whose result is ok; skipped rows name the missing precondition",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "speedrecalclock": true,
+          "speedskiplevel": true,
+          "heartbrokenbcast": true,
+          "doorlockowner": true,
+          "resetinusefree": true,
+          "putdowninuse": true,
+          "gohomewalk": true,
+          "elevatorridertimeout": true,
+          "elevatorresetriders": true,
+          "speedlockowner": true
+        },
+        "note": "on (the battery also sets them)",
+        "waitS": 1
+      },
+      {
+        "cmd": "trigger_battery",
+        "args": {
+          "keep_on": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "trigger_battery",
+        "args": {
+          "status": true
+        },
+        "waitS": 240,
+        "note": "about 4 min with the elevator and put-down waits"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "trigger_battery",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "speedrecalclock": false,
+          "speedskiplevel": false,
+          "heartbrokenbcast": false,
+          "doorlockowner": false,
+          "resetinusefree": false,
+          "putdowninuse": false,
+          "gohomewalk": false,
+          "elevatorridertimeout": false,
+          "elevatorresetriders": false,
+          "speedlockowner": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "owelevidle-check",
+    "bug": "NRaas Overwatch's nightly CleanupElevators destroys and re-makes at home every Sim in an elevator's assigned list, also NPCs whose entry outlived their ride (asleep at home at 05:00); ~10 resets a night, 50-85 ms each (docs/655)",
+    "fix": "ts3fixes OwElevIdle.cs: owelevidle (default off), docs/655",
+    "save": "Bridgeport after at least one sim-day of play (elevator towers; NRaas Overwatch installed)",
+    "note": "census is read-only; run calls Overwatch's own CleanupElevators.PerformAlarm (our pass first). Turn owresettime on to see the owreset Perform lines of the Sims Overwatch still resets.",
+    "expect": "census before: idle > 0. on + run: dropped == that idle count, owreset Perform lines only for riding or exempt Sims; census after: idle 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "owelevidle": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
+          "args": [
+            "census"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: idle entries Overwatch would reset"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "owelevidle": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: Overwatch's cleanup with idle entries dropped first"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
+          "args": [
+            "census"
+          ]
+        },
+        "waitS": 2,
+        "note": "after: idle 0"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "owelevidle": false
+        },
+        "note": "cleanup",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "pet-arrive-point",
+    "bug": "docs/656 §3.1: an NPC animal's GoHome first plans to the lot's cached point just inside the front door (Lot.PlanRouteIntoLot); horses (any non-barn door), strays (ungreeted lot) and pets at a pet-locked door cannot pass it, so that full-length plan fails PortalLocked (routecause GoHome PortalLocked 65 lines, 'locked doors 0', OFF runs 2026-11-15..19), and an animal that validates a lot first clears the point for every Sim after it",
+    "fix": "ts3fixes petarrivepoint (PetArrivePoint.cs): for a non-exempt NPC animal the front door refuses (EA's CommonDoor.IsAllowedThrough), PlanRouteIntoLot runs only EA's mailbox / PlanToLotEx tail; 4170 skipped, 4171 of those on an unvalidated lot, 4172 exempt, 4173 errors",
+    "save": "Baseline-BP",
+    "note": "Forced, built by the step. pet_repro mode arrive picks an owned NPC pet whose home lot (no apartment slots) has a front door that refuses it: a horse first (any non-barn door), else a cat or dog whose front door gets EA's Pets lock (restored at the end of the window or on stop). The lot's arrival point is marked unvalidated (EA's public BestRouteIntoLotLocationValidated) so the pet validates it; it is set down 40-145 m from home (under petlonghome's 150 m) and only then EA's GoHome is pushed and the timer starts. routecauselog is on in both arms. Works in BP and Appaloosa Plains (ranch horses). No pick = not triggered: N/A, not FAIL. Needs Pets (EP5).",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "routecauselog": true,
+          "petarrivepoint": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "mode": "arrive",
+          "start": true,
+          "seconds": 180
+        },
+        "waitS": 215,
+        "note": "setup (teleport, up to 30 s), then EA's GoHome and 180 s"
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "result": true
+        },
+        "note": "before / after lot cache, counter deltas"
+      }
+    ],
+    "expect": "pushed true; before.validated false, before.door_allows false. OFF: a 'routecause: <pet> npc, GoHome, Plan FailedBecauseDestinationPortalLocked' line, after.validated true and after.has_point false (the lot's point poisoned), 4170 +0; ON: 4170 >= 1 and 4171 >= 1, a 'petarrivepoint: <pet> (<species>) -> <lot>: front door closed to it' line, after.validated false; reached the same or better ON; no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "pet-stray-leave",
+    "bug": "docs/656 §3.2: a stray's visit ends only when its StrayPet buff times out (BuffStrayPet.OnTimeout -> MakeSimGoHome); a stray that never got the buff or lost it sits and stands on the lot for days and counts against EA's kMaxStraysInWorld (6), so new stray visits stop",
+    "fix": "ts3fixes strayleave (StrayLeave.cs): EA's hourly StrayPetHelper first gives a non-exempt instantiated stray without the buff for kStrayLeaveHours EA's own MakeSimGoHome; 4174 sent, 4175 seen without the buff, 4176 exempt, 4177 errors",
+    "save": "Baseline-BP",
+    "note": "Forced. pet_repro mode stray takes a stray from EA's pool, sends it with EA's StrayPets.SendStrayToLot to the active household's lot, cancels its StrayGoToLot (the buff is never added) and sets it on that lot with buffs cleared. kStrayLeaveHours is set to 1 in both arms so two hourly alarms fall in the window at ultra speed. No stray left in the pool = not triggered: N/A, not FAIL. Needs Pets (EP5) and an active household.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "strayleave": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_set",
+        "args": {
+          "path": "Ts3Fixes.Instantiator.kStrayLeaveHours",
+          "value": 1
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "mode": "stray",
+          "start": true,
+          "seconds": 420
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 420,
+        "note": "about 3 sim-hours: two or more StrayPetHelper alarms"
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "result": true
+        },
+        "note": "left, stray_buff, counter deltas 4174-4177"
+      }
+    ],
+    "expect": "OFF: left false for the whole window, stray_buff false, 4174 +0; ON: 4175 +1 then 4174 +1, a 'strayleave: <stray> ... EA's MakeSimGoHome pushed' line, left true (GoToVirtualHome or de-instantiated); no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      },
+      {
+        "cmd": "reflect_set",
+        "args": {
+          "path": "Ts3Fixes.Instantiator.kStrayLeaveHours",
+          "value": 3
+        }
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "pet-long-visit",
+    "bug": "docs/656 §3.3: owned NPC pets walk alone to community lots for many sim-hours (health.jsonl: Minnie Cat 'Visit Eugi's' 2203 sim-min, Snowshoe Cat 'Visit Buena Vista Resort' 1793, Cookie Horse 'Visit Bridgeport Sports Zone' 1106); petlonghome covers only GoHome / GoToLot and the human trip shortcuts refuse pets",
+    "fix": "ts3fixes petlongvisit (PetLongHome.cs): an unseen owned NPC pet on a long VisitCommunityLot walk is placed on the target lot like petlonghome (SafeSpot, unseen pet and lot); 4179 placed, 4180 refused, 4078 exempt, 4079 errors",
+    "save": "Baseline-BP",
+    "note": "Forced. pet_repro mode visit picks an owned NPC pet (cats and dogs before horses; no stray, pool animal or wild horse), sets it at a lot >= 300 m from the camera target and the active Sim and, once it stands there, pushes EA's VisitCommunityLot to a community lot 400-1500 m away, also >= 300 m from both; the timer starts at the push. The camera must stay with the active Sim (unseen rule). No pick = N/A, not FAIL.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petlongvisit": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "mode": "visit",
+          "start": true,
+          "seconds": 180
+        },
+        "waitS": 215
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "result": true
+        },
+        "note": "push_dist_m, jumped_s, reached_s, counter deltas 4179-4180"
+      }
+    ],
+    "expect": "pushed true, push_dist_m >= 400. OFF: jumped_s -1, reached false or reached_s >= 60, 4179 +0; ON: 4179 >= 1, jumped_s <= 5, a 'petlonghome: placed <pet> ... via visit' line, reached_s <= 5; household pets untouched; no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "pet-long-home",
+    "bug": "docs/645 §4 / docs/656 §3.3: owned NPC pets walk home on foot for 10-35 sim-hours (Tigger Cat 2110 sim-min, Majora Cat 1777, Lucky Coyle 816); the human trip shortcuts refuse pets",
+    "fix": "ts3fixes petlonghome (PetLongHome.cs): an unseen NPC pet on a long GoHome is placed on its home lot (SafeSpot, unseen pet and lot); 4076 placed, 4077 refused, 4078 exempt, 4079 errors; with kPetLongHomeNoSpotMinutes > 0 a failed spot search is remembered (4178)",
+    "save": "Baseline-BP",
+    "note": "Forced. pet_repro mode home picks an owned NPC pet (cats and dogs before horses) whose home lot is >= 300 m from the camera target and the active Sim, sets it at a lot 400-1500 m from home (also >= 300 m from both) and, once it stands there, pushes EA's GoHome; the timer starts at the push. No pick = N/A, not FAIL.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petlonghome": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "mode": "home",
+          "start": true,
+          "seconds": 180
+        },
+        "waitS": 215
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "result": true
+        },
+        "note": "push_dist_m, jumped_s, reached_s, petlonghome_placed_4076"
+      }
+    ],
+    "expect": "pushed true, push_dist_m >= 400. OFF: jumped_s -1, reached false or reached_s >= 60, petlonghome_placed_4076 +0; ON: petlonghome_placed_4076 >= 1, jumped_s <= 5, a 'petlonghome: placed <pet> ... via gohome' line, reached_s <= 5; no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "barcloseorphan-check",
+    "bug": "docs/661 §3.1: BartendingVenueHelper.OnClose re-arms itself every 30 sim-min while a bar of its type hosts a BachelorParty and each run overwrites mRemindVenueGuestsToLeave with a new repeating alarm without removing the old one [IL OnClose IL_00d1-IL_00fa]; the orphaned alarms push every guest of every bar of that type to the yard every 5 minutes, open hours included, until the world unloads",
+    "fix": "ts3fixes barcloseorphan (BarCloseOrphan.cs): while the venue is strictly open (after HourOpen, before the staggered exit) MakeSimLeaveVenueIfNecessary is skipped for non-exempt NPCs; 4230 skipped, 4231 exempt let through, 4232 errors",
+    "save": "Baseline-BP, during a bar's open hours (Bridgeport clubs: 16:00-24:00 is safe), an NPC guest inside a bar",
+    "note": "Forced. BarCloseOrphanCheck run calls EA's private RemindVenueGuestsToLeave once on the helper of an open bar with NPC guests, exactly what an orphaned alarm runs every 5 minutes. No open bar with an NPC inside = N/A, not FAIL. Household Sims on that lot keep EA's push (the check prefers a lot without one).",
+    "expect": "off: 'verdict: BROKEN' (NPC pushes >= 1, 4230 +0). on: 'verdict: FIXED' (pushes 0, skipped >= 1, 4230 +N, a 'barcloseorphan: ... skipped' line); no new exceptions",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "barcloseorphan": false
+        },
+        "waitS": 1,
+        "note": "off first"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarCloseOrphanCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarCloseOrphanCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "barcloseorphan": true
+        },
+        "waitS": 1,
+        "note": "on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarCloseOrphanCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarCloseOrphanCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "barcloseorphan": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "barcloseorphan": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "venueintensity-check",
+    "bug": "docs/661 §3.2: MetaAutonomyTuning.GetIntensity reads IsDowntownWorld() ? Intensity : Intensity_Downtown [IL IL_0072-IL_0088], the columns swapped: every venue, park, pool, graveyard, rabbit hole and pond is weighted for NPCs with the other world's value wherever the Venues XML columns differ",
+    "fix": "ts3fixes venueintensity (VenueIntensity.cs): for a non-exempt NPC the two fields are swapped around EA's own GetIntensity body when the right column is set and differs (LotGameplayCore.ShouldSwap); each venue type's columns logged once; 4236 types logged, 4237 swapped, 4238 exempt, 4239 errors",
+    "save": "any world (Bridgeport = downtown, Isla Paradiso / Sunset Valley = not)",
+    "note": "Forced. VenueIntensityCheck run compares the hooked GetIntensity(null, npc) with EA's body for the columns as loaded and swapped, for each venue type whose columns differ. No such type = N/A (the Venues XML agrees with itself in this install): the fix then never changes anything. Run in one downtown and one non-downtown world.",
+    "expect": "off: 'verdict: BROKEN' (hook == ea != right) or N/A. on: 'verdict: FIXED' (hook == right), 'venueintensity: <type> Intensity a, Intensity_Downtown b' lines; no new exceptions",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "venueintensity": false
+        },
+        "waitS": 1,
+        "note": "off first"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VenueIntensityCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VenueIntensityCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "venueintensity": true
+        },
+        "waitS": 1,
+        "note": "on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VenueIntensityCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VenueIntensityCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "venueintensity": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "venueintensity": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "cas-skin-probe",
+    "bug": "In CAS the body skin (neck, shoulders, back) sometimes shows lighter and greyer than the face, seen in swimwear and in the mirror; a hair change or leaving CAS clears it (docs/658 §3)",
+    "fix": "diagnostic first: cas_skin_probe (read only) at each tab. Candidate fix castintreset (CasTintReset.cs, UNCONFIRMED, default off) and casdefaultskin (CasDefaultSkin.cs, default off, logs the picked ramp)",
+    "save": "Baseline-BP",
+    "note": "Each step records CASModel.HighlightIndex / SelectionIndex / HighlightMode, CASLogic's dirty flags, SimSelectionModeEnabled, the pick id decoded to a body type, the builder skin key / index, LoadDB's default ramp and whether the human base ramp is installed, the outfit and its worn body types. A full-resolution spectacle capture needs a shell step the harness does not have; the game's own screenshot (key C) is taken instead. Compare the screenshots by eye for a lighter torso; a non-zero highlight_index whose highlight_body_type is FullBody / UpperBody with highlight_mode Parts while the panel is not the click-on-Sim one names H1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "castintreset": "$on",
+          "casdefaultskin": "$on",
+          "optionsnoopapply": "$on"
+        },
+        "waitS": 1,
+        "note": "off arm: EA's behaviour, the probe records where a stale index sits; on arm: the unconfirmed candidate clears it"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "swimwear"
+        },
+        "waitS": 30,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        },
+        "note": "CAS on the active Sim in swimwear"
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1,
+        "note": "probe: open-swimwear"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "cas-skin-open-swimwear"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "tops"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1,
+        "note": "probe: clothing-tab"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "cas-skin-clothing-tab"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "body"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1,
+        "note": "probe: body"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "cas-skin-body"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "swimwear"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1,
+        "note": "probe: swimwear"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "cas-skin-swimwear"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "everyday"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1,
+        "note": "probe: everyday"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "cas-skin-everyday"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "basics"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1,
+        "note": "probe: basics"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "cas-skin-basics"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "hair"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1,
+        "note": "probe: hair"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "cas-skin-hair"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Sims3.UI.UIManager.ApplyOptions"
+        },
+        "waitS": 3,
+        "note": "player lead (Options menu in CAS, then exit): EA's native options re-apply, as OptionsDialog OK runs it; a lighter torso right after confirms the native re-apply as the trigger"
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1,
+        "note": "probe: after-applyoptions"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "cas-skin-after-applyoptions"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1,
+        "note": "castintreset_cleared, casdefaultskin_loads / _changed read back"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      }
+    ],
+    "watch": {
+      "kind": "stuck",
+      "sims": [],
+      "minutes": 1
+    },
+    "expect": "Both arms: every cas_skin_probe answers; ramps > 0; human_base_ramp_installed true on a base-game install; casdefaultskin line in the log naming EA's last-enumerated ramp. Off arm: record highlight_index / selection_index per tab (the trigger is where a non-zero value stays on a body part after the tab changed). On arm: castintreset_cleared >= 0 and highlight_index 0 after each tab switch away from the click-on-Sim panel; no lighter torso in the screenshots. After the ApplyOptions step: compare cas-skin-after-applyoptions with cas-skin-hair (both arms; optionsnoopapply cannot stop a direct ApplyOptions, it only skips no-op sets from the dialog's OK: its 'optionsnoopapply:' lines show up only when the Options dialog is used). No script errors, no crash.",
+    "switches": [
+      "castintreset",
+      "casdefaultskin",
+      "optionsnoopapply"
+    ]
+  },
+  {
+    "id": "cas-propagate",
+    "bug": "PropagatePhysicalProperties: an age / gender mismatched outfit dropped by EA leaves the current outfit index and CareerOutfitIndex stale; the performance-career Career[0] and non-primary categories keep the old skin, morphs and blends; occult and werewolf age exceptions are swallowed (docs/658 §6.1, §6.2, §6.4)",
+    "fix": "ts3fixes CasPropagate.cs (caspropagateoutfits, caspropagateextra) and CasOccultLog.cs (casoccultlog), all default off",
+    "save": "Baseline-BP",
+    "note": "Natural trigger only: every category switch in CAS runs CommitBuilder(bAllCategories) -> PropagatePhysicalProperties. caspropagateextra fires when the Sim has MartialArts / AuxCareer / Makeover / SkinnyDippingTowel / Massage / ChildImagination outfits or a performance career; caspropagateoutfits fires only with a stored outfit of another age or gender (legacy saves). A Sim without them is N/A for that counter, not FAIL; the run still judges side effects.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "caspropagateoutfits": "$on",
+          "caspropagateextra": "$on",
+          "casoccultlog": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "swimwear"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "formal"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "everyday"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1,
+        "note": "caspropagateoutfits_* / caspropagateextra_* / casoccultlog_* counters"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      }
+    ],
+    "watch": {
+      "kind": "stuck",
+      "sims": [],
+      "minutes": 1
+    },
+    "expect": "Both arms: outfit_category back to Everyday, stored_outfit_body_types non-empty (the builder was reloaded from a real outfit). On arm: caspropagateoutfits_errors 0, caspropagateextra_errors 0; caspropagateextra_rebuilt > 0 when the Sim has a listed outfit (else N/A); 'caspropagate: rebuilt ...' lines match it; no script errors, no crash.",
+    "switches": [
+      "caspropagateoutfits",
+      "caspropagateextra",
+      "casoccultlog"
+    ]
+  },
+  {
+    "id": "elevatorlightrig-check",
+    "bug": "An elevator rider reset or cut off without OnExitElevator keeps the CAS custom light rig in live mode (docs/658 §7.1)",
+    "fix": "ts3fixes ElevatorLightRig.cs: elevatorlightrig (default off), docs/658 §7.1",
+    "save": "any world (pure check); an elevator lot shows the live counters",
+    "note": "ElevatorLightRigCheck 'run' evaluates the fix's rule with controls and counts the elevators and registered riders (read-only); 'result' shows the counters. A live trigger (reset a rider mid-ride) is the next step: docs/658 §7.1.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "elevatorlightrig": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevatorLightRigCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevatorLightRigCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "elevatorlightrig": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevatorLightRigCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevatorLightRigCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "elevatorlightrig": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "elevatorlightrig": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "combo-1119-natural",
+    "bug": "NPC loops, stalls, listener leaks and no-path retries measured in natural play 2026-11-17..19 (docs/649, 650, 651, 645, 646, 647, 648, 654, 643 §7): these fixes act on natural NPC traffic, so the repro is a natural off/on arm",
+    "fix": "ts3fixes perfjobmissedlistener, socialunlinkend, objfailmemo, paparazzicooldown, shuffleboardnpccap, npmfuzzy, npmhousehold, spotwaitattr, unseenboatland, picnicexit, poolfailmemo, petstartleskip, trashoutsidefallback, wildlotskip, npcstallend, streetparkinglisten",
+    "save": "Baseline-BP",
+    "note": "natural play: both arms run the same steps, only the patches value differs; read the counters of each switch from leak_census / fix_counters at the end",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "perfjobmissedlistener": "$on",
+          "socialunlinkend": "$on",
+          "objfailmemo": "$on",
+          "paparazzicooldown": "$on",
+          "shuffleboardnpccap": "$on",
+          "npmfuzzy": "$on",
+          "npmhousehold": "$on",
+          "spotwaitattr": "$on",
+          "unseenboatland": "$on",
+          "picnicexit": "$on",
+          "poolfailmemo": "$on",
+          "petstartleskip": "$on",
+          "trashoutsidefallback": "$on",
+          "wildlotskip": "$on",
+          "npcstallend": "$on",
+          "streetparkinglisten": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 600,
+        "note": "about 10 min of natural NPC traffic"
+      },
+      {
+        "cmd": "leak_census",
+        "args": {},
+        "note": "fix_counters per switch"
+      }
+    ],
+    "expect": "each switch's fix_counters rise only in the ON arm where its case occurs in natural traffic; no new exceptions, no crash, no new hitches >= 300 ms from the switches"
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
@@ -112724,1004 +113768,5 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
-  },
-  {
-    "id": "dish-pile-census",
-    "bug": "docs/652: dirty Plate/Bowl servings pile up on one lot in Isla Paradiso night runs (91-179 dirty broadcasters, one lot 203)",
-    "fix": "ts3fixes dishpilecap (DishPileCap.cs): above kDishPileCapPerLot dirty dishes on an unseen lot with no household tie get EA's nightly throw-away early (Lot.DoesObjectNeedCleaning + ThrowAwayImmediately), counters 4130-4139; the active household's home is never touched",
-    "save": "Baseline-IP",
-    "area": "objects",
-    "note": "UNVERIFIED (static only, 2026-11-19): never run. Measurement first: dish_census names the pile lot and whether EA's 3 AM cleanup skips it (nightly_cleanup). Natural play needs sim-days to pile; run it after an IP night queue's idle phase or call it per snapshot.",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "dishpilecap": "$on"
-        },
-        "waitS": 1
-      },
-      {
-        "cmd": "dish_census",
-        "args": {
-          "top": 8
-        },
-        "note": "per-lot dishes, nightly_cleanup verdict, history"
-      },
-      {
-        "cmd": "set_speed",
-        "args": {
-          "speed": "ultra"
-        },
-        "waitS": 600,
-        "note": "a few sim-hours: hourly passes"
-      },
-      {
-        "cmd": "dish_census",
-        "args": {
-          "top": 8
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {},
-        "note": "counters 4130-4139"
-      }
-    ],
-    "expect": "OFF: dishpilecap_removed 0, the biggest pile is the active home (nightly_cleanup 'skipped: active Sim's home'), other lots <= cap after a 3 AM; ON: same on the home lot (never touched), lots over the cap elsewhere drop to the cap when unseen"
-  },
-  {
-    "id": "trigger-battery",
-    "bug": "Fixes with counters that stayed 0 in every valid fixes-ON phase run (docs/653): their live hooks were never reached in play",
-    "fix": "ts3agent TriggerBatteryHandlers.cs trigger_battery: speedrecalc, speedskip, heartbroken, doorlock, inuse, putdown, gohome, elevator, speedlock (docs/653 §3)",
-    "save": "any world in live mode with an active household; elevator needs a non-home lot with an elevator on two levels (Bridgeport); doorlock an all-NPC household of 2+; heartbroken an NPC couple",
-    "note": "Only uncontrolled NPCs (DrNpc), the one farthest from the camera; speed triggers change no Sim; speedlock enters and leaves build mode on the home lot. status lists per trigger result, own-slot deltas and other slots that moved.",
-    "expect": "status rows: fired true for every trigger whose result is ok; skipped rows name the missing precondition",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "speedrecalclock": true,
-          "speedskiplevel": true,
-          "heartbrokenbcast": true,
-          "doorlockowner": true,
-          "resetinusefree": true,
-          "putdowninuse": true,
-          "gohomewalk": true,
-          "elevatorridertimeout": true,
-          "elevatorresetriders": true,
-          "speedlockowner": true
-        },
-        "note": "on (the battery also sets them)",
-        "waitS": 1
-      },
-      {
-        "cmd": "trigger_battery",
-        "args": {
-          "keep_on": true
-        },
-        "waitS": 5
-      },
-      {
-        "cmd": "trigger_battery",
-        "args": {
-          "status": true
-        },
-        "waitS": 240,
-        "note": "about 4 min with the elevator and put-down waits"
-      }
-    ],
-    "cleanup": [
-      {
-        "cmd": "trigger_battery",
-        "args": {
-          "stop": true
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "speedrecalclock": false,
-          "speedskiplevel": false,
-          "heartbrokenbcast": false,
-          "doorlockowner": false,
-          "resetinusefree": false,
-          "putdowninuse": false,
-          "gohomewalk": false,
-          "elevatorridertimeout": false,
-          "elevatorresetriders": false,
-          "speedlockowner": false
-        }
-      }
-    ]
-  },
-  {
-    "id": "owelevidle-check",
-    "bug": "NRaas Overwatch's nightly CleanupElevators destroys and re-makes at home every Sim in an elevator's assigned list, also NPCs whose entry outlived their ride (asleep at home at 05:00); ~10 resets a night, 50-85 ms each (docs/655)",
-    "fix": "ts3fixes OwElevIdle.cs: owelevidle (default off), docs/655",
-    "save": "Bridgeport after at least one sim-day of play (elevator towers; NRaas Overwatch installed)",
-    "note": "census is read-only; run calls Overwatch's own CleanupElevators.PerformAlarm (our pass first). Turn owresettime on to see the owreset Perform lines of the Sims Overwatch still resets.",
-    "expect": "census before: idle > 0. on + run: dropped == that idle count, owreset Perform lines only for riding or exempt Sims; census after: idle 0.",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "owelevidle": false
-        },
-        "note": "off first",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
-          "args": [
-            "census"
-          ]
-        },
-        "waitS": 2,
-        "note": "off: idle entries Overwatch would reset"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
-          "args": [
-            "result"
-          ]
-        },
-        "waitS": 2
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "owelevidle": true
-        },
-        "note": "on",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "on: Overwatch's cleanup with idle entries dropped first"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
-          "args": [
-            "census"
-          ]
-        },
-        "waitS": 2,
-        "note": "after: idle 0"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
-          "args": [
-            "result"
-          ]
-        },
-        "waitS": 2
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "owelevidle": false
-        },
-        "note": "cleanup",
-        "waitS": 1
-      }
-    ]
-  },
-  {
-    "id": "pet-arrive-point",
-    "bug": "docs/656 §3.1: an NPC animal's GoHome first plans to the lot's cached point just inside the front door (Lot.PlanRouteIntoLot); horses (any non-barn door), strays (ungreeted lot) and pets at a pet-locked door cannot pass it, so that full-length plan fails PortalLocked (routecause GoHome PortalLocked 65 lines, 'locked doors 0', OFF runs 2026-11-15..19), and an animal that validates a lot first clears the point for every Sim after it",
-    "fix": "ts3fixes petarrivepoint (PetArrivePoint.cs): for a non-exempt NPC animal the front door refuses (EA's CommonDoor.IsAllowedThrough), PlanRouteIntoLot runs only EA's mailbox / PlanToLotEx tail; 4170 skipped, 4171 of those on an unvalidated lot, 4172 exempt, 4173 errors",
-    "save": "Baseline-BP",
-    "note": "Forced, built by the step. pet_repro mode arrive picks an owned NPC pet whose home lot (no apartment slots) has a front door that refuses it: a horse first (any non-barn door), else a cat or dog whose front door gets EA's Pets lock (restored at the end of the window or on stop). The lot's arrival point is marked unvalidated (EA's public BestRouteIntoLotLocationValidated) so the pet validates it; it is set down 40-145 m from home (under petlonghome's 150 m) and only then EA's GoHome is pushed and the timer starts. routecauselog is on in both arms. Works in BP and Appaloosa Plains (ranch horses). No pick = not triggered: N/A, not FAIL. Needs Pets (EP5).",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "routecauselog": true,
-          "petarrivepoint": "$on"
-        },
-        "waitS": 1
-      },
-      {
-        "cmd": "set_speed",
-        "args": {
-          "speed": "normal"
-        }
-      },
-      {
-        "cmd": "pet_repro",
-        "args": {
-          "mode": "arrive",
-          "start": true,
-          "seconds": 180
-        },
-        "waitS": 215,
-        "note": "setup (teleport, up to 30 s), then EA's GoHome and 180 s"
-      },
-      {
-        "cmd": "pet_repro",
-        "args": {
-          "result": true
-        },
-        "note": "before / after lot cache, counter deltas"
-      }
-    ],
-    "expect": "pushed true; before.validated false, before.door_allows false. OFF: a 'routecause: <pet> npc, GoHome, Plan FailedBecauseDestinationPortalLocked' line, after.validated true and after.has_point false (the lot's point poisoned), 4170 +0; ON: 4170 >= 1 and 4171 >= 1, a 'petarrivepoint: <pet> (<species>) -> <lot>: front door closed to it' line, after.validated false; reached the same or better ON; no new exceptions, no crash",
-    "cleanup": [
-      {
-        "cmd": "pet_repro",
-        "args": {
-          "stop": true
-        }
-      },
-      {
-        "cmd": "autonomy",
-        "args": {
-          "enabled": true
-        }
-      }
-    ]
-  },
-  {
-    "id": "pet-stray-leave",
-    "bug": "docs/656 §3.2: a stray's visit ends only when its StrayPet buff times out (BuffStrayPet.OnTimeout -> MakeSimGoHome); a stray that never got the buff or lost it sits and stands on the lot for days and counts against EA's kMaxStraysInWorld (6), so new stray visits stop",
-    "fix": "ts3fixes strayleave (StrayLeave.cs): EA's hourly StrayPetHelper first gives a non-exempt instantiated stray without the buff for kStrayLeaveHours EA's own MakeSimGoHome; 4174 sent, 4175 seen without the buff, 4176 exempt, 4177 errors",
-    "save": "Baseline-BP",
-    "note": "Forced. pet_repro mode stray takes a stray from EA's pool, sends it with EA's StrayPets.SendStrayToLot to the active household's lot, cancels its StrayGoToLot (the buff is never added) and sets it on that lot with buffs cleared. kStrayLeaveHours is set to 1 in both arms so two hourly alarms fall in the window at ultra speed. No stray left in the pool = not triggered: N/A, not FAIL. Needs Pets (EP5) and an active household.",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "strayleave": "$on"
-        },
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_set",
-        "args": {
-          "path": "Ts3Fixes.Instantiator.kStrayLeaveHours",
-          "value": 1
-        },
-        "waitS": 1
-      },
-      {
-        "cmd": "pet_repro",
-        "args": {
-          "mode": "stray",
-          "start": true,
-          "seconds": 420
-        },
-        "waitS": 5
-      },
-      {
-        "cmd": "set_speed",
-        "args": {
-          "speed": "ultra"
-        },
-        "waitS": 420,
-        "note": "about 3 sim-hours: two or more StrayPetHelper alarms"
-      },
-      {
-        "cmd": "pet_repro",
-        "args": {
-          "result": true
-        },
-        "note": "left, stray_buff, counter deltas 4174-4177"
-      }
-    ],
-    "expect": "OFF: left false for the whole window, stray_buff false, 4174 +0; ON: 4175 +1 then 4174 +1, a 'strayleave: <stray> ... EA's MakeSimGoHome pushed' line, left true (GoToVirtualHome or de-instantiated); no new exceptions, no crash",
-    "cleanup": [
-      {
-        "cmd": "set_speed",
-        "args": {
-          "speed": "normal"
-        }
-      },
-      {
-        "cmd": "reflect_set",
-        "args": {
-          "path": "Ts3Fixes.Instantiator.kStrayLeaveHours",
-          "value": 3
-        }
-      },
-      {
-        "cmd": "pet_repro",
-        "args": {
-          "stop": true
-        }
-      },
-      {
-        "cmd": "autonomy",
-        "args": {
-          "enabled": true
-        }
-      }
-    ]
-  },
-  {
-    "id": "pet-long-visit",
-    "bug": "docs/656 §3.3: owned NPC pets walk alone to community lots for many sim-hours (health.jsonl: Minnie Cat 'Visit Eugi's' 2203 sim-min, Snowshoe Cat 'Visit Buena Vista Resort' 1793, Cookie Horse 'Visit Bridgeport Sports Zone' 1106); petlonghome covers only GoHome / GoToLot and the human trip shortcuts refuse pets",
-    "fix": "ts3fixes petlongvisit (PetLongHome.cs): an unseen owned NPC pet on a long VisitCommunityLot walk is placed on the target lot like petlonghome (SafeSpot, unseen pet and lot); 4179 placed, 4180 refused, 4078 exempt, 4079 errors",
-    "save": "Baseline-BP",
-    "note": "Forced. pet_repro mode visit picks an owned NPC pet (cats and dogs before horses; no stray, pool animal or wild horse), sets it at a lot >= 300 m from the camera target and the active Sim and, once it stands there, pushes EA's VisitCommunityLot to a community lot 400-1500 m away, also >= 300 m from both; the timer starts at the push. The camera must stay with the active Sim (unseen rule). No pick = N/A, not FAIL.",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "petlongvisit": "$on"
-        },
-        "waitS": 1
-      },
-      {
-        "cmd": "set_speed",
-        "args": {
-          "speed": "normal"
-        }
-      },
-      {
-        "cmd": "pet_repro",
-        "args": {
-          "mode": "visit",
-          "start": true,
-          "seconds": 180
-        },
-        "waitS": 215
-      },
-      {
-        "cmd": "pet_repro",
-        "args": {
-          "result": true
-        },
-        "note": "push_dist_m, jumped_s, reached_s, counter deltas 4179-4180"
-      }
-    ],
-    "expect": "pushed true, push_dist_m >= 400. OFF: jumped_s -1, reached false or reached_s >= 60, 4179 +0; ON: 4179 >= 1, jumped_s <= 5, a 'petlonghome: placed <pet> ... via visit' line, reached_s <= 5; household pets untouched; no new exceptions, no crash",
-    "cleanup": [
-      {
-        "cmd": "pet_repro",
-        "args": {
-          "stop": true
-        }
-      },
-      {
-        "cmd": "autonomy",
-        "args": {
-          "enabled": true
-        }
-      }
-    ]
-  },
-  {
-    "id": "pet-long-home",
-    "bug": "docs/645 §4 / docs/656 §3.3: owned NPC pets walk home on foot for 10-35 sim-hours (Tigger Cat 2110 sim-min, Majora Cat 1777, Lucky Coyle 816); the human trip shortcuts refuse pets",
-    "fix": "ts3fixes petlonghome (PetLongHome.cs): an unseen NPC pet on a long GoHome is placed on its home lot (SafeSpot, unseen pet and lot); 4076 placed, 4077 refused, 4078 exempt, 4079 errors; with kPetLongHomeNoSpotMinutes > 0 a failed spot search is remembered (4178)",
-    "save": "Baseline-BP",
-    "note": "Forced. pet_repro mode home picks an owned NPC pet (cats and dogs before horses) whose home lot is >= 300 m from the camera target and the active Sim, sets it at a lot 400-1500 m from home (also >= 300 m from both) and, once it stands there, pushes EA's GoHome; the timer starts at the push. No pick = N/A, not FAIL.",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "petlonghome": "$on"
-        },
-        "waitS": 1
-      },
-      {
-        "cmd": "set_speed",
-        "args": {
-          "speed": "normal"
-        }
-      },
-      {
-        "cmd": "pet_repro",
-        "args": {
-          "mode": "home",
-          "start": true,
-          "seconds": 180
-        },
-        "waitS": 215
-      },
-      {
-        "cmd": "pet_repro",
-        "args": {
-          "result": true
-        },
-        "note": "push_dist_m, jumped_s, reached_s, petlonghome_placed_4076"
-      }
-    ],
-    "expect": "pushed true, push_dist_m >= 400. OFF: jumped_s -1, reached false or reached_s >= 60, petlonghome_placed_4076 +0; ON: petlonghome_placed_4076 >= 1, jumped_s <= 5, a 'petlonghome: placed <pet> ... via gohome' line, reached_s <= 5; no new exceptions, no crash",
-    "cleanup": [
-      {
-        "cmd": "pet_repro",
-        "args": {
-          "stop": true
-        }
-      },
-      {
-        "cmd": "autonomy",
-        "args": {
-          "enabled": true
-        }
-      }
-    ]
-  },
-  {
-    "id": "barcloseorphan-check",
-    "bug": "docs/661 §3.1: BartendingVenueHelper.OnClose re-arms itself every 30 sim-min while a bar of its type hosts a BachelorParty and each run overwrites mRemindVenueGuestsToLeave with a new repeating alarm without removing the old one [IL OnClose IL_00d1-IL_00fa]; the orphaned alarms push every guest of every bar of that type to the yard every 5 minutes, open hours included, until the world unloads",
-    "fix": "ts3fixes barcloseorphan (BarCloseOrphan.cs): while the venue is strictly open (after HourOpen, before the staggered exit) MakeSimLeaveVenueIfNecessary is skipped for non-exempt NPCs; 4230 skipped, 4231 exempt let through, 4232 errors",
-    "save": "Baseline-BP, during a bar's open hours (Bridgeport clubs: 16:00-24:00 is safe), an NPC guest inside a bar",
-    "note": "Forced. BarCloseOrphanCheck run calls EA's private RemindVenueGuestsToLeave once on the helper of an open bar with NPC guests, exactly what an orphaned alarm runs every 5 minutes. No open bar with an NPC inside = N/A, not FAIL. Household Sims on that lot keep EA's push (the check prefers a lot without one).",
-    "expect": "off: 'verdict: BROKEN' (NPC pushes >= 1, 4230 +0). on: 'verdict: FIXED' (pushes 0, skipped >= 1, 4230 +N, a 'barcloseorphan: ... skipped' line); no new exceptions",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "barcloseorphan": false
-        },
-        "waitS": 1,
-        "note": "off first"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.BarCloseOrphanCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "off: EA's path"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.BarCloseOrphanCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "barcloseorphan": true
-        },
-        "waitS": 1,
-        "note": "on"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.BarCloseOrphanCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "on: the fix"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.BarCloseOrphanCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "barcloseorphan": false
-        },
-        "note": "back to the default"
-      }
-    ],
-    "cleanup": [
-      {
-        "cmd": "patches",
-        "args": {
-          "barcloseorphan": false
-        }
-      }
-    ]
-  },
-  {
-    "id": "venueintensity-check",
-    "bug": "docs/661 §3.2: MetaAutonomyTuning.GetIntensity reads IsDowntownWorld() ? Intensity : Intensity_Downtown [IL IL_0072-IL_0088], the columns swapped: every venue, park, pool, graveyard, rabbit hole and pond is weighted for NPCs with the other world's value wherever the Venues XML columns differ",
-    "fix": "ts3fixes venueintensity (VenueIntensity.cs): for a non-exempt NPC the two fields are swapped around EA's own GetIntensity body when the right column is set and differs (LotGameplayCore.ShouldSwap); each venue type's columns logged once; 4236 types logged, 4237 swapped, 4238 exempt, 4239 errors",
-    "save": "any world (Bridgeport = downtown, Isla Paradiso / Sunset Valley = not)",
-    "note": "Forced. VenueIntensityCheck run compares the hooked GetIntensity(null, npc) with EA's body for the columns as loaded and swapped, for each venue type whose columns differ. No such type = N/A (the Venues XML agrees with itself in this install): the fix then never changes anything. Run in one downtown and one non-downtown world.",
-    "expect": "off: 'verdict: BROKEN' (hook == ea != right) or N/A. on: 'verdict: FIXED' (hook == right), 'venueintensity: <type> Intensity a, Intensity_Downtown b' lines; no new exceptions",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "venueintensity": false
-        },
-        "waitS": 1,
-        "note": "off first"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.VenueIntensityCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "off: EA's path"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.VenueIntensityCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "venueintensity": true
-        },
-        "waitS": 1,
-        "note": "on"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.VenueIntensityCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "on: the fix"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.VenueIntensityCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "venueintensity": false
-        },
-        "note": "back to the default"
-      }
-    ],
-    "cleanup": [
-      {
-        "cmd": "patches",
-        "args": {
-          "venueintensity": false
-        }
-      }
-    ]
-  },
-  {
-    "id": "cas-skin-probe",
-    "bug": "In CAS the body skin (neck, shoulders, back) sometimes shows lighter and greyer than the face, seen in swimwear and in the mirror; a hair change or leaving CAS clears it (docs/658 §3)",
-    "fix": "diagnostic first: cas_skin_probe (read only) at each tab. Candidate fix castintreset (CasTintReset.cs, UNCONFIRMED, default off) and casdefaultskin (CasDefaultSkin.cs, default off, logs the picked ramp)",
-    "save": "Baseline-BP",
-    "note": "Each step records CASModel.HighlightIndex / SelectionIndex / HighlightMode, CASLogic's dirty flags, SimSelectionModeEnabled, the pick id decoded to a body type, the builder skin key / index, LoadDB's default ramp and whether the human base ramp is installed, the outfit and its worn body types. A full-resolution spectacle capture needs a shell step the harness does not have; the game's own screenshot (key C) is taken instead. Compare the screenshots by eye for a lighter torso; a non-zero highlight_index whose highlight_body_type is FullBody / UpperBody with highlight_mode Parts while the panel is not the click-on-Sim one names H1.",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "castintreset": "$on",
-          "casdefaultskin": "$on",
-          "optionsnoopapply": "$on"
-        },
-        "waitS": 1,
-        "note": "off arm: EA's behaviour, the probe records where a stale index sits; on arm: the unconfirmed candidate clears it"
-      },
-      {
-        "cmd": "cas_open",
-        "args": {
-          "outfit": "swimwear"
-        },
-        "waitS": 30,
-        "until": {
-          "cmd": "cas_state",
-          "all": [
-            {
-              "path": "cas_ready",
-              "equals": true
-            }
-          ],
-          "maxS": 180
-        },
-        "note": "CAS on the active Sim in swimwear"
-      },
-      {
-        "cmd": "cas_skin_probe",
-        "waitS": 1,
-        "note": "probe: open-swimwear"
-      },
-      {
-        "cmd": "screenshot",
-        "args": {
-          "name": "cas-skin-open-swimwear"
-        },
-        "waitS": 2,
-        "optional": true,
-        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
-      },
-      {
-        "cmd": "cas_category",
-        "args": {
-          "category": "tops"
-        },
-        "waitS": 15
-      },
-      {
-        "cmd": "cas_skin_probe",
-        "waitS": 1,
-        "note": "probe: clothing-tab"
-      },
-      {
-        "cmd": "screenshot",
-        "args": {
-          "name": "cas-skin-clothing-tab"
-        },
-        "waitS": 2,
-        "optional": true,
-        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
-      },
-      {
-        "cmd": "cas_category",
-        "args": {
-          "category": "body"
-        },
-        "waitS": 15
-      },
-      {
-        "cmd": "cas_skin_probe",
-        "waitS": 1,
-        "note": "probe: body"
-      },
-      {
-        "cmd": "screenshot",
-        "args": {
-          "name": "cas-skin-body"
-        },
-        "waitS": 2,
-        "optional": true,
-        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
-      },
-      {
-        "cmd": "cas_category",
-        "args": {
-          "category": "swimwear"
-        },
-        "waitS": 15
-      },
-      {
-        "cmd": "cas_skin_probe",
-        "waitS": 1,
-        "note": "probe: swimwear"
-      },
-      {
-        "cmd": "screenshot",
-        "args": {
-          "name": "cas-skin-swimwear"
-        },
-        "waitS": 2,
-        "optional": true,
-        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
-      },
-      {
-        "cmd": "cas_category",
-        "args": {
-          "category": "everyday"
-        },
-        "waitS": 15
-      },
-      {
-        "cmd": "cas_skin_probe",
-        "waitS": 1,
-        "note": "probe: everyday"
-      },
-      {
-        "cmd": "screenshot",
-        "args": {
-          "name": "cas-skin-everyday"
-        },
-        "waitS": 2,
-        "optional": true,
-        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
-      },
-      {
-        "cmd": "cas_category",
-        "args": {
-          "category": "basics"
-        },
-        "waitS": 15
-      },
-      {
-        "cmd": "cas_skin_probe",
-        "waitS": 1,
-        "note": "probe: basics"
-      },
-      {
-        "cmd": "screenshot",
-        "args": {
-          "name": "cas-skin-basics"
-        },
-        "waitS": 2,
-        "optional": true,
-        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
-      },
-      {
-        "cmd": "cas_category",
-        "args": {
-          "category": "hair"
-        },
-        "waitS": 15
-      },
-      {
-        "cmd": "cas_skin_probe",
-        "waitS": 1,
-        "note": "probe: hair"
-      },
-      {
-        "cmd": "screenshot",
-        "args": {
-          "name": "cas-skin-hair"
-        },
-        "waitS": 2,
-        "optional": true,
-        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Sims3.UI.UIManager.ApplyOptions"
-        },
-        "waitS": 3,
-        "note": "player lead (Options menu in CAS, then exit): EA's native options re-apply, as OptionsDialog OK runs it; a lighter torso right after confirms the native re-apply as the trigger"
-      },
-      {
-        "cmd": "cas_skin_probe",
-        "waitS": 1,
-        "note": "probe: after-applyoptions"
-      },
-      {
-        "cmd": "screenshot",
-        "args": {
-          "name": "cas-skin-after-applyoptions"
-        },
-        "waitS": 2,
-        "optional": true,
-        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
-      },
-      {
-        "cmd": "patches",
-        "waitS": 1,
-        "note": "castintreset_cleared, casdefaultskin_loads / _changed read back"
-      },
-      {
-        "cmd": "cas_close",
-        "waitS": 20,
-        "until": {
-          "cmd": "cas_state",
-          "all": [
-            {
-              "path": "state",
-              "equals": "LiveModeState"
-            }
-          ],
-          "maxS": 180
-        }
-      }
-    ],
-    "watch": {
-      "kind": "stuck",
-      "sims": [],
-      "minutes": 1
-    },
-    "expect": "Both arms: every cas_skin_probe answers; ramps > 0; human_base_ramp_installed true on a base-game install; casdefaultskin line in the log naming EA's last-enumerated ramp. Off arm: record highlight_index / selection_index per tab (the trigger is where a non-zero value stays on a body part after the tab changed). On arm: castintreset_cleared >= 0 and highlight_index 0 after each tab switch away from the click-on-Sim panel; no lighter torso in the screenshots. After the ApplyOptions step: compare cas-skin-after-applyoptions with cas-skin-hair (both arms; optionsnoopapply cannot stop a direct ApplyOptions, it only skips no-op sets from the dialog's OK: its 'optionsnoopapply:' lines show up only when the Options dialog is used). No script errors, no crash.",
-    "switches": [
-      "castintreset",
-      "casdefaultskin",
-      "optionsnoopapply"
-    ]
-  },
-  {
-    "id": "cas-propagate",
-    "bug": "PropagatePhysicalProperties: an age / gender mismatched outfit dropped by EA leaves the current outfit index and CareerOutfitIndex stale; the performance-career Career[0] and non-primary categories keep the old skin, morphs and blends; occult and werewolf age exceptions are swallowed (docs/658 §6.1, §6.2, §6.4)",
-    "fix": "ts3fixes CasPropagate.cs (caspropagateoutfits, caspropagateextra) and CasOccultLog.cs (casoccultlog), all default off",
-    "save": "Baseline-BP",
-    "note": "Natural trigger only: every category switch in CAS runs CommitBuilder(bAllCategories) -> PropagatePhysicalProperties. caspropagateextra fires when the Sim has MartialArts / AuxCareer / Makeover / SkinnyDippingTowel / Massage / ChildImagination outfits or a performance career; caspropagateoutfits fires only with a stored outfit of another age or gender (legacy saves). A Sim without them is N/A for that counter, not FAIL; the run still judges side effects.",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "caspropagateoutfits": "$on",
-          "caspropagateextra": "$on",
-          "casoccultlog": "$on"
-        },
-        "waitS": 1
-      },
-      {
-        "cmd": "cas_open",
-        "args": {
-          "outfit": "everyday"
-        },
-        "waitS": 30,
-        "until": {
-          "cmd": "cas_state",
-          "all": [
-            {
-              "path": "cas_ready",
-              "equals": true
-            }
-          ],
-          "maxS": 180
-        }
-      },
-      {
-        "cmd": "cas_category",
-        "args": {
-          "category": "swimwear"
-        },
-        "waitS": 15
-      },
-      {
-        "cmd": "cas_skin_probe",
-        "waitS": 1
-      },
-      {
-        "cmd": "cas_category",
-        "args": {
-          "category": "formal"
-        },
-        "waitS": 15
-      },
-      {
-        "cmd": "cas_category",
-        "args": {
-          "category": "everyday"
-        },
-        "waitS": 15
-      },
-      {
-        "cmd": "cas_skin_probe",
-        "waitS": 1
-      },
-      {
-        "cmd": "patches",
-        "waitS": 1,
-        "note": "caspropagateoutfits_* / caspropagateextra_* / casoccultlog_* counters"
-      },
-      {
-        "cmd": "cas_close",
-        "waitS": 20,
-        "until": {
-          "cmd": "cas_state",
-          "all": [
-            {
-              "path": "state",
-              "equals": "LiveModeState"
-            }
-          ],
-          "maxS": 180
-        }
-      }
-    ],
-    "watch": {
-      "kind": "stuck",
-      "sims": [],
-      "minutes": 1
-    },
-    "expect": "Both arms: outfit_category back to Everyday, stored_outfit_body_types non-empty (the builder was reloaded from a real outfit). On arm: caspropagateoutfits_errors 0, caspropagateextra_errors 0; caspropagateextra_rebuilt > 0 when the Sim has a listed outfit (else N/A); 'caspropagate: rebuilt ...' lines match it; no script errors, no crash.",
-    "switches": [
-      "caspropagateoutfits",
-      "caspropagateextra",
-      "casoccultlog"
-    ]
-  },
-  {
-    "id": "elevatorlightrig-check",
-    "bug": "An elevator rider reset or cut off without OnExitElevator keeps the CAS custom light rig in live mode (docs/658 §7.1)",
-    "fix": "ts3fixes ElevatorLightRig.cs: elevatorlightrig (default off), docs/658 §7.1",
-    "save": "any world (pure check); an elevator lot shows the live counters",
-    "note": "ElevatorLightRigCheck 'run' evaluates the fix's rule with controls and counts the elevators and registered riders (read-only); 'result' shows the counters. A live trigger (reset a rider mid-ride) is the next step: docs/658 §7.1.",
-    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "elevatorlightrig": false
-        },
-        "note": "off first",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ElevatorLightRigCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "off: EA's path"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ElevatorLightRigCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "elevatorlightrig": true
-        },
-        "note": "on",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ElevatorLightRigCheck",
-          "args": [
-            "run"
-          ]
-        },
-        "waitS": 2,
-        "note": "on: the fix"
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ElevatorLightRigCheck",
-          "args": [
-            "result"
-          ]
-        }
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "elevatorlightrig": false
-        },
-        "note": "back to the default"
-      }
-    ],
-    "cleanup": [
-      {
-        "cmd": "patches",
-        "args": {
-          "elevatorlightrig": false
-        }
-      }
-    ]
   }
 ]
