@@ -936,6 +936,7 @@ Separate struct of `LONG`, not versioned (`[RouteAsync] NoPathMemo`, docs/643). 
 | 0x18-0x27 | `expired` (TTL passed or the sim clock went back), `evicted` (LRU), `dropped` (the same request ran and did not fail with no path), `exempt` (household, selected or unknown scope) |
 | 0x28-0x3F | `notRecorded[4]` (failures not recorded: cut, Sim blocker, world not quiet or moved, other status), `refused` (no world version, no sim clock, not the live world, key read fault), `ttlMin` (NoPathMemoMinutes) |
 | 0x40-0x57 | `minMs` (NoPathMemoMinMs), `cheap` (no-path failures under minMs, not recorded), `misses` (recorded with no entry of their key or one too far: the `miss` lines), `tooFar` (look-ups whose entry started more than 1 m away), `notPlanCommon` (eligible plans not from Route_PlanCommon's call site, run as vanilla), `exemptSlow` (exempt plans >= minMs that failed with no path: the `exempt` lines) |
+| 0x58-0x63 | `scopeViaMap` (eligible plans scoped by the per-handle table of open plans, not the `g_kdScopeH` slot), `slowNpc` (scope 2 / 3 plans that ran >= minMs, any result), `slowNpcViaMap` (of those, scoped by the table) |
 
 ## ts3native `ts3native_doorgen` export (`DmxScriptGen` in `native/ts3native/ts3native.cpp`)
 

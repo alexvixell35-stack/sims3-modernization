@@ -179,8 +179,23 @@ not recorded: cut 14 sim blocker 57 world moved 34 other 3`. Why no repeat match
 - The table was full of cheap failures: of the logged `recorded` lines (capped at 10 a minute) only 4 took >= 50 ms, most 0-7 ms; with 256 entries, 217 live
   entries were evicted. Fixed by `NoPathMemoMinMs`.
 - Invalidations (24) and expiries (17) are too few to explain 0 answers.
-- The slow repeats seen in `ufplansplit` (~300 ms sync plans 60 ticks apart, e.g. on Sparkling Sands) mostly did not reach the
-  table: their `route deadline: sync plan ... failed` lines show `route 00000000`, so the plan had no scope and was exempt
-  (unknown counts as household). The sync plan after a START refused without a job seems to run after `KdScopeTake` cleared
-  the scope [inferred, not yet verified]. The new `exempt` lines count and name these plans; widening the scope is a separate
-  change. The kind-0 job plans of 240-530 ms seen were cut by KindDeadlines (`why 0 cut`) and stay unrecorded by design.
+- The slow repeats seen in `ufplansplit` (~300 ms sync plans 60 ticks apart, e.g. Cynthia Patel on Sparkling Sands) were
+  not recorded. `route 00000000` in their `route deadline: sync plan` / `route phases` lines does not mean "no scope": those
+  lines print `t_pd.handle`, which `PdPlanBegin` sets only for a seen-NPC ceiling session [verified code]. The same plan's
+  `route candidate split` line says `scope unseen`, read by `PdScopeAt(0)` from `g_kdScopeH` at `PdPlanBegin` (not an
+  UnseenFallback session: the entry is `Route_PlanLocked (no IC)`, so `t_ufSess` is off) [verified code]. So these plans had
+  scope 2 at CallPlan; a refused START never reaches `KdScopeTake` (every refusal returns before it; only a failed
+  `JobQueue` refuses after it) [verified code]. Why they were not recorded is not in the log: the counters only give totals
+  (sim blocker 57, world moved 34). The capped `not recorded` line now names the reason per slow plan.
+- One real gap fixed: `g_kdScopeH` is a single slot. A plan inside another plan's callback (EA's PostPlanRouteCallback ->
+  CheckAndUpdateForHouseboats plans the houseboat legs on their own routes) overwrites it with its own op and clears it with its
+  op 12, so a later Route_PlanLocked of the outer route found another route's scope or none (unknown, exempt). NpmScope now
+  checks that the slot's route is this plan's route object (`outList - 0xE0`, with the follower), and otherwise asks a table of
+  open plans by handle (`g_npmScopes`, fed by the same UserDiag ops 10 / 11 / 13 and cleared by op 12; 16 entries, 120 s age
+  limit). No answer is still unknown = household. Selftest `TestNoPathMemoScope`.
+- The kind-0 job plans of 240-530 ms seen were cut by KindDeadlines (`why 0 cut`) and stay unrecorded by design.
+
+Proof on the next run: the counter line's `slow NPC plans N (by route handle M)` (plans of scope 2 / 3 that ran >=
+`NoPathMemoMinMs`), `scope by route handle`, the ` (scope by route handle)` tag on `recorded` / `served` lines, and the capped
+`route nopath memo: not recorded route %08X kind K scope S, N ms: <reason>` lines (cut by an exit, a Sim blocker, world not
+quiet or version moved, path status N; -1 = empty out list).

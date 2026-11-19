@@ -12,8 +12,9 @@
 // PlanJob and async jobs), so every caller above is covered once.
 // Who: the follower is an NPC of known scope only: 2 unseen or 3 seen NPC. Sim thread: the UfWhy answer ts3fixes sent for the
 // route it is planning (g_kdScopeH / g_kdScope, as KdSyncCeilUs(0)); worker in a job: that job's scope (uf / kdScope). The
-// route the scope belongs to must have this plan's follower (route +0x40/+0x44 == guid args), else the scope is someone
-// else's: unknown. Household, selected and unknown scope never record and are never answered (HhExempt; [Experimental]
+// route the scope belongs to must be this plan's route object (Route_PlanCommon's this = outList - 0xE0) with this plan's
+// follower (route +0x40/+0x44 == guid args); when the slot names another route (a nested plan overwrote it, or its op 12
+// cleared it), the per-handle table of open plans (g_npmScopes, NpmScopeNote) is asked the same way; else unknown. Household, selected and unknown scope never record and are never answered (HhExempt; [Experimental]
 // HouseholdToo=1 lifts it, the answer being a cached real failure).
 // What: Mode 1 = requests with water or boat planning (RouteOption hi 0x10000000 EnableWaterPlanning / 0x20000000
 // EnablePondPlanning, RouteOption2 lo 0x2 EnablePlanningAsBoat / 0x8 BeginAsBoat [verified docs/11 Q2, docs/99 §11.1]);
@@ -62,6 +63,9 @@ struct NoPathMemoCounters {
     LONG tooFar;          // +0x4C look-ups whose entry's start was more than 1 m away (the plan ran)
     LONG notPlanCommon;   // +0x50 eligible plans not from Route_PlanCommon's call site (road plans): run as vanilla
     LONG exemptSlow;      // +0x54 exempt plans that took >= minMs and failed with no path (the exempt lines)
+    LONG scopeViaMap;     // +0x58 eligible plans whose scope came from the per-handle table (the slot named another route or none)
+    LONG slowNpc;         // +0x5C plans of scope 2 / 3 that ran >= minMs (any result): slow NPC plans the memo sees
+    LONG slowNpcViaMap;   // +0x60 of those, scoped by the per-handle table
 };
 extern "C" __declspec(dllexport) NoPathMemoCounters ts3native_nopathmemo = {};
 
@@ -90,11 +94,59 @@ static bool NpmSimTick(uint64_t* out) {
     return false;
 }
 
-// this plan's router scope (0 unknown, 1 seen household side, 2 unseen, 3 seen NPC) and route handle, see the header
-static LONG NpmScope(DWORD guidLo, DWORD guidHi, DWORD* handle, int* kind) {
+// Route scopes by handle, for nested plans. ts3fixes sends a route's scope (UserDiag ops 10 / 11 / 13, UfPlanBody) first thing
+// in every plan and ends it with op 12. plandeadline.cpp keeps one slot (g_kdScopeH), which a plan inside another plan's
+// callback overwrites and then clears with its own op 12: EA's PostPlanRouteCallback -> CheckAndUpdateForHouseboats plans the
+// houseboat legs on their own routes inside the outer plan, so the outer route's next Route_PlanLocked runs with the slot at 0
+// (unknown, exempt). This table keeps every open plan's scope until its own op 12; sim thread writes, the worker reads.
+struct NpmScopeRec { DWORD h; LONG scope; DWORD t; };
+enum { NPM_SCOPE_RECS = 16 };
+static NpmScopeRec g_npmScopes[NPM_SCOPE_RECS];
+static SRWLOCK g_npmScLock = SRWLOCK_INIT;
+static const DWORD kNpmScopeMaxAgeMs = 120000;  // an op 12 lost (an exception past UfPlan's finally): never older than this
+
+// userdiag.cpp UdTextMsg, every op: 10 household or unknown (1), 11 unseen (2), 13 seen NPC (3), 12 the plan is over
+static void NpmScopeNote(int op, DWORD handle) {
+    if (!g_npmOn || !handle || (op != 10 && op != 11 && op != 12 && op != 13)) return;
+    const DWORD now = GetTickCount();
+    AcquireSRWLockExclusive(&g_npmScLock);
+    if (op == 12) {
+        for (int i = 0; i < NPM_SCOPE_RECS; i++)
+            if (g_npmScopes[i].h == handle) g_npmScopes[i].h = 0;
+    } else {
+        NpmScopeRec* pick = NULL;
+        for (int i = 0; i < NPM_SCOPE_RECS && !pick; i++)
+            if (g_npmScopes[i].h == handle) pick = &g_npmScopes[i];
+        for (int i = 0; i < NPM_SCOPE_RECS && !pick; i++)
+            if (!g_npmScopes[i].h || now - g_npmScopes[i].t >= kNpmScopeMaxAgeMs) pick = &g_npmScopes[i];
+        if (!pick) {  // 16 plans open at once: replace the oldest
+            pick = &g_npmScopes[0];
+            for (int i = 1; i < NPM_SCOPE_RECS; i++)
+                if (now - g_npmScopes[i].t > now - pick->t) pick = &g_npmScopes[i];
+        }
+        pick->h = handle, pick->scope = op == 11 ? 2 : op == 13 ? 3 : 1, pick->t = now;
+    }
+    ReleaseSRWLockExclusive(&g_npmScLock);
+}
+
+// the route object of handle h is this plan's route (Route_PlanCommon's this, ecx -> esi, whose +0xE0 is the out list) with
+// this plan's follower
+static bool NpmRouteIs(DWORD h, const u8* planRoute, DWORD guidLo, DWORD guidHi) {
+    __try {
+        const u8* rm = *g_orRmSlot;
+        const u8* route = rm ? g_orRoute(rm, NULL, h) : NULL;
+        return route && route == planRoute && *(const DWORD*)(route + 0x40) == guidLo && *(const DWORD*)(route + 0x44) == guidHi;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+
+// this plan's router scope (0 unknown, 1 seen household side, 2 unseen, 3 seen NPC) and route handle, see the header.
+// planRoute = outList - 0xE0. *viaMap = the scope came from g_npmScopes (the slot named another route or none).
+static LONG NpmScope(DWORD guidLo, DWORD guidHi, const u8* planRoute, DWORD* handle, int* kind, bool* viaMap) {
     LONG scope = 0;
     DWORD h = 0;
-    *kind = -1;
+    *kind = -1, *viaMap = false;
     const AsyncJob* j = g_runJob;
     if (GetCurrentThreadId() == g_workerTid && g_async.state == A_RUNNING && j && j->handle == g_async.handle) {
         scope = j->uf ? 2 : j->kdScope, h = j->handle, *kind = j->kind;
@@ -103,15 +155,19 @@ static LONG NpmScope(DWORD guidLo, DWORD guidHi, DWORD* handle, int* kind) {
         if (t_p10) *kind = (int)(t_p10 & 0xFF) - 1;  // [ProbeP10] on: the route IC this plan runs in
     }
     *handle = h;
-    if (!h || !scope) return 0;
-    __try {
-        const u8* rm = *g_orRmSlot;
-        const u8* route = rm ? g_orRoute(rm, NULL, h) : NULL;
-        if (!route || *(const DWORD*)(route + 0x40) != guidLo || *(const DWORD*)(route + 0x44) != guidHi) return 0;
-    } __except (EXCEPTION_EXECUTE_HANDLER) {
-        return 0;
+    if (h && scope && NpmRouteIs(h, planRoute, guidLo, guidHi)) return scope;
+    // the slot is another route's (a nested plan's) or empty: the open plan of this route, by handle
+    NpmScopeRec recs[NPM_SCOPE_RECS];
+    AcquireSRWLockShared(&g_npmScLock);
+    memcpy(recs, g_npmScopes, sizeof(recs));
+    ReleaseSRWLockShared(&g_npmScLock);
+    const DWORD now = GetTickCount();
+    for (int i = 0; i < NPM_SCOPE_RECS; i++) {
+        if (!recs[i].h || now - recs[i].t >= kNpmScopeMaxAgeMs || !NpmRouteIs(recs[i].h, planRoute, guidLo, guidHi)) continue;
+        *handle = recs[i].h, *viaMap = true;
+        return recs[i].scope;
     }
-    return scope;
+    return 0;
 }
 
 // thread-local evidence that an exit cut a plan; compared before / after it (NpmCutAfter)
@@ -133,15 +189,17 @@ static bool NpmCutAfter(const NpmCutSnap& s) {
 }
 
 // the failed plan's paths: 0 = no path to destination without a Sim blocker, 1 = a Sim blocker, 2 = another status
-static int NpmFailKind(const int* outList, DWORD guidLo, DWORD guidHi) {
+static int NpmFailKind(const int* outList, DWORD guidLo, DWORD guidHi, int* status = NULL) {  // *status: the first path's, -1 none
     __try {
         const int* node = (const int*)(uintptr_t)outList[0];
+        if (status) *status = -1;
         if (node == outList) return 2;  // empty: a pre-lock failure (Failed, no blocker), nothing to memo
         for (int i = 0; node != outList && i < 8; i++, node = (const int*)(uintptr_t)node[0]) {
             void* path = (void*)(uintptr_t)node[2];
             if (!path) continue;
             if (i == 0) {
                 const int st = ((PathStatusFn)(*(void***)path)[0x20 / 4])(path, NULL);
+                if (status) *status = st;
                 if (st != 7 && st != 8) return 2;
             }
             // blocker records RoutingPathImp +0xD0..+0xD4, 40 bytes: +0x00 kind, +0x08/+0x0C object id (path slots +0x160 /
@@ -272,7 +330,10 @@ static u8 NpmPlan(void* world, void* edx, int* outList, int* starts, int* goals,
     }
     DWORD handle;
     int kind;
-    const LONG scope = NpmScope(guidLo, guidHi, &handle, &kind);
+    bool viaMap;
+    const LONG scope = NpmScope(guidLo, guidHi, (const u8*)outList - 0xE0, &handle, &kind, &viaMap);  // Route_PlanCommon's call only (above)
+    if (viaMap) InterlockedIncrement(&c.scopeViaMap);
+    const char* via = viaMap ? " (scope by route handle)" : "";
     LARGE_INTEGER t0;
     if (HhExempt(scope != 2 && scope != 3)) {
         InterlockedIncrement(&c.exempt);
@@ -318,7 +379,7 @@ static u8 NpmPlan(void* world, void* edx, int* outList, int* starts, int* goals,
         InterlockedIncrement(&c.served);
         InterlockedExchangeAdd(&c.servedMs, ms);
         t_npmServed = true;  // NpmPcStub: Route_PlanCommon's empty-list branch reports 16, not 2
-        if (NpmLineOk(1)) Log("route nopath memo: served route %08lX kind %d scope %ld, stands for %ld ms", handle, kind, scope, (LONG)ms);
+        if (NpmLineOk(1)) Log("route nopath memo: served route %08lX kind %d scope %ld, stands for %ld ms%s", handle, kind, scope, (LONG)ms, via);
         return 0;  // out list untouched; Route_PlanCommon reports FailedBecauseNoPathToDestination with no blocker
     }
     NpmCutSnap cut;
@@ -326,13 +387,24 @@ static u8 NpmPlan(void* world, void* edx, int* outList, int* starts, int* goals,
     QueryPerformanceCounter(&t0);
     const u8 r = CallPlanEo(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
     const LONG planMs = UsSince(t0) / 1000;
+    if (planMs >= c.minMs) {
+        InterlockedIncrement(&c.slowNpc);
+        if (viaMap) InterlockedIncrement(&c.slowNpcViaMap);
+    }
     const bool wasCut = NpmCutAfter(cut);
-    const int fk = r ? 2 : NpmFailKind(outList, guidLo, guidHi);
+    int st = -1;
+    const int fk = r ? 2 : NpmFailKind(outList, guidLo, guidHi, &st);
     DWORD ver1, sver1;
     PrVersions(&ver1, &sver1);
     const int why = wasCut ? 0 : fk == 1 ? 1 : fk == 2 ? 3 : !quiet || sver1 != sver0 ? 2 : -1;
     if (why >= 0) {
         if (!r) InterlockedIncrement(&c.notRecorded[why]);
+        // a slow NPC failure the memo keeps out, and why (proves the scope and names the rule that stops it)
+        if (!r && planMs >= c.minMs && NpmLineOk(2)) {
+            static const char* const kWhy[3] = {"cut by an exit", "a Sim blocker", "world not quiet or version moved"};
+            if (why == 3) Log("route nopath memo: not recorded route %08lX kind %d scope %ld, %ld ms: path status %d%s", handle, kind, scope, planMs, st, via);
+            else Log("route nopath memo: not recorded route %08lX kind %d scope %ld, %ld ms: %s%s", handle, kind, scope, planMs, kWhy[why], via);
+        }
         if (why != 0) {  // a plan of a memoed request that did not fail the memoed way: the memo is wrong now
             AcquireSRWLockExclusive(&g_npmLock);
             const int d = g_npmWorld == world ? NpmTabDrop(&g_npmTab, q.key) : 0;
@@ -354,7 +426,7 @@ static u8 NpmPlan(void* world, void* edx, int* outList, int* starts, int* goals,
     ReleaseSRWLockExclusive(&g_npmLock);
     if (ev) InterlockedIncrement(&c.evicted);
     InterlockedIncrement(&c.recorded);
-    if (NpmLineOk(0)) Log("route nopath memo: recorded route %08lX kind %d scope %ld, %ld ms", handle, kind, scope, planMs);
+    if (NpmLineOk(0)) Log("route nopath memo: recorded route %08lX kind %d scope %ld, %ld ms%s", handle, kind, scope, planMs, via);
     return r;
 }
 
@@ -389,7 +461,7 @@ static void NpmLogCounters() {
     ReleaseSRWLockShared(&g_npmLock);
     Log("route nopath memo: mode %ld ready %ld recorded %ld served %ld (%ld ms) invalidated %ld expired %ld evicted %ld dropped %ld "
         "live %d, exempt %ld (slow no path %ld), not recorded: cut %ld sim blocker %ld world moved %ld other %ld cheap %ld, "
-        "refused %ld, misses %ld far %ld, not PlanCommon %ld", c.mode, c.ready, c.recorded, c.served, c.servedMs, c.invalidated,
+        "refused %ld, misses %ld far %ld, not PlanCommon %ld; scope by route handle %ld, slow NPC plans %ld (by route handle %ld)", c.mode, c.ready, c.recorded, c.served, c.servedMs, c.invalidated,
         c.expired, c.evicted, c.dropped, live, c.exempt, c.exemptSlow, c.notRecorded[0], c.notRecorded[1], c.notRecorded[2],
-        c.notRecorded[3], c.cheap, c.refused, c.misses, c.tooFar, c.notPlanCommon);
+        c.notRecorded[3], c.cheap, c.refused, c.misses, c.tooFar, c.notPlanCommon, c.scopeViaMap, c.slowNpc, c.slowNpcViaMap);
 }
