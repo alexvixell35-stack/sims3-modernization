@@ -265,7 +265,7 @@ namespace Ts3Fixes
                 else
                 {
                     step = OwnBugsCore.kSvcStepOrder;
-                    sSvcRunOrder.Invoke(ia, null);   // EA: hands description / recipe to the server's instance
+                    ((Action)Delegate.CreateDelegate(typeof(Action), ia, sSvcRunOrder))();   // EA: hands description / recipe to the server's instance
                     step = OwnBugsCore.kSvcStepCommodity;
                     mk.BeginCommodityUpdates(); mkBegun = true;
                     TransformParentingReturnCode rc = TransformParentingReturnCode.Unknown;

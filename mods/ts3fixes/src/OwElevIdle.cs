@@ -123,7 +123,7 @@ namespace Ts3Fixes
                 if (a.GetName().Name == "NRaasOverwatch") { ce = a.GetType("NRaas.OverwatchSpace.Alarms.CleanupElevators"); break; }
             MethodInfo m = ce == null ? null : ce.GetMethod("PerformAlarm", kInstAll, null, Type.EmptyTypes, null);
             if (m == null) return "owelevidle run: Overwatch CleanupElevators.PerformAlarm not found";
-            m.Invoke(Activator.CreateInstance(ce), null);
+            ((Action)Delegate.CreateDelegate(typeof(Action), Activator.CreateInstance(ce), m))();   // compiled call: PerformAlarm is swapped (OverwatchSpread), MethodInfo.Invoke would throw TargetException
             return "owelevidle run done, " + OwElevIdleCheck("result");
         }
 

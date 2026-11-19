@@ -922,7 +922,9 @@ ts3fixes `DiagSend(op, lo)` (`UserDiag.cs`): `Route.GetOption2` with optHi = `0x
 | 35 | `gvro.cpp` | gvattr: the next plan's source class and scope (docs/250 §7.0) |
 | 36 | `DoorGen.cs` / `hostcalls.cpp` | doorgen: lo 1 arms DoorMemoX=3, lo 0 bumps the managed door-input generation |
 | 37 | `Responsive631.cs` | playerfirst: route lo is player-ordered, for its next START; answers 1 when `[RouteAsync] PlayerFirst=1` (docs/631) |
-| **38+** | next free | add a row with the `case` |
+| 38 | `nopathmemo.cpp` | npmfuzzy (bit 0) / npmhousehold (bit 1) from ts3fixes; answers 1 when the memo took them (docs/643 §7) |
+| 39 | `nopathmemo.cpp` | route lo is the selected Sim's own command; answers 1 when `NoPathMemoHousehold` is on (docs/643 §7) |
+| **40+** | next free | add a row with the `case` |
 
 ## ts3native `ts3native_readydrain` export (`ReadyDrainCounters` in `native/ts3native/ts3native.cpp`)
 

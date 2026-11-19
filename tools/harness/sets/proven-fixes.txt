@@ -420,3 +420,10 @@ straygnometns
 worldpondskatetest
 # passed in game 2026-11-17 (s75) but kept OFF by choice: near off-screen Sims could be noticed and it rarely applies (docs/632):
 #   unseenloopskip_offscreen
+# built 2026-11-17..19 (feat/taskserve-1117), default off, no recorded in-game off/on verdict yet; move to the set once proven:
+#   unseenboatland unseenboatgenboat unseenboatwide boattaximemo houseboatlegmemo trashoutsidefallback
+#   wildlotskip shuffleboardnpccap paparazzicooldown npcstallend streetparkinglisten dishpilecap
+#   houseboatgangwayrescue boatroamcap picnicexit poolfailmemo objfailmemo owelevidle socialunlinkend
+#   perfjobmissedlistener petstartleskip petlonghome petarrivepoint strayleave barcloseorphan venueintensity
+#   caspropagateoutfits caspropagateextra casdefaultskin casoccultlog castintreset elevatorlightrig
+#   optionsnoopapply petlongvisit npmfuzzy npmhousehold
