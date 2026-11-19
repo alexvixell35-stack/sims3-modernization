@@ -680,6 +680,13 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSeasonListener value="True" />
     <kCasFilterGrid value="True" />
     <kUnseenLoopSkipStep value="False" />
+    <kCasPropagateOutfits value="False" />
+    <kCasPropagateExtra value="False" />
+    <kCasDefaultSkin value="False" />
+    <kCasOccultLog value="False" />
+    <kCasTintReset value="False" />
+    <kElevatorLightRig value="False" />
+    <kOptionsNoopApply value="False" />
   </Current_Tuning>
 </base>
 `;
