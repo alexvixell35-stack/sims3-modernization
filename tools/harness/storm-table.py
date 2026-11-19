@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# storm-table.py (docs/667): compact per-arm table of route_storm / idle runs from phasesoakr run dirs.
+# storm-table.py (docs/668): compact per-arm table of route_storm / idle runs from phasesoakr run dirs.
 #   python3 -I tools/harness/storm-table.py [--min-ms 150] [--report route-stutter-report.md] [label=]<run dir>...
 # --report: the hitch rows of tools/harness/route-stutter-report.ts --hitches (| log | at | ms | gc | cause | caller ...) are
 # put into the phase their `at` falls in and printed as one cause line per hitch under the table.
@@ -7,7 +7,10 @@
 # base, then one per phase end); each phase gets: game hitches >= min ms (ts3fixes `hitchwatch: N ms ... agent -`) count / ms,
 # slow plans (`ufplan:` lines; >= 300 ms), plans and fails per minute from the cumulative `route plans: ... on N (fails F)`
 # lines over the `at T ms` clock, route_storm waves / pushes, `hitch: frame ... cause C` classes, and the last fix-counter
-# lines in the phase (nopath memo, route speed, height cache, KindsUnseen).
+# lines in the phase (nopath memo, route speed, height cache, KindsUnseen). `host` = the ms of the `host N/M` column of the
+# `route candidate split` lines (the managed door asks under the planner, docs/667); `mism` = NeighbourMemo / FloodMemo
+# shadow mismatches: the largest `mismatch N` of the phase's `route speed: neighbour memo` / `flood memo` minute lines plus
+# the NEIGHBOUR / FLOOD MEMO MISMATCH lines (must be 0 before serving).
 import os
 import re
 import sys
@@ -15,7 +18,9 @@ from collections import Counter
 
 COUNTERS = [('npm-fuzzy', re.compile(r'route nopath memo: fuzzy \d+ household')),
             ('npm', re.compile(r'^route nopath memo: (?!fuzzy)')),
-            ('speed', re.compile(r'^route speed')),
+            ('speed-nm', re.compile(r'^route speed: neighbour memo')),
+            ('speed-fm', re.compile(r'^route speed: flood memo')),
+            ('speed', re.compile(r'^route speed (?!: )')),
             ('height', re.compile(r'^height cache')),
             ('kunseen', re.compile(r'KindsUnseen: own kind')),
             ('switch', re.compile(r'ts3fixes switches npmfuzzy'))]
@@ -26,6 +31,9 @@ UF = re.compile(r'ts3fixes: ufplan: kind (\d+) (\d+) ms')
 HF = re.compile(r'hitch: frame (\d+) ms .*?cause (\S+?):')
 MK = re.compile(r'diag: mem #\d+ mark ev=p-(\S+)')
 WV = re.compile(r'route_storm: wave \d+ pushed (\d+)')
+HS = re.compile(r'route candidate split: .*?, host (\d+)/(\d+)')
+MM = re.compile(r'^route speed: (neighbour|flood) memo.*?\bmismatch(?:es)?[ =:]+(\d+)')
+ML = re.compile(r'(NEIGHBOUR|FLOOD) MEMO MISMATCH')
 
 
 def phase_names(d):
@@ -43,7 +51,8 @@ def phase_names(d):
 
 def new_seg(tag):
     return {'tag': tag, 'hn': 0, 'hms': 0, 'h500': 0, 'uf': 0, 'uf300': 0, 'p0': None, 'p1': None, 't0': None,
-            't1': None, 'waves': 0, 'pushed': 0, 'cause': Counter(), 'ctr': {}}
+            't1': None, 'waves': 0, 'pushed': 0, 'cause': Counter(), 'ctr': {}, 'host': 0, 'hostn': 0,
+            'mm': {'neighbour': 0, 'flood': 0}, 'mml': 0, 'mmseen': False}
 
 
 def scan(d):
@@ -87,6 +96,18 @@ def scan(d):
             m = HF.search(line)
             if m and int(m.group(1)) >= MIN:
                 cur['cause'][m.group(2)] += 1
+            m = HS.search(line)
+            if m:
+                cur['host'] += int(m.group(1))
+                cur['hostn'] += 1
+            m = MM.search(line)
+            if m:
+                k = m.group(1)
+                cur['mm'][k] = max(cur['mm'][k], int(m.group(2)))
+                cur['mmseen'] = True
+            if ML.search(line):
+                cur['mml'] += 1
+                cur['mmseen'] = True
             m = WV.search(line)
             if m:
                 cur['waves'] += 1
@@ -115,8 +136,10 @@ def row(label, s):
         fpm = f"{(s['p1'][1] - s['p0'][1]) / dm:.1f}"
     causes = ' '.join(f'{k} {v}' for k, v in s['cause'].most_common(5)) or '-'
     hit = f"{s['hn']} / {s['hms']}"
+    host = f"{s['host']}" if s['hostn'] else '-'
+    mism = f"{s['mm']['neighbour']}/{s['mm']['flood']}/{s['mml']}" if s['mmseen'] else '-'
     return (f"{label[:22]:22} {s['phase'][:10]:10} {mins:5.1f} {hit:>15} {s['h500']:5} {s['uf']:6} {s['uf300']:5} "
-            f"{ppm:>9} {fpm:>9} {s['waves']:5} {s['pushed']:6}  {causes}")
+            f"{ppm:>9} {fpm:>9} {s['waves']:5} {s['pushed']:6} {host:>7} {mism:>8}  {causes}")
 
 
 def report_rows(path):
@@ -136,7 +159,7 @@ def main(args, report=None):
     rows = report_rows(report) if report else []
     causes = []
     print(f"{'arm':22} {'phase':10} {'min':>5} {'hitch n / ms':>15} {'>=500':>5} {'slowpl':>6} {'>=300':>5} "
-          f"{'plans/min':>9} {'fails/min':>9} {'waves':>5} {'pushed':>6}  frame causes")
+          f"{'plans/min':>9} {'fails/min':>9} {'waves':>5} {'pushed':>6} {'host ms':>7} {'mism n/f/l':>8}  frame causes")
     details = []
     for a in args:
         if '=' in a and not os.path.isdir(a):
