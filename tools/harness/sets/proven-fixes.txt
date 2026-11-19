@@ -9,6 +9,8 @@
 # Built 2026-11-15 from the 215 default-off switches (+8 docs/575-577, soak verdicts BROKEN/FIXED) (Fixes.cs ShortcutOn names -> Instantiator k* = false).
 # +23 2026-11-15: phase-20261115-2043 smallfix.txt, off BROKEN / on FIXED with controls ok (docs/582 batches 3-5, docs/575-577 sandwichalarm).
 # +13 2026-11-15: phase-20261115-2218 smallfix.txt (s56), off BROKEN / on FIXED (docs/582 batches 5b-7, residentspawnslot).
+# +1 2026-11-19: forced repro ip-boat-nopath-memo, off replans 1.1-2.1 s / on answered 0 ms (docs/851).
+boattaximemo
 
 # ---- excluded (default off, not in the set), by reason
 # perf experiments / sim-thread offload and caching (not EA gameplay fixes):
