@@ -258,6 +258,7 @@ namespace Ts3Fixes
                 case "npcdriverpool": return EpLive(typeof(NpcDriverPoolHook), 1);
                 case "npcseasonalparty": return EpLive(typeof(SeasonalPartyHook), 1);
                 case "npcshowstuck": return EpLive(typeof(NpcShowHook), 1);
+                case "npcstallend": return EpLive(typeof(OutfitWaitHook), 1, "sSohSim", sSohSim, null, "sSohDisposed", sSohDisposed, typeof(bool), "sSohStarted", sSohStarted, typeof(bool), "sSohNoChange", sSohNoChange, typeof(bool), "sSohReady", sSohReady, typeof(bool), "sSohAborted", sSohAborted, null);
                 case "nullservice": return EpLive(typeof(NullServiceHook), 2);
                 case "nullsituation": return EpLive(typeof(B13NsHook), 2);
                 case "oppcategoryprotect": return EpLive(typeof(BOaHook), 1, "sOaShared", sOaShared, null, "sOaShared", sOaShared, "static", "sOaValues", sOaValues, null);
@@ -267,8 +268,8 @@ namespace Ts3Fixes
                 case "opptrackerrelisten": return EpLive(typeof(BOtHook), 1);
                 case "outerwearautoloop": return EpLive(typeof(OwTestHook), 3);
                 case "outerwearrestore": return EpLive(typeof(OwRunHook), 1);
-                case "outfitwaitend": return EpLive(typeof(OutfitWaitHook), 1, "sSohDisposed", sSohDisposed, typeof(bool), "sSohStarted", sSohStarted, typeof(bool), "sSohNoChange", sSohNoChange, typeof(bool), "sSohReady", sSohReady, typeof(bool), "sSohSim", sSohSim, null, "sSohAborted", sSohAborted, null);
-                case "outfitwaitpoll": return EpJoin(EpLive(typeof(OutfitWaitHook), 1, "sSohDisposed", sSohDisposed, typeof(bool), "sSohStarted", sSohStarted, typeof(bool), "sSohNoChange", sSohNoChange, typeof(bool), "sSohReady", sSohReady, typeof(bool), "sSohSim", sSohSim, null, "sSohAborted", sSohAborted, null), EpLive(typeof(SwapCbHook), 1));
+                case "outfitwaitend": return EpLive(typeof(OutfitWaitHook), 1, "sSohSim", sSohSim, null, "sSohDisposed", sSohDisposed, typeof(bool), "sSohStarted", sSohStarted, typeof(bool), "sSohNoChange", sSohNoChange, typeof(bool), "sSohReady", sSohReady, typeof(bool), "sSohAborted", sSohAborted, null);
+                case "outfitwaitpoll": return EpJoin(EpLive(typeof(OutfitWaitHook), 1, "sSohSim", sSohSim, null, "sSohDisposed", sSohDisposed, typeof(bool), "sSohStarted", sSohStarted, typeof(bool), "sSohNoChange", sSohNoChange, typeof(bool), "sSohReady", sSohReady, typeof(bool), "sSohAborted", sSohAborted, null), EpLive(typeof(SwapCbHook), 1));
                 case "owresettime": return EpJoin(EpLive(typeof(HcInstHook), 0), EpLive(typeof(HcTailHook), 0));
                 case "paparazzicooldown": return EpLive(typeof(PpcHook), 2);
                 case "partycleanupnull": return EpLive(typeof(BPcHapHook), 1, "sPcMotives", sPcMotives, null);

@@ -152,6 +152,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kWildLotSkip value="False" />
     <kWildLotSkipHours value="6" />
     <kWildLotSkipWalkHours value="8" />
+    <kNpcStallEnd value="False" />
+    <kNpcStallEndHours value="3" />
     <kPosturePopCycle value="False" />
     <kOverwatchIgnoreStuckProbes value="True" />
     <kSeasonImposter value="False" />
