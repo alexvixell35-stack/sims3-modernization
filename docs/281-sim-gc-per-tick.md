@@ -199,4 +199,35 @@ In-load ABBA (300 s warm-up on, then off / on / on / off), 25 min per world, `--
 - G2 (`gcgSpare_1 / gcgCycles`): 40-55 aborted finish attempts per cycle in both arms, over the 40 limit, so a longer finish budget (G2) is worth building [measured].
 - BP hitches got worse with the gate on (>=200 ms 21.4 -> 35.6 per 10 min, p99.9 175 -> 326 ms); SV hitches slightly fewer. Single run each, max ~8-9 s stalls are load/repro driven in both arms.
 
+§8.9 below: the >= 1 s "stalls" in this table are a profiler artifact of the gate, not real stalls.
+
 Verdict: sim ms/s gain is -7 and -12 ms/s in the right direction but not consistent proof (invalid timing, BP hitches up), so no default ON; `[GC] IdleGate=0` stays. Rerun on a quiet machine with >= 4 iterations per arm (two ABBA blocks) and a profiler that survives the full 1500 s on SV (`gc-idle-gate-time-1117` -> `-rerun1`); read BP hitches at >=200 ms first. Next code step regardless: G2 finish budget.
+
+### 8.9 The 5-11 s gate-on "stalls" are a profiler artifact (2026-11-19, static, existing run data)
+
+Every gate-on profile shows 11-40 iterations of 3-11 s per 10 min (gcMark 0, many threaded Sim tasks of 30-120 ms each);
+other BP builds show none. Cause [verified, V-499-7]: `tools/frida/stutter-profile.js` takes the entry of `GC_try_to_collect
+0xE4A050` as the iteration boundary. With `gcgMode 1`, `GcgStep` skips that call on every tick while the collector idles
+(the gate's purpose, 5-9 s between cycles, §8.5), so all iterations of the idle window merge into one record.
+
+| Evidence | Gate on | Normal |
+|---|---|---|
+| `steps` per record | 2,700-3,200 | 10 |
+| steps per ms of wall | ~0.41 | ~0.3-0.4 |
+| `taskRuns.threaded` | ~45,000-75,000 | ~250 |
+| `FrameDb_PublishFrame` gap >= 1000 ms (freezes.jsonl) | 0 in smoke, smoke-r2, bp-gcgate-on; 1 (1032 ms) in the 25-min A/B | - |
+| records with steps >= 100 | only in `gcgMode 1` windows; 0 in the `IdleGate=2` jobs (bp/ip-gcgate-off), the SubTimers smoke and ~170 other profiles 11-16..11-19 | - |
+
+Same save (Baseline-BP-Spring), ini (master-1117c), Apex bridge and ts3fixes as the comparison runs; machine noise does not
+explain a gate-only pattern. Not user-facing: the renderer got frames throughout (max publish gap 497 ms in the smoke).
+
+Side effects on the measurements: (1) hitch counts and p99.9/max of the on arm are meaningless; (2) the seconds.csv gets one
+row per merged record, so the on arm loses rows and `arm-ms.ts` divides by too few seconds; (3) `addArmColumns` /
+`hitch-ab.ts rowArms` map row index to second, so every missing row shifts the slice labels late (smoke: off labelled from
+170 s instead of 120 s), which is why stalls appeared in "off" too. All gate timing so far (§8.8, the 11-18/11-19 smokes)
+is invalid for ms/s and hitches.
+
+Fix (`bugfix/profiler-gate-boundary-1119`): the profiler hooks whatever `0xD819AA` calls when that is a ts3native wrapper
+(`GcgStep`, or `MxStep` with SqrtHeapLimit), so every tick has a boundary; 0xE4A050 otherwise, as before. Open: map slices by
+the row `t` column instead of row index (hitch-ab.ts `rowArms`, arm-ms.ts `addArmColumns`), needed whenever a run has real
+>= 1 s stalls (SV).

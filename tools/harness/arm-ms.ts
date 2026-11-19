@@ -28,10 +28,11 @@ type Slice = { from: number; on: boolean; loop?: boolean };
 export function addArmColumns(csv: string, slices: Slice[]): string {
   const ls = csv.split(/\r?\n/), n = ls.findLastIndex(l => l.trim()) + 1;
   if (!n || ls[0].split(',').includes('arm')) return csv;
-  const arms = rowArms(n - 1, slices);
+  const ti = ls[0].split(',').indexOf('t'), tMs = ti < 0 ? undefined : ls.slice(1, n).map(l => Number(l.split(',')[ti]));
+  const arms = rowArms(n - 1, slices, tMs), secOf = (i: number) => tMs ? (tMs[i] - tMs[0]) / 1000 : i;
   return ls.slice(0, n).map((l, i) => {
     if (!i) return `${l},slice,arm`;
-    let cur = -1; slices.forEach((sl, k) => { if (i - 1 >= sl.from) cur = k; });
+    let cur = -1; slices.forEach((sl, k) => { if (secOf(i - 1) >= sl.from) cur = k; });
     const a = arms[i - 1];
     return `${l},${cur},${a === 'on' ? 1 : a === 'off' ? 0 : -1}`;
   }).join('\n') + '\n';
@@ -43,8 +44,8 @@ const acc = (): Acc => ({ secs: 0, iters: 0, ms: Object.fromEntries(ALL_COLS.map
 
 // per arm sums of one run's rows
 export function runArms(rows: Record<string, number>[], slices?: Slice[]): Record<string, Acc> {
-  const arms = rows.length && 'arm' in rows[0] ? rows.map(r => r.arm === 1 ? 'on' : r.arm === 0 ? 'off' : null)
-    : slices ? rowArms(rows.length, slices) : rows.map((_, i) => i >= 60 ? 'all' : null);
+  const arms = rows.length && 'arm' in rows[0] && !(slices && 't' in rows[0]) ? rows.map(r => r.arm === 1 ? 'on' : r.arm === 0 ? 'off' : null)
+    : slices ? rowArms(rows.length, slices, rows.map(r => r.t)) : rows.map((_, i) => i >= 60 ? 'all' : null);
   const out: Record<string, Acc> = {};
   rows.forEach((r, i) => {
     const a = arms[i]; if (!a || !r.iters) return;
@@ -183,7 +184,7 @@ function selfCheck() {
   assert.deepEqual([rows[0].arm, rows[130].arm, rows[140].slice, rows[140].arm, rows[260].arm, rows[490].arm], [-1, -1, 1, 0, 1, -1]);
   assert.equal(addArmColumns(withCols, slices), withCols, 'idempotent');
   const fromCols = runArms(rows), fromAb = runArms(csvRows(csv), slices);
-  assert.deepEqual(fromCols, fromAb, 'columns and ab.json agree');
+  assert.deepEqual(fromCols, fromAb, 'columns and ab.json agree'); assert.deepEqual(runArms(rows, slices), fromAb, 'with slices and t the arm is recomputed (old index-mapped columns ignored)');
   assert.equal(fromCols.off.secs, 105 + 105); assert.equal(fromCols.on.secs, 105 + 105 - 1, 'paused second left out');
   assert.equal(fromCols.on.ms.script / fromCols.on.secs, 2); assert.equal(fromCols.off.ms.script / fromCols.off.secs, 4);
   assert.equal(fromCols.on.ms.threaded / fromCols.on.iters, 0.2, 'threaded ms/iter'); assert.equal(fromCols.off.ms.taskObjects / fromCols.off.secs, 4);
@@ -220,6 +221,15 @@ function selfCheck() {
     { tag: 'q-2026-11-16-bp-x-on-2', arms: { all: fromCols.on }, hitch: {} }, { tag: 'q-2026-11-16-ip-y', arms: { off: fromCols.off, on: fromCols.on }, hitch: { off: hOff, on: hOn } }]);
   assert.deepEqual(sum, ['q-bp-x: sim ms/s off 16.0 / on 8.0, on - off -8.0 (-50.0%); >=300 ms per 10 min off 2.0 / on ?, >=1000 off 1.0 / on ? (1 off, 2 on runs)',
     'q-ip-y: sim ms/s off 16.0 / on 8.0, on - off -8.0 (-50.0%); >=300 ms per 10 min off 2.0 / on 1.0, >=1000 off 1.0 / on 0.0 (1 off, 1 on run)'], sum.join('\n'));
+  // a 9 s row (stall) ending after the switch: arms by t, not index. 1 s rows, t = i*1000, but row 130 is one 9 s row (t jumps 8 s), so every
+  // later row is 8 s ahead of its index; slices off 120-239 (settle to 135), on 240-359
+  const ts = Array.from({ length: 300 }, (_, i) => (i < 130 ? i : i + 8) * 1000), sl2: Slice[] = [{ from: 0, on: true }, { from: 120, on: false }, { from: 240, on: true }, { from: 360, on: true }];
+  const a2 = rowArms(300, sl2, ts);
+  assert.equal(a2[130], null, 'row spanning 122-139 s starts inside settle: out'); assert.equal(a2[131], 'off'); assert.equal(a2[231], 'off', 'index 231 = 239 s');
+  assert.equal(a2[232], null, 'index 232 = 240 s, settle after the switch to on'); assert.equal(rowArms(300, sl2)[232], 'off', 'index mapping would still say off');
+  const sw = Array.from({ length: 300 }, (_, i) => (i < 235 ? i : i + 8) * 1000); // 9 s row at index 235 ends 243 s: starts off, ends on
+  assert.equal(rowArms(300, sl2, sw)[235], null, 'row across the switch is out, not counted on'); assert.equal(rowArms(300, sl2, sw)[236], null, 'settle after the switch');
+  assert.deepEqual(rowArms(300, sl2, Array.from({ length: 300 }, (_, i) => i * 1000)), rowArms(300, sl2), '1 s rows = index mapping');
   console.log('arm-ms self-check ok');
 }
 

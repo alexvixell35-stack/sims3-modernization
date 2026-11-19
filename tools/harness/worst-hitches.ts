@@ -205,7 +205,7 @@ export function runContext(tag: string, rows: { t: number }[], secs: number, off
   const foreground = /ForegroundRender\s*[=:]\s*1\b/.test(native) || q.events.some(e => /ForegroundRender\s*[=:]\s*1\b/.test(e.text));
   // a window ended early by its stop rule (profile-world.ts <tag>-stop.json): that length, not the cap in the file name
   const sf = join(PROFILE, `${tag}-stop.json`), ran = existsSync(sf) ? Number(JSON.parse(readFileSync(sf, 'utf8')).secs) || secs : secs;
-  return { wins, foreground, invalid: runInvalid(join(PROFILE, `${tag}-machine.jsonl`), rows.length, ran, q), offSrc };
+  return { wins, foreground, invalid: runInvalid(join(PROFILE, `${tag}-machine.jsonl`), coveredSecs(rows), ran, q), offSrc };
 }
 
 // repro firings (docs/168 §3), shared by hitch-ab.ts --scenario and freeze-report.ts --repro-causes. steps = queue-log texts
@@ -254,6 +254,9 @@ export const reproSteps = (tag: string, secs: number) => {
   return queueEvents(readFileSync(f, 'utf8'), tag, secs).events.map(e => e.text).filter(t => { const m = /^repro \S+ step (\w+)/.exec(t); return m ? m[1] !== 'wait' : /save_game|saving|test_env guard/.test(t); });
 };
 
+// seconds the profiler covered: one seconds.csv row per second with a sim iteration, so a 5-9 s stall leaves no rows but
+// its iteration ends in the next row; row count alone called full GC idle gate runs (18 stalls, 475 rows / 600 s) cut short
+export const coveredSecs = (rows: { t: number }[]) => rows.length > 1 ? Math.max(rows.length, Math.round((rows.at(-1)!.t - rows[0].t) / 1000) + 1) : rows.length;
 // whole run invalid: profiler cut short, noisy machine (machine-load.ts: other >= 10% of the machine or clock drop = not
 // comparable, or other apps >= 10% of the game CPUs with other CPU >= 5%), crash or abort (no 'done; game alive' after the profile window)
 export function runInvalid(mf: string, nRows: number, secs: number, q: { start: number | null; events: Ev[] }): string | null {
@@ -532,6 +535,8 @@ function selfCheck() {
   const tmp = join(tmpdir(), `wh-selfcheck-${process.pid}.jsonl`), mrow = (o: object) => JSON.stringify({ t: 0, other: 2, ts3w: 13, top: [], perf: 180, og: 4, ...o });
   const qok = { start: 0, events: [{ at: 1, text: 'done; game alive' }] }, inv = (lines: object[], n = 600, q: any = qok) => { writeFileSync(tmp, lines.map(mrow).join('\n') + '\n'); return runInvalid(tmp, n, 600, q); };
   assert(inv([{}], 400)?.startsWith('profiler cut short') === true, 'cut');
+  // stalls: 3 rows at 0 / 1 s then 598 s (one 597 s gap = the stall's iteration) cover 599 s; a run that ends at 300 s covers 300
+  assert(coveredSecs([{ t: 5000 }, { t: 6000 }, { t: 603000 }]) === 599 && coveredSecs([{ t: 0 }, { t: 299_000 }]) === 300 && coveredSecs([]) === 0, 'coveredSecs');
   assert(inv([{ og: 18.8 }]) === null, 'og alone with other CPU 2% (kernel/driver time) is valid');
   assert(inv([{ og: 18.8, other: 6 }])?.startsWith('noisy machine (others 18.8%') === true && inv([{ other: 12 }])?.startsWith('noisy machine') === true && inv([{}, { perf: 100 }, { perf: 100 }])?.startsWith('noisy machine') === true && inv([{}, { perf: 100 }]) === null, 'noisy (two clock dips; one is ignored)');
   // timing sweep rows (sw): apps on the game CPUs decide, the kernel-inclusive og 24% of the GC gate smoke 2026-11-18 does not
