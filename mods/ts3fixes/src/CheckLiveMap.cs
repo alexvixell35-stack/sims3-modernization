@@ -279,6 +279,7 @@ namespace Ts3Fixes
                 case "perfjobmissedlistener": return EpLive(typeof(PjmHook), 1);
                 case "permamemo": return EpJoin(EpLive(typeof(BuffParseHook), 0), EpLive(typeof(PermaMemoHook), 0));
                 case "permazombiemoon": return EpLive(typeof(PermaZombieHook), 1);
+                case "petarrivepoint": return EpLive(typeof(PetArriveHook), 1);
                 case "petdreamtimer": return EpLive(typeof(B12PdHook), 1, "sPdTimer", sPdTimer, typeof(float), "sPdTimer", sPdTimer, null, "sPdFreq", sPdFreq, typeof(float), "sPdFreq", sPdFreq, "static");
                 case "petfireplan": return EpLive(typeof(PetFirePlanHook), 1);
                 case "petharvestvfx": return EpLive(typeof(B13PvHook), 2);
@@ -420,6 +421,7 @@ namespace Ts3Fixes
                 case "statueline": return EpLive(typeof(SlHook), 0);
                 case "steadygigmiss": return EpLive(typeof(SteadyGigHook), 1, "sFtcSpec", sFtcSpec, null);
                 case "stereoupgrade": return EpJoin(EpJoin(EpLive(typeof(BSuDanceHook), 1), EpLive(typeof(BSuSpeakerHook), 1)), EpLive(typeof(BSuUpHook), 1));
+                case "strayleave": return EpLive(typeof(StrayLeaveHook), 1);
                 case "streetparkinglisten": return EpLive(typeof(SplDelHook), 1);
                 case "stuckcheckasync": return EpLive(typeof(StuckCheckBusyHook), 1);
                 case "stuckcheckbusy": return EpLive(typeof(StuckCheckBusyHook), 1);

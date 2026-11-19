@@ -158,6 +158,11 @@ namespace Ts3Fixes
         [Tunable] public static bool kPetLongHome = false;             // petlonghome (docs/645 §4): an unseen NPC pet or horse on a long GoHome / GoToLot walk is placed on the lot like the human trip shortcuts
         [Tunable] public static float kPetLongHomeMeters = 150f;       // petlonghome: straight distance (m) above which the trip counts as long
         [Tunable] public static float kPetLongHomeHours = 2f;          // petlonghome: or the trip to that lot began more than this many sim-hours ago (0 = distance only)
+        [Tunable] public static float kPetLongHomeNoSpotMinutes = 0f; // petlonghome / petlongvisit (docs/656 §4.3): sim-minutes a (lot, species class) whose safe-spot search failed is refused without a new search (0 = search every time, as before)
+        [Tunable] public static bool kPetLongVisit = false;            // petlongvisit (docs/656 §4.3): an unseen owned NPC pet on a long VisitCommunityLot walk is placed on that community lot like petlonghome
+        [Tunable] public static bool kPetArrivePoint = false;          // petarrivepoint (docs/656 §4.1): Lot.PlanRouteIntoLot skips the lot's inside-front-door point for a non-exempt NPC animal that door refuses (EA's mailbox / PlanToLotEx tail runs instead)
+        [Tunable] public static bool kStrayLeave = false;              // strayleave (docs/656 §4.2): a non-exempt instantiated stray without the StrayPet buff for kStrayLeaveHours gets EA's MakeSimGoHome (what the buff's timeout does)
+        [Tunable] public static float kStrayLeaveHours = 3f;           // strayleave: sim-hours without the buff (and not leaving, busy or held) before the push
         [Tunable] public static bool kTrashOutsideFallback = false;    // trashoutsidefallback (docs/646 §2): an NPC whose DisposeOutside found no path to the lot's outdoor can gets EA's non-forced disposal on that lot for a while, and autonomy stops picking EmptyTrash on its indoor cans
         [Tunable] public static float kTrashOutsideFallbackHours = 4f; // trashoutsidefallback: sim-hours a lot stays remembered
         [Tunable] public static bool kWildLotSkip = false;             // wildlotskip (docs/646 §3): wild horses and NPC animals (raccoon, deer) skip a lot their GoToLot could not reach lately (EA's weights over the rest), and a GoToLot walk past kWildLotSkipWalkHours is cancelled
