@@ -147,6 +147,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenBoatLandRatio value="0.5" />
     <kBoatTaxiMemo value="False" />
     <kBoatTaxiMemoHours value="4" />
+    <kTrashOutsideFallback value="False" />
+    <kTrashOutsideFallbackHours value="4" />
     <kPosturePopCycle value="False" />
     <kOverwatchIgnoreStuckProbes value="True" />
     <kSeasonImposter value="False" />

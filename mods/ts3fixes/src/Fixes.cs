@@ -209,6 +209,7 @@ namespace Ts3Fixes
             ApplyRouteCauseLog();   // docs/580 (RouteCauseLog.cs), logging only
             ApplyScarePriority();   // docs/580 §14 (ScarePriority.cs)
             ApplyGroupChatPriority();   // docs/638 §3 (GroupChatPriority.cs)
+            ApplyTrashOutsideFallback();   // docs/646 §2 (TrashOutsideFallback.cs)
             ApplySandwichAlarm();   // docs/580 §16 (SandwichAlarm.cs)
             ApplyDreamCleanup();   // docs/580 §18 (DreamCleanup.cs), memory only
             ApplyVehicleFxHelper();   // docs/582 §1 (Batch582Logic.cs)
@@ -864,6 +865,7 @@ namespace Ts3Fixes
         // [3841-3844] groupchatpriority (GroupChatPriority.cs, docs/638 §3): GroupChatB receivers raised / seen with switch off / errors / spare.
         // [3864-3869] boattaximemo (BoatTaxiMemo.cs, docs/642): boat (any Boat subclass) no-path failures recorded / rider routes planned with the boat off / of those, succeeded / stranded boat plans answered / ms of the recorded plans those answers stand for / refused (household, selected, unknown) or errors.
         // [4040-4049] houseboatgangwayrescue (HouseboatGangwayRescue.cs, docs/642 §7): NPC Sims marked by a no-path gangway leg to their Docked houseboat / placed by EA's PlaceSimAtEntrance after GoHome failed / refused / errors; refusals: exempt / no, another or undocked houseboat / once-per-hour rule / busy / on the lot, far or stale / no spot.
+        // [4080-4084] trashoutsidefallback (TrashOutsideFallback.cs, docs/646 §2): NPC DisposeOutside on a lot whose outdoor can had no path: EA's non-forced disposal / bags put down (EA's failure remembered, or nothing else takes it) / EmptyTrash picks refused / exempt (household, selected, unknown scope) / errors (and bags put down after a call).
         // [3870-3873] houseboatlegmemo (HouseboatLegMemo.cs, docs/642 §6): NPC houseboat boat-leg no-path plans recorded / repeats answered / ms of the recorded plans those answers stand for / exempt (household, selected, unknown scope, no Sim or boat router) or errors.
         // [3860-3863] spotwaitattr (SpotWaitAttr.cs, docs/641): kind-2 lot-edge check waits >= 250 ms / frame-bound (one poll >= 80 % of the wait) / job-bound / frame-bound ms.
         // [3845-3853] unseenboatland (UnseenBoatLand.cs, docs/639): land plans tried / land kept / boat may be much shorter (EA plan) / land plan failed or swims (EA plan) / refused: not one land component / refused: household, selected, unknown scope, seen, water posture or interaction, owned boat / land plan ms / of it ms followed by EA's plan / errors.
@@ -1572,6 +1574,7 @@ namespace Ts3Fixes
                 case "unseenboatgenboat": return Instantiator.kUnseenBoatGenBoat;
                 case "boattaximemo": return Instantiator.kBoatTaxiMemo;
                 case "houseboatlegmemo": return Instantiator.kHouseboatLegMemo;
+                case "trashoutsidefallback": return Instantiator.kTrashOutsideFallback;
                 case "houseboatgangwayrescue": return Instantiator.kHouseboatGangwayRescue;
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;
