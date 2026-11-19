@@ -214,6 +214,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kMetricSkillMissing value="True" />
     <kFireworksFizzle value="True" />
     <kBoatRouteNull value="False" />
+    <kUnseenRelax value="False" />
+    <kIaFailMemo value="False" />
     <kOutfitMissing value="True" />
     <kAgeUpDupInst value="False" />
     <kOverwatchResetGone value="False" />

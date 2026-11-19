@@ -388,6 +388,22 @@ static class UnseenFbTest
 
         PostureChecks();
 
+        // iafailmemo: Sim + interaction + start lot + goal lot + options, any spot, kWindowMs; no interaction or a street goal = never remembered
+        {
+            object ro; int rms;
+            Check(IaFailMemo.Remembers(true, 0f, "RunAround", 9UL) && !IaFailMemo.Remembers(true, 0f, null, 9UL) && !IaFailMemo.Remembers(true, 3f, "RunAround", 9UL) && !IaFailMemo.Remembers(false, 0f, "RunAround", 9UL) && !IaFailMemo.Remembers(true, 0f, "RunAround", 0UL), "iafailmemo: failed, empty path, with an interaction, on a lot (not the street)");
+            Check(IaFailMemo.Eligible(false, true, false) && !IaFailMemo.Eligible(true, true, false) && !IaFailMemo.Eligible(false, false, false) && !IaFailMemo.Eligible(false, true, true), "iafailmemo: townies only");
+            IaFailMemo ia = new IaFailMemo();
+            ia.Remember(7, "RunAround", 0x22UL, 0x3A7A005540D45F10UL, 5, 1000, 40, "fail-B");
+            Check(ia.HasSim(7) && ia.Answer(7, "RunAround", 0x22UL, 0x3A7A005540D45F10UL, 5, 1000 + IaFailMemo.kWindowMs, out ro, out rms) && (string)ro == "fail-B" && rms == 40, "iafailmemo: same Sim, interaction, start lot, goal lot and options answer inside the window");
+            Check(!ia.Answer(7, "Scare", 0x22UL, 0x3A7A005540D45F10UL, 5, 2000, out ro, out rms) && !ia.Answer(7, "RunAround", 0x22UL, 1UL, 5, 2000, out ro, out rms) && !ia.Answer(7, "RunAround", 0x22UL, 0x3A7A005540D45F10UL, 4, 2000, out ro, out rms) && !ia.Answer(8, "RunAround", 0x22UL, 0x3A7A005540D45F10UL, 5, 2000, out ro, out rms), "iafailmemo: other interaction, lot, options or Sim plans");
+            // a GoHome replan that failed inside the home building must not answer the same GoHome from a venue (af8 2026-11-18)
+            Check(!ia.Answer(7, "RunAround", 0x23UL, 0x3A7A005540D45F10UL, 5, 2000, out ro, out rms) && !ia.Answer(7, "RunAround", 0UL, 0x3A7A005540D45F10UL, 5, 2000, out ro, out rms), "iafailmemo: another start lot (or the street) plans");
+            Check(!ia.Answer(7, "RunAround", 0x22UL, 0x3A7A005540D45F10UL, 5, 1001 + IaFailMemo.kWindowMs, out ro, out rms) && !ia.HasSim(7) && ia.Count == 0, "iafailmemo: expired entry plans and is dropped");
+            for (int i = 0; i < IaFailMemo.kMax + 20; i++) ia.Remember((ulong)(100 + i), "GoHome", 1UL, 2UL, 0, 5000 + i, 10, "x");
+            Check(ia.Count == IaFailMemo.kMax && !ia.HasSim(100) && ia.HasSim(100 + IaFailMemo.kMax + 19), "iafailmemo: bounded table drops the oldest");
+        }
+
         if (fails > 0) { Console.WriteLine("unseenfb selftest FAILED: " + fails); Environment.Exit(1); }
         Console.WriteLine("unseenfb selftest ok");
     }

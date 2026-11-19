@@ -82,6 +82,56 @@ namespace Ts3Fixes
         public const int kSitesPerTick = 8;
     }
 
+    // iafailmemo (RouteBackoff.cs IaAnswer / IaNote): failed plans with an empty path, keyed by Sim + interaction type name + start
+    // lot + goal lot + route options. Start lot (2026-11-18): without it a GoHome replan that failed inside a Bridgeport apartment
+    // building answered the Sim's GoHome from venues hundreds of metres away (24,523 answers for 733 failures in one game).
+    public sealed class IaFailMemo
+    {
+        public const int kWindowMs = 120000, kMax = 256;
+        struct E { public int At, Ms; public object Result; }
+        readonly Dictionary<string, E> mRows = new Dictionary<string, E>();
+        readonly Dictionary<ulong, int> mSims = new Dictionary<ulong, int>();
+        public int Count { get { return mRows.Count; } }
+        // household, selected and no-household (unknown scope) Sims are never remembered or answered
+        public static bool Eligible(bool selectable, bool hasHousehold, bool inActiveHousehold) { return !selectable && hasHousehold && !inActiveHousehold; }
+        // a failed plan with an empty path, made for an interaction, to a goal on a lot (one failed street spot must not block every street spot)
+        public static bool Remembers(bool failed, float pathM, string interaction, ulong goalLot) { return failed && !(pathM > 0f) && !string.IsNullOrEmpty(interaction) && goalLot != 0UL; }
+        static string Key(ulong sim, string interaction, ulong startLot, ulong goalLot, ulong opts) { return sim + ":" + interaction + ":" + startLot + ":" + goalLot + ":" + opts; }
+        public bool HasSim(ulong sim) { return mSims.ContainsKey(sim); }
+        public void Remember(ulong sim, string interaction, ulong startLot, ulong goalLot, ulong opts, int now, int ms, object result)
+        {
+            string k = Key(sim, interaction, startLot, goalLot, opts);
+            if (!mRows.ContainsKey(k) && mRows.Count >= kMax)
+            {
+                string oldest = null; int at = 0;
+                foreach (KeyValuePair<string, E> p in mRows) if (oldest == null || unchecked(p.Value.At - at) < 0) { oldest = p.Key; at = p.Value.At; }
+                if (oldest != null) Drop(oldest);
+            }
+            E e;
+            if (!mRows.TryGetValue(k, out e)) { int n; mSims.TryGetValue(sim, out n); mSims[sim] = n + 1; }
+            e.At = now; e.Ms = ms; e.Result = result;
+            mRows[k] = e;
+        }
+        // true = the same failure inside the window (result, ms of the remembered plan); an expired entry is dropped
+        public bool Answer(ulong sim, string interaction, ulong startLot, ulong goalLot, ulong opts, int now, out object result, out int ms)
+        {
+            result = null; ms = 0;
+            string k = Key(sim, interaction, startLot, goalLot, opts);
+            E e;
+            if (!mRows.TryGetValue(k, out e)) return false;
+            if (!NoStartCore.Within(now, e.At, kWindowMs)) { Drop(k); return false; }
+            result = e.Result; ms = e.Ms;
+            return true;
+        }
+        void Drop(string key)
+        {
+            if (!mRows.Remove(key)) return;
+            ulong sim = ulong.Parse(key.Substring(0, key.IndexOf(':')));
+            int n;
+            if (mSims.TryGetValue(sim, out n)) { if (n <= 1) mSims.Remove(sim); else mSims[sim] = n - 1; }
+        }
+    }
+
     public sealed class UfSitesPass
     {
         int mNext, mCount = 0;

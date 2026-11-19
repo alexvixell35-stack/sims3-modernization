@@ -732,6 +732,8 @@ namespace Ts3Fixes
         // [2797-2799] loopidlebridge (LoopIdleBridge.cs): stale bridges (host reset, no C++ driver) dropped in Sim.LoopIdle / seen with the switch off (EA throws) / guard errors.
         // [2719-2721] fightstaycap (FightStayCap.cs): Sims released from a snow/water fight after 120 sim min / hook errors / fight members not found.
         // [2780-2782] fireworkswatchlate (FireworksWatchLate.cs): late watchers sent through LoopWatch before Exit / members not found (EA's Run used) / EA's Run threw SacsErrorException (switch off).
+        // [4078-4079] unseenrelax (RouteBackoff.cs UrxBegin, contributor range): unseen townie plans run without ReplanToFindObstacleWhenPathPlanFails / BlockedByPeople / BlockedByDynamicFootprints / of them still failed.
+        // [4080-4082] iafailmemo (RouteBackoff.cs IaAnswer, contributor range): townie failures remembered (Sim + interaction + start lot + goal lot + options) / repeat plans answered from the memo / ms of the remembered plans the answers stood for.
         // [3982-3984] boatroutenull (BoatRouteNull.cs): Boat.RouteBoatToLandOnWayToPosition false for a boat with no RoutingComponent / seen with the switch off (EA throws) / errors.
         // [3985-3987] outfitmissing (OutfitMissing.cs): SwitchOutfitHelper.Init for a missing outfit (pregnant Sims' special outfits) made no-change / seen with the switch off (EA throws) / guard errors.
         // [3988-3990] ageupdupinst (AgeUpDupInst.cs, #553): second instantiations during a deferred age-up answered with the first call's Sim / seen with the switch off (EA throws) / no Sim made (rethrown).
@@ -1519,7 +1521,7 @@ namespace Ts3Fixes
         // game's call (actor / other Sim out of scope, not indoor, seq overflow), errors, verify checks, differences, reorder-only differences
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
-        const int kCounterSlots = 4000;
+        const int kCounterSlots = 4200;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2386,6 +2388,8 @@ namespace Ts3Fixes
                 case "metricskillmissing": return Instantiator.kMetricSkillMissing;
                 case "fireworksfizzle": return Instantiator.kFireworksFizzle;
                 case "boatroutenull": return Instantiator.kBoatRouteNull;
+                case "unseenrelax": return Instantiator.kUnseenRelax;
+                case "iafailmemo": return Instantiator.kIaFailMemo;
                 case "outfitmissing": return Instantiator.kOutfitMissing;
                 case "ageupdupinst": return Instantiator.kAgeUpDupInst;
                 case "overwatchresetgone": return Instantiator.kOverwatchResetGone;

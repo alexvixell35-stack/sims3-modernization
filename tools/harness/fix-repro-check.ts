@@ -158,6 +158,8 @@ export const EXEMPT: Record<string, string> = {
   jobyieldspawn: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
   jobyieldfp: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
   jobyieldready: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
+  unseenrelax: 'Dalexlol unseen route cost PR: default off, route-cost switch for unseen townies, judged by natural games (no off arm); no forced repro',
+  iafailmemo: 'Dalexlol unseen route cost PR: default off, route-cost memo for townies, judged by natural games (no off arm); no forced repro',
 };
 
 // Every ts3fixes switch (a ShortcutOn("x") call or a SwDefault case in mods/ts3fixes/src) must be in the agent's names list,

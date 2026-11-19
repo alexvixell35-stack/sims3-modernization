@@ -17,6 +17,7 @@
 #   seasonimposter seasonimpostercold seasonmarkercache spatialcache stuckcheckbusy stuckcheckcap stuckchecknear stuckcheckown
 #   tooltipthrottle unseenbroadcast unseencars unseenenv unseenfbfinish unseenfbloopbreak unseenfbsites unseenfbtrip
 #   unseenfbtriphold unseenmotives unseenpark unseenroute venuememo wakepark wakepoll
+#   unseenrelax iafailmemo
 # measurement / diagnostics / test aids:
 #   autunseencmp boatgetoutdiag bookhanddiag deadsimcount routesrc wildflowerprobe
 # test-only, registry says test (vehicle leak tests, age-up swap, dead-Sim hollowing, joyride costume):
