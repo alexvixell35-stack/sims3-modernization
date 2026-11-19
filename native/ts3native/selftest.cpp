@@ -13189,6 +13189,7 @@ static void TestNoPathMemoStub() {
 #include "taskserve-test.h"  // TestTaskServe ([RouteAsync] TaskServe, docs/637)
 #include "plancand-test.h"  // TestPlanCand ([RouteAsync] CandidateCut / WaterGoalCheck, CandidateSplit, docs/644)
 #include "routespeed-test.h"  // TestRouteSpeed ([RouteSpeed] NeighbourMemo, docs/663)
+#include "floodmemo-test.h"   // TestFloodMemo ([RouteSpeed] FloodMemo, docs/667)
 #include "discyield-test.h"  // TestDiscYield ([RouteAsync] DiscYieldForeign, docs/640)
 #include "gate0ro-test.h"     // TestGate0Ro ([Gate0RO], docs/152 §G1)
 #include "rtotail-test.h"  // TestRouteToObjTail ([RouteToObjRO] Tail); its stubs serve rtoro-test.h
@@ -14757,6 +14758,7 @@ int main() {
     TestTaskServe();  // docs/637
     TestPlanCand();   // docs/644
     TestRouteSpeed();  // docs/663
+    TestFloodMemo();   // docs/667
     TestUncutCeil();   // docs/264: [RouteAsync] KdUncutCeilMs
     TestGate0Ro();
     TestRouteToObjRO();

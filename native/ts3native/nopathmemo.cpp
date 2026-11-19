@@ -215,6 +215,19 @@ static u8 NpmOptMsg(DWORD lo) {
 static u8 NpmCmdMsg() {
     return g_npmOn && ts3native_nopathmemo.household ? 1 : 0;
 }
+// docs/667 (floodmemo.cpp): is this route handle marked as a player command? *tracked = the marks exist at all (the memo is
+// installed and ts3fixes npmhousehold sends op 39); without them a caller must treat every plan as a possible command
+static bool NpmCmdHandle(DWORD handle, bool* tracked) {
+    *tracked = NpmCmdMsg() != 0;
+    if (!*tracked || !handle) return false;
+    bool hit = false;
+    const DWORD now = GetTickCount();
+    AcquireSRWLockShared(&g_npmScLock);
+    for (int i = 0; i < NPM_CMD_RECS && !hit; i++)
+        hit = g_npmCmd[i].h == handle && now - g_npmCmd[i].t < kNpmScopeMaxAgeMs;
+    ReleaseSRWLockShared(&g_npmScLock);
+    return hit;
+}
 
 // this plan's router scope (0 unknown, 1 seen household side, 2 unseen, 3 seen NPC) and route handle, see the header.
 // planRoute = outList - 0xE0. *viaMap = the scope came from g_npmScopes (the slot named another route or none).
