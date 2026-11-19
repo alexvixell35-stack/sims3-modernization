@@ -111130,6 +111130,78 @@
   {"id": "outfitmissing-check", "bug": "Sim.SwitchOutfitHelper.Init(Sim, OutfitCategories, int) dereferences a missing outfit (GetOutfit null): pregnant Sims' special outfits go to the maternity list but are read from the normal one (6/6 pregnant snorkelers, Bella Vista Beach, 2026-11-17/18)", "fix": "ts3fixes OutfitMissing.cs: outfitmissing (default off)", "save": "Baseline-BP", "note": "3 rounds off/on in one load, active Sim, a Special index past its outfit count. Off: EA's NullReferenceException (3986). On: no throw, no change (3985).", "expect": "every result step passes", "steps": [{"cmd": "patches", "args": {"outfitmissing": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect broken"]}, "waitS": 1, "note": "round 1 off: EA throws"}, {"cmd": "patches", "args": {"outfitmissing": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect fixed"]}, "waitS": 1, "note": "round 1 on: no change, no throw"}, {"cmd": "patches", "args": {"outfitmissing": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect broken"]}, "waitS": 1, "note": "round 2 off: EA throws"}, {"cmd": "patches", "args": {"outfitmissing": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect fixed"]}, "waitS": 1, "note": "round 2 on: no change, no throw"}, {"cmd": "patches", "args": {"outfitmissing": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect broken"]}, "waitS": 1, "note": "round 3 off: EA throws"}, {"cmd": "patches", "args": {"outfitmissing": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect fixed"]}, "waitS": 1, "note": "round 3 on: no change, no throw"}]},
   {"id": "ageupdupinst-check", "bug": "Two SimDescription.Instantiate calls during one deferred age-up (#553): the second reads the age-up's SimBuilderTask after the first nulled it; NullReferenceException out of AgingState.PreInstantiateSim", "fix": "ts3fixes AgeUpDupInst.cs: ageupdupinst (default off)", "save": "Baseline-BP", "note": "3 rounds off/on in one load, a new townie each time (it ages up once and stays instantiated). Off: one call throws (3989). On: both get the same Sim (3988).", "expect": "every result step passes", "steps": [{"cmd": "patches", "args": {"ageupdupinst": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect broken"]}, "waitS": 90, "note": "round 1 off: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect broken: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect fixed"]}, "waitS": 90, "note": "round 1 on: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect fixed: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect broken"]}, "waitS": 90, "note": "round 2 off: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect broken: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect fixed"]}, "waitS": 90, "note": "round 2 on: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect fixed: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect broken"]}, "waitS": 90, "note": "round 3 off: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect broken: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect fixed"]}, "waitS": 90, "note": "round 3 on: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect fixed: throws unless the check ended as expected"}]},
   {
+    "id": "ip-neighbourmemo-crowd",
+    "bug": "docs/663 §2: the in-room cell A* is 18.8% of PlanHierarchical time on 2026-11-19 (216,685 ms over 287,458 cell searches, 11 runs) and 44.4% near hitches; every search re-expands the same cells, and QuadCell_Neighbours 0x66B9C0 rebuilds the same neighbour list each time (climb, mirror, table find per side)",
+    "fix": "ts3native [RouteSpeed] NeighbourMemo (default 0): per-thread memo (cell, Q) -> neighbour list until Q's table clear 0x61C020 or a quadtree / lot-structure write ([RouteSnap] writer rows); served answer = the same cells, order and references (docs/663 §4)",
+    "save": "Baseline-IP-Spring",
+    "note": "Run in game 2026-11-20 only inside the route storm bundle (docs/668): shadow s143 (105,102 checks, 0 mismatches), serve s144 / s146; this repro itself not run yet. Job ini must have [RouteSpeed] NeighbourMemo=2 (shadow: hooks installed, the game's function always runs); [RouteSnap] counting is turned on by the NeighbourMemo key. Arms flip the runtime mode by export (native_set neighbourmemo: off = 0, on = 1 serve). Read per arm: the 'route speed: neighbour memo' line (hits, stores, saved ~ms) and, in a shadow-only pass first, mismatch 0. Crowd: unseen townies across the island (boats, gangways, lot legs).",
+    "expect": "shadow pass: nmChecks > 0 and nmMismatch 0, no NEIGHBOUR MEMO MISMATCH line. on arms: nmHits > 0, route results (ufplansplit codes, stuck Sims) unchanged; no crash",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "neighbourmemo": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 off, 1 serve"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "to": "far"
+          },
+          "waitS": 180,
+          "note": "unseen townies route across the island; 3 minutes = 3 counter lines per arm"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "neighbourmemo": 2
+        },
+        "note": "back to shadow (the ini value)"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

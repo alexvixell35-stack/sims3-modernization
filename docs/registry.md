@@ -1119,3 +1119,12 @@ Separate struct of `LONG`, not versioned (`[RouteSnap] DoorMemoX=3`, switch `doo
 | 0x00-0x0F | `gen` (managed door-input generation), `armed` (op 36 lo 1 seen this session), `bumps`, `unarmedAsks` (mode 3 asks before arming, run as mode 0) |
 | 0x10-0x1F | `missCold` (no row for the key), `missGen` (row of another generation / delegate set), `missAge` (row older than DoorMemoXMs), `notUnlocked` (live answers not "unlocked", never stored); any DoorMemoX mode, "door memo x misses:" line |
 | 0x20-0x23 | `exempt`: mode 1 / 3 asks of a household, selected or unknown-scope job, asked live (docs/585 §5); "door memo x mode 3:" line |
+
+## ts3native `ts3native_routespeed` export (`RouteSpeedCounters` in `native/ts3native/routespeed.cpp`)
+
+Separate struct of `LONG`, not versioned (`[RouteSpeed] NeighbourMemo`, docs/663). Append fields at the end only. No ts3fixes counter slot (native only); the harness flips `nmMode` by export name (`native_set neighbourmemo`).
+
+| Offsets | Fields |
+|---|---|
+| 0x00-0x1F | `nmMode` (0 off, 1 serve, 2 shadow; runtime switch), `nmReady` (bit 0 neighbour hook, bit 1 table-clear hook, bit 2 tree-write sequence), `nmCalls`, `nmHits`, `nmServed` (cells written by served answers), `nmStores`, `nmResets`, `nmCapMiss` (out vector had no room) |
+| 0x20-0x3F | `nmScopeMiss` (household / selected / unknown router), `nmNoStore`, `nmChecks` (shadow compares), `nmMismatch` (must stay 0), `nmNoMemo` (thread past 4), `nmMissUs` / `nmMissN` (sampled uncached call time), `nmLines` |
