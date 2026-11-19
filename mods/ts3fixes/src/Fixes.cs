@@ -511,6 +511,7 @@ namespace Ts3Fixes
             ApplyPoolFailMemo();       // docs/645 §2 (PoolFailMemo.cs), off by default
             ApplyPetStartleSkip();     // docs/645 §3 (PetStartleSkip.cs), off by default
             ApplyPetArrivePoint();     // docs/656 §4.1 (PetArrivePoint.cs), off by default
+            ApplyStrayLeave();         // docs/656 §4.2 (StrayLeave.cs), off by default
         }
 
         // Patches that go in only when a tuning is on (docs/124 §17.8): Apply cannot read tunings (C# defaults there), so these
@@ -1614,6 +1615,7 @@ namespace Ts3Fixes
                 case "petstartleskip": return Instantiator.kPetStartleSkip;
                 case "petlonghome": return Instantiator.kPetLongHome;
                 case "petarrivepoint": return Instantiator.kPetArrivePoint;  // off (PetArrivePoint.cs, docs/656 §4.1)
+                case "strayleave": return Instantiator.kStrayLeave;          // off (StrayLeave.cs, docs/656 §4.2)
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;
                 case "seasonimpostercold": return Instantiator.kSeasonImposterCold;
