@@ -113315,10 +113315,10 @@
   {
     "id": "fglinbound-check",
     "bug": "docs/682: GlobalFunctions.FindGoodLocationNearby's lot-wide indoors stage asks its managed check IsInside only for spots that already passed the native placement test, so learning that a lot has no free indoor spot costs a placement test on every tile: a guitar jig placed from a small room on a 64 x 64 lot tests 3344 tiles, 196 spots pass and are refused as outdoors, 230-270 ms; with the outdoors search after it one 350-460 ms sim-thread frame (stall leaf World_FindGoodLocation; s189-type storms 2026-11-20, inferred for s202 / s203)",
-    "fix": "ts3fixes fglinbound (FglInBound.cs + FglInBoundCore.cs in RrNearbyHook, tuning kFglInBound, default off): the stage's search gets MaximumSearchRadius = farthest tile that may be indoors + 2.5 m after a probe search of kFglInBoundProbeRadius; same answer as EA's stage. fglinboundhh (kFglInBoundHousehold) includes household Sims; kFglInBoundShadow also runs EA's stage, returns its answer and counts a difference (slot 4256)",
-    "save": "needs a loaded world with a selected Sim (no save change)",
-    "note": "UNVERIFIED in the game (2026-11-20: built with Roslyn, core selftest tools/selftest/fglinbound). Forced. FglInBoundCheck run puts the logged shape through the model of the native search with and without the bound, runs the controls, and makes the tile pass on the selected Sim's lot (the 'live:' part: lot size, lookups, ms, radius; read only). Exact speedup: 'BROKEN' off only means EA's stage is in use. With the switch off a FindGoodLocationNearby call of 100 ms or more logs 'ts3fixes: fglinbound: EA's FindGoodLocationNearby N ms (switch off)'. The real search is exercised by the storm arms of docs/682 §6.",
-    "expect": "off: 'verdict: BROKEN' (4096 of 4096 tiles tested, controls ok=True). on: 'verdict: FIXED' (far fewer tiles tested); the 'live:' part names the lot size and 'bound 1' or 'bound -1' (selected Sim outdoors) without 'threw'; no new exceptions",
+    "fix": "ts3fixes fglinbound (FglInBound.cs + FglInBoundCore.cs in RrNearbyHook, tuning kFglInBound, default off): a tile pass marks the tiles that may be indoors; one native search per cluster of them (centre tile, radius = farthest member + 1.5, at most kFglInBoundMaxSearches) whose check keeps the indoor spot on the nearest ring around the start; the kept spot is returned by a last search on it. An indoor spot EA finds is found, on EA's ring. fglinboundhh (kFglInBoundHousehold) includes household Sims; kFglInBoundShadow also runs EA's stage, returns its answer and counts a difference (slot 4256)",
+    "save": "needs a loaded world; for the live step a selected Sim on a lot with rooms (no save change)",
+    "note": "Design 1 (one radius) ran in s207 / s208: no gain. Design 2 UNVERIFIED in the game (2026-11-20: built with Roslyn, core selftest tools/selftest/fglinbound). Forced. 'run' is the model (pure). 'live' is the real compare and needs no guitar: it creates a GuitarJig on up to three indoor tiles of the selected Sim's lot, runs EA's indoors stage and ours from each, compares (slots 4255 / 4256) and destroys the jig; nothing is placed. It works with the switch on or off. With the switch off a FindGoodLocationNearby call of 100 ms or more logs 'ts3fixes: fglinbound: EA's FindGoodLocationNearby N ms (switch off)'. Storm arms: docs/682 §8.6.",
+    "expect": "off: 'verdict: BROKEN' (4096 of 4096 tiles tested, controls ok=True). on: 'verdict: FIXED' (a few hundred tiles in 5 searches). live: 'live verdict: ok', every tile '-> same' or '-> same ring, other tile' (never 'DIFFERENT', 'threw' or 'left to EA' on a lot with a small house), ours ms below EA's where EA says 'no indoor spot'; result: shadow different 4256=0; no new exceptions",
     "steps": [
       {
         "cmd": "patches",
@@ -113366,6 +113366,17 @@
         },
         "waitS": 2,
         "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglInBoundCheck",
+          "args": [
+            "live"
+          ]
+        },
+        "waitS": 3,
+        "note": "the real searches: EA's indoors stage against ours with a GuitarJig on indoor tiles of the selected Sim's lot"
       },
       {
         "cmd": "reflect_call",
