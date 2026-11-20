@@ -62,6 +62,22 @@ namespace Ts3Fixes
         static readonly FieldInfo sSvcQueue = typeof(BarAdvanced).GetField("mInteractions", kInstAll);
         static readonly FieldInfo sSvcDest = typeof(BarAdvanced.BarInteraction).GetField("mDestination", kInstAll);
         static readonly MethodInfo sSvcRunBehavior = typeof(BarAdvanced.BarInteraction).GetMethod("RunBehavior", kInstAll, null, Type.EmptyTypes, null);
+        // RunOrderBehavior is abstract on BarInteraction. A delegate made from the abstract MethodInfo calls that exact
+        // method with no virtual dispatch in the game's Mono: the interpreter then transforms a method with no body and
+        // faults on a null header (0xE6463F, three Bridgeport runs on 2026-11-20). So the override is looked up on the
+        // instance's own class chain first, and the compiled call is made on that (an override may be swapped, where
+        // MethodInfo.Invoke throws). No concrete override found: nothing is called, as for a missing method.
+        delegate bool CompiledBoolFn();
+        static void SvcRunOrder(object ia)
+        {
+            for (Type t = ia.GetType(); t != null && t != typeof(object); t = t.BaseType)
+            {
+                MethodInfo m = t.GetMethod("RunOrderBehavior", kInstAll | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
+                if (m == null || m.IsAbstract) continue;
+                ((CompiledBoolFn)Delegate.CreateDelegate(typeof(CompiledBoolFn), ia, m))();
+                return;
+            }
+        }
         static readonly MethodInfo sSvcRunOrder = typeof(BarAdvanced.BarInteraction).GetMethod("RunOrderBehavior", kInstAll, null, Type.EmptyTypes, null);
         static readonly MethodInfo sSvcUseIngr = typeof(BarAdvanced).GetMethod("UseIngredients", kInstAll);
         static readonly MethodInfo sSvcCreateDrink = typeof(BarAdvanced).GetMethod("CreateDrink", kInstAll);
@@ -265,7 +281,7 @@ namespace Ts3Fixes
                 else
                 {
                     step = OwnBugsCore.kSvcStepOrder;
-                    ((CompiledVoidFn)Delegate.CreateDelegate(typeof(CompiledVoidFn), ia, sSvcRunOrder))();   // EA: hands description / recipe to the server's instance
+                    SvcRunOrder(ia);   // EA: hands description / recipe to the server's instance
                     step = OwnBugsCore.kSvcStepCommodity;
                     mk.BeginCommodityUpdates(); mkBegun = true;
                     TransformParentingReturnCode rc = TransformParentingReturnCode.Unknown;
