@@ -3225,6 +3225,7 @@ static void UfcLogCounters();  // unseenfbc.cpp (docs/202 §3.4)
 static void PccLogCounters();  // plancand.cpp (docs/644)
 static void RsLogCounters();   // routespeed.cpp (docs/663)
 static void FmLogCounters();   // floodmemo.cpp (docs/667)
+static void WhLogCounters();   // workerhold.cpp (docs/673)
 static void CiLogCounters();   // cellindex.cpp (docs/669)
 static void PtLogCounters();   // placero.cpp (docs/670)
 static void FglLogCounters();   // fglprof.cpp (docs/671)
@@ -3305,6 +3306,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     PccLogCounters();  // docs/644 (nothing until a part is on)
     RsLogCounters();   // docs/663 (nothing until NeighbourMemo is installed)
     FmLogCounters();   // docs/667 (nothing until FloodMemo is installed)
+    WhLogCounters();   // docs/673 (nothing until HoldProbe is installed)
     CiLogCounters();   // docs/669 (nothing until CellIndex is installed)
     PtLogCounters();   // docs/670 (nothing until [PlaceTestRO] is installed)
     FglLogCounters();   // docs/671 (nothing until [FglProf] is installed)
@@ -3720,6 +3722,11 @@ static bool PfBefore(LONG mode, LONG aPf, DWORD aSeq, LONG bPf, DWORD bSeq) {
 // mutators, destroys, saves). The worker does not start a job while > 0: it sets A_RUNNING, then reads this, and backs
 // off if set; those callers add 1, then read A_RUNNING (Dekker order, both interlocked).
 static volatile LONG g_rgOffSimOpen;
+// docs/673 [RouteJobPhases] HoldProbe (workerhold.cpp), counting only: > 0 while the sim thread waits on +0x918 behind the worker
+// (LockAcquireAsync's pump loop); the job hooks of ServeAsync
+static volatile LONG g_whSimWait;
+static void WhJobBegin();
+static void WhJobEnd(DWORD handle, int kind, LONG us);
 // [LocoWindow] (locowin.cpp, design H2): g_g0wIn = 1 while the sim thread is inside Locomotion_Update (both modes);
 // g_g0Win = 1 meanwhile in Mode 1 only: the worker starts no queued job (ServeAsync, same Dekker order as g_rgOffSimOpen).
 // Written by the sim thread only; every sim wait that needs a not yet started job clears g_g0Win first (G0wDrop).
@@ -4438,6 +4445,7 @@ static void ServeAsync() {
         if (t_fbDeadline && ((k.fbjdReady & 3) || ((t_scProbe || kdUs > 0 || t_ufJob || t_ucJob) && (k.pdReady & 6))))
             InterlockedExchange((volatile LONG*)&g_pdWkTid, (LONG)GetCurrentThreadId());
         RjpJobBegin(j->fb ? 2 : j->kind ? 1 : 0);  // [RouteJobPhases] (routephases.cpp): own START, own A10, foreign
+        WhJobBegin();                               // docs/673 HoldProbe (workerhold.cpp), counting only
         t_hcJob = ++g_hcJobSeq;                     // hostcalls.cpp: door keys and the memo are per job
         t_hcScope = j->uf ? 2 : j->kdScope;         // hostcalls.cpp: DoorMemoX answers only unseen / seen-NPC jobs
         t_p6wOut = j->p4 >= 2 ? P6O_REFUSED : P6O_PLAIN;  // [P6Waits]: armed until P5Plan says taken / stale
@@ -4461,6 +4469,7 @@ static void ServeAsync() {
         if (j->fb) FbjdJobEnd(us, t0.QuadPart + (LONGLONG)us * g_qpf.QuadPart / 1000000, dl);
         KdJobEnd(j, capped, us, t0.QuadPart + (LONGLONG)us * g_qpf.QuadPart / 1000000, dl);  // docs/197
         RjpJobEnd(us);  // reads t_fbjdCut for the per-phase long-job line (docs/178 T1)
+        WhJobEnd(j->handle, j->kind, us);  // docs/673 HoldProbe
         JobSplit split = {-1, -1, t_jobPlanUs, t_jobHostUs};
         if (t_jobCapAt) {
             split.capAtUs = (LONG)((t_jobCapAt - t0.QuadPart) * 1000000 / g_qpf.QuadPart);
@@ -5958,7 +5967,7 @@ static LONG LockAcquireAsync(void* lock, void* edx, const DWORD* deadline, DWORD
     InterlockedIncrement(&ts3native_counters.asyncPumpWaits);
     // waiting for the routing lock: the worker starts no further job until this thread has had it (g_rgOffSimOpen)
     const bool hold = lock == g_rgLock;
-    if (hold) InterlockedIncrement(&g_rgOffSimOpen);
+    if (hold) InterlockedIncrement(&g_rgOffSimOpen), InterlockedIncrement(&g_whSimWait);
     bool fb = false, own = false;  // docs/134 §11: a foreign job ran during this wait; docs/178 T4: an own one
     DWORD lwHandle = 0;  // docs/264 §4.2: the last job seen running during this wait, and its fields
     char lwJob[160] = "";
@@ -5994,7 +6003,7 @@ static LONG LockAcquireAsync(void* lock, void* edx, const DWORD* deadline, DWORD
                 g_workerTid, g_rpTid, ts3native_counters.rgOwnerTid, g_async.state, g_p4Phase, g_rpPhase, rj);
         }
     }
-    if (hold) RgOffSimDrop();
+    if (hold) RgOffSimDrop(), InterlockedDecrement(&g_whSimWait);
     const LONG waited = UsSince(t0);
     if (hold && waited >= 1000000) {  // docs/264 §4.2 (issue #338): the busy line starts at 2 s; every wait >= 1 s gets one line, 20 a minute
         static DWORD lwMinute, lwLines;
@@ -6354,6 +6363,7 @@ static void RewindOfflineInit(const wchar_t* ini) {
 #include "plandeadline.cpp"  // docs/164 §7: [RouteAsync] PlanDeadlineMs / FailMemo (routephases.cpp takes its trampolines)
 #include "nopathmemo.cpp"    // docs/643: [RouteAsync] NoPathMemo (after earlyout.cpp: CallPlanEo; after plandeadline.cpp: g_kdScope*)
 #include "plancand.cpp"      // docs/644: [RouteAsync] CandidateCut / WaterGoalCheck, [RouteJobPhases] CandidateSplit (after plandeadline.cpp)
+#include "workerhold.cpp"    // docs/673: [RouteJobPhases] HoldProbe (after plancand.cpp: PCC_*, g_pccSplit)
 #include "unseenfb.cpp"      // docs/202: [UnseenFallback] (after plandeadline.cpp: PdSess, the exits)
 #include "unseenfbc.cpp"     // docs/202 §3.4: [UnseenFallback] Sites C1-C4 (after unseen.cpp, rtoro.cpp, fgro.cpp)
 #include "ghost.cpp"         // docs/202 §3.9.5: [UnseenGhost] (after unseenfbc.cpp: agent site, 0x833560 layers)
@@ -6638,6 +6648,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyHitchSum(ini) || keepLog;        // docs/666 §5: after [RouteJobPhases] (SyncPlans) and [HitchAttr] Holders (log only, off)
         InstallRouteSpeed(ini);  // docs/663: after [RouteSnap] (tree-write sequence) and [RouteGate] (the Q table clear stub)
         InstallFloodMemo(ini);   // docs/667: after InstallPlanCand (cell A* entry hook, loop stub) and InstallRouteSpeed
+        InstallWorkerHold(ini);  // docs/673: after InstallPlanCand (g_pccSplit) and [RouteAsync] (g_lockOrig)
         InstallCellIndex(ini);   // docs/669: after InstallRouteSpeed (the Q table clear stub; installs it when NeighbourMemo is off)
         keepLog = ApplyHostCalls(ini) || keepLog;       // docs/159: after [RouteJobPhases] (rjpReady) and P4 / [ProbeValues] (door chain)
         keepLog = ApplyVerify(ini) || keepLog;  // last: probes skip whatever another section already hooked

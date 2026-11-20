@@ -137,6 +137,10 @@ static bool PccLineOk() {  // 20 lines a minute over all threads (log only; a ra
 }
 static LONG PccUs(LONGLONG ticks) { return (LONG)(ticks * 1000000 / g_qpf.QuadPart); }
 
+// docs/673 [RouteJobPhases] HoldProbe (workerhold.cpp), counting only: a frame opened / an outermost planner call ended
+static void WhEnter(int site);
+static void WhPlanEnd(LONG cands, LONG cellUs, LONG us, LONGLONG inclQ, DWORD code);
+
 // mark = an address in the hook's frame; frames at or below it were left by an unwind (dropped, their time stays in the parent)
 static bool PccEnter(int site, const void* mark, int sub = -1) {
     if (!g_pccSplit) return false;
@@ -157,6 +161,7 @@ static bool PccEnter(int site, const void* mark, int sub = -1) {
     LARGE_INTEGER q;
     QueryPerformanceCounter(&q);
     f.t0 = q.QuadPart;
+    WhEnter(site);
     return true;
 }
 
@@ -194,6 +199,7 @@ static void PccPhEnd(const PccTh& t, LONGLONG incl, DWORD code) {
         if (t.calls[i]) InterlockedExchangeAdd64(&g_pccTotUs[i], PccUs(t.self[i])), InterlockedExchangeAdd(&g_pccTotN[i], t.calls[i]);
     InterlockedIncrement(&g_pccPh);
     const LONG us = PccUs(incl);
+    WhPlanEnd(t.calls[PCC_CHOOSE], PccUs(t.self[PCC_CELL]), us, incl, code);
     if (us < g_pccLogUs) return;
     InterlockedIncrement(&ts3native_plancand.splitLong);
     PccTop e;

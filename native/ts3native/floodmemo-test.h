@@ -220,6 +220,32 @@ static void TestFmHook() {
     // a new start node object for every search (the wrappers'): the record does not depend on it
     FmFakeSetup(2, 0, 6);
     assert(FmFakeSearch(2, 0, 2, 0) == -1 && c.fmHits == hits + 2);
+    // docs/673, exit classes: a found search counts its pops; a second one from the same start cell is a repeat, with the
+    // same goal index "same"; another start cell is not; a write empties the list; a failure and a cut count on their own
+    InterlockedIncrement(&g_snWriteSeq);
+    const LONG found = c.fmFound, fail = c.fmFail, cap = c.fmFailCap, cuts = c.fmAborts, repN = c.fmRepStart, same = c.fmRepSame;
+    const LONG pops = c.fmFoundPops, repPops = c.fmRepPops;
+    FmFakeSetup(0, 4, 6);
+    *(LONG*)(g_fmQ + 0x1C) = 7;
+    assert(FmFakeSearch(0, 4, 6, 1) == 4 && c.fmFound == found + 1 && c.fmFoundPops == pops + 4 && c.fmRepStart == repN);
+    assert(FmFakeSearch(0, 4, 5, 1) == 3 && c.fmFound == found + 2 && c.fmRepStart == repN + 1 && c.fmRepSame == same + 1 &&
+           c.fmRepPops == repPops + 3);
+    *(LONG*)(g_fmQ + 0x1C) = 9;
+    assert(FmFakeSearch(0, 4, 5, 1) == 3 && c.fmRepStart == repN + 2 && c.fmRepSame == same + 1);
+    assert(FmFakeSearch(0, 4, 5, 1) == 3 && c.fmRepStart == repN + 3 && c.fmRepSame == same + 2);
+    FmFakeSetup(1, 5, 6);
+    assert(FmFakeSearch(1, 5, 6, 1) == 3 && c.fmFound == found + 5 && c.fmRepStart == repN + 3);
+    InterlockedIncrement(&g_snWriteSeq);
+    assert(FmFakeSearch(1, 5, 6, 1) == 3 && c.fmRepStart == repN + 3);  // the list went with the write
+    assert(FmFakeSearch(1, 5, 6, 1) == 3 && c.fmRepStart == repN + 4);
+    *(LONG*)(g_fmOpen + 0x18) = 3;
+    assert(FmFakeSearch(1, 5, 6, 0) == 3 && c.fmFail == fail + 1 && c.fmFailCap == cap + 1 && c.fmFound == found + 7);
+    *(LONG*)(g_fmOpen + 0x18) = -1;
+    FmCellEnter(g_fmQ, (DWORD)(uintptr_t)g_fmX, (DWORD)(uintptr_t)g_fmSet);
+    FmPop((DWORD)(uintptr_t)&g_fmStarts[1]), FmPop((DWORD)(uintptr_t)&g_fmNodes[5]);
+    FmAbort();
+    FmCellLeave(g_fmQ, 1);
+    assert(c.fmAborts == cuts + 1 && c.fmFound == found + 7 && c.fmFail == fail + 1);
     t_pd.open = savedOpen, t_pd.scope = savedScope, g_pdTid = savedTid, t_fmHostSeq = savedHost;
     g_fmAll = savedAll, g_fmHostKeep = savedKeep;
     c = saved;
@@ -228,5 +254,5 @@ static void TestFmHook() {
 static void TestFloodMemo() {
     TestFmCore();
     TestFmHook();
-    printf("flood memo: OK (table, serve at the first pop, goal link, context, write / clear / managed call, cap and cut exits, scope, command, shadow)\n");
+    printf("flood memo: OK (table, serve at the first pop, goal link, context, write / clear / managed call, cap and cut exits, scope, command, shadow, exit classes)\n");
 }

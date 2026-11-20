@@ -67,20 +67,35 @@ struct FloodMemoCounters {
     volatile LONG fmLines;       // +0x44 log lines written
     volatile LONG fmShape;       // +0x48 searches passed by: no context, not exactly one start node, an odd start link
     volatile LONG fmCells;       // +0x4C cells in kept floods
+    // docs/673: how every search that ran ended, and how often a search that found a goal started where an earlier one did
+    volatile LONG fmFound;       // +0x50 searches that ran and found a goal (AL 1)
+    volatile LONG fmFoundPops;   // +0x54 nodes they popped
+    volatile LONG fmFail;        // +0x58 searches that ran and failed without a deadline cut
+    volatile LONG fmFailCap;     // +0x5C of those: the open list was not empty at the exit (the node cap)
+    volatile LONG fmAborts;      // +0x60 searches a deadline cut ended
+    volatile LONG fmRepStart;    // +0x64 found: same start cell and context as an earlier found search, no sequence moved since
+    volatile LONG fmRepPops;     // +0x68 nodes those popped (what a kept search tree could have served)
+    volatile LONG fmRepSame;     // +0x6C of fmRepStart: the goal index (Q+0x1C) also equals that start's last one
+    volatile LONG fmFailUsAll;   // +0x70 time of all failed searches that ran, us
+    volatile LONG fmFoundUs;     // +0x74 time of the found searches, us
+    volatile LONG fmRepUs;       // +0x78 time of the fmRepStart searches, us
 };
 extern "C" __declspec(dllexport) FloodMemoCounters ts3native_floodmemo = {};
 
-enum { FM_THREADS = 4 };
+enum { FM_THREADS = 4, FM_REPS = 64 };
+struct FmRep { uintptr_t cell; uint32_t keyHash; LONG goal; };  // docs/673: a start cell of a found search and its last goal index
 struct FmCtx {
     bool active, serve, served, pred, abort;
     uint32_t n;                      // popped nodes of the running search (start node first)
-    uintptr_t q, x, start;
+    uintptr_t q, x, start, cell0;
     FmKey key;
     uint32_t seqClear, seqWrite, seqHost;
     LARGE_INTEGER t0;
     uintptr_t pop[FM_MAXFLOOD + 2];
     FmPair pairs[FM_MAXFLOOD];
     FmMemo m;
+    FmRep rep[FM_REPS];  // docs/673, counting only: emptied with the memo (any sequence moved); the oldest slot is replaced
+    uint32_t repN, repAt;
 };
 static __declspec(thread) FmCtx* t_fmc;
 static __declspec(thread) bool t_fmNone;  // this thread got no block (cap reached or no memory)
@@ -151,9 +166,12 @@ static void FmCellEnter(void* q, DWORD x, DWORD startSet) {
     c.fmCalls++;
     const uint32_t sc = (uint32_t)g_nmClearSeq, sw = (uint32_t)g_snWriteSeq, sh = g_fmHostKeep ? 0 : (uint32_t)t_fmHostSeq;
     const bool had = t->m.nRecs != 0, hostMoved = t->m.seqHost != sh;
-    if (FmSync(&t->m, sc, sw, sh) && had) {
-        c.fmResets++;
-        if (hostMoved) c.fmHostResets++;
+    if (FmSync(&t->m, sc, sw, sh)) {
+        t->repN = t->repAt = 0;
+        if (had) {
+            c.fmResets++;
+            if (hostMoved) c.fmHostResets++;
+        }
     }
     if (!x || !startSet || FmRd(startSet, 0x14) != 1) { c.fmShape++; return; }  // exactly one start node (the wrappers' shape)
     const uintptr_t start = FmRd(FmRd(startSet, 0x08), 0x10);                 // the set's first tree node, its value
@@ -165,7 +183,7 @@ static void FmCellEnter(void* q, DWORD x, DWORD startSet) {
     if (!cell0 || FmRd(cell0, 0x38) != (DWORD)node0) { c.fmShape++; return; }
     t->key.q = (uintptr_t)q, t->key.lot = FmRd(x, 0x54), t->key.opts = FmRd(x, 0x40);
     t->key.flags = FmRd(x, 0x50), t->key.cls = FmRd(x, 0x4C), t->key.optHash = FmOptHash(t->key.opts);
-    t->q = (uintptr_t)q, t->x = x, t->start = start;
+    t->q = (uintptr_t)q, t->x = x, t->start = start, t->cell0 = cell0;
     t->n = 0, t->serve = t->served = t->pred = t->abort = false;
     t->seqClear = sc, t->seqWrite = sw, t->seqHost = sh;
     t->active = true;
@@ -185,6 +203,36 @@ static int FmPop(DWORD node) {
     if (t->n < FM_MAXFLOOD + 2) t->pop[t->n] = node;
     t->n++;
     return 0;
+}
+// docs/673, counting only: a found search of `us` microseconds; was its start cell the start of an earlier found search under the same
+// context and sequences, and did it end on the same goal index?
+static uint32_t FmKeyHash(const FmKey& k) {
+    uint32_t h = 0x811C9DC5u;
+    const uint32_t w[6] = {(uint32_t)k.q, (uint32_t)k.lot, (uint32_t)k.opts, k.flags, k.cls, k.optHash};
+    for (int i = 0; i < 6; i++) h = (h ^ w[i]) * 0x01000193u;
+    return h;
+}
+static void FmFoundNote(FmCtx* t, void* q, LONG us) {
+    FloodMemoCounters& c = ts3native_floodmemo;
+    c.fmFound++;
+    c.fmFoundPops += (LONG)t->n;
+    c.fmFoundUs += us;
+    const uint32_t kh = FmKeyHash(t->key);
+    const LONG goal = (LONG)FmRd((uintptr_t)q, 0x1C);
+    for (uint32_t i = 0; i < t->repN; i++) {
+        FmRep& r = t->rep[i];
+        if (r.cell != t->cell0 || r.keyHash != kh) continue;
+        c.fmRepStart++;
+        c.fmRepPops += (LONG)t->n;
+        c.fmRepUs += us;
+        if (r.goal == goal) c.fmRepSame++;
+        r.goal = goal;
+        return;
+    }
+    uint32_t at = t->repN;
+    if (at < FM_REPS) t->repN++;
+    else at = t->repAt, t->repAt = (t->repAt + 1) % FM_REPS;
+    t->rep[at].cell = t->cell0, t->rep[at].keyHash = kh, t->rep[at].goal = goal;
 }
 static void FmAbort() {  // a deadline cut ends this search early: its failure proves nothing
     FmCtx* t = t_fmc;
@@ -208,11 +256,16 @@ static void FmCellLeave(void* q, DWORD al) {
         if (found) { InterlockedIncrement(&c.fmMismatch); FmMismatchLog(t); }
         return;
     }
-    if (found || t->abort) return;
-    // a real failure: keep its closed set when the flood ran to its end under one state
     LARGE_INTEGER t1;
     QueryPerformanceCounter(&t1);
+    const LONG us = (LONG)((t1.QuadPart - t->t0.QuadPart) * 1000000 / g_qpf.QuadPart);
+    if (t->abort) { c.fmAborts++; return; }
+    if (found) { FmFoundNote(t, q, us); return; }
+    // a real failure: keep its closed set when the flood ran to its end under one state
     const uintptr_t openList = FmRd((uintptr_t)q, 0x18);
+    c.fmFail++;
+    c.fmFailUsAll += us;
+    if (!openList || (LONG)FmRd(openList, 0x18) >= 0) c.fmFailCap++;
     const bool whole = t->n >= 2 && t->n <= FM_MAXFLOOD + 1 && t->pop[0] == t->start && openList && (LONG)FmRd(openList, 0x18) < 0;
     const bool same = t->seqClear == (uint32_t)g_nmClearSeq && t->seqWrite == (uint32_t)g_snWriteSeq &&
                       t->seqHost == (g_fmHostKeep ? 0 : (uint32_t)t_fmHostSeq) && FmRd(t->x, 0x50) == t->key.flags &&
@@ -229,7 +282,7 @@ static void FmCellLeave(void* q, DWORD al) {
     if (FmStore(&t->m, t->key, t->pairs, n) != FM_STORED) { c.fmNoStore++; return; }
     c.fmStores++;
     c.fmCells += (LONG)n;
-    c.fmFailUs += (LONG)((t1.QuadPart - t->t0.QuadPart) * 1000000 / g_qpf.QuadPart);
+    c.fmFailUs += us;
     c.fmFailN++;
 }
 
@@ -280,5 +333,10 @@ static void FmLogCounters() {
         c.fmMode, c.fmReady, c.fmCalls, c.fmHits, c.fmStores, c.fmCells, c.fmResets, c.fmHostResets, c.fmLinkMiss, c.fmScopeMiss,
         c.fmCmdMiss, c.fmNoStore, c.fmShape, c.fmNoMemo, c.fmChecks, c.fmMismatch, c.fmFailN ? c.fmFailUs / c.fmFailN : 0, c.fmFailN,
         c.fmSavedUs / 1000);
+    // docs/673: what the searches that ran did (the memo can only ever answer the "failed" class)
+    Log("route speed: flood exits: found %ld (%ld ms, %ld pops), failed %ld (%ld ms; open list not empty %ld), cut %ld; found again "
+        "from a start cell of an earlier found search, nothing written since: %ld (%ld ms, %ld pops), same goal index %ld",
+        c.fmFound, c.fmFoundUs / 1000, c.fmFoundPops, c.fmFail, c.fmFailUsAll / 1000, c.fmFailCap, c.fmAborts, c.fmRepStart,
+        c.fmRepUs / 1000, c.fmRepPops, c.fmRepSame);
 }
 #endif

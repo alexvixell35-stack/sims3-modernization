@@ -111354,6 +111354,48 @@
     ]
   },
   {
+    "id": "ip-workerhold-storm",
+    "bug": "docs/673: in the s151 / s153 / s155 storms (Isla Paradiso, 2 min) the route worker held +0x918 for 36-52 s of job time in 1548-2239 jobs and the sim thread waited on it 167-244 times (5.6-7.0 s). The logs give no job length distribution, no plan count per candidate count, and cannot say where in a job the sim starts to wait; [RouteSpeed] FloodMemo kept 5-19 floods of 3445-4972 searches",
+    "fix": "none (measurement): ts3native [RouteJobPhases] HoldProbe=1 (default 0, observe only) and the 'route speed: flood exits:' counters of [RouteSpeed] FloodMemo (docs/673)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host tests of both parts). Job ini: [RouteJobPhases] HoldProbe=1 CandidateSplit=1 CandidateSplitLogMs=100, [RouteSpeed] FloodMemo=2 (shadow: every search runs), the s155 on-arm switches otherwise. Nothing changes a plan: one arm is enough",
+    "expect": "'OK   worker hold probe:' with 'plans by candidates'. After the storm: a 'worker hold:' line with jobs in the buckets, a 'worker hold plans by candidates' line, a 'worker hold boundaries' line with boundaries reached > 0, and a 'route speed: flood exits:' line with found > 0. No crash, the 'route async: mode' job count as in s155 (about 2000)",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-placetestro-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

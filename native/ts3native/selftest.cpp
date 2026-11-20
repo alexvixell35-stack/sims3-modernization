@@ -13191,6 +13191,7 @@ static void TestNoPathMemoStub() {
 #include "plancand-test.h"  // TestPlanCand ([RouteAsync] CandidateCut / WaterGoalCheck, CandidateSplit, docs/644)
 #include "routespeed-test.h"  // TestRouteSpeed ([RouteSpeed] NeighbourMemo, docs/663)
 #include "floodmemo-test.h"   // TestFloodMemo ([RouteSpeed] FloodMemo, docs/667)
+#include "workerhold-test.h"  // TestWorkerHold ([RouteJobPhases] HoldProbe, docs/673)
 #include "cellindex-test.h"   // TestCellIndex ([RouteSpeed] CellIndex, docs/669)
 #include "placero-test.h"   // TestPlaceCore, TestPlaceTestRO ([PlaceTestRO], docs/670)
 #include "fglprof-test.h"   // TestFglProfCore ([FglProf], docs/671)
@@ -14767,6 +14768,7 @@ int main() {
     TestPlanCand();   // docs/644
     TestRouteSpeed();  // docs/663
     TestFloodMemo();   // docs/667
+    TestWorkerHold();  // docs/673
     TestCellIndex();   // docs/669
     TestPlaceCore();   // docs/670
     TestPlaceTestRO();
