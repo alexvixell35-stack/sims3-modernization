@@ -851,6 +851,7 @@ namespace Ts3Fixes
         // [2149-2153] outerwearautoloop (SeasonsWeather596.cs, docs/596 §1): into / out / toddler autonomous tests answered no / would loop with the switch off / errors. [2154-2156] outerwearrestore (§2): outfit to return to stored / not stored (switch off) / errors.
         // [2157-2162] hovertraintest (HoverTrain598.cs, docs/598 §5): NPCUseHoverTrain tests answered from the station memo / tests that ran EA's query (switch off: every gated test) / memo forgets / check mismatches (must be 0) / Run throws avoided / errors.
         // [2747-2752] newcartest (NewCar598.cs, docs/598 §6): TestHasNewCar / TestHasExpensiveNewCar answered from the new-car memo / tests that ran EA's (switch off: every call) / memo forgets / check mismatches (must be 0) / errors / ImportContent forgets.
+        // [2119] travelcarnew (TravelCarNew.cs, docs/598 §6.3): cars rebuilt by a travel import made old (errors: [2751]).
         // [2163-2166] spoonslavechecks (SpoonSlaveChecks.cs via SpoonReset.cs SrHook, docs/543 §1): slave ticks given EA's per-sleeper checks / light-sleeper wakes / slave ticks skipped (switch off) / errors.
         // [2167-2169] petwakebed (PetWakeBed.cs, docs/543 §4): bed parts cleared / left holding the pet (switch off) / errors. [2170-2173] slavewakereason (§5): slave waits handled / waits of more than one pass (EA loses the reason) / slave waits seen (switch off) / errors or ceiling.
         // [2679-2680] handsetreset (ObjectUseLogic.cs, docs/575 §2): handsets put back / errors.
@@ -1293,6 +1294,7 @@ namespace Ts3Fixes
         // [2763-2765] subroutefail (SleepQueue597b.cs, docs/597 §3): route fails skipped (replacement pushed) / would be skipped (switch off) / errors. [2167-2169] petwakebed (§4): bed parts cleared / left holding the pet (switch off) / errors. [2170-2173] slavewakereason (§5): slave waits handled / multi-pass waits / slave waits seen (switch off) / errors or ceiling.
         // [2157-2162] hovertraintest (HoverTrain598.cs, docs/598 §5): NPCUseHoverTrain tests answered from the station memo / tests that ran EA's query (switch off: every gated test) / memo forgets / check mismatches (must be 0) / Run throws avoided / errors.
         // [2747-2752] newcartest (NewCar598.cs, docs/598 §6): TestHasNewCar / TestHasExpensiveNewCar answered from the new-car memo / tests that ran EA's (switch off: every call) / memo forgets / check mismatches (must be 0) / errors / ImportContent forgets.
+        // [2119] travelcarnew (TravelCarNew.cs, docs/598 §6.3): cars rebuilt by a travel import made old (errors: [2751]).
         // [3229-3231] firefightercount (Batch593Logic.cs, B13 §13, docs/593 V8): extra firefighters not sent / sent (switch off) / errors.
         // [3232-3234] repairmanskill (Batch593Logic.cs, B13 §14, docs/593 V9): levels set to the roll / stacked (switch off) / errors.
         // [3235-3237] roundupreturn (Batch593Logic.cs, B13 §15, docs/593 V3): inits ended / run on (switch off) / errors.
@@ -2164,6 +2166,7 @@ namespace Ts3Fixes
                 case "sarcmummynpc": return Instantiator.kSarcMummyNpc;  // docs/607 §3 (TreasureSpawn74.cs), EA bug fix, off
                 case "pushwaitskip": return Instantiator.kPushWaitSkip;  // docs/604 §2 (PushWait604.cs), EA bug fix, off
                 case "newcartest": return Instantiator.kNewCarTest;
+                case "travelcarnew": return Instantiator.kTravelCarNew;
                 case "outerwearautoloop": return Instantiator.kOuterwearAutoLoop;
                 case "outerwearrestore": return Instantiator.kOuterwearRestore;
                 case "spoonslavechecks": return Instantiator.kSpoonSlaveChecks;

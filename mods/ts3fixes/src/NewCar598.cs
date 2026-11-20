@@ -282,6 +282,7 @@ namespace Ts3Fixes
             public bool ImportHook(ResKeyTable resKeyTable, ObjectIdTable objIdTable, IPropertyStreamReader reader)
             {
                 bool r = ImportOrig(resKeyTable, objIdTable, reader);
+                TcnAfterImport((CarOwnable)(object)this, GameStates.IsTravelling);   // travelcarnew (TravelCarNew.cs): a car rebuilt on travel is not new
                 if (sNcMemo.Known) PatchCounters()[2752]++;
                 NcForget();
                 return r;

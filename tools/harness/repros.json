@@ -78957,6 +78957,100 @@
     ]
   },
   {
+    "id": "travelcar-live",
+    "bug": "CarOwnable.TimeOfPurchase is set only in OnCreation and never exported, so a car rebuilt by a travel import (Inventory.ImportContent) counts as new again and every trip brings back the New Car Smell moodlet (player report 2026-11-20)",
+    "fix": "ts3fixes TravelCarNew.cs: travelcarnew (default off), in newcartest's CarOwnable.ImportContent hook",
+    "save": "any world with a car (household car or a car on a lot)",
+    "note": "'live' takes the newest car, sets TimeOfPurchase to now (what OnCreation does to a rebuilt car), runs the travel import step, reads IsNewCar and puts the old value back. The travel itself is not run.",
+    "expect": "off: 'run' BROKEN, 'live' new=True (BROKEN). on: 'run' FIXED, 'live' new=False (FIXED), counter 2119 grows by 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "travelcarnew": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TravelCarNewCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TravelCarNewCheck",
+          "args": [
+            "live"
+          ]
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TravelCarNewCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "travelcarnew": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TravelCarNewCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TravelCarNewCheck",
+          "args": [
+            "live"
+          ]
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TravelCarNewCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "travelcarnew": false
+        },
+        "note": "back to default",
+        "waitS": 1
+      }
+    ]
+  },
+  {
     "id": "newcartest-check",
     "bug": "SocialTest.TestHasNewCar / TestHasExpensiveNewCar (ProcTests of four autonomous Friendly 'Enthuse About ... Car' socials) list every car in the world (Queries.GetObjects<CarOwnable>()) for each actor / target pair each time a conversation's socials are tested (docs/598 §6)",
     "fix": "ts3fixes NewCar598.cs: newcartest (default off)",

@@ -174,3 +174,17 @@ the proxy targets the object and is unregistered (the start-to-`AddObjectImpl` g
 a kept one is skipped by the liveness test, so the answer stays exact. The check's live line now lists why each pending car
 is pending (target, id, GetProxy / PreInit, in world, in inventory). With EA true for nearly everyone the memo answers "yes" at
 the first live kept car of the actor's home lot; the liveness lookup now runs only after the owner-lot field matches.
+
+### 6.3 `travelcarnew` (tuning `kTravelCarNew`, default off, `TravelCarNew.cs`, counter 2119, repro `travelcar-live`)
+
+Player report (2026-11-20): "I keep getting the new car moodlet" after travel.
+
+- [verified, decompiled] `CarOwnable.IsNewCar` is `TimeOfPurchase` at most `BuffNewCarSmell.DaysOfNewCarSmell` (4) days ago. A Sim who gets in a new car gets New Car Smell (`AddElementPaused(BuffNames.NewCarSmell, Origin.FromNewCar)`).
+- [verified, decompiled] `TimeOfPurchase` is written only in `CarOwnable.OnCreation` (= now). `CarOwnable` has no `ExportContent`, and its `ImportContent` only re-creates the get-out sound. So the purchase time is not carried by an export.
+- [verified, decompiled] `Inventory.ImportContent` fills an inventory with objects rebuilt from the exported stream. `GameStates.IsTravelling` (`sIsChangingWorlds`) is set in `TravelToVacationWorld` / `ReturnFromVacationWorld` and cleared only after the import (`OnArrivalAtVacationWorld`, `PostTravelingFixUp`).
+- [inferred] A car that travels is rebuilt, runs `OnCreation`, and counts as bought on arrival and again on the way home: 4 more days of the moodlet after every trip. The in-game travel itself is not run yet.
+- Fix: after `CarOwnable.ImportContent` while `GameStates.IsTravelling`, a car that counts as new gets a `TimeOfPurchase` one day before the new-car window, so it is not new. It runs in newcartest's existing `ImportHook` (one hook per method), before the memo forget.
+- Cost: a car bought less than 4 days before a trip loses its last new-car days. Outside travel (library bin, Edit Town household moves) EA's behaviour is kept.
+- Household Sims are affected on purpose: it is an EA bug fix, nothing is faked or skipped.
+- Counter [2119] cars made old; errors go to newcartest's [2751].
+- Repro `travelcar-live`: `TravelCarNewCheck run` (pure, with controls), then `live` on the newest car (`TimeOfPurchase` set to now as `OnCreation` does, the travel import step, `IsNewCar` read, the old value put back), switch off then on. Expect off BROKEN / new=True, on FIXED / new=False.
