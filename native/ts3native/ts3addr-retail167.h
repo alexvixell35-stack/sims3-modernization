@@ -185,6 +185,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x0061AD13, 0x0061B3F3},
     {0x0061AE80, 0x0061B5A0},
     {0x0061B533, 0x0061BC03},
+    {0x0061BCE0, 0x00000000},
     {0x0061BF60, 0x0061C6A0},
     {0x0061C020, 0x0061C760},
     {0x0061CC73, 0x0061D503},
@@ -328,6 +329,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x006679D8, 0x00667C78},
     {0x00668962, 0x00668C02},
     {0x0066AC37, 0x0066AF07},
+    {0x0066B9C0, 0x00000000},
     {0x0066BB50, 0x0066BE20},
     {0x0066BFAE, 0x0066C27E},
     {0x0066D110, 0x0066D4F0},
@@ -1568,7 +1570,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x01234360, 0x01235360},
     {0x01234374, 0x01235374},
 };
-constexpr int ts3addr_count = 1563;
+constexpr int ts3addr_count = 1565;
 // unresolved: 0x005A2C00 xref-none native/ts3native/allocsites-owners.h:16 (+1)
 // unresolved: 0x005BF1FB xref-none native/ts3native/vcallsites3.h:5
 // unresolved: 0x0060AA00 xref-none native/ts3native/allocsites-owners.h:16 (+1)
@@ -1591,3 +1593,5 @@ constexpr int ts3addr_count = 1563;
 // unresolved: 0x00E52B90 no-retail-1.67-address native/ts3native/saveframes.cpp (2026-11-19, docs/293 §6: not ported yet)
 // unresolved: 0x00E535E0 no-retail-1.67-address native/ts3native/yielddiag.cpp (2026-11-19, docs/293 §6: not ported yet)
 // unresolved: 0x00E5404D no-retail-1.67-address native/ts3native/yielddiag.cpp (2026-11-19, docs/293 §6: not ported yet)
+// unresolved: 0x0061BCE0 no-retail-1.67-address native/ts3native/routespeed.cpp (docs/663)
+// unresolved: 0x0066B9C0 no-retail-1.67-address native/ts3native/routespeed.cpp (docs/663)
