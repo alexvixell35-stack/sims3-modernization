@@ -89,19 +89,41 @@ The mechanism is in §1, row `phoneloadreset`.
 - **574 `WorkInRabbitHole` never-true test:** managed only.
 - **The rest of the 15 + 14 rows:** no native component found. They stay parked for the reasons in their docs.
 
+## §8 busyflagreset: a self-cleaning litter box or a stage light stays busy for good (added 2026-11-20)
+
+Found by a scan of the scripts for a saved `bool` field that is set to true, then yields (animation, route, `Simulator.Sleep`), then is set back to false, with no `finally` and no reset in the class's `DoReset`, `Cleanup` or load code. The scan had 51 hits. Most were cleared elsewhere, saved on purpose (the invention workbench's Frankensim progress), or harmless. Two block an object for good:
+
+- **`LitterBoxUber` (Pets, self-cleaning box)** [verified in the scripts]: after a cat's use, `UseLitterBox.UpdateMotivesAndDirtyLevel` starts `RunSelfCleanOneShotTask` as a one-shot with `OneShotFunctionDisposeFlag.OnReset`.
+  - The task sets `mIsCleaning` and `mSelfCleanStateMachine`, plays the `SelfClean` state (`RequestState` yields), then clears both.
+  - An object reset kills the one-shot: `GameObject.DoReset` calls `RemoveOneShotFunctionOnReset`, after `LitterBox.DoReset`'s own footprint work. A save taken during the animation stores `mIsCleaning = true`; nothing clears it at load.
+  - After that, every `UseLitterBox` waits 5 sim minutes in `WaitForLitterbox` and fails. Only a finished use starts a new self-clean, and `RunSelfCleanOneShotTask` does nothing while `mSelfCleanStateMachine` is not null. So the box is never used again [verified in the scripts]. Where the cats go instead (the floor) is [inferred]: the box's own pee-on-floor push needs a dirty box, and a stuck box never gets dirtier.
+  - The box material can also stay "InUse": the animation sets it at event 117 and back to "Default" at 118.
+  - The cheap box is not affected: `IsUber` is false, so it never self-cleans.
+- **`StageLightObject` (Showtime stage lights and FX towers)** [verified in the scripts]: `SetMotion` calls `StartSequence(Yield: true)`. It sets `mTransitioning`, yields in `RequestState`, then clears it.
+  - A reset or a save in that window leaves it set; `StageLightObject.DoReset` does not clear it.
+  - Then every light interaction greys out ("LightIsTransitioning"), and the next `StartSequence` (turn on, colour, auto lights) loops in `while (mTransitioning) Simulator.Sleep(1)` for good: that Sim's interaction never ends.
+
+Read and left alone: `MoodLamp.mFairyUsingLamp` (a fairy reset mid-look leaves it set, but the lamp's own reset clears it; fairies only), `ChocolateFountain.mBeingCleaned` (store object; a Sim reset mid-clean leaves the fountain unusable until the fountain resets), `MinorPet.mBehaviorCallbackInProgress` (cleared at load and in `StopBehaviorSMC`), `WildHorsePool` (cleared in the catch).
+
+**Fix (`busyflagreset`, `BusyFlagReset.cs`, default off):** after the object's `DoReset` (its own task is gone by then) and at world load (no task from before the save runs), the flag is cleared. For the litter box, the state machine is also disposed (after a reset; a saved one is only dropped) and the material set back to "Default". Objects only: no Sim is touched, and nothing changes while the task still runs. Counters [2714] litter boxes freed, [2715] stage lights freed, [2716] errors.
+
+**Repro `busyflag-live`:** places a `LitterBoxUber` and a `StageLightObject` on the far lot. `BusyFlagResetCheck start` runs EA's own `RunSelfCleanOneShotTask` and `StartSequence(true)` as one-shots on them, as a cat's use and Set Motion do. `reset` resets both objects while the animation plays, and `state` reads the flags back. The off arm runs first, then the on arm. `result` also counts the busy boxes and lights in the world, so a load of an old save shows whether the state occurs naturally.
+
 ## Loop-logic pass (standing rule)
 
 - `UlPrune` walks backwards with `RemoveAt`: no skipped entries and no copy.
 - The world-load passes are O(objects) or O(Sims × inventory), once per load.
+- `busyflagreset` runs once per litter box or stage light reset, and once per load over those two object types.
 - No per-tick work, and no reflection in hot paths: `SetHandsetState` runs through `MethodInfo.Invoke` only on a cut call or at load.
 - EA code read: `Inventory.MoveObjectsTo` re-reads `item.List[0]` until empty, and each pass removes one item, so it terminates. `InteractionQueue.OnReset` caps its cleanup at 3 passes. No new findings.
 
 ## Tests (combined run, off then on)
 
-Pure checks: `handsetreset-check`, `flowersinuse-check`, `uselistprune-check`, `chestuselist-check`.
+Pure checks: `handsetreset-check`, `flowersinuse-check`, `uselistprune-check`, `chestuselist-check`. Live: `busyflag-live` (§8).
 
 In game, with the switches on:
 - Start a wall-phone call and reset the Sim (`resetsim`) mid-call. The handset should be back on the base; counter 2679.
 - Give Flowers to a Sim who rejects it. The bouquet should be draggable afterwards; counter 2681.
 - Load a save with old stuck items. Counters 2683 and 2681 show what was cleaned.
 - In Egypt, reset a Sim while a treasure-chest open is running. The chest is usable afterwards; counter 2685.
+- A cat uses a self-cleaning litter box; reset the box while it cleans itself. Cats use it again afterwards; counter 2714.

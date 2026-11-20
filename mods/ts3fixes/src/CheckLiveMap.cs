@@ -76,6 +76,7 @@ namespace Ts3Fixes
                 case "buffupdate": return EpLive(typeof(BuffUpdateHook), 1);
                 case "burglaridle": return EpLive(typeof(BiHook), 1);
                 case "burnttilefloor": return EpLive(typeof(BurntTileHook), 0);
+                case "busyflagreset": return EpJoin(EpLive(typeof(BfLightHook), 1), EpLive(typeof(BfLitterHook), 1));
                 case "buycellrecycle": return EpLive(typeof(BcrHook), 0, "sBcrCatalogGrid", sBcrCatalogGrid, null);
                 case "buyclearrecycle": return EpLive(typeof(BcrHook), 0, "sBcrCatalogGrid", sBcrCatalogGrid, null);
                 case "buyiconleak": return EpLive(typeof(BilHook), 1);

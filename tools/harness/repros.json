@@ -79358,6 +79358,154 @@
     ]
   },
   {
+    "id": "busyflag-live",
+    "bug": "A reset (or save) while a self-cleaning litter box cleans itself, or while a stage light changes motion, leaves the object busy for good (docs/575 §8)",
+    "fix": "ts3fixes BusyFlagReset.cs: busyflagreset (default off), docs/575 §8",
+    "save": "any world with Pets (litter box) and Showtime (stage light) installed",
+    "note": "Places a LitterBoxUber and a StageLightObject on the far lot, then BusyFlagResetCheck 'start' runs EA's own RunSelfCleanOneShotTask and StartSequence(Yield: true) as one-shots on them, 'reset' resets both objects while the animation plays, 'state' reads the flags. Off arm then on arm.",
+    "expect": "off: after the reset 'box cleaning=True smc=True' and 'light transitioning=True' (stuck). on: both False, counters 2714 / 2715 go up, 2716 stays 0. 'run': off BROKEN, on FIXED.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "busyflagreset": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "LitterBoxUber",
+          "name": "litter",
+          "max_tries": 4000,
+          "free": true,
+          "near": "@far",
+          "must_place": true
+        },
+        "waitS": 3,
+        "timeoutS": 90,
+        "note": "self-cleaning litter box (EP5)"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "StageLightObject",
+          "name": "light",
+          "max_tries": 4000,
+          "free": true,
+          "near": "@far",
+          "must_place": true
+        },
+        "waitS": 3,
+        "timeoutS": 90,
+        "note": "stage light (EP6)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BusyFlagResetCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "waitS": 1,
+        "note": "off: EA's self-clean and Set Motion sequence start"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BusyFlagResetCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "waitS": 3,
+        "note": "off: reset while the animation plays"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BusyFlagResetCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "off: flags still set (BROKEN)"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "busyflagreset": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BusyFlagResetCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "waitS": 1,
+        "note": "on: same start (the off arm left the flags set, so the self-clean skips; the on reset still clears them)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BusyFlagResetCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "waitS": 3,
+        "note": "on: reset clears the flags"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BusyFlagResetCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "waitS": 1,
+        "note": "on: a fresh self-clean / sequence runs again"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BusyFlagResetCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "waitS": 3,
+        "note": "on: reset mid-animation clears the flags (FIXED)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BusyFlagResetCheck",
+          "args": [
+            "run"
+          ]
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BusyFlagResetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      }
+    ]
+  },
+  {
     "id": "handsetreset-check",
     "bug": "A landline keeps its handset hidden after a call cut by a reset (docs/575 §2)",
     "fix": "ts3fixes ObjectUseLogic.cs: handsetreset (default off), docs/575 §2",

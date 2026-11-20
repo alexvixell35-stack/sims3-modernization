@@ -8155,6 +8155,16 @@
       "worktree": "<merge>"
     },
     {
+      "id": "fixes-2714",
+      "kind": "fixes",
+      "from": 2714,
+      "to": 2716,
+      "by": "alexvixell35-stack",
+      "what": "busyflagreset (BusyFlagReset.cs, docs/575 §8); contributor ranges full past 4089, unused gap",
+      "at": "2026-11-20T15:25:47.000Z",
+      "worktree": "<contributor>"
+    },
+    {
       "id": "fixes-2719",
       "kind": "fixes",
       "from": 2719,
