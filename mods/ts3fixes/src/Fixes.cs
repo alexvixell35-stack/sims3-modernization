@@ -2497,10 +2497,21 @@ namespace Ts3Fixes
                     }
                     verify = true; // 1 in 8: also search, return the game's answer, count a different spot
                 }
+                // A search that found nothing tested every tile of the lot in every facing (s152: 15,072 placement tests,
+                // 115-145 ms each time), and the same start gives the same answer: the three fresh tries were three
+                // identical failed searches in one run, and every next Sim bound for the lot repeated them. One failed
+                // fresh search ends the run, and its start is remembered for kNoSpotTicks (the caller runs the game's trip).
+                long nowNs = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+                if (fresh && v.NoSpotSet && nowNs >= v.NoSpotAt && nowNs - v.NoSpotAt < kNoSpotTicks && (near - v.NoSpotNear).Length() < 0.5f) break;
                 c[91]++;
                 bool found = GlobalFunctions.FindGoodLocation(sim, new World.FindGoodLocationParams(start), out pos, out fwd);
                 if (ShortcutOn("safespotyield") && !SafeSpotYield(sim, near)) break;
-                if (!found) continue;
+                if (!found)
+                {
+                    if (!fresh) continue;
+                    v.NoSpotSet = true; v.NoSpotAt = nowNs; v.NoSpotNear = near;
+                    break;
+                }
                 if (noPool && BelowGroundOutdoors(pos)) { c[2711]++; continue; }
                 if (verify && (pos - start).Length() > 0.5f) c[92]++;
                 long tk = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
@@ -2555,6 +2566,9 @@ namespace Ts3Fixes
             public long Created;
             public ulong Household;
             public Sims3.SimIFace.Vector3 LotPos;
+            public bool NoSpotSet;                       // a fresh FindGoodLocation from NoSpotNear found nothing at NoSpotAt
+            public long NoSpotAt;
+            public Sims3.SimIFace.Vector3 NoSpotNear;
             public readonly Dictionary<VerdictKey, bool> Cells = new Dictionary<VerdictKey, bool>(new VerdictKeyComparer());
             public readonly List<Sims3.SimIFace.Vector3> Good = new List<Sims3.SimIFace.Vector3>();
             public readonly Dictionary<VerdictKey, bool> PlanOk = new Dictionary<VerdictKey, bool>(new VerdictKeyComparer()); // docs/202 D only: cells a normal plan proved (UfFillNote)
@@ -2563,6 +2577,7 @@ namespace Ts3Fixes
         }
         static readonly Dictionary<ulong, SpotVerdicts> sSpotVerdicts = new Dictionary<ulong, SpotVerdicts>();
         static readonly long kVerdictTicks = Sims3.Gameplay.Utilities.SimClock.ConvertToTicks(1f, Sims3.Gameplay.Utilities.TimeUnit.Days);
+        static readonly long kNoSpotTicks = Sims3.Gameplay.Utilities.SimClock.ConvertToTicks(30f, Sims3.Gameplay.Utilities.TimeUnit.Minutes);
         const int kMaxGoodSpots = 8, kMaxSpotChecksPerTick = 1;
         static long sSpotCheckTick = -1;
         static int sSpotChecks;
