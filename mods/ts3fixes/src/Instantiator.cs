@@ -374,6 +374,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kWeatherStoneListener = true;    // weatherstonelistener (docs/594 §2): WeatherStone.Dispose removes the summon's weather listener
         [Tunable] public static bool kHoverTrainTest = true;    // hovertraintest (docs/598 §5): Sim.NPCUseHoverTrain.Definition.Test answers ">= 2 stations" from a memo of EA's last station query, forgotten on every station add path (same result)
         [Tunable] public static bool kNewCarTest = true;    // newcartest (docs/598 §6): SocialTest.TestHasNewCar / TestHasExpensiveNewCar answered from a memo of the cars that were new at EA's last car query, forgotten on every car start (same result)
+        [Tunable] public static bool kSandboxTns = false;   // sandboxtns (docs/575 §10): the sand 'found something' / 'buried' notices are not shown for Sims outside the household (SandboxTns.cs)
         [Tunable] public static bool kSpoonSlaveChecks = true;    // spoonslavechecks (docs/543 §1): the spooning slave partner gets EA's light-sleeper / TiredFromMoving / NoMonsters checks like every other sleeper
         [Tunable] public static bool kPetWakeBed = true;    // petwakebed (docs/543 §4): pet WakeUpSim Cleanup clears the bed part that still holds the pet (reset mid-wake)
         [Tunable] public static bool kSlaveWakeReason = true;    // slavewakereason (docs/543 §5): the spooning slave keeps the exit reason that woke it across its wait for the master

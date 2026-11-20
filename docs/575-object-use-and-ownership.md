@@ -105,3 +105,13 @@ In game, with the switches on:
 - Give Flowers to a Sim who rejects it. The bouquet should be draggable afterwards; counter 2681.
 - Load a save with old stuck items. Counters 2683 and 2681 show what was cleaned.
 - In Egypt, reset a Sim while a treasure-chest open is running. The chest is usable afterwards; counter 2685.
+
+## §10 Sand notices for every Sim in town: `sandboxtns` (tuning `kSandboxTns`, default off, `SandboxTns.cs`, counters 2174-2175, repro `sandboxtns-live`)
+
+Player report (2026-11-20): "I'm getting notifications from other Sims playing in the sand and finding objects, not my household Sims."
+
+- [verified, decompiled] `PlayInSandJig.FindSomething` (play in sand, the sandbox included) calls `NotificationSystem.ShowWithAutomaticGender(TNSNames.SandboxFoundObject, Actor, found)`. The sandbox's bury step calls it with `TNSNames.SandboxBuryObject`. Neither checks who the Sim is.
+- [verified, decompiled] `NotificationSystem.Show` checks only that the notice exists and its pack is installed. So every Sim in town who finds or buries something in the sand pops a notice.
+- Fix: a hook on `NotificationSystem.ShowWithAutomaticGender` drops only these two notices, and only when the Sim is not exempt (`Fixes.HouseholdExempt`: household, selected and unknown-scope Sims still get them). The find, the reward and the bury run as EA's.
+- Counters [2174] notices dropped, [2175] errors. The slots were free in the source and in this registry (the `registry.ts` reservation read a stale main checkout and offered used slots, so the row was added by hand).
+- Repro `sandboxtns-live`: `SandboxTnsCheck run` (pure, with controls), then `live`: EA's call for a Sim outside the household and for the active Sim, switch off then on. Expect off BROKEN / townie shown=True, on FIXED / townie shown=False, active Sim shown both times.

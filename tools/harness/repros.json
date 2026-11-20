@@ -78957,6 +78957,100 @@
     ]
   },
   {
+    "id": "sandboxtns-live",
+    "bug": "PlayInSandJig.FindSomething / Sandbox bury show TNSNames.SandboxFoundObject / SandboxBuryObject through NotificationSystem.ShowWithAutomaticGender for any Sim in town (player report 2026-11-20)",
+    "fix": "ts3fixes SandboxTns.cs: sandboxtns (default off)",
+    "save": "any world with an active household and other Sims loaded",
+    "note": "'live' calls EA's ShowWithAutomaticGender(SandboxFoundObject) for a Sim outside the household and for the active Sim; shown = a notice came back (it pops in game).",
+    "expect": "off: 'run' BROKEN, townie shown=True (BROKEN). on: 'run' FIXED, townie shown=False (FIXED), active Sim shown=True both times; counter 2174 grows by 1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "sandboxtns": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SandboxTnsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SandboxTnsCheck",
+          "args": [
+            "live"
+          ]
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SandboxTnsCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "sandboxtns": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SandboxTnsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SandboxTnsCheck",
+          "args": [
+            "live"
+          ]
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SandboxTnsCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "sandboxtns": false
+        },
+        "note": "back to default",
+        "waitS": 1
+      }
+    ]
+  },
+  {
     "id": "newcartest-check",
     "bug": "SocialTest.TestHasNewCar / TestHasExpensiveNewCar (ProcTests of four autonomous Friendly 'Enthuse About ... Car' socials) list every car in the world (Queries.GetObjects<CarOwnable>()) for each actor / target pair each time a conversation's socials are tested (docs/598 §6)",
     "fix": "ts3fixes NewCar598.cs: newcartest (default off)",
