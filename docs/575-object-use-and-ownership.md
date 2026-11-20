@@ -113,17 +113,40 @@ Read and left alone: `MoodLamp.mFairyUsingLamp` (a fairy reset mid-look also res
 
 **Repro `busyflag-live`:** places a `LitterBoxUber` and a `StageLightObject` on the far lot. `BusyFlagResetCheck start` runs EA's own `RunSelfCleanOneShotTask` and `StartSequence(true)` as one-shots on them, as a cat's use and Set Motion do. `reset` resets both objects while the animation plays, and `state` reads the flags back. The off arm runs first, then the on arm. The fountain has no live step (it is a store object, and the trigger needs a Sim reset mid-clean); `result` counts fountains with the flag set. `result` also counts the busy boxes and lights in the world, so a load of an old save shows whether the state occurs naturally.
 
+## §9 dollhouseslots: a dollhouse frees its play slot twice, and a cut smash greys it out (added 2026-11-20)
+
+Found by a review agent reading the toys folder, then checked by hand [verified in the scripts].
+
+- **Double free:** `DollHouse.Play.Run` ends with `Target.VacateSlot(mPlaySlot)`, and `Play.Cleanup` calls `VacateSlot(mPlaySlot)` again. `mPlaySlot` is never set back to `Slot.None`.
+  - `VacateSlot` is a plain `Add` to the saved (`[Persistable]`) free-slot list `mAvailablePlaySlots`. Only `OnCreation` fills that list, with `RoutingSlot_2` and `RoutingSlot_1`.
+  - So every finished play adds a duplicate, and the list grows for good. `IsFull` (`Count == 0`) stops working, so more than two children play at once, and two can take the same slot and stand on one spot.
+  - `IsEmpty` (`Count >= 2`) is always true: Smash is allowed while children play, and the menu says "Play" instead of "Join".
+  - A cut play is not double: Run never reaches its own free, so only Cleanup frees the slot.
+- **Smash flag:** `Smash.Run` sets `mBeingSmashed` (`StartSmashing`). It clears it (`FinishSmashing`) only when the loop ends normally, or after animation event 301 has already changed the geometry.
+  - A cancel before that event, or a reset, leaves it set. `IsAvailableToPlay` and `IsAvailableToSmash` then refuse, so the dollhouse is greyed out.
+  - `Smash` has no `Cleanup`, and `DollHouse` has no `DoReset`. Whether the flag survives a save is [inferred]: unlike the slot list, it has no `[Persistable]`.
+
+**Fix (`dollhouseslots`, `DollHouseSlots.cs`, default off):**
+- `VacateSlot` does nothing when the slot is already free.
+- After `Smash.Run` ends (normally or by a reset), the flag is cleared. Only one Sim can smash at a time.
+- At world load, an idle dollhouse gets its two free slots back, with duplicates dropped, and its smash flag cleared.
+
+Objects only: no Sim is touched. Counters [2110] duplicate slots skipped or dropped, [2111] smash flags cleared, [2112] errors.
+
+**Repro `dollhouse-live`:** `state` first counts the dollhouses already in the save with more than 2 free slots, which carry the bug from earlier plays. Then a dollhouse is placed on the far lot, and `vacate` takes a play slot and frees it twice in Play.Run + Play.Cleanup order. With the switch off the list goes 2 -> 3, with it on 2 -> 2.
+
 ## Loop-logic pass (standing rule)
 
 - `UlPrune` walks backwards with `RemoveAt`: no skipped entries and no copy.
 - The world-load passes are O(objects) or O(Sims × inventory), once per load.
+- `dollhouseslots`: one `List.Contains` over at most 2 entries per freed slot, and once per load over the dollhouses.
 - `busyflagreset` runs once per litter box, stage light or chocolate fountain reset, and once per load over those three object types.
 - No per-tick work, and no reflection in hot paths: `SetHandsetState` runs through `MethodInfo.Invoke` only on a cut call or at load.
 - EA code read: `Inventory.MoveObjectsTo` re-reads `item.List[0]` until empty, and each pass removes one item, so it terminates. `InteractionQueue.OnReset` caps its cleanup at 3 passes. No new findings.
 
 ## Tests (combined run, off then on)
 
-Pure checks: `handsetreset-check`, `flowersinuse-check`, `uselistprune-check`, `chestuselist-check`. Live: `busyflag-live` (§8).
+Pure checks: `handsetreset-check`, `flowersinuse-check`, `uselistprune-check`, `chestuselist-check`. Live: `busyflag-live` (§8), `dollhouse-live` (§9).
 
 In game, with the switches on:
 - Start a wall-phone call and reset the Sim (`resetsim`) mid-call. The handset should be back on the base; counter 2679.

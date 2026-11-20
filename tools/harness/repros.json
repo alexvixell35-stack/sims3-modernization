@@ -79358,6 +79358,96 @@
     ]
   },
   {
+    "id": "dollhouse-live",
+    "bug": "A dollhouse frees its play slot twice per play (saved free-slot list grows), and a smash cut before the geometry event leaves it greyed out (docs/575 §9)",
+    "fix": "ts3fixes DollHouseSlots.cs: dollhouseslots (default off), docs/575 §9",
+    "save": "any world",
+    "note": "'state' first: dollhouses already in the save with more than 2 free slots carry the bug from earlier plays. Then a DollHouse on the far lot; 'vacate' takes a play slot and frees it twice in Play.Run + Play.Cleanup order, then restores the list.",
+    "expect": "off: 'free slots 2 -> 3 ... (duplicate: BROKEN)'. on: '2 -> 2 ... (no duplicate: FIXED)', counter 2110 up, 2112 stays 0. 'run': off BROKEN, on FIXED.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "dollhouseslots": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DollHouseSlotsCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "dollhouses already in this save"
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "DollHouse",
+          "name": "doll",
+          "max_tries": 4000,
+          "free": true,
+          "near": "@far",
+          "must_place": true
+        },
+        "waitS": 3,
+        "timeoutS": 90,
+        "note": "a dollhouse (base game)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DollHouseSlotsCheck",
+          "args": [
+            "vacate"
+          ]
+        },
+        "waitS": 1,
+        "note": "off: EA's double free"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "dollhouseslots": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DollHouseSlotsCheck",
+          "args": [
+            "vacate"
+          ]
+        },
+        "waitS": 1,
+        "note": "on: second free skipped"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DollHouseSlotsCheck",
+          "args": [
+            "run"
+          ]
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DollHouseSlotsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      }
+    ]
+  },
+  {
     "id": "busyflag-live",
     "bug": "A reset (or save) while a self-cleaning litter box cleans itself, or while a stage light changes motion, leaves the object busy for good (docs/575 §8)",
     "fix": "ts3fixes BusyFlagReset.cs: busyflagreset (default off), docs/575 §8",
