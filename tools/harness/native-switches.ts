@@ -1,6 +1,6 @@
 // ts3native runtime switches the harness flips in a running game (profile-world.ts --ab and native_set repro steps) and
 // session-reuse.ts reads and puts back between jobs that share one game load (docs/170 §2).
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 // ts3native's runtime switches with a /native parameter (native?<name>=0|1), not C# patches; the /native field holding each
 export const nativeNames = ['routeworker', 'routebudget', 'routeasync', 'alloc', 'waterjps'];
@@ -16,8 +16,11 @@ export const counterSwitches: Record<string, number> = { kduncutceil: 0x62F4, bo
 // gvunseenms (v189, docs/250 §7.3 B2) = [GoalValidRO] UnseenDeferMaxMs in ms (clamped 100-10000 at use)
 // p6warm (v131, docs/189 §16): [P6Waits] arm from the in-load loop (0 = the P6 switch, 1 = off, 2 = on); ladder loops set "$on:2:1"
 export const nativeValues: Record<string, number> = { gvunseenms: 0x601C, unseenfbcms: 0x5394, unseenfbus: 0x5364, synccapus: 0x3164, fbjobcapus: 0x3550, plandeadlineus: 0x4248, plandeadlineownus: 0x424C, kdceilus: 0x5D28, jobnameus: 0x5E40, kdnpcceilus: 0x5D48, kduncutceilus: 0x62F8, kdownplanus: 0x5224, p6warm: 0x51BC };
-// Switches that are their own ts3native export, not a Ts3nCounters field: native_set name -> export (gcgrow.cpp, docs/67 §35)
-export const nativeExports: Record<string, string> = { gcstreakat: 'ts3native_gc_streak_at', neighbourmemo: 'ts3native_routespeed', floodmemo: 'ts3native_floodmemo', cellindex: 'ts3native_cellindex', placetestro: 'ts3native_placetestro', editpathro: 'ts3native_editpathro', connroomsro: 'ts3native_connroomsro', pfadd: 'ts3native_pfadd', skipretry: 'ts3native_skipretry', steerwait: 'ts3native_steerwait', goalhitsro: 'ts3native_goalhitsro', obstructat: 'ts3native_obstructat', blocker2dro: 'ts3native_blocker2dro', workerhold: 'ts3native_workerhold', planendlend: 'ts3native_planendlend', doorshare: 'ts3native_doorshare', waterscantable: 'ts3native_worldpre', waypointsnap: 'ts3native_wpsnap', waypointgather: 'ts3native_wpgather', smoothmemo: 'ts3native_smoothmemo', smoothcut: 'ts3native_smoothcut', classmemo: 'ts3native_classmemo', openhint: 'ts3native_openhint', landcheckro: 'ts3native_landcheckro', worldalt: 'ts3native_worldalt' };  // docs/663: +0x00 nmMode; docs/667: +0x00 fmMode; docs/669: +0x00 ciMode; docs/670: +0x00 ptMode
+// Switches that are their own ts3native export, not a Ts3nCounters field: native_set name -> export (gcgrow.cpp, docs/67 §35).
+// A value "<export>&offset=N" writes the field at +N of that export instead of +0x00 (the probe's /nativeexport offset), e.g. the
+// shadow words at +0x04 of [ObstructAtRO] / [Blocker2dRO] / [LandCheckRO], read on every call (gvro.cpp, rtoro.cpp, landro.cpp).
+export const nativeExports: Record<string, string> = { gcstreakat: 'ts3native_gc_streak_at', neighbourmemo: 'ts3native_routespeed', floodmemo: 'ts3native_floodmemo', cellindex: 'ts3native_cellindex', placetestro: 'ts3native_placetestro', editpathro: 'ts3native_editpathro', connroomsro: 'ts3native_connroomsro', pfadd: 'ts3native_pfadd', skipretry: 'ts3native_skipretry', steerwait: 'ts3native_steerwait', goalhitsro: 'ts3native_goalhitsro', obstructat: 'ts3native_obstructat', blocker2dro: 'ts3native_blocker2dro', workerhold: 'ts3native_workerhold', planendlend: 'ts3native_planendlend', doorshare: 'ts3native_doorshare', waterscantable: 'ts3native_worldpre', waypointsnap: 'ts3native_wpsnap', waypointgather: 'ts3native_wpgather', smoothmemo: 'ts3native_smoothmemo', smoothcut: 'ts3native_smoothcut', classmemo: 'ts3native_classmemo', openhint: 'ts3native_openhint', landcheckro: 'ts3native_landcheckro', worldalt: 'ts3native_worldalt',
+  taskserve: 'ts3native_taskserve', nopathmemo: 'ts3native_nopathmemo', obstructatshadow: 'ts3native_obstructat&offset=4', blocker2droshadow: 'ts3native_blocker2dro&offset=4', landcheckroshadow: 'ts3native_landcheckro&offset=4' };  // docs/663: +0x00 nmMode; docs/667: +0x00 fmMode; docs/669: +0x00 ciMode; docs/670: +0x00 ptMode
 
 // --ab names and --fixes-on / --fixes-off names (C# patches switches) that name one switch twice: one name in both fixes lists,
 // or an --ab name that --ab flips as a patches switch (not native, not a counter switch). A native or counter --ab switch and the
@@ -36,7 +39,14 @@ if (process.argv.includes('--self-check') && import.meta.filename === resolve(pr
   }
   if (!src.some(l => /\bm2Take;.*\+0x2F74.*--ab routesnap/.test(l))) bad.push('routesnap (m2Take)');
   if (bad.length) { console.error(`native-switches self-check FAILED: no single Ts3nCounters field for ${bad.join(', ')}`); process.exit(1); }
+  // every nativeExports export (offset suffix dropped) is exactly one dllexport in the ts3native sources, so a renamed block
+  // cannot leave native_set writing nothing (the probe answers an unknown export name with no value: 'did not stick')
+  const nsrc = readdirSync(new URL('../../native/ts3native/', import.meta.url)).filter(f => /\.(cpp|h)$/.test(f))
+    .map(f => readFileSync(new URL(`../../native/ts3native/${f}`, import.meta.url), 'utf8')).join('\n');
+  const missing = [...new Set(Object.values(nativeExports).map(e => e.split('&')[0]))]
+    .filter(e => (nsrc.match(new RegExp(`dllexport\\)[^;=\\n]* ${e}\\s*(=|;|\\[)`, 'g')) ?? []).length !== 1);
+  if (missing.length) { console.error(`native-switches self-check FAILED: no single dllexport for ${missing.join(', ')}`); process.exit(1); }
   const clash = [abFixesClash(['jobyield'], ['jobyield'], []), abFixesClash(['routeasync'], [], ['routeasync']), abFixesClash(['idlememo'], ['idlememo'], []), abFixesClash([], ['a'], ['a', 'b'])];
   if (JSON.stringify(clash) !== JSON.stringify([[], [], ['idlememo'], ['a']])) { console.error(`native-switches self-check FAILED: abFixesClash ${JSON.stringify(clash)}`); process.exit(1); }
-  console.log(`native-switches self-check ok (${Object.keys(counterSwitches).length + Object.keys(nativeValues).length} offsets)`);
+  console.log(`native-switches self-check ok (${Object.keys(counterSwitches).length + Object.keys(nativeValues).length} offsets, ${Object.keys(nativeExports).length} export switches)`);
 }
