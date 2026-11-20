@@ -54,6 +54,7 @@
  "PlacementRO": ["fgro.cpp"],
  "PlaceTestRO": ["placero.cpp"],
  "FglProf": ["fglprof.cpp"],
+ "SwarmGuard": ["swarmguard.cpp"],
  "FglFacing": ["fglprof.cpp"],
  "FglMemo": ["fglprof.cpp"],
  "EditPathRO": ["epro.cpp"],

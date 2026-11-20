@@ -13392,6 +13392,7 @@ static void TestNoPathMemoStub() {
 #include "cellindex-test.h"   // TestCellIndex ([RouteSpeed] CellIndex, docs/669)
 #include "placero-test.h"   // TestPlaceCore, TestPlaceTestRO ([PlaceTestRO], docs/670)
 #include "fglprof-test.h"   // TestFglProfCore ([FglProf], docs/671)
+#include "swarmguard-test.h"   // TestSwarmGuardCore, TestSwarmGuardStub ([SwarmGuard], docs/678)
 #include "fglprof-stub-test.h"   // TestFglProfStubs: the trampolines against cdecl and ret-4 fakes
 #include "epro-test.h"      // TestEditPathRO ([EditPathRO], docs/670 §8)
 #include "connro-test.h"    // TestConnRoomsRO ([ConnRoomsRO], docs/670 §15)
@@ -14976,6 +14977,8 @@ int main() {
     TestPlaceTestRO();
     TestFglProfCore();   // docs/671
     TestFglProfStubs();
+    TestSwarmGuardCore();   // docs/678
+    TestSwarmGuardStub();
     TestFglFacing();   // docs/671 §10
     TestEditPathRO();  // docs/670 §8
     TestConnRoomsRO();  // docs/670 §15
