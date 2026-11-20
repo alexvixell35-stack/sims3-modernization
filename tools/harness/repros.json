@@ -113405,6 +113405,71 @@
     ]
   },
   {
+    "id": "actdelay-check",
+    "bug": "docs/684: Sims stand still before they start an interaction they were given or picked; nothing measured where that time goes (queue, the Sim's loop, posture transitions, Run's setup, route plans on the sim thread or asleep on a ts3native route job, re-plans, the gap from plan to first step)",
+    "fix": "measurement only: ts3fixes actdelay (ActDelay.cs + ActDelayCore.cs, tuning kActDelay, default off), pass-through hooks; per interaction instance the buckets from queued to acting, one 'actdelay:' line per instance over kActDelayLogMs (500), an 'actdelay minute:' summary a minute, ActDelayCheck result = p50/p90/max per bucket and Sim kind + top 15 interaction types",
+    "save": "needs a loaded world in live mode with Sims acting (no save change)",
+    "note": "UNVERIFIED in the game (2026-11-20: built with Roslyn, core selftest tools/selftest/actdelay). Read-only. 'run' is the bucket model in the game's Mono (no Sim needed); 'live' lists the seven hook swaps; the 90 s wait lets autonomy queue and run interactions with the probe on. Counters 4270-4279.",
+    "expect": "run: 'verdict: ok'. live: 'members found=True'. result after the wait: 'actdelay switch on', acted > 0 with npc > 0, a 'p50/p90/max ms per bucket' table, 'top interaction types' rows, errors 4275=0; ts3native.log has 'actdelay minute:' lines; no new exceptions; nothing else in the game differs",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ActDelayCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 1,
+        "note": "the bucket logic on a fixed scenario"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "actdelay": true
+        },
+        "waitS": 1,
+        "note": "probe on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ActDelayCheck",
+          "args": [
+            "live"
+          ]
+        },
+        "waitS": 90,
+        "note": "hook swaps"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ActDelayCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "aggregate after 90 s of play"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "actdelay": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "actdelay": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

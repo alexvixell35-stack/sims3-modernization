@@ -381,6 +381,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kFglInBoundShadow = false;  // fglinbound: also run EA's indoors stage, return its answer and count / log a difference (costs EA's full time; for the first runs only)
         [Tunable] public static float kFglInBoundProbeRadius = 0f;  // fglinbound: radius of an optional first search around the start (7: a spot within 3 rings is taken as EA's); below 1 = no probe (s208: 17 ms when it finds nothing)
         [Tunable] public static int kFglInBoundMaxSearches = 8;  // fglinbound: most cluster searches per stage (each walks the lot once); more groups of indoor tiles are merged, nearest centres first
+        [Tunable] public static bool kActDelay = false;  // actdelay (docs/684): read-only probe, per interaction instance the time from queued to the Sim acting, split into buckets; one log line per instance over kActDelayLogMs and a summary a minute; test runs only
+        [Tunable] public static int kActDelayLogMs = 500;  // actdelay: an instance whose queued -> act time reaches this gets its own log line
+        [Tunable] public static int kActDelayLinesPerMin = 30;  // actdelay: most instance lines a minute of real time
         [Tunable] public static bool kNearestLotLazy = false;  // nearestlotlazy (docs/677): LotManager.GetNearestLot compares the distances first and runs the per-lot tests (uncharted island object count, street parking land checks) nearest lot first until one passes; same lot as EA's loop; off until its in-game run
         [Tunable] public static bool kNearestLotLazyShadow = false;  // nearestlotlazy: also run EA's loop, return its lot and log a difference (costs EA's full time; for the first runs only)
         [Tunable] public static bool kDoorShare = false;  // doorshare (docs/674): tell ts3native which door answers do not depend on the Sim ([RouteSnap] DoorShare shares them between route jobs); needs doorgen; off until its in-game A/B
