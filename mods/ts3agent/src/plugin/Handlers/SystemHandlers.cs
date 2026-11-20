@@ -28,8 +28,12 @@ namespace Ts3Agent
             RegisterThumbCensus(); // ThumbCensusHandlers.cs
             RegisterBoatGone(); // BoatGoneHandlers.cs
             RegisterBoatGetOutStress(); // BoatGetOutStressHandlers.cs
+            RegisterBoatNoPathRepro(); // BoatNoPathReproHandlers.cs, docs/851
             RegisterSimHealth(); // SimHealthHandlers.cs: soak health census
             RegisterInteractionSweep(); // InteractionSweepHandlers.cs, docs/268
+            RegisterFightOrphan(); // FightOrphanHandlers.cs, repro ip-fight-orphan
+            RegisterHouseboatLegRepro(); // HouseboatLegReproHandlers.cs, docs/853 §2-§3
+            RegisterBoatRoamRepro(); // BoatRoamReproHandlers.cs, docs/853 §4
         }
 
         static object Ping(Args a)

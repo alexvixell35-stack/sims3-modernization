@@ -104,3 +104,5 @@ steam,ea,label,evidence
 0x005E077D,0x005E164D,CAS SimBuilder atlas first texture load (eafix SimNoTextureAtlas),"v0.2.11 EA port (from v0.2.10 EA table): mov edx,[esi+0A8h]; cmp edx,[esi+0ACh] on both builds; 12 instructions match"
 0x005E0783,0x005E1653,CAS SimBuilder atlas next instruction (eafix SimNoTextureAtlas),"v0.2.11 EA port: 0x5E164D + 6, same as Steam; 12 instructions match"
 0x005E0872,0x005E1742,CAS SimBuilder no-recipe target (eafix SimNoTextureAtlas),"v0.2.11 EA port (from v0.2.10 EA table): 12 instructions match, 4-byte operands masked"
+0x00D71E40,0x00D71E80,[HostMapIterFix] HMI_ERASE (host id map erase),"Eli's EA 1.69 minidump 2026-11-18: fault function 0xD71E80, same 16 prologue bytes as Steam 0xD71E40 (docs/67 §43)"
+0x00D814B6,0x00D81876,[HostMapIterFix] HMI_SITE (ProcessTaskState erase call),"same dump: return address 0xD8187B on the faulting stack = call at 0xD81876 into 0xD71E80 (Steam 0xD814BB / +0x3C0); code page not in the dump, the 29-byte check runs live (docs/67 §43)"

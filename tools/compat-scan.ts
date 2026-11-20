@@ -233,6 +233,26 @@ export function modExtras(mod: string, size: number, keys: Iterable<string>, lis
   else if (size > 2 * GB) out.push(`${(size / GB).toFixed(2)} GB: merged package over 2 GB, split it`);
   return out;
 }
+/** CC String Merge (SmellyMods, docs/304) output packages, by the names its source writes. */
+export const CCSM_RE = /^CCStringMerge_(Strings|Merged_\d{3})$/i;
+export function ccStringMergeNote(mod: string): string | undefined {
+  const m = CCSM_RE.exec(mod);
+  if (!m) return undefined;
+  return m[1].toLowerCase() === 'strings'
+    ? 'CC String Merge strings package: the STBLs of the processed CC, one per language (docs/304); offline tool, no overlap'
+    : 'CC String Merge merged part (--merge): many CC packages in one file, so known-bad matches by file name cannot hit; keys still do (docs/304)';
+}
+const TYPE_STBL = 0x220557da;
+const isStbl = (k: string) => k.startsWith('220557da:');
+/** STBL keys of a package that are also game STBL keys: a by-key replacement of an EA string table. */
+export function stblOverrides(keys: Iterable<string>, gameStbl: Set<string>): string[] {
+  return [...keys].filter((k) => isStbl(k) && gameStbl.has(k)).sort();
+}
+export function stblOverrideNote(hits: string[]): string | undefined {
+  if (!hits.length) return undefined;
+  return `replaces ${hits.length} EA string table(s) by key (${hits.slice(0, 2).join(', ')}${hits.length > 2 ? ', ...' : ''}): `
+    + 'CC String Merge renumbers them, so the EA table loads too: the mod text still wins while Mods outrank the game, keys the mod lacks show EA text instead of blank (docs/304 C1)';
+}
 const loadKnownBad = (f: string): KnownBad[] => { try { return JSON.parse(readFileSync(f, 'utf8')).entries ?? []; } catch { return []; } };
 
 const MATRIX_COLS = ['mod', 'file', 'kind', 'overlap', 'verdict', 'evidence', 'status', 'note'];
@@ -354,7 +374,18 @@ function run() {
       for (const u of units) u.findings.push(...typeFindings(perUnit.get(u) ?? [], (u as any).replaced ?? [], resolved, ours.named));
       if (skipped.length) modelNote = `unparsed assemblies: ${skipped.length}`;
     } else modelNote = gameDlls.size ? 'no ts3fixes source: patched methods unknown' : 'no game assemblies (--asm or --game): type checks skipped';
+    // EA string tables a non-script package replaces by key (docs/304 C1); game indexes read only when such a package has STBLs
+    const stblUnits = units.filter((u) => !u.kind.has('script') && [...u.keys].some(isStbl));
+    if (stblUnits.length) {
+      const gameStbl = new Set<string>();
+      for (const f of walk(GAME).filter((n) => /\.package$/i.test(n) && !/[\\/]Caches[\\/]/i.test(n))) {
+        try { for (const e of packageIndex(f)) if (e.type === TYPE_STBL) gameStbl.add(keyOf(e)); } catch { /* not a package */ }
+      }
+      for (const u of stblUnits) { const n = stblOverrideNote(stblOverrides(u.keys, gameStbl)); if (n) (u.extras ??= []).push(n); }
+    }
     for (const u of units) {
+      const ccsm = ccStringMergeNote(u.mod);
+      if (ccsm) (u.extras ??= []).push(ccsm);
       for (const k of u.keys) if (fixKeys.has(k)) u.findings.push({ kind: 'key', text: `same resource key as ts3fixes.package ${k}` });
       if (!u.unknown && u.kind.has('script') && !gameDlls.size) u.unknown = 'script mod: no game assemblies to check against';
     }
@@ -374,7 +405,7 @@ function run() {
       console.log('| mod | kind | verdict | overlap | evidence |\n|---|---|---|---|---|');
       for (const r of rows.filter((r) => r.verdict !== 'no overlap')) console.log(`| ${r.mod} | ${r.kind} | ${r.verdict} | ${r.overlap || '-'} | ${r.evidence.slice(0, 160)} |`);
       const flagged = rows.filter((r) => r.extras.length);
-      if (flagged.length) { console.log('\nknown-bad / size:'); for (const r of flagged) console.log(`- ${r.mod}: ${r.extras.join('; ')}`); }
+      if (flagged.length) { console.log('\nknown-bad / size / notes:'); for (const r of flagged) console.log(`- ${r.mod}: ${r.extras.join('; ')}`); }
       console.log(`\nno overlap: ${rows.filter((r) => r.verdict === 'no overlap').map((r) => r.mod).join(', ') || '-'}`);
     }
     const matrix = opt('--matrix', '');
@@ -430,14 +461,26 @@ function selfCheck() {
   assert(modExtras('fine', 10, ['0333406c:00000000:0000000000000007'], kb).join() === 'known-bad: breaks saves', 'known-bad by key');
   assert(modExtras('fine', 10, [], kb).length === 0 && modExtras('x', 3 * GB, [], []).join().includes('over 2 GB') && modExtras('x', 4 * GB, [], []).join().includes('unreadable'), 'no match / size limits');
   assert(asiFinding('Bin/Sims3MonoModder.asi')?.feature === 'S3mmStandDown' && asiFinding('sims3monomodder.ASI') && !asiFinding('Sims3MonoModder.asi.bak') && !asiFinding('xSims3MonoModder.asi'), 'known ASI by name');
-  // package index from disk and from a zip, stored and deflated
+  // CC String Merge output names (docs/304): regex cases, match and non-match
+  for (const m of ['CCStringMerge_Strings', 'ccstringmerge_strings', 'CCStringMerge_Merged_001', 'CCStringMerge_Merged_123']) assert(CCSM_RE.test(m) && ccStringMergeNote(m), `ccsm match ${m}`);
+  for (const m of ['CCStringMerge_Strings_old', 'MyCCStringMerge_Strings', 'CCStringMerge_Merged_1', 'CCStringMerge_Merged_0001', 'CCStringMerge', 'Strings']) assert(!CCSM_RE.test(m) && !ccStringMergeNote(m), `ccsm non-match ${m}`);
+  assert(ccStringMergeNote('CCStringMerge_Merged_002')!.includes('file name') && ccStringMergeNote('CCStringMerge_Strings')!.includes('one per language'), 'ccsm note per kind');
+  // package index from disk and from a zip, stored and deflated; synthetic STBLs (English 0x00, German 0x01 language byte)
+  const stbl = (lang: bigint, low: bigint) => ({ type: TYPE_STBL, group: 0, instance: (lang << 56n) | low, data: Buffer.from('STBL\x02\0\0\0\0\0\0\0\0\0\0\0\0', 'latin1') });
   const pkg = writePackage([{ type: 0x0333406c, group: 0, instance: 7n, data: Buffer.from('<x/>') }, { type: TYPE_S3SA, group: 0, instance: fnv64('A'), data: Buffer.from('not an assembly') }]);
+  const gamePkg = writePackage([stbl(0n, 0x1234n), stbl(1n, 0x1234n), { type: 0x0333406c, group: 0, instance: 0x1234n, data: Buffer.from('<x/>') }]);
+  const cc = writePackage([stbl(0n, 0x1234n), stbl(1n, 0x9999n), { type: 0x0333406c, group: 0, instance: 0x1234n, data: Buffer.from('<y/>') }]);
   const tmp = mkdtempSync(join(tmpdir(), 'compat-sc-'));
   try {
     writeFileSync(join(tmp, 'a.package'), pkg);
     assert(packageIndex(join(tmp, 'a.package')).map(keyOf).includes('0333406c:00000000:0000000000000007'), 'index from disk');
     const z = unzip(zip([['Mods/a.package', pkg]]));
     assert(packageIndex(z.get('Mods/a.package')!).length === 2, 'index from zip');
+    const gameStbl = new Set(packageIndex(gamePkg).filter((e) => e.type === TYPE_STBL).map(keyOf));
+    const hits = stblOverrides(packageIndex(cc).map(keyOf), gameStbl);
+    assert(hits.join() === '220557da:00000000:0000000000001234', `stbl override: same TGI only, other types ignored ${hits}`);
+    assert(stblOverrideNote(hits)!.includes('1 EA string table') && !stblOverrideNote([]), 'stbl override note');
+    assert(!stblOverrides(packageIndex(pkg).map(keyOf), gameStbl).length, 'no STBL, no override');
   } finally { rmSync(tmp, { recursive: true, force: true }); }
   // the repo's own sources, when present
   const o = ourPatches();

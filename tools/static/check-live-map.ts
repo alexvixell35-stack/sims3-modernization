@@ -52,13 +52,25 @@ export function scan(files: Map<string, string>) {
   }
   const classBody = new Map<string, string>();
   for (const s of files.values()) for (const m of s.matchAll(/\bclass (\w+)[^{;]*\{/g)) {
-    const [a, b] = block(s, m.index!); classBody.set(m[1], s.slice(a, b));
+    const [a, b] = block(s, m.index!); classBody.set(m[1], (classBody.get(m[1]) ?? '') + '\n' + s.slice(a, b));  // partial classes: all parts
   }
   // docs/622 §3: SwOn(kSwX) asks the switch its slot names (static readonly int kSwX = SwSlot("name"))
   const slot = new Map<string, string>();
   for (const s of files.values()) for (const m of s.matchAll(/\b(kSw\w+) = SwSlot\("(\w+)"\)/g)) slot.set(m[1], m[2]);
   const names = (t: string) => new Set([...[...t.matchAll(/ShortcutOn\("(\w+)"\)/g)].map((x) => x[1]),
     ...[...t.matchAll(/\bSwOn\((kSw\w+)\)/g)].map((x) => slot.get(x[1])).filter((x): x is string => !!x)]);
+  // switches named in a method of another class that the hook class calls as Other.Method(
+  const calledNames = (cls: string) => {
+    const out = new Set<string>();
+    const body = classBody.get(cls) ?? '';
+    for (const c of body.matchAll(/\b(\w+)\.(\w+)\(/g)) {
+      const other = classBody.get(c[1]);
+      if (!other || c[1] === cls) continue;
+      const m = new RegExp(`\\b${c[2]}\\s*\\([^)]*\\)\\s*\\{`).exec(other);
+      if (m) for (const w of names(other.slice(m.index, block(other, m.index)[1]))) out.add(w);
+    }
+    return out;
+  };
   const hooks = new Map<string, Hook>();
   for (const [f, s] of files) {
     if (SKIP.test(f)) continue;
@@ -68,7 +80,15 @@ export function scan(files: Map<string, string>) {
       const body = s.slice(a + 1, b - 1);
       const seg = s.slice(m.index!, n + 1 < applies.length ? applies[n + 1].index! : s.length);
       const segSw = names(seg);
-      const lines = body.split('\n');
+      // a Patch( call that runs over several lines is joined into one logical line
+      const lines: string[] = [];
+      for (const raw of body.split('\n')) {
+        const last = lines.length - 1;
+        // open: code (strings and // comments cut) with a Patch( whose parentheses are not closed yet
+        const code = last >= 0 ? lines[last].replace(/"(?:[^"\\]|\\.)*"/g, '""').replace(/\/\/.*$/, '') : '';
+        if (/\bPatch\(/.test(code) && code.split('(').length > code.split(')').length) lines[last] += ' ' + raw.trim().replace(/\s*\/\/.*$/, '');
+        else lines.push(raw);
+      }
       let depth = 0, prev = '';
       for (const line of lines) {
         const t = line.trim();
@@ -78,7 +98,11 @@ export function scan(files: Map<string, string>) {
           for (const cls of types) {
             const h = hooks.get(cls) ?? { cls, swaps: 0, switches: new Set<string>(), handles: [] };
             if (top) h.swaps++;
+            // the hook class's own switches, those of the methods it calls in another class (RouteBackoffHook.FpStepAside),
+            // and those on the Patch's own line or the if-guard line right before it; else the whole Apply section
             const own = names(classBody.get(cls) ?? '');
+            for (const w of calledNames(cls)) own.add(w);
+            for (const w of names(t + ' ' + (/^if\b.*\)$/.test(prev) ? prev : ''))) own.add(w);
             for (const w of own.size ? own : segSw) h.switches.add(w);
             hooks.set(cls, h);
           }
@@ -186,6 +210,15 @@ function selfCheck() {
           Patch(typeof(T), "N", typeof(AHook), "H2", "O2"); }
     internal static bool AaDecide(bool a) { return a; }
     internal static bool AaCopy(bool a) { return a; }
+    static void ApplyB() {
+      Patch(typeof(T), "Multi",
+          new Type[] { typeof(int).MakeByRefType(), typeof(bool) },
+          typeof(BHook), "H", "O");
+      if (ShortcutOn("cc")) Patch(typeof(T), "G", typeof(CHook), "H", "O");
+      Patch(typeof(T), "M2", typeof(BHook), "H2", "O2"); }
+    public class BHook { public void H() { if (!ShortcutOn("bb")) return; } }
+    public class CHook { public void H() { Other.Step(1); } }
+    public class Other { internal static void Step(int a) { if (!ShortcutOn("dd")) return; } internal static void Unrelated() { ShortcutOn("zz"); } }
     public class AHook { public void H() { if (!ShortcutOn("aa")) return; int v = (int)sAa.GetValue(null); sAm.Invoke(this, new object[] { 1, f(2, 3) }); AaDecide(true); } }
   `], ['Batch1Checks.cs', `
     public static object AaCheck(string what) { return AaDecide(true); }
@@ -193,6 +226,14 @@ function selfCheck() {
   `]].map(([k, v]) => [k.replace('Batch1', 'Batch599'), v]) as [string, string][]);
   const h = scan(f).get('AHook')!;
   assert.equal(h.swaps, 1);
+  // multi-line Patch call: found, two swaps, switch from the hook class
+  const hb = scan(f).get('BHook')!;
+  assert.equal(hb.swaps, 2);
+  assert.deepEqual([...hb.switches], ['bb']);
+  // switch on the Patch's guard line (cc) and one in another class's method the hook calls (dd), not that class's other method (zz)
+  assert.deepEqual([...scan(f).get('CHook')!.switches].sort(), ['cc', 'dd']);
+  // non-match: T is not a class of ours, so no hook for it
+  assert.equal(scan(f).has('T'), false);
   assert.deepEqual([...h.switches], ['aa']);
   assert.deepEqual(h.handles, [{ name: 'sAa', spec: 'typeof(int)' }, { name: 'sAa', spec: '"static"' }, { name: 'sAm', spec: '2' }]);
   assert.match(emit(scan(f)), /case "aa": return EpLive\(typeof\(AHook\), 1, "sAa", sAa, typeof\(int\)/);

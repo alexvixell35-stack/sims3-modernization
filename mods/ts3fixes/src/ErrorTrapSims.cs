@@ -8,7 +8,7 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // errortrapsims (opt-in until measured): NRaas ErrorTrap's CheckSim.PrePerform adds every Sim object it checks to
+    // errortrapsims (ON in release since v0.2.11): NRaas ErrorTrap's CheckSim.PrePerform adds every Sim object it checks to
     // CheckSim.mInited (Dictionary<Sim, bool>) and returns true whether or not the key was there. Nothing else reads or
     // removes a key (NRaasErrorTrap IL: PrePerform and the constructor are its only users), so the entry changes nothing
     // ErrorTrap does. It does keep every destroyed Sim object, and the object graph behind it (queue, motives, autonomy,
@@ -35,7 +35,7 @@ namespace Ts3Fixes
 
         // The hourly sweep passes, in their old order. With the alarmtime test switch on, each pass that takes >= 3 ms is
         // logged with its time (alarmtime itself only sees the whole callback: ~24 ms, max 32 ms an hour, phase-20261114-0032).
-        static readonly AlarmTimerCallback[] sHourlyPasses = { ErrorTrapSimsPass, CelebDeadSimPass, SeasonsDeadSimPass, GhostReactDeadSimPass, CasUiHandlersPass, ErrorTrapLookupPass, ErrorTrapCtlPass, DreamNodeDeadSimPass, DnpSubjectCachePass, OverwatchDeadSimPass, SimRefsDeadSimPass, OutfitWaitSavedPass, DeadSimCountPass, TinyUiEventRegPass, CustomCtlSweepPass, ExitCbSweepPass, DnpRemovalKeysPass, BuffStatePass, StoreWorldEventsPass, CookClickPass };
+        static readonly AlarmTimerCallback[] sHourlyPasses = { ErrorTrapSimsPass, CelebDeadSimPass, SeasonsDeadSimPass, GhostReactDeadSimPass, CasUiHandlersPass, ErrorTrapLookupPass, ErrorTrapCtlPass, DreamNodeDeadSimPass, DnpSubjectCachePass, OverwatchDeadSimPass, SimRefsDeadSimPass, OutfitWaitSavedPass, DeadSimCountPass, TinyUiEventRegPass, CustomCtlSweepPass, ExitCbSweepPass, DnpRemovalKeysPass, BuffStatePass, StoreWorldEventsPass, CookClickPass, FightOrphanPass };
         static int sHourlyLogged;
 
         // Each pass runs in its own try: AlarmManager.Simulate removes a repeating alarm for good when its callback throws

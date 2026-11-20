@@ -13,6 +13,7 @@ import { execFile, execFileSync } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, statfsSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { analyzeDump } from '../dump-locks.ts';
+import { extractStacks } from './dump-stacks.ts';
 import { BIN, GAME_EXE, gameRunning, seenPids } from './game-exe.ts';
 
 const STARTED = new Date().toISOString(); // crash pickup: reports since this process started, of the game PIDs it saw
@@ -332,6 +333,7 @@ export async function captureHang(dir: string, o: { port?: number; get?: HangGet
   }
   const dumpFile = `${process.env.TS3_HANG_DUMP_DIR ? join(process.env.TS3_HANG_DUMP_DIR, pre.split(/[\\/]/).at(-1)!) : pre}.dmp`;
   const dump = left() > 2000 ? await (o.dump ?? procdump)(dumpFile, left()) : 'dump skipped: capture cap reached';
+  if (existsSync(dumpFile) && left() > 10000) try { extractStacks(dumpFile); } catch { /* cleanup.ts retries; docs/283 */ } // triage text now, so the .dmp can go at the next sweep
   const threads = th.threads?.filter((t: any) => t.stack?.length).length ?? 0;
   const main = th.threads?.find((t: any) => t.role === 'main' && t.stack?.length), groups = th.threads ? frameGroups(th.threads) : '';
   const line = `hang capture: ${ok.length} sim stacks, top frame ${top}${under !== top && under !== '-' ? ` under ${under}` : ''}${ok.length > 1 ? ` (${same}/${ok.length} same)` : ''}; ${threads} other thread stacks${th.error ? ` (${th.error})` : ''}${main ? `; main thread under ${ownFrame(main.stack)}` : ''}${groups ? `; thread frames ${groups}` : ''}; native ${nat?.error ?? `v${nat?.version ?? '?'}`}; ${holders}; ${managed}; ${dump}; ${pre}-*`;
@@ -391,6 +393,7 @@ try { if(-not [Dh]::MiniDumpWriteDump($p.Handle,${pid},$f.SafeFileHandle,0x1826,
   let size = 0; try { size = statSync(plan.file).size; } catch { /* none written */ }
   const line = size && !err ? `kill dump ${plan.tool} ${Math.round(size / 2 ** 20)} MB in ${Math.round((Date.now() - t0) / 1000)} s: ${plan.file}`
     : `kill dump failed (${plan.tool}: ${err || 'no file'})${size ? `, partial ${plan.file}` : ''}`;
+  if (size && !err) try { extractStacks(plan.file); } catch { /* cleanup.ts retries; docs/283 */ }
   console.log(`${tag}: ${line}`);
   return size && !err ? `${line}; ${lockWaits(plan.file)}` : line;
 }

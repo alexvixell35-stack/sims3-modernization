@@ -54,3 +54,6 @@ steam,retail,label,evidence
 0x00D82110,0x00D825A0,[StallWatch] SS_SIM_HI,"retail-port-check code: anchors + 24 bytes; same +0x490 delta as SS_SIM_LO 0x00D81840 -> 0x00D81CD0"
 0x010652D4,0x0106630C,[EaCrashFixes] LotLevelPastEnd LL_SLOT,"retail-port-check content: 5 stored pointer(s) map there, unique; retail dword 0x0106630C = 0x00AB59B0 = TS3A(0x00AB70B0) (LL_GET), Steam 0x010652D4 = 0x00AB70B0"
 0x01088F48,0x01089F88,[ThumbStall] TS_TM_SLOT,"retail-port-check content: 5 stored pointer(s) map there, unique; retail dword 0x01089F88 = 0x00D617B0 = TS3A(0x00D61670) (TS_TM_UPDATE), Steam 0x01088F48 = 0x00D61670"
+0x00D71E40,0x00D72000,[HostMapIterFix] HMI_ERASE (host id map erase),"retail exe: same 16 prologue bytes (8b 54 24 08 8b 42 10 85 c0 53 56 8b 74 24 0c 57) and the call at retail 0x00D81946 targets it (docs/67 §43)"
+0x00D72170,0x00D72280,[HostMapIterFix] rehash (TestRehash only),"retail exe: called from insert 0x00D73BD0 (= Steam 0x00D72BF0, same bytes) as Steam insert calls 0x00D72170 (docs/67 §43)"
+0x00D814B6,0x00D81946,[HostMapIterFix] HMI_SITE (ProcessTaskState erase call),"retail exe: same bytes from 0x00D81931 (= Steam 0x00D814A1), +0x490 like SS_SIM_LO; call 0x00D80460 -> 0x00D808F0 at 0x00D81924 (docs/67 §43)"

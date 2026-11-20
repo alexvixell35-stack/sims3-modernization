@@ -1332,6 +1332,27 @@ static bool realert(Sess& S, const TS& o, const TS& n) {
   auto inNtdll = [&](DWORD a) { const View* v = viewAt(S.s.views, a); return v && v->type == MEM_IMAGE && baseName(v->file) == "ntdll.dll"; };
   return inNtdll(o.sig[6]) && inNtdll(n.sig[6]);
 }
+// Owner of a thread that ended after the snapshot: a CRT start (msvcr80.dll+29e1 = _threadstartex, chain-night-1118 step 4)
+// names no owner, so the snapshot copy of its stack is scanned for the first return addresses into a non-system module
+// (a dword right after a call instruction). Heuristic, for the log only: ", called from TS3W.exe+x, ..." or "".
+static std::string callers(Sess& S, const TS& o) {
+  static const char* sys[] = {"ntdll.dll", "kernel32.dll", "kernelbase.dll", "msvcr80.dll", "msvcrt.dll", "ucrtbase.dll", "user32.dll", "win32u.dll"};
+  std::string out; int found = 0;
+  for (DWORD a = o.sig[1] & ~3u, n = 0; n < 16384 && found < 3; a += 4, ++n) {
+    DWORD d = 0;
+    if (!snapBytes(S.s, a, 4, &d)) { if (n) break; continue; }
+    const View* v = viewAt(S.s.views, d);
+    if (!v || v->type != MEM_IMAGE || d < v->base + 6) continue;
+    std::string mod = baseName(v->file);
+    bool system = false;
+    for (auto* x : sys) system |= mod == x;
+    BYTE b[6]{};
+    if (system || !ReadProcessMemory(S.p, (void*)(ULONG_PTR)(d - 6), b, 6, nullptr)) continue;
+    bool call = b[1] == 0xE8 || (b[0] == 0xFF && (b[1] & 0x38) == 0x10) || (b[3] == 0xFF && (b[4] & 0x38) == 0x10) || (b[4] == 0xFF && (b[5] & 0xF8) == 0xD0);
+    if (call) out += fmt("%s%s+%lx", found++ ? ", " : ", called from ", mod.c_str(), (unsigned long)(d - v->base));
+  }
+  return out;
+}
 static void planThreads(Sess& S, Result& r, Plan& pl, std::vector<TS>& now) {
   const Snap& s = S.s;
   for (auto& o : s.threads) {
@@ -1345,7 +1366,7 @@ static void planThreads(Sess& S, Result& r, Plan& pl, std::vector<TS>& now) {
       std::string where = mod.empty() ? fmt("%08lx", o.start) : fmt("%s+%lx", mod.c_str(), (unsigned long)(o.start - v->base));
       const char* what = mod == "combase.dll" ? ", COM RPC cache worker (ends after 30 s idle)" : mod == "mswsock.dll" ? ", Winsock async worker (ends after 300 s idle)"
                        : mod == "ntdll.dll" ? ", thread-pool worker" : "";
-      r.refuse(fmt("thread %lu (start %s%s) exited after the snapshot", o.tid, where.c_str(), what));
+      r.refuse(fmt("thread %lu (start %s%s) exited after the snapshot%s", o.tid, where.c_str(), what, callers(S, o).c_str()));
       continue;
     }
     if (n->slots[5] != o.slots[5]) { pl.retry.push_back(fmt("thread %lu is at another user-callback depth than at the snapshot", o.tid)); continue; }
@@ -2039,6 +2060,43 @@ static Result settle(Sess& S, unsigned secs, const std::string& mod, bool busy =
   else if (left) r.notes.push_back(fmt("%.0f %s thread(s) still there after %u s: the snapshot is taken anyway (a rewind refuses if one ends)", left, mod.c_str(), secs));
   return r;
 }
+// Snapshot precondition (docs/270 §40): a steady thread set. A thread alive at the snapshot that ends later cannot be made
+// again, so the rewind refuses it (planThreads, the backstop). A transient thread (a one-shot worker that ends on its own) is
+// waited out here instead: no thread may start or end for window s in a row, at most secs. Without a freeze, by thread id and
+// creation time (a reused id is another thread). Refused (code 2, nothing changed) when the set never holds still, naming the
+// threads that came or went with their start site, so the log says which worker to classify.
+static Result steady(Sess& S, unsigned secs, unsigned window) {
+  Result r; r.op = "steady";
+  ULONGLONG t0 = GetTickCount64(), quiet = t0;
+  std::map<std::pair<DWORD, ULONGLONG>, std::string> was;
+  std::string churn;
+  for (bool first = true;; first = false) {
+    auto views = viewsOf(S.p, regions(S.p));
+    std::map<std::pair<DWORD, ULONGLONG>, std::string> now;
+    for (HANDLE th : threadHandles(S.p)) {
+      FILETIME c{}, e{}, k{}, u{}; ULONG64 st = 0;
+      if (WaitForSingleObject(th, 0) == WAIT_TIMEOUT && GetThreadTimes(th, &c, &e, &k, &u)) {
+        NtQueryInformationThread_(th, 9, &st, sizeof st, nullptr);
+        const View* v = viewAt(views, (DWORD)st);
+        now[{GetThreadId(th), ((ULONGLONG)c.dwHighDateTime << 32) | c.dwLowDateTime}] =
+          v && v->type == MEM_IMAGE ? fmt("%s+%lx", baseName(v->file).c_str(), (unsigned long)((DWORD)st - v->base)) : fmt("%08lx", (DWORD)st);
+      }
+      CloseHandle(th);
+    }
+    if (!first) {
+      std::string d;
+      for (auto& [id, at] : now) if (!was.count(id)) d += fmt(" %lu (start %s) started;", id.first, at.c_str());
+      for (auto& [id, at] : was) if (!now.count(id)) d += fmt(" %lu (start %s) ended;", id.first, at.c_str());
+      if (!d.empty()) { quiet = GetTickCount64(); churn = d; }
+    }
+    was.swap(now);
+    if (GetTickCount64() - quiet >= window * 1000ull) break;
+    if (GetTickCount64() - t0 >= secs * 1000ull) { r.refuse(fmt("thread set not steady for %u s within %u s; last change:%s", window, secs, churn.c_str())); break; }
+    Sleep(250);
+  }
+  r.add("steadyMs", (double)(GetTickCount64() - t0)); r.add("threads", (double)was.size());
+  return r;
+}
 // Waits without a freeze until no forbidden module (default frida-agent, --allow-module drops one) is mapped, at most secs
 // (docs/270 §36): after the probe detaches its agent unloads on its own thread a little later, and any other Frida session
 // keeps it loaded. The harness polled tasklist /M before, which lists only the 64-bit WOW64 modules of a 32-bit process and
@@ -2074,10 +2132,15 @@ static int serve(DWORD pid, const Opt& o) {
       sscanf_s(line, "settle %*u %63s %15s", mod, (unsigned)sizeof mod, how, (unsigned)sizeof how);
       settle(S, ticks, mod, !strcmp(how, "busy")).print();
     }
+    else if (sscanf_s(line, "steady %u", &ticks) == 1) {  // steady <s> [window s, default 10]: no thread starts or ends for window s
+      unsigned window = 10;
+      sscanf_s(line, "steady %*u %u", &window);
+      steady(S, ticks, window).print();
+    }
     else if (sscanf_s(line, "gone %u", &ticks) == 1) gone(S, ticks).print();  // gone <s>: forbidden modules unloaded
     else if (!strncmp(line, "park", 4)) { Result r; r.op = "park"; parkWorker(S, r); r.print(); }  // held until the next op ends
     else if (!strncmp(line, "quit", 4)) break;
-    else printf("result {\"op\":\"?\",\"code\":1,\"why\":[\"commands: snapshot | rewind | plan | ticks <n> | settle <s> [module] [busy] | gone <s> | park | quit\"]}\n"), fflush(stdout);
+    else printf("result {\"op\":\"?\",\"code\":1,\"why\":[\"commands: snapshot | rewind | plan | ticks <n> | settle <s> [module] [busy] | steady <s> [window] | gone <s> | park | quit\"]}\n"), fflush(stdout);
   }
   freeSnap(S.s);
   return code;

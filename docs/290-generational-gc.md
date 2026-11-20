@@ -499,7 +499,8 @@ Minor cycles do not add exposure: both hazards need an unmarked target, and old 
 not built (own default-off switch, EA bug fix): in step 1 mark from an unmarked target in a stamped block instead of
 only skipping it (as `0xE4B0EF` does), and run `GC_finish_collection` in the same step as the mark end at `0xE49EDF`
 (cost: `GC_finalize` and the block walk of `GC_start_reclaim` land in that step). Effort: ~1-2 h build plus one
-correctness job; decision for Rodney.
+correctness job. Built 2026-11-18: §10 (`[GC] WeakHandleDiag` / `WeakHandleFix`, default 0); the stamp half is done at the
+read instead of moving `GC_finish_collection`.
 
 ### 8.7 Notes for the gain gate (I-520-2)
 
@@ -548,3 +549,447 @@ Not modelled: large objects (same rules: mark bit 0, stamp skip at `0xE5017F`), 
 own table entries as heap objects, black lists, the 64K-bit dirty bitmap aliasing (only adds dirty pages), threads.
 The model is a reading of the disassembly, not the game's code: it proves the rules are consistent, the live verify
 mode (B3) proves the game follows them.
+## 9. Build: minor cycles, counters, verify (lane GA, 2026-11-18, `native/ts3native/gcgen.cpp`; built, NOT RUN)
+
+Build 0.36.286-gengc1, counters v215 (`gen*`, `0x6908`-`0x6987`), ledger §522. Steam 1.67 and retail 1.67 (retail addresses
+read in the retail exe: code +0x2F0, data +0x1000 for every new site [verified]); EA 1.69: SKIP (no addresses).
+Household rule: not applicable, the collector decides nothing about a Sim; the rule here is exactness (§9.3).
+
+### 9.1 Switches (all default 0, `[GC]` in ts3native.ini)
+
+| Key | Default | Effect |
+| `Generational` | 0 | 1 = minor cycles allowed (`genMode` 1). Run-time switch: counter `genMode` (`--ab gcgen`) |
+| `GenFullEvery` | 8 | full cycle after this many minors (1..64; an upper bound is needed: finalizers and weak links of once-marked objects fire only in a full cycle, §8 / lane GB) |
+| `GenStats` | 0 | 1 = install with `genMode` 0 (every cycle full) and log one line per cycle; the counters of §9.4 run with either switch |
+| `GenVerify` | 0 | N = check every Nth minor mark (§9.3) |
+
+Refused (log line, `genFallback`): EA 1.69 table build; `[MonoThread]` Mode >= 1 without `GcLock=1`; any call site or byte
+check that differs (nothing written). `[GC] MarkHelpers` stays out while `Generational` or `GenStats` is 1 (it shares
+`0xE49FDF` and reads `0xE49A3E`); first version, a chained form is possible later.
+
+### 9.2 Sites and the decision [verified in the disassembly]
+
+| Site | Was | Wrapper |
+| `0xE49FD5` | call `GC_promote_black_lists 0xE4A7C0` | `GenStartStub` (naked: `esi` = stop function, set at `0xE49FB1`, compared at `0xE49FC2`) -> `GenCycleStart`: decides, full = call the original |
+| `0xE49FDA` | call `GC_invalidate_mark_state 0xE4C370` | `GenInvalidate`: skipped in a minor cycle |
+| `0xE49FDF` | call `GC_clear_marks 0xE4C270` (or `[GC] SubTimers`' `GctClear`, chained) | `GenClear`: skipped in a minor cycle |
+| `0xE49A3E` | call `GC_start_world 0xE51290`, success path of `GC_stopped_mark` only (abort path: `0xE499FA`) | `GenStartWorld`: full cycle = record heap in use; minor = GenVerify; then the original |
+| `0xE4C2AB` | call `GC_gww_read_dirty 0xE4EFB0` in `GC_initiate_gc` | `GenReadDirty`: original, then count the bits of `0x1227714` |
+| `0xE4D2CF` | call `GC_push_next_marked_dirty 0xE4D120` | `GenRescue`: count, original |
+
+A cycle is minor only if all hold (`GenDecide`, selftest table): `genMode` 1, `GC_incremental`, `GC_dirty_maintained`,
+mark state 0, `GC_objects_are_marked` != 0 (lane GB rule 1: else a mark-stack overflow restarts without the old
+objects), mark stack empty, the last cycle's mark was seen to complete at `0xE49A3E`, every heap section answers GetWriteWatch, stop function != `0x5BFB90`, fewer than
+`GenFullEvery` minors since the last full, and heap in use (`[0x12225A0]` - `[0x12225B4]`) grew by at most
+`min_words_allocd 0xE498B0` words since the last full mark ended. The first cycle after install is full.
+
+Findings while building [verified]:
+- **`GC_is_full_gc` is not "this cycle is full".** `GC_collect_a_little_inner` clears it (and `GC_n_attempts`) at
+  `0xE49E03`-`0xE49E16` the first time the incremental mark completes. So `GC_finish_collection` takes the non-full
+  branch for every cycle that went through incremental steps, and `GC_used_heap_size_after_full [0x11F2FAC]` is only
+  refreshed by cycles whose first stopped mark completed. `GC_need_full_gc` is therefore not a usable policy input
+  (§1.1 / §5.3 corrected); the build keeps its own baseline, taken at `0xE49A3E` of each full cycle.
+- **A section without write watch fails safe in EA's code.** `0xE4F010`: GetWriteWatch != 0 -> `0xE4F018`-`0xE4F09C` sets
+  the bit of every page of that section (one warning per section start, five at most). Dirty-page bits alias every
+  256 MB (index `(addr >> 12) & 0xFFFF`): superset, safe. The build still probes each section's first and last page
+  (flags 0: no reset, selftest) at every cycle start and runs full cycles while one fails (`genUnwatched`).
+  Apex Radiance 4.0.4 (`ApexRadiance.asi`, byte scan of the release file): no immediate of the host allocator
+  (`0xD70900`, `0xD70906`, `0xD70800`), no `GetWriteWatch` / `ResetWriteWatch` import, two references to the section count
+  `0x11F2FC0` (a reader), one to `0xE4A050` (the known profiler detour) [verified scan; a hook on `VirtualAlloc` itself
+  would not show this way, I-520-4 stays open until the queue reports `genUnwatched` 0].
+- Static-field blocks, mint arena chunks and uncollectable cells are heap objects (P0b; §3.2 row 1 corrected): old and on
+  a clean page they hold no pointer to a young object, as any old object. Pages outside the heap count as dirty
+  (`0xE4F18E`: no block header = dirty), so every registered root range is pushed in full in a minor cycle.
+- An aborted minor stopped mark leaves the mark state in progress; later ticks continue it (`0xE49F49`) on the same
+  dirty bitmap and the next attempt reads the write watch again: the path today's finish attempts take.
+
+### 9.3 GenVerify
+
+At `0xE49A3E` of every Nth minor cycle (mark complete, world stopped, nothing swept): copy all mark words (M_minor) and
+both incomplete black lists, clear the marks of collectable blocks, run one full mark with EA's own `GC_mark_some
+0xE4D460` from state 5 (M_full), compare. A bit in M_full that M_minor lacks = an object the minor cycle would free and a
+full cycle keeps: `genVerifyMiss`, first 8 logged (block, kind, size, mark words, first page dirty or clean), the union of
+both marks stays (nothing live is freed), `genMode` latched 0 (`genLatched`). No miss: M_minor is restored, so the cycle
+equals a plain minor. The world-stopped flag `[0x11F2FA8]` (cleared at `0xE49A34`, just before the replaced call) is 1 during the check. Black lists and mark globals are restored; the dirty bitmap is not touched and no write watch is
+read. `genKeptMinor` - `genKeptFull` of the last check = old garbage a minor cycle carries.
+Time limit 60 s or a fault: M_minor restored, `genVerifySkip`. Log lines after the world restarts.
+Expected false-positive class (lane GB rule 8, I-522-3): an old object on a clean page with a stale pointer to a slot
+that was `GC_free`d and reused. A miss is FAIL first; then check that class ("clean" page, kind of the missed block).
+
+### 9.4 Counters v215
+
+`genMinor` / `genFull` / `genFullReason[4]` (not eligible, forced, every N, heap grew); `genReads`, `genDirtyPages`,
+`genDirtyMax`, `genReadUs` (all cycles), `genReadsMinor`, `genDirtyMinor`; `genRescue`; `genMinorMarkUs` /
+`genFullMarkUs` (mark + stop time from `[GC] SubTimers`, closed at the next cycle start; 0 without SubTimers);
+`genVerifyN`, `genVerifyMiss`, `genVerifySkip`, `genVerifyMs`, `genLatched`, `genKeptMinor`, `genKeptFull`;
+`genUnwatched`, `genFallback`. `0xE4E4AB` (the one read in `GC_enable_incremental`) is not wrapped.
+Gain gate (I-520-2): `genDirtyPages / genReads` against the heap's page count, and `genMinorMarkUs / genMinor` against
+`genFullMarkUs / genFull`, both from the correctness queue (`GenStats=1`, `SubTimers=1`).
+
+### 9.5 Selftest and queue
+
+- `gcgen-test.h` (`TestGcGen`): decision table; the three cycle-start wrappers on a fake collector (all skipped or all
+  run, reasons, baseline, latch arm); write-watch probe on real `MEM_WRITE_WATCH` and plain regions (and that the probe
+  does not reset the watch); bit count; verify comparison. The stopped-world full mark itself has no host test.
+- `tools/harness/queues/gengc-verify-correct-1118.json` (written, NOT LAUNCHED): smoke BP 5 min `GenVerify=1`, then
+  BP / IP / SV 10 min `GenVerify=2`, all `Generational=1 GenStats=1 SubTimers=1`. Pass: script errors 0,
+  `genMinor` >= 1, `genVerifyN` >= 1, `genVerifyMiss` 0, `genVerifySkip` 0, `genUnwatched` 0, no FAIL / WARN / SKIP line.
+  Each check is a visible hitch; frame times of this queue mean nothing. Timing queue: only after this one is clean.
+
+### 9.6 Open
+
+| # | Question | How |
+| 1 | does verify stay at 0 misses on BP / IP / SV, and on a long-history save | the queue; then a long save |
+| 2 | gain (I-520-2) | §9.4 ratios from the same jobs |
+| 3 | other readers of mark bits see old garbage between full cycles (EA heap walk `0xE4A3F0`, host `0xD70132`; lane GB rule 10) | trace both callers |
+| 4 | heap growth between full cycles on a big save (old garbage waits up to `GenFullEvery` cycles) | `gcgHeapMaxKB` on vs off in the timing queue |
+| 5 | `[GC] MarkHelpers` together with minor cycles | chain `G5Reset` after `GenClear`'s decision; not built |
+| 6 | GenVerify memory: 136 bytes per heap block for the mark copies (about 14 MB at a 400 MB heap), allocated with the world stopped | debug switch only; on a full address space the check is skipped (`genVerifySkip`), never run short |
+
+## 10. `[GC] WeakHandleDiag` / `WeakHandleFix`: EA's weak-reference hazards (lane GB, 2026-11-18, built, NOT RUN)
+
+Counter and fix for the two hazards of §8.6. `native/ts3native/gcweak.cpp`, both switches default 0, nothing written
+at 0. An EA bug fix inside the collector: the same for every Sim, no household exemption applies (the collector
+decides nothing about a Sim); with the fix off or no hit the game is unchanged.
+
+### 10.1 Hooks [verified, Steam 1.67]
+
+| Site | Was | Now |
+|---|---|---|
+| `0xE78AC7` in `mono_gchandle_get_target 0xE78A70` (weak handle types) | `jmp 0xE69700` (`mono_gc_weak_link_get`: returns the complement of the slot, 0 when cleared) | `jmp` to `WkGet`, which calls `0xE69700` and then classifies the target |
+| `0xE49A63` in `GC_finish_collection` | `call GC_finalize 0xE4AE60` (or SubTimers' timer) | `call WkFinalize`: pre-pass over the weak-link table, then the previous target |
+
+Not hooked: the second caller of `0xE69700`, `0xE7898D` (handle table growth, collector disabled around it). Byte
+checks before anything is written: `0xE69700`, `0xE4AEC3` (entry layout), `0xE4AEF3` (stamp test), `0xE4C140`,
+`0xE4C2F0`. Other builds: SKIP (the checks embed Steam data addresses; retail 1.67 / EA 1.69 not ported).
+
+### 10.2 What it does
+
+Read hook, for a target that is in the heap, not on a free list and not marked:
+
+| State | Counter | Fix |
+|---|---|---|
+| finish pending (`[0x11F2F94]` != 0 and `[0x11947E4]` != -1), block not stamped | `windowHit` (hazard 1) | stamp the block (`+0x18` = `GC_gc_no`, the store every allocation into the block does): `GC_finalize` keeps the link, the sweep skips the block |
+| finish pending, block stamped | `windowStamped` | none needed, the pre-pass covers it |
+| mark running (`[0x11F3078]` != 0) | none | none: unmarked is normal, roots are rescanned at the mark end |
+| no finish pending, block stamped | `lateStamped` | none: with the fix off this is the exposure to hazard 2 plus reads of young objects; with the fix on only young objects remain |
+| no finish pending, block not stamped | `anomaly` | none: `GC_finalize` should have cleared such a link; must stay 0 |
+
+Pre-pass before `GC_finalize` (collector thread, mark state 0, mark stack empty): for every weak link whose target is
+unmarked in a stamped block (`kept`), the fix marks the target and everything it reaches (`markedFrom`) with the
+game's own routines in EA's order for finalizable objects (`0xE4B0FC`-`0xE4B19F`): push (object, descriptor), run
+`GC_mark_from 0xE4C3E0` until `0xE4C2F0` says empty, on overflow set the bit and run `GC_mark_some 0xE4D460` until
+done, then `GC_set_mark_bit 0xE4C140`.
+
+Effect of the fix: a weak target that already kept its link for a cycle now also keeps its referents, and a target
+read in the window survives that cycle. Nothing is freed earlier; an object that nobody reads is freed one cycle
+later at most (with `[GC] Generational=1`: at the next full cycle, because the fix marks it).
+
+Log (ts3native.log), at the first cycle, every 16th cycle and whenever `windowHit` or `anomaly` moves:
+`gcweak: cycles= reads= unmarked= windowHit= windowStamped= lateStamped= anomaly= offThread= kept= markedFrom= fix=`.
+Counters are log lines, not `ts3native_counters` fields (no layout change, no run-time `--ab` switch).
+
+### 10.3 Exposure [verified grep, I-523-5 closed for these sources]
+
+- EA's script DLLs (decompiled ScriptCore, SimIFace, Sims3GameplaySystems, Sims3GameplayObjects, Sims3Metadata,
+  Sims3StoreObjects, UI, System, System.Xml): one user of `WeakReference`, `ReferenceWatchdog`; its `RegisterObject`
+  is compiled out of the release build (`[Conditional("EA_DEBUG")]`) and it calls `GC.Collect()` before it tests
+  `IsAlive`. mscorlib has only the class itself.
+- NRaas source (local copy): no `WeakReference`, no weak `GCHandle`.
+- So no script logic in the vanilla game or NRaas uses a weak reference as a liveness signal (the generational
+  switch's later clearing, §8.4, changes nothing there), and the two hazards are reachable only through other mods
+  or a native user we did not find. Expected in a vanilla run: `reads=0`. The counter is the proof; the fix is cheap
+  insurance and stays off until a run shows reads [inferred until run, I-523-1].
+
+### 10.4 Selftest
+
+- `TestGcWeakHandle` (`gcweak-test.h`): the classification, header bit math, block-index lookup, the read hook
+  (counts, stamp only with the fix and only in the window) and the pre-pass on a fake weak-link table and mark stack,
+  including the overflow path and "no table".
+- `TestGenGcToyHeap` (§8.8) models the fix: the mutator reads dying weak targets at any time (the hazard
+  configuration, 78 errors without the fix); with the fix 300 seeds with full cycles and with sticky minors plus 40
+  seeds with a 6-entry mark stack: 4,042 dying reads, 3,349 blocks stamped, 26,582 targets marked, 0 errors
+  [measured on the model].
+
+## 11. `[GC] GenCards`: card table, write-watch union, verify scan (lanes W + V, 2026-11-18, built, NOT RUN)
+
+Build 0.36.288-gccard1 (on 0.36.287-gcweak1), counters v216 (`gcc*`, `0x6988`-`0x69C7`), ledger §525. Steam 1.67 and
+retail 1.67 (no address of its own: everything goes through `gcgen.cpp`'s tables); EA 1.69: off with `gcgen.cpp`.
+Household rule: not applicable (the collector decides nothing about a Sim). In this step the collector's input is
+unchanged: with `GenCards=1` it still rescues by EA's dirty-page bits, so the result equals `GenCards=0`.
+
+### 11.1 Contract for the barrier lanes (`native/ts3native/gccard.h`)
+
+- Table: one byte per 512 bytes of address space, index `addr >> 9`, 8 MB for the whole 4 GB, so a mark needs no bounds
+  check. Reserved and committed in one call (demand-zero pages: memory only where marks land). Not committed on demand
+  as §7 first said: an inline `mov byte ptr [edx + cards], 1` in compiled code cannot branch to a commit path. Never
+  freed or moved; the address may be baked into stubs.
+- `GcCardIniMode(ini)`: a lane's install decision (>= 1: install stubs; allocates the table). 0 unless `GenCards` is 1 or
+  2 and `Generational=1` or `GenStats=1`.
+- `GcCardMark(slot)`, `GcCardRange(addr, bytes)`, `GcCardObj(obj)` (whole object; size from the block header through
+  the module's own copy of the block index; no header = one card). Idempotent byte stores, no lock, any thread.
+  A mark without a store is allowed. Mark the slot written, not the value.
+- Switch: `[GC] GenCards` 0 off / 1 union + counters (mode 2) / 2 cards first (mode 3): **not built**, read as 1 with a
+  WARN line.
+
+### 11.2 The read (`gccard.cpp`, no hook site of its own)
+
+`GcCardOnRead` runs at the end of `gcgen.cpp`'s wrapper of `GC_gww_read_dirty` (`0xE4C2AB`), so after EA's own read and
+never as an extra write-watch read (§8.5 rule 2). Per heap section (`0x122D714`), per 4 KB page: dirty bit
+(`0x1227714`, index `page & 0xFFFF`) against the page's 8 card bytes; counters; snapshot byte `snap[addr >> 12]` = card
+bits, or `0xFF` for a dirty page (the union: mode 3's input later, 1 MB); cards cleared. The module keeps its own copy of
+the block index (`[addr >> 22]` = bottom index, from the list at `[0x11F3054]`), refreshed at every read.
+
+Stand-down (install check): at the first read, and whenever the section count changes, every section's first and last
+page must answer `GetWriteWatch` (flags 0, `GenWatched`). If not: `g_gcCardsOn` 0 for the session, `gccRefused`, one
+WARN line. Apex Radiance owns the allocator and the page hooks; `gcgrow.cpp` holds no section flag (grep: no
+`MEM_WRITE_WATCH` there), the flag is the host's at `0xD70906` [verified §1.4], so the probe at run time is the check.
+
+[verified, Steam 1.67 disassembly, read for this build]
+- `GC_install_counts` (`0xE4B775`-`0xE4B7AC`): the blocks of a large object after the first get `min(blocks back,
+  0xFFF)` as their index entry, written through the top index `0x1233318[addr >> 22]` (a direct 1,024-entry array) at
+  `[(addr >> 12) & 0x3FF]`. `GccHdr` walks these counts back to the header.
+- `GC_reclaim_clear 0xE4F3D0`: objects of a small block start at word 0 and repeat every `size` words while
+  `p <= block + 0x1000 - size * 4`; mark bit `[hdr + 0x1C]` and free bit `[hdr + 0x9C]` are indexed by the word number.
+  `GccScanPage` / `GccYoung` use the same rule.
+
+Dirty bits alias every 256 MB (§9.2), so `gccDirtyPages` counts real pages whose bit is set and can exceed
+`genDirtyPages`; an aliased clean page counts as dirty without a card.
+
+### 11.3 Counters v216
+
+`gccMode` (1 = reading; 0 after a stand-down), `gccReady`, `gccRefused`, `gccReads`, `gccDirtyPages`, `gccBothPages`
+(dirty with a card), `gccNoCardPages` (dirty without: scalar-only store, aliased bit, or a writer no lane hooks),
+`gccCardOnlyPages` (card without dirty bit: a mark without a store, or a mark that raced the read), `gccCards`,
+`gccMergeUs`, `gccVerifyPages`, `gccVerifyMiss`, `gccVerifySites`, `gccVerifyUs`, `gccVerifyFault`.
+Gain question for mode 3 (I-521-8): `gccNoCardPages / gccDirtyPages` once every lane's stubs are in. With lanes W + V
+alone no store is hooked, so every dirty page is "without a card".
+
+### 11.4 Verify (lane V)
+
+1. **Dirty-without-card scan** (`GenVerify` != 0 and `GenCards` >= 1): at each read whose mark state was 0 before it,
+   every marked, not-free object on a dirty page without a card is scanned word by word (pointer-free blocks, kind 0,
+   skipped) for the first byte of an allocated, unmarked object. A hit = a reference stored into an old object since
+   the last read that no card recorded: `gccVerifyMiss`, and per (first word of the holder = its vtable, field offset)
+   one line at count 1, 10 and 100: `gengc verify miss: class <Ns.Name> field +0x.. count N (block kind, object words,
+   last target)`. Lines are written outside the stopped world (next cycle start or after `GC_start_world`).
+   Why state 0: the read is the first thing `GC_initiate_gc` does; state 0 means the previous mark ran to the end, so
+   every reference a marked object held at the previous read was followed [inferred, I-525-1]. State 5 (full cycle
+   start: nothing marked) and a mark in progress are not scanned.
+   Not a miss by construction: target marked, target slot free (stale pointer, §8.5 rule 8), target not an object
+   start, holder unmarked (young objects are found through the roots or an old holder).
+   Known false hit: a scalar word equal to a young object's address (the scan is conservative like the collector; typed
+   objects are not read through their bitmap) [I-525-4].
+2. **Cross-check**: `gcgen.cpp`'s `GenVerify=N` full mark after every Nth minor mark (§9.3), unchanged: `genVerifyMiss`
+   must stay 0. It checks the write watch (the remembered set in mode 2); the scan checks the cards.
+
+### 11.5 Open
+
+| # | Question | How |
+|---|---|---|
+| 1 | misses per class once lanes M / J / R / E are in | queue `gengc-verify-1119` on the combined build |
+| 2 | mark-before-store or store-before-mark for mode 3, and the clear racing a mark from another thread (the clear is one atomic exchange per page, so no mark is lost; but a card set between EA's read and the exchange is consumed one read before its dirty bit, which shows as one card-only page now and one dirty page without a card at the next read: a possible false miss line, other threads only; harmless in mode 2) | decide with mode 3; today sim-thread stores cannot interleave with a read on the sim thread [inferred, I-525-2] |
+| 3 | size of the alias inflation in `gccDirtyPages` | compare with `genDirtyPages` in the first run |
+| 4 | cost of the page walk per read (`gccMergeUs / gccReads`; about 100,000 pages at a 400 MB heap, up to 42 reads per cycle) | first run; a walk over the set dirty bits and the touched card pages is the cheaper form if it shows |
+
+### 11.6 Selftest and queue
+
+- `gccard-test.h` (`TestGcCard`): marks and ranges; a real `MEM_WRITE_WATCH` section with stores, cards, the union
+  snapshot, counters and the clear; `GcCardObj` sizes; the stand-down on an unwatched section; the scan on fake
+  headers (hit, card present, state not 0, target marked / free / interior / free block, large object as holder and as
+  target, holder unmarked / free, pointer-free block, log thresholds 1 / 10 / 100).
+- `tools/harness/queues/gengc-verify-1119.json` (written, NOT LAUNCHED): `bp-gccard-union` (this build: counters and
+  the cross-check; miss lines are the measured list, not a FAIL), then `bp-gccard-verify` and `ip-gccard-verify`
+  (strict: any `gengc verify miss:` line or `genVerifyMiss` > 0 fails). The strict jobs fail by design on a build
+  without the stub lanes: repin them to the combined build.
+## 12. Card marks: mint stubs and compiled stores (lanes M + J, 2026-11-18, `gcbarrier.cpp`, `monojit.cpp`; built, native selftest ok, monohost compiles, NOT RUN)
+
+Second source of the remembered set next to the write watch (§7.8 mode 2). Nothing here decides what is collected:
+lane W (§11) reads the table. No new switch: both parts install when `GcCardIniMode()` (gccard.h) says cards are on
+(`[GC] GenCards >= 1` next to `Generational=1` or `GenStats=1`, all default 0). Household rule: not applicable, a card
+byte decides nothing about a Sim.
+
+### 12.1 Mint stubs (`gcbarrier.cpp`) [verified: handler disassembly, Steam 1.67]
+
+Jump-table swap (table `0xE59880`), all entries checked first, one mismatch = nothing written.
+
+| Opcode | Handler | Stub | Slot marked |
+|---|---|---|---|
+| `stfld.o` 0x61, `stfld.p` 0x62 | `0xE56BE7` | fast, 6 instructions, `ecx` only | obj `[esi-16]` + u16 `[edi+2]` |
+| `stind.i4` 0x93, `stind.ref` 0x98, `stind.i` 0x95 | `0xE559A7`, `0xE559EB` | fast | address `[esi-16]` |
+| `stelem.i` 0x113, `stelem.ref` 0x11A | `0xE574DA` | fast | array `[esi-24]` + 0x10 + index * 4 |
+| `stfld.vt` 0x63, `strmfld.vt` 0x65, `stobj.vt` 0x100, `stelem.any.vt` 0x112, `cpblk` 0x101 | `0xE56C0A`, `0xE56CA9`, `0xE57089`, `0xE575CF`, `0xE58A17` | `pushad` + C, range from Satb's decode | every card of the range |
+
+- The decode is Satb's, moved unchanged from `satb.cpp` to `satb-decode.h` (one copy, two includers).
+- Differences from the brief, with reasons:
+  - `stelem.i1` .. `stelem.r8` (0x114-0x119) share handler `0xE574DA`, but the table has one entry per opcode, so
+    only the two 4-byte pointer-capable forms are swapped. Marking scalar element stores would only add false cards
+    to the mode 2 counters [inferred: scalar arrays are pointer-free objects, never scanned].
+  - `stsfld` 0x6A, `stsfld.vt` 0x6B, `strmfld` 0x64 and `stobj` 0xFF get no table stub: each stores only through
+    `stackval_to_data` [verified: `0xE56FC2`, `0xE56FDF`, `0xE57070`, `0xE56C99`, `0xE570EB`; the remoting branch of
+    `strmfld` never runs in this build].
+- **I-521-4 closed, and the census had it wrong**: `stackval_to_data 0xE52350(type, val, data, pinvoke)`: `[esp+4]` is
+  the MonoType (byref bit of `+4`, type byte `+6`), `[esp+8]` is read, `[esp+0xC]` is written in every case. The
+  destination is argument **3**. Entry detour (11 bytes, two whole instructions, no branch into them): one card at
+  `data`. The value-type cases copy with `call memcpy` at `0xE52423` (both paths, `0xE523F8` and `0xE5244B`, join at
+  `0xE52413`): that call is retargeted to mark the exact range, then copy. Covers the four opcodes above, the runtime
+  array `Set` (`0xE53A7E`), the invoke result (`0xE5A583`), `0xE5725E` and EA's static setter (`0xD89C50`: lane E must
+  not hook it again).
+- A size the decode cannot give (`stobj.vt` of a class without a layout): the whole object is marked (`GcCardObj`) and
+  counted in a `gcbarrier:` log line at 1, 10, 100, 1000. Not expected in play.
+
+### 12.2 Layering [verified in each module's install code]
+
+The stubs are the bottom layer for the whole session: `ApplyGcBarrier` runs before `ApplyMintFuse` / `ApplyMintCall` /
+`ApplyMonoJit` / `ApplyAutShadow`.
+
+| Module | Table entries | Change |
+| `[AutShadow] Satb` (`kSatbOps`) | the same store opcodes | `SatbInstall` accepts `GcbOwns()` as the game's handler and chains (`g_satbOrig` = our stub). The worker's emulated store never runs the entry: `SatbWorkerStore` marks the range itself |
+| `[MonoFast] CallPath` | 0x06, 0x07, 0xEA, 0xEC | none (other opcodes). Verify mode copies the table as found, so it wraps our stubs |
+| `MintDivGuard` | 0x127, 0x143 | none |
+| `[MonoJit]` | 0x1A9 | none at install: exits and `JitOrig` read the live entry, so an uncompiled store opcode meets our stub. monohost's `g_opHandler` snapshot is taken after the stubs are in |
+| `[MintFuse]`, `[MonoFast] PairCount` | none | none: fusion only rewrites into EA's superops, the census only counts at the dispatch head |
+
+I-521-9: `mintfuse` and `mintpairs` have no store of their own [verified, whole files]. `mintcall`'s four handlers
+write the frame record, the arena and the caller's eval stack [inferred from its header and its verify mode, which
+compares exactly those words; the asm was not re-read store by store]: arena chunks are write-watch material (§7.2).
+
+### 12.3 Compiled stores (`monojit.cpp` `Em::card`, same code in `monohost-jit.cpp`)
+
+`Em::satb()` is the one place every compiled heap store passes (11 sites), so the mark is emitted there, after the
+Satb block: `lea edx,[base+disp]; shr edx,9; mov byte ptr [edx+cards],1` (15 bytes, no call, no branch; `edx` and the
+flags are scratch at every site). Decided at compile time: `g_jitCards` is set in `ApplyMonoJit` before any compile.
+
+- Marked: 4-byte integer / pointer stores (`stfld.o`, `stfld.p`, `stind.i`, `stind.ref`, `stelem.i`, `stelem.ref`,
+  and `stsfld` / `stobj` when the field type is 4 bytes wide) and the value-type copies (`stfld.vt`, `stelem.any.vt`,
+  `stobj.vt`: first and last byte's card up to 512 bytes, a `JitCardRange` call above that).
+- Not marked: the `.i4` forms (by opcode name), 1 / 2 / 8-byte and float stores, `initobj` (zeros), and the inlined
+  `Array.FastCopy` (`JitFastCopy` only copies value types without references, any other input exits to EA's icall,
+  which is lane R's).
+- Code size: +15 bytes per marked store (+30 for a value type), inside the 256 bytes per position bound.
+
+### 12.4 Selftests
+
+- `TestGcBarrier` (`gcbarrier-test.h`, native selftest): fake table, fake eval stack and frame; every stub marks
+  exactly the cards of its slot and reaches the handler with `eax` / `edx` / `edi` / `esi` unchanged; null object and
+  index out of range mark nothing; a foreign table entry refuses the whole install; the `stackval_to_data` hook body
+  and the copy wrapper. Not covered there: `strmfld.vt` (its decode reads the game's proxy class), the two real sites.
+- `TestMonoJitCards` (`monojit-test.h`): compiled `stfld.o` marks one card, `stfld.i4` and a null exit none,
+  `stfld.vt` the first and last byte's card.
+- monohost: `MONOHOST_GCCARD=1` installs the table stubs under MintCall / Satb / the JIT (no `stackval_to_data`
+  detour: the host's `InstallDetour` is a stub) and turns the compiled marks on; check `GC-card-stubs` (cards set),
+  log line `jit: card marks: N`. Every existing check (AS-satb-exact, the JIT corpus) must still pass with it on.
+
+### 12.5 Open
+
+1. Host run with `MONOHOST_GCCARD=1` together with `MONOHOST_SATB` and `MONOHOST_JIT` (not run: no host tests tonight).
+2. Game run: lane V's verify queue (§11) is the check; no queue of its own here.
+3. Retail 1.67 / EA 1.69: no table row was added. `0xE52423` is taken as `TS3A(0xE52350) + 0xD3` and byte-checked,
+   so a build where the function differs refuses the whole install.
+4. Satb's overlay path (a worker store the sim side logged first) is marked when the worker stores, not when the
+   overlay is applied; in mode 2 the write watch covers the gap. Recheck before mode 3.
+5. `stind.i4` 0x93 is stubbed with `stind.ref` (same handler, brief); if mode 2 shows it as the main false-card
+   source, drop its row.
+## 13. Card marks for native reference stores: lanes R + E (2026-11-18, `native/ts3native/gccardrt.cpp` + clients in `satb.cpp`; built, selftest only, NOT RUN)
+
+Branch `feature/gccard-re-1118` (on `feature/gc-weakfix-1118` + lane W's contract commit `bdb3af444`). Ledger docs/51 §527.
+No switch of its own: on when `GcCardIniMode(ini) >= 1` (gccard.h: `[GC] Generational=1` or `GenStats=1`, and `GenCards>=1`). Default: nothing hooked, nothing written.
+Household rule: not applicable. A mark is a byte store in our own table; the collector decides nothing about a Sim.
+Counters are one log line (`gccard rt: field=... bind=...`, every 2^20 binder calls), not `ts3native_counters` fields: no layout change.
+
+### 13.1 Lane R: Mono runtime writers
+
+One dispatcher per hooked address, shared with `[AutShadow] Satb`: the Satb wrappers are the dispatchers (they pass through while no Satb span is on, `g_satbOn == 0`) and each reference-capable one got a card client. `SatbInstallRt` now runs once, whoever asks first.
+
+| Site | Hook | Mark | Tag |
+| `0xE69820` store helper (80 callers) | Satb's whole-function detour `SatbFieldStore` | the slot's card, after the store | [verified] body `mov eax,[esp+0xC]; mov ecx,[esp+8]; mov [ecx],eax; ret` |
+| `Array.FastCopy` `0xE7A070` | icall table wrapper `SatbRtFastCopy` (table index 37) | destination range, when the copy succeeded and the element size is 4 or more | element-size filter instead of "class has references" [design: an element under 4 bytes holds no reference; `int[]` copies are marked too, superset] |
+| `Array.SetValueImpl` `0xE793D0` | **body detour** (6 prologue bytes `83 EC 18 D9 EE 53`) to the same wrapper `SatbRtSetValue`; the table entry (index 45) is put back to the body, so there is one path | one element | [verified] prologue; `0xE79CE0` calls the body directly at `0xE79D77`, `0xE79E05`. With cards on, Satb sees those direct calls too (it missed them before) |
+| `Interlocked.Exchange` `0xEBA1F0`, `CompareExchange` `0xEBA2B0` | table wrappers `SatbRtXchg`, `SatbRtCmpx` | the slot's card | [verified] each body sits at four table entries (`0xEBA1F0`: 490, 492, 493, 495; `0xEBA2B0`: 481, 483, 484, 486): the int, object, IntPtr and generic forms share one body. The float, double and 64-bit forms store no reference |
+| `MonoField.SetValueInternal` `0xE7B320` | `SatbRtFieldSet` | the field (`SatbFieldDest`), computed after the call; an unsized kind marks the slot's first card and the whole object | docs/206 §10 |
+| `MonoMethod.InternalInvoke` `0xE7CDC0` | `SatbRtInvoke` | the `params` array's elements (out / ref write-back) | docs/206 §15 |
+| `Marshal.PtrToStructure` `0xE99A50`, `construct_internal_locale_from_lcid` `0xE874B0` | `SatbRtPtrToStruct`, `SatbRtLcid` | the whole object | docs/206 §10, §15 |
+| `get_property_info` `0xE7B4D0` | `SatbRtPropInfo` | the 20-byte struct | docs/206 §15 |
+| `Array.GetGenericValueImpl` `0xE7A300` | `SatbRtGetGeneric` | the `out` location (element size 4 or more) | added: the element is copied to a byref that may be a field [inferred: rare] |
+| GC handle allocation `0xE78780` | call-site retarget of the two strong callers `0xE7903D` (normal, table `0x1195A10`) and `0xE79051` (pinned, `0x1195A28`) to a naked wrapper | the slot's card `[table+4] + (handle >> 3) * 4`, after the store | [verified] `esi` = table, one stack argument, store at `0xE78A38`, return `slot << 3 \| type + 1` at `0xE78A54`-`0xE78A64`, type byte `+0xC`. Byte checks at `0xE78A38`, `0xE78A54`. Steam 1.67 only (four zero rows in the other tables) |
+
+Not hooked, as the brief says (write watch + verify decide): boxing `0xEA3140`, clone `0xEA2710` / `0xEA3800`, allocation, the 154 runtime `memcpy` sites, handle table growth (`0xE78903`: the new slot array is fresh). `Array.Clear`, `Buffer.BlockCopy`, the string copies and `Marshal.Write*` wrappers got no client: they cannot create a reference.
+
+### 13.2 Lane E: EA native writers
+
+| Site | Hook | Mark |
+| binder dispatch `0xE525C0(frame, ctx)` | Satb's detour; `SatbBindCall` is now the dispatcher: card client around `SatbBindInner` (Satb rows 2, 3, 5, 6, 12). `[MonoJit] BoundCall` calls `0xE525C0` itself (`g_jitBoundEntry`), so it passes here | `this` (frame `+0xC`) and every argument dword (frame `+0x14`, 8-byte slots, count = RuntimeMethod `+0x40`) that points into a heap block: whole-object marks, **before and after** the body; `this` and the first 12 arguments stay on a per-thread in-flight list in between (§13.3) |
+| `PriorityQueue.Add` `0xE0D450`, `RemoveAt` `0xE0C640`, `SetCapacity` `0xE0D290` | matched by body address as Satb row 3 | also `this.mItems` (`+4`), one load deep |
+| `Hashtable.Rehash` `0xDCA870`, StringBuilder `InternalEnsureCapacity` `0xDD4ED0` | no special case | `this` covers them (the new bucket array / string is fresh, the store is into `this`) |
+| 180 EA ICs with byref / array parameters (`satb-ics.h`) | the guard thunk's callee is now `SatbIcDisp` (Satb's `SatbIcSim` while a span is on, the card client always) | each byref / array argument that points into a heap block; a byref array also the array it holds. **Before the body only** (the thunk tail-jumps). Needs the guard thunks: `[AutShadow] Enabled=1` (the install line says so when they are missing). Worker-thread IC calls skip the thunk's hook (unchanged) |
+| static address-of `0xD89C60` | Satb's whole-function replacement `SatbStaticAddrOf` (installed alone when Satb is off) | the slot's cards (type size, 4 when unknown) at the call |
+| static set `0xD89BF0` | none here | lane M's `0xE52350` detour covers it (`SatbStaticSet` calls `0xE52350` by address) |
+
+A value is "in the heap" when gccard.h's copy of the block index has a header for its page (`GcRtHdr`); a page with a forwarding count (large-object tail) marks one card; a free block, a stack or static address or a region the index has not seen marks nothing. So scalars that look like addresses cost nothing unless they hit a live block (then they mark it: superset).
+
+Coverage limit [inferred, I-527-2]: a body that stores into an object reached through a load from `this` or an argument (other than the three PriorityQueue bodies) is not marked. `docs/data/binder-bodies.csv` column `ref_stores` (§13.4) lists the candidates.
+
+### 13.3 Mark order: what a cards-first mode needs [design, from the hook shapes; not measured]
+
+gccard.h leaves the order open for mode 3. What the native hooks show:
+
+1. One store instruction, mark **before** only (the mint stubs of lane M): safe at a stopped read (the value is still on the evaluation stack or in a register, so the mark that follows finds it and it is old from then on). Open only when a dirty read on another thread, not stopped, falls between the mark and the store: the card is consumed, the store follows, and nothing marks it again before the final stopped read.
+2. One store, mark **after** only: open when the world stops between the store and the mark and the value is in no root any more.
+3. Mark before **and** after closes both for a single store, except a stop exactly between store and post-mark with the value dropped from every register (conservative stack scan makes this unlikely, not impossible).
+4. A long native body (binder body, IC, `InternalInvoke`) can allocate, so a dirty read can happen **inside** it, after one of its stores and before the next. Pre + post marks do not cover a store that follows an in-body read. The in-flight list does: gccard.cpp calls `GcRtFlyMark()` before it reads and clears the cards, and every listed `this` / argument is marked again.
+
+Built here: pre + post + in-flight for binder bodies; post for the icall wrappers and the store helper; pre only for ICs and the static address-of. So for mode 3 the open items are: ICs (need a return hook: a shadow return stack in the guard thunk, entries dropped by stack address after an unwind, as the in-flight list does), the static address-of (the store comes later in the caller), `InternalInvoke`'s write-back, and the single-store cases 1-2 for every lane. Mode 2 depends on none of it.
+
+`GcRtFlyMark` wiring: gccard.cpp (lane W) declares `void GcRtFlyMark();` and calls it at the top of its dirty-read handler. Not wired on this branch (gccard.cpp is not here). Limits of the list: 64 threads, depth 32, 12 arguments; past that `flyLost` counts and the call has only its pre and post marks. A cards-first mode must refuse while `flyLost > 0`.
+
+### 13.4 `docs/data/binder-bodies.csv` column `ref_stores`
+
+`tools/binder-bodies.py` now keeps the value of each store and tags it by provenance (4-byte stores only): `ref` = an allocation result (a fresh object: the old-to-young case), `word` = a dword loaded from an object, an argument slot or static data (a reference or a copied scalar), `unknown` = unresolved, pointer arithmetic, a pointer loaded from native memory, a block copy or a store of unknown size, `scalar` = constants and every store that is not 4 bytes. The column lists each managed target (the entries of `writes_args` and `writes_other`) as `target=tag`, strongest tag per target. The raw JSON (`--json`) carries the tag as a fourth element of each `w` entry; a file without it reads `unknown`. Self-check extended.
+
+Regenerated CSV (1,085 rows; the older columns are kept as committed, classes unchanged: 708 reader, 296 writes-other, 25 writes-args, 46 native-only, 10 unknown) [counted]:
+
+| | Count |
+|---|---|
+| bodies with no managed store target | 763 |
+| bodies whose strongest tag is `ref` / `word` / `unknown` / `scalar` | 157 / 53 / 86 / 26 |
+| targets tagged `ref` / `word` / `unknown` / `scalar` | 281 / 123 / 464 / 306 |
+| reference-capable targets (`ref`, `word`, `unknown`) of writes-other bodies: a field of `this` | 731 |
+| ... `this` deeper than one field or at an unknown offset (incl. `this.mItems` elements) | 70 |
+| ... an argument object, direct / deeper | 25 / 1 |
+| ... static field data | 12 |
+
+So 26 bodies with managed stores can never store a reference (skip the mark), and the coarse mark's blind spot is at most the 70 + 1 deeper targets plus what the 464 `unknown` values hide. Examples: `PriorityQueue.Add` `this.mItems=ref` + `this.mItems (QueueItem[], unknown offset)=word`; `StringBuilder.InternalEnsureCapacity` `this._str=ref`; `Hashtable.Rehash` only `this.modificationCount=unknown` (its bucket store is not resolved by the tool: I-527-7).
+
+### 13.5 Selftest
+
+`TestGcCardRt` (`gccardrt-test.h`): fake heap (two blocks in gccard.h's block index copy), fake icall originals, a fake binder body and a fake `alloc_handle`. Checks: nothing marks with the lane off; `GcRtAny` (scalars, stack, free block, byref near a card edge, large-object tail); the store helper; FastCopy (range, refused copy, 2-byte elements), SetValue, GetGeneric (heap `out` and a local), Exchange / CompareExchange (store happens, then the mark), InternalInvoke, get_property_info, field set; the handle wrapper (strong marks, weak does not, `eax` and `esi` pass through); the binder dispatch for `Hashtable.Rehash`, the three PriorityQueue bodies and an unlisted body (in-flight marks seen from inside the body after a simulated card clear, post marks after it, `mItems` only for PriorityQueue, scalars mark nothing), unwound-frame drop, depth overflow, value-type `this`, null `this`, lane off; the IC dispatcher (row hit, no row, Satb's client not run without a span); the icall table swap read-back on a fake table incl. folded entries and the second-client no-op.
+
+### 13.6 Open
+
+1. NOT RUN. The hooks are live with `GenCards=1` even before lane W consumes the table: `tools/harness/queues/gccard-re-correct-1118.json` (hook safety, BP).
+2. Lane W: wire `GcRtFlyMark()` (§13.3).
+3. Mode 3 prerequisites of §13.3 (IC return hook, single-store order, address-of).
+4. `ref_stores` -> a per-body table that replaces the coarse `this` + arguments mark (skip bodies with no `ref` / `word` / `unknown` store; add one-load-deep marks for the bodies that need them).
+5. EA 1.69 / retail 1.67: the lane stands down on EA 1.69 (`ts3a_noaddr`); the handle hook is Steam only; the rest follows Satb's rows on retail (not checked with `tools/retail-port-check.ts`).
+6. A strong handle slot written by anything but `alloc_handle` (I-527-3).
+
+## 14. ON test build for v0.3.1 (2026-11-20, `integration/gengc-all-1118` on master 4cdc19ff1 (v0.3.0 + Dalexlol imports), 0.36.297-gengcon2; built, NOT RUN)
+
+Rodney 2026-11-20: "switch it on and we test it". The generational GC and the sim-thread offload switches get an ON arm
+in a test build; each goes ON in the v0.3.1 RC only if smoke, correctness, save matrix and Apex compat pass and the ms/s
+loss stays within ~2% (offload goal rule). Plan and status: probe-out/release-next-plan.md ("Decisions").
+
+- **Install-time read-back of §6 #4 (Apex keeps `MEM_WRITE_WATCH`):** `GenCycleStart` now logs once per session, at the
+  first collection after install, in any genMode: `gen watch probe (first cycle): N heap sections, all write-watched |
+  NOT all write-watched (minor cycles stand down); Apex Radiance loaded | not loaded`. Same probe as the per-cycle
+  `GenWatched` stand-down (first and last page of every section, `GetWriteWatch` without reset, so rule 2 of §8.5 holds).
+  The smoke requires `all write-watched` with `Apex Radiance loaded`. [verified in code; not yet run]
+- **Build set `gengc-on-1120`** (builds.json): asi 0.36.297-gengcon2, ini = the branch ini with
+  `[GC] Generational=1 WeakHandleFix=1`, `[JobQueue] Enabled=1 SimSkipShared=1 Workers=2`, `[RouteAsync] Kinds=7`
+  (own-task STARTs gated to unseen routes in code, docs/288 §4). Left off on purpose: `[GC] MarkHelpers` (refuses with
+  Generational, §9), `GenCards` (union mode only adds barrier cost until a cards-first mode exists; the verify queue
+  turns it on), `SubTimers` (it also turns the idle gate on as 2; queues set it in both arms), `GenStats` / `GenVerify`
+  (diagnostics), `[LotStream] Thumb` (timer only). ts3fixes offload switches (`autoffenv`, `autoffbcast`,
+  `autoffenvapply`, `autoffbcastapply`) go ON per job through `fixesOn`.
+- **Household rule fix in ts3fixes (docs/208 §14):** `autoffenvapply` / `autoffbcastapply` applied answers for household
+  Sims unless `autoffunseen` was also on. They now always take the unseen non-household scope.

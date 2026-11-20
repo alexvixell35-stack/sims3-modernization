@@ -209,7 +209,18 @@ static void caseThreads(const char* exe) {
       if (w.find("protected from close") != std::string::npos) CHECK(w.find(") made after") != std::string::npos); }
   { Toy t; if (!t.start(exe, "")) return;
     CHECK(ok(snapshot(t.S)) && t.cmd(C_THREAD_EXIT));  // a game thread ends: refused, named by its start module
-    CHECK(refused(rewind(t.S, false), "(start rewind-toy.exe+") && t.advancing()); }
+    Result r = rewind(t.S, false);
+    CHECK(refused(r, "(start rewind-toy.exe+") && refused(r, "called from rewind-toy.exe+") && t.advancing()); }
+  { Toy t; if (!t.start(exe, "")) return;  // snapshot precondition (docs/270 §40): a steady thread set
+    Result r = steady(t.S, 10, 1);          // steady toy: holds still at once
+    CHECK(r.code == 0 && r.stat("steadyMs") < 3000 && r.stat("threads") >= 2);
+    struct Churn { Toy* t; volatile LONG stop; } c{&t, 0};  // a transient worker keeps coming: never steady, named, no snapshot
+    HANDLE h = CreateThread(nullptr, 0, [](void* p) -> DWORD { auto* c = (Churn*)p; while (!c->stop) { c->t->cmd(C_THREAD_NEW); Sleep(300); } return 0; }, &c, 0, nullptr);
+    r = steady(t.S, 3, 2);
+    c.stop = 1; WaitForSingleObject(h, INFINITE); CloseHandle(h);
+    CHECK(refused(r, "not steady") && refused(r, "(start rewind-toy.exe+") && refused(r, ") started;") && t.advancing());
+    r = steady(t.S, 10, 1);                 // the churn ended: steady again, then a steady thread that ends is still the backstop's
+    CHECK(r.code == 0 && ok(snapshot(t.S)) && t.cmd(C_THREAD_EXIT) && refused(rewind(t.S, false), "exited after the snapshot") && t.advancing()); }
   { Toy t; if (!t.start(exe, "")) return;  // an idle pool worker ends although held (hold lifted here): refused before any change
     CHECK(t.cmd(C_TP_BURST));               // (docs/270 §32: its TEB pages are gone and cannot be committed again from outside)
     Sleep(100);

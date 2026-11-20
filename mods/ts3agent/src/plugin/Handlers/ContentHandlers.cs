@@ -368,18 +368,32 @@ namespace Ts3Agent
         // its partner's steering agent with a link to a destroyed agent and the game hit a pure virtual call in avoidance
         // (2026-10-21 ip-ut2-boats crash at remove_sims, docs/143 §8.11). Such Sims are reset first (SetObjectToReset gets
         // them out of the vehicle with the game's own reset path) and disposed by a task 30 ticks later ("deferred").
+        // raw: true (2026-11-18, crash repro only): dispose riding / routing Sims in place anyway, the 10-21 trigger of
+        // EA's dangling slave link (ts3native [EaCrashFixes] SlaveUnlink); "riding" lists the ones disposed mid-ride.
+        // ridingOnly: true (implies raw; repro ip-boat-raw-dispose2, poll it with an "until" on riding.length): disposes in place only
+        // the Sims sitting in a vehicle (boat, car) right now, never the active household's; the rest stay tracked. Their removed
+        // entries read "riding <vehicle type> <id>", so the cut log line shows the trigger happened.
         static object RemoveSims(Args a)
         {
+            bool ridingOnly = a.Bool("ridingOnly", false), raw = ridingOnly || a.Bool("raw", false);
             List<ulong> spawned = SpawnedSims();
-            List<object> removed = new List<object>(), deferred = new List<object>();
+            List<object> removed = new List<object>(), deferred = new List<object>(), riding = new List<object>();
             List<SimDescription> later = new List<SimDescription>();
             foreach (ulong id in spawned.ToArray())
             {
                 SimDescription sd = SimDescription.Find(id);
+                Sim s = sd != null ? sd.CreatedSim : null;
+                if (ridingOnly && (s == null || s.HasBeenDestroyed || !(s.Parent is Sims3.Gameplay.Objects.Vehicles.Vehicle)
+                    || sd.Household == Household.ActiveHousehold)) continue;  // not riding: stays tracked for a later remove_sims
                 spawned.Remove(id);
                 if (sd == null) { removed.Add(Util.Id(id) + " (already gone)"); continue; }
-                Sim s = sd.CreatedSim;
-                if (s != null && !s.HasBeenDestroyed && (s.Parent != null || s.IsRouting))
+                string tag = Util.Id(id);
+                if (raw && s != null && !s.HasBeenDestroyed && (s.Parent != null || s.IsRouting))
+                {
+                    riding.Add(Util.Id(id) + (s.Parent != null ? " parent " + s.Parent.GetType().Name : " routing"));
+                    if (ridingOnly) tag = "riding " + s.Parent.GetType().Name + " " + tag;
+                }
+                else if (s != null && !s.HasBeenDestroyed && (s.Parent != null || s.IsRouting))
                 {
                     s.SetObjectToReset();
                     later.Add(sd);
@@ -388,7 +402,7 @@ namespace Ts3Agent
                 }
                 if (sd.Household != null) sd.Household.Remove(sd);
                 sd.Dispose(true, false, true);
-                removed.Add(Util.Id(id));
+                removed.Add(tag);
             }
             if (later.Count > 0)
                 Simulator.AddObject(new Sims3.Gameplay.OneShotFunctionTask(delegate
@@ -407,6 +421,7 @@ namespace Ts3Agent
             Dictionary<string, object> r = Util.Obj();
             r["removed"] = removed;
             r["deferred"] = deferred;
+            if (raw) r["riding"] = riding;
             AddSimCounts(r);
             return r;
         }

@@ -18,15 +18,19 @@
 //   files .obj .o .iobj .ipdb .pch .ilk .idb. Outputs (.asi .dll .exe .pdb .package) stay. Never follows links, never enters
 //   a nested repo, game-copy or probe-out.
 // saves: Saves/ harness temp saves (ApexRunner-*, Matrix-*, QuitCrash-*, QuitStop-*, Repro-<tag>-HHMM*; .sims3 + .backup),
-//   probe-out dumps (*.dmp), *-frames dirs, probe-out/rewind-* dirs: older than --days, not referenced (as above); the newest
+//   probe-out dumps (dumps rule below), *-frames dirs, probe-out/rewind-* dirs: older than --days, not referenced (as above); the newest
 //   save per family (name without its trailing -N) always stays. Baseline/story saves never match.
+// dumps: any .dmp under probe-out/dumps (any depth) and CrashDumps TS3W*/NvRemixBridge*: deleted once <name>-stacks.txt holds cdb stacks (marker line; extracted by
+//   dump-stacks.ts first); no stacks and extraction fails: kept --days, then deleted. Kept: `keep` file in the folder, name in docs/ or the ledger.
+//   Every delete logs its path relative to its dump dir + size; dry run unless --apply. Never through a junction/symlink, never outside these dirs.
 // --min-free-gb N (not gate): do nothing while free >= N GB. Env: TS3_CLEANUP_AUTO_GB, TS3_CLEANUP_MIN_GB, TS3_USER.
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statfsSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir, userInfo } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { CDB_MARK, extractStacks, hasStacks } from './dump-stacks.ts';
 import { removeWorktree } from '../worktree-clean.ts';
 import { classify, realProcs, type Proc } from './track.ts';
 
@@ -202,6 +206,47 @@ function doBuilds(x: Ctx): number {
   return 0;
 }
 
+// Dump rule (docs/283): a .dmp under probe-out/dumps (any depth) or %LOCALAPPDATA%\CrashDumps (TS3W*/NvRemixBridge*) goes as soon as
+// <name>-stacks.txt is non-empty (all .txt stay). No stacks: extract first (dump-stacks.ts); still none: kept < --days, then deleted with a log line.
+// Kept: a `keep` file in its folder, the dump's name in docs/ or the data ledger, a running process/chain naming it, written < 10 min ago.
+function dumpFiles(dir: string, out: string[] = []): string[] {
+  let es; try { es = readdirSync(dir, { withFileTypes: true }); } catch { return out; }
+  for (const e of es) { const f = join(dir, e.name); if (e.isSymbolicLink()) continue; if (e.isDirectory()) dumpFiles(f, out); else if (/\.dmp$/i.test(e.name)) out.push(f); }
+  return out;
+}
+function docsText(main: string): string {
+  let t = ''; const add = (d: string) => { try { for (const f of readdirSync(d)) if (/\.(md|json|jsonl)$/.test(f)) t += readFileSync(join(d, f), 'utf8').toLowerCase(); } catch { /* none */ } };
+  add(join(main, 'docs')); add(join(main, 'docs', 'data')); return t;
+}
+// Worktree guard: a dump is touched only under one of the dump roots, with no junction/symlink from the root down to it
+// (game-copy is a junction in worktrees; a link could point the delete at a real game or another checkout). Returns the root.
+export function dumpRoot(p: string, roots: string[]): string | null {
+  const f = resolve(p), r = roots.map(x => resolve(x)).find(x => low(f).startsWith(`${low(x).replace(/\/$/, '')}/`));
+  if (!r) return null;
+  for (let q = f; ; q = dirname(q)) { try { if (lstatSync(q).isSymbolicLink()) return null; } catch { return null; } if (low(q) === low(r) || dirname(q) === q) break; }
+  return r;
+}
+export function doDumps(x: Ctx, refs: string, extra: string[] = []): number {
+  const pr = join(x.main, 'probe-out'), po = join(pr, 'dumps'), cd = process.env.TS3_CRASHDUMPS ?? join(process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'), 'CrashDumps');
+  const roots = [po, pr, cd], label = (r: string) => (r === po ? 'dumps' : r === pr ? 'probe-out' : 'CrashDumps');
+  const dmps = [...dumpFiles(po), ...dumpFiles(cd).filter(f => /^(TS3W|NvRemixBridge)/i.test(basename(f))), ...extra]; let freed = 0, docs: string | null = null;
+  for (const p of dmps) {
+    const r = dumpRoot(p, roots);
+    if (!r || !/\.dmp$/i.test(p)) { x.log(`skip ${p}: not a .dmp under probe-out/dumps, probe-out or CrashDumps, or behind a junction/symlink`); continue; }
+    const s = size(p), name = basename(p).toLowerCase(), rel = `${label(r)}/${relative(r, p).replace(/\\/g, '/')}`;
+    if (x.now - mtime(p) < 10 * 60e3 || referenced(refs, p)) continue;
+    if (existsSync(join(dirname(p), 'keep'))) { x.log(`keep ${rel}: keep marker`); continue; }
+    docs ??= docsText(x.main); if (docs.includes(name)) { x.log(`keep ${rel}: named in docs/ or the ledger`); continue; }
+    let why = '';
+    if (hasStacks(p)) why = 'stacks file exists';
+    else if (x.apply && extractStacks(p)) why = 'stacks extracted';
+    else if (!x.apply) { x.log(`would extract stacks of ${rel} ${(s / 2 ** 20).toFixed(1)} MB, then delete it`); continue; }
+    else if (x.now - mtime(p) > x.days * 24 * H) why = `no stacks and extraction failed, > ${x.days} d`;
+    else { x.log(`keep ${rel}: no stacks file yet, < ${x.days} d`); continue; }
+    freed += s; x.log(`${x.apply ? 'deleted' : 'would delete'} ${rel} ${(s / 2 ** 20).toFixed(1)} MB (${why})`); if (x.apply) rmSync(p, { force: true });
+  }
+  return freed;
+}
 function doSaves(x: Ctx): number {
   const refs = references(x.main, x.procs), old = (p: string) => x.now - mtime(p) > x.days * 24 * H; let freed = 0;
   const drop = (p: string, why: string) => { const s = size(p); freed += s; x.log(`${x.apply ? 'deleted' : 'would delete'} ${p} ${gb(s)} (${why})`); if (x.apply) rmSync(p, { recursive: true, force: true }); };
@@ -216,8 +261,8 @@ function doSaves(x: Ctx): number {
   }
   // probe-out artifacts
   const po = join(x.main, 'probe-out');
-  const cand = [...ls(join(po, 'dumps')).filter(f => /\.dmp$/i.test(f)).map(f => join(po, 'dumps', f)),
-    ...ls(po).filter(f => /^rewind-/.test(f) || /\.dmp$/i.test(f)).map(f => join(po, f)),
+  freed += doDumps(x, refs, ls(po).filter(f => /\.dmp$/i.test(f)).map(f => join(po, f)));
+  const cand = [...ls(po).filter(f => /^rewind-/.test(f)).map(f => join(po, f)),
     ...['queue', 'profile'].flatMap(d => ls(join(po, d)).filter(f => /-frames$/.test(f)).map(f => join(po, d, f)))];
   for (const p of cand) if (old(p) && !referenced(refs, p)) drop(p, `artifact > ${x.days} d`);
   x.log(`saves: ${x.apply ? 'freed' : 'would free'} ${gb(freed)}`);
@@ -247,10 +292,14 @@ export function diskGate(): { ok: boolean; line: string } {
 }
 export function sweepSaves(): string {
   const r = spawnSync(process.execPath, [join(import.meta.dirname, 'cleanup.ts'), 'saves', '--apply'], { encoding: 'utf8', timeout: 600e3 });
-  return `${r.stdout ?? ''}`.trim().split(/\r?\n/).pop() ?? `cleanup saves exit ${r.status}`;
+  const last = `${r.stdout ?? ''}`.trim().split(/\r?\n/).pop() ?? `cleanup saves exit ${r.status}`;
+  // merged worktrees whose agent-merge finish was blocked by a running chain never got a retry, and the gate sweep only runs below 30 GB free
+  const w = spawnSync(process.execPath, [join(import.meta.dirname, 'cleanup.ts'), 'worktrees', '--apply'], { encoding: 'utf8', timeout: 1800e3 });
+  return `${last}; ${`${w.stdout ?? ''}`.trim().split(/\r?\n/).filter(l => /worktrees: /.test(l)).pop() ?? `worktrees exit ${w.status}`}`;
 }
 
 function selfCheck(): number {
+  process.env.TS3_CRASHDUMPS = join(tmpdir(), 'ts3-cleanup-no-crashdumps'); // fixtures never touch the real CrashDumps
   const d = realpathSync.native(mkdtempSync(join(tmpdir(), 'ts3-cleanup-check-'))), main = join(d, 'repo'), tgt = join(d, 'real-game-copy');
   const g = (cwd: string, ...a: string[]) => git(cwd, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', '-c', 'core.autocrlf=false', ...a);
   const lines: string[] = [];
@@ -341,12 +390,34 @@ function selfCheck(): number {
     const t2 = new Date(Date.now() - 5 * 24 * H); utimesSync(join(S, 'Repro-x-1200-2.sims3'), t2, t2);
     mkdirSync(join(main, 'probe-out', 'dumps')); writeFileSync(join(main, 'probe-out', 'dumps', 'old.dmp'), 'd'); old(join(main, 'probe-out', 'dumps', 'old.dmp'));
     writeFileSync(join(main, 'probe-out', 'dumps', 'new.dmp'), 'd');
+    const D = join(main, 'probe-out', 'dumps'), put = (n: string, stacks: boolean, keep = false, aged = false) => { mkdirSync(join(D, n), { recursive: true }); const f = join(D, n, 'a.dmp');
+      writeFileSync(f, 'd'); if (stacks) writeFileSync(join(D, n, 'a-stacks.txt'), n === 'lock-only' ? '# lock-wait text only' : `${CDB_MARK}
+frames`); if (keep) writeFileSync(join(D, n, 'keep'), ''); if (aged) old(f); const t = new Date(Date.now() - 3600e3); if (!aged) utimesSync(f, t, t); };
+    put('with-stacks', true); put('no-stacks-new', false); put('keep-marker', true, true); put('no-stacks-old', false, false, true); put('lock-only', true);
+    // junction inside dumps (as game-copy is in worktrees) to a folder outside the repo, and an outside path passed in directly: never deleted
+    const outside = join(d, 'outside-dumps'); mkdirSync(outside); writeFileSync(join(outside, 'b.dmp'), 'd'); writeFileSync(join(outside, 'b-stacks.txt'), `${CDB_MARK}\nframes`); old(join(outside, 'b.dmp'));
+    symlinkSync(outside, join(D, 'linked'), 'junction');
+    assert.equal(dumpRoot(join(D, 'linked', 'b.dmp'), [D]), null, 'path through a junction refused');
+    assert.equal(dumpRoot(join(outside, 'b.dmp'), [D]), null, 'path outside the dump dirs refused');
+    assert.equal(dumpRoot(join(D, 'with-stacks', 'a.dmp'), [D]), resolve(D), 'plain path under dumps allowed');
+    // dry run (no --apply): logs relative path + size, deletes nothing
+    lines.length = 0; doDumps(ctx({ apply: false }), '', [join(D, 'linked', 'b.dmp'), join(outside, 'b.dmp')]);
+    assert.ok(existsSync(join(D, 'with-stacks', 'a.dmp')), 'dry run deletes nothing');
+    assert.ok(lines.some(l => /^would delete dumps\/with-stacks\/a\.dmp 0\.0 MB \(stacks file exists\)$/.test(l)), 'dry run logs path relative to dumps + size');
+    assert.equal(lines.filter(l => /^skip .*b\.dmp: /.test(l)).length, 2, 'junction and outside dumps skipped with a line');
     lines.length = 0; doSaves(ctx({ procs: chainProc }));
+    assert.ok(lines.some(l => /^deleted dumps\/with-stacks\/a\.dmp 0\.0 MB/.test(l)), 'apply logs every deleted dump');
+    assert.ok(existsSync(join(outside, 'b.dmp')), 'dump behind the junction kept');
     assert.ok(!existsSync(join(S, 'Repro-x-1200-1.sims3')) && existsSync(join(S, 'Repro-x-1200-2.sims3')), 'older family member deleted, newest kept');
     assert.ok(existsSync(join(S, 'Baseline-BP.sims3')), 'baseline never touched');
     assert.ok(existsSync(join(S, 'Matrix-BP-off-1.sims3')), 'save named by a running queue kept');
     assert.ok(existsSync(join(S, 'QuitCrash-0412.sims3')), 'sole family member kept');
     assert.ok(!existsSync(join(main, 'probe-out', 'dumps', 'old.dmp')) && existsSync(join(main, 'probe-out', 'dumps', 'new.dmp')), 'old dump deleted, new kept');
+    assert.ok(!existsSync(join(D, 'with-stacks', 'a.dmp')) && existsSync(join(D, 'with-stacks', 'a-stacks.txt')), 'stacks present: dmp deleted, txt kept');
+    assert.ok(existsSync(join(D, 'no-stacks-new', 'a.dmp')), 'no stacks, < 3 d: kept');
+    assert.ok(existsSync(join(D, 'keep-marker', 'a.dmp')), 'keep marker: kept');
+    assert.ok(existsSync(join(D, 'lock-only', 'a.dmp')), 'lock-wait text only (no cdb stacks): dmp kept');
+    assert.ok(!existsSync(join(D, 'no-stacks-old', 'a.dmp')), 'no stacks, > 3 d: deleted');
     console.log('ok   cleanup self-check');
     return 0;
   } catch (e) { console.log('FAIL', (e as Error).message); console.log(lines.join('\n')); return 1; }

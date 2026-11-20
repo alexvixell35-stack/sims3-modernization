@@ -157,8 +157,8 @@ namespace Ts3Fixes
         static RouteAction.ActionResult LegEnd(FollowRouteAction action, Route route, RouteAction.ActionResult res, bool replanWhenFinished, bool wasSim)
         {
             if (res != RouteAction.ActionResult.ContinueAndPopPathAndReplan) return res;
-            bool src = ShortcutOn("routesrc"), skip = ShortcutOn("legreplanskip");
-            if (!src && !skip) return res;
+            bool src = ShortcutOn("routesrc"), skip = ShortcutOn("legreplanskip"), snap = ShortcutOn("unseenlegsnap");
+            if (!src && !skip && !snap) return res;
             try
             {
                 Sim sim = route.Follower != null ? route.Follower.Target as Sim : null;
@@ -168,14 +168,39 @@ namespace Ts3Fixes
                     return res;
                 Vector3 p = sim.PositionOnFloor, s = Vector3.Invalid;
                 route.GetPathStartPoint(1u, ref s);
-                if (!RouteSrcCore.LegSkipNear(s.x - p.x, s.y - p.y, s.z - p.z)) return res;
+                if (!RouteSrcCore.LegSkipNear(s.x - p.x, s.y - p.y, s.z - p.z))
+                    return snap && LegSnap(sim, route, s) ? RouteAction.ActionResult.ContinueAndPopPath : res;
                 int[] c = PatchCounters();
                 c[230]++;
                 if (!skip) return res;
                 c[234]++;
                 return RouteAction.ActionResult.ContinueAndPopPath;
             }
+            catch (ResetException) { throw; }  // a reset must not end as "EA's result" (LegSnap places the Sim)
             catch (Exception) { return res; }
+        }
+
+        // unseenlegsnap (ON 2026-11-20, unseen townies only; docs/807): the far case of legreplanskip. A car or boat leg that ends away
+        // from where the plan had the Sim get out returns ContinueAndPopPathAndReplan, and DoRoute replans the rest from the Sim on
+        // the sim thread (Bridgeport: unseen VisitCommunityLot replans after VehicleFollowSubPathRouteAction, 22-26 m, ~330 ms by
+        // the wall clock). For an unseen townie (lane snap's rule: a household, SafeUfWhy 0) the Sim is put on path 1's start, where
+        // the plan has it get out, and the planned walk follows: the same answer lane snap gives a portal. The vehicle stays where
+        // it stopped, as after EA's replan. Kept: legreplanskip's shape rule (LegSkipEligible above: not forced, a remainder, not a
+        // loop, plan succeeded, a Sim before the leg, no routing parent, not swimming); path 1 a walk; the spot routable, not below
+        // ground or in a pool, on a docked houseboat if any, out of view. Seen, household, selected and unknown-scope Sims: EA's
+        // replan. No wait, no table, no saved state. Counters [1471] asked, [1472] not an unseen townie, [1473] path 1 not a walk,
+        // [1474] spot refused or in view, [1475] snapped. Cleanup: no loop or retry; LegEnd's catch returns EA's result.
+        static bool LegSnap(Sim sim, Route route, Vector3 s)
+        {
+            int[] c = PatchCounters();
+            c[1471]++;
+            if (!LaneSnapUnseen(sim)) { c[1472]++; return false; }
+            if (route.GetPathData(1u).PathType != PathType.SimPath) { c[1473]++; return false; }
+            Sims3.Gameplay.Core.Lot ls = Sims3.Gameplay.Core.LotManager.GetLotAtPoint(s);
+            if (!((ls == null || HouseboatOk(ls)) && !BelowGroundOutdoors(s) && route.IsPointRoutable(s) && UfGoalUnseen(s))) { c[1474]++; return false; }
+            PlaceSim(sim, s, sim.ForwardVector, "legsnap");
+            c[1475]++;
+            return true;
         }
 
         static bool FollowerIsSim(Route r) { return r != null && r.Follower != null && r.Follower.Target is Sim; }
@@ -213,9 +238,62 @@ namespace Ts3Fixes
                 bool src = ShortcutOn("routesrc"), skip = ShortcutOn("bouncerskip");
                 if ((src || skip) && BouncerAtSlot(this, skip)) return;
                 if (ShortcutOn("bouncerplace") && BouncerPlace(this, false)) return;  // docs/633: unseen, placed instead of a route
+                if (BouncerMemoSkip(this)) return;
                 LoopDelOrig(smc, ld);
+                BouncerMemoAfter(this);
             }
             public void LoopDelOrig(StateMachineClient smc, InteractionInstance.LoopData ld) { } // receives WatchDoor.LoopDel's original header
+        }
+
+        // bouncermemo (default ON, townie bouncers only). Data: Bridgeport games of 10 min, 850-940 WatchDoor route plans a game
+        // (90-105 s of plan work); in one game 800 of 888 had a 0.0 m path with the goal 1.2-1.6 m away (RoutingSlot_2 is not
+        // reachable exactly), so the bouncer never moves and LoopDel plans the same route again every loop (720-835 same start +
+        // goal repeats a game). bouncerskip never fires there: it needs 0.1 m from the slot.
+        // With the switch on: after a loop's RouteToSlot the bouncer's spot is kept; the next loops skip LoopDel while the
+        // bouncer is within 0.25 m of that spot. A push of more than 0.25 m (EA's reason for the loop) routes again, as EA does.
+        // Household and selected Sims and an unknown scope (IsNpcSim, a household) keep EA's loop. Counters [1376] loops skipped,
+        // [1377] loops routed. The memo holds at most 64 bouncers (a few per world); destroyed ones are dropped first, then it
+        // starts over.
+        static readonly Dictionary<Sim, Vector3> sBmSpot = new Dictionary<Sim, Vector3>();
+        static Sim BouncerOf(object self)
+        {
+            if (!ShortcutOn("bouncermemo")) return null;
+            InteractionInstance ii = self as InteractionInstance;
+            Sim actor = ii != null ? ii.InstanceActor as Sim : null;
+            if (actor == null || actor.Parent != null || !IsNpcSim(actor) || actor.Household == null) return null;
+            return actor;
+        }
+        static bool BouncerMemoSkip(object self)
+        {
+            try
+            {
+                Sim actor = BouncerOf(self);
+                if (actor == null) return false;
+                Vector3 spot;
+                if (!sBmSpot.TryGetValue(actor, out spot) || (actor.Position - spot).LengthSqr() > 0.25f * 0.25f) { PatchCounters()[1377]++; return false; }
+                PatchCounters()[1376]++;
+                return true;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { return false; }
+        }
+        static void BouncerMemoAfter(object self)
+        {
+            try
+            {
+                Sim actor = BouncerOf(self);
+                if (actor == null) return;
+                if (sBmSpot.Count >= 64)
+                {
+                    List<Sim> gone = new List<Sim>();
+                    foreach (Sim s in sBmSpot.Keys) if (s == null || s.HasBeenDestroyed) gone.Add(s);
+                    foreach (Sim s in gone) sBmSpot.Remove(s);
+                    if (sBmSpot.Count >= 64) sBmSpot.Clear();
+                }
+                sBmSpot[actor] = actor.Position;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { }
         }
 
         // Pure: skip EA's re-route? Only with the switch on and the bouncer on the slot (RouteSrcCore.AtSlot).
