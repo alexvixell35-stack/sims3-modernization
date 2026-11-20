@@ -6814,7 +6814,6 @@ static void Run(HMODULE self) {
         InstallSmoothMemo(ini);  // docs/676 §14: after InstallWorldPre (its probe's stubs sit on the same pass 3 call; this hook chains into them)
         InstallWpSnap(ini);      // docs/679: after [RouteSnap] (the write sequence); two call sites of its own
         InstallWpGather(ini);    // docs/679 §5: after InstallWpSnap (chains over its two call sites)
-        InstallWpGather(ini);    // docs/679 §5: after InstallWpSnap (chains over its two call sites)
         InstallCellIndex(ini);   // docs/669: after InstallRouteSpeed (the Q table clear stub; installs it when NeighbourMemo is off)
         InstallCellSpeed(ini);   // docs/669 §8-§10: after InstallRouteSpeed (the Q table clear stub) and [RouteSnap] (the write sequence)
         keepLog = ApplyHostCalls(ini) || keepLog;       // docs/159: after [RouteJobPhases] (rjpReady) and P4 / [ProbeValues] (door chain)

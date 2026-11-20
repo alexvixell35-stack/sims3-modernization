@@ -242,6 +242,26 @@ static int WpgBuild(WpgTab* t, const WpgPlan& p, unsigned int fix, unsigned int 
     return (int)total;
 }
 
+// The two call sites are chained once: what a site calls at install time becomes "the original" our hook calls, and the
+// site is pointed at the hook. A second install pass would read our own hook back as the original, and the hook would
+// then call itself until the thread's stack ends (2026-11-20, docs/679 §8: the install call stood twice in ts3native.cpp;
+// the first gather of a route job never came back and the job kept the routing lock). So the originals are decided here,
+// once, and never from a site that already calls one of our hooks.
+struct WpgChain {
+    unsigned int sameOrig, gatherOrig;  // what the hooks call
+    int done;                           // an install pass decided them
+};
+// 1 = *ch holds the originals, the sites may be pointed at the hooks; 0 = refused, *ch is untouched, nothing may be written
+static int WpgChainPlan(WpgChain* ch, unsigned int sameTarget, unsigned int gatherTarget, unsigned int sameHook, unsigned int gatherHook) {
+    if (ch->done) return 0;
+    if (!sameTarget || !gatherTarget || !sameHook || !gatherHook) return 0;
+    if (sameTarget == sameHook || sameTarget == gatherHook || gatherTarget == sameHook || gatherTarget == gatherHook) return 0;
+    ch->sameOrig = sameTarget;
+    ch->gatherOrig = gatherTarget;
+    ch->done = 1;
+    return 1;
+}
+
 // the game's row against ours (base = the record area)
 static bool WpgRowSame(const WpgGameRow& g, const WpgRow& r, unsigned int base) {
     unsigned int gx = 0, gz = 0, rx = 0, rz = 0;

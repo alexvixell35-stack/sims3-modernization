@@ -3,8 +3,9 @@
 //   clang++ -m32 -O2 -ffreestanding -nostdlib -fno-exceptions -fno-rtti -fno-stack-protector -static -fuse-ld=lld \
 //     -Wno-everything -o /tmp/wpg-host native/ts3native/wpgather-host-test.cpp && /tmp/wpg-host; echo $?
 //   0 = pass; else 1 and "assert line N" (of wpgather-test.h) on stderr.
-// Not covered here: the two call-site stubs, the game's gather itself (the model stands in for it), the install checks,
-// the write sequence's rows and the log lines (they need the game's process).
+// Not covered here: the two call-site stubs, the game's gather itself (the model stands in for it), the install's byte
+// checks, the write sequence's rows and the log lines (they need the game's process). The install's choice of originals
+// is covered (TestWpGatherChain); that the install call stands once in ts3native.cpp is tools/native-install-once.ts.
 #define NULL 0
 typedef unsigned int size_t;
 

@@ -18,6 +18,8 @@
 //    answer, since the scoring is the game's code on that list. A difference counts, logs and empties the table.
 //  - Scope: only snaps under World_ArePointsConnectedByLand (the IC's call site 0x787282, chained over wpsnap.cpp's stub)
 //    unless GatherAll=1 (plans too; the route worker then has a table of its own).
+//  - Installed once: the originals come from WpgChainPlan (wpgather-core.h), which refuses a second pass and a site that
+//    already calls one of these hooks (docs/679 §8).
 // Threads: everything is per thread (the table, the scratch rows, the one-chunk area); no lock. Counters interlocked.
 #include "wpgather-core.h"
 
@@ -55,6 +57,7 @@ typedef void(__fastcall* WpgAppendFn)(void* vec, void* edx, const WpgGameRow* ro
 
 static WpsSameFn g_wpgSameOrig;
 static WpsGatherFn g_wpgGatherOrig;
+static WpgChain g_wpgChain;  // the originals, decided once (WpgChainPlan)
 
 struct WpgTh {
     WpgTab tab;
@@ -281,8 +284,14 @@ static void InstallWpGather(const wchar_t* ini) {
         Log("SKIP waypoint gather: 0x%08lX is not the IC's call of the same-land test, nothing written", is);
         return;
     }
-    g_wpgSameOrig = (WpsSameFn)(uintptr_t)it;
-    g_wpgGatherOrig = (WpsGatherFn)(uintptr_t)gt;
+    // once, and never over our own hooks: a hook whose original is itself calls itself until the stack ends (docs/679 §8)
+    if (!WpgChainPlan(&g_wpgChain, it, gt, (DWORD)(uintptr_t)WpgSameHook, (DWORD)(uintptr_t)WpgGatherHook)) {
+        Log("SKIP waypoint gather: %s (0x%08lX calls 0x%08lX, 0x%08lX calls 0x%08lX), nothing written",
+            g_wpgChain.done ? "installed already, a second install call" : "a call site already calls one of this feature's hooks", is, it, gs, gt);
+        return;
+    }
+    g_wpgSameOrig = (WpsSameFn)(uintptr_t)g_wpgChain.sameOrig;
+    g_wpgGatherOrig = (WpsGatherFn)(uintptr_t)g_wpgChain.gatherOrig;
     if (!WpsRetarget(is, (void*)WpgSameHook)) { Log("FAIL waypoint gather: VirtualProtect at 0x%08lX (err %lu)", is, GetLastError()); return; }
     c.wgReady |= 2;
     if (!WpsRetarget(gs, (void*)WpgGatherHook)) { Log("FAIL waypoint gather: VirtualProtect at 0x%08lX (err %lu)", gs, GetLastError()); return; }

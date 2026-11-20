@@ -130,7 +130,62 @@ static WpgArea WpgtAreaOf(float x, float z, unsigned int tryN) {
     return a;
 }
 
+// The install's choice of originals (WpgChainPlan) on a model of the two call sites: a site is a word holding what it calls,
+// a hook "calls" its original. A gather must reach the game's code in a bounded number of calls however often the install
+// runs; with the hook as its own original (the 2026-11-20 hang) the walk never ends.
+static int WpgtCallsToGame(unsigned int site, unsigned int hook, unsigned int orig, unsigned int game) {
+    unsigned int at = site;
+    for (int calls = 1; calls <= 8; calls++) {
+        if (at == game) return calls;
+        if (at != hook) return -1;  // neither ours nor the game's
+        at = orig;
+    }
+    return 0;  // still in our hook after 8 calls: it calls itself
+}
+static void TestWpGatherChain() {
+    enum : unsigned int { GAME_S = 0x0065DF90, GAME_G = 0x00654790, HOOK_S = 0x10001000, HOOK_G = 0x10002000, SNAP_S = 0x10003000, SNAP_G = 0x10004000 };
+    // the model's install, as InstallWpGather does it: read the sites, plan, then write
+    struct Sites { unsigned int same, gather; };
+    struct Run {
+        static int Install(WpgChain* ch, Sites* s) {
+            if (!WpgChainPlan(ch, s->same, s->gather, HOOK_S, HOOK_G)) return 0;
+            s->same = HOOK_S, s->gather = HOOK_G;
+            return 1;
+        }
+    };
+    // the plain case, then the install call a second and a third time (the duplicated line)
+    WpgChain ch = {};
+    Sites s = {GAME_S, GAME_G};
+    assert(WpgtCallsToGame(s.gather, HOOK_G, ch.gatherOrig, GAME_G) == 1);
+    assert(Run::Install(&ch, &s) == 1 && ch.done == 1 && ch.sameOrig == GAME_S && ch.gatherOrig == GAME_G);
+    for (int again = 0; again < 2; again++) {
+        assert(Run::Install(&ch, &s) == 0);
+        assert(ch.sameOrig == GAME_S && ch.gatherOrig == GAME_G && s.same == HOOK_S && s.gather == HOOK_G);
+        assert(ch.sameOrig != HOOK_S && ch.gatherOrig != HOOK_G);
+        assert(WpgtCallsToGame(s.gather, HOOK_G, ch.gatherOrig, GAME_G) == 2);
+        assert(WpgtCallsToGame(s.same, HOOK_S, ch.sameOrig, GAME_S) == 2);
+    }
+    // what the unguarded install did on its second pass: the walk shows the self-call this test exists for
+    assert(WpgtCallsToGame(s.gather, HOOK_G, s.gather, GAME_G) == 0);
+    // the "done" word lost (another copy of the state): the sites themselves still refuse, each alone and crossed
+    const Sites bad[] = {{HOOK_S, HOOK_G}, {HOOK_S, GAME_G}, {GAME_S, HOOK_G}, {HOOK_G, GAME_G}, {GAME_S, HOOK_S}, {0, GAME_G}, {GAME_S, 0}};
+    for (unsigned int i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
+        WpgChain c2 = {};
+        Sites b = bad[i];
+        assert(Run::Install(&c2, &b) == 0 && !c2.done && !c2.sameOrig && !c2.gatherOrig);
+        assert(b.same == bad[i].same && b.gather == bad[i].gather);  // nothing written
+    }
+    WpgChain c3 = {};
+    assert(!WpgChainPlan(&c3, GAME_S, GAME_G, 0, HOOK_G) && !WpgChainPlan(&c3, GAME_S, GAME_G, HOOK_S, 0) && !c3.done);
+    // wpsnap.cpp's stubs already on the sites: chained over, and the walk goes hook -> their stub (not the game, not us)
+    WpgChain c4 = {};
+    Sites t = {SNAP_S, SNAP_G};
+    assert(Run::Install(&c4, &t) == 1 && c4.sameOrig == SNAP_S && c4.gatherOrig == SNAP_G);
+    assert(WpgtCallsToGame(t.gather, HOOK_G, c4.gatherOrig, SNAP_G) == 2 && Run::Install(&c4, &t) == 0);
+}
+
 static void TestWpGather() {
+    TestWpGatherChain();
     static WpgTab tab;
     static WpgGameRow ref[WPGT_CH * WPGT_WP];
     static WpgRow out[WPGT_CH * WPGT_WP];

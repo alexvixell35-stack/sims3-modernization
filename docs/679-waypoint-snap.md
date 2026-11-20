@@ -212,3 +212,63 @@ lines next to the `hitch:` frames (calls and gathers per burst), the minute line
 table against chunks gathered (the reuse a real lot loop gives), the water and edge counts (what stays with the game).
 Then `Gather=1`: avoided gathers and their ms against the game gathers' ms. `Memo=1` and `Gather=1` are independent (a
 memo answer skips the whole call).
+
+## 8. The 2026-11-20 hang with `Gather=2 GatherAll=1` (s206, s209, s211 and the full-set runs)
+
+Reported as "17-18 sim-cpu hitch frames of 33-39 s, 0 storm waves, no counter line". The gather is not slow; the first
+gather in scope never returns.
+
+**Cause.** `InstallWpGather(ini);` stood twice, one line after the other, in ts3native.cpp's install block [verified:
+source of the built commit, and the build itself has two calls of the install function in a row]. The install read what
+each call site calls as "the original" and pointed the site at its hook, without looking at what it had read. The second
+pass therefore read the hooks themselves: both originals became the hooks [verified: the install stores the site's
+present target into the two original pointers on every pass; both hooks call through those pointers]. From then on
+`WpgGatherHook` calls itself (and `WpgSameHook` itself), about 0.7 KB of stack per level [verified: the hook's frame is
+0x290 bytes plus saved registers], with no path that ends: every branch of the hook calls "the game's gather".
+
+**What the runs show** [verified, s211 `ts3native-full.log`; s206 / s209 / the full-set runs have the same shape]:
+- the install line `OK   waypoint gather: ready 0x7 ...` is printed twice (in the clean runs `waypoint gather off` is
+  printed twice: the doubled call is there in every run of this build, harmless only while `Gather=0`);
+- right after the world load the route worker starts the job of one route and never ends it: `route async: lock ... busy
+  for 2 s during the job of route ..., still waiting (owner thread <worker>)`, repeated every 2 s up to 178 s (the end of
+  the run); the sim thread's stall-watch samples sit in `Lock_Acquire` the whole time. In the runs without the lock line
+  it is `route async: thread <sim> waited N s for the job of route ...`;
+- the 19 `hitch:` frames are not the gather's: the clean runs (s210, s202) have the same frames with the same lengths
+  (1259 / 1263 ms, 3489 / 3503, ..., 9124 / 9083, 3752 / 3861: the world load and start-up, XML and class loading in the
+  samples) and then go on to more; the bad runs stop at frame 19-20 because no sim frame ends after the hang. The storm
+  had 0 waves because the agent's commands are served on the sim thread, which was waiting for that job.
+- What happens to the worker once its stack is used up is [inferred]: no stack-overflow exception line was logged and the
+  process lived on, so the thread stopped inside the job with the routing lock held (the stall watch samples only the sim
+  and main threads). The first gather in scope happened to be the worker's (a plan, `GatherAll=1`); on the sim thread it
+  would have been the same recursion there.
+
+**Why no counter line.** `MaybeLogCounters` runs at the start of a plan (`PlanLockedBody`). The minute's lines printed
+before the hang had no gather yet, and the gather line is not printed while `wgCalls + wgOutScope` is 0; after the hang no
+plan began again. `[WaypointSnap] Memo / Probe` were off in these runs (`waypoint snap off`), so that line was never due.
+
+**Ruled out** by the above: a slow one-chunk gather, a table that is rebuilt on every call, more than one extra gather
+per miss in shadow, a stuck counter state. None of that code ran to its end even once.
+
+**Fix.**
+- The doubled install call is gone.
+- The originals are decided by `WpgChainPlan` (wpgather-core.h): once per process, and never from a site that already
+  calls one of the two hooks (each alone and crossed); a refused pass writes nothing and logs `SKIP waypoint gather:
+  installed already ...`. `InstallWpSnap` got the same once-only guard (the same pattern, not hit).
+- `TestWpGatherChain` (wpgather-test.h; host test and `selftest.cpp`): a model of the two sites, the install run one, two
+  and three times; a gather must reach the game's code in two calls, the originals must not be the hooks, a refused pass
+  must write nothing; also a lost "done" word, crossed sites and wpsnap.cpp's stubs already in front. The walk with the
+  hook as its own original (the bug) is asserted to never end. Mutation: without the two refusals the test fails.
+- `tools/native-install-once.ts` (runs in `selftest-all.ts --ci`, so in every CI build): an `Install*(ini)` /
+  `Apply*(ini)` call that stands more than once in the product's .cpp files fails the check; on the old ts3native.cpp it
+  names lines 6816 and 6817. The self-test sources (`selftest.cpp`, `*-test.cpp`) call installs several times on purpose
+  and are not scanned.
+
+**Still not covered:** everything §6 lists (the stubs, the append call, the one-chunk area against the real gather). The
+hang hid all of it: no shadow compare has run yet. Not built with MSVC, not run in the game.
+
+**Run to prove it** (one shadow storm, an MSVC build of this branch): the proven baseline ini plus `[RouteSnap] Enabled=1`,
+`[WaypointSnap] Gather=2 GatherAll=1` (Memo=0, Probe=0, GatherMs=0), repro `ip-wpgather-storm` or the s211 storm. Pass:
+exactly one `OK   waypoint gather: ready 0x7` line; storm waves as in the baseline (13 in s210); no `route async: lock ...
+busy` run beyond the baseline's; a `waypoint gather:` minute line with gathers asked > 0, shadow checks > 0, mismatch 0,
+stale 0; `hook ms` against `game gathers ... ms` on that line is the shadow's own cost (expected about twice the game's
+while the table fills, less once chunks repeat). Only then `Gather=1`.

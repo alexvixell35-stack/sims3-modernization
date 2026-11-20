@@ -174,6 +174,9 @@ static void InstallWpSnap(const wchar_t* ini) {
     const int probe = GetPrivateProfileIntW(L"WaypointSnap", L"Probe", 0, ini) ? 1 : 0;
     if (!memo && !probe) { Log("waypoint snap off ([WaypointSnap] Memo=0, Probe=0)"); return; }
     if (!WPS_IC || !WPS_TRY) { Log("SKIP waypoint snap: no address for this build, nothing written"); return; }
+    static bool s_once;  // a second pass would read our own stubs as the originals: they would call themselves (docs/679 §8)
+    if (s_once) { Log("SKIP waypoint snap: installed already, a second install call, nothing written"); return; }
+    s_once = true;
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     c.wsMemoMs = Clamp(GetPrivateProfileIntW(L"WaypointSnap", L"MemoMs", 2000, ini), 1, 60000);
     c.wsLogMs = Clamp(GetPrivateProfileIntW(L"WaypointSnap", L"LogMs", 20, ini), 1, 10000);
