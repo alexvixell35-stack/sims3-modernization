@@ -111122,6 +111122,80 @@
     ]
   },
   {
+    "id": "ip-placetestro-storm",
+    "bug": "docs/670 §2: in the Isla Paradiso route storms s142 / s143 of 2026-11-19/20 the sim thread's largest +0x918 wait key is 0x82F4AB (54-65 waits >= 20 ms, 3.2-6.1 s per 4 min, up to 302 ms each): RoutingWorld_PortalCheckLocked 0x82F470, the footprint gather of the object placement check 0xB41120 (World_FindGoodLocation*, FindPlaceOnRoad*, FindPlacesToDisembarkOnShoreline, TestObjectPlacement*), takes the routing lock while a route job on the worker holds it for its whole plan",
+    "fix": "ts3native [PlaceTestRO] Enabled=1 (default 0): the whole check is answered on the sim thread from S2's read-only protocol (QL shared, try only) while a job runs, with the polygon clip on a scratch of our own; any doubt calls the game's check (docs/670 §3)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test, selftest cases and steerro-test section PT under Wine: 60000 checks equal to the game's 0xB41120 on fake worlds). Job ini: [PlaceTestRO] Enabled=1 Mode=0 Shadow=1 for the shadow pass (no job-time answers; with no job running the game's call and the clone are compared), then Enabled=1 Mode=1 Shadow=0 with the arms flipping the runtime mode by export (native_set placetestro: off = 0, on = 1). Needs the S2 stack of the release ini ([RouteGate] Enforce=1, [RouteAsync], [SteerRO]) and [HitchAttr] RouteLockMs=20 for the 'route lock wait:' lines. Read per arm: the 'place test RO:' line (answered, the game's call ms, given back by reason) and the +0x918 waits with key 0082F4AB.",
+    "expect": "shadow pass: shadow checks > 0, mismatch 0, no 'SHADOW MISMATCH' line. on arms: answered > 0, 'route lock wait' lines with key 0082F4AB and their ms well below the off arms (only the given-back calls are left), FindGoodLocation results unchanged (no new routefail lines, no stuck Sims); no crash",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "placetestro": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 off, 1 answer while a job runs"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "count": 40,
+            "repeatS": 30,
+            "seed": 143
+          },
+          "waitS": 180,
+          "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path): route jobs back to back, placement checks beside them"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "stop": true
+          },
+          "waitS": 5
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "placetestro": 1
+        },
+        "note": "back to the ini value"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
