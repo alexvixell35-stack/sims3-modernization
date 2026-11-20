@@ -113527,7 +113527,7 @@
     "bug": "docs/684: Sims stand still before they start an interaction they were given or picked; nothing measured where that time goes (queue, the Sim's loop, posture transitions, Run's setup, route plans on the sim thread or asleep on a ts3native route job, re-plans, the gap from plan to first step)",
     "fix": "measurement only: ts3fixes actdelay (ActDelay.cs + ActDelayCore.cs, tuning kActDelay, default off), pass-through hooks; per interaction instance the buckets from queued to acting, one 'actdelay:' line per instance over kActDelayLogMs (500), an 'actdelay minute:' summary a minute, ActDelayCheck result = p50/p90/max per bucket and Sim kind + top 15 interaction types",
     "save": "needs a loaded world in live mode with Sims acting (no save change)",
-    "note": "UNVERIFIED in the game (2026-11-20: built with Roslyn, core selftest tools/selftest/actdelay). Read-only. 'run' is the bucket model in the game's Mono (no Sim needed); 'live' lists the seven hook swaps; the 90 s wait lets autonomy queue and run interactions with the probe on. Counters 4270-4279.",
+    "note": "UNVERIFIED in the game (2026-11-20: built with Roslyn, core selftest tools/selftest/actdelay). Read-only. 'run' is the bucket model in the game's Mono (no Sim needed); 'live' lists the nine hook swaps; the 90 s wait lets autonomy queue and run interactions with the probe on. Counters 4270-4289 (4280-4289: outfit and sync waits, rides, docs/684 §8).",
     "expect": "run: 'verdict: ok'. live: 'members found=True'. result after the wait: 'actdelay switch on', acted > 0 with npc > 0, a 'p50/p90/max ms per bucket' table, 'top interaction types' rows, errors 4275=0; ts3native.log has 'actdelay minute:' lines; no new exceptions; nothing else in the game differs",
     "steps": [
       {
@@ -113569,6 +113569,71 @@
           ]
         },
         "note": "aggregate after 90 s of play"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "actdelay": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "actdelay": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "outfitfirst-check",
+    "bug": "docs/684 §8-§9: a Sim that changes clothes (going to work or school, Switch To Outfit, bath, bed) stands idle in Sim.SwitchOutfitHelper.Wait until the SimService has built the new outfit's model; the service builds one job at a time and takes the ready job of the Sim nearest the camera first, so the swap of a Sim away from the camera waits behind every nearer Sim's LOD build",
+    "fix": "ts3native [OutfitFirst] (thumbstall.cpp, default off): Enabled=1 notes each live outfit swap at the call 0x6F492C; Mode=1 measures (how long the swap's job sat ready, how many other jobs were built first), Mode=2 builds a pending swap's ready job first (same builds, another order, every Sim alike). Measured by ts3fixes actdelay (docs/684 §8): time in SwitchOutfitHelper.Wait per wait and per interaction instance, counters 4280-4283, 4288-4289",
+    "save": "needs a loaded world in live mode with an active household of two or more Sims, child or older (their outfits change Everyday <-> Formalwear; run the step twice to put them back)",
+    "note": "UNVERIFIED in the game (2026-11-20: ts3fixes built with Roslyn, core selftest tools/selftest/actdelay; ts3native clang-cl /W4 syntax check and the Linux host test of outfitfirst-core.h; the MSVC build and the Windows selftest run in CI). Job ini: [OutfitFirst] Enabled=1 Mode=1 for the off arm (measure), Mode=2 for the on arm. The trigger is EA's own Switch To Outfit interaction on every household Sim at once, with the camera on one of them; off arm: 'outfitfirst: swap job taken by the game's order' lines with ready ms > 0 for the far Sims, on arm: 'taken first' with ready 0. A game whose swaps never wait behind other jobs (ready 0 in the off arm) is N/A, not FAIL: then the wait is the build itself.",
+    "expect": "outfit: 'Switch To Outfit queued for N household Sims' with N >= 2. result after the wait: 'outfit waits that slept: N' with N >= 1 and the hooks line shows SwitchOutfitHelper.Wait > 0, errors 4275=0. ts3native.log: 'OK   outfit first', 'actdelay outfit:' lines over 200 ms if any, 'outfitfirst:' lines; every Sim wears the other outfit; no new exceptions",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "actdelay": true
+        },
+        "waitS": 2,
+        "note": "probe on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ActDelayCheck",
+          "args": [
+            "outfit"
+          ]
+        },
+        "waitS": 30,
+        "note": "every household Sim changes outfit at once (EA's Switch To Outfit)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ActDelayCheck",
+          "args": [
+            "outfit"
+          ]
+        },
+        "waitS": 30,
+        "note": "and back"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ActDelayCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "outfit waits per Sim kind and per instance"
       },
       {
         "cmd": "patches",

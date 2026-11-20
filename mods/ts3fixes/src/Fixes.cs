@@ -823,6 +823,8 @@ namespace Ts3Fixes
         // household or unknown Sim / shadow compares / shadow different (must stay 0) / errors / our ms / EA's stage ms in shadow.
         // [4270-4279] actdelay (ActDelay.cs, docs/684; 4260-4269 left for a parallel branch): instances that acted / of them over kActDelayLogMs / ended without acting /
         // left the queue before Run / dropped (table full or stale) / errors / lines written / plans inside records / summed queued -> act ms / longest queued -> act ms.
+        // [4280-4289] actdelay overlays (ActDelay.cs, docs/684 §8): outfit waits that slept / their summed ms / longest ms / of them household or selected /
+        // instances with a sync wait / their summed sync ms / instances whose Run began in a vehicle / inside a rabbit hole / long outfit waits with the Sim on screen / long outfit waits.
         // [4248-4249] firegreet (FireGreet.cs, docs/681): firefighter greeted on the emergency lot / errors.
         // [2573-2576] firetrapcount (FireTrapCount.cs, docs/570 §5): trapped-Sim tasks dropped for Sims gone from the lot / hidden apartment trap spots removed / jobs completed by a drop / errors.
         // [2577-2579] birthdayagers (GenerationsLogic.cs, docs/571 §1): later agers recorded / listeners removed at cleanup / errors.
@@ -1301,7 +1303,7 @@ namespace Ts3Fixes
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 2799, then 2800-3999 (upstream #470; s74 3388-3393, s77 3394-3404),
         // then the contributor block 4000-4089, then 4090-4129 (4090-4099 npcloops-c, 4100-4109 npcstallend, 4110-4119 another branch, 4120-4129 objfailmemo, 4130-4139 another branch, 4140-4149 socialunlinkend, 4150-4169 other branches, 4170-4199 docs/656 pets, 4200-4219 other branches, 4220-4249 docs/661 lot gameplay, 4250-4259 fglinbound docs/682, 4270-4279 actdelay docs/684), docs/registry.md), so a new fix
         // never needs the array resized by hand.
-        const int kCounterSlots = 4280;
+        const int kCounterSlots = 4290;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {

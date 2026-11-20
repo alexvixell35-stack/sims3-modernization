@@ -161,6 +161,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kActDelay value="False" />
     <kActDelayLogMs value="500" />
     <kActDelayLinesPerMin value="30" />
+    <kActDelayOutfitLogMs value="200" />
     <kNearestLotLazy value="False" />
     <kNearestLotLazyShadow value="False" />
     <kTrashOutsideFallback value="False" />
