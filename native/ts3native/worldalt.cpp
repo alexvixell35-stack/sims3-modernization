@@ -366,7 +366,7 @@ static float __cdecl WaBegin(WaCostFn fn, u8* ctr, const u8* R, const u8* G, con
     t.active = false, t.delta = 0;
     const LONG mode = c.waMode;
     if (t.nested) {  // a shadow run's loop
-        if (!t.h0) t.h0 = h0;
+        if (t.h0 == 0) t.h0 = h0;
         if (t.nested == 2 && WaPrepare(t, WaModeOf((const void*)fn), ctr, R, G, s, g, opts) == WAS_OK) t.active = t.bound = true;
         return h0;
     }

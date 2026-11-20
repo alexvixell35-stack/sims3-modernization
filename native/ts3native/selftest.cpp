@@ -13482,6 +13482,7 @@ static void TestNoPathMemoStub() {
 #include "floodmemo-test.h"   // TestFloodMemo ([RouteSpeed] FloodMemo, docs/667)
 #include "workerhold-test.h"  // TestWorkerHold ([RouteJobPhases] HoldProbe, docs/673)
 #include "worldpre-test.h"    // TestWorldPre ([WorldPrecompute], docs/676)
+#include "worldalt-test.h"    // TestWorldAlt ([WorldPrecompute] WorldAlt, docs/676 §14)
 #include "wpsnap-test.h"      // TestWpSnap ([WaypointSnap], docs/679)
 #include "doorshare-test.h"   // TestDoorShare ([RouteSnap] DoorShare, docs/674)
 #include "cellindex-test.h"   // TestCellIndex ([RouteSpeed] CellIndex, docs/669)
@@ -15066,6 +15067,7 @@ int main() {
     TestFloodMemo();   // docs/667
     TestWorkerHold();  // docs/673
     TestWorldPre();    // docs/676
+    TestWorldAlt();    // docs/676 §14
     TestWpSnap();      // docs/679
     TestDoorShare();   // docs/674
     TestCellIndex();   // docs/669
