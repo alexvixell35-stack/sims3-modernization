@@ -5906,7 +5906,8 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
         if (j) DropJob(j);
         return 1;
     }
-    if (j && j->state == J_SKIPPED) SkPark(j);  // docs/670 §20: J_PEND now, or left as it is for the sync plan below
+    const bool skTried = j && j->state == J_SKIPPED;
+    if (skTried) SkPark(j);  // docs/670 §20: J_PEND now, or left as it is for the sync plan below
     if (j && j->state == J_PEND) {  // docs/134 §2.6: parked START, one more try this tick
         if (FbRetry(j)) return 0;
         j = NULL;  // given up: READY says done, the plan runs synchronously with the recorded reason
@@ -5916,9 +5917,10 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
         if (!ReadyDrain(j)) return 0;
     }
     if (j && j->state == J_SKIPPED) {  // not planned (world changed): the plan runs synchronously
-        // docs/670 §20: the worker skipped it after the SkPark above (between the two state reads, or while ReadyDrain served
-        // it): parked here as at the top. FbRetry false has freed the slot and recorded the reason
-        if (SkPark(j) && FbRetry(j)) return 0;
+        // docs/670 §20: the worker skipped it after the state read above (between the reads, or while ReadyDrain served it):
+        // parked here as at the top (once per READY: a job SkPark already left here is not counted twice). FbRetry false has
+        // freed the slot and recorded the reason
+        if (!skTried && SkPark(j) && FbRetry(j)) return 0;
         if (j->state == J_SKIPPED) {
             InterlockedExchange(&j->state, J_FREE);
             RfbRefuse(handle, RFB_SKIPPED);
