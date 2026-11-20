@@ -286,6 +286,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00655AFB, 0x00656D9B},
     {0x00657650, 0x00658860},
     {0x006583E0, 0x006594A0},
+    {0x006595B0, 0x00000000},
     {0x0065BB90, 0x00000000},
     {0x0065BC20, 0x00000000},
     {0x0065DF90, 0x00000000},
@@ -545,6 +546,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00782BC0, 0x00783D90},
     {0x007868A0, 0x00787A70},
     {0x007868E0, 0x00787AB0},
+    {0x00787240, 0x00000000},
     {0x00788310, 0x00789490},
     {0x007883C0, 0x00789540},
     {0x00788800, 0x00789980},
@@ -1713,4 +1715,6 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x01042528 no-ea-1.69-address native/ts3native/swarmguard.cpp:22
 // unresolved: 0x01042570 no-ea-1.69-address native/ts3native/swarmguard.cpp:22
 // unresolved: 0x0091A8CC no-ea-1.69-address native/ts3native/swarmguard.cpp:30
+// unresolved: 0x006595B0 no-ea-1.69-address native/ts3native/wpsnap.cpp
+// unresolved: 0x00787240 no-ea-1.69-address native/ts3native/wpsnap.cpp
 constexpr int ts3addr_count = 1505;
