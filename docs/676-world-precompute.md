@@ -270,6 +270,9 @@ water ms per call (22-28 ms today) is the measure.
 
 ### 6.1 Landmark distances (ALT) as the world A\*'s heuristic
 
+> **2026-11-20: built as `[WorldPrecompute] WorldAlt`, §14** (default off, not run). §14.1 corrects the water-link rules
+> below and in §2.1; §14.8 has the model on the real graphs with the built tables.
+
 - **Idea.** Keep the game's search, costs, walls and tie order. Replace only the value the cost function returns for a
   heuristic call (`isEdge = 0`) by `max(game's value, landmark bound)`. The bound is `|d(L, m) - d(L, goal)|` over a few
   landmarks L, with `d` the shortest distance on a lower-bound copy of the graph: every edge at the smallest factor any
@@ -509,6 +512,9 @@ inside pass 3, plus the count of tests with `+0x72` set and the tests per call. 
 
 ## 12. World A\* with water links: what s172 changes in §6.1 (design, not built)
 
+> **Built: §14.** The "start or goal waypoint's own link" rule below is wrong as written (§14.1: it is the virtual start or
+> goal node), and mode 1's type-`0x15` links cost the water-lot value without a lot test.
+
 - **Measured (s172):** 761 of 911 searches allow water links and carry 8,999 of 9,387 ms. 212 of them cross land
   components (3,230 ms, 15.2 ms each). The other 549 start and end in one component and cost about 5,770 ms (10.5 ms
   each), four times a search without the flag (2.6 ms).
@@ -733,3 +739,230 @@ callback and `0x6675E0` are shared with other callers of the segment query; they
 
 `ip-smoothmemo-storm` (repros.json): ini `SmoothMemo=2`, `[RouteSnap] Enabled=1`; arms off, shadow, serve by
 `native_set smoothmemo`. Pass: mismatch 0, no `SMOOTH MEMO MISMATCH`; then compare pass 3 ms per call with and without.
+## 14. Built: `[WorldPrecompute] WorldAlt`, the landmark bound of §6.1 / §12 (default off, NOT RUN)
+
+2026-11-20, branch `speed/world-alt` (from `work/combo-1117`). Inputs: capstone disassembly of `0x676260` and its helpers
+`0x6761F0`, `0x6760D0`, `0x676130`, `0x6735D0`, `0x674220`, `0x64FCE0`, `0xC68990`, Ghidra decompiles of `0x674250`, `0x674E40`,
+`0x66D8D0`, `0x66F890`, `0x673600` (all on the repack copy; no stock exe on this machine), the Isla Paradiso and Sunset
+Valley record areas from `tools/rtdata-decode.ts --mem-image`. **Nothing here has run in the game, and there is no MSVC
+build of it.**
+
+### 14.1 What the disassembly changes in §2.1, §6.1 and §12 [verified unless tagged]
+
+- **"A link at the start or goal waypoint costs 10 x its distance" is about virtual ends, not shoreline waypoints.** The
+  reference test `0x64FCE0` gets the virtual end in `ecx` and `opts+0xA4` (start ref) or `+0xB4` (goal ref) as its argument
+  (`0x674A02..0x674A0E`, `0x674C88..0x674C94`, mode 1 `0x675457`): body -> waypoint costs `10 x |start point - waypoint|` only
+  when the search's start node is that body, waypoint -> body `10 x |waypoint - goal point|` only when its goal node is.
+  So §12's rule "skip searches whose start or goal waypoint is a shoreline waypoint" becomes: no bound when the start or
+  goal reference is virtual (chunk `0xFFFF`).
+- **Mode 1 charges every link of a type-`0x15` waypoint the raw water-lot value** (`opts+0x78`: 2 SHORT, 10 LONG by the
+  constructor defaults), with no lot test at all (`0x675417..`: start / goal test, then type `0x15` returns the slot, any
+  other type `max(10 x cells, 1)`). Only mode 3 has the lot test: waypoint -> body asks the lot at the **start** point
+  (`opts+0xA8`), body -> waypoint the lot at the **goal** point (`opts+0xB8`), each through `0xC68990` (thiscall on
+  `[0x11ECBC4]`, x, z, `ret 8`), then lot `+0x4B0`, the waypoint's own lot and the sea level against the terrain.
+  Consequence: in mode 1 the true cost between any two type-`0x15` waypoints of one body is twice the water-lot value.
+- **The game's heuristic at a body node is a link cost** (`max(10 x cells, 1)`, or the water-lot value when the goal is
+  type `0x15`), and its heuristic at a waypoint is the straight line whatever the links cost. In mode 1 with water links
+  that is above the true remaining cost wherever a cheap link pair shortcuts the straight line, so **the game's own
+  search is not a cheapest-path search there**: it returns the land path unless that costs more than about
+  `10 x cells`. Nothing we build can change that without changing routes; it decides how a shadow run must be read (§14.6).
+- A body id of `0x80` or more has cell count 0 (`0x66D8D0`), so its links cost 1.
+- The hub quirk of docs/99 §10.1 4d holds as written: for an edge byte 1 out of a hub with a parent, the from position is
+  the hub's chunk corner plus the **parent's** in-chunk offsets, and the type test uses the parent's record.
+- `0x676260` is `thiscall(container; R, G, &start, &goal, mode, opts, &best)`, `ret 0x1C`; `ebp` = container for the whole
+  body. Its three "generate a node" sequences are: edge cost call, wall test, heuristic call, node allocation, `f = g + c
+  + h`, push `0x6761F0` (thiscall on the heap vector, one argument = address of the node pointer, `ret 4`), then the
+  "nearest reached" compare on the same `h`. The third (body -> waypoint) allocates through `0x6760D0`. The goal exit calls
+  `0x676130(container, goal node)` (`ret 4`) to build the path; the node's `+0` is the path cost. The planner frees a path
+  with `0x674220` (`ret 4`; frees `[path]`, then `path`), called at `0x6601B0`. No xmm or x87 value is live across any of
+  the calls we touch (every use after them reloads from the stack).
+
+### 14.2 The lower-bound graph, and every dynamic input against it
+
+Nodes: every waypoint and 256 body nodes. Edges undirected, one cost per cost mode (1 and 3), the smaller of both
+directions. A cost is `(smallest factor) x (smallest length)`, scaled by `1 - 1e-5` and cut to whole units of 1/16.
+
+| edge | factor | length |
+|---|---|---|
+| byte 0, or a record without edge bytes | none: a wall in modes 1 and 3 | |
+| byte 1 (lot hub) | `10 x min(1, trespass)` | distance from the target to the from chunk's square (covers the parent's offsets) |
+| byte 2 | `trespass x 10` | waypoint distance |
+| byte 3 | mode 1 `10 / sidewalk`; mode 3 `10 / street` if either end is type `0x0D`, else `10 / riding` | waypoint distance |
+| bytes 4, 5 | `10 / sidewalk` | waypoint distance |
+| any other byte | 10 | waypoint distance |
+| waypoint <-> body, any entry of either shoreline tree | mode 1 and waypoint type `0x15`: the smaller water-lot value; else `max(10 x cells, 1)` | |
+
+Every real factor is also multiplied by `min(1, keep-type)`. Each tuning value is the one of SHORT and LONG that gives
+the smaller cost. Tuning that is not positive and finite gives no tables.
+
+| dynamic input | what it can do to a cost | verdict |
+|---|---|---|
+| blocked bit of a lot-edge waypoint | wall, or nothing | raises only [verified] |
+| the job's polygon set (edge bytes 2 and 7) | wall, or nothing | raises only [verified] |
+| circle of the first pass | wall for targets outside | raises only [verified]; the bound still holds inside the circle pass |
+| point test `0xC6BAB0` for type 2 / `0x15` targets | wall, or nothing | raises only [verified] |
+| `blockedNodeMap` through `0x66F890`, link slots, boat kind, flag `0x200` | decide whether a link is generated at all | removes only [verified] |
+| start / goal lot hub and the two group sets | flat 5,000,000, factor 30 or 10, trespass x 10 or x 1000, wall | all at or above `10 x min(1, trespass)` times a length below 5,000,000 / 10 [verified] |
+| retry flag `0x40` | trespass = FLT_MAX | raises only [verified] |
+| flags 1 / 2 (exact start or goal point for a hub, times keep-type) | another from / to position | **not covered: such a search takes no bound** (no writer of these flags is known, docs/99 §10.1) |
+| SHORT or LONG cost set | every factor | the smaller of both is in the graph [verified] |
+| keep-type when the two types differ; the types themselves (`0x10`/`0x13`, `0x02`/`0x15` flip at a water grid build) | x keep | the graph multiplies every real edge by `min(1, keep)` and reads no type but `0x0D` (never rewritten) and, for links, "is `0x15`" (in the link hash) |
+| water link `10 x cells` | cells change at a water grid build | in the link hash; a change drops the tables |
+| a virtual start or goal | links at `10 x distance` | **no bound for the search** |
+| mode 3, start or goal point on a water lot | that lot's type-`0x15` links at the water-lot value | **no bound for the search** (`0xC68990` on both points, lot `+0x4B0`; "cannot tell" counts as yes) |
+| cost modes 2, 4, default | other rules (mode 4 charges 100 to enter a body) | **no bound** |
+| G null | every virtual edge costs 100 | **no bound** |
+
+So a distance on this graph never exceeds the cost of any path the game's search can take for a search that gets the
+bound. Residual assumption [inferred]: R's records (positions, references, edge bytes, type `0x0D`) change only through
+the world builder; they are hashed at the build and again at every 256th search loop, the links at every loop.
+
+### 14.3 Why the path cost stays the same
+
+- Table entries are exact shortest distances on the unit graph (32-bit integers), so `b(u) = max_L |d(L, u) - d(L, goal)|`
+  obeys `b(u) <= cost(u, v) + b(v)` for every edge and `b(goal) = 0`: admissible and consistent. `max(game's value, b)` is
+  as consistent as the game's value is.
+- The game's search closes a waypoint once and never reopens it, so it returns a cheapest path exactly when its
+  heuristic is consistent. Where the game's own heuristic is (modes 1 and 3 on land; mode 3 over water), the search with
+  the bound returns the same cost; only the choice among equally cheap paths, and the float sum along another such
+  path, can differ. Where the game's own heuristic is not (§14.1, mode 1 with cheap links; the hub quirk), neither
+  search is exact and the two can differ either way: shadow counts those apart.
+- The bound is converted to float towards zero. `f` is still the game's float sum `(g + c) + h`, plus the excess.
+- Not changed: the costs, the walls, the heap, the push order, the closed test, the first heuristic call that selects
+  the cost set, the circle pass, and the "nearest reached" node (it is tracked on the game's `h`, which we return
+  untouched). A failed search still expands every waypoint it can reach, as before.
+
+### 14.4 Sites (all inside `0x676260`; offsets from `TS3A(0x676260)`, bytes checked, no address row)
+
+| site | was | now |
+|---|---|---|
+| `+0x128` (`0x676388`) | `call [esp+0x80]`: the first heuristic call of a search loop | `call WaBeginThunk; 66 90` |
+| `+0x44D`, `+0x674`, `+0x8EA` (`0x6766AD`, `0x6768D4`, `0x676B4A`) | `call [esp+0x80]`: heuristic of a generated node | `call WaHeurThunk; 66 90` |
+| `+0x4B9`, `+0x6DC`, `+0x91D` (`0x676719`, `0x67693C`, `0x676B7D`) | `call 0x6761F0` (push) | `call WaPush` |
+| `+0xA1B` (`0x676C7B`) | `call 0x676130` (path out) | `call WaPathOut` |
+
+- The thunks copy the 8 cdecl arguments, add the cost function pointer read from the A\*'s own frame (`[esp+0x84]` at
+  entry) and, for the begin thunk, `ebp`, and call a plain cdecl function that calls that pointer first: `[RouteAsync]`'s
+  budget stub stays in the chain and counts as before. The value in `ST0` is the game's.
+- `WaHeur` keeps `max(0, bound - h)` per thread; `WaPush`, the next call on that thread, adds it to the node's `f` and
+  clears it. The unpatched push of the start node (`+0x222`) is the install check's reference target.
+- Install order: pushes, path call, the three heuristic calls, the begin call last. Until the begin call is in, no loop
+  is set up and the others pass values through. All eight are checked before the first write; shadow also needs the
+  path free behind the planner's call at `TS3A(0x65E0D0) + 0x20E0` (its first 7 bytes are checked).
+- Not touched by others: `[RouteAsync]`'s budget writes the five `mov [esp+0x60], imm32` (`0x676340..`), `WorldAStarRefs`
+  the decode at `0x676627`; `[ProbeSnap]`'s int3 sampler lists `0x6766AD` and skips a site whose bytes differ.
+
+### 14.5 Tables
+
+- Per cost mode: `WorldAltLandmarks` (32) entries of 4 bytes per node. Isla Paradiso: 5.7 MB per mode in use. Built
+  lazily under the search that needs them: the first loop builds the graph (about 10 ms on the Isla Paradiso records,
+  measured offline; about 6 MB, freed when no mode is being built), each later loop adds one landmark (2.1-2.4 ms on
+  average, 4.6 ms the worst, offline). The bound uses what exists; a search picks the 8 landmarks with the largest
+  `|d(L, start) - d(L, goal)|`.
+- Landmarks: the land component with the largest `size / (landmarks + 1)` gets the next one; inside it the waypoint
+  farthest from the component's landmarks. Isla Paradiso: 22 of 32 in the largest component.
+- Invalidation, no writer hook: at every loop R (pointer, chunk table, record area, size, w, h), G, the twelve tuning
+  values and the link hash (both trees' entries, "is type `0x15`" of each linked waypoint, the 128 cell counts; 59 us
+  offline for 5,288 links) are compared; every 256th loop also the land hash (0.3 ms on a model graph of that size). A difference drops the tables
+  and a counter moves that stops any query set up earlier.
+- One SRW lock guards the tables for a loop's set-up only; a second thread that finds it taken runs plain (`busy`).
+
+### 14.6 Shadow (`WorldAlt=2`)
+
+At the first loop of a search (the circle loop, or the only loop when there is no circle; a rerun after a compared
+circle loop is not compared again) the game's whole search is called twice more on the same inputs from inside the
+begin hook: once plain, once with the bound. The planner's context is saved and put back, the circle radius set to 0
+for the runs (each decides its own circle pass), the closed bits cleared again, the route budget's state put back.
+Then the real search runs plain: the route is the game's. Compared: found or not, the goal node's `g` (bit-equal, within
+1e-5, dearer, cheaper), the node sequence (hash and length), nodes generated, waypoints expanded.
+
+- `bound dearer` / `bound cheaper` pairs whose plain cost is below the game's own first heuristic value are counted as
+  `plain cost below the game's own first heuristic`: proof that the game's heuristic overestimated for that pair (§14.1).
+  A dearer pair outside that count is a finding against the bound.
+- A pair in which the budget cut a run is not compared. A shadow run left open by an unwind is recognised by its stack
+  address at the next loop.
+- Cost: about three world searches per search. Not a timing arm.
+
+### 14.7 Switches, counters, lines
+
+- `ts3native.ini` `[WorldPrecompute]`: `WorldAlt` (0 off: nothing installed; 1 use; 2 shadow), `WorldAltLandmarks=32` (4-64),
+  `WorldAltAll=0` (0 = only routers of known NPC scope take the bound: the node sequence of an equally cheap route can
+  differ, so household, selected and unknown scope keep the game's search; `[Experimental] HouseholdToo=1` lifts it).
+- Runtime: export `ts3native_worldalt +0x00` (`native_set worldalt`), only when the ini value is not 0. With 0 at runtime
+  the sites stay and count loops and generated nodes (the baseline arm of an in-load A/B).
+- `world alt: mode M ready 0xR: search loops N (cost mode 1 A, mode 3 B), with the bound N (not: cost mode, water start
+  or goal, flags, water lot, scope, world, busy, no table yet); found a path P plain / B bound; nodes generated ... plain
+  / ... bound (bound above the game's heuristic N); waypoints expanded ... plain / ... bound; graphs, landmarks,
+  dropped, build ms, checks ms, KB`. "Expanded" = closed bits at the goal, searches that found a path.
+- `world alt shadow: searches compared N: same cost and nodes, same cost other nodes, cost within 1e-5, bound dearer,
+  bound cheaper (of both: plain cost below the game's own first heuristic), neither found, one found; not compared:
+  budget cut, no bound; nodes generated plain / bound (cost mode 1: p / b, mode 3: p / b); waypoints expanded (both
+  found) plain / bound`.
+- `WORLD ALT MISMATCH found|dearer|cheaper`, at most 10 lines.
+- EA 1.69: no new address row (`0x676260`, `0x65E0D0`, `0x674E40`, `0x674250`, `0xC68990`, `0x11ECBC4` have rows); another
+  layout of the function logs SKIP.
+
+### 14.8 Offline numbers [measured: the real record areas, our tables, a model search in the game's shape]
+
+The model: closed bits, binary heap on `f`, duplicates; the game's mode 1 / 3 factors with the Sims3.ini LONG set, no lot
+rules, polygons or blocking; every type `0x13` / `0x15` waypoint of the package (Isla Paradiso: 5,288) linked to **one**
+body of 150,000 cells [the body assignment is assumed: G is not in the package]; 200 random pairs of lot-edge
+waypoints; 32 landmarks, 8 used per search. Path cost equal in every pair of every row.
+
+| world, mode, pairs | waypoints expanded, game | with the bound | fewer | model time |
+|---|---|---|---|---|
+| Isla Paradiso, mode 3, inside the largest component (17,542) | 1,097,943 | 365,176 | 3.0x | 2.8x |
+| Isla Paradiso, mode 3, across components | 3,258,928 | 621,033 | 5.2x | 4.2x |
+| Isla Paradiso, mode 1, inside the largest component | 1,566,549 | 991,642 | 1.6x | 1.4x |
+| Isla Paradiso, mode 1, across components | 3,667,895 | 2,648,072 | 1.4x | 1.25x |
+| Sunset Valley (no links in the package), mode 3 | 1,227,624 | 449,331 | 2.7x | |
+| Sunset Valley, mode 1 | 1,730,372 | 833,629 | 2.1x | |
+
+- **Mode 1 with water links gains little, and cannot gain more with the same cost.** The cheap type-`0x15` links are
+  part of mode 1's true costs, so a valid lower bound between two far waypoints is about "to the nearest type-`0x15`
+  waypoint, 2 x water-lot value, from the nearest one to the goal". And the game's inflated heuristic at the body
+  (`10 x cells`) keeps the body node unpopped until the start component is exhausted; lowering it would make the search
+  find the cheap water hop, another route.
+- So the gain of a storm depends on its mode mix, which no log has: the line's `cost mode 1 A, mode 3 B` and the shadow
+  line's per-mode node counts give it.
+- 16 or 32 landmarks per search instead of 8: 7-12% fewer expansions in mode 3, no gain in model time (4: 8% more); 64
+  landmarks per mode: 11-13% fewer in mode 3 for twice the memory. The defaults stay 32 and 8.
+- The land components of our graph are 2,536 in Isla Paradiso against the game's 115: the 9,716 type-`0x0E` waypoints,
+  which the game's flood leaves out, form small groups of their own. They get no landmark (too small); harmless.
+
+### 14.9 Checks (no game)
+
+- `worldalt-host-test.cpp` (Linux, 32-bit, 14 s): 3,000 random worlds in the game's layouts, 24 searches each with random
+  flags, cost set, hubs, group sets, blocked lot edges, polygon and point-test walls, closed links, the retry flag;
+  the stand-in for `0x676260` calls our four hook bodies where the game does. 4.9 million bounds against a brute-force
+  shortest distance (44% of them above half the true distance), the triangle rule on every true edge, 14,862 searches
+  whose cost with the bound, plain and by brute force agree (842,262 against 462,045 waypoints expanded); slices,
+  invalidation by cell count, new link, type flip, tuning and record edit; every no-bound reason; shadow (context,
+  closed bits, budget cut, rerun, unwind, an inflated table reported dearer).
+- Deliberate faults, each fails the host test: no `1 - 1e-5` margin; true distance for hub edges; mode 1 type-`0x15` link
+  at the body fee; tree `0x4C` left out; keep-type below 1 ignored; street factor for riding edges; LONG set only; hub
+  factor 30; one-way edges not mirrored; cell counts of ids from `0x80`; the push adding the excess four times; the
+  bound in the wrong unit; trespass ignored; the type bit and the cell counts left out of the link hash; shadow leaving
+  the context or the closed bits changed.
+- clang-cl `/Zs /W4` (plus `-Wshadow`, `-Wfloat-conversion`): `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`: 0
+  errors, no warning in `worldalt*`. `node tools/selftest-all.ts --ci`: pass.
+- **Not run: MSVC `/W4 /WX`, the Windows selftest** (it adds the two thunks called as the A\* calls them, with register
+  and argument checks, and the install on a copy of the sites' bytes), **the game.**
+
+### 14.10 Unverified, and the next storm
+
+- The sites' bytes were read from the repack copy only; the install check guards another layout.
+- The mode mix of the storm's searches, and so the gain (§14.8).
+- That R's records never change in play (the periodic land hash covers a change within 256 loops, not at once).
+- The per-loop link check walks both trees: 59 us offline on contiguous nodes; the game's nodes are heap blocks.
+  `checks ms` in the line is the measure (s172: 911 searches).
+- Shadow inside a search under a plan deadline: the two extra runs spend the job's time; a budget cut is counted, not
+  compared.
+- Repro `ip-worldalt-storm` (three arms of 3 minutes in one load: off, shadow, use). Read: `one found 0`; `bound dearer`
+  no higher than `plain cost below the game's own first heuristic`; nodes generated plain against bound per mode; then
+  the use arm's world ms per call against the off arm's.
+
+Files: `native/ts3native/worldalt-core.h`, `worldalt.cpp`, `worldalt-test.h`, `worldalt-host-test.cpp` (new); `worldpre.cpp`
+(one install call), `ts3native.cpp` (include, counter line), `selftest.cpp`; `ts3native.ini`, `tools/ini-sections.json`,
+`tools/harness/native-switches.ts`, `tools/harness/repros.json`, `docs/registry.md`, `docs/68-hook-conflict-map.md`,
+`docs/index.md`, `PLAN.md`.

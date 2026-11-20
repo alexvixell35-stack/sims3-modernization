@@ -495,6 +495,7 @@ static void InstallWxPass3(DWORD p3) {
 
 // [WorldPrecompute] (after ApplyWaterJps, InstallPlanCand and InstallTailUnlock)
 static void InstallWorldPre(const wchar_t* ini) {
+    InstallWorldAlt(ini);  // worldalt.cpp (docs/676 §14): its own key, independent of the two below
     WorldPreCounters& c = ts3native_worldpre;
     const int scan = Clamp(GetPrivateProfileIntW(L"WorldPrecompute", L"WaterScanTable", 0, ini), 0, 2);
     const int probe = GetPrivateProfileIntW(L"WorldPrecompute", L"Probe", 0, ini) ? 1 : 0;
