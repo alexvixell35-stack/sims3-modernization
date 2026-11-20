@@ -116166,5 +116166,175 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "untr-oldsave-saves",
+    "bug": "docs/215 G1/G2: ~270 MB untracked private (16 MB blocks, some first seen at saves), an 86.8 MB pagefile view at a save, 42-125 MB reservations with no game frame",
+    "fix": "none (measurement): AllocSites untr rows at marks + a WPR VirtualAlloc/MapFile trace with stacks (tools/etw/untr.wprp, docs/215 §5.1); run once with AllocSites on and once off",
+    "save": "1111 kit5",
+    "note": "Contributor run (Dalexlol): his old save with his CC; the scratch save is Untr-Scratch. 3 saves, 2 Build mode cycles, a mark before and after each.",
+    "expect": "8+ allocsites mark rows with usum/untr; match each new untr base to a VirtualAlloc/MapFile event in the ETL",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 45,
+        "note": "lead-in after the load"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "untr-start"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "time",
+        "waitS": 240,
+        "note": "natural play, block 1"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "pre-save1"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Untr-Scratch"
+        },
+        "waitS": 60,
+        "note": "save 1"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "post-save1"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": true
+        },
+        "waitS": 20,
+        "note": "build mode on"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "build-in1"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 20,
+        "note": "build mode off"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "build-out1"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "time",
+        "waitS": 240,
+        "note": "natural play, block 2"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "pre-save2"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Untr-Scratch"
+        },
+        "waitS": 60,
+        "note": "save 2"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "post-save2"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": true
+        },
+        "waitS": 20,
+        "note": "build mode on"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "build-in2"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 20,
+        "note": "build mode off"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "build-out2"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "time",
+        "waitS": 240,
+        "note": "natural play, block 3"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "pre-save3"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Untr-Scratch"
+        },
+        "waitS": 60,
+        "note": "save 3"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "post-save3"
+        },
+        "waitS": 3
+      }
+    ]
   }
 ]
