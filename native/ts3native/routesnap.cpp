@@ -143,6 +143,11 @@ static DWORD* g_snObjHeads = (DWORD*)(uintptr_t)TS3A(0x011DC2A8);              /
 static void* g_snJmp[SN_N];                 // trampoline (entry) or original callee (call site); NULL = shared or skipped
 static void* volatile g_snIcOrig[SN_IC_N];  // the IC's own fn, our shims jump there
 static volatile LONG g_snOn;
+// docs/671 [FglMemo] (fglprof.cpp; FloodMemo's counter in the combo, docs/667): bumped on every routing data write it can
+// see, any thread, clone and replay writes included: each writer row except the two polygon cache "ensure" entries (W6a /
+// W6b: called on every read, they fill a lazy cache through the other W6 rows, which do count), Footprint_SetEnabled, and
+// (SnIcEnter) every routing IC except the four plan starts.
+static volatile LONG g_snWriteSeq;
 
 // --- per-thread source frames (sim thread) ---
 struct SnFrame { DWORD* slot; DWORD ret; u8 src; u8 idx; };
@@ -521,6 +526,7 @@ static volatile LONG g_snWorldStopLog;
 static void __cdecl SnEnter(int i, DWORD* slot) {
     Ts3nCounters& k = ts3native_counters;
     const SnSite& s = kSn[i];
+    if ((s.leaf != SL_SRC && i != SN_W6B && i != SN_W6B - 1) || i == SN_FPEN) InterlockedIncrement(&g_snWriteSeq);  // docs/671: first, so clone and replay writes count too
     if (t_rpReplay) return;  // the replay consumer replaying on its clone (replay.cpp RpDrain)
     if (t_snapRun) {  // P4 clone run (docs/94 §12.4.3): no counting; a writer leaf makes its lot worker-dirty, an event trips
         if (i == SN_WEV) P4Abort(P4_AB_EVENT);
@@ -638,6 +644,7 @@ static void __cdecl SnEnter(int i, DWORD* slot) {
 
 static void P4VarTrip(DWORD handle);  // p4.cpp
 static void __cdecl SnIcEnter(int i, DWORD* slot) {
+    if (i < SN_IC_START) InterlockedIncrement(&g_snWriteSeq);  // docs/671: a routing IC that is not a plan start, any thread
     if (t_snapRun) return;  // P4 clone run: pass through
     Ts3nCounters& k = ts3native_counters;
     InterlockedIncrement(&k.snIc[i]);
