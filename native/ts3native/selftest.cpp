@@ -13485,6 +13485,7 @@ static void TestNoPathMemoStub() {
 #include "wpsnap-test.h"      // TestWpSnap ([WaypointSnap], docs/679)
 #include "doorshare-test.h"   // TestDoorShare ([RouteSnap] DoorShare, docs/674)
 #include "cellindex-test.h"   // TestCellIndex ([RouteSpeed] CellIndex, docs/669)
+#include "cellspeed-test.h"   // TestCellSpeed ([RouteSpeed] ClassMemo / OpenHint, docs/669 §8-§10)
 #include "placero-test.h"   // TestPlaceCore, TestPlaceTestRO ([PlaceTestRO], docs/670)
 #include "fglprof-test.h"   // TestFglProfCore ([FglProf], docs/671)
 #include "swarmguard-test.h"   // TestSwarmGuardCore, TestSwarmGuardStub ([SwarmGuard], docs/678)
@@ -15069,6 +15070,7 @@ int main() {
     TestWpSnap();      // docs/679
     TestDoorShare();   // docs/674
     TestCellIndex();   // docs/669
+    TestCellSpeed();   // docs/669 §8-§10
     TestPlaceCore();   // docs/670
     TestPlaceTestRO();
     TestFglProfCore();   // docs/671

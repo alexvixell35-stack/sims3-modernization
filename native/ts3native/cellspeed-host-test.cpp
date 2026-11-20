@@ -6,7 +6,8 @@
 //   clang++ -m32 -O1 -ffreestanding -nostdlib -fno-exceptions -fno-rtti -fno-stack-protector -fno-strict-aliasing -mstackrealign -static -Wno-everything \
 //     -o /tmp/cs-host native/ts3native/cellspeed-host-test.cpp && /tmp/cs-host; echo $?
 //   0 = pass; 1 and "assert line N" (of cellspeed-test.h) on stderr; else the number of the failed CHECK of this file + 1.
-// -DCS_MUTANT=1..6 builds a broken copy (cellspeed-core.h, cellspeed.cpp): each must fail (docs/669 §11).
+// Twelve broken copies (proof without the tie / state / link test, a link step short, a key or sequence short, a serve
+// without the key clear or X+0x4C, no scope rule) each fail it (docs/669 §11).
 // Not covered here: the installs (prologue bytes, the clear stub) and the game's real functions.
 #define CELLSPEED_HOST_TEST
 #define __declspec(x)
@@ -86,25 +87,25 @@ extern "C" [[noreturn]] void _start() {
     // an NPC router (scope 2 / 3) is served with ClassMemoAll=0 / OpenHintAll=0; household (1) and unknown (0) are not
     {
         ClassMemoCounters& c = ts3native_classmemo;
-        static CmFakeLeaf leaf;
+        static KmFakeLeaf leaf;
         static u8 x[0x60], cell[0x40];
         leaf.cls[1] = 1, leaf.mult[1] = 0x47C35000;
         *(DWORD*)(x + 0x50) = 0x10000;
-        g_cmNext = CmFakeRecalc, g_cmAll = false, c.cmMode = 1, g_csOptGlobal = &g_cmFakeGlobal;
+        g_kmNext = KmFakeRecalc, g_kmAll = false, c.kmMode = 1, g_csOptGlobal = &g_kmFakeGlobal;
         InterlockedIncrement(&g_snWriteSeq);
-        CmFakeCell(cell, &leaf, 0x7000, 1, x);
-        CmRecalcHook(cell, NULL, x);  // fills
+        KmFakeCell(cell, &leaf, 0x7000, 1, x);
+        KmRecalcHook(cell, NULL, x);  // fills
         const LONG scopes[4] = {2, 3, 1, 0};
         for (int i = 0; i < 4; i++) {
-            const LONG h0 = c.cmHits, m0 = c.cmScopeMiss;
-            const int r0 = g_cmFakeRuns;
+            const LONG h0 = c.kmHits, m0 = c.kmScopeMiss;
+            const int r0 = g_kmFakeRuns;
             g_fakeScope = scopes[i];
-            CmFakeCell(cell, &leaf, 0x7000, 1, x);
-            CmRecalcHook(cell, NULL, x);
+            KmFakeCell(cell, &leaf, 0x7000, 1, x);
+            KmRecalcHook(cell, NULL, x);
             CHECK(cell[0x20] == 1 && *(DWORD*)(cell + 0x10) == 0x47C35000 && *(DWORD*)(cell + 0x1C) == 1);
-            CHECK(c.cmHits - h0 == (i < 2) && c.cmScopeMiss - m0 == (i >= 2) && g_cmFakeRuns - r0 == (i >= 2));
+            CHECK(c.kmHits - h0 == (i < 2) && c.kmScopeMiss - m0 == (i >= 2) && g_kmFakeRuns - r0 == (i >= 2));
         }
-        c.cmMode = 0;
+        c.kmMode = 0;
     }
     {
         OpenHintCounters& c = ts3native_openhint;

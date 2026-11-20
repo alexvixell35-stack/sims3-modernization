@@ -21,51 +21,51 @@ static inline float CsRdF(uintptr_t a, int off) { return *(const float*)(a + off
 // ---------------------------------------------------------------------------------------------------------------------
 // ClassMemo
 // ---------------------------------------------------------------------------------------------------------------------
-enum { CM_SETS = 2048, CM_WAYS = 2, CM_AGENTS = 8, CM_IDS = 16, CM_OPT_WORDS = 14, CM_D_WORDS = 16 };
-enum { CM_NEW, CM_SAME, CM_EVICT };
+enum { KM_SETS = 2048, KM_WAYS = 2, KM_AGENTS = 8, KM_IDS = 16, KM_OPT_WORDS = 14, KM_D_WORDS = 16 };
+enum { KM_NEW, KM_SAME, KM_EVICT };
 
 // What the footprint class / multiplier slots and the leaf scans read of the agent [verified disassembly, docs/669 §8.2]:
 // the route options object O = X+0x40 (+0x00 kind word, +0x08 / +0x0C own object id) and, when the global 0x11D9128 is
 // set, the data block D = [O+0x28] (+0x08 / +0x0C the sorted held-id vector with its flag byte +0x18, +0x20 / +0x24 one
 // id, +0x28..+0x34 the option words of 0x81C880, +0x38 / +0x3C the ignore list). Kept raw: O's first 0x38 bytes, D's
 // first 0x40 bytes and the elements (8 bytes each) of both lists.
-struct CmAgent {
+struct KmAgent {
     uintptr_t opts, d;
     uint32_t haveD, nIgn, nHeld;
-    uint32_t o[CM_OPT_WORDS], dw[CM_D_WORDS];
-    uint32_t ign[CM_IDS * 2], held[CM_IDS * 2];
+    uint32_t o[KM_OPT_WORDS], dw[KM_D_WORDS];
+    uint32_t ign[KM_IDS * 2], held[KM_IDS * 2];
 };
-struct CmSlot {
+struct KmSlot {
     uintptr_t tree, node;
     uint32_t shape, flags, cls, agent, gen;
     uint32_t mult, postCls;  // the multiplier's bits, X+0x4C after the call
     uint8_t klass, keyClear; // the class byte, 1 = the function cleared the cell's cache key (cell+0x1C high 24 bits)
 };
-struct CmMemo {
+struct KmMemo {
     uint32_t gen, seqClear, seqWrite, seqHost, rr, nAgents;
-    CmAgent agent[CM_AGENTS];
-    CmSlot slot[CM_SETS * CM_WAYS];
+    KmAgent agent[KM_AGENTS];
+    KmSlot slot[KM_SETS * KM_WAYS];
 };
 
-// an id list [begin, end) of 8-byte elements: its length, or -1 when it does not look like one or is longer than CM_IDS
-static inline int CmListLen(uint32_t begin, uint32_t end) {
+// an id list [begin, end) of 8-byte elements: its length, or -1 when it does not look like one or is longer than KM_IDS
+static inline int KmListLen(uint32_t begin, uint32_t end) {
     if (begin == end) return 0;
-    if (!begin || end < begin || ((end - begin) & 7) || (end - begin) / 8 > CM_IDS) return -1;
+    if (!begin || end < begin || ((end - begin) & 7) || (end - begin) / 8 > KM_IDS) return -1;
     return (int)((end - begin) / 8);
 }
 
 // Reads the agent behind `opts` (0 = no agent). globalSet: [0x11D9128] != 0, as 0x8292D0 tests it. false = not usable
-// (a list longer than CM_IDS or of an odd shape): the caller runs the game's function.
-static inline bool CmAgentRead(CmAgent* a, uintptr_t opts, bool globalSet) {
+// (a list longer than KM_IDS or of an odd shape): the caller runs the game's function.
+static inline bool KmAgentRead(KmAgent* a, uintptr_t opts, bool globalSet) {
     a->opts = opts, a->d = 0, a->haveD = 0, a->nIgn = a->nHeld = 0;
-    for (int i = 0; i < CM_OPT_WORDS; i++) a->o[i] = opts ? CsRd(opts, i * 4) : 0;
-    for (int i = 0; i < CM_D_WORDS; i++) a->dw[i] = 0;
+    for (int i = 0; i < KM_OPT_WORDS; i++) a->o[i] = opts ? CsRd(opts, i * 4) : 0;
+    for (int i = 0; i < KM_D_WORDS; i++) a->dw[i] = 0;
     if (!opts || !globalSet) return true;
     const uintptr_t d = CsRd(opts, 0x28);
     if (!d) return true;
     a->d = d, a->haveD = 1;
-    for (int i = 0; i < CM_D_WORDS; i++) a->dw[i] = CsRd(d, i * 4);
-    const int ni = CmListLen(a->dw[0x38 / 4], a->dw[0x3C / 4]), nh = CmListLen(a->dw[0x08 / 4], a->dw[0x0C / 4]);
+    for (int i = 0; i < KM_D_WORDS; i++) a->dw[i] = CsRd(d, i * 4);
+    const int ni = KmListLen(a->dw[0x38 / 4], a->dw[0x3C / 4]), nh = KmListLen(a->dw[0x08 / 4], a->dw[0x0C / 4]);
     if (ni < 0 || nh < 0) return false;
     a->nIgn = (uint32_t)ni, a->nHeld = (uint32_t)nh;
     for (int i = 0; i < ni * 2; i++) a->ign[i] = CsRd(a->dw[0x38 / 4], i * 4);
@@ -74,15 +74,15 @@ static inline bool CmAgentRead(CmAgent* a, uintptr_t opts, bool globalSet) {
 }
 
 // true = the agent behind `opts` reads now exactly as the kept record (every word, both lists)
-static inline bool CmAgentSame(const CmAgent* a, uintptr_t opts, bool globalSet) {
+static inline bool KmAgentSame(const KmAgent* a, uintptr_t opts, bool globalSet) {
     if (a->opts != opts) return false;
     if (!opts) return true;
-    for (int i = 0; i < CM_OPT_WORDS; i++)
+    for (int i = 0; i < KM_OPT_WORDS; i++)
         if (a->o[i] != CsRd(opts, i * 4)) return false;
     const uintptr_t d = globalSet ? CsRd(opts, 0x28) : 0;
     if (a->d != d || (a->haveD != 0) != (d != 0)) return false;
     if (!d) return true;
-    for (int i = 0; i < CM_D_WORDS; i++)
+    for (int i = 0; i < KM_D_WORDS; i++)
         if (a->dw[i] != CsRd(d, i * 4)) return false;
     for (uint32_t i = 0; i < a->nIgn * 2; i++)
         if (a->ign[i] != CsRd(a->dw[0x38 / 4], (int)i * 4)) return false;
@@ -92,63 +92,63 @@ static inline bool CmAgentSame(const CmAgent* a, uintptr_t opts, bool globalSet)
 }
 
 // the record number of the agent behind `opts`, read now; a new record when none matches; -1 = not usable or no room
-static inline int CmAgentIndex(CmMemo* m, uintptr_t opts, bool globalSet) {
+static inline int KmAgentIndex(KmMemo* m, uintptr_t opts, bool globalSet) {
     for (uint32_t i = 0; i < m->nAgents; i++)
-        if (CmAgentSame(&m->agent[i], opts, globalSet)) return (int)i;
-    if (m->nAgents == CM_AGENTS) return -1;
-    if (!CmAgentRead(&m->agent[m->nAgents], opts, globalSet)) return -1;
+        if (KmAgentSame(&m->agent[i], opts, globalSet)) return (int)i;
+    if (m->nAgents == KM_AGENTS) return -1;
+    if (!KmAgentRead(&m->agent[m->nAgents], opts, globalSet)) return -1;
     return (int)m->nAgents++;
 }
 
-static inline uint32_t CmHash(uintptr_t tree, uintptr_t node, uint32_t shape, uint32_t flags, uint32_t cls, uint32_t agent) {
+static inline uint32_t KmHash(uintptr_t tree, uintptr_t node, uint32_t shape, uint32_t flags, uint32_t cls, uint32_t agent) {
     uint32_t h = (uint32_t)node * 0x9E3779B1u ^ (shape + (agent << 8) + (cls << 12)) * 0x85EBCA6Bu ^ flags * 0xC2B2AE35u ^ (uint32_t)tree;
     h ^= h >> 15;
     h *= 0x2C1B3C6Du;
     h ^= h >> 13;
-    return (h & (CM_SETS - 1)) * CM_WAYS;
+    return (h & (KM_SETS - 1)) * KM_WAYS;
 }
 
 // every entry and agent record gone; gen 0 never marks a live slot, so a wrap zeroes the slots first
-static inline void CmReset(CmMemo* m) {
+static inline void KmReset(KmMemo* m) {
     if (++m->gen == 0) {
-        for (uint32_t i = 0; i < CM_SETS * CM_WAYS; i++) m->slot[i].gen = 0;
+        for (uint32_t i = 0; i < KM_SETS * KM_WAYS; i++) m->slot[i].gen = 0;
         m->gen = 1;
     }
     m->nAgents = 0;
 }
 
 // true = the memo was cleared because a sequence moved since it was filled
-static inline bool CmSync(CmMemo* m, uint32_t seqClear, uint32_t seqWrite, uint32_t seqHost) {
+static inline bool KmSync(KmMemo* m, uint32_t seqClear, uint32_t seqWrite, uint32_t seqHost) {
     if (m->gen && m->seqClear == seqClear && m->seqWrite == seqWrite && m->seqHost == seqHost) return false;
-    CmReset(m);
+    KmReset(m);
     m->seqClear = seqClear, m->seqWrite = seqWrite, m->seqHost = seqHost;
     return true;
 }
 
-static inline bool CmSlotIs(const CmMemo* m, const CmSlot* s, uintptr_t tree, uintptr_t node, uint32_t shape, uint32_t flags,
+static inline bool KmSlotIs(const KmMemo* m, const KmSlot* s, uintptr_t tree, uintptr_t node, uint32_t shape, uint32_t flags,
                             uint32_t cls, uint32_t agent) {
     return s->gen == m->gen && s->node == node && s->tree == tree && s->shape == shape && s->flags == flags && s->cls == cls &&
            s->agent == agent;
 }
 
-static inline CmSlot* CmFind(CmMemo* m, uintptr_t tree, uintptr_t node, uint32_t shape, uint32_t flags, uint32_t cls, uint32_t agent) {
-    CmSlot* s = m->slot + CmHash(tree, node, shape, flags, cls, agent);
-    for (int w = 0; w < CM_WAYS; w++, s++)
-        if (CmSlotIs(m, s, tree, node, shape, flags, cls, agent)) return s;
+static inline KmSlot* KmFind(KmMemo* m, uintptr_t tree, uintptr_t node, uint32_t shape, uint32_t flags, uint32_t cls, uint32_t agent) {
+    KmSlot* s = m->slot + KmHash(tree, node, shape, flags, cls, agent);
+    for (int w = 0; w < KM_WAYS; w++, s++)
+        if (KmSlotIs(m, s, tree, node, shape, flags, cls, agent)) return s;
     return 0;
 }
 
 // keep one result of the game's function. The same key again rewrites its slot; a full set loses one entry (ways in turn)
-static inline int CmStore(CmMemo* m, uintptr_t tree, uintptr_t node, uint32_t shape, uint32_t flags, uint32_t cls, uint32_t agent,
+static inline int KmStore(KmMemo* m, uintptr_t tree, uintptr_t node, uint32_t shape, uint32_t flags, uint32_t cls, uint32_t agent,
                           uint8_t klass, uint32_t mult, uint32_t postCls, bool keyClear) {
-    CmSlot* const set = m->slot + CmHash(tree, node, shape, flags, cls, agent);
-    CmSlot* s = 0;
-    int r = CM_NEW;
-    for (int w = 0; w < CM_WAYS; w++)
-        if (CmSlotIs(m, set + w, tree, node, shape, flags, cls, agent)) { s = set + w, r = CM_SAME; break; }
-    for (int w = 0; !s && w < CM_WAYS; w++)
+    KmSlot* const set = m->slot + KmHash(tree, node, shape, flags, cls, agent);
+    KmSlot* s = 0;
+    int r = KM_NEW;
+    for (int w = 0; w < KM_WAYS; w++)
+        if (KmSlotIs(m, set + w, tree, node, shape, flags, cls, agent)) { s = set + w, r = KM_SAME; break; }
+    for (int w = 0; !s && w < KM_WAYS; w++)
         if (set[w].gen != m->gen) s = set + w;
-    if (!s) s = set + (m->rr++ & (CM_WAYS - 1)), r = CM_EVICT;
+    if (!s) s = set + (m->rr++ & (KM_WAYS - 1)), r = KM_EVICT;
     s->gen = 0;  // not live while it is rewritten
     s->tree = tree, s->node = node, s->shape = shape, s->flags = flags, s->cls = cls, s->agent = agent;
     s->klass = klass, s->mult = mult, s->postCls = postCls, s->keyClear = keyClear ? 1 : 0;
@@ -159,12 +159,12 @@ static inline int CmStore(CmMemo* m, uintptr_t tree, uintptr_t node, uint32_t sh
 // Which calls the memo looks at at all (the rest run the game's function untouched). node: cell+0x0C; key24: the cell's
 // cache key as the caller set it (cell+0x1C >> 8); clearance: the small-cell clearance test can run for this cell (flag
 // 0x200000, a sub-cell with a parent), which reads more than the key holds and fills the lazy polygon cache.
-static inline bool CmEligible(uintptr_t x, uintptr_t node, uint32_t key24, bool clearance) {
+static inline bool KmEligible(uintptr_t x, uintptr_t node, uint32_t key24, bool clearance) {
     return x != 0 && node != 0 && key24 != 0 && !clearance;
 }
 
 // 1 = write the kept result instead of running the game's function. mode 1 serves; mode 2 (shadow) never does.
-static inline int CmServeRule(int mode, bool found, bool scopeOk) { return mode == 1 && found && scopeOk ? 1 : 0; }
+static inline int KmServeRule(int mode, bool found, bool scopeOk) { return mode == 1 && found && scopeOk ? 1 : 0; }
 
 // ---------------------------------------------------------------------------------------------------------------------
 // OpenHint

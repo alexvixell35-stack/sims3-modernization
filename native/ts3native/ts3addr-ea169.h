@@ -163,6 +163,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x0061AD13, 0x0061BED3},
     {0x0061AE80, 0x0061C040},
     {0x0061B533, 0x0061C6F3},
+    {0x0061B880, 0x00000000},
     {0x0061BCE0, 0x00000000},
     {0x0061BF60, 0x0061D080},
     {0x0061C020, 0x0061D140},
@@ -329,6 +330,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00669CB0, 0x00000000},
     {0x0066A040, 0x00000000},
     {0x0066AC37, 0x0066C097},
+    {0x0066B090, 0x00000000},
     {0x0066B9C0, 0x00000000},
     {0x0066BB50, 0x0066CFB0},
     {0x0066BFAE, 0x0066D40E},
@@ -1247,6 +1249,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00FE514C, 0x00000000},
     {0x00FE68D8, 0x01031E40},
     {0x00FE68F4, 0x01031E5C},
+    {0x00FEA080, 0x00000000},
     {0x00FEAC80, 0x010361E0},
     {0x00FEAE08, 0x01036368},
     {0x00FEB5F8, 0x01036B58},
@@ -1717,4 +1720,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x0091A8CC no-ea-1.69-address native/ts3native/swarmguard.cpp:30
 // unresolved: 0x006595B0 no-ea-1.69-address native/ts3native/wpsnap.cpp
 // unresolved: 0x00787240 no-ea-1.69-address native/ts3native/wpsnap.cpp
-constexpr int ts3addr_count = 1507;
+// unresolved: 0x0061B880 no-ea-1.69-address native/ts3native/cellspeed.cpp
+// unresolved: 0x0066B090 no-ea-1.69-address native/ts3native/cellspeed.cpp
+// unresolved: 0x00FEA080 no-ea-1.69-address native/ts3native/cellspeed.cpp
+constexpr int ts3addr_count = 1510;

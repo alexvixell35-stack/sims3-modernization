@@ -112639,6 +112639,91 @@
     ]
   },
   {
+    "id": "ip-cellspeed-storm",
+    "bug": "docs/669 §8-§9: the in-room cell A* 0x61E500 costs about 2.8 s of route-worker time per 2-minute Isla Paradiso storm (s159: 3,018 found searches, 1.26 M node pops), all under the routing lock. In the s140 hitch windows its class tests are 20% of it (QuadLeaf_ClassFromMaskedEntries 0x667DB0 alone 8.3% of the routing samples: a class 1 cell is recomputed on every use) and its open list 18% (AStarBucket_InsertSorted 0x61B880 6.9%: a walk from the bucket head per insert)",
+    "fix": "ts3native [RouteSpeed] ClassMemo (per-thread results of QuadCell_Recompute 0x66B090 under tree, node, shape, X+0x50, X+0x4C and the agent, until a table clear, routing write or managed call) and OpenHint (the sorted insert 0x61B880 starts at a kept node of the same bucket after a local proof); both default 0, 1 serve, 2 shadow (docs/669 §8-§10)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test with a reference sorted insert and a fake recompute, 12 mutants caught). Job ini: [RouteSpeed] ClassMemo=2 OpenHint=2 FloodMemo=2, [RouteSnap] Enabled=1, [RouteAsync] Enabled=1, [RouteJobPhases] Enabled=1 CandidateSplit=1, the s159 on-arm switches otherwise. Arm 1 is shadow for both (the game's functions run; the mismatch counts and the measured walk lengths are the result). Arm 2 serves both to NPC routers. Read per arm: 'route candidate split totals' (cell ms / calls), 'route speed: flood exits' (found ms and pops), 'route speed: class memo' (calls, hits, uncached by the game, the game's recompute us) and 'route speed: open hint' (the game's walk nodes, share of 8 or more, hits and nodes a hinted walk). If the shadow walk is under 3 nodes or 'uncached by the game' is a small share of calls, that feature has nothing to give: leave it off.",
+    "expect": "'OK   route speed class memo' and 'OK   route speed open hint'. After arm 1: a 'route speed: class memo mode 2' line with checks > 0 and mismatch 0, a 'route speed: open hint mode 2' line with shadow checks > 0 and mismatch 0, no 'CLASS MEMO MISMATCH' or 'OPEN HINT MISMATCH' line. After arm 2 (mode 1): class memo hits > 0, open hint 'from a hint' > 0, cell ms per call and found ms per pop below arm 1, route results (ufplansplit codes, stuck Sims) unchanged. No crash",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "classmemo": 2,
+          "openhint": 2
+        },
+        "waitS": 1,
+        "note": "arm 1: shadow (the ini values)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-workerhold-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "classmemo": 1,
+          "openhint": 1
+        },
+        "waitS": 1,
+        "note": "arm 2: both serve (NPC routers)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "the same storm with both on; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "classmemo": 2,
+          "openhint": 2
+        },
+        "note": "back to shadow (the ini values)"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

@@ -12,7 +12,7 @@
  "RouteJobPhases": ["hostcalls.cpp", "routephases.cpp", "syncphases.cpp", "workerhold.cpp"],
  "GoalGen": ["goalgen.cpp"],
  "CellMemoProbe": ["cellmemo.cpp"],
- "RouteSpeed": ["cellindex.cpp", "floodmemo.cpp", "plancand.cpp", "routesnap.cpp", "routespeed.cpp"],
+ "RouteSpeed": ["cellindex.cpp", "cellspeed.cpp", "floodmemo.cpp", "plancand.cpp", "routesnap.cpp", "routespeed.cpp"],
  "RouteEarlyOut": ["earlyout.cpp"],
  "SaveWrite": ["savewrite.cpp"],
  "Decompress": ["decompress.cpp"],
