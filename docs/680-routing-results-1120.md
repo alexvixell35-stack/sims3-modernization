@@ -79,7 +79,9 @@ repeat of the same seed off and on except s170/s171.
 | ts3fixes `unseenservice` | unseen service Sims' bar order | off | yes | regression in Bridgeport (§4), fixed 7a3d4bbf | BROKEN/FIXED |
 | `[HitchAttr] RouteLockCallers` | each lock wait line names its callers | 0 | log only | **s189 ran it** (`RouteLockCallers=1`): 82 lines by key and first caller, see §5 item 4 | ran (docs/670 §19 still says NOT RUN) |
 | `[WorldPrecompute] Probe` (19 post passes) | times the post pass by node pass | 0 | observe only | s172, s189: pass 3 smoothing **6,901 / 7,119 ms** of the post pass | ran |
-| `[WorldPrecompute] Probe` pass 3 by callee (docs/676 §13) | times pass 3's 12 callees | 0 | observe only | no `pass 3 callees` line in any run; there is no s190 and no `proof6.txt` | NOT RUN |
+| `[WorldPrecompute] Probe` pass 3 by callee (docs/676 §13) | times pass 3's 12 callees | 0 | observe only | s195 (also s196, s198, s200): pass 3 6,179 ms / 1,779 calls; segment test 5,647 ms / 215,942 (121 a pass, 26 us each); lot test `0x643E60` 3,143 ms / 135,799; world test `0x658A00` 2,213 ms / 149,557; nudge 236 ms; `+0x72` set in 9,640 of 215,915 lot walks (docs/676 §15.1) | ran |
+| `[WorldPrecompute] SmoothMemo` (docs/676 §14) | memo of quadtree cell evaluations inside one pass 3 | 0 | yes (exact) | s212 shadow: 4,348,062 checks, mismatch 0. s213 serve: 3.59 M of 9.48 M evaluations from a record, post 5,659 ms / 1,648 against s202's 5,634 / 1,672: **no gain** (the evaluator is not where the time is; the table of 4,096 fills; docs/676 §15.2) | ran, no gain |
+| `[WorldPrecompute] SmoothCut` (docs/676 §15) | a blocked lot segment test ends at the blocking cell; remembered blocking cells tried first | 0 | yes (exact) | no `smooth cut` line in any run | NOT RUN |
 | `[RouteAsync] SkipRetry` (docs/670 §20) | a skipped job parks and retries | 0 | yes | no `route skip retry:` line in any run | NOT RUN |
 | `[SwarmGuard]` (docs/678) | guard at the Swarm effect update | `Enabled=0` | yes (skip) / repair | no `swarm guard:` line in any run | NOT RUN |
 

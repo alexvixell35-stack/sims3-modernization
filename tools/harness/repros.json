@@ -112926,6 +112926,113 @@
     ]
   },
   {
+    "id": "ip-smoothcut-storm",
+    "bug": "docs/676 §15: the path smoothing pass 0x64DD40 (post pass 3) is about 2.5 ms a call under the routing lock. Its anchor moves one sample at a time and asks two failing segment tests per stop where the path cannot be pulled straight (121 tests a pass, s195); on a lot each test walks every quadtree cell the segment crosses, because the walk's callback 0x662D30 never stops the walk",
+    "fix": "ts3native [WorldPrecompute] SmoothCut (1 serve, 2 shadow; default 0): the segment query 0x667350 called at 0x6676CE ends at the first cell above both end multipliers and first tries the last blocking cells of the tree; identical answers (docs/676 §15)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test of the walk and the hook on a fake tree). Job ini: [WorldPrecompute] SmoothCut=2 (the hook installs only with a non-zero ini value), SmoothMemo=0, [RouteJobPhases] CandidateSplit=1, the s202 on-arm switches otherwise. Arm 1 is off (mode 0: the game's query), arm 2 shadow (ours and the game's on every query: the mismatch count and the two times in the line are the result), arm 3 serves. Read 'route candidate split totals' post ms / calls per arm.",
+    "expect": "'OK   world precompute smooth cut: SmoothCut=2' with ready 0x1. After arm 2: 'world precompute: smooth cut mode 2' with shadow checks > 0, mismatch 0, no 'SMOOTH CUT MISMATCH' line, and '(N ms)' of our walk below 'the game's queries N ms'. After arm 3 (mode 1): 'blocked by a remembered cell' and 'blocked at a cell in the walk' > 0, post ms per call in 'route candidate split totals' below arm 1's. No crash, plans / failed in 'route plans:' as in the off arm",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothcut": 0
+        },
+        "waitS": 1,
+        "note": "arm 1: off (the game's query)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-worldpre-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothcut": 2
+        },
+        "waitS": 1,
+        "note": "arm 2: shadow"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "the same storm, every query run both ways and compared; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothcut": 1
+        },
+        "waitS": 1,
+        "note": "arm 3: our walk answers (every router: the answers are the game's)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "the same storm with the cut serving; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothcut": 2
+        },
+        "note": "back to shadow (the ini value)"
+      }
+    ]
+  },
+  {
     "id": "ip-foreignkindsunseen-storm",
     "bug": "PlanFromPoint plans of unseen NPC boats / vehicles planned in their rider's task (foreign STARTs, ts3fixes bit 61) run synchronously on the sim thread: the release ini's [RouteAsync] ForeignKinds=4 has no PlanFromPoint bit, the START is refused Foreign, and the kind-2 pass-through (ArPass) logs the plan only as 'entry Route_PlanLocked (no IC)' (s189: 16 of 18 sync plans >= 40 ms, 41-93 ms each, plus their waits on key 0x760BFF caller 0x764400; docs/670 §23.3, §24.1)",
     "fix": "ts3native [RouteAsync] ForeignKindsUnseen (bits as Kinds, default 0): a foreign START of those kinds starts as an A10 foreign job only for a route ts3fixes scoped unseen right before it; household / selected / seen / unknown scope stay refused Foreign and sync (docs/670 §24.2). Log only, always on: 'route async: kind K call of route ... runs the game's IC with no job (reason)' tallies the pass-through calls by START refusal reason (§24.3)",
