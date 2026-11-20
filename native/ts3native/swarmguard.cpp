@@ -36,9 +36,10 @@ static SwgStats g_swgSt;
 static SwgSeen g_swgSeen[SWG_SEEN];
 static unsigned g_swgSeenNext;
 static DWORD g_swgScanTick, g_swgCleanTick;
+static const unsigned long* g_swgScanGroup;  // the group the last scan read (each group is updated once a frame, in turn)
 static DWORD g_swgAllocTarget;
-static SwgBirth g_swgBirth[SWG_BIRTHS];   // written by the allocating thread only (the main thread in every sample)
-static unsigned g_swgBirthNext;
+static SwgBirth g_swgBirth[SWG_BIRTHS];   // the main thread in every sample; a slot is claimed atomically all the same
+static volatile LONG g_swgBirthNext;
 
 // one more line for the object around `at` (the bad pointer, or the node it links to): nine words at it and the nearest
 // vtable word below it
@@ -54,14 +55,15 @@ static void SwgDumpNode(const char* what, unsigned long at) {
 
 // Trace: the lines that name the earlier owner of the effect's address and the list the bad word belongs to
 static void SwgDumpTrace(const unsigned long* e, unsigned long word) {
-    const SwgBirth* b = SwgBirthFind(g_swgBirth, g_swgBirthNext, (unsigned long)(uintptr_t)e);
+    const unsigned births = (unsigned)g_swgBirthNext;
+    const SwgBirth* b = SwgBirthFind(g_swgBirth, births, (unsigned long)(uintptr_t)e);
     if (b)
         Log("swarm guard:   effect %p born %lu ms ago (allocation %lu of %u, thread %lu); its block before the constructor: %08lX %08lX %08lX "
-            "%08lX %08lX %08lX %08lX %08lX", e, GetTickCount() - b->tick, b->seq, g_swgBirthNext, b->tid, b->w[0], b->w[1], b->w[2], b->w[3],
+            "%08lX %08lX %08lX %08lX %08lX", e, GetTickCount() - b->tick, b->seq, births, b->tid, b->w[0], b->w[1], b->w[2], b->w[3],
             b->w[4], b->w[5], b->w[6], b->w[7]);
     else
         Log("swarm guard:   effect %p: no birth record (%u allocations seen; made before the hook or more than %d allocations ago)", e,
-            g_swgBirthNext, (int)SWG_BIRTHS);
+            births, (int)SWG_BIRTHS);
     const unsigned long* w = (const unsigned long*)(uintptr_t)word;
     if (word < 0x10000 || (word & 3) || !Readable(w, 0x48)) return;
     SwgDumpNode("bad word", word);
@@ -88,7 +90,7 @@ static void SwgDump(const char* how, const unsigned long* e, unsigned long word,
             g_swgk.repair ? "word put back" : "update skipped", g_swgCleanTick ? GetTickCount() - g_swgCleanTick : 0ul);
     }
     const unsigned long* w = (const unsigned long*)(uintptr_t)(word - 4);
-    if (word >= 0x10000 && Readable(w, 0x48))
+    if (word >= 0x10000 && Readable(w, 0x4C))
         Log("swarm guard:   at %08lX-4: %08lX | %08lX %08lX %08lX %08lX %08lX %08lX %08lX %08lX ... +0x44 %08lX%s", word, w[0], w[1], w[2], w[3],
             w[4], w[5], w[6], w[7], w[8], w[18], w[2] == (unsigned long)(uintptr_t)(e + 1) ? " (its 2nd word points back at effect+4)" : "");
     else
@@ -99,8 +101,10 @@ static void SwgDump(const char* how, const unsigned long* e, unsigned long word,
 // Trace: the allocator's fresh block, on the allocating thread, before the constructor
 static void __cdecl SwgBorn(unsigned long* p) {
     if (!p || !Readable(p, SWG_BIRTH_WORDS * 4)) return;
-    g_swgSt.births++;
-    SwgBirthPut(g_swgBirth, &g_swgBirthNext, (unsigned long)(uintptr_t)p, GetTickCount(), GetCurrentThreadId(), p);
+    InterlockedIncrement(&g_swgSt.births);
+    // an allocation off the main thread must not share a slot or a sequence number with one on it: claim the slot first
+    unsigned slot = (unsigned)InterlockedIncrement(&g_swgBirthNext) - 1u;
+    SwgBirthPut(g_swgBirth, &slot, (unsigned long)(uintptr_t)p, GetTickCount(), GetCurrentThreadId(), p);
 }
 
 // 0x91A8CC's new target. Entered as 0x4E3F90 would be (cdecl, six stack arguments). The six are pushed again and the
@@ -133,9 +137,12 @@ static __declspec(naked) void SwgAllocStub() {
 // the stub's C part, on the main thread: 1 = skip the game's update of this effect
 static int __cdecl SwgEnter(unsigned long* e, unsigned long* group) {
     if (g_swgk.scan && group) {
+        // once per group per tick: a tick-only limit let the frame's first group take the scan and the other groups
+        // (SwarmManager_UpdateFrame updates them in turn, all within one tick) went unscanned
         const DWORD now = GetTickCount();
-        if (now != g_swgScanTick) {
+        if (now != g_swgScanTick || group != g_swgScanGroup) {
             g_swgScanTick = now;
+            g_swgScanGroup = group;
             unsigned long** const b = (unsigned long**)(uintptr_t)group[0x30 / 4];
             unsigned long** const end = (unsigned long**)(uintptr_t)group[0x34 / 4];
             unsigned long* fb = nullptr;

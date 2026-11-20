@@ -79,6 +79,10 @@ static void TestConnRoomsRO() {
     const SrLotFindFn savedFind = g_srLotFind;
     const CnFn savedOrig = g_cnOrig;
     const CnNewFn savedNew = g_cnNew;
+    const void* const volatile* const savedHost = g_cnHostPP;
+    static const void* volatile c_host;
+    c_host = c_planner;  // any non-null script host
+    g_cnHostPP = &c_host;
     const AsyncSlot savedAsync = g_async;
     const LONG savedArmed = g_twArmed, savedOwner = kc.rgOwnerTid, savedTw = g_twActive;
     g_srWorldGet = World, g_srActiveLot = Active, g_srLotFind = Find, g_cnOrig = Orig, g_cnNew = New;
@@ -157,6 +161,9 @@ static void TestConnRoomsRO() {
     *(u8**)(c_world + 0x95C) = NULL;
     assert(!CnGate(slot, me) && k.cnFb[CN_FB_SHAPE] == 1);
     *(u8**)(c_world + 0x95C) = c_planner;
+    c_host = NULL;  // no script host: the IC returns before its call (0x792A1E), so nothing may be parked for it
+    assert(!CnGate(slot, me) && k.cnFb[CN_FB_SHAPE] == 2 && !g_cnA.set);
+    c_host = c_planner;
     assert(!g_cnA.set && k.cnTaken == 0 && t_qlShared == 0 && !t_inRo && g_srInClone == 0);
 
     // an answer parked for the stub: used by the call with the same slot, planner and arguments into an empty vector
@@ -211,10 +218,11 @@ static void TestConnRoomsRO() {
     }
     printf("ConnRoomsRO ([ConnRoomsRO] Enabled=1): export layout; room index; signed set order and cap; the read (rooms, not in the "
            "table, past the vector, not built, not filled, null portal); gate refusals (off, no job, other thread, +0x918 owner, job end, QL "
-           "busy, tripwire, no planner); parked answer handed out through the allocator, empty answer, three stale keys; shadow compare\n");
+           "busy, tripwire, no planner, no script host); parked answer handed out through the allocator, empty answer, three stale keys; shadow compare\n");
 
     memset(&k, 0, sizeof(k));
     g_cnA.set = false;
     g_srWorldGet = savedWorld, g_srActiveLot = savedActive, g_srLotFind = savedFind, g_cnOrig = savedOrig, g_cnNew = savedNew;
+    g_cnHostPP = savedHost;
     g_async = savedAsync, g_twArmed = savedArmed, kc.rgOwnerTid = savedOwner;
 }

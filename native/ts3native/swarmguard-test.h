@@ -130,24 +130,42 @@ static void TestSwarmGuardStub() {
     g_swgk.repair = 1;
     SwgtCall();
     assert(g_swgtRan == 2 && g_swgtEcx == (DWORD)(uintptr_t)bad && bad[1] == 0x2000 && g_swgSt.repaired == 1 && g_swgtEsp1 == g_swgtEsp0);
+    // Scan: every group is scanned when its turn comes, not only the first group of the tick (UpdateFrame walks the groups
+    // in turn within one tick); a group's own effects in a row share one scan per tick
+    {
+        g_swgk.scan = 1;
+        static unsigned long* gv[2] = {good, good};
+        static unsigned long grpA[0x38 / 4], grpB[0x38 / 4];
+        grpA[0x30 / 4] = grpB[0x30 / 4] = (unsigned long)(uintptr_t)gv;
+        grpA[0x34 / 4] = grpB[0x34 / 4] = (unsigned long)(uintptr_t)(gv + 2);
+        const long s0 = g_swgSt.scans;
+        assert(SwgEnter(good, grpA) == 0 && g_swgSt.scans >= s0 + 1);
+        const long s1 = g_swgSt.scans;
+        assert(SwgEnter(good, grpB) == 0 && g_swgSt.scans == s1 + 1);  // another group: its own scan whatever the tick
+        const long s2 = g_swgSt.scans;
+        assert(SwgEnter(good, grpA) == 0 && g_swgSt.scans == s2 + 1);
+        assert(SwgEnter(good, nullptr) == 0 && g_swgSt.scans == s2 + 1);  // no group: nothing to scan
+        g_swgk.scan = 0;
+        g_swgScanGroup = nullptr;
+    }
     // the allocation stub: the six arguments reach the allocator in order, its block comes back, the block is recorded
     // with the words it held; a failed allocation (null) is passed on and not recorded
     const DWORD keepAlloc = g_swgAllocTarget;
-    const unsigned keepNext = g_swgBirthNext;
+    const unsigned keepNext = (unsigned)g_swgBirthNext;
     typedef void* (__cdecl * SwgtAllocFn)(DWORD, DWORD, DWORD, DWORD, DWORD, DWORD);
     g_swgAllocTarget = (DWORD)(uintptr_t)SwgtFakeAlloc;
     g_swgtBlock[0] = 0xAAAA0001; g_swgtBlock[1] = 0xAAAA0002; g_swgtBlock[7] = 0xAAAA0008;
     g_swgtAllocSum = 0; g_swgtAllocNull = 0;
     void* blk = ((SwgtAllocFn)(void*)SwgAllocStub)(0x280, 0x10, 0x200, 0x3000, 0x40000, 0x500000);
     assert(blk == g_swgtBlock && g_swgtAllocSum == 0x280 + 2 * 0x10 + 3 * 0x200 + 4 * 0x3000 + 5 * 0x40000 + 6 * 0x500000);
-    const SwgBirth* nb = SwgBirthFind(g_swgBirth, g_swgBirthNext, (unsigned long)(uintptr_t)g_swgtBlock);
+    const SwgBirth* nb = SwgBirthFind(g_swgBirth, (unsigned)g_swgBirthNext, (unsigned long)(uintptr_t)g_swgtBlock);
     assert(nb && nb->w[0] == 0xAAAA0001 && nb->w[1] == 0xAAAA0002 && nb->w[7] == 0xAAAA0008 && nb->tid == GetCurrentThreadId());
-    assert(g_swgSt.births == 1 && g_swgBirthNext == keepNext + 1);
+    assert(g_swgSt.births == 1 && (unsigned)g_swgBirthNext == keepNext + 1);
     g_swgtAllocNull = 1;
     blk = ((SwgtAllocFn)(void*)SwgAllocStub)(0x280, 0, 0, 0, 0, 0);
-    assert(blk == nullptr && g_swgSt.births == 1 && g_swgBirthNext == keepNext + 1);
+    assert(blk == nullptr && g_swgSt.births == 1 && (unsigned)g_swgBirthNext == keepNext + 1);
     g_swgBirth[keepNext % SWG_BIRTHS] = SwgBirth();
-    g_swgBirthNext = keepNext;
+    g_swgBirthNext = (LONG)keepNext;
     g_swgAllocTarget = keepAlloc;
     g_swgVt = keepVt; g_swgTarget = keepTarget; g_swgk.repair = keepRepair; g_swgk.scan = keepScan; g_swgSt = keepSt;
     g_swgSeenNext = 0;
