@@ -2946,7 +2946,7 @@ static void SectionOA(int cases) {
     }
     const long back = n - cmp;
     long other = back - noLot - flagHits;
-    for (int w : {(int)SR_FB_LOTMISS, (int)SR_FB_DEFERRED, (int)SR_FB_CACHE, (int)SR_FB_SHAPE}) other -= fb[w];
+    other -= fb[SR_FB_LOTMISS] + fb[SR_FB_DEFERRED] + fb[SR_FB_CACHE] + fb[SR_FB_SHAPE];
     printf("OA: %ld calls of the game's 0x655880 vs OaRun: %ld compared equal (%ld name an object, %ld with the class flag and no "
            "footprint), 0 differ, %ld given back: no lot %ld, class flag with footprints %ld, lot not in the table %ld, deferred %ld, "
            "polygon cache %ld, shape %ld, other %ld; references balanced; the point and the callees' arguments match\n", n, cmp, ids,
