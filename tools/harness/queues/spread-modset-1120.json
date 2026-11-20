@@ -1,0 +1,45 @@
+{
+  "note": "spread-modset-1120 (2026-11-20, feature/many-mods-spread-1120, docs/302 §3 #2 + §6.3 job 4). DEPENDS ON sub-lane A4: the queue key `modSet` (docs/302 §6.2; not in queue.ts yet, so this queue does not dry-run before A4 merges) and the script set folder `many-mods-s`, plus docs/302 §7 task 4 (Baseline-IP aged 3 sim days with the set in; the save name below is a placeholder until that save exists). DO NOT RUN before both land; then repin, dry-run, run. CORRECTNESS, daytime OK (counters and per-fire hitch lines, not ms/s). The five spreads (overwatchchain, errortrapspread, easpreadlots, easpreadpets, easpreaddecay; default ON since v0.1.5 / v0.2.0) OFF vs release defaults on the many-mods script set: (1) natural nightly window (night-maintenance-clock: 22:00, midnight decay + 3 AM venue cleanup + Overwatch nightly), (2) ErrorTrap's load-up scan in the first sim-minutes after the load (read the hitch lines before the first repro step). Pass per job: the counters prove the arm (off: no spread counter rose; on: passes ran to their end), 0 script errors from our code (scriptErrorsMax 0; if the set's own mods log script errors in both arms, triage before relaxing), version read back. Read: hitch lines >= 300 ms per fire, off vs on (node tools/harness/hitch-ab.ts --scenario <tag>). Bin state apex / apex-rewind, rewind auto.",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "ip-mm-night-off-1120",
+      "note": "many-mods-s set, five spreads OFF, natural nights + load-up. Pass: easpread_lots_passes<1, easpread_decay_passes<1, owchain_alarms<1, etspread_passes<1 (switches read back off), 0 script errors, version read back.",
+      "modSet": "many-mods-s",
+      "asi": "game-copy/ts3native.asi.rc-1119b",
+      "iniBase": "game-copy/ts3native.ini.rc-1119b",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+      "pinReason": "v0.3.0 set: rc-1119b asi/ini/package = rel030 sha256 (builds.json); repin to the newest master set when run",
+      "save": "Baseline-IP-mm3d",
+      "minCounters": 90,
+      "noiseCheck": false,
+      "ini": { "HitchAttr.Enabled": 1 },
+      "run": { "profile": { "seed": 12345, "minutes": 10, "noSamplers": true, "repro": "night-maintenance-clock", "fixesOff": "overwatchchain,errortrapspread,easpreadlots,easpreadpets,easpreaddecay", "fixesRequire": "easpread_lots_passes<1,easpread_decay_passes<1,owchain_alarms<1,etspread_passes<1", "fixesReport": "easpread_,owchain_,owspread_,etspread_" } },
+      "logRequire": { "^ts3native 0\\.36\\.295-rc1119b ": 1 },
+      "regexCases": { "^ts3native 0\\.36\\.295-rc1119b ": { "match": ["ts3native 0.36.295-rc1119b 2026-11-19 05:58:00"], "noMatch": ["ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"] } },
+      "gameArgs": ["-disablestoryprogression"],
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-mm-night-on-1120",
+      "note": "many-mods-s set, release defaults (five spreads ON). Pass: easpread_lots_passes>=1, easpread_lots_stopped==0, easpread_decay_passes>=1, easpread_decay_threw==0, owchain_alarms>=1, etspread_failed==0 (switches read back on, passes ran to their end), 0 script errors, version read back. Read against ip-mm-night-off-1120.",
+      "modSet": "many-mods-s",
+      "asi": "game-copy/ts3native.asi.rc-1119b",
+      "iniBase": "game-copy/ts3native.ini.rc-1119b",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+      "pinReason": "v0.3.0 set: rc-1119b asi/ini/package = rel030 sha256 (builds.json); repin to the newest master set when run",
+      "save": "Baseline-IP-mm3d",
+      "minCounters": 90,
+      "noiseCheck": false,
+      "ini": { "HitchAttr.Enabled": 1 },
+      "run": { "profile": { "seed": 12345, "minutes": 10, "noSamplers": true, "repro": "night-maintenance-clock", "fixesRequire": "easpread_lots_passes>=1,easpread_lots_stopped==0,easpread_decay_passes>=1,easpread_decay_threw==0,owchain_alarms>=1,etspread_failed==0", "fixesReport": "easpread_,owchain_,owspread_,etspread_" } },
+      "logRequire": { "^ts3native 0\\.36\\.295-rc1119b ": 1 },
+      "regexCases": { "^ts3native 0\\.36\\.295-rc1119b ": { "match": ["ts3native 0.36.295-rc1119b 2026-11-19 05:58:00"], "noMatch": ["ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"] } },
+      "gameArgs": ["-disablestoryprogression"],
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30
+    }
+  ]
+}

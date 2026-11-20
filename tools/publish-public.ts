@@ -125,13 +125,18 @@ export function enabledSections(ini: string): string[] {
   return on;
 }
 
+// 0.36.295-rc1119b -> 0.36.295; other versions unchanged
+export const rcBase = (v: string) => v.replace(/-rc[0-9a-z]+$/, '');
+
 // the draft's ts3native-<tag>.zip: asi version, ini = tested ini; returns the enabled sections
 export function verifyZip(z: Buffer, nativeVersion: string, testedIni: Buffer): string[] {
   const files = unzip(z);
   const asi = files.get('ts3native.asi'), ini = files.get('ts3native.ini');
   if (!asi || !ini) throw new Error(`zip holds ${[...files.keys()].join(', ')}, want ts3native.asi + ts3native.ini`);
   const versions = new Set([...asi.toString('latin1').matchAll(/ts3native (\d+\.\d+\.\d+[a-z]?)\b/g)].map(m => m[1]));
-  if (versions.size !== 1 || !versions.has(nativeVersion)) throw new Error(`asi version ${[...versions].join(', ') || 'none'}, want ts3native ${nativeVersion}`);
+  // an RC asi's version string ends at '-' for this regex, and CI builds the RC's tag as the base version: accept both
+  const want = new Set([nativeVersion, rcBase(nativeVersion)]);
+  if (versions.size !== 1 || !want.has([...versions][0])) throw new Error(`asi version ${[...versions].join(', ') || 'none'}, want ts3native ${nativeVersion}`);
   // CI zips a CRLF ini, the tested one is LF; the game reads it via GetPrivateProfile, so compare without CRs
   const noCr = (b: Buffer) => Buffer.from(b.toString('latin1').replace(/\r/g, ''), 'latin1');
   if (sha256(noCr(ini)) !== sha256(noCr(testedIni))) throw new Error(`zip ini sha256 ${sha256(noCr(ini))} != tested ini ${sha256(noCr(testedIni))} (CRs stripped)`);
@@ -430,6 +435,14 @@ function selfCheck(): void {
   assert.deepEqual(verifyZip(z('0.36.37a'), '0.36.37a', ini), ['[GC]', '[RouteAsync]'], 'hotfix letter suffix ok');
   assert.throws(() => verifyZip(z('0.36.37a'), '0.36.37', ini), /asi version 0.36.37a/, 'hotfix asi is not the base release');
   assert.throws(() => verifyZip(z('0.36.40', Buffer.from('[GC]\nEnabled=0\n')), '0.36.40', ini), /ini sha256/, 'other ini refused');
+  // regexCases rcBase: match '0.36.295-rc1119b'; non-match '0.36.37a', '0.36.295-rc', '0.36.295-beta1'
+  assert.equal(rcBase('0.36.295-rc1119b'), '0.36.295', 'rc suffix stripped');
+  assert.equal(rcBase('0.36.37a'), '0.36.37a', 'hotfix letter kept');
+  assert.equal(rcBase('0.36.295-rc'), '0.36.295-rc', 'bare -rc kept');
+  assert.equal(rcBase('0.36.295-beta1'), '0.36.295-beta1', 'other suffix kept');
+  assert.deepEqual(verifyZip(z('0.36.295'), '0.36.295-rc1119b', ini), ['[GC]', '[RouteAsync]'], 'CI base build of an RC tag ok');
+  assert.deepEqual(verifyZip(z('0.36.295-rc1119b'), '0.36.295-rc1119b', ini), ['[GC]', '[RouteAsync]'], 'tested RC asi ok');
+  assert.throws(() => verifyZip(z('0.36.294'), '0.36.295-rc1119b', ini), /asi version 0.36.294/, 'other base refused for an RC');
   assert.deepEqual(verifyZip(z('0.36.40', Buffer.from(ini.toString('latin1').replace(/\r?\n/g, '\r\n'), 'latin1')), '0.36.40', ini), ['[GC]', '[RouteAsync]'], 'CRLF ini accepted');
 
   const tunables = Object.values(FEATURES).flatMap(f => f.tuning ?? []);

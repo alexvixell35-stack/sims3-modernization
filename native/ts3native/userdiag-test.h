@@ -18,6 +18,14 @@ static void TestUserDiag() {
     assert(UdInstallClass(L"C:\\Program Files (x86)\\Electronic Arts\\The Sims 3\\Game\\Bin\\TS3W.exe") == UD_RETAIL);
     assert(UdInstallClass(L"E:\\Games\\TS3\\Game\\Bin\\TS3W.exe") == UD_OTHER);
 
+    // CC String Merge output names (docs/304): matches and non-matches
+    assert(UdCcsmKind(L"CCStringMerge_Strings.package") == 1 && UdCcsmKind(L"ccstringmerge_strings.PACKAGE") == 1);
+    assert(UdCcsmKind(L"CCStringMerge_Merged_001.package") == 2 && UdCcsmKind(L"ccstringmerge_merged_999.Package") == 2);
+    assert(UdCcsmKind(L"CCStringMerge_Merged_1.package") == 0 && UdCcsmKind(L"CCStringMerge_Merged_0001.package") == 0);
+    assert(UdCcsmKind(L"CCStringMerge_Merged_00a.package") == 0 && UdCcsmKind(L"CCStringMerge_Merged_001.package.part") == 0);
+    assert(UdCcsmKind(L"CCStringMerge_Strings_old.package") == 0 && UdCcsmKind(L"MyCCStringMerge_Strings.package") == 0);
+    assert(UdCcsmKind(L"objects.package") == 0 && UdCcsmKind(L"") == 0);
+
     // DBPF index: per-entry types, constant type, bad header, short index
     static u8 hdr[96], idx[4 + 32 * 3];
     memcpy(hdr, "DBPF", 4);

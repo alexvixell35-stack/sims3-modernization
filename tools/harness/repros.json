@@ -110689,40 +110689,11 @@
         "cmd": "tomb_mummy",
         "args": {
           "action": "spawn",
-          "tag": "on"
+          "tag": "on",
+          "reset": true
         },
         "waitS": 3,
-        "note": "ON arm: EA's TombMummyCreate (NpcHousehold.Add + Instantiate + MummyExitSarcophagus)",
-        "until": {
-          "cmd": "tomb_mummy",
-          "args": {
-            "action": "state"
-          },
-          "all": [
-            {
-              "path": "mummy_out",
-              "equals": true
-            },
-            {
-              "path": "mummy_in_npc",
-              "equals": true
-            },
-            {
-              "path": "on_in_npc",
-              "equals": 1
-            }
-          ],
-          "everyS": 3,
-          "maxS": 30
-        }
-      },
-      {
-        "cmd": "tomb_mummy",
-        "args": {
-          "action": "reset"
-        },
-        "waitS": 3,
-        "note": "ON arm: Reset Object on the sarcophagus while its mummy is out",
+        "note": "ON arm: EA's TombMummyCreate (NpcHousehold.Add + Instantiate + MummyExitSarcophagus); spawn + Reset Object in one call while the mummy is out (EA wander/return otherwise removes it cleanly within seconds, rerun1 1119)",
         "until": {
           "cmd": "tomb_mummy",
           "args": {
@@ -110886,35 +110857,11 @@
         "cmd": "tomb_mummy",
         "args": {
           "action": "spawn",
-          "tag": "reload"
+          "tag": "reload",
+          "reset": true
         },
         "waitS": 3,
-        "note": "the sarcophagus still spawns its mummy after the reload",
-        "until": {
-          "cmd": "tomb_mummy",
-          "args": {
-            "action": "state"
-          },
-          "all": [
-            {
-              "path": "mummy_out",
-              "equals": true
-            },
-            {
-              "path": "reload_in_npc",
-              "equals": 1
-            }
-          ],
-          "everyS": 3,
-          "maxS": 30
-        }
-      },
-      {
-        "cmd": "tomb_mummy",
-        "args": {
-          "action": "reset"
-        },
-        "waitS": 3,
+        "note": "the sarcophagus still spawns its mummy after the reload; spawn + Reset Object in one call while the mummy is out (EA wander/return otherwise removes it cleanly within seconds, rerun1 1119)",
         "until": {
           "cmd": "tomb_mummy",
           "args": {
@@ -110965,35 +110912,10 @@
         "cmd": "tomb_mummy",
         "args": {
           "action": "spawn",
-          "tag": "off"
+          "tag": "off",
+          "reset": true
         },
         "waitS": 3,
-        "until": {
-          "cmd": "tomb_mummy",
-          "args": {
-            "action": "state"
-          },
-          "all": [
-            {
-              "path": "mummy_out",
-              "equals": true
-            },
-            {
-              "path": "off_in_npc",
-              "equals": 1
-            }
-          ],
-          "everyS": 3,
-          "maxS": 30
-        }
-      },
-      {
-        "cmd": "tomb_mummy",
-        "args": {
-          "action": "reset"
-        },
-        "waitS": 3,
-        "note": "OFF arm: EA bug reproduced = the mummy's description stays in NpcHousehold without a Sim, c3392 grows",
         "until": {
           "cmd": "tomb_mummy",
           "args": {
@@ -111019,7 +110941,8 @@
           ],
           "everyS": 3,
           "maxS": 30
-        }
+        },
+        "note": "spawn + Reset Object in one call while the mummy is out (EA wander/return otherwise removes it cleanly within seconds, rerun1 1119)"
       },
       {
         "cmd": "set_speed",
@@ -111161,35 +111084,11 @@
         "cmd": "tomb_mummy",
         "args": {
           "action": "spawn",
-          "tag": "old"
+          "tag": "old",
+          "reset": true
         },
         "waitS": 3,
-        "note": "the sarcophagus works in the old save with ON",
-        "until": {
-          "cmd": "tomb_mummy",
-          "args": {
-            "action": "state"
-          },
-          "all": [
-            {
-              "path": "mummy_out",
-              "equals": true
-            },
-            {
-              "path": "old_in_npc",
-              "equals": 1
-            }
-          ],
-          "everyS": 3,
-          "maxS": 30
-        }
-      },
-      {
-        "cmd": "tomb_mummy",
-        "args": {
-          "action": "reset"
-        },
-        "waitS": 3,
+        "note": "the sarcophagus works in the old save with ON; spawn + Reset Object in one call while the mummy is out (EA wander/return otherwise removes it cleanly within seconds, rerun1 1119)",
         "until": {
           "cmd": "tomb_mummy",
           "args": {
@@ -111799,6 +111698,1097 @@
         }
       }
     ]
+  },
+  {
+    "id": "pie-menu-cost",
+    "bug": "docs/302 §3 #8: pie-menu / autonomy Test cost with MasterController + many interaction mods is unmeasured after the STBL fix",
+    "fix": "measuring only (docs/302 §9.4); no memo is built from this",
+    "save": "ManyMods-IP-aged",
+    "note": "UNVERIFIED (static only, 2026-11-20): never run. MEASUREMENT (labelled stress: 120 menu builds in ~3 min, a player opens a few per minute). 20 rounds over 6 targets every world has (the active Sim itself, terrain, its home lot, the nearest mailbox, fridge, toilet). Read the per-call ms from the repro log and the hitches + owner stacks around them from modtime-summary.txt (the queue keeps a copy per job). No other Sim as target yet: the agent has no target form for a non-selected Sim without its name.",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 30,
+        "note": "lead-in: ModTime samples the live world first (baseline seconds before the first menu)"
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1,
+        "note": "one pie menu build: GetAllInteractionsForActor + every Test + picker, as PieMenu.TestAndBringUpPieMenu (agent ControlHandlers BuildMenu); nothing is pushed"
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1,
+        "note": "one pie menu build: GetAllInteractionsForActor + every Test + picker, as PieMenu.TestAndBringUpPieMenu (agent ControlHandlers BuildMenu); nothing is pushed"
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1,
+        "note": "one pie menu build: GetAllInteractionsForActor + every Test + picker, as PieMenu.TestAndBringUpPieMenu (agent ControlHandlers BuildMenu); nothing is pushed"
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1,
+        "note": "one pie menu build: GetAllInteractionsForActor + every Test + picker, as PieMenu.TestAndBringUpPieMenu (agent ControlHandlers BuildMenu); nothing is pushed"
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1,
+        "note": "one pie menu build: GetAllInteractionsForActor + every Test + picker, as PieMenu.TestAndBringUpPieMenu (agent ControlHandlers BuildMenu); nothing is pushed"
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1,
+        "note": "one pie menu build: GetAllInteractionsForActor + every Test + picker, as PieMenu.TestAndBringUpPieMenu (agent ControlHandlers BuildMenu); nothing is pushed"
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "self",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "terrain",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "home",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Mailbox",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Fridge",
+          "include_disabled": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "target": "@type:Toilet",
+          "include_disabled": true
+        },
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "hostmap-iter-stale",
+    "bug": "docs/67 §43 (Eli, EA 1.69, 2026-11-18): ProcessTaskState 0xD80BC0 keeps a host id -> handle map iterator across call 0xD80460 and erases with it at 0xD814B6; a rehash of the map inside that call leaves the bucket slot stale and erase 0xD71E40 faults at 0xD71E7D reading 0x10",
+    "fix": "ts3native 0.36.295-hostmapiter1 [HostMapIterFix] Enabled=1 (hostmapiter.cpp): the erase call re-finds the slot in the live bucket array; TestRehash=N (repro only) forces the rehash right before the first N erases at the site (Steam / retail only)",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-11-20): never run. A natural rehash in the window is rare (the map must cross a prime bucket count inside one 0xD80460 call), so the arms force it with [HostMapIterFix] TestRehash=20: the map is rehashed (count + 1) right before each of the first 20 erases at 0xD814B6, the same state a rehash inside 0xD80460 leaves. Creating and destroying Sims and objects drives ProcessTaskState's erases [inferred: which ids reach the task list is not traced]. OFF arm = Enabled=1 Repair=0 (detector: stale lines, EA gets the stale slot, a 0xD71E7D AV is the expected outcome); ON arm = Repair=1. Hollow when the ON arm logs no 'host map iter:' line (no erase at the site during the run).",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "fast"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 8
+        },
+        "waitS": 20,
+        "note": "round 1: 8 townies (script objects into the host id map)"
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "ea",
+          "count": 20
+        },
+        "waitS": 30,
+        "note": "scripted objects created on the active lot"
+      },
+      {
+        "cmd": "remove_objects",
+        "args": {},
+        "waitS": 20,
+        "note": "objects destroyed: ProcessTaskState erases their ids at 0xD814B6"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 20,
+        "note": "Sims destroyed: more erases at 0xD814B6"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 8
+        },
+        "waitS": 20,
+        "note": "round 2: 8 townies (script objects into the host id map)"
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "ea",
+          "count": 20
+        },
+        "waitS": 30,
+        "note": "scripted objects created on the active lot"
+      },
+      {
+        "cmd": "remove_objects",
+        "args": {},
+        "waitS": 20,
+        "note": "objects destroyed: ProcessTaskState erases their ids at 0xD814B6"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 20,
+        "note": "Sims destroyed: more erases at 0xD814B6"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 8
+        },
+        "waitS": 20,
+        "note": "round 3: 8 townies (script objects into the host id map)"
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "filter": "ea",
+          "count": 20
+        },
+        "waitS": 30,
+        "note": "scripted objects created on the active lot"
+      },
+      {
+        "cmd": "remove_objects",
+        "args": {},
+        "waitS": 20,
+        "note": "objects destroyed: ProcessTaskState erases their ids at 0xD814B6"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 20,
+        "note": "Sims destroyed: more erases at 0xD814B6"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "expect": "ON arm: 'OK   host map iter fix' with 'TestRehash', no crash, 'host map iter:' lines up to 20, each 're-found by id % buckets' (or by scan) and 'fixed'; 'in no chain' 0 expected. OFF arm (Repair=0): the same lines with 'passed to EA (Repair=0)', then most likely the 0xD71E7D AV (erase chain walk) or a later heap fault from the write into the freed bucket array"
   },
   {
     "id": "sweep-ep1",

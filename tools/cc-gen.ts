@@ -10,6 +10,7 @@
 //   node tools/cc-gen.ts --list-sources [--kind objects|cas|build|inv]   default source picks with closure and bytes per item
 //   node tools/cc-gen.ts --count 300 --kind makeup --out game-copy/cc-synth/cc-makeup-300      (CAS makeup + costume makeup, docs/200 §9)
 //   node tools/cc-gen.ts --count 200 --kind presets --presets 6 --out game-copy/cc-synth/cc-presets-200x6   (objects with >= 6 design presets, own textures per preset)
+// --kind tiny --count 2000 --out game-copy/cc-synth/pkgs-2000: docs/17 M4 tiny packages (one 16-byte resource each, no EA bytes).
 // --kind: objects | cas | both (objects+cas) | build (wall floor door window fence terrain railing stairs) | all (both + build) |
 // a comma list of kinds, each with an optional :weight (items are dealt round-robin over the expanded list). inv, makeup, presets: by name only.
 //   node tools/cc-gen.ts --self-check                          synthetic fixture (no EA bytes): closure, rewrite, read-back
@@ -550,8 +551,32 @@ function selfCheck() {
     assert.throws(() => generate(ix3, { count: 1, kinds: ['presets'], seed: 'm', out: out3, sources: [pobj], names: n3 }), /no presets source/, 'too few presets');
     assert.deepEqual(parseKinds('makeup'), ['makeup']);
     ix3.close();
+    // --kind tiny (docs/17 M4 pkgs-N): N packages of one 16-byte resource each, no EA bytes
+    const outT = join(dir, 'pkgs-3');
+    assert.equal(writeTiny(3, 's', outT), 3);
+    const tf = readdirSync(outT).filter(f => f.endsWith('.package')).sort();
+    assert.deepEqual(tf, ['ccgen-tiny-00000.package', 'ccgen-tiny-00001.package', 'ccgen-tiny-00002.package']);
+    const ti = readIndex(readFileSync(join(outT, tf[0])));
+    assert.equal(ti.length, 1); assert.equal(ti[0].type, TINY_TYPE);
+    assert.notEqual(readIndex(readFileSync(join(outT, tf[1])))[0].inst, ti[0].inst, 'own instance per package');
+    assert.throws(() => writeTiny(1, 's', outT), /exists/, 'never over an existing set');
   } finally { rmSync(dir, { recursive: true, force: true }); }
   console.log('cc-gen self-check done');
+}
+
+// docs/17 M4: package count apart from resource count. One resource per package, of a type no game code reads
+// [inferred: 0x7FFF0001 is not in the base-game index (cc-gen --list-sources never lists it)], so only the per-package cost remains.
+const TINY_TYPE = 0x7fff0001;
+function writeTiny(count: number, seed: string, out: string): number {
+  if (existsSync(out)) throw new Error(`${out} exists: pick a new --out`);
+  mkdirSync(out, { recursive: true });
+  for (let i = 0; i < count; i++) {
+    const instance = fnv64(`tiny:${seed}:${i}`), data = Buffer.alloc(16);
+    data.writeBigUInt64LE(instance); data.writeUInt32LE(i, 8);
+    writeFileSync(join(out, `ccgen-tiny-${String(i).padStart(5, '0')}.package`), writePackage([{ type: TINY_TYPE, group: 0, instance, data }]));
+  }
+  writeFileSync(join(out, 'manifest.json'), JSON.stringify({ tool: 'tools/cc-gen.ts', kind: 'tiny', seed, count, type: `0x${TINY_TYPE.toString(16)}`, time: new Date().toISOString() }, null, 1));
+  return count;
 }
 
 if (process.argv[1]?.endsWith('cc-gen.ts')) {
@@ -559,6 +584,11 @@ if (process.argv[1]?.endsWith('cc-gen.ts')) {
     out: { type: 'string' }, source: { type: 'string' }, game: { type: 'string' }, 'list-sources': { type: 'boolean' }, 'self-check': { type: 'boolean' },
     first: { type: 'string', default: '0' }, append: { type: 'boolean' }, presets: { type: 'string', default: '6' }, decompiled: { type: 'string', default: join(ROOT, 'game-copy', 'decompiled') } } });
   if (v['self-check']) { selfCheck(); process.exit(0); }
+  if (v.kind === 'tiny') { // no game index needed
+    const out = v.out ?? join(ROOT, 'game-copy', 'cc-synth', `pkgs-${v.count}`);
+    console.log(`cc-gen: ${writeTiny(Number(v.count), v.seed!, out)} tiny packages in ${out.split(sep).join('/')}`);
+    process.exit(0);
+  }
   const kinds = parseKinds(v.kind!);
   setMinPresets(Number(v.presets));
   if (kinds.includes('inv')) { // class hierarchy of the gameplay DLLs (decompiled, git-ignored)

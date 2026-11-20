@@ -368,8 +368,19 @@ static void UdBinLines(const wchar_t* bin) {
     UdListFlush(l);
 }
 
+// CC String Merge (SmellyMods, docs/304) outputs by the names its source writes: 1 = CCStringMerge_Strings.package,
+// 2 = CCStringMerge_Merged_NNN.package (--merge part), 0 = other.
+static int UdCcsmKind(const wchar_t* name) {
+    if (!_wcsicmp(name, L"CCStringMerge_Strings.package")) return 1;
+    static const wchar_t kPre[] = L"CCStringMerge_Merged_";
+    const size_t n = wcslen(kPre);
+    if (wcslen(name) != n + 3 + 8 || _wcsnicmp(name, kPre, n) || _wcsicmp(name + n + 3, L".package")) return 0;
+    for (int i = 0; i < 3; i++) if (name[n + i] < L'0' || name[n + i] > L'9') return 0;
+    return 2;
+}
+
 static const DWORD kUdIdxCap = 1 << 21;  // index read cap 2 MB (~65k entries); a bigger index counts as no script
-struct UdScan { int files, script, deep, cas, obj; u64 bytes; u8* idx; UdList names, scripts; };
+struct UdScan { int files, script, deep, cas, obj, ccsmStr, ccsmParts, bigIdx; u64 bytes; u8* idx; UdList names, scripts; };
 static void UdScanPackages(const wchar_t* dir, int depth, UdScan& s) {
     wchar_t pat[MAX_PATH], p[MAX_PATH];
     if (swprintf_s(pat, L"%s\\*", dir) < 0) return;
@@ -392,6 +403,8 @@ static void UdScanPackages(const wchar_t* dir, int depth, UdScan& s) {
         char name[MAX_PATH * 3];
         CrUtf8(f.cFileName, name, sizeof(name));
         if (s.files <= 200) UdListAdd(s.names, name);
+        const int ccsm = UdCcsmKind(f.cFileName);
+        s.ccsmStr += ccsm == 1, s.ccsmParts += ccsm == 2;
         HANDLE fh = CreateFileW(p, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
         if (fh == INVALID_HANDLE_VALUE) continue;
         DWORD r = 0;
@@ -400,6 +413,7 @@ static void UdScanPackages(const wchar_t* dir, int depth, UdScan& s) {
             LARGE_INTEGER at;
             at.QuadPart = pos;
             DWORD got = 0;
+            s.bigIdx += size > kUdIdxCap;
             if (s.idx && size && size <= kUdIdxCap && SetFilePointerEx(fh, at, NULL, FILE_BEGIN) && ReadFile(fh, s.idx, size, &got, NULL)) {
                 if (UdDbpfCount(hdr, sizeof(hdr), s.idx, got, kUdS3SA) > 0) {
                     s.script++;
@@ -491,6 +505,11 @@ static void UdModsLines(const wchar_t* user) {
     Log("diag: Mods\\Packages %d .package files, %llu MB, %d with scripts (S3SA), %d other (CC, tuning), %d folders deeper than 5 not read; scan %ld ms; "
         "CC by kind: %d with CAS parts (CASP), %d with objects (OBJD)",
         s.files, s.bytes >> 20, s.script, s.files - s.script, s.deep, UsSince(t0) / 1000, s.cas, s.obj);
+    // separate lines, only when they apply: the Mods\Packages line above keeps its format (player-log-digest.ts parses it)
+    if (s.ccsmStr || s.ccsmParts)
+        Log("diag: CC String Merge output in Mods\\Packages: strings package %s, merged parts %d (offline STBL merge tool, docs/304)",
+            s.ccsmStr ? "yes" : "no", s.ccsmParts);
+    if (s.bigIdx) Log("diag: %d packages with an index over %lu KB: script and CC-kind counts skip them", s.bigIdx, kUdIdxCap >> 10);
     UdListFlush(s.scripts);
     UdListFlush(s.names);
     if (s.files > 200) Log("diag: packages: %d more names not listed", s.files - 200);
@@ -709,9 +728,11 @@ static void MdMark(const char* tag);  // memdiag.cpp
 static void MsLine(const char* line);  // memdiag.cpp: [MemDiag] suspect counters from ts3fixes
 static u8 MsOp(int op);                // memdiag.cpp: ops 3-5 (on / sample wanted / self-test wanted)
 static u8 CtOp(int op, DWORD lo);      // castrim.cpp: ops 14-19, the save sweep's keep list and pump (docs/539 §6)
+static u8 MdtOp(DWORD lo, DWORD hi);   // modtime.cpp: op 61, [Diag] ModTime (docs/298)
 static u8 UdTextMsg(DWORD lo, DWORD hi) {
     if (!g_udOn) return 0;
     switch ((hi >> 16) & 0xFF) {
+        case 61: return MdtOp(lo, hi);  // docs/298 [Diag] ModTime: on? / sim hour starts / world quit / notice ready? / notice bit
         case 3: case 4: case 5: return MsOp((hi >> 16) & 0xFF);
         case 6: return PlAnswer();  // played.cpp: store ready / household played (docs/14 section 8.6)
         case 7: return CpOp(lo);    // compaction.cpp: [Compaction] verdict and steps (docs/204)

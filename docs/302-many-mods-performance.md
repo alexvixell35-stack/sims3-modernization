@@ -115,7 +115,7 @@ Gain is for a many-mods player (install like the many-mods tester's). Effort is 
 | Rank | Feature | Expected gain | Risk | Effort | Owner |
 |---|---|---|---|---|---|
 | 1 | **ModTime on master + player "mod cost report"** (§5): Steam/EA/retail, 10 Hz default, self vs via-mod split, load-phase sampling | indirect but decisive: names the mod behind ~95% sim load; players can act today | low (sampler, 0.33% of a core at 50 Hz [measured docs/298 §7], ~0.07% at 10 Hz [inferred]) | ~2 h agent + 1 smoke job | ours |
-| 2 | **Run the built NRaas/EA spread fixes** (`kOverwatchChain`, `kErrorTrapSpread`, `kEaSpreadLots/Pets/Decay`, docs/145-147) on the mod set | removes known 0.5-0.9 s ticks (load-up, nightly 3 AM) [measured, docs/146; docs/196: Overwatch one-tick alarm 5.4 of 17.4 hitches >= 300 ms per 10 min on IP, chain-off builds] | low (built, default off, correctness repro needed) | ~30 min queue writing + 2 jobs | ours (+ upstream NRaas PR per docs/145) |
+| 2 | **Run the built NRaas/EA spread fixes** (`kOverwatchChain`, `kErrorTrapSpread`, `kEaSpreadLots/Pets/Decay`, docs/145-147) on the mod set | removes known 0.5-0.9 s ticks (load-up, nightly 3 AM) [measured, docs/146; docs/196: Overwatch one-tick alarm 5.4 of 17.4 hitches >= 300 ms per 10 min on IP, chain-off builds] | low | ~30 min queue writing + 2 jobs | ours (+ upstream NRaas PR per docs/145) |
 | 3 | **Exact per-task-run attribution** at the resume seam `0xD7F000` (+ `0xEA1090` invoke path), diag only: per owner ms/s, run-length histogram, runs per iteration | tells "many short runs" (deferrable) from "one long run" (not deferrable); prerequisite for 4 | medium (new native detour; Frida-proven only, ~300 ns per run [measured, docs/166]) | ~2-3 h agent + 1 smoke | ours |
 | 4 | **Per-mod fair share for NPC-scoped mod task runs** (§4), default off | bounds one mod's share of a sim iteration; hitch p99 only, not ms/s; size depends on 3 [inferred] | medium-high (task order, household rule) | ~3 h agent + correctness + timing jobs | ours |
 | 5 | **Mod startup attribution + spread** (L8): ModTime in the load phase, then per-mod spread of world-load-finished work like `kErrorTrapSpread` | The many-mods tester's 284 s load iteration is the biggest single number we have [measured]; share per mod unknown | low for diag, medium for spreads | ~1 h diag; spreads per mod later | ours |
@@ -126,7 +126,9 @@ Gain is for a many-mods player (install like the many-mods tester's). Effort is 
 | 10 | **`GetKeyList` unlocked walk** (L2, `0x4B1AE0`): take the DB array lock (or Apex `FileListCache`'s, if it already has one) | crash risk while packages change (DLC/launcher, cache rebuild) [inferred] | low | ~30 min static + ~1 h fork build | ours in the Apex fork, default off, proof, PR |
 | 11 | **Resource cache fill under heavy CC** (M4): measure `CacheBudget` fill and read-buffer heap with the CC set; tune only if full | address space / stutter on cache churn [inferred] | low to measure | ~1 h + 1 job | ours in the Apex fork if a change is needed |
 | 12 | **`GetCachedPart` random-part EA bug** (L5, docs/550) | correctness, CC outfits | low | ~1 h | ours (EA bug, behind a switch) |
-| 13 | In-game duplicate/conflict report (M5) | support help, no perf | low | ~1 h (extend `check-conflicts.ts` / compat-scan) | ours (tool), conflict tool to Apex per memory |
+| 13 | In-game duplicate/conflict report (M5) | support help, no perf | low | built: `tools/mod-conflicts.ts` (docs/295) on `feature/mod-conflict-scan-1119`, not merged; duplicate keys with the load-order winner, unloaded packages, duplicate assemblies, shared `Singleton` stores | ours (tool), conflict tool to Apex per memory (PR text drafted 2026-11-20, waits for the merge and Rodney's OK) |
+
+> **Correction 2026-11-20 (feature/many-mods-spread-1120):** all five switches are already **ON** (`overwatchchain`, `errortrapspread` since v0.1.5; `easpread*` since v0.2.0; `ts3fixes.package.rel030` tuning) and the NRaas PRs #45 / #46 are open since 2026-10-21. Rechecked on v0.3.0 + Apex + bridge (queue `spread-recheck-1120`, 7/7 PASS, 0 script errors; docs/145 §15, docs/146 §8, docs/147 §9). Left for item 2: the on/off pair on the many-mods script set (`tools/harness/queues/spread-modset-1120.json`, waits for the `modSet` key and the aged save, §7 tasks 2 and 4) and posting the PR numbers (draft for Rodney).
 
 Engine-side items (6, 9, 10, 11) follow the STBL index route: we build them in our Apex fork, default off in Apex's
 config, prove them (selftest + game job on the many-mods set), and PR them to Apex. Task 0 (§7) first diffs the newest
@@ -305,3 +307,91 @@ Times in PHT, wall-clock for Claude with agents; game jobs and nights listed apa
 - Whether newer Apex releases already cover catalog / CAS part cache startup or thumbnails (task 0 answers it before
   any fork build).
 - Whether the ts3fixes 38% (inclusive) hides a real own cost; the self column in task 1 answers it.
+
+## 9. Harness, sets and queues built (2026-11-20, sub-lane A4, branch feature/many-mods-harness-1120; offline, no game run)
+
+§7 tasks 2-5 and §3 #8. Everything below is harness and data only: no switch, no native or ts3fixes change. The tools/harness
+changes (queue.ts, cycle.ts, load-split.ts, repros.json) merge only between game runs.
+
+### 9.1 Queue key `modSet`
+
+- `"modSet": "game-copy/mod-sets/<set>"` (one set per job): with the game closed the set's `.package` files MOVE into
+  `Mods/Packages/mod-set` (manifest first, the same `stashContent` / `restoreContent` pair as `ccSet`), install-fixes
+  cache-clear, and back after the job. It combines with `ccSet` and `content`; our three packages and `mods-restore.ts` are
+  untouched.
+- Refused before the game starts when a set file has the name of a package already under `Mods/Packages` (a second copy of
+  one mod; the test install already has ErrorTrap, Overwatch, simler90, SmoothPatch, MonoPatcher, ...).
+- Cleanup (memory "mandatory cleanup"): a set left in Mods by a crash or kill goes back at the next queue start by itself
+  (game closed; a restore problem refuses the start), or with `queue.ts --restore-content`.
+- Inventory per job, `probe-out/queue/<queue>-<date>-<job>-modset.txt` (row.modInventory): the set's files (mod, bytes,
+  sha256), `offload-override-scan.ts --summary` on the live Mods with the set in (~70 s on the test install [measured
+  2026-11-20], 10 min cap, a failure is noted, not fatal), and after the job the `ts3fixes: script assemblies` line of the
+  job's ts3native.log (docs/188 §2).
+- Also new for every job: the cycle.ts `load split:` line goes into row.loadSplit (§9.5), and a `[Diag] ModTime` job keeps
+  its own copy of `Bin/modtime-summary.txt` / `modtime.csv` (row.binDiag; the next job overwrites the Bin files).
+- Self-checks: queue.ts (parse, clash, move and restore), `tools/mod-set.ts --self-check`.
+
+### 9.2 Script set "many-mods-s"
+
+Manifest `docs/data/many-mods-s.json` (each mod: official page, version, status), built by
+`node tools/mod-set.ts build docs/data/many-mods-s.json [--root <checkout>]` into `game-copy/mod-sets/many-mods-s/` (flat
+packages + `set.json` with sha256; git-ignored). Built 2026-11-20: **122 packages, 162 MB, 46 mods from the MTS downloads
+under `game-copy/compat-mods`** (one flavour per mod where a page offers replacements of each other; 39 script assemblies),
+no clash with the test Mods [measured]. 7 left out (two no-intro mods: ours does it; three older no-mosaic builds; the edited
+CAIO copy; Jenesis fruit and the pregnancy-length set, which overlap other picks [inferred]). 6 already in the test install.
+
+**Needs Rodney (14 NRaas packages)**: nraas.net answers automated clients with a browser check and asks for no automated
+downloads (docs/233), so none were fetched. Download the newest Steam 1.67 builds by hand from the official pages into
+`game-copy/mod-sets/downloads/` (zip or package, file name starting `NRaas_<Name>`), then rerun the build:
+StoryProgression + Career, Relationship, Skill, Extra modules (https://www.nraas.net/community/StoryProgression),
+MasterController + Cheats + Integration (https://www.nraas.net/community/MasterController), Traffic, Register, Traveler,
+Retuner, Woohooer, Careers (https://www.nraas.net/community/<Name>). The build lists each one still waiting.
+
+### 9.3 Aged saves (§7 task 4)
+
+`tools/harness/queues/many-mods-age-1120.json`: Baseline-IP and Baseline-SV with `modSet` many-mods-s, run kind `age`
+3 sim days, saved as `ManyMods-IP-aged` / `ManyMods-SV-aged` (+ day-3 checkpoint; the Baseline saves are only read; saves
+never in git). The read-back requires `NRaasStoryProgression` in the script assemblies line, so it waits for the NRaas
+downloads. Age jobs take no `fixesPackage` (queue.ts rule): ts3fixes is the build/ copy.
+
+### 9.4 Pie-menu / autonomy Test cost (§3 #8)
+
+Repro `pie-menu-cost` (repros.json): 120 `list_interactions` calls (20 rounds over the active Sim, terrain, its home lot and
+the nearest mailbox, fridge and toilet). The agent builds each menu as `PieMenu.TestAndBringUpPieMenu` does (every
+interaction's Test plus the picker), pushes nothing. `many-mods-pie-cost-1120.json`: with the set vs ours only, inside a
+6 min ModTime window at 50 Hz. Measurement only, no memo. Gap: no target form for a non-selected Sim without its name, so
+the social pie on another Sim is not in it yet.
+
+### 9.5 Load split and ModTime queues (§6.3 jobs 1-2)
+
+- cycle.ts now logs `load split: launch->menu X s, menu->live Y s, peak private Z MB` per load (`tools/harness/load-split.ts`,
+  self-check with the regex cases). launch->menu = cycle.ts start (just after the probe launched the game) to the "Mod
+  Scripts Found" dialog, which every arm shows because ts3fixes is a script mod [I-555-1]; menu->live = load_save sent to
+  live mode ready; peak private = `PeakPagedMemorySize64` of TS3W at live [I-555-2].
+- `many-mods-load-split-1120.json` (RUN FIRST: names the CC startup owner for §7 9b): Baseline-IP, release set rc-1119b,
+  arms ours / +CC / +script / +both / pkgs-2000, one fresh load each, job 1 = smoke on +both (stops the queue on FAIL).
+  Read-backs: version line, `diag: Mods\Packages N .package files` size class, the MoarInteractions assembly present or
+  absent. A one-shot load survey, not a timing A/B: one load per arm and no reversed pass, because it only has to name
+  which part of the load grows with the sets (expected differences are tens of seconds); a difference under ~10% needs a
+  second round, and any fix built from it gets its own A/B. Needs a quiet machine (load seconds are wall time).
+- `many-mods-modtime-1120.json` (RUN FIRST: feeds §7 8 and 11): `[Diag] ModTime=1 ModTimeHz=50`, 10 min live per arm
+  (+script, +both) on ManyMods-IP-aged after a 5 min smoke. Pinned to sub-lane A1's `modtime-master-1120` asi/ini/ts3fixes
+  (0.36.295-mdt1, not merged yet: repin when it lands).
+- The ModTime and pie-cost queues also need a quiet machine (busy % and per-menu ms are wall time).
+- No two jobs share a game start in these queues (every arm installs other sets), so there is no rewind group.
+- Bin state apex (tools/turbo-compat.ts) for every queue; all jobs `scriptErrorsMax: 0` (a mod's script error is a finding).
+
+### 9.6 CC set "many-mods-cc" and pkgs-2000
+
+- Free space 148 GB at the gate (2026-11-20). `cc-gen.ts --kind all --count 20000 --seed 302` into
+  `game-copy/cc-synth/many-mods-cc` (background, log `probe-out/cc-gen-many-mods-cc-1120.log`, ~2.2 h). Size per item is
+  ~1.4-1.7 MB (cc-2k: 3.2 GB for 2,000 objects + CAS [measured]), so 20k items is ~30 GB, not the 60-100 GB target: reaching
+  60 GB needs ~40k items (`--first 20000 --append`), which still fits the 40 GB margin.
+- `cc-gen.ts --kind tiny --count 2000` (new): 2,000 packages of one 16-byte resource of type 0x7FFF0001 [I-555-3], no EA bytes,
+  2.6 MB, `game-copy/cc-synth/pkgs-2000` (docs/17 M4).
+
+### 9.7 Run order
+
+1. many-mods-load-split-1120 (needs the CC set finished; no NRaas needed). 2. NRaas downloads + set rebuild. 3.
+many-mods-age-1120. 4. A1's ModTime build merged and the two ModTime queues repinned: many-mods-modtime-1120, then
+many-mods-pie-cost-1120.
