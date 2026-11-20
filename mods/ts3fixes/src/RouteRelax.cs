@@ -57,6 +57,9 @@ namespace Ts3Fixes
             sRrFollowReady = Patch(typeof(GoHereWithHoldingInteraction), "AddRouteDest", sRrDestArgs, typeof(RrFollowHook), "DestHook", "DestOrig");
         }
 
+        // world load: Sim ids and the clock belong to the world just left
+        public static void RouteRelaxWorldLoad() { sFlState.Clear(); }
+
         // the Sim whose task is running (an interaction's placement search runs on its Sim's task); null = unknown
         static Sim RrTaskSim()
         {

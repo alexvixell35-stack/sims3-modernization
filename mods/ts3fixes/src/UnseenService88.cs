@@ -66,12 +66,15 @@ namespace Ts3Fixes
         // method with no virtual dispatch in the game's Mono: the interpreter then transforms a method with no body and
         // faults on a null header (0xE6463F, three Bridgeport runs on 2026-11-20). So the override is looked up on the
         // instance's own class chain first (DelegateTarget), and the compiled call is made on that (an override may be swapped, where
-        // MethodInfo.Invoke throws). No concrete override found: nothing is called, as for a missing method.
+        // MethodInfo.Invoke throws). No concrete override found: false, nothing is called and the caller keeps EA's hand-off
+        // (the server's instance would otherwise make the order with no description or recipe handed over).
         delegate bool CompiledBoolFn();
-        static void SvcRunOrder(object ia)
+        static bool SvcRunOrder(object ia)
         {
             MethodInfo m = DelegateTarget(ia, sSvcRunOrder);
-            if (m != null) ((CompiledBoolFn)Delegate.CreateDelegate(typeof(CompiledBoolFn), ia, m))();
+            if (m == null) return false;
+            ((CompiledBoolFn)Delegate.CreateDelegate(typeof(CompiledBoolFn), ia, m))();
+            return true;
         }
         static readonly MethodInfo sSvcRunOrder = typeof(BarAdvanced.BarInteraction).GetMethod("RunOrderBehavior", kInstAll, null, Type.EmptyTypes, null);
         static readonly MethodInfo sSvcUseIngr = typeof(BarAdvanced).GetMethod("UseIngredients", kInstAll);
@@ -276,7 +279,7 @@ namespace Ts3Fixes
                 else
                 {
                     step = OwnBugsCore.kSvcStepOrder;
-                    SvcRunOrder(ia);   // EA: hands description / recipe to the server's instance
+                    if (!SvcRunOrder(ia)) return false;   // EA: hands description / recipe to the server's instance; none: EA's hand-off
                     step = OwnBugsCore.kSvcStepCommodity;
                     mk.BeginCommodityUpdates(); mkBegun = true;
                     TransformParentingReturnCode rc = TransformParentingReturnCode.Unknown;

@@ -2471,6 +2471,16 @@ namespace Ts3Fixes
             try { return SafeSpotBody(sim, lot, near, out pos, out fwd); }
             finally { if (had) sSpotCtx[task] = was; else sSpotCtx.Remove(task); }
         }
+        // the footprint FindGoodLocation(sim, ...) places: species and age flags (0 = unknown)
+        static uint NoSpotKind(Sims3.Gameplay.Actors.Sim sim)
+        {
+            try
+            {
+                Sims3.Gameplay.CAS.SimDescription d = sim == null ? null : sim.SimDescription;
+                return d == null ? 0u : (uint)(d.Species | d.Age);
+            }
+            catch (Exception) { return 0u; }
+        }
         static bool SafeSpotBody(Sims3.Gameplay.Actors.Sim sim, Lot lot, Sims3.SimIFace.Vector3 near, out Sims3.SimIFace.Vector3 pos, out Sims3.SimIFace.Vector3 fwd)
         {
             SpotVerdicts v = Verdicts(lot);
@@ -2510,14 +2520,16 @@ namespace Ts3Fixes
                 // identical failed searches in one run, and every next Sim bound for the lot repeated them. One failed
                 // fresh search ends the run, and its start is remembered for kNoSpotTicks (the caller runs the game's trip).
                 long nowNs = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
-                if (fresh && v.NoSpotSet && nowNs >= v.NoSpotAt && nowNs - v.NoSpotAt < kNoSpotTicks && (near - v.NoSpotNear).Length() < 0.5f) break;
+                // keyed by the Sim's footprint (species and age): a horse's failed search says nothing about a human's
+                uint nsKind = fresh ? NoSpotKind(sim) : 0u;
+                if (fresh && v.NoSpotSet && v.NoSpotWho == nsKind && nowNs >= v.NoSpotAt && nowNs - v.NoSpotAt < kNoSpotTicks && (near - v.NoSpotNear).Length() < 0.5f) break;
                 c[91]++;
                 bool found = GlobalFunctions.FindGoodLocation(sim, new World.FindGoodLocationParams(start), out pos, out fwd);
                 if (ShortcutOn("safespotyield") && !SafeSpotYield(sim, near)) break;
                 if (!found)
                 {
                     if (!fresh) continue;
-                    v.NoSpotSet = true; v.NoSpotAt = nowNs; v.NoSpotNear = near;
+                    v.NoSpotSet = true; v.NoSpotAt = nowNs; v.NoSpotNear = near; v.NoSpotWho = nsKind;
                     break;
                 }
                 if (noPool && BelowGroundOutdoors(pos)) { c[2711]++; continue; }
@@ -2577,6 +2589,7 @@ namespace Ts3Fixes
             public bool NoSpotSet;                       // a fresh FindGoodLocation from NoSpotNear found nothing at NoSpotAt
             public long NoSpotAt;
             public Sims3.SimIFace.Vector3 NoSpotNear;
+            public uint NoSpotWho;                       // NoSpotKind of the Sim whose search failed
             public readonly Dictionary<VerdictKey, bool> Cells = new Dictionary<VerdictKey, bool>(new VerdictKeyComparer());
             public readonly List<Sims3.SimIFace.Vector3> Good = new List<Sims3.SimIFace.Vector3>();
             public readonly Dictionary<VerdictKey, bool> PlanOk = new Dictionary<VerdictKey, bool>(new VerdictKeyComparer()); // docs/202 D only: cells a normal plan proved (UfFillNote)
