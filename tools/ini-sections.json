@@ -49,6 +49,7 @@
  "FpRebuildLock": ["steerro.cpp"],
  "LotFrontDoorRO": ["lotfd.cpp"],
  "ObstructedRO": ["obstructro.cpp"],
+ "ObstructAtRO": ["gvro.cpp"],
  "AvoidRO": ["avoidro.cpp"],
  "RouteToObjRO": ["rtoro.cpp"],
  "PlacementRO": ["fgro.cpp"],

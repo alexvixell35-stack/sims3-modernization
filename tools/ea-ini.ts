@@ -47,6 +47,8 @@ export const KEY_ADDRS: Record<string, number[]> = {
     "ResourceCache.TrimEveryMin": [0x00FFE2F0],
     "EaCrashFixes.HeightsInfLoop": [0x0064CEBA, 0x0064CEC0, 0x0064CF55, 0x0064D275],
     // docs/670 §11 (gvhits.cpp): the validator's hit loop has no EA 1.69 rows; the two keys stay 0 there, [GoalValidRO] itself is kept
+    // docs/670 §21 (gvro.cpp): RouteObstructionAtPoint has no EA 1.69 row
+    "ObstructAtRO.Enabled": [0x00655880],
     "GoalValidRO.Hits": [0x00759B26, 0x0075A950, 0x0075AAA1, 0x0075AAC4, 0x0075AF4C, 0x00AB88A0, 0x01010960],
     "GoalValidRO.HitsShadow": [0x00759B26, 0x0075A950, 0x0075AAA1, 0x0075AAC4, 0x0075AF4C, 0x00AB88A0, 0x01010960],
     "EaCrashFixes.BridgeHeightNaN": [0x00B745A0, 0x00C6133B, 0x00C61342, 0x00C6137B, 0x00C6A46B, 0x00C6A472, 0x00C6A4B3, 0x00C6A709, 0x00C6A710, 0x00C6A772],
@@ -108,7 +110,7 @@ export const IGNORE_FILE: Record<string, string[]> = { GC: ["memexp.cpp"] };
 const RG = ["RouteGate", "RouteAsync"];
 export const DEPENDS: Record<string, string[]> = {
     RouteGate: ["RouteAsync"], RouteAsync: ["RouteGate"], Discourage: RG, RouteSnap: RG, Watchpoint: ["RouteSnap"],
-    SteerRO: RG, FpRebuildLock: RG, LotFrontDoorRO: RG, ObstructedRO: RG, AvoidRO: RG, RouteToObjRO: [...RG, "SlotEnabledRO"], PlacementRO: RG, PlaceTestRO: RG, EditPathRO: RG, ConnRoomsRO: RG,
+    SteerRO: RG, FpRebuildLock: RG, LotFrontDoorRO: RG, ObstructedRO: RG, ObstructAtRO: RG, AvoidRO: RG, RouteToObjRO: [...RG, "SlotEnabledRO"], PlacementRO: RG, PlaceTestRO: RG, EditPathRO: RG, ConnRoomsRO: RG,
     GoalValidRO: RG, IdleCheckRO: RG, SlotEnabledRO: RG, Gate0RO: RG, ProbeP1b: RG, LocoWindow: RG, ProbeP10: RG,
     UnseenProbe: ["RouteAsync"], UnseenThrottle: ["RouteAsync"], UnseenFallback: ["RouteAsync"], HitchAttr: ["RouteAsync"],
     CellMemoProbe: ["RouteJobPhases"], SaveFlush: ["SaveWrite"], Compaction: ["UserDiag", "SaveWrite"], MemDiag: ["UserDiag"], AutShadow: ["MonoThread", "RouteSnap"],

@@ -1073,3 +1073,150 @@ report tools match the line's head only.
 On top of §19.6: `[RouteAsync] SkipRetry=1` (with `FallbackAsync=1 M1Retry=1 LogFallbackMs=40`), repro `ip-skipretry-storm`
 (`native_set skipretry`). Read `route skip retry:` (queued near parked, gave up small, max ticks far under 30, `scope`
 against parked), the `sync plan ... reason Skipped` lines against the off arm, and the `site` word of the `rtwait` lines.
+
+## 21. s189 read: every gate wait has its caller (`RouteLockCallers`) [verified: log + disassembly]
+
+2026-11-20, branch `feat/lock918-readers6`. Input: s189 (3-min storm, Isla Paradiso, every fix on, `[HitchAttr] RouteLockMs=20
+RouteLockCallers=1`), 63 `route lock wait:` lines, 3,369 ms. No s190 log existed when this was read. Functions found with
+objdump on the Steam 1.67 code and `functions.csv`; no Ghidra run.
+
+| ms | lines | max | key | first caller word | who | class |
+|---|---|---|---|---|---|---|
+| 508 | 13 | 76 | `0x62EF7A` | `0x655ABE` | `RouteObstructionAtPoint 0x655880` (§21.1) | reader: **built, `[ObstructAtRO]`** (§22) |
+| 476 | 8 | 152 | `0x62FB74` | `0x654BE5` | `0x654790` under `World_ArePointsConnectedByLand` (§12.2's path) | reader; SH hold, not built (§23.1) |
+| 442 | 7 | 109 | `0x85FE10` | `~7805F619` (ts3native) | S2 steering query given back | `steer RO:` line: 381 ms in given-back calls |
+| 413 | 5 | 129 | `0x62EF7A` | `0x82E696` | `RoutingWorld_BlockerCheck2d 0x82E340` | reader; IC-level stub on `rtoro.cpp`, not built (§23.2) |
+| 247 | 6 | 67 | `0x62FB74` | `0x834201` | `0x8341D0` (§21.2) | **writer path**: keeps the lock |
+| 242 | 3 | 104 | `0x62F782` | `0x7581A6` | `0x758110` = `RouteManager_SetPortalCost` (§21.3) | **writer**: keeps the lock |
+| 225 | 7 | 58 | `0x760BFF` | `0x76429D` | `0x7641D0`, the goal step of `IC_Route_Plan` / `IC_Route_Replan` (§23.3) | sync plan |
+| 222 | 4 | 128 | `0x760BFF` | `0x764400` | `0x7642C0`, the goal step of `IC_Route_PlanFromPoint` / `IC_Route_ReplanFromPosition` (§23.3) | sync plan |
+| 187 | 2 | 139 | `0x631814` | `77FF029C` (not image) | `[LotFrontDoorRO]` given back [inferred] | - |
+| 114 | 2 | 76 | `0xD882D7` | scan only | `[ConnRoomsRO]` given back | - |
+| 109 | 2 | 73 | `0x62FB74` | `77FA1526` (not image: stale) | unknown | - |
+| 53 / 51 / 48 / 32 | 1 each | | `0x846D21`, `0x85F6CB`, `0x631F40`, `0x62EF7A` from `0x75167F` | | RouteFollow_A, EditPath given back, FGL footprints, `IsPointObstructedBySim` given back by `[ObstructedRO]` | - |
+
+### 21.1 `0x655ABE`: `RouteObstructionAtPoint 0x655880` [verified disassembly 0x655880..0x655ED1]
+
+thiscall(self; ctx, Vector3 point, bool classFlag), `ret 0x14`, result EDX:EAX. Two callers: `0x7519D9` (an IC body after
+`IsPointObstructedBySim`; it builds ctx on its stack from the route: option word `route+0x3C`, own id `route+0x40/+0x44`,
+ignore list `route+0x158`; the s170-s187 logs named `Route_GetObstructionAtWorldOrLotPoint` beside this key [inferred: the same
+IC]) and `0x6437AF` (in planner function `0x6435B0`, classFlag 1).
+Body: `World_LotLookup(self+0xC, x, z)`; no lot: the other path through `0x62D0D0` (not read). With a lot: the level
+(`0xADD860`), the height (`0xB015B0`, `0x74A8F0`), **the lot transform `0x62EF30(self+8, lot id, ...)` = gate 0**, whose two
+outputs are never read again, then `RoutingWorld_ObstacleQuery 0x82EDB0` (mode 0, radius `[0x106E8A8]`, option word = ctx's)
+at `0x655AF6`, which takes `+0x918` itself. Then the loop over the returned footprints: classFlag 0: type (slot `+0xC`) 0x14
+or 1, id (slot `+0x84`) not ctx's own and not in the ignore list (`0x81C970`) = the answer; classFlag 1: class (slot `+8`
+with ctx) >= 2 and not 0xD = answer 1:0. Nothing found: 0.
+**A reader of planner state** (lot table hit, quadtree footprints); the result is a value. It writes only footprint
+refcounts (+1/-1) and a lot-table entry on a miss. So the gate wait buys nothing by itself: without it the function would
+wait at `0x82EDB0` instead. Both touches must be answered together: §22.
+
+### 21.2 `0x834201`: `0x8341D0` [verified disassembly, 0x831710 not read]
+
+thiscall(RoutingWorld; object, level), called from `0x834C12` (`0x834B80`) and `0x835DED` (`0x835240`), the object
+footprint update family (`0x833697` is the writer key next to it). It skips objects with `+0x408 == 1 && +0x40C == 0x50`,
+finds the lot entry (`0x62FB60`, gate 12), tests bit `level - entry+0x40` of `entry+0x168`, and when the bit is clear calls
+`0x831710(object, level, 0, 1)`. The read is two fields of the entry; what follows it is a routing-world change for that
+object and level [inferred from the callers and the argument shape]. **Writer path: keeps the lock.** A read-only answer
+would only cover the "bit already set" case and would move the callers' following writes beside the job; not provable per
+caller in this pass.
+
+### 21.3 `0x7581A6`: `0x758110` = `RouteManager_SetPortalCost` [verified disassembly]
+
+`PortalsForObject 0x62F760` into a vector, then `portal+0x2C = cost` for each, then the references released. **Writer of
+portal cost: keeps the lock** (§12.2 had it from the script name; now from the code).
+
+## 22. `[ObstructAtRO]`: `RouteObstructionAtPoint` on the clone (ts3native, default off, NOT RUN)
+
+### 22.1 What it does [built: `gvro.cpp` `OaHook`, `OaRun`, `OaLocked`, `OaScan`]
+
+An entry detour on `0x655880` (6 bytes `55 8B EC 83 E4 F0`, the prologue `[ObstructedRO]` checks on its sibling). On the
+sim thread while a route job runs, and only when the thread holds no `+0x918`, serves no job callback and has no gate frame
+open (`OrHook`'s conditions):
+
+- phase 1, no lock, the game's own calls in its order: `World_LotLookup(self+0xC)`, the level `0xADD860`, `0x82EDB0`'s own
+  lookup on `world+0x964`. The height is not computed (the query reads x, z and the level; as `[ObstructedRO]`).
+- phase 2, QL shared (try only), S2's protocol (tripwires armed, sequence, epoch, generation): the lot table hit for gate 0
+  (`SrEntry`; a miss would insert: the game), the obstacle query as S2's point query (`g_orQuery` = `SrQuery`, record =
+  ctx's option word, `+0x24 = 1`, radius `[0x106E8A8]`), then the function's loop for classFlag 0 on the clone's list in
+  `0x82EDB0`'s order, through the game's slots `+0xC` and `+0x84`. The refcount +1/-1 is skipped (net 0).
+
+Given back to the game (it waits as today), each with its own count: no lot at the point (the `0x62D0D0` path is not
+cloned), classFlag 1 with footprints found (slot `+8` is not read for this call; `gvhits.cpp` has it for the validator),
+an ignore list that lies inside the route the running job plans (or the job's route cannot be found), `self+8` not the
+world's planner, a dirty lot index, and every S2 doubt (QL busy, lot not in the table, deferred flush, shape, tripwire, job
+end). `Shadow=1`: with no job running (and none allowed to start: `g_rgOffSimOpen`), the game's call, then the clone,
+compared; `SHADOW MISMATCH` lines (16 at most).
+
+Keys: `[ObstructAtRO] Enabled=0`, `Mode=1`, `Shadow=0`. Export `ts3native_obstructat` (size 0x48, `+0x00` mode =
+`native_set obstructat`, `+0x04` shadow; docs/registry.md). Line, once a minute when installed: `obstruction at point RO:
+mode M shadow S calls C, answered in a job A (obstructed H) max U us; given back: state, QL busy, lot, shape, tripwire, no
+lot, class flag with footprints, job's route; shadow runs R mismatch X`. Address row `0x00655880` (EA 1.69: unresolved, the
+feature prints its SKIP line there). Repro `ip-obstructat-storm`.
+
+### 22.2 Checks run, and what is not checked
+
+- clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`: 0 errors, no warning in the new lines.
+- `node tools/selftest-all.ts --ci`: 200 PASS, 0 FAIL.
+- **Not done: no selftest case and no `steerro-test` section** (the model is section J, `[ObstructedRO]`, against the game's
+  own `0x751480`; the same harness with `0x655880` as the game side is about 30-45 min). Until that section passes, the
+  following are read from the disassembly only: the lookup's argument order (x, z), the point's layout ({x, y, z, x}, level
+  at `+0x24`), ctx's fields (`+0`, `+8`, `+0xC`, `+0x28`), and that the transform's outputs are dead. **Run `Mode=0 Shadow=1`
+  first**: a wrong reading shows as a mismatch, with no answer changed.
+- Not known: how many job-time calls are classFlag 1 with footprints (given back), i.e. how much of the 508 ms it removes.
+  The `class flag with footprints` count of the first arm says it.
+
+## 23. Read, not built
+
+### 23.1 `0x62FB74` from `0x654BE5` (476 ms, the second largest)
+
+The prediction of §12.2 / §19.2 holds: all 8 lines with that word are the call at `0x654BE0` in `0x654790`. Design SH (a
+QL shared hold around `0x654790` at call `0x659787`, gate 12 passing inside) is still the fit. Open before it can be
+built: `0x654790` reaches `World_LotLookup`'s own lock `0x10786C8` (§17), so `LockAcquireHook`'s `QlSharedTrip(SLD_LOCK)`
+must be shown to let that one lock pass without dropping the hold, or the hold drops on every call and nothing is gained;
+and an offline section that runs the game's `0x654790` under the hold against the plain call. About 1-1.5 h. Not started
+in this pass (the 45 minutes went to §22).
+
+### 23.2 `0x62EF7A` from `0x82E696` (413 ms)
+
+`RoutingBlockerCheck2d` does rank now (§17 said it did not: the stall-watch names missed it; the caller word does not).
+`rtoro.cpp` clones this check as a step of `RouteToObjectCheck`; the IC-level stub on the call to `0x82E340` (§12.2: the
+segment gather `0x631E20` with its pin and references rules SH out) is the next build after §23.1, about 1-2 h with its
+offline section.
+
+### 23.3 `0x760BFF`: which sync plans [verified: disassembly of the call sites + s189 log]
+
+`0x7641D0` (return `0x76429D`) is called at `0x7651DC` (`IC_Route_Plan 0x765160`) and `0x7654C8` (`IC_Route_Replan
+0x765490`); `0x7642C0` (return `0x764400`) at `0x76542C` (`IC_Route_PlanFromPoint 0x765240`) and `0x7655C3`
+(`IC_Route_ReplanFromPosition 0x765550`). Both call the goal step `0x7606E0` (gate 10). So the caller word splits the key
+by IC pair, not by reason.
+
+s189's sync plans >= 40 ms (18 lines): **16 are `entry Route_PlanLocked (no IC)` with managed caller
+`ScriptCore.Route.Route_PlanFromPoint`** (41-93 ms each, about 0.9 s), 1 `ReplanFromPosition / Skipped` (75 ms), 1 `Plan /
+Los` (77 ms). `(no IC)` means no IC frame of ours was open: these plans never reached a START, the `NoStart` class of §19.3.
+So for `0x764400` (4 lines / 222 ms) the reason is `NoStart` on PlanFromPoint; `SkipRetry` cannot help (nothing was queued
+to be skipped) and neither can M1Retry (no START was refused). What would: give those PlanFromPoint calls a START (why the
+A10 kind-2 hook does not arm for them: `KindsUnseen` scope, no point argument, or the watchdog-only hook; `arWdPass` and
+the `pkAfSkip` counters say which) and then they park like any other. That is a read of `a10.cpp`'s arming rules, not the
+small SkipRetry pattern; not built. `0x76429D` (7 lines / 225 ms, all under 60 ms) are Plan / Replan sync plans mostly
+below the 40 ms line threshold, so the log does not give their reasons; `Los` is one of them and must stay synchronous.
+`QueueFull`: 0 lines in s189 (3 in ten logs before): parking it is the same `J_PEND` + `FbRetry` pattern, but with nothing
+to measure in this arm it was not built.
+
+### 23.4 Next storm, on arm
+
+On top of §20.4:
+
+```
+[ObstructAtRO]
+Enabled=1
+Mode=0
+Shadow=1
+[HitchAttr]
+RouteLockMs=20
+RouteLockCallers=1
+```
+
+First pass as written (compare only; `shadow runs` > 0, `mismatch` 0). Second pass `Mode=1`: `answered in a job` against
+`class flag with footprints` and `no lot`; lines with key `0062EF7A` and first caller `00655ABE` against s189's 13 / 508 ms;
+no new key `00655AFB`. Also read `arWdPass` / `pkAfSkip` for §23.3.

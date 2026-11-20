@@ -3254,6 +3254,7 @@ static void EpLogCounters();   // epro.cpp (docs/670 §8)
 static void CnLogCounters();   // connro.cpp (docs/670 §15)
 static void PfaLogCounters();  // discourage.cpp (docs/670 §16)
 static void GvhLogCounters();   // gvhits.cpp (docs/670 §11)
+static void OaLogCounters();    // gvro.cpp (docs/670 §21)
 static void SrLogCounters();   // steerro.cpp (docs/670 §7)
 
 static void DiscRfLog();  // discourage.cpp (docs/89 §18)
@@ -3346,6 +3347,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     CnLogCounters();   // docs/670 §15 (nothing until [ConnRoomsRO] is installed)
     PfaLogCounters();  // docs/670 §16 (nothing until DeferPrivateFpAdd is installed)
     GvhLogCounters();   // docs/670 §11 (nothing until [GoalValidRO] Hits is installed)
+    OaLogCounters();    // docs/670 §21 (nothing until [ObstructAtRO] is installed)
     SrLogCounters();   // docs/670 §7 (nothing until [SteerRO] is installed)
     if (ts3native_readydrain.mode)
         Log("route ready drain: budget %ld us, frame %ld us, gap %ld us, polls %ld, calls served past the first %ld, done in the same "
@@ -6674,6 +6676,7 @@ static void Run(HMODULE self) {
         InstallRouteToObjRO(ini);  // docs/140 §12: after [SteerRO] (QL, W1-W6) and [SlotEnabledRO] (SH)
         InstallPlacementRO(ini);   // docs/174: S2's writer set, like [RouteToObjRO]
         InstallGoalValidRO(ini);   // docs/178 §7 T6: S2's writer set, like [PlacementRO]
+        InstallObstructAtRO(ini);  // docs/670 §21: RouteObstructionAtPoint 0x655880 (S2's writer set)
         InstallPlaceTestRO(ini);   // docs/670: S2's writer set, like [PlacementRO]
         InstallFglProf(ini);       // docs/671: measurement only; its sites differ from [PlaceTestRO]'s 0xB462B7
         InstallSwarmGuard(ini);    // docs/678: one call site in the main thread's Swarm update, default off
