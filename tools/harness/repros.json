@@ -111196,6 +111196,80 @@
     ]
   },
   {
+    "id": "ip-editpathro-storm",
+    "bug": "docs/670 §8: with [PlaceTestRO] on (Isla Paradiso route storm s148, 2026-11-20) the sim thread's largest +0x918 wait key is 0x85F6CB (32 waits >= 20 ms, 2.4 s per 4 min, up to 168 ms each; one 379 ms frame): the goal footprint gather 0x82F0B0 of RouteFollow_EditPath 0x85F5A0, called per path node by RouteFollow_EditPathForRoute 0x85FF30 (IC_Route_SetAGS in 20 of 27 stall-watch stacks, Route_PlanCommon's tail, the path insert ICs), takes the routing lock while a route job on the worker holds it for its whole plan; [SteerRO] answers only the locomotion caller",
+    "fix": "ts3native [EditPathRO] Enabled=1 (default 0): the call at 0x85FFC2 is answered on the sim thread from S2's read-only protocol (QL shared, try only) while a job runs, the same ids appended in the same order; any doubt calls the game's EditPath (docs/670 §8)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, selftest case TestEditPathRO and steerro-test section EP under Wine: 57754 of 60000 route-form calls compared equal to the game's 0x85F5A0 on fake worlds, 2246 given back, 0 differ). Job ini: [EditPathRO] Enabled=1 Mode=0 Shadow=1 for the shadow pass (no job-time answers; with no job running the game's call and the clone are compared), then Enabled=1 Mode=1 Shadow=0 with the arms flipping the runtime mode by export (native_set editpathro: off = 0, on = 1). Run it with [PlaceTestRO] Enabled=1 Mode=1 in both arms (without it the 0x82F4AB waits hide this key). Needs the S2 stack of the release ini ([RouteGate] Enforce=1, [RouteAsync], [SteerRO]) and [HitchAttr] RouteLockMs=20 for the 'route lock wait:' lines. Read per arm: the 'edit path RO:' line (answered, the game's call ms, given back by reason), the new 'steer RO:' line and the +0x918 waits with key 0085F6CB.",
+    "expect": "shadow pass: shadow checks > 0, mismatch 0, no 'SHADOW MISMATCH' line. on arms: answered > 0, 'route lock wait' lines with key 0085F6CB and their ms well below the off arms (only the given-back calls are left); the summed +0x918 wait may move to the next taker in the same frame (docs/670 §7), so read the 'hitch totals' wait sum too; routes unchanged (no new routefail lines, no stuck Sims); no crash",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "editpathro": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 off, 1 answer while a job runs"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "count": 40,
+            "repeatS": 30,
+            "seed": 148
+          },
+          "waitS": 180,
+          "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path): route jobs back to back, Route.SetAGS and plan tails beside them"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "stop": true
+          },
+          "waitS": 5
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "editpathro": 1
+        },
+        "note": "back to the ini value"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
