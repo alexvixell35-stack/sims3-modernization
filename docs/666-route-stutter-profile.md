@@ -195,3 +195,8 @@ LogFallbackCaller. Those two tests plus `TestStallWatch` and `TestHitchAttr` pas
 `g_testExpAt`; CI does not build the selftest under the table). MSVC CI builds the real asi and runs the whole selftest.
 `route-stutter-report.ts --self-check` parses every new line (and reads a log with `hitch:` lines but no hitchwatch lines
 with the native frames as its hitches); its output on the 2026-11-19 logs is unchanged.
+
+## 6. Short storm arms (docs/668)
+
+The profiling runs from s141 on use `route_storm` phases (`storm:4` / `storm:5`) instead of 15 min idle phases: about 4 min
+per arm. `tools/harness/storm-table.py --report <this report>` splits the hitches, slow plans and plan rate by phase.
