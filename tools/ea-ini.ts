@@ -46,6 +46,9 @@ export const KEY_ADDRS: Record<string, number[]> = {
     "ResourceCache.TrimAfterCleanup": [0x00FFE2F0],
     "ResourceCache.TrimEveryMin": [0x00FFE2F0],
     "EaCrashFixes.HeightsInfLoop": [0x0064CEBA, 0x0064CEC0, 0x0064CF55, 0x0064D275],
+    // docs/670 §11 (gvhits.cpp): the validator's hit loop has no EA 1.69 rows; the two keys stay 0 there, [GoalValidRO] itself is kept
+    "GoalValidRO.Hits": [0x00759B26, 0x0075A950, 0x0075AAA1, 0x0075AAC4, 0x0075AF4C, 0x00AB88A0, 0x01010960],
+    "GoalValidRO.HitsShadow": [0x00759B26, 0x0075A950, 0x0075AAA1, 0x0075AAC4, 0x0075AF4C, 0x00AB88A0, 0x01010960],
     "EaCrashFixes.BridgeHeightNaN": [0x00B745A0, 0x00C6133B, 0x00C61342, 0x00C6137B, 0x00C6A46B, 0x00C6A472, 0x00C6A4B3, 0x00C6A709, 0x00C6A710, 0x00C6A772],
 };
 const keyed = new Set(Object.values(KEY_ADDRS).flat());

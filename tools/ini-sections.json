@@ -55,7 +55,7 @@
  "FglProf": ["fglprof.cpp"],
  "EditPathRO": ["epro.cpp"],
  "FootstepRO": ["fsro.cpp"],
- "GoalValidRO": ["gvro.cpp"],
+ "GoalValidRO": ["gvhits.cpp", "gvro.cpp"],
  "IdleCheckRO": ["idlero.cpp"],
  "MovedWaits": ["movedwait.cpp"],
  "SlotEnabledRO": ["slotro.cpp"],
