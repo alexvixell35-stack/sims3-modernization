@@ -15182,6 +15182,7 @@ int main() {
     TestGvAttr();
     TestGvAttrNoLater();  // docs/250 §13.3, §12.3 (v189)
     TestGvUnseen();       // docs/250 §7.3 B2 (v189)
+    TestObstructAtRO();   // docs/670 §22
     TestFootstepRO();
     TestRouteToObjTail();
     TestIdleCheckRO();

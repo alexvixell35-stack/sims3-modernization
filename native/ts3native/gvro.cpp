@@ -314,6 +314,8 @@ static void InstallGoalValidRO(const wchar_t* ini) {
 // 0x62D0D0), classFlag set with footprints found (the class slot +8 is not read for this call), an ignore list that may
 // belong to the route the job plans, a gate-0 miss (an insert), and every S2 doubt. The height (0x74A8F0, 0xB015B0) is
 // not computed: the query reads x, z and the level only (as [ObstructedRO]).
+// Checked against the game's own 0x655880 on random worlds: steerro-test section OA (docs/670 §22.2; the height fake there
+// returns a y far from the caller's); on fakes: TestObstructAtRO (gvro-test.h).
 // Exported block ts3native_obstructat: +0x00 mode is the runtime switch (native_set obstructat), +0x04 shadow.
 static const DWORD OA_FN = TS3A(0x00655880);
 struct ObstructAtCounters {
@@ -402,7 +404,9 @@ static int OaRun(const u8* self, const u8* ctx, float x, float y, float z, bool 
     u8* wmw = *(u8* const*)(world + 0x964);
     if (!p || !wm || !wmw || p != *(const u8* const*)(world + 0x95C)) return SrShape(SRS_NOPLANNER);
     if (wm[0x1CC] || wmw[0x1CC]) return SR_FB_DIRTY;  // World_LotLookup would rebuild the lot index
-    if (job && ctx && *(const u8* const*)(ctx + 0x28)) {  // the ignore list lives in a route: not the one the job plans
+    // the ignore list lives in a route (the IC passes route+0x158): not the one the job plans. The route's size is not
+    // known, so any list within 0x1000 bytes of the job's route counts as its own.
+    if (job && ctx && *(const u8* const*)(ctx + 0x28)) {
         const u8* ign = *(const u8* const*)(ctx + 0x28);
         const u8* rm = *g_orRmSlot;
         const DWORD h = g_async.handle;

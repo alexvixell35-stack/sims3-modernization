@@ -1158,11 +1158,29 @@ feature prints its SKIP line there). Repro `ip-obstructat-storm`.
 
 - clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`: 0 errors, no warning in the new lines.
 - `node tools/selftest-all.ts --ci`: 200 PASS, 0 FAIL.
-- **Not done: no selftest case and no `steerro-test` section** (the model is section J, `[ObstructedRO]`, against the game's
-  own `0x751480`; the same harness with `0x655880` as the game side is about 30-45 min). Until that section passes, the
-  following are read from the disassembly only: the lookup's argument order (x, z), the point's layout ({x, y, z, x}, level
-  at `+0x24`), ctx's fields (`+0`, `+8`, `+0xC`, `+0x28`), and that the transform's outputs are dead. **Run `Mode=0 Shadow=1`
-  first**: a wrong reading shows as a mismatch, with no answer changed.
+- `steerro-test` section OA (2026-11-20, branch `fix/obstructat-check`; clang-cl build under Wine as §8.5, `SRT_ONLY=OA`): the
+  game's own `0x655880` (its lookup, transform `0x62EF30`, query `0x82EDB0`, `0x8294E0` / `0x81C970` and loop; the level
+  `0xADD860`, `0xB015B0` and the height `0x74A8F0` faked, the height returning a y far from the caller's) against `OaRun` on
+  random worlds, points, contexts (none, own id, ignore list or none) and both class flags: **30,000 calls, 24,394 compared
+  equal** (4,768 name an object; 4,453 class flag with nothing near), **0 differ**, 5,606 given back (no lot 2,091, class
+  flag with footprints 2,123, lot not in the table 1,392: the game inserts it there). The fakes saw the same lot and the same
+  point `{x, y, z, x}` from both sides; references balanced. Then the detour on the mapped function: 2,712 answers in a
+  "job" equal to the game's, 689 given back for the job's own route, shadow 3,735 runs / 0 mismatches, QL busy 51 times -> the
+  game's call. 12 call edges and the bytes of `0x8294E0`, `0x81C970`, the ctx reads and the flag test match the image. Eight
+  wrong readings put into `OaRun` on purpose (own id dropped or read at `+4`, type 1 dropped, ignore list by low word only,
+  option word 0, level 0, lookup `(z, x)`, point w 0) each stopped the section. The whole `steerro-test` ends `steerro-test
+  ok` with the other sections' numbers unchanged. **So the reading of §21.1 holds**: lookup `(x, z)`, the point's layout, ctx
+  `+0` / `+8` / `+0xC` / `+0x28`, the transform's outputs dead, the query blind to y. Nothing in `OaRun` had to change.
+- Selftest case `TestObstructAtRO` (`gvro-test.h`; clone and hook on fakes, the gate's lot and the query's lot apart, every
+  given-back reason, shadow compare), built with clang-cl and run under Wine before and after `TestGoalValidRO` /
+  `TestObstructedRO`. Pass. The full selftest needs the MSVC CI build.
+- Still read only, not run: the no-lot path (`0x62D0D0`; given back before any routing read), the class flag's loop with
+  footprints (slot `+8`; given back), the real `0xADD860` / `0x74A8F0` / `0xB015B0` (lot objects and terrain; the clone calls
+  the first as `[ObstructedRO]` does and skips the other two), a world where `self+0xC` and `world+0x964` are different
+  managers (selftest fakes only). The section's worlds never give a deferred flush or an invalid polygon cache for this call.
+  The job's-route test takes any ignore list within 0x1000 bytes of the job's route as that route's own (the route's size
+  is not known): another route allocated right behind it would be given back too; the `job's route` count shows it.
+  **`Mode=0 Shadow=1` first stays the order** (§23.4).
 - Not known: how many job-time calls are classFlag 1 with footprints (given back), i.e. how much of the 508 ms it removes.
   The `class flag with footprints` count of the first arm says it.
 
