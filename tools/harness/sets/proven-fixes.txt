@@ -432,3 +432,5 @@ worldpondskatetest
 # built 2026-11-20 (feat/route-relax, docs/675), default off, not run in the game; fglnnearspot and followerlasttry are relaxed
 # rules (another result than EA's), not fixes:
 #   fglnonescan fglnnearspot followerlasttry
+# built 2026-11-20 (feat/simcpu-three, docs/677), default off, not run in the game (exact: same lot as EA's loop):
+#   nearestlotlazy

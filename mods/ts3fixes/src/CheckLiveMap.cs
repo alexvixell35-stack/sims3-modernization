@@ -262,6 +262,7 @@ namespace Ts3Fixes
                 case "mountfishcost": return EpLive(typeof(B13MfHook), 1, "sMfCost", sMfCost, typeof(int), "sMfCost", sMfCost, null);
                 case "moveinpartner": return EpLive(typeof(MipHook), 1, "sMipSim", sMipSim, typeof(ulong), "sMipCanRemove", sMipCanRemove, 1, "sMipSim", sMipSim, null);
                 case "namecache": return EpLive(typeof(NameCacheHook), 0);
+                case "nearestlotlazy": return EpLive(typeof(NearestLotHook), 0);
                 case "nemesisnoromance": return EpLive(typeof(BInHook), 1, "sInCreate", sInCreate, 2);
                 case "newcartest": return EpJoin(EpLive(typeof(NcCarHook), 0), EpLive(typeof(NcTestHook), 2));
                 case "newspaperdef": return EpLive(typeof(B12NdHook), 1);

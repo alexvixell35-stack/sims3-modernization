@@ -155,6 +155,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kFglnNearSpot value="False" />
     <kFglnNearSpotMargin value="4" />
     <kFollowerLastTry value="False" />
+    <kNearestLotLazy value="False" />
+    <kNearestLotLazyShadow value="False" />
     <kTrashOutsideFallback value="False" />
     <kTrashOutsideFallbackHours value="4" />
     <kWildLotSkip value="False" />

@@ -84,6 +84,7 @@ namespace Ts3Fixes
             ApplyRouteFailLog();  // docs/226: logging only (routefaillog)
             ApplyDoorGen();       // DoorGen.cs: door-answer generation for ts3native DoorMemoX=3 (switch doorgen, on)
             ApplyRouteRelax();    // RouteRelax.cs (docs/675): fglnonescan, fglnnearspot, followerlasttry (all off)
+            ApplyNearestLot();    // NearestLot.cs (docs/677): nearestlotlazy (off)
             ApplyDoorShare();     // DoorShare.cs (docs/674): Sim class and shareable door answers for ts3native DoorShare (switch doorshare, off)
             ApplyOverwatchStuck(false);
             ApplyOverwatchSpread(false);
@@ -1580,6 +1581,7 @@ namespace Ts3Fixes
                 case "fglnonescan": return Instantiator.kFglnOneScan;  // RouteRelax.cs (docs/675): one scan for FindGoodLocationNearby's lot-wide stages, off
                 case "fglnnearspot": return Instantiator.kFglnNearSpot;  // RouteRelax.cs (docs/675): nearest valid spot instead of any indoor spot first (NPC Sims), off
                 case "followerlasttry": return Instantiator.kFollowerLastTry;  // RouteRelax.cs (docs/675): full ring on an NPC follower's last meet-up try, off
+                case "nearestlotlazy": return Instantiator.kNearestLotLazy;  // NearestLot.cs (docs/677): GetNearestLot tests the nearest lots first, off
                 case "doorshare": return Instantiator.kDoorShare;  // DoorShare.cs (docs/674): mark Sim-independent door answers for ts3native [RouteSnap] DoorShare, off
                 case "doorgen": return Instantiator.kDoorGen;  // DoorGen.cs: bump ts3native's door generation when a door answer input changes (DoorMemoX=3)
                 case "alarmtime": case "boatreplanlog": case "owresettime": case "synctime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks

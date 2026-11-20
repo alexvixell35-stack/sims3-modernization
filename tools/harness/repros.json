@@ -112286,6 +112286,87 @@
     ]
   },
   {
+    "id": "nearestlotlazy-check",
+    "bug": "docs/677: LotManager.GetNearestLot runs one native object count per lot (uncharted island marker) and up to ten World.ArePointsConnectedByLand calls per lot (street parking) before it compares distances; CarNpcManager.InitCarForLotRoute calls it for NPC cars to lots without valid street parking: 330-560 ms sim-thread frames in Isla Paradiso (s149, s154, s161, s164, s169, s170)",
+    "fix": "ts3fixes nearestlotlazy (NearestLot.cs + NearestLotCore.cs, tuning kNearestLotLazy, default off): distances first, the same tests nearest lot first until one passes; same lot as EA's loop. kNearestLotLazyShadow also runs EA's loop and logs a difference",
+    "save": "needs a loaded world (no save change); Isla Paradiso shows the cost",
+    "note": "UNVERIFIED in the game (2026-11-20: built with Roslyn, core selftest tools/selftest/nearestlot). Forced. NearestLotLazyCheck run asks EA's loop and ours the same up to 8 questions (4 lots, with and without street parking; EA's loop can take 0.5 s each in Isla Paradiso), then calls the hooked method once. Exact speedup: 'BROKEN' off only means EA's loop is in use. With the switch off a call of 50 ms or more logs 'ts3fixes: nearestlot: EA's loop N ms'.",
+    "expect": "off: 'verdict: BROKEN' (answers that differ 0). on: 'verdict: FIXED' (answers that differ 0, hooked call via our path=True, ours far below EA's ms); no new exceptions",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "nearestlotlazy": false
+        },
+        "waitS": 1,
+        "note": "off first"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NearestLotLazyCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NearestLotLazyCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "nearestlotlazy": true
+        },
+        "waitS": 1,
+        "note": "on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NearestLotLazyCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NearestLotLazyCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "nearestlotlazy": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "nearestlotlazy": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
