@@ -721,6 +721,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x008A79B0, 0x00000000},
     {0x008CE574, 0x005CE074},
     {0x009158AB, 0x008CF42B},
+    {0x0091A8CC, 0x00000000},
     {0x0091BC0A, 0x00000000},
     {0x0092E0C0, 0x00000000},
     {0x00935770, 0x00935BE0},
@@ -1709,4 +1710,5 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x01042520 no-ea-1.69-address native/ts3native/swarmguard.cpp:22
 // unresolved: 0x01042528 no-ea-1.69-address native/ts3native/swarmguard.cpp:22
 // unresolved: 0x01042570 no-ea-1.69-address native/ts3native/swarmguard.cpp:22
-constexpr int ts3addr_count = 1503;
+// unresolved: 0x0091A8CC no-ea-1.69-address native/ts3native/swarmguard.cpp:30
+constexpr int ts3addr_count = 1504;

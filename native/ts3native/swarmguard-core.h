@@ -8,7 +8,7 @@ struct SwgVt { unsigned long vt0, vt4, vt8; };
 enum { SWG_OK = 0, SWG_FOREIGN = 1, SWG_BAD = 2 };
 enum { SWG_SEEN = 16, SWG_SCAN_MAX = 8192 };
 struct SwgSeen { unsigned long e, word; };
-struct SwgStats { long calls, bad, skipped, repaired, foreign, scans, scanBad, lines; };
+struct SwgStats { long calls, bad, skipped, repaired, foreign, scans, scanBad, lines, births; };
 
 // SWG_OK: all three words are the constructor's. SWG_BAD: +0 and +8 are, +4 is not (the docs/678 corruption).
 // SWG_FOREIGN: +0 or +8 differ (not this class, or mid-destruction): not ours to judge, the game's code runs as before.
@@ -61,4 +61,40 @@ static bool SwgFirstSight(SwgSeen* ring, unsigned* next, unsigned long e, unsign
     ring[*next % SWG_SEEN].word = word;
     (*next)++;
     return true;
+}
+
+// docs/678 §8 (Trace=1): the birth ring. One entry per cVisualEffect allocation (0x91A8CC): the block's address, when,
+// which thread, and the block's first words as the allocator handed it out, BEFORE the constructor ran: what the last
+// owner of that address left there. If the +4 writer is a list neighbour of an object that used to live at the effect's
+// address, these words are that object's remains (its +8 would be its other link).
+enum { SWG_BIRTHS = 1024, SWG_BIRTH_WORDS = 8 };
+struct SwgBirth { unsigned long e, tick, tid, seq, w[SWG_BIRTH_WORDS]; };
+
+static void SwgBirthPut(SwgBirth* ring, unsigned* next, unsigned long e, unsigned long tick, unsigned long tid, const unsigned long* raw) {
+    SwgBirth& b = ring[*next % SWG_BIRTHS];
+    b.e = e; b.tick = tick; b.tid = tid; b.seq = *next + 1;
+    for (int i = 0; i < SWG_BIRTH_WORDS; i++) b.w[i] = raw ? raw[i] : 0;
+    (*next)++;
+}
+
+// the newest entry for address e among the last SWG_BIRTHS allocations, or null
+static const SwgBirth* SwgBirthFind(const SwgBirth* ring, unsigned next, unsigned long e) {
+    const unsigned n = next < SWG_BIRTHS ? next : SWG_BIRTHS;
+    for (unsigned i = 1; i <= n; i++) {
+        const SwgBirth& b = ring[(next - i) % SWG_BIRTHS];
+        if (b.e == e) return &b;
+    }
+    return nullptr;
+}
+
+// The nearest word below `at` (at most maxWords words down) whose value is 4-aligned and lies in [lo, hi), the image's
+// read-only data: a vtable pointer, so the start of the object that holds `at`. Returns the distance in bytes (4 = the
+// word just before), 0 = none; *val = the word.
+static unsigned SwgVtBefore(const unsigned long* at, unsigned maxWords, unsigned long lo, unsigned long hi, unsigned long* val) {
+    *val = 0;
+    for (unsigned i = 1; i <= maxWords; i++) {
+        const unsigned long v = *(at - i);
+        if (v >= lo && v < hi && !(v & 3)) { *val = v; return i * 4; }
+    }
+    return 0;
 }

@@ -112371,7 +112371,7 @@
     "bug": "docs/678: main-thread crash in the Swarm effect update 0x92E0C0 (stack 0092E0DB 0091BC0F 009162EB 0071E6D2 0059ED59; phase-20261111-2105, phase-20261120-0347): a live cVisualEffect whose interface vtable word +4 holds a heap address (a list link of another object), about 1 in 100 sessions; writer unknown",
     "fix": "guard only: ts3native [SwarmGuard] Enabled=1 (default 0): call-site retarget 0x91BC0A; an effect with +0 0x1042570 and +8 0x1042520 whose +4 is not 0x1042528 is skipped for the frame (Repair=1: the word is put back); Scan=1 checks the whole group vector; the hit lines dump the memory the bad word points at",
     "save": "Baseline-IP-Spring",
-    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, selftest on fakes). Job ini: [SwarmGuard] Enabled=1 Scan=1 (second arm Repair=1). The crash is rare: one run shows only that the hook is harmless; a hit needs many storm runs",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, selftest on fakes). Job ini: [SwarmGuard] Enabled=1 Scan=1 Trace=1 (second arm Repair=1); Trace (docs/678 §8) adds the birth record and the vtable search to a hit. The crash is rare: one run shows only that the hook is harmless; a hit needs many storm runs",
     "expect": "'OK   swarm guard: Repair=.. Scan=..' at start; the minute line 'swarm guard: updates N, bad +4 0 ...' with updates rising; effects look as before; on a hit 'swarm guard: update found' or 'scan found' plus the memory line and no crash at 0x92E0DB",
     "steps": [
       {
