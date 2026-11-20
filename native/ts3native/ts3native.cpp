@@ -5916,9 +5916,14 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
         if (!ReadyDrain(j)) return 0;
     }
     if (j && j->state == J_SKIPPED) {  // not planned (world changed): the plan runs synchronously
-        InterlockedExchange(&j->state, J_FREE);
+        // docs/670 §20: the worker skipped it after the SkPark above (between the two state reads, or while ReadyDrain served
+        // it): parked here as at the top. FbRetry false has freed the slot and recorded the reason
+        if (SkPark(j) && FbRetry(j)) return 0;
+        if (j->state == J_SKIPPED) {
+            InterlockedExchange(&j->state, J_FREE);
+            RfbRefuse(handle, RFB_SKIPPED);
+        }
         j = NULL;
-        RfbRefuse(handle, RFB_SKIPPED);
     }
     g_collect = j ? handle : 0;
     return 1;
