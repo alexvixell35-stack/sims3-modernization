@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-17",
+  "updated": "2026-11-20",
   "about": "Switch evidence for experimental builds (tools/release/experimental.ts). status verified = correctness gate PASSED: its on values go into the experimental ini/package; blocked = force its off values; unverified = master default stays. Agents update an entry when a correctness job passes or fails, with the result page as evidence.",
   "switches": [
     {
@@ -495,6 +495,30 @@
         "PLAN.md (off-switch audit 2026-11-14)"
       ],
       "reason": "contributor PR was a draft, his off/on soak not done, S4/S5 never fired; no run in this repo's harness."
+    },
+    {
+      "id": "hostmapiterfix",
+      "status": "verified",
+      "on": {
+        "ini": {
+          "HostMapIterFix": {
+            "Enabled": "1",
+            "Repair": "1"
+          }
+        }
+      },
+      "off": {
+        "ini": {
+          "HostMapIterFix": {
+            "Enabled": "0"
+          }
+        }
+      },
+      "evidence": [
+        "docs/data/results/2026-11-20-queue-hostmap-iter-correct-1120.md (bp-hostmapiter-on PASS: 20/20 forced stale erases fixed, no crash, 0 script errors; bp-hostmapiter-off CRASH at 0xD71E7D, registers match the logged stale node)",
+        "docs/67-crash-triage.md (§43, the EA tester crash 0xD71EBD = Steam 0xD71E7D)"
+      ],
+      "reason": "rare-crash rule met: crash seen (EA tester, EA 1.69), forced repro crashes with the fix off and never with it on; EA bug fix on a host map, not Sim behaviour, so no household question. Release ini Enabled=1 Repair=1 since 2026-11-20; TestRehash stays 0 (repro only)."
     }
   ],
   "knownIssues": [

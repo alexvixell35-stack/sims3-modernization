@@ -4,7 +4,7 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ## Unreleased
 
-Nothing yet: changes after v0.3.0 are listed here once they are built.
+- **Fix for a rare crash while Sims and objects come and go (`[HostMapIterFix]`, EA bug; Steam and EA app).** The game could keep a stale position in one of its internal lists after the list grew, and crash (`0xD71E7D` on Steam, `0xD71EBD` on the EA app) when it later removed an entry with it. The plugin now finds the right position first. On by default; `Enabled=0` under `[HostMapIterFix]` switches it off.
 
 ## v0.3.0 (2026-11-21)
 

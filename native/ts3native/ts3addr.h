@@ -54,7 +54,7 @@ template <unsigned long V> struct ts3addr_c { static constexpr unsigned long v =
 // docs/230: the host exe this asi's addresses belong to (PE timestamp + SizeOfImage). A tool that appends a section after
 // EA's image (an import adder for an ASI loader writes `.addImp` there) grows SizeOfImage but moves no address, so the
 // exe still passes when every section that starts below TS3A_HOST_SIZE ends inside it and one ends in its last page (EA's
-// last section). Retail 1.67 (PE 52D872DA, SizeOfImage 0xE5B000, data +0x1000, docs/273) fails on the timestamp already.
+// last section; EA's `.ooa` may also run past it). Retail 1.67 (PE 52D872DA, SizeOfImage 0xE5B000, data +0x1000, docs/273) fails on the timestamp already.
 static inline bool Ts3HostImageOk(const IMAGE_NT_HEADERS* nt) {
     if (nt->FileHeader.TimeDateStamp != (DWORD)TS3A_HOST_PE) return false;
     const DWORD size = nt->OptionalHeader.SizeOfImage, host = (DWORD)TS3A_HOST_SIZE;
@@ -65,7 +65,10 @@ static inline bool Ts3HostImageOk(const IMAGE_NT_HEADERS* nt) {
     for (WORD i = 0; i < nt->FileHeader.NumberOfSections; i++) {
         const DWORD va = s[i].VirtualAddress, len = s[i].Misc.VirtualSize ? s[i].Misc.VirtualSize : s[i].SizeOfRawData;
         if (va >= host) continue;              // appended after EA's image
-        if (len > host - va) return false;     // an EA section runs past the Steam layout: another build
+        // EA's DRM stub `.ooa` (last section, no patched address in it) may grow with a rewrap: a tester's EA app 1.69 exe
+        // has 0xEB7000 with the same timestamp and the same code (docs/230); any other section running past = another build
+        const bool ooa = s[i].Name[0] == '.' && s[i].Name[1] == 'o' && s[i].Name[2] == 'o' && s[i].Name[3] == 'a' && !s[i].Name[4];
+        if (len > host - va && !ooa) return false;
         if (va + len > host - 0x1000) lastPage = true;
     }
     return lastPage;

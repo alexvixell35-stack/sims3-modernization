@@ -1,42 +1,33 @@
-TS3 diagnostic build (retail 1.67): hourly ON / OFF check of the autonomy fixes
-===============================================================================
+TS3 diagnostic build (EA app 1.69, TEST BUILD): where does the time go?
+=======================================================================
 
 What it is
-  The same retail 1.67 test build as the kit (with the "keep options on GPU change" fix), plus a diagnostic.
-  While you play, every sim hour it switches our routing / autonomy / off-screen-Sim fixes OFF and back ON,
-  and measures both, including hitches (sim pauses) per hour.
-  A notice in the game says which one starts: "Diagnostic: autonomy fixes ON (hour 14)" or "OFF".
-  It does not change your save. Sims you control keep the same protection as in the normal build.
+  The same ts3native TEST BUILD as payload\ (same fixes, same settings, including the fix for the
+  0xD71EBD crash), plus diagnostics that only MEASURE. They change nothing in the game, your save, your
+  mods or your settings.
+  - PC check: CPU speed and limits, power plan, battery or plugged in, other programs' CPU use, memory,
+    and which graphics card the game and the bridge are set to use
+  - mod timing: which script mods use the game's simulation time
+  - task timing: which game task or script is running during a long pause
+  Everything is written to ts3native.log and small text files in Game\Bin.
 
-Install with the kit (recommended; close the game first)
-  1. Extract the whole zip to a folder (not inside Program Files).
+Install with the kit (close the game first)
+  1. Extract the whole zip to a folder (for example your Desktop; not inside Program Files).
   2. Double-click TS3Kit.bat, choose 3 (Install), pick your game folder, answer D (diagnostic build).
-     The kit writes Game\Bin\ts3native.asi (the diagnostic asi), Game\Bin\ts3native.ini and
-     Documents\Electronic Arts\The Sims 3\Mods\Packages\ts3fixes.package, after a backup.
-     It skips folders such as "Sims 3 Backup" and offers to move older ts3fixes packages and extra
-     ts3native asi files out of the way (into its backup folder, not deleted).
+     The kit first backs up your current ts3native.asi, ts3native.ini and ts3fixes.package, then writes
+     the diagnostic ones. Your other mods and settings stay as they are.
   3. The last lines must say "Install check: OK". If they say MISMATCH, send us a screenshot of that window.
 
-Install by hand (only if the kit does not work for you)
-  1. Game\Bin\: delete ts3native.asi and any other ts3native*.asi (for example ts3native-retail167.asi).
-     Copy payload\diag\ts3native-retail167.asi in and RENAME it to ts3native.asi.
-     Copy payload\diag\ts3native.ini in (replace the old one).
-     Afterwards there must be exactly ONE ts3native*.asi in Game\Bin: ts3native.asi.
-  2. Documents\Electronic Arts\The Sims 3\Mods\Packages\ (the folder the game uses, NOT "Sims 3 Backup"):
-     replace ts3fixes.package with payload\diag\ts3fixes.package. Remove every other ts3fixes*.package
-     anywhere under Mods (move it out, for example to your Desktop).
-  All three files belong together. To go back: kit option 4 (Uninstall).
-
 Play
-  Play as you normally do for at least 8 sim hours in one go (more is better), at your usual speed.
-  The first, partial hour after loading is not counted. If you notice Sims standing around or a
-  bad hitch, note the sim hour and whether the last notice said ON or OFF.
+  Start the game the way you always do and play normally for 15-20 minutes, in a world, with your usual
+  mods and settings. Nothing special to do: no settings to change, nothing to turn off.
+  Then quit the game.
 
-Send back (all three are in Game\Bin after you quit to the main menu or exit)
-  - ts3native.log          (send it before you start the game again: it is rewritten each start)
-  - ts3native-abdiag.csv
-  - abdiag-summary.txt
-  And one line: did it feel different in ON hours and OFF hours?
+Send it back
+  1. Double-click TS3Kit.bat again and choose 1 (Diagnose). It takes a minute or two (it also saves the
+     Windows "dxdiag" report) and writes one zip to your Desktop, named TS3Diag-<date>-<code>.zip.
+  2. Send us that zip. Your Windows user name, computer name and home folder are masked inside it;
+     nothing is uploaded by the kit. You can open the zip and look first.
 
-Stop the diagnostic
-  In Game\Bin\ts3native.ini set AbHourly=0 under [Diag] (last lines), or kit option 4 (Uninstall).
+Going back
+  TS3Kit.bat, option 4 (Uninstall) puts your earlier files back from the backup.

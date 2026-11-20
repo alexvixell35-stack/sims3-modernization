@@ -14665,6 +14665,11 @@ static void TestHostBuild() {
     assert(HostBuildOk(img));                                             // appended section: same addresses
     s[1].Misc.VirtualSize = 0x1468;
     assert(!HostBuildOk(img));                                            // EA's section runs past the Steam size (retail)
+    memcpy(s[1].Name, ".ooa", 5);
+    assert(HostBuildOk(img));                                             // EA's DRM stub grown by a rewrap (EA 0xEB7000)
+    memcpy(s[1].Name, ".ooax", 6);
+    assert(!HostBuildOk(img));                                            // only the exact name .ooa may run past
+    memset(s[1].Name, 0, sizeof(s[1].Name));
     s[1].Misc.VirtualSize = 0x468, s[1].VirtualAddress = host - 0x3000;
     assert(!HostBuildOk(img));                                            // nothing of EA's in the last page
     s[1].VirtualAddress = host - 0x1000, nt->OptionalHeader.SizeOfImage = host - 0x1000;

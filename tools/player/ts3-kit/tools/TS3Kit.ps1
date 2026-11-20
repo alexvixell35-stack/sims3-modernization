@@ -1,5 +1,6 @@
 # TS3 kit for testers: a read-only diagnostic (writes one zip report) and an optional installer / uninstaller for the
-# ts3native retail 1.67 test build that sits in ..\payload.
+# ts3native EA app 1.69 build that sits in ..\payload (kit 1120.e4: the published v0.2.12 EA files; payload\diag = the
+# read-only EA 1.69 diagnostic build, docs/300).
 # Why PowerShell and not Node like the rest of this repo: a player has no Node, and Windows PowerShell 5.1 ships with
 # every Windows 10/11. Windows only by nature (registry, The Sims 3 PC folders). No network, no upload, no AI.
 #   TS3Kit.bat                                   menu (1 diagnose, 2 launch and capture, 3 install, 4 uninstall, 5 quit)
@@ -29,17 +30,20 @@ param(
   [string]$DocsDir = ''   # tests only: stands in for the Documents known folder (with -NoSystem)
 )
 $ErrorActionPreference = 'Stop'
-$KitVersion = '1119.2'
+$KitVersion = '1120.e6'  # e6: exe section table, ts3native.launcher.log SKIP line when there is no ts3native.log; e5: EA 1.69 matched on the link timestamp (other image sizes), unknown builds install with a note; e4: payload\diag asi 0.36.247-elidiag4 (ModTime checked name reads, relaxed frame walk, docs/300 §8; e3 §7, e2 §6)
+# Kit target: the EA app 1.69 exe (Game\Bin\TS3.exe). Kit 1119.2 (retail) used 'retail 1.67' / TS3W.exe / ts3native-retail167.asi.
+$KitEdition = 'EA app 1.69'; $KitExe = 'TS3.exe'; $KitAsi = 'ts3native-ea169.asi'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $payload = Join-Path (Split-Path -Parent $here) 'payload'
 $CapBytes = 5MB          # copied text files above this are listed, not copied
 $HashCapBytes = 256MB    # Bin files above this are listed without a hash
 $Days = 14
-# The retail test build of kit 1119: retail167-test-1118 basis (b666b151a) + [EaCrashFixes] KeepOptionsOnGpuChange
-# (0.36.276-retail1-ko1); ini = that tree's defaults with personal names scrubbed; ts3fixes.package = v0.2.13-exp.20261118.
-$RcAsiSha = 'a2ab9cf226f318a6de7a7767382150acf6536b9adde44661fe9cf9c6b8fea199'
-$RcIniSha = '86b7d521eea54ecea76673ec7395df56208b267b3860bbe8faf11ee957fc1f01'
-$RcPkgSha = '5deb4c3d920d29c08c64bd47b9879e714c8ddf02c36436255924e5f367421842'
+# The normal build of kit 1120.e6 is a TEST BUILD, not the release: EA asi 0.36.297-eaooa1 (master m1120t + the .ooa host
+# gate, builds.json ts3native-ea169.asi.eaooa1-1120), the v0.3.0 EA release ini + [HostMapIterFix] Enabled=1 (e6normal),
+# ts3fixes.package m1120t. payloaddiag holds the same asi + the diag ini (e6diag, same package); its hashes are not pinned here.
+$RcAsiSha = 'baf7c06bd96d2aa085639fb3d1c3ae5c37a64293419ecd5b4a8c1f0550dd289a'
+$RcIniSha = '683d535e19c8a567a5579ae04de3ee7c3ec35ec150660c00671c50a05fbcdf45'
+$RcPkgSha = '53d571ae8954e83e60237c7e1e7ed7dbd6561c77f8cbeb97e8151bbfbc5271c5'
 $RcTomlSha = '706ad37b61382a28935740087cb3e07e844eadce485880b1b9c65ea5cd4569aa'   # payload\S3SS-tunings.toml, LF line ends
 $RunNames = @($ProcNames) + @('Sims3Launcher', 'Sims3LauncherW')
 $Editions = @{ '52D872DA/E5B000' = 'retail 1.67'; '52DEC247/E5A000' = 'Steam 1.67'; '6707155C/EB5000' = 'EA app 1.69' }
@@ -59,6 +63,7 @@ $Rx = [ordered]@{
   UserSims3Dir = 'Sims\D{0,2}3'
   LastPathPart = '\\[^\\]+$'
   Ts3OrSims = 'TS3|Sims'
+  GpuPrefExe = 'TS3|Sims|NvRemixBridge|DirectXUserGlobalSettings'
   VcRedist = 'Visual C\+\+.*(Redist|Runtime)'
   GameEvent = 'TS3W|TS3\.exe|Sims3'
   Ws = '\s+'
@@ -73,7 +78,8 @@ $Rx = [ordered]@{
   LogNote = '^(SKIP |compat:|ts3native 0\.)|ts3fixes \d|unsupported|stands? down|refused(?!\s*\d)'
   VsExt = '^\.(ini|log|txt|toml|conf|cfg)$'
   BinExt = '^\.(ini|toml|conf|cfg|log|jsonl)$'
-  ApexTxt = '^(Turbo|Apex Radiance.*)\.txt$'
+  ApexTxt = '^(Turbo|Apex Radiance.*|fps-summary|pccheck-summary|modtime-summary)\.txt$'
+  DiagCsv = '^(framediag|pccheck|modtime)\.csv$'
   RemixExt = '^\.(log|conf|txt)$'
   OptKeyValue = '^\s*([A-Za-z0-9_]+)\s*=\s*(.*)$'
   DcNumber = '(?m)^Number:\s*(\d+)'
@@ -180,8 +186,15 @@ function PeInfo([string]$p) {
   if ($e -lt 0 -or $e + 84 -gt $n -or $b[$e] -ne 0x50 -or $b[$e + 1] -ne 0x45) { throw 'no PE header' }
   $ts = [BitConverter]::ToUInt32($b, $e + 8); $ch = [BitConverter]::ToUInt16($b, $e + 22); $soi = [BitConverter]::ToUInt32($b, $e + 24 + 56)
   $key = ('{0:X8}/{1:X}' -f $ts, $soi)
-  $ed = $Editions[$key]; if (-not $ed) { $ed = 'unknown build' }
-  [ordered]@{ peTimestamp = ('{0:X8}' -f $ts); sizeOfImage = ('0x{0:X}' -f $soi); largeAddressAware = [bool]($ch -band 0x20); edition = $ed }
+  $ed = $Editions[$key]
+  # same link timestamp, other image size (e.g. EA app DRM wrapper 0xEB7000 vs 0xEB5000): same game code, so match on the timestamp
+  if (-not $ed) { $tsKey = ('{0:X8}' -f $ts); $hit = @($Editions.Keys | Where-Object { $_.Split('/')[0] -eq $tsKey }); if ($hit.Count -eq 1) { $ed = $Editions[$hit[0]] } }
+  if (-not $ed) { $ed = 'unknown build' }
+  # section table (name va+size): tells an appended section from a grown EA .ooa DRM stub when the image size differs
+  $ns = [BitConverter]::ToUInt16($b, $e + 6); $sh = $e + 24 + [BitConverter]::ToUInt16($b, $e + 20); $secs = @()
+  for ($i = 0; $i -lt $ns -and $sh + $i * 40 + 40 -le $n; $i++) { $q = $sh + $i * 40
+    $secs += ('{0} {1:X}+{2:X}' -f ([System.Text.Encoding]::ASCII.GetString($b, $q, 8).TrimEnd([char]0)), [BitConverter]::ToUInt32($b, $q + 12), [BitConverter]::ToUInt32($b, $q + 8)) }
+  [ordered]@{ peTimestamp = ('{0:X8}' -f $ts); sizeOfImage = ('0x{0:X}' -f $soi); largeAddressAware = [bool]($ch -band 0x20); edition = $ed; sections = ($secs -join ', ') }
 }
 function CanOpenWrite([string]$p) {   # opens an existing file for writing and closes it again: nothing is changed
   try { $fs = [System.IO.File]::Open($p, 'Open', 'ReadWrite', 'ReadWrite'); $fs.Close(); return 'yes' } catch [System.UnauthorizedAccessException] { return 'no (access denied)' } catch { return "unknown ($($_.Exception.GetType().Name))" }
@@ -359,13 +372,21 @@ function DiagSystem {
     $s['battery'] = [bool](Try1 { @(Get-CimInstance Win32_Battery).Count } 0)
     $s['powerPlan'] = Try1 { (& powercfg.exe /getactivescheme 2>$null | Out-String).Trim() } ''
     $gp = RegProps 'HKCU:\Software\Microsoft\DirectX\UserGpuPreferences'
-    $s['gpuPreferences'] = @(); if ($gp) { $s['gpuPreferences'] = @($gp.Keys | Where-Object { $_ -match $Rx.Ts3OrSims } | ForEach-Object { "$_ = $($gp[$_])" }) }
+    $s['gpuPreferences'] = @(); if ($gp) { $s['gpuPreferences'] = @($gp.Keys | Where-Object { $_ -match $Rx.GpuPrefExe } | ForEach-Object { "$_ = $($gp[$_])" }) }
     Line "  $($s.os) build $($s.build) $($s.displayVersion); elevated: $($s.elevated); locale $($s.locale)"
     Line "  CPU $($s.cpu) ($($s.cores)c/$($s.threads)t); RAM $($s.ramGB) GB ($($s.ramFreeGB) free); page file auto: $($s.pageFileAuto)"
     foreach ($g in $s.gpus) { Line "  GPU $($g.name), driver $($g.driverVersion) ($($g.driverDate)), $($g.resolution)" }
     Line "  DPI $($s.appliedDpi); battery: $($s.battery); power plan: $($s.powerPlan)"
     foreach ($g in $s.gpuPreferences) { Line "  Windows GPU preference: $g" }
     if ($s.gpuCount -gt 1 -and $s.gpuPreferences.Count -eq 0) { Line '  more than one GPU and no per-app GPU preference set for the game' }
+  }
+  Sec 'dxdiag' {
+    # dxdiag /t (read-only): real GPU, VRAM, driver, CPU, RAM. Written into the staging folder, copied masked, the raw file removed.
+    $raw = Join-Path $script:stage 'dxdiag-raw.txt'
+    Try1 { $dp = Start-Process -FilePath (Join-Path $env:WINDIR 'System32\dxdiag.exe') -ArgumentList "/t `"$raw`"" -PassThru -WindowStyle Hidden; [void]$dp.WaitForExit(120000) }
+    for ($k = 0; $k -lt 60 -and -not (Test-Path -LiteralPath $raw); $k++) { Start-Sleep -Seconds 1 }
+    if (Test-Path -LiteralPath $raw) { Start-Sleep -Seconds 1; CopyText $raw 'files\system\dxdiag.txt'; Remove-Item -LiteralPath $raw -Force -ErrorAction SilentlyContinue; Line '  dxdiag /t saved (files/system/dxdiag.txt)' }
+    else { Line '  dxdiag /t wrote nothing within 3 minutes' }
   }
   Sec 'Runtimes' {
     $rt = [ordered]@{}
@@ -457,11 +478,12 @@ function DiagGame($g, [int]$n) {
       $e = [ordered]@{ name = $x; size = $f.Length; modified = (Stamp $f.LastWriteTime); fileVersion = "$($f.VersionInfo.FileVersion)"; productVersion = "$($f.VersionInfo.ProductVersion)"; sha256 = (Sha $p) }
       foreach ($k in $pe.Keys) { $e[$k] = $pe[$k] }
       $exes += $e
-      Line "  $x  $($e.fileVersion)  PE $($e.peTimestamp)/$($e.sizeOfImage)  LAA $($e.largeAddressAware)  $($e.edition)  sha $($e.sha256.Substring(0, [math]::Min(12, $e.sha256.Length)))"
+      Line "  $x  $($e.fileVersion)  PE $($e.peTimestamp)/$($e.sizeOfImage)  LAA $($e.largeAddressAware)  $($e.edition)  sha $($e.sha256.Substring(0, [math]::Min(12, $e.sha256.Length)))"; if ($e.sections) { Line "    sections: $($e.sections)" }
     }
     $o['exes'] = @($exes)
-    $main = $exes | Where-Object { $_.name -eq 'TS3W.exe' } | Select-Object -First 1
-    $o['edition'] = if ($main) { $main.edition } else { 'no TS3W.exe' }
+    # TS3W.exe (Steam, retail) or TS3.exe (EA app); a known edition wins
+    $main = @($exes | Where-Object { $_.name -eq 'TS3W.exe' -or $_.name -eq 'TS3.exe' } | Sort-Object { if ($Editions.Values -contains $_.edition) { 0 } else { 1 } }, { if ($_.name -eq 'TS3W.exe') { 0 } else { 1 } }) | Select-Object -First 1
+    $o['edition'] = if ($main) { $main.edition } else { 'no TS3W.exe or TS3.exe' }
     $sku = Join-Path $bin 'skuversion.txt'; if (Test-Path -LiteralPath $sku) { $o['skuversion'] = (Get-Content -LiteralPath $sku -Raw).Trim(); CopyText $sku "files\game$n-bin\skuversion.txt" }
     $o['underProgramFiles'] = [bool]($bin -match $Rx.ProgramFiles)
     $o['packFolders'] = @(Try1 { Get-ChildItem -LiteralPath (Split-Path -Parent $g.path) -Directory -ErrorAction Stop | Where-Object { $_.Name -match $Rx.Sims3Name } | ForEach-Object { $_.Name } } @())
@@ -479,13 +501,16 @@ function DiagGame($g, [int]$n) {
     Line "  Apex $($o.hasApex), S3SS $($o.hasS3SS), S3PP $($o.hasS3PP), RTX Remix bridge $($o.hasBridge), d3d9.dll in Bin $($o.hasD3d9Wrapper) $($o.d3d9Wrapper)"
     foreach ($a in $asis) { Line "    $($a.name)  $($a.size)  $($a.sha12)  $($a.modified)" }
     $ours = $files | Where-Object { $_.name -eq 'ts3native.asi' } | Select-Object -First 1
-    if ($ours) { $o['ts3nativeIsRc'] = ((Sha (Join-Path $bin 'ts3native.asi')) -eq $RcAsiSha); Line "  ts3native.asi is the retail test build: $($o.ts3nativeIsRc)" }
+    if ($ours) { $o['ts3nativeIsRc'] = ((Sha (Join-Path $bin 'ts3native.asi')) -eq $RcAsiSha); Line "  ts3native.asi is the kit's $KitEdition test build: $($o.ts3nativeIsRc)" }
     $ini = Join-Path $bin 'ts3native.ini'
     if (Test-Path -LiteralPath $ini) { $o['ts3nativeIniIsRcDefault'] = ((Sha $ini) -eq $RcIniSha); $o['ts3nativeIniWritable'] = (CanOpenWrite $ini); Line "  ts3native.ini equals the test build's default ini: $($o.ts3nativeIniIsRcDefault); writable: $($o.ts3nativeIniWritable)" }
     if ($asis.Count -gt 0 -and $loaders.Count -eq 0) { Line '  ASI files but no ASI loader dll seen in Bin: the .asi mods will not load' }
     $log = Join-Path $bin 'ts3native.log'
     # "$_" below: Get-Content lines carry provider objects that ConvertTo-Json would walk for minutes
-    if (Test-Path -LiteralPath $log) { $o['ts3nativeLogModified'] = (Stamp (Get-Item -LiteralPath $log).LastWriteTime); $o['ts3nativeLogHead'] = @(Get-Content -LiteralPath $log -TotalCount 12 -ErrorAction SilentlyContinue | ForEach-Object { "$_" }) } else { $o['ts3nativeLogModified'] = '' ; if ($ours) { Line '  ts3native.asi is there but no ts3native.log: the asi never loaded, or Bin is not writable' } }
+    if (Test-Path -LiteralPath $log) { $o['ts3nativeLogModified'] = (Stamp (Get-Item -LiteralPath $log).LastWriteTime); $o['ts3nativeLogHead'] = @(Get-Content -LiteralPath $log -TotalCount 12 -ErrorAction SilentlyContinue | ForEach-Object { "$_" }) } else { $o['ts3nativeLogModified'] = '' ; if ($ours) { $ll = Join-Path $bin 'ts3native.launcher.log'
+        # a host the asi does not accept (another build, a launcher) writes only ts3native.launcher.log: its SKIP line says why
+        if (Test-Path -LiteralPath $ll) { $o['ts3nativeLauncherLogHead'] = @(Get-Content -LiteralPath $ll -TotalCount 12 -ErrorAction SilentlyContinue | ForEach-Object { "$_" }); Line '  ts3native.asi loaded but wrote only ts3native.launcher.log (it did not accept this exe; nothing of ts3native ran in the game):'; foreach ($l in $o.ts3nativeLauncherLogHead) { Line "    $l" } }
+        else { Line '  ts3native.asi is there but no ts3native.log: the asi never loaded, or Bin is not writable' } } }
     # which features stood down, were refused or loaded. The log sits next to the asi (native Run: <asi path>.log), so
     # Bin or the ASI loader's scripts / plugins folder. "refused <n>" counters of the periodic stat lines are left out.
     $notes = New-Object System.Collections.ArrayList; $fx = ''; $more = 0
@@ -513,8 +538,8 @@ function DiagGame($g, [int]$n) {
       }
     }
     # settings and logs in Bin (text only; EA's own files are hashed above, not copied)
-    Get-ChildItem -LiteralPath $bin -File -Force | Where-Object { $_.Extension -match $Rx.BinExt -or $_.Name -match $Rx.ApexTxt } | ForEach-Object { CopyText $_.FullName "files\game$n-bin\$($_.Name)" }
-    foreach ($sub in 'rtx-remix\logs', '.trex', 'rtx-remix') { $p = Join-Path $bin $sub; if (Test-Path -LiteralPath $p) { Get-ChildItem -LiteralPath $p -File -Force -ErrorAction SilentlyContinue | Where-Object { $_.Extension -match $Rx.RemixExt } | Sort-Object LastWriteTime -Descending | Select-Object -First 8 | ForEach-Object { CopyText $_.FullName "files\game$n-bin\$sub\$($_.Name)" } } }
+    Get-ChildItem -LiteralPath $bin -File -Force | Where-Object { $_.Extension -match $Rx.BinExt -or $_.Name -match $Rx.ApexTxt -or $_.Name -match $Rx.DiagCsv } | ForEach-Object { CopyText $_.FullName "files\game$n-bin\$($_.Name)" }
+    foreach ($sub in 'rtx-remix\logs', '.trex', '.trex\logs','rtx-remix') { $p = Join-Path $bin $sub; if (Test-Path -LiteralPath $p) { Get-ChildItem -LiteralPath $p -File -Force -ErrorAction SilentlyContinue | Where-Object { $_.Extension -match $Rx.RemixExt } | Sort-Object LastWriteTime -Descending | Select-Object -First 8 | ForEach-Object { CopyText $_.FullName "files\game$n-bin\$sub\$($_.Name)" } } }
     foreach ($sgr in 'GraphicsCards.sgr', 'GraphicsRules.sgr') { $p = Join-Path $bin $sgr; if (Test-Path -LiteralPath $p) { $rules = FileRow $p; $o[$sgr] = $rules; Line "  $sgr  $($rules.size)  $($rules.sha12)  $($rules.modified)" } }
   }
   return $o
@@ -596,6 +621,7 @@ function DiagUser($u, [int]$n, $games) {
       Line "  $sub\: $(($o["folder_$sub"] | ForEach-Object { "$($_.name) ($($_.modified))" }) -join ', ')"
       Get-ChildItem -LiteralPath $q -File -Force -ErrorAction SilentlyContinue | Where-Object { $_.Extension -match $Rx.UserCfgExt } | Sort-Object LastWriteTime -Descending | Select-Object -First 15 | ForEach-Object { CopyText $_.FullName "files\user$n\$sub\$($_.Name)" }
     }
+    CopyNewest $p 'ApexRadiance*.txt' 6 "files\user$n\apex"
     CopyNewest $p 'ScriptError_*.xml' 10 "files\user$n\crash"
     CopyNewest $p 'xcpt*.txt' 10 "files\user$n\crash"
     $o['scriptErrors'] = @(Get-ChildItem -LiteralPath $p -File -Filter 'ScriptError_*.xml' -ErrorAction SilentlyContinue).Count
@@ -954,10 +980,13 @@ function PickUser {
   return ''
 }
 function CheckGameForInstall([string]$game) {
-  $exe = Join-Path $game 'Game\Bin\TS3W.exe'
-  if (-not (Test-Path -LiteralPath $exe)) { throw "No Game\Bin\TS3W.exe in $game" }
+  $exe = Join-Path $game "Game\Bin\$KitExe"
+  if (-not (Test-Path -LiteralPath $exe)) { throw "No Game\Bin\$KitExe in $game" }
   $pe = PeInfo $exe
-  if ($pe.edition -ne 'retail 1.67') { throw "This TS3W.exe is '$($pe.edition)' (PE $($pe.peTimestamp)/$($pe.sizeOfImage)). The test build is for the retail / disc 1.67 exe only (52D872DA/0xE5B000). Nothing was changed." }
+  if ($pe.edition -eq 'unknown build') {
+    # ts3native checks the bytes at every patch site and stands down on a mismatch, so an unknown build is safe to try
+    Write-Host "Note: this $KitExe is an unknown build (PE $($pe.peTimestamp)/$($pe.sizeOfImage)). Installing anyway; any fix that does not match it switches itself off (see ts3native.log)." -ForegroundColor Yellow
+  } elseif ($pe.edition -ne $KitEdition) { throw "This $KitExe is '$($pe.edition)' (PE $($pe.peTimestamp)/$($pe.sizeOfImage)). This build is for the $KitEdition exe only. Nothing was changed." }
   if (@(Get-Process -Name $RunNames -ErrorAction SilentlyContinue).Count) { throw 'The game or its launcher is running. Close it first. Nothing was changed.' }
 }
 # The game's usual Mods\Resource.cfg (Mod The Sims): loads .package files up to 5 folders deep under Mods\Packages.
@@ -966,15 +995,15 @@ function DoInstall([string]$game, [string]$user, [bool]$withS3ss) {
   CheckGameForInstall $game
   $bin = Join-Path $game 'Game\Bin'
   # payload\diag (optional): a diagnostic ts3fixes.package + ts3native.ini that log more, plus its own asi when the
-  # diagnostic needs native code (payload\diag\ts3native-retail167.asi); same backup / restore
+  # diagnostic needs native code (payload\diag\$KitAsi); same backup / restore
   $diag = Join-Path $payload 'diag'; $useDiag = $false
   if (Test-Path -LiteralPath $diag) {
     if ($Build) { $useDiag = ($Build -eq 'Diag') }
     elseif (-not $Yes) { $useDiag = ((Ask 'Install the normal test build (N) or the diagnostic build (D, logs more for us)? (N/D)') -match $Rx.Diag) }
   } elseif ($Build -eq 'Diag') { throw 'No payload\diag folder in this kit: there is no diagnostic build to install. Nothing was changed.' }
   $src = $payload; if ($useDiag) { $src = $diag }
-  $srcAsi = Join-Path $payload 'ts3native-retail167.asi'; $diagAsi = $useDiag -and (Test-Path -LiteralPath (Join-Path $diag 'ts3native-retail167.asi'))
-  if ($diagAsi) { $srcAsi = Join-Path $diag 'ts3native-retail167.asi' }
+  $srcAsi = Join-Path $payload $KitAsi; $diagAsi = $useDiag -and (Test-Path -LiteralPath (Join-Path $diag $KitAsi))
+  if ($diagAsi) { $srcAsi = Join-Path $diag $KitAsi }
   $srcIni = Join-Path $src 'ts3native.ini'; $srcPkg = Join-Path $src 'ts3fixes.package'; $srcToml = Join-Path $payload 'S3SS-tunings.toml'
   foreach ($f in $srcAsi, $srcIni, $srcPkg, $srcToml) { if (-not (Test-Path -LiteralPath $f)) { throw "Kit file missing: $f. Extract the whole zip first." } }
   if ((-not $diagAsi -and (Sha $srcAsi) -ne $RcAsiSha) -or (-not $useDiag -and ((Sha $srcIni) -ne $RcIniSha -or (Sha $srcPkg) -ne $RcPkgSha)) -or (TextSha $srcToml) -ne $RcTomlSha) { throw 'The kit''s payload files do not match their expected sha256 (damaged download?). Nothing was changed.' }
@@ -982,7 +1011,7 @@ function DoInstall([string]$game, [string]$user, [bool]$withS3ss) {
   $utf8 = New-Object System.Text.UTF8Encoding($false)
   $kind = $(if ($useDiag) { 'diagnostic build' } else { 'test build' })
   $plan = @(
-    [ordered]@{ target = (Join-Path $bin 'ts3native.asi'); bytes = [System.IO.File]::ReadAllBytes($srcAsi); what = "retail $kind" },
+    [ordered]@{ target = (Join-Path $bin 'ts3native.asi'); bytes = [System.IO.File]::ReadAllBytes($srcAsi); what = "$KitEdition $kind" },
     [ordered]@{ target = (Join-Path $bin 'ts3native.ini'); bytes = [System.IO.File]::ReadAllBytes($srcIni); what = "$kind default settings" },
     [ordered]@{ target = (Join-Path $user 'Mods\Packages\ts3fixes.package'); bytes = [System.IO.File]::ReadAllBytes($srcPkg); what = "ts3fixes script mod ($kind)" })
   $cfg = Join-Path $user 'Mods\Resource.cfg'
@@ -1019,7 +1048,7 @@ function DoInstall([string]$game, [string]$user, [bool]$withS3ss) {
   foreach ($p in $todo) { Say "  $(if ($p.existed) { 'replace' } else { 'add    ' }) $($p.target)   ($($p.what))" }
   foreach ($m in $moves) { Say "  move    $($m.target)   (into the backup folder)" }
   Say "  first copy the current files (and Options.ini, which is not changed) to $bdir"
-  Say '  TS3W.exe and Options.ini are not changed.'
+  Say "  $KitExe and Options.ini are not changed."
   if (-not $Yes) { $a = Ask 'Go ahead? (Y/N)'; if ($a -notmatch $Rx.Yes) { Say 'Cancelled. Nothing was changed.'; return $false } }
   [void](New-Item -ItemType Directory -Force -Path $bdir)
   $entries = @(); $i = 0
@@ -1045,7 +1074,7 @@ function DoInstall([string]$game, [string]$user, [bool]$withS3ss) {
   }
   if (-not @(Get-ChildItem -LiteralPath $bin -File | Where-Object { $_.Name -match $Rx.LoaderDllInstall }).Count) { Say 'Warning: no ASI loader dll seen in Game\Bin. ts3native.asi needs one (as any .asi mod does), or it will not load.' 'Yellow' }
   Say "Installed ($kind). Backup: $bdir" 'Green'
-  Say 'After a game start the log is Game\Bin\ts3native.log; it should say "host build: retail 1.67".'
+  Say 'After a game start the log is Game\Bin\ts3native.log; it should say "host build: EA app 1.69.47".'
   return (VerifyInstall $bin $user $srcAsi $plan[2].sha)
 }
 # Every ts3native*.asi an ASI loader could load (Bin, Bin\scripts, Bin\plugins) and every ts3fixes*.package under Mods.
@@ -1104,7 +1133,7 @@ function DoUninstall([string]$game, [string]$user) {
 function AskGame {
   $games = @(FindGames | Where-Object { $_.exists })
   Say ''; Say 'Game folders found:'
-  $i = 0; foreach ($g in $games) { $i++; $ed = Try1 { (PeInfo (Join-Path $g.path 'Game\Bin\TS3W.exe')).edition } '?'; Say "  $i. $($g.path)   ($ed)" }
+  $i = 0; foreach ($g in $games) { $i++; $ed = Try1 { $e = Join-Path $g.path "Game\Bin\$KitExe"; if (-not (Test-Path -LiteralPath $e)) { $e = Join-Path $g.path 'Game\Bin\TS3W.exe' }; (PeInfo $e).edition } '?'; Say "  $i. $($g.path)   ($ed)" }
   $a = Read-Host 'Type a number, or paste the full path of the game folder (the copy you test on), or Enter to cancel'
   if (-not $a) { return '' }
   if ($a -match $Rx.Number -and [int]$a -ge 1 -and [int]$a -le $games.Count) { return $games[[int]$a - 1].path }
@@ -1152,6 +1181,10 @@ function SelfTest {
     @('VsExt', '.toml', '.dll'),
     @('BinExt', '.jsonl', '.asi'),
     @('ApexTxt', 'Apex Radiance README.txt', 'readme.txt'),
+    @('ApexTxt', 'fps-summary.txt', 'fps-summary.csv'),
+    @('DiagCsv', 'framediag.csv', 'framediag-old.csv'),
+    @('GpuPrefExe', 'D:\Games\The Sims 3\Game\Bin\.trex\NvRemixBridge.exe', 'C:\Windows\explorer.exe'),
+    @('GpuPrefExe', 'DirectXUserGlobalSettings', 'C:\Program Files\Mozilla Firefox\firefox.exe'),
     @('RemixExt', '.conf', '.dds'),
     @('OptKeyValue', 'lastdevice = 0;10de;249d;3070', '[options]'),
     @('DcNumber', 'Number:          0', 'Chipset:         Vendor: 10de, Device: 1080, Board: 00000000, Chipset: 0000'),
@@ -1208,7 +1241,14 @@ function SelfTest {
   $b = New-Object byte[] 4096; $b[0] = 0x4D; $b[1] = 0x5A; $b[0x3C] = 0x80; $b[0x80] = 0x50; $b[0x81] = 0x45
   [BitConverter]::GetBytes([uint32]0x52D872DA).CopyTo($b, 0x88); [BitConverter]::GetBytes([uint16]0x0122).CopyTo($b, 0x96); [BitConverter]::GetBytes([uint32]0xE5B000).CopyTo($b, 0x80 + 24 + 56)
   [System.IO.File]::WriteAllBytes($tmp, $b)
-  try { $pe = PeInfo $tmp; Check ($pe.edition -eq 'retail 1.67' -and $pe.largeAddressAware) 'exe header: retail 1.67 with Large Address Aware' } finally { Remove-Item -LiteralPath $tmp -Force }
+  try { $pe = PeInfo $tmp; Check ($pe.edition -eq 'retail 1.67' -and $pe.largeAddressAware) 'exe header: retail 1.67 with Large Address Aware'
+    [BitConverter]::GetBytes([uint32]0x6707155C).CopyTo($b, 0x88); [BitConverter]::GetBytes([uint32]0xEB7000).CopyTo($b, 0x80 + 24 + 56); [System.IO.File]::WriteAllBytes($tmp, $b)
+    Check ((PeInfo $tmp).edition -eq 'EA app 1.69') 'exe header: EA 1.69 timestamp with another image size (0xEB7000)'
+    [BitConverter]::GetBytes([uint16]1).CopyTo($b, 0x86); [BitConverter]::GetBytes([uint16]0xE0).CopyTo($b, 0x94); $q = 0x80 + 24 + 0xE0
+    [System.Text.Encoding]::ASCII.GetBytes('.ooa').CopyTo($b, $q); [BitConverter]::GetBytes([uint32]0x2712).CopyTo($b, $q + 8); [BitConverter]::GetBytes([uint32]0xEB4000).CopyTo($b, $q + 12); [System.IO.File]::WriteAllBytes($tmp, $b)
+    Check ((PeInfo $tmp).sections -eq '.ooa EB4000+2712') 'exe header: section table read back (name va+size)'
+    [BitConverter]::GetBytes([uint32]0x11111111).CopyTo($b, 0x88); [System.IO.File]::WriteAllBytes($tmp, $b)
+    Check ((PeInfo $tmp).edition -eq 'unknown build') 'exe header: unknown timestamp stays unknown' } finally { Remove-Item -LiteralPath $tmp -Force }
   Check ((@('Sims 3 Backup', 'The Sims 3 Backup', 'The Sims 3 - Copy', 'The Sims 3 (2)', 'The Sims 3 old', 'Copia de The Sims 3', 'The Sims 3 bak') | Where-Object { -not (IsCopyName $_) }).Count -eq 0 -and
     (@('The Sims 3', 'Die Sims 3', 'Sims 3', 'The Sims 3 Gold') | Where-Object { IsCopyName $_ }).Count -eq 0) 'copy / backup folder names'
   $fx = Join-Path ([System.IO.Path]::GetTempPath()) "ts3kit-selftest-$PID"
@@ -1250,10 +1290,10 @@ try {
     'Menu' {
       while ($true) {
         Write-Host ''
-        Write-Host "TS3 kit $KitVersion (ts3native retail 1.67 test build)" -ForegroundColor Cyan
+        Write-Host "TS3 kit $KitVersion (ts3native $KitEdition build)" -ForegroundColor Cyan
         Write-Host '  1. Diagnose (read-only): writes a report zip to your Desktop'
         Write-Host '  2. Launch the game your usual way and capture (read-only): compares your settings files before and after, collects all logs'
-        Write-Host '  3. Install the retail test build and ts3fixes.package (asks before it writes, keeps a backup)'
+        Write-Host '  3. Install the test build (D = diagnostic) and ts3fixes.package (asks before it writes, keeps a backup)'
         Write-Host '  4. Uninstall: put the earlier files back'
         Write-Host '  5. Quit'
         $c = Read-Host 'Choose 1-5'

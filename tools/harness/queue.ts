@@ -176,7 +176,7 @@
 //   line give the wall time saved against this run's fresh starts. Counters are back at their snapshot values: every job reads its
 //   own /native and patches baselines after the rewind, as after a load. The hitch reports treat a rewound window as a fresh load.
 // Per job: cycle.ts --restart; copy the job's asi to Bin; write Bin/ts3native.ini = repo native/ts3native/ts3native.ini + job.ini
-// (+ [CrashForensics] Light=1 unless the job sets it, runs a release asi or says releaseDefaults: true, docs/67 §18)
+// (+ [CrashForensics] Light=1 unless the job sets it, runs a release asi or says releaseDefaults: true, docs/67 §18; [CrashReport] Enabled=1 in every job)
 // (fresh each job, so settings never leak); install-fixes.ts changes; start `ts3probe.py serve --launch` as a child; cycle.ts --save
 // (or wait for the menu); run; read /memory and /native before and after; close the game; undo the installer changes.
 // content (default "as-is"): with the game closed, move the CC sets offload-phase0.ts switches (fixes.json user-cc and
@@ -732,8 +732,10 @@ export const releaseDefaults = (j: Job) => !!j.releaseDefaults || /ts3native\.as
 // Startup.DxDiagCache 0 to run the game's own query (the correctness queue's off arm)
 // Rodney 2026-11-18: [PkgLock] Mode=1 Detect=1 too (docs/539 §13.9: EA's package-lock world-load deadlock, 3 queue retries on
 // 11-18), same in every arm; no Sim effect (resource system). A job's own PkgLock keys win (pkg-abba proof's Mode 0 arm)
-export const lightIni = (j: Job): Record<string, number> => j.run.worldimage || releaseDefaults(j) ? {}
-  : { 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1 };
+// docs/135 keep-crash-logging (2026-11-20: the thread-census bp job, releaseDefaults, died 0xC0000096 with no fault record):
+// [CrashReport] Enabled=1 in every job, release-defaults jobs too (crash-time report only, no game-path cost); a job's own key wins
+export const lightIni = (j: Job): Record<string, number> => j.run.worldimage ? {} : releaseDefaults(j) ? { 'CrashReport.Enabled': 1 }
+  : { 'CrashReport.Enabled': 1, 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1 };
 // docs/279 "Dogfood" (Rodney 2026-11-18): every correctness job (not a timing job) runs the v0.3.0 release-candidate ON set:
 // tools/harness/dogfood.json (tools/release/dogfood.ts: the keys where that set differs from the repo ini) under the job's own ini.
 // Merged over the job's base ini too (queues pin iniBase = their master build's ini). Not for timing jobs, a release / rc /
@@ -1353,6 +1355,15 @@ export function failStop(j: { id: string; stopQueueOnFail?: boolean }, row: { pa
 }
 // all FAIL lines: a run head line ('FAIL: profile 16 min, seed N (rng-compare.ts)') carries no reason; the child's FAIL line after it does
 export const failText = (verdict?: string[]) => (verdict ?? []).filter(isFail).join(' | ');
+// a game that died before or during the save load showed only "cycle.ts --save exit 1" (timing-v030-1120 smoke rerun 2026-11-20):
+// name the crash with its code (xcpt type or the probe's exit code) and address from crash-ledger triage's last block
+export function loadCrashError(error: string | null | undefined, crash: string): string | null | undefined {
+  if (!error || !/cycle\.ts --save exit/.test(error)) return error;
+  const exit = crash.match(/game exit code (0x[0-9A-Fa-f]+(?: \([^)]+\))?)/)?.[1];
+  const x = crash.match(/^\s+\S+Z\s+(\S+).*?\s{2}at (0x[0-9a-f]+ in \S+)/m);
+  const code = x?.[1] ?? exit ?? 'unknown';
+  return `crashed during load (code ${code}${x ? ` at ${x[2]}` : ''}); ${error}`;
+}
 // stop rule after a job: same job crashed twice (earlier rows count), or this and the previous job both crashed
 export function crashStop(crashed: boolean, earlierCrashesOfJob: number, prevCrashed: boolean, crashHunt = false): string {
   if (!crashed || crashHunt) return '';
@@ -1585,15 +1596,16 @@ if (values['self-check']) {
     assert.equal(fridaAttach(pj({ ini: { 'ProbeSnap.Enabled': 1 } })), '', 'ProbeSnap.Enabled forces --no-prof');
     assert.throws(() => pj({ callSites: true }), /second Frida agent \(stutter profiler\)/);
     assert.throws(() => pj({ noiseCheck: false, ini: { 'ProbeSnap.CallSites': 1 } }), /docs\/67/);
-    assert.deepEqual(rowIni(pj({ ini: { 'ProbeSnap.CallSites': 0 } })), { 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1, 'ProbeSnap.CallSites': 0 });
+    assert.deepEqual(rowIni(pj({ ini: { 'ProbeSnap.CallSites': 0 } })), { 'CrashReport.Enabled': 1, 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1, 'ProbeSnap.CallSites': 0 });
     assert.deepEqual(callSitesIni(cj({ callSites: false })), {});
     assert.deepEqual(callSitesIni(cj({ ini: { 'ProbeSnap.Enabled': 1 } })), {});
-    assert.deepEqual(rowIni(cj({ ini: { 'ProbeSnap.CallSites': 0 } })), { ...DOGFOOD?.ini, 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1, 'ProbeSnap.CallSites': 0 });
-    assert.deepEqual(jobIni(cj({ ini: { 'Alloc.Enabled': 1 } })), { ...DOGFOOD?.ini, 'ProbeSnap.CallSites': 1, 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1, 'Alloc.Enabled': 1 });
-    assert.deepEqual(jobIni(pj({})), { 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1 }, 'docs/67 §18: timing jobs get Light too');
-    assert.deepEqual(rowIni(pj({ ini: { 'CrashForensics.Light': 0, 'Startup.DxDiagCache': 0 } })), { 'CrashForensics.Light': 0, 'Startup.DxDiagCache': 0, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1 }, 'a job can drop them');
+    assert.deepEqual(rowIni(cj({ ini: { 'ProbeSnap.CallSites': 0 } })), { ...DOGFOOD?.ini, 'CrashReport.Enabled': 1, 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1, 'ProbeSnap.CallSites': 0 });
+    assert.deepEqual(jobIni(cj({ ini: { 'Alloc.Enabled': 1 } })), { ...DOGFOOD?.ini, 'ProbeSnap.CallSites': 1, 'CrashReport.Enabled': 1, 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1, 'Alloc.Enabled': 1 });
+    assert.deepEqual(jobIni(pj({})), { 'CrashReport.Enabled': 1, 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1 }, 'docs/67 §18: timing jobs get Light too');
+    assert.deepEqual(rowIni(pj({ ini: { 'CrashForensics.Light': 0, 'Startup.DxDiagCache': 0 } })), { 'CrashForensics.Light': 0, 'Startup.DxDiagCache': 0, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1, 'CrashReport.Enabled': 1 }, 'a job can drop them');
     assert.deepEqual(rowIni(pj({ ini: { 'PkgLock.Mode': 0, 'PkgLock.ReproWiden': 50 } }))['PkgLock.Mode'], 0, 'the pkg-abba off arm keeps Mode 0');
-    assert.deepEqual(rowIni(pj({ releaseDefaults: true })), {}, 'release tests run the shipped ini (no PkgLock overlay)');
+    assert.deepEqual(rowIni(pj({ releaseDefaults: true })), { 'CrashReport.Enabled': 1 }, 'release tests run the shipped ini, only the crash report on (no PkgLock overlay)');
+    assert.deepEqual(rowIni(pj({ releaseDefaults: true, ini: { 'CrashReport.Enabled': 0 } })), { 'CrashReport.Enabled': 0 }, 'a job can still drop the crash report');
     // docs/279 "Dogfood": correctness jobs only, job keys win, no own iniBase, opt-out
     const nc = (o: object) => pj({ noiseCheck: false, ...o });
     assert.equal(isTimingJob(pj({})), true); assert.equal(dogfoodOn(pj({})), false, 'timing jobs keep master defaults');
@@ -1607,8 +1619,8 @@ if (values['self-check']) {
       for (const k of Object.keys(DOGFOOD.ini)) assert.equal(rowIni(nc({ ini: { [k]: 42 } }))[k], 42, 'the job (an A/B arm) sets its own value');
     }
     assert.throws(() => parseQueue([{ id: 'd', asi: 'tested', save: 'S', dogfood: 1, run: { soak: { minutes: 1 } } }]), /dogfood must be true or false/);
-    assert.equal(jobIni(pj({ asi: 'game-copy/ts3native.asi.rel015' })), undefined, 'release asi: shipped ini as is');
-    assert.deepEqual(jobIni(cj({ releaseDefaults: true })), { 'ProbeSnap.CallSites': 1 }, 'releaseDefaults: no Light');
+    assert.deepEqual(jobIni(pj({ asi: 'game-copy/ts3native.asi.rel015' })), { 'CrashReport.Enabled': 1 }, 'release asi: shipped ini plus the crash report');
+    assert.deepEqual(jobIni(cj({ releaseDefaults: true })), { 'ProbeSnap.CallSites': 1, 'CrashReport.Enabled': 1 }, 'releaseDefaults: no Light, crash report on');
     assert.throws(() => cj({ releaseDefaults: 1 }), /releaseDefaults/);
     assert.throws(() => cj({ callSites: 1 }), /callSites/);
   }
@@ -2031,7 +2043,7 @@ if (values['self-check']) {
     assert.throws(() => wj({}), /WorldImage.Enabled=1/);
     assert.throws(() => wj({ 'WorldImage.Enabled': 1, 'WorldImage.MaxCaptures': 1 }), /MaxCaptures/);
     assert.throws(() => wj({ 'WorldImage.Enabled': 1 }, { captures: 0 }), /captures/);
-    assert.deepEqual(jobIni({ id: 'x', asi: 'tested', run: { soak: { minutes: 1 } } }), { ...DOGFOOD?.ini, 'ProbeSnap.CallSites': 1, 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1 }); // docs/133 §7, docs/67 §18
+    assert.deepEqual(jobIni({ id: 'x', asi: 'tested', run: { soak: { minutes: 1 } } }), { ...DOGFOOD?.ini, 'ProbeSnap.CallSites': 1, 'CrashReport.Enabled': 1, 'CrashForensics.Light': 1, 'Startup.DxDiagCache': 1, 'PkgLock.Mode': 1, 'PkgLock.Detect': 1 }); // docs/133 §7, docs/67 §18
     assert.equal(wi['CrashForensics.Light'], undefined, 'worldimage: no Light');
     assert.deepEqual(callSitesIni(wj({ 'WorldImage.Enabled': 1 })), {});
     const hd = wiHeader('worldimage 1\nthread 10 7ffd0000 a00000 9f0000 1 2 3 4 5 6 7 8 9 a\ntls 114c908 2 1 0\ntls 11f4160 5 0 0\nlock 11f43a8 ffffffff 0 0\nlock 11f4130 fffffffe 1 4242\nmodule 400000 e5a000 52dec247 TS3W.exe\nstats 900 2147483648 3 2500\n');
@@ -2090,6 +2102,17 @@ if (values['self-check']) {
   assert.equal(crashStop(true, 1, false), 'same job crashed twice');
   assert.equal(crashStop(true, 0, true), 'two jobs in a row crashed');
   assert.equal(crashStop(true, 1, true, true), ''); // crashHunt: crashes never stop the queue
+  { // loadCrashError: real crash-ledger triage lines (2026-10-22 xcpt, 2026-11-07 no-report exit code); non-matching: no crash text, other errors
+    const xc = '\nxcpt <pc> 26-10-22 09.11.05.txt\n  2026-10-22T01:11:05.000Z  ACCESS_VIOLATION reading from address 0x00000010 (Unmappable address)  at 0x0084eac3 in TS3W.exe  stack: TS3W.exe, MSVCR80.dll, ntdll.dll\n  pid 1';
+    assert.equal(loadCrashError('cycle.ts --save exit 1', xc), 'crashed during load (code ACCESS_VIOLATION at 0x0084eac3 in TS3W.exe); cycle.ts --save exit 1');
+    assert.equal(loadCrashError('reload: cycle.ts --save exit 1', '  2026-11-20T11:58:00.000Z  ACCESS_VIOLATION reading from address 0x00000010  at 0x00d71e7d in TS3W.exe+0x971e7d  stack: TS3W.exe'),
+      'crashed during load (code ACCESS_VIOLATION at 0x00d71e7d in TS3W.exe+0x971e7d); reload: cycle.ts --save exit 1');
+    assert.equal(loadCrashError('cycle.ts --save exit 1', 'no crash report of this run written since 2026-11-07T10:54:18.502Z with pid 43144; game exit code 0xC0000409 (fast fail)'),
+      'crashed during load (code 0xC0000409 (fast fail)); cycle.ts --save exit 1');
+    assert.equal(loadCrashError('cycle.ts --save exit 1', 'no crash report of this run written since 2026-11-09T04:18:52.078Z with pid 50132'), 'crashed during load (code unknown); cycle.ts --save exit 1');
+    assert.equal(loadCrashError('agentArm x: nothing moved', xc), 'agentArm x: nothing moved');
+    assert.equal(loadCrashError(null, xc), null);
+  }
   assert.equal(parseQueue({ crashHunt: true, jobs: [{ id: 's', asi: 'x', save: 'S', run: { soak: { minutes: 1 } } }] })[0].crashHunt, true);
   assert.throws(() => parseQueue([{ id: 's', asi: 'x', save: 'S', crashHunt: 1, run: { soak: { minutes: 1 } } }]), /crashHunt must be true or false/);
   // stopQueueOnFail / --stop-on-fail (2026-10-31): queue-level default, type check, STOP reason names the job
@@ -3755,7 +3778,7 @@ for (const [n, j] of jobs.entries()) {
     !killedWhy && (launched && !closedByUs && !guardClosed && !j.quitsGame && !gameRunning() || // quitsGame: gone by design; its script's 'game died' line counts
     xcptMs > 0);
   guardClosed = false;
-  if (row.crashed) { row.crash = triage(t0); log(`${j.id}: game crashed\n${row.crash}`); await logUntrackedGame(s => log(`${j.id}: ${s}`)); } // EA only: names game processes this run never saw (docs/236 #20)
+  if (row.crashed) { row.crash = triage(t0); row.error = loadCrashError(row.error, row.crash); log(`${j.id}: game crashed\n${row.crash}`); await logUntrackedGame(s => log(`${j.id}: ${s}`)); } // EA only: names game processes this run never saw (docs/236 #20)
   let jobLogText = ''; try { jobLogText = readFileSync(logFile).subarray(logOff).toString(); } catch { /* no job log */ }
   try { row.hangCapture = hangCaptureLine(jobLogText); } catch { /* no job log */ }
   const retry = deadlockRetry(j, row, jobLogText, [...all, ...jobs].map(x => x.id));

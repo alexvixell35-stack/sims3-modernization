@@ -31,6 +31,7 @@
  "MonoSigGuard": ["monosig.cpp"],
  "S3SSCompat": ["s3sscompat.cpp"],
  "PkgLock": ["pkglock.cpp"],
+ "HostMapIterFix": ["hostmapiter.cpp"],
  "LotPool": ["lptrim.cpp"],
  "Compaction": ["compaction.cpp"],
  "SaveCompress": ["savecompress.cpp"],
