@@ -437,3 +437,5 @@ worldpondskatetest
 #   nearestlotlazy
 # built 2026-11-20 (feat/fgl-root-1120, docs/682), default off, not run in the game (same answer as EA's stage):
 #   fglinbound fglinboundhh
+# built 2026-11-20 (feat/act-delay-1120, docs/684), default off, not run in the game (read-only probe, test runs only):
+#   actdelay

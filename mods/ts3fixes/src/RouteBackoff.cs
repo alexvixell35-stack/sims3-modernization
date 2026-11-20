@@ -34,10 +34,12 @@ namespace Ts3Fixes
                 DoorMirror.SyncRoute(this, Vector3.Invalid); // doormirror: push the start/goal lots' doors to ts3native (DoorMirror.cs)
                 uint rflT0 = SrcNowUs(); // routefaillog (RouteFailLog.cs)
                 RouteSrcCall src = RouteSrcBegin(this, 0, Vector3.Invalid); // routesrc: source of this plan (RouteSources.cs, docs/151)
+                ActPlanBegin(); // actdelay (ActDelay.cs, docs/684): read-only
                 RoutePlanResult r = UfPlan(0, Vector3.Invalid); // docs/202 unseenfbplan wraps the whole plan (UnseenFallback.cs)
                 if (!UfTakeNotFail()) NotePlanResult(Follower, r.mType == RoutePlanResultType.Succeeded, this); // the stuck watchdog's route-fail count and success memo (RouteFixes.cs); docs/202: not for a cut plan
                 StuckCheckPlanned(r.mType == RoutePlanResultType.Succeeded); // docs/163 §10 stuck-check outcome counters (FewerPlans.cs)
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
+                ActPlanEnd(r.mType == RoutePlanResultType.Succeeded);
                 RflPlan(this, 0, rflT0, r);
                 return r;
             }
@@ -261,6 +263,7 @@ namespace Ts3Fixes
                 ulong splitTask = Simulator.CurrentTask.Value;
                 bool splitOn = sUfSplits.ContainsKey(splitTask);
                 int t0 = System.Environment.TickCount, i = 0, tp = t0, maxPoll = 0;
+                uint adT0 = SrcNowUs(); // actdelay (ActDelay.cs)
                 for (; !GetOption2(kAsyncReady); i++)
                 {
                     // shortcut: a fixed cap (~10-20 s real time); past it the plan waits natively and is then made
@@ -271,6 +274,7 @@ namespace Ts3Fixes
                     // ufplansplit / spotwaitattr (docs/641): the longest single poll = the longest game frame this task slept through
                     if (splitOn) { int now = System.Environment.TickCount; if (unchecked(now - tp) > maxPoll) maxPoll = unchecked(now - tp); tp = now; }
                 }
+                ActJobWaited(adT0);
                 // ufplansplit (log only): this task's entry (other Sims' plans ran during the polls; they keep their own)
                 UfSplit su;
                 if (splitOn && sUfSplits.TryGetValue(splitTask, out su))
@@ -334,8 +338,10 @@ namespace Ts3Fixes
             {
                 uint rflT0 = SrcNowUs(); // routefaillog (RouteFailLog.cs)
                 RouteSrcCall src = RouteSrcBegin(this, 1, Vector3.Invalid);
+                ActPlanBegin();
                 RoutePlanResult r = UfPlan(1, Vector3.Invalid);
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
+                ActPlanEnd(r.mType == RoutePlanResultType.Succeeded);
                 RflPlan(this, 1, rflT0, r);
                 return r;
             }
@@ -360,8 +366,10 @@ namespace Ts3Fixes
             {
                 uint rflT0 = SrcNowUs(); // routefaillog (RouteFailLog.cs)
                 RouteSrcCall src = RouteSrcBegin(this, 2, startPosition);
+                ActPlanBegin();
                 RoutePlanResult r = UfPlan(2, startPosition);
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
+                ActPlanEnd(r.mType == RoutePlanResultType.Succeeded);
                 SemCapture(r);  // docs/636 spotedgememo: which goal EA's full routability plan reached
                 RflPlan(this, 2, rflT0, r);
                 return r;
@@ -403,8 +411,10 @@ namespace Ts3Fixes
             {
                 uint rflT0 = SrcNowUs(); // routefaillog (RouteFailLog.cs)
                 RouteSrcCall src = RouteSrcBegin(this, 3, fromPt);
+                ActPlanBegin();
                 RoutePlanResult r = UfPlan(3, fromPt);
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
+                ActPlanEnd(r.mType == RoutePlanResultType.Succeeded);
                 RflPlan(this, 3, rflT0, r);
                 return r;
             }
