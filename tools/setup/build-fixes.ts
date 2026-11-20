@@ -158,7 +158,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kFglInBound value="False" />
     <kFglInBoundHousehold value="False" />
     <kFglInBoundShadow value="False" />
-    <kFglInBoundProbeRadius value="7" />
+    <kFglInBoundProbeRadius value="0" />
+    <kFglInBoundMaxSearches value="8" />
     <kNearestLotLazy value="False" />
     <kNearestLotLazyShadow value="False" />
     <kTrashOutsideFallback value="False" />

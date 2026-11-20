@@ -3,7 +3,8 @@
 2026-11-20 (UTC), `feat/fgl-root-1120`. Inputs: the storm logs s189-type (phase-20261120-1607 / 1613 / 1622 / 1630, `[FglProf]`
 with `Frames=16`), s202 / s203 (phase-20261120-1717 / 1722, no profile), the 12 profiled phases of the day; ilspycmd output
 of `GlobalFunctions`, `BandInstrument`, `World`; objdump of the Steam 1.67 code. Built: ts3fixes `fglinbound`,
-`fglinboundhh` (default off), shadow tuning `kFglInBoundShadow`. **NOT RUN in the game.**
+`fglinboundhh` (default off), shadow tuning `kFglInBoundShadow`. Design 1 (§3, one radius around the start) ran in s207 / s208: **no gain** (§8.1).
+**Design 2 (§8, cluster searches) is what the code does now; NOT RUN in the game.** §3, §4 and §6 describe design 1 and are kept as the record.
 
 ## 1. Who issues the slow searches [measured: `fgl prof:` line pairs]
 
@@ -67,7 +68,7 @@ The native side:
   tile's centre. A grid cell holds up to four room ids (tiles cut by diagonal walls), so on such a tile a corner sample
   and a centre sample may name different rooms.
 
-## 3. `fglinbound` (ts3fixes, default off): the same answer, tested only where a room can be
+## 3. Design 1 (superseded by §8): one radius around the start
 
 In `RrNearbyHook` (the `FindGoodLocationNearby` swap of docs/675), when the indoors stage would run and the task's Sim
 is not household scope:
@@ -126,7 +127,7 @@ Files: `mods/ts3fixes/src/FglInBound.cs`, `FglInBoundCore.cs`, the branch in `Ro
 `Instantiator.cs`, `Fixes.cs`, `CheckLiveMap.cs`, `tools/setup/build-fixes.ts`; `tools/selftest/fglinbound`;
 repro `fglinbound-check`.
 
-## 4. What it should cost [argued from the logged counts, not measured]
+## 4. Design 1: what it should have cost [argued; s208 showed otherwise, §8.1]
 
 The failed stage: 3344 tiles tested -> the tiles within the radius of a small room (a 3 x 3 room: radius 3.9 m, about
 50 tiles). New cost: the probe (about 150 tiles' tests), the tile pass (4096 tiles x 1-2 lookups x 1-2 levels through
@@ -148,7 +149,7 @@ search (not this path).
 - In the game: `FglInBoundCheck run` (repro `fglinbound-check`): the logged shape through the model, the controls, and
   the tile pass on the selected Sim's lot (lot size, lookups, ms, radius).
 
-## 6. Run plan (2-minute Isla Paradiso storm, s202's ini and switches, same seed)
+## 6. Design 1 run plan (done: s207 shadow, s208 serve; the plan for design 2 is §8.6)
 
 Keep `[FglFacing] Mode=1`, `[FglMemo] Mode=1`. Add `[FglProf] Enabled=1 LogMs=50 Frames=16` to both arms of the first
 pair only (it names the searches; it costs about 70 ms on a 12,000-tile search).
@@ -172,3 +173,96 @@ pair only (it names the searches; it costs about 70 ms on a 12,000-tile search).
   searches: below the hitch line, left alone.
 - Moving the search off the sim thread: the placement checks read objects, the physics world and room data that only
   the sim thread may touch while the game runs (docs/671 §4.3); nothing here needs it.
+
+## 8. Design 2: one search per cluster of indoor tiles
+
+### 8.1 s207 / s208 [measured]
+
+s208 (serve, `[FglProf]` on), twice: `fglinbound: 251 ms (probe 17, tile pass 7, search 226), Jig, lot 64 x 64, 283 tiles may
+be indoors (15715 lookups), radius 50.9 m = 3631 tiles, no indoor spot`; the search line: `radius 51`, tested 2848 tiles,
+pass 196, FAILED. The lot's indoor tiles are spread over it, so one radius around the start covers the lot. The tile pass
+is cheap (7 ms for 15,715 lookups); the probe costs 17 ms when it finds nothing. s207 (shadow) never met the guitar case.
+The caller of §1 is confirmed for the unprofiled frames by this line (object `Jig`, the 64 x 64 lot).
+
+So: 283 tiles can hold an indoor spot, about 2,850 are placement-tested.
+
+### 8.2 The design
+
+After the tile pass (§3 step 3, unchanged):
+
+1. The marked tiles' 8-connected groups (`FglInBoundCore.Clusters`). More than `kFglInBoundMaxSearches` (8): the two
+   groups with the nearest centres are merged until they fit. More than 96 groups, or the searches' discs holding 60%
+   of the lot or more: EA's stage (slot 4253).
+2. Per cluster, nearest first (smallest square ring of a member around the Sim's start tile): one native search with
+   EA's object, ignore list and constraints, **started on the cluster's centre tile** on the start's level
+   (`World.GetWorldPosition` of the tile; the position must read back as that tile or a neighbour on the same level,
+   else EA's stage runs) with `MaximumSearchRadius` = distance from the read-back tile to the farthest member + 1.5
+   (a start anywhere in its tile is at most sqrt 2 further from a tile's integer coordinates).
+3. The search's check accepts nothing. For each spot that passed the placement test it does `IsInside`'s own test and
+   keeps the indoor spot on the nearest ring around the Sim's start tile, then the nearest tile. So one search tests
+   every tile of its disc once and offers every valid indoor spot in it.
+4. A cluster whose nearest member is not on a nearer ring than the kept spot is left out, and so are all later ones.
+5. The kept spot is returned through a last search that starts on it, radius 2, accepting only it (and still
+   indoors): position and facing come from the native search. Not returned again: EA's stage runs (counted with 4257).
+
+The probe (§3 step 2) is off by default now (`kFglInBoundProbeRadius` 0).
+
+### 8.3 What is the same as EA's stage and what can differ
+
+- **Found or not: the same.** Every tile `IsInside` can accept is a member of a cluster and inside its search's
+  radius; the placement test of a tile does not depend on where the search started [inferred: the record's start is
+  read by the walk and the radius test; the shadow compare checks it]; the level is the start's in every search.
+- **The spot: on the same ring as EA's.** EA's search walks square rings around the start and takes the first valid
+  indoor spot; ours takes a valid indoor spot on the nearest ring that has one. On that ring it can be another tile
+  (EA: first in the walk's order; ours: nearest by straight distance). The selftest's model: EA's tile in 9,765 lots,
+  another tile of the same ring in 2,426.
+- The facing comes from a search started on the spot; EA's own facing on a tile is random among the valid ones.
+
+Household: `fglinboundhh` stays its own switch, because the tile on the ring can differ (a valid spot at the same
+distance, not the identical one).
+
+Shadow (`kFglInBoundShadow`): `shadow same` (same tile), `shadow same ring, other tile` (counted in the check's
+result text, expected), `shadow DIFFERENT` (found against not found, or another ring: slot 4256, **must stay 0**).
+
+### 8.4 Cost [argued; the walk's cost is not measured]
+
+Model of the s208 shape (a 3 x 3 room and four other buildings, 239 indoor tiles): 556 tiles tested in 5 searches
+against 4096. For the real lot (283 tiles): a few hundred tiles instead of 2,850, about 142 ms x 600 / 2850 = 30 ms of
+tests at s208's rate. Each search also walks the whole lot's rings (about 12,000 steps); with `[FglProf]` on that
+walk costs about 80 ms **per search** (its tile stubs), so **a serve arm must run without `[FglProf]`**; without it the
+walk's cost is not known (the unprofiled frames suggest a few ms). The log line gives `searches N ms` and the search
+count; if the walks dominate, lower `kFglInBoundMaxSearches`.
+
+### 8.5 Checks run (no game)
+
+- `tools/selftest/fglinbound`: 20,000 random lots through `Clusters` with 1-8 searches and a search start anywhere in
+  its centre tile: found iff EA's model search finds, always on EA's ring, always a valid indoor tile; members =
+  marked tiles; a radius 0.5 short of the farthest member differs in 1,343 lots (the cases reach the boundary); the
+  s208 shape (556 of 4096 tiles, 5 searches); merging to 2 clusters. Design 1's cases still pass.
+- ts3fixes build; `node tools/selftest-all.ts --ci`: 200 PASS, 0 FAIL.
+
+### 8.6 Run plan
+
+1. **Forced compare, any save with a house** (repro `fglinbound-check`, `FglInBoundCheck live`): the selected Sim's
+   lot must have rooms. The check creates a `GuitarJig` (the logged object) on up to three indoor tiles of that lot
+   (the Sim's own tile first when the Sim is indoors), runs EA's indoors stage and ours from each, compares, destroys
+   the jig. No Sim has to own or play a guitar and nothing is placed; this is the same native search with the same
+   object as `Guitar.RouteBeforePlaying` makes. Pass: `live verdict: ok`, each tile `-> same` or `-> same ring, other
+   tile`, the two ms side by side; slot 4256 = 0. A lot with a full house gives `found`, the storm lot gives `no
+   indoor spot`: run it on both kinds if possible (in the Isla Paradiso storm save: select a Sim standing on the
+   64 x 64 lot of §1, or `sim_visit_lot` there first).
+2. **Arm A, shadow storm** (s202 ini, same seed, `[FglProf]` may stay on): `fglinbound=on`, `kFglInBoundShadow=True`.
+   Pass: every `fglinbound: shadow` line `same` or `same ring, other tile`; slot 4256 = 0, 4257 = 0. The guitar case
+   is not certain to occur in a storm (s207 missed it); step 1 covers that.
+3. **Arm B, serve storm, `[FglProf] Enabled=0`**: `fglinbound=on`, shadow off. Pass: no frame of 300 ms or more with
+   stall leaf `World_FindGoodLocation`; a line `fglinbound: N ms (probe 0, tile pass ~7, searches S), Jig, ... in K
+   clusters, n searches over T tiles ..., no indoor spot` with N well below 226; slot 4252 > 0; the Sims still play.
+4. After two clean runs of 1 and 2: `fglinboundhh=on` with a household Sim playing the guitar indoors.
+
+### 8.7 Weighed and not built
+
+- A memo "this lot has no indoor spot for this object" (idea b): the answer depends on every object and Sim on the
+  indoor tiles; Sims move between two placements, and no sequence number covers objects, physics and rooms together
+  (docs/671 §4.3). With the stage at tens of ms a memo has little left to save.
+- Skipping the stage when no marked tile could take the jig (idea c): that is the placement test itself; the cluster
+  searches are the cheapest exact way to ask it.
