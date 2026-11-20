@@ -116,19 +116,24 @@ static void TestWorkerHold() {
     WhJobBegin();
     LARGE_INTEGER q0;
     QueryPerformanceCounter(&q0);
+    Sleep(2);  // the sums below are whole microseconds: give every timed part a real length
     WhHost(q0.QuadPart);
     WhPlEnter();
     QueryPerformanceCounter(&q0);
+    Sleep(2);
     WhHost(q0.QuadPart);
     g_whSimWait = 1;
+    Sleep(2);
     WhPlLeave();
     g_whSimWait = 0;
     assert(t_whJob.sp.plans == 1 && t_whJob.sp.endWait && t_whJob.sp.hostN[WH_PRE] == 1 && t_whJob.sp.hostN[WH_IN] == 1);
+    Sleep(2);
     WhIcDone();
     assert(t_whIcQ != 0 && t_whJob.sp.partQ[WH_TAIL] > 0);
     WhJobEnd(0x25000002, 0, 40000, 12000);
     assert(c.whTailN == 1 && c.whNoPlanN == 3 && c.whGameUs == 12000 && c.whHostN[WH_PRE] == 1 && c.whHostN[WH_IN] == 1 && c.whHostN[WH_TAIL] == 0);
     assert(c.whPartUs[WH_IN] > 0 && c.whPartUs[WH_TAIL] > 0 && c.whHostUs[WH_IN] > 0 && t_whWaitQ > 0 && c.whTailWaitN == 0);
+    Sleep(2);
     WhRelease();
     assert(c.whTailWaitN == 1 && c.whTailWaitUs >= c.whPartUs[WH_TAIL] + c.whEndUs && c.whEndUs > 0 && c.whEndMaxUs > 0 && !t_whIcQ && t_whWaitQ == -1);
     // outside a job the hooks do nothing
