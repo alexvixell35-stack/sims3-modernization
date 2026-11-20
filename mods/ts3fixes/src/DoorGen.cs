@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Sims3.Gameplay.Abstracts;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.ActorSystems;
@@ -25,7 +26,7 @@ namespace Ts3Fixes
     // Covered: lock type / owner / one-way room (both SetLockTypeAndOwner overloads), owner lists (SetLockTypeOwnerList,
     // AddToOwnerList, RemoveFromOwnerList), greeting (Household.AddGreetedLotToHousehold / RemoveGreetedLotForHousehold),
     // per-lot portal handlers (Lot.PortalPathPlan add / remove: PrivacySituation and mods, also the 2nd+ handler, which
-    // SetPortalLockStatus does not report), household membership (Household.Add / Remove: SelectedHousehold locks).
+    // SetPortalLockStatus does not report; a lot with such a handler is held out of the memo, DoorGenHold), household membership (Household.Add / Remove: SelectedHousehold locks).
     // Also covered: fire on the lot (FireManager.RegisterFire / UnregisterFire, the OnFire / Torched buffs' OnAddition /
     // OnRemoval: Lot.IsFireOnLot), Sim.SimFlags.IgnoreDoorLocks (Sim.FlagSet with that bit), tomb mummy (OccultManager
     // AddOccultType / RemoveOccultType; its NPC-household half is Household.Add / Remove above), proprietor and every other role
@@ -89,7 +90,30 @@ namespace Ts3Fixes
         public static void DoorGenWorldLoad()
         {
             sDoorGenOn = ShortcutOn("doorgen");
-            if (sDoorGenOn) DoorGenSend(1);
+            if (!sDoorGenOn) return;
+            DoorGenSend(1);
+            foreach (Lot lot in LotManager.AllLots) DoorGenHold(lot);  // privacy situations restored before the switch was read
+        }
+
+        // A lot's PortalPathPlan handlers beyond EA's Sim.OnPortalPathPlan (PrivacySituation, mods) answer from the asking Sim's
+        // current interaction, which nothing bumps: the native memo leaves such a lot alone (op 36 hi 1 = held, 2 = free; key is
+        // the lot id's low dword). Unknown (field missing, error) = held.
+        static FieldInfo sDgLotHandlers;
+        static void DoorGenHold(Lot lot)
+        {
+            if (!sDoorGenOn || lot == null) return;
+            bool held = false;
+            try
+            {
+                if (sDgLotHandlers == null) sDgLotHandlers = typeof(Lot).GetField("mOnPortalPathPlanHandler", BindingFlags.Instance | BindingFlags.NonPublic);
+                Delegate d = sDgLotHandlers != null ? sDgLotHandlers.GetValue(lot) as Delegate : null;
+                if (sDgLotHandlers == null) held = true;
+                else if (d != null)
+                    foreach (Delegate h in d.GetInvocationList())
+                        if (h.Method.DeclaringType != typeof(Sim) || h.Method.Name != "OnPortalPathPlan") { held = true; break; }
+            }
+            catch (Exception) { held = true; }
+            try { DiagSend(kDoorGenOp, (uint)lot.LotId, held ? (ushort)1 : (ushort)2); } catch (Exception) { }
         }
 
         static void DoorGenBump()
@@ -238,9 +262,9 @@ namespace Ts3Fixes
 
         public class DoorGenLotHook
         {
-            public void AddHook(PortalPathPlanHandler h) { AddOrig(h); DoorGenBump(); }
+            public void AddHook(PortalPathPlanHandler h) { AddOrig(h); DoorGenHold((Lot)(object)this); DoorGenBump(); }
             public void AddOrig(PortalPathPlanHandler h) { }
-            public void RemoveHook(PortalPathPlanHandler h) { RemoveOrig(h); DoorGenBump(); }
+            public void RemoveHook(PortalPathPlanHandler h) { RemoveOrig(h); DoorGenHold((Lot)(object)this); DoorGenBump(); }
             public void RemoveOrig(PortalPathPlanHandler h) { }
         }
     }

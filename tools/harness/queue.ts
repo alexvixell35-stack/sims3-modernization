@@ -67,8 +67,11 @@
 // "@name>=n" reads the after value: required for values set at startup, fixes-require.ts STARTUP_COUNTERS, refused as deltas);
 // logRequire: { "<regex>": min lines } over the job's ts3native.log copy. Either failing turns the row FAIL (repro event checks, docs/169).
 // logForbid: { "<regex>": max lines } over the same copy (0 = the line must not appear, e.g. a replay audit MISMATCH); more turns the row FAIL.
+// apexLogRequire / apexLogForbid: the same two rules over the job's kept -ApexRadiance_LOG.txt copy (this job's lines only, keepApexLogs):
+// Apex switch and version read-back (docs/301); failed rules say "apex log /re/ ...", a missing copy is FAIL UNKNOWN.
 // regexCases: { "<regex>": { match: [line, ...], noMatch: [line, ...] } } (AGENTS.md: every regex tested against real lines): when
-// present, every logRequire / logForbid regex needs >= 1 real line it matches and >= 1 it must not; checked at parse (--dry-run too).
+// present, every logRequire / logForbid / apexLogRequire / apexLogForbid regex needs >= 1 real line it matches and >= 1 it must not;
+// checked at parse (--dry-run too).
 // routingFailFast: { ms, scope: "unseen" | "all", allow?: [{ match, reason, ref }] } (Rodney 2026-10-26, routing-failfast.ts): from the profile
 // start, every 30 s, routing above ms (unseen fallback lines; with scope all also sync plans, own-job waits, route-led hitches)
 // stops the job at once with FAIL: routing fail-fast: ...; triaged false positives go into routing-failfast-allow.json.
@@ -305,7 +308,10 @@ const APEX_TOML = join(USER, 'Apex Radiance', 'ApexRadiance.toml'), APEX_HITCHES
 export const APEX_PROFILER_KEYS = { 'ui.developer_mode': true, 'qol.frame_profiler.start_at_load': true, 'qol.frame_profiler.write_file': true };
 export const APEX_PROFILER_STARTED = /\[FrameProfiler\] Timeline section \d+ starts/;
 const sizeOf = (f: string) => { try { return statSync(f).size; } catch { return 0; } };
-export function keepApexLogs(prefix: string, apexOff: number, bin = BIN, apexLog = APEX_LOG, hitches = APEX_HITCHES, hitchesOff = -1): string[] {
+// head: the log's first bytes at launch. Apex truncates the log at each start, so a new session that outgrew the old size still
+// counts as rewritten (2026-11-20 stbl-index bp-stbl-on-b: the copy began mid-line and lost the [StringTableIndex] On lines)
+export const headOf = (f: string) => { try { return readFileSync(f).subarray(0, 64).toString('latin1'); } catch { return ''; } };
+export function keepApexLogs(prefix: string, apexOff: number, bin = BIN, apexLog = APEX_LOG, hitches = APEX_HITCHES, hitchesOff = -1, head = ''): string[] {
   const kept: string[] = [];
   for (const b of ['bridge32.log', 'bridge64.log']) {
     const src = join(bin, 'rtx-remix', 'logs', b);
@@ -313,13 +319,14 @@ export function keepApexLogs(prefix: string, apexOff: number, bin = BIN, apexLog
   }
   if (existsSync(apexLog)) {
     const buf = readFileSync(apexLog);
-    writeFileSync(`${prefix}-ApexRadiance_LOG.txt`, buf.subarray(buf.length >= apexOff ? apexOff : 0)); // shorter = rewritten: all of it
+    const same = buf.length >= apexOff && buf.subarray(0, head.length).toString('latin1') === head;
+    writeFileSync(`${prefix}-ApexRadiance_LOG.txt`, buf.subarray(same ? apexOff : 0)); // shorter or a new head = rewritten: all of it
     kept.push('ApexRadiance_LOG.txt');
   }
   if (hitchesOff >= 0 && sizeOf(hitches) > hitchesOff) { writeFileSync(`${prefix}-ApexRadiance_Hitches.txt`, readFileSync(hitches).subarray(hitchesOff)); kept.push('ApexRadiance_Hitches.txt'); }
   return kept;
 }
-let apexLogOff = 0, apexHitchesOff = -1; // Apex log / Hitches.txt size at the last launch (-1: no apexProfiler job)
+let apexLogOff = 0, apexHitchesOff = -1, apexLogHead = ''; // Apex log / Hitches.txt size at the last launch (-1: no apexProfiler job), log head
 
 // ---------------------------------------------------------------- pure parts (covered by --self-check)
 // the "tested" source version: the release define only. ts3native.cpp's first define is the TS3N_RFTEST one ("0.36.189-rftest1",
@@ -332,13 +339,13 @@ function machineCols(tag: string) { return tag ? { head: ' machine |', sep: '---
 function machineField(tag: string): { machineTag?: string } { return tag ? { machineTag: tag } : {}; }
 type Job = { id: string; note?: string; asi: string; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; modSet?: string; run: { repro?: string; saveReload?: string[]; script?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
-    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string }; rewindGames?: { n: number; profile: { minutes: number; seed?: number; fixesOn?: string; fixesOff?: string }; ab?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; apexProfiler?: boolean; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; crashHunt?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
+    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string }; rewindGames?: { n: number; profile: { minutes: number; seed?: number; fixesOn?: string; fixesOff?: string }; ab?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; apexProfiler?: boolean; apexToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; apexLogRequire?: Record<string, number>; apexLogForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; crashHunt?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
   saveMatrix?: { fixes?: 'all' | 'shipped' }; regexCases?: Record<string, { match: string[]; noMatch: string[] }>; fixesBuild?: string; fixesPackage?: string; iniBase?: string; dogfood?: boolean; pinReason?: string; rerunOf?: string; retryOf?: string; kcOf?: string; expectHang?: string; shadowCheck?: boolean; quitsGame?: boolean; skipIfMissing?: boolean; ourMods?: false; rewind?: false; rewindRequire?: 'snapshot' | 'rewind' };
 
 function checkRegexCases(cases: Record<string, { match?: unknown; noMatch?: unknown }>, res: string[], at: string, requireAll = true) {
   if (requireAll) for (const re of res) if (!cases[re]) throw new Error(`${at}: regexCases has no case for /${re}/`);
   for (const [re, c] of Object.entries(cases)) {
-    if (requireAll && !res.includes(re)) throw new Error(`${at}: regexCases /${re}/ is no logRequire / logForbid key`);
+    if (requireAll && !res.includes(re)) throw new Error(`${at}: regexCases /${re}/ is no logRequire / logForbid / apexLogRequire / apexLogForbid key`);
     const ok = (l: unknown) => Array.isArray(l) && l.length > 0 && l.every(x => typeof x === 'string');
     if (!ok(c.match) || !ok(c.noMatch)) throw new Error(`${at}: regexCases /${re}/ needs match and noMatch lists of >= 1 line`);
     const r = new RegExp(re);
@@ -358,7 +365,7 @@ function versionPinMiss(j: { asi?: string; logRequire?: Record<string, number> }
 }
 
 // every top-level job key queue.ts reads (Job type plus the optional extras); anything else is a typo or a profile key at the wrong level
-const JOB_KEYS = new Set(['id', 'dogfood', 'quitsGame', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'apexProfiler', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'modSet', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'regexCases', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'crashHunt', 'reuseSession', 'rewind', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm', 'rewindRequire']);
+const JOB_KEYS = new Set(['id', 'dogfood', 'quitsGame', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'apexProfiler', 'apexToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'modSet', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'apexLogRequire', 'apexLogForbid', 'regexCases', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'crashHunt', 'reuseSession', 'rewind', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm', 'rewindRequire']);
 // ---- vanilla mode (docs/236): what a job may not ask for without ts3native/ts3fixes, and the checks the row names as N/A
 // results md cell: at most `max` chars, cut at an item boundary (", " / "; " / "<br>") and marked, never inside a number
 // (docs/277 §1: the cut at 400 turned aut_l0_pairn_hh 397 / 3163 into "3" / "316"; full values stay in the jsonl row)
@@ -399,7 +406,7 @@ export function vanillaRefusals(j: Job): string[] {
   const out: string[] = [];
   if (j.asi !== 'none') out.push(`asi "${j.asi}" (vanilla jobs say "none")`);
   if (Object.keys(j.ini ?? {}).length) out.push('ini');
-  for (const k of ['fixes', 'fixesBuild', 'fixesPackage', 'fixesRequire', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'earlyGates', 'routingFailFast', 'saveMatrix', 'callSites', 'releaseDefaults'] as const)
+  for (const k of ['fixes', 'fixesBuild', 'fixesPackage', 'fixesRequire', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'apexLogRequire', 'apexLogForbid', 'earlyGates', 'routingFailFast', 'saveMatrix', 'callSites', 'releaseDefaults'] as const)
     if ((j as any)[k] !== undefined) out.push(k);
   for (const k of ['profile', 'routelock', 'worldimage'] as const) if ((j.run as any)[k]) out.push(`run.${k}`);
   return out;
@@ -470,6 +477,7 @@ export function parseQueue(json: unknown): Job[] {
     for (const k of Object.keys(j.s3ppIni ?? {})) if (!/^\w+\.\w+$/.test(k)) throw new Error(`${at}: s3ppIni key "${k}" must be Section.Key`);
     for (const k of Object.keys(j.s3ssToml ?? {})) if (!/^\w+(\.\w+)+$/.test(k)) throw new Error(`${at}: s3ssToml key "${k}" must be table.key (e.g. patches.LotStreamingOptimizations.enabled)`);
     if (j.apexProfiler !== undefined && j.apexProfiler !== true) throw new Error(`${at}: apexProfiler is true or left out`);
+    for (const k of Object.keys(j.apexToml ?? {})) if (!/^\w+(\.\w+)+$/.test(k)) throw new Error(`${at}: apexToml key "${k}" must be table.key (e.g. patches.StringTableIndex.enabled)`);
     if (j.ourMods !== undefined) { // refused here, so a --dry-run shows it too
       if (j.ourMods !== false) throw new Error(`${at}: ourMods is false or left out`);
       const bad = ourModsRefusals(j); if (bad.length) throw new Error(`${at}: ourMods false refuses: ${bad.join(', ')}`);
@@ -564,9 +572,9 @@ export function parseQueue(json: unknown): Job[] {
     if (j.timeoutMin !== undefined && !(j.timeoutMin > 0)) throw new Error(`${at}: timeoutMin must be > 0`);
     if (j.minCounters !== undefined && !(Number.isInteger(j.minCounters) && j.minCounters > 0)) throw new Error(`${at}: minCounters must be a positive integer (a counters version)`);
     if (j.nativeRequire !== undefined) { const lint = startupDeltaLint(j.nativeRequire); if (lint.length) throw new Error(`${at}: ${lint.join('; ')}`); }
-    if (j.logRequire !== undefined) for (const [re, n] of Object.entries(j.logRequire)) { new RegExp(re); if (!(Number.isInteger(n) && n > 0)) throw new Error(`${at}: logRequire "${re}" must map to a positive integer`); }
-    if (j.logForbid !== undefined) for (const [re, n] of Object.entries(j.logForbid)) { new RegExp(re); if (!(Number.isInteger(n) && n >= 0)) throw new Error(`${at}: logForbid "${re}" must map to an integer >= 0`); }
-    if (j.regexCases !== undefined) checkRegexCases(j.regexCases, [...Object.keys(j.logRequire ?? {}), ...Object.keys(j.logForbid ?? {})], at);
+    for (const k of ['logRequire', 'apexLogRequire'] as const) if (j[k] !== undefined) for (const [re, n] of Object.entries(j[k]!)) { new RegExp(re); if (!(Number.isInteger(n) && n > 0)) throw new Error(`${at}: ${k} "${re}" must map to a positive integer`); }
+    for (const k of ['logForbid', 'apexLogForbid'] as const) if (j[k] !== undefined) for (const [re, n] of Object.entries(j[k]!)) { new RegExp(re); if (!(Number.isInteger(n) && n >= 0)) throw new Error(`${at}: ${k} "${re}" must map to an integer >= 0`); }
+    if (j.regexCases !== undefined) checkRegexCases(j.regexCases, [...Object.keys(j.logRequire ?? {}), ...Object.keys(j.logForbid ?? {}), ...Object.keys(j.apexLogRequire ?? {}), ...Object.keys(j.apexLogForbid ?? {})], at);
     if (j.routingFailFast !== undefined) {
       checkFailFast(j.routingFailFast, at);
       if (!j.run.profile) throw new Error(`${at}: routingFailFast needs run.profile (it starts at the profile start)`);
@@ -1247,6 +1255,8 @@ export function iniPinRefusals(jobs: Job[], src: string | undefined, asiVer: (pa
 export function logForbidFails(text: string, forb: Record<string, number>): string[] {
   return Object.entries(forb).flatMap(([re, max]) => { const n = text.split(/\r?\n/).filter(l => new RegExp(re).test(l)).length; return n <= max ? [] : [`log /${re}/ ${n} lines (want <= ${max})`]; });
 }
+// apexLogRequire / apexLogForbid over the kept Apex log: the same rules, failed ones prefixed "apex "
+export const apexLogFails = (text: string, req: Record<string, number>, forb: Record<string, number> = {}) => [...logFails(text, req), ...logForbidFails(text, forb)].map(f => `apex ${f}`);
 const delta = (a: any, b: any) => (a && b ?Object.fromEntries(Object.keys(b).filter(k => typeof b[k] === 'number' && typeof a[k] === 'number' && b[k] !== a[k]).map(k => [k, b[k] - a[k]])) : null);
 
 // verdict lines of a child's output: repro.ts "<id>: PASS (...)", "FAIL: ...", save-matrix.ts "<case>: PASS", "summary: ..."
@@ -1423,6 +1433,12 @@ if (values['self-check']) {
       keepApexLogs(join(d, 'k'), 999, bin, al);
       assert.equal(readFileSync(join(d, 'k-ApexRadiance_LOG.txt'), 'utf8'), 'old run;this run;');
       assert.deepEqual(keepApexLogs(join(d, 'n'), 0, join(d, 'none'), join(d, 'none.txt')), []);
+      // a new session (other head) that outgrew the launch size is kept whole; the same head keeps the slice
+      writeFileSync(al, 'Log - started 11:02;new session, longer than the old one');
+      keepApexLogs(join(d, 'r'), 8, bin, al, APEX_HITCHES, -1, 'Log - started 10:26;');
+      assert.equal(readFileSync(join(d, 'r-ApexRadiance_LOG.txt'), 'utf8'), 'Log - started 11:02;new session, longer than the old one');
+      keepApexLogs(join(d, 's'), 20, bin, al, APEX_HITCHES, -1, headOf(al));
+      assert.equal(readFileSync(join(d, 's-ApexRadiance_LOG.txt'), 'utf8'), 'new session, longer than the old one');
     } finally { rmSync(d, { recursive: true, force: true }); }
   }
   { // tested-build source version: the release define, not the rftest one before it
@@ -1607,6 +1623,8 @@ if (values['self-check']) {
   const toml = '[patches.Mimalloc]\nenabled = true\n\n[patches.LotStreamingOptimizations]\nenabled = true\n';
   assert.equal(mergeIni(toml, tomlSet({ 'patches.LotStreamingOptimizations.enabled': false })), '[patches.Mimalloc]\nenabled = true\n\n[patches.LotStreamingOptimizations]\nenabled=false\n');
   assert.equal(parseQueue([{ id: 'l', asi: 'x', save: 'S', s3ssToml: { 'patches.LotStreamingOptimizations.enabled': false }, run: { profile: { minutes: 6, repro: 'lotstream-pan' } } }])[0].run.profile!.repro, 'lotstream-pan');
+  assert.equal(parseQueue([{ id: 'l', asi: 'x', save: 'S', apexToml: { 'patches.StringTableIndex.enabled': true }, run: { profile: { minutes: 6, repro: 'lotstream-pan' } } }]).length, 1);
+  assert.throws(() => parseQueue([{ id: 'l', asi: 'x', save: 'S', apexToml: { enabled: true }, run: { profile: { minutes: 6, repro: 'lotstream-pan' } } }]), /apexToml key/);
   assert.equal(parseQueue([{ id: 'm', asi: 'x', save: 'S', run: { profile: { minutes: 6, mainstack: 'main' } } }])[0].run.profile!.mainstack, 'main');
   assert.throws(() => parseQueue([{ id: 's', asi: 'x', save: 'S', run: { profile: { minutes: 6, story: '{"seed":1}' } } }]), /profile.story/);
   assert.deepEqual(parseQueue([{ id: 's', asi: 'x', save: 'S', run: { profile: { minutes: 10, story: { seed: 1 } } } }])[0].run.profile!.story, { seed: 1 });
@@ -1657,6 +1675,19 @@ if (values['self-check']) {
   // self checks: start-up FAIL lines, lazy route worker hook, async jobs actually started
   assert.deepEqual(logForbidFails('snap replay audit MISMATCH lot 0x1: Q 1\nok', { 'snap replay audit MISMATCH': 0, 'P4 FAULT': 0 }), ['log /snap replay audit MISMATCH/ 1 lines (want <= 0)']);
   assert.throws(() => parseQueue([{ id: 'v', asi: 'x', save: 'S', logForbid: { x: -1 }, run: { soak: { minutes: 1 } } }]), /logForbid/);
+  { // apexLogRequire / apexLogForbid: logRequire / logForbid rules over the kept Apex log (docs/301 switch read-back)
+    const on = '11:02:37.509 [INFO] [StringTableIndex] On at 0x0059c5c2 (list changes at 0x0059af00, 0x0059b190, 0x0059bde0): the index is built';
+    assert.deepEqual(apexLogFails(`${on}\nx`, { 'StringTableIndex\\] On at': 1, 'Index built': 1 }, { 'StringTableIndex\\] On at': 0 }), ['apex log /Index built/ 0 lines (want >= 1)', 'apex log /StringTableIndex\\] On at/ 1 lines (want <= 0)']);
+    assert.deepEqual(apexLogFails(on, { 'On at': 1 }), []);
+    const aj = (k: object) => parseQueue([{ id: 'v', asi: 'x', save: 'S', run: { soak: { minutes: 1 } }, ...k }]);
+    assert.throws(() => aj({ apexLogRequire: { x: 0 } }), /apexLogRequire/);
+    assert.throws(() => aj({ apexLogForbid: { x: -1 } }), /apexLogForbid/);
+    assert.equal(aj({ apexLogRequire: { x: 1 }, apexLogForbid: { y: 0 } })[0].apexLogForbid!.y, 0);
+    assert.throws(() => aj({ apexLogRequire: { 'On at': 1 }, regexCases: {} }), /no case for \/On at\//);
+    assert.throws(() => aj({ apexLogForbid: { 'On at': 0 }, regexCases: { 'On at': { match: ['x'], noMatch: ['y'] } } }), /does not match/);
+    assert.equal(aj({ apexLogRequire: { 'On at': 1 }, regexCases: { 'On at': { match: [on], noMatch: ['Index built'] } } }).length, 1);
+    assert.deepEqual(vanillaRefusals(aj({ asi: 'none', apexLogForbid: { x: 0 } })[0]), ['apexLogForbid']);
+  }
   { // regexCases: the 11-09 miss (#d+ matched the letter d) is refused, a tested pair passes, an untested regex is refused
     const rc = (regexCases: object, logRequire: object = { '^save #\\d+ ok': 1 }) => parseQueue([{ id: 'v', asi: 'x', save: 'S', logRequire, regexCases, run: { soak: { minutes: 1 } } }]);
     assert.equal(rc({ '^save #\\d+ ok': { match: ['save #12 ok'], noMatch: ['save #d ok'] } }).length, 1);
@@ -2475,7 +2506,7 @@ const sha = (p: string) => (existsSync(p) ? createHash('sha256').update(readFile
 // docs/170: jobs with the same key need the same game start (what is written before the launch); reuseOf null = reuse off
 const reuseOf = (j: Job): ReuseOpts | null => parseReuse(j.reuseSession);
 const keyOf = (j: Job) => stableKey({ asi: asiPath(j), sha: sha(asiPath(j)), ini: jobIni(j) ?? {}, fixes: j.fixes ?? null, fixesPackage: j.fixesPackage ?? null, save: saveFile(saveOf(j) ?? ''), content: j.content ?? 'as-is', ccSet: j.ccSet ?? null, ccLots: j.ccLots ?? null, modSet: j.modSet ?? null,
-  gameArgs: j.gameArgs ?? [], defaultIni: j.defaultIni ?? null, s3ppIni: j.s3ppIni ?? null, s3ssToml: j.s3ssToml ?? null, apexProfiler: j.apexProfiler ?? false, dxvkConf: j.dxvkConf ?? null, d3d9Dll: j.d3d9Dll ?? null, pin: pinConfig(j.pin) ?? null });
+  gameArgs: j.gameArgs ?? [], defaultIni: j.defaultIni ?? null, s3ppIni: j.s3ppIni ?? null, s3ssToml: j.s3ssToml ?? null, apexProfiler: j.apexProfiler ?? false, apexToml: j.apexToml ?? null, dxvkConf: j.dxvkConf ?? null, d3d9Dll: j.d3d9Dll ?? null, pin: pinConfig(j.pin) ?? null });
 const itemsOf = (j: Job): ReproItem[] | null => (j.run.profile?.repros ? reproItems(j.run.profile.repros) : null);
 // the next job may take over the running game: reuse on for it, same key, a profile run that can share a load
 const canTakeOver = (key: string, next?: Job) => !!next && !!reuseOf(next) && !reuseBlock(next) && keyOf(next) === key;
@@ -2623,6 +2654,7 @@ if (values['dry-run']) {
     if (j.d3d9Dll) console.log(`  3 Bin/d3d9.dll replaced by ${j.d3d9Dll}${existsSync(join(ROOT, j.d3d9Dll)) ? '' : '  ** MISSING **'}   (DXVK dll saved as d3d9.dll.dxvk-bak, put back and read back after the job)`);
     if (j.dxvkConf) console.log(`  3 Bin/dxvk.conf + ${Object.entries(j.dxvkConf).map(([k, v]) => `${k} = ${v}`).join(', ')}${existsSync(DXVK_CONF) ? '' : '  ** MISSING **'}   (put back after the job)`);
     if (j.s3ssToml) console.log(`  3 S3SS/S3SS.toml + ${Object.entries(j.s3ssToml).map(([k, v]) => `${k}=${v}`).join(', ')}${existsSync(S3SS_TOML) ? '' : '  ** MISSING **'}   (put back after the job)`);
+    if (j.apexToml) console.log(`  3 Apex Radiance/ApexRadiance.toml + ${Object.entries(j.apexToml).map(([k, v]) => `${k}=${v}`).join(', ')}${existsSync(APEX_TOML) ? '' : '  ** MISSING **'}   (put back after the job)`);
     if (j.apexProfiler) console.log(`  3 Apex Radiance/ApexRadiance.toml + ${Object.entries(APEX_PROFILER_KEYS).map(([k, v]) => `${k}=${v}`).join(', ')}${existsSync(APEX_TOML) ? '' : '  ** MISSING **'}   (put back after the job; Developer Apex build only)`);
     if (j.routingFailFast) console.log(`  5 ${describeFailFast(j.routingFailFast)}`);
     if (j.earlyGates) console.log(`  5 ${describeGates(j.earlyGates)}`);
@@ -3033,7 +3065,7 @@ const startProbe = (j: Job) => {
   if (sc.status === 3) throw new Error(`${scOut[1]}; refused before the game started`); // FAIL, never PASS
   const pf =createWriteStream(join(OUT, `${queueName}-${date}-${j.id}-probe.log`), { flags: 'a' });
   const pr = probe = spawn('python', [join(ROOT, 'tools', 'probe', 'ts3probe.py'), 'serve', '--launch', '--port', values.port!, '--', ...launchArgs(j.gameArgs)], { cwd: ROOT });
-  apexLogOff = sizeOf(APEX_LOG); apexHitchesOff = j.apexProfiler ? sizeOf(APEX_HITCHES) : -1;
+  apexLogOff = sizeOf(APEX_LOG); apexLogHead = headOf(APEX_LOG); apexHitchesOff = j.apexProfiler ? sizeOf(APEX_HITCHES) : -1;
   pr.stdout?.pipe(pf); pr.stderr?.pipe(pf); launched = true;
   const clicksFile = noOurs(j) ? join(OUT, `${queueName}-${date}-${j.id}.clicks.log`) : '';
   if (clicksFile) process.env.TS3_CLICKS_LOG = clicksFile; // children (vanilla-steps.ts accept) read the accept lines from it
@@ -3341,9 +3373,10 @@ for (const [n, j] of jobs.entries()) {
       if (!existsSync(S3SS_TOML)) throw new Error('s3ssToml: S3SS/S3SS.toml missing (s3ss-config not installed)');
       s3ssTomlOrig = readFileSync(S3SS_TOML, 'utf8'); writeFileSync(S3SS_TOML, mergeIni(s3ssTomlOrig, tomlSet(j.s3ssToml)));
     }
-    if (j.apexProfiler) {
-      if (!existsSync(APEX_TOML)) throw new Error('apexProfiler: Apex Radiance/ApexRadiance.toml missing (Bin state apex not set?)');
-      apexTomlOrig = readFileSync(APEX_TOML, 'utf8'); writeFileSync(APEX_TOML, mergeIni(apexTomlOrig, tomlSet(APEX_PROFILER_KEYS)));
+    if (j.apexProfiler || j.apexToml) { // apexToml: any Apex keys for the job (an Apex feature's A/B, docs/301)
+      if (!existsSync(APEX_TOML)) throw new Error('apexProfiler/apexToml: Apex Radiance/ApexRadiance.toml missing (Bin state apex not set?)');
+      apexTomlOrig = readFileSync(APEX_TOML, 'utf8');
+      writeFileSync(APEX_TOML, mergeIni(apexTomlOrig, tomlSet({ ...(j.apexProfiler ? APEX_PROFILER_KEYS : {}), ...(j.apexToml ?? {}) })));
     }
     if (j.d3d9Dll) {
       const src = join(ROOT, j.d3d9Dll);
@@ -3813,8 +3846,18 @@ for (const [n, j] of jobs.entries()) {
   // [AutShadow] records (go-live dry-diff / dry-sim-mis, docs/124 §17), truncated at job start (row.autshadowLog)
   const AUTSHADOW = join(BIN, 'autshadow.jsonl');
   if (launched && existsSync(AUTSHADOW) && statSync(AUTSHADOW).size > (rwOffs?.aut ?? 0)) try { copyFrom(AUTSHADOW, row.autshadowLog = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}-autshadow.jsonl`), rwOffs?.aut); } catch (e) { log(`${j.id}: copy autshadow.jsonl: ${e}`); }
-  if (launched) try { const ap = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}`), k = keepApexLogs(ap, apexLogOff, BIN, APEX_LOG, APEX_HITCHES, apexHitchesOff); if (k.length) log(`${j.id}: kept ${k.join(', ')}`);
+  const ap = join(OUT, `${queueName}-${date}-${j.id}-${t0.slice(11, 16).replace(':', '')}`); let apexKept: string[] = [];
+  if (launched) try { const k = apexKept = keepApexLogs(ap, apexLogOff, BIN, APEX_LOG, APEX_HITCHES, apexHitchesOff, apexLogHead); if (k.length) log(`${j.id}: kept ${k.join(', ')}`);
     if (j.apexProfiler) log(`${j.id}: Apex frame profiler ${existsSync(`${ap}-ApexRadiance_LOG.txt`) && APEX_PROFILER_STARTED.test(readFileSync(`${ap}-ApexRadiance_LOG.txt`, 'utf8')) ? 'ran (Timeline section line in the Apex log)' : 'did NOT start: no Timeline section line in the Apex log (public Apex build ignores developer_mode; needs the Developer build, docs/280)'}`); } catch (e) { log(`${j.id}: copy bridge/Apex logs: ${e}`); }
+  if (j.apexLogRequire || j.apexLogForbid) { // Apex switch / version read-back (docs/301): the same rules over this job's kept Apex log
+    if (!apexKept.includes('ApexRadiance_LOG.txt')) { row.verdict.push('FAIL: UNKNOWN: no ApexRadiance_LOG.txt copy, apex log rules not checked'); row.pass = false; }
+    else {
+      const at = readFileSync(`${ap}-ApexRadiance_LOG.txt`, 'utf8'), req = apexLogFails(at, j.apexLogRequire ?? {}), bad = apexLogFails(at, {}, j.apexLogForbid ?? {});
+      if (j.apexLogRequire) row.verdict.push(req.length ? `FAIL: apex log events not fired: ${req.join('; ')}` : 'PASS: apex log lines present');
+      if (j.apexLogForbid) row.verdict.push(bad.length ? `FAIL: forbidden apex log lines: ${bad.join('; ')}` : 'PASS: no forbidden apex log lines');
+      if (req.length || bad.length) row.pass = false;
+    }
+  }
   let keep = mayKeep && (rwKeep || row.pass);
   if (rwKeep) row.session.next = `rewind for ${next.id}`;
   else if (keep) {

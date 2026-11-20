@@ -72,6 +72,32 @@ case per scope]. Their live answer is still kept for others and compared with a 
 ask turns the memo off for the session. Counter `ts3native_doorgen.exempt` (0x20) counts those asks. The scope (`t_hcScope`) is set at each worker job start from `j->kdScope`. PR #430's 0 mismatches covered all scopes, NPCs
 included, so the restricted memo ships ON: `DoorMemoX=3` in the ini, `doorgen` on in ts3fixes.
 
+## 6. Privacy and mod door handlers (2026-11-17, branch `bugfix/doormemox-privacy-1117`, 0.36.295-dmxp1120)
+
+Job `sv-hhsearch` (queue hhsearch-sv-1116, 2026-11-16 19:39 UTC, master-1116c asi + ini, hoursmemo-svprobe ts3fixes) logged
+`FAIL door memo x` once: `door memo x shadow: answer 1, other job's 2 (79 ms before), key 8B52BB30 6C11001B 6A938280 F87500F5
+5F050F00 6C110020 0001 0004 00`, i.e. lot 0x6C11001B8B52BB30, actor F87500F56A938280 (Razta Dog, active household, scope
+exempt: it got the live answer, so no wrong answer reached it), room 1 -> 4. The memo was off for the rest of the session.
+No other mode-3 log in probe-out (72) has a mismatch; HouseholdToo was off; the branch's ts3fixes changes do not touch doors.
+
+Cause [verified, static, ledger §550 V-550-2/3; that it caused this mismatch is inferred]: the only EA `Lot.PortalPathPlan` handler beyond `Sim.OnPortalPathPlan` is `PrivacySituation`
+(shower, toilet, bath, sink, WooHoo). Its answer for room `SyncTarget.RoomId` reads the asking Sim's current (or transition)
+interaction, autonomous flag and priority, which change between jobs without any generation bump. The add / remove of the
+handler was bumped; its per-ask inputs were not. Also untracked (not this case): `Lot.IsRoomHidden`, `actor.Service`.
+
+Fix: DoorGen.cs sends op 36 with hi 1 (held) / 2 (free) and the lot id's low dword after each handler add / remove and for
+every lot at arm, held = the lot has any handler other than `Sim.OnPortalPathPlan` (or the field is unreadable). Native keeps
+32 held lots (overflow or low dword 0 = every lot held until the next arm); an ask on a held lot skips the memo entirely (no
+answer from it, nothing kept, no compare) and counts `ts3native_doorgen.held` (new last field), logged as "asks on lots
+with a privacy / mod door handler (live, not kept)" on the `door memo x misses:` line [verified: selftest `TestAskLent`
+hold / free / overflow / arm cases]. Release v0.2.11 ships `DoorMemoX=-1`: no player exposure (v0.3.0 too). Rerun queues
+`hhsearch-sv-1116-rerun1-1117` / `-rerun2-1117` (SV, repro `doormemox-privacy`: forced toilet + shower with NPCs on the household lot).
+
+Lot key (2026-11-20) [verified, static, ledger §550 V-550-1]: the script key `(uint)Lot.LotId` is the native door key's key[0]
+(the lot id's low dword, pushed at `0x64F4D3`), so a held lot matches its asks; the logged key `8B52BB30 6C11001B` of §6 and §7 is
+low, high. The reflected field `Lot.mOnPortalPathPlanHandler` and the two EA subscribers are right [verified, static, V-550-2].
+Not covered: a mod that writes the field without the event [inferred, I-550-4].
+
 ## 7. Second hit: same lot, same rooms (2026-11-20, chain-gcgate-rr3-1119, job sv-gcgate-ab)
 
 Master build set (asi gchold2-1117, ts3fixes dalexlol-1117b; the §6 fix is not on master), SV-Spring, `DoorMemoX=3`, `doorgen` on,

@@ -35,7 +35,7 @@ static DWORD WINAPI AuWorker(void*) {
 static void TestAskLent() {
     static_assert(offsetof(Ts3nCounters, auMode) == 0x4FFC && offsetof(Ts3nCounters, auStaleAfter) == 0x500C &&
                       offsetof(Ts3nCounters, dmxMode) == 0x5014 && offsetof(Ts3nCounters, dmxMismatch) == 0x5028 &&
-                      offsetof(Ts3nCounters, auSpare) == 0x5030 && sizeof(Ts3nCounters) == 6798 * 4,
+                      offsetof(Ts3nCounters, auSpare) == 0x5030 && sizeof(Ts3nCounters) == 6866 * 4,
                   "counters v126 layout (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
@@ -243,6 +243,26 @@ static void TestAskLent() {
     // the sim's answer changed: a household Sim still gets it live (vanilla), and the stale row turns the memo off
     t_hcScope = 1, t_hcJob++, g_hcFakeAns = 1;
     assert(HcAsk(600) == 1 && k.dmxMode == 0);
+    // hhsearch-sv-1116: a lot with a privacy / mod door handler (op 36 sub 1) skips the memo: no hit, nothing kept, no compare,
+    // so an answer that follows the asking Sim's interaction never turns the memo off; sub 2 frees it, arm (lo 1) clears all
+    k.dmxMode = 3, t_hcScope = 2, g_hcFakeAns = 2;
+    t_hcJob++, g_dmxSelf = 0;
+    assert(HcAsk(700) == 2);  // flip clears, kept
+    const LONG held0 = ts3native_doorgen.held, mm0 = k.dmxMismatch;
+    assert(DmxScriptOp(700, 1) == 1 && DmxHeld(700) && !DmxHeld(701) && !DmxHeld(0));
+    t_hcJob++, g_dmxSelf = 0, g_hcFakeAns = 1;
+    c0 = g_hcFakeCalls;
+    assert(HcAsk(700) == 1 && g_hcFakeCalls == c0 + 1 && k.dmxMode == 3 && k.dmxMismatch == mm0 && ts3native_doorgen.held == held0 + 1);
+    t_hcJob++, g_hcFakeAns = 2;
+    assert(HcAsk(700) == 2 && g_hcFakeCalls == c0 + 2);  // not kept: the next ask is live too
+    assert(DmxScriptOp(700, 2) == 1 && !DmxHeld(700));
+    t_hcJob++;
+    assert(HcAsk(700) == 2 && g_hcFakeCalls == c0 + 3);  // free again: a miss, kept
+    t_hcJob++, g_dmxSelf = 0;
+    assert(HcAsk(700) == 2 && g_hcFakeCalls == c0 + 3);  // memo hit
+    for (DWORD l = 1; l <= 33; l++) DmxHoldSet(0x9000 + l, true);  // overflow: every lot held
+    assert(DmxHeld(700) && DmxHeld(0));
+    assert(DmxScriptOp(1, 0) == 1 && !DmxHeld(700) && !DmxHeld(0x9001));  // arm clears
     ts3native_doorgen.armed = sArmed, t_hcScope = 0;
     k.dmxMode = 0;
     t_hcJob = 0;

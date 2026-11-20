@@ -285,6 +285,16 @@ bool MdtOwnerOf(DWORD monoMethod, MdtOwner* out) {  // external linkage: no asi 
     out->idx = g_mdtMeth[mi].mod, out->kind = m.kind, out->name = m.name, out->pkg = m.pkg, out->mvid = m.mvid, out->mvidOk = m.mvidOk;
     return true;
 }
+// The same for a MonoImage* (a class's assembly, MonoClass +0: taskseam.cpp's ScriptProxy targets). Same rows as MdtOwnerOf.
+static bool MdtOwnerOfImage(DWORD image, MdtOwner* out) {
+    if (!g_mdtInit || !image) return false;
+    EnterCriticalSection(&g_mdtCs);
+    const int i = MdtModOf(image);
+    LeaveCriticalSection(&g_mdtCs);
+    const MdtMod& m = g_mdtMod[i];
+    out->idx = i, out->kind = m.kind, out->name = m.name, out->pkg = m.pkg, out->mvid = m.mvid, out->mvidOk = m.mvidOk;
+    return true;
+}
 
 // suspended read of the sim thread: eip + up to n method pointers, innermost first; -1 = no context
 static int MdtGrab(HANDLE h, DWORD* eip, DWORD* m, int n) {

@@ -729,6 +729,7 @@ static void MsLine(const char* line);  // memdiag.cpp: [MemDiag] suspect counter
 static u8 MsOp(int op);                // memdiag.cpp: ops 3-5 (on / sample wanted / self-test wanted)
 static u8 CtOp(int op, DWORD lo);      // castrim.cpp: ops 14-19, the save sweep's keep list and pump (docs/539 §6)
 static u8 MdtOp(DWORD lo, DWORD hi);   // modtime.cpp: op 61, [Diag] ModTime (docs/298)
+static u8 PcOp(DWORD lo, DWORD hi);  // pccheck.cpp: op 62, [PcCheck] (docs/299)
 static u8 UdTextMsg(DWORD lo, DWORD hi) {
     if (!g_udOn) return 0;
     switch ((hi >> 16) & 0xFF) {
@@ -740,8 +741,9 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
         case 10: case 11: KdScopeSet(lo, ((hi >> 16) & 0xFF) == 10 ? 1 : 2, hi & 0xFFFF); return 1;  // docs/197 §7: UfWhy of route lo, before its START or sync plan; hi 0-15: its routefail interaction id (docs/226)
         case 12: KdScopeClear(lo); GvaPlanEnd(); if (g_pfH == lo) g_pfH = 0; return 1;  // docs/631: a sync plan's PlayerFirst mark ends with it too  // docs/197 §7: route lo's plan is over (docs/250 §7.0: gvattr's plan end)
         case 35: return GvaSrcMsg(lo);  // docs/250 §7.0 (gvro.cpp): the next plan's source class and scope, or "gvattr on?"
+        case 62: return PcOp(lo, hi);  // docs/299 [PcCheck]: problem flag lo set? / sim hour ended / world quit (62: same op as the docs/298 diag branch)
         case 37: PfSet(lo); return g_pfMode == 1 ? 1 : 0;  // docs/631 [RouteAsync] PlayerFirst: route lo is the player's (ts3fixes playerfirst), before its START; 1 = honoured
-        case 36: return DmxScriptOp(lo);  // hostcalls.cpp: DoorMemoX=3 managed door-input generation (ts3fixes DoorGen.cs)
+        case 36: return DmxScriptOp(lo, hi & 0xFFFF);  // hostcalls.cpp: DoorMemoX=3 managed door-input generation (ts3fixes DoorGen.cs)
         case 13: KdScopeSet(lo, 3, hi & 0xFFFF); return 1;  // docs/197 §7: a seen NPC (KdSeenNpcCeilMs); an old package never sends it
         case 14: case 15: case 16: case 17: case 18: case 19: return CtOp((hi >> 16) & 0xFF, lo);
         case 20: case 21: case 22: case 23: case 24: case 25: case 26: case 27: case 28: case 29:

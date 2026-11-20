@@ -97,7 +97,7 @@
  "LauncherFix": ["launcherfix.cpp"],
  "Binder": ["bindertd.cpp"],
  "Crash2Diag": ["c2diag.cpp"],
- "Diag": ["modtime.cpp"],
+ "Diag": ["modtime.cpp", "taskseam.cpp"],
  "EqualsFast": ["equalsfast.cpp"],
  "ThumbStall": ["thumbstall.cpp"],
  "ThumbCallers": ["thumbstall.cpp"],

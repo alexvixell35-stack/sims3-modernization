@@ -60,8 +60,8 @@ Timing: `bench_us` / `bench_miss_us` (light tools; a quiet machine is needed for
 
 **PASS, 2026-11-20 10:32-11:31 PHT** (`docs/data/results/2026-11-20-queue-stbl-index-correct-1120.md`; the first attempt
 failed at once: `label_check` with `bench: 20` took longer than the 8 s step timeout, so the repro now has `timeoutS: 600`
-and `bench: 5`). Apex asi (public build of the fork branch, sha256 `c0634bc95150f9d0...`, tracked here because
-builds.json has no Apex kind), ts3agent `ts3agent.package.stbl-index-1120`.
+and `bench: 5`). Apex asi `apex.stbl-index-1120` in builds.json (Public build of the fork branch at `48e9aba8`, sha256
+`c0634bc95150f9d0...`, kind `apex`), ts3agent `ts3agent.package.stbl-index-1120`.
 
 | Job | Switch | label_check hash (917 keys, both calls) | empty / placeholder / mismatch | us per lookup | us per missing key | Apex log |
 |---|---|---|---|---|---|---|
@@ -73,16 +73,28 @@ builds.json has no Apex kind), ts3agent `ts3agent.package.stbl-index-1120`.
 [verified, measured] Same texts in all 8 checks; no `Index off` line; 0 ScriptErrors (`scriptErrorsMax: 0`); Bin
 restored by sha256. Per lookup about 30x faster, per missing key about 60-90x (7,170 timed lookups per call; noisy
 machine allowed, other CPU about 4%). Not measured: pie menu open time (a quiet-machine timing queue is still to write).
-The ON job's Apex log rotated (`ApexRadiance_LOG.old.txt`, 1.4 MB): the per-job keep holds only the tail, so the On /
-Index built lines were read from the rotated file.
+The kept Apex log copies of bp-stbl-off-a (02:32) and bp-stbl-on-b start mid-line [verified]: Apex truncates its log at
+each start (the previous session goes to `ApexRadiance_LOG.old.txt`), the new session outgrew the size taken at launch, and
+queue.ts kept it from that old offset, so the On / Index built lines were read by hand from the full log. Fixed on this
+branch: `keepApexLogs` also compares the log's first 64 bytes with those at launch and keeps the whole file on a new head.
 
 Upstream PR: https://github.com/loinyx/Sims3-ApexRadiance/pull/140 (draft, fork branch `feature/string-table-index`,
 commit `48e9aba8`).
 
 ## 6. Harness and agent (this branch)
 
-- `tools/harness/queue.ts`: job key `apexToml` (any `ApexRadiance.toml` keys for a job, put back after it; tools/harness
-  change, merges between game runs).
+- `tools/harness/queue.ts`: job key `apexToml` (any `ApexRadiance.toml` keys for a job, put back after it); job keys
+  `apexLogRequire` / `apexLogForbid` (`logRequire` / `logForbid` over the job's kept `-ApexRadiance_LOG.txt`, row text
+  `apex log /re/ ...`, missing copy = FAIL UNKNOWN, regexCases required like the ts3native rules); the Apex log keep fix
+  above. tools/harness change, merges between game runs.
+- Queue switch read-back: all jobs require the `[Main] Apex Radiance 4.0.11 (unified build)` line and forbid
+  `Index off for this session` and an `Off:` line with `differed` above 0; ON jobs require `[StringTableIndex] On at 0x` and
+  `Index built (#n): N strings`, OFF jobs forbid both. The Off / Index off cases are built from the fork's format strings
+  (`features/string_table_index.cpp`): no run wrote them (the harness closes the game before Apex's shutdown line). The
+  version line does not tell the fork from upstream 4.0.11; the On line does (upstream has no StringTableIndex).
+- `tools/builds.ts`: kind `apex` (`apex.<tag>` = ApexRadiance.asi, `ts3wrap.<tag>` = ts3wrap.exe; sha only, version from
+  `--version` or the asi's `Apex Radiance X.Y.Z` string): `add <file> --kind apex --name apex.<tag>`; `list` no longer
+  crashes on ini / ts3agent rows.
 - `mods/ts3agent` `label_check`: optional `bench` (rounds) times `GetLocalizedString` over the checked keys plus as many
   missing keys (`bench_ms`, `bench_n`, `bench_us`, `bench_miss_us`). Build `ts3agent.package.stbl-index-1120`.
 - `tools/harness/repros.json`: `stbl-index-check`.

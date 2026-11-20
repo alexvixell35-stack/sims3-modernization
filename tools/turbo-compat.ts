@@ -62,11 +62,17 @@ export const STATES: Record<string, (unz: string) => Record<string, Src>> = {
   turbo: () => ({ 'Turbo.asi': SRC.turbo.path }),
   // docs/270 §12: the install copy with our patched bridge pair and rewindMode = True (made by `install-copy`)
   'apex-rewind': () => STATES.apex(join(REWIND, 'install', 'apex-unz')),
+  // docs/305: the latest Apex release with a fork build's ApexRadiance.asi and ts3wrap.exe (the restart host that runs the
+  // out-of-process services); a chain copies the build under test into game-copy/apex-oop-test first
+  // docs/309 §2: the latest Apex release with the fork build of feature/async-rt-reads-1120 (asi + bridge patches 0017/0018:
+  // d3d9.dll, .trex/NvRemixBridge.exe, bridge.conf with client.asyncReadback); a chain copies them into game-copy/apex-asyncrt-test
+  'apex-asyncrt': unz => ({ ...STATES.apex(unz), ...Object.fromEntries(['ApexRadiance.asi', 'd3d9.dll', '.trex/NvRemixBridge.exe', 'bridge.conf'].map(k => [k, join(GC, 'apex-asyncrt-test', k)])) }),
+  'apex-oop': unz => ({ ...STATES.apex(unz), 'ApexRadiance.asi': join(GC, 'apex-oop-test', 'ApexRadiance.asi'), 'ts3wrap.exe': join(GC, 'apex-oop-test', 'ts3wrap.exe') }),
 };
 // every path a state or a run can change; backed up at snapshot when present, reset to the snapshot before each state
-export const MANAGED = [...new Set([...Object.keys(STATES['apex-turbo-ual77']('')), 'Turbo.txt', 'imgui.ini', 'ts3native.asi', 'ts3native.ini'])];
+export const MANAGED = [...new Set([...Object.keys(STATES['apex-turbo-ual77']('')), 'ts3wrap.exe', 'Turbo.txt', 'imgui.ini', 'ts3native.asi', 'ts3native.ini'])];
 // Bin files absent from the snapshot that restore may delete (run outputs of Apex, the bridge, Turbo, the game)
-export const EXTRA_OK = /^(rtx-remix\/|\.trex\/|NvRemixBridge[^/]*$|bridge\.conf$|Turbo\.(asi|txt)$|ApexRadiance[^/]*$|Apex Radiance RTX Remix bridge\.txt$|imgui\.ini$|[^/]*\.(log|jsonl|dmp)$)/i;
+export const EXTRA_OK = /^(rtx-remix\/|\.trex\/|NvRemixBridge[^/]*$|bridge\.conf$|Turbo\.(asi|txt)$|ApexRadiance[^/]*$|ts3wrap\.exe$|Apex Radiance RTX Remix bridge\.txt$|imgui\.ini$|[^/]*\.(log|jsonl|dmp)$)/i;
 const IGNORE_DIFF = /^[^/]*\.(log|jsonl|dmp)$/i; // game and mod logs: changed by every run
 // docs/284: the DxDiagCache sidecar is a per-machine cache, kept across states and restores (never compared, never removed)
 export const KEEP_CACHE = /^ts3native-vram\.ini$/i;
@@ -390,13 +396,15 @@ function selfCheck() {
   assert.ok(Object.keys(STATES['apex-rewind']('u')).every(k => MANAGED.includes(k)), 'restore knows every file of the rewind arm');
   assert.ok(STATES['apex-rewind']('u')['ApexRadiance.asi']!.includes('rewind-bridge-1119'), 'the rewind arm takes its files from the install copy');
   assert.equal(STATES['apex-turbo-ual77']('u')['wininet.dll'], SRC.ual77.path);
+  assert.ok(Object.keys(STATES['apex-asyncrt']('u')).every(k => MANAGED.includes(k)) && STATES['apex-asyncrt']('u')['.trex/NvRemixBridge.exe']!.includes('apex-asyncrt-test'), 'restore knows the bridge pair of the async read-back arm');
+  assert.ok(Object.keys(STATES['apex-oop']('u')).every(k => MANAGED.includes(k)) && STATES['apex-oop']('u')['ts3wrap.exe']!.includes('apex-oop-test'), 'restore knows the restart host of the oop arm');
   assert.ok(!('wininet.dll' in STATES['apex-turbo']('u')), 'arm 2 keeps our loader');
   const dg = `sha256:${'a'.repeat(64)}`, url = 'https://x/y';
   assert.equal(pickZip([{ name: 'ApexRadianceSetup.exe', digest: dg, browser_download_url: url }, { name: 'Apex-Radiance-3.2.1-Manual-install.zip', digest: dg, browser_download_url: url }])?.name, 'Apex-Radiance-3.2.1-Manual-install.zip');
   assert.equal(pickZip([{ name: 'Apex-Radiance-3.2.1-Manual-install.zip', browser_download_url: url }]), undefined, 'no digest = no pin');
   assert.equal(pickZip([{ name: 'ApexRadiance.asi', digest: dg, browser_download_url: url }]), undefined);
-  for (const f of ['rtx-remix/logs/bridge32.log', '.trex/x.dll', 'NvRemixBridge_d3d9.log', 'Turbo.txt', 'ts3native.log', 'imgui.ini', 'ApexRadiance_Crash.dmp']) assert.ok(EXTRA_OK.test(f), f);
-  for (const f of ['TS3W.exe', 'Default.ini', 'Sims3Performance.ini', 'Gameplay/x.package', 'sub/ts3native.log']) assert.ok(!EXTRA_OK.test(f), f);
+  for (const f of ['rtx-remix/logs/bridge32.log', '.trex/x.dll', 'NvRemixBridge_d3d9.log', 'Turbo.txt', 'ts3native.log', 'imgui.ini', 'ApexRadiance_Crash.dmp', 'ts3wrap.exe']) assert.ok(EXTRA_OK.test(f), f);
+  for (const f of ['TS3W.exe', 'Default.ini', 'Sims3Performance.ini', 'Gameplay/x.package', 'sub/ts3native.log', 'ts3wrapXexe', 'sub/ts3wrap.exe']) assert.ok(!EXTRA_OK.test(f), f);
   assert.ok(KEEP_CACHE.test('ts3native-vram.ini') && !KEEP_CACHE.test('ts3native.ini') && !KEEP_CACHE.test('sub/ts3native-vram.ini') && !EXTRA_OK.test('ts3native-vram.ini'));
   assert.ok(IGNORE_DIFF.test('ts3native.log') && !IGNORE_DIFF.test('wininet.dll') && !IGNORE_DIFF.test('rtx-remix/logs/bridge32.log'));
   const s: Sample = { t: 60, ws: 1, pv: 1, mn: 0, mx: 0, cls: 'High', nb: 0x10000000, nz: 0x200000, resp: true,

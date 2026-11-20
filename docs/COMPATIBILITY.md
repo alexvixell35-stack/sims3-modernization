@@ -76,6 +76,15 @@ node tools/compat-scan.ts "<your Mods folder>" --matrix my-compat.csv
 
 It needs Node 22.18 or newer and your game folder (set `TS3_GAME` if it is not in the default Steam path). It only reads files. Run `node tools/compat-scan.ts --self-check` to see that it works.
 
+## Is my PC throttled?
+
+Our fixes move work to other CPU threads. On a PC that slows its CPU (heat, power limit, power-saver plan, battery), runs
+other heavy programs, or limits the game to a few cores, those gains get smaller. Builds with `[PcCheck]` (docs/299) check this
+while you play and write `pccheck-summary.txt` in `Game\Bin`: one line says "CPU: no throttle seen" or "CPU: clock limited X% of
+the time", plus power plan, battery, other programs' CPU and the game's affinity / priority / efficiency mode. With [PcCheck] Notify=1 (off by default) a notice appears
+in the game only when it finds a real problem, with a one-line fix. The tester kit prints the same short check before it
+installs (warnings only). The check reads Windows numbers only; it changes nothing.
+
 ## Report
 
 Found something? Send your `my-compat.csv` (file names are relative to the folder you scanned; CC-only packages without overlap are left out) or the row you doubt through [an issue](https://github.com/rodneypantonial/sims3-modernization/issues/new). Say what happened in the game; a scan row alone does not prove a problem.

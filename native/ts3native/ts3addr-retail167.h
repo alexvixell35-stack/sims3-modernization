@@ -922,6 +922,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00D71C00, 0x00D71DC0},
     {0x00D71E40, 0x00D72000},
     {0x00D72170, 0x00D72280},
+    {0x00D748C2, 0x00D74BA2},
     {0x00D75FA0, 0x00D761E0},
     {0x00D75FD8, 0x00D76218},
     {0x00D79CA0, 0x00D7A090},
@@ -935,6 +936,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00D7FB53, 0x00D7FFE3},
     {0x00D7FE01, 0x00D80291},
     {0x00D800FC, 0x00D8058C},
+    {0x00D80D14, 0x00D811A4},
     {0x00D814B6, 0x00D81946},
     {0x00D81840, 0x00D81CD0},
     {0x00D818C0, 0x00D81D50},
@@ -1189,6 +1191,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00E6AD10, 0x00E6AFF0},
     {0x00E6B690, 0x00E6B970},
     {0x00E6F5A0, 0x00E6F890},
+    {0x00E6F720, 0x00E6FA10},
     {0x00E70180, 0x00E70470},
     {0x00E70D50, 0x00E71040},
     {0x00E72010, 0x00E72300},
@@ -1231,6 +1234,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00E99A50, 0x00E99D60},
     {0x00E99B10, 0x00E99E20},
     {0x00E9C3A0, 0x00E9C6B0},
+    {0x00EA1090, 0x00EA1370},
     {0x00EA1E30, 0x00EA2130},
     {0x00EA2AD0, 0x00EA2DD0},
     {0x00EA3140, 0x00EA3440},
@@ -1583,7 +1587,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x01234360, 0x01235360},
     {0x01234374, 0x01235374},
 };
-constexpr int ts3addr_count = 1578;
+constexpr int ts3addr_count = 1582;
 // unresolved: 0x005A2C00 xref-none native/ts3native/allocsites-owners.h:16 (+1)
 // unresolved: 0x005BF1FB xref-none native/ts3native/vcallsites3.h:5
 // unresolved: 0x0060AA00 xref-none native/ts3native/allocsites-owners.h:16 (+1)
