@@ -130,7 +130,7 @@ static DWORD* __fastcall CiFindHook(void* table, void* edx, DWORD* out, const DW
         }
         if (!keyOk) { c.ciStale++; CiDrop(s); s = NULL; } else c.ciScopeMiss++;
     }
-    LARGE_INTEGER t0 = {}, t1;
+    LARGE_INTEGER t0 = {}, t1 = {};
     const bool timed = (++t_ciTick & 63) == 0;
     if (timed) QueryPerformanceCounter(&t0);
     DWORD* const r = g_ciFindNext(table, edx, out, key);
