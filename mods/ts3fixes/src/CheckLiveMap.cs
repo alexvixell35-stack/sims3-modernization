@@ -156,6 +156,8 @@ namespace Ts3Fixes
                 case "farthestsorted": return EpLive(typeof(FarthestLotHook), 1);
                 case "fastreftable": return EpLive(typeof(RefTableHook), 0);
                 case "fearfaintundo": return EpLive(typeof(B12FfHook), 1, "sFfJig", sFfJig, null);
+                case "fglnnearspot": return EpLive(typeof(RrNearbyHook), 0);
+                case "fglnonescan": return EpLive(typeof(RrNearbyHook), 0);
                 case "fieldtripadult": return EpLive(typeof(FtaHook), 2, "sFtaSchoolLot", sFtaSchoolLot, null, "sFtaFailed", sFtaFailed, null, "sFtaCarpool", sFtaCarpool, typeof(bool), "sFtaCarpool", sFtaCarpool, null);
                 case "fightbroadcastend": return EpLive(typeof(BFbHook), 1);
                 case "filtergridleak": return EpLive(typeof(FglHook), 0);
@@ -164,6 +166,7 @@ namespace Ts3Fixes
                 case "fireplaceherb": return EpLive(typeof(FphAddHook), 1);
                 case "firetrapcount": return EpJoin(EpLive(typeof(FtcJobHook), 1, "sFtcSpec", sFtcSpec, null, "sFtcPositions", sFtcPositions, null), EpLive(typeof(FtcSitHook), 2));
                 case "flowersinuse": return EpLive(typeof(FlowersInUseHook), 1);
+                case "followerlasttry": return EpLive(typeof(RrFollowHook), 0);
                 case "foodtraygrill": return EpLive(typeof(B12FtgHook), 1);
                 case "freshclothingresume": return EpLive(typeof(BFcHook), 1, "sFcMap", sFcMap, null);
                 case "fridgetestnull": return EpLive(typeof(BFtHook), 1);

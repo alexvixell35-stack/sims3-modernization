@@ -151,6 +151,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kNpmFuzzy value="False" />
     <kNpmHousehold value="False" />
     <kDoorShare value="False" />
+    <kFglnOneScan value="False" />
+    <kFglnNearSpot value="False" />
+    <kFglnNearSpotMargin value="4" />
+    <kFollowerLastTry value="False" />
     <kTrashOutsideFallback value="False" />
     <kTrashOutsideFallbackHours value="4" />
     <kWildLotSkip value="False" />
