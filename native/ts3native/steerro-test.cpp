@@ -43,6 +43,8 @@
 //      parked clone answer handed out by CnStub (SectionCN; `set SRT_ONLY=CN`).
 //  OA. [ObstructAtRO] (docs/670 §21-§22): the game's RouteObstructionAtPoint 0x655880 vs OaRun (both class flags, with and
 //      without a context / ignore list), then its detour: job, shadow, the job's own route, QL busy (SectionOA; `set SRT_ONLY=OA`).
+//  B2. [Blocker2dRO] (docs/670 §24): the game's RoutingWorld_BlockerCheck2d 0x82E340 in the IC's form vs B2Run (rtoro.cpp's
+//      RtoBlock behind the stub's phase 1) on random segments, options and targets (SectionB2; `set SRT_ONLY=B2`).
 // Built by build.cmd, not run there (needs the exe):  out\steerro-test.exe ["<path>\TS3W.exe"] [cases, default 400] [seed]
 #define TS3NATIVE_NO_DLLMAIN
 #include "ts3native.cpp"
@@ -2564,6 +2566,163 @@ static void SectionEP(int cases) {
     *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
 }
 
+// --- B2. [Blocker2dRO] (rtoro.cpp, docs/670 §24): the game's RoutingWorld_BlockerCheck2d 0x82E340 as the IC 0x74E110 calls it
+// (out, the start's lot object, start {x, y, z, x} with the level at +0x24, goal {x, z}, an options object built by the
+// game's own constructor 0x81CB60, a target or none, an ignore id, the five byte arguments, the option word) against B2Run
+// on random worlds. The game's whole path runs: the option tests and copy, both lot transforms 0x62EF30, the segment gather
+// 0x631E20 (Contains, the cell graph, the walk with the record and its visitor), the per-footprint rules through the
+// footprints' own slots, the merge 0x829250. Compared: out[0], out[2], out[3]; out[1] stays as it was; references balanced.
+// Not covered here: the physics samples (no physics world in this process: 0x686A90 returns 0 for both sides), the Sim
+// list +0x2C0 (none), options 0x80000 / 0x100000 (they read the target's components), a lot the table does not hold
+// (the clone gives it back; the game's insert is not run on the fake table).
+static long g_b2N, g_b2Cmp, g_b2Code[9], g_b2Objs, g_b2WithTarget, g_b2Bytes, g_b2GaveUp[9], g_b2OptIds, g_b2TailN;
+static void SectionB2(int cases) {
+    const DWORD seed0 = g_seed, kid0 = g_kidSeed;
+    const World w0 = W;
+    const int nRects0 = g_nRects;
+    LotRect rects0[4];
+    memcpy(rects0, g_rects, sizeof(rects0));
+    g_seed = 7460261;
+    auto callsTo = [](DWORD at, DWORD to) { const u8* p = (const u8*)(uintptr_t)at; return p[0] == 0xE8 && at + 5 + *(const DWORD*)(p + 1) == to; };
+    assert(callsTo(kB2Site.site, kB2Site.target) && callsTo(0x0074E247, 0x0081CB60) && callsTo(0x0074E14F, 0x00C68990) &&
+           callsTo(0x0082E506, 0x00814C30) && callsTo(0x0082E513, 0x0081D3C0) && callsTo(0x0082E52B, 0x0081C810) &&
+           callsTo(0x0082E691, 0x0062EF30) && callsTo(0x0082E6C2, 0x0062EF30) && callsTo(0x0082E6EB, 0x00631E20) &&
+           callsTo(0x0082E8E1, 0x0081C970) && callsTo(0x0082EB07, 0x00829250) && callsTo(0x0082EB5E, 0x00686A90) &&
+           callsTo(0x0062EF75, 0x0062EAB0) && callsTo(0x00631E4B, 0x00628A90) && callsTo(0x00631EDA, 0x00667400));
+    static const u8 kRet[] = {0xC2, 0x34, 0x00};  // 0x82ED9E: ret 0x34 (13 stack arguments)
+    static const u8 kIcRet[] = {0x8B, 0x44, 0x24, 0x40};  // 0x74E272: mov eax,[esp+0x40] (the IC returns out[0])
+    assert(Matches((const void*)(uintptr_t)0x0082ED9E, kRet, sizeof(kRet)) && Matches((const void*)(uintptr_t)0x0074E272, kIcRet, sizeof(kIcRet)));
+    assert(!*g_b2DebugDraw && !*(const DWORD*)(uintptr_t)0x011CF490);  // no debug draw, no physics world: both sides skip them
+    Blocker2dRoCounters& k = ts3native_blocker2dro;
+    const LONG tail0 = k.b2Tail, runs0 = k.b2TailRuns;
+    k.b2Tail = 1;
+    alignas(16) static float start[12];
+    static float goal[3];
+    static RtoIn in;
+    alignas(16) static u8 opts[0x80];
+    static u8 target[0x20];
+    for (int i = 0; i < cases; i++) {
+        if (i % 20 == 0) {
+            BuildWorld();
+            // types the generator does not draw: portal (1; +0x20 stays 0, so no portal object), 0x10, 0x1D
+            for (int j = 0; j < W.nfp; j++) {
+                const DWORD t = Rnd(12);
+                if (t < 3) W.fps[j][0x35] = t == 0 ? 1 : t == 1 ? 0x10 : 0x1D;
+            }
+        }
+        const DWORD where = Rnd(16);
+        const int lot = where == 0 ? 2 : (int)Rnd(2);  // lot 2 is not in the table
+        const int frame = lot == 2 ? 0 : lot;
+        float x = 0.0f, z = 0.0f;
+        WorldPoint(frame, Rf(-4, 68), Rf(-4, 68), &x, &z);
+        memset(start, 0, sizeof(start));
+        start[0] = x, start[1] = Rf(0, 2), start[2] = z, start[3] = x;
+        *(LONG*)&start[9] = Rnd(6) == 0 ? (LONG)Rnd(4) - 1 : 0;  // level: mostly 0, sometimes -1, 1 or 2 (no cell graph: nothing gathered)
+        const DWORD kind = Rnd(10);
+        const float len = kind == 0 ? 0.0f : kind < 6 ? Rf(0.1f, 4) : Rf(4, 60);
+        const float ang = Rf(-3.14159f, 3.14159f);
+        goal[0] = x + len * cosf(ang), goal[1] = z + len * sinf(ang), goal[2] = 0.0f;
+        // the options object, by the game's constructor: bits 1, 2, 4 and the word-b bits 4, 0x800 at random, others as noise
+        const DWORD a = (Rnd(2) ? Rnd(8) : 0) | (Rnd(4) ? 0 : Rnd(0x10000) << 3 & ~0x180000u), b = (Rnd(3) ? 0 : 0x800) | (Rnd(4) ? 0 : 4);
+        ((void(__fastcall*)(u8*, void*, DWORD, DWORD, DWORD, DWORD))(uintptr_t)0x0081CB60)(opts, NULL, a, b, Rnd(0x10000), Rnd(0x10000));
+        const u8* someFp = W.fps[Rnd(W.nfp)];
+        if (Rnd(4) == 0) {  // one or two ids in the options' own list (0x81C970): a footprint's id and a stranger
+            DWORD* ids = (DWORD*)_aligned_malloc(16, 16);
+            ids[0] = *(const DWORD*)(someFp + 0x14), ids[1] = *(const DWORD*)(someFp + 0x18), ids[2] = 0x4242, ids[3] = 0;
+            *(DWORD**)(opts + 0x38) = ids, *(DWORD**)(opts + 0x3C) = ids + 4, *(DWORD**)(opts + 0x40) = ids + 4;
+            g_b2OptIds++;
+        }
+        const bool withTarget = Rnd(3) != 0;
+        memset(target, 0, sizeof(target));
+        const u8* tFp = W.fps[Rnd(W.nfp)];
+        *(DWORD*)(target + 8) = Rnd(2) ? *(const DWORD*)(tFp + 0x14) : 0x7000 + Rnd(16);
+        *(DWORD*)(target + 0xC) = Rnd(2) ? *(const DWORD*)(tFp + 0x18) : 0;
+        DWORD ign[2] = {0, 0};
+        if (Rnd(3) == 0) { const u8* f = W.fps[Rnd(W.nfp)]; ign[0] = *(const DWORD*)(f + 0x14), ign[1] = *(const DWORD*)(f + 0x18); }
+        const bool bytes = Rnd(4) == 0;  // the IC passes five zeros; the other callers' forms now and then
+        const DWORD b24 = bytes && Rnd(2), b28 = bytes && Rnd(2), b2c = bytes && Rnd(2), b30 = bytes && Rnd(2), b34 = bytes && Rnd(4) == 0;
+        const DWORD opt = Rnd(3) == 0 ? Rnd(0x10000) : Rnd(2);
+        u8* tg = withTarget ? target : NULL;
+        g_b2N++;
+        // the clone first (it must not change anything the game's call reads)
+        DWORD c[4] = {};
+        const int why = B2Run(false, in, W.world, W.lots[lot], start, goal, opts, tg, ign, b24, b28, b2c, b30, b34, opt, c);
+        if (why == SR_FB_LOTMISS) {  // the game would insert the lot into the fake table: not run
+            assert(lot == 2);
+            g_b2GaveUp[SR_FB_LOTMISS]++;
+            ((void(__fastcall*)(u8*, void*))(uintptr_t)0x0081CBE0)(opts, NULL);
+            continue;
+        }
+        assert(lot != 2);
+        DWORD out[4] = {0xEEEEEEEE, 0xEEEEEEEE, 0xEEEEEEEE, 0xEEEEEEEE};
+        DWORD* r = ((B2Fn)(uintptr_t)0x0082E340)(W.world, NULL, out, W.lots[lot], start, goal, opts, tg, ign, b24, b28, b2c, b30, b34, opt);
+        RefsOk();
+        assert(r == out && out[1] == 0xEEEEEEEE);
+        ((void(__fastcall*)(u8*, void*))(uintptr_t)0x0081CBE0)(opts, NULL);
+        if (why) {
+            g_b2GaveUp[why > 0 && why < 9 ? why : 0]++;
+            continue;
+        }
+        if (out[0] != c[0] || out[2] != c[2] || out[3] != c[3]) {
+            printf("B2 MISMATCH case %d: game %lu %08lX:%08lX, clone %lu %08lX:%08lX; lot %d start (%.3f, %.3f) level %ld goal (%.3f, %.3f) "
+                   "opts %08lX / %08lX target %d %08lX:%08lX ign %08lX:%08lX bytes %lu%lu%lu%lu%lu opt %08lX, gathered %d\n", i, out[0], out[3],
+                   out[2], c[0], c[3], c[2], lot, start[0], start[2], *(LONG*)&start[9], goal[0], goal[1], a, b, (int)withTarget,
+                   *(DWORD*)(target + 0xC), *(DWORD*)(target + 8), ign[1], ign[0], b24, b28, b2c, b30, b34, opt, g_rtoG.n);
+            assert(false);
+        }
+        g_b2Cmp++, g_b2Objs += g_rtoG.n, g_b2WithTarget += withTarget, g_b2Bytes += bytes;
+        if (c[0] < 9) g_b2Code[c[0]]++;
+    }
+    g_b2TailN = k.b2TailRuns - runs0;
+    // the stub: another thread -> the game's call, nothing counted; switch on with no job and no shadow -> the game's call
+    {
+        const LONG calls0 = k.b2Calls, mode0 = k.b2Mode, shadow0 = k.b2Shadow;
+        const DWORD owner0 = g_async.owner;
+        ((void(__fastcall*)(u8*, void*, DWORD, DWORD, DWORD, DWORD))(uintptr_t)0x0081CB60)(opts, NULL, 0, 0, 0, 0);
+        DWORD ign[2] = {0, 0}, o1[4] = {9, 9, 9, 9}, o2[4] = {9, 9, 9, 9}, o3[4] = {9, 9, 9, 9};
+        float x = 0.0f, z = 0.0f;
+        WorldPoint(0, 10, 10, &x, &z);
+        memset(start, 0, sizeof(start));
+        start[0] = start[3] = x, start[2] = z;
+        WorldPoint(0, 50, 50, &goal[0], &goal[1]);
+        k.b2Mode = 1, k.b2Shadow = 0;
+        g_async.owner = GetCurrentThreadId() + 1;
+        B2Stub(W.world, NULL, o1, W.lots[0], start, goal, opts, NULL, ign, 0, 0, 0, 0, 0, 0);
+        ((B2Fn)(uintptr_t)0x0082E340)(W.world, NULL, o2, W.lots[0], start, goal, opts, NULL, ign, 0, 0, 0, 0, 0, 0);
+        assert(!memcmp(o1, o2, sizeof(o1)) && k.b2Calls == calls0);
+        g_async.owner = GetCurrentThreadId();
+        const LONG state0 = g_async.state;
+        g_async.state = A_IDLE;
+        B2Stub(W.world, NULL, o3, W.lots[0], start, goal, opts, NULL, ign, 0, 0, 0, 0, 0, 0);
+        assert(!memcmp(o3, o2, sizeof(o3)) && k.b2Calls == calls0 + 1 && k.b2Taken == 0);
+        // shadow on the game's code: one run, no mismatch
+        k.b2Mode = 0, k.b2Shadow = 1;
+        const LONG sr0 = k.b2ShadowRuns, mm0 = k.b2ShadowMismatch;
+        B2Stub(W.world, NULL, o3, W.lots[0], start, goal, opts, NULL, ign, 0, 0, 0, 0, 0, 0);
+        assert(!memcmp(o3, o2, sizeof(o3)) && k.b2ShadowRuns == sr0 + 1 && k.b2ShadowMismatch == mm0 && !g_rgOffSimOpen);
+        g_async.state = state0, g_async.owner = owner0;
+        k.b2Mode = mode0, k.b2Shadow = shadow0, k.b2Calls = calls0, k.b2ShadowRuns = sr0;
+        ((void(__fastcall*)(u8*, void*))(uintptr_t)0x0081CBE0)(opts, NULL);
+        RefsOk();
+    }
+    k.b2Tail = tail0, k.b2TailRuns = runs0;
+    printf("B2: %ld BlockerCheck2d calls in the IC's form, %ld compared equal (code 0 %ld, 1 %ld, 3 %ld, 4 %ld, 6 %ld, 7 %ld; %ld footprints "
+           "gathered; with a target %ld, with byte arguments %ld, options with an id list %ld, tails reached %ld), clone gave up: lot not in "
+           "table %ld, deferred %ld, polygon cache %ld, shape %ld, other %ld; 15 call edges, ret 0x34 and the IC's result load match; the "
+           "stub passes through off-thread and with no job, shadow 1 run 0 mismatch\n", g_b2N, g_b2Cmp, g_b2Code[0], g_b2Code[1], g_b2Code[3],
+           g_b2Code[4], g_b2Code[6], g_b2Code[7], g_b2Objs, g_b2WithTarget, g_b2Bytes, g_b2OptIds, g_b2TailN, g_b2GaveUp[SR_FB_LOTMISS],
+           g_b2GaveUp[SR_FB_DEFERRED], g_b2GaveUp[SR_FB_CACHE], g_b2GaveUp[SR_FB_SHAPE],
+           g_b2GaveUp[0] + g_b2GaveUp[SR_FB_STATE] + g_b2GaveUp[SR_FB_TRY] + g_b2GaveUp[SR_FB_DIRTY] + g_b2GaveUp[SR_FB_TRIP]);
+    assert(g_b2Cmp > g_b2N / 2 && g_b2Objs > g_b2N / 4 && g_b2Code[0] > 0 && g_b2Code[4] > 0 && g_b2Code[6] > 0 && g_b2Code[7] > 0 &&
+           g_b2Code[3] > 0 && g_b2Code[1] > 0);
+    g_seed = seed0, g_kidSeed = kid0;
+    W = w0;
+    g_nRects = nRects0;
+    memcpy(g_rects, rects0, sizeof(rects0));
+    *(u8**)(uintptr_t)0x011D9128 = W.world;  // as BuildWorld leaves them (NULL before the first world)
+    *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
+}
+
 // --- GVH. [GoalValidRO] Hits (gvhits.cpp, docs/670 §11): the game's own GoalPoint_Validate code from 0x75A5B7 (the query's
 // record, the call 0x75A647, the hit loop 0x75A672..0x75A92E, both ways out) on a frame built here, run twice per case on
 // the same state: with the call site as the game has it (0x82EDB0, its vector, the game's loop) and with the site on
@@ -3422,6 +3581,7 @@ int main(int argc, char** argv) {
     if (!strcmp(only, "GVH")) { SectionGVH(cases * 10); return 0; }
     if (!strcmp(only, "CN")) { SectionCN(cases * 10); return 0; }
     if (!strcmp(only, "OA")) { SectionOA(cases * 10); return 0; }
+    if (!strcmp(only, "B2")) { SectionB2(cases * 10); return 0; }
 
     // D. lot transforms, bit for bit (lot table hit: no insert)
     for (int i = 0; i < 2000; i++) {
@@ -3442,6 +3602,7 @@ int main(int argc, char** argv) {
     SectionGVH(cases * 10);  // GVH. [GoalValidRO] Hits (docs/670 §11)
     SectionCN(cases * 10);  // CN. [ConnRoomsRO] (docs/670 §15)
     SectionOA(cases * 10);  // OA. [ObstructAtRO] (docs/670 §21-§22)
+    SectionB2(cases * 10);  // B2. [Blocker2dRO] (docs/670 §24)
 
     // A. the game's call vs the clone
     for (int i = 0; i < cases; i++) OneCase();

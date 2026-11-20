@@ -112702,6 +112702,80 @@
     ]
   },
   {
+    "id": "ip-blocker2dro-storm",
+    "bug": "docs/670 §21 / §24: in the s189 route storm (2026-11-20, every lock fix on, [HitchAttr] RouteLockCallers=1) key 0x62EF7A with first caller word 0x82E696 has 5 'route lock wait' lines >= 20 ms / 413 ms in 3 min. It is the lot transform inside RoutingWorld_BlockerCheck2d 0x82E340 called by the script IC RouteManager.RoutingBlockerCheck2d (0x74E110); the same function then waits again in its segment gather 0x631E20.",
+    "fix": "ts3native [Blocker2dRO] Enabled=1 (default 0, rtoro.cpp): while a job runs the IC's call at 0x74E261 is answered by [RouteToObjRO]'s read-only clone of BlockerCheck2d (transforms, segment gather, per-footprint rules, merge; the physics samples after QL with Tail=1); a lot table miss, option 0x100000 with a slot component, the debug-draw switch and any S2 doubt call the game. Shadow=1 compares with the game when no job runs. Runtime switch native_set blocker2dro.",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20). Offline: steerro-test section B2 (60000 calls against the game's own 0x82E340, 56324 compared, 0 differ) and selftest case TestBlocker2dRO in a clang-cl build under Wine; no MSVC build yet (docs/670 §24.4). Needs the MSVC asi with [Blocker2dRO] Enabled=1 Shadow=1 and [RouteGate] Enforce=1, [RouteAsync] on in both arms. First pass: Mode=0 Shadow=1 (compare only).",
+    "expect": "shadow pass: 'blocker check 2d RO:' line with shadow runs > 0, mismatch 0, no 'SHADOW MISMATCH' line. on arms: answered > 0; 'route lock wait' lines with key 0062EF7A and first caller word 0082E696 (needs [HitchAttr] RouteLockMs=20 RouteLockCallers=1) and their ms well below the off arms; no new lines with first caller 0082E6C7; read the hitch totals' +0x918 wait sum, not the key alone (docs/670 §7.1).",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "blocker2dro": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 off, 1 answer the IC's BlockerCheck2d call from the clone while a job runs"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "count": 40,
+            "repeatS": 30,
+            "seed": 148
+          },
+          "waitS": 180,
+          "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path): route jobs back to back while lots update"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "stop": true
+          },
+          "waitS": 5
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "blocker2dro": 0
+        },
+        "note": "back to off"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
