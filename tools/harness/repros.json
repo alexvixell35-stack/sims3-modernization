@@ -112286,6 +112286,80 @@
     ]
   },
   {
+    "id": "ip-skipretry-storm",
+    "bug": "docs/670 §20: with [RouteAsync] M1Retry=1 the sync plans left in the s170-s187 route storms (2026-11-20) are led by reason Skipped (13 lines / 1.2 s over ten on arms, max 142 ms; VisitCommunityLot / GoToLot PlanToLotEx, PlanToMailbox, PlanToSlot): the job was queued, but when the worker took it the world was not quiet (pending lot updates, a dirty lot index, a save), so the job is dropped and the task's next READY poll runs the whole plan on the sim thread, behind the job that runs then (key 0x760BFF).",
+    "fix": "ts3native [RouteAsync] SkipRetry=1 (default 0, needs FallbackAsync=1): READY parks the skipped START again (J_PEND) and FbRetry tries it each poll as M1Retry does (pending updates applied under a +0x918 try, then queued); 30 polls or 3 skips in all, then today's synchronous plan. Only routes known unseen at START (UnseenFallback mark or scope 2; every route with [Experimental] HouseholdToo=1), never a PlayerFirst-marked route. Exported block ts3native_skipretry, runtime switch native_set skipretry.",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check; selftest case 2c in TestFallback written for the MSVC CI build). Needs the MSVC asi with [RouteAsync] FallbackAsync=1 M1Retry=1 LogFallbackMs=40 and the unseen marks on (UnseenFallback or KindsUnseen), as the s170 arm.",
+    "expect": "on arms: 'route skip retry:' line with parked > 0 and queued near parked, gave up small, max ticks well under 30; 'route async: sync plan ... reason Skipped' lines and their ms well below the off arms (what is left: routes not known unseen = 'not parked: scope'); no new watchdog, no 'route async: sim waited' line; read the hitch totals' +0x918 wait sum (docs/670 §7.1).",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "skipretry": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 off, 1 park a skipped job and retry it on READY"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "count": 40,
+            "repeatS": 30,
+            "seed": 148
+          },
+          "waitS": 180,
+          "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path): route jobs back to back while lots update"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "stop": true
+          },
+          "waitS": 5
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "goalhitsro": 1
+        },
+        "note": "back to the ini value"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
