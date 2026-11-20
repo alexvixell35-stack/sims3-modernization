@@ -3229,6 +3229,7 @@ static void CiLogCounters();   // cellindex.cpp (docs/669)
 static void PtLogCounters();   // placero.cpp (docs/670)
 static void FglLogCounters();   // fglprof.cpp (docs/671)
 static void EpLogCounters();   // epro.cpp (docs/670 §8)
+static void GvhLogCounters();   // gvhits.cpp (docs/670 §11)
 static void SrLogCounters();   // steerro.cpp (docs/670 §7)
 
 static void DiscRfLog();  // discourage.cpp (docs/89 §18)
@@ -3309,6 +3310,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     PtLogCounters();   // docs/670 (nothing until [PlaceTestRO] is installed)
     FglLogCounters();   // docs/671 (nothing until [FglProf] is installed)
     EpLogCounters();   // docs/670 §8 (nothing until [EditPathRO] is installed)
+    GvhLogCounters();   // docs/670 §11 (nothing until [GoalValidRO] Hits is installed)
     SrLogCounters();   // docs/670 §7 (nothing until [SteerRO] is installed)
     if (ts3native_readydrain.mode)
         Log("route ready drain: budget %ld us, frame %ld us, gap %ld us, polls %ld, calls served past the first %ld, done in the same "
@@ -6263,6 +6265,7 @@ static_assert(offsetof(Ts3nCounters, dsN) == 0x6178 && offsetof(Ts3nCounters, lr
 #include "tailunlock.cpp"
 #include "rtoro.cpp"
 #include "fgro.cpp"  // docs/174: [PlacementRO] (after rtoro.cpp: S2's QL and SrQuery, AvMayRun, PatchCalls)
+#include "gvhits.cpp"  // docs/670 §11: [GoalValidRO] Hits (before gvro.cpp: GvStub calls it; S2 types, OrPtFn)
 #include "gvro.cpp"  // docs/178 §7 T6: [GoalValidRO] (after fgro.cpp: same S2 pieces)
 #include "placero.cpp"  // docs/670: [PlaceTestRO] (after gvro.cpp: S2's QL, SrEntry / SrCell / SrVisit, AvMayRun, PatchCalls)
 #include "fglprof.cpp"  // docs/671: [FglProf] FindGoodLocation profile, measurement only (after savewrite.cpp: PatchCalls; FbStackText)

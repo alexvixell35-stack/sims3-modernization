@@ -111354,6 +111354,80 @@
     ]
   },
   {
+    "id": "ip-goalhitsro-storm",
+    "bug": "docs/670 §11: with [PlaceTestRO] and [EditPathRO] on (Isla Paradiso route storm s151, 2026-11-20) the sim thread's largest +0x918 wait key left is 0x75A64C (23 'route lock wait' lines >= 20 ms in 4 min, one 314 ms hitch): GoalPoint_Validate 0x759B20's obstacle query 0x82EDB0. [GoalValidRO] answers it only when no footprint is near the point; on a lot every validated point has one (s148-on: 223 of 577 job-time calls 'footprints found'), so those calls wait for the rest of the running route job.",
+    "fix": "ts3native [GoalValidRO] Hits=1 (default 0, gvhits.cpp): with footprints found, the validator's own hit loop (0x75A672..0x75A92E) runs on the clone's footprints inside the QL hold, its writes (blocker id, cost) are replayed and the validator continues at its own loop end or exit; exact for every Sim, any doubt calls the game's 0x82EDB0. HitsShadow=1 checks each prediction against the game's own loop when no job runs. Runtime switch native_set goalhitsro.",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, selftest case TestGoalHitsRO and steerro-test section GVH under Wine: 60000 validator runs on the game's own code from 0x75A5B7, 20809 answered by the loop clone, all equal to the game's loop (10812 loop ends, 9997 rejections), 0 given back, 0 differ; 5115 shadow predictions, 0 mismatch). Needs the MSVC asi with [GoalValidRO] Hits=1 HitsShadow=1 and [RouteGate] Enforce=1, [RouteAsync], [PlaceTestRO], [EditPathRO] on in both arms. First pass: Hits=0 HitsShadow=1 (prediction only).",
+    "expect": "shadow pass: 'goal hits RO:' line with shadow checks > 0, mismatch 0, unseen 0, no 'SHADOW MISMATCH' line. on arms: answered > 0, 'route lock wait' lines with key 0075A64C and their ms well below the off arms (only the given-back calls are left: frame, alias, slot, object count, polygon cache and [GoalValidRO]'s own doubts); read the hitch totals' +0x918 wait sum, not the key alone (docs/670 §7.1).",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "goalhitsro": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 off, 1 answer while a job runs"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "count": 40,
+            "repeatS": 30,
+            "seed": 148
+          },
+          "waitS": 180,
+          "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path): route jobs back to back, sync plans validating goal points beside them"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "stop": true
+          },
+          "waitS": 5
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "goalhitsro": 1
+        },
+        "note": "back to the ini value"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

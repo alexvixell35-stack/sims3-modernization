@@ -37,6 +37,8 @@
 //      (SectionPT; `set SRT_ONLY=PT` runs it alone).
 //   EP. [EditPathRO] (epro.cpp, docs/670 §8): the game's RouteFollow_EditPath 0x85F5A0 in the route form (start != goal, no
 //      exclude vector) vs EpRun on random segments (SectionEP; `set SRT_ONLY=EP` runs it alone).
+//   GVH. [GoalValidRO] Hits (gvhits.cpp, docs/670 §11): GoalPoint_Validate's own code from its query on (record, 0x82EDB0, the
+//      hit loop, both ways out) vs the same code with the call site on GvThunk / GvStub (SectionGVH; `set SRT_ONLY=GVH`).
 // Built by build.cmd, not run there (needs the exe):  out\steerro-test.exe ["<path>\TS3W.exe"] [cases, default 400] [seed]
 #define TS3NATIVE_NO_DLLMAIN
 #include "ts3native.cpp"
@@ -2558,6 +2560,236 @@ static void SectionEP(int cases) {
     *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
 }
 
+// --- GVH. [GoalValidRO] Hits (gvhits.cpp, docs/670 §11): the game's own GoalPoint_Validate code from 0x75A5B7 (the query's
+// record, the call 0x75A647, the hit loop 0x75A672..0x75A92E, both ways out) on a frame built here, run twice per case on
+// the same state: with the call site as the game has it (0x82EDB0, its vector, the game's loop) and with the site on
+// GvThunk while a "job" runs (GvStub: the loop on the clone, the writes replayed, the return address moved for LEAVE).
+// Compared: how the validator left (LEAVE = its return 1; the loop's end = a landing pad on 0x75A996), the blocker id and the
+// cost. Then HitsShadow on the same cases: the observers on 0x75A950 / 0x75AACB against the game's loop, mismatch 0.
+static u8 *g_gvhaOwner, *g_gvhaOpts, *g_gvhaSelf, *g_gvhaOut, *g_gvhaWm, *g_gvhaSvc, *g_gvhaWorld;
+static const float* g_gvhaPt;
+static float* g_gvhaCost;
+static DWORD g_gvhaOpt, g_gvhaF13, g_gvhaF16, g_gvhaF17;
+static __declspec(naked) void GvhLand() {  // 0x75A996: the validator goes on after the loop; here it ends, eax 2
+    __asm {
+        mov eax, 2
+        pop edi
+        pop esi
+        pop ebx
+        mov esp, ebp
+        pop ebp
+        ret 0x20
+    }
+}
+static __declspec(naked) void GvhFrameIn() {  // GoalPoint_Validate's prologue, its frame's locals, then its own code
+    __asm {
+        push ebp
+        mov ebp, esp
+        and esp, 0xFFFFFFF0
+        sub esp, 0xF4
+        push ebx
+        push esi
+        push edi
+        mov eax, g_gvhaOwner
+        mov dword ptr [esp + 0x80], eax
+        mov eax, g_gvhaWm
+        mov dword ptr [esp + 0x58], eax
+        mov eax, g_gvhaSvc
+        mov dword ptr [esp + 0x9C], eax
+        mov eax, g_gvhaWorld
+        mov dword ptr [esp + 0x98], eax
+        mov eax, g_gvhaF13
+        mov byte ptr [esp + 0x13], al
+        mov eax, g_gvhaF16
+        mov byte ptr [esp + 0x16], al
+        mov eax, g_gvhaF17
+        mov byte ptr [esp + 0x17], al
+        mov esi, dword ptr [ebp + 0x14]
+        xor ebx, ebx
+        mov eax, 0x0075A5B7
+        jmp eax
+    }
+}
+static __declspec(naked) DWORD GvhEnter() {  // the validator's eight stack arguments (ret 0x20), three of them unused by the loop
+    __asm {
+        push g_gvhaCost
+        push g_gvhaOut
+        push 0
+        push g_gvhaSelf
+        push g_gvhaOpts
+        push g_gvhaPt
+        push 0
+        push g_gvhaOpt
+        call GvhFrameIn
+        ret
+    }
+}
+static long g_gvhN, g_gvhCmp, g_gvhEnd, g_gvhLeave, g_gvhBlk, g_gvhCostN, g_gvhBack, g_gvhEmpty, g_gvhShadowN;
+static void SectionGVH(int cases) {
+    const DWORD seed0 = g_seed, kid0 = g_kidSeed;
+    const World w0 = W;
+    const int nRects0 = g_nRects;
+    LotRect rects0[4];
+    memcpy(rects0, g_rects, sizeof(rects0));
+    g_seed = 7591133;
+    Ts3nCounters& k = ts3native_counters;
+    GoalHitsRoCounters& h = ts3native_goalhitsro;
+    auto callsTo = [](DWORD at, DWORD to) { const u8* p = (const u8*)(uintptr_t)at; return p[0] == 0xE8 && at + 5 + *(const DWORD*)(p + 1) == to; };
+    assert(GvhCodeOk());  // the loop, both ways out and the switch tables are the bytes read (FNV), sub esp, 0xF4
+    assert(callsTo(kGvSite.site, kGvSite.target) && callsTo(kGvhObservers[0].site, kGvhObservers[0].target) &&
+           callsTo(kGvhObservers[1].site, kGvhObservers[1].target) && callsTo(0x0075A6CB, 0x0081C970) && callsTo(0x0075A710, 0x00939560) &&
+           callsTo(0x0075A788, 0x00C68990) && callsTo(0x0075A7A0, 0x00AB88A0) && callsTo(0x0075A752, 0x00620CA0) &&
+           callsTo(0x0075AABF, 0x0055CFA0) && callsTo(0x0075AAD7, 0x00643420));
+    static const u8 kLeaveAt[] = {0x8D, 0x8C, 0x24, 0x84, 0x00, 0x00, 0x00, 0xE8};  // 0x75AAC4: lea ecx, [esp+0x84]; call
+    static const u8 kSwitch[0x17] = {0, 1, 3, 3, 3, 3, 3, 3, 2, 3, 3, 1, 1, 3, 3, 3, 1, 3, 3, 2, 3, 3, 1};  // type - 1 -> case
+    static const DWORD kCases[4] = {0x0075A6FD, 0x0075A8C0, 0x0075A87E, 0x0075A901};
+    assert(Matches((const void*)(uintptr_t)GVH_LEAVE_AT, kLeaveAt, sizeof(kLeaveAt)) && !memcmp((const void*)(uintptr_t)0x0075AF5C, kSwitch, sizeof(kSwitch)) &&
+           !memcmp((const void*)(uintptr_t)0x0075AF4C, kCases, sizeof(kCases)));
+    // slots +0x5C / +0xD4 of every class the worlds use, and the child class
+    for (DWORD vt : kClasses) {
+        const DWORD* v = (const DWORD*)(uintptr_t)vt;
+        assert(v[0x5C / 4] == GVH_SLOT_FALSE && (v[0xC0 / 4] == GVH_SLOT_FALSE || v[0xD4 / 4] == OR_SLOT_PT));
+    }
+    assert(((const DWORD*)(uintptr_t)0x00FEBF90)[0x5C / 4] == GVH_SLOT_TRUE && ((const DWORD*)(uintptr_t)0x00FEBF90)[0xC0 / 4] == GVH_SLOT_FALSE);
+    u8 land[5], site[5], obs[2][5];
+    memcpy(land, (const void*)(uintptr_t)0x0075A996, 5);
+    memcpy(site, (const void*)(uintptr_t)kGvSite.site, 5);
+    memcpy(obs[0], (const void*)(uintptr_t)kGvhObservers[0].site, 5);
+    memcpy(obs[1], (const void*)(uintptr_t)kGvhObservers[1].site, 5);
+    Jmp(0x0075A996, (const void*)GvhLand);
+    float* const radius = (float*)(uintptr_t)0x0106E33C;  // the query's radius, 0.1: two worlds in three get a wider one (more footprints per loop)
+    const float radius0 = *radius;
+    assert(radius0 > 0.09f && radius0 < 0.11f);
+    const LONG mode0 = k.gvMode, shadow0 = k.gvShadow, owner0 = (LONG)g_async.owner, rgOwner0 = k.rgOwnerTid;
+    g_async.owner = GetCurrentThreadId();
+    k.rgOwnerTid = 0;
+    alignas(16) static float pt[16];
+    static u8 sims[80][0x20];  // object service objects: vtable (never called: the count stays above 0), count, id, next
+    for (int i = 0; i < cases; i++) {
+        if (i % 20 == 0) {
+            BuildWorld();
+            *radius = Rnd(3) == 0 ? radius0 : Rf(0.5f, 6);
+            for (int f = 0; f < W.nfp; f++)  // the worlds have no Sim footprints (type 1): a third of them here
+                if (Rnd(3) == 0) W.fps[f][0x35] = 1;
+            for (int l = 0; l < 3; l++) {  // the lot objects' own transform (0xAB88A0: position +0x190, angle +0x1A0)
+                float x = 0.0f, z = 0.0f;
+                WorldPoint(l < 2 ? l : 0, 0, 0, &x, &z);
+                float* t = (float*)(W.lots[l] + 0x190);
+                t[0] = x + Rf(-6, 6), t[1] = 0, t[2] = z + Rf(-6, 6), t[3] = 0, t[4] = Rnd(3) ? 0.0f : Rf(-3.1f, 3.1f);
+            }
+            g_gvhaSvc = (u8*)A(0x1040);  // the table at +0x10: 0x409 buckets by id low word % 0x409, chain +0x10, end value +0x1034
+            memset(sims, 0, sizeof(sims));
+            for (int o = 0; o < 80; o++) {  // ids 0x1000..0x1027 x {0, 7}: about half of them exist
+                if (Rnd(2)) continue;
+                const DWORD lo = 0x1000 + (DWORD)(o % 40), hi = o < 40 ? 0 : 7;
+                u8* ob = sims[o];
+                *(LONG*)(ob + 4) = 50, *(DWORD*)(ob + 8) = lo, *(DWORD*)(ob + 0xC) = hi;
+                DWORD* b = (DWORD*)(g_gvhaSvc + 0x10 + (lo % 0x409) * 4);
+                *(DWORD*)(ob + 0x10) = *b;
+                *b = (DWORD)(uintptr_t)ob;
+            }
+        }
+        const int lot = (int)Rnd(2);
+        float x = 0.0f, z = 0.0f;
+        WorldPoint(lot, Rf(-2, 66), Rf(-2, 66), &x, &z);
+        if (lot == 0 && x >= 0) x = -0.5f;  // keep it in the lot's rectangle (the lot lookup fake)
+        if (lot == 1 && x < 0) x = 0.5f;
+        if (Rnd(12) == 0) x = Rf(210, 260);  // off every lot: al 0, no loop
+        memset(pt, 0, sizeof(pt));
+        pt[0] = x, pt[1] = Rf(0, 2), pt[2] = z;
+        *(LONG*)&pt[9] = (LONG)(Rnd(5) == 0);
+        auto anId = [](DWORD* lo, DWORD* hi) { *lo = 0x1000 + Rnd(40), *hi = Rnd(3) ? 0 : 7; };
+        g_gvhaOwner = (u8*)A(0x80), g_gvhaOpts = (u8*)A(0x60), g_gvhaSelf = (u8*)A(0x40), g_gvhaOut = (u8*)A(0x40);
+        anId((DWORD*)(g_gvhaOwner + 0x50), (DWORD*)(g_gvhaOwner + 0x54));
+        anId((DWORD*)(g_gvhaSelf + 0x20), (DWORD*)(g_gvhaSelf + 0x24));
+        for (int w = 0; w < 4; w++) *(DWORD*)(g_gvhaOpts + 0x28 + w * 4) = Rnd(4) ? 0 : (Rnd(0x10000) << 16 | Rnd(0x10000));
+        const int nIgn = (int)Rnd(4);
+        DWORD* ign = (DWORD*)A(8 * 4);
+        for (int j = 0; j < nIgn; j++) anId(&ign[j * 2], &ign[j * 2 + 1]);
+        *(DWORD**)(g_gvhaOpts + 0x38) = ign, *(DWORD**)(g_gvhaOpts + 0x3C) = ign + nIgn * 2;
+        DWORD blk0[2] = {0, 0};
+        if (Rnd(4) == 0) anId(&blk0[0], &blk0[1]);
+        const float cost0 = Rf(0, 5);
+        float cost = cost0;
+        g_gvhaPt = pt, g_gvhaCost = &cost, g_gvhaWm = W.wm, g_gvhaWorld = W.world;
+        g_gvhaOpt = Rnd(0x10000), g_gvhaF13 = Rnd(2), g_gvhaF16 = Rnd(2), g_gvhaF17 = Rnd(4) == 0;
+        struct Res { DWORD ret, blk[2]; float cost; };
+        auto run = [&]() {
+            *(DWORD*)(g_gvhaOut + 0x20) = blk0[0], *(DWORD*)(g_gvhaOut + 0x24) = blk0[1];
+            cost = cost0;
+            Res r;
+            r.ret = GvhEnter() & 0xFF;
+            r.blk[0] = *(DWORD*)(g_gvhaOut + 0x20), r.blk[1] = *(DWORD*)(g_gvhaOut + 0x24), r.cost = cost;
+            return r;
+        };
+        g_gvhN++;
+        // the clone first (it must not change anything the game's run reads): the site on GvThunk, a job running
+        const LONG rel = (LONG)((uintptr_t)(void*)GvThunk - (kGvSite.site + 5));
+        memcpy((u8*)(uintptr_t)kGvSite.site + 1, &rel, 4);
+        k.gvMode = 1, k.gvShadow = 0, h.gvhMode = 1, h.gvhShadow = 0, h.gvhReady = 1;
+        const LONG taken0 = h.gvhTaken, leave0 = h.gvhLeave, blkN0 = h.gvhBlocker, costN0 = h.gvhCost, gvTaken0 = k.gvTaken;
+        Job(true);
+        const Res c = run();
+        Job(false);
+        RefsOk();
+        h.gvhReady = 0, k.gvMode = 0;
+        // the game: its own call, vector and loop
+        memcpy((u8*)(uintptr_t)kGvSite.site, site, 5);
+        const Res g = run();
+        RefsOk();
+        if (c.ret != g.ret || c.blk[0] != g.blk[0] || c.blk[1] != g.blk[1] || memcmp(&c.cost, &g.cost, 4) != 0) {
+            printf("GVH MISMATCH case %d at (%.3f, %.3f) level %ld: game ret %lu blocker %08lX:%08lX cost %g, clone ret %lu blocker %08lX:%08lX cost %g "
+                   "(answered %ld, flags %lu %lu %lu, blocker before %08lX:%08lX)\n", i, x, z, *(LONG*)&pt[9], g.ret, g.blk[1], g.blk[0], g.cost,
+                   c.ret, c.blk[1], c.blk[0], c.cost, h.gvhTaken - taken0, g_gvhaF13, g_gvhaF16, g_gvhaF17, blk0[1], blk0[0]);
+            assert(false);
+        }
+        assert(g.ret == 1 || g.ret == 2);
+        if (h.gvhTaken != taken0) {
+            g_gvhCmp++, g_gvhLeave += h.gvhLeave - leave0, g_gvhEnd += g.ret == 2, g_gvhBlk += h.gvhBlocker - blkN0, g_gvhCostN += h.gvhCost - costN0;
+            assert((g.ret == 1) == (h.gvhLeave != leave0));
+        } else if (k.gvTaken != gvTaken0) g_gvhEmpty++;  // no lot or nothing near the point: [GoalValidRO]'s own answer
+        else g_gvhBack++;
+        // HitsShadow: no job, the game's call and loop; the prediction is checked by the observers
+        if (i % 4 == 0) {
+            memcpy((u8*)(uintptr_t)kGvSite.site + 1, &rel, 4);
+            LONG r0 = (LONG)((uintptr_t)(void*)GvhEndStub - (kGvhObservers[0].site + 5)), r1 = (LONG)((uintptr_t)(void*)GvhLeaveStub - (kGvhObservers[1].site + 5));
+            memcpy((u8*)(uintptr_t)kGvhObservers[0].site + 1, &r0, 4);
+            memcpy((u8*)(uintptr_t)kGvhObservers[1].site + 1, &r1, 4);
+            h.gvhReady = 2, h.gvhShadow = 1, h.gvhMode = 0;
+            const LONG runs0 = h.gvhShadowRuns;
+            const Res sres = run();
+            assert(sres.ret == g.ret && sres.blk[0] == g.blk[0] && sres.blk[1] == g.blk[1] && !memcmp(&sres.cost, &g.cost, 4));
+            assert(h.gvhShadowMismatch == 0 && h.gvhShadowLost == 0 && !g_gvhPend.valid);
+            g_gvhShadowN += h.gvhShadowRuns - runs0;
+            h.gvhReady = 0, h.gvhShadow = 0;
+            memcpy((u8*)(uintptr_t)kGvSite.site, site, 5);
+            memcpy((u8*)(uintptr_t)kGvhObservers[0].site, obs[0], 5);
+            memcpy((u8*)(uintptr_t)kGvhObservers[1].site, obs[1], 5);
+            RefsOk();
+        }
+        for (int o = 0; o < 80; o++) assert(!*(DWORD*)(sims[o] + 8) || *(LONG*)(sims[o] + 4) == 50);  // the game's smart pointers balanced
+    }
+    memcpy((void*)(uintptr_t)0x0075A996, land, 5);
+    *radius = radius0;
+    printf("GVH: %ld validator runs from 0x75A5B7 (the game's record, query and hit loop vs GvThunk / GvStub with a job): %ld answered by the "
+           "loop clone and equal (loop ended %ld, point rejected %ld; blocker id written %ld, cost written %ld; %ld footprints, max %ld), "
+           "%ld answered empty / no lot, %ld given back (frame %ld, alias %ld, slot %ld, count %ld, cache %ld, full %ld, lot index %ld, other "
+           "%ld; the rest [GoalValidRO]'s own doubts), 0 differ; shadow observers: %ld predictions checked, mismatch %ld\n",
+           g_gvhN, g_gvhCmp, g_gvhEnd, g_gvhLeave, g_gvhBlk, g_gvhCostN, h.gvhFootprints, h.gvhMaxN, g_gvhEmpty, g_gvhBack, h.gvhFb[GVH_FB_FRAME],
+           h.gvhFb[GVH_FB_ALIAS], h.gvhFb[GVH_FB_SLOT], h.gvhFb[GVH_FB_REF], h.gvhFb[GVH_FB_CACHE], h.gvhFb[GVH_FB_OVER], h.gvhFb[GVH_FB_LOTIDX],
+           h.gvhFb[GVH_FB_OTHER], g_gvhShadowN, h.gvhShadowMismatch);
+    assert(g_gvhCmp > g_gvhN / 5 && g_gvhEnd > g_gvhN / 50 && g_gvhLeave > g_gvhN / 50 && g_gvhBlk > g_gvhN / 100 && g_gvhCostN > g_gvhN / 100 &&
+           g_gvhShadowN > g_gvhN / 20 && h.gvhFb[GVH_FB_FRAME] == 0 && h.gvhFb[GVH_FB_ALIAS] == 0);
+    k.gvMode = mode0, k.gvShadow = shadow0, g_async.owner = (DWORD)owner0, k.rgOwnerTid = rgOwner0;
+    memset(&h, 0, sizeof(h));
+    g_seed = seed0, g_kidSeed = kid0;
+    W = w0;
+    g_nRects = nRects0;
+    memcpy(g_rects, rects0, sizeof(rects0));
+    *(u8**)(uintptr_t)0x011D9128 = W.world;  // as BuildWorld leaves them (NULL before the first world)
+    *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
+}
+
 int main(int argc, char** argv) {
     setvbuf(stdout, NULL, _IONBF, 0);
     AddVectoredExceptionHandler(1, [](EXCEPTION_POINTERS* e) -> LONG {
@@ -2743,6 +2975,7 @@ int main(int argc, char** argv) {
     GetEnvironmentVariableA("SRT_ONLY", only, sizeof(only));  // SRT_ONLY=PT: that section alone (cases x 10 checks)
     if (!strcmp(only, "PT")) { SectionPT(cases * 10); return 0; }
     if (!strcmp(only, "EP")) { SectionEP(cases * 10); return 0; }
+    if (!strcmp(only, "GVH")) { SectionGVH(cases * 10); return 0; }
 
     // D. lot transforms, bit for bit (lot table hit: no insert)
     for (int i = 0; i < 2000; i++) {
@@ -2760,6 +2993,7 @@ int main(int argc, char** argv) {
 
     SectionPT(cases * 10);  // PT. [PlaceTestRO] (docs/670)
     SectionEP(cases * 10);  // EP. [EditPathRO] (docs/670 §8)
+    SectionGVH(cases * 10);  // GVH. [GoalValidRO] Hits (docs/670 §11)
 
     // A. the game's call vs the clone
     for (int i = 0; i < cases; i++) OneCase();

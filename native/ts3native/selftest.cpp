@@ -13202,6 +13202,7 @@ static void TestNoPathMemoStub() {
 #include "rtoro-test.h"  // TestRouteToObjRO ([RouteToObjRO], docs/140 §12)
 #include "fgro-test.h"   // TestPlacementRO ([PlacementRO], docs/174)
 #include "gvro-test.h"   // TestGoalValidRO ([GoalValidRO], docs/178 §7 T6)
+#include "gvhits-test.h" // TestGoalHitsRO ([GoalValidRO] Hits, docs/670 §11; uses gvro-test.h fakes)
 #include "fsro-test.h"
 #include "idlero-test.h"  // TestIdleCheckRO ([IdleCheckRO], docs/178 §8)
 #include "icc-test.h"     // TestIdleCheckC ([IdleCheckRO] SiteC, docs/195 §4 C1; uses gvro-test.h fakes)
@@ -14779,6 +14780,7 @@ int main() {
     TestRouteToObjRO();
     TestPlacementRO();
     TestGoalValidRO();
+    TestGoalHitsRO();  // docs/670 §11
     TestGvAttr();
     TestGvAttrNoLater();  // docs/250 §13.3, §12.3 (v189)
     TestGvUnseen();       // docs/250 §7.3 B2 (v189)

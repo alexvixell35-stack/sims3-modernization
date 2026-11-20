@@ -8,6 +8,10 @@ on the Steam 1.67 code; our source. Built: `[PlaceTestRO]` (ts3native, default o
 Added 2026-11-20, later the same day (§7-§10, branch `feat/lock918-rest`): the s146-s148 read, why the wait stays after
 each site fix, the lock-level options, `[EditPathRO]` (built, NOT RUN) and the waiters left. §5 and §6 are the state before it.
 
+Added 2026-11-20, after s151 (§11-§13, branch `feat/lock918-readers3`): `[EditPathRO]` held in the game; `[GoalValidRO] Hits`
+(the validator's hit loop on the clone, built, NOT RUN); the two trampoline keys, the gate 0 / gate 12 callers and the own-job
+wait read. §9 and §10 are the state before it.
+
 ## 1. What the lock is and who holds it [verified: source, docs/60, docs/81, docs/94; s143 logs]
 
 - `+0x918` is the EA lock (critical section + count, `Lock_Acquire 0x4E16F0` / `Lock_Release 0x4E17B0`) inside the routing
@@ -373,7 +377,7 @@ reads between them under QL, the game's call reads after the job.
 
 ## 9. The other waiters: read, not built
 
-### 9.1 `0x75A64C`, GoalPoint_Validate with footprints [verified decompile; s148-on counters]
+### 9.1 `0x75A64C`, GoalPoint_Validate with footprints [verified decompile; s148-on counters] (built since: §11)
 
 s148-on `goal validation RO:` over 4 min: 10,159 calls, 577 with a job: 350 answered, **all of them "no lot"**, 223 given back
 as "footprints found", 4 QL busy. So in this storm every validated point that lies on a lot has a footprint within the query
@@ -437,3 +441,203 @@ Read: `edit path RO:` (answered > 0, mismatch 0, which give-back reason leads), 
 `0085F6CB` (expected near 0) and where their time went (§7.1: read the `hitch totals` wait sum, not the key alone), the P1b
 second-frame keys for `0x62FB74` (`node tools/harness/p1b-report.ts`). A cautious first pass runs `[EditPathRO] Mode=0
 Shadow=1`. `[ProbeP1b]` is observe only; leave it out of a timing comparison.
+
+## 11. `[GoalValidRO] Hits`: the validator's hit loop on the clone (ts3native, default off, NOT RUN)
+
+2026-11-20, branch `feat/lock918-readers3`. Input: s151 (off / on = `[PlaceTestRO]` + `[EditPathRO] Shadow=1` + `KindsUnseen=7`).
+`[EditPathRO]` held in the game: 23,543 job-time calls, all answered, 97,950 shadow checks, 0 mismatches, key `0x85F6CB` 12 lines
+-> 0; sim waits on `+0x918` (>= 1 ms) 10,657 ms off -> 5,585 ms on, `lock918` hitch frames 20 -> 9. The largest key left is
+`0x75A64C`: 23 lines, 1,841 ms, one 314 ms hitch; `goal validation RO:` shows 14,301 calls, 148 answered (all "no lot"), **381
+given back as "footprints found"**.
+
+### 11.1 What §9.1 left open, read [verified disassembly + decompile + vtable scan]
+
+- **The loop runs without the lock.** `0x82EDB0` takes and releases `+0x918` itself; the loop `0x75A672..0x75A92E` then walks its
+  vector with one plain reference per footprint. So every call the loop makes (footprint slots, the object lookup, the lot
+  lookup) is one the game already makes on the sim thread with no routing lock held. The only thing the lock gave the loop is
+  the vector; the clone has the same footprints inside the QL hold, without the references.
+- **The loop** (frame = the validator's esp; arguments off ebp), per footprint, `obj` = vector element - 4:
+  id = `obj` slot `+0x84`; skipped when it equals the caller's id (`[ebp+0x18]+0x20`), the validator's own (`[esp+0x80]+0x50`)
+  or is in the options' id list (`0x81C970` on `[ebp+0x14]`). Type = interface slot `+8`, switch bytes `0x75AF5C`, targets
+  `0x75AF4C`:
+
+  | type | what the loop does |
+  |---|---|
+  | 1 (a Sim) | id 0, or not in the object service (`0x939560` on `[esp+0x9C]`): next. Slot `+0xC0` true: class = slot `+8` (the validator's record `esp+0xC0`, 0); class 0 / 1 / 0xD (`0x620CA0`): next; `World_LotLookup([esp+0x58], x, z)`, none: next; the point through `0xAB88A0` (the lot object's own transform), then slot `+0xD4` (level 0, u, v, `[0xFEC6DC]` = 0.123): **covered**: write the id to `out+0x20` when that is 0, then LEAVE; not covered: `*cost = [0x1010960]`, next. Slot `+0xC0` false: slot `+0x5C` false or class 0 / 1 / 0xD: `*cost`, next; else LEAVE |
+  | 9, 0x14 | id != 0, `out+0x20` == 0 and the object exists: `out+0x20` = id. Then as the next row |
+  | 2, 0xC, 0xD, 0x11, 0x17 | LEAVE unless `[esp+0x13]` != 0, `[esp+0x17]` == 0, slot `+0x5C` true and `obj+0x18 & obj+0x1C` != -1; then `out+0x20` = 0, next |
+  | other | next |
+
+  LEAVE = `0x75AABB`: drop the footprint reference (`0x55CFA0`), release the vector (`0x652470`), destroy the record
+  (`0x643420`), `mov al, 1`, epilogue: the point is rejected. The loop's end joins the empty answer at `0x75A939` (esi and ebx
+  are reloaded only because the loop used them; edi is dead there).
+- **Slot targets**, all 9 footprint classes and the child class `0xFEBF90` (scan of the image for vtables with `+0x60` =
+  `0x9C1B00` / `0x806F00`): `+0x5C` is `0x620D60` (`xor al, al`) everywhere but the child (`0x7EAEA0`, `mov al, 1`). `+0xD4` is
+  `0x80F030` wherever `+0xC0` is true: level-0 polygon cache `[obj+0x38]`, `0x67B130` -> `0x67AE90` -> `0x676F70`, stack only once
+  the cache is valid; its `this` (`0x1165D28`) is not read or written. The cache rebuild `0x80E5B0` is the given-back case, as in
+  `[ObstructedRO]`, which calls the same slot. The class functions with a record that carries an options object read the
+  footprint, the record and the options (`0x8294E0`, `0x81C880`, `0x81C970`, `0x946E90`): `[PlacementRO]`'s set.
+- **The object's smart pointer** (`0x565970` lock +1, `0x7460F0` lock -1 and the destructor at 0) nets to nothing with a count
+  >= 1; the clone skips it and gives the call back when the count is below 1.
+- **The three exits are one**: `0x75AAA1` (blocker id), `0x75AAB2` (smart pointer) and `0x75AABB` fall into each other.
+
+### 11.2 The clone
+
+`gvhits.cpp`, wired into `GvStub` (`gvro.cpp`). With `Hits` or `HitsShadow` set, the call site `0x75A647` goes to `GvThunk` (`mov
+edx, ebp; jmp GvStub`: edx is free at a thiscall site, ecx and the stack stay the stub's). `GvhFrame` finds the validator's frame
+from the stub's return slot and checks it: return address `0x75A64C`, `(ebp & ~15) == esp + 0x100` (the prologue is `and esp,
+-16; sub esp, 0xF4` and three pushes), the vector at `esp+0x84`, the point argument, the record at `esp+0xC0` (option word,
+pointer 0, byte 1, the options object). On the sim (owner) thread, while a job runs, under `[GoalValidRO]`'s own rules,
+`GvRun` runs S2's point query under QL shared and hands the sorted list to `GvhVisit` inside the hold: the loop above through
+the game's own slot functions, in the game's order (its vector is sorted by the same pointer), **recording** the writes
+instead of making them. When every check of the protocol has passed, `GvhFinish` writes the blocker id and the cost and the
+stub returns al 1 with the vector still empty: the game continues at `0x75A939` exactly as after an empty answer. For LEAVE
+the stub's return address becomes `0x75AAC4`, the exit's second step (the first would drop a footprint reference this path
+never took); the vector's release finds it empty, the record's pointer is 0.
+
+Given back to the game's `0x82EDB0` (today's wait), nothing written: the frame is not the one read; the loop's writes could be
+read back through another pointer (`out+0x20` or the cost over the two ids, the point, the record, the options, the frame); the
+loop's lot lookup would rebuild the lot index; a slot `+0x5C` / `+0xD4` target outside the list; an object count below 1; an
+invalid polygon cache, or one that changed during the test; a full clone list; and every `[GoalValidRO]` doubt (QL busy, lot
+table, deferred flush, tripwire, job end). The code is hashed at install (FNV-1a over `0x75A64C..0x75A950`, `0x75AAA1..0x75AACB`,
+`0x75AAD0..0x75AAE6`, the tables `0x75AF4C..0x75AF73`, and `sub esp, 0xF4` at `0x759B26`): another hook inside = `SKIP goal hits
+RO`, the plain stub is installed.
+
+Exact, for every Sim: the same footprints, slot functions, order and writes as the game's loop on the same data; the spacing
+rule (radius `[0xFEC6DC]`, the type table) is the game's. What differs in time is what differs for every clone here: it reads
+between the job's writers under QL, the game's call reads after the job.
+
+`HitsShadow=1` (no job running): the game's `0x82EDB0`, then the loop on the clone as a prediction (left / ended, blocker id,
+cost); two observer call sites compare it with what the game's own loop did: `0x75A950` (`FootprintRefVec_ReleaseRange`, the
+loop's end) and `0x75AACB` (the vector's release on LEAVE). Every path out of the loop passes one of them before anything is
+released.
+
+### 11.3 Switches, counters, files
+
+- `ts3native.ini` `[GoalValidRO] Hits=0` (1: installed and answering; needs `Enabled=1`, `Mode=1`), `HitsShadow=0`. Export
+  `ts3native_goalhitsro`, `+0x00` mode = the runtime switch (`native_set goalhitsro`; only when installed).
+- One line a minute: `goal hits RO: mode M shadow S, loops run N: answered A (rejected L, blocker id B, cost C; footprints F, max
+  G; T ms, max U us); given back: frame, alias, slot, object count, polygon cache, list full, lot index, other; shadow checks C
+  (rejected R) mismatch X, unseen Y`. `goal validation RO:`'s last fallback number (footprints found) now counts only the calls
+  the loop gave back or did not run on.
+- Files: `native/ts3native/gvhits.cpp`, `gvhits-test.h`, `gvro.cpp` (thunk, stub, shadow, install); section GVH in
+  `steerro-test.cpp`; `ts3addr-ea169.h` (7 rows, unresolved: the EA 1.69 build logs SKIP for Hits and keeps `[GoalValidRO]`;
+  `tools/ea-ini.ts` keys them to `GoalValidRO.Hits` / `.HitsShadow`), `tools/ini-sections.json`,
+  `tools/harness/native-switches.ts`; repro `ip-goalhitsro-storm`.
+
+### 11.4 Checks run (2026-11-20, no game)
+
+- `steerro-test` section GVH (clang-cl build under Wine, `SRT_ONLY=GVH`, the Steam 1.67 code mapped at its addresses, harness
+  as §8.5): the game's own validator code from `0x75A5B7` (the record, the call, the loop, both ways out; a landing pad on
+  `0x75A996`) on a frame built by the test, run twice per case on the same state: the call site as the game has it, and the
+  site on `GvThunk` with a job "running". Fake worlds as PT / EP plus Sim footprints (type 1), an object service table, lot
+  transforms, option lists, both frame flags, a preset blocker id. **60,000 runs: 20,809 answered by the loop clone, all equal**
+  (how the validator left, blocker id, cost bits: 10,812 loop ends, 9,997 rejections; blocker id written 1,502, cost 2,902;
+  54,313 footprints, up to 15 per loop), 39,191 empty / no lot (`[GoalValidRO]`'s own answer), 0 given back, **0 differ**;
+  references and object counts balanced. HitsShadow on every fourth case: 5,115 predictions checked by the observers, 0
+  mismatches. The code hash, 10 call edges, the switch tables and the classes' two slots match the image. Two deliberate
+  errors in the clone (type 0x14 dropped; the list walked backwards) each stop the section within 200 cases. The whole
+  `steerro-test` ends `steerro-test ok` (PT 4000 / 4000, EP 3839 of 4000, 0 differ).
+  Not covered there: an object count below 1 and an invalid cache (the game's side would run a destructor / the rebuild on
+  fakes); two worlds in three use a wider query radius than the game's 0.1 to get longer loops.
+- Selftest case `TestGoalHitsRO` (stub on fakes: every branch, the three id skips, order and first LEAVE, writes only after a
+  whole loop, the moved return address, each doubt, six frame checks, the runtime switch, prediction and observer), with
+  `TestGoalValidRO`, `TestGvAttr*`, `TestIdleCheckC`, `TestEditPathRO`, `TestPlaceTestRO`, built with clang-cl and run alone
+  under Wine. Pass. The full selftest and the asi need the MSVC CI build.
+- clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`, `steerro-test.cpp`: 0 errors, no warning in
+  the new or changed lines. `node tools/selftest-all.ts --ci` passes.
+
+Unverified: everything in the game. In particular the frame check against a live validator (the offline frame is built from
+the same disassembly), other mods' hooks inside the hashed ranges, and the share of the 381 calls the doubts give back.
+
+## 12. The other keys of s151-on: read, not built
+
+### 12.1 `0xD882D7`, `0xD866E3`: the two coarse IC gates [verified: stack words, trampolines, decompile]
+
+The stall-watch stacks show nothing of the game between `Lock_Acquire` and the trampoline's return (`Lock_Acquire+0x45`, a
+ts3native frame, `TS3W+0x9882D7`): the taker is **our own coarse gate on the IC's entry** (`kRgSites` 11 and 15, docs/18, docs/67
+§13), not a lock call in the IC. `0xD882D7` returns into the 4-argument trampoline (`call [esp+0x14]`, int result):
+`IC_World_GetConnectedRoomsImpl 0x7929F0`. `0xD866E3` is the 7-argument one (`call [esp+0x20]`, bool):
+`IC_World_FindPlacesOnShoreline 0x78C440`. The "last script call" names beside these lines (FindGoodLocation, PlanFromPoint,
+GetOption) are stale; do not use them for this key.
+
+- **`0x7929F0` -> `RoomGraph_ConnectedRooms 0x63DCB0`**: `LotTable_Contains`, `GetOrInsert` (a hit after Contains), `0x63D2F0(entry,
+  room)`, then the room's portal pointers (`room+4..+8`) and each portal's `+0x48`, `+0x4A`, `+0x58` into a sorted set, copied to
+  the caller's vector. `0x63D2F0` builds the lot when `entry+0x8C` is 0 (`0x63CB90`, W4) and fills the room record when its
+  first byte is 0 (room-to-room A* `0x6339F0` on the shared Q, `0x61E320` resets; the byte is set last). **A reader once the lot
+  is built and the room's record is filled, a writer and a search on a room's first use.** The read set is `[IdleCheckRO]`'s
+  (room portal vectors, portal `+0x48` / `+0x58`; I-178-8-2).
+  Not cheap, so not built: the gate is at the IC's entry and three more gates (12, 0, 2) are nested in the body, so the
+  answer needs a clone of `0x63DCB0` (the pre-checks, the set in the game's order, the caller's vector through the game's
+  allocator) at its one call site **and** the entry gate skipped when the clone will answer, under S2's whole protocol (a
+  tripwire writer of the room vectors must be able to make it drop the answer; the game's own body cannot be re-run). About
+  1.5-2.5 h with an offline section. 12 lines / 599 ms in s151-on, 1.0 s over s146-s148.
+- **`0x78C440`**: reaches `LotSearch_Entry 0x640E00` and the in-room A* on the planner's one A* object (docs/67 §13, crash K). A
+  search: it needs the planner alone. Keeps the lock.
+
+### 12.2 Gate 0 (`0x62EF7A`) and gate 12 (`0x62FB74`, `0x631814`, `0x62F782`) [verified docs/86, docs/90, docs/152; call paths]
+
+A gate frame holds `+0x918` only for the gate's own call (`LotTable_Contains`, `GetOrInsert`); what the caller does with the
+entry afterwards already runs unlocked. So the gate's wait is a guard only by accident: it makes the caller's following reads
+start after the job that ran at entry. Letting the gate's read pass under QL shared is safe for the read itself (lot table: W5
+under QL exclusive; a miss inserts and is given back), but it moves the caller's whole follow-up beside the running job,
+every time instead of only when a queued job starts in the gap. That is provable per caller, not per gate.
+
+**The one small path that exists is design SH** (`slotro.cpp`, `[SlotEnabledRO]`): the game's own body under a QL shared hold;
+inside, `RgEnter` passes gate 12 and gate-0 hits, and any other gate, an insert, a lock, host or managed call drops the hold
+and waits as today. It fits a caller whose only gate leaves are those two and whose other reads are in S2's read set.
+`[Gate0RO]` is the same idea for one call. Callers seen in s146-s151 (script stack beside the wait line; the second frame
+needs `[ProbeP1b]`):
+
+| key | caller | class | answer |
+|---|---|---|---|
+| `0x62EF7A` | `IC_RouteManager_RoutingBlockerCheck2d 0x74E110` -> `RoutingWorld_BlockerCheck2d 0x82E340` (second frames `0x82E696` / `0x82E6C7`; 2 of the 4 named lines) | reader, but not gates only: after the two transforms comes the segment gather `0x631E20` (pin, flush, references) | SH does not fit. `rtoro.cpp` already clones this check as a step of `RouteToObjectCheck`; an IC-level stub on the call to `0x82E340` can reuse it. About 1-2 h, offline section as EP. The next build by cost: 8 lines / 624 ms and the 430 ms hitch in s151-on |
+| `0x62EF7A` | `RouteManager_AddPrivateFootprint` (`0x831BA0`; 2 of the 4 named lines) | **writer**: its insert takes the lock at `0x831BF4` right after | keeps the lock (§12.3) |
+| `0x62EF7A` | `RouteFollow_A / _B`, EditPath (G-a) | reader | `[Gate0RO]`, and `[EditPathRO]` / S2 / `[AvoidRO]` before it |
+| `0x62FB74` | `World_ArePointsConnectedByLand 0x787240` -> `0x65DF90` -> `0x65BB90` -> `0x6595B0` -> `0x654790`, call `0x654BE0` [resolved statically: `CallPaths`, the only path] | reader: per candidate waypoint of a lot, the entry's waypoint map (`+0x124` / `+0x128`), `+0x10`, the outside room's portals; one gate leaf (12) | **SH fits**: a hold around `0x654790` (call `0x659787`). To prove first: its callees write nothing (`0x650030`, `0x654240`, `0xD38B00`, `0xB793F0`) and the hold's length (a loop over waypoints). About 1 h + an offline section. 1 named line of 8; confirm the share with `[ProbeP1b]` before building |
+| `0x62FB74` | `Route_PlanFromPoint` (3 lines): a sync plan's first touch | **writer / search** | keeps the lock; `KindsUnseen` moves the plan off the sim |
+| `0x62FB74` | `RouteManager_RemovePrivateFootprint` | **writer** | keeps the lock (deferred by `DeferPrivateFp` when on) |
+| `0x62F782` | `RouteManager_SetPortalCost` -> `PortalsForObject` | **writer** (portal cost) | keeps the lock |
+| `0x62F782` | slot position helper `0x76F0A0` | reader | SH (`[SlotEnabledRO]`) |
+| `0x631814` | `IC_World_GetLotFrontDoorImpl` | reader | `[LotFrontDoorRO]`; what waits is its given-back calls |
+| `0x760BFF` | gate 10, a sync plan's goal step | **writer / search** | keeps the lock |
+| `0x833697`, `0x831BF4` | object footprint update, private footprint add | **writers** | keep the lock |
+
+Also keeping the real lock whatever the caller: a gate-0 miss (`LotTable_Insert`), the lazy lot build and room fill (gates 2,
+3), lot rebuilds (4, 13, 14), the Q resets and stamps (6-9).
+
+### 12.3 `job wait: own job @disc` [verified source + s151-on log]
+
+It is `DiscDrain(true)` -> `WaitAsyncDone`: the sim thread waits for the running route job because a queued (deferred) footprint
+record of an object must be applied before the next operation on that object. 38 of the 40 such waits in s151-on (2,038 ms,
+max 218 ms; the 390 ms frame is several of them) come from `Fp2FlushFor` at the private-footprint call sites: the add
+(`RouteManager_AddPrivateFootprint`) is not deferred, so the object's queued remove is flushed first.
+It is a writer's wait (the add would wait at `0x831BF4` for the same job), so no reader path applies. What would shorten it is
+deferring the add like the remove (`PfAddSite`'s own note: `0x831BA0` is not audited: its reads of the caller's points, its
+return value); not provable without that audit, not built.
+
+## 13. Next storm, on arm
+
+```
+[PlaceTestRO]
+Enabled=1
+Mode=1
+Shadow=0
+[EditPathRO]
+Enabled=1
+Mode=1
+Shadow=0
+[GoalValidRO]
+Hits=1
+HitsShadow=1
+[RouteAsync]
+KindsUnseen=7
+LogFallbackMs=40
+```
+
+A cautious first pass: `Hits=0 HitsShadow=1` (prediction only; the thunk and the observers are installed, no answer changes).
+Read: the `goal hits RO:` line (shadow checks > 0, mismatch 0, unseen 0; answered > 0; which give-back column leads; `frame` and
+`alias` must be 0), `goal validation RO:`'s last fallback number (381 in s151-on, expected near the give-backs), `route lock
+wait:` lines with key `0075A64C` (23 in s151-on) and the `hitch totals` wait sum (§7.1). A `SKIP goal hits RO` line means the
+code hash failed (another hook in the validator): report it. `[ProbeP1b] Enabled=1` in a separate observe-only run gives the
+second frames for `0x62EF7A` and `0x62FB74` (§12.2) before either of those is built.
